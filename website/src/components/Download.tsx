@@ -25,7 +25,7 @@ export function Download() {
               {/* Download buttons */}
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
                 <a
-                  href="https://github.com/laststance/skills-desktop/releases/latest/download/Skills-Desktop-arm64.dmg"
+                  href="https://github.com/laststance/skills-desktop/releases/latest/download/skills-desktop-0.1.0-arm64.dmg"
                   className="inline-flex w-full items-center justify-center gap-3 rounded-xl bg-primary px-8 py-4 text-lg font-semibold text-primary-foreground transition-all hover:bg-primary/90 hover:scale-105 sm:w-auto"
                 >
                   <Apple className="h-6 w-6" />
@@ -38,7 +38,7 @@ export function Download() {
                 </a>
 
                 <a
-                  href="https://github.com/laststance/skills-desktop/releases/latest/download/Skills-Desktop-x64.dmg"
+                  href="https://github.com/laststance/skills-desktop/releases/latest/download/skills-desktop-0.1.0-x64.dmg"
                   className="inline-flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-card/50 px-8 py-4 text-lg font-semibold transition-all hover:bg-card hover:scale-105 sm:w-auto"
                 >
                   <Cpu className="h-6 w-6" />
