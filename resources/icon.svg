@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0A0F1C"/>
+      <stop offset="100%" style="stop-color:#1A2332"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22D3EE"/>
+      <stop offset="100%" style="stop-color:#06B6D4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+
+  <!-- S letter stylized as skill/symlink -->
+  <path d="M320 320 Q512 320 512 448 Q512 576 704 576 Q704 704 512 704 Q320 704 320 576"
+        fill="none"
+        stroke="url(#accent)"
+        stroke-width="64"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+
+  <!-- Connection dots -->
+  <circle cx="320" cy="320" r="48" fill="#22D3EE"/>
+  <circle cx="704" cy="704" r="48" fill="#22D3EE"/>
+
+  <!-- Small accent dots -->
+  <circle cx="512" cy="448" r="24" fill="#22D3EE" opacity="0.6"/>
+  <circle cx="512" cy="576" r="24" fill="#22D3EE" opacity="0.6"/>
+</svg>

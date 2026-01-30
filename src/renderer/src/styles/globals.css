@@ -1,0 +1,211 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Theme hue - dynamically set via JavaScript */
+    --theme-hue: 195;
+    --radius: 0.5rem;
+  }
+
+  /* ============================================
+   * NEUTRAL THEME (shadcn/ui default)
+   * Classic gray-based color scheme (no hue tint)
+   * ============================================ */
+
+  /* Neutral Dark Mode */
+  .theme-neutral.dark {
+    --background: hsl(222.2 84% 4.9%);
+    --foreground: hsl(210 40% 98%);
+    --card: hsl(222.2 84% 4.9%);
+    --card-foreground: hsl(210 40% 98%);
+    --popover: hsl(222.2 84% 4.9%);
+    --popover-foreground: hsl(210 40% 98%);
+    --primary: hsl(210 40% 98%);
+    --primary-foreground: hsl(222.2 47.4% 11.2%);
+    --secondary: hsl(217.2 32.6% 17.5%);
+    --secondary-foreground: hsl(210 40% 98%);
+    --muted: hsl(217.2 32.6% 17.5%);
+    --muted-foreground: hsl(215 20.2% 65.1%);
+    --accent: hsl(217.2 32.6% 17.5%);
+    --accent-foreground: hsl(210 40% 98%);
+    --destructive: hsl(0 62.8% 30.6%);
+    --destructive-foreground: hsl(210 40% 98%);
+    --border: hsl(217.2 32.6% 17.5%);
+    --input: hsl(217.2 32.6% 17.5%);
+    --ring: hsl(212.7 26.8% 83.9%);
+  }
+
+  /* Neutral Light Mode */
+  .theme-neutral.light {
+    --background: hsl(0 0% 100%);
+    --foreground: hsl(222.2 84% 4.9%);
+    --card: hsl(0 0% 100%);
+    --card-foreground: hsl(222.2 84% 4.9%);
+    --popover: hsl(0 0% 100%);
+    --popover-foreground: hsl(222.2 84% 4.9%);
+    --primary: hsl(222.2 47.4% 11.2%);
+    --primary-foreground: hsl(210 40% 98%);
+    --secondary: hsl(210 40% 96.1%);
+    --secondary-foreground: hsl(222.2 47.4% 11.2%);
+    --muted: hsl(210 40% 96.1%);
+    --muted-foreground: hsl(215.4 16.3% 46.9%);
+    --accent: hsl(210 40% 96.1%);
+    --accent-foreground: hsl(222.2 47.4% 11.2%);
+    --destructive: hsl(0 84.2% 60.2%);
+    --destructive-foreground: hsl(210 40% 98%);
+    --border: hsl(214.3 31.8% 91.4%);
+    --input: hsl(214.3 31.8% 91.4%);
+    --ring: hsl(222.2 84% 4.9%);
+  }
+
+  /* ============================================
+   * COLOR THEME (OKLCH hue-based)
+   * All colors dynamically tinted based on --theme-hue
+   * ============================================ */
+
+  /* Color Dark Mode - OKLCH with hue tinting */
+  .theme-color.dark {
+    /* Background colors - very low chroma for subtle hue tint */
+    --background: oklch(0.12 0.02 var(--theme-hue));
+    --foreground: oklch(0.98 0.01 var(--theme-hue));
+
+    /* Card: Slightly lighter than background */
+    --card: oklch(0.18 0.025 var(--theme-hue));
+    --card-foreground: oklch(0.98 0.01 var(--theme-hue));
+
+    /* Popover: Same as card */
+    --popover: oklch(0.18 0.025 var(--theme-hue));
+    --popover-foreground: oklch(0.98 0.01 var(--theme-hue));
+
+    /* Primary: Full saturation accent color */
+    --primary: oklch(0.7 0.18 var(--theme-hue));
+    --primary-foreground: oklch(0.12 0.02 var(--theme-hue));
+
+    /* Secondary/Muted: Low saturation variants */
+    --secondary: oklch(0.25 0.03 var(--theme-hue));
+    --secondary-foreground: oklch(0.98 0.01 var(--theme-hue));
+    --muted: oklch(0.25 0.03 var(--theme-hue));
+    --muted-foreground: oklch(0.65 0.02 var(--theme-hue));
+
+    /* Accent: Same as primary */
+    --accent: oklch(0.7 0.18 var(--theme-hue));
+    --accent-foreground: oklch(0.12 0.02 var(--theme-hue));
+
+    /* Destructive - fixed red */
+    --destructive: oklch(0.55 0.2 25);
+    --destructive-foreground: oklch(0.98 0.01 var(--theme-hue));
+
+    /* Border/Input: Subtle hue tint */
+    --border: oklch(0.3 0.025 var(--theme-hue));
+    --input: oklch(0.3 0.025 var(--theme-hue));
+
+    /* Ring: Accent color */
+    --ring: oklch(0.7 0.18 var(--theme-hue));
+  }
+
+  /* Color Light Mode - OKLCH with hue tinting */
+  .theme-color.light {
+    /* Background: Near white with very subtle tint */
+    --background: oklch(0.99 0.005 var(--theme-hue));
+    --foreground: oklch(0.15 0.03 var(--theme-hue));
+
+    /* Card: Slightly off-white */
+    --card: oklch(0.97 0.008 var(--theme-hue));
+    --card-foreground: oklch(0.15 0.03 var(--theme-hue));
+
+    /* Popover: Pure white */
+    --popover: oklch(0.99 0.005 var(--theme-hue));
+    --popover-foreground: oklch(0.15 0.03 var(--theme-hue));
+
+    /* Primary: Darker accent for light mode */
+    --primary: oklch(0.5 0.2 var(--theme-hue));
+    --primary-foreground: oklch(0.99 0.005 var(--theme-hue));
+
+    /* Secondary/Muted */
+    --secondary: oklch(0.95 0.015 var(--theme-hue));
+    --secondary-foreground: oklch(0.15 0.03 var(--theme-hue));
+    --muted: oklch(0.95 0.015 var(--theme-hue));
+    --muted-foreground: oklch(0.45 0.02 var(--theme-hue));
+
+    /* Accent */
+    --accent: oklch(0.5 0.2 var(--theme-hue));
+    --accent-foreground: oklch(0.99 0.005 var(--theme-hue));
+
+    /* Destructive */
+    --destructive: oklch(0.55 0.22 25);
+    --destructive-foreground: oklch(0.98 0.01 var(--theme-hue));
+
+    /* Border/Input */
+    --border: oklch(0.88 0.015 var(--theme-hue));
+    --input: oklch(0.88 0.015 var(--theme-hue));
+
+    /* Ring */
+    --ring: oklch(0.5 0.2 var(--theme-hue));
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Electron window drag region */
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--muted);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+  }
+}
+
+/* Window glow effect - subtle inner shadow for depth */
+@layer components {
+  .window-glow {
+    box-shadow:
+      inset 0 0 0 1px oklch(0.5 0.02 var(--theme-hue, 0) / 0.15),
+      inset 0 1px 0 0 oklch(0.8 0.02 var(--theme-hue, 0) / 0.1);
+  }
+}
+
+/* Theme color utilities */
+@layer utilities {
+  .text-primary {
+    color: var(--primary);
+  }
+
+  .bg-primary {
+    background-color: var(--primary);
+  }
+
+  .border-primary {
+    border-color: var(--primary);
+  }
+}
