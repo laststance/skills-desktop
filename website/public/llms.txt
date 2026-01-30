@@ -6,8 +6,8 @@ Skills Desktop scans your `~/.agents/skills/` directory and displays the symlink
 
 ## Download
 
-- [Download for macOS (Apple Silicon)](https://github.com/laststance/skills-desktop/releases/latest/download/skills-desktop-0.1.0-arm64.dmg): DMG installer for M1/M2/M3 Macs.
-- [Download for macOS (Intel)](https://github.com/laststance/skills-desktop/releases/latest/download/skills-desktop-0.1.0-x64.dmg): DMG installer for Intel-based Macs.
+- [Download for macOS (Apple Silicon)](https://github.com/laststance/skills-desktop/releases/latest/download/skills-desktop-0.1.1-arm64.dmg): DMG installer for M1/M2/M3 Macs.
+- [Download for macOS (Intel)](https://github.com/laststance/skills-desktop/releases/latest/download/skills-desktop-0.1.1-x64.dmg): DMG installer for Intel-based Macs.
 - [All Releases](https://github.com/laststance/skills-desktop/releases): View all versions and release notes.
 
 ## Core Features
