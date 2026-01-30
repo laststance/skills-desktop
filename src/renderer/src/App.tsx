@@ -4,6 +4,8 @@ import { DetailPanel } from './components/layout/DetailPanel'
 import { MainContent } from './components/layout/MainContent'
 import { Sidebar } from './components/layout/Sidebar'
 import { TooltipProvider } from './components/ui/tooltip'
+import { UpdateToast } from './components/UpdateToast'
+import { useUpdateNotification } from './hooks/useUpdateNotification'
 
 /**
  * Skills Desktop main application component
@@ -11,6 +13,9 @@ import { TooltipProvider } from './components/ui/tooltip'
  * Theme application is handled by Redux listener middleware
  */
 export default function App(): React.ReactElement {
+  // Subscribe to auto-update IPC events
+  useUpdateNotification()
+
   return (
     <TooltipProvider>
       {/* Window glow effect - subtle inner shadow for depth */}
@@ -26,6 +31,8 @@ export default function App(): React.ReactElement {
           </Panel>
         </Group>
       </div>
+      {/* Auto-update toast notification */}
+      <UpdateToast />
     </TooltipProvider>
   )
 }

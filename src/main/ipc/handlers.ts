@@ -2,6 +2,7 @@ import { registerAgentsHandlers } from './agents'
 import { registerFilesHandlers } from './files'
 import { registerSkillsHandlers } from './skills'
 import { registerSourceHandlers } from './source'
+import { registerUpdateHandlers } from './update'
 
 /**
  * Register all IPC handlers for main process
@@ -12,4 +13,5 @@ export function registerAllHandlers(): void {
   registerAgentsHandlers()
   registerSourceHandlers()
   registerFilesHandlers()
+  registerUpdateHandlers()
 }

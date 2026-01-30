@@ -7,12 +7,14 @@ import agentsReducer from './slices/agentsSlice'
 import skillsReducer from './slices/skillsSlice'
 import themeReducer from './slices/themeSlice'
 import uiReducer from './slices/uiSlice'
+import updateReducer from './slices/updateSlice'
 
 const rootReducer = combineReducers({
   theme: themeReducer,
   skills: skillsReducer,
   agents: agentsReducer,
   ui: uiReducer,
+  update: updateReducer,
 })
 
 const {

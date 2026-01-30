@@ -76,3 +76,32 @@ export interface SkillFileContent {
   extension: string
   lineCount: number
 }
+
+/**
+ * Update information from electron-updater
+ */
+export interface UpdateInfo {
+  version: string
+  releaseNotes?: string
+}
+
+/**
+ * Download progress information
+ */
+export interface DownloadProgress {
+  percent: number
+  bytesPerSecond: number
+  total: number
+  transferred: number
+}
+
+/**
+ * Update status for UI state management
+ */
+export type UpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'ready'
+  | 'error'
