@@ -464,19 +464,43 @@ When `~/.agents/skills/` does not exist:
 
 ## Auto Update
 
-| Setting           | Value                      |
-| ----------------- | -------------------------- |
-| Provider          | GitHub Releases            |
-| Check on startup  | Yes                        |
-| User notification | Dialog on update available |
-| Install timing    | On app restart             |
+| Setting           | Value                              |
+| ----------------- | ---------------------------------- |
+| Provider          | GitHub Releases                    |
+| Check on startup  | Yes                                |
+| User notification | In-app toast (bottom-right corner) |
+| Install timing    | On user-initiated restart          |
+
+### Update Toast States
+
+| State       | Icon        | Actions               |
+| ----------- | ----------- | --------------------- |
+| Available   | Download    | Later, Download       |
+| Downloading | Download    | Progress bar (0-100%) |
+| Ready       | RefreshCw   | Later, Restart Now    |
+| Error       | AlertCircle | Dismiss               |
+
+### IPC Events (Main → Renderer)
 
 ```typescript
-// src/main/updater.ts
-import { autoUpdater } from 'electron-updater'
+'update:checking' // Update check started
+'update:available' // { version, releaseNotes }
+'update:not-available' // Already on latest
+'update:progress' // { percent }
+'update:downloaded' // { version, releaseNotes }
+'update:error' // { message }
+```
 
-export function initAutoUpdater() {
-  autoUpdater.checkForUpdatesAndNotify()
+### Redux State
+
+```typescript
+interface UpdateState {
+  status: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error'
+  version: string | null
+  releaseNotes: string | null
+  progress: number
+  error: string | null
+  dismissed: boolean
 }
 ```
 
