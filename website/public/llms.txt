@@ -1,0 +1,37 @@
+# Skills Desktop
+
+> Skills Desktop is a free, open-source macOS Electron app that visualizes AI agent skill symlinks. It helps developers manage and monitor skills installed via `npx skills add` across 21 AI agents including Claude Code, Cursor, Gemini CLI, and more.
+
+Skills Desktop scans your `~/.agents/skills/` directory and displays the symlink status (valid, broken, or missing) for each skill across all supported AI agents. Built with Electron, React 19, Redux Toolkit, and TypeScript.
+
+## Download
+
+- [Download for macOS (Apple Silicon)](https://github.com/laststance/skills-desktop/releases/latest/download/skills-desktop-0.1.0-arm64.dmg): DMG installer for M1/M2/M3 Macs.
+- [Download for macOS (Intel)](https://github.com/laststance/skills-desktop/releases/latest/download/skills-desktop-0.1.0-x64.dmg): DMG installer for Intel-based Macs.
+- [All Releases](https://github.com/laststance/skills-desktop/releases): View all versions and release notes.
+
+## Core Features
+
+- **Skill Visualization**: Real-time symlink status monitoring with valid/broken/missing indicators.
+- **21 AI Agents Support**: Claude Code, Cursor, Gemini CLI, OpenAI Codex, GitHub Copilot, Cline, Roo Code, Amp, Goose, Aider, Windsurf, Zed, Continue, PearAI, Void, Melty, Trae, Junie, Kilo Code, Blackbox AI, and OpenCode.
+- **Centralized Skills Hub**: All skills stored in `~/.agents/skills/` and symlinked to each agent directory.
+- **Native macOS Experience**: Electron-based desktop app with system integration.
+- **26 Theme Presets**: 12 OKLCH color themes with light/dark modes.
+
+## Technical Details
+
+- **Architecture**: Main process handles file system operations via IPC with context isolation. Renderer uses React 19 + Redux Toolkit.
+- **Skill Format**: Skills are directories containing `SKILL.md` with YAML frontmatter (name, description) in `~/.agents/skills/`.
+- **Symlink Detection**: Scans `~/.<agent>/skills/` directories to verify symlink integrity.
+
+## Related Projects
+
+- [Skills CLI](https://github.com/vercel-labs/skills): Install skills via `npx skills add owner/repo`.
+- [Skills Specification](https://agentskills.io): Official specification for AI agent skills.
+- [Skills Registry](https://skills.sh): Browse and discover available skills.
+
+## Optional
+
+- [GitHub Repository](https://github.com/laststance/skills-desktop): Source code, issues, and contributions.
+- [Laststance Organization](https://github.com/laststance): Open source organization maintaining Skills Desktop.
+- [Report Issues](https://github.com/laststance/skills-desktop/issues): Bug reports and feature requests.
