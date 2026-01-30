@@ -39,3 +39,10 @@ coverage/
 tmp/
 temp/
 *.tmp
+
+# Website (Next.js)
+website/.next/
+website/out/
+
+# Claude Code
+CLAUDE.md
