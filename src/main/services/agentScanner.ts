@@ -1,7 +1,10 @@
 import { access, readdir } from 'fs/promises'
+import { join } from 'path'
 
 import type { Agent } from '../../shared/types'
 import { AGENTS } from '../constants'
+
+import { checkSymlinkStatus } from './symlinkChecker'
 
 /**
  * Scan all supported agents and check their existence
@@ -48,15 +51,28 @@ async function checkAgentExists(agentPath: string): Promise<boolean> {
 }
 
 /**
- * Count number of skills (symlinks or directories) in an agent's skills dir
+ * Count number of valid skills (symlinks with existing targets) in an agent's skills dir
  * @param agentPath - Path to agent's skills directory
- * @returns Number of skills
+ * @returns Number of valid skills (broken symlinks are excluded)
+ * @example
+ * countAgentSkills('/Users/.claude/skills')
+ * // => 3 (only symlinks pointing to existing targets)
  */
 async function countAgentSkills(agentPath: string): Promise<number> {
   try {
     const entries = await readdir(agentPath, { withFileTypes: true })
-    // Count both directories and symlinks
-    return entries.filter((e) => e.isDirectory() || e.isSymbolicLink()).length
+    const symlinks = entries.filter((e) => e.isSymbolicLink())
+
+    // Check each symlink's validity
+    const validityChecks = await Promise.all(
+      symlinks.map(async (entry) => {
+        const linkPath = join(agentPath, entry.name)
+        const status = await checkSymlinkStatus(linkPath)
+        return status === 'valid'
+      }),
+    )
+
+    return validityChecks.filter(Boolean).length
   } catch {
     return 0
   }
