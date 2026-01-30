@@ -6,7 +6,7 @@ export function Hero() {
   return (
     <section className="relative overflow-hidden py-20 lg:py-32">
       {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
 
       <div className="container mx-auto px-4">
         <div className="flex flex-col items-center text-center">
