@@ -3083,6 +3083,48 @@
               "ref": "YfDhL",
               "height": "fill_container",
               "name": "sidebarAgentsV2"
+            },
+            {
+              "type": "frame",
+              "id": "q3QrP",
+              "name": "SidebarFooter",
+              "width": "fill_container",
+              "stroke": {
+                "align": "inside",
+                "thickness": {
+                  "top": 1
+                },
+                "fill": "$border-default"
+              },
+              "gap": 6,
+              "padding": [
+                16,
+                24
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Lqmmo",
+                  "name": "footerLinkText",
+                  "fill": "$text-muted",
+                  "content": "skills.sh",
+                  "fontFamily": "JetBrains Mono",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "icon_font",
+                  "id": "m5ChT",
+                  "name": "footerLinkIcon",
+                  "width": 12,
+                  "height": 12,
+                  "iconFontName": "external-link",
+                  "iconFontFamily": "lucide",
+                  "fill": "$text-muted"
+                }
+              ]
             }
           ]
         },
