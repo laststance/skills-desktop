@@ -20,7 +20,6 @@ export default defineConfig([
       '*.config.mjs',
       '.pnpmfile.cjs',
       'scripts/**',
-      'src/preload/index.d.ts',
       'website/**',
     ],
   },
