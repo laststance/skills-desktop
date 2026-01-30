@@ -13,6 +13,7 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://skills-desktop.vercel.app'),
   title: 'Skills Desktop - AI Agent Skills Manager',
   description:
     'Visualize and manage installed Skills across 21 AI agents. See symlink status, discover skills, and keep your AI tools in sync.',
