@@ -75,7 +75,10 @@ export function MainContent(): React.ReactElement {
           </div>
         </TabsContent>
 
-        <TabsContent value="marketplace" className="flex-1 m-0">
+        <TabsContent
+          value="marketplace"
+          className="flex-1 m-0 data-[state=active]:flex data-[state=active]:flex-col min-h-0 overflow-hidden"
+        >
           <SkillsMarketplace />
         </TabsContent>
       </Tabs>

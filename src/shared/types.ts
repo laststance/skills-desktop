@@ -118,6 +118,8 @@ export interface SkillSearchResult {
   repo: string
   /** Skills.sh URL */
   url: string
+  /** Install count (may not be available from all sources) */
+  installCount?: number
 }
 
 /**
