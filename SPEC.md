@@ -41,31 +41,32 @@ Skills Desktop provides a GUI to manage and monitor skills installed via `npx sk
 
 ### Agent Detection
 
-Agents are **auto-detected** by scanning for skills directories at standard paths:
+Agents are **auto-detected** by scanning for skills directories at standard paths.
+Agent definitions are synced with [vercel-labs/skills CLI](https://github.com/vercel-labs/skills/blob/main/src/agents.ts).
 
-| Agent            | Detection Path              | Auto-detect |
-| ---------------- | --------------------------- | ----------- |
-| Claude Code      | `~/.claude/skills/`         | Yes         |
-| Cursor           | `~/.cursor/skills/`         | Yes         |
-| OpenAI Codex     | `~/.codex/skills/`          | Yes         |
-| Gemini CLI       | `~/.gemini/skills/`         | Yes         |
-| OpenCode         | `~/.opencode/skills/`       | Yes         |
-| GitHub Copilot   | `~/.github-copilot/skills/` | Yes         |
-| Cline            | `~/.cline/skills/`          | Yes         |
-| Roo Code         | `~/.roo-code/skills/`       | Yes         |
-| Amp              | `~/.amp/skills/`            | Yes         |
-| Goose            | `~/.goose/skills/`          | Yes         |
-| Aider            | `~/.aider/skills/`          | Yes         |
-| Codeium Windsurf | `~/.codeium/skills/`        | Yes         |
-| Zed              | `~/.zed/skills/`            | Yes         |
-| Continue         | `~/.continue/skills/`       | Yes         |
-| PearAI           | `~/.pearai/skills/`         | Yes         |
-| Void             | `~/.void/skills/`           | Yes         |
-| Melty            | `~/.melty/skills/`          | Yes         |
-| Trae             | `~/.trae/skills/`           | Yes         |
-| Junie            | `~/.junie/skills/`          | Yes         |
-| Kilo Code        | `~/.kilo-code/skills/`      | Yes         |
-| Blackbox AI      | `~/.blackbox-ai/skills/`    | Yes         |
+| Agent          | CLI ID           | Detection Path                |
+| -------------- | ---------------- | ----------------------------- |
+| Claude Code    | `claude-code`    | `~/.claude/skills/`           |
+| Cursor         | `cursor`         | `~/.cursor/skills/`           |
+| Codex          | `codex`          | `~/.codex/skills/`            |
+| Gemini CLI     | `gemini-cli`     | `~/.gemini/skills/`           |
+| OpenCode       | `opencode`       | `~/.opencode/skills/`         |
+| GitHub Copilot | `github-copilot` | `~/.copilot/skills/`          |
+| Cline          | `cline`          | `~/.cline/skills/`            |
+| Roo Code       | `roo`            | `~/.roo/skills/`              |
+| Amp            | `amp`            | `~/.config/amp/skills/`       |
+| Goose          | `goose`          | `~/.config/goose/skills/`     |
+| Windsurf       | `windsurf`       | `~/.codeium/windsurf/skills/` |
+| Continue       | `continue`       | `~/.continue/skills/`         |
+| Trae           | `trae`           | `~/.trae/skills/`             |
+| Junie          | `junie`          | `~/.junie/skills/`            |
+| Kilo Code      | `kilo`           | `~/.kilocode/skills/`         |
+| OpenHands      | `openhands`      | `~/.openhands/skills/`        |
+| Neovate        | `neovate`        | `~/.neovate/skills/`          |
+| Qoder          | `qoder`          | `~/.qoder/skills/`            |
+| Zencoder       | `zencoder`       | `~/.zencoder/skills/`         |
+| Pochi          | `pochi`          | `~/.pochi/skills/`            |
+| AdaL           | `adal`           | `~/.adal/skills/`             |
 
 **Detection Logic:**
 
@@ -79,10 +80,20 @@ Agents are **auto-detected** by scanning for skills directories at standard path
 ### Core Features
 
 - [x] Display source directory (`~/.agents/skills/`)
-- [x] Auto-detect installed AI agents
+- [x] Auto-detect installed AI agents (21 agents)
 - [x] List all installed skills with metadata
 - [x] Show symlink status per skill per agent
 - [x] Validate symlink integrity (valid/broken/missing)
+
+### Skills Marketplace
+
+GUI wrapper for `npx skills` CLI commands:
+
+- [x] Search skills via `npx skills find <query>`
+- [x] Install skills via `npx skills add <repo>`
+- [x] Select target agents for installation
+- [x] Installation progress tracking
+- [ ] Remove skills via `npx skills remove <name>`
 
 ### Symlink Status
 
@@ -101,15 +112,16 @@ Each skill displays:
 - **path**: Full path to skill directory
 - **symlink count**: Number of active symlinks across agents
 
-### Actions (Read-only MVP)
+### Actions
 
-| Action                 | MVP | Future |
-| ---------------------- | --- | ------ |
-| View skill details     | Yes | -      |
-| View symlink status    | Yes | -      |
-| Repair broken symlinks | No  | Yes    |
-| Add new skill          | No  | Yes    |
-| Remove skill           | No  | Yes    |
+| Action                 | Status     | Notes                            |
+| ---------------------- | ---------- | -------------------------------- |
+| View skill details     | ✅ Done    | -                                |
+| View symlink status    | ✅ Done    | -                                |
+| Search skills          | ✅ Done    | Marketplace tab                  |
+| Install skill          | ✅ Done    | With agent selection             |
+| Remove skill           | 🚧 Planned | UI exists, backend not connected |
+| Repair broken symlinks | 🚧 Planned | -                                |
 
 ## Tech Stack
 
@@ -304,11 +316,18 @@ listenerMiddleware.startListening({
 
 ```typescript
 // Invoke pattern (async request/response)
-'skills:getAll'      → Promise<Skill[]>
-'agents:getAll'      → Promise<Agent[]>
-'source:getStats'    → Promise<SourceStats>
-'files:list'         → Promise<SkillFile[]>
-'files:read'         → Promise<SkillFileContent>
+'skills:getAll'       → Promise<Skill[]>
+'agents:getAll'       → Promise<Agent[]>
+'source:getStats'     → Promise<SourceStats>
+'files:list'          → Promise<SkillFile[]>
+'files:read'          → Promise<SkillFileContent>
+
+// Skills CLI (Marketplace)
+'skills:cli:search'   → Promise<SkillSearchResult[]>
+'skills:cli:install'  → Promise<CliCommandResult>
+'skills:cli:remove'   → Promise<CliCommandResult>
+'skills:cli:cancel'   → void
+'skills:cli:progress' → (Main → Renderer event)
 ```
 
 ### Type Definitions
@@ -360,6 +379,41 @@ interface SkillFileContent {
   extension: string
   lineCount: number
 }
+
+// Marketplace types
+interface SkillSearchResult {
+  rank: number
+  name: string
+  repo: string
+  url: string
+}
+
+interface InstallOptions {
+  repo: string
+  global: boolean
+  agents: string[]
+  skills?: string[]
+}
+
+interface CliCommandResult {
+  success: boolean
+  stdout: string
+  stderr: string
+  code: number | null
+}
+
+interface InstallProgress {
+  phase: 'cloning' | 'installing' | 'linking' | 'complete' | 'error'
+  message: string
+  percent?: number
+}
+
+type MarketplaceStatus =
+  | 'idle'
+  | 'searching'
+  | 'installing'
+  | 'removing'
+  | 'error'
 ```
 
 ## Redux State
@@ -370,6 +424,8 @@ interface RootState {
   skills: SkillsState
   agents: AgentsState
   ui: UIState
+  update: UpdateState
+  marketplace: MarketplaceState
 }
 
 interface SkillsState {
@@ -391,6 +447,16 @@ interface UIState {
   sourceStats: SourceStats | null
   isRefreshing: boolean
 }
+
+interface MarketplaceState {
+  status: MarketplaceStatus
+  searchQuery: string
+  searchResults: SkillSearchResult[]
+  selectedSkill: SkillSearchResult | null
+  installProgress: InstallProgress | null
+  skillToRemove: string | null
+  error: string | null
+}
 ```
 
 ## Project Structure
@@ -410,7 +476,8 @@ skills-desktop/
 │   │   │   ├── skills.ts
 │   │   │   ├── agents.ts
 │   │   │   ├── source.ts
-│   │   │   └── files.ts
+│   │   │   ├── files.ts
+│   │   │   └── skillsCli.ts      # Marketplace CLI handlers
 │   │   ├── updater.ts
 │   │   ├── constants.ts
 │   │   └── services/
@@ -418,7 +485,8 @@ skills-desktop/
 │   │       ├── agentScanner.ts
 │   │       ├── symlinkChecker.ts
 │   │       ├── metadataParser.ts
-│   │       └── fileReader.ts
+│   │       ├── fileReader.ts
+│   │       └── skillsCliService.ts  # npx skills CLI wrapper
 │   ├── preload/
 │   │   ├── index.ts          # Context bridge
 │   │   └── index.d.ts
@@ -428,9 +496,25 @@ skills-desktop/
 │   │       ├── main.tsx
 │   │       ├── App.tsx
 │   │       ├── redux/
+│   │       │   └── slices/
+│   │       │       ├── skillsSlice.ts
+│   │       │       ├── agentsSlice.ts
+│   │       │       ├── themeSlice.ts
+│   │       │       ├── uiSlice.ts
+│   │       │       ├── updateSlice.ts
+│   │       │       └── marketplaceSlice.ts
 │   │       ├── components/
+│   │       │   ├── layout/
+│   │       │   ├── marketplace/    # Marketplace UI
+│   │       │   │   ├── SkillsMarketplace.tsx
+│   │       │   │   ├── MarketplaceSearch.tsx
+│   │       │   │   ├── SkillRowMarketplace.tsx
+│   │       │   │   ├── InstallModal.tsx
+│   │       │   │   └── RemoveDialog.tsx
+│   │       │   └── ui/             # shadcn/ui components
 │   │       ├── views/
 │   │       ├── hooks/
+│   │       │   └── useMarketplaceProgress.ts
 │   │       └── styles/
 │   └── shared/
 │       ├── types.ts
@@ -537,9 +621,35 @@ APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 - Download CTA linking to GitHub Release
 - OG image for social sharing
 
+## Skills CLI Integration
+
+The Marketplace feature wraps `npx skills@1.3.0` CLI commands:
+
+| Feature | CLI Command                | Options                          |
+| ------- | -------------------------- | -------------------------------- |
+| Search  | `npx skills find <query>`  | -                                |
+| Install | `npx skills add <repo>`    | `-y`, `-g`, `--agent`, `--skill` |
+| Remove  | `npx skills remove <name>` | -                                |
+
+**CLI Output Parsing:**
+
+- `FORCE_COLOR=0` to disable ANSI colors
+- Parse `owner/repo@skill-name` pattern from find output
+- Progress events via EventEmitter
+
+**Agent ID Mapping:**
+
+Internal IDs map to CLI identifiers via `AGENT_DEFINITIONS`:
+
+```typescript
+// src/shared/constants.ts
+{ id: 'claude-code', cliId: 'claude-code', name: 'Claude Code', dir: '.claude' }
+```
+
 ## File References
 
 - **Design**: `design/skills-desktop.pen` (Pencil MCP)
 - **Skills Spec**: https://agentskills.io
 - **Skills CLI**: https://github.com/vercel-labs/skills
+- **Skills CLI Source**: `/Users/ryotamurakami/clone/skills` (local clone)
 - **Skills Registry**: https://skills.sh
