@@ -1,6 +1,5 @@
 import { join } from 'path'
 
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { app, shell, BrowserWindow, Menu } from 'electron'
 
 import { registerAllHandlers } from './ipc/handlers'
@@ -33,8 +32,8 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
-  // HMR for renderer base on electron-vite cli.
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+  // HMR for renderer based on electron-vite cli
+  if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
@@ -93,11 +92,10 @@ function createMenu(): void {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('io.laststance.skills-desktop')
-
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
+  // Windows only: set app user model ID
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('io.laststance.skills-desktop')
+  }
 
   // Register IPC handlers before creating window
   registerAllHandlers()
@@ -106,7 +104,7 @@ app.whenReady().then(() => {
   createWindow()
 
   // Initialize auto updater in production
-  if (!is.dev) {
+  if (app.isPackaged) {
     initAutoUpdater()
   }
 

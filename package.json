@@ -7,7 +7,7 @@
   "homepage": "https://github.com/laststance/skills-desktop",
   "license": "MIT",
   "scripts": {
-    "dev": "electron-vite dev --remote-debugging-port=9222",
+    "dev": "ELECTRON_RUN_AS_NODE= electron-vite dev --remote-debugging-port=9222",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "build:mac": "electron-vite build && electron-builder --mac",
@@ -42,7 +42,6 @@
   },
   "devDependencies": {
     "@aspect-ratio/core": "^1.0.0",
-    "@electron-toolkit/utils": "^3.0.0",
     "@electron/notarize": "^2.5.0",
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",
@@ -51,7 +50,7 @@
     "autoprefixer": "^10.4.20",
     "electron": "^34.0.2",
     "electron-builder": "^25.1.8",
-    "electron-vite": "^2.3.0",
+    "electron-vite": "^5.0.0",
     "eslint": "^9.18.0",
     "eslint-config-ts-prefixer": "^4.1.3",
     "husky": "^9.1.7",
