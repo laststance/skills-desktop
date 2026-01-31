@@ -5,10 +5,10 @@
       "type": "frame",
       "id": "cSLBr",
       "x": 583,
-      "y": -125,
+      "y": -130,
       "name": "Skills Desktop Design System",
       "width": 2400,
-      "height": 3000,
+      "height": 5895,
       "fill": "$bg-primary",
       "layout": "vertical",
       "gap": 64,
@@ -2969,6 +2969,973 @@
               "fontWeight": "600"
             }
           ]
+        },
+        {
+          "type": "frame",
+          "id": "tHkUm",
+          "name": "Skill Detail Panel",
+          "reusable": true,
+          "width": 480,
+          "height": 720,
+          "fill": "$bg-surface",
+          "cornerRadius": "$radius-xl",
+          "stroke": {
+            "thickness": 1,
+            "fill": "$border-default"
+          },
+          "layout": "vertical",
+          "gap": 24,
+          "padding": 32,
+          "children": [
+            {
+              "type": "frame",
+              "id": "8sphx",
+              "name": "detailHeader",
+              "width": "fill_container",
+              "justifyContent": "space_between",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "M4dQJ",
+                  "name": "detailTitleGroup",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "utsc3",
+                      "name": "detailTitle",
+                      "fill": "$text-primary",
+                      "content": "vercel-react-best-practices",
+                      "fontFamily": "Inter",
+                      "fontSize": 20,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "5XKRU",
+                      "name": "detailRepo",
+                      "fill": "$text-muted",
+                      "content": "vercel-labs/agent-skills",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "xS0eI",
+                  "name": "closeBtn",
+                  "width": 32,
+                  "height": 32,
+                  "fill": "$bg-elevated",
+                  "cornerRadius": "$radius-md",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "cDmsd",
+                      "name": "closeIcon",
+                      "width": 16,
+                      "height": 16,
+                      "iconFontName": "x",
+                      "iconFontFamily": "lucide",
+                      "fill": "$text-secondary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "g5x4x",
+              "name": "statsRow",
+              "width": "fill_container",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "dwYkZ",
+                  "name": "statInstalls",
+                  "width": "fill_container",
+                  "fill": "$bg-elevated",
+                  "cornerRadius": "$radius-lg",
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "O6wyS",
+                      "name": "statInstallsLabel",
+                      "fill": "$text-muted",
+                      "content": "Installs",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Uzjif",
+                      "name": "statInstallsValue",
+                      "fill": "$accent",
+                      "content": "72,934",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 20,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "tB2TF",
+                  "name": "statRank",
+                  "width": "fill_container",
+                  "fill": "$bg-elevated",
+                  "cornerRadius": "$radius-lg",
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": 16,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "QzmLn",
+                      "name": "statRankLabel",
+                      "fill": "$text-muted",
+                      "content": "Rank",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "PWoZi",
+                      "name": "statRankValue",
+                      "fill": "$status-success",
+                      "content": "#1",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 20,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "LEqd9",
+              "name": "descSection",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "K6L2X",
+                  "name": "descLabel",
+                  "fill": "$text-secondary",
+                  "content": "Description",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "KnMtc",
+                  "name": "descText",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Best practices for React development following Vercel's guidelines. Includes patterns for Server Components, Suspense, and performance optimization.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "kVIma",
+              "name": "agentsSection",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "0XlOe",
+                  "name": "agentsLabel",
+                  "fill": "$text-secondary",
+                  "content": "Supported Agents",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "QUTnM",
+                  "name": "agentsGrid",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "bypiR",
+                      "name": "agentTag1",
+                      "fill": "$bg-elevated",
+                      "cornerRadius": "$radius-md",
+                      "padding": [
+                        6,
+                        12
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "VjPHm",
+                          "name": "agentText1",
+                          "fill": "$text-primary",
+                          "content": "Claude Code",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "MmKO8",
+                      "name": "agentTag2",
+                      "fill": "$bg-elevated",
+                      "cornerRadius": "$radius-md",
+                      "padding": [
+                        6,
+                        12
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "3OqXx",
+                          "name": "agentText2",
+                          "fill": "$text-primary",
+                          "content": "Cursor",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "oLSug",
+                      "name": "agentTag3",
+                      "fill": "$bg-elevated",
+                      "cornerRadius": "$radius-md",
+                      "padding": [
+                        6,
+                        12
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "rB9cE",
+                          "name": "agentText3",
+                          "fill": "$text-primary",
+                          "content": "Codex",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "uhJYM",
+                      "name": "agentMore",
+                      "fill": "$bg-inset",
+                      "cornerRadius": "$radius-md",
+                      "padding": [
+                        6,
+                        12
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "tj3Vy",
+                          "name": "agentMoreText",
+                          "fill": "$text-muted",
+                          "content": "+17 more",
+                          "fontFamily": "Inter",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "OU2yB",
+              "name": "cmdSection",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "9yFQ0",
+                  "name": "cmdLabel",
+                  "fill": "$text-secondary",
+                  "content": "Install Command",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "0U2SE",
+                  "name": "cmdBox",
+                  "width": "fill_container",
+                  "height": 44,
+                  "fill": "$bg-inset",
+                  "cornerRadius": "$radius-md",
+                  "padding": [
+                    0,
+                    16
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "JIw6p",
+                      "name": "cmdText",
+                      "fill": "$text-primary",
+                      "content": "npx skills add vercel-labs/agent-skills",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "6cnt9",
+                      "name": "copyBtn",
+                      "width": 28,
+                      "height": 28,
+                      "fill": "$bg-elevated",
+                      "cornerRadius": "$radius-sm",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "izrj4",
+                          "name": "copyIcon",
+                          "width": 14,
+                          "height": 14,
+                          "iconFontName": "copy",
+                          "iconFontFamily": "lucide",
+                          "fill": "$text-muted"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "EgCLY",
+              "name": "actionBtns",
+              "width": "fill_container",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "DuNzP",
+                  "name": "installMainBtn",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "$accent",
+                  "cornerRadius": "$radius-lg",
+                  "gap": 8,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "OCBOZ",
+                      "name": "installMainIcon",
+                      "width": 18,
+                      "height": 18,
+                      "iconFontName": "download",
+                      "iconFontFamily": "lucide",
+                      "fill": "$text-inverse"
+                    },
+                    {
+                      "type": "text",
+                      "id": "HB9j7",
+                      "name": "installMainText",
+                      "fill": "$text-inverse",
+                      "content": "Install Skill",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "fWOpp",
+                  "name": "viewRepoBtn",
+                  "height": 48,
+                  "fill": "$bg-elevated",
+                  "cornerRadius": "$radius-lg",
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "$border-subtle"
+                  },
+                  "gap": 8,
+                  "padding": [
+                    0,
+                    24
+                  ],
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "qSKsX",
+                      "name": "viewRepoIcon",
+                      "width": 16,
+                      "height": 16,
+                      "iconFontName": "external-link",
+                      "iconFontFamily": "lucide",
+                      "fill": "$text-secondary"
+                    },
+                    {
+                      "type": "text",
+                      "id": "mRqHn",
+                      "name": "viewRepoText",
+                      "fill": "$text-primary",
+                      "content": "View Repo",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "SReND",
+          "name": "Install Modal",
+          "reusable": true,
+          "width": 520,
+          "height": 560,
+          "fill": "$bg-surface",
+          "cornerRadius": "$radius-xl",
+          "stroke": {
+            "thickness": 1,
+            "fill": "$border-default"
+          },
+          "layout": "vertical",
+          "gap": 24,
+          "padding": 32,
+          "children": [
+            {
+              "type": "frame",
+              "id": "HbVqI",
+              "name": "modalHeader",
+              "width": "fill_container",
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ZUwnQ",
+                  "name": "modalTitle",
+                  "fill": "$text-primary",
+                  "content": "Install Skill",
+                  "fontFamily": "Inter",
+                  "fontSize": 20,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "uFUnK",
+                  "name": "modalClose",
+                  "width": 32,
+                  "height": 32,
+                  "fill": "$bg-elevated",
+                  "cornerRadius": "$radius-md",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "PMKKi",
+                      "name": "modalCloseIcon",
+                      "width": 16,
+                      "height": 16,
+                      "iconFontName": "x",
+                      "iconFontFamily": "lucide",
+                      "fill": "$text-secondary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "N0bJi",
+              "name": "skillPreview",
+              "width": "fill_container",
+              "fill": "$bg-elevated",
+              "cornerRadius": "$radius-lg",
+              "gap": 16,
+              "padding": 16,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "e80pf",
+                  "name": "skillIconBg",
+                  "width": 48,
+                  "height": 48,
+                  "fill": "$accent",
+                  "cornerRadius": "$radius-md",
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "X0GKh",
+                      "name": "skillIcon",
+                      "width": 24,
+                      "height": 24,
+                      "iconFontName": "sparkles",
+                      "iconFontFamily": "lucide",
+                      "fill": "$text-inverse"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "dwIb3",
+                  "name": "skillMeta",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 4,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "eeYa0",
+                      "name": "skillMetaName",
+                      "fill": "$text-primary",
+                      "content": "vercel-react-best-practices",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "aY5Ja",
+                      "name": "skillMetaRepo",
+                      "fill": "$text-muted",
+                      "content": "vercel-labs/agent-skills",
+                      "fontFamily": "JetBrains Mono",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "QAblz",
+              "name": "scopeSection",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ermEL",
+                  "name": "scopeLabel",
+                  "fill": "$text-secondary",
+                  "content": "Installation Scope",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "ghqHc",
+                  "name": "scopeOptions",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "44XPl",
+                      "name": "scopeGlobal",
+                      "width": "fill_container",
+                      "fill": "$bg-elevated",
+                      "cornerRadius": "$radius-lg",
+                      "stroke": {
+                        "thickness": 2,
+                        "fill": "$accent"
+                      },
+                      "gap": 12,
+                      "padding": 16,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "qv48e",
+                          "name": "scopeGlobalRadio",
+                          "width": 20,
+                          "height": 20,
+                          "fill": "$accent",
+                          "cornerRadius": 10,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "YOY0l",
+                              "name": "scopeGlobalDot",
+                              "fill": "$text-inverse",
+                              "width": 8,
+                              "height": 8
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "b2yQc",
+                          "name": "scopeGlobalInfo",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "vOVk4",
+                              "name": "scopeGlobalTitle",
+                              "fill": "$text-primary",
+                              "content": "Global",
+                              "fontFamily": "Inter",
+                              "fontSize": 14,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "4ONTy",
+                              "name": "scopeGlobalDesc",
+                              "fill": "$text-muted",
+                              "content": "Available across all projects",
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "A78Yb",
+                      "name": "scopeProject",
+                      "width": "fill_container",
+                      "fill": "$bg-elevated",
+                      "cornerRadius": "$radius-lg",
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "$border-default"
+                      },
+                      "gap": 12,
+                      "padding": 16,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "7UNON",
+                          "name": "scopeProjectRadio",
+                          "width": 20,
+                          "height": 20,
+                          "cornerRadius": 10,
+                          "stroke": {
+                            "thickness": 2,
+                            "fill": "$text-muted"
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "vpWxU",
+                          "name": "scopeProjectInfo",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "4VwkO",
+                              "name": "scopeProjectTitle",
+                              "fill": "$text-primary",
+                              "content": "Project",
+                              "fontFamily": "Inter",
+                              "fontSize": 14,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "z8hPp",
+                              "name": "scopeProjectDesc",
+                              "fill": "$text-muted",
+                              "content": "Committed with your project, shared with team",
+                              "fontFamily": "Inter",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "CvLuv",
+              "name": "agentSelectSection",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "SWUdV",
+                  "name": "agentSelectLabel",
+                  "fill": "$text-secondary",
+                  "content": "Target Agents",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "axH5K",
+                  "name": "agentCheckboxes",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "xlBtl",
+                      "name": "agentCheck1",
+                      "width": "fill_container",
+                      "gap": 12,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "jc6Gc",
+                          "name": "checkbox1",
+                          "width": 20,
+                          "height": 20,
+                          "fill": "$accent",
+                          "cornerRadius": "$radius-sm",
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon_font",
+                              "id": "94zdC",
+                              "name": "checkIcon1",
+                              "width": 14,
+                              "height": 14,
+                              "iconFontName": "check",
+                              "iconFontFamily": "lucide",
+                              "fill": "$text-inverse"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "xiFri",
+                          "name": "checkLabel1",
+                          "fill": "$text-primary",
+                          "content": "Claude Code",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Q3Wuj",
+                      "name": "agentCheck2",
+                      "width": "fill_container",
+                      "gap": 12,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "91xrm",
+                          "name": "checkbox2",
+                          "width": 20,
+                          "height": 20,
+                          "fill": "$accent",
+                          "cornerRadius": "$radius-sm",
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon_font",
+                              "id": "wsqhy",
+                              "name": "checkIcon2",
+                              "width": 14,
+                              "height": 14,
+                              "iconFontName": "check",
+                              "iconFontFamily": "lucide",
+                              "fill": "$text-inverse"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "n8zYv",
+                          "name": "checkLabel2",
+                          "fill": "$text-primary",
+                          "content": "Cursor",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Oljfb",
+                      "name": "agentCheck3",
+                      "width": "fill_container",
+                      "gap": 12,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "5J7ZK",
+                          "name": "checkbox3",
+                          "width": 20,
+                          "height": 20,
+                          "cornerRadius": "$radius-sm",
+                          "stroke": {
+                            "thickness": 2,
+                            "fill": "$text-muted"
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "id": "WNziJ",
+                          "name": "checkLabel3",
+                          "fill": "$text-secondary",
+                          "content": "Codex",
+                          "fontFamily": "Inter",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "V5Fvm",
+              "name": "modalActions",
+              "width": "fill_container",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "UM0N9",
+                  "name": "cancelBtn",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "$bg-elevated",
+                  "cornerRadius": "$radius-lg",
+                  "stroke": {
+                    "thickness": 1,
+                    "fill": "$border-subtle"
+                  },
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "HQS4v",
+                      "name": "cancelText",
+                      "fill": "$text-primary",
+                      "content": "Cancel",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "uJNL8",
+                  "name": "confirmBtn",
+                  "width": "fill_container",
+                  "height": 48,
+                  "fill": "$accent",
+                  "cornerRadius": "$radius-lg",
+                  "gap": 8,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "NYJm4",
+                      "name": "confirmIcon",
+                      "width": 18,
+                      "height": 18,
+                      "iconFontName": "download",
+                      "iconFontFamily": "lucide",
+                      "fill": "$text-inverse"
+                    },
+                    {
+                      "type": "text",
+                      "id": "uGXVo",
+                      "name": "confirmText",
+                      "fill": "$text-inverse",
+                      "content": "Install",
+                      "fontFamily": "Inter",
+                      "fontSize": 15,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -5428,8 +6395,8 @@
     {
       "type": "frame",
       "id": "siawN",
-      "x": 3478,
-      "y": 2666,
+      "x": 2894,
+      "y": 3119,
       "name": "Skills Marketplace",
       "width": 1600,
       "height": 1200,
@@ -6316,975 +7283,6 @@
                       "fontWeight": "600"
                     }
                   ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "type": "frame",
-      "id": "tHkUm",
-      "x": 1180,
-      "y": 3506,
-      "name": "Skill Detail Panel",
-      "width": 480,
-      "height": 720,
-      "fill": "$bg-surface",
-      "cornerRadius": "$radius-xl",
-      "stroke": {
-        "thickness": 1,
-        "fill": "$border-default"
-      },
-      "layout": "vertical",
-      "gap": 24,
-      "padding": 32,
-      "children": [
-        {
-          "type": "frame",
-          "id": "8sphx",
-          "name": "detailHeader",
-          "width": "fill_container",
-          "justifyContent": "space_between",
-          "children": [
-            {
-              "type": "frame",
-              "id": "M4dQJ",
-              "name": "detailTitleGroup",
-              "width": "fill_container",
-              "layout": "vertical",
-              "gap": 8,
-              "children": [
-                {
-                  "type": "text",
-                  "id": "utsc3",
-                  "name": "detailTitle",
-                  "fill": "$text-primary",
-                  "content": "vercel-react-best-practices",
-                  "fontFamily": "Inter",
-                  "fontSize": 20,
-                  "fontWeight": "700"
-                },
-                {
-                  "type": "text",
-                  "id": "5XKRU",
-                  "name": "detailRepo",
-                  "fill": "$text-muted",
-                  "content": "vercel-labs/agent-skills",
-                  "fontFamily": "JetBrains Mono",
-                  "fontSize": 13,
-                  "fontWeight": "normal"
-                }
-              ]
-            },
-            {
-              "type": "frame",
-              "id": "xS0eI",
-              "name": "closeBtn",
-              "width": 32,
-              "height": 32,
-              "fill": "$bg-elevated",
-              "cornerRadius": "$radius-md",
-              "justifyContent": "center",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "icon_font",
-                  "id": "cDmsd",
-                  "name": "closeIcon",
-                  "width": 16,
-                  "height": 16,
-                  "iconFontName": "x",
-                  "iconFontFamily": "lucide",
-                  "fill": "$text-secondary"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "frame",
-          "id": "g5x4x",
-          "name": "statsRow",
-          "width": "fill_container",
-          "gap": 16,
-          "children": [
-            {
-              "type": "frame",
-              "id": "dwYkZ",
-              "name": "statInstalls",
-              "width": "fill_container",
-              "fill": "$bg-elevated",
-              "cornerRadius": "$radius-lg",
-              "layout": "vertical",
-              "gap": 4,
-              "padding": 16,
-              "children": [
-                {
-                  "type": "text",
-                  "id": "O6wyS",
-                  "name": "statInstallsLabel",
-                  "fill": "$text-muted",
-                  "content": "Installs",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                },
-                {
-                  "type": "text",
-                  "id": "Uzjif",
-                  "name": "statInstallsValue",
-                  "fill": "$accent",
-                  "content": "72,934",
-                  "fontFamily": "JetBrains Mono",
-                  "fontSize": 20,
-                  "fontWeight": "700"
-                }
-              ]
-            },
-            {
-              "type": "frame",
-              "id": "tB2TF",
-              "name": "statRank",
-              "width": "fill_container",
-              "fill": "$bg-elevated",
-              "cornerRadius": "$radius-lg",
-              "layout": "vertical",
-              "gap": 4,
-              "padding": 16,
-              "children": [
-                {
-                  "type": "text",
-                  "id": "QzmLn",
-                  "name": "statRankLabel",
-                  "fill": "$text-muted",
-                  "content": "Rank",
-                  "fontFamily": "Inter",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                },
-                {
-                  "type": "text",
-                  "id": "PWoZi",
-                  "name": "statRankValue",
-                  "fill": "$status-success",
-                  "content": "#1",
-                  "fontFamily": "JetBrains Mono",
-                  "fontSize": 20,
-                  "fontWeight": "700"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "frame",
-          "id": "LEqd9",
-          "name": "descSection",
-          "width": "fill_container",
-          "layout": "vertical",
-          "gap": 8,
-          "children": [
-            {
-              "type": "text",
-              "id": "K6L2X",
-              "name": "descLabel",
-              "fill": "$text-secondary",
-              "content": "Description",
-              "fontFamily": "Inter",
-              "fontSize": 13,
-              "fontWeight": "600"
-            },
-            {
-              "type": "text",
-              "id": "KnMtc",
-              "name": "descText",
-              "fill": "$text-primary",
-              "textGrowth": "fixed-width",
-              "width": "fill_container",
-              "content": "Best practices for React development following Vercel's guidelines. Includes patterns for Server Components, Suspense, and performance optimization.",
-              "lineHeight": 1.5,
-              "fontFamily": "Inter",
-              "fontSize": 14,
-              "fontWeight": "normal"
-            }
-          ]
-        },
-        {
-          "type": "frame",
-          "id": "kVIma",
-          "name": "agentsSection",
-          "width": "fill_container",
-          "layout": "vertical",
-          "gap": 12,
-          "children": [
-            {
-              "type": "text",
-              "id": "0XlOe",
-              "name": "agentsLabel",
-              "fill": "$text-secondary",
-              "content": "Supported Agents",
-              "fontFamily": "Inter",
-              "fontSize": 13,
-              "fontWeight": "600"
-            },
-            {
-              "type": "frame",
-              "id": "QUTnM",
-              "name": "agentsGrid",
-              "width": "fill_container",
-              "gap": 8,
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "bypiR",
-                  "name": "agentTag1",
-                  "fill": "$bg-elevated",
-                  "cornerRadius": "$radius-md",
-                  "padding": [
-                    6,
-                    12
-                  ],
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "VjPHm",
-                      "name": "agentText1",
-                      "fill": "$text-primary",
-                      "content": "Claude Code",
-                      "fontFamily": "Inter",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "MmKO8",
-                  "name": "agentTag2",
-                  "fill": "$bg-elevated",
-                  "cornerRadius": "$radius-md",
-                  "padding": [
-                    6,
-                    12
-                  ],
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "3OqXx",
-                      "name": "agentText2",
-                      "fill": "$text-primary",
-                      "content": "Cursor",
-                      "fontFamily": "Inter",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "oLSug",
-                  "name": "agentTag3",
-                  "fill": "$bg-elevated",
-                  "cornerRadius": "$radius-md",
-                  "padding": [
-                    6,
-                    12
-                  ],
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "rB9cE",
-                      "name": "agentText3",
-                      "fill": "$text-primary",
-                      "content": "Codex",
-                      "fontFamily": "Inter",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "uhJYM",
-                  "name": "agentMore",
-                  "fill": "$bg-inset",
-                  "cornerRadius": "$radius-md",
-                  "padding": [
-                    6,
-                    12
-                  ],
-                  "children": [
-                    {
-                      "type": "text",
-                      "id": "tj3Vy",
-                      "name": "agentMoreText",
-                      "fill": "$text-muted",
-                      "content": "+17 more",
-                      "fontFamily": "Inter",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "frame",
-          "id": "OU2yB",
-          "name": "cmdSection",
-          "width": "fill_container",
-          "layout": "vertical",
-          "gap": 8,
-          "children": [
-            {
-              "type": "text",
-              "id": "9yFQ0",
-              "name": "cmdLabel",
-              "fill": "$text-secondary",
-              "content": "Install Command",
-              "fontFamily": "Inter",
-              "fontSize": 13,
-              "fontWeight": "600"
-            },
-            {
-              "type": "frame",
-              "id": "0U2SE",
-              "name": "cmdBox",
-              "width": "fill_container",
-              "height": 44,
-              "fill": "$bg-inset",
-              "cornerRadius": "$radius-md",
-              "padding": [
-                0,
-                16
-              ],
-              "justifyContent": "space_between",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "text",
-                  "id": "JIw6p",
-                  "name": "cmdText",
-                  "fill": "$text-primary",
-                  "content": "npx skills add vercel-labs/agent-skills",
-                  "fontFamily": "JetBrains Mono",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                },
-                {
-                  "type": "frame",
-                  "id": "6cnt9",
-                  "name": "copyBtn",
-                  "width": 28,
-                  "height": 28,
-                  "fill": "$bg-elevated",
-                  "cornerRadius": "$radius-sm",
-                  "justifyContent": "center",
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "izrj4",
-                      "name": "copyIcon",
-                      "width": 14,
-                      "height": 14,
-                      "iconFontName": "copy",
-                      "iconFontFamily": "lucide",
-                      "fill": "$text-muted"
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "frame",
-          "id": "EgCLY",
-          "name": "actionBtns",
-          "width": "fill_container",
-          "gap": 12,
-          "children": [
-            {
-              "type": "frame",
-              "id": "DuNzP",
-              "name": "installMainBtn",
-              "width": "fill_container",
-              "height": 48,
-              "fill": "$accent",
-              "cornerRadius": "$radius-lg",
-              "gap": 8,
-              "justifyContent": "center",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "icon_font",
-                  "id": "OCBOZ",
-                  "name": "installMainIcon",
-                  "width": 18,
-                  "height": 18,
-                  "iconFontName": "download",
-                  "iconFontFamily": "lucide",
-                  "fill": "$text-inverse"
-                },
-                {
-                  "type": "text",
-                  "id": "HB9j7",
-                  "name": "installMainText",
-                  "fill": "$text-inverse",
-                  "content": "Install Skill",
-                  "fontFamily": "Inter",
-                  "fontSize": 15,
-                  "fontWeight": "600"
-                }
-              ]
-            },
-            {
-              "type": "frame",
-              "id": "fWOpp",
-              "name": "viewRepoBtn",
-              "height": 48,
-              "fill": "$bg-elevated",
-              "cornerRadius": "$radius-lg",
-              "stroke": {
-                "thickness": 1,
-                "fill": "$border-subtle"
-              },
-              "gap": 8,
-              "padding": [
-                0,
-                24
-              ],
-              "justifyContent": "center",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "icon_font",
-                  "id": "qSKsX",
-                  "name": "viewRepoIcon",
-                  "width": 16,
-                  "height": 16,
-                  "iconFontName": "external-link",
-                  "iconFontFamily": "lucide",
-                  "fill": "$text-secondary"
-                },
-                {
-                  "type": "text",
-                  "id": "mRqHn",
-                  "name": "viewRepoText",
-                  "fill": "$text-primary",
-                  "content": "View Repo",
-                  "fontFamily": "Inter",
-                  "fontSize": 14,
-                  "fontWeight": "500"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "type": "frame",
-      "id": "SReND",
-      "x": 1780,
-      "y": 3506,
-      "name": "Install Modal",
-      "width": 520,
-      "height": 560,
-      "fill": "$bg-surface",
-      "cornerRadius": "$radius-xl",
-      "stroke": {
-        "thickness": 1,
-        "fill": "$border-default"
-      },
-      "layout": "vertical",
-      "gap": 24,
-      "padding": 32,
-      "children": [
-        {
-          "type": "frame",
-          "id": "HbVqI",
-          "name": "modalHeader",
-          "width": "fill_container",
-          "justifyContent": "space_between",
-          "alignItems": "center",
-          "children": [
-            {
-              "type": "text",
-              "id": "ZUwnQ",
-              "name": "modalTitle",
-              "fill": "$text-primary",
-              "content": "Install Skill",
-              "fontFamily": "Inter",
-              "fontSize": 20,
-              "fontWeight": "700"
-            },
-            {
-              "type": "frame",
-              "id": "uFUnK",
-              "name": "modalClose",
-              "width": 32,
-              "height": 32,
-              "fill": "$bg-elevated",
-              "cornerRadius": "$radius-md",
-              "justifyContent": "center",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "icon_font",
-                  "id": "PMKKi",
-                  "name": "modalCloseIcon",
-                  "width": 16,
-                  "height": 16,
-                  "iconFontName": "x",
-                  "iconFontFamily": "lucide",
-                  "fill": "$text-secondary"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "frame",
-          "id": "N0bJi",
-          "name": "skillPreview",
-          "width": "fill_container",
-          "fill": "$bg-elevated",
-          "cornerRadius": "$radius-lg",
-          "gap": 16,
-          "padding": 16,
-          "alignItems": "center",
-          "children": [
-            {
-              "type": "frame",
-              "id": "e80pf",
-              "name": "skillIconBg",
-              "width": 48,
-              "height": 48,
-              "fill": "$accent",
-              "cornerRadius": "$radius-md",
-              "justifyContent": "center",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "icon_font",
-                  "id": "X0GKh",
-                  "name": "skillIcon",
-                  "width": 24,
-                  "height": 24,
-                  "iconFontName": "sparkles",
-                  "iconFontFamily": "lucide",
-                  "fill": "$text-inverse"
-                }
-              ]
-            },
-            {
-              "type": "frame",
-              "id": "dwIb3",
-              "name": "skillMeta",
-              "width": "fill_container",
-              "layout": "vertical",
-              "gap": 4,
-              "children": [
-                {
-                  "type": "text",
-                  "id": "eeYa0",
-                  "name": "skillMetaName",
-                  "fill": "$text-primary",
-                  "content": "vercel-react-best-practices",
-                  "fontFamily": "Inter",
-                  "fontSize": 15,
-                  "fontWeight": "600"
-                },
-                {
-                  "type": "text",
-                  "id": "aY5Ja",
-                  "name": "skillMetaRepo",
-                  "fill": "$text-muted",
-                  "content": "vercel-labs/agent-skills",
-                  "fontFamily": "JetBrains Mono",
-                  "fontSize": 12,
-                  "fontWeight": "normal"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "frame",
-          "id": "QAblz",
-          "name": "scopeSection",
-          "width": "fill_container",
-          "layout": "vertical",
-          "gap": 12,
-          "children": [
-            {
-              "type": "text",
-              "id": "ermEL",
-              "name": "scopeLabel",
-              "fill": "$text-secondary",
-              "content": "Installation Scope",
-              "fontFamily": "Inter",
-              "fontSize": 13,
-              "fontWeight": "600"
-            },
-            {
-              "type": "frame",
-              "id": "ghqHc",
-              "name": "scopeOptions",
-              "width": "fill_container",
-              "layout": "vertical",
-              "gap": 8,
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "44XPl",
-                  "name": "scopeGlobal",
-                  "width": "fill_container",
-                  "fill": "$bg-elevated",
-                  "cornerRadius": "$radius-lg",
-                  "stroke": {
-                    "thickness": 2,
-                    "fill": "$accent"
-                  },
-                  "gap": 12,
-                  "padding": 16,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "qv48e",
-                      "name": "scopeGlobalRadio",
-                      "width": 20,
-                      "height": 20,
-                      "fill": "$accent",
-                      "cornerRadius": 10,
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "ellipse",
-                          "id": "YOY0l",
-                          "name": "scopeGlobalDot",
-                          "fill": "$text-inverse",
-                          "width": 8,
-                          "height": 8
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "b2yQc",
-                      "name": "scopeGlobalInfo",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 2,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "vOVk4",
-                          "name": "scopeGlobalTitle",
-                          "fill": "$text-primary",
-                          "content": "Global",
-                          "fontFamily": "Inter",
-                          "fontSize": 14,
-                          "fontWeight": "600"
-                        },
-                        {
-                          "type": "text",
-                          "id": "4ONTy",
-                          "name": "scopeGlobalDesc",
-                          "fill": "$text-muted",
-                          "content": "Available across all projects",
-                          "fontFamily": "Inter",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "A78Yb",
-                  "name": "scopeProject",
-                  "width": "fill_container",
-                  "fill": "$bg-elevated",
-                  "cornerRadius": "$radius-lg",
-                  "stroke": {
-                    "thickness": 1,
-                    "fill": "$border-default"
-                  },
-                  "gap": 12,
-                  "padding": 16,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "7UNON",
-                      "name": "scopeProjectRadio",
-                      "width": 20,
-                      "height": 20,
-                      "cornerRadius": 10,
-                      "stroke": {
-                        "thickness": 2,
-                        "fill": "$text-muted"
-                      }
-                    },
-                    {
-                      "type": "frame",
-                      "id": "vpWxU",
-                      "name": "scopeProjectInfo",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 2,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "4VwkO",
-                          "name": "scopeProjectTitle",
-                          "fill": "$text-primary",
-                          "content": "Project",
-                          "fontFamily": "Inter",
-                          "fontSize": 14,
-                          "fontWeight": "600"
-                        },
-                        {
-                          "type": "text",
-                          "id": "z8hPp",
-                          "name": "scopeProjectDesc",
-                          "fill": "$text-muted",
-                          "content": "Committed with your project, shared with team",
-                          "fontFamily": "Inter",
-                          "fontSize": 12,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "frame",
-          "id": "CvLuv",
-          "name": "agentSelectSection",
-          "width": "fill_container",
-          "layout": "vertical",
-          "gap": 12,
-          "children": [
-            {
-              "type": "text",
-              "id": "SWUdV",
-              "name": "agentSelectLabel",
-              "fill": "$text-secondary",
-              "content": "Target Agents",
-              "fontFamily": "Inter",
-              "fontSize": 13,
-              "fontWeight": "600"
-            },
-            {
-              "type": "frame",
-              "id": "axH5K",
-              "name": "agentCheckboxes",
-              "width": "fill_container",
-              "layout": "vertical",
-              "gap": 8,
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "xlBtl",
-                  "name": "agentCheck1",
-                  "width": "fill_container",
-                  "gap": 12,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "jc6Gc",
-                      "name": "checkbox1",
-                      "width": 20,
-                      "height": 20,
-                      "fill": "$accent",
-                      "cornerRadius": "$radius-sm",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "94zdC",
-                          "name": "checkIcon1",
-                          "width": 14,
-                          "height": 14,
-                          "iconFontName": "check",
-                          "iconFontFamily": "lucide",
-                          "fill": "$text-inverse"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "text",
-                      "id": "xiFri",
-                      "name": "checkLabel1",
-                      "fill": "$text-primary",
-                      "content": "Claude Code",
-                      "fontFamily": "Inter",
-                      "fontSize": 14,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "Q3Wuj",
-                  "name": "agentCheck2",
-                  "width": "fill_container",
-                  "gap": 12,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "91xrm",
-                      "name": "checkbox2",
-                      "width": 20,
-                      "height": 20,
-                      "fill": "$accent",
-                      "cornerRadius": "$radius-sm",
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "wsqhy",
-                          "name": "checkIcon2",
-                          "width": 14,
-                          "height": 14,
-                          "iconFontName": "check",
-                          "iconFontFamily": "lucide",
-                          "fill": "$text-inverse"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "text",
-                      "id": "n8zYv",
-                      "name": "checkLabel2",
-                      "fill": "$text-primary",
-                      "content": "Cursor",
-                      "fontFamily": "Inter",
-                      "fontSize": 14,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "Oljfb",
-                  "name": "agentCheck3",
-                  "width": "fill_container",
-                  "gap": 12,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "5J7ZK",
-                      "name": "checkbox3",
-                      "width": 20,
-                      "height": 20,
-                      "cornerRadius": "$radius-sm",
-                      "stroke": {
-                        "thickness": 2,
-                        "fill": "$text-muted"
-                      }
-                    },
-                    {
-                      "type": "text",
-                      "id": "WNziJ",
-                      "name": "checkLabel3",
-                      "fill": "$text-secondary",
-                      "content": "Codex",
-                      "fontFamily": "Inter",
-                      "fontSize": 14,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "type": "frame",
-          "id": "V5Fvm",
-          "name": "modalActions",
-          "width": "fill_container",
-          "gap": 12,
-          "children": [
-            {
-              "type": "frame",
-              "id": "UM0N9",
-              "name": "cancelBtn",
-              "width": "fill_container",
-              "height": 48,
-              "fill": "$bg-elevated",
-              "cornerRadius": "$radius-lg",
-              "stroke": {
-                "thickness": 1,
-                "fill": "$border-subtle"
-              },
-              "justifyContent": "center",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "text",
-                  "id": "HQS4v",
-                  "name": "cancelText",
-                  "fill": "$text-primary",
-                  "content": "Cancel",
-                  "fontFamily": "Inter",
-                  "fontSize": 15,
-                  "fontWeight": "500"
-                }
-              ]
-            },
-            {
-              "type": "frame",
-              "id": "uJNL8",
-              "name": "confirmBtn",
-              "width": "fill_container",
-              "height": 48,
-              "fill": "$accent",
-              "cornerRadius": "$radius-lg",
-              "gap": 8,
-              "justifyContent": "center",
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "icon_font",
-                  "id": "NYJm4",
-                  "name": "confirmIcon",
-                  "width": 18,
-                  "height": 18,
-                  "iconFontName": "download",
-                  "iconFontFamily": "lucide",
-                  "fill": "$text-inverse"
-                },
-                {
-                  "type": "text",
-                  "id": "uGXVo",
-                  "name": "confirmText",
-                  "fill": "$text-inverse",
-                  "content": "Install",
-                  "fontFamily": "Inter",
-                  "fontSize": 15,
-                  "fontWeight": "600"
                 }
               ]
             }
