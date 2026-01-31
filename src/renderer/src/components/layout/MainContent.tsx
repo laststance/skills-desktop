@@ -1,20 +1,23 @@
 import { X } from 'lucide-react'
+import { useState } from 'react'
 
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { selectAgent } from '../../redux/slices/uiSlice'
+import { SkillsMarketplace } from '../marketplace'
 import { SearchBox } from '../skills/SearchBox'
 import { SkillsList } from '../skills/SkillsList'
 import { Button } from '../ui/button'
-import { ScrollArea } from '../ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 
 /**
  * Main content area (flexible width)
- * Contains search box, agent filter indicator, and skills list
+ * Contains tabs for installed skills and marketplace
  */
 export function MainContent(): React.ReactElement {
   const dispatch = useAppDispatch()
   const { selectedAgentId } = useAppSelector((state) => state.ui)
   const { items: agents } = useAppSelector((state) => state.agents)
+  const [activeTab, setActiveTab] = useState<string>('installed')
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId)
 
@@ -24,34 +27,58 @@ export function MainContent(): React.ReactElement {
 
   return (
     <main className="h-full flex flex-col overflow-hidden">
-      <div className="p-4 border-b border-border">
-        <SearchBox />
-      </div>
-
-      {/* Agent filter indicator */}
-      {selectedAgent && (
-        <div className="px-4 py-2 border-b border-border bg-primary/5 flex items-center justify-between">
-          <span className="text-sm">
-            Showing skills for{' '}
-            <strong className="text-primary">{selectedAgent.name}</strong>
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClearFilter}
-            className="h-6 px-2"
-          >
-            <X className="h-3 w-3 mr-1" />
-            Clear
-          </Button>
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="h-full flex flex-col"
+      >
+        <div className="p-4 border-b border-border">
+          <TabsList className="w-full">
+            <TabsTrigger value="installed" className="flex-1">
+              Installed
+            </TabsTrigger>
+            <TabsTrigger value="marketplace" className="flex-1">
+              Marketplace
+            </TabsTrigger>
+          </TabsList>
         </div>
-      )}
 
-      <ScrollArea className="flex-1">
-        <div className="p-4">
-          <SkillsList />
-        </div>
-      </ScrollArea>
+        <TabsContent
+          value="installed"
+          className="flex-1 m-0 data-[state=active]:flex data-[state=active]:flex-col min-h-0 overflow-hidden"
+        >
+          <div className="p-4 border-b border-border shrink-0">
+            <SearchBox />
+          </div>
+
+          {/* Agent filter indicator */}
+          {selectedAgent && (
+            <div className="px-4 py-2 border-b border-border bg-primary/5 flex items-center justify-between shrink-0">
+              <span className="text-sm">
+                Showing skills for{' '}
+                <strong className="text-primary">{selectedAgent.name}</strong>
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearFilter}
+                className="h-6 px-2"
+              >
+                <X className="h-3 w-3 mr-1" />
+                Clear
+              </Button>
+            </div>
+          )}
+
+          <div className="flex-1 min-h-0 overflow-auto p-4">
+            <SkillsList />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="marketplace" className="flex-1 m-0">
+          <SkillsMarketplace />
+        </TabsContent>
+      </Tabs>
     </main>
   )
 }

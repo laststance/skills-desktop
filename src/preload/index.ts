@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, shell } from 'electron'
 
 import type { UpdateInfo, DownloadProgress } from '../main/updater'
+import type { InstallOptions, InstallProgress } from '../shared/types'
 
 // Expose protected methods to renderer process
 contextBridge.exposeInMainWorld('electron', {
@@ -72,5 +73,23 @@ contextBridge.exposeInMainWorld('electron', {
     download: async () => ipcRenderer.invoke('update:download'),
     install: async () => ipcRenderer.invoke('update:install'),
     check: async () => ipcRenderer.invoke('update:check'),
+  },
+  // Skills CLI API (Marketplace)
+  skillsCli: {
+    search: async (query: string) =>
+      ipcRenderer.invoke('skills:cli:search', query),
+    install: async (options: InstallOptions) =>
+      ipcRenderer.invoke('skills:cli:install', options),
+    remove: async (skillName: string) =>
+      ipcRenderer.invoke('skills:cli:remove', skillName),
+    cancel: async () => ipcRenderer.invoke('skills:cli:cancel'),
+    onProgress: (callback: (progress: InstallProgress) => void) => {
+      const handler = (
+        _: Electron.IpcRendererEvent,
+        progress: InstallProgress,
+      ) => callback(progress)
+      ipcRenderer.on('skills:cli:progress', handler)
+      return () => ipcRenderer.removeListener('skills:cli:progress', handler)
+    },
   },
 })

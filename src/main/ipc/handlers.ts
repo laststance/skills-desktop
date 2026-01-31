@@ -1,6 +1,7 @@
 import { registerAgentsHandlers } from './agents'
 import { registerFilesHandlers } from './files'
 import { registerSkillsHandlers } from './skills'
+import { registerSkillsCliHandlers } from './skillsCli'
 import { registerSourceHandlers } from './source'
 import { registerUpdateHandlers } from './update'
 
@@ -10,6 +11,7 @@ import { registerUpdateHandlers } from './update'
  */
 export function registerAllHandlers(): void {
   registerSkillsHandlers()
+  registerSkillsCliHandlers()
   registerAgentsHandlers()
   registerSourceHandlers()
   registerFilesHandlers()

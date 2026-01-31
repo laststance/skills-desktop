@@ -8,6 +8,10 @@ import type {
   SkillFileContent,
   UpdateInfo,
   DownloadProgress,
+  SkillSearchResult,
+  InstallOptions,
+  CliCommandResult,
+  InstallProgress,
 } from '../../../shared/types'
 
 declare global {
@@ -48,6 +52,15 @@ declare global {
         download: () => Promise<void>
         install: () => Promise<void>
         check: () => Promise<void>
+      }
+      skillsCli: {
+        search: (query: string) => Promise<SkillSearchResult[]>
+        install: (options: InstallOptions) => Promise<CliCommandResult>
+        remove: (skillName: string) => Promise<CliCommandResult>
+        cancel: () => Promise<void>
+        onProgress: (
+          callback: (progress: InstallProgress) => void,
+        ) => () => void
       }
     }
   }

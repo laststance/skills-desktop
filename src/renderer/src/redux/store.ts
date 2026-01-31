@@ -4,6 +4,7 @@ import { setupListeners } from '@reduxjs/toolkit/query'
 
 import { listenerMiddleware } from './listener'
 import agentsReducer from './slices/agentsSlice'
+import marketplaceReducer from './slices/marketplaceSlice'
 import skillsReducer from './slices/skillsSlice'
 import themeReducer from './slices/themeSlice'
 import uiReducer from './slices/uiSlice'
@@ -15,6 +16,7 @@ const rootReducer = combineReducers({
   agents: agentsReducer,
   ui: uiReducer,
   update: updateReducer,
+  marketplace: marketplaceReducer,
 })
 
 const {

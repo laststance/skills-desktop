@@ -105,3 +105,60 @@ export type UpdateStatus =
   | 'downloading'
   | 'ready'
   | 'error'
+
+/**
+ * Skill search result from `npx skills find` command
+ */
+export interface SkillSearchResult {
+  /** Search result ranking */
+  rank: number
+  /** Skill name */
+  name: string
+  /** Repository in owner/repo format */
+  repo: string
+  /** Skills.sh URL */
+  url: string
+}
+
+/**
+ * Options for skill installation
+ */
+export interface InstallOptions {
+  /** Repository in owner/repo format */
+  repo: string
+  /** Install globally (--global flag) */
+  global: boolean
+  /** Target agents (--agent flags) */
+  agents: string[]
+  /** Specific skills to install (--skill flags) */
+  skills?: string[]
+}
+
+/**
+ * Result from CLI command execution
+ */
+export interface CliCommandResult {
+  success: boolean
+  stdout: string
+  stderr: string
+  code: number | null
+}
+
+/**
+ * Progress information during skill installation
+ */
+export interface InstallProgress {
+  phase: 'cloning' | 'installing' | 'linking' | 'complete' | 'error'
+  message: string
+  percent?: number
+}
+
+/**
+ * Marketplace operation status
+ */
+export type MarketplaceStatus =
+  | 'idle'
+  | 'searching'
+  | 'installing'
+  | 'removing'
+  | 'error'

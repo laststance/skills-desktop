@@ -62,28 +62,52 @@ export const THEME_PRESETS = {
 } as const
 
 /**
- * Agent definitions (without paths - paths computed at runtime in main process)
+ * Agent definitions synced with vercel-labs/skills CLI
+ * Source: https://github.com/vercel-labs/skills/blob/main/src/agents.ts
+ *
+ * - `id`: Internal ID used in this app (used for state, checkbox values)
+ * - `cliId`: Skills CLI agent identifier (used for --agent flag)
+ * - `name`: Display name shown in UI
+ * - `dir`: Home directory subdirectory for skills
+ *
+ * When id !== cliId, the skillsCliService maps id → cliId for CLI commands
  */
 export const AGENT_DEFINITIONS = [
-  { id: 'claude', name: 'Claude Code', dir: '.claude' },
-  { id: 'cursor', name: 'Cursor', dir: '.cursor' },
-  { id: 'codex', name: 'OpenAI Codex', dir: '.codex' },
-  { id: 'gemini', name: 'Gemini CLI', dir: '.gemini' },
-  { id: 'opencode', name: 'OpenCode', dir: '.opencode' },
-  { id: 'copilot', name: 'GitHub Copilot', dir: '.github-copilot' },
-  { id: 'cline', name: 'Cline', dir: '.cline' },
-  { id: 'roo-code', name: 'Roo Code', dir: '.roo-code' },
-  { id: 'amp', name: 'Amp', dir: '.amp' },
-  { id: 'goose', name: 'Goose', dir: '.goose' },
-  { id: 'aider', name: 'Aider', dir: '.aider' },
-  { id: 'codeium', name: 'Codeium Windsurf', dir: '.codeium' },
-  { id: 'zed', name: 'Zed', dir: '.zed' },
-  { id: 'continue', name: 'Continue', dir: '.continue' },
-  { id: 'pearai', name: 'PearAI', dir: '.pearai' },
-  { id: 'void', name: 'Void', dir: '.void' },
-  { id: 'melty', name: 'Melty', dir: '.melty' },
-  { id: 'trae', name: 'Trae', dir: '.trae' },
-  { id: 'junie', name: 'Junie', dir: '.junie' },
-  { id: 'kilo-code', name: 'Kilo Code', dir: '.kilo-code' },
-  { id: 'blackbox', name: 'Blackbox AI', dir: '.blackbox-ai' },
+  // Agents supported by skills CLI (synced from agents.ts)
+  {
+    id: 'claude-code',
+    cliId: 'claude-code',
+    name: 'Claude Code',
+    dir: '.claude',
+  },
+  { id: 'cursor', cliId: 'cursor', name: 'Cursor', dir: '.cursor' },
+  { id: 'codex', cliId: 'codex', name: 'Codex', dir: '.codex' },
+  { id: 'gemini-cli', cliId: 'gemini-cli', name: 'Gemini CLI', dir: '.gemini' },
+  { id: 'opencode', cliId: 'opencode', name: 'OpenCode', dir: '.opencode' },
+  {
+    id: 'github-copilot',
+    cliId: 'github-copilot',
+    name: 'GitHub Copilot',
+    dir: '.copilot',
+  },
+  { id: 'cline', cliId: 'cline', name: 'Cline', dir: '.cline' },
+  { id: 'roo', cliId: 'roo', name: 'Roo Code', dir: '.roo' },
+  { id: 'amp', cliId: 'amp', name: 'Amp', dir: '.config/amp' },
+  { id: 'goose', cliId: 'goose', name: 'Goose', dir: '.config/goose' },
+  {
+    id: 'windsurf',
+    cliId: 'windsurf',
+    name: 'Windsurf',
+    dir: '.codeium/windsurf',
+  },
+  { id: 'continue', cliId: 'continue', name: 'Continue', dir: '.continue' },
+  { id: 'trae', cliId: 'trae', name: 'Trae', dir: '.trae' },
+  { id: 'junie', cliId: 'junie', name: 'Junie', dir: '.junie' },
+  { id: 'kilo', cliId: 'kilo', name: 'Kilo Code', dir: '.kilocode' },
+  { id: 'openhands', cliId: 'openhands', name: 'OpenHands', dir: '.openhands' },
+  { id: 'neovate', cliId: 'neovate', name: 'Neovate', dir: '.neovate' },
+  { id: 'qoder', cliId: 'qoder', name: 'Qoder', dir: '.qoder' },
+  { id: 'zencoder', cliId: 'zencoder', name: 'Zencoder', dir: '.zencoder' },
+  { id: 'pochi', cliId: 'pochi', name: 'Pochi', dir: '.pochi' },
+  { id: 'adal', cliId: 'adal', name: 'AdaL', dir: '.adal' },
 ] as const
