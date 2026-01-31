@@ -18,7 +18,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "prepare": "husky",
-    "prettier": "prettier --ignore-unknown --write ."
+    "prettier": "prettier --ignore-unknown --write .",
+    "clean": "rm -rf dist build .vite node_modules pnpm-lock.yaml"
   },
   "dependencies": {
     "@laststance/redux-storage-middleware": "^0.2.1",
