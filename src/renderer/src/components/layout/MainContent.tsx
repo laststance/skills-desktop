@@ -7,6 +7,7 @@ import { selectAgent } from '../../redux/slices/uiSlice'
 import { SkillsMarketplace } from '../marketplace'
 import { SearchBox } from '../skills/SearchBox'
 import { SkillsList } from '../skills/SkillsList'
+import { UnlinkDialog } from '../skills/UnlinkDialog'
 import { Button } from '../ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 
@@ -112,6 +113,9 @@ export function MainContent(): React.ReactElement {
           <SkillsMarketplace />
         </TabsContent>
       </Tabs>
+
+      {/* Unlink skill from agent confirmation dialog */}
+      <UnlinkDialog />
     </main>
   )
 }

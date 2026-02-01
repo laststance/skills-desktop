@@ -21,6 +21,9 @@ export const IPC_CHANNELS = {
   SKILLS_CLI_REMOVE: 'skills:cli:remove',
   SKILLS_CLI_CANCEL: 'skills:cli:cancel',
   SKILLS_CLI_PROGRESS: 'skills:cli:progress',
+
+  // Skills management
+  SKILLS_UNLINK_FROM_AGENT: 'skills:unlinkFromAgent',
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]

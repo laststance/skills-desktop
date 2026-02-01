@@ -1,4 +1,5 @@
 import { Panel, Group, Separator } from 'react-resizable-panels'
+import { Toaster } from 'sonner'
 
 import { DetailPanel } from './components/layout/DetailPanel'
 import { MainContent } from './components/layout/MainContent'
@@ -33,6 +34,14 @@ export default function App(): React.ReactElement {
       </div>
       {/* Auto-update toast notification */}
       <UpdateToast />
+      {/* Sonner toast notifications */}
+      <Toaster
+        position="bottom-right"
+        theme="dark"
+        toastOptions={{
+          className: 'bg-slate-800 border-slate-700 text-white',
+        }}
+      />
     </TooltipProvider>
   )
 }

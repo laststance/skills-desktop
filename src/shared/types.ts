@@ -176,3 +176,20 @@ export type MarketplaceStatus =
   | 'installing'
   | 'removing'
   | 'error'
+
+/**
+ * Options for unlinking a skill from a specific agent
+ */
+export interface UnlinkFromAgentOptions {
+  skillName: string
+  agentId: string
+  linkPath: string
+}
+
+/**
+ * Result from unlinking a skill from an agent
+ */
+export interface UnlinkResult {
+  success: boolean
+  error?: string
+}

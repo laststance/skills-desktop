@@ -1,7 +1,12 @@
 import { contextBridge, ipcRenderer, shell } from 'electron'
 
 import type { UpdateInfo, DownloadProgress } from '../main/updater'
-import type { InstallOptions, InstallProgress } from '../shared/types'
+import type {
+  InstallOptions,
+  InstallProgress,
+  UnlinkFromAgentOptions,
+  UnlinkResult,
+} from '../shared/types'
 
 // Expose protected methods to renderer process
 contextBridge.exposeInMainWorld('electron', {
@@ -12,6 +17,10 @@ contextBridge.exposeInMainWorld('electron', {
   // Skills API
   skills: {
     getAll: async () => ipcRenderer.invoke('skills:getAll'),
+    unlinkFromAgent: async (
+      options: UnlinkFromAgentOptions,
+    ): Promise<UnlinkResult> =>
+      ipcRenderer.invoke('skills:unlinkFromAgent', options),
   },
   // Agents API
   agents: {

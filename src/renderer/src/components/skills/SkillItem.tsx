@@ -1,9 +1,12 @@
+import { Trash2 } from 'lucide-react'
+
 import type { Skill } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { selectSkill } from '../../redux/slices/skillsSlice'
+import { selectSkill, setSkillToUnlink } from '../../redux/slices/skillsSlice'
 import { StatusBadge } from '../status/StatusBadge'
 import { Card, CardContent } from '../ui/card'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
 interface SkillItemProps {
   skill: Skill
@@ -12,28 +15,50 @@ interface SkillItemProps {
 /**
  * Single skill card in the skills list
  * Shows 🔗 prefix for symlinked skills when an agent is selected
+ * Shows trash icon on hover for linked (non-local) skills
  */
 export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
   const dispatch = useAppDispatch()
   const { selectedSkill } = useAppSelector((state) => state.skills)
   const { selectedAgentId } = useAppSelector((state) => state.ui)
+  const { items: agents } = useAppSelector((state) => state.agents)
   const isSelected = selectedSkill?.path === skill.path
 
   const validCount = skill.symlinks.filter((s) => s.status === 'valid').length
   const brokenCount = skill.symlinks.filter((s) => s.status === 'broken').length
 
-  // Determine if this skill is symlinked (not local) for selected agent
-  const isLinked = selectedAgentId
-    ? skill.symlinks.some(
+  // Find symlink for selected agent (if any)
+  const selectedAgentSymlink = selectedAgentId
+    ? skill.symlinks.find(
         (s) =>
-          s.agentId === selectedAgentId && s.status === 'valid' && !s.isLocal,
+          s.agentId === selectedAgentId &&
+          (s.status === 'valid' || s.status === 'broken') &&
+          !s.isLocal,
       )
-    : false
+    : null
+
+  // Determine if this skill is symlinked (not local) for selected agent
+  const isLinked =
+    !!selectedAgentSymlink && selectedAgentSymlink.status === 'valid'
+
+  // Get selected agent name for tooltip
+  const selectedAgentName =
+    agents.find((a) => a.id === selectedAgentId)?.name || 'agent'
+
+  /**
+   * Handle trash icon click - open unlink confirmation dialog
+   */
+  const handleUnlinkClick = (e: React.MouseEvent): void => {
+    e.stopPropagation() // Prevent card selection
+    if (selectedAgentSymlink) {
+      dispatch(setSkillToUnlink({ skill, symlink: selectedAgentSymlink }))
+    }
+  }
 
   return (
     <Card
       className={cn(
-        'cursor-pointer transition-colors hover:border-primary/50',
+        'group cursor-pointer transition-colors hover:border-primary/50',
         isSelected && 'border-primary bg-primary/5',
       )}
       onClick={() => dispatch(selectSkill(skill))}
@@ -51,6 +76,24 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
               </p>
             )}
           </div>
+
+          {/* Trash icon - visible on hover for linked (non-local) skills */}
+          {selectedAgentSymlink && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={handleUnlinkClick}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                Remove from {selectedAgentName}
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
 
         <div className="flex items-center gap-2 mt-3">

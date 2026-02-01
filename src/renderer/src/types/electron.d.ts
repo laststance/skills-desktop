@@ -12,6 +12,8 @@ import type {
   InstallOptions,
   CliCommandResult,
   InstallProgress,
+  UnlinkFromAgentOptions,
+  UnlinkResult,
 } from '../../../shared/types'
 
 declare global {
@@ -23,6 +25,9 @@ declare global {
       skills: {
         getAll: () => Promise<Skill[]>
         getOne: (name: string) => Promise<Skill | null>
+        unlinkFromAgent: (
+          options: UnlinkFromAgentOptions,
+        ) => Promise<UnlinkResult>
       }
       agents: {
         getAll: () => Promise<Agent[]>
