@@ -1,5 +1,6 @@
 import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
+import { codeInspectorPlugin } from 'code-inspector-plugin'
 import react from '@vitejs/plugin-react'
 import tailwindcss from 'tailwindcss'
 import autoprefixer from 'autoprefixer'
@@ -32,7 +33,13 @@ export default defineConfig({
         },
       },
     },
-    plugins: [react()],
+    plugins: [
+      react(),
+      codeInspectorPlugin({
+        bundler: 'vite',
+        hotKeys: ['altKey'],
+      }),
+    ],
     css: {
       postcss: {
         plugins: [tailwindcss(), autoprefixer()],
