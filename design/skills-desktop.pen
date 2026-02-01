@@ -7495,6 +7495,220 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "hVoyc",
+      "x": 4787,
+      "y": -730,
+      "name": "Tooltip Components",
+      "width": 400,
+      "height": 300,
+      "fill": "$bg-inset",
+      "layout": "vertical",
+      "gap": 24,
+      "padding": 24,
+      "children": [
+        {
+          "type": "text",
+          "id": "Xiaq9",
+          "name": "Section Title",
+          "fill": "$text-primary",
+          "content": "Tooltip Components",
+          "fontFamily": "Inter",
+          "fontSize": 16,
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "CB4FO",
+          "name": "Tooltip/Valid",
+          "reusable": true,
+          "fill": "$bg-elevated",
+          "cornerRadius": "$radius-md",
+          "stroke": {
+            "thickness": 1,
+            "fill": "$border-subtle"
+          },
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#00000040",
+            "offset": {
+              "x": 0,
+              "y": 4
+            },
+            "blur": 12
+          },
+          "gap": 8,
+          "padding": [
+            8,
+            12
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "keXUR",
+              "name": "validIcon",
+              "width": 14,
+              "height": 14,
+              "iconFontName": "circle-check",
+              "iconFontFamily": "lucide",
+              "fill": "#22D3EE"
+            },
+            {
+              "type": "text",
+              "id": "BtAo9",
+              "name": "validText",
+              "fill": "$text-primary",
+              "content": "Linked to agent",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "500"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "W7Z1K",
+          "name": "Tooltip/Broken",
+          "reusable": true,
+          "fill": "$bg-elevated",
+          "cornerRadius": "$radius-md",
+          "stroke": {
+            "thickness": 1,
+            "fill": "$border-subtle"
+          },
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#00000040",
+            "offset": {
+              "x": 0,
+              "y": 4
+            },
+            "blur": 12
+          },
+          "gap": 8,
+          "padding": [
+            8,
+            12
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "RLFbM",
+              "name": "brokenIcon",
+              "width": 14,
+              "height": 14,
+              "iconFontName": "circle-alert",
+              "iconFontFamily": "lucide",
+              "fill": "#F59E0B"
+            },
+            {
+              "type": "text",
+              "id": "o9hwC",
+              "name": "brokenText",
+              "fill": "$text-primary",
+              "content": "Broken symlink",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "500"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "xvSrN",
+          "name": "Tooltip/Missing",
+          "reusable": true,
+          "fill": "$bg-elevated",
+          "cornerRadius": "$radius-md",
+          "stroke": {
+            "thickness": 1,
+            "fill": "$border-subtle"
+          },
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#00000040",
+            "offset": {
+              "x": 0,
+              "y": 4
+            },
+            "blur": 12
+          },
+          "gap": 8,
+          "padding": [
+            8,
+            12
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "st7j6",
+              "name": "missingIcon",
+              "width": 14,
+              "height": 14,
+              "iconFontName": "circle",
+              "iconFontFamily": "lucide",
+              "fill": "#64748B"
+            },
+            {
+              "type": "text",
+              "id": "sh6v6",
+              "name": "missingText",
+              "fill": "$text-primary",
+              "content": "Not linked",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "500"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "qrhBx",
+          "name": "Tooltip/Generic",
+          "reusable": true,
+          "fill": "$bg-elevated",
+          "cornerRadius": "$radius-sm",
+          "stroke": {
+            "thickness": 1,
+            "fill": "$border-subtle"
+          },
+          "effect": {
+            "type": "shadow",
+            "shadowType": "outer",
+            "color": "#00000040",
+            "offset": {
+              "x": 0,
+              "y": 4
+            },
+            "blur": 12
+          },
+          "padding": [
+            6,
+            10
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "tGOYs",
+              "name": "label",
+              "fill": "$text-primary",
+              "content": "Tooltip text",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "500"
+            }
+          ]
+        }
+      ]
     }
   ],
   "variables": {

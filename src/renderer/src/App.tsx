@@ -17,7 +17,7 @@ export default function App(): React.ReactElement {
   useUpdateNotification()
 
   return (
-    <TooltipProvider>
+    <TooltipProvider delayDuration={200}>
       {/* Window glow effect - subtle inner shadow for depth */}
       <div className="flex h-screen bg-background text-foreground window-glow">
         <Sidebar />
