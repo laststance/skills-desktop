@@ -1,8 +1,8 @@
 import { access, readdir, stat } from 'fs/promises'
 import { join } from 'path'
 
-import type { Skill, SourceStats } from '../../shared/types'
-import { SOURCE_DIR } from '../constants'
+import type { Skill, SourceStats, SymlinkInfo } from '../../shared/types'
+import { AGENTS, SOURCE_DIR } from '../constants'
 
 import { parseSkillMetadata } from './metadataParser'
 import { checkSkillSymlinks, countValidSymlinks } from './symlinkChecker'
@@ -22,13 +22,34 @@ async function isValidSkillDir(dirPath: string): Promise<boolean> {
 }
 
 /**
- * Scan ~/.agents/skills/ and return all installed skills
+ * Scan ~/.agents/skills/ and return all installed skills (source + local)
  * @returns Array of Skill objects with symlink info
  * @example
  * scanSkills()
  * // => [{ name: 'theme-generator', symlinkCount: 3, ... }]
  */
 export async function scanSkills(): Promise<Skill[]> {
+  // Scan source skills and local skills in parallel
+  const [sourceSkills, localSkills] = await Promise.all([
+    scanSourceSkills(),
+    scanAllLocalSkills(),
+  ])
+
+  // Merge: local skills that don't exist in source
+  const sourceNames = new Set(sourceSkills.map((s) => s.name))
+  const uniqueLocalSkills = localSkills.filter((s) => !sourceNames.has(s.name))
+
+  const allSkills = [...sourceSkills, ...uniqueLocalSkills]
+
+  // Sort by name
+  return allSkills.sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/**
+ * Scan source directory (~/.agents/skills/) for skills
+ * @returns Array of source skills
+ */
+async function scanSourceSkills(): Promise<Skill[]> {
   try {
     const entries = await readdir(SOURCE_DIR, { withFileTypes: true })
     // Filter: directories only, exclude hidden (e.g., .git, .DS_Store)
@@ -63,12 +84,70 @@ export async function scanSkills(): Promise<Skill[]> {
         }),
     )
 
-    // Sort by name
-    return skills.sort((a, b) => a.name.localeCompare(b.name))
+    return skills
   } catch {
     // Source directory doesn't exist
     return []
   }
+}
+
+/**
+ * Scan all agent directories for local skills (real folders, not symlinks)
+ * @returns Array of local skills with their agent associations
+ */
+async function scanAllLocalSkills(): Promise<Skill[]> {
+  const allLocalSkills: Skill[] = []
+  const seenSkillNames = new Set<string>()
+
+  for (const agent of AGENTS) {
+    try {
+      const entries = await readdir(agent.path, { withFileTypes: true })
+      // Get directories that are NOT symlinks and don't start with '.'
+      const localDirs = entries.filter(
+        (e) =>
+          e.isDirectory() && !e.isSymbolicLink() && !e.name.startsWith('.'),
+      )
+
+      for (const dir of localDirs) {
+        // Skip if we've already seen this skill name
+        if (seenSkillNames.has(dir.name)) continue
+
+        const skillPath = join(agent.path, dir.name)
+        const isValid = await isValidSkillDir(skillPath)
+        if (!isValid) continue
+
+        seenSkillNames.add(dir.name)
+
+        const metadata = await parseSkillMetadata(skillPath)
+
+        // Create symlink info for this local skill
+        // It only exists in this agent's directory as a local folder
+        const symlinks: SymlinkInfo[] = AGENTS.map((a) => {
+          const isThisAgent = a.id === agent.id
+          return {
+            agentId: a.id,
+            agentName: a.name,
+            status: isThisAgent ? 'valid' : ('missing' as const),
+            targetPath: '',
+            linkPath: join(a.path, dir.name),
+            isLocal: isThisAgent,
+          }
+        })
+
+        allLocalSkills.push({
+          name: metadata.name,
+          description: metadata.description,
+          path: skillPath,
+          symlinkCount: 0, // Local skills have 0 symlinks
+          symlinks,
+        })
+      }
+    } catch {
+      // Agent directory doesn't exist, skip
+    }
+  }
+
+  return allLocalSkills
 }
 
 /**

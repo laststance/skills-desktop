@@ -8,16 +8,21 @@ import { checkSymlinkStatus } from './symlinkChecker'
 
 /**
  * Scan all supported agents and check their existence
- * @returns Array of Agent objects with existence and skill count
+ * @returns Array of Agent objects with existence, skill count, and local skill count
  * @example
  * scanAgents()
- * // => [{ id: 'claude', name: 'Claude Code', exists: true, skillCount: 3 }]
+ * // => [{ id: 'claude', name: 'Claude Code', exists: true, skillCount: 3, localSkillCount: 1 }]
  */
 export async function scanAgents(): Promise<Agent[]> {
   const agents = await Promise.all(
     AGENTS.map(async (agent) => {
       const exists = await checkAgentExists(agent.path)
-      const skillCount = exists ? await countAgentSkills(agent.path) : 0
+      const [skillCount, localSkillCount] = exists
+        ? await Promise.all([
+            countAgentSkills(agent.path),
+            countLocalSkills(agent.path),
+          ])
+        : [0, 0]
 
       return {
         id: agent.id,
@@ -25,6 +30,7 @@ export async function scanAgents(): Promise<Agent[]> {
         path: agent.path,
         exists,
         skillCount,
+        localSkillCount,
       }
     }),
   )
@@ -53,7 +59,7 @@ async function checkAgentExists(agentPath: string): Promise<boolean> {
 /**
  * Count number of valid skills (symlinks with existing targets) in an agent's skills dir
  * @param agentPath - Path to agent's skills directory
- * @returns Number of valid skills (broken symlinks are excluded)
+ * @returns Number of valid symlinked skills (broken symlinks and local folders excluded)
  * @example
  * countAgentSkills('/Users/.claude/skills')
  * // => 3 (only symlinks pointing to existing targets)
@@ -73,6 +79,41 @@ async function countAgentSkills(agentPath: string): Promise<number> {
     )
 
     return validityChecks.filter(Boolean).length
+  } catch {
+    return 0
+  }
+}
+
+/**
+ * Count number of local skills (real folders with SKILL.md) in an agent's skills dir
+ * @param agentPath - Path to agent's skills directory
+ * @returns Number of valid local skills
+ * @example
+ * countLocalSkills('/Users/.claude/skills')
+ * // => 1 (folders with SKILL.md, not symlinks)
+ */
+async function countLocalSkills(agentPath: string): Promise<number> {
+  try {
+    const entries = await readdir(agentPath, { withFileTypes: true })
+    // Get directories that are NOT symlinks and don't start with '.'
+    const dirs = entries.filter(
+      (e) => e.isDirectory() && !e.isSymbolicLink() && !e.name.startsWith('.'),
+    )
+
+    // Check each has SKILL.md
+    const validChecks = await Promise.all(
+      dirs.map(async (d) => {
+        const skillMd = join(agentPath, d.name, 'SKILL.md')
+        try {
+          await access(skillMd)
+          return true
+        } catch {
+          return false
+        }
+      }),
+    )
+
+    return validChecks.filter(Boolean).length
   } catch {
     return 0
   }

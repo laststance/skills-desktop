@@ -17,7 +17,10 @@ export interface Agent {
   name: string
   path: string
   exists: boolean
+  /** Number of valid symlinked skills */
   skillCount: number
+  /** Number of local skills (real folders, not symlinks) */
+  localSkillCount: number
 }
 
 /**
@@ -29,6 +32,8 @@ export interface SymlinkInfo {
   status: SymlinkStatus
   targetPath: string
   linkPath: string
+  /** true = real folder in agent dir (local skill), false = symlink */
+  isLocal: boolean
 }
 
 /**
@@ -38,6 +43,13 @@ export interface SymlinkInfo {
  * - missing: No symlink for this agent
  */
 export type SymlinkStatus = 'valid' | 'broken' | 'missing'
+
+/**
+ * Skill type indicating source of the skill
+ * - source: Skill from ~/.agents/skills/ (symlinked to agents)
+ * - local: Skill created directly in agent's skills directory
+ */
+export type SkillType = 'source' | 'local'
 
 /**
  * Statistics for the source directory

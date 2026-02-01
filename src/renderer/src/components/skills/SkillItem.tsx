@@ -11,14 +11,24 @@ interface SkillItemProps {
 
 /**
  * Single skill card in the skills list
+ * Shows 🔗 prefix for symlinked skills when an agent is selected
  */
 export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
   const dispatch = useAppDispatch()
   const { selectedSkill } = useAppSelector((state) => state.skills)
+  const { selectedAgentId } = useAppSelector((state) => state.ui)
   const isSelected = selectedSkill?.path === skill.path
 
   const validCount = skill.symlinks.filter((s) => s.status === 'valid').length
   const brokenCount = skill.symlinks.filter((s) => s.status === 'broken').length
+
+  // Determine if this skill is symlinked (not local) for selected agent
+  const isLinked = selectedAgentId
+    ? skill.symlinks.some(
+        (s) =>
+          s.agentId === selectedAgentId && s.status === 'valid' && !s.isLocal,
+      )
+    : false
 
   return (
     <Card
@@ -31,7 +41,10 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-medium truncate">{skill.name}</h3>
+            <h3 className="font-medium truncate">
+              {isLinked && <span title="Linked skill">🔗 </span>}
+              {skill.name}
+            </h3>
             {skill.description && (
               <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
                 {skill.description}

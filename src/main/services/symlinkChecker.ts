@@ -5,12 +5,57 @@ import type { SymlinkInfo, SymlinkStatus } from '../../shared/types'
 import { AGENTS } from '../constants'
 
 /**
+ * Result from checking if a path is a symlink or local folder
+ */
+interface LinkOrLocalResult {
+  status: SymlinkStatus
+  isLocal: boolean
+}
+
+/**
+ * Check if a path is a symlink or local folder
+ * @param path - Path to check
+ * @returns
+ * - Symlink: { status: 'valid'|'broken', isLocal: false }
+ * - Local folder: { status: 'valid', isLocal: true }
+ * - Missing: { status: 'missing', isLocal: false }
+ * @example
+ * checkLinkOrLocal('/Users/.claude/skills/foo')
+ * // => { status: 'valid', isLocal: false } (symlink)
+ * // => { status: 'valid', isLocal: true } (real folder)
+ */
+async function checkLinkOrLocal(path: string): Promise<LinkOrLocalResult> {
+  try {
+    const stats = await lstat(path)
+
+    if (stats.isSymbolicLink()) {
+      // It's a symlink - check if target exists
+      const target = await readlink(path)
+      try {
+        await access(target)
+        return { status: 'valid', isLocal: false }
+      } catch {
+        return { status: 'broken', isLocal: false }
+      }
+    } else if (stats.isDirectory()) {
+      // Real folder = local skill
+      return { status: 'valid', isLocal: true }
+    }
+
+    // It's a file (not directory), treat as missing
+    return { status: 'missing', isLocal: false }
+  } catch {
+    return { status: 'missing', isLocal: false }
+  }
+}
+
+/**
  * Check symlink status for a skill across all agents
  * @param skillName - Name of the skill directory
  * @returns Array of symlink info for each agent
  * @example
  * checkSkillSymlinks('theme-generator')
- * // => [{ agentId: 'claude', status: 'valid', ... }, ...]
+ * // => [{ agentId: 'claude', status: 'valid', isLocal: false, ... }, ...]
  */
 export async function checkSkillSymlinks(
   skillName: string,
@@ -18,10 +63,10 @@ export async function checkSkillSymlinks(
   const results = await Promise.all(
     AGENTS.map(async (agent) => {
       const linkPath = join(agent.path, skillName)
-      const status = await checkSymlinkStatus(linkPath)
+      const { status, isLocal } = await checkLinkOrLocal(linkPath)
 
       let targetPath = ''
-      if (status !== 'missing') {
+      if (status !== 'missing' && !isLocal) {
         try {
           targetPath = await readlink(linkPath)
         } catch {
@@ -35,6 +80,7 @@ export async function checkSkillSymlinks(
         status,
         targetPath,
         linkPath,
+        isLocal,
       }
     }),
   )
