@@ -29,15 +29,19 @@ export function MainContent(): React.ReactElement {
   }
 
   /**
-   * Handle tab change with feature flag check
-   * When marketplace UI is disabled, open skill.sh in browser instead
+   * Handle tab change - only for internal tabs.
+   * Marketplace external link is handled separately to avoid Radix state issues.
    */
   const handleTabChange = (value: string): void => {
-    if (value === 'marketplace' && !FEATURE_FLAGS.ENABLE_MARKETPLACE_UI) {
-      window.electron.shell.openExternal(SKILLS_SH_URL)
-      return
-    }
     setActiveTab(value)
+  }
+
+  /**
+   * Open skills.sh in external browser.
+   * Separate from tab state to prevent navigation loop on app refocus.
+   */
+  const handleOpenMarketplace = (): void => {
+    window.electron.shell.openExternal(SKILLS_SH_URL)
   }
 
   return (
@@ -52,12 +56,20 @@ export function MainContent(): React.ReactElement {
             <TabsTrigger value="installed" className="flex-1">
               Installed
             </TabsTrigger>
-            <TabsTrigger value="marketplace" className="flex-1 gap-1.5">
-              Marketplace
-              {!FEATURE_FLAGS.ENABLE_MARKETPLACE_UI && (
+            {FEATURE_FLAGS.ENABLE_MARKETPLACE_UI ? (
+              <TabsTrigger value="marketplace" className="flex-1">
+                Marketplace
+              </TabsTrigger>
+            ) : (
+              <button
+                type="button"
+                onClick={handleOpenMarketplace}
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 flex-1 gap-1.5 text-muted-foreground hover:text-foreground"
+              >
+                Marketplace
                 <ExternalLink className="h-3 w-3" />
-              )}
-            </TabsTrigger>
+              </button>
+            )}
           </TabsList>
         </div>
 
