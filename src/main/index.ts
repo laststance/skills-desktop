@@ -92,11 +92,6 @@ function createMenu(): void {
 }
 
 app.whenReady().then(() => {
-  // Windows only: set app user model ID
-  if (process.platform === 'win32') {
-    app.setAppUserModelId('io.laststance.skills-desktop')
-  }
-
   // Register IPC handlers before creating window
   registerAllHandlers()
 
@@ -114,7 +109,5 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  // macOS: Keep app running when all windows are closed (standard behavior)
 })
