@@ -84,6 +84,7 @@ Agent definitions are synced with [vercel-labs/skills CLI](https://github.com/ve
 - [x] List all installed skills with metadata
 - [x] Show symlink status per skill per agent
 - [x] Validate symlink integrity (valid/broken/missing)
+- [x] Local skills support with visual distinction
 
 ### Skills Marketplace
 
@@ -102,6 +103,37 @@ GUI wrapper for `npx skills` CLI commands:
 | Valid   | `✓`    | Cyan (#22D3EE)  | Symlink exists and points to valid target |
 | Broken  | `◐`    | Amber (#F59E0B) | Symlink exists but target is missing      |
 | Missing | `○`    | Gray (#475569)  | No symlink for this agent                 |
+
+### Local Skills Support
+
+Skills can exist in two forms:
+
+| Type   | Location                        | Indicator | Description                          |
+| ------ | ------------------------------- | --------- | ------------------------------------ |
+| Linked | `~/.agents/skills/` (symlinked) | 🔗        | Skill from central source, symlinked |
+| Local  | Agent's own skills dir          | (none)    | Skill created directly in agent dir  |
+
+**Visual Distinction:**
+
+- Agent sidebar shows counts: "3 linked, 1 local"
+- Skill list shows 🔗 prefix for symlinked skills (when agent selected)
+- Local skills appear without link indicator
+
+**Implementation:**
+
+```typescript
+// SymlinkInfo now includes isLocal flag
+interface SymlinkInfo {
+  // ... existing fields
+  isLocal: boolean // true = real folder, false = symlink
+}
+
+// Agent tracks both counts
+interface Agent {
+  skillCount: number // symlinked skills
+  localSkillCount: number // local skills (real folders)
+}
+```
 
 ### Skill Metadata
 
@@ -347,6 +379,7 @@ interface Agent {
   path: string
   exists: boolean
   skillCount: number
+  localSkillCount: number
 }
 
 interface SymlinkInfo {
@@ -355,6 +388,7 @@ interface SymlinkInfo {
   status: SymlinkStatus
   targetPath: string
   linkPath: string
+  isLocal: boolean
 }
 
 type SymlinkStatus = 'valid' | 'broken' | 'missing'
