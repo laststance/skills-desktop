@@ -552,10 +552,10 @@
                       "name": "Button/Primary",
                       "reusable": true,
                       "fill": "$accent",
-                      "cornerRadius": "$radius-lg",
+                      "cornerRadius": 6,
                       "gap": 8,
                       "padding": [
-                        10,
+                        8,
                         16
                       ],
                       "alignItems": "center",
@@ -577,7 +577,7 @@
                           "fill": "$text-inverse",
                           "content": "Primary",
                           "fontFamily": "JetBrains Mono",
-                          "fontSize": 12,
+                          "fontSize": 14,
                           "fontWeight": "500"
                         }
                       ]
@@ -588,7 +588,7 @@
                       "name": "Button/Secondary",
                       "reusable": true,
                       "fill": "$bg-surface",
-                      "cornerRadius": "$radius-lg",
+                      "cornerRadius": 6,
                       "stroke": {
                         "align": "inside",
                         "thickness": 1,
@@ -596,7 +596,7 @@
                       },
                       "gap": 8,
                       "padding": [
-                        10,
+                        8,
                         16
                       ],
                       "alignItems": "center",
@@ -618,7 +618,7 @@
                           "fill": "$text-secondary",
                           "content": "Secondary",
                           "fontFamily": "JetBrains Mono",
-                          "fontSize": 12,
+                          "fontSize": 14,
                           "fontWeight": "500"
                         }
                       ]
@@ -628,10 +628,10 @@
                       "id": "Wf0iu",
                       "name": "Button/Ghost",
                       "reusable": true,
-                      "cornerRadius": "$radius-lg",
+                      "cornerRadius": 6,
                       "gap": 8,
                       "padding": [
-                        10,
+                        8,
                         16
                       ],
                       "alignItems": "center",
@@ -653,7 +653,7 @@
                           "fill": "$accent",
                           "content": "Ghost",
                           "fontFamily": "JetBrains Mono",
-                          "fontSize": 12,
+                          "fontSize": 14,
                           "fontWeight": "500"
                         }
                       ]
@@ -692,7 +692,7 @@
                       "id": "TYKzY",
                       "name": "Status/Valid",
                       "reusable": true,
-                      "gap": 8,
+                      "gap": 4,
                       "alignItems": "center",
                       "children": [
                         {
@@ -722,7 +722,7 @@
                       "id": "ppepr",
                       "name": "Status/Broken",
                       "reusable": true,
-                      "gap": 8,
+                      "gap": 4,
                       "alignItems": "center",
                       "children": [
                         {
@@ -752,7 +752,7 @@
                       "id": "Xajmm",
                       "name": "Status/Missing",
                       "reusable": true,
-                      "gap": 8,
+                      "gap": 4,
                       "alignItems": "center",
                       "children": [
                         {
@@ -817,12 +817,9 @@
                       "reusable": true,
                       "width": "fill_container",
                       "fill": "$accent",
-                      "cornerRadius": "$radius-lg",
+                      "cornerRadius": 12,
                       "gap": 12,
-                      "padding": [
-                        12,
-                        16
-                      ],
+                      "padding": 16,
                       "alignItems": "center",
                       "children": [
                         {
@@ -885,12 +882,9 @@
                       "reusable": true,
                       "width": "fill_container",
                       "fill": "$bg-inset",
-                      "cornerRadius": "$radius-lg",
+                      "cornerRadius": 12,
                       "gap": 12,
-                      "padding": [
-                        12,
-                        16
-                      ],
+                      "padding": 16,
                       "alignItems": "center",
                       "children": [
                         {
@@ -980,7 +974,7 @@
                       "reusable": true,
                       "width": 160,
                       "fill": "$bg-surface",
-                      "cornerRadius": "$radius-xl",
+                      "cornerRadius": 12,
                       "layout": "vertical",
                       "gap": 8,
                       "padding": 20,
@@ -1015,7 +1009,7 @@
                       "reusable": true,
                       "width": 360,
                       "fill": "$bg-surface",
-                      "cornerRadius": "$radius-xl",
+                      "cornerRadius": 12,
                       "layout": "vertical",
                       "gap": 16,
                       "padding": 24,
@@ -1146,7 +1140,12 @@
                       },
                       "layout": "vertical",
                       "gap": 8,
-                      "padding": 24,
+                      "padding": [
+                        32,
+                        16,
+                        16,
+                        16
+                      ],
                       "children": [
                         {
                           "type": "frame",
@@ -1204,7 +1203,7 @@
                       },
                       "layout": "vertical",
                       "gap": 8,
-                      "padding": 16,
+                      "padding": 12,
                       "children": [
                         {
                           "type": "text",
@@ -1281,7 +1280,7 @@
                       "reusable": true,
                       "width": "fill_container",
                       "layout": "vertical",
-                      "gap": 8,
+                      "gap": 12,
                       "padding": 16,
                       "children": [
                         {
@@ -1316,8 +1315,8 @@
                               "cornerRadius": "$radius-md",
                               "gap": 12,
                               "padding": [
-                                10,
-                                14
+                                6,
+                                8
                               ],
                               "alignItems": "center",
                               "children": [
@@ -1365,8 +1364,8 @@
                               "cornerRadius": "$radius-md",
                               "gap": 12,
                               "padding": [
-                                10,
-                                14
+                                6,
+                                8
                               ],
                               "alignItems": "center",
                               "children": [
@@ -1454,7 +1453,7 @@
           "name": "Search/Box",
           "reusable": true,
           "width": 400,
-          "height": 44,
+          "height": 40,
           "fill": "#0F172A",
           "cornerRadius": 8,
           "gap": 12,
@@ -1490,7 +1489,7 @@
           "width": 720,
           "height": 72,
           "fill": "#1E293B",
-          "cornerRadius": 8,
+          "cornerRadius": 12,
           "gap": 16,
           "padding": 16,
           "children": [
@@ -1561,7 +1560,7 @@
           "width": 720,
           "height": 72,
           "fill": "#1E293B",
-          "cornerRadius": 8,
+          "cornerRadius": 12,
           "gap": 16,
           "padding": 16,
           "children": [
@@ -1634,7 +1633,10 @@
           "fill": "#0F172A",
           "cornerRadius": 6,
           "gap": 12,
-          "padding": 12,
+          "padding": [
+            8,
+            12
+          ],
           "children": [
             {
               "type": "text",
@@ -1678,7 +1680,10 @@
           "fill": "#0F172A",
           "cornerRadius": 6,
           "gap": 12,
-          "padding": 12,
+          "padding": [
+            8,
+            12
+          ],
           "children": [
             {
               "type": "text",
@@ -1722,7 +1727,10 @@
           "fill": "#0F172A",
           "cornerRadius": 6,
           "gap": 12,
-          "padding": 12,
+          "padding": [
+            8,
+            12
+          ],
           "children": [
             {
               "type": "text",
@@ -1762,7 +1770,7 @@
           "name": "ThemeSelector/Collapsed",
           "reusable": true,
           "width": 160,
-          "height": 36,
+          "height": 32,
           "fill": "#1E293B",
           "cornerRadius": 8,
           "gap": 8,
@@ -1807,7 +1815,7 @@
           "id": "SvC6J",
           "name": "ThemeSelector/Dropdown",
           "reusable": true,
-          "width": 200,
+          "width": 256,
           "fill": "#1E293B",
           "cornerRadius": 8,
           "effect": {
@@ -2143,7 +2151,7 @@
           "name": "Tab/Active",
           "reusable": true,
           "fill": "$bg-surface",
-          "cornerRadius": "$radius-md",
+          "cornerRadius": 6,
           "padding": [
             8,
             16
@@ -2166,7 +2174,7 @@
           "id": "yTEM8",
           "name": "Tab/Default",
           "reusable": true,
-          "cornerRadius": "$radius-md",
+          "cornerRadius": 6,
           "padding": [
             8,
             16
@@ -2192,7 +2200,7 @@
           "width": 32,
           "height": 32,
           "fill": "$bg-elevated",
-          "cornerRadius": "$radius-md",
+          "cornerRadius": 6,
           "justifyContent": "center",
           "alignItems": "center",
           "children": [
@@ -2244,7 +2252,7 @@
           "name": "Button/Danger",
           "reusable": true,
           "fill": "$bg-elevated",
-          "cornerRadius": "$radius-md",
+          "cornerRadius": 6,
           "stroke": {
             "thickness": 1,
             "fill": "$status-error"
@@ -2284,7 +2292,7 @@
           "name": "Button/DangerFilled",
           "reusable": true,
           "fill": "$status-error",
-          "cornerRadius": "$radius-md",
+          "cornerRadius": 6,
           "gap": 6,
           "padding": [
             8,
@@ -2320,7 +2328,7 @@
           "name": "Badge/Installed",
           "reusable": true,
           "fill": "#22D3EE1A",
-          "cornerRadius": "$radius-sm",
+          "cornerRadius": 4,
           "gap": 4,
           "padding": [
             4,
@@ -2356,7 +2364,7 @@
           "name": "AgentTag",
           "reusable": true,
           "fill": "$bg-elevated",
-          "cornerRadius": "$radius-md",
+          "cornerRadius": 6,
           "padding": [
             6,
             12
@@ -2380,7 +2388,7 @@
           "name": "AgentTag/More",
           "reusable": true,
           "fill": "$bg-inset",
-          "cornerRadius": "$radius-md",
+          "cornerRadius": 6,
           "padding": [
             6,
             12
@@ -2406,7 +2414,7 @@
           "width": 400,
           "height": 44,
           "fill": "$bg-inset",
-          "cornerRadius": "$radius-md",
+          "cornerRadius": 6,
           "padding": [
             0,
             16
@@ -2454,8 +2462,8 @@
           "id": "mYmn1",
           "name": "Radio/Selected",
           "reusable": true,
-          "width": 20,
-          "height": 20,
+          "width": 16,
+          "height": 16,
           "fill": "$accent",
           "cornerRadius": 10,
           "justifyContent": "center",
@@ -2476,8 +2484,8 @@
           "id": "begMd",
           "name": "Radio/Default",
           "reusable": true,
-          "width": 20,
-          "height": 20,
+          "width": 16,
+          "height": 16,
           "cornerRadius": 10,
           "stroke": {
             "thickness": 2,
@@ -2489,10 +2497,10 @@
           "id": "ONal8",
           "name": "Checkbox/Checked",
           "reusable": true,
-          "width": 20,
-          "height": 20,
+          "width": 16,
+          "height": 16,
           "fill": "$accent",
-          "cornerRadius": "$radius-sm",
+          "cornerRadius": 2,
           "justifyContent": "center",
           "alignItems": "center",
           "children": [
@@ -2513,9 +2521,9 @@
           "id": "GtxdA",
           "name": "Checkbox/Unchecked",
           "reusable": true,
-          "width": 20,
-          "height": 20,
-          "cornerRadius": "$radius-sm",
+          "width": 16,
+          "height": 16,
+          "cornerRadius": 2,
           "stroke": {
             "thickness": 2,
             "fill": "$text-muted"
@@ -2528,7 +2536,7 @@
           "reusable": true,
           "width": 400,
           "fill": "$bg-elevated",
-          "cornerRadius": "$radius-lg",
+          "cornerRadius": 8,
           "stroke": {
             "thickness": 2,
             "fill": "$accent"
@@ -2582,7 +2590,7 @@
           "reusable": true,
           "width": 400,
           "fill": "$bg-elevated",
-          "cornerRadius": "$radius-lg",
+          "cornerRadius": 8,
           "stroke": {
             "thickness": 1,
             "fill": "$border-default"
@@ -2691,7 +2699,7 @@
           "width": 720,
           "height": 72,
           "fill": "$bg-surface",
-          "cornerRadius": "$radius-lg",
+          "cornerRadius": 8,
           "stroke": {
             "thickness": 1,
             "fill": "$border-default"
@@ -2758,7 +2766,7 @@
           "width": 720,
           "height": 72,
           "fill": "$bg-surface",
-          "cornerRadius": "$radius-lg",
+          "cornerRadius": 8,
           "stroke": {
             "thickness": 1,
             "fill": "$accent"
@@ -2823,6 +2831,7 @@
           "name": "Modal/Header",
           "reusable": true,
           "width": 450,
+          "gap": 8,
           "justifyContent": "space_between",
           "alignItems": "center",
           "children": [
@@ -2868,7 +2877,7 @@
           "reusable": true,
           "width": 450,
           "fill": "$bg-elevated",
-          "cornerRadius": "$radius-lg",
+          "cornerRadius": 8,
           "gap": 16,
           "padding": 16,
           "alignItems": "center",
@@ -2978,7 +2987,7 @@
           "width": 480,
           "height": 720,
           "fill": "$bg-surface",
-          "cornerRadius": "$radius-xl",
+          "cornerRadius": 12,
           "stroke": {
             "thickness": 1,
             "fill": "$border-default"
@@ -3442,7 +3451,7 @@
           "width": 520,
           "height": 560,
           "fill": "$bg-surface",
-          "cornerRadius": "$radius-xl",
+          "cornerRadius": 12,
           "stroke": {
             "thickness": 1,
             "fill": "$border-default"
@@ -4895,7 +4904,7 @@
           "reusable": true,
           "width": "fill_container",
           "fill": "$bg-surface",
-          "cornerRadius": "$radius-lg",
+          "cornerRadius": 8,
           "stroke": {
             "thickness": 1,
             "fill": "$border-default"
@@ -5047,7 +5056,7 @@
           "reusable": true,
           "width": "fill_container",
           "fill": "$bg-surface",
-          "cornerRadius": "$radius-lg",
+          "cornerRadius": 8,
           "stroke": {
             "thickness": 1,
             "fill": "$border-default"
@@ -5183,7 +5192,7 @@
           "reusable": true,
           "width": "fill_container",
           "fill": "$bg-surface",
-          "cornerRadius": "$radius-lg",
+          "cornerRadius": 8,
           "stroke": {
             "thickness": 1,
             "fill": "$border-default"
@@ -5335,7 +5344,7 @@
           "reusable": true,
           "width": "fill_container",
           "fill": "$bg-surface",
-          "cornerRadius": "$radius-lg",
+          "cornerRadius": 8,
           "stroke": {
             "thickness": 1,
             "fill": "$border-default"
@@ -7525,7 +7534,7 @@
           "name": "Tooltip/Valid",
           "reusable": true,
           "fill": "$bg-elevated",
-          "cornerRadius": "$radius-md",
+          "cornerRadius": 6,
           "stroke": {
             "thickness": 1,
             "fill": "$border-subtle"
@@ -7575,7 +7584,7 @@
           "name": "Tooltip/Broken",
           "reusable": true,
           "fill": "$bg-elevated",
-          "cornerRadius": "$radius-md",
+          "cornerRadius": 6,
           "stroke": {
             "thickness": 1,
             "fill": "$border-subtle"
@@ -7625,7 +7634,7 @@
           "name": "Tooltip/Missing",
           "reusable": true,
           "fill": "$bg-elevated",
-          "cornerRadius": "$radius-md",
+          "cornerRadius": 6,
           "stroke": {
             "thickness": 1,
             "fill": "$border-subtle"
@@ -7675,7 +7684,7 @@
           "name": "Tooltip/Generic",
           "reusable": true,
           "fill": "$bg-elevated",
-          "cornerRadius": "$radius-sm",
+          "cornerRadius": 6,
           "stroke": {
             "thickness": 1,
             "fill": "$border-subtle"
