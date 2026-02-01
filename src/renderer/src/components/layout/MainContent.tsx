@@ -1,6 +1,7 @@
-import { X } from 'lucide-react'
+import { ExternalLink, X } from 'lucide-react'
 import { useState } from 'react'
 
+import { FEATURE_FLAGS } from '../../../../shared/featureFlags'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { selectAgent } from '../../redux/slices/uiSlice'
 import { SkillsMarketplace } from '../marketplace'
@@ -8,6 +9,8 @@ import { SearchBox } from '../skills/SearchBox'
 import { SkillsList } from '../skills/SkillsList'
 import { Button } from '../ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
+
+const SKILLS_SH_URL = 'https://skills.sh'
 
 /**
  * Main content area (flexible width)
@@ -25,11 +28,23 @@ export function MainContent(): React.ReactElement {
     dispatch(selectAgent(null))
   }
 
+  /**
+   * Handle tab change with feature flag check
+   * When marketplace UI is disabled, open skill.sh in browser instead
+   */
+  const handleTabChange = (value: string): void => {
+    if (value === 'marketplace' && !FEATURE_FLAGS.ENABLE_MARKETPLACE_UI) {
+      window.electron.shell.openExternal(SKILLS_SH_URL)
+      return
+    }
+    setActiveTab(value)
+  }
+
   return (
     <main className="h-full flex flex-col overflow-hidden">
       <Tabs
         value={activeTab}
-        onValueChange={setActiveTab}
+        onValueChange={handleTabChange}
         className="h-full flex flex-col"
       >
         <div className="p-4 border-b border-border">
@@ -37,8 +52,11 @@ export function MainContent(): React.ReactElement {
             <TabsTrigger value="installed" className="flex-1">
               Installed
             </TabsTrigger>
-            <TabsTrigger value="marketplace" className="flex-1">
+            <TabsTrigger value="marketplace" className="flex-1 gap-1.5">
               Marketplace
+              {!FEATURE_FLAGS.ENABLE_MARKETPLACE_UI && (
+                <ExternalLink className="h-3 w-3" />
+              )}
             </TabsTrigger>
           </TabsList>
         </div>
