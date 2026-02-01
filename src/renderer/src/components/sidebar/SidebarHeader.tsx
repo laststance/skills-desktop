@@ -11,7 +11,7 @@ export function SidebarHeader(): React.ReactElement {
           <h1 className="font-mono text-lg font-semibold text-primary">
             Skills Desktop
           </h1>
-          <p className="text-xs text-muted-foreground">v0.1.0</p>
+          <p className="text-xs text-muted-foreground">v{__APP_VERSION__}</p>
         </div>
         <ThemeSelector />
       </div>

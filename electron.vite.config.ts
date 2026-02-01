@@ -4,6 +4,7 @@ import { codeInspectorPlugin } from 'code-inspector-plugin'
 import react from '@vitejs/plugin-react'
 import tailwindcss from 'tailwindcss'
 import autoprefixer from 'autoprefixer'
+import pkg from './package.json'
 
 export default defineConfig({
   main: {
@@ -26,6 +27,9 @@ export default defineConfig({
   },
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
+    define: {
+      __APP_VERSION__: JSON.stringify(pkg.version),
+    },
     build: {
       rollupOptions: {
         input: {
