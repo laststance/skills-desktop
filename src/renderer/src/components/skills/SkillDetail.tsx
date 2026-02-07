@@ -73,7 +73,7 @@ export function SkillDetail({ skill }: SkillDetailProps): React.ReactElement {
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0">
         {activeTab === 'code' ? (
           <CodePreview skillPath={skill.path} />
         ) : (

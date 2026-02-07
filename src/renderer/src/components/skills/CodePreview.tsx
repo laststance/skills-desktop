@@ -67,18 +67,22 @@ export function CodePreview({
       </div>
 
       {/* Code content */}
-      <div className="flex-1 overflow-auto bg-[#0d1117] rounded-b-md">
+      <div className="flex-1 overflow-auto bg-[#0d1117] rounded-b-md pb-4">
         {content && (
           <div className={`code-${lang}`}>
-            <table className="w-full text-xs font-mono">
+            <table className="w-full text-base font-mono leading-relaxed">
               <tbody>
-                {content.content.split('\n').map((line, idx) => (
+                {content.content.split('\n').map((line, idx, lines) => (
                   <tr key={idx} className="hover:bg-white/5">
-                    <td className="w-10 px-2 py-0.5 text-right text-slate-500 select-none border-r border-slate-700/50">
+                    <td className="w-12 px-2 py-0.5 text-right text-slate-500 select-none border-r border-slate-700/50">
                       {idx + 1}
                     </td>
                     <td className="px-3 py-0.5 whitespace-pre text-slate-300">
-                      <CodeLine line={line} lang={lang} />
+                      <CodeLine
+                        line={line}
+                        lang={lang}
+                        isDescriptionBody={isYamlDescriptionBody(lines, idx)}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -91,13 +95,47 @@ export function CodePreview({
   )
 }
 
+/**
+ * Detects if a line is a YAML description body (indented continuation after `description:`)
+ * @param lines - All lines in the file
+ * @param idx - Current line index
+ * @returns true if this line is an indented continuation of the description field
+ */
+function isYamlDescriptionBody(lines: string[], idx: number): boolean {
+  const line = lines[idx]
+  // Must be indented with whitespace (continuation line)
+  if (!/^\s{2,}/.test(line)) return false
+  // If it looks like a YAML sub-key (indented key: value), it's not description text
+  if (/^\s+\w[\w-]*\s*:/.test(line)) return false
+
+  // Walk backwards to find the parent key
+  for (let i = idx - 1; i >= 0; i--) {
+    const prev = lines[i]
+    // Skip other indented continuation lines
+    if (/^\s{2,}/.test(prev) && !/^\s+\w[\w-]*\s*:/.test(prev)) continue
+    // Found a non-continuation line — check if it's `description:`
+    return /^description:/.test(prev)
+  }
+  return false
+}
+
 interface CodeLineProps {
   line: string
   lang: string
+  isDescriptionBody?: boolean
 }
 
 /** Simple syntax highlighting for code lines */
-function CodeLine({ line, lang }: CodeLineProps): React.ReactElement {
+function CodeLine({
+  line,
+  lang,
+  isDescriptionBody,
+}: CodeLineProps): React.ReactElement {
+  // Description body gets emerald highlight for readability
+  if (isDescriptionBody) {
+    return <span className="text-emerald-300">{line}</span>
+  }
+
   // Markdown highlighting
   if (lang === 'markdown') {
     // Headers
