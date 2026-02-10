@@ -12,6 +12,8 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "build:mac": "electron-vite build && electron-builder --mac",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -62,7 +64,8 @@
     "sharp": "^0.34.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "vitest": "^4.0.18"
   },
   "lint-staged": {
     "*": "prettier --ignore-unknown --write"
