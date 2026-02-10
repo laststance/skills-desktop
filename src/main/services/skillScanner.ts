@@ -96,8 +96,7 @@ async function scanSourceSkills(): Promise<Skill[]> {
  * @returns Array of local skills with their agent associations
  */
 async function scanAllLocalSkills(): Promise<Skill[]> {
-  const allLocalSkills: Skill[] = []
-  const seenSkillNames = new Set<string>()
+  const localSkillsByName = new Map<string, Skill>()
 
   for (const agent of AGENTS) {
     try {
@@ -109,32 +108,39 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
       )
 
       for (const dir of localDirs) {
-        // Skip if we've already seen this skill name
-        if (seenSkillNames.has(dir.name)) continue
-
         const skillPath = join(agent.path, dir.name)
         const isValid = await isValidSkillDir(skillPath)
         if (!isValid) continue
 
-        seenSkillNames.add(dir.name)
-
         const metadata = await parseSkillMetadata(skillPath)
+        const existing = localSkillsByName.get(metadata.name)
 
-        // Create symlink info for this local skill
-        // It only exists in this agent's directory as a local folder
-        const symlinks: SymlinkInfo[] = AGENTS.map((a) => {
-          const isThisAgent = a.id === agent.id
-          return {
-            agentId: a.id,
-            agentName: a.name,
-            status: isThisAgent ? 'valid' : ('missing' as const),
-            targetPath: '',
-            linkPath: join(a.path, dir.name),
-            isLocal: isThisAgent,
+        if (existing) {
+          const symlinkIndex = existing.symlinks.findIndex(
+            (s) => s.agentId === agent.id,
+          )
+          if (symlinkIndex >= 0) {
+            existing.symlinks[symlinkIndex] = {
+              ...existing.symlinks[symlinkIndex],
+              status: 'valid',
+              linkPath: join(agent.path, dir.name),
+              isLocal: true,
+            }
           }
-        })
+          continue
+        }
 
-        allLocalSkills.push({
+        // Initialize local skill with agent-specific status map.
+        const symlinks: SymlinkInfo[] = AGENTS.map((a) => ({
+          agentId: a.id,
+          agentName: a.name,
+          status: a.id === agent.id ? 'valid' : ('missing' as const),
+          targetPath: '',
+          linkPath: join(a.path, dir.name),
+          isLocal: a.id === agent.id,
+        }))
+
+        localSkillsByName.set(metadata.name, {
           name: metadata.name,
           description: metadata.description,
           path: skillPath,
@@ -147,7 +153,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
     }
   }
 
-  return allLocalSkills
+  return Array.from(localSkillsByName.values())
 }
 
 /**
