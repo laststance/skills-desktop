@@ -111,3 +111,15 @@ export const AGENT_DEFINITIONS = [
   { id: 'pochi', cliId: 'pochi', name: 'Pochi', dir: '.pochi' },
   { id: 'adal', cliId: 'adal', name: 'AdaL', dir: '.adal' },
 ] as const
+
+/**
+ * Agent IDs used in app state and IPC.
+ * Derived from AGENT_DEFINITIONS to stay in sync with skills CLI.
+ */
+export type AgentId = (typeof AGENT_DEFINITIONS)[number]['id']
+
+/**
+ * Agent display names shown in UI.
+ * Derived from AGENT_DEFINITIONS to avoid manual union maintenance.
+ */
+export type AgentName = (typeof AGENT_DEFINITIONS)[number]['name']

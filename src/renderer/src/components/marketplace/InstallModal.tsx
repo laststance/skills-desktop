@@ -1,7 +1,7 @@
 import { Loader2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
-import type { InstallOptions } from '../../../../shared/types'
+import type { AgentId, InstallOptions } from '../../../../shared/types'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import {
   selectSkillForInstall,
@@ -30,7 +30,7 @@ export function InstallModal(): React.ReactElement {
   const { items: agents } = useAppSelector((state) => state.agents)
 
   // Default to Claude Code selected
-  const [selectedAgents, setSelectedAgents] = useState<string[]>([
+  const [selectedAgents, setSelectedAgents] = useState<AgentId[]>([
     'claude-code',
   ])
   const [isGlobal] = useState(true) // Always install globally for now
@@ -45,7 +45,7 @@ export function InstallModal(): React.ReactElement {
     }
   }
 
-  const handleAgentToggle = (agentId: string): void => {
+  const handleAgentToggle = (agentId: AgentId): void => {
     setSelectedAgents((prev) =>
       prev.includes(agentId)
         ? prev.filter((id) => id !== agentId)

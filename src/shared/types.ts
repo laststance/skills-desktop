@@ -1,3 +1,6 @@
+import type { AgentId, AgentName } from './constants'
+export type { AgentId, AgentName } from './constants'
+
 /**
  * Skill entity representing an installed skill
  */
@@ -13,8 +16,8 @@ export interface Skill {
  * AI agent that can use skills
  */
 export interface Agent {
-  id: string
-  name: string
+  id: AgentId
+  name: AgentName
   path: string
   exists: boolean
   /** Number of valid symlinked skills */
@@ -27,8 +30,8 @@ export interface Agent {
  * Information about a symlink between skill and agent
  */
 export interface SymlinkInfo {
-  agentId: string
-  agentName: string
+  agentId: AgentId
+  agentName: AgentName
   status: SymlinkStatus
   targetPath: string
   linkPath: string
@@ -143,7 +146,7 @@ export interface InstallOptions {
   /** Install globally (--global flag) */
   global: boolean
   /** Target agents (--agent flags) */
-  agents: string[]
+  agents: AgentId[]
   /** Specific skills to install (--skill flags) */
   skills?: string[]
 }
@@ -182,7 +185,7 @@ export type MarketplaceStatus =
  */
 export interface UnlinkFromAgentOptions {
   skillName: string
-  agentId: string
+  agentId: AgentId
   linkPath: string
 }
 
