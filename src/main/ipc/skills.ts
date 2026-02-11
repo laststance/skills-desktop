@@ -58,9 +58,9 @@ export function registerSkillsHandlers(): void {
   )
 
   /**
-   * Remove all symlinks from a specific agent's skills directory
+   * Delete a specific agent's entire skills folder
    * @param options - agentId, agentPath
-   * @returns RemoveAllFromAgentResult with removed count
+   * @returns RemoveAllFromAgentResult with item count removed
    */
   ipcMain.handle(
     IPC_CHANNELS.SKILLS_REMOVE_ALL_FROM_AGENT,
@@ -71,21 +71,17 @@ export function registerSkillsHandlers(): void {
       const { agentPath } = options
 
       try {
-        const entries = await fs.readdir(agentPath, { withFileTypes: true })
+        // Count entries before deletion for reporting
         let removedCount = 0
-
-        for (const entry of entries) {
-          const entryPath = join(agentPath, entry.name)
-          try {
-            const stats = await fs.lstat(entryPath)
-            if (stats.isSymbolicLink()) {
-              await fs.unlink(entryPath)
-              removedCount++
-            }
-          } catch {
-            // Skip entries that can't be checked
-          }
+        try {
+          const entries = await fs.readdir(agentPath)
+          removedCount = entries.length
+        } catch {
+          // Directory may not exist or be unreadable
         }
+
+        // Delete the entire agent skills directory
+        await fs.rm(agentPath, { recursive: true, force: true })
 
         return { success: true, removedCount }
       } catch (error) {

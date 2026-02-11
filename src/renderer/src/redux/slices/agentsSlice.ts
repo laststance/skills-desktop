@@ -8,9 +8,9 @@ interface AgentsState {
   selectedAgent: Agent | null
   loading: boolean
   error: string | null
-  /** Agent pending bulk symlink removal confirmation */
+  /** Agent pending skills folder deletion confirmation */
   agentToDelete: Agent | null
-  /** Whether bulk deletion is in progress */
+  /** Whether folder deletion is in progress */
   deleting: boolean
 }
 
@@ -32,9 +32,9 @@ export const fetchAgents = createAsyncThunk('agents/fetchAll', async () => {
 })
 
 /**
- * Remove all symlinks from a specific agent
- * @param agent - Agent to remove all symlinks from
- * @returns Agent name and removed count for toast notification
+ * Delete a specific agent's entire skills folder
+ * @param agent - Agent whose skills folder will be deleted
+ * @returns Agent name and removed item count for toast notification
  */
 export const removeAllSymlinksFromAgent = createAsyncThunk(
   'agents/removeAllSymlinks',
@@ -44,7 +44,7 @@ export const removeAllSymlinksFromAgent = createAsyncThunk(
       agentPath: agent.path,
     })
     if (!result.success) {
-      throw new Error(result.error || 'Failed to remove symlinks')
+      throw new Error(result.error || 'Failed to delete skills folder')
     }
     return { agentName: agent.name, removedCount: result.removedCount }
   },

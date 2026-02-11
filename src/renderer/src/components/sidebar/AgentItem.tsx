@@ -55,7 +55,7 @@ export function AgentItem({ agent }: AgentItemProps): React.ReactElement {
 
   const handleContextMenu = (e: React.MouseEvent): void => {
     e.preventDefault()
-    if (!agent.exists || agent.skillCount === 0) return
+    if (!agent.exists) return
     setContextOpen(true)
   }
 
@@ -69,7 +69,12 @@ export function AgentItem({ agent }: AgentItemProps): React.ReactElement {
     : null
 
   return (
-    <DropdownMenu open={contextOpen} onOpenChange={setContextOpen}>
+    <DropdownMenu
+      open={contextOpen}
+      onOpenChange={(open) => {
+        if (!open) setContextOpen(false)
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <div
           className={cn(
@@ -94,7 +99,7 @@ export function AgentItem({ agent }: AgentItemProps): React.ReactElement {
           className="text-destructive focus:text-destructive"
         >
           <Trash2 className="h-4 w-4 mr-2" />
-          Remove all symlinks
+          Delete skills folder
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

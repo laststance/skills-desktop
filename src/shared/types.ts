@@ -198,7 +198,7 @@ export interface UnlinkResult {
 }
 
 /**
- * Options for removing all symlinks from a specific agent
+ * Options for deleting a specific agent's entire skills folder
  * @example
  * { agentId: 'claude-code', agentPath: '/Users/x/.claude/skills' }
  */
@@ -208,12 +208,13 @@ export interface RemoveAllFromAgentOptions {
 }
 
 /**
- * Result from removing all symlinks from an agent
+ * Result from deleting an agent's skills folder
  * @example
  * { success: true, removedCount: 5 }
  */
 export interface RemoveAllFromAgentResult {
   success: boolean
+  /** Number of items that were in the folder before deletion */
   removedCount: number
   error?: string
 }
