@@ -2,8 +2,17 @@ import { contextBridge, ipcRenderer, shell } from 'electron'
 
 import type { UpdateInfo, DownloadProgress } from '../main/updater'
 import type {
+  CreateSymlinksOptions,
+  CreateSymlinksResult,
+  DeleteSkillOptions,
+  DeleteSkillResult,
   InstallOptions,
   InstallProgress,
+  RemoveAllFromAgentOptions,
+  RemoveAllFromAgentResult,
+  SyncExecuteOptions,
+  SyncExecuteResult,
+  SyncPreviewResult,
   UnlinkFromAgentOptions,
   UnlinkResult,
 } from '../shared/types'
@@ -21,6 +30,18 @@ contextBridge.exposeInMainWorld('electron', {
       options: UnlinkFromAgentOptions,
     ): Promise<UnlinkResult> =>
       ipcRenderer.invoke('skills:unlinkFromAgent', options),
+    removeAllFromAgent: async (
+      options: RemoveAllFromAgentOptions,
+    ): Promise<RemoveAllFromAgentResult> =>
+      ipcRenderer.invoke('skills:removeAllFromAgent', options),
+    deleteSkill: async (
+      options: DeleteSkillOptions,
+    ): Promise<DeleteSkillResult> =>
+      ipcRenderer.invoke('skills:deleteSkill', options),
+    createSymlinks: async (
+      options: CreateSymlinksOptions,
+    ): Promise<CreateSymlinksResult> =>
+      ipcRenderer.invoke('skills:createSymlinks', options),
   },
   // Agents API
   agents: {
@@ -100,5 +121,12 @@ contextBridge.exposeInMainWorld('electron', {
       ipcRenderer.on('skills:cli:progress', handler)
       return () => ipcRenderer.removeListener('skills:cli:progress', handler)
     },
+  },
+  // Sync API
+  sync: {
+    preview: async (): Promise<SyncPreviewResult> =>
+      ipcRenderer.invoke('sync:preview'),
+    execute: async (options: SyncExecuteOptions): Promise<SyncExecuteResult> =>
+      ipcRenderer.invoke('sync:execute', options),
   },
 })

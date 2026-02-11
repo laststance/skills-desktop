@@ -24,6 +24,13 @@ export const IPC_CHANNELS = {
 
   // Skills management
   SKILLS_UNLINK_FROM_AGENT: 'skills:unlinkFromAgent',
+  SKILLS_REMOVE_ALL_FROM_AGENT: 'skills:removeAllFromAgent',
+  SKILLS_DELETE: 'skills:deleteSkill',
+  SKILLS_CREATE_SYMLINKS: 'skills:createSymlinks',
+
+  // Sync
+  SYNC_PREVIEW: 'sync:preview',
+  SYNC_EXECUTE: 'sync:execute',
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]

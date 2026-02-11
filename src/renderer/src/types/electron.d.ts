@@ -14,6 +14,15 @@ import type {
   InstallProgress,
   UnlinkFromAgentOptions,
   UnlinkResult,
+  RemoveAllFromAgentOptions,
+  RemoveAllFromAgentResult,
+  DeleteSkillOptions,
+  DeleteSkillResult,
+  CreateSymlinksOptions,
+  CreateSymlinksResult,
+  SyncPreviewResult,
+  SyncExecuteOptions,
+  SyncExecuteResult,
 } from '../../../shared/types'
 
 declare global {
@@ -28,6 +37,13 @@ declare global {
         unlinkFromAgent: (
           options: UnlinkFromAgentOptions,
         ) => Promise<UnlinkResult>
+        removeAllFromAgent: (
+          options: RemoveAllFromAgentOptions,
+        ) => Promise<RemoveAllFromAgentResult>
+        deleteSkill: (options: DeleteSkillOptions) => Promise<DeleteSkillResult>
+        createSymlinks: (
+          options: CreateSymlinksOptions,
+        ) => Promise<CreateSymlinksResult>
       }
       agents: {
         getAll: () => Promise<Agent[]>
@@ -66,6 +82,10 @@ declare global {
         onProgress: (
           callback: (progress: InstallProgress) => void,
         ) => () => void
+      }
+      sync: {
+        preview: () => Promise<SyncPreviewResult>
+        execute: (options: SyncExecuteOptions) => Promise<SyncExecuteResult>
       }
     }
   }

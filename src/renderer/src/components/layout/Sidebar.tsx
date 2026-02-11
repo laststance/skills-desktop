@@ -1,3 +1,4 @@
+import { AgentDeleteDialog } from '../sidebar/AgentDeleteDialog'
 import { AgentsSection } from '../sidebar/AgentsSection'
 import { SidebarFooter } from '../sidebar/SidebarFooter'
 import { SidebarHeader } from '../sidebar/SidebarHeader'
@@ -22,6 +23,7 @@ export function Sidebar(): React.ReactElement {
         </div>
       </ScrollArea>
       <SidebarFooter />
+      <AgentDeleteDialog />
     </aside>
   )
 }

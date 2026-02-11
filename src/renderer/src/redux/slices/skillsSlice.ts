@@ -1,7 +1,7 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 
-import type { Skill, SymlinkInfo } from '../../../../shared/types'
+import type { AgentId, Skill, SymlinkInfo } from '../../../../shared/types'
 
 interface SkillsState {
   items: Skill[]
@@ -12,6 +12,14 @@ interface SkillsState {
   skillToUnlink: { skill: Skill; symlink: SymlinkInfo } | null
   /** Whether unlinking is in progress */
   unlinking: boolean
+  /** Skill pending delete confirmation */
+  skillToDelete: Skill | null
+  /** Whether deletion is in progress */
+  deleting: boolean
+  /** Skill to add symlinks for (opens AddSymlinkModal) */
+  skillToAddSymlinks: Skill | null
+  /** Whether symlink creation is in progress */
+  addingSymlinks: boolean
 }
 
 const initialState: SkillsState = {
@@ -21,6 +29,10 @@ const initialState: SkillsState = {
   error: null,
   skillToUnlink: null,
   unlinking: false,
+  skillToDelete: null,
+  deleting: false,
+  skillToAddSymlinks: null,
+  addingSymlinks: false,
 }
 
 /**
@@ -53,6 +65,53 @@ export const unlinkSkillFromAgent = createAsyncThunk(
   },
 )
 
+/**
+ * Delete a skill entirely: source dir + all agent symlinks/copies
+ * @param skill - Skill to delete
+ * @returns Skill name and symlinks removed count
+ */
+export const deleteSkill = createAsyncThunk(
+  'skills/deleteSkill',
+  async (skill: Skill) => {
+    const result = await window.electron.skills.deleteSkill({
+      skillName: skill.name,
+      skillPath: skill.path,
+    })
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to delete skill')
+    }
+    return {
+      skillName: skill.name,
+      symlinksRemoved: result.symlinksRemoved,
+    }
+  },
+)
+
+/**
+ * Create symlinks for a skill to multiple agents
+ * @param params - skill and target agent IDs
+ * @returns Created count and failures
+ */
+export const createSymlinks = createAsyncThunk(
+  'skills/createSymlinks',
+  async (params: { skill: Skill; agentIds: AgentId[] }) => {
+    const { skill, agentIds } = params
+    const result = await window.electron.skills.createSymlinks({
+      skillName: skill.name,
+      skillPath: skill.path,
+      agentIds,
+    })
+    if (!result.success && result.created === 0) {
+      throw new Error('Failed to create any symlinks')
+    }
+    return {
+      skillName: skill.name,
+      created: result.created,
+      failures: result.failures,
+    }
+  },
+)
+
 const skillsSlice = createSlice({
   name: 'skills',
   initialState,
@@ -65,6 +124,12 @@ const skillsSlice = createSlice({
       action: PayloadAction<{ skill: Skill; symlink: SymlinkInfo } | null>,
     ) => {
       state.skillToUnlink = action.payload
+    },
+    setSkillToDelete: (state, action: PayloadAction<Skill | null>) => {
+      state.skillToDelete = action.payload
+    },
+    setSkillToAddSymlinks: (state, action: PayloadAction<Skill | null>) => {
+      state.skillToAddSymlinks = action.payload
     },
   },
   extraReducers: (builder) => {
@@ -87,7 +152,6 @@ const skillsSlice = createSlice({
       })
       .addCase(unlinkSkillFromAgent.fulfilled, (state, action) => {
         state.unlinking = false
-        // Clear selected skill if it was the one being unlinked
         if (state.selectedSkill?.name === action.payload.skillName) {
           state.selectedSkill = null
         }
@@ -96,8 +160,38 @@ const skillsSlice = createSlice({
       .addCase(unlinkSkillFromAgent.rejected, (state) => {
         state.unlinking = false
       })
+      // Delete skill
+      .addCase(deleteSkill.pending, (state) => {
+        state.deleting = true
+      })
+      .addCase(deleteSkill.fulfilled, (state, action) => {
+        state.deleting = false
+        if (state.selectedSkill?.name === action.payload.skillName) {
+          state.selectedSkill = null
+        }
+        state.skillToDelete = null
+      })
+      .addCase(deleteSkill.rejected, (state) => {
+        state.deleting = false
+      })
+      // Create symlinks
+      .addCase(createSymlinks.pending, (state) => {
+        state.addingSymlinks = true
+      })
+      .addCase(createSymlinks.fulfilled, (state) => {
+        state.addingSymlinks = false
+        state.skillToAddSymlinks = null
+      })
+      .addCase(createSymlinks.rejected, (state) => {
+        state.addingSymlinks = false
+      })
   },
 })
 
-export const { selectSkill, setSkillToUnlink } = skillsSlice.actions
+export const {
+  selectSkill,
+  setSkillToUnlink,
+  setSkillToDelete,
+  setSkillToAddSymlinks,
+} = skillsSlice.actions
 export default skillsSlice.reducer
