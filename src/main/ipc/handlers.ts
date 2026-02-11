@@ -3,6 +3,7 @@ import { registerFilesHandlers } from './files'
 import { registerSkillsHandlers } from './skills'
 import { registerSkillsCliHandlers } from './skillsCli'
 import { registerSourceHandlers } from './source'
+import { registerSyncHandlers } from './sync'
 import { registerUpdateHandlers } from './update'
 
 /**
@@ -16,4 +17,5 @@ export function registerAllHandlers(): void {
   registerSourceHandlers()
   registerFilesHandlers()
   registerUpdateHandlers()
+  registerSyncHandlers()
 }

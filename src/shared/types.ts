@@ -196,3 +196,111 @@ export interface UnlinkResult {
   success: boolean
   error?: string
 }
+
+/**
+ * Options for removing all symlinks from a specific agent
+ * @example
+ * { agentId: 'claude-code', agentPath: '/Users/x/.claude/skills' }
+ */
+export interface RemoveAllFromAgentOptions {
+  agentId: AgentId
+  agentPath: string
+}
+
+/**
+ * Result from removing all symlinks from an agent
+ * @example
+ * { success: true, removedCount: 5 }
+ */
+export interface RemoveAllFromAgentResult {
+  success: boolean
+  removedCount: number
+  error?: string
+}
+
+/**
+ * Options for deleting a skill entirely (source dir + all agent symlinks)
+ * @example
+ * { skillName: 'theme-generator', skillPath: '/Users/x/.agents/skills/theme-generator' }
+ */
+export interface DeleteSkillOptions {
+  skillName: string
+  skillPath: string
+}
+
+/**
+ * Result from deleting a skill
+ * @example
+ * { success: true, symlinksRemoved: 3 }
+ */
+export interface DeleteSkillResult {
+  success: boolean
+  symlinksRemoved: number
+  error?: string
+}
+
+/**
+ * Options for creating symlinks for a skill to multiple agents
+ * @example
+ * { skillName: 'theme-generator', skillPath: '/...', agentIds: ['claude-code', 'cursor'] }
+ */
+export interface CreateSymlinksOptions {
+  skillName: string
+  skillPath: string
+  agentIds: AgentId[]
+}
+
+/**
+ * Result from creating symlinks
+ * @example
+ * { success: true, created: 2, failures: [] }
+ */
+export interface CreateSymlinksResult {
+  success: boolean
+  created: number
+  failures: Array<{ agentId: AgentId; error: string }>
+}
+
+/**
+ * A conflict found during sync preview (local folder exists where symlink would go)
+ */
+export interface SyncConflict {
+  skillName: string
+  agentId: AgentId
+  agentName: AgentName
+  agentSkillPath: string
+}
+
+/**
+ * Result from sync preview (dry run)
+ * @example
+ * { totalSkills: 5, totalAgents: 3, toCreate: 10, alreadySynced: 5, conflicts: [] }
+ */
+export interface SyncPreviewResult {
+  totalSkills: number
+  totalAgents: number
+  toCreate: number
+  alreadySynced: number
+  conflicts: SyncConflict[]
+}
+
+/**
+ * Options for executing sync with conflict resolution choices
+ * @example
+ * { replaceConflicts: ['/Users/x/.claude/skills/my-skill'] }
+ */
+export interface SyncExecuteOptions {
+  replaceConflicts: string[]
+}
+
+/**
+ * Result from executing sync
+ * @example
+ * { success: true, created: 10, replaced: 2, errors: [] }
+ */
+export interface SyncExecuteResult {
+  success: boolean
+  created: number
+  replaced: number
+  errors: Array<{ path: string; error: string }>
+}

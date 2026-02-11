@@ -5,6 +5,9 @@ import { FEATURE_FLAGS } from '../../../../shared/featureFlags'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { selectAgent } from '../../redux/slices/uiSlice'
 import { SkillsMarketplace } from '../marketplace'
+import { SyncConflictDialog } from '../sidebar/SyncConflictDialog'
+import { AddSymlinkModal } from '../skills/AddSymlinkModal'
+import { DeleteSkillDialog } from '../skills/DeleteSkillDialog'
 import { SearchBox } from '../skills/SearchBox'
 import { SkillsList } from '../skills/SkillsList'
 import { UnlinkDialog } from '../skills/UnlinkDialog'
@@ -114,8 +117,11 @@ export function MainContent(): React.ReactElement {
         </TabsContent>
       </Tabs>
 
-      {/* Unlink skill from agent confirmation dialog */}
+      {/* Dialogs */}
       <UnlinkDialog />
+      <DeleteSkillDialog />
+      <AddSymlinkModal />
+      <SyncConflictDialog />
     </main>
   )
 }
