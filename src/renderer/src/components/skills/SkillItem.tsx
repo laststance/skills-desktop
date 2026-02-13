@@ -14,6 +14,8 @@ import { Button } from '../ui/button'
 import { Card, CardContent } from '../ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
+import { getSkillItemVisibility } from './skillItemHelpers'
+
 interface SkillItemProps {
   skill: Skill
 }
@@ -32,19 +34,13 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
   const validCount = skill.symlinks.filter((s) => s.status === 'valid').length
   const brokenCount = skill.symlinks.filter((s) => s.status === 'broken').length
 
-  // Find symlink for selected agent (if any)
-  const selectedAgentSymlink = selectedAgentId
-    ? skill.symlinks.find(
-        (s) =>
-          s.agentId === selectedAgentId &&
-          (s.status === 'valid' || s.status === 'broken') &&
-          !s.isLocal,
-      )
-    : null
-
-  // Determine if this skill is symlinked (not local) for selected agent
-  const isLinked =
-    !!selectedAgentSymlink && selectedAgentSymlink.status === 'valid'
+  const {
+    showDeleteButton,
+    showAddButton,
+    showUnlinkButton,
+    isLinked,
+    selectedAgentSymlink,
+  } = getSkillItemVisibility(selectedAgentId, skill.symlinks)
 
   // Get selected agent name for tooltip
   const selectedAgentName =
@@ -75,19 +71,21 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
       )}
       onClick={() => dispatch(selectSkill(skill))}
     >
-      {/* X button - always visible at top-right corner */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={handleDeleteClick}
-            className="absolute top-2 right-2 p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="left">Delete skill</TooltipContent>
-      </Tooltip>
+      {/* X button - visible only when no agent is selected (global view) */}
+      {showDeleteButton && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={handleDeleteClick}
+              className="absolute top-2 right-2 p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left">Delete skill</TooltipContent>
+        </Tooltip>
+      )}
 
       <CardContent className="p-4 pr-8">
         <div className="flex items-start justify-between gap-2">
@@ -96,7 +94,7 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
               {isLinked && <span title="Linked skill">🔗 </span>}
               <span className="truncate">{skill.name}</span>
               {/* Add button - only when viewing all skills (no agent filter) */}
-              {!selectedAgentId && (
+              {showAddButton && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -116,7 +114,7 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
           </div>
 
           {/* Trash icon - visible on hover for linked (non-local) skills */}
-          {selectedAgentSymlink && (
+          {showUnlinkButton && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
