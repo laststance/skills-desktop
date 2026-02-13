@@ -128,19 +128,19 @@ export function SourceCard(): React.ReactElement {
             />
           </Button>
         </div>
-        <p
-          className="text-sm font-medium truncate cursor-pointer hover:text-primary transition-colors"
+        <div
+          className="cursor-pointer hover:text-primary transition-colors"
           onClick={handlePathClick}
           title="Click to clear filters and show all skills"
         >
-          ~/.agents/skills
-        </p>
-        {sourceStats && (
-          <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-            <span>{sourceStats.skillCount} skills</span>
-            <span>{sourceStats.totalSize}</span>
-          </div>
-        )}
+          <p className="text-sm font-medium truncate">~/.agents/skills</p>
+          {sourceStats && (
+            <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+              <span>{sourceStats.skillCount} skills</span>
+              <span>{sourceStats.totalSize}</span>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   )
