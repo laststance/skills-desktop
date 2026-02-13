@@ -91,13 +91,9 @@ const uiSlice = createSlice({
       })
       .addCase(fetchSyncPreview.fulfilled, (state, action) => {
         state.syncPreview = action.payload
-        // If no conflicts and nothing to create, stop syncing
-        if (
-          action.payload.toCreate === 0 &&
-          action.payload.conflicts.length === 0
-        ) {
-          state.isSyncing = false
-        }
+        // Preview phase complete — stop syncing so UI buttons are enabled.
+        // executeSyncAction handles its own loading state via isExecuting (component-local).
+        state.isSyncing = false
       })
       .addCase(fetchSyncPreview.rejected, (state) => {
         state.isSyncing = false
