@@ -1,6 +1,7 @@
-import { ipcMain } from 'electron'
-
+import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import { downloadUpdate, installUpdate, checkForUpdates } from '../updater'
+
+import { typedHandle } from './typedHandle'
 
 /**
  * Register IPC handlers for auto-update functionality
@@ -8,17 +9,17 @@ import { downloadUpdate, installUpdate, checkForUpdates } from '../updater'
  */
 export function registerUpdateHandlers(): void {
   // Trigger update download
-  ipcMain.handle('update:download', () => {
+  typedHandle(IPC_CHANNELS.UPDATE_DOWNLOAD, () => {
     downloadUpdate()
   })
 
   // Install downloaded update and restart
-  ipcMain.handle('update:install', () => {
+  typedHandle(IPC_CHANNELS.UPDATE_INSTALL, () => {
     installUpdate()
   })
 
   // Manually check for updates
-  ipcMain.handle('update:check', async () => {
+  typedHandle(IPC_CHANNELS.UPDATE_CHECK, async () => {
     await checkForUpdates()
   })
 }
