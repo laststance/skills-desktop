@@ -78,9 +78,9 @@ export function AgentItem({ agent }: AgentItemProps): React.ReactElement {
       <DropdownMenuTrigger asChild>
         <div
           className={cn(
-            'flex items-center justify-between py-1.5 px-2 rounded-md transition-colors',
+            'flex items-center justify-between py-1.5 px-2 rounded-md transition-colors border-l-4 border-l-transparent',
             agent.exists && 'cursor-pointer hover:bg-muted/50',
-            isSelected && 'bg-primary/10 border border-primary/30',
+            isSelected && 'border-l-primary bg-primary/10',
           )}
           onClick={handleClick}
           onContextMenu={handleContextMenu}

@@ -2,6 +2,7 @@ import { Folder, Loader2, RefreshCw, FolderSync } from 'lucide-react'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
 
+import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { fetchAgents } from '../../redux/slices/agentsSlice'
 import { fetchSkills } from '../../redux/slices/skillsSlice'
@@ -21,9 +22,9 @@ import { Card, CardContent } from '../ui/card'
  */
 export function SourceCard(): React.ReactElement {
   const dispatch = useAppDispatch()
-  const { sourceStats, isRefreshing, isSyncing } = useAppSelector(
-    (state) => state.ui,
-  )
+  const { sourceStats, isRefreshing, isSyncing, selectedAgentId } =
+    useAppSelector((state) => state.ui)
+  const isActive = selectedAgentId === null
 
   useEffect(() => {
     dispatch(fetchSourceStats())
@@ -90,7 +91,12 @@ export function SourceCard(): React.ReactElement {
   }
 
   return (
-    <Card className="bg-card/50">
+    <Card
+      className={cn(
+        'bg-card/50 border-l-4 border-l-transparent transition-colors',
+        isActive && 'border-l-primary bg-primary/5',
+      )}
+    >
       <CardContent className="p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
