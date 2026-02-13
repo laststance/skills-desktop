@@ -31,6 +31,17 @@ export const IPC_CHANNELS = {
   // Sync
   SYNC_PREVIEW: 'sync:preview',
   SYNC_EXECUTE: 'sync:execute',
+
+  // Update
+  UPDATE_DOWNLOAD: 'update:download',
+  UPDATE_INSTALL: 'update:install',
+  UPDATE_CHECK: 'update:check',
+  UPDATE_CHECKING: 'update:checking',
+  UPDATE_AVAILABLE: 'update:available',
+  UPDATE_NOT_AVAILABLE: 'update:not-available',
+  UPDATE_PROGRESS: 'update:progress',
+  UPDATE_DOWNLOADED: 'update:downloaded',
+  UPDATE_ERROR: 'update:error',
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]

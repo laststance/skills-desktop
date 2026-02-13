@@ -1,20 +1,8 @@
 import { BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
 
-/**
- * Update event types sent to renderer via IPC
- */
-export interface UpdateInfo {
-  version: string
-  releaseNotes?: string
-}
-
-export interface DownloadProgress {
-  percent: number
-  bytesPerSecond: number
-  total: number
-  transferred: number
-}
+import { IPC_CHANNELS } from '../shared/ipc-channels'
+import type { DownloadProgress, UpdateInfo } from '../shared/types'
 
 /**
  * Send update event to all renderer windows
@@ -39,12 +27,12 @@ export function initAutoUpdater(): void {
 
   autoUpdater.on('checking-for-update', () => {
     console.log('Checking for updates...')
-    sendUpdateEvent('update:checking')
+    sendUpdateEvent(IPC_CHANNELS.UPDATE_CHECKING)
   })
 
   autoUpdater.on('update-available', (info) => {
     console.log('Update available:', info.version)
-    sendUpdateEvent('update:available', {
+    sendUpdateEvent(IPC_CHANNELS.UPDATE_AVAILABLE, {
       version: info.version,
       releaseNotes:
         typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,
@@ -53,17 +41,17 @@ export function initAutoUpdater(): void {
 
   autoUpdater.on('update-not-available', () => {
     console.log('No updates available')
-    sendUpdateEvent('update:not-available')
+    sendUpdateEvent(IPC_CHANNELS.UPDATE_NOT_AVAILABLE)
   })
 
   autoUpdater.on('error', (err) => {
     console.error('Auto updater error:', err)
-    sendUpdateEvent('update:error', { message: err.message })
+    sendUpdateEvent(IPC_CHANNELS.UPDATE_ERROR, { message: err.message })
   })
 
   autoUpdater.on('download-progress', (progress) => {
     console.log(`Download progress: ${progress.percent.toFixed(1)}%`)
-    sendUpdateEvent('update:progress', {
+    sendUpdateEvent(IPC_CHANNELS.UPDATE_PROGRESS, {
       percent: progress.percent,
       bytesPerSecond: progress.bytesPerSecond,
       total: progress.total,
@@ -73,7 +61,7 @@ export function initAutoUpdater(): void {
 
   autoUpdater.on('update-downloaded', (info) => {
     console.log('Update downloaded:', info.version)
-    sendUpdateEvent('update:downloaded', {
+    sendUpdateEvent(IPC_CHANNELS.UPDATE_DOWNLOADED, {
       version: info.version,
       releaseNotes:
         typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,

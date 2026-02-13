@@ -1,21 +1,13 @@
 import { contextBridge, ipcRenderer, shell } from 'electron'
 
-import type { UpdateInfo, DownloadProgress } from '../main/updater'
+import { IPC_CHANNELS } from '../shared/ipc-channels'
 import type {
-  CreateSymlinksOptions,
-  CreateSymlinksResult,
-  DeleteSkillOptions,
-  DeleteSkillResult,
-  InstallOptions,
+  DownloadProgress,
   InstallProgress,
-  RemoveAllFromAgentOptions,
-  RemoveAllFromAgentResult,
-  SyncExecuteOptions,
-  SyncExecuteResult,
-  SyncPreviewResult,
-  UnlinkFromAgentOptions,
-  UnlinkResult,
+  UpdateInfo,
 } from '../shared/types'
+
+import { typedInvoke } from './typedInvoke'
 
 // Expose protected methods to renderer process
 contextBridge.exposeInMainWorld('electron', {
@@ -25,108 +17,109 @@ contextBridge.exposeInMainWorld('electron', {
   },
   // Skills API
   skills: {
-    getAll: async () => ipcRenderer.invoke('skills:getAll'),
+    getAll: async () => typedInvoke('skills:getAll'),
     unlinkFromAgent: async (
-      options: UnlinkFromAgentOptions,
-    ): Promise<UnlinkResult> =>
-      ipcRenderer.invoke('skills:unlinkFromAgent', options),
+      options: Parameters<typeof typedInvoke<'skills:unlinkFromAgent'>>[1],
+    ) => typedInvoke('skills:unlinkFromAgent', options),
     removeAllFromAgent: async (
-      options: RemoveAllFromAgentOptions,
-    ): Promise<RemoveAllFromAgentResult> =>
-      ipcRenderer.invoke('skills:removeAllFromAgent', options),
+      options: Parameters<typeof typedInvoke<'skills:removeAllFromAgent'>>[1],
+    ) => typedInvoke('skills:removeAllFromAgent', options),
     deleteSkill: async (
-      options: DeleteSkillOptions,
-    ): Promise<DeleteSkillResult> =>
-      ipcRenderer.invoke('skills:deleteSkill', options),
+      options: Parameters<typeof typedInvoke<'skills:deleteSkill'>>[1],
+    ) => typedInvoke('skills:deleteSkill', options),
     createSymlinks: async (
-      options: CreateSymlinksOptions,
-    ): Promise<CreateSymlinksResult> =>
-      ipcRenderer.invoke('skills:createSymlinks', options),
+      options: Parameters<typeof typedInvoke<'skills:createSymlinks'>>[1],
+    ) => typedInvoke('skills:createSymlinks', options),
   },
   // Agents API
   agents: {
-    getAll: async () => ipcRenderer.invoke('agents:getAll'),
+    getAll: async () => typedInvoke('agents:getAll'),
   },
   // Source API
   source: {
-    getStats: async () => ipcRenderer.invoke('source:getStats'),
+    getStats: async () => typedInvoke('source:getStats'),
   },
   // Files API
   files: {
-    list: async (skillPath: string) =>
-      ipcRenderer.invoke('files:list', skillPath),
-    read: async (filePath: string) =>
-      ipcRenderer.invoke('files:read', filePath),
+    list: async (skillPath: string) => typedInvoke('files:list', skillPath),
+    read: async (filePath: string) => typedInvoke('files:read', filePath),
   },
   // Update API
   update: {
     // Event listeners
     onChecking: (callback: () => void) => {
       const handler = () => callback()
-      ipcRenderer.on('update:checking', handler)
-      return () => ipcRenderer.removeListener('update:checking', handler)
+      ipcRenderer.on(IPC_CHANNELS.UPDATE_CHECKING, handler)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_CHECKING, handler)
     },
     onAvailable: (callback: (info: UpdateInfo) => void) => {
       const handler = (_: Electron.IpcRendererEvent, info: UpdateInfo) =>
         callback(info)
-      ipcRenderer.on('update:available', handler)
-      return () => ipcRenderer.removeListener('update:available', handler)
+      ipcRenderer.on(IPC_CHANNELS.UPDATE_AVAILABLE, handler)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_AVAILABLE, handler)
     },
     onNotAvailable: (callback: () => void) => {
       const handler = () => callback()
-      ipcRenderer.on('update:not-available', handler)
-      return () => ipcRenderer.removeListener('update:not-available', handler)
+      ipcRenderer.on(IPC_CHANNELS.UPDATE_NOT_AVAILABLE, handler)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_NOT_AVAILABLE, handler)
     },
     onProgress: (callback: (progress: DownloadProgress) => void) => {
       const handler = (
         _: Electron.IpcRendererEvent,
         progress: DownloadProgress,
       ) => callback(progress)
-      ipcRenderer.on('update:progress', handler)
-      return () => ipcRenderer.removeListener('update:progress', handler)
+      ipcRenderer.on(IPC_CHANNELS.UPDATE_PROGRESS, handler)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_PROGRESS, handler)
     },
     onDownloaded: (callback: (info: UpdateInfo) => void) => {
       const handler = (_: Electron.IpcRendererEvent, info: UpdateInfo) =>
         callback(info)
-      ipcRenderer.on('update:downloaded', handler)
-      return () => ipcRenderer.removeListener('update:downloaded', handler)
+      ipcRenderer.on(IPC_CHANNELS.UPDATE_DOWNLOADED, handler)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_DOWNLOADED, handler)
     },
     onError: (callback: (error: { message: string }) => void) => {
       const handler = (
         _: Electron.IpcRendererEvent,
         error: { message: string },
       ) => callback(error)
-      ipcRenderer.on('update:error', handler)
-      return () => ipcRenderer.removeListener('update:error', handler)
+      ipcRenderer.on(IPC_CHANNELS.UPDATE_ERROR, handler)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_ERROR, handler)
     },
     // Actions
-    download: async () => ipcRenderer.invoke('update:download'),
-    install: async () => ipcRenderer.invoke('update:install'),
-    check: async () => ipcRenderer.invoke('update:check'),
+    download: async () => typedInvoke('update:download'),
+    install: async () => typedInvoke('update:install'),
+    check: async () => typedInvoke('update:check'),
   },
   // Skills CLI API (Marketplace)
   skillsCli: {
-    search: async (query: string) =>
-      ipcRenderer.invoke('skills:cli:search', query),
-    install: async (options: InstallOptions) =>
-      ipcRenderer.invoke('skills:cli:install', options),
+    search: async (query: string) => typedInvoke('skills:cli:search', query),
+    install: async (
+      options: Parameters<typeof typedInvoke<'skills:cli:install'>>[1],
+    ) => typedInvoke('skills:cli:install', options),
     remove: async (skillName: string) =>
-      ipcRenderer.invoke('skills:cli:remove', skillName),
-    cancel: async () => ipcRenderer.invoke('skills:cli:cancel'),
+      typedInvoke('skills:cli:remove', skillName),
+    cancel: async () => typedInvoke('skills:cli:cancel'),
     onProgress: (callback: (progress: InstallProgress) => void) => {
       const handler = (
         _: Electron.IpcRendererEvent,
         progress: InstallProgress,
       ) => callback(progress)
-      ipcRenderer.on('skills:cli:progress', handler)
-      return () => ipcRenderer.removeListener('skills:cli:progress', handler)
+      ipcRenderer.on(IPC_CHANNELS.SKILLS_CLI_PROGRESS, handler)
+      return () =>
+        ipcRenderer.removeListener(IPC_CHANNELS.SKILLS_CLI_PROGRESS, handler)
     },
   },
   // Sync API
   sync: {
-    preview: async (): Promise<SyncPreviewResult> =>
-      ipcRenderer.invoke('sync:preview'),
-    execute: async (options: SyncExecuteOptions): Promise<SyncExecuteResult> =>
-      ipcRenderer.invoke('sync:execute', options),
+    preview: async () => typedInvoke('sync:preview'),
+    execute: async (
+      options: Parameters<typeof typedInvoke<'sync:execute'>>[1],
+    ) => typedInvoke('sync:execute', options),
   },
 })
