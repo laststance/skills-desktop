@@ -31,8 +31,12 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
   const { items: agents } = useAppSelector((state) => state.agents)
   const isSelected = selectedSkill?.path === skill.path
 
-  const validCount = skill.symlinks.filter((s) => s.status === 'valid').length
-  const brokenCount = skill.symlinks.filter((s) => s.status === 'broken').length
+  const validSymlinks = skill.symlinks.filter((s) => s.status === 'valid')
+  const brokenSymlinks = skill.symlinks.filter((s) => s.status === 'broken')
+  const validCount = validSymlinks.length
+  const brokenCount = brokenSymlinks.length
+  const validAgentNames = validSymlinks.map((s) => s.agentName)
+  const brokenAgentNames = brokenSymlinks.map((s) => s.agentName)
 
   const {
     showDeleteButton,
@@ -133,9 +137,19 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
         </div>
 
         <div className="flex items-center gap-2 mt-3">
-          {validCount > 0 && <StatusBadge status="valid" count={validCount} />}
+          {validCount > 0 && (
+            <StatusBadge
+              status="valid"
+              count={validCount}
+              agentNames={validAgentNames}
+            />
+          )}
           {brokenCount > 0 && (
-            <StatusBadge status="broken" count={brokenCount} />
+            <StatusBadge
+              status="broken"
+              count={brokenCount}
+              agentNames={brokenAgentNames}
+            />
           )}
           {validCount === 0 && brokenCount === 0 && (
             <span className="text-xs text-muted-foreground">

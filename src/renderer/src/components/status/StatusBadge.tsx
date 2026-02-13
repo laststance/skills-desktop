@@ -7,6 +7,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 interface StatusBadgeProps {
   status: SymlinkStatus
   count?: number
+  /** Agent names to display in tooltip (e.g. ["Claude", "Cursor"]) */
+  agentNames?: string[]
 }
 
 const STATUS_CONFIG = {
@@ -35,14 +37,16 @@ const STATUS_CONFIG = {
  * Displays tooltip on hover explaining the status meaning.
  * @param status - The symlink status: 'valid' | 'broken' | 'missing'
  * @param count - Optional count to display instead of label
+ * @param agentNames - Agent names to list in tooltip
  * @returns Badge with icon and tooltip
  * @example
- * <StatusBadge status="valid" count={3} />
- * // Shows: ✓ 3 with tooltip "Linked to agent"
+ * <StatusBadge status="valid" count={3} agentNames={["Claude", "Cursor", "Windsurf"]} />
+ * // Shows: ✓ 3 with tooltip listing "Claude, Cursor, Windsurf"
  */
 export function StatusBadge({
   status,
   count,
+  agentNames,
 }: StatusBadgeProps): React.ReactElement {
   const config = STATUS_CONFIG[status]
   const Icon = config.icon
@@ -56,7 +60,15 @@ export function StatusBadge({
         </Badge>
       </TooltipTrigger>
       <TooltipContent>
-        <span>{config.tooltip}</span>
+        {agentNames && agentNames.length > 0 ? (
+          <div className="flex flex-col gap-0.5">
+            {agentNames.map((name) => (
+              <span key={name}>{name}</span>
+            ))}
+          </div>
+        ) : (
+          <span>{config.tooltip}</span>
+        )}
       </TooltipContent>
     </Tooltip>
   )
