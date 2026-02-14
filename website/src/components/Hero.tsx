@@ -1,6 +1,6 @@
 'use client'
 
-import { Apple } from 'lucide-react'
+import { Apple, Cpu } from 'lucide-react'
 
 export function Hero() {
   return (
@@ -31,15 +31,34 @@ export function Hero() {
           {/* CTA Buttons */}
           <div className="flex flex-col gap-4 sm:flex-row">
             <a
-              href="https://github.com/laststance/skills-desktop/releases/latest"
+              href="https://github.com/laststance/skills-desktop/releases/download/v0.4.1/skills-desktop-0.4.1-arm64.dmg"
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-8 py-3 text-lg font-semibold text-primary-foreground transition-all hover:bg-primary/90 hover:scale-105"
             >
               <Apple className="h-5 w-5" />
-              Download for macOS
+              <div className="text-left">
+                <div>Download for Mac</div>
+                <div className="text-xs font-normal opacity-80">
+                  Apple Silicon (M1/M2/M3/M4)
+                </div>
+              </div>
             </a>
             <a
-              href="https://github.com/laststance/skills-desktop"
+              href="https://github.com/laststance/skills-desktop/releases/download/v0.4.1/skills-desktop-0.4.1-x64.dmg"
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card/50 px-8 py-3 text-lg font-semibold transition-all hover:bg-card hover:scale-105"
+            >
+              <Cpu className="h-5 w-5" />
+              <div className="text-left">
+                <div>Download for Mac</div>
+                <div className="text-xs font-normal text-muted-foreground">
+                  Intel (x64)
+                </div>
+              </div>
+            </a>
+          </div>
+          <div className="mt-4">
+            <a
+              href="https://github.com/laststance/skills-desktop"
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
             >
               View on GitHub
             </a>
