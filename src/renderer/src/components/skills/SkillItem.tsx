@@ -1,4 +1,4 @@
-import { Plus, Trash2, X } from 'lucide-react'
+import { FolderDot, Link2, Plus, Trash2, X } from 'lucide-react'
 
 import type { Skill } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
@@ -43,6 +43,7 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
     showAddButton,
     showUnlinkButton,
     isLinked,
+    isLocalSkill,
     selectedAgentSymlink,
   } = getSkillItemVisibility(selectedAgentId, skill.symlinks)
 
@@ -72,6 +73,8 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
       className={cn(
         'group cursor-pointer transition-colors hover:border-primary/50 relative',
         isSelected && 'border-primary bg-primary/5',
+        isLinked && 'border-l-2 border-l-cyan-400/40',
+        isLocalSkill && 'border-l-2 border-l-emerald-400/40',
       )}
       onClick={() => dispatch(selectSkill(skill))}
     >
@@ -94,8 +97,19 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
       <CardContent className="p-4 pr-8">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-medium truncate flex items-center gap-1">
-              {isLinked && <span title="Linked skill">🔗 </span>}
+            <h3 className="font-medium truncate flex items-center gap-1.5">
+              {isLinked && (
+                <Link2
+                  className="h-3.5 w-3.5 shrink-0 text-cyan-400/70"
+                  aria-label="Linked skill"
+                />
+              )}
+              {isLocalSkill && (
+                <FolderDot
+                  className="h-3.5 w-3.5 shrink-0 text-emerald-400/70"
+                  aria-label="Local skill"
+                />
+              )}
               <span className="truncate">{skill.name}</span>
               {/* Add button - only when viewing all skills (no agent filter) */}
               {showAddButton && (
@@ -136,27 +150,30 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
           )}
         </div>
 
-        <div className="flex items-center gap-2 mt-3">
-          {validCount > 0 && (
-            <StatusBadge
-              status="valid"
-              count={validCount}
-              agentNames={validAgentNames}
-            />
-          )}
-          {brokenCount > 0 && (
-            <StatusBadge
-              status="broken"
-              count={brokenCount}
-              agentNames={brokenAgentNames}
-            />
-          )}
-          {validCount === 0 && brokenCount === 0 && (
-            <span className="text-xs text-muted-foreground">
-              Not linked to any agent
-            </span>
-          )}
-        </div>
+        {/* Status badges — only shown in global view (no agent selected) */}
+        {!selectedAgentId && (
+          <div className="flex items-center gap-2 mt-3">
+            {validCount > 0 && (
+              <StatusBadge
+                status="valid"
+                count={validCount}
+                agentNames={validAgentNames}
+              />
+            )}
+            {brokenCount > 0 && (
+              <StatusBadge
+                status="broken"
+                count={brokenCount}
+                agentNames={brokenAgentNames}
+              />
+            )}
+            {validCount === 0 && brokenCount === 0 && (
+              <span className="text-xs text-muted-foreground">
+                Not linked to any agent
+              </span>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   )

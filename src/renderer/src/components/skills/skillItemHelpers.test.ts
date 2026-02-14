@@ -91,6 +91,35 @@ describe('getSkillItemVisibility', () => {
       expect(result.selectedAgentSymlink).toBeNull()
     })
 
+    it('detects local skill when isLocal=true for selected agent', () => {
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: true }),
+      ]
+      const result = getSkillItemVisibility('cursor', symlinks)
+
+      expect(result.isLocalSkill).toBe(true)
+      expect(result.isLinked).toBe(false)
+    })
+
+    it('isLocalSkill is false for symlinked skills', () => {
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
+      ]
+      const result = getSkillItemVisibility('cursor', symlinks)
+
+      expect(result.isLocalSkill).toBe(false)
+      expect(result.isLinked).toBe(true)
+    })
+
+    it('isLocalSkill is false in global view', () => {
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: true }),
+      ]
+      const result = getSkillItemVisibility(null, symlinks)
+
+      expect(result.isLocalSkill).toBe(false)
+    })
+
     it('hides unlink button for missing symlinks', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'missing', isLocal: false }),

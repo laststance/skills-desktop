@@ -11,8 +11,10 @@ export interface SkillItemVisibility {
   showAddButton: boolean
   /** Show Trash icon (unlink from selected agent) */
   showUnlinkButton: boolean
-  /** Show link emoji — skill is validly linked to selected agent */
+  /** Skill is symlinked (non-local) to selected agent with valid status */
   isLinked: boolean
+  /** Skill is a local (real folder) in selected agent's skills directory */
+  isLocalSkill: boolean
   /** The symlink for the selected agent, if any (needed for unlink handler) */
   selectedAgentSymlink: SymlinkInfo | null
 }
@@ -46,11 +48,16 @@ export function getSkillItemVisibility(
       ) ?? null)
     : null
 
+  const isLocalSkill = selectedAgentId
+    ? symlinks.some((s) => s.agentId === selectedAgentId && s.isLocal)
+    : false
+
   return {
     showDeleteButton: !selectedAgentId,
     showAddButton: !selectedAgentId,
     showUnlinkButton: !!selectedAgentSymlink,
     isLinked: !!selectedAgentSymlink && selectedAgentSymlink.status === 'valid',
+    isLocalSkill,
     selectedAgentSymlink,
   }
 }
