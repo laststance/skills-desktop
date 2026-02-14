@@ -1,4 +1,4 @@
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -110,6 +110,24 @@ describe('checkSymlinkStatus', () => {
     expect(result).toBe('missing')
     expect(readlinkMock).not.toHaveBeenCalled()
   })
+
+  it('returns valid when symlink has relative target (production fix)', async () => {
+    const linkPath = '/mock/agents/claude/skills/my-skill'
+    const relativeTarget = '../../../.agents/skills/my-skill'
+    const expectedResolved = resolve(dirname(linkPath), relativeTarget)
+
+    lstatMock.mockResolvedValue(
+      createStats({ isSymbolicLink: true, isDirectory: false }),
+    )
+    readlinkMock.mockResolvedValue(relativeTarget)
+    accessMock.mockResolvedValue(undefined)
+
+    const { checkSymlinkStatus } = await import('./symlinkChecker')
+    const result = await checkSymlinkStatus(linkPath)
+
+    expect(result).toBe('valid')
+    expect(accessMock).toHaveBeenCalledWith(expectedResolved)
+  })
 })
 
 describe('checkSkillSymlinks', () => {
@@ -217,6 +235,32 @@ describe('checkSkillSymlinks', () => {
       expect(r.status).toBe('missing')
       expect(r.isLocal).toBe(false)
       expect(r.targetPath).toBe('')
+    }
+  })
+
+  it('resolves relative symlink targets correctly (production fix)', async () => {
+    const relativeTarget = '../../../.agents/skills/good-skill'
+
+    lstatMock.mockResolvedValue(
+      createStats({ isSymbolicLink: true, isDirectory: false }),
+    )
+    readlinkMock.mockResolvedValue(relativeTarget)
+    accessMock.mockResolvedValue(undefined)
+
+    const { checkSkillSymlinks } = await import('./symlinkChecker')
+    const results = await checkSkillSymlinks('good-skill')
+
+    expect(results).toHaveLength(2)
+    for (const r of results) {
+      expect(r.status).toBe('valid')
+      expect(r.isLocal).toBe(false)
+    }
+
+    // Verify access was called with resolved absolute paths, not raw relative
+    const accessCalls = accessMock.mock.calls.map((c: string[]) => c[0])
+    for (const call of accessCalls) {
+      expect(call).not.toBe(relativeTarget)
+      expect(call).toMatch(/^\//) // Must be absolute
     }
   })
 

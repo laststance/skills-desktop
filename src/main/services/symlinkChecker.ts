@@ -1,5 +1,5 @@
 import { lstat, readlink, access } from 'fs/promises'
-import { join } from 'path'
+import { dirname, join, resolve } from 'path'
 
 import type { SymlinkInfo, SymlinkStatus } from '../../shared/types'
 import { AGENTS } from '../constants'
@@ -30,9 +30,12 @@ async function checkLinkOrLocal(path: string): Promise<LinkOrLocalResult> {
 
     if (stats.isSymbolicLink()) {
       // It's a symlink - check if target exists
+      // resolve() handles both absolute and relative targets correctly:
+      // absolute target → returned as-is, relative → resolved from symlink's directory
       const target = await readlink(path)
+      const resolvedTarget = resolve(dirname(path), target)
       try {
-        await access(target)
+        await access(resolvedTarget)
         return { status: 'valid', isLocal: false }
       } catch {
         return { status: 'broken', isLocal: false }
@@ -108,9 +111,11 @@ export async function checkSymlinkStatus(
     }
 
     // Check if target exists
+    // resolve() handles both absolute and relative targets correctly
     const target = await readlink(linkPath)
+    const resolvedTarget = resolve(dirname(linkPath), target)
     try {
-      await access(target)
+      await access(resolvedTarget)
       return 'valid'
     } catch {
       return 'broken'
