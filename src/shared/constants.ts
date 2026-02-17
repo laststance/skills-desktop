@@ -105,6 +105,7 @@ export const AGENT_DEFINITIONS = [
   { id: 'zencoder', cliId: 'zencoder', name: 'Zencoder', dir: '.zencoder' },
   { id: 'pochi', cliId: 'pochi', name: 'Pochi', dir: '.pochi' },
   { id: 'adal', cliId: 'adal', name: 'AdaL', dir: '.adal' },
+  { id: 'kimi-cli', cliId: 'kimi-cli', name: 'Kimi Code CLI', dir: '.kimi' },
 ] as const
 
 /**
@@ -118,3 +119,30 @@ export type AgentId = (typeof AGENT_DEFINITIONS)[number]['id']
  * Derived from AGENT_DEFINITIONS to avoid manual union maintenance.
  */
 export type AgentName = (typeof AGENT_DEFINITIONS)[number]['name']
+
+/**
+ * Agent IDs that use ~/.agents/skills/ directly (no symlinks needed).
+ * Derived from skills CLI: agents where skillsDir === '.agents/skills'
+ * and showInUniversalList !== false.
+ * Source: https://github.com/vercel-labs/skills/blob/main/src/agents.ts
+ *
+ * @example
+ * UNIVERSAL_AGENT_IDS // => ['amp', 'codex', 'gemini-cli', 'github-copilot', 'kimi-cli', 'opencode']
+ */
+export const UNIVERSAL_AGENT_IDS = [
+  'amp',
+  'codex',
+  'gemini-cli',
+  'github-copilot',
+  'kimi-cli',
+  'opencode',
+] as const satisfies readonly AgentId[]
+
+/**
+ * Sentinel value for selectedAgentId when the Universal filter is active.
+ * Not a real AgentId — signals "show skills from ~/.agents/skills/"
+ *
+ * @example
+ * dispatch(selectAgent(UNIVERSAL_FILTER_ID)) // activates universal view
+ */
+export const UNIVERSAL_FILTER_ID = 'universal' as const

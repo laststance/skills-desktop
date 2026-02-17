@@ -3,6 +3,7 @@ import { AgentsSection } from '../sidebar/AgentsSection'
 import { SidebarFooter } from '../sidebar/SidebarFooter'
 import { SidebarHeader } from '../sidebar/SidebarHeader'
 import { SourceCard } from '../sidebar/SourceCard'
+import { UniversalItem } from '../sidebar/UniversalItem'
 import { ScrollArea } from '../ui/scroll-area'
 import { Separator } from '../ui/separator'
 
@@ -18,6 +19,8 @@ export function Sidebar(): React.ReactElement {
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-4">
           <SourceCard />
+          <Separator />
+          <UniversalItem />
           <Separator />
           <AgentsSection />
         </div>
