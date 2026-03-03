@@ -16,7 +16,7 @@ export function registerSkillsHandlers(): void {
   })
 
   /**
-   * Unlink a skill from a specific agent by removing the symlink
+   * Remove a skill from a specific agent by removing the symlink or local folder
    * @param options - skillName, agentId, linkPath
    * @returns UnlinkResult with success status and optional error
    */
@@ -24,17 +24,20 @@ export function registerSkillsHandlers(): void {
     const { linkPath } = options
 
     try {
-      // Verify the path is a symlink (not a real directory)
       const stats = await fs.lstat(linkPath)
-      if (!stats.isSymbolicLink()) {
+      if (stats.isSymbolicLink()) {
+        // Remove symlink
+        await fs.unlink(linkPath)
+      } else if (stats.isDirectory()) {
+        // Remove local skill folder
+        await fs.rm(linkPath, { recursive: true, force: true })
+      } else {
         return {
           success: false,
-          error: 'Cannot unlink: path is not a symlink (may be a local skill)',
+          error: 'Cannot remove: path is neither a symlink nor a directory',
         }
       }
 
-      // Remove the symlink
-      await fs.unlink(linkPath)
       return { success: true }
     } catch (error) {
       const message =

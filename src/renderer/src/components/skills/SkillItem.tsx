@@ -45,6 +45,7 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
     isLinked,
     isLocalSkill,
     selectedAgentSymlink,
+    selectedLocalSkillInfo,
   } = getSkillItemVisibility(selectedAgentId, skill.symlinks)
 
   // Get selected agent name for tooltip
@@ -53,8 +54,9 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
 
   const handleUnlinkClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
-    if (selectedAgentSymlink) {
-      dispatch(setSkillToUnlink({ skill, symlink: selectedAgentSymlink }))
+    const targetSymlink = selectedAgentSymlink ?? selectedLocalSkillInfo
+    if (targetSymlink) {
+      dispatch(setSkillToUnlink({ skill, symlink: targetSymlink }))
     }
   }
 
@@ -144,7 +146,9 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
                 </button>
               </TooltipTrigger>
               <TooltipContent side="left">
-                Remove from {selectedAgentName}
+                {isLocalSkill
+                  ? `Delete from ${selectedAgentName}`
+                  : `Remove from ${selectedAgentName}`}
               </TooltipContent>
             </Tooltip>
           )}

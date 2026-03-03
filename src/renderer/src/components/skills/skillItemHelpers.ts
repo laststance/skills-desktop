@@ -9,7 +9,7 @@ export interface SkillItemVisibility {
   showDeleteButton: boolean
   /** Show Add button (create symlinks) — only in global view */
   showAddButton: boolean
-  /** Show Trash icon (unlink from selected agent) */
+  /** Show Trash icon (unlink symlink or delete local skill from selected agent) */
   showUnlinkButton: boolean
   /** Skill is symlinked (non-local) to selected agent with valid status */
   isLinked: boolean
@@ -17,6 +17,8 @@ export interface SkillItemVisibility {
   isLocalSkill: boolean
   /** The symlink for the selected agent, if any (needed for unlink handler) */
   selectedAgentSymlink: SymlinkInfo | null
+  /** The local skill SymlinkInfo for the selected agent, if any (needed for delete handler) */
+  selectedLocalSkillInfo: SymlinkInfo | null
 }
 
 /**
@@ -34,6 +36,11 @@ export interface SkillItemVisibility {
  * // Agent filtered view with valid symlink — show unlink, hide delete & add
  * getSkillItemVisibility('cursor', [{ agentId: 'cursor', status: 'valid', isLocal: false, ... }])
  * // => { showDeleteButton: false, showAddButton: false, showUnlinkButton: true, isLinked: true, ... }
+ *
+ * @example
+ * // Agent filtered view with local skill — show unlink button for deletion
+ * getSkillItemVisibility('cursor', [{ agentId: 'cursor', status: 'valid', isLocal: true, ... }])
+ * // => { showDeleteButton: false, showUnlinkButton: true, isLocalSkill: true, selectedLocalSkillInfo: {...}, ... }
  */
 export function getSkillItemVisibility(
   selectedAgentId: string | null,
@@ -48,16 +55,19 @@ export function getSkillItemVisibility(
       ) ?? null)
     : null
 
-  const isLocalSkill = selectedAgentId
-    ? symlinks.some((s) => s.agentId === selectedAgentId && s.isLocal)
-    : false
+  const selectedLocalSkillInfo = selectedAgentId
+    ? (symlinks.find((s) => s.agentId === selectedAgentId && s.isLocal) ?? null)
+    : null
+
+  const isLocalSkill = !!selectedLocalSkillInfo
 
   return {
     showDeleteButton: !selectedAgentId,
     showAddButton: !selectedAgentId,
-    showUnlinkButton: !!selectedAgentSymlink,
+    showUnlinkButton: !!selectedAgentSymlink || isLocalSkill,
     isLinked: !!selectedAgentSymlink && selectedAgentSymlink.status === 'valid',
     isLocalSkill,
     selectedAgentSymlink,
+    selectedLocalSkillInfo,
   }
 }

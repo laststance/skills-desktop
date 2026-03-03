@@ -30,6 +30,7 @@ describe('getSkillItemVisibility', () => {
       expect(result.showUnlinkButton).toBe(false)
       expect(result.isLinked).toBe(false)
       expect(result.selectedAgentSymlink).toBeNull()
+      expect(result.selectedLocalSkillInfo).toBeNull()
     })
 
     it('shows delete and add even when symlinks exist', () => {
@@ -81,14 +82,15 @@ describe('getSkillItemVisibility', () => {
       expect(result.selectedAgentSymlink).toBeNull()
     })
 
-    it('hides unlink button for local skills (isLocal=true)', () => {
+    it('shows unlink button for local skills (isLocal=true)', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: true }),
       ]
       const result = getSkillItemVisibility('cursor', symlinks)
 
-      expect(result.showUnlinkButton).toBe(false)
+      expect(result.showUnlinkButton).toBe(true)
       expect(result.selectedAgentSymlink).toBeNull()
+      expect(result.selectedLocalSkillInfo).toBe(symlinks[0])
     })
 
     it('detects local skill when isLocal=true for selected agent', () => {
@@ -99,6 +101,7 @@ describe('getSkillItemVisibility', () => {
 
       expect(result.isLocalSkill).toBe(true)
       expect(result.isLinked).toBe(false)
+      expect(result.selectedLocalSkillInfo).toBe(symlinks[0])
     })
 
     it('isLocalSkill is false for symlinked skills', () => {
@@ -109,6 +112,7 @@ describe('getSkillItemVisibility', () => {
 
       expect(result.isLocalSkill).toBe(false)
       expect(result.isLinked).toBe(true)
+      expect(result.selectedLocalSkillInfo).toBeNull()
     })
 
     it('isLocalSkill is false in global view', () => {
@@ -118,6 +122,7 @@ describe('getSkillItemVisibility', () => {
       const result = getSkillItemVisibility(null, symlinks)
 
       expect(result.isLocalSkill).toBe(false)
+      expect(result.selectedLocalSkillInfo).toBeNull()
     })
 
     it('hides unlink button for missing symlinks', () => {
