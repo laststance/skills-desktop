@@ -127,7 +127,7 @@ export function AgentItem({ agent }: AgentItemProps): React.ReactElement {
       </DropdownMenu>
       {tooltipPath && (
         <TooltipContent side="right">
-          <span className="text-muted-foreground">{tooltipPath}</span>
+          <span>{tooltipPath}</span>
         </TooltipContent>
       )}
     </Tooltip>
