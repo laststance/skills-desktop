@@ -1,0 +1,125 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: 'en-US'
+early_access: false
+
+tone_instructions: >
+  Be concise and technical. Focus on correctness, type safety, and Electron security boundaries.
+  Skip praise — go straight to actionable feedback.
+
+reviews:
+  profile: 'assertive'
+  request_changes_workflow: true
+  high_level_summary: true
+  high_level_summary_placeholder: '@coderabbitai summary'
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  sequence_diagrams: true
+  auto_review:
+    enabled: true
+    drafts: false
+    ignore_title_keywords:
+      - 'WIP'
+      - 'DO NOT MERGE'
+  path_filters:
+    - '!dist/**'
+    - '!out/**'
+    - '!node_modules/**'
+    - '!pnpm-lock.yaml'
+    - '!**/*.pen'
+  tools:
+    eslint:
+      enabled: true
+    gitleaks:
+      enabled: true
+
+  # ── Architecture-specific review instructions ──
+  path_instructions:
+    # Main process (Electron Node.js side)
+    - path: 'src/main/**'
+      instructions: |
+        This is the Electron main process. Review for:
+        - IPC handlers MUST use `typedHandle()` from `src/main/ipc/typedHandle.ts` — never raw `ipcMain.handle()` with string channels.
+        - New IPC channels MUST be added to BOTH `IPC_CHANNELS` constant AND the corresponding contract type (`IpcInvokeContract` or `IpcEventContract`) in `src/shared/ipc-contract.ts`.
+        - Destructive filesystem operations (delete, rm) must use two-phase pattern: preview first, then execute on confirmation.
+        - `fs.rm` with `{ recursive: true }` requires explicit user confirmation before execution.
+        - Never import from `src/renderer/` — main process must not depend on renderer code.
+
+    # Preload bridge
+    - path: 'src/preload/**'
+      instructions: |
+        This is the Electron preload script (context bridge). Review for:
+        - All IPC calls MUST use `typedInvoke()` from `src/preload/typedInvoke.ts` — never raw `ipcRenderer.invoke()`.
+        - Only expose methods defined in `IpcInvokeContract` and `IpcEventContract`.
+        - Never expose `ipcRenderer` or `fs` directly to the renderer — this is a security boundary.
+        - The `window.electron` API surface should remain minimal.
+
+    # Renderer (React + Redux)
+    - path: 'src/renderer/**'
+      instructions: |
+        This is the React renderer process. Review for:
+        - MUST NOT import `fs`, `path`, `child_process`, or any Node.js built-in modules — use `window.electron.*` IPC calls instead.
+        - Modal/dialog state MUST be managed via Redux slices, not local component state (useState).
+        - Extract conditional rendering logic into pure helper functions (e.g., `skillItemHelpers.ts`) for testability without React Testing Library.
+        - UI components use Radix UI primitives + Tailwind CSS (shadcn/ui pattern). Check for proper `asChild` composition when nesting trigger-based components (Tooltip + DropdownMenu).
+        - Radix DropdownMenu for right-click: `onOpenChange` must only allow close, open via `handleContextMenu`.
+        - StatusBadge (install count) should only appear in global view, not agent view.
+        - Lucide icons only — do not introduce other icon libraries.
+
+    # Shared types and constants
+    - path: 'src/shared/**'
+      instructions: |
+        This is the shared layer imported by both main and renderer. Review for:
+        - Type unions (AgentId, AgentName) MUST be derived from `AGENT_DEFINITIONS as const` — never manually maintained lists.
+        - `UNIVERSAL_AGENT_IDS` must use `satisfies readonly AgentId[]` for compile-time validation.
+        - `IPC_CHANNELS` must stay in sync with `IpcInvokeContract` and `IpcEventContract` — adding a channel to one but not the other will cause runtime errors.
+        - Constants must not import from `src/main/` or `src/renderer/` — shared is the dependency root.
+
+    # Tests
+    - path: '**/*.test.ts'
+      instructions: |
+        Tests use Vitest. Review for:
+        - Main process tests: mock `fs/promises` with `vi.mock('fs/promises')`.
+        - Renderer tests: stub `window.electron` via `vi.stubGlobal`.
+        - Pure helper tests: no mocking needed — test input/output directly.
+        - Prefer testing extracted pure functions over React component rendering (no RTL in this project).
+        - `describe`/`it` names should clearly state the scenario and expected outcome.
+
+    # Website
+    - path: 'website/**'
+      instructions: |
+        Marketing website (Next.js/Astro). Review for:
+        - Download URLs must point to the latest release version on GitHub Releases.
+        - Both ARM64 and x64 DMG links must be updated together.
+
+chat:
+  auto_reply: true
+
+code_generation:
+  docstrings:
+    path_instructions:
+      - path: 'src/**/*.ts'
+        instructions: |
+          Use TSDoc format with @param, @returns, and @example tags.
+          @example must include concrete input → output.
+          Keep descriptions understandable by non-engineers.
+      - path: '**/*.test.ts'
+        instructions: |
+          Describe test purpose and expected behavior.
+          Keep docstrings concise — focus on what scenario is being tested.
+  unit_tests:
+    path_instructions:
+      - path: 'src/main/**/*.ts'
+        instructions: |
+          Use Vitest. Mock `fs/promises` and `path` modules.
+          For symlink-related tests, mock both `lstat` and `readlink`.
+          Use `vi.mock()` at module level, `vi.mocked()` for type-safe assertions.
+      - path: 'src/renderer/**/*.ts'
+        instructions: |
+          Use Vitest. No React Testing Library — extract logic to pure helper
+          functions and test those directly with input/output assertions.
+          Stub `window.electron` via `vi.stubGlobal` when IPC calls are needed.
+      - path: 'src/shared/**/*.ts'
+        instructions: |
+          Use Vitest. Test data validation, type derivation correctness,
+          and compile-time type checks using `expectTypeOf` or `satisfies`.
