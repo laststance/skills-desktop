@@ -96,9 +96,10 @@ export function AgentItem({ agent }: AgentItemProps): React.ReactElement {
       >
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
-            <div
+            <button
+              type="button"
               className={cn(
-                'flex items-center justify-between py-1.5 px-2 rounded-md transition-colors border-l-4 border-l-transparent',
+                'flex w-full items-center justify-between py-1.5 px-2 rounded-md transition-colors border-l-4 border-l-transparent text-left',
                 agent.exists && 'cursor-pointer hover:bg-muted/50',
                 isSelected && 'border-l-primary bg-primary/10',
               )}
@@ -111,7 +112,7 @@ export function AgentItem({ agent }: AgentItemProps): React.ReactElement {
                   {skillCountText}
                 </span>
               )}
-            </div>
+            </button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
         <DropdownMenuContent>
