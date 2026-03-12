@@ -18,6 +18,8 @@ import type {
   RemoveAllFromAgentResult,
   DeleteSkillOptions,
   DeleteSkillResult,
+  CopyToAgentsOptions,
+  CopyToAgentsResult,
   CreateSymlinksOptions,
   CreateSymlinksResult,
   SyncPreviewResult,
@@ -44,6 +46,9 @@ declare global {
         createSymlinks: (
           options: CreateSymlinksOptions,
         ) => Promise<CreateSymlinksResult>
+        copyToAgents: (
+          options: CopyToAgentsOptions,
+        ) => Promise<CopyToAgentsResult>
       }
       agents: {
         getAll: () => Promise<Agent[]>
