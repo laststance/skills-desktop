@@ -160,4 +160,91 @@ export function registerSkillsHandlers(): void {
 
     return { success: failures.length === 0, created, failures }
   })
+
+  /**
+   * Copy a skill from one agent to other agents.
+   * Symlinked skills → create symlink pointing to same source.
+   * Local skills → physical copy (fs.cp recursive).
+   * @param options - skillName, linkPath (source), targetAgentIds
+   * @returns CopyToAgentsResult with copied count and per-agent failures
+   * @example
+   * // Symlink: creates symlink in target agent pointing to same source
+   * // Local: copies folder recursively to target agent
+   */
+  typedHandle(IPC_CHANNELS.SKILLS_COPY_TO_AGENTS, async (_, options) => {
+    const { skillName, linkPath, targetAgentIds } = options
+    let copied = 0
+    const failures: Array<{
+      agentId: (typeof targetAgentIds)[number]
+      error: string
+    }> = []
+
+    // Detect source type
+    let isSymlink = false
+    let symlinkTarget = ''
+    try {
+      const stats = await fs.lstat(linkPath)
+      if (stats.isSymbolicLink()) {
+        isSymlink = true
+        symlinkTarget = await fs.readlink(linkPath)
+      } else if (!stats.isDirectory()) {
+        return {
+          success: false,
+          copied: 0,
+          failures: targetAgentIds.map((id) => ({
+            agentId: id,
+            error: 'Source is neither a symlink nor a directory',
+          })),
+        }
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Cannot access source skill'
+      return {
+        success: false,
+        copied: 0,
+        failures: targetAgentIds.map((id) => ({
+          agentId: id,
+          error: message,
+        })),
+      }
+    }
+
+    for (const agentId of targetAgentIds) {
+      const agent = AGENTS.find((a) => a.id === agentId)
+      if (!agent) {
+        failures.push({ agentId, error: 'Agent not found' })
+        continue
+      }
+
+      const destPath = join(agent.path, skillName)
+
+      try {
+        // Ensure agent skills directory exists
+        await fs.mkdir(agent.path, { recursive: true })
+
+        // Check if something already exists at the destination
+        try {
+          await fs.lstat(destPath)
+          failures.push({ agentId, error: 'Already exists' })
+          continue
+        } catch {
+          // Nothing exists, proceed
+        }
+
+        if (isSymlink) {
+          await fs.symlink(symlinkTarget, destPath)
+        } else {
+          await fs.cp(linkPath, destPath, { recursive: true })
+        }
+        copied++
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown error occurred'
+        failures.push({ agentId, error: message })
+      }
+    }
+
+    return { success: failures.length === 0, copied, failures }
+  })
 }

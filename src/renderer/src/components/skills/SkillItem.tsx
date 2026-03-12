@@ -1,4 +1,5 @@
-import { FolderDot, Link2, Plus, Trash2, X } from 'lucide-react'
+import { Copy, FolderDot, Link2, Plus, Trash2, X } from 'lucide-react'
+import { useState } from 'react'
 
 import type { Skill } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
@@ -6,12 +7,19 @@ import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import {
   selectSkill,
   setSkillToAddSymlinks,
+  setSkillToCopy,
   setSkillToDelete,
   setSkillToUnlink,
 } from '../../redux/slices/skillsSlice'
 import { StatusBadge } from '../status/StatusBadge'
 import { Button } from '../ui/button'
 import { Card, CardContent } from '../ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
 import { getSkillItemVisibility } from './skillItemHelpers'
@@ -42,6 +50,7 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
     showDeleteButton,
     showAddButton,
     showUnlinkButton,
+    showCopyButton,
     isLinked,
     isLocalSkill,
     selectedAgentSymlink,
@@ -70,115 +79,144 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
     dispatch(setSkillToAddSymlinks(skill))
   }
 
+  const [contextOpen, setContextOpen] = useState(false)
+
+  const handleContextMenu = (e: React.MouseEvent): void => {
+    e.preventDefault()
+    if (!showCopyButton) return
+    setContextOpen(true)
+  }
+
+  const handleCopyClick = (): void => {
+    dispatch(setSkillToCopy(skill))
+    setContextOpen(false)
+  }
+
   return (
-    <Card
-      className={cn(
-        'group cursor-pointer transition-colors hover:border-primary/50 relative',
-        isSelected && 'border-primary bg-primary/5',
-        isLinked && 'border-l-2 border-l-cyan-400/40',
-        isLocalSkill && 'border-l-2 border-l-emerald-400/40',
-      )}
-      onClick={() => dispatch(selectSkill(skill))}
+    <DropdownMenu
+      open={contextOpen}
+      onOpenChange={(open) => {
+        if (!open) setContextOpen(false)
+      }}
     >
-      {/* X button - visible only when no agent is selected (global view) */}
-      {showDeleteButton && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={handleDeleteClick}
-              className="absolute top-2 right-2 p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="left">Delete skill</TooltipContent>
-        </Tooltip>
-      )}
-
-      <CardContent className="p-4 pr-8">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-medium truncate flex items-center gap-1.5">
-              {isLinked && (
-                <Link2
-                  className="h-3.5 w-3.5 shrink-0 text-cyan-400/70"
-                  aria-label="Linked skill"
-                />
-              )}
-              {isLocalSkill && (
-                <FolderDot
-                  className="h-3.5 w-3.5 shrink-0 text-emerald-400/70"
-                  aria-label="Local skill"
-                />
-              )}
-              <span className="truncate">{skill.name}</span>
-              {/* Add button - only when viewing all skills (no agent filter) */}
-              {showAddButton && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleAddClick}
-                  className="h-5 px-1.5 text-xs shrink-0 ml-1"
-                >
-                  <Plus className="h-3 w-3 mr-0.5" />
-                  Add
-                </Button>
-              )}
-            </h3>
-            {skill.description && (
-              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                {skill.description}
-              </p>
-            )}
-          </div>
-
-          {/* Trash icon - visible on hover for linked (non-local) skills */}
-          {showUnlinkButton && (
+      <DropdownMenuTrigger asChild disabled={!showCopyButton}>
+        <Card
+          className={cn(
+            'group cursor-pointer transition-colors hover:border-primary/50 relative',
+            isSelected && 'border-primary bg-primary/5',
+            isLinked && 'border-l-2 border-l-cyan-400/40',
+            isLocalSkill && 'border-l-2 border-l-emerald-400/40',
+          )}
+          onClick={() => dispatch(selectSkill(skill))}
+          onContextMenu={handleContextMenu}
+        >
+          {/* X button - visible only when no agent is selected (global view) */}
+          {showDeleteButton && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  onClick={handleUnlinkClick}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                  onClick={handleDeleteClick}
+                  className="absolute top-2 right-2 p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="left">
-                {isLocalSkill
-                  ? `Delete from ${selectedAgentName}`
-                  : `Remove from ${selectedAgentName}`}
-              </TooltipContent>
+              <TooltipContent side="left">Delete skill</TooltipContent>
             </Tooltip>
           )}
-        </div>
 
-        {/* Status badges — only shown in global view (no agent selected) */}
-        {!selectedAgentId && (
-          <div className="flex items-center gap-2 mt-3">
-            {validCount > 0 && (
-              <StatusBadge
-                status="valid"
-                count={validCount}
-                agentNames={validAgentNames}
-              />
+          <CardContent className="p-4 pr-8">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium truncate flex items-center gap-1.5">
+                  {isLinked && (
+                    <Link2
+                      className="h-3.5 w-3.5 shrink-0 text-cyan-400/70"
+                      aria-label="Linked skill"
+                    />
+                  )}
+                  {isLocalSkill && (
+                    <FolderDot
+                      className="h-3.5 w-3.5 shrink-0 text-emerald-400/70"
+                      aria-label="Local skill"
+                    />
+                  )}
+                  <span className="truncate">{skill.name}</span>
+                  {/* Add button - only when viewing all skills (no agent filter) */}
+                  {showAddButton && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleAddClick}
+                      className="h-5 px-1.5 text-xs shrink-0 ml-1"
+                    >
+                      <Plus className="h-3 w-3 mr-0.5" />
+                      Add
+                    </Button>
+                  )}
+                </h3>
+                {skill.description && (
+                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                    {skill.description}
+                  </p>
+                )}
+              </div>
+
+              {/* Trash icon - visible on hover for linked (non-local) skills */}
+              {showUnlinkButton && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={handleUnlinkClick}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">
+                    {isLocalSkill
+                      ? `Delete from ${selectedAgentName}`
+                      : `Remove from ${selectedAgentName}`}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+
+            {/* Status badges — only shown in global view (no agent selected) */}
+            {!selectedAgentId && (
+              <div className="flex items-center gap-2 mt-3">
+                {validCount > 0 && (
+                  <StatusBadge
+                    status="valid"
+                    count={validCount}
+                    agentNames={validAgentNames}
+                  />
+                )}
+                {brokenCount > 0 && (
+                  <StatusBadge
+                    status="broken"
+                    count={brokenCount}
+                    agentNames={brokenAgentNames}
+                  />
+                )}
+                {validCount === 0 && brokenCount === 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    Not linked to any agent
+                  </span>
+                )}
+              </div>
             )}
-            {brokenCount > 0 && (
-              <StatusBadge
-                status="broken"
-                count={brokenCount}
-                agentNames={brokenAgentNames}
-              />
-            )}
-            {validCount === 0 && brokenCount === 0 && (
-              <span className="text-xs text-muted-foreground">
-                Not linked to any agent
-              </span>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem onClick={handleCopyClick}>
+          <Copy className="h-4 w-4 mr-2" />
+          Copy to...
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
