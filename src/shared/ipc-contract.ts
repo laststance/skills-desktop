@@ -1,6 +1,8 @@
 import type {
   Agent,
   CliCommandResult,
+  CopyToAgentsOptions,
+  CopyToAgentsResult,
   CreateSymlinksOptions,
   CreateSymlinksResult,
   DeleteSkillOptions,
@@ -50,6 +52,10 @@ export interface IpcInvokeContract {
   'skills:createSymlinks': {
     args: [CreateSymlinksOptions]
     result: CreateSymlinksResult
+  }
+  'skills:copyToAgents': {
+    args: [CopyToAgentsOptions]
+    result: CopyToAgentsResult
   }
   'agents:getAll': { args: []; result: Agent[] }
   'source:getStats': { args: []; result: SourceStats }

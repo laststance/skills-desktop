@@ -12,6 +12,7 @@ describe('IPC contract alignment', () => {
       IPC_CHANNELS.SKILLS_REMOVE_ALL_FROM_AGENT,
       IPC_CHANNELS.SKILLS_DELETE,
       IPC_CHANNELS.SKILLS_CREATE_SYMLINKS,
+      IPC_CHANNELS.SKILLS_COPY_TO_AGENTS,
       IPC_CHANNELS.AGENTS_GET_ALL,
       IPC_CHANNELS.SOURCE_GET_STATS,
       IPC_CHANNELS.FILES_LIST,
@@ -27,8 +28,8 @@ describe('IPC contract alignment', () => {
       IPC_CHANNELS.UPDATE_CHECK,
     ]
 
-    // Runtime assertion: all 18 invoke channels are covered
-    expect(invokeChannels).toHaveLength(18)
+    // Runtime assertion: all 19 invoke channels are covered
+    expect(invokeChannels).toHaveLength(19)
   })
 
   it('all IPC_CHANNELS event values are valid event contract keys', () => {
