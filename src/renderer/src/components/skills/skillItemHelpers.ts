@@ -1,3 +1,4 @@
+import { UNIVERSAL_FILTER_ID } from '../../../../shared/constants'
 import type { SymlinkInfo } from '../../../../shared/types'
 
 /**
@@ -19,6 +20,8 @@ export interface SkillItemVisibility {
   selectedAgentSymlink: SymlinkInfo | null
   /** The local skill SymlinkInfo for the selected agent, if any (needed for delete handler) */
   selectedLocalSkillInfo: SymlinkInfo | null
+  /** Show "Copy to..." context menu — only in agent view (not global, not universal) */
+  showCopyButton: boolean
 }
 
 /**
@@ -69,5 +72,9 @@ export function getSkillItemVisibility(
     isLocalSkill,
     selectedAgentSymlink,
     selectedLocalSkillInfo,
+    showCopyButton:
+      !!selectedAgentId &&
+      selectedAgentId !== UNIVERSAL_FILTER_ID &&
+      (!!selectedAgentSymlink || isLocalSkill),
   }
 }

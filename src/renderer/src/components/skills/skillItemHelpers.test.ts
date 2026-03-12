@@ -135,6 +135,48 @@ describe('getSkillItemVisibility', () => {
     })
   })
 
+  describe('showCopyButton', () => {
+    it('returns false when no agent is selected (global view)', () => {
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
+      ]
+      const result = getSkillItemVisibility(null, symlinks)
+      expect(result.showCopyButton).toBe(false)
+    })
+
+    it('returns false when universal filter is selected', () => {
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
+      ]
+      const result = getSkillItemVisibility('universal', symlinks)
+      expect(result.showCopyButton).toBe(false)
+    })
+
+    it('returns true when a specific agent is selected with a valid symlink', () => {
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
+      ]
+      const result = getSkillItemVisibility('cursor', symlinks)
+      expect(result.showCopyButton).toBe(true)
+    })
+
+    it('returns true when a specific agent is selected with a local skill', () => {
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: true }),
+      ]
+      const result = getSkillItemVisibility('cursor', symlinks)
+      expect(result.showCopyButton).toBe(true)
+    })
+
+    it('returns false when agent is selected but no symlink exists for that agent', () => {
+      const symlinks = [
+        makeSymlink({ agentId: 'codex', status: 'valid', isLocal: false }),
+      ]
+      const result = getSkillItemVisibility('cursor', symlinks)
+      expect(result.showCopyButton).toBe(false)
+    })
+  })
+
   describe('regression: dual delete buttons', () => {
     it('never shows both delete button and unlink button simultaneously', () => {
       // This was the bug: both X (delete) and Trash (unlink) showed in agent view
