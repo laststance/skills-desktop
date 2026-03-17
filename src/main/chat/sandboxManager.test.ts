@@ -1,5 +1,4 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import type { Dirent } from 'fs'
 import * as fs from 'fs/promises'
 import * as os from 'os'
 
@@ -91,10 +90,11 @@ describe('sandboxManager', () => {
     it('removes directories older than 24 hours', async () => {
       const staleTimestamp = String(Date.now() - 25 * 60 * 60 * 1000) // 25h ago
       const freshTimestamp = String(Date.now() - 1 * 60 * 60 * 1000) // 1h ago
-      mockFs.readdir.mockResolvedValue([
+      // readdir without options returns string[] — cast to satisfy mock overloads
+      ;(mockFs.readdir as ReturnType<typeof vi.fn>).mockResolvedValue([
         staleTimestamp,
         freshTimestamp,
-      ] as unknown as Dirent[])
+      ])
       mockFs.rm.mockResolvedValue(undefined)
 
       const { cleanupStaleSandboxes } = await getSandboxManager()
