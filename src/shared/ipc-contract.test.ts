@@ -26,10 +26,15 @@ describe('IPC contract alignment', () => {
       [IPC_CHANNELS.UPDATE_DOWNLOAD]: true,
       [IPC_CHANNELS.UPDATE_INSTALL]: true,
       [IPC_CHANNELS.UPDATE_CHECK]: true,
+      [IPC_CHANNELS.CHAT_DETECT_CLAUDE]: true,
+      [IPC_CHANNELS.CHAT_SEND]: true,
+      [IPC_CHANNELS.CHAT_ABORT]: true,
+      [IPC_CHANNELS.CHAT_CREATE_SANDBOX]: true,
+      [IPC_CHANNELS.CHAT_CLEANUP_SANDBOX]: true,
     } as const satisfies Record<keyof IpcInvokeContract, true>
 
     // Runtime assertion: mapping covers exactly the contract keys
-    expect(Object.keys(invokeMapping)).toHaveLength(19)
+    expect(Object.keys(invokeMapping)).toHaveLength(24)
   })
 
   it('all IPC_CHANNELS event values are valid event contract keys', () => {
@@ -42,9 +47,10 @@ describe('IPC contract alignment', () => {
       [IPC_CHANNELS.UPDATE_PROGRESS]: true,
       [IPC_CHANNELS.UPDATE_DOWNLOADED]: true,
       [IPC_CHANNELS.UPDATE_ERROR]: true,
+      [IPC_CHANNELS.CHAT_CHUNK]: true,
     } as const satisfies Record<keyof IpcEventContract, true>
 
     // Runtime assertion: mapping covers exactly the contract keys
-    expect(Object.keys(eventMapping)).toHaveLength(7)
+    expect(Object.keys(eventMapping)).toHaveLength(8)
   })
 })

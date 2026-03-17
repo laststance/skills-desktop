@@ -43,6 +43,14 @@ export const IPC_CHANNELS = {
   UPDATE_PROGRESS: 'update:progress',
   UPDATE_DOWNLOADED: 'update:downloaded',
   UPDATE_ERROR: 'update:error',
+
+  // Chat (Agent Chat Panel)
+  CHAT_DETECT_CLAUDE: 'chat:detectClaude',
+  CHAT_SEND: 'chat:send',
+  CHAT_ABORT: 'chat:abort',
+  CHAT_CREATE_SANDBOX: 'chat:createSandbox',
+  CHAT_CLEANUP_SANDBOX: 'chat:cleanupSandbox',
+  CHAT_CHUNK: 'chat:chunk',
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]
