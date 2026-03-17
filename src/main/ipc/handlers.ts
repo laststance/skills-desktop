@@ -5,6 +5,7 @@ import { registerSkillsCliHandlers } from './skillsCli'
 import { registerSourceHandlers } from './source'
 import { registerSyncHandlers } from './sync'
 import { registerUpdateHandlers } from './update'
+import { registerChatHandlers } from '../chat'
 
 /**
  * Register all IPC handlers for main process
@@ -18,4 +19,5 @@ export function registerAllHandlers(): void {
   registerFilesHandlers()
   registerUpdateHandlers()
   registerSyncHandlers()
+  registerChatHandlers()
 }
