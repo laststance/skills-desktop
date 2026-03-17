@@ -27,6 +27,7 @@ export const IPC_CHANNELS = {
   SKILLS_REMOVE_ALL_FROM_AGENT: 'skills:removeAllFromAgent',
   SKILLS_DELETE: 'skills:deleteSkill',
   SKILLS_CREATE_SYMLINKS: 'skills:createSymlinks',
+  SKILLS_COPY_TO_AGENTS: 'skills:copyToAgents',
 
   // Sync
   SYNC_PREVIEW: 'sync:preview',

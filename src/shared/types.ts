@@ -263,6 +263,35 @@ export interface CreateSymlinksResult {
 }
 
 /**
+ * Options for copying a skill from one agent to other agents
+ * @param skillName - Name of the skill to copy
+ * @param linkPath - Full path to the skill in the source agent's directory
+ * @param targetAgentIds - IDs of agents to copy the skill to
+ * @example
+ * { skillName: 'my-skill', linkPath: '/Users/me/.claude/skills/my-skill', targetAgentIds: ['cursor', 'windsurf'] }
+ */
+export interface CopyToAgentsOptions {
+  skillName: string
+  linkPath: string
+  targetAgentIds: AgentId[]
+}
+
+/**
+ * Result of copying a skill to multiple agents
+ * @param success - true if all copies succeeded
+ * @param copied - Number of agents successfully copied to
+ * @param failures - Per-agent error details
+ * @example
+ * { success: true, copied: 2, failures: [] }
+ * { success: false, copied: 1, failures: [{ agentId: 'codex', error: 'Already exists' }] }
+ */
+export interface CopyToAgentsResult {
+  success: boolean
+  copied: number
+  failures: Array<{ agentId: AgentId; error: string }>
+}
+
+/**
  * A conflict found during sync preview (local folder exists where symlink would go)
  */
 export interface SyncConflict {

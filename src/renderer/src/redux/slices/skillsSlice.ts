@@ -20,6 +20,10 @@ interface SkillsState {
   skillToAddSymlinks: Skill | null
   /** Whether symlink creation is in progress */
   addingSymlinks: boolean
+  /** Skill to copy to other agents (opens CopyToAgentsModal) */
+  skillToCopy: Skill | null
+  /** Whether copy operation is in progress */
+  copying: boolean
 }
 
 const initialState: SkillsState = {
@@ -33,6 +37,8 @@ const initialState: SkillsState = {
   deleting: false,
   skillToAddSymlinks: null,
   addingSymlinks: false,
+  skillToCopy: null,
+  copying: false,
 }
 
 /**
@@ -112,6 +118,31 @@ export const createSymlinks = createAsyncThunk(
   },
 )
 
+/**
+ * Copy a skill from one agent to other agents
+ * @param params - skill, linkPath of source, and target agent IDs
+ * @returns Copied count and failures
+ */
+export const copyToAgents = createAsyncThunk(
+  'skills/copyToAgents',
+  async (params: { skill: Skill; linkPath: string; agentIds: AgentId[] }) => {
+    const { skill, linkPath, agentIds } = params
+    const result = await window.electron.skills.copyToAgents({
+      skillName: skill.name,
+      linkPath,
+      targetAgentIds: agentIds,
+    })
+    if (!result.success && result.copied === 0) {
+      throw new Error('Failed to copy to any agent')
+    }
+    return {
+      skillName: skill.name,
+      copied: result.copied,
+      failures: result.failures,
+    }
+  },
+)
+
 const skillsSlice = createSlice({
   name: 'skills',
   initialState,
@@ -130,6 +161,9 @@ const skillsSlice = createSlice({
     },
     setSkillToAddSymlinks: (state, action: PayloadAction<Skill | null>) => {
       state.skillToAddSymlinks = action.payload
+    },
+    setSkillToCopy: (state, action: PayloadAction<Skill | null>) => {
+      state.skillToCopy = action.payload
     },
   },
   extraReducers: (builder) => {
@@ -185,6 +219,17 @@ const skillsSlice = createSlice({
       .addCase(createSymlinks.rejected, (state) => {
         state.addingSymlinks = false
       })
+      // Copy to agents
+      .addCase(copyToAgents.pending, (state) => {
+        state.copying = true
+      })
+      .addCase(copyToAgents.fulfilled, (state) => {
+        state.copying = false
+        state.skillToCopy = null
+      })
+      .addCase(copyToAgents.rejected, (state) => {
+        state.copying = false
+      })
   },
 })
 
@@ -193,5 +238,6 @@ export const {
   setSkillToUnlink,
   setSkillToDelete,
   setSkillToAddSymlinks,
+  setSkillToCopy,
 } = skillsSlice.actions
 export default skillsSlice.reducer

@@ -30,6 +30,9 @@ contextBridge.exposeInMainWorld('electron', {
     createSymlinks: async (
       options: Parameters<typeof typedInvoke<'skills:createSymlinks'>>[1],
     ) => typedInvoke('skills:createSymlinks', options),
+    copyToAgents: async (
+      options: Parameters<typeof typedInvoke<'skills:copyToAgents'>>[1],
+    ) => typedInvoke('skills:copyToAgents', options),
   },
   // Agents API
   agents: {

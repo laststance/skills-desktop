@@ -7,6 +7,7 @@ import { selectAgent } from '../../redux/slices/uiSlice'
 import { SkillsMarketplace } from '../marketplace'
 import { SyncConflictDialog } from '../sidebar/SyncConflictDialog'
 import { AddSymlinkModal } from '../skills/AddSymlinkModal'
+import { CopyToAgentsModal } from '../skills/CopyToAgentsModal'
 import { DeleteSkillDialog } from '../skills/DeleteSkillDialog'
 import { SearchBox } from '../skills/SearchBox'
 import { SkillsList } from '../skills/SkillsList'
@@ -121,6 +122,7 @@ export function MainContent(): React.ReactElement {
       <UnlinkDialog />
       <DeleteSkillDialog />
       <AddSymlinkModal />
+      <CopyToAgentsModal />
       <SyncConflictDialog />
     </main>
   )
