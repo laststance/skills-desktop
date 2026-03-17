@@ -52,14 +52,16 @@ interface CopyToAgentsResult {
 - Source agent: hidden
 - Agents with existing skill: disabled + "already exists"
 - [Cancel] [Copy] buttons
-- On success: refresh skills, close modal
-- On partial failure: show failed agents in modal
+- On success: refresh skills, close modal, show success toast
+- On partial failure: close modal, show warning toast with per-agent error details
 
-### Redux (uiSlice)
+### Redux (skillsSlice)
 
 ```ts
 skillToCopy: Skill | null
-// Actions: setSkillToCopy, clearSkillToCopy
+copying: boolean
+// Actions: setSkillToCopy
+// Thunk: copyToAgents
 ```
 
 `linkPath` derived in modal: `skill.symlinks.find(s => s.agentId === selectedAgentId)?.linkPath`
@@ -77,10 +79,10 @@ skillToCopy: Skill | null
 
 ## Changes by Layer
 
-| Layer    | Files                                                                               |
-| -------- | ----------------------------------------------------------------------------------- |
-| Shared   | `ipc-contract.ts`, `types.ts` — new channel + types                                 |
-| Main     | `ipc/skills.ts` — new handler                                                       |
-| Preload  | Expose `skills:copyToAgents` via context bridge                                     |
-| Renderer | `SkillItem.tsx` (context menu), `CopyToAgentsModal.tsx` (new), `uiSlice.ts` (state) |
-| Tests    | IPC contract type test, pure function tests                                         |
+| Layer    | Files                                                                                   |
+| -------- | --------------------------------------------------------------------------------------- |
+| Shared   | `ipc-contract.ts`, `types.ts` — new channel + types                                     |
+| Main     | `ipc/skills.ts` — new handler                                                           |
+| Preload  | Expose `skills:copyToAgents` via context bridge                                         |
+| Renderer | `SkillItem.tsx` (context menu), `CopyToAgentsModal.tsx` (new), `skillsSlice.ts` (state) |
+| Tests    | IPC contract type test, pure function tests                                             |

@@ -1,5 +1,5 @@
 import { Copy, Loader2 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
 import { UNIVERSAL_FILTER_ID } from '../../../../shared/constants'
@@ -36,6 +36,11 @@ export function CopyToAgentsModal(): React.ReactElement {
   const { items: agents } = useAppSelector((state) => state.agents)
 
   const [selectedAgents, setSelectedAgents] = useState<AgentId[]>([])
+
+  // Reset selections when modal opens for a new skill
+  useEffect(() => {
+    setSelectedAgents([])
+  }, [skillToCopy])
 
   const existingAgents = useMemo(() => agents.filter((a) => a.exists), [agents])
 
@@ -137,29 +142,37 @@ export function CopyToAgentsModal(): React.ReactElement {
             )
             .map((agent) => {
               const alreadyExists = alreadyExistsAgentIds.has(agent.id)
+              const checkboxId = `copy-agent-${agent.id}`
               return (
-                <label
+                <div
                   key={agent.id}
                   className={`flex items-center gap-3 p-2 rounded-md transition-colors ${
                     alreadyExists
                       ? 'opacity-50 cursor-not-allowed'
                       : 'hover:bg-accent cursor-pointer'
                   }`}
+                  onClick={() =>
+                    !alreadyExists && !copying && handleAgentToggle(agent.id)
+                  }
                 >
                   <Checkbox
+                    id={checkboxId}
                     checked={alreadyExists || selectedAgents.includes(agent.id)}
                     disabled={alreadyExists || copying}
                     onCheckedChange={() => handleAgentToggle(agent.id)}
                   />
-                  <span className="text-sm">
+                  <label
+                    htmlFor={checkboxId}
+                    className="text-sm cursor-pointer"
+                  >
                     {agent.name}
                     {alreadyExists && (
                       <span className="text-xs text-muted-foreground ml-2">
                         already exists
                       </span>
                     )}
-                  </span>
-                </label>
+                  </label>
+                </div>
               )
             })}
         </div>
