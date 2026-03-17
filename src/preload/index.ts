@@ -2,6 +2,13 @@ import { contextBridge, ipcRenderer, shell } from 'electron'
 
 import { IPC_CHANNELS } from '../shared/ipc-channels'
 import type {
+  ChatChunk,
+  ChatSendParams,
+  ClaudeStatus,
+  CreateSandboxParams,
+  SandboxResult,
+} from '../shared/chat-types'
+import type {
   DownloadProgress,
   InstallProgress,
   UpdateInfo,
@@ -124,5 +131,24 @@ contextBridge.exposeInMainWorld('electron', {
     execute: async (
       options: Parameters<typeof typedInvoke<'sync:execute'>>[1],
     ) => typedInvoke('sync:execute', options),
+  },
+  // Chat API (Agent Chat Panel)
+  chat: {
+    detectClaude: async (): Promise<ClaudeStatus> =>
+      typedInvoke('chat:detectClaude'),
+    send: async (params: ChatSendParams): Promise<void> =>
+      typedInvoke('chat:send', params),
+    abort: async (): Promise<void> => typedInvoke('chat:abort'),
+    createSandbox: async (
+      params: CreateSandboxParams,
+    ): Promise<SandboxResult> => typedInvoke('chat:createSandbox', params),
+    cleanupSandbox: async (sandboxPath: string): Promise<void> =>
+      typedInvoke('chat:cleanupSandbox', sandboxPath),
+    onChunk: (callback: (chunk: ChatChunk) => void) => {
+      const handler = (_: Electron.IpcRendererEvent, chunk: ChatChunk) =>
+        callback(chunk)
+      ipcRenderer.on(IPC_CHANNELS.CHAT_CHUNK, handler)
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.CHAT_CHUNK, handler)
+    },
   },
 })
