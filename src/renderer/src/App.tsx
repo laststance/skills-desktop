@@ -27,16 +27,16 @@ export default function App(): React.ReactElement {
       <div className="flex h-screen bg-background text-foreground window-glow">
         <Sidebar />
         <Group orientation="horizontal" className="flex-1 h-full">
-          <Panel defaultSize={35} minSize={15}>
+          <Panel defaultSize="35%" minSize="15%">
             <MainContent />
           </Panel>
           <Separator className="bg-border hover:bg-primary/50 active:bg-primary transition-colors cursor-col-resize" />
-          <Panel defaultSize={35} minSize={20}>
+          <Panel defaultSize="35%" minSize="20%">
             <DetailPanel />
           </Panel>
           <Separator className="bg-border hover:bg-primary/50 active:bg-primary transition-colors cursor-col-resize" />
-          {/* react-resizable-panels uses %, not px. 30% ≈ 320px on 1280px window */}
-          <Panel defaultSize={30} minSize={15} maxSize={35}>
+          {/* 30% ≈ 320px on 1280px window */}
+          <Panel defaultSize="30%" minSize="15%" maxSize="40%">
             <ChatPanel />
           </Panel>
         </Group>
