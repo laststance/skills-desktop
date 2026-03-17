@@ -1,4 +1,11 @@
 import type {
+  ChatChunk,
+  ChatSendParams,
+  ClaudeStatus,
+  CreateSandboxParams,
+  SandboxResult,
+} from '../../../shared/chat-types'
+import type {
   Skill,
   Agent,
   SymlinkInfo,
@@ -91,6 +98,14 @@ declare global {
       sync: {
         preview: () => Promise<SyncPreviewResult>
         execute: (options: SyncExecuteOptions) => Promise<SyncExecuteResult>
+      }
+      chat: {
+        detectClaude: () => Promise<ClaudeStatus>
+        send: (params: ChatSendParams) => Promise<void>
+        abort: () => Promise<void>
+        createSandbox: (params: CreateSandboxParams) => Promise<SandboxResult>
+        cleanupSandbox: (sandboxPath: string) => Promise<void>
+        onChunk: (callback: (chunk: ChatChunk) => void) => () => void
       }
     }
   }

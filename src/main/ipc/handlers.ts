@@ -1,3 +1,5 @@
+import { registerChatHandlers } from '../chat'
+
 import { registerAgentsHandlers } from './agents'
 import { registerFilesHandlers } from './files'
 import { registerSkillsHandlers } from './skills'
@@ -18,4 +20,5 @@ export function registerAllHandlers(): void {
   registerFilesHandlers()
   registerUpdateHandlers()
   registerSyncHandlers()
+  registerChatHandlers()
 }

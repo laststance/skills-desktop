@@ -1,4 +1,11 @@
 import type {
+  ChatChunk,
+  ChatSendParams,
+  ClaudeStatus,
+  CreateSandboxParams,
+  SandboxResult,
+} from './chat-types'
+import type {
   Agent,
   CliCommandResult,
   CopyToAgentsOptions,
@@ -70,6 +77,11 @@ export interface IpcInvokeContract {
   'update:download': { args: []; result: void }
   'update:install': { args: []; result: void }
   'update:check': { args: []; result: void }
+  'chat:detectClaude': { args: []; result: ClaudeStatus }
+  'chat:send': { args: [ChatSendParams]; result: void }
+  'chat:abort': { args: []; result: void }
+  'chat:createSandbox': { args: [CreateSandboxParams]; result: SandboxResult }
+  'chat:cleanupSandbox': { args: [string]; result: void }
 }
 
 /**
@@ -89,6 +101,7 @@ export interface IpcEventContract {
   'update:progress': DownloadProgress
   'update:downloaded': UpdateInfo
   'update:error': { message: string }
+  'chat:chunk': ChatChunk
 }
 
 export type IpcInvokeChannel = keyof IpcInvokeContract
