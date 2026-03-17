@@ -1,6 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
 import * as fs from 'fs/promises'
 import * as os from 'os'
+
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 vi.mock('fs/promises')
 vi.mock('os')

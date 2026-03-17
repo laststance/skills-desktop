@@ -1,3 +1,5 @@
+import { registerChatHandlers } from '../chat'
+
 import { registerAgentsHandlers } from './agents'
 import { registerFilesHandlers } from './files'
 import { registerSkillsHandlers } from './skills'
@@ -5,7 +7,6 @@ import { registerSkillsCliHandlers } from './skillsCli'
 import { registerSourceHandlers } from './source'
 import { registerSyncHandlers } from './sync'
 import { registerUpdateHandlers } from './update'
-import { registerChatHandlers } from '../chat'
 
 /**
  * Register all IPC handlers for main process

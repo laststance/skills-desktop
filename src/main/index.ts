@@ -2,10 +2,10 @@ import { join } from 'path'
 
 import { app, shell, BrowserWindow, Menu } from 'electron'
 
-import { registerAllHandlers } from './ipc/handlers'
-import { initAutoUpdater } from './updater'
 import { abortActiveChat } from './chat'
 import { cleanupStaleSandboxes } from './chat/sandboxManager'
+import { registerAllHandlers } from './ipc/handlers'
+import { initAutoUpdater } from './updater'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({

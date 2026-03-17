@@ -1,5 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
 import * as childProcess from 'child_process'
+
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 vi.mock('child_process')
 

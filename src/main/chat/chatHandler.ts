@@ -10,7 +10,7 @@ import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import { typedHandle } from '../ipc/typedHandle'
 
 import { buildSystemPrompt, transformMessage } from './chatHelpers'
-import { clearClaudeCache, detectClaude } from './claudeDetector'
+import { detectClaude } from './claudeDetector'
 import { cleanupSandbox, createSandbox } from './sandboxManager'
 
 /** Active AbortController for cancellation */

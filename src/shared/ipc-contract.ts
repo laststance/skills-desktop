@@ -1,4 +1,11 @@
 import type {
+  ChatChunk,
+  ChatSendParams,
+  ClaudeStatus,
+  CreateSandboxParams,
+  SandboxResult,
+} from './chat-types'
+import type {
   Agent,
   CliCommandResult,
   CopyToAgentsOptions,
@@ -24,13 +31,6 @@ import type {
   UnlinkResult,
   UpdateInfo,
 } from './types'
-import type {
-  ChatChunk,
-  ChatSendParams,
-  ClaudeStatus,
-  CreateSandboxParams,
-  SandboxResult,
-} from './chat-types'
 
 /**
  * Contract mapping IPC invoke channels to their argument tuples and return types.
