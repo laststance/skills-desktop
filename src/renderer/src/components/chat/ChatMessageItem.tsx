@@ -124,6 +124,29 @@ export function ChatMessageItem({
                     {children}
                   </blockquote>
                 ),
+                table: ({ children }) => (
+                  <div className="my-2 overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      {children}
+                    </table>
+                  </div>
+                ),
+                thead: ({ children }) => (
+                  <thead className="border-b border-border">{children}</thead>
+                ),
+                th: ({ children }) => (
+                  <th className="px-3 py-1.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {children}
+                  </th>
+                ),
+                td: ({ children }) => (
+                  <td className="px-3 py-1.5 border-b border-border/50">
+                    {children}
+                  </td>
+                ),
+                tr: ({ children }) => (
+                  <tr className="hover:bg-background/30">{children}</tr>
+                ),
               }}
             >
               {content}
