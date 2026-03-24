@@ -28,6 +28,8 @@ interface ChatState {
   sandboxPath: string | null
   sandboxSkillName: string | null
   error: string | null
+  /** Message queued from outside ChatPanel (e.g. Explain button) */
+  pendingMessage: string | null
 }
 
 const initialState: ChatState = {
@@ -39,6 +41,7 @@ const initialState: ChatState = {
   sandboxPath: null,
   sandboxSkillName: null,
   error: null,
+  pendingMessage: null,
 }
 
 const chatSlice = createSlice({
@@ -138,6 +141,12 @@ const chatSlice = createSlice({
       state.messages = []
       state.error = null
     },
+    setPendingMessage: (state, action: PayloadAction<string>) => {
+      state.pendingMessage = action.payload
+    },
+    clearPendingMessage: (state) => {
+      state.pendingMessage = null
+    },
   },
 })
 
@@ -154,6 +163,8 @@ export const {
   setSandbox,
   clearSandbox,
   clearMessages,
+  setPendingMessage,
+  clearPendingMessage,
 } = chatSlice.actions
 
 export default chatSlice.reducer

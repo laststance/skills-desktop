@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import type { PanelSize } from 'react-resizable-panels'
 import { Panel, Group, Separator, usePanelRef } from 'react-resizable-panels'
 import { Toaster } from 'sonner'
@@ -11,7 +11,6 @@ import { TooltipProvider } from './components/ui/tooltip'
 import { UpdateToast } from './components/UpdateToast'
 import { useChatNotification } from './hooks/useChatNotification'
 import { useUpdateNotification } from './hooks/useUpdateNotification'
-import { useAppSelector } from './redux/hooks'
 
 const separatorClass =
   'bg-border hover:bg-primary/50 active:bg-primary transition-colors cursor-col-resize'
@@ -28,22 +27,12 @@ export default function App(): React.ReactElement {
   // Subscribe to chat chunk IPC events
   useChatNotification()
 
-  const { selectedSkill } = useAppSelector((state) => state.skills)
   const detailPanelRef = usePanelRef()
   const [isDetailCollapsed, setIsDetailCollapsed] = useState(true)
 
   const handleDetailResize = useCallback((panelSize: PanelSize) => {
     setIsDetailCollapsed(panelSize.asPercentage === 0)
   }, [])
-
-  // Auto-expand/collapse Inspector when skill selection changes
-  useEffect(() => {
-    if (selectedSkill) {
-      detailPanelRef.current?.expand()
-    } else {
-      detailPanelRef.current?.collapse()
-    }
-  }, [selectedSkill, detailPanelRef])
 
   return (
     <TooltipProvider delayDuration={200}>

@@ -39,7 +39,7 @@ export function SkillDetail({ skill }: SkillDetailProps): React.ReactElement {
     <div className="flex flex-col h-full">
       {/* Header with skill name */}
       <div className="p-4 border-b border-border">
-        <h2 className="text-lg font-semibold">{skill.name}</h2>
+        <h2 className="text-lg font-semibold truncate">{skill.name}</h2>
         {skill.description && (
           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
             {skill.description}

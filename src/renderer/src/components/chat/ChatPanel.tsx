@@ -1,12 +1,14 @@
-import { Bot } from 'lucide-react'
+import { Bot, MessageCircleQuestion } from 'lucide-react'
 import { useCallback, useEffect } from 'react'
 
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import {
   addUserMessage,
   clearMessages,
+  clearPendingMessage,
   clearSandbox,
   setClaudeStatus,
+  setPendingMessage,
   setSandbox,
 } from '../../redux/slices/chatSlice'
 
@@ -29,6 +31,7 @@ export function ChatPanel(): React.ReactElement {
     sandboxPath,
     sandboxSkillName,
     error,
+    pendingMessage,
   } = useAppSelector((state) => state.chat)
   const { selectedSkill, items: skills } = useAppSelector(
     (state) => state.skills,
@@ -80,6 +83,14 @@ export function ChatPanel(): React.ReactElement {
     [dispatch, skills, sandboxPath, selectedSkill],
   )
 
+  // Process pending messages from other components (e.g. Explain button)
+  useEffect(() => {
+    if (pendingMessage && !isStreaming && claudeAvailable) {
+      handleSend(pendingMessage)
+      dispatch(clearPendingMessage())
+    }
+  }, [pendingMessage, isStreaming, claudeAvailable, handleSend, dispatch])
+
   const handleAbort = useCallback(() => {
     window.electron.chat.abort()
   }, [])
@@ -110,13 +121,33 @@ export function ChatPanel(): React.ReactElement {
 
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
-        <Bot className="h-4 w-4 text-primary" />
+        <Bot className="h-4 w-4 text-primary shrink-0" />
         <span className="text-sm font-medium">Skills Assistant</span>
-        {claudeVersion && (
-          <span className="text-[10px] text-muted-foreground ml-auto">
-            v{claudeVersion}
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {selectedSkill && (
+            <button
+              type="button"
+              className="flex items-center gap-1 text-xs bg-muted hover:bg-muted/80 text-foreground rounded-md px-2 py-1 transition-colors"
+              onClick={() =>
+                dispatch(
+                  setPendingMessage(
+                    `Explain the "${selectedSkill.name}" skill: what it does, when to use it, and show usage examples.`,
+                  ),
+                )
+              }
+            >
+              <MessageCircleQuestion className="h-3.5 w-3.5" />
+              <span className="truncate max-w-[120px]">
+                Explain {selectedSkill.name}
+              </span>
+            </button>
+          )}
+          {claudeVersion && (
+            <span className="text-[10px] text-muted-foreground shrink-0">
+              v{claudeVersion}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Sandbox bar */}
