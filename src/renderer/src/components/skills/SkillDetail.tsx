@@ -18,7 +18,7 @@ type TabType = 'info' | 'code'
  * Detailed view of a selected skill with tabs
  */
 export function SkillDetail({ skill }: SkillDetailProps): React.ReactElement {
-  const [activeTab, setActiveTab] = useState<TabType>('code')
+  const [activeTab, setActiveTab] = useState<TabType>('info')
   const { items: agents } = useAppSelector((state) => state.agents)
 
   // Filter symlinks to only show detected agents (exists: true)
@@ -49,17 +49,6 @@ export function SkillDetail({ skill }: SkillDetailProps): React.ReactElement {
       {/* Tab buttons */}
       <div className="flex border-b border-border">
         <button
-          onClick={() => setActiveTab('code')}
-          className={cn(
-            'px-4 py-2 text-sm font-medium border-b-2 -mb-[1px] transition-colors',
-            activeTab === 'code'
-              ? 'text-primary border-primary'
-              : 'text-muted-foreground border-transparent hover:text-foreground',
-          )}
-        >
-          Files
-        </button>
-        <button
           onClick={() => setActiveTab('info')}
           className={cn(
             'px-4 py-2 text-sm font-medium border-b-2 -mb-[1px] transition-colors',
@@ -69,6 +58,17 @@ export function SkillDetail({ skill }: SkillDetailProps): React.ReactElement {
           )}
         >
           Info
+        </button>
+        <button
+          onClick={() => setActiveTab('code')}
+          className={cn(
+            'px-4 py-2 text-sm font-medium border-b-2 -mb-[1px] transition-colors',
+            activeTab === 'code'
+              ? 'text-primary border-primary'
+              : 'text-muted-foreground border-transparent hover:text-foreground',
+          )}
+        >
+          Files
         </button>
       </div>
 
