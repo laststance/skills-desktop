@@ -137,12 +137,3 @@ export const UNIVERSAL_AGENT_IDS = [
   'kimi-cli',
   'opencode',
 ] as const satisfies readonly AgentId[]
-
-/**
- * Sentinel value for selectedAgentId when the Universal filter is active.
- * Not a real AgentId — signals "show skills from ~/.agents/skills/"
- *
- * @example
- * dispatch(selectAgent(UNIVERSAL_FILTER_ID)) // activates universal view
- */
-export const UNIVERSAL_FILTER_ID = 'universal' as const

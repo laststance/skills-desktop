@@ -1,4 +1,3 @@
-import { UNIVERSAL_FILTER_ID } from '../../../../shared/constants'
 import type { SymlinkInfo } from '../../../../shared/types'
 
 /**
@@ -73,8 +72,6 @@ export function getSkillItemVisibility(
     selectedAgentSymlink,
     selectedLocalSkillInfo,
     showCopyButton:
-      !!selectedAgentId &&
-      selectedAgentId !== UNIVERSAL_FILTER_ID &&
-      (!!selectedAgentSymlink || isLocalSkill),
+      !!selectedAgentId && (!!selectedAgentSymlink || isLocalSkill),
   }
 }

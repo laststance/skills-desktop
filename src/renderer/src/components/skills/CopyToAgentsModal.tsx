@@ -2,7 +2,6 @@ import { Copy, Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
-import { UNIVERSAL_FILTER_ID } from '../../../../shared/constants'
 import type { AgentId } from '../../../../shared/types'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { fetchAgents } from '../../redux/slices/agentsSlice'
@@ -135,11 +134,7 @@ export function CopyToAgentsModal(): React.ReactElement {
 
         <div className="max-h-64 overflow-y-auto space-y-2 py-2">
           {existingAgents
-            .filter(
-              (agent) =>
-                agent.id !== selectedAgentId &&
-                (agent.id as string) !== UNIVERSAL_FILTER_ID,
-            )
+            .filter((agent) => agent.id !== selectedAgentId)
             .map((agent) => {
               const alreadyExists = alreadyExistsAgentIds.has(agent.id)
               const checkboxId = `copy-agent-${agent.id}`

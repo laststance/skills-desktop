@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  AGENT_DEFINITIONS,
-  UNIVERSAL_AGENT_IDS,
-  UNIVERSAL_FILTER_ID,
-} from './constants'
+import { AGENT_DEFINITIONS, UNIVERSAL_AGENT_IDS } from './constants'
 
 describe('AGENT_DEFINITIONS', () => {
   it('has unique ids', () => {
@@ -51,16 +47,5 @@ describe('UNIVERSAL_AGENT_IDS', () => {
     expect(UNIVERSAL_AGENT_IDS).toContain('github-copilot')
     expect(UNIVERSAL_AGENT_IDS).toContain('kimi-cli')
     expect(UNIVERSAL_AGENT_IDS).toContain('opencode')
-  })
-})
-
-describe('UNIVERSAL_FILTER_ID', () => {
-  it('is the string "universal"', () => {
-    expect(UNIVERSAL_FILTER_ID).toBe('universal')
-  })
-
-  it('does not collide with any AgentId', () => {
-    const allIds = AGENT_DEFINITIONS.map((a) => a.id) as string[]
-    expect(allIds).not.toContain(UNIVERSAL_FILTER_ID)
   })
 })

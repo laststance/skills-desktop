@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from 'react'
 
-import { UNIVERSAL_FILTER_ID } from '../../../../shared/constants'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { fetchSkills } from '../../redux/slices/skillsSlice'
 
@@ -25,11 +24,8 @@ export function SkillsList(): React.ReactElement {
   const filteredSkills = useMemo(() => {
     let result = skills
 
-    // Filter by selected agent or Universal group
-    if (selectedAgentId === UNIVERSAL_FILTER_ID) {
-      // Universal agents read from ~/.agents/skills/ directly.
-      // Source skills (primary set from fetchSkills) are all accessible — no filter needed.
-    } else if (selectedAgentId) {
+    // Filter by selected agent
+    if (selectedAgentId) {
       result = result.filter((skill) =>
         skill.symlinks.some(
           (symlink) =>
@@ -85,11 +81,9 @@ export function SkillsList(): React.ReactElement {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-muted-foreground">
-          {selectedAgentId === UNIVERSAL_FILTER_ID
-            ? 'No universal skills installed'
-            : selectedAgentId
-              ? 'No skills installed for this agent'
-              : 'No skills match your search'}
+          {selectedAgentId
+            ? 'No skills installed for this agent'
+            : 'No skills match your search'}
         </div>
       </div>
     )
