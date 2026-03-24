@@ -43,7 +43,7 @@ export function ChatMessageItem({
       </div>
       <div className={`flex-1 min-w-0 ${isUser ? 'text-right' : ''}`}>
         <div
-          className={`inline-block rounded-lg px-3 py-2 max-w-full ${
+          className={`inline-block rounded-lg px-3 py-2 max-w-full text-left ${
             isUser
               ? 'text-sm bg-primary text-primary-foreground'
               : 'text-base bg-muted text-foreground'
