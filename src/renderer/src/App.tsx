@@ -1,4 +1,6 @@
-import { Panel, Group, Separator } from 'react-resizable-panels'
+import { useCallback, useEffect, useState } from 'react'
+import type { PanelSize } from 'react-resizable-panels'
+import { Panel, Group, Separator, usePanelRef } from 'react-resizable-panels'
 import { Toaster } from 'sonner'
 
 import { ChatPanel } from './components/chat/ChatPanel'
@@ -9,10 +11,15 @@ import { TooltipProvider } from './components/ui/tooltip'
 import { UpdateToast } from './components/UpdateToast'
 import { useChatNotification } from './hooks/useChatNotification'
 import { useUpdateNotification } from './hooks/useUpdateNotification'
+import { useAppSelector } from './redux/hooks'
+
+const separatorClass =
+  'bg-border hover:bg-primary/50 active:bg-primary transition-colors cursor-col-resize'
 
 /**
  * Skills Desktop main application component
- * Four-column layout: Sidebar (240px) | Main (resizable) | Detail (resizable) | Chat (resizable)
+ * Three-column layout: Sidebar (240px) | Main (resizable) | Chat (resizable)
+ * + Collapsible Inspector panel (Apple HIG pattern) for skill details
  * Theme application is handled by Redux listener middleware
  */
 export default function App(): React.ReactElement {
@@ -21,23 +28,51 @@ export default function App(): React.ReactElement {
   // Subscribe to chat chunk IPC events
   useChatNotification()
 
+  const { selectedSkill } = useAppSelector((state) => state.skills)
+  const detailPanelRef = usePanelRef()
+  const [isDetailCollapsed, setIsDetailCollapsed] = useState(true)
+
+  const handleDetailResize = useCallback((panelSize: PanelSize) => {
+    setIsDetailCollapsed(panelSize.asPercentage === 0)
+  }, [])
+
+  // Auto-expand/collapse Inspector when skill selection changes
+  useEffect(() => {
+    if (selectedSkill) {
+      detailPanelRef.current?.expand()
+    } else {
+      detailPanelRef.current?.collapse()
+    }
+  }, [selectedSkill, detailPanelRef])
+
   return (
     <TooltipProvider delayDuration={200}>
       {/* Window glow effect - subtle inner shadow for depth */}
       <div className="flex h-screen bg-background text-foreground window-glow">
         <Sidebar />
         <Group orientation="horizontal" className="flex-1 h-full">
-          <Panel defaultSize="35%" minSize="15%">
+          <Panel defaultSize="50%" minSize="20%">
             <MainContent />
           </Panel>
-          <Separator className="bg-border hover:bg-primary/50 active:bg-primary transition-colors cursor-col-resize" />
-          <Panel defaultSize="35%" minSize="20%">
-            <DetailPanel />
-          </Panel>
-          <Separator className="bg-border hover:bg-primary/50 active:bg-primary transition-colors cursor-col-resize" />
-          {/* 30% ≈ 320px on 1280px window */}
-          <Panel defaultSize="30%" minSize="15%" maxSize="40%">
+          <Separator className={separatorClass} />
+          <Panel defaultSize="50%" minSize="20%">
             <ChatPanel />
+          </Panel>
+          {/* Inspector separator — hidden when panel is collapsed */}
+          <Separator
+            className={`${separatorClass} ${isDetailCollapsed ? 'opacity-0 pointer-events-none w-0' : ''}`}
+          />
+          {/* Collapsible Inspector panel (Apple HIG Inspector pattern) */}
+          <Panel
+            panelRef={detailPanelRef}
+            collapsible
+            collapsedSize={0}
+            defaultSize="0%"
+            minSize="25%"
+            maxSize="40%"
+            onResize={handleDetailResize}
+          >
+            <DetailPanel />
           </Panel>
         </Group>
       </div>

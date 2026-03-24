@@ -107,7 +107,7 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
             isLinked && 'border-l-2 border-l-cyan-400/40',
             isLocalSkill && 'border-l-2 border-l-emerald-400/40',
           )}
-          onClick={() => dispatch(selectSkill(skill))}
+          onClick={() => dispatch(selectSkill(isSelected ? null : skill))}
           onContextMenu={handleContextMenu}
         >
           {/* X button - visible only when no agent is selected (global view) */}
