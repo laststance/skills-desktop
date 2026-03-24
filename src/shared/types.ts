@@ -10,6 +10,10 @@ export interface Skill {
   path: string
   symlinkCount: number
   symlinks: SymlinkInfo[]
+  /** Short source identifier, e.g. "pbakaus/impeccable" */
+  source?: string
+  /** Full URL to the source repository, e.g. "https://github.com/pbakaus/impeccable.git" */
+  sourceUrl?: string
 }
 
 /**

@@ -7,6 +7,7 @@ import { SymlinkStatus } from '../status/SymlinkStatus'
 import { Separator } from '../ui/separator'
 
 import { CodePreview } from './CodePreview'
+import { SourceLink } from './SourceLink'
 
 interface SkillDetailProps {
   skill: Skill
@@ -78,6 +79,8 @@ export function SkillDetail({ skill }: SkillDetailProps): React.ReactElement {
           <CodePreview skillPath={skill.path} />
         ) : (
           <div className="p-4 overflow-auto h-full">
+            <SourceLink source={skill.source} sourceUrl={skill.sourceUrl} />
+
             <div className="flex gap-4 text-sm mb-4">
               <div>
                 <span className="text-muted-foreground">Valid:</span>

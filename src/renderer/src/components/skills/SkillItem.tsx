@@ -23,6 +23,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
 import { getSkillItemVisibility } from './skillItemHelpers'
+import { SourceLink } from './SourceLink'
 
 interface SkillItemProps {
   skill: Skill
@@ -161,6 +162,7 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
                     {skill.description}
                   </p>
                 )}
+                <SourceLink source={skill.source} sourceUrl={skill.sourceUrl} />
               </div>
 
               {/* Trash icon - visible on hover for linked (non-local) skills */}

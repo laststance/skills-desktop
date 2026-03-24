@@ -1,4 +1,5 @@
-import { access, readdir, stat } from 'fs/promises'
+import { access, readdir, readFile, stat } from 'fs/promises'
+import { homedir } from 'os'
 import { join } from 'path'
 
 import type { Skill, SourceStats, SymlinkInfo } from '../../shared/types'
@@ -6,6 +7,35 @@ import { AGENTS, SOURCE_DIR } from '../constants'
 
 import { parseSkillMetadata } from './metadataParser'
 import { checkSkillSymlinks, countValidSymlinks } from './symlinkChecker'
+
+/**
+ * Entry from ~/.agents/.skill-lock.json
+ */
+interface SkillLockEntry {
+  source: string
+  sourceType: string
+  sourceUrl: string
+}
+
+/**
+ * Read the global skill lock file to get source info for installed skills
+ * @returns Map of skill name to lock entry
+ * @example
+ * readSkillLock()
+ * // => Map { 'frontend-design' => { source: 'pbakaus/impeccable', sourceUrl: '...' } }
+ */
+async function readSkillLock(): Promise<Map<string, SkillLockEntry>> {
+  try {
+    const lockPath = join(homedir(), '.agents', '.skill-lock.json')
+    const content = await readFile(lockPath, 'utf-8')
+    const parsed = JSON.parse(content) as {
+      skills?: Record<string, SkillLockEntry>
+    }
+    return new Map(Object.entries(parsed.skills ?? {}))
+  } catch {
+    return new Map()
+  }
+}
 
 /**
  * Check if a directory is a valid skill (has SKILL.md)
@@ -29,10 +59,11 @@ async function isValidSkillDir(dirPath: string): Promise<boolean> {
  * // => [{ name: 'theme-generator', symlinkCount: 3, ... }]
  */
 export async function scanSkills(): Promise<Skill[]> {
-  // Scan source skills and local skills in parallel
-  const [sourceSkills, localSkills] = await Promise.all([
+  // Scan source skills, local skills, and lock file in parallel
+  const [sourceSkills, localSkills, lockEntries] = await Promise.all([
     scanSourceSkills(),
     scanAllLocalSkills(),
+    readSkillLock(),
   ])
 
   // Merge: local skills that don't exist in source
@@ -40,6 +71,16 @@ export async function scanSkills(): Promise<Skill[]> {
   const uniqueLocalSkills = localSkills.filter((s) => !sourceNames.has(s.name))
 
   const allSkills = [...sourceSkills, ...uniqueLocalSkills]
+
+  // Attach source info from lock file
+  for (const skill of allSkills) {
+    const dirName = skill.path.split('/').pop() || ''
+    const lock = lockEntries.get(dirName) ?? lockEntries.get(skill.name)
+    if (lock) {
+      skill.source = lock.source
+      skill.sourceUrl = lock.sourceUrl
+    }
+  }
 
   // Sort by name
   return allSkills.sort((a, b) => a.name.localeCompare(b.name))
