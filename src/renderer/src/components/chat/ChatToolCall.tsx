@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import React, { useState } from 'react'
 
 interface ChatToolCallProps {
   toolName: string
@@ -12,7 +12,7 @@ interface ChatToolCallProps {
  * Collapsible tool call display within an assistant message
  * Shows tool name, status indicator, and expandable input/output
  */
-export function ChatToolCall({
+export const ChatToolCall = React.memo(function ChatToolCall({
   toolName,
   input,
   output,
@@ -56,4 +56,4 @@ export function ChatToolCall({
       )}
     </div>
   )
-}
+})

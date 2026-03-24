@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo } from 'react'
 
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { fetchSkills } from '../../redux/slices/skillsSlice'
@@ -8,7 +8,7 @@ import { SkillItem } from './SkillItem'
 /**
  * List of all skills with search and agent filtering
  */
-export function SkillsList(): React.ReactElement {
+export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
   const dispatch = useAppDispatch()
   const {
     items: skills,
@@ -96,4 +96,4 @@ export function SkillsList(): React.ReactElement {
       ))}
     </div>
   )
-}
+})

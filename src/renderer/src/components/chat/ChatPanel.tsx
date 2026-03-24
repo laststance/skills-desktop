@@ -1,5 +1,5 @@
 import { Bot, MessageCircleQuestion } from 'lucide-react'
-import { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect } from 'react'
 
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import {
@@ -21,7 +21,7 @@ import { SandboxBar } from './SandboxBar'
  * Agent Chat Panel — 4th column in Skills Desktop layout
  * Provides skill Q&A, management assistance, and sandbox testing
  */
-export function ChatPanel(): React.ReactElement {
+export const ChatPanel = React.memo(function ChatPanel(): React.ReactElement {
   const dispatch = useAppDispatch()
   const {
     messages,
@@ -186,4 +186,4 @@ export function ChatPanel(): React.ReactElement {
       )}
     </aside>
   )
-}
+})

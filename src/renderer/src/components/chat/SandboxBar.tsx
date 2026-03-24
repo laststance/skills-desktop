@@ -1,4 +1,5 @@
 import { FlaskConical, X } from 'lucide-react'
+import React from 'react'
 
 import { Button } from '../ui/button'
 
@@ -12,7 +13,7 @@ interface SandboxBarProps {
  * Status bar showing active sandbox environment
  * Displays sandbox path and skill name with close button
  */
-export function SandboxBar({
+export const SandboxBar = React.memo(function SandboxBar({
   sandboxPath,
   skillName,
   onClose,
@@ -38,4 +39,4 @@ export function SandboxBar({
       </Button>
     </div>
   )
-}
+})

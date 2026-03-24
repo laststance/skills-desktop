@@ -1,5 +1,5 @@
 import { Copy, FolderDot, Link2, Plus, Trash2, X } from 'lucide-react'
-import { useState } from 'react'
+import React, { useState } from 'react'
 
 import type { Skill } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
@@ -33,7 +33,9 @@ interface SkillItemProps {
  * Single skill card in the skills list
  * Shows X button for deletion, trash icon for unlinking, Add button for symlink creation
  */
-export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
+export const SkillItem = React.memo(function SkillItem({
+  skill,
+}: SkillItemProps): React.ReactElement {
   const dispatch = useAppDispatch()
   const { selectedSkill } = useAppSelector((state) => state.skills)
   const { selectedAgentId } = useAppSelector((state) => state.ui)
@@ -221,4 +223,4 @@ export function SkillItem({ skill }: SkillItemProps): React.ReactElement {
       </DropdownMenuContent>
     </DropdownMenu>
   )
-}
+})

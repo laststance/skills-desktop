@@ -1,4 +1,5 @@
 import { ExternalLink } from 'lucide-react'
+import React from 'react'
 
 interface SourceLinkProps {
   source?: string
@@ -15,7 +16,7 @@ interface SourceLinkProps {
  * <SourceLink />
  * // => "Local" text
  */
-export function SourceLink({
+export const SourceLink = React.memo(function SourceLink({
   source,
   sourceUrl,
 }: SourceLinkProps): React.ReactElement {
@@ -42,4 +43,4 @@ export function SourceLink({
       <ExternalLink className="h-3 w-3" />
     </button>
   )
-}
+})

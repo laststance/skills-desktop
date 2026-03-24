@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import type { PanelSize } from 'react-resizable-panels'
 import { Panel, Group, Separator, usePanelRef } from 'react-resizable-panels'
 import { Toaster } from 'sonner'
@@ -21,7 +21,7 @@ const separatorClass =
  * + Collapsible Inspector panel (Apple HIG pattern) for skill details
  * Theme application is handled by Redux listener middleware
  */
-export default function App(): React.ReactElement {
+const App = React.memo(function App(): React.ReactElement {
   // Subscribe to auto-update IPC events
   useUpdateNotification()
   // Subscribe to chat chunk IPC events
@@ -77,4 +77,6 @@ export default function App(): React.ReactElement {
       />
     </TooltipProvider>
   )
-}
+})
+
+export default App

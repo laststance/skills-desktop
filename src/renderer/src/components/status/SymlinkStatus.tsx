@@ -1,4 +1,5 @@
 import { CheckCircle, AlertCircle, Circle } from 'lucide-react'
+import React from 'react'
 
 import type { SymlinkInfo } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
@@ -28,7 +29,7 @@ const STATUS_STYLES = {
 /**
  * Single symlink status row for an agent
  */
-export function SymlinkStatus({
+export const SymlinkStatus = React.memo(function SymlinkStatus({
   symlink,
 }: SymlinkStatusProps): React.ReactElement {
   const style = STATUS_STYLES[symlink.status]
@@ -48,4 +49,4 @@ export function SymlinkStatus({
       </span>
     </div>
   )
-}
+})

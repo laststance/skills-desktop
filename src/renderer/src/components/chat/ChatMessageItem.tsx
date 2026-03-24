@@ -1,4 +1,5 @@
 import { Bot, User } from 'lucide-react'
+import React from 'react'
 import Markdown from 'react-markdown'
 
 import { ChatToolCall } from './ChatToolCall'
@@ -21,7 +22,7 @@ interface ChatMessageItemProps {
  * Single chat message bubble (user or assistant)
  * Assistant messages include tool call displays
  */
-export function ChatMessageItem({
+export const ChatMessageItem = React.memo(function ChatMessageItem({
   role,
   content,
   toolCalls,
@@ -165,4 +166,4 @@ export function ChatMessageItem({
       </div>
     </div>
   )
-}
+})

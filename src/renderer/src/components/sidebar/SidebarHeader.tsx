@@ -1,20 +1,24 @@
+import React from 'react'
+
 import { ThemeSelector } from '../theme/ThemeSelector'
 
 /**
  * Sidebar header with app title and theme selector
  */
-export function SidebarHeader(): React.ReactElement {
-  return (
-    <div className="p-4 pt-8 drag-region">
-      <div className="flex items-center justify-between no-drag">
-        <div>
-          <h1 className="font-mono text-lg font-semibold text-primary">
-            Skills Desktop
-          </h1>
-          <p className="text-xs text-muted-foreground">v{__APP_VERSION__}</p>
+export const SidebarHeader = React.memo(
+  function SidebarHeader(): React.ReactElement {
+    return (
+      <div className="p-4 pt-8 drag-region">
+        <div className="flex items-center justify-between no-drag">
+          <div>
+            <h1 className="font-mono text-lg font-semibold text-primary">
+              Skills Desktop
+            </h1>
+            <p className="text-xs text-muted-foreground">v{__APP_VERSION__}</p>
+          </div>
+          <ThemeSelector />
         </div>
-        <ThemeSelector />
       </div>
-    </div>
-  )
-}
+    )
+  },
+)

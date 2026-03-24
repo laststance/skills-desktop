@@ -1,4 +1,5 @@
 import { Search } from 'lucide-react'
+import React from 'react'
 
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { setSearchQuery } from '../../redux/slices/uiSlice'
@@ -7,7 +8,7 @@ import { Input } from '../ui/input'
 /**
  * Search box for filtering skills
  */
-export function SearchBox(): React.ReactElement {
+export const SearchBox = React.memo(function SearchBox(): React.ReactElement {
   const dispatch = useAppDispatch()
   const { searchQuery } = useAppSelector((state) => state.ui)
 
@@ -23,4 +24,4 @@ export function SearchBox(): React.ReactElement {
       />
     </div>
   )
-}
+})

@@ -1,3 +1,5 @@
+import React from 'react'
+
 import { useCodePreview } from '../../hooks/useCodePreview'
 import { cn } from '../../lib/utils'
 
@@ -21,7 +23,7 @@ const LANG_MAP: Record<string, string> = {
  * Code preview with file tabs and line numbers
  * Displays skill files with syntax highlighting
  */
-export function CodePreview({
+export const CodePreview = React.memo(function CodePreview({
   skillPath,
 }: CodePreviewProps): React.ReactElement {
   const { files, activeFile, setActiveFile, content, loading } =
@@ -52,7 +54,7 @@ export function CodePreview({
         {files.map((file) => (
           <button
             key={file.path}
-            onClick={() => setActiveFile(file.path)}
+            onClick={async () => setActiveFile(file.path)}
             className={cn(
               'px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors',
               'border-b-2 -mb-[1px]',
@@ -93,7 +95,7 @@ export function CodePreview({
       </div>
     </div>
   )
-}
+})
 
 /**
  * Detects if a line is a YAML description body (indented continuation after `description:`)
@@ -126,7 +128,7 @@ interface CodeLineProps {
 }
 
 /** Simple syntax highlighting for code lines */
-function CodeLine({
+const CodeLine = React.memo(function CodeLine({
   line,
   lang,
   isDescriptionBody,
@@ -261,4 +263,4 @@ function CodeLine({
 
   // Default: no highlighting
   return <span>{line || ' '}</span>
-}
+})

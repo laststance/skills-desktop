@@ -1,5 +1,5 @@
 import { Folder, Loader2, RefreshCw, FolderSync } from 'lucide-react'
-import { useEffect } from 'react'
+import React, { useEffect } from 'react'
 import { toast } from 'sonner'
 
 import { cn } from '../../lib/utils'
@@ -20,7 +20,7 @@ import { Card, CardContent } from '../ui/card'
  * Source directory card showing stats, refresh, and sync buttons
  * Clicking the path clears all filters to show all skills
  */
-export function SourceCard(): React.ReactElement {
+export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
   const dispatch = useAppDispatch()
   const { sourceStats, isRefreshing, isSyncing, selectedAgentId } =
     useAppSelector((state) => state.ui)
@@ -144,4 +144,4 @@ export function SourceCard(): React.ReactElement {
       </CardContent>
     </Card>
   )
-}
+})

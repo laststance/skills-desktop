@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import React, { useEffect, useRef } from 'react'
 
 import { ScrollArea } from '../ui/scroll-area'
 
@@ -25,7 +25,7 @@ interface ChatMessageListProps {
 /**
  * Scrollable list of chat messages with auto-scroll on new content
  */
-export function ChatMessageList({
+export const ChatMessageList = React.memo(function ChatMessageList({
   messages,
   isStreaming,
 }: ChatMessageListProps): React.ReactElement {
@@ -61,4 +61,4 @@ export function ChatMessageList({
       </div>
     </ScrollArea>
   )
-}
+})

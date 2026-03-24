@@ -1,5 +1,5 @@
 import { FlaskConical, Send, Square, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import React, { useState } from 'react'
 
 import { Button } from '../ui/button'
 
@@ -15,7 +15,7 @@ interface ChatInputProps {
 /**
  * Chat input with send/abort and action buttons (sandbox, clear)
  */
-export function ChatInput({
+export const ChatInput = React.memo(function ChatInput({
   isStreaming,
   sandboxActive,
   onSend,
@@ -98,4 +98,4 @@ export function ChatInput({
       </div>
     </div>
   )
-}
+})

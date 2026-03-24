@@ -1,5 +1,5 @@
 import { Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import React, { useState } from 'react'
 
 import { AGENT_DEFINITIONS } from '../../../../shared/constants'
 import type { Agent } from '../../../../shared/types'
@@ -58,7 +58,9 @@ function getAgentTooltipPath(agentId: string): string | undefined {
  * Shows "N linked, M local" skill counts.
  * Hover tooltip displays the agent's skills folder path.
  */
-export function AgentItem({ agent }: AgentItemProps): React.ReactElement {
+export const AgentItem = React.memo(function AgentItem({
+  agent,
+}: AgentItemProps): React.ReactElement {
   const dispatch = useAppDispatch()
   const { selectedAgentId } = useAppSelector((state) => state.ui)
   const isSelected = selectedAgentId === agent.id
@@ -132,4 +134,4 @@ export function AgentItem({ agent }: AgentItemProps): React.ReactElement {
       )}
     </Tooltip>
   )
-}
+})

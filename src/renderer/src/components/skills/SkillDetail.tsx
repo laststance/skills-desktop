@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 
 import type { Skill } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
@@ -18,7 +18,9 @@ type TabType = 'info' | 'code'
 /**
  * Detailed view of a selected skill with tabs
  */
-export function SkillDetail({ skill }: SkillDetailProps): React.ReactElement {
+export const SkillDetail = React.memo(function SkillDetail({
+  skill,
+}: SkillDetailProps): React.ReactElement {
   const [activeTab, setActiveTab] = useState<TabType>('info')
   const { items: agents } = useAppSelector((state) => state.agents)
 
@@ -120,4 +122,4 @@ export function SkillDetail({ skill }: SkillDetailProps): React.ReactElement {
       </div>
     </div>
   )
-}
+})

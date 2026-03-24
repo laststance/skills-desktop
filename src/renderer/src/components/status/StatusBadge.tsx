@@ -1,4 +1,5 @@
 import { CheckCircle, AlertCircle, Circle } from 'lucide-react'
+import React from 'react'
 
 import type { SymlinkStatus } from '../../../../shared/types'
 import { Badge } from '../ui/badge'
@@ -43,7 +44,7 @@ const STATUS_CONFIG = {
  * <StatusBadge status="valid" count={3} agentNames={["Claude", "Cursor", "Windsurf"]} />
  * // Shows: ✓ 3 with tooltip listing "Claude, Cursor, Windsurf"
  */
-export function StatusBadge({
+export const StatusBadge = React.memo(function StatusBadge({
   status,
   count,
   agentNames,
@@ -72,4 +73,4 @@ export function StatusBadge({
       </TooltipContent>
     </Tooltip>
   )
-}
+})

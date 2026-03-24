@@ -1,4 +1,5 @@
 import { Check, Download, Plus, Trash2 } from 'lucide-react'
+import React from 'react'
 
 import type { SkillSearchResult } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
@@ -33,7 +34,7 @@ function formatInstallCount(count: number | undefined): string {
  * Single skill row in marketplace search results
  * Design: 72px height, rank badge, install count, install/remove buttons
  */
-export function SkillRowMarketplace({
+export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
   skill,
   isInstalled = false,
 }: SkillRowMarketplaceProps): React.ReactElement {
@@ -133,4 +134,4 @@ export function SkillRowMarketplace({
       )}
     </div>
   )
-}
+})

@@ -1,3 +1,5 @@
+import React from 'react'
+
 import { cn } from '../../lib/utils'
 
 type RankingFilter = 'all-time' | 'trending' | 'hot'
@@ -18,7 +20,7 @@ const tabs: { id: RankingFilter; label: string }[] = [
  * @param value - Currently selected ranking filter
  * @param onChange - Callback when filter changes
  */
-export function RankingTabs({
+export const RankingTabs = React.memo(function RankingTabs({
   value,
   onChange,
 }: RankingTabsProps): React.ReactElement {
@@ -40,6 +42,6 @@ export function RankingTabs({
       ))}
     </div>
   )
-}
+})
 
 export type { RankingFilter }

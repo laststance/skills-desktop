@@ -1,4 +1,5 @@
 import { AlertCircle, RefreshCw } from 'lucide-react'
+import React from 'react'
 
 import { Button } from '../ui/button'
 
@@ -10,7 +11,7 @@ interface ClaudeStatusBannerProps {
  * Banner shown when Claude Code is not detected on the system
  * Provides install instructions and retry button
  */
-export function ClaudeStatusBanner({
+export const ClaudeStatusBanner = React.memo(function ClaudeStatusBanner({
   onRetry,
 }: ClaudeStatusBannerProps): React.ReactElement {
   return (
@@ -30,4 +31,4 @@ export function ClaudeStatusBanner({
       </Button>
     </div>
   )
-}
+})
