@@ -113,7 +113,14 @@ export const AgentItem = React.memo(function AgentItem({
               onClick={handleClick}
               onContextMenu={handleContextMenu}
             >
-              <span className="text-sm truncate">{agent.name}</span>
+              <span
+                className={cn(
+                  'text-sm truncate',
+                  !agent.exists && 'text-muted-foreground/70',
+                )}
+              >
+                {agent.name}
+              </span>
               {skillCountText && (
                 <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
                   {skillCountText}
