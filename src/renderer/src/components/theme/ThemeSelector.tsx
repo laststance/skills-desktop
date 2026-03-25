@@ -49,7 +49,7 @@ export const ThemeSelector = React.memo(
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
+          <Button variant="ghost" size="icon" className="h-11 w-11">
             <Palette className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -81,20 +81,24 @@ export const ThemeSelector = React.memo(
           <DropdownMenuLabel className="text-xs text-muted-foreground">
             Color Themes
           </DropdownMenuLabel>
-          <div className="grid grid-cols-6 gap-1 p-2">
+          <div className="grid grid-cols-6 gap-0.5 p-1">
             {Object.entries(THEME_HUES).map(([name, themeHue]) => (
               <button
                 key={name}
                 onClick={() => handleSelectColorTheme(name, themeHue)}
-                className={cn(
-                  'h-6 w-6 rounded-full transition-transform hover:scale-110',
-                  presetType === 'color' &&
-                    hue === themeHue &&
-                    'ring-2 ring-white ring-offset-2 ring-offset-background',
-                )}
-                style={{ backgroundColor: `oklch(0.65 0.2 ${themeHue})` }}
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center"
                 title={name.charAt(0).toUpperCase() + name.slice(1)}
-              />
+              >
+                <span
+                  className={cn(
+                    'h-6 w-6 rounded-full transition-transform hover:scale-110 block',
+                    presetType === 'color' &&
+                      hue === themeHue &&
+                      'ring-2 ring-white ring-offset-2 ring-offset-background',
+                  )}
+                  style={{ backgroundColor: `oklch(0.65 0.2 ${themeHue})` }}
+                />
+              </button>
             ))}
           </div>
 
