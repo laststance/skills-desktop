@@ -1,13 +1,14 @@
 import { BrowserWindow } from 'electron'
 
 import type {
+  ChatChunk,
   ChatSendParams,
   ClaudeStatus,
   CreateSandboxParams,
   SandboxResult,
 } from '../../shared/chat-types'
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import { typedHandle } from '../ipc/typedHandle'
+import { typedSend } from '../ipc/typedSend'
 
 import { buildSystemPrompt, transformMessage } from './chatHelpers'
 import { detectClaude } from './claudeDetector'
@@ -20,10 +21,10 @@ let abortController: AbortController | null = null
  * Send a chat chunk event to all renderer windows
  * @param chunk - ChatChunk to broadcast
  */
-function sendChatChunk(chunk: unknown): void {
+function sendChatChunk(chunk: ChatChunk): void {
   const windows = BrowserWindow.getAllWindows()
   for (const win of windows) {
-    win.webContents.send(IPC_CHANNELS.CHAT_CHUNK, chunk)
+    typedSend(win.webContents, 'chat:chunk', chunk)
   }
 }
 

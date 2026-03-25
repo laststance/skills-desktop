@@ -1,5 +1,5 @@
 import { Copy, FolderDot, Link2, Plus, Trash2, X } from 'lucide-react'
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 
 import type { Skill } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
@@ -42,12 +42,24 @@ export const SkillItem = React.memo(function SkillItem({
   const { items: agents } = useAppSelector((state) => state.agents)
   const isSelected = selectedSkill?.path === skill.path
 
-  const validSymlinks = skill.symlinks.filter((s) => s.status === 'valid')
-  const brokenSymlinks = skill.symlinks.filter((s) => s.status === 'broken')
+  const validSymlinks = useMemo(
+    () => skill.symlinks.filter((s) => s.status === 'valid'),
+    [skill.symlinks],
+  )
+  const brokenSymlinks = useMemo(
+    () => skill.symlinks.filter((s) => s.status === 'broken'),
+    [skill.symlinks],
+  )
   const validCount = validSymlinks.length
   const brokenCount = brokenSymlinks.length
-  const validAgentNames = validSymlinks.map((s) => s.agentName)
-  const brokenAgentNames = brokenSymlinks.map((s) => s.agentName)
+  const validAgentNames = useMemo(
+    () => validSymlinks.map((s) => s.agentName),
+    [validSymlinks],
+  )
+  const brokenAgentNames = useMemo(
+    () => brokenSymlinks.map((s) => s.agentName),
+    [brokenSymlinks],
+  )
 
   const {
     showDeleteButton,
@@ -120,7 +132,7 @@ export const SkillItem = React.memo(function SkillItem({
                 <button
                   type="button"
                   onClick={handleDeleteClick}
-                  className="absolute top-2 right-2 p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-2 right-2 p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -174,7 +186,7 @@ export const SkillItem = React.memo(function SkillItem({
                     <button
                       type="button"
                       onClick={handleUnlinkClick}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                      className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

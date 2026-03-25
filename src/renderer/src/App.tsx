@@ -36,6 +36,12 @@ const App = React.memo(function App(): React.ReactElement {
 
   return (
     <TooltipProvider delayDuration={200}>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-0 focus:left-0 focus:z-50 focus:bg-primary focus:text-primary-foreground focus:p-2"
+      >
+        Skip to main content
+      </a>
       {/* Window glow effect - subtle inner shadow for depth */}
       <div className="flex h-screen bg-background text-foreground window-glow">
         <Sidebar />

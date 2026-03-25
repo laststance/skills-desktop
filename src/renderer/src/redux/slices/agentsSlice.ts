@@ -2,10 +2,10 @@ import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 
 import type { Agent } from '../../../../shared/types'
+import type { RootState } from '../store'
 
 interface AgentsState {
   items: Agent[]
-  selectedAgent: Agent | null
   loading: boolean
   error: string | null
   /** Agent pending skills folder deletion confirmation */
@@ -16,7 +16,6 @@ interface AgentsState {
 
 const initialState: AgentsState = {
   items: [],
-  selectedAgent: null,
   loading: false,
   error: null,
   agentToDelete: null,
@@ -27,8 +26,7 @@ const initialState: AgentsState = {
  * Fetch all agents from the main process
  */
 export const fetchAgents = createAsyncThunk('agents/fetchAll', async () => {
-  const agents = await window.electron.agents.getAll()
-  return agents as Agent[]
+  return window.electron.agents.getAll()
 })
 
 /**
@@ -54,9 +52,6 @@ const agentsSlice = createSlice({
   name: 'agents',
   initialState,
   reducers: {
-    selectAgent: (state, action: PayloadAction<Agent | null>) => {
-      state.selectedAgent = action.payload
-    },
     setAgentToDelete: (state, action: PayloadAction<Agent | null>) => {
       state.agentToDelete = action.payload
     },
@@ -82,11 +77,24 @@ const agentsSlice = createSlice({
         state.deleting = false
         state.agentToDelete = null
       })
-      .addCase(removeAllSymlinksFromAgent.rejected, (state) => {
+      .addCase(removeAllSymlinksFromAgent.rejected, (state, action) => {
         state.deleting = false
+        state.error = action.error.message ?? 'Failed to remove symlinks'
       })
   },
 })
 
-export const { selectAgent, setAgentToDelete } = agentsSlice.actions
+export const { setAgentToDelete } = agentsSlice.actions
 export default agentsSlice.reducer
+
+// --- Named selectors ---
+export const selectAgentItems = (state: RootState): Agent[] =>
+  state.agents.items
+export const selectAgentsLoading = (state: RootState): boolean =>
+  state.agents.loading
+export const selectAgentToDelete = (state: RootState): Agent | null =>
+  state.agents.agentToDelete
+export const selectAgentsDeleting = (state: RootState): boolean =>
+  state.agents.deleting
+export const selectAgentsError = (state: RootState): string | null =>
+  state.agents.error

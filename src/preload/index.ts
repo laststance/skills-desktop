@@ -20,7 +20,13 @@ import { typedInvoke } from './typedInvoke'
 contextBridge.exposeInMainWorld('electron', {
   // Shell API (external links)
   shell: {
-    openExternal: async (url: string) => shell.openExternal(url),
+    openExternal: async (url: string) => {
+      const parsed = new URL(url)
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        throw new Error('Unsupported URL protocol')
+      }
+      return shell.openExternal(url)
+    },
   },
   // Skills API
   skills: {

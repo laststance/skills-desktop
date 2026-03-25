@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { Provider } from 'react-redux'
 
 import App from './App'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { store } from './redux/store'
 import './styles/globals.css'
 
@@ -19,8 +20,10 @@ if (import.meta.env.DEV) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Provider store={store}>
-      <App />
-    </Provider>
+    <ErrorBoundary>
+      <Provider store={store}>
+        <App />
+      </Provider>
+    </ErrorBoundary>
   </StrictMode>,
 )

@@ -1,6 +1,7 @@
 import { Bot, User } from 'lucide-react'
 import React from 'react'
 import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 import { ChatToolCall } from './ChatToolCall'
 
@@ -60,6 +61,7 @@ export const ChatMessageItem = React.memo(function ChatMessageItem({
             </div>
           ) : (
             <Markdown
+              remarkPlugins={[remarkGfm]}
               components={{
                 h1: ({ children }) => (
                   <h1 className="text-xl font-bold mt-4 mb-2 first:mt-0">

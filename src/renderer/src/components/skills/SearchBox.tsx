@@ -17,6 +17,7 @@ export const SearchBox = React.memo(function SearchBox(): React.ReactElement {
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
       <Input
         type="search"
+        aria-label="Search skills by name or description"
         placeholder="Search skills..."
         value={searchQuery}
         onChange={(e) => dispatch(setSearchQuery(e.target.value))}

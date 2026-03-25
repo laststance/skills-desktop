@@ -1,0 +1,197 @@
+import { describe, expect, it } from 'vitest'
+
+import type { Skill, SymlinkInfo } from '../../../shared/types'
+
+import { selectFilteredSkills } from './selectors'
+
+/** Helper to build a minimal RootState for selector testing */
+function buildState(overrides: {
+  skills?: Skill[]
+  searchQuery?: string
+  selectedAgentId?: string | null
+}) {
+  return {
+    skills: {
+      items: overrides.skills ?? [],
+      selectedSkill: null,
+      loading: false,
+      error: null,
+      skillToUnlink: null,
+      unlinking: false,
+      skillToDelete: null,
+      deleting: false,
+      skillToAddSymlinks: null,
+      addingSymlinks: false,
+      skillToCopy: null,
+      copying: false,
+    },
+    ui: {
+      searchQuery: overrides.searchQuery ?? '',
+      sourceStats: null,
+      isRefreshing: false,
+      selectedAgentId: overrides.selectedAgentId ?? null,
+      isSyncing: false,
+      syncPreview: null,
+      error: null,
+    },
+    // Other slices needed for RootState shape
+    agents: {
+      items: [],
+      loading: false,
+      error: null,
+      agentToDelete: null,
+      deleting: false,
+    },
+    update: {
+      status: 'idle' as const,
+      version: null,
+      releaseNotes: null,
+      progress: 0,
+      error: null,
+      dismissed: false,
+    },
+    theme: {
+      hue: 195,
+      mode: 'dark' as const,
+      preset: 'neutral-dark',
+      presetType: 'neutral' as const,
+    },
+    marketplace: {
+      status: 'idle' as const,
+      searchQuery: '',
+      searchResults: [],
+      selectedSkill: null,
+      installProgress: null,
+      skillToRemove: null,
+      error: null,
+    },
+    chat: {
+      messages: [],
+      isStreaming: false,
+      claudeAvailable: null,
+      claudePath: null,
+      claudeVersion: null,
+      error: null,
+      sandboxPath: null,
+      sandboxSkillName: null,
+    },
+  }
+}
+
+const makeSkill = (name: string, agentId: string): Skill => ({
+  name,
+  description: `${name} skill`,
+  path: `/home/user/.agents/skills/${name}`,
+  symlinkCount: 1,
+  symlinks: [
+    {
+      agentId: agentId as SymlinkInfo['agentId'],
+      agentName: agentId as SymlinkInfo['agentName'],
+      linkPath: `/home/user/.${agentId}/skills/${name}`,
+      targetPath: `/home/user/.agents/skills/${name}`,
+      status: 'valid',
+      isLocal: false,
+    },
+  ],
+})
+
+describe('selectFilteredSkills', () => {
+  it('returns all skills when no filters active', () => {
+    const skills = [
+      makeSkill('task', 'claude-code'),
+      makeSkill('browse', 'cursor'),
+    ]
+    const state = buildState({ skills })
+    expect(selectFilteredSkills(state as never)).toHaveLength(2)
+  })
+
+  it('filters by search query (name match)', () => {
+    const skills = [
+      makeSkill('task', 'claude-code'),
+      makeSkill('browse', 'cursor'),
+    ]
+    const state = buildState({ skills, searchQuery: 'task' })
+    const result = selectFilteredSkills(state as never)
+    expect(result).toHaveLength(1)
+    expect(result[0].name).toBe('task')
+  })
+
+  it('filters by search query (description match)', () => {
+    const skills = [
+      makeSkill('task', 'claude-code'),
+      makeSkill('browse', 'cursor'),
+    ]
+    const state = buildState({ skills, searchQuery: 'browse skill' })
+    const result = selectFilteredSkills(state as never)
+    expect(result).toHaveLength(1)
+    expect(result[0].name).toBe('browse')
+  })
+
+  it('search is case-insensitive', () => {
+    const skills = [makeSkill('Task', 'claude-code')]
+    const state = buildState({ skills, searchQuery: 'TASK' })
+    expect(selectFilteredSkills(state as never)).toHaveLength(1)
+  })
+
+  it('filters by selected agent', () => {
+    const skills = [
+      makeSkill('task', 'claude-code'),
+      makeSkill('browse', 'cursor'),
+    ]
+    const state = buildState({ skills, selectedAgentId: 'cursor' })
+    const result = selectFilteredSkills(state as never)
+    expect(result).toHaveLength(1)
+    expect(result[0].name).toBe('browse')
+  })
+
+  it('combines agent filter and search query', () => {
+    const skills = [
+      makeSkill('task', 'claude-code'),
+      makeSkill('browse', 'cursor'),
+      makeSkill('code-review', 'cursor'),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      searchQuery: 'browse',
+    })
+    const result = selectFilteredSkills(state as never)
+    expect(result).toHaveLength(1)
+    expect(result[0].name).toBe('browse')
+  })
+
+  it('excludes skills with broken symlinks for agent filter', () => {
+    const skill: Skill = {
+      name: 'broken-skill',
+      description: 'broken',
+      path: '/home/user/.agents/skills/broken-skill',
+      symlinkCount: 1,
+      symlinks: [
+        {
+          agentId: 'cursor' as SymlinkInfo['agentId'],
+          agentName: 'Cursor' as SymlinkInfo['agentName'],
+          linkPath: '/home/user/.cursor/skills/broken-skill',
+          targetPath: '/home/user/.agents/skills/broken-skill',
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+    }
+    const state = buildState({ skills: [skill], selectedAgentId: 'cursor' })
+    expect(selectFilteredSkills(state as never)).toHaveLength(0)
+  })
+
+  it('returns empty array when no skills match', () => {
+    const skills = [makeSkill('task', 'claude-code')]
+    const state = buildState({ skills, searchQuery: 'nonexistent' })
+    expect(selectFilteredSkills(state as never)).toHaveLength(0)
+  })
+
+  it('is memoized (returns same reference for same inputs)', () => {
+    const skills = [makeSkill('task', 'claude-code')]
+    const state = buildState({ skills })
+    const result1 = selectFilteredSkills(state as never)
+    const result2 = selectFilteredSkills(state as never)
+    expect(result1).toBe(result2)
+  })
+})

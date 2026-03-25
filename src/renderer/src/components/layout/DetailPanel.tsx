@@ -26,7 +26,7 @@ export const DetailPanel = React.memo(
           <button
             type="button"
             onClick={() => dispatch(selectSkill(null))}
-            className="no-drag p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            className="no-drag p-2.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Close detail panel"
           >
             <X size={14} />

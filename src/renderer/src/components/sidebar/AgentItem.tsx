@@ -1,5 +1,5 @@
 import { Trash2 } from 'lucide-react'
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 
 import { AGENT_DEFINITIONS } from '../../../../shared/constants'
 import type { Agent } from '../../../../shared/types'
@@ -82,11 +82,15 @@ export const AgentItem = React.memo(function AgentItem({
     setContextOpen(false)
   }
 
-  const skillCountText = agent.exists
-    ? buildSkillCountText(agent.skillCount, agent.localSkillCount)
-    : null
+  const skillCountText = useMemo(
+    () =>
+      agent.exists
+        ? buildSkillCountText(agent.skillCount, agent.localSkillCount)
+        : null,
+    [agent.exists, agent.skillCount, agent.localSkillCount],
+  )
 
-  const tooltipPath = getAgentTooltipPath(agent.id)
+  const tooltipPath = useMemo(() => getAgentTooltipPath(agent.id), [agent.id])
 
   return (
     <Tooltip>
@@ -100,15 +104,23 @@ export const AgentItem = React.memo(function AgentItem({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
+              aria-label={`Filter skills by ${agent.name}${skillCountText ? ` (${skillCountText})` : ''}`}
               className={cn(
-                'flex w-full items-center justify-between py-1.5 px-2 rounded-md transition-colors border-l-4 border-l-transparent text-left',
+                'flex w-full items-center justify-between min-h-[44px] py-1.5 px-2 rounded-md transition-colors border-l-4 border-l-transparent text-left',
                 agent.exists && 'cursor-pointer hover:bg-muted/50',
                 isSelected && 'border-l-primary bg-primary/10',
               )}
               onClick={handleClick}
               onContextMenu={handleContextMenu}
             >
-              <span className="text-sm truncate">{agent.name}</span>
+              <span
+                className={cn(
+                  'text-sm truncate',
+                  !agent.exists && 'text-muted-foreground/70',
+                )}
+              >
+                {agent.name}
+              </span>
               {skillCountText && (
                 <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
                   {skillCountText}
