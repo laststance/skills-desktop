@@ -129,7 +129,6 @@ class SkillsCliService extends EventEmitter {
       // Use npx to run skills CLI with FORCE_COLOR=0 to disable ANSI colors
       const proc = spawn('npx', ['skills@1.3.0', ...args], {
         env: { ...process.env, FORCE_COLOR: '0' },
-        shell: true,
       })
 
       this.currentProcess = proc

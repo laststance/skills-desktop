@@ -3,6 +3,7 @@ import { join } from 'node:path'
 
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import { AGENTS, SOURCE_DIR } from '../constants'
+import { getAllowedBases, validatePath } from '../services/pathValidation'
 import { scanSkills } from '../services/skillScanner'
 
 import { typedHandle } from './typedHandle'
@@ -24,6 +25,8 @@ export function registerSkillsHandlers(): void {
     const { linkPath } = options
 
     try {
+      const agentBases = AGENTS.map((a) => a.path)
+      validatePath(linkPath, agentBases)
       const stats = await fs.lstat(linkPath)
       if (stats.isSymbolicLink()) {
         // Remove symlink
@@ -55,6 +58,8 @@ export function registerSkillsHandlers(): void {
     const { agentPath } = options
 
     try {
+      const agentBases = AGENTS.map((a) => a.path)
+      validatePath(agentPath, agentBases)
       // Count entries before deletion for reporting
       let removedCount = 0
       try {
@@ -85,9 +90,18 @@ export function registerSkillsHandlers(): void {
     let symlinksRemoved = 0
 
     try {
+      // Validate skillPath BEFORE using skillName in path joins (defense in depth)
+      validatePath(skillPath, [SOURCE_DIR])
+
       // Remove symlinks and local copies across all agents
       for (const agent of AGENTS) {
         const agentSkillPath = join(agent.path, skillName)
+        // Validate each constructed path stays within agent directory
+        try {
+          validatePath(agentSkillPath, [agent.path])
+        } catch {
+          continue // Skip if path escapes agent directory
+        }
         try {
           const stats = await fs.lstat(agentSkillPath)
           if (stats.isSymbolicLink()) {
@@ -101,10 +115,8 @@ export function registerSkillsHandlers(): void {
         }
       }
 
-      // Remove source directory if under SOURCE_DIR
-      if (skillPath.startsWith(SOURCE_DIR)) {
-        await fs.rm(skillPath, { recursive: true, force: true })
-      }
+      // Remove source directory (already validated above)
+      await fs.rm(skillPath, { recursive: true, force: true })
 
       return { success: true, symlinksRemoved }
     } catch (error) {
@@ -121,6 +133,7 @@ export function registerSkillsHandlers(): void {
    */
   typedHandle(IPC_CHANNELS.SKILLS_CREATE_SYMLINKS, async (_, options) => {
     const { skillName, skillPath, agentIds } = options
+    validatePath(skillPath, [SOURCE_DIR])
     let created = 0
     const failures: Array<{
       agentId: (typeof agentIds)[number]
@@ -140,21 +153,21 @@ export function registerSkillsHandlers(): void {
         // Ensure agent skills directory exists
         await fs.mkdir(agent.path, { recursive: true })
 
-        // Check if something already exists at the link path
-        try {
-          await fs.lstat(linkPath)
-          failures.push({ agentId, error: 'Already exists' })
-          continue
-        } catch {
-          // Nothing exists, proceed with symlink creation
-        }
-
+        // Atomic: attempt symlink directly, handle EEXIST
         await fs.symlink(skillPath, linkPath)
         created++
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Unknown error occurred'
-        failures.push({ agentId, error: message })
+        if (
+          error instanceof Error &&
+          'code' in error &&
+          (error as NodeJS.ErrnoException).code === 'EEXIST'
+        ) {
+          failures.push({ agentId, error: 'Already exists' })
+        } else {
+          const message =
+            error instanceof Error ? error.message : 'Unknown error occurred'
+          failures.push({ agentId, error: message })
+        }
       }
     }
 
@@ -173,6 +186,7 @@ export function registerSkillsHandlers(): void {
    */
   typedHandle(IPC_CHANNELS.SKILLS_COPY_TO_AGENTS, async (_, options) => {
     const { skillName, linkPath, targetAgentIds } = options
+    validatePath(linkPath, getAllowedBases())
     let copied = 0
     const failures: Array<{
       agentId: (typeof targetAgentIds)[number]
@@ -187,6 +201,8 @@ export function registerSkillsHandlers(): void {
       if (stats.isSymbolicLink()) {
         isSymlink = true
         symlinkTarget = await fs.readlink(linkPath)
+        // Validate the resolved symlink target is within allowed bases
+        validatePath(symlinkTarget, [SOURCE_DIR])
       } else if (!stats.isDirectory()) {
         return {
           success: false,

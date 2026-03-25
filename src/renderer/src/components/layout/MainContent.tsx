@@ -51,7 +51,11 @@ export const MainContent = React.memo(
     }
 
     return (
-      <main className="h-full flex flex-col overflow-hidden">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="h-full flex flex-col overflow-hidden outline-none"
+      >
         <Tabs
           value={activeTab}
           onValueChange={handleTabChange}
@@ -98,7 +102,7 @@ export const MainContent = React.memo(
                   variant="ghost"
                   size="sm"
                   onClick={handleClearFilter}
-                  className="h-6 px-2"
+                  className="min-h-[44px] px-3"
                 >
                   <X className="h-3 w-3 mr-1" />
                   Clear

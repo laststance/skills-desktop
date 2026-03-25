@@ -104,7 +104,7 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
             <Button
               variant="ghost"
               size="sm"
-              className="h-5 px-1.5 text-xs font-medium gap-1"
+              className="min-h-[44px] px-2 text-xs font-medium gap-1"
               onClick={handleSync}
               disabled={isSyncing}
             >
@@ -119,7 +119,7 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6"
+            className="h-11 w-11"
             onClick={handleRefresh}
             disabled={isRefreshing}
           >

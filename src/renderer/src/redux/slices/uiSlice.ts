@@ -6,6 +6,7 @@ import type {
   SyncExecuteOptions,
   SyncPreviewResult,
 } from '../../../../shared/types'
+import type { RootState } from '../store'
 
 interface UiState {
   searchQuery: string
@@ -16,6 +17,7 @@ interface UiState {
   isSyncing: boolean
   /** Sync preview result (null when not previewing) */
   syncPreview: SyncPreviewResult | null
+  error: string | null
 }
 
 const initialState: UiState = {
@@ -25,6 +27,7 @@ const initialState: UiState = {
   selectedAgentId: null,
   isSyncing: false,
   syncPreview: null,
+  error: null,
 }
 
 /**
@@ -33,8 +36,7 @@ const initialState: UiState = {
 export const fetchSourceStats = createAsyncThunk(
   'ui/fetchSourceStats',
   async () => {
-    const stats = await window.electron.source.getStats()
-    return stats as SourceStats
+    return window.electron.source.getStats()
   },
 )
 
@@ -95,15 +97,17 @@ const uiSlice = createSlice({
         // executeSyncAction handles its own loading state via isExecuting (component-local).
         state.isSyncing = false
       })
-      .addCase(fetchSyncPreview.rejected, (state) => {
+      .addCase(fetchSyncPreview.rejected, (state, action) => {
         state.isSyncing = false
+        state.error = action.error.message ?? 'Failed to fetch sync preview'
       })
       .addCase(executeSyncAction.fulfilled, (state) => {
         state.isSyncing = false
         state.syncPreview = null
       })
-      .addCase(executeSyncAction.rejected, (state) => {
+      .addCase(executeSyncAction.rejected, (state, action) => {
         state.isSyncing = false
+        state.error = action.error.message ?? 'Sync failed'
       })
   },
 })
@@ -111,3 +115,17 @@ const uiSlice = createSlice({
 export const { setSearchQuery, setRefreshing, selectAgent, setSyncPreview } =
   uiSlice.actions
 export default uiSlice.reducer
+
+// --- Named selectors ---
+export const selectSearchQuery = (state: RootState): string =>
+  state.ui.searchQuery
+export const selectSelectedAgentId = (state: RootState): string | null =>
+  state.ui.selectedAgentId
+export const selectSourceStats = (state: RootState): SourceStats | null =>
+  state.ui.sourceStats
+export const selectIsRefreshing = (state: RootState): boolean =>
+  state.ui.isRefreshing
+export const selectIsSyncing = (state: RootState): boolean => state.ui.isSyncing
+export const selectSyncPreview = (state: RootState): SyncPreviewResult | null =>
+  state.ui.syncPreview
+export const selectUiError = (state: RootState): string | null => state.ui.error

@@ -1,11 +1,15 @@
 import { join } from 'path'
 
-import { app, shell, BrowserWindow, Menu } from 'electron'
+import { app, shell, BrowserWindow, Menu, session } from 'electron'
 
 import { abortActiveChat } from './chat'
 import { cleanupStaleSandboxes } from './chat/sandboxManager'
 import { registerAllHandlers } from './ipc/handlers'
 import { initAutoUpdater } from './updater'
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason)
+})
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -19,7 +23,7 @@ function createWindow(): void {
     trafficLightPosition: { x: 16, y: 16 },
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -30,9 +34,31 @@ function createWindow(): void {
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    try {
+      const url = new URL(details.url)
+      if (['http:', 'https:'].includes(url.protocol)) {
+        shell.openExternal(details.url)
+      }
+    } catch {
+      // Invalid URL, ignore
+    }
     return { action: 'deny' }
   })
+
+  // Enforce Content Security Policy in production builds.
+  // Use file: and app: schemes explicitly since 'self' may not reliably match file:// origins.
+  if (app.isPackaged) {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            "default-src 'self' file: app:; script-src 'self' file: app:; style-src 'self' 'unsafe-inline' file: app:; font-src 'self' data: file: app:; img-src 'self' data: file: app:; connect-src 'self'",
+          ],
+        },
+      })
+    })
+  }
 
   // HMR for renderer based on electron-vite cli
   if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
@@ -74,7 +100,7 @@ function createMenu(): void {
       submenu: [
         { role: 'reload' },
         { role: 'forceReload' },
-        { role: 'toggleDevTools' },
+        ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' as const }]),
         { type: 'separator' },
         { role: 'resetZoom' },
         { role: 'zoomIn' },

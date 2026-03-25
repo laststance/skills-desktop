@@ -1,4 +1,4 @@
-import { access, readdir, readFile, stat } from 'fs/promises'
+import { readdir, readFile, stat } from 'fs/promises'
 import { homedir } from 'os'
 import { join } from 'path'
 
@@ -6,6 +6,7 @@ import type { Skill, SourceStats, SymlinkInfo } from '../../shared/types'
 import { AGENTS, SOURCE_DIR } from '../constants'
 
 import { parseSkillMetadata } from './metadataParser'
+import { isValidSkillDir } from './skillValidation'
 import { checkSkillSymlinks, countValidSymlinks } from './symlinkChecker'
 
 /**
@@ -34,20 +35,6 @@ async function readSkillLock(): Promise<Map<string, SkillLockEntry>> {
     return new Map(Object.entries(parsed.skills ?? {}))
   } catch {
     return new Map()
-  }
-}
-
-/**
- * Check if a directory is a valid skill (has SKILL.md)
- * @param dirPath - Path to the directory
- * @returns True if SKILL.md exists
- */
-async function isValidSkillDir(dirPath: string): Promise<boolean> {
-  try {
-    await access(join(dirPath, 'SKILL.md'))
-    return true
-  } catch {
-    return false
   }
 }
 

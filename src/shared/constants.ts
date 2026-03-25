@@ -106,6 +106,52 @@ export const AGENT_DEFINITIONS = [
   { id: 'pochi', cliId: 'pochi', name: 'Pochi', dir: '.pochi' },
   { id: 'adal', cliId: 'adal', name: 'AdaL', dir: '.adal' },
   { id: 'kimi-cli', cliId: 'kimi-cli', name: 'Kimi Code CLI', dir: '.kimi' },
+  // New agents synced from Skills CLI v1.4.6
+  {
+    id: 'antigravity',
+    cliId: 'antigravity',
+    name: 'Antigravity',
+    dir: '.gemini/antigravity',
+  },
+  { id: 'augment', cliId: 'augment', name: 'Augment', dir: '.augment' },
+  { id: 'codebuddy', cliId: 'codebuddy', name: 'CodeBuddy', dir: '.codebuddy' },
+  {
+    id: 'command-code',
+    cliId: 'command-code',
+    name: 'Command Code',
+    dir: '.commandcode',
+  },
+  {
+    id: 'cortex',
+    cliId: 'cortex',
+    name: 'Cortex Code',
+    dir: '.snowflake/cortex',
+  },
+  { id: 'crush', cliId: 'crush', name: 'Crush', dir: '.config/crush' },
+  {
+    id: 'deepagents',
+    cliId: 'deepagents',
+    name: 'Deep Agents',
+    dir: '.deepagents',
+  },
+  { id: 'droid', cliId: 'droid', name: 'Droid', dir: '.factory' },
+  { id: 'iflow-cli', cliId: 'iflow-cli', name: 'iFlow CLI', dir: '.iflow' },
+  { id: 'kiro-cli', cliId: 'kiro-cli', name: 'Kiro CLI', dir: '.kiro' },
+  { id: 'kode', cliId: 'kode', name: 'Kode', dir: '.kode' },
+  { id: 'mcpjam', cliId: 'mcpjam', name: 'MCPJam', dir: '.mcpjam' },
+  {
+    id: 'mistral-vibe',
+    cliId: 'mistral-vibe',
+    name: 'Mistral Vibe',
+    dir: '.vibe',
+  },
+  { id: 'mux', cliId: 'mux', name: 'Mux', dir: '.mux' },
+  { id: 'openclaw', cliId: 'openclaw', name: 'OpenClaw', dir: '.openclaw' },
+  { id: 'pi', cliId: 'pi', name: 'Pi', dir: '.pi/agent' },
+  { id: 'qwen-code', cliId: 'qwen-code', name: 'Qwen Code', dir: '.qwen' },
+  { id: 'replit', cliId: 'replit', name: 'Replit', dir: '.replit' },
+  { id: 'trae-cn', cliId: 'trae-cn', name: 'Trae CN', dir: '.trae-cn' },
+  { id: 'warp', cliId: 'warp', name: 'Warp', dir: '.warp' },
 ] as const
 
 /**
@@ -131,9 +177,14 @@ export type AgentName = (typeof AGENT_DEFINITIONS)[number]['name']
  */
 export const UNIVERSAL_AGENT_IDS = [
   'amp',
+  'antigravity',
+  'cline',
   'codex',
+  'cursor',
+  'deepagents',
   'gemini-cli',
   'github-copilot',
   'kimi-cli',
   'opencode',
+  'warp',
 ] as const satisfies readonly AgentId[]
