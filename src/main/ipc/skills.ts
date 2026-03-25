@@ -3,6 +3,7 @@ import { join } from 'node:path'
 
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import { AGENTS, SOURCE_DIR } from '../constants'
+import { getAllowedBases, validatePath } from '../services/pathValidation'
 import { scanSkills } from '../services/skillScanner'
 
 import { typedHandle } from './typedHandle'
@@ -24,6 +25,8 @@ export function registerSkillsHandlers(): void {
     const { linkPath } = options
 
     try {
+      const agentBases = AGENTS.map((a) => a.path)
+      validatePath(linkPath, agentBases)
       const stats = await fs.lstat(linkPath)
       if (stats.isSymbolicLink()) {
         // Remove symlink
@@ -55,6 +58,8 @@ export function registerSkillsHandlers(): void {
     const { agentPath } = options
 
     try {
+      const agentBases = AGENTS.map((a) => a.path)
+      validatePath(agentPath, agentBases)
       // Count entries before deletion for reporting
       let removedCount = 0
       try {
@@ -101,10 +106,9 @@ export function registerSkillsHandlers(): void {
         }
       }
 
-      // Remove source directory if under SOURCE_DIR
-      if (skillPath.startsWith(SOURCE_DIR)) {
-        await fs.rm(skillPath, { recursive: true, force: true })
-      }
+      // Remove source directory if within SOURCE_DIR boundary
+      validatePath(skillPath, [SOURCE_DIR])
+      await fs.rm(skillPath, { recursive: true, force: true })
 
       return { success: true, symlinksRemoved }
     } catch (error) {
@@ -121,6 +125,7 @@ export function registerSkillsHandlers(): void {
    */
   typedHandle(IPC_CHANNELS.SKILLS_CREATE_SYMLINKS, async (_, options) => {
     const { skillName, skillPath, agentIds } = options
+    validatePath(skillPath, [SOURCE_DIR])
     let created = 0
     const failures: Array<{
       agentId: (typeof agentIds)[number]
@@ -173,6 +178,7 @@ export function registerSkillsHandlers(): void {
    */
   typedHandle(IPC_CHANNELS.SKILLS_COPY_TO_AGENTS, async (_, options) => {
     const { skillName, linkPath, targetAgentIds } = options
+    validatePath(linkPath, getAllowedBases())
     let copied = 0
     const failures: Array<{
       agentId: (typeof targetAgentIds)[number]
