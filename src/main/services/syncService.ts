@@ -9,19 +9,7 @@ import type {
 } from '../../shared/types'
 import { AGENTS, SOURCE_DIR } from '../constants'
 
-/**
- * Check if a directory is a valid skill (has SKILL.md)
- * @param dirPath - Path to the directory
- * @returns True if SKILL.md exists
- */
-async function isValidSkillDir(dirPath: string): Promise<boolean> {
-  try {
-    await access(join(dirPath, 'SKILL.md'))
-    return true
-  } catch {
-    return false
-  }
-}
+import { isValidSkillDir } from './skillValidation'
 
 /**
  * Get names of all valid source skills in ~/.agents/skills/
