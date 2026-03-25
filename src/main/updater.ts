@@ -2,18 +2,22 @@ import { BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
 
 import { IPC_CHANNELS } from '../shared/ipc-channels'
-import type { DownloadProgress, UpdateInfo } from '../shared/types'
+import type { IpcEventChannel, IpcEventContract } from '../shared/ipc-contract'
+
+import { typedSend } from './ipc/typedSend'
 
 /**
- * Send update event to all renderer windows
+ * Send typed event to all renderer windows
+ * @param channel - Event channel name
+ * @param args - Payload matching the contract
  */
-function sendUpdateEvent(
-  channel: string,
-  data?: UpdateInfo | DownloadProgress | { message: string },
+function broadcastEvent<C extends IpcEventChannel>(
+  channel: C,
+  ...args: IpcEventContract[C] extends void ? [] : [IpcEventContract[C]]
 ): void {
   const windows = BrowserWindow.getAllWindows()
   for (const win of windows) {
-    win.webContents.send(channel, data)
+    typedSend(win.webContents, channel, ...args)
   }
 }
 
@@ -27,12 +31,12 @@ export function initAutoUpdater(): void {
 
   autoUpdater.on('checking-for-update', () => {
     console.log('Checking for updates...')
-    sendUpdateEvent(IPC_CHANNELS.UPDATE_CHECKING)
+    broadcastEvent(IPC_CHANNELS.UPDATE_CHECKING)
   })
 
   autoUpdater.on('update-available', (info) => {
     console.log('Update available:', info.version)
-    sendUpdateEvent(IPC_CHANNELS.UPDATE_AVAILABLE, {
+    broadcastEvent(IPC_CHANNELS.UPDATE_AVAILABLE, {
       version: info.version,
       releaseNotes:
         typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,
@@ -41,17 +45,17 @@ export function initAutoUpdater(): void {
 
   autoUpdater.on('update-not-available', () => {
     console.log('No updates available')
-    sendUpdateEvent(IPC_CHANNELS.UPDATE_NOT_AVAILABLE)
+    broadcastEvent(IPC_CHANNELS.UPDATE_NOT_AVAILABLE)
   })
 
   autoUpdater.on('error', (err) => {
     console.error('Auto updater error:', err)
-    sendUpdateEvent(IPC_CHANNELS.UPDATE_ERROR, { message: err.message })
+    broadcastEvent(IPC_CHANNELS.UPDATE_ERROR, { message: err.message })
   })
 
   autoUpdater.on('download-progress', (progress) => {
     console.log(`Download progress: ${progress.percent.toFixed(1)}%`)
-    sendUpdateEvent(IPC_CHANNELS.UPDATE_PROGRESS, {
+    broadcastEvent(IPC_CHANNELS.UPDATE_PROGRESS, {
       percent: progress.percent,
       bytesPerSecond: progress.bytesPerSecond,
       total: progress.total,
@@ -61,7 +65,7 @@ export function initAutoUpdater(): void {
 
   autoUpdater.on('update-downloaded', (info) => {
     console.log('Update downloaded:', info.version)
-    sendUpdateEvent(IPC_CHANNELS.UPDATE_DOWNLOADED, {
+    broadcastEvent(IPC_CHANNELS.UPDATE_DOWNLOADED, {
       version: info.version,
       releaseNotes:
         typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,
