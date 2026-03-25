@@ -34,7 +34,14 @@ function createWindow(): void {
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    try {
+      const url = new URL(details.url)
+      if (['http:', 'https:'].includes(url.protocol)) {
+        shell.openExternal(details.url)
+      }
+    } catch {
+      // Invalid URL, ignore
+    }
     return { action: 'deny' }
   })
 
@@ -92,7 +99,7 @@ function createMenu(): void {
       submenu: [
         { role: 'reload' },
         { role: 'forceReload' },
-        { role: 'toggleDevTools' },
+        ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' as const }]),
         { type: 'separator' },
         { role: 'resetZoom' },
         { role: 'zoomIn' },
