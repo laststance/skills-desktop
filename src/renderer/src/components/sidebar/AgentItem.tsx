@@ -1,5 +1,5 @@
 import { Trash2 } from 'lucide-react'
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 
 import { AGENT_DEFINITIONS } from '../../../../shared/constants'
 import type { Agent } from '../../../../shared/types'
@@ -82,11 +82,15 @@ export const AgentItem = React.memo(function AgentItem({
     setContextOpen(false)
   }
 
-  const skillCountText = agent.exists
-    ? buildSkillCountText(agent.skillCount, agent.localSkillCount)
-    : null
+  const skillCountText = useMemo(
+    () =>
+      agent.exists
+        ? buildSkillCountText(agent.skillCount, agent.localSkillCount)
+        : null,
+    [agent.exists, agent.skillCount, agent.localSkillCount],
+  )
 
-  const tooltipPath = getAgentTooltipPath(agent.id)
+  const tooltipPath = useMemo(() => getAgentTooltipPath(agent.id), [agent.id])
 
   return (
     <Tooltip>
