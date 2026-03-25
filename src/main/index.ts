@@ -1,6 +1,6 @@
 import { join } from 'path'
 
-import { app, shell, BrowserWindow, Menu } from 'electron'
+import { app, shell, BrowserWindow, Menu, session } from 'electron'
 
 import { abortActiveChat } from './chat'
 import { cleanupStaleSandboxes } from './chat/sandboxManager'
@@ -33,6 +33,20 @@ function createWindow(): void {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
+
+  // Enforce Content Security Policy in production builds
+  if (app.isPackaged) {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'",
+          ],
+        },
+      })
+    })
+  }
 
   // HMR for renderer based on electron-vite cli
   if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
