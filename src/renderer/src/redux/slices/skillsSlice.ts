@@ -2,6 +2,7 @@ import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 
 import type { AgentId, Skill, SymlinkInfo } from '../../../../shared/types'
+import type { RootState } from '../store'
 
 interface SkillsState {
   items: Skill[]
@@ -244,3 +245,26 @@ export const {
   setSkillToCopy,
 } = skillsSlice.actions
 export default skillsSlice.reducer
+
+// --- Named selectors ---
+export const selectSkillsItems = (state: RootState): Skill[] =>
+  state.skills.items
+export const selectSkillsLoading = (state: RootState): boolean =>
+  state.skills.loading
+export const selectSkillsError = (state: RootState): string | null =>
+  state.skills.error
+export const selectSelectedSkill = (state: RootState): Skill | null =>
+  state.skills.selectedSkill
+export const selectSkillToDelete = (state: RootState): Skill | null =>
+  state.skills.skillToDelete
+export const selectSkillsDeleting = (state: RootState): boolean =>
+  state.skills.deleting
+export const selectSkillToUnlink = (
+  state: RootState,
+): { skill: Skill; symlink: SymlinkInfo } | null => state.skills.skillToUnlink
+export const selectSkillsUnlinking = (state: RootState): boolean =>
+  state.skills.unlinking
+export const selectSkillToCopy = (state: RootState): Skill | null =>
+  state.skills.skillToCopy
+export const selectSkillsCopying = (state: RootState): boolean =>
+  state.skills.copying

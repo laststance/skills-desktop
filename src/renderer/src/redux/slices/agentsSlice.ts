@@ -2,6 +2,7 @@ import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 
 import type { Agent } from '../../../../shared/types'
+import type { RootState } from '../store'
 
 interface AgentsState {
   items: Agent[]
@@ -85,3 +86,13 @@ const agentsSlice = createSlice({
 
 export const { setAgentToDelete } = agentsSlice.actions
 export default agentsSlice.reducer
+
+// --- Named selectors ---
+export const selectAgentItems = (state: RootState): Agent[] =>
+  state.agents.items
+export const selectAgentsLoading = (state: RootState): boolean =>
+  state.agents.loading
+export const selectAgentToDelete = (state: RootState): Agent | null =>
+  state.agents.agentToDelete
+export const selectAgentsDeleting = (state: RootState): boolean =>
+  state.agents.deleting

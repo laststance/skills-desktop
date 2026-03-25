@@ -1,7 +1,14 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect } from 'react'
 
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { fetchSkills } from '../../redux/slices/skillsSlice'
+import { selectFilteredSkills } from '../../redux/selectors'
+import {
+  fetchSkills,
+  selectSkillsError,
+  selectSkillsItems,
+  selectSkillsLoading,
+} from '../../redux/slices/skillsSlice'
+import { selectSelectedAgentId } from '../../redux/slices/uiSlice'
 
 import { SkillItem } from './SkillItem'
 
@@ -10,42 +17,15 @@ import { SkillItem } from './SkillItem'
  */
 export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
   const dispatch = useAppDispatch()
-  const {
-    items: skills,
-    loading,
-    error,
-  } = useAppSelector((state) => state.skills)
-  const { searchQuery, selectedAgentId } = useAppSelector((state) => state.ui)
+  const skills = useAppSelector(selectSkillsItems)
+  const loading = useAppSelector(selectSkillsLoading)
+  const error = useAppSelector(selectSkillsError)
+  const selectedAgentId = useAppSelector(selectSelectedAgentId)
+  const filteredSkills = useAppSelector(selectFilteredSkills)
 
   useEffect(() => {
     dispatch(fetchSkills())
   }, [dispatch])
-
-  const filteredSkills = useMemo(() => {
-    let result = skills
-
-    // Filter by selected agent
-    if (selectedAgentId) {
-      result = result.filter((skill) =>
-        skill.symlinks.some(
-          (symlink) =>
-            symlink.agentId === selectedAgentId && symlink.status === 'valid',
-        ),
-      )
-    }
-
-    // Filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      result = result.filter(
-        (skill) =>
-          skill.name.toLowerCase().includes(query) ||
-          skill.description.toLowerCase().includes(query),
-      )
-    }
-
-    return result
-  }, [skills, searchQuery, selectedAgentId])
 
   if (loading) {
     return (

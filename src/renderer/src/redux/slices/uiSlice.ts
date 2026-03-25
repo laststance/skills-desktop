@@ -6,6 +6,7 @@ import type {
   SyncExecuteOptions,
   SyncPreviewResult,
 } from '../../../../shared/types'
+import type { RootState } from '../store'
 
 interface UiState {
   searchQuery: string
@@ -114,3 +115,16 @@ const uiSlice = createSlice({
 export const { setSearchQuery, setRefreshing, selectAgent, setSyncPreview } =
   uiSlice.actions
 export default uiSlice.reducer
+
+// --- Named selectors ---
+export const selectSearchQuery = (state: RootState): string =>
+  state.ui.searchQuery
+export const selectSelectedAgentId = (state: RootState): string | null =>
+  state.ui.selectedAgentId
+export const selectSourceStats = (state: RootState): SourceStats | null =>
+  state.ui.sourceStats
+export const selectIsRefreshing = (state: RootState): boolean =>
+  state.ui.isRefreshing
+export const selectIsSyncing = (state: RootState): boolean => state.ui.isSyncing
+export const selectSyncPreview = (state: RootState): SyncPreviewResult | null =>
+  state.ui.syncPreview
