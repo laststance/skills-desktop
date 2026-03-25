@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react'
+import { List, type RowComponentProps } from 'react-window'
 
+import type { Skill } from '../../../../shared/types'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { selectFilteredSkills } from '../../redux/selectors'
 import {
@@ -12,8 +14,38 @@ import { selectSelectedAgentId } from '../../redux/slices/uiSlice'
 
 import { SkillItem } from './SkillItem'
 
+/** Estimated height of a skill card including gap (px) */
+const ROW_HEIGHT = 120
+
+/** Props passed to SkillRow via rowProps */
+interface SkillRowProps {
+  data: Skill[]
+}
+
 /**
- * List of all skills with search and agent filtering
+ * Virtual row component for react-window v2.
+ * Receives `index` and `style` from List, plus `data` via rowProps.
+ * @param props - RowComponentProps with skill data array
+ * @returns Rendered skill item wrapped in positioned div
+ * @example
+ * <List rowComponent={SkillRow} rowProps={{ data: skills }} ... />
+ */
+// eslint-disable-next-line @laststance/react-next/all-memo -- react-window virtualizes rows; React.memo return type is incompatible with rowComponent prop
+function SkillRow({
+  index,
+  style,
+  data,
+}: RowComponentProps<SkillRowProps>): React.ReactElement {
+  return (
+    <div style={{ ...style, paddingBottom: 12 }}>
+      <SkillItem skill={data[index]} />
+    </div>
+  )
+}
+
+/**
+ * List of all skills with search, agent filtering, and virtual scrolling.
+ * Uses react-window v2 for O(visible) DOM nodes instead of O(n).
  */
 export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
   const dispatch = useAppDispatch()
@@ -70,10 +102,13 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      {filteredSkills.map((skill) => (
-        <SkillItem key={skill.path} skill={skill} />
-      ))}
-    </div>
+    <List<SkillRowProps>
+      rowComponent={SkillRow}
+      rowCount={filteredSkills.length}
+      rowHeight={ROW_HEIGHT}
+      rowProps={{ data: filteredSkills }}
+      overscanCount={5}
+      style={{ width: '100%', height: '100%' }}
+    />
   )
 })
