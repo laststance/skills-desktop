@@ -46,8 +46,7 @@ const initialState: SkillsState = {
  * @returns Promise<Skill[]> - Array of skill objects from ~/.agents/skills/
  */
 export const fetchSkills = createAsyncThunk('skills/fetchAll', async () => {
-  const skills = await window.electron.skills.getAll()
-  return skills as Skill[]
+  return window.electron.skills.getAll()
 })
 
 /**

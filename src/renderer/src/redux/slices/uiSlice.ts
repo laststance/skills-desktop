@@ -35,8 +35,7 @@ const initialState: UiState = {
 export const fetchSourceStats = createAsyncThunk(
   'ui/fetchSourceStats',
   async () => {
-    const stats = await window.electron.source.getStats()
-    return stats as SourceStats
+    return window.electron.source.getStats()
   },
 )
 

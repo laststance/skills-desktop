@@ -25,8 +25,7 @@ const initialState: AgentsState = {
  * Fetch all agents from the main process
  */
 export const fetchAgents = createAsyncThunk('agents/fetchAll', async () => {
-  const agents = await window.electron.agents.getAll()
-  return agents as Agent[]
+  return window.electron.agents.getAll()
 })
 
 /**
