@@ -140,21 +140,21 @@ export function registerSkillsHandlers(): void {
         // Ensure agent skills directory exists
         await fs.mkdir(agent.path, { recursive: true })
 
-        // Check if something already exists at the link path
-        try {
-          await fs.lstat(linkPath)
-          failures.push({ agentId, error: 'Already exists' })
-          continue
-        } catch {
-          // Nothing exists, proceed with symlink creation
-        }
-
+        // Atomic: attempt symlink directly, handle EEXIST
         await fs.symlink(skillPath, linkPath)
         created++
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Unknown error occurred'
-        failures.push({ agentId, error: message })
+        if (
+          error instanceof Error &&
+          'code' in error &&
+          (error as NodeJS.ErrnoException).code === 'EEXIST'
+        ) {
+          failures.push({ agentId, error: 'Already exists' })
+        } else {
+          const message =
+            error instanceof Error ? error.message : 'Unknown error occurred'
+          failures.push({ agentId, error: message })
+        }
       }
     }
 
