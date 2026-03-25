@@ -11,6 +11,7 @@ import {
   setPendingMessage,
   setSandbox,
 } from '../../redux/slices/chatSlice'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
 import { ChatInput } from './ChatInput'
 import { ChatMessageList } from './ChatMessageList'
@@ -125,22 +126,25 @@ export const ChatPanel = React.memo(function ChatPanel(): React.ReactElement {
         <span className="text-sm font-medium">Skills Assistant</span>
         <div className="ml-auto flex items-center gap-2">
           {selectedSkill && (
-            <button
-              type="button"
-              className="flex items-center gap-1 text-xs bg-muted hover:bg-muted/80 text-foreground rounded-md px-2 py-1 transition-colors"
-              onClick={() =>
-                dispatch(
-                  setPendingMessage(
-                    `Explain the "${selectedSkill.name}" skill: what it does, when to use it, and show usage examples.`,
-                  ),
-                )
-              }
-            >
-              <MessageCircleQuestion className="h-3.5 w-3.5" />
-              <span className="truncate max-w-[120px]">
-                Explain {selectedSkill.name}
-              </span>
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-1 text-xs bg-muted hover:bg-muted/80 text-foreground rounded-md px-2 py-1 transition-colors max-w-[180px]"
+                  onClick={() =>
+                    dispatch(
+                      setPendingMessage(
+                        `Explain the "${selectedSkill.name}" skill: what it does, when to use it, and show usage examples.`,
+                      ),
+                    )
+                  }
+                >
+                  <MessageCircleQuestion className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Explain {selectedSkill.name}</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Explain {selectedSkill.name}</TooltipContent>
+            </Tooltip>
           )}
           {claudeVersion && (
             <span className="text-[10px] text-muted-foreground shrink-0">
