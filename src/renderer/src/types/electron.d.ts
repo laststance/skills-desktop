@@ -8,9 +8,7 @@ import type {
 import type {
   Skill,
   Agent,
-  SymlinkInfo,
   SourceStats,
-  SymlinkStatus,
   SkillFile,
   SkillFileContent,
   UpdateInfo,
@@ -42,7 +40,6 @@ declare global {
       }
       skills: {
         getAll: () => Promise<Skill[]>
-        getOne: (name: string) => Promise<Skill | null>
         unlinkFromAgent: (
           options: UnlinkFromAgentOptions,
         ) => Promise<UnlinkResult>
@@ -59,13 +56,9 @@ declare global {
       }
       agents: {
         getAll: () => Promise<Agent[]>
-        getSymlinks: (skillName: string) => Promise<SymlinkInfo[]>
       }
       source: {
         getStats: () => Promise<SourceStats>
-      }
-      symlink: {
-        check: (skillName: string, agentId: string) => Promise<SymlinkStatus>
       }
       files: {
         list: (skillPath: string) => Promise<SkillFile[]>
