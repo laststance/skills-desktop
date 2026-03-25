@@ -42,10 +42,15 @@ describe('UNIVERSAL_AGENT_IDS', () => {
 
   it('contains expected Universal agents', () => {
     expect(UNIVERSAL_AGENT_IDS).toContain('amp')
+    expect(UNIVERSAL_AGENT_IDS).toContain('antigravity')
+    expect(UNIVERSAL_AGENT_IDS).toContain('cline')
     expect(UNIVERSAL_AGENT_IDS).toContain('codex')
+    expect(UNIVERSAL_AGENT_IDS).toContain('cursor')
+    expect(UNIVERSAL_AGENT_IDS).toContain('deepagents')
     expect(UNIVERSAL_AGENT_IDS).toContain('gemini-cli')
     expect(UNIVERSAL_AGENT_IDS).toContain('github-copilot')
     expect(UNIVERSAL_AGENT_IDS).toContain('kimi-cli')
     expect(UNIVERSAL_AGENT_IDS).toContain('opencode')
+    expect(UNIVERSAL_AGENT_IDS).toContain('warp')
   })
 })
