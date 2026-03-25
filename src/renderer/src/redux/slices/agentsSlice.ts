@@ -82,8 +82,9 @@ const agentsSlice = createSlice({
         state.deleting = false
         state.agentToDelete = null
       })
-      .addCase(removeAllSymlinksFromAgent.rejected, (state) => {
+      .addCase(removeAllSymlinksFromAgent.rejected, (state, action) => {
         state.deleting = false
+        state.error = action.error.message ?? 'Failed to remove symlinks'
       })
   },
 })

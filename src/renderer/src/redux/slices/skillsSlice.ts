@@ -191,8 +191,9 @@ const skillsSlice = createSlice({
         }
         state.skillToUnlink = null
       })
-      .addCase(unlinkSkillFromAgent.rejected, (state) => {
+      .addCase(unlinkSkillFromAgent.rejected, (state, action) => {
         state.unlinking = false
+        state.error = action.error.message ?? 'Failed to unlink skill'
       })
       // Delete skill
       .addCase(deleteSkill.pending, (state) => {
@@ -205,8 +206,9 @@ const skillsSlice = createSlice({
         }
         state.skillToDelete = null
       })
-      .addCase(deleteSkill.rejected, (state) => {
+      .addCase(deleteSkill.rejected, (state, action) => {
         state.deleting = false
+        state.error = action.error.message ?? 'Failed to delete skill'
       })
       // Create symlinks
       .addCase(createSymlinks.pending, (state) => {
@@ -216,8 +218,9 @@ const skillsSlice = createSlice({
         state.addingSymlinks = false
         state.skillToAddSymlinks = null
       })
-      .addCase(createSymlinks.rejected, (state) => {
+      .addCase(createSymlinks.rejected, (state, action) => {
         state.addingSymlinks = false
+        state.error = action.error.message ?? 'Failed to create symlinks'
       })
       // Copy to agents
       .addCase(copyToAgents.pending, (state) => {
@@ -227,8 +230,9 @@ const skillsSlice = createSlice({
         state.copying = false
         state.skillToCopy = null
       })
-      .addCase(copyToAgents.rejected, (state) => {
+      .addCase(copyToAgents.rejected, (state, action) => {
         state.copying = false
+        state.error = action.error.message ?? 'Failed to copy skill'
       })
   },
 })

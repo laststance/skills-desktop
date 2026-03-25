@@ -16,6 +16,7 @@ interface UiState {
   isSyncing: boolean
   /** Sync preview result (null when not previewing) */
   syncPreview: SyncPreviewResult | null
+  error: string | null
 }
 
 const initialState: UiState = {
@@ -25,6 +26,7 @@ const initialState: UiState = {
   selectedAgentId: null,
   isSyncing: false,
   syncPreview: null,
+  error: null,
 }
 
 /**
@@ -95,15 +97,17 @@ const uiSlice = createSlice({
         // executeSyncAction handles its own loading state via isExecuting (component-local).
         state.isSyncing = false
       })
-      .addCase(fetchSyncPreview.rejected, (state) => {
+      .addCase(fetchSyncPreview.rejected, (state, action) => {
         state.isSyncing = false
+        state.error = action.error.message ?? 'Failed to fetch sync preview'
       })
       .addCase(executeSyncAction.fulfilled, (state) => {
         state.isSyncing = false
         state.syncPreview = null
       })
-      .addCase(executeSyncAction.rejected, (state) => {
+      .addCase(executeSyncAction.rejected, (state, action) => {
         state.isSyncing = false
+        state.error = action.error.message ?? 'Sync failed'
       })
   },
 })
