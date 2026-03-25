@@ -11,6 +11,11 @@ import type { IpcInvokeChannel } from '../../shared/ipc-contract'
  */
 
 const nonEmptyString = z.string().min(1)
+/** Skill name must not contain path separators to prevent directory traversal */
+const skillNameString = z
+  .string()
+  .min(1)
+  .regex(/^[^/\\]+$/, 'Skill name must not contain path separators')
 
 export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
   // File operations — require non-empty path strings
@@ -32,35 +37,35 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
   // Skills operations
   'skills:unlinkFromAgent': z.tuple([
     z.object({
-      skillName: z.string(),
-      agentId: z.string(),
+      skillName: skillNameString,
+      agentId: nonEmptyString,
       linkPath: nonEmptyString,
     }),
   ]),
   'skills:removeAllFromAgent': z.tuple([
     z.object({
-      agentId: z.string(),
+      agentId: nonEmptyString,
       agentPath: nonEmptyString,
     }),
   ]),
   'skills:deleteSkill': z.tuple([
     z.object({
-      skillName: z.string(),
+      skillName: skillNameString,
       skillPath: nonEmptyString,
     }),
   ]),
   'skills:createSymlinks': z.tuple([
     z.object({
-      skillName: z.string(),
+      skillName: skillNameString,
       skillPath: nonEmptyString,
-      agentIds: z.array(z.string()).min(1),
+      agentIds: z.array(nonEmptyString).min(1),
     }),
   ]),
   'skills:copyToAgents': z.tuple([
     z.object({
-      skillName: z.string(),
+      skillName: skillNameString,
       linkPath: nonEmptyString,
-      targetAgentIds: z.array(z.string()).min(1),
+      targetAgentIds: z.array(nonEmptyString).min(1),
     }),
   ]),
 

@@ -21,6 +21,7 @@ function createStats(options: { isSymbolicLink: boolean }): {
 const lstatMock = vi.fn()
 const readdirMock = vi.fn()
 const accessMock = vi.fn()
+const statMock = vi.fn()
 const rmMock = vi.fn()
 const symlinkMock = vi.fn()
 const mkdirMock = vi.fn()
@@ -29,6 +30,7 @@ vi.mock('fs/promises', () => ({
   lstat: lstatMock,
   readdir: readdirMock,
   access: accessMock,
+  stat: statMock,
   rm: rmMock,
   symlink: symlinkMock,
   mkdir: mkdirMock,
@@ -51,6 +53,8 @@ describe('syncPreview', () => {
     vi.resetAllMocks()
     // Default: agent parent dirs exist
     accessMock.mockResolvedValue(undefined)
+    // Default: SKILL.md exists as a regular file (used by isValidSkillDir)
+    statMock.mockResolvedValue({ isFile: () => true })
   })
 
   it('returns zero counts when no source skills exist', async () => {
@@ -188,6 +192,8 @@ describe('syncExecute', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     accessMock.mockResolvedValue(undefined)
+    // Default: SKILL.md exists as a regular file (used by isValidSkillDir)
+    statMock.mockResolvedValue({ isFile: () => true })
     mkdirMock.mockResolvedValue(undefined)
     symlinkMock.mockResolvedValue(undefined)
     rmMock.mockResolvedValue(undefined)

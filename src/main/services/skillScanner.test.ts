@@ -25,11 +25,12 @@ function createDirent(
 
 const readdirMock = vi.fn()
 const accessMock = vi.fn()
+const statMock = vi.fn()
 
 vi.mock('fs/promises', () => ({
   readdir: readdirMock,
   access: accessMock,
-  stat: vi.fn(),
+  stat: statMock,
 }))
 
 vi.mock('../constants', () => ({
@@ -93,6 +94,20 @@ describe('scanSkills local skill aggregation', () => {
 
       if (validSkillMdPaths.has(path)) {
         return
+      }
+
+      throw new Error(`ENOENT: ${path}`)
+    })
+
+    // isValidSkillDir uses stat().isFile() to check SKILL.md existence
+    statMock.mockImplementation(async (path: string) => {
+      const validSkillMdPaths = new Set([
+        join('/mock/agents/codex/skills', 'frontend-design', 'SKILL.md'),
+        join('/mock/agents/cursor/skills', 'frontend-design', 'SKILL.md'),
+      ])
+
+      if (validSkillMdPaths.has(path)) {
+        return { isFile: () => true }
       }
 
       throw new Error(`ENOENT: ${path}`)

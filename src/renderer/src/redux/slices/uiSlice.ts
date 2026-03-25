@@ -128,3 +128,4 @@ export const selectIsRefreshing = (state: RootState): boolean =>
 export const selectIsSyncing = (state: RootState): boolean => state.ui.isSyncing
 export const selectSyncPreview = (state: RootState): SyncPreviewResult | null =>
   state.ui.syncPreview
+export const selectUiError = (state: RootState): string | null => state.ui.error

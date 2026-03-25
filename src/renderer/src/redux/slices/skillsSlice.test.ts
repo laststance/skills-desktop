@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { Skill, SymlinkInfo } from '../../../../shared/types'
+import type { AgentId, Skill, SymlinkInfo } from '../../../../shared/types'
 
 const mockGetAll = vi.fn()
 const mockUnlinkFromAgent = vi.fn()
@@ -233,7 +233,7 @@ describe('skillsSlice', () => {
     await store.dispatch(
       createSymlinks({
         skill: sampleSkill,
-        agentIds: ['cursor' as never, 'codex' as never],
+        agentIds: ['cursor' as AgentId, 'codex' as AgentId],
       }),
     )
 
@@ -251,7 +251,7 @@ describe('skillsSlice', () => {
     const store = await createTestStore()
     const { createSymlinks } = await import('./skillsSlice')
     await store.dispatch(
-      createSymlinks({ skill: sampleSkill, agentIds: ['cursor' as never] }),
+      createSymlinks({ skill: sampleSkill, agentIds: ['cursor' as AgentId] }),
     )
 
     expect(store.getState().skills.error).toBe('Failed to create any symlinks')
@@ -272,7 +272,7 @@ describe('skillsSlice', () => {
       copyToAgents({
         skill: sampleSkill,
         linkPath: sampleSymlink.linkPath,
-        agentIds: ['codex' as never],
+        agentIds: ['codex' as AgentId],
       }),
     )
 
@@ -293,7 +293,7 @@ describe('skillsSlice', () => {
       copyToAgents({
         skill: sampleSkill,
         linkPath: sampleSymlink.linkPath,
-        agentIds: ['codex' as never],
+        agentIds: ['codex' as AgentId],
       }),
     )
 

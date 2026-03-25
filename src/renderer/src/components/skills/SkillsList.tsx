@@ -37,8 +37,10 @@ function SkillRow({
   data,
 }: RowComponentProps<SkillRowProps>): React.ReactElement {
   return (
-    <div style={{ ...style, paddingBottom: 12 }}>
-      <SkillItem skill={data[index]} />
+    <div style={style}>
+      <div className="pb-3">
+        <SkillItem skill={data[index]} />
+      </div>
     </div>
   )
 }

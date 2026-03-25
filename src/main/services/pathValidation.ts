@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs'
 import { resolve, relative, isAbsolute } from 'node:path'
 
 import { AGENTS, SOURCE_DIR } from '../constants'
@@ -5,9 +6,10 @@ import { AGENTS, SOURCE_DIR } from '../constants'
 /**
  * Validate that a file path is within an allowed base directory.
  * Prevents path traversal attacks (e.g., reading ~/.ssh/id_rsa via IPC).
+ * Resolves symlinks via realpathSync to prevent symlink-based bypass.
  * @param requestedPath - The path to validate
  * @param allowedBases - Array of allowed base directories
- * @returns The normalized absolute path
+ * @returns The normalized absolute path (with symlinks resolved if path exists)
  * @throws Error if path is outside all allowed bases
  * @example
  * validatePath('/Users/x/.agents/skills/foo/SKILL.md', [SOURCE_DIR])
@@ -21,11 +23,20 @@ export function validatePath(
 ): string {
   const normalized = resolve(requestedPath)
 
+  // Resolve symlinks to prevent symlink-based path traversal bypass.
+  // Falls back to normalized path if the path doesn't exist yet (e.g., new symlink creation).
+  let realPath: string
+  try {
+    realPath = realpathSync(normalized)
+  } catch {
+    realPath = normalized
+  }
+
   for (const base of allowedBases) {
     const resolvedBase = resolve(base)
-    const rel = relative(resolvedBase, normalized)
+    const rel = relative(resolvedBase, realPath)
     if (!rel.startsWith('..') && !isAbsolute(rel)) {
-      return normalized
+      return realPath
     }
   }
 

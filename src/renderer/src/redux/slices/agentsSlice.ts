@@ -96,3 +96,5 @@ export const selectAgentToDelete = (state: RootState): Agent | null =>
   state.agents.agentToDelete
 export const selectAgentsDeleting = (state: RootState): boolean =>
   state.agents.deleting
+export const selectAgentsError = (state: RootState): string | null =>
+  state.agents.error

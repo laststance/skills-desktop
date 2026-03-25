@@ -154,7 +154,6 @@ describe('agentsSlice', () => {
     await store.dispatch(removeAllSymlinksFromAgent(sampleAgent))
 
     expect(store.getState().agents.deleting).toBe(false)
-    // The error comes from the rejected case which has a fallback message
-    expect(store.getState().agents.error).toBeTruthy()
+    expect(store.getState().agents.error).toBe('Unexpected error')
   })
 })

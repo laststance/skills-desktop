@@ -79,4 +79,14 @@ describe('themeSlice', () => {
     expect(state.mode).toBe('light')
     expect(state.presetType).toBe('neutral')
   })
+
+  it('toggleMode is no-op for neutral-light themes', async () => {
+    const { setNeutralTheme, toggleMode } = await import('./themeSlice')
+    const store = await createTestStore()
+    store.dispatch(setNeutralTheme({ preset: 'neutral-light', mode: 'light' }))
+    expect(store.getState().theme.presetType).toBe('neutral')
+
+    store.dispatch(toggleMode())
+    expect(store.getState().theme.mode).toBe('light')
+  })
 })

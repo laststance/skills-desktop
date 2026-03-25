@@ -45,14 +45,15 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
-  // Enforce Content Security Policy in production builds
+  // Enforce Content Security Policy in production builds.
+  // Use file: and app: schemes explicitly since 'self' may not reliably match file:// origins.
   if (app.isPackaged) {
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
       callback({
         responseHeaders: {
           ...details.responseHeaders,
           'Content-Security-Policy': [
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'",
+            "default-src 'self' file: app:; script-src 'self' file: app:; style-src 'self' 'unsafe-inline' file: app:; font-src 'self' data: file: app:; img-src 'self' data: file: app:; connect-src 'self'",
           ],
         },
       })

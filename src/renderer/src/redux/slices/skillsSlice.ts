@@ -264,6 +264,10 @@ export const selectSkillToUnlink = (
 ): { skill: Skill; symlink: SymlinkInfo } | null => state.skills.skillToUnlink
 export const selectSkillsUnlinking = (state: RootState): boolean =>
   state.skills.unlinking
+export const selectSkillToAddSymlinks = (state: RootState): Skill | null =>
+  state.skills.skillToAddSymlinks
+export const selectSkillsAddingSymlinks = (state: RootState): boolean =>
+  state.skills.addingSymlinks
 export const selectSkillToCopy = (state: RootState): Skill | null =>
   state.skills.skillToCopy
 export const selectSkillsCopying = (state: RootState): boolean =>

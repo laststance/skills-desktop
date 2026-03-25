@@ -85,9 +85,12 @@ export const ThemeSelector = React.memo(
             {Object.entries(THEME_HUES).map(([name, themeHue]) => (
               <button
                 key={name}
+                type="button"
                 onClick={() => handleSelectColorTheme(name, themeHue)}
                 className="min-h-[44px] min-w-[44px] flex items-center justify-center"
                 title={name.charAt(0).toUpperCase() + name.slice(1)}
+                aria-label={`Select ${name} theme`}
+                aria-pressed={presetType === 'color' && hue === themeHue}
               >
                 <span
                   className={cn(
@@ -110,7 +113,10 @@ export const ThemeSelector = React.memo(
           </DropdownMenuLabel>
           <div className="flex gap-2 p-2">
             <button
+              type="button"
               onClick={() => handleSelectNeutralTheme('dark')}
+              aria-label="Select neutral dark theme"
+              aria-pressed={isNeutralSelected && preset === 'neutral-dark'}
               className={cn(
                 'flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
                 'hover:bg-muted',
@@ -123,7 +129,10 @@ export const ThemeSelector = React.memo(
               Dark
             </button>
             <button
+              type="button"
               onClick={() => handleSelectNeutralTheme('light')}
+              aria-label="Select neutral light theme"
+              aria-pressed={isNeutralSelected && preset === 'neutral-light'}
               className={cn(
                 'flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
                 'hover:bg-muted',
