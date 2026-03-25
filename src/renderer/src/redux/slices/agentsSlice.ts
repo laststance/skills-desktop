@@ -5,7 +5,6 @@ import type { Agent } from '../../../../shared/types'
 
 interface AgentsState {
   items: Agent[]
-  selectedAgent: Agent | null
   loading: boolean
   error: string | null
   /** Agent pending skills folder deletion confirmation */
@@ -16,7 +15,6 @@ interface AgentsState {
 
 const initialState: AgentsState = {
   items: [],
-  selectedAgent: null,
   loading: false,
   error: null,
   agentToDelete: null,
@@ -54,9 +52,6 @@ const agentsSlice = createSlice({
   name: 'agents',
   initialState,
   reducers: {
-    selectAgent: (state, action: PayloadAction<Agent | null>) => {
-      state.selectedAgent = action.payload
-    },
     setAgentToDelete: (state, action: PayloadAction<Agent | null>) => {
       state.agentToDelete = action.payload
     },
@@ -89,5 +84,5 @@ const agentsSlice = createSlice({
   },
 })
 
-export const { selectAgent, setAgentToDelete } = agentsSlice.actions
+export const { setAgentToDelete } = agentsSlice.actions
 export default agentsSlice.reducer
