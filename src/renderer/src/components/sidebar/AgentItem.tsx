@@ -100,6 +100,7 @@ export const AgentItem = React.memo(function AgentItem({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
+              aria-label={`Filter skills by ${agent.name}${skillCountText ? ` (${skillCountText})` : ''}`}
               className={cn(
                 'flex w-full items-center justify-between py-1.5 px-2 rounded-md transition-colors border-l-4 border-l-transparent text-left',
                 agent.exists && 'cursor-pointer hover:bg-muted/50',
