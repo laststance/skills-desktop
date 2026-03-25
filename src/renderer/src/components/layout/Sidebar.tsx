@@ -14,7 +14,10 @@ import { Separator } from '../ui/separator'
  */
 export const Sidebar = React.memo(function Sidebar(): React.ReactElement {
   return (
-    <aside className="w-[240px] border-r border-border bg-card flex flex-col">
+    <aside
+      aria-label="Agent sidebar"
+      className="w-[240px] border-r border-border bg-card flex flex-col"
+    >
       <SidebarHeader />
       <Separator />
       <ScrollArea className="flex-1">

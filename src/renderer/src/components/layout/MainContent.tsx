@@ -51,7 +51,7 @@ export const MainContent = React.memo(
     }
 
     return (
-      <main className="h-full flex flex-col overflow-hidden">
+      <main id="main-content" className="h-full flex flex-col overflow-hidden">
         <Tabs
           value={activeTab}
           onValueChange={handleTabChange}
