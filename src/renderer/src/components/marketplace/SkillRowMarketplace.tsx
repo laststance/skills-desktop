@@ -71,7 +71,7 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
   return (
     <div
       className={cn(
-        'flex items-center gap-4 p-4 rounded-lg bg-[#1E293B] h-[72px]',
+        'flex items-center gap-4 p-4 rounded-lg bg-[#1E293B] h-[76px] min-w-0',
         'border transition-colors',
         isInstalled
           ? 'border-[#22D3EE]'
@@ -81,7 +81,7 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
       {/* Rank Badge */}
       <div
         className={cn(
-          'flex items-center justify-center w-8 h-8 rounded-md bg-[#334155]',
+          'flex items-center justify-center w-8 h-8 shrink-0 rounded-md bg-[#334155]',
           'font-mono text-sm font-semibold',
           isInstalled ? 'text-[#94A3B8]' : 'text-[#22D3EE]',
         )}
@@ -94,7 +94,7 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
         <span className="font-semibold text-[15px] text-white truncate">
           {skill.name}
         </span>
-        <span className="font-mono text-xs text-[#64748B] truncate">
+        <span className="font-mono text-xs text-[#94A3B8] truncate">
           {skill.repo}
         </span>
       </div>
@@ -107,7 +107,7 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
             ? `Remove ${skill.name} from bookmarks`
             : `Bookmark ${skill.name}`
         }
-        className="min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
+        className="min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md"
         onClick={handleToggleBookmark}
       >
         <Star
@@ -121,7 +121,7 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
       </button>
 
       {/* Install Count */}
-      <div className="flex items-center gap-1.5 text-[#94A3B8]">
+      <div className="flex items-center gap-1.5 text-[#94A3B8] shrink-0">
         <Download className="h-3.5 w-3.5 text-[#64748B]" />
         <span className="font-mono text-[13px] font-medium">
           {formatInstallCount(skill.installCount)}
@@ -144,10 +144,10 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
             onClick={handleRemove}
             disabled={isOperating}
             className={cn(
-              'flex items-center gap-1.5 px-4 py-2 rounded-md',
-              'bg-[#334155] border border-[#EF4444]',
-              'text-[#EF4444] text-[13px] font-semibold',
-              'hover:bg-[#3E4A5E] transition-colors',
+              'flex items-center gap-1.5 px-4 py-2 rounded-md min-h-[44px]',
+              'bg-[#334155] border border-[#F87171]',
+              'text-[#F87171] text-[13px] font-semibold',
+              'hover:bg-[#3E4A5E] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
               'disabled:opacity-50 disabled:cursor-not-allowed',
             )}
           >
@@ -161,9 +161,9 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
           onClick={handleInstall}
           disabled={isOperating}
           className={cn(
-            'flex items-center gap-1.5 px-4 py-2 rounded-md',
+            'flex items-center gap-1.5 px-4 py-2 rounded-md min-h-[44px]',
             'bg-[#22D3EE] text-[#0A0F1C] text-[13px] font-semibold',
-            'hover:bg-[#06B6D4] transition-colors',
+            'hover:bg-[#06B6D4] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             'disabled:opacity-50 disabled:cursor-not-allowed',
           )}
         >

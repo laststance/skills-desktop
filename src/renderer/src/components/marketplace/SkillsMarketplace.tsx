@@ -3,7 +3,6 @@ import React, { useMemo, useState } from 'react'
 
 import { useMarketplaceProgress } from '../../hooks/useMarketplaceProgress'
 import { useAppSelector } from '../../redux/hooks'
-import { ScrollArea } from '../ui/scroll-area'
 
 import { InstallModal } from './InstallModal'
 import { MarketplaceSearch } from './MarketplaceSearch'
@@ -65,8 +64,8 @@ export const SkillsMarketplace = React.memo(
         )}
 
         {/* Results area */}
-        <ScrollArea className="flex-1 px-6">
-          <div className="pb-6">
+        <div className="flex-1 overflow-y-auto px-6">
+          <div className="pb-6 min-w-0">
             {/* Initial state */}
             {!hasSearched && !isSearching && (
               <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -117,7 +116,7 @@ export const SkillsMarketplace = React.memo(
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Modals */}
         <InstallModal />

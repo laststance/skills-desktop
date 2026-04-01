@@ -42,11 +42,12 @@ export const MarketplaceSearch = React.memo(
             value={localQuery}
             onChange={(e) => setLocalQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="pl-10 bg-background"
+            className="pl-10 bg-background h-11"
             disabled={isSearching}
           />
         </div>
         <Button
+          className="h-11"
           onClick={handleSearch}
           disabled={isSearching || !localQuery.trim()}
         >
