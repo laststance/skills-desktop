@@ -142,6 +142,28 @@ export interface SkillSearchResult {
 }
 
 /**
+ * A skill bookmarked for later reinstall.
+ * Stored in Redux and persisted to localStorage.
+ * @example
+ * const bookmark: BookmarkedSkill = {
+ *   name: 'task',
+ *   repo: 'vercel-labs/skills',
+ *   url: 'https://skills.sh/task',
+ *   bookmarkedAt: '2026-04-01T08:00:00.000Z',
+ * }
+ */
+export interface BookmarkedSkill {
+  /** Skill name */
+  name: string
+  /** Repository in owner/repo format (required for InstallOptions.repo) */
+  repo: string
+  /** Skills.sh URL */
+  url: string
+  /** ISO timestamp of when bookmarked */
+  bookmarkedAt: string
+}
+
+/**
  * Options for skill installation
  */
 export interface InstallOptions {

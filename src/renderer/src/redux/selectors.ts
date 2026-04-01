@@ -1,5 +1,6 @@
 import { createSelector } from '@reduxjs/toolkit'
 
+import { selectBookmarkItems } from './slices/bookmarkSlice'
 import { selectSkillsItems } from './slices/skillsSlice'
 import { selectSearchQuery, selectSelectedAgentId } from './slices/uiSlice'
 
@@ -37,5 +38,24 @@ export const selectFilteredSkills = createSelector(
     }
 
     return result
+  },
+)
+
+/**
+ * Memoized selector for bookmarks enriched with install status.
+ * Compares bookmark names against installed skills to derive isInstalled flag.
+ * @returns Array of bookmarks with isInstalled boolean
+ * @example
+ * const bookmarks = useAppSelector(selectBookmarksWithInstallStatus)
+ * // [{ name: 'task', repo: '...', isInstalled: true }, ...]
+ */
+export const selectBookmarksWithInstallStatus = createSelector(
+  [selectBookmarkItems, selectSkillsItems],
+  (bookmarks, installedSkills) => {
+    const installedNames = new Set(installedSkills.map((s) => s.name))
+    return bookmarks.map((b) => ({
+      ...b,
+      isInstalled: installedNames.has(b.name),
+    }))
   },
 )

@@ -1,7 +1,10 @@
 import React from 'react'
 
+import { useAppSelector } from '../../redux/hooks'
+import { selectBookmarkItems } from '../../redux/slices/bookmarkSlice'
 import { AgentDeleteDialog } from '../sidebar/AgentDeleteDialog'
 import { AgentsSection } from '../sidebar/AgentsSection'
+import { BookmarksSection } from '../sidebar/BookmarksSection'
 import { SidebarFooter } from '../sidebar/SidebarFooter'
 import { SidebarHeader } from '../sidebar/SidebarHeader'
 import { SourceCard } from '../sidebar/SourceCard'
@@ -13,6 +16,8 @@ import { Separator } from '../ui/separator'
  * Contains app header, source card, and agents list
  */
 export const Sidebar = React.memo(function Sidebar(): React.ReactElement {
+  const bookmarks = useAppSelector(selectBookmarkItems)
+
   return (
     <aside
       aria-label="Agent sidebar"
@@ -25,6 +30,12 @@ export const Sidebar = React.memo(function Sidebar(): React.ReactElement {
           <SourceCard />
           <Separator />
           <AgentsSection />
+          {bookmarks.length > 0 && (
+            <>
+              <Separator />
+              <BookmarksSection />
+            </>
+          )}
         </div>
       </ScrollArea>
       <SidebarFooter />

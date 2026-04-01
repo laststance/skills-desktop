@@ -1,9 +1,14 @@
-import { Check, Download, Plus, Trash2 } from 'lucide-react'
+import { Check, Download, Plus, Star, Trash2 } from 'lucide-react'
 import React from 'react'
 
 import type { SkillSearchResult } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import {
+  addBookmark,
+  removeBookmark,
+  selectIsBookmarked,
+} from '../../redux/slices/bookmarkSlice'
 import {
   selectSkillForInstall,
   setSkillToRemove,
@@ -41,6 +46,9 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
   const dispatch = useAppDispatch()
   const { status } = useAppSelector((state) => state.marketplace)
   const isOperating = status === 'installing' || status === 'removing'
+  const isBookmarked = useAppSelector((state) =>
+    selectIsBookmarked(state, skill.name),
+  )
 
   const handleInstall = (): void => {
     dispatch(selectSkillForInstall(skill))
@@ -48,6 +56,16 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
 
   const handleRemove = (): void => {
     dispatch(setSkillToRemove(skill.name))
+  }
+
+  const handleToggleBookmark = (): void => {
+    if (isBookmarked) {
+      dispatch(removeBookmark(skill.name))
+    } else {
+      dispatch(
+        addBookmark({ name: skill.name, repo: skill.repo, url: skill.url }),
+      )
+    }
   }
 
   return (
@@ -80,6 +98,27 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
           {skill.repo}
         </span>
       </div>
+
+      {/* Bookmark Toggle */}
+      <button
+        type="button"
+        aria-label={
+          isBookmarked
+            ? `Remove ${skill.name} from bookmarks`
+            : `Bookmark ${skill.name}`
+        }
+        className="min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
+        onClick={handleToggleBookmark}
+      >
+        <Star
+          className={cn(
+            'h-4 w-4 transition-colors',
+            isBookmarked
+              ? 'fill-[#F59E0B] text-[#F59E0B]'
+              : 'text-[#64748B] hover:text-[#F59E0B]',
+          )}
+        />
+      </button>
 
       {/* Install Count */}
       <div className="flex items-center gap-1.5 text-[#94A3B8]">

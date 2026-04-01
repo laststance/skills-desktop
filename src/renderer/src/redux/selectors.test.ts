@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Skill, SymlinkInfo } from '../../../shared/types'
+import type { BookmarkedSkill, Skill, SymlinkInfo } from '../../../shared/types'
 
-import { selectFilteredSkills } from './selectors'
+import {
+  selectBookmarksWithInstallStatus,
+  selectFilteredSkills,
+} from './selectors'
 
 /** Helper to build a minimal RootState for selector testing */
 function buildState(overrides: {
   skills?: Skill[]
   searchQuery?: string
   selectedAgentId?: string | null
+  bookmarks?: BookmarkedSkill[]
 }) {
   return {
     skills: {
@@ -74,6 +78,9 @@ function buildState(overrides: {
       error: null,
       sandboxPath: null,
       sandboxSkillName: null,
+    },
+    bookmarks: {
+      items: overrides.bookmarks ?? [],
     },
   }
 }
@@ -192,6 +199,53 @@ describe('selectFilteredSkills', () => {
     const state = buildState({ skills })
     const result1 = selectFilteredSkills(state as never)
     const result2 = selectFilteredSkills(state as never)
+    expect(result1).toBe(result2)
+  })
+})
+
+const makeBookmark = (name: string, repo: string): BookmarkedSkill => ({
+  name,
+  repo,
+  url: `https://skills.sh/${name}`,
+  bookmarkedAt: '2026-04-01T00:00:00.000Z',
+})
+
+describe('selectBookmarksWithInstallStatus', () => {
+  it('marks bookmarked skill as installed when name matches', () => {
+    const state = buildState({
+      skills: [makeSkill('task', 'claude-code')],
+      bookmarks: [makeBookmark('task', 'vercel-labs/skills')],
+    })
+    const result = selectBookmarksWithInstallStatus(state as never)
+    expect(result).toHaveLength(1)
+    expect(result[0].isInstalled).toBe(true)
+  })
+
+  it('marks bookmarked skill as not installed when no match', () => {
+    const state = buildState({
+      skills: [makeSkill('browse', 'claude-code')],
+      bookmarks: [makeBookmark('task', 'vercel-labs/skills')],
+    })
+    const result = selectBookmarksWithInstallStatus(state as never)
+    expect(result).toHaveLength(1)
+    expect(result[0].isInstalled).toBe(false)
+  })
+
+  it('returns empty array when no bookmarks', () => {
+    const state = buildState({
+      skills: [makeSkill('task', 'claude-code')],
+      bookmarks: [],
+    })
+    expect(selectBookmarksWithInstallStatus(state as never)).toHaveLength(0)
+  })
+
+  it('is memoized (returns same reference for same inputs)', () => {
+    const state = buildState({
+      skills: [makeSkill('task', 'claude-code')],
+      bookmarks: [makeBookmark('task', 'vercel-labs/skills')],
+    })
+    const result1 = selectBookmarksWithInstallStatus(state as never)
+    const result2 = selectBookmarksWithInstallStatus(state as never)
     expect(result1).toBe(result2)
   })
 })
