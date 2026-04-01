@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useCallback, useEffect } from 'react'
 import { List, type RowComponentProps } from 'react-window'
 
 import type { Skill } from '../../../../shared/types'
@@ -14,8 +14,12 @@ import { selectSelectedAgentId } from '../../redux/slices/uiSlice'
 
 import { SkillItem } from './SkillItem'
 
-/** Estimated height of a skill card including gap (px) */
-const ROW_HEIGHT = 120
+/** Base height: padding (32) + title (24) + source link (20) + row gap pb-3 (12) + border (2) */
+const ROW_HEIGHT_BASE = 90
+/** Extra height for description (line-clamp-2, text-sm: ~40px + mt-1: 4px) */
+const ROW_HEIGHT_DESCRIPTION = 44
+/** Extra height for status badges row (mt-3: 12px + badge: 22px) */
+const ROW_HEIGHT_BADGES = 34
 
 /** Props passed to SkillRow via rowProps */
 interface SkillRowProps {
@@ -103,11 +107,27 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
     )
   }
 
+  /**
+   * Compute row height from skill data without DOM measurement.
+   * @param index - Row index in filteredSkills
+   * @returns Height in px, accounting for description and status badges
+   */
+  const getRowHeight = useCallback(
+    (index: number): number => {
+      const skill = filteredSkills[index]
+      let height = ROW_HEIGHT_BASE
+      if (skill?.description) height += ROW_HEIGHT_DESCRIPTION
+      if (!selectedAgentId) height += ROW_HEIGHT_BADGES
+      return height
+    },
+    [filteredSkills, selectedAgentId],
+  )
+
   return (
     <List<SkillRowProps>
       rowComponent={SkillRow}
       rowCount={filteredSkills.length}
-      rowHeight={ROW_HEIGHT}
+      rowHeight={getRowHeight}
       rowProps={{ data: filteredSkills }}
       overscanCount={5}
       style={{ width: '100%', height: '100%' }}
