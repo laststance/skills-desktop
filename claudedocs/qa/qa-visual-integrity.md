@@ -1,150 +1,131 @@
-# QA Report: Visual Integrity Testing
+# QA Report: Visual Integrity - Marketplace Card Layout
 
-**Date**: 2026-03-25
-**App Version**: v0.6.0
-**Tester**: Visual Tester (GUI PhD methodology)
-**Platform**: macOS (Electron, debug port 9222)
+**Date:** 2026-04-01
+**App Version:** v0.6.1
+**Tester:** Visual Integrity Tester
+**Platform:** macOS (Electron, debug port 9222)
+**Window Size:** 1200x800
 
 ---
 
 ## Executive Summary
 
-The Skills Desktop app presents a clean, dark-themed 3-column layout with strong visual consistency. The OKLCH color system is correctly configured (`--theme-hue: 195`), typography uses Inter at 16px base, and the `--radius: 0.5rem` (8px) matches the design spec. Overall visual quality is high with no rendering glitches observed.
+The Marketplace tab has a **critical P0 clipping bug**: card content (download count, Installed badge, Install/Remove buttons) is rendered outside the visible ScrollArea viewport and is completely hidden. Users cannot install or remove skills from the marketplace.
 
-**Grade: A**
-
----
-
-## Checklist
-
-### Layout (3-Column)
-
-| Check                       | Result | Notes                                                                 |
-| --------------------------- | ------ | --------------------------------------------------------------------- |
-| Sidebar present (left)      | PASS   | Fixed-width sidebar with app title, skills directory info, agent list |
-| Skill grid present (center) | PASS   | Scrollable list of skill cards with search bar and tab switcher       |
-| Right panel present         | PASS   | Skills Assistant chat panel with input area and action buttons        |
-| Panels properly separated   | PASS   | Clear visual boundaries between columns                               |
-| No overlapping elements     | PASS   | All elements render within their boundaries                           |
-| No clipping                 | PASS   | Text and elements are not clipped at container edges                  |
-
-**Screenshot**: `visual_main_initial.png`
-
-### Alignment & Spacing
-
-| Check                   | Result | Notes                                                       |
-| ----------------------- | ------ | ----------------------------------------------------------- |
-| 4/8px grid alignment    | PASS   | Spacing between elements follows consistent increments      |
-| Consistent card padding | PASS   | Skill cards have uniform internal padding                   |
-| Sidebar item spacing    | PASS   | Agent list items evenly spaced with consistent line heights |
-| Search bar alignment    | PASS   | Horizontally centered within center column                  |
-| Tab switcher alignment  | PASS   | "Installed" / "Marketplace" tabs centered and symmetric     |
-
-### Rendering Quality
-
-| Check                | Result | Notes                                                                 |
-| -------------------- | ------ | --------------------------------------------------------------------- |
-| No visual glitches   | PASS   | Clean rendering throughout all views                                  |
-| No pixel artifacts   | PASS   | Edges and borders are crisp                                           |
-| Font anti-aliasing   | PASS   | Text renders smoothly (Inter font)                                    |
-| Icon rendering       | PASS   | Sync icon, link icons, external link icons all render cleanly         |
-| Scrollbar visibility | PASS   | Custom scrollbar visible in center column without overlapping content |
-
-### Typography
-
-| Check                | Result | Notes                                                                                |
-| -------------------- | ------ | ------------------------------------------------------------------------------------ |
-| Font family: Inter   | PASS   | Confirmed via computed style: `Inter, system-ui, sans-serif`                         |
-| Base font size: 16px | PASS   | Confirmed via computed style                                                         |
-| Title hierarchy      | PASS   | "Skills Desktop" (large, bold) > section headers (medium, caps "AGENTS") > body text |
-| Monospace for paths  | PASS   | `~/.agents/skills` rendered in monospace (JetBrains Mono / system mono)              |
-| Skill name weight    | PASS   | Bold weight for skill names, regular for descriptions                                |
-| Version text sizing  | PASS   | "v0.6.0" in smaller, muted text beneath title                                        |
-
-### Colors & Theme
-
-| Check                 | Result | Notes                                                   |
-| --------------------- | ------ | ------------------------------------------------------- |
-| OKLCH color system    | PASS   | `--theme-hue: 195` confirmed (cyan)                     |
-| Dark theme background | PASS   | `rgb(2, 8, 23)` - deep navy/near-black                  |
-| Border radius         | PASS   | `--radius: 0.5rem` (8px) confirmed                      |
-| Card border colors    | PASS   | Subtle border on cards, cyan highlight on selected card |
-| Text contrast         | PASS   | White/light text on dark background, readable           |
-| Muted secondary text  | PASS   | Descriptions in reduced opacity / lighter gray          |
-
-### Status Indicators
-
-| Check                        | Result | Notes                                                            |
-| ---------------------------- | ------ | ---------------------------------------------------------------- |
-| Cyan for valid/linked        | PASS   | Link icons and agent badge counts in cyan (#22D3EE range)        |
-| "Local" label styling        | PASS   | "Local" text rendered distinctly on agent-browser card           |
-| Badge count styling          | PASS   | Cyan pill badges with link icon + count (e.g., "2", "7")         |
-| Not-installed agents (slate) | PASS   | "15 not installed" section shows agent names in muted slate text |
-
-**Screenshot**: `visual_agent_filtered.png`, `visual_not_installed.png`
-
-### Window Chrome (macOS)
-
-| Check                  | Result | Notes                                                                |
-| ---------------------- | ------ | -------------------------------------------------------------------- |
-| macOS frameless window | PASS   | Custom titlebar with drag region (traffic lights area visible)       |
-| App title in sidebar   | PASS   | "Skills Desktop" positioned as app identity, not in native title bar |
-| Window glow/shadow     | PASS   | Native macOS window shadow present                                   |
-
-### Interactive States
-
-| Check                     | Result | Notes                                                               |
-| ------------------------- | ------ | ------------------------------------------------------------------- |
-| Skill card selection      | PASS   | Cyan dashed border appears on selected card ("adapt")               |
-| Agent filter active state | PASS   | "Claude Code" highlighted with left border indicator when selected  |
-| Filter banner             | PASS   | "Showing skills for **Claude Code**" banner with Clear button       |
-| Explain button            | PASS   | "Explain adapt" button appears in right panel header on selection   |
-| Chat input area           | PASS   | Text input with placeholder, send button, Sandbox and Clear actions |
-
-**Screenshot**: `visual_skill_selected.png`, `visual_agent_filtered.png`
-
----
-
-## Screenshots Reference
-
-| File                        | Description                                                      |
-| --------------------------- | ---------------------------------------------------------------- |
-| `visual_main_initial.png`   | Default app state, 3-column layout, no filters                   |
-| `visual_skill_selected.png` | "adapt" skill selected with cyan border highlight                |
-| `visual_agent_filtered.png` | Claude Code agent filter active, symlink icons shown             |
-| `visual_not_installed.png`  | Expanded "not installed" agents section in sidebar               |
-| `visual_cleared_state.png`  | State after clearing filter, showing expanded not-installed list |
+**Verdict: FAIL**
 
 ---
 
 ## Issues Found
 
-No critical or major visual issues found.
+### ISSUE 1 (P0): Card content clipped on right side -- Install/Remove buttons completely hidden
 
-**Minor observations** (informational, not failures):
+**Description:** The right portion of every marketplace card is clipped and invisible. The Install button, Remove button, Installed badge, and download count are all rendered outside the visible ScrollArea viewport and cannot be seen or interacted with.
 
-1. The right panel is always the Skills Assistant chat -- the CLAUDE.md mentions an "Inspector panel" as the third column, but the current implementation uses a chat panel instead. This appears to be by design for v0.6.0.
-2. When "adapt" is selected, the card gets a cyan dashed border but the right panel does not show skill details (inspector). The "Explain adapt" button in the header is the interaction path.
+**Affected Components:**
+
+- `src/renderer/src/components/marketplace/SkillRowMarketplace.tsx` -- card root div (line 72-79)
+- `src/renderer/src/components/marketplace/SkillsMarketplace.tsx` -- ScrollArea wrapper (line 68)
+- `src/renderer/src/components/ui/scroll-area.tsx` -- Radix ScrollArea viewport (line 18)
+
+**Measurements (all cards, viewport boundary at x=774):**
+
+| Element                  | Position (left-right px) | Status                            |
+| ------------------------ | ------------------------ | --------------------------------- |
+| Rank badge               | 281-313                  | VISIBLE                           |
+| Skill info (name + repo) | 329-705                  | VISIBLE                           |
+| Bookmark star            | 721-765                  | VISIBLE (barely)                  |
+| Download count           | 781-809                  | **CLIPPED** (7px past boundary)   |
+| Installed badge          | 825-902                  | **CLIPPED** (51px past boundary)  |
+| Install/Remove button    | 914-1018                 | **CLIPPED** (140px past boundary) |
+
+- Card actual rendered width: **771px**
+- ScrollArea viewport visible width: **510px**
+- Content overshoot: **261px** clipped on the right
+
+**Root Cause (full chain):**
+
+```
+Level 0: Card DIV ........... width=771, display=flex, minW=auto, maxW=none
+Level 1: Results list ....... width=771, display=flex (flex-col gap-2)
+Level 2: Inner wrapper ...... width=771, display=block (pb-6)
+Level 3: Radix internal ..... width=771, display=table, min-width=100%  <-- EXPANDS TO CONTENT
+Level 4: Radix Viewport ..... width=510, overflow-x=hidden            <-- CLIPS HERE
+Level 5: ScrollArea Root .... width=558, overflow-x=hidden (flex-1 px-6)
+```
+
+1. The Radix ScrollArea Viewport (`scroll-area.tsx:18`) is 510px wide with `overflow-x: hidden`
+2. Radix internally inserts a `display: table; min-width: 100%` wrapper -- tables size to content, not container
+3. The card flex layout (`flex items-center gap-4 p-4`) has no width constraint (`max-width`, `overflow-hidden`)
+4. The card's flex children have a natural total width of ~771px (rank 32px + gaps + info + bookmark 44px + download ~28px + action buttons 90-194px + padding 32px)
+5. The `flex-1 min-w-0` on the info section prevents text expansion but does NOT constrain the overall card width
+6. Since only a vertical `ScrollBar` is rendered, there is no way to horizontally scroll to the hidden content
+
+**Severity:** P0 -- The primary call-to-action (Install button) is completely invisible and inaccessible. Users cannot install skills from the marketplace.
+
+**Screenshot:** `screenshots/visual_card_clipping.png`
+
+---
+
+### ISSUE 2 (P2): Download counts all show "---" instead of actual numbers
+
+**Description:** All 6 search result cards display "---" (em dash) for download count. The `formatInstallCount` function (`SkillRowMarketplace.tsx:27-36`) returns "---" when count is falsy (undefined/null/0).
+
+**Root Cause:** The `skill.installCount` field is undefined or 0 for all search results. Likely an API/data issue rather than a rendering bug.
+
+**Severity:** P2 -- Informational content missing, but moot until P0 is fixed.
+
+---
+
+### ISSUE 3 (P2): Inconsistent card layout between installed vs non-installed cards
+
+**Description:** Installed cards (5 of 6) have their bookmark button at x=721 (visible), while the one non-installed card (vercel-react-native-skills) has its bookmark button at x=824 (clipped). This is because the action area width differs: Installed badge + Remove button = 194px vs Install button alone = 90px, causing the `flex-1` info section to absorb different amounts of space.
+
+**Root Cause:** `SkillRowMarketplace.tsx:93` -- the `flex-1 min-w-0` info section grows/shrinks based on sibling sizes, creating misaligned columns across rows.
+
+**Severity:** P2 -- Visual inconsistency across rows; moot until P0 is fixed.
+
+---
+
+## Non-Issues (Verified OK)
+
+| Check                                | Status | Notes                                                    |
+| ------------------------------------ | ------ | -------------------------------------------------------- |
+| Marketplace header/title             | PASS   | "Skills Marketplace" renders correctly at 28px bold      |
+| Ranking tabs (All Time/Trending/Hot) | PASS   | All tabs visible, correctly positioned within viewport   |
+| Search input + Search button         | PASS   | Input (264-688) and button (696-774) fit within viewport |
+| Card rank badges                     | PASS   | Numbered 1-6, cyan text on slate background              |
+| Card skill names                     | PASS   | White text, 15px font-semibold, truncated correctly      |
+| Card repo paths                      | PASS   | Monospace, xs text, slate color, truncated correctly     |
+| Card border colors                   | PASS   | Cyan border for installed cards, neutral for others      |
+
+---
+
+## Screenshots
+
+| File                         | Description                                               |
+| ---------------------------- | --------------------------------------------------------- |
+| `visual_initial_state.png`   | App initial state showing marketplace with search results |
+| `visual_marketplace_tab.png` | Marketplace tab active, cards visible                     |
+| `visual_card_clipping.png`   | Final screenshot confirming card clipping issue           |
 
 ---
 
 ## Score
 
-| Category            | Score |
-| ------------------- | ----- |
-| Layout              | 10/10 |
-| Alignment & Spacing | 10/10 |
-| Rendering Quality   | 10/10 |
-| Typography          | 10/10 |
-| Colors & Theme      | 10/10 |
-| Status Indicators   | 10/10 |
-| Window Chrome       | 9/10  |
-| Interactive States  | 9/10  |
+| Category                           | Score | Notes                                   |
+| ---------------------------------- | ----- | --------------------------------------- |
+| Layout - Card width constraint     | 0/10  | P0: Cards overflow container by 261px   |
+| Layout - Header/Search/Tabs        | 10/10 | All header elements fit correctly       |
+| Alignment - Card internal elements | 3/10  | Rank + name visible, rest clipped       |
+| Rendering Quality                  | 8/10  | Clean rendering where visible           |
+| Typography                         | 9/10  | Correct fonts and sizes                 |
+| Colors & Theme                     | 9/10  | Correct OKLCH colors, status indicators |
 
-**Overall Score: 97/100**
+**Overall Score: 35/100**
 
 ---
 
 ## Verdict
 
-**PASS** -- The Skills Desktop v0.6.0 demonstrates excellent visual integrity. The OKLCH color system is properly configured, typography hierarchy is clear and readable, the 3-column layout is well-structured, and status indicators use the correct color coding (cyan for linked, slate for missing). No rendering glitches, overlapping elements, or clipping issues were observed.
+**FAIL** -- The Marketplace card layout has a critical P0 bug where 261px of card content is clipped by the ScrollArea viewport. The Install/Remove buttons, download counts, and Installed badges are completely hidden. The root cause is a width constraint mismatch between the Radix ScrollArea viewport (510px visible) and the unconstrained card flex layout (771px natural width), exacerbated by Radix's internal `display: table` wrapper that sizes to content rather than container.
