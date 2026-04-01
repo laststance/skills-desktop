@@ -14,7 +14,7 @@ export const FEATURE_FLAGS = {
    * When enabled: Shows full marketplace UI with search/install
    * When disabled: Opens skill.sh website in browser
    */
-  ENABLE_MARKETPLACE_UI: false,
+  ENABLE_MARKETPLACE_UI: true,
 } as const
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS
