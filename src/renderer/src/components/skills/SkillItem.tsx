@@ -172,7 +172,7 @@ export const SkillItem = React.memo(function SkillItem({
                   )}
                 </h3>
                 {skill.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1 min-h-[2.5rem]">
                     {skill.description}
                   </p>
                 )}

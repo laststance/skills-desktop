@@ -14,8 +14,8 @@ import { selectSelectedAgentId } from '../../redux/slices/uiSlice'
 
 import { SkillItem } from './SkillItem'
 
-/** Base height: padding (32) + title (24) + source link (20) + row gap pb-3 (12) + border (2) */
-const ROW_HEIGHT_BASE = 90
+/** Base height: padding (32) + title (24) + source link (20) + source-link mb-2 (8) + row gap pb-3 (12) + border (2) + font metrics (3) */
+const ROW_HEIGHT_BASE = 101
 /** Extra height for description (line-clamp-2, text-sm: ~40px + mt-1: 4px) */
 const ROW_HEIGHT_DESCRIPTION = 44
 /** Extra height for status badges row (mt-3: 12px + badge: 22px) */
