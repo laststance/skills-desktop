@@ -65,6 +65,22 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
     dispatch(fetchSkills())
   }, [dispatch])
 
+  /**
+   * Compute row height from skill data without DOM measurement.
+   * @param index - Row index in filteredSkills
+   * @returns Height in px, accounting for description and status badges
+   */
+  const getRowHeight = useCallback(
+    (index: number): number => {
+      const skill = filteredSkills[index]
+      let height = ROW_HEIGHT_BASE
+      if (skill?.description) height += ROW_HEIGHT_DESCRIPTION
+      if (!selectedAgentId) height += ROW_HEIGHT_BADGES
+      return height
+    },
+    [filteredSkills, selectedAgentId],
+  )
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -106,22 +122,6 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
       </div>
     )
   }
-
-  /**
-   * Compute row height from skill data without DOM measurement.
-   * @param index - Row index in filteredSkills
-   * @returns Height in px, accounting for description and status badges
-   */
-  const getRowHeight = useCallback(
-    (index: number): number => {
-      const skill = filteredSkills[index]
-      let height = ROW_HEIGHT_BASE
-      if (skill?.description) height += ROW_HEIGHT_DESCRIPTION
-      if (!selectedAgentId) height += ROW_HEIGHT_BADGES
-      return height
-    },
-    [filteredSkills, selectedAgentId],
-  )
 
   return (
     <List<SkillRowProps>
