@@ -90,7 +90,7 @@ describe('parseSkillMetadata', () => {
 
   it('falls back to directory name when skill path has trailing slash edge case', async () => {
     mockFs.readFile.mockRejectedValue(new Error('ENOENT'))
-    const result = await parseSkillMetadata('/skills/edge-case')
+    const result = await parseSkillMetadata('/skills/edge-case/')
     expect(result.name).toBe('edge-case')
   })
 

@@ -140,7 +140,7 @@ describe('bookmarkSlice', () => {
       }),
     )
 
-    const items = selectBookmarkItems(store.getState())
+    const items = selectBookmarkItems(store.getState() as any)
     expect(items).toHaveLength(1)
     expect(items[0].name).toBe('task')
   })
@@ -157,7 +157,7 @@ describe('bookmarkSlice', () => {
       }),
     )
 
-    expect(selectIsBookmarked(store.getState(), 'task')).toBe(true)
-    expect(selectIsBookmarked(store.getState(), 'other')).toBe(false)
+    expect(selectIsBookmarked(store.getState() as any, 'task')).toBe(true)
+    expect(selectIsBookmarked(store.getState() as any, 'other')).toBe(false)
   })
 })
