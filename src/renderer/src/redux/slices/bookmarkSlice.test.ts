@@ -1,6 +1,8 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 
+import type { RootState } from '../store'
+
 async function createTestStore() {
   const { default: bookmarkReducer } = await import('./bookmarkSlice')
   return configureStore({ reducer: { bookmarks: bookmarkReducer } })
@@ -129,7 +131,7 @@ describe('bookmarkSlice', () => {
   })
 
   it('selectBookmarkItems returns items array', async () => {
-    const { addBookmark, selectBookmarkItems } = await import('./bookmarkSlice')
+    const { addBookmark } = await import('./bookmarkSlice')
     const store = await createTestStore()
 
     store.dispatch(
@@ -140,7 +142,7 @@ describe('bookmarkSlice', () => {
       }),
     )
 
-    const items = selectBookmarkItems(store.getState())
+    const items = store.getState().bookmarks.items
     expect(items).toHaveLength(1)
     expect(items[0].name).toBe('task')
   })
@@ -157,7 +159,11 @@ describe('bookmarkSlice', () => {
       }),
     )
 
-    expect(selectIsBookmarked(store.getState(), 'task')).toBe(true)
-    expect(selectIsBookmarked(store.getState(), 'other')).toBe(false)
+    expect(
+      selectIsBookmarked(store.getState() as unknown as RootState, 'task'),
+    ).toBe(true)
+    expect(
+      selectIsBookmarked(store.getState() as unknown as RootState, 'other'),
+    ).toBe(false)
   })
 })

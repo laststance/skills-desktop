@@ -1,5 +1,5 @@
 import { readFile } from 'fs/promises'
-import { join } from 'path'
+import { join, basename } from 'path'
 
 import type { SkillMetadata } from '../../shared/types'
 
@@ -15,7 +15,7 @@ export async function parseSkillMetadata(
   skillPath: string,
 ): Promise<SkillMetadata> {
   const skillMdPath = join(skillPath, 'SKILL.md')
-  const dirName = skillPath.split('/').pop() || 'Unknown'
+  const dirName = basename(skillPath) || 'Unknown'
 
   try {
     const content = await readFile(skillMdPath, 'utf-8')
