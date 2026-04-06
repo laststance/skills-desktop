@@ -54,11 +54,7 @@ describe('parseSkillMetadata', () => {
     mockFs.readFile.mockResolvedValue('---\nname: Test\n---\n')
     await parseSkillMetadata('/skills/test-skill')
     expect(mockFs.readFile).toHaveBeenCalledWith(
-      expect.stringContaining('test-skill'),
-      'utf-8',
-    )
-    expect(mockFs.readFile).toHaveBeenCalledWith(
-      expect.stringContaining('SKILL.md'),
+      expect.stringMatching(/test-skill[/\\]SKILL\.md$/),
       'utf-8',
     )
   })
