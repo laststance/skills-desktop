@@ -1,9 +1,23 @@
-import { Copy, FolderDot, Link2, Plus, Trash2, X } from 'lucide-react'
+import {
+  BookmarkCheck,
+  BookmarkPlus,
+  Copy,
+  FolderDot,
+  Link2,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react'
 import React, { useMemo, useState } from 'react'
 
 import type { Skill } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import {
+  addBookmark,
+  removeBookmark,
+  selectIsBookmarked,
+} from '../../redux/slices/bookmarkSlice'
 import {
   selectSkill,
   setSkillToAddSymlinks,
@@ -22,6 +36,7 @@ import {
 } from '../ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
+import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
 import { getSkillItemVisibility } from './skillItemHelpers'
 import { SourceLink } from './SourceLink'
 
@@ -41,6 +56,10 @@ export const SkillItem = React.memo(function SkillItem({
   const { selectedAgentId } = useAppSelector((state) => state.ui)
   const { items: agents } = useAppSelector((state) => state.agents)
   const isSelected = selectedSkill?.path === skill.path
+  const isBookmarked = useAppSelector((state) =>
+    selectIsBookmarked(state, skill.name),
+  )
+  const showBookmark = canBookmarkSkill(skill)
 
   const validSymlinks = useMemo(
     () => skill.symlinks.filter((s) => s.status === 'valid'),
@@ -94,6 +113,16 @@ export const SkillItem = React.memo(function SkillItem({
     dispatch(setSkillToAddSymlinks(skill))
   }
 
+  const handleToggleBookmark = (e: React.MouseEvent): void => {
+    e.stopPropagation()
+    if (isBookmarked) {
+      dispatch(removeBookmark(skill.name))
+    } else {
+      const { repo, url } = skillToBookmarkData(skill)
+      dispatch(addBookmark({ name: skill.name, repo, url }))
+    }
+  }
+
   const [contextOpen, setContextOpen] = useState(false)
 
   const handleContextMenu = (e: React.MouseEvent): void => {
@@ -138,6 +167,38 @@ export const SkillItem = React.memo(function SkillItem({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="left">Delete skill</TooltipContent>
+            </Tooltip>
+          )}
+
+          {/* Bookmark toggle — only for skills with repo source */}
+          {showBookmark && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={handleToggleBookmark}
+                  aria-label={
+                    isBookmarked
+                      ? `Remove bookmark from ${skill.name}`
+                      : `Bookmark ${skill.name}`
+                  }
+                  className={cn(
+                    'absolute top-2 right-8 p-1 rounded-md z-10 transition-opacity',
+                    isBookmarked
+                      ? 'text-cyan-400'
+                      : 'text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
+                  )}
+                >
+                  {isBookmarked ? (
+                    <BookmarkCheck className="h-3.5 w-3.5" />
+                  ) : (
+                    <BookmarkPlus className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                {isBookmarked ? 'Remove bookmark' : 'Bookmark'}
+              </TooltipContent>
             </Tooltip>
           )}
 

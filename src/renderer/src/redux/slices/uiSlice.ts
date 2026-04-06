@@ -2,11 +2,15 @@ import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 
 import type {
+  BookmarkedSkill,
   SourceStats,
   SyncExecuteOptions,
   SyncPreviewResult,
 } from '../../../../shared/types'
 import type { RootState } from '../store'
+
+/** Bookmark with install status, used for the detail modal */
+export type BookmarkForDetail = BookmarkedSkill & { isInstalled: boolean }
 
 interface UiState {
   searchQuery: string
@@ -18,6 +22,8 @@ interface UiState {
   /** Sync preview result (null when not previewing) */
   syncPreview: SyncPreviewResult | null
   error: string | null
+  /** Bookmark selected for detail modal (null when modal closed) */
+  selectedBookmarkForDetail: BookmarkForDetail | null
 }
 
 const initialState: UiState = {
@@ -28,6 +34,7 @@ const initialState: UiState = {
   isSyncing: false,
   syncPreview: null,
   error: null,
+  selectedBookmarkForDetail: null,
 }
 
 /**
@@ -82,6 +89,15 @@ const uiSlice = createSlice({
     ) => {
       state.syncPreview = action.payload
     },
+    setSelectedBookmarkForDetail: (
+      state,
+      action: PayloadAction<BookmarkForDetail>,
+    ) => {
+      state.selectedBookmarkForDetail = action.payload
+    },
+    clearSelectedBookmarkForDetail: (state) => {
+      state.selectedBookmarkForDetail = null
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -112,8 +128,14 @@ const uiSlice = createSlice({
   },
 })
 
-export const { setSearchQuery, setRefreshing, selectAgent, setSyncPreview } =
-  uiSlice.actions
+export const {
+  setSearchQuery,
+  setRefreshing,
+  selectAgent,
+  setSyncPreview,
+  setSelectedBookmarkForDetail,
+  clearSelectedBookmarkForDetail,
+} = uiSlice.actions
 export default uiSlice.reducer
 
 // --- Named selectors ---
@@ -129,3 +151,6 @@ export const selectIsSyncing = (state: RootState): boolean => state.ui.isSyncing
 export const selectSyncPreview = (state: RootState): SyncPreviewResult | null =>
   state.ui.syncPreview
 export const selectUiError = (state: RootState): string | null => state.ui.error
+export const selectSelectedBookmarkForDetail = (
+  state: RootState,
+): BookmarkForDetail | null => state.ui.selectedBookmarkForDetail

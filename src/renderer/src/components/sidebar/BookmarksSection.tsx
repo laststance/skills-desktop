@@ -4,6 +4,7 @@ import React from 'react'
 import { useAppSelector } from '../../redux/hooks'
 import { selectBookmarksWithInstallStatus } from '../../redux/selectors'
 
+import { BookmarkDetailModal } from './BookmarkDetailModal'
 import { BookmarkItem } from './BookmarkItem'
 
 /**
@@ -32,6 +33,8 @@ export const BookmarksSection = React.memo(
             <BookmarkItem key={bookmark.name} bookmark={bookmark} />
           ))}
         </div>
+
+        <BookmarkDetailModal />
       </div>
     )
   },
