@@ -1,15 +1,16 @@
 import { Check, Download, X } from 'lucide-react'
 import React from 'react'
 
-import type { BookmarkedSkill } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { removeBookmark } from '../../redux/slices/bookmarkSlice'
 import { installSkill } from '../../redux/slices/marketplaceSlice'
+import type { BookmarkForDetail } from '../../redux/slices/uiSlice'
+import { setSelectedBookmarkForDetail } from '../../redux/slices/uiSlice'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
 interface BookmarkItemProps {
-  bookmark: BookmarkedSkill & { isInstalled: boolean }
+  bookmark: BookmarkForDetail
 }
 
 /**
@@ -25,19 +26,33 @@ export const BookmarkItem = React.memo(function BookmarkItem({
     (state) => state.marketplace.status === 'installing',
   )
 
-  const handleInstall = (): void => {
-    dispatch(installSkill({ repo: bookmark.repo, global: true, agents: [] }))
+  const handleInstall = (e: React.MouseEvent): void => {
+    e.stopPropagation()
+    dispatch(
+      installSkill({
+        repo: bookmark.repo,
+        global: true,
+        agents: [],
+        skills: [bookmark.name],
+      }),
+    )
   }
 
-  const handleRemove = (): void => {
+  const handleRemove = (e: React.MouseEvent): void => {
+    e.stopPropagation()
     dispatch(removeBookmark(bookmark.name))
+  }
+
+  const handleClick = (): void => {
+    dispatch(setSelectedBookmarkForDetail(bookmark))
   }
 
   return (
     <div
       className={cn(
-        'flex w-full items-center justify-between min-h-[44px] py-1.5 px-2 rounded-md transition-colors group',
+        'flex w-full items-center justify-between min-h-[44px] py-1.5 px-2 rounded-md transition-colors group cursor-pointer hover:bg-accent/50',
       )}
+      onClick={handleClick}
     >
       <Tooltip>
         <TooltipTrigger asChild>

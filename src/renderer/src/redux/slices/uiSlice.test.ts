@@ -170,3 +170,41 @@ describe('uiSlice sync thunks', () => {
     expect(store.getState().ui.syncPreview).toBeNull()
   })
 })
+
+describe('uiSlice bookmark detail modal', () => {
+  const sampleBookmark = {
+    name: 'task',
+    repo: 'vercel-labs/skills',
+    url: 'https://github.com/vercel-labs/skills',
+    bookmarkedAt: '2026-04-01T08:00:00.000Z',
+    isInstalled: false,
+  }
+
+  it('sets selectedBookmarkForDetail', async () => {
+    const store = await createTestStore()
+    const { setSelectedBookmarkForDetail } = await import('./uiSlice')
+
+    store.dispatch(setSelectedBookmarkForDetail(sampleBookmark))
+
+    expect(store.getState().ui.selectedBookmarkForDetail).toEqual(
+      sampleBookmark,
+    )
+  })
+
+  it('clears selectedBookmarkForDetail', async () => {
+    const store = await createTestStore()
+    const { setSelectedBookmarkForDetail, clearSelectedBookmarkForDetail } =
+      await import('./uiSlice')
+
+    store.dispatch(setSelectedBookmarkForDetail(sampleBookmark))
+    expect(store.getState().ui.selectedBookmarkForDetail).not.toBeNull()
+
+    store.dispatch(clearSelectedBookmarkForDetail())
+    expect(store.getState().ui.selectedBookmarkForDetail).toBeNull()
+  })
+
+  it('starts with null selectedBookmarkForDetail', async () => {
+    const store = await createTestStore()
+    expect(store.getState().ui.selectedBookmarkForDetail).toBeNull()
+  })
+})

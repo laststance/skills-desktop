@@ -135,7 +135,7 @@ export interface SkillSearchResult {
   name: string
   /** Repository in owner/repo format */
   repo: string
-  /** Skills.sh URL */
+  /** URL to skill source (skills.sh or GitHub) */
   url: string
   /** Install count (may not be available from all sources) */
   installCount?: number
@@ -157,7 +157,7 @@ export interface BookmarkedSkill {
   name: string
   /** Repository in owner/repo format (required for InstallOptions.repo) */
   repo: string
-  /** Skills.sh URL */
+  /** URL to skill source (skills.sh or GitHub) */
   url: string
   /** ISO timestamp of when bookmarked */
   bookmarkedAt: string
