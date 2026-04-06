@@ -42,7 +42,7 @@ function SkillRow({
 }: RowComponentProps<SkillRowProps>): React.ReactElement {
   return (
     <div style={style}>
-      <div className="pb-3">
+      <div className="pb-3 pr-2">
         <SkillItem skill={data[index]} />
       </div>
     </div>
