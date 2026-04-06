@@ -95,9 +95,11 @@ export const BookmarkDetailModal = React.memo(
 
               <button
                 type="button"
-                onClick={async () =>
-                  window.electron.shell.openExternal(bookmark.url)
-                }
+                onClick={() => {
+                  window.electron.shell.openExternal(bookmark.url).catch(() => {
+                    // URL validation failed or shell.openExternal errored
+                  })
+                }}
                 className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 text-left"
               >
                 {bookmark.repo}
