@@ -52,17 +52,6 @@ export const SkillDetail = React.memo(function SkillDetail({
       {/* Tab buttons */}
       <div className="flex border-b border-border">
         <button
-          onClick={() => setActiveTab('info')}
-          className={cn(
-            'px-4 py-2 text-sm font-medium border-b-2 -mb-[1px] transition-colors',
-            activeTab === 'info'
-              ? 'text-primary border-primary'
-              : 'text-muted-foreground border-transparent hover:text-foreground',
-          )}
-        >
-          Info
-        </button>
-        <button
           onClick={() => setActiveTab('code')}
           className={cn(
             'px-4 py-2 text-sm font-medium border-b-2 -mb-[1px] transition-colors',
@@ -72,6 +61,17 @@ export const SkillDetail = React.memo(function SkillDetail({
           )}
         >
           Files
+        </button>
+        <button
+          onClick={() => setActiveTab('info')}
+          className={cn(
+            'px-4 py-2 text-sm font-medium border-b-2 -mb-[1px] transition-colors',
+            activeTab === 'info'
+              ? 'text-primary border-primary'
+              : 'text-muted-foreground border-transparent hover:text-foreground',
+          )}
+        >
+          Info
         </button>
       </div>
 
