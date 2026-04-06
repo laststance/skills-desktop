@@ -21,7 +21,7 @@ type TabType = 'info' | 'code'
 export const SkillDetail = React.memo(function SkillDetail({
   skill,
 }: SkillDetailProps): React.ReactElement {
-  const [activeTab, setActiveTab] = useState<TabType>('info')
+  const [activeTab, setActiveTab] = useState<TabType>('code')
   const { items: agents } = useAppSelector((state) => state.agents)
 
   // Filter symlinks to only show detected agents (exists: true)
