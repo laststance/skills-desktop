@@ -75,25 +75,4 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       replaceConflicts: z.array(z.string()),
     }),
   ]),
-
-  // Chat operations
-  'chat:send': z.tuple([
-    z.object({
-      message: nonEmptyString,
-      sandboxPath: z.string().nullable(),
-      skillContext: z.array(
-        z.object({
-          name: z.string(),
-          description: z.string(),
-        }),
-      ),
-      activeSkillContent: z.string().nullable(),
-    }),
-  ]),
-  'chat:createSandbox': z.tuple([
-    z.object({
-      skillName: z.string().nullable(),
-    }),
-  ]),
-  'chat:cleanupSandbox': z.tuple([nonEmptyString]),
 }

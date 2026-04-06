@@ -69,16 +69,6 @@ function buildState(overrides: {
       skillToRemove: null,
       error: null,
     },
-    chat: {
-      messages: [],
-      isStreaming: false,
-      claudeAvailable: null,
-      claudePath: null,
-      claudeVersion: null,
-      error: null,
-      sandboxPath: null,
-      sandboxSkillName: null,
-    },
     bookmarks: {
       items: overrides.bookmarks ?? [],
     },

@@ -15,13 +15,6 @@ export const FEATURE_FLAGS = {
    * When disabled: Opens skill.sh website in browser
    */
   ENABLE_MARKETPLACE_UI: true,
-  /**
-   * Agent Chat Panel (Claude Agent SDK powered)
-   * Currently disabled: response latency too high for practical use
-   * When enabled: Shows chat panel in right pane
-   * When disabled: Shows skill detail (Inspector) in right pane
-   */
-  ENABLE_CHAT_PANEL: false,
 } as const
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS

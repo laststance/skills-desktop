@@ -2,8 +2,6 @@ import { join } from 'path'
 
 import { app, shell, BrowserWindow, Menu, session } from 'electron'
 
-import { abortActiveChat } from './chat'
-import { cleanupStaleSandboxes } from './chat/sandboxManager'
 import { registerAllHandlers } from './ipc/handlers'
 import { initAutoUpdater } from './updater'
 
@@ -132,16 +130,9 @@ app.whenReady().then(() => {
     initAutoUpdater()
   }
 
-  // Clean up any stale sandboxes from previous sessions
-  cleanupStaleSandboxes().catch(() => {})
-
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
-})
-
-app.on('before-quit', () => {
-  abortActiveChat()
 })
 
 app.on('window-all-closed', () => {

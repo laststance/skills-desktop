@@ -14,7 +14,7 @@ describe('FEATURE_FLAGS', () => {
 
   it('has no unexpected keys', () => {
     const keys = Object.keys(FEATURE_FLAGS)
-    expect(keys).toEqual(['ENABLE_MARKETPLACE_UI', 'ENABLE_CHAT_PANEL'])
+    expect(keys).toEqual(['ENABLE_MARKETPLACE_UI'])
   })
 })
 
