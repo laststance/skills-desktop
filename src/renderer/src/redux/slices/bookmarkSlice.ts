@@ -48,12 +48,16 @@ const bookmarkSlice = createSlice({
 
 export const { addBookmark, removeBookmark } = bookmarkSlice.actions
 
+/** Redux state shape required by bookmark selectors (slice tests use a minimal store). */
+type BookmarkSelectorState = Pick<RootState, 'bookmarks'>
+
 /**
  * Select all bookmarked skills.
  * @returns BookmarkedSkill[]
  */
-export const selectBookmarkItems = (state: RootState): BookmarkedSkill[] =>
-  state.bookmarks.items
+export const selectBookmarkItems = (
+  state: BookmarkSelectorState,
+): BookmarkedSkill[] => state.bookmarks.items
 
 /**
  * Check if a skill is bookmarked by name.
@@ -62,7 +66,9 @@ export const selectBookmarkItems = (state: RootState): BookmarkedSkill[] =>
  * @example
  * const isBookmarked = useAppSelector((state) => selectIsBookmarked(state, 'task'))
  */
-export const selectIsBookmarked = (state: RootState, name: string): boolean =>
-  state.bookmarks.items.some((b) => b.name === name)
+export const selectIsBookmarked = (
+  state: BookmarkSelectorState,
+  name: string,
+): boolean => state.bookmarks.items.some((b) => b.name === name)
 
 export default bookmarkSlice.reducer
