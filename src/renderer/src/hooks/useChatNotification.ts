@@ -32,11 +32,15 @@ function getChatAPI(): ChatAPI | undefined {
  * Hook to subscribe to chat:chunk IPC events
  * Dispatches Redux actions based on chunk type
  * Sets up listener on mount, cleans up on unmount
+ * @param options.enabled - Skip subscription when false (feature flag)
  */
-export function useChatNotification(): void {
+export function useChatNotification(options: { enabled?: boolean } = {}): void {
+  const { enabled = true } = options
   const dispatch = useAppDispatch()
 
   useEffect(() => {
+    if (!enabled) return
+
     const chatAPI = getChatAPI()
     if (!chatAPI) return
 
@@ -82,5 +86,5 @@ export function useChatNotification(): void {
     })
 
     return cleanup
-  }, [dispatch])
+  }, [dispatch, enabled])
 }

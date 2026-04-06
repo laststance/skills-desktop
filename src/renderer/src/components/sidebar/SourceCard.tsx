@@ -93,9 +93,11 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
   return (
     <Card
       className={cn(
-        'bg-card/50 border-l-4 border-l-transparent transition-colors',
+        'bg-card/50 border-l-4 border-l-transparent transition-colors cursor-pointer',
         isActive && 'border-l-primary bg-primary/5',
       )}
+      onClick={handlePathClick}
+      title="Click to clear filters and show all skills"
     >
       <CardContent className="p-3">
         <div className="flex items-center justify-between mb-2">
@@ -105,7 +107,10 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
               variant="ghost"
               size="sm"
               className="min-h-[44px] px-2 text-xs font-medium gap-1"
-              onClick={handleSync}
+              onClick={(e) => {
+                e.stopPropagation()
+                handleSync()
+              }}
               disabled={isSyncing}
             >
               {isSyncing ? (
@@ -120,7 +125,10 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
             variant="ghost"
             size="icon"
             className="h-11 w-11"
-            onClick={handleRefresh}
+            onClick={(e) => {
+              e.stopPropagation()
+              handleRefresh()
+            }}
             disabled={isRefreshing}
           >
             <RefreshCw
@@ -128,11 +136,7 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
             />
           </Button>
         </div>
-        <div
-          className="cursor-pointer hover:text-primary transition-colors"
-          onClick={handlePathClick}
-          title="Click to clear filters and show all skills"
-        >
+        <div className="hover:text-primary transition-colors">
           <p className="text-sm font-medium truncate">~/.agents/skills</p>
           {sourceStats && (
             <div className="flex gap-4 mt-2 text-xs text-muted-foreground">

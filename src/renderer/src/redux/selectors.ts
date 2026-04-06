@@ -27,13 +27,11 @@ export const selectFilteredSkills = createSelector(
       )
     }
 
-    // Filter by search query
+    // Filter by search query (name only)
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      result = result.filter(
-        (skill) =>
-          skill.name.toLowerCase().includes(query) ||
-          skill.description.toLowerCase().includes(query),
+      result = result.filter((skill) =>
+        skill.name.toLowerCase().includes(query),
       )
     }
 

@@ -123,15 +123,14 @@ describe('selectFilteredSkills', () => {
     expect(result[0].name).toBe('task')
   })
 
-  it('filters by search query (description match)', () => {
+  it('does not match description, only name', () => {
     const skills = [
       makeSkill('task', 'claude-code'),
       makeSkill('browse', 'cursor'),
     ]
     const state = buildState({ skills, searchQuery: 'browse skill' })
     const result = selectFilteredSkills(state as never)
-    expect(result).toHaveLength(1)
-    expect(result[0].name).toBe('browse')
+    expect(result).toHaveLength(0)
   })
 
   it('search is case-insensitive', () => {

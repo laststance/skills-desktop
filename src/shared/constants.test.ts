@@ -47,6 +47,7 @@ describe('UNIVERSAL_AGENT_IDS', () => {
     expect(UNIVERSAL_AGENT_IDS).toContain('codex')
     expect(UNIVERSAL_AGENT_IDS).toContain('cursor')
     expect(UNIVERSAL_AGENT_IDS).toContain('deepagents')
+    expect(UNIVERSAL_AGENT_IDS).toContain('firebender')
     expect(UNIVERSAL_AGENT_IDS).toContain('gemini-cli')
     expect(UNIVERSAL_AGENT_IDS).toContain('github-copilot')
     expect(UNIVERSAL_AGENT_IDS).toContain('kimi-cli')

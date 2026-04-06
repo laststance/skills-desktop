@@ -106,7 +106,14 @@ export const AGENT_DEFINITIONS = [
   { id: 'pochi', cliId: 'pochi', name: 'Pochi', dir: '.pochi' },
   { id: 'adal', cliId: 'adal', name: 'AdaL', dir: '.adal' },
   { id: 'kimi-cli', cliId: 'kimi-cli', name: 'Kimi Code CLI', dir: '.kimi' },
-  // New agents synced from Skills CLI v1.4.6
+  // New agents synced from Skills CLI v1.4.7
+  { id: 'bob', cliId: 'bob', name: 'IBM Bob', dir: '.bob' },
+  {
+    id: 'firebender',
+    cliId: 'firebender',
+    name: 'Firebender',
+    dir: '.firebender',
+  },
   {
     id: 'antigravity',
     cliId: 'antigravity',
@@ -182,6 +189,7 @@ export const UNIVERSAL_AGENT_IDS = [
   'codex',
   'cursor',
   'deepagents',
+  'firebender',
   'gemini-cli',
   'github-copilot',
   'kimi-cli',
