@@ -93,18 +93,24 @@ export const BookmarkDetailModal = React.memo(
                 </DialogTitle>
               </DialogHeader>
 
-              <button
-                type="button"
-                onClick={() => {
-                  window.electron.shell.openExternal(bookmark.url).catch(() => {
-                    // URL validation failed or shell.openExternal errored
-                  })
-                }}
-                className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 text-left"
-              >
-                {bookmark.repo}
-                <ExternalLink className="h-3 w-3" />
-              </button>
+              {bookmark.repo ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.electron.shell
+                      .openExternal(bookmark.url)
+                      .catch(() => {
+                        // URL validation failed or shell.openExternal errored
+                      })
+                  }}
+                  className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 text-left"
+                >
+                  {bookmark.repo}
+                  <ExternalLink className="h-3 w-3" />
+                </button>
+              ) : (
+                <span className="text-sm text-muted-foreground/70">Local</span>
+              )}
 
               <Separator />
 
@@ -114,7 +120,7 @@ export const BookmarkDetailModal = React.memo(
                     <Check className="h-4 w-4" />
                     Installed
                   </span>
-                ) : (
+                ) : bookmark.repo ? (
                   <Button
                     onClick={handleInstall}
                     disabled={isInstalling}
@@ -125,6 +131,10 @@ export const BookmarkDetailModal = React.memo(
                     )}
                     {isInstalling ? 'Installing...' : 'Install'}
                   </Button>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    Not installed
+                  </span>
                 )}
                 <Button
                   variant="ghost"
