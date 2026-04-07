@@ -96,6 +96,9 @@ export const BookmarkDetailModal = React.memo(
               {bookmark.repo ? (
                 <button
                   type="button"
+                  // Excluded from tab order so Radix Dialog auto-focus skips it
+                  // (the bright focus ring obscured the repo text on open).
+                  tabIndex={-1}
                   onClick={() => {
                     window.electron.shell
                       .openExternal(bookmark.url)
@@ -103,7 +106,7 @@ export const BookmarkDetailModal = React.memo(
                         // URL validation failed or shell.openExternal errored
                       })
                   }}
-                  className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 text-left"
+                  className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 text-left focus:outline-none"
                 >
                   {bookmark.repo}
                   <ExternalLink className="h-3 w-3" />
