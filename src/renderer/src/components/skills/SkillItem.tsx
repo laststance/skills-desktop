@@ -5,7 +5,6 @@ import {
   FolderDot,
   Link2,
   Plus,
-  Trash2,
   X,
 } from 'lucide-react'
 import React, { useMemo, useState } from 'react'
@@ -45,8 +44,9 @@ interface SkillItemProps {
 }
 
 /**
- * Single skill card in the skills list
- * Shows X button for deletion, trash icon for unlinking, Add button for symlink creation
+ * Single skill card in the skills list.
+ * Shows a top-right X button that deletes the skill in global view, or
+ * unlinks/deletes from the selected agent in agent view. Add button creates symlinks.
  */
 export const SkillItem = React.memo(function SkillItem({
   skill,
@@ -154,19 +154,29 @@ export const SkillItem = React.memo(function SkillItem({
           onClick={() => dispatch(selectSkill(isSelected ? null : skill))}
           onContextMenu={handleContextMenu}
         >
-          {/* X button - visible only when no agent is selected (global view) */}
-          {showDeleteButton && (
+          {/* X button — top-right delete/unlink action.
+              In global view: deletes the skill entirely.
+              In agent view: unlinks symlink, or deletes local skill from agent. */}
+          {(showDeleteButton || showUnlinkButton) && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  onClick={handleDeleteClick}
+                  onClick={
+                    showDeleteButton ? handleDeleteClick : handleUnlinkClick
+                  }
                   className="absolute top-2 right-2 p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="left">Delete skill</TooltipContent>
+              <TooltipContent side="left">
+                {showDeleteButton
+                  ? 'Delete skill'
+                  : isLocalSkill
+                    ? `Delete from ${selectedAgentName}`
+                    : `Remove from ${selectedAgentName}`}
+              </TooltipContent>
             </Tooltip>
           )}
 
@@ -239,26 +249,6 @@ export const SkillItem = React.memo(function SkillItem({
                 )}
                 <SourceLink source={skill.source} sourceUrl={skill.sourceUrl} />
               </div>
-
-              {/* Trash icon - visible on hover for linked (non-local) skills */}
-              {showUnlinkButton && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={handleUnlinkClick}
-                      className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="left">
-                    {isLocalSkill
-                      ? `Delete from ${selectedAgentName}`
-                      : `Remove from ${selectedAgentName}`}
-                  </TooltipContent>
-                </Tooltip>
-              )}
             </div>
 
             {/* Status badges — only shown in global view (no agent selected) */}
