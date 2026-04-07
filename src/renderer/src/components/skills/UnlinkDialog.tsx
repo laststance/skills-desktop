@@ -3,11 +3,13 @@ import React from 'react'
 import { toast } from 'sonner'
 
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import { fetchAgents } from '../../redux/slices/agentsSlice'
 import {
   fetchSkills,
   setSkillToUnlink,
   unlinkSkillFromAgent,
 } from '../../redux/slices/skillsSlice'
+import { fetchSourceStats } from '../../redux/slices/uiSlice'
 import { Button } from '../ui/button'
 import {
   Dialog,
@@ -52,7 +54,6 @@ export const UnlinkDialog = React.memo(
               : `${skill.name} is no longer linked to ${symlink.agentName}`,
           },
         )
-        dispatch(fetchSkills())
       } else {
         toast.error(
           isLocal ? 'Failed to delete skill' : 'Failed to remove skill',
@@ -62,6 +63,14 @@ export const UnlinkDialog = React.memo(
           },
         )
       }
+      // Always refresh after an unlink attempt: success refreshes the list,
+      // failure clears any stale `state.skills.error` (via fetchSkills.pending)
+      // so the SkillsList does not stay stuck on the error view. The toast
+      // above is the user-facing error surface.
+      dispatch(fetchSkills())
+      dispatch(fetchAgents())
+      dispatch(fetchSourceStats())
+      dispatch(setSkillToUnlink(null))
     }
 
     return (

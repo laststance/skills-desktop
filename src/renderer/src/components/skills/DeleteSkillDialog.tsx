@@ -44,14 +44,19 @@ export const DeleteSkillDialog = React.memo(
         toast.success(`Deleted ${result.payload.skillName}`, {
           description: `Removed skill and ${result.payload.symlinksRemoved} symlinks`,
         })
-        dispatch(fetchSkills())
-        dispatch(fetchAgents())
-        dispatch(fetchSourceStats())
       } else {
         toast.error('Failed to delete skill', {
           description: result.error?.message || 'An unexpected error occurred',
         })
       }
+      // Always refresh after a delete attempt: success refreshes the list,
+      // failure clears any stale `state.skills.error` (via fetchSkills.pending)
+      // so the SkillsList does not stay stuck on the error view. The toast
+      // above is the user-facing error surface.
+      dispatch(fetchSkills())
+      dispatch(fetchAgents())
+      dispatch(fetchSourceStats())
+      dispatch(setSkillToDelete(null))
     }
 
     return (

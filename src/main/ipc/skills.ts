@@ -2,7 +2,7 @@ import * as fs from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
-import { AGENTS, SOURCE_DIR } from '../constants'
+import { AGENTS } from '../constants'
 import { getAllowedBases, validatePath } from '../services/pathValidation'
 import { scanSkills } from '../services/skillScanner'
 
@@ -25,8 +25,11 @@ export function registerSkillsHandlers(): void {
     const { linkPath } = options
 
     try {
-      const agentBases = AGENTS.map((a) => a.path)
-      validatePath(linkPath, agentBases)
+      // Allow agent dirs (for local skills) AND SOURCE_DIR (for symlinked skills).
+      // validatePath calls realpathSync, which follows the symlink to its source
+      // in ~/.agents/skills/. Without SOURCE_DIR in the allowed bases, every
+      // symlinked-skill unlink fails with "Path traversal attempt detected".
+      validatePath(linkPath, getAllowedBases())
       const stats = await fs.lstat(linkPath)
       if (stats.isSymbolicLink()) {
         // Remove symlink
@@ -90,8 +93,12 @@ export function registerSkillsHandlers(): void {
     let symlinksRemoved = 0
 
     try {
-      // Validate skillPath BEFORE using skillName in path joins (defense in depth)
-      validatePath(skillPath, [SOURCE_DIR])
+      // Validate skillPath BEFORE using skillName in path joins (defense in depth).
+      // Allow source skills (~/.agents/skills/...) AND local skills that live
+      // directly inside an agent directory (e.g. ~/.gemini/antigravity/skills/foo).
+      // The per-iteration validation in the loop below still constrains each
+      // constructed path to its own agent directory.
+      validatePath(skillPath, getAllowedBases())
 
       // Remove symlinks and local copies across all agents
       for (const agent of AGENTS) {
@@ -133,7 +140,12 @@ export function registerSkillsHandlers(): void {
    */
   typedHandle(IPC_CHANNELS.SKILLS_CREATE_SYMLINKS, async (_, options) => {
     const { skillName, skillPath, agentIds } = options
-    validatePath(skillPath, [SOURCE_DIR])
+    // Allow source skills AND local skills that live inside an agent directory.
+    // The renderer's "Add" button is shown in global view for both flavors,
+    // so restricting to [SOURCE_DIR] would reject every local-skill add with
+    // "Path traversal attempt detected". The per-iteration validation below
+    // still constrains each constructed linkPath to its target agent dir.
+    validatePath(skillPath, getAllowedBases())
     let created = 0
     const failures: Array<{
       agentId: (typeof agentIds)[number]
@@ -148,6 +160,14 @@ export function registerSkillsHandlers(): void {
       }
 
       const linkPath = join(agent.path, skillName)
+      // Defense in depth: ensure the constructed link path stays inside the
+      // target agent directory (skillName must not contain `../`).
+      try {
+        validatePath(linkPath, [agent.path])
+      } catch {
+        failures.push({ agentId, error: 'Invalid skill name' })
+        continue
+      }
 
       try {
         // Ensure agent skills directory exists
@@ -201,8 +221,11 @@ export function registerSkillsHandlers(): void {
       if (stats.isSymbolicLink()) {
         isSymlink = true
         symlinkTarget = await fs.readlink(linkPath)
-        // Validate the resolved symlink target is within allowed bases
-        validatePath(symlinkTarget, [SOURCE_DIR])
+        // Validate the resolved symlink target is within allowed bases.
+        // After the CREATE_SYMLINKS fix, symlinks may legitimately point at
+        // either SOURCE_DIR (source skills) or another agent's dir (local
+        // skills linked across agents), so [SOURCE_DIR] alone is too strict.
+        validatePath(symlinkTarget, getAllowedBases())
       } else if (!stats.isDirectory()) {
         return {
           success: false,

@@ -108,14 +108,18 @@ export const CopyToAgentsModal = React.memo(
             description: `${skillToCopy.name} copied successfully`,
           })
         }
-        dispatch(fetchSkills())
-        dispatch(fetchAgents())
-        dispatch(fetchSourceStats())
       } else {
         toast.error('Failed to copy skill', {
           description: result.error?.message || 'An unexpected error occurred',
         })
       }
+      // Always refresh after a copy attempt: success refreshes the list,
+      // failure clears any stale `state.skills.error` (via fetchSkills.pending)
+      // so the SkillsList does not stay stuck on the error view. The toast
+      // above is the user-facing error surface.
+      dispatch(fetchSkills())
+      dispatch(fetchAgents())
+      dispatch(fetchSourceStats())
     }
 
     const hasNewSelections = selectedAgents.length > 0

@@ -78,14 +78,18 @@ export const AddSymlinkModal = React.memo(
         toast.success(`Added to ${result.payload.created} agent(s)`, {
           description: `${skillToAddSymlinks.name} symlinks created`,
         })
-        dispatch(fetchSkills())
-        dispatch(fetchAgents())
-        dispatch(fetchSourceStats())
       } else {
         toast.error('Failed to create symlinks', {
           description: result.error?.message || 'An unexpected error occurred',
         })
       }
+      // Always refresh after an add attempt: success refreshes the list,
+      // failure clears any stale `state.skills.error` (via fetchSkills.pending)
+      // so the SkillsList does not stay stuck on the error view. The toast
+      // above is the user-facing error surface.
+      dispatch(fetchSkills())
+      dispatch(fetchAgents())
+      dispatch(fetchSourceStats())
     }
 
     const hasNewSelections = selectedAgents.length > 0
