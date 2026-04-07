@@ -1,16 +1,16 @@
 import type { Skill } from '../../../../shared/types'
 
 /**
- * Whether a skill can be bookmarked (has repo source info).
- * Local skills have no source and cannot be reinstalled from a repo.
- * @param skill - Installed skill
- * @returns true if skill has source (non-local), false otherwise
+ * Whether a skill can be bookmarked from the Installed tab.
+ * All installed skills are bookmarkable regardless of source info.
+ * @param _skill - Installed skill (unused, kept for call-site compatibility)
+ * @returns always true
  * @example
  * canBookmarkSkill({ source: 'pbakaus/impeccable', ... }) // => true
- * canBookmarkSkill({ source: undefined, ... })            // => false
+ * canBookmarkSkill({ source: undefined, ... })            // => true
  */
-export function canBookmarkSkill(skill: Skill): boolean {
-  return skill.source !== undefined && skill.source !== ''
+export function canBookmarkSkill(_skill: Skill): boolean {
+  return true
 }
 
 /**

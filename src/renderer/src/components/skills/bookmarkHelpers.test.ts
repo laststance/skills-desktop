@@ -29,12 +29,12 @@ describe('canBookmarkSkill', () => {
     )
   })
 
-  it('returns false when source is undefined', () => {
-    expect(canBookmarkSkill(makeSkill({ source: undefined }))).toBe(false)
+  it('returns true when source is undefined (local skill)', () => {
+    expect(canBookmarkSkill(makeSkill({ source: undefined }))).toBe(true)
   })
 
-  it('returns false when source is empty string', () => {
-    expect(canBookmarkSkill(makeSkill({ source: '' }))).toBe(false)
+  it('returns true when source is empty string', () => {
+    expect(canBookmarkSkill(makeSkill({ source: '' }))).toBe(true)
   })
 })
 
