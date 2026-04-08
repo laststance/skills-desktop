@@ -41,10 +41,10 @@ export const SkillsMarketplace = React.memo(
         <div className="p-6 pb-4 space-y-4">
           {/* Title */}
           <div>
-            <h1 className="text-[28px] font-bold text-white">
+            <h1 className="text-[28px] font-bold text-foreground">
               Skills Marketplace
             </h1>
-            <p className="text-sm text-[#94A3B8] mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Browse, search and install skills from skills.sh
             </p>
           </div>

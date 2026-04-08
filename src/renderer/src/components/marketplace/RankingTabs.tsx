@@ -33,8 +33,8 @@ export const RankingTabs = React.memo(function RankingTabs({
           className={cn(
             'px-4 py-2 rounded-md text-[13px] font-medium transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             value === tab.id
-              ? 'bg-[#1E293B] text-[#22D3EE]'
-              : 'text-[#94A3B8] hover:text-[#CBD5E1] hover:bg-[#1E293B]/50',
+              ? 'bg-card text-primary'
+              : 'text-muted-foreground hover:text-foreground hover:bg-card/50',
           )}
         >
           {tab.label}
