@@ -75,4 +75,14 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       replaceConflicts: z.array(z.string()),
     }),
   ]),
+
+  // Shell — restrict to http/https to prevent opening arbitrary URI schemes
+  'shell:openExternal': z.tuple([
+    z
+      .string()
+      .url()
+      .refine((u) => /^https?:\/\//i.test(u), {
+        message: 'Only http(s) URLs are allowed',
+      }),
+  ]),
 }

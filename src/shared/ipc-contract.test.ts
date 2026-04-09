@@ -26,10 +26,11 @@ describe('IPC contract alignment', () => {
       [IPC_CHANNELS.UPDATE_DOWNLOAD]: true,
       [IPC_CHANNELS.UPDATE_INSTALL]: true,
       [IPC_CHANNELS.UPDATE_CHECK]: true,
+      [IPC_CHANNELS.SHELL_OPEN_EXTERNAL]: true,
     } as const satisfies Record<keyof IpcInvokeContract, true>
 
     // Runtime assertion: mapping covers exactly the contract keys
-    expect(Object.keys(invokeMapping)).toHaveLength(19)
+    expect(Object.keys(invokeMapping)).toHaveLength(20)
   })
 
   it('all IPC_CHANNELS event values are valid event contract keys', () => {

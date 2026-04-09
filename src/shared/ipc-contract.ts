@@ -70,6 +70,7 @@ export interface IpcInvokeContract {
   'update:download': { args: []; result: void }
   'update:install': { args: []; result: void }
   'update:check': { args: []; result: void }
+  'shell:openExternal': { args: [string]; result: void }
 }
 
 /**

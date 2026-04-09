@@ -33,6 +33,9 @@ export const IPC_CHANNELS = {
   SYNC_PREVIEW: 'sync:preview',
   SYNC_EXECUTE: 'sync:execute',
 
+  // Shell (main-process-only APIs exposed via IPC)
+  SHELL_OPEN_EXTERNAL: 'shell:openExternal',
+
   // Update
   UPDATE_DOWNLOAD: 'update:download',
   UPDATE_INSTALL: 'update:install',
