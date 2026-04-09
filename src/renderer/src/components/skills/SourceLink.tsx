@@ -1,6 +1,8 @@
 import { ExternalLink } from 'lucide-react'
 import React from 'react'
 
+import { getSourceLinkModel } from './sourceLinkHelpers'
+
 interface SourceLinkProps {
   source?: string
   sourceUrl?: string
@@ -20,31 +22,31 @@ export const SourceLink = React.memo(function SourceLink({
   source,
   sourceUrl,
 }: SourceLinkProps): React.ReactElement {
-  if (!source) {
+  const model = getSourceLinkModel(source, sourceUrl)
+
+  if (model.kind === 'local') {
     return (
       <span className="text-sm text-muted-foreground/70 mb-2 block">Local</span>
     )
   }
 
-  const href = sourceUrl ? sourceUrl.replace(/\.git$/, '') : undefined
-
-  if (!href) {
+  if (model.kind === 'text') {
     return (
       <span className="text-sm text-muted-foreground inline-flex items-center gap-1 mb-2">
-        {source}
+        {model.source}
       </span>
     )
   }
 
   return (
     <a
-      href={href}
+      href={model.href}
       target="_blank"
       rel="noreferrer"
       onClick={(e) => e.stopPropagation()}
       className="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1 mb-2"
     >
-      {source}
+      {model.source}
       <ExternalLink className="h-3 w-3" />
     </a>
   )
