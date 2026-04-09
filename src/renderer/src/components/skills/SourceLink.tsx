@@ -8,17 +8,11 @@ interface SourceLinkProps {
 
 /**
  * Display skill source as a clickable external link or "Local" label.
- *
- * Uses a native `<a target="_blank">` which Electron intercepts via
- * `setWindowOpenHandler` (src/main/index.ts) and routes http(s) URLs to the
- * system browser through `shell.openExternal`. `stopPropagation` prevents the
- * parent Card's click handler from firing alongside the navigation.
- *
  * @param source - Short source identifier, e.g. "pbakaus/impeccable"
  * @param sourceUrl - Full URL to repository, e.g. "https://github.com/pbakaus/impeccable.git"
  * @example
  * <SourceLink source="pbakaus/impeccable" sourceUrl="https://github.com/pbakaus/impeccable.git" />
- * // => clickable "pbakaus/impeccable ↗" link that opens in the default browser
+ * // => clickable "pbakaus/impeccable ↗" link
  * <SourceLink />
  * // => "Local" text
  */

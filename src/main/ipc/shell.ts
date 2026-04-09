@@ -9,7 +9,6 @@ import { typedHandle } from './typedHandle'
  *
  * The `shell` module is main-process-only — it is unavailable in sandboxed
  * preload scripts — so callers in the renderer must route through IPC.
- * URL shape is already validated upstream by Zod (http(s) only).
  */
 export function registerShellHandlers(): void {
   typedHandle(IPC_CHANNELS.SHELL_OPEN_EXTERNAL, async (_event, url) => {
