@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, shell } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 
 import { IPC_CHANNELS } from '../shared/ipc-channels'
 import type {
@@ -11,15 +11,12 @@ import { typedInvoke } from './typedInvoke'
 
 // Expose protected methods to renderer process
 contextBridge.exposeInMainWorld('electron', {
-  // Shell API (external links)
+  // Shell API (external links).
+  // Must go through IPC: the `shell` module is unavailable in sandboxed
+  // preload scripts and is only callable from the main process.
+  // URL shape (http/https only) is enforced by the Zod schema at the handler.
   shell: {
-    openExternal: async (url: string) => {
-      const parsed = new URL(url)
-      if (!['http:', 'https:'].includes(parsed.protocol)) {
-        throw new Error('Unsupported URL protocol')
-      }
-      return shell.openExternal(url)
-    },
+    openExternal: async (url: string) => typedInvoke('shell:openExternal', url),
   },
   // Skills API
   skills: {
