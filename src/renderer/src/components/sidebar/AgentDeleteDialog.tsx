@@ -1,24 +1,13 @@
-import { AlertTriangle, Loader2 } from 'lucide-react'
 import React from 'react'
 import { toast } from 'sonner'
 
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import {
-  fetchAgents,
   removeAllSymlinksFromAgent,
   setAgentToDelete,
 } from '../../redux/slices/agentsSlice'
-import { fetchSkills } from '../../redux/slices/skillsSlice'
-import { fetchSourceStats } from '../../redux/slices/uiSlice'
-import { Button } from '../ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog'
+import { refreshAllData } from '../../redux/thunks'
+import { DestructiveConfirmDialog } from '../shared/DestructiveConfirmDialog'
 
 /**
  * Confirmation dialog for deleting an agent's entire skills folder
@@ -44,9 +33,7 @@ export const AgentDeleteDialog = React.memo(
         toast.success(`Deleted skills folder for ${result.payload.agentName}`, {
           description: `Removed ${result.payload.removedCount} items`,
         })
-        dispatch(fetchSkills())
-        dispatch(fetchAgents())
-        dispatch(fetchSourceStats())
+        refreshAllData(dispatch)
       } else {
         toast.error('Failed to delete skills folder', {
           description: result.error?.message || 'An unexpected error occurred',
@@ -55,45 +42,26 @@ export const AgentDeleteDialog = React.memo(
     }
 
     return (
-      <Dialog open={!!agentToDelete} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <DialogTitle>Delete Skills Folder</DialogTitle>
-            </div>
-            <DialogDescription>
-              Permanently delete the skills folder for{' '}
-              <strong>{agentToDelete?.name}</strong>?
-              <br />
-              <span className="text-destructive/80 mt-2 block">
-                This will delete all symlinks and local skills in this agent's
-                directory. This action cannot be undone.
-              </span>
-            </DialogDescription>
-          </DialogHeader>
-
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={handleClose} disabled={deleting}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleting}
-            >
-              {deleting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Deleting...
-                </>
-              ) : (
-                'Delete'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DestructiveConfirmDialog
+        open={!!agentToDelete}
+        onClose={handleClose}
+        onConfirm={handleDelete}
+        loading={deleting}
+        title="Delete Skills Folder"
+        description={
+          <>
+            Permanently delete the skills folder for{' '}
+            <strong>{agentToDelete?.name}</strong>?
+            <br />
+            <span className="text-destructive/80 mt-2 block">
+              This will delete all symlinks and local skills in this agent's
+              directory. This action cannot be undone.
+            </span>
+          </>
+        }
+        confirmLabel="Delete"
+        loadingLabel="Deleting..."
+      />
     )
   },
 )

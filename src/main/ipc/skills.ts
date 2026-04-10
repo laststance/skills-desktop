@@ -2,9 +2,10 @@ import * as fs from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
-import { AGENTS } from '../constants'
+import { AGENTS, findAgentById } from '../constants'
 import { getAllowedBases, validatePath } from '../services/pathValidation'
 import { scanSkills } from '../services/skillScanner'
+import { extractErrorMessage } from '../utils/errors'
 
 import { typedHandle } from './typedHandle'
 
@@ -46,9 +47,7 @@ export function registerSkillsHandlers(): void {
 
       return { success: true }
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error occurred'
-      return { success: false, error: message }
+      return { success: false, error: extractErrorMessage(error) }
     }
   })
 
@@ -77,9 +76,11 @@ export function registerSkillsHandlers(): void {
 
       return { success: true, removedCount }
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error occurred'
-      return { success: false, removedCount: 0, error: message }
+      return {
+        success: false,
+        removedCount: 0,
+        error: extractErrorMessage(error),
+      }
     }
   })
 
@@ -127,9 +128,11 @@ export function registerSkillsHandlers(): void {
 
       return { success: true, symlinksRemoved }
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error occurred'
-      return { success: false, symlinksRemoved, error: message }
+      return {
+        success: false,
+        symlinksRemoved,
+        error: extractErrorMessage(error),
+      }
     }
   })
 
@@ -153,7 +156,7 @@ export function registerSkillsHandlers(): void {
     }> = []
 
     for (const agentId of agentIds) {
-      const agent = AGENTS.find((a) => a.id === agentId)
+      const agent = findAgentById(agentId)
       if (!agent) {
         failures.push({ agentId, error: 'Agent not found' })
         continue
@@ -184,9 +187,7 @@ export function registerSkillsHandlers(): void {
         ) {
           failures.push({ agentId, error: 'Already exists' })
         } else {
-          const message =
-            error instanceof Error ? error.message : 'Unknown error occurred'
-          failures.push({ agentId, error: message })
+          failures.push({ agentId, error: extractErrorMessage(error) })
         }
       }
     }
@@ -237,20 +238,18 @@ export function registerSkillsHandlers(): void {
         }
       }
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Cannot access source skill'
       return {
         success: false,
         copied: 0,
         failures: targetAgentIds.map((id) => ({
           agentId: id,
-          error: message,
+          error: extractErrorMessage(error, 'Cannot access source skill'),
         })),
       }
     }
 
     for (const agentId of targetAgentIds) {
-      const agent = AGENTS.find((a) => a.id === agentId)
+      const agent = findAgentById(agentId)
       if (!agent) {
         failures.push({ agentId, error: 'Agent not found' })
         continue
@@ -278,9 +277,7 @@ export function registerSkillsHandlers(): void {
         }
         copied++
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Unknown error occurred'
-        failures.push({ agentId, error: message })
+        failures.push({ agentId, error: extractErrorMessage(error) })
       }
     }
 

@@ -5,6 +5,7 @@ import { join } from 'path'
 import type { Skill, SourceStats, SymlinkInfo } from '../../shared/types'
 import { AGENTS, SOURCE_DIR } from '../constants'
 
+import { listValidSourceSkillDirs } from './dirScanner'
 import { parseSkillMetadata } from './metadataParser'
 import { isValidSkillDir } from './skillValidation'
 import { checkSkillSymlinks, countValidSymlinks } from './symlinkChecker'
@@ -78,45 +79,24 @@ export async function scanSkills(): Promise<Skill[]> {
  * @returns Array of source skills
  */
 async function scanSourceSkills(): Promise<Skill[]> {
-  try {
-    const entries = await readdir(SOURCE_DIR, { withFileTypes: true })
-    // Filter: directories only, exclude hidden (e.g., .git, .DS_Store)
-    const skillDirs = entries.filter(
-      (e) => e.isDirectory() && !e.name.startsWith('.'),
-    )
+  const validDirs = await listValidSourceSkillDirs()
 
-    // Validate each directory has SKILL.md
-    const validSkillDirs = await Promise.all(
-      skillDirs.map(async (dir) => {
-        const skillPath = join(SOURCE_DIR, dir.name)
-        const isValid = await isValidSkillDir(skillPath)
-        return isValid ? dir : null
-      }),
-    )
+  const skills = await Promise.all(
+    validDirs.map(async (dir) => {
+      const metadata = await parseSkillMetadata(dir.path)
+      const symlinks = await checkSkillSymlinks(dir.name)
 
-    const skills = await Promise.all(
-      validSkillDirs
-        .filter((dir): dir is NonNullable<typeof dir> => dir !== null)
-        .map(async (dir) => {
-          const skillPath = join(SOURCE_DIR, dir.name)
-          const metadata = await parseSkillMetadata(skillPath)
-          const symlinks = await checkSkillSymlinks(dir.name)
+      return {
+        name: metadata.name,
+        description: metadata.description,
+        path: dir.path,
+        symlinkCount: countValidSymlinks(symlinks),
+        symlinks,
+      }
+    }),
+  )
 
-          return {
-            name: metadata.name,
-            description: metadata.description,
-            path: skillPath,
-            symlinkCount: countValidSymlinks(symlinks),
-            symlinks,
-          }
-        }),
-    )
-
-    return skills
-  } catch {
-    // Source directory doesn't exist
-    return []
-  }
+  return skills
 }
 
 /**
@@ -223,25 +203,13 @@ export async function getSkill(skillName: string): Promise<Skill | null> {
  */
 export async function getSourceStats(): Promise<SourceStats> {
   try {
-    const entries = await readdir(SOURCE_DIR, { withFileTypes: true })
-    // Filter: directories only, exclude hidden, validate SKILL.md exists
-    const candidateDirs = entries.filter(
-      (e) => e.isDirectory() && !e.name.startsWith('.'),
-    )
-    const validChecks = await Promise.all(
-      candidateDirs.map(async (dir) => {
-        const skillPath = join(SOURCE_DIR, dir.name)
-        return isValidSkillDir(skillPath)
-      }),
-    )
-    const skillDirs = candidateDirs.filter((_, i) => validChecks[i])
-
+    const validDirs = await listValidSourceSkillDirs()
     const stats = await stat(SOURCE_DIR)
     const totalBytes = await calculateDirectorySize(SOURCE_DIR)
 
     return {
       path: SOURCE_DIR,
-      skillCount: skillDirs.length,
+      skillCount: validDirs.length,
       totalSize: formatBytes(totalBytes),
       lastModified: stats.mtime.toISOString(),
     }

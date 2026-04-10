@@ -5,13 +5,11 @@ import { toast } from 'sonner'
 import type { AgentId } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { fetchAgents } from '../../redux/slices/agentsSlice'
 import {
   createSymlinks,
-  fetchSkills,
   setSkillToAddSymlinks,
 } from '../../redux/slices/skillsSlice'
-import { fetchSourceStats } from '../../redux/slices/uiSlice'
+import { refreshAllData } from '../../redux/thunks'
 import { Button } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
 import {
@@ -85,11 +83,8 @@ export const AddSymlinkModal = React.memo(
       }
       // Always refresh after an add attempt: success refreshes the list,
       // failure clears any stale `state.skills.error` (via fetchSkills.pending)
-      // so the SkillsList does not stay stuck on the error view. The toast
-      // above is the user-facing error surface.
-      dispatch(fetchSkills())
-      dispatch(fetchAgents())
-      dispatch(fetchSourceStats())
+      // so the SkillsList does not stay stuck on the error view.
+      refreshAllData(dispatch)
     }
 
     const hasNewSelections = selectedAgents.length > 0

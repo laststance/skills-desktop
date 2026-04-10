@@ -3,13 +3,8 @@ import React, { useState } from 'react'
 import { toast } from 'sonner'
 
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { fetchAgents } from '../../redux/slices/agentsSlice'
-import { fetchSkills } from '../../redux/slices/skillsSlice'
-import {
-  executeSyncAction,
-  fetchSourceStats,
-  setSyncPreview,
-} from '../../redux/slices/uiSlice'
+import { executeSyncAction, setSyncPreview } from '../../redux/slices/uiSlice'
+import { refreshAllData } from '../../redux/thunks'
 import { Button } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
 import {
@@ -70,9 +65,7 @@ export const SyncConflictDialog = React.memo(
         toast.success('Sync completed', {
           description: `Created ${created} symlinks, replaced ${replaced} conflicts`,
         })
-        dispatch(fetchSkills())
-        dispatch(fetchAgents())
-        dispatch(fetchSourceStats())
+        refreshAllData(dispatch)
       } else {
         toast.error('Sync failed', {
           description: result.error?.message || 'An unexpected error occurred',

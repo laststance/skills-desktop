@@ -1,24 +1,10 @@
-import { AlertTriangle, Loader2 } from 'lucide-react'
 import React from 'react'
 import { toast } from 'sonner'
 
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { fetchAgents } from '../../redux/slices/agentsSlice'
-import {
-  deleteSkill,
-  fetchSkills,
-  setSkillToDelete,
-} from '../../redux/slices/skillsSlice'
-import { fetchSourceStats } from '../../redux/slices/uiSlice'
-import { Button } from '../ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog'
+import { deleteSkill, setSkillToDelete } from '../../redux/slices/skillsSlice'
+import { refreshAllData } from '../../redux/thunks'
+import { DestructiveConfirmDialog } from '../shared/DestructiveConfirmDialog'
 
 /**
  * Confirmation dialog for permanently deleting a skill
@@ -51,53 +37,31 @@ export const DeleteSkillDialog = React.memo(
       }
       // Always refresh after a delete attempt: success refreshes the list,
       // failure clears any stale `state.skills.error` (via fetchSkills.pending)
-      // so the SkillsList does not stay stuck on the error view. The toast
-      // above is the user-facing error surface.
-      dispatch(fetchSkills())
-      dispatch(fetchAgents())
-      dispatch(fetchSourceStats())
+      // so the SkillsList does not stay stuck on the error view.
+      refreshAllData(dispatch)
       dispatch(setSkillToDelete(null))
     }
 
     return (
-      <Dialog open={!!skillToDelete} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <DialogTitle>Delete Skill</DialogTitle>
-            </div>
-            <DialogDescription>
-              Permanently delete <strong>{skillToDelete?.name}</strong> and all
-              its symlinks across all agents?
-              <br />
-              <span className="text-destructive/80 mt-2 block">
-                This action cannot be undone.
-              </span>
-            </DialogDescription>
-          </DialogHeader>
-
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={handleClose} disabled={deleting}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleting}
-            >
-              {deleting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Deleting...
-                </>
-              ) : (
-                'Remove'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DestructiveConfirmDialog
+        open={!!skillToDelete}
+        onClose={handleClose}
+        onConfirm={handleDelete}
+        loading={deleting}
+        title="Delete Skill"
+        description={
+          <>
+            Permanently delete <strong>{skillToDelete?.name}</strong> and all
+            its symlinks across all agents?
+            <br />
+            <span className="text-destructive/80 mt-2 block">
+              This action cannot be undone.
+            </span>
+          </>
+        }
+        confirmLabel="Remove"
+        loadingLabel="Deleting..."
+      />
     )
   },
 )

@@ -1,24 +1,13 @@
-import { AlertTriangle, Loader2 } from 'lucide-react'
 import React from 'react'
 import { toast } from 'sonner'
 
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { fetchAgents } from '../../redux/slices/agentsSlice'
 import {
-  fetchSkills,
   setSkillToUnlink,
   unlinkSkillFromAgent,
 } from '../../redux/slices/skillsSlice'
-import { fetchSourceStats } from '../../redux/slices/uiSlice'
-import { Button } from '../ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog'
+import { refreshAllData } from '../../redux/thunks'
+import { DestructiveConfirmDialog } from '../shared/DestructiveConfirmDialog'
 
 /**
  * Confirmation dialog for removing a skill from the selected agent.
@@ -65,64 +54,35 @@ export const UnlinkDialog = React.memo(
       }
       // Always refresh after an unlink attempt: success refreshes the list,
       // failure clears any stale `state.skills.error` (via fetchSkills.pending)
-      // so the SkillsList does not stay stuck on the error view. The toast
-      // above is the user-facing error surface.
-      dispatch(fetchSkills())
-      dispatch(fetchAgents())
-      dispatch(fetchSourceStats())
+      // so the SkillsList does not stay stuck on the error view.
+      refreshAllData(dispatch)
       dispatch(setSkillToUnlink(null))
     }
 
     return (
-      <Dialog open={!!skillToUnlink} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              <DialogTitle>
-                {isLocal ? 'Delete from Agent' : 'Remove from Agent'}
-              </DialogTitle>
-            </div>
-            <DialogDescription>
-              Are you sure you want to {isLocal ? 'delete' : 'remove'}{' '}
-              <strong>{skillToUnlink?.skill.name}</strong> from{' '}
-              <strong>{skillToUnlink?.symlink.agentName}</strong>?
-              <br />
-              <span className="text-muted-foreground mt-2 block">
-                {isLocal
-                  ? 'This will permanently delete the local skill folder. This action cannot be undone.'
-                  : 'This only removes the link. The skill will remain available for other agents.'}
-              </span>
-            </DialogDescription>
-          </DialogHeader>
-
-          <DialogFooter className="mt-4">
-            <Button
-              variant="outline"
-              onClick={handleClose}
-              disabled={unlinking}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleUnlink}
-              disabled={unlinking}
-            >
-              {unlinking ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  {isLocal ? 'Deleting...' : 'Removing...'}
-                </>
-              ) : isLocal ? (
-                'Delete'
-              ) : (
-                'Remove'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DestructiveConfirmDialog
+        open={!!skillToUnlink}
+        onClose={handleClose}
+        onConfirm={handleUnlink}
+        loading={unlinking}
+        title={isLocal ? 'Delete from Agent' : 'Remove from Agent'}
+        description={
+          <>
+            Are you sure you want to {isLocal ? 'delete' : 'remove'}{' '}
+            <strong>{skillToUnlink?.skill.name}</strong> from{' '}
+            <strong>{skillToUnlink?.symlink.agentName}</strong>?
+            <br />
+            <span className="text-muted-foreground mt-2 block">
+              {isLocal
+                ? 'This will permanently delete the local skill folder. This action cannot be undone.'
+                : 'This only removes the link. The skill will remain available for other agents.'}
+            </span>
+          </>
+        }
+        confirmLabel={isLocal ? 'Delete' : 'Remove'}
+        loadingLabel={isLocal ? 'Deleting...' : 'Removing...'}
+        iconVariant="warning"
+      />
     )
   },
 )

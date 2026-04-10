@@ -1,4 +1,4 @@
-import { access, lstat, mkdir, readdir, rm, symlink } from 'fs/promises'
+import { access, lstat, mkdir, rm, symlink } from 'fs/promises'
 import { join } from 'path'
 
 import type {
@@ -7,35 +7,10 @@ import type {
   SyncExecuteResult,
   SyncPreviewResult,
 } from '../../shared/types'
-import { AGENTS, SOURCE_DIR } from '../constants'
+import { AGENTS } from '../constants'
+import { extractErrorMessage } from '../utils/errors'
 
-import { isValidSkillDir } from './skillValidation'
-
-/**
- * Get names of all valid source skills in ~/.agents/skills/
- * @returns Array of skill directory names
- */
-async function getSourceSkillNames(): Promise<
-  Array<{ name: string; path: string }>
-> {
-  try {
-    const entries = await readdir(SOURCE_DIR, { withFileTypes: true })
-    const skillDirs = entries.filter(
-      (e) => e.isDirectory() && !e.name.startsWith('.'),
-    )
-
-    const results: Array<{ name: string; path: string }> = []
-    for (const dir of skillDirs) {
-      const skillPath = join(SOURCE_DIR, dir.name)
-      if (await isValidSkillDir(skillPath)) {
-        results.push({ name: dir.name, path: skillPath })
-      }
-    }
-    return results
-  } catch {
-    return []
-  }
-}
+import { listValidSourceSkillDirs } from './dirScanner'
 
 /**
  * Get agents whose base directory exists on disk
@@ -66,7 +41,7 @@ async function getExistingAgents(): Promise<
  * // => { totalSkills: 5, totalAgents: 3, toCreate: 10, alreadySynced: 5, conflicts: [] }
  */
 export async function syncPreview(): Promise<SyncPreviewResult> {
-  const skills = await getSourceSkillNames()
+  const skills = await listValidSourceSkillDirs()
   const agents = await getExistingAgents()
 
   let toCreate = 0
@@ -121,7 +96,7 @@ export async function syncExecute(
   const { replaceConflicts } = options
   const replaceSet = new Set(replaceConflicts)
 
-  const skills = await getSourceSkillNames()
+  const skills = await listValidSourceSkillDirs()
   const agents = await getExistingAgents()
 
   let created = 0
@@ -161,9 +136,7 @@ export async function syncExecute(
         }
         // else: conflict not approved, skip
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Unknown error occurred'
-        errors.push({ path: linkPath, error: message })
+        errors.push({ path: linkPath, error: extractErrorMessage(error) })
       }
     }
   }

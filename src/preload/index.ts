@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge } from 'electron'
 
 import { IPC_CHANNELS } from '../shared/ipc-channels'
 import type {
@@ -7,6 +7,7 @@ import type {
   UpdateInfo,
 } from '../shared/types'
 
+import { createIpcListener } from './ipcListener'
 import { typedInvoke } from './typedInvoke'
 
 // Expose protected methods to renderer process
@@ -53,50 +54,14 @@ contextBridge.exposeInMainWorld('electron', {
   // Update API
   update: {
     // Event listeners
-    onChecking: (callback: () => void) => {
-      const handler = () => callback()
-      ipcRenderer.on(IPC_CHANNELS.UPDATE_CHECKING, handler)
-      return () =>
-        ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_CHECKING, handler)
-    },
-    onAvailable: (callback: (info: UpdateInfo) => void) => {
-      const handler = (_: Electron.IpcRendererEvent, info: UpdateInfo) =>
-        callback(info)
-      ipcRenderer.on(IPC_CHANNELS.UPDATE_AVAILABLE, handler)
-      return () =>
-        ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_AVAILABLE, handler)
-    },
-    onNotAvailable: (callback: () => void) => {
-      const handler = () => callback()
-      ipcRenderer.on(IPC_CHANNELS.UPDATE_NOT_AVAILABLE, handler)
-      return () =>
-        ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_NOT_AVAILABLE, handler)
-    },
-    onProgress: (callback: (progress: DownloadProgress) => void) => {
-      const handler = (
-        _: Electron.IpcRendererEvent,
-        progress: DownloadProgress,
-      ) => callback(progress)
-      ipcRenderer.on(IPC_CHANNELS.UPDATE_PROGRESS, handler)
-      return () =>
-        ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_PROGRESS, handler)
-    },
-    onDownloaded: (callback: (info: UpdateInfo) => void) => {
-      const handler = (_: Electron.IpcRendererEvent, info: UpdateInfo) =>
-        callback(info)
-      ipcRenderer.on(IPC_CHANNELS.UPDATE_DOWNLOADED, handler)
-      return () =>
-        ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_DOWNLOADED, handler)
-    },
-    onError: (callback: (error: { message: string }) => void) => {
-      const handler = (
-        _: Electron.IpcRendererEvent,
-        error: { message: string },
-      ) => callback(error)
-      ipcRenderer.on(IPC_CHANNELS.UPDATE_ERROR, handler)
-      return () =>
-        ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_ERROR, handler)
-    },
+    onChecking: createIpcListener<void>(IPC_CHANNELS.UPDATE_CHECKING),
+    onAvailable: createIpcListener<UpdateInfo>(IPC_CHANNELS.UPDATE_AVAILABLE),
+    onNotAvailable: createIpcListener<void>(IPC_CHANNELS.UPDATE_NOT_AVAILABLE),
+    onProgress: createIpcListener<DownloadProgress>(
+      IPC_CHANNELS.UPDATE_PROGRESS,
+    ),
+    onDownloaded: createIpcListener<UpdateInfo>(IPC_CHANNELS.UPDATE_DOWNLOADED),
+    onError: createIpcListener<{ message: string }>(IPC_CHANNELS.UPDATE_ERROR),
     // Actions
     download: async () => typedInvoke('update:download'),
     install: async () => typedInvoke('update:install'),
@@ -111,15 +76,9 @@ contextBridge.exposeInMainWorld('electron', {
     remove: async (skillName: string) =>
       typedInvoke('skills:cli:remove', skillName),
     cancel: async () => typedInvoke('skills:cli:cancel'),
-    onProgress: (callback: (progress: InstallProgress) => void) => {
-      const handler = (
-        _: Electron.IpcRendererEvent,
-        progress: InstallProgress,
-      ) => callback(progress)
-      ipcRenderer.on(IPC_CHANNELS.SKILLS_CLI_PROGRESS, handler)
-      return () =>
-        ipcRenderer.removeListener(IPC_CHANNELS.SKILLS_CLI_PROGRESS, handler)
-    },
+    onProgress: createIpcListener<InstallProgress>(
+      IPC_CHANNELS.SKILLS_CLI_PROGRESS,
+    ),
   },
   // Sync API
   sync: {
