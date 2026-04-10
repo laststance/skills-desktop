@@ -2,6 +2,7 @@ import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 
 import type {
+  AgentId,
   BookmarkedSkill,
   SourceStats,
   SyncExecuteOptions,
@@ -19,7 +20,8 @@ interface UiState {
   searchQuery: string
   sourceStats: SourceStats | null
   isRefreshing: boolean
-  selectedAgentId: string | null
+  /** Currently selected agent filter (null = global/all-agents view). */
+  selectedAgentId: AgentId | null
   /** Sort direction for skill name (A→Z / Z→A) */
   sortOrder: SortOrder
   /** Filter by skill type in agent view (all / symlinked / local) */
@@ -89,7 +91,7 @@ const uiSlice = createSlice({
     setRefreshing: (state, action: PayloadAction<boolean>) => {
       state.isRefreshing = action.payload
     },
-    selectAgent: (state, action: PayloadAction<string | null>) => {
+    selectAgent: (state, action: PayloadAction<AgentId | null>) => {
       state.selectedAgentId = action.payload
       state.skillTypeFilter = 'all'
     },
@@ -159,7 +161,7 @@ export default uiSlice.reducer
 // --- Named selectors ---
 export const selectSearchQuery = (state: RootState): string =>
   state.ui.searchQuery
-export const selectSelectedAgentId = (state: RootState): string | null =>
+export const selectSelectedAgentId = (state: RootState): AgentId | null =>
   state.ui.selectedAgentId
 export const selectSourceStats = (state: RootState): SourceStats | null =>
   state.ui.sourceStats

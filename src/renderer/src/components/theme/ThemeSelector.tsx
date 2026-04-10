@@ -1,6 +1,7 @@
 import { Moon, Palette, Sun } from 'lucide-react'
 import React from 'react'
 
+import type { ColorThemePresetName } from '../../../../shared/constants'
 import { THEME_HUES } from '../../../../shared/constants'
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
@@ -34,7 +35,10 @@ export const ThemeSelector = React.memo(
       dispatch(toggleMode())
     }
 
-    const handleSelectColorTheme = (name: string, themeHue: number): void => {
+    const handleSelectColorTheme = (
+      name: ColorThemePresetName,
+      themeHue: number,
+    ): void => {
       dispatch(setColorTheme({ preset: name, hue: themeHue }))
     }
 
@@ -82,7 +86,9 @@ export const ThemeSelector = React.memo(
             Color Themes
           </DropdownMenuLabel>
           <div className="grid grid-cols-6 gap-0.5 p-1">
-            {Object.entries(THEME_HUES).map(([name, themeHue]) => (
+            {(
+              Object.entries(THEME_HUES) as [ColorThemePresetName, number][]
+            ).map(([name, themeHue]) => (
               <button
                 key={name}
                 type="button"

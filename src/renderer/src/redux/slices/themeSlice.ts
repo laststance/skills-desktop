@@ -1,15 +1,20 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice } from '@reduxjs/toolkit'
 
-import type { ThemePresetType } from '../../../../shared/constants'
+import type {
+  ColorThemePresetName,
+  NeutralThemePresetName,
+  ThemePresetName,
+  ThemePresetType,
+} from '../../../../shared/constants'
 
 export interface ThemeState {
-  /** Current theme hue (0-360, only used for 'color' type) */
+  /** Current theme hue (0–360, only meaningful for 'color' presetType). @example 195 */
   hue: number
   /** Light or dark mode */
   mode: 'light' | 'dark'
-  /** Preset name (e.g., 'cyan', 'neutral-dark') */
-  preset: string
+  /** Active theme preset identifier. @example "cyan", "neutral-dark" */
+  preset: ThemePresetName
   /** Preset type: 'color' (OKLCH) or 'neutral' (shadcn default) */
   presetType: ThemePresetType
 }
@@ -55,7 +60,7 @@ export const themeSlice = createSlice({
      */
     setColorTheme: (
       state,
-      action: PayloadAction<{ preset: string; hue: number }>,
+      action: PayloadAction<{ preset: ColorThemePresetName; hue: number }>,
     ) => {
       state.preset = action.payload.preset
       state.hue = action.payload.hue
@@ -69,7 +74,10 @@ export const themeSlice = createSlice({
      */
     setNeutralTheme: (
       state,
-      action: PayloadAction<{ preset: string; mode: 'light' | 'dark' }>,
+      action: PayloadAction<{
+        preset: NeutralThemePresetName
+        mode: 'light' | 'dark'
+      }>,
     ) => {
       state.preset = action.payload.preset
       state.mode = action.payload.mode
