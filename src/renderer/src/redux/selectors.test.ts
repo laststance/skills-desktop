@@ -263,10 +263,11 @@ describe('selectFilteredSkills', () => {
   it('skillTypeFilter is ignored in global view (no agent selected)', () => {
     const skills = [
       makeSkill('task', 'claude-code'),
-      makeSkill('browse', 'cursor'),
+      makeSkill('local-task', 'cursor', true),
     ]
     const state = buildState({ skills, skillTypeFilter: 'symlinked' })
-    expect(selectFilteredSkills(state as never)).toHaveLength(2)
+    const result = selectFilteredSkills(state as never)
+    expect(result.map((s) => s.name)).toEqual(['local-task', 'task'])
   })
 
   it('is memoized (returns same reference for same inputs)', () => {
