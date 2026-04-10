@@ -3,6 +3,7 @@ import { createSlice } from '@reduxjs/toolkit'
 
 import type {
   ColorThemePresetName,
+  NeutralThemePresetName,
   ThemePresetName,
   ThemePresetType,
 } from '../../../../shared/constants'
@@ -74,7 +75,7 @@ export const themeSlice = createSlice({
     setNeutralTheme: (
       state,
       action: PayloadAction<{
-        preset: ThemePresetName
+        preset: NeutralThemePresetName
         mode: 'light' | 'dark'
       }>,
     ) => {

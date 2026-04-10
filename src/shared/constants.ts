@@ -169,13 +169,16 @@ export const AGENT_DEFINITIONS = [
 export type ColorThemePresetName = keyof typeof THEME_HUES
 
 /**
+ * Neutral theme preset name (shadcn/ui defaults).
+ * @example 'neutral-dark', 'neutral-light'
+ */
+export type NeutralThemePresetName = 'neutral-dark' | 'neutral-light'
+
+/**
  * Any valid theme preset name — color hue or neutral variant.
  * @example 'cyan', 'neutral-dark'
  */
-export type ThemePresetName =
-  | ColorThemePresetName
-  | 'neutral-dark'
-  | 'neutral-light'
+export type ThemePresetName = ColorThemePresetName | NeutralThemePresetName
 
 /**
  * Agent IDs used in app state and IPC.

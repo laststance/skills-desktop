@@ -1,6 +1,10 @@
 import type { AgentId, AgentName } from './constants'
 export type { AgentId, AgentName } from './constants'
-export type { ColorThemePresetName, ThemePresetName } from './constants'
+export type {
+  ColorThemePresetName,
+  NeutralThemePresetName,
+  ThemePresetName,
+} from './constants'
 
 /**
  * A reusable AI agent capability package containing a SKILL.md manifest.
