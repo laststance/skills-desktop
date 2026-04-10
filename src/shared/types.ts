@@ -1,43 +1,89 @@
 import type { AgentId, AgentName } from './constants'
 export type { AgentId, AgentName } from './constants'
+export type { ColorThemePresetName, ThemePresetName } from './constants'
 
 /**
- * Skill entity representing an installed skill
+ * A reusable AI agent capability package containing a SKILL.md manifest.
+ * Installed in ~/.agents/skills/ and symlinked into agent skill directories.
+ * @example
+ * {
+ *   name: 'tdd-workflow',
+ *   description: 'Test-driven development workflow for TypeScript projects',
+ *   path: '/Users/me/.agents/skills/tdd-workflow',
+ *   symlinkCount: 3,
+ *   symlinks: [...],
+ *   source: 'vercel-labs/skills',
+ *   sourceUrl: 'https://github.com/vercel-labs/skills.git',
+ * }
  */
 export interface Skill {
+  /** Human-readable identifier matching the directory name. @example "tdd-workflow" */
   name: string
+  /** Summary from SKILL.md frontmatter. @example "Test-driven development workflow" */
   description: string
+  /** Absolute filesystem path to the skill directory. @example "/Users/me/.agents/skills/tdd-workflow" */
   path: string
+  /** Number of agents this skill is symlinked to (valid symlinks only). @example 3 */
   symlinkCount: number
+  /** Per-agent symlink status entries */
   symlinks: SymlinkInfo[]
-  /** Short source identifier, e.g. "pbakaus/impeccable" */
+  /** Short source identifier in owner/repo format. @example "vercel-labs/skills" */
   source?: string
-  /** Full URL to the source repository, e.g. "https://github.com/pbakaus/impeccable.git" */
+  /** Full URL to the source repository. @example "https://github.com/vercel-labs/skills.git" */
   sourceUrl?: string
 }
 
 /**
- * AI agent that can use skills
+ * An AI coding agent that can use skills via symlinks.
+ * Each agent has a home directory (e.g. ~/.claude) containing a skills/ subdirectory.
+ * @example
+ * {
+ *   id: 'claude-code',
+ *   name: 'Claude Code',
+ *   path: '/Users/me/.claude/skills',
+ *   exists: true,
+ *   skillCount: 12,
+ *   localSkillCount: 2,
+ * }
  */
 export interface Agent {
+  /** Internal identifier matching skills CLI agent ID. @example "claude-code" */
   id: AgentId
+  /** Display name shown in the UI. @example "Claude Code" */
   name: AgentName
+  /** Absolute path to the agent's skills directory. @example "/Users/me/.claude/skills" */
   path: string
+  /** Whether the agent's skills directory exists on disk */
   exists: boolean
-  /** Number of valid symlinked skills */
+  /** Number of valid symlinked skills. @example 12 */
   skillCount: number
-  /** Number of local skills (real folders, not symlinks) */
+  /** Number of local skills (real folders, not symlinks). @example 2 */
   localSkillCount: number
 }
 
 /**
- * Information about a symlink between skill and agent
+ * Symlink status between a skill source and an agent's skills directory.
+ * Each skill has one SymlinkInfo per agent, describing the link state.
+ * @example
+ * {
+ *   agentId: 'cursor',
+ *   agentName: 'Cursor',
+ *   status: 'valid',
+ *   targetPath: '/Users/me/.agents/skills/tdd-workflow',
+ *   linkPath: '/Users/me/.cursor/skills/tdd-workflow',
+ *   isLocal: false,
+ * }
  */
 export interface SymlinkInfo {
+  /** Agent this symlink belongs to. @example "cursor" */
   agentId: AgentId
+  /** Agent display name. @example "Cursor" */
   agentName: AgentName
+  /** Current symlink state: valid (linked), broken (dangling), or missing (no link) */
   status: SymlinkStatus
+  /** Where the symlink points to (skill source directory). @example "/Users/me/.agents/skills/tdd-workflow" */
   targetPath: string
+  /** Where the symlink lives (in agent's skills dir). @example "/Users/me/.cursor/skills/tdd-workflow" */
   linkPath: string
   /** true = real folder in agent dir (local skill), false = symlink */
   isLocal: boolean
@@ -59,58 +105,86 @@ export type SymlinkStatus = 'valid' | 'broken' | 'missing'
 export type SkillType = 'source' | 'local'
 
 /**
- * Statistics for the source directory
+ * Statistics for the ~/.agents/skills/ source directory.
+ * Shown in the sidebar SourceCard.
+ * @example
+ * { path: '/Users/me/.agents/skills', skillCount: 15, totalSize: '2.4 MB', lastModified: '2026-04-10' }
  */
 export interface SourceStats {
+  /** Absolute path to the source directory. @example "/Users/me/.agents/skills" */
   path: string
+  /** Total number of skill directories. @example 15 */
   skillCount: number
+  /** Human-readable total size. @example "2.4 MB" */
   totalSize: string
+  /** Human-readable last modified date. @example "2026-04-10" */
   lastModified: string
 }
 
 /**
- * Skill metadata from SKILL.md frontmatter
+ * Skill metadata parsed from SKILL.md frontmatter.
+ * @example { name: 'tdd-workflow', description: 'Test-driven development workflow' }
  */
 export interface SkillMetadata {
+  /** Skill name from frontmatter `name` field. @example "tdd-workflow" */
   name: string
+  /** Skill description from frontmatter `description` field. @example "Test-driven development workflow" */
   description: string
 }
 
 /**
- * File info for skill directory contents
+ * File entry within a skill directory (for the code preview panel).
+ * @example { name: 'SKILL.md', path: '/Users/me/.agents/skills/tdd/SKILL.md', extension: 'md', size: 1024 }
  */
 export interface SkillFile {
+  /** File name with extension. @example "SKILL.md" */
   name: string
+  /** Absolute path to the file. @example "/Users/me/.agents/skills/tdd/SKILL.md" */
   path: string
+  /** File extension without dot. @example "md" */
   extension: string
+  /** File size in bytes. @example 1024 */
   size: number
 }
 
 /**
- * File content with metadata
+ * File content loaded for the code preview panel.
+ * @example { name: 'SKILL.md', content: '---\nname: tdd\n---', extension: 'md', lineCount: 42 }
  */
 export interface SkillFileContent {
+  /** File name with extension. @example "SKILL.md" */
   name: string
+  /** Full text content of the file */
   content: string
+  /** File extension without dot. @example "md" */
   extension: string
+  /** Number of lines in the file. @example 42 */
   lineCount: number
 }
 
 /**
- * Update information from electron-updater
+ * Update information from electron-updater.
+ * @example { version: '0.8.0', releaseNotes: 'Added marketplace search' }
  */
 export interface UpdateInfo {
+  /** Semantic version string of the available update. @example "0.8.0" */
   version: string
+  /** Markdown release notes (may be absent for minor releases) */
   releaseNotes?: string
 }
 
 /**
- * Download progress information
+ * Download progress during auto-update.
+ * @example { percent: 45.2, bytesPerSecond: 524288, total: 10485760, transferred: 4739174 }
  */
 export interface DownloadProgress {
+  /** Download completion percentage (0–100). @example 45.2 */
   percent: number
+  /** Current download speed in bytes per second. @example 524288 */
   bytesPerSecond: number
+  /** Total download size in bytes. @example 10485760 */
   total: number
+  /** Bytes transferred so far. @example 4739174 */
   transferred: number
 }
 

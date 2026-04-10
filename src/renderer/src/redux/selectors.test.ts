@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import type { BookmarkedSkill, Skill, SymlinkInfo } from '../../../shared/types'
+import type {
+  AgentId,
+  BookmarkedSkill,
+  Skill,
+  SymlinkInfo,
+} from '../../../shared/types'
 
 import {
   selectBookmarksWithInstallStatus,
@@ -11,7 +16,7 @@ import {
 function buildState(overrides: {
   skills?: Skill[]
   searchQuery?: string
-  selectedAgentId?: string | null
+  selectedAgentId?: AgentId | null
   sortOrder?: 'asc' | 'desc'
   skillTypeFilter?: 'all' | 'symlinked' | 'local'
   bookmarks?: BookmarkedSkill[]
@@ -83,7 +88,7 @@ function buildState(overrides: {
 /**
  * @param isLocal - false = symlinked (default), true = local folder
  */
-const makeSkill = (name: string, agentId: string, isLocal = false): Skill => ({
+const makeSkill = (name: string, agentId: AgentId, isLocal = false): Skill => ({
   name,
   description: `${name} skill`,
   path: `/home/user/.agents/skills/${name}`,

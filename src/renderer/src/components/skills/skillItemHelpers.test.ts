@@ -144,11 +144,11 @@ describe('getSkillItemVisibility', () => {
       expect(result.showCopyButton).toBe(false)
     })
 
-    it('returns false when universal filter is selected', () => {
+    it('returns false when selected agent has no symlink for the skill', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
       ]
-      const result = getSkillItemVisibility('universal', symlinks)
+      const result = getSkillItemVisibility('codex', symlinks)
       expect(result.showCopyButton).toBe(false)
     })
 

@@ -21,16 +21,16 @@ describe('themeSlice', () => {
     const store = await createTestStore()
     store.dispatch(
       setTheme({
-        hue: 270,
+        hue: 300,
         mode: 'light',
-        preset: 'purple',
+        preset: 'violet',
         presetType: 'color',
       }),
     )
     const state = store.getState().theme
-    expect(state.hue).toBe(270)
+    expect(state.hue).toBe(300)
     expect(state.mode).toBe('light')
-    expect(state.preset).toBe('purple')
+    expect(state.preset).toBe('violet')
     expect(state.presetType).toBe('color')
   })
 
@@ -61,11 +61,11 @@ describe('themeSlice', () => {
   it('setColorTheme updates preset, hue, and presetType', async () => {
     const { setColorTheme } = await import('./themeSlice')
     const store = await createTestStore()
-    store.dispatch(setColorTheme({ preset: 'emerald', hue: 160 }))
+    store.dispatch(setColorTheme({ preset: 'green', hue: 145 }))
 
     const state = store.getState().theme
-    expect(state.preset).toBe('emerald')
-    expect(state.hue).toBe(160)
+    expect(state.preset).toBe('green')
+    expect(state.hue).toBe(145)
     expect(state.presetType).toBe('color')
   })
 

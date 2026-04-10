@@ -162,6 +162,22 @@ export const AGENT_DEFINITIONS = [
 ] as const
 
 /**
+ * Color theme preset name, one of the 12 OKLCH hue-based themes.
+ * Derived from THEME_HUES keys to stay in sync with available presets.
+ * @example 'cyan', 'rose', 'indigo'
+ */
+export type ColorThemePresetName = keyof typeof THEME_HUES
+
+/**
+ * Any valid theme preset name — color hue or neutral variant.
+ * @example 'cyan', 'neutral-dark'
+ */
+export type ThemePresetName =
+  | ColorThemePresetName
+  | 'neutral-dark'
+  | 'neutral-light'
+
+/**
  * Agent IDs used in app state and IPC.
  * Derived from AGENT_DEFINITIONS to stay in sync with skills CLI.
  */

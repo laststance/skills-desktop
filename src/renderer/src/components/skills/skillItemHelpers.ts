@@ -1,4 +1,4 @@
-import type { SymlinkInfo } from '../../../../shared/types'
+import type { AgentId, SymlinkInfo } from '../../../../shared/types'
 
 /**
  * Visibility state for SkillItem action buttons.
@@ -45,7 +45,7 @@ export interface SkillItemVisibility {
  * // => { showDeleteButton: false, showUnlinkButton: true, isLocalSkill: true, selectedLocalSkillInfo: {...}, ... }
  */
 export function getSkillItemVisibility(
-  selectedAgentId: string | null,
+  selectedAgentId: AgentId | null,
   symlinks: SymlinkInfo[],
 ): SkillItemVisibility {
   const selectedAgentSymlink = selectedAgentId
