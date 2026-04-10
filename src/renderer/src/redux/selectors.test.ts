@@ -245,6 +245,21 @@ describe('selectFilteredSkills', () => {
     expect(result[0].name).toBe('local-one')
   })
 
+  it('returns empty when search + type filter combined exclude all', () => {
+    const skills = [
+      makeSkill('linked-one', 'cursor'),
+      makeSkill('local-one', 'cursor', true),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'local',
+      searchQuery: 'linked',
+    })
+    const result = selectFilteredSkills(state as never)
+    expect(result).toHaveLength(0)
+  })
+
   it('skillTypeFilter is ignored in global view (no agent selected)', () => {
     const skills = [
       makeSkill('task', 'claude-code'),

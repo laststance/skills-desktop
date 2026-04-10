@@ -11,6 +11,7 @@ import {
   selectSkillsLoading,
 } from '../../redux/slices/skillsSlice'
 import {
+  selectSearchQuery,
   selectSelectedAgentId,
   selectSkillTypeFilter,
 } from '../../redux/slices/uiSlice'
@@ -63,6 +64,7 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
   const error = useAppSelector(selectSkillsError)
   const selectedAgentId = useAppSelector(selectSelectedAgentId)
   const skillTypeFilter = useAppSelector(selectSkillTypeFilter)
+  const searchQuery = useAppSelector(selectSearchQuery)
   const filteredSkills = useAppSelector(selectFilteredSkills)
 
   useEffect(() => {
@@ -120,9 +122,11 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
       <div className="flex items-center justify-center py-12">
         <div className="text-muted-foreground">
           {selectedAgentId
-            ? skillTypeFilter !== 'all'
-              ? `No ${skillTypeFilter} skills for this agent`
-              : 'No skills installed for this agent'
+            ? searchQuery
+              ? 'No skills match your search'
+              : skillTypeFilter !== 'all'
+                ? `No ${skillTypeFilter} skills for this agent`
+                : 'No skills installed for this agent'
             : 'No skills match your search'}
         </div>
       </div>
