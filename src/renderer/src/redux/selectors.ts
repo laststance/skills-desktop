@@ -2,19 +2,29 @@ import { createSelector } from '@reduxjs/toolkit'
 
 import { selectBookmarkItems } from './slices/bookmarkSlice'
 import { selectSkillsItems } from './slices/skillsSlice'
-import { selectSearchQuery, selectSelectedAgentId } from './slices/uiSlice'
+import {
+  selectSearchQuery,
+  selectSelectedAgentId,
+  selectSkillTypeFilter,
+  selectSortOrder,
+} from './slices/uiSlice'
 
 /**
- * Memoized selector for filtered skills list.
- * Combines skills items, search query, and selected agent filter.
- * Only recomputes when one of the inputs changes.
- * @returns Filtered skills array
+ * Memoized selector for filtered and sorted skills list.
+ * Applies agent filter, skill type filter, search query, and name sort.
+ * @returns Filtered + sorted skills array
  * @example
  * const filteredSkills = useAppSelector(selectFilteredSkills)
  */
 export const selectFilteredSkills = createSelector(
-  [selectSkillsItems, selectSearchQuery, selectSelectedAgentId],
-  (skills, searchQuery, selectedAgentId) => {
+  [
+    selectSkillsItems,
+    selectSearchQuery,
+    selectSelectedAgentId,
+    selectSortOrder,
+    selectSkillTypeFilter,
+  ],
+  (skills, searchQuery, selectedAgentId, sortOrder, skillTypeFilter) => {
     let result = skills
 
     // Filter by selected agent
@@ -25,6 +35,19 @@ export const selectFilteredSkills = createSelector(
             symlink.agentId === selectedAgentId && symlink.status === 'valid',
         ),
       )
+
+      // Filter by skill type (symlinked vs local) — agent view only
+      if (skillTypeFilter !== 'all') {
+        const wantLocal = skillTypeFilter === 'local'
+        result = result.filter((skill) =>
+          skill.symlinks.some(
+            (s) =>
+              s.agentId === selectedAgentId &&
+              s.status === 'valid' &&
+              s.isLocal === wantLocal,
+          ),
+        )
+      }
     }
 
     // Filter by search query (name only)
@@ -35,7 +58,13 @@ export const selectFilteredSkills = createSelector(
       )
     }
 
-    return result
+    // Sort by name
+    const sorted = [...result].sort((a, b) => {
+      const cmp = a.name.localeCompare(b.name)
+      return sortOrder === 'asc' ? cmp : -cmp
+    })
+
+    return sorted
   },
 )
 

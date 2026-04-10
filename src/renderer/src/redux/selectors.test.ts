@@ -12,6 +12,8 @@ function buildState(overrides: {
   skills?: Skill[]
   searchQuery?: string
   selectedAgentId?: string | null
+  sortOrder?: 'asc' | 'desc'
+  skillTypeFilter?: 'all' | 'symlinked' | 'local'
   bookmarks?: BookmarkedSkill[]
 }) {
   return {
@@ -34,9 +36,12 @@ function buildState(overrides: {
       sourceStats: null,
       isRefreshing: false,
       selectedAgentId: overrides.selectedAgentId ?? null,
+      sortOrder: overrides.sortOrder ?? 'asc',
+      skillTypeFilter: overrides.skillTypeFilter ?? 'all',
       isSyncing: false,
       syncPreview: null,
       error: null,
+      selectedBookmarkForDetail: null,
     },
     // Other slices needed for RootState shape
     agents: {
@@ -181,6 +186,123 @@ describe('selectFilteredSkills', () => {
     const skills = [makeSkill('task', 'claude-code')]
     const state = buildState({ skills, searchQuery: 'nonexistent' })
     expect(selectFilteredSkills(state as never)).toHaveLength(0)
+  })
+
+  it('sorts skills A→Z by default (asc)', () => {
+    const skills = [
+      makeSkill('zebra', 'claude-code'),
+      makeSkill('alpha', 'claude-code'),
+      makeSkill('middle', 'claude-code'),
+    ]
+    const state = buildState({ skills, sortOrder: 'asc' })
+    const result = selectFilteredSkills(state as never)
+    expect(result.map((s) => s.name)).toEqual(['alpha', 'middle', 'zebra'])
+  })
+
+  it('sorts skills Z→A when desc', () => {
+    const skills = [
+      makeSkill('alpha', 'claude-code'),
+      makeSkill('zebra', 'claude-code'),
+      makeSkill('middle', 'claude-code'),
+    ]
+    const state = buildState({ skills, sortOrder: 'desc' })
+    const result = selectFilteredSkills(state as never)
+    expect(result.map((s) => s.name)).toEqual(['zebra', 'middle', 'alpha'])
+  })
+
+  it('filters by skillTypeFilter=symlinked in agent view', () => {
+    const symlinkedSkill: Skill = {
+      name: 'linked-one',
+      description: '',
+      path: '/source/linked-one',
+      symlinkCount: 1,
+      symlinks: [
+        {
+          agentId: 'cursor' as SymlinkInfo['agentId'],
+          agentName: 'Cursor' as SymlinkInfo['agentName'],
+          linkPath: '/home/.cursor/skills/linked-one',
+          targetPath: '/source/linked-one',
+          status: 'valid',
+          isLocal: false,
+        },
+      ],
+    }
+    const localSkill: Skill = {
+      name: 'local-one',
+      description: '',
+      path: '/source/local-one',
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'cursor' as SymlinkInfo['agentId'],
+          agentName: 'Cursor' as SymlinkInfo['agentName'],
+          linkPath: '/home/.cursor/skills/local-one',
+          targetPath: '/home/.cursor/skills/local-one',
+          status: 'valid',
+          isLocal: true,
+        },
+      ],
+    }
+    const state = buildState({
+      skills: [symlinkedSkill, localSkill],
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'symlinked',
+    })
+    const result = selectFilteredSkills(state as never)
+    expect(result).toHaveLength(1)
+    expect(result[0].name).toBe('linked-one')
+  })
+
+  it('filters by skillTypeFilter=local in agent view', () => {
+    const symlinkedSkill: Skill = {
+      name: 'linked-one',
+      description: '',
+      path: '/source/linked-one',
+      symlinkCount: 1,
+      symlinks: [
+        {
+          agentId: 'cursor' as SymlinkInfo['agentId'],
+          agentName: 'Cursor' as SymlinkInfo['agentName'],
+          linkPath: '/home/.cursor/skills/linked-one',
+          targetPath: '/source/linked-one',
+          status: 'valid',
+          isLocal: false,
+        },
+      ],
+    }
+    const localSkill: Skill = {
+      name: 'local-one',
+      description: '',
+      path: '/source/local-one',
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'cursor' as SymlinkInfo['agentId'],
+          agentName: 'Cursor' as SymlinkInfo['agentName'],
+          linkPath: '/home/.cursor/skills/local-one',
+          targetPath: '/home/.cursor/skills/local-one',
+          status: 'valid',
+          isLocal: true,
+        },
+      ],
+    }
+    const state = buildState({
+      skills: [symlinkedSkill, localSkill],
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'local',
+    })
+    const result = selectFilteredSkills(state as never)
+    expect(result).toHaveLength(1)
+    expect(result[0].name).toBe('local-one')
+  })
+
+  it('skillTypeFilter is ignored in global view (no agent selected)', () => {
+    const skills = [
+      makeSkill('task', 'claude-code'),
+      makeSkill('browse', 'cursor'),
+    ]
+    const state = buildState({ skills, skillTypeFilter: 'symlinked' })
+    expect(selectFilteredSkills(state as never)).toHaveLength(2)
   })
 
   it('is memoized (returns same reference for same inputs)', () => {
