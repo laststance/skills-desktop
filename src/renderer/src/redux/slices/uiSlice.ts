@@ -12,11 +12,18 @@ import type { RootState } from '../store'
 /** Bookmark with install status, used for the detail modal */
 export type BookmarkForDetail = BookmarkedSkill & { isInstalled: boolean }
 
+export type SortOrder = 'asc' | 'desc'
+export type SkillTypeFilter = 'all' | 'symlinked' | 'local'
+
 interface UiState {
   searchQuery: string
   sourceStats: SourceStats | null
   isRefreshing: boolean
   selectedAgentId: string | null
+  /** Sort direction for skill name (A→Z / Z→A) */
+  sortOrder: SortOrder
+  /** Filter by skill type in agent view (all / symlinked / local) */
+  skillTypeFilter: SkillTypeFilter
   /** Whether sync operation is in progress */
   isSyncing: boolean
   /** Sync preview result (null when not previewing) */
@@ -31,6 +38,8 @@ const initialState: UiState = {
   sourceStats: null,
   isRefreshing: false,
   selectedAgentId: null,
+  sortOrder: 'asc',
+  skillTypeFilter: 'all',
   isSyncing: false,
   syncPreview: null,
   error: null,
@@ -82,6 +91,13 @@ const uiSlice = createSlice({
     },
     selectAgent: (state, action: PayloadAction<string | null>) => {
       state.selectedAgentId = action.payload
+      state.skillTypeFilter = 'all'
+    },
+    toggleSortOrder: (state) => {
+      state.sortOrder = state.sortOrder === 'asc' ? 'desc' : 'asc'
+    },
+    setSkillTypeFilter: (state, action: PayloadAction<SkillTypeFilter>) => {
+      state.skillTypeFilter = action.payload
     },
     setSyncPreview: (
       state,
@@ -132,6 +148,8 @@ export const {
   setSearchQuery,
   setRefreshing,
   selectAgent,
+  toggleSortOrder,
+  setSkillTypeFilter,
   setSyncPreview,
   setSelectedBookmarkForDetail,
   clearSelectedBookmarkForDetail,
@@ -151,6 +169,10 @@ export const selectIsSyncing = (state: RootState): boolean => state.ui.isSyncing
 export const selectSyncPreview = (state: RootState): SyncPreviewResult | null =>
   state.ui.syncPreview
 export const selectUiError = (state: RootState): string | null => state.ui.error
+export const selectSortOrder = (state: RootState): SortOrder =>
+  state.ui.sortOrder
+export const selectSkillTypeFilter = (state: RootState): SkillTypeFilter =>
+  state.ui.skillTypeFilter
 export const selectSelectedBookmarkForDetail = (
   state: RootState,
 ): BookmarkForDetail | null => state.ui.selectedBookmarkForDetail
