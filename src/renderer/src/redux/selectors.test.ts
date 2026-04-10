@@ -199,7 +199,7 @@ describe('selectFilteredSkills', () => {
       makeSkill('alpha', 'claude-code'),
       makeSkill('middle', 'claude-code'),
     ]
-    const state = buildState({ skills, sortOrder: 'asc' })
+    const state = buildState({ skills })
     const result = selectFilteredSkills(state as never)
     expect(result.map((s) => s.name)).toEqual(['alpha', 'middle', 'zebra'])
   })
