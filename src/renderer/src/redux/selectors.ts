@@ -27,27 +27,18 @@ export const selectFilteredSkills = createSelector(
   (skills, searchQuery, selectedAgentId, sortOrder, skillTypeFilter) => {
     let result = skills
 
-    // Filter by selected agent
+    // Filter by selected agent (and optionally by skill type)
     if (selectedAgentId) {
+      const checkType = skillTypeFilter !== 'all'
+      const wantLocal = skillTypeFilter === 'local'
       result = result.filter((skill) =>
         skill.symlinks.some(
-          (symlink) =>
-            symlink.agentId === selectedAgentId && symlink.status === 'valid',
+          (s) =>
+            s.agentId === selectedAgentId &&
+            s.status === 'valid' &&
+            (!checkType || s.isLocal === wantLocal),
         ),
       )
-
-      // Filter by skill type (symlinked vs local) — agent view only
-      if (skillTypeFilter !== 'all') {
-        const wantLocal = skillTypeFilter === 'local'
-        result = result.filter((skill) =>
-          skill.symlinks.some(
-            (s) =>
-              s.agentId === selectedAgentId &&
-              s.status === 'valid' &&
-              s.isLocal === wantLocal,
-          ),
-        )
-      }
     }
 
     // Filter by search query (name only)

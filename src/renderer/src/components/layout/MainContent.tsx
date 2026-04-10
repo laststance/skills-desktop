@@ -27,7 +27,8 @@ import { Button } from '../ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
@@ -52,9 +53,9 @@ const SKILLS_SH_URL = 'https://skills.sh'
 export const MainContent = React.memo(
   function MainContent(): React.ReactElement {
     const dispatch = useAppDispatch()
-    const { selectedAgentId, sortOrder, skillTypeFilter } = useAppSelector(
-      (state) => state.ui,
-    )
+    const selectedAgentId = useAppSelector((state) => state.ui.selectedAgentId)
+    const sortOrder = useAppSelector((state) => state.ui.sortOrder)
+    const skillTypeFilter = useAppSelector((state) => state.ui.skillTypeFilter)
     const { items: agents } = useAppSelector((state) => state.agents)
     const [activeTab, setActiveTab] = useState<string>('installed')
 
@@ -154,34 +155,38 @@ export const MainContent = React.memo(
                           : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      {SKILL_TYPE_FILTER_OPTIONS.find(
-                        (o) => o.value === skillTypeFilter,
-                      )?.label ?? 'All'}
+                      {
+                        SKILL_TYPE_FILTER_OPTIONS.find(
+                          (o) => o.value === skillTypeFilter,
+                        )!.label
+                      }
                       <ChevronDown className="h-3 w-3" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    {SKILL_TYPE_FILTER_OPTIONS.map((option) => (
-                      <DropdownMenuItem
-                        key={option.value}
-                        onClick={() =>
-                          dispatch(setSkillTypeFilter(option.value))
-                        }
-                        className="gap-2"
-                      >
-                        {option.dotClass ? (
-                          <span
-                            className={`h-2 w-2 rounded-full ${option.dotClass}`}
-                          />
-                        ) : (
-                          <span className="h-2 w-2" />
-                        )}
-                        {option.label}
-                        {skillTypeFilter === option.value && (
-                          <span className="ml-auto text-primary">✓</span>
-                        )}
-                      </DropdownMenuItem>
-                    ))}
+                    <DropdownMenuRadioGroup
+                      value={skillTypeFilter}
+                      onValueChange={(v) =>
+                        dispatch(setSkillTypeFilter(v as SkillTypeFilter))
+                      }
+                    >
+                      {SKILL_TYPE_FILTER_OPTIONS.map((option) => (
+                        <DropdownMenuRadioItem
+                          key={option.value}
+                          value={option.value}
+                          className="gap-2"
+                        >
+                          {option.dotClass ? (
+                            <span
+                              className={`h-2 w-2 rounded-full ${option.dotClass}`}
+                            />
+                          ) : (
+                            <span className="h-2 w-2" />
+                          )}
+                          {option.label}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}

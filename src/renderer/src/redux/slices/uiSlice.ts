@@ -91,7 +91,6 @@ const uiSlice = createSlice({
     },
     selectAgent: (state, action: PayloadAction<string | null>) => {
       state.selectedAgentId = action.payload
-      // Reset skill type filter when switching agents (filter is agent-view only)
       state.skillTypeFilter = 'all'
     },
     toggleSortOrder: (state) => {

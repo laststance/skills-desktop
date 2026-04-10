@@ -80,19 +80,24 @@ function buildState(overrides: {
   }
 }
 
-const makeSkill = (name: string, agentId: string): Skill => ({
+/**
+ * @param isLocal - false = symlinked (default), true = local folder
+ */
+const makeSkill = (name: string, agentId: string, isLocal = false): Skill => ({
   name,
   description: `${name} skill`,
   path: `/home/user/.agents/skills/${name}`,
-  symlinkCount: 1,
+  symlinkCount: isLocal ? 0 : 1,
   symlinks: [
     {
       agentId: agentId as SymlinkInfo['agentId'],
       agentName: agentId as SymlinkInfo['agentName'],
       linkPath: `/home/user/.${agentId}/skills/${name}`,
-      targetPath: `/home/user/.agents/skills/${name}`,
+      targetPath: isLocal
+        ? `/home/user/.${agentId}/skills/${name}`
+        : `/home/user/.agents/skills/${name}`,
       status: 'valid',
-      isLocal: false,
+      isLocal,
     },
   ],
 })
@@ -211,40 +216,12 @@ describe('selectFilteredSkills', () => {
   })
 
   it('filters by skillTypeFilter=symlinked in agent view', () => {
-    const symlinkedSkill: Skill = {
-      name: 'linked-one',
-      description: '',
-      path: '/source/linked-one',
-      symlinkCount: 1,
-      symlinks: [
-        {
-          agentId: 'cursor' as SymlinkInfo['agentId'],
-          agentName: 'Cursor' as SymlinkInfo['agentName'],
-          linkPath: '/home/.cursor/skills/linked-one',
-          targetPath: '/source/linked-one',
-          status: 'valid',
-          isLocal: false,
-        },
-      ],
-    }
-    const localSkill: Skill = {
-      name: 'local-one',
-      description: '',
-      path: '/source/local-one',
-      symlinkCount: 0,
-      symlinks: [
-        {
-          agentId: 'cursor' as SymlinkInfo['agentId'],
-          agentName: 'Cursor' as SymlinkInfo['agentName'],
-          linkPath: '/home/.cursor/skills/local-one',
-          targetPath: '/home/.cursor/skills/local-one',
-          status: 'valid',
-          isLocal: true,
-        },
-      ],
-    }
+    const skills = [
+      makeSkill('linked-one', 'cursor'),
+      makeSkill('local-one', 'cursor', true),
+    ]
     const state = buildState({
-      skills: [symlinkedSkill, localSkill],
+      skills,
       selectedAgentId: 'cursor',
       skillTypeFilter: 'symlinked',
     })
@@ -254,40 +231,12 @@ describe('selectFilteredSkills', () => {
   })
 
   it('filters by skillTypeFilter=local in agent view', () => {
-    const symlinkedSkill: Skill = {
-      name: 'linked-one',
-      description: '',
-      path: '/source/linked-one',
-      symlinkCount: 1,
-      symlinks: [
-        {
-          agentId: 'cursor' as SymlinkInfo['agentId'],
-          agentName: 'Cursor' as SymlinkInfo['agentName'],
-          linkPath: '/home/.cursor/skills/linked-one',
-          targetPath: '/source/linked-one',
-          status: 'valid',
-          isLocal: false,
-        },
-      ],
-    }
-    const localSkill: Skill = {
-      name: 'local-one',
-      description: '',
-      path: '/source/local-one',
-      symlinkCount: 0,
-      symlinks: [
-        {
-          agentId: 'cursor' as SymlinkInfo['agentId'],
-          agentName: 'Cursor' as SymlinkInfo['agentName'],
-          linkPath: '/home/.cursor/skills/local-one',
-          targetPath: '/home/.cursor/skills/local-one',
-          status: 'valid',
-          isLocal: true,
-        },
-      ],
-    }
+    const skills = [
+      makeSkill('linked-one', 'cursor'),
+      makeSkill('local-one', 'cursor', true),
+    ]
     const state = buildState({
-      skills: [symlinkedSkill, localSkill],
+      skills,
       selectedAgentId: 'cursor',
       skillTypeFilter: 'local',
     })
