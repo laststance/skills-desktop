@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import {
   searchSkills,
   setSearchQuery,
+  clearSearchResults,
 } from '../../redux/slices/marketplaceSlice'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -26,6 +27,16 @@ export const MarketplaceSearch = React.memo(
       }
     }
 
+    /** Clear search input and return to leaderboard */
+    function handleChange(e: React.ChangeEvent<HTMLInputElement>): void {
+      const value = e.target.value
+      setLocalQuery(value)
+      // When input is cleared (native X button or manual), reset search state
+      if (value === '') {
+        dispatch(clearSearchResults())
+      }
+    }
+
     const handleKeyDown = (e: React.KeyboardEvent): void => {
       if (e.key === 'Enter') {
         handleSearch()
@@ -40,7 +51,7 @@ export const MarketplaceSearch = React.memo(
             type="search"
             placeholder="Search skills (e.g., react, vercel, nextjs)..."
             value={localQuery}
-            onChange={(e) => setLocalQuery(e.target.value)}
+            onChange={handleChange}
             onKeyDown={handleKeyDown}
             className="pl-10 bg-background h-11"
             disabled={isSearching}

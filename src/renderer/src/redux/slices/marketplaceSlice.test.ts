@@ -7,6 +7,7 @@ const mockSearch = vi.fn()
 const mockInstall = vi.fn()
 const mockRemove = vi.fn()
 const mockCancel = vi.fn()
+const mockLeaderboard = vi.fn()
 
 vi.stubGlobal('window', {
   electron: {
@@ -15,6 +16,9 @@ vi.stubGlobal('window', {
       install: mockInstall,
       remove: mockRemove,
       cancel: mockCancel,
+    },
+    marketplace: {
+      leaderboard: mockLeaderboard,
     },
   },
 })
@@ -44,6 +48,7 @@ describe('marketplaceSlice', () => {
     expect(state.searchResults).toEqual([])
     expect(state.selectedSkill).toBeNull()
     expect(state.error).toBeNull()
+    expect(state.leaderboard).toEqual({})
   })
 
   // --- Sync reducers ---
@@ -251,5 +256,118 @@ describe('marketplaceSlice', () => {
 
     expect(store.getState().marketplace.status).toBe('error')
     expect(store.getState().marketplace.error).toBe('Not found')
+  })
+
+  // --- loadLeaderboard thunk ---
+  it('loadLeaderboard sets loading state for new filter', async () => {
+    let resolve!: (value: SkillSearchResult[]) => void
+    mockLeaderboard.mockReturnValue(
+      new Promise<SkillSearchResult[]>((r) => {
+        resolve = r
+      }),
+    )
+
+    const store = await createTestStore()
+    const { loadLeaderboard } = await import('./marketplaceSlice')
+    const promise = store.dispatch(loadLeaderboard('all-time'))
+
+    const lb = store.getState().marketplace.leaderboard['all-time']
+    expect(lb?.status).toBe('loading')
+    expect(lb?.skills).toEqual([])
+
+    resolve([sampleResult])
+    await promise
+  })
+
+  it('loadLeaderboard populates per-filter cache on fulfilled', async () => {
+    mockLeaderboard.mockResolvedValue([sampleResult])
+
+    const store = await createTestStore()
+    const { loadLeaderboard } = await import('./marketplaceSlice')
+    await store.dispatch(loadLeaderboard('trending'))
+
+    const lb = store.getState().marketplace.leaderboard['trending']
+    expect(lb?.status).toBe('idle')
+    expect(lb?.skills).toHaveLength(1)
+    expect(lb?.skills[0].name).toBe('task')
+    expect(lb?.lastFetched).toBeGreaterThan(0)
+  })
+
+  it('loadLeaderboard skips fetch when cache is fresh', async () => {
+    mockLeaderboard.mockResolvedValue([sampleResult])
+
+    const store = await createTestStore()
+    const { loadLeaderboard } = await import('./marketplaceSlice')
+
+    // First fetch populates cache
+    await store.dispatch(loadLeaderboard('all-time'))
+    expect(mockLeaderboard).toHaveBeenCalledTimes(1)
+
+    // Second fetch skips (cache is fresh)
+    await store.dispatch(loadLeaderboard('all-time'))
+    expect(mockLeaderboard).toHaveBeenCalledTimes(1)
+  })
+
+  it('loadLeaderboard stores different data per filter', async () => {
+    const trendingResult: SkillSearchResult = {
+      ...sampleResult,
+      name: 'trending-skill',
+    }
+    mockLeaderboard
+      .mockResolvedValueOnce([sampleResult])
+      .mockResolvedValueOnce([trendingResult])
+
+    const store = await createTestStore()
+    const { loadLeaderboard } = await import('./marketplaceSlice')
+
+    await store.dispatch(loadLeaderboard('all-time'))
+    await store.dispatch(loadLeaderboard('trending'))
+
+    const state = store.getState().marketplace
+    expect(state.leaderboard['all-time']?.skills[0].name).toBe('task')
+    expect(state.leaderboard['trending']?.skills[0].name).toBe('trending-skill')
+  })
+
+  it('loadLeaderboard keeps stale data on error', async () => {
+    mockLeaderboard.mockResolvedValueOnce([sampleResult])
+
+    const store = await createTestStore()
+    const { loadLeaderboard } = await import('./marketplaceSlice')
+
+    // First fetch succeeds
+    await store.dispatch(loadLeaderboard('hot'))
+    expect(
+      store.getState().marketplace.leaderboard['hot']?.skills,
+    ).toHaveLength(1)
+
+    // Advance time past TTL (31 min) to make cache stale
+    // Note: useFakeTimers() initializes to current real time, so
+    // setSystemTime correctly offsets from the first fetch's timestamp
+    vi.useFakeTimers()
+    vi.setSystemTime(Date.now() + 31 * 60 * 1000)
+
+    // Second fetch fails
+    mockLeaderboard.mockRejectedValueOnce(new Error('Network error'))
+    await store.dispatch(loadLeaderboard('hot'))
+
+    vi.useRealTimers()
+
+    // Should still have the stale data but status is error
+    const state = store.getState().marketplace.leaderboard['hot']
+    expect(state?.skills).toHaveLength(1)
+    expect(state?.status).toBe('error')
+  })
+
+  it('loadLeaderboard sets error when no cache exists', async () => {
+    mockLeaderboard.mockRejectedValue(new Error('Offline'))
+
+    const store = await createTestStore()
+    const { loadLeaderboard } = await import('./marketplaceSlice')
+    await store.dispatch(loadLeaderboard('all-time'))
+
+    const lb = store.getState().marketplace.leaderboard['all-time']
+    expect(lb?.status).toBe('error')
+    expect(lb?.error).toBe('Offline')
+    expect(lb?.skills).toEqual([])
   })
 })

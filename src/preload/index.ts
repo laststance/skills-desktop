@@ -80,6 +80,12 @@ contextBridge.exposeInMainWorld('electron', {
       IPC_CHANNELS.SKILLS_CLI_PROGRESS,
     ),
   },
+  // Marketplace Leaderboard
+  marketplace: {
+    leaderboard: async (
+      options: Parameters<typeof typedInvoke<'marketplace:leaderboard'>>[1],
+    ) => typedInvoke('marketplace:leaderboard', options),
+  },
   // Sync API
   sync: {
     preview: async () => typedInvoke('sync:preview'),

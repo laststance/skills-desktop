@@ -6,6 +6,7 @@ import type {
   SkillFileContent,
   UpdateInfo,
   DownloadProgress,
+  RankingFilter,
   SkillSearchResult,
   InstallOptions,
   CliCommandResult,
@@ -80,6 +81,11 @@ declare global {
         onProgress: (
           callback: (progress: InstallProgress) => void,
         ) => () => void
+      }
+      marketplace: {
+        leaderboard: (options: {
+          filter: RankingFilter
+        }) => Promise<SkillSearchResult[]>
       }
       sync: {
         preview: () => Promise<SyncPreviewResult>
