@@ -22,6 +22,9 @@ export const IPC_CHANNELS = {
   SKILLS_CLI_CANCEL: 'skills:cli:cancel',
   SKILLS_CLI_PROGRESS: 'skills:cli:progress',
 
+  // Marketplace Leaderboard
+  MARKETPLACE_LEADERBOARD: 'marketplace:leaderboard',
+
   // Skills management
   SKILLS_UNLINK_FROM_AGENT: 'skills:unlinkFromAgent',
   SKILLS_REMOVE_ALL_FROM_AGENT: 'skills:removeAllFromAgent',

@@ -69,6 +69,13 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
     }),
   ]),
 
+  // Marketplace Leaderboard
+  'marketplace:leaderboard': z.tuple([
+    z.object({
+      filter: z.enum(['all-time', 'trending', 'hot']),
+    }),
+  ]),
+
   // Sync operations
   'sync:execute': z.tuple([
     z.object({

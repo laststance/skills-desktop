@@ -10,6 +10,7 @@ import type {
   DownloadProgress,
   InstallOptions,
   InstallProgress,
+  RankingFilter,
   RemoveAllFromAgentOptions,
   RemoveAllFromAgentResult,
   Skill,
@@ -65,6 +66,10 @@ export interface IpcInvokeContract {
   'skills:cli:install': { args: [InstallOptions]; result: CliCommandResult }
   'skills:cli:remove': { args: [string]; result: CliCommandResult }
   'skills:cli:cancel': { args: []; result: void }
+  'marketplace:leaderboard': {
+    args: [{ filter: RankingFilter }]
+    result: SkillSearchResult[]
+  }
   'sync:preview': { args: []; result: SyncPreviewResult }
   'sync:execute': { args: [SyncExecuteOptions]; result: SyncExecuteResult }
   'update:download': { args: []; result: void }

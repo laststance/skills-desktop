@@ -285,6 +285,41 @@ export type MarketplaceStatus =
   | 'error'
 
 /**
+ * Filter for marketplace leaderboard ranking tabs.
+ * Maps to skills.sh pages: / (all-time), /trending, /hot
+ */
+export type RankingFilter = 'all-time' | 'trending' | 'hot'
+
+/**
+ * Per-filter leaderboard loading status
+ */
+export type LeaderboardStatus = 'idle' | 'loading' | 'error'
+
+/**
+ * Cached leaderboard data for a single ranking filter.
+ * Each filter key tracks its own fetch state and TTL independently.
+ * @example
+ * {
+ *   skills: [...],
+ *   lastFetched: 1713045600000,
+ *   filter: 'trending',
+ *   status: 'idle',
+ * }
+ */
+export interface LeaderboardData {
+  /** Ranked skills parsed from skills.sh HTML */
+  skills: SkillSearchResult[]
+  /** Timestamp (ms since epoch) of last successful fetch */
+  lastFetched: number
+  /** Which ranking filter this data belongs to */
+  filter: RankingFilter
+  /** Current loading state for this filter */
+  status: LeaderboardStatus
+  /** Error message if status is 'error' */
+  error?: string
+}
+
+/**
  * Options for unlinking a skill from a specific agent
  */
 export interface UnlinkFromAgentOptions {

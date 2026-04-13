@@ -2,11 +2,16 @@ import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 
 import type {
+  LeaderboardData,
+  RankingFilter,
   SkillSearchResult,
   InstallOptions,
   InstallProgress,
   MarketplaceStatus,
 } from '../../../../shared/types'
+
+/** Cache TTL: 30 minutes in milliseconds */
+const CACHE_TTL_MS = 30 * 60 * 1000
 
 interface MarketplaceState {
   status: MarketplaceStatus
@@ -16,6 +21,8 @@ interface MarketplaceState {
   installProgress: InstallProgress | null
   skillToRemove: string | null
   error: string | null
+  /** Per-filter leaderboard cache. Each filter tracks its own data and loading state. */
+  leaderboard: Partial<Record<RankingFilter, LeaderboardData>>
 }
 
 const initialState: MarketplaceState = {
@@ -26,6 +33,7 @@ const initialState: MarketplaceState = {
   installProgress: null,
   skillToRemove: null,
   error: null,
+  leaderboard: {},
 }
 
 /**
@@ -64,6 +72,35 @@ export const removeSkill = createAsyncThunk(
   async (skillName: string) => {
     const result = await window.electron.skillsCli.remove(skillName)
     return result.success
+  },
+)
+
+/**
+ * Fetch leaderboard data from skills.sh for a ranking filter.
+ * Respects per-filter cache TTL: skips fetch if cached data is fresh.
+ * @param filter - Ranking filter ('all-time' | 'trending' | 'hot')
+ * @returns Skills array and filter, or null if cache is fresh
+ */
+export const loadLeaderboard = createAsyncThunk(
+  'marketplace/loadLeaderboard',
+  async (
+    filter: RankingFilter,
+    { getState },
+  ): Promise<{ skills: SkillSearchResult[]; filter: RankingFilter } | null> => {
+    const state = (getState() as { marketplace: MarketplaceState }).marketplace
+    const cached = state.leaderboard[filter]
+
+    // Skip fetch if cache is fresh
+    if (
+      cached &&
+      cached.status !== 'error' &&
+      Date.now() - cached.lastFetched < CACHE_TTL_MS
+    ) {
+      return null
+    }
+
+    const skills = await window.electron.marketplace.leaderboard({ filter })
+    return { skills, filter }
   },
 )
 
@@ -146,6 +183,48 @@ const marketplaceSlice = createSlice({
         state.status = 'error'
         state.error = action.error.message || 'Remove failed'
         state.skillToRemove = null
+      })
+      // Leaderboard
+      .addCase(loadLeaderboard.pending, (state, action) => {
+        const filter = action.meta.arg
+        const existing = state.leaderboard[filter]
+        // Only show loading if no cached data exists yet
+        if (!existing || existing.skills.length === 0) {
+          state.leaderboard[filter] = {
+            skills: [],
+            lastFetched: 0,
+            filter,
+            status: 'loading',
+          }
+        }
+      })
+      .addCase(loadLeaderboard.fulfilled, (state, action) => {
+        // null means cache was fresh, no update needed
+        if (action.payload === null) return
+        const { skills, filter } = action.payload
+        state.leaderboard[filter] = {
+          skills,
+          lastFetched: Date.now(),
+          filter,
+          status: 'idle',
+        }
+      })
+      .addCase(loadLeaderboard.rejected, (state, action) => {
+        const filter = action.meta.arg
+        const existing = state.leaderboard[filter]
+        if (existing) {
+          // Keep stale data, just mark status as error
+          existing.status = 'error'
+          existing.error = action.error.message || 'Failed to load leaderboard'
+        } else {
+          state.leaderboard[filter] = {
+            skills: [],
+            lastFetched: 0,
+            filter,
+            status: 'error',
+            error: action.error.message || 'Failed to load leaderboard',
+          }
+        }
       })
   },
 })
