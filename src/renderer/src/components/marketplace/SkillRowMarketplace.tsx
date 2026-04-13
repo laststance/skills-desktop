@@ -69,21 +69,9 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
   }
 
   return (
-    <div
-      className={cn(
-        'flex items-center gap-4 p-4 rounded-lg bg-card h-[76px] min-w-0',
-        'border transition-colors',
-        isInstalled ? 'border-primary' : 'border-card hover:border-primary/50',
-      )}
-    >
+    <div className="flex items-center gap-4 p-4 rounded-lg bg-card h-[76px] min-w-0 border border-card hover:border-primary/50 transition-colors">
       {/* Rank Badge */}
-      <div
-        className={cn(
-          'flex items-center justify-center w-8 h-8 shrink-0 rounded-md bg-muted',
-          'font-mono text-sm font-semibold',
-          isInstalled ? 'text-muted-foreground' : 'text-primary',
-        )}
-      >
+      <div className="flex items-center justify-center w-8 h-8 shrink-0 rounded-md bg-muted font-mono text-sm font-semibold text-primary">
         {skill.rank}
       </div>
 
