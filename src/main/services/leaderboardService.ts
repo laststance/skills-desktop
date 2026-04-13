@@ -28,7 +28,7 @@ const MAX_RESULTS = 50
  */
 export function parseFormattedCount(text: string): number {
   const trimmed = text.trim().replace(/,/g, '')
-  const match = trimmed.match(/^([\d.]+)\s*([KMB])?$/i)
+  const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*([KMB])?$/i)
   if (!match) return 0
 
   const num = parseFloat(match[1])
@@ -55,7 +55,9 @@ export function parseFormattedCount(text: string): number {
 export function parseLeaderboardHtml(html: string): SkillSearchResult[] {
   // Stability check: verify the page contains expected markup
   if (!html.includes(STABILITY_SIGNATURE)) {
-    return []
+    throw new Error(
+      'Leaderboard HTML structure mismatch (stability signature missing)',
+    )
   }
 
   const results: SkillSearchResult[] = []
@@ -89,11 +91,11 @@ export function parseLeaderboardHtml(html: string): SkillSearchResult[] {
     )
     let installCount = 0
     if (countCandidates) {
-      // Take the last matching number (install count is typically rightmost)
+      // Prefer the largest parsed number to avoid trailing-metric corruption
       for (const candidate of countCandidates) {
         const parsed = parseFormattedCount(candidate)
         if (parsed > 0) {
-          installCount = parsed
+          installCount = Math.max(installCount, parsed)
         }
       }
     }

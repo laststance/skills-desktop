@@ -13,6 +13,13 @@ import { RankingTabs } from './RankingTabs'
 import { RemoveDialog } from './RemoveDialog'
 import { SkillRowMarketplace } from './SkillRowMarketplace'
 
+/** Display labels for each ranking filter tab */
+const FILTER_LABELS: Record<RankingFilter, string> = {
+  'all-time': 'All Time',
+  trending: 'Trending',
+  hot: 'Hot',
+}
+
 /**
  * Format a timestamp into relative time for the "Updated X min ago" label.
  * @param timestamp - ms since epoch
@@ -188,12 +195,7 @@ export const SkillsMarketplace = React.memo(
                         {leaderboardSkills.length} skill
                         {leaderboardSkills.length !== 1
                           ? 's'
-                          : ''} &middot;{' '}
-                        {rankingFilter === 'all-time'
-                          ? 'All Time'
-                          : rankingFilter === 'trending'
-                            ? 'Trending'
-                            : 'Hot'}
+                          : ''} &middot; {FILTER_LABELS[rankingFilter]}
                       </p>
                       {leaderboardLastFetched > 0 && (
                         <p className="font-mono text-xs text-muted-foreground">

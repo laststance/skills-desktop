@@ -341,6 +341,8 @@ describe('marketplaceSlice', () => {
     ).toHaveLength(1)
 
     // Advance time past TTL (31 min) to make cache stale
+    // Note: useFakeTimers() initializes to current real time, so
+    // setSystemTime correctly offsets from the first fetch's timestamp
     vi.useFakeTimers()
     vi.setSystemTime(Date.now() + 31 * 60 * 1000)
 

@@ -106,14 +106,17 @@ describe('parseLeaderboardHtml', () => {
     expect(results[0].installCount).toBe(927)
   })
 
-  it('returns empty array when stability signature is missing', () => {
+  it('throws when stability signature is missing', () => {
     const html = '<html><body><p>This page has no leaderboard</p></body></html>'
-    const results = parseLeaderboardHtml(html)
-    expect(results).toEqual([])
+    expect(() => parseLeaderboardHtml(html)).toThrow(
+      'Leaderboard HTML structure mismatch',
+    )
   })
 
-  it('returns empty array for empty string', () => {
-    expect(parseLeaderboardHtml('')).toEqual([])
+  it('throws for empty string', () => {
+    expect(() => parseLeaderboardHtml('')).toThrow(
+      'Leaderboard HTML structure mismatch',
+    )
   })
 
   it('limits results to 50', () => {
