@@ -29,39 +29,74 @@ export const MarketplaceSkillPreview = React.memo(
       dispatch(setPreviewSkill(null))
     }
 
+    /**
+     * Strict origin check — blocks skills.sh.evil.com style bypasses.
+     * Only allows https://skills.sh hostnames.
+     * @param url - URL string to validate
+     * @returns true if hostname is exactly 'skills.sh'
+     * @example isAllowedUrl('https://skills.sh/foo') // => true
+     * @example isAllowedUrl('https://evil.com') // => false
+     */
+    const isAllowedUrl = (url: string): boolean => {
+      try {
+        const parsed = new URL(url)
+        return parsed.protocol === 'https:' && parsed.hostname === 'skills.sh'
+      } catch {
+        return false
+      }
+    }
+
+    // Validate initial src before rendering the webview
+    const isSrcAllowed = isAllowedUrl(skill.url)
+
     useEffect(() => {
       const wv = webviewRef.current
-      if (!wv) return
+      if (!wv || !isSrcAllowed) return
 
       setIsLoading(true)
 
       const handleLoaded = (): void => setIsLoading(false)
       const handleFailed = (): void => setIsLoading(false)
 
-      /** Strict origin check — blocks skills.sh.evil.com style bypasses */
-      const isAllowedUrl = (url: string): boolean => {
-        try {
-          return new URL(url).hostname === 'skills.sh'
-        } catch {
-          return false
-        }
-      }
-
+      /** Block in-page navigations to non-allowed origins */
       const handleNavigate = (e: Electron.WillNavigateEvent): void => {
         if (!isAllowedUrl(e.url)) {
           e.preventDefault()
         }
       }
 
+      /** Block window.open() / target="_blank" links from escaping the allowlist */
+      const handleNewWindow = (e: Event): void => {
+        e.preventDefault()
+      }
+
       wv.addEventListener('did-finish-load', handleLoaded)
       wv.addEventListener('did-fail-load', handleFailed)
       wv.addEventListener('will-navigate', handleNavigate)
+      wv.addEventListener('new-window', handleNewWindow)
       return () => {
         wv.removeEventListener('did-finish-load', handleLoaded)
         wv.removeEventListener('did-fail-load', handleFailed)
         wv.removeEventListener('will-navigate', handleNavigate)
+        wv.removeEventListener('new-window', handleNewWindow)
       }
-    }, [skill.url])
+    }, [skill.url, isSrcAllowed])
+
+    // Early return when initial URL fails hostname validation
+    if (!isSrcAllowed) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+          <span>Preview unavailable for external URLs</span>
+          <button
+            type="button"
+            onClick={handleBack}
+            className="text-primary underline min-h-[44px]"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      )
+    }
 
     return (
       <div className="flex-1 flex flex-col overflow-hidden">

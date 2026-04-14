@@ -21,7 +21,7 @@ export const MarketplaceDashboard = React.memo(
     const trendingData = useAppSelector(
       (state) => state.marketplace.leaderboard.trending,
     )
-    const trendingSkills = trendingData?.skills.slice(0, 5) ?? []
+    const trendingSkills = trendingData?.skills?.slice(0, 5) ?? []
 
     const handleSkillClick = (skill: SkillSearchResult): void => {
       dispatch(setPreviewSkill(skill))
