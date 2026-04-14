@@ -106,11 +106,9 @@ export async function syncExecute(
   let skipped = 0
   const errors: SyncExecuteResult['errors'] = []
   const details: SyncResultItem[] = []
-
-  // Pre-create all agent skill directories (M calls instead of N×M)
-  for (const agent of agents) {
-    await mkdir(agent.path, { recursive: true })
-  }
+  // Track agent dirs we've already mkdir'd so per-skill loop does at most M mkdirs total,
+  // while keeping the call inside the per-item try-path (errors become per-item, not global).
+  const ensuredAgentDirs = new Set<string>()
 
   for (const skill of skills) {
     for (const agent of agents) {
@@ -129,6 +127,10 @@ export async function syncExecute(
         }
 
         if (!exists) {
+          if (!ensuredAgentDirs.has(agent.path)) {
+            await mkdir(agent.path, { recursive: true })
+            ensuredAgentDirs.add(agent.path)
+          }
           await symlink(skill.path, linkPath)
           created++
           details.push({
@@ -138,6 +140,11 @@ export async function syncExecute(
           })
         } else if (isSymlink) {
           skipped++
+          details.push({
+            skillName: skill.name,
+            agentName: agent.name,
+            action: 'skipped',
+          })
         } else if (replaceSet.has(linkPath)) {
           await rm(linkPath, { recursive: true, force: true })
           await symlink(skill.path, linkPath)
@@ -148,7 +155,14 @@ export async function syncExecute(
             action: 'replaced',
           })
         } else {
+          // Conflict the user declined to replace. Track as skipped so the dialog
+          // can show it per-item, rather than silently folding it into the aggregate.
           skipped++
+          details.push({
+            skillName: skill.name,
+            agentName: agent.name,
+            action: 'skipped',
+          })
         }
       } catch (error) {
         const msg = extractErrorMessage(error)

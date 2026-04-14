@@ -1,3 +1,10 @@
+import {
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  type LucideIcon,
+} from 'lucide-react'
+
 import type {
   SyncExecuteResult,
   SyncPreviewResult,
@@ -34,4 +41,61 @@ export function shouldShowSyncResult(
   result: SyncExecuteResult | null,
 ): boolean {
   return result !== null
+}
+
+/** Derived presentation fields for the sync result dialog header */
+export interface SyncResultPresentation {
+  HeaderIcon: LucideIcon
+  iconColor: string
+  description: string
+}
+
+/**
+ * Compute the header icon, icon color, and summary description for a sync result.
+ * Extracted as a pure function so it can be tested without rendering the dialog.
+ * @param result - Sync execution result
+ * @returns
+ * - `HeaderIcon`: CheckCircle2 (all success) | AlertTriangle (partial) | XCircle (all errors)
+ * - `iconColor`: Tailwind class matching the icon
+ * - `description`: Human-readable summary (e.g. "Created 3 symlinks, 1 failed") or "No changes were made"
+ * @example
+ * getSyncResultPresentation({ created: 3, replaced: 0, skipped: 0, errors: [], ... })
+ * // => { HeaderIcon: CheckCircle2, iconColor: 'text-emerald-500', description: 'Created 3 symlinks' }
+ * @example
+ * getSyncResultPresentation({ created: 0, replaced: 0, skipped: 0, errors: [{...}], ... })
+ * // => { HeaderIcon: XCircle, iconColor: 'text-destructive', description: '1 failed' }
+ */
+export function getSyncResultPresentation(
+  result: SyncExecuteResult,
+): SyncResultPresentation {
+  const hasErrors = result.errors.length > 0
+  const hasSuccess = result.created > 0 || result.replaced > 0
+
+  const HeaderIcon: LucideIcon = hasErrors
+    ? hasSuccess
+      ? AlertTriangle
+      : XCircle
+    : CheckCircle2
+
+  const iconColor = hasErrors
+    ? hasSuccess
+      ? 'text-amber-500'
+      : 'text-destructive'
+    : 'text-emerald-500'
+
+  const parts: string[] = []
+  if (result.created > 0)
+    parts.push(
+      `Created ${result.created} symlink${result.created !== 1 ? 's' : ''}`,
+    )
+  if (result.replaced > 0)
+    parts.push(
+      `Replaced ${result.replaced} conflict${result.replaced !== 1 ? 's' : ''}`,
+    )
+  if (result.errors.length > 0) parts.push(`${result.errors.length} failed`)
+
+  const description =
+    parts.length > 0 ? parts.join(', ') : 'No changes were made'
+
+  return { HeaderIcon, iconColor, description }
 }

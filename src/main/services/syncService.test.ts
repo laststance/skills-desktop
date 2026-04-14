@@ -245,7 +245,9 @@ describe('syncExecute', () => {
     expect(result.created).toBe(0)
     expect(result.replaced).toBe(0)
     expect(result.skipped).toBe(2) // 1 skill × 2 agents, all already symlinked
-    expect(result.details).toHaveLength(0) // skipped items not tracked in details
+    // Skipped items now appear per-item in details so the dialog can show them
+    expect(result.details).toHaveLength(2)
+    expect(result.details.every((item) => item.action === 'skipped')).toBe(true)
     expect(symlinkMock).not.toHaveBeenCalled()
     expect(rmMock).not.toHaveBeenCalled()
   })
@@ -322,8 +324,22 @@ describe('syncExecute', () => {
     expect(rmMock).not.toHaveBeenCalled()
     // Cursor path: created
     expect(result.created).toBe(1)
-    expect(result.details).toHaveLength(1) // only the created item
-    expect(result.details[0]).toMatchObject({ action: 'created' })
+    // Declined conflict is now surfaced as a skipped detail row (not folded into aggregate)
+    expect(result.details).toHaveLength(2)
+    expect(result.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          skillName: 'local-skill',
+          agentName: 'Claude Code',
+          action: 'skipped',
+        }),
+        expect.objectContaining({
+          skillName: 'local-skill',
+          agentName: 'Cursor',
+          action: 'created',
+        }),
+      ]),
+    )
   })
 
   it('records errors when symlink creation fails', async () => {

@@ -1,8 +1,10 @@
-import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import React from 'react'
 
 import type { SyncResultAction } from '../../../../shared/types'
-import { shouldShowSyncResult } from '../../lib/syncHelpers'
+import {
+  getSyncResultPresentation,
+  shouldShowSyncResult,
+} from '../../lib/syncHelpers'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { clearSyncResult } from '../../redux/slices/uiSlice'
 import { refreshAllData } from '../../redux/thunks'
@@ -21,10 +23,11 @@ import { ScrollArea } from '../ui/scroll-area'
 /** Maps sync result action to Badge variant for consistent status colors */
 const ACTION_BADGE_VARIANT: Record<
   SyncResultAction,
-  'valid' | 'broken' | 'destructive'
+  'valid' | 'broken' | 'destructive' | 'secondary'
 > = {
   created: 'valid',
   replaced: 'broken',
+  skipped: 'secondary',
   error: 'destructive',
 }
 
@@ -32,6 +35,7 @@ const ACTION_BADGE_VARIANT: Record<
 const ACTION_LABEL: Record<SyncResultAction, string> = {
   created: 'Created',
   replaced: 'Replaced',
+  skipped: 'Skipped',
   error: 'Error',
 }
 
@@ -61,32 +65,8 @@ export const SyncResultDialog = React.memo(
     // Skip all derivations when dialog is closed
     if (!isOpen || !syncResult) return null
 
-    const hasErrors = syncResult.errors.length > 0
-    const hasSuccess = syncResult.created > 0 || syncResult.replaced > 0
-    const HeaderIcon = hasErrors
-      ? hasSuccess
-        ? AlertTriangle // partial: some succeeded, some failed
-        : XCircle // all errors
-      : CheckCircle2 // all success
-    const iconColor = hasErrors
-      ? hasSuccess
-        ? 'text-amber-500'
-        : 'text-destructive'
-      : 'text-emerald-500'
-
-    const parts: string[] = []
-    if (syncResult.created > 0)
-      parts.push(
-        `Created ${syncResult.created} symlink${syncResult.created !== 1 ? 's' : ''}`,
-      )
-    if (syncResult.replaced > 0)
-      parts.push(
-        `Replaced ${syncResult.replaced} conflict${syncResult.replaced !== 1 ? 's' : ''}`,
-      )
-    if (syncResult.errors.length > 0)
-      parts.push(`${syncResult.errors.length} failed`)
-    const description =
-      parts.length > 0 ? parts.join(', ') : 'No changes were made'
+    const { HeaderIcon, iconColor, description } =
+      getSyncResultPresentation(syncResult)
 
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -140,7 +120,7 @@ export const SyncResultDialog = React.memo(
                           {' '}
                           → {item.agentName}
                         </span>
-                        {item.error && (
+                        {item.action === 'error' && (
                           <span className="text-xs text-destructive block truncate">
                             {item.error}
                           </span>
@@ -152,8 +132,7 @@ export const SyncResultDialog = React.memo(
               </ScrollArea>
             ) : (
               <p className="text-sm text-muted-foreground">
-                No changes were made. {syncResult.skipped} item
-                {syncResult.skipped !== 1 ? 's' : ''} already synced.
+                No items were processed.
               </p>
             )}
           </div>
