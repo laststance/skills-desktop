@@ -18,6 +18,7 @@ import {
   toggleSortOrder,
 } from '../../redux/slices/uiSlice'
 import { SkillsMarketplace } from '../marketplace'
+import { SyncConfirmDialog } from '../sidebar/SyncConfirmDialog'
 import { SyncConflictDialog } from '../sidebar/SyncConflictDialog'
 import { AddSymlinkModal } from '../skills/AddSymlinkModal'
 import { CopyToAgentsModal } from '../skills/CopyToAgentsModal'
@@ -232,6 +233,7 @@ export const MainContent = React.memo(
         <DeleteSkillDialog />
         <AddSymlinkModal />
         <CopyToAgentsModal />
+        <SyncConfirmDialog />
         <SyncConflictDialog />
       </main>
     )

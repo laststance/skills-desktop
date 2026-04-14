@@ -7,7 +7,6 @@ import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { fetchAgents } from '../../redux/slices/agentsSlice'
 import { fetchSkills } from '../../redux/slices/skillsSlice'
 import {
-  executeSyncAction,
   fetchSourceStats,
   fetchSyncPreview,
   selectAgent,
@@ -47,8 +46,10 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
   }
 
   /**
-   * Sync all source skills to all agents as symlinks
-   * If no conflicts, executes immediately. If conflicts, opens dialog.
+   * Fetch sync preview and let the appropriate dialog handle execution.
+   * SyncConfirmDialog opens when there are symlinks to create (no conflicts).
+   * SyncConflictDialog opens when conflicts exist.
+   * Edge cases (no skills, already synced) are handled with toasts.
    */
   const handleSync = async (): Promise<void> => {
     const previewResult = await dispatch(fetchSyncPreview())
@@ -67,24 +68,7 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
         })
         return
       }
-
-      // If no conflicts, execute immediately
-      if (preview.conflicts.length === 0) {
-        const result = await dispatch(
-          executeSyncAction({ replaceConflicts: [] }),
-        )
-        if (executeSyncAction.fulfilled.match(result)) {
-          toast.success('Sync completed', {
-            description: `Created ${result.payload.created} symlinks`,
-          })
-          dispatch(fetchSkills())
-          dispatch(fetchAgents())
-          dispatch(fetchSourceStats())
-        } else {
-          toast.error('Sync failed')
-        }
-      }
-      // If conflicts exist, the dialog will open via syncPreview state
+      // Otherwise, syncPreview state in Redux will open the appropriate dialog
     } else {
       toast.error('Failed to preview sync')
     }
