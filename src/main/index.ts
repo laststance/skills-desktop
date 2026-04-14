@@ -45,7 +45,7 @@ function createWindow(): void {
       let isAllowed = false
       try {
         const url = new URL(params.src)
-        isAllowed = url.protocol === 'https:' && url.hostname === 'skills.sh'
+        isAllowed = url.origin === 'https://skills.sh'
       } catch {
         isAllowed = false
       }

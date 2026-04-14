@@ -39,8 +39,7 @@ export const MarketplaceSkillPreview = React.memo(
      */
     const isAllowedUrl = (url: string): boolean => {
       try {
-        const parsed = new URL(url)
-        return parsed.protocol === 'https:' && parsed.hostname === 'skills.sh'
+        return new URL(url).origin === 'https://skills.sh'
       } catch {
         return false
       }
@@ -124,7 +123,7 @@ export const MarketplaceSkillPreview = React.memo(
           <webview
             ref={webviewRef}
             src={skill.url}
-            partition="persist:marketplace"
+            partition="marketplace"
             className={`absolute inset-0 ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity`}
             style={{ width: '100%', height: '100%' }}
           />
