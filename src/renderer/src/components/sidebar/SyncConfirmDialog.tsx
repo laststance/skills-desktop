@@ -43,9 +43,16 @@ export const SyncConfirmDialog = React.memo(
       const result = await dispatch(executeSyncAction({ replaceConflicts: [] }))
 
       if (executeSyncAction.fulfilled.match(result)) {
-        toast.success('Sync completed', {
-          description: `Created ${result.payload.created} symlinks`,
-        })
+        const { created, errors } = result.payload
+        if (errors.length > 0) {
+          toast.warning('Sync completed with errors', {
+            description: `Created ${created} symlinks, ${errors.length} failed`,
+          })
+        } else {
+          toast.success('Sync completed', {
+            description: `Created ${created} symlinks`,
+          })
+        }
         refreshAllData(dispatch)
       } else {
         toast.error('Sync failed', {

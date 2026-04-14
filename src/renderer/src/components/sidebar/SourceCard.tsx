@@ -11,6 +11,7 @@ import {
   fetchSyncPreview,
   selectAgent,
   setSearchQuery,
+  setSyncPreview,
 } from '../../redux/slices/uiSlice'
 import { Button } from '../ui/button'
 import { Card, CardContent } from '../ui/card'
@@ -58,11 +59,13 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
       const preview = previewResult.payload
 
       if (preview.totalSkills === 0) {
+        dispatch(setSyncPreview(null))
         toast.info('No skills to sync')
         return
       }
 
       if (preview.toCreate === 0 && preview.conflicts.length === 0) {
+        dispatch(setSyncPreview(null))
         toast.info('Already synced', {
           description: `All ${preview.alreadySynced} skills are already linked`,
         })
