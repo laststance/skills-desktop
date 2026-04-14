@@ -33,6 +33,13 @@ function createWindow(): void {
     mainWindow.show()
   })
 
+  /** Enforce safe webview options before attachment (Electron security recommendation) */
+  mainWindow.webContents.on('will-attach-webview', (_event, webPreferences) => {
+    webPreferences.nodeIntegration = false
+    webPreferences.contextIsolation = true
+    delete webPreferences.preload
+  })
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     try {
       const url = new URL(details.url)

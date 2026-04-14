@@ -36,17 +36,29 @@ export const MarketplaceSkillPreview = React.memo(
       setIsLoading(true)
 
       const handleLoaded = (): void => setIsLoading(false)
+      const handleFailed = (): void => setIsLoading(false)
+
+      /** Strict origin check — blocks skills.sh.evil.com style bypasses */
+      const isAllowedUrl = (url: string): boolean => {
+        try {
+          return new URL(url).hostname === 'skills.sh'
+        } catch {
+          return false
+        }
+      }
+
       const handleNavigate = (e: Electron.WillNavigateEvent): void => {
-        if (!e.url.startsWith('https://skills.sh')) {
+        if (!isAllowedUrl(e.url)) {
           e.preventDefault()
-          window.open(e.url)
         }
       }
 
       wv.addEventListener('did-finish-load', handleLoaded)
+      wv.addEventListener('did-fail-load', handleFailed)
       wv.addEventListener('will-navigate', handleNavigate)
       return () => {
         wv.removeEventListener('did-finish-load', handleLoaded)
+        wv.removeEventListener('did-fail-load', handleFailed)
         wv.removeEventListener('will-navigate', handleNavigate)
       }
     }, [skill.url])
@@ -95,7 +107,7 @@ export const MarketplaceSkillPreview = React.memo(
 )
 
 /**
- * Skeleton placeholder while webview loads (~2-3s).
+ * Skeleton placeholder shown until webview fires did-finish-load or did-fail-load.
  * Mimics the skills.sh page layout with pulse animations.
  */
 const WebviewSkeleton = React.memo(

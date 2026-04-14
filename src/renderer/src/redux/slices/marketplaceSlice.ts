@@ -172,6 +172,7 @@ const marketplaceSlice = createSlice({
       .addCase(installSkill.fulfilled, (state) => {
         state.status = 'idle'
         state.selectedSkill = null
+        state.previewSkill = null
         state.installProgress = null
       })
       .addCase(installSkill.rejected, (state, action) => {

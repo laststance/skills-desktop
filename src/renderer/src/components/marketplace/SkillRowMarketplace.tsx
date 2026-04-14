@@ -39,18 +39,15 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
     dispatch(setPreviewSkill(skill))
   }
 
-  const handleInstall = (e: React.MouseEvent): void => {
-    e.stopPropagation()
+  const handleInstall = (): void => {
     dispatch(selectSkillForInstall(skill))
   }
 
-  const handleRemove = (e: React.MouseEvent): void => {
-    e.stopPropagation()
+  const handleRemove = (): void => {
     dispatch(setSkillToRemove(skill.name))
   }
 
-  const handleToggleBookmark = (e: React.MouseEvent): void => {
-    e.stopPropagation()
+  const handleToggleBookmark = (): void => {
     if (isBookmarked) {
       dispatch(removeBookmark(skill.name))
     } else {
@@ -61,32 +58,25 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
   }
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={handleRowClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          handleRowClick()
-        }
-      }}
-      className="flex items-center gap-4 p-4 rounded-lg bg-card h-[76px] min-w-0 border border-card hover:border-primary/50 transition-colors cursor-pointer"
-    >
-      {/* Rank Badge */}
-      <div className="flex items-center justify-center w-8 h-8 shrink-0 rounded-md bg-muted font-mono text-sm font-semibold text-primary">
-        {skill.rank}
-      </div>
-
-      {/* Skill Info */}
-      <div className="flex-1 min-w-0 flex flex-col gap-1">
-        <span className="font-semibold text-[15px] text-foreground truncate">
-          {skill.name}
-        </span>
-        <span className="font-mono text-xs text-muted-foreground truncate">
-          {skill.repo}
-        </span>
-      </div>
+    <div className="flex items-center gap-4 p-4 rounded-lg bg-card h-[76px] min-w-0 border border-card hover:border-primary/50 transition-colors">
+      {/* Rank Badge + Skill Info — clickable preview area */}
+      <button
+        type="button"
+        onClick={handleRowClick}
+        className="flex items-center gap-4 flex-1 min-w-0 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
+      >
+        <div className="flex items-center justify-center w-8 h-8 shrink-0 rounded-md bg-muted font-mono text-sm font-semibold text-primary">
+          {skill.rank}
+        </div>
+        <div className="flex-1 min-w-0 flex flex-col gap-1">
+          <span className="font-semibold text-[15px] text-foreground truncate">
+            {skill.name}
+          </span>
+          <span className="font-mono text-xs text-muted-foreground truncate">
+            {skill.repo}
+          </span>
+        </div>
+      </button>
 
       {/* Bookmark Toggle */}
       <button
