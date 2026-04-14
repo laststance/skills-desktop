@@ -41,20 +41,28 @@ const ACTION_LABEL: Record<SyncResultAction, string> = {
  * Displays a scrollable list of each skill x agent action with color-coded badges.
  */
 export const SyncResultDialog = React.memo(
-  function SyncResultDialog(): React.ReactElement {
+  function SyncResultDialog(): React.ReactElement | null {
     const dispatch = useAppDispatch()
     const syncResult = useAppSelector((state) => state.ui.syncResult)
     const isOpen = shouldShowSyncResult(syncResult)
 
     const handleClose = (): void => {
+      const hadChanges =
+        syncResult !== null &&
+        (syncResult.created > 0 ||
+          syncResult.replaced > 0 ||
+          syncResult.errors.length > 0)
       dispatch(clearSyncResult())
-      refreshAllData(dispatch)
+      if (hadChanges) {
+        refreshAllData(dispatch)
+      }
     }
 
-    // Determine header icon based on result status
-    const hasErrors = (syncResult?.errors.length ?? 0) > 0
-    const hasSuccess =
-      (syncResult?.created ?? 0) > 0 || (syncResult?.replaced ?? 0) > 0
+    // Skip all derivations when dialog is closed
+    if (!isOpen || !syncResult) return null
+
+    const hasErrors = syncResult.errors.length > 0
+    const hasSuccess = syncResult.created > 0 || syncResult.replaced > 0
     const HeaderIcon = hasErrors
       ? hasSuccess
         ? AlertTriangle // partial: some succeeded, some failed
@@ -66,20 +74,17 @@ export const SyncResultDialog = React.memo(
         : 'text-destructive'
       : 'text-emerald-500'
 
-    // Build description summary
     const parts: string[] = []
-    if (syncResult) {
-      if (syncResult.created > 0)
-        parts.push(
-          `Created ${syncResult.created} symlink${syncResult.created !== 1 ? 's' : ''}`,
-        )
-      if (syncResult.replaced > 0)
-        parts.push(
-          `replaced ${syncResult.replaced} conflict${syncResult.replaced !== 1 ? 's' : ''}`,
-        )
-      if (syncResult.errors.length > 0)
-        parts.push(`${syncResult.errors.length} failed`)
-    }
+    if (syncResult.created > 0)
+      parts.push(
+        `Created ${syncResult.created} symlink${syncResult.created !== 1 ? 's' : ''}`,
+      )
+    if (syncResult.replaced > 0)
+      parts.push(
+        `Replaced ${syncResult.replaced} conflict${syncResult.replaced !== 1 ? 's' : ''}`,
+      )
+    if (syncResult.errors.length > 0)
+      parts.push(`${syncResult.errors.length} failed`)
     const description =
       parts.length > 0 ? parts.join(', ') : 'No changes were made'
 
@@ -94,68 +99,64 @@ export const SyncResultDialog = React.memo(
             <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
 
-          {syncResult && (
-            <div className="py-4 space-y-3">
-              {/* Summary stats row */}
-              <div className="flex gap-4 text-sm">
-                {syncResult.created > 0 && (
-                  <span className="text-cyan-400">
-                    {syncResult.created} created
-                  </span>
-                )}
-                {syncResult.replaced > 0 && (
-                  <span className="text-amber-400">
-                    {syncResult.replaced} replaced
-                  </span>
-                )}
-                {syncResult.errors.length > 0 && (
-                  <span className="text-destructive">
-                    {syncResult.errors.length} errors
-                  </span>
-                )}
-                {syncResult.skipped > 0 && (
-                  <span className="text-muted-foreground">
-                    {syncResult.skipped} skipped
-                  </span>
-                )}
-              </div>
-
-              {/* Per-item detail list */}
-              {syncResult.details.length > 0 ? (
-                <ScrollArea className="max-h-[300px] rounded-md border p-2">
-                  <div className="space-y-1">
-                    {syncResult.details.map((item, index) => (
-                      <div
-                        key={`${item.skillName}-${item.agentName}-${index}`}
-                        className="flex items-center gap-3 p-2 rounded-md text-sm"
-                      >
-                        <Badge variant={ACTION_BADGE_VARIANT[item.action]}>
-                          {ACTION_LABEL[item.action]}
-                        </Badge>
-                        <div className="min-w-0 flex-1">
-                          <span className="font-medium">{item.skillName}</span>
-                          <span className="text-muted-foreground">
-                            {' '}
-                            → {item.agentName}
-                          </span>
-                          {item.error && (
-                            <span className="text-xs text-destructive block truncate">
-                              {item.error}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No changes were made. {syncResult.skipped} item
-                  {syncResult.skipped !== 1 ? 's' : ''} already synced.
-                </p>
+          <div className="py-4 space-y-3">
+            <div className="flex gap-4 text-sm">
+              {syncResult.created > 0 && (
+                <span className="text-cyan-400">
+                  {syncResult.created} created
+                </span>
+              )}
+              {syncResult.replaced > 0 && (
+                <span className="text-amber-400">
+                  {syncResult.replaced} replaced
+                </span>
+              )}
+              {syncResult.errors.length > 0 && (
+                <span className="text-destructive">
+                  {syncResult.errors.length} errors
+                </span>
+              )}
+              {syncResult.skipped > 0 && (
+                <span className="text-muted-foreground">
+                  {syncResult.skipped} skipped
+                </span>
               )}
             </div>
-          )}
+
+            {syncResult.details.length > 0 ? (
+              <ScrollArea className="max-h-[300px] rounded-md border p-2">
+                <div className="space-y-1">
+                  {syncResult.details.map((item, index) => (
+                    <div
+                      key={`${item.skillName}-${item.agentName}-${index}`}
+                      className="flex items-center gap-3 p-2 rounded-md text-sm"
+                    >
+                      <Badge variant={ACTION_BADGE_VARIANT[item.action]}>
+                        {ACTION_LABEL[item.action]}
+                      </Badge>
+                      <div className="min-w-0 flex-1">
+                        <span className="font-medium">{item.skillName}</span>
+                        <span className="text-muted-foreground">
+                          {' '}
+                          → {item.agentName}
+                        </span>
+                        {item.error && (
+                          <span className="text-xs text-destructive block truncate">
+                            {item.error}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No changes were made. {syncResult.skipped} item
+                {syncResult.skipped !== 1 ? 's' : ''} already synced.
+              </p>
+            )}
+          </div>
 
           <DialogFooter>
             <Button onClick={handleClose}>Close</Button>

@@ -107,14 +107,16 @@ export async function syncExecute(
   const errors: SyncExecuteResult['errors'] = []
   const details: SyncResultItem[] = []
 
+  // Pre-create all agent skill directories (M calls instead of N×M)
+  for (const agent of agents) {
+    await mkdir(agent.path, { recursive: true })
+  }
+
   for (const skill of skills) {
     for (const agent of agents) {
       const linkPath = join(agent.path, skill.name)
 
       try {
-        // Ensure agent skills directory exists
-        await mkdir(agent.path, { recursive: true })
-
         let exists = false
         let isSymlink = false
 
@@ -127,7 +129,6 @@ export async function syncExecute(
         }
 
         if (!exists) {
-          // Create new symlink
           await symlink(skill.path, linkPath)
           created++
           details.push({
@@ -136,10 +137,8 @@ export async function syncExecute(
             action: 'created',
           })
         } else if (isSymlink) {
-          // Already synced, skip
           skipped++
         } else if (replaceSet.has(linkPath)) {
-          // Conflict approved for replacement
           await rm(linkPath, { recursive: true, force: true })
           await symlink(skill.path, linkPath)
           replaced++
@@ -149,16 +148,16 @@ export async function syncExecute(
             action: 'replaced',
           })
         } else {
-          // Conflict not approved, skip
           skipped++
         }
       } catch (error) {
-        errors.push({ path: linkPath, error: extractErrorMessage(error) })
+        const msg = extractErrorMessage(error)
+        errors.push({ path: linkPath, error: msg })
         details.push({
           skillName: skill.name,
           agentName: agent.name,
           action: 'error',
-          error: extractErrorMessage(error),
+          error: msg,
         })
       }
     }
