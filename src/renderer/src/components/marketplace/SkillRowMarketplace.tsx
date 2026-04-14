@@ -2,7 +2,7 @@ import { Check, Download, Plus, Star, Trash2 } from 'lucide-react'
 import React from 'react'
 
 import type { SkillSearchResult } from '../../../../shared/types'
-import { cn } from '../../lib/utils'
+import { cn, formatInstallCount } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import {
   addBookmark,
@@ -11,28 +11,13 @@ import {
 } from '../../redux/slices/bookmarkSlice'
 import {
   selectSkillForInstall,
+  setPreviewSkill,
   setSkillToRemove,
 } from '../../redux/slices/marketplaceSlice'
 
 interface SkillRowMarketplaceProps {
   skill: SkillSearchResult
   isInstalled?: boolean
-}
-
-/**
- * Format install count for display (e.g., 72900 -> "72.9K")
- * @param count - Raw install count number
- * @returns Formatted string with K/M suffix
- */
-function formatInstallCount(count: number | undefined): string {
-  if (!count) return '—'
-  if (count >= 1_000_000) {
-    return `${(count / 1_000_000).toFixed(1)}M`
-  }
-  if (count >= 1_000) {
-    return `${(count / 1_000).toFixed(1)}K`
-  }
-  return count.toString()
 }
 
 /**
@@ -49,6 +34,10 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
   const isBookmarked = useAppSelector((state) =>
     selectIsBookmarked(state, skill.name),
   )
+
+  const handleRowClick = (): void => {
+    dispatch(setPreviewSkill(skill))
+  }
 
   const handleInstall = (): void => {
     dispatch(selectSkillForInstall(skill))
@@ -69,33 +58,25 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
   }
 
   return (
-    <div
-      className={cn(
-        'flex items-center gap-4 p-4 rounded-lg bg-card h-[76px] min-w-0',
-        'border transition-colors',
-        isInstalled ? 'border-primary' : 'border-card hover:border-primary/50',
-      )}
-    >
-      {/* Rank Badge */}
-      <div
-        className={cn(
-          'flex items-center justify-center w-8 h-8 shrink-0 rounded-md bg-muted',
-          'font-mono text-sm font-semibold',
-          isInstalled ? 'text-muted-foreground' : 'text-primary',
-        )}
+    <div className="flex items-center gap-4 p-4 rounded-lg bg-card h-[76px] min-w-0 border border-card hover:border-primary/50 transition-colors">
+      {/* Rank Badge + Skill Info — clickable preview area */}
+      <button
+        type="button"
+        onClick={handleRowClick}
+        className="flex items-center gap-4 flex-1 min-w-0 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
       >
-        {skill.rank}
-      </div>
-
-      {/* Skill Info */}
-      <div className="flex-1 min-w-0 flex flex-col gap-1">
-        <span className="font-semibold text-[15px] text-foreground truncate">
-          {skill.name}
-        </span>
-        <span className="font-mono text-xs text-muted-foreground truncate">
-          {skill.repo}
-        </span>
-      </div>
+        <div className="flex items-center justify-center w-8 h-8 shrink-0 rounded-md bg-muted font-mono text-sm font-semibold text-primary">
+          {skill.rank}
+        </div>
+        <div className="flex-1 min-w-0 flex flex-col gap-1">
+          <span className="font-semibold text-[15px] text-foreground truncate">
+            {skill.name}
+          </span>
+          <span className="font-mono text-xs text-muted-foreground truncate">
+            {skill.repo}
+          </span>
+        </div>
+      </button>
 
       {/* Bookmark Toggle */}
       <button

@@ -5,13 +5,15 @@ import {
   ExternalLink,
   X,
 } from 'lucide-react'
-import React, { useState } from 'react'
+import React from 'react'
 
 import { FEATURE_FLAGS } from '../../../../shared/featureFlags'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import type { SkillTypeFilter } from '../../redux/slices/uiSlice'
+import { setPreviewSkill } from '../../redux/slices/marketplaceSlice'
+import type { ActiveTab, SkillTypeFilter } from '../../redux/slices/uiSlice'
 import {
   selectAgent,
+  setActiveTab,
   setSkillTypeFilter,
   toggleSortOrder,
 } from '../../redux/slices/uiSlice'
@@ -57,7 +59,7 @@ export const MainContent = React.memo(
     const sortOrder = useAppSelector((state) => state.ui.sortOrder)
     const skillTypeFilter = useAppSelector((state) => state.ui.skillTypeFilter)
     const { items: agents } = useAppSelector((state) => state.agents)
-    const [activeTab, setActiveTab] = useState<string>('installed')
+    const activeTab = useAppSelector((state) => state.ui.activeTab)
 
     const selectedAgent = agents.find((a) => a.id === selectedAgentId)
 
@@ -70,7 +72,8 @@ export const MainContent = React.memo(
      * Marketplace external link is handled separately to avoid Radix state issues.
      */
     const handleTabChange = (value: string): void => {
-      setActiveTab(value)
+      dispatch(setActiveTab(value as ActiveTab))
+      dispatch(setPreviewSkill(null))
     }
 
     /**

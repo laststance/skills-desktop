@@ -24,6 +24,7 @@ function createWindow(): void {
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
+      webviewTag: true,
     },
   })
 
@@ -31,6 +32,33 @@ function createWindow(): void {
     mainWindow.maximize()
     mainWindow.show()
   })
+
+  /** Enforce safe webview options before attachment (Electron security recommendation).
+   * Deny-by-default: only allow https://skills.sh origins.
+   * @param event - Prevents webview attachment when URL is disallowed
+   * @param webPreferences - Hardened to disable node integration
+   * @param params - Contains the src URL to validate
+   */
+  mainWindow.webContents.on(
+    'will-attach-webview',
+    (event, webPreferences, params) => {
+      let isAllowed = false
+      try {
+        const url = new URL(params.src)
+        isAllowed = url.origin === 'https://skills.sh'
+      } catch {
+        isAllowed = false
+      }
+      if (!isAllowed) {
+        event.preventDefault()
+        return
+      }
+
+      webPreferences.nodeIntegration = false
+      webPreferences.contextIsolation = true
+      delete webPreferences.preload
+    },
+  )
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     try {
