@@ -15,8 +15,11 @@ export type BookmarkForDetail = BookmarkedSkill & { isInstalled: boolean }
 
 export type SortOrder = 'asc' | 'desc'
 export type SkillTypeFilter = 'all' | 'symlinked' | 'local'
+export type ActiveTab = 'installed' | 'marketplace'
 
 interface UiState {
+  /** Active main content tab */
+  activeTab: ActiveTab
   searchQuery: string
   sourceStats: SourceStats | null
   isRefreshing: boolean
@@ -36,6 +39,7 @@ interface UiState {
 }
 
 const initialState: UiState = {
+  activeTab: 'installed',
   searchQuery: '',
   sourceStats: null,
   isRefreshing: false,
@@ -85,6 +89,9 @@ const uiSlice = createSlice({
   name: 'ui',
   initialState,
   reducers: {
+    setActiveTab: (state, action: PayloadAction<ActiveTab>) => {
+      state.activeTab = action.payload
+    },
     setSearchQuery: (state, action: PayloadAction<string>) => {
       state.searchQuery = action.payload
     },
@@ -147,6 +154,7 @@ const uiSlice = createSlice({
 })
 
 export const {
+  setActiveTab,
   setSearchQuery,
   setRefreshing,
   selectAgent,
@@ -159,6 +167,8 @@ export const {
 export default uiSlice.reducer
 
 // --- Named selectors ---
+export const selectActiveTab = (state: RootState): ActiveTab =>
+  state.ui.activeTab
 export const selectSearchQuery = (state: RootState): string =>
   state.ui.searchQuery
 export const selectSelectedAgentId = (state: RootState): AgentId | null =>

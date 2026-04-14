@@ -18,6 +18,8 @@ interface MarketplaceState {
   searchQuery: string
   searchResults: SkillSearchResult[]
   selectedSkill: SkillSearchResult | null
+  /** Skill selected for right-pane webview preview (separate from install modal) */
+  previewSkill: SkillSearchResult | null
   installProgress: InstallProgress | null
   skillToRemove: string | null
   error: string | null
@@ -30,6 +32,7 @@ const initialState: MarketplaceState = {
   searchQuery: '',
   searchResults: [],
   selectedSkill: null,
+  previewSkill: null,
   installProgress: null,
   skillToRemove: null,
   error: null,
@@ -122,6 +125,12 @@ const marketplaceSlice = createSlice({
       action: PayloadAction<InstallProgress | null>,
     ) => {
       state.installProgress = action.payload
+    },
+    setPreviewSkill: (
+      state,
+      action: PayloadAction<SkillSearchResult | null>,
+    ) => {
+      state.previewSkill = action.payload
     },
     setSkillToRemove: (state, action: PayloadAction<string | null>) => {
       state.skillToRemove = action.payload
@@ -232,6 +241,7 @@ const marketplaceSlice = createSlice({
 export const {
   setSearchQuery,
   selectSkillForInstall,
+  setPreviewSkill,
   setInstallProgress,
   setSkillToRemove,
   cancelOperation,

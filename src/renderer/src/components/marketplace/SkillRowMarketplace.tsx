@@ -2,7 +2,7 @@ import { Check, Download, Plus, Star, Trash2 } from 'lucide-react'
 import React from 'react'
 
 import type { SkillSearchResult } from '../../../../shared/types'
-import { cn } from '../../lib/utils'
+import { cn, formatInstallCount } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import {
   addBookmark,
@@ -11,28 +11,13 @@ import {
 } from '../../redux/slices/bookmarkSlice'
 import {
   selectSkillForInstall,
+  setPreviewSkill,
   setSkillToRemove,
 } from '../../redux/slices/marketplaceSlice'
 
 interface SkillRowMarketplaceProps {
   skill: SkillSearchResult
   isInstalled?: boolean
-}
-
-/**
- * Format install count for display (e.g., 72900 -> "72.9K")
- * @param count - Raw install count number
- * @returns Formatted string with K/M suffix
- */
-function formatInstallCount(count: number | undefined): string {
-  if (!count) return '—'
-  if (count >= 1_000_000) {
-    return `${(count / 1_000_000).toFixed(1)}M`
-  }
-  if (count >= 1_000) {
-    return `${(count / 1_000).toFixed(1)}K`
-  }
-  return count.toString()
 }
 
 /**
@@ -50,15 +35,22 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
     selectIsBookmarked(state, skill.name),
   )
 
-  const handleInstall = (): void => {
+  const handleRowClick = (): void => {
+    dispatch(setPreviewSkill(skill))
+  }
+
+  const handleInstall = (e: React.MouseEvent): void => {
+    e.stopPropagation()
     dispatch(selectSkillForInstall(skill))
   }
 
-  const handleRemove = (): void => {
+  const handleRemove = (e: React.MouseEvent): void => {
+    e.stopPropagation()
     dispatch(setSkillToRemove(skill.name))
   }
 
-  const handleToggleBookmark = (): void => {
+  const handleToggleBookmark = (e: React.MouseEvent): void => {
+    e.stopPropagation()
     if (isBookmarked) {
       dispatch(removeBookmark(skill.name))
     } else {
@@ -69,7 +61,18 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
   }
 
   return (
-    <div className="flex items-center gap-4 p-4 rounded-lg bg-card h-[76px] min-w-0 border border-card hover:border-primary/50 transition-colors">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleRowClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          handleRowClick()
+        }
+      }}
+      className="flex items-center gap-4 p-4 rounded-lg bg-card h-[76px] min-w-0 border border-card hover:border-primary/50 transition-colors cursor-pointer"
+    >
       {/* Rank Badge */}
       <div className="flex items-center justify-center w-8 h-8 shrink-0 rounded-md bg-muted font-mono text-sm font-semibold text-primary">
         {skill.rank}

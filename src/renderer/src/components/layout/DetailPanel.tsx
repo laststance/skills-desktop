@@ -3,23 +3,25 @@ import React from 'react'
 
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { selectSkill } from '../../redux/slices/skillsSlice'
+import { MarketplaceDetailPanel } from '../marketplace/MarketplaceDetailPanel'
 import { SkillDetail } from '../skills/SkillDetail'
 
 /**
  * Collapsible Inspector panel (Apple HIG pattern)
- * Shows selected skill details with file preview
- * Hidden by default, expands when a skill card is clicked
+ * Routes between:
+ * - Installed tab → SkillDetail (existing)
+ * - Marketplace tab → MarketplaceDetailPanel (dashboard or webview preview)
  */
 export const DetailPanel = React.memo(
   function DetailPanel(): React.ReactElement {
     const dispatch = useAppDispatch()
-    const { selectedSkill } = useAppSelector((state) => state.skills)
+    const activeTab = useAppSelector((state) => state.ui.activeTab)
+    const selectedSkill = useAppSelector((state) => state.skills.selectedSkill)
 
     return (
       <aside className="h-full border-l border-border bg-card flex flex-col overflow-hidden">
-        {/* Draggable title bar area with close button */}
         <div className="h-8 drag-region shrink-0 flex items-center justify-end pr-2">
-          {selectedSkill && (
+          {activeTab !== 'marketplace' && selectedSkill && (
             <button
               type="button"
               onClick={() => dispatch(selectSkill(null))}
@@ -30,7 +32,9 @@ export const DetailPanel = React.memo(
             </button>
           )}
         </div>
-        {selectedSkill ? (
+        {activeTab === 'marketplace' ? (
+          <MarketplaceDetailPanel />
+        ) : selectedSkill ? (
           <SkillDetail skill={selectedSkill} />
         ) : (
           <div className="flex-1 flex items-center justify-center">
