@@ -463,13 +463,35 @@ export interface SyncExecuteOptions {
 }
 
 /**
+ * Action type for each item processed during sync execution
+ */
+export type SyncResultAction = 'created' | 'replaced' | 'error'
+
+/**
+ * Per-item detail from sync execution, used to show a diff of what happened.
+ * Only action items (created/replaced/error) are tracked; skipped items use an aggregate count.
+ * @example
+ * { skillName: 'my-skill', agentName: 'Claude Code', action: 'created' }
+ */
+export interface SyncResultItem {
+  skillName: string
+  agentName: string
+  action: SyncResultAction
+  error?: string
+}
+
+/**
  * Result from executing sync
  * @example
- * { success: true, created: 10, replaced: 2, errors: [] }
+ * { success: true, created: 10, replaced: 2, skipped: 5, errors: [], details: [...] }
  */
 export interface SyncExecuteResult {
   success: boolean
   created: number
   replaced: number
+  /** Number of already-synced items that were skipped */
+  skipped: number
   errors: Array<{ path: string; error: string }>
+  /** Per-item action details for displaying sync diff */
+  details: SyncResultItem[]
 }

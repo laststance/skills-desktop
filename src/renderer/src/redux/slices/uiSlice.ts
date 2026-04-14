@@ -6,6 +6,7 @@ import type {
   BookmarkedSkill,
   SourceStats,
   SyncExecuteOptions,
+  SyncExecuteResult,
   SyncPreviewResult,
 } from '../../../../shared/types'
 import type { RootState } from '../store'
@@ -33,6 +34,8 @@ interface UiState {
   isSyncing: boolean
   /** Sync preview result (null when not previewing) */
   syncPreview: SyncPreviewResult | null
+  /** Sync execution result for showing per-item diff (null when not displaying) */
+  syncResult: SyncExecuteResult | null
   error: string | null
   /** Bookmark selected for detail modal (null when modal closed) */
   selectedBookmarkForDetail: BookmarkForDetail | null
@@ -48,6 +51,7 @@ const initialState: UiState = {
   skillTypeFilter: 'all',
   isSyncing: false,
   syncPreview: null,
+  syncResult: null,
   error: null,
   selectedBookmarkForDetail: null,
 }
@@ -114,6 +118,9 @@ const uiSlice = createSlice({
     ) => {
       state.syncPreview = action.payload
     },
+    clearSyncResult: (state) => {
+      state.syncResult = null
+    },
     setSelectedBookmarkForDetail: (
       state,
       action: PayloadAction<BookmarkForDetail>,
@@ -131,6 +138,8 @@ const uiSlice = createSlice({
       })
       .addCase(fetchSyncPreview.pending, (state) => {
         state.isSyncing = true
+        // Close result dialog when starting a new sync preview (prevents overlapping dialogs)
+        state.syncResult = null
       })
       .addCase(fetchSyncPreview.fulfilled, (state, action) => {
         state.syncPreview = action.payload
@@ -142,12 +151,15 @@ const uiSlice = createSlice({
         state.isSyncing = false
         state.error = action.error.message ?? 'Failed to fetch sync preview'
       })
-      .addCase(executeSyncAction.fulfilled, (state) => {
+      .addCase(executeSyncAction.fulfilled, (state, action) => {
         state.isSyncing = false
         state.syncPreview = null
+        // Store result for SyncResultDialog to display per-item diff
+        state.syncResult = action.payload
       })
       .addCase(executeSyncAction.rejected, (state, action) => {
         state.isSyncing = false
+        state.syncResult = null
         state.error = action.error.message ?? 'Sync failed'
       })
   },
@@ -161,6 +173,7 @@ export const {
   toggleSortOrder,
   setSkillTypeFilter,
   setSyncPreview,
+  clearSyncResult,
   setSelectedBookmarkForDetail,
   clearSelectedBookmarkForDetail,
 } = uiSlice.actions
@@ -180,6 +193,8 @@ export const selectIsRefreshing = (state: RootState): boolean =>
 export const selectIsSyncing = (state: RootState): boolean => state.ui.isSyncing
 export const selectSyncPreview = (state: RootState): SyncPreviewResult | null =>
   state.ui.syncPreview
+export const selectSyncResult = (state: RootState): SyncExecuteResult | null =>
+  state.ui.syncResult
 export const selectUiError = (state: RootState): string | null => state.ui.error
 export const selectSortOrder = (state: RootState): SortOrder =>
   state.ui.sortOrder

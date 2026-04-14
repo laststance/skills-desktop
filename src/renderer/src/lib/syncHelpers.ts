@@ -1,4 +1,7 @@
-import type { SyncPreviewResult } from '../../../shared/types'
+import type {
+  SyncExecuteResult,
+  SyncPreviewResult,
+} from '../../../shared/types'
 
 /**
  * Whether to show the sync confirmation dialog (no-conflict case).
@@ -16,4 +19,19 @@ export function shouldShowSyncConfirm(
 ): boolean {
   if (!preview) return false
   return preview.toCreate > 0 && preview.conflicts.length === 0
+}
+
+/**
+ * Whether to show the sync result dialog (per-item diff after sync execution).
+ * Returns true when there is a sync result to display.
+ * @param result - Sync execution result, or null if not available
+ * @returns true if the result dialog should be shown
+ * @example
+ * shouldShowSyncResult(null) // => false
+ * shouldShowSyncResult({ success: true, created: 3, ... }) // => true
+ */
+export function shouldShowSyncResult(
+  result: SyncExecuteResult | null,
+): boolean {
+  return result !== null
 }

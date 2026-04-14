@@ -214,7 +214,14 @@ describe('syncExecute', () => {
 
     expect(result.created).toBe(2) // 1 skill × 2 agents
     expect(result.replaced).toBe(0)
+    expect(result.skipped).toBe(0)
     expect(result.success).toBe(true)
+    expect(result.details).toHaveLength(2)
+    expect(result.details[0]).toMatchObject({
+      skillName: 'new-skill',
+      agentName: 'Claude Code',
+      action: 'created',
+    })
     expect(symlinkMock).toHaveBeenCalledTimes(2)
     expect(symlinkMock).toHaveBeenCalledWith(
       join('/mock/source/skills', 'new-skill'),
@@ -237,6 +244,8 @@ describe('syncExecute', () => {
 
     expect(result.created).toBe(0)
     expect(result.replaced).toBe(0)
+    expect(result.skipped).toBe(2) // 1 skill × 2 agents, all already symlinked
+    expect(result.details).toHaveLength(0) // skipped items not tracked in details
     expect(symlinkMock).not.toHaveBeenCalled()
     expect(rmMock).not.toHaveBeenCalled()
   })
@@ -262,6 +271,20 @@ describe('syncExecute', () => {
     const result = await syncExecute({ replaceConflicts: [conflictPath] })
 
     expect(result.replaced).toBe(1)
+    expect(result.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          skillName: 'local-skill',
+          agentName: 'Claude Code',
+          action: 'replaced',
+        }),
+        expect.objectContaining({
+          skillName: 'local-skill',
+          agentName: 'Cursor',
+          action: 'created',
+        }),
+      ]),
+    )
     expect(rmMock).toHaveBeenCalledWith(conflictPath, {
       recursive: true,
       force: true,
@@ -295,9 +318,12 @@ describe('syncExecute', () => {
     const result = await syncExecute({ replaceConflicts: [] }) // Not approved
 
     expect(result.replaced).toBe(0)
+    expect(result.skipped).toBe(1) // unapproved conflict skipped
     expect(rmMock).not.toHaveBeenCalled()
     // Cursor path: created
     expect(result.created).toBe(1)
+    expect(result.details).toHaveLength(1) // only the created item
+    expect(result.details[0]).toMatchObject({ action: 'created' })
   })
 
   it('records errors when symlink creation fails', async () => {
@@ -318,6 +344,14 @@ describe('syncExecute', () => {
     expect(result.errors).toHaveLength(2)
     expect(result.errors[0]).toMatchObject({
       path: join('/mock/agents/claude/skills', 'fail-skill'),
+      error: 'EPERM: operation not permitted',
+    })
+    // Error items tracked in details with action='error'
+    expect(result.details).toHaveLength(2)
+    expect(result.details[0]).toMatchObject({
+      skillName: 'fail-skill',
+      agentName: 'Claude Code',
+      action: 'error',
       error: 'EPERM: operation not permitted',
     })
   })

@@ -20,6 +20,7 @@ import {
 import { SkillsMarketplace } from '../marketplace'
 import { SyncConfirmDialog } from '../sidebar/SyncConfirmDialog'
 import { SyncConflictDialog } from '../sidebar/SyncConflictDialog'
+import { SyncResultDialog } from '../sidebar/SyncResultDialog'
 import { AddSymlinkModal } from '../skills/AddSymlinkModal'
 import { CopyToAgentsModal } from '../skills/CopyToAgentsModal'
 import { DeleteSkillDialog } from '../skills/DeleteSkillDialog'
@@ -235,6 +236,7 @@ export const MainContent = React.memo(
         <CopyToAgentsModal />
         <SyncConfirmDialog />
         <SyncConflictDialog />
+        <SyncResultDialog />
       </main>
     )
   },
