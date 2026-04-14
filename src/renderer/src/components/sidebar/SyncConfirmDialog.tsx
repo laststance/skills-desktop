@@ -5,7 +5,6 @@ import { toast } from 'sonner'
 import { shouldShowSyncConfirm } from '../../lib/syncHelpers'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { executeSyncAction, setSyncPreview } from '../../redux/slices/uiSlice'
-import { refreshAllData } from '../../redux/thunks'
 import { Button } from '../ui/button'
 import {
   Dialog,
@@ -42,19 +41,8 @@ export const SyncConfirmDialog = React.memo(
 
       const result = await dispatch(executeSyncAction({ replaceConflicts: [] }))
 
-      if (executeSyncAction.fulfilled.match(result)) {
-        const { created, errors } = result.payload
-        if (errors.length > 0) {
-          toast.warning('Sync completed with errors', {
-            description: `Created ${created} symlinks, ${errors.length} failed`,
-          })
-        } else {
-          toast.success('Sync completed', {
-            description: `Created ${created} symlinks`,
-          })
-        }
-        refreshAllData(dispatch)
-      } else {
+      // Success feedback + refreshAllData handled by SyncResultDialog
+      if (executeSyncAction.rejected.match(result)) {
         toast.error('Sync failed', {
           description: result.error?.message || 'An unexpected error occurred',
         })

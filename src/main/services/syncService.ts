@@ -6,6 +6,7 @@ import type {
   SyncExecuteOptions,
   SyncExecuteResult,
   SyncPreviewResult,
+  SyncResultItem,
 } from '../../shared/types'
 import { AGENTS } from '../constants'
 import { extractErrorMessage } from '../utils/errors'
@@ -83,12 +84,13 @@ export async function syncPreview(): Promise<SyncPreviewResult> {
 }
 
 /**
- * Execute sync: create symlinks and optionally replace conflicts
+ * Execute sync: create symlinks and optionally replace conflicts.
+ * Tracks per-item details for displaying a sync diff after completion.
  * @param options - replaceConflicts: paths to replace with symlinks
- * @returns SyncExecuteResult with created/replaced counts and errors
+ * @returns SyncExecuteResult with counts, per-item details, and errors
  * @example
  * syncExecute({ replaceConflicts: ['/Users/x/.claude/skills/my-skill'] })
- * // => { success: true, created: 10, replaced: 1, errors: [] }
+ * // => { success: true, created: 10, replaced: 1, skipped: 5, errors: [], details: [...] }
  */
 export async function syncExecute(
   options: SyncExecuteOptions,
@@ -101,16 +103,18 @@ export async function syncExecute(
 
   let created = 0
   let replaced = 0
+  let skipped = 0
   const errors: SyncExecuteResult['errors'] = []
+  const details: SyncResultItem[] = []
+  // Track agent dirs we've already mkdir'd so per-skill loop does at most M mkdirs total,
+  // while keeping the call inside the per-item try-path (errors become per-item, not global).
+  const ensuredAgentDirs = new Set<string>()
 
   for (const skill of skills) {
     for (const agent of agents) {
       const linkPath = join(agent.path, skill.name)
 
       try {
-        // Ensure agent skills directory exists
-        await mkdir(agent.path, { recursive: true })
-
         let exists = false
         let isSymlink = false
 
@@ -123,20 +127,52 @@ export async function syncExecute(
         }
 
         if (!exists) {
-          // Create new symlink
+          if (!ensuredAgentDirs.has(agent.path)) {
+            await mkdir(agent.path, { recursive: true })
+            ensuredAgentDirs.add(agent.path)
+          }
           await symlink(skill.path, linkPath)
           created++
+          details.push({
+            skillName: skill.name,
+            agentName: agent.name,
+            action: 'created',
+          })
         } else if (isSymlink) {
-          // Already synced, skip
+          skipped++
+          details.push({
+            skillName: skill.name,
+            agentName: agent.name,
+            action: 'skipped',
+          })
         } else if (replaceSet.has(linkPath)) {
-          // Conflict approved for replacement
           await rm(linkPath, { recursive: true, force: true })
           await symlink(skill.path, linkPath)
           replaced++
+          details.push({
+            skillName: skill.name,
+            agentName: agent.name,
+            action: 'replaced',
+          })
+        } else {
+          // Conflict the user declined to replace. Track as skipped so the dialog
+          // can show it per-item, rather than silently folding it into the aggregate.
+          skipped++
+          details.push({
+            skillName: skill.name,
+            agentName: agent.name,
+            action: 'skipped',
+          })
         }
-        // else: conflict not approved, skip
       } catch (error) {
-        errors.push({ path: linkPath, error: extractErrorMessage(error) })
+        const msg = extractErrorMessage(error)
+        errors.push({ path: linkPath, error: msg })
+        details.push({
+          skillName: skill.name,
+          agentName: agent.name,
+          action: 'error',
+          error: msg,
+        })
       }
     }
   }
@@ -145,6 +181,8 @@ export async function syncExecute(
     success: errors.length === 0,
     created,
     replaced,
+    skipped,
     errors,
+    details,
   }
 }

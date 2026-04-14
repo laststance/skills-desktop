@@ -1,7 +1,10 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { SyncPreviewResult } from '../../../../shared/types'
+import type {
+  SyncExecuteResult,
+  SyncPreviewResult,
+} from '../../../../shared/types'
 
 // Stub window.electron before importing the slice (thunks reference it at call time)
 const mockSyncPreview = vi.fn()
@@ -125,8 +128,12 @@ describe('uiSlice sync thunks', () => {
       success: true,
       created: 3,
       replaced: 1,
+      skipped: 4,
       errors: [],
-    })
+      details: [
+        { skillName: 'skill-a', agentName: 'Claude Code', action: 'created' },
+      ],
+    } satisfies SyncExecuteResult)
 
     const store = await createTestStore()
     const { fetchSyncPreview, executeSyncAction } = await import('./uiSlice')
@@ -145,9 +152,13 @@ describe('uiSlice sync thunks', () => {
     const state = store.getState().ui
     expect(state.syncPreview).toBeNull()
     expect(state.isSyncing).toBe(false)
+    // syncResult populated for SyncResultDialog
+    expect(state.syncResult).not.toBeNull()
+    expect(state.syncResult!.created).toBe(3)
+    expect(state.syncResult!.details).toHaveLength(1)
   })
 
-  it('resets isSyncing on executeSyncAction rejected', async () => {
+  it('sets syncResult to null on executeSyncAction rejected', async () => {
     mockSyncExecute.mockRejectedValue(new Error('Permission denied'))
 
     const store = await createTestStore()
@@ -155,6 +166,60 @@ describe('uiSlice sync thunks', () => {
     await store.dispatch(executeSyncAction({ replaceConflicts: [] }))
 
     expect(store.getState().ui.isSyncing).toBe(false)
+    expect(store.getState().ui.syncResult).toBeNull()
+  })
+
+  it('clears syncResult via clearSyncResult action', async () => {
+    mockSyncExecute.mockResolvedValue({
+      success: true,
+      created: 1,
+      replaced: 0,
+      skipped: 0,
+      errors: [],
+      details: [{ skillName: 's', agentName: 'a', action: 'created' }],
+    } satisfies SyncExecuteResult)
+
+    const store = await createTestStore()
+    const { executeSyncAction, clearSyncResult } = await import('./uiSlice')
+
+    await store.dispatch(executeSyncAction({ replaceConflicts: [] }))
+    expect(store.getState().ui.syncResult).not.toBeNull()
+
+    store.dispatch(clearSyncResult())
+    expect(store.getState().ui.syncResult).toBeNull()
+  })
+
+  it('clears syncResult when fetchSyncPreview.pending fires (prevents overlapping dialogs)', async () => {
+    // First: populate syncResult via a completed sync
+    mockSyncExecute.mockResolvedValue({
+      success: true,
+      created: 1,
+      replaced: 0,
+      skipped: 0,
+      errors: [],
+      details: [{ skillName: 's', agentName: 'a', action: 'created' }],
+    } satisfies SyncExecuteResult)
+
+    const store = await createTestStore()
+    const { executeSyncAction, fetchSyncPreview } = await import('./uiSlice')
+
+    await store.dispatch(executeSyncAction({ replaceConflicts: [] }))
+    expect(store.getState().ui.syncResult).not.toBeNull()
+
+    // Now: start a new preview. Pending should clear the old result.
+    let resolve!: (value: SyncPreviewResult) => void
+    mockSyncPreview.mockReturnValue(
+      new Promise<SyncPreviewResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(fetchSyncPreview())
+
+    // While pending, syncResult should already be cleared
+    expect(store.getState().ui.syncResult).toBeNull()
+
+    resolve(previewNoConflicts)
+    await promise
   })
 
   it('clears syncPreview via setSyncPreview(null)', async () => {

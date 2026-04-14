@@ -463,13 +463,44 @@ export interface SyncExecuteOptions {
 }
 
 /**
+ * Action type for each item processed during sync execution.
+ * - `created`: new symlink was created
+ * - `replaced`: existing conflict was overwritten with a symlink
+ * - `skipped`: already-synced symlink or user-declined conflict (no filesystem change)
+ * - `error`: operation failed; message is carried on the item
+ */
+export type SyncResultAction = 'created' | 'replaced' | 'skipped' | 'error'
+
+/** Shared fields for every sync result row */
+type SyncResultBase = {
+  skillName: string
+  agentName: string
+}
+
+/**
+ * Per-item detail from sync execution, used to show a diff of what happened.
+ * Discriminated union guarantees error rows always carry a message.
+ * @example
+ * { skillName: 'my-skill', agentName: 'Claude Code', action: 'created' }
+ * @example
+ * { skillName: 's', agentName: 'a', action: 'error', error: 'EACCES' }
+ */
+export type SyncResultItem =
+  | (SyncResultBase & { action: 'created' | 'replaced' | 'skipped' })
+  | (SyncResultBase & { action: 'error'; error: string })
+
+/**
  * Result from executing sync
  * @example
- * { success: true, created: 10, replaced: 2, errors: [] }
+ * { success: true, created: 10, replaced: 2, skipped: 5, errors: [], details: [...] }
  */
 export interface SyncExecuteResult {
   success: boolean
   created: number
   replaced: number
+  /** Number of already-synced items that were skipped */
+  skipped: number
   errors: Array<{ path: string; error: string }>
+  /** Per-item action details for displaying sync diff */
+  details: SyncResultItem[]
 }
