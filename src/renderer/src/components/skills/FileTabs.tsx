@@ -26,11 +26,8 @@ export const FileTabs = React.memo(function FileTabs({
   onSelectAction,
 }: FileTabsProps): React.ReactElement {
   return (
-    <div
-      className="shrink-0 overflow-x-auto border-b border-border bg-muted/30 scrollbar-none"
-      role="tablist"
-    >
-      <div className="flex items-stretch min-w-max">
+    <div className="shrink-0 overflow-x-auto border-b border-border bg-muted/30 scrollbar-none">
+      <div className="flex items-stretch min-w-max" role="tablist">
         {files.map((file) => (
           <FileTab
             key={file.path}
@@ -82,10 +79,6 @@ const FileTab = React.memo(function FileTab({
   )
 })
 
-/**
- * Pick a lucide icon based on the file's preview kind.
- * Plain text is the most common case, so it's the default.
- */
 function iconForFile(file: SkillFile): typeof FileText {
   if (file.previewable === 'image') return FileImage
   if (file.extension === '.md' || file.extension === '.mdx') return FileText

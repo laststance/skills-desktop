@@ -1,9 +1,11 @@
 import type { Dirent } from 'fs'
 import { readdir, readFile, stat } from 'fs/promises'
-import { extname, join } from 'path'
+import { basename, join } from 'path'
 
 import {
   classifyFile,
+  getNormalizedExtension,
+  IMAGE_MIME_TYPES,
   MAX_IMAGE_FILE_BYTES,
   MAX_TEXT_FILE_BYTES,
   MAX_TREE_DEPTH,
@@ -15,17 +17,6 @@ import type {
   SkillFile,
   SkillFileContent,
 } from '../../shared/types'
-
-/** Map image extensions to MIME types used in the data URL. */
-const IMAGE_MIME_TYPES: Record<string, string> = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-  '.ico': 'image/x-icon',
-  '.bmp': 'image/bmp',
-}
 
 /**
  * Recursively list previewable files in a skill directory.
@@ -49,9 +40,9 @@ const IMAGE_MIME_TYPES: Record<string, string> = {
  * // ]
  */
 export async function listSkillFiles(skillPath: string): Promise<SkillFile[]> {
-  const collected: SkillFile[] = []
+  let collected: SkillFile[]
   try {
-    await walk(skillPath, skillPath, 0, collected)
+    collected = await walk(skillPath, skillPath, 0)
   } catch {
     return []
   }
@@ -66,20 +57,24 @@ async function walk(
   rootPath: string,
   dirPath: string,
   depth: number,
-  out: SkillFile[],
-): Promise<void> {
-  if (depth > MAX_TREE_DEPTH) return
+): Promise<SkillFile[]> {
+  if (depth > MAX_TREE_DEPTH) return []
 
   let entries: Dirent[]
   try {
     entries = (await readdir(dirPath, { withFileTypes: true })) as Dirent[]
   } catch {
-    return
+    return []
   }
 
-  for (const entry of entries) {
-    const fullPath = join(dirPath, entry.name)
+  const subDirs: string[] = []
+  const previewableFiles: Array<{
+    entry: Dirent
+    fullPath: string
+    kind: 'text' | 'image'
+  }> = []
 
+  for (const entry of entries) {
     // Symlink check runs FIRST. Dirent.isSymbolicLink() reflects the entry
     // type, not the link target, so a symlink to a directory would otherwise
     // bypass this guard if we checked isDirectory() first. Skipping symlinks
@@ -87,9 +82,11 @@ async function walk(
     // allowed-bases check (realpath happens only at the handler layer).
     if (entry.isSymbolicLink()) continue
 
+    const fullPath = join(dirPath, entry.name)
+
     if (entry.isDirectory()) {
       if (shouldExcludeDir(entry.name)) continue
-      await walk(rootPath, fullPath, depth + 1, out)
+      subDirs.push(fullPath)
       continue
     }
 
@@ -97,30 +94,51 @@ async function walk(
 
     const kind = classifyFile(entry.name)
     if (kind === 'binary') continue
+    previewableFiles.push({ entry, fullPath, kind })
+  }
 
-    let size = 0
-    try {
-      size = (await stat(fullPath)).size
-    } catch {
-      continue
-    }
+  // Stat files in this dir + descend into sibling subdirs in parallel.
+  // Each branch is isolated (stat failures null out; walk failures return [])
+  // so one bad entry never cascades.
+  const [fileResults, ...subtreeResults] = await Promise.all([
+    Promise.all(
+      previewableFiles.map(async (f) =>
+        buildFileEntry(rootPath, f.entry, f.fullPath, f.kind),
+      ),
+    ),
+    ...subDirs.map(async (p) => walk(rootPath, p, depth + 1)),
+  ])
 
-    // Oversized text files are surfaced, but marked so the UI shows a placeholder.
-    let previewable: FilePreviewKind = kind
-    if (kind === 'text' && size > MAX_TEXT_FILE_BYTES) previewable = 'binary'
-    if (kind === 'image' && size > MAX_IMAGE_FILE_BYTES) previewable = 'binary'
+  return [
+    ...fileResults.filter((f): f is SkillFile => f !== null),
+    ...subtreeResults.flat(),
+  ]
+}
 
-    const relativePath = toPosixRelative(rootPath, fullPath)
-    const ext = extname(entry.name).toLowerCase()
+async function buildFileEntry(
+  rootPath: string,
+  entry: Dirent,
+  fullPath: string,
+  kind: 'text' | 'image',
+): Promise<SkillFile | null> {
+  let size = 0
+  try {
+    size = (await stat(fullPath)).size
+  } catch {
+    return null
+  }
 
-    out.push({
-      name: entry.name,
-      path: fullPath,
-      relativePath,
-      extension: ext,
-      size,
-      previewable,
-    })
+  let previewable: FilePreviewKind = kind
+  if (kind === 'text' && size > MAX_TEXT_FILE_BYTES) previewable = 'binary'
+  if (kind === 'image' && size > MAX_IMAGE_FILE_BYTES) previewable = 'binary'
+
+  return {
+    name: entry.name,
+    path: fullPath,
+    relativePath: toPosixRelative(rootPath, fullPath),
+    extension: getNormalizedExtension(entry.name),
+    size,
+    previewable,
   }
 }
 
@@ -153,13 +171,12 @@ export async function readSkillFile(
     if (size > MAX_TEXT_FILE_BYTES) return null
 
     const content = await readFile(filePath, 'utf-8')
-    const name = filePath.split(/[/\\]+/).pop() || ''
-    const ext = extname(name).toLowerCase()
+    const name = basename(filePath)
 
     return {
       name,
       content,
-      extension: ext,
+      extension: getNormalizedExtension(name),
       lineCount: content.split('\n').length,
     }
   } catch {
@@ -183,9 +200,8 @@ export async function readBinaryFile(
     const size = (await stat(filePath)).size
     if (size > MAX_IMAGE_FILE_BYTES) return null
 
-    const name = filePath.split(/[/\\]+/).pop() || ''
-    const ext = extname(name).toLowerCase()
-    const mimeType = IMAGE_MIME_TYPES[ext]
+    const name = basename(filePath)
+    const mimeType = IMAGE_MIME_TYPES[getNormalizedExtension(name)]
     if (!mimeType) return null
 
     const buffer = await readFile(filePath)

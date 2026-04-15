@@ -56,20 +56,27 @@ export const PREVIEW_EXTENSIONS = [
 ] as const
 
 /**
- * Image extensions that the right pane can render as a preview.
- * NOTE: `.svg` is ALSO in PREVIEW_EXTENSIONS since it is text; classifyFile()
- * prefers the text path so users can read the markup.
- * @example '.png' | '.webp'
+ * Image extensions to MIME types. Single source of truth for image handling;
+ * IMAGE_EXTENSIONS is derived from this so adding a new image type here is
+ * picked up by both `classifyFile` and the base64 reader.
  */
-export const IMAGE_EXTENSIONS = [
-  '.png',
-  '.jpg',
-  '.jpeg',
-  '.gif',
-  '.webp',
-  '.ico',
-  '.bmp',
-] as const
+export const IMAGE_MIME_TYPES: Readonly<Record<string, string>> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.bmp': 'image/bmp',
+} as const
+
+/**
+ * Image extensions that the right pane can render as a preview.
+ * Derived from IMAGE_MIME_TYPES so the two never drift.
+ * NOTE: `.svg` is in PREVIEW_EXTENSIONS since it is text; classifyFile()
+ * prefers the text path so users can read the markup.
+ */
+export const IMAGE_EXTENSIONS: readonly string[] = Object.keys(IMAGE_MIME_TYPES)
 
 /**
  * Directory names that must be skipped entirely when recursing into a skill.
@@ -113,6 +120,24 @@ export const MAX_TREE_DEPTH = 4
 export type FilePreviewKind = 'text' | 'image' | 'binary'
 
 /**
+ * Lowercase extension for a file name, with the multi-dot `.env.example`
+ * edge case handled so extname()'s `.example` read doesn't leak downstream.
+ * @param fileName - Basename, not path.
+ * @returns Lowercase extension including the leading dot, or '' when none.
+ * @example
+ * getNormalizedExtension('SKILL.md')     // => '.md'
+ * getNormalizedExtension('logo.PNG')     // => '.png'
+ * getNormalizedExtension('.env.example') // => '.env.example'
+ * getNormalizedExtension('Makefile')     // => ''
+ */
+export function getNormalizedExtension(fileName: string): string {
+  const lower = fileName.toLowerCase()
+  if (lower.endsWith('.env.example')) return '.env.example'
+  const dot = lower.lastIndexOf('.')
+  return dot >= 0 ? lower.slice(dot) : ''
+}
+
+/**
  * Classify a file by its name so the main process knows which reader path to use
  * and the renderer knows which view to render.
  *
@@ -130,24 +155,16 @@ export type FilePreviewKind = 'text' | 'image' | 'binary'
  * classifyFile('data.bin')   // => 'binary'
  */
 export function classifyFile(fileName: string): FilePreviewKind {
-  const lower = fileName.toLowerCase()
-  // Multi-dot special case: .env.example, which extname() would read as '.example'
-  if (lower.endsWith('.env.example')) return 'text'
-
-  const dot = lower.lastIndexOf('.')
-  const ext = dot >= 0 ? lower.slice(dot) : ''
-
+  const ext = getNormalizedExtension(fileName)
   if ((PREVIEW_EXTENSIONS as readonly string[]).includes(ext)) return 'text'
-  if ((IMAGE_EXTENSIONS as readonly string[]).includes(ext)) return 'image'
+  if (IMAGE_EXTENSIONS.includes(ext)) return 'image'
   return 'binary'
 }
 
 /**
  * Decide whether to skip a directory entry during tree traversal.
  * @param name - Directory basename.
- * @returns
- * - true when the name matches EXCLUDED_DIRS or starts with `.` and is in the list
- * - false otherwise
+ * @returns true iff the name is in EXCLUDED_DIRS.
  * @example
  * shouldExcludeDir('node_modules') // => true
  * shouldExcludeDir('src')          // => false
@@ -155,4 +172,24 @@ export function classifyFile(fileName: string): FilePreviewKind {
  */
 export function shouldExcludeDir(name: string): boolean {
   return EXCLUDED_DIRS.includes(name)
+}
+
+/**
+ * Format a byte count as a human-readable string (B / KB / MB / GB).
+ * @param bytes - Number of bytes.
+ * @returns String with unit suffix; 1-decimal precision above B.
+ * @example
+ * formatBytes(512)      // => '512 B'
+ * formatBytes(1024)     // => '1.0 KB'
+ * formatBytes(5242880)  // => '5.0 MB'
+ */
+export function formatBytes(bytes: number): string {
+  const units = ['B', 'KB', 'MB', 'GB']
+  let size = bytes
+  let unitIndex = 0
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024
+    unitIndex++
+  }
+  return `${size.toFixed(unitIndex > 0 ? 1 : 0)} ${units[unitIndex]}`
 }

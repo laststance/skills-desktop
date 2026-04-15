@@ -2,6 +2,7 @@ import { readdir, readFile, stat } from 'fs/promises'
 import { homedir } from 'os'
 import { join } from 'path'
 
+import { formatBytes } from '../../shared/fileTypes'
 import type { Skill, SourceStats, SymlinkInfo } from '../../shared/types'
 import { AGENTS, SOURCE_DIR } from '../constants'
 
@@ -248,22 +249,4 @@ async function calculateDirectorySize(dirPath: string): Promise<number> {
   }
 
   return total
-}
-
-/**
- * Format bytes to human-readable string
- * @param bytes - Number of bytes
- * @returns Formatted string (e.g., '2.3 MB')
- */
-function formatBytes(bytes: number): string {
-  const units = ['B', 'KB', 'MB', 'GB']
-  let size = bytes
-  let unitIndex = 0
-
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024
-    unitIndex++
-  }
-
-  return `${size.toFixed(unitIndex > 0 ? 1 : 0)} ${units[unitIndex]}`
 }

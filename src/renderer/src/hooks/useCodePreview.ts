@@ -66,7 +66,6 @@ export function useCodePreview(skillPath: string): UseCodePreviewReturn {
       if (cancelled) return
       setFiles(fileList)
       setLoadedPath(skillPath)
-      // Load the first file's content so the panel is never blank on open.
       const first = fileList[0]
       if (!first) {
         setContent({ kind: 'empty' })
@@ -84,24 +83,18 @@ export function useCodePreview(skillPath: string): UseCodePreviewReturn {
 
   const setActiveFile = useCallback(
     async (path: string | null) => {
+      if (path === activeFile) return
       setUserSelectedFile(path)
       if (!path) {
         setContent({ kind: 'empty' })
         return
       }
-      // Look up the file's previewable classification so we pick the right IPC.
-      // Falling back to 'text' matches the previous behavior if the file isn't
-      // in the list yet (shouldn't normally happen).
       const file = files.find((f) => f.path === path)
-      if (!file) {
-        const data = await window.electron.files.read(path)
-        setContent(data ? { kind: 'text', data } : { kind: 'empty' })
-        return
-      }
+      if (!file) return
       const next = await loadContentForFile(file)
       setContent(next)
     },
-    [files],
+    [activeFile, files],
   )
 
   return { files, activeFile, setActiveFile, content, loading }

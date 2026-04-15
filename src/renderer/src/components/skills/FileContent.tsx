@@ -1,6 +1,7 @@
 import { FileQuestion } from 'lucide-react'
 import React from 'react'
 
+import { formatBytes } from '../../../../shared/fileTypes'
 import type { PreviewContent } from '../../hooks/useCodePreview'
 
 interface FileContentProps {
@@ -84,14 +85,3 @@ const BinaryPlaceholder = React.memo(function BinaryPlaceholder({
     </div>
   )
 })
-
-/**
- * Format a byte count into a human-readable string.
- * @example formatBytes(2048)    // => "2.0 KB"
- * @example formatBytes(5242880) // => "5.0 MB"
- */
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
