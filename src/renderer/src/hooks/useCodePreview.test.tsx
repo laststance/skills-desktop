@@ -185,6 +185,69 @@ describe('useCodePreview', () => {
     expect(result.current.content).toEqual({ kind: 'text', data: secondBody })
   })
 
+  it('race guard: subsequent user selection wins over slow prior setActiveFile', async () => {
+    const first = makeFile()
+    const second = makeFile({
+      name: 'notes.md',
+      path: '/skills/tdd/notes.md',
+      relativePath: 'notes.md',
+    })
+    const third = makeFile({
+      name: 'other.md',
+      path: '/skills/tdd/other.md',
+      relativePath: 'other.md',
+    })
+    const firstBody = makeTextContent()
+    const thirdBody = makeTextContent({ name: 'other.md', content: 'third' })
+    listMock.mockResolvedValue([first, second, third])
+
+    // read(first) resolves normally for the initial auto-select.
+    // read(second) hangs — that's the "slow prior setActiveFile" we race against.
+    // read(third) resolves with `thirdBody` — the user's final click.
+    let resolveSecond: ((v: SkillFileContent | null) => void) | null = null
+    readMock.mockImplementation(async (p) => {
+      if (p === first.path) return firstBody
+      if (p === second.path) {
+        return new Promise<SkillFileContent | null>((res) => {
+          resolveSecond = res
+        })
+      }
+      return thirdBody
+    })
+
+    const { useCodePreview } = await import('./useCodePreview')
+    const { result } = renderHook(() => useCodePreview('/skills/tdd'))
+
+    await waitFor(() =>
+      expect(result.current.content).toEqual({ kind: 'text', data: firstBody }),
+    )
+
+    // Fire the slow click — don't await so the fetch stays pending.
+    let slowPromise: Promise<void> | null = null
+    await act(async () => {
+      slowPromise = result.current.setActiveFile(second.path)
+      // Yield once so setUserSelectedFile's state update flushes before
+      // the next setActiveFile call reads `activeFile` via closure.
+      await Promise.resolve()
+    })
+    expect(result.current.activeFile).toBe(second.path)
+
+    // Fire the winning click — this one resolves quickly.
+    await act(async () => {
+      await result.current.setActiveFile(third.path)
+    })
+    expect(result.current.activeFile).toBe(third.path)
+    expect(result.current.content).toEqual({ kind: 'text', data: thirdBody })
+
+    // Now resolve the hanging read(second). Guard must drop its result.
+    await act(async () => {
+      resolveSecond?.(makeTextContent({ name: 'notes.md', content: 'stale' }))
+      await slowPromise
+    })
+    expect(result.current.activeFile).toBe(third.path)
+    expect(result.current.content).toEqual({ kind: 'text', data: thirdBody })
+  })
+
   it('skillPath change resets state synchronously', async () => {
     const fileA = makeFile({
       path: '/skills/a/SKILL.md',

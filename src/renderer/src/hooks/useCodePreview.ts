@@ -95,9 +95,16 @@ export function useCodePreview(skillPath: string): UseCodePreviewReturn {
       const file = files.find((f) => f.path === path)
       if (!file) return
       const next = await loadContentForFile(file)
+      // After the await, two things may have happened out of order:
+      // (a) the user picked a different file (stale click loses)
+      // (b) the skill itself switched (whole state already reset)
+      // Both guards read refs so they see the *current* value, not the
+      // closure snapshot from when this fetch started.
+      if (userSelectedFileRef.current !== path) return
+      if (prevSkillPathRef.current !== skillPath) return
       setContent(next)
     },
-    [activeFile, files],
+    [activeFile, files, skillPath],
   )
 
   return { files, activeFile, setActiveFile, content, loading }
