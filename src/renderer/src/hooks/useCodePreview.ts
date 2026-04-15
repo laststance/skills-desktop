@@ -46,12 +46,14 @@ export function useCodePreview(skillPath: string): UseCodePreviewReturn {
   const [userSelectedFile, setUserSelectedFile] = useState<string | null>(null)
   const [content, setContent] = useState<PreviewContent>({ kind: 'empty' })
   const prevSkillPathRef = useRef(skillPath)
+  // Mirror of userSelectedFile readable synchronously from the initial-load
+  // effect. The effect must check the *current* selection when its async IPC
+  // resolves; reading state via closure would see a stale null snapshot.
+  const userSelectedFileRef = useRef<string | null>(null)
 
-  // Reset synchronously when skillPath changes so we never render another
-  // skill's file list while loading the new one. (State reset in an effect
-  // would flash stale content on the first paint after the skill changes.)
   if (prevSkillPathRef.current !== skillPath) {
     prevSkillPathRef.current = skillPath
+    userSelectedFileRef.current = null
     setUserSelectedFile(null)
     setContent({ kind: 'empty' })
   }
@@ -72,7 +74,7 @@ export function useCodePreview(skillPath: string): UseCodePreviewReturn {
         return
       }
       const initial = await loadContentForFile(first)
-      if (cancelled) return
+      if (cancelled || userSelectedFileRef.current !== null) return
       setContent(initial)
     }
     loadFiles()
@@ -84,6 +86,7 @@ export function useCodePreview(skillPath: string): UseCodePreviewReturn {
   const setActiveFile = useCallback(
     async (path: string | null) => {
       if (path === activeFile) return
+      userSelectedFileRef.current = path
       setUserSelectedFile(path)
       if (!path) {
         setContent({ kind: 'empty' })
