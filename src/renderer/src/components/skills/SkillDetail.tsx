@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { Activity, useState } from 'react'
 
-import type { Skill } from '../../../../shared/types'
+import type { Skill, SymlinkInfo } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
 import { useAppSelector } from '../../redux/hooks'
 import { SymlinkStatus } from '../status/SymlinkStatus'
@@ -52,6 +52,8 @@ export const SkillDetail = React.memo(function SkillDetail({
       {/* Tab buttons */}
       <div className="flex border-b border-border">
         <button
+          type="button"
+          aria-pressed={activeTab === 'code'}
           onClick={() => setActiveTab('code')}
           className={cn(
             'px-4 py-2 text-sm font-medium border-b-2 -mb-[1px] transition-colors',
@@ -63,6 +65,8 @@ export const SkillDetail = React.memo(function SkillDetail({
           Files
         </button>
         <button
+          type="button"
+          aria-pressed={activeTab === 'info'}
           onClick={() => setActiveTab('info')}
           className={cn(
             'px-4 py-2 text-sm font-medium border-b-2 -mb-[1px] transition-colors',
@@ -75,50 +79,76 @@ export const SkillDetail = React.memo(function SkillDetail({
         </button>
       </div>
 
-      {/* Tab content */}
-      <div className="flex-1 min-h-0">
-        {activeTab === 'code' ? (
+      {/* Tab content: both branches stay mounted so their state — scroll
+          position, selected file tab — survives toggling between Files
+          and Info. See react-rules.md "<Activity> - State Preservation". */}
+      <div className="flex-1 min-h-0 relative">
+        <Activity mode={activeTab === 'code' ? 'visible' : 'hidden'}>
           <CodePreview skillPath={skill.path} />
-        ) : (
-          <div className="p-4 overflow-auto h-full">
-            <SourceLink source={skill.source} sourceUrl={skill.sourceUrl} />
+        </Activity>
+        <Activity mode={activeTab === 'info' ? 'visible' : 'hidden'}>
+          <InfoView
+            skill={skill}
+            filteredSymlinks={filteredSymlinks}
+            validCount={validCount}
+            brokenCount={brokenCount}
+          />
+        </Activity>
+      </div>
+    </div>
+  )
+})
 
-            <div className="flex gap-4 text-sm mb-4">
-              <div>
-                <span className="text-muted-foreground">Valid:</span>
-                <span className="ml-1 text-cyan-400">{validCount}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Broken:</span>
-                <span className="ml-1 text-amber-400">{brokenCount}</span>
-              </div>
-            </div>
+interface InfoViewProps {
+  skill: Skill
+  filteredSymlinks: SymlinkInfo[]
+  validCount: number
+  brokenCount: number
+}
 
-            <Separator className="my-4" />
+const InfoView = React.memo(function InfoView({
+  skill,
+  filteredSymlinks,
+  validCount,
+  brokenCount,
+}: InfoViewProps): React.ReactElement {
+  return (
+    <div className="p-4 overflow-auto h-full">
+      <SourceLink source={skill.source} sourceUrl={skill.sourceUrl} />
 
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                Symlink Status
-              </h3>
-              <div className="space-y-2">
-                {filteredSymlinks.map((symlink) => (
-                  <SymlinkStatus key={symlink.agentId} symlink={symlink} />
-                ))}
-              </div>
-            </div>
+      <div className="flex gap-4 text-sm mb-4">
+        <div>
+          <span className="text-muted-foreground">Valid:</span>
+          <span className="ml-1 text-cyan-400">{validCount}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Broken:</span>
+          <span className="ml-1 text-amber-400">{brokenCount}</span>
+        </div>
+      </div>
 
-            <Separator className="my-4" />
+      <Separator className="my-4" />
 
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                Location
-              </h3>
-              <code className="text-xs bg-muted px-2 py-1 rounded break-all">
-                {skill.path}
-              </code>
-            </div>
-          </div>
-        )}
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
+          Symlink Status
+        </h3>
+        <div className="space-y-2">
+          {filteredSymlinks.map((symlink) => (
+            <SymlinkStatus key={symlink.agentId} symlink={symlink} />
+          ))}
+        </div>
+      </div>
+
+      <Separator className="my-4" />
+
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
+          Location
+        </h3>
+        <code className="text-xs bg-muted px-2 py-1 rounded break-all">
+          {skill.path}
+        </code>
       </div>
     </div>
   )

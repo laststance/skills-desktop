@@ -50,6 +50,8 @@ contextBridge.exposeInMainWorld('electron', {
   files: {
     list: async (skillPath: string) => typedInvoke('files:list', skillPath),
     read: async (filePath: string) => typedInvoke('files:read', filePath),
+    readBinary: async (filePath: string) =>
+      typedInvoke('files:readBinary', filePath),
   },
   // Update API
   update: {

@@ -2,6 +2,7 @@ import type {
   Skill,
   Agent,
   SourceStats,
+  SkillBinaryContent,
   SkillFile,
   SkillFileContent,
   UpdateInfo,
@@ -57,6 +58,7 @@ declare global {
       files: {
         list: (skillPath: string) => Promise<SkillFile[]>
         read: (filePath: string) => Promise<SkillFileContent | null>
+        readBinary: (filePath: string) => Promise<SkillBinaryContent | null>
       }
       update: {
         // Event listeners - return cleanup function

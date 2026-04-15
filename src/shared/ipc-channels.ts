@@ -14,6 +14,7 @@ export const IPC_CHANNELS = {
   // Files
   FILES_LIST: 'files:list',
   FILES_READ: 'files:read',
+  FILES_READ_BINARY: 'files:readBinary',
 
   // Skills CLI (Marketplace)
   SKILLS_CLI_SEARCH: 'skills:cli:search',
