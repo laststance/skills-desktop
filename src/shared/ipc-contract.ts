@@ -14,6 +14,7 @@ import type {
   RemoveAllFromAgentOptions,
   RemoveAllFromAgentResult,
   Skill,
+  SkillBinaryContent,
   SkillFile,
   SkillFileContent,
   SkillSearchResult,
@@ -62,6 +63,7 @@ export interface IpcInvokeContract {
   'source:getStats': { args: []; result: SourceStats }
   'files:list': { args: [string]; result: SkillFile[] }
   'files:read': { args: [string]; result: SkillFileContent | null }
+  'files:readBinary': { args: [string]; result: SkillBinaryContent | null }
   'skills:cli:search': { args: [string]; result: SkillSearchResult[] }
   'skills:cli:install': { args: [InstallOptions]; result: CliCommandResult }
   'skills:cli:remove': { args: [string]; result: CliCommandResult }

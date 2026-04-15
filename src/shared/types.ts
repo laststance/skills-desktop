@@ -1,10 +1,12 @@
 import type { AgentId, AgentName } from './constants'
+import type { FilePreviewKind } from './fileTypes'
 export type { AgentId, AgentName } from './constants'
 export type {
   ColorThemePresetName,
   NeutralThemePresetName,
   ThemePresetName,
 } from './constants'
+export type { FilePreviewKind } from './fileTypes'
 
 /**
  * A reusable AI agent capability package containing a SKILL.md manifest.
@@ -138,17 +140,40 @@ export interface SkillMetadata {
 
 /**
  * File entry within a skill directory (for the code preview panel).
- * @example { name: 'SKILL.md', path: '/Users/me/.agents/skills/tdd/SKILL.md', extension: 'md', size: 1024 }
+ * `relativePath` is POSIX-style (forward slashes) relative to the skill root,
+ * used by the UI to build a folder tree without re-deriving paths.
+ * @example
+ * {
+ *   name: 'SKILL.md',
+ *   path: '/Users/me/.agents/skills/tdd/SKILL.md',
+ *   relativePath: 'SKILL.md',
+ *   extension: '.md',
+ *   size: 1024,
+ *   previewable: 'text',
+ * }
+ * @example
+ * {
+ *   name: 'helper.py',
+ *   path: '/Users/me/.agents/skills/tdd/lib/helper.py',
+ *   relativePath: 'lib/helper.py',
+ *   extension: '.py',
+ *   size: 2048,
+ *   previewable: 'text',
+ * }
  */
 export interface SkillFile {
   /** File name with extension. @example "SKILL.md" */
   name: string
   /** Absolute path to the file. @example "/Users/me/.agents/skills/tdd/SKILL.md" */
   path: string
-  /** File extension without dot. @example "md" */
+  /** POSIX-style path relative to the skill root. @example "lib/helper.py" */
+  relativePath: string
+  /** File extension with leading dot (lowercase). @example ".md" */
   extension: string
   /** File size in bytes. @example 1024 */
   size: number
+  /** How the renderer should display this file. */
+  previewable: FilePreviewKind
 }
 
 /**
@@ -164,6 +189,28 @@ export interface SkillFileContent {
   extension: string
   /** Number of lines in the file. @example 42 */
   lineCount: number
+}
+
+/**
+ * Binary file content (images) loaded as a base64 data URL so the renderer
+ * can drop it directly into an `<img src>` without a custom protocol handler.
+ * @example
+ * {
+ *   name: 'preview.png',
+ *   dataUrl: 'data:image/png;base64,iVBORw0KGgo...',
+ *   mimeType: 'image/png',
+ *   size: 48201,
+ * }
+ */
+export interface SkillBinaryContent {
+  /** File name with extension. @example "preview.png" */
+  name: string
+  /** base64-encoded data URL ready to use in `<img src>`. */
+  dataUrl: string
+  /** MIME type derived from the file extension. @example "image/png" */
+  mimeType: string
+  /** File size in bytes. @example 48201 */
+  size: number
 }
 
 /**

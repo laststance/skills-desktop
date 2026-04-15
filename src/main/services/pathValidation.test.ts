@@ -75,6 +75,41 @@ describe('validatePath', () => {
     )
     expect(result).toBe(resolve('/home/user/.agents/skills/task/SKILL.md'))
   })
+
+  // Regression: right-pane expansion (subdirectory recursion) sends deeper
+  // paths through validatePath. This guards against accidentally tightening
+  // the check in a way that blocks legitimate subpaths like `lib/helper.py`.
+  it('allows a nested subpath inside an allowed base (subdirectory recursion regression)', () => {
+    const result = validatePath(
+      '/home/user/.agents/skills/task/lib/sub/helper.py',
+      bases,
+    )
+    expect(result).toBe(
+      resolve('/home/user/.agents/skills/task/lib/sub/helper.py'),
+    )
+  })
+
+  // Regression: the renderer sends the skill root + a relativePath. If we
+  // ever joined these client-side without revalidation, a crafted relativePath
+  // could escape. validatePath must still reject the fully-joined path.
+  it('rejects a joined path that escapes via ..  (relativePath traversal regression)', () => {
+    // Simulates join(skillPath, relativePath) where relativePath is malicious.
+    expect(() =>
+      validatePath(
+        '/home/user/.agents/skills/task/../../../../etc/passwd',
+        bases,
+      ),
+    ).toThrow('Path traversal attempt detected')
+  })
+
+  // Regression: files:readBinary uses the same validatePath + getAllowedBases
+  // as files:read. If someone introduces a parallel, looser validator for
+  // binary files, this test must fail.
+  it('rejects a binary file path outside all bases (files:readBinary regression)', () => {
+    expect(() => validatePath('/private/etc/shadow', bases)).toThrow(
+      'Path traversal attempt detected',
+    )
+  })
 })
 
 describe('getAllowedBases', () => {
