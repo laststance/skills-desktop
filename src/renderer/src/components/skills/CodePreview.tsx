@@ -1,6 +1,6 @@
+import * as TabsPrimitive from '@radix-ui/react-tabs'
 import React, { useCallback } from 'react'
 
-import type { SkillFile } from '../../../../shared/types'
 import { useCodePreview } from '../../hooks/useCodePreview'
 
 import { FileContent } from './FileContent'
@@ -17,6 +17,12 @@ interface CodePreviewProps {
  * layout, which wasted ~70% of its pane as blank space on skills with only a
  * handful of files.
  *
+ * `TabsPrimitive.Root` wraps both the tab list AND the preview pane so Radix
+ * can associate the active `<TabsPrimitive.Trigger>` (role="tab") with the
+ * `<TabsPrimitive.Content>` (role="tabpanel") via `aria-labelledby`. Keeping
+ * Root here — rather than inside `FileTabs` — is what makes the panel
+ * discoverable to assistive tech.
+ *
  * All syntax highlighting was removed on purpose: plain monospace text reads
  * fine across every language we support and keeps the renderer bundle small.
  */
@@ -26,9 +32,10 @@ export const CodePreview = React.memo(function CodePreview({
   const { files, activeFile, setActiveFile, content, loading } =
     useCodePreview(skillPath)
 
-  const handleSelect = useCallback(
-    (file: SkillFile) => {
-      setActiveFile(file.path)
+  const handleValueChange = useCallback(
+    (next: string) => {
+      if (!next) return
+      setActiveFile(next)
     },
     [setActiveFile],
   )
@@ -50,13 +57,18 @@ export const CodePreview = React.memo(function CodePreview({
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <FileTabs
-        files={files}
-        activeFilePath={activeFile}
-        onSelectAction={handleSelect}
-      />
-      <FileContent content={content} />
-    </div>
+    <TabsPrimitive.Root
+      value={activeFile ?? ''}
+      onValueChange={handleValueChange}
+      className="flex flex-col h-full"
+    >
+      <FileTabs files={files} activeFilePath={activeFile} />
+      <TabsPrimitive.Content
+        value={activeFile ?? ''}
+        className="flex-1 flex flex-col min-h-0 focus-visible:outline-none"
+      >
+        <FileContent content={content} />
+      </TabsPrimitive.Content>
+    </TabsPrimitive.Root>
   )
 })

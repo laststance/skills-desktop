@@ -99,7 +99,6 @@ export const EXCLUDED_DIRS: readonly string[] = [
   'dist',
   'build',
   'coverage',
-  '.DS_Store',
 ] as const
 
 /** Maximum text file size (bytes) that the reader will return. Larger files are marked binary. */

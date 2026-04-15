@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type {
   SkillBinaryContent,
@@ -12,18 +12,6 @@ const listMock = vi.fn<(skillPath: string) => Promise<SkillFile[]>>()
 const readMock = vi.fn<(filePath: string) => Promise<SkillFileContent | null>>()
 const readBinaryMock =
   vi.fn<(filePath: string) => Promise<SkillBinaryContent | null>>()
-
-// Augment the existing happy-dom window (replacing it via stubGlobal('window')
-// would strip document/HTMLElement, which testing-library needs).
-Object.assign(window, {
-  electron: {
-    files: {
-      list: listMock,
-      read: readMock,
-      readBinary: readBinaryMock,
-    },
-  },
-})
 
 /**
  * Build a SkillFile fixture with sane defaults.
@@ -64,6 +52,21 @@ beforeEach(() => {
   listMock.mockReset()
   readMock.mockReset()
   readBinaryMock.mockReset()
+  // Stub only the `electron` key on the global object. Avoid stubbing `window`
+  // itself — that would strip document/HTMLElement, which testing-library
+  // needs. `vi.stubGlobal` is auto-reset between tests (unlike the previous
+  // module-level `Object.assign(window, ...)`, which leaked across files).
+  vi.stubGlobal('electron', {
+    files: {
+      list: listMock,
+      read: readMock,
+      readBinary: readBinaryMock,
+    },
+  })
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 describe('useCodePreview', () => {

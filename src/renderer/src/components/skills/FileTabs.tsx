@@ -10,52 +10,41 @@ interface FileTabsProps {
   files: SkillFile[]
   /** Absolute path of the currently selected file, or null if none is active. */
   activeFilePath: string | null
-  /** Invoked when the user clicks a tab or moves focus via arrow keys. */
-  onSelectAction: (file: SkillFile) => void
 }
 
 /**
- * Horizontal scrollable tab bar above the file preview.
+ * Horizontal scrollable tab list above the file preview.
  * Each tab shows the file's `relativePath`, so nested entries like
  * `workflows/run.md` remain distinguishable from a root-level `run.md`.
  * Overflow scrolls horizontally; the scrollbar chrome is hidden to keep the
  * bar visually quiet on skills with few files.
  *
- * Implementation uses Radix Tabs primitives to get the WAI-ARIA tabs pattern
- * for free — roving tabindex, ArrowLeft/Right nav, Home/End, `role="tab"` +
- * `aria-selected` — without re-implementing any of it. Radix's default
- * `activationMode="automatic"` means arrow-key focus *is* a selection;
- * rapid scrubbing through tabs exercises the race guard in `useCodePreview`.
+ * Uses Radix Tabs primitives (`List` + `Trigger`) to get the WAI-ARIA tabs
+ * pattern for free — roving tabindex, ArrowLeft/Right nav, Home/End,
+ * `role="tab"` + `aria-selected` — without re-implementing any of it. Radix's
+ * default `activationMode="automatic"` means arrow-key focus *is* a
+ * selection; rapid scrubbing through tabs exercises the race guard in
+ * `useCodePreview`.
  *
- * No `<TabsPrimitive.Content>` is rendered here — the file preview is
- * rendered separately by `CodePreview`, driven off the same `activeFile`
- * state in `useCodePreview`. Radix Root just needs to coordinate list +
- * triggers; it doesn't need to own the content pane.
+ * `TabsPrimitive.Root` lives in the parent (`CodePreview`) so the matching
+ * `TabsPrimitive.Content` can share the same Root context and be associated
+ * via `aria-labelledby`. Selection is reported to the parent through Root's
+ * `onValueChange`; this component only renders the list.
  */
 export const FileTabs = React.memo(function FileTabs({
   files,
   activeFilePath,
-  onSelectAction,
 }: FileTabsProps): React.ReactElement {
   return (
-    <TabsPrimitive.Root
-      className="shrink-0 overflow-x-auto border-b border-border bg-muted/30 scrollbar-none"
-      value={activeFilePath ?? ''}
-      onValueChange={(next) => {
-        const file = files.find((f) => f.path === next)
-        if (file) onSelectAction(file)
-      }}
-    >
-      <TabsPrimitive.List className="flex items-stretch min-w-max">
-        {files.map((file) => (
-          <FileTab
-            key={file.path}
-            file={file}
-            isActive={file.path === activeFilePath}
-          />
-        ))}
-      </TabsPrimitive.List>
-    </TabsPrimitive.Root>
+    <TabsPrimitive.List className="shrink-0 flex items-stretch min-w-max overflow-x-auto border-b border-border bg-muted/30 scrollbar-none">
+      {files.map((file) => (
+        <FileTab
+          key={file.path}
+          file={file}
+          isActive={file.path === activeFilePath}
+        />
+      ))}
+    </TabsPrimitive.List>
   )
 })
 

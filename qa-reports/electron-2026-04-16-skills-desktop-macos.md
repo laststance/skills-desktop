@@ -41,22 +41,27 @@ Evidence lives alongside this file at
 - **Evidence:**
   - `qa-reports/.../06-race-bug-evidence.png`
   - DOM probe (after 4 synchronous clicks `color → interaction → motion → responsive`):
+
     ```json
     {
       "active": ["Installed", "reference/responsive-design.md"],
       "firstRows": ["1", "# Motion Design", "2", " "]
     }
     ```
+
 - **Repro (100%):** Open `frontend-design` skill → run in DevTools:
+
   ```js
   Array.from(document.querySelectorAll('[role="tab"]'))
     .filter((t) => t.textContent.includes('reference/'))
     .slice(0, 4)
     .forEach((t) => t.click())
   ```
+
   Expected: content for `reference/responsive-design.md` (4th click wins).
   Actual: `aria-selected` is on `responsive-design.md`, but the rendered preview
   shows `# Motion Design` content.
+
 - **Root cause:** `setActiveFile` in `useCodePreview.ts:86-101` awaits
   `loadContentForFile(file)` then unconditionally calls `setContent(next)`.
   The existing `userSelectedFileRef` guard only covers the _initial-load
