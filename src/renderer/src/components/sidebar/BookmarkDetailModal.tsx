@@ -38,7 +38,7 @@ export const BookmarkDetailModal = React.memo(
     }
 
     const handleInstall = async (): Promise<void> => {
-      if (!bookmark) return
+      if (!bookmark || !bookmark.repo) return
       const gen = ++installGenRef.current
       setIsInstalling(true)
       setInstallError(null)

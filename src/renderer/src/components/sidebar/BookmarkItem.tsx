@@ -28,6 +28,7 @@ export const BookmarkItem = React.memo(function BookmarkItem({
 
   const handleInstall = (e: React.MouseEvent): void => {
     e.stopPropagation()
+    if (!bookmark.repo) return
     dispatch(
       installSkill({
         repo: bookmark.repo,

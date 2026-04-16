@@ -232,8 +232,8 @@ export interface SourceStats {
   skillCount: number
   /** Human-readable total size. @example "2.4 MB" */
   totalSize: HumanFileSize
-  /** Human-readable last modified date. @example "2026-04-10" */
-  lastModified: HumanDate
+  /** ISO 8601 last-modified timestamp. @example "2026-04-10T08:00:00.000Z" */
+  lastModified: IsoTimestamp
 }
 
 /**
@@ -399,8 +399,8 @@ export interface SkillSearchResult {
 export interface BookmarkedSkill {
   /** Skill name (used as unique key within the bookmark list). @example "task" */
   name: SkillName
-  /** Source repository in owner/repo format — passed to InstallOptions.repo on reinstall. @example "vercel-labs/skills" */
-  repo: RepositoryId
+  /** Source repository in owner/repo format — passed to InstallOptions.repo on reinstall. Empty string for local skills without a remote source. @example "vercel-labs/skills" */
+  repo: RepositoryId | ''
   /** Canonical URL to the skill source (skills.sh or GitHub). @example "https://skills.sh/task" */
   url: HttpUrl
   /** ISO 8601 timestamp of when this entry was bookmarked. @example "2026-04-01T08:00:00.000Z" */

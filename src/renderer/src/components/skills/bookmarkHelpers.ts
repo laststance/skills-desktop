@@ -1,4 +1,3 @@
-import { repositoryId } from '../../../../shared/types'
 import type { HttpUrl, RepositoryId, Skill } from '../../../../shared/types'
 
 /**
@@ -26,10 +25,10 @@ export function canBookmarkSkill(_skill: Skill): boolean {
  * // => { repo: 'laststance/skills', url: 'https://github.com/laststance/skills' }
  */
 export function skillToBookmarkData(skill: Skill): {
-  repo: RepositoryId
+  repo: RepositoryId | ''
   url: HttpUrl
 } {
-  const repo = skill.source ?? repositoryId('')
+  const repo = skill.source ?? ''
   const url = skill.sourceUrl
     ? skill.sourceUrl.replace(/\.git$/, '')
     : `https://github.com/${repo}`
