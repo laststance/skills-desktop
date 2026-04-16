@@ -1,6 +1,6 @@
 import { join } from 'path'
 
-import { app, shell, BrowserWindow, Menu, session } from 'electron'
+import { app, shell, BrowserWindow, Menu, nativeImage, session } from 'electron'
 
 import { registerAllHandlers } from './ipc/handlers'
 import { initAutoUpdater } from './updater'
@@ -95,6 +95,61 @@ function createWindow(): void {
   }
 }
 
+/**
+ * Configure the native macOS About panel shown via the app menu's
+ * `role: 'about'` item (or `app.showAboutPanel()`).
+ *
+ * macOS render order: icon → applicationName → applicationVersion → credits → copyright.
+ * The About panel always renders `NSApp.applicationIconImage`; `setAboutPanelOptions`
+ * `iconPath` is ignored on macOS. We therefore override the Dock icon via
+ * `app.dock.setIcon()` — which updates `applicationIconImage` and propagates to the
+ * About panel. In packaged builds the `.icns` bundle already supplies the correct
+ * icon, so this is primarily a dev-mode fix.
+ *
+ * The `credits` block mirrors VS Code's convention — listing runtime versions and a
+ * repo link so users can copy the block into bug reports.
+ * @example
+ * configureAboutPanel() // Call once before createMenu() in app.whenReady()
+ */
+function configureAboutPanel(): void {
+  const appVersion = app.getVersion()
+  const electronVersion = process.versions.electron
+  const chromiumVersion = process.versions.chrome
+  const nodeVersion = process.versions.node
+  const platformAndArch = `${process.platform}-${process.arch}`
+  const currentYear = new Date().getFullYear()
+
+  // Resolve the bundled app icon (works in both dev and packaged builds).
+  // In dev: `__dirname` is `out/main/`, so `../../resources/icon.icns` walks up to the repo root.
+  // In packaged: `resources/` is asarUnpacked per electron-builder.yml, and the same
+  // relative walk lands in `<app>.app/Contents/Resources/app.asar.unpacked/resources/`.
+  const iconPath = join(__dirname, '../../resources/icon.icns')
+  const appIconImage = nativeImage.createFromPath(iconPath)
+  const isAppIconAvailable = !appIconImage.isEmpty()
+
+  // Force the About panel (and Dock) to use our bundled icon.
+  // In dev, the Electron default icon ships otherwise; this pulls in the real brand.
+  if (isAppIconAvailable && process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(appIconImage)
+  }
+
+  const creditsLines = [
+    'Visualize installed Skills and symlink status across AI agents.',
+    '',
+    `Electron ${electronVersion}  ·  Chromium ${chromiumVersion}`,
+    `Node.js ${nodeVersion}  ·  ${platformAndArch}`,
+    '',
+    'https://github.com/laststance/skills-desktop',
+  ]
+
+  app.setAboutPanelOptions({
+    applicationName: 'Skills Desktop',
+    applicationVersion: appVersion,
+    copyright: `© ${currentYear} Laststance.io`,
+    credits: creditsLines.join('\n'),
+  })
+}
+
 // Minimal menu bar
 function createMenu(): void {
   const template: Electron.MenuItemConstructorOptions[] = [
@@ -150,6 +205,8 @@ app.whenReady().then(() => {
   // Register IPC handlers before creating window
   registerAllHandlers()
 
+  // Configure the About panel before the menu wires up `role: 'about'`
+  configureAboutPanel()
   createMenu()
   createWindow()
 
