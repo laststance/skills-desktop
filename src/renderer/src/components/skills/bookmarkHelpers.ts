@@ -1,4 +1,4 @@
-import type { Skill } from '../../../../shared/types'
+import type { HttpUrl, RepositoryId, Skill } from '../../../../shared/types'
 
 /**
  * Whether a skill can be bookmarked from the Installed tab.
@@ -25,8 +25,8 @@ export function canBookmarkSkill(_skill: Skill): boolean {
  * // => { repo: 'laststance/skills', url: 'https://github.com/laststance/skills' }
  */
 export function skillToBookmarkData(skill: Skill): {
-  repo: string
-  url: string
+  repo: RepositoryId | ''
+  url: HttpUrl
 } {
   const repo = skill.source ?? ''
   const url = skill.sourceUrl

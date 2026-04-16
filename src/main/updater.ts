@@ -3,6 +3,7 @@ import { autoUpdater } from 'electron-updater'
 
 import { IPC_CHANNELS } from '../shared/ipc-channels'
 import type { IpcEventChannel, IpcEventContract } from '../shared/ipc-contract'
+import { semanticVersion } from '../shared/types'
 
 import { typedSend } from './ipc/typedSend'
 
@@ -37,7 +38,7 @@ export function initAutoUpdater(): void {
   autoUpdater.on('update-available', (info) => {
     console.log('Update available:', info.version)
     broadcastEvent(IPC_CHANNELS.UPDATE_AVAILABLE, {
-      version: info.version,
+      version: semanticVersion(info.version),
       releaseNotes:
         typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,
     })
@@ -66,7 +67,7 @@ export function initAutoUpdater(): void {
   autoUpdater.on('update-downloaded', (info) => {
     console.log('Update downloaded:', info.version)
     broadcastEvent(IPC_CHANNELS.UPDATE_DOWNLOADED, {
-      version: info.version,
+      version: semanticVersion(info.version),
       releaseNotes:
         typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,
     })

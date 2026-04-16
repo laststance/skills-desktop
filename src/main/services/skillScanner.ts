@@ -3,6 +3,7 @@ import { homedir } from 'os'
 import { join } from 'path'
 
 import { formatBytes } from '../../shared/fileTypes'
+import { repositoryId } from '../../shared/types'
 import type { Skill, SourceStats, SymlinkInfo } from '../../shared/types'
 import { AGENTS, SOURCE_DIR } from '../constants'
 
@@ -66,7 +67,7 @@ export async function scanSkills(): Promise<Skill[]> {
     const dirName = skill.path.split('/').pop() || ''
     const lock = lockEntries.get(dirName) ?? lockEntries.get(skill.name)
     if (lock) {
-      skill.source = lock.source
+      skill.source = repositoryId(lock.source)
       skill.sourceUrl = lock.sourceUrl
     }
   }

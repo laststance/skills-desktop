@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
 
 import { AGENT_DEFINITIONS } from '../../shared/constants'
+import { repositoryId } from '../../shared/types'
 import type {
   SkillSearchResult,
   InstallOptions,
@@ -196,7 +197,7 @@ class SkillsCliService extends EventEmitter {
         results.push({
           rank: rank++,
           name,
-          repo,
+          repo: repositoryId(repo),
           url: urlMatch?.[1] || `https://skills.sh/${repo}/${name}`,
         })
       }

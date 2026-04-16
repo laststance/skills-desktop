@@ -1,3 +1,4 @@
+import { repositoryId } from '../../shared/types'
 import type { RankingFilter, SkillSearchResult } from '../../shared/types'
 
 /** Maps ranking filter to skills.sh URL */
@@ -103,7 +104,7 @@ export function parseLeaderboardHtml(html: string): SkillSearchResult[] {
     results.push({
       rank: rank++,
       name,
-      repo,
+      repo: repositoryId(repo),
       url: `https://skills.sh/${repo}/${skillSlug}`,
       installCount,
     })

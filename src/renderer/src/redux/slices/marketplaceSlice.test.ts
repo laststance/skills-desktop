@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { repositoryId } from '../../../../shared/types'
 import type { SkillSearchResult } from '../../../../shared/types'
 
 const mockSearch = vi.fn()
@@ -31,7 +32,7 @@ async function createTestStore() {
 const sampleResult: SkillSearchResult = {
   rank: 1,
   name: 'task',
-  repo: 'vercel-labs/skill-task',
+  repo: repositoryId('vercel-labs/skill-task'),
   url: 'https://skills.sh/vercel-labs/skill-task',
 }
 
@@ -168,7 +169,7 @@ describe('marketplaceSlice', () => {
     const { installSkill } = await import('./marketplaceSlice')
     const promise = store.dispatch(
       installSkill({
-        repo: 'vercel-labs/skill-task',
+        repo: repositoryId('vercel-labs/skill-task'),
         global: true,
         agents: [],
       }),
@@ -189,7 +190,7 @@ describe('marketplaceSlice', () => {
     store.dispatch(selectSkillForInstall(sampleResult))
     await store.dispatch(
       installSkill({
-        repo: 'vercel-labs/skill-task',
+        repo: repositoryId('vercel-labs/skill-task'),
         global: true,
         agents: [],
       }),
@@ -206,7 +207,7 @@ describe('marketplaceSlice', () => {
     const { installSkill } = await import('./marketplaceSlice')
     await store.dispatch(
       installSkill({
-        repo: 'vercel-labs/skill-task',
+        repo: repositoryId('vercel-labs/skill-task'),
         global: true,
         agents: [],
       }),

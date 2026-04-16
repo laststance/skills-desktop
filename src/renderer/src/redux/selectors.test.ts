@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { repositoryId } from '../../../shared/types'
 import type {
   AgentId,
   BookmarkedSkill,
@@ -286,7 +287,7 @@ describe('selectFilteredSkills', () => {
 
 const makeBookmark = (name: string, repo: string): BookmarkedSkill => ({
   name,
-  repo,
+  repo: repositoryId(repo),
   url: `https://skills.sh/${name}`,
   bookmarkedAt: '2026-04-01T00:00:00.000Z',
 })

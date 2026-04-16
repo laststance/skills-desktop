@@ -4,6 +4,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import type {
   LeaderboardData,
   RankingFilter,
+  SkillName,
   SkillSearchResult,
   InstallOptions,
   InstallProgress,
@@ -14,14 +15,21 @@ import type {
 const CACHE_TTL_MS = 30 * 60 * 1000
 
 interface MarketplaceState {
+  /** Current marketplace operation state (search / install / remove / idle). */
   status: MarketplaceStatus
+  /** Live value of the search input. */
   searchQuery: string
+  /** Results from the most recent `skills find` call. */
   searchResults: SkillSearchResult[]
+  /** Skill chosen in the install modal. */
   selectedSkill: SkillSearchResult | null
-  /** Skill selected for right-pane webview preview (separate from install modal) */
+  /** Skill selected for right-pane webview preview (separate from install modal). */
   previewSkill: SkillSearchResult | null
+  /** Live progress for an in-flight install, or null when idle. */
   installProgress: InstallProgress | null
-  skillToRemove: string | null
+  /** Skill queued for removal (confirm dialog target), or null. */
+  skillToRemove: SkillName | null
+  /** Human-readable error from the last failed operation. */
   error: string | null
   /** Per-filter leaderboard cache. Each filter tracks its own data and loading state. */
   leaderboard: Partial<Record<RankingFilter, LeaderboardData>>
@@ -72,7 +80,7 @@ export const installSkill = createAsyncThunk(
  */
 export const removeSkill = createAsyncThunk(
   'marketplace/remove',
-  async (skillName: string) => {
+  async (skillName: SkillName) => {
     const result = await window.electron.skillsCli.remove(skillName)
     return result.success
   },
@@ -132,7 +140,7 @@ const marketplaceSlice = createSlice({
     ) => {
       state.previewSkill = action.payload
     },
-    setSkillToRemove: (state, action: PayloadAction<string | null>) => {
+    setSkillToRemove: (state, action: PayloadAction<SkillName | null>) => {
       state.skillToRemove = action.payload
     },
     cancelOperation: (state) => {
