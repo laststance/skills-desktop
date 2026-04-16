@@ -2,6 +2,9 @@ import { access, lstat, mkdir, rm, symlink } from 'fs/promises'
 import { join } from 'path'
 
 import type {
+  AbsolutePath,
+  AgentId,
+  AgentName,
   SyncConflict,
   SyncExecuteOptions,
   SyncExecuteResult,
@@ -13,14 +16,15 @@ import { extractErrorMessage } from '../utils/errors'
 
 import { listValidSourceSkillDirs } from './dirScanner'
 
+/** Agent-on-disk row used internally by syncPreview/syncExecute. */
+type ExistingAgent = { id: AgentId; name: AgentName; path: AbsolutePath }
+
 /**
  * Get agents whose base directory exists on disk
  * @returns Array of agents with existing directories
  */
-async function getExistingAgents(): Promise<
-  Array<{ id: string; name: string; path: string }>
-> {
-  const existing: Array<{ id: string; name: string; path: string }> = []
+async function getExistingAgents(): Promise<ExistingAgent[]> {
+  const existing: ExistingAgent[] = []
   for (const agent of AGENTS) {
     try {
       // Check parent dir (e.g. ~/.claude) not skills dir
@@ -62,8 +66,8 @@ export async function syncPreview(): Promise<SyncPreviewResult> {
           // Real directory or file = conflict
           conflicts.push({
             skillName: skill.name,
-            agentId: agent.id as SyncConflict['agentId'],
-            agentName: agent.name as SyncConflict['agentName'],
+            agentId: agent.id,
+            agentName: agent.name,
             agentSkillPath: linkPath,
           })
         }

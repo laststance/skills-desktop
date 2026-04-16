@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 
+import { repositoryId } from '../../../../shared/types'
 import type { RootState } from '../store'
 
 async function createTestStore() {
@@ -21,7 +22,7 @@ describe('bookmarkSlice', () => {
     store.dispatch(
       addBookmark({
         name: 'task',
-        repo: 'vercel-labs/skills',
+        repo: repositoryId('vercel-labs/skills'),
         url: 'https://skills.sh/task',
       }),
     )
@@ -41,7 +42,7 @@ describe('bookmarkSlice', () => {
     store.dispatch(
       addBookmark({
         name: 'task',
-        repo: 'vercel-labs/skills',
+        repo: repositoryId('vercel-labs/skills'),
         url: 'https://skills.sh/task',
       }),
     )
@@ -56,7 +57,7 @@ describe('bookmarkSlice', () => {
 
     const payload = {
       name: 'task',
-      repo: 'vercel-labs/skills',
+      repo: repositoryId('vercel-labs/skills'),
       url: 'https://skills.sh/task',
     }
     store.dispatch(addBookmark(payload))
@@ -72,14 +73,14 @@ describe('bookmarkSlice', () => {
     store.dispatch(
       addBookmark({
         name: 'task',
-        repo: 'vercel-labs/skills',
+        repo: repositoryId('vercel-labs/skills'),
         url: 'https://skills.sh/task',
       }),
     )
     store.dispatch(
       addBookmark({
         name: 'tdd',
-        repo: 'pbakaus/impeccable',
+        repo: repositoryId('pbakaus/impeccable'),
         url: 'https://skills.sh/tdd',
       }),
     )
@@ -94,14 +95,14 @@ describe('bookmarkSlice', () => {
     store.dispatch(
       addBookmark({
         name: 'task',
-        repo: 'vercel-labs/skills',
+        repo: repositoryId('vercel-labs/skills'),
         url: 'https://skills.sh/task',
       }),
     )
     store.dispatch(
       addBookmark({
         name: 'tdd',
-        repo: 'pbakaus/impeccable',
+        repo: repositoryId('pbakaus/impeccable'),
         url: 'https://skills.sh/tdd',
       }),
     )
@@ -120,7 +121,7 @@ describe('bookmarkSlice', () => {
     store.dispatch(
       addBookmark({
         name: 'task',
-        repo: 'vercel-labs/skills',
+        repo: repositoryId('vercel-labs/skills'),
         url: 'https://skills.sh/task',
       }),
     )
@@ -137,7 +138,7 @@ describe('bookmarkSlice', () => {
     store.dispatch(
       addBookmark({
         name: 'task',
-        repo: 'vercel-labs/skills',
+        repo: repositoryId('vercel-labs/skills'),
         url: 'https://skills.sh/task',
       }),
     )
@@ -154,7 +155,7 @@ describe('bookmarkSlice', () => {
     store.dispatch(
       addBookmark({
         name: 'task',
-        repo: 'vercel-labs/skills',
+        repo: repositoryId('vercel-labs/skills'),
         url: 'https://skills.sh/task',
       }),
     )

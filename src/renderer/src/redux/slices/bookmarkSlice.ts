@@ -1,10 +1,15 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice } from '@reduxjs/toolkit'
 
-import type { BookmarkedSkill } from '../../../../shared/types'
+import type { BookmarkedSkill, SkillName } from '../../../../shared/types'
 import type { RootState } from '../store'
 
+/**
+ * Redux state for the Bookmarks feature.
+ * Persisted to localStorage via redux-persist so entries survive app restarts.
+ */
 interface BookmarkState {
+  /** Bookmark entries in insertion order (newest pushed to end). */
   items: BookmarkedSkill[]
 }
 
@@ -40,7 +45,7 @@ const bookmarkSlice = createSlice({
      * @example
      * dispatch(removeBookmark('task'))
      */
-    removeBookmark: (state, action: PayloadAction<string>) => {
+    removeBookmark: (state, action: PayloadAction<SkillName>) => {
       state.items = state.items.filter((b) => b.name !== action.payload)
     },
   },
@@ -68,7 +73,7 @@ export const selectBookmarkItems = (
  */
 export const selectIsBookmarked = (
   state: BookmarkSelectorState,
-  name: string,
+  name: SkillName,
 ): boolean => state.bookmarks.items.some((b) => b.name === name)
 
 export default bookmarkSlice.reducer

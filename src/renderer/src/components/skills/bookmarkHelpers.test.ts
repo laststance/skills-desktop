@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { repositoryId } from '../../../../shared/types'
 import type { Skill } from '../../../../shared/types'
 
 import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
@@ -24,9 +25,11 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
 
 describe('canBookmarkSkill', () => {
   it('returns true when skill has source', () => {
-    expect(canBookmarkSkill(makeSkill({ source: 'pbakaus/impeccable' }))).toBe(
-      true,
-    )
+    expect(
+      canBookmarkSkill(
+        makeSkill({ source: repositoryId('pbakaus/impeccable') }),
+      ),
+    ).toBe(true)
   })
 
   it('returns true when source is undefined (local skill)', () => {
@@ -34,7 +37,7 @@ describe('canBookmarkSkill', () => {
   })
 
   it('returns true when source is empty string', () => {
-    expect(canBookmarkSkill(makeSkill({ source: '' }))).toBe(true)
+    expect(canBookmarkSkill(makeSkill({ source: repositoryId('') }))).toBe(true)
   })
 })
 
@@ -42,7 +45,7 @@ describe('skillToBookmarkData', () => {
   it('derives url from sourceUrl by stripping .git suffix', () => {
     const result = skillToBookmarkData(
       makeSkill({
-        source: 'pbakaus/impeccable',
+        source: repositoryId('pbakaus/impeccable'),
         sourceUrl: 'https://github.com/pbakaus/impeccable.git',
       }),
     )
@@ -55,7 +58,7 @@ describe('skillToBookmarkData', () => {
   it('uses sourceUrl as-is when no .git suffix', () => {
     const result = skillToBookmarkData(
       makeSkill({
-        source: 'laststance/skills',
+        source: repositoryId('laststance/skills'),
         sourceUrl: 'https://github.com/laststance/skills',
       }),
     )
@@ -68,7 +71,7 @@ describe('skillToBookmarkData', () => {
   it('falls back to GitHub URL when sourceUrl is undefined', () => {
     const result = skillToBookmarkData(
       makeSkill({
-        source: 'laststance/skills',
+        source: repositoryId('laststance/skills'),
         sourceUrl: undefined,
       }),
     )

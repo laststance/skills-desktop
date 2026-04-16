@@ -4,26 +4,35 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import type { AgentId, Skill, SymlinkInfo } from '../../../../shared/types'
 import type { RootState } from '../store'
 
+/**
+ * Redux state for the Installed Skills feature area.
+ * Pairs "currently selected" entities with per-operation in-flight flags
+ * so the UI can disable inputs and show spinners deterministically.
+ */
 interface SkillsState {
+  /** All skills discovered under ~/.agents/skills/. */
   items: Skill[]
+  /** Skill highlighted in the list (null = no selection). */
   selectedSkill: Skill | null
+  /** true while the initial `fetchSkills` is in flight. */
   loading: boolean
+  /** Human-readable error from the last failed thunk. */
   error: string | null
-  /** Skill symlink info pending unlink confirmation */
+  /** Skill + symlink queued for unlink confirmation (modal target). */
   skillToUnlink: { skill: Skill; symlink: SymlinkInfo } | null
-  /** Whether unlinking is in progress */
+  /** true while an unlink IPC round-trip is in flight. */
   unlinking: boolean
-  /** Skill pending delete confirmation */
+  /** Skill queued for delete confirmation. */
   skillToDelete: Skill | null
-  /** Whether deletion is in progress */
+  /** true while a deleteSkill IPC round-trip is in flight. */
   deleting: boolean
-  /** Skill to add symlinks for (opens AddSymlinkModal) */
+  /** Skill targeted by the AddSymlinkModal. */
   skillToAddSymlinks: Skill | null
-  /** Whether symlink creation is in progress */
+  /** true while createSymlinks is in flight. */
   addingSymlinks: boolean
-  /** Skill to copy to other agents (opens CopyToAgentsModal) */
+  /** Skill targeted by the CopyToAgentsModal. */
   skillToCopy: Skill | null
-  /** Whether copy operation is in progress */
+  /** true while copyToAgents is in flight. */
   copying: boolean
 }
 

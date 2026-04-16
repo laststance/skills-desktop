@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { repositoryId } from '../../../../shared/types'
 import type {
   SyncExecuteResult,
   SyncPreviewResult,
@@ -176,7 +177,9 @@ describe('uiSlice sync thunks', () => {
       replaced: 0,
       skipped: 0,
       errors: [],
-      details: [{ skillName: 's', agentName: 'a', action: 'created' }],
+      details: [
+        { skillName: 's', agentName: 'Claude Code', action: 'created' },
+      ],
     } satisfies SyncExecuteResult)
 
     const store = await createTestStore()
@@ -197,7 +200,9 @@ describe('uiSlice sync thunks', () => {
       replaced: 0,
       skipped: 0,
       errors: [],
-      details: [{ skillName: 's', agentName: 'a', action: 'created' }],
+      details: [
+        { skillName: 's', agentName: 'Claude Code', action: 'created' },
+      ],
     } satisfies SyncExecuteResult)
 
     const store = await createTestStore()
@@ -239,7 +244,7 @@ describe('uiSlice sync thunks', () => {
 describe('uiSlice bookmark detail modal', () => {
   const sampleBookmark = {
     name: 'task',
-    repo: 'vercel-labs/skills',
+    repo: repositoryId('vercel-labs/skills'),
     url: 'https://github.com/vercel-labs/skills',
     bookmarkedAt: '2026-04-01T08:00:00.000Z',
     isInstalled: false,

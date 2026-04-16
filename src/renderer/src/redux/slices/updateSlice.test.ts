@@ -1,6 +1,8 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 
+import { semanticVersion } from '../../../../shared/types'
+
 async function createTestStore() {
   const { default: updateReducer } = await import('./updateSlice')
   return configureStore({ reducer: { update: updateReducer } })
@@ -33,7 +35,10 @@ describe('updateSlice', () => {
     const { setAvailable } = await import('./updateSlice')
     const store = await createTestStore()
     store.dispatch(
-      setAvailable({ version: '1.2.0', releaseNotes: 'Bug fixes' }),
+      setAvailable({
+        version: semanticVersion('1.2.0'),
+        releaseNotes: 'Bug fixes',
+      }),
     )
 
     const state = store.getState().update
@@ -46,7 +51,7 @@ describe('updateSlice', () => {
   it('setAvailable handles missing releaseNotes', async () => {
     const { setAvailable } = await import('./updateSlice')
     const store = await createTestStore()
-    store.dispatch(setAvailable({ version: '1.2.0' }))
+    store.dispatch(setAvailable({ version: semanticVersion('1.2.0') }))
 
     expect(store.getState().update.releaseNotes).toBeNull()
   })
@@ -57,7 +62,7 @@ describe('updateSlice', () => {
     store.dispatch(dismiss())
     expect(store.getState().update.dismissed).toBe(true)
 
-    store.dispatch(setAvailable({ version: '1.3.0' }))
+    store.dispatch(setAvailable({ version: semanticVersion('1.3.0') }))
     expect(store.getState().update.dismissed).toBe(false)
   })
 
@@ -97,7 +102,12 @@ describe('updateSlice', () => {
   it('setReady sets version, notes, and progress to 100', async () => {
     const { setReady } = await import('./updateSlice')
     const store = await createTestStore()
-    store.dispatch(setReady({ version: '2.0.0', releaseNotes: 'Major update' }))
+    store.dispatch(
+      setReady({
+        version: semanticVersion('2.0.0'),
+        releaseNotes: 'Major update',
+      }),
+    )
 
     const state = store.getState().update
     expect(state.status).toBe('ready')
@@ -127,7 +137,12 @@ describe('updateSlice', () => {
     const { setAvailable, setDownloading, setProgress, reset } =
       await import('./updateSlice')
     const store = await createTestStore()
-    store.dispatch(setAvailable({ version: '1.0.0', releaseNotes: 'notes' }))
+    store.dispatch(
+      setAvailable({
+        version: semanticVersion('1.0.0'),
+        releaseNotes: 'notes',
+      }),
+    )
     store.dispatch(setDownloading())
     store.dispatch(
       setProgress({

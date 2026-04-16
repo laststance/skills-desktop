@@ -8,6 +8,115 @@ export type {
 } from './constants'
 export type { FilePreviewKind } from './fileTypes'
 
+// ============================================================================
+// Domain primitives — named aliases & branded types
+// ----------------------------------------------------------------------------
+// These types replace raw `string` / `number` at domain boundaries so signatures
+// communicate WHAT a value represents, not just its runtime shape.
+// ============================================================================
+
+/**
+ * Brand helper for nominal typing.
+ * Intersects a primitive with a phantom `__brand` property so structurally
+ * identical primitives cannot be swapped by mistake at compile time.
+ * @example
+ * type OrderId = Brand<string, 'OrderId'>
+ * const id: OrderId = 'abc' as OrderId // explicit construction
+ */
+export type Brand<T, B extends string> = T & { readonly __brand: B }
+
+/**
+ * Human-readable skill identifier matching the directory name.
+ * @example "tdd-workflow"
+ */
+export type SkillName = string
+
+/**
+ * Absolute filesystem path (platform-native, not POSIX-normalized).
+ * @example "/Users/me/.agents/skills/tdd-workflow"
+ */
+export type AbsolutePath = string
+
+/**
+ * Filesystem path written with forward slashes, used for display and tree keys
+ * regardless of the host OS. Always relative to some known root.
+ * @example "lib/helper.py"
+ */
+export type PosixRelativePath = string
+
+/**
+ * File extension as surfaced by Node's `path.extname` (with leading dot, lowercase).
+ * @example ".md"
+ */
+export type FileExtension = string
+
+/**
+ * IANA MIME type string.
+ * @example "image/png"
+ */
+export type MimeType = string
+
+/**
+ * HTTP(S) URL string.
+ * @example "https://github.com/vercel-labs/skills.git"
+ */
+export type HttpUrl = string
+
+/**
+ * ISO 8601 timestamp string (UTC with milliseconds).
+ * @example "2026-04-01T08:00:00.000Z"
+ */
+export type IsoTimestamp = string
+
+/**
+ * Unix timestamp in milliseconds since epoch (Date.now() output).
+ * @example 1713045600000
+ */
+export type UnixTimestampMs = number
+
+/**
+ * Human-readable byte-size string (from `humanFileSize()` in main).
+ * @example "2.4 MB"
+ */
+export type HumanFileSize = string
+
+/**
+ * Human-readable date string (locale-formatted, not machine-parseable).
+ * @example "Apr 10, 2026"
+ */
+export type HumanDate = string
+
+/**
+ * Repository identifier in GitHub `owner/repo` format.
+ * Branded because structurally-identical strings (skill names, file names)
+ * could otherwise be passed where a repo slug is required.
+ * @example "vercel-labs/skills"
+ */
+export type RepositoryId = Brand<string, 'RepositoryId'>
+
+/**
+ * Construct a RepositoryId from a raw string at a trust boundary
+ * (CLI output parser, IPC input, stored bookmark).
+ * @example repositoryId('vercel-labs/skills')
+ */
+export const repositoryId = (value: string): RepositoryId =>
+  value as RepositoryId
+
+/**
+ * Semantic version string following semver (major.minor.patch, optional suffix).
+ * Branded to distinguish from arbitrary strings returned by electron-updater.
+ * @example "0.8.0"
+ */
+export type SemanticVersion = Brand<string, 'SemanticVersion'>
+
+/**
+ * Construct a SemanticVersion from a raw string at a trust boundary
+ * (electron-updater payload, package.json read, IPC event).
+ * @example semanticVersion('0.11.0')
+ */
+export const semanticVersion = (value: string): SemanticVersion =>
+  value as SemanticVersion
+
 /**
  * A reusable AI agent capability package containing a SKILL.md manifest.
  * Installed in ~/.agents/skills/ and symlinked into agent skill directories.
@@ -24,19 +133,19 @@ export type { FilePreviewKind } from './fileTypes'
  */
 export interface Skill {
   /** Human-readable identifier matching the directory name. @example "tdd-workflow" */
-  name: string
+  name: SkillName
   /** Summary from SKILL.md frontmatter. @example "Test-driven development workflow" */
   description: string
   /** Absolute filesystem path to the skill directory. @example "/Users/me/.agents/skills/tdd-workflow" */
-  path: string
+  path: AbsolutePath
   /** Number of agents this skill is symlinked to (valid symlinks only). @example 3 */
   symlinkCount: number
   /** Per-agent symlink status entries */
   symlinks: SymlinkInfo[]
   /** Short source identifier in owner/repo format. @example "vercel-labs/skills" */
-  source?: string
+  source?: RepositoryId
   /** Full URL to the source repository. @example "https://github.com/vercel-labs/skills.git" */
-  sourceUrl?: string
+  sourceUrl?: HttpUrl
 }
 
 /**
@@ -58,7 +167,7 @@ export interface Agent {
   /** Display name shown in the UI. @example "Claude Code" */
   name: AgentName
   /** Absolute path to the agent's skills directory. @example "/Users/me/.claude/skills" */
-  path: string
+  path: AbsolutePath
   /** Whether the agent's skills directory exists on disk */
   exists: boolean
   /** Number of valid symlinked skills. @example 12 */
@@ -88,9 +197,9 @@ export interface SymlinkInfo {
   /** Current symlink state: valid (linked), broken (dangling), or missing (no link) */
   status: SymlinkStatus
   /** Where the symlink points to (skill source directory). @example "/Users/me/.agents/skills/tdd-workflow" */
-  targetPath: string
+  targetPath: AbsolutePath
   /** Where the symlink lives (in agent's skills dir). @example "/Users/me/.cursor/skills/tdd-workflow" */
-  linkPath: string
+  linkPath: AbsolutePath
   /** true = real folder in agent dir (local skill), false = symlink */
   isLocal: boolean
 }
@@ -118,13 +227,13 @@ export type SkillType = 'source' | 'local'
  */
 export interface SourceStats {
   /** Absolute path to the source directory. @example "/Users/me/.agents/skills" */
-  path: string
+  path: AbsolutePath
   /** Total number of skill directories. @example 15 */
   skillCount: number
   /** Human-readable total size. @example "2.4 MB" */
-  totalSize: string
+  totalSize: HumanFileSize
   /** Human-readable last modified date. @example "2026-04-10" */
-  lastModified: string
+  lastModified: HumanDate
 }
 
 /**
@@ -133,7 +242,7 @@ export interface SourceStats {
  */
 export interface SkillMetadata {
   /** Skill name from frontmatter `name` field. @example "tdd-workflow" */
-  name: string
+  name: SkillName
   /** Skill description from frontmatter `description` field. @example "Test-driven development workflow" */
   description: string
 }
@@ -165,11 +274,11 @@ export interface SkillFile {
   /** File name with extension. @example "SKILL.md" */
   name: string
   /** Absolute path to the file. @example "/Users/me/.agents/skills/tdd/SKILL.md" */
-  path: string
+  path: AbsolutePath
   /** POSIX-style path relative to the skill root. @example "lib/helper.py" */
-  relativePath: string
+  relativePath: PosixRelativePath
   /** File extension with leading dot (lowercase). @example ".md" */
-  extension: string
+  extension: FileExtension
   /** File size in bytes. @example 1024 */
   size: number
   /** How the renderer should display this file. */
@@ -186,7 +295,7 @@ export interface SkillFileContent {
   /** Full text content of the file */
   content: string
   /** File extension without dot. @example "md" */
-  extension: string
+  extension: FileExtension
   /** Number of lines in the file. @example 42 */
   lineCount: number
 }
@@ -208,19 +317,20 @@ export interface SkillBinaryContent {
   /** base64-encoded data URL ready to use in `<img src>`. */
   dataUrl: string
   /** MIME type derived from the file extension. @example "image/png" */
-  mimeType: string
+  mimeType: MimeType
   /** File size in bytes. @example 48201 */
   size: number
 }
 
 /**
  * Update information from electron-updater.
+ * Emitted on `update:available` and `update:downloaded` events.
  * @example { version: '0.8.0', releaseNotes: 'Added marketplace search' }
  */
 export interface UpdateInfo {
   /** Semantic version string of the available update. @example "0.8.0" */
-  version: string
-  /** Markdown release notes (may be absent for minor releases) */
+  version: SemanticVersion
+  /** Markdown release notes (absent for releases published without notes) */
   releaseNotes?: string
 }
 
@@ -251,18 +361,27 @@ export type UpdateStatus =
   | 'error'
 
 /**
- * Skill search result from `npx skills find` command
+ * A skill surfaced by the marketplace — either from a `skills find` CLI search
+ * or scraped from the skills.sh leaderboard HTML.
+ * @example
+ * {
+ *   rank: 1,
+ *   name: 'task',
+ *   repo: 'vercel-labs/skills',
+ *   url: 'https://skills.sh/task',
+ *   installCount: 2480,
+ * }
  */
 export interface SkillSearchResult {
-  /** Search result ranking */
+  /** 1-indexed rank in the source listing (CLI output order or leaderboard). @example 1 */
   rank: number
-  /** Skill name */
-  name: string
-  /** Repository in owner/repo format */
-  repo: string
-  /** URL to skill source (skills.sh or GitHub) */
-  url: string
-  /** Install count (may not be available from all sources) */
+  /** Skill name (directory-style identifier). @example "task" */
+  name: SkillName
+  /** Source repository in GitHub owner/repo format. @example "vercel-labs/skills" */
+  repo: RepositoryId
+  /** Canonical URL to the skill on skills.sh or its GitHub source. @example "https://skills.sh/task" */
+  url: HttpUrl
+  /** Install count from skills.sh when available (absent for CLI search results). @example 2480 */
   installCount?: number
 }
 
@@ -278,46 +397,60 @@ export interface SkillSearchResult {
  * }
  */
 export interface BookmarkedSkill {
-  /** Skill name */
-  name: string
-  /** Repository in owner/repo format (required for InstallOptions.repo) */
-  repo: string
-  /** URL to skill source (skills.sh or GitHub) */
-  url: string
-  /** ISO timestamp of when bookmarked */
-  bookmarkedAt: string
+  /** Skill name (used as unique key within the bookmark list). @example "task" */
+  name: SkillName
+  /** Source repository in owner/repo format — passed to InstallOptions.repo on reinstall. @example "vercel-labs/skills" */
+  repo: RepositoryId
+  /** Canonical URL to the skill source (skills.sh or GitHub). @example "https://skills.sh/task" */
+  url: HttpUrl
+  /** ISO 8601 timestamp of when this entry was bookmarked. @example "2026-04-01T08:00:00.000Z" */
+  bookmarkedAt: IsoTimestamp
 }
 
 /**
- * Options for skill installation
+ * Arguments passed to the `skills install` CLI through the IPC bridge.
+ * @example
+ * { repo: 'vercel-labs/skills', global: true, agents: ['claude-code'], skills: ['task'] }
  */
 export interface InstallOptions {
-  /** Repository in owner/repo format */
-  repo: string
-  /** Install globally (--global flag) */
+  /** Source repository in owner/repo format. @example "vercel-labs/skills" */
+  repo: RepositoryId
+  /** When true, installs into ~/.agents/skills/ (equivalent to `--global`). */
   global: boolean
-  /** Target agents (--agent flags) */
+  /** Target agent IDs (translated to `--agent` flags per entry). */
   agents: AgentId[]
-  /** Specific skills to install (--skill flags) */
-  skills?: string[]
+  /** Specific skill names to install (translated to `--skill` flags). Omit to install every skill in the repo. @example ["task", "theme-generator"] */
+  skills?: SkillName[]
 }
 
 /**
- * Result from CLI command execution
+ * Captured output from a spawned skills-CLI process.
+ * @example
+ * { success: true, stdout: '✔ Installed task', stderr: '', code: 0 }
  */
 export interface CliCommandResult {
+  /** true when the process exited with code 0. */
   success: boolean
+  /** Full stdout stream, joined. May be empty. */
   stdout: string
+  /** Full stderr stream, joined. May be empty. */
   stderr: string
+  /** Exit code, or null if the process was killed by a signal. @example 0 */
   code: number | null
 }
 
 /**
- * Progress information during skill installation
+ * Streamed progress event emitted while the skills CLI runs an install.
+ * Pushed over IPC on the `skills:cli:progress` channel.
+ * @example { phase: 'cloning', message: 'Fetching vercel-labs/skills...' }
+ * @example { phase: 'complete', message: '2 skills installed', percent: 100 }
  */
 export interface InstallProgress {
+  /** Current pipeline stage. */
   phase: 'cloning' | 'installing' | 'linking' | 'complete' | 'error'
+  /** Human-readable status line surfaced in the UI. */
   message: string
+  /** Overall completion percentage (0–100) when the stage can report one. */
   percent?: number
 }
 
@@ -356,8 +489,8 @@ export type LeaderboardStatus = 'idle' | 'loading' | 'error'
 export interface LeaderboardData {
   /** Ranked skills parsed from skills.sh HTML */
   skills: SkillSearchResult[]
-  /** Timestamp (ms since epoch) of last successful fetch */
-  lastFetched: number
+  /** Timestamp of last successful fetch, used for the 30-minute cache TTL. */
+  lastFetched: UnixTimestampMs
   /** Which ranking filter this data belongs to */
   filter: RankingFilter
   /** Current loading state for this filter */
@@ -367,146 +500,187 @@ export interface LeaderboardData {
 }
 
 /**
- * Options for unlinking a skill from a specific agent
+ * IPC argument for `skills:unlinkFromAgent` — removes a single agent's symlink
+ * without touching the underlying skill source.
+ * @example
+ * { skillName: 'tdd-workflow', agentId: 'cursor', linkPath: '/Users/me/.cursor/skills/tdd-workflow' }
  */
 export interface UnlinkFromAgentOptions {
-  skillName: string
+  /** Skill whose symlink will be removed. @example "tdd-workflow" */
+  skillName: SkillName
+  /** Agent the symlink belongs to. */
   agentId: AgentId
-  linkPath: string
+  /** Absolute path to the symlink itself (inside the agent's skills directory). */
+  linkPath: AbsolutePath
 }
 
 /**
- * Result from unlinking a skill from an agent
+ * Result from unlinking a single symlink.
+ * @example { success: true }
+ * @example { success: false, error: "EACCES: permission denied" }
  */
 export interface UnlinkResult {
+  /** true if the symlink was removed (or did not exist). */
   success: boolean
+  /** Failure reason when `success` is false. */
   error?: string
 }
 
 /**
- * Options for deleting a specific agent's entire skills folder
- * @example
- * { agentId: 'claude-code', agentPath: '/Users/x/.claude/skills' }
+ * IPC argument for `skills:removeAllFromAgent` — wipes everything inside a single
+ * agent's skills directory (used when resetting an agent).
+ * @example { agentId: 'claude-code', agentPath: '/Users/me/.claude/skills' }
  */
 export interface RemoveAllFromAgentOptions {
+  /** Agent whose skills directory will be cleared. */
   agentId: AgentId
-  agentPath: string
+  /** Absolute path to the agent's skills directory. @example "/Users/me/.claude/skills" */
+  agentPath: AbsolutePath
 }
 
 /**
- * Result from deleting an agent's skills folder
- * @example
- * { success: true, removedCount: 5 }
+ * Result from clearing an agent's skills folder.
+ * @example { success: true, removedCount: 5 }
  */
 export interface RemoveAllFromAgentResult {
+  /** true if the folder was emptied successfully. */
   success: boolean
-  /** Number of items that were in the folder before deletion */
+  /** Number of entries (symlinks and local folders) removed. @example 5 */
   removedCount: number
+  /** Failure reason when `success` is false. */
   error?: string
 }
 
 /**
- * Options for deleting a skill entirely (source dir + all agent symlinks)
- * @example
- * { skillName: 'theme-generator', skillPath: '/Users/x/.agents/skills/theme-generator' }
+ * IPC argument for `skills:deleteSkill` — removes the skill source directory
+ * AND every agent symlink pointing at it.
+ * @example { skillName: 'theme-generator', skillPath: '/Users/me/.agents/skills/theme-generator' }
  */
 export interface DeleteSkillOptions {
-  skillName: string
-  skillPath: string
+  /** Skill to delete. @example "theme-generator" */
+  skillName: SkillName
+  /** Absolute path to the skill source directory. @example "/Users/me/.agents/skills/theme-generator" */
+  skillPath: AbsolutePath
 }
 
 /**
- * Result from deleting a skill
- * @example
- * { success: true, symlinksRemoved: 3 }
+ * Result from deleting a skill.
+ * @example { success: true, symlinksRemoved: 3 }
  */
 export interface DeleteSkillResult {
+  /** true if both the source and all symlinks were removed. */
   success: boolean
+  /** Count of agent symlinks that pointed at the skill before deletion. @example 3 */
   symlinksRemoved: number
+  /** Failure reason when `success` is false. */
   error?: string
 }
 
 /**
- * Options for creating symlinks for a skill to multiple agents
+ * IPC argument for `skills:createSymlinks` — points every target agent's
+ * skills directory at a single shared skill source.
  * @example
- * { skillName: 'theme-generator', skillPath: '/...', agentIds: ['claude-code', 'cursor'] }
+ * { skillName: 'theme-generator', skillPath: '/Users/me/.agents/skills/theme-generator', agentIds: ['claude-code', 'cursor'] }
  */
 export interface CreateSymlinksOptions {
-  skillName: string
-  skillPath: string
+  /** Skill being shared out. @example "theme-generator" */
+  skillName: SkillName
+  /** Absolute path to the skill source directory (the symlink target). @example "/Users/me/.agents/skills/theme-generator" */
+  skillPath: AbsolutePath
+  /** Agents that should receive the symlink. */
   agentIds: AgentId[]
 }
 
 /**
- * Result from creating symlinks
- * @example
- * { success: true, created: 2, failures: [] }
+ * Result from `skills:createSymlinks`.
+ * @example { success: true, created: 2, failures: [] }
+ * @example { success: false, created: 1, failures: [{ agentId: 'codex', error: 'EEXIST' }] }
  */
 export interface CreateSymlinksResult {
+  /** true if every requested agent now has a valid symlink. */
   success: boolean
+  /** Number of agents for which a symlink was newly created. @example 2 */
   created: number
+  /** Per-agent failure list (empty on full success). */
   failures: Array<{ agentId: AgentId; error: string }>
 }
 
 /**
- * Options for copying a skill from one agent to other agents
- * @param skillName - Name of the skill to copy
- * @param linkPath - Full path to the skill in the source agent's directory
- * @param targetAgentIds - IDs of agents to copy the skill to
+ * IPC argument for `skills:copyToAgents` — copies a skill that lives inside
+ * one agent's directory into other agents (for the "copy for agent
+ * collaboration" flow, where symlinks are intentionally NOT used).
  * @example
  * { skillName: 'my-skill', linkPath: '/Users/me/.claude/skills/my-skill', targetAgentIds: ['cursor', 'windsurf'] }
  */
 export interface CopyToAgentsOptions {
-  skillName: string
-  linkPath: string
+  /** Skill name, used as the destination folder name in each target agent. @example "my-skill" */
+  skillName: SkillName
+  /** Absolute path to the source skill in the originating agent's directory. @example "/Users/me/.claude/skills/my-skill" */
+  linkPath: AbsolutePath
+  /** Agents that should receive a full copy (not a symlink). */
   targetAgentIds: AgentId[]
 }
 
 /**
- * Result of copying a skill to multiple agents
- * @param success - true if all copies succeeded
- * @param copied - Number of agents successfully copied to
- * @param failures - Per-agent error details
- * @example
- * { success: true, copied: 2, failures: [] }
- * { success: false, copied: 1, failures: [{ agentId: 'codex', error: 'Already exists' }] }
+ * Result from `skills:copyToAgents`.
+ * @example { success: true, copied: 2, failures: [] }
+ * @example { success: false, copied: 1, failures: [{ agentId: 'codex', error: 'Already exists' }] }
  */
 export interface CopyToAgentsResult {
+  /** true if every target agent received a copy. */
   success: boolean
+  /** Number of agents successfully copied to. @example 2 */
   copied: number
+  /** Per-agent failure list (empty on full success). */
   failures: Array<{ agentId: AgentId; error: string }>
 }
 
 /**
- * A conflict found during sync preview (local folder exists where symlink would go)
+ * A sync conflict: a real folder already exists at the path where the skill
+ * symlink would be created. Surfaced to the user for create-vs-replace choice.
+ * @example
+ * {
+ *   skillName: 'my-skill',
+ *   agentId: 'claude-code',
+ *   agentName: 'Claude Code',
+ *   agentSkillPath: '/Users/me/.claude/skills/my-skill',
+ * }
  */
 export interface SyncConflict {
-  skillName: string
+  /** Skill whose symlink would collide. @example "my-skill" */
+  skillName: SkillName
+  /** Agent where the collision was found. */
   agentId: AgentId
+  /** Agent display name (same row in AGENT_DEFINITIONS as agentId). */
   agentName: AgentName
-  agentSkillPath: string
+  /** Absolute path of the existing folder that blocks symlink creation. @example "/Users/me/.claude/skills/my-skill" */
+  agentSkillPath: AbsolutePath
 }
 
 /**
- * Result from sync preview (dry run)
- * @example
- * { totalSkills: 5, totalAgents: 3, toCreate: 10, alreadySynced: 5, conflicts: [] }
+ * Result from sync preview (dry run).
+ * @example { totalSkills: 5, totalAgents: 3, toCreate: 10, alreadySynced: 5, conflicts: [] }
  */
 export interface SyncPreviewResult {
+  /** Number of source skills considered. @example 5 */
   totalSkills: number
+  /** Number of agents considered. @example 3 */
   totalAgents: number
+  /** Symlinks that would be created on execute (excludes conflicts). @example 10 */
   toCreate: number
+  /** Symlinks already in place — nothing to do for these. @example 5 */
   alreadySynced: number
+  /** Per-agent folders that block creation until the user chooses to replace. */
   conflicts: SyncConflict[]
 }
 
 /**
- * Options for executing sync with conflict resolution choices
- * @example
- * { replaceConflicts: ['/Users/x/.claude/skills/my-skill'] }
+ * Options for executing sync with conflict resolution choices.
+ * @example { replaceConflicts: ['/Users/me/.claude/skills/my-skill'] }
  */
 export interface SyncExecuteOptions {
-  replaceConflicts: string[]
+  /** Absolute paths of conflicting folders the user explicitly opted to replace with symlinks. */
+  replaceConflicts: AbsolutePath[]
 }
 
 /**
@@ -518,36 +692,39 @@ export interface SyncExecuteOptions {
  */
 export type SyncResultAction = 'created' | 'replaced' | 'skipped' | 'error'
 
-/** Shared fields for every sync result row */
+/** Shared fields for every sync result row. */
 type SyncResultBase = {
-  skillName: string
-  agentName: string
+  /** Skill involved in this row. @example "my-skill" */
+  skillName: SkillName
+  /** Agent display name this row refers to. @example "Claude Code" */
+  agentName: AgentName
 }
 
 /**
- * Per-item detail from sync execution, used to show a diff of what happened.
- * Discriminated union guarantees error rows always carry a message.
- * @example
- * { skillName: 'my-skill', agentName: 'Claude Code', action: 'created' }
- * @example
- * { skillName: 's', agentName: 'a', action: 'error', error: 'EACCES' }
+ * Per-item detail from sync execution, used to render a diff of what happened.
+ * Discriminated on `action` so error rows always carry a message.
+ * @example { skillName: 'my-skill', agentName: 'Claude Code', action: 'created' }
+ * @example { skillName: 's', agentName: 'Cursor', action: 'error', error: 'EACCES' }
  */
 export type SyncResultItem =
   | (SyncResultBase & { action: 'created' | 'replaced' | 'skipped' })
   | (SyncResultBase & { action: 'error'; error: string })
 
 /**
- * Result from executing sync
- * @example
- * { success: true, created: 10, replaced: 2, skipped: 5, errors: [], details: [...] }
+ * Result from executing sync.
+ * @example { success: true, created: 10, replaced: 2, skipped: 5, errors: [], details: [...] }
  */
 export interface SyncExecuteResult {
+  /** true if every planned operation succeeded (errors.length === 0). */
   success: boolean
+  /** Number of newly-created symlinks. @example 10 */
   created: number
+  /** Number of existing folders replaced with symlinks (user opted-in). @example 2 */
   replaced: number
-  /** Number of already-synced items that were skipped */
+  /** Number of already-synced items that were skipped. @example 5 */
   skipped: number
-  errors: Array<{ path: string; error: string }>
-  /** Per-item action details for displaying sync diff */
+  /** Per-path errors encountered during execution (empty on full success). */
+  errors: Array<{ path: AbsolutePath; error: string }>
+  /** Per-item action details for displaying a sync diff in the UI. */
   details: SyncResultItem[]
 }

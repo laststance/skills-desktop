@@ -2,17 +2,28 @@ import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice } from '@reduxjs/toolkit'
 
 import type {
-  UpdateStatus,
-  UpdateInfo,
   DownloadProgress,
+  SemanticVersion,
+  UpdateInfo,
+  UpdateStatus,
 } from '../../../../shared/types'
 
+/**
+ * Redux state tracking the auto-update lifecycle.
+ * Populated by electron-updater events forwarded over IPC.
+ */
 interface UpdateState {
+  /** Current phase of the auto-update flow. */
   status: UpdateStatus
-  version: string | null
+  /** Advertised version of the available or ready update, if any. @example "0.11.0" */
+  version: SemanticVersion | null
+  /** Markdown release notes attached to `version`, if provided by the publisher. */
   releaseNotes: string | null
+  /** Download progress percentage (0–100). */
   progress: number
+  /** Human-readable error from the last failed update step. */
   error: string | null
+  /** true once the user has clicked "later" — suppresses the banner until next app start. */
   dismissed: boolean
 }
 

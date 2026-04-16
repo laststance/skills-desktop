@@ -4,13 +4,21 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import type { Agent } from '../../../../shared/types'
 import type { RootState } from '../store'
 
+/**
+ * Redux state for the Agents feature area.
+ * Tracks the list of discovered agents and the agent currently queued
+ * for a destructive "remove all symlinks" action.
+ */
 interface AgentsState {
+  /** All agents discovered on disk (skillsDir presence determines `exists`). */
   items: Agent[]
+  /** true while the initial `fetchAgents` is in flight. */
   loading: boolean
+  /** Human-readable error from the last failed thunk. */
   error: string | null
-  /** Agent pending skills folder deletion confirmation */
+  /** Agent queued for skills-folder deletion confirmation (modal target). */
   agentToDelete: Agent | null
-  /** Whether folder deletion is in progress */
+  /** true while a removeAllFromAgent IPC round-trip is in flight. */
   deleting: boolean
 }
 
