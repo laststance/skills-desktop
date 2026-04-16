@@ -1,6 +1,8 @@
 import { access, lstat, mkdir, rm, symlink } from 'fs/promises'
 import { join } from 'path'
 
+import { match, P } from 'ts-pattern'
+
 import type {
   AbsolutePath,
   AgentId,
@@ -130,44 +132,44 @@ export async function syncExecute(
           // Path doesn't exist
         }
 
-        if (!exists) {
-          if (!ensuredAgentDirs.has(agent.path)) {
-            await mkdir(agent.path, { recursive: true })
-            ensuredAgentDirs.add(agent.path)
-          }
-          await symlink(skill.path, linkPath)
-          created++
-          details.push({
-            skillName: skill.name,
-            agentName: agent.name,
-            action: 'created',
+        const action = await match({
+          exists,
+          isSymlink,
+          shouldReplace: replaceSet.has(linkPath),
+        })
+          .returnType<Promise<'created' | 'skipped' | 'replaced'>>()
+          .with({ exists: false }, async () => {
+            if (!ensuredAgentDirs.has(agent.path)) {
+              await mkdir(agent.path, { recursive: true })
+              ensuredAgentDirs.add(agent.path)
+            }
+            await symlink(skill.path, linkPath)
+            created++
+            return 'created' as const
           })
-        } else if (isSymlink) {
-          skipped++
-          details.push({
-            skillName: skill.name,
-            agentName: agent.name,
-            action: 'skipped',
+          .with({ isSymlink: true }, async () => {
+            skipped++
+            return 'skipped' as const
           })
-        } else if (replaceSet.has(linkPath)) {
-          await rm(linkPath, { recursive: true, force: true })
-          await symlink(skill.path, linkPath)
-          replaced++
-          details.push({
-            skillName: skill.name,
-            agentName: agent.name,
-            action: 'replaced',
+          .with({ shouldReplace: true }, async () => {
+            await rm(linkPath, { recursive: true, force: true })
+            await symlink(skill.path, linkPath)
+            replaced++
+            return 'replaced' as const
           })
-        } else {
-          // Conflict the user declined to replace. Track as skipped so the dialog
-          // can show it per-item, rather than silently folding it into the aggregate.
-          skipped++
-          details.push({
-            skillName: skill.name,
-            agentName: agent.name,
-            action: 'skipped',
+          .with(P._, async () => {
+            // Conflict the user declined to replace. Track as skipped so the dialog
+            // can show it per-item, rather than silently folding it into the aggregate.
+            skipped++
+            return 'skipped' as const
           })
-        }
+          .exhaustive()
+
+        details.push({
+          skillName: skill.name,
+          agentName: agent.name,
+          action,
+        })
       } catch (error) {
         const msg = extractErrorMessage(error)
         errors.push({ path: linkPath, error: msg })

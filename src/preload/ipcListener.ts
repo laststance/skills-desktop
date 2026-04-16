@@ -1,5 +1,6 @@
 import { ipcRenderer } from 'electron'
-import { IpcChannel } from '../shared/ipc-channels'
+
+import type { IpcChannel } from '../shared/ipc-channels'
 
 /**
  * Create a type-safe IPC event listener factory.

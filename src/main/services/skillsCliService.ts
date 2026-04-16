@@ -1,6 +1,8 @@
 import { spawn, type ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
 
+import { match, P } from 'ts-pattern'
+
 import { AGENT_DEFINITIONS } from '../../shared/constants'
 import { repositoryId } from '../../shared/types'
 import type {
@@ -213,13 +215,24 @@ class SkillsCliService extends EventEmitter {
   private parseProgressFromOutput(data: string): void {
     const lower = data.toLowerCase()
 
-    if (lower.includes('cloning') || lower.includes('downloading')) {
-      this.emitProgress('cloning', 'Cloning repository...')
-    } else if (lower.includes('installing') || lower.includes('copying')) {
-      this.emitProgress('installing', 'Installing skill files...')
-    } else if (lower.includes('linking') || lower.includes('symlink')) {
-      this.emitProgress('linking', 'Creating agent symlinks...')
-    }
+    match(lower)
+      .with(
+        P.when(
+          (s: string) => s.includes('cloning') || s.includes('downloading'),
+        ),
+        () => this.emitProgress('cloning', 'Cloning repository...'),
+      )
+      .with(
+        P.when(
+          (s: string) => s.includes('installing') || s.includes('copying'),
+        ),
+        () => this.emitProgress('installing', 'Installing skill files...'),
+      )
+      .with(
+        P.when((s: string) => s.includes('linking') || s.includes('symlink')),
+        () => this.emitProgress('linking', 'Creating agent symlinks...'),
+      )
+      .otherwise(() => {})
   }
 
   /**
