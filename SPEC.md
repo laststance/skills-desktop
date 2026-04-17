@@ -659,11 +659,11 @@ APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 
 The Marketplace feature wraps `npx skills@<SKILLS_CLI_VERSION>` CLI commands (version pinned in `src/shared/constants.ts`):
 
-| Feature | CLI Command                | Options                          |
-| ------- | -------------------------- | -------------------------------- |
-| Search  | `npx skills find <query>`  | -                                |
-| Install | `npx skills add <repo>`    | `-y`, `-g`, `--agent`, `--skill` |
-| Remove  | `npx skills remove <name>` | -                                |
+| Feature | CLI Command                                     | Options                          |
+| ------- | ----------------------------------------------- | -------------------------------- |
+| Search  | `npx skills@<SKILLS_CLI_VERSION> find <query>`  | -                                |
+| Install | `npx skills@<SKILLS_CLI_VERSION> add <repo>`    | `-y`, `-g`, `--agent`, `--skill` |
+| Remove  | `npx skills@<SKILLS_CLI_VERSION> remove <name>` | -                                |
 
 **CLI Output Parsing:**
 
