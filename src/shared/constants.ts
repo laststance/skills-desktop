@@ -222,6 +222,18 @@ export const UNIVERSAL_AGENT_IDS = [
 ] as const satisfies readonly AgentId[]
 
 /**
+ * Pinned `vercel-labs/skills` CLI version used by the main-process
+ * `skillsCliService` when spawning `npx skills@<version> ...`. Kept in the
+ * shared module so the `/cli-upgrade` maintenance skill has a single place
+ * to bump alongside `AGENT_DEFINITIONS`. Consumers must template this into
+ * their spawn args rather than hard-coding a version string — drift here
+ * would silently run a stale CLI against up-to-date agent definitions.
+ * @example
+ * spawn('npx', [`skills@${SKILLS_CLI_VERSION}`, 'find', 'react'])
+ */
+export const SKILLS_CLI_VERSION = '1.5.1'
+
+/**
  * Undo window for bulk skill deletes (ms). The trashService tombstone TTL and
  * the renderer undo-toast duration must stay in lockstep — if the on-disk
  * tombstone expires before the toast, a user's "undo" click races an empty

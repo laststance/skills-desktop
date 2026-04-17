@@ -3,7 +3,7 @@ import { EventEmitter } from 'events'
 
 import { match, P } from 'ts-pattern'
 
-import { AGENT_DEFINITIONS } from '../../shared/constants'
+import { AGENT_DEFINITIONS, SKILLS_CLI_VERSION } from '../../shared/constants'
 import { repositoryId } from '../../shared/types'
 import type {
   SkillSearchResult,
@@ -30,8 +30,9 @@ function stripAnsi(text: string): string {
 }
 
 /**
- * Service for executing skills CLI commands via npx
- * Wraps `npx skills@1.3.0` with proper output parsing
+ * Service for executing skills CLI commands via npx.
+ * Wraps `npx skills@<SKILLS_CLI_VERSION>` with proper output parsing — the
+ * version is imported from shared constants so upgrades happen in one place.
  */
 class SkillsCliService extends EventEmitter {
   private currentProcess: ChildProcess | null = null
@@ -130,7 +131,7 @@ class SkillsCliService extends EventEmitter {
       let stderr = ''
 
       // Use npx to run skills CLI with FORCE_COLOR=0 to disable ANSI colors
-      const proc = spawn('npx', ['skills@1.3.0', ...args], {
+      const proc = spawn('npx', [`skills@${SKILLS_CLI_VERSION}`, ...args], {
         env: { ...process.env, FORCE_COLOR: '0' },
       })
 

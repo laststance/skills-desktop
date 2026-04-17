@@ -657,7 +657,7 @@ APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 
 ## Skills CLI Integration
 
-The Marketplace feature wraps `npx skills@1.3.0` CLI commands:
+The Marketplace feature wraps `npx skills@<SKILLS_CLI_VERSION>` CLI commands (version pinned in `src/shared/constants.ts`):
 
 | Feature | CLI Command                | Options                          |
 | ------- | -------------------------- | -------------------------------- |
