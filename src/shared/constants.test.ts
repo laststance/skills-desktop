@@ -13,10 +13,10 @@ describe('AGENT_DEFINITIONS', () => {
     expect(new Set(cliIds).size).toBe(cliIds.length)
   })
 
-  it('windsurf uses .windsurf dir (not legacy .codeium/windsurf)', () => {
+  it('windsurf uses .codeium/windsurf dir (matches skills CLI globalSkillsDir)', () => {
     const windsurf = AGENT_DEFINITIONS.find((a) => a.id === 'windsurf')
     expect(windsurf).toBeDefined()
-    expect(windsurf!.dir).toBe('.windsurf')
+    expect(windsurf!.dir).toBe('.codeium/windsurf')
   })
 
   it('all dirs start with a dot', () => {
