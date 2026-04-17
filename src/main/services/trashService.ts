@@ -25,6 +25,12 @@ import { getAllowedBases, validatePath } from './pathValidation'
 /** Root of the on-disk trash. Created lazily on first delete. */
 const TRASH_DIR = join(homedir(), '.agents', '.trash')
 
+/**
+ * Stable error code for a manifest that cannot be parsed (bad JSON or fails
+ * Zod). Lets tests assert on `error.code` instead of free-form message text.
+ */
+const ERR_MANIFEST_CORRUPT = 'EMANIFEST_CORRUPT'
+
 /** How long a tombstone lives before being evicted in-session (ms). Matches E1 undo window. */
 const TRASH_TTL_MS = UNDO_WINDOW_MS
 
@@ -408,12 +414,14 @@ export async function restore(
     const raw = await fs.readFile(manifestPath, 'utf-8')
     const parsedJson: unknown = JSON.parse(raw)
     manifest = manifestSchema.parse(parsedJson)
-  } catch (error) {
+  } catch {
+    // Use a stable code so tests don't have to regex on the message text
+    // (JSON.parse / Zod error codes are not stable across runtimes).
     return {
       outcome: 'error',
       error: {
         message: 'Trash manifest corrupted',
-        code: errorCode(error),
+        code: ERR_MANIFEST_CORRUPT,
       },
     }
   }

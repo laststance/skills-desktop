@@ -177,7 +177,9 @@ describe('trashService (integration)', () => {
     const restoreResult = await restore(result.tombstoneId)
     expect(restoreResult.outcome).toBe('error')
     if (restoreResult.outcome === 'error') {
-      expect(restoreResult.error.message).toMatch(/corrupt/i)
+      // Assert on the stable sentinel code rather than regex-matching the
+      // user-facing message — copy edits shouldn't break this test.
+      expect(restoreResult.error.code).toBe('EMANIFEST_CORRUPT')
     }
   })
 
@@ -259,7 +261,8 @@ describe('trashService (integration)', () => {
     const restoreResult = await restore(result.tombstoneId)
     expect(restoreResult.outcome).toBe('error')
     if (restoreResult.outcome === 'error') {
-      expect(restoreResult.error.message).toMatch(/missing/i)
+      // Stable syscall code rather than the message string.
+      expect(restoreResult.error.code).toBe('ENOENT')
     }
   })
 
