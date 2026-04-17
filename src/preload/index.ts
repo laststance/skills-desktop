@@ -2,6 +2,7 @@ import { contextBridge } from 'electron'
 
 import { IPC_CHANNELS } from '../shared/ipc-channels'
 import type {
+  DeleteProgressPayload,
   DownloadProgress,
   InstallProgress,
   UpdateInfo,
@@ -37,6 +38,20 @@ contextBridge.exposeInMainWorld('electron', {
     copyToAgents: async (
       options: Parameters<typeof typedInvoke<'skills:copyToAgents'>>[1],
     ) => typedInvoke('skills:copyToAgents', options),
+    // Bulk delete + undo (Section E of the bulk-delete plan).
+    // deleteSkills runs serially in main; batches of >=10 emit progress events.
+    deleteSkills: async (
+      options: Parameters<typeof typedInvoke<'skills:deleteSkills'>>[1],
+    ) => typedInvoke('skills:deleteSkills', options),
+    unlinkManyFromAgent: async (
+      options: Parameters<typeof typedInvoke<'skills:unlinkManyFromAgent'>>[1],
+    ) => typedInvoke('skills:unlinkManyFromAgent', options),
+    restoreDeletedSkill: async (
+      options: Parameters<typeof typedInvoke<'skills:restoreDeletedSkill'>>[1],
+    ) => typedInvoke('skills:restoreDeletedSkill', options),
+    onDeleteProgress: createIpcListener<DeleteProgressPayload>(
+      IPC_CHANNELS.SKILLS_DELETE_PROGRESS,
+    ),
   },
   // Agents API
   agents: {

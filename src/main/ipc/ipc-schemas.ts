@@ -17,6 +17,47 @@ const skillNameString = z
   .min(1)
   .regex(/^[^/\\]+$/, 'Skill name must not contain path separators')
 
+/**
+ * Tombstone id format: `<unix_ms>-<skillName>-<rand8hex>`.
+ * Regex blocks path separators in both skillName and rand8 segments so a
+ * crafted id cannot escape `TRASH_DIR` when joined.
+ * The trailing 8-hex group prevents same-ms entry collisions (reviewer iter-2 HIGH-4).
+ * @example "1729180800000-theme-generator-a1b2c3d4"
+ */
+export const tombstoneIdSchema = z
+  .string()
+  .regex(/^\d+-[^/\\]+-[a-f0-9]{8}$/, 'Invalid tombstone id format')
+
+/**
+ * Trash manifest schema written on every moveToTrash.
+ * Validated via Zod before `trashService.restore()` touches the filesystem
+ * — bad JSON or injected fields fail at the boundary, not via `JSON.parse` alone.
+ * Each `linkPath` is re-validated with `validatePath` against the agent's base
+ * directory before any fs op, so an attacker-crafted manifest still cannot point
+ * outside the agent's allowed base (defense in depth).
+ * @example
+ * {
+ *   schemaVersion: 1,
+ *   deletedAt: 1729180800000,
+ *   skillName: 'theme-generator',
+ *   sourcePath: '/Users/me/.agents/skills/theme-generator',
+ *   symlinks: [{ agentId: 'cursor', linkPath: '/Users/me/.cursor/skills/theme-generator', target: '/Users/me/.agents/skills/theme-generator' }]
+ * }
+ */
+export const manifestSchema = z.object({
+  schemaVersion: z.literal(1),
+  deletedAt: z.number().int().positive(),
+  skillName: skillNameString,
+  sourcePath: nonEmptyString,
+  symlinks: z.array(
+    z.object({
+      agentId: nonEmptyString,
+      linkPath: nonEmptyString,
+      target: nonEmptyString,
+    }),
+  ),
+})
+
 export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
   // File operations — require non-empty path strings
   'files:list': z.tuple([nonEmptyString]),
@@ -51,7 +92,6 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
   'skills:deleteSkill': z.tuple([
     z.object({
       skillName: skillNameString,
-      skillPath: nonEmptyString,
     }),
   ]),
   'skills:createSymlinks': z.tuple([
@@ -66,6 +106,28 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       skillName: skillNameString,
       linkPath: nonEmptyString,
       targetAgentIds: z.array(nonEmptyString).min(1),
+    }),
+  ]),
+
+  // Bulk delete + undo
+  'skills:deleteSkills': z.tuple([
+    z.object({
+      items: z
+        .array(z.object({ skillName: skillNameString }))
+        .min(1, 'At least one skill required for batch delete'),
+    }),
+  ]),
+  'skills:unlinkManyFromAgent': z.tuple([
+    z.object({
+      agentId: nonEmptyString,
+      items: z
+        .array(z.object({ skillName: skillNameString }))
+        .min(1, 'At least one skill required for batch unlink'),
+    }),
+  ]),
+  'skills:restoreDeletedSkill': z.tuple([
+    z.object({
+      tombstoneId: tombstoneIdSchema,
     }),
   ]),
 

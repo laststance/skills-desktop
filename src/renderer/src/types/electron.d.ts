@@ -6,6 +6,7 @@ import type {
   SkillFile,
   SkillFileContent,
   UpdateInfo,
+  DeleteProgressPayload,
   DownloadProgress,
   RankingFilter,
   SkillSearchResult,
@@ -18,6 +19,12 @@ import type {
   RemoveAllFromAgentResult,
   DeleteSkillOptions,
   DeleteSkillResult,
+  DeleteSkillsOptions,
+  BulkDeleteResult,
+  UnlinkManyFromAgentOptions,
+  BulkUnlinkResult,
+  RestoreDeletedSkillOptions,
+  RestoreDeletedSkillResult,
   CopyToAgentsOptions,
   CopyToAgentsResult,
   CreateSymlinksOptions,
@@ -48,6 +55,21 @@ declare global {
         copyToAgents: (
           options: CopyToAgentsOptions,
         ) => Promise<CopyToAgentsResult>
+        // Bulk delete + undo.
+        deleteSkills: (
+          options: DeleteSkillsOptions,
+        ) => Promise<BulkDeleteResult>
+        unlinkManyFromAgent: (
+          options: UnlinkManyFromAgentOptions,
+        ) => Promise<BulkUnlinkResult>
+        restoreDeletedSkill: (
+          options: RestoreDeletedSkillOptions,
+        ) => Promise<RestoreDeletedSkillResult>
+        // One-way push — fires when \`total >= 10\` during batch delete so the
+        // toolbar can render a live counter.
+        onDeleteProgress: (
+          callback: (payload: DeleteProgressPayload) => void,
+        ) => () => void
       }
       agents: {
         getAll: () => Promise<Agent[]>

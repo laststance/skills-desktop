@@ -1,13 +1,114 @@
 import * as fs from 'node:fs/promises'
 import { join } from 'node:path'
 
+import type { IpcMainInvokeEvent } from 'electron'
+
+import { BULK_PROGRESS_THRESHOLD } from '../../shared/constants'
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
-import { AGENTS, findAgentById } from '../constants'
+import type {
+  AbsolutePath,
+  BulkDeleteItemResult,
+  BulkDeleteResult,
+  BulkUnlinkItemResult,
+  BulkUnlinkResult,
+  RestoreDeletedSkillResult,
+  SkillName,
+} from '../../shared/types'
+import { AGENTS, findAgentById, SOURCE_DIR } from '../constants'
 import { getAllowedBases, validatePath } from '../services/pathValidation'
 import { scanSkills } from '../services/skillScanner'
+import { moveToTrash, restore, TrashError } from '../services/trashService'
+import { errorCode } from '../utils/errorCode'
 import { extractErrorMessage } from '../utils/errors'
 
 import { typedHandle } from './typedHandle'
+import { typedSend } from './typedSend'
+
+/**
+ * Derive the canonical source path for a skill. Renderer never passes paths
+ * for bulk ops — main always re-derives from SOURCE_DIR + skillName. This
+ * closes the "renderer-supplied path" trust boundary (security CRITICAL-2).
+ * @param skillName - Validated skill name (no path separators, enforced by Zod)
+ * @returns Absolute path inside SOURCE_DIR
+ * @example deriveSourcePath('task') // '/Users/me/.agents/skills/task'
+ */
+function deriveSourcePath(skillName: SkillName): string {
+  return join(SOURCE_DIR, skillName)
+}
+
+/**
+ * Unlink or remove a single link-path inside an agent directory. Shared by the
+ * single-unlink handler and the batch-unlink handler so both behave identically.
+ * @param agentPath - Validated agent skills directory (trust root)
+ * @param skillName - Validated skill name (no separators)
+ * @returns { success: boolean, error?: string; code?: string }
+ * @example removeFromAgent('/Users/me/.cursor/skills', 'task')
+ */
+async function removeFromAgent(
+  agentPath: AbsolutePath,
+  skillName: SkillName,
+): Promise<
+  { success: true } | { success: false; error: string; code?: string }
+> {
+  const linkPath = join(agentPath, skillName)
+  try {
+    // Use getAllowedBases() instead of [agentPath] because validatePath
+    // realpath-follows linkPath. For a legitimate agent symlink the realpath
+    // lands in SOURCE_DIR (source-backed) or another agent dir (cross-agent
+    // copy), both of which are valid bases. Restricting to [agentPath] alone
+    // would false-positive every symlinked-skill unlink.
+    validatePath(linkPath, getAllowedBases())
+  } catch (error) {
+    return {
+      success: false,
+      error: extractErrorMessage(error, 'Invalid link path'),
+    }
+  }
+  let stats: Awaited<ReturnType<typeof fs.lstat>>
+  try {
+    stats = await fs.lstat(linkPath)
+  } catch (error) {
+    const code = errorCode(error)
+    if (code === 'ENOENT') {
+      // Already gone — treat as success (idempotent).
+      return { success: true }
+    }
+    return {
+      success: false,
+      error: extractErrorMessage(error),
+      code,
+    }
+  }
+
+  try {
+    if (stats.isSymbolicLink()) {
+      await fs.unlink(linkPath)
+    } else if (stats.isDirectory()) {
+      // A real directory inside an agent dir is a "local skill" — actual
+      // user-owned files, not a symlink. Bulk unlink is advertised as a
+      // non-destructive op, so we refuse to delete the data here. The user
+      // must go through bulk Delete (which moves to trash with 15s undo)
+      // if they actually want the files gone.
+      return {
+        success: false,
+        error:
+          'Cannot unlink a local skill. Use Delete to move it to trash instead.',
+      }
+    } else {
+      return {
+        success: false,
+        error: 'Cannot remove: path is neither a symlink nor a directory',
+      }
+    }
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: extractErrorMessage(error),
+      code: errorCode(error),
+    }
+  }
+}
 
 /**
  * Register IPC handlers for skills operations
@@ -85,56 +186,194 @@ export function registerSkillsHandlers(): void {
   })
 
   /**
-   * Delete a skill entirely: remove all agent symlinks/copies, then source dir
-   * @param options - skillName, skillPath
-   * @returns DeleteSkillResult with symlinks removed count
+   * Delete a single skill by delegating to trashService so the single-delete
+   * path shares the same trash/undo/eviction code as batch delete.
+   *
+   * `sourcePath = join(SOURCE_DIR, skillName)` is derived server-side; the
+   * renderer never passes a path (security CRITICAL-2 closed, asymmetry with
+   * the bulk handler resolved).
+   * @param options - { skillName }
+   * @returns DeleteSkillResult with symlinksRemoved + cascadeAgents
    */
   typedHandle(IPC_CHANNELS.SKILLS_DELETE, async (_, options) => {
-    const { skillName, skillPath } = options
-    let symlinksRemoved = 0
+    const { skillName } = options
+    const sourcePath = deriveSourcePath(skillName)
 
     try {
-      // Validate skillPath BEFORE using skillName in path joins (defense in depth).
-      // Allow source skills (~/.agents/skills/...) AND local skills that live
-      // directly inside an agent directory (e.g. ~/.gemini/antigravity/skills/foo).
-      // The per-iteration validation in the loop below still constrains each
-      // constructed path to its own agent directory.
-      validatePath(skillPath, getAllowedBases())
-
-      // Remove symlinks and local copies across all agents
-      for (const agent of AGENTS) {
-        const agentSkillPath = join(agent.path, skillName)
-        // Validate each constructed path stays within agent directory
-        try {
-          validatePath(agentSkillPath, [agent.path])
-        } catch {
-          continue // Skip if path escapes agent directory
-        }
-        try {
-          const stats = await fs.lstat(agentSkillPath)
-          if (stats.isSymbolicLink()) {
-            await fs.unlink(agentSkillPath)
-            symlinksRemoved++
-          } else if (stats.isDirectory()) {
-            await fs.rm(agentSkillPath, { recursive: true, force: true })
-          }
-        } catch {
-          // Agent skill path doesn't exist, skip
-        }
-      }
-
-      // Remove source directory (already validated above)
-      await fs.rm(skillPath, { recursive: true, force: true })
-
-      return { success: true, symlinksRemoved }
+      validatePath(sourcePath, [SOURCE_DIR])
     } catch (error) {
       return {
         success: false,
-        symlinksRemoved,
+        symlinksRemoved: 0,
+        cascadeAgents: [],
         error: extractErrorMessage(error),
       }
     }
+
+    try {
+      const { cascadeAgents, symlinksRemoved } = await moveToTrash(
+        skillName,
+        sourcePath,
+      )
+      return {
+        success: true,
+        symlinksRemoved,
+        cascadeAgents,
+      }
+    } catch (error) {
+      return {
+        success: false,
+        symlinksRemoved: 0,
+        cascadeAgents: [],
+        error:
+          error instanceof TrashError
+            ? error.message
+            : extractErrorMessage(error),
+      }
+    }
   })
+
+  /**
+   * Batch delete N skills. Runs serially (for...of await) per reviewer #21 so
+   * that per-item tombstone creation, agent symlink walks, and manifest writes
+   * don't race each other on the same filesystem.
+   *
+   * Progress: emits \`skills:deleteProgress\` after each item when N >= 10 so the
+   * SelectionToolbar can show "Deleting 3 of 12". Smaller batches skip the
+   * event to avoid toast churn.
+   * @param options - items: Array<{ skillName }>
+   * @returns BulkDeleteResult with per-item discriminated outcome
+   */
+  typedHandle(
+    IPC_CHANNELS.SKILLS_DELETE_BATCH,
+    async (event: IpcMainInvokeEvent, options) => {
+      const { items } = options
+      const total = items.length
+      const emitProgress = total >= BULK_PROGRESS_THRESHOLD
+      const results: BulkDeleteItemResult[] = []
+
+      for (const [itemIndex, { skillName }] of items.entries()) {
+        const sourcePath = deriveSourcePath(skillName)
+
+        try {
+          validatePath(sourcePath, [SOURCE_DIR])
+        } catch (error) {
+          results.push({
+            skillName,
+            outcome: 'error',
+            error: { message: extractErrorMessage(error) },
+          })
+          if (emitProgress) {
+            typedSend(event.sender, IPC_CHANNELS.SKILLS_DELETE_PROGRESS, {
+              current: itemIndex + 1,
+              total,
+            })
+          }
+          continue
+        }
+
+        try {
+          const {
+            tombstoneId: id,
+            cascadeAgents,
+            symlinksRemoved,
+          } = await moveToTrash(skillName, sourcePath)
+          results.push({
+            skillName,
+            outcome: 'deleted',
+            tombstoneId: id,
+            symlinksRemoved,
+            cascadeAgents,
+          })
+        } catch (error) {
+          const message =
+            error instanceof TrashError
+              ? error.message
+              : extractErrorMessage(error)
+          const code =
+            error instanceof TrashError ? error.code : errorCode(error)
+          results.push({
+            skillName,
+            outcome: 'error',
+            error: code ? { message, code } : { message },
+          })
+        }
+
+        if (emitProgress) {
+          typedSend(event.sender, IPC_CHANNELS.SKILLS_DELETE_PROGRESS, {
+            current: itemIndex + 1,
+            total,
+          })
+        }
+      }
+
+      const result: BulkDeleteResult = { items: results }
+      return result
+    },
+  )
+
+  /**
+   * Batch unlink N skills from a single agent. Unlink is benign (it only
+   * removes one symlink/folder, doesn't touch the source), so no trash entry
+   * is created. Runs serially for predictable error reporting.
+   * @param options - agentId, items
+   * @returns BulkUnlinkResult with per-item discriminated outcome
+   */
+  typedHandle(
+    IPC_CHANNELS.SKILLS_UNLINK_MANY_FROM_AGENT,
+    async (_, options) => {
+      const { agentId, items } = options
+      const agent = findAgentById(agentId)
+      const results: BulkUnlinkItemResult[] = []
+
+      if (!agent) {
+        // No agent resolved — emit an error row per requested skill so the
+        // renderer can mark each one failed individually.
+        for (const { skillName } of items) {
+          results.push({
+            skillName,
+            outcome: 'error',
+            error: { message: 'Agent not found' },
+          })
+        }
+        const result: BulkUnlinkResult = { items: results }
+        return result
+      }
+
+      for (const { skillName } of items) {
+        const outcome = await removeFromAgent(agent.path, skillName)
+        if (outcome.success) {
+          results.push({ skillName, outcome: 'unlinked' })
+        } else {
+          results.push({
+            skillName,
+            outcome: 'error',
+            error: outcome.code
+              ? { message: outcome.error, code: outcome.code }
+              : { message: outcome.error },
+          })
+        }
+      }
+
+      const result: BulkUnlinkResult = { items: results }
+      return result
+    },
+  )
+
+  /**
+   * Restore a tombstoned skill from the on-disk trash. Delegates fully to
+   * trashService.restore() so the main-process logic lives in one place.
+   * Zod validates \`tombstoneId\` format at the IPC boundary (path-traversal
+   * block) before trashService joins it under TRASH_DIR.
+   * @param options - tombstoneId (already validated by tombstoneIdSchema)
+   * @returns RestoreDeletedSkillResult (discriminated on outcome)
+   */
+  typedHandle(
+    IPC_CHANNELS.SKILLS_RESTORE_DELETED,
+    async (_, options): Promise<RestoreDeletedSkillResult> => {
+      return restore(options.tombstoneId)
+    },
+  )
 
   /**
    * Create symlinks for a skill to multiple agents
@@ -164,7 +403,7 @@ export function registerSkillsHandlers(): void {
 
       const linkPath = join(agent.path, skillName)
       // Defense in depth: ensure the constructed link path stays inside the
-      // target agent directory (skillName must not contain `../`).
+      // target agent directory (skillName must not contain \`../\`).
       try {
         validatePath(linkPath, [agent.path])
       } catch {
@@ -180,11 +419,7 @@ export function registerSkillsHandlers(): void {
         await fs.symlink(skillPath, linkPath)
         created++
       } catch (error) {
-        if (
-          error instanceof Error &&
-          'code' in error &&
-          (error as NodeJS.ErrnoException).code === 'EEXIST'
-        ) {
+        if (errorCode(error) === 'EEXIST') {
           failures.push({ agentId, error: 'Already exists' })
         } else {
           failures.push({ agentId, error: extractErrorMessage(error) })

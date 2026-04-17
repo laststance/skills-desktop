@@ -6,6 +6,7 @@ import {
   setCurrentPage,
   toggleEditMode,
 } from '../../redux/slices/dashboardSlice'
+import { isEditableTarget } from '../../utils/isEditableTarget'
 
 /**
  * Wire global keyboard shortcuts for the dashboard.
@@ -38,12 +39,7 @@ export function useDashboardKeyboardShortcuts(): void {
 
       // Never hijack keys while the user is typing — Widget rename fields,
       // search inputs, etc. all need digits and letters to work normally.
-      const eventTarget = keyboardEvent.target as HTMLElement | null
-      const isEditableTarget =
-        eventTarget instanceof HTMLInputElement ||
-        eventTarget instanceof HTMLTextAreaElement ||
-        eventTarget?.isContentEditable === true
-      if (isEditableTarget) return
+      if (isEditableTarget(keyboardEvent.target)) return
 
       // ⌘E / Ctrl+E — edit mode toggle.
       // Matching case-insensitively so Shift+⌘E still works.
