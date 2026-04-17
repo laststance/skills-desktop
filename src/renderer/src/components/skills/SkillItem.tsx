@@ -48,6 +48,15 @@ import { computeRangeSelection } from './bulkDeleteHelpers'
 import { getSkillItemVisibility } from './skillItemHelpers'
 import { SourceLink } from './SourceLink'
 
+// Strongly-type the `skills:bulkItemFailed` CustomEvent so the cast inside
+// handleFailEvent is compile-checked instead of a freeform `as CustomEvent<…>`.
+// The dispatch site lives in MainContent.flashFailedRows.
+declare global {
+  interface WindowEventMap {
+    'skills:bulkItemFailed': CustomEvent<{ skillName: SkillName }>
+  }
+}
+
 interface SkillItemProps {
   skill: Skill
 }
@@ -221,9 +230,12 @@ export const SkillItem = React.memo(function SkillItem({
    * produced the failure.
    */
   useEffect(() => {
-    const handleFailEvent = (event: Event): void => {
-      const customEvent = event as CustomEvent<{ skillName: SkillName }>
-      if (customEvent.detail.skillName !== skill.name) return
+    // Typed via the `WindowEventMap` augmentation above, so `event.detail` is
+    // known to carry `{ skillName }` without a cast.
+    const handleFailEvent = (
+      event: WindowEventMap['skills:bulkItemFailed'],
+    ): void => {
+      if (event.detail.skillName !== skill.name) return
       setDidPartialFail(true)
       if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
       resetTimerRef.current = setTimeout(() => {
@@ -249,11 +261,16 @@ export const SkillItem = React.memo(function SkillItem({
           className={cn(
             'group cursor-pointer transition-all hover:border-primary/50 relative motion-reduce:transition-none',
             isSelected && 'border-primary bg-primary/5',
-            isLinked && 'border-l-2 border-l-cyan-400/40',
-            isLocalSkill && 'border-l-2 border-l-emerald-400/40',
+            // Skill-type accent (only when NOT flashing red) — making the
+            // precedence explicit, rather than relying on tailwind-merge
+            // class-order to let the red override cyan/emerald.
+            !didPartialFail && isLinked && 'border-l-2 border-l-cyan-400/40',
+            !didPartialFail &&
+              isLocalSkill &&
+              'border-l-2 border-l-emerald-400/40',
             // In-flight fade while the row is part of an active bulk op.
             isInFlight && 'opacity-50 duration-150',
-            // Partial-failure red edge (3s).
+            // Partial-failure red edge (PARTIAL_FAIL_FLASH_MS).
             didPartialFail && 'border-l-2 border-l-red-500/70',
           )}
           onClick={() => dispatch(selectSkill(isSelected ? null : skill))}

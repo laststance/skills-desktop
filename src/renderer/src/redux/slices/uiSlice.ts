@@ -3,6 +3,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 
 import type {
   AgentId,
+  AgentName,
   BookmarkedSkill,
   IsoTimestamp,
   SkillName,
@@ -58,7 +59,7 @@ export interface BulkConfirmState {
   kind: 'delete' | 'unlink'
   skillNames: SkillName[]
   agentId: AgentId | null
-  agentName: string | null
+  agentName: AgentName | null
 }
 
 interface UiState {

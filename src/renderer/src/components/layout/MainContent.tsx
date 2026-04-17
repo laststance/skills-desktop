@@ -5,7 +5,7 @@ import {
   ExternalLink,
   X,
 } from 'lucide-react'
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { UNDO_WINDOW_MS } from '../../../../shared/constants'
@@ -127,6 +127,20 @@ export const MainContent = React.memo(
       window.electron.shell.openExternal(SKILLS_SH_URL)
     }
 
+    // Stash the frequently-churning inputs in refs so the keydown listener
+    // effect below only re-subscribes when the tab itself changes. Without
+    // this, every skills-slice update (visibleNames is a fresh array
+    // reference per render) tears down and re-attaches the `document`
+    // listener — functionally correct but wasteful during active use.
+    const visibleNamesRef = useRef(visibleNames)
+    const selectedCountRef = useRef(selectedAllNames.length)
+    useEffect(() => {
+      visibleNamesRef.current = visibleNames
+    }, [visibleNames])
+    useEffect(() => {
+      selectedCountRef.current = selectedAllNames.length
+    }, [selectedAllNames.length])
+
     // Scoped to the Installed tab — Marketplace has its own selection context.
     useEffect(() => {
       if (activeTab !== 'installed') return
@@ -138,11 +152,11 @@ export const MainContent = React.memo(
           event.key.toLowerCase() === 'a'
         ) {
           event.preventDefault()
-          dispatch(selectAll(visibleNames))
+          dispatch(selectAll(visibleNamesRef.current))
           return
         }
         // Esc: clear selection (only when selection is non-empty)
-        if (event.key === 'Escape' && selectedAllNames.length > 0) {
+        if (event.key === 'Escape' && selectedCountRef.current > 0) {
           event.preventDefault()
           dispatch(clearSelection())
           return
@@ -152,7 +166,7 @@ export const MainContent = React.memo(
       return () => {
         document.removeEventListener('keydown', handleKey)
       }
-    }, [dispatch, activeTab, visibleNames, selectedAllNames.length])
+    }, [dispatch, activeTab])
 
     // Wire the main-process `skills:deleteProgress` event into Redux. Fires
     // only for batches large enough to warrant a counter (see main handler).
