@@ -5,12 +5,20 @@ import type {
   AgentId,
   BookmarkedSkill,
   Skill,
+  SkillName,
   SymlinkInfo,
 } from '../../../shared/types'
 
 import {
   selectBookmarksWithInstallStatus,
   selectFilteredSkills,
+  selectHiddenSelectedCount,
+  selectInFlightDeleteNamesSet,
+  selectSelectedCount,
+  selectSelectedSkillNamesSet,
+  selectSelectedVisibleCount,
+  selectSelectedVisibleNames,
+  selectVisibleSkillNames,
 } from './selectors'
 
 /** Helper to build a minimal RootState for selector testing */
@@ -21,6 +29,9 @@ function buildState(overrides: {
   sortOrder?: 'asc' | 'desc'
   skillTypeFilter?: 'all' | 'symlinked' | 'local'
   bookmarks?: BookmarkedSkill[]
+  selectedSkillNames?: SkillName[]
+  inFlightDeleteNames?: SkillName[]
+  inFlightUnlinkNames?: SkillName[]
 }) {
   return {
     skills: {
@@ -30,14 +41,21 @@ function buildState(overrides: {
       error: null,
       skillToUnlink: null,
       unlinking: false,
-      skillToDelete: null,
-      deleting: false,
       skillToAddSymlinks: null,
       addingSymlinks: false,
       skillToCopy: null,
       copying: false,
+      // v2.4 bulk-select state
+      selectedSkillNames: overrides.selectedSkillNames ?? [],
+      selectionAnchor: null,
+      inFlightDeleteNames: overrides.inFlightDeleteNames ?? [],
+      inFlightUnlinkNames: overrides.inFlightUnlinkNames ?? [],
+      bulkDeleting: false,
+      bulkUnlinking: false,
+      bulkProgress: null,
     },
     ui: {
+      activeTab: 'installed' as const,
       searchQuery: overrides.searchQuery ?? '',
       sourceStats: null,
       isRefreshing: false,
@@ -46,8 +64,10 @@ function buildState(overrides: {
       skillTypeFilter: overrides.skillTypeFilter ?? 'all',
       isSyncing: false,
       syncPreview: null,
+      syncResult: null,
       error: null,
       selectedBookmarkForDetail: null,
+      undoToast: null,
     },
     // Other slices needed for RootState shape
     agents: {
@@ -328,6 +348,148 @@ describe('selectBookmarksWithInstallStatus', () => {
     })
     const result1 = selectBookmarksWithInstallStatus(state as never)
     const result2 = selectBookmarksWithInstallStatus(state as never)
+    expect(result1).toBe(result2)
+  })
+})
+
+describe('selectVisibleSkillNames', () => {
+  it('projects selectFilteredSkills into an ordered name array', () => {
+    const skills = [
+      makeSkill('zebra', 'claude-code'),
+      makeSkill('alpha', 'claude-code'),
+    ]
+    const state = buildState({ skills })
+    expect(selectVisibleSkillNames(state as never)).toEqual(['alpha', 'zebra'])
+  })
+
+  it('returns [] when the filter produces no rows', () => {
+    const skills = [makeSkill('task', 'claude-code')]
+    const state = buildState({ skills, searchQuery: 'unmatched' })
+    expect(selectVisibleSkillNames(state as never)).toEqual([])
+  })
+})
+
+describe('selectSelectedCount', () => {
+  it('returns 0 when nothing is ticked', () => {
+    const state = buildState({})
+    expect(selectSelectedCount(state as never)).toBe(0)
+  })
+
+  it('returns the array length regardless of visibility', () => {
+    const state = buildState({
+      selectedSkillNames: ['a', 'b', 'c'],
+    })
+    expect(selectSelectedCount(state as never)).toBe(3)
+  })
+})
+
+describe('selectSelectedVisibleNames', () => {
+  it('intersects selected names with the visible list, preserving visible order', () => {
+    const skills = [
+      makeSkill('alpha', 'claude-code'),
+      makeSkill('browser', 'claude-code'),
+      makeSkill('task', 'claude-code'),
+    ]
+    const state = buildState({
+      skills,
+      selectedSkillNames: ['task', 'alpha', 'ghost'],
+    })
+    // visible order is alphabetical: alpha, browser, task — intersect yields alpha, task
+    expect(selectSelectedVisibleNames(state as never)).toEqual([
+      'alpha',
+      'task',
+    ])
+  })
+
+  it('returns an empty array when selection is entirely hidden', () => {
+    const skills = [makeSkill('task', 'claude-code')]
+    const state = buildState({
+      skills,
+      searchQuery: 'task',
+      selectedSkillNames: ['something-else'],
+    })
+    expect(selectSelectedVisibleNames(state as never)).toEqual([])
+  })
+})
+
+describe('selectSelectedVisibleCount', () => {
+  it('returns the count of selected-AND-visible names', () => {
+    const skills = [
+      makeSkill('alpha', 'claude-code'),
+      makeSkill('browser', 'claude-code'),
+      makeSkill('task', 'claude-code'),
+    ]
+    const state = buildState({
+      skills,
+      selectedSkillNames: ['alpha', 'task', 'hidden'],
+    })
+    expect(selectSelectedVisibleCount(state as never)).toBe(2)
+  })
+})
+
+describe('selectHiddenSelectedCount', () => {
+  it('returns the number of selected names that are NOT in the visible list', () => {
+    const skills = [
+      makeSkill('alpha', 'claude-code'),
+      makeSkill('browser', 'claude-code'),
+    ]
+    const state = buildState({
+      skills,
+      selectedSkillNames: ['alpha', 'hidden-1', 'hidden-2'],
+    })
+    expect(selectHiddenSelectedCount(state as never)).toBe(2)
+  })
+
+  it('returns 0 when all selected names are visible', () => {
+    const skills = [
+      makeSkill('alpha', 'claude-code'),
+      makeSkill('browser', 'claude-code'),
+    ]
+    const state = buildState({
+      skills,
+      selectedSkillNames: ['alpha', 'browser'],
+    })
+    expect(selectHiddenSelectedCount(state as never)).toBe(0)
+  })
+})
+
+describe('selectInFlightDeleteNamesSet', () => {
+  it('wraps the array in a Set for O(1) lookup', () => {
+    const state = buildState({
+      inFlightDeleteNames: ['a', 'b', 'c'],
+    })
+    const result = selectInFlightDeleteNamesSet(state as never)
+    expect(result.has('a')).toBe(true)
+    expect(result.has('z')).toBe(false)
+    expect(result.size).toBe(3)
+  })
+
+  it('is memoized — returns the same Set reference for the same input array', () => {
+    const state = buildState({
+      inFlightDeleteNames: ['a'],
+    })
+    const result1 = selectInFlightDeleteNamesSet(state as never)
+    const result2 = selectInFlightDeleteNamesSet(state as never)
+    expect(result1).toBe(result2)
+  })
+})
+
+describe('selectSelectedSkillNamesSet', () => {
+  it('wraps selectedSkillNames in a Set', () => {
+    const state = buildState({
+      selectedSkillNames: ['x', 'y'],
+    })
+    const result = selectSelectedSkillNamesSet(state as never)
+    expect(result.has('x')).toBe(true)
+    expect(result.size).toBe(2)
+  })
+
+  it('is memoized', () => {
+    const state = buildState({
+      selectedSkillNames: ['x'],
+    })
+    const result1 = selectSelectedSkillNamesSet(state as never)
+    const result2 = selectSelectedSkillNamesSet(state as never)
     expect(result1).toBe(result2)
   })
 })

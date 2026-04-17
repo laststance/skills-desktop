@@ -7,26 +7,34 @@ import {
   Plus,
   X,
 } from 'lucide-react'
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 
-import type { Skill } from '../../../../shared/types'
+import type { Skill, SkillName } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import {
+  selectInFlightDeleteNamesSet,
+  selectSelectedSkillNamesSet,
+  selectVisibleSkillNames,
+} from '../../redux/selectors'
 import {
   addBookmark,
   removeBookmark,
   selectIsBookmarked,
 } from '../../redux/slices/bookmarkSlice'
 import {
+  selectRange,
+  selectSelectionAnchor,
   selectSkill,
   setSkillToAddSymlinks,
   setSkillToCopy,
-  setSkillToDelete,
   setSkillToUnlink,
+  toggleSelection,
 } from '../../redux/slices/skillsSlice'
 import { StatusBadge } from '../status/StatusBadge'
 import { Button } from '../ui/button'
 import { Card, CardContent } from '../ui/card'
+import { Checkbox } from '../ui/checkbox'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +44,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
 import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
+import { computeRangeSelection } from './bulkDeleteHelpers'
 import { getSkillItemVisibility } from './skillItemHelpers'
 import { SourceLink } from './SourceLink'
 
@@ -43,10 +52,17 @@ interface SkillItemProps {
   skill: Skill
 }
 
+/** How long the partial-failure red edge persists (ms). */
+const PARTIAL_FAIL_FLASH_MS = 3_000
+
 /**
  * Single skill card in the skills list.
- * Shows a top-right X button that deletes the skill in global view, or
- * unlinks/deletes from the selected agent in agent view. Add button creates symlinks.
+ *
+ * Renders a bulk-selection checkbox, the skill's name and metadata, and — in
+ * agent view or for local skills — a per-row X button. During an in-flight
+ * bulk op the row fades to `opacity-50`; rows that errored out of a bulk op
+ * flash a red left edge for {@link PARTIAL_FAIL_FLASH_MS} via the
+ * `skills:bulkItemFailed` custom event so the survivors are easy to spot.
  */
 export const SkillItem = React.memo(function SkillItem({
   skill,
@@ -60,6 +76,13 @@ export const SkillItem = React.memo(function SkillItem({
     selectIsBookmarked(state, skill.name),
   )
   const showBookmark = canBookmarkSkill(skill)
+
+  const selectedNamesSet = useAppSelector(selectSelectedSkillNamesSet)
+  const inFlightDeleteSet = useAppSelector(selectInFlightDeleteNamesSet)
+  const selectionAnchor = useAppSelector(selectSelectionAnchor)
+  const visibleNames = useAppSelector(selectVisibleSkillNames)
+  const isTicked = selectedNamesSet.has(skill.name)
+  const isInFlight = inFlightDeleteSet.has(skill.name)
 
   const validSymlinks = useMemo(
     () => skill.symlinks.filter((s) => s.status === 'valid'),
@@ -81,7 +104,6 @@ export const SkillItem = React.memo(function SkillItem({
   )
 
   const {
-    showDeleteButton,
     showAddButton,
     showUnlinkButton,
     showCopyButton,
@@ -103,11 +125,6 @@ export const SkillItem = React.memo(function SkillItem({
     }
   }
 
-  const handleDeleteClick = (e: React.MouseEvent): void => {
-    e.stopPropagation()
-    dispatch(setSkillToDelete(skill))
-  }
-
   const handleAddClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
     dispatch(setSkillToAddSymlinks(skill))
@@ -120,6 +137,42 @@ export const SkillItem = React.memo(function SkillItem({
     } else {
       const { repo, url } = skillToBookmarkData(skill)
       dispatch(addBookmark({ name: skill.name, repo, url }))
+    }
+  }
+
+  /**
+   * Checkbox click handler — routes to `selectRange` on Shift and
+   * `toggleSelection` otherwise. `onPointerDown` captures the shift modifier
+   * before Radix's internal click stops the event.
+   */
+  const handleCheckboxPointerDown = (
+    event: React.PointerEvent<HTMLButtonElement>,
+  ): void => {
+    // Stop propagation so the Card's onClick (inspector selection) does not fire.
+    event.stopPropagation()
+    if (event.shiftKey && selectionAnchor) {
+      event.preventDefault()
+      const namesInRange = computeRangeSelection(
+        selectionAnchor,
+        skill.name,
+        visibleNames,
+      )
+      dispatch(selectRange(namesInRange))
+      return
+    }
+    // Non-shift path: let the checkbox settle to its new `checked` state; Radix
+    // emits `onCheckedChange` after which we dispatch the toggle.
+  }
+
+  const handleCheckedChange = (checked: boolean | 'indeterminate'): void => {
+    // Only fire when the user actually toggled — ignore the initial sync from props.
+    if (checked === 'indeterminate') return
+    // If we just handled a range via shift+click, the state is already correct.
+    // Reconcile via presence in the selection set: only toggle when the slice
+    // state disagrees with the checkbox's new visual state. Avoids double-toggle.
+    const isCurrentlyTicked = selectedNamesSet.has(skill.name)
+    if (isCurrentlyTicked !== checked) {
+      dispatch(toggleSelection(skill.name))
     }
   }
 
@@ -136,6 +189,46 @@ export const SkillItem = React.memo(function SkillItem({
     setContextOpen(false)
   }
 
+  // Partial-fail flash (local to the row). The parent (MainContent) decides
+  // which skills recently failed by subscribing to the thunk result and
+  // seeding a DOM-level data attribute or ref; for now, the flag is wired
+  // through a ref kept in sync with a sentinel attribute so Phase D (if any)
+  // can animate it without structural changes. Initialised off; the
+  // MainContent-level effect flips it on when a bulk op returns errors.
+  const [didPartialFail, setDidPartialFail] = useState(false)
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      // Clean up timer on unmount to prevent a stale setState on an unmounted row.
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+    }
+  }, [])
+  /**
+   * Expose a row-level method so MainContent can imperatively trigger the flash
+   * without threading per-row state through Redux. The MainContent effect reads
+   * the Set of failed names from the thunk result and calls into the row via a
+   * data-skill-name DOM selector.
+   *
+   * Because this is imperative, we use a CustomEvent listener keyed on the
+   * skill name for decoupling. This keeps SkillItem agnostic of which bulk op
+   * produced the failure.
+   */
+  useEffect(() => {
+    const handleFailEvent = (event: Event): void => {
+      const customEvent = event as CustomEvent<{ skillName: SkillName }>
+      if (customEvent.detail.skillName !== skill.name) return
+      setDidPartialFail(true)
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+      resetTimerRef.current = setTimeout(() => {
+        setDidPartialFail(false)
+      }, PARTIAL_FAIL_FLASH_MS)
+    }
+    window.addEventListener('skills:bulkItemFailed', handleFailEvent)
+    return () => {
+      window.removeEventListener('skills:bulkItemFailed', handleFailEvent)
+    }
+  }, [skill.name])
+
   return (
     <DropdownMenu
       open={contextOpen}
@@ -145,27 +238,33 @@ export const SkillItem = React.memo(function SkillItem({
     >
       <DropdownMenuTrigger asChild disabled={!showCopyButton}>
         <Card
+          data-skill-name={skill.name}
           className={cn(
-            'group cursor-pointer transition-colors hover:border-primary/50 relative',
+            'group cursor-pointer transition-all hover:border-primary/50 relative motion-reduce:transition-none',
             isSelected && 'border-primary bg-primary/5',
             isLinked && 'border-l-2 border-l-cyan-400/40',
             isLocalSkill && 'border-l-2 border-l-emerald-400/40',
+            // In-flight fade while the row is part of an active bulk op.
+            isInFlight && 'opacity-50 duration-150',
+            // Partial-failure red edge (3s).
+            didPartialFail && 'border-l-2 border-l-red-500/70',
           )}
           onClick={() => dispatch(selectSkill(isSelected ? null : skill))}
           onContextMenu={handleContextMenu}
         >
-          {/* X button — top-right delete/unlink action.
-              In global view: deletes the skill entirely.
-              In agent view: unlinks symlink, or deletes local skill from agent.
-              Apple HIG: 44×44 hit area via min-h/min-w; visible icon stays compact
-              so the two actions don't visually collide on the card. */}
-          {(showDeleteButton || showUnlinkButton) && (
+          {/* X button — agent-view only (unlink or delete a local skill from
+              the selected agent). Global-view delete lives on the bulk
+              SelectionToolbar. Apple HIG 44×44 hit area via min-h/min-w. */}
+          {showUnlinkButton && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  onClick={
-                    showDeleteButton ? handleDeleteClick : handleUnlinkClick
+                  onClick={handleUnlinkClick}
+                  aria-label={
+                    isLocalSkill
+                      ? `Delete ${skill.name} from ${selectedAgentName}`
+                      : `Unlink ${skill.name} from ${selectedAgentName}`
                   }
                   className="absolute top-0 right-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                 >
@@ -173,11 +272,9 @@ export const SkillItem = React.memo(function SkillItem({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="left">
-                {showDeleteButton
-                  ? 'Delete skill'
-                  : isLocalSkill
-                    ? `Delete from ${selectedAgentName}`
-                    : `Remove from ${selectedAgentName}`}
+                {isLocalSkill
+                  ? `Delete from ${selectedAgentName}`
+                  : `Remove from ${selectedAgentName}`}
               </TooltipContent>
             </Tooltip>
           )}
@@ -196,7 +293,9 @@ export const SkillItem = React.memo(function SkillItem({
                       : `Bookmark ${skill.name}`
                   }
                   className={cn(
-                    'absolute top-0 right-11 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md z-10 transition-opacity',
+                    'absolute top-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md z-10 transition-opacity',
+                    // Right-align: slide the bookmark left of the X when both are visible.
+                    showUnlinkButton ? 'right-11' : 'right-0',
                     isBookmarked
                       ? 'text-cyan-400'
                       : 'text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
@@ -215,8 +314,32 @@ export const SkillItem = React.memo(function SkillItem({
             </Tooltip>
           )}
 
-          <CardContent className="p-4 pr-14">
-            <div className="flex items-start justify-between gap-2">
+          <CardContent
+            className={cn(
+              'p-4',
+              // Reserve right space for the X/bookmark buttons when shown.
+              showUnlinkButton || showBookmark ? 'pr-14' : 'pr-4',
+            )}
+          >
+            <div className="flex items-start gap-3">
+              {/* 44×44 hit area via the wrapper label; the visual Checkbox
+                  stays 16×16 per shadcn default. */}
+              <label
+                className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center -mt-1 -ml-1 cursor-pointer"
+                onClick={(e) => e.stopPropagation()}
+                aria-label={
+                  isTicked ? `Deselect ${skill.name}` : `Select ${skill.name}`
+                }
+              >
+                <Checkbox
+                  checked={isTicked}
+                  onCheckedChange={handleCheckedChange}
+                  onPointerDown={handleCheckboxPointerDown}
+                  aria-label={
+                    isTicked ? `Deselect ${skill.name}` : `Select ${skill.name}`
+                  }
+                />
+              </label>
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium truncate flex items-center gap-1.5">
                   {isLinked && (

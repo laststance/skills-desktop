@@ -1,5 +1,7 @@
 import type {
   Agent,
+  BulkDeleteResult,
+  BulkUnlinkResult,
   CliCommandResult,
   CopyToAgentsOptions,
   CopyToAgentsResult,
@@ -7,12 +9,15 @@ import type {
   CreateSymlinksResult,
   DeleteSkillOptions,
   DeleteSkillResult,
+  DeleteSkillsOptions,
   DownloadProgress,
   InstallOptions,
   InstallProgress,
   RankingFilter,
   RemoveAllFromAgentOptions,
   RemoveAllFromAgentResult,
+  RestoreDeletedSkillOptions,
+  RestoreDeletedSkillResult,
   Skill,
   SkillBinaryContent,
   SkillFile,
@@ -23,6 +28,7 @@ import type {
   SyncExecuteResult,
   SyncPreviewResult,
   UnlinkFromAgentOptions,
+  UnlinkManyFromAgentOptions,
   UnlinkResult,
   UpdateInfo,
 } from './types'
@@ -59,6 +65,18 @@ export interface IpcInvokeContract {
     args: [CopyToAgentsOptions]
     result: CopyToAgentsResult
   }
+  'skills:deleteSkills': {
+    args: [DeleteSkillsOptions]
+    result: BulkDeleteResult
+  }
+  'skills:unlinkManyFromAgent': {
+    args: [UnlinkManyFromAgentOptions]
+    result: BulkUnlinkResult
+  }
+  'skills:restoreDeletedSkill': {
+    args: [RestoreDeletedSkillOptions]
+    result: RestoreDeletedSkillResult
+  }
   'agents:getAll': { args: []; result: Agent[] }
   'source:getStats': { args: []; result: SourceStats }
   'files:list': { args: [string]; result: SkillFile[] }
@@ -91,6 +109,7 @@ export interface IpcInvokeContract {
  */
 export interface IpcEventContract {
   'skills:cli:progress': InstallProgress
+  'skills:deleteProgress': { current: number; total: number }
   'update:checking': void
   'update:available': UpdateInfo
   'update:not-available': void

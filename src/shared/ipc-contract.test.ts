@@ -13,6 +13,9 @@ describe('IPC contract alignment', () => {
       [IPC_CHANNELS.SKILLS_DELETE]: true,
       [IPC_CHANNELS.SKILLS_CREATE_SYMLINKS]: true,
       [IPC_CHANNELS.SKILLS_COPY_TO_AGENTS]: true,
+      [IPC_CHANNELS.SKILLS_DELETE_BATCH]: true,
+      [IPC_CHANNELS.SKILLS_UNLINK_MANY_FROM_AGENT]: true,
+      [IPC_CHANNELS.SKILLS_RESTORE_DELETED]: true,
       [IPC_CHANNELS.AGENTS_GET_ALL]: true,
       [IPC_CHANNELS.SOURCE_GET_STATS]: true,
       [IPC_CHANNELS.FILES_LIST]: true,
@@ -32,13 +35,14 @@ describe('IPC contract alignment', () => {
     } as const satisfies Record<keyof IpcInvokeContract, true>
 
     // Runtime assertion: mapping covers exactly the contract keys
-    expect(Object.keys(invokeMapping)).toHaveLength(22)
+    expect(Object.keys(invokeMapping)).toHaveLength(25)
   })
 
   it('all IPC_CHANNELS event values are valid event contract keys', () => {
     // Exhaustive compile-time check: missing or extra keys fail compilation
     const eventMapping = {
       [IPC_CHANNELS.SKILLS_CLI_PROGRESS]: true,
+      [IPC_CHANNELS.SKILLS_DELETE_PROGRESS]: true,
       [IPC_CHANNELS.UPDATE_CHECKING]: true,
       [IPC_CHANNELS.UPDATE_AVAILABLE]: true,
       [IPC_CHANNELS.UPDATE_NOT_AVAILABLE]: true,
@@ -48,6 +52,6 @@ describe('IPC contract alignment', () => {
     } as const satisfies Record<keyof IpcEventContract, true>
 
     // Runtime assertion: mapping covers exactly the contract keys
-    expect(Object.keys(eventMapping)).toHaveLength(7)
+    expect(Object.keys(eventMapping)).toHaveLength(8)
   })
 })

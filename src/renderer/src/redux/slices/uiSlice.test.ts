@@ -1,16 +1,23 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { repositoryId } from '../../../../shared/types'
 import type {
+  AgentId,
+  BulkDeleteResult,
+  BulkUnlinkResult,
   SyncExecuteResult,
   SyncPreviewResult,
+  TombstoneId,
 } from '../../../../shared/types'
+import { repositoryId, tombstoneId } from '../../../../shared/types'
 
 // Stub window.electron before importing the slice (thunks reference it at call time)
 const mockSyncPreview = vi.fn()
 const mockSyncExecute = vi.fn()
 const mockGetStats = vi.fn()
+const mockGetAll = vi.fn()
+const mockDeleteSkills = vi.fn()
+const mockUnlinkManyFromAgent = vi.fn()
 
 vi.stubGlobal('window', {
   electron: {
@@ -20,6 +27,11 @@ vi.stubGlobal('window', {
     },
     source: {
       getStats: mockGetStats,
+    },
+    skills: {
+      getAll: mockGetAll,
+      deleteSkills: mockDeleteSkills,
+      unlinkManyFromAgent: mockUnlinkManyFromAgent,
     },
   },
 })
@@ -33,6 +45,18 @@ async function createTestStore() {
   const { default: uiReducer } = await import('./uiSlice')
   return configureStore({
     reducer: { ui: uiReducer },
+  })
+}
+
+/**
+ * Create a combined store with both ui and skills slices. Used for tests that
+ * verify cross-slice clearing (e.g. a skills thunk clearing an ui.undoToast).
+ */
+async function createCombinedStore() {
+  const { default: uiReducer } = await import('./uiSlice')
+  const { default: skillsReducer } = await import('./skillsSlice')
+  return configureStore({
+    reducer: { ui: uiReducer, skills: skillsReducer },
   })
 }
 
@@ -276,5 +300,145 @@ describe('uiSlice bookmark detail modal', () => {
   it('starts with null selectedBookmarkForDetail', async () => {
     const store = await createTestStore()
     expect(store.getState().ui.selectedBookmarkForDetail).toBeNull()
+  })
+})
+
+describe('uiSlice undoToast (v2.4 bulk delete)', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  /** Build a minimal undoToast payload */
+  const makeToast = (kind: 'delete' | 'unlink' = 'delete') => ({
+    id: 'toast-1',
+    kind,
+    skillNames: ['task', 'browser'],
+    tombstoneIds:
+      kind === 'delete'
+        ? [tombstoneId('1-task-aaaa'), tombstoneId('1-browser-bbbb')]
+        : ([] as TombstoneId[]),
+    expiresAt: '2026-04-17T12:00:15.000Z',
+    summary:
+      kind === 'delete'
+        ? 'Deleted 2 skills. 4 symlinks removed.'
+        : 'Unlinked 2 skills from Cursor.',
+  })
+
+  it('starts with undoToast=null', async () => {
+    const store = await createTestStore()
+    expect(store.getState().ui.undoToast).toBeNull()
+  })
+
+  it('setUndoToast populates the state', async () => {
+    const store = await createTestStore()
+    const { setUndoToast } = await import('./uiSlice')
+
+    const toast = makeToast('delete')
+    store.dispatch(setUndoToast(toast))
+
+    expect(store.getState().ui.undoToast).toEqual(toast)
+  })
+
+  it('clearUndoToast resets to null', async () => {
+    const store = await createTestStore()
+    const { setUndoToast, clearUndoToast } = await import('./uiSlice')
+
+    store.dispatch(setUndoToast(makeToast()))
+    expect(store.getState().ui.undoToast).not.toBeNull()
+
+    store.dispatch(clearUndoToast())
+    expect(store.getState().ui.undoToast).toBeNull()
+  })
+
+  it('selectAgent clears an active undoToast (context switch invalidates it)', async () => {
+    const store = await createTestStore()
+    const { setUndoToast, selectAgent } = await import('./uiSlice')
+
+    store.dispatch(setUndoToast(makeToast()))
+    expect(store.getState().ui.undoToast).not.toBeNull()
+
+    store.dispatch(selectAgent('cursor' as AgentId))
+    expect(store.getState().ui.undoToast).toBeNull()
+  })
+
+  it('setActiveTab clears an active undoToast (tab switch invalidates it)', async () => {
+    const store = await createTestStore()
+    const { setUndoToast, setActiveTab } = await import('./uiSlice')
+
+    store.dispatch(setUndoToast(makeToast()))
+    store.dispatch(setActiveTab('marketplace'))
+
+    expect(store.getState().ui.undoToast).toBeNull()
+  })
+
+  it('fetchSyncPreview.pending clears undoToast', async () => {
+    const store = await createTestStore()
+    const { setUndoToast, fetchSyncPreview } = await import('./uiSlice')
+
+    store.dispatch(setUndoToast(makeToast()))
+
+    // Keep preview pending so .pending is the only case that runs.
+    let resolve!: (value: SyncPreviewResult) => void
+    mockSyncPreview.mockReturnValue(
+      new Promise<SyncPreviewResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(fetchSyncPreview())
+
+    expect(store.getState().ui.undoToast).toBeNull()
+
+    resolve(previewNoConflicts)
+    await promise
+  })
+
+  it('deleteSelectedSkills.pending clears undoToast (combined store)', async () => {
+    const store = await createCombinedStore()
+    const { setUndoToast } = await import('./uiSlice')
+    const { deleteSelectedSkills } = await import('./skillsSlice')
+
+    store.dispatch(setUndoToast(makeToast()))
+    expect(store.getState().ui.undoToast).not.toBeNull()
+
+    // Hold pending so we observe the state during the .pending phase
+    let resolve!: (value: BulkDeleteResult) => void
+    mockDeleteSkills.mockReturnValue(
+      new Promise<BulkDeleteResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(deleteSelectedSkills(['task']))
+
+    expect(store.getState().ui.undoToast).toBeNull()
+
+    resolve({ items: [] })
+    await promise
+  })
+
+  it('unlinkSelectedFromAgent.pending clears undoToast (combined store)', async () => {
+    const store = await createCombinedStore()
+    const { setUndoToast } = await import('./uiSlice')
+    const { unlinkSelectedFromAgent } = await import('./skillsSlice')
+
+    store.dispatch(setUndoToast(makeToast('unlink')))
+    expect(store.getState().ui.undoToast).not.toBeNull()
+
+    let resolve!: (value: BulkUnlinkResult) => void
+    mockUnlinkManyFromAgent.mockReturnValue(
+      new Promise<BulkUnlinkResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(
+      unlinkSelectedFromAgent({
+        agentId: 'cursor' as AgentId,
+        selectedNames: ['task'],
+      }),
+    )
+
+    expect(store.getState().ui.undoToast).toBeNull()
+
+    resolve({ items: [] })
+    await promise
   })
 })

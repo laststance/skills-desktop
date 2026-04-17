@@ -565,16 +565,129 @@ export interface DeleteSkillOptions {
 
 /**
  * Result from deleting a skill.
- * @example { success: true, symlinksRemoved: 3 }
+ * @example { success: true, symlinksRemoved: 3, cascadeAgents: ['cursor', 'codex'] }
  */
 export interface DeleteSkillResult {
   /** true if both the source and all symlinks were removed. */
   success: boolean
   /** Count of agent symlinks that pointed at the skill before deletion. @example 3 */
   symlinksRemoved: number
+  /** Agent IDs whose symlinks were removed during the delete. Empty if the skill had no symlinks. @example ["cursor", "codex"] */
+  cascadeAgents: AgentId[]
   /** Failure reason when `success` is false. */
   error?: string
 }
+
+/**
+ * Trash entry identifier — basename of the trash directory.
+ * Format: `<unix_ms>-<skillName>-<rand8hex>` (e.g. `1729180800000-my-skill-a1b2c3d4`).
+ * Branded so raw strings cannot be passed where a tombstone id is required.
+ * @example "1729180800000-theme-generator-a1b2c3d4"
+ */
+export type TombstoneId = Brand<string, 'TombstoneId'>
+
+/**
+ * Construct a TombstoneId from a raw string at a trust boundary
+ * (main-process trashService output, IPC input validated by Zod).
+ * @example tombstoneId('1729180800000-theme-generator-a1b2c3d4')
+ */
+export const tombstoneId = (value: string): TombstoneId => value as TombstoneId
+
+/**
+ * IPC argument for `skills:deleteSkills` — batch delete N skills atomically with trash/undo.
+ * Main derives each `sourcePath = join(SOURCE_DIR, skillName)` server-side; the renderer
+ * does not pass paths (security: removes a trust-boundary widening).
+ * @example { items: [{ skillName: 'task' }, { skillName: 'theme-generator' }] }
+ */
+export interface DeleteSkillsOptions {
+  /** Skills to delete, in the order the user selected them (batch runs serially per reviewer #21). */
+  items: Array<{ skillName: SkillName }>
+}
+
+/**
+ * Per-item result from a batch delete. Discriminated on `outcome` so error items
+ * never carry a phantom `tombstoneId` (reviewer CRITICAL-1).
+ * @example { skillName: 'task', outcome: 'deleted', tombstoneId: '1729180800000-task-a1b2c3d4', symlinksRemoved: 3, cascadeAgents: ['cursor'] }
+ * @example { skillName: 'task', outcome: 'error', error: { message: 'Permission denied', code: 'EACCES' } }
+ */
+export type BulkDeleteItemResult =
+  | {
+      skillName: SkillName
+      outcome: 'deleted'
+      tombstoneId: TombstoneId
+      symlinksRemoved: number
+      cascadeAgents: AgentId[]
+    }
+  | {
+      skillName: SkillName
+      outcome: 'error'
+      error: { message: string; code?: string }
+    }
+
+/**
+ * Batch delete result. Renderer derives the list of tombstone ids for the undo
+ * toast via `items.filter(i => i.outcome === 'deleted').map(i => i.tombstoneId)`.
+ * @example { items: [{ skillName: 'task', outcome: 'deleted', tombstoneId: '...', symlinksRemoved: 2, cascadeAgents: ['cursor'] }] }
+ */
+export interface BulkDeleteResult {
+  /** Per-item outcome, index-aligned with the input `items` array (serial execution). */
+  items: BulkDeleteItemResult[]
+}
+
+/**
+ * IPC argument for `skills:unlinkManyFromAgent` — batch unlink N skills from a single agent.
+ * Main derives `linkPath = join(agent.path, skillName)` server-side.
+ * @example { agentId: 'cursor', items: [{ skillName: 'task' }, { skillName: 'theme-generator' }] }
+ */
+export interface UnlinkManyFromAgentOptions {
+  /** Agent the symlinks belong to. */
+  agentId: AgentId
+  /** Skills whose symlinks should be removed (serial processing, no tombstone — unlink is benign). */
+  items: Array<{ skillName: SkillName }>
+}
+
+/**
+ * Per-item result from a batch unlink. Discriminated on `outcome`.
+ * @example { skillName: 'task', outcome: 'unlinked' }
+ * @example { skillName: 'task', outcome: 'error', error: { message: 'EACCES', code: 'EACCES' } }
+ */
+export type BulkUnlinkItemResult =
+  | { skillName: SkillName; outcome: 'unlinked' }
+  | {
+      skillName: SkillName
+      outcome: 'error'
+      error: { message: string; code?: string }
+    }
+
+/**
+ * Batch unlink result.
+ * @example { items: [{ skillName: 'task', outcome: 'unlinked' }] }
+ */
+export interface BulkUnlinkResult {
+  /** Per-item outcome, index-aligned with the input `items` array. */
+  items: BulkUnlinkItemResult[]
+}
+
+/**
+ * IPC argument for `skills:restoreDeletedSkill` — undo a single tombstoned delete.
+ * Main validates the `tombstoneId` against `tombstoneIdSchema` before touching the filesystem.
+ * @example { tombstoneId: '1729180800000-theme-generator-a1b2c3d4' }
+ */
+export interface RestoreDeletedSkillOptions {
+  /** Trash entry id returned in the original BulkDeleteResult. */
+  tombstoneId: TombstoneId
+}
+
+/**
+ * Result from restoring a tombstoned skill. Discriminated on `outcome`.
+ * Partial restores surface via `symlinksSkipped` (target unreachable or linkPath occupied).
+ * @example { outcome: 'restored', symlinksRestored: 3, symlinksSkipped: 0 }
+ * @example { outcome: 'restored', symlinksRestored: 2, symlinksSkipped: 1 }
+ * @example { outcome: 'error', error: { message: 'Trash entry missing' } }
+ */
+export type RestoreDeletedSkillResult =
+  | { outcome: 'restored'; symlinksRestored: number; symlinksSkipped: number }
+  | { outcome: 'error'; error: { message: string; code?: string } }
 
 /**
  * IPC argument for `skills:createSymlinks` — points every target agent's

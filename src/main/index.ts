@@ -3,6 +3,7 @@ import { join } from 'path'
 import { app, shell, BrowserWindow, Menu, nativeImage, session } from 'electron'
 
 import { registerAllHandlers } from './ipc/handlers'
+import { startupCleanup as runTrashStartupCleanup } from './services/trashService'
 import { initAutoUpdater } from './updater'
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -204,6 +205,10 @@ function createMenu(): void {
 app.whenReady().then(() => {
   // Register IPC handlers before creating window
   registerAllHandlers()
+
+  // Sweep orphan trash entries older than 24h. Fire-and-forget: errors per
+  // entry are caught + logged inside trashService; we never block startup.
+  void runTrashStartupCleanup()
 
   // Configure the About panel before the menu wires up `role: 'about'`
   configureAboutPanel()
