@@ -43,12 +43,12 @@ export default defineConfig({
       },
     },
     plugins: [
-      tailwindcss(),
-      react(),
       codeInspectorPlugin({
         bundler: 'vite',
         hotKeys: ['altKey'],
       }),
+      tailwindcss(),
+      react(),
     ],
   },
 })
