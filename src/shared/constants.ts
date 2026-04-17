@@ -94,7 +94,12 @@ export const AGENT_DEFINITIONS = [
   { id: 'roo', cliId: 'roo', name: 'Roo Code', dir: '.roo' },
   { id: 'amp', cliId: 'amp', name: 'Amp', dir: '.config/amp' },
   { id: 'goose', cliId: 'goose', name: 'Goose', dir: '.config/goose' },
-  { id: 'windsurf', cliId: 'windsurf', name: 'Windsurf', dir: '.windsurf' },
+  {
+    id: 'windsurf',
+    cliId: 'windsurf',
+    name: 'Windsurf',
+    dir: '.codeium/windsurf',
+  },
   { id: 'continue', cliId: 'continue', name: 'Continue', dir: '.continue' },
   { id: 'trae', cliId: 'trae', name: 'Trae', dir: '.trae' },
   { id: 'junie', cliId: 'junie', name: 'Junie', dir: '.junie' },
@@ -215,6 +220,18 @@ export const UNIVERSAL_AGENT_IDS = [
   'opencode',
   'warp',
 ] as const satisfies readonly AgentId[]
+
+/**
+ * Pinned `vercel-labs/skills` CLI version used by the main-process
+ * `skillsCliService` when spawning `npx skills@<version> ...`. Kept in the
+ * shared module so the `/cli-upgrade` maintenance skill has a single place
+ * to bump alongside `AGENT_DEFINITIONS`. Consumers must template this into
+ * their spawn args rather than hard-coding a version string — drift here
+ * would silently run a stale CLI against up-to-date agent definitions.
+ * @example
+ * spawn('npx', [`skills@${SKILLS_CLI_VERSION}`, 'find', 'react'])
+ */
+export const SKILLS_CLI_VERSION = '1.5.1'
 
 /**
  * Undo window for bulk skill deletes (ms). The trashService tombstone TTL and
