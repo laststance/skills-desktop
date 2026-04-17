@@ -2,16 +2,11 @@ import { contextBridge } from 'electron'
 
 import { IPC_CHANNELS } from '../shared/ipc-channels'
 import type {
+  DeleteProgressPayload,
   DownloadProgress,
   InstallProgress,
   UpdateInfo,
 } from '../shared/types'
-
-/** Payload shape for the \`skills:deleteProgress\` event — emitted by main during batch delete when total >= threshold. */
-interface DeleteProgressPayload {
-  current: number
-  total: number
-}
 
 import { createIpcListener } from './ipcListener'
 import { typedInvoke } from './typedInvoke'

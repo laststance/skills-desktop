@@ -96,7 +96,11 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
       // Sticky below the search/filter row; matches the border styling of
       // MainContent's neighbouring bars for visual continuity.
       className="px-4 py-2 border-b border-border bg-primary/5 flex items-center gap-3 flex-wrap"
-      role="toolbar"
+      // `role="group"` rather than `role="toolbar"`: the WAI-ARIA toolbar
+      // pattern requires roving-tabindex arrow-key navigation between its
+      // children, which we do not implement. `group` keeps the labelled
+      // container semantics without overclaiming behaviour we don't provide.
+      role="group"
       aria-label="Bulk selection actions"
     >
       <span

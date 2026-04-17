@@ -249,12 +249,26 @@ export const undoLastBulkDelete = createAsyncThunk(
       >
     }> = []
     // Serial: each restore is an fs op; parallelism offers no real gain and
-    // makes failure attribution harder.
+    // makes failure attribution harder. Per-item try/catch ensures one IPC
+    // rejection does not discard prior successful restores — the thunk still
+    // fulfils with a complete outcome list and the caller surfaces the
+    // "N of M restored" summary.
     for (const tombstoneId of tombstoneIds) {
-      const result = await window.electron.skills.restoreDeletedSkill({
-        tombstoneId,
-      })
-      outcomes.push({ tombstoneId, result })
+      try {
+        const result = await window.electron.skills.restoreDeletedSkill({
+          tombstoneId,
+        })
+        outcomes.push({ tombstoneId, result })
+      } catch (rejectedError) {
+        const message =
+          rejectedError instanceof Error
+            ? rejectedError.message
+            : String(rejectedError)
+        outcomes.push({
+          tombstoneId,
+          result: { outcome: 'error', error: { message } },
+        })
+      }
     }
     return outcomes
   },
@@ -405,14 +419,30 @@ const skillsSlice = createSlice({
         state.bulkDeleting = true
         state.error = null
       })
-      .addCase(deleteSelectedSkills.fulfilled, (state) => {
+      .addCase(deleteSelectedSkills.fulfilled, (state, action) => {
         // Refetch happens via the component (thunks.ts refreshAllData); the
         // slice only clears the in-flight fade and releases the toolbar.
         state.inFlightDeleteNames = []
         state.bulkDeleting = false
         state.bulkProgress = null
-        state.selectedSkillNames = []
-        state.selectionAnchor = null
+        // Narrow clearSelection to the items that actually deleted — keep
+        // failed ones selected so the user can retry without re-ticking them.
+        const deletedNames = new Set(
+          action.payload.items
+            .filter((item) => item.outcome === 'deleted')
+            .map((item) => item.skillName),
+        )
+        state.selectedSkillNames = state.selectedSkillNames.filter(
+          (name) => !deletedNames.has(name),
+        )
+        if (state.selectedSkillNames.length === 0) {
+          state.selectionAnchor = null
+        } else if (
+          state.selectionAnchor !== null &&
+          deletedNames.has(state.selectionAnchor)
+        ) {
+          state.selectionAnchor = null
+        }
       })
       .addCase(deleteSelectedSkills.rejected, (state, action) => {
         state.inFlightDeleteNames = []
@@ -428,11 +458,26 @@ const skillsSlice = createSlice({
         state.bulkUnlinking = true
         state.error = null
       })
-      .addCase(unlinkSelectedFromAgent.fulfilled, (state) => {
+      .addCase(unlinkSelectedFromAgent.fulfilled, (state, action) => {
         state.inFlightUnlinkNames = []
         state.bulkUnlinking = false
-        state.selectedSkillNames = []
-        state.selectionAnchor = null
+        // Keep failed items selected so the user can retry without re-ticking.
+        const unlinkedNames = new Set(
+          action.payload.items
+            .filter((item) => item.outcome === 'unlinked')
+            .map((item) => item.skillName),
+        )
+        state.selectedSkillNames = state.selectedSkillNames.filter(
+          (name) => !unlinkedNames.has(name),
+        )
+        if (state.selectedSkillNames.length === 0) {
+          state.selectionAnchor = null
+        } else if (
+          state.selectionAnchor !== null &&
+          unlinkedNames.has(state.selectionAnchor)
+        ) {
+          state.selectionAnchor = null
+        }
       })
       .addCase(unlinkSelectedFromAgent.rejected, (state, action) => {
         state.inFlightUnlinkNames = []

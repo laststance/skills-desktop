@@ -1,6 +1,6 @@
+import { mkdtempSync } from 'node:fs'
 import {
   mkdir,
-  mkdtemp,
   readFile,
   readlink,
   rm,
@@ -8,7 +8,7 @@ import {
   symlink,
   writeFile,
 } from 'node:fs/promises'
-import { homedir, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
@@ -21,16 +21,16 @@ import {
   vi,
 } from 'vitest'
 
-// We cannot mutate homedir() across a running module, so the safest integration
-// approach is to stamp a fresh homedir for the whole test suite BEFORE the
-// trashService module is loaded. `vi.mock('node:os')` gives us that seam.
-let sharedHome: string
-let sharedSourceDir: string
-let sharedTrashDir: string
-let sharedAgentCursor: string
-
-// Capture the real tmpdir() up front — we'll use it inside the os mock.
-const realTmpDir = tmpdir()
+// sharedHome is stamped SYNCHRONOUSLY at module load so that the vi.mock
+// factory below captures a defined value by the time `trashService` is
+// imported. Previously this was `let sharedHome` seeded inside beforeAll,
+// which raced with vitest's dynamic-import scheduling: on some orderings
+// `trashService`'s top-level `TRASH_DIR = join(homedir(), '.agents', '.trash')`
+// ran while sharedHome was still undefined and blew up inside `join`.
+const sharedHome = mkdtempSync(join(tmpdir(), 'skills-trash-it-'))
+const sharedSourceDir = join(sharedHome, '.agents', 'skills')
+const sharedTrashDir = join(sharedHome, '.agents', '.trash')
+const sharedAgentCursor = join(sharedHome, '.cursor', 'skills')
 
 vi.mock('node:os', async () => {
   // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -50,10 +50,6 @@ const trashServicePromise = (async () => {
 
 describe('trashService (integration)', () => {
   beforeAll(async () => {
-    sharedHome = await mkdtemp(join(realTmpDir, 'skills-trash-it-'))
-    sharedSourceDir = join(sharedHome, '.agents', 'skills')
-    sharedTrashDir = join(sharedHome, '.agents', '.trash')
-    sharedAgentCursor = join(sharedHome, '.cursor', 'skills')
     await mkdir(sharedSourceDir, { recursive: true })
     await mkdir(sharedAgentCursor, { recursive: true })
   })
@@ -319,4 +315,3 @@ describe('trashService (integration)', () => {
 
 // Suppress the noisy void-readlink reference at module scope.
 void readlink
-void homedir

@@ -72,6 +72,34 @@ function buildEntryName(skillName: SkillName): string {
 }
 
 /**
+ * Best-effort re-create symlinks that were unlinked during `moveToTrash` when
+ * the subsequent rename/copy failed. Keeps going on per-link errors and only
+ * logs them — the caller is about to throw the original move error and we
+ * must not mask it.
+ * @param links - Symlinks recorded (and already removed) before the rename
+ * @example
+ * // Called when fs.rename(source, trashEntry) throws EACCES:
+ * await rollbackRemovedSymlinks(recordedSymlinks)
+ */
+async function rollbackRemovedSymlinks(
+  links: RecordedSymlink[],
+): Promise<void> {
+  for (const link of links) {
+    try {
+      await fs.mkdir(dirname(link.linkPath), { recursive: true })
+      await fs.symlink(link.target, link.linkPath)
+    } catch (error) {
+      console.warn('trashService: rollback symlink failed', {
+        agentId: link.agentId,
+        linkPath: link.linkPath,
+        code: errorCode(error),
+        message: extractErrorMessage(error),
+      })
+    }
+  }
+}
+
+/**
  * Move a skill source directory + its symlinks into the on-disk trash.
  *
  * Lifecycle:
@@ -169,30 +197,43 @@ export async function moveToTrash(
   }
 
   // Atomically move source → trash entry. On EXDEV, copy + remove.
+  // If the move fails, the symlinks we already unlinked would otherwise be
+  // lost. Best-effort re-create them before re-throwing so the user is not
+  // left with a half-deleted skill (source still on disk but agents unlinked).
   await fs.mkdir(entryDir, { recursive: true })
   try {
     await fs.rename(sourcePath, entrySourceDir)
   } catch (error) {
     const code = errorCode(error)
-    if (code === 'EXDEV') {
-      // Cross-device fallback: copy then remove.
-      try {
-        await fs.cp(sourcePath, entrySourceDir, { recursive: true })
-        await fs.rm(sourcePath, { recursive: true, force: true })
-      } catch (fallbackError) {
-        throw new TrashError(
-          `Failed to move source to trash (cross-device): ${extractErrorMessage(fallbackError)}`,
-          errorCode(fallbackError),
-        )
-      }
-    } else if (code === 'ENOENT') {
-      // Source vanished between outer validation and rename. Treat as "already deleted".
-      throw new TrashError('Skill not found (already deleted?)', code)
-    } else {
-      throw new TrashError(
-        `Failed to move source to trash: ${extractErrorMessage(error)}`,
-        code,
-      )
+    const trashError =
+      code === 'EXDEV'
+        ? await (async () => {
+            try {
+              await fs.cp(sourcePath, entrySourceDir, { recursive: true })
+              await fs.rm(sourcePath, { recursive: true, force: true })
+              return null
+            } catch (fallbackError) {
+              return new TrashError(
+                `Failed to move source to trash (cross-device): ${extractErrorMessage(fallbackError)}`,
+                errorCode(fallbackError),
+              )
+            }
+          })()
+        : code === 'ENOENT'
+          ? new TrashError('Skill not found (already deleted?)', code)
+          : new TrashError(
+              `Failed to move source to trash: ${extractErrorMessage(error)}`,
+              code,
+            )
+
+    if (trashError !== null) {
+      // Rollback: re-create symlinks we unlinked earlier, and drop the empty
+      // trash entry dir. Errors are logged, never masked over the real cause.
+      await rollbackRemovedSymlinks(recordedSymlinks)
+      await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
+        // entryDir cleanup is best-effort — caller already has the real error.
+      })
+      throw trashError
     }
   }
 
@@ -335,6 +376,9 @@ export async function restore(
   }
 
   // Validate sourcePath is within allowed bases (manifest could be tampered).
+  // The stat probe above is read-only and leaks no contents, so running the
+  // validation here (rather than before stat) is safe — it still fences the
+  // destructive `fs.rename` below from a manifest-forged path like `/etc/...`.
   try {
     validatePath(manifest.sourcePath, getAllowedBases())
   } catch {
@@ -399,9 +443,11 @@ export async function restore(
       symlinksSkipped++
       continue
     }
-    // Target exists?
+    // Target exists? Use the already-resolved absolute path so relative
+    // symlink targets (e.g. '../skills/foo') are checked against the actual
+    // location on disk, not accidentally against CWD.
     try {
-      await fs.access(link.target)
+      await fs.access(resolvedTarget)
     } catch {
       symlinksSkipped++
       continue

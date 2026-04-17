@@ -43,6 +43,24 @@ export interface UndoToastState {
   summary: string
 }
 
+/**
+ * Pending bulk confirmation payload. Populated by the SelectionToolbar's
+ * primary-action handler when the user clicks Delete/Unlink; the
+ * `BulkConfirmDialog` in MainContent reads this to render the Radix
+ * AlertDialog equivalent of the old `window.confirm` call (which is
+ * discouraged in Electron renderers and blocks the event loop).
+ * - `kind`: drives copy and which thunk to dispatch on confirm.
+ * - `skillNames`: the exact argument to pass to the thunk on confirm.
+ * - `agentId` / `agentName`: carried through so the unlink thunk knows which
+ *   agent to target, and the dialog copy can mention the agent by name.
+ */
+export interface BulkConfirmState {
+  kind: 'delete' | 'unlink'
+  skillNames: SkillName[]
+  agentId: AgentId | null
+  agentName: string | null
+}
+
 interface UiState {
   /** Active main content tab */
   activeTab: ActiveTab
@@ -70,6 +88,11 @@ interface UiState {
    * preview, an agent change, or a tab change (see extraReducers + reducers).
    */
   undoToast: UndoToastState | null
+  /**
+   * Pending bulk confirm dialog payload. Null when no dialog is open.
+   * Cleared on tab/agent change (same rationale as `undoToast`).
+   */
+  bulkConfirm: BulkConfirmState | null
 }
 
 const initialState: UiState = {
@@ -86,6 +109,7 @@ const initialState: UiState = {
   error: null,
   selectedBookmarkForDetail: null,
   undoToast: null,
+  bulkConfirm: null,
 }
 
 /**
@@ -130,6 +154,9 @@ const uiSlice = createSlice({
       // Tab switch is a hard context change; any surviving undo toast from the
       // previous tab is stale (user moved away from the list that owned it).
       state.undoToast = null
+      // Same reasoning for an open bulk confirm — the ticked rows belong to
+      // the previous tab's list.
+      state.bulkConfirm = null
     },
     setSearchQuery: (state, action: PayloadAction<string>) => {
       state.searchQuery = action.payload
@@ -143,6 +170,8 @@ const uiSlice = createSlice({
       // Agent change swaps the entire list out; an undo referencing names the
       // user can no longer see would be misleading. Dismiss the toast.
       state.undoToast = null
+      // The pending confirm may target a different agent; abandon it.
+      state.bulkConfirm = null
     },
     toggleSortOrder: (state) => {
       state.sortOrder = state.sortOrder === 'asc' ? 'desc' : 'asc'
@@ -184,6 +213,22 @@ const uiSlice = createSlice({
     clearUndoToast: (state) => {
       state.undoToast = null
     },
+    /**
+     * Open the bulk confirm dialog with the pending-action payload. The actual
+     * thunk dispatch (deleteSelectedSkills / unlinkSelectedFromAgent) happens
+     * in MainContent's onConfirm handler after the user approves the prompt.
+     */
+    setBulkConfirm: (state, action: PayloadAction<BulkConfirmState>) => {
+      state.bulkConfirm = action.payload
+    },
+    /**
+     * Close the bulk confirm dialog (user cancelled or confirmed; MainContent
+     * clears the state immediately so the dialog unmounts before the async
+     * thunk begins — avoids a visible flicker).
+     */
+    clearBulkConfirm: (state) => {
+      state.bulkConfirm = null
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -196,6 +241,8 @@ const uiSlice = createSlice({
         state.syncResult = null
         // A fresh sync attempt takes notification precedence; any pending undo is stale.
         state.undoToast = null
+        // Close an open bulk confirm — sync conflict dialog will render on top.
+        state.bulkConfirm = null
       })
       .addCase(fetchSyncPreview.fulfilled, (state, action) => {
         state.syncPreview = action.payload
@@ -223,9 +270,11 @@ const uiSlice = createSlice({
       // fresh fulfilled outcome will dispatch `setUndoToast` from MainContent.
       .addCase(deleteSelectedSkills.pending, (state) => {
         state.undoToast = null
+        state.bulkConfirm = null
       })
       .addCase(unlinkSelectedFromAgent.pending, (state) => {
         state.undoToast = null
+        state.bulkConfirm = null
       })
   },
 })
@@ -243,6 +292,8 @@ export const {
   clearSelectedBookmarkForDetail,
   setUndoToast,
   clearUndoToast,
+  setBulkConfirm,
+  clearBulkConfirm,
 } = uiSlice.actions
 export default uiSlice.reducer
 
@@ -272,3 +323,5 @@ export const selectSelectedBookmarkForDetail = (
 ): BookmarkForDetail | null => state.ui.selectedBookmarkForDetail
 export const selectUndoToast = (state: RootState): UndoToastState | null =>
   state.ui.undoToast
+export const selectBulkConfirm = (state: RootState): BulkConfirmState | null =>
+  state.ui.bulkConfirm

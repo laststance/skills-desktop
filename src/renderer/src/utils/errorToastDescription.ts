@@ -16,5 +16,8 @@ import type { SerializedError } from '@reduxjs/toolkit'
 export function errorToastDescription(action: {
   error: SerializedError
 }): string {
-  return action.error.message ?? 'Unexpected error'
+  // `||` instead of `??` so an empty-string message ("", e.g. a syscall that
+  // threw with no text) falls through to the 'Unexpected error' copy. `??`
+  // would happily render a blank description in the toast.
+  return action.error.message || 'Unexpected error'
 }

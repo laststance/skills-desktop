@@ -315,7 +315,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     skillNames: ['task', 'browser'],
     tombstoneIds:
       kind === 'delete'
-        ? [tombstoneId('1-task-aaaa'), tombstoneId('1-browser-bbbb')]
+        ? [tombstoneId('1-task-aaaaaaaa'), tombstoneId('1-browser-bbbbbbbb')]
         : ([] as TombstoneId[]),
     expiresAt: '2026-04-17T12:00:15.000Z',
     summary:

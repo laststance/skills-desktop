@@ -456,14 +456,14 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
         {
           skillName: 'task',
           outcome: 'deleted',
-          tombstoneId: tombstoneId('1-task-aaaa'),
+          tombstoneId: tombstoneId('1-task-aaaaaaaa'),
           symlinksRemoved: 2,
           cascadeAgents: [],
         },
         {
           skillName: 'theme-generator',
           outcome: 'deleted',
-          tombstoneId: tombstoneId('1-theme-generator-bbbb'),
+          tombstoneId: tombstoneId('1-theme-generator-bbbbbbbb'),
           symlinksRemoved: 0,
           cascadeAgents: [],
         },
@@ -485,7 +485,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
         {
           skillName: 'task',
           outcome: 'deleted',
-          tombstoneId: tombstoneId('1-task-aaaa'),
+          tombstoneId: tombstoneId('1-task-aaaaaaaa'),
           symlinksRemoved: 1,
           cascadeAgents: [],
         },
@@ -625,7 +625,10 @@ describe('skillsSlice undoLastBulkDelete thunk', () => {
 
     const store = await createTestStore()
     const { undoLastBulkDelete } = await import('./skillsSlice')
-    const ids = [tombstoneId('1-task-aaaa'), tombstoneId('1-theme-bbbb')]
+    const ids = [
+      tombstoneId('1-task-aaaaaaaa'),
+      tombstoneId('1-theme-bbbbbbbb'),
+    ]
     await store.dispatch(undoLastBulkDelete(ids))
 
     expect(calls).toEqual(ids)
@@ -646,11 +649,13 @@ describe('skillsSlice undoLastBulkDelete thunk', () => {
 
     const store = await createTestStore()
     const { undoLastBulkDelete } = await import('./skillsSlice')
-    const ids = [tombstoneId('1-task-aaaa'), tombstoneId('1-theme-bbbb')]
+    const ids = [
+      tombstoneId('1-task-aaaaaaaa'),
+      tombstoneId('1-theme-bbbbbbbb'),
+    ]
     const action = await store.dispatch(undoLastBulkDelete(ids))
 
-    const { undoLastBulkDelete: thunk } = await import('./skillsSlice')
-    if (!thunk.fulfilled.match(action)) {
+    if (!undoLastBulkDelete.fulfilled.match(action)) {
       throw new Error('Expected undoLastBulkDelete to fulfill, got rejected')
     }
     expect(action.payload).toHaveLength(2)
@@ -658,13 +663,28 @@ describe('skillsSlice undoLastBulkDelete thunk', () => {
     expect(action.payload[1].result.outcome).toBe('error')
   })
 
-  it('sets error on rejected', async () => {
+  // The thunk catches IPC rejections per-item and surfaces them as
+  // `{ outcome: 'error' }` entries so a single failure does not discard the
+  // restored-items in the same batch (see Batch 6 / CodeRabbit thread #18).
+  // As a result `state.skills.error` is NOT set on IPC rejection — callers
+  // must inspect the per-item payload to build a "N of M restored" toast.
+  it('catches IPC rejection as per-item error outcome without slice-level error', async () => {
     mockRestoreDeletedSkill.mockRejectedValue(new Error('Disk full'))
 
     const store = await createTestStore()
     const { undoLastBulkDelete } = await import('./skillsSlice')
-    await store.dispatch(undoLastBulkDelete([tombstoneId('1-task-aaaa')]))
+    const action = await store.dispatch(
+      undoLastBulkDelete([tombstoneId('1-task-aaaaaaaa')]),
+    )
 
-    expect(store.getState().skills.error).toBe('Disk full')
+    if (!undoLastBulkDelete.fulfilled.match(action)) {
+      throw new Error('Expected undoLastBulkDelete to fulfill, got rejected')
+    }
+    expect(action.payload).toHaveLength(1)
+    expect(action.payload[0].result.outcome).toBe('error')
+    if (action.payload[0].result.outcome === 'error') {
+      expect(action.payload[0].result.error.message).toBe('Disk full')
+    }
+    expect(store.getState().skills.error).toBeNull()
   })
 })

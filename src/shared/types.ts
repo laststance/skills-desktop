@@ -335,6 +335,19 @@ export interface UpdateInfo {
 }
 
 /**
+ * Event payload for the `skills:deleteProgress` channel — emitted by main
+ * during serial batch delete when `total >= BULK_PROGRESS_THRESHOLD` so the
+ * renderer toolbar can show a live counter.
+ * @example { current: 3, total: 12 }
+ */
+export interface DeleteProgressPayload {
+  /** 1-based index of the item just processed. @example 3 */
+  current: number
+  /** Total items in this batch. @example 12 */
+  total: number
+}
+
+/**
  * Download progress during auto-update.
  * @example { percent: 45.2, bytesPerSecond: 524288, total: 10485760, transferred: 4739174 }
  */

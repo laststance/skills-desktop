@@ -141,9 +141,15 @@ export const SkillItem = React.memo(function SkillItem({
   }
 
   /**
-   * Checkbox click handler — routes to `selectRange` on Shift and
-   * `toggleSelection` otherwise. `onPointerDown` captures the shift modifier
+   * Checkbox click handler — `onPointerDown` captures the shift modifier
    * before Radix's internal click stops the event.
+   *
+   * Routes to `selectRange` ONLY when Shift is held AND an anchor already
+   * exists (from a prior single-click). With no anchor (first click into an
+   * empty selection), Shift-click falls through to the non-shift path: Radix
+   * fires `onCheckedChange`, `handleCheckedChange` dispatches `toggleSelection`,
+   * and the reducer promotes this click to the new anchor. Behaves like macOS
+   * Finder — a first shift-click with no anchor is a plain toggle, not a range.
    */
   const handleCheckboxPointerDown = (
     event: React.PointerEvent<HTMLButtonElement>,
@@ -160,8 +166,9 @@ export const SkillItem = React.memo(function SkillItem({
       dispatch(selectRange(namesInRange))
       return
     }
-    // Non-shift path: let the checkbox settle to its new `checked` state; Radix
-    // emits `onCheckedChange` after which we dispatch the toggle.
+    // Non-shift path (and shift-without-anchor): let the checkbox settle to
+    // its new `checked` state; Radix emits `onCheckedChange` and we dispatch
+    // the toggle there. The reducer records the new anchor on toggle.
   }
 
   const handleCheckedChange = (checked: boolean | 'indeterminate'): void => {
@@ -322,14 +329,13 @@ export const SkillItem = React.memo(function SkillItem({
             )}
           >
             <div className="flex items-start gap-3">
-              {/* 44×44 hit area via the wrapper label; the visual Checkbox
-                  stays 16×16 per shadcn default. */}
+              {/* 44×44 hit area via the wrapper; the visual Checkbox stays
+                  16×16 per shadcn default. The focusable Checkbox below owns
+                  the accessible name — duplicating `aria-label` on the wrapper
+                  caused some screen readers to announce the skill twice. */}
               <label
                 className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center -mt-1 -ml-1 cursor-pointer"
                 onClick={(e) => e.stopPropagation()}
-                aria-label={
-                  isTicked ? `Deselect ${skill.name}` : `Select ${skill.name}`
-                }
               >
                 <Checkbox
                   checked={isTicked}

@@ -72,20 +72,34 @@ export const UndoToast = React.memo(function UndoToast({
   const [isRestoring, setIsRestoring] = useState(false)
   const hasDismissedRef = useRef(false)
 
+  // Keep onDismiss in a ref so the countdown effect below doesn't list it in
+  // its deps. Parents often pass a fresh-identity callback on every render
+  // (e.g. inline `() => dispatch(clearUndoToast())`), which would otherwise
+  // tear down and restart `setInterval` every render — losing accumulated
+  // ticks and making the countdown stutter.
+  const onDismissRef = useRef(onDismiss)
   useEffect(() => {
-    // Tick while visible; stop when we run out of time or the user initiates
-    // a restore. No `prefers-reduced-motion` branch needed — we aren't
-    // animating, just updating a number.
+    onDismissRef.current = onDismiss
+  }, [onDismiss])
+
+  useEffect(() => {
+    // Freeze the countdown once the user commits to Undo. Two reasons:
+    //  1. Firing onDismiss() at the moment restore lands would unmount the
+    //     toast mid-request, stranding the "Restoring N skills..." affordance.
+    //  2. The success/error toast that follows is already owned by the parent.
+    if (isRestoring) return
+    // Tick while visible. No `prefers-reduced-motion` branch needed — we
+    // aren't animating, just updating a number.
     const timer = setInterval(() => {
       const next = Math.max(0, expiresAtMs - Date.now())
       setRemainingMs(next)
       if (next === 0 && !hasDismissedRef.current) {
         hasDismissedRef.current = true
-        onDismiss()
+        onDismissRef.current()
       }
     }, COUNTDOWN_TICK_MS)
     return () => clearInterval(timer)
-  }, [expiresAtMs, onDismiss])
+  }, [expiresAtMs, isRestoring])
 
   const remainingSeconds = Math.ceil(remainingMs / 1_000)
   const isUrgent = remainingSeconds <= URGENT_SECONDS_THRESHOLD

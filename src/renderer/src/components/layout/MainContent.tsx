@@ -33,9 +33,12 @@ import {
 } from '../../redux/slices/skillsSlice'
 import type { ActiveTab, SkillTypeFilter } from '../../redux/slices/uiSlice'
 import {
+  clearBulkConfirm,
   clearUndoToast,
   selectAgent,
+  selectBulkConfirm,
   setActiveTab,
+  setBulkConfirm,
   setSkillTypeFilter,
   setUndoToast,
   toggleSortOrder,
@@ -60,6 +63,14 @@ import { SkillsList } from '../skills/SkillsList'
 import { UndoToast } from '../skills/UndoToast'
 import { UnlinkDialog } from '../skills/UnlinkDialog'
 import { Button } from '../ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -98,6 +109,8 @@ export const MainContent = React.memo(
     const visibleNames = useAppSelector(selectVisibleSkillNames)
     const selectedVisibleNames = useAppSelector(selectSelectedVisibleNames)
     const selectedAllNames = useAppSelector(selectSelectedSkillNames)
+
+    const bulkConfirm = useAppSelector(selectBulkConfirm)
 
     const selectedAgent = agents.find((a) => a.id === selectedAgentId)
 
@@ -199,23 +212,43 @@ export const MainContent = React.memo(
     )
 
     /**
-     * Primary bulk action — behaves as Delete (global view) or Unlink
-     * (agent view). Kicks off the thunk, shows an undo toast (deletes only),
-     * and handles partial failures via a flash on the survivor rows.
+     * Open the bulk confirm dialog with the pending payload. The actual thunk
+     * dispatch happens in `handleConfirmBulk` below — that split lets us keep
+     * the prompt in a Radix `<Dialog>` (matches SyncConfirmDialog and satisfies
+     * the "no window.confirm in renderer" review rule) without leaking the
+     * thunk wiring into Redux state.
      */
-    const handlePrimaryAction = useCallback(async (): Promise<void> => {
+    const handlePrimaryAction = useCallback((): void => {
       if (selectedVisibleNames.length === 0) return
-      if (selectedAgentId) {
-        // Agent view — bulk unlink (not tombstoned, no undo toast).
-        const confirmed = window.confirm(
-          `Unlink ${selectedVisibleNames.length} ${pluralize(selectedVisibleNames.length, 'skill')} from ${selectedAgent?.name ?? 'this agent'}?`,
-        )
-        if (!confirmed) return
+      dispatch(
+        setBulkConfirm({
+          kind: selectedAgentId ? 'unlink' : 'delete',
+          skillNames: selectedVisibleNames,
+          agentId: selectedAgentId,
+          agentName: selectedAgent?.name ?? null,
+        }),
+      )
+    }, [dispatch, selectedAgentId, selectedAgent?.name, selectedVisibleNames])
 
+    /**
+     * Invoked by the BulkConfirmDialog's primary button. Reads the pending
+     * payload from Redux, clears the dialog, then runs the existing thunk +
+     * post-action logic (toast, refresh, undo toast for deletes).
+     */
+    const handleConfirmBulk = useCallback(async (): Promise<void> => {
+      if (!bulkConfirm) return
+      const { kind, skillNames, agentId, agentName } = bulkConfirm
+      // Clear FIRST so the dialog unmounts before the thunk suspends; the
+      // thunk's `.pending` reducer also clears, but the explicit clear removes
+      // the "frozen dialog while request is in flight" race on slow disks.
+      dispatch(clearBulkConfirm())
+
+      if (kind === 'unlink' && agentId) {
+        // Agent view — bulk unlink (not tombstoned, no undo toast).
         const action = await dispatch(
           unlinkSelectedFromAgent({
-            agentId: selectedAgentId,
-            selectedNames: selectedVisibleNames,
+            agentId,
+            selectedNames: skillNames,
           }),
         )
         if (unlinkSelectedFromAgent.fulfilled.match(action)) {
@@ -224,7 +257,7 @@ export const MainContent = React.memo(
             .map((item) => item.skillName)
           flashFailedRows(failedNames)
           toast.success(
-            formatUnlinkSummary(action.payload, selectedAgent?.name ?? 'agent'),
+            formatUnlinkSummary(action.payload, agentName ?? 'agent'),
           )
         } else {
           toast.error('Bulk unlink failed', {
@@ -236,12 +269,7 @@ export const MainContent = React.memo(
       }
 
       // Global view — bulk delete (tombstoned, undo toast).
-      const confirmed = window.confirm(
-        `Delete ${selectedVisibleNames.length} ${pluralize(selectedVisibleNames.length, 'skill')} permanently? You will have ${Math.round(UNDO_WINDOW_MS / 1000)} seconds to undo.`,
-      )
-      if (!confirmed) return
-
-      const action = await dispatch(deleteSelectedSkills(selectedVisibleNames))
+      const action = await dispatch(deleteSelectedSkills(skillNames))
       if (deleteSelectedSkills.fulfilled.match(action)) {
         const tombstoneIds = action.payload.items
           .filter(
@@ -308,14 +336,11 @@ export const MainContent = React.memo(
           description: errorToastDescription(action),
         })
       }
-    }, [
-      dispatch,
-      selectedAgentId,
-      selectedAgent,
-      selectedVisibleNames,
-      flashFailedRows,
-      handleUndoDelete,
-    ])
+    }, [bulkConfirm, dispatch, flashFailedRows, handleUndoDelete])
+
+    const handleCancelBulkConfirm = useCallback((): void => {
+      dispatch(clearBulkConfirm())
+    }, [dispatch])
 
     return (
       <main
@@ -472,6 +497,45 @@ export const MainContent = React.memo(
         <SyncConfirmDialog />
         <SyncConflictDialog />
         <SyncResultDialog />
+
+        {/*
+          Bulk delete / unlink confirmation. Replaces the old `window.confirm`
+          call in handlePrimaryAction (blocks the event loop in Electron, and
+          CodeRabbit flagged it as discouraged renderer API). Copy is driven by
+          the kind flag so the dispatch site stays a single handler.
+        */}
+        <Dialog
+          open={bulkConfirm !== null}
+          onOpenChange={handleCancelBulkConfirm}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {bulkConfirm?.kind === 'delete'
+                  ? `Delete ${bulkConfirm.skillNames.length} ${pluralize(bulkConfirm.skillNames.length, 'skill')}?`
+                  : `Unlink ${bulkConfirm?.skillNames.length ?? 0} ${pluralize(bulkConfirm?.skillNames.length ?? 0, 'skill')} from ${bulkConfirm?.agentName ?? 'agent'}?`}
+              </DialogTitle>
+              <DialogDescription>
+                {bulkConfirm?.kind === 'delete'
+                  ? 'This moves the skills to the app trash and removes every symlink pointing to them. You can restore within 15 seconds from the notification.'
+                  : `This removes the symlinks in ${bulkConfirm?.agentName ?? 'this agent'}. The underlying skill files stay in your source directory.`}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={handleCancelBulkConfirm}>
+                Cancel
+              </Button>
+              <Button
+                variant={
+                  bulkConfirm?.kind === 'delete' ? 'destructive' : 'default'
+                }
+                onClick={handleConfirmBulk}
+              >
+                {bulkConfirm?.kind === 'delete' ? 'Delete' : 'Unlink'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     )
   },

@@ -6,6 +6,7 @@ import type {
   SkillFile,
   SkillFileContent,
   UpdateInfo,
+  DeleteProgressPayload,
   DownloadProgress,
   RankingFilter,
   SkillSearchResult,
@@ -32,12 +33,6 @@ import type {
   SyncExecuteOptions,
   SyncExecuteResult,
 } from '../../../shared/types'
-
-/** Event payload shape for the \`skills:deleteProgress\` channel — emitted by main during serial batch delete when total >= 10. */
-interface DeleteProgressPayload {
-  current: number
-  total: number
-}
 
 declare global {
   interface Window {

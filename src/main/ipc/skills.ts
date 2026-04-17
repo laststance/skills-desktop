@@ -238,8 +238,7 @@ export function registerSkillsHandlers(): void {
       const emitProgress = total >= BULK_PROGRESS_THRESHOLD
       const results: BulkDeleteItemResult[] = []
 
-      for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
-        const { skillName } = items[itemIndex]
+      for (const [itemIndex, { skillName }] of items.entries()) {
         const sourcePath = deriveSourcePath(skillName)
 
         try {
