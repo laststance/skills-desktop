@@ -1,10 +1,11 @@
 import { randomBytes } from 'node:crypto'
 import * as fs from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 
 import type { z } from 'zod'
 
+import { UNDO_WINDOW_MS } from '../../shared/constants'
 import type {
   AbsolutePath,
   AgentId,
@@ -25,7 +26,7 @@ import { getAllowedBases, validatePath } from './pathValidation'
 const TRASH_DIR = join(homedir(), '.agents', '.trash')
 
 /** How long a tombstone lives before being evicted in-session (ms). Matches E1 undo window. */
-const TRASH_TTL_MS = 15_000
+const TRASH_TTL_MS = UNDO_WINDOW_MS
 
 /** Max age for startup-cleanup to preserve orphaned entries across restarts (ms). */
 const STARTUP_CLEANUP_MAX_AGE_MS = 24 * 60 * 60 * 1000
@@ -385,6 +386,19 @@ export async function restore(
       symlinksSkipped++
       continue
     }
+    // Re-validate target stays inside SOURCE_DIR. `target` is the raw string
+    // `fs.readlink` returned at delete-time — it may be absolute or relative
+    // to the symlink's own directory (kernel resolution contract). A tampered
+    // manifest could otherwise steer restore into planting links at '/etc/...'.
+    const resolvedTarget = isAbsolute(link.target)
+      ? link.target
+      : resolve(dirname(link.linkPath), link.target)
+    try {
+      validatePath(resolvedTarget, [SOURCE_DIR])
+    } catch {
+      symlinksSkipped++
+      continue
+    }
     // Target exists?
     try {
       await fs.access(link.target)
@@ -559,7 +573,3 @@ export function __clearEvictTimersForTests(): void {
 export function __getTrashDirForTests(): string {
   return TRASH_DIR
 }
-
-// Prevent unused-var warnings for the SOURCE_DIR import if tree-shaking notices.
-// (SOURCE_DIR is consumed by downstream callers of this module via pathValidation.)
-void SOURCE_DIR

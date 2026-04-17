@@ -83,6 +83,26 @@ const initialState: SkillsState = {
 }
 
 /**
+ * Intersect a dispatched-names list with the live `state.items` set so a late
+ * `fetchSkills.fulfilled` landing between click and thunk dispatch cannot turn
+ * a valid request into a 500 on a ghost skill. Used by the bulk-delete and
+ * bulk-unlink `.pending` reducers, which both need the same reconciliation.
+ *
+ * @param items - Current `state.items` (source of "currently installed")
+ * @param names - Names the user selected at click-time
+ * @returns `names` filtered to those still present in `items`
+ * @example
+ * reconcileByLiveNames(state.items, action.meta.arg) // deleteSelectedSkills.pending
+ */
+function reconcileByLiveNames(
+  items: readonly Skill[],
+  names: readonly SkillName[],
+): SkillName[] {
+  const liveNames = new Set(items.map((skill) => skill.name))
+  return names.filter((name) => liveNames.has(name))
+}
+
+/**
  * Fetch all skills from the main process
  * @returns Promise<Skill[]> - Array of skill objects from ~/.agents/skills/
  */
@@ -378,14 +398,10 @@ const skillsSlice = createSlice({
         state.error = action.error.message ?? 'Failed to copy skill'
       })
       .addCase(deleteSelectedSkills.pending, (state, action) => {
-        // Mid-op reconciliation: intersect the dispatched list with the live
-        // `items` set. A late `fetchSkills.fulfilled` between click and dispatch
-        // could have removed a name — deleting a ghost would surface as a 500.
-        const liveNames = new Set(state.items.map((skill) => skill.name))
-        const reconciledNames = action.meta.arg.filter((name) =>
-          liveNames.has(name),
+        state.inFlightDeleteNames = reconcileByLiveNames(
+          state.items,
+          action.meta.arg,
         )
-        state.inFlightDeleteNames = reconciledNames
         state.bulkDeleting = true
         state.error = null
       })
@@ -405,11 +421,10 @@ const skillsSlice = createSlice({
         state.error = action.error.message ?? 'Bulk delete failed'
       })
       .addCase(unlinkSelectedFromAgent.pending, (state, action) => {
-        const liveNames = new Set(state.items.map((skill) => skill.name))
-        const reconciledNames = action.meta.arg.selectedNames.filter((name) =>
-          liveNames.has(name),
+        state.inFlightUnlinkNames = reconcileByLiveNames(
+          state.items,
+          action.meta.arg.selectedNames,
         )
-        state.inFlightUnlinkNames = reconciledNames
         state.bulkUnlinking = true
         state.error = null
       })

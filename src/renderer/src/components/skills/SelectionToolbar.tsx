@@ -1,6 +1,7 @@
 import { Loader2, Trash2, Unlink, X } from 'lucide-react'
 import React from 'react'
 
+import { BULK_PROGRESS_THRESHOLD } from '../../../../shared/constants'
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import {
@@ -20,9 +21,6 @@ import { selectSelectedAgentId } from '../../redux/slices/uiSlice'
 import { Button } from '../ui/button'
 
 import { getToolbarState } from './bulkDeleteHelpers'
-
-/** The batch size above which the toolbar displays a live "k of n" counter. */
-const PROGRESS_DISPLAY_THRESHOLD = 10
 
 interface SelectionToolbarProps {
   /**
@@ -83,7 +81,7 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
   const isBusy = bulkDeleting || bulkUnlinking
 
   const showProgress =
-    bulkProgress !== null && bulkProgress.total >= PROGRESS_DISPLAY_THRESHOLD
+    bulkProgress !== null && bulkProgress.total >= BULK_PROGRESS_THRESHOLD
 
   const handleSelectAllVisible = (): void => {
     dispatch(selectAll(visibleNames))

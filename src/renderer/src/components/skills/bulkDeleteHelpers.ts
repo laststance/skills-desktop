@@ -8,6 +8,7 @@ import type {
   BulkUnlinkResult,
   SkillName,
 } from '../../../../shared/types'
+import { pluralize } from '../../utils/pluralize'
 
 /**
  * Which toolbar variant is rendering:
@@ -146,13 +147,13 @@ export const formatCascadeSummary = (result: BulkDeleteResult): string => {
   const hadErrors = deletedCount < totalCount
 
   const skillsPhrase = hadErrors
-    ? `Deleted ${deletedCount} of ${totalCount} ${totalCount === 1 ? 'skill' : 'skills'}.`
-    : `Deleted ${deletedCount} ${deletedCount === 1 ? 'skill' : 'skills'}.`
+    ? `Deleted ${deletedCount} of ${totalCount} ${pluralize(totalCount, 'skill')}.`
+    : `Deleted ${deletedCount} ${pluralize(deletedCount, 'skill')}.`
 
   // Omit the symlink sentence when nothing cascaded (keeps the toast compact).
   const symlinksPhrase =
     totalSymlinksRemoved > 0
-      ? ` ${totalSymlinksRemoved} ${totalSymlinksRemoved === 1 ? 'symlink' : 'symlinks'} removed.`
+      ? ` ${totalSymlinksRemoved} ${pluralize(totalSymlinksRemoved, 'symlink')} removed.`
       : ''
 
   return `${skillsPhrase}${symlinksPhrase}`
@@ -182,8 +183,8 @@ export const formatUnlinkSummary = (
   const hadErrors = unlinkedCount < totalCount
 
   return hadErrors
-    ? `Unlinked ${unlinkedCount} of ${totalCount} ${totalCount === 1 ? 'skill' : 'skills'} from ${agentDisplayName}.`
-    : `Unlinked ${unlinkedCount} ${unlinkedCount === 1 ? 'skill' : 'skills'} from ${agentDisplayName}.`
+    ? `Unlinked ${unlinkedCount} of ${totalCount} ${pluralize(totalCount, 'skill')} from ${agentDisplayName}.`
+    : `Unlinked ${unlinkedCount} ${pluralize(unlinkedCount, 'skill')} from ${agentDisplayName}.`
 }
 
 /**

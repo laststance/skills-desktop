@@ -92,7 +92,6 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
   'skills:deleteSkill': z.tuple([
     z.object({
       skillName: skillNameString,
-      skillPath: nonEmptyString,
     }),
   ]),
   'skills:createSymlinks': z.tuple([

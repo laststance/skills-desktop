@@ -3,6 +3,7 @@ import { join } from 'node:path'
 
 import type { IpcMainInvokeEvent } from 'electron'
 
+import { BULK_PROGRESS_THRESHOLD } from '../../shared/constants'
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import type {
   AbsolutePath,
@@ -22,13 +23,6 @@ import { extractErrorMessage } from '../utils/errors'
 
 import { typedHandle } from './typedHandle'
 import { typedSend } from './typedSend'
-
-/**
- * When a batch is at least this large, emit per-item progress events so the
- * toolbar can show a live counter. Smaller batches finish fast enough that the
- * final \`.fulfilled\` toast is a better UX than a flashing counter.
- */
-const BATCH_PROGRESS_THRESHOLD = 10
 
 /**
  * Derive the canonical source path for a skill. Renderer never passes paths
@@ -181,12 +175,10 @@ export function registerSkillsHandlers(): void {
    * Delete a single skill by delegating to trashService so the single-delete
    * path shares the same trash/undo/eviction code as batch delete.
    *
-   * Legacy callers still pass { skillName, skillPath } through the schema;
-   * we re-derive \`sourcePath = join(SOURCE_DIR, skillName)\` server-side to
-   * close the renderer-supplied-path trust boundary (security CRITICAL-2).
-   * The \`skillPath\` field is kept on the options interface for backward
-   * compatibility but is not used here.
-   * @param options - skillName, skillPath (skillPath unused — kept for contract compat)
+   * `sourcePath = join(SOURCE_DIR, skillName)` is derived server-side; the
+   * renderer never passes a path (security CRITICAL-2 closed, asymmetry with
+   * the bulk handler resolved).
+   * @param options - { skillName }
    * @returns DeleteSkillResult with symlinksRemoved + cascadeAgents
    */
   typedHandle(IPC_CHANNELS.SKILLS_DELETE, async (_, options) => {
@@ -243,7 +235,7 @@ export function registerSkillsHandlers(): void {
     async (event: IpcMainInvokeEvent, options) => {
       const { items } = options
       const total = items.length
-      const emitProgress = total >= BATCH_PROGRESS_THRESHOLD
+      const emitProgress = total >= BULK_PROGRESS_THRESHOLD
       const results: BulkDeleteItemResult[] = []
 
       for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
@@ -369,14 +361,6 @@ export function registerSkillsHandlers(): void {
       return restore(options.tombstoneId)
     },
   )
-
-  /**
-   * Delete a skill entirely — DEPRECATED inline implementation, now routed
-   * through the handler above which calls \`moveToTrash\`. Kept as a comment
-   * for the review commit. The legacy for-loop that walked AGENTS and ran
-   * fs.unlink/fs.rm was replaced by trashService.moveToTrash so single and
-   * bulk deletes share one trash pathway.
-   */
 
   /**
    * Create symlinks for a skill to multiple agents

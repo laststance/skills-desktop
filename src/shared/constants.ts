@@ -215,3 +215,19 @@ export const UNIVERSAL_AGENT_IDS = [
   'opencode',
   'warp',
 ] as const satisfies readonly AgentId[]
+
+/**
+ * Undo window for bulk skill deletes (ms). The trashService tombstone TTL and
+ * the renderer undo-toast duration must stay in lockstep — if the on-disk
+ * tombstone expires before the toast, a user's "undo" click races an empty
+ * trash directory. Keep both sides importing from this single constant.
+ */
+export const UNDO_WINDOW_MS = 15_000
+
+/**
+ * Batch size at which bulk ops surface a live per-item progress counter in the
+ * toolbar. Below this, the final `.fulfilled` toast is a better UX than a
+ * flashing "k of n". Main-process `emitProgress` and renderer-side display
+ * gate must read the same threshold.
+ */
+export const BULK_PROGRESS_THRESHOLD = 10

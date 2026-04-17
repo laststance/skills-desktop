@@ -7,6 +7,7 @@ import type {
   TombstoneId,
 } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
+import { pluralize } from '../../utils/pluralize'
 
 /** Tick interval for the countdown (ms). 250 gives smooth updates without thrashing. */
 const COUNTDOWN_TICK_MS = 250
@@ -137,15 +138,15 @@ export const UndoToast = React.memo(function UndoToast({
           )}
           aria-label={
             isRestoring
-              ? `Restoring ${skillNames.length} skill${skillNames.length === 1 ? '' : 's'}`
+              ? `Restoring ${skillNames.length} ${pluralize(skillNames.length, 'skill')}`
               : 'Undo delete'
           }
         >
           {isRestoring ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-              Restoring {skillNames.length} skill
-              {skillNames.length === 1 ? '' : 's'}...
+              Restoring {skillNames.length}{' '}
+              {pluralize(skillNames.length, 'skill')}...
             </>
           ) : (
             <>

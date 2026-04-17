@@ -553,14 +553,13 @@ export interface RemoveAllFromAgentResult {
 
 /**
  * IPC argument for `skills:deleteSkill` — removes the skill source directory
- * AND every agent symlink pointing at it.
- * @example { skillName: 'theme-generator', skillPath: '/Users/me/.agents/skills/theme-generator' }
+ * AND every agent symlink pointing at it. Main derives `sourcePath` from
+ * `SOURCE_DIR + skillName` server-side; renderer never passes a path.
+ * @example { skillName: 'theme-generator' }
  */
 export interface DeleteSkillOptions {
   /** Skill to delete. @example "theme-generator" */
   skillName: SkillName
-  /** Absolute path to the skill source directory. @example "/Users/me/.agents/skills/theme-generator" */
-  skillPath: AbsolutePath
 }
 
 /**

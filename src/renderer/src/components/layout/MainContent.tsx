@@ -8,6 +8,7 @@ import {
 import React, { useCallback, useEffect } from 'react'
 import { toast } from 'sonner'
 
+import { UNDO_WINDOW_MS } from '../../../../shared/constants'
 import { FEATURE_FLAGS } from '../../../../shared/featureFlags'
 import type {
   BulkDeleteItemResult,
@@ -40,7 +41,9 @@ import {
   toggleSortOrder,
 } from '../../redux/slices/uiSlice'
 import { refreshAllData } from '../../redux/thunks'
+import { errorToastDescription } from '../../utils/errorToastDescription'
 import { isEditableTarget } from '../../utils/isEditableTarget'
+import { pluralize } from '../../utils/pluralize'
 import { SkillsMarketplace } from '../marketplace'
 import { SyncConfirmDialog } from '../sidebar/SyncConfirmDialog'
 import { SyncConflictDialog } from '../sidebar/SyncConflictDialog'
@@ -78,8 +81,6 @@ const SKILL_TYPE_FILTER_OPTIONS: {
 ]
 
 const SKILLS_SH_URL = 'https://skills.sh'
-/** Undo window duration (ms) — matches trashService TTL */
-const UNDO_TTL_MS = 15_000
 
 /**
  * Main content area (flexible width).
@@ -179,16 +180,16 @@ export const MainContent = React.memo(
           const totalCount = action.payload.length
           if (restoredCount === totalCount) {
             toast.success(
-              `Restored ${restoredCount} skill${restoredCount === 1 ? '' : 's'}.`,
+              `Restored ${restoredCount} ${pluralize(restoredCount, 'skill')}.`,
             )
           } else {
             toast.info(
-              `Restored ${restoredCount} of ${totalCount} ${totalCount === 1 ? 'skill' : 'skills'}.`,
+              `Restored ${restoredCount} of ${totalCount} ${pluralize(totalCount, 'skill')}.`,
             )
           }
         } else {
           toast.error('Restore failed', {
-            description: action.error?.message ?? 'Unexpected error',
+            description: errorToastDescription(action),
           })
         }
         refreshAllData(dispatch)
@@ -207,7 +208,7 @@ export const MainContent = React.memo(
       if (selectedAgentId) {
         // Agent view — bulk unlink (not tombstoned, no undo toast).
         const confirmed = window.confirm(
-          `Unlink ${selectedVisibleNames.length} skill${selectedVisibleNames.length === 1 ? '' : 's'} from ${selectedAgent?.name ?? 'this agent'}?`,
+          `Unlink ${selectedVisibleNames.length} ${pluralize(selectedVisibleNames.length, 'skill')} from ${selectedAgent?.name ?? 'this agent'}?`,
         )
         if (!confirmed) return
 
@@ -227,7 +228,7 @@ export const MainContent = React.memo(
           )
         } else {
           toast.error('Bulk unlink failed', {
-            description: action.error?.message ?? 'Unexpected error',
+            description: errorToastDescription(action),
           })
         }
         refreshAllData(dispatch)
@@ -236,7 +237,7 @@ export const MainContent = React.memo(
 
       // Global view — bulk delete (tombstoned, undo toast).
       const confirmed = window.confirm(
-        `Delete ${selectedVisibleNames.length} skill${selectedVisibleNames.length === 1 ? '' : 's'} permanently? You will have 15 seconds to undo.`,
+        `Delete ${selectedVisibleNames.length} ${pluralize(selectedVisibleNames.length, 'skill')} permanently? You will have ${Math.round(UNDO_WINDOW_MS / 1000)} seconds to undo.`,
       )
       if (!confirmed) return
 
@@ -272,7 +273,7 @@ export const MainContent = React.memo(
         // UndoToast access to the restore thunk without importing redux
         // hooks (it stays purely presentational).
         const expiresAt: IsoTimestamp = new Date(
-          Date.now() + UNDO_TTL_MS,
+          Date.now() + UNDO_WINDOW_MS,
         ).toISOString()
         const summary = formatCascadeSummary(action.payload)
         const toastId = toast.custom(
@@ -290,7 +291,7 @@ export const MainContent = React.memo(
               }}
             />
           ),
-          { duration: UNDO_TTL_MS },
+          { duration: UNDO_WINDOW_MS },
         )
         dispatch(
           setUndoToast({
@@ -304,7 +305,7 @@ export const MainContent = React.memo(
         )
       } else {
         toast.error('Bulk delete failed', {
-          description: action.error?.message ?? 'Unexpected error',
+          description: errorToastDescription(action),
         })
       }
     }, [
