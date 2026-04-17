@@ -5,7 +5,7 @@ import type { IpcMainInvokeEvent } from 'electron'
 
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import type {
-  AgentId,
+  AbsolutePath,
   BulkDeleteItemResult,
   BulkDeleteResult,
   BulkUnlinkItemResult,
@@ -51,7 +51,7 @@ function deriveSourcePath(skillName: SkillName): string {
  * @example removeFromAgent('/Users/me/.cursor/skills', 'task')
  */
 async function removeFromAgent(
-  agentPath: string,
+  agentPath: AbsolutePath,
   skillName: SkillName,
 ): Promise<
   { success: true } | { success: false; error: string; code?: string }
@@ -522,7 +522,3 @@ export function registerSkillsHandlers(): void {
     return { success: failures.length === 0, copied, failures }
   })
 }
-
-// Silence unused-import warnings on platforms where tree shaking doesn't pick
-// the type-only \`AgentId\` import up as referenced.
-void ((): AgentId | undefined => undefined)

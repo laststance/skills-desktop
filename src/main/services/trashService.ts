@@ -1,15 +1,17 @@
 import { randomBytes } from 'node:crypto'
 import * as fs from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { basename, join } from 'node:path'
+import { join } from 'node:path'
 
 import type { z } from 'zod'
 
 import type {
+  AbsolutePath,
   AgentId,
   RestoreDeletedSkillResult,
   SkillName,
   TombstoneId,
+  UnixTimestampMs,
 } from '../../shared/types'
 import { tombstoneId } from '../../shared/types'
 import { AGENTS, SOURCE_DIR } from '../constants'
@@ -48,7 +50,10 @@ const evictTimers = new Map<TombstoneId, NodeJS.Timeout>()
  */
 export interface RecordedSymlink {
   agentId: AgentId
-  linkPath: string
+  linkPath: AbsolutePath
+  // `target` is whatever string was passed to `fs.symlink` when the link was
+  // created — it may be absolute OR relative. fs.readlink returns it verbatim,
+  // so narrowing to AbsolutePath would state a contract readlink cannot guarantee.
   target: string
 }
 
@@ -89,7 +94,7 @@ function buildEntryName(skillName: SkillName): string {
  */
 export async function moveToTrash(
   skillName: SkillName,
-  sourcePath: string,
+  sourcePath: AbsolutePath,
 ): Promise<{
   tombstoneId: TombstoneId
   cascadeAgents: AgentId[]
@@ -508,7 +513,9 @@ export async function startupCleanup(): Promise<void> {
  * @example parseDeletedAtFromEntryName('1729180800000-task-abc12345') // 1729180800000
  * @example parseDeletedAtFromEntryName('foo-bar') // null
  */
-function parseDeletedAtFromEntryName(entryName: string): number | null {
+function parseDeletedAtFromEntryName(
+  entryName: string,
+): UnixTimestampMs | null {
   const dashIndex = entryName.indexOf('-')
   if (dashIndex <= 0) return null
   const prefix = entryName.slice(0, dashIndex)
@@ -556,4 +563,3 @@ export function __getTrashDirForTests(): string {
 // Prevent unused-var warnings for the SOURCE_DIR import if tree-shaking notices.
 // (SOURCE_DIR is consumed by downstream callers of this module via pathValidation.)
 void SOURCE_DIR
-void basename
