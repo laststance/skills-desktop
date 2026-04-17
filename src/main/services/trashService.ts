@@ -142,9 +142,12 @@ export async function moveToTrash(
   const cascadeAgentIds: AgentId[] = []
   for (const agent of AGENTS) {
     const linkPath = join(agent.path, skillName)
-    // Constrain path to agent dir (skillName already validated, defense in depth).
+    // Use getAllowedBases() — validatePath realpath-follows linkPath. A valid
+    // source-backed symlink resolves into SOURCE_DIR, which isn't under the
+    // individual agent.path. Restricting to [agent.path] alone would false-
+    // positive every legitimate symlink and silently skip cascade cleanup.
     try {
-      validatePath(linkPath, [agent.path])
+      validatePath(linkPath, getAllowedBases())
     } catch {
       continue
     }
@@ -237,7 +240,10 @@ export async function moveToTrash(
     }
   }
 
-  // Write manifest.
+  // Write manifest. If this fails after the source was already moved in, we
+  // are in a state with no manifest, no evict timer, and removed symlinks —
+  // restore would be impossible. Roll back (source → original path, re-create
+  // symlinks, drop trash entry) before surfacing the error to the caller.
   const manifest = {
     schemaVersion: 1 as const,
     deletedAt: Date.now(),
@@ -245,7 +251,65 @@ export async function moveToTrash(
     sourcePath,
     symlinks: recordedSymlinks,
   }
-  await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8')
+  try {
+    await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8')
+  } catch (manifestWriteError) {
+    const manifestWriteCode = errorCode(manifestWriteError)
+    const manifestWriteMessage = extractErrorMessage(manifestWriteError)
+
+    // Step 1: move the source back. Mirror the forward EXDEV fallback.
+    let restoreSourceFailed = false
+    try {
+      await fs.rename(entrySourceDir, sourcePath)
+    } catch (reverseMoveError) {
+      if (errorCode(reverseMoveError) === 'EXDEV') {
+        try {
+          await fs.cp(entrySourceDir, sourcePath, { recursive: true })
+          await fs.rm(entrySourceDir, { recursive: true, force: true })
+        } catch (reverseCopyError) {
+          restoreSourceFailed = true
+          console.error(
+            'trashService: manifest write rollback — failed to restore source (cross-device)',
+            {
+              skillName,
+              entryName,
+              code: errorCode(reverseCopyError),
+              message: extractErrorMessage(reverseCopyError),
+            },
+          )
+        }
+      } else {
+        restoreSourceFailed = true
+        console.error(
+          'trashService: manifest write rollback — failed to restore source',
+          {
+            skillName,
+            entryName,
+            code: errorCode(reverseMoveError),
+            message: extractErrorMessage(reverseMoveError),
+          },
+        )
+      }
+    }
+
+    // Step 2: re-create the symlinks we removed. Best-effort; already logs per link.
+    await rollbackRemovedSymlinks(recordedSymlinks)
+
+    // Step 3: drop the empty (or partial) trash entry dir.
+    await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
+      // entry cleanup is best-effort — caller already has the real error.
+    })
+
+    // If we couldn't put the source back the user is in a broken state. Flag
+    // it in the thrown error so the caller surfaces "manual recovery" to the UI.
+    const prefix = restoreSourceFailed
+      ? `Failed to write trash manifest; source is stranded in ${entrySourceDir}`
+      : 'Failed to write trash manifest'
+    throw new TrashError(
+      `${prefix}: ${manifestWriteMessage}`,
+      manifestWriteCode,
+    )
+  }
 
   const id = tombstoneId(entryName)
 
@@ -354,11 +418,13 @@ export async function restore(
     }
   }
 
-  // Validate sourcePath is within allowed bases (manifest could be tampered).
+  // Validate sourcePath is within SOURCE_DIR specifically — skill sources
+  // always live there. A tampered manifest could otherwise claim sourcePath
+  // is in an agent dir and restore would happily plant the files there.
   // MUST run before the fs.stat probe below so a forged path like `/etc/...`
   // can't even trigger a filesystem existence check — defense in depth.
   try {
-    validatePath(manifest.sourcePath, getAllowedBases())
+    validatePath(manifest.sourcePath, [SOURCE_DIR])
   } catch {
     return {
       outcome: 'error',

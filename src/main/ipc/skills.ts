@@ -52,7 +52,12 @@ async function removeFromAgent(
 > {
   const linkPath = join(agentPath, skillName)
   try {
-    validatePath(linkPath, [agentPath])
+    // Use getAllowedBases() instead of [agentPath] because validatePath
+    // realpath-follows linkPath. For a legitimate agent symlink the realpath
+    // lands in SOURCE_DIR (source-backed) or another agent dir (cross-agent
+    // copy), both of which are valid bases. Restricting to [agentPath] alone
+    // would false-positive every symlinked-skill unlink.
+    validatePath(linkPath, getAllowedBases())
   } catch (error) {
     return {
       success: false,
@@ -79,7 +84,16 @@ async function removeFromAgent(
     if (stats.isSymbolicLink()) {
       await fs.unlink(linkPath)
     } else if (stats.isDirectory()) {
-      await fs.rm(linkPath, { recursive: true, force: true })
+      // A real directory inside an agent dir is a "local skill" — actual
+      // user-owned files, not a symlink. Bulk unlink is advertised as a
+      // non-destructive op, so we refuse to delete the data here. The user
+      // must go through bulk Delete (which moves to trash with 15s undo)
+      // if they actually want the files gone.
+      return {
+        success: false,
+        error:
+          'Cannot unlink a local skill. Use Delete to move it to trash instead.',
+      }
     } else {
       return {
         success: false,

@@ -255,10 +255,23 @@ export const MainContent = React.memo(
           const failedNames = action.payload.items
             .filter((item) => item.outcome === 'error')
             .map((item) => item.skillName)
+          const unlinkedCount = action.payload.items.length - failedNames.length
           flashFailedRows(failedNames)
-          toast.success(
-            formatUnlinkSummary(action.payload, agentName ?? 'agent'),
-          )
+          if (unlinkedCount === 0) {
+            // Every item failed — a success toast would lie to the user.
+            // Match the delete-all-errored path: surface a failure toast with
+            // the same per-item summary we'd show on partial success.
+            toast.error('Bulk unlink failed', {
+              description: formatUnlinkSummary(
+                action.payload,
+                agentName ?? 'agent',
+              ),
+            })
+          } else {
+            toast.success(
+              formatUnlinkSummary(action.payload, agentName ?? 'agent'),
+            )
+          }
         } else {
           toast.error('Bulk unlink failed', {
             description: errorToastDescription(action),

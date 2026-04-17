@@ -103,7 +103,11 @@ export const UndoToast = React.memo(function UndoToast({
 
   const remainingSeconds = Math.ceil(remainingMs / 1_000)
   const isUrgent = remainingSeconds <= URGENT_SECONDS_THRESHOLD
-  const canUndo = tombstoneIds.length > 0 && !isRestoring && remainingMs > 0
+  // Unlink toasts are informational — they carry no tombstone ids because
+  // nothing was moved to trash. We decide whether the Undo affordance should
+  // even render here rather than relying on a visibly-disabled "dead" button.
+  const isUndoableOperation = tombstoneIds.length > 0
+  const canUndo = isUndoableOperation && !isRestoring && remainingMs > 0
 
   const handleUndoClick = async (): Promise<void> => {
     if (!canUndo) return
@@ -113,10 +117,12 @@ export const UndoToast = React.memo(function UndoToast({
     } finally {
       // Restoring finished — whether success or failure, the parent will emit
       // the appropriate sonner toast. We don't reset `isRestoring` because the
-      // component will unmount immediately.
+      // component will unmount immediately. Route through the ref so we match
+      // the countdown-expiry branch and don't fire a stale closure after a
+      // parent re-render.
       if (!hasDismissedRef.current) {
         hasDismissedRef.current = true
-        onDismiss()
+        onDismissRef.current()
       }
     }
   }
@@ -140,35 +146,37 @@ export const UndoToast = React.memo(function UndoToast({
         >
           {remainingSeconds}s
         </span>
-        <button
-          type="button"
-          onClick={handleUndoClick}
-          disabled={!canUndo}
-          className={cn(
-            'inline-flex items-center gap-1.5 rounded-md px-3 min-h-[44px] text-sm font-medium',
-            'bg-primary text-primary-foreground hover:bg-primary/90',
-            'disabled:opacity-50 disabled:cursor-not-allowed',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          )}
-          aria-label={
-            isRestoring
-              ? `Restoring ${skillNames.length} ${pluralize(skillNames.length, 'skill')}`
-              : 'Undo delete'
-          }
-        >
-          {isRestoring ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-              Restoring {skillNames.length}{' '}
-              {pluralize(skillNames.length, 'skill')}...
-            </>
-          ) : (
-            <>
-              <Undo2 className="h-4 w-4" />
-              Undo
-            </>
-          )}
-        </button>
+        {isUndoableOperation ? (
+          <button
+            type="button"
+            onClick={handleUndoClick}
+            disabled={!canUndo}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-md px-3 min-h-[44px] text-sm font-medium',
+              'bg-primary text-primary-foreground hover:bg-primary/90',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            )}
+            aria-label={
+              isRestoring
+                ? `Restoring ${skillNames.length} ${pluralize(skillNames.length, 'skill')}`
+                : `Undo delete of ${skillNames.length} ${pluralize(skillNames.length, 'skill')}`
+            }
+          >
+            {isRestoring ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+                Restoring {skillNames.length}{' '}
+                {pluralize(skillNames.length, 'skill')}...
+              </>
+            ) : (
+              <>
+                <Undo2 className="h-4 w-4" />
+                Undo
+              </>
+            )}
+          </button>
+        ) : null}
       </div>
     </div>
   )
