@@ -5,6 +5,7 @@ import { setupListeners } from '@reduxjs/toolkit/query'
 import { listenerMiddleware } from './listener'
 import agentsReducer from './slices/agentsSlice'
 import bookmarkReducer from './slices/bookmarkSlice'
+import dashboardReducer from './slices/dashboardSlice'
 import marketplaceReducer from './slices/marketplaceSlice'
 import skillsReducer from './slices/skillsSlice'
 import themeReducer from './slices/themeSlice'
@@ -19,6 +20,7 @@ const rootReducer = combineReducers({
   ui: uiReducer,
   update: updateReducer,
   marketplace: marketplaceReducer,
+  dashboard: dashboardReducer,
 })
 
 const {
@@ -28,7 +30,7 @@ const {
 } = createStorageMiddleware({
   rootReducer,
   key: 'skills-desktop-state',
-  slices: ['theme', 'bookmarks'],
+  slices: ['theme', 'bookmarks', 'dashboard'],
 })
 
 export const store = configureStore({

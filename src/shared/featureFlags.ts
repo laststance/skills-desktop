@@ -15,6 +15,13 @@ export const FEATURE_FLAGS = {
    * When disabled: Opens skill.sh website in browser
    */
   ENABLE_MARKETPLACE_UI: true,
+  /**
+   * Experimental dashboard widgets (agent-heatmap, activity-timeline)
+   * Hidden from the widget picker when false.
+   * When enabled: Users can add these widgets to their dashboard.
+   * When disabled: Registry entries exist but picker filters them out.
+   */
+  ENABLE_DASHBOARD_EXPERIMENTAL: false,
 } as const
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS

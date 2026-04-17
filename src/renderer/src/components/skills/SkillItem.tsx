@@ -156,7 +156,9 @@ export const SkillItem = React.memo(function SkillItem({
         >
           {/* X button — top-right delete/unlink action.
               In global view: deletes the skill entirely.
-              In agent view: unlinks symlink, or deletes local skill from agent. */}
+              In agent view: unlinks symlink, or deletes local skill from agent.
+              Apple HIG: 44×44 hit area via min-h/min-w; visible icon stays compact
+              so the two actions don't visually collide on the card. */}
           {(showDeleteButton || showUnlinkButton) && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -165,7 +167,7 @@ export const SkillItem = React.memo(function SkillItem({
                   onClick={
                     showDeleteButton ? handleDeleteClick : handleUnlinkClick
                   }
-                  className="absolute top-2 right-2 p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                  className="absolute top-0 right-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -180,7 +182,8 @@ export const SkillItem = React.memo(function SkillItem({
             </Tooltip>
           )}
 
-          {/* Bookmark toggle — only for skills with repo source */}
+          {/* Bookmark toggle — only for skills with repo source.
+              Positioned to the left of the X button with a 44×44 hit area. */}
           {showBookmark && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -193,7 +196,7 @@ export const SkillItem = React.memo(function SkillItem({
                       : `Bookmark ${skill.name}`
                   }
                   className={cn(
-                    'absolute top-2 right-8 p-1 rounded-md z-10 transition-opacity',
+                    'absolute top-0 right-11 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md z-10 transition-opacity',
                     isBookmarked
                       ? 'text-cyan-400'
                       : 'text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
@@ -212,7 +215,7 @@ export const SkillItem = React.memo(function SkillItem({
             </Tooltip>
           )}
 
-          <CardContent className="p-4 pr-8">
+          <CardContent className="p-4 pr-14">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium truncate flex items-center gap-1.5">

@@ -3,14 +3,16 @@ import React from 'react'
 
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { selectSkill } from '../../redux/slices/skillsSlice'
+import { DashboardCanvas } from '../dashboard/DashboardCanvas'
 import { MarketplaceDetailPanel } from '../marketplace/MarketplaceDetailPanel'
 import { SkillDetail } from '../skills/SkillDetail'
 
 /**
  * Collapsible Inspector panel (Apple HIG pattern)
  * Routes between:
- * - Installed tab → SkillDetail (existing)
- * - Marketplace tab → MarketplaceDetailPanel (dashboard or webview preview)
+ * - Installed tab + skill selected → SkillDetail
+ * - Installed tab + no skill       → DashboardCanvas (widgets)
+ * - Marketplace tab                → MarketplaceDetailPanel
  */
 export const DetailPanel = React.memo(
   function DetailPanel(): React.ReactElement {
@@ -25,7 +27,7 @@ export const DetailPanel = React.memo(
             <button
               type="button"
               onClick={() => dispatch(selectSkill(null))}
-              className="no-drag p-2.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              className="no-drag min-h-[44px] min-w-[44px] flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Close detail panel"
             >
               <X size={14} />
@@ -37,11 +39,7 @@ export const DetailPanel = React.memo(
         ) : selectedSkill ? (
           <SkillDetail skill={selectedSkill} />
         ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-sm text-muted-foreground">
-              Select a skill to view details
-            </p>
-          </div>
+          <DashboardCanvas />
         )}
       </aside>
     )
