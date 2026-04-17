@@ -1,12 +1,18 @@
 import { realpathSync } from 'node:fs'
-import { resolve, relative, isAbsolute } from 'node:path'
+import { isAbsolute, relative, resolve } from 'node:path'
 
 import { AGENTS, SOURCE_DIR } from '../constants'
 
 /**
  * Validate that a file path is within an allowed base directory.
  * Prevents path traversal attacks (e.g., reading ~/.ssh/id_rsa via IPC).
- * Resolves symlinks via realpathSync to prevent symlink-based bypass.
+ *
+ * When the requested path exists on disk we realpath it AND the base so
+ * symlinks in either leg (e.g. macOS `/var → /private/var`) can't produce a
+ * false-positive traversal error. When the requested path doesn't exist
+ * (e.g. validating a path we're about to create), we skip realpath on both
+ * sides so the comparison stays in a single coordinate system.
+ *
  * @param requestedPath - The path to validate
  * @param allowedBases - Array of allowed base directories
  * @returns The normalized absolute path (with symlinks resolved if path exists)
@@ -23,18 +29,30 @@ export function validatePath(
 ): string {
   const normalized = resolve(requestedPath)
 
-  // Resolve symlinks to prevent symlink-based path traversal bypass.
-  // Falls back to normalized path if the path doesn't exist yet (e.g., new symlink creation).
+  // Two-mode comparison: if the request path exists we canonicalize both
+  // sides (handles symlinked bases); if not, we stay in the literal-resolve
+  // coordinate system for both.
   let realPath: string
+  let requestWasRealpathed: boolean
   try {
     realPath = realpathSync(normalized)
+    requestWasRealpathed = true
   } catch {
     realPath = normalized
+    requestWasRealpathed = false
   }
 
   for (const base of allowedBases) {
     const resolvedBase = resolve(base)
-    const rel = relative(resolvedBase, realPath)
+    let baseForCompare = resolvedBase
+    if (requestWasRealpathed) {
+      try {
+        baseForCompare = realpathSync(resolvedBase)
+      } catch {
+        baseForCompare = resolvedBase
+      }
+    }
+    const rel = relative(baseForCompare, realPath)
     if (!rel.startsWith('..') && !isAbsolute(rel)) {
       return realPath
     }

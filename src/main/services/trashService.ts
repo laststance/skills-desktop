@@ -354,6 +354,18 @@ export async function restore(
     }
   }
 
+  // Validate sourcePath is within allowed bases (manifest could be tampered).
+  // MUST run before the fs.stat probe below so a forged path like `/etc/...`
+  // can't even trigger a filesystem existence check — defense in depth.
+  try {
+    validatePath(manifest.sourcePath, getAllowedBases())
+  } catch {
+    return {
+      outcome: 'error',
+      error: { message: 'Invalid source path in manifest' },
+    }
+  }
+
   // (c) Source path free.
   try {
     await fs.stat(manifest.sourcePath)
@@ -373,19 +385,6 @@ export async function restore(
       }
     }
     // ENOENT = free, proceed.
-  }
-
-  // Validate sourcePath is within allowed bases (manifest could be tampered).
-  // The stat probe above is read-only and leaks no contents, so running the
-  // validation here (rather than before stat) is safe — it still fences the
-  // destructive `fs.rename` below from a manifest-forged path like `/etc/...`.
-  try {
-    validatePath(manifest.sourcePath, getAllowedBases())
-  } catch {
-    return {
-      outcome: 'error',
-      error: { message: 'Invalid source path in manifest' },
-    }
   }
 
   // Rename source back.
