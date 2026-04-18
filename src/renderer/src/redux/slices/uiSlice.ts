@@ -96,6 +96,14 @@ interface UiState {
    * Cleared on tab/agent change (same rationale as `undoToast`).
    */
   bulkConfirm: BulkConfirmState | null
+  /**
+   * When true, skill cards render a checkbox and bulk selection shortcuts
+   * (Cmd/Ctrl+A, Esc) are active. Default false so the list is clean for
+   * users who never perform bulk operations. Cleared atomically alongside
+   * `undoToast` / `bulkConfirm` / selection on any context switch that makes
+   * the current selection stale (tab, agent, sync op, competing bulk op).
+   */
+  bulkSelectMode: boolean
 }
 
 const initialState: UiState = {
@@ -113,6 +121,7 @@ const initialState: UiState = {
   selectedBookmarkForDetail: null,
   undoToast: null,
   bulkConfirm: null,
+  bulkSelectMode: false,
 }
 
 /**
@@ -160,6 +169,8 @@ const uiSlice = createSlice({
       // Same reasoning for an open bulk confirm — the ticked rows belong to
       // the previous tab's list.
       state.bulkConfirm = null
+      // The bulk-select affordance is list-scoped; leaving the list exits mode.
+      state.bulkSelectMode = false
     },
     setSearchQuery: (state, action: PayloadAction<SearchQuery>) => {
       state.searchQuery = action.payload
@@ -175,6 +186,8 @@ const uiSlice = createSlice({
       state.undoToast = null
       // The pending confirm may target a different agent; abandon it.
       state.bulkConfirm = null
+      // Selection is agent-scoped in skillsSlice; mode should follow.
+      state.bulkSelectMode = false
     },
     toggleSortOrder: (state) => {
       state.sortOrder = state.sortOrder === 'asc' ? 'desc' : 'asc'
@@ -232,6 +245,27 @@ const uiSlice = createSlice({
     clearBulkConfirm: (state) => {
       state.bulkConfirm = null
     },
+    /**
+     * Enter bulk-select mode. Reveals checkboxes on skill cards and activates
+     * Cmd/Ctrl+A and Esc keyboard shortcuts. Does not touch selection state —
+     * the user starts with an empty tick set and explicitly builds it up.
+     * @example dispatch(enterBulkSelectMode())
+     */
+    enterBulkSelectMode: (state) => {
+      state.bulkSelectMode = true
+    },
+    /**
+     * Exit bulk-select mode. Hides checkboxes and deactivates the shortcuts.
+     * The caller (MainContent) is responsible for also dispatching
+     * `clearSelection()` from skillsSlice — we intentionally do not
+     * cross-dispatch across slices here, keeping each slice self-contained.
+     * @example
+     *   dispatch(exitBulkSelectMode())
+     *   dispatch(clearSelection())
+     */
+    exitBulkSelectMode: (state) => {
+      state.bulkSelectMode = false
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -246,6 +280,8 @@ const uiSlice = createSlice({
         state.undoToast = null
         // Close an open bulk confirm — sync conflict dialog will render on top.
         state.bulkConfirm = null
+        // Sync preview supersedes bulk affordance; user's attention shifts.
+        state.bulkSelectMode = false
       })
       .addCase(fetchSyncPreview.fulfilled, (state, action) => {
         state.syncPreview = action.payload
@@ -274,10 +310,14 @@ const uiSlice = createSlice({
       .addCase(deleteSelectedSkills.pending, (state) => {
         state.undoToast = null
         state.bulkConfirm = null
+        // Bulk op committed — leaving mode ON would strand a checkbox column
+        // over a fresh post-delete list the user is now observing for result.
+        state.bulkSelectMode = false
       })
       .addCase(unlinkSelectedFromAgent.pending, (state) => {
         state.undoToast = null
         state.bulkConfirm = null
+        state.bulkSelectMode = false
       })
   },
 })
@@ -297,6 +337,8 @@ export const {
   clearUndoToast,
   setBulkConfirm,
   clearBulkConfirm,
+  enterBulkSelectMode,
+  exitBulkSelectMode,
 } = uiSlice.actions
 export default uiSlice.reducer
 
@@ -328,3 +370,5 @@ export const selectUndoToast = (state: RootState): UndoToastState | null =>
   state.ui.undoToast
 export const selectBulkConfirm = (state: RootState): BulkConfirmState | null =>
   state.ui.bulkConfirm
+export const selectBulkSelectMode = (state: RootState): boolean =>
+  state.ui.bulkSelectMode

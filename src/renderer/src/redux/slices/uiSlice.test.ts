@@ -442,3 +442,119 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     await promise
   })
 })
+
+describe('uiSlice bulkSelectMode', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  it('starts with bulkSelectMode=false (default is clean list)', async () => {
+    const store = await createTestStore()
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+  })
+
+  it('enterBulkSelectMode flips the flag to true', async () => {
+    const store = await createTestStore()
+    const { enterBulkSelectMode } = await import('./uiSlice')
+
+    store.dispatch(enterBulkSelectMode())
+    expect(store.getState().ui.bulkSelectMode).toBe(true)
+  })
+
+  it('exitBulkSelectMode flips the flag back to false', async () => {
+    const store = await createTestStore()
+    const { enterBulkSelectMode, exitBulkSelectMode } =
+      await import('./uiSlice')
+
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(exitBulkSelectMode())
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+  })
+
+  it('setActiveTab clears bulkSelectMode (tab switch exits mode)', async () => {
+    const store = await createTestStore()
+    const { enterBulkSelectMode, setActiveTab } = await import('./uiSlice')
+
+    store.dispatch(enterBulkSelectMode())
+    expect(store.getState().ui.bulkSelectMode).toBe(true)
+
+    store.dispatch(setActiveTab('marketplace'))
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+  })
+
+  it('selectAgent clears bulkSelectMode (agent swap exits mode)', async () => {
+    const store = await createTestStore()
+    const { enterBulkSelectMode, selectAgent } = await import('./uiSlice')
+
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(selectAgent('cursor' as AgentId))
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+  })
+
+  it('fetchSyncPreview.pending clears bulkSelectMode', async () => {
+    const store = await createTestStore()
+    const { enterBulkSelectMode, fetchSyncPreview } = await import('./uiSlice')
+
+    store.dispatch(enterBulkSelectMode())
+
+    let resolve!: (value: SyncPreviewResult) => void
+    mockSyncPreview.mockReturnValue(
+      new Promise<SyncPreviewResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(fetchSyncPreview())
+
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+
+    resolve(previewNoConflicts)
+    await promise
+  })
+
+  it('deleteSelectedSkills.pending clears bulkSelectMode (combined store)', async () => {
+    const store = await createCombinedStore()
+    const { enterBulkSelectMode } = await import('./uiSlice')
+    const { deleteSelectedSkills } = await import('./skillsSlice')
+
+    store.dispatch(enterBulkSelectMode())
+
+    let resolve!: (value: BulkDeleteResult) => void
+    mockDeleteSkills.mockReturnValue(
+      new Promise<BulkDeleteResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(deleteSelectedSkills(['task']))
+
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+
+    resolve({ items: [] })
+    await promise
+  })
+
+  it('unlinkSelectedFromAgent.pending clears bulkSelectMode (combined store)', async () => {
+    const store = await createCombinedStore()
+    const { enterBulkSelectMode } = await import('./uiSlice')
+    const { unlinkSelectedFromAgent } = await import('./skillsSlice')
+
+    store.dispatch(enterBulkSelectMode())
+
+    let resolve!: (value: BulkUnlinkResult) => void
+    mockUnlinkManyFromAgent.mockReturnValue(
+      new Promise<BulkUnlinkResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(
+      unlinkSelectedFromAgent({
+        agentId: 'cursor' as AgentId,
+        selectedNames: ['task'],
+      }),
+    )
+
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+
+    resolve({ items: [] })
+    await promise
+  })
+})

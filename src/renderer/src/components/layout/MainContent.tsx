@@ -1,6 +1,7 @@
 import {
   ArrowDownAZ,
   ArrowUpAZ,
+  CheckSquare,
   ChevronDown,
   ExternalLink,
   X,
@@ -35,8 +36,11 @@ import type { ActiveTab, SkillTypeFilter } from '../../redux/slices/uiSlice'
 import {
   clearBulkConfirm,
   clearUndoToast,
+  enterBulkSelectMode,
+  exitBulkSelectMode,
   selectAgent,
   selectBulkConfirm,
+  selectBulkSelectMode,
   setActiveTab,
   setBulkConfirm,
   setSkillTypeFilter,
@@ -111,6 +115,7 @@ export const MainContent = React.memo(
     const selectedAllNames = useAppSelector(selectSelectedSkillNames)
 
     const bulkConfirm = useAppSelector(selectBulkConfirm)
+    const bulkSelectMode = useAppSelector(selectBulkSelectMode)
 
     const selectedAgent = agents.find((a) => a.id === selectedAgentId)
 
@@ -134,18 +139,27 @@ export const MainContent = React.memo(
     // listener — functionally correct but wasteful during active use.
     const visibleNamesRef = useRef(visibleNames)
     const selectedCountRef = useRef(selectedAllNames.length)
+    const bulkSelectModeRef = useRef(bulkSelectMode)
     useEffect(() => {
       visibleNamesRef.current = visibleNames
     }, [visibleNames])
     useEffect(() => {
       selectedCountRef.current = selectedAllNames.length
     }, [selectedAllNames.length])
+    useEffect(() => {
+      bulkSelectModeRef.current = bulkSelectMode
+    }, [bulkSelectMode])
 
     // Scoped to the Installed tab — Marketplace has its own selection context.
+    // Shortcuts are further gated on `bulkSelectMode` so a user outside of
+    // selection mode doesn't silently accumulate ticks they can't see (the
+    // "hidden selection" anti-pattern).
     useEffect(() => {
       if (activeTab !== 'installed') return
       const handleKey = (event: KeyboardEvent): void => {
         if (isEditableTarget(document.activeElement)) return
+        if (!bulkSelectModeRef.current) return
+
         // Cmd/Ctrl+A: select all visible
         if (
           (event.metaKey || event.ctrlKey) &&
@@ -155,10 +169,16 @@ export const MainContent = React.memo(
           dispatch(selectAll(visibleNamesRef.current))
           return
         }
-        // Esc: clear selection (only when selection is non-empty)
-        if (event.key === 'Escape' && selectedCountRef.current > 0) {
+        // Esc is 2-step: first press clears accumulated selection (protects
+        // against fat-finger mode exit mid-batch); a second Esc with empty
+        // selection then exits mode. Matches Gmail's multi-select pattern.
+        if (event.key === 'Escape') {
           event.preventDefault()
-          dispatch(clearSelection())
+          if (selectedCountRef.current > 0) {
+            dispatch(clearSelection())
+          } else {
+            dispatch(exitBulkSelectMode())
+          }
           return
         }
       }
@@ -428,6 +448,36 @@ export const MainContent = React.memo(
                 ) : (
                   <ArrowUpAZ className="h-4 w-4" />
                 )}
+              </Button>
+
+              {/* Bulk-select toggle — reveals checkboxes on skill cards and
+                  activates Cmd/Ctrl+A + Esc shortcuts. Exiting clears any
+                  accumulated selection so hidden state can't leak. */}
+              <Button
+                variant={bulkSelectMode ? 'secondary' : 'ghost'}
+                size="sm"
+                aria-pressed={bulkSelectMode}
+                aria-label={
+                  bulkSelectMode
+                    ? 'Exit bulk select mode'
+                    : 'Enter bulk select mode'
+                }
+                onClick={() => {
+                  if (bulkSelectMode) {
+                    dispatch(exitBulkSelectMode())
+                    dispatch(clearSelection())
+                  } else {
+                    dispatch(enterBulkSelectMode())
+                  }
+                }}
+                className={`shrink-0 gap-1.5 min-h-[44px] ${
+                  bulkSelectMode
+                    ? ''
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <CheckSquare className="h-4 w-4" />
+                {bulkSelectMode ? 'Done' : 'Select'}
               </Button>
 
               {/* Skill type filter — agent view only */}

@@ -31,6 +31,7 @@ import {
   setSkillToUnlink,
   toggleSelection,
 } from '../../redux/slices/skillsSlice'
+import { selectBulkSelectMode } from '../../redux/slices/uiSlice'
 import { StatusBadge } from '../status/StatusBadge'
 import { Button } from '../ui/button'
 import { Card, CardContent } from '../ui/card'
@@ -90,6 +91,7 @@ export const SkillItem = React.memo(function SkillItem({
   const inFlightDeleteSet = useAppSelector(selectInFlightDeleteNamesSet)
   const selectionAnchor = useAppSelector(selectSelectionAnchor)
   const visibleNames = useAppSelector(selectVisibleSkillNames)
+  const bulkSelectMode = useAppSelector(selectBulkSelectMode)
   const isTicked = selectedNamesSet.has(skill.name)
   const isInFlight = inFlightDeleteSet.has(skill.name)
 
@@ -349,20 +351,26 @@ export const SkillItem = React.memo(function SkillItem({
               {/* 44×44 hit area via the wrapper; the visual Checkbox stays
                   16×16 per shadcn default. The focusable Checkbox below owns
                   the accessible name — duplicating `aria-label` on the wrapper
-                  caused some screen readers to announce the skill twice. */}
-              <label
-                className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center -mt-1 -ml-1 cursor-pointer"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Checkbox
-                  checked={isTicked}
-                  onCheckedChange={handleCheckedChange}
-                  onPointerDown={handleCheckboxPointerDown}
-                  aria-label={
-                    isTicked ? `Deselect ${skill.name}` : `Select ${skill.name}`
-                  }
-                />
-              </label>
+                  caused some screen readers to announce the skill twice.
+                  Rendered only when the user has entered bulk-select mode via
+                  the filter-row toggle; the default view stays clean. */}
+              {bulkSelectMode && (
+                <label
+                  className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center -mt-1 -ml-1 cursor-pointer"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Checkbox
+                    checked={isTicked}
+                    onCheckedChange={handleCheckedChange}
+                    onPointerDown={handleCheckboxPointerDown}
+                    aria-label={
+                      isTicked
+                        ? `Deselect ${skill.name}`
+                        : `Select ${skill.name}`
+                    }
+                  />
+                </label>
+              )}
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium truncate flex items-center gap-1.5">
                   {isLinked && (
