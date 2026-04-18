@@ -108,16 +108,19 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
       {/* Action Button (or Installed badge) */}
       {isInstalled ? (
         // Informational badge, intentionally non-interactive. Uninstall lives in
-        // the CLI (`npx skills remove <name>`); the aria-label surfaces that path
-        // to screen-reader users since there is no visible affordance for it.
+        // the CLI; the aria-label surfaces that path for screen-reader users
+        // since there is no visible affordance. `--global` matches how the app
+        // installs (see InstallModal) — without it the CLI's local default fails.
+        // `--success` keeps "installed" green across every theme preset; `bg-primary`
+        // collapses to grayscale in neutral presets where chroma is 0.
         <div
-          role="status"
-          aria-label={`${skill.name} is installed. To uninstall, run: npx skills remove ${skill.name}`}
-          title={`Installed. To uninstall: npx skills remove ${skill.name}`}
-          className="flex items-center gap-1 px-2 py-1 rounded bg-primary/10"
+          role="img"
+          aria-label={`${skill.name} is installed. To uninstall, run: npx skills remove ${skill.name} --global`}
+          title={`Installed. To uninstall: npx skills remove ${skill.name} --global`}
+          className="flex items-center gap-1 px-2 py-1 rounded bg-success/10"
         >
-          <Check className="h-3 w-3 text-primary" aria-hidden="true" />
-          <span className="text-[11px] font-medium text-primary">
+          <Check className="h-3 w-3 text-success" aria-hidden="true" />
+          <span className="text-[11px] font-medium text-success">
             Installed
           </span>
         </div>

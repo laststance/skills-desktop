@@ -5,8 +5,9 @@ import {
   PERSIST_STATE_VERSION,
   THEME_PRESETS,
 } from '../../../shared/constants'
+import { WIDGET_REGISTRY } from '../components/dashboard/widgets/registry'
 
-import { migrateState } from './migrations'
+import { migrateState, V2_WIDGET_MIN_SIZES } from './migrations'
 import type { ThemeState } from './slices/themeSlice'
 
 /**
@@ -142,6 +143,20 @@ describe('migrateState — v1 → v2 dashboard widget min-size clamp', () => {
     expect(state.dashboard.pages[0].widgets[0].w).toBe(6)
   })
 
+  it('clamps quick-actions widget w: 2 up to 3', () => {
+    // The w-branch lives next to the h-branch and never had its own assertion
+    // before. If a future bump moves minSize.w independently of minSize.h, the
+    // test that only checks h would silently miss the regression.
+    const state = makeDashboardState([
+      {
+        widgets: [{ id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 2, h: 5 }],
+      },
+    ])
+    migrateState(state, 1)
+    expect(state.dashboard.pages[0].widgets[0].w).toBe(3)
+    expect(state.dashboard.pages[0].widgets[0].h).toBe(5)
+  })
+
   it('leaves quick-actions widget h: 3 untouched (no over-clamp)', () => {
     const state = makeDashboardState([
       {
@@ -195,6 +210,54 @@ describe('migrateState — v1 → v2 dashboard widget min-size clamp', () => {
     expect(() => migrateState(state, 1)).not.toThrow()
   })
 
+  it('survives null page entry without throwing (no total-wipe)', () => {
+    // A null entry inside dashboard.pages used to crash on the next
+    // dereference. When migrate() throws, the storage middleware calls
+    // removeItem(key) and the user loses every persisted slice. The guard
+    // skips the bad entry and migrates the rest.
+    const state = {
+      dashboard: {
+        pages: [
+          null,
+          {
+            id: 'page-2',
+            name: 'Home',
+            widgets: [
+              { id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 2 },
+            ],
+          },
+        ],
+      } as unknown,
+    }
+    expect(() => migrateState(state, 1)).not.toThrow()
+    const dashboard = state.dashboard as {
+      pages: Array<{ widgets: Array<{ h: number }> } | null>
+    }
+    expect(dashboard.pages[1]?.widgets[0].h).toBe(3)
+  })
+
+  it('survives null widget entry without throwing (no total-wipe)', () => {
+    const state = {
+      dashboard: {
+        pages: [
+          {
+            id: 'page-1',
+            name: 'Home',
+            widgets: [
+              null,
+              { id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 2 },
+            ],
+          },
+        ],
+      } as unknown,
+    }
+    expect(() => migrateState(state, 1)).not.toThrow()
+    const dashboard = state.dashboard as {
+      pages: Array<{ widgets: Array<{ h: number } | null> }>
+    }
+    expect(dashboard.pages[0].widgets[1]?.h).toBe(3)
+  })
+
   it('clamps across multiple pages and multiple widgets', () => {
     const state = makeDashboardState([
       {
@@ -214,6 +277,29 @@ describe('migrateState — v1 → v2 dashboard widget min-size clamp', () => {
     expect(state.dashboard.pages[1].widgets[0].h).toBe(3)
     // Quick Actions w: 3 already at the minimum — stays at 3.
     expect(state.dashboard.pages[1].widgets[0].w).toBe(3)
+  })
+})
+
+describe('V2_WIDGET_MIN_SIZES drift guard', () => {
+  // The map in migrations.ts mirrors `WIDGET_REGISTRY[*].minSize`. If anyone
+  // bumps a widget's runtime min in the registry without updating the
+  // migration map AND adding a new migration, persisted layouts on the prior
+  // floor silently violate the registry constraint after upgrade. This test
+  // catches the registry/migration desync at unit-test time, before users
+  // see neighboring widgets get shoved by the runtime clamp.
+  it('mirror entries match WIDGET_REGISTRY minSize', () => {
+    for (const [type, min] of Object.entries(V2_WIDGET_MIN_SIZES)) {
+      const registryEntry =
+        WIDGET_REGISTRY[type as keyof typeof WIDGET_REGISTRY]
+      expect(
+        registryEntry,
+        `V2_WIDGET_MIN_SIZES has '${type}' but WIDGET_REGISTRY does not`,
+      ).toBeDefined()
+      expect(
+        registryEntry.minSize,
+        `WIDGET_REGISTRY['${type}'].minSize is missing — bump migrations or registry`,
+      ).toEqual(min)
+    }
   })
 })
 

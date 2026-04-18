@@ -30,6 +30,17 @@ function stripAnsi(text: string): string {
 }
 
 /**
+ * Whitelist patterns for parser output. The skills CLI emits
+ * `owner/repo@skill-name` lines that flow into UI strings (aria-labels,
+ * titles, copy-paste hints). A malformed registry entry could carry shell
+ * metacharacters or whitespace that surface as broken UI or, worse, get
+ * pasted into a terminal verbatim. We drop anything that doesn't match
+ * the npm/GitHub naming convention.
+ */
+const SKILL_NAME_PATTERN = /^[a-zA-Z0-9._-]+$/
+const REPO_PATTERN = /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/
+
+/**
  * Service for executing skills CLI commands via npx.
  * Wraps `npx skills@<SKILLS_CLI_VERSION>` with proper output parsing — the
  * version is imported from shared constants so upgrades happen in one place.
@@ -180,6 +191,12 @@ class SkillsCliService extends EventEmitter {
       const match = line.match(/^([^@\s]+)@([^\s]+)$/)
       if (match) {
         const [, repo, name] = match
+        // Reject anything that isn't a plain npm/GitHub identifier — see
+        // SKILL_NAME_PATTERN comment. Without this, a malformed CLI line
+        // could land in aria-labels and copy-paste hints downstream.
+        if (!REPO_PATTERN.test(repo) || !SKILL_NAME_PATTERN.test(name)) {
+          continue
+        }
         // Next line should be the URL
         const urlLine = lines[i + 1]?.trim()
         const urlMatch = urlLine?.match(/^[└├]\s*(https?:\/\/[^\s]+)$/)

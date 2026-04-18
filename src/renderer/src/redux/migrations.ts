@@ -34,7 +34,7 @@ export interface MigratableState {
  * here AND ship a new migration.** Otherwise persisted layouts on the prior
  * floor will silently violate the registry constraint after upgrade.
  */
-const V2_WIDGET_MIN_SIZES: Readonly<
+export const V2_WIDGET_MIN_SIZES: Readonly<
   Partial<Record<WidgetType, { w: number; h: number }>>
 > = {
   'quick-actions': { w: 3, h: 3 },
@@ -97,13 +97,21 @@ function migrateV1ToV2(state: MigratableState): void {
   const dashboard = state.dashboard as {
     pages?: Array<{
       widgets?: Array<{ type?: string; w?: number; h?: number }>
-    }>
+    } | null>
   }
   if (!Array.isArray(dashboard.pages)) return
 
   for (const page of dashboard.pages) {
+    // A `null` or non-object page entry would crash on the next dereference;
+    // when migrate() throws, `@laststance/redux-storage-middleware` calls
+    // `storage.removeItem(key)` and the user loses every persisted slice
+    // (theme, bookmarks, dashboard) on a single corrupt array element.
+    if (!page || typeof page !== 'object') continue
     if (!Array.isArray(page.widgets)) continue
     for (const widget of page.widgets) {
+      // Same defense as the page guard above — a `null` widget would crash on
+      // `widget.type` and trigger the same total-wipe path.
+      if (!widget || typeof widget !== 'object') continue
       if (!widget.type) continue
       const min = V2_WIDGET_MIN_SIZES[widget.type as WidgetType]
       if (!min) continue

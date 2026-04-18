@@ -86,7 +86,9 @@ async function renderRow(skill: SkillSearchResult, isInstalled: boolean) {
 describe('SkillRowMarketplace — installed row has no destructive action', () => {
   it('renders no Remove button when isInstalled=true', async () => {
     const { screen } = await renderRow(makeSkill(), true)
-    expect(screen.getByRole('button', { name: /remove/i }).query()).toBeNull()
+    // Exact-match 'Remove' so we don't false-positive on the bookmark
+    // toggle's "Remove <name> from bookmarks" aria-label.
+    expect(screen.getByRole('button', { name: 'Remove' }).query()).toBeNull()
   })
 
   it('renders no Uninstall button when isInstalled=true', async () => {
@@ -105,13 +107,19 @@ describe('SkillRowMarketplace — installed row has no destructive action', () =
   it('renders the static Installed badge with a discoverable uninstall hint', async () => {
     const skill = makeSkill({ name: 'lint' as SkillName })
     const { screen } = await renderRow(skill, true)
-    // The badge surfaces the CLI uninstall recipe via aria-label so screen-reader
-    // users have a path even though the row is intentionally unactionable.
+    // Static informational badge uses role="img" — `role="status"` is for
+    // live regions that announce dynamic state changes, not labels. The
+    // aria-label includes `--global` so the recipe matches how the app
+    // installs (InstallModal hardcodes isGlobal=true) and works when copied.
     await expect
-      .element(screen.getByRole('status', { name: /lint is installed/i }))
+      .element(screen.getByRole('img', { name: /lint is installed/i }))
       .toBeInTheDocument()
     await expect
-      .element(screen.getByRole('status', { name: /npx skills remove lint/i }))
+      .element(
+        screen.getByRole('img', {
+          name: /npx skills remove lint --global/i,
+        }),
+      )
       .toBeInTheDocument()
   })
 
@@ -120,5 +128,39 @@ describe('SkillRowMarketplace — installed row has no destructive action', () =
     await expect
       .element(screen.getByRole('button', { name: /install/i }))
       .toBeInTheDocument()
+  })
+})
+
+/**
+ * Bookmark toggle round-trip. The bookmark selector was memoized in 6c3ac03
+ * (Set-backed `selectIsBookmarked`); a regression in either the selector or
+ * the click handler would break this entry-point with no other test catching
+ * it. Two cases lock both directions: unbookmarked → bookmarked and back.
+ */
+describe('SkillRowMarketplace — bookmark toggle', () => {
+  it('toggles unbookmarked → bookmarked via star click', async () => {
+    const { screen, store } = await renderRow(makeSkill(), false)
+    await screen.getByRole('button', { name: 'Bookmark task' }).click()
+    await expect
+      .element(
+        screen.getByRole('button', { name: 'Remove task from bookmarks' }),
+      )
+      .toBeInTheDocument()
+    expect(store.getState().bookmarks.items.map((b) => b.name)).toEqual([
+      'task',
+    ])
+  })
+
+  it('toggles bookmarked → unbookmarked on second click', async () => {
+    const { screen, store } = await renderRow(makeSkill(), false)
+    const bookmarkButton = screen.getByRole('button', { name: 'Bookmark task' })
+    await bookmarkButton.click()
+    await screen
+      .getByRole('button', { name: 'Remove task from bookmarks' })
+      .click()
+    await expect
+      .element(screen.getByRole('button', { name: 'Bookmark task' }))
+      .toBeInTheDocument()
+    expect(store.getState().bookmarks.items).toEqual([])
   })
 })
