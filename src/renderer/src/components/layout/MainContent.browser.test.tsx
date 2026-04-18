@@ -264,10 +264,14 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
   })
 
   it('Cmd+A is ignored when focus is inside an editable target', async () => {
-    const { store } = await renderMainContent()
+    const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
 
     store.dispatch(enterBulkSelectMode())
+    // Wait for the bulk-mode render to commit so `bulkSelectModeRef.current`
+    // is true when keydown fires. Without this wait the guard can pass via
+    // the bulkSelectMode early-return instead of the editable-target branch.
+    await waitForBulkSelectReady(screen)
 
     const textInput = document.createElement('input')
     document.body.appendChild(textInput)
@@ -330,12 +334,15 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
   })
 
   it('Esc is ignored when focus is inside an editable target', async () => {
-    const { store } = await renderMainContent()
+    const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
     const { toggleSelection } = await import('../../redux/slices/skillsSlice')
 
     store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection('task' as SkillName))
+    // Same race as the Cmd+A editable-target test: wait for bulk-mode commit
+    // so the Escape guard is exercised via the editable-target branch.
+    await waitForBulkSelectReady(screen)
 
     const textInput = document.createElement('input')
     document.body.appendChild(textInput)

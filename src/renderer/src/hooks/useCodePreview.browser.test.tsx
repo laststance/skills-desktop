@@ -77,10 +77,15 @@ describe('useCodePreview', () => {
     const { useCodePreview } = await import('./useCodePreview')
     const { result } = await renderHook(() => useCodePreview('/skills/tdd'))
 
-    await expect.poll(() => result.current.loading).toBe(false)
+    // Poll the loaded content instead of `loading === false`. `loading` starts
+    // false and transitions true→false, so a `loading === false` poll can race
+    // past the effect and observe the pre-load snapshot.
+    await expect
+      .poll(() => result.current.content)
+      .toEqual({ kind: 'text', data: body })
     expect(result.current.files).toEqual([file])
     expect(result.current.activeFile).toBe(file.path)
-    expect(result.current.content).toEqual({ kind: 'text', data: body })
+    expect(result.current.loading).toBe(false)
   })
 
   it('handles empty skill by leaving content empty', async () => {
@@ -89,6 +94,9 @@ describe('useCodePreview', () => {
     const { useCodePreview } = await import('./useCodePreview')
     const { result } = await renderHook(() => useCodePreview('/skills/empty'))
 
+    // `content` is `{kind:'empty'}` before AND after the effect for this case,
+    // so gate on the IPC call count instead to prove the effect actually ran.
+    await expect.poll(() => listMock.mock.calls.length).toBe(1)
     await expect.poll(() => result.current.loading).toBe(false)
     expect(result.current.activeFile).toBeNull()
     expect(result.current.content).toEqual({ kind: 'empty' })
@@ -176,7 +184,14 @@ describe('useCodePreview', () => {
     )
 
     await expect.poll(() => result.current.files.length).toBe(2)
-    // At this point files are set but initial read(first) is still pending.
+    // Gate on the IPC call itself: `files.length === 2` only proves `list()`
+    // resolved. The stale-response branch we're exercising is on the read
+    // promise, so assert read(first) is actually pending before continuing —
+    // otherwise `resolveFirst?.(…)` below could silently no-op and the test
+    // would pass without ever covering the guard.
+    await expect
+      .poll(() => readMock.mock.calls.some((c) => c[0] === first.path))
+      .toBe(true)
 
     await act(async () => {
       await result.current.setActiveFile(second.path)
