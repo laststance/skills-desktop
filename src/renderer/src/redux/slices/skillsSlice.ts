@@ -1,5 +1,6 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
+import { match } from 'ts-pattern'
 
 import type {
   AbsolutePath,
@@ -439,14 +440,24 @@ const skillsSlice = createSlice({
         state.selectedSkillNames = state.selectedSkillNames.filter(
           (name) => !deletedNames.has(name),
         )
-        if (state.selectedSkillNames.length === 0) {
-          state.selectionAnchor = null
-        } else if (
-          state.selectionAnchor !== null &&
-          deletedNames.has(state.selectionAnchor)
-        ) {
-          state.selectionAnchor = null
-        }
+        // Reconcile anchor: drop if selection emptied or if anchor itself was
+        // deleted. Otherwise leave it so Shift+click continues from the same
+        // origin.
+        const anchorReconciliation = match({
+          isEmpty: state.selectedSkillNames.length === 0,
+          anchorDeleted:
+            state.selectionAnchor !== null &&
+            deletedNames.has(state.selectionAnchor),
+        })
+          .with({ isEmpty: true }, () => 'clear' as const)
+          .with({ anchorDeleted: true }, () => 'clear' as const)
+          .otherwise(() => 'keep' as const)
+        match(anchorReconciliation)
+          .with('clear', () => {
+            state.selectionAnchor = null
+          })
+          .with('keep', () => {})
+          .exhaustive()
       })
       .addCase(deleteSelectedSkills.rejected, (state, action) => {
         state.inFlightDeleteNames = []
@@ -474,14 +485,23 @@ const skillsSlice = createSlice({
         state.selectedSkillNames = state.selectedSkillNames.filter(
           (name) => !unlinkedNames.has(name),
         )
-        if (state.selectedSkillNames.length === 0) {
-          state.selectionAnchor = null
-        } else if (
-          state.selectionAnchor !== null &&
-          unlinkedNames.has(state.selectionAnchor)
-        ) {
-          state.selectionAnchor = null
-        }
+        // Mirror the delete path: clear anchor when selection empties or when
+        // the anchor itself was unlinked; keep it otherwise.
+        const anchorReconciliation = match({
+          isEmpty: state.selectedSkillNames.length === 0,
+          anchorUnlinked:
+            state.selectionAnchor !== null &&
+            unlinkedNames.has(state.selectionAnchor),
+        })
+          .with({ isEmpty: true }, () => 'clear' as const)
+          .with({ anchorUnlinked: true }, () => 'clear' as const)
+          .otherwise(() => 'keep' as const)
+        match(anchorReconciliation)
+          .with('clear', () => {
+            state.selectionAnchor = null
+          })
+          .with('keep', () => {})
+          .exhaustive()
       })
       .addCase(unlinkSelectedFromAgent.rejected, (state, action) => {
         state.inFlightUnlinkNames = []

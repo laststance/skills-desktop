@@ -1,5 +1,6 @@
 import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
+import { match } from 'ts-pattern'
 
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
@@ -64,23 +65,19 @@ export const DashboardPageTabs = React.memo(
       if (pages.length === 0) return
 
       const currentIndex = pages.findIndex((page) => page.id === currentPageId)
-      let nextIndex = -1
-      switch (keyboardEvent.key) {
-        case 'ArrowLeft':
-          nextIndex = currentIndex > 0 ? currentIndex - 1 : pages.length - 1
-          break
-        case 'ArrowRight':
-          nextIndex = currentIndex < pages.length - 1 ? currentIndex + 1 : 0
-          break
-        case 'Home':
-          nextIndex = 0
-          break
-        case 'End':
-          nextIndex = pages.length - 1
-          break
-        default:
-          return
-      }
+      // -1 signals "no navigation for this key" — falls through to the early
+      // return below so unrelated keys don't swallow default browser behavior.
+      const nextIndex = match(keyboardEvent.key)
+        .with('ArrowLeft', () =>
+          currentIndex > 0 ? currentIndex - 1 : pages.length - 1,
+        )
+        .with('ArrowRight', () =>
+          currentIndex < pages.length - 1 ? currentIndex + 1 : 0,
+        )
+        .with('Home', () => 0)
+        .with('End', () => pages.length - 1)
+        .otherwise(() => -1)
+      if (nextIndex === -1) return
       keyboardEvent.preventDefault()
       const nextPage = pages[nextIndex]
       if (!nextPage) return

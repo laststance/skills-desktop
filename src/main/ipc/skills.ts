@@ -2,6 +2,7 @@ import * as fs from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { IpcMainInvokeEvent } from 'electron'
+import { match } from 'ts-pattern'
 
 import { BULK_PROGRESS_THRESHOLD } from '../../shared/constants'
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
@@ -81,26 +82,27 @@ async function removeFromAgent(
   }
 
   try {
-    if (stats.isSymbolicLink()) {
-      await fs.unlink(linkPath)
-    } else if (stats.isDirectory()) {
-      // A real directory inside an agent dir is a "local skill" — actual
-      // user-owned files, not a symlink. Bulk unlink is advertised as a
-      // non-destructive op, so we refuse to delete the data here. The user
-      // must go through bulk Delete (which moves to trash with 15s undo)
-      // if they actually want the files gone.
-      return {
-        success: false,
+    // Discriminate on file-stat kind: symlink → unlink, local directory →
+    // refuse (bulk unlink is non-destructive; user must go through bulk
+    // Delete), everything else (files, sockets, etc.) → refuse as unsupported.
+    const kindResult = await match({
+      isSymlink: stats.isSymbolicLink(),
+      isDirectory: stats.isDirectory(),
+    })
+      .with({ isSymlink: true }, async () => {
+        await fs.unlink(linkPath)
+        return { success: true } as const
+      })
+      .with({ isSymlink: false, isDirectory: true }, async () => ({
+        success: false as const,
         error:
           'Cannot unlink a local skill. Use Delete to move it to trash instead.',
-      }
-    } else {
-      return {
-        success: false,
+      }))
+      .otherwise(async () => ({
+        success: false as const,
         error: 'Cannot remove: path is neither a symlink nor a directory',
-      }
-    }
-    return { success: true }
+      }))
+    return kindResult
   } catch (error) {
     return {
       success: false,
@@ -133,20 +135,27 @@ export function registerSkillsHandlers(): void {
       // symlinked-skill unlink fails with "Path traversal attempt detected".
       validatePath(linkPath, getAllowedBases())
       const stats = await fs.lstat(linkPath)
-      if (stats.isSymbolicLink()) {
-        // Remove symlink
-        await fs.unlink(linkPath)
-      } else if (stats.isDirectory()) {
-        // Remove local skill folder
-        await fs.rm(linkPath, { recursive: true, force: true })
-      } else {
-        return {
-          success: false,
+      // Discriminate on file-stat kind: symlink → unlink, directory → rm -rf
+      // (destructive is OK here because the single-unlink handler has its own
+      // confirmation UX in the renderer), else → refuse.
+      const unlinkResult = await match({
+        isSymlink: stats.isSymbolicLink(),
+        isDirectory: stats.isDirectory(),
+      })
+        .with({ isSymlink: true }, async () => {
+          await fs.unlink(linkPath)
+          return { success: true } as const
+        })
+        .with({ isSymlink: false, isDirectory: true }, async () => {
+          await fs.rm(linkPath, { recursive: true, force: true })
+          return { success: true } as const
+        })
+        .otherwise(async () => ({
+          success: false as const,
           error: 'Cannot remove: path is neither a symlink nor a directory',
-        }
-      }
+        }))
 
-      return { success: true }
+      return unlinkResult
     } catch (error) {
       return { success: false, error: extractErrorMessage(error) }
     }
@@ -449,20 +458,33 @@ export function registerSkillsHandlers(): void {
       error: string
     }> = []
 
-    // Detect source type
+    // Detect source type. Discriminate on file-stat kind:
+    //   symlink   → record target so we replicate the link
+    //   directory → physical copy path (isSymlink stays false)
+    //   other     → reject all targets with a per-agent failure row
     let isSymlink = false
     let symlinkTarget = ''
     try {
       const stats = await fs.lstat(linkPath)
-      if (stats.isSymbolicLink()) {
-        isSymlink = true
-        symlinkTarget = await fs.readlink(linkPath)
-        // Validate the resolved symlink target is within allowed bases.
-        // After the CREATE_SYMLINKS fix, symlinks may legitimately point at
-        // either SOURCE_DIR (source skills) or another agent's dir (local
-        // skills linked across agents), so [SOURCE_DIR] alone is too strict.
-        validatePath(symlinkTarget, getAllowedBases())
-      } else if (!stats.isDirectory()) {
+      const detectionOutcome = await match({
+        isSymlink: stats.isSymbolicLink(),
+        isDirectory: stats.isDirectory(),
+      })
+        .with({ isSymlink: true }, async () => {
+          const target = await fs.readlink(linkPath)
+          // Validate the resolved symlink target is within allowed bases.
+          // After the CREATE_SYMLINKS fix, symlinks may legitimately point at
+          // either SOURCE_DIR (source skills) or another agent's dir (local
+          // skills linked across agents), so [SOURCE_DIR] alone is too strict.
+          validatePath(target, getAllowedBases())
+          return { kind: 'symlink' as const, target }
+        })
+        .with({ isSymlink: false, isDirectory: true }, async () => ({
+          kind: 'directory' as const,
+        }))
+        .otherwise(async () => ({ kind: 'invalid' as const }))
+
+      if (detectionOutcome.kind === 'invalid') {
         return {
           success: false,
           copied: 0,
@@ -471,6 +493,10 @@ export function registerSkillsHandlers(): void {
             error: 'Source is neither a symlink nor a directory',
           })),
         }
+      }
+      if (detectionOutcome.kind === 'symlink') {
+        isSymlink = true
+        symlinkTarget = detectionOutcome.target
       }
     } catch (error) {
       return {

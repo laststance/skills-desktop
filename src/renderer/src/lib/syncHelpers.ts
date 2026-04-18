@@ -4,6 +4,7 @@ import {
   XCircle,
   type LucideIcon,
 } from 'lucide-react'
+import { match } from 'ts-pattern'
 
 import type {
   SyncExecuteResult,
@@ -71,17 +72,22 @@ export function getSyncResultPresentation(
   const hasErrors = result.errors.length > 0
   const hasSuccess = result.created > 0 || result.replaced > 0
 
-  const HeaderIcon: LucideIcon = hasErrors
-    ? hasSuccess
-      ? AlertTriangle
-      : XCircle
-    : CheckCircle2
-
-  const iconColor = hasErrors
-    ? hasSuccess
-      ? 'text-amber-500'
-      : 'text-destructive'
-    : 'text-emerald-500'
+  // Pair (hasErrors, hasSuccess) → 3 outcomes: all-success, partial, all-errors.
+  // The { hasErrors: false, hasSuccess: false } case (no work done) falls
+  // through to the success icon — matches the "No changes were made" summary.
+  const { HeaderIcon, iconColor } = match({ hasErrors, hasSuccess })
+    .with({ hasErrors: true, hasSuccess: true }, () => ({
+      HeaderIcon: AlertTriangle as LucideIcon,
+      iconColor: 'text-amber-500',
+    }))
+    .with({ hasErrors: true, hasSuccess: false }, () => ({
+      HeaderIcon: XCircle as LucideIcon,
+      iconColor: 'text-destructive',
+    }))
+    .otherwise(() => ({
+      HeaderIcon: CheckCircle2 as LucideIcon,
+      iconColor: 'text-emerald-500',
+    }))
 
   const parts: string[] = []
   if (result.created > 0)
