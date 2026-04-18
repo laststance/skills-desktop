@@ -1,7 +1,7 @@
 import { Bookmark, ExternalLink, X } from 'lucide-react'
 import React from 'react'
 
-import type { BookmarkedSkill } from '../../../../../shared/types'
+import type { BookmarkedSkill, SkillName } from '../../../../../shared/types'
 import { useAppDispatch, useAppSelector } from '../../../redux/hooks'
 import {
   removeBookmark,
@@ -15,7 +15,7 @@ import {
 
 interface BookmarkRowProps {
   bookmark: BookmarkedSkill
-  onRemove: (name: BookmarkedSkill['name']) => void
+  onRemove: (name: SkillName) => void
 }
 
 const BookmarkRow = React.memo(function BookmarkRow({
@@ -82,7 +82,7 @@ export const BookmarksWidget = React.memo(
     const dispatch = useAppDispatch()
     const bookmarks = useAppSelector(selectBookmarkItems)
 
-    const handleRemove = (name: BookmarkedSkill['name']): void => {
+    const handleRemove = (name: SkillName): void => {
       dispatch(removeBookmark(name))
     }
 

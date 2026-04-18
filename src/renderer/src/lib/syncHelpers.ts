@@ -4,6 +4,7 @@ import {
   XCircle,
   type LucideIcon,
 } from 'lucide-react'
+import { match } from 'ts-pattern'
 
 import type {
   SyncExecuteResult,
@@ -71,17 +72,25 @@ export function getSyncResultPresentation(
   const hasErrors = result.errors.length > 0
   const hasSuccess = result.created > 0 || result.replaced > 0
 
-  const HeaderIcon: LucideIcon = hasErrors
-    ? hasSuccess
-      ? AlertTriangle
-      : XCircle
-    : CheckCircle2
-
-  const iconColor = hasErrors
-    ? hasSuccess
-      ? 'text-amber-500'
-      : 'text-destructive'
-    : 'text-emerald-500'
+  // Pair (hasErrors, hasSuccess) → 3 outcomes: all-success, partial, all-errors.
+  // The { hasErrors: false } branches (with or without success) both land on
+  // the success icon — matches the "No changes were made" summary when the
+  // work set was empty. `.exhaustive()` locks all four boolean combinations at
+  // compile time so a future refactor can't silently skip one.
+  const { HeaderIcon, iconColor } = match({ hasErrors, hasSuccess })
+    .with({ hasErrors: true, hasSuccess: true }, () => ({
+      HeaderIcon: AlertTriangle,
+      iconColor: 'text-amber-500',
+    }))
+    .with({ hasErrors: true, hasSuccess: false }, () => ({
+      HeaderIcon: XCircle,
+      iconColor: 'text-destructive',
+    }))
+    .with({ hasErrors: false }, () => ({
+      HeaderIcon: CheckCircle2,
+      iconColor: 'text-emerald-500',
+    }))
+    .exhaustive()
 
   const parts: string[] = []
   if (result.created > 0)

@@ -15,7 +15,7 @@ import {
 
 import { DashboardEditToolbar } from './DashboardEditToolbar'
 import { DashboardPageTabs } from './DashboardPageTabs'
-import type { WidgetInstance } from './types'
+import type { DashboardPageId, WidgetInstance } from './types'
 import { useDashboardKeyboardShortcuts } from './useDashboardKeyboardShortcuts'
 import {
   GRID_COLS,
@@ -82,11 +82,7 @@ export const DashboardCanvas = React.memo(
 // ----------------------------------------------------------------------------
 
 interface DashboardGridProps {
-  pageId: ReturnType<typeof selectCurrentPage> extends infer T
-    ? T extends { id: infer I }
-      ? I
-      : never
-    : never
+  pageId: DashboardPageId
   widgets: readonly WidgetInstance[]
   isEditMode: boolean
 }
@@ -120,7 +116,6 @@ const DashboardGrid = React.memo(function DashboardGrid({
 
   const handleLayoutChange = useCallback(
     (next: Layout) => {
-      if (!pageId) return
       dispatch(
         updateLayout({
           pageId,

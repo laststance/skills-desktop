@@ -1,6 +1,7 @@
 import { ACTION_HYDRATE_COMPLETE } from '@laststance/redux-storage-middleware'
 import { createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit'
 
+import { clearSelection } from './slices/skillsSlice'
 import {
   setTheme,
   setColorTheme,
@@ -8,6 +9,7 @@ import {
   toggleMode,
 } from './slices/themeSlice'
 import type { ThemeState } from './slices/themeSlice'
+import { fetchSyncPreview, selectAgent, setActiveTab } from './slices/uiSlice'
 
 export const listenerMiddleware = createListenerMiddleware()
 
@@ -61,5 +63,30 @@ listenerMiddleware.startListening({
   effect: (_action, listenerApi) => {
     const state = listenerApi.getState() as ListenerState
     applyThemeToDOM(state.theme)
+  },
+})
+
+/**
+ * Cross-slice atomic clear: dispatches `clearSelection` from skillsSlice on any
+ * context switch that uiSlice already clears its own ephemeral state for
+ * (bulkSelectMode, undoToast, bulkConfirm). Without this bridge the selection
+ * survives across tab/agent changes, enabling the "action-over-hidden-state"
+ * anti-pattern: SelectionToolbar renders on selection count alone and its
+ * Delete/Unlink button commits against invisible ticks the user can no longer
+ * audit. Living in listener.ts keeps both slices self-contained (one-way
+ * consumer; no circular imports).
+ *
+ * Note: `deleteSelectedSkills.pending` and `unlinkSelectedFromAgent.pending`
+ * are intentionally NOT in this matcher. Those thunks rely on the `.fulfilled`
+ * reducers in skillsSlice to narrow `selectedSkillNames` to only the items
+ * that actually succeeded, so failed rows stay ticked for retry. A blanket
+ * clear on `.pending` would wipe the selection before the reconciliation can
+ * run. uiSlice already clears `bulkSelectMode` on those same pending actions,
+ * so the toolbar still hides during the in-flight op.
+ */
+listenerMiddleware.startListening({
+  matcher: isAnyOf(setActiveTab, selectAgent, fetchSyncPreview.pending),
+  effect: (_action, listenerApi) => {
+    listenerApi.dispatch(clearSelection())
   },
 })

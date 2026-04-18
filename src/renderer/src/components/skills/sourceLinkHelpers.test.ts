@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { repositoryId } from '../../../../shared/types'
+
 import { getSourceLinkModel } from './sourceLinkHelpers'
 
 describe('getSourceLinkModel', () => {
@@ -15,20 +17,22 @@ describe('getSourceLinkModel', () => {
     })
 
     it('returns local when source is empty string', () => {
-      expect(getSourceLinkModel('')).toEqual({ kind: 'local' })
+      expect(getSourceLinkModel(repositoryId(''))).toEqual({ kind: 'local' })
     })
   })
 
   describe('text (source without URL)', () => {
     it('returns text when source is present but sourceUrl is undefined', () => {
-      expect(getSourceLinkModel('pbakaus/impeccable')).toEqual({
+      expect(getSourceLinkModel(repositoryId('pbakaus/impeccable'))).toEqual({
         kind: 'text',
         source: 'pbakaus/impeccable',
       })
     })
 
     it('returns text when sourceUrl is empty string', () => {
-      expect(getSourceLinkModel('pbakaus/impeccable', '')).toEqual({
+      expect(
+        getSourceLinkModel(repositoryId('pbakaus/impeccable'), ''),
+      ).toEqual({
         kind: 'text',
         source: 'pbakaus/impeccable',
       })
@@ -39,7 +43,7 @@ describe('getSourceLinkModel', () => {
     it('strips trailing .git from sourceUrl', () => {
       expect(
         getSourceLinkModel(
-          'pbakaus/impeccable',
+          repositoryId('pbakaus/impeccable'),
           'https://github.com/pbakaus/impeccable.git',
         ),
       ).toEqual({
@@ -52,7 +56,7 @@ describe('getSourceLinkModel', () => {
     it('leaves non-.git URLs unchanged', () => {
       expect(
         getSourceLinkModel(
-          'pbakaus/impeccable',
+          repositoryId('pbakaus/impeccable'),
           'https://github.com/pbakaus/impeccable',
         ),
       ).toEqual({
@@ -65,7 +69,7 @@ describe('getSourceLinkModel', () => {
     it('only strips .git at the end, not mid-string', () => {
       expect(
         getSourceLinkModel(
-          'foo/bar.git-assets',
+          repositoryId('foo/bar.git-assets'),
           'https://github.com/foo/bar.git-assets',
         ),
       ).toEqual({

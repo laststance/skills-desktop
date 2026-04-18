@@ -1,7 +1,14 @@
 import { lstat, readlink, access } from 'fs/promises'
 import { dirname, join, resolve } from 'path'
 
-import type { SymlinkInfo, SymlinkStatus } from '../../shared/types'
+import { match } from 'ts-pattern'
+
+import type {
+  AbsolutePath,
+  SkillName,
+  SymlinkInfo,
+  SymlinkStatus,
+} from '../../shared/types'
 import { AGENTS } from '../constants'
 
 /**
@@ -28,25 +35,39 @@ async function checkLinkOrLocal(path: string): Promise<LinkOrLocalResult> {
   try {
     const stats = await lstat(path)
 
-    if (stats.isSymbolicLink()) {
-      // It's a symlink - check if target exists
-      // resolve() handles both absolute and relative targets correctly:
-      // absolute target → returned as-is, relative → resolved from symlink's directory
-      const target = await readlink(path)
-      const resolvedTarget = resolve(dirname(path), target)
-      try {
-        await access(resolvedTarget)
-        return { status: 'valid', isLocal: false }
-      } catch {
-        return { status: 'broken', isLocal: false }
-      }
-    } else if (stats.isDirectory()) {
-      // Real folder = local skill
-      return { status: 'valid', isLocal: true }
-    }
-
-    // It's a file (not directory), treat as missing
-    return { status: 'missing', isLocal: false }
+    // Discriminate on file-stat kind:
+    //   symlink   → check target (valid vs broken)
+    //   directory → local skill (real folder)
+    //   other     → treat as missing (file, socket, etc.)
+    return await match({
+      isSymlink: stats.isSymbolicLink(),
+      isDirectory: stats.isDirectory(),
+    })
+      .with({ isSymlink: true }, async (): Promise<LinkOrLocalResult> => {
+        // resolve() handles both absolute and relative targets correctly:
+        // absolute target → returned as-is, relative → resolved from symlink's directory
+        const target = await readlink(path)
+        const resolvedTarget = resolve(dirname(path), target)
+        try {
+          await access(resolvedTarget)
+          return { status: 'valid', isLocal: false }
+        } catch {
+          return { status: 'broken', isLocal: false }
+        }
+      })
+      .with(
+        { isSymlink: false, isDirectory: true },
+        async (): Promise<LinkOrLocalResult> => ({
+          status: 'valid',
+          isLocal: true,
+        }),
+      )
+      .otherwise(
+        async (): Promise<LinkOrLocalResult> => ({
+          status: 'missing',
+          isLocal: false,
+        }),
+      )
   } catch {
     return { status: 'missing', isLocal: false }
   }
@@ -61,7 +82,7 @@ async function checkLinkOrLocal(path: string): Promise<LinkOrLocalResult> {
  * // => [{ agentId: 'claude', status: 'valid', isLocal: false, ... }, ...]
  */
 export async function checkSkillSymlinks(
-  skillName: string,
+  skillName: SkillName,
 ): Promise<SymlinkInfo[]> {
   const results = await Promise.all(
     AGENTS.map(async (agent) => {
@@ -100,7 +121,7 @@ export async function checkSkillSymlinks(
  * // => 'valid' (if symlink exists and target exists)
  */
 export async function checkSymlinkStatus(
-  linkPath: string,
+  linkPath: AbsolutePath,
 ): Promise<SymlinkStatus> {
   try {
     const stats = await lstat(linkPath)

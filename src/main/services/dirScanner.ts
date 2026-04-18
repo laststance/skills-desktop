@@ -1,16 +1,20 @@
 import { readdir } from 'fs/promises'
 import { join } from 'path'
 
+import type { AbsolutePath, SkillName } from '../../shared/types'
 import { SOURCE_DIR } from '../constants'
 
 import { isValidSkillDir } from './skillValidation'
 
 /**
- * Entry representing a valid skill directory on disk
+ * Entry representing a valid skill directory on disk.
+ * @example { name: 'tdd-workflow', path: '/Users/me/.agents/skills/tdd-workflow' }
  */
 export interface SkillDirEntry {
-  name: string
-  path: string
+  /** Directory name, matches the skill's identifier. @example "tdd-workflow" */
+  name: SkillName
+  /** Absolute path to the skill directory on disk. */
+  path: AbsolutePath
 }
 
 /**

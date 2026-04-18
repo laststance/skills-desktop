@@ -3,6 +3,7 @@ import * as fs from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 
+import { match } from 'ts-pattern'
 import type { z } from 'zod'
 
 import { UNDO_WINDOW_MS } from '../../shared/constants'
@@ -214,26 +215,34 @@ export async function moveToTrash(
     await fs.rename(sourcePath, entrySourceDir)
   } catch (error) {
     const code = errorCode(error)
-    const trashError =
-      code === 'EXDEV'
-        ? await (async () => {
-            try {
-              await fs.cp(sourcePath, entrySourceDir, { recursive: true })
-              await fs.rm(sourcePath, { recursive: true, force: true })
-              return null
-            } catch (fallbackError) {
-              return new TrashError(
-                `Failed to move source to trash (cross-device): ${extractErrorMessage(fallbackError)}`,
-                errorCode(fallbackError),
-              )
-            }
-          })()
-        : code === 'ENOENT'
-          ? new TrashError('Skill not found (already deleted?)', code)
-          : new TrashError(
-              `Failed to move source to trash: ${extractErrorMessage(error)}`,
-              code,
-            )
+    // Discriminate on the errno code:
+    //   EXDEV  → cross-device rename; fall back to copy + remove (returns null on success)
+    //   ENOENT → source already gone
+    //   other  → generic failure surfacing the underlying message
+    const trashError = await match(code)
+      .with('EXDEV', async () => {
+        try {
+          await fs.cp(sourcePath, entrySourceDir, { recursive: true })
+          await fs.rm(sourcePath, { recursive: true, force: true })
+          return null
+        } catch (fallbackError) {
+          return new TrashError(
+            `Failed to move source to trash (cross-device): ${extractErrorMessage(fallbackError)}`,
+            errorCode(fallbackError),
+          )
+        }
+      })
+      .with(
+        'ENOENT',
+        async () => new TrashError('Skill not found (already deleted?)', code),
+      )
+      .otherwise(
+        async () =>
+          new TrashError(
+            `Failed to move source to trash: ${extractErrorMessage(error)}`,
+            code,
+          ),
+      )
 
     if (trashError !== null) {
       // Rollback: re-create symlinks we unlinked earlier, and drop the empty

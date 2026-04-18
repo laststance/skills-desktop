@@ -1,4 +1,5 @@
 import type {
+  AbsolutePath,
   Agent,
   BulkDeleteResult,
   BulkUnlinkResult,
@@ -11,6 +12,7 @@ import type {
   DeleteSkillResult,
   DeleteSkillsOptions,
   DownloadProgress,
+  HttpUrl,
   InstallOptions,
   InstallProgress,
   RankingFilter,
@@ -18,10 +20,12 @@ import type {
   RemoveAllFromAgentResult,
   RestoreDeletedSkillOptions,
   RestoreDeletedSkillResult,
+  SearchQuery,
   Skill,
   SkillBinaryContent,
   SkillFile,
   SkillFileContent,
+  SkillName,
   SkillSearchResult,
   SourceStats,
   SyncExecuteOptions,
@@ -79,12 +83,15 @@ export interface IpcInvokeContract {
   }
   'agents:getAll': { args: []; result: Agent[] }
   'source:getStats': { args: []; result: SourceStats }
-  'files:list': { args: [string]; result: SkillFile[] }
-  'files:read': { args: [string]; result: SkillFileContent | null }
-  'files:readBinary': { args: [string]; result: SkillBinaryContent | null }
-  'skills:cli:search': { args: [string]; result: SkillSearchResult[] }
+  'files:list': { args: [AbsolutePath]; result: SkillFile[] }
+  'files:read': { args: [AbsolutePath]; result: SkillFileContent | null }
+  'files:readBinary': {
+    args: [AbsolutePath]
+    result: SkillBinaryContent | null
+  }
+  'skills:cli:search': { args: [SearchQuery]; result: SkillSearchResult[] }
   'skills:cli:install': { args: [InstallOptions]; result: CliCommandResult }
-  'skills:cli:remove': { args: [string]; result: CliCommandResult }
+  'skills:cli:remove': { args: [SkillName]; result: CliCommandResult }
   'skills:cli:cancel': { args: []; result: void }
   'marketplace:leaderboard': {
     args: [{ filter: RankingFilter }]
@@ -95,7 +102,7 @@ export interface IpcInvokeContract {
   'update:download': { args: []; result: void }
   'update:install': { args: []; result: void }
   'update:check': { args: []; result: void }
-  'shell:openExternal': { args: [string]; result: void }
+  'shell:openExternal': { args: [HttpUrl]; result: void }
 }
 
 /**

@@ -87,6 +87,23 @@ export type HumanFileSize = string
 export type HumanDate = string
 
 /**
+ * Free-form marketplace search text typed by the user.
+ * Not branded because the value is user input with no nominal safety payoff —
+ * the alias exists so signatures read "search text" rather than "any string".
+ * @example "react hooks"
+ */
+export type SearchQuery = string
+
+/**
+ * Sonner toast id returned by `toast.custom(...)` and passed to `toast.dismiss(...)`.
+ * Sonner treats this identifier as opaque (`string | number`); mirroring that
+ * union here keeps imperative dismiss calls honest without widening to `any`.
+ * @example "abc-123"
+ * @example 42
+ */
+export type ToastId = string | number
+
+/**
  * Repository identifier in GitHub `owner/repo` format.
  * Branded because structurally-identical strings (skill names, file names)
  * could otherwise be passed where a repo slug is required.

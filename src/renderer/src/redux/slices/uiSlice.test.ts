@@ -1,4 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
+import type { UnknownAction } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type {
@@ -440,5 +441,346 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
 
     resolve({ items: [] })
     await promise
+  })
+})
+
+describe('uiSlice bulkSelectMode', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  it('starts with bulkSelectMode=false (default is clean list)', async () => {
+    const store = await createTestStore()
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+  })
+
+  it('enterBulkSelectMode flips the flag to true', async () => {
+    const store = await createTestStore()
+    const { enterBulkSelectMode } = await import('./uiSlice')
+
+    store.dispatch(enterBulkSelectMode())
+    expect(store.getState().ui.bulkSelectMode).toBe(true)
+  })
+
+  it('exitBulkSelectMode flips the flag back to false', async () => {
+    const store = await createTestStore()
+    const { enterBulkSelectMode, exitBulkSelectMode } =
+      await import('./uiSlice')
+
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(exitBulkSelectMode())
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+  })
+
+  it('setActiveTab clears bulkSelectMode (tab switch exits mode)', async () => {
+    const store = await createTestStore()
+    const { enterBulkSelectMode, setActiveTab } = await import('./uiSlice')
+
+    store.dispatch(enterBulkSelectMode())
+    expect(store.getState().ui.bulkSelectMode).toBe(true)
+
+    store.dispatch(setActiveTab('marketplace'))
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+  })
+
+  it('selectAgent clears bulkSelectMode (agent swap exits mode)', async () => {
+    const store = await createTestStore()
+    const { enterBulkSelectMode, selectAgent } = await import('./uiSlice')
+
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(selectAgent('cursor' as AgentId))
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+  })
+
+  it('fetchSyncPreview.pending clears bulkSelectMode', async () => {
+    const store = await createTestStore()
+    const { enterBulkSelectMode, fetchSyncPreview } = await import('./uiSlice')
+
+    store.dispatch(enterBulkSelectMode())
+
+    let resolve!: (value: SyncPreviewResult) => void
+    mockSyncPreview.mockReturnValue(
+      new Promise<SyncPreviewResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(fetchSyncPreview())
+
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+
+    resolve(previewNoConflicts)
+    await promise
+  })
+
+  it('deleteSelectedSkills.pending clears bulkSelectMode (combined store)', async () => {
+    const store = await createCombinedStore()
+    const { enterBulkSelectMode } = await import('./uiSlice')
+    const { deleteSelectedSkills } = await import('./skillsSlice')
+
+    store.dispatch(enterBulkSelectMode())
+
+    let resolve!: (value: BulkDeleteResult) => void
+    mockDeleteSkills.mockReturnValue(
+      new Promise<BulkDeleteResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(deleteSelectedSkills(['task']))
+
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+
+    resolve({ items: [] })
+    await promise
+  })
+
+  it('unlinkSelectedFromAgent.pending clears bulkSelectMode (combined store)', async () => {
+    const store = await createCombinedStore()
+    const { enterBulkSelectMode } = await import('./uiSlice')
+    const { unlinkSelectedFromAgent } = await import('./skillsSlice')
+
+    store.dispatch(enterBulkSelectMode())
+
+    let resolve!: (value: BulkUnlinkResult) => void
+    mockUnlinkManyFromAgent.mockReturnValue(
+      new Promise<BulkUnlinkResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(
+      unlinkSelectedFromAgent({
+        agentId: 'cursor' as AgentId,
+        selectedNames: ['task'],
+      }),
+    )
+
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+
+    resolve({ items: [] })
+    await promise
+  })
+
+  // ── Idempotency ───────────────────────────────────────────────────────
+  // Guards against a future refactor splitting the reducer into conditional
+  // branches; if "already-true enter" started side-effecting, toggling rapidly
+  // could wipe unrelated state. The invariant is a plain boolean assignment.
+
+  it('enterBulkSelectMode is idempotent when already true', async () => {
+    const store = await createTestStore()
+    const { enterBulkSelectMode } = await import('./uiSlice')
+
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(enterBulkSelectMode())
+    expect(store.getState().ui.bulkSelectMode).toBe(true)
+  })
+
+  it('exitBulkSelectMode is idempotent when already false', async () => {
+    const store = await createTestStore()
+    const { exitBulkSelectMode } = await import('./uiSlice')
+
+    store.dispatch(exitBulkSelectMode())
+    store.dispatch(exitBulkSelectMode())
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+  })
+})
+
+/**
+ * Atomic-clear contract: every context-switch action that clears
+ * `bulkSelectMode` MUST also clear `undoToast` + `bulkConfirm` in the same
+ * reducer tick. These tests assert the *full* invariant (not individual
+ * flags) so a future refactor that drops one co-clear fails CI instead of
+ * regressing the hidden-selection anti-pattern in production.
+ */
+describe('uiSlice atomic-clear contract on context switch', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  /**
+   * Pre-populate all three ephemeral flags so each test can assert co-clear.
+   * Narrowed to `{ dispatch }` so both the ui-only and combined stores satisfy
+   * the signature — the helper never reads state, just seeds it.
+   */
+  async function seedAllEphemeralState(store: {
+    dispatch: (action: UnknownAction) => unknown
+  }): Promise<void> {
+    const { enterBulkSelectMode, setUndoToast, setBulkConfirm } =
+      await import('./uiSlice')
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(
+      setUndoToast({
+        id: 'toast-seed',
+        kind: 'delete',
+        skillNames: ['a'],
+        tombstoneIds: [tombstoneId('1-a-aaaaaaaa')],
+        expiresAt: '2026-04-17T12:00:15.000Z',
+        summary: 'Deleted 1 skill.',
+      }),
+    )
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: ['a'],
+        agentId: null,
+        agentName: null,
+      }),
+    )
+  }
+
+  it('setActiveTab atomically clears bulkSelectMode + undoToast + bulkConfirm', async () => {
+    const store = await createTestStore()
+    await seedAllEphemeralState(store)
+    const { setActiveTab } = await import('./uiSlice')
+
+    store.dispatch(setActiveTab('marketplace'))
+
+    expect(store.getState().ui).toMatchObject({
+      bulkSelectMode: false,
+      undoToast: null,
+      bulkConfirm: null,
+    })
+  })
+
+  it('selectAgent atomically clears bulkSelectMode + undoToast + bulkConfirm', async () => {
+    const store = await createTestStore()
+    await seedAllEphemeralState(store)
+    const { selectAgent } = await import('./uiSlice')
+
+    store.dispatch(selectAgent('cursor' as AgentId))
+
+    expect(store.getState().ui).toMatchObject({
+      bulkSelectMode: false,
+      undoToast: null,
+      bulkConfirm: null,
+    })
+  })
+
+  it('fetchSyncPreview.pending atomically clears all ephemeral UI state', async () => {
+    const store = await createTestStore()
+    await seedAllEphemeralState(store)
+    const { fetchSyncPreview } = await import('./uiSlice')
+
+    let resolve!: (value: SyncPreviewResult) => void
+    mockSyncPreview.mockReturnValue(
+      new Promise<SyncPreviewResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(fetchSyncPreview())
+
+    expect(store.getState().ui).toMatchObject({
+      bulkSelectMode: false,
+      undoToast: null,
+      bulkConfirm: null,
+    })
+
+    resolve(previewNoConflicts)
+    await promise
+  })
+
+  it('deleteSelectedSkills.pending atomically clears all ephemeral UI state', async () => {
+    const store = await createCombinedStore()
+    await seedAllEphemeralState(store)
+    const { deleteSelectedSkills } = await import('./skillsSlice')
+
+    let resolve!: (value: BulkDeleteResult) => void
+    mockDeleteSkills.mockReturnValue(
+      new Promise<BulkDeleteResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(deleteSelectedSkills(['a']))
+
+    expect(store.getState().ui).toMatchObject({
+      bulkSelectMode: false,
+      undoToast: null,
+      bulkConfirm: null,
+    })
+
+    resolve({ items: [] })
+    await promise
+  })
+
+  it('unlinkSelectedFromAgent.pending atomically clears all ephemeral UI state', async () => {
+    const store = await createCombinedStore()
+    await seedAllEphemeralState(store)
+    const { unlinkSelectedFromAgent } = await import('./skillsSlice')
+
+    let resolve!: (value: BulkUnlinkResult) => void
+    mockUnlinkManyFromAgent.mockReturnValue(
+      new Promise<BulkUnlinkResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(
+      unlinkSelectedFromAgent({
+        agentId: 'cursor' as AgentId,
+        selectedNames: ['a'],
+      }),
+    )
+
+    expect(store.getState().ui).toMatchObject({
+      bulkSelectMode: false,
+      undoToast: null,
+      bulkConfirm: null,
+    })
+
+    resolve({ items: [] })
+    await promise
+  })
+})
+
+/**
+ * Rejection-path coverage for bulkSelectMode. `.pending` clears the flag
+ * (proved above), but nothing re-enters the mode on failure. These tests
+ * document that behavior: after a failed bulk op or sync preview, the user
+ * has to explicitly re-enter mode to retry — no auto-resume into a
+ * partially-stale selection.
+ */
+describe('uiSlice bulkSelectMode on rejection', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  it('fetchSyncPreview.rejected leaves bulkSelectMode=false (no auto re-enter)', async () => {
+    const store = await createTestStore()
+    const { enterBulkSelectMode, fetchSyncPreview } = await import('./uiSlice')
+
+    store.dispatch(enterBulkSelectMode())
+    mockSyncPreview.mockRejectedValue(new Error('Network error'))
+
+    await store.dispatch(fetchSyncPreview())
+
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+  })
+
+  it('deleteSelectedSkills.rejected keeps bulkSelectMode=false (no auto re-enter)', async () => {
+    const store = await createCombinedStore()
+    const { enterBulkSelectMode } = await import('./uiSlice')
+    const { deleteSelectedSkills } = await import('./skillsSlice')
+
+    store.dispatch(enterBulkSelectMode())
+    mockDeleteSkills.mockRejectedValue(new Error('FS error'))
+
+    await store.dispatch(deleteSelectedSkills(['task']))
+
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+  })
+
+  it('unlinkSelectedFromAgent.rejected keeps bulkSelectMode=false', async () => {
+    const store = await createCombinedStore()
+    const { enterBulkSelectMode } = await import('./uiSlice')
+    const { unlinkSelectedFromAgent } = await import('./skillsSlice')
+
+    store.dispatch(enterBulkSelectMode())
+    mockUnlinkManyFromAgent.mockRejectedValue(new Error('Permission denied'))
+
+    await store.dispatch(
+      unlinkSelectedFromAgent({
+        agentId: 'cursor' as AgentId,
+        selectedNames: ['task'],
+      }),
+    )
+
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
 })

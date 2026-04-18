@@ -2,9 +2,11 @@ import type { PayloadAction } from '@reduxjs/toolkit'
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 
 import type {
+  AbsolutePath,
   AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
+  RestoreDeletedSkillResult,
   Skill,
   SkillName,
   SymlinkInfo,
@@ -163,7 +165,11 @@ export const createSymlinks = createAsyncThunk(
  */
 export const copyToAgents = createAsyncThunk(
   'skills/copyToAgents',
-  async (params: { skill: Skill; linkPath: string; agentIds: AgentId[] }) => {
+  async (params: {
+    skill: Skill
+    linkPath: AbsolutePath
+    agentIds: AgentId[]
+  }) => {
     const { skill, linkPath, agentIds } = params
     const result = await window.electron.skills.copyToAgents({
       skillName: skill.name,
@@ -244,9 +250,7 @@ export const undoLastBulkDelete = createAsyncThunk(
   async (tombstoneIds: TombstoneId[]) => {
     const outcomes: Array<{
       tombstoneId: TombstoneId
-      result: Awaited<
-        ReturnType<typeof window.electron.skills.restoreDeletedSkill>
-      >
+      result: RestoreDeletedSkillResult
     }> = []
     // Serial: each restore is an fs op; parallelism offers no real gain and
     // makes failure attribution harder. Per-item try/catch ensures one IPC
@@ -435,12 +439,13 @@ const skillsSlice = createSlice({
         state.selectedSkillNames = state.selectedSkillNames.filter(
           (name) => !deletedNames.has(name),
         )
-        if (state.selectedSkillNames.length === 0) {
-          state.selectionAnchor = null
-        } else if (
+        // Reconcile anchor: drop if selection emptied or if anchor itself was
+        // deleted. Otherwise leave it so Shift+click continues from the same
+        // origin.
+        const anchorWasDeleted =
           state.selectionAnchor !== null &&
           deletedNames.has(state.selectionAnchor)
-        ) {
+        if (state.selectedSkillNames.length === 0 || anchorWasDeleted) {
           state.selectionAnchor = null
         }
       })
@@ -470,12 +475,12 @@ const skillsSlice = createSlice({
         state.selectedSkillNames = state.selectedSkillNames.filter(
           (name) => !unlinkedNames.has(name),
         )
-        if (state.selectedSkillNames.length === 0) {
-          state.selectionAnchor = null
-        } else if (
+        // Mirror the delete path: clear anchor when selection empties or when
+        // the anchor itself was unlinked; keep it otherwise.
+        const anchorWasUnlinked =
           state.selectionAnchor !== null &&
           unlinkedNames.has(state.selectionAnchor)
-        ) {
+        if (state.selectedSkillNames.length === 0 || anchorWasUnlinked) {
           state.selectionAnchor = null
         }
       })

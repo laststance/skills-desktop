@@ -17,7 +17,10 @@ import {
   selectBulkProgress,
   selectBulkUnlinking,
 } from '../../redux/slices/skillsSlice'
-import { selectSelectedAgentId } from '../../redux/slices/uiSlice'
+import {
+  selectBulkSelectMode,
+  selectSelectedAgentId,
+} from '../../redux/slices/uiSlice'
 import { Button } from '../ui/button'
 
 import { getToolbarState } from './bulkDeleteHelpers'
@@ -63,13 +66,18 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
   const hiddenSelectedCount = useAppSelector(selectHiddenSelectedCount)
   const visibleNames = useAppSelector(selectVisibleSkillNames)
   const selectedAgentId = useAppSelector(selectSelectedAgentId)
+  const bulkSelectMode = useAppSelector(selectBulkSelectMode)
   const bulkDeleting = useAppSelector(selectBulkDeleting)
   const bulkUnlinking = useAppSelector(selectBulkUnlinking)
   const bulkProgress = useAppSelector(selectBulkProgress)
 
-  // Hidden when there is nothing ticked — saves a DOM reflow and prevents
-  // the toolbar from briefly rendering with count=0 during deselection.
-  if (selectedCount === 0) return null
+  // Belt-and-suspenders: the listener middleware already clears selection on
+  // any context switch that exits bulkSelectMode, but gating here enforces the
+  // invariant at the render boundary too. The destructive Delete/Unlink action
+  // must only be reachable while the selection is visually auditable (i.e. the
+  // per-row checkboxes are rendered). If selection were ever to outlive mode,
+  // this gate prevents a Delete click over invisible state.
+  if (!bulkSelectMode || selectedCount === 0) return null
 
   const toolbarState = getToolbarState({
     view: selectedAgentId ? 'agent' : 'global',
