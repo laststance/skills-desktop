@@ -1,61 +1,55 @@
 /**
- * Status colors matching design system
+ * Chroma value applied to OKLCH tokens for fully-saturated (color) presets.
+ * `--theme-chroma: 0` collapses every surface to grayscale, reproducing the
+ * shadcn "neutral" look without maintaining a parallel HSL block.
+ *
+ * Value chosen for sRGB safety: 0.16 at L=0.7 (the highest-L primary token)
+ * keeps every hue in the 12-preset palette inside sRGB gamut on standard
+ * monitors. Anything higher clips for amber/yellow/lime (~100°) and
+ * cyan/sky/blue (~200-250°), forcing the browser to gamut-map and breaking
+ * perceived hue fidelity. Display-P3 monitors (most Retina Macs) can handle
+ * more, but we optimize for the lowest-common display.
+ *
+ * @example
+ * oklch(0.7 var(--theme-chroma) var(--theme-hue)) // primary accent
  */
-export const STATUS_COLORS = {
-  valid: '#22D3EE', // Cyan
-  broken: '#F59E0B', // Amber
-  missing: '#475569', // Gray
-} as const
+export const COLOR_PRESET_CHROMA = 0.16
 
 /**
- * Base hues for 12 color theme presets (OKLCH)
- */
-export const THEME_HUES = {
-  rose: 350,
-  orange: 45,
-  amber: 70,
-  yellow: 95,
-  lime: 125,
-  green: 145,
-  teal: 175,
-  cyan: 195,
-  sky: 220,
-  blue: 250,
-  indigo: 275,
-  violet: 300,
-} as const
-
-/**
- * Theme preset types
- * - 'color': Uses OKLCH dynamic colors with hue
- * - 'neutral': shadcn/ui default neutral palette
- */
-export type ThemePresetType = 'color' | 'neutral'
-
-/**
- * All available theme presets
- * Includes 12 color hues + 2 neutral (shadcn defaults)
+ * Theme preset definitions. Each entry drives a single row in the
+ * ThemeSelector and provides the three values Redux needs to compute
+ * `--theme-hue` / `--theme-chroma` on `<html>`:
+ *  - `hue`     : OKLCH hue angle (0–360). Meaningless when `chroma === 0`.
+ *  - `chroma`  : `0` for neutral ramps, `COLOR_PRESET_CHROMA` for color ramps.
+ *  - `mode`    : Present only on neutral presets where dark/light is baked in;
+ *                omitted for color presets so `toggleMode` can flip freely.
+ *  - `label`   : UI title (sentence-cased).
+ * The 12 color hues stay in sync with skills.sh ThemePalette; neutral entries
+ * keep their `neutral-dark` / `neutral-light` keys so persisted state from
+ * older app versions migrates without renaming.
  */
 export const THEME_PRESETS = {
-  // Color themes (OKLCH hue-based)
-  ...Object.fromEntries(
-    Object.entries(THEME_HUES).map(([name, hue]) => [
-      name,
-      {
-        type: 'color' as const,
-        hue,
-        label: name.charAt(0).toUpperCase() + name.slice(1),
-      },
-    ]),
-  ),
-  // Neutral themes (shadcn/ui defaults)
+  rose: { hue: 350, chroma: COLOR_PRESET_CHROMA, label: 'Rose' },
+  orange: { hue: 45, chroma: COLOR_PRESET_CHROMA, label: 'Orange' },
+  amber: { hue: 70, chroma: COLOR_PRESET_CHROMA, label: 'Amber' },
+  yellow: { hue: 95, chroma: COLOR_PRESET_CHROMA, label: 'Yellow' },
+  lime: { hue: 125, chroma: COLOR_PRESET_CHROMA, label: 'Lime' },
+  green: { hue: 145, chroma: COLOR_PRESET_CHROMA, label: 'Green' },
+  teal: { hue: 175, chroma: COLOR_PRESET_CHROMA, label: 'Teal' },
+  cyan: { hue: 195, chroma: COLOR_PRESET_CHROMA, label: 'Cyan' },
+  sky: { hue: 220, chroma: COLOR_PRESET_CHROMA, label: 'Sky' },
+  blue: { hue: 250, chroma: COLOR_PRESET_CHROMA, label: 'Blue' },
+  indigo: { hue: 275, chroma: COLOR_PRESET_CHROMA, label: 'Indigo' },
+  violet: { hue: 300, chroma: COLOR_PRESET_CHROMA, label: 'Violet' },
   'neutral-dark': {
-    type: 'neutral' as const,
+    hue: 0,
+    chroma: 0,
     mode: 'dark' as const,
     label: 'Neutral Dark',
   },
   'neutral-light': {
-    type: 'neutral' as const,
+    hue: 0,
+    chroma: 0,
     mode: 'light' as const,
     label: 'Neutral Light',
   },
@@ -167,23 +161,13 @@ export const AGENT_DEFINITIONS = [
 ] as const
 
 /**
- * Color theme preset name, one of the 12 OKLCH hue-based themes.
- * Derived from THEME_HUES keys to stay in sync with available presets.
- * @example 'cyan', 'rose', 'indigo'
+ * Any valid theme preset name — 12 OKLCH color hues + 2 neutral variants.
+ * Derived from `THEME_PRESETS` so new presets only need to be added in one
+ * place; Redux reducers, selectors, and the ThemeSelector all pick up the
+ * widened union automatically.
+ * @example 'cyan', 'rose', 'neutral-dark'
  */
-export type ColorThemePresetName = keyof typeof THEME_HUES
-
-/**
- * Neutral theme preset name (shadcn/ui defaults).
- * @example 'neutral-dark', 'neutral-light'
- */
-export type NeutralThemePresetName = 'neutral-dark' | 'neutral-light'
-
-/**
- * Any valid theme preset name — color hue or neutral variant.
- * @example 'cyan', 'neutral-dark'
- */
-export type ThemePresetName = ColorThemePresetName | NeutralThemePresetName
+export type ThemePresetName = keyof typeof THEME_PRESETS
 
 /**
  * Agent IDs used in app state and IPC.

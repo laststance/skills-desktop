@@ -24,7 +24,7 @@ const BookmarkRow = React.memo(function BookmarkRow({
 }: BookmarkRowProps): React.ReactElement {
   return (
     <li className="group flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted">
-      <Bookmark className="h-3 w-3 shrink-0 text-cyan-400" aria-hidden="true" />
+      <Bookmark className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
       <a
         href={bookmark.url}
         target="_blank"

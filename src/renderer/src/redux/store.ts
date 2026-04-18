@@ -3,6 +3,7 @@ import { combineReducers, configureStore } from '@reduxjs/toolkit'
 import { setupListeners } from '@reduxjs/toolkit/query'
 
 import { listenerMiddleware } from './listener'
+import { migrateState } from './migrations'
 import agentsReducer from './slices/agentsSlice'
 import bookmarkReducer from './slices/bookmarkSlice'
 import dashboardReducer from './slices/dashboardSlice'
@@ -23,14 +24,18 @@ const rootReducer = combineReducers({
   dashboard: dashboardReducer,
 })
 
+type RootReducerState = ReturnType<typeof rootReducer>
+
 const {
   middleware: storageMiddleware,
   reducer,
   api,
-} = createStorageMiddleware({
+} = createStorageMiddleware<RootReducerState>({
   rootReducer,
   key: 'skills-desktop-state',
   slices: ['theme', 'bookmarks', 'dashboard'],
+  version: 1,
+  migrate: migrateState,
 })
 
 export const store = configureStore({

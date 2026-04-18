@@ -42,7 +42,7 @@ interface StatTileProps {
   icon: React.ComponentType<{ className?: string }>
   label: string
   value: number
-  /** Tailwind color class for the number + icon (e.g., `text-cyan-400`). */
+  /** Tailwind color class for the number + icon (e.g., `text-success`). */
   accentClass: string
 }
 
@@ -95,7 +95,7 @@ export const StatsWidget = React.memo(
           icon={Link2}
           label="Linked"
           value={linkedSkills}
-          accentClass="text-cyan-400"
+          accentClass="text-success"
         />
         <div className="w-px bg-border" aria-hidden="true" />
         <StatTile

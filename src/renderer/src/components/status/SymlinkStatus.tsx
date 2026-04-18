@@ -11,8 +11,8 @@ interface SymlinkStatusProps {
 const STATUS_STYLES = {
   valid: {
     icon: CheckCircle,
-    iconClass: 'text-cyan-400',
-    bgClass: 'bg-cyan-500/10',
+    iconClass: 'text-success',
+    bgClass: 'bg-success/10',
   },
   broken: {
     icon: AlertCircle,
@@ -21,8 +21,8 @@ const STATUS_STYLES = {
   },
   missing: {
     icon: Circle,
-    iconClass: 'text-slate-400',
-    bgClass: 'bg-slate-500/10',
+    iconClass: 'text-muted-foreground',
+    bgClass: 'bg-muted/40',
   },
 }
 

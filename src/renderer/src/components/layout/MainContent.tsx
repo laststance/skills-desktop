@@ -92,7 +92,7 @@ const SKILL_TYPE_FILTER_OPTIONS: {
   dotClass?: string
 }[] = [
   { value: 'all', label: 'All' },
-  { value: 'symlinked', label: 'Symlinked', dotClass: 'bg-cyan-400' },
+  { value: 'symlinked', label: 'Symlinked', dotClass: 'bg-success' },
   { value: 'local', label: 'Local', dotClass: 'bg-emerald-400' },
 ]
 

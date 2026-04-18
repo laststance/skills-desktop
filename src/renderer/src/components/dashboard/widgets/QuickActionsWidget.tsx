@@ -113,7 +113,7 @@ export const QuickActionsWidget = React.memo(
             description="Preview conflicts"
             onClick={handleSync}
             isBusy={isSyncing}
-            accentClass="text-cyan-400"
+            accentClass="text-primary"
           />
           <ActionTile
             icon={RefreshCw}
