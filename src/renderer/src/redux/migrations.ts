@@ -3,6 +3,7 @@ import {
   PERSIST_STATE_VERSION,
   THEME_PRESETS,
 } from '../../../shared/constants'
+import type { WidgetType } from '../components/dashboard/types'
 
 import type { ThemeState } from './slices/themeSlice'
 
@@ -33,10 +34,11 @@ export interface MigratableState {
  * here AND ship a new migration.** Otherwise persisted layouts on the prior
  * floor will silently violate the registry constraint after upgrade.
  */
-const V2_WIDGET_MIN_SIZES: Readonly<Record<string, { w: number; h: number }>> =
-  {
-    'quick-actions': { w: 3, h: 3 },
-  }
+const V2_WIDGET_MIN_SIZES: Readonly<
+  Partial<Record<WidgetType, { w: number; h: number }>>
+> = {
+  'quick-actions': { w: 3, h: 3 },
+}
 
 /**
  * v0 → v1 migration for the theme slice. The old shape carried a
@@ -47,7 +49,7 @@ const V2_WIDGET_MIN_SIZES: Readonly<Record<string, { w: number; h: number }>> =
  * a tampered payload like `{ preset: 'cyan', presetType: undefined }` would
  * land as `chroma: 0` (grayscale cyan) until the user manually reselects.
  */
-function migrateV0ToV1<T extends MigratableState>(state: T): void {
+function migrateV0ToV1(state: MigratableState): void {
   // Null, undefined, or non-object theme slot: drop it so the reducer's
   // initial state takes over. Prevents downstream `state.theme.hue` reads
   // from crashing when legacy storage was tampered with or half-written.
@@ -90,7 +92,7 @@ function migrateV0ToV1<T extends MigratableState>(state: T): void {
  * `V2_WIDGET_MIN_SIZES`, and clamp `{w,h}` upward in place. Widgets whose
  * type isn't in the map (most of them) are untouched.
  */
-function migrateV1ToV2<T extends MigratableState>(state: T): void {
+function migrateV1ToV2(state: MigratableState): void {
   if (!state.dashboard || typeof state.dashboard !== 'object') return
   const dashboard = state.dashboard as {
     pages?: Array<{
@@ -103,7 +105,7 @@ function migrateV1ToV2<T extends MigratableState>(state: T): void {
     if (!Array.isArray(page.widgets)) continue
     for (const widget of page.widgets) {
       if (!widget.type) continue
-      const min = V2_WIDGET_MIN_SIZES[widget.type]
+      const min = V2_WIDGET_MIN_SIZES[widget.type as WidgetType]
       if (!min) continue
       if (typeof widget.w === 'number' && widget.w < min.w) widget.w = min.w
       if (typeof widget.h === 'number' && widget.h < min.h) widget.h = min.h

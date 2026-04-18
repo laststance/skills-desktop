@@ -92,6 +92,39 @@ describe('migrateState — v0 → v1 correctness', () => {
 
 describe('migrateState — v1 → v2 dashboard widget min-size clamp', () => {
   /**
+   * Build a minimal `dashboard` envelope so each test only declares the
+   * widget(s) it actually exercises. Keeps the test focus on the field
+   * under inspection (widget.w / widget.h) instead of restating boilerplate
+   * (currentPageId, isEditMode, ...) eight times.
+   */
+  type WidgetFixture = {
+    id: string
+    type: string
+    x: number
+    y: number
+    w: number
+    h: number
+  }
+  function makeDashboardState(
+    pages: Array<{ id?: string; name?: string; widgets: WidgetFixture[] }>,
+  ) {
+    const normalized = pages.map((p, i) => ({
+      id: p.id ?? `page-${i + 1}`,
+      name: p.name ?? 'Home',
+      widgets: p.widgets,
+    }))
+    return {
+      dashboard: {
+        pages: normalized,
+        currentPageId: normalized[0].id,
+        isEditMode: false,
+        welcomeDismissed: false,
+        initialized: true,
+      },
+    }
+  }
+
+  /**
    * Bumping `WIDGET_REGISTRY['quick-actions'].minSize.h` from 2 to 3 (paired
    * with the GRID_ROW_HEIGHT_PX 48 → 64 jump) means persisted layouts on the
    * old floor would silently get re-clamped by react-grid-layout on first
@@ -99,88 +132,40 @@ describe('migrateState — v1 → v2 dashboard widget min-size clamp', () => {
    * so the post-rehydrate state already satisfies the new floor.
    */
   it('clamps quick-actions widget h: 2 up to 3', () => {
-    const state = {
-      dashboard: {
-        pages: [
-          {
-            id: 'page-1',
-            name: 'Home',
-            widgets: [
-              { id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 2 },
-            ],
-          },
-        ],
-        currentPageId: 'page-1',
-        isEditMode: false,
-        welcomeDismissed: false,
-        initialized: true,
+    const state = makeDashboardState([
+      {
+        widgets: [{ id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 2 }],
       },
-    }
+    ])
     migrateState(state, 1)
     expect(state.dashboard.pages[0].widgets[0].h).toBe(3)
     expect(state.dashboard.pages[0].widgets[0].w).toBe(6)
   })
 
   it('leaves quick-actions widget h: 3 untouched (no over-clamp)', () => {
-    const state = {
-      dashboard: {
-        pages: [
-          {
-            id: 'page-1',
-            name: 'Home',
-            widgets: [
-              { id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 3 },
-            ],
-          },
-        ],
-        currentPageId: 'page-1',
-        isEditMode: false,
-        welcomeDismissed: false,
-        initialized: true,
+    const state = makeDashboardState([
+      {
+        widgets: [{ id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 3 }],
       },
-    }
+    ])
     migrateState(state, 1)
     expect(state.dashboard.pages[0].widgets[0].h).toBe(3)
   })
 
   it('leaves quick-actions widget h: 5 untouched (clamp is upward-only)', () => {
-    const state = {
-      dashboard: {
-        pages: [
-          {
-            id: 'page-1',
-            name: 'Home',
-            widgets: [
-              { id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 5 },
-            ],
-          },
-        ],
-        currentPageId: 'page-1',
-        isEditMode: false,
-        welcomeDismissed: false,
-        initialized: true,
+    const state = makeDashboardState([
+      {
+        widgets: [{ id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 5 }],
       },
-    }
+    ])
     migrateState(state, 1)
     expect(state.dashboard.pages[0].widgets[0].h).toBe(5)
   })
 
   it('does not touch widgets whose minSize did not change (e.g., stats)', () => {
-    const state = {
-      dashboard: {
-        pages: [
-          {
-            id: 'page-1',
-            name: 'Home',
-            widgets: [{ id: 'w1', type: 'stats', x: 0, y: 0, w: 3, h: 2 }],
-          },
-        ],
-        currentPageId: 'page-1',
-        isEditMode: false,
-        welcomeDismissed: false,
-        initialized: true,
-      },
-    }
+    const state = makeDashboardState([
+      { widgets: [{ id: 'w1', type: 'stats', x: 0, y: 0, w: 3, h: 2 }] },
+    ])
     migrateState(state, 1)
     expect(state.dashboard.pages[0].widgets[0].h).toBe(2)
     expect(state.dashboard.pages[0].widgets[0].w).toBe(3)
@@ -211,31 +196,18 @@ describe('migrateState — v1 → v2 dashboard widget min-size clamp', () => {
   })
 
   it('clamps across multiple pages and multiple widgets', () => {
-    const state = {
-      dashboard: {
-        pages: [
-          {
-            id: 'page-1',
-            name: 'Home',
-            widgets: [
-              { id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 2 },
-              { id: 'w2', type: 'stats', x: 0, y: 2, w: 3, h: 2 },
-            ],
-          },
-          {
-            id: 'page-2',
-            name: 'Tools',
-            widgets: [
-              { id: 'w3', type: 'quick-actions', x: 0, y: 0, w: 3, h: 2 },
-            ],
-          },
+    const state = makeDashboardState([
+      {
+        widgets: [
+          { id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 2 },
+          { id: 'w2', type: 'stats', x: 0, y: 2, w: 3, h: 2 },
         ],
-        currentPageId: 'page-1',
-        isEditMode: false,
-        welcomeDismissed: false,
-        initialized: true,
       },
-    }
+      {
+        name: 'Tools',
+        widgets: [{ id: 'w3', type: 'quick-actions', x: 0, y: 0, w: 3, h: 2 }],
+      },
+    ])
     migrateState(state, 1)
     expect(state.dashboard.pages[0].widgets[0].h).toBe(3)
     expect(state.dashboard.pages[0].widgets[1].h).toBe(2) // stats untouched
