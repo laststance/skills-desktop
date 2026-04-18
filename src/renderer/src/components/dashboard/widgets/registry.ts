@@ -102,8 +102,8 @@ export const WIDGET_REGISTRY: Readonly<Record<WidgetType, WidgetDefinition>> = {
     label: 'Quick Actions',
     description: 'Frequent actions: sync, refresh, open marketplace.',
     icon: Zap,
-    defaultSize: { w: 6, h: 2 },
-    minSize: { w: 3, h: 2 },
+    defaultSize: { w: 6, h: 3 },
+    minSize: { w: 3, h: 3 },
     Component: QuickActionsWidget,
   },
   'agent-heatmap': {

@@ -44,7 +44,7 @@ const PAGE_SPECS: readonly PageSpec[] = [
   },
   {
     name: 'Actions',
-    widgets: [{ type: 'quick-actions', x: 0, y: 0, w: 6, h: 2 }],
+    widgets: [{ type: 'quick-actions', x: 0, y: 0, w: 6, h: 3 }],
   },
   {
     name: 'Personal',
