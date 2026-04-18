@@ -1,4 +1,4 @@
-import { Check, Download, Plus, Star, Trash2 } from 'lucide-react'
+import { Check, Download, Plus, Star } from 'lucide-react'
 import React from 'react'
 
 import type { SkillSearchResult } from '../../../../shared/types'
@@ -12,7 +12,6 @@ import {
 import {
   selectSkillForInstall,
   setPreviewSkill,
-  setSkillToRemove,
 } from '../../redux/slices/marketplaceSlice'
 
 interface SkillRowMarketplaceProps {
@@ -22,7 +21,7 @@ interface SkillRowMarketplaceProps {
 
 /**
  * Single skill row in marketplace search results
- * Design: 72px height, rank badge, install count, install/remove buttons
+ * Design: 72px height, rank badge, install count, install button (or installed badge)
  */
 export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
   skill,
@@ -30,7 +29,7 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
 }: SkillRowMarketplaceProps): React.ReactElement {
   const dispatch = useAppDispatch()
   const { status } = useAppSelector((state) => state.marketplace)
-  const isOperating = status === 'installing' || status === 'removing'
+  const isOperating = status === 'installing'
   const isBookmarked = useAppSelector((state) =>
     selectIsBookmarked(state, skill.name),
   )
@@ -41,10 +40,6 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
 
   const handleInstall = (): void => {
     dispatch(selectSkillForInstall(skill))
-  }
-
-  const handleRemove = (): void => {
-    dispatch(setSkillToRemove(skill.name))
   }
 
   const handleToggleBookmark = (): void => {
@@ -107,32 +102,13 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
         </span>
       </div>
 
-      {/* Action Buttons */}
+      {/* Action Button (or Installed badge) */}
       {isInstalled ? (
-        <div className="flex items-center gap-3">
-          {/* Installed Badge */}
-          <div className="flex items-center gap-1 px-2 py-1 rounded bg-primary/10">
-            <Check className="h-3 w-3 text-primary" />
-            <span className="text-[11px] font-medium text-primary">
-              Installed
-            </span>
-          </div>
-
-          {/* Remove Button */}
-          <button
-            onClick={handleRemove}
-            disabled={isOperating}
-            className={cn(
-              'flex items-center gap-1.5 px-4 py-2 rounded-md min-h-[44px]',
-              'bg-muted border border-destructive',
-              'text-destructive text-[13px] font-semibold',
-              'hover:bg-muted/80 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-            )}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Remove
-          </button>
+        <div className="flex items-center gap-1 px-2 py-1 rounded bg-primary/10">
+          <Check className="h-3 w-3 text-primary" />
+          <span className="text-[11px] font-medium text-primary">
+            Installed
+          </span>
         </div>
       ) : (
         /* Install Button */

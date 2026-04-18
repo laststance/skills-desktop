@@ -94,19 +94,6 @@ class SkillsCliService extends EventEmitter {
   }
 
   /**
-   * Remove a skill using `npx skills remove <name> -g -y`
-   * @param skillName - Name of the skill to remove
-   * @returns CLI command result
-   * @example
-   * remove('vercel-react-best-practices')
-   */
-  async remove(skillName: string): Promise<CliCommandResult> {
-    // -g flag for global scope (skills are installed globally)
-    // -y flag skips interactive confirmation prompts
-    return this.execCli(['remove', skillName, '-g', '-y'])
-  }
-
-  /**
    * Cancel the current CLI operation
    */
   cancel(): void {

@@ -23,7 +23,6 @@ describe('IPC contract alignment', () => {
       [IPC_CHANNELS.FILES_READ_BINARY]: true,
       [IPC_CHANNELS.SKILLS_CLI_SEARCH]: true,
       [IPC_CHANNELS.SKILLS_CLI_INSTALL]: true,
-      [IPC_CHANNELS.SKILLS_CLI_REMOVE]: true,
       [IPC_CHANNELS.SKILLS_CLI_CANCEL]: true,
       [IPC_CHANNELS.MARKETPLACE_LEADERBOARD]: true,
       [IPC_CHANNELS.SYNC_PREVIEW]: true,
@@ -35,7 +34,7 @@ describe('IPC contract alignment', () => {
     } as const satisfies Record<keyof IpcInvokeContract, true>
 
     // Runtime assertion: mapping covers exactly the contract keys
-    expect(Object.keys(invokeMapping)).toHaveLength(25)
+    expect(Object.keys(invokeMapping)).toHaveLength(24)
   })
 
   it('all IPC_CHANNELS event values are valid event contract keys', () => {

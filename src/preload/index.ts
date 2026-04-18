@@ -16,7 +16,6 @@ import type {
   RemoveAllFromAgentOptions,
   RestoreDeletedSkillOptions,
   SearchQuery,
-  SkillName,
   SyncExecuteOptions,
   UnlinkFromAgentOptions,
   UnlinkManyFromAgentOptions,
@@ -99,8 +98,6 @@ contextBridge.exposeInMainWorld('electron', {
       typedInvoke('skills:cli:search', query),
     install: async (options: InstallOptions) =>
       typedInvoke('skills:cli:install', options),
-    remove: async (skillName: SkillName) =>
-      typedInvoke('skills:cli:remove', skillName),
     cancel: async () => typedInvoke('skills:cli:cancel'),
     onProgress: createIpcListener<InstallProgress>(
       IPC_CHANNELS.SKILLS_CLI_PROGRESS,

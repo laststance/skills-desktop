@@ -65,7 +65,6 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
 
   // CLI operations
   'skills:cli:search': z.tuple([z.string()]),
-  'skills:cli:remove': z.tuple([nonEmptyString]),
   'skills:cli:install': z.tuple([
     z.object({
       repo: nonEmptyString,
