@@ -1,3 +1,5 @@
+import type { HttpUrl, RepositoryId } from '../../../../shared/types'
+
 /**
  * Discriminated render model for `SourceLink`.
  * - `local`  — no source identifier; render the "Local" label
@@ -6,8 +8,8 @@
  */
 export type SourceLinkModel =
   | { kind: 'local' }
-  | { kind: 'text'; source: string }
-  | { kind: 'link'; source: string; href: string }
+  | { kind: 'text'; source: RepositoryId }
+  | { kind: 'link'; source: RepositoryId; href: HttpUrl }
 
 /**
  * Compute the render model for `SourceLink` from its props.
@@ -32,8 +34,8 @@ export type SourceLinkModel =
  * // => { kind: 'link', source: 'pbakaus/impeccable', href: 'https://github.com/pbakaus/impeccable' }
  */
 export function getSourceLinkModel(
-  source?: string,
-  sourceUrl?: string,
+  source?: RepositoryId,
+  sourceUrl?: HttpUrl,
 ): SourceLinkModel {
   if (!source) return { kind: 'local' }
   const href = sourceUrl ? sourceUrl.replace(/\.git$/, '') : undefined

@@ -2,9 +2,24 @@ import { contextBridge } from 'electron'
 
 import { IPC_CHANNELS } from '../shared/ipc-channels'
 import type {
+  AbsolutePath,
+  CopyToAgentsOptions,
+  CreateSymlinksOptions,
   DeleteProgressPayload,
+  DeleteSkillOptions,
+  DeleteSkillsOptions,
   DownloadProgress,
+  HttpUrl,
+  InstallOptions,
   InstallProgress,
+  RankingFilter,
+  RemoveAllFromAgentOptions,
+  RestoreDeletedSkillOptions,
+  SearchQuery,
+  SkillName,
+  SyncExecuteOptions,
+  UnlinkFromAgentOptions,
+  UnlinkManyFromAgentOptions,
   UpdateInfo,
 } from '../shared/types'
 
@@ -18,37 +33,30 @@ contextBridge.exposeInMainWorld('electron', {
   // preload scripts and is only callable from the main process.
   // URL shape (http/https only) is enforced by the Zod schema at the handler.
   shell: {
-    openExternal: async (url: string) => typedInvoke('shell:openExternal', url),
+    openExternal: async (url: HttpUrl) =>
+      typedInvoke('shell:openExternal', url),
   },
   // Skills API
   skills: {
     getAll: async () => typedInvoke('skills:getAll'),
-    unlinkFromAgent: async (
-      options: Parameters<typeof typedInvoke<'skills:unlinkFromAgent'>>[1],
-    ) => typedInvoke('skills:unlinkFromAgent', options),
-    removeAllFromAgent: async (
-      options: Parameters<typeof typedInvoke<'skills:removeAllFromAgent'>>[1],
-    ) => typedInvoke('skills:removeAllFromAgent', options),
-    deleteSkill: async (
-      options: Parameters<typeof typedInvoke<'skills:deleteSkill'>>[1],
-    ) => typedInvoke('skills:deleteSkill', options),
-    createSymlinks: async (
-      options: Parameters<typeof typedInvoke<'skills:createSymlinks'>>[1],
-    ) => typedInvoke('skills:createSymlinks', options),
-    copyToAgents: async (
-      options: Parameters<typeof typedInvoke<'skills:copyToAgents'>>[1],
-    ) => typedInvoke('skills:copyToAgents', options),
+    unlinkFromAgent: async (options: UnlinkFromAgentOptions) =>
+      typedInvoke('skills:unlinkFromAgent', options),
+    removeAllFromAgent: async (options: RemoveAllFromAgentOptions) =>
+      typedInvoke('skills:removeAllFromAgent', options),
+    deleteSkill: async (options: DeleteSkillOptions) =>
+      typedInvoke('skills:deleteSkill', options),
+    createSymlinks: async (options: CreateSymlinksOptions) =>
+      typedInvoke('skills:createSymlinks', options),
+    copyToAgents: async (options: CopyToAgentsOptions) =>
+      typedInvoke('skills:copyToAgents', options),
     // Bulk delete + undo (Section E of the bulk-delete plan).
     // deleteSkills runs serially in main; batches of >=10 emit progress events.
-    deleteSkills: async (
-      options: Parameters<typeof typedInvoke<'skills:deleteSkills'>>[1],
-    ) => typedInvoke('skills:deleteSkills', options),
-    unlinkManyFromAgent: async (
-      options: Parameters<typeof typedInvoke<'skills:unlinkManyFromAgent'>>[1],
-    ) => typedInvoke('skills:unlinkManyFromAgent', options),
-    restoreDeletedSkill: async (
-      options: Parameters<typeof typedInvoke<'skills:restoreDeletedSkill'>>[1],
-    ) => typedInvoke('skills:restoreDeletedSkill', options),
+    deleteSkills: async (options: DeleteSkillsOptions) =>
+      typedInvoke('skills:deleteSkills', options),
+    unlinkManyFromAgent: async (options: UnlinkManyFromAgentOptions) =>
+      typedInvoke('skills:unlinkManyFromAgent', options),
+    restoreDeletedSkill: async (options: RestoreDeletedSkillOptions) =>
+      typedInvoke('skills:restoreDeletedSkill', options),
     onDeleteProgress: createIpcListener<DeleteProgressPayload>(
       IPC_CHANNELS.SKILLS_DELETE_PROGRESS,
     ),
@@ -63,9 +71,10 @@ contextBridge.exposeInMainWorld('electron', {
   },
   // Files API
   files: {
-    list: async (skillPath: string) => typedInvoke('files:list', skillPath),
-    read: async (filePath: string) => typedInvoke('files:read', filePath),
-    readBinary: async (filePath: string) =>
+    list: async (skillPath: AbsolutePath) =>
+      typedInvoke('files:list', skillPath),
+    read: async (filePath: AbsolutePath) => typedInvoke('files:read', filePath),
+    readBinary: async (filePath: AbsolutePath) =>
       typedInvoke('files:readBinary', filePath),
   },
   // Update API
@@ -86,11 +95,11 @@ contextBridge.exposeInMainWorld('electron', {
   },
   // Skills CLI API (Marketplace)
   skillsCli: {
-    search: async (query: string) => typedInvoke('skills:cli:search', query),
-    install: async (
-      options: Parameters<typeof typedInvoke<'skills:cli:install'>>[1],
-    ) => typedInvoke('skills:cli:install', options),
-    remove: async (skillName: string) =>
+    search: async (query: SearchQuery) =>
+      typedInvoke('skills:cli:search', query),
+    install: async (options: InstallOptions) =>
+      typedInvoke('skills:cli:install', options),
+    remove: async (skillName: SkillName) =>
       typedInvoke('skills:cli:remove', skillName),
     cancel: async () => typedInvoke('skills:cli:cancel'),
     onProgress: createIpcListener<InstallProgress>(
@@ -99,15 +108,13 @@ contextBridge.exposeInMainWorld('electron', {
   },
   // Marketplace Leaderboard
   marketplace: {
-    leaderboard: async (
-      options: Parameters<typeof typedInvoke<'marketplace:leaderboard'>>[1],
-    ) => typedInvoke('marketplace:leaderboard', options),
+    leaderboard: async (options: { filter: RankingFilter }) =>
+      typedInvoke('marketplace:leaderboard', options),
   },
   // Sync API
   sync: {
     preview: async () => typedInvoke('sync:preview'),
-    execute: async (
-      options: Parameters<typeof typedInvoke<'sync:execute'>>[1],
-    ) => typedInvoke('sync:execute', options),
+    execute: async (options: SyncExecuteOptions) =>
+      typedInvoke('sync:execute', options),
   },
 })

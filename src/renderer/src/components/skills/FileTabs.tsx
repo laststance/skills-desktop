@@ -2,14 +2,14 @@ import * as TabsPrimitive from '@radix-ui/react-tabs'
 import { FileCode, FileImage, FileText } from 'lucide-react'
 import React from 'react'
 
-import type { SkillFile } from '../../../../shared/types'
+import type { AbsolutePath, SkillFile } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
 
 interface FileTabsProps {
   /** Pre-sorted list of previewable files (SKILL.md first, then alphabetical). */
   files: SkillFile[]
   /** Absolute path of the currently selected file, or null if none is active. */
-  activeFilePath: string | null
+  activeFilePath: AbsolutePath | null
 }
 
 /**

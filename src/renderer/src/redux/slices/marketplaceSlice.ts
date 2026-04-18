@@ -4,6 +4,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import type {
   LeaderboardData,
   RankingFilter,
+  SearchQuery,
   SkillName,
   SkillSearchResult,
   InstallOptions,
@@ -18,7 +19,7 @@ interface MarketplaceState {
   /** Current marketplace operation state (search / install / remove / idle). */
   status: MarketplaceStatus
   /** Live value of the search input. */
-  searchQuery: string
+  searchQuery: SearchQuery
   /** Results from the most recent `skills find` call. */
   searchResults: SkillSearchResult[]
   /** Skill chosen in the install modal. */
@@ -54,7 +55,7 @@ const initialState: MarketplaceState = {
  */
 export const searchSkills = createAsyncThunk(
   'marketplace/search',
-  async (query: string) => {
+  async (query: SearchQuery) => {
     const results = await window.electron.skillsCli.search(query)
     return results
   },
@@ -119,7 +120,7 @@ const marketplaceSlice = createSlice({
   name: 'marketplace',
   initialState,
   reducers: {
-    setSearchQuery: (state, action: PayloadAction<string>) => {
+    setSearchQuery: (state, action: PayloadAction<SearchQuery>) => {
       state.searchQuery = action.payload
     },
     selectSkillForInstall: (

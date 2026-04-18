@@ -2,9 +2,11 @@ import type { PayloadAction } from '@reduxjs/toolkit'
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 
 import type {
+  AbsolutePath,
   AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
+  RestoreDeletedSkillResult,
   Skill,
   SkillName,
   SymlinkInfo,
@@ -163,7 +165,11 @@ export const createSymlinks = createAsyncThunk(
  */
 export const copyToAgents = createAsyncThunk(
   'skills/copyToAgents',
-  async (params: { skill: Skill; linkPath: string; agentIds: AgentId[] }) => {
+  async (params: {
+    skill: Skill
+    linkPath: AbsolutePath
+    agentIds: AgentId[]
+  }) => {
     const { skill, linkPath, agentIds } = params
     const result = await window.electron.skills.copyToAgents({
       skillName: skill.name,
@@ -244,9 +250,7 @@ export const undoLastBulkDelete = createAsyncThunk(
   async (tombstoneIds: TombstoneId[]) => {
     const outcomes: Array<{
       tombstoneId: TombstoneId
-      result: Awaited<
-        ReturnType<typeof window.electron.skills.restoreDeletedSkill>
-      >
+      result: RestoreDeletedSkillResult
     }> = []
     // Serial: each restore is an fs op; parallelism offers no real gain and
     // makes failure attribution harder. Per-item try/catch ensures one IPC

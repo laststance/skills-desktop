@@ -4,7 +4,14 @@ import { join } from 'path'
 
 import { formatBytes } from '../../shared/fileTypes'
 import { repositoryId } from '../../shared/types'
-import type { Skill, SourceStats, SymlinkInfo } from '../../shared/types'
+import type {
+  HttpUrl,
+  RepositoryId,
+  Skill,
+  SkillName,
+  SourceStats,
+  SymlinkInfo,
+} from '../../shared/types'
 import { AGENTS, SOURCE_DIR } from '../constants'
 
 import { listValidSourceSkillDirs } from './dirScanner'
@@ -14,11 +21,20 @@ import { checkSkillSymlinks, countValidSymlinks } from './symlinkChecker'
 
 /**
  * Entry from ~/.agents/.skill-lock.json
+ * @example
+ * {
+ *   source: 'pbakaus/impeccable',
+ *   sourceType: 'github',
+ *   sourceUrl: 'https://github.com/pbakaus/impeccable.git',
+ * }
  */
 interface SkillLockEntry {
-  source: string
+  /** Repository identifier in GitHub owner/repo form. @example "pbakaus/impeccable" */
+  source: RepositoryId
+  /** Source kind tag (free-form string from skills CLI). @example "github" */
   sourceType: string
-  sourceUrl: string
+  /** Full clone URL to the source repository. */
+  sourceUrl: HttpUrl
 }
 
 /**
@@ -28,7 +44,7 @@ interface SkillLockEntry {
  * readSkillLock()
  * // => Map { 'frontend-design' => { source: 'pbakaus/impeccable', sourceUrl: '...' } }
  */
-async function readSkillLock(): Promise<Map<string, SkillLockEntry>> {
+async function readSkillLock(): Promise<Map<SkillName, SkillLockEntry>> {
   try {
     const lockPath = join(homedir(), '.agents', '.skill-lock.json')
     const content = await readFile(lockPath, 'utf-8')
@@ -174,7 +190,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
  * getSkill('theme-generator')
  * // => { name: 'theme-generator', ... } or null
  */
-export async function getSkill(skillName: string): Promise<Skill | null> {
+export async function getSkill(skillName: SkillName): Promise<Skill | null> {
   const skillPath = join(SOURCE_DIR, skillName)
 
   try {

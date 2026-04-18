@@ -6,11 +6,13 @@ import type {
   AgentName,
   BookmarkedSkill,
   IsoTimestamp,
+  SearchQuery,
   SkillName,
   SourceStats,
   SyncExecuteOptions,
   SyncExecuteResult,
   SyncPreviewResult,
+  ToastId,
   TombstoneId,
 } from '../../../../shared/types'
 import type { RootState } from '../store'
@@ -36,7 +38,7 @@ export type ActiveTab = 'installed' | 'marketplace'
  * - `summary`: pre-formatted display string ("Deleted 3 skills. 7 symlinks removed.").
  */
 export interface UndoToastState {
-  id: string | number
+  id: ToastId
   kind: 'delete' | 'unlink'
   skillNames: SkillName[]
   tombstoneIds: TombstoneId[]
@@ -65,7 +67,7 @@ export interface BulkConfirmState {
 interface UiState {
   /** Active main content tab */
   activeTab: ActiveTab
-  searchQuery: string
+  searchQuery: SearchQuery
   sourceStats: SourceStats | null
   isRefreshing: boolean
   /** Currently selected agent filter (null = global/all-agents view). */
@@ -159,7 +161,7 @@ const uiSlice = createSlice({
       // the previous tab's list.
       state.bulkConfirm = null
     },
-    setSearchQuery: (state, action: PayloadAction<string>) => {
+    setSearchQuery: (state, action: PayloadAction<SearchQuery>) => {
       state.searchQuery = action.payload
     },
     setRefreshing: (state, action: PayloadAction<boolean>) => {
@@ -301,7 +303,7 @@ export default uiSlice.reducer
 // --- Named selectors ---
 export const selectActiveTab = (state: RootState): ActiveTab =>
   state.ui.activeTab
-export const selectSearchQuery = (state: RootState): string =>
+export const selectSearchQuery = (state: RootState): SearchQuery =>
   state.ui.searchQuery
 export const selectSelectedAgentId = (state: RootState): AgentId | null =>
   state.ui.selectedAgentId

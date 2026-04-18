@@ -2,7 +2,7 @@ import { Trash2 } from 'lucide-react'
 import React, { useMemo, useState } from 'react'
 
 import { AGENT_DEFINITIONS } from '../../../../shared/constants'
-import type { Agent } from '../../../../shared/types'
+import type { Agent, AgentId } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { setAgentToDelete } from '../../redux/slices/agentsSlice'
@@ -47,7 +47,7 @@ function buildSkillCountText(linked: number, local: number): string | null {
  * getAgentTooltipPath('claude-code') // => "~/.claude/skills/"
  * getAgentTooltipPath('cursor')      // => "~/.cursor/skills/"
  */
-function getAgentTooltipPath(agentId: string): string | undefined {
+function getAgentTooltipPath(agentId: AgentId): string | undefined {
   const def = AGENT_DEFINITIONS.find((d) => d.id === agentId)
   return def ? `~/${def.dir}/skills/` : undefined
 }

@@ -1,7 +1,12 @@
 import { lstat, readlink, access } from 'fs/promises'
 import { dirname, join, resolve } from 'path'
 
-import type { SymlinkInfo, SymlinkStatus } from '../../shared/types'
+import type {
+  AbsolutePath,
+  SkillName,
+  SymlinkInfo,
+  SymlinkStatus,
+} from '../../shared/types'
 import { AGENTS } from '../constants'
 
 /**
@@ -61,7 +66,7 @@ async function checkLinkOrLocal(path: string): Promise<LinkOrLocalResult> {
  * // => [{ agentId: 'claude', status: 'valid', isLocal: false, ... }, ...]
  */
 export async function checkSkillSymlinks(
-  skillName: string,
+  skillName: SkillName,
 ): Promise<SymlinkInfo[]> {
   const results = await Promise.all(
     AGENTS.map(async (agent) => {
@@ -100,7 +105,7 @@ export async function checkSkillSymlinks(
  * // => 'valid' (if symlink exists and target exists)
  */
 export async function checkSymlinkStatus(
-  linkPath: string,
+  linkPath: AbsolutePath,
 ): Promise<SymlinkStatus> {
   try {
     const stats = await lstat(linkPath)

@@ -1,7 +1,7 @@
 import { FolderDot, Link2 } from 'lucide-react'
 import React, { useMemo } from 'react'
 
-import type { Agent } from '../../../../../shared/types'
+import type { Agent, AgentId } from '../../../../../shared/types'
 import { useAppDispatch, useAppSelector } from '../../../redux/hooks'
 import { selectAgentItems } from '../../../redux/slices/agentsSlice'
 import { selectSkillsItems } from '../../../redux/slices/skillsSlice'
@@ -62,7 +62,7 @@ function buildCoverageRows(
 
 interface CoverageRowViewProps {
   row: CoverageRow
-  onSelect: (agentId: Agent['id']) => void
+  onSelect: (agentId: AgentId) => void
 }
 
 const CoverageRowView = React.memo(function CoverageRowView({
@@ -145,7 +145,7 @@ export const CoverageWidget = React.memo(
       [agents, skills.length],
     )
 
-    const handleSelect = (agentId: Agent['id']): void => {
+    const handleSelect = (agentId: AgentId): void => {
       dispatch(selectAgent(agentId))
     }
 

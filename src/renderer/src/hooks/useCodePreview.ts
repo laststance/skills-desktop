@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type {
+  AbsolutePath,
   SkillBinaryContent,
   SkillFile,
   SkillFileContent,
@@ -18,8 +19,8 @@ export type PreviewContent =
 
 interface UseCodePreviewReturn {
   files: SkillFile[]
-  activeFile: string | null
-  setActiveFile: (path: string | null) => Promise<void>
+  activeFile: AbsolutePath | null
+  setActiveFile: (path: AbsolutePath | null) => Promise<void>
   content: PreviewContent
   loading: boolean
 }
@@ -40,16 +41,18 @@ interface UseCodePreviewReturn {
  * const { files, content, setActiveFile } = useCodePreview('/skills/tdd')
  * // content.kind === 'text' | 'image' | 'binary' | 'empty'
  */
-export function useCodePreview(skillPath: string): UseCodePreviewReturn {
+export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
   const [files, setFiles] = useState<SkillFile[]>([])
-  const [loadedPath, setLoadedPath] = useState<string | null>(null)
-  const [userSelectedFile, setUserSelectedFile] = useState<string | null>(null)
+  const [loadedPath, setLoadedPath] = useState<AbsolutePath | null>(null)
+  const [userSelectedFile, setUserSelectedFile] = useState<AbsolutePath | null>(
+    null,
+  )
   const [content, setContent] = useState<PreviewContent>({ kind: 'empty' })
   const prevSkillPathRef = useRef(skillPath)
   // Mirror of userSelectedFile readable synchronously from the initial-load
   // effect. The effect must check the *current* selection when its async IPC
   // resolves; reading state via closure would see a stale null snapshot.
-  const userSelectedFileRef = useRef<string | null>(null)
+  const userSelectedFileRef = useRef<AbsolutePath | null>(null)
 
   if (prevSkillPathRef.current !== skillPath) {
     prevSkillPathRef.current = skillPath
@@ -84,7 +87,7 @@ export function useCodePreview(skillPath: string): UseCodePreviewReturn {
   }, [skillPath])
 
   const setActiveFile = useCallback(
-    async (path: string | null) => {
+    async (path: AbsolutePath | null) => {
       if (path === activeFile) return
       userSelectedFileRef.current = path
       setUserSelectedFile(path)

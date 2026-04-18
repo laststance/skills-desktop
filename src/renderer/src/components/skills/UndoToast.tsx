@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import type {
   IsoTimestamp,
   SkillName,
+  ToastId,
   TombstoneId,
 } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
@@ -16,7 +17,7 @@ const URGENT_SECONDS_THRESHOLD = 5
 
 interface UndoToastProps {
   /** sonner toast id — passed back so callbacks can `toast.dismiss(id)`. */
-  toastId: string | number
+  toastId: ToastId
   skillNames: SkillName[]
   /** Empty for unlink (no tombstones produced). */
   tombstoneIds: TombstoneId[]

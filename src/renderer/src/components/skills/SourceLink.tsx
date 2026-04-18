@@ -1,11 +1,13 @@
 import { ExternalLink } from 'lucide-react'
 import React from 'react'
 
+import type { HttpUrl, RepositoryId } from '../../../../shared/types'
+
 import { getSourceLinkModel } from './sourceLinkHelpers'
 
 interface SourceLinkProps {
-  source?: string
-  sourceUrl?: string
+  source?: RepositoryId
+  sourceUrl?: HttpUrl
 }
 
 /**
