@@ -53,3 +53,7 @@ CLAUDE.md
 
 # QA reports
 qa-reports/
+
+# Vitest browser mode artifacts
+.vitest-attachments/
+**/__screenshots__/

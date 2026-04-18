@@ -1,8 +1,7 @@
-// @vitest-environment happy-dom
 import { configureStore } from '@reduxjs/toolkit'
-import { act, cleanup, render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { render } from 'vitest-browser-react'
 
 import type { Skill, SkillName } from '../../../../shared/types'
 import { TooltipProvider } from '../ui/tooltip'
@@ -10,10 +9,9 @@ import { TooltipProvider } from '../ui/tooltip'
 const mockGetAll = vi.fn()
 
 beforeEach(() => {
-  // Stub only the `electron` global. happy-dom's globalThis IS the window, so
-  // `window.electron` resolves to this value while `window.addEventListener`
-  // and the rest of the Window prototype stay intact. Replacing `window`
-  // itself via spread would drop everything on the prototype.
+  // Install the `electron` IPC bridge the preload normally exposes. In browser
+  // mode Vitest reuses the Chromium page across tests in a file; `vi.stubGlobal`
+  // paired with `vi.unstubAllGlobals()` in afterEach keeps the fake scoped.
   vi.stubGlobal('electron', {
     skills: {
       getAll: mockGetAll,
@@ -23,11 +21,6 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  // Without globals:true in vitest.config, @testing-library/react's auto-cleanup
-  // afterEach doesn't register. Call cleanup() explicitly so each render mounts
-  // into a fresh DOM — otherwise earlier tests' SkillItems accumulate and
-  // queryByRole returns multi-match.
-  cleanup()
   vi.unstubAllGlobals()
 })
 
@@ -74,83 +67,82 @@ async function createStore() {
 
 /**
  * Render SkillItem inside the provider stack it needs (Redux + Tooltip).
- * @returns Rendered result + store so tests can dispatch extra setup actions.
+ * @returns { screen, store } — screen exposes vitest-browser-react locators
+ * like getByRole; store is the Redux store for dispatching setup actions.
  */
 async function renderSkillItem(skill: Skill) {
   const store = await createStore()
   const { SkillItem } = await import('./SkillItem')
-  const utils = render(
+  const screen = await render(
     <Provider store={store}>
       <TooltipProvider>
         <SkillItem skill={skill} />
       </TooltipProvider>
     </Provider>,
   )
-  return { ...utils, store }
+  return { screen, store }
 }
 
 describe('SkillItem bulk-select checkbox visibility', () => {
   it('hides the checkbox when bulkSelectMode=false (default clean list)', async () => {
-    await renderSkillItem(makeSkill())
+    const { screen } = await renderSkillItem(makeSkill())
 
-    expect(screen.queryByRole('checkbox')).toBeNull()
+    // `.query()` returns the matched element or null synchronously. Using
+    // this over `getBy(...).not.toBeInTheDocument()` avoids the strict-single-
+    // match locator resolution error path, so a future regression that
+    // accidentally renders a checkbox produces a clean "element is present"
+    // failure instead of a locator-throw stack trace.
+    expect(screen.getByRole('checkbox').query()).toBeNull()
   })
 
   it('renders the checkbox when bulkSelectMode=true', async () => {
-    const { store } = await renderSkillItem(makeSkill())
+    const { screen, store } = await renderSkillItem(makeSkill())
     const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
 
-    await act(async () => {
-      store.dispatch(enterBulkSelectMode())
-    })
+    store.dispatch(enterBulkSelectMode())
 
-    expect(screen.queryByRole('checkbox')).not.toBeNull()
+    await expect.element(screen.getByRole('checkbox')).toBeInTheDocument()
   })
 
   it('checkbox aria-label is "Select {name}" when not ticked', async () => {
-    const { store } = await renderSkillItem(
+    const { screen, store } = await renderSkillItem(
       makeSkill({ name: 'task' as SkillName }),
     )
     const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
-    await act(async () => {
-      store.dispatch(enterBulkSelectMode())
-    })
 
-    expect(
-      screen.queryByRole('checkbox', { name: /Select task/i }),
-    ).not.toBeNull()
+    store.dispatch(enterBulkSelectMode())
+
+    await expect
+      .element(screen.getByRole('checkbox', { name: /Select task/i }))
+      .toBeInTheDocument()
   })
 
   it('checkbox aria-label flips to "Deselect {name}" once ticked', async () => {
-    const { store } = await renderSkillItem(
+    const { screen, store } = await renderSkillItem(
       makeSkill({ name: 'task' as SkillName }),
     )
     const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
     const { toggleSelection } = await import('../../redux/slices/skillsSlice')
 
-    await act(async () => {
-      store.dispatch(enterBulkSelectMode())
-      store.dispatch(toggleSelection('task' as SkillName))
-    })
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection('task' as SkillName))
 
-    expect(
-      screen.queryByRole('checkbox', { name: /Deselect task/i }),
-    ).not.toBeNull()
+    await expect
+      .element(screen.getByRole('checkbox', { name: /Deselect task/i }))
+      .toBeInTheDocument()
   })
 
   it('exiting bulk mode removes the checkbox from the DOM', async () => {
-    const { store } = await renderSkillItem(makeSkill())
+    const { screen, store } = await renderSkillItem(makeSkill())
     const { enterBulkSelectMode, exitBulkSelectMode } =
       await import('../../redux/slices/uiSlice')
 
-    await act(async () => {
-      store.dispatch(enterBulkSelectMode())
-    })
-    expect(screen.queryByRole('checkbox')).not.toBeNull()
+    store.dispatch(enterBulkSelectMode())
+    await expect.element(screen.getByRole('checkbox')).toBeInTheDocument()
 
-    await act(async () => {
-      store.dispatch(exitBulkSelectMode())
-    })
-    expect(screen.queryByRole('checkbox')).toBeNull()
+    store.dispatch(exitBulkSelectMode())
+    // Poll until the checkbox unmounts — exit dispatch is sync but the
+    // re-render that removes the node happens on the next commit cycle.
+    await expect.poll(() => screen.getByRole('checkbox').query()).toBeNull()
   })
 })

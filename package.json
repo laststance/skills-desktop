@@ -54,11 +54,11 @@
     "@electron/notarize": "^3.1.1",
     "@laststance/react-next-eslint-plugin": "^2.2.0",
     "@tailwindcss/vite": "^4.2.2",
-    "@testing-library/react": "^16.3.2",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/browser-playwright": "^4.1.4",
     "code-inspector-plugin": "^1.5.1",
     "electron": "^41.2.1",
     "electron-builder": "^26.8.1",
@@ -66,15 +66,16 @@
     "eslint": "^10.2.1",
     "eslint-config-ts-prefixer": "^4.2.0",
     "eslint-plugin-react-you-might-not-need-an-effect": "^0.9.3",
-    "happy-dom": "^20.9.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
+    "playwright": "^1.59.1",
     "prettier": "^3.8.3",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.3",
     "vite": "^8.0.8",
-    "vitest": "^4.1.4"
+    "vitest": "^4.1.4",
+    "vitest-browser-react": "^2.2.0"
   },
   "lint-staged": {
     "*": "prettier --ignore-unknown --write"
