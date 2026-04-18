@@ -28,7 +28,10 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
   isInstalled = false,
 }: SkillRowMarketplaceProps): React.ReactElement {
   const dispatch = useAppDispatch()
-  const { status } = useAppSelector((state) => state.marketplace)
+  // Narrow selector: only `status` is consumed here, so subscribing to the full
+  // marketplace slice would re-render every memoized row whenever search results,
+  // leaderboard, or previewSkill changed. Keep this surgical to preserve `React.memo`.
+  const status = useAppSelector((state) => state.marketplace.status)
   const isOperating = status === 'installing'
   const isBookmarked = useAppSelector((state) =>
     selectIsBookmarked(state, skill.name),
@@ -104,8 +107,16 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
 
       {/* Action Button (or Installed badge) */}
       {isInstalled ? (
-        <div className="flex items-center gap-1 px-2 py-1 rounded bg-primary/10">
-          <Check className="h-3 w-3 text-primary" />
+        // Informational badge, intentionally non-interactive. Uninstall lives in
+        // the CLI (`npx skills remove <name>`); the aria-label surfaces that path
+        // to screen-reader users since there is no visible affordance for it.
+        <div
+          role="status"
+          aria-label={`${skill.name} is installed. To uninstall, run: npx skills remove ${skill.name}`}
+          title={`Installed. To uninstall: npx skills remove ${skill.name}`}
+          className="flex items-center gap-1 px-2 py-1 rounded bg-primary/10"
+        >
+          <Check className="h-3 w-3 text-primary" aria-hidden="true" />
           <span className="text-[11px] font-medium text-primary">
             Installed
           </span>

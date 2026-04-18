@@ -15,8 +15,15 @@ export const PERSIST_STORAGE_KEY = 'skills-desktop-state'
  * `migrateState` in `src/renderer/src/redux/migrations.ts` for users whose
  * stored payload carries an older version. Must stay in lockstep with the
  * `version` option passed to `createStorageMiddleware` in `store.ts`.
+ *
+ * History:
+ *  - v0 → v1: theme `{presetType,chroma}` collapsed to a single `chroma` scalar.
+ *  - v1 → v2: dashboard widget `{w,h}` clamped upward when a widget's
+ *    `minSize` grew (Quick Actions h: 2 → 3 with the row-height bump). Without
+ *    this clamp, persisted layouts violate the new minSize and react-grid-layout
+ *    silently re-clamps them mid-render, jolting saved positions.
  */
-export const PERSIST_STATE_VERSION = 1
+export const PERSIST_STATE_VERSION = 2
 
 /**
  * Chroma value applied to OKLCH tokens for fully-saturated (color) presets.

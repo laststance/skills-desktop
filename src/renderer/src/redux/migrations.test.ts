@@ -90,6 +90,161 @@ describe('migrateState — v0 → v1 correctness', () => {
   })
 })
 
+describe('migrateState — v1 → v2 dashboard widget min-size clamp', () => {
+  /**
+   * Bumping `WIDGET_REGISTRY['quick-actions'].minSize.h` from 2 to 3 (paired
+   * with the GRID_ROW_HEIGHT_PX 48 → 64 jump) means persisted layouts on the
+   * old floor would silently get re-clamped by react-grid-layout on first
+   * render, jolting neighboring widgets. The migration clamps in the store
+   * so the post-rehydrate state already satisfies the new floor.
+   */
+  it('clamps quick-actions widget h: 2 up to 3', () => {
+    const state = {
+      dashboard: {
+        pages: [
+          {
+            id: 'page-1',
+            name: 'Home',
+            widgets: [
+              { id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 2 },
+            ],
+          },
+        ],
+        currentPageId: 'page-1',
+        isEditMode: false,
+        welcomeDismissed: false,
+        initialized: true,
+      },
+    }
+    migrateState(state, 1)
+    expect(state.dashboard.pages[0].widgets[0].h).toBe(3)
+    expect(state.dashboard.pages[0].widgets[0].w).toBe(6)
+  })
+
+  it('leaves quick-actions widget h: 3 untouched (no over-clamp)', () => {
+    const state = {
+      dashboard: {
+        pages: [
+          {
+            id: 'page-1',
+            name: 'Home',
+            widgets: [
+              { id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 3 },
+            ],
+          },
+        ],
+        currentPageId: 'page-1',
+        isEditMode: false,
+        welcomeDismissed: false,
+        initialized: true,
+      },
+    }
+    migrateState(state, 1)
+    expect(state.dashboard.pages[0].widgets[0].h).toBe(3)
+  })
+
+  it('leaves quick-actions widget h: 5 untouched (clamp is upward-only)', () => {
+    const state = {
+      dashboard: {
+        pages: [
+          {
+            id: 'page-1',
+            name: 'Home',
+            widgets: [
+              { id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 5 },
+            ],
+          },
+        ],
+        currentPageId: 'page-1',
+        isEditMode: false,
+        welcomeDismissed: false,
+        initialized: true,
+      },
+    }
+    migrateState(state, 1)
+    expect(state.dashboard.pages[0].widgets[0].h).toBe(5)
+  })
+
+  it('does not touch widgets whose minSize did not change (e.g., stats)', () => {
+    const state = {
+      dashboard: {
+        pages: [
+          {
+            id: 'page-1',
+            name: 'Home',
+            widgets: [{ id: 'w1', type: 'stats', x: 0, y: 0, w: 3, h: 2 }],
+          },
+        ],
+        currentPageId: 'page-1',
+        isEditMode: false,
+        welcomeDismissed: false,
+        initialized: true,
+      },
+    }
+    migrateState(state, 1)
+    expect(state.dashboard.pages[0].widgets[0].h).toBe(2)
+    expect(state.dashboard.pages[0].widgets[0].w).toBe(3)
+  })
+
+  it('handles missing dashboard slice gracefully', () => {
+    const state = {
+      theme: {
+        hue: 0,
+        chroma: 0,
+        mode: 'dark' as const,
+        preset: 'neutral-dark' as const,
+      },
+    }
+    expect(() => migrateState(state, 1)).not.toThrow()
+  })
+
+  it('handles malformed dashboard slice gracefully', () => {
+    const state = {
+      dashboard: 'not-an-object' as unknown,
+    }
+    expect(() => migrateState(state, 1)).not.toThrow()
+  })
+
+  it('handles dashboard with no pages array gracefully', () => {
+    const state = { dashboard: {} as unknown }
+    expect(() => migrateState(state, 1)).not.toThrow()
+  })
+
+  it('clamps across multiple pages and multiple widgets', () => {
+    const state = {
+      dashboard: {
+        pages: [
+          {
+            id: 'page-1',
+            name: 'Home',
+            widgets: [
+              { id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 2 },
+              { id: 'w2', type: 'stats', x: 0, y: 2, w: 3, h: 2 },
+            ],
+          },
+          {
+            id: 'page-2',
+            name: 'Tools',
+            widgets: [
+              { id: 'w3', type: 'quick-actions', x: 0, y: 0, w: 3, h: 2 },
+            ],
+          },
+        ],
+        currentPageId: 'page-1',
+        isEditMode: false,
+        welcomeDismissed: false,
+        initialized: true,
+      },
+    }
+    migrateState(state, 1)
+    expect(state.dashboard.pages[0].widgets[0].h).toBe(3)
+    expect(state.dashboard.pages[0].widgets[1].h).toBe(2) // stats untouched
+    expect(state.dashboard.pages[1].widgets[0].h).toBe(3)
+    // Quick Actions w: 3 already at the minimum — stays at 3.
+    expect(state.dashboard.pages[1].widgets[0].w).toBe(3)
+  })
+})
+
 describe('migrateState — drift guard', () => {
   it('handles every version below PERSIST_STATE_VERSION', () => {
     // If PERSIST_STATE_VERSION is bumped without adding a matching

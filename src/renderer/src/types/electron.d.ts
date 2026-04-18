@@ -100,7 +100,6 @@ declare global {
       skillsCli: {
         search: (query: string) => Promise<SkillSearchResult[]>
         install: (options: InstallOptions) => Promise<CliCommandResult>
-        remove: (skillName: string) => Promise<CliCommandResult>
         cancel: () => Promise<void>
         onProgress: (
           callback: (progress: InstallProgress) => void,

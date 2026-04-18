@@ -33,7 +33,11 @@ describe('IPC contract alignment', () => {
       [IPC_CHANNELS.SHELL_OPEN_EXTERNAL]: true,
     } as const satisfies Record<keyof IpcInvokeContract, true>
 
-    // Runtime assertion: mapping covers exactly the contract keys
+    // Runtime assertion: mapping covers exactly the contract keys.
+    // SECURITY: increment this number only after a security review of the new
+    // IPC channel (input validation, authz scope, side-effect blast radius).
+    // The `satisfies` clause above is a structural guard; this length check is
+    // the trip-wire that forces a human PR diff when a channel is added.
     expect(Object.keys(invokeMapping)).toHaveLength(24)
   })
 
