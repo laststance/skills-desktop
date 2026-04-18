@@ -6,7 +6,6 @@ import type { SkillSearchResult } from '../../../../shared/types'
 
 const mockSearch = vi.fn()
 const mockInstall = vi.fn()
-const mockRemove = vi.fn()
 const mockCancel = vi.fn()
 const mockLeaderboard = vi.fn()
 
@@ -15,7 +14,6 @@ vi.stubGlobal('window', {
     skillsCli: {
       search: mockSearch,
       install: mockInstall,
-      remove: mockRemove,
       cancel: mockCancel,
     },
     marketplace: {
@@ -68,16 +66,6 @@ describe('marketplaceSlice', () => {
 
     store.dispatch(selectSkillForInstall(null))
     expect(store.getState().marketplace.selectedSkill).toBeNull()
-  })
-
-  it('setSkillToRemove sets and clears pending removal', async () => {
-    const { setSkillToRemove } = await import('./marketplaceSlice')
-    const store = await createTestStore()
-    store.dispatch(setSkillToRemove('task'))
-    expect(store.getState().marketplace.skillToRemove).toBe('task')
-
-    store.dispatch(setSkillToRemove(null))
-    expect(store.getState().marketplace.skillToRemove).toBeNull()
   })
 
   it('cancelOperation calls IPC cancel and resets state', async () => {
@@ -215,48 +203,6 @@ describe('marketplaceSlice', () => {
 
     expect(store.getState().marketplace.status).toBe('error')
     expect(store.getState().marketplace.error).toBe('Install failed')
-  })
-
-  // --- removeSkill thunk ---
-  it('removeSkill sets removing during pending', async () => {
-    let resolve!: (value: { success: boolean }) => void
-    mockRemove.mockReturnValue(
-      new Promise((r) => {
-        resolve = r
-      }),
-    )
-
-    const store = await createTestStore()
-    const { removeSkill } = await import('./marketplaceSlice')
-    const promise = store.dispatch(removeSkill('task'))
-
-    expect(store.getState().marketplace.status).toBe('removing')
-
-    resolve({ success: true })
-    await promise
-  })
-
-  it('removeSkill clears skillToRemove on fulfilled', async () => {
-    mockRemove.mockResolvedValue({ success: true })
-
-    const store = await createTestStore()
-    const { setSkillToRemove, removeSkill } = await import('./marketplaceSlice')
-    store.dispatch(setSkillToRemove('task'))
-    await store.dispatch(removeSkill('task'))
-
-    expect(store.getState().marketplace.skillToRemove).toBeNull()
-    expect(store.getState().marketplace.status).toBe('idle')
-  })
-
-  it('removeSkill sets error on rejected', async () => {
-    mockRemove.mockRejectedValue(new Error('Not found'))
-
-    const store = await createTestStore()
-    const { removeSkill } = await import('./marketplaceSlice')
-    await store.dispatch(removeSkill('task'))
-
-    expect(store.getState().marketplace.status).toBe('error')
-    expect(store.getState().marketplace.error).toBe('Not found')
   })
 
   // --- loadLeaderboard thunk ---

@@ -97,7 +97,6 @@ function buildState(overrides: {
       searchResults: [],
       selectedSkill: null,
       installProgress: null,
-      skillToRemove: null,
       error: null,
     },
     bookmarks: {

@@ -11,6 +11,7 @@ import type {
   CliCommandResult,
   InstallProgress,
 } from '../../shared/types'
+import { REPO_PATTERN, SKILL_NAME_PATTERN } from '../utils/skillIdentifiers'
 
 /**
  * Build agent ID to CLI name mapping from AGENT_DEFINITIONS
@@ -91,19 +92,6 @@ class SkillsCliService extends EventEmitter {
     }
 
     return result
-  }
-
-  /**
-   * Remove a skill using `npx skills remove <name> -g -y`
-   * @param skillName - Name of the skill to remove
-   * @returns CLI command result
-   * @example
-   * remove('vercel-react-best-practices')
-   */
-  async remove(skillName: string): Promise<CliCommandResult> {
-    // -g flag for global scope (skills are installed globally)
-    // -y flag skips interactive confirmation prompts
-    return this.execCli(['remove', skillName, '-g', '-y'])
   }
 
   /**
@@ -193,6 +181,12 @@ class SkillsCliService extends EventEmitter {
       const match = line.match(/^([^@\s]+)@([^\s]+)$/)
       if (match) {
         const [, repo, name] = match
+        // Reject anything that isn't a plain npm/GitHub identifier — see
+        // SKILL_NAME_PATTERN comment. Without this, a malformed CLI line
+        // could land in aria-labels and copy-paste hints downstream.
+        if (!REPO_PATTERN.test(repo) || !SKILL_NAME_PATTERN.test(name)) {
+          continue
+        }
         // Next line should be the URL
         const urlLine = lines[i + 1]?.trim()
         const urlMatch = urlLine?.match(/^[└├]\s*(https?:\/\/[^\s]+)$/)

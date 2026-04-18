@@ -32,10 +32,6 @@ export function registerSkillsCliHandlers(): void {
     }
   })
 
-  typedHandle(IPC_CHANNELS.SKILLS_CLI_REMOVE, async (_, skillName) => {
-    return skillsCliService.remove(skillName)
-  })
-
   typedHandle(IPC_CHANNELS.SKILLS_CLI_CANCEL, () => {
     skillsCliService.cancel()
   })

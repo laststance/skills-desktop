@@ -1,5 +1,5 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
-import { createSlice } from '@reduxjs/toolkit'
+import { createSelector, createSlice } from '@reduxjs/toolkit'
 
 import type { BookmarkedSkill, SkillName } from '../../../../shared/types'
 import type { RootState } from '../store'
@@ -65,6 +65,16 @@ export const selectBookmarkItems = (
 ): BookmarkedSkill[] => state.bookmarks.items
 
 /**
+ * Memoized `Set` of bookmarked skill names. Built once per `items` reference
+ * and shared across all `selectIsBookmarked` callers, so a list of N marketplace
+ * rows pays O(items) once instead of O(items) per row per render.
+ */
+const selectBookmarkNameSet = createSelector(
+  [selectBookmarkItems],
+  (items) => new Set(items.map((b) => b.name)),
+)
+
+/**
  * Check if a skill is bookmarked by name.
  * @param name - Skill name to check
  * @returns boolean
@@ -74,6 +84,6 @@ export const selectBookmarkItems = (
 export const selectIsBookmarked = (
   state: BookmarkSelectorState,
   name: SkillName,
-): boolean => state.bookmarks.items.some((b) => b.name === name)
+): boolean => selectBookmarkNameSet(state).has(name)
 
 export default bookmarkSlice.reducer

@@ -25,7 +25,6 @@ import type {
   SkillBinaryContent,
   SkillFile,
   SkillFileContent,
-  SkillName,
   SkillSearchResult,
   SourceStats,
   SyncExecuteOptions,
@@ -91,7 +90,6 @@ export interface IpcInvokeContract {
   }
   'skills:cli:search': { args: [SearchQuery]; result: SkillSearchResult[] }
   'skills:cli:install': { args: [InstallOptions]; result: CliCommandResult }
-  'skills:cli:remove': { args: [SkillName]; result: CliCommandResult }
   'skills:cli:cancel': { args: []; result: void }
   'marketplace:leaderboard': {
     args: [{ filter: RankingFilter }]

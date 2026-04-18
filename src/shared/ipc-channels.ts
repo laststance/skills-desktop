@@ -19,7 +19,6 @@ export const IPC_CHANNELS = {
   // Skills CLI (Marketplace)
   SKILLS_CLI_SEARCH: 'skills:cli:search',
   SKILLS_CLI_INSTALL: 'skills:cli:install',
-  SKILLS_CLI_REMOVE: 'skills:cli:remove',
   SKILLS_CLI_CANCEL: 'skills:cli:cancel',
   SKILLS_CLI_PROGRESS: 'skills:cli:progress',
 

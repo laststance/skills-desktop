@@ -10,7 +10,6 @@ import { InstallModal } from './InstallModal'
 import { LeaderboardSkeleton } from './LeaderboardSkeleton'
 import { MarketplaceSearch } from './MarketplaceSearch'
 import { RankingTabs } from './RankingTabs'
-import { RemoveDialog } from './RemoveDialog'
 import { SkillRowMarketplace } from './SkillRowMarketplace'
 
 /** Display labels for each ranking filter tab */
@@ -235,7 +234,6 @@ export const SkillsMarketplace = React.memo(
 
         {/* Modals */}
         <InstallModal />
-        <RemoveDialog />
       </div>
     )
   },

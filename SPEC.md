@@ -94,7 +94,6 @@ GUI wrapper for `npx skills` CLI commands:
 - [x] Install skills via `npx skills add <repo>`
 - [x] Select target agents for installation
 - [x] Installation progress tracking
-- [ ] Remove skills via `npx skills remove <name>`
 
 ### Symlink Status
 
@@ -146,14 +145,14 @@ Each skill displays:
 
 ### Actions
 
-| Action                 | Status     | Notes                            |
-| ---------------------- | ---------- | -------------------------------- |
-| View skill details     | ✅ Done    | -                                |
-| View symlink status    | ✅ Done    | -                                |
-| Search skills          | ✅ Done    | Marketplace tab                  |
-| Install skill          | ✅ Done    | With agent selection             |
-| Remove skill           | 🚧 Planned | UI exists, backend not connected |
-| Repair broken symlinks | 🚧 Planned | -                                |
+| Action                 | Status     | Notes                                                  |
+| ---------------------- | ---------- | ------------------------------------------------------ |
+| View skill details     | ✅ Done    | -                                                      |
+| View symlink status    | ✅ Done    | -                                                      |
+| Search skills          | ✅ Done    | Marketplace tab                                        |
+| Install skill          | ✅ Done    | With agent selection                                   |
+| Uninstall skill        | ✅ CLI     | `npx skills remove <name> --global` (no in-app button) |
+| Repair broken symlinks | 🚧 Planned | -                                                      |
 
 ## Tech Stack
 
@@ -357,7 +356,6 @@ listenerMiddleware.startListening({
 // Skills CLI (Marketplace)
 'skills:cli:search'   → Promise<SkillSearchResult[]>
 'skills:cli:install'  → Promise<CliCommandResult>
-'skills:cli:remove'   → Promise<CliCommandResult>
 'skills:cli:cancel'   → void
 'skills:cli:progress' → (Main → Renderer event)
 ```
@@ -442,12 +440,7 @@ interface InstallProgress {
   percent?: number
 }
 
-type MarketplaceStatus =
-  | 'idle'
-  | 'searching'
-  | 'installing'
-  | 'removing'
-  | 'error'
+type MarketplaceStatus = 'idle' | 'searching' | 'installing' | 'error'
 ```
 
 ## Redux State
@@ -488,7 +481,6 @@ interface MarketplaceState {
   searchResults: SkillSearchResult[]
   selectedSkill: SkillSearchResult | null
   installProgress: InstallProgress | null
-  skillToRemove: string | null
   error: string | null
 }
 ```
@@ -543,8 +535,7 @@ skills-desktop/
 │   │       │   │   ├── SkillsMarketplace.tsx
 │   │       │   │   ├── MarketplaceSearch.tsx
 │   │       │   │   ├── SkillRowMarketplace.tsx
-│   │       │   │   ├── InstallModal.tsx
-│   │       │   │   └── RemoveDialog.tsx
+│   │       │   │   └── InstallModal.tsx
 │   │       │   └── ui/             # shadcn/ui components
 │   │       ├── views/
 │   │       ├── hooks/
@@ -659,11 +650,10 @@ APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 
 The Marketplace feature wraps `npx skills@<SKILLS_CLI_VERSION>` CLI commands (version pinned in `src/shared/constants.ts`):
 
-| Feature | CLI Command                                     | Options                          |
-| ------- | ----------------------------------------------- | -------------------------------- |
-| Search  | `npx skills@<SKILLS_CLI_VERSION> find <query>`  | -                                |
-| Install | `npx skills@<SKILLS_CLI_VERSION> add <repo>`    | `-y`, `-g`, `--agent`, `--skill` |
-| Remove  | `npx skills@<SKILLS_CLI_VERSION> remove <name>` | -                                |
+| Feature | CLI Command                                    | Options                          |
+| ------- | ---------------------------------------------- | -------------------------------- |
+| Search  | `npx skills@<SKILLS_CLI_VERSION> find <query>` | -                                |
+| Install | `npx skills@<SKILLS_CLI_VERSION> add <repo>`   | `-y`, `-g`, `--agent`, `--skill` |
 
 **CLI Output Parsing:**
 

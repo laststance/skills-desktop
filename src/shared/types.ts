@@ -483,12 +483,7 @@ export interface InstallProgress {
 /**
  * Marketplace operation status
  */
-export type MarketplaceStatus =
-  | 'idle'
-  | 'searching'
-  | 'installing'
-  | 'removing'
-  | 'error'
+export type MarketplaceStatus = 'idle' | 'searching' | 'installing' | 'error'
 
 /**
  * Filter for marketplace leaderboard ranking tabs.

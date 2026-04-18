@@ -5,7 +5,6 @@ import type {
   LeaderboardData,
   RankingFilter,
   SearchQuery,
-  SkillName,
   SkillSearchResult,
   InstallOptions,
   InstallProgress,
@@ -16,7 +15,7 @@ import type {
 const CACHE_TTL_MS = 30 * 60 * 1000
 
 interface MarketplaceState {
-  /** Current marketplace operation state (search / install / remove / idle). */
+  /** Current marketplace operation state (search / install / idle). */
   status: MarketplaceStatus
   /** Live value of the search input. */
   searchQuery: SearchQuery
@@ -28,8 +27,6 @@ interface MarketplaceState {
   previewSkill: SkillSearchResult | null
   /** Live progress for an in-flight install, or null when idle. */
   installProgress: InstallProgress | null
-  /** Skill queued for removal (confirm dialog target), or null. */
-  skillToRemove: SkillName | null
   /** Human-readable error from the last failed operation. */
   error: string | null
   /** Per-filter leaderboard cache. Each filter tracks its own data and loading state. */
@@ -43,7 +40,6 @@ const initialState: MarketplaceState = {
   selectedSkill: null,
   previewSkill: null,
   installProgress: null,
-  skillToRemove: null,
   error: null,
   leaderboard: {},
 }
@@ -70,19 +66,6 @@ export const installSkill = createAsyncThunk(
   'marketplace/install',
   async (options: InstallOptions) => {
     const result = await window.electron.skillsCli.install(options)
-    return result.success
-  },
-)
-
-/**
- * Remove an installed skill
- * @param skillName - Name of the skill to remove
- * @returns Promise<boolean> - Success status
- */
-export const removeSkill = createAsyncThunk(
-  'marketplace/remove',
-  async (skillName: SkillName) => {
-    const result = await window.electron.skillsCli.remove(skillName)
     return result.success
   },
 )
@@ -141,9 +124,6 @@ const marketplaceSlice = createSlice({
     ) => {
       state.previewSkill = action.payload
     },
-    setSkillToRemove: (state, action: PayloadAction<SkillName | null>) => {
-      state.skillToRemove = action.payload
-    },
     cancelOperation: (state) => {
       window.electron.skillsCli.cancel()
       state.status = 'idle'
@@ -193,20 +173,6 @@ const marketplaceSlice = createSlice({
         state.status = 'error'
         state.error = action.error.message || 'Installation failed'
         state.installProgress = null
-      })
-      // Remove
-      .addCase(removeSkill.pending, (state) => {
-        state.status = 'removing'
-        state.error = null
-      })
-      .addCase(removeSkill.fulfilled, (state) => {
-        state.status = 'idle'
-        state.skillToRemove = null
-      })
-      .addCase(removeSkill.rejected, (state, action) => {
-        state.status = 'error'
-        state.error = action.error.message || 'Remove failed'
-        state.skillToRemove = null
       })
       // Leaderboard
       .addCase(loadLeaderboard.pending, (state, action) => {
@@ -258,7 +224,6 @@ export const {
   selectSkillForInstall,
   setPreviewSkill,
   setInstallProgress,
-  setSkillToRemove,
   cancelOperation,
   clearError,
   clearSearchResults,
