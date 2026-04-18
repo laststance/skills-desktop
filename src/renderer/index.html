@@ -10,6 +10,11 @@
       // color preset don't see a neutral-dark flash until ACTION_HYDRATE_COMPLETE.
       // Must stay inline + dependency-free so the paint isn't blocked on a module
       // import. Defensive: any parse error falls back to the default .dark class.
+      //
+      // Two literals here duplicate TypeScript constants; bootstrap.test.ts
+      // guards against drift:
+      //   'skills-desktop-state' → PERSIST_STORAGE_KEY in src/shared/constants.ts
+      //   0.16                   → COLOR_PRESET_CHROMA in src/shared/constants.ts
       ;(function () {
         try {
           var raw = localStorage.getItem('skills-desktop-state')
@@ -23,6 +28,12 @@
           }
           if (typeof t.chroma === 'number') {
             html.style.setProperty('--theme-chroma', String(t.chroma))
+          } else if (t.presetType === 'color') {
+            // v0 payload — async migration runs ~100ms later; without this
+            // branch the user sees a neutral-dark flash until hydration.
+            html.style.setProperty('--theme-chroma', '0.16')
+          } else if (t.presetType === 'neutral') {
+            html.style.setProperty('--theme-chroma', '0')
           }
           if (t.mode === 'light') {
             html.classList.remove('dark')

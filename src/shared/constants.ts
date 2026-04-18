@@ -1,4 +1,23 @@
 /**
+ * Key used by `@laststance/redux-storage-middleware` to persist + rehydrate
+ * Redux state in `localStorage`. Duplicated as a literal string in
+ * `src/renderer/index.html` because the pre-hydration bootstrap script runs
+ * before the bundle loads and cannot import modules. `storageKey.test.ts`
+ * guards the two locations against drift — rename or relocate either and
+ * the test fails.
+ * @example localStorage.getItem(PERSIST_STORAGE_KEY)
+ */
+export const PERSIST_STORAGE_KEY = 'skills-desktop-state'
+
+/**
+ * Current persisted-state schema version. Bumping this triggers
+ * `migrateState` in `src/renderer/src/redux/migrations.ts` for users whose
+ * stored payload carries an older version. Must stay in lockstep with the
+ * `version` option passed to `createStorageMiddleware` in `store.ts`.
+ */
+export const PERSIST_STATE_VERSION = 1
+
+/**
  * Chroma value applied to OKLCH tokens for fully-saturated (color) presets.
  * `--theme-chroma: 0` collapses every surface to grayscale, reproducing the
  * shadcn "neutral" look without maintaining a parallel HSL block.

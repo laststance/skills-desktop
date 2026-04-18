@@ -72,7 +72,10 @@
      * valid symlink" status color used across badges, heatmap cells,
      * and the coverage bar. Keeping it theme-invariant avoids the
      * regression where neutral presets render valid status as mid-gray
-     * and users mistake active items for inactive. */
+     * and users mistake active items for inactive.
+     *
+     * Hue `155` is shared between .dark and .light so the same "green" is
+     * recognizable across modes. L changes for contrast; hue does not. */
     --success: oklch(0.72 0.17 155);
     --success-foreground: oklch(0.12 0.02 155);
   }
@@ -106,8 +109,8 @@
     --input: oklch(0.88 var(--chroma-4) var(--theme-hue));
     --ring: oklch(0.5 var(--theme-chroma) var(--theme-hue));
 
-    --success: oklch(0.55 0.17 150);
-    --success-foreground: oklch(0.99 0.01 150);
+    --success: oklch(0.55 0.17 155);
+    --success-foreground: oklch(0.99 0.01 155);
   }
 }
 
