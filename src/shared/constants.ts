@@ -2,9 +2,10 @@
  * Key used by `@laststance/redux-storage-middleware` to persist + rehydrate
  * Redux state in `localStorage`. Duplicated as a literal string in
  * `src/renderer/index.html` because the pre-hydration bootstrap script runs
- * before the bundle loads and cannot import modules. `storageKey.test.ts`
- * guards the two locations against drift — rename or relocate either and
- * the test fails.
+ * before the bundle loads and cannot import modules.
+ * `src/renderer/src/bootstrap.test.ts` guards `PERSIST_STORAGE_KEY` and
+ * `COLOR_PRESET_CHROMA` against drift between this module and the inline
+ * IIFE — rename or retune either and the test fails.
  * @example localStorage.getItem(PERSIST_STORAGE_KEY)
  */
 export const PERSIST_STORAGE_KEY = 'skills-desktop-state'

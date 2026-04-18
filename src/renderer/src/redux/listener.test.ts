@@ -124,17 +124,33 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(root.classList.contains('dark')).toBe(true)
   })
 
-  it('rapid preset switches leave the DOM matching the final state', async () => {
+  it('rapid preset switches write to the DOM in dispatch order (no stale/async reordering)', async () => {
     // Regression guard for the "stale listener write" class of bug — if the
-    // listener ever queues async writes, the final DOM could differ from the
-    // last dispatched preset. Synchronous dispatch should land deterministically.
+    // listener ever queues async writes (via Promise.resolve, microtask,
+    // requestAnimationFrame, etc.), the order of setProperty calls could
+    // diverge from dispatch order and the final DOM could reflect an
+    // earlier preset. Asserting only on final state would miss that: we
+    // also spy on setProperty and pin the `--theme-hue` call sequence to
+    // the dispatched sequence, which is what actually catches reordering.
     const store = await createThemedStore()
     const { setTheme } = await import('./slices/themeSlice')
+
+    const setPropertySpy = vi.spyOn(
+      document.documentElement.style,
+      'setProperty',
+    )
 
     store.dispatch(setTheme('rose'))
     store.dispatch(setTheme('cyan'))
     store.dispatch(setTheme('violet'))
     store.dispatch(setTheme('neutral-light'))
+
+    // Extract --theme-hue writes in the order they happened. Expected
+    // sequence mirrors the four dispatches above (350 → 195 → 300 → 0).
+    const hueWrites = setPropertySpy.mock.calls
+      .filter(([prop]) => prop === '--theme-hue')
+      .map(([, value]) => value)
+    expect(hueWrites).toEqual(['350', '195', '300', '0'])
 
     const root = document.documentElement
     expect(root.style.getPropertyValue('--theme-hue')).toBe('0')
@@ -142,5 +158,7 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(root.classList.contains('light')).toBe(true)
     expect(root.classList.contains('dark')).toBe(false)
     expect(store.getState().theme.preset).toBe('neutral-light')
+
+    setPropertySpy.mockRestore()
   })
 })

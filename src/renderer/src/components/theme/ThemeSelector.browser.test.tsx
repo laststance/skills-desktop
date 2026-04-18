@@ -99,6 +99,7 @@ describe('ThemeSelector — dropdown open + preset grid', () => {
 
   it('clicking a color swatch dispatches setTheme(presetName) with correct hue/chroma', async () => {
     const { screen, store } = await renderThemeSelector()
+    const { THEME_PRESETS } = await import('../../../../shared/constants')
 
     await screen
       .getByRole('button', { name: /Theme and color options/i })
@@ -107,8 +108,8 @@ describe('ThemeSelector — dropdown open + preset grid', () => {
 
     const { theme } = store.getState()
     expect(theme.preset).toBe('cyan')
-    expect(theme.hue).toBe(195)
-    expect(theme.chroma).toBeGreaterThan(0)
+    expect(theme.hue).toBe(THEME_PRESETS.cyan.hue)
+    expect(theme.chroma).toBe(THEME_PRESETS.cyan.chroma)
   })
 
   it('aria-pressed reflects the currently selected preset', async () => {
@@ -149,17 +150,22 @@ describe('ThemeSelector — dropdown open + preset grid', () => {
     expect(theme.mode).toBe('light')
   })
 
-  it('the mode-toggle menuitem dispatches toggleMode (dark → light)', async () => {
-    // Default state is mode=dark, so the toggle menuitem reads "Switch to
-    // Light". Clicking it flips mode to light and the label would become
-    // "Switch to Dark" on the next open.
+  it('the mode-toggle menuitem dispatches toggleMode', async () => {
+    // Discover the initial mode from the store instead of assuming 'dark',
+    // so if the slice's default ever flips (or a future test seeds mode
+    // before opening the menu) this test continues to exercise the real
+    // contract: clicking "Switch to <other>" flips mode to <other>.
     const { screen, store } = await renderThemeSelector()
+    const initialMode = store.getState().theme.mode
+    const target = initialMode === 'dark' ? 'Light' : 'Dark'
 
     await screen
       .getByRole('button', { name: /Theme and color options/i })
       .click()
-    await screen.getByRole('menuitem', { name: /Switch to Light/i }).click()
+    await screen
+      .getByRole('menuitem', { name: new RegExp(`Switch to ${target}`, 'i') })
+      .click()
 
-    expect(store.getState().theme.mode).toBe('light')
+    expect(store.getState().theme.mode).toBe(target.toLowerCase())
   })
 })

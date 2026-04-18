@@ -35,18 +35,31 @@ import {
 const HTML_PATH = resolve(process.cwd(), 'src/renderer/index.html')
 
 /**
- * Locate the first inline `<script>` block (no `src` attr, no `type="module"`)
- * in `index.html` and return its body. Fails loudly if the script block is
- * removed or switched to a module — either change would silently break the
- * blocking-script first-paint contract and let FOUC return.
+ * Locate the inline bootstrap IIFE by finding the `<script>` block that
+ * contains the PERSIST_STORAGE_KEY literal. Anchoring on the marker is
+ * more robust than grabbing the first `<script>` — if someone later adds
+ * an analytics ping or a CSP meta-script above the bootstrap, or wraps
+ * the IIFE in `<script nonce="…">`, a naive regex would silently evaluate
+ * the wrong block.
+ *
+ * Fails loudly if no script containing the marker is found — either the
+ * bootstrap was deleted, moved to an external file, or the PERSIST_STORAGE_KEY
+ * literal was renamed without updating this extractor.
  */
 function loadBootstrapScript(): string {
   const html = readFileSync(HTML_PATH, 'utf8')
-  const match = html.match(/<script>\s*([\s\S]*?)\s*<\/script>/)
+  // Match `<script ...>...</script>` with any attributes; capture the body
+  // only when it contains the storage-key literal. The non-greedy `[^]*?`
+  // keeps multiple scripts from being swallowed into a single match.
+  const scriptRegex =
+    /<script\b[^>]*>([\s\S]*?localStorage\.getItem\(\s*['"]skills-desktop-state['"]\s*\)[\s\S]*?)<\/script>/
+  const match = html.match(scriptRegex)
   if (!match) {
     throw new Error(
-      'No inline <script> block found in index.html. The pre-hydration ' +
-        'bootstrap must stay inline and dependency-free.',
+      'No inline <script> containing the PERSIST_STORAGE_KEY bootstrap was ' +
+        'found in index.html. The pre-hydration bootstrap must stay inline ' +
+        'and read from localStorage directly so the blocking-script ' +
+        'first-paint contract holds.',
     )
   }
   return match[1]

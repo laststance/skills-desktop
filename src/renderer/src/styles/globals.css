@@ -75,9 +75,11 @@
      * and users mistake active items for inactive.
      *
      * Hue `155` is shared between .dark and .light so the same "green" is
-     * recognizable across modes. L changes for contrast; hue does not. */
+     * recognizable across modes. Chroma `0.01` on the foreground keeps
+     * near-black/near-white swatches neutral across modes — 0.02 shifted
+     * the dark-mode foreground slightly greener than the light variant. */
     --success: oklch(0.72 0.17 155);
-    --success-foreground: oklch(0.12 0.02 155);
+    --success-foreground: oklch(0.12 0.01 155);
   }
 
   .light {

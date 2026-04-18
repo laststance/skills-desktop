@@ -16,25 +16,18 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 
-const COLOR_PRESET_NAMES: ThemePresetName[] = [
-  'rose',
-  'orange',
-  'amber',
-  'yellow',
-  'lime',
-  'green',
-  'teal',
-  'cyan',
-  'sky',
-  'blue',
-  'indigo',
-  'violet',
-]
-
-const NEUTRAL_PRESET_NAMES: ThemePresetName[] = [
-  'neutral-dark',
-  'neutral-light',
-]
+// Derive preset groups from THEME_PRESETS so adding a new hue in the
+// constants table automatically surfaces in the dropdown. Neutral presets
+// carry a baked-in `mode` field; color presets don't — that's the
+// discriminator. `Object.keys` preserves insertion order per spec, so
+// swatches render in the declaration order defined in THEME_PRESETS.
+const PRESET_NAMES = Object.keys(THEME_PRESETS) as ThemePresetName[]
+const COLOR_PRESET_NAMES = PRESET_NAMES.filter(
+  (name) => !('mode' in THEME_PRESETS[name]),
+)
+const NEUTRAL_PRESET_NAMES = PRESET_NAMES.filter(
+  (name) => 'mode' in THEME_PRESETS[name],
+)
 
 /**
  * Theme selector dropdown. Renders the 14 preset swatches (12 hue-based
@@ -49,7 +42,7 @@ const NEUTRAL_PRESET_NAMES: ThemePresetName[] = [
  */
 export const ThemeSelector = React.memo(function ThemeSelector(): ReactElement {
   const dispatch = useAppDispatch()
-  const { mode, preset, chroma } = useAppSelector((state) => state.theme)
+  const { mode, preset } = useAppSelector((state) => state.theme)
 
   const handleToggleMode = (): void => {
     dispatch(toggleMode())
@@ -160,10 +153,12 @@ export const ThemeSelector = React.memo(function ThemeSelector(): ReactElement {
           })}
         </div>
 
-        {/* Chroma axis is an implementation detail — surfaced here only as
-         * an a11y hint for screen readers inspecting the menu. */}
+        {/* Screen-reader-only announcement of the active preset. The swatch
+         * buttons already carry `aria-pressed`, but an explicit label in the
+         * menu footer gives AT users a named summary without hunting for
+         * which swatch is pressed. */}
         <span className="sr-only">
-          Current chroma: {chroma === 0 ? 'neutral' : 'color'}
+          Current theme: {THEME_PRESETS[preset].label}
         </span>
       </DropdownMenuContent>
     </DropdownMenu>

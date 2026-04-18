@@ -1,6 +1,8 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 
+import { COLOR_PRESET_CHROMA } from '../../../../shared/constants'
+
 async function createTestStore() {
   const { default: themeReducer } = await import('./themeSlice')
   return configureStore({ reducer: { theme: themeReducer } })
@@ -23,7 +25,7 @@ describe('themeSlice', () => {
     const state = store.getState().theme
     expect(state.preset).toBe('violet')
     expect(state.hue).toBe(300)
-    expect(state.chroma).toBe(0.16)
+    expect(state.chroma).toBe(COLOR_PRESET_CHROMA)
     // Color preset keeps the current mode (dark initially)
     expect(state.mode).toBe('dark')
   })
@@ -67,7 +69,7 @@ describe('themeSlice', () => {
     const { setTheme } = await import('./themeSlice')
     const store = await createTestStore()
     store.dispatch(setTheme('rose'))
-    expect(store.getState().theme.chroma).toBe(0.16)
+    expect(store.getState().theme.chroma).toBe(COLOR_PRESET_CHROMA)
     store.dispatch(setTheme('neutral-dark'))
     expect(store.getState().theme.chroma).toBe(0)
   })

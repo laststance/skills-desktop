@@ -1,8 +1,16 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { wcagContrast } from 'culori'
 import { describe, expect, it } from 'vitest'
 
 import { THEME_PRESETS } from '../../../shared/constants'
 import type { ThemePresetName } from '../../../shared/constants'
+
+const GLOBALS_CSS_PATH = resolve(
+  process.cwd(),
+  'src/renderer/src/styles/globals.css',
+)
 
 /**
  * WCAG contrast regression for the unified OKLCH palette in
@@ -125,10 +133,13 @@ describe('WCAG contrast — unified OKLCH palette', () => {
           ).toBeGreaterThanOrEqual(4.5)
         })
 
-        it(`${mode}: primary-foreground on primary >= 3.0 (UI)`, () => {
-          // Primary buttons are UI components — WCAG allows 3.0 for the
-          // non-text part. Button label sits on top of this pair but is
-          // typically 14px bold, which qualifies as "large text" (3.0).
+        // `primary` surfaces `<Button variant="default">` (used in the
+        // ThemeSelector trigger and the sidebar action bar) — a UI
+        // component with a 14px bold label. WCAG 2.1 classifies 14px bold
+        // as "large text" and permits the 3.0:1 minimum for both the UI
+        // background and its label. If `primary` is ever adopted for
+        // small (<14px regular) body copy, bump this to 4.5.
+        it(`${mode}: primary-foreground on primary >= 3.0 (UI / large-text)`, () => {
           expect(
             contrast(
               tokens.primaryForeground,
@@ -139,10 +150,13 @@ describe('WCAG contrast — unified OKLCH palette', () => {
           ).toBeGreaterThanOrEqual(3.0)
         })
 
-        it(`${mode}: muted-foreground on muted >= 3.0 (UI/large)`, () => {
-          // Muted is secondary info (timestamps, path hints) — WCAG UI
-          // threshold. Falling below 3.0 would make the text essentially
-          // invisible against its surface.
+        // `muted-foreground` on `muted` drives secondary info (path hints
+        // in `FileContent`, timestamps in the sidebar, nav section
+        // headers). These surfaces are non-critical supporting text; the
+        // WCAG 2.1 UI/large-text threshold of 3.0:1 applies. The moment
+        // muted carries primary body copy (e.g., a paragraph in an
+        // empty-state screen), this assertion must be raised to 4.5.
+        it(`${mode}: muted-foreground on muted >= 3.0 (UI / secondary text)`, () => {
           expect(
             contrast(
               tokens.mutedForeground,
@@ -153,6 +167,39 @@ describe('WCAG contrast — unified OKLCH palette', () => {
           ).toBeGreaterThanOrEqual(3.0)
         })
       }
+    })
+  }
+})
+
+/**
+ * Drift guard: the L/step tables above are hand-mirrored from globals.css.
+ * If someone retunes `--background: oklch(0.12 var(--chroma-5) ...)` to a
+ * different L without updating `DARK_TOKENS.background.L`, the contrast
+ * assertions would evaluate a fictional palette and pass while real
+ * rendering regresses. This reads globals.css as text and verifies each
+ * `L var(--chroma-N)` pair the test makes claims about actually appears
+ * in the CSS.
+ */
+describe('WCAG contrast — globals.css drift guard', () => {
+  const css = readFileSync(GLOBALS_CSS_PATH, 'utf8')
+  const darkBlock = css.match(/\.dark\s*\{([\s\S]*?)\n\s*\}/)?.[1] ?? ''
+  const lightBlock = css.match(/\.light\s*\{([\s\S]*?)\n\s*\}/)?.[1] ?? ''
+
+  function expectedFragment(spec: TokenSpec): string {
+    return spec.step === 'full'
+      ? `oklch(${spec.L} var(--theme-chroma)`
+      : `oklch(${spec.L} var(--${spec.step.replace('c', 'chroma-')})`
+  }
+
+  for (const [token, spec] of Object.entries(DARK_TOKENS)) {
+    it(`.dark ${token} L=${spec.L} step=${spec.step} matches globals.css`, () => {
+      expect(darkBlock).toContain(expectedFragment(spec))
+    })
+  }
+
+  for (const [token, spec] of Object.entries(LIGHT_TOKENS)) {
+    it(`.light ${token} L=${spec.L} step=${spec.step} matches globals.css`, () => {
+      expect(lightBlock).toContain(expectedFragment(spec))
     })
   }
 })
