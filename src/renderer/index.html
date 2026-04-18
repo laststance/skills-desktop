@@ -1,9 +1,52 @@
 <!doctype html>
-<html lang="en" class="dark theme-color">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Skills Desktop</title>
+    <script>
+      // Theme pre-hydration bootstrap. Reads persisted state and projects it
+      // onto <html> BEFORE React mounts so users who saved light-mode or a
+      // color preset don't see a neutral-dark flash until ACTION_HYDRATE_COMPLETE.
+      // Must stay inline + dependency-free so the paint isn't blocked on a module
+      // import. Defensive: any parse error falls back to the default .dark class.
+      //
+      // Two literals here duplicate TypeScript constants; bootstrap.test.ts
+      // guards against drift:
+      //   'skills-desktop-state' → PERSIST_STORAGE_KEY in src/shared/constants.ts
+      //   0.16                   → COLOR_PRESET_CHROMA in src/shared/constants.ts
+      ;(function () {
+        try {
+          var raw = localStorage.getItem('skills-desktop-state')
+          if (!raw) return
+          var parsed = JSON.parse(raw)
+          var t = parsed && parsed.state && parsed.state.theme
+          if (!t || typeof t !== 'object') return
+          var html = document.documentElement
+          if (typeof t.hue === 'number') {
+            html.style.setProperty('--theme-hue', String(t.hue))
+          }
+          if (typeof t.chroma === 'number') {
+            html.style.setProperty('--theme-chroma', String(t.chroma))
+          } else if (t.presetType === 'color') {
+            // v0 payload — async migration runs ~100ms later; without this
+            // branch the user sees a neutral-dark flash until hydration.
+            html.style.setProperty('--theme-chroma', '0.16')
+          } else if (t.presetType === 'neutral') {
+            html.style.setProperty('--theme-chroma', '0')
+          }
+          if (t.mode === 'light') {
+            html.classList.remove('dark')
+            html.classList.add('light')
+          } else if (t.mode === 'dark') {
+            html.classList.add('dark')
+            html.classList.remove('light')
+          }
+        } catch (_err) {
+          // Malformed storage — fall back to default .dark
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

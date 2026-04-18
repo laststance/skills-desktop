@@ -35,15 +35,16 @@ const config: Config = {
           DEFAULT: 'var(--destructive)',
           foreground: 'var(--destructive-foreground)',
         },
+        // Semantic status color for valid/linked state. Fixed green across
+        // all presets so "linked" never collapses to mid-gray in the neutral
+        // (shadcn) theme. Defined in globals.css per .dark/.light block.
+        success: {
+          DEFAULT: 'var(--success)',
+          foreground: 'var(--success-foreground)',
+        },
         border: 'var(--border)',
         input: 'var(--input)',
         ring: 'var(--ring)',
-        // Status colors
-        status: {
-          valid: '#22D3EE',
-          broken: '#F59E0B',
-          missing: '#475569',
-        },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

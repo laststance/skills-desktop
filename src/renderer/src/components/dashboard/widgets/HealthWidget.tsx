@@ -73,7 +73,7 @@ const HealthBar = React.memo(function HealthBar({
       aria-label={`${valid} valid, ${broken} broken`}
     >
       <div
-        className="bg-cyan-400 transition-[width] duration-300"
+        className="bg-success transition-[width] duration-300"
         style={{ width: `${validPct}%` }}
       />
       <div
@@ -109,7 +109,7 @@ export const HealthWidget = React.memo(
         </div>
         <HealthBar valid={totals.valid} broken={totals.broken} />
         <div className="flex items-center justify-between text-xs">
-          <span className="inline-flex items-center gap-1 text-cyan-400">
+          <span className="inline-flex items-center gap-1 text-success">
             <CheckCircle className="h-3 w-3" aria-hidden="true" />
             <span className="tabular-nums">{totals.valid}</span>
             <span className="text-muted-foreground">valid</span>

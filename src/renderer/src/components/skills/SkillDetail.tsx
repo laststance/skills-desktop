@@ -119,7 +119,7 @@ const InfoView = React.memo(function InfoView({
       <div className="flex gap-4 text-sm mb-4">
         <div>
           <span className="text-muted-foreground">Valid:</span>
-          <span className="ml-1 text-cyan-400">{validCount}</span>
+          <span className="ml-1 text-success">{validCount}</span>
         </div>
         <div>
           <span className="text-muted-foreground">Broken:</span>

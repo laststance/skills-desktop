@@ -26,7 +26,7 @@ const MAX_SKILL_ROWS = 20
  * inside render) means the JSX stays flat and the mapping is in one spot.
  */
 const STATUS_FILL: Record<SymlinkStatus, string> = {
-  valid: 'bg-cyan-400',
+  valid: 'bg-success',
   broken: 'bg-amber-400',
   missing: 'bg-muted',
 }

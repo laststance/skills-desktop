@@ -2,7 +2,13 @@ import { createStorageMiddleware } from '@laststance/redux-storage-middleware'
 import { combineReducers, configureStore } from '@reduxjs/toolkit'
 import { setupListeners } from '@reduxjs/toolkit/query'
 
+import {
+  PERSIST_STATE_VERSION,
+  PERSIST_STORAGE_KEY,
+} from '../../../shared/constants'
+
 import { listenerMiddleware } from './listener'
+import { migrateState } from './migrations'
 import agentsReducer from './slices/agentsSlice'
 import bookmarkReducer from './slices/bookmarkSlice'
 import dashboardReducer from './slices/dashboardSlice'
@@ -23,14 +29,18 @@ const rootReducer = combineReducers({
   dashboard: dashboardReducer,
 })
 
+type RootReducerState = ReturnType<typeof rootReducer>
+
 const {
   middleware: storageMiddleware,
   reducer,
   api,
-} = createStorageMiddleware({
+} = createStorageMiddleware<RootReducerState>({
   rootReducer,
-  key: 'skills-desktop-state',
+  key: PERSIST_STORAGE_KEY,
   slices: ['theme', 'bookmarks', 'dashboard'],
+  version: PERSIST_STATE_VERSION,
+  migrate: migrateState,
 })
 
 export const store = configureStore({

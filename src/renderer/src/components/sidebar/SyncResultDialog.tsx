@@ -82,7 +82,7 @@ export const SyncResultDialog = React.memo(
           <div className="py-4 space-y-3">
             <div className="flex gap-4 text-sm">
               {syncResult.created > 0 && (
-                <span className="text-cyan-400">
+                <span className="text-primary">
                   {syncResult.created} created
                 </span>
               )}

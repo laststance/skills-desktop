@@ -266,7 +266,7 @@ export const SkillItem = React.memo(function SkillItem({
             // Skill-type accent (only when NOT flashing red) — making the
             // precedence explicit, rather than relying on tailwind-merge
             // class-order to let the red override cyan/emerald.
-            !didPartialFail && isLinked && 'border-l-2 border-l-cyan-400/40',
+            !didPartialFail && isLinked && 'border-l-2 border-l-success/40',
             !didPartialFail &&
               isLocalSkill &&
               'border-l-2 border-l-emerald-400/40',
@@ -323,7 +323,7 @@ export const SkillItem = React.memo(function SkillItem({
                     // Right-align: slide the bookmark left of the X when both are visible.
                     showUnlinkButton ? 'right-11' : 'right-0',
                     isBookmarked
-                      ? 'text-cyan-400'
+                      ? 'text-primary'
                       : 'text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
                   )}
                 >
@@ -375,7 +375,7 @@ export const SkillItem = React.memo(function SkillItem({
                 <h3 className="font-medium truncate flex items-center gap-1.5">
                   {isLinked && (
                     <Link2
-                      className="h-3.5 w-3.5 shrink-0 text-cyan-400/70"
+                      className="h-3.5 w-3.5 shrink-0 text-success/70"
                       aria-label="Linked skill"
                     />
                   )}

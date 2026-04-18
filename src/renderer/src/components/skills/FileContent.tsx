@@ -27,7 +27,7 @@ export const FileContent = React.memo(function FileContent({
     return <BinaryPlaceholder fileName={content.fileName} size={content.size} />
   if (content.kind === 'image') {
     return (
-      <div className="flex-1 overflow-auto bg-[#0d1117] p-6 flex items-center justify-center">
+      <div className="flex-1 overflow-auto bg-muted p-6 flex items-center justify-center">
         <img
           src={content.data.dataUrl}
           alt={content.data.name}
@@ -39,15 +39,15 @@ export const FileContent = React.memo(function FileContent({
 
   const lines = content.data.content.split('\n')
   return (
-    <div className="flex-1 overflow-auto bg-[#0d1117] pb-4">
+    <div className="flex-1 overflow-auto bg-muted pb-4">
       <table className="w-full text-[13px] font-mono leading-relaxed">
         <tbody>
           {lines.map((line, idx) => (
-            <tr key={idx} className="hover:bg-white/5">
-              <td className="w-12 px-2 py-0.5 text-right text-slate-500 select-none border-r border-slate-700/50 align-top">
+            <tr key={idx} className="hover:bg-foreground/5">
+              <td className="w-12 px-2 py-0.5 text-right text-muted-foreground select-none border-r border-border/50 align-top">
                 {idx + 1}
               </td>
-              <td className="px-3 py-0.5 whitespace-pre text-slate-300">
+              <td className="px-3 py-0.5 whitespace-pre text-foreground">
                 {line || ' '}
               </td>
             </tr>

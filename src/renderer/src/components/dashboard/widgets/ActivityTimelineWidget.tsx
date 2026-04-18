@@ -27,7 +27,7 @@ interface ActionVisual {
 }
 
 const ACTION_VISUALS: Record<SyncResultAction, ActionVisual> = {
-  created: { icon: Plus, accentClass: 'text-cyan-400', label: 'created' },
+  created: { icon: Plus, accentClass: 'text-primary', label: 'created' },
   replaced: { icon: Replace, accentClass: 'text-amber-400', label: 'replaced' },
   skipped: {
     icon: MinusCircle,

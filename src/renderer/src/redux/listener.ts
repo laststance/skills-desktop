@@ -2,12 +2,7 @@ import { ACTION_HYDRATE_COMPLETE } from '@laststance/redux-storage-middleware'
 import { createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit'
 
 import { clearSelection } from './slices/skillsSlice'
-import {
-  setTheme,
-  setColorTheme,
-  setNeutralTheme,
-  toggleMode,
-} from './slices/themeSlice'
+import { setTheme, toggleMode } from './slices/themeSlice'
 import type { ThemeState } from './slices/themeSlice'
 import { fetchSyncPreview, selectAgent, setActiveTab } from './slices/uiSlice'
 
@@ -19,24 +14,20 @@ interface ListenerState {
 }
 
 /**
- * Apply theme to DOM based on current theme state
- * Uses classList.toggle for cleaner class management
- * @param state - Current theme state from Redux
+ * Project the current `ThemeState` onto `<html>` as CSS custom properties
+ * plus a `.light` / `.dark` class. This is the only place that mutates the
+ * DOM for theme purposes — Redux state stays authoritative and the CSS in
+ * `globals.css` consumes `--theme-hue` / `--theme-chroma` directly.
+ *
+ * Neutral presets persist `chroma: 0`, which collapses every OKLCH token to
+ * the grayscale axis and makes the `--theme-hue` angle irrelevant (so we
+ * still set it for consistency; no visual change).
  */
 function applyThemeToDOM(state: ThemeState): void {
-  const { hue, mode, presetType } = state
+  const { hue, chroma, mode } = state
   const root = document.documentElement
-
-  // Apply theme type class
-  root.classList.toggle('theme-color', presetType === 'color')
-  root.classList.toggle('theme-neutral', presetType === 'neutral')
-
-  // Apply hue for color themes
-  if (presetType === 'color') {
-    root.style.setProperty('--theme-hue', String(hue))
-  }
-
-  // Apply dark/light mode
+  root.style.setProperty('--theme-hue', String(hue))
+  root.style.setProperty('--theme-chroma', String(chroma))
   root.classList.toggle('dark', mode === 'dark')
   root.classList.toggle('light', mode === 'light')
 }
@@ -59,7 +50,7 @@ listenerMiddleware.startListening({
  * Listens to all theme-related actions and applies CSS changes
  */
 listenerMiddleware.startListening({
-  matcher: isAnyOf(setTheme, setColorTheme, setNeutralTheme, toggleMode),
+  matcher: isAnyOf(setTheme, toggleMode),
   effect: (_action, listenerApi) => {
     const state = listenerApi.getState() as ListenerState
     applyThemeToDOM(state.theme)

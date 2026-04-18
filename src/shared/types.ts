@@ -1,11 +1,7 @@
 import type { AgentId, AgentName } from './constants'
 import type { FilePreviewKind } from './fileTypes'
 export type { AgentId, AgentName } from './constants'
-export type {
-  ColorThemePresetName,
-  NeutralThemePresetName,
-  ThemePresetName,
-} from './constants'
+export type { ThemePresetName } from './constants'
 export type { FilePreviewKind } from './fileTypes'
 
 // ============================================================================

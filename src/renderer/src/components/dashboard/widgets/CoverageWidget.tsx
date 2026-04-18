@@ -99,7 +99,7 @@ const CoverageRowView = React.memo(function CoverageRowView({
         {agent.exists && (
           <div className="h-1 w-full rounded-full bg-muted overflow-hidden">
             <div
-              className="h-full bg-cyan-400/70 transition-[width] duration-300"
+              className="h-full bg-success/70 transition-[width] duration-300"
               style={{ width: `${ratioPct}%` }}
               aria-hidden="true"
             />
@@ -108,7 +108,7 @@ const CoverageRowView = React.memo(function CoverageRowView({
       </div>
       <div className="flex items-center gap-2 text-[11px] shrink-0 tabular-nums">
         {linked > 0 && (
-          <span className="inline-flex items-center gap-0.5 text-cyan-400">
+          <span className="inline-flex items-center gap-0.5 text-success">
             <Link2 className="h-3 w-3" aria-hidden="true" />
             {linked}
           </span>

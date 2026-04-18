@@ -1,29 +1,38 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice } from '@reduxjs/toolkit'
 
-import type {
-  ColorThemePresetName,
-  NeutralThemePresetName,
-  ThemePresetName,
-  ThemePresetType,
-} from '../../../../shared/constants'
+import type { ThemePresetName } from '../../../../shared/constants'
+import { THEME_PRESETS } from '../../../../shared/constants'
 
+/**
+ * Shape persisted in localStorage via `@laststance/redux-storage-middleware`.
+ * `hue` × `chroma` together project to OKLCH coordinates on `<html>`:
+ *   --theme-hue:    state.hue    (angle, ignored when chroma === 0)
+ *   --theme-chroma: state.chroma (0 = grayscale ramp, 0.16 = saturated ramp)
+ * Mode is tracked independently so users can flip dark/light without losing
+ * their color preset. `preset` is the authoritative key; `hue`/`chroma`/`mode`
+ * are derived snapshots kept in state so the DOM listener can apply them in
+ * one pass without re-looking-up the preset table.
+ */
 export interface ThemeState {
-  /** Current theme hue (0–360, only meaningful for 'color' presetType). @example 195 */
+  /** OKLCH hue angle (0–360). No visual effect when `chroma === 0`. @example 195 */
   hue: number
-  /** Light or dark mode */
+  /**
+   * OKLCH chroma scalar driving the entire token ramp. Only two values are
+   * ever persisted: `0` (neutral / shadcn) and `COLOR_PRESET_CHROMA` (color preset).
+   */
+  chroma: number
+  /** Light vs dark palette selector. Applied as `.light` / `.dark` on `<html>`. */
   mode: 'light' | 'dark'
-  /** Active theme preset identifier. @example "cyan", "neutral-dark" */
+  /** Authoritative preset key. Drives ThemeSelector's aria-pressed state. */
   preset: ThemePresetName
-  /** Preset type: 'color' (OKLCH) or 'neutral' (shadcn default) */
-  presetType: ThemePresetType
 }
 
 const initialState: ThemeState = {
-  hue: 195,
+  hue: 0,
+  chroma: 0,
   mode: 'dark',
   preset: 'neutral-dark',
-  presetType: 'neutral',
 }
 
 export const themeSlice = createSlice({
@@ -31,61 +40,50 @@ export const themeSlice = createSlice({
   initialState,
   reducers: {
     /**
-     * Set the complete theme state
-     * @param state - Current theme state
-     * @param action - Payload with full theme configuration
+     * Select a preset by name. Pulls `hue`, `chroma`, and (for neutral
+     * presets) `mode` from the central `THEME_PRESETS` table so every call
+     * site stays in sync. Color presets keep the user's current `mode`
+     * so switching between e.g. cyan → rose doesn't silently dark-flip.
+     * @example
+     * dispatch(setTheme('rose'))          // rose hue, current mode
+     * dispatch(setTheme('neutral-light')) // chroma=0, mode forced to light
      */
-    setTheme: (state, action: PayloadAction<ThemeState>) => {
-      state.hue = action.payload.hue
-      state.mode = action.payload.mode
-      state.preset = action.payload.preset
-      state.presetType = action.payload.presetType
-    },
-
-    /**
-     * Toggle between light and dark mode
-     * Only works for 'color' type themes
-     * @param state - Current theme state
-     */
-    toggleMode: (state) => {
-      if (state.presetType === 'color') {
-        state.mode = state.mode === 'dark' ? 'light' : 'dark'
+    setTheme: (state, action: PayloadAction<ThemePresetName>) => {
+      const preset = action.payload
+      const config = THEME_PRESETS[preset]
+      // Guard against stale preset keys (e.g. a persisted name that no longer
+      // exists after a refactor). Without this, `config.hue` crashes the app
+      // on first dispatch. Fall back to neutral-dark, the default safe state.
+      if (!config) {
+        const fallback = THEME_PRESETS['neutral-dark']
+        state.preset = 'neutral-dark'
+        state.hue = fallback.hue
+        state.chroma = fallback.chroma
+        state.mode = fallback.mode
+        return
+      }
+      state.preset = preset
+      state.hue = config.hue
+      state.chroma = config.chroma
+      if ('mode' in config) {
+        state.mode = config.mode
       }
     },
 
     /**
-     * Set color theme with hue
-     * @param state - Current theme state
-     * @param action - Payload with preset name and hue value
+     * Flip between dark and light. When the active preset is one of the
+     * neutral variants, also swap its preset key so `neutral-dark` ↔
+     * `neutral-light` stays consistent with the new mode.
      */
-    setColorTheme: (
-      state,
-      action: PayloadAction<{ preset: ColorThemePresetName; hue: number }>,
-    ) => {
-      state.preset = action.payload.preset
-      state.hue = action.payload.hue
-      state.presetType = 'color'
-    },
-
-    /**
-     * Set neutral theme (shadcn default)
-     * @param state - Current theme state
-     * @param action - Payload with preset name and mode
-     */
-    setNeutralTheme: (
-      state,
-      action: PayloadAction<{
-        preset: NeutralThemePresetName
-        mode: 'light' | 'dark'
-      }>,
-    ) => {
-      state.preset = action.payload.preset
-      state.mode = action.payload.mode
-      state.presetType = 'neutral'
+    toggleMode: (state) => {
+      const next = state.mode === 'dark' ? 'light' : 'dark'
+      state.mode = next
+      if (state.preset === 'neutral-dark' || state.preset === 'neutral-light') {
+        state.preset = `neutral-${next}`
+      }
     },
   },
 })
 
-export const { setTheme, toggleMode, setColorTheme, setNeutralTheme } =
-  themeSlice.actions
+export const { setTheme, toggleMode } = themeSlice.actions
 export default themeSlice.reducer

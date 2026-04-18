@@ -86,10 +86,10 @@ function buildState(overrides: {
       dismissed: false,
     },
     theme: {
-      hue: 195,
+      hue: 0,
+      chroma: 0,
       mode: 'dark' as const,
-      preset: 'neutral-dark',
-      presetType: 'neutral' as const,
+      preset: 'neutral-dark' as const,
     },
     marketplace: {
       status: 'idle' as const,
