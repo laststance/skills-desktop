@@ -17,6 +17,7 @@ import type {
   SkillName,
   TombstoneId,
 } from '../../../../shared/types'
+import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import {
   selectSelectedVisibleNames,
@@ -454,7 +455,7 @@ export const MainContent = React.memo(
                   activates Cmd/Ctrl+A + Esc shortcuts. Exiting clears any
                   accumulated selection so hidden state can't leak. */}
               <Button
-                variant={bulkSelectMode ? 'secondary' : 'ghost'}
+                variant="ghost"
                 size="sm"
                 aria-pressed={bulkSelectMode}
                 aria-label={
@@ -470,14 +471,19 @@ export const MainContent = React.memo(
                     dispatch(enterBulkSelectMode())
                   }
                 }}
-                className={`shrink-0 gap-1.5 min-h-[44px] ${
+                className={cn(
+                  'shrink-0 gap-1.5 min-h-[44px]',
                   bulkSelectMode
-                    ? ''
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                    ? 'text-primary'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
               >
-                <CheckSquare className="h-4 w-4" />
-                {bulkSelectMode ? 'Done' : 'Select'}
+                {bulkSelectMode ? (
+                  <X className="h-4 w-4" />
+                ) : (
+                  <CheckSquare className="h-4 w-4" />
+                )}
+                {bulkSelectMode ? 'Cancel' : 'Select'}
               </Button>
 
               {/* Skill type filter — agent view only */}
