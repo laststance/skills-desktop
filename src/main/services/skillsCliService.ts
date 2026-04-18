@@ -11,6 +11,7 @@ import type {
   CliCommandResult,
   InstallProgress,
 } from '../../shared/types'
+import { REPO_PATTERN, SKILL_NAME_PATTERN } from '../utils/skillIdentifiers'
 
 /**
  * Build agent ID to CLI name mapping from AGENT_DEFINITIONS
@@ -28,17 +29,6 @@ const AGENT_ID_TO_CLI_NAME = Object.fromEntries(
 function stripAnsi(text: string): string {
   return text.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').replace(/\[[\d;]*m/g, '')
 }
-
-/**
- * Whitelist patterns for parser output. The skills CLI emits
- * `owner/repo@skill-name` lines that flow into UI strings (aria-labels,
- * titles, copy-paste hints). A malformed registry entry could carry shell
- * metacharacters or whitespace that surface as broken UI or, worse, get
- * pasted into a terminal verbatim. We drop anything that doesn't match
- * the npm/GitHub naming convention.
- */
-const SKILL_NAME_PATTERN = /^[a-zA-Z0-9._-]+$/
-const REPO_PATTERN = /^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/
 
 /**
  * Service for executing skills CLI commands via npx.

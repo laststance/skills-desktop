@@ -34,11 +34,9 @@ export interface MigratableState {
  * here AND ship a new migration.** Otherwise persisted layouts on the prior
  * floor will silently violate the registry constraint after upgrade.
  */
-export const V2_WIDGET_MIN_SIZES: Readonly<
-  Partial<Record<WidgetType, { w: number; h: number }>>
-> = {
+export const V2_WIDGET_MIN_SIZES = {
   'quick-actions': { w: 3, h: 3 },
-}
+} as const satisfies Partial<Record<WidgetType, { w: number; h: number }>>
 
 /**
  * v0 → v1 migration for the theme slice. The old shape carried a
@@ -101,19 +99,42 @@ function migrateV1ToV2(state: MigratableState): void {
   }
   if (!Array.isArray(dashboard.pages)) return
 
-  for (const page of dashboard.pages) {
+  for (const [pageIndex, page] of dashboard.pages.entries()) {
     // A `null` or non-object page entry would crash on the next dereference;
     // when migrate() throws, `@laststance/redux-storage-middleware` calls
     // `storage.removeItem(key)` and the user loses every persisted slice
     // (theme, bookmarks, dashboard) on a single corrupt array element.
-    if (!page || typeof page !== 'object') continue
+    if (!page || typeof page !== 'object') {
+      // Dev-only diagnostic so "my dashboard is partially missing widgets"
+      // bug reports point at a concrete cause; silent in prod to keep the
+      // console clean for users.
+      if (import.meta.env.DEV) {
+        console.warn(
+          `migrateV1ToV2: skipping malformed page at index ${pageIndex}`,
+        )
+      }
+      continue
+    }
     if (!Array.isArray(page.widgets)) continue
     for (const widget of page.widgets) {
       // Same defense as the page guard above — a `null` widget would crash on
       // `widget.type` and trigger the same total-wipe path.
-      if (!widget || typeof widget !== 'object') continue
+      if (!widget || typeof widget !== 'object') {
+        if (import.meta.env.DEV) {
+          console.warn(
+            `migrateV1ToV2: skipping malformed widget on page ${pageIndex}`,
+          )
+        }
+        continue
+      }
       if (!widget.type) continue
-      const min = V2_WIDGET_MIN_SIZES[widget.type as WidgetType]
+      // `satisfies` keeps V2_WIDGET_MIN_SIZES literal-typed for the drift
+      // test, but the indexer here expects WidgetType (a wider union than
+      // the v2 map). Cast to a partial-record at the call site to recover
+      // "lookup may miss" semantics — most widget types aren't in v2's map.
+      const min = (
+        V2_WIDGET_MIN_SIZES as Partial<Record<string, { w: number; h: number }>>
+      )[widget.type]
       if (!min) continue
       if (typeof widget.w === 'number' && widget.w < min.w) widget.w = min.w
       if (typeof widget.h === 'number' && widget.h < min.h) widget.h = min.h

@@ -145,13 +145,14 @@ Each skill displays:
 
 ### Actions
 
-| Action                 | Status     | Notes                |
-| ---------------------- | ---------- | -------------------- |
-| View skill details     | ✅ Done    | -                    |
-| View symlink status    | ✅ Done    | -                    |
-| Search skills          | ✅ Done    | Marketplace tab      |
-| Install skill          | ✅ Done    | With agent selection |
-| Repair broken symlinks | 🚧 Planned | -                    |
+| Action                 | Status     | Notes                                                  |
+| ---------------------- | ---------- | ------------------------------------------------------ |
+| View skill details     | ✅ Done    | -                                                      |
+| View symlink status    | ✅ Done    | -                                                      |
+| Search skills          | ✅ Done    | Marketplace tab                                        |
+| Install skill          | ✅ Done    | With agent selection                                   |
+| Uninstall skill        | ✅ CLI     | `npx skills remove <name> --global` (no in-app button) |
+| Repair broken symlinks | 🚧 Planned | -                                                      |
 
 ## Tech Stack
 

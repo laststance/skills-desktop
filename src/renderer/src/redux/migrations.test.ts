@@ -287,6 +287,13 @@ describe('V2_WIDGET_MIN_SIZES drift guard', () => {
   // floor silently violate the registry constraint after upgrade. This test
   // catches the registry/migration desync at unit-test time, before users
   // see neighboring widgets get shoved by the runtime clamp.
+  //
+  // Note: this guard is intentionally one-way. It iterates only entries
+  // present in `V2_WIDGET_MIN_SIZES`, so a future bump of
+  // `WIDGET_REGISTRY[type].minSize` for a widget *not* in the v2 map will
+  // not fail this test. That is correct for a frozen v2 floor — the right
+  // response to a future registry bump is to add `V3_WIDGET_MIN_SIZES`
+  // alongside a `migrateV2ToV3`, not to retroactively expand v2's scope.
   it('mirror entries match WIDGET_REGISTRY minSize', () => {
     for (const [type, min] of Object.entries(V2_WIDGET_MIN_SIZES)) {
       const registryEntry =

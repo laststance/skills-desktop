@@ -1,5 +1,6 @@
 import { repositoryId } from '../../shared/types'
 import type { RankingFilter, SkillSearchResult } from '../../shared/types'
+import { REPO_PATTERN, SKILL_NAME_PATTERN } from '../utils/skillIdentifiers'
 
 /** Maps ranking filter to skills.sh URL */
 const LEADERBOARD_URLS: Record<RankingFilter, string> = {
@@ -83,6 +84,13 @@ export function parseLeaderboardHtml(html: string): SkillSearchResult[] {
     if (!h3Match) continue
 
     const name = h3Match[1].trim()
+
+    // Defense-in-depth: skills.sh HTML is upstream-controlled. Without this
+    // whitelist, a malformed `<h3>` could land in the installed-badge
+    // aria-label/title (`npx skills remove <name> --global`) and become a
+    // copy-paste hazard. Mirrors `parseSearchOutput`'s CLI-side guard so both
+    // ingestion paths enforce the same identifier contract.
+    if (!REPO_PATTERN.test(repo) || !SKILL_NAME_PATTERN.test(name)) continue
 
     // Extract install count: look for numbers with optional K/M/B suffix.
     // Excludes rank numbers (preceded by #) and delta numbers (preceded by +/-)

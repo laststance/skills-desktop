@@ -21,6 +21,13 @@ beforeEach(() => {
       cancel: vi.fn(),
       onProgress: vi.fn(() => () => {}),
     },
+    // `marketplaceSlice.loadLeaderboard` reads `window.electron.marketplace.leaderboard`.
+    // Even though no test in this file dispatches it directly, importing the slice
+    // (via `createStore` below) wires reducers that may run during render. Stubbing
+    // it here keeps the test resilient if a future render path triggers the thunk.
+    marketplace: {
+      leaderboard: vi.fn(async () => []),
+    },
   })
 })
 
@@ -125,8 +132,12 @@ describe('SkillRowMarketplace — installed row has no destructive action', () =
 
   it('still renders an Install button when isInstalled=false (sanity)', async () => {
     const { screen } = await renderRow(makeSkill(), false)
+    // Exact 'Install' (not /install/i) — the regex would also match the
+    // Installed badge's "<name> is installed …" aria-label if both states
+    // ever rendered together. Anchoring on the button's exact accessible
+    // name keeps this assertion truthful regardless of future layout shifts.
     await expect
-      .element(screen.getByRole('button', { name: /install/i }))
+      .element(screen.getByRole('button', { name: 'Install' }))
       .toBeInTheDocument()
   })
 })
