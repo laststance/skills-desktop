@@ -270,13 +270,22 @@ describe('useCodePreview', () => {
     })
     const bodyA = makeTextContent({ content: 'A' })
     const bodyB = makeTextContent({ content: 'B' })
-    listMock.mockImplementation(async (p) =>
-      p === '/skills/a' ? [fileA] : [fileB],
-    )
+
+    // Path A resolves immediately. Path B's list hangs on an external promise
+    // so the assertion can observe the synchronous reset *between* rerender
+    // and the new skill's IPC completion — otherwise the eventual state would
+    // mask whether the render-phase reset branch actually fired.
+    let resolveListB: ((v: SkillFile[]) => void) | null = null
+    listMock.mockImplementation(async (p) => {
+      if (p === '/skills/a') return [fileA]
+      return new Promise<SkillFile[]>((res) => {
+        resolveListB = res
+      })
+    })
     readMock.mockImplementation(async (p) => (p === fileA.path ? bodyA : bodyB))
 
     const { useCodePreview } = await import('./useCodePreview')
-    const { result, rerender } = await renderHook(
+    const { result, rerender, act } = await renderHook(
       (props?: { path: string }) => useCodePreview(props?.path ?? '/skills/a'),
       { initialProps: { path: '/skills/a' } },
     )
@@ -285,13 +294,24 @@ describe('useCodePreview', () => {
       .poll(() => result.current.content)
       .toEqual({ kind: 'text', data: bodyA })
 
-    // In browser mode, rerender's returned promise resolves only after React
-    // has re-rendered AND flushed effects, so the async IPC in useEffect has
-    // already run by then. We verify the synchronous reset branch a different
-    // way: poll for the new skill's content, then assert that activeFile
-    // points at the new skill's file (which means the reset fired).
     rerender({ path: '/skills/b' })
 
+    // Synchronous reset branch: the render-phase `setUserSelectedFile(null)`
+    // + `setContent({kind:'empty'})` in useCodePreview fire when
+    // `prevSkillPathRef.current !== skillPath`. With the listMock for path B
+    // hanging, the effect stalls at `await list()` so we observe the
+    // post-reset, pre-IPC snapshot: loading=true (loadedPath still /skills/a)
+    // and content={kind:'empty'}.
+    await expect.poll(() => result.current.loading).toBe(true)
+    expect(result.current.content).toEqual({ kind: 'empty' })
+
+    // Unblock path B's IPC and verify the eventual happy path. Wrapping the
+    // resolver call in `act()` keeps effect flushing under React's control
+    // and sidesteps TS's closure-narrowing of `resolveListB` to `null`.
+    await act(async () => {
+      resolveListB?.([fileB])
+      await Promise.resolve()
+    })
     await expect
       .poll(() => result.current.content)
       .toEqual({ kind: 'text', data: bodyB })

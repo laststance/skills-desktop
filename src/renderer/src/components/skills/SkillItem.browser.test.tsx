@@ -87,7 +87,12 @@ describe('SkillItem bulk-select checkbox visibility', () => {
   it('hides the checkbox when bulkSelectMode=false (default clean list)', async () => {
     const { screen } = await renderSkillItem(makeSkill())
 
-    await expect.element(screen.getByRole('checkbox')).not.toBeInTheDocument()
+    // `.query()` returns the matched element or null synchronously. Using
+    // this over `getBy(...).not.toBeInTheDocument()` avoids the strict-single-
+    // match locator resolution error path, so a future regression that
+    // accidentally renders a checkbox produces a clean "element is present"
+    // failure instead of a locator-throw stack trace.
+    expect(screen.getByRole('checkbox').query()).toBeNull()
   })
 
   it('renders the checkbox when bulkSelectMode=true', async () => {
@@ -136,6 +141,8 @@ describe('SkillItem bulk-select checkbox visibility', () => {
     await expect.element(screen.getByRole('checkbox')).toBeInTheDocument()
 
     store.dispatch(exitBulkSelectMode())
-    await expect.element(screen.getByRole('checkbox')).not.toBeInTheDocument()
+    // Poll until the checkbox unmounts — exit dispatch is sync but the
+    // re-render that removes the node happens on the next commit cycle.
+    await expect.poll(() => screen.getByRole('checkbox').query()).toBeNull()
   })
 })

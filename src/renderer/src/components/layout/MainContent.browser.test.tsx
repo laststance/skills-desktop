@@ -132,13 +132,31 @@ async function renderMainContent() {
 /**
  * Dispatch a real KeyboardEvent directly on `document` so MainContent's
  * document-level listener fires through the actual browser event pipeline.
- * @param init - KeyboardEvent init dict (bubbles is forced to true so React's
- *   synthetic wrapper also observes the event if it ever delegates).
+ * @param init - KeyboardEvent init dict. `bubbles` defaults to true so React's
+ *   synthetic wrapper observes the event if it ever delegates; caller may
+ *   override via an explicit `bubbles: false`.
  */
 function dispatchKey(init: KeyboardEventInit): void {
   document.dispatchEvent(
-    new KeyboardEvent('keydown', { bubbles: true, ...init }),
+    new KeyboardEvent('keydown', { ...init, bubbles: init.bubbles ?? true }),
   )
+}
+
+/**
+ * Wait for MainContent's re-render that reflects bulkSelectMode=true. The
+ * toggle button's aria-label only flips to "Exit bulk select mode" after
+ * the render commits; effects run on the microtask immediately following
+ * commit, which drains before this assertion's first polled iteration. By
+ * the time this resolves, `bulkSelectModeRef.current === true` so the
+ * keydown handler below will not early-return.
+ * @param screen - vitest-browser-react locator root from renderMainContent
+ */
+async function waitForBulkSelectReady(
+  screen: Awaited<ReturnType<typeof renderMainContent>>['screen'],
+): Promise<void> {
+  await expect
+    .element(screen.getByRole('button', { name: /Exit bulk select mode/i }))
+    .toBeInTheDocument()
 }
 
 describe('MainContent bulk-select toggle button', () => {
@@ -210,7 +228,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
   })
 
   it('Cmd+A dispatches selectAll over visible names when bulkSelectMode=true', async () => {
-    const { store } = await renderMainContent()
+    const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
     const { fetchSkills } = await import('../../redux/slices/skillsSlice')
     const skillFixtures = [
@@ -235,9 +253,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
     store.dispatch(fetchSkills.fulfilled(skillFixtures, 'req-id'))
     store.dispatch(enterBulkSelectMode())
 
-    // Yield to let MainContent's effect flush so bulkSelectModeRef.current
-    // sees the new mode before the keydown handler reads it.
-    await new Promise((r) => setTimeout(r, 0))
+    await waitForBulkSelectReady(screen)
 
     dispatchKey({ key: 'a', metaKey: true })
 
@@ -255,24 +271,29 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
 
     const textInput = document.createElement('input')
     document.body.appendChild(textInput)
-    textInput.focus()
-    textInput.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 'a',
-        metaKey: true,
-        bubbles: true,
-      }),
-    )
+    try {
+      textInput.focus()
+      textInput.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'a',
+          metaKey: true,
+          bubbles: true,
+        }),
+      )
 
-    expect(store.getState().skills.selectedSkillNames).toEqual([])
-
-    document.body.removeChild(textInput)
+      expect(store.getState().skills.selectedSkillNames).toEqual([])
+    } finally {
+      // Removal in `finally` so a failing assertion doesn't leak a focused
+      // <input> into the reused Chromium page and corrupt `document.activeElement`
+      // for the next test (which would then be filtered by isEditableTarget).
+      document.body.removeChild(textInput)
+    }
   })
 })
 
 describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
   it('first Esc with non-empty selection clears selection only (mode stays on)', async () => {
-    const { store } = await renderMainContent()
+    const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
     const { toggleSelection } = await import('../../redux/slices/skillsSlice')
 
@@ -280,7 +301,7 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
     store.dispatch(toggleSelection('task' as SkillName))
     expect(store.getState().skills.selectedSkillNames.length).toBe(1)
 
-    await new Promise((r) => setTimeout(r, 0))
+    await waitForBulkSelectReady(screen)
     dispatchKey({ key: 'Escape' })
 
     expect(store.getState().skills.selectedSkillNames).toEqual([])
@@ -288,12 +309,12 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
   })
 
   it('second Esc with empty selection exits bulk select mode', async () => {
-    const { store } = await renderMainContent()
+    const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
 
     store.dispatch(enterBulkSelectMode())
 
-    await new Promise((r) => setTimeout(r, 0))
+    await waitForBulkSelectReady(screen)
     dispatchKey({ key: 'Escape' })
 
     expect(store.getState().ui.bulkSelectMode).toBe(false)
@@ -318,14 +339,16 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
 
     const textInput = document.createElement('input')
     document.body.appendChild(textInput)
-    textInput.focus()
-    textInput.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
-    )
+    try {
+      textInput.focus()
+      textInput.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      )
 
-    expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
-    expect(store.getState().ui.bulkSelectMode).toBe(true)
-
-    document.body.removeChild(textInput)
+      expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+      expect(store.getState().ui.bulkSelectMode).toBe(true)
+    } finally {
+      document.body.removeChild(textInput)
+    }
   })
 })
