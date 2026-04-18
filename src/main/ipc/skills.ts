@@ -1,5 +1,5 @@
 import * as fs from 'node:fs/promises'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 import type { IpcMainInvokeEvent } from 'electron'
 import { match } from 'ts-pattern'
@@ -471,13 +471,18 @@ export function registerSkillsHandlers(): void {
         isDirectory: stats.isDirectory(),
       })
         .with({ isSymlink: true }, async () => {
-          const target = await fs.readlink(linkPath)
+          // `readlink` returns the raw target, which can be relative to the
+          // symlink's own directory. Resolve it against `dirname(linkPath)`
+          // so validation and replication see an absolute filesystem path
+          // rather than a cwd-relative string.
+          const rawTarget = await fs.readlink(linkPath)
+          const resolvedTarget = resolve(dirname(linkPath), rawTarget)
           // Validate the resolved symlink target is within allowed bases.
           // After the CREATE_SYMLINKS fix, symlinks may legitimately point at
           // either SOURCE_DIR (source skills) or another agent's dir (local
           // skills linked across agents), so [SOURCE_DIR] alone is too strict.
-          validatePath(target, getAllowedBases())
-          return { kind: 'symlink' as const, target }
+          validatePath(resolvedTarget, getAllowedBases())
+          return { kind: 'symlink' as const, target: resolvedTarget }
         })
         .with({ isSymlink: false, isDirectory: true }, async () => ({
           kind: 'directory' as const,

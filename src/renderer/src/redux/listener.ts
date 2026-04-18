@@ -1,11 +1,7 @@
 import { ACTION_HYDRATE_COMPLETE } from '@laststance/redux-storage-middleware'
 import { createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit'
 
-import {
-  clearSelection,
-  deleteSelectedSkills,
-  unlinkSelectedFromAgent,
-} from './slices/skillsSlice'
+import { clearSelection } from './slices/skillsSlice'
 import {
   setTheme,
   setColorTheme,
@@ -79,15 +75,17 @@ listenerMiddleware.startListening({
  * Delete/Unlink button commits against invisible ticks the user can no longer
  * audit. Living in listener.ts keeps both slices self-contained (one-way
  * consumer; no circular imports).
+ *
+ * Note: `deleteSelectedSkills.pending` and `unlinkSelectedFromAgent.pending`
+ * are intentionally NOT in this matcher. Those thunks rely on the `.fulfilled`
+ * reducers in skillsSlice to narrow `selectedSkillNames` to only the items
+ * that actually succeeded, so failed rows stay ticked for retry. A blanket
+ * clear on `.pending` would wipe the selection before the reconciliation can
+ * run. uiSlice already clears `bulkSelectMode` on those same pending actions,
+ * so the toolbar still hides during the in-flight op.
  */
 listenerMiddleware.startListening({
-  matcher: isAnyOf(
-    setActiveTab,
-    selectAgent,
-    fetchSyncPreview.pending,
-    deleteSelectedSkills.pending,
-    unlinkSelectedFromAgent.pending,
-  ),
+  matcher: isAnyOf(setActiveTab, selectAgent, fetchSyncPreview.pending),
   effect: (_action, listenerApi) => {
     listenerApi.dispatch(clearSelection())
   },

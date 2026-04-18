@@ -465,8 +465,12 @@ export const MainContent = React.memo(
                 }
                 onClick={() => {
                   if (bulkSelectMode) {
-                    dispatch(exitBulkSelectMode())
+                    // Order matters: clear selection first so no subscriber
+                    // can observe `mode=false` with stale `selectedSkillNames`
+                    // between dispatches. Preserves the SelectionToolbar
+                    // render-gate invariant "mode off ⇒ no selection".
                     dispatch(clearSelection())
+                    dispatch(exitBulkSelectMode())
                   } else {
                     dispatch(enterBulkSelectMode())
                   }

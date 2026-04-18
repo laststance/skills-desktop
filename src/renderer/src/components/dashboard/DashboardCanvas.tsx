@@ -116,7 +116,6 @@ const DashboardGrid = React.memo(function DashboardGrid({
 
   const handleLayoutChange = useCallback(
     (next: Layout) => {
-      if (!pageId) return
       dispatch(
         updateLayout({
           pageId,
