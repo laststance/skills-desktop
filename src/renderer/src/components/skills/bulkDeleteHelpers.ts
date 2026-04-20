@@ -6,6 +6,7 @@ import type {
   BulkDeleteResult,
   BulkUnlinkItemResult,
   BulkUnlinkResult,
+  Skill,
   SkillName,
 } from '../../../../shared/types'
 import { pluralize } from '../../utils/pluralize'
@@ -23,6 +24,24 @@ import { pluralize } from '../../utils/pluralize'
  */
 export type ToolbarView = 'global' | 'agent'
 export type ToolbarCountKind = 'single' | 'multi'
+
+/**
+ * Single source of truth for "is this skill registered in
+ * `~/.agents/.skill-lock.json`?" — true when `source` is set, which the main
+ * process writes only for skills installed via `npx skills add`.
+ *
+ * Callers use this to pick the right delete path: CLI-managed skills go
+ * through `cliRemoveSelectedSkills` so the lock file is rewritten, plain
+ * skills go through the trash + UndoToast pipeline. Getting this branch
+ * wrong leaves ghost lock entries that haunt the Installed badge.
+ *
+ * @param skill - Any Skill record from `state.skills.items`
+ * @returns true when the skill is CLI-tracked, false for plain skills
+ * @example
+ * const isCliManaged = isCliManagedSkill(skill)
+ */
+export const isCliManagedSkill = (skill: Skill): boolean =>
+  skill.source !== undefined
 
 export interface ToolbarStateInput {
   view: ToolbarView
@@ -211,6 +230,53 @@ export const formatUnlinkSummary = (
  * computeRangeSelection('removed', 'zebra', ['alpha','zebra'])
  * // => ['zebra']
  */
+/**
+ * Split a set of selected skill names into two buckets based on whether each
+ * skill is tracked in `~/.agents/.skill-lock.json` (i.e. has a `source` field).
+ *
+ * Used by the bulk-delete confirm dialog in global view so the renderer can
+ * fire `deleteSelectedSkills` for plain folders AND `cliRemoveSelectedSkills`
+ * for lock-file-tracked ones in the same operation. Filesystem-only delete
+ * on a CLI-tracked skill would leave a stale lock entry, which eventually
+ * surfaces as a phantom install.
+ *
+ * Names not found in `items` (stale selection after a refetch) fall into the
+ * `plainNames` bucket so the downstream thunk's own reconciliation
+ * (`reconcileByLiveNames`) drops them cleanly.
+ *
+ * @param selectedNames - Names ticked by the user (already visible-filtered).
+ * @param items - `state.skills.items` to look up the `source` field.
+ * @returns Two arrays — CLI-managed names and regular names. Union equals input (order preserved per bucket).
+ * @example
+ * partitionSkillsForDelete(['task', 'brainstorming'], [
+ *   { name: 'task', source: undefined, ... },
+ *   { name: 'brainstorming', source: 'vercel-labs/agent-skills' as ..., ... },
+ * ])
+ * // => { cliNames: ['brainstorming'], plainNames: ['task'] }
+ */
+export const partitionSkillsForDelete = (
+  selectedNames: SkillName[],
+  items: readonly Skill[],
+): { cliNames: SkillName[]; plainNames: SkillName[] } => {
+  // Index items once to avoid O(N*M) lookup when partitioning a large batch.
+  const skillByName = new Map(items.map((skill) => [skill.name, skill]))
+  const cliNames: SkillName[] = []
+  const plainNames: SkillName[] = []
+
+  for (const name of selectedNames) {
+    const skill = skillByName.get(name)
+    // Skills not in the live set — treat as plain so the trash thunk's
+    // `reconcileByLiveNames` filters them out without a CLI round-trip.
+    if (skill !== undefined && isCliManagedSkill(skill)) {
+      cliNames.push(name)
+    } else {
+      plainNames.push(name)
+    }
+  }
+
+  return { cliNames, plainNames }
+}
+
 export const computeRangeSelection = (
   anchorName: SkillName | null,
   targetName: SkillName,

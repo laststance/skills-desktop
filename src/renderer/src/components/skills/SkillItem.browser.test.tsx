@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { Skill, SkillName } from '../../../../shared/types'
+import { repositoryId } from '../../../../shared/types'
 import { TooltipProvider } from '../ui/tooltip'
 
 const mockGetAll = vi.fn()
@@ -144,5 +145,117 @@ describe('SkillItem bulk-select checkbox visibility', () => {
     // Poll until the checkbox unmounts — exit dispatch is sync but the
     // re-render that removes the node happens on the next commit cycle.
     await expect.poll(() => screen.getByRole('checkbox').query()).toBeNull()
+  })
+})
+
+describe('SkillItem delete button — CLI vs plain routing', () => {
+  // The X button in global view is the fork where `isCliManagedSkill(skill)`
+  // decides whether the row enters the CLI remove dialog (irreversible) or
+  // the shared trash+undo flow. Getting this wrong orphans `.skill-lock.json`
+  // entries, so the branch is worth pinning down with explicit assertions.
+
+  it('aria-label reads "Remove {name} via skills CLI" for a CLI-managed skill', async () => {
+    const { screen } = await renderSkillItem(
+      makeSkill({
+        name: 'brainstorming' as SkillName,
+        // `source` set → isCliManagedSkill → CLI path
+        source: repositoryId('vercel-labs/agent-skills'),
+      }),
+    )
+
+    await expect
+      .element(
+        screen.getByRole('button', {
+          name: /Remove brainstorming via skills CLI/i,
+        }),
+      )
+      .toBeInTheDocument()
+  })
+
+  it('aria-label reads "Delete {name}" for a plain (non-CLI) skill', async () => {
+    const { screen } = await renderSkillItem(
+      makeSkill({ name: 'local-skill' as SkillName }),
+    )
+
+    await expect
+      .element(screen.getByRole('button', { name: /^Delete local-skill$/i }))
+      .toBeInTheDocument()
+  })
+
+  it('clicking the X on a CLI skill dispatches setCliRemoveTarget([name])', async () => {
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        name: 'brainstorming' as SkillName,
+        source: repositoryId('vercel-labs/agent-skills'),
+      }),
+    )
+
+    await screen
+      .getByRole('button', { name: /Remove brainstorming via skills CLI/i })
+      .click()
+
+    // CLI path → cliRemoveTarget is set, bulkConfirm stays null. Asserting
+    // both guards against future regressions where the handler accidentally
+    // dispatches into the trash flow as well.
+    expect(store.getState().skills.cliRemoveTarget).toEqual(['brainstorming'])
+    expect(store.getState().ui.bulkConfirm).toBeNull()
+  })
+
+  it('clicking the X on a plain skill opens bulkConfirm (trash + undo path)', async () => {
+    const { screen, store } = await renderSkillItem(
+      makeSkill({ name: 'local-skill' as SkillName }),
+    )
+
+    await screen.getByRole('button', { name: /^Delete local-skill$/i }).click()
+
+    // Plain path → bulkConfirm surfaces the trash+undo dialog, cliRemoveTarget
+    // stays null. The payload shape must also match what BulkConfirmDialog
+    // expects (kind='delete', no agent).
+    const confirm = store.getState().ui.bulkConfirm
+    expect(confirm).toEqual({
+      kind: 'delete',
+      skillNames: ['local-skill'],
+      agentId: null,
+      agentName: null,
+    })
+    expect(store.getState().skills.cliRemoveTarget).toBeNull()
+  })
+
+  it('X button click does not trigger inspector selection (stopPropagation)', async () => {
+    const { screen, store } = await renderSkillItem(
+      makeSkill({ name: 'brainstorming' as SkillName }),
+    )
+
+    await screen
+      .getByRole('button', { name: /^Delete brainstorming$/i })
+      .click()
+
+    // If propagation leaked, the Card's onClick would fire `selectSkill(skill)`
+    // and the inspector pane would open on the very skill we're deleting — an
+    // obvious UX sin. The handler calls `e.stopPropagation()` specifically to
+    // prevent this.
+    expect(store.getState().skills.selectedSkill).toBeNull()
+  })
+})
+
+describe('SkillItem bulk-select checkbox stopPropagation', () => {
+  // The checkbox wrapper `<label>` and the Checkbox itself both need to stop
+  // propagation, otherwise Card's onClick (which toggles the Inspector pane)
+  // fires alongside the toggle — a click on the checkbox would both tick AND
+  // flip selectedSkill, which is never what the user wants.
+
+  it('toggling the checkbox does not set selectedSkill', async () => {
+    const { screen, store } = await renderSkillItem(
+      makeSkill({ name: 'task' as SkillName }),
+    )
+    const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
+
+    store.dispatch(enterBulkSelectMode())
+    await screen.getByRole('checkbox', { name: /Select task/i }).click()
+
+    // Checkbox tick → selection updated in the skills slice, Inspector stays
+    // closed. If stopPropagation regressed, selectedSkill would be set here.
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+    expect(store.getState().skills.selectedSkill).toBeNull()
   })
 })

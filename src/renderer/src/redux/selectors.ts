@@ -1,14 +1,17 @@
 import { createSelector } from '@reduxjs/toolkit'
 
 import type { SkillName } from '../../../shared/types'
+import { partitionSkillsForDelete } from '../components/skills/bulkDeleteHelpers'
 
 import { selectBookmarkItems } from './slices/bookmarkSlice'
 import {
+  selectInFlightCliRemoveNames,
   selectInFlightDeleteNames,
   selectSelectedSkillNames,
   selectSkillsItems,
 } from './slices/skillsSlice'
 import {
+  selectBulkConfirm,
   selectSearchQuery,
   selectSelectedAgentId,
   selectSkillTypeFilter,
@@ -176,6 +179,52 @@ export const selectInFlightDeleteNamesSet = createSelector(
 )
 
 /**
+ * Memoized Set wrapper around `inFlightCliRemoveNames` — parallel to
+ * `selectInFlightDeleteNamesSet` for the CLI-remove flow. SkillItem OR's
+ * the two sets to decide row fade, so a CLI spawn fades the row the same
+ * as a trash delete.
+ * @returns ReadonlySet<SkillName>
+ */
+export const selectInFlightCliRemoveNamesSet = createSelector(
+  [selectInFlightCliRemoveNames],
+  (names): ReadonlySet<SkillName> => new Set(names),
+)
+
+// Shared empty Set sentinel — returned by every selector that short-circuits
+// on the "no in-flight work" idle case. Hoisted above the first selector that
+// references it so the binding is initialized before any module-time selector
+// evaluation (avoids the TDZ ReferenceError if `createSelector` ever probes
+// its transform eagerly, and removes the reader hazard of a forward reference).
+const EMPTY_SKILL_NAME_SET: ReadonlySet<SkillName> = new Set()
+
+/**
+ * Union of `inFlightDeleteNames` and `inFlightCliRemoveNames` — either kind
+ * of removal fades the row identically, so SkillItem only needs one Set. One
+ * subscription per row vs two halves the useSyncExternalStore work across
+ * virtualized lists during a large batch.
+ *
+ * Kept as a separate selector (rather than replacing the two underlying ones)
+ * because the reducers still read them individually for narrow state clears.
+ * @returns ReadonlySet<SkillName>
+ * @example
+ * const inFlight = useAppSelector(selectAnyInFlightRemovalSet)
+ * const isFading = inFlight.has(skill.name)
+ */
+export const selectAnyInFlightRemovalSet = createSelector(
+  [selectInFlightDeleteNames, selectInFlightCliRemoveNames],
+  (deleteNames, cliNames): ReadonlySet<SkillName> => {
+    // Short-circuit when neither set has entries — avoids one allocation on
+    // every unrelated re-render in the common idle case.
+    if (deleteNames.length === 0 && cliNames.length === 0) {
+      return EMPTY_SKILL_NAME_SET
+    }
+    const union = new Set<SkillName>(deleteNames)
+    for (const name of cliNames) union.add(name)
+    return union
+  },
+)
+
+/**
  * Memoized Set wrapper around `selectedSkillNames` — used by the checkbox in
  * SkillItem to determine its ticked state without scanning the array per row.
  * @returns ReadonlySet<SkillName>
@@ -183,4 +232,24 @@ export const selectInFlightDeleteNamesSet = createSelector(
 export const selectSelectedSkillNamesSet = createSelector(
   [selectSelectedSkillNames],
   (names): ReadonlySet<SkillName> => new Set(names),
+)
+
+/**
+ * Count of CLI-managed skills inside the pending bulk-delete confirmation.
+ * Drives the confirm-dialog warning copy: zero = trash-only language,
+ * >0 = append the no-undo warning so the user sees part of the batch is
+ * irreversible.
+ *
+ * Moved from MainContent's useMemo into Redux so the partition only re-runs
+ * when `bulkConfirm` or `items` actually changes — not on every component
+ * render triggered by unrelated slices.
+ * @returns number — CLI-managed count, or 0 when no bulk-delete confirm is open
+ */
+export const selectBulkCliCount = createSelector(
+  [selectBulkConfirm, selectSkillsItems],
+  (bulkConfirm, items): number => {
+    if (!bulkConfirm || bulkConfirm.kind !== 'delete') return 0
+    return partitionSkillsForDelete(bulkConfirm.skillNames, items).cliNames
+      .length
+  },
 )

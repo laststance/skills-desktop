@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
+import { homedir } from 'os'
 
 import { match, P } from 'ts-pattern'
 
@@ -10,6 +11,8 @@ import type {
   InstallOptions,
   CliCommandResult,
   InstallProgress,
+  CliRemoveSkillResult,
+  SkillName,
 } from '../../shared/types'
 import { REPO_PATTERN, SKILL_NAME_PATTERN } from '../utils/skillIdentifiers'
 
@@ -22,12 +25,61 @@ const AGENT_ID_TO_CLI_NAME = Object.fromEntries(
 )
 
 /**
+ * CLI flag constants so every `npx skills ...` call uses the same strings.
+ * Centralized to keep install/remove flag semantics in one obvious place —
+ * the `--global` default matches skill registration (`.skill-lock.json` lives
+ * under the global scope), and `-y` suppresses the interactive confirmation
+ * prompt the CLI would otherwise hang on.
+ */
+const CLI_FLAGS = {
+  GLOBAL: '--global',
+  YES: '-y',
+} as const
+
+/**
  * Remove ANSI escape sequences from a string
  * @param text - Text with potential ANSI codes
  * @returns Clean text without ANSI codes
  */
 function stripAnsi(text: string): string {
   return text.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').replace(/\[[\d;]*m/g, '')
+}
+
+/**
+ * Cached at module scope so we don't hit the OS on every CLI invocation.
+ * The home directory cannot change during a process lifetime on macOS/Linux
+ * (the scenarios where it would change — `sudo -u`, `HOME=` env override —
+ * we don't support for Skills Desktop).
+ */
+const HOME_DIR = homedir()
+/**
+ * Anchor HOME_DIR matches to a path boundary so `/Users/alice-work/foo` is
+ * not rewritten to `~-work/foo` when HOME_DIR is `/Users/alice`. The
+ * lookahead accepts: path separator (`/` or `\`), end-of-string, whitespace,
+ * or a quote char — all the places a path legitimately terminates inside
+ * CLI stderr output.
+ */
+const HOME_DIR_REGEX = new RegExp(
+  HOME_DIR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?=[/\\\\]|$|\\s|["\'`])',
+  'g',
+)
+
+/**
+ * Sanitize CLI output destined for the renderer (toasts, error UI, logs).
+ * Strips ANSI and replaces the user's home directory with `~` so a stderr
+ * like `ENOENT: /Users/alice/.agents/skills/foo` surfaces as `ENOENT:
+ * ~/.agents/skills/foo` — keeps the actionable context, drops the username.
+ *
+ * Not a security boundary (the renderer is our own code), but defense-in-depth
+ * against leaking PII into screenshots, bug reports, and log files.
+ * @param text - Raw text from CLI stdout/stderr
+ * @returns Sanitized text safe to surface in UI
+ * @example
+ * sanitizeCliMessage('ENOENT: /Users/alice/.agents/skills/foo')
+ * // => 'ENOENT: ~/.agents/skills/foo'
+ */
+function sanitizeCliMessage(text: string): string {
+  return stripAnsi(text).replace(HOME_DIR_REGEX, '~')
 }
 
 /**
@@ -62,10 +114,10 @@ class SkillsCliService extends EventEmitter {
    * install({ repo: 'vercel-labs/agent-skills', global: true, agents: ['claude-code'] })
    */
   async install(options: InstallOptions): Promise<CliCommandResult> {
-    const args = ['add', options.repo, '-y'] // -y to skip interactive prompts
+    const args = ['add', options.repo, CLI_FLAGS.YES]
 
     if (options.global) {
-      args.push('--global')
+      args.push(CLI_FLAGS.GLOBAL)
     }
 
     for (const agent of options.agents) {
@@ -92,6 +144,42 @@ class SkillsCliService extends EventEmitter {
     }
 
     return result
+  }
+
+  /**
+   * Deregister a skill from `~/.agents/.skill-lock.json` via `npx skills remove`.
+   * CLI handles lock file update and filesystem removal in one shot — we never
+   * touch the lock file directly, so schema drift stays the CLI's problem.
+   * @param skillName - Skill name as tracked in the lock file
+   * @returns Discriminated result: `{outcome:'removed'}` on exit 0, else `{outcome:'error', error}`
+   * @example
+   * remove('brainstorming' as SkillName)
+   * // => { skillName: 'brainstorming', outcome: 'removed' }
+   */
+  async remove(skillName: SkillName): Promise<CliRemoveSkillResult> {
+    const result = await this.execCli([
+      'remove',
+      skillName,
+      CLI_FLAGS.GLOBAL,
+      CLI_FLAGS.YES,
+    ])
+
+    if (result.success) {
+      return { skillName, outcome: 'removed' }
+    }
+
+    // stderr often has the actionable message (e.g., "Skill not found").
+    // Fall back to stdout when CLI writes errors there instead.
+    // sanitize strips ANSI + home-directory paths before this string crosses
+    // the IPC boundary into the renderer (toasts, future logging, crash
+    // reports). See sanitizeCliMessage docstring.
+    const rawMessage =
+      result.stderr.trim() || result.stdout.trim() || 'CLI remove failed'
+    return {
+      skillName,
+      outcome: 'error',
+      error: { message: sanitizeCliMessage(rawMessage), code: result.code },
+    }
   }
 
   /**

@@ -134,6 +134,17 @@ interface Agent {
 }
 ```
 
+### Skill Types
+
+Skills fall into two categories based on their installation path. The distinction drives deletion UX (irreversible CLI remove vs trash-with-undo):
+
+| Type        | Installation                   | Lock file tracked                  | Uninstall path                      |
+| ----------- | ------------------------------ | ---------------------------------- | ----------------------------------- |
+| CLI-managed | `npx skills add <owner/repo>`  | Yes (`~/.agents/.skill-lock.json`) | `npx skills remove` (irreversible)  |
+| Plain       | Created directly in skills dir | No                                 | Move to app trash (undo within 15s) |
+
+The app detects CLI-managed skills by the `source` field on the Skill record (populated during scan from the lock file). The in-app delete button and bulk-delete flow route each skill through the matching path.
+
 ### Skill Metadata
 
 Each skill displays:
@@ -145,14 +156,14 @@ Each skill displays:
 
 ### Actions
 
-| Action                 | Status     | Notes                                                  |
-| ---------------------- | ---------- | ------------------------------------------------------ |
-| View skill details     | ✅ Done    | -                                                      |
-| View symlink status    | ✅ Done    | -                                                      |
-| Search skills          | ✅ Done    | Marketplace tab                                        |
-| Install skill          | ✅ Done    | With agent selection                                   |
-| Uninstall skill        | ✅ CLI     | `npx skills remove <name> --global` (no in-app button) |
-| Repair broken symlinks | 🚧 Planned | -                                                      |
+| Action                 | Status     | Notes                                                                                                                                          |
+| ---------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| View skill details     | ✅ Done    | -                                                                                                                                              |
+| View symlink status    | ✅ Done    | -                                                                                                                                              |
+| Search skills          | ✅ Done    | Marketplace tab                                                                                                                                |
+| Install skill          | ✅ Done    | With agent selection                                                                                                                           |
+| Uninstall skill        | ✅ Done    | Delete button and bulk-delete route CLI-managed skills through `npx skills remove` (irreversible, no undo); plain skills go to trash with undo |
+| Repair broken symlinks | 🚧 Planned | -                                                                                                                                              |
 
 ## Tech Stack
 

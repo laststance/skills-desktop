@@ -13,7 +13,7 @@ import type { Skill, SkillName } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import {
-  selectInFlightDeleteNamesSet,
+  selectAnyInFlightRemovalSet,
   selectSelectedSkillNamesSet,
   selectVisibleSkillNames,
 } from '../../redux/selectors'
@@ -26,12 +26,17 @@ import {
   selectRange,
   selectSelectionAnchor,
   selectSkill,
+  setCliRemoveTarget,
   setSkillToAddSymlinks,
   setSkillToCopy,
   setSkillToUnlink,
   toggleSelection,
 } from '../../redux/slices/skillsSlice'
-import { selectBulkSelectMode } from '../../redux/slices/uiSlice'
+import {
+  selectBulkSelectMode,
+  setBulkConfirm,
+} from '../../redux/slices/uiSlice'
+import { BULK_ITEM_FAILED_EVENT } from '../../utils/bulkOpVisuals'
 import { StatusBadge } from '../status/StatusBadge'
 import { Button } from '../ui/button'
 import { Card, CardContent } from '../ui/card'
@@ -45,13 +50,13 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
 import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
-import { computeRangeSelection } from './bulkDeleteHelpers'
+import { computeRangeSelection, isCliManagedSkill } from './bulkDeleteHelpers'
 import { getSkillItemVisibility } from './skillItemHelpers'
 import { SourceLink } from './SourceLink'
 
 // Strongly-type the `skills:bulkItemFailed` CustomEvent so the cast inside
 // handleFailEvent is compile-checked instead of a freeform `as CustomEvent<…>`.
-// The dispatch site lives in MainContent.flashFailedRows.
+// The dispatch site lives in utils/bulkOpVisuals.ts.
 declare global {
   interface WindowEventMap {
     'skills:bulkItemFailed': CustomEvent<{ skillName: SkillName }>
@@ -88,12 +93,12 @@ export const SkillItem = React.memo(function SkillItem({
   const showBookmark = canBookmarkSkill(skill)
 
   const selectedNamesSet = useAppSelector(selectSelectedSkillNamesSet)
-  const inFlightDeleteSet = useAppSelector(selectInFlightDeleteNamesSet)
+  const inFlightRemovalSet = useAppSelector(selectAnyInFlightRemovalSet)
   const selectionAnchor = useAppSelector(selectSelectionAnchor)
   const visibleNames = useAppSelector(selectVisibleSkillNames)
   const bulkSelectMode = useAppSelector(selectBulkSelectMode)
   const isTicked = selectedNamesSet.has(skill.name)
-  const isInFlight = inFlightDeleteSet.has(skill.name)
+  const isInFlight = inFlightRemovalSet.has(skill.name)
 
   const validSymlinks = useMemo(
     () => skill.symlinks.filter((s) => s.status === 'valid'),
@@ -118,11 +123,14 @@ export const SkillItem = React.memo(function SkillItem({
     showAddButton,
     showUnlinkButton,
     showCopyButton,
+    showDeleteButton,
     isLinked,
     isLocalSkill,
     selectedAgentSymlink,
     selectedLocalSkillInfo,
   } = getSkillItemVisibility(selectedAgentId, skill.symlinks)
+
+  const isCliManaged = isCliManagedSkill(skill)
 
   // Get selected agent name for tooltip
   const selectedAgentName =
@@ -139,6 +147,28 @@ export const SkillItem = React.memo(function SkillItem({
   const handleAddClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
     dispatch(setSkillToAddSymlinks(skill))
+  }
+
+  /**
+   * Global-view per-row delete. Routes CLI-managed skills to the CLI remove
+   * dialog (no undo — the dialog is the safety net) and plain skills to the
+   * shared bulk-confirm dialog (which cascades into the trash+undo flow on
+   * confirm). Splitting here keeps SkillItem free of thunk/toast code.
+   */
+  const handleDeleteClick = (e: React.MouseEvent): void => {
+    e.stopPropagation()
+    if (isCliManaged) {
+      dispatch(setCliRemoveTarget([skill.name]))
+      return
+    }
+    dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [skill.name],
+        agentId: null,
+        agentName: null,
+      }),
+    )
   }
 
   const handleToggleBookmark = (e: React.MouseEvent): void => {
@@ -235,7 +265,7 @@ export const SkillItem = React.memo(function SkillItem({
     // Typed via the `WindowEventMap` augmentation above, so `event.detail` is
     // known to carry `{ skillName }` without a cast.
     const handleFailEvent = (
-      event: WindowEventMap['skills:bulkItemFailed'],
+      event: WindowEventMap[typeof BULK_ITEM_FAILED_EVENT],
     ): void => {
       if (event.detail.skillName !== skill.name) return
       setDidPartialFail(true)
@@ -244,9 +274,9 @@ export const SkillItem = React.memo(function SkillItem({
         setDidPartialFail(false)
       }, PARTIAL_FAIL_FLASH_MS)
     }
-    window.addEventListener('skills:bulkItemFailed', handleFailEvent)
+    window.addEventListener(BULK_ITEM_FAILED_EVENT, handleFailEvent)
     return () => {
-      window.removeEventListener('skills:bulkItemFailed', handleFailEvent)
+      window.removeEventListener(BULK_ITEM_FAILED_EVENT, handleFailEvent)
     }
   }, [skill.name])
 
@@ -279,8 +309,7 @@ export const SkillItem = React.memo(function SkillItem({
           onContextMenu={handleContextMenu}
         >
           {/* X button — agent-view only (unlink or delete a local skill from
-              the selected agent). Global-view delete lives on the bulk
-              SelectionToolbar. Apple HIG 44×44 hit area via min-h/min-w. */}
+              the selected agent). Apple HIG 44×44 hit area via min-h/min-w. */}
           {showUnlinkButton && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -305,6 +334,34 @@ export const SkillItem = React.memo(function SkillItem({
             </Tooltip>
           )}
 
+          {/* X button — global-view only (delete entire skill).
+              Routes to CLI remove when lock-file-tracked, else to the shared
+              bulk-confirm dialog which cascades to trash + undo toast.
+              Same visual corner as showUnlinkButton; they're mutually
+              exclusive because `!selectedAgentId` gates showDeleteButton. */}
+          {showDeleteButton && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={handleDeleteClick}
+                  aria-label={
+                    isCliManaged
+                      ? `Remove ${skill.name} via skills CLI`
+                      : `Delete ${skill.name}`
+                  }
+                  data-testid={`skill-delete-${skill.name}`}
+                  className="absolute top-0 right-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                {isCliManaged ? 'Remove (CLI)' : 'Delete'}
+              </TooltipContent>
+            </Tooltip>
+          )}
+
           {/* Bookmark toggle — only for skills with repo source.
               Positioned to the left of the X button with a 44×44 hit area. */}
           {showBookmark && (
@@ -320,8 +377,12 @@ export const SkillItem = React.memo(function SkillItem({
                   }
                   className={cn(
                     'absolute top-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md z-10 transition-opacity',
-                    // Right-align: slide the bookmark left of the X when both are visible.
-                    showUnlinkButton ? 'right-11' : 'right-0',
+                    // Right-align: slide the bookmark left of the X when an
+                    // X button (unlink in agent view, delete in global view)
+                    // shares the top-right corner.
+                    showUnlinkButton || showDeleteButton
+                      ? 'right-11'
+                      : 'right-0',
                     isBookmarked
                       ? 'text-primary'
                       : 'text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
@@ -344,7 +405,9 @@ export const SkillItem = React.memo(function SkillItem({
             className={cn(
               'p-4',
               // Reserve right space for the X/bookmark buttons when shown.
-              showUnlinkButton || showBookmark ? 'pr-14' : 'pr-4',
+              showUnlinkButton || showDeleteButton || showBookmark
+                ? 'pr-14'
+                : 'pr-4',
             )}
           >
             <div className="flex items-start gap-3">
