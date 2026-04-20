@@ -871,6 +871,29 @@ describe('skillsSlice cliRemoveSelectedSkills thunk', () => {
     expect(store.getState().skills.selectedSkill).toBeNull()
   })
 
+  it('cliRemoveSelectedSkills.fulfilled keeps cancelled names selected for retry', async () => {
+    mockSkillsCliRemoveBatch.mockResolvedValue({
+      items: [
+        { skillName: cliSkill.name, outcome: 'removed' },
+        { skillName: cliSkillSecond.name, outcome: 'cancelled' },
+      ],
+    } satisfies CliRemoveSkillsResult)
+
+    const store = await createTestStore()
+    await seedItems(store, [cliSkill, cliSkillSecond])
+
+    const { cliRemoveSelectedSkills, selectAll } = await import('./skillsSlice')
+    store.dispatch(selectAll([cliSkill.name, cliSkillSecond.name]))
+
+    await store.dispatch(
+      cliRemoveSelectedSkills([cliSkill.name, cliSkillSecond.name]),
+    )
+
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      cliSkillSecond.name,
+    ])
+  })
+
   it('cliRemoveSelectedSkills.rejected clears in-flight fade and surfaces error', async () => {
     mockSkillsCliRemoveBatch.mockRejectedValue(new Error('IPC channel closed'))
 

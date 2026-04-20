@@ -34,6 +34,15 @@ import {
 // instead of a `file:` URL).
 const HTML_PATH = resolve(process.cwd(), 'src/renderer/index.html')
 
+interface StorageMock {
+  clear: () => void
+  getItem: (key: string) => string | null
+  key: (index: number) => string | null
+  readonly length: number
+  removeItem: (key: string) => void
+  setItem: (key: string, value: string) => void
+}
+
 /**
  * Locate the inline bootstrap IIFE by finding the `<script>` block that
  * contains the PERSIST_STORAGE_KEY literal. Anchoring on the marker is
@@ -65,6 +74,52 @@ function loadBootstrapScript(): string {
   return match[1]
 }
 
+/**
+ * Build an isolated in-memory Storage implementation for this test file.
+ * @returns Storage-like object with deterministic get/set/remove/clear behavior.
+ * @example
+ * const storage = createStorageMock()
+ * storage.setItem('k', 'v')
+ * storage.getItem('k') // => 'v'
+ */
+function createStorageMock(): StorageMock {
+  const entries = new Map<string, string>()
+  return {
+    clear: () => {
+      entries.clear()
+    },
+    getItem: (key: string) => entries.get(key) ?? null,
+    key: (index: number) => Array.from(entries.keys())[index] ?? null,
+    get length() {
+      return entries.size
+    },
+    removeItem: (key: string) => {
+      entries.delete(key)
+    },
+    setItem: (key: string, value: string) => {
+      entries.set(key, value)
+    },
+  }
+}
+
+/**
+ * Install a fresh storage mock on the global object so the inline bootstrap
+ * script reads from a predictable storage implementation.
+ * @returns The installed storage mock for direct use in tests.
+ * @example
+ * const storage = installStorageMock()
+ * storage.setItem('x', '1')
+ */
+function installStorageMock(): StorageMock {
+  const storage = createStorageMock()
+  Object.defineProperty(globalThis, 'localStorage', {
+    value: storage,
+    writable: true,
+    configurable: true,
+  })
+  return storage
+}
+
 function runBootstrap(): void {
   const script = loadBootstrapScript()
   // Using `new Function` (not `eval`) keeps the script in its own lexical
@@ -74,6 +129,7 @@ function runBootstrap(): void {
 }
 
 beforeEach(() => {
+  installStorageMock()
   localStorage.clear()
   const root = document.documentElement
   root.style.removeProperty('--theme-hue')

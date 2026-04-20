@@ -2,7 +2,11 @@ import { EventEmitter } from 'events'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { SkillName } from '../../shared/types'
+import {
+  CLI_REMOVE_BUSY_CODE,
+  CLI_REMOVE_TIMEOUT_CODE,
+  type SkillName,
+} from '../../shared/types'
 
 /**
  * Fake child process so we can drive stdout/stderr/close from the test.
@@ -54,25 +58,32 @@ function simulateCli({
   stdout = '',
   stderr = '',
   exitCode = 0,
+  autoClose = true,
 }: {
   stdout?: string
   stderr?: string
   exitCode?: number
-}): void {
+  autoClose?: boolean
+}): FakeChildProcess {
   const fake = new FakeChildProcess()
   spawnMock.mockImplementationOnce(() => {
-    // Defer emission until after execCli finishes attaching listeners
-    queueMicrotask(() => {
-      if (stdout) fake.stdout.emit('data', Buffer.from(stdout))
-      if (stderr) fake.stderr.emit('data', Buffer.from(stderr))
-      fake.emit('close', exitCode)
-    })
+    if (autoClose) {
+      // Defer emission until after execCli finishes attaching listeners
+      queueMicrotask(() => {
+        if (stdout) fake.stdout.emit('data', Buffer.from(stdout))
+        if (stderr) fake.stderr.emit('data', Buffer.from(stderr))
+        fake.emit('close', exitCode)
+      })
+    }
     return fake
   })
+  return fake
 }
 
 describe('skillsCliService.remove', () => {
   beforeEach(() => {
+    vi.useRealTimers()
+    vi.resetModules()
     spawnMock.mockReset()
   })
 
@@ -155,6 +166,44 @@ describe('skillsCliService.remove', () => {
     expect(result.error.message).toBe('CLI remove failed')
   })
 
+  it('returns a timeout error code when a CLI child exceeds SPAWN_TIMEOUT_MS', async () => {
+    vi.useFakeTimers()
+    const fake = simulateCli({ autoClose: false })
+
+    const { skillsCliService } = await import('./skillsCliService')
+    const promise = skillsCliService.remove('brainstorming' as SkillName)
+
+    await vi.advanceTimersByTimeAsync(60_000)
+    const result = await promise
+
+    if (result.outcome !== 'error') {
+      throw new Error('Expected error outcome')
+    }
+    expect(result.error.code).toBe(CLI_REMOVE_TIMEOUT_CODE)
+    expect(result.error.message).toBe('CLI command timed out after 60s')
+    expect(fake.kill).toHaveBeenCalledWith('SIGTERM')
+  })
+
+  it('returns a busy error when another CLI remove is already in flight', async () => {
+    const first = simulateCli({ autoClose: false })
+
+    const { skillsCliService } = await import('./skillsCliService')
+    const firstPromise = skillsCliService.remove('first' as SkillName)
+    const secondResult = await skillsCliService.remove('second' as SkillName)
+
+    expect(secondResult).toEqual({
+      skillName: 'second',
+      outcome: 'error',
+      error: {
+        message: 'Another CLI operation is already in progress',
+        code: CLI_REMOVE_BUSY_CODE,
+      },
+    })
+
+    first.emit('close', 0)
+    await firstPromise
+  })
+
   it('invokes spawn with npx skills@<VERSION> remove <name> --global -y', async () => {
     simulateCli({ exitCode: 0 })
 
@@ -170,5 +219,23 @@ describe('skillsCliService.remove', () => {
     expect(command).toBe('npx')
     expect(args[0]).toMatch(/^skills@/)
     expect(args.slice(1)).toEqual(['remove', 'brainstorming', '--global', '-y'])
+  })
+
+  it('kills all running CLI children on cancel()', async () => {
+    const first = simulateCli({ autoClose: false })
+    const second = simulateCli({ autoClose: false })
+
+    const { skillsCliService } = await import('./skillsCliService')
+    const searchA = skillsCliService.search('a')
+    const searchB = skillsCliService.search('b')
+
+    skillsCliService.cancel()
+
+    expect(first.kill).toHaveBeenCalledWith('SIGTERM')
+    expect(second.kill).toHaveBeenCalledWith('SIGTERM')
+
+    first.emit('close', 0)
+    second.emit('close', 0)
+    await Promise.all([searchA, searchB])
   })
 })

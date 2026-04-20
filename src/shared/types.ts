@@ -700,19 +700,39 @@ export interface CliRemoveSkillOptions {
   skillName: SkillName
 }
 
+/** Batch remove timeout sentinel code surfaced to renderer to show retry copy. */
+export const CLI_REMOVE_TIMEOUT_CODE = 'CLI_TIMEOUT' as const
+/** Reject-on-busy sentinel code surfaced when another CLI process is active. */
+export const CLI_REMOVE_BUSY_CODE = 'CLI_BUSY' as const
+
+/**
+ * Error code surfaced by CLI remove failures.
+ * - numeric: direct process exit code from `npx skills remove`
+ * - null: child process exited without a numeric code (signal/unknown)
+ * - `CLI_TIMEOUT`: hard timeout exceeded before close
+ * - `CLI_BUSY`: another CLI operation is already running
+ */
+export type CliRemoveErrorCode =
+  | number
+  | null
+  | typeof CLI_REMOVE_TIMEOUT_CODE
+  | typeof CLI_REMOVE_BUSY_CODE
+
 /**
  * Result from `skills:cli:remove`. Discriminated on `outcome` so an error
  * branch never carries a spurious "removed" claim. The CLI is irreversible —
  * successful removes have no undo token.
  * @example { skillName: 'brainstorming', outcome: 'removed' }
  * @example { skillName: 'brainstorming', outcome: 'error', error: { message: 'skills: not found', code: 1 } }
+ * @example { skillName: 'brainstorming', outcome: 'cancelled' }
  */
 export type CliRemoveSkillResult =
   | { skillName: SkillName; outcome: 'removed' }
+  | { skillName: SkillName; outcome: 'cancelled' }
   | {
       skillName: SkillName
       outcome: 'error'
-      error: { message: string; code?: number | null }
+      error: { message: string; code?: CliRemoveErrorCode }
     }
 
 /**
@@ -734,7 +754,10 @@ export interface CliRemoveSkillsOptions {
  * ~6–20s of npx cold-starts; if that becomes a UX problem, add progress
  * emission to `skillsCli.ts:SKILLS_CLI_REMOVE_BATCH` and wire it through
  * `setBulkProgress` the way `SKILLS_CLI_INSTALL` already does.
+ * Cancelled batches keep unprocessed items as `{ outcome: 'cancelled' }`
+ * so renderer can preserve selection for retry.
  * @example { items: [{ skillName: 'brainstorming', outcome: 'removed' }] }
+ * @example { items: [{ skillName: 'task', outcome: 'cancelled' }] }
  */
 export interface CliRemoveSkillsResult {
   /** Per-item outcome, index-aligned with the input `items` array. */
