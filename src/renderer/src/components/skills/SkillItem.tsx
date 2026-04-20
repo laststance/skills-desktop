@@ -146,6 +146,10 @@ export const SkillItem = React.memo(function SkillItem({
 
   const handleAddClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
+    if (selectedAgentId) {
+      dispatch(setSkillToCopy(skill))
+      return
+    }
     dispatch(setSkillToAddSymlinks(skill))
   }
 
@@ -449,7 +453,9 @@ export const SkillItem = React.memo(function SkillItem({
                     />
                   )}
                   <span className="truncate">{skill.name}</span>
-                  {/* Add button - only when viewing all skills (no agent filter) */}
+                  {/* Add button:
+                      - global view => AddSymlinkModal
+                      - agent view => CopyToAgentsModal */}
                   {showAddButton && (
                     <Button
                       variant="ghost"

@@ -44,11 +44,29 @@ describe('getSkillItemVisibility', () => {
   })
 
   describe('agent filtered view (agent selected)', () => {
-    it('hides delete and add buttons when agent is selected', () => {
+    it('hides delete button and keeps add hidden when selected agent has no skill', () => {
       const result = getSkillItemVisibility('cursor', [])
 
       expect(result.showDeleteButton).toBe(false)
       expect(result.showAddButton).toBe(false)
+    })
+
+    it('shows add button when selected agent has a valid symlink', () => {
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
+      ]
+      const result = getSkillItemVisibility('cursor', symlinks)
+
+      expect(result.showAddButton).toBe(true)
+    })
+
+    it('shows add button when selected agent has a local skill', () => {
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: true }),
+      ]
+      const result = getSkillItemVisibility('cursor', symlinks)
+
+      expect(result.showAddButton).toBe(true)
     })
 
     it('shows unlink button when valid symlink exists for selected agent', () => {
