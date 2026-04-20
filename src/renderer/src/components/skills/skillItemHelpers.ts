@@ -7,7 +7,11 @@ import type { AgentId, SymlinkInfo } from '../../../../shared/types'
 export interface SkillItemVisibility {
   /** Show X button (delete skill entirely) — only in global view */
   showDeleteButton: boolean
-  /** Show Add button (create symlinks) — only in global view */
+  /**
+   * Show Add button.
+   * - global view: opens AddSymlinkModal
+   * - agent view (skill exists in selected agent): opens CopyToAgentsModal
+   */
   showAddButton: boolean
   /** Show Trash icon (unlink symlink or delete local skill from selected agent) */
   showUnlinkButton: boolean
@@ -35,9 +39,9 @@ export interface SkillItemVisibility {
  * getSkillItemVisibility(null, []) // => { showDeleteButton: true, showAddButton: true, showUnlinkButton: false, ... }
  *
  * @example
- * // Agent filtered view with valid symlink — show unlink, hide delete & add
+ * // Agent filtered view with valid symlink — show unlink and add, hide delete
  * getSkillItemVisibility('cursor', [{ agentId: 'cursor', status: 'valid', isLocal: false, ... }])
- * // => { showDeleteButton: false, showAddButton: false, showUnlinkButton: true, isLinked: true, ... }
+ * // => { showDeleteButton: false, showAddButton: true, showUnlinkButton: true, isLinked: true, ... }
  *
  * @example
  * // Agent filtered view with local skill — show unlink button for deletion
@@ -62,16 +66,16 @@ export function getSkillItemVisibility(
     : null
 
   const isLocalSkill = !!selectedLocalSkillInfo
+  const hasSkillInSelectedAgent = !!selectedAgentSymlink || isLocalSkill
 
   return {
     showDeleteButton: !selectedAgentId,
-    showAddButton: !selectedAgentId,
-    showUnlinkButton: !!selectedAgentSymlink || isLocalSkill,
+    showAddButton: !selectedAgentId || hasSkillInSelectedAgent,
+    showUnlinkButton: hasSkillInSelectedAgent,
     isLinked: !!selectedAgentSymlink && selectedAgentSymlink.status === 'valid',
     isLocalSkill,
     selectedAgentSymlink,
     selectedLocalSkillInfo,
-    showCopyButton:
-      !!selectedAgentId && (!!selectedAgentSymlink || isLocalSkill),
+    showCopyButton: !!selectedAgentId && hasSkillInSelectedAgent,
   }
 }

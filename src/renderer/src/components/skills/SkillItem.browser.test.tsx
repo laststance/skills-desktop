@@ -238,6 +238,65 @@ describe('SkillItem delete button — CLI vs plain routing', () => {
   })
 })
 
+describe('SkillItem Add button routing', () => {
+  it('shows Add button in agent view when the skill exists in selected agent', async () => {
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        symlinks: [
+          {
+            agentId: 'cursor',
+            agentName: 'Cursor',
+            status: 'valid',
+            targetPath: '/home/user/.agents/skills/task',
+            linkPath: '/home/user/.cursor/skills/task',
+            isLocal: false,
+          },
+        ],
+      }),
+    )
+    const { selectAgent } = await import('../../redux/slices/uiSlice')
+
+    store.dispatch(selectAgent('cursor'))
+
+    await expect
+      .element(screen.getByRole('button', { name: /^Add$/i }))
+      .toBeInTheDocument()
+  })
+
+  it('in agent view, Add click opens copy modal target (skillToCopy)', async () => {
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        symlinks: [
+          {
+            agentId: 'cursor',
+            agentName: 'Cursor',
+            status: 'valid',
+            targetPath: '/home/user/.agents/skills/task',
+            linkPath: '/home/user/.cursor/skills/task',
+            isLocal: false,
+          },
+        ],
+      }),
+    )
+    const { selectAgent } = await import('../../redux/slices/uiSlice')
+
+    store.dispatch(selectAgent('cursor'))
+    await screen.getByRole('button', { name: /^Add$/i }).click()
+
+    expect(store.getState().skills.skillToCopy?.name).toBe('task')
+    expect(store.getState().skills.skillToAddSymlinks).toBeNull()
+  })
+
+  it('in global view, Add click keeps existing add-symlink routing', async () => {
+    const { screen, store } = await renderSkillItem(makeSkill())
+
+    await screen.getByRole('button', { name: /^Add$/i }).click()
+
+    expect(store.getState().skills.skillToAddSymlinks?.name).toBe('task')
+    expect(store.getState().skills.skillToCopy).toBeNull()
+  })
+})
+
 describe('SkillItem bulk-select checkbox stopPropagation', () => {
   // The checkbox wrapper `<label>` and the Checkbox itself both need to stop
   // propagation, otherwise Card's onClick (which toggles the Inspector pane)
