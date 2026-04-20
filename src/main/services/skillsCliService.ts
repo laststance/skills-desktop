@@ -5,7 +5,11 @@ import { homedir } from 'os'
 import { match, P } from 'ts-pattern'
 
 import { AGENT_DEFINITIONS, SKILLS_CLI_VERSION } from '../../shared/constants'
-import { repositoryId } from '../../shared/types'
+import {
+  CLI_REMOVE_BUSY_CODE,
+  CLI_REMOVE_TIMEOUT_CODE,
+  repositoryId,
+} from '../../shared/types'
 import type {
   SkillSearchResult,
   InstallOptions,
@@ -35,6 +39,20 @@ const CLI_FLAGS = {
   GLOBAL: '--global',
   YES: '-y',
 } as const
+
+/** Hard timeout per spawned `npx skills ...` child process (60 seconds). */
+const SPAWN_TIMEOUT_MS = 60_000
+/** Signal used for user cancel and timeout kill paths. */
+const PROCESS_KILL_SIGNAL: NodeJS.Signals = 'SIGTERM'
+
+/**
+ * Internal execution payload from `execCli`.
+ * Extends `CliCommandResult` with a timeout sentinel so callers can map
+ * user-facing error copy without overloading `code`.
+ */
+interface CliExecutionResult extends CliCommandResult {
+  timedOut: boolean
+}
 
 /**
  * Remove ANSI escape sequences from a string
@@ -88,7 +106,8 @@ function sanitizeCliMessage(text: string): string {
  * version is imported from shared constants so upgrades happen in one place.
  */
 class SkillsCliService extends EventEmitter {
-  private currentProcess: ChildProcess | null = null
+  private runningProcesses = new Set<ChildProcess>()
+  private batchCancelRequested = false
 
   /**
    * Search for skills using `npx skills find <query>`
@@ -157,6 +176,10 @@ class SkillsCliService extends EventEmitter {
    * // => { skillName: 'brainstorming', outcome: 'removed' }
    */
   async remove(skillName: SkillName): Promise<CliRemoveSkillResult> {
+    if (this.isBusy()) {
+      return this.buildBusyRemoveResult(skillName)
+    }
+
     const result = await this.execCli([
       'remove',
       skillName,
@@ -166,6 +189,17 @@ class SkillsCliService extends EventEmitter {
 
     if (result.success) {
       return { skillName, outcome: 'removed' }
+    }
+
+    if (result.timedOut) {
+      return {
+        skillName,
+        outcome: 'error',
+        error: {
+          message: this.buildTimeoutMessage(),
+          code: CLI_REMOVE_TIMEOUT_CODE,
+        },
+      }
     }
 
     // stderr often has the actionable message (e.g., "Skill not found").
@@ -183,12 +217,42 @@ class SkillsCliService extends EventEmitter {
   }
 
   /**
-   * Cancel the current CLI operation
+   * True when at least one CLI child process is currently running.
+   * Used by IPC handlers to apply reject-on-busy behavior for batch dispatch.
+   */
+  isBusy(): boolean {
+    return this.runningProcesses.size > 0
+  }
+
+  /**
+   * Mark the current batch operation as cancelled and terminate in-flight CLI
+   * children. Remaining items are handled by the batch loop in `skillsCli.ts`.
+   */
+  requestBatchCancel(): void {
+    this.batchCancelRequested = true
+    this.cancel()
+  }
+
+  /**
+   * Clear batch-cancel state before starting a new removeBatch dispatch.
+   */
+  resetBatchCancelRequest(): void {
+    this.batchCancelRequested = false
+  }
+
+  /**
+   * Read-only snapshot of the batch cancel flag for loop checks.
+   */
+  isBatchCancelRequested(): boolean {
+    return this.batchCancelRequested
+  }
+
+  /**
+   * Cancel all currently-running CLI operations.
    */
   cancel(): void {
-    if (this.currentProcess) {
-      this.currentProcess.kill('SIGTERM')
-      this.currentProcess = null
+    for (const proc of this.runningProcesses) {
+      proc.kill(PROCESS_KILL_SIGNAL)
     }
   }
 
@@ -201,17 +265,39 @@ class SkillsCliService extends EventEmitter {
   private async execCli(
     args: string[],
     onOutput?: (data: string) => void,
-  ): Promise<CliCommandResult> {
+  ): Promise<CliExecutionResult> {
     return new Promise((resolve) => {
       let stdout = ''
       let stderr = ''
+      let settled = false
 
       // Use npx to run skills CLI with FORCE_COLOR=0 to disable ANSI colors
       const proc = spawn('npx', [`skills@${SKILLS_CLI_VERSION}`, ...args], {
         env: { ...process.env, FORCE_COLOR: '0' },
       })
 
-      this.currentProcess = proc
+      this.runningProcesses.add(proc)
+
+      const finalize = (result: CliExecutionResult): void => {
+        if (settled) {
+          return
+        }
+        settled = true
+        clearTimeout(timeoutHandle)
+        this.runningProcesses.delete(proc)
+        resolve(result)
+      }
+
+      const timeoutHandle = setTimeout(() => {
+        proc.kill(PROCESS_KILL_SIGNAL)
+        finalize({
+          success: false,
+          stdout,
+          stderr: this.buildTimeoutMessage(),
+          code: null,
+          timedOut: true,
+        })
+      }, SPAWN_TIMEOUT_MS)
 
       proc.stdout?.on('data', (data: Buffer) => {
         const text = data.toString()
@@ -224,25 +310,48 @@ class SkillsCliService extends EventEmitter {
       })
 
       proc.on('close', (code) => {
-        this.currentProcess = null
-        resolve({
+        finalize({
           success: code === 0,
           stdout,
           stderr,
           code,
+          timedOut: false,
         })
       })
 
       proc.on('error', (error) => {
-        this.currentProcess = null
-        resolve({
+        finalize({
           success: false,
           stdout,
           stderr: error.message,
           code: null,
+          timedOut: false,
         })
       })
     })
+  }
+
+  /**
+   * Build the user-facing timeout message using the shared timeout constant.
+   */
+  private buildTimeoutMessage(): string {
+    const timeoutSeconds = Math.floor(SPAWN_TIMEOUT_MS / 1000)
+    return `CLI command timed out after ${timeoutSeconds}s`
+  }
+
+  /**
+   * Build a deterministic busy error so callers can map specific UI copy.
+   * @param skillName - Skill that was requested while another CLI process was active
+   */
+  private buildBusyRemoveResult(skillName: SkillName): CliRemoveSkillResult {
+    return {
+      skillName,
+      outcome: 'error',
+      error: {
+        message: 'Another CLI operation is already in progress',
+        code: CLI_REMOVE_BUSY_CODE,
+      },
+    }
   }
 
   /**

@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { CliRemoveSkillsResult, SkillName } from '../../../shared/types'
+import {
+  CLI_REMOVE_BUSY_CODE,
+  CLI_REMOVE_TIMEOUT_CODE,
+  type CliRemoveSkillsResult,
+  type SkillName,
+} from '../../../shared/types'
 
 import { toastCliRemoveBatchResult } from './cliRemoveToast'
 
@@ -12,12 +17,14 @@ import { toastCliRemoveBatchResult } from './cliRemoveToast'
 const toastSuccess = vi.fn()
 const toastError = vi.fn()
 const toastWarning = vi.fn()
+const toastInfo = vi.fn()
 
 vi.mock('sonner', () => ({
   toast: {
     success: (...args: unknown[]) => toastSuccess(...args),
     error: (...args: unknown[]) => toastError(...args),
     warning: (...args: unknown[]) => toastWarning(...args),
+    info: (...args: unknown[]) => toastInfo(...args),
   },
 }))
 
@@ -26,6 +33,7 @@ describe('toastCliRemoveBatchResult', () => {
     toastSuccess.mockReset()
     toastError.mockReset()
     toastWarning.mockReset()
+    toastInfo.mockReset()
   })
 
   it('emits a name-specific success toast for a single successful item', () => {
@@ -105,6 +113,47 @@ describe('toastCliRemoveBatchResult', () => {
     })
   })
 
+  it('emits a busy-specific error toast when every failure is CLI_BUSY', () => {
+    const result: CliRemoveSkillsResult = {
+      items: [
+        {
+          skillName: 'a' as SkillName,
+          outcome: 'error',
+          error: { message: 'busy', code: CLI_REMOVE_BUSY_CODE },
+        },
+        {
+          skillName: 'b' as SkillName,
+          outcome: 'error',
+          error: { message: 'busy', code: CLI_REMOVE_BUSY_CODE },
+        },
+      ],
+    }
+
+    toastCliRemoveBatchResult(result)
+
+    expect(toastError).toHaveBeenCalledWith('CLI operation already running', {
+      description: 'Another CLI operation is already in progress.',
+    })
+  })
+
+  it('emits a timeout-specific error toast when every failure is CLI_TIMEOUT', () => {
+    const result: CliRemoveSkillsResult = {
+      items: [
+        {
+          skillName: 'a' as SkillName,
+          outcome: 'error',
+          error: { message: 'timed out', code: CLI_REMOVE_TIMEOUT_CODE },
+        },
+      ],
+    }
+
+    toastCliRemoveBatchResult(result)
+
+    expect(toastError).toHaveBeenCalledWith('CLI remove timed out', {
+      description: 'One or more CLI remove commands exceeded 60 seconds.',
+    })
+  })
+
   it('emits a warning toast for a partial-success batch', () => {
     const result: CliRemoveSkillsResult = {
       items: [
@@ -142,6 +191,37 @@ describe('toastCliRemoveBatchResult', () => {
     // Name-aware branch wins for length-1, so we get the name, not "1 skill".
     expect(toastSuccess).toHaveBeenCalledWith('Removed solo', {
       description: 'Deregistered from ~/.agents/.skill-lock.json',
+    })
+  })
+
+  it('emits an info toast when all remaining items are cancelled', () => {
+    const result: CliRemoveSkillsResult = {
+      items: [
+        { skillName: 'a' as SkillName, outcome: 'cancelled' },
+        { skillName: 'b' as SkillName, outcome: 'cancelled' },
+      ],
+    }
+
+    toastCliRemoveBatchResult(result)
+
+    expect(toastInfo).toHaveBeenCalledWith('Cancelled removing 2 skills')
+    expect(toastSuccess).not.toHaveBeenCalled()
+    expect(toastError).not.toHaveBeenCalled()
+    expect(toastWarning).not.toHaveBeenCalled()
+  })
+
+  it('emits a mixed warning toast when removed and cancelled coexist', () => {
+    const result: CliRemoveSkillsResult = {
+      items: [
+        { skillName: 'a' as SkillName, outcome: 'removed' },
+        { skillName: 'b' as SkillName, outcome: 'cancelled' },
+      ],
+    }
+
+    toastCliRemoveBatchResult(result)
+
+    expect(toastWarning).toHaveBeenCalledWith('Removed 1, cancelled 1', {
+      description: 'Batch was cancelled before all skills were processed',
     })
   })
 })

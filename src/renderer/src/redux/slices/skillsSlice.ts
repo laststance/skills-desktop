@@ -542,8 +542,8 @@ const skillsSlice = createSlice({
         state.error = action.error.message ?? 'Undo failed'
       })
       // CLI remove (batch, length 1..N) — mirror delete-batch reducers:
-      // narrow selection to successfully-removed items, keep failures selected
-      // for retry, reconcile anchor the same way.
+      // narrow selection to successfully-removed items, keep failures/cancelled
+      // selected for retry, reconcile anchor the same way.
       .addCase(cliRemoveSelectedSkills.pending, (state, action) => {
         state.inFlightCliRemoveNames = reconcileByLiveNames(
           state.items,
