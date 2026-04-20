@@ -3,12 +3,20 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
-import type { SkillName } from '../../../../shared/types'
+import type {
+  BulkDeleteResult,
+  CliRemoveSkillsResult,
+  Skill,
+  SkillName,
+} from '../../../../shared/types'
+import { repositoryId, tombstoneId } from '../../../../shared/types'
 import { TooltipProvider } from '../ui/tooltip'
 
 const mockGetAll = vi.fn()
 const mockShellOpenExternal = vi.fn()
 const mockOnDeleteProgress = vi.fn(() => () => {})
+const mockSkillsCliRemoveBatch = vi.fn()
+const mockSkillsDeleteSkills = vi.fn()
 
 /**
  * Short-circuit every heavy child MainContent renders so tests focus on the
@@ -67,6 +75,8 @@ beforeEach(() => {
   mockShellOpenExternal.mockReset()
   mockOnDeleteProgress.mockReset()
   mockOnDeleteProgress.mockImplementation(() => () => {})
+  mockSkillsCliRemoveBatch.mockReset()
+  mockSkillsDeleteSkills.mockReset()
   // Install the `electron` IPC bridge — browser mode replaces the preload
   // context, so tests that exercise `window.electron.*` must plant a fake
   // before MainContent's mount effect fires.
@@ -74,6 +84,10 @@ beforeEach(() => {
     skills: {
       getAll: mockGetAll,
       onDeleteProgress: mockOnDeleteProgress,
+      deleteSkills: mockSkillsDeleteSkills,
+    },
+    skillsCli: {
+      removeBatch: mockSkillsCliRemoveBatch,
     },
     shell: {
       openExternal: mockShellOpenExternal,
@@ -357,5 +371,191 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
     } finally {
       document.body.removeChild(textInput)
     }
+  })
+})
+
+describe('MainContent handleConfirmBulk — mixed-partition dispatch', () => {
+  // Global-view bulk delete partitions the batch into CLI-managed (source set,
+  // tracked in ~/.agents/.skill-lock.json) vs. plain skills. The CLI bucket
+  // MUST fire first: the awaited spawn has to settle before the reversible
+  // trash op runs, otherwise the UndoToast's tombstone ids can reference a
+  // skill the CLI already removed — the restore would then try to resurrect
+  // a ghost. This test pins down that invariant.
+
+  /**
+   * Build a Skill fixture with either a `source` (CLI-managed) or no source
+   * (plain). Keeps the test's seeding block readable.
+   */
+  function makeSkill(name: SkillName, cli: boolean): Skill {
+    return {
+      name,
+      description: '',
+      path: `/home/user/.agents/skills/${name}` as Skill['path'],
+      symlinkCount: 0,
+      symlinks: [],
+      ...(cli ? { source: repositoryId('vercel-labs/agent-skills') } : {}),
+    }
+  }
+
+  it('dispatches cliRemoveSelectedSkills BEFORE deleteSelectedSkills for a mixed batch', async () => {
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
+    const { setBulkConfirm } = await import('../../redux/slices/uiSlice')
+    const { fetchSkills } = await import('../../redux/slices/skillsSlice')
+
+    // Stub IPC results. The partition has brainstorming (CLI) + local-skill
+    // (plain), so removeBatch returns one item and deleteSkills returns one.
+    const cliResult: CliRemoveSkillsResult = {
+      items: [{ skillName: 'brainstorming' as SkillName, outcome: 'removed' }],
+    }
+    const plainResult: BulkDeleteResult = {
+      items: [
+        {
+          skillName: 'local-skill' as SkillName,
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1729180800000-local-skill-a1b2c3d4'),
+          symlinksRemoved: 0,
+          cascadeAgents: [],
+        },
+      ],
+    }
+    mockSkillsCliRemoveBatch.mockResolvedValue(cliResult)
+    mockSkillsDeleteSkills.mockResolvedValue(plainResult)
+
+    // Seed items via the real thunk's fulfilled action — same pattern as the
+    // Cmd+A test — so the partition step sees a live item list.
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSkill('brainstorming' as SkillName, true),
+          makeSkill('local-skill' as SkillName, false),
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: ['brainstorming' as SkillName, 'local-skill' as SkillName],
+        agentId: null,
+        agentName: null,
+      }),
+    )
+
+    // The inline BulkConfirmDialog renders a "Delete" button (destructive
+    // variant) when kind === 'delete'. Clicking it invokes handleConfirmBulk.
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    await expect.poll(() => mockSkillsCliRemoveBatch.mock.calls.length).toBe(1)
+    await expect.poll(() => mockSkillsDeleteSkills.mock.calls.length).toBe(1)
+
+    // Ordering is load-bearing: invocation-order comparison uses vitest's
+    // call timestamps (available via `mock.invocationCallOrder` — monotonic
+    // across all mocks in the run).
+    const cliCall = mockSkillsCliRemoveBatch.mock.invocationCallOrder[0]
+    const plainCall = mockSkillsDeleteSkills.mock.invocationCallOrder[0]
+    expect(cliCall).toBeLessThan(plainCall)
+
+    // Payload shape: CLI got the CLI-managed name only, plain got the plain
+    // name only — the partition correctly separated the two buckets.
+    expect(mockSkillsCliRemoveBatch.mock.calls[0][0]).toEqual({
+      items: [{ skillName: 'brainstorming' }],
+    })
+    // The deleteSkills IPC takes `{ items: [{ skillName }] }` (same shape as
+    // removeBatch), NOT a flat string array. Assert the exact payload so a
+    // future thunk tweak that drops the wrapper surfaces here.
+    expect(mockSkillsDeleteSkills.mock.calls[0][0]).toEqual({
+      items: [{ skillName: 'local-skill' }],
+    })
+  })
+
+  it('skips deleteSkills entirely when every selected skill is CLI-managed', async () => {
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode, setBulkConfirm } =
+      await import('../../redux/slices/uiSlice')
+    const { fetchSkills } = await import('../../redux/slices/skillsSlice')
+
+    const cliResult: CliRemoveSkillsResult = {
+      items: [
+        { skillName: 'brainstorming' as SkillName, outcome: 'removed' },
+        { skillName: 'theme-generator' as SkillName, outcome: 'removed' },
+      ],
+    }
+    mockSkillsCliRemoveBatch.mockResolvedValue(cliResult)
+
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSkill('brainstorming' as SkillName, true),
+          makeSkill('theme-generator' as SkillName, true),
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [
+          'brainstorming' as SkillName,
+          'theme-generator' as SkillName,
+        ],
+        agentId: null,
+        agentName: null,
+      }),
+    )
+
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    await expect.poll(() => mockSkillsCliRemoveBatch.mock.calls.length).toBe(1)
+    // Crucial: deleteSkills IPC never fires for an all-CLI batch. Calling it
+    // with an empty array would spin the trash service for no reason AND
+    // leave an empty UndoToast tombstone list on screen.
+    expect(mockSkillsDeleteSkills).not.toHaveBeenCalled()
+  })
+
+  it('skips cliRemoveBatch entirely when every selected skill is plain', async () => {
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode, setBulkConfirm } =
+      await import('../../redux/slices/uiSlice')
+    const { fetchSkills } = await import('../../redux/slices/skillsSlice')
+
+    const plainResult: BulkDeleteResult = {
+      items: [
+        {
+          skillName: 'local-skill' as SkillName,
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1729180800000-local-skill-a1b2c3d4'),
+          symlinksRemoved: 0,
+          cascadeAgents: [],
+        },
+      ],
+    }
+    mockSkillsDeleteSkills.mockResolvedValue(plainResult)
+
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [makeSkill('local-skill' as SkillName, false)],
+        'req-id',
+      ),
+    )
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: ['local-skill' as SkillName],
+        agentId: null,
+        agentName: null,
+      }),
+    )
+
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    await expect.poll(() => mockSkillsDeleteSkills.mock.calls.length).toBe(1)
+    // Symmetric to the all-CLI case: a plain-only batch must not spawn a CLI
+    // subprocess. (Cold-start npx latency is ~1s; firing it for nothing
+    // would be a gratuitous UX hit.)
+    expect(mockSkillsCliRemoveBatch).not.toHaveBeenCalled()
   })
 })

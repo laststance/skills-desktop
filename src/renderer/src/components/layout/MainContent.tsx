@@ -14,21 +14,23 @@ import { FEATURE_FLAGS } from '../../../../shared/featureFlags'
 import type {
   BulkDeleteItemResult,
   IsoTimestamp,
-  SkillName,
   TombstoneId,
 } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import {
+  selectBulkCliCount,
   selectSelectedVisibleNames,
   selectVisibleSkillNames,
 } from '../../redux/selectors'
 import { setPreviewSkill } from '../../redux/slices/marketplaceSlice'
 import {
   clearSelection,
+  cliRemoveSelectedSkills,
   deleteSelectedSkills,
   selectAll,
   selectSelectedSkillNames,
+  selectSkillsItems,
   setBulkProgress,
   undoLastBulkDelete,
   unlinkSelectedFromAgent,
@@ -49,6 +51,10 @@ import {
   toggleSortOrder,
 } from '../../redux/slices/uiSlice'
 import { refreshAllData } from '../../redux/thunks'
+import {
+  flashFailedRows,
+  settleCliRemoveBatch,
+} from '../../utils/bulkOpVisuals'
 import { errorToastDescription } from '../../utils/errorToastDescription'
 import { isEditableTarget } from '../../utils/isEditableTarget'
 import { pluralize } from '../../utils/pluralize'
@@ -57,11 +63,14 @@ import { SyncConfirmDialog } from '../sidebar/SyncConfirmDialog'
 import { SyncConflictDialog } from '../sidebar/SyncConflictDialog'
 import { SyncResultDialog } from '../sidebar/SyncResultDialog'
 import { AddSymlinkModal } from '../skills/AddSymlinkModal'
+import { renderBulkDeleteDescription } from '../skills/bulkDeleteCopy'
 import {
   formatCascadeSummary,
   formatUnlinkSummary,
+  partitionSkillsForDelete,
 } from '../skills/bulkDeleteHelpers'
 import { CopyToAgentsModal } from '../skills/CopyToAgentsModal'
+import { DeleteCliSkillDialog } from '../skills/DeleteCliSkillDialog'
 import { SearchBox } from '../skills/SearchBox'
 import { SelectionToolbar } from '../skills/SelectionToolbar'
 import { SkillsList } from '../skills/SkillsList'
@@ -114,6 +123,7 @@ export const MainContent = React.memo(
     const visibleNames = useAppSelector(selectVisibleSkillNames)
     const selectedVisibleNames = useAppSelector(selectSelectedVisibleNames)
     const selectedAllNames = useAppSelector(selectSelectedSkillNames)
+    const skillItems = useAppSelector(selectSkillsItems)
 
     const bulkConfirm = useAppSelector(selectBulkConfirm)
     const bulkSelectMode = useAppSelector(selectBulkSelectMode)
@@ -197,22 +207,6 @@ export const MainContent = React.memo(
       })
       return unsubscribe
     }, [dispatch])
-
-    /**
-     * Emit per-item failure flash for rows that errored out of a bulk op.
-     * SkillItem rows listen for `skills:bulkItemFailed` and flash a red left
-     * edge for 3s. Keeping this imperative avoids piping per-row failure state
-     * through Redux for a transient visual.
-     */
-    const flashFailedRows = useCallback((failedNames: SkillName[]) => {
-      for (const skillName of failedNames) {
-        window.dispatchEvent(
-          new CustomEvent<{ skillName: SkillName }>('skills:bulkItemFailed', {
-            detail: { skillName },
-          }),
-        )
-      }
-    }, [])
 
     /**
      * Handle the restore callback from inside the UndoToast. Dispatches the
@@ -316,8 +310,37 @@ export const MainContent = React.memo(
         return
       }
 
-      // Global view — bulk delete (tombstoned, undo toast).
-      const action = await dispatch(deleteSelectedSkills(skillNames))
+      // Global view — bulk delete. Mixed selections are partitioned:
+      //  - CLI-tracked skills (have `source`) dispatch through
+      //    `cliRemoveSelectedSkills` so `.skill-lock.json` stays in sync;
+      //    these are IRREVERSIBLE (no UndoToast wiring).
+      //  - Plain skills flow through the existing trash + UndoToast pipeline.
+      // CLI first so the awaited spawn settles before the reversible trash
+      // op runs, keeping `state.skills.items` stable while the UndoToast is
+      // live (restore targets would otherwise risk referencing ghosts).
+      const { cliNames, plainNames } = partitionSkillsForDelete(
+        skillNames,
+        skillItems,
+      )
+
+      if (cliNames.length > 0) {
+        const cliAction = await dispatch(cliRemoveSelectedSkills(cliNames))
+        if (cliRemoveSelectedSkills.fulfilled.match(cliAction)) {
+          settleCliRemoveBatch(cliAction.payload)
+        } else {
+          toast.error('CLI remove failed', {
+            description: errorToastDescription(cliAction),
+          })
+        }
+      }
+
+      // All-CLI case: no trash dispatch needed. Refresh and return.
+      if (plainNames.length === 0) {
+        refreshAllData(dispatch)
+        return
+      }
+
+      const action = await dispatch(deleteSelectedSkills(plainNames))
       if (deleteSelectedSkills.fulfilled.match(action)) {
         const tombstoneIds = action.payload.items
           .filter(
@@ -384,11 +407,13 @@ export const MainContent = React.memo(
           description: errorToastDescription(action),
         })
       }
-    }, [bulkConfirm, dispatch, flashFailedRows, handleUndoDelete])
+    }, [bulkConfirm, dispatch, handleUndoDelete, skillItems])
 
     const handleCancelBulkConfirm = useCallback((): void => {
       dispatch(clearBulkConfirm())
     }, [dispatch])
+
+    const bulkCliCount = useAppSelector(selectBulkCliCount)
 
     return (
       <main
@@ -581,6 +606,7 @@ export const MainContent = React.memo(
         <UnlinkDialog />
         <AddSymlinkModal />
         <CopyToAgentsModal />
+        <DeleteCliSkillDialog />
         <SyncConfirmDialog />
         <SyncConflictDialog />
         <SyncResultDialog />
@@ -604,7 +630,10 @@ export const MainContent = React.memo(
               </DialogTitle>
               <DialogDescription>
                 {bulkConfirm?.kind === 'delete'
-                  ? 'This moves the skills to the app trash and removes every symlink pointing to them. You can restore within 15 seconds from the notification.'
+                  ? renderBulkDeleteDescription({
+                      cliCount: bulkCliCount,
+                      totalCount: bulkConfirm.skillNames.length,
+                    })
                   : `This removes the symlinks in ${bulkConfirm?.agentName ?? 'this agent'}. The underlying skill files stay in your source directory.`}
               </DialogDescription>
             </DialogHeader>

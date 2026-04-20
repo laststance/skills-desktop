@@ -5,12 +5,14 @@ import type {
   AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
+  CliRemoveSkillsResult,
   RestoreDeletedSkillResult,
   Skill,
+  SkillName,
   SymlinkInfo,
   TombstoneId,
 } from '../../../../shared/types'
-import { tombstoneId } from '../../../../shared/types'
+import { repositoryId, tombstoneId } from '../../../../shared/types'
 
 const mockGetAll = vi.fn()
 const mockUnlinkFromAgent = vi.fn()
@@ -20,6 +22,7 @@ const mockDeleteSkills = vi.fn()
 const mockUnlinkManyFromAgent = vi.fn()
 const mockRestoreDeletedSkill = vi.fn()
 const mockOnDeleteProgress = vi.fn()
+const mockSkillsCliRemoveBatch = vi.fn()
 
 vi.stubGlobal('window', {
   electron: {
@@ -32,6 +35,9 @@ vi.stubGlobal('window', {
       unlinkManyFromAgent: mockUnlinkManyFromAgent,
       restoreDeletedSkill: mockRestoreDeletedSkill,
       onDeleteProgress: mockOnDeleteProgress,
+    },
+    skillsCli: {
+      removeBatch: mockSkillsCliRemoveBatch,
     },
   },
 })
@@ -73,6 +79,24 @@ const thirdSkill: Skill = {
   ...sampleSkill,
   name: 'browser',
   path: '/home/user/.agents/skills/browser',
+}
+
+/**
+ * Sample CLI-managed skill. `source` is what `isCliManagedSkill` keys on —
+ * main process writes this field only for skills installed via
+ * `npx skills add` (see skillScanner.ts lock-file join).
+ */
+const cliSkill: Skill = {
+  ...sampleSkill,
+  name: 'brainstorming',
+  path: '/home/user/.agents/skills/brainstorming',
+  source: repositoryId('vercel-labs/agent-skills'),
+}
+
+const cliSkillSecond: Skill = {
+  ...cliSkill,
+  name: 'code-review',
+  path: '/home/user/.agents/skills/code-review',
 }
 
 /** Sample symlink info */
@@ -686,5 +710,170 @@ describe('skillsSlice undoLastBulkDelete thunk', () => {
       expect(action.payload[0].result.error.message).toBe('Disk full')
     }
     expect(store.getState().skills.error).toBeNull()
+  })
+
+  // --- setCliRemoveTarget (sync reducer) ---
+  it('setCliRemoveTarget opens the confirm dialog with a single name', async () => {
+    const { setCliRemoveTarget } = await import('./skillsSlice')
+    const store = await createTestStore()
+    store.dispatch(setCliRemoveTarget(['brainstorming' as SkillName]))
+    expect(store.getState().skills.cliRemoveTarget).toEqual(['brainstorming'])
+  })
+
+  it('setCliRemoveTarget with null clears the dialog', async () => {
+    const { setCliRemoveTarget } = await import('./skillsSlice')
+    const store = await createTestStore()
+    store.dispatch(setCliRemoveTarget(['brainstorming' as SkillName]))
+    store.dispatch(setCliRemoveTarget(null))
+    expect(store.getState().skills.cliRemoveTarget).toBeNull()
+  })
+
+  // --- cliRemoveSelectedSkills thunk ---
+  it('cliRemoveSelectedSkills.pending seeds inFlightCliRemoveNames and flips bulkCliRemoving', async () => {
+    // Hold the IPC call pending so we can inspect .pending state before settle.
+    let resolveRemove!: (value: CliRemoveSkillsResult) => void
+    mockSkillsCliRemoveBatch.mockReturnValue(
+      new Promise<CliRemoveSkillsResult>((r) => {
+        resolveRemove = r
+      }),
+    )
+
+    const store = await createTestStore()
+    await seedItems(store, [cliSkill, cliSkillSecond])
+
+    const { cliRemoveSelectedSkills } = await import('./skillsSlice')
+    const promise = store.dispatch(
+      cliRemoveSelectedSkills([cliSkill.name, cliSkillSecond.name]),
+    )
+
+    const pending = store.getState().skills
+    expect(pending.bulkCliRemoving).toBe(true)
+    expect(pending.inFlightCliRemoveNames).toEqual([
+      cliSkill.name,
+      cliSkillSecond.name,
+    ])
+    expect(pending.error).toBeNull()
+
+    resolveRemove({
+      items: [
+        { skillName: cliSkill.name, outcome: 'removed' },
+        { skillName: cliSkillSecond.name, outcome: 'removed' },
+      ],
+    })
+    await promise
+  })
+
+  it('cliRemoveSelectedSkills.pending reconciles ghost names against live items', async () => {
+    mockSkillsCliRemoveBatch.mockResolvedValue({
+      items: [{ skillName: cliSkill.name, outcome: 'removed' }],
+    } satisfies CliRemoveSkillsResult)
+
+    const store = await createTestStore()
+    // Only one of the two requested names is live; the other is a ghost from
+    // a stale selection. reconcileByLiveNames should drop it from the in-flight
+    // fade set so SkillItem never paints a fade on a row that does not exist.
+    await seedItems(store, [cliSkill])
+
+    const { cliRemoveSelectedSkills } = await import('./skillsSlice')
+    const promise = store.dispatch(
+      cliRemoveSelectedSkills([cliSkill.name, 'ghost-skill' as SkillName]),
+    )
+
+    const pending = store.getState().skills
+    expect(pending.inFlightCliRemoveNames).toEqual([cliSkill.name])
+    await promise
+  })
+
+  it('cliRemoveSelectedSkills.fulfilled narrows selection to only removed items, keeps failures', async () => {
+    // Batch with one success, one error — failures should remain selected for
+    // retry; only successful removals should drop out of selectedSkillNames.
+    mockSkillsCliRemoveBatch.mockResolvedValue({
+      items: [
+        { skillName: cliSkill.name, outcome: 'removed' },
+        {
+          skillName: cliSkillSecond.name,
+          outcome: 'error',
+          error: { message: 'Skill not found', code: 1 },
+        },
+      ],
+    } satisfies CliRemoveSkillsResult)
+
+    const store = await createTestStore()
+    await seedItems(store, [cliSkill, cliSkillSecond])
+
+    const { cliRemoveSelectedSkills, selectAll } = await import('./skillsSlice')
+    store.dispatch(selectAll([cliSkill.name, cliSkillSecond.name]))
+
+    await store.dispatch(
+      cliRemoveSelectedSkills([cliSkill.name, cliSkillSecond.name]),
+    )
+
+    const state = store.getState().skills
+    expect(state.selectedSkillNames).toEqual([cliSkillSecond.name])
+    expect(state.bulkCliRemoving).toBe(false)
+    expect(state.inFlightCliRemoveNames).toEqual([])
+    expect(state.bulkProgress).toBeNull()
+  })
+
+  it('cliRemoveSelectedSkills.fulfilled clears selectionAnchor when anchor was removed', async () => {
+    mockSkillsCliRemoveBatch.mockResolvedValue({
+      items: [{ skillName: cliSkill.name, outcome: 'removed' }],
+    } satisfies CliRemoveSkillsResult)
+
+    const store = await createTestStore()
+    await seedItems(store, [cliSkill, cliSkillSecond])
+
+    // selectAll sets anchor to the LAST payload entry, so ordering matters:
+    // we want the anchor to be `cliSkill` (the one about to be removed).
+    const { cliRemoveSelectedSkills, selectAll } = await import('./skillsSlice')
+    store.dispatch(selectAll([cliSkillSecond.name, cliSkill.name]))
+    expect(store.getState().skills.selectionAnchor).toBe(cliSkill.name)
+
+    await store.dispatch(cliRemoveSelectedSkills([cliSkill.name]))
+
+    // Anchor removed → anchor must be nulled; without this, Shift+click would
+    // compute a range from a ghost origin.
+    expect(store.getState().skills.selectionAnchor).toBeNull()
+    // Other selection survives since it was not in this batch.
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      cliSkillSecond.name,
+    ])
+  })
+
+  it('cliRemoveSelectedSkills.fulfilled clears Inspector when its target was removed', async () => {
+    mockSkillsCliRemoveBatch.mockResolvedValue({
+      items: [{ skillName: cliSkill.name, outcome: 'removed' }],
+    } satisfies CliRemoveSkillsResult)
+
+    const store = await createTestStore()
+    await seedItems(store, [cliSkill])
+
+    const { cliRemoveSelectedSkills, selectSkill } =
+      await import('./skillsSlice')
+    store.dispatch(selectSkill(cliSkill))
+    expect(store.getState().skills.selectedSkill).not.toBeNull()
+
+    await store.dispatch(cliRemoveSelectedSkills([cliSkill.name]))
+
+    // CLI remove is irreversible — leaving the Inspector on a permanently
+    // gone skill would be worse than the trash-flow Inspector (which at
+    // least has undo). See reducer comment.
+    expect(store.getState().skills.selectedSkill).toBeNull()
+  })
+
+  it('cliRemoveSelectedSkills.rejected clears in-flight fade and surfaces error', async () => {
+    mockSkillsCliRemoveBatch.mockRejectedValue(new Error('IPC channel closed'))
+
+    const store = await createTestStore()
+    await seedItems(store, [cliSkill])
+
+    const { cliRemoveSelectedSkills } = await import('./skillsSlice')
+    await store.dispatch(cliRemoveSelectedSkills([cliSkill.name]))
+
+    const state = store.getState().skills
+    expect(state.bulkCliRemoving).toBe(false)
+    expect(state.inFlightCliRemoveNames).toEqual([])
+    expect(state.bulkProgress).toBeNull()
+    expect(state.error).toBe('IPC channel closed')
   })
 })
