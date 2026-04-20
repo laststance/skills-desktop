@@ -689,6 +689,59 @@ export interface BulkUnlinkResult {
 }
 
 /**
+ * IPC argument for `skills:cli:remove` — deregister a single skill from the
+ * global lock file (`~/.agents/.skill-lock.json`) via `npx skills remove
+ * <name> --global --yes`. The UI routes here when `skill.source` is truthy
+ * so the CLI stays in sync; non-CLI skills go through moveToTrash instead.
+ * @example { skillName: 'brainstorming' }
+ */
+export interface CliRemoveSkillOptions {
+  /** Skill to deregister. Must match a key in `~/.agents/.skill-lock.json`. @example "brainstorming" */
+  skillName: SkillName
+}
+
+/**
+ * Result from `skills:cli:remove`. Discriminated on `outcome` so an error
+ * branch never carries a spurious "removed" claim. The CLI is irreversible —
+ * successful removes have no undo token.
+ * @example { skillName: 'brainstorming', outcome: 'removed' }
+ * @example { skillName: 'brainstorming', outcome: 'error', error: { message: 'skills: not found', code: 1 } }
+ */
+export type CliRemoveSkillResult =
+  | { skillName: SkillName; outcome: 'removed' }
+  | {
+      skillName: SkillName
+      outcome: 'error'
+      error: { message: string; code?: number | null }
+    }
+
+/**
+ * IPC argument for `skills:cli:removeBatch` — deregister N skills in sequence.
+ * CLI invocations are serial by design: concurrent writers to the lock file
+ * would race. Bulk mixed-mode flows (CLI + trash) live in the renderer;
+ * this IPC owns only the CLI half.
+ * @example { items: [{ skillName: 'brainstorming' }, { skillName: 'frontend-design' }] }
+ */
+export interface CliRemoveSkillsOptions {
+  /** Skills to deregister, in user-selection order. */
+  items: Array<{ skillName: SkillName }>
+}
+
+/**
+ * Batch CLI remove result. The batch handler is currently silent during the
+ * serial spawn loop (no progress events) — the UI shows only the generic
+ * `bulkCliRemoving` spinner via `SelectionToolbar`. A 10-item batch takes
+ * ~6–20s of npx cold-starts; if that becomes a UX problem, add progress
+ * emission to `skillsCli.ts:SKILLS_CLI_REMOVE_BATCH` and wire it through
+ * `setBulkProgress` the way `SKILLS_CLI_INSTALL` already does.
+ * @example { items: [{ skillName: 'brainstorming', outcome: 'removed' }] }
+ */
+export interface CliRemoveSkillsResult {
+  /** Per-item outcome, index-aligned with the input `items` array. */
+  items: CliRemoveSkillResult[]
+}
+
+/**
  * IPC argument for `skills:restoreDeletedSkill` — undo a single tombstoned delete.
  * Main validates the `tombstoneId` against `tombstoneIdSchema` before touching the filesystem.
  * @example { tombstoneId: '1729180800000-theme-generator-a1b2c3d4' }

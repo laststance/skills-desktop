@@ -11,11 +11,16 @@ import type { IpcInvokeChannel } from '../../shared/ipc-contract'
  */
 
 const nonEmptyString = z.string().min(1)
-/** Skill name must not contain path separators to prevent directory traversal */
+/**
+ * Skill name must not contain path separators (prevents `../` traversal) or
+ * null bytes (defense in depth: some libc wrappers truncate at `\0`, which
+ * could let `evil\0.good` pass a later string check while opening `evil`).
+ */
 const skillNameString = z
   .string()
   .min(1)
   .regex(/^[^/\\]+$/, 'Skill name must not contain path separators')
+  .refine((s) => !s.includes('\0'), 'Skill name must not contain null bytes')
 
 /**
  * Tombstone id format: `<unix_ms>-<skillName>-<rand8hex>`.
@@ -71,6 +76,23 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       global: z.boolean(),
       agents: z.array(z.string()),
       skills: z.array(z.string()).optional(),
+    }),
+  ]),
+  'skills:cli:remove': z.tuple([
+    z.object({
+      skillName: skillNameString,
+    }),
+  ]),
+  'skills:cli:removeBatch': z.tuple([
+    z.object({
+      // Cap batch size. Each item spawns an `npx skills remove` child process
+      // (serial), so an unbounded array could pin a CPU core and exhaust file
+      // descriptors on cold npm cache. 100 covers realistic user selections
+      // with generous headroom while closing the local-DoS footprint.
+      items: z
+        .array(z.object({ skillName: skillNameString }))
+        .min(1, 'At least one skill required for batch CLI remove')
+        .max(100, 'Batch CLI remove limited to 100 skills'),
     }),
   ]),
 

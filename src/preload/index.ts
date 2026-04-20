@@ -3,6 +3,8 @@ import { contextBridge } from 'electron'
 import { IPC_CHANNELS } from '../shared/ipc-channels'
 import type {
   AbsolutePath,
+  CliRemoveSkillOptions,
+  CliRemoveSkillsOptions,
   CopyToAgentsOptions,
   CreateSymlinksOptions,
   DeleteProgressPayload,
@@ -102,6 +104,13 @@ contextBridge.exposeInMainWorld('electron', {
     onProgress: createIpcListener<InstallProgress>(
       IPC_CHANNELS.SKILLS_CLI_PROGRESS,
     ),
+    // CLI-based remove (deregister from ~/.agents/.skill-lock.json).
+    // Used when a skill's `source` field is set — filesystem removal alone
+    // would leave a stale lock entry, so we delegate to the CLI.
+    remove: async (options: CliRemoveSkillOptions) =>
+      typedInvoke('skills:cli:remove', options),
+    removeBatch: async (options: CliRemoveSkillsOptions) =>
+      typedInvoke('skills:cli:removeBatch', options),
   },
   // Marketplace Leaderboard
   marketplace: {
