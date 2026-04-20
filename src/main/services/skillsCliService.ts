@@ -52,8 +52,15 @@ function stripAnsi(text: string): string {
  * we don't support for Skills Desktop).
  */
 const HOME_DIR = homedir()
+/**
+ * Anchor HOME_DIR matches to a path boundary so `/Users/alice-work/foo` is
+ * not rewritten to `~-work/foo` when HOME_DIR is `/Users/alice`. The
+ * lookahead accepts: path separator (`/` or `\`), end-of-string, whitespace,
+ * or a quote char — all the places a path legitimately terminates inside
+ * CLI stderr output.
+ */
 const HOME_DIR_REGEX = new RegExp(
-  HOME_DIR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+  HOME_DIR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?=[/\\\\]|$|\\s|["\'`])',
   'g',
 )
 

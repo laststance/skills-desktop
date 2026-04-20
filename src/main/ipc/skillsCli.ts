@@ -77,10 +77,16 @@ export function registerSkillsCliHandlers(): void {
     for (const [itemIndex, { skillName }] of options.items.entries()) {
       results.push(await removeSkillViaCli(skillName))
       if (emitProgress) {
-        typedSend(event.sender, IPC_CHANNELS.SKILLS_DELETE_PROGRESS, {
-          current: itemIndex + 1,
-          total,
-        })
+        // Mirror the SKILLS_CLI_INSTALL guard (lines 30-35): a renderer closed
+        // mid-batch (6-20s per PR) would otherwise throw on typedSend because
+        // webContents is destroyed but event.sender still holds a reference.
+        const win = BrowserWindow.fromWebContents(event.sender)
+        if (win && !win.isDestroyed()) {
+          typedSend(event.sender, IPC_CHANNELS.SKILLS_DELETE_PROGRESS, {
+            current: itemIndex + 1,
+            total,
+          })
+        }
       }
     }
 

@@ -190,6 +190,13 @@ export const selectInFlightCliRemoveNamesSet = createSelector(
   (names): ReadonlySet<SkillName> => new Set(names),
 )
 
+// Shared empty Set sentinel — returned by every selector that short-circuits
+// on the "no in-flight work" idle case. Hoisted above the first selector that
+// references it so the binding is initialized before any module-time selector
+// evaluation (avoids the TDZ ReferenceError if `createSelector` ever probes
+// its transform eagerly, and removes the reader hazard of a forward reference).
+const EMPTY_SKILL_NAME_SET: ReadonlySet<SkillName> = new Set()
+
 /**
  * Union of `inFlightDeleteNames` and `inFlightCliRemoveNames` — either kind
  * of removal fades the row identically, so SkillItem only needs one Set. One
@@ -216,8 +223,6 @@ export const selectAnyInFlightRemovalSet = createSelector(
     return union
   },
 )
-
-const EMPTY_SKILL_NAME_SET: ReadonlySet<SkillName> = new Set()
 
 /**
  * Memoized Set wrapper around `selectedSkillNames` — used by the checkbox in

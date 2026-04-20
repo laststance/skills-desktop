@@ -29,13 +29,14 @@ export const renderBulkDeleteDescription = ({
   totalCount: number
 }): React.ReactNode => {
   if (cliCount === 0) {
-    return 'This moves the skills to the app trash and removes every symlink pointing to them. You can restore within 15 seconds from the notification.'
+    return `This moves the ${pluralize(totalCount, 'skill')} to the app trash and removes every symlink pointing to ${pluralize(totalCount, 'it', 'them')}. You can restore within 15 seconds from the notification.`
   }
 
   if (cliCount === totalCount) {
     return (
       <>
-        These skills are CLI-managed and will be deregistered via{' '}
+        {pluralize(cliCount, 'This skill is', 'These skills are')} CLI-managed
+        and will be deregistered via{' '}
         <code className="text-xs">npx skills remove</code>. This cannot be
         undone.
       </>
@@ -45,10 +46,10 @@ export const renderBulkDeleteDescription = ({
   const trashCount = totalCount - cliCount
   return (
     <>
-      {trashCount} will move to the app trash (restorable for 15s).{' '}
-      <strong>{cliCount}</strong> CLI-managed {pluralize(cliCount, 'skill')}{' '}
-      will run <code className="text-xs">npx skills remove</code> and cannot be
-      undone.
+      {trashCount} {pluralize(trashCount, 'skill')} will move to the app trash
+      (restorable for 15s). <strong>{cliCount}</strong> CLI-managed{' '}
+      {pluralize(cliCount, 'skill')} will run{' '}
+      <code className="text-xs">npx skills remove</code> and cannot be undone.
     </>
   )
 }

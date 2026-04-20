@@ -711,8 +711,13 @@ describe('skillsSlice undoLastBulkDelete thunk', () => {
     }
     expect(store.getState().skills.error).toBeNull()
   })
+})
 
-  // --- setCliRemoveTarget (sync reducer) ---
+describe('skillsSlice setCliRemoveTarget (sync reducer)', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
   it('setCliRemoveTarget opens the confirm dialog with a single name', async () => {
     const { setCliRemoveTarget } = await import('./skillsSlice')
     const store = await createTestStore()
@@ -727,8 +732,13 @@ describe('skillsSlice undoLastBulkDelete thunk', () => {
     store.dispatch(setCliRemoveTarget(null))
     expect(store.getState().skills.cliRemoveTarget).toBeNull()
   })
+})
 
-  // --- cliRemoveSelectedSkills thunk ---
+describe('skillsSlice cliRemoveSelectedSkills thunk', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
   it('cliRemoveSelectedSkills.pending seeds inFlightCliRemoveNames and flips bulkCliRemoving', async () => {
     // Hold the IPC call pending so we can inspect .pending state before settle.
     let resolveRemove!: (value: CliRemoveSkillsResult) => void

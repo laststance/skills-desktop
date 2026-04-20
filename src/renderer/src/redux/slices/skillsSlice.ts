@@ -553,11 +553,16 @@ const skillsSlice = createSlice({
         state.error = null
       })
       .addCase(cliRemoveSelectedSkills.fulfilled, (state, action) => {
-        if (state.inFlightCliRemoveNames.length !== 0) {
-          state.inFlightCliRemoveNames = []
-        }
+        state.inFlightCliRemoveNames = []
         state.bulkCliRemoving = false
         state.bulkProgress = null
+        // Defensive clear: `DeleteCliSkillDialog` already calls
+        // `setCliRemoveTarget(null)` in its finally block, but if that dialog
+        // unmounts mid-flight (route change, component error boundary trip)
+        // the finally never runs and the target sticks until the next user
+        // action. Clearing here makes the cleanup invariant hold regardless
+        // of who dispatched the thunk.
+        state.cliRemoveTarget = null
         const removedNames = new Set(
           action.payload.items
             .filter((item) => item.outcome === 'removed')
@@ -583,9 +588,7 @@ const skillsSlice = createSlice({
         }
       })
       .addCase(cliRemoveSelectedSkills.rejected, (state, action) => {
-        if (state.inFlightCliRemoveNames.length !== 0) {
-          state.inFlightCliRemoveNames = []
-        }
+        state.inFlightCliRemoveNames = []
         state.bulkCliRemoving = false
         state.bulkProgress = null
         state.error = action.error.message ?? 'Bulk CLI remove failed'

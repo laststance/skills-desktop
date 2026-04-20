@@ -331,6 +331,12 @@ export const MainContent = React.memo(
           toast.error('CLI remove failed', {
             description: errorToastDescription(cliAction),
           })
+          // Transport-level rejection (IPC/spawn broke). Don't fall through
+          // to the plain-delete partition — the CLI batch never ran, so the
+          // user can retry the whole selection. Partial per-item failures
+          // still take the fulfilled branch above.
+          refreshAllData(dispatch)
+          return
         }
       }
 

@@ -555,7 +555,9 @@ describe('MainContent handleConfirmBulk — mixed-partition dispatch', () => {
     await expect.poll(() => mockSkillsDeleteSkills.mock.calls.length).toBe(1)
     // Symmetric to the all-CLI case: a plain-only batch must not spawn a CLI
     // subprocess. (Cold-start npx latency is ~1s; firing it for nothing
-    // would be a gratuitous UX hit.)
-    expect(mockSkillsCliRemoveBatch).not.toHaveBeenCalled()
+    // would be a gratuitous UX hit.) Poll the negative assertion too — a
+    // bare `.not.toHaveBeenCalled()` would pass spuriously on the first tick
+    // before the (forbidden) CLI spawn would have settled on the slow path.
+    await expect.poll(() => mockSkillsCliRemoveBatch.mock.calls.length).toBe(0)
   })
 })
