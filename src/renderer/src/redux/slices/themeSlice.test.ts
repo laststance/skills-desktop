@@ -1,7 +1,10 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 
-import { COLOR_PRESET_CHROMA } from '../../../../shared/constants'
+import {
+  COLOR_PRESET_CHROMA,
+  TINTED_NEUTRAL_CHROMA,
+} from '../../../../shared/constants'
 
 async function createTestStore() {
   const { default: themeReducer } = await import('./themeSlice')
@@ -64,6 +67,42 @@ describe('themeSlice', () => {
     expect(store.getState().theme.mode).toBe('dark')
     expect(store.getState().theme.preset).toBe('neutral-dark')
   })
+
+  // Tinted-neutral families ship as explicit dark/light pairs in
+  // THEME_PRESETS (see constants.ts §"Tinted neutral"). Without the
+  // partner-key swap, a user on `zinc-dark` who hits the mode toggle
+  // would end up with `state.mode = 'light'` while `state.preset`
+  // remained `zinc-dark`, breaking the dropdown's `aria-pressed`,
+  // the sr-only "Current theme: …" announcement, and producing
+  // mismatched persisted state on next launch.
+  it.each([
+    ['zinc-dark', 'zinc-light', 265],
+    ['slate-dark', 'slate-light', 240],
+    ['stone-dark', 'stone-light', 60],
+    ['mauve-dark', 'mauve-light', 320],
+  ] as const)(
+    'toggleMode swaps %s ↔ %s so preset stays consistent with mode',
+    async (darkPreset, lightPreset, expectedHue) => {
+      const { setTheme, toggleMode } = await import('./themeSlice')
+      const store = await createTestStore()
+
+      store.dispatch(setTheme(darkPreset))
+      expect(store.getState().theme.preset).toBe(darkPreset)
+      expect(store.getState().theme.mode).toBe('dark')
+      expect(store.getState().theme.hue).toBe(expectedHue)
+      expect(store.getState().theme.chroma).toBe(TINTED_NEUTRAL_CHROMA)
+
+      store.dispatch(toggleMode())
+      expect(store.getState().theme.mode).toBe('light')
+      expect(store.getState().theme.preset).toBe(lightPreset)
+      expect(store.getState().theme.hue).toBe(expectedHue)
+      expect(store.getState().theme.chroma).toBe(TINTED_NEUTRAL_CHROMA)
+
+      store.dispatch(toggleMode())
+      expect(store.getState().theme.mode).toBe('dark')
+      expect(store.getState().theme.preset).toBe(darkPreset)
+    },
+  )
 
   it('switching color → neutral drops chroma to 0', async () => {
     const { setTheme } = await import('./themeSlice')

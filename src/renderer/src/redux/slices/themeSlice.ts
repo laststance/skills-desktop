@@ -71,15 +71,41 @@ export const themeSlice = createSlice({
     },
 
     /**
-     * Flip between dark and light. When the active preset is one of the
-     * neutral variants, also swap its preset key so `neutral-dark` ↔
-     * `neutral-light` stays consistent with the new mode.
+     * Flip between dark and light. Presets that bake `mode` into the
+     * config (`neutral-*` and the tinted-neutral families: zinc / slate /
+     * stone / mauve) are persisted as explicit `<family>-dark` /
+     * `<family>-light` pairs in `THEME_PRESETS`, so a mode flip must also
+     * swap the preset key — otherwise `state.preset` and `state.mode`
+     * desync, breaking the dropdown's `aria-pressed` state and the
+     * sr-only "Current theme: …" announcement.
+     *
+     * Color presets (no baked `mode`) keep their preset name; only the
+     * mode flips, leaving their hue/chroma untouched.
+     *
+     * Partner key is data-derived from the family prefix (the substring
+     * before the last `-`), matching the same convention used by
+     * `ThemeSelector`'s `NEUTRAL_FAMILIES` builder. Adding a future
+     * tinted-neutral pair to `THEME_PRESETS` therefore needs no reducer
+     * change.
      */
     toggleMode: (state) => {
       const next = state.mode === 'dark' ? 'light' : 'dark'
       state.mode = next
-      if (state.preset === 'neutral-dark' || state.preset === 'neutral-light') {
-        state.preset = `neutral-${next}`
+
+      const config = THEME_PRESETS[state.preset]
+      if (!config || !('mode' in config)) {
+        return
+      }
+
+      const lastDashIndex = state.preset.lastIndexOf('-')
+      // Defensive: a preset that bakes `mode` should always be named
+      // `<family>-<mode>`. If a future preset breaks this convention,
+      // skip the swap rather than guessing — the mode still flips.
+      if (lastDashIndex < 0) return
+      const family = state.preset.slice(0, lastDashIndex)
+      const partnerKey = `${family}-${next}` as ThemePresetName
+      if (partnerKey in THEME_PRESETS) {
+        state.preset = partnerKey
       }
     },
   },
