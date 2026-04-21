@@ -1,6 +1,7 @@
 import { ArrowLeft } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 
+import { SKILLS_SH_HOSTNAME } from '../../../../shared/constants'
 import type { SkillSearchResult } from '../../../../shared/types'
 import { useAppDispatch } from '../../redux/hooks'
 import { setPreviewSkill } from '../../redux/slices/marketplaceSlice'
@@ -29,24 +30,8 @@ export const MarketplaceSkillPreview = React.memo(
       dispatch(setPreviewSkill(null))
     }
 
-    /**
-     * Strict origin check — blocks skills.sh.evil.com style bypasses.
-     * Only allows https://skills.sh hostnames.
-     * @param url - URL string to validate
-     * @returns true if hostname is exactly 'skills.sh'
-     * @example isAllowedUrl('https://skills.sh/foo') // => true
-     * @example isAllowedUrl('https://evil.com') // => false
-     */
-    const isAllowedUrl = (url: string): boolean => {
-      try {
-        return new URL(url).origin === 'https://skills.sh'
-      } catch {
-        return false
-      }
-    }
-
     // Validate initial src before rendering the webview
-    const isSrcAllowed = isAllowedUrl(skill.url)
+    const isSrcAllowed = isAllowedSkillsUrl(skill.url)
 
     useEffect(() => {
       const wv = webviewRef.current
@@ -59,7 +44,7 @@ export const MarketplaceSkillPreview = React.memo(
 
       /** Block in-page navigations to non-allowed origins */
       const handleNavigate = (e: Electron.WillNavigateEvent): void => {
-        if (!isAllowedUrl(e.url)) {
+        if (!isAllowedSkillsUrl(e.url)) {
           e.preventDefault()
         }
       }
@@ -139,6 +124,30 @@ export const MarketplaceSkillPreview = React.memo(
     )
   },
 )
+
+/**
+ * Validate whether a URL can be opened inside the marketplace webview.
+ * @param url - Candidate URL from skill metadata or a navigation event.
+ * @returns
+ * - `true`: HTTPS URL whose hostname is exactly `skills.sh`.
+ * - `false`: Any parse failure, non-HTTPS scheme, or non-allowlisted hostname.
+ * @example
+ * isAllowedSkillsUrl('https://skills.sh/trending') // => true
+ * @example
+ * isAllowedSkillsUrl('https://skills.sh.evil.com') // => false
+ * @example
+ * isAllowedSkillsUrl('http://skills.sh') // => false
+ */
+function isAllowedSkillsUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return (
+      parsed.protocol === 'https:' && parsed.hostname === SKILLS_SH_HOSTNAME
+    )
+  } catch {
+    return false
+  }
+}
 
 /**
  * Skeleton placeholder shown until webview fires did-finish-load or did-fail-load.
