@@ -2,6 +2,7 @@ import {
   BookmarkCheck,
   BookmarkPlus,
   Copy,
+  ExternalLink,
   FolderDot,
   Link2,
   Plus,
@@ -9,6 +10,7 @@ import {
 } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 
+import { GSTACK_REPOSITORY_URL } from '../../../../shared/constants'
 import type { Skill, SkillName } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
@@ -128,6 +130,7 @@ export const SkillItem = React.memo(function SkillItem({
     isLocalSkill,
     selectedAgentSymlink,
     selectedLocalSkillInfo,
+    showGStackBadge,
   } = getSkillItemVisibility(selectedAgentId, skill.symlinks)
 
   const isCliManaged = isCliManagedSkill(skill)
@@ -466,6 +469,19 @@ export const SkillItem = React.memo(function SkillItem({
                       <Plus className="h-3 w-3 mr-0.5" />
                       Add
                     </Button>
+                  )}
+                  {showGStackBadge && (
+                    <a
+                      href={GSTACK_REPOSITORY_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 rounded-md border border-sky-400/40 bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-sky-300 transition-colors hover:bg-sky-500/25 shrink-0"
+                      aria-label="Open G-Stack GitHub repository"
+                    >
+                      G-Stack
+                      <ExternalLink className="h-2.5 w-2.5" />
+                    </a>
                   )}
                 </h3>
                 {skill.description && (

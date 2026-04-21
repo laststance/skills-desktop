@@ -209,6 +209,23 @@ export type AgentId = (typeof AGENT_DEFINITIONS)[number]['id']
 export type AgentName = (typeof AGENT_DEFINITIONS)[number]['name']
 
 /**
+ * Agent IDs where G-Stack-managed skills may appear in card-level UI.
+ * Currently the team operates G-Stack primarily through Claude Code, with
+ * Codex/Cursor included for forward compatibility.
+ */
+export const GSTACK_BADGE_AGENT_IDS = [
+  'claude-code',
+  'codex',
+  'cursor',
+] as const satisfies readonly AgentId[]
+
+/**
+ * Canonical GitHub repository URL for G-Stack.
+ * Used by the skill-card badge link so users can jump to upstream docs.
+ */
+export const GSTACK_REPOSITORY_URL = 'https://github.com/garrytan/gstack'
+
+/**
  * Agent IDs that use ~/.agents/skills/ directly (no symlinks needed).
  * Derived from skills CLI: agents where skillsDir === '.agents/skills'
  * and showInUniversalList !== false.
