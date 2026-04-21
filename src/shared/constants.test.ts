@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { AGENT_DEFINITIONS, UNIVERSAL_AGENT_IDS } from './constants'
+import {
+  AGENT_DEFINITIONS,
+  GSTACK_BADGE_AGENT_IDS,
+  GSTACK_REPOSITORY_URL,
+  UNIVERSAL_AGENT_IDS,
+} from './constants'
 
 describe('AGENT_DEFINITIONS', () => {
   it('has unique ids', () => {
@@ -53,5 +58,18 @@ describe('UNIVERSAL_AGENT_IDS', () => {
     expect(UNIVERSAL_AGENT_IDS).toContain('kimi-cli')
     expect(UNIVERSAL_AGENT_IDS).toContain('opencode')
     expect(UNIVERSAL_AGENT_IDS).toContain('warp')
+  })
+})
+
+describe('GSTACK constants', () => {
+  it('gstack badge agent ids are valid AgentIds in AGENT_DEFINITIONS', () => {
+    const allIds = AGENT_DEFINITIONS.map((a) => a.id)
+    for (const id of GSTACK_BADGE_AGENT_IDS) {
+      expect(allIds).toContain(id)
+    }
+  })
+
+  it('gstack repository URL points to the canonical GitHub repository', () => {
+    expect(GSTACK_REPOSITORY_URL).toBe('https://github.com/garrytan/gstack')
   })
 })

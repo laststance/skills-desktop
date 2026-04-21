@@ -1,3 +1,4 @@
+import { GSTACK_BADGE_AGENT_IDS } from '../../../../shared/constants'
 import type { AgentId, SymlinkInfo } from '../../../../shared/types'
 
 /**
@@ -25,6 +26,28 @@ export interface SkillItemVisibility {
   selectedLocalSkillInfo: SymlinkInfo | null
   /** Show "Copy to..." context menu — only in agent view (not global, not universal) */
   showCopyButton: boolean
+  /** Show G-Stack source badge/link in selected agent view */
+  showGStackBadge: boolean
+}
+
+/** Path-segment matcher for `.../gstack/...` on both POSIX and Windows paths. */
+const GSTACK_SEGMENT_PATTERN = /(^|[\\/])gstack([\\/]|$)/i
+
+/**
+ * Detect whether a filesystem-like path points to a G-Stack-managed location.
+ * @param candidatePath - Path candidate from symlink target or link path.
+ * @returns
+ * - `true`: Path contains a standalone `gstack` segment.
+ * - `false`: Empty or non-matching path.
+ * @example
+ * isGStackBundlePath('/Users/me/.claude/skills/gstack/skill-a') // => true
+ * @example
+ * isGStackBundlePath('../gstack/skill-a') // => true
+ * @example
+ * isGStackBundlePath('/Users/me/.agents/skills/task') // => false
+ */
+function isGStackBundlePath(candidatePath: string): boolean {
+  return GSTACK_SEGMENT_PATTERN.test(candidatePath)
 }
 
 /**
@@ -67,6 +90,16 @@ export function getSkillItemVisibility(
 
   const isLocalSkill = !!selectedLocalSkillInfo
   const hasSkillInSelectedAgent = !!selectedAgentSymlink || isLocalSkill
+  const gStackPathCandidates = [
+    selectedAgentSymlink?.targetPath ?? '',
+    selectedAgentSymlink?.linkPath ?? '',
+    selectedLocalSkillInfo?.linkPath ?? '',
+  ]
+  const isGStackEligibleAgent =
+    selectedAgentId !== null &&
+    GSTACK_BADGE_AGENT_IDS.some((agentId) => agentId === selectedAgentId)
+  const showGStackBadge =
+    isGStackEligibleAgent && gStackPathCandidates.some(isGStackBundlePath)
 
   return {
     showDeleteButton: !selectedAgentId,
@@ -77,5 +110,6 @@ export function getSkillItemVisibility(
     selectedAgentSymlink,
     selectedLocalSkillInfo,
     showCopyButton: !!selectedAgentId && hasSkillInSelectedAgent,
+    showGStackBadge,
   }
 }

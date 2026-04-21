@@ -3,6 +3,7 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
+import { GSTACK_REPOSITORY_URL } from '../../../../shared/constants'
 import type { Skill, SkillName } from '../../../../shared/types'
 import { repositoryId } from '../../../../shared/types'
 import { TooltipProvider } from '../ui/tooltip'
@@ -294,6 +295,58 @@ describe('SkillItem Add button routing', () => {
 
     expect(store.getState().skills.skillToAddSymlinks?.name).toBe('task')
     expect(store.getState().skills.skillToCopy).toBeNull()
+  })
+})
+
+describe('SkillItem G-Stack badge', () => {
+  it('shows a G-Stack badge link in supported agent view for gstack-managed skills', async () => {
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        symlinks: [
+          {
+            agentId: 'claude-code',
+            agentName: 'Claude Code',
+            status: 'valid',
+            targetPath: '/Users/me/.claude/skills/gstack/task',
+            linkPath: '/Users/me/.claude/skills/task',
+            isLocal: false,
+          },
+        ],
+      }),
+    )
+    const { selectAgent } = await import('../../redux/slices/uiSlice')
+
+    store.dispatch(selectAgent('claude-code'))
+
+    const gstackLink = screen.getByRole('link', { name: /G-Stack/i })
+    await expect.element(gstackLink).toBeInTheDocument()
+    await expect
+      .element(
+        screen.getByRole('link', { name: /Open G-Stack GitHub repository/i }),
+      )
+      .toBeInTheDocument()
+    await expect
+      .element(gstackLink)
+      .toHaveAttribute('href', GSTACK_REPOSITORY_URL)
+  })
+
+  it('hides the G-Stack badge in global view', async () => {
+    const { screen } = await renderSkillItem(
+      makeSkill({
+        symlinks: [
+          {
+            agentId: 'claude-code',
+            agentName: 'Claude Code',
+            status: 'valid',
+            targetPath: '/Users/me/.claude/skills/gstack/task',
+            linkPath: '/Users/me/.claude/skills/task',
+            isLocal: false,
+          },
+        ],
+      }),
+    )
+
+    expect(screen.getByRole('link', { name: /G-Stack/i }).query()).toBeNull()
   })
 })
 

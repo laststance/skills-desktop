@@ -195,6 +195,67 @@ describe('getSkillItemVisibility', () => {
     })
   })
 
+  describe('showGStackBadge', () => {
+    it('shows badge for gstack-backed symlink in supported agent view', () => {
+      const symlinks = [
+        makeSymlink({
+          agentId: 'claude-code',
+          targetPath: '/Users/me/.claude/skills/gstack/task',
+          linkPath: '/Users/me/.claude/skills/task',
+          isLocal: false,
+          status: 'valid',
+        }),
+      ]
+
+      const result = getSkillItemVisibility('claude-code', symlinks)
+      expect(result.showGStackBadge).toBe(true)
+    })
+
+    it('shows badge for relative gstack symlink targets', () => {
+      const symlinks = [
+        makeSymlink({
+          agentId: 'codex',
+          targetPath: '../gstack/task',
+          linkPath: '/Users/me/.codex/skills/task',
+          isLocal: false,
+          status: 'valid',
+        }),
+      ]
+
+      const result = getSkillItemVisibility('codex', symlinks)
+      expect(result.showGStackBadge).toBe(true)
+    })
+
+    it('hides badge in global view even when gstack path exists', () => {
+      const symlinks = [
+        makeSymlink({
+          agentId: 'claude-code',
+          targetPath: '/Users/me/.claude/skills/gstack/task',
+          isLocal: false,
+          status: 'valid',
+        }),
+      ]
+
+      const result = getSkillItemVisibility(null, symlinks)
+      expect(result.showGStackBadge).toBe(false)
+    })
+
+    it('hides badge for non-supported agents', () => {
+      const symlinks = [
+        makeSymlink({
+          agentId: 'gemini-cli',
+          targetPath: '/Users/me/.gemini/skills/gstack/task',
+          linkPath: '/Users/me/.gemini/skills/task',
+          isLocal: false,
+          status: 'valid',
+        }),
+      ]
+
+      const result = getSkillItemVisibility('gemini-cli', symlinks)
+      expect(result.showGStackBadge).toBe(false)
+    })
+  })
+
   describe('regression: dual delete buttons', () => {
     it('never shows both delete button and unlink button simultaneously', () => {
       // This was the bug: both X (delete) and Trash (unlink) showed in agent view
