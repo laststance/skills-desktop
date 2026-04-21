@@ -190,31 +190,56 @@ Based on Terminal Minimal style with OKLCH dynamic theming.
 
 ### Theme System
 
-26 themes total: 24 OKLCH color themes + 2 shadcn/ui neutral themes.
+44 visual themes total (27 presets): 34 OKLCH color themes + 2 pure neutral themes + 8 shadcn-baseColor-style tinted neutral themes.
 
 **Theme Types:**
 
-| Type    | Description                                             | Count                  |
-| ------- | ------------------------------------------------------- | ---------------------- |
-| Color   | OKLCH hue-based dynamic colors (all UI elements tinted) | 24 (12 hues × 2 modes) |
-| Neutral | shadcn/ui default gray palette (no hue tint)            | 2 (Dark + Light)       |
+| Type           | Description                                                  | Count                    |
+| -------------- | ------------------------------------------------------------ | ------------------------ |
+| Color          | OKLCH hue-based dynamic colors (all UI elements tinted)      | 34 (17 hues × 2 modes)   |
+| Pure Neutral   | shadcn/ui default gray palette (chroma = 0)                  | 2 (Dark + Light)         |
+| Tinted Neutral | shadcn baseColor lookalikes (subtle hue tint, chroma = 0.05) | 8 (4 families × 2 modes) |
 
-**Color Theme Hues (12):**
+**Color Theme Hues (17):**
 
-| Name   | Hue | Example               |
-| ------ | --- | --------------------- |
-| Rose   | 350 | `oklch(0.7 0.18 350)` |
-| Orange | 45  | `oklch(0.7 0.18 45)`  |
-| Amber  | 70  | `oklch(0.7 0.18 70)`  |
-| Yellow | 95  | `oklch(0.7 0.18 95)`  |
-| Lime   | 125 | `oklch(0.7 0.18 125)` |
-| Green  | 145 | `oklch(0.7 0.18 145)` |
-| Teal   | 175 | `oklch(0.7 0.18 175)` |
-| Cyan   | 195 | `oklch(0.7 0.18 195)` |
-| Sky    | 220 | `oklch(0.7 0.18 220)` |
-| Blue   | 250 | `oklch(0.7 0.18 250)` |
-| Indigo | 275 | `oklch(0.7 0.18 275)` |
-| Violet | 300 | `oklch(0.7 0.18 300)` |
+| Name    | Hue | Example               |
+| ------- | --- | --------------------- |
+| Rose    | 350 | `oklch(0.7 0.16 350)` |
+| Pink    | 15  | `oklch(0.7 0.16 15)`  |
+| Red     | 25  | `oklch(0.7 0.16 25)`  |
+| Orange  | 45  | `oklch(0.7 0.16 45)`  |
+| Amber   | 70  | `oklch(0.7 0.16 70)`  |
+| Yellow  | 95  | `oklch(0.7 0.16 95)`  |
+| Lime    | 125 | `oklch(0.7 0.16 125)` |
+| Green   | 145 | `oklch(0.7 0.16 145)` |
+| Emerald | 160 | `oklch(0.7 0.16 160)` |
+| Teal    | 175 | `oklch(0.7 0.16 175)` |
+| Cyan    | 195 | `oklch(0.7 0.16 195)` |
+| Sky     | 220 | `oklch(0.7 0.16 220)` |
+| Blue    | 250 | `oklch(0.7 0.16 250)` |
+| Indigo  | 275 | `oklch(0.7 0.16 275)` |
+| Violet  | 300 | `oklch(0.7 0.16 300)` |
+| Fuchsia | 325 | `oklch(0.7 0.16 325)` |
+| Magenta | 340 | `oklch(0.7 0.16 340)` |
+
+**Tinted Neutral Families (4):**
+
+shadcn-baseColor lookalikes — subtle hue tint at `chroma = 0.05` puts the
+background at ~`chroma 0.0055` (matches shadcn's `oklch(0.141 0.005 285.823)`
+zinc value) while accents at L=0.7 read as "subtly tinted gray." Useful
+when you want the shadcn baseColor look without committing to a fully
+saturated theme.
+
+| Family | Hue | Character        |
+| ------ | --- | ---------------- |
+| Zinc   | 265 | Cool purple-gray |
+| Slate  | 240 | Blue-gray        |
+| Stone  | 60  | Warm sand-gray   |
+| Mauve  | 320 | Purple-pink-gray |
+
+Each family ships with a `-dark` and `-light` preset (e.g. `zinc-dark`,
+`zinc-light`) that bakes in the mode, mirroring the shape of the existing
+`neutral-dark` / `neutral-light` entries.
 
 ### CSS Variables
 

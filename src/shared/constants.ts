@@ -43,31 +43,80 @@ export const PERSIST_STATE_VERSION = 2
 export const COLOR_PRESET_CHROMA = 0.16
 
 /**
+ * Chroma scalar for "tinted neutral" presets — the shadcn-baseColor
+ * lookalikes (zinc / slate / stone / mauve). Sits between pure neutral
+ * (chroma=0) and full color (chroma=COLOR_PRESET_CHROMA=0.16) so the tint
+ * is perceptible on the saturated tokens (primary/accent/ring at L=0.7)
+ * while backgrounds (L=0.12) collapse to a near-grey that lines up with
+ * shadcn's published baseColor swatches.
+ *
+ * Value rationale: 0.05 × the smallest --chroma-N step (--chroma-5 = 0.111)
+ * lands at ~0.0055 — within rounding distance of shadcn's official zinc
+ * baseColor `oklch(0.141 0.005 285.823)`. At L=0.7 (primary), the same
+ * 0.05 reads as "subtly tinted gray," not "saturated color," matching
+ * shadcn's design contract for baseColor.
+ *
+ * Why not larger: any value above ~0.08 reintroduces the "is this teal or
+ * zinc?" ambiguity that the tinted-vs-color distinction exists to prevent.
+ * Why not smaller: below ~0.03 the four hue families collapse to visually
+ * indistinguishable grayscale and the swatches become meaningless filler.
+ *
+ * Note for users picking the `red` color preset: the destructive token
+ * still uses its own theme-invariant red (`oklch(0.55 0.2 25)`), so an
+ * error button next to a red CTA loses some affordance. That's a deliberate
+ * trade-off — keeping destructive theme-invariant matters more than
+ * preventing this one collision.
+ *
+ * @example
+ * oklch(0.7 var(--theme-chroma) var(--theme-hue)) // primary, with --theme-chroma=0.05
+ */
+export const TINTED_NEUTRAL_CHROMA = 0.05
+
+/**
  * Theme preset definitions. Each entry drives a single row in the
  * ThemeSelector and provides the three values Redux needs to compute
  * `--theme-hue` / `--theme-chroma` on `<html>`:
  *  - `hue`     : OKLCH hue angle (0–360). Meaningless when `chroma === 0`.
- *  - `chroma`  : `0` for neutral ramps, `COLOR_PRESET_CHROMA` for color ramps.
- *  - `mode`    : Present only on neutral presets where dark/light is baked in;
- *                omitted for color presets so `toggleMode` can flip freely.
+ *  - `chroma`  : `0` (pure neutral), `TINTED_NEUTRAL_CHROMA` (shadcn-style
+ *                baseColor tint), or `COLOR_PRESET_CHROMA` (full color).
+ *  - `mode`    : Present only on neutral / tinted-neutral presets where
+ *                dark/light is baked in; omitted for color presets so
+ *                `toggleMode` can flip freely.
  *  - `label`   : UI title (sentence-cased).
- * The 12 color hues stay in sync with skills.sh ThemePalette; neutral entries
- * keep their `neutral-dark` / `neutral-light` keys so persisted state from
- * older app versions migrates without renaming.
+ *
+ * The color hues stay roughly in sync with skills.sh ThemePalette plus the
+ * shadcn extras (pink / red / emerald / fuchsia / magenta) that fill the
+ * larger gaps in the original 12-hue ring. Tinted neutral entries are
+ * explicit dark/light pairs because shadcn's baseColors have hand-tuned
+ * chroma-per-mode in their published palette (we approximate with one
+ * shared chroma + the L value baked into globals.css).
+ *
+ * Neutral entries keep their `neutral-dark` / `neutral-light` keys so
+ * persisted state from older app versions migrates without renaming.
  */
 export const THEME_PRESETS = {
+  // ── Color presets (light/dark agnostic, full chroma) ──
+  // Hues are spaced ~15-30° apart to stay perceptually distinct in OKLCH.
+  // Order = clockwise around the color wheel starting from rose.
   rose: { hue: 350, chroma: COLOR_PRESET_CHROMA, label: 'Rose' },
+  pink: { hue: 15, chroma: COLOR_PRESET_CHROMA, label: 'Pink' },
+  red: { hue: 25, chroma: COLOR_PRESET_CHROMA, label: 'Red' },
   orange: { hue: 45, chroma: COLOR_PRESET_CHROMA, label: 'Orange' },
   amber: { hue: 70, chroma: COLOR_PRESET_CHROMA, label: 'Amber' },
   yellow: { hue: 95, chroma: COLOR_PRESET_CHROMA, label: 'Yellow' },
   lime: { hue: 125, chroma: COLOR_PRESET_CHROMA, label: 'Lime' },
   green: { hue: 145, chroma: COLOR_PRESET_CHROMA, label: 'Green' },
+  emerald: { hue: 160, chroma: COLOR_PRESET_CHROMA, label: 'Emerald' },
   teal: { hue: 175, chroma: COLOR_PRESET_CHROMA, label: 'Teal' },
   cyan: { hue: 195, chroma: COLOR_PRESET_CHROMA, label: 'Cyan' },
   sky: { hue: 220, chroma: COLOR_PRESET_CHROMA, label: 'Sky' },
   blue: { hue: 250, chroma: COLOR_PRESET_CHROMA, label: 'Blue' },
   indigo: { hue: 275, chroma: COLOR_PRESET_CHROMA, label: 'Indigo' },
   violet: { hue: 300, chroma: COLOR_PRESET_CHROMA, label: 'Violet' },
+  fuchsia: { hue: 325, chroma: COLOR_PRESET_CHROMA, label: 'Fuchsia' },
+  magenta: { hue: 340, chroma: COLOR_PRESET_CHROMA, label: 'Magenta' },
+
+  // ── Pure neutral (shadcn default, no tint) ──
   'neutral-dark': {
     hue: 0,
     chroma: 0,
@@ -79,6 +128,63 @@ export const THEME_PRESETS = {
     chroma: 0,
     mode: 'light' as const,
     label: 'Neutral Light',
+  },
+
+  // ── Tinted neutral (shadcn baseColor lookalikes) ──
+  // Hue values picked to match the published shadcn baseColor swatches:
+  //   zinc  → cool purple-gray (around 265°, matches `oklch(0.141 0.005 285.823)`)
+  //   slate → blue-gray
+  //   stone → warm sand-gray
+  //   mauve → purple-pink-gray
+  // All share TINTED_NEUTRAL_CHROMA so the four families form a coherent
+  // tier between pure neutral and full color.
+  'zinc-dark': {
+    hue: 265,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'dark' as const,
+    label: 'Zinc Dark',
+  },
+  'zinc-light': {
+    hue: 265,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'light' as const,
+    label: 'Zinc Light',
+  },
+  'slate-dark': {
+    hue: 240,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'dark' as const,
+    label: 'Slate Dark',
+  },
+  'slate-light': {
+    hue: 240,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'light' as const,
+    label: 'Slate Light',
+  },
+  'stone-dark': {
+    hue: 60,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'dark' as const,
+    label: 'Stone Dark',
+  },
+  'stone-light': {
+    hue: 60,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'light' as const,
+    label: 'Stone Light',
+  },
+  'mauve-dark': {
+    hue: 320,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'dark' as const,
+    label: 'Mauve Dark',
+  },
+  'mauve-light': {
+    hue: 320,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'light' as const,
+    label: 'Mauve Light',
   },
 } as const
 

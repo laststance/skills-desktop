@@ -30,10 +30,69 @@ const NEUTRAL_PRESET_NAMES = PRESET_NAMES.filter(
 )
 
 /**
- * Theme selector dropdown. Renders the 14 preset swatches (12 hue-based
- * color themes + 2 shadcn neutral variants) plus a dark/light mode toggle.
+ * Group neutral presets by family (Neutral, Zinc, Slate, Stone, Mauve) so
+ * each row in the dropdown renders a Dark/Light pair under a family label.
+ * Keeps individual buttons short ("Dark" / "Light") so the dropdown layout
+ * stays compact even when test environments don't apply Tailwind utilities,
+ * and gives users a clearer visual scan than 10 monochrome buttons in a grid.
+ *
+ * Family id is derived from the preset name's prefix (`zinc-dark` → `zinc`).
+ * The label is taken from whichever variant exists first; for the canonical
+ * "Neutral" family the human label drops the "Dark"/"Light" suffix.
+ *
+ * @example
+ * NEUTRAL_FAMILIES === [
+ *   { id: 'neutral', label: 'Neutral', dark: 'neutral-dark', light: 'neutral-light' },
+ *   { id: 'zinc',    label: 'Zinc',    dark: 'zinc-dark',    light: 'zinc-light' },
+ *   ...
+ * ]
+ */
+interface NeutralFamily {
+  id: string
+  label: string
+  dark: ThemePresetName | null
+  light: ThemePresetName | null
+}
+
+const NEUTRAL_FAMILIES: readonly NeutralFamily[] = (() => {
+  const families = new Map<string, NeutralFamily>()
+  for (const name of NEUTRAL_PRESET_NAMES) {
+    const config = THEME_PRESETS[name]
+    if (!('mode' in config)) continue
+    // `name` is `<family>-<mode>`; the family id is the prefix and the
+    // human label is the prefix capitalized (e.g. zinc → Zinc).
+    const lastDash = name.lastIndexOf('-')
+    const familyId = lastDash >= 0 ? name.slice(0, lastDash) : name
+    const familyLabel = familyId.charAt(0).toUpperCase() + familyId.slice(1)
+    const existing = families.get(familyId) ?? {
+      id: familyId,
+      label: familyLabel,
+      dark: null,
+      light: null,
+    }
+    if (config.mode === 'dark') existing.dark = name
+    else existing.light = name
+    families.set(familyId, existing)
+  }
+  return Array.from(families.values())
+})()
+
+/**
+ * Theme selector dropdown. Renders the 27 preset entries (17 hue-based
+ * color themes + 5 neutral families × 2 modes = 10 neutral entries) plus
+ * a dark/light mode toggle.
  * All preset data flows from `THEME_PRESETS`; this component only maps
  * state → UI and fires a single `setTheme(presetName)` action per click.
+ *
+ * Layout:
+ *  - Color themes: 6-column swatch grid (3 rows for 17 hues) — color
+ *    presets are mode-agnostic, so a swatch click keeps the user's current
+ *    light/dark choice.
+ *  - Neutral & Tinted: one row per family (Neutral, Zinc, Slate, Stone,
+ *    Mauve), with a fixed-width family label followed by Dark/Light
+ *    buttons. Short button labels keep layout stable even when Tailwind
+ *    utilities aren't compiled (e.g. inside the vitest browser project,
+ *    which doesn't load `@tailwindcss/vite`).
  *
  * Wrapped in `React.memo` to match the project-wide memoization convention
  * (enforced by `@laststance/react-next/all-memo`). The component takes no
@@ -121,36 +180,56 @@ export const ThemeSelector = React.memo(function ThemeSelector(): ReactElement {
 
         <DropdownMenuSeparator />
 
-        {/* Neutral themes (shadcn defaults) — chroma === 0 collapses the
-         * OKLCH ramp to pure grayscale. Same formula as color presets, so
-         * there is no parallel HSL block to maintain. */}
+        {/* Neutral & tinted-neutral themes — chroma === 0 collapses the OKLCH
+         * ramp to pure grayscale; chroma === TINTED_NEUTRAL_CHROMA produces
+         * shadcn-baseColor-style subtle tints (zinc / slate / stone / mauve).
+         * Same formula as color presets, so there is no parallel HSL block
+         * to maintain. Each row is a (family label, Dark, Light) triplet so
+         * the family name lives in a single header column instead of being
+         * repeated on both buttons. The short "Dark"/"Light" button labels
+         * keep the dropdown layout compact and predictable even when the
+         * test environment doesn't apply Tailwind utilities (the
+         * @tailwindcss/vite plugin is loaded only for the real renderer,
+         * not for the vitest browser project). */}
         <DropdownMenuLabel className="text-xs text-muted-foreground">
-          Neutral (shadcn)
+          Neutral &amp; Tinted (shadcn)
         </DropdownMenuLabel>
-        <div className="flex gap-2 p-2">
-          {NEUTRAL_PRESET_NAMES.map((name) => {
-            const config = THEME_PRESETS[name]
-            const isSelected = preset === name
-            const neutralMode = 'mode' in config ? config.mode : 'dark'
-            const Icon = neutralMode === 'dark' ? Moon : Sun
-            return (
-              <button
-                key={name}
-                type="button"
-                onClick={() => handleSelectPreset(name)}
-                aria-label={`Select ${config.label} theme`}
-                aria-pressed={isSelected}
-                className={cn(
-                  'flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
-                  'hover:bg-muted',
-                  isSelected && 'bg-muted ring-1 ring-primary',
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {neutralMode === 'dark' ? 'Dark' : 'Light'}
-              </button>
-            )
-          })}
+        <div className="flex flex-col gap-0.5 p-1">
+          {NEUTRAL_FAMILIES.map((family) => (
+            <div
+              key={family.id}
+              className="flex items-center gap-1 px-1 py-0.5"
+            >
+              <span className="text-xs text-muted-foreground w-14 shrink-0 truncate">
+                {family.label}
+              </span>
+              {(['dark', 'light'] as const).map((variant) => {
+                const presetName =
+                  variant === 'dark' ? family.dark : family.light
+                if (!presetName) return null
+                const config = THEME_PRESETS[presetName]
+                const isSelected = preset === presetName
+                const Icon = variant === 'dark' ? Moon : Sun
+                return (
+                  <button
+                    key={presetName}
+                    type="button"
+                    onClick={() => handleSelectPreset(presetName)}
+                    aria-label={`Select ${config.label} theme`}
+                    aria-pressed={isSelected}
+                    className={cn(
+                      'flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors',
+                      'hover:bg-muted',
+                      isSelected && 'bg-muted ring-1 ring-primary',
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {variant === 'dark' ? 'Dark' : 'Light'}
+                  </button>
+                )
+              })}
+            </div>
+          ))}
         </div>
 
         {/* Screen-reader-only announcement of the active preset. The swatch
