@@ -27,6 +27,8 @@ export const MarketplaceDashboard = React.memo(
       () => trendingData?.skills?.slice(0, TRENDING_PREVIEW_LIMIT) ?? [],
       [trendingData],
     )
+    const isTrendingLoading =
+      trendingData === undefined || trendingData.status === 'loading'
 
     const handleSkillClick = (skill: SkillSearchResult): void => {
       dispatch(setPreviewSkill(skill))
@@ -96,7 +98,9 @@ export const MarketplaceDashboard = React.memo(
           </div>
         ) : (
           <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-            Loading trending skills...
+            {isTrendingLoading
+              ? 'Loading trending skills...'
+              : 'No trending skills available'}
           </div>
         )}
 

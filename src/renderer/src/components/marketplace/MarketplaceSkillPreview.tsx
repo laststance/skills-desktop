@@ -1,7 +1,7 @@
 import { ArrowLeft } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 
-import { SKILLS_SH_HOSTNAME } from '../../../../shared/constants'
+import { isAllowedSkillsUrl } from '../../../../shared/marketplaceUrlPolicy'
 import type { SkillSearchResult } from '../../../../shared/types'
 import { useAppDispatch } from '../../redux/hooks'
 import { setPreviewSkill } from '../../redux/slices/marketplaceSlice'
@@ -124,30 +124,6 @@ export const MarketplaceSkillPreview = React.memo(
     )
   },
 )
-
-/**
- * Validate whether a URL can be opened inside the marketplace webview.
- * @param url - Candidate URL from skill metadata or a navigation event.
- * @returns
- * - `true`: HTTPS URL whose hostname is exactly `skills.sh`.
- * - `false`: Any parse failure, non-HTTPS scheme, or non-allowlisted hostname.
- * @example
- * isAllowedSkillsUrl('https://skills.sh/trending') // => true
- * @example
- * isAllowedSkillsUrl('https://skills.sh.evil.com') // => false
- * @example
- * isAllowedSkillsUrl('http://skills.sh') // => false
- */
-function isAllowedSkillsUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url)
-    return (
-      parsed.protocol === 'https:' && parsed.hostname === SKILLS_SH_HOSTNAME
-    )
-  } catch {
-    return false
-  }
-}
 
 /**
  * Skeleton placeholder shown until webview fires did-finish-load or did-fail-load.

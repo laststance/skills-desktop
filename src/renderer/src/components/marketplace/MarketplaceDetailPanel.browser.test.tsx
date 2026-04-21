@@ -114,7 +114,17 @@ describe('MarketplaceDetailPanel routing', () => {
 })
 
 describe('MarketplaceDashboard empty state', () => {
-  it('shows loading copy when trending leaderboard has no skills', async () => {
+  it('shows loading copy while trending leaderboard data is not loaded yet', async () => {
+    const store = await createStore()
+    const { MarketplaceDashboard } = await import('./MarketplaceDashboard')
+
+    const screen = await renderWithStore(<MarketplaceDashboard />, store)
+    await expect
+      .element(screen.getByText('Loading trending skills...'))
+      .toBeInTheDocument()
+  })
+
+  it('shows empty-result copy when trending leaderboard is fulfilled with no skills', async () => {
     const store = await createStore()
     const { loadLeaderboard } =
       await import('../../redux/slices/marketplaceSlice')
@@ -129,7 +139,7 @@ describe('MarketplaceDashboard empty state', () => {
 
     const screen = await renderWithStore(<MarketplaceDashboard />, store)
     await expect
-      .element(screen.getByText('Loading trending skills...'))
+      .element(screen.getByText('No trending skills available'))
       .toBeInTheDocument()
   })
 })
@@ -160,6 +170,12 @@ describe('MarketplaceSkillPreview will-navigate allowlist', () => {
     const blockedEvent = createWillNavigateEvent('https://evil.com/path')
     webview.dispatchEvent(blockedEvent)
     expect(blockedEvent.defaultPrevented).toBe(true)
+
+    const blockedCustomPortEvent = createWillNavigateEvent(
+      'https://skills.sh:444/trending',
+    )
+    webview.dispatchEvent(blockedCustomPortEvent)
+    expect(blockedCustomPortEvent.defaultPrevented).toBe(true)
 
     const allowedEvent = createWillNavigateEvent('https://skills.sh/trending')
     webview.dispatchEvent(allowedEvent)
