@@ -1,6 +1,7 @@
 import { ArrowLeft } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 
+import { isAllowedSkillsUrl } from '../../../../shared/marketplaceUrlPolicy'
 import type { SkillSearchResult } from '../../../../shared/types'
 import { useAppDispatch } from '../../redux/hooks'
 import { setPreviewSkill } from '../../redux/slices/marketplaceSlice'
@@ -29,24 +30,8 @@ export const MarketplaceSkillPreview = React.memo(
       dispatch(setPreviewSkill(null))
     }
 
-    /**
-     * Strict origin check — blocks skills.sh.evil.com style bypasses.
-     * Only allows https://skills.sh hostnames.
-     * @param url - URL string to validate
-     * @returns true if hostname is exactly 'skills.sh'
-     * @example isAllowedUrl('https://skills.sh/foo') // => true
-     * @example isAllowedUrl('https://evil.com') // => false
-     */
-    const isAllowedUrl = (url: string): boolean => {
-      try {
-        return new URL(url).origin === 'https://skills.sh'
-      } catch {
-        return false
-      }
-    }
-
     // Validate initial src before rendering the webview
-    const isSrcAllowed = isAllowedUrl(skill.url)
+    const isSrcAllowed = isAllowedSkillsUrl(skill.url)
 
     useEffect(() => {
       const wv = webviewRef.current
@@ -59,7 +44,7 @@ export const MarketplaceSkillPreview = React.memo(
 
       /** Block in-page navigations to non-allowed origins */
       const handleNavigate = (e: Electron.WillNavigateEvent): void => {
-        if (!isAllowedUrl(e.url)) {
+        if (!isAllowedSkillsUrl(e.url)) {
           e.preventDefault()
         }
       }

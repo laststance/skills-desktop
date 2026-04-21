@@ -68,6 +68,16 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.selectedSkill).toBeNull()
   })
 
+  it('setPreviewSkill sets and clears preview selection', async () => {
+    const { setPreviewSkill } = await import('./marketplaceSlice')
+    const store = await createTestStore()
+    store.dispatch(setPreviewSkill(sampleResult))
+    expect(store.getState().marketplace.previewSkill).toEqual(sampleResult)
+
+    store.dispatch(setPreviewSkill(null))
+    expect(store.getState().marketplace.previewSkill).toBeNull()
+  })
+
   it('cancelOperation calls IPC cancel and resets state', async () => {
     const { cancelOperation } = await import('./marketplaceSlice')
     const store = await createTestStore()

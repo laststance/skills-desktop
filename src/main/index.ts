@@ -2,6 +2,8 @@ import { join } from 'path'
 
 import { app, shell, BrowserWindow, Menu, nativeImage, session } from 'electron'
 
+import { isAllowedSkillsUrl } from '../shared/marketplaceUrlPolicy'
+
 import { registerAllHandlers } from './ipc/handlers'
 import { startupCleanup as runTrashStartupCleanup } from './services/trashService'
 import { initAutoUpdater } from './updater'
@@ -43,14 +45,7 @@ function createWindow(): void {
   mainWindow.webContents.on(
     'will-attach-webview',
     (event, webPreferences, params) => {
-      let isAllowed = false
-      try {
-        const url = new URL(params.src)
-        isAllowed = url.origin === 'https://skills.sh'
-      } catch {
-        isAllowed = false
-      }
-      if (!isAllowed) {
+      if (!isAllowedSkillsUrl(params.src)) {
         event.preventDefault()
         return
       }

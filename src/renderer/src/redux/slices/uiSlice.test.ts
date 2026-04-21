@@ -86,6 +86,20 @@ const previewNoConflicts: SyncPreviewResult = {
   conflicts: [],
 }
 
+describe('uiSlice activeTab', () => {
+  it('starts with activeTab=installed', async () => {
+    const store = await createTestStore()
+    expect(store.getState().ui.activeTab).toBe('installed')
+  })
+
+  it('setActiveTab switches tab value', async () => {
+    const store = await createTestStore()
+    const { setActiveTab } = await import('./uiSlice')
+    store.dispatch(setActiveTab('marketplace'))
+    expect(store.getState().ui.activeTab).toBe('marketplace')
+  })
+})
+
 describe('uiSlice sync thunks', () => {
   beforeEach(() => {
     vi.resetAllMocks()

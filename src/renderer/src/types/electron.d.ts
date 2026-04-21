@@ -139,6 +139,8 @@ declare module 'react' {
           partition?: string
           preload?: string
           allowpopups?: boolean
+          httpreferrer?: string
+          useragent?: string
         },
         HTMLElement
       >

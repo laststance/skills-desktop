@@ -6,6 +6,8 @@ import { formatInstallCount } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { setPreviewSkill } from '../../redux/slices/marketplaceSlice'
 
+const TRENDING_PREVIEW_LIMIT = 5
+
 /**
  * Dashboard shown in the right pane when Marketplace tab is active
  * and no skill is selected for preview.
@@ -21,7 +23,12 @@ export const MarketplaceDashboard = React.memo(
     const trendingData = useAppSelector(
       (state) => state.marketplace.leaderboard.trending,
     )
-    const trendingSkills = trendingData?.skills?.slice(0, 5) ?? []
+    const trendingSkills = React.useMemo(
+      () => trendingData?.skills?.slice(0, TRENDING_PREVIEW_LIMIT) ?? [],
+      [trendingData],
+    )
+    const isTrendingLoading =
+      trendingData === undefined || trendingData.status === 'loading'
 
     const handleSkillClick = (skill: SkillSearchResult): void => {
       dispatch(setPreviewSkill(skill))
@@ -56,7 +63,7 @@ export const MarketplaceDashboard = React.memo(
           <TrendingUp className="h-4 w-4 text-primary" />
           <h3 className="text-base font-semibold text-foreground">Trending</h3>
           <span className="text-[11px] font-semibold text-primary bg-primary/15 px-2 py-0.5 rounded-full">
-            Top 5
+            Top {TRENDING_PREVIEW_LIMIT}
           </span>
         </div>
 
@@ -91,7 +98,9 @@ export const MarketplaceDashboard = React.memo(
           </div>
         ) : (
           <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-            Loading trending skills...
+            {isTrendingLoading
+              ? 'Loading trending skills...'
+              : 'No trending skills available'}
           </div>
         )}
 

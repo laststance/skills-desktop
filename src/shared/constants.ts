@@ -245,6 +245,14 @@ export const UNIVERSAL_AGENT_IDS = [
 export const SKILLS_CLI_VERSION = '1.5.1'
 
 /**
+ * Canonical hostname for skills marketplace pages used by renderer/main
+ * allowlist checks.
+ * @example
+ * new URL('https://skills.sh/trending').hostname === SKILLS_SH_HOSTNAME
+ */
+export const SKILLS_SH_HOSTNAME = 'skills.sh'
+
+/**
  * Undo window for bulk skill deletes (ms). The trashService tombstone TTL and
  * the renderer undo-toast duration must stay in lockstep — if the on-disk
  * tombstone expires before the toast, a user's "undo" click races an empty
