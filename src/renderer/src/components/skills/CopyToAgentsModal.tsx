@@ -39,13 +39,12 @@ export const CopyToAgentsModal = React.memo(
       setSelectedAgents([])
     }, [skillToCopy])
 
-    const targetAgents = useMemo(
-      () =>
-        getTargetAgentsForSelection(agents, {
-          excludeAgentId: selectedAgentId,
-        }),
-      [agents, selectedAgentId],
-    )
+    const targetAgents = useMemo(() => {
+      if (!selectedAgentId) return []
+      return getTargetAgentsForSelection(agents, {
+        excludeAgentId: selectedAgentId,
+      })
+    }, [agents, selectedAgentId])
 
     /** Agent IDs where this skill already exists (valid symlink or local) */
     const alreadyExistsAgentIds = useMemo(() => {

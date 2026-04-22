@@ -131,7 +131,7 @@ export const AddSymlinkModal = React.memo(
                       {agent.name}
                       {!agent.exists && (
                         <span className="text-xs text-muted-foreground ml-2">
-                          (not installed)
+                          not installed
                         </span>
                       )}
                       {isAlreadyLinked && (
