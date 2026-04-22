@@ -21,6 +21,8 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 
+import { getTargetAgentsForSelection } from './agentSelectionHelpers'
+
 /**
  * Modal for selecting agents to add skill symlinks to
  * Shows agent checkboxes with already-linked agents disabled
@@ -35,8 +37,8 @@ export const AddSymlinkModal = React.memo(
 
     const [selectedAgents, setSelectedAgents] = useState<AgentId[]>([])
 
-    const existingAgents = useMemo(
-      () => agents.filter((a) => a.exists),
+    const targetAgents = useMemo(
+      () => getTargetAgentsForSelection(agents),
       [agents],
     )
 
@@ -106,7 +108,7 @@ export const AddSymlinkModal = React.memo(
           <div className="py-4">
             <h4 className="text-sm font-medium mb-3">Select Agents</h4>
             <div className="max-h-[240px] overflow-y-auto rounded-md border p-2 space-y-1">
-              {existingAgents.map((agent) => {
+              {targetAgents.map((agent) => {
                 const isAlreadyLinked = alreadyLinkedAgentIds.has(agent.id)
                 return (
                   <label
@@ -127,6 +129,11 @@ export const AddSymlinkModal = React.memo(
                     />
                     <span className="text-sm">
                       {agent.name}
+                      {!agent.exists && (
+                        <span className="text-xs text-muted-foreground ml-2">
+                          (not installed)
+                        </span>
+                      )}
                       {isAlreadyLinked && (
                         <span className="text-xs text-muted-foreground ml-2">
                           (linked)

@@ -17,6 +17,8 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 
+import { getTargetAgentsForSelection } from './agentSelectionHelpers'
+
 /**
  * Modal for selecting target agents when copying a skill from one agent to others.
  * Triggered by right-click "Copy to..." on a skill card in Agent View.
@@ -37,9 +39,12 @@ export const CopyToAgentsModal = React.memo(
       setSelectedAgents([])
     }, [skillToCopy])
 
-    const existingAgents = useMemo(
-      () => agents.filter((a) => a.exists),
-      [agents],
+    const targetAgents = useMemo(
+      () =>
+        getTargetAgentsForSelection(agents, {
+          excludeAgentId: selectedAgentId,
+        }),
+      [agents, selectedAgentId],
     )
 
     /** Agent IDs where this skill already exists (valid symlink or local) */
@@ -133,45 +138,46 @@ export const CopyToAgentsModal = React.memo(
           </DialogHeader>
 
           <div className="max-h-64 overflow-y-auto space-y-2 py-2">
-            {existingAgents
-              .filter((agent) => agent.id !== selectedAgentId)
-              .map((agent) => {
-                const alreadyExists = alreadyExistsAgentIds.has(agent.id)
-                const checkboxId = `copy-agent-${agent.id}`
-                return (
-                  <div
-                    key={agent.id}
-                    className={`flex items-center gap-3 p-2 rounded-md transition-colors ${
-                      alreadyExists
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:bg-accent cursor-pointer'
-                    }`}
-                    onClick={() =>
-                      !alreadyExists && !copying && handleAgentToggle(agent.id)
-                    }
+            {targetAgents.map((agent) => {
+              const alreadyExists = alreadyExistsAgentIds.has(agent.id)
+              const checkboxId = `copy-agent-${agent.id}`
+              return (
+                <div
+                  key={agent.id}
+                  className={`flex items-center gap-3 p-2 rounded-md transition-colors ${
+                    alreadyExists
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:bg-accent cursor-pointer'
+                  }`}
+                  onClick={() =>
+                    !alreadyExists && !copying && handleAgentToggle(agent.id)
+                  }
+                >
+                  <Checkbox
+                    id={checkboxId}
+                    checked={alreadyExists || selectedAgents.includes(agent.id)}
+                    disabled={alreadyExists || copying}
+                    onCheckedChange={() => handleAgentToggle(agent.id)}
+                  />
+                  <label
+                    htmlFor={checkboxId}
+                    className="text-sm cursor-pointer"
                   >
-                    <Checkbox
-                      id={checkboxId}
-                      checked={
-                        alreadyExists || selectedAgents.includes(agent.id)
-                      }
-                      disabled={alreadyExists || copying}
-                      onCheckedChange={() => handleAgentToggle(agent.id)}
-                    />
-                    <label
-                      htmlFor={checkboxId}
-                      className="text-sm cursor-pointer"
-                    >
-                      {agent.name}
-                      {alreadyExists && (
-                        <span className="text-xs text-muted-foreground ml-2">
-                          already exists
-                        </span>
-                      )}
-                    </label>
-                  </div>
-                )
-              })}
+                    {agent.name}
+                    {!agent.exists && (
+                      <span className="text-xs text-muted-foreground ml-2">
+                        not installed
+                      </span>
+                    )}
+                    {alreadyExists && (
+                      <span className="text-xs text-muted-foreground ml-2">
+                        already exists
+                      </span>
+                    )}
+                  </label>
+                </div>
+              )
+            })}
           </div>
 
           <DialogFooter>
