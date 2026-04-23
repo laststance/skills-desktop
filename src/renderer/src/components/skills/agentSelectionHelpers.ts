@@ -5,19 +5,13 @@ import type { Agent, AgentId, SymlinkInfo } from '../../../../shared/types'
  * - `linked`: a valid symlink already exists
  * - `local`: a real directory already exists in the agent's skills dir
  * - `broken`: a broken symlink occupies the destination path
- * - `already-exists`: some other occupied entry exists
  */
-export type OccupiedAgentReason =
-  | 'linked'
-  | 'local'
-  | 'broken'
-  | 'already-exists'
+export type OccupiedAgentReason = 'linked' | 'local' | 'broken'
 
 const OCCUPIED_AGENT_REASON_LABELS: Record<OccupiedAgentReason, string> = {
   linked: 'linked',
   local: 'local',
   broken: 'broken link',
-  'already-exists': 'already exists',
 }
 
 /**
@@ -93,8 +87,6 @@ export function getOccupiedAgentReasonById(
  * @returns Human-readable status text for the modal row.
  * @example
  * getOccupiedAgentReasonLabel('linked') // => "linked"
- * @example
- * getOccupiedAgentReasonLabel('already-exists') // => "already exists"
  */
 export function getOccupiedAgentReasonLabel(
   occupiedReason: OccupiedAgentReason,

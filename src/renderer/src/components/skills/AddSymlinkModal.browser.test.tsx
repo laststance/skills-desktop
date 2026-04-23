@@ -310,9 +310,15 @@ describe('AddSymlinkModal occupied-agent states', () => {
     await expect
       .element(screen.getByRole('checkbox', { name: /Warp/i }))
       .toBeDisabled()
-    await expect.element(screen.getByText(/linked/i)).toBeInTheDocument()
-    await expect.element(screen.getByText(/local/i)).toBeInTheDocument()
-    await expect.element(screen.getByText(/broken link/i)).toBeInTheDocument()
+    await expect
+      .element(screen.getByText('linked', { exact: true }))
+      .toBeInTheDocument()
+    await expect
+      .element(screen.getByText('local', { exact: true }))
+      .toBeInTheDocument()
+    await expect
+      .element(screen.getByText('broken link', { exact: true }))
+      .toBeInTheDocument()
     await expect
       .element(screen.getByRole('checkbox', { name: /Codex/i }))
       .toBeEnabled()
@@ -344,6 +350,9 @@ describe('AddSymlinkModal busy state', () => {
 
     await screen.getByRole('button', { name: /^Close$/i }).click()
 
+    await expect
+      .element(screen.getByRole('dialog', { name: /Add Skill to Agents/i }))
+      .toBeInTheDocument()
     expect(store.getState().skills.skillToAddSymlinks?.name).toBe('task')
   })
 
@@ -372,6 +381,9 @@ describe('AddSymlinkModal busy state', () => {
 
     await screen.getByRole('button', { name: /^Close$/i }).click()
 
+    await expect
+      .element(screen.getByRole('dialog', { name: /Add Skill to Agents/i }))
+      .toBeInTheDocument()
     expect(store.getState().skills.skillToAddSymlinks?.name).toBe('task')
   })
 })

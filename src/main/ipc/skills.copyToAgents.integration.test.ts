@@ -8,8 +8,9 @@ import {
   symlink,
   writeFile,
 } from 'node:fs/promises'
-import { join } from 'node:path'
+import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -46,14 +47,14 @@ describe('skills:copyToAgents handler', () => {
     handleMock.mockReset()
     tempHome = await mkdtemp(join(tmpdir(), 'skills-desktop-copy-'))
     vi.doMock('os', async () => {
-      const actual = await vi.importActual<typeof import('os')>('os')
+      const actual = await vi.importActual<typeof NodeOs>('os')
       return {
         ...actual,
         homedir: () => tempHome,
       }
     })
     vi.doMock('node:os', async () => {
-      const actual = await vi.importActual<typeof import('node:os')>('node:os')
+      const actual = await vi.importActual<typeof NodeOs>('node:os')
       return {
         ...actual,
         homedir: () => tempHome,
