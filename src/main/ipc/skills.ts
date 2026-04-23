@@ -440,18 +440,18 @@ export function registerSkillsHandlers(): void {
   })
 
   /**
-   * Copy a skill from one agent to other agents.
-   * Symlinked skills → create symlink pointing to same source.
-   * Local skills → physical copy (fs.cp recursive).
-   * @param options - skillName, linkPath (source), targetAgentIds
+   * Copy a skill source into other agents.
+   * Symlinked sources → create symlink pointing to same resolved target.
+   * Directory sources → physical copy while preserving nested symlinks.
+   * @param options - skillName, sourcePath, targetAgentIds
    * @returns CopyToAgentsResult with copied count and per-agent failures
    * @example
-   * // Symlink: creates symlink in target agent pointing to same source
-   * // Local: copies folder recursively to target agent
+   * // Symlink source: creates symlink in target agent pointing to same source
+   * // Directory source: copies folder recursively to target agent
    */
   typedHandle(IPC_CHANNELS.SKILLS_COPY_TO_AGENTS, async (_, options) => {
-    const { skillName, linkPath, targetAgentIds } = options
-    validatePath(linkPath, getAllowedBases())
+    const { skillName, sourcePath, targetAgentIds } = options
+    validatePath(sourcePath, getAllowedBases())
     let copied = 0
     const failures: Array<{
       agentId: (typeof targetAgentIds)[number]
@@ -465,18 +465,18 @@ export function registerSkillsHandlers(): void {
     let isSymlink = false
     let symlinkTarget = ''
     try {
-      const stats = await fs.lstat(linkPath)
+      const stats = await fs.lstat(sourcePath)
       const detectionOutcome = await match({
         isSymlink: stats.isSymbolicLink(),
         isDirectory: stats.isDirectory(),
       })
         .with({ isSymlink: true }, async () => {
           // `readlink` returns the raw target, which can be relative to the
-          // symlink's own directory. Resolve it against `dirname(linkPath)`
+          // symlink's own directory. Resolve it against `dirname(sourcePath)`
           // so validation and replication see an absolute filesystem path
           // rather than a cwd-relative string.
-          const rawTarget = await fs.readlink(linkPath)
-          const resolvedTarget = resolve(dirname(linkPath), rawTarget)
+          const rawTarget = await fs.readlink(sourcePath)
+          const resolvedTarget = resolve(dirname(sourcePath), rawTarget)
           // Validate the resolved symlink target is within allowed bases.
           // After the CREATE_SYMLINKS fix, symlinks may legitimately point at
           // either SOURCE_DIR (source skills) or another agent's dir (local
@@ -539,7 +539,10 @@ export function registerSkillsHandlers(): void {
         if (isSymlink) {
           await fs.symlink(symlinkTarget, destPath)
         } else {
-          await fs.cp(linkPath, destPath, { recursive: true })
+          await fs.cp(sourcePath, destPath, {
+            recursive: true,
+            verbatimSymlinks: true,
+          })
         }
         copied++
       } catch (error) {

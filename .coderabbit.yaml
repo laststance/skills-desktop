@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
-language: 'en-US'
+language: 'ja-JP'
 early_access: false
 
 tone_instructions: >

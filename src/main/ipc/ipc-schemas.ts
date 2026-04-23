@@ -125,7 +125,7 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
   'skills:copyToAgents': z.tuple([
     z.object({
       skillName: skillNameString,
-      linkPath: nonEmptyString,
+      sourcePath: nonEmptyString,
       targetAgentIds: z.array(nonEmptyString).min(1),
     }),
   ]),

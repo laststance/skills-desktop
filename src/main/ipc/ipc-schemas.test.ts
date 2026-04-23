@@ -162,7 +162,7 @@ describe('skillNameString consistency across channels', () => {
         payload.skillPath = '/tmp/x'
         payload.agentIds = ['cursor']
       } else if (channel === 'skills:copyToAgents') {
-        payload.linkPath = '/tmp/x'
+        payload.sourcePath = '/tmp/x'
         payload.targetAgentIds = ['cursor']
       }
       const result = schema.safeParse([payload])

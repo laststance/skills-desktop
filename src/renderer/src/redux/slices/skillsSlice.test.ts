@@ -124,6 +124,7 @@ describe('skillsSlice', () => {
     expect(state.selectedSkill).toBeNull()
     expect(state.loading).toBe(false)
     expect(state.error).toBeNull()
+    expect(state.selectedAddAgentIds).toEqual([])
     // v2.4 bulk-select state
     expect(state.selectedSkillNames).toEqual([])
     expect(state.selectionAnchor).toBeNull()
@@ -157,14 +158,30 @@ describe('skillsSlice', () => {
     expect(store.getState().skills.skillToUnlink).toBeNull()
   })
 
-  it('setSkillToAddSymlinks sets and clears pending add', async () => {
-    const { setSkillToAddSymlinks } = await import('./skillsSlice')
+  it('setSkillToAddSymlinks sets and clears pending add and resets modal selections', async () => {
+    const { setSkillToAddSymlinks, toggleAddAgentSelection } =
+      await import('./skillsSlice')
     const store = await createTestStore()
+    store.dispatch(toggleAddAgentSelection('codex' as AgentId))
     store.dispatch(setSkillToAddSymlinks(sampleSkill))
     expect(store.getState().skills.skillToAddSymlinks).toEqual(sampleSkill)
+    expect(store.getState().skills.selectedAddAgentIds).toEqual([])
 
+    store.dispatch(toggleAddAgentSelection('cursor' as AgentId))
     store.dispatch(setSkillToAddSymlinks(null))
     expect(store.getState().skills.skillToAddSymlinks).toBeNull()
+    expect(store.getState().skills.selectedAddAgentIds).toEqual([])
+  })
+
+  it('toggleAddAgentSelection toggles the Add modal agent list', async () => {
+    const { toggleAddAgentSelection } = await import('./skillsSlice')
+    const store = await createTestStore()
+
+    store.dispatch(toggleAddAgentSelection('codex' as AgentId))
+    expect(store.getState().skills.selectedAddAgentIds).toEqual(['codex'])
+
+    store.dispatch(toggleAddAgentSelection('codex' as AgentId))
+    expect(store.getState().skills.selectedAddAgentIds).toEqual([])
   })
 
   it('setSkillToCopy sets and clears pending copy', async () => {
@@ -263,9 +280,10 @@ describe('skillsSlice', () => {
     })
 
     const store = await createTestStore()
-    const { setSkillToAddSymlinks, createSymlinks } =
+    const { setSkillToAddSymlinks, toggleAddAgentSelection, createSymlinks } =
       await import('./skillsSlice')
     store.dispatch(setSkillToAddSymlinks(sampleSkill))
+    store.dispatch(toggleAddAgentSelection('cursor' as AgentId))
     await store.dispatch(
       createSymlinks({
         skill: sampleSkill,
@@ -274,6 +292,7 @@ describe('skillsSlice', () => {
     )
 
     expect(store.getState().skills.skillToAddSymlinks).toBeNull()
+    expect(store.getState().skills.selectedAddAgentIds).toEqual([])
     expect(store.getState().skills.addingSymlinks).toBe(false)
   })
 
@@ -294,7 +313,7 @@ describe('skillsSlice', () => {
   })
 
   // --- copyToAgents thunk ---
-  it('copyToAgents clears skillToCopy on fulfilled', async () => {
+  it('copyToAgents clears copy-related modal targets on fulfilled', async () => {
     mockCopyToAgents.mockResolvedValue({
       success: true,
       copied: 1,
@@ -302,17 +321,26 @@ describe('skillsSlice', () => {
     })
 
     const store = await createTestStore()
-    const { setSkillToCopy, copyToAgents } = await import('./skillsSlice')
+    const {
+      setSkillToAddSymlinks,
+      setSkillToCopy,
+      toggleAddAgentSelection,
+      copyToAgents,
+    } = await import('./skillsSlice')
     store.dispatch(setSkillToCopy(sampleSkill))
+    store.dispatch(setSkillToAddSymlinks(sampleSkill))
+    store.dispatch(toggleAddAgentSelection('cursor' as AgentId))
     await store.dispatch(
       copyToAgents({
         skill: sampleSkill,
-        linkPath: sampleSymlink.linkPath,
+        sourcePath: sampleSymlink.linkPath,
         agentIds: ['codex' as AgentId],
       }),
     )
 
     expect(store.getState().skills.skillToCopy).toBeNull()
+    expect(store.getState().skills.skillToAddSymlinks).toBeNull()
+    expect(store.getState().skills.selectedAddAgentIds).toEqual([])
     expect(store.getState().skills.copying).toBe(false)
   })
 
@@ -328,7 +356,7 @@ describe('skillsSlice', () => {
     await store.dispatch(
       copyToAgents({
         skill: sampleSkill,
-        linkPath: sampleSymlink.linkPath,
+        sourcePath: sampleSymlink.linkPath,
         agentIds: ['codex' as AgentId],
       }),
     )
