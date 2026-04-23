@@ -173,21 +173,21 @@ export const createSymlinks = createAsyncThunk(
 )
 
 /**
- * Copy a skill from one agent to other agents
- * @param params - skill, linkPath of source, and target agent IDs
+ * Copy a skill source into other agents.
+ * @param params - skill, sourcePath, and target agent IDs
  * @returns Copied count and failures
  */
 export const copyToAgents = createAsyncThunk(
   'skills/copyToAgents',
   async (params: {
     skill: Skill
-    linkPath: AbsolutePath
+    sourcePath: AbsolutePath
     agentIds: AgentId[]
   }) => {
-    const { skill, linkPath, agentIds } = params
+    const { skill, sourcePath, agentIds } = params
     const result = await window.electron.skills.copyToAgents({
       skillName: skill.name,
-      linkPath,
+      sourcePath,
       targetAgentIds: agentIds,
     })
     if (!result.success && result.copied === 0) {
@@ -457,6 +457,7 @@ const skillsSlice = createSlice({
       .addCase(copyToAgents.fulfilled, (state) => {
         state.copying = false
         state.skillToCopy = null
+        state.skillToAddSymlinks = null
       })
       .addCase(copyToAgents.rejected, (state, action) => {
         state.copying = false

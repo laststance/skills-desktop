@@ -17,10 +17,15 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 
-import { getTargetAgentsForSelection } from './agentSelectionHelpers'
+import {
+  getOccupiedAgentReasonById,
+  getOccupiedAgentReasonLabel,
+  getTargetAgentsForSelection,
+} from './agentSelectionHelpers'
+import type { OccupiedAgentReason } from './agentSelectionHelpers'
 
 /**
- * Modal for selecting target agents when copying a skill from one agent to others.
+ * Modal for selecting target agents when copying a skill source from one agent to others.
  * Triggered by right-click "Copy to..." on a skill card in Agent View.
  * @example
  * <CopyToAgentsModal />
@@ -46,18 +51,14 @@ export const CopyToAgentsModal = React.memo(
       })
     }, [agents, selectedAgentId])
 
-    /** Agent IDs where this skill already exists (valid symlink or local) */
-    const alreadyExistsAgentIds = useMemo(() => {
-      if (!skillToCopy) return new Set<AgentId>()
-      return new Set(
-        skillToCopy.symlinks
-          .filter((s) => s.status === 'valid' || s.isLocal)
-          .map((s) => s.agentId),
-      )
+    /** Agent IDs where this skill already occupies the destination path. */
+    const occupiedAgentReasonById = useMemo(() => {
+      if (!skillToCopy) return new Map<AgentId, OccupiedAgentReason>()
+      return getOccupiedAgentReasonById(skillToCopy.symlinks)
     }, [skillToCopy])
 
-    /** The linkPath of the skill in the source agent */
-    const sourceLinkPath = useMemo(() => {
+    /** The on-disk source entry for the selected agent's copy operation. */
+    const sourcePath = useMemo(() => {
       if (!skillToCopy || !selectedAgentId) return null
       const symlink = skillToCopy.symlinks.find(
         (s) => s.agentId === selectedAgentId,
@@ -73,7 +74,7 @@ export const CopyToAgentsModal = React.memo(
     }
 
     const handleAgentToggle = (agentId: AgentId): void => {
-      if (alreadyExistsAgentIds.has(agentId)) return
+      if (occupiedAgentReasonById.has(agentId)) return
       setSelectedAgents((prev) =>
         prev.includes(agentId)
           ? prev.filter((id) => id !== agentId)
@@ -82,12 +83,12 @@ export const CopyToAgentsModal = React.memo(
     }
 
     const handleCopy = async (): Promise<void> => {
-      if (!skillToCopy || !sourceLinkPath || selectedAgents.length === 0) return
+      if (!skillToCopy || !sourcePath || selectedAgents.length === 0) return
 
       const result = await dispatch(
         copyToAgents({
           skill: skillToCopy,
-          linkPath: sourceLinkPath,
+          sourcePath,
           agentIds: selectedAgents,
         }),
       )
@@ -138,7 +139,8 @@ export const CopyToAgentsModal = React.memo(
 
           <div className="max-h-64 overflow-y-auto space-y-2 py-2">
             {targetAgents.map((agent) => {
-              const alreadyExists = alreadyExistsAgentIds.has(agent.id)
+              const occupiedReason = occupiedAgentReasonById.get(agent.id)
+              const alreadyExists = occupiedReason !== undefined
               const checkboxId = `copy-agent-${agent.id}`
               return (
                 <div
@@ -160,7 +162,11 @@ export const CopyToAgentsModal = React.memo(
                   />
                   <label
                     htmlFor={checkboxId}
-                    className="text-sm cursor-pointer"
+                    className={
+                      alreadyExists || copying
+                        ? 'text-sm cursor-not-allowed'
+                        : 'text-sm cursor-pointer'
+                    }
                   >
                     {agent.name}
                     {!agent.exists && (
@@ -170,7 +176,7 @@ export const CopyToAgentsModal = React.memo(
                     )}
                     {alreadyExists && (
                       <span className="text-xs text-muted-foreground ml-2">
-                        already exists
+                        {getOccupiedAgentReasonLabel(occupiedReason!)}
                       </span>
                     )}
                   </label>

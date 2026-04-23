@@ -1,4 +1,4 @@
-import { Loader2, Plus } from 'lucide-react'
+import { Copy, Loader2, Plus } from 'lucide-react'
 import React, { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -6,6 +6,7 @@ import type { AgentId } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import {
+  copyToAgents,
   createSymlinks,
   setSkillToAddSymlinks,
 } from '../../redux/slices/skillsSlice'
@@ -21,16 +22,21 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 
-import { getTargetAgentsForSelection } from './agentSelectionHelpers'
+import {
+  getOccupiedAgentReasonById,
+  getOccupiedAgentReasonLabel,
+  getTargetAgentsForSelection,
+} from './agentSelectionHelpers'
+import type { OccupiedAgentReason } from './agentSelectionHelpers'
 
 /**
- * Modal for selecting agents to add skill symlinks to
- * Shows agent checkboxes with already-linked agents disabled
+ * Modal for selecting agents to add a skill to from global view.
+ * Offers both symlink creation and physical file-copy actions.
  */
 export const AddSymlinkModal = React.memo(
   function AddSymlinkModal(): React.ReactElement {
     const dispatch = useAppDispatch()
-    const { skillToAddSymlinks, addingSymlinks } = useAppSelector(
+    const { skillToAddSymlinks, addingSymlinks, copying } = useAppSelector(
       (state) => state.skills,
     )
     const { items: agents } = useAppSelector((state) => state.agents)
@@ -42,24 +48,22 @@ export const AddSymlinkModal = React.memo(
       [agents],
     )
 
-    const alreadyLinkedAgentIds = useMemo(() => {
-      if (!skillToAddSymlinks) return new Set<AgentId>()
-      return new Set(
-        skillToAddSymlinks.symlinks
-          .filter((s) => s.status === 'valid')
-          .map((s) => s.agentId),
-      )
+    const occupiedAgentReasonById = useMemo(() => {
+      if (!skillToAddSymlinks) return new Map<AgentId, OccupiedAgentReason>()
+      return getOccupiedAgentReasonById(skillToAddSymlinks.symlinks)
     }, [skillToAddSymlinks])
 
+    const isSubmitting = addingSymlinks || copying
+
     const handleClose = (): void => {
-      if (!addingSymlinks) {
+      if (!isSubmitting) {
         dispatch(setSkillToAddSymlinks(null))
         setSelectedAgents([])
       }
     }
 
     const handleAgentToggle = (agentId: AgentId): void => {
-      if (alreadyLinkedAgentIds.has(agentId)) return
+      if (occupiedAgentReasonById.has(agentId)) return
       setSelectedAgents((prev) =>
         prev.includes(agentId)
           ? prev.filter((id) => id !== agentId)
@@ -89,6 +93,29 @@ export const AddSymlinkModal = React.memo(
       refreshAllData(dispatch)
     }
 
+    const handleCopySkillFiles = async (): Promise<void> => {
+      if (!skillToAddSymlinks || selectedAgents.length === 0) return
+
+      const result = await dispatch(
+        copyToAgents({
+          skill: skillToAddSymlinks,
+          sourcePath: skillToAddSymlinks.path,
+          agentIds: selectedAgents,
+        }),
+      )
+
+      if (copyToAgents.fulfilled.match(result)) {
+        toast.success(`Copied to ${result.payload.copied} agent(s)`, {
+          description: `${skillToAddSymlinks.name} copied successfully`,
+        })
+      } else {
+        toast.error('Failed to copy skill', {
+          description: result.error?.message || 'An unexpected error occurred',
+        })
+      }
+      refreshAllData(dispatch)
+    }
+
     const hasNewSelections = selectedAgents.length > 0
 
     return (
@@ -100,8 +127,8 @@ export const AddSymlinkModal = React.memo(
               <DialogTitle>Add Symlink</DialogTitle>
             </div>
             <DialogDescription>
-              Select agents to link <strong>{skillToAddSymlinks?.name}</strong>{' '}
-              to
+              Select agents to link or copy{' '}
+              <strong>{skillToAddSymlinks?.name}</strong> to
             </DialogDescription>
           </DialogHeader>
 
@@ -109,44 +136,53 @@ export const AddSymlinkModal = React.memo(
             <h4 className="text-sm font-medium mb-3">Select Agents</h4>
             <div className="max-h-[240px] overflow-y-auto rounded-md border p-2 space-y-1">
               {targetAgents.map((agent) => {
-                const isAlreadyLinked = alreadyLinkedAgentIds.has(agent.id)
+                const occupiedReason = occupiedAgentReasonById.get(agent.id)
+                const isOccupied = occupiedReason !== undefined
+                const checkboxId = `add-agent-${agent.id}`
                 return (
-                  <label
+                  <div
                     key={agent.id}
                     className={cn(
                       'flex items-center gap-3 p-2 rounded-md',
-                      isAlreadyLinked
+                      isOccupied
                         ? 'opacity-50 cursor-not-allowed'
                         : 'hover:bg-muted cursor-pointer',
                     )}
                   >
                     <Checkbox
-                      checked={
-                        isAlreadyLinked || selectedAgents.includes(agent.id)
-                      }
+                      id={checkboxId}
+                      checked={isOccupied || selectedAgents.includes(agent.id)}
                       onCheckedChange={() => handleAgentToggle(agent.id)}
-                      disabled={addingSymlinks || isAlreadyLinked}
+                      disabled={isSubmitting || isOccupied}
                     />
-                    <span className="text-sm">
+                    <label
+                      htmlFor={checkboxId}
+                      className={cn(
+                        'text-sm',
+                        isOccupied || isSubmitting
+                          ? 'cursor-not-allowed'
+                          : 'cursor-pointer',
+                      )}
+                    >
                       {agent.name}
                       {!agent.exists && (
                         <span className="text-xs text-muted-foreground ml-2">
                           not installed
                         </span>
                       )}
-                      {isAlreadyLinked && (
+                      {isOccupied && (
                         <span className="text-xs text-muted-foreground ml-2">
-                          (linked)
+                          {getOccupiedAgentReasonLabel(occupiedReason!)}
                         </span>
                       )}
-                    </span>
-                  </label>
+                    </label>
+                  </div>
                 )
               })}
             </div>
             {!hasNewSelections && (
               <p className="text-sm text-muted-foreground mt-2">
-                Select at least one new agent
+                Select at least one available agent
               </p>
             )}
           </div>
@@ -155,13 +191,30 @@ export const AddSymlinkModal = React.memo(
             <Button
               variant="outline"
               onClick={handleClose}
-              disabled={addingSymlinks}
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
             <Button
+              variant="outline"
+              onClick={handleCopySkillFiles}
+              disabled={isSubmitting || !hasNewSelections}
+            >
+              {copying ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Copying...
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy Skill files
+                </>
+              )}
+            </Button>
+            <Button
               onClick={handleAddSymlinks}
-              disabled={addingSymlinks || !hasNewSelections}
+              disabled={isSubmitting || !hasNewSelections}
             >
               {addingSymlinks ? (
                 <>

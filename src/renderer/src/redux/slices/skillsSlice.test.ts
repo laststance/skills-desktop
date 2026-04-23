@@ -294,7 +294,7 @@ describe('skillsSlice', () => {
   })
 
   // --- copyToAgents thunk ---
-  it('copyToAgents clears skillToCopy on fulfilled', async () => {
+  it('copyToAgents clears copy-related modal targets on fulfilled', async () => {
     mockCopyToAgents.mockResolvedValue({
       success: true,
       copied: 1,
@@ -302,17 +302,20 @@ describe('skillsSlice', () => {
     })
 
     const store = await createTestStore()
-    const { setSkillToCopy, copyToAgents } = await import('./skillsSlice')
+    const { setSkillToAddSymlinks, setSkillToCopy, copyToAgents } =
+      await import('./skillsSlice')
     store.dispatch(setSkillToCopy(sampleSkill))
+    store.dispatch(setSkillToAddSymlinks(sampleSkill))
     await store.dispatch(
       copyToAgents({
         skill: sampleSkill,
-        linkPath: sampleSymlink.linkPath,
+        sourcePath: sampleSymlink.linkPath,
         agentIds: ['codex' as AgentId],
       }),
     )
 
     expect(store.getState().skills.skillToCopy).toBeNull()
+    expect(store.getState().skills.skillToAddSymlinks).toBeNull()
     expect(store.getState().skills.copying).toBe(false)
   })
 
@@ -328,7 +331,7 @@ describe('skillsSlice', () => {
     await store.dispatch(
       copyToAgents({
         skill: sampleSkill,
-        linkPath: sampleSymlink.linkPath,
+        sourcePath: sampleSymlink.linkPath,
         agentIds: ['codex' as AgentId],
       }),
     )

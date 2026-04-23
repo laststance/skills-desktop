@@ -819,13 +819,13 @@ export interface CreateSymlinksResult {
  * one agent's directory into other agents (for the "copy for agent
  * collaboration" flow, where symlinks are intentionally NOT used).
  * @example
- * { skillName: 'my-skill', linkPath: '/Users/me/.claude/skills/my-skill', targetAgentIds: ['cursor', 'windsurf'] }
+ * { skillName: 'my-skill', sourcePath: '/Users/me/.claude/skills/my-skill', targetAgentIds: ['cursor', 'windsurf'] }
  */
 export interface CopyToAgentsOptions {
   /** Skill name, used as the destination folder name in each target agent. @example "my-skill" */
   skillName: SkillName
-  /** Absolute path to the source skill in the originating agent's directory. @example "/Users/me/.claude/skills/my-skill" */
-  linkPath: AbsolutePath
+  /** Absolute path to the source entry to replicate. May be a source-directory path or an agent-local symlink/directory path. @example "/Users/me/.claude/skills/my-skill" */
+  sourcePath: AbsolutePath
   /** Agents that should receive a full copy (not a symlink). */
   targetAgentIds: AgentId[]
 }
