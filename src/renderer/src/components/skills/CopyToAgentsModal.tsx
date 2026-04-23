@@ -63,8 +63,11 @@ export const CopyToAgentsModal = React.memo(
       const symlink = skillToCopy.symlinks.find(
         (s) => s.agentId === selectedAgentId,
       )
-      return symlink?.linkPath ?? null
+      if (!symlink) return null
+      if (!symlink.isLocal && symlink.status !== 'valid') return null
+      return symlink.linkPath
     }, [skillToCopy, selectedAgentId])
+    const isSourceUnavailable = sourcePath === null
 
     const handleClose = (): void => {
       if (!copying) {
@@ -146,24 +149,28 @@ export const CopyToAgentsModal = React.memo(
                 <div
                   key={agent.id}
                   className={`flex items-center gap-3 p-2 rounded-md transition-colors ${
-                    alreadyExists
+                    alreadyExists || isSourceUnavailable
                       ? 'opacity-50 cursor-not-allowed'
                       : 'hover:bg-accent cursor-pointer'
                   }`}
                   onClick={() =>
-                    !alreadyExists && !copying && handleAgentToggle(agent.id)
+                    !alreadyExists &&
+                    !copying &&
+                    !isSourceUnavailable &&
+                    handleAgentToggle(agent.id)
                   }
                 >
                   <Checkbox
                     id={checkboxId}
+                    aria-label={agent.name}
                     checked={alreadyExists || selectedAgents.includes(agent.id)}
-                    disabled={alreadyExists || copying}
+                    disabled={alreadyExists || copying || isSourceUnavailable}
+                    onClick={(event) => event.stopPropagation()}
                     onCheckedChange={() => handleAgentToggle(agent.id)}
                   />
-                  <label
-                    htmlFor={checkboxId}
+                  <div
                     className={
-                      alreadyExists || copying
+                      alreadyExists || copying || isSourceUnavailable
                         ? 'text-sm cursor-not-allowed'
                         : 'text-sm cursor-pointer'
                     }
@@ -174,16 +181,22 @@ export const CopyToAgentsModal = React.memo(
                         not installed
                       </span>
                     )}
-                    {alreadyExists && (
+                    {alreadyExists && occupiedReason && (
                       <span className="text-xs text-muted-foreground ml-2">
-                        {getOccupiedAgentReasonLabel(occupiedReason!)}
+                        {getOccupiedAgentReasonLabel(occupiedReason)}
                       </span>
                     )}
-                  </label>
+                  </div>
                 </div>
               )
             })}
           </div>
+          {isSourceUnavailable && (
+            <p className="text-sm text-muted-foreground">
+              The selected source is unavailable. Choose a valid or local skill
+              before copying.
+            </p>
+          )}
 
           <DialogFooter>
             <Button variant="outline" onClick={handleClose} disabled={copying}>
@@ -191,7 +204,7 @@ export const CopyToAgentsModal = React.memo(
             </Button>
             <Button
               onClick={handleCopy}
-              disabled={!hasNewSelections || copying}
+              disabled={!hasNewSelections || copying || isSourceUnavailable}
             >
               {copying && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {copying

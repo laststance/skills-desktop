@@ -1,5 +1,5 @@
 import { Copy, Loader2, Plus } from 'lucide-react'
-import React, { useMemo, useState } from 'react'
+import React, { useMemo } from 'react'
 import { toast } from 'sonner'
 
 import type { AgentId } from '../../../../shared/types'
@@ -9,6 +9,7 @@ import {
   copyToAgents,
   createSymlinks,
   setSkillToAddSymlinks,
+  toggleAddAgentSelection,
 } from '../../redux/slices/skillsSlice'
 import { refreshAllData } from '../../redux/thunks'
 import { Button } from '../ui/button'
@@ -36,12 +37,9 @@ import type { OccupiedAgentReason } from './agentSelectionHelpers'
 export const AddSymlinkModal = React.memo(
   function AddSymlinkModal(): React.ReactElement {
     const dispatch = useAppDispatch()
-    const { skillToAddSymlinks, addingSymlinks, copying } = useAppSelector(
-      (state) => state.skills,
-    )
+    const { skillToAddSymlinks, selectedAddAgentIds, addingSymlinks, copying } =
+      useAppSelector((state) => state.skills)
     const { items: agents } = useAppSelector((state) => state.agents)
-
-    const [selectedAgents, setSelectedAgents] = useState<AgentId[]>([])
 
     const targetAgents = useMemo(
       () => getTargetAgentsForSelection(agents),
@@ -58,24 +56,22 @@ export const AddSymlinkModal = React.memo(
     const handleClose = (): void => {
       if (!isSubmitting) {
         dispatch(setSkillToAddSymlinks(null))
-        setSelectedAgents([])
       }
     }
 
     const handleAgentToggle = (agentId: AgentId): void => {
       if (occupiedAgentReasonById.has(agentId)) return
-      setSelectedAgents((prev) =>
-        prev.includes(agentId)
-          ? prev.filter((id) => id !== agentId)
-          : [...prev, agentId],
-      )
+      dispatch(toggleAddAgentSelection(agentId))
     }
 
     const handleAddSymlinks = async (): Promise<void> => {
-      if (!skillToAddSymlinks || selectedAgents.length === 0) return
+      if (!skillToAddSymlinks || selectedAddAgentIds.length === 0) return
 
       const result = await dispatch(
-        createSymlinks({ skill: skillToAddSymlinks, agentIds: selectedAgents }),
+        createSymlinks({
+          skill: skillToAddSymlinks,
+          agentIds: selectedAddAgentIds,
+        }),
       )
 
       if (createSymlinks.fulfilled.match(result)) {
@@ -94,20 +90,31 @@ export const AddSymlinkModal = React.memo(
     }
 
     const handleCopySkillFiles = async (): Promise<void> => {
-      if (!skillToAddSymlinks || selectedAgents.length === 0) return
+      if (!skillToAddSymlinks || selectedAddAgentIds.length === 0) return
 
       const result = await dispatch(
         copyToAgents({
           skill: skillToAddSymlinks,
           sourcePath: skillToAddSymlinks.path,
-          agentIds: selectedAgents,
+          agentIds: selectedAddAgentIds,
         }),
       )
 
       if (copyToAgents.fulfilled.match(result)) {
-        toast.success(`Copied to ${result.payload.copied} agent(s)`, {
-          description: `${skillToAddSymlinks.name} copied successfully`,
-        })
+        if (result.payload.failures.length > 0) {
+          toast.warning(
+            `Copied to ${result.payload.copied} agent(s), ${result.payload.failures.length} failed`,
+            {
+              description: result.payload.failures
+                .map((failure) => `${failure.agentId}: ${failure.error}`)
+                .join(', '),
+            },
+          )
+        } else {
+          toast.success(`Copied to ${result.payload.copied} agent(s)`, {
+            description: `${skillToAddSymlinks.name} copied successfully`,
+          })
+        }
       } else {
         toast.error('Failed to copy skill', {
           description: result.error?.message || 'An unexpected error occurred',
@@ -116,15 +123,18 @@ export const AddSymlinkModal = React.memo(
       refreshAllData(dispatch)
     }
 
-    const hasNewSelections = selectedAgents.length > 0
+    const hasNewSelections = selectedAddAgentIds.length > 0
 
     return (
-      <Dialog open={!!skillToAddSymlinks} onOpenChange={handleClose}>
+      <Dialog
+        open={!!skillToAddSymlinks}
+        onOpenChange={(open) => !open && handleClose()}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <div className="flex items-center gap-2">
               <Plus className="h-5 w-5 text-primary" />
-              <DialogTitle>Add Symlink</DialogTitle>
+              <DialogTitle>Add Skill to Agents</DialogTitle>
             </div>
             <DialogDescription>
               Select agents to link or copy{' '}
@@ -148,15 +158,23 @@ export const AddSymlinkModal = React.memo(
                         ? 'opacity-50 cursor-not-allowed'
                         : 'hover:bg-muted cursor-pointer',
                     )}
+                    onClick={() =>
+                      !isOccupied &&
+                      !isSubmitting &&
+                      handleAgentToggle(agent.id)
+                    }
                   >
                     <Checkbox
                       id={checkboxId}
-                      checked={isOccupied || selectedAgents.includes(agent.id)}
+                      aria-label={agent.name}
+                      checked={
+                        isOccupied || selectedAddAgentIds.includes(agent.id)
+                      }
+                      onClick={(event) => event.stopPropagation()}
                       onCheckedChange={() => handleAgentToggle(agent.id)}
                       disabled={isSubmitting || isOccupied}
                     />
-                    <label
-                      htmlFor={checkboxId}
+                    <div
                       className={cn(
                         'text-sm',
                         isOccupied || isSubmitting
@@ -170,12 +188,12 @@ export const AddSymlinkModal = React.memo(
                           not installed
                         </span>
                       )}
-                      {isOccupied && (
+                      {isOccupied && occupiedReason && (
                         <span className="text-xs text-muted-foreground ml-2">
-                          {getOccupiedAgentReasonLabel(occupiedReason!)}
+                          {getOccupiedAgentReasonLabel(occupiedReason)}
                         </span>
                       )}
-                    </label>
+                    </div>
                   </div>
                 )
               })}

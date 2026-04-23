@@ -42,6 +42,8 @@ interface SkillsState {
   unlinking: boolean
   /** Skill targeted by the AddSymlinkModal. */
   skillToAddSymlinks: Skill | null
+  /** Agent IDs checked in the AddSymlinkModal. */
+  selectedAddAgentIds: AgentId[]
   /** true while createSymlinks is in flight. */
   addingSymlinks: boolean
   /** Skill targeted by the CopyToAgentsModal. */
@@ -83,6 +85,7 @@ const initialState: SkillsState = {
   skillToUnlink: null,
   unlinking: false,
   skillToAddSymlinks: null,
+  selectedAddAgentIds: [],
   addingSymlinks: false,
   skillToCopy: null,
   copying: false,
@@ -333,9 +336,28 @@ const skillsSlice = createSlice({
     },
     setSkillToAddSymlinks: (state, action: PayloadAction<Skill | null>) => {
       state.skillToAddSymlinks = action.payload
+      state.selectedAddAgentIds = []
     },
     setSkillToCopy: (state, action: PayloadAction<Skill | null>) => {
       state.skillToCopy = action.payload
+    },
+    /**
+     * Toggle one target agent in the AddSymlinkModal selection.
+     */
+    toggleAddAgentSelection: (state, action: PayloadAction<AgentId>) => {
+      const agentId = action.payload
+      const existingIndex = state.selectedAddAgentIds.indexOf(agentId)
+      if (existingIndex === -1) {
+        state.selectedAddAgentIds.push(agentId)
+        return
+      }
+      state.selectedAddAgentIds.splice(existingIndex, 1)
+    },
+    /**
+     * Clear the AddSymlinkModal agent selection.
+     */
+    clearAddAgentSelection: (state) => {
+      state.selectedAddAgentIds = []
     },
     /**
      * Toggle a single skill in `selectedSkillNames` and update the anchor.
@@ -445,6 +467,7 @@ const skillsSlice = createSlice({
       .addCase(createSymlinks.fulfilled, (state) => {
         state.addingSymlinks = false
         state.skillToAddSymlinks = null
+        state.selectedAddAgentIds = []
       })
       .addCase(createSymlinks.rejected, (state, action) => {
         state.addingSymlinks = false
@@ -458,6 +481,7 @@ const skillsSlice = createSlice({
         state.copying = false
         state.skillToCopy = null
         state.skillToAddSymlinks = null
+        state.selectedAddAgentIds = []
       })
       .addCase(copyToAgents.rejected, (state, action) => {
         state.copying = false
@@ -602,6 +626,8 @@ export const {
   setSkillToUnlink,
   setSkillToAddSymlinks,
   setSkillToCopy,
+  toggleAddAgentSelection,
+  clearAddAgentSelection,
   toggleSelection,
   selectRange,
   selectAll,

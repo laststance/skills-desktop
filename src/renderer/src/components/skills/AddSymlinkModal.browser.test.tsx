@@ -144,7 +144,7 @@ async function renderModal(options: { skill: Skill; agents: Agent[] }) {
   store.dispatch(setSkillToAddSymlinks(skill))
 
   await expect
-    .element(screen.getByRole('dialog', { name: /Add Symlink/i }))
+    .element(screen.getByRole('dialog', { name: /Add Skill to Agents/i }))
     .toBeInTheDocument()
 
   return { screen, store }
@@ -209,6 +209,54 @@ describe('AddSymlinkModal actions', () => {
       sourcePath: '/home/user/.agents/skills/task',
       targetAgentIds: ['codex'],
     })
+  })
+
+  it('shows a warning toast when copying succeeds only for some agents', async () => {
+    mockCopyToAgents.mockResolvedValue({
+      success: false,
+      copied: 1,
+      failures: [{ agentId: 'cursor', error: 'Already exists' }],
+    })
+
+    const { screen } = await renderModal({
+      skill: makeSkill(),
+      agents: [makeAgent({ id: 'codex', name: 'Codex' })],
+    })
+
+    await screen.getByRole('checkbox', { name: /Codex/i }).click()
+    await screen.getByRole('button', { name: /Copy Skill files/i }).click()
+
+    await expect.poll(() => toastWarning.mock.calls.length).toBe(1)
+    expect(toastSuccess).not.toHaveBeenCalled()
+  })
+
+  it('clears selected agents when the modal closes externally and reopens', async () => {
+    const firstSkill = makeSkill({ name: 'task' as SkillName })
+    const secondSkill = makeSkill({
+      name: 'review' as SkillName,
+      path: '/home/user/.agents/skills/review',
+    })
+    const { screen, store } = await renderModal({
+      skill: firstSkill,
+      agents: [makeAgent({ id: 'codex', name: 'Codex' })],
+    })
+    const { setSkillToAddSymlinks } =
+      await import('../../redux/slices/skillsSlice')
+
+    await screen.getByRole('checkbox', { name: /Codex/i }).click()
+    await expect
+      .element(screen.getByRole('checkbox', { name: /Codex/i }))
+      .toBeChecked()
+
+    store.dispatch(setSkillToAddSymlinks(null))
+    store.dispatch(setSkillToAddSymlinks(secondSkill))
+
+    await expect
+      .element(screen.getByRole('dialog', { name: /Add Skill to Agents/i }))
+      .toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('checkbox', { name: /Codex/i }))
+      .not.toBeChecked()
   })
 })
 

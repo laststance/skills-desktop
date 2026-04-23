@@ -442,7 +442,7 @@ export function registerSkillsHandlers(): void {
   /**
    * Copy a skill source into other agents.
    * Symlinked sources → create symlink pointing to same resolved target.
-   * Directory sources → physical copy (`fs.cp(..., { recursive: true })`).
+   * Directory sources → physical copy while preserving nested symlinks.
    * @param options - skillName, sourcePath, targetAgentIds
    * @returns CopyToAgentsResult with copied count and per-agent failures
    * @example
@@ -539,7 +539,10 @@ export function registerSkillsHandlers(): void {
         if (isSymlink) {
           await fs.symlink(symlinkTarget, destPath)
         } else {
-          await fs.cp(sourcePath, destPath, { recursive: true })
+          await fs.cp(sourcePath, destPath, {
+            recursive: true,
+            verbatimSymlinks: true,
+          })
         }
         copied++
       } catch (error) {

@@ -1,4 +1,13 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readlink,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -97,5 +106,56 @@ describe('skills:copyToAgents handler', () => {
     await expect(
       readFile(join(copiedSkillPath, 'notes.md'), 'utf-8'),
     ).resolves.toBe('copied payload')
+  })
+
+  it('preserves nested symlinks when copying a source directory', async () => {
+    const sourcePath = join(tempHome, '.agents', 'skills', 'task')
+    await mkdir(join(sourcePath, 'docs'), { recursive: true })
+    await writeFile(
+      join(sourcePath, 'docs', 'guide.md'),
+      'nested guide',
+      'utf-8',
+    )
+    await symlink('./docs/guide.md', join(sourcePath, 'linked-guide.md'))
+
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+
+    const copyToAgentsHandler = getRegisteredHandler('skills:copyToAgents')
+    const result = (await copyToAgentsHandler(
+      {},
+      {
+        skillName: 'task',
+        sourcePath,
+        targetAgentIds: ['cursor'],
+      },
+    )) as {
+      success: boolean
+      copied: number
+      failures: unknown[]
+    }
+
+    expect(result).toEqual({
+      success: true,
+      copied: 1,
+      failures: [],
+    })
+
+    const copiedLinkPath = join(
+      tempHome,
+      '.cursor',
+      'skills',
+      'task',
+      'linked-guide.md',
+    )
+    const copiedLinkStats = await lstat(copiedLinkPath)
+    expect(copiedLinkStats.isSymbolicLink()).toBe(true)
+    await expect(readlink(copiedLinkPath)).resolves.toBe('./docs/guide.md')
+    await expect(
+      readFile(
+        join(tempHome, '.cursor', 'skills', 'task', 'docs', 'guide.md'),
+        'utf-8',
+      ),
+    ).resolves.toBe('nested guide')
   })
 })
