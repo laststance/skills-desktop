@@ -30,10 +30,22 @@ describe('AGENT_DEFINITIONS', () => {
     }
   })
 
-  it('kimi-cli is defined with .kimi dir', () => {
+  it('syncs CLI globalSkillsDir parents for shared/universal agents', () => {
+    const cline = AGENT_DEFINITIONS.find((a) => a.id === 'cline')
+    const warp = AGENT_DEFINITIONS.find((a) => a.id === 'warp')
+    const amp = AGENT_DEFINITIONS.find((a) => a.id === 'amp')
     const kimiCli = AGENT_DEFINITIONS.find((a) => a.id === 'kimi-cli')
-    expect(kimiCli).toBeDefined()
-    expect(kimiCli!.dir).toBe('.kimi')
+    const opencode = AGENT_DEFINITIONS.find((a) => a.id === 'opencode')
+    const deepAgents = AGENT_DEFINITIONS.find((a) => a.id === 'deepagents')
+    const replit = AGENT_DEFINITIONS.find((a) => a.id === 'replit')
+
+    expect(cline?.dir).toBe('.agents')
+    expect(warp?.dir).toBe('.agents')
+    expect(amp?.dir).toBe('.config/agents')
+    expect(kimiCli?.dir).toBe('.config/agents')
+    expect(opencode?.dir).toBe('.config/opencode')
+    expect(deepAgents?.dir).toBe('.deepagents/agent')
+    expect(replit?.dir).toBe('.config/agents')
   })
 })
 
@@ -58,6 +70,7 @@ describe('UNIVERSAL_AGENT_IDS', () => {
     expect(UNIVERSAL_AGENT_IDS).toContain('kimi-cli')
     expect(UNIVERSAL_AGENT_IDS).toContain('opencode')
     expect(UNIVERSAL_AGENT_IDS).toContain('warp')
+    expect(UNIVERSAL_AGENT_IDS).not.toContain('replit')
   })
 })
 

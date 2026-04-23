@@ -63,11 +63,13 @@ export function validatePath(
 
 /**
  * All allowed base paths: SOURCE_DIR + all agent skills directories.
- * @returns Array of resolved base paths
+ * Duplicate directories are collapsed so universal agents that share the same
+ * on-disk skills folder don't create redundant validation passes.
+ * @returns Array of unique resolved base paths
  * @example
  * getAllowedBases()
  * // => ['/Users/x/.agents/skills', '/Users/x/.claude/skills', '/Users/x/.cursor/skills', ...]
  */
 export function getAllowedBases(): string[] {
-  return [SOURCE_DIR, ...AGENTS.map((a) => a.path)]
+  return [...new Set([SOURCE_DIR, ...AGENTS.map((a) => a.path)])]
 }

@@ -195,7 +195,8 @@ export const THEME_PRESETS = {
  * - `id`: Internal ID used in this app (used for state, checkbox values)
  * - `cliId`: Skills CLI agent identifier (used for --agent flag)
  * - `name`: Display name shown in UI
- * - `dir`: Home directory subdirectory for skills
+ * - `dir`: Home directory subdirectory derived from the CLI agent's
+ *   `globalSkillsDir` parent folder
  *
  * When id !== cliId, the skillsCliService maps id → cliId for CLI commands
  */
@@ -210,16 +211,21 @@ export const AGENT_DEFINITIONS = [
   { id: 'cursor', cliId: 'cursor', name: 'Cursor', dir: '.cursor' },
   { id: 'codex', cliId: 'codex', name: 'Codex', dir: '.codex' },
   { id: 'gemini-cli', cliId: 'gemini-cli', name: 'Gemini CLI', dir: '.gemini' },
-  { id: 'opencode', cliId: 'opencode', name: 'OpenCode', dir: '.opencode' },
+  {
+    id: 'opencode',
+    cliId: 'opencode',
+    name: 'OpenCode',
+    dir: '.config/opencode',
+  },
   {
     id: 'github-copilot',
     cliId: 'github-copilot',
     name: 'GitHub Copilot',
     dir: '.copilot',
   },
-  { id: 'cline', cliId: 'cline', name: 'Cline', dir: '.cline' },
+  { id: 'cline', cliId: 'cline', name: 'Cline', dir: '.agents' },
   { id: 'roo', cliId: 'roo', name: 'Roo Code', dir: '.roo' },
-  { id: 'amp', cliId: 'amp', name: 'Amp', dir: '.config/amp' },
+  { id: 'amp', cliId: 'amp', name: 'Amp', dir: '.config/agents' },
   { id: 'goose', cliId: 'goose', name: 'Goose', dir: '.config/goose' },
   {
     id: 'windsurf',
@@ -237,8 +243,13 @@ export const AGENT_DEFINITIONS = [
   { id: 'zencoder', cliId: 'zencoder', name: 'Zencoder', dir: '.zencoder' },
   { id: 'pochi', cliId: 'pochi', name: 'Pochi', dir: '.pochi' },
   { id: 'adal', cliId: 'adal', name: 'AdaL', dir: '.adal' },
-  { id: 'kimi-cli', cliId: 'kimi-cli', name: 'Kimi Code CLI', dir: '.kimi' },
-  // New agents synced from Skills CLI v1.4.7
+  {
+    id: 'kimi-cli',
+    cliId: 'kimi-cli',
+    name: 'Kimi Code CLI',
+    dir: '.config/agents',
+  },
+  // Additional agents synced through Skills CLI v1.5.1
   { id: 'bob', cliId: 'bob', name: 'IBM Bob', dir: '.bob' },
   {
     id: 'firebender',
@@ -271,7 +282,7 @@ export const AGENT_DEFINITIONS = [
     id: 'deepagents',
     cliId: 'deepagents',
     name: 'Deep Agents',
-    dir: '.deepagents',
+    dir: '.deepagents/agent',
   },
   { id: 'droid', cliId: 'droid', name: 'Droid', dir: '.factory' },
   { id: 'iflow-cli', cliId: 'iflow-cli', name: 'iFlow CLI', dir: '.iflow' },
@@ -288,9 +299,9 @@ export const AGENT_DEFINITIONS = [
   { id: 'openclaw', cliId: 'openclaw', name: 'OpenClaw', dir: '.openclaw' },
   { id: 'pi', cliId: 'pi', name: 'Pi', dir: '.pi/agent' },
   { id: 'qwen-code', cliId: 'qwen-code', name: 'Qwen Code', dir: '.qwen' },
-  { id: 'replit', cliId: 'replit', name: 'Replit', dir: '.replit' },
+  { id: 'replit', cliId: 'replit', name: 'Replit', dir: '.config/agents' },
   { id: 'trae-cn', cliId: 'trae-cn', name: 'Trae CN', dir: '.trae-cn' },
-  { id: 'warp', cliId: 'warp', name: 'Warp', dir: '.warp' },
+  { id: 'warp', cliId: 'warp', name: 'Warp', dir: '.agents' },
 ] as const
 
 /**
