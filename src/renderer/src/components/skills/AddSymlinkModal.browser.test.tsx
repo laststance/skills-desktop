@@ -264,9 +264,7 @@ describe('AddSymlinkModal occupied-agent states', () => {
       .toBeDisabled()
     await expect.element(screen.getByText(/linked/i)).toBeInTheDocument()
     await expect.element(screen.getByText(/local/i)).toBeInTheDocument()
-    await expect
-      .element(screen.getByText(/already exists/i))
-      .toBeInTheDocument()
+    await expect.element(screen.getByText(/broken link/i)).toBeInTheDocument()
     await expect
       .element(screen.getByRole('checkbox', { name: /Codex/i }))
       .toBeEnabled()

@@ -36,13 +36,25 @@ describe('skills:copyToAgents handler', () => {
     vi.resetModules()
     handleMock.mockReset()
     tempHome = await mkdtemp(join(tmpdir(), 'skills-desktop-copy-'))
-    vi.doMock('os', () => ({
-      homedir: () => tempHome,
-    }))
+    vi.doMock('os', async () => {
+      const actual = await vi.importActual<typeof import('os')>('os')
+      return {
+        ...actual,
+        homedir: () => tempHome,
+      }
+    })
+    vi.doMock('node:os', async () => {
+      const actual = await vi.importActual<typeof import('node:os')>('node:os')
+      return {
+        ...actual,
+        homedir: () => tempHome,
+      }
+    })
   })
 
   afterEach(async () => {
     vi.doUnmock('os')
+    vi.doUnmock('node:os')
     await rm(tempHome, { recursive: true, force: true })
   })
 

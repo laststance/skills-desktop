@@ -4,13 +4,19 @@ import type { Agent, AgentId, SymlinkInfo } from '../../../../shared/types'
  * Why an agent row is unavailable as a destination in Add/Copy flows.
  * - `linked`: a valid symlink already exists
  * - `local`: a real directory already exists in the agent's skills dir
- * - `already-exists`: some other occupied entry exists (for example a broken symlink)
+ * - `broken`: a broken symlink occupies the destination path
+ * - `already-exists`: some other occupied entry exists
  */
-export type OccupiedAgentReason = 'linked' | 'local' | 'already-exists'
+export type OccupiedAgentReason =
+  | 'linked'
+  | 'local'
+  | 'broken'
+  | 'already-exists'
 
 const OCCUPIED_AGENT_REASON_LABELS: Record<OccupiedAgentReason, string> = {
   linked: 'linked',
   local: 'local',
+  broken: 'broken link',
   'already-exists': 'already exists',
 }
 
@@ -64,7 +70,7 @@ export function getTargetAgentsForSelection(
  *   { agentId: 'cursor', status: 'valid', isLocal: false } as SymlinkInfo,
  *   { agentId: 'codex', status: 'broken', isLocal: false } as SymlinkInfo,
  * ])
- * // => Map { 'cursor' => 'linked', 'codex' => 'already-exists' }
+ * // => Map { 'cursor' => 'linked', 'codex' => 'broken' }
  */
 export function getOccupiedAgentReasonById(
   symlinks: SymlinkInfo[],
@@ -102,11 +108,11 @@ export function getOccupiedAgentReasonLabel(
  * @returns
  * - `linked`: valid symlink already present
  * - `local`: local skill directory already present
- * - `already-exists`: broken symlink still occupies the destination path
+ * - `broken`: broken symlink still occupies the destination path
  * - `null`: destination is free (`missing`)
  * @example
  * getOccupiedAgentReason({ status: 'broken', isLocal: false } as SymlinkInfo)
- * // => "already-exists"
+ * // => "broken"
  */
 function getOccupiedAgentReason(
   symlink: SymlinkInfo,
@@ -120,7 +126,7 @@ function getOccupiedAgentReason(
   }
 
   if (symlink.status === 'broken') {
-    return 'already-exists'
+    return 'broken'
   }
 
   return null
