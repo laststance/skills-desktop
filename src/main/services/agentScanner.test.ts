@@ -48,7 +48,12 @@ vi.mock('../constants', () => ({
       path: '/mock/agents/claude/skills',
     },
     { id: 'cursor', name: 'Cursor', path: '/mock/agents/cursor/skills' },
+    // cline + warp both alias SOURCE_DIR — the v0.13.0 shape that must
+    // never render as individual sidebar rows
+    { id: 'cline', name: 'Cline', path: '/mock/source/skills' },
+    { id: 'warp', name: 'Warp', path: '/mock/source/skills' },
   ],
+  SHARED_AGENT_PATHS: new Set(['/mock/source/skills']),
 }))
 
 describe('scanAgents', () => {
@@ -183,7 +188,8 @@ describe('scanAgents', () => {
 
   it('sorts existing agents before non-existing agents', async () => {
     accessMock.mockImplementation(async (path: string) => {
-      // Claude doesn't exist, Cursor does
+      // Claude doesn't exist; cursor + the universal-resolving rows (cline,
+      // warp both point at /mock/source/skills in the mock) do.
       if (path === '/mock/agents/claude/skills') {
         throw new Error('ENOENT')
       }
@@ -195,11 +201,37 @@ describe('scanAgents', () => {
     const { scanAgents } = await import('./agentScanner')
     const agents = await scanAgents()
 
-    // Cursor exists -> sorted first
-    expect(agents[0].id).toBe('cursor')
-    expect(agents[0].exists).toBe(true)
-    expect(agents[1].id).toBe('claude-code')
-    expect(agents[1].exists).toBe(false)
+    // Existing rows sort first, then alphabetically by name:
+    //   Cline, Cursor, Warp (exists=true) → Claude Code (exists=false)
+    expect(agents.map((a) => a.id)).toEqual([
+      'cline',
+      'cursor',
+      'warp',
+      'claude-code',
+    ])
+    expect(agents[agents.length - 1].exists).toBe(false)
+  })
+
+  it('includes every agent — even ones whose Skills CLI dir resolves to the Universal source', async () => {
+    accessMock.mockResolvedValue(undefined)
+    readdirMock.mockResolvedValue([])
+
+    const { scanAgents } = await import('./agentScanner')
+    const agents = await scanAgents()
+
+    // Cline + Warp currently resolve to the Universal source in the mock.
+    // We still render them AND pin `exists: true` — the dedicated/universal
+    // relationship is a dual-source READ, not an alias. Hiding rows or
+    // silently marking them non-existent would break direct-file workflows
+    // (e.g. Cursor autocomplete needs file copies, not symlinks, inside
+    // the agent-specific dir). Data safety lives at the IPC layer:
+    // SKILLS_REMOVE_ALL_FROM_AGENT rejects SHARED_AGENT_PATHS targets.
+    const cline = agents.find((a) => a.id === 'cline')!
+    const warp = agents.find((a) => a.id === 'warp')!
+    expect(cline.exists).toBe(true)
+    expect(warp.exists).toBe(true)
+    expect(agents.find((a) => a.id === 'claude-code')).toBeDefined()
+    expect(agents.find((a) => a.id === 'cursor')).toBeDefined()
   })
 
   it('excludes dot-prefixed directories from local skill count', async () => {

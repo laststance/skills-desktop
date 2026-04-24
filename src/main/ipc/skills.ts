@@ -2,6 +2,7 @@ import * as fs from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
 import type { IpcMainInvokeEvent } from 'electron'
+import { shell } from 'electron'
 import { match } from 'ts-pattern'
 
 import { BULK_PROGRESS_THRESHOLD } from '../../shared/constants'
@@ -15,7 +16,12 @@ import type {
   RestoreDeletedSkillResult,
   SkillName,
 } from '../../shared/types'
-import { AGENTS, findAgentById, SOURCE_DIR } from '../constants'
+import {
+  AGENTS,
+  findAgentById,
+  isSharedAgentPath,
+  SOURCE_DIR,
+} from '../constants'
 import { getAllowedBases, validatePath } from '../services/pathValidation'
 import { scanSkills } from '../services/skillScanner'
 import { moveToTrash, restore, TrashError } from '../services/trashService'
@@ -162,7 +168,14 @@ export function registerSkillsHandlers(): void {
   })
 
   /**
-   * Delete a specific agent's entire skills folder
+   * Delete a specific agent's entire skills folder. Moves the directory to the
+   * OS trash (macOS Finder Trash) so accidents are recoverable.
+   *
+   * Rejects paths that alias SOURCE_DIR or are shared across multiple agent
+   * rows (see `SHARED_AGENT_PATHS`). Without this guard a "delete Cline" click
+   * would wipe `~/.agents/skills` and cascade into every universal agent —
+   * the exact v0.13.0 regression that motivated this handler rewrite.
+   *
    * @param options - agentId, agentPath
    * @returns RemoveAllFromAgentResult with item count removed
    */
@@ -171,18 +184,46 @@ export function registerSkillsHandlers(): void {
 
     try {
       const agentBases = AGENTS.map((a) => a.path)
+      // validatePath throws on traversal attempts. We discard the return
+      // value intentionally: SHARED_AGENT_PATHS is keyed by the resolve()-
+      // normalized join() form, NOT by realpath, to avoid macOS firmlink
+      // (/var → /private/var) false negatives. isSharedAgentPath handles
+      // symlink aliases itself via its realpathSync fallback. Using
+      // agentPath (not the realpath'd form) for trashItem is also safer:
+      // trashItem on a symlink moves the symlink, not its target.
       validatePath(agentPath, agentBases)
+
+      if (isSharedAgentPath(agentPath)) {
+        return {
+          success: false,
+          removedCount: 0,
+          error:
+            'Refusing to delete a shared skills folder. This directory is used by the Universal source and/or multiple agents — deleting it would cascade beyond the selected agent.',
+        }
+      }
+
+      // Idempotent missing-dir handling: `shell.trashItem` throws ENOENT,
+      // unlike the old `fs.rm({ force: true })` this handler used to call.
+      // Short-circuit when the dir is already gone so double-clicks and
+      // out-of-band deletes don't surface as errors.
+      try {
+        await fs.access(agentPath)
+      } catch {
+        return { success: true, removedCount: 0 }
+      }
+
       // Count entries before deletion for reporting
       let removedCount = 0
       try {
         const entries = await fs.readdir(agentPath)
         removedCount = entries.length
       } catch {
-        // Directory may not exist or be unreadable
+        // Directory may be unreadable (permissions) — proceed to trash anyway
       }
 
-      // Delete the entire agent skills directory
-      await fs.rm(agentPath, { recursive: true, force: true })
+      // Move to OS trash instead of hard-rm so accidents can be restored from
+      // Finder > Trash.
+      await shell.trashItem(agentPath)
 
       return { success: true, removedCount }
     } catch (error) {

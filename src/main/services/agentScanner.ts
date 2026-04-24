@@ -7,7 +7,21 @@ import { AGENTS } from '../constants'
 import { checkSymlinkStatus } from './symlinkChecker'
 
 /**
- * Scan all supported agents and check their existence
+ * Scan all supported agents and check their existence.
+ *
+ * Every agent row is returned — including ones whose Skills CLI `dir`
+ * currently resolves to the Universal source (e.g. Cline, Warp, Amp).
+ * The mental model: each agent has its own dedicated skills directory
+ * AND additionally reads from the open-standard `~/.agents/skills/`
+ * path. The two are independent reads, not an alias — so hiding the
+ * row would remove a legitimate affordance (direct file copies into a
+ * specific agent's dir, which Cursor's chat autocomplete requires).
+ *
+ * Data-loss prevention for the v0.13.0 regression is handled one layer
+ * down: the IPC handler for SKILLS_REMOVE_ALL_FROM_AGENT rejects any
+ * agentPath in SHARED_AGENT_PATHS, and deletes go through
+ * `shell.trashItem` for recoverability.
+ *
  * @returns Array of Agent objects with existence, skill count, and local skill count
  * @example
  * scanAgents()
