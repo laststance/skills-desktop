@@ -220,13 +220,16 @@ describe('scanAgents', () => {
     const agents = await scanAgents()
 
     // Cline + Warp currently resolve to the Universal source in the mock.
-    // We still render them: the dedicated/universal relationship is a
-    // dual-source READ, not an alias, and hiding rows breaks direct-file
-    // workflows (e.g. Cursor autocomplete needs file copies, not symlinks,
-    // inside the agent-specific dir). Data safety lives at the IPC layer:
+    // We still render them AND pin `exists: true` — the dedicated/universal
+    // relationship is a dual-source READ, not an alias. Hiding rows or
+    // silently marking them non-existent would break direct-file workflows
+    // (e.g. Cursor autocomplete needs file copies, not symlinks, inside
+    // the agent-specific dir). Data safety lives at the IPC layer:
     // SKILLS_REMOVE_ALL_FROM_AGENT rejects SHARED_AGENT_PATHS targets.
-    expect(agents.find((a) => a.id === 'cline')).toBeDefined()
-    expect(agents.find((a) => a.id === 'warp')).toBeDefined()
+    const cline = agents.find((a) => a.id === 'cline')!
+    const warp = agents.find((a) => a.id === 'warp')!
+    expect(cline.exists).toBe(true)
+    expect(warp.exists).toBe(true)
     expect(agents.find((a) => a.id === 'claude-code')).toBeDefined()
     expect(agents.find((a) => a.id === 'cursor')).toBeDefined()
   })

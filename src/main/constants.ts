@@ -41,8 +41,9 @@ export const SHARED_AGENT_PATHS: ReadonlySet<string> = (() => {
   const counts = new Map<string, number>()
   for (const a of AGENTS) counts.set(a.path, (counts.get(a.path) ?? 0) + 1)
   const shared = new Set<string>([SOURCE_DIR])
-  for (const [path, count] of counts)
-    if (count > 1 || path === SOURCE_DIR) shared.add(path)
+  for (const [path, count] of counts) {
+    if (count > 1) shared.add(path)
+  }
   return shared
 })()
 
@@ -52,12 +53,19 @@ export const SHARED_AGENT_PATHS: ReadonlySet<string> = (() => {
  * destructive ops whose blast radius exceeds the single agent the user
  * thinks they're acting on.
  *
- * Two-stage check:
+ * Three-stage check, cheapest first:
  *  1. `resolve(path)` normalizes trailing slash, `..`, and double-slash
  *     so string-level shapes can't bypass Set.has().
  *  2. `realpathSync.native(path)` follows directory-level symlinks so a
  *     manually-created alias like `~/.cursor/skills → ~/.agents/skills`
  *     is caught by comparing the symlink target against the Set.
+ *  3. Realpath each entry in SHARED_AGENT_PATHS and compare canonical
+ *     forms. Required because SHARED_AGENT_PATHS is built via `join()`,
+ *     which does not resolve OS-level firmlinks (macOS `/var` →
+ *     `/private/var`). Without this stage, a symlink alias whose
+ *     realpath lands on SOURCE_DIR but crosses a firmlink would slip
+ *     through. O(|SHARED_AGENT_PATHS|) realpath calls in the slow path
+ *     only; the fast paths catch the common cases first.
  *
  * Returns false on non-existent paths (realpath throws ENOENT): a path
  * that doesn't exist on disk can't be a shared-dir alias.
@@ -68,11 +76,23 @@ export const SHARED_AGENT_PATHS: ReadonlySet<string> = (() => {
 export function isSharedAgentPath(path: string): boolean {
   const resolved = resolve(path)
   if (SHARED_AGENT_PATHS.has(resolved)) return true
+
+  let realInput: string
   try {
-    return SHARED_AGENT_PATHS.has(realpathSync.native(resolved))
+    realInput = realpathSync.native(resolved)
   } catch {
     return false
   }
+  if (SHARED_AGENT_PATHS.has(realInput)) return true
+
+  for (const sharedPath of SHARED_AGENT_PATHS) {
+    try {
+      if (realpathSync.native(sharedPath) === realInput) return true
+    } catch {
+      // Shared path doesn't exist on disk; can't be the alias target.
+    }
+  }
+  return false
 }
 
 /**

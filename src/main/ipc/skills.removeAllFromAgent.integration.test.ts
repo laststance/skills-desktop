@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, symlink } from 'node:fs/promises'
 import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -151,5 +151,28 @@ describe('skills:removeAllFromAgent handler', () => {
 
     expect(result).toEqual({ success: true, removedCount: 2 })
     expect(trashItemMock).toHaveBeenCalledTimes(1)
+  })
+
+  // Exercises the `realpathSync.native` fallback inside isSharedAgentPath.
+  // The resolve() stage sees ~/.cursor/skills (not in SHARED_AGENT_PATHS);
+  // the realpath stage follows the symlink to ~/.agents/skills and catches
+  // it. Without the fallback, a user who manually symlinked their agent
+  // dir to the universal source could still trip the v0.13.0 cascade.
+  it('rejects a symlink alias whose realpath lands on SOURCE_DIR', async () => {
+    const sourceDir = join(tempHome, '.agents', 'skills')
+    const aliasDir = join(tempHome, '.cursor', 'skills')
+    await mkdir(sourceDir, { recursive: true })
+    await mkdir(join(tempHome, '.cursor'), { recursive: true })
+    await symlink(sourceDir, aliasDir, 'dir')
+
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+
+    const handler = getRegisteredHandler('skills:removeAllFromAgent')
+    const result = await handler({}, { agentId: 'cursor', agentPath: aliasDir })
+
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/shared skills folder/)
+    expect(trashItemMock).not.toHaveBeenCalled()
   })
 })
