@@ -6,7 +6,6 @@ import type {
   AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
-  CliRemoveSkillsResult,
   RestoreDeletedSkillResult,
   Skill,
   SkillName,
@@ -65,16 +64,6 @@ interface SkillsState {
   bulkUnlinking: boolean
   /** Progress counter emitted by main for batches with total >= 10. */
   bulkProgress: { current: number; total: number } | null
-  /** Names currently in-flight for CLI remove (row fades while present). */
-  inFlightCliRemoveNames: SkillName[]
-  /** true while a single or batch CLI remove thunk is between .pending and settled. */
-  bulkCliRemoving: boolean
-  /**
-   * Skills queued for CLI remove confirmation. Unified array for both
-   * single-row X click (length 1) and batch toolbar (length N) so one
-   * dialog serves both entry points.
-   */
-  cliRemoveTarget: SkillName[] | null
 }
 
 const initialState: SkillsState = {
@@ -96,9 +85,6 @@ const initialState: SkillsState = {
   bulkDeleting: false,
   bulkUnlinking: false,
   bulkProgress: null,
-  inFlightCliRemoveNames: [],
-  bulkCliRemoving: false,
-  cliRemoveTarget: null,
 }
 
 /**
@@ -245,32 +231,6 @@ export const unlinkSelectedFromAgent = createAsyncThunk<
     items: selectedNames.map((skillName) => ({ skillName })),
   })
   return result
-})
-
-/**
- * Deregister every selected CLI-managed skill in a single batch. Main spawns
- * `npx skills remove` serially per item (parallel spawns would race the
- * shared lock file).
- *
- * Single-item dialog paths pass an array of length 1 — the toast helper
- * (`toastCliRemoveBatchResult`) surfaces the individual skill name when
- * exactly one item succeeded, so collapsing the two thunks preserved UX.
- *
- * `.pending` intersects the passed names with `state.items` — same reconcile
- * pattern as `deleteSelectedSkills` — so a late refetch between click and
- * dispatch cannot trigger a CLI call on a ghost skill.
- * @param selectedNames - CLI-managed names to remove (caller partitions).
- * @returns CliRemoveSkillsResult with per-item outcome
- * @example
- * await dispatch(cliRemoveSelectedSkills(['theme-generator', 'brainstorming']))
- */
-export const cliRemoveSelectedSkills = createAsyncThunk<
-  CliRemoveSkillsResult,
-  SkillName[]
->('skills/cliRemoveSelected', async (selectedNames) => {
-  return window.electron.skillsCli.removeBatch({
-    items: selectedNames.map((skillName) => ({ skillName })),
-  })
 })
 
 /**
@@ -423,13 +383,6 @@ const skillsSlice = createSlice({
     ) => {
       state.bulkProgress = action.payload
     },
-    /**
-     * Queue a CLI-managed skill (or batch) for removal confirmation.
-     * Pass `null` to dismiss the dialog without acting.
-     */
-    setCliRemoveTarget: (state, action: PayloadAction<SkillName[] | null>) => {
-      state.cliRemoveTarget = action.payload
-    },
   },
   extraReducers: (builder) => {
     builder
@@ -566,58 +519,6 @@ const skillsSlice = createSlice({
       .addCase(undoLastBulkDelete.rejected, (state, action) => {
         state.error = action.error.message ?? 'Undo failed'
       })
-      // CLI remove (batch, length 1..N) — mirror delete-batch reducers:
-      // narrow selection to successfully-removed items, keep failures/cancelled
-      // selected for retry, reconcile anchor the same way.
-      .addCase(cliRemoveSelectedSkills.pending, (state, action) => {
-        state.inFlightCliRemoveNames = reconcileByLiveNames(
-          state.items,
-          action.meta.arg,
-        )
-        state.bulkCliRemoving = true
-        state.error = null
-      })
-      .addCase(cliRemoveSelectedSkills.fulfilled, (state, action) => {
-        state.inFlightCliRemoveNames = []
-        state.bulkCliRemoving = false
-        state.bulkProgress = null
-        // Defensive clear: `DeleteCliSkillDialog` already calls
-        // `setCliRemoveTarget(null)` in its finally block, but if that dialog
-        // unmounts mid-flight (route change, component error boundary trip)
-        // the finally never runs and the target sticks until the next user
-        // action. Clearing here makes the cleanup invariant hold regardless
-        // of who dispatched the thunk.
-        state.cliRemoveTarget = null
-        const removedNames = new Set(
-          action.payload.items
-            .filter((item) => item.outcome === 'removed')
-            .map((item) => item.skillName),
-        )
-        // Clear the Inspector when its target was in this batch — CLI remove
-        // is irreversible, so keeping the pane on a permanently-gone skill
-        // would be worse UX than the trash flow (which at least has undo).
-        if (
-          state.selectedSkill !== null &&
-          removedNames.has(state.selectedSkill.name)
-        ) {
-          state.selectedSkill = null
-        }
-        state.selectedSkillNames = state.selectedSkillNames.filter(
-          (name) => !removedNames.has(name),
-        )
-        const anchorWasRemoved =
-          state.selectionAnchor !== null &&
-          removedNames.has(state.selectionAnchor)
-        if (state.selectedSkillNames.length === 0 || anchorWasRemoved) {
-          state.selectionAnchor = null
-        }
-      })
-      .addCase(cliRemoveSelectedSkills.rejected, (state, action) => {
-        state.inFlightCliRemoveNames = []
-        state.bulkCliRemoving = false
-        state.bulkProgress = null
-        state.error = action.error.message ?? 'Bulk CLI remove failed'
-      })
   },
 })
 
@@ -633,7 +534,6 @@ export const {
   selectAll,
   clearSelection,
   setBulkProgress,
-  setCliRemoveTarget,
 } = skillsSlice.actions
 export default skillsSlice.reducer
 
@@ -674,9 +574,3 @@ export const selectBulkUnlinking = (state: RootState): boolean =>
 export const selectBulkProgress = (
   state: RootState,
 ): { current: number; total: number } | null => state.skills.bulkProgress
-export const selectInFlightCliRemoveNames = (state: RootState): SkillName[] =>
-  state.skills.inFlightCliRemoveNames
-export const selectBulkCliRemoving = (state: RootState): boolean =>
-  state.skills.bulkCliRemoving
-export const selectCliRemoveTarget = (state: RootState): SkillName[] | null =>
-  state.skills.cliRemoveTarget

@@ -24,8 +24,6 @@ describe('IPC contract alignment', () => {
       [IPC_CHANNELS.SKILLS_CLI_SEARCH]: true,
       [IPC_CHANNELS.SKILLS_CLI_INSTALL]: true,
       [IPC_CHANNELS.SKILLS_CLI_CANCEL]: true,
-      [IPC_CHANNELS.SKILLS_CLI_REMOVE]: true,
-      [IPC_CHANNELS.SKILLS_CLI_REMOVE_BATCH]: true,
       [IPC_CHANNELS.MARKETPLACE_LEADERBOARD]: true,
       [IPC_CHANNELS.SYNC_PREVIEW]: true,
       [IPC_CHANNELS.SYNC_EXECUTE]: true,
@@ -40,7 +38,7 @@ describe('IPC contract alignment', () => {
     // IPC channel (input validation, authz scope, side-effect blast radius).
     // The `satisfies` clause above is a structural guard; this length check is
     // the trip-wire that forces a human PR diff when a channel is added.
-    expect(Object.keys(invokeMapping)).toHaveLength(26)
+    expect(Object.keys(invokeMapping)).toHaveLength(24)
   })
 
   it('all IPC_CHANNELS event values are valid event contract keys', () => {

@@ -1,6 +1,4 @@
-import type { CliRemoveSkillsResult, SkillName } from '../../../shared/types'
-
-import { toastCliRemoveBatchResult } from './cliRemoveToast'
+import type { SkillName } from '../../../shared/types'
 
 /**
  * Name of the DOM CustomEvent fired when a per-row bulk operation fails.
@@ -27,28 +25,4 @@ export const flashFailedRows = (failedNames: SkillName[]): void => {
       }),
     )
   }
-}
-
-/**
- * Shared settle handler for CLI remove batches. Flashes every failed row and
- * surfaces the aggregate summary toast in one call so both entry points
- * (`DeleteCliSkillDialog` confirm path and `MainContent.handleConfirmBulk`
- * mixed-delete path) give users identical visual + textual feedback.
- *
- * Without this, only the mixed-delete path flashed rows and the dialog path
- * went silent — so a user double-clicking "Remove" saw a toast but no
- * per-row hint about which skills actually failed.
- *
- * @param payload - CliRemoveSkillsResult from the fulfilled thunk
- * @example
- * if (cliRemoveSelectedSkills.fulfilled.match(result)) {
- *   settleCliRemoveBatch(result.payload)
- * }
- */
-export const settleCliRemoveBatch = (payload: CliRemoveSkillsResult): void => {
-  const failedNames = payload.items
-    .filter((item) => item.outcome === 'error')
-    .map((item) => item.skillName)
-  flashFailedRows(failedNames)
-  toastCliRemoveBatchResult(payload)
 }

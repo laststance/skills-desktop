@@ -13,7 +13,6 @@ import {
 import {
   clearSelection,
   selectAll,
-  selectBulkCliRemoving,
   selectBulkDeleting,
   selectBulkProgress,
   selectBulkUnlinking,
@@ -70,7 +69,6 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
   const bulkSelectMode = useAppSelector(selectBulkSelectMode)
   const bulkDeleting = useAppSelector(selectBulkDeleting)
   const bulkUnlinking = useAppSelector(selectBulkUnlinking)
-  const bulkCliRemoving = useAppSelector(selectBulkCliRemoving)
   const bulkProgress = useAppSelector(selectBulkProgress)
 
   // Belt-and-suspenders: the listener middleware already clears selection on
@@ -88,11 +86,7 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
     visibleCount: visibleSelectedCount,
     agentDisplayName,
   })
-  // OR bulkCliRemoving too — the CLI batch loop spawns npx serially
-  // (~600ms–2s each) with no per-item progress, so without this the user
-  // could double-click and fire a second batch while the first is still
-  // running against the shared `.skill-lock.json` file.
-  const isBusy = bulkDeleting || bulkUnlinking || bulkCliRemoving
+  const isBusy = bulkDeleting || bulkUnlinking
 
   const showProgress =
     bulkProgress !== null && bulkProgress.total >= BULK_PROGRESS_THRESHOLD

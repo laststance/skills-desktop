@@ -78,23 +78,6 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       skills: z.array(z.string()).optional(),
     }),
   ]),
-  'skills:cli:remove': z.tuple([
-    z.object({
-      skillName: skillNameString,
-    }),
-  ]),
-  'skills:cli:removeBatch': z.tuple([
-    z.object({
-      // Cap batch size. Each item spawns an `npx skills remove` child process
-      // (serial), so an unbounded array could pin a CPU core and exhaust file
-      // descriptors on cold npm cache. 100 covers realistic user selections
-      // with generous headroom while closing the local-DoS footprint.
-      items: z
-        .array(z.object({ skillName: skillNameString }))
-        .min(1, 'At least one skill required for batch CLI remove')
-        .max(100, 'Batch CLI remove limited to 100 skills'),
-    }),
-  ]),
 
   // Skills operations
   'skills:unlinkFromAgent': z.tuple([

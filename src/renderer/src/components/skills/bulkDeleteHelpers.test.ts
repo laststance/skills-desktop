@@ -4,8 +4,6 @@ import type {
   AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
-  RepositoryId,
-  Skill,
   SkillName,
 } from '../../../../shared/types'
 import { tombstoneId } from '../../../../shared/types'
@@ -15,8 +13,6 @@ import {
   formatCascadeSummary,
   formatUnlinkSummary,
   getToolbarState,
-  isCliManagedSkill,
-  partitionSkillsForDelete,
 } from './bulkDeleteHelpers'
 
 describe('getToolbarState', () => {
@@ -277,123 +273,5 @@ describe('computeRangeSelection', () => {
 
   it('handles the first and last items correctly', () => {
     expect(computeRangeSelection('alpha', 'zebra', visible)).toEqual(visible)
-  })
-})
-
-describe('partitionSkillsForDelete', () => {
-  // Keep fixture authoring small: only `name` and `source` drive the bucket
-  // decision; the other Skill fields are cast over with `as Skill`.
-  const mkSkill = (name: string, source?: string): Skill =>
-    ({
-      name: name as SkillName,
-      source:
-        source !== undefined ? (source as unknown as RepositoryId) : undefined,
-    }) as Skill
-
-  it('routes skills with a `source` field into cliNames', () => {
-    const items = [
-      mkSkill('task'),
-      mkSkill('brainstorming', 'vercel-labs/agent-skills'),
-    ]
-    const result = partitionSkillsForDelete(
-      ['task', 'brainstorming'] as SkillName[],
-      items,
-    )
-    expect(result).toEqual({
-      cliNames: ['brainstorming'],
-      plainNames: ['task'],
-    })
-  })
-
-  it('routes skills without a `source` field into plainNames', () => {
-    const items = [mkSkill('task'), mkSkill('theme')]
-    const result = partitionSkillsForDelete(
-      ['task', 'theme'] as SkillName[],
-      items,
-    )
-    expect(result).toEqual({
-      cliNames: [],
-      plainNames: ['task', 'theme'],
-    })
-  })
-
-  it('puts stale selection entries (not in items) into plainNames', () => {
-    const items = [mkSkill('task', 'vercel-labs/agent-skills')]
-    // Ghost name "removed" is not in items at all.
-    const result = partitionSkillsForDelete(
-      ['task', 'removed'] as SkillName[],
-      items,
-    )
-    expect(result.cliNames).toEqual(['task'])
-    expect(result.plainNames).toEqual(['removed'])
-  })
-
-  it('preserves selection order per bucket', () => {
-    const items = [
-      mkSkill('a'),
-      mkSkill('b', 'owner/repo'),
-      mkSkill('c'),
-      mkSkill('d', 'owner/repo'),
-    ]
-    const result = partitionSkillsForDelete(
-      ['d', 'a', 'c', 'b'] as SkillName[],
-      items,
-    )
-    // Relative order within each bucket must mirror input order.
-    expect(result.cliNames).toEqual(['d', 'b'])
-    expect(result.plainNames).toEqual(['a', 'c'])
-  })
-
-  it('handles empty selection', () => {
-    const items = [mkSkill('task')]
-    const result = partitionSkillsForDelete([] as SkillName[], items)
-    expect(result).toEqual({ cliNames: [], plainNames: [] })
-  })
-
-  it("preserves duplicate names in the same bucket (dedup is the caller's job)", () => {
-    // Duplicate selections should not be silently deduplicated here — the
-    // partition contract is "union equals input" (see docstring). Dedup
-    // would hide a real selection bug in callers upstream.
-    const items = [mkSkill('task', 'owner/repo'), mkSkill('theme')]
-    const result = partitionSkillsForDelete(
-      ['task', 'task', 'theme', 'theme'] as SkillName[],
-      items,
-    )
-    expect(result.cliNames).toEqual(['task', 'task'])
-    expect(result.plainNames).toEqual(['theme', 'theme'])
-  })
-
-  it('treats a falsy source (empty string) as CLI-managed since source is present', () => {
-    // `isCliManagedSkill` keys on `source !== undefined`, not truthiness —
-    // an empty-string source is still a lock-file entry (e.g. a local-only
-    // CLI install with no remote repo). Routing it to plainNames would
-    // leak a stale lock entry. See isCliManagedSkill docstring.
-    const items = [mkSkill('task', '')]
-    const result = partitionSkillsForDelete(['task'] as SkillName[], items)
-    expect(result.cliNames).toEqual(['task'])
-    expect(result.plainNames).toEqual([])
-  })
-})
-
-describe('isCliManagedSkill', () => {
-  const mkSkill = (source: string | undefined): Skill =>
-    ({
-      name: 'task' as SkillName,
-      source:
-        source === undefined ? undefined : (source as unknown as RepositoryId),
-    }) as Skill
-
-  it('returns true when source is a non-empty repository id', () => {
-    expect(isCliManagedSkill(mkSkill('vercel-labs/agent-skills'))).toBe(true)
-  })
-
-  it('returns true for an empty-string source (source field present)', () => {
-    // `source = ''` still means the skill was registered via `npx skills add`
-    // with an empty repo field. Must NOT fall through to plainNames.
-    expect(isCliManagedSkill(mkSkill(''))).toBe(true)
-  })
-
-  it('returns false when source is undefined', () => {
-    expect(isCliManagedSkill(mkSkill(undefined))).toBe(false)
   })
 })

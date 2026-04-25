@@ -151,7 +151,13 @@ describe('getAllowedBases', () => {
     const bases = getAllowedBases()
     const sourceDir = bases[0]
     const agentBase = bases[1]
-    const localSkillPath = `${agentBase}/playwright-cli`
+    // Use a deliberately non-existent skill name so realpathSync throws ENOENT
+    // and the comparison stays in the literal-resolve coordinate system. If
+    // we used a real skill name (e.g. "playwright-cli") and the dev had
+    // symlinked it from agentBase into SOURCE_DIR locally, realpath would
+    // resolve INTO SOURCE_DIR and the test would falsely pass.
+    const nonExistentSkillName = '__validate_path_test_fixture_does_not_exist__'
+    const localSkillPath = `${agentBase}/${nonExistentSkillName}`
     expect(() => validatePath(localSkillPath, [sourceDir])).toThrow(
       'Path traversal attempt detected',
     )

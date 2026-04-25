@@ -149,31 +149,26 @@ describe('SkillItem bulk-select checkbox visibility', () => {
   })
 })
 
-describe('SkillItem delete button — CLI vs plain routing', () => {
-  // The X button in global view is the fork where `isCliManagedSkill(skill)`
-  // decides whether the row enters the CLI remove dialog (irreversible) or
-  // the shared trash+undo flow. Getting this wrong orphans `.skill-lock.json`
-  // entries, so the branch is worth pinning down with explicit assertions.
+describe('SkillItem delete button', () => {
+  // Every skill — including ones tracked in `~/.agents/.skill-lock.json` via a
+  // `source` field — opens the same trash + UndoToast dialog. The CLI removal
+  // fork was retired (npx skills spawn was unreliable for ~/.agents/skills);
+  // stale lock-file entries are the accepted trade-off.
 
-  it('aria-label reads "Remove {name} via skills CLI" for a CLI-managed skill', async () => {
+  it('aria-label reads "Delete {name}" for a source-tracked skill', async () => {
     const { screen } = await renderSkillItem(
       makeSkill({
         name: 'brainstorming' as SkillName,
-        // `source` set → isCliManagedSkill → CLI path
         source: repositoryId('vercel-labs/agent-skills'),
       }),
     )
 
     await expect
-      .element(
-        screen.getByRole('button', {
-          name: /Remove brainstorming via skills CLI/i,
-        }),
-      )
+      .element(screen.getByRole('button', { name: /^Delete brainstorming$/i }))
       .toBeInTheDocument()
   })
 
-  it('aria-label reads "Delete {name}" for a plain (non-CLI) skill', async () => {
+  it('aria-label reads "Delete {name}" for a plain skill', async () => {
     const { screen } = await renderSkillItem(
       makeSkill({ name: 'local-skill' as SkillName }),
     )
@@ -183,7 +178,7 @@ describe('SkillItem delete button — CLI vs plain routing', () => {
       .toBeInTheDocument()
   })
 
-  it('clicking the X on a CLI skill dispatches setCliRemoveTarget([name])', async () => {
+  it('clicking the X opens bulkConfirm regardless of whether the skill is source-tracked', async () => {
     const { screen, store } = await renderSkillItem(
       makeSkill({
         name: 'brainstorming' as SkillName,
@@ -192,14 +187,18 @@ describe('SkillItem delete button — CLI vs plain routing', () => {
     )
 
     await screen
-      .getByRole('button', { name: /Remove brainstorming via skills CLI/i })
+      .getByRole('button', { name: /^Delete brainstorming$/i })
       .click()
 
-    // CLI path → cliRemoveTarget is set, bulkConfirm stays null. Asserting
-    // both guards against future regressions where the handler accidentally
-    // dispatches into the trash flow as well.
-    expect(store.getState().skills.cliRemoveTarget).toEqual(['brainstorming'])
-    expect(store.getState().ui.bulkConfirm).toBeNull()
+    // Same trash + UndoToast dialog as plain skills — the handler no longer
+    // forks on whether the skill is source-tracked. The payload shape must
+    // match what BulkConfirmDialog expects (kind='delete', no agent).
+    expect(store.getState().ui.bulkConfirm).toEqual({
+      kind: 'delete',
+      skillNames: ['brainstorming'],
+      agentId: null,
+      agentName: null,
+    })
   })
 
   it('clicking the X on a plain skill opens bulkConfirm (trash + undo path)', async () => {
@@ -209,17 +208,12 @@ describe('SkillItem delete button — CLI vs plain routing', () => {
 
     await screen.getByRole('button', { name: /^Delete local-skill$/i }).click()
 
-    // Plain path → bulkConfirm surfaces the trash+undo dialog, cliRemoveTarget
-    // stays null. The payload shape must also match what BulkConfirmDialog
-    // expects (kind='delete', no agent).
-    const confirm = store.getState().ui.bulkConfirm
-    expect(confirm).toEqual({
+    expect(store.getState().ui.bulkConfirm).toEqual({
       kind: 'delete',
       skillNames: ['local-skill'],
       agentId: null,
       agentName: null,
     })
-    expect(store.getState().skills.cliRemoveTarget).toBeNull()
   })
 
   it('X button click does not trigger inspector selection (stopPropagation)', async () => {

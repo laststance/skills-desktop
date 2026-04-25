@@ -28,7 +28,6 @@ import {
   selectRange,
   selectSelectionAnchor,
   selectSkill,
-  setCliRemoveTarget,
   setSkillToAddSymlinks,
   setSkillToCopy,
   setSkillToUnlink,
@@ -52,7 +51,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
 import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
-import { computeRangeSelection, isCliManagedSkill } from './bulkDeleteHelpers'
+import { computeRangeSelection } from './bulkDeleteHelpers'
 import { getSkillItemVisibility } from './skillItemHelpers'
 import { SourceLink } from './SourceLink'
 
@@ -133,8 +132,6 @@ export const SkillItem = React.memo(function SkillItem({
     showGStackBadge,
   } = getSkillItemVisibility(selectedAgentId, skill.symlinks)
 
-  const isCliManaged = isCliManagedSkill(skill)
-
   // Get selected agent name for tooltip
   const selectedAgentName =
     agents.find((a) => a.id === selectedAgentId)?.name || 'agent'
@@ -157,17 +154,14 @@ export const SkillItem = React.memo(function SkillItem({
   }
 
   /**
-   * Global-view per-row delete. Routes CLI-managed skills to the CLI remove
-   * dialog (no undo — the dialog is the safety net) and plain skills to the
-   * shared bulk-confirm dialog (which cascades into the trash+undo flow on
-   * confirm). Splitting here keeps SkillItem free of thunk/toast code.
+   * Global-view per-row delete. Routes every skill — including ones tracked in
+   * `~/.agents/.skill-lock.json` — through the shared bulk-confirm dialog,
+   * which cascades into the trash + undo flow on confirm. Lock-file entries
+   * become stale by design: simple file deletion is preferred over the
+   * unreliable `npx skills remove` spawn the CLI used to perform.
    */
   const handleDeleteClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
-    if (isCliManaged) {
-      dispatch(setCliRemoveTarget([skill.name]))
-      return
-    }
     dispatch(
       setBulkConfirm({
         kind: 'delete',
@@ -341,9 +335,8 @@ export const SkillItem = React.memo(function SkillItem({
             </Tooltip>
           )}
 
-          {/* X button — global-view only (delete entire skill).
-              Routes to CLI remove when lock-file-tracked, else to the shared
-              bulk-confirm dialog which cascades to trash + undo toast.
+          {/* X button — global-view only (delete entire skill). Routes to the
+              shared bulk-confirm dialog which cascades to trash + undo toast.
               Same visual corner as showUnlinkButton; they're mutually
               exclusive because `!selectedAgentId` gates showDeleteButton. */}
           {showDeleteButton && (
@@ -352,20 +345,14 @@ export const SkillItem = React.memo(function SkillItem({
                 <button
                   type="button"
                   onClick={handleDeleteClick}
-                  aria-label={
-                    isCliManaged
-                      ? `Remove ${skill.name} via skills CLI`
-                      : `Delete ${skill.name}`
-                  }
+                  aria-label={`Delete ${skill.name}`}
                   data-testid={`skill-delete-${skill.name}`}
                   className="absolute top-0 right-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="left">
-                {isCliManaged ? 'Remove (CLI)' : 'Delete'}
-              </TooltipContent>
+              <TooltipContent side="left">Delete</TooltipContent>
             </Tooltip>
           )}
 
