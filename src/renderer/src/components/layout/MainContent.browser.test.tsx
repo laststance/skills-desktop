@@ -446,5 +446,10 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
     expect(mockSkillsDeleteSkills.mock.calls[0][0]).toEqual({
       items: [{ skillName: 'brainstorming' }, { skillName: 'local-skill' }],
     })
+    // Flush the microtask queue and re-assert: `expect.poll` is satisfied at the
+    // first hit, so a regression that triggers a *second* IPC call on a later
+    // microtask would otherwise slip through.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(mockSkillsDeleteSkills).toHaveBeenCalledTimes(1)
   })
 })
