@@ -13,10 +13,6 @@ import type {
   InstallOptions,
   CliCommandResult,
   InstallProgress,
-  CliRemoveSkillOptions,
-  CliRemoveSkillResult,
-  CliRemoveSkillsOptions,
-  CliRemoveSkillsResult,
   UnlinkFromAgentOptions,
   UnlinkResult,
   RemoveAllFromAgentOptions,
@@ -108,12 +104,6 @@ declare global {
         onProgress: (
           callback: (progress: InstallProgress) => void,
         ) => () => void
-        remove: (
-          options: CliRemoveSkillOptions,
-        ) => Promise<CliRemoveSkillResult>
-        removeBatch: (
-          options: CliRemoveSkillsOptions,
-        ) => Promise<CliRemoveSkillsResult>
       }
       marketplace: {
         leaderboard: (options: {

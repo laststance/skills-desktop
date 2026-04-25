@@ -1,22 +1,15 @@
 import { spawn, type ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
-import { homedir } from 'os'
 
 import { match, P } from 'ts-pattern'
 
 import { AGENT_DEFINITIONS, SKILLS_CLI_VERSION } from '../../shared/constants'
-import {
-  CLI_REMOVE_BUSY_CODE,
-  CLI_REMOVE_TIMEOUT_CODE,
-  repositoryId,
-} from '../../shared/types'
+import { repositoryId } from '../../shared/types'
 import type {
   SkillSearchResult,
   InstallOptions,
   CliCommandResult,
   InstallProgress,
-  CliRemoveSkillResult,
-  SkillName,
 } from '../../shared/types'
 import { REPO_PATTERN, SKILL_NAME_PATTERN } from '../utils/skillIdentifiers'
 
@@ -64,50 +57,12 @@ function stripAnsi(text: string): string {
 }
 
 /**
- * Cached at module scope so we don't hit the OS on every CLI invocation.
- * The home directory cannot change during a process lifetime on macOS/Linux
- * (the scenarios where it would change — `sudo -u`, `HOME=` env override —
- * we don't support for Skills Desktop).
- */
-const HOME_DIR = homedir()
-/**
- * Anchor HOME_DIR matches to a path boundary so `/Users/alice-work/foo` is
- * not rewritten to `~-work/foo` when HOME_DIR is `/Users/alice`. The
- * lookahead accepts: path separator (`/` or `\`), end-of-string, whitespace,
- * or a quote char — all the places a path legitimately terminates inside
- * CLI stderr output.
- */
-const HOME_DIR_REGEX = new RegExp(
-  HOME_DIR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?=[/\\\\]|$|\\s|["\'`])',
-  'g',
-)
-
-/**
- * Sanitize CLI output destined for the renderer (toasts, error UI, logs).
- * Strips ANSI and replaces the user's home directory with `~` so a stderr
- * like `ENOENT: /Users/alice/.agents/skills/foo` surfaces as `ENOENT:
- * ~/.agents/skills/foo` — keeps the actionable context, drops the username.
- *
- * Not a security boundary (the renderer is our own code), but defense-in-depth
- * against leaking PII into screenshots, bug reports, and log files.
- * @param text - Raw text from CLI stdout/stderr
- * @returns Sanitized text safe to surface in UI
- * @example
- * sanitizeCliMessage('ENOENT: /Users/alice/.agents/skills/foo')
- * // => 'ENOENT: ~/.agents/skills/foo'
- */
-function sanitizeCliMessage(text: string): string {
-  return stripAnsi(text).replace(HOME_DIR_REGEX, '~')
-}
-
-/**
  * Service for executing skills CLI commands via npx.
  * Wraps `npx skills@<SKILLS_CLI_VERSION>` with proper output parsing — the
  * version is imported from shared constants so upgrades happen in one place.
  */
 class SkillsCliService extends EventEmitter {
   private runningProcesses = new Set<ChildProcess>()
-  private batchCancelRequested = false
 
   /**
    * Search for skills using `npx skills find <query>`
@@ -166,89 +121,9 @@ class SkillsCliService extends EventEmitter {
   }
 
   /**
-   * Deregister a skill from `~/.agents/.skill-lock.json` via `npx skills remove`.
-   * CLI handles lock file update and filesystem removal in one shot — we never
-   * touch the lock file directly, so schema drift stays the CLI's problem.
-   * @param skillName - Skill name as tracked in the lock file
-   * @returns Discriminated result: `{outcome:'removed'}` on exit 0, else `{outcome:'error', error}`
-   * @example
-   * remove('brainstorming' as SkillName)
-   * // => { skillName: 'brainstorming', outcome: 'removed' }
-   */
-  async remove(skillName: SkillName): Promise<CliRemoveSkillResult> {
-    if (this.isBusy()) {
-      return this.buildBusyRemoveResult(skillName)
-    }
-
-    const result = await this.execCli([
-      'remove',
-      skillName,
-      CLI_FLAGS.GLOBAL,
-      CLI_FLAGS.YES,
-    ])
-
-    if (result.success) {
-      return { skillName, outcome: 'removed' }
-    }
-
-    if (result.timedOut) {
-      return {
-        skillName,
-        outcome: 'error',
-        error: {
-          message: this.buildTimeoutMessage(),
-          code: CLI_REMOVE_TIMEOUT_CODE,
-        },
-      }
-    }
-
-    // stderr often has the actionable message (e.g., "Skill not found").
-    // Fall back to stdout when CLI writes errors there instead.
-    // sanitize strips ANSI + home-directory paths before this string crosses
-    // the IPC boundary into the renderer (toasts, future logging, crash
-    // reports). See sanitizeCliMessage docstring.
-    const rawMessage =
-      result.stderr.trim() || result.stdout.trim() || 'CLI remove failed'
-    return {
-      skillName,
-      outcome: 'error',
-      error: { message: sanitizeCliMessage(rawMessage), code: result.code },
-    }
-  }
-
-  /**
-   * True when at least one CLI child process is currently running.
-   * Used by IPC handlers to apply reject-on-busy behavior for batch dispatch.
-   */
-  isBusy(): boolean {
-    return this.runningProcesses.size > 0
-  }
-
-  /**
-   * Mark the current batch operation as cancelled and terminate in-flight CLI
-   * children. Remaining items are handled by the batch loop in `skillsCli.ts`.
-   */
-  requestBatchCancel(): void {
-    this.batchCancelRequested = true
-    this.cancel()
-  }
-
-  /**
-   * Clear batch-cancel state before starting a new removeBatch dispatch.
-   */
-  resetBatchCancelRequest(): void {
-    this.batchCancelRequested = false
-  }
-
-  /**
-   * Read-only snapshot of the batch cancel flag for loop checks.
-   */
-  isBatchCancelRequested(): boolean {
-    return this.batchCancelRequested
-  }
-
-  /**
-   * Cancel all currently-running CLI operations.
+   * Cancel all currently-running CLI operations by sending `SIGTERM` to each
+   * spawned child process. Used by the renderer to abort an in-progress
+   * install when the user closes the install dialog.
    */
   cancel(): void {
     for (const proc of this.runningProcesses) {
@@ -337,21 +212,6 @@ class SkillsCliService extends EventEmitter {
   private buildTimeoutMessage(): string {
     const timeoutSeconds = Math.floor(SPAWN_TIMEOUT_MS / 1000)
     return `CLI command timed out after ${timeoutSeconds}s`
-  }
-
-  /**
-   * Build a deterministic busy error so callers can map specific UI copy.
-   * @param skillName - Skill that was requested while another CLI process was active
-   */
-  private buildBusyRemoveResult(skillName: SkillName): CliRemoveSkillResult {
-    return {
-      skillName,
-      outcome: 'error',
-      error: {
-        message: 'Another CLI operation is already in progress',
-        code: CLI_REMOVE_BUSY_CODE,
-      },
-    }
   }
 
   /**

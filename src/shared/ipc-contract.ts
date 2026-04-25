@@ -4,10 +4,6 @@ import type {
   BulkDeleteResult,
   BulkUnlinkResult,
   CliCommandResult,
-  CliRemoveSkillOptions,
-  CliRemoveSkillResult,
-  CliRemoveSkillsOptions,
-  CliRemoveSkillsResult,
   CopyToAgentsOptions,
   CopyToAgentsResult,
   CreateSymlinksOptions,
@@ -95,14 +91,6 @@ export interface IpcInvokeContract {
   'skills:cli:search': { args: [SearchQuery]; result: SkillSearchResult[] }
   'skills:cli:install': { args: [InstallOptions]; result: CliCommandResult }
   'skills:cli:cancel': { args: []; result: void }
-  'skills:cli:remove': {
-    args: [CliRemoveSkillOptions]
-    result: CliRemoveSkillResult
-  }
-  'skills:cli:removeBatch': {
-    args: [CliRemoveSkillsOptions]
-    result: CliRemoveSkillsResult
-  }
   'marketplace:leaderboard': {
     args: [{ filter: RankingFilter }]
     result: SkillSearchResult[]

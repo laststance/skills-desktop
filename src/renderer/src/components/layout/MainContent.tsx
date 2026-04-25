@@ -19,18 +19,15 @@ import type {
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import {
-  selectBulkCliCount,
   selectSelectedVisibleNames,
   selectVisibleSkillNames,
 } from '../../redux/selectors'
 import { setPreviewSkill } from '../../redux/slices/marketplaceSlice'
 import {
   clearSelection,
-  cliRemoveSelectedSkills,
   deleteSelectedSkills,
   selectAll,
   selectSelectedSkillNames,
-  selectSkillsItems,
   setBulkProgress,
   undoLastBulkDelete,
   unlinkSelectedFromAgent,
@@ -51,10 +48,7 @@ import {
   toggleSortOrder,
 } from '../../redux/slices/uiSlice'
 import { refreshAllData } from '../../redux/thunks'
-import {
-  flashFailedRows,
-  settleCliRemoveBatch,
-} from '../../utils/bulkOpVisuals'
+import { flashFailedRows } from '../../utils/bulkOpVisuals'
 import { errorToastDescription } from '../../utils/errorToastDescription'
 import { isEditableTarget } from '../../utils/isEditableTarget'
 import { pluralize } from '../../utils/pluralize'
@@ -67,10 +61,8 @@ import { renderBulkDeleteDescription } from '../skills/bulkDeleteCopy'
 import {
   formatCascadeSummary,
   formatUnlinkSummary,
-  partitionSkillsForDelete,
 } from '../skills/bulkDeleteHelpers'
 import { CopyToAgentsModal } from '../skills/CopyToAgentsModal'
-import { DeleteCliSkillDialog } from '../skills/DeleteCliSkillDialog'
 import { SearchBox } from '../skills/SearchBox'
 import { SelectionToolbar } from '../skills/SelectionToolbar'
 import { SkillsList } from '../skills/SkillsList'
@@ -123,7 +115,6 @@ export const MainContent = React.memo(
     const visibleNames = useAppSelector(selectVisibleSkillNames)
     const selectedVisibleNames = useAppSelector(selectSelectedVisibleNames)
     const selectedAllNames = useAppSelector(selectSelectedSkillNames)
-    const skillItems = useAppSelector(selectSkillsItems)
 
     const bulkConfirm = useAppSelector(selectBulkConfirm)
     const bulkSelectMode = useAppSelector(selectBulkSelectMode)
@@ -310,43 +301,12 @@ export const MainContent = React.memo(
         return
       }
 
-      // Global view — bulk delete. Mixed selections are partitioned:
-      //  - CLI-tracked skills (have `source`) dispatch through
-      //    `cliRemoveSelectedSkills` so `.skill-lock.json` stays in sync;
-      //    these are IRREVERSIBLE (no UndoToast wiring).
-      //  - Plain skills flow through the existing trash + UndoToast pipeline.
-      // CLI first so the awaited spawn settles before the reversible trash
-      // op runs, keeping `state.skills.items` stable while the UndoToast is
-      // live (restore targets would otherwise risk referencing ghosts).
-      const { cliNames, plainNames } = partitionSkillsForDelete(
-        skillNames,
-        skillItems,
-      )
-
-      if (cliNames.length > 0) {
-        const cliAction = await dispatch(cliRemoveSelectedSkills(cliNames))
-        if (cliRemoveSelectedSkills.fulfilled.match(cliAction)) {
-          settleCliRemoveBatch(cliAction.payload)
-        } else {
-          toast.error('CLI remove failed', {
-            description: errorToastDescription(cliAction),
-          })
-          // Transport-level rejection (IPC/spawn broke). Don't fall through
-          // to the plain-delete partition — the CLI batch never ran, so the
-          // user can retry the whole selection. Partial per-item failures
-          // still take the fulfilled branch above.
-          refreshAllData(dispatch)
-          return
-        }
-      }
-
-      // All-CLI case: no trash dispatch needed. Refresh and return.
-      if (plainNames.length === 0) {
-        refreshAllData(dispatch)
-        return
-      }
-
-      const action = await dispatch(deleteSelectedSkills(plainNames))
+      // Global view — bulk delete. Every skill (including ones tracked in
+      // `~/.agents/.skill-lock.json`) flows through the trash + UndoToast
+      // pipeline. The CLI removal path was retired because `npx skills remove`
+      // spawns were unreliable; stale lock-file entries are an acceptable
+      // trade-off for a deterministic delete that supports undo.
+      const action = await dispatch(deleteSelectedSkills(skillNames))
       if (deleteSelectedSkills.fulfilled.match(action)) {
         const tombstoneIds = action.payload.items
           .filter(
@@ -413,13 +373,11 @@ export const MainContent = React.memo(
           description: errorToastDescription(action),
         })
       }
-    }, [bulkConfirm, dispatch, handleUndoDelete, skillItems])
+    }, [bulkConfirm, dispatch, handleUndoDelete])
 
     const handleCancelBulkConfirm = useCallback((): void => {
       dispatch(clearBulkConfirm())
     }, [dispatch])
-
-    const bulkCliCount = useAppSelector(selectBulkCliCount)
 
     return (
       <main
@@ -612,7 +570,6 @@ export const MainContent = React.memo(
         <UnlinkDialog />
         <AddSymlinkModal />
         <CopyToAgentsModal />
-        <DeleteCliSkillDialog />
         <SyncConfirmDialog />
         <SyncConflictDialog />
         <SyncResultDialog />
@@ -637,7 +594,6 @@ export const MainContent = React.memo(
               <DialogDescription>
                 {bulkConfirm?.kind === 'delete'
                   ? renderBulkDeleteDescription({
-                      cliCount: bulkCliCount,
                       totalCount: bulkConfirm.skillNames.length,
                     })
                   : `This removes the symlinks in ${bulkConfirm?.agentName ?? 'this agent'}. The underlying skill files stay in your source directory.`}
