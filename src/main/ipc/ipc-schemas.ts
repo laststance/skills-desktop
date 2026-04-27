@@ -33,6 +33,70 @@ export const tombstoneIdSchema = z
   .string()
   .regex(/^\d+-[^/\\]+-[a-f0-9]{8}$/, 'Invalid tombstone id format')
 
+/** Recorded symlink entry that lived in an agent dir before delete. */
+const symlinkRecordSchema = z.object({
+  agentId: nonEmptyString,
+  linkPath: nonEmptyString,
+  target: nonEmptyString,
+})
+
+/** Recorded local-copy entry — a real (non-symlink) skill folder under an agent dir. */
+const localCopyRecordSchema = z.object({
+  agentId: nonEmptyString,
+  linkPath: nonEmptyString,
+})
+
+/**
+ * Legacy v1 manifest (no kind discriminator — always source-backed).
+ * Read-only path: never written by current code. Normalized to v2 source-backed
+ * via Zod transform so consumers see one shape regardless of on-disk version.
+ * Removable in a future major once the 24h startupCleanup TTL has flushed all
+ * pre-upgrade tombstones.
+ */
+const manifestV1Schema = z
+  .object({
+    schemaVersion: z.literal(1),
+    deletedAt: z.number().int().positive(),
+    skillName: skillNameString,
+    sourcePath: nonEmptyString,
+    symlinks: z.array(symlinkRecordSchema),
+  })
+  .transform((legacy) => ({
+    schemaVersion: 2 as const,
+    kind: 'source-backed' as const,
+    deletedAt: legacy.deletedAt,
+    skillName: legacy.skillName,
+    sourcePath: legacy.sourcePath,
+    symlinks: legacy.symlinks,
+  }))
+
+/**
+ * v2 source-backed manifest — produced when `~/.agents/skills/<name>` is the
+ * authoritative source dir and agent entries are symlinks pointing at it.
+ */
+const manifestV2SourceBackedSchema = z.object({
+  schemaVersion: z.literal(2),
+  kind: z.literal('source-backed'),
+  deletedAt: z.number().int().positive(),
+  skillName: skillNameString,
+  sourcePath: nonEmptyString,
+  symlinks: z.array(symlinkRecordSchema),
+})
+
+/**
+ * v2 local-only manifest — produced when no source dir exists but one or more
+ * agent dirs hold a real (non-symlink) folder for the skill. Each agent folder
+ * is moved to `<entryDir>/local-copies/<agentId>/` and recorded here so
+ * `restore()` can put each copy back exactly where it came from.
+ */
+const manifestV2LocalOnlySchema = z.object({
+  schemaVersion: z.literal(2),
+  kind: z.literal('local-only'),
+  deletedAt: z.number().int().positive(),
+  skillName: skillNameString,
+  localCopies: z.array(localCopyRecordSchema).min(1),
+})
+
 /**
  * Trash manifest schema written on every moveToTrash.
  * Validated via Zod before `trashService.restore()` touches the filesystem
@@ -40,28 +104,35 @@ export const tombstoneIdSchema = z
  * Each `linkPath` is re-validated with `validatePath` against the agent's base
  * directory before any fs op, so an attacker-crafted manifest still cannot point
  * outside the agent's allowed base (defense in depth).
+ *
+ * Discriminated on `kind` after Zod parsing — v1 manifests are normalized to
+ * `{kind: 'source-backed', schemaVersion: 2}` so consumers don't branch on
+ * version separately from kind.
  * @example
+ * // v2 source-backed
  * {
- *   schemaVersion: 1,
+ *   schemaVersion: 2,
+ *   kind: 'source-backed',
  *   deletedAt: 1729180800000,
  *   skillName: 'theme-generator',
  *   sourcePath: '/Users/me/.agents/skills/theme-generator',
  *   symlinks: [{ agentId: 'cursor', linkPath: '/Users/me/.cursor/skills/theme-generator', target: '/Users/me/.agents/skills/theme-generator' }]
  * }
+ * @example
+ * // v2 local-only
+ * {
+ *   schemaVersion: 2,
+ *   kind: 'local-only',
+ *   deletedAt: 1729180800000,
+ *   skillName: 'architecture-decision-records',
+ *   localCopies: [{ agentId: 'claude', linkPath: '/Users/me/.claude/skills/architecture-decision-records' }]
+ * }
  */
-export const manifestSchema = z.object({
-  schemaVersion: z.literal(1),
-  deletedAt: z.number().int().positive(),
-  skillName: skillNameString,
-  sourcePath: nonEmptyString,
-  symlinks: z.array(
-    z.object({
-      agentId: nonEmptyString,
-      linkPath: nonEmptyString,
-      target: nonEmptyString,
-    }),
-  ),
-})
+export const manifestSchema = z.union([
+  manifestV2SourceBackedSchema,
+  manifestV2LocalOnlySchema,
+  manifestV1Schema,
+])
 
 export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
   // File operations — require non-empty path strings

@@ -66,6 +66,16 @@ export interface RecordedSymlink {
 }
 
 /**
+ * Record of a real (non-symlink) skill folder under an agent dir that was
+ * moved into the trash. Used for local-only skills (no `~/.agents/skills/<name>`
+ * source exists; the skill lives directly in one or more agent directories).
+ */
+export interface RecordedLocalCopy {
+  agentId: AgentId
+  linkPath: AbsolutePath
+}
+
+/**
  * Build a unique trash entry name from skillName + current clock + random suffix.
  * `rand8hex` prevents same-ms collisions on fast machines (reviewer iter-2 HIGH-4).
  * @param skillName - Validated skill name (no path separators)
@@ -107,28 +117,169 @@ async function rollbackRemovedSymlinks(
 }
 
 /**
- * Move a skill source directory + its symlinks into the on-disk trash.
+ * Best-effort rename each previously-moved local copy back to its original
+ * agent linkPath. Mirrors `rollbackRemovedSymlinks` for the local-only flow.
+ * Errors are logged per copy and the function never throws — the caller is
+ * about to surface the original failure and that must not be masked.
  *
- * Lifecycle:
- * 1. `mkdir(TRASH_DIR)` idempotent (fresh-install safe).
- * 2. Generate `entryName = <unix_ms>-<skillName>-<rand8hex>`.
- * 3. Walk agent dirs, read symlinks, record them, unlink each symlink. On any
- *    non-ENOENT unlink failure: abort before rename, no trash entry created,
- *    source stays in place — surfaces as per-item error in caller.
- * 4. `fs.rename(sourcePath, entryDir/source)`. On EXDEV: fall back to `fs.cp` + `fs.rm`.
- * 5. Write `manifest.json` with `schemaVersion:1`.
- * 6. Schedule TTL evict timer keyed in `evictTimers`.
- *
- * @param skillName - Validated skill name (no path separators)
- * @param sourcePath - Absolute path to the skill source directory (already validated)
- * @returns Tombstone id + cascadeAgents + symlinksRemoved for the caller's result
- * @throws Error with user-facing message when unlink fails with non-ENOENT code
- *   or rename/cp fallback cannot move the source
- * @example
- * const result = await moveToTrash('theme-generator', '/Users/me/.agents/skills/theme-generator')
- * // { tombstoneId: '1729180800000-theme-generator-a1b2c3d4', cascadeAgents: ['cursor'], symlinksRemoved: 1 }
+ * Returns the subset of copies that could NOT be restored. The caller MUST
+ * use this list to decide whether the staged trash entry is still the only
+ * surviving copy of the data: if any restore failed, the staged folder under
+ * `<entryDir>/local-copies/<agentId>/` is the user's only remaining copy and
+ * the entryDir MUST NOT be deleted.
+ * @param entryDir - Trash entry root (contains `local-copies/<agentId>/`)
+ * @param copies - Local copies that were moved during the failing forward pass
+ * @returns The copies whose restore failed (empty array means full success)
  */
-export async function moveToTrash(
+async function rollbackMovedLocalCopies(
+  entryDir: string,
+  copies: RecordedLocalCopy[],
+): Promise<RecordedLocalCopy[]> {
+  const unrestoredCopies: RecordedLocalCopy[] = []
+  for (const copy of copies) {
+    const stagedPath = join(entryDir, 'local-copies', copy.agentId)
+    try {
+      await fs.mkdir(dirname(copy.linkPath), { recursive: true })
+      try {
+        await fs.rename(stagedPath, copy.linkPath)
+      } catch (renameError) {
+        if (errorCode(renameError) === 'EXDEV') {
+          await fs.cp(stagedPath, copy.linkPath, { recursive: true })
+          await fs.rm(stagedPath, { recursive: true, force: true })
+        } else {
+          throw renameError
+        }
+      }
+    } catch (error) {
+      console.warn('trashService: rollback local copy failed', {
+        agentId: copy.agentId,
+        linkPath: copy.linkPath,
+        code: errorCode(error),
+        message: extractErrorMessage(error),
+      })
+      unrestoredCopies.push(copy)
+    }
+  }
+  return unrestoredCopies
+}
+
+/**
+ * Walk every configured agent directory and find real (non-symlink) folders
+ * matching `skillName`. Used by `moveToTrash` when `~/.agents/skills/<name>`
+ * has no source dir but the skill exists as a local copy in one or more agents.
+ *
+ * Symlinks are deliberately ignored here — for local-only delete we only move
+ * real directories. A stray symlink pointing at one of those copies will become
+ * broken after delete and is surfaced by the next scan as a "broken" entry.
+ *
+ * @param skillName - Validated skill name (no separators)
+ * @returns Per-agent local copy records, ordered by AGENTS iteration
+ */
+async function scanLocalCopies(
+  skillName: SkillName,
+): Promise<RecordedLocalCopy[]> {
+  const copies: RecordedLocalCopy[] = []
+  for (const agent of AGENTS) {
+    const linkPath = join(agent.path, skillName)
+    try {
+      // For real directories validation can use [agent.path] specifically —
+      // unlike symlinks, realpath stops at the directory itself, which lives
+      // inside the agent's allowed base.
+      validatePath(linkPath, [agent.path])
+    } catch {
+      continue
+    }
+    let stats: Awaited<ReturnType<typeof fs.lstat>>
+    try {
+      stats = await fs.lstat(linkPath)
+    } catch (error) {
+      if (errorCode(error) === 'ENOENT') continue
+      // Permission error or other — log and skip this agent rather than abort
+      // the whole scan; the user can retry once they've fixed perms.
+      console.warn('trashService: scanLocalCopies lstat failed', {
+        agentId: agent.id,
+        linkPath,
+        code: errorCode(error),
+        message: extractErrorMessage(error),
+      })
+      continue
+    }
+    if (stats.isDirectory() && !stats.isSymbolicLink()) {
+      copies.push({ agentId: agent.id, linkPath: linkPath as AbsolutePath })
+    }
+  }
+  return copies
+}
+
+/**
+ * Move a skill into the on-disk trash. The skill may be:
+ * - **source-backed**: `~/.agents/skills/<name>` exists; agent entries are
+ *   symlinks pointing at it. Move source + unlink every symlink.
+ * - **local-only**: no source dir; one or more agents hold the skill as a real
+ *   folder. Move every real folder into `<entryDir>/local-copies/<agentId>/`.
+ *
+ * Both flows write a v2 manifest with a `kind` discriminator that `restore()`
+ * matches on. TTL eviction is scheduled regardless of kind.
+ *
+ * @param skillName - Validated skill name (no path separators, enforced by Zod)
+ * @returns Tombstone id + cascadeAgents + symlinksRemoved for the caller's result
+ * @throws TrashError when the skill cannot be located in either form, or any
+ *   filesystem op fails non-recoverably mid-move
+ * @example
+ * // source-backed
+ * const result = await moveToTrash('theme-generator')
+ * // { tombstoneId: '1729...-theme-generator-a1b2c3d4', cascadeAgents: ['cursor'], symlinksRemoved: 1 }
+ * @example
+ * // local-only (skill lives in ~/.claude/skills/architecture-decision-records)
+ * const result = await moveToTrash('architecture-decision-records')
+ * // { tombstoneId: '1729...-architecture-decision-records-...', cascadeAgents: ['claude'], symlinksRemoved: 1 }
+ */
+export async function moveToTrash(skillName: SkillName): Promise<{
+  tombstoneId: TombstoneId
+  cascadeAgents: AgentId[]
+  symlinksRemoved: number
+}> {
+  // Construct sourcePath from the (Zod-validated) skill name and re-check it
+  // against SOURCE_DIR for defense in depth — even though the renderer never
+  // passes a path, this keeps the file's invariants self-evident if a future
+  // caller forgets to validate.
+  const sourcePath = join(SOURCE_DIR, skillName) as AbsolutePath
+  validatePath(sourcePath, [SOURCE_DIR])
+
+  // Probe the source dir. If it exists, source-backed flow. Otherwise scan
+  // agent dirs for local copies and dispatch to local-only flow if found.
+  let sourceExists = false
+  try {
+    await fs.stat(sourcePath)
+    sourceExists = true
+  } catch (error) {
+    const code = errorCode(error)
+    if (code !== 'ENOENT') {
+      throw new TrashError(
+        `Failed to inspect skill source: ${extractErrorMessage(error)}`,
+        code,
+      )
+    }
+  }
+
+  if (sourceExists) {
+    return moveSourceBackedToTrash(skillName, sourcePath)
+  }
+
+  const localCopies = await scanLocalCopies(skillName)
+  if (localCopies.length === 0) {
+    throw new TrashError('Skill not found (already deleted?)', 'ENOENT')
+  }
+  return moveLocalOnlyToTrash(skillName, localCopies)
+}
+
+/**
+ * Source-backed path of `moveToTrash`. Walks agent dirs, removes symlinks,
+ * renames the source dir into the entry, writes a v2 source-backed manifest.
+ * Same lifecycle as the original v0.13.x implementation, just gated on the
+ * source-existed branch in the wrapper.
+ */
+async function moveSourceBackedToTrash(
   skillName: SkillName,
   sourcePath: AbsolutePath,
 ): Promise<{
@@ -260,7 +411,8 @@ export async function moveToTrash(
   // restore would be impossible. Roll back (source → original path, re-create
   // symlinks, drop trash entry) before surfacing the error to the caller.
   const manifest = {
-    schemaVersion: 1 as const,
+    schemaVersion: 2 as const,
+    kind: 'source-backed' as const,
     deletedAt: Date.now(),
     skillName,
     sourcePath,
@@ -334,7 +486,7 @@ export async function moveToTrash(
   }, TRASH_TTL_MS)
   evictTimers.set(id, timer)
 
-  console.info('trashService: moveToTrash', {
+  console.info('trashService: moveToTrash (source-backed)', {
     skillName,
     entryName,
     symlinkCount: recordedSymlinks.length,
@@ -345,6 +497,170 @@ export async function moveToTrash(
     tombstoneId: id,
     cascadeAgents: cascadeAgentIds,
     symlinksRemoved: recordedSymlinks.length,
+  }
+}
+
+/**
+ * Local-only path of `moveToTrash`. The skill exists only as real folders
+ * inside one or more agent dirs (no `~/.agents/skills/<name>` source).
+ *
+ * Lifecycle:
+ * 1. `mkdir(<entryDir>/local-copies)` to host the staged folders.
+ * 2. For each `RecordedLocalCopy`, `fs.rename(linkPath → <entryDir>/local-copies/<agentId>)`.
+ *    On EXDEV: cp + rm fallback. On per-copy failure: rollback (rename already-moved
+ *    copies back to their linkPaths) before throwing.
+ * 3. Write v2 local-only manifest. On manifest-write failure: rollback all moved
+ *    copies and drop the entry dir.
+ * 4. Schedule TTL evict timer.
+ *
+ * `cascadeAgents` is the list of agents whose local copies were moved;
+ * `symlinksRemoved` carries the same count for parity with the source-backed
+ * return shape (the renderer treats it as "things removed from agent dirs").
+ */
+async function moveLocalOnlyToTrash(
+  skillName: SkillName,
+  localCopies: RecordedLocalCopy[],
+): Promise<{
+  tombstoneId: TombstoneId
+  cascadeAgents: AgentId[]
+  symlinksRemoved: number
+}> {
+  const startTime = Date.now()
+  await fs.mkdir(TRASH_DIR, { recursive: true, mode: 0o755 })
+
+  const entryName = buildEntryName(skillName)
+  const entryDir = join(TRASH_DIR, entryName)
+  const localCopiesRoot = join(entryDir, 'local-copies')
+  const manifestPath = join(entryDir, 'manifest.json')
+
+  await fs.mkdir(localCopiesRoot, { recursive: true })
+
+  // Move each agent's real folder into <entryDir>/local-copies/<agentId>/.
+  // Track successfully-moved copies so a mid-loop failure can be rolled back.
+  const moved: RecordedLocalCopy[] = []
+  for (const copy of localCopies) {
+    const stagedPath = join(localCopiesRoot, copy.agentId)
+    try {
+      await fs.rename(copy.linkPath, stagedPath)
+      moved.push(copy)
+    } catch (error) {
+      const code = errorCode(error)
+      // EXDEV across volumes — fall back to cp + rm. ENOENT means the copy
+      // disappeared mid-flight (race); skip and continue rather than abort.
+      const recoveryOutcome = await match(code)
+        .with('EXDEV', async () => {
+          try {
+            await fs.cp(copy.linkPath, stagedPath, { recursive: true })
+            await fs.rm(copy.linkPath, { recursive: true, force: true })
+            return { kind: 'moved' as const }
+          } catch (fallbackError) {
+            return {
+              kind: 'fatal' as const,
+              error: new TrashError(
+                `Failed to move local copy (cross-device, agent=${copy.agentId}): ${extractErrorMessage(fallbackError)}`,
+                errorCode(fallbackError),
+              ),
+            }
+          }
+        })
+        .with('ENOENT', async () => ({ kind: 'race-skip' as const }))
+        .otherwise(async () => ({
+          kind: 'fatal' as const,
+          error: new TrashError(
+            `Failed to move local copy (agent=${copy.agentId}): ${extractErrorMessage(error)}`,
+            code,
+          ),
+        }))
+
+      if (recoveryOutcome.kind === 'fatal') {
+        const unrestoredCopies = await rollbackMovedLocalCopies(entryDir, moved)
+        if (unrestoredCopies.length === 0) {
+          // All copies restored — safe to drop the staged entry dir.
+          await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
+            // best-effort cleanup
+          })
+          throw recoveryOutcome.error
+        }
+        // One or more copies could not be restored. The staged folder under
+        // <entryDir>/local-copies/<agentId>/ is the ONLY remaining copy of
+        // the user's data. Preserve entryDir and surface a recovery hint so
+        // the caller (and ultimately the UI) can guide the user to it.
+        const strandedAgents = unrestoredCopies
+          .map((copy) => copy.agentId)
+          .join(', ')
+        throw new TrashError(
+          `${recoveryOutcome.error.message}; ${unrestoredCopies.length} local copy/copies stranded in ${entryDir}/local-copies (agents: ${strandedAgents})`,
+          recoveryOutcome.error.code,
+        )
+      }
+      if (recoveryOutcome.kind === 'moved') {
+        moved.push(copy)
+      }
+      // race-skip: copy vanished, leave moved unchanged.
+    }
+  }
+
+  if (moved.length === 0) {
+    // Every copy raced away — nothing to tombstone.
+    await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
+      // best-effort cleanup
+    })
+    throw new TrashError('Skill not found (already deleted?)', 'ENOENT')
+  }
+
+  const manifest = {
+    schemaVersion: 2 as const,
+    kind: 'local-only' as const,
+    deletedAt: Date.now(),
+    skillName,
+    localCopies: moved,
+  }
+  try {
+    await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8')
+  } catch (manifestWriteError) {
+    const manifestWriteCode = errorCode(manifestWriteError)
+    const manifestWriteMessage = extractErrorMessage(manifestWriteError)
+
+    const unrestoredCopies = await rollbackMovedLocalCopies(entryDir, moved)
+    if (unrestoredCopies.length === 0) {
+      // All copies restored — safe to drop the staged entry dir.
+      await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
+        // best-effort cleanup
+      })
+      throw new TrashError(
+        `Failed to write trash manifest: ${manifestWriteMessage}`,
+        manifestWriteCode,
+      )
+    }
+    // Manifest write failed AND rollback could not restore every copy. The
+    // staged folder is the ONLY remaining copy of the user's data — keep
+    // entryDir intact so they can recover manually from local-copies/.
+    const strandedAgents = unrestoredCopies
+      .map((copy) => copy.agentId)
+      .join(', ')
+    throw new TrashError(
+      `Failed to write trash manifest: ${manifestWriteMessage}; ${unrestoredCopies.length} local copy/copies stranded in ${entryDir}/local-copies (agents: ${strandedAgents})`,
+      manifestWriteCode,
+    )
+  }
+
+  const id = tombstoneId(entryName)
+  const timer = setTimeout(() => {
+    void evict(id)
+  }, TRASH_TTL_MS)
+  evictTimers.set(id, timer)
+
+  console.info('trashService: moveToTrash (local-only)', {
+    skillName,
+    entryName,
+    localCopyCount: moved.length,
+    durationMs: Date.now() - startTime,
+  })
+
+  return {
+    tombstoneId: id,
+    cascadeAgents: moved.map((c) => c.agentId),
+    symlinksRemoved: moved.length,
   }
 }
 
@@ -378,14 +694,12 @@ export async function evict(id: TombstoneId): Promise<void> {
  * Preconditions checked in order (first failure is fatal for this item):
  * (a) Entry dir exists.
  * (b) Manifest readable + schema-valid (Zod).
- * (c) Source path free (no collision with a reinstalled skill).
  *
- * Per-symlink: if target is gone (volume unmounted, source moved) OR the
- * agent's linkPath is occupied by something else → skip that symlink only,
- * count in `symlinksSkipped`; keep going with other links.
+ * Dispatches to source-backed or local-only flow based on `manifest.kind`.
+ * Per-record skips (collision, missing target, tampered path) are counted in
+ * `symlinksSkipped`; the operation is reported as `outcome: 'restored'` even
+ * if zero records succeeded — the entry has at least been moved out of trash.
  *
- * On success: rename source back, recreate surviving symlinks, remove trash
- * dir, cancel pending evict timer.
  * @param id - Tombstone id (already validated)
  * @returns RestoreDeletedSkillResult (discriminated union on `outcome`)
  * @example
@@ -397,7 +711,6 @@ export async function restore(
 ): Promise<RestoreDeletedSkillResult> {
   const startTime = Date.now()
   const entryDir = join(TRASH_DIR, id)
-  const entrySourceDir = join(entryDir, 'source')
   const manifestPath = join(entryDir, 'manifest.json')
 
   // (a) Entry exists.
@@ -435,6 +748,39 @@ export async function restore(
     }
   }
 
+  // Dispatch on manifest.kind. Both branches own their own cleanup + timer
+  // cancellation so the wrapper stays a thin router.
+  const result = await match(manifest)
+    .with({ kind: 'source-backed' }, async (m) =>
+      restoreSourceBacked(id, entryDir, m),
+    )
+    .with({ kind: 'local-only' }, async (m) =>
+      restoreLocalOnly(id, entryDir, m),
+    )
+    .exhaustive()
+
+  console.info('trashService: restore', {
+    tombstoneId: id,
+    kind: manifest.kind,
+    durationMs: Date.now() - startTime,
+  })
+
+  return result
+}
+
+/**
+ * Restore a source-backed tombstone: rename `<entryDir>/source` back to its
+ * original `~/.agents/skills/<name>` path, then walk the manifest's recorded
+ * symlinks and recreate each in its agent dir. Per-link skips are counted but
+ * never abort the operation.
+ */
+async function restoreSourceBacked(
+  id: TombstoneId,
+  entryDir: string,
+  manifest: Extract<z.infer<typeof manifestSchema>, { kind: 'source-backed' }>,
+): Promise<RestoreDeletedSkillResult> {
+  const entrySourceDir = join(entryDir, 'source')
+
   // Validate sourcePath is within SOURCE_DIR specifically — skill sources
   // always live there. A tampered manifest could otherwise claim sourcePath
   // is in an agent dir and restore would happily plant the files there.
@@ -449,7 +795,7 @@ export async function restore(
     }
   }
 
-  // (c) Source path free.
+  // Source path free?
   try {
     await fs.stat(manifest.sourcePath)
     return {
@@ -555,26 +901,104 @@ export async function restore(
     }
   }
 
-  // Cleanup: remove trash entry + cancel evict timer.
-  const pendingTimer = evictTimers.get(id)
-  if (pendingTimer) {
-    clearTimeout(pendingTimer)
-    evictTimers.delete(id)
-  }
-  await fs.rm(entryDir, { recursive: true, force: true })
-
-  console.info('trashService: restore', {
-    tombstoneId: id,
-    symlinksRestored,
-    symlinksSkipped,
-    durationMs: Date.now() - startTime,
-  })
+  await finalizeRestore(id, entryDir)
 
   return {
     outcome: 'restored',
     symlinksRestored,
     symlinksSkipped,
   }
+}
+
+/**
+ * Restore a local-only tombstone: for each `localCopies[i]`, rename
+ * `<entryDir>/local-copies/<agentId>/` back to its original `linkPath`.
+ * Per-copy collisions or unknown agents skip cleanly — partial restores are
+ * still reported as `outcome: 'restored'` with `symlinksSkipped > 0`.
+ *
+ * Reuses `symlinksRestored`/`symlinksSkipped` for parity with source-backed
+ * — both fields semantically count "agent-side restorations" regardless of
+ * whether the underlying op was a symlink or a directory rename.
+ */
+async function restoreLocalOnly(
+  id: TombstoneId,
+  entryDir: string,
+  manifest: Extract<z.infer<typeof manifestSchema>, { kind: 'local-only' }>,
+): Promise<RestoreDeletedSkillResult> {
+  let symlinksRestored = 0
+  let symlinksSkipped = 0
+  const localCopiesRoot = join(entryDir, 'local-copies')
+
+  for (const copy of manifest.localCopies) {
+    const agent = AGENTS.find((a) => a.id === copy.agentId)
+    if (!agent) {
+      symlinksSkipped++
+      continue
+    }
+    // Re-validate linkPath stays inside this agent's base. Tampered manifest
+    // could otherwise plant the folder somewhere outside the agent dir.
+    try {
+      validatePath(copy.linkPath, [agent.path])
+    } catch {
+      symlinksSkipped++
+      continue
+    }
+    // linkPath free?
+    try {
+      await fs.lstat(copy.linkPath)
+      // Something already exists at the destination; skip rather than overwrite.
+      symlinksSkipped++
+      continue
+    } catch (error) {
+      if (errorCode(error) !== 'ENOENT') {
+        symlinksSkipped++
+        continue
+      }
+      // ENOENT = free, proceed.
+    }
+    const stagedPath = join(localCopiesRoot, copy.agentId)
+    try {
+      await fs.mkdir(agent.path, { recursive: true })
+      try {
+        await fs.rename(stagedPath, copy.linkPath)
+      } catch (renameError) {
+        if (errorCode(renameError) === 'EXDEV') {
+          await fs.cp(stagedPath, copy.linkPath, { recursive: true })
+          await fs.rm(stagedPath, { recursive: true, force: true })
+        } else {
+          throw renameError
+        }
+      }
+      symlinksRestored++
+    } catch {
+      symlinksSkipped++
+    }
+  }
+
+  await finalizeRestore(id, entryDir)
+
+  return {
+    outcome: 'restored',
+    symlinksRestored,
+    symlinksSkipped,
+  }
+}
+
+/**
+ * Shared restore postlude: cancel pending evict timer + remove the trash entry
+ * directory. Best-effort; called after both source-backed and local-only
+ * restorations succeed past their per-record loop.
+ */
+async function finalizeRestore(
+  id: TombstoneId,
+  entryDir: string,
+): Promise<void> {
+  const pendingTimer = evictTimers.get(id)
+  if (pendingTimer) {
+    clearTimeout(pendingTimer)
+    evictTimers.delete(id)
+  }
+  await fs.rm(entryDir, { recursive: true, force: true })
 }
 
 /**

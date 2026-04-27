@@ -16,12 +16,7 @@ import type {
   RestoreDeletedSkillResult,
   SkillName,
 } from '../../shared/types'
-import {
-  AGENTS,
-  findAgentById,
-  isSharedAgentPath,
-  SOURCE_DIR,
-} from '../constants'
+import { AGENTS, findAgentById, isSharedAgentPath } from '../constants'
 import { getAllowedBases, validatePath } from '../services/pathValidation'
 import { scanSkills } from '../services/skillScanner'
 import { moveToTrash, restore, TrashError } from '../services/trashService'
@@ -30,18 +25,6 @@ import { extractErrorMessage } from '../utils/errors'
 
 import { typedHandle } from './typedHandle'
 import { typedSend } from './typedSend'
-
-/**
- * Derive the canonical source path for a skill. Renderer never passes paths
- * for bulk ops — main always re-derives from SOURCE_DIR + skillName. This
- * closes the "renderer-supplied path" trust boundary (security CRITICAL-2).
- * @param skillName - Validated skill name (no path separators, enforced by Zod)
- * @returns Absolute path inside SOURCE_DIR
- * @example deriveSourcePath('task') // '/Users/me/.agents/skills/task'
- */
-function deriveSourcePath(skillName: SkillName): string {
-  return join(SOURCE_DIR, skillName)
-}
 
 /**
  * Unlink or remove a single link-path inside an agent directory. Shared by the
@@ -239,32 +222,16 @@ export function registerSkillsHandlers(): void {
    * Delete a single skill by delegating to trashService so the single-delete
    * path shares the same trash/undo/eviction code as batch delete.
    *
-   * `sourcePath = join(SOURCE_DIR, skillName)` is derived server-side; the
-   * renderer never passes a path (security CRITICAL-2 closed, asymmetry with
-   * the bulk handler resolved).
+   * `moveToTrash(skillName)` derives + validates `sourcePath` internally and
+   * also handles the local-only case (skill lives in agent dirs only with no
+   * `~/.agents/skills/<name>` source). The renderer never passes a path.
    * @param options - { skillName }
    * @returns DeleteSkillResult with symlinksRemoved + cascadeAgents
    */
   typedHandle(IPC_CHANNELS.SKILLS_DELETE, async (_, options) => {
     const { skillName } = options
-    const sourcePath = deriveSourcePath(skillName)
-
     try {
-      validatePath(sourcePath, [SOURCE_DIR])
-    } catch (error) {
-      return {
-        success: false,
-        symlinksRemoved: 0,
-        cascadeAgents: [],
-        error: extractErrorMessage(error),
-      }
-    }
-
-    try {
-      const { cascadeAgents, symlinksRemoved } = await moveToTrash(
-        skillName,
-        sourcePath,
-      )
+      const { cascadeAgents, symlinksRemoved } = await moveToTrash(skillName)
       return {
         success: true,
         symlinksRemoved,
@@ -303,31 +270,12 @@ export function registerSkillsHandlers(): void {
       const results: BulkDeleteItemResult[] = []
 
       for (const [itemIndex, { skillName }] of items.entries()) {
-        const sourcePath = deriveSourcePath(skillName)
-
-        try {
-          validatePath(sourcePath, [SOURCE_DIR])
-        } catch (error) {
-          results.push({
-            skillName,
-            outcome: 'error',
-            error: { message: extractErrorMessage(error) },
-          })
-          if (emitProgress) {
-            typedSend(event.sender, IPC_CHANNELS.SKILLS_DELETE_PROGRESS, {
-              current: itemIndex + 1,
-              total,
-            })
-          }
-          continue
-        }
-
         try {
           const {
             tombstoneId: id,
             cascadeAgents,
             symlinksRemoved,
-          } = await moveToTrash(skillName, sourcePath)
+          } = await moveToTrash(skillName)
           results.push({
             skillName,
             outcome: 'deleted',
