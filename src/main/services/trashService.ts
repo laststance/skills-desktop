@@ -121,13 +121,21 @@ async function rollbackRemovedSymlinks(
  * agent linkPath. Mirrors `rollbackRemovedSymlinks` for the local-only flow.
  * Errors are logged per copy and the function never throws — the caller is
  * about to surface the original failure and that must not be masked.
+ *
+ * Returns the subset of copies that could NOT be restored. The caller MUST
+ * use this list to decide whether the staged trash entry is still the only
+ * surviving copy of the data: if any restore failed, the staged folder under
+ * `<entryDir>/local-copies/<agentId>/` is the user's only remaining copy and
+ * the entryDir MUST NOT be deleted.
  * @param entryDir - Trash entry root (contains `local-copies/<agentId>/`)
  * @param copies - Local copies that were moved during the failing forward pass
+ * @returns The copies whose restore failed (empty array means full success)
  */
 async function rollbackMovedLocalCopies(
   entryDir: string,
   copies: RecordedLocalCopy[],
-): Promise<void> {
+): Promise<RecordedLocalCopy[]> {
+  const unrestoredCopies: RecordedLocalCopy[] = []
   for (const copy of copies) {
     const stagedPath = join(entryDir, 'local-copies', copy.agentId)
     try {
@@ -149,8 +157,10 @@ async function rollbackMovedLocalCopies(
         code: errorCode(error),
         message: extractErrorMessage(error),
       })
+      unrestoredCopies.push(copy)
     }
   }
+  return unrestoredCopies
 }
 
 /**
@@ -563,11 +573,25 @@ async function moveLocalOnlyToTrash(
         }))
 
       if (recoveryOutcome.kind === 'fatal') {
-        await rollbackMovedLocalCopies(entryDir, moved)
-        await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
-          // best-effort cleanup
-        })
-        throw recoveryOutcome.error
+        const unrestoredCopies = await rollbackMovedLocalCopies(entryDir, moved)
+        if (unrestoredCopies.length === 0) {
+          // All copies restored — safe to drop the staged entry dir.
+          await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
+            // best-effort cleanup
+          })
+          throw recoveryOutcome.error
+        }
+        // One or more copies could not be restored. The staged folder under
+        // <entryDir>/local-copies/<agentId>/ is the ONLY remaining copy of
+        // the user's data. Preserve entryDir and surface a recovery hint so
+        // the caller (and ultimately the UI) can guide the user to it.
+        const strandedAgents = unrestoredCopies
+          .map((copy) => copy.agentId)
+          .join(', ')
+        throw new TrashError(
+          `${recoveryOutcome.error.message}; ${unrestoredCopies.length} local copy/copies stranded in ${entryDir}/local-copies (agents: ${strandedAgents})`,
+          recoveryOutcome.error.code,
+        )
       }
       if (recoveryOutcome.kind === 'moved') {
         moved.push(copy)
@@ -597,13 +621,25 @@ async function moveLocalOnlyToTrash(
     const manifestWriteCode = errorCode(manifestWriteError)
     const manifestWriteMessage = extractErrorMessage(manifestWriteError)
 
-    await rollbackMovedLocalCopies(entryDir, moved)
-    await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
-      // best-effort cleanup
-    })
-
+    const unrestoredCopies = await rollbackMovedLocalCopies(entryDir, moved)
+    if (unrestoredCopies.length === 0) {
+      // All copies restored — safe to drop the staged entry dir.
+      await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
+        // best-effort cleanup
+      })
+      throw new TrashError(
+        `Failed to write trash manifest: ${manifestWriteMessage}`,
+        manifestWriteCode,
+      )
+    }
+    // Manifest write failed AND rollback could not restore every copy. The
+    // staged folder is the ONLY remaining copy of the user's data — keep
+    // entryDir intact so they can recover manually from local-copies/.
+    const strandedAgents = unrestoredCopies
+      .map((copy) => copy.agentId)
+      .join(', ')
     throw new TrashError(
-      `Failed to write trash manifest: ${manifestWriteMessage}`,
+      `Failed to write trash manifest: ${manifestWriteMessage}; ${unrestoredCopies.length} local copy/copies stranded in ${entryDir}/local-copies (agents: ${strandedAgents})`,
       manifestWriteCode,
     )
   }
