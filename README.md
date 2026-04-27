@@ -98,6 +98,7 @@ src/
 
 - [Skills CLI](https://github.com/vercel-labs/skills) - Install skills via CLI
 - [Skills Registry](https://skills.sh) - Browse available skills
+- [Skills宝](https://skilery.com) - Chinese search and install hub for skills
 - [Agent Skills Spec](https://agentskills.io) - Skills specification
 
 ## License
