@@ -37,7 +37,8 @@ export const selectFilteredSkills = createSelector(
     // agent is selected — narrow to SOURCE_DIR skills so the SourceCard view
     // matches its `~/.agents/skills/` label instead of leaking agent-local
     // folders (e.g. `~/.claude/skills/<name>` that has no symlink under
-    // `~/.agents/skills/`). See `selectSourceSkills` test in selectors.test.ts.
+    // `~/.agents/skills/`). See "hides agent-local-only skills from the
+    // SourceCard view (no agent selected)" test in selectors.test.ts.
     if (selectedAgentId) {
       const checkType = skillTypeFilter !== 'all'
       const wantLocal = skillTypeFilter === 'local'

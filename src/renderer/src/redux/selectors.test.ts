@@ -305,18 +305,21 @@ describe('selectFilteredSkills', () => {
     expect(result).toHaveLength(0)
   })
 
-  it('skillTypeFilter is ignored in SourceCard view (no agent selected)', () => {
-    // SourceCard view applies its own source-only filter, so skillTypeFilter
-    // is moot here. `local-task` is hidden because it lives outside SOURCE_DIR,
-    // not because of the symlinked/local filter.
-    const skills = [
-      makeSkill('task', 'claude-code'),
-      makeSkill('local-task', 'cursor', true),
-    ]
-    const state = buildState({ skills, skillTypeFilter: 'symlinked' })
-    const result = selectFilteredSkills(state as never)
-    expect(result.map((s) => s.name)).toEqual(['task'])
-  })
+  it.each(['all', 'symlinked', 'local'] as const)(
+    'skillTypeFilter=%s is ignored in SourceCard view (no agent selected)',
+    (skillTypeFilter) => {
+      // SourceCard view applies its own source-only filter, so skillTypeFilter
+      // is moot here. `local-task` is hidden because it lives outside SOURCE_DIR,
+      // not because of the symlinked/local filter.
+      const skills = [
+        makeSkill('task', 'claude-code'),
+        makeSkill('local-task', 'cursor', true),
+      ]
+      const state = buildState({ skills, skillTypeFilter })
+      const result = selectFilteredSkills(state as never)
+      expect(result.map((s) => s.name)).toEqual(['task'])
+    },
+  )
 
   it('is memoized (returns same reference for same inputs)', () => {
     const skills = [makeSkill('task', 'claude-code')]
