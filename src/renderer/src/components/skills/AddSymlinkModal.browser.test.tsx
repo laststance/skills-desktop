@@ -60,6 +60,7 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
     path: '/home/user/.agents/skills/task',
     symlinkCount: 0,
     symlinks: [],
+    isSource: true,
     ...overrides,
   }
 }

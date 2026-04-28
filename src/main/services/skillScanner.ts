@@ -110,6 +110,7 @@ async function scanSourceSkills(): Promise<Skill[]> {
         path: dir.path,
         symlinkCount: countValidSymlinks(symlinks),
         symlinks,
+        isSource: true,
       }
     }),
   )
@@ -172,6 +173,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
           path: skillPath,
           symlinkCount: 0, // Local skills have 0 symlinks
           symlinks,
+          isSource: false,
         })
       }
     } catch {
@@ -206,6 +208,7 @@ export async function getSkill(skillName: SkillName): Promise<Skill | null> {
       path: skillPath,
       symlinkCount: countValidSymlinks(symlinks),
       symlinks,
+      isSource: true,
     }
   } catch {
     return null

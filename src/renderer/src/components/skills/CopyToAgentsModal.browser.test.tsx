@@ -59,6 +59,7 @@ function makeSkill(symlinks: SymlinkInfo[]): Skill {
     path: '/home/user/.agents/skills/task',
     symlinkCount: symlinks.length,
     symlinks,
+    isSource: true,
   }
 }
 

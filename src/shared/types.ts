@@ -155,6 +155,12 @@ export interface Skill {
   symlinkCount: number
   /** Per-agent symlink status entries */
   symlinks: SymlinkInfo[]
+  /**
+   * `true` when the skill lives under SOURCE_DIR (`~/.agents/skills/`); `false`
+   * when it is an agent-local-only directory under `~/.<agent>/skills/`.
+   * Used by the renderer to filter the SourceCard view to source-dir skills only.
+   */
+  isSource: boolean
   /** Short source identifier in owner/repo format. @example "vercel-labs/skills" */
   source?: RepositoryId
   /** Full URL to the source repository. @example "https://github.com/vercel-labs/skills.git" */
