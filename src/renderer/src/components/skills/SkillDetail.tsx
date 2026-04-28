@@ -3,6 +3,8 @@ import React, { Activity, useState } from 'react'
 import type { Skill, SymlinkInfo } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
 import { useAppSelector } from '../../redux/hooks'
+import type { LocationViewModel } from '../../utils/getLocationViewModel'
+import { getLocationViewModel } from '../../utils/getLocationViewModel'
 import { SymlinkStatus } from '../status/SymlinkStatus'
 import { Separator } from '../ui/separator'
 
@@ -23,6 +25,7 @@ export const SkillDetail = React.memo(function SkillDetail({
 }: SkillDetailProps): React.ReactElement {
   const [activeTab, setActiveTab] = useState<TabType>('code')
   const { items: agents } = useAppSelector((state) => state.agents)
+  const selectedAgentId = useAppSelector((state) => state.ui.selectedAgentId)
 
   // Filter symlinks to only show detected agents (exists: true)
   const detectedAgentIds = new Set(
@@ -31,6 +34,8 @@ export const SkillDetail = React.memo(function SkillDetail({
   const filteredSymlinks = skill.symlinks.filter((s) =>
     detectedAgentIds.has(s.agentId),
   )
+
+  const locationView = getLocationViewModel(skill, selectedAgentId)
 
   const validCount = filteredSymlinks.filter((s) => s.status === 'valid').length
   const brokenCount = filteredSymlinks.filter(
@@ -92,6 +97,7 @@ export const SkillDetail = React.memo(function SkillDetail({
             filteredSymlinks={filteredSymlinks}
             validCount={validCount}
             brokenCount={brokenCount}
+            location={locationView}
           />
         </Activity>
       </div>
@@ -104,6 +110,7 @@ interface InfoViewProps {
   filteredSymlinks: SymlinkInfo[]
   validCount: number
   brokenCount: number
+  location: LocationViewModel
 }
 
 const InfoView = React.memo(function InfoView({
@@ -111,6 +118,7 @@ const InfoView = React.memo(function InfoView({
   filteredSymlinks,
   validCount,
   brokenCount,
+  location,
 }: InfoViewProps): React.ReactElement {
   return (
     <div className="p-4 overflow-auto h-full">
@@ -146,9 +154,28 @@ const InfoView = React.memo(function InfoView({
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
           Location
         </h3>
-        <code className="text-xs bg-muted px-2 py-1 rounded break-all">
-          {skill.path}
-        </code>
+        {location.symlinkPath ? (
+          <div className="space-y-2">
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">
+                Source Files
+              </div>
+              <code className="text-xs bg-muted px-2 py-1 rounded break-all inline-block max-w-full">
+                {location.sourcePath}
+              </code>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Symlink</div>
+              <code className="text-xs bg-muted px-2 py-1 rounded break-all inline-block max-w-full">
+                {location.symlinkPath}
+              </code>
+            </div>
+          </div>
+        ) : (
+          <code className="text-xs bg-muted px-2 py-1 rounded break-all inline-block max-w-full">
+            {location.sourcePath}
+          </code>
+        )}
       </div>
     </div>
   )

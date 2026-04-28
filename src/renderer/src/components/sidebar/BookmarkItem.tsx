@@ -48,12 +48,23 @@ export const BookmarkItem = React.memo(function BookmarkItem({
     dispatch(setSelectedBookmarkForDetail(bookmark))
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleClick()
+    }
+  }
+
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`View details for ${bookmark.name}`}
       className={cn(
-        'flex w-full items-center justify-between min-h-[44px] py-1.5 px-2 rounded-md transition-colors group cursor-pointer hover:bg-accent/50',
+        'flex w-full items-center justify-between min-h-11 py-1.5 px-2 rounded-md transition-colors group cursor-pointer hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       )}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
     >
       <Tooltip>
         <TooltipTrigger asChild>
@@ -71,15 +82,22 @@ export const BookmarkItem = React.memo(function BookmarkItem({
 
       <div className="flex items-center gap-1 ml-2 shrink-0">
         {bookmark.isInstalled ? (
-          <span className="text-xs text-emerald-500 flex items-center gap-0.5">
-            <Check className="h-3 w-3" />
-            Installed
-          </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                aria-label="Installed"
+                className="text-emerald-500 flex items-center justify-center min-h-11 min-w-11"
+              >
+                <Check className="h-4 w-4" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="left">Installed</TooltipContent>
+          </Tooltip>
         ) : (
           <button
             type="button"
             aria-label={`Install ${bookmark.name}`}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-primary hover:text-primary/80 transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+            className="min-h-11 min-w-11 flex items-center justify-center text-primary hover:text-primary/80 transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
             onClick={handleInstall}
             disabled={isInstalling}
           >
@@ -89,7 +107,7 @@ export const BookmarkItem = React.memo(function BookmarkItem({
         <button
           type="button"
           aria-label={`Remove ${bookmark.name} from bookmarks`}
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+          className="min-h-11 min-w-11 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
           onClick={handleRemove}
         >
           <X className="h-3.5 w-3.5" />

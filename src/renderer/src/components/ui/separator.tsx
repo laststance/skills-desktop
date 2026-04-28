@@ -10,7 +10,7 @@ const Separator = React.memo(function Separator({
   ref,
   ...props
 }: React.ComponentPropsWithoutRef<typeof SeparatorPrimitive.Root> & {
-  ref?: React.Ref<React.ElementRef<typeof SeparatorPrimitive.Root>>
+  ref?: React.ComponentPropsWithRef<typeof SeparatorPrimitive.Root>['ref']
 }) {
   return (
     <SeparatorPrimitive.Root
@@ -19,7 +19,7 @@ const Separator = React.memo(function Separator({
       orientation={orientation}
       className={cn(
         'shrink-0 bg-border',
-        orientation === 'horizontal' ? 'h-[1px] w-full' : 'h-full w-[1px]',
+        orientation === 'horizontal' ? 'h-px w-full' : 'h-full w-px',
         className,
       )}
       {...props}
