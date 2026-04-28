@@ -3,6 +3,8 @@ import React, { Activity, useState } from 'react'
 import type { Skill, SymlinkInfo } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
 import { useAppSelector } from '../../redux/hooks'
+import type { LocationViewModel } from '../../utils/getLocationViewModel'
+import { getLocationViewModel } from '../../utils/getLocationViewModel'
 import { SymlinkStatus } from '../status/SymlinkStatus'
 import { Separator } from '../ui/separator'
 
@@ -33,17 +35,7 @@ export const SkillDetail = React.memo(function SkillDetail({
     detectedAgentIds.has(s.agentId),
   )
 
-  // When a specific agent is selected and that agent's link points to a
-  // different path than the skill's actual location, show both Source and
-  // Symlink so the user isn't confused by seeing ~/.agents/skills while
-  // looking at e.g. OpenClaw.
-  const selectedSymlink = selectedAgentId
-    ? skill.symlinks.find((s) => s.agentId === selectedAgentId)
-    : undefined
-  const symlinkPath =
-    selectedSymlink && selectedSymlink.linkPath !== skill.path
-      ? selectedSymlink.linkPath
-      : undefined
+  const locationView = getLocationViewModel(skill, selectedAgentId)
 
   const validCount = filteredSymlinks.filter((s) => s.status === 'valid').length
   const brokenCount = filteredSymlinks.filter(
@@ -105,7 +97,7 @@ export const SkillDetail = React.memo(function SkillDetail({
             filteredSymlinks={filteredSymlinks}
             validCount={validCount}
             brokenCount={brokenCount}
-            symlinkPath={symlinkPath}
+            location={locationView}
           />
         </Activity>
       </div>
@@ -118,7 +110,7 @@ interface InfoViewProps {
   filteredSymlinks: SymlinkInfo[]
   validCount: number
   brokenCount: number
-  symlinkPath?: string
+  location: LocationViewModel
 }
 
 const InfoView = React.memo(function InfoView({
@@ -126,7 +118,7 @@ const InfoView = React.memo(function InfoView({
   filteredSymlinks,
   validCount,
   brokenCount,
-  symlinkPath,
+  location,
 }: InfoViewProps): React.ReactElement {
   return (
     <div className="p-4 overflow-auto h-full">
@@ -162,26 +154,26 @@ const InfoView = React.memo(function InfoView({
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
           Location
         </h3>
-        {symlinkPath ? (
+        {location.symlinkPath ? (
           <div className="space-y-2">
             <div>
               <div className="text-xs text-muted-foreground mb-1">
                 Source Files
               </div>
               <code className="text-xs bg-muted px-2 py-1 rounded break-all inline-block max-w-full">
-                {skill.path}
+                {location.sourcePath}
               </code>
             </div>
             <div>
               <div className="text-xs text-muted-foreground mb-1">Symlink</div>
               <code className="text-xs bg-muted px-2 py-1 rounded break-all inline-block max-w-full">
-                {symlinkPath}
+                {location.symlinkPath}
               </code>
             </div>
           </div>
         ) : (
-          <code className="text-xs bg-muted px-2 py-1 rounded break-all">
-            {skill.path}
+          <code className="text-xs bg-muted px-2 py-1 rounded break-all inline-block max-w-full">
+            {location.sourcePath}
           </code>
         )}
       </div>

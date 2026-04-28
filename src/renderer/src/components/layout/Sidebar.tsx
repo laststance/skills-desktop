@@ -12,7 +12,7 @@ import { ScrollArea } from '../ui/scroll-area'
 import { Separator } from '../ui/separator'
 
 /**
- * Left sidebar component (240px width)
+ * Left sidebar component (272px / w-68)
  * Contains app header, source card, and agents list
  */
 export const Sidebar = React.memo(function Sidebar(): React.ReactElement {

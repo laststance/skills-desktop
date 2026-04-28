@@ -48,12 +48,23 @@ export const BookmarkItem = React.memo(function BookmarkItem({
     dispatch(setSelectedBookmarkForDetail(bookmark))
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleClick()
+    }
+  }
+
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`View details for ${bookmark.name}`}
       className={cn(
-        'flex w-full items-center justify-between min-h-11 py-1.5 px-2 rounded-md transition-colors group cursor-pointer hover:bg-accent/50',
+        'flex w-full items-center justify-between min-h-11 py-1.5 px-2 rounded-md transition-colors group cursor-pointer hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       )}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
     >
       <Tooltip>
         <TooltipTrigger asChild>
