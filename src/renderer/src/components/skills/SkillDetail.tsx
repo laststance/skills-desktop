@@ -23,6 +23,7 @@ export const SkillDetail = React.memo(function SkillDetail({
 }: SkillDetailProps): React.ReactElement {
   const [activeTab, setActiveTab] = useState<TabType>('code')
   const { items: agents } = useAppSelector((state) => state.agents)
+  const selectedAgentId = useAppSelector((state) => state.ui.selectedAgentId)
 
   // Filter symlinks to only show detected agents (exists: true)
   const detectedAgentIds = new Set(
@@ -31,6 +32,18 @@ export const SkillDetail = React.memo(function SkillDetail({
   const filteredSymlinks = skill.symlinks.filter((s) =>
     detectedAgentIds.has(s.agentId),
   )
+
+  // When a specific agent is selected and that agent's link points to a
+  // different path than the skill's actual location, show both Source and
+  // Symlink so the user isn't confused by seeing ~/.agents/skills while
+  // looking at e.g. OpenClaw.
+  const selectedSymlink = selectedAgentId
+    ? skill.symlinks.find((s) => s.agentId === selectedAgentId)
+    : undefined
+  const symlinkPath =
+    selectedSymlink && selectedSymlink.linkPath !== skill.path
+      ? selectedSymlink.linkPath
+      : undefined
 
   const validCount = filteredSymlinks.filter((s) => s.status === 'valid').length
   const brokenCount = filteredSymlinks.filter(
@@ -92,6 +105,7 @@ export const SkillDetail = React.memo(function SkillDetail({
             filteredSymlinks={filteredSymlinks}
             validCount={validCount}
             brokenCount={brokenCount}
+            symlinkPath={symlinkPath}
           />
         </Activity>
       </div>
@@ -104,6 +118,7 @@ interface InfoViewProps {
   filteredSymlinks: SymlinkInfo[]
   validCount: number
   brokenCount: number
+  symlinkPath?: string
 }
 
 const InfoView = React.memo(function InfoView({
@@ -111,6 +126,7 @@ const InfoView = React.memo(function InfoView({
   filteredSymlinks,
   validCount,
   brokenCount,
+  symlinkPath,
 }: InfoViewProps): React.ReactElement {
   return (
     <div className="p-4 overflow-auto h-full">
@@ -146,9 +162,28 @@ const InfoView = React.memo(function InfoView({
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
           Location
         </h3>
-        <code className="text-xs bg-muted px-2 py-1 rounded break-all">
-          {skill.path}
-        </code>
+        {symlinkPath ? (
+          <div className="space-y-2">
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">
+                Source Files
+              </div>
+              <code className="text-xs bg-muted px-2 py-1 rounded break-all inline-block max-w-full">
+                {skill.path}
+              </code>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Symlink</div>
+              <code className="text-xs bg-muted px-2 py-1 rounded break-all inline-block max-w-full">
+                {symlinkPath}
+              </code>
+            </div>
+          </div>
+        ) : (
+          <code className="text-xs bg-muted px-2 py-1 rounded break-all">
+            {skill.path}
+          </code>
+        )}
       </div>
     </div>
   )
