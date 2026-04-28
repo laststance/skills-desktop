@@ -93,7 +93,7 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
             <Button
               variant="ghost"
               size="sm"
-              className="min-h-[44px] px-2 text-xs font-medium gap-1"
+              className="min-h-11 px-2 text-xs font-medium gap-1"
               onClick={(e) => {
                 e.stopPropagation()
                 handleSync()

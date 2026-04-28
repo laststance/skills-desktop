@@ -21,7 +21,7 @@ export const Sidebar = React.memo(function Sidebar(): React.ReactElement {
   return (
     <aside
       aria-label="Agent sidebar"
-      className="w-60 shrink-0 border-r border-border bg-card flex flex-col"
+      className="w-68 shrink-0 border-r border-border bg-card flex flex-col"
     >
       <SidebarHeader />
       <Separator />
