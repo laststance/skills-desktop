@@ -106,12 +106,16 @@ function buildState(overrides: {
 }
 
 /**
- * @param isLocal - false = symlinked (default), true = local folder
+ * @param isLocal - false = symlinked source skill (default), true = agent-local-only
+ *   folder. `isLocal=true` implies the skill exists only under `~/.<agent>/skills/`,
+ *   never inside SOURCE_DIR, so `isSource` is forced to `false`.
  */
 const makeSkill = (name: string, agentId: AgentId, isLocal = false): Skill => ({
   name,
   description: `${name} skill`,
-  path: `/home/user/.agents/skills/${name}`,
+  path: isLocal
+    ? `/home/user/.${agentId}/skills/${name}`
+    : `/home/user/.agents/skills/${name}`,
   symlinkCount: isLocal ? 0 : 1,
   symlinks: [
     {
@@ -125,16 +129,31 @@ const makeSkill = (name: string, agentId: AgentId, isLocal = false): Skill => ({
       isLocal,
     },
   ],
+  isSource: !isLocal,
 })
 
 describe('selectFilteredSkills', () => {
-  it('returns all skills when no filters active', () => {
+  it('returns all source-dir skills when no agent is selected (SourceCard view)', () => {
     const skills = [
       makeSkill('task', 'claude-code'),
       makeSkill('browse', 'cursor'),
     ]
     const state = buildState({ skills })
     expect(selectFilteredSkills(state as never)).toHaveLength(2)
+  })
+
+  it('hides agent-local-only skills from the SourceCard view (no agent selected)', () => {
+    // Regression: clicking the SourceCard ("~/.agents/skills") used to leak
+    // every claude-/cursor-local skill into the list because the selector
+    // skipped filtering when selectedAgentId was null. Source-only filter
+    // keeps the SourceCard view consistent with its label.
+    const skills = [
+      makeSkill('task', 'claude-code'), // source skill
+      makeSkill('local-only', 'claude-code', true), // agent-local
+    ]
+    const state = buildState({ skills })
+    const result = selectFilteredSkills(state as never)
+    expect(result.map((s) => s.name)).toEqual(['task'])
   })
 
   it('filters by search query (name match)', () => {
@@ -207,6 +226,7 @@ describe('selectFilteredSkills', () => {
           isLocal: false,
         },
       ],
+      isSource: true,
     }
     const state = buildState({ skills: [skill], selectedAgentId: 'cursor' })
     expect(selectFilteredSkills(state as never)).toHaveLength(0)
@@ -285,14 +305,17 @@ describe('selectFilteredSkills', () => {
     expect(result).toHaveLength(0)
   })
 
-  it('skillTypeFilter is ignored in global view (no agent selected)', () => {
+  it('skillTypeFilter is ignored in SourceCard view (no agent selected)', () => {
+    // SourceCard view applies its own source-only filter, so skillTypeFilter
+    // is moot here. `local-task` is hidden because it lives outside SOURCE_DIR,
+    // not because of the symlinked/local filter.
     const skills = [
       makeSkill('task', 'claude-code'),
       makeSkill('local-task', 'cursor', true),
     ]
     const state = buildState({ skills, skillTypeFilter: 'symlinked' })
     const result = selectFilteredSkills(state as never)
-    expect(result.map((s) => s.name)).toEqual(['local-task', 'task'])
+    expect(result.map((s) => s.name)).toEqual(['task'])
   })
 
   it('is memoized (returns same reference for same inputs)', () => {

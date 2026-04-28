@@ -61,6 +61,7 @@ const sampleSkill: Skill = {
       isLocal: false,
     },
   ],
+  isSource: true,
 }
 
 const secondSkill: Skill = {

@@ -33,7 +33,11 @@ export const selectFilteredSkills = createSelector(
   (skills, searchQuery, selectedAgentId, sortOrder, skillTypeFilter) => {
     let result = skills
 
-    // Filter by selected agent (and optionally by skill type)
+    // Filter by selected agent (and optionally by skill type), or — when no
+    // agent is selected — narrow to SOURCE_DIR skills so the SourceCard view
+    // matches its `~/.agents/skills/` label instead of leaking agent-local
+    // folders (e.g. `~/.claude/skills/<name>` that has no symlink under
+    // `~/.agents/skills/`). See `selectSourceSkills` test in selectors.test.ts.
     if (selectedAgentId) {
       const checkType = skillTypeFilter !== 'all'
       const wantLocal = skillTypeFilter === 'local'
@@ -45,6 +49,8 @@ export const selectFilteredSkills = createSelector(
             (!checkType || s.isLocal === wantLocal),
         ),
       )
+    } else {
+      result = result.filter((skill) => skill.isSource)
     }
 
     // Filter by search query (name only)
