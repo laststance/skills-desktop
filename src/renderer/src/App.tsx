@@ -7,6 +7,7 @@ import { MainContent } from './components/layout/MainContent'
 import { Sidebar } from './components/layout/Sidebar'
 import { TooltipProvider } from './components/ui/tooltip'
 import { UpdateToast } from './components/UpdateToast'
+import { useReleaseNotesToast } from './hooks/useReleaseNotesToast'
 import { useUpdateNotification } from './hooks/useUpdateNotification'
 import { useAppSelector } from './redux/hooks'
 
@@ -69,6 +70,10 @@ const toasterStyle = {
 const App = React.memo(function App(): React.ReactElement {
   // Subscribe to auto-update IPC events
   useUpdateNotification()
+
+  // After auto-update + restart, fire a one-shot "What's new" toast on the
+  // first launch of the new version with a link to the GitHub release notes.
+  useReleaseNotesToast()
 
   // Drive sonner's theme prop from the persisted redux mode so toasts honor
   // the user's light/dark choice. Pre-fix this was hardcoded `theme="dark"`.
