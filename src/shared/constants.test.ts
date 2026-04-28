@@ -18,15 +18,24 @@ describe('AGENT_DEFINITIONS', () => {
     expect(new Set(cliIds).size).toBe(cliIds.length)
   })
 
-  it('windsurf uses .codeium/windsurf dir (matches skills CLI globalSkillsDir)', () => {
+  it('windsurf uses .codeium/windsurf installDir (matches skills CLI globalSkillsDir)', () => {
     const windsurf = AGENT_DEFINITIONS.find((a) => a.id === 'windsurf')
     expect(windsurf).toBeDefined()
-    expect(windsurf!.dir).toBe('.codeium/windsurf')
+    expect(windsurf!.installDir).toBe('.codeium/windsurf')
   })
 
-  it('all dirs start with a dot', () => {
+  it('all installDirs start with a dot', () => {
     for (const agent of AGENT_DEFINITIONS) {
-      expect(agent.dir.startsWith('.')).toBe(true)
+      expect(agent.installDir.startsWith('.')).toBe(true)
+    }
+  })
+
+  it('all scanDirs start with a dot', () => {
+    // scanDir is required on every entry (no optional fallback). New
+    // agents added via /cli-upgrade must declare scanDir explicitly,
+    // which forces consideration of universal-source aliasing.
+    for (const agent of AGENT_DEFINITIONS) {
+      expect(agent.scanDir.startsWith('.')).toBe(true)
     }
   })
 
@@ -39,13 +48,26 @@ describe('AGENT_DEFINITIONS', () => {
     const deepAgents = AGENT_DEFINITIONS.find((a) => a.id === 'deepagents')
     const replit = AGENT_DEFINITIONS.find((a) => a.id === 'replit')
 
-    expect(cline?.dir).toBe('.agents')
-    expect(warp?.dir).toBe('.agents')
-    expect(amp?.dir).toBe('.config/agents')
-    expect(kimiCli?.dir).toBe('.config/agents')
-    expect(opencode?.dir).toBe('.config/opencode')
-    expect(deepAgents?.dir).toBe('.deepagents/agent')
-    expect(replit?.dir).toBe('.config/agents')
+    expect(cline?.installDir).toBe('.agents')
+    expect(warp?.installDir).toBe('.agents')
+    expect(amp?.installDir).toBe('.config/agents')
+    expect(kimiCli?.installDir).toBe('.config/agents')
+    expect(opencode?.installDir).toBe('.config/opencode')
+    expect(deepAgents?.installDir).toBe('.deepagents/agent')
+    expect(replit?.installDir).toBe('.config/agents')
+  })
+
+  // Regression guard for the v0.13.0 cascade. Cline and Warp's installDir
+  // points at the universal source; without a divergent scanDir, the
+  // scanner would surface every source skill as their "local skills".
+  it('Cline and Warp diverge scanDir from installDir to avoid aliasing the universal source', () => {
+    const cline = AGENT_DEFINITIONS.find((a) => a.id === 'cline')
+    const warp = AGENT_DEFINITIONS.find((a) => a.id === 'warp')
+
+    expect(cline?.installDir).toBe('.agents')
+    expect(cline?.scanDir).toBe('.cline')
+    expect(warp?.installDir).toBe('.agents')
+    expect(warp?.scanDir).toBe('.warp')
   })
 })
 

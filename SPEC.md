@@ -703,7 +703,25 @@ Internal IDs map to CLI identifiers via `AGENT_DEFINITIONS`:
 
 ```typescript
 // src/shared/constants.ts
-{ id: 'claude-code', cliId: 'claude-code', name: 'Claude Code', dir: '.claude' }
+// Common case (most agents): installDir === scanDir
+{
+  id: 'claude-code',
+  cliId: 'claude-code',
+  name: 'Claude Code',
+  installDir: '.claude',
+  scanDir: '.claude',
+}
+
+// Divergence case (Cline/Warp): CLI installs into the universal source,
+// but the app scans the agent's own home dir to avoid surfacing every
+// source skill as that agent's "local skill" (v0.13.0 regression guard).
+{
+  id: 'cline',
+  cliId: 'cline',
+  name: 'Cline',
+  installDir: '.agents',
+  scanDir: '.cline',
+}
 ```
 
 ## File References

@@ -80,6 +80,13 @@ describe('skills:removeAllFromAgent handler', () => {
   // v0.13.0 regression lock: clicking "remove all from Cline" used to pass
   // SOURCE_DIR (=~/.agents/skills) through unchecked, cascading into every
   // universal agent. The guard must reject this before any trashItem call.
+  //
+  // Two layers can refuse: `validatePath` (since the homeDir fix, SOURCE_DIR
+  // is no longer any agent's base path → caught here as path-traversal) or
+  // `isSharedAgentPath` (the original shared-folder guard, still relevant
+  // for paths like `~/.config/agents/skills` that DO match an agent base).
+  // Either rejection satisfies the contract — what matters is `success:
+  // false` and trashItem never firing.
   it('rejects SOURCE_DIR — the v0.13.0 regression path', async () => {
     const sourceDir = join(tempHome, '.agents', 'skills')
     await mkdir(sourceDir, { recursive: true })
@@ -91,13 +98,15 @@ describe('skills:removeAllFromAgent handler', () => {
     const result = await handler({}, { agentId: 'cline', agentPath: sourceDir })
 
     expect(result.success).toBe(false)
-    expect(result.error).toMatch(/shared skills folder/)
+    expect(result.error).toMatch(/shared skills folder|path traversal/i)
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
   it('rejects a trailing-slash bypass of SOURCE_DIR', async () => {
     // A raw string `~/.agents/skills/` would miss SHARED_AGENT_PATHS.has()
-    // without the resolve() normalization in isSharedAgentPath.
+    // without the resolve() normalization in isSharedAgentPath. Post-fix
+    // it's normally caught one layer earlier by validatePath, but the
+    // outcome is the same: rejected, no trashItem.
     const sourceDir = join(tempHome, '.agents', 'skills')
     await mkdir(sourceDir, { recursive: true })
 
@@ -111,7 +120,7 @@ describe('skills:removeAllFromAgent handler', () => {
     )
 
     expect(result.success).toBe(false)
-    expect(result.error).toMatch(/shared skills folder/)
+    expect(result.error).toMatch(/shared skills folder|path traversal/i)
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 

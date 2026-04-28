@@ -9,13 +9,18 @@ import { checkSymlinkStatus } from './symlinkChecker'
 /**
  * Scan all supported agents and check their existence.
  *
- * Every agent row is returned — including ones whose Skills CLI `dir`
- * currently resolves to the Universal source (e.g. Cline, Warp, Amp).
- * The mental model: each agent has its own dedicated skills directory
- * AND additionally reads from the open-standard `~/.agents/skills/`
- * path. The two are independent reads, not an alias — so hiding the
- * row would remove a legitimate affordance (direct file copies into a
- * specific agent's dir, which Cursor's chat autocomplete requires).
+ * Each agent's scan path comes from `AGENTS.path` (built from
+ * `AGENT_DEFINITIONS[].scanDir`). For most agents `scanDir === installDir`.
+ * For Cline and Warp, whose CLI install path is the universal
+ * `~/.agents/skills`, `scanDir` overrides to `~/.cline/skills` /
+ * `~/.warp/skills` — otherwise the scanner would surface every source
+ * skill as a "valid local skill" of those agents (v0.13.0 regression).
+ *
+ * Mental model: each agent has its own dedicated skills directory AND
+ * additionally reads from the open-standard `~/.agents/skills/` path. The
+ * two are independent reads, not an alias — so hiding rows whose own dir
+ * doesn't exist would remove a legitimate affordance (direct file copies
+ * into a specific agent's dir, e.g. Cursor's chat autocomplete).
  *
  * Data-loss prevention for the v0.13.0 regression is handled one layer
  * down: the IPC handler for SKILLS_REMOVE_ALL_FROM_AGENT rejects any

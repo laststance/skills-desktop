@@ -10,29 +10,36 @@ import { AGENT_DEFINITIONS } from '../shared/constants'
 export const SOURCE_DIR = join(homedir(), '.agents', 'skills')
 
 /**
- * Supported AI agents with their full skills directory paths
+ * Supported AI agents with their full skills directory paths.
+ *
+ * Built from `scanDir` (always required on AGENT_DEFINITIONS). For most
+ * agents `scanDir === installDir`. For Cline and Warp, whose CLI install
+ * path is the universal `~/.agents/skills`, `scanDir` overrides to
+ * `~/.cline/skills` / `~/.warp/skills` so the scanner reads the agent's
+ * own home dir — never the universal source.
  */
 export const AGENTS = AGENT_DEFINITIONS.map((agent) => ({
   id: agent.id,
   name: agent.name,
-  path: join(homedir(), agent.dir, 'skills'),
+  path: join(homedir(), agent.scanDir, 'skills'),
 }))
 
 /**
  * Paths where a "delete everything under this agent" op would destroy data
  * that belongs to more than just that agent — either the Universal source
- * itself, or a directory that the Skills CLI points multiple agent rows at
- * (e.g. `~/.agents/skills`, `~/.config/agents/skills`).
+ * itself, or a directory that multiple agent rows point at on disk
+ * (e.g. `~/.config/agents/skills`, shared by amp/kimi-cli/replit).
  *
- * Mental model: each agent has its OWN dedicated skills dir AND additionally
- * reads from the open-standard `~/.agents/skills/` path. The two are
- * independent reads, not an alias. But when an agent's currently-configured
- * `dir` happens to equal one of those shared on-disk locations, a naive
- * `fs.rm(agentPath)` would wipe the shared directory along with it — which
- * is exactly the v0.13.0 regression.
+ * Mental model: each agent has its OWN dedicated skills dir (`AGENTS.path`,
+ * derived from `scanDir`) AND additionally reads from the universal source
+ * `~/.agents/skills/`. The two are independent reads, not an alias.
+ * The set guards against `fs.rm(agentPath)` wiping a directory shared with
+ * another agent — the v0.13.0 regression scenario.
  *
- * Computed once from AGENTS + SOURCE_DIR so adding another universal-style
- * agent in the future (via `/cli-upgrade`) auto-populates this set without
+ * SOURCE_DIR is always seeded so it's protected even when no agent path
+ * collides with it (post-fix Cline/Warp scan their own home dirs, leaving
+ * SOURCE_DIR unaliased among AGENTS). Computed once so adding another
+ * universal-style agent via `/cli-upgrade` auto-populates this set without
  * touching every caller. Consumed by the IPC destructive-op handler as a
  * last-line guard; the sidebar does NOT filter on this set — visibility of
  * every agent is load-bearing for Cursor-style direct-file workflows.

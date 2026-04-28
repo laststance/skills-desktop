@@ -41,15 +41,21 @@ function buildSkillCountText(linked: number, local: number): string | null {
 
 /**
  * Get the tilde-notation display path for an agent's skills folder.
+ *
+ * Reads `scanDir` directly — the same field `src/main/constants.ts`
+ * uses to build `AGENTS.path`. Cline and Warp diverge from `installDir`
+ * here so the tooltip matches what the scanner actually reads (their
+ * own home dirs, not the universal source).
  * @param agentId - Agent ID to look up
  * @returns "~/.claude/skills/" style path, or undefined if not found
  * @example
  * getAgentTooltipPath('claude-code') // => "~/.claude/skills/"
- * getAgentTooltipPath('cursor')      // => "~/.cursor/skills/"
+ * getAgentTooltipPath('cline')       // => "~/.cline/skills/"
  */
 function getAgentTooltipPath(agentId: AgentId): string | undefined {
   const def = AGENT_DEFINITIONS.find((d) => d.id === agentId)
-  return def ? `~/${def.dir}/skills/` : undefined
+  if (!def) return undefined
+  return `~/${def.scanDir}/skills/`
 }
 
 /**
