@@ -343,6 +343,25 @@ export const GSTACK_BADGE_AGENT_IDS = [
 export const GSTACK_REPOSITORY_URL = 'https://github.com/garrytan/gstack'
 
 /**
+ * Canonical GitHub repository URL for Skills Desktop itself.
+ * Used by the sidebar version link and the post-update "What's new" toast
+ * to deep-link into the matching `/releases/tag/v<version>` page.
+ */
+export const SKILLS_DESKTOP_REPOSITORY_URL =
+  'https://github.com/laststance/skills-desktop'
+
+/**
+ * localStorage key tracking the last app version the user was shown release
+ * notes for. Read on mount; if it differs from the running version (and was
+ * non-null), the post-update toast fires once and the key is updated.
+ *
+ * Why a string here rather than a Redux slice: this is a one-shot UI cue,
+ * not a piece of app state — no other component reads or mutates it.
+ */
+export const RELEASE_NOTES_LAST_SEEN_VERSION_KEY =
+  'skills-desktop:last-seen-version'
+
+/**
  * Agent IDs that use ~/.agents/skills/ directly (no symlinks needed).
  * Derived from skills CLI: agents where skillsDir === '.agents/skills'
  * and showInUniversalList !== false.
