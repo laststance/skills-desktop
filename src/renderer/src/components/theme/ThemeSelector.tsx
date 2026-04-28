@@ -158,7 +158,7 @@ export const ThemeSelector = React.memo(function ThemeSelector(): ReactElement {
                 key={name}
                 type="button"
                 onClick={() => handleSelectPreset(name)}
-                className="min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="min-h-11 min-w-11 flex items-center justify-center"
                 title={config.label}
                 aria-label={`Select ${config.label} theme`}
                 aria-pressed={isSelected}
