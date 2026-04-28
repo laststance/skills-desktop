@@ -26,32 +26,39 @@ import { getReleaseNotesUrl } from '../utils/getReleaseNotesUrl'
 export function useReleaseNotesToast(): void {
   useEffect(() => {
     const currentVersion = __APP_VERSION__
-    const lastSeenVersion = window.localStorage.getItem(
-      RELEASE_NOTES_LAST_SEEN_VERSION_KEY,
-    )
 
-    // Persist the running version unconditionally at the end so future
-    // launches are silent. We compute whether to toast first, then write.
-    const shouldShowToast =
-      lastSeenVersion !== null && lastSeenVersion !== currentVersion
+    // localStorage can throw in restricted-storage environments (quota
+    // exhausted, sandbox lockdown, future Electron security tightening).
+    // A failing release-notes cue must never block app startup, so swallow
+    // the error and skip the toast — the cue is best-effort.
+    try {
+      const lastSeenVersion = window.localStorage.getItem(
+        RELEASE_NOTES_LAST_SEEN_VERSION_KEY,
+      )
 
-    if (shouldShowToast) {
-      const releaseNotesUrl = getReleaseNotesUrl(currentVersion)
-      toast(`Updated to v${currentVersion}`, {
-        description: 'See what changed in this release.',
-        duration: 8000,
-        action: {
-          label: 'View',
-          onClick: () => {
-            window.open(releaseNotesUrl, '_blank', 'noopener,noreferrer')
+      const shouldShowToast =
+        lastSeenVersion !== null && lastSeenVersion !== currentVersion
+
+      if (shouldShowToast) {
+        const releaseNotesUrl = getReleaseNotesUrl(currentVersion)
+        toast(`Updated to v${currentVersion}`, {
+          description: 'See what changed in this release.',
+          duration: 8000,
+          action: {
+            label: 'View',
+            onClick: () => {
+              window.open(releaseNotesUrl, '_blank', 'noopener,noreferrer')
+            },
           },
-        },
-      })
-    }
+        })
+      }
 
-    window.localStorage.setItem(
-      RELEASE_NOTES_LAST_SEEN_VERSION_KEY,
-      currentVersion,
-    )
+      window.localStorage.setItem(
+        RELEASE_NOTES_LAST_SEEN_VERSION_KEY,
+        currentVersion,
+      )
+    } catch {
+      // ignored — keep startup resilient
+    }
   }, [])
 }

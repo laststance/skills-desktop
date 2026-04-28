@@ -9,8 +9,8 @@ describe('getReleaseNotesUrl', () => {
     )
   })
 
-  it('does not double up the v-prefix when the input already lacks one', () => {
-    expect(getReleaseNotesUrl('1.0.0')).toBe(
+  it('strips a leading v from the input so the tag never gets a doubled prefix', () => {
+    expect(getReleaseNotesUrl('v1.0.0')).toBe(
       'https://github.com/laststance/skills-desktop/releases/tag/v1.0.0',
     )
   })
