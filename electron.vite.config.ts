@@ -17,6 +17,9 @@ export default defineConfig({
     },
   },
   preload: {
+    define: {
+      __E2E_BUILD__: JSON.stringify(process.env.E2E_BUILD === '1'),
+    },
     build: {
       rollupOptions: {
         input: {
@@ -34,6 +37,7 @@ export default defineConfig({
     root: resolve(__dirname, 'src/renderer'),
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
+      __E2E_BUILD__: JSON.stringify(process.env.E2E_BUILD === '1'),
     },
     build: {
       rollupOptions: {

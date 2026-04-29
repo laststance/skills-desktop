@@ -23,6 +23,7 @@ import type {
 } from '../shared/types'
 
 import { createIpcListener } from './ipcListener'
+import { recordedIpcEvents } from './ipcRecorder'
 import { typedInvoke } from './typedInvoke'
 
 // Expose protected methods to renderer process
@@ -115,3 +116,17 @@ contextBridge.exposeInMainWorld('electron', {
       typedInvoke('sync:execute', options),
   },
 })
+
+// E2E only: expose IPC event recorder for assertions like
+// "DELETE_PROGRESS fired exactly 12 times for the bulk-delete batch".
+// Tree-shaken from production builds.
+if (__E2E_BUILD__) {
+  contextBridge.exposeInMainWorld('__ipcEvents__', {
+    list: () => recordedIpcEvents.slice(),
+    clear: () => {
+      recordedIpcEvents.length = 0
+    },
+    count: (channel: string) =>
+      recordedIpcEvents.filter((event) => event.channel === channel).length,
+  })
+}

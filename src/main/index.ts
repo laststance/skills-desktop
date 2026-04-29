@@ -210,8 +210,10 @@ app.whenReady().then(() => {
   createMenu()
   createWindow()
 
-  // Initialize auto updater in production
-  if (app.isPackaged) {
+  // Initialize auto updater in production.
+  // E2E_DISABLE_UPDATE=1 lets Playwright tests run against a packaged-shaped
+  // build without the updater hitting the network or showing toasts.
+  if (app.isPackaged && process.env['E2E_DISABLE_UPDATE'] !== '1') {
     initAutoUpdater()
   }
 

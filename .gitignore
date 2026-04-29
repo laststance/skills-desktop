@@ -57,3 +57,9 @@ qa-reports/
 # Vitest browser mode artifacts
 .vitest-attachments/
 **/__screenshots__/
+
+# Playwright E2E
+e2e/.snapshot/
+e2e/test-results/
+e2e/playwright-report/
+playwright/.cache/
