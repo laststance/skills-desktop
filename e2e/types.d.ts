@@ -51,6 +51,20 @@ declare global {
           copied: number
           failures: Array<{ agentId: string; error: string }>
         }>
+        deleteSkill: (options: { skillName: string }) => Promise<{
+          success: boolean
+          symlinksRemoved: number
+          cascadeAgents: string[]
+          error?: string
+        }>
+        restoreDeletedSkill: (options: { tombstoneId: string }) => Promise<
+          | {
+              outcome: 'restored'
+              symlinksRestored: number
+              symlinksSkipped: number
+            }
+          | { outcome: 'error'; error: { message: string; code?: string } }
+        >
       }
     }
   }
