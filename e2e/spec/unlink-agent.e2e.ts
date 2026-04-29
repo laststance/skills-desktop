@@ -566,10 +566,14 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
 
   await waitForInitialScan(appWindow)
 
-  // Capture all new trash entries early so the C2 cleanup runs even if any
-  // assertion below throws. The try/finally is the load-bearing safety net:
-  // a failing assertion mid-run that left an entry in the developer's
-  // ~/.Trash would be an unkind side effect of test failure.
+  // Capture only OUR specific trashed dir early so the C2 cleanup runs
+  // even if any assertion below throws. The try/finally is the load-
+  // bearing safety net: a failing assertion mid-run that left our entry
+  // in the developer's ~/.Trash would be an unkind side effect of test
+  // failure. The narrowing-to-one-entry happens inside the try block
+  // (after diffUserTrash + content-hash match) so that concurrent
+  // unrelated writes to ~/.Trash from the dev's machine never get
+  // touched by cleanup.
   let createdTrashEntryPaths: string[] = []
   try {
     const result = await appWindow.evaluate(
@@ -578,12 +582,27 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
       { agentId: 'cline', agentPath: clineAgentPath },
     )
 
-    // Diff ~/.Trash IMMEDIATELY after the IPC call returns, before any
-    // assertion can throw. shell.trashItem may have already moved the agent
-    // dir into the developer's ~/.Trash; if any expect() below fails, the
-    // finally block must still see those entries to clean them up.
+    // Diff ~/.Trash IMMEDIATELY after the IPC call returns, then narrow
+    // the cleanup target to OUR specific trashed dir — never the full
+    // newPaths set. A developer / Finder / Time Machine moving something
+    // unrelated to ~/.Trash between trashEntriesBefore and now would
+    // otherwise have their entry rm -rf'd by the finally block below.
+    // Match by exact-set of skill basenames (timestamped + unique per
+    // test via preStageLinkedSkills), which is decisive even after macOS
+    // auto-renames on collision (skills → "skills 2").
     const { newPaths } = diffUserTrash(trashEntriesBefore)
-    createdTrashEntryPaths = newPaths
+    const expectedSkillNames = [...skillNames].sort()
+    const matchingTrashedAgentDir = newPaths.find((entryPath) => {
+      if (!lstatSync(entryPath).isDirectory()) return false
+      const entryContents = readdirSync(entryPath).sort()
+      return (
+        entryContents.length === expectedSkillNames.length &&
+        entryContents.every((name, idx) => name === expectedSkillNames[idx])
+      )
+    })
+    createdTrashEntryPaths = matchingTrashedAgentDir
+      ? [matchingTrashedAgentDir]
+      : []
 
     expect(result.success).toBe(true)
     expect(result.removedCount).toBe(skillNames.length)
@@ -599,20 +618,6 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
       expect(existsSync(join(sourcePath, 'SKILL.md'))).toBe(true)
     }
 
-    // Find by content rather than basename — macOS auto-renames on collision
-    // (skills → "skills 2"). Names are unique per test (timestamped prefix in
-    // preStageLinkedSkills), so an exact-set match is decisive. Robust to a
-    // concurrent dev-side trash action: a stray non-dotfile new entry won't
-    // flake the run as long as our entry is among newPaths.
-    const expectedSkillNames = [...skillNames].sort()
-    const matchingTrashedAgentDir = newPaths.find((entryPath) => {
-      if (!lstatSync(entryPath).isDirectory()) return false
-      const entryContents = readdirSync(entryPath).sort()
-      return (
-        entryContents.length === expectedSkillNames.length &&
-        entryContents.every((name, idx) => name === expectedSkillNames[idx])
-      )
-    })
     expect(
       matchingTrashedAgentDir,
       `expected a ~/.Trash entry whose contents equal [${expectedSkillNames.join(', ')}] — got newPaths=${
