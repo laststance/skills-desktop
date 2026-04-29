@@ -23,6 +23,7 @@ import type {
 } from '../shared/types'
 
 import { createIpcListener } from './ipcListener'
+import { recordedIpcEvents } from './ipcRecorder'
 import { typedInvoke } from './typedInvoke'
 
 // Expose protected methods to renderer process
@@ -115,3 +116,35 @@ contextBridge.exposeInMainWorld('electron', {
       typedInvoke('sync:execute', options),
   },
 })
+
+// E2E-only escape hatch from the typed `electron.*` IPC contract above.
+//
+// Why this lives outside the contract: Phase-2 specs need to assert on raw
+// IPC traffic (e.g. "SKILLS_DELETE_PROGRESS fired exactly 10 times for the
+// bulk-delete batch at the threshold"). Routing those assertions through the
+// typed surface would force every channel to ship an `events()` accessor in
+// production code purely to support tests — leaking test concerns into the
+// production preload API.
+//
+// Why this is safe:
+//   1. `__E2E_BUILD__` is a Vite `define` build-time constant. In production
+//      builds the constant resolves to `false`, so this `if` block becomes
+//      `if (false) { ... }` and the `contextBridge.exposeInMainWorld` call —
+//      including the entire `recordedIpcEvents` import chain — is removed by
+//      tree-shaking. Verify with `pnpm build && grep -r __ipcEvents__ out/`
+//      (expected: zero matches).
+//   2. The recorder only mirrors channels we already invoke from the renderer;
+//      it cannot be used to invoke new channels or escalate privilege.
+//
+// If you find yourself reaching for this bridge from production code paths,
+// stop and add the channel to the typed `electron.*` surface instead.
+if (__E2E_BUILD__) {
+  contextBridge.exposeInMainWorld('__ipcEvents__', {
+    list: () => recordedIpcEvents.slice(),
+    clear: () => {
+      recordedIpcEvents.length = 0
+    },
+    count: (channel: string) =>
+      recordedIpcEvents.filter((event) => event.channel === channel).length,
+  })
+}

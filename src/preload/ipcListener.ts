@@ -2,6 +2,8 @@ import { ipcRenderer } from 'electron'
 
 import type { IpcChannel } from '../shared/ipc-channels'
 
+import { recordIpcEvent } from './ipcRecorder'
+
 /**
  * Create a type-safe IPC event listener factory.
  * Returns a function that subscribes to the channel, wraps the callback
@@ -20,7 +22,10 @@ export function createIpcListener<T = void>(
   channel: IpcChannel,
 ): (callback: (data: T) => void) => () => void {
   return (callback: (data: T) => void) => {
-    const handler = (_: Electron.IpcRendererEvent, data: T) => callback(data)
+    const handler = (_: Electron.IpcRendererEvent, data: T) => {
+      recordIpcEvent(channel, data)
+      callback(data)
+    }
     ipcRenderer.on(channel, handler)
     return () => ipcRenderer.removeListener(channel, handler)
   }
