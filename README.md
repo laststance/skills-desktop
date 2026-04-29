@@ -67,6 +67,23 @@ pnpm typecheck
 pnpm lint
 ```
 
+### Testing
+
+```bash
+# Unit + browser tests (Vitest)
+pnpm test
+
+# E2E tests (Playwright Electron, macOS only)
+pnpm test:e2e
+```
+
+| Suite | Command         | Runner                                                                     |
+| ----- | --------------- | -------------------------------------------------------------------------- |
+| Unit  | `pnpm test`     | Vitest (Node + browser mode via `*.browser.test.tsx`)                      |
+| E2E   | `pnpm test:e2e` | Playwright Electron — boots the real app per spec, isolated HOME each test |
+
+E2E specs live in `e2e/spec/*.e2e.ts`. The suite uses `cp -al` hardlink snapshots so each test starts from a fresh, populated `~/.agents/skills/` without re-running the skills CLI installer (~50 ms reset). CI runs on `macos-latest` (`.github/workflows/e2e.yml`); failures upload `playwright-report/` and `test-results/` as artifacts (traces + videos retained on failure).
+
 ### Build
 
 ```bash
