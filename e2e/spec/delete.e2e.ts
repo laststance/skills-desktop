@@ -364,16 +364,18 @@ test('deleteSkill moves a local-only skill into trash with kind="local-only" man
  *   1. The entry dir is removed from `.trash/`.
  *   2. The internal `evictTimers` map drops the id (idempotent next call).
  *
- * This test waits real time (`UNDO_WINDOW_MS + 1500ms` buffer) instead of
- * mocking timers because:
+ * This test polls the FS in real time (deadline `UNDO_WINDOW_MS + 10s`)
+ * instead of mocking timers because:
  *   - The timer lives in the main process; the renderer's clock is irrelevant.
  *   - The test helpers `__clearEvictTimersForTests` cancel timers WITHOUT
  *     firing them, so they prove the absence of leaks but NOT that the
  *     scheduled callback evicts correctly.
  *   - Real-time wait is the only way to exercise the production code path.
  *
- * Test budget: setup (~3s) + 15s wait + 2s buffer ~= 20s. Bumping the
- * per-test timeout to 45s leaves headroom for macOS CI variance.
+ * Test budget: setup (~3s) + 15s wait + up to 10s poll deadline ~= 25-28s on
+ * the slow path. Bumping the per-test timeout to 45s leaves headroom for
+ * macOS CI variance. Happy path returns as soon as `existsSync(entryDir)`
+ * flips false (typically within ~100ms of UNDO_WINDOW_MS firing).
  */
 test('source-backed delete entry is auto-evicted after UNDO_WINDOW_MS', async ({
   appWindow,
@@ -416,22 +418,22 @@ test('source-backed delete entry is auto-evicted after UNDO_WINDOW_MS', async ({
   expect(existsSync(entryDir)).toBe(true)
   expect(existsSync(expectedSourcePath)).toBe(false)
 
-  // Wait the full undo window plus a small buffer for the async fs.rm in
-  // `evict()` to complete. The 1.5s buffer matches what other Electron
-  // suites use for "post-timer fs settle" assertions.
-  await new Promise((resolveSleep) =>
-    setTimeout(resolveSleep, UNDO_WINDOW_MS_FOR_TEST + 1_500),
-  )
-
-  // KEY assertion — the entire entry is gone. A regression that:
-  //   - never schedules the timer → entry persists indefinitely (this fails)
-  //   - clears the timer without calling evict → same (this fails)
-  //   - evict throws on a partial dir → entry partially remains (this also
-  //     fails because `existsSync(entryDir)` would still be true)
-  expect(
-    existsSync(entryDir),
-    `expected ${entryDir} to be evicted after ${UNDO_WINDOW_MS_FOR_TEST}ms`,
-  ).toBe(false)
+  // KEY assertion — the entire entry is gone. A bounded poll instead of a
+  // fixed sleep: the happy path returns as soon as eviction lands (under
+  // load CI macOS runners can take an extra few hundred ms after the timer
+  // fires), and the deadline still bounds wall time at UNDO_WINDOW_MS + 10s.
+  //
+  // Regression coverage stays the same:
+  //   - never schedules the timer → entry persists, poll times out
+  //   - clears the timer without calling evict → same
+  //   - evict throws on a partial dir → entry partially remains, poll
+  //     times out because existsSync(entryDir) stays true
+  await expect
+    .poll(() => existsSync(entryDir), {
+      timeout: UNDO_WINDOW_MS_FOR_TEST + 10_000,
+      intervals: [250, 500, 1_000],
+    })
+    .toBe(false)
 
   // Source dir stays gone post-eviction — eviction is meant to delete the
   // staged copy, NOT resurrect the original. A regression that mistakenly

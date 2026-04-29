@@ -328,18 +328,59 @@ test('copyToAgents reports per-target Already exists and continues with the rest
   const sourceMarker = `# ${skillName}\n\nfresh source for partial-failure test\n`
   writeFileSync(join(sourcePath, 'SKILL.md'), sourceMarker)
 
+  await waitForInitialScan(appWindow)
+
+  // Pick two agents with distinct, non-shared scan dirs straight from the
+  // running store. Hardcoding `cursor` / `gemini-cli` would couple this test
+  // to AGENT_DEFINITIONS by name; the contract being verified is the
+  // collision *policy*, not the survival of any particular agent in the
+  // catalog. Filtering on `seenPaths` also sidesteps the IRON RULE shared
+  // scanDirs (amp / kimi-cli / replit on .config/agents/skills) — picking
+  // two agents that share a path would let the second mkdirSync see the
+  // first's collision and break the asymmetric setup.
+  const agentSelection = await getStoreState(appWindow, (state) => {
+    const root = state as {
+      agents: { items: Array<{ id: string; name: string; path: string }> }
+    }
+    const seenPaths = new Set<string>()
+    const uniques: Array<{ id: string; path: string }> = []
+    for (const agent of root.agents.items) {
+      if (seenPaths.has(agent.path)) continue
+      seenPaths.add(agent.path)
+      uniques.push({ id: agent.id, path: agent.path })
+      if (uniques.length === 2) break
+    }
+    return {
+      occupiedAgentId: uniques[0]?.id ?? null,
+      occupiedAgentPath: uniques[0]?.path ?? null,
+      freeAgentId: uniques[1]?.id ?? null,
+      freeAgentPath: uniques[1]?.path ?? null,
+    }
+  })
+
+  expect(agentSelection.occupiedAgentId).toBeTruthy()
+  expect(agentSelection.occupiedAgentPath).toBeTruthy()
+  expect(agentSelection.freeAgentId).toBeTruthy()
+  expect(agentSelection.freeAgentPath).toBeTruthy()
+  if (
+    !agentSelection.occupiedAgentId ||
+    !agentSelection.occupiedAgentPath ||
+    !agentSelection.freeAgentId ||
+    !agentSelection.freeAgentPath
+  ) {
+    return
+  }
+  const { occupiedAgentId, occupiedAgentPath, freeAgentId, freeAgentPath } =
+    agentSelection
+
   // Pre-occupy ONE target. The handler's `lstat(destPath)` will succeed and
   // push 'Already exists'. A real-but-different file in the destination is
   // the strongest signal: if the handler ever switches to overwrite, the
   // sentinel content disappears and the assertion below catches it.
-  const occupiedAgentId = 'cursor'
-  const freeAgentId = 'gemini-cli'
-  const occupiedAgentPath = join(isolatedHome, '.cursor', 'skills', skillName)
-  mkdirSync(occupiedAgentPath, { recursive: true })
+  const occupiedSkillDir = join(occupiedAgentPath, skillName)
+  mkdirSync(occupiedSkillDir, { recursive: true })
   const sentinelContent = `# pre-existing\nDO NOT OVERWRITE — collision sentinel.\n`
-  writeFileSync(join(occupiedAgentPath, 'SKILL.md'), sentinelContent)
-
-  await waitForInitialScan(appWindow)
+  writeFileSync(join(occupiedSkillDir, 'SKILL.md'), sentinelContent)
 
   const ipcResult = await appWindow.evaluate(
     async (args: {
@@ -363,7 +404,7 @@ test('copyToAgents reports per-target Already exists and continues with the rest
   // FS — sentinel survived (collision did NOT overwrite). Read the bytes
   // back so a regression that swaps `lstat` for `cp -f` shows up as a
   // content mismatch instead of a length-only check.
-  expect(readFileSync(join(occupiedAgentPath, 'SKILL.md'), 'utf-8')).toBe(
+  expect(readFileSync(join(occupiedSkillDir, 'SKILL.md'), 'utf-8')).toBe(
     sentinelContent,
   )
 
@@ -371,7 +412,7 @@ test('copyToAgents reports per-target Already exists and continues with the rest
   // the sentinel. This is the load-bearing "loop continues" assertion: a
   // regression that aborts the loop on first failure would leave the free
   // agent's path untouched.
-  const freeAgentDestPath = join(isolatedHome, '.gemini', 'skills', skillName)
+  const freeAgentDestPath = join(freeAgentPath, skillName)
   expect(existsSync(freeAgentDestPath)).toBe(true)
   expect(readFileSync(join(freeAgentDestPath, 'SKILL.md'), 'utf-8')).toBe(
     sourceMarker,
@@ -442,6 +483,14 @@ test('copyToAgents UI-driven modal copies via dispatch + checkbox click', async 
   ) {
     return
   }
+  const targetLinkPath = modalSelection.targetLinkPath
+
+  // Pre-condition the FS state. If a snapshot reset ever leaves stale bytes
+  // at this path, the post-click existence check would be a false positive
+  // — a "test passed" outcome that doesn't prove the click chain reached
+  // `fs.cp` at all. Asserting non-existence up front converts that mode
+  // into a loud failure right at the boundary.
+  expect(existsSync(targetLinkPath)).toBe(false)
 
   // Drive Redux. `selectedAgentId` is set first because the modal's
   // `targetAgents` memo depends on it; toggling order would briefly render
@@ -486,21 +535,13 @@ test('copyToAgents UI-driven modal copies via dispatch + checkbox click', async 
     .getByRole('button', { name: /^Copy to \d+ agent\(s\)$/ })
     .click()
 
-  // Wait for the thunk to settle. `copying` flips true on dispatch and back
-  // to false on fulfilled/rejected; polling the slice avoids guessing how
-  // long fs.cp takes for the azure-ai tree.
-  await appWindow.waitForFunction(
-    () => {
-      const store = window.__store__ ?? window.__store
-      const state = store?.getState() as { skills?: { copying?: boolean } }
-      return state?.skills?.copying === false
-    },
-    undefined,
-    { timeout: 10_000 },
-  )
-
-  // FS — the target's linkPath now exists. Existence is the smallest proxy
-  // that the click chain reached the IPC handler; the symlink-vs-directory
-  // contract is already covered by the local-copy variant above.
-  expect(existsSync(modalSelection.targetLinkPath)).toBe(true)
+  // Poll the FS directly. `state.skills.copying` flips false on both initial
+  // mount AND fulfillment, so a Redux poll can pass before the click chain
+  // ever reaches `fs.cp` — masking a regression where the dispatch never
+  // fires. FS existence is the smallest signal the IPC handler completed
+  // end-to-end. The symlink-vs-directory contract is already covered by the
+  // local-copy variant above, so existence is enough here.
+  await expect
+    .poll(() => existsSync(targetLinkPath), { timeout: 10_000 })
+    .toBe(true)
 })
