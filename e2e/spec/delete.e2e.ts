@@ -33,6 +33,37 @@ interface SourceBackedManifest {
 const AZURE_AI_NAME = 'azure-ai'
 
 /**
+ * Single snapshot selector for azure-ai used by every test in this file.
+ *
+ * `getStoreState` serializes this function via `Function.prototype.toString`
+ * and re-evaluates it inside the renderer (`new Function('state', ...)`),
+ * so the body must NOT close over outer-scope identifiers — `'azure-ai'`
+ * is inlined as a string literal even though `AZURE_AI_NAME` is in scope
+ * at the call site.
+ *
+ * Promoting this from three inline copies removes the easy mistake of
+ * tweaking one filter and missing the other two when the schema evolves.
+ */
+const azureSnapshotSelector = (state: unknown): AzureSnapshot => {
+  const root = state as {
+    skills: {
+      items: Array<{
+        name: string
+        path: string
+        symlinks: SymlinkSnapshot[]
+      }>
+    }
+  }
+  const azure = root.skills.items.find((skill) => skill.name === 'azure-ai')
+  return {
+    hasAzure: Boolean(azure),
+    sourcePath: azure?.path ?? null,
+    validSymlinks:
+      azure?.symlinks.filter((symlink) => symlink.status === 'valid') ?? [],
+  }
+}
+
+/**
  * Phase-2 spec covering `SKILLS_DELETE` + `SKILLS_RESTORE_DELETED` end-to-end.
  *
  * Two tests, both using the source-backed flow (azure-ai is installed by
@@ -70,27 +101,7 @@ test('deleteSkill moves source-backed skill into trash and unlinks every agent s
     AZURE_AI_NAME,
   )
 
-  // Selector source is re-evaluated in renderer context (see redux.ts:23) so
-  // closures over module-level constants are NOT preserved — `'azure-ai'`
-  // must be inlined as a literal inside the selector body.
-  const initial = await getStoreState(appWindow, (state): AzureSnapshot => {
-    const root = state as {
-      skills: {
-        items: Array<{
-          name: string
-          path: string
-          symlinks: SymlinkSnapshot[]
-        }>
-      }
-    }
-    const azure = root.skills.items.find((skill) => skill.name === 'azure-ai')
-    return {
-      hasAzure: Boolean(azure),
-      sourcePath: azure?.path ?? null,
-      validSymlinks:
-        azure?.symlinks.filter((symlink) => symlink.status === 'valid') ?? [],
-    }
-  })
+  const initial = await getStoreState(appWindow, azureSnapshotSelector)
 
   expect(initial.hasAzure, 'azure-ai should be installed by global-setup').toBe(
     true,
@@ -171,24 +182,7 @@ test('restoreDeletedSkill recovers a source-backed deletion within the undo wind
     AZURE_AI_NAME,
   )
 
-  const initial = await getStoreState(appWindow, (state): AzureSnapshot => {
-    const root = state as {
-      skills: {
-        items: Array<{
-          name: string
-          path: string
-          symlinks: SymlinkSnapshot[]
-        }>
-      }
-    }
-    const azure = root.skills.items.find((skill) => skill.name === 'azure-ai')
-    return {
-      hasAzure: Boolean(azure),
-      sourcePath: azure?.path ?? null,
-      validSymlinks:
-        azure?.symlinks.filter((symlink) => symlink.status === 'valid') ?? [],
-    }
-  })
+  const initial = await getStoreState(appWindow, azureSnapshotSelector)
 
   expect(initial.hasAzure).toBe(true)
   expect(initial.validSymlinks.length).toBeGreaterThan(0)
@@ -244,24 +238,7 @@ test('restoreDeletedSkill recovers a source-backed deletion within the undo wind
   // for the restored agents land on `valid` because the source dir exists
   // and the symlink target resolves.
   await refreshSkillsState(appWindow)
-  const restored = await getStoreState(appWindow, (state): AzureSnapshot => {
-    const root = state as {
-      skills: {
-        items: Array<{
-          name: string
-          path: string
-          symlinks: SymlinkSnapshot[]
-        }>
-      }
-    }
-    const azure = root.skills.items.find((skill) => skill.name === 'azure-ai')
-    return {
-      hasAzure: Boolean(azure),
-      sourcePath: azure?.path ?? null,
-      validSymlinks:
-        azure?.symlinks.filter((symlink) => symlink.status === 'valid') ?? [],
-    }
-  })
+  const restored = await getStoreState(appWindow, azureSnapshotSelector)
 
   expect(restored.hasAzure).toBe(true)
   expect(restored.sourcePath).toBe(expectedSourcePath)
