@@ -5,6 +5,7 @@ import { test, expect } from '../fixtures/electron-app'
 import {
   getStoreState,
   refreshSkillsState,
+  waitForInitialScan,
   waitForSelectionCount,
 } from '../helpers/redux'
 
@@ -45,19 +46,7 @@ const AZURE_AI_NAME = 'azure-ai'
 test('selection survives no further than a tab switch or agent switch (regression 2f05684)', async ({
   appWindow,
 }) => {
-  await appWindow.waitForFunction(
-    () => {
-      const store = window.__store__ ?? window.__store
-      if (!store) return false
-      const state = store.getState() as {
-        skills?: { items?: Array<{ name: string }> }
-        agents?: { items?: unknown[] }
-      }
-      return Boolean(state.skills?.items?.length && state.agents?.items?.length)
-    },
-    undefined,
-    { timeout: 10_000 },
-  )
+  await waitForInitialScan(appWindow)
 
   // Tab-switch leg — toggle one azure-* skill into the selection, flip the
   // active tab, expect listener middleware to dispatch clearSelection.
@@ -97,19 +86,7 @@ test('cline/warp do NOT report universal source skills as their own local skills
   appWindow,
   isolatedHome,
 }) => {
-  await appWindow.waitForFunction(
-    () => {
-      const store = window.__store__ ?? window.__store
-      if (!store) return false
-      const state = store.getState() as {
-        skills?: { items?: unknown[] }
-        agents?: { items?: unknown[] }
-      }
-      return Boolean(state.skills?.items?.length && state.agents?.items?.length)
-    },
-    undefined,
-    { timeout: 10_000 },
-  )
+  await waitForInitialScan(appWindow)
 
   // FS truth — universal source has azure-ai but neither cline nor warp's
   // own scanDir does. If post-fix scanner reads the right place, cline/warp
@@ -194,19 +171,7 @@ test('removeAllFromAgent refuses on a multi-agent shared scanDir (.config/agents
   const sentinelPath = join(sharedScanDir, 'iron-rule-sentinel.md')
   writeFileSync(sentinelPath, '# sentinel\n')
 
-  await appWindow.waitForFunction(
-    () => {
-      const store = window.__store__ ?? window.__store
-      if (!store) return false
-      const state = store.getState() as {
-        skills?: { items?: unknown[] }
-        agents?: { items?: unknown[] }
-      }
-      return Boolean(state.skills?.items?.length && state.agents?.items?.length)
-    },
-    undefined,
-    { timeout: 10_000 },
-  )
+  await waitForInitialScan(appWindow)
 
   const result = await appWindow.evaluate(
     async (args: { agentId: string; agentPath: string }) =>

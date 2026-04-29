@@ -7,6 +7,7 @@ import {
   getIpcEvents,
   getStoreState,
   refreshSkillsState,
+  waitForInitialScan,
 } from '../helpers/redux'
 
 interface SymlinkSnapshot {
@@ -62,19 +63,7 @@ test('copyToAgents replicates azure-ai to a missing target agent', async ({
   // Wait for the renderer's initial fetch — both skills and agents must land
   // before the spec can pick a target. Generous timeout because the fetch
   // races with skillScanner walking the snapshot HOME.
-  await appWindow.waitForFunction(
-    () => {
-      const store = window.__store__ ?? window.__store
-      if (!store) return false
-      const state = store.getState() as {
-        skills?: { items?: unknown[] }
-        agents?: { items?: unknown[] }
-      }
-      return Boolean(state.skills?.items?.length && state.agents?.items?.length)
-    },
-    undefined,
-    { timeout: 10_000 },
-  )
+  await waitForInitialScan(appWindow)
 
   const expectedSourcePath = join(
     isolatedHome,

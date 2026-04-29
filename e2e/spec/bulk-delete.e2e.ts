@@ -8,7 +8,11 @@ import {
 import { join } from 'node:path'
 
 import { test, expect } from '../fixtures/electron-app'
-import { clearIpcEvents, getIpcEvents } from '../helpers/redux'
+import {
+  clearIpcEvents,
+  getIpcEvents,
+  waitForInitialScan,
+} from '../helpers/redux'
 
 interface DeleteProgressPayload {
   current: number
@@ -75,19 +79,7 @@ test('bulk deleteSkills below BULK_PROGRESS_THRESHOLD (N=9) skips progress event
   // Wait for renderer to mount + finish initial scan. Pre-staged skills may
   // or may not have been picked up by that scan depending on race ordering;
   // it doesn't matter because the IPC handler reads from disk independently.
-  await appWindow.waitForFunction(
-    () => {
-      const store = window.__store__ ?? window.__store
-      if (!store) return false
-      const state = store.getState() as {
-        skills?: { items?: unknown[] }
-        agents?: { items?: unknown[] }
-      }
-      return Boolean(state.skills?.items?.length && state.agents?.items?.length)
-    },
-    undefined,
-    { timeout: 10_000 },
-  )
+  await waitForInitialScan(appWindow)
 
   await clearIpcEvents(appWindow)
 
@@ -141,19 +133,7 @@ test('bulk deleteSkills at BULK_PROGRESS_THRESHOLD (N=10) emits sequential progr
 }) => {
   const skillNames = preStageDummySkills(isolatedHome, 10, 'bulk-at')
 
-  await appWindow.waitForFunction(
-    () => {
-      const store = window.__store__ ?? window.__store
-      if (!store) return false
-      const state = store.getState() as {
-        skills?: { items?: unknown[] }
-        agents?: { items?: unknown[] }
-      }
-      return Boolean(state.skills?.items?.length && state.agents?.items?.length)
-    },
-    undefined,
-    { timeout: 10_000 },
-  )
+  await waitForInitialScan(appWindow)
 
   await clearIpcEvents(appWindow)
 

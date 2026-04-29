@@ -30,6 +30,37 @@ export async function getStoreState<T>(
 }
 
 /**
+ * Wait until the renderer's initial filesystem scan has populated both
+ * `skills.items` and `agents.items`. The fetchSkills + fetchAgents thunks
+ * fire on mount, but assertions against the store race the empty initial
+ * state until both lists are non-empty.
+ *
+ * Default 10s matches the pre-extraction inline timeout and leaves macOS CI
+ * headroom for the npm-resolved skills CLI scan.
+ *
+ * @example
+ * await waitForInitialScan(appWindow)
+ */
+export async function waitForInitialScan(
+  page: Page,
+  timeoutMs = 10_000,
+): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const store = window.__store__ ?? window.__store
+      if (!store) return false
+      const state = store.getState() as {
+        skills?: { items?: unknown[] }
+        agents?: { items?: unknown[] }
+      }
+      return Boolean(state.skills?.items?.length && state.agents?.items?.length)
+    },
+    undefined,
+    { timeout: timeoutMs },
+  )
+}
+
+/**
  * Wait until `state.skills.selectedSkillNames.length === count`. Useful after
  * tab/agent switches that should clear selection (regression 2f05684).
  */

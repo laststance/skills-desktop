@@ -2,7 +2,11 @@ import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { test, expect } from '../fixtures/electron-app'
-import { getStoreState, refreshSkillsState } from '../helpers/redux'
+import {
+  getStoreState,
+  refreshSkillsState,
+  waitForInitialScan,
+} from '../helpers/redux'
 
 interface SymlinkSnapshot {
   agentId: string
@@ -57,19 +61,7 @@ test('deleteSkill moves source-backed skill into trash and unlinks every agent s
   appWindow,
   isolatedHome,
 }) => {
-  await appWindow.waitForFunction(
-    () => {
-      const store = window.__store__ ?? window.__store
-      if (!store) return false
-      const state = store.getState() as {
-        skills?: { items?: unknown[] }
-        agents?: { items?: unknown[] }
-      }
-      return Boolean(state.skills?.items?.length && state.agents?.items?.length)
-    },
-    undefined,
-    { timeout: 10_000 },
-  )
+  await waitForInitialScan(appWindow)
 
   const expectedSourcePath = join(
     isolatedHome,
@@ -170,19 +162,7 @@ test('restoreDeletedSkill recovers a source-backed deletion within the undo wind
   appWindow,
   isolatedHome,
 }) => {
-  await appWindow.waitForFunction(
-    () => {
-      const store = window.__store__ ?? window.__store
-      if (!store) return false
-      const state = store.getState() as {
-        skills?: { items?: unknown[] }
-        agents?: { items?: unknown[] }
-      }
-      return Boolean(state.skills?.items?.length && state.agents?.items?.length)
-    },
-    undefined,
-    { timeout: 10_000 },
-  )
+  await waitForInitialScan(appWindow)
 
   const expectedSourcePath = join(
     isolatedHome,

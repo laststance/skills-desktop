@@ -9,7 +9,11 @@ import {
 import { dirname, join } from 'node:path'
 
 import { test, expect } from '../fixtures/electron-app'
-import { getStoreState, refreshSkillsState } from '../helpers/redux'
+import {
+  getStoreState,
+  refreshSkillsState,
+  waitForInitialScan,
+} from '../helpers/redux'
 
 interface SymlinkSnapshot {
   agentId: string
@@ -80,19 +84,7 @@ test('unlinkFromAgent removes one valid azure-ai symlink without touching the so
   appWindow,
   isolatedHome,
 }) => {
-  await appWindow.waitForFunction(
-    () => {
-      const store = window.__store__ ?? window.__store
-      if (!store) return false
-      const state = store.getState() as {
-        skills?: { items?: unknown[] }
-        agents?: { items?: unknown[] }
-      }
-      return Boolean(state.skills?.items?.length && state.agents?.items?.length)
-    },
-    undefined,
-    { timeout: 10_000 },
-  )
+  await waitForInitialScan(appWindow)
 
   const expectedSourcePath = join(
     isolatedHome,
@@ -202,19 +194,7 @@ test('unlinkManyFromAgent removes every pre-staged symlink and leaves source dir
     'unlink-many',
   )
 
-  await appWindow.waitForFunction(
-    () => {
-      const store = window.__store__ ?? window.__store
-      if (!store) return false
-      const state = store.getState() as {
-        skills?: { items?: unknown[] }
-        agents?: { items?: unknown[] }
-      }
-      return Boolean(state.skills?.items?.length && state.agents?.items?.length)
-    },
-    undefined,
-    { timeout: 10_000 },
-  )
+  await waitForInitialScan(appWindow)
 
   // Sanity — every pre-staged symlink is in place before the IPC fires.
   for (const name of skillNames) {
@@ -279,19 +259,7 @@ test('removeAllFromAgent refuses when the agent path is a symlink alias to the u
     'expected the snapshot source dir to be populated by global-setup',
   ).toBeGreaterThan(0)
 
-  await appWindow.waitForFunction(
-    () => {
-      const store = window.__store__ ?? window.__store
-      if (!store) return false
-      const state = store.getState() as {
-        skills?: { items?: unknown[] }
-        agents?: { items?: unknown[] }
-      }
-      return Boolean(state.skills?.items?.length && state.agents?.items?.length)
-    },
-    undefined,
-    { timeout: 10_000 },
-  )
+  await waitForInitialScan(appWindow)
 
   const result = await appWindow.evaluate(
     async (args: { agentId: string; agentPath: string }) =>
