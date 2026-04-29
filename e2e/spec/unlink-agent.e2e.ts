@@ -1,11 +1,15 @@
 import {
+  chmodSync,
   existsSync,
   lstatSync,
   mkdirSync,
   readdirSync,
+  rmSync,
   symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs'
+import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 
 import { test, expect } from '../fixtures/electron-app'
@@ -179,6 +183,104 @@ test('unlinkFromAgent removes one valid azure-ai symlink without touching the so
   }
 })
 
+/**
+ * Phase-4 A1 (issue #114) — negative paths for the single unlink IPC. The
+ * handler dispatches on `lstat` kind via ts-pattern (skills.ts:130-145):
+ *
+ *   - symlink                    → fs.unlink, success: true
+ *   - directory (local skill)    → fs.rm -rf, success: true
+ *   - regular file (none of above) → otherwise, success: false with copy
+ *   - lstat throws (e.g. ENOENT) → catch, success: false with extracted msg
+ *
+ * The two tests below pin the bottom two rows. Without them, a regression
+ * that flipped the `.otherwise()` branch to `fs.rm` would silently delete
+ * any regular file the renderer happens to pass — and a regression that
+ * stopped catching lstat errors would surface as an uncaught IPC rejection
+ * in the renderer (worse UX than a structured failure row).
+ */
+
+test('unlinkFromAgent returns structured failure when linkPath does not exist', async ({
+  appWindow,
+  isolatedHome,
+}) => {
+  await waitForInitialScan(appWindow)
+
+  // Pre-create the parent agent dir so validatePath's allowed-bases check
+  // succeeds. Without this, validatePath could throw before lstat runs and
+  // we'd be testing the wrong failure branch.
+  const claudeAgentPath = join(isolatedHome, '.claude', 'skills')
+  mkdirSync(claudeAgentPath, { recursive: true })
+  const missingLinkPath = join(claudeAgentPath, 'never-existed')
+
+  // Sanity — confirm the path is genuinely absent before the IPC fires. A
+  // false positive here would be silent: the handler's success path also
+  // swallows ENOENT, so we'd think the failure-branch fired when it didn't.
+  expect(existsSync(missingLinkPath)).toBe(false)
+
+  const ipcResult = await appWindow.evaluate(
+    async (args: { skillName: string; agentId: string; linkPath: string }) =>
+      window.electron.skills.unlinkFromAgent(args),
+    {
+      skillName: 'never-existed',
+      agentId: 'claude-code',
+      linkPath: missingLinkPath,
+    },
+  )
+
+  expect(ipcResult.success).toBe(false)
+  // ENOENT is the surface form on macOS + Linux; pinning the substring
+  // keeps a `extractErrorMessage` rewrite from silently passing this test.
+  // `UnlinkResult` is { success: boolean, error?: string } (not a discriminated
+  // union) — toMatch on undefined would throw, so this also covers
+  // "error must actually be populated when success is false".
+  expect(ipcResult.error).toMatch(/ENOENT|no such file or directory/i)
+})
+
+test('unlinkFromAgent refuses a regular file with the structured kind-mismatch error', async ({
+  appWindow,
+  isolatedHome,
+}) => {
+  await waitForInitialScan(appWindow)
+
+  const claudeAgentPath = join(isolatedHome, '.claude', 'skills')
+  mkdirSync(claudeAgentPath, { recursive: true })
+  const regularFilePath = join(claudeAgentPath, 'not-a-skill.txt')
+  writeFileSync(regularFilePath, '# this is just a stray file, not a skill\n')
+
+  // Sanity — confirm the staged path is a regular file, not a symlink or
+  // dir. A regression in the test fixture (e.g. mkdir instead of write)
+  // would land us in the directory branch and the IPC would silently
+  // succeed with rm -rf.
+  const stagedStat = lstatSync(regularFilePath)
+  expect(stagedStat.isFile()).toBe(true)
+  expect(stagedStat.isSymbolicLink()).toBe(false)
+  expect(stagedStat.isDirectory()).toBe(false)
+
+  const ipcResult = await appWindow.evaluate(
+    async (args: { skillName: string; agentId: string; linkPath: string }) =>
+      window.electron.skills.unlinkFromAgent(args),
+    {
+      skillName: 'not-a-skill',
+      agentId: 'claude-code',
+      linkPath: regularFilePath,
+    },
+  )
+
+  expect(ipcResult.success).toBe(false)
+  // Pin the exact handler copy. If this string ever changes, the renderer
+  // toast copy probably needs to update with it — surfacing the literal
+  // here makes that coupling visible in code review.
+  expect(ipcResult.error).toMatch(
+    /Cannot remove: path is neither a symlink nor a directory/,
+  )
+
+  // FS — the regular file MUST still be there. A regression that flipped
+  // `.otherwise()` from "refuse" to "rm -f" would silently destroy any
+  // non-symlink/non-dir path the renderer passes; this is the load-bearing
+  // assertion against that.
+  expect(existsSync(regularFilePath)).toBe(true)
+})
+
 test('unlinkManyFromAgent removes every pre-staged symlink and leaves source dirs untouched', async ({
   appWindow,
   isolatedHome,
@@ -226,6 +328,117 @@ test('unlinkManyFromAgent removes every pre-staged symlink and leaves source dir
     const sourcePath = join(isolatedHome, '.agents', 'skills', name)
     expect(existsSync(sourcePath)).toBe(true)
     expect(existsSync(join(sourcePath, 'SKILL.md'))).toBe(true)
+  }
+})
+
+/**
+ * Phase-4 A2 (issue #114) — partial failure aggregation for the batch unlink.
+ *
+ * The serial loop in `SKILLS_UNLINK_MANY_FROM_AGENT` (skills.ts:341-354) calls
+ * `removeFromAgent` per item and pushes either an `'unlinked'` row or an
+ * `'error'` row with the structured `{ message, code? }` shape. The contract
+ * we're locking in:
+ *
+ *   1. Per-item failures DO NOT short-circuit the loop. The 4 healthy items
+ *      still unlink even though index 2 is poisoned.
+ *   2. Per-item failures surface as `outcome: 'error'` rows, not as a thrown
+ *      IPC rejection — the renderer needs index-aligned outcomes to update
+ *      its toast/state per skill.
+ *   3. The "directory at link path" branch refuses with a meaningful copy
+ *      ("Cannot unlink a local skill...") rather than rm-rfing the dir.
+ *      Single-unlink rm-rfs (skills.ts:138-141) but the BATCH path is
+ *      explicitly non-destructive (skills.ts:85-89). A regression that
+ *      copy-pasted the single-unlink dispatch into the batch loop would
+ *      silently destroy local skills mid-batch.
+ *
+ * Index 2 (middle) is poisoned so a regression that aborts the loop on first
+ * failure leaves indexes 3-4 unprocessed and the test fails with a clear
+ * "expected 'unlinked' got 'pending'" diff. Index 0 or N-1 wouldn't catch a
+ * partial loop.
+ */
+test('unlinkManyFromAgent aggregates per-item failures without short-circuiting the batch', async ({
+  appWindow,
+  isolatedHome,
+}) => {
+  const claudeAgentPath = join(isolatedHome, '.claude', 'skills')
+  const skillNames = preStageLinkedSkills(
+    isolatedHome,
+    claudeAgentPath,
+    5,
+    'unlink-many-partial',
+  )
+
+  // Poison index 2: rm the symlink and replace with a real dir holding a
+  // SKILL.md, mimicking a local (non-symlinked) skill. The handler treats
+  // this as `isDirectory: true` and refuses with the local-skill copy.
+  //
+  // Why `unlinkSync` and not `rmSync({ force: true })`: rmSync follows
+  // symlinks via stat() for type detection. A symlink pointing to a
+  // directory makes rmSync see "directory" and refuse without
+  // `recursive: true`. unlinkSync removes a single entry of any kind
+  // without following — the right tool for replacing a symlink in place.
+  // Using `recursive: true` here would risk deleting the target dir under
+  // SOURCE_DIR, which is bytes we MUST keep intact for the rest of the
+  // assertion.
+  const poisonedIndex = 2
+  const poisonedSkillName = skillNames[poisonedIndex]
+  const poisonedLinkPath = join(claudeAgentPath, poisonedSkillName)
+  unlinkSync(poisonedLinkPath)
+  mkdirSync(poisonedLinkPath, { recursive: true })
+  writeFileSync(
+    join(poisonedLinkPath, 'SKILL.md'),
+    `# ${poisonedSkillName}\n\nLocal-skill fixture poisoning index ${poisonedIndex}.\n`,
+  )
+
+  await waitForInitialScan(appWindow)
+
+  // Sanity — confirm the poison worked. lstat-on-symlink would have returned
+  // isSymbolicLink:true and we'd be testing the wrong branch.
+  expect(lstatSync(poisonedLinkPath).isDirectory()).toBe(true)
+  expect(lstatSync(poisonedLinkPath).isSymbolicLink()).toBe(false)
+
+  const result = await appWindow.evaluate(
+    async (args: { agentId: string; items: Array<{ skillName: string }> }) =>
+      window.electron.skills.unlinkManyFromAgent(args),
+    {
+      agentId: 'claude-code',
+      items: skillNames.map((skillName) => ({ skillName })),
+    },
+  )
+
+  expect(result.items).toHaveLength(skillNames.length)
+
+  // Iterate by index instead of filtering so a regression that misroutes the
+  // error to a different position is caught. Same defense as bulk-delete.
+  for (const [index, item] of result.items.entries()) {
+    expect(item.skillName).toBe(skillNames[index])
+    if (index === poisonedIndex) {
+      expect(item.outcome).toBe('error')
+      if (item.outcome === 'error') {
+        expect(item.error.message).toMatch(/Cannot unlink a local skill/)
+      }
+    } else {
+      expect(item.outcome).toBe('unlinked')
+    }
+  }
+
+  // FS — the 4 healthy symlinks are gone, every source dir is intact, and
+  // the poisoned local-skill dir is still there byte-for-byte. The last
+  // assertion is the load-bearing one: a regression that ran rm -rf on the
+  // dir would still produce an 'unlinked' outcome but the SKILL.md would be
+  // gone.
+  for (const [index, name] of skillNames.entries()) {
+    const sourcePath = join(isolatedHome, '.agents', 'skills', name)
+    expect(existsSync(sourcePath)).toBe(true)
+    expect(existsSync(join(sourcePath, 'SKILL.md'))).toBe(true)
+
+    if (index === poisonedIndex) {
+      expect(existsSync(poisonedLinkPath)).toBe(true)
+      expect(existsSync(join(poisonedLinkPath, 'SKILL.md'))).toBe(true)
+      expect(lstatSync(poisonedLinkPath).isDirectory()).toBe(true)
+    } else {
+      expect(existsSync(join(claudeAgentPath, name))).toBe(false)
+    }
   }
 })
 
@@ -280,4 +493,278 @@ test('removeAllFromAgent refuses when the agent path is a symlink alias to the u
   expect(lstatSync(cursorAgentPath).isSymbolicLink()).toBe(true)
   const sourceContentsAfter = readdirSync(sourceDir).sort()
   expect(sourceContentsAfter).toEqual(sourceContentsBefore)
+})
+
+/**
+ * Phase-4 C1 + C2 (issue #114) — happy path for `removeAllFromAgent`.
+ *
+ * The two refusal tests above (`unlink-agent.e2e.ts` Test 3, `regression.e2e.ts`
+ * B1/B2) pin every IRON RULE branch, but they all short-circuit BEFORE any
+ * `shell.trashItem` call. None of them prove that the un-refused happy path
+ * actually routes the agent dir into the macOS OS Trash (vs. silently
+ * `rm -rf`-ing it, which would still let `success: true` pass) — that's the
+ * gap this test closes.
+ *
+ * `delete.e2e.ts` and `bulk-delete.e2e.ts` test the IN-APP trash at
+ * `<HOME>/.agents/.trash/` — that's `trashService.moveToTrash`, a different
+ * code path. `removeAllFromAgent` calls `shell.trashItem` directly (skills.ts:209)
+ * which routes to the OS Trash via NSWorkspace on macOS. The handler's contract
+ * — "moves to OS trash so accidents can be restored from Finder" (skills.ts:208) —
+ * is verifiable only by inspecting the user's actual `~/.Trash/`.
+ *
+ * macOS `shell.trashItem` routing is uid-based (NSWorkspace), NOT HOME-env-based,
+ * so the isolated HOME doesn't affect routing — the agent dir lands in the
+ * developer's real `~/.Trash/`. C2 (teardown) is therefore non-optional: a
+ * test that pollutes the developer's trash is unkind.
+ *
+ * Picked `cline` because:
+ *   1. Its `path` (`<HOME>/.cline/skills`) is non-shared post-fix 3d20085 —
+ *      `isSharedAgentPath` returns false, so the IRON RULE check passes.
+ *   2. Global-setup doesn't seed `.cline/skills` (skills-cli only creates it
+ *      when targeted via `--agent`), giving us a clean tempdir corner to stage
+ *      without colliding with snapshot fixture state.
+ */
+test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports the right count', async ({
+  appWindow,
+  isolatedHome,
+}) => {
+  const clineAgentPath = join(isolatedHome, '.cline', 'skills')
+  // Sanity — global-setup leaves .cline/skills absent. If a future skills-cli
+  // bump ever links cline by default, the count assertion below would silently
+  // pass with whatever fixture state was there. Fail loud.
+  expect(
+    existsSync(clineAgentPath),
+    `cline scanDir ${clineAgentPath} unexpectedly exists pre-stage — global-setup or skills-cli behavior changed`,
+  ).toBe(false)
+  const skillNames = preStageLinkedSkills(
+    isolatedHome,
+    clineAgentPath,
+    3,
+    'remove-all-os-trash',
+  )
+
+  // Snapshot the developer's real ~/.Trash/ pre-call. `homedir()` here resolves
+  // against the developer's UID (the test process inherits it), NOT against
+  // HOME=isolatedHome — same uid-based routing macOS uses for trashItem, so
+  // pre/post snapshots target the same physical location the IPC writes to.
+  //
+  // Filter dotfiles: macOS Finder writes `.DS_Store` and `.localized` into
+  // ~/.Trash on first access, asynchronously. These can appear mid-test for
+  // reasons unrelated to our trashItem call and inflate the diff. The
+  // user-visible entries trashItem creates are never dotfiles (they
+  // basename to the source path's basename — here, `skills`), so filtering
+  // is safe and tightens the diff to events we actually caused.
+  const userTrashDir = join(homedir(), '.Trash')
+  expect(
+    existsSync(userTrashDir),
+    `expected ~/.Trash to exist on macOS dev box — unexpected env`,
+  ).toBe(true)
+  const trashEntriesBefore = new Set(
+    readdirSync(userTrashDir).filter((entry) => !entry.startsWith('.')),
+  )
+
+  await waitForInitialScan(appWindow)
+
+  // Capture all new trash entries early so the C2 cleanup runs even if any
+  // assertion below throws. The try/finally is the load-bearing safety net:
+  // a failing assertion mid-run that left an entry in the developer's
+  // ~/.Trash would be an unkind side effect of test failure.
+  let createdTrashEntryPaths: string[] = []
+  try {
+    const result = await appWindow.evaluate(
+      async (args: { agentId: string; agentPath: string }) =>
+        window.electron.skills.removeAllFromAgent(args),
+      { agentId: 'cline', agentPath: clineAgentPath },
+    )
+
+    expect(result.success).toBe(true)
+    expect(result.removedCount).toBe(skillNames.length)
+    expect(result.error).toBeUndefined()
+
+    // FS — the agent dir is gone from its original location and every source
+    // dir is intact. trashItem moves only the agent path itself; per-skill
+    // source bytes under SOURCE_DIR must not be touched (unlink is benign).
+    expect(existsSync(clineAgentPath)).toBe(false)
+    for (const name of skillNames) {
+      const sourcePath = join(isolatedHome, '.agents', 'skills', name)
+      expect(existsSync(sourcePath)).toBe(true)
+      expect(existsSync(join(sourcePath, 'SKILL.md'))).toBe(true)
+    }
+
+    // OS Trash diff — exactly one new entry expected. `workers: 1` +
+    // `fullyParallel: false` (playwright.config.ts) means no test-side parallel
+    // trash activity, so a strict `=== 1` is sound; concurrent developer
+    // trash actions would surface as a flake the dev can immediately diagnose
+    // from the diff list. Looser `>= 1` would mask the trashItem-double-call
+    // regression this assertion guards. Same dotfile filter as the pre-snapshot
+    // for symmetry — see the rationale on `trashEntriesBefore`.
+    const trashEntriesAfter = readdirSync(userTrashDir).filter(
+      (entry) => !entry.startsWith('.'),
+    )
+    const newEntryNames = trashEntriesAfter.filter(
+      (entry) => !trashEntriesBefore.has(entry),
+    )
+    createdTrashEntryPaths = newEntryNames.map((entry) =>
+      join(userTrashDir, entry),
+    )
+    expect(
+      newEntryNames,
+      `expected exactly 1 new ~/.Trash entry after removeAllFromAgent — got ${
+        newEntryNames.length === 0
+          ? '<none> (shell.trashItem routing may have hit a per-volume .Trashes dir; verify HOME volume layout)'
+          : newEntryNames.join(', ')
+      }`,
+    ).toHaveLength(1)
+
+    // Verify the new entry is the dir we deleted, by content rather than name.
+    // macOS auto-renames on collision (skills → "skills 2"), so the basename
+    // is unreliable. The dir must contain our 3 staged symlinks (or whatever
+    // shape they take post-trash) — both shape AND count is the load-bearing
+    // identifier. A regression that called `rm -rf` instead of `trashItem`
+    // would leave 0 new entries; a regression that called both would leave 2.
+    const trashedAgentDir = createdTrashEntryPaths[0]
+    expect(lstatSync(trashedAgentDir).isDirectory()).toBe(true)
+    const trashedContents = readdirSync(trashedAgentDir).sort()
+    expect(trashedContents).toEqual([...skillNames].sort())
+  } finally {
+    // C2 teardown — best-effort cleanup. A stuck file lock or permission error
+    // shouldn't mask the actual test failure, so we warn rather than throw.
+    // rmSync force/recursive handles both files and dirs (trashItem might move
+    // the agent dir as a real dir or as a Finder-managed alias depending on
+    // volume).
+    for (const trashedPath of createdTrashEntryPaths) {
+      try {
+        rmSync(trashedPath, { recursive: true, force: true })
+      } catch (err) {
+        console.warn(
+          `[e2e] Failed to clean up trashed entry ${trashedPath}:`,
+          err,
+        )
+      }
+    }
+  }
+})
+
+test('removeAllFromAgent surfaces structured failure when shell.trashItem rejects (parent dir is read-only)', async ({
+  appWindow,
+  isolatedHome,
+}) => {
+  // Why this test exists
+  // ====================
+  // The handler at src/main/ipc/skills.ts wraps the entire body in a single
+  // try/catch and returns `{ success: false, removedCount: 0, error: <msg> }`
+  // on any rejection from `shell.trashItem`. The C1 test exercises only the
+  // happy path. This test asserts the negative branch — without it, a
+  // regression that swapped `await shell.trashItem(...)` for a fire-and-
+  // forget `.catch(() => {})` would silently report `success: true` while
+  // leaving the dir in place. Catching that locally instead of after a user
+  // reports "Remove all says success but my skills are still there".
+  //
+  // How we force the rejection
+  // ==========================
+  // `shell.trashItem` on macOS uses NSFileManager which moves the source
+  // path INTO the user's Trash via rename. Rename mutates the parent dir's
+  // entry table, so revoking write+execute permission on the parent of
+  // `agentPath` blocks rename without affecting `fs.access` (existence
+  // check) or `fs.readdir` on `agentPath` itself. The handler proceeds
+  // through both and only fails at the trashItem call — the exact code path
+  // we want to exercise.
+  //
+  // Root processes ignore POSIX perms entirely, so a uid=0 runner would
+  // trash the dir successfully and the assertion would fail with a
+  // misleading message. Skip explicitly with a clear reason; this is
+  // never the case in CI or normal dev.
+  if (process.getuid?.() === 0) {
+    test.skip(true, 'POSIX permission revocation does not constrain root')
+    return
+  }
+
+  const clineParent = join(isolatedHome, '.cline')
+  const clineAgentPath = join(clineParent, 'skills')
+  expect(
+    existsSync(clineParent),
+    `cline parent dir ${clineParent} unexpectedly exists pre-stage — global-setup or skills-cli behavior changed`,
+  ).toBe(false)
+
+  const skillNames = preStageLinkedSkills(
+    isolatedHome,
+    clineAgentPath,
+    2,
+    'remove-all-trash-reject',
+  )
+
+  // Snapshot trash before — used to assert NO new entry appears post-call.
+  // If trashItem somehow succeeded despite the perm restriction, the diff
+  // would surface immediately. Filter dotfiles for the same reason as C1:
+  // Finder may write `.DS_Store`/`.localized` into ~/.Trash mid-test and
+  // those would inflate the post-snapshot without being entries we caused.
+  const userTrashDir = join(homedir(), '.Trash')
+  const trashEntriesBefore = new Set(
+    readdirSync(userTrashDir).filter((entry) => !entry.startsWith('.')),
+  )
+
+  await waitForInitialScan(appWindow)
+
+  // Revoke parent dir write+execute. 0500 = r-x for owner: list contents,
+  // stat existing entries, BUT cannot create/rename/delete entries. This
+  // is the minimum perm change that makes rename fail without breaking
+  // the handler's pre-trash readdir/access calls.
+  chmodSync(clineParent, 0o500)
+
+  try {
+    const result = await appWindow.evaluate(
+      async (args: { agentId: string; agentPath: string }) =>
+        window.electron.skills.removeAllFromAgent(args),
+      { agentId: 'cline', agentPath: clineAgentPath },
+    )
+
+    // Structured failure shape — every field load-bearing.
+    //   success=false → caller treats this as an error condition
+    //   removedCount=0 → no partial bookkeeping for the renderer to reconcile
+    //   error is non-empty → operator sees the underlying OS error
+    expect(result.success).toBe(false)
+    expect(result.removedCount).toBe(0)
+    expect(result.error).toBeTruthy()
+    expect(typeof result.error).toBe('string')
+
+    // FS — agent dir is intact. The whole point of returning success=false
+    // is that NOTHING moved. A regression that called rm-rf as a fallback
+    // would leave clineAgentPath gone here.
+    expect(existsSync(clineAgentPath)).toBe(true)
+    for (const name of skillNames) {
+      expect(existsSync(join(clineAgentPath, name))).toBe(true)
+      // Source dirs untouched too — symlink presence implies the source
+      // it points to is still there (broken-symlink case is covered by
+      // a separate spec).
+      const sourcePath = join(isolatedHome, '.agents', 'skills', name)
+      expect(existsSync(sourcePath)).toBe(true)
+    }
+
+    // OS Trash invariant — no new entry appeared. With `workers: 1` +
+    // `fullyParallel: false`, the diff is tight. A new entry here would
+    // mean trashItem partially succeeded, which contradicts success=false.
+    // Dotfile filter matches the pre-snapshot for symmetry.
+    const trashEntriesAfter = readdirSync(userTrashDir).filter(
+      (entry) => !entry.startsWith('.'),
+    )
+    const newEntries = trashEntriesAfter.filter(
+      (entry) => !trashEntriesBefore.has(entry),
+    )
+    expect(
+      newEntries,
+      `expected NO new ~/.Trash entries on rejection — got ${newEntries.join(', ')}`,
+    ).toHaveLength(0)
+  } finally {
+    // Restore perms so rmSync can recurse into the dir during isolatedHome
+    // teardown. The fixture's destroyIsolatedHome warns rather than throws,
+    // so a leftover 0500 dir would silently leak under /tmp on every run.
+    try {
+      chmodSync(clineParent, 0o700)
+    } catch (err) {
+      console.warn(
+        `[e2e] Failed to restore perms on ${clineParent}; isolatedHome teardown may leak:`,
+        err,
+      )
+    }
+  }
 })

@@ -14,6 +14,13 @@ import { SNAPSHOT_INFO_FILE } from '../constants'
 interface SnapshotInfo {
   snapshotHome: string
   createdAt: string
+  /**
+   * `true` when global-setup detected the runner is offline and skipped
+   * `installAzureSkills`. Specs that depend on azure-* skills must read
+   * this flag and `test.skip()` themselves so a network blip does not
+   * surface as misleading UI assertion failures.
+   */
+  offline?: boolean
 }
 
 function readSnapshotInfo(): SnapshotInfo | null {

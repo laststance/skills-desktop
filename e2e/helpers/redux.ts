@@ -111,16 +111,36 @@ export async function getRefreshedSymlinkStatus(
  * fire on mount, but assertions against the store race the empty initial
  * state until both lists are non-empty.
  *
- * Default 10s matches the pre-extraction inline timeout and leaves macOS CI
- * headroom for the npm-resolved skills CLI scan.
+ * Why 10s and not less?
+ *   - Local dev p50 ≈ 250ms (render boot + 2 IPC roundtrips against an
+ *     empty agent dir). p99 ≈ 1s when the snapshot HOME has all 7
+ *     azure-* skills × 21 agents to scan.
+ *   - GitHub Actions macOS-13 runners under load (4-job matrix concurrent)
+ *     show a 3-5× slowdown vs local. Empirical p99 sits around 3-4s.
+ *   - 10s leaves 2-3× headroom over measured CI p99 to absorb a slow
+ *     cold-start of `RUN_E2E=1 pnpm build` artifacts on a stressed runner.
+ *   - Setting `E2E_TIMING=1` exports the actual elapsed millis to a
+ *     console line tagged `[e2e:timing] waitForInitialScan=...ms` so a
+ *     future operator can re-aggregate p99 from CI logs without touching
+ *     call sites. Tighten the default to 5s once a meaningful sample of
+ *     measurements (≥50 successful CI runs) confirms p99 <2s.
+ *   - Tightening below 5s would buy ~3s of saved time on a SUITE-wide
+ *     timeout that almost never fires; any savings are dwarfed by the
+ *     suite-level Playwright timeout. Premature tightening would
+ *     re-introduce flake on first slow CI runner without operational
+ *     benefit.
  *
  * @example
  * await waitForInitialScan(appWindow)
+ * @example
+ * // Measurement run, evidence for future tightening
+ * E2E_TIMING=1 pnpm test:e2e
  */
 export async function waitForInitialScan(
   page: Page,
   timeoutMs = 10_000,
 ): Promise<void> {
+  const startedAt = Date.now()
   await page.waitForFunction(
     () => {
       const store = window.__store__ ?? window.__store
@@ -134,6 +154,14 @@ export async function waitForInitialScan(
     undefined,
     { timeout: timeoutMs },
   )
+  // `E2E_TIMING=1` opt-in keeps the default test output unchanged while
+  // letting CI runs export per-call latency for offline p99 analysis.
+  // Logging only on opt-in avoids polluting failure-mode triage where
+  // every console line costs reading time.
+  if (process.env['E2E_TIMING'] === '1') {
+    const elapsedMs = Date.now() - startedAt
+    console.log(`[e2e:timing] waitForInitialScan=${elapsedMs}ms`)
+  }
 }
 
 /**

@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
 import { SNAPSHOT_INFO_FILE } from './constants'
-import { installAzureSkills } from './helpers/skills-cli'
+import { installAzureSkills, OfflineError } from './helpers/skills-cli'
 
 /**
  * Build a snapshot HOME populated with the 7 azure-* skills.
@@ -19,6 +19,14 @@ import { installAzureSkills } from './helpers/skills-cli'
  * If `E2E_SKIP_INSTALL=1` is set, skip the network install and just create
  * an empty snapshot HOME with agent dirs scaffolded — useful for smoke
  * tests that don't need the azure-* skills present.
+ *
+ * Offline behavior: when `installAzureSkills` raises `OfflineError` (DNS
+ * pre-flight or stderr pattern indicates the runner can't reach npm), we
+ * downgrade to "empty snapshot, log loudly, mark info JSON as offline"
+ * instead of failing global-setup. Specs that need azure-* skills must
+ * read the `offline` flag from snapshot info and `test.skip()` themselves
+ * with a clear reason. This protects CI from a network blip surfacing as
+ * dozens of unrelated UI assertion failures.
  */
 async function globalSetup(): Promise<void> {
   const e2eRoot = __dirname
@@ -33,6 +41,13 @@ async function globalSetup(): Promise<void> {
 
   mkdirSync(join(snapshotHome, '.agents', 'skills'), { recursive: true })
 
+  // `offline === true` is recorded in the snapshot info so per-test
+  // fixtures and specs can branch on it (e.g., `test.skip()` for
+  // azure-* dependent assertions). `E2E_SKIP_INSTALL` is treated as a
+  // distinct opt-out — it is NOT offline; the runner just doesn't want
+  // to pay the install cost for this run.
+  let offline = false
+
   if (process.env['E2E_SKIP_INSTALL'] === '1') {
     console.log('[e2e:setup] E2E_SKIP_INSTALL=1 — skipping skills CLI install')
   } else {
@@ -41,10 +56,20 @@ async function globalSetup(): Promise<void> {
       await installAzureSkills(snapshotHome)
       console.log('[e2e:setup] azure-* skills installed')
     } catch (err) {
-      // Tear down the partial snapshot before bubbling so we never leak
-      // a polluted tempdir on a failed setup.
-      rmSync(snapshotHome, { recursive: true, force: true })
-      throw err
+      if (err instanceof OfflineError) {
+        // Loud warning so a CI log scanner can grep for "OFFLINE" and the
+        // operator can distinguish offline-skip from a real install bug
+        // when reviewing flaky-run dashboards.
+        offline = true
+        console.warn(
+          `[e2e:setup] OFFLINE — npm registry unreachable. Continuing with empty snapshot. Specs that depend on azure-* skills should skip themselves via the snapshot \`offline\` flag.\n[e2e:setup] OfflineError: ${err.message}`,
+        )
+      } else {
+        // Tear down the partial snapshot before bubbling so we never leak
+        // a polluted tempdir on a failed setup.
+        rmSync(snapshotHome, { recursive: true, force: true })
+        throw err
+      }
     }
   }
 
@@ -52,7 +77,7 @@ async function globalSetup(): Promise<void> {
   writeFileSync(
     snapshotInfoPath,
     JSON.stringify(
-      { snapshotHome, createdAt: new Date().toISOString() },
+      { snapshotHome, createdAt: new Date().toISOString(), offline },
       null,
       2,
     ),
