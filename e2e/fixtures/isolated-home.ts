@@ -14,6 +14,13 @@ import { SNAPSHOT_INFO_FILE } from '../constants'
 interface SnapshotInfo {
   snapshotHome: string
   createdAt: string
+  /**
+   * `true` when global-setup detected the runner is offline and skipped
+   * `installAzureSkills`. Specs that depend on azure-* skills must read
+   * this flag and `test.skip()` themselves so a network blip does not
+   * surface as misleading UI assertion failures.
+   */
+  offline?: boolean
 }
 
 function readSnapshotInfo(): SnapshotInfo | null {
@@ -21,6 +28,37 @@ function readSnapshotInfo(): SnapshotInfo | null {
   const snapshotInfoPath = resolve(e2eRoot, SNAPSHOT_INFO_FILE)
   if (!existsSync(snapshotInfoPath)) return null
   return JSON.parse(readFileSync(snapshotInfoPath, 'utf-8')) as SnapshotInfo
+}
+
+/**
+ * Read the snapshot offline flag set by global-setup. Returns `true` only
+ * when the snapshot info file exists AND `offline: true` was written; any
+ * missing/malformed state is treated as "online" (the test will run).
+ *
+ * Specs that depend on azure-* skills installed by `installAzureSkills`
+ * MUST gate themselves with `test.skip(isSnapshotOffline(), ...)` so a
+ * network blip degrades to a skip rather than a confusing UI failure
+ * mid-spec when the renderer scans an empty SOURCE_DIR.
+ *
+ * @example
+ * test.beforeEach(() => {
+ *   test.skip(
+ *     isSnapshotOffline(),
+ *     'azure-* skills required; runner is offline',
+ *   )
+ * })
+ */
+export function isSnapshotOffline(): boolean {
+  // Treat a malformed/corrupt info.json as "online" rather than letting
+  // JSON.parse propagate. The skip gate runs in beforeEach for many specs;
+  // crashing here would mask the real failure with a JSON SyntaxError that
+  // points at the gate, not at whatever wrote the bad info.
+  try {
+    return readSnapshotInfo()?.offline === true
+  } catch (err) {
+    console.warn('[e2e] snapshot info is malformed; treating as online', err)
+    return false
+  }
 }
 
 /**

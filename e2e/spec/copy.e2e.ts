@@ -9,6 +9,7 @@ import {
 import { join } from 'node:path'
 
 import { test, expect } from '../fixtures/electron-app'
+import { isSnapshotOffline } from '../fixtures/isolated-home'
 import {
   clearIpcEvents,
   getIpcEvents,
@@ -64,6 +65,18 @@ const AZURE_AI_NAME = 'azure-ai'
  * UI-driven coverage of the modal interactions lives at the bottom of this
  * file (`copyToAgents UI-driven modal …`).
  */
+
+// Every test in this file copies azure-ai (or a per-agent symlink to it) into
+// other agents. The snapshot must contain `~/.agents/skills/azure-ai`; an
+// offline snapshot is empty and would yield a confusing "azure not found"
+// failure mid-spec instead of a clean skip.
+test.beforeEach(() => {
+  test.skip(
+    isSnapshotOffline(),
+    'azure-* skills required for this suite; runner is offline (global-setup wrote snapshot.offline=true)',
+  )
+})
+
 test('copyToAgents replicates azure-ai to a missing target agent', async ({
   appWindow,
   isolatedHome,

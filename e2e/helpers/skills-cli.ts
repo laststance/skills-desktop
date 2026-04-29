@@ -1,12 +1,88 @@
 import { spawn } from 'node:child_process'
+import { lookup } from 'node:dns/promises'
 
 import {
   AZURE_SKILLS_REPO,
   AZURE_SKILL_NAMES,
   KILL_ESCALATION_MS,
+  NPM_REGISTRY_HOST,
+  OFFLINE_DNS_TIMEOUT_MS,
+  OFFLINE_STDERR_PATTERNS,
   SKILLS_CLI_VERSION,
   SPAWN_TIMEOUT_MS,
 } from '../constants'
+
+/**
+ * Distinguishable failure mode for `installAzureSkills` when the runner has
+ * no path to the npm registry. Caught by `globalSetup` so a network blip
+ * downgrades to a "skip with empty snapshot" instead of failing the whole
+ * test run with an opaque CLI error.
+ *
+ * Use `instanceof OfflineError` rather than string-matching the message:
+ * the message is for humans and may change.
+ *
+ * @example
+ * try { await installAzureSkills(home) }
+ * catch (err) {
+ *   if (err instanceof OfflineError) markSnapshotOffline()
+ *   else throw err
+ * }
+ */
+export class OfflineError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'OfflineError'
+  }
+}
+
+function matchesOfflineStderr(haystack: string): boolean {
+  const lowered = haystack.toLowerCase()
+  return OFFLINE_STDERR_PATTERNS.some((needle) =>
+    lowered.includes(needle.toLowerCase()),
+  )
+}
+
+/**
+ * Race a DNS lookup of the npm registry against a short timeout to decide
+ * whether the runner can reach the registry at all. Returns `true` only on
+ * lookup error or timeout — a successful resolve does not guarantee
+ * end-to-end TCP, but a failed resolve is sufficient evidence to skip.
+ *
+ * Why `dns.lookup` and not `fetch`: `lookup` is OS-level (uses the system
+ * resolver + cache), so corporate DNS hijacks that block only npm still
+ * fail here. `fetch` would pile a TLS handshake on top of the DNS budget
+ * for no extra signal.
+ *
+ * The timer-loser branch silences any post-timeout rejection with
+ * `.catch(() => {})` — without it, Node would log `unhandledRejection` and
+ * CI runs with `--unhandled-rejections=strict` would fail despite the
+ * timeout result we already returned.
+ *
+ * @example
+ * if (await isOffline()) console.log('skip')
+ */
+export async function isOffline(): Promise<boolean> {
+  let timeoutHandle: NodeJS.Timeout | null = null
+  const lookupPromise = lookup(NPM_REGISTRY_HOST)
+  try {
+    const timeoutSignal = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(
+        () => reject(new Error('dns lookup timeout')),
+        OFFLINE_DNS_TIMEOUT_MS,
+      )
+    })
+    await Promise.race([lookupPromise, timeoutSignal])
+    return false
+  } catch {
+    return true
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle)
+    // Silence the lookup branch when the timer wins. The race already
+    // settled isOffline()'s contract; without this swallow, a slow DNS
+    // failure arriving after timeout would surface as unhandledRejection.
+    lookupPromise.catch(() => {})
+  }
+}
 
 interface RunResult {
   code: number
@@ -91,10 +167,33 @@ async function runNpx(args: string[], home: string): Promise<RunResult> {
 /**
  * Install all 7 azure-* skills under the given HOME using the pinned
  * skills CLI. Used by global-setup to populate the snapshot HOME.
+ *
+ * Failure modes the caller MUST distinguish:
+ *   - `OfflineError` → DNS pre-flight or post-spawn output indicates the
+ *     runner can't reach npm. Caller should downgrade to an empty
+ *     snapshot instead of failing the whole test run.
+ *   - generic `Error` → CLI-level failure (auth, permission, schema
+ *     change in the skills CLI). Caller MUST surface as a real failure
+ *     because the diagnosis is in the message, not the network.
+ *
+ * Two checkpoints catch offline state:
+ *   1. Pre-flight `isOffline()` — fastest path, avoids a 60s spawn when
+ *      the runner is provably air-gapped.
+ *   2. Post-spawn stderr pattern match — covers cases where DNS is fine
+ *      but TCP is firewalled (DNS-only check would falsely classify the
+ *      runner as online). `matchesOfflineStderr` re-classifies the
+ *      non-zero exit as `OfflineError`.
+ *
  * @example
  * await installAzureSkills('/tmp/skills-desktop-snapshot-abc')
  */
 export async function installAzureSkills(home: string): Promise<void> {
+  if (await isOffline()) {
+    throw new OfflineError(
+      `npm registry unreachable (DNS lookup of ${NPM_REGISTRY_HOST} failed within ${OFFLINE_DNS_TIMEOUT_MS}ms)`,
+    )
+  }
+
   const args = [
     `skills@${SKILLS_CLI_VERSION}`,
     'add',
@@ -107,6 +206,11 @@ export async function installAzureSkills(home: string): Promise<void> {
   }
   const result = await runNpx(args, home)
   if (result.code !== 0) {
+    if (matchesOfflineStderr(`${result.stderr}\n${result.stdout}`)) {
+      throw new OfflineError(
+        `npm registry unreachable during install (code=${result.code}, timedOut=${result.timedOut})\nstderr: ${result.stderr}`,
+      )
+    }
     throw new Error(
       `skills CLI install failed (code=${result.code}, timedOut=${result.timedOut})\nstderr: ${result.stderr}\nstdout: ${result.stdout}`,
     )
