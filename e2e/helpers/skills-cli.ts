@@ -4,9 +4,8 @@ import {
   AZURE_SKILLS_REPO,
   AZURE_SKILL_NAMES,
   SKILLS_CLI_VERSION,
+  SPAWN_TIMEOUT_MS,
 } from '../constants'
-
-const SPAWN_TIMEOUT_MS = 60_000
 
 interface RunResult {
   code: number
@@ -59,24 +58,5 @@ export async function installAzureSkills(home: string): Promise<void> {
     throw new Error(
       `skills CLI install failed (code=${result.code}, timedOut=${result.timedOut})\nstderr: ${result.stderr}\nstdout: ${result.stdout}`,
     )
-  }
-}
-
-/**
- * Remove all 7 azure-* skills from the given HOME.
- * Errors per skill are logged but never throw — best-effort cleanup so
- * teardown never blocks suite completion.
- */
-export async function uninstallAzureSkills(home: string): Promise<void> {
-  for (const skill of AZURE_SKILL_NAMES) {
-    const result = await runNpx(
-      ['skills@' + SKILLS_CLI_VERSION, 'remove', skill, '--global', '-y'],
-      home,
-    )
-    if (result.code !== 0) {
-      console.warn(
-        `[e2e] skills remove ${skill} returned code ${result.code} (best-effort cleanup, continuing)`,
-      )
-    }
   }
 }

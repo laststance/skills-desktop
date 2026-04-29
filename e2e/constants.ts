@@ -20,7 +20,8 @@ export const AZURE_SKILL_NAMES = [
   'azure-storage',
 ] as const
 
-export type AzureSkillName = (typeof AZURE_SKILL_NAMES)[number]
+/** Hard cap on a single `npx skills ...` invocation during global-setup. */
+export const SPAWN_TIMEOUT_MS = 60_000
 
 /** File the global-setup writes for fixtures to discover the snapshot HOME. */
 export const SNAPSHOT_INFO_FILE = '.snapshot/info.json'
