@@ -1,4 +1,5 @@
 import { createSelector } from '@reduxjs/toolkit'
+import { match } from 'ts-pattern'
 
 import type { SkillName } from '../../../shared/types'
 
@@ -10,14 +11,29 @@ import {
 } from './slices/skillsSlice'
 import {
   selectSearchQuery,
+  selectSearchScope,
   selectSelectedAgentId,
+  selectSelectedSource,
   selectSkillTypeFilter,
   selectSortOrder,
 } from './slices/uiSlice'
 
 /**
  * Memoized selector for filtered and sorted skills list.
- * Applies agent filter, skill type filter, search query, and name sort.
+ * Applies (in order): agent filter, skill type filter, source-repo pill,
+ * scope-aware search query, and name sort.
+ *
+ * Search scope rules:
+ * - `'name'` — case-insensitive substring match against `skill.name` (the
+ *   original behavior; preserved when no toggle is wired).
+ * - `'repo'` — case-insensitive substring match against `skill.source`. Skills
+ *   with no `source` (Local-only skills) are excluded in this mode because
+ *   they have no repo string to match.
+ *
+ * The source pill (`selectedSource`) is an exact-match filter applied
+ * independently of the scope so users can stack "in repo X" with "name
+ * containing Y".
+ *
  * @returns Filtered + sorted skills array
  * @example
  * const filteredSkills = useAppSelector(selectFilteredSkills)
@@ -26,11 +42,21 @@ export const selectFilteredSkills = createSelector(
   [
     selectSkillsItems,
     selectSearchQuery,
+    selectSearchScope,
     selectSelectedAgentId,
+    selectSelectedSource,
     selectSortOrder,
     selectSkillTypeFilter,
   ],
-  (skills, searchQuery, selectedAgentId, sortOrder, skillTypeFilter) => {
+  (
+    skills,
+    searchQuery,
+    searchScope,
+    selectedAgentId,
+    selectedSource,
+    sortOrder,
+    skillTypeFilter,
+  ) => {
     let result = skills
 
     // Filter by selected agent (and optionally by skill type), or — when no
@@ -54,12 +80,28 @@ export const selectFilteredSkills = createSelector(
       result = result.filter((skill) => skill.isSource)
     }
 
-    // Filter by search query (name only)
+    // Source-repo filter pill — exact match. Local skills (source undefined)
+    // can never match a non-null pill value, so they drop out implicitly.
+    if (selectedSource) {
+      result = result.filter((skill) => skill.source === selectedSource)
+    }
+
+    // Scope-aware search. ts-pattern + .exhaustive() makes adding a new
+    // SearchScope a compile-time failure here, not a silent fall-through to
+    // the name branch (the failure mode of the previous if/else).
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      result = result.filter((skill) =>
-        skill.name.toLowerCase().includes(query),
-      )
+      result = match(searchScope)
+        .with('repo', () =>
+          // Local skills have no `source`; in repo mode they cannot match.
+          result.filter((skill) =>
+            skill.source ? skill.source.toLowerCase().includes(query) : false,
+          ),
+        )
+        .with('name', () =>
+          result.filter((skill) => skill.name.toLowerCase().includes(query)),
+        )
+        .exhaustive()
     }
 
     // Sort by name

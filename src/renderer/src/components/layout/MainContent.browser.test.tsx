@@ -456,3 +456,104 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
     expect(mockSkillsDeleteSkills).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('MainContent filter pills (Agent + Source orthogonal)', () => {
+  // The Agent pill and the Source pill are independent narrowings — the user
+  // can be in "agent: Claude Code" view AND filter by "from: vercel-labs/foo"
+  // simultaneously. These tests pin the contract: each pill renders only
+  // when its own state is set, and clearing one does not touch the other.
+
+  it('renders the Source pill with repo name and clears state on click', async () => {
+    const { screen, store } = await renderMainContent()
+    const { setSelectedSource } = await import('../../redux/slices/uiSlice')
+
+    // No source filter active: pill must not render.
+    expect(screen.getByTestId('source-filter-pill').query()).toBeNull()
+
+    store.dispatch(setSelectedSource(repositoryId('vercel-labs/skills')))
+
+    const pill = screen.getByTestId('source-filter-pill')
+    await expect.element(pill).toBeInTheDocument()
+    await expect.element(pill).toHaveTextContent(/Showing skills from/)
+    await expect.element(pill).toHaveTextContent('vercel-labs/skills')
+
+    // Clear button inside the pill resets the slice field.
+    await pill.getByRole('button', { name: /Clear/i }).click()
+
+    await expect.poll(() => store.getState().ui.selectedSource).toBeNull()
+    expect(screen.getByTestId('source-filter-pill').query()).toBeNull()
+  })
+
+  it('Agent + Source pills both render when both filters are active', async () => {
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } = await import('../../redux/slices/agentsSlice')
+    const { selectAgent, setSelectedSource } =
+      await import('../../redux/slices/uiSlice')
+
+    // Seed an agent fixture so MainContent's `agents.find(...)` resolves.
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'claude-code',
+            name: 'Claude Code',
+            path: '/Users/me/.claude/skills' as never,
+            exists: true,
+            skillCount: 0,
+            localSkillCount: 0,
+          },
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(selectAgent('claude-code'))
+    store.dispatch(setSelectedSource(repositoryId('vercel-labs/skills')))
+
+    await expect
+      .element(screen.getByTestId('agent-filter-pill'))
+      .toHaveTextContent('Claude Code')
+    await expect
+      .element(screen.getByTestId('source-filter-pill'))
+      .toHaveTextContent('vercel-labs/skills')
+  })
+
+  it('clearing the Source pill leaves the Agent pill intact (orthogonal)', async () => {
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } = await import('../../redux/slices/agentsSlice')
+    const { selectAgent, setSelectedSource } =
+      await import('../../redux/slices/uiSlice')
+
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'claude-code',
+            name: 'Claude Code',
+            path: '/Users/me/.claude/skills' as never,
+            exists: true,
+            skillCount: 0,
+            localSkillCount: 0,
+          },
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(selectAgent('claude-code'))
+    store.dispatch(setSelectedSource(repositoryId('vercel-labs/skills')))
+
+    // Clear ONLY the source pill.
+    await screen
+      .getByTestId('source-filter-pill')
+      .getByRole('button', { name: /Clear/i })
+      .click()
+
+    // Agent pill must still be rendered with its label intact; selectedSource
+    // must be null. This pins Issue 4 from the design review: source clear
+    // does not bleed into agent state.
+    await expect.poll(() => store.getState().ui.selectedSource).toBeNull()
+    expect(store.getState().ui.selectedAgentId).toBe('claude-code')
+    await expect
+      .element(screen.getByTestId('agent-filter-pill'))
+      .toHaveTextContent('Claude Code')
+  })
+})

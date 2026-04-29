@@ -637,3 +637,19 @@ export const UNDO_WINDOW_MS = 15_000
  * gate must read the same threshold.
  */
 export const BULK_PROGRESS_THRESHOLD = 10
+
+/**
+ * Minimum tap-target size (px) for interactive elements. Floor set by both
+ * Apple HIG (44×44 pt) and WCAG 2.2 AA (target size 24 CSS px minimum, 44
+ * recommended) — keeping a single source of truth here means adding a new
+ * pill / toggle / icon button can grep for the constant rather than
+ * scatter `min-h-[44px]` arbitrary-values across components.
+ *
+ * Imported via inline `style={{ minHeight: MIN_TOUCH_TARGET_PX }}` rather
+ * than a Tailwind arbitrary value because the constant is the contract;
+ * the className is just a delivery mechanism.
+ *
+ * @example
+ * <Button style={{ minHeight: MIN_TOUCH_TARGET_PX }}>Clear</Button>
+ */
+export const MIN_TOUCH_TARGET_PX = 44

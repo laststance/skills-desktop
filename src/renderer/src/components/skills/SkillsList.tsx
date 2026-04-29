@@ -13,10 +13,12 @@ import {
 import {
   selectSearchQuery,
   selectSelectedAgentId,
+  selectSelectedSource,
   selectSkillTypeFilter,
 } from '../../redux/slices/uiSlice'
 
 import { SkillItem } from './SkillItem'
+import { getEmptyListMessage } from './skillsListHelpers'
 
 /** Base height: padding (32) + title (24) + source link (20) + source-link mb-2 (8) + row gap pb-3 (12) + border (2) + font metrics (3) */
 const ROW_HEIGHT_BASE = 101
@@ -65,6 +67,7 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
   const selectedAgentId = useAppSelector(selectSelectedAgentId)
   const skillTypeFilter = useAppSelector(selectSkillTypeFilter)
   const searchQuery = useAppSelector(selectSearchQuery)
+  const selectedSource = useAppSelector(selectSelectedSource)
   const filteredSkills = useAppSelector(selectFilteredSkills)
 
   useEffect(() => {
@@ -118,17 +121,15 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
   }
 
   if (filteredSkills.length === 0) {
+    const emptyMessage = getEmptyListMessage({
+      searchQuery,
+      selectedSource,
+      selectedAgentId,
+      skillTypeFilter,
+    })
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-muted-foreground">
-          {selectedAgentId
-            ? searchQuery
-              ? 'No skills match your search'
-              : skillTypeFilter !== 'all'
-                ? `No ${skillTypeFilter} skills for this agent`
-                : 'No skills installed for this agent'
-            : 'No skills match your search'}
-        </div>
+        <div className="text-muted-foreground">{emptyMessage}</div>
       </div>
     )
   }
