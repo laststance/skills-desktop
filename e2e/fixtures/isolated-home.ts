@@ -49,7 +49,16 @@ function readSnapshotInfo(): SnapshotInfo | null {
  * })
  */
 export function isSnapshotOffline(): boolean {
-  return readSnapshotInfo()?.offline === true
+  // Treat a malformed/corrupt info.json as "online" rather than letting
+  // JSON.parse propagate. The skip gate runs in beforeEach for many specs;
+  // crashing here would mask the real failure with a JSON SyntaxError that
+  // points at the gate, not at whatever wrote the bad info.
+  try {
+    return readSnapshotInfo()?.offline === true
+  } catch (err) {
+    console.warn('[e2e] snapshot info is malformed; treating as online', err)
+    return false
+  }
 }
 
 /**

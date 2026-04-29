@@ -52,6 +52,13 @@ export const OFFLINE_DNS_TIMEOUT_MS = 2_000
  * (`ECONNREFUSED` vs `network connect`) both hit. Kept narrow on purpose:
  * a false-positive offline classification would silently skip the install
  * on an actual CLI bug.
+ *
+ * The bare URL `request to https://registry.npmjs.org` was REMOVED because
+ * it also fires for TLS-cert and corporate-proxy failures (`unable to
+ * verify the first certificate`, `tunneling socket could not be
+ * established`) — neither of which is offline. Real network failures all
+ * surface one of the codes below alongside the URL, so this set still
+ * catches them via the code token.
  */
 export const OFFLINE_STDERR_PATTERNS = [
   'ENOTFOUND',
@@ -60,7 +67,6 @@ export const OFFLINE_STDERR_PATTERNS = [
   'EAI_AGAIN',
   'getaddrinfo',
   'network timed out',
-  'request to https://registry.npmjs.org',
 ] as const
 
 /** File the global-setup writes for fixtures to discover the snapshot HOME. */

@@ -29,6 +29,15 @@ async function installSnapshotOrClassifyOffline(
     return false
   } catch (err) {
     if (err instanceof OfflineError) {
+      // Hard-reset the skills dir so `offline: true` matches actual contents.
+      // The DNS pre-flight branch leaves it empty already, but the post-spawn
+      // stderr-match branch can fire after `npx skills add` partially wrote a
+      // few skills before TCP gave up. Without this, snapshot info would
+      // claim "offline" while the hardlink-copy still reproduces a half-
+      // populated tree into every working HOME.
+      const skillsDir = join(snapshotHome, '.agents', 'skills')
+      rmSync(skillsDir, { recursive: true, force: true })
+      mkdirSync(skillsDir, { recursive: true })
       // Loud warning so a CI log scanner can grep for "OFFLINE" and the
       // operator can distinguish offline-skip from a real install bug
       // when reviewing flaky-run dashboards.

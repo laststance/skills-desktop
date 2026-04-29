@@ -1,6 +1,6 @@
-import { lstatSync, readdirSync, rmSync } from 'node:fs'
+import { lstatSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { isAbsolute, join, relative, resolve } from 'node:path'
 
 /**
  * The developer's real `~/.Trash`. macOS `shell.trashItem` is uid-based
@@ -122,31 +122,80 @@ export function findMatchingTrashedAgentDir(
  * `rmSync` with `force/recursive` handles both files and directories,
  * matching the shape variation `shell.trashItem` may produce per volume.
  *
- * Defense-in-depth: refuses to remove any path not rooted at
- * `USER_TRASH_DIR`. `diffUserTrash` always returns paths under
- * `USER_TRASH_DIR`, so this guard is a no-op for the supported caller, but
- * it keeps a future misuse (passing arbitrary paths) from `rm -rf`-ing the
- * developer's home dir.
+ * Defense-in-depth: refuses to remove any path that does not resolve to a
+ * descendant of `USER_TRASH_DIR`. The previous `startsWith` prefix check
+ * was bypassable via `..` segments — e.g.
+ * `~/.Trash/../Documents/secret` starts with `~/.Trash/` but resolves
+ * outside the trash dir. `path.resolve` normalizes the segments first,
+ * then `path.relative` confirms containment without prefix-string foot-
+ * guns. `diffUserTrash` always returns in-trash paths today, so this
+ * guard is a no-op for the supported caller — it exists so a future
+ * misuse (passing arbitrary paths) cannot rm-rf outside `~/.Trash`.
  *
  * @example
  * try { ... } finally { cleanupTrashEntries(newPaths) }
  */
 export function cleanupTrashEntries(paths: readonly string[]): void {
-  const trashRootPrefix = `${USER_TRASH_DIR}/`
+  const trashRoot = resolve(USER_TRASH_DIR)
   for (const trashedPath of paths) {
-    if (!trashedPath.startsWith(trashRootPrefix)) {
+    const normalizedTarget = resolve(trashedPath)
+    const relativeFromTrashRoot = relative(trashRoot, normalizedTarget)
+    const isInsideTrash =
+      relativeFromTrashRoot.length > 0 &&
+      !relativeFromTrashRoot.startsWith('..') &&
+      !isAbsolute(relativeFromTrashRoot)
+    if (!isInsideTrash) {
       console.warn(
         `[e2e] Refusing to clean up path outside ~/.Trash: ${trashedPath}`,
       )
       continue
     }
     try {
-      rmSync(trashedPath, { recursive: true, force: true })
+      rmSync(normalizedTarget, { recursive: true, force: true })
     } catch (err) {
       console.warn(
         `[e2e] Failed to clean up trashed entry ${trashedPath}:`,
         err,
       )
     }
+  }
+}
+
+/**
+ * Determine whether `inspectedPath` is on the same physical volume as the
+ * user's `~/.Trash`. macOS `shell.trashItem` (NSWorkspace) routes per-
+ * volume: files on the boot volume land in `~/.Trash`, files on other
+ * mounted volumes land in `<volume>/.Trashes/<uid>`. Tests that snapshot
+ * or diff `~/.Trash` are only valid when the source path lives on the
+ * boot volume.
+ *
+ * In practice macOS `tmpdir()` resolves to `/var/folders/.../T` on the
+ * boot APFS volume on every standard dev box, so this returns `true` for
+ * the supported configuration. The check exists so a non-standard mount
+ * (e.g., `/tmp` on a separate filesystem, or running specs from an
+ * external volume) skips the affected specs loudly instead of failing
+ * with a misleading "no matching trash entry" message.
+ *
+ * @param inspectedPath - Absolute path whose volume should be compared
+ *   against `USER_TRASH_DIR`. Typical caller passes `isolatedHome`.
+ * @returns
+ * - `true` when both paths share the same `stat.dev` value.
+ * - `false` when the volumes differ OR either `stat` call throws (missing
+ *   path, permission denied — both indicate the test should not run).
+ *
+ * @example
+ * test('...', async ({ isolatedHome }) => {
+ *   test.skip(
+ *     !isSameVolumeAsUserTrash(isolatedHome),
+ *     'isolatedHome is on a different volume than ~/.Trash; ' +
+ *       'shell.trashItem would route to <volume>/.Trashes/<uid>.',
+ *   )
+ * })
+ */
+export function isSameVolumeAsUserTrash(inspectedPath: string): boolean {
+  try {
+    return statSync(inspectedPath).dev === statSync(USER_TRASH_DIR).dev
+  } catch {
+    return false
   }
 }

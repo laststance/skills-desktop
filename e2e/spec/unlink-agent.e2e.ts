@@ -24,6 +24,7 @@ import {
   cleanupTrashEntries,
   diffUserTrash,
   findMatchingTrashedAgentDir,
+  isSameVolumeAsUserTrash,
   snapshotUserTrash,
 } from '../helpers/user-trash'
 
@@ -553,6 +554,20 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
   appWindow,
   isolatedHome,
 }) => {
+  // Cross-volume isolatedHome would route shell.trashItem into
+  // <volume>/.Trashes/<uid> instead of ~/.Trash, breaking both the
+  // diffUserTrash inspection and the cleanup. Skip loudly rather than
+  // false-failing on a misleading "no matching trash entry" assertion.
+  // tmpdir() is on the boot volume on every standard macOS dev box, so
+  // this skip should never fire in practice.
+  if (!isSameVolumeAsUserTrash(isolatedHome)) {
+    test.skip(
+      true,
+      `isolatedHome ${isolatedHome} is on a different volume than ~/.Trash; ` +
+        'shell.trashItem would route to <volume>/.Trashes/<uid>.',
+    )
+    return
+  }
   const clineAgentPath = join(isolatedHome, '.cline', 'skills')
   // Sanity — global-setup leaves .cline/skills absent. If a future skills-cli
   // bump ever links cline by default, the count assertion below would silently
@@ -664,6 +679,18 @@ test('removeAllFromAgent surfaces structured failure when shell.trashItem reject
   // never the case in CI or normal dev.
   if (process.getuid?.() === 0) {
     test.skip(true, 'POSIX permission revocation does not constrain root')
+    return
+  }
+
+  // Cross-volume guard mirrors C1: the regression-detection diff only
+  // makes sense if a hypothetical trashItem success would land in
+  // ~/.Trash and not in <volume>/.Trashes/<uid>.
+  if (!isSameVolumeAsUserTrash(isolatedHome)) {
+    test.skip(
+      true,
+      `isolatedHome ${isolatedHome} is on a different volume than ~/.Trash; ` +
+        'shell.trashItem would route to <volume>/.Trashes/<uid>.',
+    )
     return
   }
 
