@@ -83,6 +83,32 @@ declare global {
               }
           >
         }>
+        unlinkFromAgent: (options: {
+          skillName: string
+          agentId: string
+          linkPath: string
+        }) => Promise<{ success: boolean; error?: string }>
+        unlinkManyFromAgent: (options: {
+          agentId: string
+          items: Array<{ skillName: string }>
+        }) => Promise<{
+          items: Array<
+            | { skillName: string; outcome: 'unlinked' }
+            | {
+                skillName: string
+                outcome: 'error'
+                error: { message: string; code?: string }
+              }
+          >
+        }>
+        removeAllFromAgent: (options: {
+          agentId: string
+          agentPath: string
+        }) => Promise<{
+          success: boolean
+          removedCount: number
+          error?: string
+        }>
       }
     }
   }
