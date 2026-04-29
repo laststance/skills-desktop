@@ -4,6 +4,7 @@ import { repositoryId } from '../../../shared/types'
 import type {
   AgentId,
   BookmarkedSkill,
+  RepositoryId,
   Skill,
   SkillName,
   SymlinkInfo,
@@ -25,7 +26,9 @@ import {
 function buildState(overrides: {
   skills?: Skill[]
   searchQuery?: string
+  searchScope?: 'name' | 'repo'
   selectedAgentId?: AgentId | null
+  selectedSource?: RepositoryId | null
   sortOrder?: 'asc' | 'desc'
   skillTypeFilter?: 'all' | 'symlinked' | 'local'
   bookmarks?: BookmarkedSkill[]
@@ -57,6 +60,8 @@ function buildState(overrides: {
     ui: {
       activeTab: 'installed' as const,
       searchQuery: overrides.searchQuery ?? '',
+      searchScope: overrides.searchScope ?? ('name' as const),
+      selectedSource: overrides.selectedSource ?? null,
       sourceStats: null,
       isRefreshing: false,
       selectedAgentId: overrides.selectedAgentId ?? null,
@@ -109,8 +114,17 @@ function buildState(overrides: {
  * @param isLocal - false = symlinked source skill (default), true = agent-local-only
  *   folder. `isLocal=true` implies the skill exists only under `~/.<agent>/skills/`,
  *   never inside SOURCE_DIR, so `isSource` is forced to `false`.
+ * @param source - Optional repo slug (`"owner/repo"`); when provided, sets
+ *   both `source` and `sourceUrl` on the skill so repo-scope tests can assert
+ *   on a real value. Omitted by default to mimic the most common state where
+ *   skills lack source metadata.
  */
-const makeSkill = (name: string, agentId: AgentId, isLocal = false): Skill => ({
+const makeSkill = (
+  name: string,
+  agentId: AgentId,
+  isLocal = false,
+  source?: string,
+): Skill => ({
   name,
   description: `${name} skill`,
   path: isLocal
@@ -130,6 +144,12 @@ const makeSkill = (name: string, agentId: AgentId, isLocal = false): Skill => ({
     },
   ],
   isSource: !isLocal,
+  ...(source
+    ? {
+        source: repositoryId(source),
+        sourceUrl: `https://github.com/${source}.git`,
+      }
+    : {}),
 })
 
 describe('selectFilteredSkills', () => {
@@ -320,6 +340,163 @@ describe('selectFilteredSkills', () => {
       expect(result.map((s) => s.name)).toEqual(['task'])
     },
   )
+
+  it('searchScope=repo matches against skill.source (repository slug)', () => {
+    const skills = [
+      makeSkill('task', 'claude-code', false, 'vercel-labs/skills'),
+      makeSkill('browse', 'cursor', false, 'pbakaus/impeccable'),
+      makeSkill('mcp', 'cursor', false, 'figma/mcp-server-guide'),
+    ]
+    const state = buildState({
+      skills,
+      searchQuery: 'figma',
+      searchScope: 'repo',
+    })
+    const result = selectFilteredSkills(state as never)
+    expect(result.map((s) => s.name)).toEqual(['mcp'])
+  })
+
+  it('searchScope=repo excludes Local skills (no source) even if name matches', () => {
+    // Critical regression guard: in repo mode, a skill without `source` must
+    // never appear, otherwise the result becomes inconsistent ("I searched a
+    // repo and got a non-repo skill") and the toggle loses its meaning.
+    const skills = [
+      makeSkill('task', 'cursor'), // no source — Local-flavored
+      makeSkill('task-from-repo', 'cursor', false, 'vercel-labs/skills'),
+    ]
+    const state = buildState({
+      skills,
+      searchQuery: 'task',
+      searchScope: 'repo',
+    })
+    const result = selectFilteredSkills(state as never)
+    expect(result.map((s) => s.name)).toEqual([])
+  })
+
+  it('selectedSource pill alone narrows to the matching repo with no query', () => {
+    const skills = [
+      makeSkill('a', 'claude-code', false, 'vercel-labs/skills'),
+      makeSkill('b', 'claude-code', false, 'vercel-labs/skills'),
+      makeSkill('c', 'claude-code', false, 'pbakaus/impeccable'),
+    ]
+    const state = buildState({
+      skills,
+      selectedSource: repositoryId('vercel-labs/skills'),
+    })
+    const result = selectFilteredSkills(state as never)
+    expect(result.map((s) => s.name)).toEqual(['a', 'b'])
+  })
+
+  it('selectedSource pill stacks with searchScope=name + query', () => {
+    // Scope is 'name' (default) — the pill narrows population to one repo,
+    // then the name query narrows further within that population.
+    const skills = [
+      makeSkill('alpha', 'claude-code', false, 'vercel-labs/skills'),
+      makeSkill('beta', 'claude-code', false, 'vercel-labs/skills'),
+      makeSkill('alpha-other', 'claude-code', false, 'pbakaus/impeccable'),
+    ]
+    const state = buildState({
+      skills,
+      selectedSource: repositoryId('vercel-labs/skills'),
+      searchQuery: 'alpha',
+      searchScope: 'name',
+    })
+    const result = selectFilteredSkills(state as never)
+    expect(result.map((s) => s.name)).toEqual(['alpha'])
+  })
+
+  it('selectedSource pill stacks with selectedAgentId (orthogonal filters)', () => {
+    // Per Issue 4 decision: the source pill is independent of the agent pill.
+    // Selecting an agent must not silently reset the pill, and the resulting
+    // list intersects both filters.
+    const skills = [
+      makeSkill('a', 'cursor', false, 'vercel-labs/skills'),
+      makeSkill('b', 'claude-code', false, 'vercel-labs/skills'),
+      makeSkill('c', 'cursor', false, 'pbakaus/impeccable'),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      selectedSource: repositoryId('vercel-labs/skills'),
+    })
+    const result = selectFilteredSkills(state as never)
+    expect(result.map((s) => s.name)).toEqual(['a'])
+  })
+
+  it('searchScope=name preserves the original name-match behavior', () => {
+    // Regression guard: explicitly setting scope='name' must behave identically
+    // to the pre-feature default so the toggle round-trips cleanly.
+    const skills = [
+      makeSkill('task', 'claude-code', false, 'vercel-labs/skills'),
+      makeSkill('browse', 'cursor', false, 'vercel-labs/skills'),
+    ]
+    const state = buildState({
+      skills,
+      searchQuery: 'task',
+      searchScope: 'name',
+    })
+    const result = selectFilteredSkills(state as never)
+    expect(result.map((s) => s.name)).toEqual(['task'])
+  })
+
+  it('searchScope=repo with empty query does not exclude Local skills', () => {
+    // The repo-scope filter only kicks in when there's a non-empty query.
+    // An empty query in repo scope must still surface Local skills, because
+    // the toggle is about what the query matches against, not a standalone
+    // "show only repo skills" filter. Guards against a regression where the
+    // scope itself was treated as a population filter.
+    const skills = [
+      makeSkill('local-task', 'cursor'),
+      makeSkill('repo-task', 'cursor', false, 'vercel-labs/skills'),
+    ]
+    const state = buildState({
+      skills,
+      searchQuery: '',
+      searchScope: 'repo',
+    })
+    const result = selectFilteredSkills(state as never)
+    // Both surface — agent filter narrows to cursor, neither query nor
+    // scope are doing any filtering work with an empty query.
+    expect(result.map((s) => s.name)).toEqual(['local-task', 'repo-task'])
+  })
+
+  it('selectedSource pill stacks with searchScope=repo + matching query', () => {
+    // Three-way compound: pill narrows to one repo, scope=repo searches
+    // within source strings, query matches that source — confirms the
+    // filters compose without short-circuiting each other (per Issue 4).
+    const skills = [
+      makeSkill('a', 'claude-code', false, 'vercel-labs/skills'),
+      makeSkill('b', 'claude-code', false, 'vercel-labs/skills'),
+      makeSkill('c', 'claude-code', false, 'pbakaus/impeccable'),
+    ]
+    const state = buildState({
+      skills,
+      selectedSource: repositoryId('vercel-labs/skills'),
+      searchQuery: 'vercel',
+      searchScope: 'repo',
+    })
+    const result = selectFilteredSkills(state as never)
+    expect(result.map((s) => s.name)).toEqual(['a', 'b'])
+  })
+
+  it('selectedSource pill + searchScope=repo with non-matching query returns empty', () => {
+    // Edge case: the pill says "in vercel-labs/skills" but the user types
+    // 'figma' in repo scope. The compound filter must return empty — the
+    // pill-narrowed population doesn't have a source matching 'figma',
+    // so neither pill nor scope can produce a hit on its own.
+    const skills = [
+      makeSkill('a', 'claude-code', false, 'vercel-labs/skills'),
+      makeSkill('b', 'claude-code', false, 'figma/mcp-server-guide'),
+    ]
+    const state = buildState({
+      skills,
+      selectedSource: repositoryId('vercel-labs/skills'),
+      searchQuery: 'figma',
+      searchScope: 'repo',
+    })
+    const result = selectFilteredSkills(state as never)
+    expect(result.map((s) => s.name)).toEqual([])
+  })
 
   it('is memoized (returns same reference for same inputs)', () => {
     const skills = [makeSkill('task', 'claude-code')]

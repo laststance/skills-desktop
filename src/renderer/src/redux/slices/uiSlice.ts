@@ -6,6 +6,7 @@ import type {
   AgentName,
   BookmarkedSkill,
   IsoTimestamp,
+  RepositoryId,
   SearchQuery,
   SkillName,
   SourceStats,
@@ -25,6 +26,13 @@ export type BookmarkForDetail = BookmarkedSkill & { isInstalled: boolean }
 export type SortOrder = 'asc' | 'desc'
 export type SkillTypeFilter = 'all' | 'symlinked' | 'local'
 export type ActiveTab = 'installed' | 'marketplace'
+/**
+ * Which field the search box matches against.
+ * - `'name'` — matches `Skill.name` (default; previous behavior).
+ * - `'repo'` — matches `Skill.source` (e.g. `"vercel-labs/skills"`).
+ *   Local skills with no `source` are excluded from results in this mode.
+ */
+export type SearchScope = 'name' | 'repo'
 
 /**
  * Shape used by the sonner-rendered UndoToast for bulk delete/unlink.
@@ -68,6 +76,17 @@ interface UiState {
   /** Active main content tab */
   activeTab: ActiveTab
   searchQuery: SearchQuery
+  /**
+   * Which Skill field `searchQuery` matches against. Toggle in `SearchBox`.
+   * Persists across agent changes — scope is a query intent, not list state.
+   */
+  searchScope: SearchScope
+  /**
+   * Repository filter pill. Set when the user clicks a SourceLink text;
+   * cleared from the FilterPill's "Clear" button. Orthogonal to the agent
+   * filter — both can be active simultaneously (skills in agent X from repo Y).
+   */
+  selectedSource: RepositoryId | null
   sourceStats: SourceStats | null
   isRefreshing: boolean
   /** Currently selected agent filter (null = global/all-agents view). */
@@ -109,6 +128,8 @@ interface UiState {
 const initialState: UiState = {
   activeTab: 'installed',
   searchQuery: '',
+  searchScope: 'name',
+  selectedSource: null,
   sourceStats: null,
   isRefreshing: false,
   selectedAgentId: null,
@@ -174,6 +195,30 @@ const uiSlice = createSlice({
     },
     setSearchQuery: (state, action: PayloadAction<SearchQuery>) => {
       state.searchQuery = action.payload
+    },
+    /**
+     * Toggle which Skill field the search query matches.
+     * Does not clear `searchQuery` or `selectedSource` — the user is
+     * narrowing intent, not abandoning the in-progress search.
+     */
+    setSearchScope: (state, action: PayloadAction<SearchScope>) => {
+      state.searchScope = action.payload
+    },
+    /**
+     * Activate the repository filter pill. Dispatched when the user clicks
+     * a SourceLink's repo text on a skill row. Independent of the agent
+     * pill — both can render simultaneously.
+     */
+    setSelectedSource: (state, action: PayloadAction<RepositoryId>) => {
+      state.selectedSource = action.payload
+    },
+    /**
+     * Dismiss the repository filter pill. Wired to the FilterPill's "Clear"
+     * button. Does not touch `searchScope` or `searchQuery` — those remain
+     * as the user left them.
+     */
+    clearSelectedSource: (state) => {
+      state.selectedSource = null
     },
     setRefreshing: (state, action: PayloadAction<boolean>) => {
       state.isRefreshing = action.payload
@@ -325,6 +370,9 @@ const uiSlice = createSlice({
 export const {
   setActiveTab,
   setSearchQuery,
+  setSearchScope,
+  setSelectedSource,
+  clearSelectedSource,
   setRefreshing,
   selectAgent,
   toggleSortOrder,
@@ -347,6 +395,10 @@ export const selectActiveTab = (state: RootState): ActiveTab =>
   state.ui.activeTab
 export const selectSearchQuery = (state: RootState): SearchQuery =>
   state.ui.searchQuery
+export const selectSearchScope = (state: RootState): SearchScope =>
+  state.ui.searchScope
+export const selectSelectedSource = (state: RootState): RepositoryId | null =>
+  state.ui.selectedSource
 export const selectSelectedAgentId = (state: RootState): AgentId | null =>
   state.ui.selectedAgentId
 export const selectSourceStats = (state: RootState): SourceStats | null =>

@@ -35,12 +35,14 @@ import {
 import type { ActiveTab, SkillTypeFilter } from '../../redux/slices/uiSlice'
 import {
   clearBulkConfirm,
+  clearSelectedSource,
   clearUndoToast,
   enterBulkSelectMode,
   exitBulkSelectMode,
   selectAgent,
   selectBulkConfirm,
   selectBulkSelectMode,
+  selectSelectedSource,
   setActiveTab,
   setBulkConfirm,
   setSkillTypeFilter,
@@ -84,6 +86,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
+import { FilterPill } from '../ui/FilterPill'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 
 const SKILL_TYPE_FILTER_OPTIONS: {
@@ -118,11 +121,16 @@ export const MainContent = React.memo(
 
     const bulkConfirm = useAppSelector(selectBulkConfirm)
     const bulkSelectMode = useAppSelector(selectBulkSelectMode)
+    const selectedSource = useAppSelector(selectSelectedSource)
 
     const selectedAgent = agents.find((a) => a.id === selectedAgentId)
 
     const handleClearFilter = (): void => {
       dispatch(selectAgent(null))
+    }
+
+    const handleClearSourceFilter = (): void => {
+      dispatch(clearSelectedSource())
     }
 
     const handleTabChange = (value: string): void => {
@@ -531,21 +539,34 @@ export const MainContent = React.memo(
 
             {/* Agent filter indicator */}
             {selectedAgent && (
-              <div className="px-4 py-2 border-b border-border bg-primary/5 flex items-center justify-between shrink-0">
-                <span className="text-sm">
-                  Showing skills for{' '}
-                  <strong className="text-primary">{selectedAgent.name}</strong>
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleClearFilter}
-                  className="min-h-[44px] px-3"
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Clear
-                </Button>
-              </div>
+              <FilterPill
+                label={
+                  <>
+                    for{' '}
+                    <strong className="text-primary">
+                      {selectedAgent.name}
+                    </strong>
+                  </>
+                }
+                onClear={handleClearFilter}
+                testId="agent-filter-pill"
+              />
+            )}
+
+            {/* Source-repo filter indicator. Stacks orthogonally with the
+                Agent pill — the user can narrow by agent AND by repo at the
+                same time without one resetting the other. */}
+            {selectedSource && (
+              <FilterPill
+                label={
+                  <>
+                    from{' '}
+                    <strong className="text-primary">{selectedSource}</strong>
+                  </>
+                }
+                onClear={handleClearSourceFilter}
+                testId="source-filter-pill"
+              />
             )}
 
             {/* Renders only when at least one skill is ticked. */}
