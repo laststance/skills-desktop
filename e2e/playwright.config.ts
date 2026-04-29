@@ -1,5 +1,6 @@
-import { defineConfig } from '@playwright/test'
 import { resolve } from 'node:path'
+
+import { defineConfig } from '@playwright/test'
 
 const e2eRoot = __dirname
 

@@ -1,10 +1,11 @@
+import { resolve } from 'node:path'
+
 import {
   test as baseTest,
   _electron,
   type ElectronApplication,
   type Page,
 } from '@playwright/test'
-import { resolve } from 'node:path'
 
 import { createIsolatedHome, destroyIsolatedHome } from './isolated-home'
 
@@ -27,6 +28,10 @@ interface ElectronFixtures {
  * the renderer/preload when `E2E_BUILD=1` was set at build time.
  */
 export const test = baseTest.extend<ElectronFixtures>({
+  // Playwright reads the destructured fixture names to build the dependency
+  // graph. `isolatedHome` requests no other fixtures, so the parameter must
+  // stay as `{}` — replacing it with `_` would change Playwright's analysis.
+  // eslint-disable-next-line no-empty-pattern
   isolatedHome: async ({}, use) => {
     const home = createIsolatedHome()
     await use(home)

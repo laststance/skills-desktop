@@ -15,7 +15,7 @@ interface RunResult {
   timedOut: boolean
 }
 
-function runNpx(args: string[], home: string): Promise<RunResult> {
+async function runNpx(args: string[], home: string): Promise<RunResult> {
   return new Promise((resolveRun) => {
     const child = spawn('npx', args, {
       env: { ...process.env, HOME: home, PATH: process.env['PATH'] ?? '' },
