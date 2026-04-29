@@ -1,4 +1,11 @@
-import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 
 import { test, expect } from '../fixtures/electron-app'
@@ -7,6 +14,16 @@ import {
   refreshSkillsState,
   waitForInitialScan,
 } from '../helpers/redux'
+
+/**
+ * Mirrors `UNDO_WINDOW_MS` in `src/shared/constants.ts`. Duplicated here
+ * (rather than imported) because the e2e suite has its own tsconfig and
+ * import budget — adding a renderer/main barrel just for one constant
+ * outweighs the upkeep cost of this comment. If the production constant
+ * ever drifts, the 15s-timer test below fails immediately with a clear
+ * "expected entry to be evicted, still present" assertion.
+ */
+const UNDO_WINDOW_MS_FOR_TEST = 15_000
 
 interface SymlinkSnapshot {
   agentId: string
@@ -82,10 +99,8 @@ const azureSnapshotSelector = (state: unknown): AzureSnapshot => {
  * restore test below recovers the id by reading the on-disk trash dir, which
  * is a legitimate test-only seam (the renderer does not perform this lookup).
  *
- * TODO Phase-2 follow-up: cover the local-only delete branch (skills that
- * exist as real folders in agent dirs with no `~/.agents/skills/<name>`
- * source). That path exercises `moveLocalOnlyToTrash` + `restoreLocalOnly`
- * which is independently bisectable from the source-backed flow.
+ * Local-only branch coverage (`moveLocalOnlyToTrash`) and the 15s undo-window
+ * eviction live in dedicated tests below the source-backed pair.
  */
 
 test('deleteSkill moves source-backed skill into trash and unlinks every agent symlink', async ({
@@ -245,4 +260,183 @@ test('restoreDeletedSkill recovers a source-backed deletion within the undo wind
   expect(
     restored.validSymlinks.map((symlink) => symlink.agentId).sort(),
   ).toEqual(initial.validSymlinks.map((symlink) => symlink.agentId).sort())
+})
+
+interface LocalOnlyManifest {
+  schemaVersion: 2
+  kind: 'local-only'
+  deletedAt: number
+  skillName: string
+  localCopies: Array<{ agentId: string; linkPath: string }>
+}
+
+/**
+ * Local-only delete branch — exercises the second arm of `moveToTrash`'s
+ * dispatcher in `trashService.ts:265-273`. Source dir at
+ * `~/.agents/skills/<name>` is intentionally absent; the skill exists ONLY
+ * as a real folder under one or more agent dirs. The handler must:
+ *
+ *   1. Probe `~/.agents/skills/<name>` → ENOENT, NOT throw.
+ *   2. `scanLocalCopies(skillName)` finds the real folder(s).
+ *   3. `moveLocalOnlyToTrash` renames each into `<entryDir>/local-copies/<agentId>`.
+ *   4. Manifest is written with `kind: 'local-only'` (not `'source-backed'`).
+ *
+ * Codex is chosen over claude/cursor because the QA Safety contract in
+ * CLAUDE.md flags those two as the user's live working sets — even though
+ * this test runs under an isolated tempdir HOME, picking codex keeps the
+ * pattern consistent with the spirit of the rule for any human reviewer.
+ *
+ * The renderer-side scanSkills surfaces local-only skills with `isLocal: true`
+ * symlink rows, so a post-delete `state.skills.items` lookup is the canonical
+ * way to confirm the entry vanished — same shape as the source-backed test.
+ */
+test('deleteSkill moves a local-only skill into trash with kind="local-only" manifest', async ({
+  appWindow,
+  isolatedHome,
+}) => {
+  const skillName = 'local-only-skill'
+  const codexAgentDir = join(isolatedHome, '.codex', 'skills', skillName)
+  mkdirSync(codexAgentDir, { recursive: true })
+  const localOnlyContent = `# ${skillName}\n\nlocal-only fixture for delete.e2e.ts\n`
+  writeFileSync(join(codexAgentDir, 'SKILL.md'), localOnlyContent)
+
+  // Sanity — confirm the source dir branch will NOT trigger. If a future
+  // refactor of the snapshot ever pre-creates this name as source-backed,
+  // moveToTrash takes the wrong path and the manifest below ends up
+  // 'source-backed'. Failing fast here gives a clearer signal than a
+  // downstream JSON shape mismatch.
+  expect(
+    existsSync(join(isolatedHome, '.agents', 'skills', skillName)),
+    'local-only test requires the source dir to be absent',
+  ).toBe(false)
+
+  await waitForInitialScan(appWindow)
+
+  const ipcResult = await appWindow.evaluate(
+    async (name: string) =>
+      window.electron.skills.deleteSkill({ skillName: name }),
+    skillName,
+  )
+
+  expect(ipcResult.success).toBe(true)
+  // The local-only return reuses `symlinksRemoved` to mean "agent folders
+  // moved" — see trashService.ts:660-664. One agent staged, so 1.
+  expect(ipcResult.symlinksRemoved).toBe(1)
+  expect(ipcResult.cascadeAgents).toEqual(['codex'])
+
+  // FS — codex's real folder is gone (renamed into trash).
+  expect(existsSync(codexAgentDir)).toBe(false)
+
+  // FS — trash entry has the local-copies/<agentId>/ shape, NOT a source/
+  // subdirectory. Catching this discriminator at the FS layer is what makes
+  // the test independently bisectable from the source-backed flow.
+  const trashDir = join(isolatedHome, '.agents', '.trash')
+  const trashEntries = readdirSync(trashDir).filter((entry) =>
+    entry.includes(`-${skillName}-`),
+  )
+  expect(trashEntries).toHaveLength(1)
+  const entryDir = join(trashDir, trashEntries[0])
+  expect(existsSync(join(entryDir, 'local-copies', 'codex'))).toBe(true)
+  expect(existsSync(join(entryDir, 'local-copies', 'codex', 'SKILL.md'))).toBe(
+    true,
+  )
+  expect(existsSync(join(entryDir, 'source'))).toBe(false)
+
+  // Manifest kind is the canonical discriminator the restore path branches
+  // on (`restoreLocalOnly` vs the source-backed restore). A regression that
+  // wrote 'source-backed' here would silently break the undo flow.
+  const manifest = JSON.parse(
+    readFileSync(join(entryDir, 'manifest.json'), 'utf-8'),
+  ) as LocalOnlyManifest
+  expect(manifest.schemaVersion).toBe(2)
+  expect(manifest.kind).toBe('local-only')
+  expect(manifest.skillName).toBe(skillName)
+  expect(manifest.localCopies).toHaveLength(1)
+  expect(manifest.localCopies[0].agentId).toBe('codex')
+  expect(manifest.localCopies[0].linkPath).toBe(codexAgentDir)
+})
+
+/**
+ * Undo-window TTL eviction — `moveToTrash` schedules `setTimeout(evict,
+ * UNDO_WINDOW_MS)` after staging the entry (see `trashService.ts:484-487` for
+ * source-backed and `:648-651` for local-only). After the timer fires:
+ *
+ *   1. The entry dir is removed from `.trash/`.
+ *   2. The internal `evictTimers` map drops the id (idempotent next call).
+ *
+ * This test polls the FS in real time (deadline `UNDO_WINDOW_MS + 10s`)
+ * instead of mocking timers because:
+ *   - The timer lives in the main process; the renderer's clock is irrelevant.
+ *   - The test helpers `__clearEvictTimersForTests` cancel timers WITHOUT
+ *     firing them, so they prove the absence of leaks but NOT that the
+ *     scheduled callback evicts correctly.
+ *   - Real-time wait is the only way to exercise the production code path.
+ *
+ * Test budget: setup (~3s) + 15s wait + up to 10s poll deadline ~= 25-28s on
+ * the slow path. Bumping the per-test timeout to 45s leaves headroom for
+ * macOS CI variance. Happy path returns as soon as `existsSync(entryDir)`
+ * flips false (typically within ~100ms of UNDO_WINDOW_MS firing).
+ */
+test('source-backed delete entry is auto-evicted after UNDO_WINDOW_MS', async ({
+  appWindow,
+  isolatedHome,
+}) => {
+  test.setTimeout(45_000)
+
+  await waitForInitialScan(appWindow)
+
+  const expectedSourcePath = join(
+    isolatedHome,
+    '.agents',
+    'skills',
+    AZURE_AI_NAME,
+  )
+
+  const initial = await getStoreState(appWindow, azureSnapshotSelector)
+  expect(initial.hasAzure).toBe(true)
+
+  const deleteResult = await appWindow.evaluate(
+    async (skillName: string) =>
+      window.electron.skills.deleteSkill({ skillName }),
+    AZURE_AI_NAME,
+  )
+  expect(deleteResult.success).toBe(true)
+
+  // Locate the staged entry by name pattern. Single match expected because
+  // we just deleted exactly one azure-ai entry into a fresh isolated HOME.
+  const trashDir = join(isolatedHome, '.agents', '.trash')
+  const trashEntries = readdirSync(trashDir).filter((entry) =>
+    entry.includes(`-${AZURE_AI_NAME}-`),
+  )
+  expect(trashEntries).toHaveLength(1)
+  const tombstoneIdValue = trashEntries[0]
+  const entryDir = join(trashDir, tombstoneIdValue)
+
+  // Pre-eviction sanity — the entry exists right after the IPC settles. If
+  // this fails, `moveToTrash` is dropping the staged dir before the timer
+  // even runs (a different bug than the one this test is hunting).
+  expect(existsSync(entryDir)).toBe(true)
+  expect(existsSync(expectedSourcePath)).toBe(false)
+
+  // KEY assertion — the entire entry is gone. A bounded poll instead of a
+  // fixed sleep: the happy path returns as soon as eviction lands (under
+  // load CI macOS runners can take an extra few hundred ms after the timer
+  // fires), and the deadline still bounds wall time at UNDO_WINDOW_MS + 10s.
+  //
+  // Regression coverage stays the same:
+  //   - never schedules the timer → entry persists, poll times out
+  //   - clears the timer without calling evict → same
+  //   - evict throws on a partial dir → entry partially remains, poll
+  //     times out because existsSync(entryDir) stays true
+  await expect
+    .poll(() => existsSync(entryDir), {
+      timeout: UNDO_WINDOW_MS_FOR_TEST + 10_000,
+      intervals: [250, 500, 1_000],
+    })
+    .toBe(false)
+
+  // Source dir stays gone post-eviction — eviction is meant to delete the
+  // staged copy, NOT resurrect the original. A regression that mistakenly
+  // restored on TTL expiry would surface here as `existsSync === true`.
+  expect(existsSync(expectedSourcePath)).toBe(false)
 })
