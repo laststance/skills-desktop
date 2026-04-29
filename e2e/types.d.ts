@@ -38,6 +38,15 @@ declare global {
      * Mirrors the relevant shape of `src/renderer/src/types/electron.d.ts`
      * but avoids importing across tsconfig boundaries — only the channels
      * the suite drives are typed here.
+     *
+     * **Non-optional by contract.** The Playwright fixture only launches
+     * builds produced with `E2E_BUILD=1`, and the contextBridge expose
+     * happens unconditionally in `src/preload/index.ts:30`. Marking this
+     * `electron?:` would force every `page.evaluate(... window.electron.X)`
+     * call site to add optional chaining for a guarantee that already
+     * holds — verbose with no diagnostic value. If the bridge ever fails
+     * to mount, the spec fails on the first call with a clear "cannot
+     * read properties of undefined" message that names the channel.
      */
     electron: {
       skills: {

@@ -11,7 +11,6 @@ import {
 
 interface SymlinkSnapshot {
   agentId: string
-  agentName: string
   status: 'valid' | 'broken' | 'missing'
   isLocal: boolean
   linkPath: string
@@ -94,6 +93,13 @@ test('cline/warp do NOT report universal source skills as their own local skills
   expect(
     existsSync(join(isolatedHome, '.agents', 'skills', AZURE_AI_NAME)),
   ).toBe(true)
+  // Cline/Warp scanDirs may not exist in the snapshot HOME at all — the
+  // skills CLI only creates `~/.cline/skills` and `~/.warp/skills` when an
+  // agent is targeted via `--agent`, and global-setup intentionally does not.
+  // Skipping `readdirSync` when the dir is absent is sound: a non-existent
+  // dir trivially cannot contain `azure-ai`, so the contrapositive of the
+  // assertion still holds. The block runs only when the layout *could*
+  // contain a false-positive.
   const clineDirExists = existsSync(join(isolatedHome, '.cline', 'skills'))
   const warpDirExists = existsSync(join(isolatedHome, '.warp', 'skills'))
   if (clineDirExists) {

@@ -84,6 +84,13 @@ pnpm test:e2e
 
 E2E specs live in `e2e/spec/*.e2e.ts`. The suite uses `cp -al` hardlink snapshots so each test starts from a fresh, populated `~/.agents/skills/` without re-running the skills CLI installer (~50 ms reset). CI runs on `macos-latest` (`.github/workflows/e2e.yml`); failures upload `playwright-report/` and `test-results/` as artifacts (traces + videos retained on failure).
 
+> **⚠️ Hardlink caveat for spec authors.** Hardlinked files share inodes
+> across every working HOME, so in-place edits (`writeFileSync` over an
+> existing `SKILL.md`, `appendFileSync`, etc.) corrupt the snapshot for
+> every subsequent test. Safe ops only: `unlink`, `rmdir`, `mkdir` +
+> `writeFile` of NEW paths. See `e2e/fixtures/isolated-home.ts:44-50`
+> for the canonical safe-ops list.
+
 ### Build
 
 ```bash

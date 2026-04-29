@@ -1,9 +1,28 @@
 import type { Page } from '@playwright/test'
 
 /**
+ * Action type that the `skillsSlice` `fetchAll` thunk dispatches on success.
+ *
+ * This is duplicated from `src/renderer/src/store/skillsSlice.ts` because
+ * `helpers/*` runs in the Playwright Node context — it cannot import the
+ * renderer bundle. Keeping the literal in one place (here) gives `grep`-able
+ * coupling: if the slice ever renames the thunk, the only spot a stale
+ * literal lingers is this constant.
+ *
+ * @see refreshSkillsState for the consumer.
+ */
+const SKILLS_FETCH_ALL_FULFILLED_TYPE = 'skills/fetchAll/fulfilled'
+
+/**
  * Read a slice of the renderer's Redux store via `page.evaluate`.
  * Throws on the test side (not the renderer) when the store isn't exposed,
  * which usually means the bundle was built without `E2E_BUILD=1`.
+ *
+ * Selector errors are wrapped with the source string + the failing message
+ * so a TypeError like `Cannot read properties of undefined (reading 'items')`
+ * surfaces alongside the actual selector body in the test failure output.
+ * Without this wrapping the error lands as a generic Playwright eval failure
+ * and the spec author has to re-derive which selector blew up.
  *
  * @example
  * const tab = await getStoreState(page, (state: any) => state.ui.activeTab)
@@ -23,10 +42,67 @@ export async function getStoreState<T>(
       const fn = new Function('state', `return (${selectorSrc})(state)`) as (
         state: unknown,
       ) => unknown
-      return fn(store.getState())
+      try {
+        return fn(store.getState())
+      } catch (selectorError) {
+        const errorMessage =
+          selectorError instanceof Error
+            ? selectorError.message
+            : String(selectorError)
+        throw new Error(
+          `getStoreState selector threw: ${errorMessage}\nselector source:\n${selectorSrc}`,
+        )
+      }
     },
     { selectorSrc: selector.toString() },
   ) as Promise<T>
+}
+
+/**
+ * Read the refreshed symlink status for `skillName` against `agentId` directly
+ * from the renderer store. Used by Phase-2 specs after `refreshSkillsState` to
+ * confirm an IPC-driven mutation (copy / unlink) propagated correctly.
+ *
+ * Returns `undefined` when the skill is not present in the store OR the agent
+ * has no symlink entry — both shapes are legitimate inputs depending on test
+ * setup, so the caller should compare against the expected literal
+ * (`'valid' | 'broken' | 'missing' | undefined`) rather than `?.toBe('valid')`.
+ *
+ * Closure-capture rules apply (see `getStoreState` doc): both `skillName` and
+ * `agentId` are passed via the second `evaluate` argument — module-level
+ * constants in the caller would be erased by `Function.toString`.
+ *
+ * @example
+ * const status = await getRefreshedSymlinkStatus(appWindow, 'azure-ai', 'cursor')
+ * expect(status).toBe('valid')
+ */
+export async function getRefreshedSymlinkStatus(
+  page: Page,
+  skillName: string,
+  agentId: string,
+): Promise<string | undefined> {
+  return page.evaluate(
+    ({ skillNameLiteral, agentIdLiteral }) => {
+      const store = window.__store__ ?? window.__store
+      const state = store?.getState() as
+        | {
+            skills?: {
+              items?: Array<{
+                name: string
+                symlinks?: Array<{ agentId: string; status: string }>
+              }>
+            }
+          }
+        | undefined
+      const skill = state?.skills?.items?.find(
+        (item) => item.name === skillNameLiteral,
+      )
+      return skill?.symlinks?.find(
+        (symlink) => symlink.agentId === agentIdLiteral,
+      )?.status
+    },
+    { skillNameLiteral: skillName, agentIdLiteral: agentId },
+  )
 }
 
 /**
@@ -124,22 +200,27 @@ export async function clearIpcEvents(page: Page): Promise<void> {
  * do not push back into the renderer store on their own.
  *
  * Internally calls `skills:getAll` and dispatches a synthetic
- * `skills/fetchAll/fulfilled` action so the slice's existing reducer applies
- * the payload — equivalent in effect to dispatching the `fetchSkills` thunk.
+ * `SKILLS_FETCH_ALL_FULFILLED_TYPE` action so the slice's existing reducer
+ * applies the payload — equivalent in effect to dispatching the `fetchSkills`
+ * thunk. The action type literal is centralized at the top of this file so
+ * future renames in `skillsSlice` only need to update one place.
  */
 export async function refreshSkillsState(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    const skills = await window.electron.skills.getAll()
-    const store = window.__store__ ?? window.__store
-    if (!store) {
-      throw new Error(
-        'window.__store__ is not exposed. Did you build with E2E_BUILD=1?',
-      )
-    }
-    store.dispatch({
-      type: 'skills/fetchAll/fulfilled',
-      payload: skills,
-      meta: { requestId: 'e2e-refresh', requestStatus: 'fulfilled' },
-    })
-  })
+  await page.evaluate(
+    async ({ actionType }) => {
+      const skills = await window.electron.skills.getAll()
+      const store = window.__store__ ?? window.__store
+      if (!store) {
+        throw new Error(
+          'window.__store__ is not exposed. Did you build with E2E_BUILD=1?',
+        )
+      }
+      store.dispatch({
+        type: actionType,
+        payload: skills,
+        meta: { requestId: 'e2e-refresh', requestStatus: 'fulfilled' },
+      })
+    },
+    { actionType: SKILLS_FETCH_ALL_FULFILLED_TYPE },
+  )
 }

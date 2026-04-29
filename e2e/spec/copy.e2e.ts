@@ -5,6 +5,7 @@ import { test, expect } from '../fixtures/electron-app'
 import {
   clearIpcEvents,
   getIpcEvents,
+  getRefreshedSymlinkStatus,
   getStoreState,
   refreshSkillsState,
   waitForInitialScan,
@@ -146,30 +147,10 @@ test('copyToAgents replicates azure-ai to a missing target agent', async ({
   // missed-refresh regression.
   await refreshSkillsState(appWindow)
 
-  // Closure capture rules: selector source string is re-evaluated, so
-  // `targetSymlink.agentId` must be inlined too (see note above).
-  const targetAgentId = targetSymlink.agentId
-  const refreshedLinkStatus = await appWindow.evaluate(
-    (agentIdLiteral: string) => {
-      const store = window.__store__ ?? window.__store
-      const state = store?.getState() as
-        | {
-            skills?: {
-              items?: Array<{
-                name: string
-                symlinks?: Array<{ agentId: string; status: string }>
-              }>
-            }
-          }
-        | undefined
-      const refreshedAzure = state?.skills?.items?.find(
-        (skill) => skill.name === 'azure-ai',
-      )
-      return refreshedAzure?.symlinks?.find(
-        (symlink) => symlink.agentId === agentIdLiteral,
-      )?.status
-    },
-    targetAgentId,
+  const refreshedLinkStatus = await getRefreshedSymlinkStatus(
+    appWindow,
+    AZURE_AI_NAME,
+    targetSymlink.agentId,
   )
   expect(refreshedLinkStatus).toBe('valid')
 
