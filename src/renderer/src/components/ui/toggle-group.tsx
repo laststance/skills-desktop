@@ -116,8 +116,8 @@ const ToggleGroupItem = React.memo(function ToggleGroupItem({
       ref={ref}
       className={cn(
         toggleVariants({
-          variant: context.variant ?? variant,
-          size: context.size ?? size,
+          variant: variant ?? context.variant,
+          size: size ?? context.size,
         }),
         className,
       )}

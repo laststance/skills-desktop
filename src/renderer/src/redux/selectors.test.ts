@@ -445,12 +445,18 @@ describe('selectFilteredSkills', () => {
     // the toggle is about what the query matches against, not a standalone
     // "show only repo skills" filter. Guards against a regression where the
     // scope itself was treated as a population filter.
+    //
+    // Use the agent view (selectedAgentId set) to actually exercise the
+    // local-skill path: the SourceCard view (no agent) drops every isLocal
+    // skill upstream, so a local fixture without selectedAgentId would never
+    // reach the search-scope branch we want to lock down.
     const skills = [
-      makeSkill('local-task', 'cursor'),
+      makeSkill('local-task', 'cursor', true),
       makeSkill('repo-task', 'cursor', false, 'vercel-labs/skills'),
     ]
     const state = buildState({
       skills,
+      selectedAgentId: 'cursor',
       searchQuery: '',
       searchScope: 'repo',
     })
