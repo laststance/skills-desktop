@@ -1,4 +1,4 @@
-import { readdirSync, rmSync } from 'node:fs'
+import { lstatSync, readdirSync, rmSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -57,6 +57,63 @@ export function diffUserTrash(before: Set<string>): {
     newEntries,
     newPaths: newEntries.map((entry) => join(USER_TRASH_DIR, entry)),
   }
+}
+
+/**
+ * Find the trash entry whose direct children exactly equal the given set of
+ * skill basenames. Used by tests that move an agent dir into the developer's
+ * real `~/.Trash` to narrow the cleanup target to OUR specific entry — never
+ * the full `newPaths` set, which may include unrelated entries dropped by
+ * Finder, Time Machine, or the dev's own drag-to-trash.
+ *
+ * Defensive against three real-data-loss scenarios:
+ *  - Empty `expectedSkillNames` matching an empty trash dir (a buggy fixture
+ *    that staged zero skills would otherwise rm-rf any empty trash dir from
+ *    the diff): returns `undefined` when the expected set is empty.
+ *  - `lstat` ENOENT race when Finder/Time Machine evicts a trash entry
+ *    between snapshot and inspection: the entry is treated as non-match
+ *    instead of throwing.
+ *  - `readdir` ENOENT race for the same reason: skipped, not throwing.
+ *
+ * Cross-validates per-run unique skill names from `preStageLinkedSkills` so
+ * even an exact-set basename collision against an unrelated `~/.Trash` dir
+ * is statistically excluded.
+ *
+ * @param newPaths - Absolute paths from `diffUserTrash().newPaths`.
+ * @param expectedSkillNames - Exact set of basenames the matched entry's
+ *   direct children must equal. Order is not significant; sorted internally.
+ * @returns
+ * - The first matching path when one or more entries match.
+ * - `undefined` when no entry matches OR `expectedSkillNames` is empty.
+ *
+ * @example
+ * const { newPaths } = diffUserTrash(before)
+ * const ourEntry = findMatchingTrashedAgentDir(newPaths, ['skill-a1b2-00', 'skill-a1b2-01'])
+ * if (ourEntry) cleanupTrashEntries([ourEntry])
+ */
+export function findMatchingTrashedAgentDir(
+  newPaths: readonly string[],
+  expectedSkillNames: readonly string[],
+): string | undefined {
+  if (expectedSkillNames.length === 0) return undefined
+  const sortedExpected = [...expectedSkillNames].sort()
+  return newPaths.find((entryPath) => {
+    let isDir: boolean
+    try {
+      isDir = lstatSync(entryPath).isDirectory()
+    } catch {
+      return false
+    }
+    if (!isDir) return false
+    let entryContents: string[]
+    try {
+      entryContents = readdirSync(entryPath).sort()
+    } catch {
+      return false
+    }
+    if (entryContents.length !== sortedExpected.length) return false
+    return entryContents.every((name, idx) => name === sortedExpected[idx])
+  })
 }
 
 /**

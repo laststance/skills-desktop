@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import {
   chmodSync,
   existsSync,
@@ -22,6 +23,7 @@ import {
   USER_TRASH_DIR,
   cleanupTrashEntries,
   diffUserTrash,
+  findMatchingTrashedAgentDir,
   snapshotUserTrash,
 } from '../helpers/user-trash'
 
@@ -44,6 +46,13 @@ const AZURE_AI_NAME = 'azure-ai'
  * the happy path; using fresh names (vs. the snapshot's azure-* set) keeps
  * the test independent of skills-CLI install behavior.
  *
+ * Each call injects a fresh 8-char random suffix into the basenames. This is
+ * load-bearing for the trash-touching tests (C1 / C2 below): their cleanup
+ * path narrows on exact-set basename match against the developer's real
+ * `~/.Trash`, and a fully deterministic name set would false-match an
+ * unrelated dev-trash dir that happened to share children. Per-run randomness
+ * makes that collision statistically zero without changing the matcher API.
+ *
  * Returns the names in creation order so the caller can build the IPC payload
  * with the same iteration order and assert on it.
  */
@@ -55,9 +64,10 @@ function preStageLinkedSkills(
 ): string[] {
   const sourceDir = join(isolatedHome, '.agents', 'skills')
   mkdirSync(agentPath, { recursive: true })
+  const runId = randomBytes(4).toString('hex')
   const names: string[] = []
   for (let i = 0; i < count; i++) {
-    const name = `${prefix}-${String(i).padStart(2, '0')}`
+    const name = `${prefix}-${runId}-${String(i).padStart(2, '0')}`
     const skillSourcePath = join(sourceDir, name)
     mkdirSync(skillSourcePath, { recursive: true })
     writeFileSync(
@@ -566,14 +576,14 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
 
   await waitForInitialScan(appWindow)
 
-  // Capture only OUR specific trashed dir early so the C2 cleanup runs
-  // even if any assertion below throws. The try/finally is the load-
-  // bearing safety net: a failing assertion mid-run that left our entry
-  // in the developer's ~/.Trash would be an unkind side effect of test
-  // failure. The narrowing-to-one-entry happens inside the try block
-  // (after diffUserTrash + content-hash match) so that concurrent
-  // unrelated writes to ~/.Trash from the dev's machine never get
-  // touched by cleanup.
+  // Capture only OUR specific trashed dir early so the cleanup runs even
+  // if any assertion below throws. The try/finally is the load-bearing
+  // safety net: a failing assertion mid-run that left our entry in the
+  // developer's ~/.Trash would be an unkind side effect of test failure.
+  // The narrowing-to-one-entry happens inside the try block (after
+  // diffUserTrash + findMatchingTrashedAgentDir) so concurrent unrelated
+  // writes to ~/.Trash from the dev's machine are never touched by
+  // cleanup.
   let createdTrashEntryPaths: string[] = []
   try {
     const result = await appWindow.evaluate(
@@ -584,22 +594,14 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
 
     // Diff ~/.Trash IMMEDIATELY after the IPC call returns, then narrow
     // the cleanup target to OUR specific trashed dir — never the full
-    // newPaths set. A developer / Finder / Time Machine moving something
-    // unrelated to ~/.Trash between trashEntriesBefore and now would
-    // otherwise have their entry rm -rf'd by the finally block below.
-    // Match by exact-set of skill basenames (timestamped + unique per
-    // test via preStageLinkedSkills), which is decisive even after macOS
-    // auto-renames on collision (skills → "skills 2").
+    // newPaths set. Match by exact-set of skill basenames (per-run unique
+    // via preStageLinkedSkills' random suffix), decisive even after macOS
+    // auto-renames on collision (`skills` → `skills 2`).
     const { newPaths } = diffUserTrash(trashEntriesBefore)
-    const expectedSkillNames = [...skillNames].sort()
-    const matchingTrashedAgentDir = newPaths.find((entryPath) => {
-      if (!lstatSync(entryPath).isDirectory()) return false
-      const entryContents = readdirSync(entryPath).sort()
-      return (
-        entryContents.length === expectedSkillNames.length &&
-        entryContents.every((name, idx) => name === expectedSkillNames[idx])
-      )
-    })
+    const matchingTrashedAgentDir = findMatchingTrashedAgentDir(
+      newPaths,
+      skillNames,
+    )
     createdTrashEntryPaths = matchingTrashedAgentDir
       ? [matchingTrashedAgentDir]
       : []
@@ -620,7 +622,7 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
 
     expect(
       matchingTrashedAgentDir,
-      `expected a ~/.Trash entry whose contents equal [${expectedSkillNames.join(', ')}] — got newPaths=${
+      `expected a ~/.Trash entry whose contents equal [${[...skillNames].sort().join(', ')}] — got newPaths=${
         newPaths.length === 0
           ? '<none> (shell.trashItem routing may have hit a per-volume .Trashes dir; verify HOME volume layout)'
           : newPaths.join(', ')
@@ -679,9 +681,11 @@ test('removeAllFromAgent surfaces structured failure when shell.trashItem reject
     'remove-all-trash-reject',
   )
 
-  // Snapshot trash before — used to assert NO new entry appears post-call.
-  // If trashItem somehow succeeded despite the perm restriction, the diff
-  // would surface immediately.
+  // Snapshot trash before — used to assert no entry matching OUR fixture
+  // appears post-call. If trashItem somehow succeeded despite the perm
+  // restriction (a regression), our entry would surface and we'd both
+  // fail loudly AND clean it up below — never leaking into the dev's
+  // ~/.Trash on test failure.
   const trashEntriesBefore = snapshotUserTrash()
 
   await waitForInitialScan(appWindow)
@@ -692,12 +696,27 @@ test('removeAllFromAgent surfaces structured failure when shell.trashItem reject
   // the handler's pre-trash readdir/access calls.
   chmodSync(clineParent, 0o500)
 
+  // If the production code regresses and trashItem succeeds, the matching
+  // entry MUST be cleaned up — we filter newPaths via the same per-run
+  // unique-name matcher as C1 instead of asserting `length === 0`, so a
+  // developer dragging unrelated files to ~/.Trash mid-test never causes
+  // a false-fail and our entry never leaks on regression.
+  let regressionTrashEntryPaths: string[] = []
   try {
     const result = await appWindow.evaluate(
       async (args: { agentId: string; agentPath: string }) =>
         window.electron.skills.removeAllFromAgent(args),
       { agentId: 'cline', agentPath: clineAgentPath },
     )
+
+    const { newPaths } = diffUserTrash(trashEntriesBefore)
+    const regressionTrashedAgentDir = findMatchingTrashedAgentDir(
+      newPaths,
+      skillNames,
+    )
+    regressionTrashEntryPaths = regressionTrashedAgentDir
+      ? [regressionTrashedAgentDir]
+      : []
 
     // Structured failure shape — every field load-bearing.
     //   success=false → caller treats this as an error condition
@@ -721,14 +740,15 @@ test('removeAllFromAgent surfaces structured failure when shell.trashItem reject
       expect(existsSync(sourcePath)).toBe(true)
     }
 
-    // OS Trash invariant — no new entry appeared. With `workers: 1` +
-    // `fullyParallel: false`, the diff is tight. A new entry here would
-    // mean trashItem partially succeeded, which contradicts success=false.
-    const { newEntries } = diffUserTrash(trashEntriesBefore)
+    // OS Trash invariant — no entry matching OUR fixture appeared. A
+    // matching entry would mean trashItem partially succeeded, which
+    // contradicts success=false. Filtering by per-run unique name set
+    // immunizes the assertion against the dev's concurrent ~/.Trash
+    // activity (Finder drag, Time Machine).
     expect(
-      newEntries,
-      `expected NO new ~/.Trash entries on rejection — got ${newEntries.join(', ')}`,
-    ).toHaveLength(0)
+      regressionTrashedAgentDir,
+      `expected NO ~/.Trash entry matching skill set [${[...skillNames].sort().join(', ')}] on rejection — got matching path ${regressionTrashedAgentDir ?? '<none>'} (newPaths=${newPaths.join(', ') || '<none>'})`,
+    ).toBeUndefined()
   } finally {
     // Restore perms so rmSync can recurse into the dir during isolatedHome
     // teardown. The fixture's destroyIsolatedHome warns rather than throws,
@@ -741,5 +761,8 @@ test('removeAllFromAgent surfaces structured failure when shell.trashItem reject
         err,
       )
     }
+    // If a production regression slipped our entry into ~/.Trash, remove it
+    // even on assertion failure. Empty array is the no-op happy path.
+    cleanupTrashEntries(regressionTrashEntryPaths)
   }
 })
