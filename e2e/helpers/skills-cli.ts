@@ -7,6 +7,7 @@ import {
   KILL_ESCALATION_MS,
   NPM_REGISTRY_HOST,
   OFFLINE_DNS_TIMEOUT_MS,
+  OFFLINE_STDERR_PATTERNS,
   SKILLS_CLI_VERSION,
   SPAWN_TIMEOUT_MS,
 } from '../constants'
@@ -34,23 +35,6 @@ export class OfflineError extends Error {
   }
 }
 
-/**
- * Stderr/stdout substrings that mean "the network rejected us, not the
- * registry". Matched case-insensitively so npm's mixed casing
- * (`ECONNREFUSED` vs `network connect`) both hit. Kept narrow on purpose:
- * a false-positive offline classification would silently skip the install
- * on an actual CLI bug.
- */
-const OFFLINE_STDERR_PATTERNS = [
-  'ENOTFOUND',
-  'ECONNREFUSED',
-  'ETIMEDOUT',
-  'EAI_AGAIN',
-  'getaddrinfo',
-  'network timed out',
-  'request to https://registry.npmjs.org',
-] as const
-
 function matchesOfflineStderr(haystack: string): boolean {
   const lowered = haystack.toLowerCase()
   return OFFLINE_STDERR_PATTERNS.some((needle) =>
@@ -69,11 +53,17 @@ function matchesOfflineStderr(haystack: string): boolean {
  * fail here. `fetch` would pile a TLS handshake on top of the DNS budget
  * for no extra signal.
  *
+ * The timer-loser branch silences any post-timeout rejection with
+ * `.catch(() => {})` — without it, Node would log `unhandledRejection` and
+ * CI runs with `--unhandled-rejections=strict` would fail despite the
+ * timeout result we already returned.
+ *
  * @example
  * if (await isOffline()) console.log('skip')
  */
 export async function isOffline(): Promise<boolean> {
   let timeoutHandle: NodeJS.Timeout | null = null
+  const lookupPromise = lookup(NPM_REGISTRY_HOST)
   try {
     const timeoutSignal = new Promise<never>((_, reject) => {
       timeoutHandle = setTimeout(
@@ -81,12 +71,16 @@ export async function isOffline(): Promise<boolean> {
         OFFLINE_DNS_TIMEOUT_MS,
       )
     })
-    await Promise.race([lookup(NPM_REGISTRY_HOST), timeoutSignal])
+    await Promise.race([lookupPromise, timeoutSignal])
     return false
   } catch {
     return true
   } finally {
     if (timeoutHandle) clearTimeout(timeoutHandle)
+    // Silence the lookup branch when the timer wins. The race already
+    // settled isOffline()'s contract; without this swallow, a slow DNS
+    // failure arriving after timeout would surface as unhandledRejection.
+    lookupPromise.catch(() => {})
   }
 }
 

@@ -46,5 +46,22 @@ export const NPM_REGISTRY_HOST = 'registry.npmjs.org'
  */
 export const OFFLINE_DNS_TIMEOUT_MS = 2_000
 
+/**
+ * Stderr/stdout substrings that mean "the network rejected us, not the
+ * registry". Matched case-insensitively so npm's mixed casing
+ * (`ECONNREFUSED` vs `network connect`) both hit. Kept narrow on purpose:
+ * a false-positive offline classification would silently skip the install
+ * on an actual CLI bug.
+ */
+export const OFFLINE_STDERR_PATTERNS = [
+  'ENOTFOUND',
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'EAI_AGAIN',
+  'getaddrinfo',
+  'network timed out',
+  'request to https://registry.npmjs.org',
+] as const
+
 /** File the global-setup writes for fixtures to discover the snapshot HOME. */
 export const SNAPSHOT_INFO_FILE = '.snapshot/info.json'

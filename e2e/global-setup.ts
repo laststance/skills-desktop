@@ -12,6 +12,39 @@ import { SNAPSHOT_INFO_FILE } from './constants'
 import { installAzureSkills, OfflineError } from './helpers/skills-cli'
 
 /**
+ * Run the skills CLI install for the snapshot HOME and classify the
+ * outcome. Returns `true` when the runner is provably offline; throws on
+ * non-offline failures after tearing down the partial snapshot. Specs
+ * that depend on azure-* skills branch on the returned flag (via the
+ * snapshot info JSON) so a network blip downgrades to "skip these
+ * specs" instead of cascading into UI assertion failures.
+ */
+async function installSnapshotOrClassifyOffline(
+  snapshotHome: string,
+): Promise<boolean> {
+  console.log('[e2e:setup] Installing azure-* skills via skills CLI...')
+  try {
+    await installAzureSkills(snapshotHome)
+    console.log('[e2e:setup] azure-* skills installed')
+    return false
+  } catch (err) {
+    if (err instanceof OfflineError) {
+      // Loud warning so a CI log scanner can grep for "OFFLINE" and the
+      // operator can distinguish offline-skip from a real install bug
+      // when reviewing flaky-run dashboards.
+      console.warn(
+        `[e2e:setup] OFFLINE — npm registry unreachable. Continuing with empty snapshot. Specs that depend on azure-* skills should skip themselves via the snapshot \`offline\` flag.\n[e2e:setup] OfflineError: ${err.message}`,
+      )
+      return true
+    }
+    // Tear down the partial snapshot before bubbling so we never leak
+    // a polluted tempdir on a failed setup.
+    rmSync(snapshotHome, { recursive: true, force: true })
+    throw err
+  }
+}
+
+/**
  * Build a snapshot HOME populated with the 7 azure-* skills.
  * Per-test fixtures hardlink-copy from this snapshot in ~50ms instead of
  * re-running the CLI install per test.
@@ -47,30 +80,10 @@ async function globalSetup(): Promise<void> {
   // distinct opt-out — it is NOT offline; the runner just doesn't want
   // to pay the install cost for this run.
   let offline = false
-
   if (process.env['E2E_SKIP_INSTALL'] === '1') {
     console.log('[e2e:setup] E2E_SKIP_INSTALL=1 — skipping skills CLI install')
   } else {
-    console.log('[e2e:setup] Installing azure-* skills via skills CLI...')
-    try {
-      await installAzureSkills(snapshotHome)
-      console.log('[e2e:setup] azure-* skills installed')
-    } catch (err) {
-      if (err instanceof OfflineError) {
-        // Loud warning so a CI log scanner can grep for "OFFLINE" and the
-        // operator can distinguish offline-skip from a real install bug
-        // when reviewing flaky-run dashboards.
-        offline = true
-        console.warn(
-          `[e2e:setup] OFFLINE — npm registry unreachable. Continuing with empty snapshot. Specs that depend on azure-* skills should skip themselves via the snapshot \`offline\` flag.\n[e2e:setup] OfflineError: ${err.message}`,
-        )
-      } else {
-        // Tear down the partial snapshot before bubbling so we never leak
-        // a polluted tempdir on a failed setup.
-        rmSync(snapshotHome, { recursive: true, force: true })
-        throw err
-      }
-    }
+    offline = await installSnapshotOrClassifyOffline(snapshotHome)
   }
 
   mkdirSync(dirname(snapshotInfoPath), { recursive: true })

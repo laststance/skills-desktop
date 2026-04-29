@@ -167,6 +167,9 @@ export async function waitForInitialScan(
 /**
  * Wait until `state.skills.selectedSkillNames.length === count`. Useful after
  * tab/agent switches that should clear selection (regression 2f05684).
+ *
+ * @example
+ * await waitForSelectionCount(appWindow, 0)
  */
 export async function waitForSelectionCount(
   page: Page,
@@ -185,6 +188,52 @@ export async function waitForSelectionCount(
     count,
     { timeout: timeoutMs },
   )
+}
+
+/**
+ * Synchronously read `state.skills.selectedSkillNames.length`. Pair with
+ * `waitForSelectionCount` when the assertion is *stability* (the listener
+ * should NOT have cleared) rather than eventual consistency.
+ *
+ * @example
+ * expect(await getSelectionCount(appWindow)).toBe(1)
+ */
+export async function getSelectionCount(page: Page): Promise<number> {
+  return getStoreState(page, (state) => {
+    const root = state as { skills: { selectedSkillNames: string[] } }
+    return root.skills.selectedSkillNames.length
+  })
+}
+
+/**
+ * Dispatch a Redux action against the renderer store. Throws when the store
+ * is not exposed, mirroring `getStoreState`'s contract — a test against a
+ * non-E2E build should fail loud, not silently no-op.
+ *
+ * @param action - Plain serializable action; thunks are not supported
+ *                 (use `evaluate` directly when you need lifecycle dispatch).
+ *
+ * @example
+ * await dispatchAction(appWindow, { type: 'skills/toggleSelection', payload: 'azure-ai' })
+ * @example
+ * await dispatchAction(appWindow, {
+ *   type: 'ui/fetchSyncPreview/pending',
+ *   meta: { requestId: 'e2e-x', requestStatus: 'pending' },
+ * })
+ */
+export async function dispatchAction(
+  page: Page,
+  action: { type: string; payload?: unknown; meta?: Record<string, unknown> },
+): Promise<void> {
+  await page.evaluate((actionLiteral) => {
+    const store = window.__store__ ?? window.__store
+    if (!store) {
+      throw new Error(
+        'window.__store__ is not exposed. Did you build with E2E_BUILD=1?',
+      )
+    }
+    store.dispatch(actionLiteral)
+  }, action)
 }
 
 /**

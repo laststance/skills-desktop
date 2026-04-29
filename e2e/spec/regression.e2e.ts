@@ -11,7 +11,10 @@ import {
 import { dirname, join } from 'node:path'
 
 import { test, expect } from '../fixtures/electron-app'
+import { expectIronRuleRefusal } from '../helpers/iron-rule'
 import {
+  dispatchAction,
+  getSelectionCount,
   getStoreState,
   refreshSkillsState,
   waitForInitialScan,
@@ -58,34 +61,34 @@ test('selection survives no further than a tab switch or agent switch (regressio
 
   // Tab-switch leg — toggle one azure-* skill into the selection, flip the
   // active tab, expect listener middleware to dispatch clearSelection.
-  await appWindow.evaluate((skillName: string) => {
-    const store = window.__store__ ?? window.__store
-    store?.dispatch({ type: 'skills/toggleSelection', payload: skillName })
-  }, AZURE_AI_NAME)
+  await dispatchAction(appWindow, {
+    type: 'skills/toggleSelection',
+    payload: AZURE_AI_NAME,
+  })
   await waitForSelectionCount(appWindow, 1)
 
-  await appWindow.evaluate(() => {
-    const store = window.__store__ ?? window.__store
-    store?.dispatch({ type: 'ui/setActiveTab', payload: 'marketplace' })
+  await dispatchAction(appWindow, {
+    type: 'ui/setActiveTab',
+    payload: 'marketplace',
   })
   await waitForSelectionCount(appWindow, 0)
 
   // Agent-switch leg — same matcher set in listener.ts, different action.
   // Re-tick the selection to prove the listener fires on a second action and
   // not just once per session.
-  await appWindow.evaluate(() => {
-    const store = window.__store__ ?? window.__store
-    store?.dispatch({ type: 'ui/setActiveTab', payload: 'installed' })
+  await dispatchAction(appWindow, {
+    type: 'ui/setActiveTab',
+    payload: 'installed',
   })
-  await appWindow.evaluate((skillName: string) => {
-    const store = window.__store__ ?? window.__store
-    store?.dispatch({ type: 'skills/toggleSelection', payload: skillName })
-  }, AZURE_AI_NAME)
+  await dispatchAction(appWindow, {
+    type: 'skills/toggleSelection',
+    payload: AZURE_AI_NAME,
+  })
   await waitForSelectionCount(appWindow, 1)
 
-  await appWindow.evaluate(() => {
-    const store = window.__store__ ?? window.__store
-    store?.dispatch({ type: 'ui/selectAgent', payload: 'cursor' })
+  await dispatchAction(appWindow, {
+    type: 'ui/selectAgent',
+    payload: 'cursor',
   })
   await waitForSelectionCount(appWindow, 0)
 })
@@ -131,10 +134,10 @@ test('selection clears on fetchSyncPreview.pending — third listener-matcher le
   // Tick one azure-* skill so the listener has something to clear. Leg-1/-2
   // test re-ticks between dispatches; we don't need that here because there's
   // exactly one matcher leg under test.
-  await appWindow.evaluate((skillName: string) => {
-    const store = window.__store__ ?? window.__store
-    store?.dispatch({ type: 'skills/toggleSelection', payload: skillName })
-  }, AZURE_AI_NAME)
+  await dispatchAction(appWindow, {
+    type: 'skills/toggleSelection',
+    payload: AZURE_AI_NAME,
+  })
   await waitForSelectionCount(appWindow, 1)
 
   // Dispatch the exact action shape RTK builds when a real thunk fires .pending.
@@ -142,16 +145,13 @@ test('selection clears on fetchSyncPreview.pending — third listener-matcher le
   // we mirror it for fidelity even though `isAnyOf` only inspects `.type`. If a
   // future RTK version ever switched `isAnyOf` to also match on
   // `meta.requestStatus`, this test stays correct without modification.
-  await appWindow.evaluate(() => {
-    const store = window.__store__ ?? window.__store
-    store?.dispatch({
-      type: 'ui/fetchSyncPreview/pending',
-      meta: {
-        arg: undefined,
-        requestId: 'e2e-d1-listener',
-        requestStatus: 'pending',
-      },
-    })
+  await dispatchAction(appWindow, {
+    type: 'ui/fetchSyncPreview/pending',
+    meta: {
+      arg: undefined,
+      requestId: 'e2e-d1-listener',
+      requestStatus: 'pending',
+    },
   })
   await waitForSelectionCount(appWindow, 0)
 
@@ -162,35 +162,26 @@ test('selection clears on fetchSyncPreview.pending — third listener-matcher le
   // matcher to `isAnyOf(..., fetchSyncPreview.pending, executeSyncAction.pending)`
   // would silently pass — losing the "selection clears on PREVIEW only, not on
   // every sync-related thunk" contract that the listener encodes.
-  await appWindow.evaluate((skillName: string) => {
-    const store = window.__store__ ?? window.__store
-    store?.dispatch({ type: 'skills/toggleSelection', payload: skillName })
-  }, AZURE_AI_NAME)
+  await dispatchAction(appWindow, {
+    type: 'skills/toggleSelection',
+    payload: AZURE_AI_NAME,
+  })
   await waitForSelectionCount(appWindow, 1)
 
-  await appWindow.evaluate(() => {
-    const store = window.__store__ ?? window.__store
-    store?.dispatch({
-      type: 'ui/executeSyncAction/pending',
-      meta: {
-        arg: { replaceConflicts: [] },
-        requestId: 'e2e-d1-negative',
-        requestStatus: 'pending',
-      },
-    })
+  await dispatchAction(appWindow, {
+    type: 'ui/executeSyncAction/pending',
+    meta: {
+      arg: { replaceConflicts: [] },
+      requestId: 'e2e-d1-negative',
+      requestStatus: 'pending',
+    },
   })
   // Assert selection count remains 1 after the wrong-thunk dispatch. Direct
   // synchronous read instead of `waitForSelectionCount` because we need to
   // assert STABILITY (the listener should NOT have cleared); a wait helper
   // would silently succeed if the count happened to be 1 at the moment of
   // sampling but would be cleared shortly after.
-  const selectedAfterWrongPending = await getStoreState(appWindow, (state) => {
-    const root = state as {
-      skills: { selectedSkillNames: string[] }
-    }
-    return root.skills.selectedSkillNames.length
-  })
-  expect(selectedAfterWrongPending).toBe(1)
+  expect(await getSelectionCount(appWindow)).toBe(1)
 })
 
 test('cline/warp do NOT report universal source skills as their own local skills (regression 3d20085)', async ({
@@ -297,9 +288,7 @@ test('removeAllFromAgent refuses on a multi-agent shared scanDir (.config/agents
     { agentId: 'amp', agentPath: sharedScanDir },
   )
 
-  expect(result.success).toBe(false)
-  expect(result.removedCount).toBe(0)
-  expect(result.error).toMatch(/Refusing to delete a shared skills folder/)
+  expectIronRuleRefusal(result)
 
   // FS — the sentinel still exists. If the IRON RULE check ever migrates to
   // run AFTER `shell.trashItem`, this assertion fails immediately because the
@@ -363,9 +352,7 @@ test('removeAllFromAgent refusal leaves both aliased symlinks and local skill by
     { agentId: 'amp', agentPath: sharedScanDir },
   )
 
-  expect(result.success).toBe(false)
-  expect(result.removedCount).toBe(0)
-  expect(result.error).toMatch(/Refusing to delete a shared skills folder/)
+  expectIronRuleRefusal(result)
 
   // FS — the alias still resolves to the source target, the local skill is
   // byte-for-byte intact, and the source target itself is unchanged. Reading
@@ -467,9 +454,7 @@ test('removeAllFromAgent refusal still fires when SOURCE_DIR itself is a symlink
     { agentId: 'cursor', agentPath: cursorAgentPath },
   )
 
-  expect(result.success).toBe(false)
-  expect(result.removedCount).toBe(0)
-  expect(result.error).toMatch(/Refusing to delete a shared skills folder/)
+  expectIronRuleRefusal(result)
 
   // FS — every link still in place, every byte in realSourceDir untouched.
   // If stage 3 ever regresses (e.g. someone "optimizes" the loop away because

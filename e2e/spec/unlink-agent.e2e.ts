@@ -4,20 +4,25 @@ import {
   lstatSync,
   mkdirSync,
   readdirSync,
-  rmSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 
 import { test, expect } from '../fixtures/electron-app'
+import { expectIronRuleRefusal } from '../helpers/iron-rule'
 import {
   getStoreState,
   refreshSkillsState,
   waitForInitialScan,
 } from '../helpers/redux'
+import {
+  USER_TRASH_DIR,
+  cleanupTrashEntries,
+  diffUserTrash,
+  snapshotUserTrash,
+} from '../helpers/user-trash'
 
 interface SymlinkSnapshot {
   agentId: string
@@ -455,8 +460,9 @@ test('removeAllFromAgent refuses when the agent path is a symlink alias to the u
   // either, so mkdirSync first or symlinkSync would ENOENT.
   const sourceDir = join(isolatedHome, '.agents', 'skills')
   const cursorAgentPath = join(isolatedHome, '.cursor', 'skills')
-  // Sanity: if a future skills-cli bump ever links cursor by default, the
-  // rmSync below would silently nuke real fixture state. Fail loud instead.
+  // Sanity: if a future skills-cli bump ever pre-creates cursor's scanDir,
+  // our symlink would shadow real fixture state and the test would silently
+  // mis-assert. Fail loud instead.
   expect(
     existsSync(cursorAgentPath),
     `cursor scanDir ${cursorAgentPath} unexpectedly exists pre-stage — global-setup or skills-cli behavior changed`,
@@ -480,12 +486,7 @@ test('removeAllFromAgent refuses when the agent path is a symlink alias to the u
     { agentId: 'cursor', agentPath: cursorAgentPath },
   )
 
-  expect(result.success).toBe(false)
-  expect(result.removedCount).toBe(0)
-  // Match the human-readable refusal copy from skills.ts:184. Pinning the
-  // exact message keeps a quiet wording change from silently passing this
-  // test as a generic-error catch.
-  expect(result.error).toMatch(/Refusing to delete a shared skills folder/)
+  expectIronRuleRefusal(result)
 
   // FS — the symlink alias itself is still in place (handler short-circuits
   // before any trashItem call) and SOURCE_DIR is byte-for-byte untouched.
@@ -543,25 +544,11 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
     'remove-all-os-trash',
   )
 
-  // Snapshot the developer's real ~/.Trash/ pre-call. `homedir()` here resolves
-  // against the developer's UID (the test process inherits it), NOT against
-  // HOME=isolatedHome — same uid-based routing macOS uses for trashItem, so
-  // pre/post snapshots target the same physical location the IPC writes to.
-  //
-  // Filter dotfiles: macOS Finder writes `.DS_Store` and `.localized` into
-  // ~/.Trash on first access, asynchronously. These can appear mid-test for
-  // reasons unrelated to our trashItem call and inflate the diff. The
-  // user-visible entries trashItem creates are never dotfiles (they
-  // basename to the source path's basename — here, `skills`), so filtering
-  // is safe and tightens the diff to events we actually caused.
-  const userTrashDir = join(homedir(), '.Trash')
   expect(
-    existsSync(userTrashDir),
+    existsSync(USER_TRASH_DIR),
     `expected ~/.Trash to exist on macOS dev box — unexpected env`,
   ).toBe(true)
-  const trashEntriesBefore = new Set(
-    readdirSync(userTrashDir).filter((entry) => !entry.startsWith('.')),
-  )
+  const trashEntriesBefore = snapshotUserTrash()
 
   await waitForInitialScan(appWindow)
 
@@ -591,57 +578,32 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
       expect(existsSync(join(sourcePath, 'SKILL.md'))).toBe(true)
     }
 
-    // OS Trash diff — exactly one new entry expected. `workers: 1` +
-    // `fullyParallel: false` (playwright.config.ts) means no test-side parallel
-    // trash activity, so a strict `=== 1` is sound; concurrent developer
-    // trash actions would surface as a flake the dev can immediately diagnose
-    // from the diff list. Looser `>= 1` would mask the trashItem-double-call
-    // regression this assertion guards. Same dotfile filter as the pre-snapshot
-    // for symmetry — see the rationale on `trashEntriesBefore`.
-    const trashEntriesAfter = readdirSync(userTrashDir).filter(
-      (entry) => !entry.startsWith('.'),
-    )
-    const newEntryNames = trashEntriesAfter.filter(
-      (entry) => !trashEntriesBefore.has(entry),
-    )
-    createdTrashEntryPaths = newEntryNames.map((entry) =>
-      join(userTrashDir, entry),
-    )
+    // Find by content rather than basename — macOS auto-renames on collision
+    // (skills → "skills 2"). Names are unique per test (timestamped prefix in
+    // preStageLinkedSkills), so an exact-set match is decisive. Robust to a
+    // concurrent dev-side trash action: a stray non-dotfile new entry won't
+    // flake the run as long as our entry is among newPaths.
+    const { newPaths } = diffUserTrash(trashEntriesBefore)
+    createdTrashEntryPaths = newPaths
+    const expectedSkillNames = [...skillNames].sort()
+    const matchingTrashedAgentDir = newPaths.find((entryPath) => {
+      if (!lstatSync(entryPath).isDirectory()) return false
+      const entryContents = readdirSync(entryPath).sort()
+      return (
+        entryContents.length === expectedSkillNames.length &&
+        entryContents.every((name, idx) => name === expectedSkillNames[idx])
+      )
+    })
     expect(
-      newEntryNames,
-      `expected exactly 1 new ~/.Trash entry after removeAllFromAgent — got ${
-        newEntryNames.length === 0
+      matchingTrashedAgentDir,
+      `expected a ~/.Trash entry whose contents equal [${expectedSkillNames.join(', ')}] — got newPaths=${
+        newPaths.length === 0
           ? '<none> (shell.trashItem routing may have hit a per-volume .Trashes dir; verify HOME volume layout)'
-          : newEntryNames.join(', ')
+          : newPaths.join(', ')
       }`,
-    ).toHaveLength(1)
-
-    // Verify the new entry is the dir we deleted, by content rather than name.
-    // macOS auto-renames on collision (skills → "skills 2"), so the basename
-    // is unreliable. The dir must contain our 3 staged symlinks (or whatever
-    // shape they take post-trash) — both shape AND count is the load-bearing
-    // identifier. A regression that called `rm -rf` instead of `trashItem`
-    // would leave 0 new entries; a regression that called both would leave 2.
-    const trashedAgentDir = createdTrashEntryPaths[0]
-    expect(lstatSync(trashedAgentDir).isDirectory()).toBe(true)
-    const trashedContents = readdirSync(trashedAgentDir).sort()
-    expect(trashedContents).toEqual([...skillNames].sort())
+    ).toBeTruthy()
   } finally {
-    // C2 teardown — best-effort cleanup. A stuck file lock or permission error
-    // shouldn't mask the actual test failure, so we warn rather than throw.
-    // rmSync force/recursive handles both files and dirs (trashItem might move
-    // the agent dir as a real dir or as a Finder-managed alias depending on
-    // volume).
-    for (const trashedPath of createdTrashEntryPaths) {
-      try {
-        rmSync(trashedPath, { recursive: true, force: true })
-      } catch (err) {
-        console.warn(
-          `[e2e] Failed to clean up trashed entry ${trashedPath}:`,
-          err,
-        )
-      }
-    }
+    cleanupTrashEntries(createdTrashEntryPaths)
   }
 })
 
@@ -695,13 +657,8 @@ test('removeAllFromAgent surfaces structured failure when shell.trashItem reject
 
   // Snapshot trash before — used to assert NO new entry appears post-call.
   // If trashItem somehow succeeded despite the perm restriction, the diff
-  // would surface immediately. Filter dotfiles for the same reason as C1:
-  // Finder may write `.DS_Store`/`.localized` into ~/.Trash mid-test and
-  // those would inflate the post-snapshot without being entries we caused.
-  const userTrashDir = join(homedir(), '.Trash')
-  const trashEntriesBefore = new Set(
-    readdirSync(userTrashDir).filter((entry) => !entry.startsWith('.')),
-  )
+  // would surface immediately.
+  const trashEntriesBefore = snapshotUserTrash()
 
   await waitForInitialScan(appWindow)
 
@@ -743,13 +700,7 @@ test('removeAllFromAgent surfaces structured failure when shell.trashItem reject
     // OS Trash invariant — no new entry appeared. With `workers: 1` +
     // `fullyParallel: false`, the diff is tight. A new entry here would
     // mean trashItem partially succeeded, which contradicts success=false.
-    // Dotfile filter matches the pre-snapshot for symmetry.
-    const trashEntriesAfter = readdirSync(userTrashDir).filter(
-      (entry) => !entry.startsWith('.'),
-    )
-    const newEntries = trashEntriesAfter.filter(
-      (entry) => !trashEntriesBefore.has(entry),
-    )
+    const { newEntries } = diffUserTrash(trashEntriesBefore)
     expect(
       newEntries,
       `expected NO new ~/.Trash entries on rejection — got ${newEntries.join(', ')}`,
