@@ -3,6 +3,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
@@ -177,4 +178,93 @@ test('bulk deleteSkills at BULK_PROGRESS_THRESHOLD (N=10) emits sequential progr
     entry.includes('-bulk-at-'),
   )
   expect(trashEntries).toHaveLength(10)
+})
+
+/**
+ * Partial-failure boundary — one item in the batch raises `TrashError 'ENOENT'`
+ * (its source dir was wiped out-of-band before the IPC call), the other nine
+ * succeed. Locks in the contract that:
+ *
+ *   1. The serial loop in `SKILLS_DELETE_BATCH` does NOT short-circuit on a
+ *      per-item error — every remaining item still runs.
+ *   2. The failing item produces an `outcome: 'error'` row with a structured
+ *      `error: { message, code: 'ENOENT' }` instead of throwing out of the
+ *      handler.
+ *   3. Progress events still fire for every iteration when N >= threshold.
+ *      A regression that moved the `typedSend` inside the try/catch would
+ *      drop the failing item's tick and the progress stream would only have
+ *      9 events for a 10-item batch.
+ */
+test('bulk deleteSkills with one missing source returns per-item error and continues the batch', async ({
+  appWindow,
+  isolatedHome,
+}) => {
+  const skillNames = preStageDummySkills(isolatedHome, 10, 'bulk-partial')
+  // Pick a middle index so a regression that breaks AFTER the first error
+  // still trips the assertion. Index 0 or N-1 would not catch a partial loop
+  // that aborts as soon as the first error fires.
+  const failingIndex = 5
+  const failingSkillName = skillNames[failingIndex]
+  rmSync(join(isolatedHome, '.agents', 'skills', failingSkillName), {
+    recursive: true,
+    force: true,
+  })
+
+  await waitForInitialScan(appWindow)
+
+  await clearIpcEvents(appWindow)
+
+  const result = await appWindow.evaluate(
+    async (items: Array<{ skillName: string }>) =>
+      window.electron.skills.deleteSkills({ items }),
+    skillNames.map((skillName) => ({ skillName })),
+  )
+
+  expect(result.items).toHaveLength(10)
+
+  // Per-item assertions — exactly one error row at the expected index, every
+  // other row a success. Iterate by index instead of filtering so a regression
+  // that misroutes the error to a different position is caught.
+  for (const [index, item] of result.items.entries()) {
+    if (index === failingIndex) {
+      expect(item.skillName).toBe(failingSkillName)
+      expect(item.outcome).toBe('error')
+      if (item.outcome === 'error') {
+        expect(item.error.code).toBe('ENOENT')
+        expect(item.error.message).toMatch(/Skill not found/)
+      }
+    } else {
+      expect(item.skillName).toBe(skillNames[index])
+      expect(item.outcome).toBe('deleted')
+    }
+  }
+
+  // Progress events — N=10 >= threshold, so the handler must emit one tick per
+  // iteration regardless of per-item success. This is the load-bearing
+  // assertion against a "wrap typedSend in the try block" regression that
+  // would silently drop the failing item's tick.
+  const recordedEvents = await getIpcEvents(appWindow)
+  const progressEvents = recordedEvents
+    .filter((event) => event.channel === 'skills:deleteProgress')
+    .map((event) => event.data as DeleteProgressPayload)
+  expect(progressEvents).toHaveLength(10)
+  expect(progressEvents).toEqual(
+    Array.from({ length: 10 }, (_, index) => ({
+      current: index + 1,
+      total: 10,
+    })),
+  )
+
+  // FS — exactly 9 trash entries (one short of N), and the failing skill has
+  // no entry by name. Ranged includes-check protects against a regression
+  // where the handler creates an empty/half-written tombstone for the failing
+  // item before bailing, which would still match a length-only check.
+  const trashDir = join(isolatedHome, '.agents', '.trash')
+  const trashEntries = readdirSync(trashDir).filter((entry) =>
+    entry.includes('-bulk-partial-'),
+  )
+  expect(trashEntries).toHaveLength(9)
+  expect(
+    trashEntries.some((entry) => entry.includes(`-${failingSkillName}-`)),
+  ).toBe(false)
 })
