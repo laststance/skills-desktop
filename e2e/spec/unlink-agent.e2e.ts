@@ -3,7 +3,6 @@ import {
   lstatSync,
   mkdirSync,
   readdirSync,
-  rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
@@ -263,8 +262,13 @@ test('removeAllFromAgent refuses when the agent path is a symlink alias to the u
   // either, so mkdirSync first or symlinkSync would ENOENT.
   const sourceDir = join(isolatedHome, '.agents', 'skills')
   const cursorAgentPath = join(isolatedHome, '.cursor', 'skills')
+  // Sanity: if a future skills-cli bump ever links cursor by default, the
+  // rmSync below would silently nuke real fixture state. Fail loud instead.
+  expect(
+    existsSync(cursorAgentPath),
+    `cursor scanDir ${cursorAgentPath} unexpectedly exists pre-stage — global-setup or skills-cli behavior changed`,
+  ).toBe(false)
   mkdirSync(dirname(cursorAgentPath), { recursive: true })
-  rmSync(cursorAgentPath, { recursive: true, force: true })
   symlinkSync(sourceDir, cursorAgentPath)
 
   // Capture the SOURCE_DIR contents pre-call so we can assert nothing inside

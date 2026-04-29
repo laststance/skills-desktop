@@ -40,6 +40,11 @@ export function createIsolatedHome(): string {
   if (snapshot && existsSync(snapshot.snapshotHome)) {
     // cp -al preserves symlinks and hardlinks files. Reset is constant-time
     // because no I/O happens for hardlink creation. macOS supports -al.
+    //
+    // Caveat for future spec authors: hardlinked files share inodes across
+    // every working HOME. In-place edits (writeFileSync over an existing
+    // SKILL.md, appendFile, etc.) corrupt the snapshot for every subsequent
+    // test. Safe ops: unlink, rmdir, mkdir+writeFile of NEW paths.
     execFileSync('cp', ['-al', `${snapshot.snapshotHome}/.`, workingHome], {
       stdio: 'inherit',
     })
