@@ -30,7 +30,7 @@ export async function getStoreState<T>(
 }
 
 /**
- * Wait until `state.skills.selection.length === count`. Useful after
+ * Wait until `state.skills.selectedSkillNames.length === count`. Useful after
  * tab/agent switches that should clear selection (regression 2f05684).
  */
 export async function waitForSelectionCount(
@@ -42,8 +42,10 @@ export async function waitForSelectionCount(
     (expected) => {
       const store = window.__store__ ?? window.__store
       if (!store) return false
-      const state = store.getState() as { skills?: { selection?: unknown[] } }
-      return state.skills?.selection?.length === expected
+      const state = store.getState() as {
+        skills?: { selectedSkillNames?: unknown[] }
+      }
+      return state.skills?.selectedSkillNames?.length === expected
     },
     count,
     { timeout: timeoutMs },
