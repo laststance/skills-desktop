@@ -45,9 +45,22 @@ export function createIsolatedHome(): string {
     // every working HOME. In-place edits (writeFileSync over an existing
     // SKILL.md, appendFile, etc.) corrupt the snapshot for every subsequent
     // test. Safe ops: unlink, rmdir, mkdir+writeFile of NEW paths.
-    execFileSync('cp', ['-al', `${snapshot.snapshotHome}/.`, workingHome], {
-      stdio: 'inherit',
-    })
+    try {
+      execFileSync('cp', ['-al', `${snapshot.snapshotHome}/.`, workingHome], {
+        stdio: 'inherit',
+      })
+    } catch (cpError) {
+      // Without this cleanup, a partial copy leaks the empty workingHome
+      // tempdir and the test reports a misleading "snapshot copy failed"
+      // alongside an orphan dir under /tmp. rmSync is force/recursive so
+      // a partially-populated tree won't block cleanup.
+      rmSync(workingHome, { recursive: true, force: true })
+      throw new Error(
+        `Failed to hardlink snapshot ${snapshot.snapshotHome} to ${workingHome}: ${
+          cpError instanceof Error ? cpError.message : String(cpError)
+        }`,
+      )
+    }
   }
 
   return workingHome

@@ -100,9 +100,22 @@ export async function getIpcEvents(
   })
 }
 
-/** Clear the IPC event recorder. Call before triggering a flow you want to assert against. */
+/**
+ * Clear the IPC event recorder. Call before triggering a flow you want to
+ * assert against. Throws if `__ipcEvents__` is not exposed (build-flag
+ * mismatch) — same contract as `getIpcEvents` so a missing recorder fails
+ * loud at the call site instead of silently no-op'ing and producing an
+ * empty assertion downstream.
+ */
 export async function clearIpcEvents(page: Page): Promise<void> {
-  await page.evaluate(() => window.__ipcEvents__?.clear())
+  await page.evaluate(() => {
+    if (!window.__ipcEvents__) {
+      throw new Error(
+        'window.__ipcEvents__ is not exposed. Did you build with E2E_BUILD=1?',
+      )
+    }
+    window.__ipcEvents__.clear()
+  })
 }
 
 /**
