@@ -31,6 +31,28 @@ function readSnapshotInfo(): SnapshotInfo | null {
 }
 
 /**
+ * Read the snapshot offline flag set by global-setup. Returns `true` only
+ * when the snapshot info file exists AND `offline: true` was written; any
+ * missing/malformed state is treated as "online" (the test will run).
+ *
+ * Specs that depend on azure-* skills installed by `installAzureSkills`
+ * MUST gate themselves with `test.skip(isSnapshotOffline(), ...)` so a
+ * network blip degrades to a skip rather than a confusing UI failure
+ * mid-spec when the renderer scans an empty SOURCE_DIR.
+ *
+ * @example
+ * test.beforeEach(() => {
+ *   test.skip(
+ *     isSnapshotOffline(),
+ *     'azure-* skills required; runner is offline',
+ *   )
+ * })
+ */
+export function isSnapshotOffline(): boolean {
+  return readSnapshotInfo()?.offline === true
+}
+
+/**
  * Create an isolated HOME for a single test. If a snapshot exists from
  * global-setup, the working HOME is hardlinked from it (~50ms reset);
  * otherwise an empty HOME is created with `.agents/skills/` scaffolded.

@@ -65,11 +65,24 @@ export function diffUserTrash(before: Set<string>): {
  * `rmSync` with `force/recursive` handles both files and directories,
  * matching the shape variation `shell.trashItem` may produce per volume.
  *
+ * Defense-in-depth: refuses to remove any path not rooted at
+ * `USER_TRASH_DIR`. `diffUserTrash` always returns paths under
+ * `USER_TRASH_DIR`, so this guard is a no-op for the supported caller, but
+ * it keeps a future misuse (passing arbitrary paths) from `rm -rf`-ing the
+ * developer's home dir.
+ *
  * @example
  * try { ... } finally { cleanupTrashEntries(newPaths) }
  */
 export function cleanupTrashEntries(paths: readonly string[]): void {
+  const trashRootPrefix = `${USER_TRASH_DIR}/`
   for (const trashedPath of paths) {
+    if (!trashedPath.startsWith(trashRootPrefix)) {
+      console.warn(
+        `[e2e] Refusing to clean up path outside ~/.Trash: ${trashedPath}`,
+      )
+      continue
+    }
     try {
       rmSync(trashedPath, { recursive: true, force: true })
     } catch (err) {

@@ -9,6 +9,7 @@ import {
 import { join } from 'node:path'
 
 import { test, expect } from '../fixtures/electron-app'
+import { isSnapshotOffline } from '../fixtures/isolated-home'
 import {
   getStoreState,
   refreshSkillsState,
@@ -102,6 +103,17 @@ const azureSnapshotSelector = (state: unknown): AzureSnapshot => {
  * Local-only branch coverage (`moveLocalOnlyToTrash`) and the 15s undo-window
  * eviction live in dedicated tests below the source-backed pair.
  */
+
+// Every test in this file deletes / restores `azure-ai` from the snapshot
+// SOURCE_DIR. When global-setup is offline the snapshot is empty and the
+// `hasAzure: true` precondition would fail with a confusing renderer error
+// instead of a clean skip.
+test.beforeEach(() => {
+  test.skip(
+    isSnapshotOffline(),
+    'azure-* skills required for this suite; runner is offline (global-setup wrote snapshot.offline=true)',
+  )
+})
 
 test('deleteSkill moves source-backed skill into trash and unlinks every agent symlink', async ({
   appWindow,

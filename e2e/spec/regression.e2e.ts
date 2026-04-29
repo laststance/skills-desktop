@@ -11,6 +11,7 @@ import {
 import { dirname, join } from 'node:path'
 
 import { test, expect } from '../fixtures/electron-app'
+import { isSnapshotOffline } from '../fixtures/isolated-home'
 import { expectIronRuleRefusal } from '../helpers/iron-rule'
 import {
   dispatchAction,
@@ -53,6 +54,18 @@ const AZURE_AI_NAME = 'azure-ai'
  * Each test runs in a fresh isolated HOME so cross-test pollution can't make
  * one regression silently mask another.
  */
+
+// Every test in this file reads `~/.agents/skills/azure-ai` from the snapshot
+// (selection regressions dispatch `payload: AZURE_AI_NAME`; the IRON-RULE
+// suite walks the symlink chain rooted at the snapshot's SOURCE_DIR). When
+// global-setup is offline, SOURCE_DIR is empty and the renderer surfaces an
+// empty skill list, which would silently drop the assertion target.
+test.beforeEach(() => {
+  test.skip(
+    isSnapshotOffline(),
+    'azure-* skills required for this suite; runner is offline (global-setup wrote snapshot.offline=true)',
+  )
+})
 
 test('selection survives no further than a tab switch or agent switch (regression 2f05684)', async ({
   appWindow,

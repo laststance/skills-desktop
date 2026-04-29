@@ -1,15 +1,6 @@
 import { expect } from '@playwright/test'
 
-/**
- * Shape of `removeAllFromAgent`'s IPC return — kept narrow so this helper
- * does not couple the e2e suite to the renderer's full result type. Mirrors
- * `src/main/ipc/skills.ts`'s contract for the refusal branch.
- */
-interface RemoveAllFromAgentResult {
-  success: boolean
-  removedCount: number
-  error?: string
-}
+import type { RemoveAllFromAgentResult } from '../../src/shared/types'
 
 /**
  * Assert the structured IRON RULE refusal triplet returned by

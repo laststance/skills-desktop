@@ -11,6 +11,7 @@ import {
 import { dirname, join } from 'node:path'
 
 import { test, expect } from '../fixtures/electron-app'
+import { isSnapshotOffline } from '../fixtures/isolated-home'
 import { expectIronRuleRefusal } from '../helpers/iron-rule'
 import {
   getStoreState,
@@ -88,6 +89,19 @@ function preStageLinkedSkills(
  * trash state, leftover symlinks, and pre-staged aliases never leak across
  * tests.
  */
+
+// Several tests in this file consume the snapshot's azure-* skills directly,
+// while others share the same isolated-home contract that assumes SOURCE_DIR
+// is populated. When global-setup classifies the runner as offline, the
+// snapshot is empty and any spec that lstats `~/.agents/skills/azure-ai` will
+// fail with confusing renderer errors. File-level skip is the simplest
+// guarantee that the suite degrades gracefully.
+test.beforeEach(() => {
+  test.skip(
+    isSnapshotOffline(),
+    'azure-* skills required for this suite; runner is offline (global-setup wrote snapshot.offline=true)',
+  )
+})
 
 test('unlinkFromAgent removes one valid azure-ai symlink without touching the source or other agents', async ({
   appWindow,
@@ -564,6 +578,13 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
       { agentId: 'cline', agentPath: clineAgentPath },
     )
 
+    // Diff ~/.Trash IMMEDIATELY after the IPC call returns, before any
+    // assertion can throw. shell.trashItem may have already moved the agent
+    // dir into the developer's ~/.Trash; if any expect() below fails, the
+    // finally block must still see those entries to clean them up.
+    const { newPaths } = diffUserTrash(trashEntriesBefore)
+    createdTrashEntryPaths = newPaths
+
     expect(result.success).toBe(true)
     expect(result.removedCount).toBe(skillNames.length)
     expect(result.error).toBeUndefined()
@@ -583,8 +604,6 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
     // preStageLinkedSkills), so an exact-set match is decisive. Robust to a
     // concurrent dev-side trash action: a stray non-dotfile new entry won't
     // flake the run as long as our entry is among newPaths.
-    const { newPaths } = diffUserTrash(trashEntriesBefore)
-    createdTrashEntryPaths = newPaths
     const expectedSkillNames = [...skillNames].sort()
     const matchingTrashedAgentDir = newPaths.find((entryPath) => {
       if (!lstatSync(entryPath).isDirectory()) return false
