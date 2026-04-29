@@ -65,6 +65,24 @@ declare global {
             }
           | { outcome: 'error'; error: { message: string; code?: string } }
         >
+        deleteSkills: (options: {
+          items: Array<{ skillName: string }>
+        }) => Promise<{
+          items: Array<
+            | {
+                skillName: string
+                outcome: 'deleted'
+                tombstoneId: string
+                symlinksRemoved: number
+                cascadeAgents: string[]
+              }
+            | {
+                skillName: string
+                outcome: 'error'
+                error: { message: string; code?: string }
+              }
+          >
+        }>
       }
     }
   }
