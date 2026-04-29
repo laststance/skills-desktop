@@ -16,8 +16,14 @@ interface IpcEventsApi {
   count: (channel: string) => number
 }
 
+interface ExposedReduxAction {
+  type: string
+  payload?: unknown
+  meta?: Record<string, unknown>
+}
+
 interface ExposedReduxStore {
-  dispatch: (action: { type: string; payload?: unknown }) => unknown
+  dispatch: (action: ExposedReduxAction) => unknown
   getState: () => unknown
   subscribe: (listener: () => void) => () => void
 }
@@ -27,6 +33,26 @@ declare global {
     __store?: ExposedReduxStore
     __store__?: ExposedReduxStore
     __ipcEvents__?: IpcEventsApi
+    /**
+     * Subset of the renderer's contextBridge surface used by E2E specs.
+     * Mirrors the relevant shape of `src/renderer/src/types/electron.d.ts`
+     * but avoids importing across tsconfig boundaries — only the channels
+     * the suite drives are typed here.
+     */
+    electron: {
+      skills: {
+        getAll: () => Promise<unknown[]>
+        copyToAgents: (options: {
+          skillName: string
+          sourcePath: string
+          targetAgentIds: string[]
+        }) => Promise<{
+          success: boolean
+          copied: number
+          failures: Array<{ agentId: string; error: string }>
+        }>
+      }
+    }
   }
 }
 

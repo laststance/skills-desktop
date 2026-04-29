@@ -71,3 +71,29 @@ export async function getIpcEvents(
 export async function clearIpcEvents(page: Page): Promise<void> {
   await page.evaluate(() => window.__ipcEvents__?.clear())
 }
+
+/**
+ * Refresh `state.skills.items` from disk. Used after specs that mutate the
+ * filesystem via direct IPC calls (bypassing thunks), since the IPC handlers
+ * do not push back into the renderer store on their own.
+ *
+ * Internally calls `skills:getAll` and dispatches a synthetic
+ * `skills/fetchAll/fulfilled` action so the slice's existing reducer applies
+ * the payload — equivalent in effect to dispatching the `fetchSkills` thunk.
+ */
+export async function refreshSkillsState(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const skills = await window.electron.skills.getAll()
+    const store = window.__store__ ?? window.__store
+    if (!store) {
+      throw new Error(
+        'window.__store__ is not exposed. Did you build with E2E_BUILD=1?',
+      )
+    }
+    store.dispatch({
+      type: 'skills/fetchAll/fulfilled',
+      payload: skills,
+      meta: { requestId: 'e2e-refresh', requestStatus: 'fulfilled' },
+    })
+  })
+}
