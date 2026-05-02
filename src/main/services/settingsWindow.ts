@@ -51,6 +51,10 @@ export function createOrFocusSettingsWindow(): void {
   attachExternalLinkHandler(window)
 
   window.on('ready-to-show', () => {
+    // E2E: never reveal the Settings window — see the comment on
+    // `isE2EBackgroundLaunch` in src/main/index.ts. `showInactive()` would
+    // still display the window; only skipping `show()` keeps it hidden.
+    if (process.env['E2E_BACKGROUND_LAUNCH'] === '1') return
     window.show()
   })
 

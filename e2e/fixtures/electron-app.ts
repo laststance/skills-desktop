@@ -46,6 +46,9 @@ export const test = baseTest.extend<ElectronFixtures>({
         ...process.env,
         HOME: isolatedHome,
         E2E_DISABLE_UPDATE: '1',
+        // Default to fully-hidden windows; allow opt-out when the developer
+        // wants to watch the test (e.g. `E2E_BACKGROUND_LAUNCH=0 pnpm test:e2e:headed`).
+        E2E_BACKGROUND_LAUNCH: process.env['E2E_BACKGROUND_LAUNCH'] ?? '1',
       },
     })
     await use(app)

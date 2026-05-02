@@ -25,6 +25,21 @@ process.on('unhandledRejection', (reason, promise) => {
  */
 let mainWindow: BrowserWindow | null = null
 
+/**
+ * True when the app was spawned by the Playwright E2E fixture
+ * (`e2e/fixtures/electron-app.ts`). When set, the renderer-bearing
+ * BrowserWindows are kept fully hidden (no `show()` / `showInactive()` /
+ * `maximize()` calls) and the app is hidden from the Dock / Cmd-Tab via
+ * `setActivationPolicy('accessory')`. Playwright drives the renderer
+ * through `webContents` (loaded as part of the BrowserWindow lifecycle
+ * regardless of visibility), so tests don't need a visible window.
+ *
+ * NOTE: `showInactive()` does NOT hide the window — per Electron docs it
+ * shows the window without focusing it. Only skipping `show()` entirely
+ * keeps the window off-screen.
+ */
+const isE2EBackgroundLaunch = process.env['E2E_BACKGROUND_LAUNCH'] === '1'
+
 function createWindow(): void {
   const window = new BrowserWindow({
     width: 1200,
@@ -49,6 +64,11 @@ function createWindow(): void {
   })
 
   window.on('ready-to-show', () => {
+    // E2E: keep the window completely hidden. Skipping both maximize() and
+    // show() prevents the OS from rendering the window at all — Playwright
+    // still drives the renderer through webContents, which is loaded
+    // independently of window visibility.
+    if (isE2EBackgroundLaunch) return
     window.maximize()
     window.show()
   })
@@ -233,6 +253,13 @@ app.whenReady().then(async () => {
   // Configure the About panel before the menu wires up `role: 'about'`
   configureAboutPanel()
   createMenu()
+
+  // E2E: hide from Dock / Cmd-Tab so test launches don't disrupt the user.
+  // macOS-only API; guard with platform check to avoid runtime errors on
+  // Linux/Windows CI runners.
+  if (isE2EBackgroundLaunch && process.platform === 'darwin') {
+    app.setActivationPolicy('accessory')
+  }
   createWindow()
 
   // Initialize auto updater in production.
