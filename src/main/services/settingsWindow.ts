@@ -1,6 +1,9 @@
 import { join } from 'path'
 
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow } from 'electron'
+
+import { attachExternalLinkHandler } from '../utils/attachExternalLinkHandler'
+import { getSecureWebPreferences } from '../utils/secureWebPreferences'
 
 /**
  * Single-instance reference to the Settings window. Held at module scope
@@ -40,27 +43,12 @@ export function createOrFocusSettingsWindow(): void {
     maximizable: false,
     fullscreenable: false,
     backgroundColor: '#0A0F1C',
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
+    webPreferences: getSecureWebPreferences(),
   })
 
   // External-link routing: keeps About-tab anchor tags out of an in-app
   // BrowserWindow. Mirrors the main-window pattern in src/main/index.ts.
-  window.webContents.setWindowOpenHandler((details) => {
-    try {
-      const url = new URL(details.url)
-      if (['http:', 'https:'].includes(url.protocol)) {
-        shell.openExternal(details.url)
-      }
-    } catch {
-      // Invalid URL, ignore
-    }
-    return { action: 'deny' }
-  })
+  attachExternalLinkHandler(window)
 
   window.on('ready-to-show', () => {
     window.show()

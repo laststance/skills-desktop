@@ -1,6 +1,6 @@
 import { join } from 'path'
 
-import { app, shell, BrowserWindow, Menu, nativeImage, session } from 'electron'
+import { app, BrowserWindow, Menu, nativeImage, session } from 'electron'
 
 import { isAllowedSkillsUrl } from '../shared/marketplaceUrlPolicy'
 
@@ -9,6 +9,8 @@ import { loadSettings } from './services/settings'
 import { createOrFocusSettingsWindow } from './services/settingsWindow'
 import { startupCleanup as runTrashStartupCleanup } from './services/trashService'
 import { initAutoUpdater } from './updater'
+import { attachExternalLinkHandler } from './utils/attachExternalLinkHandler'
+import { getSecureWebPreferences } from './utils/secureWebPreferences'
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason)
@@ -34,10 +36,9 @@ function createWindow(): void {
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 16 },
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false,
+      ...getSecureWebPreferences(),
+      // Main-window-only: <webview> is used by the marketplace tab to
+      // embed skills.sh; Settings window doesn't need it.
       webviewTag: true,
     },
   })
@@ -72,17 +73,7 @@ function createWindow(): void {
     },
   )
 
-  window.webContents.setWindowOpenHandler((details) => {
-    try {
-      const url = new URL(details.url)
-      if (['http:', 'https:'].includes(url.protocol)) {
-        shell.openExternal(details.url)
-      }
-    } catch {
-      // Invalid URL, ignore
-    }
-    return { action: 'deny' }
-  })
+  attachExternalLinkHandler(window)
 
   // Enforce Content Security Policy in production builds.
   // Use file: and app: schemes explicitly since 'self' may not reliably match file:// origins.

@@ -40,6 +40,11 @@ export function broadcastTypedEvent<C extends IpcEventChannel>(
   ...args: IpcEventContract[C] extends void ? [] : [IpcEventContract[C]]
 ): void {
   for (const win of BrowserWindow.getAllWindows()) {
+    // Skip torn-down windows mid-loop. `getAllWindows()` may include a
+    // window whose `webContents` is already destroyed (e.g. a Settings
+    // window whose `closed` event fired between the iteration start and
+    // here) — `webContents.send` on a destroyed view throws.
+    if (win.isDestroyed() || win.webContents.isDestroyed()) continue
     typedSend(win.webContents, channel, ...args)
   }
 }

@@ -6,8 +6,8 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from '../../src/components/ui/toggle-group'
-import { useAppDispatch, useAppSelector } from '../../src/redux/hooks'
-import { setSettings } from '../../src/redux/slices/settingsSlice'
+import { useUpdateSettings } from '../../src/hooks/useUpdateSettings'
+import { useAppSelector } from '../../src/redux/hooks'
 
 import { SectionFrame, SectionRow } from './SectionFrame'
 
@@ -47,17 +47,12 @@ const DEFAULT_TAB_OPTIONS: ReadonlyArray<{
  * non-critical setting.
  */
 export const General = React.memo(function General(): React.ReactElement {
-  const dispatch = useAppDispatch()
   const settings = useAppSelector((state) => state.settings)
+  const updateSettings = useUpdateSettings()
 
   const handleDefaultTabChange = (nextValue: string): void => {
     if (nextValue !== 'files' && nextValue !== 'info') return
-    const nextSettings: Settings = {
-      ...settings,
-      defaultSkillTab: nextValue,
-    }
-    dispatch(setSettings(nextSettings))
-    void window.electron.settings.set({ defaultSkillTab: nextValue })
+    updateSettings({ defaultSkillTab: nextValue })
   }
 
   return (

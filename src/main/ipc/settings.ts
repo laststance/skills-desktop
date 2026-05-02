@@ -28,8 +28,15 @@ export function registerSettingsHandlers(): void {
   typedHandle(IPC_CHANNELS.SETTINGS_GET, () => getSettings())
 
   typedHandle(IPC_CHANNELS.SETTINGS_SET, async (_event, partial) => {
+    const before = getSettings()
     const next = await saveSettings(partial)
-    broadcastTypedEvent(IPC_CHANNELS.SETTINGS_CHANGED, next)
+    // `saveSettings` returns the same reference when nothing actually
+    // changed (shallow-compare guard inside the service). Skip the
+    // broadcast in that case so we don't fan out a no-op `settings:changed`
+    // and trigger a redundant Redux replace in every open window.
+    if (next !== before) {
+      broadcastTypedEvent(IPC_CHANNELS.SETTINGS_CHANGED, next)
+    }
     return next
   })
 }

@@ -18,31 +18,29 @@ import { AutoUpdates } from './sections/AutoUpdates'
 import { General } from './sections/General'
 import { Keybindings } from './sections/Keybindings'
 
-type Section =
-  | 'general'
-  | 'appearance'
-  | 'autoUpdates'
-  | 'keybindings'
-  | 'about'
-
-interface NavItem {
-  id: Section
-  label: string
-  icon: React.ComponentType<{ className?: string }>
-}
-
 /**
  * Static nav definition. Keep order = visual order so the array is also the
  * tab order — no separate ordering layer to maintain. Lucide icons match the
  * sidebar's existing iconography (single-stroke, 16×16 default).
+ *
+ * `as const satisfies …` keeps `id` literal-typed (so `Section` below can be
+ * a strict union) while still validating the shape of every entry. Adding a
+ * new section here automatically widens `Section` — no second list to
+ * maintain.
  */
-const NAV_ITEMS: readonly NavItem[] = [
+const NAV_ITEMS = [
   { id: 'general', label: 'General', icon: SlidersHorizontal },
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'autoUpdates', label: 'Auto Updates', icon: RefreshCw },
   { id: 'keybindings', label: 'Keybindings', icon: Keyboard },
   { id: 'about', label: 'About', icon: Info },
-] as const
+] as const satisfies ReadonlyArray<{
+  id: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+}>
+
+type Section = (typeof NAV_ITEMS)[number]['id']
 
 /**
  * Top-level Settings window component.
@@ -64,7 +62,7 @@ export const SettingsApp = React.memo(
     const [activeSection, setActiveSection] = useState<Section>('general')
 
     return (
-      <div className="flex h-screen bg-background text-foreground">
+      <div className="flex h-screen bg-background text-foreground window-glow">
         <nav
           aria-label="Settings sections"
           className="w-50 shrink-0 border-r border-border bg-sidebar/30 py-4"

@@ -2,9 +2,9 @@ import React, { Activity } from 'react'
 
 import type { Settings } from '../../../../shared/settings'
 import type { Skill, SymlinkInfo } from '../../../../shared/types'
+import { useUpdateSettings } from '../../hooks/useUpdateSettings'
 import { cn } from '../../lib/utils'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { setSettings } from '../../redux/slices/settingsSlice'
+import { useAppSelector } from '../../redux/hooks'
 import type { LocationViewModel } from '../../utils/getLocationViewModel'
 import { getLocationViewModel } from '../../utils/getLocationViewModel'
 import { SymlinkStatus } from '../status/SymlinkStatus'
@@ -30,20 +30,15 @@ interface SkillDetailProps {
 export const SkillDetail = React.memo(function SkillDetail({
   skill,
 }: SkillDetailProps): React.ReactElement {
-  const dispatch = useAppDispatch()
   const settings = useAppSelector((state) => state.settings)
   const activeTab = settings.defaultSkillTab
   const { items: agents } = useAppSelector((state) => state.agents)
   const selectedAgentId = useAppSelector((state) => state.ui.selectedAgentId)
+  const updateSettings = useUpdateSettings()
 
   const handleTabChange = (nextTab: Settings['defaultSkillTab']): void => {
     if (nextTab === activeTab) return
-    const nextSettings: Settings = {
-      ...settings,
-      defaultSkillTab: nextTab,
-    }
-    dispatch(setSettings(nextSettings))
-    void window.electron.settings.set({ defaultSkillTab: nextTab })
+    updateSettings({ defaultSkillTab: nextTab })
   }
 
   // Filter symlinks to only show detected agents (exists: true)

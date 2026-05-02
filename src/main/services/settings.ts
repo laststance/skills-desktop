@@ -88,7 +88,17 @@ export function getSettings(): Settings {
 export async function saveSettings(
   partial: Partial<Settings>,
 ): Promise<Settings> {
-  const merged = SettingsSchema.parse({ ...getSettings(), ...partial })
+  const current = getSettings()
+  const merged = SettingsSchema.parse({ ...current, ...partial })
+  // Shallow-compare guard: when nothing actually changed (e.g. tapping
+  // the already-active radio), short-circuit before disk write so
+  // `ipc/settings.ts` can also skip the broadcast — no fan-out, no
+  // redundant Redux replace in every open window. Safe today because
+  // `Settings` is a flat object; revisit if a nested field lands.
+  const isUnchanged = (Object.keys(merged) as Array<keyof Settings>).every(
+    (key) => merged[key] === current[key],
+  )
+  if (isUnchanged) return current
   const target = settingsFilePath()
   const tempPath = `${target}.tmp`
   // Ensure userData dir exists — first run on a fresh profile may lack it.
