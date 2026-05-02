@@ -3,6 +3,7 @@ import { join } from 'path'
 import { app, BrowserWindow } from 'electron'
 
 import { attachExternalLinkHandler } from '../utils/attachExternalLinkHandler'
+import { isE2EBackgroundLaunch } from '../utils/e2eEnv'
 import { getSecureWebPreferences } from '../utils/secureWebPreferences'
 
 /**
@@ -51,6 +52,9 @@ export function createOrFocusSettingsWindow(): void {
   attachExternalLinkHandler(window)
 
   window.on('ready-to-show', () => {
+    // E2E: never reveal the Settings window — see the JSDoc on
+    // `isE2EBackgroundLaunch` in src/main/utils/e2eEnv.ts.
+    if (isE2EBackgroundLaunch) return
     window.show()
   })
 

@@ -10,6 +10,7 @@ import { createOrFocusSettingsWindow } from './services/settingsWindow'
 import { startupCleanup as runTrashStartupCleanup } from './services/trashService'
 import { initAutoUpdater } from './updater'
 import { attachExternalLinkHandler } from './utils/attachExternalLinkHandler'
+import { isE2EBackgroundLaunch } from './utils/e2eEnv'
 import { getSecureWebPreferences } from './utils/secureWebPreferences'
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -49,6 +50,11 @@ function createWindow(): void {
   })
 
   window.on('ready-to-show', () => {
+    // E2E: keep the window completely hidden. Skipping both maximize() and
+    // show() prevents the OS from rendering the window at all — Playwright
+    // still drives the renderer through webContents, which is loaded
+    // independently of window visibility.
+    if (isE2EBackgroundLaunch) return
     window.maximize()
     window.show()
   })
@@ -213,6 +219,15 @@ function createMenu(): void {
 }
 
 app.whenReady().then(async () => {
+  // E2E: hide from Dock / Cmd-Tab BEFORE any other init runs. Done first
+  // because `configureAboutPanel()` below calls `app.dock.setIcon()`,
+  // which would briefly flash the Dock icon if the policy is still
+  // `regular`. macOS-only API; guard with platform check to avoid
+  // runtime errors on Linux/Windows CI runners.
+  if (isE2EBackgroundLaunch && process.platform === 'darwin') {
+    app.setActivationPolicy('accessory')
+  }
+
   // Register IPC handlers before creating window
   registerAllHandlers()
 
