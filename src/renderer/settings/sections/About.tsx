@@ -54,9 +54,14 @@ function statusLabel(status: CheckStatus): string {
  *    `setWindowOpenHandler` routes them to the system browser via
  *    `shell.openExternal` (see feedback_external_links memory).
  *
- * Note: in dev, `window.electron.update` may be undefined (the updater
- * only initializes in production builds). The button is rendered
- * disabled in that case so the click doesn't silently no-op.
+ * Note: in dev, `window.electron.update` is always exposed by preload
+ * but `initAutoUpdater()` only runs when `app.isPackaged`. A click
+ * therefore fires `update:check` into a process with no autoUpdater
+ * listeners, so no `update:checking` / `update:not-available` event
+ * comes back and the button gets stuck on "Checking…". Accepted as
+ * dev-only cosmetic noise — gating would require plumbing
+ * `app.isPackaged` through a Vite `define` or extra IPC, which costs
+ * more in dev/prod branching than it saves.
  */
 export const About = React.memo(function About(): React.ReactElement {
   const updateApi = window.electron.update
