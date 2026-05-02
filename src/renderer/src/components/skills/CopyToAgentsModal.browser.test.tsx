@@ -60,6 +60,7 @@ function makeSkill(symlinks: SymlinkInfo[]): Skill {
     symlinkCount: symlinks.length,
     symlinks,
     isSource: true,
+    isOrphan: false,
   }
 }
 

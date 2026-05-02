@@ -86,15 +86,18 @@ export async function checkSkillSymlinks(
 ): Promise<SymlinkInfo[]> {
   const results = await Promise.all(
     AGENTS.map(async (agent) => {
-      const linkPath = join(agent.path, skillName)
+      const linkPath = join(agent.path, skillName) as AbsolutePath
       const { status, isLocal } = await checkLinkOrLocal(linkPath)
 
-      let targetPath = ''
+      // Only symlinks (not local folders, not missing entries) have a target
+      // worth recording. Read it lazily and tolerate failures so a flaky
+      // readlink doesn't poison the whole scan.
+      let targetPath: AbsolutePath | undefined
       if (status !== 'missing' && !isLocal) {
         try {
-          targetPath = await readlink(linkPath)
+          targetPath = (await readlink(linkPath)) as AbsolutePath
         } catch {
-          // Could not read link target
+          // Leave undefined — the link disappeared between lstat and readlink
         }
       }
 
@@ -131,18 +134,50 @@ export async function checkSymlinkStatus(
       return 'missing'
     }
 
-    // Check if target exists
-    // resolve() handles both absolute and relative targets correctly
-    const target = await readlink(linkPath)
-    const resolvedTarget = resolve(dirname(linkPath), target)
-    try {
-      await access(resolvedTarget)
-      return 'valid'
-    } catch {
-      return 'broken'
-    }
+    return await resolveSymlinkTarget(linkPath)
   } catch {
     return 'missing'
+  }
+}
+
+/**
+ * Fast-path of {@link checkSymlinkStatus} for callers that already proved the
+ * path is a symbolic link (e.g. via `Dirent.isSymbolicLink()` from `readdir`).
+ * Skips the redundant `lstat` syscall — saves one I/O per orphan candidate
+ * across all agent dirs during a full scan.
+ *
+ * @param linkPath - Path that is known (by the caller) to be a symbolic link
+ * @returns 'valid' if target exists, 'broken' if dangling, 'missing' if the
+ * link itself disappeared between the readdir snapshot and the lookup
+ * @example
+ * // Inside a readdir loop where entry.isSymbolicLink() === true:
+ * await checkSymlinkTargetFromKnownLink(join(dir, entry.name))
+ */
+export async function checkSymlinkTargetFromKnownLink(
+  linkPath: AbsolutePath,
+): Promise<SymlinkStatus> {
+  try {
+    return await resolveSymlinkTarget(linkPath)
+  } catch {
+    return 'missing'
+  }
+}
+
+/**
+ * Shared core: read the symlink, resolve it relative to its own directory
+ * (handles both absolute and relative targets), then probe for existence.
+ * Centralizing this makes the slow-path and fast-path identical in meaning.
+ */
+async function resolveSymlinkTarget(
+  linkPath: AbsolutePath,
+): Promise<SymlinkStatus> {
+  const target = await readlink(linkPath)
+  const resolvedTarget = resolve(dirname(linkPath), target)
+  try {
+    await access(resolvedTarget)
+    return 'valid'
+  } catch {
+    return 'broken'
   }
 }
 

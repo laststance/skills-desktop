@@ -1,5 +1,5 @@
 import { GSTACK_BADGE_AGENT_IDS } from '../../../../shared/constants'
-import type { AgentId, SymlinkInfo } from '../../../../shared/types'
+import type { AgentId, Skill, SymlinkInfo } from '../../../../shared/types'
 
 /**
  * Visibility state for SkillItem action buttons.
@@ -53,28 +53,41 @@ function isGStackBundlePath(candidatePath: string): boolean {
 /**
  * Compute which action buttons to show on a SkillItem card.
  *
+ * Reads `isOrphan` directly off the skill — set by `scanOrphanSymlinks` in
+ * main, where the source-skill existence check actually lives — instead of
+ * re-deriving it from `symlinks`. The renderer no longer needs to know the
+ * orphan rule; it only needs to know how to react to it.
+ *
  * @param selectedAgentId - Currently selected agent filter (null = global view)
- * @param symlinks - Symlink info array for the skill
+ * @param skill - The skill being rendered (only `symlinks` and `isOrphan` are read)
  * @returns Visibility flags for each action button
  *
  * @example
  * // Global view (no agent filter) — show delete & add, hide unlink
- * getSkillItemVisibility(null, []) // => { showDeleteButton: true, showAddButton: true, showUnlinkButton: false, ... }
+ * getSkillItemVisibility(null, { symlinks: [], isOrphan: false })
+ * // => { showDeleteButton: true, showAddButton: true, showUnlinkButton: false, ... }
  *
  * @example
  * // Agent filtered view with valid symlink — show unlink and add, hide delete
- * getSkillItemVisibility('cursor', [{ agentId: 'cursor', status: 'valid', isLocal: false, ... }])
+ * getSkillItemVisibility('cursor', {
+ *   symlinks: [{ agentId: 'cursor', status: 'valid', isLocal: false, ... }],
+ *   isOrphan: false,
+ * })
  * // => { showDeleteButton: false, showAddButton: true, showUnlinkButton: true, isLinked: true, ... }
  *
  * @example
- * // Agent filtered view with local skill — show unlink button for deletion
- * getSkillItemVisibility('cursor', [{ agentId: 'cursor', status: 'valid', isLocal: true, ... }])
- * // => { showDeleteButton: false, showUnlinkButton: true, isLocalSkill: true, selectedLocalSkillInfo: {...}, ... }
+ * // Orphan skill — both delete and unlink hidden (cleanup flow handled separately)
+ * getSkillItemVisibility(null, {
+ *   symlinks: [{ agentId: 'cursor', status: 'broken', isLocal: false, ... }],
+ *   isOrphan: true,
+ * })
+ * // => { showDeleteButton: false, showUnlinkButton: false, ... }
  */
 export function getSkillItemVisibility(
   selectedAgentId: AgentId | null,
-  symlinks: SymlinkInfo[],
+  skill: Pick<Skill, 'symlinks' | 'isOrphan'>,
 ): SkillItemVisibility {
+  const { symlinks, isOrphan } = skill
   const selectedAgentSymlink = selectedAgentId
     ? (symlinks.find(
         (s) =>
@@ -90,6 +103,8 @@ export function getSkillItemVisibility(
 
   const isLocalSkill = !!selectedLocalSkillInfo
   const hasSkillInSelectedAgent = !!selectedAgentSymlink || isLocalSkill
+  // Orphan handling — see Skill.isOrphan for why the delete/unlink buttons
+  // are gated. Source: scanOrphanSymlinks() in src/main/services/skillScanner.ts.
   const gStackPathCandidates = [
     selectedAgentSymlink?.targetPath ?? '',
     selectedAgentSymlink?.linkPath ?? '',
@@ -102,9 +117,9 @@ export function getSkillItemVisibility(
     isGStackEligibleAgent && gStackPathCandidates.some(isGStackBundlePath)
 
   return {
-    showDeleteButton: !selectedAgentId,
+    showDeleteButton: !selectedAgentId && !isOrphan,
     showAddButton: !selectedAgentId || hasSkillInSelectedAgent,
-    showUnlinkButton: hasSkillInSelectedAgent,
+    showUnlinkButton: hasSkillInSelectedAgent && !isOrphan,
     isLinked: !!selectedAgentSymlink && selectedAgentSymlink.status === 'valid',
     isLocalSkill,
     selectedAgentSymlink,

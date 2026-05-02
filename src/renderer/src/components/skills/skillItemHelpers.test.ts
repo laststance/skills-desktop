@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import type { AgentId, SymlinkInfo } from '../../../../shared/types'
+import type {
+  AbsolutePath,
+  AgentId,
+  Skill,
+  SymlinkInfo,
+} from '../../../../shared/types'
 
 import { getSkillItemVisibility } from './skillItemHelpers'
 
@@ -13,17 +18,38 @@ function makeSymlink(
   return {
     agentName: 'Test Agent' as SymlinkInfo['agentName'],
     status: 'valid',
-    targetPath: '/target',
-    linkPath: '/link',
+    targetPath: '/target' as AbsolutePath,
+    linkPath: '/link' as AbsolutePath,
     isLocal: false,
     ...overrides,
+  }
+}
+
+/**
+ * Bundle a list of symlinks into the minimal `Skill` shape that
+ * {@link getSkillItemVisibility} reads. `isOrphan` is auto-derived from the
+ * symlinks (every entry broken/missing AND no local copy = orphan), matching
+ * what `scanOrphanSymlinks` would set in production. Override when a test
+ * needs to assert the inverse.
+ */
+function makeSkill(
+  symlinks: SymlinkInfo[],
+  overrides?: Partial<Pick<Skill, 'isOrphan'>>,
+): Pick<Skill, 'symlinks' | 'isOrphan'> {
+  const derivedOrphan =
+    symlinks.length > 0 &&
+    symlinks.some((s) => s.status === 'broken') &&
+    !symlinks.some((s) => s.status === 'valid' || s.isLocal)
+  return {
+    symlinks,
+    isOrphan: overrides?.isOrphan ?? derivedOrphan,
   }
 }
 
 describe('getSkillItemVisibility', () => {
   describe('global view (no agent selected)', () => {
     it('shows delete and add buttons, hides unlink', () => {
-      const result = getSkillItemVisibility(null, [])
+      const result = getSkillItemVisibility(null, makeSkill([]))
 
       expect(result.showDeleteButton).toBe(true)
       expect(result.showAddButton).toBe(true)
@@ -35,7 +61,7 @@ describe('getSkillItemVisibility', () => {
 
     it('shows delete and add even when symlinks exist', () => {
       const symlinks = [makeSymlink({ agentId: 'cursor' })]
-      const result = getSkillItemVisibility(null, symlinks)
+      const result = getSkillItemVisibility(null, makeSkill(symlinks))
 
       expect(result.showDeleteButton).toBe(true)
       expect(result.showAddButton).toBe(true)
@@ -45,7 +71,7 @@ describe('getSkillItemVisibility', () => {
 
   describe('agent filtered view (agent selected)', () => {
     it('hides delete button and keeps add hidden when selected agent has no skill', () => {
-      const result = getSkillItemVisibility('cursor', [])
+      const result = getSkillItemVisibility('cursor', makeSkill([]))
 
       expect(result.showDeleteButton).toBe(false)
       expect(result.showAddButton).toBe(false)
@@ -55,7 +81,7 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
       ]
-      const result = getSkillItemVisibility('cursor', symlinks)
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
 
       expect(result.showAddButton).toBe(true)
     })
@@ -64,7 +90,7 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: true }),
       ]
-      const result = getSkillItemVisibility('cursor', symlinks)
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
 
       expect(result.showAddButton).toBe(true)
     })
@@ -73,18 +99,36 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
       ]
-      const result = getSkillItemVisibility('cursor', symlinks)
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
 
       expect(result.showUnlinkButton).toBe(true)
       expect(result.isLinked).toBe(true)
       expect(result.selectedAgentSymlink).toBe(symlinks[0])
     })
 
-    it('shows unlink button for broken symlink (but isLinked is false)', () => {
+    it('hides unlink button for orphan-only broken symlink (no usable copy anywhere)', () => {
+      // A skill whose every entry is broken/missing has no source — issue #127
+      // Option B fix routes orphans to a separate cleanup flow (#71), so the
+      // existing X button must not surface (its IPC handlers don't support
+      // orphan removal cleanly).
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'broken', isLocal: false }),
       ]
-      const result = getSkillItemVisibility('cursor', symlinks)
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
+
+      expect(result.showUnlinkButton).toBe(false)
+      expect(result.isLinked).toBe(false)
+    })
+
+    it('still shows unlink for broken symlink when another agent has a valid copy', () => {
+      // Live source skill with one healthy and one broken agent link — the
+      // orphan guard must NOT trigger here. Removing the broken link is safe
+      // and meaningful because the source still exists.
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'broken', isLocal: false }),
+        makeSymlink({ agentId: 'codex', status: 'valid', isLocal: false }),
+      ]
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
 
       expect(result.showUnlinkButton).toBe(true)
       expect(result.isLinked).toBe(false)
@@ -94,7 +138,7 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({ agentId: 'codex', status: 'valid', isLocal: false }),
       ]
-      const result = getSkillItemVisibility('cursor', symlinks)
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
 
       expect(result.showUnlinkButton).toBe(false)
       expect(result.selectedAgentSymlink).toBeNull()
@@ -104,7 +148,7 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: true }),
       ]
-      const result = getSkillItemVisibility('cursor', symlinks)
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
 
       expect(result.showUnlinkButton).toBe(true)
       expect(result.selectedAgentSymlink).toBeNull()
@@ -115,7 +159,7 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: true }),
       ]
-      const result = getSkillItemVisibility('cursor', symlinks)
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
 
       expect(result.isLocalSkill).toBe(true)
       expect(result.isLinked).toBe(false)
@@ -126,7 +170,7 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
       ]
-      const result = getSkillItemVisibility('cursor', symlinks)
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
 
       expect(result.isLocalSkill).toBe(false)
       expect(result.isLinked).toBe(true)
@@ -137,7 +181,7 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: true }),
       ]
-      const result = getSkillItemVisibility(null, symlinks)
+      const result = getSkillItemVisibility(null, makeSkill(symlinks))
 
       expect(result.isLocalSkill).toBe(false)
       expect(result.selectedLocalSkillInfo).toBeNull()
@@ -147,7 +191,7 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'missing', isLocal: false }),
       ]
-      const result = getSkillItemVisibility('cursor', symlinks)
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
 
       expect(result.showUnlinkButton).toBe(false)
     })
@@ -158,7 +202,7 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
       ]
-      const result = getSkillItemVisibility(null, symlinks)
+      const result = getSkillItemVisibility(null, makeSkill(symlinks))
       expect(result.showCopyButton).toBe(false)
     })
 
@@ -166,7 +210,7 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
       ]
-      const result = getSkillItemVisibility('codex', symlinks)
+      const result = getSkillItemVisibility('codex', makeSkill(symlinks))
       expect(result.showCopyButton).toBe(false)
     })
 
@@ -174,7 +218,7 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
       ]
-      const result = getSkillItemVisibility('cursor', symlinks)
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
       expect(result.showCopyButton).toBe(true)
     })
 
@@ -182,7 +226,7 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: true }),
       ]
-      const result = getSkillItemVisibility('cursor', symlinks)
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
       expect(result.showCopyButton).toBe(true)
     })
 
@@ -190,7 +234,7 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({ agentId: 'codex', status: 'valid', isLocal: false }),
       ]
-      const result = getSkillItemVisibility('cursor', symlinks)
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
       expect(result.showCopyButton).toBe(false)
     })
   })
@@ -207,7 +251,7 @@ describe('getSkillItemVisibility', () => {
         }),
       ]
 
-      const result = getSkillItemVisibility('claude-code', symlinks)
+      const result = getSkillItemVisibility('claude-code', makeSkill(symlinks))
       expect(result.showGStackBadge).toBe(true)
     })
 
@@ -222,7 +266,7 @@ describe('getSkillItemVisibility', () => {
         }),
       ]
 
-      const result = getSkillItemVisibility('codex', symlinks)
+      const result = getSkillItemVisibility('codex', makeSkill(symlinks))
       expect(result.showGStackBadge).toBe(true)
     })
 
@@ -236,7 +280,7 @@ describe('getSkillItemVisibility', () => {
         }),
       ]
 
-      const result = getSkillItemVisibility(null, symlinks)
+      const result = getSkillItemVisibility(null, makeSkill(symlinks))
       expect(result.showGStackBadge).toBe(false)
     })
 
@@ -251,8 +295,41 @@ describe('getSkillItemVisibility', () => {
         }),
       ]
 
-      const result = getSkillItemVisibility('gemini-cli', symlinks)
+      const result = getSkillItemVisibility('gemini-cli', makeSkill(symlinks))
       expect(result.showGStackBadge).toBe(false)
+    })
+  })
+
+  describe('orphan skill guard (issue #127)', () => {
+    it('hides global delete button for orphan-only skill', () => {
+      // Source removed, broken symlinks across two agents, no real folders.
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'broken', isLocal: false }),
+        makeSymlink({ agentId: 'codex', status: 'broken', isLocal: false }),
+      ]
+      const result = getSkillItemVisibility(null, makeSkill(symlinks))
+
+      expect(result.showDeleteButton).toBe(false)
+    })
+
+    it('keeps global delete button visible when at least one agent has a valid copy', () => {
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
+        makeSymlink({ agentId: 'codex', status: 'broken', isLocal: false }),
+      ]
+      const result = getSkillItemVisibility(null, makeSkill(symlinks))
+
+      expect(result.showDeleteButton).toBe(true)
+    })
+
+    it('keeps global delete button visible when at least one agent has a local copy', () => {
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'broken', isLocal: false }),
+        makeSymlink({ agentId: 'codex', status: 'valid', isLocal: true }),
+      ]
+      const result = getSkillItemVisibility(null, makeSkill(symlinks))
+
+      expect(result.showDeleteButton).toBe(true)
     })
   })
 
@@ -262,7 +339,7 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
       ]
-      const result = getSkillItemVisibility('cursor', symlinks)
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
 
       // When agent is selected, delete must be hidden
       expect(result.showDeleteButton).toBe(false)
@@ -279,13 +356,16 @@ describe('getSkillItemVisibility', () => {
       ]
 
       // With agent selected
-      const agentView = getSkillItemVisibility('claude-code', symlinks)
+      const agentView = getSkillItemVisibility(
+        'claude-code',
+        makeSkill(symlinks),
+      )
       expect(agentView.showDeleteButton && agentView.showUnlinkButton).toBe(
         false,
       )
 
       // Without agent selected
-      const globalView = getSkillItemVisibility(null, symlinks)
+      const globalView = getSkillItemVisibility(null, makeSkill(symlinks))
       expect(globalView.showDeleteButton && globalView.showUnlinkButton).toBe(
         false,
       )

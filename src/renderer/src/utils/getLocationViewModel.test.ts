@@ -29,6 +29,7 @@ const makeSkill = (
   symlinkCount: symlinks.filter((s) => s.status === 'valid').length,
   symlinks,
   isSource,
+  isOrphan: false,
 })
 
 describe('getLocationViewModel', () => {
