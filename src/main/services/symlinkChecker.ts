@@ -92,10 +92,15 @@ export async function checkSkillSymlinks(
       // Only symlinks (not local folders, not missing entries) have a target
       // worth recording. Read it lazily and tolerate failures so a flaky
       // readlink doesn't poison the whole scan.
+      // readlink() returns the raw stored target string — relative when the
+      // symlink was created with a relative target (`ln -s ../foo bar`). The
+      // `AbsolutePath` contract requires an absolute path, so resolve it
+      // against the symlink's parent directory, mirroring checkSymlinkStatus.
       let targetPath: AbsolutePath | undefined
       if (status !== 'missing' && !isLocal) {
         try {
-          targetPath = (await readlink(linkPath)) as AbsolutePath
+          const target = await readlink(linkPath)
+          targetPath = resolve(dirname(linkPath), target) as AbsolutePath
         } catch {
           // Leave undefined — the link disappeared between lstat and readlink
         }

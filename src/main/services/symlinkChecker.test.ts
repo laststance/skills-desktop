@@ -254,6 +254,11 @@ describe('checkSkillSymlinks', () => {
     for (const r of results) {
       expect(r.status).toBe('valid')
       expect(r.isLocal).toBe(false)
+      // targetPath must be the absolute-resolved string, not the raw readlink
+      // value. AbsolutePath is a branded string type; leaking the relative
+      // form here would silently violate the type contract for callers.
+      expect(r.targetPath).not.toBe(relativeTarget)
+      expect(r.targetPath).toMatch(/^\//)
     }
 
     // Verify access was called with resolved absolute paths, not raw relative

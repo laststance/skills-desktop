@@ -260,4 +260,63 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     expect(skills[0].name).toBe('theme-generator')
     expect(skills[0].isSource).toBe(true)
   })
+
+  it('merges orphan broken slots into a same-named local skill (regression for #127 follow-up)', async () => {
+    // Cursor has a real folder named "frontend-design" → local skill.
+    // Codex has a broken symlink with the same name → source missing, orphan.
+    // Naive first-wins (which the original merge used) would keep only the
+    // local record and silently drop codex's broken status — recreating the
+    // visibility hole this PR's main fix addressed.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') return []
+      if (path === '/mock/agents/cursor/skills') {
+        return [
+          createDirent('frontend-design', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      if (path === '/mock/agents/codex/skills') {
+        return [
+          createDirent('frontend-design', {
+            isDirectory: false,
+            isSymbolicLink: true,
+          }),
+        ]
+      }
+      return []
+    })
+    accessMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/agents/cursor/skills/frontend-design/SKILL.md') return
+      throw new Error(`ENOENT: ${path}`)
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/agents/cursor/skills/frontend-design/SKILL.md') {
+        return { isFile: () => true }
+      }
+      throw new Error(`ENOENT: ${path}`)
+    })
+    checkSymlinkTargetFromKnownLinkMock.mockImplementation(
+      async (linkPath: string) => {
+        if (linkPath === '/mock/agents/codex/skills/frontend-design')
+          return 'broken'
+        return 'missing'
+      },
+    )
+
+    const { scanSkills } = await import('./skillScanner')
+    const skills = await scanSkills()
+
+    expect(skills).toHaveLength(1)
+    const merged = skills[0]
+    expect(merged.name).toBe('frontend-design')
+    const cursor = merged.symlinks.find((s) => s.agentId === 'cursor')
+    const codex = merged.symlinks.find((s) => s.agentId === 'codex')
+    expect(cursor).toMatchObject({ status: 'valid', isLocal: true })
+    expect(codex).toMatchObject({ status: 'broken', isLocal: false })
+    // Once a real local folder is present, the merged record is no longer an
+    // orphan — the UI delete button must remain reachable.
+    expect(merged.isOrphan).toBe(false)
+  })
 })

@@ -331,6 +331,21 @@ describe('getSkillItemVisibility', () => {
 
       expect(result.showDeleteButton).toBe(true)
     })
+
+    it('respects explicit isOrphan override even when symlinks would derive false', () => {
+      // Pins the contract that getSkillItemVisibility reads `isOrphan` straight
+      // off the skill (set by scanOrphanSymlinks in main) instead of
+      // re-deriving it from `symlinks`. A valid symlink would otherwise drive
+      // derivedOrphan=false; the override keeps the orphan path active.
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
+      ]
+      const result = getSkillItemVisibility(
+        null,
+        makeSkill(symlinks, { isOrphan: true }),
+      )
+      expect(result.showDeleteButton).toBe(false)
+    })
   })
 
   describe('regression: dual delete buttons', () => {

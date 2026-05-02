@@ -95,10 +95,34 @@ export async function scanSkills(): Promise<Skill[]> {
       orphanSkillsPromise,
     ])
 
-  // Merge precedence: source > local > orphan (first-wins by name).
+  // Merge precedence: source > local > orphan (first record's metadata wins).
+  // Naive first-wins discards later records entirely — but a `local + orphan`
+  // collision (real folder in agent A, broken symlink in agent B for the
+  // same name) needs the orphan's broken slots merged into the local record,
+  // otherwise the broken state silently disappears from the UI (issue #127's
+  // failure mode resurfaces). Same agent slot can't legitimately have both
+  // 'valid+local' and 'broken' (a path is either a directory or a symlink),
+  // so per-slot non-missing-wins is conflict-free.
   const byName = new Map<SkillName, Skill>()
   for (const skill of [...sourceSkills, ...localSkills, ...orphanSkills]) {
-    if (!byName.has(skill.name)) byName.set(skill.name, skill)
+    const existing = byName.get(skill.name)
+    if (!existing) {
+      byName.set(skill.name, skill)
+      continue
+    }
+    for (let i = 0; i < existing.symlinks.length; i++) {
+      if (
+        existing.symlinks[i].status === 'missing' &&
+        skill.symlinks[i].status !== 'missing'
+      ) {
+        existing.symlinks[i] = skill.symlinks[i]
+      }
+    }
+    existing.symlinkCount = countValidSymlinks(existing.symlinks)
+    // Once a real source or local folder is present, the skill is no longer
+    // an orphan in the UI sense — only treat as orphan if every contributing
+    // record agreed.
+    existing.isOrphan = existing.isOrphan && skill.isOrphan
   }
   const allSkills = Array.from(byName.values())
 
