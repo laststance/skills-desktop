@@ -10,6 +10,7 @@ import { createOrFocusSettingsWindow } from './services/settingsWindow'
 import { startupCleanup as runTrashStartupCleanup } from './services/trashService'
 import { initAutoUpdater } from './updater'
 import { attachExternalLinkHandler } from './utils/attachExternalLinkHandler'
+import { isE2EBackgroundLaunch } from './utils/e2eEnv'
 import { getSecureWebPreferences } from './utils/secureWebPreferences'
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -24,21 +25,6 @@ process.on('unhandledRejection', (reason, promise) => {
  * window stays a window and would have prevented main from re-opening.
  */
 let mainWindow: BrowserWindow | null = null
-
-/**
- * True when the app was spawned by the Playwright E2E fixture
- * (`e2e/fixtures/electron-app.ts`). When set, the renderer-bearing
- * BrowserWindows are kept fully hidden (no `show()` / `showInactive()` /
- * `maximize()` calls) and the app is hidden from the Dock / Cmd-Tab via
- * `setActivationPolicy('accessory')`. Playwright drives the renderer
- * through `webContents` (loaded as part of the BrowserWindow lifecycle
- * regardless of visibility), so tests don't need a visible window.
- *
- * NOTE: `showInactive()` does NOT hide the window — per Electron docs it
- * shows the window without focusing it. Only skipping `show()` entirely
- * keeps the window off-screen.
- */
-const isE2EBackgroundLaunch = process.env['E2E_BACKGROUND_LAUNCH'] === '1'
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -233,6 +219,15 @@ function createMenu(): void {
 }
 
 app.whenReady().then(async () => {
+  // E2E: hide from Dock / Cmd-Tab BEFORE any other init runs. Done first
+  // because `configureAboutPanel()` below calls `app.dock.setIcon()`,
+  // which would briefly flash the Dock icon if the policy is still
+  // `regular`. macOS-only API; guard with platform check to avoid
+  // runtime errors on Linux/Windows CI runners.
+  if (isE2EBackgroundLaunch && process.platform === 'darwin') {
+    app.setActivationPolicy('accessory')
+  }
+
   // Register IPC handlers before creating window
   registerAllHandlers()
 
@@ -253,13 +248,6 @@ app.whenReady().then(async () => {
   // Configure the About panel before the menu wires up `role: 'about'`
   configureAboutPanel()
   createMenu()
-
-  // E2E: hide from Dock / Cmd-Tab so test launches don't disrupt the user.
-  // macOS-only API; guard with platform check to avoid runtime errors on
-  // Linux/Windows CI runners.
-  if (isE2EBackgroundLaunch && process.platform === 'darwin') {
-    app.setActivationPolicy('accessory')
-  }
   createWindow()
 
   // Initialize auto updater in production.
