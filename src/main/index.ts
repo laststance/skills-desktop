@@ -218,9 +218,13 @@ app.whenReady().then(async () => {
 
   // Hydrate settings cache before any window opens so the first
   // `settings:get` from the renderer returns persisted values rather
-  // than racing the disk read. Fire-and-forget; loadSettings swallows
-  // its own errors and falls back to defaults.
-  void loadSettings()
+  // than racing the disk read. Must be awaited: `getSettings()`
+  // populates cache with `DEFAULT_SETTINGS` on first call when cache is
+  // still null, and the later `loadSettings()` resolution does not
+  // broadcast `settings:changed`, so a fast renderer mount would lock
+  // in defaults until the user manually flips a setting. loadSettings
+  // swallows its own errors and falls back to defaults internally.
+  await loadSettings()
 
   // Sweep orphan trash entries older than 24h. Fire-and-forget: errors per
   // entry are caught + logged inside trashService; we never block startup.
