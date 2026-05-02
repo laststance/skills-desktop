@@ -144,6 +144,7 @@ const makeSkill = (
     },
   ],
   isSource: !isLocal,
+  isOrphan: false,
   ...(source
     ? {
         source: repositoryId(source),
@@ -247,6 +248,7 @@ describe('selectFilteredSkills', () => {
         },
       ],
       isSource: true,
+      isOrphan: false,
     }
     const state = buildState({ skills: [skill], selectedAgentId: 'cursor' })
     expect(selectFilteredSkills(state as never)).toHaveLength(0)

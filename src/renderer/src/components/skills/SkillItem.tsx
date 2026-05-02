@@ -130,7 +130,7 @@ export const SkillItem = React.memo(function SkillItem({
     selectedAgentSymlink,
     selectedLocalSkillInfo,
     showGStackBadge,
-  } = getSkillItemVisibility(selectedAgentId, skill.symlinks)
+  } = getSkillItemVisibility(selectedAgentId, skill)
 
   // Get selected agent name for tooltip
   const selectedAgentName =

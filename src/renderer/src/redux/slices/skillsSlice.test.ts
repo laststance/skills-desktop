@@ -62,6 +62,7 @@ const sampleSkill: Skill = {
     },
   ],
   isSource: true,
+  isOrphan: false,
 }
 
 const secondSkill: Skill = {

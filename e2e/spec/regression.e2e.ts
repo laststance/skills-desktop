@@ -478,3 +478,171 @@ test('removeAllFromAgent refusal still fires when SOURCE_DIR itself is a symlink
   expect(lstatSync(cursorAgentPath).isSymbolicLink()).toBe(true)
   expect(readdirSync(realSourceDir).sort()).toEqual(realSourceContentsBefore)
 })
+
+/**
+ * Issue #127 — `scanSkills` must surface broken symlinks whose source skill
+ * no longer exists in `~/.agents/skills/` as synthetic `Skill` records with
+ * `isOrphan: true`. Pre-fix the scanner walked SOURCE_DIR only, so a dangling
+ * link in an agent dir (typically left behind when the user `rm -rf`'d a
+ * source skill outside the app, or when an upstream marketplace skill was
+ * removed) was silently dropped from `state.skills.items`. Users would see
+ * filesystem garbage that the app pretended did not exist — no row to click,
+ * no way to clean up.
+ *
+ * Post-fix `scanOrphanSymlinks` runs alongside the source/local scans and
+ * collapses each orphan name into one Skill row whose per-agent `symlinks[]`
+ * marks affected agents as `'broken'` and the rest as `'missing'`. The
+ * renderer reads `isOrphan` directly off the record (`skillItemHelpers.ts`)
+ * to gate the delete/unlink buttons — operating against a phantom source
+ * would otherwise dispatch IPC calls that fail mid-flight.
+ *
+ * Setup avoids depending on the snapshot's azure-* layout: we stage a
+ * fresh dangling symlink under `~/.codeium/windsurf/skills/`. Windsurf is
+ * non-universal (its `scanDir` is `.codeium/windsurf`, not the universal
+ * SOURCE_DIR), so the orphan scanner finds it via its own `agent.path`
+ * walk rather than via the shared SOURCE_DIR readdir that universal
+ * agents collapse into.
+ *
+ * Three load-bearing assertions:
+ *   1. Orphan record EXISTS in `state.skills.items` — pre-fix this row
+ *      would be missing entirely, which is the actual regression.
+ *   2. `isOrphan: true` and `isSource: false` — the renderer's gate flags.
+ *   3. Per-agent symlink row contract — windsurf is `'broken'`, every other
+ *      agent is `'missing'`. A regression that mass-flagged every agent
+ *      slot would silently break the renderer's broken-vs-missing badge
+ *      logic without surfacing in a sourced-skill assertion.
+ *
+ * Negative control on a real source (azure-ai) in the same store state
+ * confirms the orphan flag did NOT broaden across all rows — the previous
+ * three assertions alone could pass while every row got `isOrphan: true`.
+ */
+test('scanSkills surfaces broken symlinks as orphan skills (regression #127)', async ({
+  appWindow,
+  isolatedHome,
+}) => {
+  await waitForInitialScan(appWindow)
+
+  // Stage the orphan condition: a non-universal agent dir containing a
+  // dangling symlink whose target source has never existed (equivalent to
+  // a user-driven `rm -rf ~/.agents/skills/<name>` after install). The
+  // `phantom-` prefix isolates this fixture from any name the snapshot's
+  // azure-* install could ever produce, so a future global-setup change
+  // cannot collide with the test by accident.
+  const orphanSkillName = 'phantom-orphan-fixture'
+  const windsurfSkillsDir = join(isolatedHome, '.codeium', 'windsurf', 'skills')
+  mkdirSync(windsurfSkillsDir, { recursive: true })
+
+  // Target intentionally absent — `checkSymlinkTargetFromKnownLink` resolves
+  // a dangling link to status `'broken'`, which is what `scanOrphanSymlinks`
+  // filters on.
+  const phantomSourcePath = join(
+    isolatedHome,
+    '.agents',
+    'skills',
+    orphanSkillName,
+  )
+  const orphanLinkPath = join(windsurfSkillsDir, orphanSkillName)
+  symlinkSync(phantomSourcePath, orphanLinkPath)
+
+  // FS sanity — the staged shape must be a real symlink with an absent
+  // target. `existsSync` follows symlinks so a broken link reads as `false`;
+  // `lstatSync` does NOT follow, so it confirms the symlink itself is real.
+  expect(lstatSync(orphanLinkPath).isSymbolicLink()).toBe(true)
+  expect(existsSync(phantomSourcePath)).toBe(false)
+  expect(existsSync(orphanLinkPath)).toBe(false)
+
+  await refreshSkillsState(appWindow)
+
+  interface OrphanSkillSnapshot {
+    name: string
+    isOrphan: boolean
+    isSource: boolean
+    description: string
+    symlinks: SymlinkSnapshot[]
+  }
+
+  const orphanRecord = await getStoreState(
+    appWindow,
+    (state): OrphanSkillSnapshot | null => {
+      const root = state as {
+        skills: { items: OrphanSkillSnapshot[] }
+      }
+      return (
+        root.skills.items.find(
+          (skill) => skill.name === 'phantom-orphan-fixture',
+        ) ?? null
+      )
+    },
+  )
+
+  expect(
+    orphanRecord,
+    'orphan skill must surface in state.skills.items — pre-fix bug indicator (the entire row was being silently dropped)',
+  ).not.toBeNull()
+  if (!orphanRecord) return
+
+  // KEY — Skill.isOrphan is the single flag the renderer reads to suppress
+  // the delete/unlink buttons in `getSkillItemVisibility`. A regression
+  // that flipped this back to `false` for orphans would re-introduce the
+  // confusing UX where users click "delete" against a phantom source path
+  // and watch the IPC fail mid-flight.
+  expect(orphanRecord.isOrphan).toBe(true)
+  expect(orphanRecord.isSource).toBe(false)
+  expect(orphanRecord.description).toBe(
+    'Orphan symlink — source skill no longer exists',
+  )
+
+  // The windsurf row must reflect our staged broken symlink. A regression
+  // in Phase 2's `findIndex` / slot-assignment block would land here as
+  // `'missing'` instead of `'broken'`.
+  const windsurfRow = orphanRecord.symlinks.find(
+    (symlink) => symlink.agentId === 'windsurf',
+  )
+  expect(
+    windsurfRow,
+    'windsurf row must be present — every AGENTS entry gets a slot, including agents without a broken link',
+  ).toBeDefined()
+  expect(windsurfRow?.status).toBe('broken')
+  expect(windsurfRow?.isLocal).toBe(false)
+
+  // Agents without a staged broken link must register as 'missing' — NOT
+  // 'broken'. A regression that marked every agent slot as broken (e.g.
+  // by inverting the slot-found check) would silently flip 'missing' to
+  // 'broken' across the whole symlinks[] array.
+  const claudeRow = orphanRecord.symlinks.find(
+    (symlink) => symlink.agentId === 'claude-code',
+  )
+  expect(claudeRow?.status).toBe('missing')
+
+  // Negative control — a real source skill (azure-ai) MUST NOT be flagged
+  // as orphan. A regression that broadened the orphan branch (e.g. moving
+  // `isOrphan: true` outside the orphan-scan block in scanSkills.ts) would
+  // pass the orphan-row assertions above but flip every source skill into
+  // `isOrphan: true`, hiding their delete/unlink buttons across the UI.
+  // The file-level `test.beforeEach` already skips this entire suite when
+  // the snapshot is offline, so azure-ai is guaranteed to be installed.
+  // `getStoreState` re-evaluates the selector inside the renderer via
+  // `Function.toString`, so closure-scope identifiers like `AZURE_AI_NAME`
+  // would resolve to `undefined` at runtime. Inline the literal — same
+  // pattern delete.e2e.ts uses for `'azure-ai'` in azureSnapshotSelector.
+  const azureRecord = await getStoreState(
+    appWindow,
+    (state): { isOrphan: boolean; isSource: boolean } | null => {
+      const root = state as {
+        skills: {
+          items: Array<{ name: string; isOrphan: boolean; isSource: boolean }>
+        }
+      }
+      const azure = root.skills.items.find((skill) => skill.name === 'azure-ai')
+      return azure
+        ? { isOrphan: azure.isOrphan, isSource: azure.isSource }
+        : null
+    },
+  )
+  expect(
+    azureRecord,
+    'azure-ai (real source) must remain in skills.items alongside the orphan',
+  ).not.toBeNull()
+  expect(azureRecord?.isOrphan).toBe(false)
+  expect(azureRecord?.isSource).toBe(true)
+})

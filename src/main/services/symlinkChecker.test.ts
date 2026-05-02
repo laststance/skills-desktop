@@ -187,7 +187,7 @@ describe('checkSkillSymlinks', () => {
     expect(claude.status).toBe('broken')
     expect(claude.targetPath).toBe('/mock/source/skills/deleted-target')
     expect(cursor.status).toBe('missing')
-    expect(cursor.targetPath).toBe('')
+    expect(cursor.targetPath).toBeUndefined()
   })
 
   it('returns valid with populated targetPath for valid symlinks', async () => {
@@ -220,7 +220,7 @@ describe('checkSkillSymlinks', () => {
     for (const r of results) {
       expect(r.status).toBe('valid')
       expect(r.isLocal).toBe(true)
-      expect(r.targetPath).toBe('')
+      expect(r.targetPath).toBeUndefined()
     }
   })
 
@@ -234,7 +234,7 @@ describe('checkSkillSymlinks', () => {
     for (const r of results) {
       expect(r.status).toBe('missing')
       expect(r.isLocal).toBe(false)
-      expect(r.targetPath).toBe('')
+      expect(r.targetPath).toBeUndefined()
     }
   })
 
@@ -254,6 +254,11 @@ describe('checkSkillSymlinks', () => {
     for (const r of results) {
       expect(r.status).toBe('valid')
       expect(r.isLocal).toBe(false)
+      // targetPath must be the absolute-resolved string, not the raw readlink
+      // value. AbsolutePath is a branded string type; leaking the relative
+      // form here would silently violate the type contract for callers.
+      expect(r.targetPath).not.toBe(relativeTarget)
+      expect(r.targetPath).toMatch(/^\//)
     }
 
     // Verify access was called with resolved absolute paths, not raw relative

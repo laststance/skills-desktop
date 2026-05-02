@@ -20,6 +20,7 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
     symlinkCount: 0,
     symlinks: [],
     isSource: true,
+    isOrphan: false,
     ...overrides,
   }
 }

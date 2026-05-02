@@ -161,6 +161,13 @@ export interface Skill {
    * Used by the renderer to filter the SourceCard view to source-dir skills only.
    */
   isSource: boolean
+  /**
+   * `true` when every entry in `symlinks` is broken/missing AND no real local
+   * folder exists for the skill — i.e. the source skill was deleted but agent
+   * symlinks still dangle. Set by `scanOrphanSymlinks`; the renderer reads it
+   * to gate delete/unlink buttons (see issue #127, cleanup flow #71).
+   */
+  isOrphan: boolean
   /** Short source identifier in owner/repo format. @example "vercel-labs/skills" */
   source?: RepositoryId
   /** Full URL to the source repository. @example "https://github.com/vercel-labs/skills.git" */
@@ -215,8 +222,13 @@ export interface SymlinkInfo {
   agentName: AgentName
   /** Current symlink state: valid (linked), broken (dangling), or missing (no link) */
   status: SymlinkStatus
-  /** Where the symlink points to (skill source directory). @example "/Users/me/.agents/skills/tdd-workflow" */
-  targetPath: AbsolutePath
+  /**
+   * Where the symlink points to (skill source directory). Omitted when no
+   * symlink exists for this agent (`status === 'missing'`) or the entry is a
+   * real local folder (`isLocal === true`) — both have no target to record.
+   * @example "/Users/me/.agents/skills/tdd-workflow"
+   */
+  targetPath?: AbsolutePath
   /** Where the symlink lives (in agent's skills dir). @example "/Users/me/.cursor/skills/tdd-workflow" */
   linkPath: AbsolutePath
   /** true = real folder in agent dir (local skill), false = symlink */

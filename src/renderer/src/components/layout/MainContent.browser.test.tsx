@@ -247,6 +247,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
         symlinkCount: 0,
         symlinks: [],
         isSource: true,
+        isOrphan: false,
       },
       {
         name: 'tdd' as SkillName,
@@ -255,6 +256,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
         symlinkCount: 0,
         symlinks: [],
         isSource: true,
+        isOrphan: false,
       },
     ]
 
@@ -389,6 +391,7 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
       symlinkCount: 0,
       symlinks: [],
       isSource: true,
+      isOrphan: false,
       ...(cliTracked
         ? { source: repositoryId('vercel-labs/agent-skills') }
         : {}),

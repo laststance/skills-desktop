@@ -5,19 +5,23 @@ import { join } from 'path'
 import { formatBytes } from '../../shared/fileTypes'
 import { repositoryId } from '../../shared/types'
 import type {
+  AbsolutePath,
   HttpUrl,
   RepositoryId,
   Skill,
   SkillName,
   SourceStats,
-  SymlinkInfo,
 } from '../../shared/types'
 import { AGENTS, SOURCE_DIR } from '../constants'
 
 import { listValidSourceSkillDirs } from './dirScanner'
 import { parseSkillMetadata } from './metadataParser'
 import { isValidSkillDir } from './skillValidation'
-import { checkSkillSymlinks, countValidSymlinks } from './symlinkChecker'
+import {
+  checkSkillSymlinks,
+  checkSymlinkTargetFromKnownLink,
+  countValidSymlinks,
+} from './symlinkChecker'
 
 /**
  * Entry from ~/.agents/.skill-lock.json
@@ -58,25 +62,69 @@ async function readSkillLock(): Promise<Map<SkillName, SkillLockEntry>> {
 }
 
 /**
- * Scan ~/.agents/skills/ and return all installed skills (source + local)
+ * Scan ~/.agents/skills/ and return all installed skills (source + local + orphan)
+ *
+ * Orphan symlinks (broken symlinks in agent dirs whose source skill no longer
+ * exists) are surfaced as `Skill` records with `isSource:false` and per-agent
+ * `symlinks[].status:'broken'`. Without this, broken-symlink data never enters
+ * the renderer and `HealthWidget` reports 100% even when agents have dangling
+ * links — see issue #127.
+ *
+ * Dedup precedence: source > local > orphan. A name that exists as a source
+ * skill never becomes an orphan record (broken agent links for live source
+ * skills are already represented inside `Skill.symlinks`).
+ *
  * @returns Array of Skill objects with symlink info
  * @example
  * scanSkills()
  * // => [{ name: 'theme-generator', symlinkCount: 3, ... }]
  */
 export async function scanSkills(): Promise<Skill[]> {
-  // Scan source skills, local skills, and lock file in parallel
-  const [sourceSkills, localSkills, lockEntries] = await Promise.all([
-    scanSourceSkills(),
-    scanAllLocalSkills(),
-    readSkillLock(),
-  ])
+  // Orphan scan needs sourceNames to skip live sources, so it chains off
+  // sourceSkills via .then() instead of awaiting separately — that lets it
+  // overlap with scanAllLocalSkills and readSkillLock in the same Promise.all.
+  const sourceSkillsPromise = scanSourceSkills()
+  const orphanSkillsPromise = sourceSkillsPromise.then(async (src) =>
+    scanOrphanSymlinks(new Set(src.map((s) => s.name))),
+  )
+  const [sourceSkills, localSkills, lockEntries, orphanSkills] =
+    await Promise.all([
+      sourceSkillsPromise,
+      scanAllLocalSkills(),
+      readSkillLock(),
+      orphanSkillsPromise,
+    ])
 
-  // Merge: local skills that don't exist in source
-  const sourceNames = new Set(sourceSkills.map((s) => s.name))
-  const uniqueLocalSkills = localSkills.filter((s) => !sourceNames.has(s.name))
-
-  const allSkills = [...sourceSkills, ...uniqueLocalSkills]
+  // Merge precedence: source > local > orphan (first record's metadata wins).
+  // Naive first-wins discards later records entirely — but a `local + orphan`
+  // collision (real folder in agent A, broken symlink in agent B for the
+  // same name) needs the orphan's broken slots merged into the local record,
+  // otherwise the broken state silently disappears from the UI (issue #127's
+  // failure mode resurfaces). Same agent slot can't legitimately have both
+  // 'valid+local' and 'broken' (a path is either a directory or a symlink),
+  // so per-slot non-missing-wins is conflict-free.
+  const byName = new Map<SkillName, Skill>()
+  for (const skill of [...sourceSkills, ...localSkills, ...orphanSkills]) {
+    const existing = byName.get(skill.name)
+    if (!existing) {
+      byName.set(skill.name, skill)
+      continue
+    }
+    for (let i = 0; i < existing.symlinks.length; i++) {
+      if (
+        existing.symlinks[i].status === 'missing' &&
+        skill.symlinks[i].status !== 'missing'
+      ) {
+        existing.symlinks[i] = skill.symlinks[i]
+      }
+    }
+    existing.symlinkCount = countValidSymlinks(existing.symlinks)
+    // Once a real source or local folder is present, the skill is no longer
+    // an orphan in the UI sense — only treat as orphan if every contributing
+    // record agreed.
+    existing.isOrphan = existing.isOrphan && skill.isOrphan
+  }
+  const allSkills = Array.from(byName.values())
 
   // Attach source info from lock file
   for (const skill of allSkills) {
@@ -111,6 +159,7 @@ async function scanSourceSkills(): Promise<Skill[]> {
         symlinkCount: countValidSymlinks(symlinks),
         symlinks,
         isSource: true,
+        isOrphan: false,
       }
     }),
   )
@@ -119,65 +168,160 @@ async function scanSourceSkills(): Promise<Skill[]> {
 }
 
 /**
- * Scan all agent directories for local skills (real folders, not symlinks)
- * @returns Array of local skills with their agent associations
+ * Scan all agent directories for orphan symlinks — broken symlinks whose target
+ * source skill no longer exists in `~/.agents/skills/`.
+ *
+ * Each orphan name collapses into a single `Skill` record whose `symlinks[]`
+ * marks every affected agent as `'broken'` and the rest as `'missing'`. Names
+ * that already exist as source skills are skipped — broken symlinks for live
+ * sources are represented inside the source skill's own `symlinks[]`.
+ *
+ * @param sourceNames - Names of source skills to exclude from orphan scan
+ * @returns Array of orphan skills with `isSource:false` and broken symlink info
+ * @example
+ * scanOrphanSymlinks(new Set(['theme-generator']))
+ * // => [{ name: 'connect-chrome', isSource: false, symlinks: [{ status: 'broken', ... }] }]
  */
-async function scanAllLocalSkills(): Promise<Skill[]> {
-  const localSkillsByName = new Map<string, Skill>()
-
-  for (const agent of AGENTS) {
-    try {
-      const entries = await readdir(agent.path, { withFileTypes: true })
-      // Get directories that are NOT symlinks and don't start with '.'
-      const localDirs = entries.filter(
-        (e) =>
-          e.isDirectory() && !e.isSymbolicLink() && !e.name.startsWith('.'),
-      )
-
-      for (const dir of localDirs) {
-        const skillPath = join(agent.path, dir.name)
-        const isValid = await isValidSkillDir(skillPath)
-        if (!isValid) continue
-
-        const metadata = await parseSkillMetadata(skillPath)
-        const existing = localSkillsByName.get(metadata.name)
-
-        if (existing) {
-          const symlinkIndex = existing.symlinks.findIndex(
-            (s) => s.agentId === agent.id,
+async function scanOrphanSymlinks(
+  sourceNames: Set<SkillName>,
+): Promise<Skill[]> {
+  // Phase 1 — collect (agent, name, linkPath) tuples for every broken symlink
+  // across all AGENTS in parallel. `entry.isSymbolicLink()` already proved
+  // these are symlinks, so the fast-path checker skips the redundant lstat.
+  const brokenLinks = (
+    await Promise.all(
+      AGENTS.map(async (agent) => {
+        try {
+          const entries = await readdir(agent.path, { withFileTypes: true })
+          const candidates = entries.filter(
+            (entry) => entry.isSymbolicLink() && !sourceNames.has(entry.name),
           )
-          if (symlinkIndex >= 0) {
-            existing.symlinks[symlinkIndex] = {
-              ...existing.symlinks[symlinkIndex],
-              status: 'valid',
-              linkPath: join(agent.path, dir.name),
-              isLocal: true,
-            }
-          }
-          continue
+          const statuses = await Promise.all(
+            candidates.map(async (link) => {
+              const linkPath = join(agent.path, link.name) as AbsolutePath
+              const status = await checkSymlinkTargetFromKnownLink(linkPath)
+              return { agent, name: link.name, linkPath, status }
+            }),
+          )
+          return statuses.filter((s) => s.status === 'broken')
+        } catch {
+          return []
         }
+      }),
+    )
+  ).flat()
 
-        // Initialize local skill with agent-specific status map.
-        const symlinks: SymlinkInfo[] = AGENTS.map((a) => ({
+  // Phase 2 — group by name; first sighting builds the full per-agent
+  // template (every agent 'missing'), subsequent sightings flip that agent's
+  // slot to 'broken'. Single branch, no existing/new split.
+  const orphansByName = new Map<SkillName, Skill>()
+  for (const { agent, name, linkPath } of brokenLinks) {
+    let skill = orphansByName.get(name)
+    if (!skill) {
+      skill = {
+        name,
+        description: 'Orphan symlink — source skill no longer exists',
+        path: linkPath,
+        symlinkCount: 0,
+        symlinks: AGENTS.map((a) => ({
           agentId: a.id,
           agentName: a.name,
-          status: a.id === agent.id ? 'valid' : ('missing' as const),
-          targetPath: '',
-          linkPath: join(a.path, dir.name),
-          isLocal: a.id === agent.id,
-        }))
-
-        localSkillsByName.set(metadata.name, {
-          name: metadata.name,
-          description: metadata.description,
-          path: skillPath,
-          symlinkCount: 0, // Local skills have 0 symlinks
-          symlinks,
-          isSource: false,
-        })
+          status: 'missing',
+          linkPath: join(a.path, name) as AbsolutePath,
+          isLocal: false,
+        })),
+        isSource: false,
+        isOrphan: true,
       }
-    } catch {
-      // Agent directory doesn't exist, skip
+      orphansByName.set(name, skill)
+    }
+    const slot = skill.symlinks.findIndex((s) => s.agentId === agent.id)
+    if (slot >= 0) {
+      skill.symlinks[slot] = {
+        ...skill.symlinks[slot],
+        status: 'broken',
+        linkPath,
+      }
+    }
+  }
+
+  return Array.from(orphansByName.values())
+}
+
+/**
+ * Scan all agent directories for local skills (real folders, not symlinks).
+ *
+ * Mirrors {@link scanOrphanSymlinks}: Phase 1 fans out across every agent in
+ * parallel collecting `(agent, skillPath, metadata)` tuples; Phase 2 groups
+ * by skill name with first-sighting-creates / later-sightings-update logic
+ * — no existing/new branch split, no per-agent sequential I/O.
+ *
+ * @returns Array of local skills with their per-agent presence map
+ */
+async function scanAllLocalSkills(): Promise<Skill[]> {
+  // Phase 1 — for each agent, list real directories (not symlinks, not
+  // dotfiles), validate them in parallel, and parse metadata only for the
+  // ones that pass validation. Each successful tuple carries the bits Phase 2
+  // needs to update the per-agent slot for that skill.
+  const localHits = (
+    await Promise.all(
+      AGENTS.map(async (agent) => {
+        try {
+          const entries = await readdir(agent.path, { withFileTypes: true })
+          const candidates = entries.filter(
+            (e) =>
+              e.isDirectory() && !e.isSymbolicLink() && !e.name.startsWith('.'),
+          )
+          const validated = await Promise.all(
+            candidates.map(async (dir) => {
+              const skillPath = join(agent.path, dir.name) as AbsolutePath
+              if (!(await isValidSkillDir(skillPath))) return null
+              const metadata = await parseSkillMetadata(skillPath)
+              return { agent, dirName: dir.name, skillPath, metadata }
+            }),
+          )
+          return validated.filter(
+            (item): item is NonNullable<typeof item> => item !== null,
+          )
+        } catch {
+          return []
+        }
+      }),
+    )
+  ).flat()
+
+  // Phase 2 — group by skill name. First sighting builds the full per-agent
+  // template (every agent 'missing'); every sighting (including the first)
+  // then flips its own agent slot to a valid local entry. Single branch.
+  const localSkillsByName = new Map<SkillName, Skill>()
+  for (const { agent, dirName, skillPath, metadata } of localHits) {
+    let skill = localSkillsByName.get(metadata.name)
+    if (!skill) {
+      skill = {
+        name: metadata.name,
+        description: metadata.description,
+        path: skillPath,
+        symlinkCount: 0, // Local skills have 0 symlinks
+        symlinks: AGENTS.map((a) => ({
+          agentId: a.id,
+          agentName: a.name,
+          status: 'missing',
+          linkPath: join(a.path, dirName) as AbsolutePath,
+          isLocal: false,
+        })),
+        isSource: false,
+        isOrphan: false,
+      }
+      localSkillsByName.set(metadata.name, skill)
+    }
+    const slot = skill.symlinks.findIndex((s) => s.agentId === agent.id)
+    if (slot >= 0) {
+      skill.symlinks[slot] = {
+        ...skill.symlinks[slot],
+        status: 'valid',
+        linkPath: join(agent.path, dirName) as AbsolutePath,
+        isLocal: true,
+      }
     }
   }
 
@@ -209,6 +353,7 @@ export async function getSkill(skillName: SkillName): Promise<Skill | null> {
       symlinkCount: countValidSymlinks(symlinks),
       symlinks,
       isSource: true,
+      isOrphan: false,
     }
   } catch {
     return null
