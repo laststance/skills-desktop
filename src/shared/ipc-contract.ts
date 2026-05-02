@@ -1,3 +1,4 @@
+import type { Settings } from './settings'
 import type {
   AbsolutePath,
   Agent,
@@ -101,6 +102,9 @@ export interface IpcInvokeContract {
   'update:install': { args: []; result: void }
   'update:check': { args: []; result: void }
   'shell:openExternal': { args: [HttpUrl]; result: void }
+  'settings:open': { args: []; result: void }
+  'settings:get': { args: []; result: Settings }
+  'settings:set': { args: [Partial<Settings>]; result: Settings }
 }
 
 /**
@@ -121,6 +125,7 @@ export interface IpcEventContract {
   'update:progress': DownloadProgress
   'update:downloaded': UpdateInfo
   'update:error': { message: string }
+  'settings:changed': Settings
 }
 
 export type IpcInvokeChannel = keyof IpcInvokeContract

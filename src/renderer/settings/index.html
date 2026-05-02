@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Settings</title>
+    <script>
+      // Theme pre-hydration bootstrap. Mirrors src/renderer/index.html so the
+      // Settings window picks up the user's persisted theme (mode + preset)
+      // before React mounts, avoiding a neutral-dark flash. Settings does NOT
+      // expose theme controls, so we only READ from localStorage; live updates
+      // from the main window are not propagated here (theme changes require
+      // closing and reopening Settings).
+      //
+      // Magic literals duplicated from constants.ts; bootstrap.test.ts
+      // guards against drift:
+      //   'skills-desktop-state' → PERSIST_STORAGE_KEY
+      //   0.16                   → COLOR_PRESET_CHROMA
+      ;(function () {
+        try {
+          var raw = localStorage.getItem('skills-desktop-state')
+          if (!raw) return
+          var parsed = JSON.parse(raw)
+          var t = parsed && parsed.state && parsed.state.theme
+          if (!t || typeof t !== 'object') return
+          var html = document.documentElement
+          if (typeof t.hue === 'number') {
+            html.style.setProperty('--theme-hue', String(t.hue))
+          }
+          if (typeof t.chroma === 'number') {
+            html.style.setProperty('--theme-chroma', String(t.chroma))
+          } else if (t.presetType === 'color') {
+            html.style.setProperty('--theme-chroma', '0.16')
+          } else if (t.presetType === 'neutral') {
+            html.style.setProperty('--theme-chroma', '0')
+          }
+          if (t.mode === 'light') {
+            html.classList.remove('dark')
+            html.classList.add('light')
+          } else if (t.mode === 'dark') {
+            html.classList.add('dark')
+            html.classList.remove('light')
+          }
+        } catch (_err) {
+          // Malformed storage — fall back to default .dark
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>

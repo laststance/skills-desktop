@@ -249,7 +249,7 @@ const dashboardSlice = createSlice({
       state.currentPageId = pages[0]?.id ?? null
       state.isEditMode = false
       state.initialized = true
-      // welcomeDismissed intentionally preserved — reset layout, not preferences.
+      // welcomeDismissed intentionally preserved — reset layout, not user settings.
     },
   },
 })

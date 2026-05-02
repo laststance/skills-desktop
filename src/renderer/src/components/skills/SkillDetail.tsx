@@ -1,8 +1,10 @@
-import React, { Activity, useState } from 'react'
+import React, { Activity } from 'react'
 
+import type { Settings } from '../../../../shared/settings'
 import type { Skill, SymlinkInfo } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
-import { useAppSelector } from '../../redux/hooks'
+import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import { setSettings } from '../../redux/slices/settingsSlice'
 import type { LocationViewModel } from '../../utils/getLocationViewModel'
 import { getLocationViewModel } from '../../utils/getLocationViewModel'
 import { SymlinkStatus } from '../status/SymlinkStatus'
@@ -15,17 +17,34 @@ interface SkillDetailProps {
   skill: Skill
 }
 
-type TabType = 'info' | 'code'
-
 /**
- * Detailed view of a selected skill with tabs
+ * Detailed view of a selected skill with tabs.
+ *
+ * The active tab is read from the persisted `settings.defaultSkillTab`
+ * (single source of truth, owned by the main process). Tapping a tab
+ * dispatches `setSettings` for instant UI feedback and fires a
+ * `settings:set` IPC so the choice is durable across sessions and
+ * synchronised with the Settings window — both surfaces edit the exact
+ * same field. This means "last used tab is the default tab" by design.
  */
 export const SkillDetail = React.memo(function SkillDetail({
   skill,
 }: SkillDetailProps): React.ReactElement {
-  const [activeTab, setActiveTab] = useState<TabType>('code')
+  const dispatch = useAppDispatch()
+  const settings = useAppSelector((state) => state.settings)
+  const activeTab = settings.defaultSkillTab
   const { items: agents } = useAppSelector((state) => state.agents)
   const selectedAgentId = useAppSelector((state) => state.ui.selectedAgentId)
+
+  const handleTabChange = (nextTab: Settings['defaultSkillTab']): void => {
+    if (nextTab === activeTab) return
+    const nextSettings: Settings = {
+      ...settings,
+      defaultSkillTab: nextTab,
+    }
+    dispatch(setSettings(nextSettings))
+    void window.electron.settings.set({ defaultSkillTab: nextTab })
+  }
 
   // Filter symlinks to only show detected agents (exists: true)
   const detectedAgentIds = new Set(
@@ -58,11 +77,11 @@ export const SkillDetail = React.memo(function SkillDetail({
       <div className="flex border-b border-border">
         <button
           type="button"
-          aria-pressed={activeTab === 'code'}
-          onClick={() => setActiveTab('code')}
+          aria-pressed={activeTab === 'files'}
+          onClick={() => handleTabChange('files')}
           className={cn(
             'px-4 py-2 text-sm font-medium border-b-2 -mb-[1px] transition-colors',
-            activeTab === 'code'
+            activeTab === 'files'
               ? 'text-primary border-primary'
               : 'text-muted-foreground border-transparent hover:text-foreground',
           )}
@@ -72,7 +91,7 @@ export const SkillDetail = React.memo(function SkillDetail({
         <button
           type="button"
           aria-pressed={activeTab === 'info'}
-          onClick={() => setActiveTab('info')}
+          onClick={() => handleTabChange('info')}
           className={cn(
             'px-4 py-2 text-sm font-medium border-b-2 -mb-[1px] transition-colors',
             activeTab === 'info'
@@ -88,7 +107,7 @@ export const SkillDetail = React.memo(function SkillDetail({
           position, selected file tab — survives toggling between Files
           and Info. See react-rules.md "<Activity> - State Preservation". */}
       <div className="flex-1 min-h-0 relative">
-        <Activity mode={activeTab === 'code' ? 'visible' : 'hidden'}>
+        <Activity mode={activeTab === 'files' ? 'visible' : 'hidden'}>
           <CodePreview skillPath={skill.path} />
         </Activity>
         <Activity mode={activeTab === 'info' ? 'visible' : 'hidden'}>

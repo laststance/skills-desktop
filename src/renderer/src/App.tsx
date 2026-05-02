@@ -8,6 +8,7 @@ import { Sidebar } from './components/layout/Sidebar'
 import { TooltipProvider } from './components/ui/tooltip'
 import { UpdateToast } from './components/UpdateToast'
 import { useReleaseNotesToast } from './hooks/useReleaseNotesToast'
+import { useSettingsSync } from './hooks/useSettingsSync'
 import { useUpdateNotification } from './hooks/useUpdateNotification'
 import { useAppSelector } from './redux/hooks'
 
@@ -70,6 +71,10 @@ const toasterStyle = {
 const App = React.memo(function App(): React.ReactElement {
   // Subscribe to auto-update IPC events
   useUpdateNotification()
+
+  // Hydrate the settings slice from the main-process JSON store and
+  // subscribe to cross-window changes broadcast by `settings:set`.
+  useSettingsSync()
 
   // After auto-update + restart, fire a one-shot "What's new" toast on the
   // first launch of the new version with a link to the GitHub release notes.
