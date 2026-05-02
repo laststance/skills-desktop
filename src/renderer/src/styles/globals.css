@@ -166,7 +166,7 @@
   }
 }
 
-/* Respect user motion preferences */
+/* Respect the user's reduced-motion accessibility setting */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

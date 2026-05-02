@@ -1,19 +1,32 @@
 import { join } from 'path'
 
-import { app, shell, BrowserWindow, Menu, nativeImage, session } from 'electron'
+import { app, BrowserWindow, Menu, nativeImage, session } from 'electron'
 
 import { isAllowedSkillsUrl } from '../shared/marketplaceUrlPolicy'
 
 import { registerAllHandlers } from './ipc/handlers'
+import { loadSettings } from './services/settings'
+import { createOrFocusSettingsWindow } from './services/settingsWindow'
 import { startupCleanup as runTrashStartupCleanup } from './services/trashService'
 import { initAutoUpdater } from './updater'
+import { attachExternalLinkHandler } from './utils/attachExternalLinkHandler'
+import { getSecureWebPreferences } from './utils/secureWebPreferences'
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason)
 })
 
+/**
+ * Module-scoped reference to the main window so `app.activate` can
+ * recreate it specifically when the user has closed only the main
+ * window (Settings may still be open). Pre-fix the activate handler
+ * checked `getAllWindows().length === 0`, which was wrong: a Settings
+ * window stays a window and would have prevented main from re-opening.
+ */
+let mainWindow: BrowserWindow | null = null
+
 function createWindow(): void {
-  const mainWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 800,
@@ -23,17 +36,21 @@ function createWindow(): void {
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 16 },
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false,
+      ...getSecureWebPreferences(),
+      // Main-window-only: <webview> is used by the marketplace tab to
+      // embed skills.sh; Settings window doesn't need it.
       webviewTag: true,
     },
   })
+  mainWindow = window
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.maximize()
-    mainWindow.show()
+  window.on('closed', () => {
+    mainWindow = null
+  })
+
+  window.on('ready-to-show', () => {
+    window.maximize()
+    window.show()
   })
 
   /** Enforce safe webview options before attachment (Electron security recommendation).
@@ -42,7 +59,7 @@ function createWindow(): void {
    * @param webPreferences - Hardened to disable node integration
    * @param params - Contains the src URL to validate
    */
-  mainWindow.webContents.on(
+  window.webContents.on(
     'will-attach-webview',
     (event, webPreferences, params) => {
       if (!isAllowedSkillsUrl(params.src)) {
@@ -56,17 +73,7 @@ function createWindow(): void {
     },
   )
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    try {
-      const url = new URL(details.url)
-      if (['http:', 'https:'].includes(url.protocol)) {
-        shell.openExternal(details.url)
-      }
-    } catch {
-      // Invalid URL, ignore
-    }
-    return { action: 'deny' }
-  })
+  attachExternalLinkHandler(window)
 
   // Enforce Content Security Policy in production builds.
   // Use file: and app: schemes explicitly since 'self' may not reliably match file:// origins.
@@ -85,9 +92,9 @@ function createWindow(): void {
 
   // HMR for renderer based on electron-vite cli
   if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    window.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    window.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
 
@@ -154,6 +161,14 @@ function createMenu(): void {
       submenu: [
         { role: 'about' },
         { type: 'separator' },
+        {
+          label: 'Settings…',
+          accelerator: 'Cmd+,',
+          click: (): void => {
+            createOrFocusSettingsWindow()
+          },
+        },
+        { type: 'separator' },
         { role: 'hide' },
         { role: 'hideOthers' },
         { role: 'unhide' },
@@ -197,9 +212,19 @@ function createMenu(): void {
   Menu.setApplicationMenu(menu)
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Register IPC handlers before creating window
   registerAllHandlers()
+
+  // Hydrate settings cache before any window opens so the first
+  // `settings:get` from the renderer returns persisted values rather
+  // than racing the disk read. Must be awaited: `getSettings()`
+  // populates cache with `DEFAULT_SETTINGS` on first call when cache is
+  // still null, and the later `loadSettings()` resolution does not
+  // broadcast `settings:changed`, so a fast renderer mount would lock
+  // in defaults until the user manually flips a setting. loadSettings
+  // swallows its own errors and falls back to defaults internally.
+  await loadSettings()
 
   // Sweep orphan trash entries older than 24h. Fire-and-forget: errors per
   // entry are caught + logged inside trashService; we never block startup.
@@ -217,8 +242,12 @@ app.whenReady().then(() => {
     initAutoUpdater()
   }
 
+  // Recreate ONLY the main window if it has been closed — the Settings
+  // window may still be open, so checking `getAllWindows().length === 0`
+  // would incorrectly leave a Settings-only state without a main window
+  // when the user clicks the dock icon.
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (mainWindow === null || mainWindow.isDestroyed()) createWindow()
   })
 })
 

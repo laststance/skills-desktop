@@ -1,6 +1,7 @@
 import { contextBridge } from 'electron'
 
 import { IPC_CHANNELS } from '../shared/ipc-channels'
+import type { Settings } from '../shared/settings'
 import type {
   AbsolutePath,
   CopyToAgentsOptions,
@@ -114,6 +115,18 @@ contextBridge.exposeInMainWorld('electron', {
     preview: async () => typedInvoke('sync:preview'),
     execute: async (options: SyncExecuteOptions) =>
       typedInvoke('sync:execute', options),
+  },
+  // Settings — main process holds the JSON source of truth at
+  // userData/settings.json; renderers cache via Redux and converge via
+  // the `settings:changed` broadcast event. `open` opens (or focuses)
+  // the dedicated Settings BrowserWindow (App menu Cmd+, and sidebar
+  // gear icon both route here).
+  settings: {
+    open: async () => typedInvoke('settings:open'),
+    get: async () => typedInvoke('settings:get'),
+    set: async (partial: Partial<Settings>) =>
+      typedInvoke('settings:set', partial),
+    onChanged: createIpcListener<Settings>(IPC_CHANNELS.SETTINGS_CHANGED),
   },
 })
 

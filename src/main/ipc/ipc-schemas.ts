@@ -229,4 +229,16 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
         message: 'Only http(s) URLs are allowed',
       }),
   ]),
+
+  // Settings — partial<Settings> with explicit allowed keys/values.
+  // Matches src/shared/settings.ts; widening that schema must widen
+  // this one too. Defense-in-depth so a compromised renderer cannot write
+  // arbitrary JSON into settings.json.
+  'settings:set': z.tuple([
+    z
+      .object({
+        defaultSkillTab: z.enum(['files', 'info']).optional(),
+      })
+      .strict(),
+  ]),
 }

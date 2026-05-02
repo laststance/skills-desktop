@@ -54,6 +54,12 @@ export const IPC_CHANNELS = {
   UPDATE_PROGRESS: 'update:progress',
   UPDATE_DOWNLOADED: 'update:downloaded',
   UPDATE_ERROR: 'update:error',
+
+  // Settings window
+  SETTINGS_OPEN: 'settings:open',
+  SETTINGS_GET: 'settings:get',
+  SETTINGS_SET: 'settings:set',
+  SETTINGS_CHANGED: 'settings:changed',
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]

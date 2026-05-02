@@ -653,3 +653,30 @@ export const BULK_PROGRESS_THRESHOLD = 10
  * <Button style={{ minHeight: MIN_TOUCH_TARGET_PX }}>Clear</Button>
  */
 export const MIN_TOUCH_TARGET_PX = 44
+
+/**
+ * Keyboard shortcuts surfaced read-only in the Settings window's
+ * `Keybindings` section. Anything that is actually wired in
+ * `src/main/index.ts` (menu accelerators) or via Electron defaults belongs
+ * here so the section reflects truth — adding a shortcut to the menu but
+ * forgetting to update this list is the failure mode to avoid.
+ *
+ * `display` is the visual representation (with macOS modifier glyphs); a
+ * future custom-keybindings editor would key off `id`.
+ */
+export const KEYBINDINGS = [
+  { id: 'settings:open', action: 'Open settings', display: '⌘,' },
+  { id: 'window:close', action: 'Close window', display: '⌘W' },
+  { id: 'window:minimize', action: 'Minimize window', display: '⌘M' },
+  { id: 'app:quit', action: 'Quit Skills Desktop', display: '⌘Q' },
+  { id: 'view:reload', action: 'Reload', display: '⌘R' },
+  {
+    id: 'view:toggle-fullscreen',
+    action: 'Toggle full screen',
+    display: '⌃⌘F',
+  },
+] as const satisfies readonly {
+  id: string
+  action: string
+  display: string
+}[]

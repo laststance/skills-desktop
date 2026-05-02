@@ -75,7 +75,7 @@ const ActionTile = React.memo(function ActionTile({
  *   - Open Marketplace: flips the main tab so the user lands on search.
  *   - Reset Layout: restores the default 4-page dashboard arrangement,
  *     preserving `welcomeDismissed` so reset is a "layout" thing, not a
- *     "preferences wipe".
+ *     "settings wipe".
  *
  * Spinning icons on Sync and Refresh mirror the status bar indicators so
  * the user sees activity without having to look elsewhere.

@@ -1,26 +1,9 @@
-import { BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
 
 import { IPC_CHANNELS } from '../shared/ipc-channels'
-import type { IpcEventChannel, IpcEventContract } from '../shared/ipc-contract'
 import { semanticVersion } from '../shared/types'
 
-import { typedSend } from './ipc/typedSend'
-
-/**
- * Send typed event to all renderer windows
- * @param channel - Event channel name
- * @param args - Payload matching the contract
- */
-function broadcastEvent<C extends IpcEventChannel>(
-  channel: C,
-  ...args: IpcEventContract[C] extends void ? [] : [IpcEventContract[C]]
-): void {
-  const windows = BrowserWindow.getAllWindows()
-  for (const win of windows) {
-    typedSend(win.webContents, channel, ...args)
-  }
-}
+import { broadcastTypedEvent as broadcastEvent } from './ipc/typedSend'
 
 /**
  * Initialize auto updater with IPC-based UI notifications

@@ -235,7 +235,7 @@ describe('dashboardSlice', () => {
       store.dispatch(dismissWelcome())
       expect(store.getState().dashboard.welcomeDismissed).toBe(true)
 
-      // Reset wipes arrangements but must preserve dismissal preference.
+      // Reset wipes arrangements but must preserve dismissal state.
       store.dispatch(resetToDefaults())
       expect(store.getState().dashboard.welcomeDismissed).toBe(true)
     })

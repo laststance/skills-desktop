@@ -13,6 +13,7 @@ import agentsReducer from './slices/agentsSlice'
 import bookmarkReducer from './slices/bookmarkSlice'
 import dashboardReducer from './slices/dashboardSlice'
 import marketplaceReducer from './slices/marketplaceSlice'
+import settingsReducer from './slices/settingsSlice'
 import skillsReducer from './slices/skillsSlice'
 import themeReducer from './slices/themeSlice'
 import uiReducer from './slices/uiSlice'
@@ -27,6 +28,12 @@ const rootReducer = combineReducers({
   update: updateReducer,
   marketplace: marketplaceReducer,
   dashboard: dashboardReducer,
+  // Mirrors main-process settings.json. Intentionally NOT listed in
+  // the redux-storage-middleware `slices` array — persistence is owned
+  // by main, so layering localStorage here would create a dual-write race.
+  // Both the Settings window (General → Default tab) and the main window
+  // (SkillDetail tab buttons) read and write `defaultSkillTab` here.
+  settings: settingsReducer,
 })
 
 type RootReducerState = ReturnType<typeof rootReducer>

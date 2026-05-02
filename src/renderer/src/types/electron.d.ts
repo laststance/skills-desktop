@@ -1,3 +1,4 @@
+import type { Settings } from '../../../shared/settings'
 import type {
   Skill,
   Agent,
@@ -113,6 +114,12 @@ declare global {
       sync: {
         preview: () => Promise<SyncPreviewResult>
         execute: (options: SyncExecuteOptions) => Promise<SyncExecuteResult>
+      }
+      settings: {
+        open: () => Promise<void>
+        get: () => Promise<Settings>
+        set: (partial: Partial<Settings>) => Promise<Settings>
+        onChanged: (callback: (settings: Settings) => void) => () => void
       }
     }
   }
