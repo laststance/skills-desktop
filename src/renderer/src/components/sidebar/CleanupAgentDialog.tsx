@@ -1,13 +1,13 @@
 import { Eraser, Loader2 } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { toast } from 'sonner'
 
 import { AGENT_DEFINITIONS } from '../../../../shared/constants'
 import type { AgentName } from '../../../../shared/types'
+import { useExecuteSync } from '../../hooks/useExecuteSync'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import {
   clearCleanupAgentTarget,
-  executeSyncAction,
   fetchSyncPreview,
   selectCleanupAgentTarget,
   selectSyncPreview,
@@ -21,8 +21,9 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
 } from '../ui/dialog'
+import { DialogIconHeader } from '../ui/dialog-icon-header'
+import { StatRow } from '../ui/stat-row'
 
 /**
  * Per-agent cleanup dialog.
@@ -56,7 +57,8 @@ export const CleanupAgentDialog = React.memo(
     const syncPreview = useAppSelector(selectSyncPreview)
     const isSyncing = useAppSelector((state) => state.ui.isSyncing)
 
-    const [isExecuting, setIsExecuting] = useState(false)
+    const { run: executeCleanup, isExecuting } =
+      useExecuteSync('Cleanup failed')
 
     // Trigger the scoped preview as soon as the dialog opens. We re-fetch
     // every time `cleanupAgentTarget` changes so closing-then-reopening on
@@ -104,39 +106,26 @@ export const CleanupAgentDialog = React.memo(
     }
 
     const handleCleanup = async (): Promise<void> => {
-      setIsExecuting(true)
-
-      const result = await dispatch(
-        executeSyncAction({
-          replaceConflicts: [],
-          agentId: cleanupAgentTarget,
-        }),
-      )
-
-      if (executeSyncAction.rejected.match(result)) {
-        toast.error('Cleanup failed', {
-          description: errorToastDescription(result),
-        })
-      } else {
+      const succeeded = await executeCleanup({
+        replaceConflicts: [],
+        agentId: cleanupAgentTarget,
+      })
+      if (succeeded) {
         // Close this dialog so `SyncResultDialog` (which `executeSyncAction`
         // already populated via `syncResult`) becomes the sole foreground
         // surface — otherwise the per-agent dialog stays mounted underneath.
         dispatch(clearCleanupAgentTarget())
       }
-
-      setIsExecuting(false)
     }
 
     return (
       <Dialog open onOpenChange={handleClose}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <div className="flex items-center gap-2">
-              <Eraser className="h-5 w-5 text-primary" />
-              <DialogTitle>
-                Cleanup missing skills{agentName ? ` — ${agentName}` : ''}
-              </DialogTitle>
-            </div>
+            <DialogIconHeader
+              icon={Eraser}
+              title={`Cleanup missing skills${agentName ? ` — ${agentName}` : ''}`}
+            />
             <DialogDescription>
               Recreate symlinks for skills that exist in your source directory
               but are missing from {agentName ?? 'this agent'}.
@@ -150,39 +139,24 @@ export const CleanupAgentDialog = React.memo(
             </div>
           ) : (
             <div className="py-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Skills considered</span>
-                <span className="font-medium">
-                  {previewMatchesTarget.totalSkills}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Symlinks to create
-                </span>
-                <span
-                  className={
-                    hasWork ? 'font-medium text-primary' : 'font-medium'
-                  }
-                >
-                  {missingCount}
-                </span>
-              </div>
+              <StatRow
+                label="Skills considered"
+                value={previewMatchesTarget.totalSkills}
+              />
+              <StatRow
+                label="Symlinks to create"
+                value={missingCount}
+                tone={hasWork ? 'primary' : 'default'}
+              />
               {alreadySyncedCount > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Already linked</span>
-                  <span className="font-medium">{alreadySyncedCount}</span>
-                </div>
+                <StatRow label="Already linked" value={alreadySyncedCount} />
               )}
               {conflictCount > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Conflicts (skipped)
-                  </span>
-                  <span className="font-medium text-amber-500">
-                    {conflictCount}
-                  </span>
-                </div>
+                <StatRow
+                  label="Conflicts (skipped)"
+                  value={conflictCount}
+                  tone="amber"
+                />
               )}
               {!hasWork && conflictCount === 0 && (
                 <p className="text-muted-foreground pt-1">
