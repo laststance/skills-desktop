@@ -140,6 +140,12 @@ contextBridge.exposeInMainWorld('electron', {
     openInTerminal: async (folderPath: AbsolutePath) =>
       typedInvoke('folder:openInTerminal', folderPath),
   },
+  // Main window introspection. `getMainBounds` resolves with `null` when
+  // the main window has been closed (Settings may still be open), letting
+  // the renderer fall back gracefully instead of throwing.
+  window: {
+    getMainBounds: async () => typedInvoke('window:getMainBounds'),
+  },
 })
 
 // E2E-only escape hatch from the typed `electron.*` IPC contract above.

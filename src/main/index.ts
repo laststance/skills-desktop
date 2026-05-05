@@ -1,15 +1,24 @@
 import { join } from 'path'
 
-import { app, BrowserWindow, Menu, nativeImage, session } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  Menu,
+  nativeImage,
+  screen,
+  session,
+} from 'electron'
 
 import { isAllowedSkillsUrl } from '@/shared/marketplaceUrlPolicy'
 
 import { registerAllHandlers } from './ipc/handlers'
-import { loadSettings } from './services/settings'
+import { getMainWindow, setMainWindow } from './services/mainWindowState'
+import { getSettings, loadSettings } from './services/settings'
 import { createOrFocusSettingsWindow } from './services/settingsWindow'
 import { startupCleanup as runTrashStartupCleanup } from './services/trashService'
 import { initAutoUpdater } from './updater'
 import { attachExternalLinkHandler } from './utils/attachExternalLinkHandler'
+import { clampSizeToWorkArea } from './utils/clampSizeToWorkArea'
 import { isE2EBackgroundLaunch } from './utils/e2eEnv'
 import { getSecureWebPreferences } from './utils/secureWebPreferences'
 
@@ -18,18 +27,31 @@ process.on('unhandledRejection', (reason, promise) => {
 })
 
 /**
- * Module-scoped reference to the main window so `app.activate` can
- * recreate it specifically when the user has closed only the main
- * window (Settings may still be open). Pre-fix the activate handler
- * checked `getAllWindows().length === 0`, which was wrong: a Settings
- * window stays a window and would have prevented main from re-opening.
+ * Default launch size used when the user has no persisted `windowSize`
+ * preference. Mirrors the previous hard-coded constructor values; with no
+ * preference the app maximizes on `ready-to-show` so users keep the original
+ * "fills the screen" behavior on first launch.
  */
-let mainWindow: BrowserWindow | null = null
+const DEFAULT_LAUNCH_WIDTH = 1200
+const DEFAULT_LAUNCH_HEIGHT = 800
 
 function createWindow(): void {
+  // Resolve the launch size from settings. `undefined` means the user has
+  // not chosen one — fall back to the default size + `maximize()` on
+  // ready-to-show. When set, we clamp to the current display's work area
+  // so a size saved on a wider monitor doesn't open off-screen on a smaller
+  // one (clamping happens *before* the BrowserWindow is constructed because
+  // Electron applies `width`/`height` literally — there's no built-in clamp).
+  const persistedWindowSize = getSettings().windowSize
+  const primaryWorkArea = screen.getPrimaryDisplay().workAreaSize
+  const hasCustomSize = persistedWindowSize !== undefined
+  const launchSize = hasCustomSize
+    ? clampSizeToWorkArea(persistedWindowSize, primaryWorkArea)
+    : { width: DEFAULT_LAUNCH_WIDTH, height: DEFAULT_LAUNCH_HEIGHT }
+
   const window = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: launchSize.width,
+    height: launchSize.height,
     minWidth: 800,
     minHeight: 600,
     show: false,
@@ -43,10 +65,10 @@ function createWindow(): void {
       webviewTag: true,
     },
   })
-  mainWindow = window
+  setMainWindow(window)
 
   window.on('closed', () => {
-    mainWindow = null
+    setMainWindow(null)
   })
 
   window.on('ready-to-show', () => {
@@ -55,7 +77,12 @@ function createWindow(): void {
     // still drives the renderer through webContents, which is loaded
     // independently of window visibility.
     if (isE2EBackgroundLaunch) return
-    window.maximize()
+    // When the user has chosen a custom size in Settings we honor it
+    // verbatim — calling `maximize()` here would override their choice.
+    // No-preference still maximizes (preserves prior launch behavior).
+    if (!hasCustomSize) {
+      window.maximize()
+    }
     window.show()
   })
 
@@ -199,7 +226,13 @@ function createMenu(): void {
       submenu: [
         { role: 'reload' },
         { role: 'forceReload' },
-        ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' as const }]),
+        // `toggleDevTools` carries the default Cmd+Opt+I accelerator and
+        // dispatches to whichever window currently has focus — so the
+        // shortcut works on both the main window and the Settings window
+        // out of the box. Keep this entry available in packaged builds:
+        // power users rely on the standard shortcut to inspect visual
+        // glitches and capture detail for bug reports (issue #123).
+        { role: 'toggleDevTools' },
         { type: 'separator' },
         { role: 'resetZoom' },
         { role: 'zoomIn' },
@@ -260,9 +293,10 @@ app.whenReady().then(async () => {
   // Recreate ONLY the main window if it has been closed — the Settings
   // window may still be open, so checking `getAllWindows().length === 0`
   // would incorrectly leave a Settings-only state without a main window
-  // when the user clicks the dock icon.
+  // when the user clicks the dock icon. `getMainWindow()` already returns
+  // null for both the never-created and post-destroy cases.
   app.on('activate', () => {
-    if (mainWindow === null || mainWindow.isDestroyed()) createWindow()
+    if (getMainWindow() === null) createWindow()
   })
 })
 

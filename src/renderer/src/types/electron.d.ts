@@ -132,6 +132,9 @@ declare global {
           folderPath: AbsolutePath,
         ) => Promise<FolderActionResult>
       }
+      window: {
+        getMainBounds: () => Promise<{ width: number; height: number } | null>
+      }
     }
   }
 }

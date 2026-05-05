@@ -63,3 +63,5 @@ e2e/.snapshot/
 e2e/test-results/
 e2e/playwright-report/
 playwright/.cache/
+.claude/goal.json
+.claude/goal-notes.md

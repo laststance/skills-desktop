@@ -3,6 +3,32 @@ import { z } from 'zod'
 import { TERMINAL_APP_IDS } from './constants'
 
 /**
+ * Lower bound for a persisted startup window size. Mirrors the
+ * `minWidth` / `minHeight` passed to `BrowserWindow` in
+ * `src/main/index.ts` so a stored value can never break those
+ * invariants (e.g. an oddly small saved size on a high-DPI display
+ * being restored on a tiny laptop screen). Upper bound is enforced
+ * dynamically in main against the current display work area.
+ */
+const WINDOW_SIZE_MIN_DIMENSION = 400
+
+/**
+ * Persisted startup window size. `undefined` means "no preference —
+ * use the app's launch default". Values are CSS pixels matching what
+ * `BrowserWindow.getBounds()` returns (DPR is handled by Electron).
+ *
+ * Captured from the main window's current bounds when the user clicks
+ * "Use current window size" in Settings → General. Cleared when the
+ * user clicks "Reset to default".
+ */
+const windowSizeSchema = z
+  .object({
+    width: z.number().int().min(WINDOW_SIZE_MIN_DIMENSION),
+    height: z.number().int().min(WINDOW_SIZE_MIN_DIMENSION),
+  })
+  .optional()
+
+/**
  * App-wide user settings schema.
  *
  * - `defaultSkillTab`: right-pane tab on initial render of a skill detail.
@@ -15,6 +41,12 @@ import { TERMINAL_APP_IDS } from './constants'
  *   `open -a <name>`. Trimmed and length-capped (1..64) at the schema
  *   boundary so a malformed value cannot reach `spawn`. Only consulted
  *   when `preferredTerminal === 'custom'`.
+ * - `windowSize`: persisted startup window size. `undefined` means
+ *   "use the app's launch default" (and lets the main process keep its
+ *   prior `maximize()` behavior). When set, the main window opens at
+ *   the saved size — clamped to the current display work area so a
+ *   saved size from a wider monitor never opens off-screen on a smaller
+ *   one.
  *
  * Adding a field here requires widening `IPC_ARG_SCHEMAS['settings:set']`
  * in `src/main/ipc/ipc-schemas.ts` in lockstep — that schema is `.strict()`
@@ -27,6 +59,7 @@ export const SettingsSchema = z.object({
   defaultSkillTab: z.enum(['files', 'info']).default('files'),
   preferredTerminal: z.enum(TERMINAL_APP_IDS).default('terminal'),
   customTerminalAppName: z.string().trim().min(1).max(64).optional(),
+  windowSize: windowSizeSchema,
 })
 
 /**

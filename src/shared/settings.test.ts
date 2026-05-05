@@ -74,4 +74,31 @@ describe('SettingsSchema', () => {
   it('DEFAULT_SETTINGS matches SettingsSchema.parse({})', () => {
     expect(DEFAULT_SETTINGS).toEqual(SettingsSchema.parse({}))
   })
+
+  it('windowSize is optional and defaults to undefined', () => {
+    const parsed = SettingsSchema.parse({})
+    expect(parsed.windowSize).toBeUndefined()
+  })
+
+  it('accepts a windowSize at the minimum dimension', () => {
+    const parsed = SettingsSchema.parse({
+      windowSize: { width: 400, height: 400 },
+    })
+    expect(parsed.windowSize).toEqual({ width: 400, height: 400 })
+  })
+
+  it('rejects a windowSize below the minimum dimension', () => {
+    expect(() =>
+      SettingsSchema.parse({ windowSize: { width: 399, height: 400 } }),
+    ).toThrow()
+    expect(() =>
+      SettingsSchema.parse({ windowSize: { width: 400, height: 399 } }),
+    ).toThrow()
+  })
+
+  it('rejects a non-integer windowSize', () => {
+    expect(() =>
+      SettingsSchema.parse({ windowSize: { width: 400.5, height: 400 } }),
+    ).toThrow()
+  })
 })

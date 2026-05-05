@@ -36,6 +36,7 @@ describe('IPC contract alignment', () => {
       [IPC_CHANNELS.SETTINGS_SET]: true,
       [IPC_CHANNELS.FOLDER_REVEAL_IN_FINDER]: true,
       [IPC_CHANNELS.FOLDER_OPEN_IN_TERMINAL]: true,
+      [IPC_CHANNELS.WINDOW_GET_MAIN_BOUNDS]: true,
     } as const satisfies Record<keyof IpcInvokeContract, true>
 
     // Runtime assertion: mapping covers exactly the contract keys.
@@ -43,7 +44,7 @@ describe('IPC contract alignment', () => {
     // IPC channel (input validation, authz scope, side-effect blast radius).
     // The `satisfies` clause above is a structural guard; this length check is
     // the trip-wire that forces a human PR diff when a channel is added.
-    expect(Object.keys(invokeMapping)).toHaveLength(29)
+    expect(Object.keys(invokeMapping)).toHaveLength(30)
   })
 
   it('all IPC_CHANNELS event values are valid event contract keys', () => {

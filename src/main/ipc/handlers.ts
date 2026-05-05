@@ -9,6 +9,7 @@ import { registerSkillsCliHandlers } from './skillsCli'
 import { registerSourceHandlers } from './source'
 import { registerSyncHandlers } from './sync'
 import { registerUpdateHandlers } from './update'
+import { registerWindowHandlers } from './window'
 
 /**
  * Register all IPC handlers for main process
@@ -26,4 +27,5 @@ export function registerAllHandlers(): void {
   registerShellHandlers()
   registerSettingsHandlers()
   registerFolderHandlers()
+  registerWindowHandlers()
 }
