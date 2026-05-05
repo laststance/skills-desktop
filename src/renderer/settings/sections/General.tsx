@@ -1,6 +1,7 @@
 import { Files, Info } from 'lucide-react'
 import React, { useState } from 'react'
 
+import { Button } from '@/renderer/src/components/ui/button'
 import { Input } from '@/renderer/src/components/ui/input'
 import {
   ToggleGroup,
@@ -103,6 +104,29 @@ export const General = React.memo(function General(): React.ReactElement {
   const isCustom = settings.preferredTerminal === 'custom'
   const isDraftBlank = customNameDraft.trim() === ''
 
+  /**
+   * Capture the live main-window bounds via IPC and persist them.
+   * `getMainBounds()` resolves to `null` when the main window has been
+   * closed (Settings can outlive it on macOS) — in that case we keep the
+   * existing setting silently rather than overwriting with garbage. The
+   * UI surfaces the unavailability via the `mainWindowAvailable` state
+   * below.
+   */
+  const handleSaveCurrentSize = async (): Promise<void> => {
+    const bounds = await window.electron.window.getMainBounds()
+    if (bounds === null) return
+    updateSettings({ windowSize: bounds })
+  }
+
+  const handleResetWindowSize = (): void => {
+    // `undefined` removes the persisted size; on next launch the main
+    // window falls back to the default 1200×800 + maximize() behavior.
+    updateSettings({ windowSize: undefined })
+  }
+
+  const persistedWindowSize = settings.windowSize
+  const hasCustomWindowSize = persistedWindowSize !== undefined
+
   return (
     <SectionFrame
       title="General"
@@ -189,6 +213,46 @@ export const General = React.memo(function General(): React.ReactElement {
           <p className="text-xs text-muted-foreground">
             Note: some terminals (Warp, Ghostty) may open at your home directory
             instead of the skill folder.
+          </p>
+        </div>
+      </SectionRow>
+
+      <SectionRow
+        label="Startup window size"
+        description="The size the main window opens at on launch. Saved sizes are clamped to the current display so a window saved on a wide monitor never opens off-screen."
+      >
+        <div className="flex flex-col gap-2">
+          <p
+            className="text-sm tabular-nums"
+            aria-label="Current saved startup window size"
+          >
+            {hasCustomWindowSize
+              ? `${persistedWindowSize.width} × ${persistedWindowSize.height} px`
+              : 'Default (maximized on launch)'}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void handleSaveCurrentSize()
+              }}
+            >
+              Use current window size
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleResetWindowSize}
+              disabled={!hasCustomWindowSize}
+            >
+              Reset to default
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Takes effect the next time you launch the app.
           </p>
         </div>
       </SectionRow>

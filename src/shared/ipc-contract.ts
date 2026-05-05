@@ -121,6 +121,13 @@ export interface IpcInvokeContract {
   // converted to `{ ok: false, reason: 'launch-failed', message }`.
   'folder:revealInFinder': { args: [AbsolutePath]; result: FolderActionResult }
   'folder:openInTerminal': { args: [AbsolutePath]; result: FolderActionResult }
+  // Returns the *content* bounds of the live main window — `null` when the
+  // window has been closed/destroyed. Settings → "Use current window size"
+  // calls this and writes the result into `settings.windowSize`.
+  'window:getMainBounds': {
+    args: []
+    result: { width: number; height: number } | null
+  }
 }
 
 /**

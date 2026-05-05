@@ -64,6 +64,10 @@ export const IPC_CHANNELS = {
   // Folder actions (Reveal in Finder, Open in Terminal)
   FOLDER_REVEAL_IN_FINDER: 'folder:revealInFinder',
   FOLDER_OPEN_IN_TERMINAL: 'folder:openInTerminal',
+
+  // Main window introspection — used by Settings → "Use current window size"
+  // to capture the live bounds before persisting them as the launch size.
+  WINDOW_GET_MAIN_BOUNDS: 'window:getMainBounds',
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]

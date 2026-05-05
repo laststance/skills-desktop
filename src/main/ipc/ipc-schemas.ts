@@ -277,6 +277,10 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
         // constraint sets is mechanically impossible. `.shape` access yields
         // the field's ZodOptional<ZodString> exactly as defined in settings.ts.
         customTerminalAppName: SettingsSchema.shape.customTerminalAppName,
+        // Same source-of-truth pattern: re-use the schema's own field so
+        // the {min,int} constraints can never drift. `undefined` is how
+        // the Settings UI clears the persisted size back to "use default".
+        windowSize: SettingsSchema.shape.windowSize,
       })
       .strict(),
   ]),
