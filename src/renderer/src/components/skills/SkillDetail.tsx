@@ -1,3 +1,4 @@
+import { Unlink2 } from 'lucide-react'
 import React, { Activity } from 'react'
 
 import type { Settings } from '../../../../shared/settings'
@@ -100,10 +101,20 @@ export const SkillDetail = React.memo(function SkillDetail({
 
       {/* Tab content: both branches stay mounted so their state — scroll
           position, selected file tab — survives toggling between Files
-          and Info. See react-rules.md "<Activity> - State Preservation". */}
+          and Info. See react-rules.md "<Activity> - State Preservation".
+
+          Orphan note: when `skill.isOrphan` is true the source path is a
+          dead symlink. CodePreview would `lstat(skill.path)` and surface
+          a confusing error, so we swap in OrphanNotice for the Files tab.
+          InfoView still works — it shows the broken symlinks per agent,
+          which is exactly what the user needs to decide on cleanup. */}
       <div className="flex-1 min-h-0 relative">
         <Activity mode={activeTab === 'files' ? 'visible' : 'hidden'}>
-          <CodePreview skillPath={skill.path} />
+          {skill.isOrphan ? (
+            <OrphanNotice />
+          ) : (
+            <CodePreview skillPath={skill.path} />
+          )}
         </Activity>
         <Activity mode={activeTab === 'info' ? 'visible' : 'hidden'}>
           <InfoView
@@ -115,6 +126,27 @@ export const SkillDetail = React.memo(function SkillDetail({
           />
         </Activity>
       </div>
+    </div>
+  )
+})
+
+/**
+ * Files-tab placeholder shown when `skill.isOrphan` is true. The original
+ * `~/.agents/skills/<name>/` directory is gone; only broken symlinks remain
+ * in agent dirs. There is nothing to preview, so we explain the state and
+ * point the user at the Info tab where the per-agent broken list lives.
+ */
+const OrphanNotice = React.memo(function OrphanNotice(): React.ReactElement {
+  return (
+    <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+      <Unlink2 className="size-10 text-amber-400 mb-3" aria-hidden />
+      <h3 className="text-sm font-medium text-foreground mb-1">
+        Source skill is missing
+      </h3>
+      <p className="text-xs text-muted-foreground max-w-xs">
+        The original skill folder no longer exists. Remaining links in agent
+        directories are broken — see the Info tab for which agents are affected.
+      </p>
     </div>
   )
 })

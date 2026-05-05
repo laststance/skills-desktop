@@ -335,10 +335,21 @@ export const MainContent = React.memo(
         refreshAllData(dispatch)
 
         if (tombstoneIds.length === 0) {
-          // Every item errored — show a plain error toast, no undo possible.
-          toast.error('Bulk delete failed', {
-            description: formatCascadeSummary(action.payload),
-          })
+          // No tombstones, but the rows still might have succeeded as
+          // `orphan-cleared` (broken-symlink sweeps that have no undo path).
+          // Distinguish all-errored from any-cleared so we don't slap an
+          // "error" title on a row that the user actually wanted swept.
+          const anySuccess = action.payload.items.some(
+            (item) =>
+              item.outcome === 'deleted' || item.outcome === 'orphan-cleared',
+          )
+          if (anySuccess) {
+            toast.success(formatCascadeSummary(action.payload))
+          } else {
+            toast.error('Bulk delete failed', {
+              description: formatCascadeSummary(action.payload),
+            })
+          }
           return
         }
 

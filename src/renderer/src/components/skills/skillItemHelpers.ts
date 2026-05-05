@@ -118,7 +118,11 @@ export function getSkillItemVisibility(
 
   return {
     showDeleteButton: !selectedAgentId && !isOrphan,
-    showAddButton: !selectedAgentId || hasSkillInSelectedAgent,
+    // Orphan skills have no live source to symlink _to_, so the Add button
+    // (which opens AddSymlinkModal / CopyToAgentsModal) would surface a flow
+    // that can only fail. Hide it for the same reason Delete/Unlink hide:
+    // the source is gone, the row is awaiting cleanup, not action.
+    showAddButton: (!selectedAgentId || hasSkillInSelectedAgent) && !isOrphan,
     showUnlinkButton: hasSkillInSelectedAgent && !isOrphan,
     isLinked: !!selectedAgentSymlink && selectedAgentSymlink.status === 'valid',
     isLocalSkill,

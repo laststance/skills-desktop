@@ -1,6 +1,8 @@
 import { mkdtempSync, realpathSync } from 'node:fs'
 import {
+  lstat,
   mkdir,
+  readdir,
   readFile,
   readlink,
   rm,
@@ -20,6 +22,8 @@ import {
   it,
   vi,
 } from 'vitest'
+
+import type { MoveToTrashResult } from './trashService'
 
 // sharedHome is stamped SYNCHRONOUSLY at module load so that the vi.mock
 // factory below captures a defined value by the time `trashService` is
@@ -70,6 +74,28 @@ const trashServicePromise = (async () => {
   const mod = await import('./trashService')
   return mod
 })()
+
+/**
+ * Narrow a `MoveToTrashResult` to the `tombstoned` variant for the rest of the
+ * caller's scope. Every existing test in this file exercises a source-backed
+ * or local-only path, both of which produce `kind: 'tombstoned'`. The new
+ * `'orphan-cleared'` arm (added in PR-1 of issue #71) has its own dedicated
+ * test below — for the legacy tests we just need to assert and continue.
+ *
+ * @param result - Result returned by `moveToTrash` under test
+ * @throws Error if the result is not a tombstoned variant
+ * @example
+ * const deleteResult = await moveToTrash(skillName)
+ * assertTombstoned(deleteResult)
+ * // deleteResult.tombstoneId is now type-safe to access
+ */
+function assertTombstoned(
+  result: MoveToTrashResult,
+): asserts result is Extract<MoveToTrashResult, { kind: 'tombstoned' }> {
+  if (result.kind !== 'tombstoned') {
+    throw new Error(`Expected tombstoned result, got kind=${result.kind}`)
+  }
+}
 
 describe('trashService (integration)', () => {
   beforeAll(async () => {
@@ -144,6 +170,25 @@ describe('trashService (integration)', () => {
     return localPath
   }
 
+  /**
+   * Create a broken symlink in an agent dir: the link is well-formed but its
+   * target — `sharedSourceDir/<name>` — was never created (or was deleted),
+   * so `fs.access(target)` fails with ENOENT. This is exactly the disk shape
+   * the orphan branch of `moveToTrash` is meant to clean up.
+   * @param skillName - Skill name (target basename under SOURCE_DIR)
+   * @param agentBaseDir - Absolute path to the agent's skills dir
+   * @returns Absolute path to the dangling symlink
+   */
+  async function makeBrokenSymlink(
+    skillName: string,
+    agentBaseDir: string,
+  ): Promise<string> {
+    const linkPath = join(agentBaseDir, skillName)
+    const danglingTarget = join(sharedSourceDir, skillName)
+    await symlink(danglingTarget, linkPath)
+    return linkPath
+  }
+
   it('round-trip: moves source and agent symlink into trash, then restores both', async () => {
     const { moveToTrash, restore } = await trashServicePromise
 
@@ -156,6 +201,7 @@ describe('trashService (integration)', () => {
     await stat(linkPath)
 
     const deleteResult = await moveToTrash(skillName)
+    assertTombstoned(deleteResult)
     // With both `os` and `node:os` mocked, `AGENTS` paths resolve under
     // `sharedHome` so the cursor symlink we created above is actually
     // walked, recorded, and unlinked by the cascade. The exact count is
@@ -212,6 +258,7 @@ describe('trashService (integration)', () => {
     const skillName = 'manifest-corrupt-skill'
     await makeSourceSkill(skillName)
     const result = await moveToTrash(skillName)
+    assertTombstoned(result)
 
     // Corrupt the manifest.
     const manifestPath = join(
@@ -236,6 +283,7 @@ describe('trashService (integration)', () => {
     const skillName = 'collision-skill'
     const sourcePath = await makeSourceSkill(skillName)
     const result = await moveToTrash(skillName)
+    assertTombstoned(result)
 
     // Recreate something at the original source path to simulate a reinstall
     // before the user pressed undo.
@@ -272,6 +320,8 @@ describe('trashService (integration)', () => {
         return moveToTrash('race-b')
       })(),
     ])
+    assertTombstoned(a)
+    assertTombstoned(b)
     expect(a.tombstoneId).not.toBe(b.tombstoneId)
   })
 
@@ -282,6 +332,7 @@ describe('trashService (integration)', () => {
     const skillName = 'sweep-recent'
     await makeSourceSkill(skillName)
     const recent = await moveToTrash(skillName)
+    assertTombstoned(recent)
 
     // Planted ancient entry: must be swept.
     // Its basename must still match the trash naming regex (digits-skill-hex8).
@@ -304,6 +355,7 @@ describe('trashService (integration)', () => {
     const skillName = 'evict-then-restore'
     await makeSourceSkill(skillName)
     const result = await moveToTrash(skillName)
+    assertTombstoned(result)
 
     await evict(result.tombstoneId)
     const restoreResult = await restore(result.tombstoneId)
@@ -324,6 +376,7 @@ describe('trashService (integration)', () => {
     const skillName = 'manifest-check'
     const sourcePath = await makeSourceSkill(skillName)
     const result = await moveToTrash(skillName)
+    assertTombstoned(result)
 
     const manifestPath = join(
       sharedTrashDir,
@@ -353,6 +406,7 @@ describe('trashService (integration)', () => {
     const skillName = 'nested-source'
     await makeSourceSkill(skillName)
     const result = await moveToTrash(skillName)
+    assertTombstoned(result)
 
     // The moved source must live under entry/source.
     const trashSourceChild = join(
@@ -384,6 +438,7 @@ describe('trashService (integration)', () => {
     await expect(stat(join(sharedSourceDir, skillName))).rejects.toThrow()
 
     const deleteResult = await moveToTrash(skillName)
+    assertTombstoned(deleteResult)
     expect(deleteResult.cascadeAgents).toContain('claude-code')
     // The local copy is staged under entryDir/local-copies — count it for parity
     // with the source-backed path so the renderer's "skills removed" toast works.
@@ -430,6 +485,7 @@ describe('trashService (integration)', () => {
     const localPath = await makeLocalSkill(skillName, sharedAgentClaude)
 
     const deleteResult = await moveToTrash(skillName)
+    assertTombstoned(deleteResult)
     await expect(stat(localPath)).rejects.toThrow()
 
     const restoreResult = await restore(deleteResult.tombstoneId)
@@ -465,6 +521,7 @@ describe('trashService (integration)', () => {
     const orphanLocal = await makeLocalSkill(skillName, sharedAgentClaude)
 
     const deleteResult = await moveToTrash(skillName)
+    assertTombstoned(deleteResult)
 
     // Source went into trash entry under /source.
     await expect(stat(sourcePath)).rejects.toThrow()
@@ -507,6 +564,76 @@ describe('trashService (integration)', () => {
       cascadeAgents: ['claude-code'],
       symlinksRemoved: 1,
     })
+  })
+
+  // ---------------------------------------------------------------------
+  // Orphan-branch tests (issue #71 PR-1). When the source skill is gone
+  // and no agent has a real local copy, every remaining record is a broken
+  // symlink. moveToTrash sweeps them with no manifest/no undo, returning
+  // `kind: 'orphan-cleared'`. The renderer's bulkDelete summary counts these
+  // as success rows even though they have no `tombstoneId`.
+  // ---------------------------------------------------------------------
+
+  it('moveToTrash: pure orphan returns orphan-cleared and unlinks the dangling symlink', async () => {
+    const { moveToTrash } = await trashServicePromise
+
+    const skillName = 'pure-orphan-skill'
+    const linkPath = await makeBrokenSymlink(skillName, sharedAgentCursor)
+    // Sanity: lstat sees the symlink itself; access on the target fails
+    // (target was never created), confirming the orphan disk shape.
+    const linkStats = await lstat(linkPath)
+    expect(linkStats.isSymbolicLink()).toBe(true)
+
+    const result = await moveToTrash(skillName)
+    expect(result.kind).toBe('orphan-cleared')
+    if (result.kind === 'orphan-cleared') {
+      expect(result.cascadeAgents).toEqual(['cursor'])
+      expect(result.symlinksRemoved).toBe(1)
+    }
+
+    // The symlink itself is gone (lstat throws ENOENT now).
+    await expect(lstat(linkPath)).rejects.toThrow()
+  })
+
+  it('moveToTrash: orphan branch sweeps broken symlinks across multiple agents', async () => {
+    const { moveToTrash } = await trashServicePromise
+
+    const skillName = 'multi-agent-orphan'
+    const cursorLink = await makeBrokenSymlink(skillName, sharedAgentCursor)
+    const claudeLink = await makeBrokenSymlink(skillName, sharedAgentClaude)
+
+    const result = await moveToTrash(skillName)
+    expect(result.kind).toBe('orphan-cleared')
+    if (result.kind === 'orphan-cleared') {
+      expect(result.symlinksRemoved).toBe(2)
+      // Cascade order follows AGENTS table iteration; assert membership rather
+      // than exact order so a future reordering of AGENTS doesn't break this.
+      expect(result.cascadeAgents).toContain('cursor')
+      expect(result.cascadeAgents).toContain('claude-code')
+    }
+
+    await expect(lstat(cursorLink)).rejects.toThrow()
+    await expect(lstat(claudeLink)).rejects.toThrow()
+  })
+
+  it('moveToTrash: orphan branch writes no tombstone (no undo for orphan)', async () => {
+    // The whole point of the orphan-cleared variant: there is nothing
+    // meaningful to restore (resurrected symlinks would still be broken),
+    // so we skip the manifest/TTL/evict timer machinery entirely.
+    const { moveToTrash } = await trashServicePromise
+
+    const skillName = 'orphan-no-tombstone'
+    await makeBrokenSymlink(skillName, sharedAgentCursor)
+
+    const result = await moveToTrash(skillName)
+    expect(result.kind).toBe('orphan-cleared')
+
+    // Trash dir is wiped in afterEach, so any entry here was created by THIS
+    // call. An orphan-cleared run must leave it empty (or the dir absent).
+    const trashEntries = await readdir(sharedTrashDir).catch(
+      () => [] as string[],
+    )
+    expect(trashEntries).toEqual([])
   })
 })
 

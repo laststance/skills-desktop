@@ -645,7 +645,17 @@ export interface DeleteSkillsOptions {
 /**
  * Per-item result from a batch delete. Discriminated on `outcome` so error items
  * never carry a phantom `tombstoneId` (reviewer CRITICAL-1).
+ *
+ * Three success-or-failure shapes:
+ * - `deleted`: tombstoned (source-backed or local-only). Carries a `tombstoneId`
+ *   the renderer wires into the Undo toast.
+ * - `orphan-cleared`: every record was a broken symlink whose source no longer
+ *   exists. Cleanup is just `unlink()` calls — no tombstone, no undo, because
+ *   resurrecting the broken links is meaningless.
+ * - `error`: the operation failed mid-flight; the renderer flashes the row.
+ *
  * @example { skillName: 'task', outcome: 'deleted', tombstoneId: '1729180800000-task-a1b2c3d4', symlinksRemoved: 3, cascadeAgents: ['cursor'] }
+ * @example { skillName: 'abandoned', outcome: 'orphan-cleared', symlinksRemoved: 2, cascadeAgents: ['cursor', 'codex'] }
  * @example { skillName: 'task', outcome: 'error', error: { message: 'Permission denied', code: 'EACCES' } }
  */
 export type BulkDeleteItemResult =
@@ -653,6 +663,12 @@ export type BulkDeleteItemResult =
       skillName: SkillName
       outcome: 'deleted'
       tombstoneId: TombstoneId
+      symlinksRemoved: number
+      cascadeAgents: AgentId[]
+    }
+  | {
+      skillName: SkillName
+      outcome: 'orphan-cleared'
       symlinksRemoved: number
       cascadeAgents: AgentId[]
     }

@@ -113,9 +113,30 @@ export const getToolbarState = ({
 }
 
 /**
+ * Outcomes that count as a successful row in a bulk delete: a real tombstoned
+ * delete (`'deleted'`) or an orphan symlink sweep (`'orphan-cleared'`). Both
+ * carry `symlinksRemoved` and contribute to the user's "things removed" tally;
+ * only the first carries a tombstoneId, so callers that need undo must filter
+ * narrower than this.
+ */
+type BulkDeleteSuccessOutcome = 'deleted' | 'orphan-cleared'
+
+const isBulkDeleteSuccess = (
+  item: BulkDeleteItemResult,
+): item is Extract<
+  BulkDeleteItemResult,
+  { outcome: BulkDeleteSuccessOutcome }
+> => item.outcome === 'deleted' || item.outcome === 'orphan-cleared'
+
+/**
  * Build the summary string shown in the undo toast after a bulk DELETE:
- *  - Counts successful deletes vs errors.
+ *  - Counts successful rows (tombstoned + orphan-cleared) vs errors.
  *  - Aggregates `symlinksRemoved` across every success to surface the cascade.
+ *
+ * Orphan-cleared rows are folded into the success count even though they have
+ * no tombstone — from the user's perspective the broken link "is gone", which
+ * is exactly what bulk delete promises. Undo wiring is the caller's concern;
+ * see `MainContent` where we filter to `outcome === 'deleted'` for the toast.
  *
  * @param result - BulkDeleteResult from the main-process thunk.
  * @returns Human-readable summary for the toast body.
@@ -123,6 +144,13 @@ export const getToolbarState = ({
  * formatCascadeSummary({ items: [
  *   { skillName: 'task', outcome: 'deleted', tombstoneId: '...', symlinksRemoved: 2, cascadeAgents: ['cursor', 'claude-code'] },
  *   { skillName: 'theme', outcome: 'deleted', tombstoneId: '...', symlinksRemoved: 1, cascadeAgents: ['cursor'] },
+ * ] })
+ * // => 'Deleted 2 skills. 3 symlinks removed.'
+ * @example
+ * // With orphan-cleared mixed in:
+ * formatCascadeSummary({ items: [
+ *   { skillName: 'task', outcome: 'deleted', tombstoneId: '...', symlinksRemoved: 1, cascadeAgents: [] },
+ *   { skillName: 'abandoned', outcome: 'orphan-cleared', symlinksRemoved: 2, cascadeAgents: ['cursor', 'codex'] },
  * ] })
  * // => 'Deleted 2 skills. 3 symlinks removed.'
  * @example
@@ -134,21 +162,18 @@ export const getToolbarState = ({
  * // => 'Deleted 1 of 2 skills. 1 symlink removed.'
  */
 export const formatCascadeSummary = (result: BulkDeleteResult): string => {
-  const deletedItems = result.items.filter(
-    (item): item is Extract<BulkDeleteItemResult, { outcome: 'deleted' }> =>
-      item.outcome === 'deleted',
-  )
-  const totalSymlinksRemoved = deletedItems.reduce(
+  const successItems = result.items.filter(isBulkDeleteSuccess)
+  const totalSymlinksRemoved = successItems.reduce(
     (sum, item) => sum + item.symlinksRemoved,
     0,
   )
-  const deletedCount = deletedItems.length
+  const successCount = successItems.length
   const totalCount = result.items.length
-  const hadErrors = deletedCount < totalCount
+  const hadErrors = successCount < totalCount
 
   const skillsPhrase = hadErrors
-    ? `Deleted ${deletedCount} of ${totalCount} ${pluralize(totalCount, 'skill')}.`
-    : `Deleted ${deletedCount} ${pluralize(deletedCount, 'skill')}.`
+    ? `Deleted ${successCount} of ${totalCount} ${pluralize(totalCount, 'skill')}.`
+    : `Deleted ${successCount} ${pluralize(successCount, 'skill')}.`
 
   // Omit the symlink sentence when nothing cascaded (keeps the toast compact).
   const symlinksPhrase =

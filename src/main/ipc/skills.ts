@@ -271,18 +271,26 @@ export function registerSkillsHandlers(): void {
 
       for (const [itemIndex, { skillName }] of items.entries()) {
         try {
-          const {
-            tombstoneId: id,
-            cascadeAgents,
-            symlinksRemoved,
-          } = await moveToTrash(skillName)
-          results.push({
-            skillName,
-            outcome: 'deleted',
-            tombstoneId: id,
-            symlinksRemoved,
-            cascadeAgents,
-          })
+          const moveResult = await moveToTrash(skillName)
+          // Discriminate on `kind` so the renderer can tell apart "this row has
+          // a tombstone, wire it into the Undo toast" from "this row is just a
+          // broken-symlink sweep with no undo path".
+          if (moveResult.kind === 'tombstoned') {
+            results.push({
+              skillName,
+              outcome: 'deleted',
+              tombstoneId: moveResult.tombstoneId,
+              symlinksRemoved: moveResult.symlinksRemoved,
+              cascadeAgents: moveResult.cascadeAgents,
+            })
+          } else {
+            results.push({
+              skillName,
+              outcome: 'orphan-cleared',
+              symlinksRemoved: moveResult.symlinksRemoved,
+              cascadeAgents: moveResult.cascadeAgents,
+            })
+          }
         } catch (error) {
           const message =
             error instanceof TrashError

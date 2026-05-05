@@ -195,6 +195,86 @@ describe('formatCascadeSummary', () => {
       'Deleted 1 skill. 1 symlink removed.',
     )
   })
+
+  it('counts orphan-cleared rows as success and rolls their symlinksRemoved into the cascade tally', () => {
+    // Issue #71 PR-1: orphan-cleared has no tombstoneId (no undo to wire up),
+    // but from the user's POV the broken link "is gone" — same wording.
+    const result: BulkDeleteResult = {
+      items: [
+        {
+          skillName: 'task',
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1-task-aaaa'),
+          symlinksRemoved: 1,
+          cascadeAgents: ['cursor' as AgentId],
+        },
+        {
+          skillName: 'abandoned',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 2,
+          cascadeAgents: ['cursor' as AgentId, 'codex' as AgentId],
+        },
+      ],
+    }
+
+    // 2 successes, 3 cascaded symlinks (1 + 2). The "K of N" form must NOT
+    // appear: orphan-cleared is success, not error.
+    expect(formatCascadeSummary(result)).toBe(
+      'Deleted 2 skills. 3 symlinks removed.',
+    )
+  })
+
+  it('formats orphan-only batches without any tombstoneId rows', () => {
+    // The all-orphan case: e.g. user deleted the source first, then bulk
+    // selected the broken-symlink rows in agent view to clean them up.
+    const result: BulkDeleteResult = {
+      items: [
+        {
+          skillName: 'abandoned-a',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 1,
+          cascadeAgents: ['cursor' as AgentId],
+        },
+        {
+          skillName: 'abandoned-b',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 3,
+          cascadeAgents: [
+            'cursor' as AgentId,
+            'codex' as AgentId,
+            'claude-code' as AgentId,
+          ],
+        },
+      ],
+    }
+
+    expect(formatCascadeSummary(result)).toBe(
+      'Deleted 2 skills. 4 symlinks removed.',
+    )
+  })
+
+  it('treats mixed orphan + error correctly with K-of-N partial form', () => {
+    const result: BulkDeleteResult = {
+      items: [
+        {
+          skillName: 'abandoned',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 2,
+          cascadeAgents: ['cursor' as AgentId, 'codex' as AgentId],
+        },
+        {
+          skillName: 'locked',
+          outcome: 'error',
+          error: { message: 'EACCES', code: 'EACCES' },
+        },
+      ],
+    }
+
+    // 1 of 2 succeeded, 2 symlinks removed by the orphan-cleared row.
+    expect(formatCascadeSummary(result)).toBe(
+      'Deleted 1 of 2 skills. 2 symlinks removed.',
+    )
+  })
 })
 
 describe('formatUnlinkSummary', () => {
