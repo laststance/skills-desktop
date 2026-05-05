@@ -458,6 +458,7 @@ export const SkillItem = React.memo(function SkillItem({
                       keeps it scannable; tooltip explains the action. */}
                   {skill.isOrphan && (
                     <span
+                      role="img"
                       data-testid={`skill-orphan-badge-${skill.name}`}
                       className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0"
                       aria-label="Orphan skill — source directory is missing"
