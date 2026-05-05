@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest'
 
-import { DEFAULT_SETTINGS, SettingsSchema } from './settings'
+import {
+  DEFAULT_SETTINGS,
+  SettingsSchema,
+  WINDOW_SIZE_MIN_DIMENSION,
+} from './settings'
 
 /**
  * Schema-level tests for `SettingsSchema`. These are the canary that fires
@@ -82,23 +86,44 @@ describe('SettingsSchema', () => {
 
   it('accepts a windowSize at the minimum dimension', () => {
     const parsed = SettingsSchema.parse({
-      windowSize: { width: 400, height: 400 },
+      windowSize: {
+        width: WINDOW_SIZE_MIN_DIMENSION,
+        height: WINDOW_SIZE_MIN_DIMENSION,
+      },
     })
-    expect(parsed.windowSize).toEqual({ width: 400, height: 400 })
+    expect(parsed.windowSize).toEqual({
+      width: WINDOW_SIZE_MIN_DIMENSION,
+      height: WINDOW_SIZE_MIN_DIMENSION,
+    })
   })
 
   it('rejects a windowSize below the minimum dimension', () => {
     expect(() =>
-      SettingsSchema.parse({ windowSize: { width: 399, height: 400 } }),
+      SettingsSchema.parse({
+        windowSize: {
+          width: WINDOW_SIZE_MIN_DIMENSION - 1,
+          height: WINDOW_SIZE_MIN_DIMENSION,
+        },
+      }),
     ).toThrow()
     expect(() =>
-      SettingsSchema.parse({ windowSize: { width: 400, height: 399 } }),
+      SettingsSchema.parse({
+        windowSize: {
+          width: WINDOW_SIZE_MIN_DIMENSION,
+          height: WINDOW_SIZE_MIN_DIMENSION - 1,
+        },
+      }),
     ).toThrow()
   })
 
   it('rejects a non-integer windowSize', () => {
     expect(() =>
-      SettingsSchema.parse({ windowSize: { width: 400.5, height: 400 } }),
+      SettingsSchema.parse({
+        windowSize: {
+          width: WINDOW_SIZE_MIN_DIMENSION + 0.5,
+          height: WINDOW_SIZE_MIN_DIMENSION,
+        },
+      }),
     ).toThrow()
   })
 })

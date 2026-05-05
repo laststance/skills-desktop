@@ -3,14 +3,17 @@ import { z } from 'zod'
 import { TERMINAL_APP_IDS } from './constants'
 
 /**
- * Lower bound for a persisted startup window size. Mirrors the
- * `minWidth` / `minHeight` passed to `BrowserWindow` in
- * `src/main/index.ts` so a stored value can never break those
- * invariants (e.g. an oddly small saved size on a high-DPI display
- * being restored on a tiny laptop screen). Upper bound is enforced
- * dynamically in main against the current display work area.
+ * Defense-in-depth floor for a persisted startup window size. Set well
+ * below the BrowserWindow runtime resize floor (`minWidth: 800` /
+ * `minHeight: 600` in `src/main/index.ts`) — those constrain the
+ * interactive resize and constructor sizing, which is the real UX
+ * boundary. This 400px floor is intentionally distinct: it's a sanity
+ * check that catches a corrupted or hand-edited `settings.json`
+ * carrying a nonsense value (e.g. `{ width: 0 }`) before it ever
+ * reaches the launch path. Exported so tests can pin to it instead of
+ * duplicating the literal.
  */
-const WINDOW_SIZE_MIN_DIMENSION = 400
+export const WINDOW_SIZE_MIN_DIMENSION = 400
 
 /**
  * Persisted startup window size. `undefined` means "no preference —

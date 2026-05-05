@@ -50,6 +50,14 @@ function createWindow(): void {
     : { width: DEFAULT_LAUNCH_WIDTH, height: DEFAULT_LAUNCH_HEIGHT }
 
   const window = new BrowserWindow({
+    // `useContentSize` makes `width`/`height` (and `minWidth`/`minHeight`)
+    // describe the content area instead of the outer frame. Required for
+    // exact round-trip with the persisted size: the renderer captures via
+    // `window:getMainBounds` → `getContentBounds()`, so the stored value
+    // is content-area dimensions. Without this flag, restoring would treat
+    // those as outer-frame dimensions and shave off the titlebar (~28px
+    // even with `hiddenInset`) on every save→restore cycle.
+    useContentSize: true,
     width: launchSize.width,
     height: launchSize.height,
     minWidth: 800,
