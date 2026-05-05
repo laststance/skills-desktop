@@ -441,11 +441,18 @@ test('deleteSkill clears orphan (broken) symlinks with no trash entry', async ({
   ).toEqual([])
 
   // Redux — the orphan row disappears from skills.items after rescan.
+  // `skillName` MUST be passed via the third arg: the selector is serialized
+  // and re-evaluated in the renderer, so closure capture would surface as
+  // `ReferenceError: skillName is not defined`.
   await refreshSkillsState(appWindow)
-  const stillPresent = await getStoreState(appWindow, (state) => {
-    const root = state as { skills: { items: Array<{ name: string }> } }
-    return root.skills.items.some((skill) => skill.name === skillName)
-  })
+  const stillPresent = await getStoreState(
+    appWindow,
+    (state, name: string) => {
+      const root = state as { skills: { items: Array<{ name: string }> } }
+      return root.skills.items.some((skill) => skill.name === name)
+    },
+    skillName,
+  )
   expect(stillPresent).toBe(false)
 })
 
