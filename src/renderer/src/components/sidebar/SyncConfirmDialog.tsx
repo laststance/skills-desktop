@@ -1,10 +1,10 @@
 import { FolderSync, Loader2 } from 'lucide-react'
-import React, { useState } from 'react'
-import { toast } from 'sonner'
+import React from 'react'
 
+import { useExecuteSync } from '../../hooks/useExecuteSync'
 import { shouldShowSyncConfirm } from '../../lib/syncHelpers'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { executeSyncAction, setSyncPreview } from '../../redux/slices/uiSlice'
+import { setSyncPreview } from '../../redux/slices/uiSlice'
 import { Button } from '../ui/button'
 import {
   Dialog,
@@ -12,8 +12,9 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
 } from '../ui/dialog'
+import { DialogIconHeader } from '../ui/dialog-icon-header'
+import { StatRow } from '../ui/stat-row'
 
 /**
  * Confirmation dialog shown before sync execution (no-conflict case).
@@ -28,7 +29,7 @@ export const SyncConfirmDialog = React.memo(
     const isSyncing = useAppSelector((state) => state.ui.isSyncing)
     const isOpen = shouldShowSyncConfirm(syncPreview)
 
-    const [isExecuting, setIsExecuting] = useState(false)
+    const { run: executeSync, isExecuting } = useExecuteSync('Sync failed')
 
     const handleClose = (): void => {
       if (!isExecuting) {
@@ -36,29 +37,16 @@ export const SyncConfirmDialog = React.memo(
       }
     }
 
+    // Success feedback + refreshAllData handled by SyncResultDialog
     const handleSync = async (): Promise<void> => {
-      setIsExecuting(true)
-
-      const result = await dispatch(executeSyncAction({ replaceConflicts: [] }))
-
-      // Success feedback + refreshAllData handled by SyncResultDialog
-      if (executeSyncAction.rejected.match(result)) {
-        toast.error('Sync failed', {
-          description: result.error?.message || 'An unexpected error occurred',
-        })
-      }
-
-      setIsExecuting(false)
+      await executeSync({ replaceConflicts: [] })
     }
 
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <div className="flex items-center gap-2">
-              <FolderSync className="h-5 w-5 text-primary" />
-              <DialogTitle>Sync Skills</DialogTitle>
-            </div>
+            <DialogIconHeader icon={FolderSync} title="Sync Skills" />
             <DialogDescription>
               Create symlinks from your source skills to all agents.
             </DialogDescription>
@@ -66,28 +54,20 @@ export const SyncConfirmDialog = React.memo(
 
           {syncPreview && (
             <div className="py-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Skills → Agents</span>
-                <span className="font-medium">
-                  {syncPreview.totalSkills} skills → {syncPreview.totalAgents}{' '}
-                  agents
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  New symlinks to create
-                </span>
-                <span className="font-medium text-primary">
-                  {syncPreview.toCreate}
-                </span>
-              </div>
+              <StatRow
+                label="Skills → Agents"
+                value={`${syncPreview.totalSkills} skills → ${syncPreview.totalAgents} agents`}
+              />
+              <StatRow
+                label="New symlinks to create"
+                value={syncPreview.toCreate}
+                tone="primary"
+              />
               {syncPreview.alreadySynced > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Already synced</span>
-                  <span className="font-medium">
-                    {syncPreview.alreadySynced}
-                  </span>
-                </div>
+                <StatRow
+                  label="Already synced"
+                  value={syncPreview.alreadySynced}
+                />
               )}
             </div>
           )}

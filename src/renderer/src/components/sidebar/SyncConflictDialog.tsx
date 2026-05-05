@@ -1,9 +1,9 @@
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import React, { useState } from 'react'
-import { toast } from 'sonner'
 
+import { useExecuteSync } from '../../hooks/useExecuteSync'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { executeSyncAction, setSyncPreview } from '../../redux/slices/uiSlice'
+import { setSyncPreview } from '../../redux/slices/uiSlice'
 import { Button } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
 import {
@@ -12,8 +12,8 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
 } from '../ui/dialog'
+import { DialogIconHeader } from '../ui/dialog-icon-header'
 
 /**
  * Dialog for resolving sync conflicts (local folders that would be replaced by symlinks)
@@ -32,7 +32,7 @@ export const SyncConflictDialog = React.memo(
     const isOpen = hasConflicts && !!syncPreview && !syncPreview.forAgent
 
     const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
-    const [isExecuting, setIsExecuting] = useState(false)
+    const { run: executeSync, isExecuting } = useExecuteSync('Sync failed')
 
     const handleClose = (): void => {
       if (!isExecuting) {
@@ -53,23 +53,12 @@ export const SyncConflictDialog = React.memo(
       })
     }
 
+    // Success feedback + refreshAllData handled by SyncResultDialog
     const handleSync = async (replaceAll: boolean): Promise<void> => {
-      setIsExecuting(true)
-
       const replaceConflicts = replaceAll
         ? conflicts.map((c) => c.agentSkillPath)
         : Array.from(selectedPaths)
-
-      const result = await dispatch(executeSyncAction({ replaceConflicts }))
-
-      // Success feedback + refreshAllData handled by SyncResultDialog
-      if (executeSyncAction.rejected.match(result)) {
-        toast.error('Sync failed', {
-          description: result.error?.message || 'An unexpected error occurred',
-        })
-      }
-
-      setIsExecuting(false)
+      await executeSync({ replaceConflicts })
       setSelectedPaths(new Set())
     }
 
@@ -77,10 +66,11 @@ export const SyncConflictDialog = React.memo(
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              <DialogTitle>Sync Conflicts</DialogTitle>
-            </div>
+            <DialogIconHeader
+              icon={AlertTriangle}
+              title="Sync Conflicts"
+              tone="amber"
+            />
             <DialogDescription>
               {conflicts.length} local folder(s) found where symlinks would be
               created. Select which to replace with symlinks.
