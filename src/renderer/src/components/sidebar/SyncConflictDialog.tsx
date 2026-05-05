@@ -58,8 +58,10 @@ export const SyncConflictDialog = React.memo(
       const replaceConflicts = replaceAll
         ? conflicts.map((c) => c.agentSkillPath)
         : Array.from(selectedPaths)
-      await executeSync({ replaceConflicts })
-      setSelectedPaths(new Set())
+      const succeeded = await executeSync({ replaceConflicts })
+      if (succeeded) {
+        setSelectedPaths(new Set())
+      }
     }
 
     return (
