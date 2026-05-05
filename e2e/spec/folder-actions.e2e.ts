@@ -128,13 +128,11 @@ test('Settings → Preferred terminal picker lists all 8 IDs and reveals custom 
   ])
 
   // The custom-name <input> is rendered conditionally on
-  // `settings.preferredTerminal === 'custom'` (General.tsx:163). Default state
-  // has it absent; selecting 'custom' must reveal it. Toggling back is not
-  // asserted here because the optimistic dispatch reaches the input render
-  // synchronously — the appearance check is the load-bearing assertion.
-  await expect(
-    settingsWindow.getByLabel('Custom terminal app name'),
-  ).toHaveCount(0)
+  // `settings.preferredTerminal === 'custom'` (General.tsx:163). The
+  // load-bearing assertion is that selecting 'custom' makes the input
+  // visible — we don't assert the pre-state because settings.json may be
+  // persisted into the snapshot HOME from a prior dev session, which
+  // would make a "starts hidden" precondition flaky.
   await picker.selectOption('custom')
   await expect(
     settingsWindow.getByLabel('Custom terminal app name'),
