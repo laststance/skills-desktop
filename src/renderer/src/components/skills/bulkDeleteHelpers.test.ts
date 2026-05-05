@@ -195,6 +195,87 @@ describe('formatCascadeSummary', () => {
       'Deleted 1 skill. 1 symlink removed.',
     )
   })
+
+  it('keeps orphan-cleared distinct from the Undo-facing "Deleted" phrase', () => {
+    // Issue #71 PR-1: orphan-cleared has no tombstoneId so Undo can't restore
+    // it — therefore the "Deleted N" wording must NOT include it (otherwise
+    // the toast lies about how many rows the user can bring back).
+    const result: BulkDeleteResult = {
+      items: [
+        {
+          skillName: 'task',
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1-task-aaaa'),
+          symlinksRemoved: 1,
+          cascadeAgents: ['cursor' as AgentId],
+        },
+        {
+          skillName: 'abandoned',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 2,
+          cascadeAgents: ['cursor' as AgentId, 'codex' as AgentId],
+        },
+      ],
+    }
+
+    // 1 truly-deleted (undoable) + 2 orphan symlinks swept (irreversible) +
+    // 1 cascaded symlink from the deleted row. Three independent phrases.
+    expect(formatCascadeSummary(result)).toBe(
+      'Deleted 1 skill. Cleaned up 2 orphan symlinks. 1 symlink removed.',
+    )
+  })
+
+  it('reports orphan-only batches without any "Deleted" phrase', () => {
+    // The all-orphan case: e.g. user deleted the source first, then bulk
+    // selected the broken-symlink rows in agent view to clean them up.
+    // Nothing was tombstoned, so "Deleted" stays out of the message entirely.
+    const result: BulkDeleteResult = {
+      items: [
+        {
+          skillName: 'abandoned-a',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 1,
+          cascadeAgents: ['cursor' as AgentId],
+        },
+        {
+          skillName: 'abandoned-b',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 3,
+          cascadeAgents: [
+            'cursor' as AgentId,
+            'codex' as AgentId,
+            'claude-code' as AgentId,
+          ],
+        },
+      ],
+    }
+
+    expect(formatCascadeSummary(result)).toBe('Cleaned up 4 orphan symlinks.')
+  })
+
+  it('reports mixed orphan + error as separate phrases (no K-of-N form)', () => {
+    // No tombstoned rows means the K-of-N "Deleted X of Y" form has nothing
+    // to attach to; the error count gets its own standalone phrase instead.
+    const result: BulkDeleteResult = {
+      items: [
+        {
+          skillName: 'abandoned',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 2,
+          cascadeAgents: ['cursor' as AgentId, 'codex' as AgentId],
+        },
+        {
+          skillName: 'locked',
+          outcome: 'error',
+          error: { message: 'EACCES', code: 'EACCES' },
+        },
+      ],
+    }
+
+    expect(formatCascadeSummary(result)).toBe(
+      'Cleaned up 2 orphan symlinks. 1 deletion failed.',
+    )
+  })
 })
 
 describe('formatUnlinkSummary', () => {

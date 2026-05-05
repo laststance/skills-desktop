@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
@@ -366,6 +367,86 @@ test('deleteSkill moves a local-only skill into trash with kind="local-only" man
   expect(manifest.localCopies).toHaveLength(1)
   expect(manifest.localCopies[0].agentId).toBe('codex')
   expect(manifest.localCopies[0].linkPath).toBe(codexAgentDir)
+})
+
+/**
+ * Orphan-cleared delete branch (issue #71 PR-1) — exercises the third arm of
+ * `moveToTrash`'s dispatcher in `trashService.ts:moveToTrash`. Both the source
+ * dir AND every agent's local copy are absent; the only remaining records are
+ * dangling symlinks. The handler must:
+ *
+ *   1. Probe `~/.agents/skills/<name>` → ENOENT, NOT throw.
+ *   2. `scanLocalCopies` → empty (no real folders anywhere).
+ *   3. `scanOrphanSymlinkPaths` → finds the dangling links.
+ *   4. `clearOrphanSymlinks` unlinks each, returns `kind: 'orphan-cleared'`.
+ *   5. NO trash entry, NO manifest, NO TTL timer — the source is gone, so
+ *      "undo" would only restore broken links.
+ *
+ * The single-delete IPC `SKILLS_DELETE` strips `kind` and `tombstoneId` from
+ * the result (see `src/main/ipc/skills.ts:SKILLS_DELETE`); only the bulk-delete
+ * path discriminates on `outcome`. So this test asserts only the common-shape
+ * fields (`success`, `symlinksRemoved`, `cascadeAgents`) plus the FS invariants
+ * — link gone, trash dir untouched.
+ */
+test('deleteSkill clears orphan (broken) symlinks with no trash entry', async ({
+  appWindow,
+  isolatedHome,
+}) => {
+  const skillName = 'orphan-only-fixture'
+  // Stage a dangling symlink under codex (chosen for the same QA Safety
+  // reason as the local-only test above — avoids touching .claude/.cursor).
+  // Target is a path under SOURCE_DIR that we never create, so `fs.access`
+  // on it returns ENOENT and the orphan scanner picks it up.
+  const codexSkillsDir = join(isolatedHome, '.codex', 'skills')
+  mkdirSync(codexSkillsDir, { recursive: true })
+  const phantomSourcePath = join(isolatedHome, '.agents', 'skills', skillName)
+  const orphanLinkPath = join(codexSkillsDir, skillName)
+  symlinkSync(phantomSourcePath, orphanLinkPath)
+
+  // Sanity — staged shape is a real symlink with an absent target.
+  expect(lstatSync(orphanLinkPath).isSymbolicLink()).toBe(true)
+  expect(existsSync(phantomSourcePath)).toBe(false)
+
+  await waitForInitialScan(appWindow)
+
+  const ipcResult = await appWindow.evaluate(
+    async (name: string) =>
+      window.electron.skills.deleteSkill({ skillName: name }),
+    skillName,
+  )
+
+  expect(ipcResult.success).toBe(true)
+  // Common-shape fields work for both kinds. orphan-cleared returns the
+  // unlinked count and the agents whose links were swept.
+  expect(ipcResult.symlinksRemoved).toBe(1)
+  expect(ipcResult.cascadeAgents).toEqual(['codex'])
+
+  // FS — the dangling symlink itself is gone (lstat throws ENOENT). Using
+  // lstat (not stat) because stat follows symlinks and would have thrown
+  // even before the delete, masking a no-op regression.
+  expect(existsSync(orphanLinkPath)).toBe(false)
+  expect(() => lstatSync(orphanLinkPath)).toThrow()
+
+  // FS — KEY assertion: NO trash entry was written. The orphan branch
+  // deliberately skips manifest/TTL/evict-timer machinery because there
+  // is nothing meaningful to undo. A regression that mistakenly took the
+  // source-backed or local-only path would leave a tombstone here.
+  const trashDir = join(isolatedHome, '.agents', '.trash')
+  const trashEntries = existsSync(trashDir)
+    ? readdirSync(trashDir).filter((entry) => entry.includes(`-${skillName}-`))
+    : []
+  expect(
+    trashEntries,
+    'orphan-cleared must not write a tombstone — there is no source to restore',
+  ).toEqual([])
+
+  // Redux — the orphan row disappears from skills.items after rescan.
+  await refreshSkillsState(appWindow)
+  const stillPresent = await getStoreState(appWindow, (state) => {
+    const root = state as { skills: { items: Array<{ name: string }> } }
+    return root.skills.items.some((skill) => skill.name === skillName)
+  })
+  expect(stillPresent).toBe(false)
 })
 
 /**

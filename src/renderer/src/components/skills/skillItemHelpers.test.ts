@@ -346,6 +346,48 @@ describe('getSkillItemVisibility', () => {
       )
       expect(result.showDeleteButton).toBe(false)
     })
+
+    it('hides Add button for orphan skill in global view', () => {
+      // Issue #71 PR-1: Add button (which opens AddSymlinkModal /
+      // CopyToAgentsModal) would surface a flow that can only fail when the
+      // source is gone — there is nothing to symlink _to_. Same orphan rule
+      // as Delete and Unlink.
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'broken', isLocal: false }),
+        makeSymlink({ agentId: 'codex', status: 'broken', isLocal: false }),
+      ]
+      const result = getSkillItemVisibility(null, makeSkill(symlinks))
+
+      expect(result.showAddButton).toBe(false)
+    })
+
+    it('hides Add button for orphan skill in agent view even when the agent has a broken symlink', () => {
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'broken', isLocal: false }),
+        makeSymlink({ agentId: 'codex', status: 'broken', isLocal: false }),
+      ]
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
+
+      // Even though `selectedAgentSymlink` is non-null (the broken cursor
+      // entry passes the `valid|broken` filter), the orphan gate wins: there
+      // is no live source to symlink TO, so re-adding makes no sense.
+      expect(result.showAddButton).toBe(false)
+      // Sibling guards still hold for orphan rows.
+      expect(result.showUnlinkButton).toBe(false)
+    })
+
+    it('keeps Add button visible when isOrphan is false (non-orphan, valid symlinks)', () => {
+      // Sanity check: the new && !isOrphan term must NOT regress the
+      // happy path where Add was always available.
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
+      ]
+      const globalResult = getSkillItemVisibility(null, makeSkill(symlinks))
+      expect(globalResult.showAddButton).toBe(true)
+
+      const agentResult = getSkillItemVisibility('cursor', makeSkill(symlinks))
+      expect(agentResult.showAddButton).toBe(true)
+    })
   })
 
   describe('regression: dual delete buttons', () => {
