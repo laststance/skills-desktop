@@ -24,26 +24,46 @@ const SKILLS_FETCH_ALL_FULFILLED_TYPE = 'skills/fetchAll/fulfilled'
  * Without this wrapping the error lands as a generic Playwright eval failure
  * and the spec author has to re-derive which selector blew up.
  *
+ * Closure capture caveat: the selector is serialized via `Function.toString`
+ * and re-evaluated in the renderer, so it CANNOT reference variables from
+ * the surrounding test scope (those become `ReferenceError: x is not
+ * defined` at runtime). Pass dynamic values through the third `args`
+ * parameter — they're sent over the wire and arrive as the selector's
+ * second positional argument.
+ *
  * @example
  * const tab = await getStoreState(page, (state: any) => state.ui.activeTab)
+ * @example
+ * // Closure-safe: pass dynamic values via `args`
+ * const present = await getStoreState(
+ *   page,
+ *   (state, name) => {
+ *     const root = state as { skills: { items: Array<{ name: string }> } }
+ *     return root.skills.items.some((s) => s.name === name)
+ *   },
+ *   skillName,
+ * )
  */
-export async function getStoreState<T>(
+export async function getStoreState<T, A = undefined>(
   page: Page,
-  selector: (state: unknown) => T,
+  selector: (state: unknown, args: A) => T,
+  args?: A,
 ): Promise<T> {
   return page.evaluate(
-    ({ selectorSrc }) => {
+    ({ selectorSrc, selectorArgs }) => {
       const store = window.__store__ ?? window.__store
       if (!store) {
         throw new Error(
           'window.__store__ is not exposed. Did you build with E2E_BUILD=1?',
         )
       }
-      const fn = new Function('state', `return (${selectorSrc})(state)`) as (
-        state: unknown,
-      ) => unknown
+      const fn = new Function(
+        'state',
+        'args',
+        `return (${selectorSrc})(state, args)`,
+      ) as (state: unknown, args: unknown) => unknown
       try {
-        return fn(store.getState())
+        return fn(store.getState(), selectorArgs)
       } catch (selectorError) {
         const errorMessage =
           selectorError instanceof Error
@@ -54,7 +74,7 @@ export async function getStoreState<T>(
         )
       }
     },
-    { selectorSrc: selector.toString() },
+    { selectorSrc: selector.toString(), selectorArgs: args },
   ) as Promise<T>
 }
 

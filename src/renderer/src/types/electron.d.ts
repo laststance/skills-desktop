@@ -1,5 +1,6 @@
 import type { Settings } from '../../../shared/settings'
 import type {
+  AbsolutePath,
   Skill,
   Agent,
   SourceStats,
@@ -9,6 +10,7 @@ import type {
   UpdateInfo,
   DeleteProgressPayload,
   DownloadProgress,
+  FolderActionResult,
   RankingFilter,
   SkillSearchResult,
   InstallOptions,
@@ -121,6 +123,14 @@ declare global {
         get: () => Promise<Settings>
         set: (partial: Partial<Settings>) => Promise<Settings>
         onChanged: (callback: (settings: Settings) => void) => () => void
+      }
+      folder: {
+        revealInFinder: (
+          folderPath: AbsolutePath,
+        ) => Promise<FolderActionResult>
+        openInTerminal: (
+          folderPath: AbsolutePath,
+        ) => Promise<FolderActionResult>
       }
     }
   }

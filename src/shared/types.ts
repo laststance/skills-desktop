@@ -1,4 +1,4 @@
-import type { AgentId, AgentName } from './constants'
+import type { AgentId, AgentName, TERMINAL_APP_IDS } from './constants'
 import type { FilePreviewKind } from './fileTypes'
 export type { AgentId, AgentName } from './constants'
 export type { ThemePresetName } from './constants'
@@ -249,6 +249,63 @@ export type SymlinkStatus = 'valid' | 'broken' | 'missing'
  * - local: Skill created directly in agent's skills directory
  */
 export type SkillType = 'source' | 'local'
+
+/**
+ * Identifier for the macOS terminal application launched by
+ * "Open in Terminal" actions on agent / source folders.
+ *
+ * `'custom'` is a sentinel meaning "consult `Settings.customTerminalAppName`
+ * for a freeform app name forwarded to `open -a <name>`". The seven curated
+ * IDs map to stable display names in `TERMINAL_APP_DISPLAY_NAMES` (see
+ * `src/shared/constants.ts`); they are display names rather than bundle IDs
+ * because vendor-side bundle IDs drift across rebrands (Warp Stable/Preview).
+ *
+ * @example 'terminal' // Apple's first-party Terminal.app
+ * @example 'iterm'    // iTerm2
+ * @example 'custom'   // user-supplied name from settings
+ */
+export type TerminalAppId = (typeof TERMINAL_APP_IDS)[number]
+
+/**
+ * Discriminator for the failure cases of `FolderActionResult`.
+ * Extracted so renderer toast handlers and unit tests can switch on
+ * the same finite set instead of redeclaring it inline.
+ *
+ * - `not-found`: the requested folder no longer exists (deleted between
+ *   scan and click, or stat raised ENOENT/ELOOP/ENOTDIR).
+ * - `launch-failed`: `open -a` exited non-zero or `shell.openPath`
+ *   returned an error string (most often: chosen terminal app missing).
+ * - `invalid-path`: settings are in `'custom'` mode but the custom app
+ *   name is blank/missing — caller must surface a Settings hint.
+ *
+ * @example
+ * const reason: FolderActionErrorReason = 'not-found'
+ */
+export type FolderActionErrorReason =
+  | 'not-found'
+  | 'launch-failed'
+  | 'invalid-path'
+
+/**
+ * Discriminated result of a folder-launch IPC call (Reveal in Finder /
+ * Open in Terminal). The `ok: false` branch carries a user-safe message
+ * already formatted for `toast.error` — renderer code never touches the
+ * raw OS error.
+ *
+ * @example // success
+ * { ok: true }
+ * @example // folder deleted between scan and click
+ * { ok: false, reason: 'not-found', message: 'Folder not found: /Users/me/.cline/skills' }
+ * @example // chosen terminal app not installed
+ * { ok: false, reason: 'launch-failed', message: 'Could not launch terminal. Is the chosen app installed?' }
+ */
+export type FolderActionResult =
+  | { ok: true }
+  | {
+      ok: false
+      reason: FolderActionErrorReason
+      message: string
+    }
 
 /**
  * Statistics for the ~/.agents/skills/ source directory.

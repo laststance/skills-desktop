@@ -603,6 +603,82 @@ export const UNIVERSAL_AGENT_IDS = [
 ] as const satisfies readonly AgentId[]
 
 /**
+ * Curated terminal app identifiers used by the "Open in Terminal" feature.
+ * Single source of truth for the `TerminalAppId` type (derived in
+ * `src/shared/types.ts` via indexed-access on this tuple) AND the Zod enum
+ * in `src/shared/settings.ts` (`z.enum(TERMINAL_APP_IDS)`). Adding a new
+ * terminal here automatically widens both — drift is mechanically impossible.
+ *
+ * Order is the order shown in the Settings → Preferred Terminal `<Select>`.
+ * `'custom'` MUST stay last so the "Custom…" option appears at the bottom.
+ */
+export const TERMINAL_APP_IDS = [
+  'terminal',
+  'iterm',
+  'warp',
+  'ghostty',
+  'alacritty',
+  'kitty',
+  'wezterm',
+  'custom',
+] as const
+
+/**
+ * Display names for the curated terminal apps, exactly as macOS LaunchServices
+ * registers them under `/Applications`. Used by the main-process IPC handler
+ * `folder:openInTerminal` as the argument to `open -a <name>`. We deliberately
+ * use display names instead of bundle IDs (`-b com.apple.Terminal`) because
+ * vendor bundle IDs drift across Stable / Preview / Insiders rebrands (e.g.,
+ * Warp), while LaunchServices keeps the human-facing names stable.
+ *
+ * The `'custom'` entry is intentionally excluded — when the user picks Custom
+ * in Settings, the handler reads `settings.customTerminalAppName` instead.
+ *
+ * @example
+ * spawn('open', ['-a', TERMINAL_APP_DISPLAY_NAMES.iterm, '/Users/me/.agents/skills'])
+ */
+export const TERMINAL_APP_DISPLAY_NAMES: Record<
+  Exclude<(typeof TERMINAL_APP_IDS)[number], 'custom'>,
+  string
+> = {
+  terminal: 'Terminal',
+  iterm: 'iTerm',
+  warp: 'Warp',
+  ghostty: 'Ghostty',
+  alacritty: 'Alacritty',
+  kitty: 'kitty',
+  wezterm: 'WezTerm',
+}
+
+/**
+ * Human-facing labels for the Settings → General → Preferred Terminal `<Select>`.
+ * Diverges from `TERMINAL_APP_DISPLAY_NAMES` in two cases:
+ * - `'terminal'` becomes "Terminal (Apple)" because the bare word "Terminal"
+ *   is ambiguous next to other vendors in a dropdown.
+ * - `'custom'` exists here because it is a UI-only sentinel.
+ *
+ * The launch-time string MUST come from `TERMINAL_APP_DISPLAY_NAMES`; this
+ * record is for rendering only.
+ *
+ * @example
+ * <SelectItem value="terminal">{TERMINAL_APP_UI_LABELS.terminal}</SelectItem>
+ * // renders "Terminal (Apple)"
+ */
+export const TERMINAL_APP_UI_LABELS: Record<
+  (typeof TERMINAL_APP_IDS)[number],
+  string
+> = {
+  terminal: 'Terminal (Apple)',
+  iterm: 'iTerm',
+  warp: 'Warp',
+  ghostty: 'Ghostty',
+  alacritty: 'Alacritty',
+  kitty: 'kitty',
+  wezterm: 'WezTerm',
+  custom: 'Custom…',
+}
+
+/**
  * Pinned `vercel-labs/skills` CLI version used by the main-process
  * `skillsCliService` when spawning `npx skills@<version> ...`. Kept in the
  * shared module so the `/cli-upgrade` maintenance skill has a single place

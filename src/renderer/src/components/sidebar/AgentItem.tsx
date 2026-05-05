@@ -1,8 +1,9 @@
-import { Eraser, Trash2 } from 'lucide-react'
+import { Eraser, FolderOpen, Terminal, Trash2 } from 'lucide-react'
 import React, { useMemo, useState } from 'react'
 
 import { AGENT_DEFINITIONS } from '../../../../shared/constants'
 import type { Agent, AgentId } from '../../../../shared/types'
+import { useOpenFolder } from '../../hooks/useOpenFolder'
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { setAgentToDelete } from '../../redux/slices/agentsSlice'
@@ -72,6 +73,7 @@ export const AgentItem = React.memo(function AgentItem({
   const { selectedAgentId } = useAppSelector((state) => state.ui)
   const isSelected = selectedAgentId === agent.id
   const [contextOpen, setContextOpen] = useState(false)
+  const { revealInFinder, openInTerminal } = useOpenFolder()
 
   const handleClick = (): void => {
     if (!agent.exists) return
@@ -82,6 +84,14 @@ export const AgentItem = React.memo(function AgentItem({
     e.preventDefault()
     if (!agent.exists) return
     setContextOpen(true)
+  }
+
+  const handleRevealInFinder = (): void => {
+    void revealInFinder(agent.path)
+  }
+
+  const handleOpenInTerminal = (): void => {
+    void openInTerminal(agent.path)
   }
 
   const handleDelete = (): void => {
@@ -145,6 +155,19 @@ export const AgentItem = React.memo(function AgentItem({
           </DropdownMenuTrigger>
         </TooltipTrigger>
         <DropdownMenuContent>
+          {/* Folder actions go above destructive items so accidental keyboard */}
+          {/* navigation (Down arrow → Enter) lands on a safe action first. */}
+          {/* `onSelect` (not `onClick`) — Radix DropdownMenu.Item only fires */}
+          {/* `onSelect` for keyboard activation (Enter/Space). */}
+          <DropdownMenuItem onSelect={handleRevealInFinder}>
+            <FolderOpen className="h-4 w-4 mr-2" />
+            Reveal in Finder
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={handleOpenInTerminal}>
+            <Terminal className="h-4 w-4 mr-2" />
+            Open in Terminal
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleCleanupMissing}>
             <Eraser className="h-4 w-4 mr-2" />
             Cleanup missing skills...
