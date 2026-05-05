@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron'
 
-import type { IpcChannel } from '../shared/ipc-channels'
+import type { IpcChannel } from '@/shared/ipc-channels'
 
 import { recordIpcEvent } from './ipcRecorder'
 

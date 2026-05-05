@@ -2,8 +2,9 @@ import { readdir, readFile, stat } from 'fs/promises'
 import { homedir } from 'os'
 import { join } from 'path'
 
-import { formatBytes } from '../../shared/fileTypes'
-import { repositoryId } from '../../shared/types'
+import { AGENTS, SOURCE_DIR } from '@/main/constants'
+import { formatBytes } from '@/shared/fileTypes'
+import { repositoryId } from '@/shared/types'
 import type {
   AbsolutePath,
   HttpUrl,
@@ -11,8 +12,7 @@ import type {
   Skill,
   SkillName,
   SourceStats,
-} from '../../shared/types'
-import { AGENTS, SOURCE_DIR } from '../constants'
+} from '@/shared/types'
 
 import { listValidSourceSkillDirs } from './dirScanner'
 import { parseSkillMetadata } from './metadataParser'

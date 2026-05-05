@@ -10,13 +10,13 @@ import {
   MAX_TEXT_FILE_BYTES,
   MAX_TREE_DEPTH,
   shouldExcludeDir,
-} from '../../shared/fileTypes'
-import type { FilePreviewKind } from '../../shared/fileTypes'
+} from '@/shared/fileTypes'
+import type { FilePreviewKind } from '@/shared/fileTypes'
 import type {
   SkillBinaryContent,
   SkillFile,
   SkillFileContent,
-} from '../../shared/types'
+} from '@/shared/types'
 
 /**
  * Recursively list previewable files in a skill directory.

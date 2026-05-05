@@ -1,5 +1,6 @@
 import { match } from 'ts-pattern'
 
+import { pluralize } from '@/renderer/src/utils/pluralize'
 import type {
   AgentId,
   BulkDeleteItemResult,
@@ -7,8 +8,7 @@ import type {
   BulkUnlinkItemResult,
   BulkUnlinkResult,
   SkillName,
-} from '../../../../shared/types'
-import { pluralize } from '../../utils/pluralize'
+} from '@/shared/types'
 
 /**
  * Which toolbar variant is rendering:

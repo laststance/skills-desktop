@@ -1,17 +1,22 @@
 import { Check, ExternalLink, Loader2 } from 'lucide-react'
 import React, { useRef, useState } from 'react'
 
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { removeBookmark } from '../../redux/slices/bookmarkSlice'
-import { installSkill } from '../../redux/slices/marketplaceSlice'
-import { fetchSkills } from '../../redux/slices/skillsSlice'
+import { Button } from '@/renderer/src/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/renderer/src/components/ui/dialog'
+import { Separator } from '@/renderer/src/components/ui/separator'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { removeBookmark } from '@/renderer/src/redux/slices/bookmarkSlice'
+import { installSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
+import { fetchSkills } from '@/renderer/src/redux/slices/skillsSlice'
 import {
   clearSelectedBookmarkForDetail,
   selectSelectedBookmarkForDetail,
-} from '../../redux/slices/uiSlice'
-import { Button } from '../ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
-import { Separator } from '../ui/separator'
+} from '@/renderer/src/redux/slices/uiSlice'
 
 /**
  * Modal dialog showing bookmark details with install/remove actions.

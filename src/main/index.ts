@@ -2,7 +2,7 @@ import { join } from 'path'
 
 import { app, BrowserWindow, Menu, nativeImage, session } from 'electron'
 
-import { isAllowedSkillsUrl } from '../shared/marketplaceUrlPolicy'
+import { isAllowedSkillsUrl } from '@/shared/marketplaceUrlPolicy'
 
 import { registerAllHandlers } from './ipc/handlers'
 import { loadSettings } from './services/settings'

@@ -1,5 +1,9 @@
-import type { DashboardPage, WidgetInstance, WidgetType } from '../types'
-import { WIDGET_REGISTRY } from '../widgets/registry'
+import type {
+  DashboardPage,
+  WidgetInstance,
+  WidgetType,
+} from '@/renderer/src/components/dashboard/types'
+import { WIDGET_REGISTRY } from '@/renderer/src/components/dashboard/widgets/registry'
 
 import { newDashboardPageId, newWidgetInstanceId } from './ids'
 

@@ -1,5 +1,5 @@
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
-import { scanAgents } from '../services/agentScanner'
+import { scanAgents } from '@/main/services/agentScanner'
+import { IPC_CHANNELS } from '@/shared/ipc-channels'
 
 import { typedHandle } from './typedHandle'
 

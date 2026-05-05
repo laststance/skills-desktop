@@ -8,7 +8,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
-      '@shared': resolve(__dirname, './src/shared'),
     },
     // React and react-dom MUST resolve to a single instance. Without dedupe,
     // vitest-browser-react bundles its own copy while react-redux pulls the
@@ -22,7 +21,6 @@ export default defineConfig({
         resolve: {
           alias: {
             '@': resolve(__dirname, './src'),
-            '@shared': resolve(__dirname, './src/shared'),
           },
           dedupe: ['react', 'react-dom'],
         },
@@ -38,7 +36,6 @@ export default defineConfig({
         resolve: {
           alias: {
             '@': resolve(__dirname, './src'),
-            '@shared': resolve(__dirname, './src/shared'),
           },
           // Browser project MUST dedupe explicitly — projects don't inherit
           // root-level resolve config. Without this, vitest-browser-react

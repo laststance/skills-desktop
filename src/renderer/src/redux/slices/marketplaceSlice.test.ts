@@ -1,8 +1,8 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { repositoryId } from '../../../../shared/types'
-import type { SkillSearchResult } from '../../../../shared/types'
+import { repositoryId } from '@/shared/types'
+import type { SkillSearchResult } from '@/shared/types'
 
 const mockSearch = vi.fn()
 const mockInstall = vi.fn()

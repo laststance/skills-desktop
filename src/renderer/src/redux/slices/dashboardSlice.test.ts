@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 
-import type { DashboardPageId } from '../../components/dashboard/types'
+import type { DashboardPageId } from '@/renderer/src/components/dashboard/types'
 
 // Dynamic import keeps the slice out of the module graph until each test
 // needs it — matches the pattern established by `bookmarkSlice.test.ts` and

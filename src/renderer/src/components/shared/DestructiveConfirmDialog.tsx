@@ -1,7 +1,7 @@
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import React from 'react'
 
-import { Button } from '../ui/button'
+import { Button } from '@/renderer/src/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -9,7 +9,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../ui/dialog'
+} from '@/renderer/src/components/ui/dialog'
 
 interface DestructiveConfirmDialogProps {
   /** Whether the dialog is open */

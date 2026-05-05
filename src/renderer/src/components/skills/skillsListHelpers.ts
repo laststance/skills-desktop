@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern'
 
-import type { AgentId, RepositoryId } from '../../../../shared/types'
-import type { SkillTypeFilter } from '../../redux/slices/uiSlice'
+import type { SkillTypeFilter } from '@/renderer/src/redux/slices/uiSlice'
+import type { AgentId, RepositoryId } from '@/shared/types'
 
 interface EmptyMessageContext {
   searchQuery: string

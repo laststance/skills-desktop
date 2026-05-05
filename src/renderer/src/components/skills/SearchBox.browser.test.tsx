@@ -9,7 +9,8 @@ import { render } from 'vitest-browser-react'
  * search box reads, so omitting them keeps the test surface tight.
  */
 async function createStore() {
-  const { default: uiReducer } = await import('../../redux/slices/uiSlice')
+  const { default: uiReducer } =
+    await import('@/renderer/src/redux/slices/uiSlice')
   return configureStore({
     reducer: {
       ui: uiReducer,
@@ -49,7 +50,8 @@ describe('SearchBox scope toggle', () => {
 
   it('aria-label flips to the repository copy when scope=repo', async () => {
     const { screen, store } = await renderSearchBox()
-    const { setSearchScope } = await import('../../redux/slices/uiSlice')
+    const { setSearchScope } =
+      await import('@/renderer/src/redux/slices/uiSlice')
 
     // Default is 'name'; verify both states so a regression renaming one
     // copy without the other (the original aria-label bug) is caught.
@@ -68,7 +70,8 @@ describe('SearchBox scope toggle', () => {
 
   it('placeholder flips to the repository copy when scope=repo', async () => {
     const { screen, store } = await renderSearchBox()
-    const { setSearchScope } = await import('../../redux/slices/uiSlice')
+    const { setSearchScope } =
+      await import('@/renderer/src/redux/slices/uiSlice')
 
     await expect
       .element(screen.getByPlaceholder('Search skills...'))

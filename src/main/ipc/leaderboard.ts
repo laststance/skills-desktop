@@ -1,5 +1,5 @@
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
-import { fetchLeaderboard } from '../services/leaderboardService'
+import { fetchLeaderboard } from '@/main/services/leaderboardService'
+import { IPC_CHANNELS } from '@/shared/ipc-channels'
 
 import { typedHandle } from './typedHandle'
 

@@ -1,27 +1,27 @@
 import { Loader2, Trash2, Unlink, X } from 'lucide-react'
 import React from 'react'
 
-import { BULK_PROGRESS_THRESHOLD } from '../../../../shared/constants'
-import { cn } from '../../lib/utils'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import { Button } from '@/renderer/src/components/ui/button'
+import { cn } from '@/renderer/src/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   selectHiddenSelectedCount,
   selectSelectedCount,
   selectSelectedVisibleCount,
   selectVisibleSkillNames,
-} from '../../redux/selectors'
+} from '@/renderer/src/redux/selectors'
 import {
   clearSelection,
   selectAll,
   selectBulkDeleting,
   selectBulkProgress,
   selectBulkUnlinking,
-} from '../../redux/slices/skillsSlice'
+} from '@/renderer/src/redux/slices/skillsSlice'
 import {
   selectBulkSelectMode,
   selectSelectedAgentId,
-} from '../../redux/slices/uiSlice'
-import { Button } from '../ui/button'
+} from '@/renderer/src/redux/slices/uiSlice'
+import { BULK_PROGRESS_THRESHOLD } from '@/shared/constants'
 
 import { getToolbarState } from './bulkDeleteHelpers'
 

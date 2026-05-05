@@ -1,7 +1,7 @@
 import { createSelector } from '@reduxjs/toolkit'
 import { match } from 'ts-pattern'
 
-import type { SkillName } from '../../../shared/types'
+import type { SkillName } from '@/shared/types'
 
 import { selectBookmarkItems } from './slices/bookmarkSlice'
 import {

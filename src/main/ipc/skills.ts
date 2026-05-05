@@ -5,8 +5,14 @@ import type { IpcMainInvokeEvent } from 'electron'
 import { shell } from 'electron'
 import { match } from 'ts-pattern'
 
-import { BULK_PROGRESS_THRESHOLD } from '../../shared/constants'
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
+import { AGENTS, findAgentById, isSharedAgentPath } from '@/main/constants'
+import { getAllowedBases, validatePath } from '@/main/services/pathValidation'
+import { scanSkills } from '@/main/services/skillScanner'
+import { moveToTrash, restore, TrashError } from '@/main/services/trashService'
+import { errorCode } from '@/main/utils/errorCode'
+import { extractErrorMessage } from '@/main/utils/errors'
+import { BULK_PROGRESS_THRESHOLD } from '@/shared/constants'
+import { IPC_CHANNELS } from '@/shared/ipc-channels'
 import type {
   AbsolutePath,
   BulkDeleteItemResult,
@@ -15,13 +21,7 @@ import type {
   BulkUnlinkResult,
   RestoreDeletedSkillResult,
   SkillName,
-} from '../../shared/types'
-import { AGENTS, findAgentById, isSharedAgentPath } from '../constants'
-import { getAllowedBases, validatePath } from '../services/pathValidation'
-import { scanSkills } from '../services/skillScanner'
-import { moveToTrash, restore, TrashError } from '../services/trashService'
-import { errorCode } from '../utils/errorCode'
-import { extractErrorMessage } from '../utils/errors'
+} from '@/shared/types'
 
 import { typedHandle } from './typedHandle'
 import { typedSend } from './typedSend'

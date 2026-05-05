@@ -1,15 +1,15 @@
 import { LayoutGrid, RefreshCw, RotateCw, Store } from 'lucide-react'
 import React, { useCallback } from 'react'
 
-import { useAppDispatch, useAppSelector } from '../../../redux/hooks'
-import { resetToDefaults } from '../../../redux/slices/dashboardSlice'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { resetToDefaults } from '@/renderer/src/redux/slices/dashboardSlice'
 import {
   fetchSyncPreview,
   selectIsRefreshing,
   selectIsSyncing,
   setActiveTab,
-} from '../../../redux/slices/uiSlice'
-import { refreshAllData } from '../../../redux/thunks'
+} from '@/renderer/src/redux/slices/uiSlice'
+import { refreshAllData } from '@/renderer/src/redux/thunks'
 
 // ----------------------------------------------------------------------------
 // ActionTile — a single quick action button. Kept as a local component so we

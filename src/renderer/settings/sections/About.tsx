@@ -2,9 +2,9 @@ import { ExternalLink } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
 import { match } from 'ts-pattern'
 
-import { SKILLS_DESKTOP_REPOSITORY_URL } from '../../../shared/constants'
-import { Button } from '../../src/components/ui/button'
-import { Separator } from '../../src/components/ui/separator'
+import { Button } from '@/renderer/src/components/ui/button'
+import { Separator } from '@/renderer/src/components/ui/separator'
+import { SKILLS_DESKTOP_REPOSITORY_URL } from '@/shared/constants'
 
 import { SectionFrame } from './SectionFrame'
 

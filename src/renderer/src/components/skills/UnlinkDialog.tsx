@@ -2,14 +2,14 @@ import React from 'react'
 import { toast } from 'sonner'
 import { match } from 'ts-pattern'
 
-import type { SymlinkInfo } from '../../../../shared/types'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import { DestructiveConfirmDialog } from '@/renderer/src/components/shared/DestructiveConfirmDialog'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   setSkillToUnlink,
   unlinkSkillFromAgent,
-} from '../../redux/slices/skillsSlice'
-import { refreshAllData } from '../../redux/thunks'
-import { DestructiveConfirmDialog } from '../shared/DestructiveConfirmDialog'
+} from '@/renderer/src/redux/slices/skillsSlice'
+import { refreshAllData } from '@/renderer/src/redux/thunks'
+import type { SymlinkInfo } from '@/shared/types'
 
 /**
  * Three exhaustive states the dialog has to cover:

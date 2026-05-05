@@ -10,20 +10,33 @@ import {
 } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 
-import { GSTACK_REPOSITORY_URL } from '../../../../shared/constants'
-import type { Skill, SkillName } from '../../../../shared/types'
-import { cn } from '../../lib/utils'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import { StatusBadge } from '@/renderer/src/components/status/StatusBadge'
+import { Button } from '@/renderer/src/components/ui/button'
+import { Card, CardContent } from '@/renderer/src/components/ui/card'
+import { Checkbox } from '@/renderer/src/components/ui/checkbox'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/renderer/src/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/renderer/src/components/ui/tooltip'
+import { cn } from '@/renderer/src/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   selectAnyInFlightRemovalSet,
   selectSelectedSkillNamesSet,
   selectVisibleSkillNames,
-} from '../../redux/selectors'
+} from '@/renderer/src/redux/selectors'
 import {
   addBookmark,
   removeBookmark,
   selectIsBookmarked,
-} from '../../redux/slices/bookmarkSlice'
+} from '@/renderer/src/redux/slices/bookmarkSlice'
 import {
   selectRange,
   selectSelectionAnchor,
@@ -32,23 +45,14 @@ import {
   setSkillToCopy,
   setSkillToUnlink,
   toggleSelection,
-} from '../../redux/slices/skillsSlice'
+} from '@/renderer/src/redux/slices/skillsSlice'
 import {
   selectBulkSelectMode,
   setBulkConfirm,
-} from '../../redux/slices/uiSlice'
-import { BULK_ITEM_FAILED_EVENT } from '../../utils/bulkOpVisuals'
-import { StatusBadge } from '../status/StatusBadge'
-import { Button } from '../ui/button'
-import { Card, CardContent } from '../ui/card'
-import { Checkbox } from '../ui/checkbox'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
+} from '@/renderer/src/redux/slices/uiSlice'
+import { BULK_ITEM_FAILED_EVENT } from '@/renderer/src/utils/bulkOpVisuals'
+import { GSTACK_REPOSITORY_URL } from '@/shared/constants'
+import type { Skill, SkillName } from '@/shared/types'
 
 import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
 import { computeRangeSelection } from './bulkDeleteHelpers'

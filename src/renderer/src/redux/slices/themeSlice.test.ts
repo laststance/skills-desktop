@@ -1,10 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 
-import {
-  COLOR_PRESET_CHROMA,
-  TINTED_NEUTRAL_CHROMA,
-} from '../../../../shared/constants'
+import { COLOR_PRESET_CHROMA, TINTED_NEUTRAL_CHROMA } from '@/shared/constants'
 
 async function createTestStore() {
   const { default: themeReducer } = await import('./themeSlice')

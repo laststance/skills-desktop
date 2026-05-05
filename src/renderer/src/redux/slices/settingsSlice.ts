@@ -1,7 +1,7 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice } from '@reduxjs/toolkit'
 
-import { DEFAULT_SETTINGS, type Settings } from '../../../../shared/settings'
+import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
 
 /**
  * Renderer-side cache of the user settings owned by the main process.

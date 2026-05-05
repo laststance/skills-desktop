@@ -1,8 +1,8 @@
 import { BrowserWindow } from 'electron'
 
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
-import type { InstallProgress } from '../../shared/types'
-import { skillsCliService } from '../services/skillsCliService'
+import { skillsCliService } from '@/main/services/skillsCliService'
+import { IPC_CHANNELS } from '@/shared/ipc-channels'
+import type { InstallProgress } from '@/shared/types'
 
 import { typedHandle } from './typedHandle'
 

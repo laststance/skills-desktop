@@ -4,8 +4,8 @@ import { resolve } from 'node:path'
 import { wcagContrast } from 'culori'
 import { describe, expect, it } from 'vitest'
 
-import { THEME_PRESETS } from '../../../shared/constants'
-import type { ThemePresetName } from '../../../shared/constants'
+import { THEME_PRESETS } from '@/shared/constants'
+import type { ThemePresetName } from '@/shared/constants'
 
 const GLOBALS_CSS_PATH = resolve(
   process.cwd(),

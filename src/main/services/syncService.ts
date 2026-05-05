@@ -3,6 +3,8 @@ import { join } from 'path'
 
 import { match, P } from 'ts-pattern'
 
+import { AGENTS } from '@/main/constants'
+import { extractErrorMessage } from '@/main/utils/errors'
 import type {
   AbsolutePath,
   AgentId,
@@ -13,9 +15,7 @@ import type {
   SyncPreviewOptions,
   SyncPreviewResult,
   SyncResultItem,
-} from '../../shared/types'
-import { AGENTS } from '../constants'
-import { extractErrorMessage } from '../utils/errors'
+} from '@/shared/types'
 
 import { listValidSourceSkillDirs } from './dirScanner'
 

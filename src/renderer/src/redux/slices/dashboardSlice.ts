@@ -7,15 +7,15 @@ import type {
   WidgetInstance,
   WidgetInstanceId,
   WidgetType,
-} from '../../components/dashboard/types'
-import { findEmptySpot } from '../../components/dashboard/utils/findEmptySpot'
+} from '@/renderer/src/components/dashboard/types'
+import { findEmptySpot } from '@/renderer/src/components/dashboard/utils/findEmptySpot'
 import {
   newDashboardPageId,
   newWidgetInstanceId,
-} from '../../components/dashboard/utils/ids'
-import { buildDefaultDashboardPages } from '../../components/dashboard/utils/widgetPresets'
-import { WIDGET_REGISTRY } from '../../components/dashboard/widgets/registry'
-import type { RootState } from '../store'
+} from '@/renderer/src/components/dashboard/utils/ids'
+import { buildDefaultDashboardPages } from '@/renderer/src/components/dashboard/utils/widgetPresets'
+import { WIDGET_REGISTRY } from '@/renderer/src/components/dashboard/widgets/registry'
+import type { RootState } from '@/renderer/src/redux/store'
 
 // ============================================================================
 // State shape

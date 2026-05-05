@@ -1,18 +1,18 @@
 import { Check, Download, Plus, Star } from 'lucide-react'
 import React from 'react'
 
-import type { SkillSearchResult } from '../../../../shared/types'
-import { cn, formatInstallCount } from '../../lib/utils'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import { cn, formatInstallCount } from '@/renderer/src/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   addBookmark,
   removeBookmark,
   selectIsBookmarked,
-} from '../../redux/slices/bookmarkSlice'
+} from '@/renderer/src/redux/slices/bookmarkSlice'
 import {
   selectSkillForInstall,
   setPreviewSkill,
-} from '../../redux/slices/marketplaceSlice'
+} from '@/renderer/src/redux/slices/marketplaceSlice'
+import type { SkillSearchResult } from '@/shared/types'
 
 interface SkillRowMarketplaceProps {
   skill: SkillSearchResult

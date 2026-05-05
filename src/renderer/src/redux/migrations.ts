@@ -1,9 +1,9 @@
+import type { WidgetType } from '@/renderer/src/components/dashboard/types'
 import {
   COLOR_PRESET_CHROMA,
   PERSIST_STATE_VERSION,
   THEME_PRESETS,
-} from '../../../shared/constants'
-import type { WidgetType } from '../components/dashboard/types'
+} from '@/shared/constants'
 
 import type { ThemeState } from './slices/themeSlice'
 

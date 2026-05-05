@@ -1,15 +1,7 @@
 import React from 'react'
 
-import type { SyncResultAction } from '../../../../shared/types'
-import {
-  getSyncResultPresentation,
-  shouldShowSyncResult,
-} from '../../lib/syncHelpers'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { clearSyncResult } from '../../redux/slices/uiSlice'
-import { refreshAllData } from '../../redux/thunks'
-import { Badge } from '../ui/badge'
-import { Button } from '../ui/button'
+import { Badge } from '@/renderer/src/components/ui/badge'
+import { Button } from '@/renderer/src/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -17,8 +9,16 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../ui/dialog'
-import { ScrollArea } from '../ui/scroll-area'
+} from '@/renderer/src/components/ui/dialog'
+import { ScrollArea } from '@/renderer/src/components/ui/scroll-area'
+import {
+  getSyncResultPresentation,
+  shouldShowSyncResult,
+} from '@/renderer/src/lib/syncHelpers'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { clearSyncResult } from '@/renderer/src/redux/slices/uiSlice'
+import { refreshAllData } from '@/renderer/src/redux/thunks'
+import type { SyncResultAction } from '@/shared/types'
 
 /** Maps sync result action to Badge variant for consistent status colors */
 const ACTION_BADGE_VARIANT: Record<

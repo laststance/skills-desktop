@@ -1,9 +1,9 @@
 import { AlertCircle, CheckCircle } from 'lucide-react'
 import React, { useMemo } from 'react'
 
-import type { Skill } from '../../../../../shared/types'
-import { useAppSelector } from '../../../redux/hooks'
-import { selectSkillsItems } from '../../../redux/slices/skillsSlice'
+import { useAppSelector } from '@/renderer/src/redux/hooks'
+import { selectSkillsItems } from '@/renderer/src/redux/slices/skillsSlice'
+import type { Skill } from '@/shared/types'
 
 // ----------------------------------------------------------------------------
 // Pure helpers

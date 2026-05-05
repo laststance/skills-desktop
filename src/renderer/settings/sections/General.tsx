@@ -1,18 +1,15 @@
 import { Files, Info } from 'lucide-react'
 import React, { useState } from 'react'
 
-import {
-  TERMINAL_APP_IDS,
-  TERMINAL_APP_UI_LABELS,
-} from '../../../shared/constants'
-import type { Settings } from '../../../shared/settings'
-import { Input } from '../../src/components/ui/input'
+import { Input } from '@/renderer/src/components/ui/input'
 import {
   ToggleGroup,
   ToggleGroupItem,
-} from '../../src/components/ui/toggle-group'
-import { useUpdateSettings } from '../../src/hooks/useUpdateSettings'
-import { useAppSelector } from '../../src/redux/hooks'
+} from '@/renderer/src/components/ui/toggle-group'
+import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
+import { useAppSelector } from '@/renderer/src/redux/hooks'
+import { TERMINAL_APP_IDS, TERMINAL_APP_UI_LABELS } from '@/shared/constants'
+import type { Settings } from '@/shared/settings'
 
 import { SectionFrame, SectionRow } from './SectionFrame'
 

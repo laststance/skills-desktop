@@ -1,5 +1,5 @@
-import { GSTACK_BADGE_AGENT_IDS } from '../../../../shared/constants'
-import type { AgentId, Skill, SymlinkInfo } from '../../../../shared/types'
+import { GSTACK_BADGE_AGENT_IDS } from '@/shared/constants'
+import type { AgentId, Skill, SymlinkInfo } from '@/shared/types'
 
 /**
  * Visibility state for SkillItem action buttons.

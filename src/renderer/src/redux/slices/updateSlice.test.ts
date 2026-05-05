@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 
-import { semanticVersion } from '../../../../shared/types'
+import { semanticVersion } from '@/shared/types'
 
 async function createTestStore() {
   const { default: updateReducer } = await import('./updateSlice')

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
 
-import type { FolderActionResult } from '../../../shared/types'
+import type { FolderActionResult } from '@/shared/types'
 
 const revealMock = vi.fn<(folderPath: string) => Promise<FolderActionResult>>()
 const openTerminalMock =

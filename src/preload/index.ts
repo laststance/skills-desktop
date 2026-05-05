@@ -1,7 +1,7 @@
 import { contextBridge } from 'electron'
 
-import { IPC_CHANNELS } from '../shared/ipc-channels'
-import type { Settings } from '../shared/settings'
+import { IPC_CHANNELS } from '@/shared/ipc-channels'
+import type { Settings } from '@/shared/settings'
 import type {
   AbsolutePath,
   CopyToAgentsOptions,
@@ -22,7 +22,7 @@ import type {
   UnlinkFromAgentOptions,
   UnlinkManyFromAgentOptions,
   UpdateInfo,
-} from '../shared/types'
+} from '@/shared/types'
 
 import { createIpcListener } from './ipcListener'
 import { recordedIpcEvents } from './ipcRecorder'

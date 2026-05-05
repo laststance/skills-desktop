@@ -1,8 +1,8 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 
-import { repositoryId } from '../../../../shared/types'
-import type { RootState } from '../store'
+import type { RootState } from '@/renderer/src/redux/store'
+import { repositoryId } from '@/shared/types'
 
 async function createTestStore() {
   const { default: bookmarkReducer } = await import('./bookmarkSlice')

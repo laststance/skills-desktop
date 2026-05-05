@@ -1,11 +1,11 @@
 import { X } from 'lucide-react'
 import React from 'react'
 
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { selectSkill } from '../../redux/slices/skillsSlice'
-import { DashboardCanvas } from '../dashboard/DashboardCanvas'
-import { MarketplaceDetailPanel } from '../marketplace/MarketplaceDetailPanel'
-import { SkillDetail } from '../skills/SkillDetail'
+import { DashboardCanvas } from '@/renderer/src/components/dashboard/DashboardCanvas'
+import { MarketplaceDetailPanel } from '@/renderer/src/components/marketplace/MarketplaceDetailPanel'
+import { SkillDetail } from '@/renderer/src/components/skills/SkillDetail'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { selectSkill } from '@/renderer/src/redux/slices/skillsSlice'
 
 /**
  * Collapsible Inspector panel (Apple HIG pattern)

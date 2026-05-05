@@ -1,4 +1,4 @@
-import type { HttpUrl, RepositoryId, Skill } from '../../../../shared/types'
+import type { HttpUrl, RepositoryId, Skill } from '@/shared/types'
 
 /**
  * Whether a skill can be bookmarked from the Installed tab.

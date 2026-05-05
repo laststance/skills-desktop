@@ -1,13 +1,13 @@
 import React from 'react'
 import { toast } from 'sonner'
 
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import { DestructiveConfirmDialog } from '@/renderer/src/components/shared/DestructiveConfirmDialog'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   removeAllSymlinksFromAgent,
   setAgentToDelete,
-} from '../../redux/slices/agentsSlice'
-import { refreshAllData } from '../../redux/thunks'
-import { DestructiveConfirmDialog } from '../shared/DestructiveConfirmDialog'
+} from '@/renderer/src/redux/slices/agentsSlice'
+import { refreshAllData } from '@/renderer/src/redux/thunks'
 
 /**
  * Confirmation dialog for deleting an agent's entire skills folder

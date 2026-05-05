@@ -1,12 +1,12 @@
 import { useEffect } from 'react'
 
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   selectDashboardPages,
   setCurrentPage,
   toggleEditMode,
-} from '../../redux/slices/dashboardSlice'
-import { isEditableTarget } from '../../utils/isEditableTarget'
+} from '@/renderer/src/redux/slices/dashboardSlice'
+import { isEditableTarget } from '@/renderer/src/utils/isEditableTarget'
 
 /**
  * Wire global keyboard shortcuts for the dashboard.

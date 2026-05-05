@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 
-import type { SyncExecuteOptions } from '../../../shared/types'
-import { useAppDispatch } from '../redux/hooks'
-import { executeSyncAction } from '../redux/slices/uiSlice'
-import { errorToastDescription } from '../utils/errorToastDescription'
+import { useAppDispatch } from '@/renderer/src/redux/hooks'
+import { executeSyncAction } from '@/renderer/src/redux/slices/uiSlice'
+import { errorToastDescription } from '@/renderer/src/utils/errorToastDescription'
+import type { SyncExecuteOptions } from '@/shared/types'
 
 /**
  * Encapsulates the dispatch + rejected-match + toast flow shared by every

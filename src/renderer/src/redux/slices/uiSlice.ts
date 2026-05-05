@@ -1,6 +1,7 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 
+import type { RootState } from '@/renderer/src/redux/store'
 import type {
   AgentId,
   AgentName,
@@ -16,8 +17,7 @@ import type {
   SyncPreviewResult,
   ToastId,
   TombstoneId,
-} from '../../../../shared/types'
-import type { RootState } from '../store'
+} from '@/shared/types'
 
 import { deleteSelectedSkills, unlinkSelectedFromAgent } from './skillsSlice'
 

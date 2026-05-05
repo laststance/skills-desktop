@@ -2,10 +2,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Provider } from 'react-redux'
 
-import { ErrorBoundary } from '../src/components/ErrorBoundary'
-import { TooltipProvider } from '../src/components/ui/tooltip'
-import { store } from '../src/redux/store'
-import '../src/styles/globals.css'
+import { ErrorBoundary } from '@/renderer/src/components/ErrorBoundary'
+import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
+import { store } from '@/renderer/src/redux/store'
+import '@/renderer/src/styles/globals.css'
 
 import { SettingsApp } from './SettingsApp'
 

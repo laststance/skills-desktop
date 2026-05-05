@@ -1,12 +1,7 @@
 import { Moon, Palette, Sun } from 'lucide-react'
 import React, { type ReactElement } from 'react'
 
-import type { ThemePresetName } from '../../../../shared/constants'
-import { THEME_PRESETS } from '../../../../shared/constants'
-import { cn } from '../../lib/utils'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { setTheme, toggleMode } from '../../redux/slices/themeSlice'
-import { Button } from '../ui/button'
+import { Button } from '@/renderer/src/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +9,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu'
+} from '@/renderer/src/components/ui/dropdown-menu'
+import { cn } from '@/renderer/src/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { setTheme, toggleMode } from '@/renderer/src/redux/slices/themeSlice'
+import type { ThemePresetName } from '@/shared/constants'
+import { THEME_PRESETS } from '@/shared/constants'
 
 // Derive preset groups from THEME_PRESETS so adding a new hue in the
 // constants table automatically surfaces in the dropdown. Neutral presets

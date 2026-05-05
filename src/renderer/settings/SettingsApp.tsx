@@ -8,9 +8,9 @@ import {
 import React, { useState } from 'react'
 import { match } from 'ts-pattern'
 
-import { ScrollArea } from '../src/components/ui/scroll-area'
-import { useSettingsSync } from '../src/hooks/useSettingsSync'
-import { cn } from '../src/lib/utils'
+import { ScrollArea } from '@/renderer/src/components/ui/scroll-area'
+import { useSettingsSync } from '@/renderer/src/hooks/useSettingsSync'
+import { cn } from '@/renderer/src/lib/utils'
 
 import { About } from './sections/About'
 import { Appearance } from './sections/Appearance'

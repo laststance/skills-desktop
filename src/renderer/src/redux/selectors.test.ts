@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { repositoryId } from '../../../shared/types'
+import { repositoryId } from '@/shared/types'
 import type {
   AgentId,
   BookmarkedSkill,
@@ -8,7 +8,7 @@ import type {
   Skill,
   SkillName,
   SymlinkInfo,
-} from '../../../shared/types'
+} from '@/shared/types'
 
 import {
   selectBookmarksWithInstallStatus,

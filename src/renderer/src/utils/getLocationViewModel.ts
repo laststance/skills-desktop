@@ -1,4 +1,4 @@
-import type { AgentId, Skill, SymlinkInfo } from '../../../shared/types'
+import type { AgentId, Skill, SymlinkInfo } from '@/shared/types'
 
 /**
  * View-model for the Inspector's "Location" section.

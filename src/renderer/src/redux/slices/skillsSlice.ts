@@ -1,6 +1,7 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 
+import type { RootState } from '@/renderer/src/redux/store'
 import type {
   AbsolutePath,
   AgentId,
@@ -11,8 +12,7 @@ import type {
   SkillName,
   SymlinkInfo,
   TombstoneId,
-} from '../../../../shared/types'
-import type { RootState } from '../store'
+} from '@/shared/types'
 
 /**
  * Redux state for the Installed Skills feature area.

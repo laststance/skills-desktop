@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { useAppSelector } from '../../redux/hooks'
+import { useAppSelector } from '@/renderer/src/redux/hooks'
 
 import { MarketplaceDashboard } from './MarketplaceDashboard'
 import { MarketplaceSkillPreview } from './MarketplaceSkillPreview'

@@ -2,10 +2,7 @@ import * as fs from 'fs/promises'
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-import {
-  MAX_IMAGE_FILE_BYTES,
-  MAX_TEXT_FILE_BYTES,
-} from '../../shared/fileTypes'
+import { MAX_IMAGE_FILE_BYTES, MAX_TEXT_FILE_BYTES } from '@/shared/fileTypes'
 
 vi.mock('fs/promises')
 

@@ -1,9 +1,6 @@
 import { ipcRenderer } from 'electron'
 
-import type {
-  IpcInvokeChannel,
-  IpcInvokeContract,
-} from '../shared/ipc-contract'
+import type { IpcInvokeChannel, IpcInvokeContract } from '@/shared/ipc-contract'
 
 /**
  * Type-safe wrapper around ipcRenderer.invoke that enforces the IPC contract.

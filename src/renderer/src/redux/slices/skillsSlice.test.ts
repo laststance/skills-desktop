@@ -9,8 +9,8 @@ import type {
   Skill,
   SymlinkInfo,
   TombstoneId,
-} from '../../../../shared/types'
-import { tombstoneId } from '../../../../shared/types'
+} from '@/shared/types'
+import { tombstoneId } from '@/shared/types'
 
 const mockGetAll = vi.fn()
 const mockUnlinkFromAgent = vi.fn()

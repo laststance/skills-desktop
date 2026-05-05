@@ -4,14 +4,14 @@ import ReactGridLayout, {
   type Layout,
 } from 'react-grid-layout'
 
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   seedDefaultsIfEmpty,
   selectCurrentPage,
   selectIsEditMode,
   selectIsInitialized,
   updateLayout,
-} from '../../redux/slices/dashboardSlice'
+} from '@/renderer/src/redux/slices/dashboardSlice'
 
 import { DashboardEditToolbar } from './DashboardEditToolbar'
 import { DashboardPageTabs } from './DashboardPageTabs'

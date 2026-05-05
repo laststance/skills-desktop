@@ -2,18 +2,8 @@ import { Copy, Loader2, Plus } from 'lucide-react'
 import React, { useMemo } from 'react'
 import { toast } from 'sonner'
 
-import type { AgentId } from '../../../../shared/types'
-import { cn } from '../../lib/utils'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import {
-  copyToAgents,
-  createSymlinks,
-  setSkillToAddSymlinks,
-  toggleAddAgentSelection,
-} from '../../redux/slices/skillsSlice'
-import { refreshAllData } from '../../redux/thunks'
-import { Button } from '../ui/button'
-import { Checkbox } from '../ui/checkbox'
+import { Button } from '@/renderer/src/components/ui/button'
+import { Checkbox } from '@/renderer/src/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -21,7 +11,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../ui/dialog'
+} from '@/renderer/src/components/ui/dialog'
+import { cn } from '@/renderer/src/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import {
+  copyToAgents,
+  createSymlinks,
+  setSkillToAddSymlinks,
+  toggleAddAgentSelection,
+} from '@/renderer/src/redux/slices/skillsSlice'
+import { refreshAllData } from '@/renderer/src/redux/thunks'
+import type { AgentId } from '@/shared/types'
 
 import {
   getOccupiedAgentReasonById,

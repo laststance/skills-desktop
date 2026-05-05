@@ -10,26 +10,26 @@ import {
 import React, { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
-import { useOpenFolder } from '../../hooks/useOpenFolder'
-import { cn } from '../../lib/utils'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { fetchAgents } from '../../redux/slices/agentsSlice'
-import { fetchSkills } from '../../redux/slices/skillsSlice'
+import { Button } from '@/renderer/src/components/ui/button'
+import { Card, CardContent } from '@/renderer/src/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/renderer/src/components/ui/dropdown-menu'
+import { useOpenFolder } from '@/renderer/src/hooks/useOpenFolder'
+import { cn } from '@/renderer/src/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { fetchAgents } from '@/renderer/src/redux/slices/agentsSlice'
+import { fetchSkills } from '@/renderer/src/redux/slices/skillsSlice'
 import {
   fetchSourceStats,
   fetchSyncPreview,
   selectAgent,
   setSearchQuery,
   setSyncPreview,
-} from '../../redux/slices/uiSlice'
-import { Button } from '../ui/button'
-import { Card, CardContent } from '../ui/card'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu'
+} from '@/renderer/src/redux/slices/uiSlice'
 
 /**
  * Source directory card showing stats, refresh, and sync buttons

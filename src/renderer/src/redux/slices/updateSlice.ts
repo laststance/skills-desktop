@@ -6,7 +6,7 @@ import type {
   SemanticVersion,
   UpdateInfo,
   UpdateStatus,
-} from '../../../../shared/types'
+} from '@/shared/types'
 
 /**
  * Redux state tracking the auto-update lifecycle.

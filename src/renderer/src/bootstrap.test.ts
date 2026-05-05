@@ -23,10 +23,7 @@ import { resolve } from 'node:path'
 
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import {
-  COLOR_PRESET_CHROMA,
-  PERSIST_STORAGE_KEY,
-} from '../../shared/constants'
+import { COLOR_PRESET_CHROMA, PERSIST_STORAGE_KEY } from '@/shared/constants'
 
 // Vitest runs from repo root, so `process.cwd()` is stable across both the
 // `node` and `browser` projects. Resolving from it avoids `import.meta.url`

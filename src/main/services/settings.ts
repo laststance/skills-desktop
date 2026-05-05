@@ -7,7 +7,7 @@ import {
   DEFAULT_SETTINGS,
   SettingsSchema,
   type Settings,
-} from '../../shared/settings'
+} from '@/shared/settings'
 
 /**
  * In-memory cache of settings. Populated by `loadSettings()` at app

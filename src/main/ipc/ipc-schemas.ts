@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
-import { TERMINAL_APP_IDS } from '../../shared/constants'
-import type { IpcInvokeChannel } from '../../shared/ipc-contract'
-import { SettingsSchema } from '../../shared/settings'
+import { TERMINAL_APP_IDS } from '@/shared/constants'
+import type { IpcInvokeChannel } from '@/shared/ipc-contract'
+import { SettingsSchema } from '@/shared/settings'
 
 /**
  * Zod schemas for runtime validation of IPC invoke arguments.

@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { Checkbox } from '../../src/components/ui/checkbox'
+import { Checkbox } from '@/renderer/src/components/ui/checkbox'
 
 import { MockControl, SectionFrame, SectionRow } from './SectionFrame'
 

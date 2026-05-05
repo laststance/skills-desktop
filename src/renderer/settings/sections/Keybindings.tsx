@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { KEYBINDINGS } from '../../../shared/constants'
+import { KEYBINDINGS } from '@/shared/constants'
 
 import { SectionFrame } from './SectionFrame'
 

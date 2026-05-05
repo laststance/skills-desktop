@@ -1,15 +1,8 @@
 import { Loader2 } from 'lucide-react'
 import React, { useMemo, useState } from 'react'
 
-import type { AgentId, InstallOptions } from '../../../../shared/types'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import {
-  selectSkillForInstall,
-  installSkill,
-} from '../../redux/slices/marketplaceSlice'
-import { fetchSkills } from '../../redux/slices/skillsSlice'
-import { Button } from '../ui/button'
-import { Checkbox } from '../ui/checkbox'
+import { Button } from '@/renderer/src/components/ui/button'
+import { Checkbox } from '@/renderer/src/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -17,7 +10,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../ui/dialog'
+} from '@/renderer/src/components/ui/dialog'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import {
+  selectSkillForInstall,
+  installSkill,
+} from '@/renderer/src/redux/slices/marketplaceSlice'
+import { fetchSkills } from '@/renderer/src/redux/slices/skillsSlice'
+import type { AgentId, InstallOptions } from '@/shared/types'
 
 /**
  * Modal dialog for configuring skill installation options

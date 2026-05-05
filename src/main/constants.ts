@@ -2,7 +2,7 @@ import { realpathSync } from 'fs'
 import { homedir } from 'os'
 import { join, resolve } from 'path'
 
-import { AGENT_DEFINITIONS } from '../shared/constants'
+import { AGENT_DEFINITIONS } from '@/shared/constants'
 
 /**
  * Source directory for all skills

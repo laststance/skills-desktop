@@ -1,21 +1,28 @@
 import { Eraser, FolderOpen, Terminal, Trash2 } from 'lucide-react'
 import React, { useMemo, useState } from 'react'
 
-import { AGENT_DEFINITIONS } from '../../../../shared/constants'
-import type { Agent, AgentId } from '../../../../shared/types'
-import { useOpenFolder } from '../../hooks/useOpenFolder'
-import { cn } from '../../lib/utils'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { setAgentToDelete } from '../../redux/slices/agentsSlice'
-import { selectAgent, setCleanupAgentTarget } from '../../redux/slices/uiSlice'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
+} from '@/renderer/src/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/renderer/src/components/ui/tooltip'
+import { useOpenFolder } from '@/renderer/src/hooks/useOpenFolder'
+import { cn } from '@/renderer/src/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { setAgentToDelete } from '@/renderer/src/redux/slices/agentsSlice'
+import {
+  selectAgent,
+  setCleanupAgentTarget,
+} from '@/renderer/src/redux/slices/uiSlice'
+import { AGENT_DEFINITIONS } from '@/shared/constants'
+import type { Agent, AgentId } from '@/shared/types'
 
 interface AgentItemProps {
   agent: Agent

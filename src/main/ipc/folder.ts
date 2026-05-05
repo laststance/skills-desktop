@@ -3,16 +3,16 @@ import { realpath } from 'node:fs/promises'
 
 import { shell } from 'electron'
 
-import { TERMINAL_APP_DISPLAY_NAMES } from '../../shared/constants'
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
-import type { Settings } from '../../shared/settings'
+import { getSettings } from '@/main/services/settings'
+import { errorCode } from '@/main/utils/errorCode'
+import { TERMINAL_APP_DISPLAY_NAMES } from '@/shared/constants'
+import { IPC_CHANNELS } from '@/shared/ipc-channels'
+import type { Settings } from '@/shared/settings'
 import type {
   AbsolutePath,
   FolderActionResult,
   TerminalAppId,
-} from '../../shared/types'
-import { getSettings } from '../services/settings'
-import { errorCode } from '../utils/errorCode'
+} from '@/shared/types'
 
 import { typedHandle } from './typedHandle'
 

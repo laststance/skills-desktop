@@ -1,4 +1,4 @@
-import type { Agent, AgentId, SymlinkInfo } from '../../../../shared/types'
+import type { Agent, AgentId, SymlinkInfo } from '@/shared/types'
 
 /**
  * Why an agent row is unavailable as a destination in Add/Copy flows.

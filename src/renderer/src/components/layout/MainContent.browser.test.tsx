@@ -3,13 +3,9 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
-import type {
-  BulkDeleteResult,
-  Skill,
-  SkillName,
-} from '../../../../shared/types'
-import { repositoryId, tombstoneId } from '../../../../shared/types'
-import { TooltipProvider } from '../ui/tooltip'
+import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
+import type { BulkDeleteResult, Skill, SkillName } from '@/shared/types'
+import { repositoryId, tombstoneId } from '@/shared/types'
 
 const mockGetAll = vi.fn()
 const mockShellOpenExternal = vi.fn()
@@ -100,15 +96,16 @@ afterEach(() => {
  * @returns Redux store wired with the slices MainContent reads
  */
 async function createStore() {
-  const { default: uiReducer } = await import('../../redux/slices/uiSlice')
+  const { default: uiReducer } =
+    await import('@/renderer/src/redux/slices/uiSlice')
   const { default: skillsReducer } =
-    await import('../../redux/slices/skillsSlice')
+    await import('@/renderer/src/redux/slices/skillsSlice')
   const { default: agentsReducer } =
-    await import('../../redux/slices/agentsSlice')
+    await import('@/renderer/src/redux/slices/agentsSlice')
   const { default: bookmarksReducer } =
-    await import('../../redux/slices/bookmarkSlice')
+    await import('@/renderer/src/redux/slices/bookmarkSlice')
   const { default: marketplaceReducer } =
-    await import('../../redux/slices/marketplaceSlice')
+    await import('@/renderer/src/redux/slices/marketplaceSlice')
   return configureStore({
     reducer: {
       ui: uiReducer,
@@ -190,7 +187,8 @@ describe('MainContent bulk-select toggle button', () => {
 
   it('after entering mode the label flips to "Cancel" and aria-pressed=true', async () => {
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
 
     store.dispatch(enterBulkSelectMode())
 
@@ -203,8 +201,10 @@ describe('MainContent bulk-select toggle button', () => {
 
   it('clicking "Cancel" exits mode AND clears accumulated selection', async () => {
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
-    const { toggleSelection } = await import('../../redux/slices/skillsSlice')
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
 
     store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection('task' as SkillName))
@@ -237,8 +237,10 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
 
   it('Cmd+A dispatches selectAll over visible names when bulkSelectMode=true', async () => {
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
-    const { fetchSkills } = await import('../../redux/slices/skillsSlice')
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
     const skillFixtures = [
       {
         name: 'task' as SkillName,
@@ -277,7 +279,8 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
 
   it('Cmd+A is ignored when focus is inside an editable target', async () => {
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
 
     store.dispatch(enterBulkSelectMode())
     // Wait for the bulk-mode render to commit so `bulkSelectModeRef.current`
@@ -310,8 +313,10 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
 describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
   it('first Esc with non-empty selection clears selection only (mode stays on)', async () => {
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
-    const { toggleSelection } = await import('../../redux/slices/skillsSlice')
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
 
     store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection('task' as SkillName))
@@ -326,7 +331,8 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
 
   it('second Esc with empty selection exits bulk select mode', async () => {
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
 
     store.dispatch(enterBulkSelectMode())
 
@@ -347,8 +353,10 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
 
   it('Esc is ignored when focus is inside an editable target', async () => {
     const { screen, store } = await renderMainContent()
-    const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
-    const { toggleSelection } = await import('../../redux/slices/skillsSlice')
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
 
     store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection('task' as SkillName))
@@ -401,8 +409,9 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
   it('routes both source-tracked and plain skills through deleteSkills in one call', async () => {
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode, setBulkConfirm } =
-      await import('../../redux/slices/uiSlice')
-    const { fetchSkills } = await import('../../redux/slices/skillsSlice')
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
 
     const result: BulkDeleteResult = {
       items: [
@@ -468,7 +477,8 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
 
   it('renders the Source pill with repo name and clears state on click', async () => {
     const { screen, store } = await renderMainContent()
-    const { setSelectedSource } = await import('../../redux/slices/uiSlice')
+    const { setSelectedSource } =
+      await import('@/renderer/src/redux/slices/uiSlice')
 
     // No source filter active: pill must not render.
     expect(screen.getByTestId('source-filter-pill').query()).toBeNull()
@@ -489,9 +499,10 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
 
   it('Agent + Source pills both render when both filters are active', async () => {
     const { screen, store } = await renderMainContent()
-    const { fetchAgents } = await import('../../redux/slices/agentsSlice')
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
     const { selectAgent, setSelectedSource } =
-      await import('../../redux/slices/uiSlice')
+      await import('@/renderer/src/redux/slices/uiSlice')
 
     // Seed an agent fixture so MainContent's `agents.find(...)` resolves.
     store.dispatch(
@@ -522,9 +533,10 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
 
   it('clearing the Source pill leaves the Agent pill intact (orthogonal)', async () => {
     const { screen, store } = await renderMainContent()
-    const { fetchAgents } = await import('../../redux/slices/agentsSlice')
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
     const { selectAgent, setSelectedSource } =
-      await import('../../redux/slices/uiSlice')
+      await import('@/renderer/src/redux/slices/uiSlice')
 
     store.dispatch(
       fetchAgents.fulfilled(

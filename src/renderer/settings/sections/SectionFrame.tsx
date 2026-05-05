@@ -1,11 +1,11 @@
 import React from 'react'
 
-import { Separator } from '../../src/components/ui/separator'
+import { Separator } from '@/renderer/src/components/ui/separator'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '../../src/components/ui/tooltip'
+} from '@/renderer/src/components/ui/tooltip'
 
 interface SectionFrameProps {
   title: string

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 
-import { useAppDispatch } from '../redux/hooks'
-import { setInstallProgress } from '../redux/slices/marketplaceSlice'
+import { useAppDispatch } from '@/renderer/src/redux/hooks'
+import { setInstallProgress } from '@/renderer/src/redux/slices/marketplaceSlice'
 
 /**
  * Hook to subscribe to skill installation progress events

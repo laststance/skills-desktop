@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { repositoryId } from '../../../../shared/types'
+import { repositoryId } from '@/shared/types'
 
 import { getSourceLinkModel } from './sourceLinkHelpers'
 

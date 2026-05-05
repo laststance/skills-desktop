@@ -1,4 +1,7 @@
-import type { WidgetInstance, WidgetSize } from '../types'
+import type {
+  WidgetInstance,
+  WidgetSize,
+} from '@/renderer/src/components/dashboard/types'
 
 import {
   GRID_COLS,

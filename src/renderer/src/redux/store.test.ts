@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { COLOR_PRESET_CHROMA, THEME_PRESETS } from '../../../shared/constants'
+import { COLOR_PRESET_CHROMA, THEME_PRESETS } from '@/shared/constants'
 
 import type { MigratableState } from './migrations'
 

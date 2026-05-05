@@ -4,8 +4,8 @@ import { Provider } from 'react-redux'
 import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
 
-import type { SkillName, SkillSearchResult } from '../../../../shared/types'
-import { repositoryId } from '../../../../shared/types'
+import type { SkillName, SkillSearchResult } from '@/shared/types'
+import { repositoryId } from '@/shared/types'
 
 /**
  * Build a minimal `SkillSearchResult` fixture and let callers override only
@@ -39,9 +39,9 @@ async function createStore() {
     { default: skillsReducer },
     { default: bookmarkReducer },
   ] = await Promise.all([
-    import('../../redux/slices/marketplaceSlice'),
-    import('../../redux/slices/skillsSlice'),
-    import('../../redux/slices/bookmarkSlice'),
+    import('@/renderer/src/redux/slices/marketplaceSlice'),
+    import('@/renderer/src/redux/slices/skillsSlice'),
+    import('@/renderer/src/redux/slices/bookmarkSlice'),
   ])
 
   return configureStore({
@@ -102,7 +102,7 @@ describe('MarketplaceDetailPanel routing', () => {
   it('renders preview pane when previewSkill is set', async () => {
     const store = await createStore()
     const { setPreviewSkill } =
-      await import('../../redux/slices/marketplaceSlice')
+      await import('@/renderer/src/redux/slices/marketplaceSlice')
     const { MarketplaceDetailPanel } = await import('./MarketplaceDetailPanel')
     store.dispatch(setPreviewSkill(makeSkill({ name: 'lint' as SkillName })))
 
@@ -127,7 +127,7 @@ describe('MarketplaceDashboard empty state', () => {
   it('shows empty-result copy when trending leaderboard is fulfilled with no skills', async () => {
     const store = await createStore()
     const { loadLeaderboard } =
-      await import('../../redux/slices/marketplaceSlice')
+      await import('@/renderer/src/redux/slices/marketplaceSlice')
     const { MarketplaceDashboard } = await import('./MarketplaceDashboard')
     store.dispatch(
       loadLeaderboard.fulfilled(

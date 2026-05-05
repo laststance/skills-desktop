@@ -1,8 +1,8 @@
 import { FileQuestion } from 'lucide-react'
 import React from 'react'
 
-import { formatBytes } from '../../../../shared/fileTypes'
-import type { PreviewContent } from '../../hooks/useCodePreview'
+import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
+import { formatBytes } from '@/shared/fileTypes'
 
 interface FileContentProps {
   content: PreviewContent

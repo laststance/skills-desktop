@@ -1,8 +1,8 @@
 import { CheckCircle, AlertCircle, Circle } from 'lucide-react'
 import React from 'react'
 
-import type { SymlinkInfo } from '../../../../shared/types'
-import { cn } from '../../lib/utils'
+import { cn } from '@/renderer/src/lib/utils'
+import type { SymlinkInfo } from '@/shared/types'
 
 interface SymlinkStatusProps {
   symlink: SymlinkInfo

@@ -1,12 +1,12 @@
 import { Bookmark, ExternalLink, X } from 'lucide-react'
 import React from 'react'
 
-import type { BookmarkedSkill, SkillName } from '../../../../../shared/types'
-import { useAppDispatch, useAppSelector } from '../../../redux/hooks'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   removeBookmark,
   selectBookmarkItems,
-} from '../../../redux/slices/bookmarkSlice'
+} from '@/renderer/src/redux/slices/bookmarkSlice'
+import type { BookmarkedSkill, SkillName } from '@/shared/types'
 
 // ----------------------------------------------------------------------------
 // BookmarkRow — single saved skill entry with open + remove affordances.

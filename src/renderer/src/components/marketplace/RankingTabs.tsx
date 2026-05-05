@@ -1,7 +1,7 @@
 import React from 'react'
 
-import type { RankingFilter } from '../../../../shared/types'
-import { cn } from '../../lib/utils'
+import { cn } from '@/renderer/src/lib/utils'
+import type { RankingFilter } from '@/shared/types'
 
 interface RankingTabsProps {
   value: RankingFilter

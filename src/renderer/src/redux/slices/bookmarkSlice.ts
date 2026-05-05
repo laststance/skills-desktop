@@ -1,8 +1,8 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSelector, createSlice } from '@reduxjs/toolkit'
 
-import type { BookmarkedSkill, SkillName } from '../../../../shared/types'
-import type { RootState } from '../store'
+import type { RootState } from '@/renderer/src/redux/store'
+import type { BookmarkedSkill, SkillName } from '@/shared/types'
 
 /**
  * Redux state for the Bookmarks feature.

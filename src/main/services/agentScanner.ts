@@ -1,8 +1,8 @@
 import { access, readdir } from 'fs/promises'
 import { join } from 'path'
 
-import type { Agent } from '../../shared/types'
-import { AGENTS } from '../constants'
+import { AGENTS } from '@/main/constants'
+import type { Agent } from '@/shared/types'
 
 import { checkSymlinkStatus } from './symlinkChecker'
 

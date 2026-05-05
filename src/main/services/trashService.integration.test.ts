@@ -242,7 +242,7 @@ describe('trashService (integration)', () => {
   it('evict: idempotent — calling evict on a missing entry does not throw', async () => {
     const { evict, tombstoneId } = await (async () => {
       const mod = await trashServicePromise
-      const { tombstoneId: makeId } = await import('../../shared/types')
+      const { tombstoneId: makeId } = await import('@/shared/types')
       return { evict: mod.evict, tombstoneId: makeId }
     })()
 

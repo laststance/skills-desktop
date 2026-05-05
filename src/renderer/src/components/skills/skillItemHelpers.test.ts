@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type {
-  AbsolutePath,
-  AgentId,
-  Skill,
-  SymlinkInfo,
-} from '../../../../shared/types'
+import type { AbsolutePath, AgentId, Skill, SymlinkInfo } from '@/shared/types'
 
 import { getSkillItemVisibility } from './skillItemHelpers'
 

@@ -1,16 +1,19 @@
 import { Search } from 'lucide-react'
 import React from 'react'
 
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import { Input } from '@/renderer/src/components/ui/input'
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@/renderer/src/components/ui/toggle-group'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   selectSearchQuery,
   selectSearchScope,
   setSearchQuery,
   setSearchScope,
   type SearchScope,
-} from '../../redux/slices/uiSlice'
-import { Input } from '../ui/input'
-import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group'
+} from '@/renderer/src/redux/slices/uiSlice'
 
 /**
  * Map the active scope to the input's user-facing copy. Centralized so the

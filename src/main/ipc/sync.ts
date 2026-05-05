@@ -1,5 +1,5 @@
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
-import { syncExecute, syncPreview } from '../services/syncService'
+import { syncExecute, syncPreview } from '@/main/services/syncService'
+import { IPC_CHANNELS } from '@/shared/ipc-channels'
 
 import { typedHandle } from './typedHandle'
 

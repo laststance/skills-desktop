@@ -2,10 +2,7 @@ import { createStorageMiddleware } from '@laststance/redux-storage-middleware'
 import { combineReducers, configureStore } from '@reduxjs/toolkit'
 import { setupListeners } from '@reduxjs/toolkit/query'
 
-import {
-  PERSIST_STATE_VERSION,
-  PERSIST_STORAGE_KEY,
-} from '../../../shared/constants'
+import { PERSIST_STATE_VERSION, PERSIST_STORAGE_KEY } from '@/shared/constants'
 
 import { listenerMiddleware } from './listener'
 import { migrateState } from './migrations'

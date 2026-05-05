@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { repositoryId } from '../../../../shared/types'
-import type { Skill } from '../../../../shared/types'
+import { repositoryId } from '@/shared/types'
+import type { Skill } from '@/shared/types'
 
 import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
 

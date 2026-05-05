@@ -1,8 +1,8 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 
-import type { Agent } from '../../../../shared/types'
-import type { RootState } from '../store'
+import type { RootState } from '@/renderer/src/redux/store'
+import type { Agent } from '@/shared/types'
 
 /**
  * Redux state for the Agents feature area.

@@ -1,7 +1,7 @@
 import { realpathSync } from 'node:fs'
 import { isAbsolute, relative, resolve } from 'node:path'
 
-import { AGENTS, SOURCE_DIR } from '../constants'
+import { AGENTS, SOURCE_DIR } from '@/main/constants'
 
 /**
  * Validate that a file path is within an allowed base directory.

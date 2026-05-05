@@ -1,5 +1,5 @@
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
-import { getSourceStats } from '../services/skillScanner'
+import { getSourceStats } from '@/main/services/skillScanner'
+import { IPC_CHANNELS } from '@/shared/ipc-channels'
 
 import { typedHandle } from './typedHandle'
 

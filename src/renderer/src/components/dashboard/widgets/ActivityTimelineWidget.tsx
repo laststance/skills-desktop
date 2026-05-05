@@ -8,12 +8,9 @@ import {
 import React from 'react'
 import { match } from 'ts-pattern'
 
-import type {
-  SyncResultAction,
-  SyncResultItem,
-} from '../../../../../shared/types'
-import { useAppSelector } from '../../../redux/hooks'
-import { selectSyncResult } from '../../../redux/slices/uiSlice'
+import { useAppSelector } from '@/renderer/src/redux/hooks'
+import { selectSyncResult } from '@/renderer/src/redux/slices/uiSlice'
+import type { SyncResultAction, SyncResultItem } from '@/shared/types'
 
 // ----------------------------------------------------------------------------
 // Action → visual mapping. Centralizes the icon + color per action so the

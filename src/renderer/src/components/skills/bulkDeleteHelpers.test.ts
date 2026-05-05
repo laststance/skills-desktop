@@ -5,8 +5,8 @@ import type {
   BulkDeleteResult,
   BulkUnlinkResult,
   SkillName,
-} from '../../../../shared/types'
-import { tombstoneId } from '../../../../shared/types'
+} from '@/shared/types'
+import { tombstoneId } from '@/shared/types'
 
 import {
   computeRangeSelection,

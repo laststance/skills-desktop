@@ -1,14 +1,9 @@
 import React, { useMemo } from 'react'
 
-import type {
-  Agent,
-  Skill,
-  SymlinkInfo,
-  SymlinkStatus,
-} from '../../../../../shared/types'
-import { useAppSelector } from '../../../redux/hooks'
-import { selectAgentItems } from '../../../redux/slices/agentsSlice'
-import { selectSkillsItems } from '../../../redux/slices/skillsSlice'
+import { useAppSelector } from '@/renderer/src/redux/hooks'
+import { selectAgentItems } from '@/renderer/src/redux/slices/agentsSlice'
+import { selectSkillsItems } from '@/renderer/src/redux/slices/skillsSlice'
+import type { Agent, Skill, SymlinkInfo, SymlinkStatus } from '@/shared/types'
 
 // ----------------------------------------------------------------------------
 // Tunables

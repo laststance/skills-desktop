@@ -1,9 +1,13 @@
 import { CheckCircle, AlertCircle, Circle } from 'lucide-react'
 import React from 'react'
 
-import type { SymlinkStatus } from '../../../../shared/types'
-import { Badge } from '../ui/badge'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
+import { Badge } from '@/renderer/src/components/ui/badge'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/renderer/src/components/ui/tooltip'
+import type { SymlinkStatus } from '@/shared/types'
 
 interface StatusBadgeProps {
   status: SymlinkStatus

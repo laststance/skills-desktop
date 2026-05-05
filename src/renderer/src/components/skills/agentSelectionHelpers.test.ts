@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Agent } from '../../../../shared/types'
+import type { Agent } from '@/shared/types'
 
 import { getTargetAgentsForSelection } from './agentSelectionHelpers'
 

@@ -1,10 +1,16 @@
 import { Download, RefreshCw, X, AlertCircle } from 'lucide-react'
 import React from 'react'
 
-import { downloadUpdate, installUpdate } from '../hooks/useUpdateNotification'
-import { cn } from '../lib/utils'
-import { useAppDispatch, useAppSelector } from '../redux/hooks'
-import { dismiss, setDownloading } from '../redux/slices/updateSlice'
+import {
+  downloadUpdate,
+  installUpdate,
+} from '@/renderer/src/hooks/useUpdateNotification'
+import { cn } from '@/renderer/src/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import {
+  dismiss,
+  setDownloading,
+} from '@/renderer/src/redux/slices/updateSlice'
 
 import { Button } from './ui/button'
 

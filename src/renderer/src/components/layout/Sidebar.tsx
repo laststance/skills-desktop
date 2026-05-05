@@ -1,15 +1,15 @@
 import React from 'react'
 
-import { useAppSelector } from '../../redux/hooks'
-import { selectBookmarkItems } from '../../redux/slices/bookmarkSlice'
-import { AgentDeleteDialog } from '../sidebar/AgentDeleteDialog'
-import { AgentsSection } from '../sidebar/AgentsSection'
-import { BookmarksSection } from '../sidebar/BookmarksSection'
-import { SidebarFooter } from '../sidebar/SidebarFooter'
-import { SidebarHeader } from '../sidebar/SidebarHeader'
-import { SourceCard } from '../sidebar/SourceCard'
-import { ScrollArea } from '../ui/scroll-area'
-import { Separator } from '../ui/separator'
+import { AgentDeleteDialog } from '@/renderer/src/components/sidebar/AgentDeleteDialog'
+import { AgentsSection } from '@/renderer/src/components/sidebar/AgentsSection'
+import { BookmarksSection } from '@/renderer/src/components/sidebar/BookmarksSection'
+import { SidebarFooter } from '@/renderer/src/components/sidebar/SidebarFooter'
+import { SidebarHeader } from '@/renderer/src/components/sidebar/SidebarHeader'
+import { SourceCard } from '@/renderer/src/components/sidebar/SourceCard'
+import { ScrollArea } from '@/renderer/src/components/ui/scroll-area'
+import { Separator } from '@/renderer/src/components/ui/separator'
+import { useAppSelector } from '@/renderer/src/redux/hooks'
+import { selectBookmarkItems } from '@/renderer/src/redux/slices/bookmarkSlice'
 
 /**
  * Left sidebar component (272px / w-68)

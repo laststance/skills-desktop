@@ -2,8 +2,15 @@ import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 import { match } from 'ts-pattern'
 
-import { cn } from '../../lib/utils'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/renderer/src/components/ui/dropdown-menu'
+import { cn } from '@/renderer/src/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   addPage,
   removePage,
@@ -12,14 +19,7 @@ import {
   selectDashboardPages,
   selectIsEditMode,
   setCurrentPage,
-} from '../../redux/slices/dashboardSlice'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu'
+} from '@/renderer/src/redux/slices/dashboardSlice'
 
 import type { DashboardPage, DashboardPageId } from './types'
 

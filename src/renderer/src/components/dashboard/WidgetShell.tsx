@@ -1,12 +1,12 @@
 import { GripVertical, X } from 'lucide-react'
 import React from 'react'
 
-import { cn } from '../../lib/utils'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import { cn } from '@/renderer/src/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   removeWidget,
   selectIsEditMode,
-} from '../../redux/slices/dashboardSlice'
+} from '@/renderer/src/redux/slices/dashboardSlice'
 
 import type { WidgetDefinition, WidgetInstance } from './types'
 import { WIDGET_DRAG_HANDLE_CLASS } from './utils/gridConstants'

@@ -1,4 +1,4 @@
-import type { Brand } from '../../../../shared/types'
+import type { Brand } from '@/shared/types'
 
 // ============================================================================
 // Widget identifiers

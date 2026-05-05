@@ -1,8 +1,8 @@
 import { useCallback } from 'react'
 
-import type { Settings } from '../../../shared/settings'
-import { useAppDispatch, useAppSelector } from '../redux/hooks'
-import { setSettings } from '../redux/slices/settingsSlice'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { setSettings } from '@/renderer/src/redux/slices/settingsSlice'
+import type { Settings } from '@/shared/settings'
 
 /**
  * Encapsulates the optimistic-dispatch + IPC-write pair used whenever

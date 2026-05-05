@@ -3,7 +3,7 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
-import type { Agent, AgentId, Skill, SkillName } from '../../../../shared/types'
+import type { Agent, AgentId, Skill, SkillName } from '@/shared/types'
 
 const mockCreateSymlinks = vi.fn()
 const mockCopyToAgents = vi.fn()
@@ -106,10 +106,11 @@ afterEach(() => {
  */
 async function createStore() {
   const { default: skillsReducer } =
-    await import('../../redux/slices/skillsSlice')
+    await import('@/renderer/src/redux/slices/skillsSlice')
   const { default: agentsReducer } =
-    await import('../../redux/slices/agentsSlice')
-  const { default: uiReducer } = await import('../../redux/slices/uiSlice')
+    await import('@/renderer/src/redux/slices/agentsSlice')
+  const { default: uiReducer } =
+    await import('@/renderer/src/redux/slices/uiSlice')
 
   return configureStore({
     reducer: {
@@ -130,9 +131,10 @@ async function renderModal(options: { skill: Skill; agents: Agent[] }) {
   const { skill, agents } = options
   const store = await createStore()
   const { AddSymlinkModal } = await import('./AddSymlinkModal')
-  const { fetchAgents } = await import('../../redux/slices/agentsSlice')
+  const { fetchAgents } =
+    await import('@/renderer/src/redux/slices/agentsSlice')
   const { setSkillToAddSymlinks } =
-    await import('../../redux/slices/skillsSlice')
+    await import('@/renderer/src/redux/slices/skillsSlice')
 
   mockAgentsGetAll.mockResolvedValue(agents)
 
@@ -243,7 +245,7 @@ describe('AddSymlinkModal actions', () => {
       agents: [makeAgent({ id: 'codex', name: 'Codex' })],
     })
     const { setSkillToAddSymlinks } =
-      await import('../../redux/slices/skillsSlice')
+      await import('@/renderer/src/redux/slices/skillsSlice')
 
     await screen.getByRole('checkbox', { name: /Codex/i }).click()
     await expect
@@ -335,7 +337,8 @@ describe('AddSymlinkModal busy state', () => {
       agents: [makeAgent({ id: 'codex', name: 'Codex' })],
     })
 
-    const { createSymlinks } = await import('../../redux/slices/skillsSlice')
+    const { createSymlinks } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
     store.dispatch(
       createSymlinks.pending('adding-request', {
         skill,
@@ -365,7 +368,8 @@ describe('AddSymlinkModal busy state', () => {
       agents: [makeAgent({ id: 'codex', name: 'Codex' })],
     })
 
-    const { copyToAgents } = await import('../../redux/slices/skillsSlice')
+    const { copyToAgents } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
     store.dispatch(
       copyToAgents.pending('copying-request', {
         skill,

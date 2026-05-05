@@ -1,14 +1,14 @@
 import { Search, Loader2 } from 'lucide-react'
 import React, { useState } from 'react'
 
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import { Button } from '@/renderer/src/components/ui/button'
+import { Input } from '@/renderer/src/components/ui/input'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   searchSkills,
   setSearchQuery,
   clearSearchResults,
-} from '../../redux/slices/marketplaceSlice'
-import { Button } from '../ui/button'
-import { Input } from '../ui/input'
+} from '@/renderer/src/redux/slices/marketplaceSlice'
 
 /**
  * Search box for finding skills in the marketplace

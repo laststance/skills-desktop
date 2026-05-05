@@ -1,6 +1,6 @@
 import type React from 'react'
 
-import { pluralize } from '../../utils/pluralize'
+import { pluralize } from '@/renderer/src/utils/pluralize'
 
 /**
  * Render the DialogDescription body for the bulk-delete confirm dialog.

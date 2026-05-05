@@ -1,7 +1,7 @@
 import { readFile } from 'fs/promises'
 import { join, basename } from 'path'
 
-import type { SkillMetadata } from '../../shared/types'
+import type { SkillMetadata } from '@/shared/types'
 
 /**
  * Parse SKILL.md frontmatter to extract metadata

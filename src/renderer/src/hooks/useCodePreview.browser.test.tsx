@@ -5,7 +5,7 @@ import type {
   SkillBinaryContent,
   SkillFile,
   SkillFileContent,
-} from '../../../shared/types'
+} from '@/shared/types'
 
 const listMock = vi.fn<(skillPath: string) => Promise<SkillFile[]>>()
 const readMock = vi.fn<(filePath: string) => Promise<SkillFileContent | null>>()

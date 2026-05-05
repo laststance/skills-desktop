@@ -1,4 +1,7 @@
-import type { DashboardPageId, WidgetInstanceId } from '../types'
+import type {
+  DashboardPageId,
+  WidgetInstanceId,
+} from '@/renderer/src/components/dashboard/types'
 
 /**
  * Opaque random-id factory. Not a UUID — just enough entropy to avoid

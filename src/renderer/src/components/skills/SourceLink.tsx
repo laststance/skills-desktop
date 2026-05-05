@@ -1,9 +1,9 @@
 import { ExternalLink } from 'lucide-react'
 import React from 'react'
 
-import type { HttpUrl, RepositoryId } from '../../../../shared/types'
-import { useAppDispatch } from '../../redux/hooks'
-import { setSelectedSource } from '../../redux/slices/uiSlice'
+import { useAppDispatch } from '@/renderer/src/redux/hooks'
+import { setSelectedSource } from '@/renderer/src/redux/slices/uiSlice'
+import type { HttpUrl, RepositoryId } from '@/shared/types'
 
 import { getSourceLinkModel } from './sourceLinkHelpers'
 

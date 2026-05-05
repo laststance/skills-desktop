@@ -1,19 +1,19 @@
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import React, { useState } from 'react'
 
-import { useExecuteSync } from '../../hooks/useExecuteSync'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { setSyncPreview } from '../../redux/slices/uiSlice'
-import { Button } from '../ui/button'
-import { Checkbox } from '../ui/checkbox'
+import { Button } from '@/renderer/src/components/ui/button'
+import { Checkbox } from '@/renderer/src/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-} from '../ui/dialog'
-import { DialogIconHeader } from '../ui/dialog-icon-header'
+} from '@/renderer/src/components/ui/dialog'
+import { DialogIconHeader } from '@/renderer/src/components/ui/dialog-icon-header'
+import { useExecuteSync } from '@/renderer/src/hooks/useExecuteSync'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { setSyncPreview } from '@/renderer/src/redux/slices/uiSlice'
 
 /**
  * Dialog for resolving sync conflicts (local folders that would be replaced by symlinks)

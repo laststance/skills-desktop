@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import type { WidgetInstance, WidgetInstanceId, WidgetType } from '../types'
+import type {
+  WidgetInstance,
+  WidgetInstanceId,
+  WidgetType,
+} from '@/renderer/src/components/dashboard/types'
 
 import { findEmptySpot } from './findEmptySpot'
 

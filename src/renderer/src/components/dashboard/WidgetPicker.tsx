@@ -1,15 +1,15 @@
 import React from 'react'
 
-import { FEATURE_FLAGS } from '../../../../shared/featureFlags'
-import { useAppDispatch } from '../../redux/hooks'
-import { addWidget } from '../../redux/slices/dashboardSlice'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '../ui/dialog'
+} from '@/renderer/src/components/ui/dialog'
+import { useAppDispatch } from '@/renderer/src/redux/hooks'
+import { addWidget } from '@/renderer/src/redux/slices/dashboardSlice'
+import { FEATURE_FLAGS } from '@/shared/featureFlags'
 
 import type { WidgetType } from './types'
 import { listAvailableWidgets } from './widgets/registry'

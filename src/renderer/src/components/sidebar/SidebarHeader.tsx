@@ -1,7 +1,7 @@
 import React from 'react'
 
-import { getReleaseNotesUrl } from '../../utils/getReleaseNotesUrl'
-import { ThemeSelector } from '../theme/ThemeSelector'
+import { ThemeSelector } from '@/renderer/src/components/theme/ThemeSelector'
+import { getReleaseNotesUrl } from '@/renderer/src/utils/getReleaseNotesUrl'
 
 /**
  * Sidebar header with app title and theme selector.

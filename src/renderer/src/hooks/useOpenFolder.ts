@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { toast } from 'sonner'
 
-import type { AbsolutePath } from '../../../shared/types'
+import type { AbsolutePath } from '@/shared/types'
 
 /**
  * Renderer-side wrapper around `window.electron.folder.{revealInFinder,openInTerminal}`.

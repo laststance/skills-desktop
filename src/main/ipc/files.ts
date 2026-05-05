@@ -1,10 +1,10 @@
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import {
   listSkillFiles,
   readBinaryFile,
   readSkillFile,
-} from '../services/fileReader'
-import { getAllowedBases, validatePath } from '../services/pathValidation'
+} from '@/main/services/fileReader'
+import { getAllowedBases, validatePath } from '@/main/services/pathValidation'
+import { IPC_CHANNELS } from '@/shared/ipc-channels'
 
 import { typedHandle } from './typedHandle'
 

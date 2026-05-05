@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { Agent } from '../../../../shared/types'
+import type { Agent } from '@/shared/types'
 
 const mockGetAll = vi.fn()
 const mockRemoveAllFromAgent = vi.fn()

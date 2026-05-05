@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 
-import type { UpdateInfo, DownloadProgress } from '../../../shared/types'
-import { useAppDispatch } from '../redux/hooks'
+import { useAppDispatch } from '@/renderer/src/redux/hooks'
 import {
   setChecking,
   setAvailable,
@@ -9,7 +8,8 @@ import {
   setProgress,
   setReady,
   setError,
-} from '../redux/slices/updateSlice'
+} from '@/renderer/src/redux/slices/updateSlice'
+import type { UpdateInfo, DownloadProgress } from '@/shared/types'
 
 // Extended electron API with update functionality
 interface UpdateAPI {

@@ -1,14 +1,14 @@
 import { Hand, Store, X } from 'lucide-react'
 import React from 'react'
 
-import { useAppDispatch, useAppSelector } from '../../../redux/hooks'
+import type { WidgetInstance } from '@/renderer/src/components/dashboard/types'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   dismissWelcome,
   removeWidget,
   selectWelcomeDismissed,
-} from '../../../redux/slices/dashboardSlice'
-import { setActiveTab } from '../../../redux/slices/uiSlice'
-import type { WidgetInstance } from '../types'
+} from '@/renderer/src/redux/slices/dashboardSlice'
+import { setActiveTab } from '@/renderer/src/redux/slices/uiSlice'
 
 interface WelcomeWidgetProps {
   instance: WidgetInstance

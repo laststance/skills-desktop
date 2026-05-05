@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { fetchAgents } from '../../redux/slices/agentsSlice'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { fetchAgents } from '@/renderer/src/redux/slices/agentsSlice'
 
 import { AgentItem } from './AgentItem'
 

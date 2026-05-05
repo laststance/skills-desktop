@@ -1,9 +1,6 @@
 import { BrowserWindow, type WebContents } from 'electron'
 
-import type {
-  IpcEventChannel,
-  IpcEventContract,
-} from '../../shared/ipc-contract'
+import type { IpcEventChannel, IpcEventContract } from '@/shared/ipc-contract'
 
 /**
  * Type-safe wrapper around webContents.send for event channels.

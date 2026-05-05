@@ -1,10 +1,10 @@
 import React from 'react'
 
-import { Checkbox } from '../../src/components/ui/checkbox'
+import { Checkbox } from '@/renderer/src/components/ui/checkbox'
 import {
   ToggleGroup,
   ToggleGroupItem,
-} from '../../src/components/ui/toggle-group'
+} from '@/renderer/src/components/ui/toggle-group'
 
 import { MockControl, SectionFrame, SectionRow } from './SectionFrame'
 

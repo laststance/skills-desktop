@@ -6,7 +6,12 @@ import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { match } from 'ts-pattern'
 import type { z } from 'zod'
 
-import { UNDO_WINDOW_MS } from '../../shared/constants'
+import { AGENTS, SOURCE_DIR } from '@/main/constants'
+import { manifestSchema } from '@/main/ipc/ipc-schemas'
+import { errorCode } from '@/main/utils/errorCode'
+import { extractErrorMessage } from '@/main/utils/errors'
+import { UNDO_WINDOW_MS } from '@/shared/constants'
+import { tombstoneId } from '@/shared/types'
 import type {
   AbsolutePath,
   AgentId,
@@ -14,12 +19,7 @@ import type {
   SkillName,
   TombstoneId,
   UnixTimestampMs,
-} from '../../shared/types'
-import { tombstoneId } from '../../shared/types'
-import { AGENTS, SOURCE_DIR } from '../constants'
-import { manifestSchema } from '../ipc/ipc-schemas'
-import { errorCode } from '../utils/errorCode'
-import { extractErrorMessage } from '../utils/errors'
+} from '@/shared/types'
 
 import { getAllowedBases, validatePath } from './pathValidation'
 

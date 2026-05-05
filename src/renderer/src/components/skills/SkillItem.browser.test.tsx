@@ -3,10 +3,10 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
-import { GSTACK_REPOSITORY_URL } from '../../../../shared/constants'
-import type { Skill, SkillName } from '../../../../shared/types'
-import { repositoryId } from '../../../../shared/types'
-import { TooltipProvider } from '../ui/tooltip'
+import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
+import { GSTACK_REPOSITORY_URL } from '@/shared/constants'
+import type { Skill, SkillName } from '@/shared/types'
+import { repositoryId } from '@/shared/types'
 
 const mockGetAll = vi.fn()
 
@@ -52,13 +52,14 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
  * @returns Redux store
  */
 async function createStore() {
-  const { default: uiReducer } = await import('../../redux/slices/uiSlice')
+  const { default: uiReducer } =
+    await import('@/renderer/src/redux/slices/uiSlice')
   const { default: skillsReducer } =
-    await import('../../redux/slices/skillsSlice')
+    await import('@/renderer/src/redux/slices/skillsSlice')
   const { default: agentsReducer } =
-    await import('../../redux/slices/agentsSlice')
+    await import('@/renderer/src/redux/slices/agentsSlice')
   const { default: bookmarkReducer } =
-    await import('../../redux/slices/bookmarkSlice')
+    await import('@/renderer/src/redux/slices/bookmarkSlice')
   return configureStore({
     reducer: {
       ui: uiReducer,
@@ -101,7 +102,8 @@ describe('SkillItem bulk-select checkbox visibility', () => {
 
   it('renders the checkbox when bulkSelectMode=true', async () => {
     const { screen, store } = await renderSkillItem(makeSkill())
-    const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
 
     store.dispatch(enterBulkSelectMode())
 
@@ -112,7 +114,8 @@ describe('SkillItem bulk-select checkbox visibility', () => {
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: 'task' as SkillName }),
     )
-    const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
 
     store.dispatch(enterBulkSelectMode())
 
@@ -125,8 +128,10 @@ describe('SkillItem bulk-select checkbox visibility', () => {
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: 'task' as SkillName }),
     )
-    const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
-    const { toggleSelection } = await import('../../redux/slices/skillsSlice')
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
 
     store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection('task' as SkillName))
@@ -139,7 +144,7 @@ describe('SkillItem bulk-select checkbox visibility', () => {
   it('exiting bulk mode removes the checkbox from the DOM', async () => {
     const { screen, store } = await renderSkillItem(makeSkill())
     const { enterBulkSelectMode, exitBulkSelectMode } =
-      await import('../../redux/slices/uiSlice')
+      await import('@/renderer/src/redux/slices/uiSlice')
 
     store.dispatch(enterBulkSelectMode())
     await expect.element(screen.getByRole('checkbox')).toBeInTheDocument()
@@ -251,7 +256,7 @@ describe('SkillItem Add button routing', () => {
         ],
       }),
     )
-    const { selectAgent } = await import('../../redux/slices/uiSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
 
     store.dispatch(selectAgent('cursor'))
 
@@ -275,7 +280,7 @@ describe('SkillItem Add button routing', () => {
         ],
       }),
     )
-    const { selectAgent } = await import('../../redux/slices/uiSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
 
     store.dispatch(selectAgent('cursor'))
     await screen.getByRole('button', { name: /^Add$/i }).click()
@@ -310,7 +315,7 @@ describe('SkillItem G-Stack badge', () => {
         ],
       }),
     )
-    const { selectAgent } = await import('../../redux/slices/uiSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
 
     store.dispatch(selectAgent('claude-code'))
 
@@ -356,7 +361,8 @@ describe('SkillItem bulk-select checkbox stopPropagation', () => {
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: 'task' as SkillName }),
     )
-    const { enterBulkSelectMode } = await import('../../redux/slices/uiSlice')
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
 
     store.dispatch(enterBulkSelectMode())
     await screen.getByRole('checkbox', { name: /Select task/i }).click()

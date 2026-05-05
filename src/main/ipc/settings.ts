@@ -1,6 +1,6 @@
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
-import { getSettings, saveSettings } from '../services/settings'
-import { createOrFocusSettingsWindow } from '../services/settingsWindow'
+import { getSettings, saveSettings } from '@/main/services/settings'
+import { createOrFocusSettingsWindow } from '@/main/services/settingsWindow'
+import { IPC_CHANNELS } from '@/shared/ipc-channels'
 
 import { typedHandle } from './typedHandle'
 import { broadcastTypedEvent } from './typedSend'

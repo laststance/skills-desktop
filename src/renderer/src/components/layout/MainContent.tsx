@@ -9,20 +9,53 @@ import {
 import React, { useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 
-import { UNDO_WINDOW_MS } from '../../../../shared/constants'
-import { FEATURE_FLAGS } from '../../../../shared/featureFlags'
-import type {
-  BulkDeleteItemResult,
-  IsoTimestamp,
-  TombstoneId,
-} from '../../../../shared/types'
-import { cn } from '../../lib/utils'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import { SkillsMarketplace } from '@/renderer/src/components/marketplace'
+import { CleanupAgentDialog } from '@/renderer/src/components/sidebar/CleanupAgentDialog'
+import { SyncConfirmDialog } from '@/renderer/src/components/sidebar/SyncConfirmDialog'
+import { SyncConflictDialog } from '@/renderer/src/components/sidebar/SyncConflictDialog'
+import { SyncResultDialog } from '@/renderer/src/components/sidebar/SyncResultDialog'
+import { AddSymlinkModal } from '@/renderer/src/components/skills/AddSymlinkModal'
+import { renderBulkDeleteDescription } from '@/renderer/src/components/skills/bulkDeleteCopy'
+import {
+  formatCascadeSummary,
+  formatUnlinkSummary,
+} from '@/renderer/src/components/skills/bulkDeleteHelpers'
+import { CopyToAgentsModal } from '@/renderer/src/components/skills/CopyToAgentsModal'
+import { SearchBox } from '@/renderer/src/components/skills/SearchBox'
+import { SelectionToolbar } from '@/renderer/src/components/skills/SelectionToolbar'
+import { SkillsList } from '@/renderer/src/components/skills/SkillsList'
+import { UndoToast } from '@/renderer/src/components/skills/UndoToast'
+import { UnlinkDialog } from '@/renderer/src/components/skills/UnlinkDialog'
+import { Button } from '@/renderer/src/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/renderer/src/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/renderer/src/components/ui/dropdown-menu'
+import { FilterPill } from '@/renderer/src/components/ui/FilterPill'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/renderer/src/components/ui/tabs'
+import { cn } from '@/renderer/src/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   selectSelectedVisibleNames,
   selectVisibleSkillNames,
-} from '../../redux/selectors'
-import { setPreviewSkill } from '../../redux/slices/marketplaceSlice'
+} from '@/renderer/src/redux/selectors'
+import { setPreviewSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
 import {
   clearSelection,
   deleteSelectedSkills,
@@ -31,8 +64,7 @@ import {
   setBulkProgress,
   undoLastBulkDelete,
   unlinkSelectedFromAgent,
-} from '../../redux/slices/skillsSlice'
-import type { ActiveTab, SkillTypeFilter } from '../../redux/slices/uiSlice'
+} from '@/renderer/src/redux/slices/skillsSlice'
 import {
   clearBulkConfirm,
   clearSelectedSource,
@@ -48,47 +80,23 @@ import {
   setSkillTypeFilter,
   setUndoToast,
   toggleSortOrder,
-} from '../../redux/slices/uiSlice'
-import { refreshAllData } from '../../redux/thunks'
-import { flashFailedRows } from '../../utils/bulkOpVisuals'
-import { errorToastDescription } from '../../utils/errorToastDescription'
-import { isEditableTarget } from '../../utils/isEditableTarget'
-import { pluralize } from '../../utils/pluralize'
-import { SkillsMarketplace } from '../marketplace'
-import { CleanupAgentDialog } from '../sidebar/CleanupAgentDialog'
-import { SyncConfirmDialog } from '../sidebar/SyncConfirmDialog'
-import { SyncConflictDialog } from '../sidebar/SyncConflictDialog'
-import { SyncResultDialog } from '../sidebar/SyncResultDialog'
-import { AddSymlinkModal } from '../skills/AddSymlinkModal'
-import { renderBulkDeleteDescription } from '../skills/bulkDeleteCopy'
-import {
-  formatCascadeSummary,
-  formatUnlinkSummary,
-} from '../skills/bulkDeleteHelpers'
-import { CopyToAgentsModal } from '../skills/CopyToAgentsModal'
-import { SearchBox } from '../skills/SearchBox'
-import { SelectionToolbar } from '../skills/SelectionToolbar'
-import { SkillsList } from '../skills/SkillsList'
-import { UndoToast } from '../skills/UndoToast'
-import { UnlinkDialog } from '../skills/UnlinkDialog'
-import { Button } from '../ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu'
-import { FilterPill } from '../ui/FilterPill'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
+} from '@/renderer/src/redux/slices/uiSlice'
+import type {
+  ActiveTab,
+  SkillTypeFilter,
+} from '@/renderer/src/redux/slices/uiSlice'
+import { refreshAllData } from '@/renderer/src/redux/thunks'
+import { flashFailedRows } from '@/renderer/src/utils/bulkOpVisuals'
+import { errorToastDescription } from '@/renderer/src/utils/errorToastDescription'
+import { isEditableTarget } from '@/renderer/src/utils/isEditableTarget'
+import { pluralize } from '@/renderer/src/utils/pluralize'
+import { UNDO_WINDOW_MS } from '@/shared/constants'
+import { FEATURE_FLAGS } from '@/shared/featureFlags'
+import type {
+  BulkDeleteItemResult,
+  IsoTimestamp,
+  TombstoneId,
+} from '@/shared/types'
 
 const SKILL_TYPE_FILTER_OPTIONS: {
   value: SkillTypeFilter

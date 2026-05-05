@@ -1,13 +1,17 @@
 import { Check, Download, X } from 'lucide-react'
 import React from 'react'
 
-import { cn } from '../../lib/utils'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { removeBookmark } from '../../redux/slices/bookmarkSlice'
-import { installSkill } from '../../redux/slices/marketplaceSlice'
-import type { BookmarkForDetail } from '../../redux/slices/uiSlice'
-import { setSelectedBookmarkForDetail } from '../../redux/slices/uiSlice'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/renderer/src/components/ui/tooltip'
+import { cn } from '@/renderer/src/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { removeBookmark } from '@/renderer/src/redux/slices/bookmarkSlice'
+import { installSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
+import type { BookmarkForDetail } from '@/renderer/src/redux/slices/uiSlice'
+import { setSelectedBookmarkForDetail } from '@/renderer/src/redux/slices/uiSlice'
 
 interface BookmarkItemProps {
   bookmark: BookmarkForDetail

@@ -9,8 +9,8 @@ import type {
   SyncExecuteResult,
   SyncPreviewResult,
   TombstoneId,
-} from '../../../../shared/types'
-import { repositoryId, tombstoneId } from '../../../../shared/types'
+} from '@/shared/types'
+import { repositoryId, tombstoneId } from '@/shared/types'
 
 // Stub window.electron before importing the slice (thunks reference it at call time)
 const mockSyncPreview = vi.fn()

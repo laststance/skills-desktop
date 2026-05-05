@@ -3,11 +3,7 @@ import { Provider } from 'react-redux'
 import { describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
-import {
-  type HttpUrl,
-  type RepositoryId,
-  repositoryId,
-} from '../../../../shared/types'
+import { type HttpUrl, type RepositoryId, repositoryId } from '@/shared/types'
 
 const REPO = repositoryId('pbakaus/impeccable')
 const REPO_URL = 'https://github.com/pbakaus/impeccable.git' as HttpUrl
@@ -19,7 +15,8 @@ const REPO_HREF = 'https://github.com/pbakaus/impeccable'
  * unrelated reducer churn.
  */
 async function createStore() {
-  const { default: uiReducer } = await import('../../redux/slices/uiSlice')
+  const { default: uiReducer } =
+    await import('@/renderer/src/redux/slices/uiSlice')
   return configureStore({
     reducer: {
       ui: uiReducer,

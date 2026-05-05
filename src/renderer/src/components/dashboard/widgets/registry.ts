@@ -11,7 +11,10 @@ import {
   Zap,
 } from 'lucide-react'
 
-import type { WidgetDefinition, WidgetType } from '../types'
+import type {
+  WidgetDefinition,
+  WidgetType,
+} from '@/renderer/src/components/dashboard/types'
 
 import { ActivityTimelineWidget } from './ActivityTimelineWidget'
 import { AgentHeatmapWidget } from './AgentHeatmapWidget'

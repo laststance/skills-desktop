@@ -3,12 +3,7 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
-import type {
-  Agent,
-  Skill,
-  SkillName,
-  SymlinkInfo,
-} from '../../../../shared/types'
+import type { Agent, Skill, SkillName, SymlinkInfo } from '@/shared/types'
 
 const mockCopyToAgents = vi.fn()
 const mockGetAll = vi.fn()
@@ -102,14 +97,17 @@ async function renderModal(options: {
 }) {
   const { skill, agents, selectedAgentId } = options
   const { default: skillsReducer } =
-    await import('../../redux/slices/skillsSlice')
+    await import('@/renderer/src/redux/slices/skillsSlice')
   const { default: agentsReducer } =
-    await import('../../redux/slices/agentsSlice')
-  const { default: uiReducer } = await import('../../redux/slices/uiSlice')
+    await import('@/renderer/src/redux/slices/agentsSlice')
+  const { default: uiReducer } =
+    await import('@/renderer/src/redux/slices/uiSlice')
   const { CopyToAgentsModal } = await import('./CopyToAgentsModal')
-  const { fetchAgents } = await import('../../redux/slices/agentsSlice')
-  const { setSkillToCopy } = await import('../../redux/slices/skillsSlice')
-  const { selectAgent } = await import('../../redux/slices/uiSlice')
+  const { fetchAgents } =
+    await import('@/renderer/src/redux/slices/agentsSlice')
+  const { setSkillToCopy } =
+    await import('@/renderer/src/redux/slices/skillsSlice')
+  const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
 
   const store = configureStore({
     reducer: {

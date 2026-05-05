@@ -1,21 +1,21 @@
 import React, { useCallback, useEffect } from 'react'
 import { List, type RowComponentProps } from 'react-window'
 
-import type { Skill } from '../../../../shared/types'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { selectFilteredSkills } from '../../redux/selectors'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { selectFilteredSkills } from '@/renderer/src/redux/selectors'
 import {
   fetchSkills,
   selectSkillsError,
   selectSkillsItems,
   selectSkillsLoading,
-} from '../../redux/slices/skillsSlice'
+} from '@/renderer/src/redux/slices/skillsSlice'
 import {
   selectSearchQuery,
   selectSelectedAgentId,
   selectSelectedSource,
   selectSkillTypeFilter,
-} from '../../redux/slices/uiSlice'
+} from '@/renderer/src/redux/slices/uiSlice'
+import type { Skill } from '@/shared/types'
 
 import { SkillItem } from './SkillItem'
 import { getEmptyListMessage } from './skillsListHelpers'

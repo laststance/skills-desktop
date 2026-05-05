@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test'
 
-import type { RemoveAllFromAgentResult } from '../../src/shared/types'
+import type { RemoveAllFromAgentResult } from '@/shared/types'
 
 /**
  * Assert the structured IRON RULE refusal triplet returned by

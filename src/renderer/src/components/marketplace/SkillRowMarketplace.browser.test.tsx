@@ -8,7 +8,7 @@ import type {
   RepositoryId,
   SkillName,
   SkillSearchResult,
-} from '../../../../shared/types'
+} from '@/shared/types'
 
 beforeEach(() => {
   // SkillRowMarketplace doesn't call IPC directly, but SkillsMarketplace and
@@ -61,9 +61,9 @@ function makeSkill(
  */
 async function createStore() {
   const { default: marketplaceReducer } =
-    await import('../../redux/slices/marketplaceSlice')
+    await import('@/renderer/src/redux/slices/marketplaceSlice')
   const { default: bookmarkReducer } =
-    await import('../../redux/slices/bookmarkSlice')
+    await import('@/renderer/src/redux/slices/bookmarkSlice')
   return configureStore({
     reducer: {
       marketplace: marketplaceReducer,

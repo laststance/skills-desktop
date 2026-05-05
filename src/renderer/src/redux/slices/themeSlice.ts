@@ -1,8 +1,8 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice } from '@reduxjs/toolkit'
 
-import type { ThemePresetName } from '../../../../shared/constants'
-import { THEME_PRESETS } from '../../../../shared/constants'
+import type { ThemePresetName } from '@/shared/constants'
+import { THEME_PRESETS } from '@/shared/constants'
 
 /**
  * Shape persisted in localStorage via `@laststance/redux-storage-middleware`.

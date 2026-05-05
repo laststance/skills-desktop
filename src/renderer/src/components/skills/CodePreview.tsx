@@ -1,7 +1,7 @@
 import * as TabsPrimitive from '@radix-ui/react-tabs'
 import React, { useCallback } from 'react'
 
-import { useCodePreview } from '../../hooks/useCodePreview'
+import { useCodePreview } from '@/renderer/src/hooks/useCodePreview'
 
 import { FileContent } from './FileContent'
 import { FileTabs } from './FileTabs'

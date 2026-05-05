@@ -1,4 +1,4 @@
-import type { HttpUrl, RepositoryId } from '../../../../shared/types'
+import type { HttpUrl, RepositoryId } from '@/shared/types'
 
 /**
  * Discriminated render model for `SourceLink`.

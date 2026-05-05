@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
+import { WIDGET_REGISTRY } from '@/renderer/src/components/dashboard/widgets/registry'
 import {
   COLOR_PRESET_CHROMA,
   PERSIST_STATE_VERSION,
   THEME_PRESETS,
-} from '../../../shared/constants'
-import { WIDGET_REGISTRY } from '../components/dashboard/widgets/registry'
+} from '@/shared/constants'
 
 import { migrateState, V2_WIDGET_MIN_SIZES } from './migrations'
 import type { ThemeState } from './slices/themeSlice'

@@ -1,7 +1,7 @@
 import { X } from 'lucide-react'
 import React from 'react'
 
-import { MIN_TOUCH_TARGET_PX } from '../../../../shared/constants'
+import { MIN_TOUCH_TARGET_PX } from '@/shared/constants'
 
 import { Button } from './button'
 

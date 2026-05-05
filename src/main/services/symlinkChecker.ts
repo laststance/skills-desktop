@@ -3,13 +3,13 @@ import { dirname, join, resolve } from 'path'
 
 import { match } from 'ts-pattern'
 
+import { AGENTS } from '@/main/constants'
 import type {
   AbsolutePath,
   SkillName,
   SymlinkInfo,
   SymlinkStatus,
-} from '../../shared/types'
-import { AGENTS } from '../constants'
+} from '@/shared/types'
 
 /**
  * Result from checking if a path is a symlink or local folder

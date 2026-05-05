@@ -1,10 +1,10 @@
 import { ArrowLeft } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 
-import { isAllowedSkillsUrl } from '../../../../shared/marketplaceUrlPolicy'
-import type { SkillSearchResult } from '../../../../shared/types'
-import { useAppDispatch } from '../../redux/hooks'
-import { setPreviewSkill } from '../../redux/slices/marketplaceSlice'
+import { useAppDispatch } from '@/renderer/src/redux/hooks'
+import { setPreviewSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
+import { isAllowedSkillsUrl } from '@/shared/marketplaceUrlPolicy'
+import type { SkillSearchResult } from '@/shared/types'
 
 interface MarketplaceSkillPreviewProps {
   skill: SkillSearchResult

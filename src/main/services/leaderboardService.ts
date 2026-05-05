@@ -1,6 +1,6 @@
-import { repositoryId } from '../../shared/types'
-import type { RankingFilter, SkillSearchResult } from '../../shared/types'
-import { REPO_PATTERN, SKILL_NAME_PATTERN } from '../utils/skillIdentifiers'
+import { REPO_PATTERN, SKILL_NAME_PATTERN } from '@/main/utils/skillIdentifiers'
+import { repositoryId } from '@/shared/types'
+import type { RankingFilter, SkillSearchResult } from '@/shared/types'
 
 /** Maps ranking filter to skills.sh URL */
 const LEADERBOARD_URLS: Record<RankingFilter, string> = {

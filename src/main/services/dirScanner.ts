@@ -1,8 +1,8 @@
 import { readdir } from 'fs/promises'
 import { join } from 'path'
 
-import type { AbsolutePath, SkillName } from '../../shared/types'
-import { SOURCE_DIR } from '../constants'
+import { SOURCE_DIR } from '@/main/constants'
+import type { AbsolutePath, SkillName } from '@/shared/types'
 
 import { isValidSkillDir } from './skillValidation'
 

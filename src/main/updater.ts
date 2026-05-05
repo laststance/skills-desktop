@@ -1,7 +1,7 @@
 import { autoUpdater } from 'electron-updater'
 
-import { IPC_CHANNELS } from '../shared/ipc-channels'
-import { semanticVersion } from '../shared/types'
+import { IPC_CHANNELS } from '@/shared/ipc-channels'
+import { semanticVersion } from '@/shared/types'
 
 import { broadcastTypedEvent as broadcastEvent } from './ipc/typedSend'
 

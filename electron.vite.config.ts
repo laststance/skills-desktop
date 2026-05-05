@@ -5,8 +5,13 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import pkg from './package.json'
 
+const srcAlias = {
+  '@': resolve(__dirname, 'src'),
+}
+
 export default defineConfig({
   main: {
+    resolve: { alias: srcAlias },
     build: {
       rollupOptions: {
         input: {
@@ -17,6 +22,7 @@ export default defineConfig({
     },
   },
   preload: {
+    resolve: { alias: srcAlias },
     define: {
       __E2E_BUILD__: JSON.stringify(process.env.E2E_BUILD === '1'),
     },
@@ -35,6 +41,7 @@ export default defineConfig({
   },
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
+    resolve: { alias: srcAlias },
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
       __E2E_BUILD__: JSON.stringify(process.env.E2E_BUILD === '1'),

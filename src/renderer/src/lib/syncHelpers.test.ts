@@ -1,10 +1,7 @@
 import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import { describe, expect, it } from 'vitest'
 
-import type {
-  SyncExecuteResult,
-  SyncPreviewResult,
-} from '../../../shared/types'
+import type { SyncExecuteResult, SyncPreviewResult } from '@/shared/types'
 
 import {
   getSyncResultPresentation,

@@ -1,11 +1,11 @@
 import { FolderDot, Link2 } from 'lucide-react'
 import React, { useMemo } from 'react'
 
-import type { Agent, AgentId } from '../../../../../shared/types'
-import { useAppDispatch, useAppSelector } from '../../../redux/hooks'
-import { selectAgentItems } from '../../../redux/slices/agentsSlice'
-import { selectSkillsItems } from '../../../redux/slices/skillsSlice'
-import { selectAgent } from '../../../redux/slices/uiSlice'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { selectAgentItems } from '@/renderer/src/redux/slices/agentsSlice'
+import { selectSkillsItems } from '@/renderer/src/redux/slices/skillsSlice'
+import { selectAgent } from '@/renderer/src/redux/slices/uiSlice'
+import type { Agent, AgentId } from '@/shared/types'
 
 // ----------------------------------------------------------------------------
 // Pure helpers

@@ -1,4 +1,4 @@
-import type { SkillName } from '../../../shared/types'
+import type { SkillName } from '@/shared/types'
 
 /**
  * Name of the DOM CustomEvent fired when a per-row bulk operation fails.

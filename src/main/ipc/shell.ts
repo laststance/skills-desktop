@@ -1,6 +1,6 @@
 import { shell } from 'electron'
 
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
+import { IPC_CHANNELS } from '@/shared/ipc-channels'
 
 import { typedHandle } from './typedHandle'
 

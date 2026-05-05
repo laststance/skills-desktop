@@ -1,5 +1,5 @@
-import { IPC_CHANNELS } from '../../shared/ipc-channels'
-import { downloadUpdate, installUpdate, checkForUpdates } from '../updater'
+import { downloadUpdate, installUpdate, checkForUpdates } from '@/main/updater'
+import { IPC_CHANNELS } from '@/shared/ipc-channels'
 
 import { typedHandle } from './typedHandle'
 

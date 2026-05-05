@@ -1,10 +1,10 @@
 import { Package, WifiOff } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 
-import type { RankingFilter } from '../../../../shared/types'
-import { useMarketplaceProgress } from '../../hooks/useMarketplaceProgress'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { loadLeaderboard } from '../../redux/slices/marketplaceSlice'
+import { useMarketplaceProgress } from '@/renderer/src/hooks/useMarketplaceProgress'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { loadLeaderboard } from '@/renderer/src/redux/slices/marketplaceSlice'
+import type { RankingFilter } from '@/shared/types'
 
 import { InstallModal } from './InstallModal'
 import { LeaderboardSkeleton } from './LeaderboardSkeleton'

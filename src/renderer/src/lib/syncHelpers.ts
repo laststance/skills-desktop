@@ -6,10 +6,7 @@ import {
 } from 'lucide-react'
 import { match } from 'ts-pattern'
 
-import type {
-  SyncExecuteResult,
-  SyncPreviewResult,
-} from '../../../shared/types'
+import type { SyncExecuteResult, SyncPreviewResult } from '@/shared/types'
 
 /**
  * Whether to show the GLOBAL sync confirmation dialog (no-conflict case).

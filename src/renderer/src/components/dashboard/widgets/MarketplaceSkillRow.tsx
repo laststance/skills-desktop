@@ -1,8 +1,8 @@
 import { Download } from 'lucide-react'
 import React from 'react'
 
-import type { SkillSearchResult } from '../../../../../shared/types'
-import { formatInstallCount } from '../../../lib/utils'
+import { formatInstallCount } from '@/renderer/src/lib/utils'
+import type { SkillSearchResult } from '@/shared/types'
 
 interface MarketplaceSkillRowProps {
   skill: SkillSearchResult

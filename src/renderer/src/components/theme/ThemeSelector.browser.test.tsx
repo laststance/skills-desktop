@@ -3,7 +3,7 @@ import { Provider } from 'react-redux'
 import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
 
-import { TooltipProvider } from '../ui/tooltip'
+import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 
 /**
  * Browser-mode tests for the ThemeSelector dropdown. Runs in Chromium so the
@@ -22,7 +22,7 @@ import { TooltipProvider } from '../ui/tooltip'
 
 async function createStore() {
   const { default: themeReducer } =
-    await import('../../redux/slices/themeSlice')
+    await import('@/renderer/src/redux/slices/themeSlice')
   return configureStore({
     reducer: { theme: themeReducer },
   })
@@ -99,7 +99,7 @@ describe('ThemeSelector — dropdown open + preset grid', () => {
 
   it('clicking a color swatch dispatches setTheme(presetName) with correct hue/chroma', async () => {
     const { screen, store } = await renderThemeSelector()
-    const { THEME_PRESETS } = await import('../../../../shared/constants')
+    const { THEME_PRESETS } = await import('@/shared/constants')
 
     await screen
       .getByRole('button', { name: /Theme and color options/i })
@@ -118,7 +118,7 @@ describe('ThemeSelector — dropdown open + preset grid', () => {
     // against the regression where aria-pressed was hard-wired to the
     // initial render and never updated on preset change.
     const { screen, store } = await renderThemeSelector()
-    const { setTheme } = await import('../../redux/slices/themeSlice')
+    const { setTheme } = await import('@/renderer/src/redux/slices/themeSlice')
 
     store.dispatch(setTheme('rose'))
 

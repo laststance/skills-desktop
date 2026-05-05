@@ -1,14 +1,14 @@
 import { LayoutGrid, Pencil, PencilOff, Plus, RotateCcw } from 'lucide-react'
 import React, { useCallback, useState } from 'react'
 
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
+import { Button } from '@/renderer/src/components/ui/button'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   addPage,
   resetToDefaults,
   selectIsEditMode,
   toggleEditMode,
-} from '../../redux/slices/dashboardSlice'
-import { Button } from '../ui/button'
+} from '@/renderer/src/redux/slices/dashboardSlice'
 
 import { WidgetPicker } from './WidgetPicker'
 

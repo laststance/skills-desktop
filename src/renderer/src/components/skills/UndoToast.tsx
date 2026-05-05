@@ -1,14 +1,14 @@
 import { Loader2, Undo2 } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 
+import { cn } from '@/renderer/src/lib/utils'
+import { pluralize } from '@/renderer/src/utils/pluralize'
 import type {
   IsoTimestamp,
   SkillName,
   ToastId,
   TombstoneId,
-} from '../../../../shared/types'
-import { cn } from '../../lib/utils'
-import { pluralize } from '../../utils/pluralize'
+} from '@/shared/types'
 
 /** Tick interval for the countdown (ms). 250 gives smooth updates without thrashing. */
 const COUNTDOWN_TICK_MS = 250

@@ -1,9 +1,9 @@
 import { AlertCircle, Flame } from 'lucide-react'
 import React, { useEffect } from 'react'
 
-import type { RankingFilter } from '../../../../../shared/types'
-import { useAppDispatch, useAppSelector } from '../../../redux/hooks'
-import { loadLeaderboard } from '../../../redux/slices/marketplaceSlice'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { loadLeaderboard } from '@/renderer/src/redux/slices/marketplaceSlice'
+import type { RankingFilter } from '@/shared/types'
 
 import { LeaderboardSkeleton } from './LeaderboardSkeleton'
 import { MarketplaceSkillRow } from './MarketplaceSkillRow'

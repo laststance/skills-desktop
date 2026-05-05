@@ -3,15 +3,15 @@ import { EventEmitter } from 'events'
 
 import { match, P } from 'ts-pattern'
 
-import { AGENT_DEFINITIONS, SKILLS_CLI_VERSION } from '../../shared/constants'
-import { repositoryId } from '../../shared/types'
+import { REPO_PATTERN, SKILL_NAME_PATTERN } from '@/main/utils/skillIdentifiers'
+import { AGENT_DEFINITIONS, SKILLS_CLI_VERSION } from '@/shared/constants'
+import { repositoryId } from '@/shared/types'
 import type {
   SkillSearchResult,
   InstallOptions,
   CliCommandResult,
   InstallProgress,
-} from '../../shared/types'
-import { REPO_PATTERN, SKILL_NAME_PATTERN } from '../utils/skillIdentifiers'
+} from '@/shared/types'
 
 /**
  * Build agent ID to CLI name mapping from AGENT_DEFINITIONS

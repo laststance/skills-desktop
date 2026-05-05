@@ -1,4 +1,4 @@
-import { SKILLS_DESKTOP_REPOSITORY_URL } from '../../../shared/constants'
+import { SKILLS_DESKTOP_REPOSITORY_URL } from '@/shared/constants'
 
 /**
  * Build the GitHub release notes URL for a given app version.

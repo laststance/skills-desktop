@@ -2,9 +2,9 @@ import { join } from 'path'
 
 import { app, BrowserWindow } from 'electron'
 
-import { attachExternalLinkHandler } from '../utils/attachExternalLinkHandler'
-import { isE2EBackgroundLaunch } from '../utils/e2eEnv'
-import { getSecureWebPreferences } from '../utils/secureWebPreferences'
+import { attachExternalLinkHandler } from '@/main/utils/attachExternalLinkHandler'
+import { isE2EBackgroundLaunch } from '@/main/utils/e2eEnv'
+import { getSecureWebPreferences } from '@/main/utils/secureWebPreferences'
 
 /**
  * Single-instance reference to the Settings window. Held at module scope

@@ -9,7 +9,7 @@ import type {
   InstallOptions,
   InstallProgress,
   MarketplaceStatus,
-} from '../../../../shared/types'
+} from '@/shared/types'
 
 /** Cache TTL: 30 minutes in milliseconds */
 const CACHE_TTL_MS = 30 * 60 * 1000

@@ -1,10 +1,7 @@
 import { ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { ZodError } from 'zod'
 
-import type {
-  IpcInvokeChannel,
-  IpcInvokeContract,
-} from '../../shared/ipc-contract'
+import type { IpcInvokeChannel, IpcInvokeContract } from '@/shared/ipc-contract'
 
 import { IPC_ARG_SCHEMAS } from './ipc-schemas'
 

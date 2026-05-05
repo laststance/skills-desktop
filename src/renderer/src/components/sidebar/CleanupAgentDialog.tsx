@@ -2,28 +2,28 @@ import { Eraser, Loader2 } from 'lucide-react'
 import React, { useEffect } from 'react'
 import { toast } from 'sonner'
 
-import { AGENT_DEFINITIONS } from '../../../../shared/constants'
-import type { AgentName } from '../../../../shared/types'
-import { useExecuteSync } from '../../hooks/useExecuteSync'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import {
-  clearCleanupAgentTarget,
-  fetchSyncPreview,
-  selectCleanupAgentTarget,
-  selectSyncPreview,
-} from '../../redux/slices/uiSlice'
-import { errorToastDescription } from '../../utils/errorToastDescription'
-import { pluralize } from '../../utils/pluralize'
-import { Button } from '../ui/button'
+import { Button } from '@/renderer/src/components/ui/button'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-} from '../ui/dialog'
-import { DialogIconHeader } from '../ui/dialog-icon-header'
-import { StatRow } from '../ui/stat-row'
+} from '@/renderer/src/components/ui/dialog'
+import { DialogIconHeader } from '@/renderer/src/components/ui/dialog-icon-header'
+import { StatRow } from '@/renderer/src/components/ui/stat-row'
+import { useExecuteSync } from '@/renderer/src/hooks/useExecuteSync'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import {
+  clearCleanupAgentTarget,
+  fetchSyncPreview,
+  selectCleanupAgentTarget,
+  selectSyncPreview,
+} from '@/renderer/src/redux/slices/uiSlice'
+import { errorToastDescription } from '@/renderer/src/utils/errorToastDescription'
+import { pluralize } from '@/renderer/src/utils/pluralize'
+import { AGENT_DEFINITIONS } from '@/shared/constants'
+import type { AgentName } from '@/shared/types'
 
 /**
  * Per-agent cleanup dialog.

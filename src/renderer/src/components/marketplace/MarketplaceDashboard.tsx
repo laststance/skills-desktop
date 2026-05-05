@@ -1,10 +1,10 @@
 import { Download, Star, TrendingUp } from 'lucide-react'
 import React from 'react'
 
-import type { SkillSearchResult } from '../../../../shared/types'
-import { formatInstallCount } from '../../lib/utils'
-import { useAppDispatch, useAppSelector } from '../../redux/hooks'
-import { setPreviewSkill } from '../../redux/slices/marketplaceSlice'
+import { formatInstallCount } from '@/renderer/src/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { setPreviewSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
+import type { SkillSearchResult } from '@/shared/types'
 
 const TRENDING_PREVIEW_LIMIT = 5
 

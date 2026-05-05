@@ -1,7 +1,11 @@
 import { ExternalLink, Settings } from 'lucide-react'
 import React from 'react'
 
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/renderer/src/components/ui/tooltip'
 
 const SKILLS_REGISTRY_URL = 'https://skills.sh/'
 

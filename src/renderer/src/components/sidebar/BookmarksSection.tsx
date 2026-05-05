@@ -1,8 +1,8 @@
 import { Bookmark } from 'lucide-react'
 import React from 'react'
 
-import { useAppSelector } from '../../redux/hooks'
-import { selectBookmarksWithInstallStatus } from '../../redux/selectors'
+import { useAppSelector } from '@/renderer/src/redux/hooks'
+import { selectBookmarksWithInstallStatus } from '@/renderer/src/redux/selectors'
 
 import { BookmarkDetailModal } from './BookmarkDetailModal'
 import { BookmarkItem } from './BookmarkItem'

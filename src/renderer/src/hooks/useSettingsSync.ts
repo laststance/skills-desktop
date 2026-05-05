@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 
-import { useAppDispatch } from '../redux/hooks'
-import { setSettings } from '../redux/slices/settingsSlice'
+import { useAppDispatch } from '@/renderer/src/redux/hooks'
+import { setSettings } from '@/renderer/src/redux/slices/settingsSlice'
 
 /**
  * Subscribes the Redux settings slice to the main-process JSON store.

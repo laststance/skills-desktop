@@ -5,7 +5,7 @@ import type {
   SkillBinaryContent,
   SkillFile,
   SkillFileContent,
-} from '../../../shared/types'
+} from '@/shared/types'
 
 /**
  * Discriminated union for the preview pane's content state.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { AgentId, Skill, SymlinkInfo } from '../../../shared/types'
+import type { AgentId, Skill, SymlinkInfo } from '@/shared/types'
 
 import { getLocationViewModel } from './getLocationViewModel'
 

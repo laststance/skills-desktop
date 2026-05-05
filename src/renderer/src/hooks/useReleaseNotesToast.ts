@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { toast } from 'sonner'
 
-import { RELEASE_NOTES_LAST_SEEN_VERSION_KEY } from '../../../shared/constants'
-import { getReleaseNotesUrl } from '../utils/getReleaseNotesUrl'
+import { getReleaseNotesUrl } from '@/renderer/src/utils/getReleaseNotesUrl'
+import { RELEASE_NOTES_LAST_SEEN_VERSION_KEY } from '@/shared/constants'
 
 /**
  * Show a one-shot "What's new" toast after the app has been updated to a
