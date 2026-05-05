@@ -231,7 +231,12 @@ describe('selectFilteredSkills', () => {
     expect(result[0].name).toBe('browse')
   })
 
-  it('excludes skills with broken symlinks for agent filter', () => {
+  it('surfaces broken (orphan) symlinks for agent filter so user can clean them up', () => {
+    // An orphan: source dir vanished, but cursor still has a dangling symlink
+    // pointing at where the source used to live. The per-agent view must
+    // surface this row so the right-click "Cleanup missing skills..." flow
+    // (PR #71) has something to act on. Hiding it would silently strand the
+    // orphan symlink in the agent dir.
     const skill: Skill = {
       name: 'broken-skill',
       description: 'broken',
@@ -244,6 +249,35 @@ describe('selectFilteredSkills', () => {
           linkPath: '/home/user/.cursor/skills/broken-skill',
           targetPath: '/home/user/.agents/skills/broken-skill',
           status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    const state = buildState({ skills: [skill], selectedAgentId: 'cursor' })
+    const result = selectFilteredSkills(state as never)
+    expect(result).toHaveLength(1)
+    expect(result[0].name).toBe('broken-skill')
+    expect(result[0].isOrphan).toBe(true)
+  })
+
+  it('excludes "missing" symlink entries from agent filter', () => {
+    // status:'missing' is the scanner's way of representing an agent slot
+    // with NO on-disk symlink at all — there's nothing to surface or clean
+    // up, so it must not pollute the per-agent list.
+    const skill: Skill = {
+      name: 'unlinked-skill',
+      description: 'unlinked',
+      path: '/home/user/.agents/skills/unlinked-skill',
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'cursor' as SymlinkInfo['agentId'],
+          agentName: 'Cursor' as SymlinkInfo['agentName'],
+          linkPath: '/home/user/.cursor/skills/unlinked-skill',
+          targetPath: '/home/user/.agents/skills/unlinked-skill',
+          status: 'missing',
           isLocal: false,
         },
       ],

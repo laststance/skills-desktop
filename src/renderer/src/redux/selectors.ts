@@ -65,6 +65,13 @@ export const selectFilteredSkills = createSelector(
     // folders (e.g. `~/.claude/skills/<name>` that has no symlink under
     // `~/.agents/skills/`). See "hides agent-local-only skills from the
     // SourceCard view (no agent selected)" test in selectors.test.ts.
+    //
+    // Per-agent surface includes both `valid` and `broken` symlinks so the
+    // user can see and clean up orphans (symlinks whose source dir vanished)
+    // from the agent view — that's the entry point for "Cleanup missing
+    // skills..." driven by AgentItem's right-click menu. `missing` entries
+    // are filtered out because they represent agent slots with no on-disk
+    // symlink at all (nothing to surface or clean up there).
     if (selectedAgentId) {
       const checkType = skillTypeFilter !== 'all'
       const wantLocal = skillTypeFilter === 'local'
@@ -72,7 +79,7 @@ export const selectFilteredSkills = createSelector(
         skill.symlinks.some(
           (s) =>
             s.agentId === selectedAgentId &&
-            s.status === 'valid' &&
+            (s.status === 'valid' || s.status === 'broken') &&
             (!checkType || s.isLocal === wantLocal),
         ),
       )

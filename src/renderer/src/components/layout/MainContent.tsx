@@ -55,6 +55,7 @@ import { errorToastDescription } from '../../utils/errorToastDescription'
 import { isEditableTarget } from '../../utils/isEditableTarget'
 import { pluralize } from '../../utils/pluralize'
 import { SkillsMarketplace } from '../marketplace'
+import { CleanupAgentDialog } from '../sidebar/CleanupAgentDialog'
 import { SyncConfirmDialog } from '../sidebar/SyncConfirmDialog'
 import { SyncConflictDialog } from '../sidebar/SyncConflictDialog'
 import { SyncResultDialog } from '../sidebar/SyncResultDialog'
@@ -605,6 +606,7 @@ export const MainContent = React.memo(
         <SyncConfirmDialog />
         <SyncConflictDialog />
         <SyncResultDialog />
+        <CleanupAgentDialog />
 
         {/*
           Bulk delete / unlink confirmation. Replaces the old `window.confirm`

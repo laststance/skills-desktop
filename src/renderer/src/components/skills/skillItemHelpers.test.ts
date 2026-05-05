@@ -106,17 +106,20 @@ describe('getSkillItemVisibility', () => {
       expect(result.selectedAgentSymlink).toBe(symlinks[0])
     })
 
-    it('hides unlink button for orphan-only broken symlink (no usable copy anywhere)', () => {
-      // A skill whose every entry is broken/missing has no source — issue #127
-      // Option B fix routes orphans to a separate cleanup flow (#71), so the
-      // existing X button must not surface (its IPC handlers don't support
-      // orphan removal cleanly).
+    it('shows unlink button for orphan-only broken symlink so user can clean it up', () => {
+      // PR #131 (issue #71 PR-2) intentionally surfaces unlink for orphan
+      // rows: removing a dangling symlink at `linkPath` is a safe `rm` op
+      // regardless of whether the target resolves, and it's how the user
+      // sweeps orphans one row at a time without the bulk Cleanup dialog.
+      // Add stays gated separately because re-adding requires a live source.
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'broken', isLocal: false }),
       ]
       const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
 
-      expect(result.showUnlinkButton).toBe(false)
+      expect(result.showUnlinkButton).toBe(true)
+      // isLinked still requires status==='valid'; broken does NOT count as
+      // linked even though it now satisfies showUnlinkButton.
       expect(result.isLinked).toBe(false)
     })
 
@@ -300,16 +303,23 @@ describe('getSkillItemVisibility', () => {
     })
   })
 
-  describe('orphan skill guard (issue #127)', () => {
-    it('hides global delete button for orphan-only skill', () => {
+  describe('orphan skill guard', () => {
+    // PR #131 (issue #71 PR-2) loosens the orphan gate on Delete and Unlink
+    // so users can sweep orphans surfaced by the new amber-border row UI.
+    // Add stays gated because there is no live source to point a new
+    // symlink at. The original #127 hide-everything stance is gone.
+    it('shows global delete button for orphan-only skill so user can sweep the row', () => {
       // Source removed, broken symlinks across two agents, no real folders.
+      // Delete clears all dangling agent symlinks plus the now-empty source
+      // tombstone in one shot — the bulk version of the Cleanup-per-agent
+      // flow.
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'broken', isLocal: false }),
         makeSymlink({ agentId: 'codex', status: 'broken', isLocal: false }),
       ]
       const result = getSkillItemVisibility(null, makeSkill(symlinks))
 
-      expect(result.showDeleteButton).toBe(false)
+      expect(result.showDeleteButton).toBe(true)
     })
 
     it('keeps global delete button visible when at least one agent has a valid copy', () => {
@@ -332,11 +342,10 @@ describe('getSkillItemVisibility', () => {
       expect(result.showDeleteButton).toBe(true)
     })
 
-    it('respects explicit isOrphan override even when symlinks would derive false', () => {
-      // Pins the contract that getSkillItemVisibility reads `isOrphan` straight
-      // off the skill (set by scanOrphanSymlinks in main) instead of
-      // re-deriving it from `symlinks`. A valid symlink would otherwise drive
-      // derivedOrphan=false; the override keeps the orphan path active.
+    it('global Delete is shown regardless of explicit isOrphan override', () => {
+      // After the loosen, Delete is purely a global-view concern (`!selectedAgentId`).
+      // The explicit isOrphan override no longer suppresses it — the override
+      // only steers Add visibility now.
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),
       ]
@@ -344,14 +353,14 @@ describe('getSkillItemVisibility', () => {
         null,
         makeSkill(symlinks, { isOrphan: true }),
       )
-      expect(result.showDeleteButton).toBe(false)
+      expect(result.showDeleteButton).toBe(true)
+      // …and the orphan override DOES still gate Add as designed.
+      expect(result.showAddButton).toBe(false)
     })
 
     it('hides Add button for orphan skill in global view', () => {
-      // Issue #71 PR-1: Add button (which opens AddSymlinkModal /
-      // CopyToAgentsModal) would surface a flow that can only fail when the
-      // source is gone — there is nothing to symlink _to_. Same orphan rule
-      // as Delete and Unlink.
+      // Add (AddSymlinkModal / CopyToAgentsModal) requires a live source
+      // dir to symlink _to_; for orphans the source is gone.
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'broken', isLocal: false }),
         makeSymlink({ agentId: 'codex', status: 'broken', isLocal: false }),
@@ -361,23 +370,22 @@ describe('getSkillItemVisibility', () => {
       expect(result.showAddButton).toBe(false)
     })
 
-    it('hides Add button for orphan skill in agent view even when the agent has a broken symlink', () => {
+    it('hides Add but shows Unlink for orphan skill in agent view', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'broken', isLocal: false }),
         makeSymlink({ agentId: 'codex', status: 'broken', isLocal: false }),
       ]
       const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
 
-      // Even though `selectedAgentSymlink` is non-null (the broken cursor
-      // entry passes the `valid|broken` filter), the orphan gate wins: there
-      // is no live source to symlink TO, so re-adding makes no sense.
+      // Add stays gated: even though the broken cursor entry passes the
+      // `valid|broken` filter, there is no live source to symlink TO.
       expect(result.showAddButton).toBe(false)
-      // Sibling guards still hold for orphan rows.
-      expect(result.showUnlinkButton).toBe(false)
+      // Unlink is the per-agent cleanup affordance for orphan rows.
+      expect(result.showUnlinkButton).toBe(true)
     })
 
     it('keeps Add button visible when isOrphan is false (non-orphan, valid symlinks)', () => {
-      // Sanity check: the new && !isOrphan term must NOT regress the
+      // Sanity check: the && !isOrphan term must NOT regress the
       // happy path where Add was always available.
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),

@@ -393,3 +393,119 @@ describe('syncExecute', () => {
     })
   })
 })
+
+/**
+ * Scoped (per-agent) sync — drives the per-agent Cleanup flow surfaced
+ * from AgentItem's right-click "Cleanup missing skills..." menu item.
+ * Both `syncPreview` and `syncExecute` accept an optional `agentId` that
+ * narrows the operation to one agent. The whole-agent global sync flow is
+ * unchanged when `agentId` is omitted (covered by the suites above).
+ */
+describe('scoped sync (per-agent)', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    accessMock.mockResolvedValue(undefined)
+    statMock.mockResolvedValue({ isFile: () => true })
+    mkdirMock.mockResolvedValue(undefined)
+    symlinkMock.mockResolvedValue(undefined)
+    rmMock.mockResolvedValue(undefined)
+  })
+
+  it('preview narrows to a single agent and echoes forAgent', async () => {
+    readdirMock.mockImplementation(async (dir: string) => {
+      if (dir === '/mock/source/skills') {
+        return [{ name: 'my-skill', isDirectory: () => true }]
+      }
+      return []
+    })
+    // 'my-skill' already symlinked under cursor; we still expect
+    // totalAgents===1 because the claude row is filtered out entirely.
+    lstatMock.mockResolvedValue(createStats({ isSymbolicLink: true }))
+
+    const { syncPreview } = await import('./syncService')
+    const result = await syncPreview({ agentId: 'cursor' })
+
+    expect(result.totalSkills).toBe(1)
+    expect(result.totalAgents).toBe(1)
+    expect(result.alreadySynced).toBe(1) // 1 skill × 1 agent (filtered)
+    expect(result.forAgent).toBe('cursor')
+  })
+
+  it('preview without agentId omits forAgent', async () => {
+    readdirMock.mockResolvedValue([])
+
+    const { syncPreview } = await import('./syncService')
+    const result = await syncPreview()
+
+    expect(result.forAgent).toBeUndefined()
+    expect(result.totalAgents).toBe(2)
+  })
+
+  it('execute creates symlinks only for the scoped agent', async () => {
+    readdirMock.mockImplementation(async (dir: string) => {
+      if (dir === '/mock/source/skills') {
+        return [{ name: 'new-skill', isDirectory: () => true }]
+      }
+      return []
+    })
+    lstatMock.mockRejectedValue(new Error('ENOENT'))
+
+    const { syncExecute } = await import('./syncService')
+    const result = await syncExecute({
+      replaceConflicts: [],
+      agentId: 'cursor',
+    })
+
+    expect(result.created).toBe(1)
+    expect(result.details).toHaveLength(1)
+    expect(result.details[0]).toMatchObject({
+      skillName: 'new-skill',
+      agentName: 'Cursor',
+      action: 'created',
+    })
+    // Only the cursor symlink call — claude must not be touched.
+    expect(symlinkMock).toHaveBeenCalledTimes(1)
+    expect(symlinkMock).toHaveBeenCalledWith(
+      join('/mock/source/skills', 'new-skill'),
+      join('/mock/agents/cursor/skills', 'new-skill'),
+    )
+    expect(symlinkMock).not.toHaveBeenCalledWith(
+      expect.any(String),
+      join('/mock/agents/claude/skills', 'new-skill'),
+    )
+    expect(mkdirMock).toHaveBeenCalledWith('/mock/agents/cursor/skills', {
+      recursive: true,
+    })
+    expect(mkdirMock).not.toHaveBeenCalledWith(
+      '/mock/agents/claude/skills',
+      expect.anything(),
+    )
+  })
+
+  it('execute with an agentId not in AGENTS is a no-op (no silent fallback to all)', async () => {
+    // Defends against typos AND against an agent that exists in the union
+    // but isn't installed/on-disk in the user's environment. The mocked
+    // AGENTS list above only includes claude-code and cursor; passing
+    // 'codex' (a valid AgentId, not in the mock) reproduces "agent not on
+    // disk" — production filterAgentsByOption returns [] and we expect
+    // zero side effects.
+    readdirMock.mockImplementation(async (dir: string) => {
+      if (dir === '/mock/source/skills') {
+        return [{ name: 'new-skill', isDirectory: () => true }]
+      }
+      return []
+    })
+    lstatMock.mockRejectedValue(new Error('ENOENT'))
+
+    const { syncExecute } = await import('./syncService')
+    const result = await syncExecute({
+      replaceConflicts: [],
+      agentId: 'codex',
+    })
+
+    expect(result.created).toBe(0)
+    expect(result.details).toHaveLength(0)
+    expect(symlinkMock).not.toHaveBeenCalled()
+    expect(mkdirMock).not.toHaveBeenCalled()
+  })
+})

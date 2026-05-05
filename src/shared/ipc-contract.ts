@@ -30,6 +30,7 @@ import type {
   SourceStats,
   SyncExecuteOptions,
   SyncExecuteResult,
+  SyncPreviewOptions,
   SyncPreviewResult,
   UnlinkFromAgentOptions,
   UnlinkManyFromAgentOptions,
@@ -96,7 +97,10 @@ export interface IpcInvokeContract {
     args: [{ filter: RankingFilter }]
     result: SkillSearchResult[]
   }
-  'sync:preview': { args: []; result: SyncPreviewResult }
+  'sync:preview': {
+    args: [SyncPreviewOptions?]
+    result: SyncPreviewResult
+  }
   'sync:execute': { args: [SyncExecuteOptions]; result: SyncExecuteResult }
   'update:download': { args: []; result: void }
   'update:install': { args: []; result: void }

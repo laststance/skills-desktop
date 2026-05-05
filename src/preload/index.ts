@@ -18,6 +18,7 @@ import type {
   RestoreDeletedSkillOptions,
   SearchQuery,
   SyncExecuteOptions,
+  SyncPreviewOptions,
   UnlinkFromAgentOptions,
   UnlinkManyFromAgentOptions,
   UpdateInfo,
@@ -112,7 +113,8 @@ contextBridge.exposeInMainWorld('electron', {
   },
   // Sync API
   sync: {
-    preview: async () => typedInvoke('sync:preview'),
+    preview: async (options?: SyncPreviewOptions) =>
+      typedInvoke('sync:preview', options),
     execute: async (options: SyncExecuteOptions) =>
       typedInvoke('sync:execute', options),
   },

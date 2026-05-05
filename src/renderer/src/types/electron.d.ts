@@ -30,6 +30,7 @@ import type {
   CopyToAgentsResult,
   CreateSymlinksOptions,
   CreateSymlinksResult,
+  SyncPreviewOptions,
   SyncPreviewResult,
   SyncExecuteOptions,
   SyncExecuteResult,
@@ -112,7 +113,7 @@ declare global {
         }) => Promise<SkillSearchResult[]>
       }
       sync: {
-        preview: () => Promise<SyncPreviewResult>
+        preview: (options?: SyncPreviewOptions) => Promise<SyncPreviewResult>
         execute: (options: SyncExecuteOptions) => Promise<SyncExecuteResult>
       }
       settings: {

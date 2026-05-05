@@ -1,4 +1,4 @@
-import { Trash2 } from 'lucide-react'
+import { Eraser, Trash2 } from 'lucide-react'
 import React, { useMemo, useState } from 'react'
 
 import { AGENT_DEFINITIONS } from '../../../../shared/constants'
@@ -6,11 +6,12 @@ import type { Agent, AgentId } from '../../../../shared/types'
 import { cn } from '../../lib/utils'
 import { useAppDispatch, useAppSelector } from '../../redux/hooks'
 import { setAgentToDelete } from '../../redux/slices/agentsSlice'
-import { selectAgent } from '../../redux/slices/uiSlice'
+import { selectAgent, setCleanupAgentTarget } from '../../redux/slices/uiSlice'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -88,6 +89,14 @@ export const AgentItem = React.memo(function AgentItem({
     setContextOpen(false)
   }
 
+  const handleCleanupMissing = (): void => {
+    // Opens `CleanupAgentDialog`. The dialog itself dispatches the scoped
+    // `fetchSyncPreview({ agentId })` once it mounts, so we don't need
+    // to chain it here — keeps the menu handler synchronous.
+    dispatch(setCleanupAgentTarget(agent.id))
+    setContextOpen(false)
+  }
+
   const skillCountText = useMemo(
     () =>
       agent.exists
@@ -136,6 +145,11 @@ export const AgentItem = React.memo(function AgentItem({
           </DropdownMenuTrigger>
         </TooltipTrigger>
         <DropdownMenuContent>
+          <DropdownMenuItem onClick={handleCleanupMissing}>
+            <Eraser className="h-4 w-4 mr-2" />
+            Cleanup missing skills...
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={handleDelete}
             className="text-destructive focus:text-destructive"
