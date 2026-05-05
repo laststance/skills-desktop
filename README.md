@@ -13,9 +13,9 @@ Skills Desktop provides a GUI to manage and monitor skills installed via [`npx s
 
 ## Features
 
-- **21 AI Agents Supported** - Auto-detects Claude Code, Cursor, Codex, Gemini CLI, and more
+- **44 AI Agents Supported** - Auto-detects Claude Code, Cursor, Codex, Gemini CLI, and more
 - **Symlink Status Visualization** - Valid (✓), Broken (◐), Missing (○) indicators
-- **26 Themes** - 24 OKLCH color themes + 2 shadcn/ui neutral themes
+- **44 Themes** - 34 OKLCH color themes (17 hues × light/dark) + 2 pure neutral + 8 tinted neutral
 - **Auto Update** - Automatic updates via GitHub Releases
 
 ## Supported Agents
@@ -33,7 +33,7 @@ Skills Desktop provides a GUI to manage and monitor skills installed via [`npx s
 | Windsurf         | `~/.codeium/skills/`        |
 | Zed              | `~/.zed/skills/`            |
 | Continue         | `~/.continue/skills/`       |
-| _...and 10 more_ |                             |
+| _...and 33 more_ |                             |
 
 ## Installation
 
@@ -102,7 +102,7 @@ APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 
 | Component | Technology                                           |
 | --------- | ---------------------------------------------------- |
-| Framework | Electron 34                                          |
+| Framework | Electron 41                                          |
 | Frontend  | React 19 + TypeScript                                |
 | State     | Redux Toolkit + @laststance/redux-storage-middleware |
 | Styling   | Tailwind CSS + shadcn/ui                             |

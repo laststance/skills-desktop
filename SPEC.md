@@ -44,29 +44,59 @@ Skills Desktop provides a GUI to manage and monitor skills installed via `npx sk
 Agents are **auto-detected** by scanning for skills directories at standard paths.
 Agent definitions are synced with [vercel-labs/skills CLI](https://github.com/vercel-labs/skills/blob/main/src/agents.ts).
 
-| Agent          | CLI ID           | Detection Path                |
-| -------------- | ---------------- | ----------------------------- |
-| Claude Code    | `claude-code`    | `~/.claude/skills/`           |
-| Cursor         | `cursor`         | `~/.cursor/skills/`           |
-| Codex          | `codex`          | `~/.codex/skills/`            |
-| Gemini CLI     | `gemini-cli`     | `~/.gemini/skills/`           |
-| OpenCode       | `opencode`       | `~/.opencode/skills/`         |
-| GitHub Copilot | `github-copilot` | `~/.copilot/skills/`          |
-| Cline          | `cline`          | `~/.cline/skills/`            |
-| Roo Code       | `roo`            | `~/.roo/skills/`              |
-| Amp            | `amp`            | `~/.config/amp/skills/`       |
-| Goose          | `goose`          | `~/.config/goose/skills/`     |
-| Windsurf       | `windsurf`       | `~/.codeium/windsurf/skills/` |
-| Continue       | `continue`       | `~/.continue/skills/`         |
-| Trae           | `trae`           | `~/.trae/skills/`             |
-| Junie          | `junie`          | `~/.junie/skills/`            |
-| Kilo Code      | `kilo`           | `~/.kilocode/skills/`         |
-| OpenHands      | `openhands`      | `~/.openhands/skills/`        |
-| Neovate        | `neovate`        | `~/.neovate/skills/`          |
-| Qoder          | `qoder`          | `~/.qoder/skills/`            |
-| Zencoder       | `zencoder`       | `~/.zencoder/skills/`         |
-| Pochi          | `pochi`          | `~/.pochi/skills/`            |
-| AdaL           | `adal`           | `~/.adal/skills/`             |
+> **Source of truth**: `AGENT_DEFINITIONS` in `src/shared/constants.ts`. `cliId`
+> is the `--agent` flag passed to the Skills CLI. `Detection Path` mirrors
+> the `scanDir` field — i.e. the directory the app scans for that agent's
+> own symlinks. For most agents `scanDir === installDir`; the divergent
+> entries (Cline, Warp, etc.) avoid surfacing every source skill as a
+> "local" skill of those agents (v0.13.0 regression guard).
+
+| Agent          | CLI ID           | Detection Path                  |
+| -------------- | ---------------- | ------------------------------- |
+| Claude Code    | `claude-code`    | `~/.claude/skills/`             |
+| Cursor         | `cursor`         | `~/.cursor/skills/`             |
+| Codex          | `codex`          | `~/.codex/skills/`              |
+| Gemini CLI     | `gemini-cli`     | `~/.gemini/skills/`             |
+| OpenCode       | `opencode`       | `~/.config/opencode/skills/`    |
+| GitHub Copilot | `github-copilot` | `~/.copilot/skills/`            |
+| Cline          | `cline`          | `~/.cline/skills/`              |
+| Roo Code       | `roo`            | `~/.roo/skills/`                |
+| Amp            | `amp`            | `~/.config/agents/skills/`      |
+| Goose          | `goose`          | `~/.config/goose/skills/`       |
+| Windsurf       | `windsurf`       | `~/.codeium/windsurf/skills/`   |
+| Continue       | `continue`       | `~/.continue/skills/`           |
+| Trae           | `trae`           | `~/.trae/skills/`               |
+| Junie          | `junie`          | `~/.junie/skills/`              |
+| Kilo Code      | `kilo`           | `~/.kilocode/skills/`           |
+| OpenHands      | `openhands`      | `~/.openhands/skills/`          |
+| Neovate        | `neovate`        | `~/.neovate/skills/`            |
+| Qoder          | `qoder`          | `~/.qoder/skills/`              |
+| Zencoder       | `zencoder`       | `~/.zencoder/skills/`           |
+| Pochi          | `pochi`          | `~/.pochi/skills/`              |
+| AdaL           | `adal`           | `~/.adal/skills/`               |
+| Kimi Code CLI  | `kimi-cli`       | `~/.config/agents/skills/`      |
+| IBM Bob        | `bob`            | `~/.bob/skills/`                |
+| Firebender     | `firebender`     | `~/.firebender/skills/`         |
+| Antigravity    | `antigravity`    | `~/.gemini/antigravity/skills/` |
+| Augment        | `augment`        | `~/.augment/skills/`            |
+| CodeBuddy      | `codebuddy`      | `~/.codebuddy/skills/`          |
+| Command Code   | `command-code`   | `~/.commandcode/skills/`        |
+| Cortex Code    | `cortex`         | `~/.snowflake/cortex/skills/`   |
+| Crush          | `crush`          | `~/.config/crush/skills/`       |
+| Deep Agents    | `deepagents`     | `~/.deepagents/agent/skills/`   |
+| Droid          | `droid`          | `~/.factory/skills/`            |
+| iFlow CLI      | `iflow-cli`      | `~/.iflow/skills/`              |
+| Kiro CLI       | `kiro-cli`       | `~/.kiro/skills/`               |
+| Kode           | `kode`           | `~/.kode/skills/`               |
+| MCPJam         | `mcpjam`         | `~/.mcpjam/skills/`             |
+| Mistral Vibe   | `mistral-vibe`   | `~/.vibe/skills/`               |
+| Mux            | `mux`            | `~/.mux/skills/`                |
+| OpenClaw       | `openclaw`       | `~/.openclaw/skills/`           |
+| Pi             | `pi`             | `~/.pi/agent/skills/`           |
+| Qwen Code      | `qwen-code`      | `~/.qwen/skills/`               |
+| Replit         | `replit`         | `~/.config/agents/skills/`      |
+| Trae CN        | `trae-cn`        | `~/.trae-cn/skills/`            |
+| Warp           | `warp`           | `~/.warp/skills/`               |
 
 **Detection Logic:**
 
@@ -80,7 +110,7 @@ Agent definitions are synced with [vercel-labs/skills CLI](https://github.com/ve
 ### Core Features
 
 - [x] Display source directory (`~/.agents/skills/`)
-- [x] Auto-detect installed AI agents (21 agents)
+- [x] Auto-detect installed AI agents (44 agents)
 - [x] List all installed skills with metadata
 - [x] Show symlink status per skill per agent
 - [x] Validate symlink integrity (valid/broken/missing)
@@ -102,6 +132,12 @@ GUI wrapper for `npx skills` CLI commands:
 | Valid   | `✓`    | Cyan (#22D3EE)  | Symlink exists and points to valid target |
 | Broken  | `◐`    | Amber (#F59E0B) | Symlink exists but target is missing      |
 | Missing | `○`    | Gray (#475569)  | No symlink for this agent                 |
+
+**Orphan skill** is a separate concept layered on top of these states: a
+skill record whose source directory under `~/.agents/skills/` was deleted
+while one or more agent-side symlinks still dangle. Surfaced by
+`scanOrphanSymlinks` and represented as the per-skill `isOrphan: boolean`
+flag — see the [Orphan Skill Cleanup](#orphan-skill-cleanup) section.
 
 ### Local Skills Support
 
@@ -144,6 +180,31 @@ Skills fall into two categories based on their installation path. The distinctio
 | Plain       | Created directly in skills dir | No                                 | Move to app trash (undo within 15s) |
 
 The app detects CLI-managed skills by the `source` field on the Skill record (populated during scan from the lock file). The in-app delete button and bulk-delete flow route each skill through the matching path.
+
+### Orphan Skill Cleanup
+
+When a skill source directory is deleted (e.g. `rm -rf ~/.agents/skills/foo`) but agent-side symlinks remain, those symlinks dangle as **orphans**. The scanner surfaces this state via `scanOrphanSymlinks` and flags the skill record with `isOrphan: true`.
+
+**Detection rules** — `isOrphan` is set when ALL hold:
+
+1. The source directory under `~/.agents/skills/` is missing
+2. No real local folder exists for the skill in any agent dir
+3. At least one agent has a dangling symlink pointing to it
+
+**Visual treatment:**
+
+- Amber border on the orphan skill row (same hue as the `broken` symlink color)
+- `orphan` badge after the skill name (`role="img"` + `aria-label` so VoiceOver/NVDA announce the state — bare `<span>` defaults to `role="generic"` which silently drops `aria-label` per ARIA 1.2)
+
+**Cleanup paths:**
+
+| Path                     | Trigger                                    | Scope                                                        |
+| ------------------------ | ------------------------------------------ | ------------------------------------------------------------ |
+| Per-skill unlink         | Skill row's action menu → "Unlink..."      | Removes one orphan skill from one or more selected agents    |
+| Per-agent cleanup dialog | Sidebar agent context menu → "Clean up..." | Previews and executes all orphan removals for a single agent |
+| Global cleanup           | Sidebar footer "Clean up orphan symlinks"  | Removes all orphan symlinks across every agent               |
+
+The per-agent dialog uses the scoped sync IPC (`sync:preview` / `sync:execute` accept an optional `agentId`) so both the preview and execution stay restricted to the targeted agent. When the dialog opens with no actionable orphans (only conflicts to acknowledge), it surfaces a "conflicts skipped" hint instead of an empty success.
 
 ### Skill Metadata
 
@@ -394,6 +455,16 @@ listenerMiddleware.startListening({
 'skills:cli:install'  → Promise<CliCommandResult>
 'skills:cli:cancel'   → void
 'skills:cli:progress' → (Main → Renderer event)
+
+// Sync (agent-scoped when `agentId` is set; global otherwise)
+'sync:preview'        → (options?: { agentId?: AgentId }) => Promise<SyncPreviewResult>
+'sync:execute'        → (options:  { agentId?: AgentId }) => Promise<SyncExecuteResult>
+
+// Settings (atomic-write JSON at userData/settings.json)
+'settings:open'       → void
+'settings:get'        → Promise<Settings>
+'settings:set'        → (patch: Partial<Settings>) => Promise<Settings>
+'settings:changed'    → (Main → Renderer event, fanned out to every window)
 ```
 
 ### Type Definitions
@@ -405,6 +476,14 @@ interface Skill {
   path: string
   symlinkCount: number
   symlinks: SymlinkInfo[]
+  /** True when the skill lives under SOURCE_DIR (`~/.agents/skills/`); false for agent-local-only skills. */
+  isSource: boolean
+  /** True when every entry in `symlinks` is broken/missing AND no real local folder exists — i.e. the source skill was deleted but agent symlinks still dangle. Set by `scanOrphanSymlinks`; gates delete/unlink buttons in the renderer. */
+  isOrphan: boolean
+  /** Short source identifier in `owner/repo` format. @example "vercel-labs/skills" */
+  source?: string
+  /** Full URL to the source repository. */
+  sourceUrl?: string
 }
 
 interface Agent {
@@ -489,6 +568,14 @@ interface RootState {
   ui: UIState
   update: UpdateState
   marketplace: MarketplaceState
+  settings: SettingsState
+}
+
+interface SettingsState {
+  /** Cached `Settings` object — main process owns the file, renderer mirrors via `settings:changed` events. */
+  values: Settings
+  /** Loading state for the initial `settings:get` round-trip on app launch. */
+  loaded: boolean
 }
 
 interface SkillsState {
@@ -539,6 +626,8 @@ skills-desktop/
 │   │   │   ├── agents.ts
 │   │   │   ├── source.ts
 │   │   │   ├── files.ts
+│   │   │   ├── sync.ts           # Sync handlers (agent-scoped via `agentId`)
+│   │   │   ├── settings.ts       # settings:get / set / open IPC
 │   │   │   └── skillsCli.ts      # Marketplace CLI handlers
 │   │   ├── updater.ts
 │   │   ├── constants.ts
@@ -548,12 +637,26 @@ skills-desktop/
 │   │       ├── symlinkChecker.ts
 │   │       ├── metadataParser.ts
 │   │       ├── fileReader.ts
+│   │       ├── settings.ts          # Atomic-write settings.json + load/parse
+│   │       ├── settingsWindow.ts    # Settings BrowserWindow lifecycle
+│   │       ├── syncService.ts       # Preview/execute sync (scoped or global)
 │   │       └── skillsCliService.ts  # npx skills CLI wrapper
 │   ├── preload/
 │   │   ├── index.ts          # Context bridge
 │   │   └── index.d.ts
 │   ├── renderer/
 │   │   ├── index.html
+│   │   ├── settings/             # Separately-rendered Settings window
+│   │   │   ├── index.html
+│   │   │   ├── main.tsx
+│   │   │   ├── SettingsApp.tsx
+│   │   │   └── sections/
+│   │   │       ├── About.tsx
+│   │   │       ├── Appearance.tsx
+│   │   │       ├── AutoUpdates.tsx
+│   │   │       ├── General.tsx
+│   │   │       ├── Keybindings.tsx
+│   │   │       └── SectionFrame.tsx
 │   │   └── src/
 │   │       ├── main.tsx
 │   │       ├── App.tsx
@@ -564,6 +667,7 @@ skills-desktop/
 │   │       │       ├── themeSlice.ts
 │   │       │       ├── uiSlice.ts
 │   │       │       ├── updateSlice.ts
+│   │       │       ├── settingsSlice.ts
 │   │       │       └── marketplaceSlice.ts
 │   │       ├── components/
 │   │       │   ├── layout/
@@ -579,7 +683,9 @@ skills-desktop/
 │   │       └── styles/
 │   └── shared/
 │       ├── types.ts
-│       ├── constants.ts
+│       ├── constants.ts            # AGENT_DEFINITIONS, THEME_PRESETS, KEYBINDINGS, SKILLS_CLI_VERSION
+│       ├── settings.ts             # SettingsSchema (Zod) + DEFAULT_SETTINGS
+│       ├── ipc-contract.ts         # Typed IPC contract (zod schemas)
 │       └── ipc-channels.ts
 ├── resources/
 │   └── icon.icns
@@ -594,6 +700,51 @@ skills-desktop/
 | Minimum Size     | 800×600               |
 | Title Bar Style  | `hiddenInset` (macOS) |
 | Background Color | `#0A0F1C`             |
+
+## Settings Window
+
+A dedicated, separately-rendered Settings window (Inkdrop-style) — not a modal — opened from:
+
+- Sidebar gear icon
+- App menu **Settings…** (⌘,)
+
+Both routes converge on the same `BrowserWindow` instance owned by `src/main/services/settingsWindow.ts`.
+
+**Sections:**
+
+| Section     | Purpose                                                                   |
+| ----------- | ------------------------------------------------------------------------- |
+| About       | App version, updater status, links                                        |
+| Appearance  | Theme presets, light/dark mode                                            |
+| AutoUpdates | Update channel and check cadence                                          |
+| General     | Default skill detail tab (`files` or `info`)                              |
+| Keybindings | Read-only display sourced from `KEYBINDINGS` in `src/shared/constants.ts` |
+
+**Persistence:**
+
+User-editable values are stored in `app.getPath('userData')/settings.json` via atomic-write (write-temp + rename) by `src/main/services/settings.ts`. The schema is defined in `src/shared/settings.ts` using Zod, with `DEFAULT_SETTINGS` as the fallback when the file is missing or fails validation.
+
+**Cross-window sync:**
+
+Renderers cache settings in Redux (`settingsSlice`) but never write directly. The flow:
+
+1. Renderer reads via `window.electron.settings.get()` → `settings:get` IPC → `loadSettings()` returns the parsed object
+2. Renderer writes via `window.electron.settings.set(patch)` → `settings:set` IPC → main writes the updated file
+3. Main fans out a `settings:changed` event to every renderer (main window + Settings window) via `broadcastTypedEvent` so all caches stay in lockstep
+4. The Settings window opener is exposed as `window.electron.settings.open()` → `settings:open` IPC
+
+**Schema:**
+
+```typescript
+// src/shared/settings.ts
+export const SettingsSchema = z.object({
+  defaultSkillTab: z.enum(['files', 'info']).default('files'),
+})
+export type Settings = z.infer<typeof SettingsSchema>
+export const DEFAULT_SETTINGS: Settings = { defaultSkillTab: 'files' }
+```
+
+The `KEYBINDINGS` constant is the single source of truth for the read-only Keybindings section, ensuring the Settings UI never drifts from the actual menu accelerators.
 
 ## Menu Bar (Minimal)
 
@@ -678,7 +829,7 @@ APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 **Sections:**
 
 - Hero with app screenshot
-- Feature grid (21 agents, symlink status, 24 themes)
+- Feature grid (44 agents, symlink status, 27 theme presets)
 - Download CTA linking to GitHub Release
 - OG image for social sharing
 
