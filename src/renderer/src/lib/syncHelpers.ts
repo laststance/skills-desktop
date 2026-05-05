@@ -12,8 +12,14 @@ import type {
 } from '../../../shared/types'
 
 /**
- * Whether to show the sync confirmation dialog (no-conflict case).
- * Returns true when there are new symlinks to create but no conflicts to resolve.
+ * Whether to show the GLOBAL sync confirmation dialog (no-conflict case).
+ * Returns true when there are new symlinks to create, no conflicts to
+ * resolve, AND the preview is global (not scoped to a single agent).
+ *
+ * Per-agent scoped previews populate `forAgent` and are owned by
+ * `CleanupAgentDialog`; this guard prevents the global dialog from
+ * latching onto them and rendering on top.
+ *
  * @param preview - Sync preview result from the main process, or null if not available
  * @returns true if the confirm dialog should be shown
  * @example
@@ -21,11 +27,13 @@ import type {
  * shouldShowSyncConfirm({ toCreate: 5, conflicts: [] }) // => true
  * shouldShowSyncConfirm({ toCreate: 5, conflicts: [conflict] }) // => false (conflict dialog handles this)
  * shouldShowSyncConfirm({ toCreate: 0, conflicts: [] }) // => false (already synced)
+ * shouldShowSyncConfirm({ toCreate: 5, conflicts: [], forAgent: 'cursor' }) // => false (CleanupAgentDialog owns this)
  */
 export function shouldShowSyncConfirm(
   preview: SyncPreviewResult | null,
 ): boolean {
   if (!preview) return false
+  if (preview.forAgent) return false
   return preview.toCreate > 0 && preview.conflicts.length === 0
 }
 

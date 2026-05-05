@@ -30,6 +30,7 @@ import type {
   SourceStats,
   SyncExecuteOptions,
   SyncExecuteResult,
+  SyncPreviewOptions,
   SyncPreviewResult,
   UnlinkFromAgentOptions,
   UnlinkManyFromAgentOptions,
@@ -96,7 +97,15 @@ export interface IpcInvokeContract {
     args: [{ filter: RankingFilter }]
     result: SkillSearchResult[]
   }
-  'sync:preview': { args: []; result: SyncPreviewResult }
+  'sync:preview': {
+    // Always 1-arg (possibly `undefined`) to match the Zod tuple schema —
+    // `z.tuple([...optional()])` accepts `[undefined]` but rejects `[]`.
+    // Preload's `typedInvoke('sync:preview', options)` always forwards the
+    // arg even when `options` is `undefined`, so this contract reflects
+    // reality.
+    args: [SyncPreviewOptions | undefined]
+    result: SyncPreviewResult
+  }
   'sync:execute': { args: [SyncExecuteOptions]; result: SyncExecuteResult }
   'update:download': { args: []; result: void }
   'update:install': { args: []; result: void }

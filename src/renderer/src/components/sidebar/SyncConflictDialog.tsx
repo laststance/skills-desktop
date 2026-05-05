@@ -26,7 +26,10 @@ export const SyncConflictDialog = React.memo(
 
     const conflicts = syncPreview?.conflicts ?? []
     const hasConflicts = conflicts.length > 0
-    const isOpen = hasConflicts && !!syncPreview
+    // Global conflict dialog only — per-agent previews carry `forAgent`
+    // and are owned by `CleanupAgentDialog`. Without this guard a scoped
+    // preview with conflicts would open both dialogs simultaneously.
+    const isOpen = hasConflicts && !!syncPreview && !syncPreview.forAgent
 
     const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
     const [isExecuting, setIsExecuting] = useState(false)

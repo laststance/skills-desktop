@@ -76,12 +76,23 @@ function isGStackBundlePath(candidatePath: string): boolean {
  * // => { showDeleteButton: false, showAddButton: true, showUnlinkButton: true, isLinked: true, ... }
  *
  * @example
- * // Orphan skill — both delete and unlink hidden (cleanup flow handled separately)
+ * // Orphan in global view — Delete is shown so the user can sweep the
+ * // dangling skill row; Add is hidden (no live source to point a new
+ * // symlink at).
  * getSkillItemVisibility(null, {
  *   symlinks: [{ agentId: 'cursor', status: 'broken', isLocal: false, ... }],
  *   isOrphan: true,
  * })
- * // => { showDeleteButton: false, showUnlinkButton: false, ... }
+ * // => { showDeleteButton: true, showAddButton: false, showUnlinkButton: false, ... }
+ *
+ * @example
+ * // Orphan in agent view — Unlink is shown so the user can clear the
+ * // dangling agent-side symlink one row at a time. Add stays hidden.
+ * getSkillItemVisibility('cursor', {
+ *   symlinks: [{ agentId: 'cursor', status: 'broken', isLocal: false, ... }],
+ *   isOrphan: true,
+ * })
+ * // => { showDeleteButton: false, showAddButton: false, showUnlinkButton: true, ... }
  */
 export function getSkillItemVisibility(
   selectedAgentId: AgentId | null,
@@ -103,8 +114,8 @@ export function getSkillItemVisibility(
 
   const isLocalSkill = !!selectedLocalSkillInfo
   const hasSkillInSelectedAgent = !!selectedAgentSymlink || isLocalSkill
-  // Orphan handling — see Skill.isOrphan for why the delete/unlink buttons
-  // are gated. Source: scanOrphanSymlinks() in src/main/services/skillScanner.ts.
+  // Orphan handling — see Skill.isOrphan for why the Add button is gated.
+  // Source: scanOrphanSymlinks() in src/main/services/skillScanner.ts.
   const gStackPathCandidates = [
     selectedAgentSymlink?.targetPath ?? '',
     selectedAgentSymlink?.linkPath ?? '',
@@ -117,18 +128,28 @@ export function getSkillItemVisibility(
     isGStackEligibleAgent && gStackPathCandidates.some(isGStackBundlePath)
 
   return {
-    showDeleteButton: !selectedAgentId && !isOrphan,
+    // Delete is the primary cleanup action for orphans in global view —
+    // sweeping the dangling row removes every agent-side symlink at once.
+    // Restored so users have an explicit way to act on what the loosened
+    // selectFilteredSkills now shows them.
+    showDeleteButton: !selectedAgentId,
     // Orphan skills have no live source to symlink _to_, so the Add button
     // (which opens AddSymlinkModal / CopyToAgentsModal) would surface a flow
-    // that can only fail. Hide it for the same reason Delete/Unlink hide:
-    // the source is gone, the row is awaiting cleanup, not action.
+    // that can only fail. Stays gated on `!isOrphan` even after the Delete
+    // and Unlink loosens.
     showAddButton: (!selectedAgentId || hasSkillInSelectedAgent) && !isOrphan,
-    showUnlinkButton: hasSkillInSelectedAgent && !isOrphan,
+    // Unlink is the per-agent cleanup action — drives the right-click
+    // "Cleanup missing skills..." flow's row-level analogue. For orphans
+    // it removes the dangling symlink without touching siblings.
+    showUnlinkButton: hasSkillInSelectedAgent,
     isLinked: !!selectedAgentSymlink && selectedAgentSymlink.status === 'valid',
     isLocalSkill,
     selectedAgentSymlink,
     selectedLocalSkillInfo,
-    showCopyButton: !!selectedAgentId && hasSkillInSelectedAgent,
+    // "Copy to..." opens CopyToAgentsModal which fans out from the live
+    // source skill — for an orphan, that source is gone. Hide the action
+    // for the same reason `showAddButton` is gated on `!isOrphan`.
+    showCopyButton: !!selectedAgentId && hasSkillInSelectedAgent && !isOrphan,
     showGStackBadge,
   }
 }

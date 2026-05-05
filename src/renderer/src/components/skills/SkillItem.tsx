@@ -301,6 +301,15 @@ export const SkillItem = React.memo(function SkillItem({
             !didPartialFail &&
               isLocalSkill &&
               'border-l-2 border-l-emerald-400/40',
+            // Orphan accent — surfaces dangling rows that the loosened
+            // selectFilteredSkills now lets through. Mutually exclusive with
+            // isLinked/isLocalSkill by definition (no source dir → no valid
+            // symlinks and no local copy could've kept it from being marked
+            // orphan), so the order below is purely for the partial-fail
+            // override.
+            !didPartialFail &&
+              skill.isOrphan &&
+              'border-l-2 border-l-amber-400/60',
             // In-flight fade while the row is part of an active bulk op.
             isInFlight && 'opacity-50 duration-150',
             // Partial-failure red edge (PARTIAL_FAIL_FLASH_MS).
@@ -443,6 +452,21 @@ export const SkillItem = React.memo(function SkillItem({
                     />
                   )}
                   <span className="truncate">{skill.name}</span>
+                  {/* Orphan badge — paired with the amber left-border so the
+                      row's state is legible even when the user hasn't
+                      noticed the border accent. The plain word "orphan"
+                      keeps it scannable; tooltip explains the action. */}
+                  {skill.isOrphan && (
+                    <span
+                      role="img"
+                      data-testid={`skill-orphan-badge-${skill.name}`}
+                      className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0"
+                      aria-label="Orphan skill — source directory is missing"
+                      title="Source directory is missing — use Cleanup to remove the dangling symlinks"
+                    >
+                      orphan
+                    </span>
+                  )}
                   {/* Add button:
                       - global view => AddSymlinkModal
                       - agent view => CopyToAgentsModal */}

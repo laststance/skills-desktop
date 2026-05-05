@@ -825,13 +825,28 @@ export interface SyncConflict {
 }
 
 /**
+ * Options for previewing sync, optionally scoped to a single agent.
+ * Nil `agentId` = global preview (every detected agent). Specifying
+ * `agentId` narrows preview to that one agent — used by the per-agent
+ * Cleanup flow so the dialog can show "N skills missing for <agent>"
+ * without surfacing other agents' state.
+ * @example {} // global
+ * @example { agentId: 'cursor' } // scoped
+ */
+export interface SyncPreviewOptions {
+  /** When set, restrict preview to this single agent. */
+  agentId?: AgentId
+}
+
+/**
  * Result from sync preview (dry run).
  * @example { totalSkills: 5, totalAgents: 3, toCreate: 10, alreadySynced: 5, conflicts: [] }
+ * @example { totalSkills: 5, totalAgents: 1, toCreate: 4, alreadySynced: 1, conflicts: [], forAgent: 'cursor' }
  */
 export interface SyncPreviewResult {
   /** Number of source skills considered. @example 5 */
   totalSkills: number
-  /** Number of agents considered. @example 3 */
+  /** Number of agents considered (1 when scoped to one agent). @example 3 */
   totalAgents: number
   /** Symlinks that would be created on execute (excludes conflicts). @example 10 */
   toCreate: number
@@ -839,15 +854,27 @@ export interface SyncPreviewResult {
   alreadySynced: number
   /** Per-agent folders that block creation until the user chooses to replace. */
   conflicts: SyncConflict[]
+  /**
+   * Echoes the `agentId` filter the preview was computed with, if any.
+   * Lets the renderer keep dialog state in sync with the preview that
+   * actually returned (defends against stale dialog after agent switch).
+   */
+  forAgent?: AgentId
 }
 
 /**
  * Options for executing sync with conflict resolution choices.
- * @example { replaceConflicts: ['/Users/me/.claude/skills/my-skill'] }
+ * Optional `agentId` scopes the operation to that single agent — used
+ * by the per-agent Cleanup flow. Nil `agentId` = full sync across every
+ * detected agent (existing behavior).
+ * @example { replaceConflicts: [] } // full sync
+ * @example { replaceConflicts: [], agentId: 'cursor' } // per-agent cleanup
  */
 export interface SyncExecuteOptions {
   /** Absolute paths of conflicting folders the user explicitly opted to replace with symlinks. */
   replaceConflicts: AbsolutePath[]
+  /** When set, restrict execution to this single agent. */
+  agentId?: AgentId
 }
 
 /**

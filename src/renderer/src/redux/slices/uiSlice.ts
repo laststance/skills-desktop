@@ -12,6 +12,7 @@ import type {
   SourceStats,
   SyncExecuteOptions,
   SyncExecuteResult,
+  SyncPreviewOptions,
   SyncPreviewResult,
   ToastId,
   TombstoneId,
@@ -123,6 +124,16 @@ interface UiState {
    * the current selection stale (tab, agent, sync op, competing bulk op).
    */
   bulkSelectMode: boolean
+  /**
+   * Agent currently targeted by the per-agent Cleanup dialog (right-click
+   * menu in `AgentItem` → "Cleanup missing skills..."). Null when no
+   * cleanup dialog is open. Distinct from `selectedAgentId` because the
+   * user might cleanup an agent that is NOT the currently filtered list
+   * (e.g. they're viewing all skills globally, then cleanup just `cursor`).
+   * The dialog reads `syncPreview` (which now echoes `forAgent`) to render
+   * agent-scoped counts and conflicts.
+   */
+  cleanupAgentTarget: AgentId | null
 }
 
 const initialState: UiState = {
@@ -143,6 +154,7 @@ const initialState: UiState = {
   undoToast: null,
   bulkConfirm: null,
   bulkSelectMode: false,
+  cleanupAgentTarget: null,
 }
 
 /**
@@ -156,13 +168,22 @@ export const fetchSourceStats = createAsyncThunk(
 )
 
 /**
- * Preview sync: detect conflicts and count operations without executing
- * @returns SyncPreviewResult
+ * Preview sync: detect conflicts and count operations without executing.
+ * When `options.agentId` is provided, narrows the preview to that single
+ * agent — drives the per-agent Cleanup dialog opened from `AgentItem`'s
+ * right-click menu. Without options, runs the global sync preview as
+ * before.
+ * @param options - When `agentId` is set, restricts the preview to that
+ *   agent. Optional; omit for the global preview.
+ * @returns SyncPreviewResult — includes `forAgent` echo when scoped.
+ * @example
+ * dispatch(fetchSyncPreview())                     // global
+ * dispatch(fetchSyncPreview({ agentId: 'cursor' })) // per-agent cleanup
  */
 export const fetchSyncPreview = createAsyncThunk(
   'ui/fetchSyncPreview',
-  async () => {
-    return window.electron.sync.preview()
+  async (options?: SyncPreviewOptions) => {
+    return window.electron.sync.preview(options)
   },
 )
 
@@ -311,6 +332,25 @@ const uiSlice = createSlice({
     exitBulkSelectMode: (state) => {
       state.bulkSelectMode = false
     },
+    /**
+     * Open the per-agent Cleanup dialog targeting `agentId`. Called from
+     * AgentItem's right-click "Cleanup missing skills..." menu item. The
+     * caller is expected to dispatch `fetchSyncPreview({ agentId })`
+     * immediately afterwards so `syncPreview` has scoped counts when the
+     * dialog renders.
+     */
+    setCleanupAgentTarget: (state, action: PayloadAction<AgentId>) => {
+      state.cleanupAgentTarget = action.payload
+    },
+    /**
+     * Close the per-agent Cleanup dialog. Also clears any stale
+     * `syncPreview` to keep the global sync confirm dialog from latching
+     * onto a per-agent preview if the user pivots back to it.
+     */
+    clearCleanupAgentTarget: (state) => {
+      state.cleanupAgentTarget = null
+      state.syncPreview = null
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -387,6 +427,8 @@ export const {
   clearBulkConfirm,
   enterBulkSelectMode,
   exitBulkSelectMode,
+  setCleanupAgentTarget,
+  clearCleanupAgentTarget,
 } = uiSlice.actions
 export default uiSlice.reducer
 
@@ -424,3 +466,13 @@ export const selectBulkConfirm = (state: RootState): BulkConfirmState | null =>
   state.ui.bulkConfirm
 export const selectBulkSelectMode = (state: RootState): boolean =>
   state.ui.bulkSelectMode
+/**
+ * Currently-targeted agent for the per-agent Cleanup dialog. Null when
+ * the dialog is closed. Components subscribe to this to mount/unmount
+ * `CleanupAgentDialog`.
+ * @example
+ * const cleanupTarget = useAppSelector(selectCleanupAgentTarget)
+ * // 'cursor' | null
+ */
+export const selectCleanupAgentTarget = (state: RootState): AgentId | null =>
+  state.ui.cleanupAgentTarget

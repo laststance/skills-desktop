@@ -10,6 +10,7 @@ import type {
   SyncConflict,
   SyncExecuteOptions,
   SyncExecuteResult,
+  SyncPreviewOptions,
   SyncPreviewResult,
   SyncResultItem,
 } from '../../shared/types'
@@ -41,15 +42,38 @@ async function getExistingAgents(): Promise<ExistingAgent[]> {
 }
 
 /**
- * Preview sync: detect what would happen without making changes
- * @returns SyncPreviewResult with counts and conflicts
+ * Narrow `getExistingAgents()` to a single agent when `options.agentId` is set.
+ * Lifted out so `syncPreview` and `syncExecute` cannot drift on the filter rule.
+ * Returns `[]` when the requested agent isn't on disk — preview/execute then
+ * short-circuit with empty results rather than silently no-op'ing across all
+ * agents (defends against typos in the agentId arg).
+ */
+function filterAgentsByOption<TAgent extends { id: AgentId }>(
+  agents: TAgent[],
+  agentId: AgentId | undefined,
+): TAgent[] {
+  if (!agentId) return agents
+  return agents.filter((a) => a.id === agentId)
+}
+
+/**
+ * Preview sync: detect what would happen without making changes.
+ * Optionally scoped to a single agent for the per-agent Cleanup flow.
+ * @param options - When `agentId` is set, restricts preview to that one agent.
+ * @returns SyncPreviewResult with counts, conflicts, and (when scoped) `forAgent` echo.
  * @example
  * syncPreview()
  * // => { totalSkills: 5, totalAgents: 3, toCreate: 10, alreadySynced: 5, conflicts: [] }
+ * @example
+ * syncPreview({ agentId: 'cursor' })
+ * // => { totalSkills: 5, totalAgents: 1, toCreate: 4, alreadySynced: 1, conflicts: [], forAgent: 'cursor' }
  */
-export async function syncPreview(): Promise<SyncPreviewResult> {
+export async function syncPreview(
+  options?: SyncPreviewOptions,
+): Promise<SyncPreviewResult> {
   const skills = await listValidSourceSkillDirs()
-  const agents = await getExistingAgents()
+  const allAgents = await getExistingAgents()
+  const agents = filterAgentsByOption(allAgents, options?.agentId)
 
   let toCreate = 0
   let alreadySynced = 0
@@ -86,26 +110,32 @@ export async function syncPreview(): Promise<SyncPreviewResult> {
     toCreate,
     alreadySynced,
     conflicts,
+    ...(options?.agentId ? { forAgent: options.agentId } : {}),
   }
 }
 
 /**
  * Execute sync: create symlinks and optionally replace conflicts.
  * Tracks per-item details for displaying a sync diff after completion.
- * @param options - replaceConflicts: paths to replace with symlinks
+ * Optionally scoped to a single agent for the per-agent Cleanup flow.
+ * @param options - replaceConflicts: paths to replace with symlinks. agentId: restrict to one agent.
  * @returns SyncExecuteResult with counts, per-item details, and errors
  * @example
  * syncExecute({ replaceConflicts: ['/Users/x/.claude/skills/my-skill'] })
  * // => { success: true, created: 10, replaced: 1, skipped: 5, errors: [], details: [...] }
+ * @example
+ * syncExecute({ replaceConflicts: [], agentId: 'cursor' })
+ * // => { success: true, created: 4, replaced: 0, skipped: 1, errors: [], details: [...] }
  */
 export async function syncExecute(
   options: SyncExecuteOptions,
 ): Promise<SyncExecuteResult> {
-  const { replaceConflicts } = options
+  const { replaceConflicts, agentId } = options
   const replaceSet = new Set(replaceConflicts)
 
   const skills = await listValidSourceSkillDirs()
-  const agents = await getExistingAgents()
+  const allAgents = await getExistingAgents()
+  const agents = filterAgentsByOption(allAgents, agentId)
 
   let created = 0
   let replaced = 0
