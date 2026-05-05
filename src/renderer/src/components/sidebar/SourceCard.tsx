@@ -203,11 +203,14 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
         </CardContent>
       </Card>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleRevealInFinder}>
+        {/* `onSelect` (not `onClick`) — Radix DropdownMenu.Item only fires */}
+        {/* `onSelect` for keyboard activation (Enter/Space). `onClick` would */}
+        {/* silently no-op for keyboard-only users. */}
+        <DropdownMenuItem onSelect={handleRevealInFinder}>
           <FolderOpen className="h-4 w-4 mr-2" />
           Reveal in Finder
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleOpenInTerminal}>
+        <DropdownMenuItem onSelect={handleOpenInTerminal}>
           <Terminal className="h-4 w-4 mr-2" />
           Open in Terminal
         </DropdownMenuItem>

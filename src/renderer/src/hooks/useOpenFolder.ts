@@ -6,10 +6,12 @@ import type { AbsolutePath } from '../../../shared/types'
 /**
  * Renderer-side wrapper around `window.electron.folder.{revealInFinder,openInTerminal}`.
  *
- * Both methods return a `Promise<FolderActionResult>` that NEVER rejects —
- * the main process maps every failure (path missing, app not installed,
- * spawn error) into `{ ok: false, ... message }`. The hook surfaces that
- * `message` as a `toast.error` and otherwise stays out of the way.
+ * Both methods normally return a `Promise<FolderActionResult>` where every
+ * expected failure (path missing, app not installed, spawn error) is mapped
+ * into `{ ok: false, ... message }` by the main process. Unexpected errors
+ * (e.g. EPERM on `realpath`) are intentionally rethrown at the IPC boundary
+ * — see `src/main/ipc/folder.ts` — so the hook ALSO has to handle the
+ * rejection branch or the user gets no feedback at all.
  *
  * Deliberately no double-click / debounce guard: spamming "Reveal in Finder"
  * 5× just brings Finder forward 5×, which is harmless. Adding a guard would
@@ -34,9 +36,11 @@ export function useOpenFolder(): {
 } {
   const revealInFinder = useCallback(
     async (folderPath: AbsolutePath): Promise<void> => {
-      const result = await window.electron.folder.revealInFinder(folderPath)
-      if (!result.ok) {
-        toast.error(result.message)
+      try {
+        const result = await window.electron.folder.revealInFinder(folderPath)
+        if (!result.ok) toast.error(result.message)
+      } catch {
+        toast.error('Failed to reveal folder in Finder')
       }
     },
     [],
@@ -44,9 +48,11 @@ export function useOpenFolder(): {
 
   const openInTerminal = useCallback(
     async (folderPath: AbsolutePath): Promise<void> => {
-      const result = await window.electron.folder.openInTerminal(folderPath)
-      if (!result.ok) {
-        toast.error(result.message)
+      try {
+        const result = await window.electron.folder.openInTerminal(folderPath)
+        if (!result.ok) toast.error(result.message)
+      } catch {
+        toast.error('Failed to open folder in terminal')
       }
     },
     [],

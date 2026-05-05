@@ -157,11 +157,13 @@ export const AgentItem = React.memo(function AgentItem({
         <DropdownMenuContent>
           {/* Folder actions go above destructive items so accidental keyboard */}
           {/* navigation (Down arrow → Enter) lands on a safe action first. */}
-          <DropdownMenuItem onClick={handleRevealInFinder}>
+          {/* `onSelect` (not `onClick`) — Radix DropdownMenu.Item only fires */}
+          {/* `onSelect` for keyboard activation (Enter/Space). */}
+          <DropdownMenuItem onSelect={handleRevealInFinder}>
             <FolderOpen className="h-4 w-4 mr-2" />
             Reveal in Finder
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleOpenInTerminal}>
+          <DropdownMenuItem onSelect={handleOpenInTerminal}>
             <Terminal className="h-4 w-4 mr-2" />
             Open in Terminal
           </DropdownMenuItem>

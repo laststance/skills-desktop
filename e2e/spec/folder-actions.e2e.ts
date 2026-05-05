@@ -91,6 +91,23 @@ test('AgentItem right-click menu exposes folder actions above destructive items'
   await expect(openTerm).toBeVisible()
   await expect(cleanup).toBeVisible()
   await expect(remove).toBeVisible()
+
+  // Y-axis order check: visibility alone would pass even if Reveal/Open were
+  // moved BELOW Cleanup/Delete, defeating the "safe-action-first" ordering
+  // contract this test claims to enforce. Compare boundingBox().y so a
+  // refactor that reshuffles items fails here, not in production where the
+  // user notices Down→Enter triggering Delete.
+  const [revealBox, openTermBox, cleanupBox, removeBox] = await Promise.all([
+    reveal.boundingBox(),
+    openTerm.boundingBox(),
+    cleanup.boundingBox(),
+    remove.boundingBox(),
+  ])
+  // `boundingBox()` returns null only for invisible elements — already
+  // guarded by the `toBeVisible` assertions above, so the `!` is safe.
+  expect(revealBox!.y).toBeLessThan(cleanupBox!.y)
+  expect(openTermBox!.y).toBeLessThan(cleanupBox!.y)
+  expect(cleanupBox!.y).toBeLessThan(removeBox!.y)
 })
 
 test('Settings → Preferred terminal picker lists all 8 IDs and reveals custom input on select', async ({

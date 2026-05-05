@@ -82,6 +82,34 @@ describe('useOpenFolder', () => {
     expect(toastErrorMock).toHaveBeenCalledWith('Folder not found: /missing')
   })
 
+  it('toasts a fallback message when revealInFinder rejects (e.g. main rethrows EPERM)', async () => {
+    // The main process rethrows unexpected errors (EPERM, etc.) past the
+    // structured `{ok:false}` boundary — see folder.ts. Without try/catch
+    // here the user would get no feedback at all on those paths.
+    revealMock.mockRejectedValue(new Error('EPERM'))
+    const { useOpenFolder } = await import('./useOpenFolder')
+    const { result } = await renderHook(() => useOpenFolder())
+
+    await result.current.revealInFinder('/locked' as never)
+
+    expect(toastErrorMock).toHaveBeenCalledTimes(1)
+    expect(toastErrorMock).toHaveBeenCalledWith(
+      'Failed to reveal folder in Finder',
+    )
+  })
+
+  it('toasts a fallback message when openInTerminal rejects', async () => {
+    openTerminalMock.mockRejectedValue(new Error('EPERM'))
+    const { useOpenFolder } = await import('./useOpenFolder')
+    const { result } = await renderHook(() => useOpenFolder())
+
+    await result.current.openInTerminal('/locked' as never)
+
+    expect(toastErrorMock).toHaveBeenCalledWith(
+      'Failed to open folder in terminal',
+    )
+  })
+
   it('returns referentially-stable callbacks across re-renders', async () => {
     revealMock.mockResolvedValue({ ok: true })
     const { useOpenFolder } = await import('./useOpenFolder')
