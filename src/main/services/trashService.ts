@@ -309,15 +309,28 @@ async function scanOrphanSymlinkPaths(
       await fs.access(resolvedTarget)
       // Target resolves — not orphan. Skip.
       continue
-    } catch {
-      // ENOENT (or any access failure) → treat as broken. The bulk cleanup
-      // path is forgiving: if a permission-denied read makes us mis-classify
-      // a live link as broken, the subsequent `unlink` will also EACCES and
-      // get logged; we never silently delete data we couldn't read.
-      orphans.push({
+    } catch (error) {
+      // Only ENOENT / ENOTDIR confirm "the target is gone". Other codes
+      // (EACCES, EPERM, ELOOP, etc.) mean we couldn't probe the target — the
+      // link might still be live and pointing at real data. Classifying those
+      // as orphan would let the subsequent `unlink` delete a working symlink
+      // a privileged process needs, so we log + skip and leave the entry
+      // for the user to investigate.
+      const code = errorCode(error)
+      if (code === 'ENOENT' || code === 'ENOTDIR') {
+        orphans.push({
+          agentId: agent.id,
+          linkPath: linkPath as AbsolutePath,
+          target,
+        })
+        continue
+      }
+      console.warn('trashService: scanOrphanSymlinkPaths access failed', {
         agentId: agent.id,
-        linkPath: linkPath as AbsolutePath,
-        target,
+        linkPath,
+        resolvedTarget,
+        code,
+        message: extractErrorMessage(error),
       })
     }
   }
@@ -344,6 +357,18 @@ async function clearOrphanSymlinks(
   const startTime = Date.now()
   const cascadeAgents: AgentId[] = []
   let symlinksRemoved = 0
+  /**
+   * Per-orphan unlink errors that did NOT recover via the ENOENT race path.
+   * Collected so we can fail the whole call atomically instead of returning
+   * a `'orphan-cleared'` success while data is still on disk — see why-throw
+   * note below.
+   */
+  const unlinkFailures: Array<{
+    agentId: AgentId
+    linkPath: AbsolutePath
+    code: string | undefined
+    message: string
+  }> = []
 
   for (const orphan of orphans) {
     try {
@@ -359,11 +384,18 @@ async function clearOrphanSymlinks(
         symlinksRemoved++
         continue
       }
+      const message = extractErrorMessage(error)
       console.warn('trashService: clearOrphanSymlinks unlink failed', {
         agentId: orphan.agentId,
         linkPath: orphan.linkPath,
         code,
-        message: extractErrorMessage(error),
+        message,
+      })
+      unlinkFailures.push({
+        agentId: orphan.agentId,
+        linkPath: orphan.linkPath,
+        code,
+        message,
       })
     }
   }
@@ -372,8 +404,23 @@ async function clearOrphanSymlinks(
     skillName,
     orphanCount: orphans.length,
     symlinksRemoved,
+    failureCount: unlinkFailures.length,
     durationMs: Date.now() - startTime,
   })
+
+  // Why throw on partial failure: the renderer (`MainContent.tsx`) treats
+  // `outcome: 'orphan-cleared'` as an unconditional success toast. Returning
+  // success while broken symlinks are still on disk would tell the user "all
+  // gone" while they're still seeing the orphan rows on the next scan — a
+  // trust-eroding lie. Throwing surfaces the failure as `outcome: 'error'`
+  // so the toast and row state stay honest. Successfully unlinked entries
+  // remain unlinked (no rollback) — re-running the delete will skip them via
+  // the ENOENT race path above, so the operation is idempotent.
+  if (unlinkFailures.length > 0) {
+    const firstFailure = unlinkFailures[0]
+    const summary = `Failed to remove ${unlinkFailures.length} of ${orphans.length} orphan ${orphans.length === 1 ? 'symlink' : 'symlinks'} for "${skillName}"`
+    throw new TrashError(summary, firstFailure?.code)
+  }
 
   return {
     kind: 'orphan-cleared',

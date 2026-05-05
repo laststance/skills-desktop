@@ -113,33 +113,25 @@ export const getToolbarState = ({
 }
 
 /**
- * Outcomes that count as a successful row in a bulk delete: a real tombstoned
- * delete (`'deleted'`) or an orphan symlink sweep (`'orphan-cleared'`). Both
- * carry `symlinksRemoved` and contribute to the user's "things removed" tally;
- * only the first carries a tombstoneId, so callers that need undo must filter
- * narrower than this.
- */
-type BulkDeleteSuccessOutcome = 'deleted' | 'orphan-cleared'
-
-const isBulkDeleteSuccess = (
-  item: BulkDeleteItemResult,
-): item is Extract<
-  BulkDeleteItemResult,
-  { outcome: BulkDeleteSuccessOutcome }
-> => item.outcome === 'deleted' || item.outcome === 'orphan-cleared'
-
-/**
- * Build the summary string shown in the undo toast after a bulk DELETE:
- *  - Counts successful rows (tombstoned + orphan-cleared) vs errors.
- *  - Aggregates `symlinksRemoved` across every success to surface the cascade.
+ * Build the summary string shown in the toast body after a bulk DELETE.
  *
- * Orphan-cleared rows are folded into the success count even though they have
- * no tombstone — from the user's perspective the broken link "is gone", which
- * is exactly what bulk delete promises. Undo wiring is the caller's concern;
- * see `MainContent` where we filter to `outcome === 'deleted'` for the toast.
+ * The phrases are deliberately independent so the Undo-facing text only
+ * counts truly restorable rows (`outcome === 'deleted'`):
+ *
+ *  1. **"Deleted N skill(s)"** — tombstoned only. Drives the Undo wording in
+ *     `MainContent`'s undo toast; orphan-cleared rows MUST NOT be folded in
+ *     here, otherwise Undo lies about how many things will come back.
+ *  2. **"Cleaned up M orphan symlinks"** — orphan-cleared rows. Communicated
+ *     as a distinct phrase because there is no undo path; the user should see
+ *     it as a separate, irreversible cleanup.
+ *  3. **"X symlinks removed"** — cascade tally from tombstoned rows ONLY.
+ *     Orphan symlinks are already counted by phrase 2; combining them would
+ *     double-count.
+ *  4. **"Y deletion(s) failed"** — emitted only when there are errors AND no
+ *     tombstoned rows to embed the K-of-N form into.
  *
  * @param result - BulkDeleteResult from the main-process thunk.
- * @returns Human-readable summary for the toast body.
+ * @returns Human-readable summary built from the four phrases above.
  * @example
  * formatCascadeSummary({ items: [
  *   { skillName: 'task', outcome: 'deleted', tombstoneId: '...', symlinksRemoved: 2, cascadeAgents: ['cursor', 'claude-code'] },
@@ -147,41 +139,77 @@ const isBulkDeleteSuccess = (
  * ] })
  * // => 'Deleted 2 skills. 3 symlinks removed.'
  * @example
- * // With orphan-cleared mixed in:
+ * // Mixed deleted + orphan-cleared — orphan stays separate from the Undo count:
  * formatCascadeSummary({ items: [
  *   { skillName: 'task', outcome: 'deleted', tombstoneId: '...', symlinksRemoved: 1, cascadeAgents: [] },
  *   { skillName: 'abandoned', outcome: 'orphan-cleared', symlinksRemoved: 2, cascadeAgents: ['cursor', 'codex'] },
  * ] })
- * // => 'Deleted 2 skills. 3 symlinks removed.'
+ * // => 'Deleted 1 skill. Cleaned up 2 orphan symlinks. 1 symlink removed.'
  * @example
  * // With errors:
  * formatCascadeSummary({ items: [
  *   { skillName: 'task', outcome: 'deleted', tombstoneId: '...', symlinksRemoved: 1, cascadeAgents: [] },
- *   { skillName: 'locked', outcome: 'error', error: { message: 'EACCES' } },
+ *   { skillName: 'locked', outcome: 'error', error: { message: 'EACCES', code: 'EACCES' } },
  * ] })
  * // => 'Deleted 1 of 2 skills. 1 symlink removed.'
  */
 export const formatCascadeSummary = (result: BulkDeleteResult): string => {
-  const successItems = result.items.filter(isBulkDeleteSuccess)
-  const totalSymlinksRemoved = successItems.reduce(
+  const deletedItems = result.items.filter(
+    (item): item is Extract<BulkDeleteItemResult, { outcome: 'deleted' }> =>
+      item.outcome === 'deleted',
+  )
+  const orphanItems = result.items.filter(
+    (
+      item,
+    ): item is Extract<BulkDeleteItemResult, { outcome: 'orphan-cleared' }> =>
+      item.outcome === 'orphan-cleared',
+  )
+  const errorCount = result.items.filter(
+    (item) => item.outcome === 'error',
+  ).length
+
+  const deletedCount = deletedItems.length
+  const tombstonedAttempted = deletedCount + errorCount
+  const tombstonedCascade = deletedItems.reduce(
     (sum, item) => sum + item.symlinksRemoved,
     0,
   )
-  const successCount = successItems.length
-  const totalCount = result.items.length
-  const hadErrors = successCount < totalCount
+  const orphanSymlinks = orphanItems.reduce(
+    (sum, item) => sum + item.symlinksRemoved,
+    0,
+  )
 
-  const skillsPhrase = hadErrors
-    ? `Deleted ${successCount} of ${totalCount} ${pluralize(totalCount, 'skill')}.`
-    : `Deleted ${successCount} ${pluralize(successCount, 'skill')}.`
+  const phrases: string[] = []
 
-  // Omit the symlink sentence when nothing cascaded (keeps the toast compact).
-  const symlinksPhrase =
-    totalSymlinksRemoved > 0
-      ? ` ${totalSymlinksRemoved} ${pluralize(totalSymlinksRemoved, 'symlink')} removed.`
-      : ''
+  // Phrase 1 — tombstoned only. The Undo button restores exactly these rows.
+  if (deletedCount > 0) {
+    phrases.push(
+      errorCount > 0
+        ? `Deleted ${deletedCount} of ${tombstonedAttempted} ${pluralize(tombstonedAttempted, 'skill')}.`
+        : `Deleted ${deletedCount} ${pluralize(deletedCount, 'skill')}.`,
+    )
+  }
 
-  return `${skillsPhrase}${symlinksPhrase}`
+  // Phrase 2 — orphan cleanup, irreversible, kept distinct from deletions.
+  if (orphanSymlinks > 0) {
+    phrases.push(
+      `Cleaned up ${orphanSymlinks} orphan ${pluralize(orphanSymlinks, 'symlink')}.`,
+    )
+  }
+
+  // Phrase 3 — cascade tally from tombstoned only (orphans counted in phrase 2).
+  if (tombstonedCascade > 0) {
+    phrases.push(
+      `${tombstonedCascade} ${pluralize(tombstonedCascade, 'symlink')} removed.`,
+    )
+  }
+
+  // Phrase 4 — standalone error report when no tombstoned row absorbs it.
+  if (deletedCount === 0 && errorCount > 0) {
+    phrases.push(`${errorCount} ${pluralize(errorCount, 'deletion')} failed.`)
+  }
+
+  return phrases.join(' ')
 }
 
 /**

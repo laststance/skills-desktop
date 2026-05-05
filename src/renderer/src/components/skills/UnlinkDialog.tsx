@@ -74,10 +74,19 @@ function getUnlinkCopy(
     .exhaustive()
 }
 
-/** Compute the variant from the symlink record (single source of truth). */
+/**
+ * Compute the variant from the symlink record (single source of truth).
+ *
+ * `'missing'` is mapped to `'broken'` defensively: both represent "no live
+ * link to remove" (a cleanup operation, not a live unlink). Upstream gating
+ * in `SkillItemHelpers` should prevent `'missing'` from ever reaching this
+ * dialog, but the explicit branch ensures it can never silently fall through
+ * to `'valid'` and surface the wrong "remove live link" copy.
+ */
 function pickVariant(symlink: SymlinkInfo): UnlinkVariant {
   if (symlink.isLocal) return 'local'
-  if (symlink.status === 'broken') return 'broken'
+  if (symlink.status === 'broken' || symlink.status === 'missing')
+    return 'broken'
   return 'valid'
 }
 

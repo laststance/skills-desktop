@@ -196,9 +196,10 @@ describe('formatCascadeSummary', () => {
     )
   })
 
-  it('counts orphan-cleared rows as success and rolls their symlinksRemoved into the cascade tally', () => {
-    // Issue #71 PR-1: orphan-cleared has no tombstoneId (no undo to wire up),
-    // but from the user's POV the broken link "is gone" — same wording.
+  it('keeps orphan-cleared distinct from the Undo-facing "Deleted" phrase', () => {
+    // Issue #71 PR-1: orphan-cleared has no tombstoneId so Undo can't restore
+    // it — therefore the "Deleted N" wording must NOT include it (otherwise
+    // the toast lies about how many rows the user can bring back).
     const result: BulkDeleteResult = {
       items: [
         {
@@ -217,16 +218,17 @@ describe('formatCascadeSummary', () => {
       ],
     }
 
-    // 2 successes, 3 cascaded symlinks (1 + 2). The "K of N" form must NOT
-    // appear: orphan-cleared is success, not error.
+    // 1 truly-deleted (undoable) + 2 orphan symlinks swept (irreversible) +
+    // 1 cascaded symlink from the deleted row. Three independent phrases.
     expect(formatCascadeSummary(result)).toBe(
-      'Deleted 2 skills. 3 symlinks removed.',
+      'Deleted 1 skill. Cleaned up 2 orphan symlinks. 1 symlink removed.',
     )
   })
 
-  it('formats orphan-only batches without any tombstoneId rows', () => {
+  it('reports orphan-only batches without any "Deleted" phrase', () => {
     // The all-orphan case: e.g. user deleted the source first, then bulk
     // selected the broken-symlink rows in agent view to clean them up.
+    // Nothing was tombstoned, so "Deleted" stays out of the message entirely.
     const result: BulkDeleteResult = {
       items: [
         {
@@ -248,12 +250,12 @@ describe('formatCascadeSummary', () => {
       ],
     }
 
-    expect(formatCascadeSummary(result)).toBe(
-      'Deleted 2 skills. 4 symlinks removed.',
-    )
+    expect(formatCascadeSummary(result)).toBe('Cleaned up 4 orphan symlinks.')
   })
 
-  it('treats mixed orphan + error correctly with K-of-N partial form', () => {
+  it('reports mixed orphan + error as separate phrases (no K-of-N form)', () => {
+    // No tombstoned rows means the K-of-N "Deleted X of Y" form has nothing
+    // to attach to; the error count gets its own standalone phrase instead.
     const result: BulkDeleteResult = {
       items: [
         {
@@ -270,9 +272,8 @@ describe('formatCascadeSummary', () => {
       ],
     }
 
-    // 1 of 2 succeeded, 2 symlinks removed by the orphan-cleared row.
     expect(formatCascadeSummary(result)).toBe(
-      'Deleted 1 of 2 skills. 2 symlinks removed.',
+      'Cleaned up 2 orphan symlinks. 1 deletion failed.',
     )
   })
 })
