@@ -1,5 +1,6 @@
 import type { Settings } from '../../../shared/settings'
 import type {
+  AbsolutePath,
   Skill,
   Agent,
   SourceStats,
@@ -124,8 +125,12 @@ declare global {
         onChanged: (callback: (settings: Settings) => void) => () => void
       }
       folder: {
-        revealInFinder: (folderPath: string) => Promise<FolderActionResult>
-        openInTerminal: (folderPath: string) => Promise<FolderActionResult>
+        revealInFinder: (
+          folderPath: AbsolutePath,
+        ) => Promise<FolderActionResult>
+        openInTerminal: (
+          folderPath: AbsolutePath,
+        ) => Promise<FolderActionResult>
       }
     }
   }

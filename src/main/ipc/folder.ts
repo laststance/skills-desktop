@@ -5,7 +5,12 @@ import { shell } from 'electron'
 
 import { TERMINAL_APP_DISPLAY_NAMES } from '../../shared/constants'
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
-import type { FolderActionResult, TerminalAppId } from '../../shared/types'
+import type { Settings } from '../../shared/settings'
+import type {
+  AbsolutePath,
+  FolderActionResult,
+  TerminalAppId,
+} from '../../shared/types'
 import { getSettings } from '../services/settings'
 import { errorCode } from '../utils/errorCode'
 
@@ -38,9 +43,9 @@ import { typedHandle } from './typedHandle'
  */
 export function buildOpenArgs(
   preferredTerminal: TerminalAppId,
-  customTerminalAppName: string | undefined,
-  folderPath: string,
-): readonly string[] | null {
+  customTerminalAppName: Settings['customTerminalAppName'],
+  folderPath: AbsolutePath,
+): readonly ['-a', string, AbsolutePath] | null {
   if (preferredTerminal === 'custom') {
     const trimmed = customTerminalAppName?.trim()
     if (!trimmed) return null
@@ -67,9 +72,9 @@ export function buildOpenArgs(
  * - `{ ok: false, reason: 'not-found' }` for ENOENT / ELOOP / ENOTDIR
  */
 async function resolveExistingPath(
-  requestedPath: string,
+  requestedPath: AbsolutePath,
 ): Promise<
-  { ok: true; resolved: string } | { ok: false; reason: 'not-found' }
+  { ok: true; resolved: AbsolutePath } | { ok: false; reason: 'not-found' }
 > {
   try {
     const resolved = await realpath(requestedPath)
@@ -93,7 +98,7 @@ async function resolveExistingPath(
  * included so the user knows *which* folder vanished — useful when several
  * agent rows are shown side-by-side.
  */
-function notFoundMessage(folderPath: string): string {
+function notFoundMessage(folderPath: AbsolutePath): string {
   return `Folder not found: ${folderPath}`
 }
 
@@ -106,7 +111,9 @@ function notFoundMessage(folderPath: string): string {
  *
  * @param folderPath - Absolute path to the folder.
  */
-async function revealInFinder(folderPath: string): Promise<FolderActionResult> {
+async function revealInFinder(
+  folderPath: AbsolutePath,
+): Promise<FolderActionResult> {
   const existence = await resolveExistingPath(folderPath)
   if (!existence.ok) {
     return {
@@ -142,7 +149,9 @@ async function revealInFinder(folderPath: string): Promise<FolderActionResult> {
  *
  * @param folderPath - Absolute path to the folder to open.
  */
-async function openInTerminal(folderPath: string): Promise<FolderActionResult> {
+async function openInTerminal(
+  folderPath: AbsolutePath,
+): Promise<FolderActionResult> {
   const existence = await resolveExistingPath(folderPath)
   if (!existence.ok) {
     return {

@@ -267,6 +267,26 @@ export type SkillType = 'source' | 'local'
 export type TerminalAppId = (typeof TERMINAL_APP_IDS)[number]
 
 /**
+ * Discriminator for the failure cases of `FolderActionResult`.
+ * Extracted so renderer toast handlers and unit tests can switch on
+ * the same finite set instead of redeclaring it inline.
+ *
+ * - `not-found`: the requested folder no longer exists (deleted between
+ *   scan and click, or stat raised ENOENT/ELOOP/ENOTDIR).
+ * - `launch-failed`: `open -a` exited non-zero or `shell.openPath`
+ *   returned an error string (most often: chosen terminal app missing).
+ * - `invalid-path`: settings are in `'custom'` mode but the custom app
+ *   name is blank/missing — caller must surface a Settings hint.
+ *
+ * @example
+ * const reason: FolderActionErrorReason = 'not-found'
+ */
+export type FolderActionErrorReason =
+  | 'not-found'
+  | 'launch-failed'
+  | 'invalid-path'
+
+/**
  * Discriminated result of a folder-launch IPC call (Reveal in Finder /
  * Open in Terminal). The `ok: false` branch carries a user-safe message
  * already formatted for `toast.error` — renderer code never touches the
@@ -283,7 +303,7 @@ export type FolderActionResult =
   | { ok: true }
   | {
       ok: false
-      reason: 'not-found' | 'launch-failed' | 'invalid-path'
+      reason: FolderActionErrorReason
       message: string
     }
 
