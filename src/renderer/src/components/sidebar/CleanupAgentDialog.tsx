@@ -12,6 +12,8 @@ import {
   selectCleanupAgentTarget,
   selectSyncPreview,
 } from '../../redux/slices/uiSlice'
+import { errorToastDescription } from '../../utils/errorToastDescription'
+import { pluralize } from '../../utils/pluralize'
 import { Button } from '../ui/button'
 import {
   Dialog,
@@ -102,7 +104,7 @@ export const CleanupAgentDialog = React.memo(
       // SyncResultDialog renders the per-item diff on success.
       if (executeSyncAction.rejected.match(result)) {
         toast.error('Cleanup failed', {
-          description: result.error?.message || 'An unexpected error occurred',
+          description: errorToastDescription(result),
         })
       }
 
@@ -199,7 +201,7 @@ export const CleanupAgentDialog = React.memo(
                     Cleaning up...
                   </>
                 ) : (
-                  `Cleanup ${missingCount} ${missingCount === 1 ? 'skill' : 'skills'}`
+                  `Cleanup ${missingCount} ${pluralize(missingCount, 'skill')}`
                 )}
               </Button>
             )}
