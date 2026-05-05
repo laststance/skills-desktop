@@ -13,6 +13,7 @@ import type {
   DeleteSkillResult,
   DeleteSkillsOptions,
   DownloadProgress,
+  FolderActionResult,
   HttpUrl,
   InstallOptions,
   InstallProgress,
@@ -114,6 +115,12 @@ export interface IpcInvokeContract {
   'settings:open': { args: []; result: void }
   'settings:get': { args: []; result: Settings }
   'settings:set': { args: [Partial<Settings>]; result: Settings }
+  // Folder actions are intentionally typed as `Promise<FolderActionResult>`
+  // (never throws) so the renderer can render a toast without try/catch.
+  // Main-process exceptions get caught at the typedHandle boundary and
+  // converted to `{ ok: false, reason: 'launch-failed', message }`.
+  'folder:revealInFinder': { args: [AbsolutePath]; result: FolderActionResult }
+  'folder:openInTerminal': { args: [AbsolutePath]; result: FolderActionResult }
 }
 
 /**

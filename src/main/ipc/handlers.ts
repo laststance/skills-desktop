@@ -1,5 +1,6 @@
 import { registerAgentsHandlers } from './agents'
 import { registerFilesHandlers } from './files'
+import { registerFolderHandlers } from './folder'
 import { registerLeaderboardHandlers } from './leaderboard'
 import { registerSettingsHandlers } from './settings'
 import { registerShellHandlers } from './shell'
@@ -24,4 +25,5 @@ export function registerAllHandlers(): void {
   registerSyncHandlers()
   registerShellHandlers()
   registerSettingsHandlers()
+  registerFolderHandlers()
 }

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { TERMINAL_APP_IDS } from '../../shared/constants'
 import type { IpcInvokeChannel } from '../../shared/ipc-contract'
 
 /**
@@ -11,6 +12,28 @@ import type { IpcInvokeChannel } from '../../shared/ipc-contract'
  */
 
 const nonEmptyString = z.string().min(1)
+
+/**
+ * Absolute POSIX path validator for IPC channels that hand a path to
+ * `shell.openPath` / `spawn('open', …)`. The leading-slash refine catches
+ * relative paths early (a renderer bug or a tampered call) before they reach
+ * the OS — `shell.openPath('relative/path')` resolves against the main
+ * process's cwd, which is almost never what the user expects and may escape
+ * the agent / source dir entirely.
+ *
+ * Symlink-loop protection (ELOOP) and not-found handling live in the
+ * `folder.ts` handler — this is a syntactic guard only.
+ *
+ * @example
+ * absolutePathArg.parse('/Users/me/.agents/skills') // ok
+ * absolutePathArg.parse('relative/path')           // throws ZodError
+ */
+const absolutePathArg = z
+  .string()
+  .min(1)
+  .refine((p) => p.startsWith('/'), {
+    message: 'Path must be absolute (start with /)',
+  })
 /**
  * Skill name must not contain path separators (prevents `../` traversal) or
  * null bytes (defense in depth: some libc wrappers truncate at `\0`, which
@@ -248,7 +271,15 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
     z
       .object({
         defaultSkillTab: z.enum(['files', 'info']).optional(),
+        preferredTerminal: z.enum(TERMINAL_APP_IDS).optional(),
+        // Same trim+min(1)+max(64) shape as SettingsSchema — keep in sync.
+        customTerminalAppName: z.string().trim().min(1).max(64).optional(),
       })
       .strict(),
   ]),
+
+  // Folder actions — `open -a` / `shell.openPath`. Path must be absolute;
+  // see `absolutePathArg` for rationale.
+  'folder:revealInFinder': z.tuple([absolutePathArg]),
+  'folder:openInTerminal': z.tuple([absolutePathArg]),
 }

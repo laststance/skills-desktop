@@ -60,6 +60,10 @@ export const IPC_CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
   SETTINGS_CHANGED: 'settings:changed',
+
+  // Folder actions (Reveal in Finder, Open in Terminal)
+  FOLDER_REVEAL_IN_FINDER: 'folder:revealInFinder',
+  FOLDER_OPEN_IN_TERMINAL: 'folder:openInTerminal',
 } as const
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]

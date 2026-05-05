@@ -53,3 +53,76 @@ describe('skillNameString consistency across channels', () => {
     }
   })
 })
+
+/**
+ * Argument validation for the folder:* channels added in the
+ * "Open in Terminal / Reveal in Finder" feature. These schemas guard the
+ * boundary between an untrusted renderer call and `shell.openPath` /
+ * `child_process.spawn('open', ...)`.
+ */
+describe('folder:* channels', () => {
+  const finderSchema = IPC_ARG_SCHEMAS['folder:revealInFinder']!
+  const terminalSchema = IPC_ARG_SCHEMAS['folder:openInTerminal']!
+
+  it('folder:revealInFinder accepts an absolute path', () => {
+    expect(finderSchema.safeParse(['/Users/me/.agents/skills']).success).toBe(
+      true,
+    )
+  })
+
+  it('folder:revealInFinder rejects empty string', () => {
+    expect(finderSchema.safeParse(['']).success).toBe(false)
+  })
+
+  it('folder:revealInFinder rejects relative path', () => {
+    expect(finderSchema.safeParse(['relative/path']).success).toBe(false)
+  })
+
+  it('folder:openInTerminal mirrors the same absolute-path guard', () => {
+    expect(terminalSchema.safeParse(['/Users/me/.cline/skills']).success).toBe(
+      true,
+    )
+    expect(terminalSchema.safeParse(['']).success).toBe(false)
+    expect(terminalSchema.safeParse(['./relative']).success).toBe(false)
+  })
+})
+
+/**
+ * `settings:set` is the highest-blast-radius write channel: validated input
+ * lands on disk in user data. The schema is .strict() so unknown keys are
+ * rejected — a compromised renderer cannot inject arbitrary fields.
+ */
+describe('settings:set lockstep with SettingsSchema', () => {
+  const schema = IPC_ARG_SCHEMAS['settings:set']!
+
+  it('accepts the new preferredTerminal field', () => {
+    expect(schema.safeParse([{ preferredTerminal: 'iterm' }]).success).toBe(
+      true,
+    )
+  })
+
+  it('accepts customTerminalAppName within length cap', () => {
+    expect(schema.safeParse([{ customTerminalAppName: 'Hyper' }]).success).toBe(
+      true,
+    )
+  })
+
+  it('rejects an unknown enum value for preferredTerminal', () => {
+    expect(
+      schema.safeParse([{ preferredTerminal: 'fish-shell' }]).success,
+    ).toBe(false)
+  })
+
+  it('rejects customTerminalAppName longer than 64 chars', () => {
+    expect(
+      schema.safeParse([{ customTerminalAppName: 'a'.repeat(65) }]).success,
+    ).toBe(false)
+  })
+
+  it('rejects unknown extra keys (.strict())', () => {
+    expect(
+      schema.safeParse([{ defaultSkillTab: 'files', somethingElse: 'x' }])
+        .success,
+    ).toBe(false)
+  })
+})

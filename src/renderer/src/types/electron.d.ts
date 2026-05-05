@@ -9,6 +9,7 @@ import type {
   UpdateInfo,
   DeleteProgressPayload,
   DownloadProgress,
+  FolderActionResult,
   RankingFilter,
   SkillSearchResult,
   InstallOptions,
@@ -121,6 +122,10 @@ declare global {
         get: () => Promise<Settings>
         set: (partial: Partial<Settings>) => Promise<Settings>
         onChanged: (callback: (settings: Settings) => void) => () => void
+      }
+      folder: {
+        revealInFinder: (folderPath: string) => Promise<FolderActionResult>
+        openInTerminal: (folderPath: string) => Promise<FolderActionResult>
       }
     }
   }

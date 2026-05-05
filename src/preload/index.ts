@@ -130,6 +130,16 @@ contextBridge.exposeInMainWorld('electron', {
       typedInvoke('settings:set', partial),
     onChanged: createIpcListener<Settings>(IPC_CHANNELS.SETTINGS_CHANGED),
   },
+  // Folder actions — main-process-only because both `shell.openPath` and
+  // `child_process.spawn('open', …)` are unavailable in sandboxed preload.
+  // Both methods return `FolderActionResult` instead of throwing so the
+  // renderer can render a toast without try/catch.
+  folder: {
+    revealInFinder: async (folderPath: AbsolutePath) =>
+      typedInvoke('folder:revealInFinder', folderPath),
+    openInTerminal: async (folderPath: AbsolutePath) =>
+      typedInvoke('folder:openInTerminal', folderPath),
+  },
 })
 
 // E2E-only escape hatch from the typed `electron.*` IPC contract above.
