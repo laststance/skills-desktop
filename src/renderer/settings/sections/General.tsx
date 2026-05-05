@@ -120,10 +120,21 @@ export const General = React.memo(function General(): React.ReactElement {
 
   useEffect(() => {
     let cancelled = false
-    void window.electron.window.getMainBounds().then((bounds) => {
-      if (cancelled) return
-      setIsMainWindowAvailable(bounds !== null)
-    })
+    // Attach `.catch` explicitly — `void promise.then(...)` only suppresses
+    // TypeScript's "promise not handled" hint, it does NOT silence a real
+    // runtime rejection. If the IPC channel disconnects mid-call we want
+    // the button to fall back to disabled rather than logging an
+    // unhandled-promise warning to the renderer console.
+    window.electron.window
+      .getMainBounds()
+      .then((bounds) => {
+        if (cancelled) return
+        setIsMainWindowAvailable(bounds !== null)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setIsMainWindowAvailable(false)
+      })
     return () => {
       cancelled = true
     }

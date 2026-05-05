@@ -77,6 +77,11 @@ export function getSettings(): Settings {
  * `windowSize` (the only nested field) compares by `width` + `height`
  * because Zod's `.parse()` always materializes a fresh object reference.
  *
+ * Iterates the **union** of keys from both inputs so an asymmetric
+ * shape (e.g. `a` lacks the `windowSize` key entirely while `b` has it
+ * defined) is detected rather than swallowed — `Object.keys(a)` alone
+ * would skip keys that exist only on `b`.
+ *
  * Adding another nested field requires a parallel branch here — there's
  * no recursive deep-equal because the schema is intentionally narrow.
  * @param a - First settings snapshot
@@ -88,16 +93,22 @@ export function getSettings(): Settings {
  * areSettingsEqual({ defaultSkillTab: 'files', preferredTerminal: 'terminal' }, { defaultSkillTab: 'files', preferredTerminal: 'terminal' }) // => true
  */
 export function areSettingsEqual(a: Settings, b: Settings): boolean {
-  return (Object.keys(a) as Array<keyof Settings>).every((key) => {
+  const allKeys = new Set<keyof Settings>([
+    ...(Object.keys(a) as Array<keyof Settings>),
+    ...(Object.keys(b) as Array<keyof Settings>),
+  ])
+  for (const key of allKeys) {
     if (key === 'windowSize') {
       const aw = a.windowSize
       const bw = b.windowSize
-      if (aw === bw) return true
+      if (aw === bw) continue
       if (aw === undefined || bw === undefined) return false
-      return aw.width === bw.width && aw.height === bw.height
+      if (aw.width !== bw.width || aw.height !== bw.height) return false
+      continue
     }
-    return a[key] === b[key]
-  })
+    if (a[key] !== b[key]) return false
+  }
+  return true
 }
 
 /**

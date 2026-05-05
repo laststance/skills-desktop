@@ -83,4 +83,29 @@ describe('areSettingsEqual', () => {
       ),
     ).toBe(false)
   })
+
+  it('returns false when one side omits the windowSize key entirely and the other has a value', () => {
+    // The asymmetric-shape bug: `Object.keys(a)` alone would skip a key
+    // that lives only on `b`, so an absent-vs-defined comparison would
+    // wrongly return `true`. Iterating the union of both objects' keys
+    // is what surfaces the difference.
+    expect(
+      areSettingsEqual(
+        { ...baseSettings },
+        { ...baseSettings, windowSize: { width: 1200, height: 800 } },
+      ),
+    ).toBe(false)
+    expect(
+      areSettingsEqual(
+        { ...baseSettings, windowSize: { width: 1200, height: 800 } },
+        { ...baseSettings },
+      ),
+    ).toBe(false)
+  })
+
+  it('returns true when both sides omit windowSize entirely', () => {
+    expect(areSettingsEqual({ ...baseSettings }, { ...baseSettings })).toBe(
+      true,
+    )
+  })
 })
