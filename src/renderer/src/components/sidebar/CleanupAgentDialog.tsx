@@ -173,7 +173,7 @@ export const CleanupAgentDialog = React.memo(
                   Nothing to clean up — every source skill is already linked.
                 </p>
               )}
-              {conflictCount > 0 && hasWork && (
+              {conflictCount > 0 && (
                 <p className="text-xs text-muted-foreground pt-1">
                   Conflicts (real folders blocking a symlink) are not touched by
                   cleanup. Resolve them from the global Sync flow.
