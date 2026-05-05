@@ -88,12 +88,10 @@ export const AgentItem = React.memo(function AgentItem({
 
   const handleRevealInFinder = (): void => {
     void revealInFinder(agent.path)
-    setContextOpen(false)
   }
 
   const handleOpenInTerminal = (): void => {
     void openInTerminal(agent.path)
-    setContextOpen(false)
   }
 
   const handleDelete = (): void => {

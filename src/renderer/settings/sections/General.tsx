@@ -6,7 +6,6 @@ import {
   TERMINAL_APP_UI_LABELS,
 } from '../../../shared/constants'
 import type { Settings } from '../../../shared/settings'
-import type { TerminalAppId } from '../../../shared/types'
 import { Input } from '../../src/components/ui/input'
 import {
   ToggleGroup,
@@ -39,15 +38,6 @@ const DEFAULT_TAB_OPTIONS: ReadonlyArray<{
  * of getting a silent reject after blur.
  */
 const CUSTOM_APP_NAME_MAX_LENGTH = 64
-
-/**
- * Type guard for the `<select>` change event — keeps the IPC dispatcher
- * narrowed without `as` casts. Defensive against a tampered DOM that
- * could fire `onChange` with an unknown value.
- */
-function isTerminalAppId(value: string): value is TerminalAppId {
-  return (TERMINAL_APP_IDS as readonly string[]).includes(value)
-}
 
 /**
  * General settings pane.
@@ -90,8 +80,12 @@ export const General = React.memo(function General(): React.ReactElement {
   const handlePreferredTerminalChange = (
     e: React.ChangeEvent<HTMLSelectElement>,
   ): void => {
-    const next = e.target.value
-    if (!isTerminalAppId(next)) return
+    // `find` infers `TerminalAppId | undefined` from the readonly tuple, so
+    // the IPC dispatcher is narrowed without an `as` cast. The IPC schema
+    // (`z.enum(TERMINAL_APP_IDS)`) is the real trust boundary — this filter
+    // is only here so a tampered DOM can't tunnel a bad string in.
+    const next = TERMINAL_APP_IDS.find((id) => id === e.target.value)
+    if (!next) return
     updateSettings({ preferredTerminal: next })
   }
 

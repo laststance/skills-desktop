@@ -80,13 +80,11 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
   const handleRevealInFinder = (): void => {
     if (!sourceStats) return
     void revealInFinder(sourceStats.path)
-    setContextOpen(false)
   }
 
   const handleOpenInTerminal = (): void => {
     if (!sourceStats) return
     void openInTerminal(sourceStats.path)
-    setContextOpen(false)
   }
 
   /**

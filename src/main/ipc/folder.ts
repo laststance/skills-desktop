@@ -7,6 +7,7 @@ import { TERMINAL_APP_DISPLAY_NAMES } from '../../shared/constants'
 import { IPC_CHANNELS } from '../../shared/ipc-channels'
 import type { FolderActionResult, TerminalAppId } from '../../shared/types'
 import { getSettings } from '../services/settings'
+import { errorCode } from '../utils/errorCode'
 
 import { typedHandle } from './typedHandle'
 
@@ -74,7 +75,7 @@ async function resolveExistingPath(
     const resolved = await realpath(requestedPath)
     return { ok: true, resolved }
   } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code
+    const code = errorCode(err)
     // ENOENT: folder deleted externally. ELOOP: symlink cycle. ENOTDIR:
     // a parent component is a file, not a dir. All three are user-facing
     // "not found" from our POV — the launcher would fail the same way.
