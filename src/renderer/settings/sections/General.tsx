@@ -1,5 +1,5 @@
 import { Files, Info } from 'lucide-react'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { Input } from '@/renderer/src/components/ui/input'
@@ -105,16 +105,43 @@ export const General = React.memo(function General(): React.ReactElement {
   const isDraftBlank = customNameDraft.trim() === ''
 
   /**
+   * Tracks whether the main window is currently alive — Settings can
+   * outlive it on macOS (window-all-closed keeps the app running). When
+   * absent, `window:getMainBounds` resolves to `null`, so capturing the
+   * "current size" is impossible. Reflected in the button's disabled
+   * state + a small explanatory message so the click never silently no-ops.
+   *
+   * Default `true` is optimistic: the common case (Cmd+, from main window)
+   * has the main window present at mount. The probe in the effect below
+   * corrects to `false` only when the IPC actually returns null.
+   */
+  const [isMainWindowAvailable, setIsMainWindowAvailable] =
+    useState<boolean>(true)
+
+  useEffect(() => {
+    let cancelled = false
+    void window.electron.window.getMainBounds().then((bounds) => {
+      if (cancelled) return
+      setIsMainWindowAvailable(bounds !== null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  /**
    * Capture the live main-window bounds via IPC and persist them.
    * `getMainBounds()` resolves to `null` when the main window has been
-   * closed (Settings can outlive it on macOS) — in that case we keep the
-   * existing setting silently rather than overwriting with garbage. The
-   * UI surfaces the unavailability via the `mainWindowAvailable` state
-   * below.
+   * closed (Settings can outlive it on macOS) — flip the availability
+   * flag so the button's disabled state + inline message kick in instead
+   * of failing silently. Disk write only happens on a real bounds value.
    */
   const handleSaveCurrentSize = async (): Promise<void> => {
     const bounds = await window.electron.window.getMainBounds()
-    if (bounds === null) return
+    if (bounds === null) {
+      setIsMainWindowAvailable(false)
+      return
+    }
     updateSettings({ windowSize: bounds })
   }
 
@@ -238,6 +265,7 @@ export const General = React.memo(function General(): React.ReactElement {
               onClick={() => {
                 void handleSaveCurrentSize()
               }}
+              disabled={!isMainWindowAvailable}
             >
               Use current window size
             </Button>
@@ -251,6 +279,12 @@ export const General = React.memo(function General(): React.ReactElement {
               Reset to default
             </Button>
           </div>
+          {!isMainWindowAvailable && (
+            <p className="text-xs text-muted-foreground">
+              Main window is closed — open it again, then reopen Settings to
+              capture its size.
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
             Takes effect the next time you launch the app.
           </p>

@@ -73,6 +73,34 @@ export function getSettings(): Settings {
 }
 
 /**
+ * Structural equality for `Settings`. Primitives compare by value;
+ * `windowSize` (the only nested field) compares by `width` + `height`
+ * because Zod's `.parse()` always materializes a fresh object reference.
+ *
+ * Adding another nested field requires a parallel branch here — there's
+ * no recursive deep-equal because the schema is intentionally narrow.
+ * @param a - First settings snapshot
+ * @param b - Second settings snapshot
+ * @returns
+ * - `true` when every field is structurally equal
+ * - `false` otherwise
+ * @example
+ * areSettingsEqual({ defaultSkillTab: 'files', preferredTerminal: 'terminal' }, { defaultSkillTab: 'files', preferredTerminal: 'terminal' }) // => true
+ */
+export function areSettingsEqual(a: Settings, b: Settings): boolean {
+  return (Object.keys(a) as Array<keyof Settings>).every((key) => {
+    if (key === 'windowSize') {
+      const aw = a.windowSize
+      const bw = b.windowSize
+      if (aw === bw) return true
+      if (aw === undefined || bw === undefined) return false
+      return aw.width === bw.width && aw.height === bw.height
+    }
+    return a[key] === b[key]
+  })
+}
+
+/**
  * Merges `partial` over the current settings and writes the result
  * atomically (temp file + rename) so a crash mid-write cannot corrupt
  * the file. The merged value is validated with Zod before disk write —
@@ -90,15 +118,18 @@ export async function saveSettings(
 ): Promise<Settings> {
   const current = getSettings()
   const merged = SettingsSchema.parse({ ...current, ...partial })
-  // Shallow-compare guard: when nothing actually changed (e.g. tapping
-  // the already-active radio), short-circuit before disk write so
+  // No-op guard: when nothing actually changed (e.g. tapping the
+  // already-active radio, or clicking "Use current window size" twice
+  // at the same dimensions), short-circuit before disk write so
   // `ipc/settings.ts` can also skip the broadcast — no fan-out, no
-  // redundant Redux replace in every open window. Safe today because
-  // `Settings` is a flat object; revisit if a nested field lands.
-  const isUnchanged = (Object.keys(merged) as Array<keyof Settings>).every(
-    (key) => merged[key] === current[key],
-  )
-  if (isUnchanged) return current
+  // redundant Redux replace in every open window.
+  //
+  // `windowSize` needs structural equality because Zod's `.parse()`
+  // always returns a fresh object, so `merged.windowSize === current.windowSize`
+  // would always be `false` for any defined value — even when both
+  // sides describe identical dimensions. Other fields are primitives
+  // and compare by value via `===`.
+  if (areSettingsEqual(merged, current)) return current
   const target = settingsFilePath()
   const tempPath = `${target}.tmp`
   // Ensure userData dir exists — first run on a fresh profile may lack it.
