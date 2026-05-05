@@ -60,11 +60,23 @@ export const CleanupAgentDialog = React.memo(
 
     // Trigger the scoped preview as soon as the dialog opens. We re-fetch
     // every time `cleanupAgentTarget` changes so closing-then-reopening on
-    // a different agent doesn't render stale numbers.
+    // a different agent doesn't render stale numbers. If the preview thunk
+    // rejects (IPC failure, missing source dir, etc.) we close the dialog
+    // and surface a toast — otherwise it would hang on the loading spinner
+    // forever with no way to recover.
     useEffect(() => {
-      if (cleanupAgentTarget) {
-        dispatch(fetchSyncPreview({ agentId: cleanupAgentTarget }))
-      }
+      if (!cleanupAgentTarget) return
+
+      dispatch(fetchSyncPreview({ agentId: cleanupAgentTarget })).then(
+        (action) => {
+          if (fetchSyncPreview.rejected.match(action)) {
+            toast.error('Failed to load cleanup preview', {
+              description: errorToastDescription(action),
+            })
+            dispatch(clearCleanupAgentTarget())
+          }
+        },
+      )
     }, [cleanupAgentTarget, dispatch])
 
     if (!cleanupAgentTarget) return null
@@ -101,11 +113,15 @@ export const CleanupAgentDialog = React.memo(
         }),
       )
 
-      // SyncResultDialog renders the per-item diff on success.
       if (executeSyncAction.rejected.match(result)) {
         toast.error('Cleanup failed', {
           description: errorToastDescription(result),
         })
+      } else {
+        // Close this dialog so `SyncResultDialog` (which `executeSyncAction`
+        // already populated via `syncResult`) becomes the sole foreground
+        // surface — otherwise the per-agent dialog stays mounted underneath.
+        dispatch(clearCleanupAgentTarget())
       }
 
       setIsExecuting(false)

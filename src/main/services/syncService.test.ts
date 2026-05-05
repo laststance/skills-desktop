@@ -508,4 +508,27 @@ describe('scoped sync (per-agent)', () => {
     expect(symlinkMock).not.toHaveBeenCalled()
     expect(mkdirMock).not.toHaveBeenCalled()
   })
+
+  it('preview with an agentId not in AGENTS echoes forAgent and returns zero agents', async () => {
+    // Symmetric counterpart to the syncExecute no-op test above. The
+    // empty-state path of CleanupAgentDialog depends on this branch:
+    // forAgent must round-trip so previewMatchesTarget keeps the dialog
+    // gated, while totalAgents collapses to 0 and lstat is never even
+    // queried because filterAgentsByOption returned [].
+    readdirMock.mockImplementation(async (dir: string) => {
+      if (dir === '/mock/source/skills') {
+        return [{ name: 'any-skill', isDirectory: () => true }]
+      }
+      return []
+    })
+
+    const { syncPreview } = await import('./syncService')
+    const result = await syncPreview({ agentId: 'codex' })
+
+    expect(result.totalAgents).toBe(0)
+    expect(result.toCreate).toBe(0)
+    expect(result.alreadySynced).toBe(0)
+    expect(result.forAgent).toBe('codex')
+    expect(lstatMock).not.toHaveBeenCalled()
+  })
 })

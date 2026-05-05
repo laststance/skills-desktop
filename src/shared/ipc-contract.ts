@@ -98,7 +98,12 @@ export interface IpcInvokeContract {
     result: SkillSearchResult[]
   }
   'sync:preview': {
-    args: [SyncPreviewOptions?]
+    // Always 1-arg (possibly `undefined`) to match the Zod tuple schema —
+    // `z.tuple([...optional()])` accepts `[undefined]` but rejects `[]`.
+    // Preload's `typedInvoke('sync:preview', options)` always forwards the
+    // arg even when `options` is `undefined`, so this contract reflects
+    // reality.
+    args: [SyncPreviewOptions | undefined]
     result: SyncPreviewResult
   }
   'sync:execute': { args: [SyncExecuteOptions]; result: SyncExecuteResult }

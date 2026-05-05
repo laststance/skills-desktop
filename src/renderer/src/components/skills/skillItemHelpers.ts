@@ -146,7 +146,10 @@ export function getSkillItemVisibility(
     isLocalSkill,
     selectedAgentSymlink,
     selectedLocalSkillInfo,
-    showCopyButton: !!selectedAgentId && hasSkillInSelectedAgent,
+    // "Copy to..." opens CopyToAgentsModal which fans out from the live
+    // source skill — for an orphan, that source is gone. Hide the action
+    // for the same reason `showAddButton` is gated on `!isOrphan`.
+    showCopyButton: !!selectedAgentId && hasSkillInSelectedAgent && !isOrphan,
     showGStackBadge,
   }
 }

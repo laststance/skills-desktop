@@ -382,6 +382,11 @@ describe('getSkillItemVisibility', () => {
       expect(result.showAddButton).toBe(false)
       // Unlink is the per-agent cleanup affordance for orphan rows.
       expect(result.showUnlinkButton).toBe(true)
+      // Copy fans out from the live source skill — same reason Add is
+      // hidden, this must be hidden too. Without this assertion the
+      // context-menu Copy entry leaks through and lands the user in
+      // CopyToAgentsModal with no source to copy from.
+      expect(result.showCopyButton).toBe(false)
     })
 
     it('keeps Add button visible when isOrphan is false (non-orphan, valid symlinks)', () => {
