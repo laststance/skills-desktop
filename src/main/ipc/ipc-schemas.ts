@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { TERMINAL_APP_IDS } from '../../shared/constants'
 import type { IpcInvokeChannel } from '../../shared/ipc-contract'
+import { SettingsSchema } from '../../shared/settings'
 
 /**
  * Zod schemas for runtime validation of IPC invoke arguments.
@@ -272,8 +273,10 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       .object({
         defaultSkillTab: z.enum(['files', 'info']).optional(),
         preferredTerminal: z.enum(TERMINAL_APP_IDS).optional(),
-        // Same trim+min(1)+max(64) shape as SettingsSchema — keep in sync.
-        customTerminalAppName: z.string().trim().min(1).max(64).optional(),
+        // Direct re-export from SettingsSchema — drift between the two
+        // constraint sets is mechanically impossible. `.shape` access yields
+        // the field's ZodOptional<ZodString> exactly as defined in settings.ts.
+        customTerminalAppName: SettingsSchema.shape.customTerminalAppName,
       })
       .strict(),
   ]),

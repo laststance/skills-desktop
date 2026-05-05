@@ -151,6 +151,23 @@ describe('folder IPC handlers (integration)', () => {
       expect(result).toMatchObject({ ok: false, reason: 'not-found' })
     })
 
+    it('returns not-found for ENOTDIR (parent component is a file)', async () => {
+      const err = Object.assign(new Error('ENOTDIR'), { code: 'ENOTDIR' })
+      realpathMock.mockRejectedValue(err)
+      const handler = getRegisteredHandler('folder:revealInFinder')
+      const result = await handler({}, '/file/inside')
+      expect(result).toMatchObject({ ok: false, reason: 'not-found' })
+      expect(openPathMock).not.toHaveBeenCalled()
+    })
+
+    it('rethrows unexpected realpath errors (e.g. EPERM) to the IPC boundary', async () => {
+      const err = Object.assign(new Error('EPERM'), { code: 'EPERM' })
+      realpathMock.mockRejectedValue(err)
+      const handler = getRegisteredHandler('folder:revealInFinder')
+      await expect(handler({}, '/locked')).rejects.toThrow('EPERM')
+      expect(openPathMock).not.toHaveBeenCalled()
+    })
+
     it('returns launch-failed when shell.openPath returns an error string', async () => {
       realpathMock.mockResolvedValue('/x')
       openPathMock.mockResolvedValue('Permission denied')
@@ -188,6 +205,18 @@ describe('folder IPC handlers (integration)', () => {
       const handler = getRegisteredHandler('folder:openInTerminal')
 
       const result = await handler({}, '/gone')
+
+      expect(result).toMatchObject({ ok: false, reason: 'not-found' })
+      expect(getSettingsMock).not.toHaveBeenCalled()
+      expect(spawnMock).not.toHaveBeenCalled()
+    })
+
+    it('returns not-found for ENOTDIR (parent component is a file)', async () => {
+      const err = Object.assign(new Error('ENOTDIR'), { code: 'ENOTDIR' })
+      realpathMock.mockRejectedValue(err)
+      const handler = getRegisteredHandler('folder:openInTerminal')
+
+      const result = await handler({}, '/file/inside')
 
       expect(result).toMatchObject({ ok: false, reason: 'not-found' })
       expect(getSettingsMock).not.toHaveBeenCalled()
