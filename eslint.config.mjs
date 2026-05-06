@@ -31,7 +31,6 @@ export default defineConfig([
       'react-you-might-not-need-an-effect': reactYouMightNotNeedAnEffect,
     },
     rules: {
-      'react-you-might-not-need-an-effect/no-empty-effect': 'error',
       'react-you-might-not-need-an-effect/no-adjust-state-on-prop-change':
         'error',
       'react-you-might-not-need-an-effect/no-reset-all-state-on-prop-change':
