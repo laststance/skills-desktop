@@ -11,7 +11,7 @@
     // Build-time scripts referenced from package.json scripts but not imported
     "scripts/generate-icons.js",
     // pnpm reads .pnpmfile.cjs at install time
-    ".pnpmfile.cjs",
+    ".pnpmfile.cjs"
   ],
   "ignoreDependencies": [
     // postcss-load-config is a transitive of @tailwindcss/postcss / postcss in the
@@ -21,7 +21,7 @@
     // FlatCompat's `compat.extends('next/core-web-vitals', 'next/typescript')`.
     // Fallow can't follow string-based extends, so it appears unreferenced
     // even though removing it breaks `pnpm --filter website lint`.
-    "eslint-config-next",
+    "eslint-config-next"
   ],
   "ignoreExports": [
     {
@@ -32,8 +32,8 @@
       // shadcn convention and prevents Fallow from churning on every new
       // primitive added.
       "file": "src/renderer/src/components/ui/**",
-      "exports": ["*"],
-    },
+      "exports": ["*"]
+    }
   ],
   "duplicates": {
     // Tests intentionally repeat Arrange/Act/Assert blocks for clarity.
@@ -65,7 +65,7 @@
       "**/*.test.tsx",
       "**/*.spec.ts",
       "**/*.spec.tsx",
-      "e2e/**",
-    ],
-  },
+      "e2e/**"
+    ]
+  }
 }
