@@ -60,12 +60,20 @@ export const SearchBox = React.memo(function SearchBox(): React.ReactElement {
           }
         }}
         aria-label="Search field"
-        className="shrink-0"
+        className="shrink-0 gap-0"
       >
-        <ToggleGroupItem value="name" aria-label="Search by skill name">
+        <ToggleGroupItem
+          value="name"
+          aria-label="Search by skill name"
+          className="h-9 min-w-0 rounded-r-none focus:z-10 focus-visible:z-10"
+        >
           Name
         </ToggleGroupItem>
-        <ToggleGroupItem value="repo" aria-label="Search by repository">
+        <ToggleGroupItem
+          value="repo"
+          aria-label="Search by repository"
+          className="h-9 min-w-0 rounded-l-none border-l-0 focus:z-10 focus-visible:z-10"
+        >
           Repo
         </ToggleGroupItem>
       </ToggleGroup>
