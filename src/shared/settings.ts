@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { AGENT_IDS, TERMINAL_APP_IDS } from './constants'
+import type { AgentId } from './types'
 
 /**
  * Defense-in-depth floor for a persisted startup window size. Set well
@@ -30,6 +31,32 @@ const windowSizeSchema = z
     height: z.number().int().min(WINDOW_SIZE_MIN_DIMENSION),
   })
   .optional()
+
+/**
+ * Forgiving disk-side schema for `hiddenAgentIds`.
+ *
+ * Pre-filters against `AGENT_IDS` via `transform` instead of validating
+ * with `z.enum(AGENT_IDS)`: if an upstream `/cli-upgrade` removes an
+ * agent that was previously hidden, the stale id silently falls out of
+ * the array rather than rejecting the whole settings file. With strict
+ * enum validation, ONE bad id makes `loadSettings()` fall back to
+ * defaults — wiping every other field too (default tab, terminal,
+ * window size). The `.includes` cast is needed because `.includes` on
+ * a `readonly` tuple narrows to its literal members.
+ *
+ * NOTE: this is the DISK schema. The IPC boundary uses a strict
+ * `z.array(z.enum(AGENT_IDS))` — renderers should only ever emit valid
+ * ids, and an invalid id at that layer is a bug rather than a schema-
+ * evolution event.
+ */
+const HIDDEN_AGENT_IDS_SCHEMA = z
+  .array(z.string())
+  .transform((arr): AgentId[] =>
+    arr.filter((id): id is AgentId =>
+      (AGENT_IDS as readonly string[]).includes(id),
+    ),
+  )
+  .default([])
 
 /**
  * App-wide user settings schema.
@@ -69,7 +96,7 @@ export const SettingsSchema = z.object({
   preferredTerminal: z.enum(TERMINAL_APP_IDS).default('terminal'),
   customTerminalAppName: z.string().trim().min(1).max(64).optional(),
   windowSize: windowSizeSchema,
-  hiddenAgentIds: z.array(z.enum(AGENT_IDS)).default([]),
+  hiddenAgentIds: HIDDEN_AGENT_IDS_SCHEMA,
 })
 
 /**

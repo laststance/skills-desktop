@@ -139,12 +139,39 @@ describe('SettingsSchema', () => {
     expect(parsed.hiddenAgentIds).toEqual([firstAgentId])
   })
 
-  it('rejects an unknown agent id in hiddenAgentIds', () => {
-    // Simulates a corrupted / hand-edited settings.json. `z.enum(AGENT_IDS)`
-    // is a closed set so unknown ids never reach the renderer.
-    expect(() =>
-      SettingsSchema.parse({ hiddenAgentIds: ['bogus-agent'] }),
-    ).toThrow()
+  it('drops unknown agent ids from hiddenAgentIds without rejecting the file', () => {
+    // The schema is forgiving on disk reads — strict z.enum here would
+    // throw the WHOLE settings file out (and reset every other field to
+    // defaults) when one stale id slips in.
+    const parsed = SettingsSchema.parse({
+      hiddenAgentIds: ['bogus-agent'],
+    })
+    expect(parsed.hiddenAgentIds).toEqual([])
+  })
+
+  it('preserves valid hiddenAgentIds while dropping stale ids alongside', () => {
+    // Regression for the `/cli-upgrade`-removed-an-agent scenario: with
+    // strict z.enum the whole array (and everything else in settings.json)
+    // would reject. The transform must filter, not throw.
+    const firstAgentId = AGENT_DEFINITIONS[0]!.id
+    const parsed = SettingsSchema.parse({
+      hiddenAgentIds: [firstAgentId, 'removed-agent'],
+    })
+    expect(parsed.hiddenAgentIds).toEqual([firstAgentId])
+  })
+
+  it('preserves all other settings fields when hiddenAgentIds contains stale ids', () => {
+    // The blast radius of a strict-enum failure was every field in the
+    // file dropping back to defaults. Pin the boundary here so a future
+    // refactor can't quietly resurrect that behavior.
+    const parsed = SettingsSchema.parse({
+      defaultSkillTab: 'info',
+      preferredTerminal: 'iterm',
+      hiddenAgentIds: ['removed-agent'],
+    })
+    expect(parsed.defaultSkillTab).toBe('info')
+    expect(parsed.preferredTerminal).toBe('iterm')
+    expect(parsed.hiddenAgentIds).toEqual([])
   })
 
   it('rejects a non-array hiddenAgentIds', () => {

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { TERMINAL_APP_IDS } from '@/shared/constants'
+import { AGENT_IDS, TERMINAL_APP_IDS } from '@/shared/constants'
 import type { IpcInvokeChannel } from '@/shared/ipc-contract'
 import { SettingsSchema } from '@/shared/settings'
 
@@ -281,10 +281,16 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
         // the {min,int} constraints can never drift. `undefined` is how
         // the Settings UI clears the persisted size back to "use default".
         windowSize: SettingsSchema.shape.windowSize,
-        // Reuse `SettingsSchema.shape.hiddenAgentIds` so the `z.enum(AGENT_IDS)`
-        // constraint here cannot drift from the persisted-state validator.
-        // `.optional()` lets clients send a partial update (only this key).
-        hiddenAgentIds: SettingsSchema.shape.hiddenAgentIds.optional(),
+        // Strict z.enum here — renderers should only ever emit valid ids.
+        // Intentionally NOT chained off `SettingsSchema.shape.hiddenAgentIds`:
+        // that field carries a `.default([])` for forgiving disk reads, and
+        // wrapping it with `.optional()` materializes the default whenever
+        // the key is omitted from a partial update — which then clobbers
+        // the persisted hidden-agent set on every unrelated `settings:set`
+        // call. Independent declaration keeps the IPC and disk concerns
+        // separate; both still reference the same `AGENT_IDS` constant so
+        // the enum cannot drift.
+        hiddenAgentIds: z.array(z.enum(AGENT_IDS)).optional(),
       })
       .strict(),
   ]),

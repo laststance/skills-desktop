@@ -109,4 +109,43 @@ describe('areSettingsEqual', () => {
       true,
     )
   })
+
+  it('returns true for hiddenAgentIds with identical contents in identical order', () => {
+    expect(
+      areSettingsEqual(
+        { ...baseSettings, hiddenAgentIds: ['claude-code', 'cursor'] },
+        { ...baseSettings, hiddenAgentIds: ['claude-code', 'cursor'] },
+      ),
+    ).toBe(true)
+  })
+
+  it('returns true for hiddenAgentIds with identical contents in different order (set semantics)', () => {
+    // Renderer treats hiddenAgentIds as a set; equality must match that
+    // semantic so an order-only drift between disk and renderer doesn't
+    // trigger a redundant atomic write + settings:changed broadcast.
+    expect(
+      areSettingsEqual(
+        { ...baseSettings, hiddenAgentIds: ['claude-code', 'cursor'] },
+        { ...baseSettings, hiddenAgentIds: ['cursor', 'claude-code'] },
+      ),
+    ).toBe(true)
+  })
+
+  it('returns false when hiddenAgentIds length differs', () => {
+    expect(
+      areSettingsEqual(
+        { ...baseSettings, hiddenAgentIds: ['claude-code'] },
+        { ...baseSettings, hiddenAgentIds: ['claude-code', 'cursor'] },
+      ),
+    ).toBe(false)
+  })
+
+  it('returns false when hiddenAgentIds have same length but different members', () => {
+    expect(
+      areSettingsEqual(
+        { ...baseSettings, hiddenAgentIds: ['claude-code'] },
+        { ...baseSettings, hiddenAgentIds: ['cursor'] },
+      ),
+    ).toBe(false)
+  })
 })

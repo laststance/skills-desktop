@@ -120,7 +120,7 @@ export const Agents = React.memo(function Agents(): React.ReactElement {
                 {notInstalled.length} not installed
               </summary>
               <ul
-                className="mt-2 flex flex-col gap-1 rounded-md border border-border bg-card/30 p-2 opacity-50"
+                className="mt-2 flex flex-col gap-1 rounded-md border border-border bg-card/30 p-2"
                 aria-label="Not-installed agents"
               >
                 {notInstalled.map((agent) => (

@@ -107,17 +107,18 @@ export function areSettingsEqual(a: Settings, b: Settings): boolean {
       continue
     }
     if (key === 'hiddenAgentIds') {
-      // Array — Zod's `.parse()` returns a fresh reference every call, so
-      // a `!==` would always say "changed" even when the contents match.
-      // Order is significant only as it appears in settings.json; the
-      // renderer treats the array as a set, so we treat the same set with
-      // a different order as not-equal here (caller writes once, that's
-      // fine). Length-then-pairwise is enough for the small N (~44 max).
+      // Renderer treats the array as a set — so does the equality check.
+      // Without a set comparison, an order-only drift between disk and
+      // renderer (e.g. JSON load order ≠ optimistic-update order) would
+      // trigger a redundant disk write + `settings:changed` broadcast on
+      // every settings:set roundtrip. Length-then-membership is enough
+      // for the small N (~44 max).
       const ah = a.hiddenAgentIds
       const bh = b.hiddenAgentIds
       if (ah.length !== bh.length) return false
-      for (let i = 0; i < ah.length; i++) {
-        if (ah[i] !== bh[i]) return false
+      const bSet = new Set<string>(bh)
+      for (const id of ah) {
+        if (!bSet.has(id)) return false
       }
       continue
     }

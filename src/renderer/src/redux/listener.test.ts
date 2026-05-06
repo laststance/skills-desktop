@@ -124,6 +124,61 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(root.classList.contains('dark')).toBe(true)
   })
 
+  it('clears selectedAgentId when setSettings hides the currently-selected agent', async () => {
+    // Cross-slice invariant: hiding an agent from the sidebar must not
+    // leave the central skill list filtering by an agent the user can no
+    // longer see. The listener middleware enforces this regardless of
+    // whether AgentsSection is mounted (Settings can hide an agent during
+    // a navigation transition in the main window). Without this listener,
+    // selecting an agent in the sidebar then hiding it from Settings would
+    // leave selectedAgentId pinned to the now-invisible agent.
+    const { listenerMiddleware } = await import('./listener')
+    const { default: settingsReducer, setSettings } =
+      await import('./slices/settingsSlice')
+    const { default: uiReducer, selectAgent } = await import('./slices/uiSlice')
+    const { DEFAULT_SETTINGS } = await import('@/shared/settings')
+
+    const store = configureStore({
+      reducer: { settings: settingsReducer, ui: uiReducer },
+      middleware: (getDefault) =>
+        getDefault().prepend(listenerMiddleware.middleware),
+    })
+
+    store.dispatch(selectAgent('claude-code'))
+    expect(store.getState().ui.selectedAgentId).toBe('claude-code')
+
+    store.dispatch(
+      setSettings({ ...DEFAULT_SETTINGS, hiddenAgentIds: ['claude-code'] }),
+    )
+
+    expect(store.getState().ui.selectedAgentId).toBeNull()
+  })
+
+  it('preserves selectedAgentId when setSettings hides a different agent', async () => {
+    // Inverse case for the invariant above: if the hidden agent isn't
+    // the one currently selected, the listener must not clobber the
+    // selection. Pinning this guards against an over-eager `selectAgent(null)`
+    // dispatch that would lose the user's filter on every settings write.
+    const { listenerMiddleware } = await import('./listener')
+    const { default: settingsReducer, setSettings } =
+      await import('./slices/settingsSlice')
+    const { default: uiReducer, selectAgent } = await import('./slices/uiSlice')
+    const { DEFAULT_SETTINGS } = await import('@/shared/settings')
+
+    const store = configureStore({
+      reducer: { settings: settingsReducer, ui: uiReducer },
+      middleware: (getDefault) =>
+        getDefault().prepend(listenerMiddleware.middleware),
+    })
+
+    store.dispatch(selectAgent('cursor'))
+    store.dispatch(
+      setSettings({ ...DEFAULT_SETTINGS, hiddenAgentIds: ['claude-code'] }),
+    )
+
+    expect(store.getState().ui.selectedAgentId).toBe('cursor')
+  })
+
   it('rapid preset switches write to the DOM in dispatch order (no stale/async reordering)', async () => {
     // Regression guard for the "stale listener write" class of bug — if the
     // listener ever queues async writes (via Promise.resolve, microtask,
