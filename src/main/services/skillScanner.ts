@@ -21,6 +21,7 @@ import {
   checkSkillSymlinks,
   checkSymlinkTargetFromKnownLink,
   countValidSymlinks,
+  readSymlinkTargetIfPresent,
 } from './symlinkChecker'
 
 /**
@@ -149,8 +150,10 @@ async function scanSourceSkills(): Promise<Skill[]> {
 
   const skills = await Promise.all(
     validDirs.map(async (dir) => {
-      const metadata = await parseSkillMetadata(dir.path)
-      const symlinks = await checkSkillSymlinks(dir.name)
+      const [metadata, symlinks] = await Promise.all([
+        parseSkillMetadata(dir.path),
+        checkSkillSymlinks(dir.name),
+      ])
 
       return {
         name: metadata.name,
@@ -276,8 +279,25 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
             candidates.map(async (dir) => {
               const skillPath = join(agent.path, dir.name) as AbsolutePath
               if (!(await isValidSkillDir(skillPath))) return null
-              const metadata = await parseSkillMetadata(skillPath)
-              return { agent, dirName: dir.name, skillPath, metadata }
+              // Parse metadata and probe SKILL.md for a symlink target in
+              // parallel — gstack-managed sibling skills (e.g. ~/.claude/skills/ship)
+              // are real directories whose SKILL.md is a symlink into the
+              // gstack source tree (~/.claude/skills/gstack/<name>/SKILL.md).
+              // Capturing that target lets the renderer display the G-Stack
+              // badge on every gstack-managed skill, not just the parent.
+              const [metadata, skillMdSymlinkTarget] = await Promise.all([
+                parseSkillMetadata(skillPath),
+                readSymlinkTargetIfPresent(
+                  join(skillPath, 'SKILL.md') as AbsolutePath,
+                ),
+              ])
+              return {
+                agent,
+                dirName: dir.name,
+                skillPath,
+                metadata,
+                skillMdSymlinkTarget,
+              }
             }),
           )
           return validated.filter(
@@ -292,9 +312,18 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
 
   // Phase 2 — group by skill name. First sighting builds the full per-agent
   // template (every agent 'missing'); every sighting (including the first)
-  // then flips its own agent slot to a valid local entry. Single branch.
+  // then flips its own agent slot to a valid local entry, carrying the
+  // SKILL.md symlink target ON THE SLOT — per-agent attribution prevents
+  // cross-agent badge bleed when two agents share a skill name but only one
+  // is gstack-managed.
   const localSkillsByName = new Map<SkillName, Skill>()
-  for (const { agent, dirName, skillPath, metadata } of localHits) {
+  for (const {
+    agent,
+    dirName,
+    skillPath,
+    metadata,
+    skillMdSymlinkTarget,
+  } of localHits) {
     let skill = localSkillsByName.get(metadata.name)
     if (!skill) {
       skill = {
@@ -321,6 +350,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
         status: 'valid',
         linkPath: join(agent.path, dirName) as AbsolutePath,
         isLocal: true,
+        skillMdSymlinkTarget,
       }
     }
   }

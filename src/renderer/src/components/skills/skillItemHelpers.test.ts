@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import type { AbsolutePath, AgentId, Skill, SymlinkInfo } from '@/shared/types'
 
-import { getSkillItemVisibility } from './skillItemHelpers'
+import {
+  getSkillItemVisibility,
+  type SkillVisibilityInput,
+} from './skillItemHelpers'
 
 /**
  * Create a mock SymlinkInfo for testing
@@ -25,12 +28,14 @@ function makeSymlink(
  * {@link getSkillItemVisibility} reads. `isOrphan` is auto-derived from the
  * symlinks (every entry broken/missing AND no local copy = orphan), matching
  * what `scanOrphanSymlinks` would set in production. Override when a test
- * needs to assert the inverse.
+ * needs to assert the inverse. `skillMdSymlinkTarget` lives on each
+ * `SymlinkInfo` slot — pass it via `makeSymlink` to simulate a gstack-managed
+ * local skill whose SKILL.md symlinks into the gstack source tree.
  */
 function makeSkill(
   symlinks: SymlinkInfo[],
   overrides?: Partial<Pick<Skill, 'isOrphan'>>,
-): Pick<Skill, 'symlinks' | 'isOrphan'> {
+): SkillVisibilityInput {
   const derivedOrphan =
     symlinks.length > 0 &&
     symlinks.some((s) => s.status === 'broken') &&
@@ -253,11 +258,16 @@ describe('getSkillItemVisibility', () => {
       expect(result.showGStackBadge).toBe(true)
     })
 
-    it('shows badge for relative gstack symlink targets', () => {
+    it('shows badge for codex-managed gstack symlinks (multi-agent coverage)', () => {
+      // symlinkChecker resolves relative readlink results to absolute paths
+      // before populating `targetPath`, so the renderer always sees the
+      // resolved form (e.g. `/Users/me/.codex/skills/gstack/task`). This
+      // guards multi-agent coverage of GSTACK_BADGE_AGENT_IDS — earlier
+      // versions only matched on `claude-code`.
       const symlinks = [
         makeSymlink({
           agentId: 'codex',
-          targetPath: '../gstack/task',
+          targetPath: '/Users/me/.codex/skills/gstack/task',
           linkPath: '/Users/me/.codex/skills/task',
           isLocal: false,
           status: 'valid',
@@ -295,6 +305,66 @@ describe('getSkillItemVisibility', () => {
 
       const result = getSkillItemVisibility('gemini-cli', makeSkill(symlinks))
       expect(result.showGStackBadge).toBe(false)
+    })
+
+    it('shows badge for local skill whose SKILL.md symlinks into gstack tree', () => {
+      // Real production case: ~/.claude/skills/ship/ is a real folder whose
+      // only entry is a SKILL.md symlink into ~/.claude/skills/gstack/ship/.
+      // Neither the linkPath (the real folder) nor any agent symlink contains
+      // the "gstack" segment — only the resolved SKILL.md target does.
+      // Without the fourth candidate, the badge would be hidden.
+      const symlinks = [
+        makeSymlink({
+          agentId: 'claude-code',
+          linkPath: '/Users/me/.claude/skills/ship' as AbsolutePath,
+          isLocal: true,
+          status: 'valid',
+          targetPath: undefined,
+          skillMdSymlinkTarget:
+            '/Users/me/.claude/skills/gstack/ship/SKILL.md' as AbsolutePath,
+        }),
+      ]
+
+      const result = getSkillItemVisibility('claude-code', makeSkill(symlinks))
+      expect(result.showGStackBadge).toBe(true)
+    })
+
+    it('hides badge when SKILL.md target does not contain the gstack segment', () => {
+      // A user-installed local skill whose SKILL.md happens to be a symlink
+      // into a different location (not gstack) — no badge should show.
+      const symlinks = [
+        makeSymlink({
+          agentId: 'claude-code',
+          linkPath: '/Users/me/.claude/skills/custom' as AbsolutePath,
+          isLocal: true,
+          status: 'valid',
+          targetPath: undefined,
+          skillMdSymlinkTarget:
+            '/Users/me/projects/my-skills/custom/SKILL.md' as AbsolutePath,
+        }),
+      ]
+
+      const result = getSkillItemVisibility('claude-code', makeSkill(symlinks))
+      expect(result.showGStackBadge).toBe(false)
+    })
+
+    it('falls back to existing candidates when skillMdSymlinkTarget is undefined (regression)', () => {
+      // Guards the existing 3-candidate path — agent symlink whose targetPath
+      // contains "gstack" must still flip the badge on, exactly as before.
+      // skillMdSymlinkTarget defaults to undefined via makeSkill(), simulating
+      // a Skill record produced before the new field landed.
+      const symlinks = [
+        makeSymlink({
+          agentId: 'claude-code',
+          targetPath: '/Users/me/.claude/skills/gstack/task' as AbsolutePath,
+          linkPath: '/Users/me/.claude/skills/task' as AbsolutePath,
+          isLocal: false,
+          status: 'valid',
+        }),
+      ]
+
+      const result = getSkillItemVisibility('claude-code', makeSkill(symlinks))
+      expect(result.showGStackBadge).toBe(true)
     })
   })
 

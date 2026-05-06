@@ -5,7 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import { GSTACK_REPOSITORY_URL } from '@/shared/constants'
-import type { Skill, SkillName } from '@/shared/types'
+import type { Skill, SkillName, SymlinkInfo } from '@/shared/types'
 import { repositoryId } from '@/shared/types'
 
 const mockGetAll = vi.fn()
@@ -346,6 +346,73 @@ describe('SkillItem G-Stack badge', () => {
         ],
       }),
     )
+
+    expect(screen.getByRole('link', { name: /G-Stack/i }).query()).toBeNull()
+  })
+
+  it('shows badge for gstack-managed sibling skills (local skill whose SKILL.md symlinks into gstack)', async () => {
+    // Real production scenario: ~/.claude/skills/ship/ is a real directory
+    // whose only entry is a SKILL.md symlink → ~/.claude/skills/gstack/ship/SKILL.md.
+    // The skill's linkPath/targetPath alone do NOT contain "gstack" — only
+    // the new skillMdSymlinkTarget field does. Without it, the badge is
+    // hidden on every gstack sibling, which is the whole bug being fixed.
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        name: 'ship' as SkillName,
+        path: '/Users/me/.claude/skills/ship' as Skill['path'],
+        isSource: false,
+        symlinks: [
+          {
+            agentId: 'claude-code',
+            agentName: 'Claude Code',
+            status: 'valid',
+            linkPath: '/Users/me/.claude/skills/ship',
+            isLocal: true,
+            skillMdSymlinkTarget:
+              '/Users/me/.claude/skills/gstack/ship/SKILL.md' as SymlinkInfo['skillMdSymlinkTarget'],
+          },
+        ],
+      }),
+    )
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+
+    store.dispatch(selectAgent('claude-code'))
+
+    const gstackLink = screen.getByRole('link', { name: /G-Stack/i })
+    await expect.element(gstackLink).toBeInTheDocument()
+    await expect
+      .element(gstackLink)
+      .toHaveAttribute('href', GSTACK_REPOSITORY_URL)
+  })
+
+  it('hides the badge when skillMdSymlinkTarget points outside the gstack tree', async () => {
+    // Negative coverage at the wired-up SkillItem level: a local skill with
+    // skillMdSymlinkTarget set but pointing at a user-managed path (no
+    // `gstack` segment) must NOT receive the badge. The pure helper covers
+    // this case in isolation, but a regression where someone fed
+    // skillMdSymlinkTarget straight into the JSX (bypassing the helper)
+    // would only surface here.
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        name: 'custom' as SkillName,
+        path: '/Users/me/.claude/skills/custom' as Skill['path'],
+        isSource: false,
+        symlinks: [
+          {
+            agentId: 'claude-code',
+            agentName: 'Claude Code',
+            status: 'valid',
+            linkPath: '/Users/me/.claude/skills/custom',
+            isLocal: true,
+            skillMdSymlinkTarget:
+              '/Users/me/projects/my-skills/custom/SKILL.md' as SymlinkInfo['skillMdSymlinkTarget'],
+          },
+        ],
+      }),
+    )
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+
+    store.dispatch(selectAgent('claude-code'))
 
     expect(screen.getByRole('link', { name: /G-Stack/i }).query()).toBeNull()
   })
