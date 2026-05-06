@@ -26,6 +26,23 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason)
 })
 
+// E2E: redirect Electron's `userData` directory into the test's isolated
+// HOME. On macOS `app.getPath('userData')` is implemented via
+// `NSSearchPathForDirectoriesInDomains`, which uses `getpwuid(getuid())`
+// for the user's home dir — it ignores `$HOME`. Without this override
+// Playwright tests would write `settings.json` to the developer's REAL
+// `~/Library/Application Support/skills-desktop`, polluting their actual
+// app state and breaking any test that reads/writes settings under an
+// "isolated" home. Must run synchronously at module load (before
+// `app.whenReady()` and before any code path that touches `userData`)
+// so `loadSettings()` and the BrowserWindow's session storage land in
+// the isolated tree on first read. `setPath` is undocumented-but-safe to
+// call this early — Electron resolves the path lazily on first use.
+const e2eUserDataDir = process.env['E2E_USERDATA_DIR']
+if (e2eUserDataDir) {
+  app.setPath('userData', e2eUserDataDir)
+}
+
 /**
  * Default launch size used when the user has no persisted `windowSize`
  * preference. Mirrors the previous hard-coded constructor values; with no

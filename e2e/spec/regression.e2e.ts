@@ -646,3 +646,280 @@ test('scanSkills surfaces broken symlinks as orphan skills (regression #127)', a
   expect(azureRecord?.isOrphan).toBe(false)
   expect(azureRecord?.isSource).toBe(true)
 })
+
+/**
+ * v0.16.0 — Sidebar truncate invariant (regression a541de9).
+ *
+ * The Sidebar `<aside aria-label="Agent sidebar" class="w-68">` measures 272px
+ * (Tailwind v4 auto-generates `w-68` as `width: 17rem`). Inside it, Radix's
+ * `<ScrollArea>` injects a wrapper `<div style="min-width: 100%; display:
+ * table">` between `ScrollAreaPrimitive.Viewport` and our content. `display:
+ * table` makes the wrapper grow to its `min-content` width when any descendant
+ * is `whitespace-nowrap` / `truncate` — in our case the SourceCard's `<p
+ * class="truncate">~/.agents/skills</p>` plus the agents list defeated
+ * truncation entirely, inflating the wrapper to ~325px and bleeding the long
+ * path into the center panel.
+ *
+ * The fix is the `[&>div]:!block` modifier on `ScrollAreaPrimitive.Viewport`
+ * in `src/renderer/src/components/ui/scroll-area.tsx:39`, which forces Radix's
+ * inline `display: table` to `block`. The `!important` is required because
+ * Radix sets `display` via inline style — class rules don't outrank inline
+ * styles without it. With `display: block`, the wrapper takes exactly the
+ * viewport width and `truncate` can clip again.
+ *
+ * Surface assertions, ranked by load-bearing-ness:
+ *
+ *   1. Inner Radix wrapper width ≤ aside width — the bug visualises here. Pre-fix
+ *      this was 325 vs 272; post-fix it's ≤ 272. Asserting `≤` rather than `===`
+ *      stays robust against future cosmetic changes (e.g. a vertical scrollbar
+ *      narrowing the viewport by 8-10px).
+ *
+ *   2. `getComputedStyle(wrapper).display === 'block'` — the SOURCE of the bug. A
+ *      regression that removes `[&>div]:!block` from scroll-area.tsx flips this
+ *      back to 'table' first, and only THEN inflates the width. Catching the
+ *      style change directly gives a clearer failure message ("display reverted
+ *      to table") than only catching the downstream width inflation.
+ *
+ *   3. Sanity — the SourceCard truncate target's offsetWidth is ≤ aside content
+ *      width (aside - p-4×2 = 272 - 32 = 240). Pre-fix this was wider because
+ *      "~/.agents/skills" rendered at its natural width inside the inflated
+ *      wrapper. Downstream of (1) but pins the user-visible symptom in case the
+ *      wrapper width assertion ever loses precision against a future Radix
+ *      version.
+ *
+ * This test does not depend on the snapshot's azure-* skills — it only needs
+ * the Sidebar mounted with the SourceCard visible. The file-level
+ * `test.beforeEach` skip-gate against `isSnapshotOffline()` is irrelevant here
+ * but harmless; we accept the false-positive skip on offline runs to keep the
+ * suite uniform.
+ */
+test('sidebar inner ScrollArea wrapper does not inflate beyond aside width (regression a541de9)', async ({
+  appWindow,
+}) => {
+  await waitForInitialScan(appWindow)
+
+  const aside = appWindow.locator('aside[aria-label="Agent sidebar"]')
+  const wrapper = aside
+    .locator('[data-radix-scroll-area-viewport] > div')
+    .first()
+  const truncatedPath = aside.getByText('~/.agents/skills', { exact: true })
+
+  await expect(aside).toBeVisible()
+  await expect(wrapper).toBeAttached()
+  await expect(truncatedPath).toBeVisible()
+
+  const asideBox = await aside.boundingBox()
+  const wrapperBox = await wrapper.boundingBox()
+  expect(
+    asideBox,
+    'aside produced no bounding box; selector regression',
+  ).not.toBeNull()
+  expect(
+    wrapperBox,
+    'inner Radix wrapper produced no bounding box; selector regression',
+  ).not.toBeNull()
+  if (!asideBox || !wrapperBox) return
+
+  // Load-bearing #1: the Radix wrapper must NOT exceed the aside width.
+  // Pre-fix: 325 vs 272. Post-fix: any value ≤ 272 is acceptable; a
+  // vertical scrollbar can chip a few px off without indicating a regression.
+  expect(
+    wrapperBox.width,
+    `Radix wrapper width (${wrapperBox.width}) exceeds aside width (${asideBox.width}) — ` +
+      'inner ScrollArea div has reverted to display:table inflation. ' +
+      'Check [&>div]:!block on ScrollAreaPrimitive.Viewport in scroll-area.tsx.',
+  ).toBeLessThanOrEqual(asideBox.width)
+
+  // Load-bearing #2: the SOURCE of the bug. A regression that removes
+  // `[&>div]:!block` flips display back to 'table' BEFORE width inflates,
+  // so checking the computed style directly produces a precise failure
+  // message ("display reverted to table") rather than the downstream
+  // width-inflation symptom.
+  const wrapperDisplay = await wrapper.evaluate(
+    (el) => window.getComputedStyle(el).display,
+  )
+  expect(
+    wrapperDisplay,
+    'Radix Viewport inner wrapper computed display reverted to a non-block value — ' +
+      '[&>div]:!block on ScrollAreaPrimitive.Viewport has been removed or overridden.',
+  ).toBe('block')
+
+  // Sanity #3: the truncated path's rendered width fits inside the aside's
+  // content area. p-4 on the inner wrapper = 16px each side = 32px total
+  // horizontal padding. Asserting `≤ asideWidth - 32` pins the user-visible
+  // symptom one layer downstream of the wrapper width itself.
+  const pathOffsetWidth = await truncatedPath.evaluate(
+    (el) => (el as HTMLElement).offsetWidth,
+  )
+  expect(
+    pathOffsetWidth,
+    `Truncated source-card path width (${pathOffsetWidth}) exceeds the aside's ` +
+      `content area (${asideBox.width - 32}). truncate has stopped clipping.`,
+  ).toBeLessThanOrEqual(asideBox.width - 32)
+})
+
+/**
+ * v0.16.0 — Skills list scroll position survives a background refetch
+ * (regression 5619bb7).
+ *
+ * Pre-fix `SkillsList.tsx:93` was `if (loading) return <Loading />`. ANY
+ * refetch (post-sync, manual refresh, post-mutation) flipped
+ * `state.skills.loading` to `true` and unmounted the entire react-window
+ * `<List>` until the next `fulfilled`. Mid-scroll users saw the list reset
+ * to the top, losing their position and any in-progress reading.
+ *
+ * Post-fix the guard became `if (loading && skills.length === 0)` — the
+ * Loading state only renders on the FIRST fetch (when `items` is still
+ * empty). Subsequent refetches keep the List mounted with stale data
+ * showing, then swap to fresh data on `fulfilled` without remounting. This
+ * preserves the scroll container's `scrollTop`.
+ *
+ * Test mechanism — synthetic action dispatch over UI-driven refetch:
+ *
+ * Rather than triggering an actual refetch via a click flow that depends on
+ * an unrelated subsystem (sync, marketplace install, etc.), we dispatch the
+ * thunk's lifecycle action directly. RTK's `createAsyncThunk('skills/fetchAll', ...)`
+ * auto-generates `skills/fetchAll/pending`, and the slice's `extraReducers`
+ * handler at `skillsSlice.ts:383-385` sets `state.loading = true` on it. The
+ * renderer's SkillsList sees `loading=true` with `skills.length > 0` and —
+ * post-fix — does NOT remount. Pre-fix would unmount immediately, drop the
+ * scroll container, and reset `scrollTop` to 0.
+ *
+ * After the assertion we dispatch `skills/fetchAll/fulfilled` with the
+ * current items to flip `loading` back to `false`, leaving the slice in a
+ * consistent post-test state for the suite cleanup.
+ *
+ * Why a single test rather than two (UI-driven vs synthetic)? UI-driven
+ * coverage of the same code path is part of the sync test suite (T4); this
+ * regression test isolates the guard at SkillsList.tsx:93 specifically, so a
+ * UI flow would only add brittleness (button visibility / disabled state)
+ * without strengthening the assertion against this guard.
+ */
+test('skills list scroll position survives a background refetch (regression 5619bb7)', async ({
+  appWindow,
+}) => {
+  await waitForInitialScan(appWindow)
+
+  const itemCount = await getStoreState(appWindow, (state) => {
+    const root = state as { skills: { items: unknown[] } }
+    return root.skills.items.length
+  })
+  expect(
+    itemCount,
+    'snapshot must contain skills for the SkillsList to render rows',
+  ).toBeGreaterThan(0)
+
+  // Resolve the scrollable container. The wrapper around `<SkillsList />` is
+  // `<div class="flex-1 min-h-0 overflow-auto p-4">` (MainContent.tsx:598)
+  // and react-window v2 may add its own inner scroll container. Find the
+  // first descendant inside the active TabsContent panel whose
+  // `scrollHeight > clientHeight` — that's the ACTUAL scroller regardless of
+  // which layer wins. Returning a unique data-attr-tag on the resolved
+  // element lets us read it back deterministically after the dispatch
+  // without re-running the search (which could find a different overflowing
+  // element if another component happens to also overflow).
+  const scrolled = await appWindow.evaluate(() => {
+    // Scope the scroller hunt to the visible tabpanel only — Radix renders
+    // inactive `<TabsContent>` with `hidden` and `display: none`, but their
+    // descendants can still report `scrollHeight > clientHeight`. Picking
+    // one of those would attach `data-e2e-scroll-target` to a non-visible
+    // element and let the regression slip through.
+    const activePanel = Array.from(
+      document.querySelectorAll<HTMLElement>('[role="tabpanel"]'),
+    ).find(
+      (el) =>
+        !el.hasAttribute('hidden') &&
+        window.getComputedStyle(el).display !== 'none',
+    )
+    if (!activePanel) return null
+    const candidates = Array.from(
+      activePanel.querySelectorAll<HTMLElement>('*'),
+    )
+    const scroller = candidates.find(
+      (el) => el.scrollHeight > el.clientHeight + 1,
+    )
+    if (!scroller) return null
+    scroller.setAttribute('data-e2e-scroll-target', 'true')
+    scroller.scrollTop = 200
+    return { applied: scroller.scrollTop, target: 200 }
+  })
+  expect(
+    scrolled,
+    'no overflowing scroller found inside the active TabsContent panel — ' +
+      'snapshot may have fewer skills than the viewport can contain. ' +
+      'Adjust global-setup or the row-height constants if this is intentional.',
+  ).not.toBeNull()
+  if (!scrolled) return
+  expect(
+    scrolled.applied,
+    'browser refused the scrollTop assignment — element is not scrollable',
+  ).toBeGreaterThan(0)
+
+  // Dispatch the thunk's pending action directly. Pre-fix, SkillsList's
+  // top-level `if (loading)` would unmount the List on the next render
+  // tick, dropping the scroll container.
+  await dispatchAction(appWindow, {
+    type: 'skills/fetchAll/pending',
+    meta: {
+      arg: undefined,
+      requestId: 'e2e-t3-refetch',
+      requestStatus: 'pending',
+    },
+  })
+
+  // Allow one paint frame so React commits the loading=true state. We do
+  // NOT use waitForFunction here because the bug under test is the
+  // ABSENCE of unmount — there's nothing positive to poll for, only the
+  // STABILITY of `scrollTop`. requestAnimationFrame is the synchronous
+  // analogue: dispatch → reducer → React commit → next paint.
+  await appWindow.evaluate(
+    () =>
+      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  )
+
+  const scrollTopAfter = await appWindow.evaluate(() => {
+    const scroller = document.querySelector<HTMLElement>(
+      '[data-e2e-scroll-target="true"]',
+    )
+    return scroller?.scrollTop ?? null
+  })
+
+  // Allow ±2px for layout settle (font metrics, scrollbar fractional pixel
+  // rounding). Pre-fix: 0. Post-fix: ~200.
+  expect(
+    scrollTopAfter,
+    'data-e2e-scroll-target attribute lost — the element was removed from the DOM. ' +
+      'SkillsList remounted instead of staying mounted with stale data. ' +
+      'Check the `loading && skills.length === 0` guard at SkillsList.tsx:93.',
+  ).not.toBeNull()
+  if (scrollTopAfter === null) return
+  expect(
+    scrollTopAfter,
+    `scrollTop reset from ${scrolled.applied} to ${scrollTopAfter} — list remounted on refetch.`,
+  ).toBeGreaterThanOrEqual(scrolled.applied - 2)
+
+  // Cleanup — flip loading back to false so subsequent tests start from a
+  // consistent slice state. Dispatching fulfilled with the in-store items
+  // (read inline) is one IPC roundtrip cheaper than `refreshSkillsState`
+  // and avoids re-scanning disk for content we already have. Also remove
+  // the data attribute so it doesn't leak into the next test.
+  await appWindow.evaluate(() => {
+    const store = window.__store__ ?? window.__store
+    if (!store) return
+    const state = store.getState() as {
+      skills: { items: unknown[] }
+    }
+    store.dispatch({
+      type: 'skills/fetchAll/fulfilled',
+      payload: state.skills.items,
+      meta: {
+        arg: undefined,
+        requestId: 'e2e-t3-restore',
+        requestStatus: 'fulfilled',
+      },
+    })
+    document
+      .querySelector('[data-e2e-scroll-target="true"]')
+      ?.removeAttribute('data-e2e-scroll-target')
+  })
+})

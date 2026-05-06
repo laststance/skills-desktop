@@ -45,6 +45,12 @@ export const test = baseTest.extend<ElectronFixtures>({
       env: {
         ...process.env,
         HOME: isolatedHome,
+        // Force Electron's `userData` into the isolated HOME — without
+        // this, `app.getPath('userData')` resolves via the OS user (NOT
+        // `$HOME`) and tests writing settings.json or session storage
+        // would silently target the developer's real profile. See
+        // src/main/index.ts where `E2E_USERDATA_DIR` is consumed.
+        E2E_USERDATA_DIR: resolve(isolatedHome, 'userData'),
         E2E_DISABLE_UPDATE: '1',
         // Default to fully-hidden windows; allow opt-out when the developer
         // wants to watch the test (e.g. `E2E_BACKGROUND_LAUNCH=0 pnpm test:e2e:headed`).
