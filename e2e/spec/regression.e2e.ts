@@ -819,8 +819,21 @@ test('skills list scroll position survives a background refetch (regression 5619
   // without re-running the search (which could find a different overflowing
   // element if another component happens to also overflow).
   const scrolled = await appWindow.evaluate(() => {
+    // Scope the scroller hunt to the visible tabpanel only — Radix renders
+    // inactive `<TabsContent>` with `hidden` and `display: none`, but their
+    // descendants can still report `scrollHeight > clientHeight`. Picking
+    // one of those would attach `data-e2e-scroll-target` to a non-visible
+    // element and let the regression slip through.
+    const activePanel = Array.from(
+      document.querySelectorAll<HTMLElement>('[role="tabpanel"]'),
+    ).find(
+      (el) =>
+        !el.hasAttribute('hidden') &&
+        window.getComputedStyle(el).display !== 'none',
+    )
+    if (!activePanel) return null
     const candidates = Array.from(
-      document.querySelectorAll<HTMLElement>('[role="tabpanel"] *'),
+      activePanel.querySelectorAll<HTMLElement>('*'),
     )
     const scroller = candidates.find(
       (el) => el.scrollHeight > el.clientHeight + 1,
