@@ -3,7 +3,7 @@ import type {
   WidgetInstance,
   WidgetType,
 } from '@/renderer/src/components/dashboard/types'
-import { WIDGET_REGISTRY } from '@/renderer/src/components/dashboard/widgets/registry'
+import { WIDGET_SIZES } from '@/renderer/src/components/dashboard/widgets/sizes'
 
 import { newDashboardPageId, newWidgetInstanceId } from './ids'
 
@@ -73,14 +73,14 @@ export function buildDefaultDashboardPages(): DashboardPage[] {
     id: newDashboardPageId(),
     name: spec.name,
     widgets: spec.widgets.map((widgetSpec) => {
-      const def = WIDGET_REGISTRY[widgetSpec.type]
+      const sizes = WIDGET_SIZES[widgetSpec.type]
       const instance: WidgetInstance = {
         id: newWidgetInstanceId(),
         type: widgetSpec.type,
         x: widgetSpec.x,
         y: widgetSpec.y,
-        w: widgetSpec.w ?? def.defaultSize.w,
-        h: widgetSpec.h ?? def.defaultSize.h,
+        w: widgetSpec.w ?? sizes.defaultSize.w,
+        h: widgetSpec.h ?? sizes.defaultSize.h,
       }
       return instance
     }),

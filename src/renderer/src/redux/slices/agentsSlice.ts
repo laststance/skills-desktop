@@ -98,11 +98,3 @@ export default agentsSlice.reducer
 // --- Named selectors ---
 export const selectAgentItems = (state: RootState): Agent[] =>
   state.agents.items
-export const selectAgentsLoading = (state: RootState): boolean =>
-  state.agents.loading
-export const selectAgentToDelete = (state: RootState): Agent | null =>
-  state.agents.agentToDelete
-export const selectAgentsDeleting = (state: RootState): boolean =>
-  state.agents.deleting
-export const selectAgentsError = (state: RootState): string | null =>
-  state.agents.error

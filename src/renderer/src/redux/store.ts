@@ -35,17 +35,14 @@ const rootReducer = combineReducers({
 
 type RootReducerState = ReturnType<typeof rootReducer>
 
-const {
-  middleware: storageMiddleware,
-  reducer,
-  api,
-} = createStorageMiddleware<RootReducerState>({
-  rootReducer,
-  key: PERSIST_STORAGE_KEY,
-  slices: ['theme', 'bookmarks', 'dashboard'],
-  version: PERSIST_STATE_VERSION,
-  migrate: migrateState,
-})
+const { middleware: storageMiddleware, reducer } =
+  createStorageMiddleware<RootReducerState>({
+    rootReducer,
+    key: PERSIST_STORAGE_KEY,
+    slices: ['theme', 'bookmarks', 'dashboard'],
+    version: PERSIST_STATE_VERSION,
+    migrate: migrateState,
+  })
 
 export const store = configureStore({
   reducer,
@@ -54,9 +51,6 @@ export const store = configureStore({
       .prepend(listenerMiddleware.middleware)
       .concat(storageMiddleware),
 })
-
-// Export hydration API for checking persistence status
-export const persistApi = api
 
 setupListeners(store.dispatch)
 

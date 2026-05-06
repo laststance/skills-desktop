@@ -51,10 +51,10 @@ describe('marketplaceSlice', () => {
   })
 
   // --- Sync reducers ---
-  it('setSearchQuery updates query', async () => {
-    const { setSearchQuery } = await import('./marketplaceSlice')
+  it('setMarketplaceSearchQuery updates query', async () => {
+    const { setMarketplaceSearchQuery } = await import('./marketplaceSlice')
     const store = await createTestStore()
-    store.dispatch(setSearchQuery('react'))
+    store.dispatch(setMarketplaceSearchQuery('react'))
     expect(store.getState().marketplace.searchQuery).toBe('react')
   })
 
@@ -101,10 +101,10 @@ describe('marketplaceSlice', () => {
   })
 
   it('clearSearchResults empties results and query', async () => {
-    const { setSearchQuery, clearSearchResults } =
+    const { setMarketplaceSearchQuery, clearSearchResults } =
       await import('./marketplaceSlice')
     const store = await createTestStore()
-    store.dispatch(setSearchQuery('react'))
+    store.dispatch(setMarketplaceSearchQuery('react'))
     store.dispatch(clearSearchResults())
 
     expect(store.getState().marketplace.searchResults).toEqual([])

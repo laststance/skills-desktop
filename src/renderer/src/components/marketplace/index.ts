@@ -1,4 +1,1 @@
 export { SkillsMarketplace } from './SkillsMarketplace'
-export { MarketplaceSearch } from './MarketplaceSearch'
-export { SkillRowMarketplace } from './SkillRowMarketplace'
-export { InstallModal } from './InstallModal'

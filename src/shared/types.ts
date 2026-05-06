@@ -1,7 +1,6 @@
 import type { AgentId, AgentName, TERMINAL_APP_IDS } from './constants'
 import type { FilePreviewKind } from './fileTypes'
 export type { AgentId, AgentName } from './constants'
-export type { ThemePresetName } from './constants'
 export type { FilePreviewKind } from './fileTypes'
 
 // ============================================================================
@@ -305,20 +304,6 @@ export interface SymlinkInfo {
  * @example 'missing'
  */
 export type SymlinkStatus = 'valid' | 'broken' | 'missing'
-
-/**
- * Origin of a skill — determines how it shows up in agent directories
- * and what destructive operations are available.
- *
- * - `source`: lives in `~/.agents/skills/` and is symlinked into
- *   each agent's skills directory.
- * - `local`: a real folder inside a single agent's skills directory
- *   (no symlink). User-authored or copied for agent collaboration.
- *
- * @example 'source'
- * @example 'local'
- */
-export type SkillType = 'source' | 'local'
 
 /**
  * Identifier for the macOS terminal application launched by

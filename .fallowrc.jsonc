@@ -1,0 +1,38 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  // electron-vite uses two HTML entries declared in electron.vite.config.ts:
+  //   src/renderer/index.html         → loads ./src/main.tsx (main window)
+  //   src/renderer/settings/index.html → loads ./main.tsx (Settings window, see PR125)
+  // Fallow's auto-discovery misses these (HTML lives outside the package.json
+  // root), so without these explicit entries every renderer file looks unused.
+  "entry": [
+    "src/renderer/index.html",
+    "src/renderer/settings/index.html",
+    // Build-time scripts referenced from package.json scripts but not imported
+    "scripts/generate-icons.js",
+    // pnpm reads .pnpmfile.cjs at install time
+    ".pnpmfile.cjs",
+  ],
+  "ignoreDependencies": [
+    // postcss-load-config is a transitive of @tailwindcss/postcss / postcss in the
+    // website pipeline — it's loaded by tooling, not directly imported in source.
+    "postcss-load-config",
+    // eslint-config-next is referenced by website/eslint.config.mjs through
+    // FlatCompat's `compat.extends('next/core-web-vitals', 'next/typescript')`.
+    // Fallow can't follow string-based extends, so it appears unreferenced
+    // even though removing it breaks `pnpm --filter website lint`.
+    "eslint-config-next",
+  ],
+  "ignoreExports": [
+    {
+      // shadcn/ui primitives are scaffolded as full kits — every named export
+      // (DialogPortal, CardFooter, buttonVariants, BadgeProps, …) is meant to
+      // be available for future composition even when the current renderer
+      // tree only consumes a subset. Ignoring the whole directory matches the
+      // shadcn convention and prevents Fallow from churning on every new
+      // primitive added.
+      "file": "src/renderer/src/components/ui/**",
+      "exports": ["*"],
+    },
+  ],
+}

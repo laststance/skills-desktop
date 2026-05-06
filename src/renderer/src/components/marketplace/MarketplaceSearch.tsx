@@ -6,7 +6,7 @@ import { Input } from '@/renderer/src/components/ui/input'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   searchSkills,
-  setSearchQuery,
+  setMarketplaceSearchQuery,
   clearSearchResults,
 } from '@/renderer/src/redux/slices/marketplaceSlice'
 
@@ -22,7 +22,7 @@ export const MarketplaceSearch = React.memo(
 
     const handleSearch = (): void => {
       if (localQuery.trim()) {
-        dispatch(setSearchQuery(localQuery.trim()))
+        dispatch(setMarketplaceSearchQuery(localQuery.trim()))
         dispatch(searchSkills(localQuery.trim()))
       }
     }

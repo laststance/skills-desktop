@@ -71,5 +71,3 @@ export const RankingTabs = React.memo(function RankingTabs({
     </div>
   )
 })
-
-export type { RankingFilter }

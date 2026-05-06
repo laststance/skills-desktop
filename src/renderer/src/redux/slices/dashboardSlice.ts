@@ -14,7 +14,7 @@ import {
   newWidgetInstanceId,
 } from '@/renderer/src/components/dashboard/utils/ids'
 import { buildDefaultDashboardPages } from '@/renderer/src/components/dashboard/utils/widgetPresets'
-import { WIDGET_REGISTRY } from '@/renderer/src/components/dashboard/widgets/registry'
+import { WIDGET_SIZES } from '@/renderer/src/components/dashboard/widgets/sizes'
 import type { RootState } from '@/renderer/src/redux/store'
 
 // ============================================================================
@@ -31,7 +31,7 @@ import type { RootState } from '@/renderer/src/redux/store'
 // survives removing + re-adding the widget.
 // ============================================================================
 
-export interface DashboardState {
+interface DashboardState {
   pages: DashboardPage[]
   currentPageId: DashboardPageId | null
   isEditMode: boolean
@@ -92,10 +92,6 @@ const dashboardSlice = createSlice({
       state.isEditMode = !state.isEditMode
     },
 
-    setEditMode: (state, action: PayloadAction<boolean>) => {
-      state.isEditMode = action.payload
-    },
-
     /**
      * Persist the latest layout from react-grid-layout after a drag or resize.
      * Payload carries only the fields RGL knows about; we preserve the widget
@@ -136,15 +132,15 @@ const dashboardSlice = createSlice({
      * widget lands at (0, 0) there.
      */
     addWidget: (state, action: PayloadAction<{ type: WidgetType }>) => {
-      const def = WIDGET_REGISTRY[action.payload.type]
-      if (!def) return
+      const sizes = WIDGET_SIZES[action.payload.type]
+      if (!sizes) return
 
       const currentPage =
         state.pages.find((page) => page.id === state.currentPageId) ??
         state.pages[0]
 
       const spot = currentPage
-        ? findEmptySpot(currentPage.widgets, def.defaultSize)
+        ? findEmptySpot(currentPage.widgets, sizes.defaultSize)
         : null
 
       const newWidget: WidgetInstance = {
@@ -152,8 +148,8 @@ const dashboardSlice = createSlice({
         type: action.payload.type,
         x: spot?.x ?? 0,
         y: spot?.y ?? 0,
-        w: def.defaultSize.w,
-        h: def.defaultSize.h,
+        w: sizes.defaultSize.w,
+        h: sizes.defaultSize.h,
       }
 
       if (currentPage && spot) {
@@ -258,7 +254,6 @@ export const {
   seedDefaultsIfEmpty,
   setCurrentPage,
   toggleEditMode,
-  setEditMode,
   updateLayout,
   addWidget,
   removeWidget,

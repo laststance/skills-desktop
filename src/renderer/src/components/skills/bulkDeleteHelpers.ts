@@ -22,7 +22,7 @@ import type {
  * count>=2 surfaces the batch treatment (progress counter when >=10, etc.).
  */
 export type ToolbarView = 'global' | 'agent'
-export type ToolbarCountKind = 'single' | 'multi'
+type ToolbarCountKind = 'single' | 'multi'
 
 export interface ToolbarStateInput {
   view: ToolbarView

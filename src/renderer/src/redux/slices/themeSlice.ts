@@ -35,7 +35,7 @@ const initialState: ThemeState = {
   preset: 'neutral-dark',
 }
 
-export const themeSlice = createSlice({
+const themeSlice = createSlice({
   name: 'theme',
   initialState,
   reducers: {

@@ -95,11 +95,3 @@ export async function installUpdate(): Promise<void> {
   const updateAPI = getUpdateAPI()
   await updateAPI?.install()
 }
-
-/**
- * Manually check for updates
- */
-export async function checkForUpdates(): Promise<void> {
-  const updateAPI = getUpdateAPI()
-  await updateAPI?.check()
-}
