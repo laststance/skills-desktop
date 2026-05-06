@@ -16,6 +16,7 @@ describe('areSettingsEqual', () => {
   const baseSettings: Settings = {
     defaultSkillTab: 'files',
     preferredTerminal: 'terminal',
+    hiddenAgentIds: [],
   }
 
   it('returns true for identical primitive-only settings', () => {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
+import { AGENT_DEFINITIONS } from './constants'
 import {
   DEFAULT_SETTINGS,
   SettingsSchema,
@@ -124,6 +125,31 @@ describe('SettingsSchema', () => {
           height: WINDOW_SIZE_MIN_DIMENSION,
         },
       }),
+    ).toThrow()
+  })
+
+  it('hiddenAgentIds defaults to an empty array on a fresh parse', () => {
+    const parsed = SettingsSchema.parse({})
+    expect(parsed.hiddenAgentIds).toEqual([])
+  })
+
+  it('accepts an installed agent id in hiddenAgentIds', () => {
+    const firstAgentId = AGENT_DEFINITIONS[0]!.id
+    const parsed = SettingsSchema.parse({ hiddenAgentIds: [firstAgentId] })
+    expect(parsed.hiddenAgentIds).toEqual([firstAgentId])
+  })
+
+  it('rejects an unknown agent id in hiddenAgentIds', () => {
+    // Simulates a corrupted / hand-edited settings.json. `z.enum(AGENT_IDS)`
+    // is a closed set so unknown ids never reach the renderer.
+    expect(() =>
+      SettingsSchema.parse({ hiddenAgentIds: ['bogus-agent'] }),
+    ).toThrow()
+  })
+
+  it('rejects a non-array hiddenAgentIds', () => {
+    expect(() =>
+      SettingsSchema.parse({ hiddenAgentIds: 'claude-code' }),
     ).toThrow()
   })
 })

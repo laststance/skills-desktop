@@ -281,6 +281,10 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
         // the {min,int} constraints can never drift. `undefined` is how
         // the Settings UI clears the persisted size back to "use default".
         windowSize: SettingsSchema.shape.windowSize,
+        // Reuse `SettingsSchema.shape.hiddenAgentIds` so the `z.enum(AGENT_IDS)`
+        // constraint here cannot drift from the persisted-state validator.
+        // `.optional()` lets clients send a partial update (only this key).
+        hiddenAgentIds: SettingsSchema.shape.hiddenAgentIds.optional(),
       })
       .strict(),
   ]),

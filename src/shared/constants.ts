@@ -537,6 +537,27 @@ export type ThemePresetName = keyof typeof THEME_PRESETS
 export type AgentId = (typeof AGENT_DEFINITIONS)[number]['id']
 
 /**
+ * Runtime tuple of every AgentId, derived from AGENT_DEFINITIONS so the
+ * two stay in lockstep automatically. The double-cast (`unknown` first)
+ * is needed because `.map()` returns `AgentId[]` and TypeScript can't
+ * statically infer the non-empty tuple shape `z.enum` requires — but
+ * the value is genuinely non-empty (AGENT_DEFINITIONS is hand-authored
+ * with 40+ entries, and the `[number]` indexed access on its type
+ * would not compile if it were empty).
+ *
+ * Consumed by `SettingsSchema.shape.hiddenAgentIds` (`z.enum(AGENT_IDS)`)
+ * so the persisted-state validator drops any stale id from a prior
+ * version (e.g. an agent removed upstream by `/cli-upgrade`) instead of
+ * surfacing it as a phantom hidden entry.
+ * @example
+ * z.enum(AGENT_IDS).safeParse('claude-code').success // => true
+ * z.enum(AGENT_IDS).safeParse('removed-agent').success // => false
+ */
+export const AGENT_IDS = AGENT_DEFINITIONS.map(
+  (definition) => definition.id,
+) as unknown as readonly [AgentId, ...AgentId[]]
+
+/**
  * Agent display names shown in UI.
  * Derived from AGENT_DEFINITIONS to avoid manual union maintenance.
  */

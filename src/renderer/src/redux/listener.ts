@@ -1,6 +1,10 @@
 import { ACTION_HYDRATE_COMPLETE } from '@laststance/redux-storage-middleware'
 import { createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit'
 
+import type { Settings } from '@/shared/settings'
+import type { AgentId } from '@/shared/types'
+
+import { setSettings } from './slices/settingsSlice'
 import { clearSelection } from './slices/skillsSlice'
 import { setTheme, toggleMode } from './slices/themeSlice'
 import type { ThemeState } from './slices/themeSlice'
@@ -11,6 +15,8 @@ export const listenerMiddleware = createListenerMiddleware()
 // Type for state accessed in listeners (avoids circular RootState import)
 interface ListenerState {
   theme: ThemeState
+  settings: Settings
+  ui: { selectedAgentId: AgentId | null }
 }
 
 /**
@@ -79,5 +85,32 @@ listenerMiddleware.startListening({
   matcher: isAnyOf(setActiveTab, selectAgent, fetchSyncPreview.pending),
   effect: (_action, listenerApi) => {
     listenerApi.dispatch(clearSelection())
+  },
+})
+
+/**
+ * Cross-slice invariant: when a settings update lands that hides the
+ * currently-selected agent, clear the selection so the central skill
+ * list doesn't keep filtering by an agent the user can no longer see
+ * in the sidebar.
+ *
+ * Living here (instead of an `AgentsSection` `useEffect`) means the
+ * invariant fires regardless of whether that component is mounted —
+ * the Settings window can hide an agent during a navigation transition
+ * in the main window without a window-of-vulnerability where the stale
+ * selection survives. The cascading `selectAgent`-listener above also
+ * clears `selectedSkillNames`, so the user never sees stale ticks
+ * either.
+ */
+listenerMiddleware.startListening({
+  actionCreator: setSettings,
+  effect: (_action, listenerApi) => {
+    const { ui, settings } = listenerApi.getState() as ListenerState
+    if (
+      ui.selectedAgentId !== null &&
+      settings.hiddenAgentIds.includes(ui.selectedAgentId)
+    ) {
+      listenerApi.dispatch(selectAgent(null))
+    }
   },
 })

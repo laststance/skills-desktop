@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { TERMINAL_APP_IDS } from './constants'
+import { AGENT_IDS, TERMINAL_APP_IDS } from './constants'
 
 /**
  * Defense-in-depth floor for a persisted startup window size. Set well
@@ -50,19 +50,26 @@ const windowSizeSchema = z
  *   the saved size — clamped to the current display work area so a
  *   saved size from a wider monitor never opens off-screen on a smaller
  *   one.
+ * - `hiddenAgentIds`: agents the user has chosen to hide from the
+ *   sidebar's installed list. Pure visibility toggle — the agent's
+ *   skills folder, symlinks, and Marketplace presence are unaffected.
+ *   Validated against `AGENT_IDS` so a stale id from a prior version
+ *   (e.g. an agent removed upstream by `/cli-upgrade`) is silently
+ *   dropped on parse rather than surfacing as a phantom hidden entry.
  *
  * Adding a field here requires widening `IPC_ARG_SCHEMAS['settings:set']`
  * in `src/main/ipc/ipc-schemas.ts` in lockstep — that schema is `.strict()`
  * so unknown keys are rejected at the IPC boundary (defense in depth).
  *
  * @example
- * SettingsSchema.parse({}) // { defaultSkillTab: 'files', preferredTerminal: 'terminal' }
+ * SettingsSchema.parse({}) // { defaultSkillTab: 'files', preferredTerminal: 'terminal', hiddenAgentIds: [] }
  */
 export const SettingsSchema = z.object({
   defaultSkillTab: z.enum(['files', 'info']).default('files'),
   preferredTerminal: z.enum(TERMINAL_APP_IDS).default('terminal'),
   customTerminalAppName: z.string().trim().min(1).max(64).optional(),
   windowSize: windowSizeSchema,
+  hiddenAgentIds: z.array(z.enum(AGENT_IDS)).default([]),
 })
 
 /**
@@ -82,4 +89,5 @@ export type Settings = z.infer<typeof SettingsSchema>
 export const DEFAULT_SETTINGS: Settings = {
   defaultSkillTab: 'files',
   preferredTerminal: 'terminal',
+  hiddenAgentIds: [],
 }
