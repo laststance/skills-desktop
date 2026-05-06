@@ -179,6 +179,35 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(store.getState().ui.selectedAgentId).toBe('cursor')
   })
 
+  it('does not dispatch selectAgent(null) when no agent is selected and a hide lands', async () => {
+    // The third arm of the listener guard: selectedAgentId is already
+    // null. Without the `selectedAgentId !== null` short-circuit the
+    // listener would dispatch a redundant `selectAgent(null)` on every
+    // settings write — wasted middleware churn and a phantom transition
+    // for any selector that watches `ui.selectedAgentId` for changes.
+    const { listenerMiddleware } = await import('./listener')
+    const { default: settingsReducer, setSettings } =
+      await import('./slices/settingsSlice')
+    const { default: uiReducer } = await import('./slices/uiSlice')
+    const { DEFAULT_SETTINGS } = await import('@/shared/settings')
+
+    const store = configureStore({
+      reducer: { settings: settingsReducer, ui: uiReducer },
+      middleware: (getDefault) =>
+        getDefault().prepend(listenerMiddleware.middleware),
+    })
+
+    // Capture the ui slice reference before the settings update — if the
+    // listener's no-op short-circuit holds, the reducer is never re-run
+    // and the ui slice keeps the same reference.
+    const uiBefore = store.getState().ui
+    store.dispatch(
+      setSettings({ ...DEFAULT_SETTINGS, hiddenAgentIds: ['claude-code'] }),
+    )
+    expect(store.getState().ui).toBe(uiBefore)
+    expect(store.getState().ui.selectedAgentId).toBeNull()
+  })
+
   it('rapid preset switches write to the DOM in dispatch order (no stale/async reordering)', async () => {
     // Regression guard for the "stale listener write" class of bug — if the
     // listener ever queues async writes (via Promise.resolve, microtask,
