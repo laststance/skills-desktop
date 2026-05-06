@@ -98,7 +98,7 @@ describe('Sidebar → AgentItem context menu', () => {
     const trigger = screen.getByRole('button', {
       name: /Filter skills by Claude Code/i,
     })
-    const triggerElement = await trigger.element()
+    const triggerElement = trigger.element()
     triggerElement.dispatchEvent(
       new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
     )
@@ -115,7 +115,7 @@ describe('Sidebar → AgentItem context menu', () => {
     const trigger = screen.getByRole('button', {
       name: /Filter skills by Claude Code/i,
     })
-    const triggerElement = await trigger.element()
+    const triggerElement = trigger.element()
     triggerElement.dispatchEvent(
       new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
     )
@@ -132,7 +132,7 @@ describe('Sidebar → AgentItem context menu', () => {
     const trigger = screen.getByRole('button', {
       name: /Filter skills by Claude Code/i,
     })
-    const triggerElement = await trigger.element()
+    const triggerElement = trigger.element()
     triggerElement.dispatchEvent(
       new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
     )
@@ -149,7 +149,7 @@ describe('Sidebar → AgentItem context menu', () => {
     const trigger = screen.getByRole('button', {
       name: /Filter skills by Claude Code/i,
     })
-    const triggerElement = await trigger.element()
+    const triggerElement = trigger.element()
     triggerElement.dispatchEvent(
       new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
     )
