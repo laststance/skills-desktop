@@ -1,5 +1,13 @@
 {
   "$schema": "https://json.schemastore.org/prettierrc",
   "singleQuote": true,
-  "semi": false
+  "semi": false,
+  "overrides": [
+    {
+      "files": ".fallowrc.jsonc",
+      "options": {
+        "trailingComma": "none"
+      }
+    }
+  ]
 }

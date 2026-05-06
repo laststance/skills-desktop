@@ -1,0 +1,75 @@
+{
+  // Pin the schema to the same fallow tag this repo runs (`fallow --version`
+  // currently reports 2.65.0). Keeping `main` here would let upstream schema
+  // changes silently break editor validation between fallow upgrades — bump
+  // this URL together with the package install when bumping fallow.
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/v2.65.0/schema.json",
+  // electron-vite uses two HTML entries declared in electron.vite.config.ts:
+  //   src/renderer/index.html         → loads ./src/main.tsx (main window)
+  //   src/renderer/settings/index.html → loads ./main.tsx (Settings window, see PR125)
+  // Fallow's auto-discovery misses these (HTML lives outside the package.json
+  // root), so without these explicit entries every renderer file looks unused.
+  "entry": [
+    "src/renderer/index.html",
+    "src/renderer/settings/index.html",
+    // Build-time scripts referenced from package.json scripts but not imported
+    "scripts/generate-icons.js",
+    // pnpm reads .pnpmfile.cjs at install time
+    ".pnpmfile.cjs"
+  ],
+  "ignoreDependencies": [
+    // postcss-load-config is a transitive of @tailwindcss/postcss / postcss in the
+    // website pipeline — it's loaded by tooling, not directly imported in source.
+    "postcss-load-config",
+    // eslint-config-next is referenced by website/eslint.config.mjs through
+    // FlatCompat's `compat.extends('next/core-web-vitals', 'next/typescript')`.
+    // Fallow can't follow string-based extends, so it appears unreferenced
+    // even though removing it breaks `pnpm --filter website lint`.
+    "eslint-config-next"
+  ],
+  "ignoreExports": [
+    {
+      // shadcn/ui primitives are scaffolded as full kits — every named export
+      // (DialogPortal, CardFooter, buttonVariants, BadgeProps, …) is meant to
+      // be available for future composition even when the current renderer
+      // tree only consumes a subset. Ignoring the whole directory matches the
+      // shadcn convention and prevents Fallow from churning on every new
+      // primitive added.
+      "file": "src/renderer/src/components/ui/**",
+      "exports": ["*"]
+    }
+  ],
+  "duplicates": {
+    // Tests intentionally repeat Arrange/Act/Assert blocks for clarity.
+    // Per Kent C. Dodds' AHA principle, premature DRY in tests hurts
+    // diagnosis: a shared helper masks which exact setup the failing case
+    // used. Skip *.test.ts(x), *.spec.ts(x), and the entire e2e/ tree
+    // (specs + helpers + fixtures) so `fallow dupes` only flags duplication
+    // in production code worth refactoring.
+    //
+    // The 5 remaining app-code detections are deliberate — DO NOT extract:
+    //   1. trashService.ts:287/557 (25 lines): `scanOrphanSymlinkPaths`
+    //      uses warn+continue while `moveToTrash` throws on the same
+    //      validatePath/lstat scaffold. Sharing would force the caller to
+    //      pass an error-policy callback and obscure the intent.
+    //   2. ipc/skills.ts:78/131 (9 lines): bulk-unlink REFUSES local-skill
+    //      directories; single-unlink rm -rf's them (single has confirm UX,
+    //      bulk does not). Both inline `match({isSymlink, isDirectory})`.
+    //   3. trashService.ts:546/781 (7 lines): `moveSourceBackedToTrash` and
+    //      `moveLocalOnlyToTrash` share return type + TRASH_DIR mkdir +
+    //      buildEntryName but diverge on `entrySourceDir` vs
+    //      `localCopiesRoot`. A shared init helper would only save 6 lines.
+    //   4. skillScanner.ts:248/353 (7 lines): orphan vs local skill object
+    //      initializers differ in 4 fields (status, isLocal, isOrphan,
+    //      skillMdSymlinkTarget). Sharing needs 4+ parameters.
+    //   5. CopyToAgentsModal/SkillItem (5 lines): identical Redux selector
+    //      reads — natural shape of `useAppSelector` calls per component.
+    "ignore": [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.spec.ts",
+      "**/*.spec.tsx",
+      "e2e/**"
+    ]
+  }
+}

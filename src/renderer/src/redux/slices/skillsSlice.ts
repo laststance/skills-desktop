@@ -314,12 +314,6 @@ const skillsSlice = createSlice({
       state.selectedAddAgentIds.splice(existingIndex, 1)
     },
     /**
-     * Clear the AddSymlinkModal agent selection.
-     */
-    clearAddAgentSelection: (state) => {
-      state.selectedAddAgentIds = []
-    },
-    /**
      * Toggle a single skill in `selectedSkillNames` and update the anchor.
      * Called by the checkbox onChange in SkillItem.
      */
@@ -528,7 +522,6 @@ export const {
   setSkillToAddSymlinks,
   setSkillToCopy,
   toggleAddAgentSelection,
-  clearAddAgentSelection,
   toggleSelection,
   selectRange,
   selectAll,
@@ -544,29 +537,12 @@ export const selectSkillsLoading = (state: RootState): boolean =>
   state.skills.loading
 export const selectSkillsError = (state: RootState): string | null =>
   state.skills.error
-export const selectSelectedSkill = (state: RootState): Skill | null =>
-  state.skills.selectedSkill
-export const selectSkillToUnlink = (
-  state: RootState,
-): { skill: Skill; symlink: SymlinkInfo } | null => state.skills.skillToUnlink
-export const selectSkillsUnlinking = (state: RootState): boolean =>
-  state.skills.unlinking
-export const selectSkillToAddSymlinks = (state: RootState): Skill | null =>
-  state.skills.skillToAddSymlinks
-export const selectSkillsAddingSymlinks = (state: RootState): boolean =>
-  state.skills.addingSymlinks
-export const selectSkillToCopy = (state: RootState): Skill | null =>
-  state.skills.skillToCopy
-export const selectSkillsCopying = (state: RootState): boolean =>
-  state.skills.copying
 export const selectSelectedSkillNames = (state: RootState): SkillName[] =>
   state.skills.selectedSkillNames
 export const selectSelectionAnchor = (state: RootState): SkillName | null =>
   state.skills.selectionAnchor
 export const selectInFlightDeleteNames = (state: RootState): SkillName[] =>
   state.skills.inFlightDeleteNames
-export const selectInFlightUnlinkNames = (state: RootState): SkillName[] =>
-  state.skills.inFlightUnlinkNames
 export const selectBulkDeleting = (state: RootState): boolean =>
   state.skills.bulkDeleting
 export const selectBulkUnlinking = (state: RootState): boolean =>

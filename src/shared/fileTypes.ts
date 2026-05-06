@@ -8,7 +8,7 @@
  * Extensions MUST be lowercase and include the leading dot.
  * @example '.md' | '.py' | '.toml'
  */
-export const PREVIEW_EXTENSIONS = [
+const PREVIEW_EXTENSIONS = [
   // Docs / config
   '.md',
   '.mdx',
@@ -76,14 +76,14 @@ export const IMAGE_MIME_TYPES: Readonly<Record<string, string>> = {
  * NOTE: `.svg` is in PREVIEW_EXTENSIONS since it is text; classifyFile()
  * prefers the text path so users can read the markup.
  */
-export const IMAGE_EXTENSIONS: readonly string[] = Object.keys(IMAGE_MIME_TYPES)
+const IMAGE_EXTENSIONS: readonly string[] = Object.keys(IMAGE_MIME_TYPES)
 
 /**
  * Directory names that must be skipped entirely when recursing into a skill.
  * These are either VCS metadata, generated artefacts, or dependency installs
  * that bloat the tree and are never relevant to a skill's user-facing content.
  */
-export const EXCLUDED_DIRS: readonly string[] = [
+const EXCLUDED_DIRS: readonly string[] = [
   '.git',
   '.svn',
   '.hg',

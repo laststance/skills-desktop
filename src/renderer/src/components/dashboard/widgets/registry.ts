@@ -22,6 +22,7 @@ import { BookmarksWidget } from './BookmarksWidget'
 import { CoverageWidget } from './CoverageWidget'
 import { HealthWidget } from './HealthWidget'
 import { QuickActionsWidget } from './QuickActionsWidget'
+import { WIDGET_SIZES } from './sizes'
 import { StatsWidget } from './StatsWidget'
 import { TrendingWidget } from './TrendingWidget'
 import { WelcomeWidget } from './WelcomeWidget'
@@ -42,8 +43,8 @@ export const WIDGET_REGISTRY: Readonly<Record<WidgetType, WidgetDefinition>> = {
     label: 'Welcome',
     description: 'Introduction card shown on first launch — dismissible.',
     icon: Hand,
-    defaultSize: { w: 6, h: 3 },
-    minSize: { w: 4, h: 2 },
+    defaultSize: WIDGET_SIZES.welcome.defaultSize,
+    minSize: WIDGET_SIZES.welcome.minSize,
     Component: WelcomeWidget,
   },
   stats: {
@@ -51,8 +52,8 @@ export const WIDGET_REGISTRY: Readonly<Record<WidgetType, WidgetDefinition>> = {
     label: 'Skill Stats',
     description: 'Totals for skills, linked skills, and agents at a glance.',
     icon: BarChart3,
-    defaultSize: { w: 3, h: 2 },
-    minSize: { w: 2, h: 2 },
+    defaultSize: WIDGET_SIZES.stats.defaultSize,
+    minSize: WIDGET_SIZES.stats.minSize,
     Component: StatsWidget,
   },
   health: {
@@ -60,8 +61,8 @@ export const WIDGET_REGISTRY: Readonly<Record<WidgetType, WidgetDefinition>> = {
     label: 'Symlink Health',
     description: 'Valid vs. broken symlinks across all agents.',
     icon: HeartPulse,
-    defaultSize: { w: 3, h: 2 },
-    minSize: { w: 2, h: 2 },
+    defaultSize: WIDGET_SIZES.health.defaultSize,
+    minSize: WIDGET_SIZES.health.minSize,
     Component: HealthWidget,
   },
   coverage: {
@@ -69,8 +70,8 @@ export const WIDGET_REGISTRY: Readonly<Record<WidgetType, WidgetDefinition>> = {
     label: 'Agent Coverage',
     description: 'Which agents have which skills — quick matrix view.',
     icon: Grid3x3,
-    defaultSize: { w: 6, h: 3 },
-    minSize: { w: 4, h: 2 },
+    defaultSize: WIDGET_SIZES.coverage.defaultSize,
+    minSize: WIDGET_SIZES.coverage.minSize,
     Component: CoverageWidget,
   },
   bookmarks: {
@@ -78,8 +79,8 @@ export const WIDGET_REGISTRY: Readonly<Record<WidgetType, WidgetDefinition>> = {
     label: 'Bookmarks',
     description: 'Your saved skills from the marketplace.',
     icon: Bookmark,
-    defaultSize: { w: 3, h: 3 },
-    minSize: { w: 2, h: 2 },
+    defaultSize: WIDGET_SIZES.bookmarks.defaultSize,
+    minSize: WIDGET_SIZES.bookmarks.minSize,
     Component: BookmarksWidget,
   },
   trending: {
@@ -87,8 +88,8 @@ export const WIDGET_REGISTRY: Readonly<Record<WidgetType, WidgetDefinition>> = {
     label: 'Trending',
     description: 'Popular skills in the marketplace right now.',
     icon: Flame,
-    defaultSize: { w: 6, h: 4 },
-    minSize: { w: 3, h: 3 },
+    defaultSize: WIDGET_SIZES.trending.defaultSize,
+    minSize: WIDGET_SIZES.trending.minSize,
     Component: TrendingWidget,
   },
   'whats-new': {
@@ -96,8 +97,8 @@ export const WIDGET_REGISTRY: Readonly<Record<WidgetType, WidgetDefinition>> = {
     label: "What's New",
     description: 'Recently added or updated skills in the marketplace.',
     icon: Sparkles,
-    defaultSize: { w: 3, h: 3 },
-    minSize: { w: 2, h: 2 },
+    defaultSize: WIDGET_SIZES['whats-new'].defaultSize,
+    minSize: WIDGET_SIZES['whats-new'].minSize,
     Component: WhatsNewWidget,
   },
   'quick-actions': {
@@ -105,8 +106,8 @@ export const WIDGET_REGISTRY: Readonly<Record<WidgetType, WidgetDefinition>> = {
     label: 'Quick Actions',
     description: 'Frequent actions: sync, refresh, open marketplace.',
     icon: Zap,
-    defaultSize: { w: 6, h: 3 },
-    minSize: { w: 3, h: 3 },
+    defaultSize: WIDGET_SIZES['quick-actions'].defaultSize,
+    minSize: WIDGET_SIZES['quick-actions'].minSize,
     Component: QuickActionsWidget,
   },
   'agent-heatmap': {
@@ -114,8 +115,8 @@ export const WIDGET_REGISTRY: Readonly<Record<WidgetType, WidgetDefinition>> = {
     label: 'Agent Heatmap',
     description: 'Symlink density per agent visualized as a heatmap.',
     icon: Activity,
-    defaultSize: { w: 6, h: 4 },
-    minSize: { w: 4, h: 3 },
+    defaultSize: WIDGET_SIZES['agent-heatmap'].defaultSize,
+    minSize: WIDGET_SIZES['agent-heatmap'].minSize,
     Component: AgentHeatmapWidget,
     experimental: true,
   },
@@ -124,8 +125,8 @@ export const WIDGET_REGISTRY: Readonly<Record<WidgetType, WidgetDefinition>> = {
     label: 'Activity Timeline',
     description: 'Recent add/remove/sync events in chronological order.',
     icon: FileClock,
-    defaultSize: { w: 6, h: 4 },
-    minSize: { w: 3, h: 3 },
+    defaultSize: WIDGET_SIZES['activity-timeline'].defaultSize,
+    minSize: WIDGET_SIZES['activity-timeline'].minSize,
     Component: ActivityTimelineWidget,
     experimental: true,
   },

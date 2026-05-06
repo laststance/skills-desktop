@@ -112,7 +112,7 @@ const marketplaceSlice = createSlice({
   name: 'marketplace',
   initialState,
   reducers: {
-    setSearchQuery: (state, action: PayloadAction<SearchQuery>) => {
+    setMarketplaceSearchQuery: (state, action: PayloadAction<SearchQuery>) => {
       state.searchQuery = action.payload
     },
     selectSkillForInstall: (
@@ -229,7 +229,7 @@ const marketplaceSlice = createSlice({
 })
 
 export const {
-  setSearchQuery,
+  setMarketplaceSearchQuery,
   selectSkillForInstall,
   setPreviewSkill,
   setInstallProgress,

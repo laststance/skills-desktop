@@ -46,7 +46,7 @@ export type SearchScope = 'name' | 'repo'
  * - `expiresAt`: absolute ISO timestamp; the UndoToast renders a countdown from this.
  * - `summary`: pre-formatted display string ("Deleted 3 skills. 7 symlinks removed.").
  */
-export interface UndoToastState {
+interface UndoToastState {
   id: ToastId
   kind: 'delete' | 'unlink'
   skillNames: SkillName[]
@@ -241,9 +241,6 @@ const uiSlice = createSlice({
     clearSelectedSource: (state) => {
       state.selectedSource = null
     },
-    setRefreshing: (state, action: PayloadAction<boolean>) => {
-      state.isRefreshing = action.payload
-    },
     selectAgent: (state, action: PayloadAction<AgentId | null>) => {
       state.selectedAgentId = action.payload
       state.skillTypeFilter = 'all'
@@ -354,8 +351,19 @@ const uiSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // ── Source stats refresh — drives the spinner on the Refresh button ──
+      // `isRefreshing` is the source of truth for `selectIsRefreshing`, which
+      // SourceCard and QuickActionsWidget read to disable the button and spin
+      // the icon. Without these three handlers it would stay `false` forever.
+      .addCase(fetchSourceStats.pending, (state) => {
+        state.isRefreshing = true
+      })
       .addCase(fetchSourceStats.fulfilled, (state, action) => {
         state.sourceStats = action.payload
+        state.isRefreshing = false
+      })
+      .addCase(fetchSourceStats.rejected, (state) => {
+        state.isRefreshing = false
       })
       .addCase(fetchSyncPreview.pending, (state) => {
         state.isSyncing = true
@@ -413,7 +421,6 @@ export const {
   setSearchScope,
   setSelectedSource,
   clearSelectedSource,
-  setRefreshing,
   selectAgent,
   toggleSortOrder,
   setSkillTypeFilter,
@@ -433,8 +440,6 @@ export const {
 export default uiSlice.reducer
 
 // --- Named selectors ---
-export const selectActiveTab = (state: RootState): ActiveTab =>
-  state.ui.activeTab
 export const selectSearchQuery = (state: RootState): SearchQuery =>
   state.ui.searchQuery
 export const selectSearchScope = (state: RootState): SearchScope =>
@@ -443,8 +448,6 @@ export const selectSelectedSource = (state: RootState): RepositoryId | null =>
   state.ui.selectedSource
 export const selectSelectedAgentId = (state: RootState): AgentId | null =>
   state.ui.selectedAgentId
-export const selectSourceStats = (state: RootState): SourceStats | null =>
-  state.ui.sourceStats
 export const selectIsRefreshing = (state: RootState): boolean =>
   state.ui.isRefreshing
 export const selectIsSyncing = (state: RootState): boolean => state.ui.isSyncing
@@ -452,7 +455,6 @@ export const selectSyncPreview = (state: RootState): SyncPreviewResult | null =>
   state.ui.syncPreview
 export const selectSyncResult = (state: RootState): SyncExecuteResult | null =>
   state.ui.syncResult
-export const selectUiError = (state: RootState): string | null => state.ui.error
 export const selectSortOrder = (state: RootState): SortOrder =>
   state.ui.sortOrder
 export const selectSkillTypeFilter = (state: RootState): SkillTypeFilter =>
@@ -460,8 +462,6 @@ export const selectSkillTypeFilter = (state: RootState): SkillTypeFilter =>
 export const selectSelectedBookmarkForDetail = (
   state: RootState,
 ): BookmarkForDetail | null => state.ui.selectedBookmarkForDetail
-export const selectUndoToast = (state: RootState): UndoToastState | null =>
-  state.ui.undoToast
 export const selectBulkConfirm = (state: RootState): BulkConfirmState | null =>
   state.ui.bulkConfirm
 export const selectBulkSelectMode = (state: RootState): boolean =>

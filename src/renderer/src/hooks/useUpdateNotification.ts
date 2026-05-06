@@ -9,31 +9,23 @@ import {
   setReady,
   setError,
 } from '@/renderer/src/redux/slices/updateSlice'
-import type { UpdateInfo, DownloadProgress } from '@/shared/types'
-
-// Extended electron API with update functionality
-interface UpdateAPI {
-  onChecking: (callback: () => void) => () => void
-  onAvailable: (callback: (info: UpdateInfo) => void) => () => void
-  onNotAvailable: (callback: () => void) => () => void
-  onProgress: (callback: (progress: DownloadProgress) => void) => () => void
-  onDownloaded: (callback: (info: UpdateInfo) => void) => () => void
-  onError: (callback: (error: { message: string }) => void) => () => void
-  download: () => Promise<void>
-  install: () => Promise<void>
-  check: () => Promise<void>
-}
-
-interface ElectronAPIWithUpdate {
-  update?: UpdateAPI
-}
 
 /**
- * Get update API from window.electron if available
+ * Update IPC surface, sourced from the global `Window.electron.update`
+ * declaration in `types/electron.d.ts`. Reusing the global type via an
+ * Indexed Access Type avoids drift between the preload contract and the
+ * renderer-side consumer (a previous duplicated `UpdateAPI` interface here
+ * silently went out of sync when `onError` switched to `UpdateErrorPayload`).
+ */
+type UpdateAPI = Window['electron']['update']
+
+/**
+ * Get update API from window.electron if available.
+ * Returns `undefined` outside production where auto-updater is not wired
+ * (the global declaration types it as required, so we narrow at runtime).
  */
 function getUpdateAPI(): UpdateAPI | undefined {
-  const electron = window.electron as ElectronAPIWithUpdate
-  return electron?.update
+  return window.electron?.update
 }
 
 /**
@@ -51,24 +43,26 @@ export function useUpdateNotification(): void {
       return
     }
 
-    // Subscribe to update events
+    // Subscribe to update events. Callback parameter types are inferred from
+    // `UpdateAPI = Window['electron']['update']` so they always track the
+    // canonical preload contract (UpdateInfo / DownloadProgress / UpdateErrorPayload).
     const cleanups = [
       updateAPI.onChecking(() => {
         dispatch(setChecking())
       }),
-      updateAPI.onAvailable((info: UpdateInfo) => {
+      updateAPI.onAvailable((info) => {
         dispatch(setAvailable(info))
       }),
       updateAPI.onNotAvailable(() => {
         dispatch(setNotAvailable())
       }),
-      updateAPI.onProgress((progress: DownloadProgress) => {
+      updateAPI.onProgress((progress) => {
         dispatch(setProgress(progress))
       }),
-      updateAPI.onDownloaded((info: UpdateInfo) => {
+      updateAPI.onDownloaded((info) => {
         dispatch(setReady(info))
       }),
-      updateAPI.onError((error: { message: string }) => {
+      updateAPI.onError((error) => {
         dispatch(setError(error.message))
       }),
     ]
@@ -94,12 +88,4 @@ export async function downloadUpdate(): Promise<void> {
 export async function installUpdate(): Promise<void> {
   const updateAPI = getUpdateAPI()
   await updateAPI?.install()
-}
-
-/**
- * Manually check for updates
- */
-export async function checkForUpdates(): Promise<void> {
-  const updateAPI = getUpdateAPI()
-  await updateAPI?.check()
 }

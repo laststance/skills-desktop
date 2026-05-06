@@ -11,7 +11,7 @@ import type { BookmarkedSkill, SkillName } from '@/shared/types'
  * instead of repeating `Omit<BookmarkedSkill, 'bookmarkedAt'>` inline.
  * @example { name: 'task', repo: 'vercel-labs/skills', url: 'https://skills.sh/task' }
  */
-export type AddBookmarkPayload = Omit<BookmarkedSkill, 'bookmarkedAt'>
+type AddBookmarkPayload = Omit<BookmarkedSkill, 'bookmarkedAt'>
 
 /**
  * Redux state for the Bookmarks feature.
