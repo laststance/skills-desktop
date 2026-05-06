@@ -11,6 +11,14 @@ export function cn(...inputs: ClassValue[]): string {
 }
 
 /**
+ * Primitive types comparable by `===`. Constrains `toggleArrayMember`
+ * so an object literal can never silently slip through the reference-
+ * equality check (e.g. `toggleArrayMember([{id:'a'}], {id:'a'})` would
+ * always append, never remove — caught at compile time now).
+ */
+type Primitive = string | number | boolean | bigint | symbol | null | undefined
+
+/**
  * Toggle membership of `value` in `arr`. Returns a new array with the
  * value appended if absent, or removed if present. Always returns a
  * fresh reference so callers can pass the result straight into a Redux
@@ -18,8 +26,9 @@ export function cn(...inputs: ClassValue[]): string {
  *
  * Used by hide-from-sidebar flows where the next state is the inverse
  * of current membership (right-click toggle in `AgentItem`, checkbox
- * flip in Settings → Agents pane). Equality is `===`, so this is for
- * primitive ids — not deep object membership.
+ * flip in Settings → Agents pane). Equality is `===`, so the generic
+ * is constrained to `Primitive` — passing an object literal is a
+ * compile-time error rather than a silent reference-equality bug.
  * @param arr - The current array (treated as immutable)
  * @param value - The value to toggle
  * @returns A new array with `value` appended or removed
@@ -27,7 +36,10 @@ export function cn(...inputs: ClassValue[]): string {
  * toggleArrayMember(['a', 'b'], 'c') // => ['a', 'b', 'c']
  * toggleArrayMember(['a', 'b'], 'a') // => ['b']
  */
-export function toggleArrayMember<T>(arr: readonly T[], value: T): T[] {
+export function toggleArrayMember<T extends Primitive>(
+  arr: readonly T[],
+  value: T,
+): T[] {
   return arr.includes(value)
     ? arr.filter((item) => item !== value)
     : [...arr, value]

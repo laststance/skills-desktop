@@ -180,6 +180,22 @@ describe('SettingsSchema', () => {
     ).toThrow()
   })
 
+  it('drops non-string elements without rejecting the file', () => {
+    // Regression for the array-element-validation cliff: with the prior
+    // `z.array(z.string())` element schema, a single non-string entry
+    // (e.g. a hand-edited `123`) would fail BEFORE `.transform()` ran,
+    // taking the whole settings parse down with it. Element type is
+    // `z.unknown()` so the typeof-string filter inside transform can
+    // do its job — same forgiving contract as the stale-id case.
+    const firstAgentId = AGENT_DEFINITIONS[0]!.id
+    const parsed = SettingsSchema.parse({
+      defaultSkillTab: 'info',
+      hiddenAgentIds: [firstAgentId, 123, null, { not: 'a string' }],
+    })
+    expect(parsed.defaultSkillTab).toBe('info')
+    expect(parsed.hiddenAgentIds).toEqual([firstAgentId])
+  })
+
   it('deduplicates hiddenAgentIds on parse', () => {
     // A hand-edited settings.json containing duplicates would otherwise
     // false-positive the length-then-membership equality check in

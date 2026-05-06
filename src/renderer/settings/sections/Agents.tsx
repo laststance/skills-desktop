@@ -44,6 +44,17 @@ export const Agents = React.memo(function Agents(): React.ReactElement {
   const updateSettings = useUpdateSettings()
 
   useEffect(() => {
+    // Deliberately keyed on `agents.length` only (NOT `loading`). The
+    // length value transitions 0 → N exactly once per mount lifecycle,
+    // so the effect dispatches once and never re-fires within a mount.
+    // Adding `!loading` + `loading` to deps was tried and reverted: it
+    // creates a re-fetch loop when the scan resolves to `[]` (length
+    // stays 0, loading flips true → false, deps change, effect runs
+    // again, dispatches, and so on). The cross-window "duplicate IPC"
+    // concern that motivated the guard does not apply here either —
+    // each Electron renderer owns its own Redux store, so this
+    // window's `loading` flag carries no information about another
+    // window's in-flight scan.
     if (agents.length === 0) {
       dispatch(fetchAgents())
     }

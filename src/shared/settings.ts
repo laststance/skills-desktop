@@ -44,6 +44,14 @@ const windowSizeSchema = z
  * window size). The `.includes` cast is needed because `.includes` on
  * a `readonly` tuple narrows to its literal members.
  *
+ * Element type is `z.unknown()` (not `z.string()`) on purpose: a single
+ * non-string element in a hand-edited settings.json (e.g. `[123]`)
+ * would otherwise fail array-element validation BEFORE `.transform()`
+ * ever runs, taking the entire `SettingsSchema.parse()` down with it
+ * — the same blast-radius bug that strict-enum validation has. The
+ * `typeof === 'string'` filter inside transform handles the bad
+ * element while keeping the rest of the file intact.
+ *
  * Also dedupes — `areSettingsEqual` uses length-then-membership for
  * set-equality, which would false-positive if one side had duplicates
  * (e.g. a hand-edited settings.json with `["cursor","cursor"]` would
@@ -56,10 +64,11 @@ const windowSizeSchema = z
  * evolution event.
  */
 const HIDDEN_AGENT_IDS_SCHEMA = z
-  .array(z.string())
+  .array(z.unknown())
   .transform((arr): AgentId[] => {
-    const valid = arr.filter((id): id is AgentId =>
-      (AGENT_IDS as readonly string[]).includes(id),
+    const valid = arr.filter(
+      (id): id is AgentId =>
+        typeof id === 'string' && (AGENT_IDS as readonly string[]).includes(id),
     )
     return Array.from(new Set(valid))
   })
