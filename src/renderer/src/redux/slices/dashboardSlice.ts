@@ -133,7 +133,6 @@ const dashboardSlice = createSlice({
      */
     addWidget: (state, action: PayloadAction<{ type: WidgetType }>) => {
       const sizes = WIDGET_SIZES[action.payload.type]
-      if (!sizes) return
 
       const currentPage =
         state.pages.find((page) => page.id === state.currentPageId) ??

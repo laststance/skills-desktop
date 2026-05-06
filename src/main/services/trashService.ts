@@ -96,10 +96,11 @@ function buildEntryName(skillName: SkillName): string {
  * `EXDEV` we fall back to recursive copy + remove, which is non-atomic but the
  * only portable recovery.
  *
- * Used by both rollback paths (`rollbackMovedLocalCopies`) and the restore
- * path (`restoreDeletedSkill`) to move staged local copies back to their
- * original agent directories. Centralised so the EXDEV fallback policy stays
- * consistent across the two call sites.
+ * Used by all three restore-direction call sites:
+ *   - `rollbackMovedLocalCopies` (per-copy revert during forward-move failure),
+ *   - `restoreLocalOnly` (per-copy restore from a local-only tombstone),
+ *   - `restoreSourceBacked` (move the source dir back from the trash).
+ * Centralised so the EXDEV fallback policy stays consistent across them.
  *
  * @param source - Absolute source path (file or directory)
  * @param destination - Absolute destination path (must not exist)
@@ -1071,29 +1072,14 @@ async function restoreSourceBacked(
     // ENOENT = free, proceed.
   }
 
-  // Rename source back.
+  // Rename source back. Centralised EXDEV fallback so this matches the
+  // local-only restore path (`restoreLocalOnly`) — both go through the helper.
   try {
-    await fs.rename(entrySourceDir, manifest.sourcePath)
+    await renameWithCrossDeviceFallback(entrySourceDir, manifest.sourcePath)
   } catch (error) {
-    const code = errorCode(error)
-    if (code === 'EXDEV') {
-      try {
-        await fs.cp(entrySourceDir, manifest.sourcePath, { recursive: true })
-        await fs.rm(entrySourceDir, { recursive: true, force: true })
-      } catch (fallbackError) {
-        return {
-          outcome: 'error',
-          error: {
-            message: extractErrorMessage(fallbackError),
-            code: errorCode(fallbackError),
-          },
-        }
-      }
-    } else {
-      return {
-        outcome: 'error',
-        error: { message: extractErrorMessage(error), code },
-      }
+    return {
+      outcome: 'error',
+      error: { message: extractErrorMessage(error), code: errorCode(error) },
     }
   }
 

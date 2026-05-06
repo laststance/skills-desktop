@@ -1,5 +1,9 @@
 {
-  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  // Pin the schema to the same fallow tag this repo runs (`fallow --version`
+  // currently reports 2.65.0). Keeping `main` here would let upstream schema
+  // changes silently break editor validation between fallow upgrades — bump
+  // this URL together with the package install when bumping fallow.
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/v2.65.0/schema.json",
   // electron-vite uses two HTML entries declared in electron.vite.config.ts:
   //   src/renderer/index.html         → loads ./src/main.tsx (main window)
   //   src/renderer/settings/index.html → loads ./main.tsx (Settings window, see PR125)

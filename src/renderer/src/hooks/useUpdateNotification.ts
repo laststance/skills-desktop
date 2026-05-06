@@ -9,7 +9,6 @@ import {
   setReady,
   setError,
 } from '@/renderer/src/redux/slices/updateSlice'
-import type { UpdateInfo, DownloadProgress } from '@/shared/types'
 
 /**
  * Update IPC surface, sourced from the global `Window.electron.update`
@@ -44,24 +43,26 @@ export function useUpdateNotification(): void {
       return
     }
 
-    // Subscribe to update events
+    // Subscribe to update events. Callback parameter types are inferred from
+    // `UpdateAPI = Window['electron']['update']` so they always track the
+    // canonical preload contract (UpdateInfo / DownloadProgress / UpdateErrorPayload).
     const cleanups = [
       updateAPI.onChecking(() => {
         dispatch(setChecking())
       }),
-      updateAPI.onAvailable((info: UpdateInfo) => {
+      updateAPI.onAvailable((info) => {
         dispatch(setAvailable(info))
       }),
       updateAPI.onNotAvailable(() => {
         dispatch(setNotAvailable())
       }),
-      updateAPI.onProgress((progress: DownloadProgress) => {
+      updateAPI.onProgress((progress) => {
         dispatch(setProgress(progress))
       }),
-      updateAPI.onDownloaded((info: UpdateInfo) => {
+      updateAPI.onDownloaded((info) => {
         dispatch(setReady(info))
       }),
-      updateAPI.onError((error: { message: string }) => {
+      updateAPI.onError((error) => {
         dispatch(setError(error.message))
       }),
     ]

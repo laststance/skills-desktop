@@ -351,8 +351,19 @@ const uiSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // ── Source stats refresh — drives the spinner on the Refresh button ──
+      // `isRefreshing` is the source of truth for `selectIsRefreshing`, which
+      // SourceCard and QuickActionsWidget read to disable the button and spin
+      // the icon. Without these three handlers it would stay `false` forever.
+      .addCase(fetchSourceStats.pending, (state) => {
+        state.isRefreshing = true
+      })
       .addCase(fetchSourceStats.fulfilled, (state, action) => {
         state.sourceStats = action.payload
+        state.isRefreshing = false
+      })
+      .addCase(fetchSourceStats.rejected, (state) => {
+        state.isRefreshing = false
       })
       .addCase(fetchSyncPreview.pending, (state) => {
         state.isSyncing = true
