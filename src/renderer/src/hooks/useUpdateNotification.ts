@@ -11,29 +11,22 @@ import {
 } from '@/renderer/src/redux/slices/updateSlice'
 import type { UpdateInfo, DownloadProgress } from '@/shared/types'
 
-// Extended electron API with update functionality
-interface UpdateAPI {
-  onChecking: (callback: () => void) => () => void
-  onAvailable: (callback: (info: UpdateInfo) => void) => () => void
-  onNotAvailable: (callback: () => void) => () => void
-  onProgress: (callback: (progress: DownloadProgress) => void) => () => void
-  onDownloaded: (callback: (info: UpdateInfo) => void) => () => void
-  onError: (callback: (error: { message: string }) => void) => () => void
-  download: () => Promise<void>
-  install: () => Promise<void>
-  check: () => Promise<void>
-}
-
-interface ElectronAPIWithUpdate {
-  update?: UpdateAPI
-}
+/**
+ * Update IPC surface, sourced from the global `Window.electron.update`
+ * declaration in `types/electron.d.ts`. Reusing the global type via an
+ * Indexed Access Type avoids drift between the preload contract and the
+ * renderer-side consumer (a previous duplicated `UpdateAPI` interface here
+ * silently went out of sync when `onError` switched to `UpdateErrorPayload`).
+ */
+type UpdateAPI = Window['electron']['update']
 
 /**
- * Get update API from window.electron if available
+ * Get update API from window.electron if available.
+ * Returns `undefined` outside production where auto-updater is not wired
+ * (the global declaration types it as required, so we narrow at runtime).
  */
 function getUpdateAPI(): UpdateAPI | undefined {
-  const electron = window.electron as ElectronAPIWithUpdate
-  return electron?.update
+  return window.electron?.update
 }
 
 /**

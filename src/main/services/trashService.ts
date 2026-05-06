@@ -90,6 +90,39 @@ function buildEntryName(skillName: SkillName): string {
 }
 
 /**
+ * Move a path with cross-device fallback. `fs.rename` is atomic within a single
+ * filesystem but throws `EXDEV` when source and destination live on different
+ * mount points (e.g. `$HOME` on the user partition vs `/tmp` on a tmpfs). On
+ * `EXDEV` we fall back to recursive copy + remove, which is non-atomic but the
+ * only portable recovery.
+ *
+ * Used by both rollback paths (`rollbackMovedLocalCopies`) and the restore
+ * path (`restoreDeletedSkill`) to move staged local copies back to their
+ * original agent directories. Centralised so the EXDEV fallback policy stays
+ * consistent across the two call sites.
+ *
+ * @param source - Absolute source path (file or directory)
+ * @param destination - Absolute destination path (must not exist)
+ * @example
+ * await renameWithCrossDeviceFallback('/var/tmp/staged', '/home/u/.claude/skills/x')
+ */
+async function renameWithCrossDeviceFallback(
+  source: string,
+  destination: string,
+): Promise<void> {
+  try {
+    await fs.rename(source, destination)
+  } catch (renameError) {
+    if (errorCode(renameError) === 'EXDEV') {
+      await fs.cp(source, destination, { recursive: true })
+      await fs.rm(source, { recursive: true, force: true })
+    } else {
+      throw renameError
+    }
+  }
+}
+
+/**
  * Best-effort re-create symlinks that were unlinked during `moveToTrash` when
  * the subsequent rename/copy failed. Keeps going on per-link errors and only
  * logs them — the caller is about to throw the original move error and we
@@ -141,16 +174,7 @@ async function rollbackMovedLocalCopies(
     const stagedPath = join(entryDir, 'local-copies', copy.agentId)
     try {
       await fs.mkdir(dirname(copy.linkPath), { recursive: true })
-      try {
-        await fs.rename(stagedPath, copy.linkPath)
-      } catch (renameError) {
-        if (errorCode(renameError) === 'EXDEV') {
-          await fs.cp(stagedPath, copy.linkPath, { recursive: true })
-          await fs.rm(stagedPath, { recursive: true, force: true })
-        } else {
-          throw renameError
-        }
-      }
+      await renameWithCrossDeviceFallback(stagedPath, copy.linkPath)
     } catch (error) {
       console.warn('trashService: rollback local copy failed', {
         agentId: copy.agentId,
@@ -1190,16 +1214,7 @@ async function restoreLocalOnly(
     const stagedPath = join(localCopiesRoot, copy.agentId)
     try {
       await fs.mkdir(agent.path, { recursive: true })
-      try {
-        await fs.rename(stagedPath, copy.linkPath)
-      } catch (renameError) {
-        if (errorCode(renameError) === 'EXDEV') {
-          await fs.cp(stagedPath, copy.linkPath, { recursive: true })
-          await fs.rm(stagedPath, { recursive: true, force: true })
-        } else {
-          throw renameError
-        }
-      }
+      await renameWithCrossDeviceFallback(stagedPath, copy.linkPath)
       symlinksRestored++
     } catch {
       symlinksSkipped++

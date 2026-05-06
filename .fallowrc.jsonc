@@ -35,4 +35,37 @@
       "exports": ["*"],
     },
   ],
+  "duplicates": {
+    // Tests intentionally repeat Arrange/Act/Assert blocks for clarity.
+    // Per Kent C. Dodds' AHA principle, premature DRY in tests hurts
+    // diagnosis: a shared helper masks which exact setup the failing case
+    // used. Skip *.test.ts(x), *.spec.ts(x), and the entire e2e/ tree
+    // (specs + helpers + fixtures) so `fallow dupes` only flags duplication
+    // in production code worth refactoring.
+    //
+    // The 5 remaining app-code detections are deliberate — DO NOT extract:
+    //   1. trashService.ts:287/557 (25 lines): `scanOrphanSymlinkPaths`
+    //      uses warn+continue while `moveToTrash` throws on the same
+    //      validatePath/lstat scaffold. Sharing would force the caller to
+    //      pass an error-policy callback and obscure the intent.
+    //   2. ipc/skills.ts:78/131 (9 lines): bulk-unlink REFUSES local-skill
+    //      directories; single-unlink rm -rf's them (single has confirm UX,
+    //      bulk does not). Both inline `match({isSymlink, isDirectory})`.
+    //   3. trashService.ts:546/781 (7 lines): `moveSourceBackedToTrash` and
+    //      `moveLocalOnlyToTrash` share return type + TRASH_DIR mkdir +
+    //      buildEntryName but diverge on `entrySourceDir` vs
+    //      `localCopiesRoot`. A shared init helper would only save 6 lines.
+    //   4. skillScanner.ts:248/353 (7 lines): orphan vs local skill object
+    //      initializers differ in 4 fields (status, isLocal, isOrphan,
+    //      skillMdSymlinkTarget). Sharing needs 4+ parameters.
+    //   5. CopyToAgentsModal/SkillItem (5 lines): identical Redux selector
+    //      reads — natural shape of `useAppSelector` calls per component.
+    "ignore": [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.spec.ts",
+      "**/*.spec.tsx",
+      "e2e/**",
+    ],
+  },
 }

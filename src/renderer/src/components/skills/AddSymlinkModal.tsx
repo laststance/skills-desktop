@@ -15,7 +15,6 @@ import {
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
-  copyToAgents,
   createSymlinks,
   setSkillToAddSymlinks,
   toggleAddAgentSelection,
@@ -29,6 +28,7 @@ import {
   getTargetAgentsForSelection,
 } from './agentSelectionHelpers'
 import type { OccupiedAgentReason } from './agentSelectionHelpers'
+import { copyToAgentsWithToast } from './copyToAgentsWithToast'
 
 /**
  * Modal for selecting agents to add a skill to from global view.
@@ -91,36 +91,11 @@ export const AddSymlinkModal = React.memo(
 
     const handleCopySkillFiles = async (): Promise<void> => {
       if (!skillToAddSymlinks || selectedAddAgentIds.length === 0) return
-
-      const result = await dispatch(
-        copyToAgents({
-          skill: skillToAddSymlinks,
-          sourcePath: skillToAddSymlinks.path,
-          agentIds: selectedAddAgentIds,
-        }),
-      )
-
-      if (copyToAgents.fulfilled.match(result)) {
-        if (result.payload.failures.length > 0) {
-          toast.warning(
-            `Copied to ${result.payload.copied} agent(s), ${result.payload.failures.length} failed`,
-            {
-              description: result.payload.failures
-                .map((failure) => `${failure.agentId}: ${failure.error}`)
-                .join(', '),
-            },
-          )
-        } else {
-          toast.success(`Copied to ${result.payload.copied} agent(s)`, {
-            description: `${skillToAddSymlinks.name} copied successfully`,
-          })
-        }
-      } else {
-        toast.error('Failed to copy skill', {
-          description: result.error?.message || 'An unexpected error occurred',
-        })
-      }
-      refreshAllData(dispatch)
+      await copyToAgentsWithToast(dispatch, {
+        skill: skillToAddSymlinks,
+        sourcePath: skillToAddSymlinks.path,
+        agentIds: selectedAddAgentIds,
+      })
     }
 
     const hasNewSelections = selectedAddAgentIds.length > 0

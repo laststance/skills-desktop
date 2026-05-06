@@ -1,6 +1,5 @@
 import { Copy, Loader2 } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
-import { toast } from 'sonner'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { Checkbox } from '@/renderer/src/components/ui/checkbox'
@@ -13,11 +12,7 @@ import {
   DialogTitle,
 } from '@/renderer/src/components/ui/dialog'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
-import {
-  copyToAgents,
-  setSkillToCopy,
-} from '@/renderer/src/redux/slices/skillsSlice'
-import { refreshAllData } from '@/renderer/src/redux/thunks'
+import { setSkillToCopy } from '@/renderer/src/redux/slices/skillsSlice'
 import type { AgentId } from '@/shared/types'
 
 import {
@@ -26,6 +21,7 @@ import {
   getTargetAgentsForSelection,
 } from './agentSelectionHelpers'
 import type { OccupiedAgentReason } from './agentSelectionHelpers'
+import { copyToAgentsWithToast } from './copyToAgentsWithToast'
 
 /**
  * Modal for selecting target agents when copying a skill source from one agent to others.
@@ -90,39 +86,11 @@ export const CopyToAgentsModal = React.memo(
 
     const handleCopy = async (): Promise<void> => {
       if (!skillToCopy || !sourcePath || selectedAgents.length === 0) return
-
-      const result = await dispatch(
-        copyToAgents({
-          skill: skillToCopy,
-          sourcePath,
-          agentIds: selectedAgents,
-        }),
-      )
-
-      if (copyToAgents.fulfilled.match(result)) {
-        if (result.payload.failures.length > 0) {
-          toast.warning(
-            `Copied to ${result.payload.copied} agent(s), ${result.payload.failures.length} failed`,
-            {
-              description: result.payload.failures
-                .map((f) => `${f.agentId}: ${f.error}`)
-                .join(', '),
-            },
-          )
-        } else {
-          toast.success(`Copied to ${result.payload.copied} agent(s)`, {
-            description: `${skillToCopy.name} copied successfully`,
-          })
-        }
-      } else {
-        toast.error('Failed to copy skill', {
-          description: result.error?.message || 'An unexpected error occurred',
-        })
-      }
-      // Always refresh after a copy attempt: success refreshes the list,
-      // failure clears any stale `state.skills.error` (via fetchSkills.pending)
-      // so the SkillsList does not stay stuck on the error view.
-      refreshAllData(dispatch)
+      await copyToAgentsWithToast(dispatch, {
+        skill: skillToCopy,
+        sourcePath,
+        agentIds: selectedAgents,
+      })
     }
 
     const hasNewSelections = selectedAgents.length > 0
