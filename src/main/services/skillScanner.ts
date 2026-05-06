@@ -150,15 +150,9 @@ async function scanSourceSkills(): Promise<Skill[]> {
 
   const skills = await Promise.all(
     validDirs.map(async (dir) => {
-      // Three IO calls run in parallel — readSymlinkTargetIfPresent is added to
-      // detect skills whose `SKILL.md` is itself a symlink (e.g. a gstack-managed
-      // sibling that lives under SOURCE_DIR via some unusual user setup). For
-      // the typical source-dir skill, SKILL.md is a real file and the helper
-      // returns undefined, leaving the field absent on the resulting Skill.
-      const [metadata, symlinks, skillMdSymlinkTarget] = await Promise.all([
+      const [metadata, symlinks] = await Promise.all([
         parseSkillMetadata(dir.path),
         checkSkillSymlinks(dir.name),
-        readSymlinkTargetIfPresent(join(dir.path, 'SKILL.md')),
       ])
 
       return {
@@ -169,7 +163,6 @@ async function scanSourceSkills(): Promise<Skill[]> {
         symlinks,
         isSource: true,
         isOrphan: false,
-        skillMdSymlinkTarget,
       }
     }),
   )
@@ -319,12 +312,12 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
   // template (every agent 'missing'); every sighting (including the first)
   // then flips its own agent slot to a valid local entry. Single branch.
   //
-  // skillMdSymlinkTarget is captured on the first sighting only — the same
-  // gstack-managed skill installed in two agent dirs will have identical
-  // SKILL.md targets (both point into the same gstack source), so first-wins
-  // is correct. If the first sighting was a non-gstack local skill that later
-  // overlaps with a gstack-managed one, the renderer's regex check stays
-  // tolerant: undefined is just one of four candidates, others may still match.
+  // skillMdSymlinkTarget is promoted whenever ANY sighting carries one — the
+  // first-sighting may be a non-gstack copy whose SKILL.md is a regular file
+  // (target undefined) while a later sighting in another agent dir is the
+  // gstack-managed twin (target points into the gstack source tree). Without
+  // this merge the badge would be hidden whenever the agents are scanned in
+  // an order that puts the non-gstack copy first.
   const localSkillsByName = new Map<SkillName, Skill>()
   for (const {
     agent,
@@ -352,6 +345,8 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
         skillMdSymlinkTarget,
       }
       localSkillsByName.set(metadata.name, skill)
+    } else if (!skill.skillMdSymlinkTarget && skillMdSymlinkTarget) {
+      skill.skillMdSymlinkTarget = skillMdSymlinkTarget
     }
     const slot = skill.symlinks.findIndex((s) => s.agentId === agent.id)
     if (slot >= 0) {

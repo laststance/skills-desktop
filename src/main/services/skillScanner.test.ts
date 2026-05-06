@@ -172,6 +172,30 @@ describe('scanSkills local skill aggregation', () => {
     expect(skills).toHaveLength(1)
     expect(skills[0].skillMdSymlinkTarget).toBeUndefined()
   })
+
+  it('promotes skillMdSymlinkTarget from a later sighting when the first sighting lacked one', async () => {
+    // codex sees frontend-design as a regular folder (no symlink target).
+    // cursor sees frontend-design as a gstack-managed twin with a SKILL.md
+    // symlink. Phase 2 must surface the gstack target on the merged record,
+    // otherwise the badge would be hidden on this skill.
+    readSymlinkTargetIfPresentMock.mockImplementation(async (path: string) => {
+      if (
+        path ===
+        join('/mock/agents/cursor/skills', 'frontend-design', 'SKILL.md')
+      ) {
+        return '/mock/.claude/skills/gstack/frontend-design/SKILL.md'
+      }
+      return undefined
+    })
+
+    const { scanSkills } = await import('./skillScanner')
+    const skills = await scanSkills()
+
+    expect(skills).toHaveLength(1)
+    expect(skills[0].skillMdSymlinkTarget).toBe(
+      '/mock/.claude/skills/gstack/frontend-design/SKILL.md',
+    )
+  })
 })
 
 describe('scanSkills orphan symlink surfacing (issue #127)', () => {
