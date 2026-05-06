@@ -1,5 +1,6 @@
 import { Download, RefreshCw, X, AlertCircle } from 'lucide-react'
 import React from 'react'
+import { match } from 'ts-pattern'
 
 import {
   downloadUpdate,
@@ -43,6 +44,65 @@ export const UpdateToast = React.memo(
       dispatch(dismiss())
     }
 
+    // After the guard above, `status` is narrowed to the four "visible" phases.
+    // Each match() below is exhaustive over that narrowed union — adding a new
+    // visible status to UpdateStatus fails compilation here instead of silently
+    // rendering a half-decorated toast.
+    const headerIcon = match(status)
+      .with('error', () => <AlertCircle className="h-4 w-4 text-destructive" />)
+      .with('ready', () => <RefreshCw className="h-4 w-4 text-primary" />)
+      .with('available', 'downloading', () => (
+        <Download className="h-4 w-4 text-primary" />
+      ))
+      .exhaustive()
+
+    const headerTitle = match(status)
+      .with('available', () => 'Update Available')
+      .with('downloading', () => 'Downloading Update')
+      .with('ready', () => 'Update Ready')
+      .with('error', () => 'Update Error')
+      .exhaustive()
+
+    const bodyText = match(status)
+      .with('error', () => error)
+      .with('available', () => `Version ${version} is available. Download now?`)
+      .with('downloading', () => `Downloading version ${version}...`)
+      .with(
+        'ready',
+        () =>
+          `Version ${version} is ready to install. Restart to apply update.`,
+      )
+      .exhaustive()
+
+    const actions = match(status)
+      .with('available', () => (
+        <>
+          <Button variant="ghost" size="sm" onClick={handleDismiss}>
+            Later
+          </Button>
+          <Button size="sm" onClick={handleDownload}>
+            Download
+          </Button>
+        </>
+      ))
+      .with('ready', () => (
+        <>
+          <Button variant="ghost" size="sm" onClick={handleDismiss}>
+            Later
+          </Button>
+          <Button size="sm" onClick={handleInstall}>
+            Restart Now
+          </Button>
+        </>
+      ))
+      .with('error', () => (
+        <Button variant="ghost" size="sm" onClick={handleDismiss}>
+          Dismiss
+        </Button>
+      ))
+      .with('downloading', () => null)
+      .exhaustive()
+
     return (
       <div
         className={cn(
@@ -54,19 +114,8 @@ export const UpdateToast = React.memo(
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-border">
           <div className="flex items-center gap-2">
-            {status === 'error' ? (
-              <AlertCircle className="h-4 w-4 text-destructive" />
-            ) : status === 'ready' ? (
-              <RefreshCw className="h-4 w-4 text-primary" />
-            ) : (
-              <Download className="h-4 w-4 text-primary" />
-            )}
-            <span className="font-medium text-sm">
-              {status === 'available' && 'Update Available'}
-              {status === 'downloading' && 'Downloading Update'}
-              {status === 'ready' && 'Update Ready'}
-              {status === 'error' && 'Update Error'}
-            </span>
+            {headerIcon}
+            <span className="font-medium text-sm">{headerTitle}</span>
           </div>
           <button
             onClick={handleDismiss}
@@ -79,19 +128,10 @@ export const UpdateToast = React.memo(
 
         {/* Content */}
         <div className="p-3">
-          {status === 'error' ? (
-            <p className="text-sm text-muted-foreground">{error}</p>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {status === 'available' &&
-                `Version ${version} is available. Download now?`}
-              {status === 'downloading' && `Downloading version ${version}...`}
-              {status === 'ready' &&
-                `Version ${version} is ready to install. Restart to apply update.`}
-            </p>
-          )}
+          <p className="text-sm text-muted-foreground">{bodyText}</p>
 
-          {/* Progress Bar */}
+          {/* Progress bar — only for the downloading phase. Single-case
+              check kept as `&&` per project rule (ts-pattern is for 4+ cases). */}
           {status === 'downloading' && (
             <div className="mt-3">
               <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
@@ -108,31 +148,7 @@ export const UpdateToast = React.memo(
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-2 mt-3">
-            {status === 'available' && (
-              <>
-                <Button variant="ghost" size="sm" onClick={handleDismiss}>
-                  Later
-                </Button>
-                <Button size="sm" onClick={handleDownload}>
-                  Download
-                </Button>
-              </>
-            )}
-            {status === 'ready' && (
-              <>
-                <Button variant="ghost" size="sm" onClick={handleDismiss}>
-                  Later
-                </Button>
-                <Button size="sm" onClick={handleInstall}>
-                  Restart Now
-                </Button>
-              </>
-            )}
-            {status === 'error' && (
-              <Button variant="ghost" size="sm" onClick={handleDismiss}>
-                Dismiss
-              </Button>
-            )}
+            {actions}
           </div>
         </div>
       </div>

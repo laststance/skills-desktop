@@ -1,5 +1,6 @@
 import { FileQuestion } from 'lucide-react'
 import React from 'react'
+import { match } from 'ts-pattern'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
 import { formatBytes } from '@/shared/fileTypes'
@@ -22,22 +23,37 @@ interface FileContentProps {
 export const FileContent = React.memo(function FileContent({
   content,
 }: FileContentProps): React.ReactElement {
-  if (content.kind === 'empty') return <EmptyState />
-  if (content.kind === 'binary')
-    return <BinaryPlaceholder fileName={content.fileName} size={content.size} />
-  if (content.kind === 'image') {
-    return (
+  // Exhaustive over PreviewContent: a future variant added to the union (e.g.
+  // a `pdf` preview) fails compilation here instead of silently falling
+  // through to the text branch the way an `if`-chain would.
+  return match(content)
+    .with({ kind: 'empty' }, () => <EmptyState />)
+    .with({ kind: 'binary' }, ({ fileName, size }) => (
+      <BinaryPlaceholder fileName={fileName} size={size} />
+    ))
+    .with({ kind: 'image' }, ({ data }) => (
       <div className="flex-1 overflow-auto bg-muted p-6 flex items-center justify-center">
         <img
-          src={content.data.dataUrl}
-          alt={content.data.name}
+          src={data.dataUrl}
+          alt={data.name}
           className="max-w-full max-h-full object-contain"
         />
       </div>
-    )
-  }
+    ))
+    .with({ kind: 'text' }, ({ data }) => (
+      <TextPreview content={data.content} />
+    ))
+    .exhaustive()
+})
 
-  const lines = content.data.content.split('\n')
+interface TextPreviewProps {
+  content: string
+}
+
+const TextPreview = React.memo(function TextPreview({
+  content,
+}: TextPreviewProps): React.ReactElement {
+  const lines = content.split('\n')
   return (
     <div className="flex-1 overflow-auto bg-muted pb-4">
       <table className="w-full text-[13px] font-mono leading-relaxed">
