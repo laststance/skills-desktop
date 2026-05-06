@@ -3,6 +3,27 @@ import * as React from 'react'
 
 import { cn } from '@/renderer/src/lib/utils'
 
+/**
+ * shadcn-style wrapper around Radix `ScrollArea`.
+ *
+ * The `[&>div]:!block` modifier on `Viewport` overrides Radix's internal
+ * `<div style="min-width: 100%; display: table">` wrapper so its `display`
+ * becomes `block` instead of `table`. Radix uses `display: table` to enable
+ * horizontal scrolling when content exceeds the viewport width — but in
+ * combination with nowrap descendants (e.g. `truncate`, `whitespace-nowrap`)
+ * the table grows to its `min-content` width, defeating truncation and
+ * pushing the layout wider than the viewport. The Sidebar visualised this
+ * as a 325px-wide inner box inside a 272px aside, with the long
+ * `~/.agents/skills` path refusing to truncate.
+ *
+ * `display: block` makes the wrapper take exactly the viewport width, which
+ * lets `truncate` actually clip and prevents intrinsic-width inflation. The
+ * `!` modifier (compiled to `!important`) is required because Radix sets
+ * `display` via an inline style — inline styles outrank class-based rules
+ * without it. We never need horizontal scrolling on either current usage
+ * (Sidebar lists, SyncResultDialog item rows), so giving up horizontal
+ * scroll is intentional, not a regression.
+ */
 const ScrollArea = React.memo(function ScrollArea({
   className,
   children,
@@ -15,7 +36,7 @@ const ScrollArea = React.memo(function ScrollArea({
       className={cn('relative overflow-hidden', className)}
       {...props}
     >
-      <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">
+      <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit] [&>div]:!block">
         {children}
       </ScrollAreaPrimitive.Viewport>
       <ScrollBar />
