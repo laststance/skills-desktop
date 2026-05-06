@@ -77,10 +77,42 @@ export type UnixTimestampMs = number
 export type HumanFileSize = string
 
 /**
- * Human-readable date string (locale-formatted, not machine-parseable).
- * @example "Apr 10, 2026"
+ * CSS-pixel width. Matches what `BrowserWindow.getContentBounds()` returns
+ * and what `window.innerWidth` reports — Electron handles DPR scaling so
+ * callers do not multiply by `devicePixelRatio`.
+ * @example 1280
  */
-export type HumanDate = string
+export type PixelWidth = number
+
+/**
+ * CSS-pixel height. Matches what `BrowserWindow.getContentBounds()` returns
+ * and what `window.innerHeight` reports — Electron handles DPR scaling so
+ * callers do not multiply by `devicePixelRatio`.
+ * @example 800
+ */
+export type PixelHeight = number
+
+/**
+ * A non-negative count of agent symlinks in a sync operation outcome
+ * (created / replaced / skipped). Distinguishes "number of symlinks" from
+ * other counts (skill counts, install counts) at sync IPC boundaries.
+ * @example 12
+ */
+export type SymlinkCount = number
+
+/**
+ * 1-indexed rank of a skill in a leaderboard listing. `1` is the top result.
+ * @example 1
+ */
+export type SkillRank = number
+
+/**
+ * Total install count for a skill, scraped from skills.sh and surfaced in
+ * the marketplace right-pane stats. Absent on CLI-search results that
+ * lack telemetry data.
+ * @example 2480
+ */
+export type InstallCount = number
 
 /**
  * Free-form marketplace search text typed by the user.
@@ -247,17 +279,32 @@ export interface SymlinkInfo {
 }
 
 /**
- * Symlink status type
- * - valid: Symlink exists and points to valid target
- * - broken: Symlink exists but target is missing
- * - missing: No symlink for this agent
+ * Symlink state between a skill source and an agent's skills directory.
+ * Surfaced in `SymlinkInfo.status` and color-coded in the UI:
+ * `--success` (green) for valid, amber for broken, `--muted-foreground`
+ * for missing — the status drives every status-at-a-glance affordance.
+ *
+ * - `valid`: symlink exists and points to a present source skill.
+ * - `broken`: symlink exists but the target is missing (orphan).
+ * - `missing`: no symlink for this agent (the skill is not linked here).
+ *
+ * @example 'valid'
+ * @example 'broken'
+ * @example 'missing'
  */
 export type SymlinkStatus = 'valid' | 'broken' | 'missing'
 
 /**
- * Skill type indicating source of the skill
- * - source: Skill from ~/.agents/skills/ (symlinked to agents)
- * - local: Skill created directly in agent's skills directory
+ * Origin of a skill — determines how it shows up in agent directories
+ * and what destructive operations are available.
+ *
+ * - `source`: lives in `~/.agents/skills/` and is symlinked into
+ *   each agent's skills directory.
+ * - `local`: a real folder inside a single agent's skills directory
+ *   (no symlink). User-authored or copied for agent collaboration.
+ *
+ * @example 'source'
+ * @example 'local'
  */
 export type SkillType = 'source' | 'local'
 
@@ -422,6 +469,18 @@ export interface SkillBinaryContent {
 }
 
 /**
+ * Payload for the `update:error` IPC event. Just the user-safe error message —
+ * electron-updater's `Error` object is intentionally NOT forwarded over IPC
+ * (it's not structured-cloneable and may carry stack frames the renderer has
+ * no use for).
+ * @example { message: 'Could not connect to update server' }
+ */
+export interface UpdateErrorPayload {
+  /** Human-readable error message surfaced in the update toast. */
+  message: string
+}
+
+/**
  * Update information from electron-updater.
  * Emitted on `update:available` and `update:downloaded` events.
  * @example { version: '0.8.0', releaseNotes: 'Added marketplace search' }
@@ -462,7 +521,21 @@ export interface DownloadProgress {
 }
 
 /**
- * Update status for UI state management
+ * Auto-update flow state surfaced in the renderer's update toast / banner.
+ * Drives which CTA renders (Check / Download / Install) and which
+ * electron-updater event is awaited next.
+ *
+ * - `idle`: no update activity (initial state, or after dismiss).
+ * - `checking`: `update:checking` received; awaiting `update:available`
+ *   or `update:not-available`.
+ * - `available`: a newer version exists; user can choose to download.
+ * - `downloading`: `update:progress` events stream; user sees % bar.
+ * - `ready`: download finished; "Install and restart" CTA shown.
+ * - `error`: most recent step failed; the toast carries
+ *   `UpdateErrorPayload.message`.
+ *
+ * @example 'idle'
+ * @example 'downloading'
  */
 export type UpdateStatus =
   | 'idle'
@@ -486,7 +559,7 @@ export type UpdateStatus =
  */
 export interface SkillSearchResult {
   /** 1-indexed rank in the source listing (CLI output order or leaderboard). @example 1 */
-  rank: number
+  rank: SkillRank
   /** Skill name (directory-style identifier). @example "task" */
   name: SkillName
   /** Source repository in GitHub owner/repo format. @example "vercel-labs/skills" */
@@ -494,7 +567,7 @@ export interface SkillSearchResult {
   /** Canonical URL to the skill on skills.sh or its GitHub source. @example "https://skills.sh/task" */
   url: HttpUrl
   /** Install count from skills.sh when available (absent for CLI search results). @example 2480 */
-  installCount?: number
+  installCount?: InstallCount
 }
 
 /**
@@ -567,18 +640,43 @@ export interface InstallProgress {
 }
 
 /**
- * Marketplace operation status
+ * Marketplace operation flow state — drives spinners, disables the
+ * search box during install, and gates the cancel button.
+ *
+ * - `idle`: marketplace is at rest.
+ * - `searching`: a `skills find` CLI process is running.
+ * - `installing`: a `skills install` CLI process is running; progress
+ *   events stream into `installProgress`.
+ * - `error`: most recent op failed; UI shows a Retry CTA.
+ *
+ * @example 'idle'
+ * @example 'searching'
  */
 export type MarketplaceStatus = 'idle' | 'searching' | 'installing' | 'error'
 
 /**
- * Filter for marketplace leaderboard ranking tabs.
- * Maps to skills.sh pages: / (all-time), /trending, /hot
+ * Ranking tab in the marketplace leaderboard. Each value maps 1:1 to a
+ * skills.sh page used as the scrape target by `fetchLeaderboard()`.
+ *
+ * - `all-time`: `https://skills.sh/`
+ * - `trending`: `https://skills.sh/trending`
+ * - `hot`: `https://skills.sh/hot`
+ *
+ * @example 'all-time'
+ * @example 'trending'
  */
 export type RankingFilter = 'all-time' | 'trending' | 'hot'
 
 /**
- * Per-filter leaderboard loading status
+ * Per-filter leaderboard fetch status. Stored alongside cached results
+ * so each ranking tab tracks its own loading state independently.
+ *
+ * - `idle`: cache is fresh or has never been loaded.
+ * - `loading`: a fetch is in flight for this filter.
+ * - `error`: the last fetch failed; `LeaderboardData.error` carries the message.
+ *
+ * @example 'idle'
+ * @example 'loading'
  */
 export type LeaderboardStatus = 'idle' | 'loading' | 'error'
 
@@ -917,9 +1015,9 @@ export interface SyncPreviewResult {
   /** Number of agents considered (1 when scoped to one agent). @example 3 */
   totalAgents: number
   /** Symlinks that would be created on execute (excludes conflicts). @example 10 */
-  toCreate: number
+  toCreate: SymlinkCount
   /** Symlinks already in place — nothing to do for these. @example 5 */
-  alreadySynced: number
+  alreadySynced: SymlinkCount
   /** Per-agent folders that block creation until the user chooses to replace. */
   conflicts: SyncConflict[]
   /**
@@ -946,11 +1044,20 @@ export interface SyncExecuteOptions {
 }
 
 /**
- * Action type for each item processed during sync execution.
- * - `created`: new symlink was created
- * - `replaced`: existing conflict was overwritten with a symlink
- * - `skipped`: already-synced symlink or user-declined conflict (no filesystem change)
- * - `error`: operation failed; message is carried on the item
+ * Outcome of a single (skill × agent) row processed during sync execution.
+ * Each row in `SyncExecuteResult.details` carries one of these — the
+ * renderer uses the value to render a per-row icon and color in the
+ * post-sync result dialog.
+ *
+ * - `created`: new symlink was created at this slot.
+ * - `replaced`: existing conflict folder was overwritten with a symlink
+ *   (only for slots the user opted to replace).
+ * - `skipped`: slot was already in the desired state (already-synced
+ *   symlink or user-declined conflict) — no filesystem change.
+ * - `error`: operation failed; the row carries a `error: string` message.
+ *
+ * @example 'created'
+ * @example 'skipped'
  */
 export type SyncResultAction = 'created' | 'replaced' | 'skipped' | 'error'
 
@@ -980,11 +1087,11 @@ export interface SyncExecuteResult {
   /** true if every planned operation succeeded (errors.length === 0). */
   success: boolean
   /** Number of newly-created symlinks. @example 10 */
-  created: number
+  created: SymlinkCount
   /** Number of existing folders replaced with symlinks (user opted-in). @example 2 */
-  replaced: number
+  replaced: SymlinkCount
   /** Number of already-synced items that were skipped. @example 5 */
-  skipped: number
+  skipped: SymlinkCount
   /** Per-path errors encountered during execution (empty on full success). */
   errors: Array<{ path: AbsolutePath; error: string }>
   /** Per-item action details for displaying a sync diff in the UI. */

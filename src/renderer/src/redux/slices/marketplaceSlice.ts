@@ -14,6 +14,15 @@ import type {
 /** Cache TTL: 30 minutes in milliseconds */
 const CACHE_TTL_MS = 30 * 60 * 1000
 
+/**
+ * Per-filter leaderboard cache. Indexed by `RankingFilter`; each entry
+ * carries its own `lastFetched` timestamp and `status` so the three tabs
+ * (`all-time` / `trending` / `hot`) load and expire independently.
+ * `Partial<>` because a tab is `undefined` until the user has visited it.
+ * @example { 'all-time': { skills: [...], lastFetched: 1713045600000, filter: 'all-time', status: 'idle' } }
+ */
+type LeaderboardCache = Partial<Record<RankingFilter, LeaderboardData>>
+
 interface MarketplaceState {
   /** Current marketplace operation state (search / install / idle). */
   status: MarketplaceStatus
@@ -30,7 +39,7 @@ interface MarketplaceState {
   /** Human-readable error from the last failed operation. */
   error: string | null
   /** Per-filter leaderboard cache. Each filter tracks its own data and loading state. */
-  leaderboard: Partial<Record<RankingFilter, LeaderboardData>>
+  leaderboard: LeaderboardCache
 }
 
 const initialState: MarketplaceState = {

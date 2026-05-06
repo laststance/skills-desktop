@@ -5,6 +5,15 @@ import type { RootState } from '@/renderer/src/redux/store'
 import type { BookmarkedSkill, SkillName } from '@/shared/types'
 
 /**
+ * Payload for the `addBookmark` action — every BookmarkedSkill field
+ * except `bookmarkedAt`, which the reducer stamps with `new Date().toISOString()`.
+ * Named so callers (BookmarkButton, install handlers) reference one shape
+ * instead of repeating `Omit<BookmarkedSkill, 'bookmarkedAt'>` inline.
+ * @example { name: 'task', repo: 'vercel-labs/skills', url: 'https://skills.sh/task' }
+ */
+export type AddBookmarkPayload = Omit<BookmarkedSkill, 'bookmarkedAt'>
+
+/**
  * Redux state for the Bookmarks feature.
  * Persisted to localStorage via redux-persist so entries survive app restarts.
  */
@@ -27,10 +36,7 @@ const bookmarkSlice = createSlice({
      * @example
      * dispatch(addBookmark({ name: 'task', repo: 'vercel-labs/skills', url: 'https://skills.sh/task' }))
      */
-    addBookmark: (
-      state,
-      action: PayloadAction<Omit<BookmarkedSkill, 'bookmarkedAt'>>,
-    ) => {
+    addBookmark: (state, action: PayloadAction<AddBookmarkPayload>) => {
       const exists = state.items.some((b) => b.name === action.payload.name)
       if (!exists) {
         state.items.push({

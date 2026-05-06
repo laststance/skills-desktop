@@ -1,3 +1,4 @@
+import type { Stats } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 
@@ -54,7 +55,7 @@ async function removeFromAgent(
       error: extractErrorMessage(error, 'Invalid link path'),
     }
   }
-  let stats: Awaited<ReturnType<typeof fs.lstat>>
+  let stats: Stats
   try {
     stats = await fs.lstat(linkPath)
   } catch (error) {

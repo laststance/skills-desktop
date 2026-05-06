@@ -8,9 +8,12 @@ import type {
   SkillFile,
   SkillFileContent,
   UpdateInfo,
+  UpdateErrorPayload,
   DeleteProgressPayload,
   DownloadProgress,
   FolderActionResult,
+  PixelHeight,
+  PixelWidth,
   RankingFilter,
   SkillSearchResult,
   InstallOptions,
@@ -95,7 +98,7 @@ declare global {
           callback: (progress: DownloadProgress) => void,
         ) => () => void
         onDownloaded: (callback: (info: UpdateInfo) => void) => () => void
-        onError: (callback: (error: { message: string }) => void) => () => void
+        onError: (callback: (error: UpdateErrorPayload) => void) => () => void
         // Actions
         download: () => Promise<void>
         install: () => Promise<void>
@@ -133,7 +136,10 @@ declare global {
         ) => Promise<FolderActionResult>
       }
       window: {
-        getMainBounds: () => Promise<{ width: number; height: number } | null>
+        getMainBounds: () => Promise<{
+          width: PixelWidth
+          height: PixelHeight
+        } | null>
       }
     }
   }

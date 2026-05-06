@@ -43,6 +43,17 @@ interface SkillLockEntry {
 }
 
 /**
+ * Top-level shape of `~/.agents/.skill-lock.json` — the skills CLI writes
+ * `{ skills: { <name>: SkillLockEntry } }`. Older lock files (or a
+ * partially-initialized agents dir) may omit the `skills` key entirely,
+ * so the field is optional.
+ * @example { skills: { 'frontend-design': { source: 'pbakaus/impeccable', sourceType: 'github', sourceUrl: '...' } } }
+ */
+interface SkillLockContent {
+  skills?: Record<string, SkillLockEntry>
+}
+
+/**
  * Read the global skill lock file to get source info for installed skills
  * @returns Map of skill name to lock entry
  * @example
@@ -53,9 +64,7 @@ async function readSkillLock(): Promise<Map<SkillName, SkillLockEntry>> {
   try {
     const lockPath = join(homedir(), '.agents', '.skill-lock.json')
     const content = await readFile(lockPath, 'utf-8')
-    const parsed = JSON.parse(content) as {
-      skills?: Record<string, SkillLockEntry>
-    }
+    const parsed = JSON.parse(content) as SkillLockContent
     return new Map(Object.entries(parsed.skills ?? {}))
   } catch {
     return new Map()
