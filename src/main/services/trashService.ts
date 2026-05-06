@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import type { Stats } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
@@ -217,7 +218,7 @@ async function scanLocalCopies(
     } catch {
       continue
     }
-    let stats: Awaited<ReturnType<typeof fs.lstat>>
+    let stats: Stats
     try {
       stats = await fs.lstat(linkPath)
     } catch (error) {
@@ -271,7 +272,7 @@ async function scanOrphanSymlinkPaths(
       continue
     }
 
-    let stats: Awaited<ReturnType<typeof fs.lstat>>
+    let stats: Stats
     try {
       stats = await fs.lstat(linkPath)
     } catch (error) {
@@ -542,7 +543,7 @@ async function moveSourceBackedToTrash(
       continue
     }
 
-    let stats: Awaited<ReturnType<typeof fs.lstat>>
+    let stats: Stats
     try {
       stats = await fs.lstat(linkPath)
     } catch (error) {

@@ -9,6 +9,7 @@ import type {
   CopyToAgentsResult,
   CreateSymlinksOptions,
   CreateSymlinksResult,
+  DeleteProgressPayload,
   DeleteSkillOptions,
   DeleteSkillResult,
   DeleteSkillsOptions,
@@ -17,6 +18,8 @@ import type {
   HttpUrl,
   InstallOptions,
   InstallProgress,
+  PixelHeight,
+  PixelWidth,
   RankingFilter,
   RemoveAllFromAgentOptions,
   RemoveAllFromAgentResult,
@@ -36,6 +39,7 @@ import type {
   UnlinkFromAgentOptions,
   UnlinkManyFromAgentOptions,
   UnlinkResult,
+  UpdateErrorPayload,
   UpdateInfo,
 } from './types'
 
@@ -126,7 +130,7 @@ export interface IpcInvokeContract {
   // calls this and writes the result into `settings.windowSize`.
   'window:getMainBounds': {
     args: []
-    result: { width: number; height: number } | null
+    result: { width: PixelWidth; height: PixelHeight } | null
   }
 }
 
@@ -141,13 +145,13 @@ export interface IpcInvokeContract {
  */
 export interface IpcEventContract {
   'skills:cli:progress': InstallProgress
-  'skills:deleteProgress': { current: number; total: number }
+  'skills:deleteProgress': DeleteProgressPayload
   'update:checking': void
   'update:available': UpdateInfo
   'update:not-available': void
   'update:progress': DownloadProgress
   'update:downloaded': UpdateInfo
-  'update:error': { message: string }
+  'update:error': UpdateErrorPayload
   'settings:changed': Settings
 }
 
