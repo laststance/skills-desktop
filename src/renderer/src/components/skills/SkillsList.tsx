@@ -90,7 +90,7 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
     [filteredSkills, selectedAgentId],
   )
 
-  if (loading) {
+  if (loading && skills.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-muted-foreground">Loading skills...</div>
