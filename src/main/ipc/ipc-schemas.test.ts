@@ -152,4 +152,14 @@ describe('settings:set lockstep with SettingsSchema', () => {
         .success,
     ).toBe(false)
   })
+
+  it('rejects a hiddenAgentIds payload longer than AGENT_IDS', () => {
+    // Defense-in-depth payload cap — a misbehaving renderer cannot push
+    // an arbitrarily long list past the IPC boundary. Every legitimate
+    // entry beyond AGENT_IDS.length would have to be a duplicate anyway.
+    const oversized = Array.from({ length: 100 }, () => 'claude-code' as const)
+    expect(schema.safeParse([{ hiddenAgentIds: oversized }]).success).toBe(
+      false,
+    )
+  })
 })

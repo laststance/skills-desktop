@@ -289,8 +289,14 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
         // the persisted hidden-agent set on every unrelated `settings:set`
         // call. Independent declaration keeps the IPC and disk concerns
         // separate; both still reference the same `AGENT_IDS` constant so
-        // the enum cannot drift.
-        hiddenAgentIds: z.array(z.enum(AGENT_IDS)).optional(),
+        // the enum cannot drift. `.max(AGENT_IDS.length)` caps payload size
+        // so a misbehaving renderer cannot send an arbitrarily long list
+        // (every entry past `AGENT_IDS.length` would have to be a duplicate
+        // anyway, since the enum constrains values).
+        hiddenAgentIds: z
+          .array(z.enum(AGENT_IDS))
+          .max(AGENT_IDS.length)
+          .optional(),
       })
       .strict(),
   ]),

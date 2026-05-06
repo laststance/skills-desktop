@@ -90,7 +90,7 @@ export const AgentsSection = React.memo(
             <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
               {hiddenInstalled.length} hidden
             </summary>
-            <div className="mt-2 space-y-1 opacity-50">
+            <div className="mt-2 space-y-1">
               {hiddenInstalled.map((agent) => (
                 <AgentItem key={agent.id} agent={agent} />
               ))}

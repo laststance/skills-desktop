@@ -179,4 +179,17 @@ describe('SettingsSchema', () => {
       SettingsSchema.parse({ hiddenAgentIds: 'claude-code' }),
     ).toThrow()
   })
+
+  it('deduplicates hiddenAgentIds on parse', () => {
+    // A hand-edited settings.json containing duplicates would otherwise
+    // false-positive the length-then-membership equality check in
+    // `areSettingsEqual` (e.g. ['cursor','cursor'] vs ['cursor','claude-code']
+    // would compare equal and silently drop the legitimate write). The
+    // disk schema deduplicates so the equality contract stays honest.
+    const firstAgentId = AGENT_DEFINITIONS[0]!.id
+    const parsed = SettingsSchema.parse({
+      hiddenAgentIds: [firstAgentId, firstAgentId],
+    })
+    expect(parsed.hiddenAgentIds).toEqual([firstAgentId])
+  })
 })

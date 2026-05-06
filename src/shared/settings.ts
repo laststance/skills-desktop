@@ -44,6 +44,12 @@ const windowSizeSchema = z
  * window size). The `.includes` cast is needed because `.includes` on
  * a `readonly` tuple narrows to its literal members.
  *
+ * Also dedupes — `areSettingsEqual` uses length-then-membership for
+ * set-equality, which would false-positive if one side had duplicates
+ * (e.g. a hand-edited settings.json with `["cursor","cursor"]` would
+ * compare equal to a different 2-element list sharing one member). The
+ * Set drop is cheap and keeps the equality contract honest.
+ *
  * NOTE: this is the DISK schema. The IPC boundary uses a strict
  * `z.array(z.enum(AGENT_IDS))` — renderers should only ever emit valid
  * ids, and an invalid id at that layer is a bug rather than a schema-
@@ -51,11 +57,12 @@ const windowSizeSchema = z
  */
 const HIDDEN_AGENT_IDS_SCHEMA = z
   .array(z.string())
-  .transform((arr): AgentId[] =>
-    arr.filter((id): id is AgentId =>
+  .transform((arr): AgentId[] => {
+    const valid = arr.filter((id): id is AgentId =>
       (AGENT_IDS as readonly string[]).includes(id),
-    ),
-  )
+    )
+    return Array.from(new Set(valid))
+  })
   .default([])
 
 /**
