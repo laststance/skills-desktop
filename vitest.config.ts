@@ -15,6 +15,25 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   test: {
+    // Coverage config lives at the root so v8 merges results from both
+    // node + browser projects into a single lcov report. Codecov consumes
+    // `coverage/lcov.info`; `text` mirrors the same numbers in CI logs so
+    // a regression is visible without opening codecov.io.
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      include: ['src/**/*.{ts,tsx}'],
+      // Exclusions follow the same intent as `.fallowrc.jsonc`: shadcn/ui
+      // primitives are scaffolded as full kits (every export reserved for
+      // future composition), and *.d.ts / test files don't carry runtime
+      // logic worth measuring.
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/**/*.browser.test.{ts,tsx}',
+        'src/**/*.d.ts',
+        'src/renderer/src/components/ui/**',
+      ],
+    },
     projects: [
       {
         plugins: [react()],

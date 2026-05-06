@@ -4,6 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Platform: macOS](https://img.shields.io/badge/Platform-macOS-lightgrey.svg)](https://www.apple.com/macos/)
+[![codecov](https://codecov.io/gh/laststance/skills-desktop/branch/main/graph/badge.svg)](https://codecov.io/gh/laststance/skills-desktop)
 
 <p align="center">
   <img src="docs/screenshot.png" alt="Skills Desktop" width="800" />
