@@ -537,6 +537,31 @@ export type ThemePresetName = keyof typeof THEME_PRESETS
 export type AgentId = (typeof AGENT_DEFINITIONS)[number]['id']
 
 /**
+ * Runtime tuple of every AgentId, derived from AGENT_DEFINITIONS so the
+ * two stay in lockstep automatically. A single cast asserts the
+ * non-empty tuple shape that `z.enum` requires — `.map()` returns
+ * `AgentId[]` which the type system can't narrow further on its own.
+ * AGENT_DEFINITIONS is hand-authored with 40+ entries, but the runtime
+ * guard below catches the future case where a refactor empties it
+ * before the cast can lie about a non-existent first element.
+ *
+ * Consumed by the IPC `settings:set` schema (strict `z.enum(AGENT_IDS)`)
+ * and by the disk-side `HIDDEN_AGENT_IDS_SCHEMA` (forgiving filter that
+ * drops stale ids without rejecting the rest of the settings file).
+ * @example
+ * z.enum(AGENT_IDS).safeParse('claude-code').success // => true
+ * z.enum(AGENT_IDS).safeParse('removed-agent').success // => false
+ */
+const _AGENT_IDS = AGENT_DEFINITIONS.map((definition) => definition.id)
+if (_AGENT_IDS.length === 0) {
+  throw new Error('AGENT_DEFINITIONS must not be empty')
+}
+export const AGENT_IDS = _AGENT_IDS as unknown as readonly [
+  AgentId,
+  ...AgentId[],
+]
+
+/**
  * Agent display names shown in UI.
  * Derived from AGENT_DEFINITIONS to avoid manual union maintenance.
  */

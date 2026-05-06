@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
-import { TERMINAL_APP_IDS } from './constants'
+import { AGENT_IDS, TERMINAL_APP_IDS } from './constants'
+import type { AgentId } from './types'
 
 /**
  * Defense-in-depth floor for a persisted startup window size. Set well
@@ -32,6 +33,48 @@ const windowSizeSchema = z
   .optional()
 
 /**
+ * Forgiving disk-side schema for `hiddenAgentIds`.
+ *
+ * Pre-filters against `AGENT_IDS` via `transform` instead of validating
+ * with `z.enum(AGENT_IDS)`: if an upstream `/cli-upgrade` removes an
+ * agent that was previously hidden, the stale id silently falls out of
+ * the array rather than rejecting the whole settings file. With strict
+ * enum validation, ONE bad id makes `loadSettings()` fall back to
+ * defaults — wiping every other field too (default tab, terminal,
+ * window size). The `.includes` cast is needed because `.includes` on
+ * a `readonly` tuple narrows to its literal members.
+ *
+ * Element type is `z.unknown()` (not `z.string()`) on purpose: a single
+ * non-string element in a hand-edited settings.json (e.g. `[123]`)
+ * would otherwise fail array-element validation BEFORE `.transform()`
+ * ever runs, taking the entire `SettingsSchema.parse()` down with it
+ * — the same blast-radius bug that strict-enum validation has. The
+ * `typeof === 'string'` filter inside transform handles the bad
+ * element while keeping the rest of the file intact.
+ *
+ * Also dedupes — `areSettingsEqual` uses length-then-membership for
+ * set-equality, which would false-positive if one side had duplicates
+ * (e.g. a hand-edited settings.json with `["cursor","cursor"]` would
+ * compare equal to a different 2-element list sharing one member). The
+ * Set drop is cheap and keeps the equality contract honest.
+ *
+ * NOTE: this is the DISK schema. The IPC boundary uses a strict
+ * `z.array(z.enum(AGENT_IDS))` — renderers should only ever emit valid
+ * ids, and an invalid id at that layer is a bug rather than a schema-
+ * evolution event.
+ */
+const HIDDEN_AGENT_IDS_SCHEMA = z
+  .array(z.unknown())
+  .transform((arr): AgentId[] => {
+    const valid = arr.filter(
+      (id): id is AgentId =>
+        typeof id === 'string' && (AGENT_IDS as readonly string[]).includes(id),
+    )
+    return Array.from(new Set(valid))
+  })
+  .default([])
+
+/**
  * App-wide user settings schema.
  *
  * - `defaultSkillTab`: right-pane tab on initial render of a skill detail.
@@ -50,19 +93,26 @@ const windowSizeSchema = z
  *   the saved size — clamped to the current display work area so a
  *   saved size from a wider monitor never opens off-screen on a smaller
  *   one.
+ * - `hiddenAgentIds`: agents the user has chosen to hide from the
+ *   sidebar's installed list. Pure visibility toggle — the agent's
+ *   skills folder, symlinks, and Marketplace presence are unaffected.
+ *   Validated against `AGENT_IDS` so a stale id from a prior version
+ *   (e.g. an agent removed upstream by `/cli-upgrade`) is silently
+ *   dropped on parse rather than surfacing as a phantom hidden entry.
  *
  * Adding a field here requires widening `IPC_ARG_SCHEMAS['settings:set']`
  * in `src/main/ipc/ipc-schemas.ts` in lockstep — that schema is `.strict()`
  * so unknown keys are rejected at the IPC boundary (defense in depth).
  *
  * @example
- * SettingsSchema.parse({}) // { defaultSkillTab: 'files', preferredTerminal: 'terminal' }
+ * SettingsSchema.parse({}) // { defaultSkillTab: 'files', preferredTerminal: 'terminal', hiddenAgentIds: [] }
  */
 export const SettingsSchema = z.object({
   defaultSkillTab: z.enum(['files', 'info']).default('files'),
   preferredTerminal: z.enum(TERMINAL_APP_IDS).default('terminal'),
   customTerminalAppName: z.string().trim().min(1).max(64).optional(),
   windowSize: windowSizeSchema,
+  hiddenAgentIds: HIDDEN_AGENT_IDS_SCHEMA,
 })
 
 /**
@@ -82,4 +132,5 @@ export type Settings = z.infer<typeof SettingsSchema>
 export const DEFAULT_SETTINGS: Settings = {
   defaultSkillTab: 'files',
   preferredTerminal: 'terminal',
+  hiddenAgentIds: [],
 }

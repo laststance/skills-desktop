@@ -1,4 +1,4 @@
-import { Eraser, FolderOpen, Terminal, Trash2 } from 'lucide-react'
+import { Eraser, EyeOff, FolderOpen, Terminal, Trash2 } from 'lucide-react'
 import React, { useMemo, useState } from 'react'
 
 import {
@@ -14,9 +14,11 @@ import {
   TooltipTrigger,
 } from '@/renderer/src/components/ui/tooltip'
 import { useOpenFolder } from '@/renderer/src/hooks/useOpenFolder'
-import { cn } from '@/renderer/src/lib/utils'
+import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
+import { cn, toggleArrayMember } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { setAgentToDelete } from '@/renderer/src/redux/slices/agentsSlice'
+import { selectHiddenAgentIds } from '@/renderer/src/redux/slices/settingsSlice'
 import {
   selectAgent,
   setCleanupAgentTarget,
@@ -78,9 +80,12 @@ export const AgentItem = React.memo(function AgentItem({
 }: AgentItemProps): React.ReactElement {
   const dispatch = useAppDispatch()
   const { selectedAgentId } = useAppSelector((state) => state.ui)
+  const hiddenAgentIds = useAppSelector(selectHiddenAgentIds)
   const isSelected = selectedAgentId === agent.id
+  const isHidden = hiddenAgentIds.includes(agent.id)
   const [contextOpen, setContextOpen] = useState(false)
   const { revealInFinder, openInTerminal } = useOpenFolder()
+  const updateSettings = useUpdateSettings()
 
   const handleClick = (): void => {
     if (!agent.exists) return
@@ -111,6 +116,16 @@ export const AgentItem = React.memo(function AgentItem({
     // `fetchSyncPreview({ agentId })` once it mounts, so we don't need
     // to chain it here — keeps the menu handler synchronous.
     dispatch(setCleanupAgentTarget(agent.id))
+    setContextOpen(false)
+  }
+
+  const handleToggleHidden = (): void => {
+    // Pure visibility toggle — skills, symlinks, and marketplace presence
+    // are untouched. Matching unhide affordances live in Settings → Agents
+    // and inside the "N hidden" sidebar disclosure.
+    updateSettings({
+      hiddenAgentIds: toggleArrayMember(hiddenAgentIds, agent.id),
+    })
     setContextOpen(false)
   }
 
@@ -173,6 +188,11 @@ export const AgentItem = React.memo(function AgentItem({
           <DropdownMenuItem onSelect={handleOpenInTerminal}>
             <Terminal className="h-4 w-4 mr-2" />
             Open in Terminal
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={handleToggleHidden}>
+            <EyeOff className="h-4 w-4 mr-2" />
+            {isHidden ? 'Show in sidebar' : 'Hide from sidebar'}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleCleanupMissing}>

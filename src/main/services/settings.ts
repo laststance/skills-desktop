@@ -106,6 +106,22 @@ export function areSettingsEqual(a: Settings, b: Settings): boolean {
       if (aw.width !== bw.width || aw.height !== bw.height) return false
       continue
     }
+    if (key === 'hiddenAgentIds') {
+      // Renderer treats the array as a set — so does the equality check.
+      // Without a set comparison, an order-only drift between disk and
+      // renderer (e.g. JSON load order ≠ optimistic-update order) would
+      // trigger a redundant disk write + `settings:changed` broadcast on
+      // every settings:set roundtrip. Length-then-membership is enough
+      // for the small N (~44 max).
+      const ah = a.hiddenAgentIds
+      const bh = b.hiddenAgentIds
+      if (ah.length !== bh.length) return false
+      const bSet = new Set<string>(bh)
+      for (const id of ah) {
+        if (!bSet.has(id)) return false
+      }
+      continue
+    }
     if (a[key] !== b[key]) return false
   }
   return true

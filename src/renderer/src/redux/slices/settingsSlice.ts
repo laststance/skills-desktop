@@ -1,7 +1,9 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice } from '@reduxjs/toolkit'
 
+import type { RootState } from '@/renderer/src/redux/store'
 import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
+import type { AgentId } from '@/shared/types'
 
 /**
  * Renderer-side cache of the user settings owned by the main process.
@@ -32,3 +34,16 @@ const settingsSlice = createSlice({
 
 export const { setSettings } = settingsSlice.actions
 export default settingsSlice.reducer
+
+/**
+ * Renderer selector for `Settings.hiddenAgentIds`. Centralizing the
+ * read here lets sidebar / settings-pane components reach for one
+ * stable hook signature instead of inlining the slice path each time
+ * — also the right place to swap the storage shape (e.g. Set) later.
+ * @param state - Root Redux state
+ * @returns The list of agent ids the user has hidden from the sidebar
+ * @example
+ * useAppSelector(selectHiddenAgentIds) // => ['cursor', 'zed']
+ */
+export const selectHiddenAgentIds = (state: RootState): AgentId[] =>
+  state.settings.hiddenAgentIds

@@ -125,4 +125,41 @@ describe('settings:set lockstep with SettingsSchema', () => {
         .success,
     ).toBe(false)
   })
+
+  it('parsing a partial without hiddenAgentIds does NOT inject a default', () => {
+    // Regression for the wipe-on-every-write bug: when the IPC schema for
+    // `hiddenAgentIds` chained `.optional()` over the disk schema's
+    // `.default([])`, every settings:set call that omitted the key
+    // materialized `hiddenAgentIds: []` in the parsed output, which then
+    // clobbered the persisted value via `{ ...current, ...partial }` in
+    // saveSettings(). Pin this so the IPC schema can never re-inherit a
+    // default.
+    const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
+    expect('hiddenAgentIds' in parsed[0]).toBe(false)
+  })
+
+  it('accepts an explicit hiddenAgentIds array on settings:set', () => {
+    expect(
+      schema.safeParse([{ hiddenAgentIds: ['claude-code'] }]).success,
+    ).toBe(true)
+  })
+
+  it('rejects an unknown id in hiddenAgentIds at the IPC boundary', () => {
+    // The renderer should never emit a non-AgentId. Disk reads are
+    // forgiving (drop stale ids); the IPC channel is strict.
+    expect(
+      schema.safeParse([{ hiddenAgentIds: ['definitely-not-an-agent'] }])
+        .success,
+    ).toBe(false)
+  })
+
+  it('rejects a hiddenAgentIds payload longer than AGENT_IDS', () => {
+    // Defense-in-depth payload cap — a misbehaving renderer cannot push
+    // an arbitrarily long list past the IPC boundary. Every legitimate
+    // entry beyond AGENT_IDS.length would have to be a duplicate anyway.
+    const oversized = Array.from({ length: 100 }, () => 'claude-code' as const)
+    expect(schema.safeParse([{ hiddenAgentIds: oversized }]).success).toBe(
+      false,
+    )
+  })
 })

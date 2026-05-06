@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
+import { AGENT_DEFINITIONS } from './constants'
 import {
   DEFAULT_SETTINGS,
   SettingsSchema,
@@ -125,5 +126,86 @@ describe('SettingsSchema', () => {
         },
       }),
     ).toThrow()
+  })
+
+  it('hiddenAgentIds defaults to an empty array on a fresh parse', () => {
+    const parsed = SettingsSchema.parse({})
+    expect(parsed.hiddenAgentIds).toEqual([])
+  })
+
+  it('accepts an installed agent id in hiddenAgentIds', () => {
+    const firstAgentId = AGENT_DEFINITIONS[0]!.id
+    const parsed = SettingsSchema.parse({ hiddenAgentIds: [firstAgentId] })
+    expect(parsed.hiddenAgentIds).toEqual([firstAgentId])
+  })
+
+  it('drops unknown agent ids from hiddenAgentIds without rejecting the file', () => {
+    // The schema is forgiving on disk reads — strict z.enum here would
+    // throw the WHOLE settings file out (and reset every other field to
+    // defaults) when one stale id slips in.
+    const parsed = SettingsSchema.parse({
+      hiddenAgentIds: ['bogus-agent'],
+    })
+    expect(parsed.hiddenAgentIds).toEqual([])
+  })
+
+  it('preserves valid hiddenAgentIds while dropping stale ids alongside', () => {
+    // Regression for the `/cli-upgrade`-removed-an-agent scenario: with
+    // strict z.enum the whole array (and everything else in settings.json)
+    // would reject. The transform must filter, not throw.
+    const firstAgentId = AGENT_DEFINITIONS[0]!.id
+    const parsed = SettingsSchema.parse({
+      hiddenAgentIds: [firstAgentId, 'removed-agent'],
+    })
+    expect(parsed.hiddenAgentIds).toEqual([firstAgentId])
+  })
+
+  it('preserves all other settings fields when hiddenAgentIds contains stale ids', () => {
+    // The blast radius of a strict-enum failure was every field in the
+    // file dropping back to defaults. Pin the boundary here so a future
+    // refactor can't quietly resurrect that behavior.
+    const parsed = SettingsSchema.parse({
+      defaultSkillTab: 'info',
+      preferredTerminal: 'iterm',
+      hiddenAgentIds: ['removed-agent'],
+    })
+    expect(parsed.defaultSkillTab).toBe('info')
+    expect(parsed.preferredTerminal).toBe('iterm')
+    expect(parsed.hiddenAgentIds).toEqual([])
+  })
+
+  it('rejects a non-array hiddenAgentIds', () => {
+    expect(() =>
+      SettingsSchema.parse({ hiddenAgentIds: 'claude-code' }),
+    ).toThrow()
+  })
+
+  it('drops non-string elements without rejecting the file', () => {
+    // Regression for the array-element-validation cliff: with the prior
+    // `z.array(z.string())` element schema, a single non-string entry
+    // (e.g. a hand-edited `123`) would fail BEFORE `.transform()` ran,
+    // taking the whole settings parse down with it. Element type is
+    // `z.unknown()` so the typeof-string filter inside transform can
+    // do its job — same forgiving contract as the stale-id case.
+    const firstAgentId = AGENT_DEFINITIONS[0]!.id
+    const parsed = SettingsSchema.parse({
+      defaultSkillTab: 'info',
+      hiddenAgentIds: [firstAgentId, 123, null, { not: 'a string' }],
+    })
+    expect(parsed.defaultSkillTab).toBe('info')
+    expect(parsed.hiddenAgentIds).toEqual([firstAgentId])
+  })
+
+  it('deduplicates hiddenAgentIds on parse', () => {
+    // A hand-edited settings.json containing duplicates would otherwise
+    // false-positive the length-then-membership equality check in
+    // `areSettingsEqual` (e.g. ['cursor','cursor'] vs ['cursor','claude-code']
+    // would compare equal and silently drop the legitimate write). The
+    // disk schema deduplicates so the equality contract stays honest.
+    const firstAgentId = AGENT_DEFINITIONS[0]!.id
+    const parsed = SettingsSchema.parse({
+      hiddenAgentIds: [firstAgentId, firstAgentId],
+    })
+    expect(parsed.hiddenAgentIds).toEqual([firstAgentId])
   })
 })
