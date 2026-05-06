@@ -97,6 +97,7 @@ export async function checkSkillSymlinks(
       // `AbsolutePath` contract requires an absolute path, so resolve it
       // against the symlink's parent directory, mirroring checkSymlinkStatus.
       let targetPath: AbsolutePath | undefined
+      let skillMdSymlinkTarget: AbsolutePath | undefined
       if (status !== 'missing' && !isLocal) {
         try {
           const target = await readlink(linkPath)
@@ -104,6 +105,13 @@ export async function checkSkillSymlinks(
         } catch {
           // Leave undefined — the link disappeared between lstat and readlink
         }
+      } else if (isLocal) {
+        // Local folder: probe the SKILL.md inside it for a gstack-managed
+        // symlink. Per-agent so the renderer's badge attribution is bound to
+        // THIS slot, not to a sibling agent that happens to share the name.
+        skillMdSymlinkTarget = await readSymlinkTargetIfPresent(
+          join(linkPath, 'SKILL.md') as AbsolutePath,
+        )
       }
 
       return {
@@ -113,6 +121,7 @@ export async function checkSkillSymlinks(
         targetPath,
         linkPath,
         isLocal,
+        skillMdSymlinkTarget,
       }
     }),
   )
@@ -179,7 +188,7 @@ export async function checkSymlinkTargetFromKnownLink(
  * raw target string is exposed to the renderer so it can match the `gstack`
  * path segment and decorate those skills with the G-Stack badge.
  *
- * @param path - Path that *may or may not* be a symbolic link
+ * @param path - Absolute path that *may or may not* be a symbolic link
  * @returns
  * - Path is a symlink: resolved absolute target (handles both absolute and
  *   relative `readlink(2)` results by anchoring relatives to the link's dir)
@@ -191,7 +200,7 @@ export async function checkSymlinkTargetFromKnownLink(
  * // => undefined (regular file)
  */
 export async function readSymlinkTargetIfPresent(
-  path: string,
+  path: AbsolutePath,
 ): Promise<AbsolutePath | undefined> {
   try {
     const stats = await lstat(path)

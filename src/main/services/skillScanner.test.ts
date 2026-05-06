@@ -139,11 +139,12 @@ describe('scanSkills local skill aggregation', () => {
     expect(cursor).toMatchObject({ status: 'valid', isLocal: true })
   })
 
-  it('populates skillMdSymlinkTarget when SKILL.md is a symlink (gstack-managed sibling)', async () => {
+  it('populates skillMdSymlinkTarget on the agent slot when SKILL.md is a symlink (gstack-managed sibling)', async () => {
     // gstack creates real folders like ~/.claude/skills/ship/ whose only entry
     // is a SKILL.md symlink into the gstack source tree. The scanner must
-    // surface that target so the renderer can show the G-Stack badge on every
-    // gstack-managed skill, not just the parent `gstack` directory.
+    // surface that target ON THE PER-AGENT SLOT so the renderer can show the
+    // G-Stack badge for the agent that holds the gstack twin, without
+    // bleeding to sibling agents that share the skill name.
     readSymlinkTargetIfPresentMock.mockImplementation(async (path: string) => {
       if (
         path ===
@@ -158,30 +159,33 @@ describe('scanSkills local skill aggregation', () => {
     const skills = await scanSkills()
 
     expect(skills).toHaveLength(1)
-    expect(skills[0].skillMdSymlinkTarget).toBe(
+    const codex = skills[0].symlinks.find((s) => s.agentId === 'codex')
+    expect(codex?.skillMdSymlinkTarget).toBe(
       '/mock/.claude/skills/gstack/frontend-design/SKILL.md',
     )
   })
 
-  it('leaves skillMdSymlinkTarget undefined when SKILL.md is a regular file', async () => {
+  it('leaves skillMdSymlinkTarget undefined on every slot when SKILL.md is a regular file', async () => {
     // Default mock returns undefined — explicit assertion guards against
     // someone later changing the default and silently flipping the badge on.
     const { scanSkills } = await import('./skillScanner')
     const skills = await scanSkills()
 
     expect(skills).toHaveLength(1)
-    expect(skills[0].skillMdSymlinkTarget).toBeUndefined()
+    for (const slot of skills[0].symlinks) {
+      expect(slot.skillMdSymlinkTarget).toBeUndefined()
+    }
   })
 
-  it('promotes skillMdSymlinkTarget from a later sighting when the first sighting lacked one', async () => {
-    // codex sees frontend-design as a regular folder (no symlink target).
-    // cursor sees frontend-design as a gstack-managed twin with a SKILL.md
-    // symlink. Phase 2 must surface the gstack target on the merged record,
-    // otherwise the badge would be hidden on this skill.
+  it('binds skillMdSymlinkTarget to the slot that detected it without bleeding to sibling agents', async () => {
+    // codex slot is a gstack-managed twin (SKILL.md symlinks into gstack);
+    // cursor slot is a plain local folder. Per-agent attribution: codex's
+    // slot must carry the target, cursor's slot must NOT — otherwise the
+    // badge would falsely appear on cursor's unrelated copy.
     readSymlinkTargetIfPresentMock.mockImplementation(async (path: string) => {
       if (
         path ===
-        join('/mock/agents/cursor/skills', 'frontend-design', 'SKILL.md')
+        join('/mock/agents/codex/skills', 'frontend-design', 'SKILL.md')
       ) {
         return '/mock/.claude/skills/gstack/frontend-design/SKILL.md'
       }
@@ -192,9 +196,12 @@ describe('scanSkills local skill aggregation', () => {
     const skills = await scanSkills()
 
     expect(skills).toHaveLength(1)
-    expect(skills[0].skillMdSymlinkTarget).toBe(
+    const codex = skills[0].symlinks.find((s) => s.agentId === 'codex')
+    const cursor = skills[0].symlinks.find((s) => s.agentId === 'cursor')
+    expect(codex?.skillMdSymlinkTarget).toBe(
       '/mock/.claude/skills/gstack/frontend-design/SKILL.md',
     )
+    expect(cursor?.skillMdSymlinkTarget).toBeUndefined()
   })
 })
 

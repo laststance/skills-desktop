@@ -30,21 +30,33 @@ export interface SkillItemVisibility {
   showGStackBadge: boolean
 }
 
-/** Path-segment matcher for `.../gstack/...` on both POSIX and Windows paths. */
-const GSTACK_SEGMENT_PATTERN = /(^|[\\/])gstack([\\/]|$)/i
+/**
+ * Subset of `Skill` that `getSkillItemVisibility` actually reads. Reused by
+ * the test factory so a future field addition is a one-line change instead
+ * of three (function signature, factory return, factory overrides).
+ */
+export type SkillVisibilityInput = Pick<Skill, 'symlinks' | 'isOrphan'>
+
+/**
+ * Path-segment matcher for `.../skills/gstack/...` on both POSIX and Windows
+ * paths. Requires a `skills/` parent so a user-created directory literally
+ * named `gstack` outside any agent's skills tree (e.g. `~/projects/gstack/foo`)
+ * cannot trigger the badge — a finding raised by the Codex review.
+ */
+const GSTACK_SEGMENT_PATTERN = /[\\/]skills[\\/]gstack([\\/]|$)/i
 
 /**
  * Detect whether a filesystem-like path points to a G-Stack-managed location.
  * @param candidatePath - Path candidate from symlink target or link path.
  * @returns
- * - `true`: Path contains a standalone `gstack` segment.
- * - `false`: Empty or non-matching path.
+ * - `true`: Path contains a `skills/gstack/` segment.
+ * - `false`: Empty path, or `gstack/` lives outside any `skills/` parent.
  * @example
  * isGStackBundlePath('/Users/me/.claude/skills/gstack/skill-a') // => true
  * @example
- * isGStackBundlePath('../gstack/skill-a') // => true
- * @example
  * isGStackBundlePath('/Users/me/.agents/skills/task') // => false
+ * @example
+ * isGStackBundlePath('/Users/me/projects/gstack/skill-a') // => false
  */
 function isGStackBundlePath(candidatePath: string): boolean {
   return GSTACK_SEGMENT_PATTERN.test(candidatePath)
@@ -96,9 +108,9 @@ function isGStackBundlePath(candidatePath: string): boolean {
  */
 export function getSkillItemVisibility(
   selectedAgentId: AgentId | null,
-  skill: Pick<Skill, 'symlinks' | 'isOrphan' | 'skillMdSymlinkTarget'>,
+  skill: SkillVisibilityInput,
 ): SkillItemVisibility {
-  const { symlinks, isOrphan, skillMdSymlinkTarget } = skill
+  const { symlinks, isOrphan } = skill
   const selectedAgentSymlink = selectedAgentId
     ? (symlinks.find(
         (s) =>
@@ -117,17 +129,16 @@ export function getSkillItemVisibility(
   // Orphan handling — see Skill.isOrphan for why the Add button is gated.
   // Source: scanOrphanSymlinks() in src/main/services/skillScanner.ts.
   //
-  // gStackPathCandidates — paths inspected for the `gstack` segment that
-  // identifies a gstack-managed skill. The fourth entry,
-  // `skillMdSymlinkTarget`, is the resolved target of a local skill's
-  // `SKILL.md` symlink and is what surfaces sibling skills like `ship`,
-  // `review`, or `plan-eng-review` whose enclosing directory does not itself
-  // contain "gstack" but whose SKILL.md points into the gstack source tree.
+  // gStackPathCandidates — paths inspected for the `skills/gstack/` segment
+  // that identifies a gstack-managed skill. `skillMdSymlinkTarget` is read
+  // ONLY from the selected agent's slot (per-agent attribution): a sibling
+  // agent's gstack-managed twin must not flip the badge on this agent's
+  // unrelated local skill that happens to share a name.
   const gStackPathCandidates = [
     selectedAgentSymlink?.targetPath ?? '',
     selectedAgentSymlink?.linkPath ?? '',
     selectedLocalSkillInfo?.linkPath ?? '',
-    skillMdSymlinkTarget ?? '',
+    selectedLocalSkillInfo?.skillMdSymlinkTarget ?? '',
   ]
   const isGStackEligibleAgent =
     selectedAgentId !== null &&

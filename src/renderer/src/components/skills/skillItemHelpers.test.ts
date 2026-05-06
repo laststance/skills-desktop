@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import type { AbsolutePath, AgentId, Skill, SymlinkInfo } from '@/shared/types'
 
-import { getSkillItemVisibility } from './skillItemHelpers'
+import {
+  getSkillItemVisibility,
+  type SkillVisibilityInput,
+} from './skillItemHelpers'
 
 /**
  * Create a mock SymlinkInfo for testing
@@ -25,14 +28,14 @@ function makeSymlink(
  * {@link getSkillItemVisibility} reads. `isOrphan` is auto-derived from the
  * symlinks (every entry broken/missing AND no local copy = orphan), matching
  * what `scanOrphanSymlinks` would set in production. Override when a test
- * needs to assert the inverse. `skillMdSymlinkTarget` defaults to undefined —
- * pass it in `overrides` to simulate a gstack-managed local skill whose
- * SKILL.md symlinks into the gstack source tree.
+ * needs to assert the inverse. `skillMdSymlinkTarget` lives on each
+ * `SymlinkInfo` slot — pass it via `makeSymlink` to simulate a gstack-managed
+ * local skill whose SKILL.md symlinks into the gstack source tree.
  */
 function makeSkill(
   symlinks: SymlinkInfo[],
-  overrides?: Partial<Pick<Skill, 'isOrphan' | 'skillMdSymlinkTarget'>>,
-): Pick<Skill, 'symlinks' | 'isOrphan' | 'skillMdSymlinkTarget'> {
+  overrides?: Partial<Pick<Skill, 'isOrphan'>>,
+): SkillVisibilityInput {
   const derivedOrphan =
     symlinks.length > 0 &&
     symlinks.some((s) => s.status === 'broken') &&
@@ -40,7 +43,6 @@ function makeSkill(
   return {
     symlinks,
     isOrphan: overrides?.isOrphan ?? derivedOrphan,
-    skillMdSymlinkTarget: overrides?.skillMdSymlinkTarget,
   }
 }
 
@@ -256,11 +258,16 @@ describe('getSkillItemVisibility', () => {
       expect(result.showGStackBadge).toBe(true)
     })
 
-    it('shows badge for relative gstack symlink targets', () => {
+    it('shows badge for codex-managed gstack symlinks (multi-agent coverage)', () => {
+      // symlinkChecker resolves relative readlink results to absolute paths
+      // before populating `targetPath`, so the renderer always sees the
+      // resolved form (e.g. `/Users/me/.codex/skills/gstack/task`). This
+      // guards multi-agent coverage of GSTACK_BADGE_AGENT_IDS — earlier
+      // versions only matched on `claude-code`.
       const symlinks = [
         makeSymlink({
           agentId: 'codex',
-          targetPath: '../gstack/task',
+          targetPath: '/Users/me/.codex/skills/gstack/task',
           linkPath: '/Users/me/.codex/skills/task',
           isLocal: false,
           status: 'valid',
@@ -313,16 +320,12 @@ describe('getSkillItemVisibility', () => {
           isLocal: true,
           status: 'valid',
           targetPath: undefined,
-        }),
-      ]
-
-      const result = getSkillItemVisibility(
-        'claude-code',
-        makeSkill(symlinks, {
           skillMdSymlinkTarget:
             '/Users/me/.claude/skills/gstack/ship/SKILL.md' as AbsolutePath,
         }),
-      )
+      ]
+
+      const result = getSkillItemVisibility('claude-code', makeSkill(symlinks))
       expect(result.showGStackBadge).toBe(true)
     })
 
@@ -336,16 +339,12 @@ describe('getSkillItemVisibility', () => {
           isLocal: true,
           status: 'valid',
           targetPath: undefined,
-        }),
-      ]
-
-      const result = getSkillItemVisibility(
-        'claude-code',
-        makeSkill(symlinks, {
           skillMdSymlinkTarget:
             '/Users/me/projects/my-skills/custom/SKILL.md' as AbsolutePath,
         }),
-      )
+      ]
+
+      const result = getSkillItemVisibility('claude-code', makeSkill(symlinks))
       expect(result.showGStackBadge).toBe(false)
     })
 

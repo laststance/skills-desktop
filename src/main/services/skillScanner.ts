@@ -287,7 +287,9 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
               // badge on every gstack-managed skill, not just the parent.
               const [metadata, skillMdSymlinkTarget] = await Promise.all([
                 parseSkillMetadata(skillPath),
-                readSymlinkTargetIfPresent(join(skillPath, 'SKILL.md')),
+                readSymlinkTargetIfPresent(
+                  join(skillPath, 'SKILL.md') as AbsolutePath,
+                ),
               ])
               return {
                 agent,
@@ -310,14 +312,10 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
 
   // Phase 2 — group by skill name. First sighting builds the full per-agent
   // template (every agent 'missing'); every sighting (including the first)
-  // then flips its own agent slot to a valid local entry. Single branch.
-  //
-  // skillMdSymlinkTarget is promoted whenever ANY sighting carries one — the
-  // first-sighting may be a non-gstack copy whose SKILL.md is a regular file
-  // (target undefined) while a later sighting in another agent dir is the
-  // gstack-managed twin (target points into the gstack source tree). Without
-  // this merge the badge would be hidden whenever the agents are scanned in
-  // an order that puts the non-gstack copy first.
+  // then flips its own agent slot to a valid local entry, carrying the
+  // SKILL.md symlink target ON THE SLOT — per-agent attribution prevents
+  // cross-agent badge bleed when two agents share a skill name but only one
+  // is gstack-managed.
   const localSkillsByName = new Map<SkillName, Skill>()
   for (const {
     agent,
@@ -342,11 +340,8 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
         })),
         isSource: false,
         isOrphan: false,
-        skillMdSymlinkTarget,
       }
       localSkillsByName.set(metadata.name, skill)
-    } else if (!skill.skillMdSymlinkTarget && skillMdSymlinkTarget) {
-      skill.skillMdSymlinkTarget = skillMdSymlinkTarget
     }
     const slot = skill.symlinks.findIndex((s) => s.agentId === agent.id)
     if (slot >= 0) {
@@ -355,6 +350,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
         status: 'valid',
         linkPath: join(agent.path, dirName) as AbsolutePath,
         isLocal: true,
+        skillMdSymlinkTarget,
       }
     }
   }

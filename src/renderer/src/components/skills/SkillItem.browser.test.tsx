@@ -5,7 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import { GSTACK_REPOSITORY_URL } from '@/shared/constants'
-import type { Skill, SkillName } from '@/shared/types'
+import type { Skill, SkillName, SymlinkInfo } from '@/shared/types'
 import { repositoryId } from '@/shared/types'
 
 const mockGetAll = vi.fn()
@@ -368,10 +368,10 @@ describe('SkillItem G-Stack badge', () => {
             status: 'valid',
             linkPath: '/Users/me/.claude/skills/ship',
             isLocal: true,
+            skillMdSymlinkTarget:
+              '/Users/me/.claude/skills/gstack/ship/SKILL.md' as SymlinkInfo['skillMdSymlinkTarget'],
           },
         ],
-        skillMdSymlinkTarget:
-          '/Users/me/.claude/skills/gstack/ship/SKILL.md' as Skill['skillMdSymlinkTarget'],
       }),
     )
     const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
@@ -383,6 +383,38 @@ describe('SkillItem G-Stack badge', () => {
     await expect
       .element(gstackLink)
       .toHaveAttribute('href', GSTACK_REPOSITORY_URL)
+  })
+
+  it('hides the badge when skillMdSymlinkTarget points outside the gstack tree', async () => {
+    // Negative coverage at the wired-up SkillItem level: a local skill with
+    // skillMdSymlinkTarget set but pointing at a user-managed path (no
+    // `gstack` segment) must NOT receive the badge. The pure helper covers
+    // this case in isolation, but a regression where someone fed
+    // skillMdSymlinkTarget straight into the JSX (bypassing the helper)
+    // would only surface here.
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        name: 'custom' as SkillName,
+        path: '/Users/me/.claude/skills/custom' as Skill['path'],
+        isSource: false,
+        symlinks: [
+          {
+            agentId: 'claude-code',
+            agentName: 'Claude Code',
+            status: 'valid',
+            linkPath: '/Users/me/.claude/skills/custom',
+            isLocal: true,
+            skillMdSymlinkTarget:
+              '/Users/me/projects/my-skills/custom/SKILL.md' as SymlinkInfo['skillMdSymlinkTarget'],
+          },
+        ],
+      }),
+    )
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+
+    store.dispatch(selectAgent('claude-code'))
+
+    expect(screen.getByRole('link', { name: /G-Stack/i }).query()).toBeNull()
   })
 })
 

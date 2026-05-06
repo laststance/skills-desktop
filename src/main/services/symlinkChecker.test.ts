@@ -359,6 +359,7 @@ describe('readSymlinkTargetIfPresent', () => {
 
     expect(result).toBeUndefined()
     expect(readlinkMock).not.toHaveBeenCalled() // Skipped: not a symlink
+    expect(accessMock).not.toHaveBeenCalled() // No existence probe
   })
 
   it('returns undefined when path is a directory', async () => {
@@ -370,6 +371,8 @@ describe('readSymlinkTargetIfPresent', () => {
     const result = await readSymlinkTargetIfPresent('/mock/some/dir')
 
     expect(result).toBeUndefined()
+    expect(readlinkMock).not.toHaveBeenCalled() // Skipped: not a symlink
+    expect(accessMock).not.toHaveBeenCalled() // No existence probe
   })
 
   it('returns undefined when path does not exist (lstat throws)', async () => {

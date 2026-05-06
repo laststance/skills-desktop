@@ -172,15 +172,6 @@ export interface Skill {
   source?: RepositoryId
   /** Full URL to the source repository. @example "https://github.com/vercel-labs/skills.git" */
   sourceUrl?: HttpUrl
-  /**
-   * Resolved absolute path that the skill's `SKILL.md` file symlinks to, when
-   * `SKILL.md` itself is a symbolic link (e.g. gstack-managed sibling skills
-   * whose `SKILL.md` points into `~/.claude/skills/gstack/<name>/SKILL.md`).
-   * `undefined` when `SKILL.md` is a regular file or does not exist.
-   * Used by the renderer to detect gstack-managed skills via path-segment match.
-   * @example "/Users/me/.claude/skills/gstack/ship/SKILL.md"
-   */
-  skillMdSymlinkTarget?: AbsolutePath
 }
 
 /**
@@ -242,6 +233,17 @@ export interface SymlinkInfo {
   linkPath: AbsolutePath
   /** true = real folder in agent dir (local skill), false = symlink */
   isLocal: boolean
+  /**
+   * Resolved absolute path of THIS agent slot's `SKILL.md` symlink target,
+   * when the slot is a real local folder whose `SKILL.md` is a symlink (e.g.
+   * gstack-managed sibling skills whose `SKILL.md` points into
+   * `~/.<agent>/skills/gstack/<name>/SKILL.md`). Per-agent so the badge does
+   * not bleed across agents that share a skill name (cross-agent spoofing).
+   * `undefined` when the slot is a symlink, missing, or its `SKILL.md` is a
+   * regular file.
+   * @example "/Users/me/.claude/skills/gstack/ship/SKILL.md"
+   */
+  skillMdSymlinkTarget?: AbsolutePath
 }
 
 /**
