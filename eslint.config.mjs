@@ -17,6 +17,7 @@ export default defineConfig([
       'out/**',
       'dist/**',
       'node_modules/**',
+      'coverage/**',
       '*.config.js',
       '*.config.ts',
       '*.config.mjs',
