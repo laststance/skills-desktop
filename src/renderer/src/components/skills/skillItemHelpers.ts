@@ -96,9 +96,9 @@ function isGStackBundlePath(candidatePath: string): boolean {
  */
 export function getSkillItemVisibility(
   selectedAgentId: AgentId | null,
-  skill: Pick<Skill, 'symlinks' | 'isOrphan'>,
+  skill: Pick<Skill, 'symlinks' | 'isOrphan' | 'skillMdSymlinkTarget'>,
 ): SkillItemVisibility {
-  const { symlinks, isOrphan } = skill
+  const { symlinks, isOrphan, skillMdSymlinkTarget } = skill
   const selectedAgentSymlink = selectedAgentId
     ? (symlinks.find(
         (s) =>
@@ -116,10 +116,18 @@ export function getSkillItemVisibility(
   const hasSkillInSelectedAgent = !!selectedAgentSymlink || isLocalSkill
   // Orphan handling — see Skill.isOrphan for why the Add button is gated.
   // Source: scanOrphanSymlinks() in src/main/services/skillScanner.ts.
+  //
+  // gStackPathCandidates — paths inspected for the `gstack` segment that
+  // identifies a gstack-managed skill. The fourth entry,
+  // `skillMdSymlinkTarget`, is the resolved target of a local skill's
+  // `SKILL.md` symlink and is what surfaces sibling skills like `ship`,
+  // `review`, or `plan-eng-review` whose enclosing directory does not itself
+  // contain "gstack" but whose SKILL.md points into the gstack source tree.
   const gStackPathCandidates = [
     selectedAgentSymlink?.targetPath ?? '',
     selectedAgentSymlink?.linkPath ?? '',
     selectedLocalSkillInfo?.linkPath ?? '',
+    skillMdSymlinkTarget ?? '',
   ]
   const isGStackEligibleAgent =
     selectedAgentId !== null &&

@@ -349,6 +349,41 @@ describe('SkillItem G-Stack badge', () => {
 
     expect(screen.getByRole('link', { name: /G-Stack/i }).query()).toBeNull()
   })
+
+  it('shows badge for gstack-managed sibling skills (local skill whose SKILL.md symlinks into gstack)', async () => {
+    // Real production scenario: ~/.claude/skills/ship/ is a real directory
+    // whose only entry is a SKILL.md symlink → ~/.claude/skills/gstack/ship/SKILL.md.
+    // The skill's linkPath/targetPath alone do NOT contain "gstack" — only
+    // the new skillMdSymlinkTarget field does. Without it, the badge is
+    // hidden on every gstack sibling, which is the whole bug being fixed.
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        name: 'ship' as SkillName,
+        path: '/Users/me/.claude/skills/ship' as Skill['path'],
+        isSource: false,
+        symlinks: [
+          {
+            agentId: 'claude-code',
+            agentName: 'Claude Code',
+            status: 'valid',
+            linkPath: '/Users/me/.claude/skills/ship',
+            isLocal: true,
+          },
+        ],
+        skillMdSymlinkTarget:
+          '/Users/me/.claude/skills/gstack/ship/SKILL.md' as Skill['skillMdSymlinkTarget'],
+      }),
+    )
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+
+    store.dispatch(selectAgent('claude-code'))
+
+    const gstackLink = screen.getByRole('link', { name: /G-Stack/i })
+    await expect.element(gstackLink).toBeInTheDocument()
+    await expect
+      .element(gstackLink)
+      .toHaveAttribute('href', GSTACK_REPOSITORY_URL)
+  })
 })
 
 describe('SkillItem bulk-select checkbox stopPropagation', () => {

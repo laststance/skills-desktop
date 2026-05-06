@@ -172,6 +172,15 @@ export interface Skill {
   source?: RepositoryId
   /** Full URL to the source repository. @example "https://github.com/vercel-labs/skills.git" */
   sourceUrl?: HttpUrl
+  /**
+   * Resolved absolute path that the skill's `SKILL.md` file symlinks to, when
+   * `SKILL.md` itself is a symbolic link (e.g. gstack-managed sibling skills
+   * whose `SKILL.md` points into `~/.claude/skills/gstack/<name>/SKILL.md`).
+   * `undefined` when `SKILL.md` is a regular file or does not exist.
+   * Used by the renderer to detect gstack-managed skills via path-segment match.
+   * @example "/Users/me/.claude/skills/gstack/ship/SKILL.md"
+   */
+  skillMdSymlinkTarget?: AbsolutePath
 }
 
 /**

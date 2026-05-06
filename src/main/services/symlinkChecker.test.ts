@@ -287,6 +287,115 @@ describe('checkSkillSymlinks', () => {
   })
 })
 
+describe('readSymlinkTargetIfPresent', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  it('returns resolved absolute target when path is a symlink with absolute target', async () => {
+    // gstack creates symlinks with absolute targets (verified on a real machine
+    // via `readlink ~/.claude/skills/ship/SKILL.md`). This is the production case.
+    lstatMock.mockResolvedValue(
+      createStats({ isSymbolicLink: true, isDirectory: false }),
+    )
+    readlinkMock.mockResolvedValue('/mock/.claude/skills/gstack/ship/SKILL.md')
+
+    const { readSymlinkTargetIfPresent } = await import('./symlinkChecker')
+    const result = await readSymlinkTargetIfPresent(
+      '/mock/.claude/skills/ship/SKILL.md',
+    )
+
+    expect(result).toBe('/mock/.claude/skills/gstack/ship/SKILL.md')
+  })
+
+  it('returns resolved absolute target when path is a symlink with relative target', async () => {
+    // Defensive case: if a user (or a future gstack version) creates the
+    // symlink with a relative target, the helper must still return an
+    // absolute path so the renderer's regex check on the gstack segment works.
+    const linkPath = '/mock/.claude/skills/ship/SKILL.md'
+    const relativeTarget = '../gstack/ship/SKILL.md'
+    const expectedResolved = resolve(dirname(linkPath), relativeTarget)
+
+    lstatMock.mockResolvedValue(
+      createStats({ isSymbolicLink: true, isDirectory: false }),
+    )
+    readlinkMock.mockResolvedValue(relativeTarget)
+
+    const { readSymlinkTargetIfPresent } = await import('./symlinkChecker')
+    const result = await readSymlinkTargetIfPresent(linkPath)
+
+    expect(result).toBe(expectedResolved)
+    expect(result).toMatch(/^\//) // Must be absolute
+  })
+
+  it('returns resolved target even when symlink is broken (target does not exist)', async () => {
+    // The helper does NOT call access() — it only needs the target string for
+    // the renderer's path-segment match. Broken symlinks still surface a target.
+    lstatMock.mockResolvedValue(
+      createStats({ isSymbolicLink: true, isDirectory: false }),
+    )
+    readlinkMock.mockResolvedValue(
+      '/mock/.claude/skills/gstack/dangling/SKILL.md',
+    )
+
+    const { readSymlinkTargetIfPresent } = await import('./symlinkChecker')
+    const result = await readSymlinkTargetIfPresent(
+      '/mock/.claude/skills/dangling/SKILL.md',
+    )
+
+    expect(result).toBe('/mock/.claude/skills/gstack/dangling/SKILL.md')
+    expect(accessMock).not.toHaveBeenCalled() // No existence probe
+  })
+
+  it('returns undefined when path is a regular file (not a symlink)', async () => {
+    lstatMock.mockResolvedValue(
+      createStats({ isSymbolicLink: false, isDirectory: false }),
+    )
+
+    const { readSymlinkTargetIfPresent } = await import('./symlinkChecker')
+    const result = await readSymlinkTargetIfPresent(
+      '/mock/.agents/skills/foo/SKILL.md',
+    )
+
+    expect(result).toBeUndefined()
+    expect(readlinkMock).not.toHaveBeenCalled() // Skipped: not a symlink
+  })
+
+  it('returns undefined when path is a directory', async () => {
+    lstatMock.mockResolvedValue(
+      createStats({ isSymbolicLink: false, isDirectory: true }),
+    )
+
+    const { readSymlinkTargetIfPresent } = await import('./symlinkChecker')
+    const result = await readSymlinkTargetIfPresent('/mock/some/dir')
+
+    expect(result).toBeUndefined()
+  })
+
+  it('returns undefined when path does not exist (lstat throws)', async () => {
+    lstatMock.mockRejectedValue(new Error('ENOENT'))
+
+    const { readSymlinkTargetIfPresent } = await import('./symlinkChecker')
+    const result = await readSymlinkTargetIfPresent('/mock/missing/SKILL.md')
+
+    expect(result).toBeUndefined()
+  })
+
+  it('returns undefined when readlink races with deletion (lstat ok, readlink fails)', async () => {
+    lstatMock.mockResolvedValue(
+      createStats({ isSymbolicLink: true, isDirectory: false }),
+    )
+    readlinkMock.mockRejectedValue(new Error('ENOENT'))
+
+    const { readSymlinkTargetIfPresent } = await import('./symlinkChecker')
+    const result = await readSymlinkTargetIfPresent(
+      '/mock/race-condition/SKILL.md',
+    )
+
+    expect(result).toBeUndefined()
+  })
+})
+
 describe('countValidSymlinks', () => {
   it('counts only valid symlinks from mixed array', async () => {
     const { countValidSymlinks } = await import('./symlinkChecker')

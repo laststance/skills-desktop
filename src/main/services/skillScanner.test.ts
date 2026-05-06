@@ -54,11 +54,13 @@ vi.mock('./metadataParser', () => ({
 }))
 
 const checkSymlinkTargetFromKnownLinkMock = vi.fn()
+const readSymlinkTargetIfPresentMock = vi.fn()
 
 vi.mock('./symlinkChecker', () => ({
   checkSkillSymlinks: vi.fn(async () => []),
   countValidSymlinks: vi.fn(() => 0),
   checkSymlinkTargetFromKnownLink: checkSymlinkTargetFromKnownLinkMock,
+  readSymlinkTargetIfPresent: readSymlinkTargetIfPresentMock,
 }))
 
 describe('scanSkills local skill aggregation', () => {
@@ -67,6 +69,8 @@ describe('scanSkills local skill aggregation', () => {
     accessMock.mockReset()
     checkSymlinkTargetFromKnownLinkMock.mockReset()
     checkSymlinkTargetFromKnownLinkMock.mockResolvedValue('missing')
+    readSymlinkTargetIfPresentMock.mockReset()
+    readSymlinkTargetIfPresentMock.mockResolvedValue(undefined)
 
     readdirMock.mockImplementation(async (path: string) => {
       if (path === '/mock/source/skills') {
@@ -134,6 +138,40 @@ describe('scanSkills local skill aggregation', () => {
     expect(codex).toMatchObject({ status: 'valid', isLocal: true })
     expect(cursor).toMatchObject({ status: 'valid', isLocal: true })
   })
+
+  it('populates skillMdSymlinkTarget when SKILL.md is a symlink (gstack-managed sibling)', async () => {
+    // gstack creates real folders like ~/.claude/skills/ship/ whose only entry
+    // is a SKILL.md symlink into the gstack source tree. The scanner must
+    // surface that target so the renderer can show the G-Stack badge on every
+    // gstack-managed skill, not just the parent `gstack` directory.
+    readSymlinkTargetIfPresentMock.mockImplementation(async (path: string) => {
+      if (
+        path ===
+        join('/mock/agents/codex/skills', 'frontend-design', 'SKILL.md')
+      ) {
+        return '/mock/.claude/skills/gstack/frontend-design/SKILL.md'
+      }
+      return undefined
+    })
+
+    const { scanSkills } = await import('./skillScanner')
+    const skills = await scanSkills()
+
+    expect(skills).toHaveLength(1)
+    expect(skills[0].skillMdSymlinkTarget).toBe(
+      '/mock/.claude/skills/gstack/frontend-design/SKILL.md',
+    )
+  })
+
+  it('leaves skillMdSymlinkTarget undefined when SKILL.md is a regular file', async () => {
+    // Default mock returns undefined — explicit assertion guards against
+    // someone later changing the default and silently flipping the badge on.
+    const { scanSkills } = await import('./skillScanner')
+    const skills = await scanSkills()
+
+    expect(skills).toHaveLength(1)
+    expect(skills[0].skillMdSymlinkTarget).toBeUndefined()
+  })
 })
 
 describe('scanSkills orphan symlink surfacing (issue #127)', () => {
@@ -142,6 +180,8 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     accessMock.mockReset()
     statMock.mockReset()
     checkSymlinkTargetFromKnownLinkMock.mockReset()
+    readSymlinkTargetIfPresentMock.mockReset()
+    readSymlinkTargetIfPresentMock.mockResolvedValue(undefined)
   })
 
   it('surfaces broken symlinks whose source is missing as orphan Skill records', async () => {

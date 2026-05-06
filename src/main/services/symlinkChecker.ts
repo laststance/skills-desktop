@@ -169,6 +169,46 @@ export async function checkSymlinkTargetFromKnownLink(
 }
 
 /**
+ * Read the resolved target of a symbolic link if (and only if) the given path
+ * is itself a symlink. Returns `undefined` when the path is a regular file or
+ * directory, when it does not exist, or when readlink races with deletion.
+ *
+ * Used by the skill scanner to capture where a `SKILL.md` symlink points —
+ * gstack-managed sibling skills (e.g. `~/.claude/skills/ship/`) have a real
+ * directory whose `SKILL.md` is a symlink into the gstack source tree. The
+ * raw target string is exposed to the renderer so it can match the `gstack`
+ * path segment and decorate those skills with the G-Stack badge.
+ *
+ * @param path - Path that *may or may not* be a symbolic link
+ * @returns
+ * - Path is a symlink: resolved absolute target (handles both absolute and
+ *   relative `readlink(2)` results by anchoring relatives to the link's dir)
+ * - Path is a regular file/directory, missing, or fails mid-syscall: `undefined`
+ * @example
+ * await readSymlinkTargetIfPresent('/Users/me/.claude/skills/ship/SKILL.md')
+ * // => '/Users/me/.claude/skills/gstack/ship/SKILL.md' (when symlinked)
+ * await readSymlinkTargetIfPresent('/Users/me/.agents/skills/foo/SKILL.md')
+ * // => undefined (regular file)
+ */
+export async function readSymlinkTargetIfPresent(
+  path: string,
+): Promise<AbsolutePath | undefined> {
+  try {
+    const stats = await lstat(path)
+    if (!stats.isSymbolicLink()) return undefined
+
+    // readlink(2) returns the raw stored target — absolute when the link was
+    // created with an absolute target, relative otherwise. resolve(dirname,
+    // target) is a no-op for absolute targets and the correct anchor for
+    // relative ones, mirroring the resolveSymlinkTarget() helper above.
+    const target = await readlink(path)
+    return resolve(dirname(path), target) as AbsolutePath
+  } catch {
+    return undefined
+  }
+}
+
+/**
  * Shared core: read the symlink, resolve it relative to its own directory
  * (handles both absolute and relative targets), then probe for existence.
  * Centralizing this makes the slow-path and fast-path identical in meaning.
