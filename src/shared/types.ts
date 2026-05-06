@@ -9,6 +9,14 @@ export type { FilePreviewKind } from './fileTypes'
 // ----------------------------------------------------------------------------
 // These types replace raw `string` / `number` at domain boundaries so signatures
 // communicate WHAT a value represents, not just its runtime shape.
+//
+// Plain aliases (`type X = string` / `type X = number`) are documentation-only:
+// TypeScript's structural typing makes them mutually assignable, so `PixelWidth`
+// and `PixelHeight` (or `SymlinkCount` and `InstallCount`) are exchange-safe at
+// the API surface. If nominal/compile-time exchange prevention is later needed,
+// migrate to the `Brand<T, B>` utility below (e.g., `Brand<number, 'PixelWidth'>`)
+// — branded types require an explicit construction site but reject accidental
+// swaps between structurally identical values.
 // ============================================================================
 
 /**
@@ -93,9 +101,13 @@ export type PixelWidth = number
 export type PixelHeight = number
 
 /**
- * A non-negative count of agent symlinks in a sync operation outcome
- * (created / replaced / skipped). Distinguishes "number of symlinks" from
- * other counts (skill counts, install counts) at sync IPC boundaries.
+ * A non-negative count of agent symlinks. Used in two senses, both of which
+ * count valid symlinks (broken/missing entries are excluded by callers):
+ * - Sync operation outcomes — `SyncExecuteResult.{created,replaced,skipped}`
+ *   and `SyncPreviewResult.{toCreate,alreadySynced}`
+ * - "Agents linked to this skill" — `Skill.symlinkCount`
+ * Distinguishes "number of symlinks" from other counts (skill counts,
+ * install counts) at sync IPC boundaries and skill-list rendering.
  * @example 12
  */
 export type SymlinkCount = number
@@ -184,7 +196,7 @@ export interface Skill {
   /** Absolute filesystem path to the skill directory. @example "/Users/me/.agents/skills/tdd-workflow" */
   path: AbsolutePath
   /** Number of agents this skill is symlinked to (valid symlinks only). @example 3 */
-  symlinkCount: number
+  symlinkCount: SymlinkCount
   /** Per-agent symlink status entries */
   symlinks: SymlinkInfo[]
   /**
