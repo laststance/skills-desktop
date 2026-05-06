@@ -119,6 +119,35 @@ declare global {
           error?: string
         }>
       }
+      agents: {
+        getAll: () => Promise<unknown[]>
+      }
+      /**
+       * Settings IPC. The `set` argument is intentionally typed as
+       * `Record<string, unknown>` (NOT `Partial<Settings>`) because the
+       * hide-agents suite directly tests the strict-enum boundary at
+       * `IPC_ARG_SCHEMAS['settings:set']` by passing values the renderer's
+       * type system would normally reject. A tighter type here would
+       * force every such test to add an `as unknown as ...` escape hatch.
+       */
+      settings: {
+        get: () => Promise<unknown>
+        set: (partial: Record<string, unknown>) => Promise<unknown>
+      }
+      /**
+       * Sync IPC. Both methods return rich result objects; the spec types
+       * them via local cast at the call site so this surface stays as
+       * `unknown` here — keeping the surface narrow protects the test
+       * suite from drift in the production `SyncPreviewResult` /
+       * `SyncExecuteResult` shapes (which evolve with feature work).
+       */
+      sync: {
+        preview: (options?: { agentId?: string }) => Promise<unknown>
+        execute: (options: {
+          replaceConflicts: string[]
+          agentId?: string
+        }) => Promise<unknown>
+      }
     }
   }
 }

@@ -185,6 +185,60 @@ export async function waitForInitialScan(
 }
 
 /**
+ * Wait until the renderer's sync flow is settled — `state.ui.isSyncing`
+ * has returned to `false` AND the relevant outcome slice is populated.
+ *
+ * Why a single helper with a discriminator instead of two functions: a
+ * naive `isSyncing === false` poll resolves immediately because the slice
+ * starts at `false` BEFORE the trigger ever fires (`fetchSyncPreview`
+ * pending/`executeSyncAction` pending flip it to `true`). The race
+ * window is tens of milliseconds in tests, so polling on the OUTCOME
+ * (`syncPreview` for the preview phase, `syncResult` for the execute
+ * phase) is the unambiguous signal.
+ *
+ * Both phases share the same slice flag, so a single helper with the
+ * `expects` discriminator avoids duplication while keeping the failure
+ * message specific to the phase under test ("expected syncResult, found
+ * null after 10s" pinpoints the failed assertion better than a generic
+ * "isSyncing" timeout).
+ *
+ * @param page - The Playwright page
+ * @param expects - Which slice to wait for. `'preview'` for
+ *                  `fetchSyncPreview`, `'result'` for `executeSyncAction`
+ * @param timeoutMs - Poll timeout (default 10s, matches `waitForInitialScan`)
+ * @example
+ * await dispatchPreview(appWindow)
+ * await waitForSyncSettled(appWindow, 'preview')
+ * @example
+ * await clickDialogSync(appWindow)
+ * await waitForSyncSettled(appWindow, 'result')
+ */
+export async function waitForSyncSettled(
+  page: Page,
+  expects: 'preview' | 'result' = 'preview',
+  timeoutMs = 10_000,
+): Promise<void> {
+  await page.waitForFunction(
+    (expectsLiteral) => {
+      const store = window.__store__ ?? window.__store
+      if (!store) return false
+      const state = store.getState() as {
+        ui?: {
+          syncPreview?: unknown
+          syncResult?: unknown
+          isSyncing?: boolean
+        }
+      }
+      if (state.ui?.isSyncing !== false) return false
+      if (expectsLiteral === 'preview') return Boolean(state.ui?.syncPreview)
+      return Boolean(state.ui?.syncResult)
+    },
+    expects,
+    { timeout: timeoutMs },
+  )
+}
+
+/**
  * Wait until `state.skills.selectedSkillNames.length === count`. Useful after
  * tab/agent switches that should clear selection (regression 2f05684).
  *
