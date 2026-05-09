@@ -584,10 +584,6 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
     'remove-all-os-trash',
   )
 
-  expect(
-    existsSync(USER_TRASH_DIR),
-    `expected ~/.Trash to exist on macOS dev box — unexpected env`,
-  ).toBe(true)
   if (!canReadUserTrash()) {
     test.skip(
       true,
@@ -595,6 +591,10 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
     )
     return
   }
+  expect(
+    existsSync(USER_TRASH_DIR),
+    `expected ~/.Trash to exist on macOS dev box — unexpected env`,
+  ).toBe(true)
   const trashEntriesBefore = snapshotUserTrash()
 
   await waitForInitialScan(appWindow)
