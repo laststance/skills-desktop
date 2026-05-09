@@ -34,6 +34,28 @@ export function snapshotUserTrash(): Set<string> {
 }
 
 /**
+ * Determine whether the current test process can inspect the user's Trash.
+ * Some local macOS security settings expose `~/.Trash` via `stat` but deny
+ * directory reads, so tests that diff trash entries should skip before they
+ * call `snapshotUserTrash`.
+ *
+ * @returns
+ * - `true` when `~/.Trash` can be read by this process.
+ * - `false` when macOS permissions or environment setup block directory reads.
+ *
+ * @example
+ * test.skip(!canReadUserTrash(), 'Cannot inspect ~/.Trash in this environment')
+ */
+export function canReadUserTrash(): boolean {
+  try {
+    readdirSync(USER_TRASH_DIR)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Compute the entries that appeared in `~/.Trash` since `before`.
  * Returns both basenames (for human-readable assertion messages) and
  * absolute paths (for content inspection / cleanup).
