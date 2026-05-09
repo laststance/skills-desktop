@@ -1,7 +1,7 @@
 import { createSelector } from '@reduxjs/toolkit'
 import { match } from 'ts-pattern'
 
-import type { SkillName } from '@/shared/types'
+import type { SkillName, SymlinkInfo } from '@/shared/types'
 
 import { selectBookmarkItems } from './slices/bookmarkSlice'
 import {
@@ -59,30 +59,47 @@ export const selectFilteredSkills = createSelector(
   ) => {
     let result = skills
 
-    // Filter by selected agent (and optionally by skill type), or — when no
-    // agent is selected — narrow to SOURCE_DIR skills so the SourceCard view
+    // Source view (no agent) narrows to SOURCE_DIR skills so the SourceCard
     // matches its `~/.agents/skills/` label instead of leaking agent-local
-    // folders (e.g. `~/.claude/skills/<name>` that has no symlink under
-    // `~/.agents/skills/`). See "hides agent-local-only skills from the
-    // SourceCard view (no agent selected)" test in selectors.test.ts.
+    // folders (e.g. `~/.claude/skills/<name>` with no symlink under
+    // `~/.agents/skills/`). Agent view keeps both `valid` and `broken`
+    // slots so AgentItem's "Cleanup missing skills..." has rows to act on.
+    // `missing` slots are dropped — nothing on disk to surface there.
     //
-    // Per-agent surface includes both `valid` and `broken` symlinks so the
-    // user can see and clean up orphans (symlinks whose source dir vanished)
-    // from the agent view — that's the entry point for "Cleanup missing
-    // skills..." driven by AgentItem's right-click menu. `missing` entries
-    // are filtered out because they represent agent slots with no on-disk
-    // symlink at all (nothing to surface or clean up there).
+    // Each skill-type arm composes the agent-slot gate inline rather than
+    // pre-filtering, so adding the Orphan arm did not require a 2-pass
+    // walk over `skill.symlinks`. The orphan arm still applies the gate so
+    // an `isOrphan` skill whose only broken slot belongs to a different
+    // agent does not leak through.
     if (selectedAgentId) {
-      const checkType = skillTypeFilter !== 'all'
-      const wantLocal = skillTypeFilter === 'local'
-      result = result.filter((skill) =>
-        skill.symlinks.some(
-          (s) =>
-            s.agentId === selectedAgentId &&
-            (s.status === 'valid' || s.status === 'broken') &&
-            (!checkType || s.isLocal === wantLocal),
-        ),
-      )
+      const hasAgentSlot = (slot: SymlinkInfo): boolean =>
+        slot.agentId === selectedAgentId &&
+        (slot.status === 'valid' || slot.status === 'broken')
+      result = match(skillTypeFilter)
+        .with('all', () =>
+          result.filter((skill) => skill.symlinks.some(hasAgentSlot)),
+        )
+        .with('symlinked', () =>
+          result.filter((skill) =>
+            skill.symlinks.some(
+              (slot) => hasAgentSlot(slot) && slot.isLocal === false,
+            ),
+          ),
+        )
+        .with('local', () =>
+          result.filter((skill) =>
+            skill.symlinks.some(
+              (slot) => hasAgentSlot(slot) && slot.isLocal === true,
+            ),
+          ),
+        )
+        .with('orphan', () =>
+          result.filter(
+            (skill) =>
+              skill.isOrphan === true && skill.symlinks.some(hasAgentSlot),
+          ),
+        )
+        .exhaustive()
     } else {
       result = result.filter((skill) => skill.isSource)
     }

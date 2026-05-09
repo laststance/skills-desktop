@@ -30,7 +30,7 @@ function buildState(overrides: {
   selectedAgentId?: AgentId | null
   selectedSource?: RepositoryId | null
   sortOrder?: 'asc' | 'desc'
-  skillTypeFilter?: 'all' | 'symlinked' | 'local'
+  skillTypeFilter?: 'all' | 'symlinked' | 'local' | 'orphan'
   bookmarks?: BookmarkedSkill[]
   selectedSkillNames?: SkillName[]
   inFlightDeleteNames?: SkillName[]
@@ -346,6 +346,89 @@ describe('selectFilteredSkills', () => {
     expect(result[0].name).toBe('local-one')
   })
 
+  it('filters by skillTypeFilter=orphan in agent view (skill.isOrphan === true)', () => {
+    // Mixed list: a normal symlinked skill (NOT orphan), a local skill (NOT
+    // orphan), and an orphan whose source dir vanished but still has a broken
+    // symlink under cursor. The Orphan filter must surface only the orphan.
+    const orphanSkill: Skill = {
+      name: 'orphan-one',
+      description: 'orphan',
+      path: '/home/user/.agents/skills/orphan-one',
+      symlinkCount: 1,
+      symlinks: [
+        {
+          agentId: 'cursor' as SymlinkInfo['agentId'],
+          agentName: 'Cursor' as SymlinkInfo['agentName'],
+          linkPath: '/home/user/.cursor/skills/orphan-one',
+          targetPath: '/home/user/.agents/skills/orphan-one',
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    const skills = [
+      makeSkill('linked-one', 'cursor'),
+      makeSkill('local-one', 'cursor', true),
+      orphanSkill,
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'orphan',
+    })
+    const result = selectFilteredSkills(state as never)
+    expect(result.map((s) => s.name)).toEqual(['orphan-one'])
+  })
+
+  it('orphan filter respects agent-slot gate (Pass 1 — orphan with no slot for selected agent is dropped)', () => {
+    // Codex-flagged correctness contract: an orphan whose remaining broken
+    // slot points at agent A must NOT surface when the user is viewing
+    // agent B. Pass 1 (agent-slot gate) drops the row before Pass 2
+    // (skill.isOrphan check) ever runs.
+    const orphanForAgentA: Skill = {
+      name: 'orphan-agent-a',
+      description: 'orphan stranded in agent A',
+      path: '/home/user/.agents/skills/orphan-agent-a',
+      symlinkCount: 1,
+      symlinks: [
+        {
+          agentId: 'claude-code' as SymlinkInfo['agentId'],
+          agentName: 'Claude Code' as SymlinkInfo['agentName'],
+          linkPath: '/home/user/.claude/skills/orphan-agent-a',
+          targetPath: '/home/user/.agents/skills/orphan-agent-a',
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    const state = buildState({
+      skills: [orphanForAgentA],
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'orphan',
+    })
+    expect(selectFilteredSkills(state as never)).toHaveLength(0)
+  })
+
+  it('orphan filter returns empty when no orphan skills exist for selected agent', () => {
+    // Empty-state contract: when the user picks Orphan but every visible
+    // skill is healthy (isOrphan === false), the list is empty and the
+    // empty-state copy ("No orphan skills for this agent") takes over.
+    const skills = [
+      makeSkill('linked-one', 'cursor'),
+      makeSkill('local-one', 'cursor', true),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'orphan',
+    })
+    expect(selectFilteredSkills(state as never)).toHaveLength(0)
+  })
+
   it('returns empty when search + type filter combined exclude all', () => {
     const skills = [
       makeSkill('linked-one', 'cursor'),
@@ -361,7 +444,7 @@ describe('selectFilteredSkills', () => {
     expect(result).toHaveLength(0)
   })
 
-  it.each(['all', 'symlinked', 'local'] as const)(
+  it.each(['all', 'symlinked', 'local', 'orphan'] as const)(
     'skillTypeFilter=%s is ignored in SourceCard view (no agent selected)',
     (skillTypeFilter) => {
       // SourceCard view applies its own source-only filter, so skillTypeFilter

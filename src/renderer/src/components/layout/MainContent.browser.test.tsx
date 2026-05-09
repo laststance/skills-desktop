@@ -469,6 +469,127 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
   })
 })
 
+describe('MainContent SkillTypeFilter dropdown (Orphan option)', () => {
+  // Pins the agent-only Orphan affordance contract: the dropdown is gated by
+  // `selectedAgentId` (source view never offers it), and selecting Orphan
+  // narrows the visible list to skills whose source dir vanished.
+
+  it('renders the Orphan radio item with a destructive dot when an agent is selected', async () => {
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'cursor',
+            name: 'Cursor',
+            path: '/Users/me/.cursor/skills' as never,
+            exists: true,
+            skillCount: 0,
+            localSkillCount: 0,
+          },
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(selectAgent('cursor'))
+
+    // Open the dropdown — the trigger label currently reads "All".
+    await screen.getByRole('button', { name: /^All$/ }).click()
+
+    const orphanItem = screen.getByRole('menuitemradio', { name: /Orphan/i })
+    await expect.element(orphanItem).toBeInTheDocument()
+    // The colored dot is a sibling span; assert the className substring is
+    // present somewhere within the menu item's subtree so a future markup
+    // tweak (wrapping the dot in another span, etc.) still passes.
+    const orphanItemElement = await orphanItem.element()
+    const dot = orphanItemElement.querySelector('.bg-destructive')
+    expect(
+      dot,
+      'Orphan menu item should contain a span with bg-destructive',
+    ).not.toBeNull()
+  })
+
+  it('selecting Orphan narrows visible list to skills with isOrphan=true', async () => {
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+
+    const orphanSkill: Skill = {
+      name: 'orphan-one' as SkillName,
+      description: '',
+      path: '/skills/orphan-one' as never,
+      symlinkCount: 1,
+      symlinks: [
+        {
+          agentId: 'cursor' as never,
+          agentName: 'Cursor' as never,
+          linkPath: '/cursor/skills/orphan-one' as never,
+          targetPath: '/skills/orphan-one' as never,
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    const linkedSkill: Skill = {
+      name: 'linked-one' as SkillName,
+      description: '',
+      path: '/skills/linked-one' as never,
+      symlinkCount: 1,
+      symlinks: [
+        {
+          agentId: 'cursor' as never,
+          agentName: 'Cursor' as never,
+          linkPath: '/cursor/skills/linked-one' as never,
+          targetPath: '/skills/linked-one' as never,
+          status: 'valid',
+          isLocal: false,
+        },
+      ],
+      isSource: true,
+      isOrphan: false,
+    }
+
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'cursor',
+            name: 'Cursor',
+            path: '/Users/me/.cursor/skills' as never,
+            exists: true,
+            skillCount: 0,
+            localSkillCount: 0,
+          },
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(selectAgent('cursor'))
+    store.dispatch(fetchSkills.fulfilled([orphanSkill, linkedSkill], 'req-id'))
+
+    await screen.getByRole('button', { name: /^All$/ }).click()
+    await screen.getByRole('menuitemradio', { name: /Orphan/i }).click()
+
+    // Slice state — single source of truth that the selector reads from.
+    expect(store.getState().ui.skillTypeFilter).toBe('orphan')
+
+    // Selector view — the filtered list now contains only the orphan.
+    const { selectFilteredSkills } =
+      await import('@/renderer/src/redux/selectors')
+    const filtered = selectFilteredSkills(store.getState() as never)
+    expect(filtered.map((skill) => skill.name)).toEqual(['orphan-one'])
+  })
+})
+
 describe('MainContent filter pills (Agent + Source orthogonal)', () => {
   // The Agent pill and the Source pill are independent narrowings — the user
   // can be in "agent: Claude Code" view AND filter by "from: vercel-labs/foo"
