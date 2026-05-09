@@ -21,6 +21,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "fallow:dead-code": "pnpm exec fallow dead-code",
     "prepare": "husky",
     "prettier": "prettier --ignore-unknown --write .",
     "clean": "rm -rf dist build .vite node_modules pnpm-lock.yaml"
@@ -72,6 +73,7 @@
     "eslint": "^10.3.0",
     "eslint-config-ts-prefixer": "^4.2.0",
     "eslint-plugin-react-you-might-not-need-an-effect": "^0.10.0",
+    "fallow": "2.65.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "playwright": "^1.59.1",

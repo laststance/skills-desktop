@@ -90,22 +90,36 @@ async function readSkillLock(): Promise<Map<SkillName, SkillLockEntry>> {
  * // => [{ name: 'theme-generator', symlinkCount: 3, ... }]
  */
 export async function scanSkills(): Promise<Skill[]> {
-  // Orphan scan needs sourceNames to skip live sources, so it chains off
-  // sourceSkills via .then() instead of awaiting separately — that lets it
-  // overlap with scanAllLocalSkills and readSkillLock in the same Promise.all.
+  // Agent-only symlink scans need sourceNames to skip live sources, so they
+  // chain off sourceSkills via .then() instead of awaiting separately — that
+  // lets them overlap with scanAllLocalSkills and readSkillLock in the same
+  // Promise.all.
   const sourceSkillsPromise = scanSourceSkills()
-  const orphanSkillsPromise = sourceSkillsPromise.then(async (src) =>
-    scanOrphanSymlinks(new Set(src.map((s) => s.name))),
+  const sourceNamesPromise = sourceSkillsPromise.then(
+    (src) => new Set(src.map((s) => s.name)),
   )
-  const [sourceSkills, localSkills, lockEntries, orphanSkills] =
-    await Promise.all([
-      sourceSkillsPromise,
-      scanAllLocalSkills(),
-      readSkillLock(),
-      orphanSkillsPromise,
-    ])
+  const linkedAgentSkillsPromise = sourceNamesPromise.then(
+    async (sourceNames) => scanAgentLinkedSymlinks(sourceNames),
+  )
+  const orphanSkillsPromise = sourceNamesPromise.then(async (sourceNames) =>
+    scanOrphanSymlinks(sourceNames),
+  )
+  const [
+    sourceSkills,
+    localSkills,
+    linkedAgentSkills,
+    lockEntries,
+    orphanSkills,
+  ] = await Promise.all([
+    sourceSkillsPromise,
+    scanAllLocalSkills(),
+    linkedAgentSkillsPromise,
+    readSkillLock(),
+    orphanSkillsPromise,
+  ])
 
-  // Merge precedence: source > local > orphan (first record's metadata wins).
+  // Merge precedence: source > local > linked-agent > orphan (first record's
+  // metadata wins).
   // Naive first-wins discards later records entirely — but a `local + orphan`
   // collision (real folder in agent A, broken symlink in agent B for the
   // same name) needs the orphan's broken slots merged into the local record,
@@ -114,7 +128,12 @@ export async function scanSkills(): Promise<Skill[]> {
   // 'valid+local' and 'broken' (a path is either a directory or a symlink),
   // so per-slot non-missing-wins is conflict-free.
   const byName = new Map<SkillName, Skill>()
-  for (const skill of [...sourceSkills, ...localSkills, ...orphanSkills]) {
+  for (const skill of [
+    ...sourceSkills,
+    ...localSkills,
+    ...linkedAgentSkills,
+    ...orphanSkills,
+  ]) {
     const existing = byName.get(skill.name)
     if (!existing) {
       byName.set(skill.name, skill)
@@ -177,6 +196,102 @@ async function scanSourceSkills(): Promise<Skill[]> {
   )
 
   return skills
+}
+
+/**
+ * Scan agent directories for valid symlinks whose link names are not present
+ * in `~/.agents/skills/`.
+ *
+ * These entries still count as "linked" in `scanAgents()` because the agent
+ * has a valid symlink on disk, but they used to be invisible in the skills
+ * list because `scanSourceSkills()` only starts from the universal source
+ * directory. The displayed `Skill.name` intentionally follows the agent-side
+ * link name (not `SKILL.md` frontmatter) so row actions like bulk unlink still
+ * address the actual path under the selected agent.
+ *
+ * @param sourceNames - Source skill names already represented by `scanSourceSkills`.
+ * @returns Agent-only linked skills with valid non-local symlink slots.
+ * @example
+ * // ~/.codex/skills/gstack-browse -> ~/gstack/.agents/skills/gstack-browse
+ * scanAgentLinkedSymlinks(new Set())
+ * // => [{ name: 'gstack-browse', isSource: false, symlinkCount: 1, ... }]
+ */
+async function scanAgentLinkedSymlinks(
+  sourceNames: Set<SkillName>,
+): Promise<Skill[]> {
+  const linkedHits = (
+    await Promise.all(
+      AGENTS.map(async (agent) => {
+        try {
+          const entries = await readdir(agent.path, { withFileTypes: true })
+          const candidates = entries.filter(
+            (entry) => entry.isSymbolicLink() && !sourceNames.has(entry.name),
+          )
+          const statuses = await Promise.all(
+            candidates.map(async (link) => {
+              const linkPath = join(agent.path, link.name) as AbsolutePath
+              const status = await checkSymlinkTargetFromKnownLink(linkPath)
+              if (status !== 'valid') return null
+
+              const targetPath = await readSymlinkTargetIfPresent(linkPath)
+              if (!targetPath) return null
+
+              const metadata = await parseSkillMetadata(targetPath)
+              return {
+                agent,
+                name: link.name,
+                linkPath,
+                targetPath,
+                metadata,
+              }
+            }),
+          )
+          return statuses.filter(
+            (item): item is NonNullable<typeof item> => item !== null,
+          )
+        } catch {
+          return []
+        }
+      }),
+    )
+  ).flat()
+
+  const linkedSkillsByName = new Map<SkillName, Skill>()
+  for (const { agent, name, linkPath, targetPath, metadata } of linkedHits) {
+    let skill = linkedSkillsByName.get(name)
+    if (!skill) {
+      skill = {
+        name,
+        description: metadata.description,
+        path: targetPath,
+        symlinkCount: 0,
+        symlinks: AGENTS.map((a) => ({
+          agentId: a.id,
+          agentName: a.name,
+          status: 'missing',
+          linkPath: join(a.path, name) as AbsolutePath,
+          isLocal: false,
+        })),
+        isSource: false,
+        isOrphan: false,
+      }
+      linkedSkillsByName.set(name, skill)
+    }
+
+    const slot = skill.symlinks.findIndex((s) => s.agentId === agent.id)
+    if (slot >= 0) {
+      skill.symlinks[slot] = {
+        ...skill.symlinks[slot],
+        status: 'valid',
+        targetPath,
+        linkPath,
+        isLocal: false,
+      }
+      skill.symlinkCount = countValidSymlinks(skill.symlinks)
+    }
+  }
+
+  return Array.from(linkedSkillsByName.values())
 }
 
 /**
