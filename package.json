@@ -21,6 +21,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "fallow:dead-code": "npx fallow dead-code",
     "prepare": "husky",
     "prettier": "prettier --ignore-unknown --write .",
     "clean": "rm -rf dist build .vite node_modules pnpm-lock.yaml"

@@ -55,10 +55,14 @@ vi.mock('./metadataParser', () => ({
 
 const checkSymlinkTargetFromKnownLinkMock = vi.fn()
 const readSymlinkTargetIfPresentMock = vi.fn()
+const countValidSymlinksMock = vi.fn(
+  (symlinks: Array<{ status: string }>): number =>
+    symlinks.filter((s) => s.status === 'valid').length,
+)
 
 vi.mock('./symlinkChecker', () => ({
   checkSkillSymlinks: vi.fn(async () => []),
-  countValidSymlinks: vi.fn(() => 0),
+  countValidSymlinks: countValidSymlinksMock,
   checkSymlinkTargetFromKnownLink: checkSymlinkTargetFromKnownLinkMock,
   readSymlinkTargetIfPresent: readSymlinkTargetIfPresentMock,
 }))
@@ -71,6 +75,7 @@ describe('scanSkills local skill aggregation', () => {
     checkSymlinkTargetFromKnownLinkMock.mockResolvedValue('missing')
     readSymlinkTargetIfPresentMock.mockReset()
     readSymlinkTargetIfPresentMock.mockResolvedValue(undefined)
+    countValidSymlinksMock.mockClear()
 
     readdirMock.mockImplementation(async (path: string) => {
       if (path === '/mock/source/skills') {
@@ -205,6 +210,75 @@ describe('scanSkills local skill aggregation', () => {
   })
 })
 
+describe('scanSkills agent-only linked symlink surfacing', () => {
+  beforeEach(() => {
+    readdirMock.mockReset()
+    accessMock.mockReset()
+    statMock.mockReset()
+    checkSymlinkTargetFromKnownLinkMock.mockReset()
+    readSymlinkTargetIfPresentMock.mockReset()
+    readSymlinkTargetIfPresentMock.mockResolvedValue(undefined)
+    countValidSymlinksMock.mockClear()
+  })
+
+  it('surfaces valid agent symlinks whose names are not in the source directory', async () => {
+    // Codex has a valid gstack-managed symlink, but ~/.agents/skills has no
+    // matching source directory. The sidebar count includes this link, so the
+    // central agent view must include a linked card for the same on-disk entry.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') return []
+      if (path === '/mock/agents/codex/skills') {
+        return [
+          createDirent('gstack-browse', {
+            isDirectory: false,
+            isSymbolicLink: true,
+          }),
+        ]
+      }
+      return []
+    })
+    accessMock.mockRejectedValue(new Error('ENOENT'))
+    statMock.mockRejectedValue(new Error('ENOENT'))
+    checkSymlinkTargetFromKnownLinkMock.mockImplementation(
+      async (linkPath: string) => {
+        if (linkPath === '/mock/agents/codex/skills/gstack-browse') {
+          return 'valid'
+        }
+        return 'missing'
+      },
+    )
+    readSymlinkTargetIfPresentMock.mockImplementation(
+      async (linkPath: string) => {
+        if (linkPath === '/mock/agents/codex/skills/gstack-browse') {
+          return '/mock/external/gstack-browse'
+        }
+        return undefined
+      },
+    )
+
+    const { scanSkills } = await import('./skillScanner')
+    const skills = await scanSkills()
+
+    expect(skills).toHaveLength(1)
+    const linked = skills[0]
+    expect(linked.name).toBe('gstack-browse')
+    expect(linked.path).toBe('/mock/external/gstack-browse')
+    expect(linked.symlinkCount).toBe(1)
+    expect(linked.isSource).toBe(false)
+    expect(linked.isOrphan).toBe(false)
+
+    const codex = linked.symlinks.find((s) => s.agentId === 'codex')
+    const cursor = linked.symlinks.find((s) => s.agentId === 'cursor')
+    expect(codex).toMatchObject({
+      status: 'valid',
+      isLocal: false,
+      linkPath: '/mock/agents/codex/skills/gstack-browse',
+      targetPath: '/mock/external/gstack-browse',
+    })
+    expect(cursor).toMatchObject({ status: 'missing', isLocal: false })
+  })
+})
+
 describe('scanSkills orphan symlink surfacing (issue #127)', () => {
   beforeEach(() => {
     readdirMock.mockReset()
@@ -213,6 +287,7 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     checkSymlinkTargetFromKnownLinkMock.mockReset()
     readSymlinkTargetIfPresentMock.mockReset()
     readSymlinkTargetIfPresentMock.mockResolvedValue(undefined)
+    countValidSymlinksMock.mockClear()
   })
 
   it('surfaces broken symlinks whose source is missing as orphan Skill records', async () => {
