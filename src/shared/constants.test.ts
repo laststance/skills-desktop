@@ -57,17 +57,40 @@ describe('AGENT_DEFINITIONS', () => {
     expect(replit?.installDir).toBe('.config/agents')
   })
 
-  // Regression guard for the v0.13.0 cascade. Cline and Warp's installDir
-  // points at the universal source; without a divergent scanDir, the
-  // scanner would surface every source skill as their "local skills".
-  it('Cline and Warp diverge scanDir from installDir to avoid aliasing the universal source', () => {
+  // Regression guard for the v0.13.0 cascade. Cline, Warp, and Dexto's
+  // installDir points at the universal source; without a divergent
+  // scanDir, the scanner would surface every source skill as their
+  // "local skills".
+  it('Cline, Warp, and Dexto diverge scanDir from installDir to avoid aliasing the universal source', () => {
     const cline = AGENT_DEFINITIONS.find((a) => a.id === 'cline')
     const warp = AGENT_DEFINITIONS.find((a) => a.id === 'warp')
+    const dexto = AGENT_DEFINITIONS.find((a) => a.id === 'dexto')
 
     expect(cline?.installDir).toBe('.agents')
     expect(cline?.scanDir).toBe('.cline')
     expect(warp?.installDir).toBe('.agents')
     expect(warp?.scanDir).toBe('.warp')
+    expect(dexto?.installDir).toBe('.agents')
+    expect(dexto?.scanDir).toBe('.dexto')
+  })
+
+  it('includes 10 community agents added in CLI v1.5.5', () => {
+    const expectedNewAgents = [
+      'aider-desk',
+      'codearts-agent',
+      'codemaker',
+      'codestudio',
+      'devin',
+      'dexto',
+      'forgecode',
+      'hermes-agent',
+      'rovodev',
+      'tabnine-cli',
+    ] as const
+    const ids = AGENT_DEFINITIONS.map((a) => a.id)
+    for (const expectedId of expectedNewAgents) {
+      expect(ids).toContain(expectedId)
+    }
   })
 })
 
@@ -86,6 +109,7 @@ describe('UNIVERSAL_AGENT_IDS', () => {
     expect(UNIVERSAL_AGENT_IDS).toContain('codex')
     expect(UNIVERSAL_AGENT_IDS).toContain('cursor')
     expect(UNIVERSAL_AGENT_IDS).toContain('deepagents')
+    expect(UNIVERSAL_AGENT_IDS).toContain('dexto')
     expect(UNIVERSAL_AGENT_IDS).toContain('firebender')
     expect(UNIVERSAL_AGENT_IDS).toContain('gemini-cli')
     expect(UNIVERSAL_AGENT_IDS).toContain('github-copilot')

@@ -519,6 +519,77 @@ export const AGENT_DEFINITIONS = [
     installDir: '.agents',
     scanDir: '.warp',
   },
+  // Additional agents synced through Skills CLI v1.5.5
+  {
+    id: 'aider-desk',
+    cliId: 'aider-desk',
+    name: 'AiderDesk',
+    installDir: '.aider-desk',
+    scanDir: '.aider-desk',
+  },
+  {
+    id: 'codearts-agent',
+    cliId: 'codearts-agent',
+    name: 'CodeArts Agent',
+    installDir: '.codeartsdoer',
+    scanDir: '.codeartsdoer',
+  },
+  {
+    id: 'codemaker',
+    cliId: 'codemaker',
+    name: 'Codemaker',
+    installDir: '.codemaker',
+    scanDir: '.codemaker',
+  },
+  {
+    id: 'codestudio',
+    cliId: 'codestudio',
+    name: 'Code Studio',
+    installDir: '.codestudio',
+    scanDir: '.codestudio',
+  },
+  {
+    id: 'devin',
+    cliId: 'devin',
+    name: 'Devin for Terminal',
+    installDir: '.config/devin',
+    scanDir: '.config/devin',
+  },
+  {
+    id: 'dexto',
+    cliId: 'dexto',
+    name: 'Dexto',
+    installDir: '.agents',
+    scanDir: '.dexto',
+  },
+  {
+    id: 'forgecode',
+    cliId: 'forgecode',
+    name: 'ForgeCode',
+    installDir: '.forge',
+    scanDir: '.forge',
+  },
+  {
+    id: 'hermes-agent',
+    cliId: 'hermes-agent',
+    name: 'Hermes Agent',
+    installDir: '.hermes',
+    scanDir: '.hermes',
+  },
+  {
+    id: 'rovodev',
+    cliId: 'rovodev',
+    name: 'Rovo Dev',
+    installDir: '.rovodev',
+    scanDir: '.rovodev',
+  },
+  {
+    id: 'tabnine-cli',
+    cliId: 'tabnine-cli',
+    name: 'Tabnine CLI',
+    installDir: '.tabnine/agent',
+    scanDir: '.tabnine/agent',
+  },
 ] as const
 
 /**
@@ -619,6 +690,7 @@ export const UNIVERSAL_AGENT_IDS = [
   'codex',
   'cursor',
   'deepagents',
+  'dexto',
   'firebender',
   'gemini-cli',
   'github-copilot',
@@ -713,7 +785,7 @@ export const TERMINAL_APP_UI_LABELS: Record<
  * @example
  * spawn('npx', [`skills@${SKILLS_CLI_VERSION}`, 'find', 'react'])
  */
-export const SKILLS_CLI_VERSION = '1.5.1'
+export const SKILLS_CLI_VERSION = '1.5.5'
 
 /**
  * Canonical hostname for skills marketplace pages used by renderer/main
