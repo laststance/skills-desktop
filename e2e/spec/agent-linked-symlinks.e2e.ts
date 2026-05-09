@@ -27,7 +27,7 @@ const STORE_READY_TIMEOUT_MS = 10_000
 const waitForStoreReady = async (page: Page): Promise<void> => {
   await page.waitForFunction(
     () => {
-      const store = window.__store__ ?? window.__store
+      const store = window.__store__
       if (!store) return false
       const state = store.getState() as {
         agents?: { items?: unknown[]; loading?: boolean }

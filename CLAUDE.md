@@ -3,7 +3,7 @@
 Electron desktop app (macOS) for visualizing Skills symlink status across AI agents.
 
 
-- Never use direct `fs` in renderer Context isolation error
+- Never use direct `fs` access in the renderer when Context Isolation is enabled; use preload IPC instead.
 - Build macOS `APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac`
 
 ### 🔴 Releases — Use `/electron-release` ONLY
