@@ -64,7 +64,7 @@ export const DestructiveConfirmDialog = React.memo(
 
     return (
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="sm:max-w-100">
           <DialogHeader>
             <div className="flex items-center gap-2">
               <AlertTriangle className={`h-5 w-5 ${iconColor}`} />

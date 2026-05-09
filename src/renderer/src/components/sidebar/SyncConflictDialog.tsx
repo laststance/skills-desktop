@@ -80,7 +80,7 @@ export const SyncConflictDialog = React.memo(
           </DialogHeader>
 
           <div className="py-4">
-            <div className="max-h-[300px] overflow-y-auto rounded-md border p-2 space-y-1">
+            <div className="max-h-75 overflow-y-auto rounded-md border p-2 space-y-1">
               {conflicts.map((conflict) => (
                 <label
                   key={conflict.agentSkillPath}

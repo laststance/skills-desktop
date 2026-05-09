@@ -40,7 +40,7 @@ const ActionTile = React.memo(function ActionTile({
       disabled={isBusy}
       aria-label={label}
       className="
-        group flex-1 min-w-0 min-h-[44px] flex items-center gap-2 px-3 py-2
+        group flex-1 min-w-0 min-h-11 flex items-center gap-2 px-3 py-2
         rounded-md border border-border/60 bg-background/30 text-left
         hover:bg-muted hover:border-border
         disabled:opacity-60 disabled:cursor-not-allowed

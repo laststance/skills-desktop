@@ -59,7 +59,7 @@ export const RankingTabs = React.memo(function RankingTabs({
           onClick={() => onChange(tab.id)}
           disabled={disabled}
           className={cn(
-            'px-4 py-2 rounded-md text-[13px] font-medium transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            'px-4 py-2 rounded-md text-[13px] font-medium transition-colors min-h-11 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             value === tab.id
               ? 'bg-card text-primary'
               : 'text-muted-foreground hover:text-foreground hover:bg-card/50',

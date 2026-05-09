@@ -88,7 +88,7 @@ export const InstallModal = React.memo(
             {/* Agent selection */}
             <div>
               <h4 className="text-sm font-medium mb-3">Select Agents</h4>
-              <div className="max-h-[240px] overflow-y-auto rounded-md border p-2 space-y-1">
+              <div className="max-h-60 overflow-y-auto rounded-md border p-2 space-y-1">
                 {existingAgents.map((agent) => (
                   <label
                     key={agent.id}

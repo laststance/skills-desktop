@@ -68,7 +68,7 @@ export const WidgetPicker = React.memo(function WidgetPicker({
                   type="button"
                   onClick={() => handleAddWidget(widgetDefinition.type)}
                   className="
-                    group w-full min-h-[72px] flex items-start gap-3 p-3 rounded-lg
+                    group w-full min-h-18 flex items-start gap-3 p-3 rounded-lg
                     border border-border bg-card text-left
                     hover:bg-muted hover:border-border/80
                     transition-colors focus-visible:outline-none

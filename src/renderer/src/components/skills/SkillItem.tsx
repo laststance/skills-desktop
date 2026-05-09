@@ -335,7 +335,7 @@ export const SkillItem = React.memo(function SkillItem({
                       ? `Delete ${skill.name} from ${selectedAgentName}`
                       : `Unlink ${skill.name} from ${selectedAgentName}`
                   }
-                  className="absolute top-0 right-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                  className="absolute top-0 right-0 min-h-11 min-w-11 flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -360,7 +360,7 @@ export const SkillItem = React.memo(function SkillItem({
                   onClick={handleDeleteClick}
                   aria-label={`Delete ${skill.name}`}
                   data-testid={`skill-delete-${skill.name}`}
-                  className="absolute top-0 right-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                  className="absolute top-0 right-0 min-h-11 min-w-11 flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -383,7 +383,7 @@ export const SkillItem = React.memo(function SkillItem({
                       : `Bookmark ${skill.name}`
                   }
                   className={cn(
-                    'absolute top-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md z-10 transition-opacity',
+                    'absolute top-0 min-h-11 min-w-11 flex items-center justify-center rounded-md z-10 transition-opacity',
                     // Right-align: slide the bookmark left of the X when an
                     // X button (unlink in agent view, delete in global view)
                     // shares the top-right corner.
@@ -426,7 +426,7 @@ export const SkillItem = React.memo(function SkillItem({
                   the filter-row toggle; the default view stays clean. */}
               {bulkSelectMode && (
                 <label
-                  className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center -mt-1 -ml-1 cursor-pointer"
+                  className="shrink-0 min-h-11 min-w-11 flex items-center justify-center -mt-1 -ml-1 cursor-pointer"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <Checkbox
@@ -500,7 +500,7 @@ export const SkillItem = React.memo(function SkillItem({
                   )}
                 </h3>
                 {skill.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1 min-h-[2.5rem]">
+                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1 min-h-10">
                     {skill.description}
                   </p>
                 )}

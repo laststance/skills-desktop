@@ -104,7 +104,7 @@ export const SyncResultDialog = React.memo(
             </div>
 
             {syncResult.details.length > 0 ? (
-              <ScrollArea className="max-h-[300px] rounded-md border p-2">
+              <ScrollArea className="max-h-75 rounded-md border p-2">
                 <div className="space-y-1">
                   {syncResult.details.map((item, index) => (
                     <div

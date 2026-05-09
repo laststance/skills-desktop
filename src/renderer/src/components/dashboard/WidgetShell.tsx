@@ -73,7 +73,7 @@ export const WidgetShell = React.memo(function WidgetShell({
             onClick={handleRemove}
             onMouseDown={(event) => event.stopPropagation()}
             aria-label={`Remove ${definition.label} widget`}
-            className="ml-auto min-h-[44px] min-w-[44px] -my-[10px] -mr-3 flex items-center justify-center rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+            className="ml-auto min-h-11 min-w-11 -my-2.5 -mr-3 flex items-center justify-center rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
           >
             <X className="h-3.5 w-3.5" />
           </button>

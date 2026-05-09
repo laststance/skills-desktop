@@ -61,7 +61,7 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
 
   return (
     <div
-      className="grid items-center gap-4 p-4 rounded-lg bg-card h-[76px] min-w-0 border border-card hover:border-primary/50 transition-colors"
+      className="grid items-center gap-4 p-4 rounded-lg bg-card h-19 min-w-0 border border-card hover:border-primary/50 transition-colors"
       style={{
         gridTemplateColumns: `minmax(0, 1fr) ${BOOKMARK_COLUMN_WIDTH_PX}px ${INSTALL_COUNT_COLUMN_WIDTH_PX}px ${ACTION_COLUMN_WIDTH_PX}px`,
       }}
@@ -93,7 +93,7 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
             ? `Remove ${skill.name} from bookmarks`
             : `Bookmark ${skill.name}`
         }
-        className="min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md"
+        className="min-h-11 min-w-11 flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md"
         onClick={handleToggleBookmark}
       >
         <Star
@@ -140,7 +140,7 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
             onClick={handleInstall}
             disabled={isOperating}
             className={cn(
-              'flex items-center gap-1.5 px-4 py-2 rounded-md min-h-[44px]',
+              'flex items-center gap-1.5 px-4 py-2 rounded-md min-h-11',
               'bg-primary text-primary-foreground text-[13px] font-semibold',
               'hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
               'disabled:opacity-50 disabled:cursor-not-allowed',

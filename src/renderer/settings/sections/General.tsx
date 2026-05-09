@@ -207,7 +207,7 @@ export const General = React.memo(function General(): React.ReactElement {
           {/* popover menu, free type-to-search and arrow-key nav. Sized to */}
           {/* fit longest label ("Terminal (Apple)") at the chosen text size. */}
           <select
-            className="h-9 min-w-[14rem] rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            className="h-9 min-w-56 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
             value={settings.preferredTerminal}
             onChange={handlePreferredTerminalChange}
             aria-label="Preferred terminal"
@@ -229,7 +229,7 @@ export const General = React.memo(function General(): React.ReactElement {
                 placeholder="e.g. Hyper"
                 maxLength={CUSTOM_APP_NAME_MAX_LENGTH}
                 aria-label="Custom terminal app name"
-                className="min-w-[14rem]"
+                className="min-w-56"
               />
               {isDraftBlank ? (
                 <p className="text-xs text-muted-foreground">

@@ -74,7 +74,7 @@ export const MarketplaceDashboard = React.memo(
                 key={skill.name}
                 type="button"
                 onClick={() => handleSkillClick(skill)}
-                className="flex items-center gap-3 p-3 rounded-lg bg-background border border-border hover:border-primary/50 transition-colors text-left min-h-[44px]"
+                className="flex items-center gap-3 p-3 rounded-lg bg-background border border-border hover:border-primary/50 transition-colors text-left min-h-11"
               >
                 <div className="flex items-center justify-center w-7 h-7 shrink-0 rounded-md bg-muted font-mono text-[13px] font-semibold text-primary">
                   {skill.rank}

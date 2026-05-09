@@ -65,7 +65,7 @@ export const DashboardEditToolbar = React.memo(
                 variant="ghost"
                 size="sm"
                 onClick={handleOpenPicker}
-                className="min-h-[44px] gap-1.5 text-xs"
+                className="min-h-11 gap-1.5 text-xs"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Widget
@@ -74,7 +74,7 @@ export const DashboardEditToolbar = React.memo(
                 variant="ghost"
                 size="sm"
                 onClick={handleAddPage}
-                className="min-h-[44px] gap-1.5 text-xs"
+                className="min-h-11 gap-1.5 text-xs"
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
                 Page
@@ -83,7 +83,7 @@ export const DashboardEditToolbar = React.memo(
                 variant="ghost"
                 size="sm"
                 onClick={handleResetLayout}
-                className="min-h-[44px] gap-1.5 text-xs text-muted-foreground"
+                className="min-h-11 gap-1.5 text-xs text-muted-foreground"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 Reset
@@ -95,7 +95,7 @@ export const DashboardEditToolbar = React.memo(
             size="sm"
             onClick={() => dispatch(toggleEditMode())}
             aria-pressed={isEditMode}
-            className="min-h-[44px] gap-1.5 text-xs"
+            className="min-h-11 gap-1.5 text-xs"
           >
             {isEditMode ? (
               <>

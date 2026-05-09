@@ -71,7 +71,7 @@ const FileTab = React.memo(function FileTab({
       )}
     >
       <Icon className="w-3.5 h-3.5 shrink-0 opacity-80" />
-      <span className="max-w-[240px] truncate">{file.relativePath}</span>
+      <span className="max-w-60 truncate">{file.relativePath}</span>
       {isActive && (
         <span
           className="absolute inset-x-0 bottom-0 h-0.5 bg-primary"

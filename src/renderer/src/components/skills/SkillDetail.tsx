@@ -76,7 +76,7 @@ export const SkillDetail = React.memo(function SkillDetail({
           aria-pressed={activeTab === 'files'}
           onClick={() => handleTabChange('files')}
           className={cn(
-            'px-4 py-2 text-sm font-medium border-b-2 -mb-[1px] transition-colors',
+            'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
             activeTab === 'files'
               ? 'text-primary border-primary'
               : 'text-muted-foreground border-transparent hover:text-foreground',
@@ -89,7 +89,7 @@ export const SkillDetail = React.memo(function SkillDetail({
           aria-pressed={activeTab === 'info'}
           onClick={() => handleTabChange('info')}
           className={cn(
-            'px-4 py-2 text-sm font-medium border-b-2 -mb-[1px] transition-colors',
+            'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
             activeTab === 'info'
               ? 'text-primary border-primary'
               : 'text-muted-foreground border-transparent hover:text-foreground',

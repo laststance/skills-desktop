@@ -459,7 +459,7 @@ export const MainContent = React.memo(
                     : 'Sorted Z to A, click to reverse'
                 }
                 onClick={() => dispatch(toggleSortOrder())}
-                className="shrink-0 text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px]"
+                className="shrink-0 text-muted-foreground hover:text-foreground min-h-11 min-w-11"
               >
                 {sortOrder === 'asc' ? (
                   <ArrowDownAZ className="h-4 w-4" />
@@ -493,7 +493,7 @@ export const MainContent = React.memo(
                   }
                 }}
                 className={cn(
-                  'shrink-0 gap-1.5 min-h-[44px]',
+                  'shrink-0 gap-1.5 min-h-11',
                   bulkSelectMode
                     ? 'text-primary'
                     : 'text-muted-foreground hover:text-foreground',
@@ -514,7 +514,7 @@ export const MainContent = React.memo(
                     <Button
                       variant="ghost"
                       size="sm"
-                      className={`shrink-0 gap-1.5 min-h-[44px] ${
+                      className={`shrink-0 gap-1.5 min-h-11 ${
                         skillTypeFilter !== 'all'
                           ? 'text-primary'
                           : 'text-muted-foreground hover:text-foreground'

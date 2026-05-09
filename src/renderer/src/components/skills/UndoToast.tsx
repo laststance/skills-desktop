@@ -153,7 +153,7 @@ export const UndoToast = React.memo(function UndoToast({
             onClick={handleUndoClick}
             disabled={!canUndo}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-md px-3 min-h-[44px] text-sm font-medium',
+              'inline-flex items-center gap-1.5 rounded-md px-3 min-h-11 text-sm font-medium',
               'bg-primary text-primary-foreground hover:bg-primary/90',
               'disabled:opacity-50 disabled:cursor-not-allowed',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',

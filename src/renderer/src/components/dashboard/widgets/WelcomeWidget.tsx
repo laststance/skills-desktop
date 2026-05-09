@@ -56,7 +56,7 @@ export const WelcomeWidget = React.memo(function WelcomeWidget({
           onClick={handleDismiss}
           aria-label="Remove welcome widget"
           className="
-            min-h-[44px] min-w-[44px] shrink-0
+            min-h-11 min-w-11 shrink-0
             inline-flex items-center justify-center rounded-md
             text-muted-foreground hover:text-foreground hover:bg-muted
             transition-colors focus-visible:outline-none
@@ -95,7 +95,7 @@ export const WelcomeWidget = React.memo(function WelcomeWidget({
           onClick={handleDismiss}
           aria-label="Dismiss welcome"
           className="
-            min-h-[44px] min-w-[44px] shrink-0
+            min-h-11 min-w-11 shrink-0
             inline-flex items-center justify-center rounded-md
             text-muted-foreground hover:text-foreground hover:bg-muted
             transition-colors focus-visible:outline-none
@@ -114,7 +114,7 @@ export const WelcomeWidget = React.memo(function WelcomeWidget({
             bg-primary text-primary-foreground text-xs font-semibold
             hover:bg-primary/90 transition-colors focus-visible:outline-none
             focus-visible:ring-2 focus-visible:ring-ring
-            min-h-[44px]
+            min-h-11
           "
         >
           <Store className="h-3.5 w-3.5" aria-hidden="true" />

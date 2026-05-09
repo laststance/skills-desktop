@@ -146,7 +146,7 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
         size="sm"
         onClick={handleSelectAllVisible}
         disabled={isBusy}
-        className="shrink-0 min-h-[44px]"
+        className="shrink-0 min-h-11"
       >
         Select all visible
       </Button>
@@ -156,7 +156,7 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
         size="sm"
         onClick={handleClear}
         disabled={isBusy}
-        className="shrink-0 min-h-[44px]"
+        className="shrink-0 min-h-11"
       >
         <X className="h-3 w-3 mr-1" />
         Clear
@@ -169,7 +169,7 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
         disabled={toolbarState.isPrimaryDisabled || isBusy}
         aria-label={toolbarState.primaryAriaLabel}
         className={cn(
-          'shrink-0 min-h-[44px] gap-1.5',
+          'shrink-0 min-h-11 gap-1.5',
           toolbarState.isDestructive && 'font-medium',
         )}
       >

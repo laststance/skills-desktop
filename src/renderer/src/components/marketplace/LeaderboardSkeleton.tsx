@@ -11,7 +11,7 @@ export const LeaderboardSkeleton = React.memo(
         {Array.from({ length: 6 }, (_, i) => (
           <div
             key={i}
-            className="rounded-lg bg-card p-4 flex items-center gap-4 h-[76px]"
+            className="rounded-lg bg-card p-4 flex items-center gap-4 h-19"
           >
             {/* Rank square */}
             <div className="h-8 w-8 rounded bg-muted animate-pulse shrink-0" />

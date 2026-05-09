@@ -53,7 +53,7 @@ const BookmarkRow = React.memo(function BookmarkRow({
         // 44×44 hit area per HIG — the visible X stays small so it doesn't
         // dominate the row; opacity-0 until hover mirrors the SkillItem pattern.
         className="
-          min-h-[44px] min-w-[44px] flex items-center justify-center
+          min-h-11 min-w-11 flex items-center justify-center
           rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10
           opacity-0 group-hover:opacity-100 focus-visible:opacity-100
           transition-opacity
