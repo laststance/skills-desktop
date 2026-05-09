@@ -107,6 +107,7 @@ const SKILL_TYPE_FILTER_OPTIONS: {
   { value: 'all', label: 'All' },
   { value: 'symlinked', label: 'Symlinked', dotClass: 'bg-success' },
   { value: 'local', label: 'Local', dotClass: 'bg-emerald-400' },
+  { value: 'orphan', label: 'Orphan', dotClass: 'bg-destructive' },
 ]
 
 const SKILLS_SH_URL = 'https://skills.sh'

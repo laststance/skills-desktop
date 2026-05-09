@@ -25,7 +25,7 @@ import { deleteSelectedSkills, unlinkSelectedFromAgent } from './skillsSlice'
 export type BookmarkForDetail = BookmarkedSkill & { isInstalled: boolean }
 
 export type SortOrder = 'asc' | 'desc'
-export type SkillTypeFilter = 'all' | 'symlinked' | 'local'
+export type SkillTypeFilter = 'all' | 'symlinked' | 'local' | 'orphan'
 export type ActiveTab = 'installed' | 'marketplace'
 /**
  * Which field the search box matches against.
@@ -94,7 +94,7 @@ interface UiState {
   selectedAgentId: AgentId | null
   /** Sort direction for skill name (A→Z / Z→A) */
   sortOrder: SortOrder
-  /** Filter by skill type in agent view (all / symlinked / local) */
+  /** Filter by skill type in agent view (all / symlinked / local / orphan) */
   skillTypeFilter: SkillTypeFilter
   /** Whether sync operation is in progress */
   isSyncing: boolean
