@@ -21,6 +21,7 @@ import {
 } from '../helpers/redux'
 import {
   USER_TRASH_DIR,
+  canReadUserTrash,
   cleanupTrashEntries,
   diffUserTrash,
   findMatchingTrashedAgentDir,
@@ -587,6 +588,13 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
     existsSync(USER_TRASH_DIR),
     `expected ~/.Trash to exist on macOS dev box — unexpected env`,
   ).toBe(true)
+  if (!canReadUserTrash()) {
+    test.skip(
+      true,
+      `cannot inspect ${USER_TRASH_DIR}; grant the test runner Trash access to enable this OS Trash assertion`,
+    )
+    return
+  }
   const trashEntriesBefore = snapshotUserTrash()
 
   await waitForInitialScan(appWindow)
@@ -690,6 +698,13 @@ test('removeAllFromAgent surfaces structured failure when shell.trashItem reject
       true,
       `isolatedHome ${isolatedHome} is on a different volume than ~/.Trash; ` +
         'shell.trashItem would route to <volume>/.Trashes/<uid>.',
+    )
+    return
+  }
+  if (!canReadUserTrash()) {
+    test.skip(
+      true,
+      `cannot inspect ${USER_TRASH_DIR}; grant the test runner Trash access to enable this OS Trash assertion`,
     )
     return
   }
