@@ -505,7 +505,7 @@ describe('MainContent SkillTypeFilter dropdown (Orphan option)', () => {
     // The colored dot is a sibling span; assert the className substring is
     // present somewhere within the menu item's subtree so a future markup
     // tweak (wrapping the dot in another span, etc.) still passes.
-    const orphanItemElement = await orphanItem.element()
+    const orphanItemElement = orphanItem.element()
     const dot = orphanItemElement.querySelector('.bg-destructive')
     expect(
       dot,

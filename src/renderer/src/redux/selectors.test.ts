@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import type { SkillTypeFilter } from '@/renderer/src/redux/slices/uiSlice'
 import { repositoryId } from '@/shared/types'
 import type {
   AgentId,
@@ -30,7 +31,7 @@ function buildState(overrides: {
   selectedAgentId?: AgentId | null
   selectedSource?: RepositoryId | null
   sortOrder?: 'asc' | 'desc'
-  skillTypeFilter?: 'all' | 'symlinked' | 'local' | 'orphan'
+  skillTypeFilter?: SkillTypeFilter
   bookmarks?: BookmarkedSkill[]
   selectedSkillNames?: SkillName[]
   inFlightDeleteNames?: SkillName[]
