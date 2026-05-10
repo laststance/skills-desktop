@@ -46,6 +46,11 @@ const toastClassNames = {
   description: 'text-muted-foreground',
   actionButton: 'bg-primary text-primary-foreground hover:bg-primary/90',
   cancelButton: 'bg-muted text-muted-foreground hover:bg-muted/80',
+  // Theme sonner's built-in close button with shadcn popover tokens so it
+  // inherits the popover surface in both light/dark modes — sonner's default
+  // light/dark borders look pasted-on against our OKLCH background.
+  closeButton:
+    'bg-popover text-muted-foreground border-border hover:bg-accent hover:text-foreground',
 } as const
 
 /**
@@ -56,11 +61,33 @@ const toastClassNames = {
  * color in both light and dark mode without resorting to `!important` or the
  * `unstyled` escape hatch (which would force us to recreate sonner's entire
  * default layout).
+ *
+ * The `--toast-close-button-*` overrides seat the built-in × inside the toast
+ * at 8px from each edge instead of letting it overhang the corner (sonner's
+ * default). Sonner pins the close button to `top: 0`, so we use the transform
+ * variable to provide the matching 8px vertical inset.
+ *
+ * `--width: 310px` overrides sonner's hard-coded `TOAST_WIDTH = 356px`
+ * default (set inline on the toaster root in sonner's `index.mjs`, then read
+ * by `[data-sonner-toast][data-styled="true"] { width: var(--width) }`). User
+ * `style` is spread AFTER sonner's defaults, so this override wins. 310px is
+ * narrow enough to remove the dead whitespace sonner's 356px default left to
+ * the right of the UndoToast's short summary line, while staying wide enough
+ * to fit the longest "Restoring N skills…" label without wrapping. A fixed
+ * value (rather than `fit-content`) keeps the toast width stable across
+ * summary lengths, so the close button and Undo button do not shift
+ * horizontally as the countdown re-renders. Centering bugs reported in sonner
+ * #67/#678 only apply to `position="*-center"` — we use `bottom-right`, which
+ * stays anchored to the right edge regardless of width.
  */
 const toasterStyle = {
   '--normal-bg': 'var(--popover)',
   '--normal-text': 'var(--popover-foreground)',
   '--normal-border': 'var(--border)',
+  '--toast-close-button-start': '8px',
+  '--toast-close-button-end': 'unset',
+  '--toast-close-button-transform': 'translate(0, 8px)',
+  '--width': '310px',
 } as React.CSSProperties
 
 /**

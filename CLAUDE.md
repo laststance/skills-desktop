@@ -36,19 +36,18 @@ Without `APPLE_KEYCHAIN_PROFILE`: signing succeeds but notarization fails → Ga
 Before opening or merging a PR, run the fast gates first:
 
 ```bash
-pnpm lint
-pnpm test
-pnpm typecheck
-pnpm fallow:dead-code
+pnpm validate
 ```
 
-Only after all four pass, run the Electron e2e suite:
+Runs `lint`, `test`, `typecheck`, and `fallow:dead-code` in parallel via `run-p`.
+
+Only after it passes, run the Electron e2e suite:
 
 ```bash
 pnpm test:e2e
 ```
 
-PRs are ready to ship only when the fast gates and e2e both pass in that order.
+PRs are ready to ship only when `validate` and e2e both pass in that order.
 
 ## Domain Concepts
 
@@ -110,6 +109,23 @@ During QA runs, **do NOT delete skills under `~/.claude/skills/` or `~/.cursor/s
 | `~/.claude/skills/`   | ❌               | User's live Claude Code working set   |
 | `~/.cursor/skills/`   | ❌               | User's live Cursor working set        |
 | `~/.<other>/skills/`  | ✅               | Reinstallable via marketplace or sync |
+
+### Adding a test skill for QA (global install)
+
+When a verification run needs a fresh, throwaway skill (e.g. to exercise the
+delete + UndoToast flow without touching anything the user actually relies on),
+install one globally in non-interactive mode:
+
+```bash
+npx skills add --yes --global https://github.com/microsoft/azure-skills --skill azure-ai
+```
+
+`--yes` skips the skills CLI's confirmation prompts (scope, etc.); `--global`
+forces the install into `~/.agents/skills/` regardless of CWD (without it,
+running from inside a project with a local `.agents/` directory installs
+project-local instead). The new skill is symlinked into every installed agent
+immediately and is safe to delete in the same run. Use this in preference to
+deleting an existing user skill.
 
 ## Design Context
 
