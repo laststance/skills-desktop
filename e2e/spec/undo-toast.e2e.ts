@@ -155,20 +155,38 @@ test('UI: clicking Undo on the bulk-delete toast restores azure-ai files and sym
   await undoButton.waitFor({ state: 'visible', timeout: 5_000 })
   await undoButton.click()
 
-  // PRIMARY ASSERTION — the source directory comes back at exactly the same
-  // path with the SKILL.md content restored. `lstatSync` (not stat) on the
-  // source path so a regression that restores a *symlink* in place of the
-  // real directory would show up as `isSymbolicLink() === true` here.
+  // PRIMARY ASSERTION — wait for the FULL restored state in a single poll so
+  // we don't race the order of "dir restored → SKILL.md written → symlinks
+  // recreated". Polling only the source-dir existence and then doing
+  // synchronous asserts on the symlinks/SKILL.md flakes on slow runners
+  // when restore writes the dir before the symlinks land.
+  //
+  // `lstatSync` (not stat) on the source + symlinks so a regression that
+  // restores a *symlink* in place of the real directory, or a real file in
+  // place of an agent symlink, surfaces here. This is the load-bearing
+  // check the user called out.
   await expect
-    .poll(() => existsSync(expectedSourcePath), { timeout: 10_000 })
+    .poll(
+      () => {
+        if (!existsSync(expectedSourcePath)) return false
+        if (!lstatSync(expectedSourcePath).isDirectory()) return false
+        if (!existsSync(join(expectedSourcePath, 'SKILL.md'))) return false
+        return initial.validSymlinks.every(
+          (symlink) =>
+            existsSync(symlink.linkPath) &&
+            lstatSync(symlink.linkPath).isSymbolicLink(),
+        )
+      },
+      { timeout: 10_000 },
+    )
     .toBe(true)
-  expect(existsSync(join(expectedSourcePath, 'SKILL.md'))).toBe(true)
-  expect(lstatSync(expectedSourcePath).isDirectory()).toBe(true)
 
-  // PRIMARY ASSERTION — every originally-valid agent symlink is back AS A
-  // SYMLINK. Using `existsSync` alone would silently pass if restore wrote
-  // a real file at the link path; `lstatSync().isSymbolicLink()` catches
-  // that regression. This is the load-bearing check the user called out.
+  // Redundant per-path asserts kept for clearer failure messages — the poll
+  // above guarantees the predicate holds, but a `toBe(true)` failure on the
+  // poll alone would just say "expected true, received false" without naming
+  // the offending path.
+  expect(lstatSync(expectedSourcePath).isDirectory()).toBe(true)
+  expect(existsSync(join(expectedSourcePath, 'SKILL.md'))).toBe(true)
   for (const symlink of initial.validSymlinks) {
     expect(
       existsSync(symlink.linkPath),
