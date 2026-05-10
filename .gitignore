@@ -6,6 +6,7 @@ dist/
 out/
 build/
 .vite/
+storybook-static/
 
 # Logs
 logs/
