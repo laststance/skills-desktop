@@ -122,7 +122,7 @@ describe('skillsCliService.execCli environment', () => {
       expect.objectContaining({
         env: expect.objectContaining({
           FORCE_COLOR: '0',
-          PATH: expect.stringContaining('/opt/homebrew/bin'),
+          PATH: expect.stringMatching(/\/usr\/bin.*\/opt\/homebrew\/bin/),
         }),
       }),
     )

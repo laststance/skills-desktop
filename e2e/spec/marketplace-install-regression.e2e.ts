@@ -96,7 +96,7 @@ echo "Installation complete"
  */
 async function waitForClaudeCodeAgent(appWindow: Page): Promise<void> {
   await appWindow.waitForFunction(() => {
-    const store = window.__store__ ?? window.__store
+    const store = window.__store__
     const state = store?.getState() as
       | { agents?: { items?: Array<{ id: string; exists: boolean }> } }
       | undefined
