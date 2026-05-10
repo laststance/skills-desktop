@@ -469,10 +469,10 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
   })
 })
 
-describe('MainContent SkillTypeFilter dropdown (Orphan option)', () => {
-  // Pins the agent-only Orphan affordance contract: the dropdown is gated by
-  // `selectedAgentId` (source view never offers it), and selecting Orphan
-  // narrows the visible list to skills whose source dir vanished.
+describe('MainContent SkillTypeFilter dropdown options', () => {
+  // Pins agent-only type filters: the dropdown is gated by `selectedAgentId`
+  // (source view never offers it), and each option writes the Redux state that
+  // selectors use to narrow the visible list.
 
   it('renders the Orphan radio item with a destructive dot when an agent is selected', async () => {
     const { screen, store } = await renderMainContent()
@@ -510,6 +510,41 @@ describe('MainContent SkillTypeFilter dropdown (Orphan option)', () => {
     expect(
       dot,
       'Orphan menu item should contain a span with bg-destructive',
+    ).not.toBeNull()
+  })
+
+  it('renders the G-Stack radio item with a sky dot when an agent is selected', async () => {
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'cursor',
+            name: 'Cursor',
+            path: '/Users/me/.cursor/skills' as never,
+            exists: true,
+            skillCount: 0,
+            localSkillCount: 0,
+          },
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(selectAgent('cursor'))
+
+    // Open the dropdown — G-Stack sits beside Symlinked/Local as a type filter.
+    await screen.getByRole('button', { name: /^All$/ }).click()
+
+    const gstackItem = screen.getByRole('menuitemradio', { name: /G-Stack/i })
+    await expect.element(gstackItem).toBeInTheDocument()
+    const dot = gstackItem.element().querySelector('.bg-gstack')
+    expect(
+      dot,
+      'G-Stack menu item should contain a span with bg-gstack',
     ).not.toBeNull()
   })
 

@@ -42,6 +42,10 @@ const config: Config = {
           DEFAULT: 'var(--success)',
           foreground: 'var(--success-foreground)',
         },
+        // Theme-axis accent used for the G-Stack skill-type filter dot.
+        gstack: {
+          DEFAULT: 'var(--gstack)',
+        },
         border: 'var(--border)',
         input: 'var(--input)',
         ring: 'var(--ring)',

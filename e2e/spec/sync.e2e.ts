@@ -157,7 +157,7 @@ test('per-agent preview narrows scope and echoes forAgent', async ({
   // `{ agentId }` from the renderer, so wiring this through a click
   // would test more than the boundary we care about. The thunk + slice
   // path is already covered by the global test above.
-  const previewRaw = await appWindow.evaluate(() =>
+  const previewRaw = await appWindow.evaluate(async () =>
     window.electron.sync.preview({ agentId: 'cursor' }),
   )
   const preview = previewRaw as {

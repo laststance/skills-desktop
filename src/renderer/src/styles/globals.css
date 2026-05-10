@@ -68,6 +68,10 @@
     --input: oklch(0.3 var(--chroma-6) var(--theme-hue));
     --ring: oklch(0.7 var(--theme-chroma) var(--theme-hue));
 
+    /* G-Stack is a skill-type accent, so its dot follows the active theme
+     * axis instead of using a fixed utility palette color. */
+    --gstack: oklch(0.7 var(--theme-chroma) var(--theme-hue));
+
     /* Success — fixed green regardless of theme. This is the "linked /
      * valid symlink" status color used across badges, heatmap cells,
      * and the coverage bar. Keeping it theme-invariant avoids the
@@ -110,6 +114,8 @@
     --border: oklch(0.88 var(--chroma-4) var(--theme-hue));
     --input: oklch(0.88 var(--chroma-4) var(--theme-hue));
     --ring: oklch(0.5 var(--theme-chroma) var(--theme-hue));
+
+    --gstack: oklch(0.5 var(--theme-chroma) var(--theme-hue));
 
     --success: oklch(0.55 0.17 155);
     --success-foreground: oklch(0.99 0.01 155);

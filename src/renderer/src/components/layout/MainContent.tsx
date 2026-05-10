@@ -108,6 +108,7 @@ const SKILL_TYPE_FILTER_OPTIONS: {
   { value: 'all', label: 'All' },
   { value: 'symlinked', label: 'Symlinked', dotClass: 'bg-success' },
   { value: 'local', label: 'Local', dotClass: 'bg-emerald-400' },
+  { value: 'gstack', label: 'G-Stack', dotClass: 'bg-gstack' },
   { value: 'orphan', label: 'Orphan', dotClass: 'bg-destructive' },
 ]
 

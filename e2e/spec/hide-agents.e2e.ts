@@ -5,8 +5,8 @@ import { _electron } from '@playwright/test'
 
 import { test, expect } from '../fixtures/electron-app'
 import { isSnapshotOffline } from '../fixtures/isolated-home'
-import { readSettingsFile, writeSettingsFile } from '../helpers/settings-file'
 import { getStoreState, waitForInitialScan } from '../helpers/redux'
+import { readSettingsFile, writeSettingsFile } from '../helpers/settings-file'
 
 /**
  * PR #144 — Hide unused agents from the sidebar.

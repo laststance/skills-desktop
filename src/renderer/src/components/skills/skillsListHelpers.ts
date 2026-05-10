@@ -10,6 +10,14 @@ interface EmptyMessageContext {
   skillTypeFilter: SkillTypeFilter
 }
 
+const SKILL_TYPE_FILTER_LABELS = {
+  all: 'all',
+  symlinked: 'symlinked',
+  local: 'local',
+  gstack: 'G-Stack',
+  orphan: 'orphan',
+} as const satisfies Record<SkillTypeFilter, string>
+
 /**
  * Compute the empty-state message for SkillsList based on which filters are
  * currently narrowing the result. The skills list participates in four
@@ -34,7 +42,7 @@ interface EmptyMessageContext {
  * - When `searchQuery` is non-empty: `"No skills match your search"`
  * - When only `selectedSource` is set: `"No skills from <repo>"`
  * - When `selectedAgentId` is set AND `skillTypeFilter !== 'all'`:
- *   `"No <symlinked|local> skills for this agent"`
+ *   `"No <symlinked|local|G-Stack|orphan> skills for this agent"`
  * - When only `selectedAgentId` is set: `"No skills installed for this agent"`
  * - Otherwise: `"No skills match your filter"`
  *
@@ -70,7 +78,8 @@ export function getEmptyListMessage(ctx: EmptyMessageContext): string {
     )
     .with(
       { hasSelectedAgent: true, hasTypeNarrow: true },
-      () => `No ${ctx.skillTypeFilter} skills for this agent`,
+      () =>
+        `No ${SKILL_TYPE_FILTER_LABELS[ctx.skillTypeFilter]} skills for this agent`,
     )
     .with(
       { hasSelectedAgent: true },

@@ -872,10 +872,9 @@ test('skills list scroll position survives a background refetch (regression 5619
   // ABSENCE of unmount — there's nothing positive to poll for, only the
   // STABILITY of `scrollTop`. requestAnimationFrame is the synchronous
   // analogue: dispatch → reducer → React commit → next paint.
-  await appWindow.evaluate(
-    () =>
-      new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
-  )
+  await appWindow.evaluate(async () => {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+  })
 
   const scrollTopAfter = await appWindow.evaluate(() => {
     const scroller = document.querySelector<HTMLElement>(

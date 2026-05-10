@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { SkillTypeFilter } from '@/renderer/src/redux/slices/uiSlice'
 import { repositoryId } from '@/shared/types'
 import type {
+  AbsolutePath,
   AgentId,
   BookmarkedSkill,
   RepositoryId,
@@ -347,6 +348,73 @@ describe('selectFilteredSkills', () => {
     expect(result[0].name).toBe('local-one')
   })
 
+  it('filters by skillTypeFilter=gstack across symlinked and local G-Stack slots', () => {
+    // The G-Stack filter should match the same two production shapes as the
+    // card badge: direct agent symlinks into `skills/gstack/` and local
+    // sibling skills whose SKILL.md points into that tree.
+    const linkedGStack = makeSkill('linked-gstack', 'cursor')
+    linkedGStack.symlinks = [
+      {
+        ...linkedGStack.symlinks[0]!,
+        targetPath:
+          '/Users/me/.cursor/skills/gstack/linked-gstack' as AbsolutePath,
+      },
+    ]
+
+    const localGStack = makeSkill('local-gstack', 'cursor', true)
+    localGStack.symlinks = [
+      {
+        ...localGStack.symlinks[0]!,
+        skillMdSymlinkTarget:
+          '/Users/me/.cursor/skills/gstack/local-gstack/SKILL.md' as AbsolutePath,
+      },
+    ]
+
+    const skills = [
+      makeSkill('linked-plain', 'cursor'),
+      linkedGStack,
+      makeSkill('local-plain', 'cursor', true),
+      localGStack,
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'gstack',
+    })
+
+    const result = selectFilteredSkills(state as never)
+    expect(result.map((skill) => skill.name)).toEqual([
+      'linked-gstack',
+      'local-gstack',
+    ])
+  })
+
+  it('keeps gstack filtering scoped to the selected agent slot', () => {
+    // Same skill name can exist as a G-Stack-managed sibling in one agent and
+    // as a plain linked skill in another; the selected agent owns the answer.
+    const mixedSkill = makeSkill('mixed-skill', 'cursor')
+    mixedSkill.symlinks = [
+      mixedSkill.symlinks[0]!,
+      {
+        agentId: 'claude-code' as SymlinkInfo['agentId'],
+        agentName: 'Claude Code' as SymlinkInfo['agentName'],
+        linkPath: '/Users/me/.claude/skills/mixed-skill' as AbsolutePath,
+        targetPath:
+          '/Users/me/.claude/skills/gstack/mixed-skill' as AbsolutePath,
+        status: 'valid',
+        isLocal: false,
+      },
+    ]
+
+    const state = buildState({
+      skills: [mixedSkill],
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'gstack',
+    })
+
+    expect(selectFilteredSkills(state as never)).toHaveLength(0)
+  })
+
   it('filters by skillTypeFilter=orphan in agent view (skill.isOrphan === true)', () => {
     // Mixed list: a normal symlinked skill (NOT orphan), a local skill (NOT
     // orphan), and an orphan whose source dir vanished but still has a broken
@@ -445,7 +513,7 @@ describe('selectFilteredSkills', () => {
     expect(result).toHaveLength(0)
   })
 
-  it.each(['all', 'symlinked', 'local', 'orphan'] as const)(
+  it.each(['all', 'symlinked', 'local', 'gstack', 'orphan'] as const)(
     'skillTypeFilter=%s is ignored in SourceCard view (no agent selected)',
     (skillTypeFilter) => {
       // SourceCard view applies its own source-only filter, so skillTypeFilter

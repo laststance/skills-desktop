@@ -21,7 +21,7 @@
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "fallow:dead-code": "pnpm exec fallow dead-code",
     "validate": "run-p lint test typecheck fallow:dead-code storybook:build",
