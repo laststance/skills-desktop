@@ -95,6 +95,7 @@ import { FEATURE_FLAGS } from '@/shared/featureFlags'
 import type {
   BulkDeleteItemResult,
   IsoTimestamp,
+  ToastId,
   TombstoneId,
 } from '@/shared/types'
 
@@ -128,7 +129,6 @@ export const MainContent = React.memo(
     const visibleNames = useAppSelector(selectVisibleSkillNames)
     const selectedVisibleNames = useAppSelector(selectSelectedVisibleNames)
     const selectedAllNames = useAppSelector(selectSelectedSkillNames)
-
     const bulkConfirm = useAppSelector(selectBulkConfirm)
     const bulkSelectMode = useAppSelector(selectBulkSelectMode)
     const selectedSource = useAppSelector(selectSelectedSource)
@@ -363,29 +363,35 @@ export const MainContent = React.memo(
           return
         }
 
-        // Render the sonner custom toast. The `onUndo` callback gives the
-        // UndoToast access to the restore thunk without importing redux
-        // hooks (it stays purely presentational).
+        // Render via sonner's default-styled wrapper (NOT `toast.custom`) so
+        // the per-toast `closeButton: true` opt-in injects sonner's built-in ×
+        // — sonner only renders the close affordance on styled toasts, and
+        // `toast.custom` opts out of that styling.
+        //
+        // `onUndoComplete` reads `toastId` through the closure at click time,
+        // so it resolves after the surrounding const has been assigned.
         const expiresAt: IsoTimestamp = new Date(
           Date.now() + UNDO_WINDOW_MS,
         ).toISOString()
         const summary = formatCascadeSummary(action.payload)
-        const toastId = toast.custom(
-          (id) => (
-            <UndoToast
-              toastId={id}
-              skillNames={deletedNames}
-              tombstoneIds={tombstoneIds}
-              expiresAt={expiresAt}
-              summary={summary}
-              onUndo={handleUndoDelete}
-              onDismiss={() => {
-                toast.dismiss(id)
-                dispatch(clearUndoToast())
-              }}
-            />
-          ),
-          { duration: UNDO_WINDOW_MS },
+        const handleToastDismissed = (): void => {
+          dispatch(clearUndoToast())
+        }
+        const toastId: ToastId = toast(
+          <UndoToast
+            skillNames={deletedNames}
+            tombstoneIds={tombstoneIds}
+            expiresAt={expiresAt}
+            summary={summary}
+            onUndo={handleUndoDelete}
+            onUndoComplete={() => toast.dismiss(toastId)}
+          />,
+          {
+            duration: UNDO_WINDOW_MS,
+            closeButton: true,
+            onDismiss: handleToastDismissed,
+            onAutoClose: handleToastDismissed,
+          },
         )
         dispatch(
           setUndoToast({
@@ -618,9 +624,7 @@ export const MainContent = React.memo(
         <CleanupAgentDialog />
 
         {/*
-          Bulk delete / unlink confirmation. Replaces the old `window.confirm`
-          call in handlePrimaryAction (blocks the event loop in Electron, and
-          CodeRabbit flagged it as discouraged renderer API). Copy is driven by
+          Bulk delete / unlink confirmation. Copy is driven by
           the kind flag so the dispatch site stays a single handler.
         */}
         <Dialog

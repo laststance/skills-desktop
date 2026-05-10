@@ -1,14 +1,11 @@
 import { Loader2, Undo2 } from 'lucide-react'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { match } from 'ts-pattern'
 
+import { Button } from '@/renderer/src/components/ui/button'
 import { cn } from '@/renderer/src/lib/utils'
 import { pluralize } from '@/renderer/src/utils/pluralize'
-import type {
-  IsoTimestamp,
-  SkillName,
-  ToastId,
-  TombstoneId,
-} from '@/shared/types'
+import type { IsoTimestamp, SkillName, TombstoneId } from '@/shared/types'
 
 /** Tick interval for the countdown (ms). 250 gives smooth updates without thrashing. */
 const COUNTDOWN_TICK_MS = 250
@@ -16,8 +13,6 @@ const COUNTDOWN_TICK_MS = 250
 const URGENT_SECONDS_THRESHOLD = 5
 
 interface UndoToastProps {
-  /** sonner toast id — passed back so callbacks can `toast.dismiss(id)`. */
-  toastId: ToastId
   skillNames: SkillName[]
   /** Empty for unlink (no tombstones produced). */
   tombstoneIds: TombstoneId[]
@@ -27,77 +22,66 @@ interface UndoToastProps {
   summary: string
   /** Callback when the user presses Undo. MainContent owns the dispatch. */
   onUndo: (tombstoneIds: TombstoneId[]) => Promise<void> | void
-  /** Callback when the toast should dismiss itself (timer expired or closed). */
-  onDismiss: () => void
+  /**
+   * Fired after `onUndo` resolves so the parent can `toast.dismiss(id)`.
+   * Sonner's auto-close and built-in close button take care of the other
+   * dismiss paths via `onAutoClose` / `onDismiss` toast options.
+   */
+  onUndoComplete: () => void
 }
 
 /**
- * Body rendered inside `sonner.toast.custom(id => <UndoToast ... />)`.
- *
- * Two lines:
+ * Body rendered as the JSX content of `sonner.toast(<UndoToast ... />)`. Two
+ * lines:
  *   1. Summary (e.g. "Deleted 3 skills. 7 symlinks removed.")
- *   2. Countdown + Undo button (e.g. "Undo · 12s")
+ *   2. Countdown + Undo button (e.g. "12s [Undo]")
+ *
+ * The toast must be rendered via sonner's default-styled wrapper (NOT
+ * `toast.custom`) because sonner only injects its built-in close button on
+ * styled toasts; `toast.custom` opts out of the styled wrapper.
  *
  * Behavior:
  *   - Tick every 250ms; display `Math.ceil(remainingMs / 1000)` so "15..1..0"
  *     reads linearly without snapping to the next integer early.
  *   - Swap text color from `text-muted-foreground` to `text-foreground` when
  *     `remainingMs <= URGENT_SECONDS_THRESHOLD * 1000`.
- *   - When the user clicks Undo: swap the button for a spinner + "Restoring N
- *     skills..." and await the onUndo promise. When it resolves, the parent
- *     emits a `toast.success` and this component is unmounted.
+ *   - On Undo click: swap the button for a spinner + "Restoring N skills..."
+ *     and await `onUndo`. Then fire `onUndoComplete` so the parent can dismiss
+ *     the toast.
  *   - Keyboard: the wrapper is `tabIndex={-1}` so arrow-key focus cycles do
- *     not land on the toast (it is supplemental, not a required interaction).
- *     The Undo button itself is focusable.
+ *     not land on the toast body (it is supplemental, not a required
+ *     interaction). The Undo button and sonner's close button remain focusable.
  *
  * @param props - UndoToastProps — see interface above
  * @returns Rendered toast body
  * @example
- * toast.custom((id) => (
- *   <UndoToast toastId={id} skillNames={['task','theme']} ... />
- * ), { duration: 15_000 })
+ * const toastId = toast(
+ *   <UndoToast skillNames={['task','theme']} ... onUndoComplete={...} />,
+ *   { duration: 15_000, closeButton: true, onDismiss, onAutoClose },
+ * )
  */
 export const UndoToast = React.memo(function UndoToast({
-  toastId: _toastId,
   skillNames,
   tombstoneIds,
   expiresAt,
   summary,
   onUndo,
-  onDismiss,
+  onUndoComplete,
 }: UndoToastProps): React.ReactElement {
   const expiresAtMs = new Date(expiresAt).getTime()
   const [remainingMs, setRemainingMs] = useState(
     Math.max(0, expiresAtMs - Date.now()),
   )
   const [isRestoring, setIsRestoring] = useState(false)
-  const hasDismissedRef = useRef(false)
-
-  // Keep onDismiss in a ref so the countdown effect below doesn't list it in
-  // its deps. Parents often pass a fresh-identity callback on every render
-  // (e.g. inline `() => dispatch(clearUndoToast())`), which would otherwise
-  // tear down and restart `setInterval` every render — losing accumulated
-  // ticks and making the countdown stutter.
-  const onDismissRef = useRef(onDismiss)
-  useEffect(() => {
-    onDismissRef.current = onDismiss
-  }, [onDismiss])
 
   useEffect(() => {
-    // Freeze the countdown once the user commits to Undo. Two reasons:
-    //  1. Firing onDismiss() at the moment restore lands would unmount the
-    //     toast mid-request, stranding the "Restoring N skills..." affordance.
-    //  2. The success/error toast that follows is already owned by the parent.
+    // Freeze the countdown once the user commits to Undo so the displayed
+    // "12s" doesn't keep ticking down behind a "Restoring..." spinner. The
+    // parent dismisses the toast as soon as restore resolves, so the frozen
+    // value is only ever briefly visible.
     if (isRestoring) return
-    // Tick while visible. No `prefers-reduced-motion` branch needed — we
-    // aren't animating, just updating a number.
     const timer = setInterval(() => {
-      const next = Math.max(0, expiresAtMs - Date.now())
-      setRemainingMs(next)
-      if (next === 0 && !hasDismissedRef.current) {
-        hasDismissedRef.current = true
-        onDismissRef.current()
-      }
+      setRemainingMs(Math.max(0, expiresAtMs - Date.now()))
     }, COUNTDOWN_TICK_MS)
     return () => clearInterval(timer)
   }, [expiresAtMs, isRestoring])
@@ -116,25 +100,25 @@ export const UndoToast = React.memo(function UndoToast({
     try {
       await onUndo(tombstoneIds)
     } finally {
-      // Restoring finished — whether success or failure, the parent will emit
-      // the appropriate sonner toast. We don't reset `isRestoring` because the
-      // component will unmount immediately. Route through the ref so we match
-      // the countdown-expiry branch and don't fire a stale closure after a
-      // parent re-render.
-      if (!hasDismissedRef.current) {
-        hasDismissedRef.current = true
-        onDismissRef.current()
-      }
+      // Whether success or failure, the parent emits the appropriate sonner
+      // toast and dismisses this one. We don't reset `isRestoring` because
+      // the component will unmount immediately.
+      onUndoComplete()
     }
   }
 
   return (
     <div
       tabIndex={-1}
-      className="flex flex-col gap-2 w-full min-w-0"
+      className="flex flex-col gap-2 min-w-0"
       aria-live="polite"
     >
-      <div className="text-sm font-medium truncate" title={summary}>
+      {/*
+        `pl-7` reserves space for sonner's built-in × at top-left (8px from
+        the edge + 20px wide). Without this, the close button would overlap
+        the first character of the summary line.
+      */}
+      <div className="text-sm font-medium truncate pl-7" title={summary}>
         {summary}
       </div>
       <div className="flex items-center justify-between gap-3">
@@ -147,37 +131,35 @@ export const UndoToast = React.memo(function UndoToast({
         >
           {remainingSeconds}s
         </span>
-        {isUndoableOperation ? (
-          <button
-            type="button"
-            onClick={handleUndoClick}
-            disabled={!canUndo}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-md px-3 min-h-11 text-sm font-medium',
-              'bg-primary text-primary-foreground hover:bg-primary/90',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            )}
-            aria-label={
-              isRestoring
-                ? `Restoring ${skillNames.length} ${pluralize(skillNames.length, 'skill')}`
-                : `Undo delete of ${skillNames.length} ${pluralize(skillNames.length, 'skill')}`
-            }
-          >
-            {isRestoring ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-                Restoring {skillNames.length}{' '}
-                {pluralize(skillNames.length, 'skill')}...
-              </>
-            ) : (
-              <>
-                <Undo2 className="h-4 w-4" />
-                Undo
-              </>
-            )}
-          </button>
-        ) : null}
+        {match({ isUndoableOperation, isRestoring })
+          .with({ isUndoableOperation: false }, () => null)
+          .with({ isUndoableOperation: true, isRestoring: true }, () => (
+            <Button
+              size="sm"
+              type="button"
+              disabled
+              className="shrink-0"
+              aria-label={`Restoring ${skillNames.length} ${pluralize(skillNames.length, 'skill')}`}
+            >
+              <Loader2 className="animate-spin motion-reduce:animate-none" />
+              Restoring {skillNames.length}{' '}
+              {pluralize(skillNames.length, 'skill')}...
+            </Button>
+          ))
+          .with({ isUndoableOperation: true, isRestoring: false }, () => (
+            <Button
+              size="sm"
+              type="button"
+              onClick={handleUndoClick}
+              disabled={!canUndo}
+              className="shrink-0"
+              aria-label={`Undo delete of ${skillNames.length} ${pluralize(skillNames.length, 'skill')}`}
+            >
+              <Undo2 />
+              Undo
+            </Button>
+          ))
+          .exhaustive()}
       </div>
     </div>
   )
