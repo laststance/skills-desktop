@@ -1,5 +1,7 @@
 import { spawn, type ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
+import { homedir } from 'os'
+import { delimiter, join } from 'path'
 
 import { match, P } from 'ts-pattern'
 
@@ -39,6 +41,23 @@ const SPAWN_TIMEOUT_MS = 60_000
 const PROCESS_KILL_SIGNAL: NodeJS.Signals = 'SIGTERM'
 
 /**
+ * Common Node.js binary locations missing from Finder-launched macOS apps.
+ * GUI apps usually inherit only `/usr/bin:/bin:/usr/sbin:/sbin`, so `npx`
+ * installed by Homebrew, mise, asdf, Volta, pnpm, or Bun is invisible unless
+ * we add these user-level toolchain paths before spawning the skills CLI.
+ */
+const CLI_PATH_FALLBACKS = [
+  join(homedir(), '.local', 'bin'),
+  join(homedir(), '.local', 'share', 'mise', 'shims'),
+  join(homedir(), '.asdf', 'shims'),
+  join(homedir(), '.volta', 'bin'),
+  join(homedir(), '.bun', 'bin'),
+  join(homedir(), 'Library', 'pnpm'),
+  '/opt/homebrew/bin',
+  '/usr/local/bin',
+] as const
+
+/**
  * Internal execution payload from `execCli`.
  * Extends `CliCommandResult` with a timeout sentinel so callers can map
  * user-facing error copy without overloading `code`.
@@ -54,6 +73,35 @@ interface CliExecutionResult extends CliCommandResult {
  */
 function stripAnsi(text: string): string {
   return text.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').replace(/\[[\d;]*m/g, '')
+}
+
+/**
+ * Build a CLI-friendly PATH without requiring the app to be launched from a
+ * terminal session.
+ * @param basePath - PATH inherited by the Electron main process
+ * @returns PATH with common Node toolchain directories appended once
+ * @example
+ * buildCliPath('/usr/bin:/bin').includes('/opt/homebrew/bin') // => true
+ */
+function buildCliPath(basePath = process.env.PATH ?? ''): string {
+  const entries = [...basePath.split(delimiter), ...CLI_PATH_FALLBACKS].filter(
+    Boolean,
+  )
+  return Array.from(new Set(entries)).join(delimiter)
+}
+
+/**
+ * Environment used for `npx skills ...` child processes.
+ * @returns Process env with ANSI disabled and GUI-safe PATH expansion
+ * @example
+ * buildCliEnv().FORCE_COLOR // => '0'
+ */
+function buildCliEnv(): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    FORCE_COLOR: '0',
+    PATH: buildCliPath(),
+  }
 }
 
 /**
@@ -146,9 +194,10 @@ class SkillsCliService extends EventEmitter {
       let stderr = ''
       let settled = false
 
-      // Use npx to run skills CLI with FORCE_COLOR=0 to disable ANSI colors
+      // Finder-launched macOS apps do not inherit shell PATH, so buildCliEnv()
+      // restores the common Node toolchain locations before resolving `npx`.
       const proc = spawn('npx', [`skills@${SKILLS_CLI_VERSION}`, ...args], {
-        env: { ...process.env, FORCE_COLOR: '0' },
+        env: buildCliEnv(),
       })
 
       this.runningProcesses.add(proc)

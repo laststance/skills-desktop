@@ -1,6 +1,8 @@
 import { EventEmitter } from 'events'
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { SKILLS_CLI_VERSION } from '@/shared/constants'
 
 /**
  * Fake child process so we can drive stdout/stderr/close from the test.
@@ -19,12 +21,14 @@ class FakeChildProcess extends EventEmitter {
 // evaluation time. Otherwise spawnMock is `undefined` when the service first
 // imports child_process and the handlers never fire (→ test timeouts).
 const { spawnMock } = vi.hoisted(() => ({
-  spawnMock: vi.fn<() => FakeChildProcess>(),
+  spawnMock: vi.fn<(...args: unknown[]) => FakeChildProcess>(),
 }))
 
 vi.mock('child_process', () => ({
-  spawn: (...args: unknown[]) => spawnMock(...(args as [])),
+  spawn: (...args: unknown[]) => spawnMock(...args),
 }))
+
+const ORIGINAL_PATH = process.env.PATH
 
 /**
  * Drive the fake process to simulate a CLI invocation. `spawn` is called by
@@ -68,6 +72,10 @@ describe('skillsCliService.cancel', () => {
     spawnMock.mockReset()
   })
 
+  afterEach(() => {
+    process.env.PATH = ORIGINAL_PATH
+  })
+
   it('kills all running CLI children on cancel()', async () => {
     const first = simulateCli({ autoClose: false })
     const second = simulateCli({ autoClose: false })
@@ -84,5 +92,39 @@ describe('skillsCliService.cancel', () => {
     first.emit('close', 0)
     second.emit('close', 0)
     await Promise.all([searchA, searchB])
+  })
+})
+
+describe('skillsCliService.execCli environment', () => {
+  beforeEach(() => {
+    vi.useRealTimers()
+    vi.resetModules()
+    spawnMock.mockReset()
+    process.env.PATH = '/usr/bin:/bin:/usr/sbin:/sbin'
+  })
+
+  afterEach(() => {
+    process.env.PATH = ORIGINAL_PATH
+  })
+
+  it('adds common Node toolchain paths so Finder-launched installs can find npx', async () => {
+    simulateCli({
+      stdout:
+        'vercel-labs/skills@find-skills\n└ https://skills.sh/vercel-labs/skills/find-skills\n',
+    })
+
+    const { skillsCliService } = await import('./skillsCliService')
+    await skillsCliService.search('find-skills')
+
+    expect(spawnMock).toHaveBeenCalledWith(
+      'npx',
+      [`skills@${SKILLS_CLI_VERSION}`, 'find', 'find-skills'],
+      expect.objectContaining({
+        env: expect.objectContaining({
+          FORCE_COLOR: '0',
+          PATH: expect.stringContaining('/opt/homebrew/bin'),
+        }),
+      }),
+    )
   })
 })
