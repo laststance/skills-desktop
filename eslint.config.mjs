@@ -21,6 +21,8 @@ export default defineConfig([
       '*.config.js',
       '*.config.ts',
       '*.config.mjs',
+      '.storybook/**',
+      'storybook-static/**',
       '.pnpmfile.cjs',
       'scripts/**',
       'website/**',
