@@ -1,6 +1,7 @@
 import { createSelector } from '@reduxjs/toolkit'
 import { match } from 'ts-pattern'
 
+import { isGStackManagedForAgent } from '@/renderer/src/utils/gstackSkill'
 import type { SkillName, SymlinkInfo } from '@/shared/types'
 
 import { selectBookmarkItems } from './slices/bookmarkSlice'
@@ -66,11 +67,9 @@ export const selectFilteredSkills = createSelector(
     // slots so AgentItem's "Cleanup missing skills..." has rows to act on.
     // `missing` slots are dropped — nothing on disk to surface there.
     //
-    // Each skill-type arm composes the agent-slot gate inline rather than
-    // pre-filtering, so adding the Orphan arm did not require a 2-pass
-    // walk over `skill.symlinks`. The orphan arm still applies the gate so
-    // an `isOrphan` skill whose only broken slot belongs to a different
-    // agent does not leak through.
+    // Each skill-type arm narrows from the selected agent's slot. G-Stack
+    // delegates to the same attribution helper as the card badge so local
+    // sibling skills and direct symlinks stay in sync.
     if (selectedAgentId) {
       const hasAgentSlot = (slot: SymlinkInfo): boolean =>
         slot.agentId === selectedAgentId &&
@@ -91,6 +90,11 @@ export const selectFilteredSkills = createSelector(
             skill.symlinks.some(
               (slot) => hasAgentSlot(slot) && slot.isLocal === true,
             ),
+          ),
+        )
+        .with('gstack', () =>
+          result.filter((skill) =>
+            isGStackManagedForAgent(skill, selectedAgentId),
           ),
         )
         .with('orphan', () =>

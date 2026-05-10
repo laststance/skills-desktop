@@ -64,6 +64,17 @@ describe('getEmptyListMessage', () => {
     ).toBe('No symlinked skills for this agent')
   })
 
+  it('returns the G-Stack variant when type filter is gstack', () => {
+    expect(
+      getEmptyListMessage({
+        searchQuery: '',
+        selectedSource: null,
+        selectedAgentId: 'cursor',
+        skillTypeFilter: 'gstack',
+      }),
+    ).toBe('No G-Stack skills for this agent')
+  })
+
   it('returns the agent-only message when selectedAgentId is set and type is all', () => {
     expect(
       getEmptyListMessage({

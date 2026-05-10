@@ -1,4 +1,4 @@
-import { GSTACK_BADGE_AGENT_IDS } from '@/shared/constants'
+import { isGStackManagedForAgent } from '@/renderer/src/utils/gstackSkill'
 import type { AgentId, Skill, SymlinkInfo } from '@/shared/types'
 
 /**
@@ -36,31 +36,6 @@ export interface SkillItemVisibility {
  * of three (function signature, factory return, factory overrides).
  */
 export type SkillVisibilityInput = Pick<Skill, 'symlinks' | 'isOrphan'>
-
-/**
- * Path-segment matcher for `.../skills/gstack/...` on both POSIX and Windows
- * paths. Requires a `skills/` parent so a user-created directory literally
- * named `gstack` outside any agent's skills tree (e.g. `~/projects/gstack/foo`)
- * cannot trigger the badge — a finding raised by the Codex review.
- */
-const GSTACK_SEGMENT_PATTERN = /[\\/]skills[\\/]gstack([\\/]|$)/i
-
-/**
- * Detect whether a filesystem-like path points to a G-Stack-managed location.
- * @param candidatePath - Path candidate from symlink target or link path.
- * @returns
- * - `true`: Path contains a `skills/gstack/` segment.
- * - `false`: Empty path, or `gstack/` lives outside any `skills/` parent.
- * @example
- * isGStackBundlePath('/Users/me/.claude/skills/gstack/skill-a') // => true
- * @example
- * isGStackBundlePath('/Users/me/.agents/skills/task') // => false
- * @example
- * isGStackBundlePath('/Users/me/projects/gstack/skill-a') // => false
- */
-function isGStackBundlePath(candidatePath: string): boolean {
-  return GSTACK_SEGMENT_PATTERN.test(candidatePath)
-}
 
 /**
  * Compute which action buttons to show on a SkillItem card.
@@ -128,23 +103,7 @@ export function getSkillItemVisibility(
   const hasSkillInSelectedAgent = !!selectedAgentSymlink || isLocalSkill
   // Orphan handling — see Skill.isOrphan for why the Add button is gated.
   // Source: scanOrphanSymlinks() in src/main/services/skillScanner.ts.
-  //
-  // gStackPathCandidates — paths inspected for the `skills/gstack/` segment
-  // that identifies a gstack-managed skill. `skillMdSymlinkTarget` is read
-  // ONLY from the selected agent's slot (per-agent attribution): a sibling
-  // agent's gstack-managed twin must not flip the badge on this agent's
-  // unrelated local skill that happens to share a name.
-  const gStackPathCandidates = [
-    selectedAgentSymlink?.targetPath ?? '',
-    selectedAgentSymlink?.linkPath ?? '',
-    selectedLocalSkillInfo?.linkPath ?? '',
-    selectedLocalSkillInfo?.skillMdSymlinkTarget ?? '',
-  ]
-  const isGStackEligibleAgent =
-    selectedAgentId !== null &&
-    GSTACK_BADGE_AGENT_IDS.some((agentId) => agentId === selectedAgentId)
-  const showGStackBadge =
-    isGStackEligibleAgent && gStackPathCandidates.some(isGStackBundlePath)
+  const showGStackBadge = isGStackManagedForAgent(skill, selectedAgentId)
 
   return {
     // Delete is the primary cleanup action for orphans in global view —
