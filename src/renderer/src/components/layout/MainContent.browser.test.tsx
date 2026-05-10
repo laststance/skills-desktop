@@ -541,10 +541,10 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
 
     const gstackItem = screen.getByRole('menuitemradio', { name: /G-Stack/i })
     await expect.element(gstackItem).toBeInTheDocument()
-    const dot = gstackItem.element().querySelector('.bg-sky-400')
+    const dot = gstackItem.element().querySelector('.bg-gstack')
     expect(
       dot,
-      'G-Stack menu item should contain a span with bg-sky-400',
+      'G-Stack menu item should contain a span with bg-gstack',
     ).not.toBeNull()
   })
 
