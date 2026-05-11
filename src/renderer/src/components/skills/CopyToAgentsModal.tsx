@@ -179,6 +179,8 @@ interface CopyToAgentOptionProps {
   onToggle: (agentId: AgentId) => void
 }
 
+type CheckboxCheckedState = boolean | 'indeterminate'
+
 const CopyToAgentOption = React.memo(function CopyToAgentOption({
   agentId,
   name,
@@ -191,9 +193,12 @@ const CopyToAgentOption = React.memo(function CopyToAgentOption({
   const checkboxId = `copy-agent-${agentId}`
   const alreadyExists = occupiedReason !== undefined
 
-  const handleToggle = useCallback((): void => {
-    if (!disabled) onToggle(agentId)
-  }, [agentId, disabled, onToggle])
+  const handleToggle = useCallback(
+    (_checked?: CheckboxCheckedState): void => {
+      if (!disabled) onToggle(agentId)
+    },
+    [agentId, disabled, onToggle],
+  )
 
   // Native row clicks use a plain wrapper; passing handleToggle directly would
   // trip no-deopt-use-callback on the intrinsic <div>.
