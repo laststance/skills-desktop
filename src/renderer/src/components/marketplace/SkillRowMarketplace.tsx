@@ -137,6 +137,7 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
         ) : (
           /* Install Button */
           <button
+            type="button"
             onClick={handleInstall}
             disabled={isOperating}
             className={cn(

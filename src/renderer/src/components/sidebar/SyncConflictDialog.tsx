@@ -1,5 +1,5 @@
 import { AlertTriangle, Loader2 } from 'lucide-react'
-import React, { useState } from 'react'
+import React, { useCallback, useState } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { Checkbox } from '@/renderer/src/components/ui/checkbox'
@@ -34,14 +34,14 @@ export const SyncConflictDialog = React.memo(
     const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
     const { run: executeSync, isExecuting } = useExecuteSync('Sync failed')
 
-    const handleClose = (): void => {
+    const handleClose = useCallback((): void => {
       if (!isExecuting) {
         dispatch(setSyncPreview(null))
         setSelectedPaths(new Set())
       }
-    }
+    }, [dispatch, isExecuting])
 
-    const handleToggle = (path: string): void => {
+    const handleToggle = useCallback((path: string): void => {
       setSelectedPaths((prev) => {
         const next = new Set(prev)
         if (next.has(path)) {
@@ -51,18 +51,29 @@ export const SyncConflictDialog = React.memo(
         }
         return next
       })
-    }
+    }, [])
 
     // Success feedback + refreshAllData handled by SyncResultDialog
-    const handleSync = async (replaceAll: boolean): Promise<void> => {
-      const replaceConflicts = replaceAll
-        ? conflicts.map((c) => c.agentSkillPath)
-        : Array.from(selectedPaths)
-      const succeeded = await executeSync({ replaceConflicts })
-      if (succeeded) {
-        setSelectedPaths(new Set())
-      }
-    }
+    const handleSync = useCallback(
+      async (replaceAll: boolean): Promise<void> => {
+        const replaceConflicts = replaceAll
+          ? conflicts.map((c) => c.agentSkillPath)
+          : Array.from(selectedPaths)
+        const succeeded = await executeSync({ replaceConflicts })
+        if (succeeded) {
+          setSelectedPaths(new Set())
+        }
+      },
+      [conflicts, executeSync, selectedPaths],
+    )
+
+    const handleSkipSelected = useCallback((): void => {
+      void handleSync(false)
+    }, [handleSync])
+
+    const handleReplaceAll = useCallback((): void => {
+      void handleSync(true)
+    }, [handleSync])
 
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -82,28 +93,15 @@ export const SyncConflictDialog = React.memo(
           <div className="py-4">
             <div className="max-h-75 overflow-y-auto rounded-md border p-2 space-y-1">
               {conflicts.map((conflict) => (
-                <label
+                <SyncConflictRow
                   key={conflict.agentSkillPath}
-                  className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer"
-                >
-                  <Checkbox
-                    checked={selectedPaths.has(conflict.agentSkillPath)}
-                    onCheckedChange={() =>
-                      handleToggle(conflict.agentSkillPath)
-                    }
-                    disabled={isExecuting}
-                  />
-                  <div className="text-sm">
-                    <span className="font-medium">{conflict.skillName}</span>
-                    <span className="text-muted-foreground">
-                      {' '}
-                      in {conflict.agentName}
-                    </span>
-                    <span className="text-xs text-muted-foreground block">
-                      Local folder will be replaced with symlink
-                    </span>
-                  </div>
-                </label>
+                  path={conflict.agentSkillPath}
+                  skillName={conflict.skillName}
+                  agentName={conflict.agentName}
+                  checked={selectedPaths.has(conflict.agentSkillPath)}
+                  disabled={isExecuting}
+                  onToggle={handleToggle}
+                />
               ))}
             </div>
           </div>
@@ -111,7 +109,7 @@ export const SyncConflictDialog = React.memo(
           <DialogFooter className="flex gap-2">
             <Button
               variant="outline"
-              onClick={async () => handleSync(false)}
+              onClick={handleSkipSelected}
               disabled={isExecuting || isSyncing}
             >
               {isExecuting ? (
@@ -125,7 +123,7 @@ export const SyncConflictDialog = React.memo(
             </Button>
             <Button
               variant="destructive"
-              onClick={async () => handleSync(true)}
+              onClick={handleReplaceAll}
               disabled={isExecuting || isSyncing}
             >
               Replace all
@@ -136,3 +134,42 @@ export const SyncConflictDialog = React.memo(
     )
   },
 )
+
+interface SyncConflictRowProps {
+  path: string
+  skillName: string
+  agentName: string
+  checked: boolean
+  disabled: boolean
+  onToggle: (path: string) => void
+}
+
+const SyncConflictRow = React.memo(function SyncConflictRow({
+  path,
+  skillName,
+  agentName,
+  checked,
+  disabled,
+  onToggle,
+}: SyncConflictRowProps): React.ReactElement {
+  const handleCheckedChange = useCallback((): void => {
+    onToggle(path)
+  }, [onToggle, path])
+
+  return (
+    <label className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer">
+      <Checkbox
+        checked={checked}
+        onCheckedChange={handleCheckedChange}
+        disabled={disabled}
+      />
+      <div className="text-sm">
+        <span className="font-medium">{skillName}</span>
+        <span className="text-muted-foreground"> in {agentName}</span>
+        <span className="text-xs text-muted-foreground block">
+          Local folder will be replaced with symlink
+        </span>
+      </div>
+    </label>
+  )
+})

@@ -1,5 +1,5 @@
 import { Check, ExternalLink, Loader2 } from 'lucide-react'
-import React, { useRef, useState } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import {
@@ -35,15 +35,15 @@ export const BookmarkDetailModal = React.memo(
     // Generation counter: invalidates in-flight installs when modal closes/reopens
     const installGenRef = useRef(0)
 
-    const handleClose = (): void => {
+    const handleClose = useCallback((): void => {
       installGenRef.current++
       dispatch(clearSelectedBookmarkForDetail())
       setIsInstalling(false)
       setInstallSuccess(false)
       setInstallError(null)
-    }
+    }, [dispatch])
 
-    const handleInstall = async (): Promise<void> => {
+    const handleInstall = useCallback(async (): Promise<void> => {
       if (!bookmark || !bookmark.repo) return
       const gen = ++installGenRef.current
       setIsInstalling(true)
@@ -73,23 +73,25 @@ export const BookmarkDetailModal = React.memo(
           setIsInstalling(false)
         }
       }
-    }
+    }, [bookmark, dispatch])
 
-    const handleRemoveBookmark = (): void => {
+    const handleRemoveBookmark = useCallback((): void => {
       if (!bookmark) return
       dispatch(removeBookmark(bookmark.name))
       handleClose()
-    }
+    }, [bookmark, dispatch, handleClose])
+
+    const handleOpenChange = useCallback(
+      (open: boolean): void => {
+        if (!open) handleClose()
+      },
+      [handleClose],
+    )
 
     const isInstalled = bookmark?.isInstalled || installSuccess
 
     return (
-      <Dialog
-        open={bookmark !== null}
-        onOpenChange={(open) => {
-          if (!open) handleClose()
-        }}
-      >
+      <Dialog open={bookmark !== null} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-sm">
           {bookmark && (
             <>

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback } from 'react'
 import { toast } from 'sonner'
 
 import { DestructiveConfirmDialog } from '@/renderer/src/components/shared/DestructiveConfirmDialog'
@@ -18,13 +18,13 @@ export const AgentDeleteDialog = React.memo(
     const dispatch = useAppDispatch()
     const { agentToDelete, deleting } = useAppSelector((state) => state.agents)
 
-    const handleClose = (): void => {
+    const handleClose = useCallback((): void => {
       if (!deleting) {
         dispatch(setAgentToDelete(null))
       }
-    }
+    }, [deleting, dispatch])
 
-    const handleDelete = async (): Promise<void> => {
+    const handleDelete = useCallback(async (): Promise<void> => {
       if (!agentToDelete) return
 
       const result = await dispatch(removeAllSymlinksFromAgent(agentToDelete))
@@ -39,7 +39,7 @@ export const AgentDeleteDialog = React.memo(
           description: result.error?.message || 'An unexpected error occurred',
         })
       }
-    }
+    }, [agentToDelete, dispatch])
 
     return (
       <DestructiveConfirmDialog

@@ -1,5 +1,5 @@
 import { BookOpenText, Code2, FileQuestion } from 'lucide-react'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { match } from 'ts-pattern'
@@ -9,6 +9,7 @@ import {
   ToggleGroupItem,
 } from '@/renderer/src/components/ui/toggle-group'
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
+import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { formatBytes } from '@/shared/fileTypes'
 import type { SkillFileContent } from '@/shared/types'
@@ -74,14 +75,14 @@ const TextPreview = React.memo(function TextPreview({
   const fileIdentity = `${file.name}:${file.extension}`
   const [mode, setMode] = useState<TextPreviewMode>('code')
 
-  useEffect(() => {
+  useComponentEffect(() => {
     setMode('code')
   }, [fileIdentity])
 
-  const handleModeChange = (next: string): void => {
+  const handleModeChange = useCallback((next: string): void => {
     // Radix emits an empty string when the active item is clicked again.
     if (next === 'code' || next === 'reading') setMode(next)
-  }
+  }, [])
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-muted">
@@ -149,7 +150,7 @@ const SyntaxHighlightedCode = React.memo(function SyntaxHighlightedCode({
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null)
   const plainTextLines = useMemo(() => content.split('\n'), [content])
 
-  useEffect(() => {
+  useComponentEffect(() => {
     let cancelled = false
     setHighlightedHtml(null)
 
@@ -248,6 +249,7 @@ const MarkdownReadingPreview = React.memo(function MarkdownReadingPreview({
     () => stripMarkdownFrontmatter(content),
     [content],
   )
+  const remarkPlugins = useMemo(() => [remarkGfm], [])
 
   return (
     <div
@@ -256,7 +258,7 @@ const MarkdownReadingPreview = React.memo(function MarkdownReadingPreview({
     >
       <article className="min-w-0 max-w-full break-words px-7 py-6 pb-10 text-sm leading-7 text-foreground">
         <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
+          remarkPlugins={remarkPlugins}
           components={markdownComponents}
         >
           {readableContent}

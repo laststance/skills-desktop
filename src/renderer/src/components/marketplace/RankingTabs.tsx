@@ -52,6 +52,7 @@ export const RankingTabs = React.memo(function RankingTabs({
     >
       {tabs.map((tab) => (
         <button
+          type="button"
           key={tab.id}
           role="tab"
           aria-selected={value === tab.id}

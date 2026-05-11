@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 
+import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { fetchAgents } from '@/renderer/src/redux/slices/agentsSlice'
 import { selectHiddenAgentIds } from '@/renderer/src/redux/slices/settingsSlice'
@@ -27,7 +28,7 @@ export const AgentsSection = React.memo(
     const { items: agents, loading } = useAppSelector((state) => state.agents)
     const hiddenAgentIds = useAppSelector(selectHiddenAgentIds)
 
-    useEffect(() => {
+    useComponentEffect(() => {
       dispatch(fetchAgents())
     }, [dispatch])
 

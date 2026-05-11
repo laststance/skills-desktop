@@ -88,6 +88,7 @@ async function createStore(
         selectedAddAgentIds: [],
         addingSymlinks: false,
         skillToCopy: null,
+        selectedCopyAgentIds: [],
         copying: false,
         selectedSkillNames: [],
         selectionAnchor: null,

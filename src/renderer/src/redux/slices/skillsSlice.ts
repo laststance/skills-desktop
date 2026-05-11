@@ -47,6 +47,8 @@ interface SkillsState {
   addingSymlinks: boolean
   /** Skill targeted by the CopyToAgentsModal. */
   skillToCopy: Skill | null
+  /** Agent IDs checked in the CopyToAgentsModal. */
+  selectedCopyAgentIds: AgentId[]
   /** true while copyToAgents is in flight. */
   copying: boolean
 
@@ -77,6 +79,7 @@ const initialState: SkillsState = {
   selectedAddAgentIds: [],
   addingSymlinks: false,
   skillToCopy: null,
+  selectedCopyAgentIds: [],
   copying: false,
   selectedSkillNames: [],
   selectionAnchor: null,
@@ -300,6 +303,25 @@ const skillsSlice = createSlice({
     },
     setSkillToCopy: (state, action: PayloadAction<Skill | null>) => {
       state.skillToCopy = action.payload
+      state.selectedCopyAgentIds = []
+    },
+    /**
+     * Toggle one target agent in the CopyToAgentsModal selection.
+     */
+    toggleCopyAgentSelection: (state, action: PayloadAction<AgentId>) => {
+      const agentId = action.payload
+      const existingIndex = state.selectedCopyAgentIds.indexOf(agentId)
+      if (existingIndex === -1) {
+        state.selectedCopyAgentIds.push(agentId)
+        return
+      }
+      state.selectedCopyAgentIds.splice(existingIndex, 1)
+    },
+    /**
+     * Clear CopyToAgentsModal selection when the modal target changes or closes.
+     */
+    clearCopyAgentSelection: (state) => {
+      state.selectedCopyAgentIds = []
     },
     /**
      * Toggle one target agent in the AddSymlinkModal selection.
@@ -429,6 +451,7 @@ const skillsSlice = createSlice({
         state.skillToCopy = null
         state.skillToAddSymlinks = null
         state.selectedAddAgentIds = []
+        state.selectedCopyAgentIds = []
       })
       .addCase(copyToAgents.rejected, (state, action) => {
         state.copying = false
@@ -521,6 +544,8 @@ export const {
   setSkillToUnlink,
   setSkillToAddSymlinks,
   setSkillToCopy,
+  toggleCopyAgentSelection,
+  clearCopyAgentSelection,
   toggleAddAgentSelection,
   toggleSelection,
   selectRange,
@@ -539,6 +564,8 @@ export const selectSkillsError = (state: RootState): string | null =>
   state.skills.error
 export const selectSelectedSkillNames = (state: RootState): SkillName[] =>
   state.skills.selectedSkillNames
+export const selectSelectedCopyAgentIds = (state: RootState): AgentId[] =>
+  state.skills.selectedCopyAgentIds
 export const selectSelectionAnchor = (state: RootState): SkillName | null =>
   state.skills.selectionAnchor
 export const selectInFlightDeleteNames = (state: RootState): SkillName[] =>

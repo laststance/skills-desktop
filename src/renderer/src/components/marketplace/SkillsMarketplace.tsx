@@ -1,6 +1,7 @@
 import { Package, WifiOff } from 'lucide-react'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 
+import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
 import { useMarketplaceProgress } from '@/renderer/src/hooks/useMarketplaceProgress'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { loadLeaderboard } from '@/renderer/src/redux/slices/marketplaceSlice'
@@ -75,14 +76,14 @@ export const SkillsMarketplace = React.memo(
       leaderboardStatus === 'error' && leaderboardSkills.length === 0
 
     // Auto-load leaderboard on mount and when filter changes
-    useEffect(() => {
+    useComponentEffect(() => {
       dispatch(loadLeaderboard(rankingFilter))
     }, [dispatch, rankingFilter])
 
     /** Handle tab change: switch filter and load data */
-    const handleFilterChange = (filter: RankingFilter): void => {
+    const handleFilterChange = useCallback((filter: RankingFilter): void => {
       setRankingFilter(filter)
-    }
+    }, [])
 
     return (
       <div className="h-full flex flex-col">

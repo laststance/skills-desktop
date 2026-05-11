@@ -1,5 +1,5 @@
 import { Moon, Palette, Sun } from 'lucide-react'
-import React, { type ReactElement } from 'react'
+import React, { useCallback, type ReactElement } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import {
@@ -103,9 +103,9 @@ export const ThemeSelector = React.memo(function ThemeSelector(): ReactElement {
   const dispatch = useAppDispatch()
   const { mode, preset } = useAppSelector((state) => state.theme)
 
-  const handleToggleMode = (): void => {
+  const handleToggleMode = useCallback((): void => {
     dispatch(toggleMode())
-  }
+  }, [dispatch])
 
   const handleSelectPreset = (name: ThemePresetName): void => {
     dispatch(setTheme(name))

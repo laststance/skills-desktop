@@ -53,6 +53,10 @@ const toastClassNames = {
     'bg-popover text-muted-foreground border-border hover:bg-accent hover:text-foreground',
 } as const
 
+const toastOptions = {
+  classNames: toastClassNames,
+} satisfies React.ComponentProps<typeof Toaster>['toastOptions']
+
 /**
  * Inline style on the Toaster itself. Sonner reads `--normal-bg` /
  * `--normal-border` / `--normal-text` off the toaster root and forwards them
@@ -136,7 +140,7 @@ const App = React.memo(function App(): React.ReactElement {
         theme={mode}
         className="toaster group"
         style={toasterStyle}
-        toastOptions={{ classNames: toastClassNames }}
+        toastOptions={toastOptions}
       />
     </TooltipProvider>
   )

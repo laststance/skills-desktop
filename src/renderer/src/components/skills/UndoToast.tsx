@@ -1,11 +1,18 @@
 import { Loader2, Undo2 } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useState } from 'react'
+import { toast } from 'sonner'
 import { match } from 'ts-pattern'
 
 import { Button } from '@/renderer/src/components/ui/button'
+import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { pluralize } from '@/renderer/src/utils/pluralize'
-import type { IsoTimestamp, SkillName, TombstoneId } from '@/shared/types'
+import type {
+  IsoTimestamp,
+  SkillName,
+  ToastId,
+  TombstoneId,
+} from '@/shared/types'
 
 /** Tick interval for the countdown (ms). 250 gives smooth updates without thrashing. */
 const COUNTDOWN_TICK_MS = 250
@@ -22,12 +29,8 @@ interface UndoToastProps {
   summary: string
   /** Callback when the user presses Undo. MainContent owns the dispatch. */
   onUndo: (tombstoneIds: TombstoneId[]) => Promise<void> | void
-  /**
-   * Fired after `onUndo` resolves so the parent can `toast.dismiss(id)`.
-   * Sonner's auto-close and built-in close button take care of the other
-   * dismiss paths via `onAutoClose` / `onDismiss` toast options.
-   */
-  onUndoComplete: () => void
+  /** Explicit Sonner id assigned by MainContent so Undo can dismiss itself. */
+  toastId: ToastId
 }
 
 /**
@@ -46,8 +49,7 @@ interface UndoToastProps {
  *   - Swap text color from `text-muted-foreground` to `text-foreground` when
  *     `remainingMs <= URGENT_SECONDS_THRESHOLD * 1000`.
  *   - On Undo click: swap the button for a spinner + "Restoring N skills..."
- *     and await `onUndo`. Then fire `onUndoComplete` so the parent can dismiss
- *     the toast.
+ *     and await `onUndo`. Then dismiss this toast via `toast.dismiss(toastId)`.
  *   - Keyboard: the wrapper is `tabIndex={-1}` so arrow-key focus cycles do
  *     not land on the toast body (it is supplemental, not a required
  *     interaction). The Undo button and sonner's close button remain focusable.
@@ -55,10 +57,14 @@ interface UndoToastProps {
  * @param props - UndoToastProps — see interface above
  * @returns Rendered toast body
  * @example
- * const toastId = toast(
- *   <UndoToast skillNames={['task','theme']} ... onUndoComplete={...} />,
- *   { duration: 15_000, closeButton: true, onDismiss, onAutoClose },
- * )
+ * const toastId = `bulk-delete-${Date.now()}`
+ * toast(<UndoToast skillNames={['task','theme']} ... toastId={toastId} />, {
+ *   id: toastId,
+ *   duration: 15_000,
+ *   closeButton: true,
+ *   onDismiss,
+ *   onAutoClose,
+ * })
  */
 export const UndoToast = React.memo(function UndoToast({
   skillNames,
@@ -66,7 +72,7 @@ export const UndoToast = React.memo(function UndoToast({
   expiresAt,
   summary,
   onUndo,
-  onUndoComplete,
+  toastId,
 }: UndoToastProps): React.ReactElement {
   const expiresAtMs = new Date(expiresAt).getTime()
   const [remainingMs, setRemainingMs] = useState(
@@ -74,7 +80,7 @@ export const UndoToast = React.memo(function UndoToast({
   )
   const [isRestoring, setIsRestoring] = useState(false)
 
-  useEffect(() => {
+  useComponentEffect(() => {
     // Freeze the countdown once the user commits to Undo so the displayed
     // "12s" doesn't keep ticking down behind a "Restoring..." spinner. The
     // parent dismisses the toast as soon as restore resolves, so the frozen
@@ -94,7 +100,7 @@ export const UndoToast = React.memo(function UndoToast({
   const isUndoableOperation = tombstoneIds.length > 0
   const canUndo = isUndoableOperation && !isRestoring && remainingMs > 0
 
-  const handleUndoClick = async (): Promise<void> => {
+  const handleUndoClick = useCallback(async (): Promise<void> => {
     if (!canUndo) return
     setIsRestoring(true)
     try {
@@ -103,9 +109,9 @@ export const UndoToast = React.memo(function UndoToast({
       // Whether success or failure, the parent emits the appropriate sonner
       // toast and dismisses this one. We don't reset `isRestoring` because
       // the component will unmount immediately.
-      onUndoComplete()
+      toast.dismiss(toastId)
     }
-  }
+  }, [canUndo, onUndo, toastId, tombstoneIds])
 
   return (
     <div

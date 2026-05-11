@@ -1,5 +1,5 @@
 import { Eraser, EyeOff, FolderOpen, Terminal, Trash2 } from 'lucide-react'
-import React, { useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 
 import {
   DropdownMenu,
@@ -98,28 +98,32 @@ export const AgentItem = React.memo(function AgentItem({
     setContextOpen(true)
   }
 
-  const handleRevealInFinder = (): void => {
+  const handleContextOpenChange = useCallback((open: boolean): void => {
+    if (!open) setContextOpen(false)
+  }, [])
+
+  const handleRevealInFinder = useCallback((): void => {
     void revealInFinder(agent.path)
-  }
+  }, [agent.path, revealInFinder])
 
-  const handleOpenInTerminal = (): void => {
+  const handleOpenInTerminal = useCallback((): void => {
     void openInTerminal(agent.path)
-  }
+  }, [agent.path, openInTerminal])
 
-  const handleDelete = (): void => {
+  const handleDelete = useCallback((): void => {
     dispatch(setAgentToDelete(agent))
     setContextOpen(false)
-  }
+  }, [agent, dispatch])
 
-  const handleCleanupMissing = (): void => {
+  const handleCleanupMissing = useCallback((): void => {
     // Opens `CleanupAgentDialog`. The dialog itself dispatches the scoped
     // `fetchSyncPreview({ agentId })` once it mounts, so we don't need
     // to chain it here — keeps the menu handler synchronous.
     dispatch(setCleanupAgentTarget(agent.id))
     setContextOpen(false)
-  }
+  }, [agent.id, dispatch])
 
-  const handleToggleHidden = (): void => {
+  const handleToggleHidden = useCallback((): void => {
     // Pure visibility toggle — skills, symlinks, and marketplace presence
     // are untouched. Matching unhide affordances live in Settings → Agents
     // and inside the "N hidden" sidebar disclosure.
@@ -127,7 +131,7 @@ export const AgentItem = React.memo(function AgentItem({
       hiddenAgentIds: toggleArrayMember(hiddenAgentIds, agent.id),
     })
     setContextOpen(false)
-  }
+  }, [agent.id, hiddenAgentIds, updateSettings])
 
   const skillCountText = useMemo(
     () =>
@@ -141,12 +145,7 @@ export const AgentItem = React.memo(function AgentItem({
 
   return (
     <Tooltip>
-      <DropdownMenu
-        open={contextOpen}
-        onOpenChange={(open) => {
-          if (!open) setContextOpen(false)
-        }}
-      >
+      <DropdownMenu open={contextOpen} onOpenChange={handleContextOpenChange}>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
             <button

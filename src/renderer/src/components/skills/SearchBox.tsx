@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react'
-import React from 'react'
+import React, { useCallback } from 'react'
 
 import { Input } from '@/renderer/src/components/ui/input'
 import {
@@ -45,6 +45,24 @@ export const SearchBox = React.memo(function SearchBox(): React.ReactElement {
   const searchScope = useAppSelector(selectSearchScope)
   const copy = SCOPE_COPY[searchScope]
 
+  const handleScopeChange = useCallback(
+    (value: string): void => {
+      // Radix returns "" when the user clicks the already-active item.
+      // Treat that as a no-op so scope is never undefined at runtime.
+      if (value === 'name' || value === 'repo') {
+        dispatch(setSearchScope(value))
+      }
+    },
+    [dispatch],
+  )
+
+  const handleQueryChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>): void => {
+      dispatch(setSearchQuery(e.target.value))
+    },
+    [dispatch],
+  )
+
   return (
     <div className="flex items-center gap-2">
       <ToggleGroup
@@ -52,13 +70,7 @@ export const SearchBox = React.memo(function SearchBox(): React.ReactElement {
         variant="outline"
         size="default"
         value={searchScope}
-        // Radix returns "" when the user clicks the already-active item.
-        // Treat that as a no-op so scope is never undefined at runtime.
-        onValueChange={(value) => {
-          if (value === 'name' || value === 'repo') {
-            dispatch(setSearchScope(value))
-          }
-        }}
+        onValueChange={handleScopeChange}
         aria-label="Search field"
         className="shrink-0 gap-0"
       >
@@ -84,7 +96,7 @@ export const SearchBox = React.memo(function SearchBox(): React.ReactElement {
           aria-label={copy.ariaLabel}
           placeholder={copy.placeholder}
           value={searchQuery}
-          onChange={(e) => dispatch(setSearchQuery(e.target.value))}
+          onChange={handleQueryChange}
           className="pl-10 bg-background"
         />
       </div>

@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useMemo } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import ReactGridLayout, {
   useContainerWidth,
   type Layout,
 } from 'react-grid-layout'
 
+import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   seedDefaultsIfEmpty,
@@ -49,7 +50,7 @@ export const DashboardCanvas = React.memo(
 
     // Seed the default 4 pages on first render. The reducer guards against
     // re-seeding (`initialized` flag), so calling this repeatedly is free.
-    useEffect(() => {
+    useComponentEffect(() => {
       if (!isInitialized) dispatch(seedDefaultsIfEmpty())
     }, [dispatch, isInitialized])
 
@@ -132,26 +133,39 @@ const DashboardGrid = React.memo(function DashboardGrid({
     [dispatch, pageId],
   )
 
+  const gridConfig = useMemo(
+    () => ({
+      cols: GRID_COLS,
+      rowHeight: GRID_ROW_HEIGHT_PX,
+      margin: GRID_MARGIN_PX,
+      containerPadding: GRID_CONTAINER_PADDING_PX,
+    }),
+    [],
+  )
+  const dragConfig = useMemo(
+    () => ({
+      enabled: isEditMode,
+      handle: `.${WIDGET_DRAG_HANDLE_CLASS}`,
+    }),
+    [isEditMode],
+  )
+  const resizeConfig = useMemo(
+    () => ({
+      enabled: isEditMode,
+      handles: ['se'] as const,
+    }),
+    [isEditMode],
+  )
+
   return (
     <div ref={containerRef} className="h-full w-full">
       {mounted && width > 0 && (
         <ReactGridLayout
           layout={layout}
           width={width}
-          gridConfig={{
-            cols: GRID_COLS,
-            rowHeight: GRID_ROW_HEIGHT_PX,
-            margin: GRID_MARGIN_PX,
-            containerPadding: GRID_CONTAINER_PADDING_PX,
-          }}
-          dragConfig={{
-            enabled: isEditMode,
-            handle: `.${WIDGET_DRAG_HANDLE_CLASS}`,
-          }}
-          resizeConfig={{
-            enabled: isEditMode,
-            handles: ['se'],
-          }}
+          gridConfig={gridConfig}
+          dragConfig={dragConfig}
+          resizeConfig={resizeConfig}
           onLayoutChange={handleLayoutChange}
         >
           {widgets.map((widget) => {

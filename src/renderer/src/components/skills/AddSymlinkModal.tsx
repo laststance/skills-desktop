@@ -1,5 +1,5 @@
 import { Copy, Loader2, Plus } from 'lucide-react'
-import React, { useMemo } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/renderer/src/components/ui/button'
@@ -53,18 +53,21 @@ export const AddSymlinkModal = React.memo(
 
     const isSubmitting = addingSymlinks || copying
 
-    const handleClose = (): void => {
+    const handleClose = useCallback((): void => {
       if (!isSubmitting) {
         dispatch(setSkillToAddSymlinks(null))
       }
-    }
+    }, [dispatch, isSubmitting])
 
-    const handleAgentToggle = (agentId: AgentId): void => {
-      if (occupiedAgentReasonById.has(agentId)) return
-      dispatch(toggleAddAgentSelection(agentId))
-    }
+    const handleAgentToggle = useCallback(
+      (agentId: AgentId): void => {
+        if (occupiedAgentReasonById.has(agentId)) return
+        dispatch(toggleAddAgentSelection(agentId))
+      },
+      [dispatch, occupiedAgentReasonById],
+    )
 
-    const handleAddSymlinks = async (): Promise<void> => {
+    const handleAddSymlinks = useCallback(async (): Promise<void> => {
       if (!skillToAddSymlinks || selectedAddAgentIds.length === 0) return
 
       const result = await dispatch(
@@ -87,24 +90,28 @@ export const AddSymlinkModal = React.memo(
       // failure clears any stale `state.skills.error` (via fetchSkills.pending)
       // so the SkillsList does not stay stuck on the error view.
       refreshAllData(dispatch)
-    }
+    }, [dispatch, selectedAddAgentIds, skillToAddSymlinks])
 
-    const handleCopySkillFiles = async (): Promise<void> => {
+    const handleCopySkillFiles = useCallback(async (): Promise<void> => {
       if (!skillToAddSymlinks || selectedAddAgentIds.length === 0) return
       await copyToAgentsWithToast(dispatch, {
         skill: skillToAddSymlinks,
         sourcePath: skillToAddSymlinks.path,
         agentIds: selectedAddAgentIds,
       })
-    }
+    }, [dispatch, selectedAddAgentIds, skillToAddSymlinks])
+
+    const handleOpenChange = useCallback(
+      (open: boolean): void => {
+        if (!open) handleClose()
+      },
+      [handleClose],
+    )
 
     const hasNewSelections = selectedAddAgentIds.length > 0
 
     return (
-      <Dialog
-        open={!!skillToAddSymlinks}
-        onOpenChange={(open) => !open && handleClose()}
-      >
+      <Dialog open={!!skillToAddSymlinks} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <div className="flex items-center gap-2">
@@ -122,54 +129,20 @@ export const AddSymlinkModal = React.memo(
             <div className="max-h-60 overflow-y-auto rounded-md border p-2 space-y-1">
               {targetAgents.map((agent) => {
                 const occupiedReason = occupiedAgentReasonById.get(agent.id)
-                const isOccupied = occupiedReason !== undefined
-                const checkboxId = `add-agent-${agent.id}`
                 return (
-                  <div
+                  <AddSymlinkAgentOption
                     key={agent.id}
-                    className={cn(
-                      'flex items-center gap-3 p-2 rounded-md',
-                      isOccupied
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:bg-muted cursor-pointer',
-                    )}
-                    onClick={() =>
-                      !isOccupied &&
-                      !isSubmitting &&
-                      handleAgentToggle(agent.id)
+                    agentId={agent.id}
+                    name={agent.name}
+                    exists={agent.exists}
+                    checked={
+                      occupiedReason !== undefined ||
+                      selectedAddAgentIds.includes(agent.id)
                     }
-                  >
-                    <Checkbox
-                      id={checkboxId}
-                      aria-label={agent.name}
-                      checked={
-                        isOccupied || selectedAddAgentIds.includes(agent.id)
-                      }
-                      onClick={(event) => event.stopPropagation()}
-                      onCheckedChange={() => handleAgentToggle(agent.id)}
-                      disabled={isSubmitting || isOccupied}
-                    />
-                    <div
-                      className={cn(
-                        'text-sm',
-                        isOccupied || isSubmitting
-                          ? 'cursor-not-allowed'
-                          : 'cursor-pointer',
-                      )}
-                    >
-                      {agent.name}
-                      {!agent.exists && (
-                        <span className="text-xs text-muted-foreground ml-2">
-                          not installed
-                        </span>
-                      )}
-                      {isOccupied && occupiedReason && (
-                        <span className="text-xs text-muted-foreground ml-2">
-                          {getOccupiedAgentReasonLabel(occupiedReason)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                    disabled={isSubmitting || occupiedReason !== undefined}
+                    occupiedReason={occupiedReason}
+                    onToggle={handleAgentToggle}
+                  />
                 )
               })}
             </div>
@@ -224,3 +197,79 @@ export const AddSymlinkModal = React.memo(
     )
   },
 )
+
+interface AddSymlinkAgentOptionProps {
+  agentId: AgentId
+  name: string
+  exists: boolean
+  checked: boolean
+  disabled: boolean
+  occupiedReason?: OccupiedAgentReason
+  onToggle: (agentId: AgentId) => void
+}
+
+const AddSymlinkAgentOption = React.memo(function AddSymlinkAgentOption({
+  agentId,
+  name,
+  exists,
+  checked,
+  disabled,
+  occupiedReason,
+  onToggle,
+}: AddSymlinkAgentOptionProps): React.ReactElement {
+  const checkboxId = `add-agent-${agentId}`
+  const isOccupied = occupiedReason !== undefined
+
+  const handleToggle = useCallback((): void => {
+    if (!disabled) onToggle(agentId)
+  }, [agentId, disabled, onToggle])
+
+  // The intrinsic <div> intentionally receives a plain wrapper; passing
+  // handleToggle directly would violate the no-deopt-use-callback lint rule.
+  const handleRowClick = (): void => {
+    handleToggle()
+  }
+
+  const handleCheckboxClick = useCallback((event: React.MouseEvent): void => {
+    event.stopPropagation()
+  }, [])
+
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-3 p-2 rounded-md',
+        disabled
+          ? 'opacity-50 cursor-not-allowed'
+          : 'hover:bg-muted cursor-pointer',
+      )}
+      onClick={handleRowClick}
+    >
+      <Checkbox
+        id={checkboxId}
+        aria-label={name}
+        checked={checked}
+        onClick={handleCheckboxClick}
+        onCheckedChange={handleToggle}
+        disabled={disabled}
+      />
+      <div
+        className={cn(
+          'text-sm',
+          disabled ? 'cursor-not-allowed' : 'cursor-pointer',
+        )}
+      >
+        {name}
+        {!exists && (
+          <span className="text-xs text-muted-foreground ml-2">
+            not installed
+          </span>
+        )}
+        {isOccupied && occupiedReason && (
+          <span className="text-xs text-muted-foreground ml-2">
+            {getOccupiedAgentReasonLabel(occupiedReason)}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+})

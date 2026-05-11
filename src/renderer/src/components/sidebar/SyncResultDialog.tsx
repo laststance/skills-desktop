@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback } from 'react'
 
 import { Badge } from '@/renderer/src/components/ui/badge'
 import { Button } from '@/renderer/src/components/ui/button'
@@ -50,7 +50,7 @@ export const SyncResultDialog = React.memo(
     const syncResult = useAppSelector((state) => state.ui.syncResult)
     const isOpen = shouldShowSyncResult(syncResult)
 
-    const handleClose = (): void => {
+    const handleClose = useCallback((): void => {
       const hadChanges =
         syncResult !== null &&
         (syncResult.created > 0 ||
@@ -60,7 +60,7 @@ export const SyncResultDialog = React.memo(
       if (hadChanges) {
         refreshAllData(dispatch)
       }
-    }
+    }, [dispatch, syncResult])
 
     // Skip all derivations when dialog is closed
     if (!isOpen || !syncResult) return null

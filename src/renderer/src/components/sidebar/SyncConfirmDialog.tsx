@@ -1,5 +1,5 @@
 import { FolderSync, Loader2 } from 'lucide-react'
-import React from 'react'
+import React, { useCallback } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import {
@@ -31,16 +31,16 @@ export const SyncConfirmDialog = React.memo(
 
     const { run: executeSync, isExecuting } = useExecuteSync('Sync failed')
 
-    const handleClose = (): void => {
+    const handleClose = useCallback((): void => {
       if (!isExecuting) {
         dispatch(setSyncPreview(null))
       }
-    }
+    }, [dispatch, isExecuting])
 
     // Success feedback + refreshAllData handled by SyncResultDialog
-    const handleSync = async (): Promise<void> => {
+    const handleSync = useCallback(async (): Promise<void> => {
       await executeSync({ replaceConflicts: [] })
-    }
+    }, [executeSync])
 
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>

@@ -5,6 +5,10 @@ import { MIN_TOUCH_TARGET_PX } from '@/shared/constants'
 
 import { Button } from './button'
 
+const filterPillButtonStyle = {
+  minHeight: MIN_TOUCH_TARGET_PX,
+} satisfies React.CSSProperties
+
 interface FilterPillProps {
   /**
    * Trailing label content rendered after the static "Showing skills " prefix.
@@ -48,7 +52,7 @@ export const FilterPill = React.memo(function FilterPill({
         variant="ghost"
         size="sm"
         onClick={onClear}
-        style={{ minHeight: MIN_TOUCH_TARGET_PX }}
+        style={filterPillButtonStyle}
         className="px-3"
       >
         <X className="h-3 w-3 mr-1" />

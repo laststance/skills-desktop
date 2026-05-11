@@ -1,5 +1,5 @@
 import { Search, Loader2 } from 'lucide-react'
-import React, { useState } from 'react'
+import React, { useCallback, useState } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { Input } from '@/renderer/src/components/ui/input'
@@ -20,28 +20,34 @@ export const MarketplaceSearch = React.memo(
     const [localQuery, setLocalQuery] = useState(searchQuery)
     const isSearching = status === 'searching'
 
-    const handleSearch = (): void => {
+    const handleSearch = useCallback((): void => {
       if (localQuery.trim()) {
         dispatch(setMarketplaceSearchQuery(localQuery.trim()))
         dispatch(searchSkills(localQuery.trim()))
       }
-    }
+    }, [dispatch, localQuery])
 
     /** Clear search input and return to leaderboard */
-    function handleChange(e: React.ChangeEvent<HTMLInputElement>): void {
-      const value = e.target.value
-      setLocalQuery(value)
-      // When input is cleared (native X button or manual), reset search state
-      if (value === '') {
-        dispatch(clearSearchResults())
-      }
-    }
+    const handleChange = useCallback(
+      (e: React.ChangeEvent<HTMLInputElement>): void => {
+        const value = e.target.value
+        setLocalQuery(value)
+        // When input is cleared (native X button or manual), reset search state
+        if (value === '') {
+          dispatch(clearSearchResults())
+        }
+      },
+      [dispatch],
+    )
 
-    const handleKeyDown = (e: React.KeyboardEvent): void => {
-      if (e.key === 'Enter') {
-        handleSearch()
-      }
-    }
+    const handleKeyDown = useCallback(
+      (e: React.KeyboardEvent): void => {
+        if (e.key === 'Enter') {
+          handleSearch()
+        }
+      },
+      [handleSearch],
+    )
 
     return (
       <div className="flex gap-2">

@@ -32,7 +32,7 @@ import type { ReactElement } from 'react'
  * <main id="main-content">...</main>
  */
 export const SkipToMainContentLink = memo(
-  (): ReactElement => {
+  function SkipToMainContentLink(): ReactElement {
     return (
       <a
         href="#main-content"
