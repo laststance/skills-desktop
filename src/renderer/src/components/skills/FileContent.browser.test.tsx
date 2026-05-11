@@ -67,6 +67,73 @@ describe('FileContent Markdown modes', () => {
     await expect.element(screen.getByText('Visible body')).toBeInTheDocument()
   })
 
+  it('renders language-less code fences as block code without AST attributes', async () => {
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent
+        content={makeTextContent({
+          content:
+            '# Skill\n\n```\nnpx skills list --json\n```\n\nInline `skill` stays compact.',
+        })}
+      />,
+    )
+
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+
+    const blockCode = screen.getByText(/npx skills list --json/).query()
+    const inlineCode = screen.getByText('skill', { exact: true }).query()
+
+    expect(blockCode).toBeInstanceOf(HTMLElement)
+    expect(inlineCode).toBeInstanceOf(HTMLElement)
+    expect(blockCode?.closest('pre')).toBeInstanceOf(HTMLPreElement)
+    expect(inlineCode?.closest('pre')).toBeNull()
+    expect(screen.container.querySelector('[node]')).toBeNull()
+  })
+
+  it('renders language-tagged code fences as block code', async () => {
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent
+        content={makeTextContent({
+          content: '# Skill\n\n```ts\nconst ok = true\n```',
+        })}
+      />,
+    )
+
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+
+    const blockCode = screen.getByText(/const ok = true/).query()
+
+    expect(blockCode).toBeInstanceOf(HTMLElement)
+    expect(blockCode?.closest('pre')).toBeInstanceOf(HTMLPreElement)
+  })
+
+  it('locks Reading Mode to vertical scrolling when Markdown is wider than the pane', async () => {
+    const { FileContent } = await import('./FileContent')
+    const wideInline = 'very-long-inline-token-'.repeat(30)
+    const wideBlock = 'wide command '.repeat(40)
+    const screen = await render(
+      <FileContent
+        content={makeTextContent({
+          content: `# Wide\n\n\`${wideInline}\`\n\n\`\`\`\n${wideBlock}\n\`\`\``,
+        })}
+      />,
+    )
+
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+
+    const scrollPane = screen.container.querySelector(
+      '[data-markdown-reading-scroll]',
+    )
+    expect(scrollPane).toBeInstanceOf(HTMLElement)
+    const pane = scrollPane as HTMLElement
+
+    // Programmatic scroll mirrors trackpad horizontal gestures in the renderer.
+    expect(pane.scrollWidth).toBeGreaterThan(pane.clientWidth)
+    pane.scrollTo({ left: 240 })
+    expect(pane.scrollLeft).toBe(0)
+  })
+
   it('adds a bottom spacer after source code so the final line can breathe', async () => {
     const { FileContent } = await import('./FileContent')
     const screen = await render(

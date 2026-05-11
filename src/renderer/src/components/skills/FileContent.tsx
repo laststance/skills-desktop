@@ -71,11 +71,12 @@ const TextPreview = React.memo(function TextPreview({
   file,
 }: TextPreviewProps): React.ReactElement {
   const isMarkdown = isMarkdownPreview(file)
+  const fileIdentity = `${file.name}:${file.extension}`
   const [mode, setMode] = useState<TextPreviewMode>('code')
 
   useEffect(() => {
     setMode('code')
-  }, [file.name, file.extension])
+  }, [fileIdentity])
 
   const handleModeChange = (next: string): void => {
     // Radix emits an empty string when the active item is clicked again.
@@ -249,8 +250,11 @@ const MarkdownReadingPreview = React.memo(function MarkdownReadingPreview({
   )
 
   return (
-    <div className="flex-1 min-h-0 overflow-auto bg-background">
-      <article className="max-w-none px-7 py-6 pb-10 text-sm leading-7 text-foreground">
+    <div
+      className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background"
+      data-markdown-reading-scroll
+    >
+      <article className="min-w-0 max-w-full break-words px-7 py-6 pb-10 text-sm leading-7 text-foreground">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={markdownComponents}
@@ -298,11 +302,49 @@ function looksLikeYamlFrontmatter(rawBlock: string): boolean {
   })
 }
 
+/**
+ * Remove react-markdown's internal AST prop before DOM spreading.
+ * @param props - Component override props from react-markdown.
+ * @returns The same props without the non-DOM `node` field.
+ * @example
+ * omitMarkdownNode({ node: astNode, href: '/docs' }) // => { href: '/docs' }
+ */
+function omitMarkdownNode<Props extends { node?: unknown }>(
+  props: Props,
+): Omit<Props, 'node'> {
+  const { node, ...domProps } = props
+  // `node` is useful for custom renderers, but invalid on real DOM elements.
+  void node
+  return domProps
+}
+
+/**
+ * Detect code blocks produced by react-markdown.
+ * @param children - Rendered code text from the Markdown AST.
+ * @param className - Optional `language-*` class from a fenced code info string.
+ * @returns True for fenced/indented code blocks, including fences with no language.
+ * @example
+ * isMarkdownCodeBlock('pnpm validate\n') // => true
+ */
+function isMarkdownCodeBlock(
+  children: React.ReactNode,
+  className?: string,
+): boolean {
+  // Language-tagged fences are always block code.
+  if (className?.includes('language-')) return true
+
+  // Guard the react-markdown v10 newline heuristic with browser tests: block
+  // code keeps a trailing newline, while inline code does not.
+  return typeof children === 'string' && children.endsWith('\n')
+}
+
 const markdownComponents: Components = {
   a({ children, className, href, ...props }) {
+    const domProps = omitMarkdownNode(props)
+
     return (
       <a
-        {...props}
+        {...domProps}
         href={href}
         target="_blank"
         rel="noreferrer"
@@ -316,9 +358,11 @@ const markdownComponents: Components = {
     )
   },
   blockquote({ children, className, ...props }) {
+    const domProps = omitMarkdownNode(props)
+
     return (
       <blockquote
-        {...props}
+        {...domProps}
         className={cn(
           'my-4 border-l-2 border-primary/60 pl-4 text-muted-foreground',
           className,
@@ -329,11 +373,12 @@ const markdownComponents: Components = {
     )
   },
   code({ children, className, ...props }) {
-    const isBlock = className?.includes('language-') ?? false
-    if (isBlock) {
+    const domProps = omitMarkdownNode(props)
+
+    if (isMarkdownCodeBlock(children, className)) {
       return (
         <code
-          {...props}
+          {...domProps}
           className={cn(
             'block overflow-x-auto rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs leading-6 text-foreground',
             className,
@@ -346,7 +391,7 @@ const markdownComponents: Components = {
 
     return (
       <code
-        {...props}
+        {...domProps}
         className={cn(
           'rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em] text-foreground',
           className,
@@ -357,9 +402,11 @@ const markdownComponents: Components = {
     )
   },
   h1({ children, className, ...props }) {
+    const domProps = omitMarkdownNode(props)
+
     return (
       <h1
-        {...props}
+        {...domProps}
         className={cn(
           'mb-4 mt-0 border-b border-border pb-3 text-2xl font-semibold leading-tight',
           className,
@@ -370,9 +417,11 @@ const markdownComponents: Components = {
     )
   },
   h2({ children, className, ...props }) {
+    const domProps = omitMarkdownNode(props)
+
     return (
       <h2
-        {...props}
+        {...domProps}
         className={cn(
           'mb-3 mt-7 border-b border-border/70 pb-2 text-xl font-semibold leading-tight',
           className,
@@ -383,9 +432,11 @@ const markdownComponents: Components = {
     )
   },
   h3({ children, className, ...props }) {
+    const domProps = omitMarkdownNode(props)
+
     return (
       <h3
-        {...props}
+        {...domProps}
         className={cn('mb-2 mt-6 text-base font-semibold', className)}
       >
         {children}
@@ -393,38 +444,48 @@ const markdownComponents: Components = {
     )
   },
   li({ children, className, ...props }) {
+    const domProps = omitMarkdownNode(props)
+
     return (
-      <li {...props} className={cn('my-1 pl-1', className)}>
+      <li {...domProps} className={cn('my-1 pl-1', className)}>
         {children}
       </li>
     )
   },
   ol({ children, className, ...props }) {
+    const domProps = omitMarkdownNode(props)
+
     return (
-      <ol {...props} className={cn('my-4 list-decimal pl-6', className)}>
+      <ol {...domProps} className={cn('my-4 list-decimal pl-6', className)}>
         {children}
       </ol>
     )
   },
   p({ children, className, ...props }) {
+    const domProps = omitMarkdownNode(props)
+
     return (
-      <p {...props} className={cn('my-3', className)}>
+      <p {...domProps} className={cn('my-3', className)}>
         {children}
       </p>
     )
   },
   pre({ children, className, ...props }) {
+    const domProps = omitMarkdownNode(props)
+
     return (
-      <pre {...props} className={cn('my-4', className)}>
+      <pre {...domProps} className={cn('my-4', className)}>
         {children}
       </pre>
     )
   },
   table({ children, className, ...props }) {
+    const domProps = omitMarkdownNode(props)
+
     return (
       <div className="my-4 overflow-x-auto rounded-md border border-border">
         <table
-          {...props}
+          {...domProps}
           className={cn('w-full border-collapse text-left text-sm', className)}
         >
           {children}
@@ -433,9 +494,11 @@ const markdownComponents: Components = {
     )
   },
   td({ children, className, ...props }) {
+    const domProps = omitMarkdownNode(props)
+
     return (
       <td
-        {...props}
+        {...domProps}
         className={cn('border-t border-border px-3 py-2 align-top', className)}
       >
         {children}
@@ -443,9 +506,11 @@ const markdownComponents: Components = {
     )
   },
   th({ children, className, ...props }) {
+    const domProps = omitMarkdownNode(props)
+
     return (
       <th
-        {...props}
+        {...domProps}
         className={cn(
           'border-b border-border bg-muted px-3 py-2 font-semibold',
           className,
@@ -456,8 +521,10 @@ const markdownComponents: Components = {
     )
   },
   ul({ children, className, ...props }) {
+    const domProps = omitMarkdownNode(props)
+
     return (
-      <ul {...props} className={cn('my-4 list-disc pl-6', className)}>
+      <ul {...domProps} className={cn('my-4 list-disc pl-6', className)}>
         {children}
       </ul>
     )

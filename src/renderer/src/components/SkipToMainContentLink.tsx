@@ -38,7 +38,7 @@ export const SkipToMainContentLink = memo(
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-0 focus:left-0 focus:z-50 focus:bg-primary focus:text-primary-foreground focus:p-2"
       >
-        [Press Enter] Skip focus to main content
+        Skip to main content
       </a>
     )
   },

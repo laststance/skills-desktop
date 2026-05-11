@@ -5,22 +5,73 @@ import type { SkillFileContent } from '@/shared/types'
  * Keeping these values as named strings keeps the renderer-side preview
  * independent from filesystem extension quirks such as `.env.example`.
  */
-export type ShikiPreviewLanguage = string
+export type ShikiPreviewLanguage =
+  | 'bash'
+  | 'c'
+  | 'cpp'
+  | 'csharp'
+  | 'css'
+  | 'dockerfile'
+  | 'dotenv'
+  | 'fish'
+  | 'go'
+  | 'html'
+  | 'ini'
+  | 'java'
+  | 'javascript'
+  | 'json'
+  | 'jsonc'
+  | 'jsx'
+  | 'kotlin'
+  | 'lua'
+  | 'make'
+  | 'markdown'
+  | 'mdx'
+  | 'php'
+  | 'python'
+  | 'ruby'
+  | 'rust'
+  | 'scss'
+  | 'sql'
+  | 'swift'
+  | 'text'
+  | 'toml'
+  | 'tsx'
+  | 'typescript'
+  | 'xml'
+  | 'yaml'
+  | 'zsh'
+
+/**
+ * Normalize user/file-system extensions into the lookup key shape.
+ * @param extension - Optional file extension, with or without a leading dot.
+ * @returns Lowercase extension with a leading dot, or undefined when missing.
+ * @example
+ * normalizeFileExtension('MD') // => '.md'
+ */
+function normalizeFileExtension(extension?: string | null): string | undefined {
+  if (!extension) return undefined
+
+  const lowerExtension = extension.toLowerCase()
+  return lowerExtension.startsWith('.') ? lowerExtension : `.${lowerExtension}`
+}
 
 /**
  * Map normalized file extensions to the Shiki grammar that best matches the
  * skill preview content.
- * @param extension - Lowercase extension with its leading dot.
+ * @param extension - File extension, with or without its leading dot.
  * @returns Shiki language id, or `undefined` when the file should fall back to
  * plain text.
  * @example
  * languageFromExtension('.tsx') // => 'tsx'
+ * languageFromExtension('ts') // => 'typescript'
  * languageFromExtension('.env.example') // => 'dotenv'
  */
 export function languageFromExtension(
-  extension: string,
+  extension?: string | null,
 ): ShikiPreviewLanguage | undefined {
-  const normalized = extension.toLowerCase()
+  const normalized = normalizeFileExtension(extension)
+  if (!normalized) return undefined
 
   const languageByExtension: Record<string, ShikiPreviewLanguage> = {
     '.bash': 'bash',
@@ -43,7 +94,9 @@ export function languageFromExtension(
     '.jsx': 'jsx',
     '.kt': 'kotlin',
     '.lua': 'lua',
+    '.markdown': 'markdown',
     '.md': 'markdown',
+    '.mdown': 'markdown',
     '.mdx': 'mdx',
     '.mjs': 'javascript',
     '.php': 'php',
@@ -100,11 +153,18 @@ export function languageForPreview(
  * isMarkdownPreview({ name: 'SKILL.md', extension: '.md' }) // => true
  */
 export function isMarkdownPreview(
-  file: Pick<SkillFileContent, 'extension' | 'name'>,
+  file: Pick<SkillFileContent, 'name'> & { extension?: string | null },
 ): boolean {
-  const extension = file.extension.toLowerCase()
-  if (extension === '.md' || extension === '.mdx') return true
+  const extension = normalizeFileExtension(file.extension)
+  if (
+    extension === '.md' ||
+    extension === '.markdown' ||
+    extension === '.mdown' ||
+    extension === '.mdx'
+  ) {
+    return true
+  }
 
   const lowerName = file.name.toLowerCase()
-  return lowerName === 'readme' || lowerName === 'readme.md'
+  return lowerName === 'readme'
 }

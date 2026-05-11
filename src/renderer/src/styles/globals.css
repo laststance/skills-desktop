@@ -129,6 +129,7 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -164,6 +165,15 @@
   /* Shiki emits semantic CSS variables for light/dark token colors. Scoping
    * them to the skill preview keeps Markdown/code panes aligned with the app
    * theme without leaking highlighter styles into other UI. */
+  .skill-code-preview,
+  .skill-code-preview pre,
+  .skill-code-preview code,
+  .skill-code-preview .shiki {
+    font-family:
+      'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
+      'Roboto Mono', 'Segoe UI Mono', monospace;
+  }
+
   .skill-code-preview .shiki {
     margin: 0;
     min-width: max-content;
