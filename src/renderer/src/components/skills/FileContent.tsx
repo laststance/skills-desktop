@@ -183,7 +183,7 @@ const SyntaxHighlightedCode = React.memo(function SyntaxHighlightedCode({
     >
       {highlightedHtml ? (
         <div
-          className="skill-code-preview min-w-max text-[13px] font-mono leading-relaxed"
+          className="skill-code-preview min-w-max text-[13px] font-mono leading-5"
           // Shiki escapes the source text before returning HTML; this injects
           // only the highlighter's `<pre><code><span>` structure and styles.
           dangerouslySetInnerHTML={{ __html: highlightedHtml }}
@@ -212,14 +212,14 @@ const PlainTextCode = React.memo(function PlainTextCode({
   lines,
 }: PlainTextCodeProps): React.ReactElement {
   return (
-    <table className="w-full min-w-max text-[13px] font-mono leading-relaxed">
+    <table className="w-full min-w-max text-[13px] font-mono leading-5">
       <tbody>
         {lines.map((line, idx) => (
           <tr key={idx} className="hover:bg-foreground/5">
-            <td className="w-12 px-2 py-0.5 text-right text-muted-foreground select-none border-r border-border/50 align-top">
+            <td className="h-5 w-12 px-2 py-0 text-right text-muted-foreground select-none border-r border-border/50 align-top">
               {idx + 1}
             </td>
-            <td className="px-3 py-0.5 whitespace-pre text-foreground">
+            <td className="h-5 px-3 py-0 whitespace-pre text-foreground">
               {line || ' '}
             </td>
           </tr>

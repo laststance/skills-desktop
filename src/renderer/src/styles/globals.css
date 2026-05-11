@@ -184,11 +184,18 @@
   .skill-code-preview code {
     display: block;
     counter-reset: line;
+    /* Shiki formats `<span class="line">` nodes with newline text between
+     * them; normal whitespace prevents those source-formatting newlines from
+     * becoming extra visual rows. */
+    white-space: normal;
   }
 
+  /* GitHub source panes use a compact 20px row rhythm, which keeps long skill
+   * files scannable without making blank lines look oversized. */
   .skill-code-preview .line {
     display: block;
-    min-height: 1.75em;
+    min-height: 1.25rem;
+    line-height: 1.25rem;
     padding-right: 0.75rem;
     white-space: pre;
   }
