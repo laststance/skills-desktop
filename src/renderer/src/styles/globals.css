@@ -160,6 +160,55 @@
   ::-webkit-scrollbar-thumb:hover {
     background: var(--muted-foreground);
   }
+
+  /* Shiki emits semantic CSS variables for light/dark token colors. Scoping
+   * them to the skill preview keeps Markdown/code panes aligned with the app
+   * theme without leaking highlighter styles into other UI. */
+  .skill-code-preview .shiki {
+    margin: 0;
+    min-width: max-content;
+    overflow: visible;
+    background: transparent !important;
+  }
+
+  .skill-code-preview .shiki,
+  .skill-code-preview .shiki span {
+    color: var(--shiki-light);
+  }
+
+  .dark .skill-code-preview .shiki,
+  .dark .skill-code-preview .shiki span {
+    color: var(--shiki-dark);
+  }
+
+  .skill-code-preview code {
+    display: block;
+    counter-reset: line;
+  }
+
+  .skill-code-preview .line {
+    display: block;
+    min-height: 1.75em;
+    padding-right: 0.75rem;
+    white-space: pre;
+  }
+
+  .skill-code-preview .line:hover {
+    background: oklch(from var(--foreground) l c h / 0.05);
+  }
+
+  .skill-code-preview .line::before {
+    counter-increment: line;
+    content: counter(line);
+    display: inline-block;
+    width: 3rem;
+    margin-right: 0.75rem;
+    padding-right: 0.5rem;
+    border-right: 1px solid var(--border);
+    color: var(--muted-foreground);
+    text-align: right;
+    user-select: none;
+  }
 }
 
 /* Window glow effect - subtle inner shadow for depth. Rides the chroma

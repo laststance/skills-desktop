@@ -23,8 +23,8 @@ interface CodePreviewProps {
  * Root here — rather than inside `FileTabs` — is what makes the panel
  * discoverable to assistive tech.
  *
- * All syntax highlighting was removed on purpose: plain monospace text reads
- * fine across every language we support and keeps the renderer bundle small.
+ * FileContent owns the actual rendering mode: source-like files get Shiki
+ * syntax highlighting, and Markdown can switch into a rendered reading view.
  */
 export const CodePreview = React.memo(function CodePreview({
   skillPath,
