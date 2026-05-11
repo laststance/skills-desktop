@@ -28,6 +28,7 @@ import {
   fetchSourceStats,
   fetchSyncPreview,
   selectAgent,
+  setActiveTab,
   setSearchQuery,
   setSyncPreview,
 } from '@/renderer/src/redux/slices/uiSlice'
@@ -64,6 +65,9 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
    * Click path text → clear all filters and show all skills
    */
   const handlePathClick = useCallback((): void => {
+    // Source-card navigation is the sidebar's universal installed-skills view,
+    // so it leaves Marketplace before clearing filters.
+    dispatch(setActiveTab('installed'))
     dispatch(selectAgent(null))
     dispatch(setSearchQuery(''))
   }, [dispatch])
