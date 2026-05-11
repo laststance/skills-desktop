@@ -132,6 +132,14 @@ describe('FileContent Markdown modes', () => {
     expect(pane.scrollWidth).toBeGreaterThan(pane.clientWidth)
     pane.scrollTo({ left: 240 })
     expect(pane.scrollLeft).toBe(0)
+
+    const blockCode = screen.getByText(/wide command/).query()
+    expect(blockCode).toBeInstanceOf(HTMLElement)
+    const preElement = blockCode?.closest('pre')
+    expect(preElement).toBeInstanceOf(HTMLPreElement)
+    const scrollContainer = preElement as HTMLPreElement
+    scrollContainer.scrollTo({ left: 240 })
+    expect(scrollContainer.scrollLeft).toBe(0)
   })
 
   it('adds a bottom spacer after source code so the final line can breathe', async () => {

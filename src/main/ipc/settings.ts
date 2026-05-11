@@ -1,5 +1,7 @@
+import { getMainWindow } from '@/main/services/mainWindowState'
 import { getSettings, saveSettings } from '@/main/services/settings'
 import { createOrFocusSettingsWindow } from '@/main/services/settingsWindow'
+import { applyWindowBackgroundBlur } from '@/main/utils/windowBackgroundBlur'
 import { IPC_CHANNELS } from '@/shared/ipc-channels'
 
 import { typedHandle } from './typedHandle'
@@ -35,6 +37,16 @@ export function registerSettingsHandlers(): void {
     // broadcast in that case so we don't fan out a no-op `settings:changed`
     // and trigger a redundant Redux replace in every open window.
     if (next !== before) {
+      if (
+        next.windowBackgroundBlurRadius !== before.windowBackgroundBlurRadius
+      ) {
+        const mainWindow = getMainWindow()
+        // Settings can outlive the main window on macOS; a closed main window
+        // simply receives the persisted blur the next time it is created.
+        if (mainWindow !== null) {
+          applyWindowBackgroundBlur(mainWindow, next.windowBackgroundBlurRadius)
+        }
+      }
       broadcastTypedEvent(IPC_CHANNELS.SETTINGS_CHANGED, next)
     }
     return next

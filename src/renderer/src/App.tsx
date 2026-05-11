@@ -10,6 +10,7 @@ import { UpdateToast } from './components/UpdateToast'
 import { useReleaseNotesToast } from './hooks/useReleaseNotesToast'
 import { useSettingsSync } from './hooks/useSettingsSync'
 import { useUpdateNotification } from './hooks/useUpdateNotification'
+import { cn } from './lib/utils'
 import { useAppSelector } from './redux/hooks'
 
 const separatorClass =
@@ -116,11 +117,20 @@ const App = React.memo(function App(): React.ReactElement {
   // Drive sonner's theme prop from the persisted redux mode so toasts honor
   // the user's light/dark choice. Pre-fix this was hardcoded `theme="dark"`.
   const mode = useAppSelector((state) => state.theme.mode)
+  const hasWindowBackgroundBlur = useAppSelector(
+    (state) => state.settings.windowBackgroundBlurRadius > 0,
+  )
 
   return (
     <TooltipProvider delayDuration={200}>
       {/* Window glow effect - subtle inner shadow for depth */}
-      <div className="flex h-screen bg-background text-foreground window-glow">
+      <div
+        className={cn(
+          'flex h-screen text-foreground window-glow',
+          // Keep the normal opaque surface until the user turns on blur.
+          hasWindowBackgroundBlur ? 'bg-background/85' : 'bg-background',
+        )}
+      >
         <Sidebar />
         <Group orientation="horizontal" className="flex-1 h-full">
           <Panel defaultSize="50%" minSize="20%">

@@ -21,6 +21,10 @@ import { attachExternalLinkHandler } from './utils/attachExternalLinkHandler'
 import { clampSizeToWorkArea } from './utils/clampSizeToWorkArea'
 import { isE2EBackgroundLaunch } from './utils/e2eEnv'
 import { getSecureWebPreferences } from './utils/secureWebPreferences'
+import {
+  applyWindowBackgroundBlur,
+  MAIN_WINDOW_OPAQUE_BACKGROUND,
+} from './utils/windowBackgroundBlur'
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason)
@@ -53,13 +57,14 @@ const DEFAULT_LAUNCH_WIDTH = 1200
 const DEFAULT_LAUNCH_HEIGHT = 800
 
 function createWindow(): void {
+  const settings = getSettings()
   // Resolve the launch size from settings. `undefined` means the user has
   // not chosen one — fall back to the default size + `maximize()` on
   // ready-to-show. When set, we clamp to the current display's work area
   // so a size saved on a wider monitor doesn't open off-screen on a smaller
   // one (clamping happens *before* the BrowserWindow is constructed because
   // Electron applies `width`/`height` literally — there's no built-in clamp).
-  const persistedWindowSize = getSettings().windowSize
+  const persistedWindowSize = settings.windowSize
   const primaryWorkArea = screen.getPrimaryDisplay().workAreaSize
   const hasCustomSize = persistedWindowSize !== undefined
   const launchSize = hasCustomSize
@@ -80,7 +85,10 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 600,
     show: false,
-    backgroundColor: '#0A0F1C',
+    backgroundColor: MAIN_WINDOW_OPAQUE_BACKGROUND,
+    // Required for the renderer root and Electron contentView alpha channel
+    // to reveal the native background blur when the Appearance slider is on.
+    transparent: true,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 16 },
     webPreferences: {
@@ -90,6 +98,7 @@ function createWindow(): void {
       webviewTag: true,
     },
   })
+  applyWindowBackgroundBlur(window, settings.windowBackgroundBlurRadius)
   setMainWindow(window)
 
   window.on('closed', () => {

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
+import {
+  WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
+  WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
+} from '@/shared/settings'
+
 import { IPC_ARG_SCHEMAS } from './ipc-schemas'
 
 /**
@@ -107,6 +112,12 @@ describe('settings:set lockstep with SettingsSchema', () => {
     )
   })
 
+  it('accepts the bounded windowBackgroundBlurRadius field', () => {
+    expect(schema.safeParse([{ windowBackgroundBlurRadius: 24 }]).success).toBe(
+      true,
+    )
+  })
+
   it('rejects an unknown enum value for preferredTerminal', () => {
     expect(
       schema.safeParse([{ preferredTerminal: 'fish-shell' }]).success,
@@ -116,6 +127,26 @@ describe('settings:set lockstep with SettingsSchema', () => {
   it('rejects customTerminalAppName longer than 64 chars', () => {
     expect(
       schema.safeParse([{ customTerminalAppName: 'a'.repeat(65) }]).success,
+    ).toBe(false)
+  })
+
+  it('rejects an invalid windowBackgroundBlurRadius value', () => {
+    expect(
+      schema.safeParse([
+        {
+          windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_MIN_RADIUS - 1,
+        },
+      ]).success,
+    ).toBe(false)
+    expect(
+      schema.safeParse([{ windowBackgroundBlurRadius: 24.5 }]).success,
+    ).toBe(false)
+    expect(
+      schema.safeParse([
+        {
+          windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_MAX_RADIUS + 1,
+        },
+      ]).success,
     ).toBe(false)
   })
 
@@ -136,6 +167,11 @@ describe('settings:set lockstep with SettingsSchema', () => {
     // default.
     const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
     expect('hiddenAgentIds' in parsed[0]).toBe(false)
+  })
+
+  it('parsing a partial without windowBackgroundBlurRadius does NOT inject a default', () => {
+    const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
+    expect('windowBackgroundBlurRadius' in parsed[0]).toBe(false)
   })
 
   it('accepts an explicit hiddenAgentIds array on settings:set', () => {

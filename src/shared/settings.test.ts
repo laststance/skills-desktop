@@ -4,6 +4,8 @@ import { AGENT_DEFINITIONS } from './constants'
 import {
   DEFAULT_SETTINGS,
   SettingsSchema,
+  WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
+  WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
   WINDOW_SIZE_MIN_DIMENSION,
 } from './settings'
 
@@ -18,6 +20,9 @@ describe('SettingsSchema', () => {
     const parsed = SettingsSchema.parse({})
     expect(parsed.defaultSkillTab).toBe('files')
     expect(parsed.preferredTerminal).toBe('terminal')
+    expect(parsed.windowBackgroundBlurRadius).toBe(
+      WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
+    )
   })
 
   it('legacy settings.json with only defaultSkillTab gets preferredTerminal default', () => {
@@ -125,6 +130,34 @@ describe('SettingsSchema', () => {
           height: WINDOW_SIZE_MIN_DIMENSION,
         },
       }),
+    ).toThrow()
+  })
+
+  it('accepts a windowBackgroundBlurRadius within the bounded range', () => {
+    const parsed = SettingsSchema.parse({
+      windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
+    })
+    expect(parsed.windowBackgroundBlurRadius).toBe(
+      WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
+    )
+  })
+
+  it('rejects a windowBackgroundBlurRadius outside the bounded range', () => {
+    expect(() =>
+      SettingsSchema.parse({
+        windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_MIN_RADIUS - 1,
+      }),
+    ).toThrow()
+    expect(() =>
+      SettingsSchema.parse({
+        windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_MAX_RADIUS + 1,
+      }),
+    ).toThrow()
+  })
+
+  it('rejects a non-integer windowBackgroundBlurRadius', () => {
+    expect(() =>
+      SettingsSchema.parse({ windowBackgroundBlurRadius: 12.5 }),
     ).toThrow()
   })
 

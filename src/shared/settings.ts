@@ -17,6 +17,25 @@ import type { AgentId } from './types'
 export const WINDOW_SIZE_MIN_DIMENSION = 400
 
 /**
+ * Bounds for the main window's Electron 42 background blur radius.
+ * Radius is persisted in whole CSS pixels because `view.setBackgroundBlur`
+ * accepts an integer pixel value, and a bounded range keeps a hand-edited
+ * settings file from requesting a visually unusable blur.
+ */
+export const WINDOW_BACKGROUND_BLUR_MIN_RADIUS = 0
+export const WINDOW_BACKGROUND_BLUR_MAX_RADIUS = 48
+/**
+ * Non-defaulting blur-radius schema shared by disk and IPC boundaries.
+ * `SettingsSchema` adds the persisted default; IPC keeps it optional so
+ * unrelated partial writes do not materialize a zero-radius reset.
+ */
+export const WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA = z
+  .number()
+  .int()
+  .min(WINDOW_BACKGROUND_BLUR_MIN_RADIUS)
+  .max(WINDOW_BACKGROUND_BLUR_MAX_RADIUS)
+
+/**
  * Persisted startup window size. `undefined` means "no preference —
  * use the app's launch default". Values are CSS pixels matching what
  * `BrowserWindow.getBounds()` returns (DPR is handled by Electron).
@@ -93,6 +112,9 @@ const HIDDEN_AGENT_IDS_SCHEMA = z
  *   the saved size — clamped to the current display work area so a
  *   saved size from a wider monitor never opens off-screen on a smaller
  *   one.
+ * - `windowBackgroundBlurRadius`: Electron 42 `View#setBackgroundBlur`
+ *   radius for the main window. `0` disables the translucent surface and
+ *   restores the opaque app background.
  * - `hiddenAgentIds`: agents the user has chosen to hide from the
  *   sidebar's installed list. Pure visibility toggle — the agent's
  *   skills folder, symlinks, and Marketplace presence are unaffected.
@@ -105,13 +127,16 @@ const HIDDEN_AGENT_IDS_SCHEMA = z
  * so unknown keys are rejected at the IPC boundary (defense in depth).
  *
  * @example
- * SettingsSchema.parse({}) // { defaultSkillTab: 'files', preferredTerminal: 'terminal', hiddenAgentIds: [] }
+ * SettingsSchema.parse({}) // { defaultSkillTab: 'files', preferredTerminal: 'terminal', windowBackgroundBlurRadius: 0, hiddenAgentIds: [] }
  */
 export const SettingsSchema = z.object({
   defaultSkillTab: z.enum(['files', 'info']).default('files'),
   preferredTerminal: z.enum(TERMINAL_APP_IDS).default('terminal'),
   customTerminalAppName: z.string().trim().min(1).max(64).optional(),
   windowSize: windowSizeSchema,
+  windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA.default(
+    WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
+  ),
   hiddenAgentIds: HIDDEN_AGENT_IDS_SCHEMA,
 })
 
@@ -132,5 +157,6 @@ export type Settings = z.infer<typeof SettingsSchema>
 export const DEFAULT_SETTINGS: Settings = {
   defaultSkillTab: 'files',
   preferredTerminal: 'terminal',
+  windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
   hiddenAgentIds: [],
 }

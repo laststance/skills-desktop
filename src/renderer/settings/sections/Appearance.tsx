@@ -1,62 +1,162 @@
 import React from 'react'
 
-import { Checkbox } from '@/renderer/src/components/ui/checkbox'
+import { Button } from '@/renderer/src/components/ui/button'
+import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
+import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
+import { useAppSelector } from '@/renderer/src/redux/hooks'
 import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from '@/renderer/src/components/ui/toggle-group'
+  DEFAULT_SETTINGS,
+  WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
+  WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
+} from '@/shared/settings'
 
-import { MockControl, SectionFrame, SectionRow } from './SectionFrame'
+import { SectionFrame, SectionRow } from './SectionFrame'
+
+const BACKGROUND_BLUR_LABEL = 'Opacity / Blur'
+
+interface BackgroundBlurRangeInputProps {
+  value: number
+  label: string
+  onBlurRadiusChange: (value: number) => void
+}
 
 /**
- * Appearance pane — visual stub for v0.15.0.
+ * Native range control for the Electron background blur setting.
+ * @param value - Current persisted blur radius in CSS pixels.
+ * @param label - Accessible label that matches the visible setting row.
+ * @param onBlurRadiusChange - Emits a numeric radius after input changes.
+ * @returns Slider input sized to fit the Settings row.
+ * @example
+ * <BackgroundBlurRangeInput value={24} label="Opacity / Blur" onBlurRadiusChange={setRadius} />
+ */
+const BackgroundBlurRangeInput = React.memo(function BackgroundBlurRangeInput({
+  value,
+  label,
+  onBlurRadiusChange,
+}: BackgroundBlurRangeInputProps): React.ReactElement {
+  const handleInputChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ): void => {
+    // Native range input emits strings; Zod validates the final integer at IPC.
+    const nextRadius = parseInt(event.currentTarget.value, 10)
+    if (Number.isNaN(nextRadius)) return
+    onBlurRadiusChange(nextRadius)
+  }
+
+  return (
+    <input
+      type="range"
+      min={WINDOW_BACKGROUND_BLUR_MIN_RADIUS}
+      max={WINDOW_BACKGROUND_BLUR_MAX_RADIUS}
+      step={1}
+      value={value}
+      onChange={handleInputChange}
+      aria-label={label}
+      className="h-2 min-w-0 flex-1 accent-primary"
+    />
+  )
+})
+
+/**
+ * Appearance pane for visual controls backed by persisted Settings.
  *
- * The shadcn theme presets are real and live in the main window, but
- * the user-facing density / compact-mode knobs are not yet wired to
- * Tailwind density variables. Shipping disabled controls (with a
- * "Coming in a future release" hover tooltip) here lets the Settings
- * shell preview the future shape without misleading users into
- * thinking the toggles do something today.
+ * The first real control is the Electron 42 background blur radius. It
+ * updates main-process settings through the same optimistic IPC path as
+ * General → default tab, so the main window reacts immediately while the
+ * value remains durable across launches.
  */
 export const Appearance = React.memo(function Appearance(): React.ReactElement {
+  const windowBackgroundBlurRadius = useAppSelector(
+    (state) => state.settings.windowBackgroundBlurRadius,
+  )
+  const updateSettings = useUpdateSettings()
+  const [blurRadiusDraft, setBlurRadiusDraft] = React.useState<number>(
+    windowBackgroundBlurRadius,
+  )
+  const persistTimerRef = React.useRef<number | null>(null)
+
+  const clearPersistTimer = React.useCallback((): void => {
+    if (persistTimerRef.current === null) return
+    window.clearTimeout(persistTimerRef.current)
+    persistTimerRef.current = null
+  }, [])
+
+  const persistBlurRadius = React.useCallback(
+    (nextRadius: number): void => {
+      clearPersistTimer()
+      persistTimerRef.current = window.setTimeout(() => {
+        updateSettings({ windowBackgroundBlurRadius: nextRadius })
+        persistTimerRef.current = null
+      }, 120)
+    },
+    [clearPersistTimer, updateSettings],
+  )
+
+  const handleBlurRadiusChange = React.useCallback(
+    (nextRadius: number): void => {
+      setBlurRadiusDraft(nextRadius)
+      persistBlurRadius(nextRadius)
+    },
+    [persistBlurRadius],
+  )
+
+  const handleResetBlurRadius = React.useCallback((): void => {
+    clearPersistTimer()
+    setBlurRadiusDraft(DEFAULT_SETTINGS.windowBackgroundBlurRadius)
+    updateSettings({
+      windowBackgroundBlurRadius: DEFAULT_SETTINGS.windowBackgroundBlurRadius,
+    })
+  }, [clearPersistTimer, updateSettings])
+
+  useComponentEffect(() => {
+    clearPersistTimer()
+    setBlurRadiusDraft(windowBackgroundBlurRadius)
+  }, [windowBackgroundBlurRadius, clearPersistTimer])
+
+  useComponentEffect(() => {
+    return () => {
+      clearPersistTimer()
+    }
+  }, [clearPersistTimer])
+
+  const blurRadiusLabel =
+    blurRadiusDraft === WINDOW_BACKGROUND_BLUR_MIN_RADIUS
+      ? 'Off'
+      : `${blurRadiusDraft}px`
+  const isDefaultBlurRadius =
+    blurRadiusDraft === DEFAULT_SETTINGS.windowBackgroundBlurRadius
+
   return (
     <SectionFrame
       title="Appearance"
-      description="Density and visual options for the main window."
+      description="Visual options for the main window."
     >
       <SectionRow
-        label="Density"
-        description="How tightly rows pack in skill and marketplace lists."
+        label={BACKGROUND_BLUR_LABEL}
+        description="Background glass strength for the main window."
       >
-        <MockControl>
-          <ToggleGroup
-            type="single"
-            variant="outline"
+        <div className="flex max-w-md flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <BackgroundBlurRangeInput
+              value={blurRadiusDraft}
+              label={BACKGROUND_BLUR_LABEL}
+              onBlurRadiusChange={handleBlurRadiusChange}
+            />
+            <span className="w-14 text-right text-sm tabular-nums text-muted-foreground">
+              {blurRadiusLabel}
+            </span>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
             size="sm"
-            value="comfortable"
-            disabled
-            aria-label="Density"
-            className="pointer-events-none"
+            onClick={handleResetBlurRadius}
+            disabled={isDefaultBlurRadius}
+            className="w-fit"
           >
-            <ToggleGroupItem value="comfortable" disabled>
-              Comfortable
-            </ToggleGroupItem>
-            <ToggleGroupItem value="compact" disabled>
-              Compact
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </MockControl>
-      </SectionRow>
-      <SectionRow
-        label="Compact mode"
-        description="Tighter padding across panels for smaller displays."
-      >
-        <MockControl>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox disabled />
-            <span>Use compact spacing</span>
-          </label>
-        </MockControl>
+            Reset to default
+          </Button>
+        </div>
       </SectionRow>
     </SectionFrame>
   )
