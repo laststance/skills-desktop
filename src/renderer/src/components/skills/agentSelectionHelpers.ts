@@ -8,6 +8,14 @@ import type { Agent, AgentId, SymlinkInfo } from '@/shared/types'
  */
 export type OccupiedAgentReason = 'linked' | 'local' | 'broken'
 
+export interface CopyAgentOptionViewModel {
+  agentId: AgentId
+  name: Agent['name']
+  checked: boolean
+  disabled: boolean
+  secondaryLabel?: string
+}
+
 const OCCUPIED_AGENT_REASON_LABELS: Record<OccupiedAgentReason, string> = {
   linked: 'linked',
   local: 'local',
@@ -95,6 +103,45 @@ export function getOccupiedAgentReasonLabel(
 }
 
 /**
+ * Build the presentational row props for CopyToAgentsModal.
+ * This keeps occupancy, disabled, and secondary-label branching outside JSX so
+ * the modal remains mostly markup and this decision table stays unit-testable.
+ *
+ * @param agent - Target agent row candidate.
+ * @param options.occupiedAgentReasonById - Destination occupancy lookup.
+ * @param options.selectedAgentIds - Agent ids currently checked in Redux.
+ * @param options.copying - Whether a copy IPC round-trip is in flight.
+ * @param options.isSourceUnavailable - Whether the selected source path is valid.
+ * @returns Render-ready props for CopyToAgentOption.
+ * @example
+ * buildCopyAgentOptionViewModel(agent, {
+ *   occupiedAgentReasonById: new Map(),
+ *   selectedAgentIds: ['codex'],
+ *   copying: false,
+ *   isSourceUnavailable: false,
+ * })
+ */
+export function buildCopyAgentOptionViewModel(
+  agent: Agent,
+  options: {
+    occupiedAgentReasonById: ReadonlyMap<AgentId, OccupiedAgentReason>
+    selectedAgentIds: readonly AgentId[]
+    copying: boolean
+    isSourceUnavailable: boolean
+  },
+): CopyAgentOptionViewModel {
+  const occupiedReason = options.occupiedAgentReasonById.get(agent.id)
+  const isOccupied = occupiedReason !== undefined
+  return {
+    agentId: agent.id,
+    name: agent.name,
+    checked: isOccupied || options.selectedAgentIds.includes(agent.id),
+    disabled: isOccupied || options.copying || options.isSourceUnavailable,
+    secondaryLabel: getCopyAgentOptionSecondaryLabel(agent, occupiedReason),
+  }
+}
+
+/**
  * Determine whether a single symlink row means the destination path is occupied.
  * @param symlink - One agent's relationship to the current skill.
  * @returns
@@ -122,4 +169,24 @@ function getOccupiedAgentReason(
   }
 
   return null
+}
+
+/**
+ * Pick the single secondary label shown beside a Copy modal agent row.
+ * Occupied destinations outrank the "not installed" hint because they explain
+ * why the destination cannot be selected.
+ */
+function getCopyAgentOptionSecondaryLabel(
+  agent: Agent,
+  occupiedReason: OccupiedAgentReason | undefined,
+): string | undefined {
+  if (occupiedReason !== undefined) {
+    return getOccupiedAgentReasonLabel(occupiedReason)
+  }
+
+  if (!agent.exists) {
+    return 'not installed'
+  }
+
+  return undefined
 }

@@ -22,8 +22,8 @@ import {
 import type { AgentId } from '@/shared/types'
 
 import {
+  buildCopyAgentOptionViewModel,
   getOccupiedAgentReasonById,
-  getOccupiedAgentReasonLabel,
   getTargetAgentsForSelection,
 } from './agentSelectionHelpers'
 import type { OccupiedAgentReason } from './agentSelectionHelpers'
@@ -73,6 +73,23 @@ export const CopyToAgentsModal = React.memo(
     }, [skillToCopy, selectedAgentId])
     const isSourceUnavailable = sourcePath === null
 
+    const copyAgentOptionViewModels = useMemo(() => {
+      return targetAgents.map((agent) =>
+        buildCopyAgentOptionViewModel(agent, {
+          occupiedAgentReasonById,
+          selectedAgentIds: selectedAgents,
+          copying,
+          isSourceUnavailable,
+        }),
+      )
+    }, [
+      copying,
+      isSourceUnavailable,
+      occupiedAgentReasonById,
+      selectedAgents,
+      targetAgents,
+    ])
+
     const handleClose = useCallback((): void => {
       if (!copying) {
         dispatch(setSkillToCopy(null))
@@ -119,24 +136,15 @@ export const CopyToAgentsModal = React.memo(
           </DialogHeader>
 
           <div className="max-h-64 overflow-y-auto space-y-2 py-2">
-            {targetAgents.map((agent) => {
-              const occupiedReason = occupiedAgentReasonById.get(agent.id)
+            {copyAgentOptionViewModels.map((viewModel) => {
               return (
                 <CopyToAgentOption
-                  key={agent.id}
-                  agentId={agent.id}
-                  name={agent.name}
-                  exists={agent.exists}
-                  checked={
-                    occupiedReason !== undefined ||
-                    selectedAgents.includes(agent.id)
-                  }
-                  disabled={
-                    occupiedReason !== undefined ||
-                    copying ||
-                    isSourceUnavailable
-                  }
-                  occupiedReason={occupiedReason}
+                  key={viewModel.agentId}
+                  agentId={viewModel.agentId}
+                  name={viewModel.name}
+                  checked={viewModel.checked}
+                  disabled={viewModel.disabled}
+                  secondaryLabel={viewModel.secondaryLabel}
                   onToggle={handleAgentToggle}
                 />
               )
@@ -172,10 +180,9 @@ export const CopyToAgentsModal = React.memo(
 interface CopyToAgentOptionProps {
   agentId: AgentId
   name: string
-  exists: boolean
   checked: boolean
   disabled: boolean
-  occupiedReason?: OccupiedAgentReason
+  secondaryLabel?: string
   onToggle: (agentId: AgentId) => void
 }
 
@@ -184,14 +191,12 @@ type CheckboxCheckedState = boolean | 'indeterminate'
 const CopyToAgentOption = React.memo(function CopyToAgentOption({
   agentId,
   name,
-  exists,
   checked,
   disabled,
-  occupiedReason,
+  secondaryLabel,
   onToggle,
 }: CopyToAgentOptionProps): React.ReactElement {
   const checkboxId = `copy-agent-${agentId}`
-  const alreadyExists = occupiedReason !== undefined
 
   const handleToggle = useCallback(
     (_checked?: CheckboxCheckedState): void => {
@@ -233,14 +238,9 @@ const CopyToAgentOption = React.memo(function CopyToAgentOption({
         }
       >
         {name}
-        {!exists && (
+        {secondaryLabel !== undefined && (
           <span className="text-xs text-muted-foreground ml-2">
-            not installed
-          </span>
-        )}
-        {alreadyExists && occupiedReason && (
-          <span className="text-xs text-muted-foreground ml-2">
-            {getOccupiedAgentReasonLabel(occupiedReason)}
+            {secondaryLabel}
           </span>
         )}
       </div>

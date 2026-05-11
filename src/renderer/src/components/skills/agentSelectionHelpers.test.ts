@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Agent } from '@/shared/types'
+import type { Agent, AgentId } from '@/shared/types'
 
-import { getTargetAgentsForSelection } from './agentSelectionHelpers'
+import {
+  buildCopyAgentOptionViewModel,
+  getTargetAgentsForSelection,
+} from './agentSelectionHelpers'
 
 /**
  * Creates a minimal Agent object for selection-helper unit tests.
@@ -51,5 +54,60 @@ describe('getTargetAgentsForSelection', () => {
     })
 
     expect(result.map((agent) => agent.id)).toEqual(['cursor', 'amp'])
+  })
+})
+
+describe('buildCopyAgentOptionViewModel', () => {
+  it('marks a selected available agent as checked and enabled', () => {
+    const agent = makeAgent({ id: 'codex', exists: true, name: 'Codex' })
+
+    const result = buildCopyAgentOptionViewModel(agent, {
+      occupiedAgentReasonById: new Map(),
+      selectedAgentIds: ['codex' as AgentId],
+      copying: false,
+      isSourceUnavailable: false,
+    })
+
+    expect(result).toEqual({
+      agentId: 'codex',
+      name: 'Codex',
+      checked: true,
+      disabled: false,
+      secondaryLabel: undefined,
+    })
+  })
+
+  it('uses occupancy as the checked/disabled reason before install status', () => {
+    const agent = makeAgent({ id: 'cursor', exists: false, name: 'Cursor' })
+
+    const result = buildCopyAgentOptionViewModel(agent, {
+      occupiedAgentReasonById: new Map([['cursor' as AgentId, 'broken']]),
+      selectedAgentIds: [],
+      copying: false,
+      isSourceUnavailable: false,
+    })
+
+    expect(result).toMatchObject({
+      checked: true,
+      disabled: true,
+      secondaryLabel: 'broken link',
+    })
+  })
+
+  it('disables otherwise-free rows while copying or source is unavailable', () => {
+    const agent = makeAgent({ id: 'amp', exists: false, name: 'Amp' })
+
+    const result = buildCopyAgentOptionViewModel(agent, {
+      occupiedAgentReasonById: new Map(),
+      selectedAgentIds: [],
+      copying: true,
+      isSourceUnavailable: true,
+    })
+
+    expect(result).toMatchObject({
+      checked: false,
+      disabled: true,
+      secondaryLabel: 'not installed',
+    })
   })
 })
