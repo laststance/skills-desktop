@@ -48,12 +48,16 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
     dispatch(fetchSourceStats())
   }, [dispatch])
 
-  const handleRefresh = useCallback((): void => {
-    void Promise.all([
-      dispatch(fetchSourceStats()),
-      dispatch(fetchSkills()),
-      dispatch(fetchAgents()),
-    ])
+  const handleRefresh = useCallback(async (): Promise<void> => {
+    try {
+      await Promise.all([
+        dispatch(fetchSourceStats()).unwrap(),
+        dispatch(fetchSkills()).unwrap(),
+        dispatch(fetchAgents()).unwrap(),
+      ])
+    } catch {
+      toast.error('Failed to refresh data')
+    }
   }, [dispatch])
 
   /**

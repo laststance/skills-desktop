@@ -196,6 +196,8 @@ const CopyToAgentOption = React.memo(function CopyToAgentOption({
     if (!disabled) onToggle(agentId)
   }, [agentId, disabled, onToggle])
 
+  // Native row clicks use a plain wrapper; passing handleToggle directly would
+  // trip no-deopt-use-callback on the intrinsic <div>.
   const handleRowClick = (): void => {
     handleToggle()
   }

@@ -159,12 +159,16 @@ export const General = React.memo(function General(): React.ReactElement {
    * of failing silently. Disk write only happens on a real bounds value.
    */
   const handleSaveCurrentSize = useCallback(async (): Promise<void> => {
-    const bounds = await window.electron.window.getMainBounds()
-    if (bounds === null) {
+    try {
+      const bounds = await window.electron.window.getMainBounds()
+      if (bounds === null) {
+        setIsMainWindowAvailable(false)
+        return
+      }
+      updateSettings({ windowSize: bounds })
+    } catch {
       setIsMainWindowAvailable(false)
-      return
     }
-    updateSettings({ windowSize: bounds })
   }, [updateSettings])
 
   const handleSaveCurrentSizeClick = useCallback((): void => {

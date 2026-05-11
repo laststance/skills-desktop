@@ -1,9 +1,13 @@
 import { X } from 'lucide-react'
-import React, { useMemo } from 'react'
+import React from 'react'
 
 import { MIN_TOUCH_TARGET_PX } from '@/shared/constants'
 
 import { Button } from './button'
+
+const filterPillButtonStyle = {
+  minHeight: MIN_TOUCH_TARGET_PX,
+} satisfies React.CSSProperties
 
 interface FilterPillProps {
   /**
@@ -38,8 +42,6 @@ export const FilterPill = React.memo(function FilterPill({
   onClear,
   testId,
 }: FilterPillProps): React.ReactElement {
-  const buttonStyle = useMemo(() => ({ minHeight: MIN_TOUCH_TARGET_PX }), [])
-
   return (
     <div
       data-testid={testId}
@@ -50,7 +52,7 @@ export const FilterPill = React.memo(function FilterPill({
         variant="ghost"
         size="sm"
         onClick={onClear}
-        style={buttonStyle}
+        style={filterPillButtonStyle}
         className="px-3"
       >
         <X className="h-3 w-3 mr-1" />

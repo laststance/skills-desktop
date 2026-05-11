@@ -49,8 +49,7 @@ interface UndoToastProps {
  *   - Swap text color from `text-muted-foreground` to `text-foreground` when
  *     `remainingMs <= URGENT_SECONDS_THRESHOLD * 1000`.
  *   - On Undo click: swap the button for a spinner + "Restoring N skills..."
- *     and await `onUndo`. Then fire `onUndoComplete` so the parent can dismiss
- *     the toast.
+ *     and await `onUndo`. Then dismiss this toast via `toast.dismiss(toastId)`.
  *   - Keyboard: the wrapper is `tabIndex={-1}` so arrow-key focus cycles do
  *     not land on the toast body (it is supplemental, not a required
  *     interaction). The Undo button and sonner's close button remain focusable.
@@ -58,10 +57,14 @@ interface UndoToastProps {
  * @param props - UndoToastProps — see interface above
  * @returns Rendered toast body
  * @example
- * const toastId = toast(
- *   <UndoToast skillNames={['task','theme']} ... onUndoComplete={...} />,
- *   { duration: 15_000, closeButton: true, onDismiss, onAutoClose },
- * )
+ * const toastId = `bulk-delete-${Date.now()}`
+ * toast(<UndoToast skillNames={['task','theme']} ... toastId={toastId} />, {
+ *   id: toastId,
+ *   duration: 15_000,
+ *   closeButton: true,
+ *   onDismiss,
+ *   onAutoClose,
+ * })
  */
 export const UndoToast = React.memo(function UndoToast({
   skillNames,

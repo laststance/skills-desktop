@@ -38,9 +38,6 @@ export const UpdateToast = React.memo(
     const handleDismiss = useCallback((): void => {
       dispatch(dismiss())
     }, [dispatch])
-    const handleCloseButtonClick = (): void => {
-      handleDismiss()
-    }
 
     // Don't show if dismissed or no update activity
     if (dismissed || status === 'idle' || status === 'checking') {
@@ -120,14 +117,16 @@ export const UpdateToast = React.memo(
             {headerIcon}
             <span className="font-medium text-sm">{headerTitle}</span>
           </div>
-          <button
+          <Button
             type="button"
-            onClick={handleCloseButtonClick}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            onClick={handleDismiss}
+            variant="ghost"
+            size="icon"
+            className="size-7 p-0 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
             aria-label="Dismiss"
           >
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
 
         {/* Content */}

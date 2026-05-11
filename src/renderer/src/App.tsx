@@ -53,6 +53,10 @@ const toastClassNames = {
     'bg-popover text-muted-foreground border-border hover:bg-accent hover:text-foreground',
 } as const
 
+const toastOptions = {
+  classNames: toastClassNames,
+} satisfies React.ComponentProps<typeof Toaster>['toastOptions']
+
 /**
  * Inline style on the Toaster itself. Sonner reads `--normal-bg` /
  * `--normal-border` / `--normal-text` off the toaster root and forwards them
@@ -112,10 +116,6 @@ const App = React.memo(function App(): React.ReactElement {
   // Drive sonner's theme prop from the persisted redux mode so toasts honor
   // the user's light/dark choice. Pre-fix this was hardcoded `theme="dark"`.
   const mode = useAppSelector((state) => state.theme.mode)
-  const toastOptions = React.useMemo(
-    () => ({ classNames: toastClassNames }),
-    [],
-  )
 
   return (
     <TooltipProvider delayDuration={200}>

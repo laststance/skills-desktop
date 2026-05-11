@@ -224,6 +224,8 @@ const AddSymlinkAgentOption = React.memo(function AddSymlinkAgentOption({
     if (!disabled) onToggle(agentId)
   }, [agentId, disabled, onToggle])
 
+  // The intrinsic <div> intentionally receives a plain wrapper; passing
+  // handleToggle directly would violate the no-deopt-use-callback lint rule.
   const handleRowClick = (): void => {
     handleToggle()
   }
