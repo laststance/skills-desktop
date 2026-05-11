@@ -160,3 +160,19 @@ describe('Sidebar → AgentItem context menu', () => {
     })
   })
 })
+
+describe('Sidebar → AgentItem navigation', () => {
+  it('switches Marketplace back to Installed when an installed agent is clicked', async () => {
+    const { screen, store } = await renderItem([])
+    const { setActiveTab } = await import('@/renderer/src/redux/slices/uiSlice')
+
+    store.dispatch(setActiveTab('marketplace'))
+
+    await screen
+      .getByRole('button', { name: /Filter skills by Claude Code/i })
+      .click()
+
+    expect(store.getState().ui.activeTab).toBe('installed')
+    expect(store.getState().ui.selectedAgentId).toBe('claude-code')
+  })
+})

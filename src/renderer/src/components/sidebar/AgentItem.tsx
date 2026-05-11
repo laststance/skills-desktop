@@ -21,6 +21,7 @@ import { setAgentToDelete } from '@/renderer/src/redux/slices/agentsSlice'
 import { selectHiddenAgentIds } from '@/renderer/src/redux/slices/settingsSlice'
 import {
   selectAgent,
+  setActiveTab,
   setCleanupAgentTarget,
 } from '@/renderer/src/redux/slices/uiSlice'
 import { AGENT_DEFINITIONS } from '@/shared/constants'
@@ -89,6 +90,9 @@ export const AgentItem = React.memo(function AgentItem({
 
   const handleClick = (): void => {
     if (!agent.exists) return
+    // Sidebar agent navigation always targets the installed-skills list, even
+    // when the user is currently browsing Marketplace discovery.
+    dispatch(setActiveTab('installed'))
     dispatch(selectAgent(isSelected ? null : agent.id))
   }
 
