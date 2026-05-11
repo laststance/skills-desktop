@@ -161,6 +161,11 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
                 variant="ghost"
                 size="icon"
                 className="h-11 w-11"
+                aria-label={
+                  isRefreshing
+                    ? 'Refreshing skills and agent status'
+                    : 'Refresh skills and agent status'
+                }
                 onClick={(e) => {
                   e.stopPropagation()
                   handleRefresh()

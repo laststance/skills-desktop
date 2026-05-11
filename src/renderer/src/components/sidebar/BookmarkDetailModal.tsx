@@ -5,6 +5,7 @@ import { Button } from '@/renderer/src/components/ui/button'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/renderer/src/components/ui/dialog'
@@ -96,6 +97,10 @@ export const BookmarkDetailModal = React.memo(
                 <DialogTitle className="text-base font-semibold">
                   {bookmark.name}
                 </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Bookmark details for {bookmark.name}. Review install status,
+                  open the source repository, or remove this bookmark.
+                </DialogDescription>
               </DialogHeader>
 
               {bookmark.repo ? (

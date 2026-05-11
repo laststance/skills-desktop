@@ -3,6 +3,52 @@ import { resolve } from 'path'
 import { playwright } from '@vitest/browser-playwright'
 import { defineConfig } from 'vitest/config'
 
+/**
+ * Shiki modules used by the skill file preview. Vitest browser mode reloads
+ * tests when it discovers new optimized dependencies mid-run; keeping the
+ * focused highlighter bundle explicit makes those component tests stable.
+ */
+const shikiPreviewDeps = [
+  'shiki/core',
+  'shiki/engine/javascript',
+  'shiki/langs/bash.mjs',
+  'shiki/langs/c.mjs',
+  'shiki/langs/cpp.mjs',
+  'shiki/langs/csharp.mjs',
+  'shiki/langs/css.mjs',
+  'shiki/langs/dockerfile.mjs',
+  'shiki/langs/dotenv.mjs',
+  'shiki/langs/fish.mjs',
+  'shiki/langs/go.mjs',
+  'shiki/langs/html.mjs',
+  'shiki/langs/ini.mjs',
+  'shiki/langs/java.mjs',
+  'shiki/langs/javascript.mjs',
+  'shiki/langs/json.mjs',
+  'shiki/langs/jsonc.mjs',
+  'shiki/langs/jsx.mjs',
+  'shiki/langs/kotlin.mjs',
+  'shiki/langs/lua.mjs',
+  'shiki/langs/make.mjs',
+  'shiki/langs/md.mjs',
+  'shiki/langs/mdx.mjs',
+  'shiki/langs/php.mjs',
+  'shiki/langs/python.mjs',
+  'shiki/langs/ruby.mjs',
+  'shiki/langs/rust.mjs',
+  'shiki/langs/scss.mjs',
+  'shiki/langs/sql.mjs',
+  'shiki/langs/swift.mjs',
+  'shiki/langs/toml.mjs',
+  'shiki/langs/tsx.mjs',
+  'shiki/langs/typescript.mjs',
+  'shiki/langs/xml.mjs',
+  'shiki/langs/yaml.mjs',
+  'shiki/langs/zsh.mjs',
+  'shiki/themes/github-dark.mjs',
+  'shiki/themes/github-light.mjs',
+] as const
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -78,6 +124,7 @@ export default defineConfig({
             // a stale React copy and `useState` returns undefined → render
             // crash. Listing the package here forces it into the shared chunk.
             '@radix-ui/react-toggle-group',
+            ...shikiPreviewDeps,
           ],
         },
         test: {
