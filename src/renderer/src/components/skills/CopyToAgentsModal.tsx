@@ -42,11 +42,14 @@ export const CopyToAgentsModal = React.memo(
     const selectedAgents = useAppSelector(selectSelectedCopyAgentIds)
     const { selectedAgentId } = useAppSelector((state) => state.ui)
     const { items: agents } = useAppSelector((state) => state.agents)
+    const skillToCopyName = skillToCopy?.name ?? null
 
-    // Reset Copy modal selections when the modal opens for a new skill or closes.
+    // Reset Copy modal selections when the target skill identity changes or
+    // closes. A full skill object can be refreshed while the modal is open, so
+    // depending on the stable name avoids wiping the user's current checks.
     useComponentEffect(() => {
       dispatch(clearCopyAgentSelection())
-    }, [dispatch, skillToCopy])
+    }, [dispatch, skillToCopyName])
 
     const targetAgents = useMemo(() => {
       if (!selectedAgentId) return []
