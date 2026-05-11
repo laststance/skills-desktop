@@ -1,5 +1,5 @@
 import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import { match } from 'ts-pattern'
 
 import {
@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/renderer/src/components/ui/dropdown-menu'
+import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
@@ -47,12 +48,24 @@ export const DashboardPageTabs = React.memo(
     // tab after arrow-key navigation changes the store.
     const tablistRef = useRef<HTMLDivElement>(null)
 
-    // Single page + view mode: nothing meaningful to render.
-    if (pages.length <= 1 && !isEditMode) return null
-
     const handleAddPage = (): void => {
       dispatch(addPage())
     }
+
+    const handleSelectPage = useCallback(
+      (pageId: DashboardPageId): void => {
+        dispatch(setCurrentPage(pageId))
+      },
+      [dispatch],
+    )
+
+    const handleStartRename = useCallback((pageId: DashboardPageId): void => {
+      setRenamingPageId(pageId)
+    }, [])
+
+    const handleFinishRename = useCallback((): void => {
+      setRenamingPageId(null)
+    }, [])
 
     // WAI-ARIA Authoring Practices — tablist keyboard navigation.
     // ArrowLeft/Right cycle (wrap at ends); Home/End jump to first/last.
@@ -91,6 +104,9 @@ export const DashboardPageTabs = React.memo(
       })
     }
 
+    // Single page + view mode: nothing meaningful to render.
+    if (pages.length <= 1 && !isEditMode) return null
+
     return (
       <div
         ref={tablistRef}
@@ -107,9 +123,9 @@ export const DashboardPageTabs = React.memo(
             isEditMode={isEditMode}
             isRenaming={renamingPageId === page.id}
             canDelete={pages.length > 1}
-            onSelect={() => dispatch(setCurrentPage(page.id))}
-            onStartRename={() => setRenamingPageId(page.id)}
-            onFinishRename={() => setRenamingPageId(null)}
+            onSelect={handleSelectPage}
+            onStartRename={handleStartRename}
+            onFinishRename={handleFinishRename}
           />
         ))}
         {isEditMode && (
@@ -148,8 +164,8 @@ interface PageTabProps {
   isEditMode: boolean
   isRenaming: boolean
   canDelete: boolean
-  onSelect: () => void
-  onStartRename: () => void
+  onSelect: (pageId: DashboardPageId) => void
+  onStartRename: (pageId: DashboardPageId) => void
   onFinishRename: () => void
 }
 
@@ -169,12 +185,20 @@ const PageTab = React.memo(function PageTab({
 
   // Reset the draft to the latest canonical name each time rename mode opens.
   // Using rAF defers focus until after the input is mounted in the DOM.
-  useEffect(() => {
+  useComponentEffect(() => {
     if (isRenaming) {
       setDraftName(page.name)
       requestAnimationFrame(() => renameInputRef.current?.select())
     }
   }, [isRenaming, page.name])
+
+  const handleSelect = (): void => {
+    onSelect(page.id)
+  }
+
+  const handleStartRename = useCallback((): void => {
+    onStartRename(page.id)
+  }, [onStartRename, page.id])
 
   const commitRename = (): void => {
     const trimmedName = draftName.trim()
@@ -188,7 +212,7 @@ const PageTab = React.memo(function PageTab({
     onFinishRename()
   }
 
-  const handleDelete = (): void => {
+  const handleDelete = useCallback((): void => {
     // The reducer already protects the last page, but the trigger is hidden
     // in that case anyway — keep the guard for defensive symmetry.
     if (!canDelete) return
@@ -198,7 +222,7 @@ const PageTab = React.memo(function PageTab({
     if (userConfirmed) {
       dispatch(removePage(page.id))
     }
-  }
+  }, [canDelete, dispatch, page.id, page.name])
 
   if (isRenaming) {
     return (
@@ -233,7 +257,7 @@ const PageTab = React.memo(function PageTab({
         type="button"
         role="tab"
         aria-selected={isActive}
-        onClick={onSelect}
+        onClick={handleSelect}
         className={cn(
           'min-h-11 px-3 text-xs font-medium rounded-md transition-colors whitespace-nowrap',
           isActive
@@ -260,7 +284,7 @@ const PageTab = React.memo(function PageTab({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onStartRename}>
+            <DropdownMenuItem onClick={handleStartRename}>
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
               Rename
             </DropdownMenuItem>

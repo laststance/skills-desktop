@@ -1,5 +1,5 @@
 import { Loader2 } from 'lucide-react'
-import React, { useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { Checkbox } from '@/renderer/src/components/ui/checkbox'
@@ -42,22 +42,22 @@ export const InstallModal = React.memo(
       [agents],
     )
 
-    const handleClose = (): void => {
+    const handleClose = useCallback((): void => {
       if (!isInstalling) {
         dispatch(selectSkillForInstall(null))
         setSelectedAgents(['claude-code'])
       }
-    }
+    }, [dispatch, isInstalling])
 
-    const handleAgentToggle = (agentId: AgentId): void => {
+    const handleAgentToggle = useCallback((agentId: AgentId): void => {
       setSelectedAgents((prev) =>
         prev.includes(agentId)
           ? prev.filter((id) => id !== agentId)
           : [...prev, agentId],
       )
-    }
+    }, [])
 
-    const handleInstall = async (): Promise<void> => {
+    const handleInstall = useCallback(async (): Promise<void> => {
       if (!selectedSkill || selectedAgents.length === 0) return
 
       const options: InstallOptions = {
@@ -71,7 +71,7 @@ export const InstallModal = React.memo(
       // Refresh the skills list after installation
       dispatch(fetchSkills())
       handleClose()
-    }
+    }, [dispatch, handleClose, isGlobal, selectedAgents, selectedSkill])
 
     return (
       <Dialog open={!!selectedSkill} onOpenChange={handleClose}>
@@ -90,17 +90,14 @@ export const InstallModal = React.memo(
               <h4 className="text-sm font-medium mb-3">Select Agents</h4>
               <div className="max-h-60 overflow-y-auto rounded-md border p-2 space-y-1">
                 {existingAgents.map((agent) => (
-                  <label
+                  <InstallAgentOption
                     key={agent.id}
-                    className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer"
-                  >
-                    <Checkbox
-                      checked={selectedAgents.includes(agent.id)}
-                      onCheckedChange={() => handleAgentToggle(agent.id)}
-                      disabled={isInstalling}
-                    />
-                    <span className="text-sm">{agent.name}</span>
-                  </label>
+                    agentId={agent.id}
+                    name={agent.name}
+                    checked={selectedAgents.includes(agent.id)}
+                    disabled={isInstalling}
+                    onToggle={handleAgentToggle}
+                  />
                 ))}
               </div>
               {selectedAgents.length === 0 && (
@@ -150,3 +147,34 @@ export const InstallModal = React.memo(
     )
   },
 )
+
+interface InstallAgentOptionProps {
+  agentId: AgentId
+  name: string
+  checked: boolean
+  disabled: boolean
+  onToggle: (agentId: AgentId) => void
+}
+
+const InstallAgentOption = React.memo(function InstallAgentOption({
+  agentId,
+  name,
+  checked,
+  disabled,
+  onToggle,
+}: InstallAgentOptionProps): React.ReactElement {
+  const handleCheckedChange = useCallback((): void => {
+    onToggle(agentId)
+  }, [agentId, onToggle])
+
+  return (
+    <label className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer">
+      <Checkbox
+        checked={checked}
+        onCheckedChange={handleCheckedChange}
+        disabled={disabled}
+      />
+      <span className="text-sm">{name}</span>
+    </label>
+  )
+})

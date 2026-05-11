@@ -1,5 +1,5 @@
 import { Loader2, Trash2, Unlink, X } from 'lucide-react'
-import React from 'react'
+import React, { useCallback } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { cn } from '@/renderer/src/lib/utils'
@@ -71,6 +71,14 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
   const bulkUnlinking = useAppSelector(selectBulkUnlinking)
   const bulkProgress = useAppSelector(selectBulkProgress)
 
+  const handleSelectAllVisible = useCallback((): void => {
+    dispatch(selectAll(visibleNames))
+  }, [dispatch, visibleNames])
+
+  const handleClear = useCallback((): void => {
+    dispatch(clearSelection())
+  }, [dispatch])
+
   // Belt-and-suspenders: the listener middleware already clears selection on
   // any context switch that exits bulkSelectMode, but gating here enforces the
   // invariant at the render boundary too. The destructive Delete/Unlink action
@@ -90,14 +98,6 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
 
   const showProgress =
     bulkProgress !== null && bulkProgress.total >= BULK_PROGRESS_THRESHOLD
-
-  const handleSelectAllVisible = (): void => {
-    dispatch(selectAll(visibleNames))
-  }
-
-  const handleClear = (): void => {
-    dispatch(clearSelection())
-  }
 
   return (
     <div

@@ -56,6 +56,10 @@ export const DashboardEditToolbar = React.memo(
       }
     }, [dispatch])
 
+    const handleToggleEditMode = useCallback((): void => {
+      dispatch(toggleEditMode())
+    }, [dispatch])
+
     return (
       <>
         <div className="flex items-center justify-end gap-1 px-3 py-1 border-b border-border shrink-0">
@@ -93,7 +97,7 @@ export const DashboardEditToolbar = React.memo(
           <Button
             variant={isEditMode ? 'secondary' : 'ghost'}
             size="sm"
-            onClick={() => dispatch(toggleEditMode())}
+            onClick={handleToggleEditMode}
             aria-pressed={isEditMode}
             className="min-h-11 gap-1.5 text-xs"
           >

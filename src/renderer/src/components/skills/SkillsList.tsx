@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import { List, type RowComponentProps } from 'react-window'
 
+import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectFilteredSkills } from '@/renderer/src/redux/selectors'
 import {
@@ -70,7 +71,7 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
   const selectedSource = useAppSelector(selectSelectedSource)
   const filteredSkills = useAppSelector(selectFilteredSkills)
 
-  useEffect(() => {
+  useComponentEffect(() => {
     dispatch(fetchSkills())
   }, [dispatch])
 
@@ -89,6 +90,8 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
     },
     [filteredSkills, selectedAgentId],
   )
+  const rowProps = useMemo(() => ({ data: filteredSkills }), [filteredSkills])
+  const listStyle = useMemo(() => ({ width: '100%', height: '100%' }), [])
 
   if (loading && skills.length === 0) {
     return (
@@ -139,9 +142,9 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
       rowComponent={SkillRow}
       rowCount={filteredSkills.length}
       rowHeight={getRowHeight}
-      rowProps={{ data: filteredSkills }}
+      rowProps={rowProps}
       overscanCount={5}
-      style={{ width: '100%', height: '100%' }}
+      style={listStyle}
     />
   )
 })

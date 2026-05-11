@@ -3,6 +3,13 @@ import tsPrefixer from 'eslint-config-ts-prefixer'
 import reactYouMightNotNeedAnEffect from 'eslint-plugin-react-you-might-not-need-an-effect'
 import { defineConfig } from 'eslint/config'
 
+const laststanceReactNextRules = Object.fromEntries(
+  Object.keys(laststanceReactNextPlugin.rules ?? {}).map((ruleName) => [
+    `@laststance/react-next/${ruleName}`,
+    'error',
+  ]),
+)
+
 export default defineConfig([
   ...tsPrefixer,
   {
@@ -52,19 +59,12 @@ export default defineConfig([
       '@laststance/react-next': laststanceReactNextPlugin,
     },
     rules: {
-      '@laststance/react-next/no-forward-ref': 'error',
-      '@laststance/react-next/no-context-provider': 'error',
-      '@laststance/react-next/no-missing-key': 'error',
-      '@laststance/react-next/no-duplicate-key': 'error',
-      '@laststance/react-next/no-jsx-without-return': 'error',
-      '@laststance/react-next/all-memo': 'error',
-      '@laststance/react-next/no-use-reducer': 'error',
+      ...laststanceReactNextRules,
+      // Keep the stricter prop-drilling depth while still enforcing the rule at error severity.
       '@laststance/react-next/no-set-state-prop-drilling': [
         'error',
         { depth: 1 },
       ],
-      '@laststance/react-next/no-deopt-use-callback': 'error',
-      '@laststance/react-next/prefer-stable-context-value': 'error',
     },
   },
 ])

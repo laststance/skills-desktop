@@ -1,9 +1,10 @@
 import { ExternalLink } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import { match } from 'ts-pattern'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { Separator } from '@/renderer/src/components/ui/separator'
+import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
 import { SKILLS_DESKTOP_REPOSITORY_URL } from '@/shared/constants'
 
 import { SectionFrame } from './SectionFrame'
@@ -68,7 +69,7 @@ export const About = React.memo(function About(): React.ReactElement {
   const isUpdaterAvailable = Boolean(updateApi)
   const [checkStatus, setCheckStatus] = useState<CheckStatus>({ kind: 'idle' })
 
-  useEffect(() => {
+  useComponentEffect(() => {
     if (!updateApi) return
     const cleanups = [
       updateApi.onChecking(() => setCheckStatus({ kind: 'checking' })),
@@ -85,11 +86,11 @@ export const About = React.memo(function About(): React.ReactElement {
     }
   }, [updateApi])
 
-  const handleCheckForUpdates = (): void => {
+  const handleCheckForUpdates = useCallback((): void => {
     if (!updateApi) return
     setCheckStatus({ kind: 'checking' })
     void updateApi.check()
-  }
+  }, [updateApi])
 
   const status = statusLabel(checkStatus)
 

@@ -1,5 +1,5 @@
 import { Files, Info } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { Input } from '@/renderer/src/components/ui/input'
@@ -7,6 +7,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from '@/renderer/src/components/ui/toggle-group'
+import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
 import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
 import { TERMINAL_APP_IDS, TERMINAL_APP_UI_LABELS } from '@/shared/constants'
@@ -70,10 +71,13 @@ export const General = React.memo(function General(): React.ReactElement {
     settings.customTerminalAppName ?? '',
   )
 
-  const handleDefaultTabChange = (nextValue: string): void => {
-    if (nextValue !== 'files' && nextValue !== 'info') return
-    updateSettings({ defaultSkillTab: nextValue })
-  }
+  const handleDefaultTabChange = useCallback(
+    (nextValue: string): void => {
+      if (nextValue !== 'files' && nextValue !== 'info') return
+      updateSettings({ defaultSkillTab: nextValue })
+    },
+    [updateSettings],
+  )
 
   const handlePreferredTerminalChange = (
     e: React.ChangeEvent<HTMLSelectElement>,
@@ -94,12 +98,19 @@ export const General = React.memo(function General(): React.ReactElement {
    * schema so the renderer never asks main to write a value that the
    * schema would reject.
    */
-  const handleCustomNameBlur = (): void => {
+  const handleCustomNameChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>): void => {
+      setCustomNameDraft(e.target.value)
+    },
+    [],
+  )
+
+  const handleCustomNameBlur = useCallback((): void => {
     const trimmed = customNameDraft.trim()
     if (trimmed === '') return
     if (trimmed === settings.customTerminalAppName) return
     updateSettings({ customTerminalAppName: trimmed })
-  }
+  }, [customNameDraft, settings.customTerminalAppName, updateSettings])
 
   const isCustom = settings.preferredTerminal === 'custom'
   const isDraftBlank = customNameDraft.trim() === ''
@@ -118,7 +129,7 @@ export const General = React.memo(function General(): React.ReactElement {
   const [isMainWindowAvailable, setIsMainWindowAvailable] =
     useState<boolean>(true)
 
-  useEffect(() => {
+  useComponentEffect(() => {
     let cancelled = false
     // Attach `.catch` explicitly — `void promise.then(...)` only suppresses
     // TypeScript's "promise not handled" hint, it does NOT silence a real
@@ -147,20 +158,24 @@ export const General = React.memo(function General(): React.ReactElement {
    * flag so the button's disabled state + inline message kick in instead
    * of failing silently. Disk write only happens on a real bounds value.
    */
-  const handleSaveCurrentSize = async (): Promise<void> => {
+  const handleSaveCurrentSize = useCallback(async (): Promise<void> => {
     const bounds = await window.electron.window.getMainBounds()
     if (bounds === null) {
       setIsMainWindowAvailable(false)
       return
     }
     updateSettings({ windowSize: bounds })
-  }
+  }, [updateSettings])
 
-  const handleResetWindowSize = (): void => {
+  const handleSaveCurrentSizeClick = useCallback((): void => {
+    void handleSaveCurrentSize()
+  }, [handleSaveCurrentSize])
+
+  const handleResetWindowSize = useCallback((): void => {
     // `undefined` removes the persisted size; on next launch the main
     // window falls back to the default 1200×800 + maximize() behavior.
     updateSettings({ windowSize: undefined })
-  }
+  }, [updateSettings])
 
   const persistedWindowSize = settings.windowSize
   const hasCustomWindowSize = persistedWindowSize !== undefined
@@ -224,7 +239,7 @@ export const General = React.memo(function General(): React.ReactElement {
               <Input
                 type="text"
                 value={customNameDraft}
-                onChange={(e) => setCustomNameDraft(e.target.value)}
+                onChange={handleCustomNameChange}
                 onBlur={handleCustomNameBlur}
                 placeholder="e.g. Hyper"
                 maxLength={CUSTOM_APP_NAME_MAX_LENGTH}
@@ -273,9 +288,7 @@ export const General = React.memo(function General(): React.ReactElement {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => {
-                void handleSaveCurrentSize()
-              }}
+              onClick={handleSaveCurrentSizeClick}
               disabled={!isMainWindowAvailable}
             >
               Use current window size

@@ -7,7 +7,7 @@ import {
   RefreshCw,
   Terminal,
 } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/renderer/src/components/ui/button'
@@ -18,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/renderer/src/components/ui/dropdown-menu'
+import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
 import { useOpenFolder } from '@/renderer/src/hooks/useOpenFolder'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
@@ -43,25 +44,25 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
   const [contextOpen, setContextOpen] = useState(false)
   const { revealInFinder, openInTerminal } = useOpenFolder()
 
-  useEffect(() => {
+  useComponentEffect(() => {
     dispatch(fetchSourceStats())
   }, [dispatch])
 
-  const handleRefresh = (): void => {
-    Promise.all([
+  const handleRefresh = useCallback((): void => {
+    void Promise.all([
       dispatch(fetchSourceStats()),
       dispatch(fetchSkills()),
       dispatch(fetchAgents()),
     ])
-  }
+  }, [dispatch])
 
   /**
    * Click path text → clear all filters and show all skills
    */
-  const handlePathClick = (): void => {
+  const handlePathClick = useCallback((): void => {
     dispatch(selectAgent(null))
     dispatch(setSearchQuery(''))
-  }
+  }, [dispatch])
 
   /**
    * Right-click on the card body opens the same DropdownMenu the kebab opens.
@@ -70,22 +71,25 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
    * No-ops while sourceStats hasn't loaded — without a path there is nothing
    * to reveal.
    */
-  const handleContextMenu = (e: React.MouseEvent): void => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (!sourceStats) return
-    setContextOpen(true)
-  }
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent): void => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (!sourceStats) return
+      setContextOpen(true)
+    },
+    [sourceStats],
+  )
 
-  const handleRevealInFinder = (): void => {
+  const handleRevealInFinder = useCallback((): void => {
     if (!sourceStats) return
     void revealInFinder(sourceStats.path)
-  }
+  }, [revealInFinder, sourceStats])
 
-  const handleOpenInTerminal = (): void => {
+  const handleOpenInTerminal = useCallback((): void => {
     if (!sourceStats) return
     void openInTerminal(sourceStats.path)
-  }
+  }, [openInTerminal, sourceStats])
 
   /**
    * Fetch sync preview and let the appropriate dialog handle execution.
@@ -93,7 +97,7 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
    * SyncConflictDialog opens when conflicts exist.
    * Edge cases (no skills, already synced) are handled with toasts.
    */
-  const handleSync = async (): Promise<void> => {
+  const handleSync = useCallback(async (): Promise<void> => {
     const previewResult = await dispatch(fetchSyncPreview())
 
     if (fetchSyncPreview.fulfilled.match(previewResult)) {
@@ -116,15 +120,35 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
     } else {
       toast.error('Failed to preview sync')
     }
-  }
+  }, [dispatch])
+
+  const handleContextOpenChange = useCallback((open: boolean): void => {
+    if (!open) setContextOpen(false)
+  }, [])
+
+  const handleSyncClick = useCallback(
+    (e: React.MouseEvent): void => {
+      e.stopPropagation()
+      void handleSync()
+    },
+    [handleSync],
+  )
+
+  const handleRefreshClick = useCallback(
+    (e: React.MouseEvent): void => {
+      e.stopPropagation()
+      handleRefresh()
+    },
+    [handleRefresh],
+  )
+
+  const handleKebabClick = useCallback((e: React.MouseEvent): void => {
+    e.stopPropagation()
+    setContextOpen((prev) => !prev)
+  }, [])
 
   return (
-    <DropdownMenu
-      open={contextOpen}
-      onOpenChange={(open) => {
-        if (!open) setContextOpen(false)
-      }}
-    >
+    <DropdownMenu open={contextOpen} onOpenChange={handleContextOpenChange}>
       <Card
         className={cn(
           'bg-card/50 border-l-4 border-l-transparent transition-colors cursor-pointer',
@@ -142,10 +166,7 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
                 variant="ghost"
                 size="sm"
                 className="min-h-11 px-2 text-xs font-medium gap-1"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleSync()
-                }}
+                onClick={handleSyncClick}
                 disabled={isSyncing}
               >
                 {isSyncing ? (
@@ -166,10 +187,7 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
                     ? 'Refreshing skills and agent status'
                     : 'Refresh skills and agent status'
                 }
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleRefresh()
-                }}
+                onClick={handleRefreshClick}
                 disabled={isRefreshing}
               >
                 <RefreshCw
@@ -186,10 +204,7 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
                   className="h-11 w-11"
                   aria-label="Source folder actions"
                   disabled={!sourceStats}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setContextOpen((prev) => !prev)
-                  }}
+                  onClick={handleKebabClick}
                 >
                   <MoreVertical className="h-3 w-3" />
                 </Button>

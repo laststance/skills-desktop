@@ -6,7 +6,7 @@ import {
   ExternalLink,
   X,
 } from 'lucide-react'
-import React, { useCallback, useEffect, useRef } from 'react'
+import React, { useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { SkillsMarketplace } from '@/renderer/src/components/marketplace'
@@ -49,6 +49,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/renderer/src/components/ui/tabs'
+import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
@@ -136,18 +137,21 @@ export const MainContent = React.memo(
 
     const selectedAgent = agents.find((a) => a.id === selectedAgentId)
 
-    const handleClearFilter = (): void => {
+    const handleClearFilter = useCallback((): void => {
       dispatch(selectAgent(null))
-    }
+    }, [dispatch])
 
-    const handleClearSourceFilter = (): void => {
+    const handleClearSourceFilter = useCallback((): void => {
       dispatch(clearSelectedSource())
-    }
+    }, [dispatch])
 
-    const handleTabChange = (value: string): void => {
-      dispatch(setActiveTab(value as ActiveTab))
-      dispatch(setPreviewSkill(null))
-    }
+    const handleTabChange = useCallback(
+      (value: string): void => {
+        dispatch(setActiveTab(value as ActiveTab))
+        dispatch(setPreviewSkill(null))
+      },
+      [dispatch],
+    )
 
     const handleOpenMarketplace = (): void => {
       window.electron.shell.openExternal(SKILLS_SH_URL)
@@ -161,13 +165,13 @@ export const MainContent = React.memo(
     const visibleNamesRef = useRef(visibleNames)
     const selectedCountRef = useRef(selectedAllNames.length)
     const bulkSelectModeRef = useRef(bulkSelectMode)
-    useEffect(() => {
+    useComponentEffect(() => {
       visibleNamesRef.current = visibleNames
     }, [visibleNames])
-    useEffect(() => {
+    useComponentEffect(() => {
       selectedCountRef.current = selectedAllNames.length
     }, [selectedAllNames.length])
-    useEffect(() => {
+    useComponentEffect(() => {
       bulkSelectModeRef.current = bulkSelectMode
     }, [bulkSelectMode])
 
@@ -175,7 +179,7 @@ export const MainContent = React.memo(
     // Shortcuts are further gated on `bulkSelectMode` so a user outside of
     // selection mode doesn't silently accumulate ticks they can't see (the
     // "hidden selection" anti-pattern).
-    useEffect(() => {
+    useComponentEffect(() => {
       if (activeTab !== 'installed') return
       const handleKey = (event: KeyboardEvent): void => {
         if (isEditableTarget(document.activeElement)) return
@@ -211,12 +215,34 @@ export const MainContent = React.memo(
 
     // Wire the main-process `skills:deleteProgress` event into Redux. Fires
     // only for batches large enough to warrant a counter (see main handler).
-    useEffect(() => {
+    useComponentEffect(() => {
       const unsubscribe = window.electron.skills.onDeleteProgress((payload) => {
         dispatch(setBulkProgress(payload))
       })
       return unsubscribe
     }, [dispatch])
+
+    const handleToggleSortOrder = useCallback((): void => {
+      dispatch(toggleSortOrder())
+    }, [dispatch])
+
+    const handleToggleBulkSelectMode = useCallback((): void => {
+      if (bulkSelectMode) {
+        // Order matters: clear selection first so no subscriber can observe
+        // `mode=false` with stale `selectedSkillNames` between dispatches.
+        dispatch(clearSelection())
+        dispatch(exitBulkSelectMode())
+        return
+      }
+      dispatch(enterBulkSelectMode())
+    }, [bulkSelectMode, dispatch])
+
+    const handleSkillTypeFilterChange = useCallback(
+      (value: string): void => {
+        dispatch(setSkillTypeFilter(value as SkillTypeFilter))
+      },
+      [dispatch],
+    )
 
     /**
      * Handle the restore callback from inside the UndoToast. Dispatches the
@@ -378,16 +404,18 @@ export const MainContent = React.memo(
         const handleToastDismissed = (): void => {
           dispatch(clearUndoToast())
         }
-        const toastId: ToastId = toast(
+        const toastId: ToastId = `bulk-delete-${Date.now()}`
+        toast(
           <UndoToast
             skillNames={deletedNames}
             tombstoneIds={tombstoneIds}
             expiresAt={expiresAt}
             summary={summary}
             onUndo={handleUndoDelete}
-            onUndoComplete={() => toast.dismiss(toastId)}
+            toastId={toastId}
           />,
           {
+            id: toastId,
             duration: UNDO_WINDOW_MS,
             closeButton: true,
             onDismiss: handleToastDismissed,
@@ -466,7 +494,7 @@ export const MainContent = React.memo(
                     ? 'Sorted A to Z, click to reverse'
                     : 'Sorted Z to A, click to reverse'
                 }
-                onClick={() => dispatch(toggleSortOrder())}
+                onClick={handleToggleSortOrder}
                 className="shrink-0 text-muted-foreground hover:text-foreground min-h-11 min-w-11"
               >
                 {sortOrder === 'asc' ? (
@@ -488,18 +516,7 @@ export const MainContent = React.memo(
                     ? 'Exit bulk select mode'
                     : 'Enter bulk select mode'
                 }
-                onClick={() => {
-                  if (bulkSelectMode) {
-                    // Order matters: clear selection first so no subscriber
-                    // can observe `mode=false` with stale `selectedSkillNames`
-                    // between dispatches. Preserves the SelectionToolbar
-                    // render-gate invariant "mode off ⇒ no selection".
-                    dispatch(clearSelection())
-                    dispatch(exitBulkSelectMode())
-                  } else {
-                    dispatch(enterBulkSelectMode())
-                  }
-                }}
+                onClick={handleToggleBulkSelectMode}
                 className={cn(
                   'shrink-0 gap-1.5 min-h-11',
                   bulkSelectMode
@@ -539,9 +556,7 @@ export const MainContent = React.memo(
                   <DropdownMenuContent align="end">
                     <DropdownMenuRadioGroup
                       value={skillTypeFilter}
-                      onValueChange={(v) =>
-                        dispatch(setSkillTypeFilter(v as SkillTypeFilter))
-                      }
+                      onValueChange={handleSkillTypeFilterChange}
                     >
                       {SKILL_TYPE_FILTER_OPTIONS.map((option) => (
                         <DropdownMenuRadioItem

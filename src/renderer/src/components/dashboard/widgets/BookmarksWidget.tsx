@@ -1,5 +1,5 @@
 import { Bookmark, ExternalLink, X } from 'lucide-react'
-import React from 'react'
+import React, { useCallback } from 'react'
 
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
@@ -82,9 +82,12 @@ export const BookmarksWidget = React.memo(
     const dispatch = useAppDispatch()
     const bookmarks = useAppSelector(selectBookmarkItems)
 
-    const handleRemove = (name: SkillName): void => {
-      dispatch(removeBookmark(name))
-    }
+    const handleRemove = useCallback(
+      (name: SkillName): void => {
+        dispatch(removeBookmark(name))
+      },
+      [dispatch],
+    )
 
     if (bookmarks.length === 0) {
       return (

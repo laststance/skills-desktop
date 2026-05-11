@@ -137,7 +137,7 @@ export const FilePreviewStates: Story = {
           expiresAt={new Date(Date.now() + 15_000).toISOString()}
           summary="Deleted 2 skills. 5 symlinks removed."
           onUndo={() => undefined}
-          onUndoComplete={() => undefined}
+          toastId="storybook-undo-toast"
         />
       </StoryCard>
     </StoryGrid>

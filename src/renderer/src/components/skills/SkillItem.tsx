@@ -8,7 +8,7 @@ import {
   Plus,
   X,
 } from 'lucide-react'
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
 
 import { StatusBadge } from '@/renderer/src/components/status/StatusBadge'
 import { Button } from '@/renderer/src/components/ui/button'
@@ -25,6 +25,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/renderer/src/components/ui/tooltip'
+import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
@@ -148,14 +149,17 @@ export const SkillItem = React.memo(function SkillItem({
     }
   }
 
-  const handleAddClick = (e: React.MouseEvent): void => {
-    e.stopPropagation()
-    if (selectedAgentId) {
-      dispatch(setSkillToCopy(skill))
-      return
-    }
-    dispatch(setSkillToAddSymlinks(skill))
-  }
+  const handleAddClick = useCallback(
+    (e: React.MouseEvent): void => {
+      e.stopPropagation()
+      if (selectedAgentId) {
+        dispatch(setSkillToCopy(skill))
+        return
+      }
+      dispatch(setSkillToAddSymlinks(skill))
+    },
+    [dispatch, selectedAgentId, skill],
+  )
 
   /**
    * Global-view per-row delete. Routes every skill — including ones tracked in
@@ -197,50 +201,65 @@ export const SkillItem = React.memo(function SkillItem({
    * and the reducer promotes this click to the new anchor. Behaves like macOS
    * Finder — a first shift-click with no anchor is a plain toggle, not a range.
    */
-  const handleCheckboxPointerDown = (
-    event: React.PointerEvent<HTMLButtonElement>,
-  ): void => {
-    // Stop propagation so the Card's onClick (inspector selection) does not fire.
-    event.stopPropagation()
-    if (event.shiftKey && selectionAnchor) {
-      event.preventDefault()
-      const namesInRange = computeRangeSelection(
-        selectionAnchor,
-        skill.name,
-        visibleNames,
-      )
-      dispatch(selectRange(namesInRange))
-      return
-    }
-    // Non-shift path (and shift-without-anchor): let the checkbox settle to
-    // its new `checked` state; Radix emits `onCheckedChange` and we dispatch
-    // the toggle there. The reducer records the new anchor on toggle.
-  }
+  const handleCheckboxPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>): void => {
+      // Stop propagation so the Card's onClick (inspector selection) does not fire.
+      event.stopPropagation()
+      if (event.shiftKey && selectionAnchor) {
+        event.preventDefault()
+        const namesInRange = computeRangeSelection(
+          selectionAnchor,
+          skill.name,
+          visibleNames,
+        )
+        dispatch(selectRange(namesInRange))
+        return
+      }
+      // Non-shift path (and shift-without-anchor): let the checkbox settle to
+      // its new `checked` state; Radix emits `onCheckedChange` and we dispatch
+      // the toggle there. The reducer records the new anchor on toggle.
+    },
+    [dispatch, selectionAnchor, skill.name, visibleNames],
+  )
 
-  const handleCheckedChange = (checked: boolean | 'indeterminate'): void => {
-    // Only fire when the user actually toggled — ignore the initial sync from props.
-    if (checked === 'indeterminate') return
-    // If we just handled a range via shift+click, the state is already correct.
-    // Reconcile via presence in the selection set: only toggle when the slice
-    // state disagrees with the checkbox's new visual state. Avoids double-toggle.
-    const isCurrentlyTicked = selectedNamesSet.has(skill.name)
-    if (isCurrentlyTicked !== checked) {
-      dispatch(toggleSelection(skill.name))
-    }
-  }
+  const handleCheckedChange = useCallback(
+    (checked: boolean | 'indeterminate'): void => {
+      // Only fire when the user actually toggled — ignore the initial sync from props.
+      if (checked === 'indeterminate') return
+      // If we just handled a range via shift+click, the state is already correct.
+      // Reconcile via presence in the selection set: only toggle when the slice
+      // state disagrees with the checkbox's new visual state. Avoids double-toggle.
+      const isCurrentlyTicked = selectedNamesSet.has(skill.name)
+      if (isCurrentlyTicked !== checked) {
+        dispatch(toggleSelection(skill.name))
+      }
+    },
+    [dispatch, selectedNamesSet, skill.name],
+  )
 
   const [contextOpen, setContextOpen] = useState(false)
 
-  const handleContextMenu = (e: React.MouseEvent): void => {
-    e.preventDefault()
-    if (!showCopyButton) return
-    setContextOpen(true)
-  }
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent): void => {
+      e.preventDefault()
+      if (!showCopyButton) return
+      setContextOpen(true)
+    },
+    [showCopyButton],
+  )
 
-  const handleCopyClick = (): void => {
+  const handleCopyClick = useCallback((): void => {
     dispatch(setSkillToCopy(skill))
     setContextOpen(false)
-  }
+  }, [dispatch, skill])
+
+  const handleContextOpenChange = useCallback((open: boolean): void => {
+    if (!open) setContextOpen(false)
+  }, [])
+
+  const handleCardClick = useCallback((): void => {
+    dispatch(selectSkill(isSelected ? null : skill))
+  }, [dispatch, isSelected, skill])
 
   // Partial-fail flash (local to the row). The parent (MainContent) decides
   // which skills recently failed by subscribing to the thunk result and
@@ -250,7 +269,7 @@ export const SkillItem = React.memo(function SkillItem({
   // MainContent-level effect flips it on when a bulk op returns errors.
   const [didPartialFail, setDidPartialFail] = useState(false)
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => {
+  useComponentEffect(() => {
     return () => {
       // Clean up timer on unmount to prevent a stale setState on an unmounted row.
       if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
@@ -266,7 +285,7 @@ export const SkillItem = React.memo(function SkillItem({
    * skill name for decoupling. This keeps SkillItem agnostic of which bulk op
    * produced the failure.
    */
-  useEffect(() => {
+  useComponentEffect(() => {
     // Typed via the `WindowEventMap` augmentation above, so `event.detail` is
     // known to carry `{ skillName }` without a cast.
     const handleFailEvent = (
@@ -286,12 +305,7 @@ export const SkillItem = React.memo(function SkillItem({
   }, [skill.name])
 
   return (
-    <DropdownMenu
-      open={contextOpen}
-      onOpenChange={(open) => {
-        if (!open) setContextOpen(false)
-      }}
-    >
+    <DropdownMenu open={contextOpen} onOpenChange={handleContextOpenChange}>
       <DropdownMenuTrigger asChild disabled={!showCopyButton}>
         <Card
           data-skill-name={skill.name}
@@ -319,7 +333,7 @@ export const SkillItem = React.memo(function SkillItem({
             // Partial-failure red edge (PARTIAL_FAIL_FLASH_MS).
             didPartialFail && 'border-l-2 border-l-red-500/70',
           )}
-          onClick={() => dispatch(selectSkill(isSelected ? null : skill))}
+          onClick={handleCardClick}
           onContextMenu={handleContextMenu}
         >
           {/* X button — agent-view only (unlink or delete a local skill from

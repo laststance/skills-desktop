@@ -32,6 +32,7 @@ export const SidebarFooter = React.memo(
     return (
       <div className="border-t border-border px-6 py-3 flex items-center">
         <button
+          type="button"
           onClick={handleSkillsLinkClick}
           className="flex flex-1 items-center justify-center gap-1.5 text-xs font-medium font-mono text-muted-foreground hover:text-primary transition-colors"
         >

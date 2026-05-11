@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback } from 'react'
 import { toast } from 'sonner'
 import { match } from 'ts-pattern'
 
@@ -110,13 +110,13 @@ export const UnlinkDialog = React.memo(
       skillToUnlink?.symlink.agentName ?? '',
     )
 
-    const handleClose = (): void => {
+    const handleClose = useCallback((): void => {
       if (!unlinking) {
         dispatch(setSkillToUnlink(null))
       }
-    }
+    }, [dispatch, unlinking])
 
-    const handleUnlink = async (): Promise<void> => {
+    const handleUnlink = useCallback(async (): Promise<void> => {
       if (!skillToUnlink) return
 
       const { skill, symlink } = skillToUnlink
@@ -136,7 +136,7 @@ export const UnlinkDialog = React.memo(
       // so the SkillsList does not stay stuck on the error view.
       refreshAllData(dispatch)
       dispatch(setSkillToUnlink(null))
-    }
+    }, [copy, dispatch, skillToUnlink])
 
     return (
       <DestructiveConfirmDialog

@@ -1,8 +1,9 @@
 import { Eye, EyeOff } from 'lucide-react'
-import React, { useEffect } from 'react'
+import React, { useCallback } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { Checkbox } from '@/renderer/src/components/ui/checkbox'
+import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
 import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
 import { cn, toggleArrayMember } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
@@ -43,7 +44,7 @@ export const Agents = React.memo(function Agents(): React.ReactElement {
   const hiddenAgentIds = useAppSelector(selectHiddenAgentIds)
   const updateSettings = useUpdateSettings()
 
-  useEffect(() => {
+  useComponentEffect(() => {
     // Deliberately keyed on `agents.length` only (NOT `loading`). The
     // length value transitions 0 → N exactly once per mount lifecycle,
     // so the effect dispatches once and never re-fires within a mount.
@@ -67,20 +68,23 @@ export const Agents = React.memo(function Agents(): React.ReactElement {
   ).length
   const hiddenCount = installed.length - visibleCount
 
-  const handleToggle = (agentId: AgentId): void => {
-    // Inversion: "Show in sidebar" checkbox flip ⇄ membership in
-    // hiddenAgentIds. We treat every click as a toggle relative to the
-    // latest known state instead of trusting the next-state from the
-    // checkbox event — the schema upstream already pins membership, so
-    // either side of the flip lands on the correct array.
-    updateSettings({
-      hiddenAgentIds: toggleArrayMember(hiddenAgentIds, agentId),
-    })
-  }
+  const handleToggle = useCallback(
+    (agentId: AgentId): void => {
+      // Inversion: "Show in sidebar" checkbox flip ⇄ membership in
+      // hiddenAgentIds. We treat every click as a toggle relative to the
+      // latest known state instead of trusting the next-state from the
+      // checkbox event — the schema upstream already pins membership, so
+      // either side of the flip lands on the correct array.
+      updateSettings({
+        hiddenAgentIds: toggleArrayMember(hiddenAgentIds, agentId),
+      })
+    },
+    [hiddenAgentIds, updateSettings],
+  )
 
-  const handleShowAll = (): void => {
+  const handleShowAll = useCallback((): void => {
     updateSettings({ hiddenAgentIds: [] })
-  }
+  }, [updateSettings])
 
   return (
     <SectionFrame
@@ -172,17 +176,22 @@ const AgentToggleRow = React.memo(function AgentToggleRow({
   onToggle,
 }: AgentToggleRowProps): React.ReactElement {
   const checkboxId = `agent-visibility-${agent.id}`
+  const handleCheckedChange = useCallback(
+    (next: boolean | 'indeterminate'): void => {
+      // Radix passes `boolean | "indeterminate"`. Ignore the indeterminate
+      // case — we never set it, but treating it like a flip would dispatch
+      // a phantom hide/show.
+      if (typeof next === 'boolean') onToggle(agent.id)
+    },
+    [agent.id, onToggle],
+  )
+
   return (
     <li className="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-muted/30">
       <Checkbox
         id={checkboxId}
         checked={isVisible}
-        onCheckedChange={(next) => {
-          // Radix passes `boolean | "indeterminate"`. Ignore the indeterminate
-          // case — we never set it, but treating it like a flip would dispatch
-          // a phantom hide/show.
-          if (typeof next === 'boolean') onToggle(agent.id)
-        }}
+        onCheckedChange={handleCheckedChange}
         aria-label={`Show ${agent.name} in sidebar`}
       />
       <label

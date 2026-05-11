@@ -1,5 +1,5 @@
 import { Download, RefreshCw, X, AlertCircle } from 'lucide-react'
-import React from 'react'
+import React, { useCallback } from 'react'
 import { match } from 'ts-pattern'
 
 import {
@@ -26,22 +26,25 @@ export const UpdateToast = React.memo(
       (state) => state.update,
     )
 
+    const handleDownload = useCallback(async (): Promise<void> => {
+      dispatch(setDownloading())
+      await downloadUpdate()
+    }, [dispatch])
+
+    const handleInstall = useCallback(async (): Promise<void> => {
+      await installUpdate()
+    }, [])
+
+    const handleDismiss = useCallback((): void => {
+      dispatch(dismiss())
+    }, [dispatch])
+    const handleCloseButtonClick = (): void => {
+      handleDismiss()
+    }
+
     // Don't show if dismissed or no update activity
     if (dismissed || status === 'idle' || status === 'checking') {
       return null
-    }
-
-    const handleDownload = async () => {
-      dispatch(setDownloading())
-      await downloadUpdate()
-    }
-
-    const handleInstall = async () => {
-      await installUpdate()
-    }
-
-    const handleDismiss = () => {
-      dispatch(dismiss())
     }
 
     // After the guard above, `status` is narrowed to the four "visible" phases.
@@ -118,7 +121,8 @@ export const UpdateToast = React.memo(
             <span className="font-medium text-sm">{headerTitle}</span>
           </div>
           <button
-            onClick={handleDismiss}
+            type="button"
+            onClick={handleCloseButtonClick}
             className="text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Dismiss"
           >

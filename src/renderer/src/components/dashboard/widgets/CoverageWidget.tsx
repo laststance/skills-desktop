@@ -1,5 +1,5 @@
 import { FolderDot, Link2 } from 'lucide-react'
-import React, { useMemo } from 'react'
+import React, { useCallback, useMemo } from 'react'
 
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectAgentItems } from '@/renderer/src/redux/slices/agentsSlice'
@@ -145,9 +145,12 @@ export const CoverageWidget = React.memo(
       [agents, skills.length],
     )
 
-    const handleSelect = (agentId: AgentId): void => {
-      dispatch(selectAgent(agentId))
-    }
+    const handleSelect = useCallback(
+      (agentId: AgentId): void => {
+        dispatch(selectAgent(agentId))
+      },
+      [dispatch],
+    )
 
     if (agents.length === 0) {
       return (

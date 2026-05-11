@@ -1,5 +1,5 @@
 import { Eraser, Loader2 } from 'lucide-react'
-import React, { useEffect } from 'react'
+import React, { useCallback } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/renderer/src/components/ui/button'
@@ -12,6 +12,7 @@ import {
 } from '@/renderer/src/components/ui/dialog'
 import { DialogIconHeader } from '@/renderer/src/components/ui/dialog-icon-header'
 import { StatRow } from '@/renderer/src/components/ui/stat-row'
+import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
 import { useExecuteSync } from '@/renderer/src/hooks/useExecuteSync'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
@@ -66,7 +67,7 @@ export const CleanupAgentDialog = React.memo(
     // rejects (IPC failure, missing source dir, etc.) we close the dialog
     // and surface a toast — otherwise it would hang on the loading spinner
     // forever with no way to recover.
-    useEffect(() => {
+    useComponentEffect(() => {
       if (!cleanupAgentTarget) return
 
       dispatch(fetchSyncPreview({ agentId: cleanupAgentTarget })).then(
@@ -99,13 +100,13 @@ export const CleanupAgentDialog = React.memo(
     const hasWork = missingCount > 0
     const isLoadingPreview = !previewMatchesTarget
 
-    const handleClose = (): void => {
+    const handleClose = useCallback((): void => {
       if (!isExecuting) {
         dispatch(clearCleanupAgentTarget())
       }
-    }
+    }, [dispatch, isExecuting])
 
-    const handleCleanup = async (): Promise<void> => {
+    const handleCleanup = useCallback(async (): Promise<void> => {
       const succeeded = await executeCleanup({
         replaceConflicts: [],
         agentId: cleanupAgentTarget,
@@ -116,7 +117,7 @@ export const CleanupAgentDialog = React.memo(
         // surface — otherwise the per-agent dialog stays mounted underneath.
         dispatch(clearCleanupAgentTarget())
       }
-    }
+    }, [cleanupAgentTarget, dispatch, executeCleanup])
 
     return (
       <Dialog open onOpenChange={handleClose}>

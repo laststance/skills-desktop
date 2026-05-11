@@ -1,5 +1,5 @@
 import { Copy, Loader2 } from 'lucide-react'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { Checkbox } from '@/renderer/src/components/ui/checkbox'
@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/renderer/src/components/ui/dialog'
+import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { setSkillToCopy } from '@/renderer/src/redux/slices/skillsSlice'
 import type { AgentId } from '@/shared/types'
@@ -39,7 +40,7 @@ export const CopyToAgentsModal = React.memo(
     const [selectedAgents, setSelectedAgents] = useState<AgentId[]>([])
 
     // Reset selections when modal opens for a new skill
-    useEffect(() => {
+    useComponentEffect(() => {
       setSelectedAgents([])
     }, [skillToCopy])
 
@@ -68,38 +69,45 @@ export const CopyToAgentsModal = React.memo(
     }, [skillToCopy, selectedAgentId])
     const isSourceUnavailable = sourcePath === null
 
-    const handleClose = (): void => {
+    const handleClose = useCallback((): void => {
       if (!copying) {
         dispatch(setSkillToCopy(null))
         setSelectedAgents([])
       }
-    }
+    }, [copying, dispatch])
 
-    const handleAgentToggle = (agentId: AgentId): void => {
-      if (occupiedAgentReasonById.has(agentId)) return
-      setSelectedAgents((prev) =>
-        prev.includes(agentId)
-          ? prev.filter((id) => id !== agentId)
-          : [...prev, agentId],
-      )
-    }
+    const handleAgentToggle = useCallback(
+      (agentId: AgentId): void => {
+        if (occupiedAgentReasonById.has(agentId)) return
+        setSelectedAgents((prev) =>
+          prev.includes(agentId)
+            ? prev.filter((id) => id !== agentId)
+            : [...prev, agentId],
+        )
+      },
+      [occupiedAgentReasonById],
+    )
 
-    const handleCopy = async (): Promise<void> => {
+    const handleCopy = useCallback(async (): Promise<void> => {
       if (!skillToCopy || !sourcePath || selectedAgents.length === 0) return
       await copyToAgentsWithToast(dispatch, {
         skill: skillToCopy,
         sourcePath,
         agentIds: selectedAgents,
       })
-    }
+    }, [dispatch, selectedAgents, skillToCopy, sourcePath])
+
+    const handleOpenChange = useCallback(
+      (open: boolean): void => {
+        if (!open) handleClose()
+      },
+      [handleClose],
+    )
 
     const hasNewSelections = selectedAgents.length > 0
 
     return (
-      <Dialog
-        open={!!skillToCopy}
-        onOpenChange={(open) => !open && handleClose()}
-      >
+      <Dialog open={!!skillToCopy} onOpenChange={handleOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -114,51 +122,24 @@ export const CopyToAgentsModal = React.memo(
           <div className="max-h-64 overflow-y-auto space-y-2 py-2">
             {targetAgents.map((agent) => {
               const occupiedReason = occupiedAgentReasonById.get(agent.id)
-              const alreadyExists = occupiedReason !== undefined
-              const checkboxId = `copy-agent-${agent.id}`
               return (
-                <div
+                <CopyToAgentOption
                   key={agent.id}
-                  className={`flex items-center gap-3 p-2 rounded-md transition-colors ${
-                    alreadyExists || isSourceUnavailable
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:bg-accent cursor-pointer'
-                  }`}
-                  onClick={() =>
-                    !alreadyExists &&
-                    !copying &&
-                    !isSourceUnavailable &&
-                    handleAgentToggle(agent.id)
+                  agentId={agent.id}
+                  name={agent.name}
+                  exists={agent.exists}
+                  checked={
+                    occupiedReason !== undefined ||
+                    selectedAgents.includes(agent.id)
                   }
-                >
-                  <Checkbox
-                    id={checkboxId}
-                    aria-label={agent.name}
-                    checked={alreadyExists || selectedAgents.includes(agent.id)}
-                    disabled={alreadyExists || copying || isSourceUnavailable}
-                    onClick={(event) => event.stopPropagation()}
-                    onCheckedChange={() => handleAgentToggle(agent.id)}
-                  />
-                  <div
-                    className={
-                      alreadyExists || copying || isSourceUnavailable
-                        ? 'text-sm cursor-not-allowed'
-                        : 'text-sm cursor-pointer'
-                    }
-                  >
-                    {agent.name}
-                    {!agent.exists && (
-                      <span className="text-xs text-muted-foreground ml-2">
-                        not installed
-                      </span>
-                    )}
-                    {alreadyExists && occupiedReason && (
-                      <span className="text-xs text-muted-foreground ml-2">
-                        {getOccupiedAgentReasonLabel(occupiedReason)}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                  disabled={
+                    occupiedReason !== undefined ||
+                    copying ||
+                    isSourceUnavailable
+                  }
+                  occupiedReason={occupiedReason}
+                  onToggle={handleAgentToggle}
+                />
               )
             })}
           </div>
@@ -188,3 +169,75 @@ export const CopyToAgentsModal = React.memo(
     )
   },
 )
+
+interface CopyToAgentOptionProps {
+  agentId: AgentId
+  name: string
+  exists: boolean
+  checked: boolean
+  disabled: boolean
+  occupiedReason?: OccupiedAgentReason
+  onToggle: (agentId: AgentId) => void
+}
+
+const CopyToAgentOption = React.memo(function CopyToAgentOption({
+  agentId,
+  name,
+  exists,
+  checked,
+  disabled,
+  occupiedReason,
+  onToggle,
+}: CopyToAgentOptionProps): React.ReactElement {
+  const checkboxId = `copy-agent-${agentId}`
+  const alreadyExists = occupiedReason !== undefined
+
+  const handleToggle = useCallback((): void => {
+    if (!disabled) onToggle(agentId)
+  }, [agentId, disabled, onToggle])
+
+  const handleRowClick = (): void => {
+    handleToggle()
+  }
+
+  const handleCheckboxClick = useCallback((event: React.MouseEvent): void => {
+    event.stopPropagation()
+  }, [])
+
+  return (
+    <div
+      className={`flex items-center gap-3 p-2 rounded-md transition-colors ${
+        disabled
+          ? 'opacity-50 cursor-not-allowed'
+          : 'hover:bg-accent cursor-pointer'
+      }`}
+      onClick={handleRowClick}
+    >
+      <Checkbox
+        id={checkboxId}
+        aria-label={name}
+        checked={checked}
+        disabled={disabled}
+        onClick={handleCheckboxClick}
+        onCheckedChange={handleToggle}
+      />
+      <div
+        className={
+          disabled ? 'text-sm cursor-not-allowed' : 'text-sm cursor-pointer'
+        }
+      >
+        {name}
+        {!exists && (
+          <span className="text-xs text-muted-foreground ml-2">
+            not installed
+          </span>
+        )}
+        {alreadyExists && occupiedReason && (
+          <span className="text-xs text-muted-foreground ml-2">
+            {getOccupiedAgentReasonLabel(occupiedReason)}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+})

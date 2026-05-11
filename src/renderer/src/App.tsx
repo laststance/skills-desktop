@@ -112,6 +112,10 @@ const App = React.memo(function App(): React.ReactElement {
   // Drive sonner's theme prop from the persisted redux mode so toasts honor
   // the user's light/dark choice. Pre-fix this was hardcoded `theme="dark"`.
   const mode = useAppSelector((state) => state.theme.mode)
+  const toastOptions = React.useMemo(
+    () => ({ classNames: toastClassNames }),
+    [],
+  )
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -136,7 +140,7 @@ const App = React.memo(function App(): React.ReactElement {
         theme={mode}
         className="toaster group"
         style={toasterStyle}
-        toastOptions={{ classNames: toastClassNames }}
+        toastOptions={toastOptions}
       />
     </TooltipProvider>
   )
