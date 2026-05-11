@@ -103,6 +103,7 @@ describe('skillsSlice', () => {
     expect(state.loading).toBe(false)
     expect(state.error).toBeNull()
     expect(state.selectedAddAgentIds).toEqual([])
+    expect(state.selectedCopyAgentIds).toEqual([])
     // v2.4 bulk-select state
     expect(state.selectedSkillNames).toEqual([])
     expect(state.selectionAnchor).toBeNull()
@@ -163,13 +164,32 @@ describe('skillsSlice', () => {
   })
 
   it('setSkillToCopy sets and clears pending copy', async () => {
-    const { setSkillToCopy } = await import('./skillsSlice')
+    const { setSkillToCopy, toggleCopyAgentSelection } =
+      await import('./skillsSlice')
     const store = await createTestStore()
     store.dispatch(setSkillToCopy(sampleSkill))
     expect(store.getState().skills.skillToCopy).toEqual(sampleSkill)
 
+    store.dispatch(toggleCopyAgentSelection('cursor' as AgentId))
     store.dispatch(setSkillToCopy(null))
     expect(store.getState().skills.skillToCopy).toBeNull()
+    expect(store.getState().skills.selectedCopyAgentIds).toEqual([])
+  })
+
+  it('toggleCopyAgentSelection toggles the Copy modal agent list', async () => {
+    const { toggleCopyAgentSelection, clearCopyAgentSelection } =
+      await import('./skillsSlice')
+    const store = await createTestStore()
+
+    store.dispatch(toggleCopyAgentSelection('codex' as AgentId))
+    expect(store.getState().skills.selectedCopyAgentIds).toEqual(['codex'])
+
+    store.dispatch(toggleCopyAgentSelection('codex' as AgentId))
+    expect(store.getState().skills.selectedCopyAgentIds).toEqual([])
+
+    store.dispatch(toggleCopyAgentSelection('cursor' as AgentId))
+    store.dispatch(clearCopyAgentSelection())
+    expect(store.getState().skills.selectedCopyAgentIds).toEqual([])
   })
 
   // --- fetchSkills thunk ---
@@ -303,11 +323,13 @@ describe('skillsSlice', () => {
       setSkillToAddSymlinks,
       setSkillToCopy,
       toggleAddAgentSelection,
+      toggleCopyAgentSelection,
       copyToAgents,
     } = await import('./skillsSlice')
     store.dispatch(setSkillToCopy(sampleSkill))
     store.dispatch(setSkillToAddSymlinks(sampleSkill))
     store.dispatch(toggleAddAgentSelection('cursor' as AgentId))
+    store.dispatch(toggleCopyAgentSelection('codex' as AgentId))
     await store.dispatch(
       copyToAgents({
         skill: sampleSkill,
@@ -319,6 +341,7 @@ describe('skillsSlice', () => {
     expect(store.getState().skills.skillToCopy).toBeNull()
     expect(store.getState().skills.skillToAddSymlinks).toBeNull()
     expect(store.getState().skills.selectedAddAgentIds).toEqual([])
+    expect(store.getState().skills.selectedCopyAgentIds).toEqual([])
     expect(store.getState().skills.copying).toBe(false)
   })
 

@@ -47,8 +47,10 @@ function buildState(overrides: {
       skillToUnlink: null,
       unlinking: false,
       skillToAddSymlinks: null,
+      selectedAddAgentIds: [],
       addingSymlinks: false,
       skillToCopy: null,
+      selectedCopyAgentIds: [],
       copying: false,
       // v2.4 bulk-select state
       selectedSkillNames: overrides.selectedSkillNames ?? [],

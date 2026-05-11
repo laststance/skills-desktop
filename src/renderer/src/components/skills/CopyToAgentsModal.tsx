@@ -1,5 +1,5 @@
 import { Copy, Loader2 } from 'lucide-react'
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useMemo } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { Checkbox } from '@/renderer/src/components/ui/checkbox'
@@ -13,7 +13,12 @@ import {
 } from '@/renderer/src/components/ui/dialog'
 import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
-import { setSkillToCopy } from '@/renderer/src/redux/slices/skillsSlice'
+import {
+  clearCopyAgentSelection,
+  selectSelectedCopyAgentIds,
+  setSkillToCopy,
+  toggleCopyAgentSelection,
+} from '@/renderer/src/redux/slices/skillsSlice'
 import type { AgentId } from '@/shared/types'
 
 import {
@@ -34,15 +39,14 @@ export const CopyToAgentsModal = React.memo(
   function CopyToAgentsModal(): React.ReactElement {
     const dispatch = useAppDispatch()
     const { skillToCopy, copying } = useAppSelector((state) => state.skills)
+    const selectedAgents = useAppSelector(selectSelectedCopyAgentIds)
     const { selectedAgentId } = useAppSelector((state) => state.ui)
     const { items: agents } = useAppSelector((state) => state.agents)
 
-    const [selectedAgents, setSelectedAgents] = useState<AgentId[]>([])
-
-    // Reset selections when modal opens for a new skill
+    // Reset Copy modal selections when the modal opens for a new skill or closes.
     useComponentEffect(() => {
-      setSelectedAgents([])
-    }, [skillToCopy])
+      dispatch(clearCopyAgentSelection())
+    }, [dispatch, skillToCopy])
 
     const targetAgents = useMemo(() => {
       if (!selectedAgentId) return []
@@ -72,20 +76,15 @@ export const CopyToAgentsModal = React.memo(
     const handleClose = useCallback((): void => {
       if (!copying) {
         dispatch(setSkillToCopy(null))
-        setSelectedAgents([])
       }
     }, [copying, dispatch])
 
     const handleAgentToggle = useCallback(
       (agentId: AgentId): void => {
         if (occupiedAgentReasonById.has(agentId)) return
-        setSelectedAgents((prev) =>
-          prev.includes(agentId)
-            ? prev.filter((id) => id !== agentId)
-            : [...prev, agentId],
-        )
+        dispatch(toggleCopyAgentSelection(agentId))
       },
-      [occupiedAgentReasonById],
+      [dispatch, occupiedAgentReasonById],
     )
 
     const handleCopy = useCallback(async (): Promise<void> => {
