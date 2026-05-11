@@ -1,4 +1,4 @@
-import type { Settings } from '@/shared/settings'
+import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
 import {
   repositoryId,
   semanticVersion,
@@ -330,8 +330,7 @@ export const storySyncResult: SyncExecuteResult = {
 }
 
 export const storySettings: Settings = {
-  defaultSkillTab: 'files',
-  preferredTerminal: 'terminal',
+  ...DEFAULT_SETTINGS,
   hiddenAgentIds: ['cursor'],
 }
 

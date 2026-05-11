@@ -2,7 +2,10 @@ import { z } from 'zod'
 
 import { AGENT_IDS, TERMINAL_APP_IDS } from '@/shared/constants'
 import type { IpcInvokeChannel } from '@/shared/ipc-contract'
-import { SettingsSchema } from '@/shared/settings'
+import {
+  SettingsSchema,
+  WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA,
+} from '@/shared/settings'
 
 /**
  * Zod schemas for runtime validation of IPC invoke arguments.
@@ -281,6 +284,10 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
         // the {min,int} constraints can never drift. `undefined` is how
         // the Settings UI clears the persisted size back to "use default".
         windowSize: SettingsSchema.shape.windowSize,
+        // Electron 42 blur radius. Use the shared non-defaulting schema so
+        // unrelated partial settings writes do not reset blur to zero.
+        windowBackgroundBlurRadius:
+          WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA.optional(),
         // Strict z.enum here — renderers should only ever emit valid ids.
         // Intentionally NOT chained off `SettingsSchema.shape.hiddenAgentIds`:
         // that field carries a `.default([])` for forgiving disk reads, and

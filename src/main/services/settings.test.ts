@@ -16,6 +16,7 @@ describe('areSettingsEqual', () => {
   const baseSettings: Settings = {
     defaultSkillTab: 'files',
     preferredTerminal: 'terminal',
+    windowBackgroundBlurRadius: 0,
     hiddenAgentIds: [],
   }
 

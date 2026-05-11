@@ -256,7 +256,7 @@ const MarkdownReadingPreview = React.memo(function MarkdownReadingPreview({
       className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background"
       data-markdown-reading-scroll
     >
-      <article className="min-w-0 max-w-full break-words px-7 py-6 pb-10 text-sm leading-7 text-foreground">
+      <article className="markdown-reading-prose min-w-0 max-w-full overflow-x-hidden break-words px-7 py-6 pb-10 text-sm leading-7 text-foreground">
         <ReactMarkdown
           remarkPlugins={remarkPlugins}
           components={markdownComponents}
@@ -382,7 +382,7 @@ const markdownComponents: Components = {
         <code
           {...domProps}
           className={cn(
-            'block overflow-x-auto rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs leading-6 text-foreground',
+            'block max-w-full overflow-x-hidden rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs leading-6 text-foreground',
             className,
           )}
         >
@@ -476,7 +476,10 @@ const markdownComponents: Components = {
     const domProps = omitMarkdownNode(props)
 
     return (
-      <pre {...domProps} className={cn('my-4', className)}>
+      <pre
+        {...domProps}
+        className={cn('my-4 max-w-full overflow-x-hidden', className)}
+      >
         {children}
       </pre>
     )
@@ -485,10 +488,13 @@ const markdownComponents: Components = {
     const domProps = omitMarkdownNode(props)
 
     return (
-      <div className="my-4 overflow-x-auto rounded-md border border-border">
+      <div className="my-4 max-w-full overflow-x-hidden rounded-md border border-border">
         <table
           {...domProps}
-          className={cn('w-full border-collapse text-left text-sm', className)}
+          className={cn(
+            'w-full table-fixed border-collapse text-left text-sm',
+            className,
+          )}
         >
           {children}
         </table>
@@ -501,7 +507,10 @@ const markdownComponents: Components = {
     return (
       <td
         {...domProps}
-        className={cn('border-t border-border px-3 py-2 align-top', className)}
+        className={cn(
+          'break-words border-t border-border px-3 py-2 align-top',
+          className,
+        )}
       >
         {children}
       </td>
@@ -514,7 +523,7 @@ const markdownComponents: Components = {
       <th
         {...domProps}
         className={cn(
-          'border-b border-border bg-muted px-3 py-2 font-semibold',
+          'break-words border-b border-border bg-muted px-3 py-2 font-semibold',
           className,
         )}
       >

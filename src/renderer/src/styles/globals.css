@@ -128,7 +128,9 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply text-foreground font-sans antialiased;
+
+    background: transparent;
     font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -141,6 +143,23 @@
 
   .no-drag {
     -webkit-app-region: no-drag;
+  }
+
+  /* Reading Mode must never create horizontal scroll gutters. */
+  .markdown-reading-prose,
+  .markdown-reading-prose * {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .markdown-reading-prose pre,
+  .markdown-reading-prose code {
+    white-space: pre-wrap;
+  }
+
+  .markdown-reading-prose table {
+    table-layout: fixed;
+    width: 100%;
   }
 
   /* Custom scrollbar */
