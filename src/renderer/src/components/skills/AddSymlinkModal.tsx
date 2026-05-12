@@ -3,7 +3,6 @@ import React, { useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/renderer/src/components/ui/button'
-import { Checkbox } from '@/renderer/src/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -12,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/renderer/src/components/ui/dialog'
-import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   createSymlinks,
@@ -28,6 +26,7 @@ import {
   getTargetAgentsForSelection,
 } from './agentSelectionHelpers'
 import type { OccupiedAgentReason } from './agentSelectionHelpers'
+import { AgentSelectionOption } from './AgentSelectionOption'
 import { copyToAgentsWithToast } from './copyToAgentsWithToast'
 
 /**
@@ -134,13 +133,18 @@ export const AddSymlinkModal = React.memo(
                     key={agent.id}
                     agentId={agent.id}
                     name={agent.name}
-                    exists={agent.exists}
+                    secondaryLabel={
+                      occupiedReason === undefined
+                        ? agent.exists
+                          ? undefined
+                          : 'not installed'
+                        : getOccupiedAgentReasonLabel(occupiedReason)
+                    }
                     checked={
                       occupiedReason !== undefined ||
                       selectedAddAgentIds.includes(agent.id)
                     }
                     disabled={isSubmitting || occupiedReason !== undefined}
-                    occupiedReason={occupiedReason}
                     onToggle={handleAgentToggle}
                   />
                 )
@@ -201,75 +205,30 @@ export const AddSymlinkModal = React.memo(
 interface AddSymlinkAgentOptionProps {
   agentId: AgentId
   name: string
-  exists: boolean
+  secondaryLabel?: string
   checked: boolean
   disabled: boolean
-  occupiedReason?: OccupiedAgentReason
   onToggle: (agentId: AgentId) => void
 }
 
 const AddSymlinkAgentOption = React.memo(function AddSymlinkAgentOption({
   agentId,
   name,
-  exists,
+  secondaryLabel,
   checked,
   disabled,
-  occupiedReason,
   onToggle,
 }: AddSymlinkAgentOptionProps): React.ReactElement {
-  const checkboxId = `add-agent-${agentId}`
-  const isOccupied = occupiedReason !== undefined
-
-  const handleToggle = useCallback((): void => {
-    if (!disabled) onToggle(agentId)
-  }, [agentId, disabled, onToggle])
-
-  // The intrinsic <div> intentionally receives a plain wrapper; passing
-  // handleToggle directly would violate the no-deopt-use-callback lint rule.
-  const handleRowClick = (): void => {
-    handleToggle()
-  }
-
-  const handleCheckboxClick = useCallback((event: React.MouseEvent): void => {
-    event.stopPropagation()
-  }, [])
-
   return (
-    <div
-      className={cn(
-        'flex items-center gap-3 p-2 rounded-md',
-        disabled
-          ? 'opacity-50 cursor-not-allowed'
-          : 'hover:bg-muted cursor-pointer',
-      )}
-      onClick={handleRowClick}
-    >
-      <Checkbox
-        id={checkboxId}
-        aria-label={name}
-        checked={checked}
-        onClick={handleCheckboxClick}
-        onCheckedChange={handleToggle}
-        disabled={disabled}
-      />
-      <div
-        className={cn(
-          'text-sm',
-          disabled ? 'cursor-not-allowed' : 'cursor-pointer',
-        )}
-      >
-        {name}
-        {!exists && (
-          <span className="text-xs text-muted-foreground ml-2">
-            not installed
-          </span>
-        )}
-        {isOccupied && occupiedReason && (
-          <span className="text-xs text-muted-foreground ml-2">
-            {getOccupiedAgentReasonLabel(occupiedReason)}
-          </span>
-        )}
-      </div>
-    </div>
+    <AgentSelectionOption
+      agentId={agentId}
+      checkboxId={`add-agent-${agentId}`}
+      name={name}
+      checked={checked}
+      disabled={disabled}
+      secondaryLabel={secondaryLabel}
+      hoverClassName="hover:bg-muted"
+      onToggle={onToggle}
+    />
   )
 })

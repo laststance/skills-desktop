@@ -2,7 +2,6 @@ import { Copy, Loader2 } from 'lucide-react'
 import React, { useCallback, useMemo } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
-import { Checkbox } from '@/renderer/src/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -27,6 +26,7 @@ import {
   getTargetAgentsForSelection,
 } from './agentSelectionHelpers'
 import type { OccupiedAgentReason } from './agentSelectionHelpers'
+import { AgentSelectionOption } from './AgentSelectionOption'
 import { copyToAgentsWithToast } from './copyToAgentsWithToast'
 
 /**
@@ -189,8 +189,6 @@ interface CopyToAgentOptionProps {
   onToggle: (agentId: AgentId) => void
 }
 
-type CheckboxCheckedState = boolean | 'indeterminate'
-
 const CopyToAgentOption = React.memo(function CopyToAgentOption({
   agentId,
   name,
@@ -199,54 +197,16 @@ const CopyToAgentOption = React.memo(function CopyToAgentOption({
   secondaryLabel,
   onToggle,
 }: CopyToAgentOptionProps): React.ReactElement {
-  const checkboxId = `copy-agent-${agentId}`
-
-  const handleToggle = useCallback(
-    (_checked?: CheckboxCheckedState): void => {
-      if (!disabled) onToggle(agentId)
-    },
-    [agentId, disabled, onToggle],
-  )
-
-  // Native row clicks use a plain wrapper; passing handleToggle directly would
-  // trip no-deopt-use-callback on the intrinsic <div>.
-  const handleRowClick = (): void => {
-    handleToggle()
-  }
-
-  const handleCheckboxClick = useCallback((event: React.MouseEvent): void => {
-    event.stopPropagation()
-  }, [])
-
   return (
-    <div
-      className={`flex items-center gap-3 p-2 rounded-md transition-colors ${
-        disabled
-          ? 'opacity-50 cursor-not-allowed'
-          : 'hover:bg-accent cursor-pointer'
-      }`}
-      onClick={handleRowClick}
-    >
-      <Checkbox
-        id={checkboxId}
-        aria-label={name}
-        checked={checked}
-        disabled={disabled}
-        onClick={handleCheckboxClick}
-        onCheckedChange={handleToggle}
-      />
-      <div
-        className={
-          disabled ? 'text-sm cursor-not-allowed' : 'text-sm cursor-pointer'
-        }
-      >
-        {name}
-        {secondaryLabel !== undefined && (
-          <span className="text-xs text-muted-foreground ml-2">
-            {secondaryLabel}
-          </span>
-        )}
-      </div>
-    </div>
+    <AgentSelectionOption
+      agentId={agentId}
+      checkboxId={`copy-agent-${agentId}`}
+      name={name}
+      checked={checked}
+      disabled={disabled}
+      secondaryLabel={secondaryLabel}
+      hoverClassName="hover:bg-accent transition-colors"
+      onToggle={onToggle}
+    />
   )
 })

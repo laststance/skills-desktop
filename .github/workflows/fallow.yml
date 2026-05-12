@@ -7,8 +7,22 @@ on:
     branches: [main]
 
 jobs:
-  dead-code:
+  fallow:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: dead-code
+            command: dead-code
+            args: ''
+          - name: dupes
+            command: dupes
+            args: ''
+          - name: health
+            command: health
+            args: '--complexity'
 
     steps:
       - name: Checkout
@@ -17,5 +31,5 @@ jobs:
       - name: Prepare
         uses: ./.github/actions/prepare
 
-      - name: Fallow dead-code
-        run: npx fallow dead-code --fail-on-issues --format compact
+      - name: Fallow ${{ matrix.name }}
+        run: pnpm exec fallow ${{ matrix.command }} ${{ matrix.args }} --fail-on-issues --format compact

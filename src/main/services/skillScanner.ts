@@ -12,6 +12,8 @@ import type {
   Skill,
   SkillName,
   SourceStats,
+  SymlinkInfo,
+  SymlinkStatus,
 } from '@/shared/types'
 
 import { listValidSourceSkillDirs } from './dirScanner'
@@ -51,6 +53,92 @@ interface SkillLockEntry {
  */
 interface SkillLockContent {
   skills?: Record<string, SkillLockEntry>
+}
+
+type AgentDefinition = (typeof AGENTS)[number]
+
+interface AgentSymlinkStatusHit {
+  agent: AgentDefinition
+  name: SkillName
+  linkPath: AbsolutePath
+  status: SymlinkStatus
+}
+
+/**
+ * Build the all-agent symlink slots used by grouped local, linked, and orphan
+ * skills. Each scanner then updates only the agent slot it actually observed.
+ * @param name - Directory or link name to render for every agent slot
+ * @returns Missing symlink slots for all known agents
+ * @example
+ * createMissingSymlinkSlots('frontend-design')
+ * // => [{ agentId: 'cursor', status: 'missing', ... }, ...]
+ */
+function createMissingSymlinkSlots(name: SkillName): SymlinkInfo[] {
+  return AGENTS.map((agent) => ({
+    agentId: agent.id,
+    agentName: agent.name,
+    status: 'missing',
+    linkPath: join(agent.path, name) as AbsolutePath,
+    isLocal: false,
+  }))
+}
+
+/**
+ * Replace one agent slot on a grouped skill record.
+ * @param skill - Skill being grouped by name
+ * @param agentId - Agent slot to update
+ * @param patch - Slot fields discovered by the scanner
+ * @example
+ * updateAgentSymlinkSlot(skill, agent.id, { status: 'valid', targetPath })
+ */
+function updateAgentSymlinkSlot(
+  skill: Skill,
+  agentId: AgentDefinition['id'],
+  patch: Partial<SymlinkInfo>,
+): void {
+  const slot = skill.symlinks.findIndex(
+    (symlink) => symlink.agentId === agentId,
+  )
+  if (slot < 0) return
+
+  skill.symlinks[slot] = {
+    ...skill.symlinks[slot],
+    ...patch,
+  }
+}
+
+/**
+ * Scan agent directories for symlink entries not already represented by the
+ * universal source directory. Used by valid agent-only and broken-orphan flows.
+ * @param sourceNames - Source skill names that should be skipped
+ * @returns Symlink status hits grouped later by the caller
+ * @example
+ * scanAgentSymlinkStatusHits(new Set(['review']))
+ */
+async function scanAgentSymlinkStatusHits(
+  sourceNames: Set<SkillName>,
+): Promise<AgentSymlinkStatusHit[]> {
+  const hits = await Promise.all(
+    AGENTS.map(async (agent) => {
+      try {
+        const entries = await readdir(agent.path, { withFileTypes: true })
+        const candidates = entries.filter(
+          (entry) => entry.isSymbolicLink() && !sourceNames.has(entry.name),
+        )
+        return Promise.all(
+          candidates.map(async (link) => {
+            const linkPath = join(agent.path, link.name) as AbsolutePath
+            const status = await checkSymlinkTargetFromKnownLink(linkPath)
+            return { agent, name: link.name, linkPath, status }
+          }),
+        )
+      } catch {
+        return []
+      }
+    }),
+  )
+
+  return hits.flat()
 }
 
 /**
@@ -221,40 +309,21 @@ async function scanAgentLinkedSymlinks(
 ): Promise<Skill[]> {
   const linkedHits = (
     await Promise.all(
-      AGENTS.map(async (agent) => {
-        try {
-          const entries = await readdir(agent.path, { withFileTypes: true })
-          const candidates = entries.filter(
-            (entry) => entry.isSymbolicLink() && !sourceNames.has(entry.name),
-          )
-          const statuses = await Promise.all(
-            candidates.map(async (link) => {
-              const linkPath = join(agent.path, link.name) as AbsolutePath
-              const status = await checkSymlinkTargetFromKnownLink(linkPath)
-              if (status !== 'valid') return null
+      (await scanAgentSymlinkStatusHits(sourceNames))
+        .filter((hit) => hit.status === 'valid')
+        .map(async (hit) => {
+          try {
+            const targetPath = await readSymlinkTargetIfPresent(hit.linkPath)
+            if (!targetPath) return null
 
-              const targetPath = await readSymlinkTargetIfPresent(linkPath)
-              if (!targetPath) return null
-
-              const metadata = await parseSkillMetadata(targetPath)
-              return {
-                agent,
-                name: link.name,
-                linkPath,
-                targetPath,
-                metadata,
-              }
-            }),
-          )
-          return statuses.filter(
-            (item): item is NonNullable<typeof item> => item !== null,
-          )
-        } catch {
-          return []
-        }
-      }),
+            const metadata = await parseSkillMetadata(targetPath)
+            return { ...hit, targetPath, metadata }
+          } catch {
+            return null
+          }
+        }),
     )
-  ).flat()
+  ).filter((item): item is NonNullable<typeof item> => item !== null)
 
   const linkedSkillsByName = new Map<SkillName, Skill>()
   for (const { agent, name, linkPath, targetPath, metadata } of linkedHits) {
@@ -265,30 +334,20 @@ async function scanAgentLinkedSymlinks(
         description: metadata.description,
         path: targetPath,
         symlinkCount: 0,
-        symlinks: AGENTS.map((a) => ({
-          agentId: a.id,
-          agentName: a.name,
-          status: 'missing',
-          linkPath: join(a.path, name) as AbsolutePath,
-          isLocal: false,
-        })),
+        symlinks: createMissingSymlinkSlots(name),
         isSource: false,
         isOrphan: false,
       }
       linkedSkillsByName.set(name, skill)
     }
 
-    const slot = skill.symlinks.findIndex((s) => s.agentId === agent.id)
-    if (slot >= 0) {
-      skill.symlinks[slot] = {
-        ...skill.symlinks[slot],
-        status: 'valid',
-        targetPath,
-        linkPath,
-        isLocal: false,
-      }
-      skill.symlinkCount = countValidSymlinks(skill.symlinks)
-    }
+    updateAgentSymlinkSlot(skill, agent.id, {
+      status: 'valid',
+      targetPath,
+      linkPath,
+      isLocal: false,
+    })
+    skill.symlinkCount = countValidSymlinks(skill.symlinks)
   }
 
   return Array.from(linkedSkillsByName.values())
@@ -315,28 +374,9 @@ async function scanOrphanSymlinks(
   // Phase 1 — collect (agent, name, linkPath) tuples for every broken symlink
   // across all AGENTS in parallel. `entry.isSymbolicLink()` already proved
   // these are symlinks, so the fast-path checker skips the redundant lstat.
-  const brokenLinks = (
-    await Promise.all(
-      AGENTS.map(async (agent) => {
-        try {
-          const entries = await readdir(agent.path, { withFileTypes: true })
-          const candidates = entries.filter(
-            (entry) => entry.isSymbolicLink() && !sourceNames.has(entry.name),
-          )
-          const statuses = await Promise.all(
-            candidates.map(async (link) => {
-              const linkPath = join(agent.path, link.name) as AbsolutePath
-              const status = await checkSymlinkTargetFromKnownLink(linkPath)
-              return { agent, name: link.name, linkPath, status }
-            }),
-          )
-          return statuses.filter((s) => s.status === 'broken')
-        } catch {
-          return []
-        }
-      }),
-    )
-  ).flat()
+  const brokenLinks = (await scanAgentSymlinkStatusHits(sourceNames)).filter(
+    (hit) => hit.status === 'broken',
+  )
 
   // Phase 2 — group by name; first sighting builds the full per-agent
   // template (every agent 'missing'), subsequent sightings flip that agent's
@@ -350,26 +390,16 @@ async function scanOrphanSymlinks(
         description: 'Orphan symlink — source skill no longer exists',
         path: linkPath,
         symlinkCount: 0,
-        symlinks: AGENTS.map((a) => ({
-          agentId: a.id,
-          agentName: a.name,
-          status: 'missing',
-          linkPath: join(a.path, name) as AbsolutePath,
-          isLocal: false,
-        })),
+        symlinks: createMissingSymlinkSlots(name),
         isSource: false,
         isOrphan: true,
       }
       orphansByName.set(name, skill)
     }
-    const slot = skill.symlinks.findIndex((s) => s.agentId === agent.id)
-    if (slot >= 0) {
-      skill.symlinks[slot] = {
-        ...skill.symlinks[slot],
-        status: 'broken',
-        linkPath,
-      }
-    }
+    updateAgentSymlinkSlot(skill, agent.id, {
+      status: 'broken',
+      linkPath,
+    })
   }
 
   return Array.from(orphansByName.values())
@@ -455,28 +485,18 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
         description: metadata.description,
         path: skillPath,
         symlinkCount: 0, // Local skills have 0 symlinks
-        symlinks: AGENTS.map((a) => ({
-          agentId: a.id,
-          agentName: a.name,
-          status: 'missing',
-          linkPath: join(a.path, dirName) as AbsolutePath,
-          isLocal: false,
-        })),
+        symlinks: createMissingSymlinkSlots(dirName),
         isSource: false,
         isOrphan: false,
       }
       localSkillsByName.set(metadata.name, skill)
     }
-    const slot = skill.symlinks.findIndex((s) => s.agentId === agent.id)
-    if (slot >= 0) {
-      skill.symlinks[slot] = {
-        ...skill.symlinks[slot],
-        status: 'valid',
-        linkPath: join(agent.path, dirName) as AbsolutePath,
-        isLocal: true,
-        skillMdSymlinkTarget,
-      }
-    }
+    updateAgentSymlinkSlot(skill, agent.id, {
+      status: 'valid',
+      linkPath: join(agent.path, dirName) as AbsolutePath,
+      isLocal: true,
+      skillMdSymlinkTarget,
+    })
   }
 
   return Array.from(localSkillsByName.values())
