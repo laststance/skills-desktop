@@ -79,6 +79,23 @@ async function renderClosedThenOpen(agentId: AgentId) {
 }
 
 describe('CleanupAgentDialog', () => {
+  it('stays closed and skips preview when no agent target is active', async () => {
+    const store = await createStore()
+    const { CleanupAgentDialog } = await import('./CleanupAgentDialog')
+
+    const screen = await render(
+      <Provider store={store}>
+        <CleanupAgentDialog />
+      </Provider>,
+    )
+
+    await expect.poll(() => mockSyncPreview.mock.calls.length).toBe(0)
+    expect(screen.getByText(/Cleanup missing skills/i).query()).toBeNull()
+    expect(
+      screen.getByRole('button', { name: /Cleanup \d+ skills/ }).query(),
+    ).toBeNull()
+  })
+
   it('opens from the closed state without changing the hook order', async () => {
     const { screen } = await renderClosedThenOpen('claude-code')
 
