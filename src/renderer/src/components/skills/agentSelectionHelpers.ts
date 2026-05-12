@@ -208,13 +208,8 @@ function getCopyAgentOptionSecondaryLabel(
   agent: Agent,
   occupiedReason: OccupiedAgentReason | undefined,
 ): string | undefined {
-  if (occupiedReason !== undefined) {
-    return getOccupiedAgentReasonLabel(occupiedReason)
-  }
-
-  if (!agent.exists) {
-    return 'not installed'
-  }
-
-  return undefined
+  return getAddAgentSecondaryLabel({
+    occupiedReason,
+    exists: agent.exists,
+  })
 }

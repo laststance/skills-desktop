@@ -4,6 +4,7 @@ import type { Agent, AgentId } from '@/shared/types'
 
 import {
   buildCopyAgentOptionViewModel,
+  getAddAgentSecondaryLabel,
   getTargetAgentsForSelection,
 } from './agentSelectionHelpers'
 
@@ -109,5 +110,34 @@ describe('buildCopyAgentOptionViewModel', () => {
       disabled: true,
       secondaryLabel: 'not installed',
     })
+  })
+})
+
+describe('getAddAgentSecondaryLabel', () => {
+  it('uses occupied reason before install status', () => {
+    expect(
+      getAddAgentSecondaryLabel({
+        occupiedReason: 'broken',
+        exists: false,
+      }),
+    ).toBe('broken link')
+  })
+
+  it('returns not installed for free missing agents', () => {
+    expect(
+      getAddAgentSecondaryLabel({
+        occupiedReason: undefined,
+        exists: false,
+      }),
+    ).toBe('not installed')
+  })
+
+  it('returns undefined for free installed agents', () => {
+    expect(
+      getAddAgentSecondaryLabel({
+        occupiedReason: undefined,
+        exists: true,
+      }),
+    ).toBeUndefined()
   })
 })
