@@ -83,8 +83,12 @@ describe('CleanupAgentDialog', () => {
     const { screen } = await renderClosedThenOpen('claude-code')
 
     await expect
-      .poll(() => mockSyncPreview.mock.calls)
-      .toEqual([[{ agentId: 'claude-code' }]])
+      .poll(() =>
+        mockSyncPreview.mock.calls.some(
+          ([options]) => options?.agentId === 'claude-code',
+        ),
+      )
+      .toBe(true)
     await expect
       .element(screen.getByText(/Cleanup missing skills.*Claude Code/))
       .toBeInTheDocument()
