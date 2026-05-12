@@ -20,6 +20,7 @@ import { initAutoUpdater } from './updater'
 import { attachExternalLinkHandler } from './utils/attachExternalLinkHandler'
 import { clampSizeToWorkArea } from './utils/clampSizeToWorkArea'
 import { isE2EBackgroundLaunch } from './utils/e2eEnv'
+import { installDevelopmentDevToolsExtensions } from './utils/installDevelopmentDevToolsExtensions'
 import { getSecureWebPreferences } from './utils/secureWebPreferences'
 import {
   applyWindowBackgroundBlur,
@@ -297,6 +298,10 @@ app.whenReady().then(async () => {
 
   // Register IPC handlers before creating window
   registerAllHandlers()
+
+  // Dev-only: load React/Redux DevTools before renderer windows exist so
+  // Cmd+Opt+I opens with the extension panels already registered.
+  await installDevelopmentDevToolsExtensions()
 
   // Hydrate settings cache before any window opens so the first
   // `settings:get` from the renderer returns persisted values rather

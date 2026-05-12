@@ -78,6 +78,7 @@
     "culori": "^4.0.2",
     "electron": "^42.0.1",
     "electron-builder": "^26.8.1",
+    "electron-devtools-installer": "^4.0.0",
     "electron-vite": "^5.0.0",
     "eslint": "^10.3.0",
     "eslint-config-ts-prefixer": "^4.2.0",
