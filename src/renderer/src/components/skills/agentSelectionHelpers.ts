@@ -96,10 +96,38 @@ export function getOccupiedAgentReasonById(
  * @example
  * getOccupiedAgentReasonLabel('linked') // => "linked"
  */
-export function getOccupiedAgentReasonLabel(
+function getOccupiedAgentReasonLabel(
   occupiedReason: OccupiedAgentReason,
 ): string {
   return OCCUPIED_AGENT_REASON_LABELS[occupiedReason]
+}
+
+/**
+ * Pick the secondary label shown beside an Add modal agent row.
+ * Occupancy outranks the "not installed" hint because it explains why the
+ * destination cannot be selected.
+ *
+ * @param params.occupiedReason - Existing destination state, if any.
+ * @param params.exists - Whether the agent's skills directory exists.
+ * @returns Human-readable status text, or undefined for a selectable row.
+ * @example
+ * getAddAgentSecondaryLabel({ occupiedReason: 'broken', exists: true }) // => "broken link"
+ */
+export function getAddAgentSecondaryLabel(params: {
+  occupiedReason: OccupiedAgentReason | undefined
+  exists: boolean
+}): string | undefined {
+  const { occupiedReason, exists } = params
+
+  if (occupiedReason !== undefined) {
+    return getOccupiedAgentReasonLabel(occupiedReason)
+  }
+
+  if (!exists) {
+    return 'not installed'
+  }
+
+  return undefined
 }
 
 /**

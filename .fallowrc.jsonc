@@ -47,22 +47,16 @@
     // (specs + helpers + fixtures) so `fallow dupes` only flags duplication
     // in production code worth refactoring.
     //
-    // The remaining trashService detections are deliberate — DO NOT extract:
-    //   1. trashService.ts:287/557 (25 lines): `scanOrphanSymlinkPaths`
-    //      uses warn+continue while `moveToTrash` throws on the same
-    //      validatePath/lstat scaffold. Sharing would force the caller to
-    //      pass an error-policy callback and obscure the intent.
-    //   2. trashService.ts:546/781 (7 lines): `moveSourceBackedToTrash` and
-    //      `moveLocalOnlyToTrash` share return type + TRASH_DIR mkdir +
-    //      buildEntryName but diverge on `entrySourceDir` vs
-    //      `localCopiesRoot`. A shared init helper would only save 6 lines.
+    // The remaining trashService detections are deliberately suppressed inline
+    // at the narrow blocks that differ only in error policy or entry layout.
+    // Keep this ignore list broad for tests/fixtures only so new production
+    // duplication in trashService still gets reported.
     "ignore": [
       "**/*.test.ts",
       "**/*.test.tsx",
       "**/*.spec.ts",
       "**/*.spec.tsx",
-      "e2e/**",
-      "src/main/services/trashService.ts"
+      "e2e/**"
     ]
   },
   "health": {

@@ -287,6 +287,7 @@ async function scanOrphanSymlinkPaths(
 ): Promise<RecordedSymlink[]> {
   const orphans: RecordedSymlink[] = []
   for (const agent of AGENTS) {
+    // fallow-ignore-next-line code-duplication
     const linkPath = join(agent.path, skillName)
     // Use getAllowedBases() — validatePath realpath-follows linkPath. A broken
     // symlink's realpath chase fails, so we fall through to the catch and skip
@@ -545,6 +546,7 @@ async function moveSourceBackedToTrash(
   skillName: SkillName,
   sourcePath: AbsolutePath,
 ): Promise<Extract<MoveToTrashResult, { kind: 'tombstoned' }>> {
+  // fallow-ignore-next-line code-duplication
   const startTime = Date.now()
   await fs.mkdir(TRASH_DIR, { recursive: true, mode: 0o755 })
 
@@ -557,6 +559,7 @@ async function moveSourceBackedToTrash(
   const recordedSymlinks: RecordedSymlink[] = []
   const cascadeAgentIds: AgentId[] = []
   for (const agent of AGENTS) {
+    // fallow-ignore-next-line code-duplication
     const linkPath = join(agent.path, skillName)
     // Use getAllowedBases() — validatePath realpath-follows linkPath. A valid
     // source-backed symlink resolves into SOURCE_DIR, which isn't under the
@@ -780,6 +783,7 @@ async function moveLocalOnlyToTrash(
   skillName: SkillName,
   localCopies: RecordedLocalCopy[],
 ): Promise<Extract<MoveToTrashResult, { kind: 'tombstoned' }>> {
+  // fallow-ignore-next-line code-duplication
   const startTime = Date.now()
   await fs.mkdir(TRASH_DIR, { recursive: true, mode: 0o755 })
 

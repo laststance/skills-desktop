@@ -44,11 +44,11 @@ function getUnlinkCopy(
     .with('local', () => ({
       title: 'Delete from Agent',
       detailText:
-        'This will permanently delete the local skill folder. This action cannot be undone.',
+        'This will move the local skill folder to the operating system Trash.',
       confirmLabel: 'Delete',
       loadingLabel: 'Deleting...',
       successTitle: `Deleted from ${agentName}`,
-      successDescription: `${skillName} folder has been deleted from ${agentName}`,
+      successDescription: `${skillName} folder has been moved to Trash from ${agentName}`,
       errorTitle: 'Failed to delete skill',
     }))
     .with('broken', () => ({

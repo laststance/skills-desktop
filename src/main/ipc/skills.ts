@@ -31,23 +31,19 @@ type AgentPathRemovalResult =
   | { success: true }
   | { success: false; error: string; code?: string }
 
-type DirectoryRemovalMode = 'delete' | 'refuse'
-
 /**
- * Remove an agent skill path after the caller has already validated and lstat'd
- * it. Single unlink may delete local directories after user confirmation; bulk
- * unlink refuses directories because it is a non-destructive symlink-only flow.
+ * Remove an agent symlink path after the caller has already validated and
+ * lstat'd it. Directories are refused here so destructive local-folder removal
+ * remains isolated to the single-unlink confirmation path.
  * @param linkPath - Validated path inside an agent skills directory
  * @param stats - `lstat` result for linkPath
- * @param directoryMode - Whether local directories should be deleted or refused
  * @returns Structured IPC result for renderer toast handling
  * @example
- * removeLinkPathByKind('/Users/me/.cursor/skills/task', stats, 'refuse')
+ * removeLinkPathByKind('/Users/me/.cursor/skills/task', stats)
  */
 async function removeLinkPathByKind(
   linkPath: AbsolutePath,
   stats: Stats,
-  directoryMode: DirectoryRemovalMode,
 ): Promise<AgentPathRemovalResult> {
   return match({
     isSymlink: stats.isSymbolicLink(),
@@ -57,18 +53,15 @@ async function removeLinkPathByKind(
       await fs.unlink(linkPath)
       return { success: true } as const
     })
-    .with({ isSymlink: false, isDirectory: true }, async () => {
-      if (directoryMode === 'delete') {
-        await fs.rm(linkPath, { recursive: true, force: true })
-        return { success: true } as const
-      }
-
-      return {
-        success: false as const,
-        error:
-          'Cannot unlink a local skill. Use Delete to move it to trash instead.',
-      }
-    })
+    .with(
+      { isSymlink: false, isDirectory: true },
+      async () =>
+        ({
+          success: false as const,
+          error:
+            'Cannot unlink a local skill. Use Delete to move it to trash instead.',
+        }) satisfies AgentPathRemovalResult,
+    )
     .otherwise(async () => ({
       success: false as const,
       error: 'Cannot remove: path is neither a symlink nor a directory',
@@ -120,7 +113,7 @@ async function removeFromAgent(
   }
 
   try {
-    return await removeLinkPathByKind(linkPath, stats, 'refuse')
+    return await removeLinkPathByKind(linkPath, stats)
   } catch (error) {
     return {
       success: false,
@@ -144,7 +137,7 @@ export function registerSkillsHandlers(): void {
    * @returns UnlinkResult with success status and optional error
    */
   typedHandle(IPC_CHANNELS.SKILLS_UNLINK_FROM_AGENT, async (_, options) => {
-    const { linkPath } = options
+    const { linkPath, confirmedLocalDirectoryDelete = false } = options
 
     try {
       // Allow agent dirs (for local skills) AND SOURCE_DIR (for symlinked skills).
@@ -152,13 +145,34 @@ export function registerSkillsHandlers(): void {
       // in ~/.agents/skills/. Without SOURCE_DIR in the allowed bases, every
       // symlinked-skill unlink fails with "Path traversal attempt detected".
       validatePath(linkPath, getAllowedBases())
-      const stats = await fs.lstat(linkPath)
-      // Single unlink has its own confirmation UX, so local directories are
-      // intentionally removable here; bulk unlink calls the same helper in
-      // `refuse` mode.
-      const unlinkResult = await removeLinkPathByKind(linkPath, stats, 'delete')
+      let stats: Stats
+      try {
+        stats = await fs.lstat(linkPath)
+      } catch (error) {
+        if (errorCode(error) === 'ENOENT') {
+          // Already gone — match bulk unlink's idempotent no-op behavior.
+          return { success: true }
+        }
+        throw error
+      }
 
-      return unlinkResult
+      if (stats.isDirectory() && !stats.isSymbolicLink()) {
+        if (!confirmedLocalDirectoryDelete) {
+          return {
+            success: false,
+            error:
+              'Refusing to delete a local skill without explicit confirmation.',
+          }
+        }
+
+        // Local skill deletion arrives from UnlinkDialog's destructive confirm
+        // action. Move to OS Trash instead of recursively deleting bytes so a
+        // mistaken confirmation is still recoverable at the filesystem level.
+        await shell.trashItem(linkPath)
+        return { success: true }
+      }
+
+      return await removeLinkPathByKind(linkPath, stats)
     } catch (error) {
       return { success: false, error: extractErrorMessage(error) }
     }

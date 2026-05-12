@@ -21,8 +21,8 @@ import { refreshAllData } from '@/renderer/src/redux/thunks'
 import type { AgentId } from '@/shared/types'
 
 import {
+  getAddAgentSecondaryLabel,
   getOccupiedAgentReasonById,
-  getOccupiedAgentReasonLabel,
   getTargetAgentsForSelection,
 } from './agentSelectionHelpers'
 import type { OccupiedAgentReason } from './agentSelectionHelpers'
@@ -133,13 +133,10 @@ export const AddSymlinkModal = React.memo(
                     key={agent.id}
                     agentId={agent.id}
                     name={agent.name}
-                    secondaryLabel={
-                      occupiedReason === undefined
-                        ? agent.exists
-                          ? undefined
-                          : 'not installed'
-                        : getOccupiedAgentReasonLabel(occupiedReason)
-                    }
+                    secondaryLabel={getAddAgentSecondaryLabel({
+                      occupiedReason,
+                      exists: agent.exists,
+                    })}
                     checked={
                       occupiedReason !== undefined ||
                       selectedAddAgentIds.includes(agent.id)

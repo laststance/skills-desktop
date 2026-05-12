@@ -219,18 +219,17 @@ test('unlinkFromAgent removes one valid azure-ai symlink without touching the so
  * handler dispatches on `lstat` kind via ts-pattern (skills.ts:130-145):
  *
  *   - symlink                    → fs.unlink, success: true
- *   - directory (local skill)    → fs.rm -rf, success: true
+ *   - directory (local skill)    → confirmed shell.trashItem, success: true
  *   - regular file (none of above) → otherwise, success: false with copy
- *   - lstat throws (e.g. ENOENT) → catch, success: false with extracted msg
+ *   - lstat throws ENOENT        → idempotent no-op, success: true
  *
- * The two tests below pin the bottom two rows. Without them, a regression
- * that flipped the `.otherwise()` branch to `fs.rm` would silently delete
- * any regular file the renderer happens to pass — and a regression that
- * stopped catching lstat errors would surface as an uncaught IPC rejection
- * in the renderer (worse UX than a structured failure row).
+ * The two tests below pin the bottom two rows. Without them, double-clicks
+ * could surface stale-path errors and a regression that flipped the
+ * `.otherwise()` branch to a destructive path would silently delete any
+ * regular file the renderer happens to pass.
  */
 
-test('unlinkFromAgent returns structured failure when linkPath does not exist', async ({
+test('unlinkFromAgent treats a missing linkPath as an idempotent success', async ({
   appWindow,
   isolatedHome,
 }) => {
@@ -244,8 +243,8 @@ test('unlinkFromAgent returns structured failure when linkPath does not exist', 
   const missingLinkPath = join(claudeAgentPath, 'never-existed')
 
   // Sanity — confirm the path is genuinely absent before the IPC fires. A
-  // false positive here would be silent: the handler's success path also
-  // swallows ENOENT, so we'd think the failure-branch fired when it didn't.
+  // false positive here would silently test the normal unlink path instead of
+  // the idempotent missing-path branch.
   expect(existsSync(missingLinkPath)).toBe(false)
 
   const ipcResult = await appWindow.evaluate(
@@ -258,13 +257,7 @@ test('unlinkFromAgent returns structured failure when linkPath does not exist', 
     },
   )
 
-  expect(ipcResult.success).toBe(false)
-  // ENOENT is the surface form on macOS + Linux; pinning the substring
-  // keeps a `extractErrorMessage` rewrite from silently passing this test.
-  // `UnlinkResult` is { success: boolean, error?: string } (not a discriminated
-  // union) — toMatch on undefined would throw, so this also covers
-  // "error must actually be populated when success is false".
-  expect(ipcResult.error).toMatch(/ENOENT|no such file or directory/i)
+  expect(ipcResult).toEqual({ success: true })
 })
 
 test('unlinkFromAgent refuses a regular file with the structured kind-mismatch error', async ({

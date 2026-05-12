@@ -702,10 +702,12 @@ export interface LeaderboardData {
 }
 
 /**
- * IPC argument for `skills:unlinkFromAgent` — removes a single agent's symlink
- * without touching the underlying skill source.
+ * IPC argument for `skills:unlinkFromAgent` — removes one selected agent path.
+ * Symlinks are unlinked without touching their target; local skill folders
+ * require an explicit renderer confirmation flag before main moves them to OS
+ * Trash.
  * @example
- * { skillName: 'tdd-workflow', agentId: 'cursor', linkPath: '/Users/me/.cursor/skills/tdd-workflow' }
+ * { skillName: 'tdd-workflow', agentId: 'cursor', linkPath: '/Users/me/.cursor/skills/tdd-workflow', confirmedLocalDirectoryDelete: false }
  */
 export interface UnlinkFromAgentOptions {
   /** Skill whose symlink will be removed. @example "tdd-workflow" */
@@ -714,6 +716,8 @@ export interface UnlinkFromAgentOptions {
   agentId: AgentId
   /** Absolute path to the symlink itself (inside the agent's skills directory). */
   linkPath: AbsolutePath
+  /** True only after the local-folder destructive confirmation dialog submits. */
+  confirmedLocalDirectoryDelete?: boolean
 }
 
 /**
