@@ -27,6 +27,47 @@ import type {
 import { typedHandle } from './typedHandle'
 import { typedSend } from './typedSend'
 
+type AgentPathRemovalResult =
+  | { success: true }
+  | { success: false; error: string; code?: string }
+
+/**
+ * Remove an agent symlink path after the caller has already validated and
+ * lstat'd it. Directories are refused here so destructive local-folder removal
+ * remains isolated to the single-unlink confirmation path.
+ * @param linkPath - Validated path inside an agent skills directory
+ * @param stats - `lstat` result for linkPath
+ * @returns Structured IPC result for renderer toast handling
+ * @example
+ * removeLinkPathByKind('/Users/me/.cursor/skills/task', stats)
+ */
+async function removeLinkPathByKind(
+  linkPath: AbsolutePath,
+  stats: Stats,
+): Promise<AgentPathRemovalResult> {
+  return match({
+    isSymlink: stats.isSymbolicLink(),
+    isDirectory: stats.isDirectory(),
+  })
+    .with({ isSymlink: true }, async () => {
+      await fs.unlink(linkPath)
+      return { success: true } as const
+    })
+    .with(
+      { isSymlink: false, isDirectory: true },
+      async () =>
+        ({
+          success: false as const,
+          error:
+            'Cannot unlink a local skill. Use Delete to move it to trash instead.',
+        }) satisfies AgentPathRemovalResult,
+    )
+    .otherwise(async () => ({
+      success: false as const,
+      error: 'Cannot remove: path is neither a symlink nor a directory',
+    }))
+}
+
 /**
  * Unlink or remove a single link-path inside an agent directory. Shared by the
  * single-unlink handler and the batch-unlink handler so both behave identically.
@@ -72,27 +113,7 @@ async function removeFromAgent(
   }
 
   try {
-    // Discriminate on file-stat kind: symlink → unlink, local directory →
-    // refuse (bulk unlink is non-destructive; user must go through bulk
-    // Delete), everything else (files, sockets, etc.) → refuse as unsupported.
-    const kindResult = await match({
-      isSymlink: stats.isSymbolicLink(),
-      isDirectory: stats.isDirectory(),
-    })
-      .with({ isSymlink: true }, async () => {
-        await fs.unlink(linkPath)
-        return { success: true } as const
-      })
-      .with({ isSymlink: false, isDirectory: true }, async () => ({
-        success: false as const,
-        error:
-          'Cannot unlink a local skill. Use Delete to move it to trash instead.',
-      }))
-      .otherwise(async () => ({
-        success: false as const,
-        error: 'Cannot remove: path is neither a symlink nor a directory',
-      }))
-    return kindResult
+    return await removeLinkPathByKind(linkPath, stats)
   } catch (error) {
     return {
       success: false,
@@ -116,7 +137,7 @@ export function registerSkillsHandlers(): void {
    * @returns UnlinkResult with success status and optional error
    */
   typedHandle(IPC_CHANNELS.SKILLS_UNLINK_FROM_AGENT, async (_, options) => {
-    const { linkPath } = options
+    const { linkPath, confirmedLocalDirectoryDelete = false } = options
 
     try {
       // Allow agent dirs (for local skills) AND SOURCE_DIR (for symlinked skills).
@@ -124,28 +145,34 @@ export function registerSkillsHandlers(): void {
       // in ~/.agents/skills/. Without SOURCE_DIR in the allowed bases, every
       // symlinked-skill unlink fails with "Path traversal attempt detected".
       validatePath(linkPath, getAllowedBases())
-      const stats = await fs.lstat(linkPath)
-      // Discriminate on file-stat kind: symlink → unlink, directory → rm -rf
-      // (destructive is OK here because the single-unlink handler has its own
-      // confirmation UX in the renderer), else → refuse.
-      const unlinkResult = await match({
-        isSymlink: stats.isSymbolicLink(),
-        isDirectory: stats.isDirectory(),
-      })
-        .with({ isSymlink: true }, async () => {
-          await fs.unlink(linkPath)
-          return { success: true } as const
-        })
-        .with({ isSymlink: false, isDirectory: true }, async () => {
-          await fs.rm(linkPath, { recursive: true, force: true })
-          return { success: true } as const
-        })
-        .otherwise(async () => ({
-          success: false as const,
-          error: 'Cannot remove: path is neither a symlink nor a directory',
-        }))
+      let stats: Stats
+      try {
+        stats = await fs.lstat(linkPath)
+      } catch (error) {
+        if (errorCode(error) === 'ENOENT') {
+          // Already gone — match bulk unlink's idempotent no-op behavior.
+          return { success: true }
+        }
+        throw error
+      }
 
-      return unlinkResult
+      if (stats.isDirectory() && !stats.isSymbolicLink()) {
+        if (!confirmedLocalDirectoryDelete) {
+          return {
+            success: false,
+            error:
+              'Refusing to delete a local skill without explicit confirmation.',
+          }
+        }
+
+        // Local skill deletion arrives from UnlinkDialog's destructive confirm
+        // action. Move to OS Trash instead of recursively deleting bytes so a
+        // mistaken confirmation is still recoverable at the filesystem level.
+        await shell.trashItem(linkPath)
+        return { success: true }
+      }
+
+      return await removeLinkPathByKind(linkPath, stats)
     } catch (error) {
       return { success: false, error: extractErrorMessage(error) }
     }

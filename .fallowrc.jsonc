@@ -1,9 +1,9 @@
 {
   // Pin the schema to the same fallow tag this repo runs (`fallow --version`
-  // currently reports 2.65.0). Keeping `main` here would let upstream schema
+  // currently reports 2.69.0). Keeping `main` here would let upstream schema
   // changes silently break editor validation between fallow upgrades — bump
   // this URL together with the package install when bumping fallow.
-  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/v2.65.0/schema.json",
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/v2.69.0/schema.json",
   // electron-vite uses two HTML entries declared in electron.vite.config.ts:
   //   src/renderer/index.html         → loads ./src/main.tsx (main window)
   //   src/renderer/settings/index.html → loads ./main.tsx (Settings window, see PR125)
@@ -47,23 +47,10 @@
     // (specs + helpers + fixtures) so `fallow dupes` only flags duplication
     // in production code worth refactoring.
     //
-    // The 5 remaining app-code detections are deliberate — DO NOT extract:
-    //   1. trashService.ts:287/557 (25 lines): `scanOrphanSymlinkPaths`
-    //      uses warn+continue while `moveToTrash` throws on the same
-    //      validatePath/lstat scaffold. Sharing would force the caller to
-    //      pass an error-policy callback and obscure the intent.
-    //   2. ipc/skills.ts:78/131 (9 lines): bulk-unlink REFUSES local-skill
-    //      directories; single-unlink rm -rf's them (single has confirm UX,
-    //      bulk does not). Both inline `match({isSymlink, isDirectory})`.
-    //   3. trashService.ts:546/781 (7 lines): `moveSourceBackedToTrash` and
-    //      `moveLocalOnlyToTrash` share return type + TRASH_DIR mkdir +
-    //      buildEntryName but diverge on `entrySourceDir` vs
-    //      `localCopiesRoot`. A shared init helper would only save 6 lines.
-    //   4. skillScanner.ts:248/353 (7 lines): orphan vs local skill object
-    //      initializers differ in 4 fields (status, isLocal, isOrphan,
-    //      skillMdSymlinkTarget). Sharing needs 4+ parameters.
-    //   5. CopyToAgentsModal/SkillItem (5 lines): identical Redux selector
-    //      reads — natural shape of `useAppSelector` calls per component.
+    // The remaining trashService detections are deliberately suppressed inline
+    // at the narrow blocks that differ only in error policy or entry layout.
+    // Keep this ignore list broad for tests/fixtures only so new production
+    // duplication in trashService still gets reported.
     "ignore": [
       "**/*.test.ts",
       "**/*.test.tsx",
@@ -71,5 +58,26 @@
       "**/*.spec.tsx",
       "e2e/**"
     ]
+  },
+  "health": {
+    // Health runs without Istanbul coverage input in local validate/CI, so CRAP
+    // would otherwise treat every unmeasured branch as risky. Keep the gate on
+    // structural complexity and set CRAP as a current-state regression ceiling.
+    "maxCyclomatic": 40,
+    "maxCognitive": 40,
+    "maxCrap": 120,
+    // Test, E2E, Storybook, and one-off build scripts intentionally optimize
+    // for scenario clarity over low branch count; they are covered by their own
+    // runner gates rather than the production health budget.
+    "ignore": [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.spec.ts",
+      "**/*.spec.tsx",
+      "e2e/**",
+      ".storybook/**",
+      "scripts/**"
+    ],
+    "suggestInlineSuppression": true
   }
 }

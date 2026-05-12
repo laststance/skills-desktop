@@ -131,6 +131,7 @@ export const unlinkSkillFromAgent = createAsyncThunk(
       skillName: skill.name,
       agentId: symlink.agentId,
       linkPath: symlink.linkPath,
+      confirmedLocalDirectoryDelete: symlink.isLocal,
     })
     if (!result.success) {
       throw new Error(result.error || 'Failed to unlink skill')

@@ -23,8 +23,10 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
-    "fallow:dead-code": "pnpm exec fallow dead-code",
-    "validate": "run-p lint test typecheck fallow:dead-code storybook:build",
+    "fallow:dead-code": "pnpm exec fallow dead-code --fail-on-issues",
+    "fallow:dupes": "pnpm exec fallow dupes --fail-on-issues",
+    "fallow:health": "pnpm exec fallow health --complexity --fail-on-issues",
+    "validate": "run-p lint test typecheck fallow:dead-code fallow:dupes fallow:health storybook:build",
     "prepare": "husky",
     "prettier": "prettier --ignore-unknown --write .",
     "clean": "rm -rf dist build .vite node_modules pnpm-lock.yaml"

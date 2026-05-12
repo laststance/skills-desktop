@@ -183,6 +183,7 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       skillName: skillNameString,
       agentId: nonEmptyString,
       linkPath: nonEmptyString,
+      confirmedLocalDirectoryDelete: z.boolean().optional(),
     }),
   ]),
   'skills:removeAllFromAgent': z.tuple([
