@@ -89,7 +89,8 @@ describe('CleanupAgentDialog', () => {
       </Provider>,
     )
 
-    await expect.poll(() => mockSyncPreview.mock.calls.length).toBe(0)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(mockSyncPreview).toHaveBeenCalledTimes(0)
     expect(screen.getByText(/Cleanup missing skills/i).query()).toBeNull()
     expect(
       screen.getByRole('button', { name: /Cleanup \d+ skills/ }).query(),
