@@ -82,6 +82,29 @@ export const CleanupAgentDialog = React.memo(
       )
     }, [cleanupAgentTarget, dispatch])
 
+    const handleClose = useCallback((): void => {
+      if (!isExecuting) {
+        dispatch(clearCleanupAgentTarget())
+      }
+    }, [dispatch, isExecuting])
+
+    const handleCleanup = useCallback(async (): Promise<void> => {
+      // When the dialog is closed this handler can still exist from the
+      // stable hook order; only execute once a concrete agent owns the flow.
+      if (!cleanupAgentTarget) return
+
+      const succeeded = await executeCleanup({
+        replaceConflicts: [],
+        agentId: cleanupAgentTarget,
+      })
+      if (succeeded) {
+        // Close this dialog so `SyncResultDialog` (which `executeSyncAction`
+        // already populated via `syncResult`) becomes the sole foreground
+        // surface — otherwise the per-agent dialog stays mounted underneath.
+        dispatch(clearCleanupAgentTarget())
+      }
+    }, [cleanupAgentTarget, dispatch, executeCleanup])
+
     if (!cleanupAgentTarget) return null
 
     // Stale-preview guard: only trust the preview when its `forAgent`
@@ -99,25 +122,6 @@ export const CleanupAgentDialog = React.memo(
     const alreadySyncedCount = previewMatchesTarget?.alreadySynced ?? 0
     const hasWork = missingCount > 0
     const isLoadingPreview = !previewMatchesTarget
-
-    const handleClose = useCallback((): void => {
-      if (!isExecuting) {
-        dispatch(clearCleanupAgentTarget())
-      }
-    }, [dispatch, isExecuting])
-
-    const handleCleanup = useCallback(async (): Promise<void> => {
-      const succeeded = await executeCleanup({
-        replaceConflicts: [],
-        agentId: cleanupAgentTarget,
-      })
-      if (succeeded) {
-        // Close this dialog so `SyncResultDialog` (which `executeSyncAction`
-        // already populated via `syncResult`) becomes the sole foreground
-        // surface — otherwise the per-agent dialog stays mounted underneath.
-        dispatch(clearCleanupAgentTarget())
-      }
-    }, [cleanupAgentTarget, dispatch, executeCleanup])
 
     return (
       <Dialog open onOpenChange={handleClose}>
