@@ -53,7 +53,7 @@ const BookmarkRow = React.memo(function BookmarkRow({
         title={`Remove ${bookmark.name}`}
         data-bookmark-remove-button
         // Absolute placement keeps the destructive action out of row layout,
-        // so long skill names keep the space previously consumed by 44px.
+        // reserving 32px (28px button + 4px offset) on the right edge.
         className="
           absolute right-1 top-1/2 z-10 flex size-7 -translate-y-1/2 items-center justify-center
           rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive
