@@ -7,6 +7,7 @@ import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   DEFAULT_SETTINGS,
+  getWindowBackgroundOpacity,
   WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
   WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
 } from '@/shared/settings'
@@ -61,10 +62,9 @@ const BackgroundBlurRangeInput = React.memo(function BackgroundBlurRangeInput({
 /**
  * Appearance pane for visual controls backed by persisted Settings.
  *
- * The first real control is the Electron 42 background blur radius. It
- * updates main-process settings through the same optimistic IPC path as
- * General → default tab, so the main window reacts immediately while the
- * value remains durable across launches.
+ * The first real control is the Electron 42 background blur radius. The same
+ * slider also lowers the app-surface opacity, so users see an immediate
+ * opacity/blur change instead of a fixed 85% backplate.
  */
 export const Appearance = React.memo(function Appearance(): React.ReactElement {
   const windowBackgroundBlurRadius = useAppSelector(
@@ -118,10 +118,13 @@ export const Appearance = React.memo(function Appearance(): React.ReactElement {
     clearPersistTimer()
   })
 
+  const backgroundOpacityPercent = Math.round(
+    getWindowBackgroundOpacity(blurRadiusDraft) * 100,
+  )
   const blurRadiusLabel =
     blurRadiusDraft === WINDOW_BACKGROUND_BLUR_MIN_RADIUS
-      ? 'Off'
-      : `${blurRadiusDraft}px`
+      ? 'Opaque'
+      : `${backgroundOpacityPercent}% / ${blurRadiusDraft}px`
   const isDefaultBlurRadius =
     blurRadiusDraft === DEFAULT_SETTINGS.windowBackgroundBlurRadius
 
@@ -132,7 +135,7 @@ export const Appearance = React.memo(function Appearance(): React.ReactElement {
     >
       <SectionRow
         label={BACKGROUND_BLUR_LABEL}
-        description="Background glass strength for the main window."
+        description="Surface opacity and background blur for the main window."
       >
         <div className="flex max-w-md flex-col gap-2">
           <div className="flex items-center gap-3">

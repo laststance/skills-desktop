@@ -3,9 +3,13 @@ import { describe, it, expect } from 'vitest'
 import { AGENT_DEFINITIONS } from './constants'
 import {
   DEFAULT_SETTINGS,
+  getWindowBackgroundOpacity,
+  normalizeWindowBackgroundBlurRadius,
   SettingsSchema,
   WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
   WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
+  WINDOW_BACKGROUND_OPACITY_MIN,
+  WINDOW_BACKGROUND_OPACITY_MAX,
   WINDOW_SIZE_MIN_DIMENSION,
 } from './settings'
 
@@ -240,5 +244,35 @@ describe('SettingsSchema', () => {
       hiddenAgentIds: [firstAgentId, firstAgentId],
     })
     expect(parsed.hiddenAgentIds).toEqual([firstAgentId])
+  })
+})
+
+/**
+ * Pure helpers shared by the main process and renderer. These keep Electron's
+ * native backplate and the React app root on the same visible opacity curve.
+ */
+describe('window background appearance helpers', () => {
+  it('clamps blur radius values before opacity math', () => {
+    expect(normalizeWindowBackgroundBlurRadius(-12)).toBe(
+      WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
+    )
+    expect(normalizeWindowBackgroundBlurRadius(12.9)).toBe(12)
+    expect(normalizeWindowBackgroundBlurRadius(99)).toBe(
+      WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
+    )
+  })
+
+  it('maps disabled blur to an opaque app surface', () => {
+    expect(getWindowBackgroundOpacity(0)).toBe(WINDOW_BACKGROUND_OPACITY_MAX)
+  })
+
+  it('maps maximum blur to the minimum readable surface opacity', () => {
+    expect(getWindowBackgroundOpacity(WINDOW_BACKGROUND_BLUR_MAX_RADIUS)).toBe(
+      WINDOW_BACKGROUND_OPACITY_MIN,
+    )
+  })
+
+  it('maps mid slider values to visibly different opacity', () => {
+    expect(getWindowBackgroundOpacity(24)).toBe(0.84)
   })
 })

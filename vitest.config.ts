@@ -119,6 +119,8 @@ export default defineConfig({
             'react/jsx-runtime',
             'react-redux',
             '@reduxjs/toolkit',
+            'react-grid-layout',
+            'react-resizable-panels',
             // Radix's controllable-state hook runs `useState` against whatever
             // React it sees first. If Vite bundles toggle-group lazily it grabs
             // a stale React copy and `useState` returns undefined → render
