@@ -1,7 +1,8 @@
 import React from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
-import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
+import { useUnmountEffect } from '@/renderer/src/hooks/useUnmountEffect'
+import { useUpdateEffect } from '@/renderer/src/hooks/useUpdateEffect'
 import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
 import {
@@ -108,16 +109,14 @@ export const Appearance = React.memo(function Appearance(): React.ReactElement {
     })
   }, [clearPersistTimer, updateSettings])
 
-  useComponentEffect(() => {
+  useUpdateEffect(() => {
     clearPersistTimer()
     setBlurRadiusDraft(windowBackgroundBlurRadius)
   }, [windowBackgroundBlurRadius, clearPersistTimer])
 
-  useComponentEffect(() => {
-    return () => {
-      clearPersistTimer()
-    }
-  }, [clearPersistTimer])
+  useUnmountEffect(() => {
+    clearPersistTimer()
+  })
 
   const blurRadiusLabel =
     blurRadiusDraft === WINDOW_BACKGROUND_BLUR_MIN_RADIUS

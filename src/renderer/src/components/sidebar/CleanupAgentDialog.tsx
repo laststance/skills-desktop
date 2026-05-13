@@ -12,7 +12,7 @@ import {
 } from '@/renderer/src/components/ui/dialog'
 import { DialogIconHeader } from '@/renderer/src/components/ui/dialog-icon-header'
 import { StatRow } from '@/renderer/src/components/ui/stat-row'
-import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
+import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { useExecuteSync } from '@/renderer/src/hooks/useExecuteSync'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
@@ -67,7 +67,7 @@ export const CleanupAgentDialog = React.memo(
     // rejects (IPC failure, missing source dir, etc.) we close the dialog
     // and surface a toast — otherwise it would hang on the loading spinner
     // forever with no way to recover.
-    useComponentEffect(() => {
+    useCycleEffect(() => {
       if (!cleanupAgentTarget) return
 
       dispatch(fetchSyncPreview({ agentId: cleanupAgentTarget })).then(

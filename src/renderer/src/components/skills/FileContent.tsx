@@ -9,7 +9,7 @@ import {
   ToggleGroupItem,
 } from '@/renderer/src/components/ui/toggle-group'
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
-import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
+import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { formatBytes } from '@/shared/fileTypes'
 import type { SkillFileContent } from '@/shared/types'
@@ -75,7 +75,7 @@ const TextPreview = React.memo(function TextPreview({
   const fileIdentity = `${file.name}:${file.extension}`
   const [mode, setMode] = useState<TextPreviewMode>('code')
 
-  useComponentEffect(() => {
+  useCycleEffect(() => {
     setMode('code')
   }, [fileIdentity])
 
@@ -150,7 +150,7 @@ const SyntaxHighlightedCode = React.memo(function SyntaxHighlightedCode({
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null)
   const plainTextLines = useMemo(() => content.split('\n'), [content])
 
-  useComponentEffect(() => {
+  useCycleEffect(() => {
     let cancelled = false
     setHighlightedHtml(null)
 

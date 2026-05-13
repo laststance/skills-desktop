@@ -3,7 +3,7 @@ import React, { useCallback } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { Checkbox } from '@/renderer/src/components/ui/checkbox'
-import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
+import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
 import { cn, toggleArrayMember } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
@@ -44,7 +44,7 @@ export const Agents = React.memo(function Agents(): React.ReactElement {
   const hiddenAgentIds = useAppSelector(selectHiddenAgentIds)
   const updateSettings = useUpdateSettings()
 
-  useComponentEffect(() => {
+  useCycleEffect(() => {
     // Deliberately keyed on `agents.length` only (NOT `loading`). The
     // length value transitions 0 → N exactly once per mount lifecycle,
     // so the effect dispatches once and never re-fires within a mount.

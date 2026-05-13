@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/renderer/src/components/ui/dropdown-menu'
-import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
+import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
@@ -185,7 +185,7 @@ const PageTab = React.memo(function PageTab({
 
   // Reset the draft to the latest canonical name each time rename mode opens.
   // Using rAF defers focus until after the input is mounted in the DOM.
-  useComponentEffect(() => {
+  useCycleEffect(() => {
     if (isRenaming) {
       setDraftName(page.name)
       requestAnimationFrame(() => renameInputRef.current?.select())

@@ -4,7 +4,7 @@ import ReactGridLayout, {
   type Layout,
 } from 'react-grid-layout'
 
-import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
+import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   seedDefaultsIfEmpty,
@@ -50,7 +50,7 @@ export const DashboardCanvas = React.memo(
 
     // Seed the default 4 pages on first render. The reducer guards against
     // re-seeding (`initialized` flag), so calling this repeatedly is free.
-    useComponentEffect(() => {
+    useCycleEffect(() => {
       if (!isInitialized) dispatch(seedDefaultsIfEmpty())
     }, [dispatch, isInitialized])
 

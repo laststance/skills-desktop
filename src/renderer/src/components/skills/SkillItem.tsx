@@ -25,7 +25,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/renderer/src/components/ui/tooltip'
-import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
+import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
+import { useUnmountEffect } from '@/renderer/src/hooks/useUnmountEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
@@ -269,12 +270,10 @@ export const SkillItem = React.memo(function SkillItem({
   // MainContent-level effect flips it on when a bulk op returns errors.
   const [didPartialFail, setDidPartialFail] = useState(false)
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useComponentEffect(() => {
-    return () => {
-      // Clean up timer on unmount to prevent a stale setState on an unmounted row.
-      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
-    }
-  }, [])
+  useUnmountEffect(() => {
+    // Clean up timer on unmount to prevent a stale setState on an unmounted row.
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+  })
   /**
    * Expose a row-level method so MainContent can imperatively trigger the flash
    * without threading per-row state through Redux. The MainContent effect reads
@@ -285,7 +284,7 @@ export const SkillItem = React.memo(function SkillItem({
    * skill name for decoupling. This keeps SkillItem agnostic of which bulk op
    * produced the failure.
    */
-  useComponentEffect(() => {
+  useCycleEffect(() => {
     // Typed via the `WindowEventMap` augmentation above, so `event.detail` is
     // known to carry `{ skillName }` without a cast.
     const handleFailEvent = (

@@ -49,7 +49,9 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/renderer/src/components/ui/tabs'
-import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
+import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
+import { useInitialEffect } from '@/renderer/src/hooks/useInitialEffect'
+import { useRenderEffect } from '@/renderer/src/hooks/useRenderEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
@@ -165,13 +167,13 @@ export const MainContent = React.memo(
     const visibleNamesRef = useRef(visibleNames)
     const selectedCountRef = useRef(selectedAllNames.length)
     const bulkSelectModeRef = useRef(bulkSelectMode)
-    useComponentEffect(() => {
+    useRenderEffect(() => {
       visibleNamesRef.current = visibleNames
     }, [visibleNames])
-    useComponentEffect(() => {
+    useRenderEffect(() => {
       selectedCountRef.current = selectedAllNames.length
     }, [selectedAllNames.length])
-    useComponentEffect(() => {
+    useRenderEffect(() => {
       bulkSelectModeRef.current = bulkSelectMode
     }, [bulkSelectMode])
 
@@ -179,7 +181,7 @@ export const MainContent = React.memo(
     // Shortcuts are further gated on `bulkSelectMode` so a user outside of
     // selection mode doesn't silently accumulate ticks they can't see (the
     // "hidden selection" anti-pattern).
-    useComponentEffect(() => {
+    useCycleEffect(() => {
       if (activeTab !== 'installed') return
       const handleKey = (event: KeyboardEvent): void => {
         if (isEditableTarget(document.activeElement)) return
@@ -215,12 +217,12 @@ export const MainContent = React.memo(
 
     // Wire the main-process `skills:deleteProgress` event into Redux. Fires
     // only for batches large enough to warrant a counter (see main handler).
-    useComponentEffect(() => {
+    useInitialEffect(() => {
       const unsubscribe = window.electron.skills.onDeleteProgress((payload) => {
         dispatch(setBulkProgress(payload))
       })
       return unsubscribe
-    }, [dispatch])
+    })
 
     const handleToggleSortOrder = useCallback((): void => {
       dispatch(toggleSortOrder())
