@@ -75,7 +75,7 @@ export const UndoToast = React.memo(function UndoToast({
   toastId,
 }: UndoToastProps): React.ReactElement {
   const expiresAtMs = new Date(expiresAt).getTime()
-  const [remainingMs, setRemainingMs] = useState(
+  const [remainingMs, setRemainingMs] = useState(() =>
     Math.max(0, expiresAtMs - Date.now()),
   )
   const [isRestoring, setIsRestoring] = useState(false)

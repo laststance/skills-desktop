@@ -47,7 +47,7 @@ export function Features() {
       <div className="container mx-auto px-4">
         {/* Section header */}
         <div className="mb-16 text-center">
-          <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="mb-4 text-3xl font-semibold tracking-tight sm:text-4xl">
             Everything You Need to Manage Skills
           </h2>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
@@ -58,13 +58,13 @@ export function Features() {
 
         {/* Feature grid */}
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((feature, index) => (
+          {features.map((feature) => (
             <div
-              key={index}
+              key={feature.title}
               className="group relative rounded-xl border border-border bg-card/30 p-6 transition-all hover:border-primary/50 hover:bg-card/50"
             >
               <div className="mb-4 inline-flex rounded-lg bg-primary/10 p-3 text-primary">
-                <feature.icon className="h-6 w-6" />
+                <feature.icon className="size-6" />
               </div>
               <h3 className="mb-2 text-xl font-semibold">{feature.title}</h3>
               <p className="text-muted-foreground">{feature.description}</p>

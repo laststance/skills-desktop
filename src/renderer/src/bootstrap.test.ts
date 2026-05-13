@@ -20,6 +20,7 @@
 
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { runInThisContext } from 'node:vm'
 
 import { beforeEach, describe, expect, it } from 'vitest'
 
@@ -119,10 +120,9 @@ function installStorageMock(): StorageMock {
 
 function runBootstrap(): void {
   const script = loadBootstrapScript()
-  // Using `new Function` (not `eval`) keeps the script in its own lexical
-  // scope so test-file locals can't leak in. The IIFE wrapper inside the
-  // script provides its own isolation on top of that.
-  new Function(script)()
+  // Run the inline script in the global VM context so test-file locals cannot
+  // leak in while `document` and `localStorage` stay available.
+  runInThisContext(script, { filename: 'renderer-theme-bootstrap.js' })
 }
 
 beforeEach(() => {

@@ -8,12 +8,12 @@ export function Download() {
       <div className="container mx-auto px-4">
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card/30">
           {/* Background decoration */}
-          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-          <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-accent/10 blur-3xl" />
+          <div className="absolute -right-20 -top-20 size-64 rounded-full bg-primary/10 blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 size-64 rounded-full bg-accent/10 blur-3xl" />
 
           <div className="relative p-8 sm:p-12 lg:p-16">
             <div className="mx-auto max-w-3xl text-center">
-              <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+              <h2 className="mb-4 text-3xl font-semibold tracking-tight sm:text-4xl">
                 Ready to Get Started?
               </h2>
               <p className="mb-10 text-lg text-muted-foreground">
@@ -28,7 +28,7 @@ export function Download() {
                   href="https://github.com/laststance/skills-desktop/releases/download/v0.17.0/skills-desktop-0.17.0-arm64.dmg"
                   className="inline-flex w-full items-center justify-center gap-3 rounded-xl bg-primary px-8 py-4 text-lg font-semibold text-primary-foreground transition-all hover:bg-primary/90 hover:scale-105 sm:w-auto"
                 >
-                  <Apple className="h-6 w-6" />
+                  <Apple className="size-6" />
                   <div className="text-left">
                     <div>Download for Mac</div>
                     <div className="text-xs font-normal opacity-80">
@@ -41,7 +41,7 @@ export function Download() {
                   href="https://github.com/laststance/skills-desktop/releases/download/v0.17.0/skills-desktop-0.17.0-x64.dmg"
                   className="inline-flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-card/50 px-8 py-4 text-lg font-semibold transition-all hover:bg-card hover:scale-105 sm:w-auto"
                 >
-                  <Cpu className="h-6 w-6" />
+                  <Cpu className="size-6" />
                   <div className="text-left">
                     <div>Download for Mac</div>
                     <div className="text-xs font-normal text-muted-foreground">
@@ -57,7 +57,7 @@ export function Download() {
                   href="https://github.com/laststance/skills-desktop/releases"
                   className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
                 >
-                  <DownloadIcon className="h-4 w-4" />
+                  <DownloadIcon className="size-4" />
                   View all releases on GitHub
                 </a>
               </div>

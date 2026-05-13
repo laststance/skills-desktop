@@ -57,6 +57,9 @@ export async function getStoreState<T, A = undefined>(
           'window.__store__ is not exposed. Did you build with E2E_BUILD=1?',
         )
       }
+      // Test selectors are trusted code passed by specs; dynamic rebuild is
+      // what preserves helpful selector-source errors across the browser wall.
+      // react-doctor-disable-next-line react-doctor/no-eval
       const fn = new Function(
         'state',
         'args',
