@@ -34,6 +34,8 @@ export const test = baseTest.extend<ElectronFixtures>({
   // eslint-disable-next-line no-empty-pattern
   isolatedHome: async ({}, use) => {
     const home = createIsolatedHome()
+    // Playwright's fixture callback is named `use`; this is not a React Hook.
+    // react-doctor-disable-next-line react-hooks/rules-of-hooks
     await use(home)
     destroyIsolatedHome(home)
   },
@@ -57,12 +59,16 @@ export const test = baseTest.extend<ElectronFixtures>({
         E2E_BACKGROUND_LAUNCH: process.env['E2E_BACKGROUND_LAUNCH'] ?? '1',
       },
     })
+    // Playwright's fixture callback is named `use`; this is not a React Hook.
+    // react-doctor-disable-next-line react-hooks/rules-of-hooks
     await use(app)
     await app.close()
   },
   appWindow: async ({ electronApp }, use) => {
     const window = await electronApp.firstWindow()
     await window.waitForLoadState('domcontentloaded')
+    // Playwright's fixture callback is named `use`; this is not a React Hook.
+    // react-doctor-disable-next-line react-hooks/rules-of-hooks
     await use(window)
   },
 })

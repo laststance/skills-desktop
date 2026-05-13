@@ -23,7 +23,7 @@ export function Footer() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <Github className="h-5 w-5" />
+              <Github className="size-5" />
             </a>
             <a
               href="https://twitter.com/laaboratory"
@@ -31,11 +31,14 @@ export function Footer() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <Twitter className="h-5 w-5" />
+              <Twitter className="size-5" />
             </a>
           </div>
 
-          <div className="text-sm text-muted-foreground">
+          <div
+            className="text-sm text-muted-foreground"
+            suppressHydrationWarning
+          >
             © {new Date().getFullYear()} Laststance.io. MIT License.
           </div>
         </div>

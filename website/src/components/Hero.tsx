@@ -12,12 +12,12 @@ export function Hero() {
         <div className="flex flex-col items-center text-center">
           {/* Badge */}
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card/50 px-4 py-1.5 text-sm text-muted-foreground">
-            <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+            <span className="size-2 rounded-full bg-primary animate-pulse" />
             Now available for macOS
           </div>
 
           {/* Title */}
-          <h1 className="mb-6 max-w-4xl text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
+          <h1 className="mb-6 max-w-4xl text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
             Manage Your AI Agent <span className="gradient-text">Skills</span>{' '}
             in One Place
           </h1>
@@ -34,7 +34,7 @@ export function Hero() {
               href="https://github.com/laststance/skills-desktop/releases/download/v0.17.0/skills-desktop-0.17.0-arm64.dmg"
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-8 py-3 text-lg font-semibold text-primary-foreground transition-all hover:bg-primary/90 hover:scale-105"
             >
-              <Apple className="h-5 w-5" />
+              <Apple className="size-5" />
               <div className="text-left">
                 <div>Download for Mac</div>
                 <div className="text-xs font-normal opacity-80">
@@ -46,7 +46,7 @@ export function Hero() {
               href="https://github.com/laststance/skills-desktop/releases/download/v0.17.0/skills-desktop-0.17.0-x64.dmg"
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card/50 px-8 py-3 text-lg font-semibold transition-all hover:bg-card hover:scale-105"
             >
-              <Cpu className="h-5 w-5" />
+              <Cpu className="size-5" />
               <div className="text-left">
                 <div>Download for Mac</div>
                 <div className="text-xs font-normal text-muted-foreground">
@@ -69,9 +69,9 @@ export function Hero() {
             <div className="absolute -inset-4 rounded-2xl bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 blur-2xl" />
             <div className="glass relative overflow-hidden rounded-xl shadow-2xl">
               <div className="flex h-8 items-center gap-2 border-b border-border/50 bg-card/80 px-4">
-                <div className="h-3 w-3 rounded-full bg-red-500" />
-                <div className="h-3 w-3 rounded-full bg-yellow-500" />
-                <div className="h-3 w-3 rounded-full bg-green-500" />
+                <div className="size-3 rounded-full bg-red-500" />
+                <div className="size-3 rounded-full bg-yellow-500" />
+                <div className="size-3 rounded-full bg-green-500" />
                 <span className="ml-4 text-sm text-muted-foreground">
                   Skills Desktop
                 </span>
