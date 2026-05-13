@@ -15,10 +15,8 @@ import { useEffect, useRef } from 'react'
  */
 export function useUnmountEffect(callback: () => void): void {
   const callbackRef = useRef(callback)
-
-  useEffect(() => {
-    callbackRef.current = callback
-  }, [callback])
+  // Keep cleanup pointed at the newest callback before passive effects flush.
+  callbackRef.current = callback
 
   useEffect(() => {
     return () => callbackRef.current()
