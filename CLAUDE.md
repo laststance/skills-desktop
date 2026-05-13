@@ -5,6 +5,7 @@ Electron desktop app (macOS) for visualizing Skills symlink status across AI age
 
 - Never use direct `fs` access in the renderer when Context Isolation is enabled; use preload IPC instead.
 - Build macOS `APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac`
+- For UI, visual polish, layout, motion, and design-token changes, read `DESIGN.md` first and follow it as the design source of truth.
 
 ### 🔴 Releases — Use `/electron-release` ONLY
 
@@ -127,45 +128,10 @@ project-local instead). The new skill is symlinked into every installed agent
 immediately and is safe to delete in the same run. Use this in preference to
 deleting an existing user skill.
 
-## Design Context
+## Design Source
 
-### Users
-Developers who use multiple AI coding agents (Claude Code, Cursor, Codex, etc.) and need to manage shared skills/plugins across them. They use this app to visualize symlink status, install skills from a marketplace, and keep their agent environments in sync. Context: quick glances during workflow, not prolonged sessions.
-
-### Brand Personality
-**Technical, Minimal, Sharp** — An engineering tool that respects the developer's intelligence. No hand-holding, no visual noise. Every pixel earns its place.
-
-### Emotional Goals
-- **Trust & confidence**: "My skills are properly linked, nothing is broken"
-- **Control**: "I can see and manage every agent's state from one place"
-
-### Aesthetic Direction
-- **Visual tone**: Dark-first, high information density without clutter. Terminal-inspired clarity with native macOS polish
-- **References**: Warp terminal, Linear, VS Code Dark+
-- **Anti-references**: AWS Console, Jira — information-overloaded dashboards with competing visual hierarchies
-- **Theme**: OKLCH color system with dual `--theme-hue` × `--theme-chroma` axes. 27 presets (17 color hues + 2 pure neutral + 8 tinted neutral, see `THEME_PRESETS` in `src/shared/constants.ts`) persist via `@laststance/redux-storage-middleware` (version-migrated v0→v1→v2). Dark mode is default, light supported
-
-### Color System
-- OKLCH-based; every shadcn token derives from `oklch(L calc(var(--theme-chroma) * K) var(--theme-hue))`, so a single preset table (`THEME_PRESETS` in `src/shared/constants.ts`) drives all surfaces
-- `--theme-chroma`: `0` (neutral/shadcn grayscale) or `COLOR_PRESET_CHROMA = 0.16` (color preset) — same formula, two modes. `--theme-hue`: OKLCH angle (0–360), irrelevant when chroma is 0
-- Status tokens: `--success` (fixed green, theme-invariant) = valid/linked, amber = broken, `--muted-foreground` = missing. `--success` stays green even in neutral presets so "linked" never collapses to mid-gray
-- Skill type borders: `--success` = symlinked, emerald = local
-- Low-chroma backgrounds, high-chroma accents — information through color, not decoration
-
-### Typography
-- **Sans**: Inter — neutral, highly legible at small sizes, tabular-nums for data
-- **Mono**: JetBrains Mono — code blocks, paths, technical content
-- System font stack fallback for native feel
-
-### Spacing & Layout
-- Base unit: 4px grid (Tailwind default)
-- Border radius: 8px (`--radius: 0.5rem`)
-- Panel layout: react-resizable-panels with collapsible Inspector pattern
-- Sidebar: fixed 240px, content panels: percentage-based
-
-### Design Principles
-1. **Information density over decoration** — Show data, not chrome. Every visual element communicates state
-2. **Status at a glance** — Color-coded symlink states (success green / amber / muted) should stay readable in peripheral vision regardless of chosen theme preset
-3. **Native macOS feel** — Window glow effects, drag regions, system-level keyboard shortcuts. Feels like it belongs on macOS
-4. **Progressive disclosure** — Default 3-column layout; Detail Inspector appears only when needed (Apple HIG Inspector pattern)
-5. **Developer respect** — No tooltips explaining obvious things, no confirmation dialogs for safe actions, no marketing language in the UI
+`DESIGN.md` owns the app's visual system: product context, color roles,
+typography, spacing, radius, elevation, motion, component styling,
+accessibility, responsive behavior, and visual-polish guardrails. Keep design
+guidance there so agents and design tools have one place to read before
+changing UI.
