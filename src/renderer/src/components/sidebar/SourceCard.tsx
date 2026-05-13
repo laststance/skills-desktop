@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/renderer/src/components/ui/dropdown-menu'
-import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
+import { useInitialEffect } from '@/renderer/src/hooks/useInitialEffect'
 import { useOpenFolder } from '@/renderer/src/hooks/useOpenFolder'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
@@ -45,9 +45,9 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
   const [contextOpen, setContextOpen] = useState(false)
   const { revealInFinder, openInTerminal } = useOpenFolder()
 
-  useComponentEffect(() => {
+  useInitialEffect(() => {
     dispatch(fetchSourceStats())
-  }, [dispatch])
+  })
 
   const handleRefresh = useCallback(async (): Promise<void> => {
     try {

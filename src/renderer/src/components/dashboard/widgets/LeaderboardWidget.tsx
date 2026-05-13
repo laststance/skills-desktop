@@ -1,7 +1,7 @@
 import { AlertCircle, type LucideIcon } from 'lucide-react'
 import React from 'react'
 
-import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
+import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { loadLeaderboard } from '@/renderer/src/redux/slices/marketplaceSlice'
 import type { RankingFilter } from '@/shared/types'
@@ -48,7 +48,7 @@ export const LeaderboardWidget = React.memo(function LeaderboardWidget({
     (state) => state.marketplace.leaderboard[filter],
   )
 
-  useComponentEffect(() => {
+  useCycleEffect(() => {
     dispatch(loadLeaderboard(filter))
   }, [dispatch, filter])
 

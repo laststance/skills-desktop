@@ -1,5 +1,6 @@
 import laststanceReactNextPlugin from '@laststance/react-next-eslint-plugin'
 import tsPrefixer from 'eslint-config-ts-prefixer'
+import reactHooks from 'eslint-plugin-react-hooks'
 import reactYouMightNotNeedAnEffect from 'eslint-plugin-react-you-might-not-need-an-effect'
 import { defineConfig } from 'eslint/config'
 
@@ -80,6 +81,15 @@ export default defineConfig([
       'react-you-might-not-need-an-effect/no-initialize-state': 'error',
       'react-you-might-not-need-an-effect/no-chain-state-updates': 'error',
       'react-you-might-not-need-an-effect/no-derived-state': 'error',
+    },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    plugins: {
+      'react-hooks': reactHooks,
+    },
+    rules: {
+      'react-hooks/rules-of-hooks': 'error',
     },
   },
   {

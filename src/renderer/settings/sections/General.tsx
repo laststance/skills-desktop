@@ -7,7 +7,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from '@/renderer/src/components/ui/toggle-group'
-import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
+import { useInitialEffect } from '@/renderer/src/hooks/useInitialEffect'
 import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
 import { TERMINAL_APP_IDS, TERMINAL_APP_UI_LABELS } from '@/shared/constants'
@@ -129,7 +129,7 @@ export const General = React.memo(function General(): React.ReactElement {
   const [isMainWindowAvailable, setIsMainWindowAvailable] =
     useState<boolean>(true)
 
-  useComponentEffect(() => {
+  useInitialEffect(() => {
     let cancelled = false
     // Attach `.catch` explicitly — `void promise.then(...)` only suppresses
     // TypeScript's "promise not handled" hint, it does NOT silence a real
@@ -149,7 +149,7 @@ export const General = React.memo(function General(): React.ReactElement {
     return () => {
       cancelled = true
     }
-  }, [])
+  })
 
   /**
    * Capture the live main-window bounds via IPC and persist them.

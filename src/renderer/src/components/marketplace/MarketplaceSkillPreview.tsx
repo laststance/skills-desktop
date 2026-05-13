@@ -1,7 +1,7 @@
 import { ArrowLeft } from 'lucide-react'
 import React, { useRef, useState } from 'react'
 
-import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
+import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { useAppDispatch } from '@/renderer/src/redux/hooks'
 import { setPreviewSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
 import { isAllowedSkillsUrl } from '@/shared/marketplaceUrlPolicy'
@@ -34,7 +34,7 @@ export const MarketplaceSkillPreview = React.memo(
     // Validate initial src before rendering the webview
     const isSrcAllowed = isAllowedSkillsUrl(skill.url)
 
-    useComponentEffect(() => {
+    useCycleEffect(() => {
       const wv = webviewRef.current
       if (!wv || !isSrcAllowed) return
 

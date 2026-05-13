@@ -84,6 +84,7 @@
     "electron-vite": "^5.0.0",
     "eslint": "^10.3.0",
     "eslint-config-ts-prefixer": "^4.2.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-you-might-not-need-an-effect": "^0.10.1",
     "fallow": "2.69.0",
     "husky": "^9.1.7",

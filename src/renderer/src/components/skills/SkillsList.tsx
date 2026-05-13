@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react'
 import { List, type RowComponentProps } from 'react-window'
 
-import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
+import { useInitialEffect } from '@/renderer/src/hooks/useInitialEffect'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectFilteredSkills } from '@/renderer/src/redux/selectors'
 import {
@@ -71,9 +71,9 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
   const selectedSource = useAppSelector(selectSelectedSource)
   const filteredSkills = useAppSelector(selectFilteredSkills)
 
-  useComponentEffect(() => {
+  useInitialEffect(() => {
     dispatch(fetchSkills())
-  }, [dispatch])
+  })
 
   /**
    * Compute row height from skill data without DOM measurement.

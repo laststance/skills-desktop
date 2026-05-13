@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/renderer/src/components/ui/dialog'
-import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
+import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   clearCopyAgentSelection,
@@ -47,7 +47,7 @@ export const CopyToAgentsModal = React.memo(
     // Reset Copy modal selections when the target skill identity changes or
     // closes. A full skill object can be refreshed while the modal is open, so
     // depending on the stable name avoids wiping the user's current checks.
-    useComponentEffect(() => {
+    useCycleEffect(() => {
       dispatch(clearCopyAgentSelection())
     }, [dispatch, skillToCopyName])
 

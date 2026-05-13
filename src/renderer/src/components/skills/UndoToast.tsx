@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { match } from 'ts-pattern'
 
 import { Button } from '@/renderer/src/components/ui/button'
-import { useComponentEffect } from '@/renderer/src/hooks/useComponentEffect'
+import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { pluralize } from '@/renderer/src/utils/pluralize'
 import type {
@@ -80,7 +80,7 @@ export const UndoToast = React.memo(function UndoToast({
   )
   const [isRestoring, setIsRestoring] = useState(false)
 
-  useComponentEffect(() => {
+  useCycleEffect(() => {
     // Freeze the countdown once the user commits to Undo so the displayed
     // "12s" doesn't keep ticking down behind a "Restoring..." spinner. The
     // parent dismisses the toast as soon as restore resolves, so the frozen
