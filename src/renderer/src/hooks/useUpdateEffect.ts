@@ -6,6 +6,11 @@ import {
 } from 'react'
 
 /**
+ * Dependency list variant that rejects an empty array at compile time.
+ */
+type NonEmptyDependencyList = readonly [unknown, ...unknown[]]
+
+/**
  * Run a React effect after re-renders while skipping the initial mount.
  *
  * Use this when local state is already initialized from props or Redux during
@@ -19,6 +24,11 @@ import {
  *   setDraft(serverValue)
  * }, [serverValue])
  */
+export function useUpdateEffect(effect: EffectCallback, deps?: undefined): void
+export function useUpdateEffect(
+  effect: EffectCallback,
+  deps: NonEmptyDependencyList,
+): void
 export function useUpdateEffect(
   effect: EffectCallback,
   deps?: DependencyList,

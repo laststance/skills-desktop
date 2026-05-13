@@ -48,6 +48,16 @@ describe('lifecycle effect hooks', () => {
       await rerender()
       expect(effect).toHaveBeenCalledOnce()
     })
+
+    it('rejects empty dependency lists at the type level', async () => {
+      const effect = vi.fn()
+      await renderHook(() =>
+        // @ts-expect-error - omit deps for every update, or pass non-empty deps.
+        useUpdateEffect(effect, []),
+      )
+
+      expect(effect).not.toHaveBeenCalled()
+    })
   })
 
   describe('useUnmountEffect', () => {
@@ -59,6 +69,22 @@ describe('lifecycle effect hooks', () => {
       unmount()
 
       expect(callback).toHaveBeenCalledOnce()
+    })
+
+    it('uses the latest callback when unmounting after re-render', async () => {
+      const initialCallback = vi.fn()
+      const latestCallback = vi.fn()
+      let callback = initialCallback
+      const { rerender, unmount } = await renderHook(() =>
+        useUnmountEffect(callback),
+      )
+
+      callback = latestCallback
+      await rerender()
+      unmount()
+
+      expect(initialCallback).not.toHaveBeenCalled()
+      expect(latestCallback).toHaveBeenCalledOnce()
     })
   })
 

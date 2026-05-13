@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 /**
  * Run a callback only when the component unmounts.
@@ -14,7 +14,13 @@ import { useEffect } from 'react'
  * })
  */
 export function useUnmountEffect(callback: () => void): void {
+  const callbackRef = useRef(callback)
+
   useEffect(() => {
-    return () => callback()
+    callbackRef.current = callback
+  }, [callback])
+
+  useEffect(() => {
+    return () => callbackRef.current()
   }, [])
 }
