@@ -3,6 +3,7 @@ import { Provider } from 'react-redux'
 import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
 
+import '@/renderer/src/styles/globals.css'
 import type { HttpUrl, RepositoryId, SkillName } from '@/shared/types'
 
 /**
@@ -44,16 +45,17 @@ async function renderBookmarksWidget(
 }
 
 describe('BookmarksWidget', () => {
-  it('keeps the remove button compact and out of row layout', async () => {
+  it('keeps long bookmark text reachable alongside the remove control', async () => {
     const { screen } = await renderBookmarksWidget()
+
+    await expect.element(screen.getByText('very-long-skill-name')).toBeVisible()
+    await expect.element(screen.getByText('laststance/skills')).toBeVisible()
 
     const removeButton = screen
       .getByRole('button', { name: /Remove bookmark very-long-skill-name/i })
       .element() as HTMLButtonElement
-    expect(removeButton.classList.contains('absolute')).toBe(true)
-    expect(removeButton.classList.contains('size-7')).toBe(true)
-    expect(removeButton.classList.contains('min-w-11')).toBe(false)
-    expect(removeButton.classList.contains('min-h-11')).toBe(false)
+
+    expect(removeButton.title).toBe('Remove very-long-skill-name')
   })
 
   it('still removes the bookmark through the compact control', async () => {

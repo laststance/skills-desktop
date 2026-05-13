@@ -57,7 +57,6 @@ const BookmarkRow = React.memo(function BookmarkRow({
         className="
           absolute right-1 top-1/2 z-10 flex size-7 -translate-y-1/2 items-center justify-center
           rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive
-          pointer-events-none group-hover:pointer-events-auto focus-visible:pointer-events-auto
           opacity-0 group-hover:opacity-100 focus-visible:opacity-100
           transition-[opacity,background-color,color]
           after:absolute after:-inset-1.5 after:content-['']
