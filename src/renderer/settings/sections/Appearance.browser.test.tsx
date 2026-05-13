@@ -53,6 +53,7 @@ describe('Settings → Appearance', () => {
     const slider = screen.getByRole('slider', { name: /Opacity/i })
     await slider.fill('24')
 
+    await expect.element(screen.getByText('84% / 24px')).toBeVisible()
     await expect.poll(() => mockSettingsSet.mock.calls.length).toBe(1)
     expect(mockSettingsSet).toHaveBeenCalledWith({
       windowBackgroundBlurRadius: 24,

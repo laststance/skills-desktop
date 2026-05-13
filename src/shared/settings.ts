@@ -24,6 +24,54 @@ export const WINDOW_SIZE_MIN_DIMENSION = 400
  */
 export const WINDOW_BACKGROUND_BLUR_MIN_RADIUS = 0
 export const WINDOW_BACKGROUND_BLUR_MAX_RADIUS = 48
+
+/**
+ * Visual opacity range paired with the background blur slider.
+ * `1` keeps the app surface fully opaque when blur is off; the minimum keeps
+ * text contrast comfortable while still revealing macOS material underneath.
+ */
+export const WINDOW_BACKGROUND_OPACITY_MAX = 1
+export const WINDOW_BACKGROUND_OPACITY_MIN = 0.68
+
+/**
+ * Clamp a persisted blur radius before it touches Electron or CSS surfaces.
+ * @param blurRadius - User setting from `settings.json` or IPC.
+ * @returns Whole-pixel radius inside the app-supported range.
+ * @example
+ * normalizeWindowBackgroundBlurRadius(99) // => 48
+ */
+export function normalizeWindowBackgroundBlurRadius(
+  blurRadius: number,
+): number {
+  return Math.min(
+    WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
+    Math.max(WINDOW_BACKGROUND_BLUR_MIN_RADIUS, Math.trunc(blurRadius)),
+  )
+}
+
+/**
+ * Convert the blur slider into the visible app-surface opacity.
+ * @param blurRadius - User setting from `settings.json` or IPC.
+ * @returns Background alpha, where higher blur means more transparency.
+ * @example
+ * getWindowBackgroundOpacity(24) // => 0.84
+ */
+export function getWindowBackgroundOpacity(blurRadius: number): number {
+  const normalizedRadius = normalizeWindowBackgroundBlurRadius(blurRadius)
+  if (normalizedRadius === WINDOW_BACKGROUND_BLUR_MIN_RADIUS) {
+    return WINDOW_BACKGROUND_OPACITY_MAX
+  }
+
+  const blurProgress = normalizedRadius / WINDOW_BACKGROUND_BLUR_MAX_RADIUS
+  const opacity =
+    WINDOW_BACKGROUND_OPACITY_MAX -
+    blurProgress *
+      (WINDOW_BACKGROUND_OPACITY_MAX - WINDOW_BACKGROUND_OPACITY_MIN)
+
+  // Two decimals are enough for CSS alpha and keep labels stable.
+  return Number(opacity.toFixed(2))
+}
+
 /**
  * Non-defaulting blur-radius schema shared by disk and IPC boundaries.
  * `SettingsSchema` adds the persisted default; IPC keeps it optional so

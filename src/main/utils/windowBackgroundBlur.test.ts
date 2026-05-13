@@ -5,7 +5,6 @@ import { WINDOW_BACKGROUND_BLUR_MAX_RADIUS } from '@/shared/settings'
 
 import {
   applyWindowBackgroundBlur,
-  MAIN_WINDOW_BLURRED_BACKGROUND,
   getMainWindowBackgroundColor,
   MAIN_WINDOW_OPAQUE_BACKGROUND,
   normalizeWindowBackgroundBlurRadius,
@@ -53,10 +52,8 @@ describe('windowBackgroundBlur helpers', () => {
     expect(getMainWindowBackgroundColor(0)).toBe(MAIN_WINDOW_OPAQUE_BACKGROUND)
   })
 
-  it('uses an alpha background when blur is enabled', () => {
-    expect(getMainWindowBackgroundColor(12)).toBe(
-      MAIN_WINDOW_BLURRED_BACKGROUND,
-    )
+  it('uses slider-derived alpha background when blur is enabled', () => {
+    expect(getMainWindowBackgroundColor(12)).toBe('rgba(10, 15, 28, 0.92)')
   })
 
   it('applies opaque color and zero blur when the radius is disabled', () => {
@@ -79,10 +76,10 @@ describe('windowBackgroundBlur helpers', () => {
     applyWindowBackgroundBlur(window, WINDOW_BACKGROUND_BLUR_MAX_RADIUS + 1)
 
     expect(window.setBackgroundColor).toHaveBeenCalledWith(
-      MAIN_WINDOW_BLURRED_BACKGROUND,
+      'rgba(10, 15, 28, 0.68)',
     )
     expect(contentView.setBackgroundColor).toHaveBeenCalledWith(
-      MAIN_WINDOW_BLURRED_BACKGROUND,
+      'rgba(10, 15, 28, 0.68)',
     )
     expect(contentView.setBackgroundBlur).toHaveBeenCalledWith(
       WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
@@ -94,10 +91,10 @@ describe('windowBackgroundBlur helpers', () => {
 
     expect(() => applyWindowBackgroundBlur(window, 12)).not.toThrow()
     expect(window.setBackgroundColor).toHaveBeenCalledWith(
-      MAIN_WINDOW_BLURRED_BACKGROUND,
+      'rgba(10, 15, 28, 0.92)',
     )
     expect(contentView.setBackgroundColor).toHaveBeenCalledWith(
-      MAIN_WINDOW_BLURRED_BACKGROUND,
+      'rgba(10, 15, 28, 0.92)',
     )
     expect('setBackgroundBlur' in contentView).toBe(false)
   })
@@ -107,7 +104,7 @@ describe('windowBackgroundBlur helpers', () => {
 
     expect(() => applyWindowBackgroundBlur(window, 12)).not.toThrow()
     expect(window.setBackgroundColor).toHaveBeenCalledWith(
-      MAIN_WINDOW_BLURRED_BACKGROUND,
+      'rgba(10, 15, 28, 0.92)',
     )
     expect('setBackgroundColor' in contentView).toBe(false)
     expect(contentView.setBackgroundBlur).toHaveBeenCalledWith(12)

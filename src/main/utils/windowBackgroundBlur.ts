@@ -1,8 +1,8 @@
 import type { BrowserWindow, View } from 'electron'
 
 import {
-  WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
-  WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
+  getWindowBackgroundOpacity,
+  normalizeWindowBackgroundBlurRadius,
 } from '@/shared/settings'
 
 /**
@@ -13,43 +13,30 @@ import {
 export const MAIN_WINDOW_OPAQUE_BACKGROUND = 'rgb(10, 15, 28)'
 
 /**
- * Alpha mirrors the renderer's `bg-background/85` class so Chromium and the
- * native Electron contentView expose the same glass strength.
+ * RGB channels for the dark app canvas used by Electron before renderer CSS
+ * is available. The renderer uses the OKLCH token equivalent.
  */
-export const MAIN_WINDOW_BLURRED_BACKGROUND = 'rgba(10, 15, 28, 0.85)'
+export const MAIN_WINDOW_BACKGROUND_RGB_CHANNELS = '10, 15, 28'
 
 type BackgroundBlurCapableView = View & {
   setBackgroundBlur?: (blurRadius: number) => void
 }
 
-/**
- * Clamp a persisted blur radius before it touches Electron APIs.
- * @param blurRadius - User setting from `settings.json` or IPC.
- * @returns Whole-pixel radius inside the app-supported range.
- * @example
- * normalizeWindowBackgroundBlurRadius(99) // => 48
- */
-export function normalizeWindowBackgroundBlurRadius(
-  blurRadius: number,
-): number {
-  return Math.min(
-    WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
-    Math.max(WINDOW_BACKGROUND_BLUR_MIN_RADIUS, Math.trunc(blurRadius)),
-  )
-}
+export { normalizeWindowBackgroundBlurRadius } from '@/shared/settings'
 
 /**
  * Pick the window backplate color required by Electron's blur renderer.
  * @param blurRadius - Normalized or raw blur radius.
- * @returns Opaque color when blur is off; alpha color when blur is on.
+ * @returns Opaque color when blur is off; slider-derived alpha when blur is on.
  * @example
- * getMainWindowBackgroundColor(12) // => 'rgba(10, 15, 28, 0.82)'
+ * getMainWindowBackgroundColor(48) // => 'rgba(10, 15, 28, 0.68)'
  */
 export function getMainWindowBackgroundColor(blurRadius: number): string {
   const normalizedRadius = normalizeWindowBackgroundBlurRadius(blurRadius)
-  // Electron only shows `setBackgroundBlur` through an alpha background.
   if (normalizedRadius > 0) {
-    return MAIN_WINDOW_BLURRED_BACKGROUND
+    const opacity = getWindowBackgroundOpacity(normalizedRadius)
+    // Electron only shows native blur through an alpha BrowserWindow backplate.
+    return `rgba(${MAIN_WINDOW_BACKGROUND_RGB_CHANNELS}, ${opacity})`
   }
   return MAIN_WINDOW_OPAQUE_BACKGROUND
 }
