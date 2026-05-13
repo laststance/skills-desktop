@@ -23,14 +23,14 @@ const BookmarkRow = React.memo(function BookmarkRow({
   onRemove,
 }: BookmarkRowProps): React.ReactElement {
   return (
-    <li className="group flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted">
+    <li className="group relative flex items-center gap-2 rounded-md px-2 py-1.5 pr-1 hover:bg-muted">
       <Bookmark className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
       <a
         href={bookmark.url}
         target="_blank"
         rel="noopener noreferrer"
         className="
-          flex-1 min-w-0 inline-flex items-center gap-1 text-xs
+          flex-1 min-w-0 inline-flex items-center gap-1 pr-7 text-xs
           text-foreground hover:text-primary focus-visible:outline-none
           focus-visible:ring-2 focus-visible:ring-ring rounded
         "
@@ -50,13 +50,18 @@ const BookmarkRow = React.memo(function BookmarkRow({
         type="button"
         onClick={() => onRemove(bookmark.name)}
         aria-label={`Remove bookmark ${bookmark.name}`}
-        // 44×44 hit area per HIG — the visible X stays small so it doesn't
-        // dominate the row; opacity-0 until hover mirrors the SkillItem pattern.
+        title={`Remove ${bookmark.name}`}
+        data-bookmark-remove-button
+        // Absolute placement keeps the destructive action out of row layout,
+        // so long skill names keep the space previously consumed by 44px.
         className="
-          min-h-11 min-w-11 flex items-center justify-center
-          rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10
+          absolute right-1 top-1/2 z-10 flex size-7 -translate-y-1/2 items-center justify-center
+          rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive
+          pointer-events-none group-hover:pointer-events-auto focus-visible:pointer-events-auto
           opacity-0 group-hover:opacity-100 focus-visible:opacity-100
-          transition-opacity
+          transition-[opacity,background-color,color]
+          after:absolute after:-inset-1.5 after:content-['']
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
         "
       >
         <X className="h-3 w-3" aria-hidden="true" />
