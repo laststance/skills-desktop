@@ -1,15 +1,26 @@
 // Next.js 16 + ESLint 10 flat config.
-// eslint-config-next ≥16 exports flat-config arrays directly, so FlatCompat
-// is no longer needed (and breaks with ESLint 10's serializer).
-import nextCoreWebVitals from 'eslint-config-next/core-web-vitals'
-import nextTypescript from 'eslint-config-next/typescript'
+// We don't pull `eslint-config-next` here because that package transitively
+// brings in `eslint-plugin-react@7.37.x`, which still calls the
+// `context.getFilename()` API that ESLint 10 removed — `pnpm lint` crashes
+// at load time. Composing the plugins directly skips the broken middleman.
+import js from '@eslint/js'
+import nextPlugin from '@next/eslint-plugin-next'
+import reactHooks from 'eslint-plugin-react-hooks'
+import tseslint from 'typescript-eslint'
 
 const eslintConfig = [
-  ...nextCoreWebVitals,
-  ...nextTypescript,
   {
+    ignores: ['.next/**', 'out/**', 'node_modules/**'],
+  },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  nextPlugin.configs['core-web-vitals'],
+  {
+    plugins: {
+      'react-hooks': reactHooks,
+    },
     rules: {
-      'import/order': 'off',
+      ...reactHooks.configs.recommended.rules,
     },
   },
 ]
