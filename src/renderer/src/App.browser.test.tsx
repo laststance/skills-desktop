@@ -58,7 +58,7 @@ vi.mock('./hooks/useUpdateNotification', () => ({
 
 /**
  * Render App with only the slices it reads directly. Heavy child panels are
- * mocked so this test can focus on the window-surface opacity contract.
+ * mocked so this test can focus on the window-surface paint contract.
  * @param windowBackgroundBlurRadius - Slider value persisted in settings.
  * @returns Browser test screen for the rendered shell.
  * @example
@@ -84,19 +84,13 @@ async function renderAppWithBlur(windowBackgroundBlurRadius: number) {
 }
 
 describe('App window surface', () => {
-  it('uses slider-derived opacity on the app backplate', async () => {
+  it('keeps the renderer surface solid while Electron owns opacity', async () => {
     const screen = await renderAppWithBlur(24)
     const surface = screen
       .getByTestId('window-background-surface')
       .element() as HTMLElement
 
-    expect(surface.style.backgroundColor).toBe(
-      'oklch(from var(--background-solid) l c h / 0.84)',
-    )
-    expect(surface.dataset['windowTranslucent']).toBe('true')
-    expect(surface.style.getPropertyValue('--window-panel-opacity')).toBe(
-      '0.45',
-    )
-    expect(surface.style.getPropertyValue('--window-fill-opacity')).toBe('0.52')
+    expect(surface.style.backgroundColor).toBe('var(--background)')
+    expect(surface.dataset['windowTranslucent']).toBeUndefined()
   })
 })

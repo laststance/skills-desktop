@@ -249,7 +249,7 @@ describe('SettingsSchema', () => {
 
 /**
  * Pure helpers shared by the main process and renderer. These keep Electron's
- * native backplate and the React app root on the same visible opacity curve.
+ * native backplate and the real Electron window opacity on the same curve.
  */
 describe('window background appearance helpers', () => {
   it('clamps blur radius values before opacity math', () => {
@@ -273,6 +273,6 @@ describe('window background appearance helpers', () => {
   })
 
   it('maps mid slider values to visibly different opacity', () => {
-    expect(getWindowBackgroundOpacity(24)).toBe(0.84)
+    expect(getWindowBackgroundOpacity(24)).toBe(0.72)
   })
 })

@@ -13,10 +13,10 @@ import {
 export const MAIN_WINDOW_OPAQUE_BACKGROUND = 'rgb(10, 15, 28)'
 
 /**
- * RGB channels for the dark app canvas used by Electron before renderer CSS
- * is available. The renderer uses the OKLCH token equivalent.
+ * Fully transparent BrowserWindow backplate used when real window opacity is on.
+ * Corelive BrainDump uses the same clear backplate before applying setOpacity.
  */
-export const MAIN_WINDOW_BACKGROUND_RGB_CHANNELS = '10, 15, 28'
+export const MAIN_WINDOW_TRANSPARENT_BACKGROUND = '#00000000'
 
 type BackgroundBlurCapableView = View & {
   setBackgroundBlur?: (blurRadius: number) => void
@@ -34,25 +34,33 @@ export { normalizeWindowBackgroundBlurRadius } from '@/shared/settings'
  * shouldUseNativeWindowBlur(48) // => true
  */
 export function shouldUseNativeWindowBlur(blurRadius: number): boolean {
-  return (
-    normalizeWindowBackgroundBlurRadius(blurRadius) >
-    normalizeWindowBackgroundBlurRadius(0)
-  )
+  return normalizeWindowBackgroundBlurRadius(blurRadius) > 0
 }
 
 /**
- * Pick the window backplate color required by Electron's blur renderer.
+ * Convert the blur slider into the real Electron window opacity.
  * @param blurRadius - Normalized or raw blur radius.
- * @returns Opaque color when blur is off; slider-derived alpha when blur is on.
+ * @returns Whole-window opacity from opaque to Corelive-style transparent.
  * @example
- * getMainWindowBackgroundColor(48) // => 'rgba(10, 15, 28, 0.68)'
+ * getMainWindowOpacity(48) // => 0.45
+ */
+export function getMainWindowOpacity(blurRadius: number): number {
+  return getWindowBackgroundOpacity(blurRadius)
+}
+
+/**
+ * Pick the BrowserWindow backplate color for the current transparency mode.
+ * @param blurRadius - Normalized or raw blur radius.
+ * @returns Opaque color when blur is off; clear backplate when blur is on.
+ * @example
+ * getMainWindowBackgroundColor(48) // => '#00000000'
  */
 export function getMainWindowBackgroundColor(blurRadius: number): string {
   const normalizedRadius = normalizeWindowBackgroundBlurRadius(blurRadius)
   if (normalizedRadius > 0) {
-    const opacity = getWindowBackgroundOpacity(normalizedRadius)
-    // Electron only shows native blur through an alpha BrowserWindow backplate.
-    return `rgba(${MAIN_WINDOW_BACKGROUND_RGB_CHANNELS}, ${opacity})`
+    // The renderer paints the app chrome; Electron's native backplate must stay
+    // clear so BrowserWindow.setOpacity can reveal the desktop underneath.
+    return MAIN_WINDOW_TRANSPARENT_BACKGROUND
   }
   return MAIN_WINDOW_OPAQUE_BACKGROUND
 }
@@ -70,8 +78,10 @@ export function applyWindowBackgroundBlur(
 ): void {
   const normalizedRadius = normalizeWindowBackgroundBlurRadius(blurRadius)
   const backgroundColor = getMainWindowBackgroundColor(normalizedRadius)
+  const windowOpacity = getMainWindowOpacity(normalizedRadius)
   const shouldEnableNativeBlur = shouldUseNativeWindowBlur(normalizedRadius)
 
+  window.setOpacity(windowOpacity)
   window.setBackgroundColor(backgroundColor)
   if (process.platform === 'darwin') {
     // macOS vibrancy supplies the system material seen through the transparent

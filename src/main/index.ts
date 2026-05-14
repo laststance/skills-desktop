@@ -25,7 +25,7 @@ import { getSecureWebPreferences } from './utils/secureWebPreferences'
 import {
   applyWindowBackgroundBlur,
   getMainWindowBackgroundColor,
-  shouldUseNativeWindowBlur,
+  getMainWindowOpacity,
 } from './utils/windowBackgroundBlur'
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -72,10 +72,6 @@ function createWindow(): void {
   const launchSize = hasCustomSize
     ? clampSizeToWorkArea(persistedWindowSize, primaryWorkArea)
     : { width: DEFAULT_LAUNCH_WIDTH, height: DEFAULT_LAUNCH_HEIGHT }
-  const shouldStartWithNativeBlur = shouldUseNativeWindowBlur(
-    settings.windowBackgroundBlurRadius,
-  )
-
   const window = new BrowserWindow({
     // `useContentSize` makes `width`/`height` (and `minWidth`/`minHeight`)
     // describe the content area instead of the outer frame. Required for
@@ -93,17 +89,9 @@ function createWindow(): void {
     backgroundColor: getMainWindowBackgroundColor(
       settings.windowBackgroundBlurRadius,
     ),
-    ...(shouldStartWithNativeBlur
-      ? {
-          // Native macOS material blur must exist below the transparent
-          // Chromium layer; otherwise translucent renderer surfaces just show
-          // a flat dark BrowserWindow backplate.
-          vibrancy: 'under-window' as const,
-          visualEffectState: 'active' as const,
-        }
-      : {}),
-    // Required for the renderer root and Electron contentView alpha channel
-    // to reveal the native background blur when the Appearance slider is on.
+    opacity: getMainWindowOpacity(settings.windowBackgroundBlurRadius),
+    // Required for the clear BrowserWindow backplate and real window opacity
+    // to reveal the desktop behind the app when the Appearance slider is on.
     transparent: true,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 16 },

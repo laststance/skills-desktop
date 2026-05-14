@@ -6,7 +6,9 @@ import { WINDOW_BACKGROUND_BLUR_MAX_RADIUS } from '@/shared/settings'
 import {
   applyWindowBackgroundBlur,
   getMainWindowBackgroundColor,
+  getMainWindowOpacity,
   MAIN_WINDOW_OPAQUE_BACKGROUND,
+  MAIN_WINDOW_TRANSPARENT_BACKGROUND,
   normalizeWindowBackgroundBlurRadius,
   shouldUseNativeWindowBlur,
 } from './windowBackgroundBlur'
@@ -49,6 +51,7 @@ function makeWindowMock(
   }
   const window = {
     setBackgroundColor: vi.fn(),
+    setOpacity: vi.fn(),
     setVibrancy: vi.fn(),
     contentView,
   } as unknown as BrowserWindow
@@ -73,8 +76,15 @@ describe('windowBackgroundBlur helpers', () => {
     expect(getMainWindowBackgroundColor(0)).toBe(MAIN_WINDOW_OPAQUE_BACKGROUND)
   })
 
-  it('uses slider-derived alpha background when blur is enabled', () => {
-    expect(getMainWindowBackgroundColor(12)).toBe('rgba(10, 15, 28, 0.92)')
+  it('uses a clear background when blur is enabled', () => {
+    expect(getMainWindowBackgroundColor(12)).toBe(
+      MAIN_WINDOW_TRANSPARENT_BACKGROUND,
+    )
+  })
+
+  it('maps the blur slider to real BrowserWindow opacity', () => {
+    expect(getMainWindowOpacity(0)).toBe(1)
+    expect(getMainWindowOpacity(WINDOW_BACKGROUND_BLUR_MAX_RADIUS)).toBe(0.45)
   })
 
   it('enables native blur only for non-zero radius values', () => {
@@ -87,6 +97,7 @@ describe('windowBackgroundBlur helpers', () => {
 
     applyWindowBackgroundBlur(window, 0)
 
+    expect(window.setOpacity).toHaveBeenCalledWith(1)
     expect(window.setBackgroundColor).toHaveBeenCalledWith(
       MAIN_WINDOW_OPAQUE_BACKGROUND,
     )
@@ -102,12 +113,13 @@ describe('windowBackgroundBlur helpers', () => {
 
     applyWindowBackgroundBlur(window, WINDOW_BACKGROUND_BLUR_MAX_RADIUS + 1)
 
+    expect(window.setOpacity).toHaveBeenCalledWith(0.45)
     expect(window.setBackgroundColor).toHaveBeenCalledWith(
-      'rgba(10, 15, 28, 0.68)',
+      MAIN_WINDOW_TRANSPARENT_BACKGROUND,
     )
     expectMacVibrancy(window, 'under-window')
     expect(contentView.setBackgroundColor).toHaveBeenCalledWith(
-      'rgba(10, 15, 28, 0.68)',
+      MAIN_WINDOW_TRANSPARENT_BACKGROUND,
     )
     expect(contentView.setBackgroundBlur).toHaveBeenCalledWith(
       WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
@@ -118,11 +130,12 @@ describe('windowBackgroundBlur helpers', () => {
     const { window, contentView } = makeWindowMock(false)
 
     expect(() => applyWindowBackgroundBlur(window, 12)).not.toThrow()
+    expect(window.setOpacity).toHaveBeenCalledWith(0.86)
     expect(window.setBackgroundColor).toHaveBeenCalledWith(
-      'rgba(10, 15, 28, 0.92)',
+      MAIN_WINDOW_TRANSPARENT_BACKGROUND,
     )
     expect(contentView.setBackgroundColor).toHaveBeenCalledWith(
-      'rgba(10, 15, 28, 0.92)',
+      MAIN_WINDOW_TRANSPARENT_BACKGROUND,
     )
     expect('setBackgroundBlur' in contentView).toBe(false)
   })
@@ -131,8 +144,9 @@ describe('windowBackgroundBlur helpers', () => {
     const { window, contentView } = makeWindowMock(true, false)
 
     expect(() => applyWindowBackgroundBlur(window, 12)).not.toThrow()
+    expect(window.setOpacity).toHaveBeenCalledWith(0.86)
     expect(window.setBackgroundColor).toHaveBeenCalledWith(
-      'rgba(10, 15, 28, 0.92)',
+      MAIN_WINDOW_TRANSPARENT_BACKGROUND,
     )
     expect('setBackgroundColor' in contentView).toBe(false)
     expect(contentView.setBackgroundBlur).toHaveBeenCalledWith(12)

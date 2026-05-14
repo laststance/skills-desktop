@@ -35,16 +35,13 @@
    * ============================================ */
 
   .dark {
-    --background-solid: oklch(0.12 var(--chroma-5) var(--theme-hue));
-    --background: var(--background-solid);
+    --background: oklch(0.12 var(--chroma-5) var(--theme-hue));
     --foreground: oklch(0.98 var(--chroma-3) var(--theme-hue));
 
-    --card-solid: oklch(0.18 var(--chroma-6) var(--theme-hue));
-    --card: var(--card-solid);
+    --card: oklch(0.18 var(--chroma-6) var(--theme-hue));
     --card-foreground: oklch(0.98 var(--chroma-3) var(--theme-hue));
 
-    --popover-solid: oklch(0.18 var(--chroma-6) var(--theme-hue));
-    --popover: var(--popover-solid);
+    --popover: oklch(0.18 var(--chroma-6) var(--theme-hue));
     --popover-foreground: oklch(0.98 var(--chroma-3) var(--theme-hue));
 
     /* Primary / accent ride the theme-chroma axis directly so color
@@ -53,12 +50,10 @@
     --primary: oklch(0.7 var(--theme-chroma) var(--theme-hue));
     --primary-foreground: oklch(0.12 var(--chroma-5) var(--theme-hue));
 
-    --secondary-solid: oklch(0.25 var(--chroma-7) var(--theme-hue));
-    --secondary: var(--secondary-solid);
+    --secondary: oklch(0.25 var(--chroma-7) var(--theme-hue));
     --secondary-foreground: oklch(0.98 var(--chroma-3) var(--theme-hue));
 
-    --muted-solid: oklch(0.25 var(--chroma-7) var(--theme-hue));
-    --muted: var(--muted-solid);
+    --muted: oklch(0.25 var(--chroma-7) var(--theme-hue));
     --muted-foreground: oklch(0.65 var(--chroma-5) var(--theme-hue));
 
     --accent: oklch(0.7 var(--theme-chroma) var(--theme-hue));
@@ -92,27 +87,22 @@
   }
 
   .light {
-    --background-solid: oklch(0.99 var(--chroma-1) var(--theme-hue));
-    --background: var(--background-solid);
+    --background: oklch(0.99 var(--chroma-1) var(--theme-hue));
     --foreground: oklch(0.15 var(--chroma-7) var(--theme-hue));
 
-    --card-solid: oklch(0.97 var(--chroma-2) var(--theme-hue));
-    --card: var(--card-solid);
+    --card: oklch(0.97 var(--chroma-2) var(--theme-hue));
     --card-foreground: oklch(0.15 var(--chroma-7) var(--theme-hue));
 
-    --popover-solid: oklch(0.99 var(--chroma-1) var(--theme-hue));
-    --popover: var(--popover-solid);
+    --popover: oklch(0.99 var(--chroma-1) var(--theme-hue));
     --popover-foreground: oklch(0.15 var(--chroma-7) var(--theme-hue));
 
     --primary: oklch(0.5 var(--theme-chroma) var(--theme-hue));
     --primary-foreground: oklch(0.99 var(--chroma-1) var(--theme-hue));
 
-    --secondary-solid: oklch(0.95 var(--chroma-4) var(--theme-hue));
-    --secondary: var(--secondary-solid);
+    --secondary: oklch(0.95 var(--chroma-4) var(--theme-hue));
     --secondary-foreground: oklch(0.15 var(--chroma-7) var(--theme-hue));
 
-    --muted-solid: oklch(0.95 var(--chroma-4) var(--theme-hue));
-    --muted: var(--muted-solid);
+    --muted: oklch(0.95 var(--chroma-4) var(--theme-hue));
     --muted-foreground: oklch(0.45 var(--chroma-5) var(--theme-hue));
 
     --accent: oklch(0.5 var(--theme-chroma) var(--theme-hue));
@@ -144,20 +134,6 @@
     font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-  }
-
-  .window-background-surface[data-window-translucent='true'] {
-    --background: oklch(
-      from var(--background-solid) l c h / var(--window-background-opacity)
-    );
-    --card: oklch(from var(--card-solid) l c h / var(--window-panel-opacity));
-    --muted: oklch(from var(--muted-solid) l c h / var(--window-fill-opacity));
-    --secondary: oklch(
-      from var(--secondary-solid) l c h / var(--window-fill-opacity)
-    );
-    --popover: oklch(
-      from var(--popover-solid) l c h / var(--window-popover-opacity)
-    );
   }
 
   /* Electron window drag region */

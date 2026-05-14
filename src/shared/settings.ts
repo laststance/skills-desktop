@@ -27,11 +27,11 @@ export const WINDOW_BACKGROUND_BLUR_MAX_RADIUS = 48
 
 /**
  * Visual opacity range paired with the background blur slider.
- * `1` keeps the app surface fully opaque when blur is off; the minimum keeps
- * text contrast comfortable while still revealing macOS material underneath.
+ * `1` keeps the app surface fully opaque when blur is off; the minimum mirrors
+ * Corelive BrainDump's real Electron window opacity so the desktop is visible.
  */
 export const WINDOW_BACKGROUND_OPACITY_MAX = 1
-export const WINDOW_BACKGROUND_OPACITY_MIN = 0.68
+export const WINDOW_BACKGROUND_OPACITY_MIN = 0.45
 
 /**
  * Clamp a persisted blur radius before it touches Electron or CSS surfaces.
@@ -52,9 +52,9 @@ export function normalizeWindowBackgroundBlurRadius(
 /**
  * Convert the blur slider into the visible app-surface opacity.
  * @param blurRadius - User setting from `settings.json` or IPC.
- * @returns Background alpha, where higher blur means more transparency.
+ * @returns BrowserWindow opacity, where higher blur means more transparency.
  * @example
- * getWindowBackgroundOpacity(24) // => 0.84
+ * getWindowBackgroundOpacity(24) // => 0.72
  */
 export function getWindowBackgroundOpacity(blurRadius: number): number {
   const normalizedRadius = normalizeWindowBackgroundBlurRadius(blurRadius)

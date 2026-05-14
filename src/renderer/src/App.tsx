@@ -2,8 +2,6 @@ import React from 'react'
 import { Panel, Group, Separator } from 'react-resizable-panels'
 import { Toaster } from 'sonner'
 
-import { getWindowBackgroundOpacity } from '@/shared/settings'
-
 import { DetailPanel } from './components/layout/DetailPanel'
 import { MainContent } from './components/layout/MainContent'
 import { Sidebar } from './components/layout/Sidebar'
@@ -98,13 +96,6 @@ const toasterStyle = {
   '--width': '312px',
 } as React.CSSProperties
 
-type WindowSurfaceStyle = React.CSSProperties & {
-  '--window-background-opacity': string
-  '--window-panel-opacity': string
-  '--window-fill-opacity': string
-  '--window-popover-opacity': string
-}
-
 /**
  * Skills Desktop main application component
  * Layout: Sidebar (240px) | Main | Detail
@@ -125,34 +116,16 @@ const App = React.memo(function App(): React.ReactElement {
   // Drive sonner's theme prop from the persisted redux mode so toasts honor
   // the user's light/dark choice. Pre-fix this was hardcoded `theme="dark"`.
   const mode = useAppSelector((state) => state.theme.mode)
-  const windowBackgroundBlurRadius = useAppSelector(
-    (state) => state.settings.windowBackgroundBlurRadius,
-  )
-  const windowBackgroundOpacity = getWindowBackgroundOpacity(
-    windowBackgroundBlurRadius,
-  )
-  const isWindowTranslucent = windowBackgroundOpacity < 1
-  // Child panes use a lower alpha than the root so stacked backgrounds still
-  // reveal the native macOS blur instead of recomposing back to opaque black.
-  const windowPanelOpacity = Number((windowBackgroundOpacity * 0.54).toFixed(2))
-  const windowFillOpacity = Number((windowBackgroundOpacity * 0.62).toFixed(2))
-  const windowSurfaceStyle = {
-    '--window-background-opacity': `${windowBackgroundOpacity}`,
-    '--window-panel-opacity': `${windowPanelOpacity}`,
-    '--window-fill-opacity': `${windowFillOpacity}`,
-    '--window-popover-opacity': isWindowTranslucent ? '0.94' : '1',
-    backgroundColor: `oklch(from var(--background-solid) l c h / ${windowBackgroundOpacity})`,
-  } satisfies WindowSurfaceStyle
 
   return (
     <TooltipProvider delayDuration={200}>
       {/* Window glow effect - subtle inner shadow for depth */}
       <div
         data-testid="window-background-surface"
-        data-window-translucent={isWindowTranslucent ? 'true' : 'false'}
         className="window-background-surface flex h-screen text-foreground window-glow transition-[background-color]"
-        // Keep text opaque while the slider changes only the app backplate.
-        style={windowSurfaceStyle}
+        // Match Corelive BrainDump: renderer paints a solid surface, while
+        // BrowserWindow.setOpacity controls real desktop transparency.
+        style={{ backgroundColor: 'var(--background)' }}
       >
         <Sidebar />
         <Group orientation="horizontal" className="flex-1 h-full">
