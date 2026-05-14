@@ -1,24 +1,39 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
-@layer base {
-  :root {
-    --background: 222 47% 5%;
-    --foreground: 210 40% 98%;
-    --card: 217 33% 12%;
-    --card-foreground: 210 40% 98%;
-    --primary: 187 92% 53%;
-    --primary-foreground: 222 47% 5%;
-    --secondary: 217 25% 18%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 25% 18%;
-    --muted-foreground: 215 16% 55%;
-    --accent: 187 92% 53%;
-    --accent-foreground: 222 47% 5%;
-    --border: 217 25% 22%;
-    --radius: 0.5rem;
-  }
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --radius: var(--radius);
+  --font-sans: Inter, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', Menlo, monospace;
+}
+
+:root {
+  --background: hsl(222 47% 5%);
+  --foreground: hsl(210 40% 98%);
+  --card: hsl(217 33% 12%);
+  --card-foreground: hsl(210 40% 98%);
+  --primary: hsl(187 92% 53%);
+  --primary-foreground: hsl(222 47% 5%);
+  --secondary: hsl(217 25% 18%);
+  --secondary-foreground: hsl(210 40% 98%);
+  --muted: hsl(217 25% 18%);
+  --muted-foreground: hsl(215 16% 55%);
+  --accent: hsl(187 92% 53%);
+  --accent-foreground: hsl(222 47% 5%);
+  --border: hsl(217 25% 22%);
+  --radius: 0.5rem;
 }
 
 @layer base {
