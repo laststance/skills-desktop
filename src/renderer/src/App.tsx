@@ -2,8 +2,6 @@ import React from 'react'
 import { Panel, Group, Separator } from 'react-resizable-panels'
 import { Toaster } from 'sonner'
 
-import { getWindowBackgroundOpacity } from '@/shared/settings'
-
 import { DetailPanel } from './components/layout/DetailPanel'
 import { MainContent } from './components/layout/MainContent'
 import { Sidebar } from './components/layout/Sidebar'
@@ -118,23 +116,16 @@ const App = React.memo(function App(): React.ReactElement {
   // Drive sonner's theme prop from the persisted redux mode so toasts honor
   // the user's light/dark choice. Pre-fix this was hardcoded `theme="dark"`.
   const mode = useAppSelector((state) => state.theme.mode)
-  const windowBackgroundBlurRadius = useAppSelector(
-    (state) => state.settings.windowBackgroundBlurRadius,
-  )
-  const windowBackgroundOpacity = getWindowBackgroundOpacity(
-    windowBackgroundBlurRadius,
-  )
 
   return (
     <TooltipProvider delayDuration={200}>
       {/* Window glow effect - subtle inner shadow for depth */}
       <div
         data-testid="window-background-surface"
-        className="flex h-screen text-foreground window-glow transition-[background-color]"
-        // Keep text opaque while the slider changes only the app backplate.
-        style={{
-          backgroundColor: `oklch(from var(--background) l c h / ${windowBackgroundOpacity})`,
-        }}
+        className="window-background-surface flex h-screen text-foreground window-glow transition-[background-color]"
+        // Match Corelive BrainDump: renderer paints a solid surface, while
+        // BrowserWindow.setOpacity controls real desktop transparency.
+        style={{ backgroundColor: 'var(--background)' }}
       >
         <Sidebar />
         <Group orientation="horizontal" className="flex-1 h-full">

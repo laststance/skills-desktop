@@ -1,5 +1,7 @@
 import laststanceReactNextPlugin from '@laststance/react-next-eslint-plugin'
 import tsPrefixer from 'eslint-config-ts-prefixer'
+import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript'
+import { createNodeResolver } from 'eslint-plugin-import-x'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactYouMightNotNeedAnEffect from 'eslint-plugin-react-you-might-not-need-an-effect'
 import { defineConfig } from 'eslint/config'
@@ -39,8 +41,54 @@ const laststanceReactNextRules = Object.fromEntries(
   ]),
 )
 
+const nodeResolverExtensions = [
+  '.mjs',
+  '.js',
+  '.cjs',
+  '.mts',
+  '.ts',
+  '.jsx',
+  '.tsx',
+]
+
+const importXResolverSettings = {
+  'import-x/resolver-next': [
+    createTypeScriptImportResolver({
+      alwaysTryTypes: true,
+      project: './tsconfig.json',
+    }),
+    createNodeResolver({
+      extensions: nodeResolverExtensions,
+    }),
+  ],
+}
+
+/**
+ * Rewrite `eslint-config-ts-prefixer`'s legacy import-x resolver setting.
+ * @param config - One flat-config entry from the shared preset.
+ * @returns Equivalent config with the current resolver-next API.
+ * @example
+ * tsPrefixer.map(withImportXResolverNext)
+ */
+function withImportXResolverNext(config) {
+  if (!config.settings?.['import-x/resolver']) return config
+
+  const { ['import-x/resolver']: _legacyResolver, ...settings } =
+    config.settings
+
+  // eslint-plugin-import-x now expects resolver objects from resolver-next;
+  // keeping the legacy key makes every import rule fail before real linting.
+  return {
+    ...config,
+    settings: {
+      ...settings,
+      ...importXResolverSettings,
+    },
+  }
+}
+
 export default defineConfig([
-  ...tsPrefixer,
+  ...tsPrefixer.map(withImportXResolverNext),
   {
     languageOptions: {
       parserOptions: {

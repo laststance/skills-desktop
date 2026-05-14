@@ -24,7 +24,8 @@ import { installDevelopmentDevToolsExtensions } from './utils/installDevelopment
 import { getSecureWebPreferences } from './utils/secureWebPreferences'
 import {
   applyWindowBackgroundBlur,
-  MAIN_WINDOW_OPAQUE_BACKGROUND,
+  getMainWindowBackgroundColor,
+  getMainWindowOpacity,
 } from './utils/windowBackgroundBlur'
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -71,7 +72,6 @@ function createWindow(): void {
   const launchSize = hasCustomSize
     ? clampSizeToWorkArea(persistedWindowSize, primaryWorkArea)
     : { width: DEFAULT_LAUNCH_WIDTH, height: DEFAULT_LAUNCH_HEIGHT }
-
   const window = new BrowserWindow({
     // `useContentSize` makes `width`/`height` (and `minWidth`/`minHeight`)
     // describe the content area instead of the outer frame. Required for
@@ -86,9 +86,12 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 600,
     show: false,
-    backgroundColor: MAIN_WINDOW_OPAQUE_BACKGROUND,
-    // Required for the renderer root and Electron contentView alpha channel
-    // to reveal the native background blur when the Appearance slider is on.
+    backgroundColor: getMainWindowBackgroundColor(
+      settings.windowBackgroundBlurRadius,
+    ),
+    opacity: getMainWindowOpacity(settings.windowBackgroundBlurRadius),
+    // Required for the clear BrowserWindow backplate and real window opacity
+    // to reveal the desktop behind the app when the Appearance slider is on.
     transparent: true,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 16 },
