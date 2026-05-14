@@ -22,7 +22,23 @@ type BackgroundBlurCapableView = View & {
   setBackgroundBlur?: (blurRadius: number) => void
 }
 
+const MACOS_VIBRANCY_MATERIAL = 'under-window'
+
 export { normalizeWindowBackgroundBlurRadius } from '@/shared/settings'
+
+/**
+ * Decide whether the native macOS material blur should be enabled.
+ * @param blurRadius - Normalized or raw blur radius.
+ * @returns true when the Appearance setting asks for a non-opaque window.
+ * @example
+ * shouldUseNativeWindowBlur(48) // => true
+ */
+export function shouldUseNativeWindowBlur(blurRadius: number): boolean {
+  return (
+    normalizeWindowBackgroundBlurRadius(blurRadius) >
+    normalizeWindowBackgroundBlurRadius(0)
+  )
+}
 
 /**
  * Pick the window backplate color required by Electron's blur renderer.
@@ -54,8 +70,14 @@ export function applyWindowBackgroundBlur(
 ): void {
   const normalizedRadius = normalizeWindowBackgroundBlurRadius(blurRadius)
   const backgroundColor = getMainWindowBackgroundColor(normalizedRadius)
+  const shouldEnableNativeBlur = shouldUseNativeWindowBlur(normalizedRadius)
 
   window.setBackgroundColor(backgroundColor)
+  if (process.platform === 'darwin') {
+    // macOS vibrancy supplies the system material seen through the transparent
+    // Chromium surface. Turning it off at radius 0 restores the solid app.
+    window.setVibrancy(shouldEnableNativeBlur ? MACOS_VIBRANCY_MATERIAL : null)
+  }
 
   const contentView = window.contentView as BackgroundBlurCapableView
   if (typeof contentView.setBackgroundColor === 'function') {

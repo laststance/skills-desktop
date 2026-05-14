@@ -91,7 +91,12 @@ describe('App window surface', () => {
       .element() as HTMLElement
 
     expect(surface.style.backgroundColor).toBe(
-      'oklch(from var(--background) l c h / 0.84)',
+      'oklch(from var(--background-solid) l c h / 0.84)',
     )
+    expect(surface.dataset['windowTranslucent']).toBe('true')
+    expect(surface.style.getPropertyValue('--window-panel-opacity')).toBe(
+      '0.45',
+    )
+    expect(surface.style.getPropertyValue('--window-fill-opacity')).toBe('0.52')
   })
 })

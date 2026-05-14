@@ -24,7 +24,8 @@ import { installDevelopmentDevToolsExtensions } from './utils/installDevelopment
 import { getSecureWebPreferences } from './utils/secureWebPreferences'
 import {
   applyWindowBackgroundBlur,
-  MAIN_WINDOW_OPAQUE_BACKGROUND,
+  getMainWindowBackgroundColor,
+  shouldUseNativeWindowBlur,
 } from './utils/windowBackgroundBlur'
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -71,6 +72,9 @@ function createWindow(): void {
   const launchSize = hasCustomSize
     ? clampSizeToWorkArea(persistedWindowSize, primaryWorkArea)
     : { width: DEFAULT_LAUNCH_WIDTH, height: DEFAULT_LAUNCH_HEIGHT }
+  const shouldStartWithNativeBlur = shouldUseNativeWindowBlur(
+    settings.windowBackgroundBlurRadius,
+  )
 
   const window = new BrowserWindow({
     // `useContentSize` makes `width`/`height` (and `minWidth`/`minHeight`)
@@ -86,7 +90,18 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 600,
     show: false,
-    backgroundColor: MAIN_WINDOW_OPAQUE_BACKGROUND,
+    backgroundColor: getMainWindowBackgroundColor(
+      settings.windowBackgroundBlurRadius,
+    ),
+    ...(shouldStartWithNativeBlur
+      ? {
+          // Native macOS material blur must exist below the transparent
+          // Chromium layer; otherwise translucent renderer surfaces just show
+          // a flat dark BrowserWindow backplate.
+          vibrancy: 'under-window' as const,
+          visualEffectState: 'active' as const,
+        }
+      : {}),
     // Required for the renderer root and Electron contentView alpha channel
     // to reveal the native background blur when the Appearance slider is on.
     transparent: true,

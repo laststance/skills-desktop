@@ -8,7 +8,27 @@ import {
   getMainWindowBackgroundColor,
   MAIN_WINDOW_OPAQUE_BACKGROUND,
   normalizeWindowBackgroundBlurRadius,
+  shouldUseNativeWindowBlur,
 } from './windowBackgroundBlur'
+
+/**
+ * Assert macOS-only vibrancy behavior without making Linux CI fail.
+ * @param window - Mock BrowserWindow returned from `makeWindowMock`.
+ * @param material - Expected vibrancy material on macOS, or null when disabled.
+ * @example
+ * expectMacVibrancy(window, 'under-window')
+ */
+function expectMacVibrancy(
+  window: BrowserWindow,
+  material: 'under-window' | null,
+): void {
+  const setVibrancy = vi.mocked(window.setVibrancy)
+  if (process.platform === 'darwin') {
+    expect(setVibrancy).toHaveBeenCalledWith(material)
+    return
+  }
+  expect(setVibrancy).not.toHaveBeenCalled()
+}
 
 /**
  * Build the minimal BrowserWindow/contentView surface the blur mutator uses.
@@ -29,6 +49,7 @@ function makeWindowMock(
   }
   const window = {
     setBackgroundColor: vi.fn(),
+    setVibrancy: vi.fn(),
     contentView,
   } as unknown as BrowserWindow
   return { window, contentView }
@@ -56,6 +77,11 @@ describe('windowBackgroundBlur helpers', () => {
     expect(getMainWindowBackgroundColor(12)).toBe('rgba(10, 15, 28, 0.92)')
   })
 
+  it('enables native blur only for non-zero radius values', () => {
+    expect(shouldUseNativeWindowBlur(0)).toBe(false)
+    expect(shouldUseNativeWindowBlur(1)).toBe(true)
+  })
+
   it('applies opaque color and zero blur when the radius is disabled', () => {
     const { window, contentView } = makeWindowMock(true)
 
@@ -64,6 +90,7 @@ describe('windowBackgroundBlur helpers', () => {
     expect(window.setBackgroundColor).toHaveBeenCalledWith(
       MAIN_WINDOW_OPAQUE_BACKGROUND,
     )
+    expectMacVibrancy(window, null)
     expect(contentView.setBackgroundColor).toHaveBeenCalledWith(
       MAIN_WINDOW_OPAQUE_BACKGROUND,
     )
@@ -78,6 +105,7 @@ describe('windowBackgroundBlur helpers', () => {
     expect(window.setBackgroundColor).toHaveBeenCalledWith(
       'rgba(10, 15, 28, 0.68)',
     )
+    expectMacVibrancy(window, 'under-window')
     expect(contentView.setBackgroundColor).toHaveBeenCalledWith(
       'rgba(10, 15, 28, 0.68)',
     )
