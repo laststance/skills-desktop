@@ -5,6 +5,7 @@ import { delimiter, join } from 'path'
 
 import { match, P } from 'ts-pattern'
 
+import { parseFormattedCount } from '@/main/services/leaderboardService'
 import { REPO_PATTERN, SKILL_NAME_PATTERN } from '@/main/utils/skillIdentifiers'
 import { AGENT_DEFINITIONS, SKILLS_CLI_VERSION } from '@/shared/constants'
 import { repositoryId } from '@/shared/types'
@@ -39,6 +40,12 @@ const CLI_FLAGS = {
 const SPAWN_TIMEOUT_MS = 60_000
 /** Signal used for user cancel and timeout kill paths. */
 const PROCESS_KILL_SIGNAL: NodeJS.Signals = 'SIGTERM'
+/**
+ * Matches both legacy `owner/repo@skill` output and current CLI lines with
+ * trailing telemetry, for example `owner/repo@skill 402.7K installs`.
+ */
+const CLI_SEARCH_RESULT_PATTERN =
+  /^([^@\s]+)@([^\s]+)(?:\s+(\d[\d,.]*(?:\s*[KMB])?)\s+installs?)?$/i
 
 /**
  * Common Node.js binary locations missing from Finder-launched macOS apps.
@@ -267,7 +274,7 @@ class SkillsCliService extends EventEmitter {
    * Parse `npx skills find` output into structured results
    * Output format:
    * ```
-   * vercel-labs/agent-skills@vercel-react-best-practices
+   * vercel-labs/agent-skills@vercel-react-best-practices 402.7K installs
    * └ https://skills.sh/vercel-labs/agent-skills/vercel-react-best-practices
    * ```
    * @param output - Raw CLI output
@@ -283,10 +290,10 @@ class SkillsCliService extends EventEmitter {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim()
 
-      // Match pattern: owner/repo@skill-name
-      const match = line.match(/^([^@\s]+)@([^\s]+)$/)
+      // Match result rows while skipping banners, hints, and blank lines.
+      const match = line.match(CLI_SEARCH_RESULT_PATTERN)
       if (match) {
-        const [, repo, name] = match
+        const [, repo, name, installCountText] = match
         // Reject anything that isn't a plain npm/GitHub identifier — see
         // SKILL_NAME_PATTERN comment. Without this, a malformed CLI line
         // could land in aria-labels and copy-paste hints downstream.
@@ -297,12 +304,17 @@ class SkillsCliService extends EventEmitter {
         const urlLine = lines[i + 1]?.trim()
         const urlMatch = urlLine?.match(/^[└├]\s*(https?:\/\/[^\s]+)$/)
 
-        results.push({
+        const searchResult: SkillSearchResult = {
           rank: rank++,
           name,
           repo: repositoryId(repo),
           url: urlMatch?.[1] || `https://skills.sh/${repo}/${name}`,
-        })
+        }
+        // Older CLI output omits telemetry, so only attach the field when seen.
+        if (installCountText) {
+          searchResult.installCount = parseFormattedCount(installCountText)
+        }
+        results.push(searchResult)
       }
     }
 
