@@ -1,7 +1,9 @@
-import { Unlink2 } from 'lucide-react'
+import { Check, Copy, Unlink2 } from 'lucide-react'
 import React, { Activity } from 'react'
+import { toast } from 'sonner'
 
 import { SymlinkStatus } from '@/renderer/src/components/status/SymlinkStatus'
+import { Button } from '@/renderer/src/components/ui/button'
 import { Separator } from '@/renderer/src/components/ui/separator'
 import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
 import { cn } from '@/renderer/src/lib/utils'
@@ -159,6 +161,58 @@ interface InfoViewProps {
   location: LocationViewModel
 }
 
+interface LocationPathClipboardState {
+  copiedPath: string | null
+  copyPath: (path: string, label: string) => Promise<void>
+}
+
+/**
+ * Manage clipboard writes and short-lived copied feedback for Location path rows.
+ * @returns Copied path state and copy handler for LocationPathRow.
+ * @example
+ * const { copiedPath, copyPath } = useLocationPathClipboard()
+ */
+function useLocationPathClipboard(): LocationPathClipboardState {
+  const [copiedPath, setCopiedPath] = React.useState<string | null>(null)
+  const resetCopiedPathTimeoutRef = React.useRef<number | null>(null)
+
+  React.useEffect(() => {
+    return () => {
+      if (resetCopiedPathTimeoutRef.current !== null) {
+        window.clearTimeout(resetCopiedPathTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const copyPath = React.useCallback(
+    async (path: string, label: string): Promise<void> => {
+      try {
+        if (!navigator.clipboard?.writeText) {
+          throw new Error('Clipboard API unavailable')
+        }
+        await navigator.clipboard.writeText(path)
+        setCopiedPath(path)
+
+        // Reset feedback after a short confirmation window.
+        if (resetCopiedPathTimeoutRef.current !== null) {
+          window.clearTimeout(resetCopiedPathTimeoutRef.current)
+        }
+        resetCopiedPathTimeoutRef.current = window.setTimeout(() => {
+          setCopiedPath((currentPath) =>
+            currentPath === path ? null : currentPath,
+          )
+          resetCopiedPathTimeoutRef.current = null
+        }, 1600)
+      } catch {
+        toast.error(`Failed to copy ${getLocationPathCopyName(label)}`)
+      }
+    },
+    [],
+  )
+
+  return { copiedPath, copyPath }
+}
+
 const InfoView = React.memo(function InfoView({
   skill,
   filteredSymlinks,
@@ -166,6 +220,8 @@ const InfoView = React.memo(function InfoView({
   brokenCount,
   location,
 }: InfoViewProps): React.ReactElement {
+  const { copiedPath, copyPath } = useLocationPathClipboard()
+
   return (
     <div className="p-4 overflow-auto h-full">
       <SourceLink source={skill.source} sourceUrl={skill.sourceUrl} />
@@ -202,27 +258,100 @@ const InfoView = React.memo(function InfoView({
         </h3>
         {location.symlinkPath ? (
           <div className="space-y-2">
-            <div>
-              <div className="text-xs text-muted-foreground mb-1">
-                Source Files
-              </div>
-              <code className="text-xs bg-muted px-2 py-1 rounded break-all inline-block max-w-full">
-                {location.sourcePath}
-              </code>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground mb-1">Symlink</div>
-              <code className="text-xs bg-muted px-2 py-1 rounded break-all inline-block max-w-full">
-                {location.symlinkPath}
-              </code>
-            </div>
+            <LocationPathRow
+              label="Source Files"
+              path={location.sourcePath}
+              isCopied={copiedPath === location.sourcePath}
+              onCopy={copyPath}
+            />
+            <LocationPathRow
+              label="Symlink"
+              path={location.symlinkPath}
+              isCopied={copiedPath === location.symlinkPath}
+              onCopy={copyPath}
+            />
           </div>
         ) : (
-          <code className="text-xs bg-muted px-2 py-1 rounded break-all inline-block max-w-full">
-            {location.sourcePath}
-          </code>
+          <LocationPathRow
+            label="Path"
+            path={location.sourcePath}
+            isCopied={copiedPath === location.sourcePath}
+            onCopy={copyPath}
+          />
         )}
       </div>
     </div>
   )
 })
+
+interface LocationPathRowProps {
+  label: string
+  path: string
+  isCopied: boolean
+  onCopy: (path: string, label: string) => Promise<void>
+}
+
+/**
+ * Render one copyable path row in the Skill Info Location section.
+ * @param label - Short label shown above the path and used in copy feedback.
+ * @param path - Absolute filesystem path displayed to the user.
+ * @param isCopied - Whether this row is currently showing copied feedback.
+ * @param onCopy - Clipboard writer owned by InfoView.
+ * @returns A labelled path with a compact Copy/Copied action.
+ * @example
+ * <LocationPathRow label="Path" path="/Users/me/.agents/skills/foo" isCopied={false} onCopy={copyPath} />
+ */
+const LocationPathRow = React.memo(function LocationPathRow({
+  label,
+  path,
+  isCopied,
+  onCopy,
+}: LocationPathRowProps): React.ReactElement {
+  const copyName = getLocationPathCopyName(label)
+  const handleCopyClick = React.useCallback((): void => {
+    void onCopy(path, label)
+  }, [label, onCopy, path])
+
+  return (
+    <div>
+      <div className="text-xs text-muted-foreground mb-1">{label}</div>
+      <div className="flex items-start gap-2 min-w-0">
+        <code className="flex-1 min-w-0 text-xs bg-muted px-2 py-1 rounded break-all">
+          {path}
+        </code>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleCopyClick}
+          aria-label={`Copy ${copyName}`}
+          className="h-7 shrink-0 px-2 text-xs text-muted-foreground hover:text-foreground"
+        >
+          {isCopied ? (
+            <>
+              <Check className="h-3.5 w-3.5" aria-hidden />
+              Copied
+            </>
+          ) : (
+            <>
+              <Copy className="h-3.5 w-3.5" aria-hidden />
+              Copy
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  )
+})
+
+/**
+ * Build human copy for Location path actions without producing "path path".
+ * @param label - Visible row label from the Location section.
+ * @returns Lowercase phrase used in aria labels and error toasts.
+ * @example
+ * getLocationPathCopyName('Path') // => 'path'
+ * getLocationPathCopyName('Source Files') // => 'source files path'
+ */
+function getLocationPathCopyName(label: string): string {
+  return label === 'Path' ? 'path' : `${label.toLowerCase()} path`
+}
