@@ -173,4 +173,26 @@ describe('skillsCliService.search', () => {
       },
     ])
   })
+
+  it('parses legacy skills find output without install counts', async () => {
+    simulateCli({
+      stdout: [
+        'vercel-labs/agent-skills@vercel-react-best-practices',
+        '└ https://skills.sh/vercel-labs/agent-skills/vercel-react-best-practices',
+      ].join('\n'),
+    })
+
+    const { skillsCliService } = await import('./skillsCliService')
+    const results = await skillsCliService.search('react')
+
+    expect(results).toEqual([
+      {
+        rank: 1,
+        name: 'vercel-react-best-practices',
+        repo: 'vercel-labs/agent-skills',
+        url: 'https://skills.sh/vercel-labs/agent-skills/vercel-react-best-practices',
+      },
+    ])
+    expect(results[0]).not.toHaveProperty('installCount')
+  })
 })
