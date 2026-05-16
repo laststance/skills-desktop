@@ -9,6 +9,7 @@ import type { Agent, AgentId, Skill, SymlinkInfo } from '@/shared/types'
 const SOURCE_PATH = '/home/user/.agents/skills/task'
 const CURSOR_PATH = '/home/user/.cursor/skills/task'
 const mockWriteText = vi.fn()
+let originalClipboardDescriptor: PropertyDescriptor | undefined
 
 vi.mock('sonner', () => ({
   toast: {
@@ -71,6 +72,10 @@ function makeSkill(): Skill {
 beforeEach(() => {
   mockWriteText.mockReset()
   mockWriteText.mockResolvedValue(undefined)
+  originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
+    navigator,
+    'clipboard',
+  )
   Object.defineProperty(navigator, 'clipboard', {
     configurable: true,
     value: { writeText: mockWriteText },
@@ -78,6 +83,11 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  if (originalClipboardDescriptor) {
+    Object.defineProperty(navigator, 'clipboard', originalClipboardDescriptor)
+  } else {
+    Reflect.deleteProperty(navigator, 'clipboard')
+  }
   vi.restoreAllMocks()
 })
 

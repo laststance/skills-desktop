@@ -16,6 +16,9 @@ import type { Skill, SymlinkInfo } from '@/shared/types'
 import { CodePreview } from './CodePreview'
 import { SourceLink } from './SourceLink'
 
+// Keep copied feedback visible long enough to be noticed without lingering.
+const COPIED_FEEDBACK_DURATION_MS = 1600
+
 interface SkillDetailProps {
   skill: Skill
 }
@@ -202,7 +205,7 @@ function useLocationPathClipboard(): LocationPathClipboardState {
             currentPath === path ? null : currentPath,
           )
           resetCopiedPathTimeoutRef.current = null
-        }, 1600)
+        }, COPIED_FEEDBACK_DURATION_MS)
       } catch {
         toast.error(`Failed to copy ${getLocationPathCopyName(label)}`)
       }
