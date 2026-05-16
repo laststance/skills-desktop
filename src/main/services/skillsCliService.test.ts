@@ -128,3 +128,71 @@ describe('skillsCliService.execCli environment', () => {
     )
   })
 })
+
+describe('skillsCliService.search', () => {
+  beforeEach(() => {
+    vi.useRealTimers()
+    vi.resetModules()
+    spawnMock.mockReset()
+  })
+
+  afterEach(() => {
+    process.env.PATH = ORIGINAL_PATH
+  })
+
+  it('parses current skills find output with install counts', async () => {
+    simulateCli({
+      stdout: [
+        'Install with npx skills add <owner/repo@skill>',
+        '',
+        'vercel-labs/agent-skills@vercel-react-best-practices 402.7K installs',
+        '└ https://skills.sh/vercel-labs/agent-skills/vercel-react-best-practices',
+        '',
+        'google-labs-code/stitch-skills@react:components 44.5K installs',
+        '└ https://skills.sh/google-labs-code/stitch-skills/react:components',
+      ].join('\n'),
+    })
+
+    const { skillsCliService } = await import('./skillsCliService')
+    const results = await skillsCliService.search('react')
+
+    expect(results).toEqual([
+      {
+        rank: 1,
+        name: 'vercel-react-best-practices',
+        repo: 'vercel-labs/agent-skills',
+        url: 'https://skills.sh/vercel-labs/agent-skills/vercel-react-best-practices',
+        installCount: 402700,
+      },
+      {
+        rank: 2,
+        name: 'react:components',
+        repo: 'google-labs-code/stitch-skills',
+        url: 'https://skills.sh/google-labs-code/stitch-skills/react:components',
+        installCount: 44500,
+      },
+    ])
+  })
+
+  it('parses legacy skills find output without install counts', async () => {
+    simulateCli({
+      stdout: [
+        'vercel-labs/agent-skills@vercel-react-best-practices',
+        '└ https://skills.sh/vercel-labs/agent-skills/vercel-react-best-practices',
+      ].join('\n'),
+    })
+
+    const { skillsCliService } = await import('./skillsCliService')
+    const results = await skillsCliService.search('react')
+
+    expect(results).toEqual([
+      {
+        rank: 1,
+        name: 'vercel-react-best-practices',
+        repo: 'vercel-labs/agent-skills',
+        url: 'https://skills.sh/vercel-labs/agent-skills/vercel-react-best-practices',
+      },
+    ])
+    expect(results[0]).not.toHaveProperty('installCount')
+  })
+})
