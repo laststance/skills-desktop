@@ -9,11 +9,12 @@ import type { Agent, AgentId, Skill, SymlinkInfo } from '@/shared/types'
 const SOURCE_PATH = '/home/user/.agents/skills/task'
 const CURSOR_PATH = '/home/user/.cursor/skills/task'
 const mockWriteText = vi.fn()
+const toastErrorMock = vi.fn()
 let originalClipboardDescriptor: PropertyDescriptor | undefined
 
 vi.mock('sonner', () => ({
   toast: {
-    error: vi.fn(),
+    error: (...args: unknown[]) => toastErrorMock(...args),
   },
 }))
 
@@ -72,6 +73,7 @@ function makeSkill(): Skill {
 beforeEach(() => {
   mockWriteText.mockReset()
   mockWriteText.mockResolvedValue(undefined)
+  toastErrorMock.mockReset()
   originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
     navigator,
     'clipboard',
@@ -159,5 +161,17 @@ describe('SkillDetail Info path copy', () => {
 
     expect(mockWriteText).toHaveBeenNthCalledWith(1, SOURCE_PATH)
     expect(mockWriteText).toHaveBeenNthCalledWith(2, CURSOR_PATH)
+  })
+
+  it('toasts when copying the source path fails', async () => {
+    mockWriteText.mockRejectedValueOnce(new Error('copy failed'))
+    const { screen } = await renderSkillDetail()
+
+    await screen.getByRole('button', { name: /^Copy path$/i }).click()
+
+    expect(mockWriteText).toHaveBeenCalledWith(SOURCE_PATH)
+    await expect
+      .poll(() => toastErrorMock.mock.calls[0]?.[0])
+      .toBe('Failed to copy path')
   })
 })
