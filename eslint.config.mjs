@@ -107,7 +107,6 @@ export default defineConfig([
       '*.config.mjs',
       '.storybook/**',
       'storybook-static/**',
-      '.pnpmfile.cjs',
       'scripts/**',
       'website/**',
     ],
