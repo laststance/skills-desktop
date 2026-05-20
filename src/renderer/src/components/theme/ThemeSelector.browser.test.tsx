@@ -6,18 +6,21 @@ import { render } from 'vitest-browser-react'
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 
 /**
- * Browser-mode tests for the ThemeSelector dropdown. Runs in Chromium so the
- * Radix DropdownMenu portal, focus trap, and click-through-to-menuitem path
- * exercise the real browser event loop (jsdom's pointer event model silently
- * skips Radix's `pointerdown` heuristics, which is how the same test in
- * happy-dom would pass even if the menu never opened).
+ * Browser-mode tests for the ThemeSelector dropdown (Pattern 1: Mode-First
+ * Compact). Runs in Chromium so the Radix DropdownMenu portal, focus trap,
+ * and click-through-to-control paths exercise the real browser event loop
+ * (jsdom's pointer event model silently skips Radix's `pointerdown`
+ * heuristics, which is how the same test in happy-dom would pass even if
+ * the menu never opened).
  *
  * Covers the user-visible contract:
  *  - Trigger is reachable by accessible name (screen-reader path)
- *  - All 14 presets render as buttons with stable aria-labels
- *  - Clicking a swatch dispatches setTheme and flips aria-pressed
- *  - Neutral presets force chroma=0 and mode side-effects
- *  - Mode toggle (menuitem) dispatches toggleMode
+ *  - All 17 accent swatch buttons render with stable aria-labels
+ *  - All 5 tinted-neutral family swatches render (Neutral / Zinc / Slate / Stone / Mauve)
+ *  - Header shows the active preset name in mono
+ *  - Light / Dark / Auto segmented control dispatches setModePreference
+ *  - Clicking a family swatch resolves to the dark/light partner matching
+ *    state.mode (no surprise mode flip)
  */
 
 async function createStore() {
@@ -41,7 +44,7 @@ async function renderThemeSelector() {
   return { screen, store }
 }
 
-describe('ThemeSelector — dropdown open + preset grid', () => {
+describe('ThemeSelector — Pattern 1 layout', () => {
   it('renders the trigger button with an accessible name', async () => {
     const { screen } = await renderThemeSelector()
 
@@ -50,82 +53,114 @@ describe('ThemeSelector — dropdown open + preset grid', () => {
       .toBeInTheDocument()
   })
 
-  it('renders all 12 color preset buttons when the menu opens', async () => {
+  it('renders all 17 accent swatch buttons when the menu opens', async () => {
+    // Arrange
     const { screen } = await renderThemeSelector()
 
+    // Act
     await screen
       .getByRole('button', { name: /Theme and color options/i })
       .click()
 
-    const colorLabels = [
+    // Assert — hardcode the full 17-color list so a future regression that
+    // silently drops a hue surfaces as a concrete missing-label failure
+    // rather than an opaque "expected 17, got 16" length mismatch.
+    const accentLabels = [
       'Rose',
+      'Pink',
+      'Red',
       'Orange',
       'Amber',
       'Yellow',
       'Lime',
       'Green',
+      'Emerald',
       'Teal',
       'Cyan',
       'Sky',
       'Blue',
       'Indigo',
       'Violet',
+      'Fuchsia',
+      'Magenta',
     ]
-    for (const label of colorLabels) {
+    for (const label of accentLabels) {
       await expect
         .element(screen.getByRole('button', { name: `Select ${label} theme` }))
         .toBeInTheDocument()
     }
   })
 
-  it('renders both neutral preset buttons when the menu opens', async () => {
+  it('renders 5 tinted-neutral family swatches when the menu opens', async () => {
+    // Arrange
     const { screen } = await renderThemeSelector()
 
+    // Act
     await screen
       .getByRole('button', { name: /Theme and color options/i })
       .click()
 
+    // Assert — one button per family. Mode is resolved at click time, so
+    // there's no "Dark"/"Light" suffix in the accessible name.
+    for (const familyLabel of ['Neutral', 'Zinc', 'Slate', 'Stone', 'Mauve']) {
+      await expect
+        .element(
+          screen.getByRole('button', { name: `Select ${familyLabel} theme` }),
+        )
+        .toBeInTheDocument()
+    }
+  })
+
+  it('header displays the current preset label in mono', async () => {
+    // Arrange — initial preset is neutral-dark whose THEME_PRESETS label is
+    // "Neutral Dark", so the header should read that verbatim. `exact: true`
+    // discriminates against the sr-only "Current theme: Neutral Dark" span
+    // which also contains the substring.
+    const { screen } = await renderThemeSelector()
+
+    // Act
+    await screen
+      .getByRole('button', { name: /Theme and color options/i })
+      .click()
+
+    // Assert
     await expect
-      .element(
-        screen.getByRole('button', { name: 'Select Neutral Dark theme' }),
-      )
-      .toBeInTheDocument()
-    await expect
-      .element(
-        screen.getByRole('button', { name: 'Select Neutral Light theme' }),
-      )
+      .element(screen.getByText('Neutral Dark', { exact: true }))
       .toBeInTheDocument()
   })
 
   it('clicking a color swatch dispatches setTheme(presetName) with correct hue/chroma', async () => {
+    // Arrange
     const { screen, store } = await renderThemeSelector()
     const { THEME_PRESETS } = await import('@/shared/constants')
 
+    // Act
     await screen
       .getByRole('button', { name: /Theme and color options/i })
       .click()
     await screen.getByRole('button', { name: 'Select Cyan theme' }).click()
 
+    // Assert
     const { theme } = store.getState()
     expect(theme.preset).toBe('cyan')
     expect(theme.hue).toBe(THEME_PRESETS.cyan.hue)
     expect(theme.chroma).toBe(THEME_PRESETS.cyan.chroma)
   })
 
-  it('aria-pressed reflects the currently selected preset', async () => {
-    // Seed state with `rose` before opening the menu so the component reads
-    // a non-default preset on first render inside the portal. This guards
-    // against the regression where aria-pressed was hard-wired to the
-    // initial render and never updated on preset change.
+  it('aria-pressed reflects the currently selected color preset', async () => {
+    // Arrange — seed a non-default preset before opening the menu so the
+    // component reads it on first render. Guards against a regression where
+    // aria-pressed was hard-wired to the initial state and never updated.
     const { screen, store } = await renderThemeSelector()
     const { setTheme } = await import('@/renderer/src/redux/slices/themeSlice')
-
     store.dispatch(setTheme('rose'))
 
+    // Act
     await screen
       .getByRole('button', { name: /Theme and color options/i })
       .click()
 
+    // Assert
     await expect
       .element(screen.getByRole('button', { name: 'Select Rose theme' }))
       .toHaveAttribute('aria-pressed', 'true')
@@ -134,38 +169,88 @@ describe('ThemeSelector — dropdown open + preset grid', () => {
       .toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('clicking a neutral preset forces chroma=0 and sets mode to match', async () => {
+  it('clicking Zinc family in Dark mode dispatches setTheme("zinc-dark")', async () => {
+    // Arrange — initial mode is dark; user opens the dropdown.
     const { screen, store } = await renderThemeSelector()
 
+    // Act
     await screen
       .getByRole('button', { name: /Theme and color options/i })
       .click()
-    await screen
-      .getByRole('button', { name: 'Select Neutral Light theme' })
-      .click()
+    await screen.getByRole('button', { name: 'Select Zinc theme' }).click()
 
+    // Assert — family swatch resolved to the dark partner.
     const { theme } = store.getState()
-    expect(theme.preset).toBe('neutral-light')
-    expect(theme.chroma).toBe(0)
+    expect(theme.preset).toBe('zinc-dark')
+    expect(theme.mode).toBe('dark')
+  })
+
+  it('clicking Zinc family in Light mode dispatches setTheme("zinc-light")', async () => {
+    // Arrange — pin Light before opening the menu.
+    const { screen, store } = await renderThemeSelector()
+    const { setModePreference } =
+      await import('@/renderer/src/redux/slices/themeSlice')
+    store.dispatch(setModePreference('light'))
+
+    // Act
+    await screen
+      .getByRole('button', { name: /Theme and color options/i })
+      .click()
+    await screen.getByRole('button', { name: 'Select Zinc theme' }).click()
+
+    // Assert
+    const { theme } = store.getState()
+    expect(theme.preset).toBe('zinc-light')
     expect(theme.mode).toBe('light')
   })
 
-  it('the mode-toggle menuitem dispatches toggleMode', async () => {
-    // Discover the initial mode from the store instead of assuming 'dark',
-    // so if the slice's default ever flips (or a future test seeds mode
-    // before opening the menu) this test continues to exercise the real
-    // contract: clicking "Switch to <other>" flips mode to <other>.
+  it('clicking the Light segmented item dispatches setModePreference("light")', async () => {
+    // Arrange
     const { screen, store } = await renderThemeSelector()
-    const initialMode = store.getState().theme.mode
-    const target = initialMode === 'dark' ? 'Light' : 'Dark'
+    expect(store.getState().theme.modePreference).toBe('dark')
 
+    // Act
     await screen
       .getByRole('button', { name: /Theme and color options/i })
       .click()
-    await screen
-      .getByRole('menuitem', { name: new RegExp(`Switch to ${target}`, 'i') })
-      .click()
+    await screen.getByRole('radio', { name: 'Light mode' }).click()
 
-    expect(store.getState().theme.mode).toBe(target.toLowerCase())
+    // Assert
+    expect(store.getState().theme.mode).toBe('light')
+    expect(store.getState().theme.modePreference).toBe('light')
+  })
+
+  it('clicking the Dark segmented item dispatches setModePreference("dark")', async () => {
+    // Arrange — start from Light so the Dark click is observable.
+    const { screen, store } = await renderThemeSelector()
+    const { setModePreference } =
+      await import('@/renderer/src/redux/slices/themeSlice')
+    store.dispatch(setModePreference('light'))
+
+    // Act
+    await screen
+      .getByRole('button', { name: /Theme and color options/i })
+      .click()
+    await screen.getByRole('radio', { name: 'Dark mode' }).click()
+
+    // Assert
+    expect(store.getState().theme.mode).toBe('dark')
+    expect(store.getState().theme.modePreference).toBe('dark')
+  })
+
+  it('clicking the Auto segmented item dispatches setModePreference("system")', async () => {
+    // Arrange
+    const { screen, store } = await renderThemeSelector()
+
+    // Act
+    await screen
+      .getByRole('button', { name: /Theme and color options/i })
+      .click()
+    await screen.getByRole('radio', { name: 'System mode' }).click()
+
+    // Assert — modePreference is persisted; mode is the OS-resolved value
+    // (Chromium reports whatever the test runner's OS appearance is, so we
+    // only assert on modePreference here to keep the test environment-agnostic).
+    expect(store.getState().theme.modePreference).toBe('system')
   })
 })

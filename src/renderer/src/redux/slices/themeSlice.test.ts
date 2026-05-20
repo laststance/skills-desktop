@@ -1,20 +1,59 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { COLOR_PRESET_CHROMA, TINTED_NEUTRAL_CHROMA } from '@/shared/constants'
+
+/**
+ * `setModePreference('system')` reads `window.matchMedia('(prefers-color-scheme: dark)')`
+ * to decide the resolved mode, so this file runs under happy-dom to get a
+ * real `window` object — node-only would fall back to the hard-coded 'dark'
+ * branch in `resolveMode` and the `'system' → light` cases below would all
+ * silently pass with the wrong answer.
+ *
+ * @vitest-environment happy-dom
+ */
 
 async function createTestStore() {
   const { default: themeReducer } = await import('./themeSlice')
   return configureStore({ reducer: { theme: themeReducer } })
 }
 
+/**
+ * Build a `window.matchMedia` stub that always reports a given system
+ * preference. The stub mirrors only the subset of `MediaQueryList` that
+ * `resolveMode` touches (`matches`, `addEventListener`, etc.) — full
+ * compliance would be overkill for these reducer tests.
+ */
+function stubSystemPrefersDark(prefersDark: boolean): void {
+  const matchMediaStub = vi.fn().mockImplementation((query: string) => ({
+    matches: query === '(prefers-color-scheme: dark)' ? prefersDark : false,
+    media: query,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }))
+  // `resolveMode` reads `window.matchMedia` directly, so write to the
+  // window — `vi.stubGlobal('matchMedia', ...)` alone would set the bare
+  // global but not the property on the `window` instance happy-dom exposes.
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: matchMediaStub,
+  })
+}
+
 describe('themeSlice', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('has correct initial state', async () => {
     const store = await createTestStore()
     const state = store.getState().theme
     expect(state.hue).toBe(0)
     expect(state.chroma).toBe(0)
     expect(state.mode).toBe('dark')
+    expect(state.modePreference).toBe('dark')
     expect(state.preset).toBe('neutral-dark')
   })
 
@@ -40,27 +79,54 @@ describe('themeSlice', () => {
     expect(state.mode).toBe('light')
   })
 
-  it('toggleMode flips dark/light for color presets without losing preset', async () => {
-    const { setTheme, toggleMode } = await import('./themeSlice')
+  it('setTheme leaves modePreference untouched so an "Auto" user keeps tracking the OS', async () => {
+    // Arrange — user picked Auto, the listener resolved to dark.
+    const { setTheme, setModePreference } = await import('./themeSlice')
+    stubSystemPrefersDark(true)
+    const store = await createTestStore()
+    store.dispatch(setModePreference('system'))
+    expect(store.getState().theme.modePreference).toBe('system')
+
+    // Act — user picks Cyan from the swatch grid.
+    store.dispatch(setTheme('cyan'))
+
+    // Assert — preset changed but modePreference is still 'system'.
+    expect(store.getState().theme.preset).toBe('cyan')
+    expect(store.getState().theme.modePreference).toBe('system')
+  })
+
+  it('setModePreference flips dark/light for color presets without losing preset', async () => {
+    // Arrange
+    const { setTheme, setModePreference } = await import('./themeSlice')
     const store = await createTestStore()
     store.dispatch(setTheme('cyan'))
     expect(store.getState().theme.mode).toBe('dark')
-    store.dispatch(toggleMode())
+
+    // Act + Assert — pin Light, then Dark; preset stays cyan.
+    store.dispatch(setModePreference('light'))
     expect(store.getState().theme.mode).toBe('light')
+    expect(store.getState().theme.modePreference).toBe('light')
     expect(store.getState().theme.preset).toBe('cyan')
-    store.dispatch(toggleMode())
+
+    store.dispatch(setModePreference('dark'))
     expect(store.getState().theme.mode).toBe('dark')
+    expect(store.getState().theme.modePreference).toBe('dark')
     expect(store.getState().theme.preset).toBe('cyan')
   })
 
-  it('toggleMode swaps neutral-dark ↔ neutral-light so the preset stays consistent with mode', async () => {
-    const { toggleMode } = await import('./themeSlice')
+  it('setModePreference swaps neutral-dark ↔ neutral-light so the preset stays consistent with mode', async () => {
+    // Arrange
+    const { setModePreference } = await import('./themeSlice')
     const store = await createTestStore()
-    // Initial: neutral-dark
-    store.dispatch(toggleMode())
+
+    // Act — initial preset is neutral-dark; pin Light.
+    store.dispatch(setModePreference('light'))
+
+    // Assert — preset key swapped to the light partner.
     expect(store.getState().theme.mode).toBe('light')
     expect(store.getState().theme.preset).toBe('neutral-light')
-    store.dispatch(toggleMode())
+
+    store.dispatch(setModePreference('dark'))
     expect(store.getState().theme.mode).toBe('dark')
     expect(store.getState().theme.preset).toBe('neutral-dark')
   })
@@ -78,9 +144,9 @@ describe('themeSlice', () => {
     ['stone-dark', 'stone-light', 60],
     ['mauve-dark', 'mauve-light', 320],
   ] as const)(
-    'toggleMode swaps %s ↔ %s so preset stays consistent with mode',
+    'setModePreference swaps %s ↔ %s so preset stays consistent with mode',
     async (darkPreset, lightPreset, expectedHue) => {
-      const { setTheme, toggleMode } = await import('./themeSlice')
+      const { setTheme, setModePreference } = await import('./themeSlice')
       const store = await createTestStore()
 
       store.dispatch(setTheme(darkPreset))
@@ -89,17 +155,85 @@ describe('themeSlice', () => {
       expect(store.getState().theme.hue).toBe(expectedHue)
       expect(store.getState().theme.chroma).toBe(TINTED_NEUTRAL_CHROMA)
 
-      store.dispatch(toggleMode())
+      store.dispatch(setModePreference('light'))
       expect(store.getState().theme.mode).toBe('light')
       expect(store.getState().theme.preset).toBe(lightPreset)
       expect(store.getState().theme.hue).toBe(expectedHue)
       expect(store.getState().theme.chroma).toBe(TINTED_NEUTRAL_CHROMA)
 
-      store.dispatch(toggleMode())
+      store.dispatch(setModePreference('dark'))
       expect(store.getState().theme.mode).toBe('dark')
       expect(store.getState().theme.preset).toBe(darkPreset)
     },
   )
+
+  describe('setModePreference("system") — OS appearance resolution', () => {
+    beforeEach(() => {
+      // Each test re-stubs explicitly; clear any leftover stub here so
+      // assertions about "what happens when OS is in Light" can't be
+      // shadowed by a previous "OS in Dark" stub.
+      vi.unstubAllGlobals()
+    })
+
+    it('resolves to dark when the OS reports prefers-color-scheme: dark', async () => {
+      // Arrange
+      stubSystemPrefersDark(true)
+      const { setModePreference } = await import('./themeSlice')
+      const store = await createTestStore()
+
+      // Act
+      store.dispatch(setModePreference('system'))
+
+      // Assert — modePreference is persisted; mode is the OS-resolved value.
+      expect(store.getState().theme.modePreference).toBe('system')
+      expect(store.getState().theme.mode).toBe('dark')
+    })
+
+    it('resolves to light when the OS reports prefers-color-scheme: light', async () => {
+      // Arrange
+      stubSystemPrefersDark(false)
+      const { setModePreference } = await import('./themeSlice')
+      const store = await createTestStore()
+
+      // Act
+      store.dispatch(setModePreference('system'))
+
+      // Assert
+      expect(store.getState().theme.modePreference).toBe('system')
+      expect(store.getState().theme.mode).toBe('light')
+    })
+
+    it('swaps neutral preset to partner when system resolves to a different mode than the current preset', async () => {
+      // Arrange — start in zinc-dark, then move to Auto while the OS is Light.
+      const { setTheme, setModePreference } = await import('./themeSlice')
+      const store = await createTestStore()
+      store.dispatch(setTheme('zinc-dark'))
+      stubSystemPrefersDark(false)
+
+      // Act
+      store.dispatch(setModePreference('system'))
+
+      // Assert — preset followed the OS-resolved mode.
+      expect(store.getState().theme.mode).toBe('light')
+      expect(store.getState().theme.preset).toBe('zinc-light')
+      expect(store.getState().theme.modePreference).toBe('system')
+    })
+
+    it('leaves color presets untouched when system resolves to a new mode', async () => {
+      // Arrange
+      const { setTheme, setModePreference } = await import('./themeSlice')
+      const store = await createTestStore()
+      store.dispatch(setTheme('cyan'))
+      stubSystemPrefersDark(false)
+
+      // Act
+      store.dispatch(setModePreference('system'))
+
+      // Assert — cyan has no baked mode; only state.mode changes.
+      expect(store.getState().theme.preset).toBe('cyan')
+      expect(store.getState().theme.mode).toBe('light')
+    })
+  })
 
   it('switching color → neutral drops chroma to 0', async () => {
     const { setTheme } = await import('./themeSlice')

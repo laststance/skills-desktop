@@ -9,9 +9,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  * reacting to Redux state. Tests run in happy-dom so we can assert against a
  * real `document.documentElement`.
  *
- * Matcher coverage: setTheme, toggleMode, ACTION_HYDRATE_COMPLETE. If a future
- * reducer is added that mutates theme state, extending the matcher in
- * listener.ts requires a new test here.
+ * Matcher coverage: setTheme, setModePreference, ACTION_HYDRATE_COMPLETE. If
+ * a future reducer is added that mutates theme state, extending the matcher
+ * in listener.ts requires a new test here.
  *
  * @vitest-environment happy-dom
  */
@@ -81,19 +81,19 @@ describe('theme listener — applyThemeToDOM', () => {
     ).toBe('0')
   })
 
-  it('toggleMode flips .dark ↔ .light classes', async () => {
+  it('setModePreference flips .dark ↔ .light classes', async () => {
     const store = await createThemedStore()
-    const { setTheme, toggleMode } = await import('./slices/themeSlice')
+    const { setTheme, setModePreference } = await import('./slices/themeSlice')
 
     // Start with a color preset so we can flip independently.
     store.dispatch(setTheme('violet'))
     expect(document.documentElement.classList.contains('dark')).toBe(true)
 
-    store.dispatch(toggleMode())
+    store.dispatch(setModePreference('light'))
     expect(document.documentElement.classList.contains('dark')).toBe(false)
     expect(document.documentElement.classList.contains('light')).toBe(true)
 
-    store.dispatch(toggleMode())
+    store.dispatch(setModePreference('dark'))
     expect(document.documentElement.classList.contains('dark')).toBe(true)
     expect(document.documentElement.classList.contains('light')).toBe(false)
   })
@@ -206,6 +206,104 @@ describe('theme listener — applyThemeToDOM', () => {
     )
     expect(store.getState().ui).toBe(uiBefore)
     expect(store.getState().ui.selectedAgentId).toBeNull()
+  })
+
+  it('OS appearance change re-applies theme when modePreference is "system"', async () => {
+    // Arrange — stub matchMedia BEFORE importing listener so the hydrate
+    // handler installs the change listener against our spy.
+    let capturedChangeHandler: ((event: MediaQueryListEvent) => void) | null =
+      null
+    let osPrefersDark = true
+    const matchMediaStub = vi.fn().mockImplementation((query: string) => ({
+      get matches() {
+        return query === '(prefers-color-scheme: dark)' ? osPrefersDark : false
+      },
+      media: query,
+      addEventListener: vi.fn(
+        (event: string, handler: (e: MediaQueryListEvent) => void) => {
+          if (event === 'change') capturedChangeHandler = handler
+        },
+      ),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: matchMediaStub,
+    })
+
+    const store = await createThemedStore()
+    const { setModePreference } = await import('./slices/themeSlice')
+
+    // Act — install the OS-change handler, then opt into Auto with the OS
+    // currently reporting Dark.
+    store.dispatch({ type: ACTION_HYDRATE_COMPLETE })
+    store.dispatch(setModePreference('system'))
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+
+    // Simulate the user flipping macOS Appearance to Light while the app is
+    // running. The OS fires a `change` event on the media query; the
+    // listener must re-resolve and project the new mode onto <html>.
+    osPrefersDark = false
+    expect(capturedChangeHandler).not.toBeNull()
+    capturedChangeHandler!({
+      matches: false,
+      media: '(prefers-color-scheme: dark)',
+    } as MediaQueryListEvent)
+
+    // Assert — DOM followed the OS without the user touching the dropdown.
+    expect(document.documentElement.classList.contains('light')).toBe(true)
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+    expect(store.getState().theme.mode).toBe('light')
+    expect(store.getState().theme.modePreference).toBe('system')
+  })
+
+  it('OS appearance change is ignored when modePreference is sticky light/dark', async () => {
+    // Arrange — same wiring as the Auto test, but user pinned Light.
+    let capturedChangeHandler: ((event: MediaQueryListEvent) => void) | null =
+      null
+    let osPrefersDark = false
+    const matchMediaStub = vi.fn().mockImplementation((query: string) => ({
+      get matches() {
+        return query === '(prefers-color-scheme: dark)' ? osPrefersDark : false
+      },
+      media: query,
+      addEventListener: vi.fn(
+        (event: string, handler: (e: MediaQueryListEvent) => void) => {
+          if (event === 'change') capturedChangeHandler = handler
+        },
+      ),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: matchMediaStub,
+    })
+
+    const store = await createThemedStore()
+    const { setModePreference } = await import('./slices/themeSlice')
+
+    // Act — install the OS-change handler, then explicitly pin Light.
+    store.dispatch({ type: ACTION_HYDRATE_COMPLETE })
+    store.dispatch(setModePreference('light'))
+    expect(document.documentElement.classList.contains('light')).toBe(true)
+
+    // Simulate the OS flipping to Dark — the handler should observe that
+    // modePreference !== 'system' and bail without dispatching anything.
+    osPrefersDark = true
+    capturedChangeHandler!({
+      matches: true,
+      media: '(prefers-color-scheme: dark)',
+    } as MediaQueryListEvent)
+
+    // Assert — app stays Light because the user pinned it.
+    expect(document.documentElement.classList.contains('light')).toBe(true)
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+    expect(store.getState().theme.mode).toBe('light')
+    expect(store.getState().theme.modePreference).toBe('light')
   })
 
   it('rapid preset switches write to the DOM in dispatch order (no stale/async reordering)', async () => {

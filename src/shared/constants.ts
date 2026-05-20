@@ -22,8 +22,13 @@ export const PERSIST_STORAGE_KEY = 'skills-desktop-state'
  *    `minSize` grew (Quick Actions h: 2 → 3 with the row-height bump). Without
  *    this clamp, persisted layouts violate the new minSize and react-grid-layout
  *    silently re-clamps them mid-render, jolting saved positions.
+ *  - v2 → v3: theme gained `modePreference: 'light' | 'dark' | 'system'`.
+ *    Existing payloads only carry `mode`, so the migration seeds
+ *    `modePreference` from it (e.g. mode='dark' → modePreference='dark').
+ *    "system" is opt-in, never inherited from a pre-v3 user — they explicitly
+ *    picked light or dark before, so we keep that pin.
  */
-export const PERSIST_STATE_VERSION = 2
+export const PERSIST_STATE_VERSION = 3
 
 /**
  * Chroma value applied to OKLCH tokens for fully-saturated (color) presets.

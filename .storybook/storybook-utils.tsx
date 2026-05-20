@@ -233,10 +233,15 @@ function createStorybookThemeState(
   )
   const config = THEME_PRESETS[preset]
 
+  const resolved = 'mode' in config ? config.mode : mode
   return {
     hue: config.hue,
     chroma: config.chroma,
-    mode: 'mode' in config ? config.mode : mode,
+    mode: resolved,
+    // Storybook has no notion of OS theme; mirror the resolved mode so the
+    // ThemeSelector dropdown's `Light` / `Dark` segmented control reflects
+    // the same value as `<html>` even though Storybook drives it via toolbar.
+    modePreference: resolved,
     preset,
   }
 }

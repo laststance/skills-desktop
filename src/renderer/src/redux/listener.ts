@@ -6,7 +6,7 @@ import type { AgentId } from '@/shared/types'
 
 import { setSettings } from './slices/settingsSlice'
 import { clearSelection } from './slices/skillsSlice'
-import { setTheme, toggleMode } from './slices/themeSlice'
+import { setModePreference, setTheme } from './slices/themeSlice'
 import type { ThemeState } from './slices/themeSlice'
 import { fetchSyncPreview, selectAgent, setActiveTab } from './slices/uiSlice'
 
@@ -39,15 +39,61 @@ function applyThemeToDOM(state: ThemeState): void {
 }
 
 /**
+ * Tracks whether the `prefers-color-scheme` listener has been installed.
+ * `ACTION_HYDRATE_COMPLETE` should only fire once per session, but a
+ * conservative guard keeps the subscription idempotent if a future
+ * code path replays the action (e.g. during hot module reload).
+ */
+let systemThemeListenerInstalled = false
+
+/**
+ * Wire `prefers-color-scheme` change events into the store so that when
+ * the user picked "Auto" (modePreference === 'system'), the resolved
+ * `mode` follows OS appearance changes in real time. Re-dispatching
+ * `setModePreference('system')` is the simplest re-resolution path —
+ * the reducer reads matchMedia again and swaps neutral preset keys if
+ * needed, then the existing matcher below pushes the new state to the DOM.
+ *
+ * No-ops in headless environments (vitest unit lane uses happy-dom which
+ * doesn't always implement matchMedia) so the listener stays safe to
+ * import everywhere.
+ */
+function installSystemThemeListener(
+  listenerApi: Parameters<
+    Parameters<typeof listenerMiddleware.startListening>[0]['effect']
+  >[1],
+): void {
+  if (systemThemeListenerInstalled) return
+  if (
+    typeof window === 'undefined' ||
+    typeof window.matchMedia !== 'function'
+  ) {
+    return
+  }
+  const systemQuery = window.matchMedia('(prefers-color-scheme: dark)')
+  systemQuery.addEventListener('change', () => {
+    // Explicit light/dark must stay sticky; only the "Auto" path reacts.
+    const { theme } = listenerApi.getState() as ListenerState
+    if (theme.modePreference === 'system') {
+      listenerApi.dispatch(setModePreference('system'))
+    }
+  })
+  systemThemeListenerInstalled = true
+}
+
+/**
  * Theme initialization listener
- * Applies persisted theme from localStorage after hydration completes
- * This ensures the correct theme is shown after storage-middleware loads state
+ * Applies persisted theme from localStorage after hydration completes.
+ * This ensures the correct theme is shown after storage-middleware loads
+ * state, and installs the system-theme subscription so future OS flips
+ * propagate when the user is on "Auto".
  */
 listenerMiddleware.startListening({
   type: ACTION_HYDRATE_COMPLETE,
   effect: (_action, listenerApi) => {
     const state = listenerApi.getState() as ListenerState
     applyThemeToDOM(state.theme)
+    installSystemThemeListener(listenerApi)
   },
 })
 
@@ -56,7 +102,7 @@ listenerMiddleware.startListening({
  * Listens to all theme-related actions and applies CSS changes
  */
 listenerMiddleware.startListening({
-  matcher: isAnyOf(setTheme, toggleMode),
+  matcher: isAnyOf(setTheme, setModePreference),
   effect: (_action, listenerApi) => {
     const state = listenerApi.getState() as ListenerState
     applyThemeToDOM(state.theme)
