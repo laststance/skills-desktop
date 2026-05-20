@@ -5,9 +5,9 @@ import { repositoryId } from '@/shared/types'
 import { getEmptyListMessage } from './skillsListHelpers'
 
 describe('getEmptyListMessage', () => {
-  it('returns the search message when searchQuery is non-empty (highest priority)', () => {
-    // Even with every other filter active, search wins because the user's
-    // most recent narrowing action is what they want named in the message.
+  it('returns the search message with repo context when searchQuery and source are active', () => {
+    // Search still wins as the user's most recent narrowing action, but the
+    // active repo facet is named so the empty state explains the intersection.
     expect(
       getEmptyListMessage({
         searchQuery: 'react',
@@ -15,7 +15,7 @@ describe('getEmptyListMessage', () => {
         selectedAgentId: 'cursor',
         skillTypeFilter: 'local',
       }),
-    ).toBe('No skills match your search')
+    ).toBe('No skills match your search in vercel-labs/skills')
   })
 
   it('returns the source message when only selectedSource is set', () => {
@@ -42,6 +42,17 @@ describe('getEmptyListMessage', () => {
     ).toBe('No skills from pbakaus/impeccable')
   })
 
+  it('adds repository context to a search result when both query and source are active', () => {
+    expect(
+      getEmptyListMessage({
+        searchQuery: 'trace',
+        selectedSource: repositoryId('laststance/skills'),
+        selectedAgentId: 'cursor',
+        skillTypeFilter: 'all',
+      }),
+    ).toBe('No skills match your search in laststance/skills')
+  })
+
   it('returns the agent + type message when both are set (no source / search)', () => {
     expect(
       getEmptyListMessage({
@@ -51,6 +62,34 @@ describe('getEmptyListMessage', () => {
         skillTypeFilter: 'local',
       }),
     ).toBe('No local skills for this agent')
+  })
+
+  it('adds excluded skill types to the selected source message', () => {
+    expect(
+      getEmptyListMessage({
+        searchQuery: '',
+        selectedSource: repositoryId('vercel-labs/skills'),
+        selectedAgentId: 'cursor',
+        skillTypeFilter: 'all',
+        excludedSkillTypeFilters: ['gstack', 'orphan'],
+      }),
+    ).toBe(
+      'No skills from vercel-labs/skills while excluding G-Stack and orphan',
+    )
+  })
+
+  it('adds excluded skill types to the agent-only message', () => {
+    expect(
+      getEmptyListMessage({
+        searchQuery: '',
+        selectedSource: null,
+        selectedAgentId: 'cursor',
+        skillTypeFilter: 'all',
+        excludedSkillTypeFilters: ['local', 'gstack', 'orphan'],
+      }),
+    ).toBe(
+      'No skills installed for this agent while excluding local, G-Stack, and orphan',
+    )
   })
 
   it('returns the symlinked variant when type filter is symlinked', () => {

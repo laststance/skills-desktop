@@ -45,15 +45,17 @@ export const FilterPill = React.memo(function FilterPill({
   return (
     <div
       data-testid={testId}
-      className="px-4 py-2 border-b border-border bg-primary/5 flex items-center justify-between shrink-0"
+      className="px-4 py-2 border-b border-border bg-primary/5 flex items-center justify-between gap-3 shrink-0"
     >
-      <span className="text-sm">Showing skills {label}</span>
+      <span className="min-w-0 flex-1 truncate text-sm">
+        Showing skills {label}
+      </span>
       <Button
         variant="ghost"
         size="sm"
         onClick={onClear}
         style={filterPillButtonStyle}
-        className="px-3"
+        className="shrink-0 px-3"
       >
         <X className="h-3 w-3 mr-1" />
         Clear

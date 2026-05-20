@@ -100,6 +100,60 @@ describe('uiSlice activeTab', () => {
   })
 })
 
+describe('uiSlice skill type excludes', () => {
+  it('starts with no excluded skill types', async () => {
+    const store = await createTestStore()
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
+  })
+
+  it('toggles an available excluded skill type on and off', async () => {
+    const store = await createTestStore()
+    const { toggleExcludedSkillTypeFilter } = await import('./uiSlice')
+
+    store.dispatch(toggleExcludedSkillTypeFilter('local'))
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['local'])
+
+    store.dispatch(toggleExcludedSkillTypeFilter('local'))
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
+  })
+
+  it('ignores an excluded skill type unavailable for the active include filter', async () => {
+    const store = await createTestStore()
+    const { setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
+      await import('./uiSlice')
+
+    store.dispatch(setSkillTypeFilter('local'))
+    store.dispatch(toggleExcludedSkillTypeFilter('symlinked'))
+
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
+  })
+
+  it('prunes stale excludes when the include filter changes', async () => {
+    const store = await createTestStore()
+    const { setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
+      await import('./uiSlice')
+
+    store.dispatch(toggleExcludedSkillTypeFilter('local'))
+    store.dispatch(toggleExcludedSkillTypeFilter('gstack'))
+    store.dispatch(setSkillTypeFilter('local'))
+
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['gstack'])
+  })
+
+  it('selectAgent resets include and exclude filters together', async () => {
+    const store = await createTestStore()
+    const { selectAgent, setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
+      await import('./uiSlice')
+
+    store.dispatch(setSkillTypeFilter('gstack'))
+    store.dispatch(toggleExcludedSkillTypeFilter('local'))
+    store.dispatch(selectAgent('cursor' as AgentId))
+
+    expect(store.getState().ui.skillTypeFilter).toBe('all')
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
+  })
+})
+
 describe('uiSlice sync thunks', () => {
   beforeEach(() => {
     vi.resetAllMocks()

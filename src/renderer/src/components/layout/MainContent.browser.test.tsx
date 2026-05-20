@@ -164,6 +164,26 @@ async function waitForBulkSelectReady(
     .toBeInTheDocument()
 }
 
+/**
+ * Build a source-repo skill for toolbar facet tests.
+ * @param name - Visible skill name.
+ * @param source - Repository slug shown in the repo dropdown.
+ * @returns Skill row with source metadata and no agent slot.
+ */
+function makeSourceSkill(name: string, source: string): Skill {
+  return {
+    name: name as SkillName,
+    description: '',
+    path: `/skills/${name}` as never,
+    symlinkCount: 0,
+    symlinks: [],
+    isSource: true,
+    isOrphan: false,
+    source: repositoryId(source),
+    sourceUrl: `https://github.com/${source}.git`,
+  }
+}
+
 describe('MainContent bulk-select toggle button', () => {
   it('shows "Select" and aria-pressed=false by default', async () => {
     const { screen } = await renderMainContent()
@@ -497,8 +517,10 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     )
     store.dispatch(selectAgent('cursor'))
 
-    // Open the dropdown — the trigger label currently reads "All".
-    await screen.getByRole('button', { name: /^All$/ }).click()
+    // Open the dropdown from the agent-only skill type trigger.
+    await screen
+      .getByRole('button', { name: /Skill type filter: All/i })
+      .click()
 
     const orphanItem = screen.getByRole('menuitemradio', { name: /Orphan/i })
     await expect.element(orphanItem).toBeInTheDocument()
@@ -537,7 +559,9 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     store.dispatch(selectAgent('cursor'))
 
     // Open the dropdown — G-Stack sits beside Symlinked/Local as a type filter.
-    await screen.getByRole('button', { name: /^All$/ }).click()
+    await screen
+      .getByRole('button', { name: /Skill type filter: All/i })
+      .click()
 
     const gstackItem = screen.getByRole('menuitemradio', { name: /G-Stack/i })
     await expect.element(gstackItem).toBeInTheDocument()
@@ -611,7 +635,9 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     store.dispatch(selectAgent('cursor'))
     store.dispatch(fetchSkills.fulfilled([orphanSkill, linkedSkill], 'req-id'))
 
-    await screen.getByRole('button', { name: /^All$/ }).click()
+    await screen
+      .getByRole('button', { name: /Skill type filter: All/i })
+      .click()
     await screen.getByRole('menuitemradio', { name: /Orphan/i }).click()
 
     // Slice state — single source of truth that the selector reads from.
@@ -622,6 +648,72 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
       await import('@/renderer/src/redux/selectors')
     const filtered = selectFilteredSkills(store.getState() as never)
     expect(filtered.map((skill) => skill.name)).toEqual(['orphan-one'])
+  })
+
+  it('toggling an exclude checkbox updates state while keeping the dropdown open', async () => {
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'cursor',
+            name: 'Cursor',
+            path: '/Users/me/.cursor/skills' as never,
+            exists: true,
+            skillCount: 0,
+            localSkillCount: 0,
+          },
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(selectAgent('cursor'))
+
+    await screen
+      .getByRole('button', { name: /Skill type filter: All/i })
+      .click()
+    await screen.getByRole('menuitemcheckbox', { name: /Local/i }).click()
+
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['local'])
+    await expect
+      .element(screen.getByRole('menuitem', { name: /Clear excludes/i }))
+      .toBeInTheDocument()
+  })
+})
+
+describe('MainContent repo facet dropdown', () => {
+  it('selects a repository from source-count options', async () => {
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSourceSkill('alpha', 'vercel-labs/skills'),
+          makeSourceSkill('beta', 'vercel-labs/skills'),
+          makeSourceSkill('gamma', 'pbakaus/impeccable'),
+        ],
+        'req-id',
+      ),
+    )
+
+    await screen
+      .getByRole('button', { name: /Filter by source repository/i })
+      .click()
+    await screen
+      .getByRole('menuitemradio', {
+        name: /pbakaus\/impeccable, 1 skill/i,
+      })
+      .click()
+
+    expect(store.getState().ui.selectedSource).toBe(
+      repositoryId('pbakaus/impeccable'),
+    )
   })
 })
 

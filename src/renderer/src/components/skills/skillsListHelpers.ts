@@ -1,6 +1,9 @@
 import { match } from 'ts-pattern'
 
-import type { SkillTypeFilter } from '@/renderer/src/redux/slices/uiSlice'
+import type {
+  ExcludableSkillTypeFilter,
+  SkillTypeFilter,
+} from '@/renderer/src/redux/slices/uiSlice'
 import type { AgentId, RepositoryId } from '@/shared/types'
 
 interface EmptyMessageContext {
@@ -8,6 +11,7 @@ interface EmptyMessageContext {
   selectedSource: RepositoryId | null
   selectedAgentId: AgentId | null
   skillTypeFilter: SkillTypeFilter
+  excludedSkillTypeFilters?: ExcludableSkillTypeFilter[]
 }
 
 const SKILL_TYPE_FILTER_LABELS = {
@@ -17,6 +21,51 @@ const SKILL_TYPE_FILTER_LABELS = {
   gstack: 'G-Stack',
   orphan: 'orphan',
 } as const satisfies Record<SkillTypeFilter, string>
+
+const EXCLUDED_SKILL_TYPE_FILTER_LABELS = {
+  symlinked: 'symlinked',
+  local: 'local',
+  gstack: 'G-Stack',
+  orphan: 'orphan',
+} as const satisfies Record<ExcludableSkillTypeFilter, string>
+
+/**
+ * Join active exclude labels in compact English for empty-state copy.
+ * @param excludedSkillTypeFilters - Excluded type filters in UI state order.
+ * @returns Human-readable label list, e.g. `"local and G-Stack"`.
+ * @example
+ * formatExcludedSkillTypeFilters(['local', 'gstack'])
+ * // => "local and G-Stack"
+ */
+function formatExcludedSkillTypeFilters(
+  excludedSkillTypeFilters: ExcludableSkillTypeFilter[],
+): string {
+  const labels = excludedSkillTypeFilters.map(
+    (filter) => EXCLUDED_SKILL_TYPE_FILTER_LABELS[filter],
+  )
+  if (labels.length <= 1) return labels[0] ?? ''
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`
+  return `${labels.slice(0, -1).join(', ')}, and ${labels.at(-1)}`
+}
+
+/**
+ * Add exclude context to an empty-state sentence only when an exclude is active.
+ * @param message - Base empty-state sentence chosen by the priority ladder.
+ * @param excludedSkillTypeFilters - Active exclude filters.
+ * @returns Sentence with optional `" while excluding ..."` suffix.
+ * @example
+ * withExcludeContext('No skills installed for this agent', ['local'])
+ * // => "No skills installed for this agent while excluding local"
+ */
+function withExcludeContext(
+  message: string,
+  excludedSkillTypeFilters: ExcludableSkillTypeFilter[],
+): string {
+  if (excludedSkillTypeFilters.length === 0) return message
+  return `${message} while excluding ${formatExcludedSkillTypeFilters(
+    excludedSkillTypeFilters,
+  )}`
+}
 
 /**
  * Compute the empty-state message for SkillsList based on which filters are
@@ -45,6 +94,7 @@ const SKILL_TYPE_FILTER_LABELS = {
  *   `"No <symlinked|local|G-Stack|orphan> skills for this agent"`
  * - When only `selectedAgentId` is set: `"No skills installed for this agent"`
  * - Otherwise: `"No skills match your filter"`
+ * Active excludes append `" while excluding <types>"` to whichever branch wins.
  *
  * @example
  * getEmptyListMessage({
@@ -52,6 +102,7 @@ const SKILL_TYPE_FILTER_LABELS = {
  *   selectedSource: repositoryId('vercel-labs/skills'),
  *   selectedAgentId: null,
  *   skillTypeFilter: 'all',
+ *   excludedSkillTypeFilters: [],
  * })
  * // => "No skills from vercel-labs/skills"
  *
@@ -61,16 +112,21 @@ const SKILL_TYPE_FILTER_LABELS = {
  *   selectedSource: null,
  *   selectedAgentId: 'cursor',
  *   skillTypeFilter: 'local',
+ *   excludedSkillTypeFilters: ['gstack'],
  * })
- * // => "No local skills for this agent"
+ * // => "No local skills for this agent while excluding G-Stack"
  */
 export function getEmptyListMessage(ctx: EmptyMessageContext): string {
-  return match({
+  const baseMessage = match({
     hasSearchQuery: ctx.searchQuery.length > 0,
     hasSelectedSource: ctx.selectedSource !== null,
     hasSelectedAgent: ctx.selectedAgentId !== null,
     hasTypeNarrow: ctx.skillTypeFilter !== 'all',
   })
+    .with(
+      { hasSearchQuery: true, hasSelectedSource: true },
+      () => `No skills match your search in ${ctx.selectedSource}`,
+    )
     .with({ hasSearchQuery: true }, () => 'No skills match your search')
     .with(
       { hasSelectedSource: true },
@@ -86,4 +142,6 @@ export function getEmptyListMessage(ctx: EmptyMessageContext): string {
       () => 'No skills installed for this agent',
     )
     .otherwise(() => 'No skills match your filter')
+
+  return withExcludeContext(baseMessage, ctx.excludedSkillTypeFilters ?? [])
 }

@@ -2,7 +2,13 @@ import { createSelector } from '@reduxjs/toolkit'
 import { match } from 'ts-pattern'
 
 import { isGStackManagedForAgent } from '@/renderer/src/utils/gstackSkill'
-import type { SkillName, SymlinkInfo } from '@/shared/types'
+import type {
+  AgentId,
+  RepositoryId,
+  Skill,
+  SkillName,
+  SymlinkInfo,
+} from '@/shared/types'
 
 import { selectBookmarkItems } from './slices/bookmarkSlice'
 import {
@@ -11,6 +17,7 @@ import {
   selectSkillsItems,
 } from './slices/skillsSlice'
 import {
+  selectExcludedSkillTypeFilters,
   selectSearchQuery,
   selectSearchScope,
   selectSelectedAgentId,
@@ -18,10 +25,120 @@ import {
   selectSkillTypeFilter,
   selectSortOrder,
 } from './slices/uiSlice'
+import type {
+  ExcludableSkillTypeFilter,
+  SkillTypeFilter,
+} from './slices/uiSlice'
+
+interface RepoFacetOption {
+  source: RepositoryId
+  count: number
+}
+
+/**
+ * Detect whether one scanner slot belongs to the active agent list.
+ * @param slot - Symlink slot emitted by the skill scanner.
+ * @param selectedAgentId - Agent currently selected in the Installed view.
+ * @returns True for valid or broken slots that should appear in that agent.
+ * @example
+ * isSelectedAgentSlot(skill.symlinks[0], 'cursor')
+ */
+function isSelectedAgentSlot(
+  slot: SymlinkInfo,
+  selectedAgentId: AgentId,
+): boolean {
+  return (
+    slot.agentId === selectedAgentId &&
+    (slot.status === 'valid' || slot.status === 'broken')
+  )
+}
+
+/**
+ * Check whether a skill belongs to one installed type for the selected agent.
+ * Include and exclude filtering both call this helper so G-Stack, orphan, local,
+ * and symlinked semantics cannot drift apart.
+ * @param skill - Installed skill row from the scanner.
+ * @param selectedAgentId - Active agent list owner; null means no agent type match.
+ * @param skillTypeFilter - Positive type to test.
+ * @returns True when the row matches the requested type for the selected agent.
+ * @example
+ * matchesSkillTypeFilter(skill, 'cursor', 'local')
+ */
+function matchesSkillTypeFilter(
+  skill: Skill,
+  selectedAgentId: AgentId | null,
+  skillTypeFilter: SkillTypeFilter,
+): boolean {
+  if (selectedAgentId === null) return false
+
+  const hasSelectedAgentSlot = (slot: SymlinkInfo): boolean =>
+    isSelectedAgentSlot(slot, selectedAgentId)
+
+  return match(skillTypeFilter)
+    .with('all', () => skill.symlinks.some(hasSelectedAgentSlot))
+    .with('symlinked', () =>
+      skill.symlinks.some(
+        (slot) => hasSelectedAgentSlot(slot) && slot.isLocal === false,
+      ),
+    )
+    .with('local', () =>
+      skill.symlinks.some(
+        (slot) => hasSelectedAgentSlot(slot) && slot.isLocal === true,
+      ),
+    )
+    .with('gstack', () => isGStackManagedForAgent(skill, selectedAgentId))
+    .with(
+      'orphan',
+      () =>
+        skill.isOrphan === true && skill.symlinks.some(hasSelectedAgentSlot),
+    )
+    .exhaustive()
+}
+
+/**
+ * Apply the shared first-pass Installed population gate.
+ * Source view returns source-directory skills; agent view returns the selected
+ * include type minus any active excludes before repo/search/sort run.
+ * @param skills - Raw skill scanner rows from Redux.
+ * @param selectedAgentId - Active agent, or null for source view.
+ * @param skillTypeFilter - Positive include mode.
+ * @param excludedSkillTypeFilters - Negative type filters to subtract.
+ * @returns Skills eligible for downstream repo/search/sort filters.
+ * @example
+ * applyAgentAndTypeFilters(skills, 'cursor', 'all', ['local'])
+ */
+function applyAgentAndTypeFilters(
+  skills: Skill[],
+  selectedAgentId: AgentId | null,
+  skillTypeFilter: SkillTypeFilter,
+  excludedSkillTypeFilters: ExcludableSkillTypeFilter[],
+): Skill[] {
+  if (selectedAgentId === null) {
+    return skills.filter((skill) => skill.isSource)
+  }
+
+  let result = skills.filter((skill) =>
+    matchesSkillTypeFilter(skill, selectedAgentId, skillTypeFilter),
+  )
+  if (excludedSkillTypeFilters.length === 0) return result
+
+  const excludedTypes = new Set<ExcludableSkillTypeFilter>(
+    excludedSkillTypeFilters,
+  )
+  result = result.filter((skill) => {
+    for (const excludedType of excludedTypes) {
+      if (matchesSkillTypeFilter(skill, selectedAgentId, excludedType)) {
+        return false
+      }
+    }
+    return true
+  })
+  return result
+}
 
 /**
  * Memoized selector for filtered and sorted skills list.
- * Applies (in order): agent filter, skill type filter, source-repo pill,
+ * Applies (in order): agent/type include, type excludes, source-repo pill,
  * scope-aware search query, and name sort.
  *
  * Search scope rules:
@@ -48,6 +165,7 @@ export const selectFilteredSkills = createSelector(
     selectSelectedSource,
     selectSortOrder,
     selectSkillTypeFilter,
+    selectExcludedSkillTypeFilters,
   ],
   (
     skills,
@@ -57,56 +175,14 @@ export const selectFilteredSkills = createSelector(
     selectedSource,
     sortOrder,
     skillTypeFilter,
+    excludedSkillTypeFilters,
   ) => {
-    let result = skills
-
-    // Source view (no agent) narrows to SOURCE_DIR skills so the SourceCard
-    // matches its `~/.agents/skills/` label instead of leaking agent-local
-    // folders (e.g. `~/.claude/skills/<name>` with no symlink under
-    // `~/.agents/skills/`). Agent view keeps both `valid` and `broken`
-    // slots so AgentItem's "Cleanup missing skills..." has rows to act on.
-    // `missing` slots are dropped — nothing on disk to surface there.
-    //
-    // Each skill-type arm narrows from the selected agent's slot. G-Stack
-    // delegates to the same attribution helper as the card badge so local
-    // sibling skills and direct symlinks stay in sync.
-    if (selectedAgentId) {
-      const hasAgentSlot = (slot: SymlinkInfo): boolean =>
-        slot.agentId === selectedAgentId &&
-        (slot.status === 'valid' || slot.status === 'broken')
-      result = match(skillTypeFilter)
-        .with('all', () =>
-          result.filter((skill) => skill.symlinks.some(hasAgentSlot)),
-        )
-        .with('symlinked', () =>
-          result.filter((skill) =>
-            skill.symlinks.some(
-              (slot) => hasAgentSlot(slot) && slot.isLocal === false,
-            ),
-          ),
-        )
-        .with('local', () =>
-          result.filter((skill) =>
-            skill.symlinks.some(
-              (slot) => hasAgentSlot(slot) && slot.isLocal === true,
-            ),
-          ),
-        )
-        .with('gstack', () =>
-          result.filter((skill) =>
-            isGStackManagedForAgent(skill, selectedAgentId),
-          ),
-        )
-        .with('orphan', () =>
-          result.filter(
-            (skill) =>
-              skill.isOrphan === true && skill.symlinks.some(hasAgentSlot),
-          ),
-        )
-        .exhaustive()
-    } else {
-      result = result.filter((skill) => skill.isSource)
-    }
+    let result = applyAgentAndTypeFilters(
+      skills,
+      selectedAgentId,
+      skillTypeFilter,
+      excludedSkillTypeFilters,
+    )
 
     // Source-repo filter pill — exact match. Local skills (source undefined)
     // can never match a non-null pill value, so they drop out implicitly.
@@ -139,6 +215,44 @@ export const selectFilteredSkills = createSelector(
     })
 
     return sorted
+  },
+)
+
+/**
+ * Exact repo choices for the Installed toolbar. It shares the agent/type gates
+ * with `selectFilteredSkills`, but intentionally ignores the active source pill
+ * and text query so users can recover from an over-narrowed filter.
+ * @returns Sorted source options with matching row counts.
+ * @example
+ * const repoOptions = useAppSelector(selectRepoFacetOptions)
+ */
+export const selectRepoFacetOptions = createSelector(
+  [
+    selectSkillsItems,
+    selectSelectedAgentId,
+    selectSkillTypeFilter,
+    selectExcludedSkillTypeFilters,
+  ],
+  (
+    skills,
+    selectedAgentId,
+    skillTypeFilter,
+    excludedSkillTypeFilters,
+  ): RepoFacetOption[] => {
+    const sourceCounts = new Map<RepositoryId, number>()
+    const visibleByAgentAndType = applyAgentAndTypeFilters(
+      skills,
+      selectedAgentId,
+      skillTypeFilter,
+      excludedSkillTypeFilters,
+    )
+    for (const skill of visibleByAgentAndType) {
+      if (!skill.source) continue
+      sourceCounts.set(skill.source, (sourceCounts.get(skill.source) ?? 0) + 1)
+    }
+    return [...sourceCounts.entries()]
+      .sort(([sourceA], [sourceB]) => sourceA.localeCompare(sourceB))
+      .map(([source, count]) => ({ source, count }))
   },
 )
 
