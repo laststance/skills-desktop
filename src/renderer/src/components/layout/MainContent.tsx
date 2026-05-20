@@ -4,9 +4,10 @@ import {
   CheckSquare,
   ChevronDown,
   ExternalLink,
+  GitBranch,
   X,
 } from 'lucide-react'
-import React, { useCallback, useRef } from 'react'
+import React, { useCallback, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { SkillsMarketplace } from '@/renderer/src/components/marketplace'
@@ -37,9 +38,13 @@ import {
 } from '@/renderer/src/components/ui/dialog'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/renderer/src/components/ui/dropdown-menu'
 import { FilterPill } from '@/renderer/src/components/ui/FilterPill'
@@ -55,6 +60,7 @@ import { useRenderEffect } from '@/renderer/src/hooks/useRenderEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
+  selectRepoFacetOptions,
   selectSelectedVisibleNames,
   selectVisibleSkillNames,
 } from '@/renderer/src/redux/selectors'
@@ -70,22 +76,28 @@ import {
 } from '@/renderer/src/redux/slices/skillsSlice'
 import {
   clearBulkConfirm,
+  clearExcludedSkillTypeFilters,
   clearSelectedSource,
   clearUndoToast,
   enterBulkSelectMode,
   exitBulkSelectMode,
+  getAvailableExcludeTypes,
   selectAgent,
   selectBulkConfirm,
   selectBulkSelectMode,
+  selectExcludedSkillTypeFilters,
   selectSelectedSource,
   setActiveTab,
   setBulkConfirm,
+  setSelectedSource,
   setSkillTypeFilter,
   setUndoToast,
+  toggleExcludedSkillTypeFilter,
   toggleSortOrder,
 } from '@/renderer/src/redux/slices/uiSlice'
 import type {
   ActiveTab,
+  ExcludableSkillTypeFilter,
   SkillTypeFilter,
 } from '@/renderer/src/redux/slices/uiSlice'
 import { refreshAllData } from '@/renderer/src/redux/thunks'
@@ -98,6 +110,7 @@ import { FEATURE_FLAGS } from '@/shared/featureFlags'
 import type {
   BulkDeleteItemResult,
   IsoTimestamp,
+  RepositoryId,
   ToastId,
   TombstoneId,
 } from '@/shared/types'
@@ -114,6 +127,48 @@ const SKILL_TYPE_FILTER_OPTIONS: {
   { value: 'gstack', label: 'G-Stack', dotClass: 'bg-gstack' },
   { value: 'orphan', label: 'Orphan', dotClass: 'bg-destructive' },
 ]
+
+const EXCLUDABLE_SKILL_TYPE_FILTER_OPTIONS = SKILL_TYPE_FILTER_OPTIONS.filter(
+  (
+    option,
+  ): option is {
+    value: ExcludableSkillTypeFilter
+    label: string
+    dotClass?: string
+  } => option.value !== 'all',
+)
+
+/**
+ * Compress long repository slugs for toolbar triggers while preserving both
+ * owner and repo clues. The full value remains in aria-labels and filter pills.
+ * @param source - Repository slug, usually `owner/repo`.
+ * @returns Short label safe for compact toolbar buttons.
+ * @example
+ * formatRepositoryFacetLabel('very-long-owner-name/extremely-long-repository')
+ * // => "very-long-ow...ng-repository"
+ */
+function formatRepositoryFacetLabel(source: RepositoryId): string {
+  if (source.length <= 28) return source
+  return `${source.slice(0, 12)}...${source.slice(-13)}`
+}
+
+/**
+ * Explain why an exclude checkbox is unavailable for the current include mode.
+ * @param includeFilter - Positive skill type selected in the Include group.
+ * @param excludeFilter - Negative skill type shown in the Exclude group.
+ * @returns Short helper copy, or null when the option is available.
+ * @example
+ * getUnavailableExcludeReason('symlinked', 'local') // => "Not in view"
+ */
+function getUnavailableExcludeReason(
+  includeFilter: SkillTypeFilter,
+  excludeFilter: ExcludableSkillTypeFilter,
+): string | null {
+  if (getAvailableExcludeTypes(includeFilter).includes(excludeFilter)) {
+    return null
+  }
+  return includeFilter === excludeFilter ? 'Already included' : 'Not in view'
+}
 
 const SKILLS_SH_URL = 'https://skills.sh'
 
@@ -136,8 +191,23 @@ export const MainContent = React.memo(
     const bulkConfirm = useAppSelector(selectBulkConfirm)
     const bulkSelectMode = useAppSelector(selectBulkSelectMode)
     const selectedSource = useAppSelector(selectSelectedSource)
+    const repoFacetOptions = useAppSelector(selectRepoFacetOptions)
+    const excludedSkillTypeFilters = useAppSelector(
+      selectExcludedSkillTypeFilters,
+    )
 
     const selectedAgent = agents.find((a) => a.id === selectedAgentId)
+    const selectedSkillTypeLabel = SKILL_TYPE_FILTER_OPTIONS.find(
+      (option) => option.value === skillTypeFilter,
+    )!.label
+    const availableExcludeTypes = getAvailableExcludeTypes(skillTypeFilter)
+    const skillTypeTriggerLabel =
+      excludedSkillTypeFilters.length === 0
+        ? selectedSkillTypeLabel
+        : `${selectedSkillTypeLabel} · ${excludedSkillTypeFilters.length} excluded`
+    const selectedSourceLabel = selectedSource
+      ? formatRepositoryFacetLabel(selectedSource)
+      : 'Source'
 
     const handleClearFilter = useCallback((): void => {
       dispatch(selectAgent(null))
@@ -244,6 +314,55 @@ export const MainContent = React.memo(
         dispatch(setSkillTypeFilter(value as SkillTypeFilter))
       },
       [dispatch],
+    )
+
+    const handleRepoFacetChange = useCallback(
+      (value: string): void => {
+        if (value === 'all') {
+          dispatch(clearSelectedSource())
+          return
+        }
+        dispatch(setSelectedSource(value as RepositoryId))
+      },
+      [dispatch],
+    )
+
+    const handleToggleExcludedSkillTypeFilter = useCallback(
+      (value: ExcludableSkillTypeFilter): void => {
+        dispatch(toggleExcludedSkillTypeFilter(value))
+      },
+      [dispatch],
+    )
+    const excludedSkillTypeToggleHandlers = useMemo(
+      () => ({
+        symlinked: () => {
+          handleToggleExcludedSkillTypeFilter('symlinked')
+        },
+        local: () => {
+          handleToggleExcludedSkillTypeFilter('local')
+        },
+        gstack: () => {
+          handleToggleExcludedSkillTypeFilter('gstack')
+        },
+        orphan: () => {
+          handleToggleExcludedSkillTypeFilter('orphan')
+        },
+      }),
+      [handleToggleExcludedSkillTypeFilter],
+    )
+
+    const handleClearExcludedSkillTypeFilters = useCallback((): void => {
+      dispatch(clearExcludedSkillTypeFilters())
+    }, [dispatch])
+    const handleKeepDropdownOpen = useCallback((event: Event): void => {
+      event.preventDefault()
+    }, [])
+    const handleSelectClearExcludedSkillTypeFilters = useCallback(
+      (event: Event): void => {
+        event.preventDefault()
+        handleClearExcludedSkillTypeFilters()
+      },
+      [handleClearExcludedSkillTypeFilters],
     )
 
     /**
@@ -482,8 +601,8 @@ export const MainContent = React.memo(
             value="installed"
             className="flex-1 m-0 data-[state=active]:flex data-[state=active]:flex-col min-h-0 overflow-hidden"
           >
-            <div className="p-4 border-b border-border shrink-0 flex items-center gap-2">
-              <div className="flex-1 min-w-0">
+            <div className="p-4 border-b border-border shrink-0 flex flex-wrap items-center gap-2">
+              <div className="min-w-64 flex-[1_1_20rem]">
                 <SearchBox />
               </div>
 
@@ -505,6 +624,63 @@ export const MainContent = React.memo(
                   <ArrowUpAZ className="h-4 w-4" />
                 )}
               </Button>
+
+              {/* Repo facet: exact source filter with counts from the current
+                  agent/type population, independent of the text query. */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={
+                      selectedSource
+                        ? `Filtering by source repository ${selectedSource}`
+                        : 'Filter by source repository'
+                    }
+                    className={cn(
+                      'shrink-0 gap-1.5 min-h-11 max-w-44',
+                      selectedSource
+                        ? 'text-primary'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    <GitBranch className="h-4 w-4" />
+                    <span className="max-w-32 truncate">
+                      {selectedSourceLabel}
+                    </span>
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72">
+                  <DropdownMenuLabel>Source repository</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup
+                    value={selectedSource ?? 'all'}
+                    onValueChange={handleRepoFacetChange}
+                  >
+                    <DropdownMenuRadioItem value="all">
+                      <span className="min-w-0 flex-1">All repos</span>
+                    </DropdownMenuRadioItem>
+                    {repoFacetOptions.map((option) => (
+                      <DropdownMenuRadioItem
+                        key={option.source}
+                        value={option.source}
+                        aria-label={`${option.source}, ${option.count} ${pluralize(
+                          option.count,
+                          'skill',
+                        )}`}
+                        className="gap-2"
+                      >
+                        <span className="min-w-0 flex-1 truncate">
+                          {option.source}
+                        </span>
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          {option.count}
+                        </span>
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {/* Bulk-select toggle — reveals checkboxes on skill cards and
                   activates Cmd/Ctrl+A + Esc shortcuts. Exiting clears any
@@ -541,21 +717,27 @@ export const MainContent = React.memo(
                     <Button
                       variant="ghost"
                       size="sm"
-                      className={`shrink-0 gap-1.5 min-h-11 ${
-                        skillTypeFilter !== 'all'
-                          ? 'text-primary'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {
-                        SKILL_TYPE_FILTER_OPTIONS.find(
-                          (o) => o.value === skillTypeFilter,
-                        )!.label
+                      aria-label={
+                        excludedSkillTypeFilters.length === 0
+                          ? `Skill type filter: ${selectedSkillTypeLabel}`
+                          : `Skill type filter: ${selectedSkillTypeLabel}, excluding ${excludedSkillTypeFilters.length} types`
                       }
+                      className={cn(
+                        'shrink-0 gap-1.5 min-h-11 max-w-48',
+                        skillTypeFilter !== 'all' ||
+                          excludedSkillTypeFilters.length > 0
+                          ? 'text-primary'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      <span className="max-w-36 truncate">
+                        {skillTypeTriggerLabel}
+                      </span>
                       <ChevronDown className="h-3 w-3" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent align="end" className="w-60">
+                    <DropdownMenuLabel>Include</DropdownMenuLabel>
                     <DropdownMenuRadioGroup
                       value={skillTypeFilter}
                       onValueChange={handleSkillTypeFilterChange}
@@ -577,6 +759,57 @@ export const MainContent = React.memo(
                         </DropdownMenuRadioItem>
                       ))}
                     </DropdownMenuRadioGroup>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Exclude</DropdownMenuLabel>
+                    {EXCLUDABLE_SKILL_TYPE_FILTER_OPTIONS.map((option) => {
+                      const isAvailable = availableExcludeTypes.includes(
+                        option.value,
+                      )
+                      const unavailableReason = getUnavailableExcludeReason(
+                        skillTypeFilter,
+                        option.value,
+                      )
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={option.value}
+                          checked={excludedSkillTypeFilters.includes(
+                            option.value,
+                          )}
+                          disabled={!isAvailable}
+                          onCheckedChange={
+                            excludedSkillTypeToggleHandlers[option.value]
+                          }
+                          onSelect={handleKeepDropdownOpen}
+                          aria-label={
+                            unavailableReason
+                              ? `${option.label}, unavailable: ${unavailableReason}`
+                              : option.label
+                          }
+                          className="gap-2"
+                        >
+                          {option.dotClass ? (
+                            <span
+                              className={`h-2 w-2 rounded-full ${option.dotClass}`}
+                            />
+                          ) : null}
+                          <span className="min-w-0 flex-1 truncate">
+                            {option.label}
+                          </span>
+                          {unavailableReason ? (
+                            <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
+                              {unavailableReason}
+                            </span>
+                          ) : null}
+                        </DropdownMenuCheckboxItem>
+                      )
+                    })}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      disabled={excludedSkillTypeFilters.length === 0}
+                      onSelect={handleSelectClearExcludedSkillTypeFilters}
+                    >
+                      Clear excludes
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}

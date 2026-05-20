@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import type { SkillTypeFilter } from '@/renderer/src/redux/slices/uiSlice'
+import type {
+  ExcludableSkillTypeFilter,
+  SkillTypeFilter,
+} from '@/renderer/src/redux/slices/uiSlice'
 import { repositoryId } from '@/shared/types'
 import type {
   AbsolutePath,
@@ -17,6 +20,7 @@ import {
   selectFilteredSkills,
   selectHiddenSelectedCount,
   selectInFlightDeleteNamesSet,
+  selectRepoFacetOptions,
   selectSelectedCount,
   selectSelectedSkillNamesSet,
   selectSelectedVisibleCount,
@@ -33,6 +37,7 @@ function buildState(overrides: {
   selectedSource?: RepositoryId | null
   sortOrder?: 'asc' | 'desc'
   skillTypeFilter?: SkillTypeFilter
+  excludedSkillTypeFilters?: ExcludableSkillTypeFilter[]
   bookmarks?: BookmarkedSkill[]
   selectedSkillNames?: SkillName[]
   inFlightDeleteNames?: SkillName[]
@@ -71,6 +76,7 @@ function buildState(overrides: {
       selectedAgentId: overrides.selectedAgentId ?? null,
       sortOrder: overrides.sortOrder ?? 'asc',
       skillTypeFilter: overrides.skillTypeFilter ?? 'all',
+      excludedSkillTypeFilters: overrides.excludedSkillTypeFilters ?? [],
       isSyncing: false,
       syncPreview: null,
       syncResult: null,
@@ -350,6 +356,20 @@ describe('selectFilteredSkills', () => {
     expect(result[0].name).toBe('local-one')
   })
 
+  it('subtracts excluded local skills from the all-types agent list', () => {
+    const skills = [
+      makeSkill('linked-one', 'cursor'),
+      makeSkill('local-one', 'cursor', true),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      excludedSkillTypeFilters: ['local'],
+    })
+    const result = selectFilteredSkills(state as never)
+    expect(result.map((s) => s.name)).toEqual(['linked-one'])
+  })
+
   it('filters by skillTypeFilter=gstack across symlinked and local G-Stack slots', () => {
     // The G-Stack filter should match the same two production shapes as the
     // card badge: direct agent symlinks into `skills/gstack/` and local
@@ -389,6 +409,36 @@ describe('selectFilteredSkills', () => {
       'linked-gstack',
       'local-gstack',
     ])
+  })
+
+  it('subtracts local rows from the G-Stack include population', () => {
+    const linkedGStack = makeSkill('linked-gstack', 'cursor')
+    linkedGStack.symlinks = [
+      {
+        ...linkedGStack.symlinks[0]!,
+        targetPath:
+          '/Users/me/.cursor/skills/gstack/linked-gstack' as AbsolutePath,
+      },
+    ]
+
+    const localGStack = makeSkill('local-gstack', 'cursor', true)
+    localGStack.symlinks = [
+      {
+        ...localGStack.symlinks[0]!,
+        skillMdSymlinkTarget:
+          '/Users/me/.cursor/skills/gstack/local-gstack/SKILL.md' as AbsolutePath,
+      },
+    ]
+
+    const state = buildState({
+      skills: [linkedGStack, localGStack],
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'gstack',
+      excludedSkillTypeFilters: ['local'],
+    })
+
+    const result = selectFilteredSkills(state as never)
+    expect(result.map((skill) => skill.name)).toEqual(['linked-gstack'])
   })
 
   it('keeps gstack filtering scoped to the selected agent slot', () => {
@@ -692,6 +742,28 @@ describe('selectFilteredSkills', () => {
     })
     const result = selectFilteredSkills(state as never)
     expect(result.map((s) => s.name)).toEqual([])
+  })
+
+  it('repo facet options count repos after agent/type gates and ignore source pill plus query', () => {
+    const skills = [
+      makeSkill('alpha', 'cursor', false, 'vercel-labs/skills'),
+      makeSkill('beta', 'cursor', false, 'vercel-labs/skills'),
+      makeSkill('gamma', 'cursor', false, 'pbakaus/impeccable'),
+      makeSkill('local-only', 'cursor', true),
+      makeSkill('other-agent', 'claude-code', false, 'vercel-labs/skills'),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      selectedSource: repositoryId('pbakaus/impeccable'),
+      searchQuery: 'nothing matches',
+      searchScope: 'repo',
+    })
+
+    expect(selectRepoFacetOptions(state as never)).toEqual([
+      { source: repositoryId('pbakaus/impeccable'), count: 1 },
+      { source: repositoryId('vercel-labs/skills'), count: 2 },
+    ])
   })
 
   it('is memoized (returns same reference for same inputs)', () => {

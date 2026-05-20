@@ -11,6 +11,7 @@ import {
   selectSkillsLoading,
 } from '@/renderer/src/redux/slices/skillsSlice'
 import {
+  selectExcludedSkillTypeFilters,
   selectSearchQuery,
   selectSelectedAgentId,
   selectSelectedSource,
@@ -69,6 +70,9 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
   const skillTypeFilter = useAppSelector(selectSkillTypeFilter)
   const searchQuery = useAppSelector(selectSearchQuery)
   const selectedSource = useAppSelector(selectSelectedSource)
+  const excludedSkillTypeFilters = useAppSelector(
+    selectExcludedSkillTypeFilters,
+  )
   const filteredSkills = useAppSelector(selectFilteredSkills)
 
   useInitialEffect(() => {
@@ -129,6 +133,7 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
       selectedSource,
       selectedAgentId,
       skillTypeFilter,
+      excludedSkillTypeFilters,
     })
     return (
       <div className="flex items-center justify-center py-12">

@@ -31,6 +31,7 @@ export type SkillTypeFilter =
   | 'local'
   | 'gstack'
   | 'orphan'
+export type ExcludableSkillTypeFilter = Exclude<SkillTypeFilter, 'all'>
 export type ActiveTab = 'installed' | 'marketplace'
 /**
  * Which field the search box matches against.
@@ -101,6 +102,12 @@ interface UiState {
   sortOrder: SortOrder
   /** Filter by skill type in agent view (all / symlinked / local / G-Stack / orphan) */
   skillTypeFilter: SkillTypeFilter
+  /**
+   * Skill types subtracted from the selected agent list. Kept transient like
+   * the rest of `ui`; reducer guards below prevent impossible include/exclude
+   * combinations from becoming user-visible labels.
+   */
+  excludedSkillTypeFilters: ExcludableSkillTypeFilter[]
   /** Whether sync operation is in progress */
   isSyncing: boolean
   /** Sync preview result (null when not previewing) */
@@ -151,6 +158,7 @@ const initialState: UiState = {
   selectedAgentId: null,
   sortOrder: 'asc',
   skillTypeFilter: 'all',
+  excludedSkillTypeFilters: [],
   isSyncing: false,
   syncPreview: null,
   syncResult: null,
@@ -204,6 +212,32 @@ export const executeSyncAction = createAsyncThunk(
   },
 )
 
+/**
+ * Return exclude types that can actually change the current include population.
+ * The UI uses this to disable impossible rows; reducers use it as the source of
+ * truth so accidental dispatches cannot create contradictory labels.
+ * @param skillTypeFilter - The active positive include mode.
+ * @returns Exclude filters that can subtract at least one possible row.
+ * @example
+ * getAvailableExcludeTypes('local') // => ['gstack']
+ */
+export function getAvailableExcludeTypes(
+  skillTypeFilter: SkillTypeFilter,
+): ExcludableSkillTypeFilter[] {
+  switch (skillTypeFilter) {
+    case 'all':
+      return ['symlinked', 'local', 'gstack', 'orphan']
+    case 'symlinked':
+      return ['gstack', 'orphan']
+    case 'local':
+      return ['gstack']
+    case 'gstack':
+      return ['symlinked', 'local', 'orphan']
+    case 'orphan':
+      return ['gstack']
+  }
+}
+
 const uiSlice = createSlice({
   name: 'ui',
   initialState,
@@ -249,6 +283,7 @@ const uiSlice = createSlice({
     selectAgent: (state, action: PayloadAction<AgentId | null>) => {
       state.selectedAgentId = action.payload
       state.skillTypeFilter = 'all'
+      state.excludedSkillTypeFilters = []
       // Agent change swaps the entire list out; an undo referencing names the
       // user can no longer see would be misleading. Dismiss the toast.
       state.undoToast = null
@@ -262,6 +297,29 @@ const uiSlice = createSlice({
     },
     setSkillTypeFilter: (state, action: PayloadAction<SkillTypeFilter>) => {
       state.skillTypeFilter = action.payload
+      const available = new Set(getAvailableExcludeTypes(action.payload))
+      state.excludedSkillTypeFilters = state.excludedSkillTypeFilters.filter(
+        (value) => available.has(value),
+      )
+    },
+    toggleExcludedSkillTypeFilter: (
+      state,
+      action: PayloadAction<ExcludableSkillTypeFilter>,
+    ) => {
+      const available = getAvailableExcludeTypes(state.skillTypeFilter)
+      if (!available.includes(action.payload)) return
+
+      const currentIndex = state.excludedSkillTypeFilters.indexOf(
+        action.payload,
+      )
+      if (currentIndex >= 0) {
+        state.excludedSkillTypeFilters.splice(currentIndex, 1)
+        return
+      }
+      state.excludedSkillTypeFilters.push(action.payload)
+    },
+    clearExcludedSkillTypeFilters: (state) => {
+      state.excludedSkillTypeFilters = []
     },
     setSyncPreview: (
       state,
@@ -429,6 +487,8 @@ export const {
   selectAgent,
   toggleSortOrder,
   setSkillTypeFilter,
+  toggleExcludedSkillTypeFilter,
+  clearExcludedSkillTypeFilters,
   setSyncPreview,
   clearSyncResult,
   setSelectedBookmarkForDetail,
@@ -464,6 +524,9 @@ export const selectSortOrder = (state: RootState): SortOrder =>
   state.ui.sortOrder
 export const selectSkillTypeFilter = (state: RootState): SkillTypeFilter =>
   state.ui.skillTypeFilter
+export const selectExcludedSkillTypeFilters = (
+  state: RootState,
+): ExcludableSkillTypeFilter[] => state.ui.excludedSkillTypeFilters
 export const selectSelectedBookmarkForDetail = (
   state: RootState,
 ): BookmarkForDetail | null => state.ui.selectedBookmarkForDetail
