@@ -197,9 +197,10 @@ export const MainContent = React.memo(
     )
 
     const selectedAgent = agents.find((a) => a.id === selectedAgentId)
-    const selectedSkillTypeLabel = SKILL_TYPE_FILTER_OPTIONS.find(
-      (option) => option.value === skillTypeFilter,
-    )!.label
+    const selectedSkillTypeLabel =
+      SKILL_TYPE_FILTER_OPTIONS.find(
+        (option) => option.value === skillTypeFilter,
+      )?.label ?? 'All'
     const availableExcludeTypes = getAvailableExcludeTypes(skillTypeFilter)
     const skillTypeTriggerLabel =
       excludedSkillTypeFilters.length === 0
