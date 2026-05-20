@@ -82,6 +82,7 @@ describe('migrateState — v0 → v1 correctness', () => {
         hue: 300,
         chroma: COLOR_PRESET_CHROMA,
         mode: 'dark' as const,
+        modePreference: 'dark' as const,
         preset: 'violet' as const,
       },
     }
@@ -192,6 +193,7 @@ describe('migrateState — v1 → v2 dashboard widget min-size clamp', () => {
         hue: 0,
         chroma: 0,
         mode: 'dark' as const,
+        modePreference: 'dark' as const,
         preset: 'neutral-dark' as const,
       },
     }
@@ -280,6 +282,125 @@ describe('migrateState — v1 → v2 dashboard widget min-size clamp', () => {
   })
 })
 
+describe('migrateState — v2 → v3 theme modePreference seeding', () => {
+  it('seeds modePreference from dark mode and keeps mode intact', () => {
+    // Arrange
+    const state = {
+      theme: {
+        hue: 195,
+        chroma: COLOR_PRESET_CHROMA,
+        mode: 'dark' as const,
+        preset: 'cyan' as const,
+      } as unknown as ThemeState,
+    }
+
+    // Act
+    const result = migrateState(state, 2)
+
+    // Assert
+    expect(result.theme!.mode).toBe('dark')
+    expect(result.theme!.modePreference).toBe('dark')
+    expect(result.theme!.preset).toBe('cyan')
+    expect(result.theme!.hue).toBe(195)
+  })
+
+  it('seeds modePreference from light mode and keeps mode intact', () => {
+    // Arrange
+    const state = {
+      theme: {
+        hue: 0,
+        chroma: 0,
+        mode: 'light' as const,
+        preset: 'neutral-light' as const,
+      } as unknown as ThemeState,
+    }
+
+    // Act
+    const result = migrateState(state, 2)
+
+    // Assert
+    expect(result.theme!.mode).toBe('light')
+    expect(result.theme!.modePreference).toBe('light')
+    expect(result.theme!.preset).toBe('neutral-light')
+  })
+
+  it('drops a null theme so reducer defaults take over', () => {
+    // Arrange — tampered storage with theme set to null.
+    const state = { theme: null as unknown as ThemeState }
+
+    // Act
+    const result = migrateState(state, 2)
+
+    // Assert
+    expect(result.theme).toBeUndefined()
+  })
+
+  it('falls back both mode and modePreference to dark when mode is invalid', () => {
+    // Arrange — a tampered payload with an out-of-band mode value should not
+    // produce a desynced (mode='dark', modePreference='light') state. Both
+    // fields normalize to the same safe default.
+    const state = {
+      theme: {
+        hue: 195,
+        chroma: COLOR_PRESET_CHROMA,
+        mode: 'twilight' as unknown as 'dark',
+        preset: 'cyan' as const,
+      } as unknown as ThemeState,
+    }
+
+    // Act
+    const result = migrateState(state, 2)
+
+    // Assert
+    expect(result.theme!.mode).toBe('dark')
+    expect(result.theme!.modePreference).toBe('dark')
+  })
+
+  it('does not introduce system preference for legacy users', () => {
+    // Arrange — the whole point of the migration's defensive seeding is to
+    // never surprise an existing user with auto-OS-tracking behavior they
+    // never opted into.
+    const state = {
+      theme: {
+        hue: 0,
+        chroma: 0,
+        mode: 'dark' as const,
+        preset: 'neutral-dark' as const,
+      } as unknown as ThemeState,
+    }
+
+    // Act
+    const result = migrateState(state, 2)
+
+    // Assert
+    expect(result.theme!.modePreference).not.toBe('system')
+  })
+
+  it('chains v0 → v1 → v2 → v3 in one call, producing a v3 shape', () => {
+    // Arrange — a fully legacy v0 payload (presetType discriminator, no
+    // chroma, no modePreference) should land on the current schema after
+    // a single migrateState() invocation. Catches regressions where the
+    // chain breaks at an intermediate version.
+    const state = {
+      theme: {
+        hue: 195,
+        mode: 'dark' as const,
+        preset: 'cyan',
+        presetType: 'color',
+      } as unknown as LegacyTheme,
+    }
+
+    // Act
+    const result = migrateState(state, 0)
+
+    // Assert
+    expect(result.theme!.preset).toBe('cyan')
+    expect(result.theme!.chroma).toBe(THEME_PRESETS.cyan.chroma)
+    expect(result.theme!.mode).toBe('dark')
+    expect(result.theme!.modePreference).toBe('dark')
+  })
+})
+
 describe('V2_WIDGET_MIN_SIZES drift guard', () => {
   // The map in migrations.ts mirrors `WIDGET_REGISTRY[*].minSize`. If anyone
   // bumps a widget's runtime min in the registry without updating the
@@ -339,6 +460,7 @@ describe('migrateState — drift guard', () => {
         hue: 0,
         chroma: 0,
         mode: 'dark' as const,
+        modePreference: 'dark' as const,
         preset: 'neutral-dark' as const,
       },
     }

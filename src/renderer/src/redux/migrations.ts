@@ -143,6 +143,35 @@ function migrateV1ToV2(state: MigratableState): void {
 }
 
 /**
+ * v2 → v3 migration for the theme slice. v3 introduces `modePreference`
+ * (the user's *choice* of light / dark / system) alongside the existing
+ * `mode` (the *resolved* value applied to <html>). v2 users only had
+ * `mode`, so seed `modePreference` from it — they explicitly picked
+ * light or dark before, and silently upgrading them to "system" would
+ * make their app start auto-flipping with the OS without notice.
+ *
+ * `mode` itself is also normalized: anything other than 'light' / 'dark'
+ * (tampered storage, future variants) collapses to 'dark' so both fields
+ * agree on a sane default.
+ */
+function migrateV2ToV3(state: MigratableState): void {
+  // Null, undefined, or non-object theme slot: drop it so the reducer's
+  // initial state takes over. Matches the v0 → v1 defensive style.
+  if (!state.theme || typeof state.theme !== 'object') {
+    delete state.theme
+    return
+  }
+  const legacy = state.theme as { mode?: 'light' | 'dark' }
+  const resolved: 'light' | 'dark' =
+    legacy.mode === 'light' || legacy.mode === 'dark' ? legacy.mode : 'dark'
+  state.theme = {
+    ...(state.theme as ThemeState),
+    mode: resolved,
+    modePreference: resolved,
+  }
+}
+
+/**
  * Chain migrations up to `PERSIST_STATE_VERSION`. Each `case` must advance
  * `current` to the next schema version; unknown sources throw so bumping
  * `PERSIST_STATE_VERSION` without adding a migration fails loudly in tests
@@ -166,6 +195,10 @@ export function migrateState<T extends MigratableState>(
       case 1:
         migrateV1ToV2(state)
         current = 2
+        break
+      case 2:
+        migrateV2ToV3(state)
+        current = 3
         break
       default:
         throw new Error(
