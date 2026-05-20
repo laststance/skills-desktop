@@ -66,4 +66,31 @@ describe('resolveNeutralFamilySelection', () => {
       targetPreset: null,
     })
   })
+
+  it('returns a null click target when the dark family partner is missing in dark mode', () => {
+    // Arrange
+    const incompleteFamily: Parameters<
+      typeof resolveNeutralFamilySelection
+    >[0] = {
+      id: 'custom',
+      label: 'Custom',
+      dark: null,
+      light: 'neutral-light',
+      hue: 0,
+      chroma: 0,
+    }
+
+    // Act
+    const selection = resolveNeutralFamilySelection(
+      incompleteFamily,
+      'neutral-light',
+      'dark',
+    )
+
+    // Assert
+    expect(selection).toEqual({
+      isSelected: true,
+      targetPreset: null,
+    })
+  })
 })
