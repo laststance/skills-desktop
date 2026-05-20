@@ -71,6 +71,11 @@ interface NeutralFamily {
   chroma: number
 }
 
+interface NeutralFamilySelection {
+  isSelected: boolean
+  targetPreset: ThemePresetName | null
+}
+
 const NEUTRAL_FAMILIES: readonly NeutralFamily[] = (() => {
   const families = new Map<string, NeutralFamily>()
   for (const name of NEUTRAL_PRESET_NAMES) {
@@ -113,6 +118,32 @@ function formatCurrentThemeLabel(
   const config = THEME_PRESETS[preset]
   if ('mode' in config) return config.label
   return `${config.label} · ${mode === 'dark' ? 'Dark' : 'Light'}`
+}
+
+/**
+ * Resolve how a single tinted-neutral family should behave in the menu.
+ * Keeping this out of JSX makes the mode/preset branch testable without
+ * rendering Radix, Redux, or React.
+ *
+ * @param family - One tinted-neutral family row from `NEUTRAL_FAMILIES`.
+ * @param preset - Current theme preset stored in Redux.
+ * @param mode - Current resolved display mode (`light` or `dark`).
+ * @returns Selection state plus the concrete preset to dispatch on click.
+ *
+ * @example
+ * resolveNeutralFamilySelection(zincFamily, 'zinc-light', 'dark')
+ * // { isSelected: true, targetPreset: 'zinc-dark' }
+ */
+export function resolveNeutralFamilySelection(
+  family: NeutralFamily,
+  preset: ThemePresetName,
+  mode: 'light' | 'dark',
+): NeutralFamilySelection {
+  const isSelected = preset === family.dark || preset === family.light
+  // Family swatches follow the displayed mode so selecting "Zinc" in dark
+  // mode chooses `zinc-dark` without flipping the user's mode preference.
+  const targetPreset = mode === 'dark' ? family.dark : family.light
+  return { isSelected, targetPreset }
 }
 
 /**
@@ -281,12 +312,11 @@ export const ThemeSelector = React.memo(function ThemeSelector(): ReactElement {
         </DropdownMenuLabel>
         <div className="flex items-stretch gap-0.5 p-1">
           {NEUTRAL_FAMILIES.map((family) => {
-            const isSelected = preset === family.dark || preset === family.light
-            // Family swatches resolve to the partner preset matching the
-            // user's currently displayed mode so picking "Zinc" while in
-            // Dark goes to zinc-dark without forcing a mode flip the user
-            // didn't ask for.
-            const targetPreset = mode === 'dark' ? family.dark : family.light
+            const { isSelected, targetPreset } = resolveNeutralFamilySelection(
+              family,
+              preset,
+              mode,
+            )
             return (
               <button
                 key={family.id}
