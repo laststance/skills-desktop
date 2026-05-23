@@ -14,27 +14,27 @@ Skills Desktop provides a GUI to manage and monitor skills installed via [`npx s
 
 ## Features
 
-- **44 AI Agents Supported** - Auto-detects Claude Code, Cursor, Codex, Gemini CLI, and more
+- **54 AI Agents Supported** - Auto-detects Claude Code, Cursor, Codex, Gemini CLI, and more
 - **Symlink Status Visualization** - Valid (✓), Broken (◐), Missing (○) indicators
 - **44 Themes** - 34 OKLCH color themes (17 hues × light/dark) + 2 pure neutral + 8 tinted neutral
 - **Auto Update** - Automatic updates via GitHub Releases
 
 ## Supported Agents
 
-| Agent            | Path                        |
-| ---------------- | --------------------------- |
-| Claude Code      | `~/.claude/skills/`         |
-| Cursor           | `~/.cursor/skills/`         |
-| OpenAI Codex     | `~/.codex/skills/`          |
-| Gemini CLI       | `~/.gemini/skills/`         |
-| GitHub Copilot   | `~/.github-copilot/skills/` |
-| Cline            | `~/.cline/skills/`          |
-| Roo Code         | `~/.roo-code/skills/`       |
-| Aider            | `~/.aider/skills/`          |
-| Windsurf         | `~/.codeium/skills/`        |
-| Zed              | `~/.zed/skills/`            |
-| Continue         | `~/.continue/skills/`       |
-| _...and 33 more_ |                             |
+| Agent            | Path                          |
+| ---------------- | ----------------------------- |
+| Claude Code      | `~/.claude/skills/`           |
+| Cursor           | `~/.cursor/skills/`           |
+| OpenAI Codex     | `~/.codex/skills/`            |
+| Gemini CLI       | `~/.gemini/skills/`           |
+| GitHub Copilot   | `~/.copilot/skills/`          |
+| Cline            | `~/.cline/skills/`            |
+| Roo Code         | `~/.roo/skills/`              |
+| Junie            | `~/.junie/skills/`            |
+| Windsurf         | `~/.codeium/windsurf/skills/` |
+| OpenCode         | `~/.config/opencode/skills/`  |
+| Continue         | `~/.continue/skills/`         |
+| _...and 43 more_ |                               |
 
 ## Installation
 

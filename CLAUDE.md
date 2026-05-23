@@ -57,7 +57,7 @@ PRs are ready to ship only when `validate` and e2e both pass in that order.
 | Skill     | `~/.agents/skills/`  | Directory with SKILL.md                                        |
 | Agent     | `~/.<agent>/skills/` | AI agents (count = `AGENT_DEFINITIONS.length` in `src/shared/constants.ts`) |
 | Symlink   | Agent→Skill          | `valid` / `broken` / `missing`                                 |
-| Universal | `~/.agents/skills/`  | 12 agents share this source dir (see `UNIVERSAL_AGENT_IDS` in `src/shared/constants.ts`) |
+| Universal | `~/.agents/skills/`  | 13 agents share this source dir (see `UNIVERSAL_AGENT_IDS` in `src/shared/constants.ts`) |
 
 ### Skills CLI
 
@@ -66,7 +66,7 @@ PRs are ready to ship only when `validate` and e2e both pass in that order.
 | Repository     | https://github.com/vercel-labs/skills (paths below are inside that repo)                       |
 | CLI agent list | `src/agents.ts`                                                                                |
 | CLI types      | `src/types.ts`                                                                                 |
-| Pinned version | `SKILLS_CLI_VERSION` in `src/shared/constants.ts` (currently `1.5.1`) — bump via `/cli-upgrade` |
+| Pinned version | `SKILLS_CLI_VERSION` in `src/shared/constants.ts` (currently `1.5.5`) — bump via `/cli-upgrade` |
 
 `AGENT_DEFINITIONS` in `src/shared/constants.ts` mirrors the CLI's agent
 list. Each entry: `id` (app state), `cliId` (`--agent` flag), `name`

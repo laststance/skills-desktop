@@ -51,52 +51,62 @@ Agent definitions are synced with [vercel-labs/skills CLI](https://github.com/ve
 > entries (Cline, Warp, etc.) avoid surfacing every source skill as a
 > "local" skill of those agents (v0.13.0 regression guard).
 
-| Agent          | CLI ID           | Detection Path                  |
-| -------------- | ---------------- | ------------------------------- |
-| Claude Code    | `claude-code`    | `~/.claude/skills/`             |
-| Cursor         | `cursor`         | `~/.cursor/skills/`             |
-| Codex          | `codex`          | `~/.codex/skills/`              |
-| Gemini CLI     | `gemini-cli`     | `~/.gemini/skills/`             |
-| OpenCode       | `opencode`       | `~/.config/opencode/skills/`    |
-| GitHub Copilot | `github-copilot` | `~/.copilot/skills/`            |
-| Cline          | `cline`          | `~/.cline/skills/`              |
-| Roo Code       | `roo`            | `~/.roo/skills/`                |
-| Amp            | `amp`            | `~/.config/agents/skills/`      |
-| Goose          | `goose`          | `~/.config/goose/skills/`       |
-| Windsurf       | `windsurf`       | `~/.codeium/windsurf/skills/`   |
-| Continue       | `continue`       | `~/.continue/skills/`           |
-| Trae           | `trae`           | `~/.trae/skills/`               |
-| Junie          | `junie`          | `~/.junie/skills/`              |
-| Kilo Code      | `kilo`           | `~/.kilocode/skills/`           |
-| OpenHands      | `openhands`      | `~/.openhands/skills/`          |
-| Neovate        | `neovate`        | `~/.neovate/skills/`            |
-| Qoder          | `qoder`          | `~/.qoder/skills/`              |
-| Zencoder       | `zencoder`       | `~/.zencoder/skills/`           |
-| Pochi          | `pochi`          | `~/.pochi/skills/`              |
-| AdaL           | `adal`           | `~/.adal/skills/`               |
-| Kimi Code CLI  | `kimi-cli`       | `~/.config/agents/skills/`      |
-| IBM Bob        | `bob`            | `~/.bob/skills/`                |
-| Firebender     | `firebender`     | `~/.firebender/skills/`         |
-| Antigravity    | `antigravity`    | `~/.gemini/antigravity/skills/` |
-| Augment        | `augment`        | `~/.augment/skills/`            |
-| CodeBuddy      | `codebuddy`      | `~/.codebuddy/skills/`          |
-| Command Code   | `command-code`   | `~/.commandcode/skills/`        |
-| Cortex Code    | `cortex`         | `~/.snowflake/cortex/skills/`   |
-| Crush          | `crush`          | `~/.config/crush/skills/`       |
-| Deep Agents    | `deepagents`     | `~/.deepagents/agent/skills/`   |
-| Droid          | `droid`          | `~/.factory/skills/`            |
-| iFlow CLI      | `iflow-cli`      | `~/.iflow/skills/`              |
-| Kiro CLI       | `kiro-cli`       | `~/.kiro/skills/`               |
-| Kode           | `kode`           | `~/.kode/skills/`               |
-| MCPJam         | `mcpjam`         | `~/.mcpjam/skills/`             |
-| Mistral Vibe   | `mistral-vibe`   | `~/.vibe/skills/`               |
-| Mux            | `mux`            | `~/.mux/skills/`                |
-| OpenClaw       | `openclaw`       | `~/.openclaw/skills/`           |
-| Pi             | `pi`             | `~/.pi/agent/skills/`           |
-| Qwen Code      | `qwen-code`      | `~/.qwen/skills/`               |
-| Replit         | `replit`         | `~/.config/agents/skills/`      |
-| Trae CN        | `trae-cn`        | `~/.trae-cn/skills/`            |
-| Warp           | `warp`           | `~/.warp/skills/`               |
+| Agent              | CLI ID           | Detection Path                  |
+| ------------------ | ---------------- | ------------------------------- |
+| Claude Code        | `claude-code`    | `~/.claude/skills/`             |
+| Cursor             | `cursor`         | `~/.cursor/skills/`             |
+| Codex              | `codex`          | `~/.codex/skills/`              |
+| Gemini CLI         | `gemini-cli`     | `~/.gemini/skills/`             |
+| OpenCode           | `opencode`       | `~/.config/opencode/skills/`    |
+| GitHub Copilot     | `github-copilot` | `~/.copilot/skills/`            |
+| Cline              | `cline`          | `~/.cline/skills/`              |
+| Roo Code           | `roo`            | `~/.roo/skills/`                |
+| Amp                | `amp`            | `~/.config/agents/skills/`      |
+| Goose              | `goose`          | `~/.config/goose/skills/`       |
+| Windsurf           | `windsurf`       | `~/.codeium/windsurf/skills/`   |
+| Continue           | `continue`       | `~/.continue/skills/`           |
+| Trae               | `trae`           | `~/.trae/skills/`               |
+| Junie              | `junie`          | `~/.junie/skills/`              |
+| Kilo Code          | `kilo`           | `~/.kilocode/skills/`           |
+| OpenHands          | `openhands`      | `~/.openhands/skills/`          |
+| Neovate            | `neovate`        | `~/.neovate/skills/`            |
+| Qoder              | `qoder`          | `~/.qoder/skills/`              |
+| Zencoder           | `zencoder`       | `~/.zencoder/skills/`           |
+| Pochi              | `pochi`          | `~/.pochi/skills/`              |
+| AdaL               | `adal`           | `~/.adal/skills/`               |
+| Kimi Code CLI      | `kimi-cli`       | `~/.config/agents/skills/`      |
+| IBM Bob            | `bob`            | `~/.bob/skills/`                |
+| Firebender         | `firebender`     | `~/.firebender/skills/`         |
+| Antigravity        | `antigravity`    | `~/.gemini/antigravity/skills/` |
+| Augment            | `augment`        | `~/.augment/skills/`            |
+| CodeBuddy          | `codebuddy`      | `~/.codebuddy/skills/`          |
+| Command Code       | `command-code`   | `~/.commandcode/skills/`        |
+| Cortex Code        | `cortex`         | `~/.snowflake/cortex/skills/`   |
+| Crush              | `crush`          | `~/.config/crush/skills/`       |
+| Deep Agents        | `deepagents`     | `~/.deepagents/agent/skills/`   |
+| Droid              | `droid`          | `~/.factory/skills/`            |
+| iFlow CLI          | `iflow-cli`      | `~/.iflow/skills/`              |
+| Kiro CLI           | `kiro-cli`       | `~/.kiro/skills/`               |
+| Kode               | `kode`           | `~/.kode/skills/`               |
+| MCPJam             | `mcpjam`         | `~/.mcpjam/skills/`             |
+| Mistral Vibe       | `mistral-vibe`   | `~/.vibe/skills/`               |
+| Mux                | `mux`            | `~/.mux/skills/`                |
+| OpenClaw           | `openclaw`       | `~/.openclaw/skills/`           |
+| Pi                 | `pi`             | `~/.pi/agent/skills/`           |
+| Qwen Code          | `qwen-code`      | `~/.qwen/skills/`               |
+| Replit             | `replit`         | `~/.config/agents/skills/`      |
+| Trae CN            | `trae-cn`        | `~/.trae-cn/skills/`            |
+| Warp               | `warp`           | `~/.warp/skills/`               |
+| AiderDesk          | `aider-desk`     | `~/.aider-desk/skills/`         |
+| CodeArts Agent     | `codearts-agent` | `~/.codeartsdoer/skills/`       |
+| Codemaker          | `codemaker`      | `~/.codemaker/skills/`          |
+| Code Studio        | `codestudio`     | `~/.codestudio/skills/`         |
+| Devin for Terminal | `devin`          | `~/.config/devin/skills/`       |
+| Dexto              | `dexto`          | `~/.dexto/skills/`              |
+| ForgeCode          | `forgecode`      | `~/.forge/skills/`              |
+| Hermes Agent       | `hermes-agent`   | `~/.hermes/skills/`             |
+| Rovo Dev           | `rovodev`        | `~/.rovodev/skills/`            |
+| Tabnine CLI        | `tabnine-cli`    | `~/.tabnine/agent/skills/`      |
 
 **Detection Logic:**
 
@@ -110,7 +120,7 @@ Agent definitions are synced with [vercel-labs/skills CLI](https://github.com/ve
 ### Core Features
 
 - [x] Display source directory (`~/.agents/skills/`)
-- [x] Auto-detect installed AI agents (44 agents)
+- [x] Auto-detect installed AI agents (54 agents)
 - [x] List all installed skills with metadata
 - [x] Show symlink status per skill per agent
 - [x] Validate symlink integrity (valid/broken/missing)
@@ -435,7 +445,7 @@ listenerMiddleware.startListening({
 - Location: Sidebar header (right side of "Skills Desktop" title)
 - Features:
   - Light/Dark toggle (for color themes)
-  - 12 color palette buttons
+  - 17 color palette buttons
   - Neutral Dark/Light buttons (shadcn/ui defaults)
 
 ## IPC Communication
@@ -715,9 +725,10 @@ Both routes converge on the same `BrowserWindow` instance owned by `src/main/ser
 | Section     | Purpose                                                                   |
 | ----------- | ------------------------------------------------------------------------- |
 | About       | App version, updater status, links                                        |
-| Appearance  | Theme presets, light/dark mode                                            |
+| Agents      | Hide/show installed agents from the sidebar (visibility-only toggle)      |
+| Appearance  | Theme presets, light/dark mode, window background blur                    |
 | AutoUpdates | Update channel and check cadence                                          |
-| General     | Default skill detail tab (`files` or `info`)                              |
+| General     | Default skill detail tab, preferred terminal, startup window size         |
 | Keybindings | Read-only display sourced from `KEYBINDINGS` in `src/shared/constants.ts` |
 
 **Persistence:**
@@ -739,9 +750,21 @@ Renderers cache settings in Redux (`settingsSlice`) but never write directly. Th
 // src/shared/settings.ts
 export const SettingsSchema = z.object({
   defaultSkillTab: z.enum(['files', 'info']).default('files'),
+  preferredTerminal: z.enum(TERMINAL_APP_IDS).default('terminal'),
+  customTerminalAppName: z.string().trim().min(1).max(64).optional(),
+  windowSize: windowSizeSchema, // { width, height } | undefined
+  windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA.default(
+    WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
+  ),
+  hiddenAgentIds: HIDDEN_AGENT_IDS_SCHEMA, // AgentId[] (deduped, validated against AGENT_IDS)
 })
 export type Settings = z.infer<typeof SettingsSchema>
-export const DEFAULT_SETTINGS: Settings = { defaultSkillTab: 'files' }
+export const DEFAULT_SETTINGS: Settings = {
+  defaultSkillTab: 'files',
+  preferredTerminal: 'terminal',
+  windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
+  hiddenAgentIds: [],
+}
 ```
 
 The `KEYBINDINGS` constant is the single source of truth for the read-only Keybindings section, ensuring the Settings UI never drifts from the actual menu accelerators.
@@ -829,7 +852,7 @@ APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 **Sections:**
 
 - Hero with app screenshot
-- Feature grid (44 agents, symlink status, 27 theme presets)
+- Feature grid (54 agents, symlink status, 27 theme presets)
 - Download CTA linking to GitHub Release
 - OG image for social sharing
 
