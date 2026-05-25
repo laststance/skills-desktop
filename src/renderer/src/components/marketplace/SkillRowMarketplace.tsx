@@ -19,13 +19,22 @@ interface SkillRowMarketplaceProps {
   isInstalled?: boolean
 }
 
+// Fixed widths for the three right-hand grid columns; the name column is the
+// flexible `minmax(0, 1fr)` that absorbs whatever is left. Kept tight on purpose
+// (VL-001 / #171): at the ~1400px default window the 3-pane layout leaves the
+// list only ~510px, so every pixel reserved here is one the skill name — the
+// primary identifier a user scans to decide what to install — loses. Bookmark
+// stays 44px to preserve the 44×44 touch target (DESIGN.md target sizing).
 const BOOKMARK_COLUMN_WIDTH_PX = 44
-const INSTALL_COUNT_COLUMN_WIDTH_PX = 96
-const ACTION_COLUMN_WIDTH_PX = 160
+const INSTALL_COUNT_COLUMN_WIDTH_PX = 80
+const ACTION_COLUMN_WIDTH_PX = 128
 
 /**
- * Single skill row in marketplace search results
- * Design: 72px height, rank badge, install count, install button (or installed badge)
+ * Single skill row in marketplace search results.
+ * Min height 76px (min-h-19); long skill names wrap to 2 lines (line-clamp-2 +
+ * break-words) so they stay readable in the ~510px center column (VL-001 / #171)
+ * instead of truncating — break-words keeps the line-clamp ellipsis working for
+ * rare unbroken names; short names keep the 76px baseline, badge stays centered.
  */
 export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
   skill,
@@ -61,7 +70,7 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
 
   return (
     <div
-      className="grid items-center gap-4 p-4 rounded-lg bg-card h-19 min-w-0 border border-card hover:border-primary/50 transition-colors"
+      className="grid items-center gap-4 p-4 rounded-lg bg-card min-h-19 min-w-0 border border-card hover:border-primary/50 transition-colors"
       style={{
         gridTemplateColumns: `minmax(0, 1fr) ${BOOKMARK_COLUMN_WIDTH_PX}px ${INSTALL_COUNT_COLUMN_WIDTH_PX}px ${ACTION_COLUMN_WIDTH_PX}px`,
       }}
@@ -76,7 +85,7 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
           {skill.rank}
         </div>
         <div className="flex-1 min-w-0 flex flex-col gap-1">
-          <span className="font-semibold text-[15px] text-foreground truncate">
+          <span className="font-semibold text-[15px] text-foreground line-clamp-2 leading-snug break-words">
             {skill.name}
           </span>
           <span className="font-mono text-xs text-muted-foreground truncate">
