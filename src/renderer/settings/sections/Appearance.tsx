@@ -144,7 +144,7 @@ export const Appearance = React.memo(function Appearance(): React.ReactElement {
               label={BACKGROUND_BLUR_LABEL}
               onBlurRadiusChange={handleBlurRadiusChange}
             />
-            <span className="w-14 text-right text-sm tabular-nums text-muted-foreground">
+            <span className="w-20 whitespace-nowrap text-right text-sm tabular-nums text-muted-foreground">
               {blurRadiusLabel}
             </span>
           </div>
