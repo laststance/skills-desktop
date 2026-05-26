@@ -20,9 +20,9 @@ interface BookmarkItemProps {
 /**
  * Single bookmarked skill row in the sidebar; opens the detail modal on click.
  * Shows name + repo with an inline "Installed" check or hover-revealed Install.
- * Remove (X) sits small in the top-right corner and fades in on hover
- * (Sonner-style), keeping the resting row uncluttered so the title gets the
- * widest possible space instead of a permanent 44px button slot.
+ * Remove (X) fades in small at the top-right on hover (Sonner-style), sharing
+ * the app's canonical remove vocabulary with BookmarksWidget — destructive-tint
+ * hover, not a gray box — so the title keeps full width with no permanent slot.
  */
 export const BookmarkItem = React.memo(function BookmarkItem({
   bookmark,
@@ -67,7 +67,7 @@ export const BookmarkItem = React.memo(function BookmarkItem({
       tabIndex={0}
       aria-label={`View details for ${bookmark.name}`}
       className={cn(
-        'relative flex w-full items-center min-h-11 py-1.5 px-2 rounded-md transition-colors group cursor-pointer hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'relative flex w-full items-center py-1.5 px-2 rounded-md transition-colors group cursor-pointer hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       )}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
@@ -92,13 +92,10 @@ export const BookmarkItem = React.memo(function BookmarkItem({
         {bookmark.isInstalled ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              {/* Inline 16px status glyph — the row itself is the 44px hit */}
-              {/* target, so no padded button wrapper (DESIGN.md L295-297). */}
-              <span
-                aria-label="Installed"
-                className="shrink-0 text-emerald-500"
-              >
-                <Check className="h-4 w-4" />
+              {/* Non-interactive status glyph — matches SkillItem's linked */}
+              {/* check vocabulary (text-success/70), calmer than the X beside it. */}
+              <span aria-label="Installed" className="shrink-0 text-success/70">
+                <Check className="h-3.5 w-3.5" />
               </span>
             </TooltipTrigger>
             <TooltipContent side="left">Installed</TooltipContent>
@@ -107,21 +104,22 @@ export const BookmarkItem = React.memo(function BookmarkItem({
           <button
             type="button"
             aria-label={`Install ${bookmark.name}`}
-            className="shrink-0 flex h-6 w-6 items-center justify-center rounded-md text-primary opacity-0 transition hover:bg-accent hover:text-primary/80 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="shrink-0 flex size-6 items-center justify-center rounded-md text-primary opacity-0 transition-[opacity,background-color,color] hover:bg-primary/10 hover:text-primary group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={handleInstall}
             disabled={isInstalling}
           >
-            <Download className="h-4 w-4" />
+            <Download className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
 
       {/* Sonner-style remove: hidden at rest, fades in small at the top-right */}
-      {/* corner on row hover/focus. Absolute → frees the title's full width. */}
+      {/* corner on hover/focus (absolute → frees the title's full width). Shares */}
+      {/* BookmarksWidget's destructive-tint hover vocabulary; 24px meets WCAG 2.5.8 AA. */}
       <button
         type="button"
         aria-label={`Remove ${bookmark.name} from bookmarks`}
-        className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-accent hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="absolute top-1 right-1 flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-[opacity,background-color,color] hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onClick={handleRemove}
       >
         <X className="h-3.5 w-3.5" />

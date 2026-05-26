@@ -212,17 +212,17 @@ changing layout or meaning.
 
 | Type               | Visual height  | Hit target                          | Use                        |
 | ------------------ | -------------- | ----------------------------------- | -------------------------- |
-| Primary action     | 32-36px        | >= 36px, 44px when icon-only        | Install, sync, confirm     |
+| Primary action     | 32-36px        | >= 36px                             | Install, sync, confirm     |
 | Secondary action   | 30-34px        | >= 36px                             | Cancel, alternate actions  |
 | Small dense action | 28-32px        | May use expanded invisible hit area | Row tools, filters         |
-| Icon-only          | 28-32px visual | 44x44px target when standalone      | Close, settings, row tools |
+| Icon-only          | 24-32px visual | >= 24x24px (WCAG 2.5.8 AA floor)    | Close, settings, row tools |
 
 Rules:
 
 - If a button feels too tall, reduce the visual surface before reducing
   accessible hit area.
-- Use `size="icon"` only for standalone icon buttons that need the full 44px
-  target.
+- Size icon buttons to context: `size="icon"` for comfortable standalone
+  controls, `size-6` (24px, WCAG 2.5.8 AA floor) for dense row tools.
 - Prefer lucide icons for tool buttons.
 - Avoid multiple primary buttons in one region.
 - Destructive buttons should be visually explicit and never rely on icon alone.
@@ -291,11 +291,17 @@ Baseline:
 
 Target sizing:
 
-- Standalone icon buttons should keep a 44x44px target.
-- Dense row controls may have smaller visible icons if the clickable area is
-  padded or the row itself is the primary target.
-- Do not shrink destructive or confirmation controls below comfortable pointer
-  targets.
+This is a pointer-driven desktop app (mouse and trackpad), so the mobile 44px
+finger-target minimum does not apply. The floor is WCAG 2.5.8 AA: 24x24 CSS px
+(`size-6`). Comfortable standalone controls can still be larger.
+
+- Standalone icon buttons: 24x24px (`size-6`) meets the AA floor; size up toward
+  32px when the control is primary or isolated.
+- Dense row controls may show a smaller glyph inside a 24px-or-larger target. An
+  invisible `after:-inset-*` halo can extend the comfortable click area, but
+  never over a row that is itself clickable: `opacity-0` controls stay
+  pointer-active, so the halo would steal corner clicks meant for the row.
+- Do not shrink destructive or confirmation controls below the 24px floor.
 
 ## Responsive and Window Behavior
 
@@ -350,8 +356,8 @@ Likely app-safe improvements:
 
 - Compact default buttons from 36px toward 32-34px where the surrounding target
   remains comfortable.
-- Keep standalone icon buttons at 44px hit area, but use a smaller visible
-  glyph and subtle hover background.
+- Keep standalone icon buttons at a comfortable hit area (24px AA floor, larger
+  when isolated), but use a smaller visible glyph and subtle hover background.
 - Reduce ordinary card shadow intensity; reserve stronger shadows for toasts,
   dropdowns, and dialogs.
 - Add 120-180ms color/opacity transitions to selected rows and tabs.
@@ -373,9 +379,9 @@ Example prompt:
 
 ```text
 Polish the Settings sidebar using DESIGN.md. Keep the current layout and dark
-technical tone. Reduce visual button height if appropriate, preserve 44px
-standalone icon hit targets, normalize radius to 6-8px, and avoid decorative
-effects.
+technical tone. Reduce visual button height if appropriate, keep icon hit
+targets at or above the 24px WCAG AA floor, normalize radius to 6-8px, and
+avoid decorative effects.
 ```
 
 ## References
