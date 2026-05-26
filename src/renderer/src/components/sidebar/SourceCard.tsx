@@ -25,6 +25,7 @@ import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { fetchAgents } from '@/renderer/src/redux/slices/agentsSlice'
 import { fetchSkills } from '@/renderer/src/redux/slices/skillsSlice'
 import {
+  clearSelectedSources,
   fetchSourceStats,
   fetchSyncPreview,
   selectAgent,
@@ -70,6 +71,10 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
     dispatch(setActiveTab('installed'))
     dispatch(selectAgent(null))
     dispatch(setSearchQuery(''))
+    // Drop the source-repo include filter too — the card's contract ("clear
+    // all filters and show all skills") was previously half-kept, leaving a
+    // repo narrow active after the click.
+    dispatch(clearSelectedSources())
   }, [dispatch])
 
   /**

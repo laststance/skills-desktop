@@ -14,7 +14,7 @@ import {
   selectExcludedSkillTypeFilters,
   selectSearchQuery,
   selectSelectedAgentId,
-  selectSelectedSource,
+  selectSelectedSources,
   selectSkillTypeFilter,
 } from '@/renderer/src/redux/slices/uiSlice'
 import type { Skill } from '@/shared/types'
@@ -69,7 +69,7 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
   const selectedAgentId = useAppSelector(selectSelectedAgentId)
   const skillTypeFilter = useAppSelector(selectSkillTypeFilter)
   const searchQuery = useAppSelector(selectSearchQuery)
-  const selectedSource = useAppSelector(selectSelectedSource)
+  const selectedSources = useAppSelector(selectSelectedSources)
   const excludedSkillTypeFilters = useAppSelector(
     selectExcludedSkillTypeFilters,
   )
@@ -130,7 +130,7 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
   if (filteredSkills.length === 0) {
     const emptyMessage = getEmptyListMessage({
       searchQuery,
-      selectedSource,
+      selectedSources,
       selectedAgentId,
       skillTypeFilter,
       excludedSkillTypeFilters,

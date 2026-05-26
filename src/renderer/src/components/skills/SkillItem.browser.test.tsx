@@ -205,6 +205,8 @@ describe('SkillItem delete button', () => {
       skillNames: ['brainstorming'],
       agentId: null,
       agentName: null,
+      // Single-row delete carries no repo-filter scope, so the summary is null.
+      sourceSummary: null,
     })
   })
 
@@ -220,6 +222,8 @@ describe('SkillItem delete button', () => {
       skillNames: ['local-skill'],
       agentId: null,
       agentName: null,
+      // Single-row delete carries no repo-filter scope, so the summary is null.
+      sourceSummary: null,
     })
   })
 

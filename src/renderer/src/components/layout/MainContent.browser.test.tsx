@@ -4,7 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
-import type { BulkDeleteResult, Skill, SkillName } from '@/shared/types'
+import type {
+  AgentId,
+  BulkDeleteResult,
+  Skill,
+  SkillName,
+  SymlinkInfo,
+} from '@/shared/types'
 import { repositoryId, tombstoneId } from '@/shared/types'
 
 const mockGetAll = vi.fn()
@@ -181,6 +187,34 @@ function makeSourceSkill(name: string, source: string): Skill {
     isOrphan: false,
     source: repositoryId(source),
     sourceUrl: `https://github.com/${source}.git`,
+  }
+}
+
+/**
+ * Build an agent-local skill (real folder under ~/.<agent>/skills/, no source
+ * repo) so repo-filter tests can exercise the "N local skills hidden" caveat.
+ * @param name - Visible skill name.
+ * @param agentId - Agent whose slot holds the local skill.
+ * @returns Skill row with one local symlink slot and no source metadata.
+ */
+function makeAgentLocalSkill(name: string, agentId: AgentId): Skill {
+  return {
+    name: name as SkillName,
+    description: '',
+    path: `/home/user/.${agentId}/skills/${name}` as never,
+    symlinkCount: 0,
+    symlinks: [
+      {
+        agentId,
+        agentName: agentId as SymlinkInfo['agentName'],
+        linkPath: `/home/user/.${agentId}/skills/${name}` as never,
+        targetPath: `/home/user/.${agentId}/skills/${name}` as never,
+        status: 'valid',
+        isLocal: true,
+      },
+    ],
+    isSource: false,
+    isOrphan: false,
   }
 }
 
@@ -469,6 +503,7 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
         skillNames: ['brainstorming' as SkillName, 'local-skill' as SkillName],
         agentId: null,
         agentName: null,
+        sourceSummary: null,
       }),
     )
 
@@ -706,14 +741,14 @@ describe('MainContent repo facet dropdown', () => {
       .getByRole('button', { name: /Filter by source repository/i })
       .click()
     await screen
-      .getByRole('menuitemradio', {
+      .getByRole('menuitemcheckbox', {
         name: /pbakaus\/impeccable, 1 skill/i,
       })
       .click()
 
-    expect(store.getState().ui.selectedSource).toBe(
+    expect(store.getState().ui.selectedSources).toEqual([
       repositoryId('pbakaus/impeccable'),
-    )
+    ])
   })
 })
 
@@ -725,23 +760,23 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
 
   it('renders the Source pill with repo name and clears state on click', async () => {
     const { screen, store } = await renderMainContent()
-    const { setSelectedSource } =
+    const { setSelectedSources } =
       await import('@/renderer/src/redux/slices/uiSlice')
 
     // No source filter active: pill must not render.
     expect(screen.getByTestId('source-filter-pill').query()).toBeNull()
 
-    store.dispatch(setSelectedSource(repositoryId('vercel-labs/skills')))
+    store.dispatch(setSelectedSources([repositoryId('vercel-labs/skills')]))
 
     const pill = screen.getByTestId('source-filter-pill')
     await expect.element(pill).toBeInTheDocument()
-    await expect.element(pill).toHaveTextContent(/Showing skills from/)
+    await expect.element(pill).toHaveTextContent(/from/)
     await expect.element(pill).toHaveTextContent('vercel-labs/skills')
 
     // Clear button inside the pill resets the slice field.
     await pill.getByRole('button', { name: /Clear/i }).click()
 
-    await expect.poll(() => store.getState().ui.selectedSource).toBeNull()
+    await expect.poll(() => store.getState().ui.selectedSources).toEqual([])
     expect(screen.getByTestId('source-filter-pill').query()).toBeNull()
   })
 
@@ -749,7 +784,7 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
       await import('@/renderer/src/redux/slices/agentsSlice')
-    const { selectAgent, setSelectedSource } =
+    const { selectAgent, setSelectedSources } =
       await import('@/renderer/src/redux/slices/uiSlice')
 
     // Seed an agent fixture so MainContent's `agents.find(...)` resolves.
@@ -769,7 +804,7 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
       ),
     )
     store.dispatch(selectAgent('claude-code'))
-    store.dispatch(setSelectedSource(repositoryId('vercel-labs/skills')))
+    store.dispatch(setSelectedSources([repositoryId('vercel-labs/skills')]))
 
     await expect
       .element(screen.getByTestId('agent-filter-pill'))
@@ -783,7 +818,7 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
       await import('@/renderer/src/redux/slices/agentsSlice')
-    const { selectAgent, setSelectedSource } =
+    const { selectAgent, setSelectedSources } =
       await import('@/renderer/src/redux/slices/uiSlice')
 
     store.dispatch(
@@ -802,7 +837,7 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
       ),
     )
     store.dispatch(selectAgent('claude-code'))
-    store.dispatch(setSelectedSource(repositoryId('vercel-labs/skills')))
+    store.dispatch(setSelectedSources([repositoryId('vercel-labs/skills')]))
 
     // Clear ONLY the source pill.
     await screen
@@ -810,13 +845,74 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
       .getByRole('button', { name: /Clear/i })
       .click()
 
-    // Agent pill must still be rendered with its label intact; selectedSource
-    // must be null. This pins Issue 4 from the design review: source clear
+    // Agent pill must still be rendered with its label intact; selectedSources
+    // must be empty. This pins Issue 4 from the design review: source clear
     // does not bleed into agent state.
-    await expect.poll(() => store.getState().ui.selectedSource).toBeNull()
+    await expect.poll(() => store.getState().ui.selectedSources).toEqual([])
     expect(store.getState().ui.selectedAgentId).toBe('claude-code')
     await expect
       .element(screen.getByTestId('agent-filter-pill'))
       .toHaveTextContent('Claude Code')
+  })
+})
+
+describe('MainContent hidden-locals caveat', () => {
+  // The repo include-filter hides source-less local skills. This inline caveat
+  // tells the user how many were dropped so an empty-looking list is explained.
+
+  it('shows "N local skills hidden" when the repo filter suppresses source-less locals', async () => {
+    // Arrange — cursor view with one repo skill and two source-less locals
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectAgent, setSelectedSources } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSourceSkill('repo-skill', 'vercel-labs/skills'),
+          makeAgentLocalSkill('local-one', 'cursor'),
+          makeAgentLocalSkill('local-two', 'cursor'),
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(selectAgent('cursor'))
+
+    // Act — turn on the repo include-filter
+    store.dispatch(setSelectedSources([repositoryId('vercel-labs/skills')]))
+
+    // Assert — both suppressed locals are reported, pluralized
+    await expect
+      .element(screen.getByText(/2 local skills hidden/))
+      .toBeInTheDocument()
+  })
+
+  it('omits the caveat when no repo filter is active', async () => {
+    // Arrange — same source-less locals in the cursor view, filter left empty
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeAgentLocalSkill('local-one', 'cursor'),
+          makeAgentLocalSkill('local-two', 'cursor'),
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(selectAgent('cursor'))
+
+    // Anchor on the always-rendered trigger so the toolbar is known to be live…
+    await expect
+      .element(
+        screen.getByRole('button', { name: /Filter by source repository/i }),
+      )
+      .toBeInTheDocument()
+
+    // Assert — …then confirm the caveat is absent with nothing filtered out
+    expect(screen.getByText(/local skills hidden/).query()).toBeNull()
   })
 })

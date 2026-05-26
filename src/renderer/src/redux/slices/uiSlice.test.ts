@@ -6,6 +6,7 @@ import type {
   AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
+  Skill,
   SyncExecuteResult,
   SyncPreviewResult,
   TombstoneId,
@@ -690,6 +691,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
         skillNames: ['a'],
         agentId: null,
         agentName: null,
+        sourceSummary: null,
       }),
     )
   }
@@ -850,5 +852,142 @@ describe('uiSlice bulkSelectMode on rejection', () => {
     )
 
     expect(store.getState().ui.bulkSelectMode).toBe(false)
+  })
+})
+
+describe('uiSlice source filter (selectedSources)', () => {
+  /**
+   * Minimal source-bearing skill for the refetch-prune test. The prune reducer
+   * reads only `skill.source`; the remaining fields satisfy the `Skill` shape.
+   * @param name - Skill directory name.
+   * @param source - Repo slug; omit to model a source-less local skill.
+   * @returns A `Skill` carrying `source`/`sourceUrl` when a slug is provided.
+   */
+  function skillWithSource(name: string, source?: string): Skill {
+    return {
+      name,
+      description: `${name} skill`,
+      path: `/home/user/.agents/skills/${name}`,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+      ...(source
+        ? {
+            source: repositoryId(source),
+            sourceUrl: `https://github.com/${source}.git`,
+          }
+        : {}),
+    }
+  }
+
+  it('starts with an empty source include-filter', async () => {
+    const store = await createTestStore()
+    expect(store.getState().ui.selectedSources).toEqual([])
+  })
+
+  it('toggleSource adds a repo to the empty include-filter', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { toggleSource } = await import('./uiSlice')
+
+    // Act
+    store.dispatch(toggleSource(repositoryId('vercel-labs/skills')))
+
+    // Assert
+    expect(store.getState().ui.selectedSources).toEqual([
+      repositoryId('vercel-labs/skills'),
+    ])
+  })
+
+  it('toggleSource is additive — a second repo joins rather than replacing the first', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { toggleSource } = await import('./uiSlice')
+
+    // Act
+    store.dispatch(toggleSource(repositoryId('vercel-labs/skills')))
+    store.dispatch(toggleSource(repositoryId('pbakaus/impeccable')))
+
+    // Assert — both repos coexist in selection order
+    expect(store.getState().ui.selectedSources).toEqual([
+      repositoryId('vercel-labs/skills'),
+      repositoryId('pbakaus/impeccable'),
+    ])
+  })
+
+  it('toggleSource removes a repo that is already ticked', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { toggleSource } = await import('./uiSlice')
+
+    // Act — tick then untick the same repo
+    store.dispatch(toggleSource(repositoryId('vercel-labs/skills')))
+    store.dispatch(toggleSource(repositoryId('vercel-labs/skills')))
+
+    // Assert
+    expect(store.getState().ui.selectedSources).toEqual([])
+  })
+
+  it('setSelectedSources replaces the whole include-filter in one shot', async () => {
+    // Arrange — start with an unrelated repo ticked
+    const store = await createTestStore()
+    const { toggleSource, setSelectedSources } = await import('./uiSlice')
+    store.dispatch(toggleSource(repositoryId('old/repo')))
+
+    // Act — bulk overwrite
+    store.dispatch(
+      setSelectedSources([
+        repositoryId('vercel-labs/skills'),
+        repositoryId('pbakaus/impeccable'),
+      ]),
+    )
+
+    // Assert — previous selection is gone, replaced wholesale
+    expect(store.getState().ui.selectedSources).toEqual([
+      repositoryId('vercel-labs/skills'),
+      repositoryId('pbakaus/impeccable'),
+    ])
+  })
+
+  it('clearSelectedSources empties the include-filter back to show-all', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { setSelectedSources, clearSelectedSources } =
+      await import('./uiSlice')
+    store.dispatch(setSelectedSources([repositoryId('vercel-labs/skills')]))
+
+    // Act
+    store.dispatch(clearSelectedSources())
+
+    // Assert
+    expect(store.getState().ui.selectedSources).toEqual([])
+  })
+
+  it('drops a ticked repo that no longer backs any skill after a refetch', async () => {
+    // The prune guards against a refetch (delete/sync/refresh) leaving a ticked
+    // repo that the new inventory no longer contains. Arrange — two ticked.
+    const store = await createTestStore()
+    const { setSelectedSources } = await import('./uiSlice')
+    const { fetchSkills } = await import('./skillsSlice')
+    store.dispatch(
+      setSelectedSources([
+        repositoryId('vercel-labs/skills'),
+        repositoryId('stale/removed-repo'),
+      ]),
+    )
+
+    // Act — the reload only carries vercel-labs/skills
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [skillWithSource('task', 'vercel-labs/skills')],
+        'req-prune',
+      ),
+    )
+
+    // Assert — the orphaned id is pruned, the still-backed id survives
+    expect(store.getState().ui.selectedSources).toEqual([
+      repositoryId('vercel-labs/skills'),
+    ])
   })
 })

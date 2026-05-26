@@ -11,22 +11,52 @@ describe('getEmptyListMessage', () => {
     expect(
       getEmptyListMessage({
         searchQuery: 'react',
-        selectedSource: repositoryId('vercel-labs/skills'),
+        selectedSources: [repositoryId('vercel-labs/skills')],
         selectedAgentId: 'cursor',
         skillTypeFilter: 'local',
       }),
     ).toBe('No skills match your search in vercel-labs/skills')
   })
 
-  it('returns the source message when only selectedSource is set', () => {
+  it('returns the source message when only a single source is selected', () => {
     expect(
       getEmptyListMessage({
         searchQuery: '',
-        selectedSource: repositoryId('vercel-labs/skills'),
+        selectedSources: [repositoryId('vercel-labs/skills')],
         selectedAgentId: null,
         skillTypeFilter: 'all',
       }),
     ).toBe('No skills from vercel-labs/skills')
+  })
+
+  it('collapses multiple selected sources to "the selected repositories"', () => {
+    // With >1 repo in the include filter, naming each would bloat the empty
+    // state; the helper summarizes instead of listing.
+    expect(
+      getEmptyListMessage({
+        searchQuery: '',
+        selectedSources: [
+          repositoryId('vercel-labs/skills'),
+          repositoryId('pbakaus/impeccable'),
+        ],
+        selectedAgentId: null,
+        skillTypeFilter: 'all',
+      }),
+    ).toBe('No skills from the selected repositories')
+  })
+
+  it('adds the multi-source summary to a search result', () => {
+    expect(
+      getEmptyListMessage({
+        searchQuery: 'react',
+        selectedSources: [
+          repositoryId('vercel-labs/skills'),
+          repositoryId('pbakaus/impeccable'),
+        ],
+        selectedAgentId: 'cursor',
+        skillTypeFilter: 'all',
+      }),
+    ).toBe('No skills match your search in the selected repositories')
   })
 
   it('source message wins over agent + type when both are set (search empty)', () => {
@@ -35,7 +65,7 @@ describe('getEmptyListMessage', () => {
     expect(
       getEmptyListMessage({
         searchQuery: '',
-        selectedSource: repositoryId('pbakaus/impeccable'),
+        selectedSources: [repositoryId('pbakaus/impeccable')],
         selectedAgentId: 'claude-code',
         skillTypeFilter: 'symlinked',
       }),
@@ -46,7 +76,7 @@ describe('getEmptyListMessage', () => {
     expect(
       getEmptyListMessage({
         searchQuery: 'trace',
-        selectedSource: repositoryId('laststance/skills'),
+        selectedSources: [repositoryId('laststance/skills')],
         selectedAgentId: 'cursor',
         skillTypeFilter: 'all',
       }),
@@ -57,7 +87,7 @@ describe('getEmptyListMessage', () => {
     expect(
       getEmptyListMessage({
         searchQuery: '',
-        selectedSource: null,
+        selectedSources: [],
         selectedAgentId: 'cursor',
         skillTypeFilter: 'local',
       }),
@@ -68,7 +98,7 @@ describe('getEmptyListMessage', () => {
     expect(
       getEmptyListMessage({
         searchQuery: '',
-        selectedSource: repositoryId('vercel-labs/skills'),
+        selectedSources: [repositoryId('vercel-labs/skills')],
         selectedAgentId: 'cursor',
         skillTypeFilter: 'all',
         excludedSkillTypeFilters: ['gstack', 'orphan'],
@@ -82,7 +112,7 @@ describe('getEmptyListMessage', () => {
     expect(
       getEmptyListMessage({
         searchQuery: '',
-        selectedSource: null,
+        selectedSources: [],
         selectedAgentId: 'cursor',
         skillTypeFilter: 'all',
         excludedSkillTypeFilters: ['local', 'gstack', 'orphan'],
@@ -96,7 +126,7 @@ describe('getEmptyListMessage', () => {
     expect(
       getEmptyListMessage({
         searchQuery: '',
-        selectedSource: null,
+        selectedSources: [],
         selectedAgentId: 'claude-code',
         skillTypeFilter: 'symlinked',
       }),
@@ -107,7 +137,7 @@ describe('getEmptyListMessage', () => {
     expect(
       getEmptyListMessage({
         searchQuery: '',
-        selectedSource: null,
+        selectedSources: [],
         selectedAgentId: 'cursor',
         skillTypeFilter: 'gstack',
       }),
@@ -118,7 +148,7 @@ describe('getEmptyListMessage', () => {
     expect(
       getEmptyListMessage({
         searchQuery: '',
-        selectedSource: null,
+        selectedSources: [],
         selectedAgentId: 'cursor',
         skillTypeFilter: 'all',
       }),
@@ -133,7 +163,7 @@ describe('getEmptyListMessage', () => {
     expect(
       getEmptyListMessage({
         searchQuery: '',
-        selectedSource: null,
+        selectedSources: [],
         selectedAgentId: null,
         skillTypeFilter: 'all',
       }),
@@ -148,7 +178,7 @@ describe('getEmptyListMessage', () => {
     expect(
       getEmptyListMessage({
         searchQuery: ' ',
-        selectedSource: null,
+        selectedSources: [],
         selectedAgentId: null,
         skillTypeFilter: 'all',
       }),

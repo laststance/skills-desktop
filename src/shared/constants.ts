@@ -817,6 +817,30 @@ export const UNDO_WINDOW_MS = 15_000
 export const BULK_PROGRESS_THRESHOLD = 10
 
 /**
+ * Max number of source repositories enumerated individually before the
+ * source-repo filter collapses to a count summary. Drives BOTH the toolbar
+ * pills (≤ cap → one chip per repo; > cap → a single "from N repos" chip) and
+ * the trigger's spelled aria-label (names up to the cap, then ", and M more").
+ * One constant keeps the two surfaces' "too many to list" threshold in sync,
+ * honouring DESIGN.md's "avoid pill overload" guidance.
+ * @example
+ * selectedSources.length > SOURCE_FILTER_MAX_VISIBLE_REPOS // collapse pills
+ */
+export const SOURCE_FILTER_MAX_VISIBLE_REPOS = 3
+
+/**
+ * Length above which a repository slug is middle-ellipsised for the COMPACT
+ * source-repo filter trigger label only. Space-constrained surfaces (the
+ * toolbar trigger) truncate; precision-first surfaces (dropdown rows, filter
+ * pills, aria-labels, the bulk-delete confirm dialog) always show the full
+ * value. The truncated form is exactly this many chars (12-char head + "..." +
+ * 13-char tail = 28), so the label width stays bounded.
+ * @example
+ * 'very-long-owner-name/extremely-long-repository'.length > REPOSITORY_FACET_LABEL_MAX_CHARS // true → ellipsise
+ */
+export const REPOSITORY_FACET_LABEL_MAX_CHARS = 28
+
+/**
  * Minimum tap-target size (px) for interactive elements. Floor set by both
  * Apple HIG (44×44 pt) and WCAG 2.2 AA (target size 24 CSS px minimum, 44
  * recommended) — keeping a single source of truth here means adding a new

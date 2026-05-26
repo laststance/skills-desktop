@@ -11,7 +11,7 @@ const REPO_HREF = 'https://github.com/pbakaus/impeccable'
 
 /**
  * Minimal store with only the `ui` slice — SourceLink's only Redux touchpoint
- * is `setSelectedSource`. Keeping the surface tight isolates the test from
+ * is `setSelectedSources`. Keeping the surface tight isolates the test from
  * unrelated reducer churn.
  */
 async function createStore() {
@@ -50,7 +50,7 @@ async function renderSourceLink(options: RenderOptions = {}) {
 }
 
 describe('SourceLink role split', () => {
-  it('clicking the repo text dispatches setSelectedSource', async () => {
+  it('clicking the repo text replaces the source filter with that repo', async () => {
     const { screen, store } = await renderSourceLink({
       source: REPO,
       sourceUrl: REPO_URL,
@@ -62,7 +62,7 @@ describe('SourceLink role split', () => {
       })
       .click()
 
-    await expect.poll(() => store.getState().ui.selectedSource).toBe(REPO)
+    await expect.poll(() => store.getState().ui.selectedSources).toEqual([REPO])
   })
 
   it('the icon anchor points at the .git-stripped GitHub URL with target=_blank', async () => {
@@ -92,7 +92,7 @@ describe('SourceLink role split', () => {
       .getByRole('button', { name: /Filter skills by repository/i })
       .click()
     expect(onParentClick).not.toHaveBeenCalled()
-    await expect.poll(() => store.getState().ui.selectedSource).toBe(REPO)
+    await expect.poll(() => store.getState().ui.selectedSources).toEqual([REPO])
 
     // Anchor click via dispatchEvent — Playwright's `.click()` on a
     // `target="_blank"` anchor would try to open a new browser context.

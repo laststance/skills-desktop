@@ -2,7 +2,7 @@ import { ExternalLink } from 'lucide-react'
 import React from 'react'
 
 import { useAppDispatch } from '@/renderer/src/redux/hooks'
-import { setSelectedSource } from '@/renderer/src/redux/slices/uiSlice'
+import { setSelectedSources } from '@/renderer/src/redux/slices/uiSlice'
 import type { HttpUrl, RepositoryId } from '@/shared/types'
 
 import { getSourceLinkModel } from './sourceLinkHelpers'
@@ -17,8 +17,9 @@ interface SourceLinkProps {
  * - `local` — "Local" label, no interactive affordance.
  * - `text`  — source identifier, plain text (no URL to link to).
  * - `link`  — split affordances: a `<button>` that filters the skill list by
- *             repository (dispatches `setSelectedSource`) and a separate
- *             `<a target="_blank">` whose icon opens the repository on GitHub.
+ *             repository (dispatches `setSelectedSources([source])`, replacing
+ *             any active repo filter) and a separate `<a target="_blank">`
+ *             whose icon opens the repository on GitHub.
  *
  * Why split the `link` mode? Mixing a Redux-dispatch action and an external
  * navigation under one `<a>` was ambiguous — clicking the repo text used to
@@ -67,7 +68,9 @@ export const SourceLink = React.memo(function SourceLink({
     event: React.MouseEvent<HTMLButtonElement>,
   ): void => {
     event.stopPropagation()
-    dispatch(setSelectedSource(model.source))
+    // Replace any active repo filter with just this one — a SourceLink click is
+    // a focused "show me this repo" jump, not an additive toggle.
+    dispatch(setSelectedSources([model.source]))
   }
 
   const handleExternalClick = (
