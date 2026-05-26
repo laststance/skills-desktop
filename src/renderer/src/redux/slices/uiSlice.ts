@@ -19,7 +19,11 @@ import type {
   TombstoneId,
 } from '@/shared/types'
 
-import { deleteSelectedSkills, unlinkSelectedFromAgent } from './skillsSlice'
+import {
+  deleteSelectedSkills,
+  fetchSkills,
+  unlinkSelectedFromAgent,
+} from './skillsSlice'
 
 /** Bookmark with install status, used for the detail modal */
 export type BookmarkForDetail = BookmarkedSkill & { isInstalled: boolean }
@@ -62,6 +66,21 @@ interface UndoToastState {
 }
 
 /**
+ * Snapshot of the active repository include-filter, captured the instant a
+ * bulk delete/unlink is confirmed. Carried inside `BulkConfirmState` so the
+ * dialog copy can state the scope the user is acting within even if the live
+ * `ui` filter changes before they click confirm.
+ * - `repositoryIds`: the *visible* included repos (selectedSources ∩ facet
+ *   options) — stale ids that no longer match any skill are excluded.
+ * - `localHiddenCount`: source-less local skills suppressed by the active
+ *   include filter, surfaced as the "N local skills hidden" caveat.
+ */
+export interface SourceFilterSummary {
+  repositoryIds: RepositoryId[]
+  localHiddenCount: number
+}
+
+/**
  * Pending bulk confirmation payload. Populated by the SelectionToolbar's
  * primary-action handler when the user clicks Delete/Unlink; the
  * `BulkConfirmDialog` in MainContent reads this to render the Radix
@@ -71,12 +90,15 @@ interface UndoToastState {
  * - `skillNames`: the exact argument to pass to the thunk on confirm.
  * - `agentId` / `agentName`: carried through so the unlink thunk knows which
  *   agent to target, and the dialog copy can mention the agent by name.
+ * - `sourceSummary`: repository-filter scope snapshot, or null when no repo
+ *   filter is active and no local skills are hidden.
  */
 export interface BulkConfirmState {
   kind: 'delete' | 'unlink'
   skillNames: SkillName[]
   agentId: AgentId | null
   agentName: AgentName | null
+  sourceSummary: SourceFilterSummary | null
 }
 
 interface UiState {
@@ -89,11 +111,13 @@ interface UiState {
    */
   searchScope: SearchScope
   /**
-   * Repository filter pill. Set when the user clicks a SourceLink text;
-   * cleared from the FilterPill's "Clear" button. Orthogonal to the agent
-   * filter — both can be active simultaneously (skills in agent X from repo Y).
+   * Repository include-filter. Empty = show all repos (and local skills).
+   * Non-empty = show only skills whose `source` is in this set, hiding
+   * source-less local skills (surfaced via the "N local skills hidden" hint).
+   * Built up by ticking repos in the toolbar dropdown or clicking a SourceLink.
+   * Orthogonal to the agent filter — both can be active simultaneously.
    */
-  selectedSource: RepositoryId | null
+  selectedSources: RepositoryId[]
   sourceStats: SourceStats | null
   isRefreshing: boolean
   /** Currently selected agent filter (null = global/all-agents view). */
@@ -152,7 +176,7 @@ const initialState: UiState = {
   activeTab: 'installed',
   searchQuery: '',
   searchScope: 'name',
-  selectedSource: null,
+  selectedSources: [],
   sourceStats: null,
   isRefreshing: false,
   selectedAgentId: null,
@@ -258,27 +282,45 @@ const uiSlice = createSlice({
     },
     /**
      * Toggle which Skill field the search query matches.
-     * Does not clear `searchQuery` or `selectedSource` — the user is
+     * Does not clear `searchQuery` or `selectedSources` — the user is
      * narrowing intent, not abandoning the in-progress search.
      */
     setSearchScope: (state, action: PayloadAction<SearchScope>) => {
       state.searchScope = action.payload
     },
     /**
-     * Activate the repository filter pill. Dispatched when the user clicks
-     * a SourceLink's repo text on a skill row. Independent of the agent
-     * pill — both can render simultaneously.
+     * Toggle one repository in the include-filter (single-id additive writer).
+     * Dispatched per-checkbox in the toolbar dropdown and when the user clicks
+     * a SourceLink's repo text. Adds the id if absent, removes it if already
+     * ticked — mirrors `toggleExcludedSkillTypeFilter`, minus the availability
+     * guard since repo ids are free-form (not a fixed enum).
      */
-    setSelectedSource: (state, action: PayloadAction<RepositoryId>) => {
-      state.selectedSource = action.payload
+    toggleSource: (state, action: PayloadAction<RepositoryId>) => {
+      const currentIndex = state.selectedSources.indexOf(action.payload)
+      // Already ticked → untick (drop from the include set).
+      if (currentIndex >= 0) {
+        state.selectedSources.splice(currentIndex, 1)
+        return
+      }
+      // Not yet present → add to the include set.
+      state.selectedSources.push(action.payload)
     },
     /**
-     * Dismiss the repository filter pill. Wired to the FilterPill's "Clear"
-     * button. Does not touch `searchScope` or `searchQuery` — those remain
-     * as the user left them.
+     * Replace the entire include-filter in one shot (bulk writer). Wired to the
+     * dropdown's "Select all repos" action, which passes every facet repo id.
+     * Distinct from `toggleSource`: that mutates a single id additively, this
+     * overwrites the whole set.
      */
-    clearSelectedSource: (state) => {
-      state.selectedSource = null
+    setSelectedSources: (state, action: PayloadAction<RepositoryId[]>) => {
+      state.selectedSources = action.payload
+    },
+    /**
+     * Clear the include-filter back to "show all repos". Wired to the
+     * dropdown's "Show all repos" action and each FilterPill's "Clear" button.
+     * Does not touch `searchScope` or `searchQuery`.
+     */
+    clearSelectedSources: (state) => {
+      state.selectedSources = []
     },
     selectAgent: (state, action: PayloadAction<AgentId | null>) => {
       state.selectedAgentId = action.payload
@@ -475,6 +517,23 @@ const uiSlice = createSlice({
         state.bulkConfirm = null
         state.bulkSelectMode = false
       })
+      // ── Prune stale repo filter ids when the skill inventory reloads ─────
+      // After a refetch (delete, sync, manual refresh) a previously-ticked repo
+      // may no longer back any skill. Drop those ids from `selectedSources` so
+      // trigger counts, pills, and the bulk-confirm snapshot never reference a
+      // repo the user can no longer see. Prune against the RAW payload sources
+      // (the full inventory across all agents), not the agent/type-gated facet
+      // — an id valid under a different agent must survive an agent switch.
+      .addCase(fetchSkills.fulfilled, (state, action) => {
+        const survivingSources = new Set(
+          action.payload
+            .map((skill) => skill.source)
+            .filter((source): source is RepositoryId => Boolean(source)),
+        )
+        state.selectedSources = state.selectedSources.filter((id) =>
+          survivingSources.has(id),
+        )
+      })
   },
 })
 
@@ -482,8 +541,9 @@ export const {
   setActiveTab,
   setSearchQuery,
   setSearchScope,
-  setSelectedSource,
-  clearSelectedSource,
+  toggleSource,
+  setSelectedSources,
+  clearSelectedSources,
   selectAgent,
   toggleSortOrder,
   setSkillTypeFilter,
@@ -509,8 +569,8 @@ export const selectSearchQuery = (state: RootState): SearchQuery =>
   state.ui.searchQuery
 export const selectSearchScope = (state: RootState): SearchScope =>
   state.ui.searchScope
-export const selectSelectedSource = (state: RootState): RepositoryId | null =>
-  state.ui.selectedSource
+export const selectSelectedSources = (state: RootState): RepositoryId[] =>
+  state.ui.selectedSources
 export const selectSelectedAgentId = (state: RootState): AgentId | null =>
   state.ui.selectedAgentId
 export const selectIsRefreshing = (state: RootState): boolean =>

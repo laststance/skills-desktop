@@ -25,6 +25,7 @@ import {
   selectSelectedSkillNamesSet,
   selectSelectedVisibleCount,
   selectSelectedVisibleNames,
+  selectSourceFilterViewModel,
   selectVisibleSkillNames,
 } from './selectors'
 
@@ -34,7 +35,7 @@ function buildState(overrides: {
   searchQuery?: string
   searchScope?: 'name' | 'repo'
   selectedAgentId?: AgentId | null
-  selectedSource?: RepositoryId | null
+  selectedSources?: RepositoryId[]
   sortOrder?: 'asc' | 'desc'
   skillTypeFilter?: SkillTypeFilter
   excludedSkillTypeFilters?: ExcludableSkillTypeFilter[]
@@ -70,7 +71,7 @@ function buildState(overrides: {
       activeTab: 'installed' as const,
       searchQuery: overrides.searchQuery ?? '',
       searchScope: overrides.searchScope ?? ('name' as const),
-      selectedSource: overrides.selectedSource ?? null,
+      selectedSources: overrides.selectedSources ?? [],
       sourceStats: null,
       isRefreshing: false,
       selectedAgentId: overrides.selectedAgentId ?? null,
@@ -621,7 +622,7 @@ describe('selectFilteredSkills', () => {
     ]
     const state = buildState({
       skills,
-      selectedSource: repositoryId('vercel-labs/skills'),
+      selectedSources: [repositoryId('vercel-labs/skills')],
     })
     const result = selectFilteredSkills(state as never)
     expect(result.map((s) => s.name)).toEqual(['a', 'b'])
@@ -637,7 +638,7 @@ describe('selectFilteredSkills', () => {
     ]
     const state = buildState({
       skills,
-      selectedSource: repositoryId('vercel-labs/skills'),
+      selectedSources: [repositoryId('vercel-labs/skills')],
       searchQuery: 'alpha',
       searchScope: 'name',
     })
@@ -657,7 +658,7 @@ describe('selectFilteredSkills', () => {
     const state = buildState({
       skills,
       selectedAgentId: 'cursor',
-      selectedSource: repositoryId('vercel-labs/skills'),
+      selectedSources: [repositoryId('vercel-labs/skills')],
     })
     const result = selectFilteredSkills(state as never)
     expect(result.map((s) => s.name)).toEqual(['a'])
@@ -717,7 +718,7 @@ describe('selectFilteredSkills', () => {
     ]
     const state = buildState({
       skills,
-      selectedSource: repositoryId('vercel-labs/skills'),
+      selectedSources: [repositoryId('vercel-labs/skills')],
       searchQuery: 'vercel',
       searchScope: 'repo',
     })
@@ -736,7 +737,7 @@ describe('selectFilteredSkills', () => {
     ]
     const state = buildState({
       skills,
-      selectedSource: repositoryId('vercel-labs/skills'),
+      selectedSources: [repositoryId('vercel-labs/skills')],
       searchQuery: 'figma',
       searchScope: 'repo',
     })
@@ -755,7 +756,7 @@ describe('selectFilteredSkills', () => {
     const state = buildState({
       skills,
       selectedAgentId: 'cursor',
-      selectedSource: repositoryId('pbakaus/impeccable'),
+      selectedSources: [repositoryId('pbakaus/impeccable')],
       searchQuery: 'nothing matches',
       searchScope: 'repo',
     })
@@ -961,5 +962,185 @@ describe('selectSelectedSkillNamesSet', () => {
     const result1 = selectSelectedSkillNamesSet(state as never)
     const result2 = selectSelectedSkillNamesSet(state as never)
     expect(result1).toBe(result2)
+  })
+})
+
+describe('selectSourceFilterViewModel', () => {
+  it('shows the "All repos" trigger and a generic aria-label when nothing is ticked', () => {
+    // Arrange — one repo skill in the cursor view, but no include filter yet
+    const skills = [makeSkill('a', 'cursor', false, 'vercel-labs/skills')]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      selectedSources: [],
+    })
+
+    // Act
+    const viewModel = selectSourceFilterViewModel(state as never)
+
+    // Assert — empty-state defaults; the lone facet repo renders unchecked
+    expect(viewModel.triggerLabel).toBe('All repos')
+    expect(viewModel.triggerAriaLabel).toBe('Filter by source repository')
+    expect(viewModel.validRepoIds).toEqual([])
+    expect(viewModel.localHiddenCount).toBe(0)
+    expect(viewModel.dropdownRows).toEqual([
+      { source: repositoryId('vercel-labs/skills'), count: 1, checked: false },
+    ])
+  })
+
+  it('names the single ticked repo in the trigger, aria-label, and checkbox tick', () => {
+    // Arrange — two skills from one repo, that repo ticked
+    const skills = [
+      makeSkill('a', 'cursor', false, 'vercel-labs/skills'),
+      makeSkill('b', 'cursor', false, 'vercel-labs/skills'),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      selectedSources: [repositoryId('vercel-labs/skills')],
+    })
+
+    // Act
+    const viewModel = selectSourceFilterViewModel(state as never)
+
+    // Assert — single-repo phrasing; row is checked and validRepoIds holds it
+    expect(viewModel.triggerLabel).toBe('vercel-labs/skills')
+    expect(viewModel.triggerAriaLabel).toBe(
+      'Filtering by source repository vercel-labs/skills',
+    )
+    expect(viewModel.validRepoIds).toEqual([repositoryId('vercel-labs/skills')])
+    expect(viewModel.dropdownRows).toEqual([
+      { source: repositoryId('vercel-labs/skills'), count: 2, checked: true },
+    ])
+  })
+
+  it('collapses the trigger to "N repos" and spells out the aria-label for multiple ticks', () => {
+    // Arrange — one skill per repo, both repos ticked
+    const skills = [
+      makeSkill('a', 'cursor', false, 'vercel-labs/skills'),
+      makeSkill('b', 'cursor', false, 'pbakaus/impeccable'),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      selectedSources: [
+        repositoryId('vercel-labs/skills'),
+        repositoryId('pbakaus/impeccable'),
+      ],
+    })
+
+    // Act
+    const viewModel = selectSourceFilterViewModel(state as never)
+
+    // Assert — compact count label; aria spells each repo in selection order
+    expect(viewModel.triggerLabel).toBe('2 repos')
+    expect(viewModel.triggerAriaLabel).toBe(
+      'Filtering by 2 source repositories: vercel-labs/skills, pbakaus/impeccable',
+    )
+    // Every facet repo is ticked → "Select all" is pointless
+    expect(viewModel.isSelectAllDisabled).toBe(true)
+  })
+
+  it('keeps a ticked repo with zero remaining rows in the dropdown but out of validRepoIds', () => {
+    // A repo the user ticked that no longer backs any visible facet row (here a
+    // not-yet-pruned stale id) must still render — checked — so the user can
+    // untick it; but it must be excluded from the bulk-confirm scope snapshot.
+    // Arrange
+    const skills = [makeSkill('a', 'cursor', false, 'vercel-labs/skills')]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      selectedSources: [
+        repositoryId('vercel-labs/skills'),
+        repositoryId('stale/removed-repo'),
+      ],
+    })
+
+    // Act
+    const viewModel = selectSourceFilterViewModel(state as never)
+
+    // Assert — stale repo sorts first (alpha), count 0, still checked…
+    expect(viewModel.dropdownRows).toEqual([
+      { source: repositoryId('stale/removed-repo'), count: 0, checked: true },
+      { source: repositoryId('vercel-labs/skills'), count: 1, checked: true },
+    ])
+    // …but only the facet-backed repo survives into the actionable scope
+    expect(viewModel.validRepoIds).toEqual([repositoryId('vercel-labs/skills')])
+  })
+
+  it('counts source-less local skills suppressed by an active repo filter', () => {
+    // Arrange — cursor view: one repo skill plus two source-less local skills,
+    // repo filter active
+    const skills = [
+      makeSkill('linked', 'cursor', false, 'vercel-labs/skills'),
+      makeSkill('local-one', 'cursor', true),
+      makeSkill('local-two', 'cursor', true),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      selectedSources: [repositoryId('vercel-labs/skills')],
+    })
+
+    // Act
+    const viewModel = selectSourceFilterViewModel(state as never)
+
+    // Assert — both locals are hidden by the include filter
+    expect(viewModel.localHiddenCount).toBe(2)
+  })
+
+  it('reports zero hidden locals when no repo filter is active', () => {
+    // Arrange — same source-less locals, but the include filter is empty
+    const skills = [
+      makeSkill('linked', 'cursor', false, 'vercel-labs/skills'),
+      makeSkill('local-one', 'cursor', true),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      selectedSources: [],
+    })
+
+    // Act
+    const viewModel = selectSourceFilterViewModel(state as never)
+
+    // Assert — nothing is "hidden" because the filter is showing everything
+    expect(viewModel.localHiddenCount).toBe(0)
+  })
+
+  it('flags hasNoRepositories and an empty dropdown when no skill carries a source', () => {
+    // Arrange — only an agent-local skill exists, so the facet is empty
+    const skills = [makeSkill('local-only', 'cursor', true)]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      selectedSources: [],
+    })
+
+    // Act
+    const viewModel = selectSourceFilterViewModel(state as never)
+
+    // Assert — the component shows its "no repositories" empty state
+    expect(viewModel.hasNoRepositories).toBe(true)
+    expect(viewModel.dropdownRows).toEqual([])
+  })
+
+  it('leaves "Select all" enabled while at least one facet repo is unticked', () => {
+    // Arrange — two facet repos, only one ticked
+    const skills = [
+      makeSkill('a', 'cursor', false, 'vercel-labs/skills'),
+      makeSkill('b', 'cursor', false, 'pbakaus/impeccable'),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      selectedSources: [repositoryId('vercel-labs/skills')],
+    })
+
+    // Act
+    const viewModel = selectSourceFilterViewModel(state as never)
+
+    // Assert — there is still a repo left to add, so the action stays live
+    expect(viewModel.isSelectAllDisabled).toBe(false)
   })
 })

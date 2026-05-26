@@ -62,8 +62,10 @@ import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   selectRepoFacetOptions,
   selectSelectedVisibleNames,
+  selectSourceFilterViewModel,
   selectVisibleSkillNames,
 } from '@/renderer/src/redux/selectors'
+import type { SourceFilterRow } from '@/renderer/src/redux/selectors'
 import { setPreviewSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
 import {
   clearSelection,
@@ -77,7 +79,7 @@ import {
 import {
   clearBulkConfirm,
   clearExcludedSkillTypeFilters,
-  clearSelectedSource,
+  clearSelectedSources,
   clearUndoToast,
   enterBulkSelectMode,
   exitBulkSelectMode,
@@ -86,14 +88,14 @@ import {
   selectBulkConfirm,
   selectBulkSelectMode,
   selectExcludedSkillTypeFilters,
-  selectSelectedSource,
   setActiveTab,
   setBulkConfirm,
-  setSelectedSource,
+  setSelectedSources,
   setSkillTypeFilter,
   setUndoToast,
   toggleExcludedSkillTypeFilter,
   toggleSortOrder,
+  toggleSource,
 } from '@/renderer/src/redux/slices/uiSlice'
 import type {
   ActiveTab,
@@ -105,7 +107,10 @@ import { flashFailedRows } from '@/renderer/src/utils/bulkOpVisuals'
 import { errorToastDescription } from '@/renderer/src/utils/errorToastDescription'
 import { isEditableTarget } from '@/renderer/src/utils/isEditableTarget'
 import { pluralize } from '@/renderer/src/utils/pluralize'
-import { UNDO_WINDOW_MS } from '@/shared/constants'
+import {
+  SOURCE_FILTER_MAX_VISIBLE_REPOS,
+  UNDO_WINDOW_MS,
+} from '@/shared/constants'
 import { FEATURE_FLAGS } from '@/shared/featureFlags'
 import type {
   BulkDeleteItemResult,
@@ -137,20 +142,6 @@ const EXCLUDABLE_SKILL_TYPE_FILTER_OPTIONS = SKILL_TYPE_FILTER_OPTIONS.filter(
     dotClass?: string
   } => option.value !== 'all',
 )
-
-/**
- * Compress long repository slugs for toolbar triggers while preserving both
- * owner and repo clues. The full value remains in aria-labels and filter pills.
- * @param source - Repository slug, usually `owner/repo`.
- * @returns Short label safe for compact toolbar buttons.
- * @example
- * formatRepositoryFacetLabel('very-long-owner-name/extremely-long-repository')
- * // => "very-long-ow...ng-repository"
- */
-function formatRepositoryFacetLabel(source: RepositoryId): string {
-  if (source.length <= 28) return source
-  return `${source.slice(0, 12)}...${source.slice(-13)}`
-}
 
 /**
  * Explain why an exclude checkbox is unavailable for the current include mode.
@@ -190,7 +181,7 @@ export const MainContent = React.memo(
     const selectedAllNames = useAppSelector(selectSelectedSkillNames)
     const bulkConfirm = useAppSelector(selectBulkConfirm)
     const bulkSelectMode = useAppSelector(selectBulkSelectMode)
-    const selectedSource = useAppSelector(selectSelectedSource)
+    const sourceFilter = useAppSelector(selectSourceFilterViewModel)
     const repoFacetOptions = useAppSelector(selectRepoFacetOptions)
     const excludedSkillTypeFilters = useAppSelector(
       selectExcludedSkillTypeFilters,
@@ -206,16 +197,12 @@ export const MainContent = React.memo(
       excludedSkillTypeFilters.length === 0
         ? selectedSkillTypeLabel
         : `${selectedSkillTypeLabel} · ${excludedSkillTypeFilters.length} excluded`
-    const selectedSourceLabel = selectedSource
-      ? formatRepositoryFacetLabel(selectedSource)
-      : 'Source'
-
     const handleClearFilter = useCallback((): void => {
       dispatch(selectAgent(null))
     }, [dispatch])
 
     const handleClearSourceFilter = useCallback((): void => {
-      dispatch(clearSelectedSource())
+      dispatch(clearSelectedSources())
     }, [dispatch])
 
     const handleTabChange = useCallback(
@@ -317,15 +304,36 @@ export const MainContent = React.memo(
       [dispatch],
     )
 
-    const handleRepoFacetChange = useCallback(
-      (value: string): void => {
-        if (value === 'all') {
-          dispatch(clearSelectedSource())
-          return
-        }
-        dispatch(setSelectedSource(value as RepositoryId))
+    /**
+     * Tick/untick one repo in the source include-filter. Wired to each
+     * checkbox row in the repo facet dropdown; the menu stays open (via
+     * `handleKeepDropdownOpen`) so a multi-repo selection builds in one pass.
+     */
+    const handleToggleSource = useCallback(
+      (source: RepositoryId): void => {
+        dispatch(toggleSource(source))
       },
       [dispatch],
+    )
+
+    // "Show all repos" header item → clear the include-filter (show everything).
+    const handleSelectShowAllRepos = useCallback(
+      (event: Event): void => {
+        event.preventDefault()
+        dispatch(clearSelectedSources())
+      },
+      [dispatch],
+    )
+
+    // "Select all repos" header item → tick every repo in the current facet.
+    const handleSelectAllRepos = useCallback(
+      (event: Event): void => {
+        event.preventDefault()
+        dispatch(
+          setSelectedSources(repoFacetOptions.map((option) => option.source)),
+        )
+      },
+      [dispatch, repoFacetOptions],
     )
 
     const handleToggleExcludedSkillTypeFilter = useCallback(
@@ -407,15 +415,35 @@ export const MainContent = React.memo(
      */
     const handlePrimaryAction = useCallback((): void => {
       if (selectedVisibleNames.length === 0) return
+      // Snapshot the active repo-filter scope so the confirm dialog can state
+      // what the user is acting within, even if they change the filter before
+      // clicking confirm. Null when no repo is in scope and nothing is hidden
+      // — keeps the dialog copy unchanged in the common (unfiltered) case.
+      const sourceSummary =
+        sourceFilter.validRepoIds.length > 0 ||
+        sourceFilter.localHiddenCount > 0
+          ? {
+              repositoryIds: sourceFilter.validRepoIds,
+              localHiddenCount: sourceFilter.localHiddenCount,
+            }
+          : null
       dispatch(
         setBulkConfirm({
           kind: selectedAgentId ? 'unlink' : 'delete',
           skillNames: selectedVisibleNames,
           agentId: selectedAgentId,
           agentName: selectedAgent?.name ?? null,
+          sourceSummary,
         }),
       )
-    }, [dispatch, selectedAgentId, selectedAgent?.name, selectedVisibleNames])
+    }, [
+      dispatch,
+      selectedAgentId,
+      selectedAgent?.name,
+      selectedVisibleNames,
+      sourceFilter.validRepoIds,
+      sourceFilter.localHiddenCount,
+    ])
 
     /**
      * Invoked by the BulkConfirmDialog's primary button. Reads the pending
@@ -626,60 +654,63 @@ export const MainContent = React.memo(
                 )}
               </Button>
 
-              {/* Repo facet: exact source filter with counts from the current
-                  agent/type population, independent of the text query. */}
+              {/* Repo facet: multi-select source include-filter with counts
+                  from the current agent/type population, independent of the
+                  text query. Empty selection shows all repos (and local
+                  skills); ticking repos narrows to those sources. */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
                     size="sm"
-                    aria-label={
-                      selectedSource
-                        ? `Filtering by source repository ${selectedSource}`
-                        : 'Filter by source repository'
-                    }
+                    aria-label={sourceFilter.triggerAriaLabel}
                     className={cn(
                       'shrink-0 gap-1.5 min-h-11 max-w-44',
-                      selectedSource
+                      sourceFilter.selectedSources.length > 0
                         ? 'text-primary'
                         : 'text-muted-foreground hover:text-foreground',
                     )}
                   >
                     <GitBranch className="h-4 w-4" />
                     <span className="max-w-32 truncate">
-                      {selectedSourceLabel}
+                      {sourceFilter.triggerLabel}
                     </span>
                     <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-72">
                   <DropdownMenuLabel>Source repository</DropdownMenuLabel>
-                  <DropdownMenuRadioGroup
-                    value={selectedSource ?? 'all'}
-                    onValueChange={handleRepoFacetChange}
-                  >
-                    <DropdownMenuRadioItem value="all">
-                      <span className="min-w-0 flex-1">All repos</span>
-                    </DropdownMenuRadioItem>
-                    {repoFacetOptions.map((option) => (
-                      <DropdownMenuRadioItem
-                        key={option.source}
-                        value={option.source}
-                        aria-label={`${option.source}, ${option.count} ${pluralize(
-                          option.count,
-                          'skill',
-                        )}`}
-                        className="gap-2"
+                  {sourceFilter.hasNoRepositories ? (
+                    <DropdownMenuItem disabled>
+                      No source repositories
+                    </DropdownMenuItem>
+                  ) : (
+                    <>
+                      {/* Bulk shortcuts mirror the multi-select pattern: clear
+                          the whole set, or tick every facet repo at once. */}
+                      <DropdownMenuItem
+                        disabled={sourceFilter.selectedSources.length === 0}
+                        onSelect={handleSelectShowAllRepos}
                       >
-                        <span className="min-w-0 flex-1 truncate">
-                          {option.source}
-                        </span>
-                        <span className="ml-auto text-xs text-muted-foreground">
-                          {option.count}
-                        </span>
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
+                        Show all repos
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={sourceFilter.isSelectAllDisabled}
+                        onSelect={handleSelectAllRepos}
+                      >
+                        Select all repos
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {sourceFilter.dropdownRows.map((row) => (
+                        <SourceFacetCheckboxRow
+                          key={row.source}
+                          row={row}
+                          onToggle={handleToggleSource}
+                          onKeepOpen={handleKeepDropdownOpen}
+                        />
+                      ))}
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -833,20 +864,44 @@ export const MainContent = React.memo(
             )}
 
             {/* Source-repo filter indicator. Stacks orthogonally with the
-                Agent pill — the user can narrow by agent AND by repo at the
-                same time without one resetting the other. */}
-            {selectedSource && (
+                Agent pill — agent AND repo filters can be active at once. Up to
+                SOURCE_FILTER_MAX_VISIBLE_REPOS repos render as individual
+                clearable pills; beyond that a single collapsed pill clears the
+                whole set (DESIGN.md: avoid pill overload). The else branch maps
+                an empty array to nothing, covering the no-filter case too. */}
+            {sourceFilter.selectedSources.length >
+            SOURCE_FILTER_MAX_VISIBLE_REPOS ? (
               <FilterPill
                 label={
                   <>
                     from{' '}
-                    <strong className="text-primary">{selectedSource}</strong>
+                    <strong className="text-primary">
+                      {sourceFilter.selectedSources.length} repos
+                    </strong>
                   </>
                 }
                 onClear={handleClearSourceFilter}
                 testId="source-filter-pill"
               />
+            ) : (
+              sourceFilter.selectedSources.map((source) => (
+                <SourceFilterPill
+                  key={source}
+                  source={source}
+                  onClear={handleToggleSource}
+                />
+              ))
             )}
+
+            {/* Local-skills-hidden caveat — only while the repo filter is
+                actively suppressing source-less local skills. Plain metadata,
+                not a pill, so it reads as subordinate to the filter pills. */}
+            {sourceFilter.localHiddenCount > 0 ? (
+              <p className="px-4 py-2 border-b border-border text-xs text-muted-foreground shrink-0">
+                {sourceFilter.localHiddenCount}{' '}
+                {pluralize(sourceFilter.localHiddenCount, 'local skill')} hidden
+              </p>
+            ) : null}
 
             {/* Renders only when at least one skill is ticked. */}
             <SelectionToolbar
@@ -894,6 +949,7 @@ export const MainContent = React.memo(
                 {bulkConfirm?.kind === 'delete'
                   ? renderBulkDeleteDescription({
                       totalCount: bulkConfirm.skillNames.length,
+                      sourceSummary: bulkConfirm.sourceSummary,
                     })
                   : `This removes the symlinks in ${bulkConfirm?.agentName ?? 'this agent'}. The underlying skill files stay in your source directory.`}
               </DialogDescription>
@@ -917,3 +973,77 @@ export const MainContent = React.memo(
     )
   },
 )
+
+/**
+ * One repo row in the source-filter dropdown — wraps `DropdownMenuCheckboxItem`
+ * with a `useCallback` toggle so the memoized item isn't defeated by an inline
+ * arrow (which also trips `prefer-usecallback-might-work`). Mapped by MainContent.
+ * @param row - Facet row: repo id, visible-skill count, and ticked state.
+ * @param onToggle - Adds/removes this repo from the include filter.
+ * @param onKeepOpen - `onSelect` handler that keeps the menu open on activation.
+ * @returns A checkbox menu item labelling the repo id and its skill count.
+ * @example
+ * <SourceFacetCheckboxRow row={row} onToggle={handleToggleSource} onKeepOpen={handleKeepDropdownOpen} />
+ */
+const SourceFacetCheckboxRow = React.memo(function SourceFacetCheckboxRow({
+  row,
+  onToggle,
+  onKeepOpen,
+}: {
+  row: SourceFilterRow
+  onToggle: (source: RepositoryId) => void
+  onKeepOpen: (event: Event) => void
+}): React.ReactElement {
+  // Stable per-row toggle — re-created only when the row id or handler changes.
+  const handleCheckedChange = useCallback((): void => {
+    onToggle(row.source)
+  }, [onToggle, row.source])
+
+  return (
+    <DropdownMenuCheckboxItem
+      checked={row.checked}
+      onCheckedChange={handleCheckedChange}
+      onSelect={onKeepOpen}
+      aria-label={`${row.source}, ${row.count} ${pluralize(row.count, 'skill')}`}
+      className="gap-2"
+    >
+      <span className="min-w-0 flex-1 truncate">{row.source}</span>
+      <span className="ml-auto text-xs text-muted-foreground">{row.count}</span>
+    </DropdownMenuCheckboxItem>
+  )
+})
+
+/**
+ * One clearable "from <repo>" pill (shown when ≤ SOURCE_FILTER_MAX_VISIBLE_REPOS
+ * repos selected) — wraps the memoized `FilterPill` with a `useCallback` clear so
+ * an inline arrow doesn't re-render it / trip `prefer-usecallback-might-work`.
+ * @param source - The repository id this pill represents and clears.
+ * @param onClear - Removes `source` from the include filter (toggle off).
+ * @returns A FilterPill labelled `from <source>` wired to single-repo clear.
+ * @example
+ * <SourceFilterPill source={source} onClear={handleToggleSource} />
+ */
+const SourceFilterPill = React.memo(function SourceFilterPill({
+  source,
+  onClear,
+}: {
+  source: RepositoryId
+  onClear: (source: RepositoryId) => void
+}): React.ReactElement {
+  // Stable clear — toggles this exact repo off the include filter.
+  const handleClear = useCallback((): void => {
+    onClear(source)
+  }, [onClear, source])
+
+  return (
+    <FilterPill
+      label={
+        <>
+          from <strong className="text-primary">{source}</strong>
+        </>
+      }
+      onClear={handleClear}
+      testId="source-filter-pill"
+    />
+  )
+})

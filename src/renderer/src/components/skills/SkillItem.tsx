@@ -177,6 +177,8 @@ export const SkillItem = React.memo(function SkillItem({
         skillNames: [skill.name],
         agentId: null,
         agentName: null,
+        // A single-row delete carries no repo-filter scope to report.
+        sourceSummary: null,
       }),
     )
   }

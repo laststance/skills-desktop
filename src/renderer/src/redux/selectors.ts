@@ -1,7 +1,9 @@
 import { createSelector } from '@reduxjs/toolkit'
 import { match } from 'ts-pattern'
 
+import { formatRepositoryFacetLabel } from '@/renderer/src/utils/formatRepositoryFacetLabel'
 import { isGStackManagedForAgent } from '@/renderer/src/utils/gstackSkill'
+import { SOURCE_FILTER_MAX_VISIBLE_REPOS } from '@/shared/constants'
 import type {
   AgentId,
   RepositoryId,
@@ -21,7 +23,7 @@ import {
   selectSearchQuery,
   selectSearchScope,
   selectSelectedAgentId,
-  selectSelectedSource,
+  selectSelectedSources,
   selectSkillTypeFilter,
   selectSortOrder,
 } from './slices/uiSlice'
@@ -138,8 +140,8 @@ function applyAgentAndTypeFilters(
 
 /**
  * Memoized selector for filtered and sorted skills list.
- * Applies (in order): agent/type include, type excludes, source-repo pill,
- * scope-aware search query, and name sort.
+ * Applies (in order): agent/type include, type excludes, source-repo include
+ * filter, scope-aware search query, and name sort.
  *
  * Search scope rules:
  * - `'name'` — case-insensitive substring match against `skill.name` (the
@@ -148,9 +150,11 @@ function applyAgentAndTypeFilters(
  *   with no `source` (Local-only skills) are excluded in this mode because
  *   they have no repo string to match.
  *
- * The source pill (`selectedSource`) is an exact-match filter applied
- * independently of the scope so users can stack "in repo X" with "name
- * containing Y".
+ * The source-repo include filter (`selectedSources`) keeps only skills whose
+ * `source` is in the ticked set; an empty set is a no-op (all repos shown).
+ * Source-less Local skills drop out whenever the set is non-empty. Applied
+ * independently of the search scope so users can stack "in repos X/Y" with
+ * "name containing Z".
  *
  * @returns Filtered + sorted skills array
  * @example
@@ -162,7 +166,7 @@ export const selectFilteredSkills = createSelector(
     selectSearchQuery,
     selectSearchScope,
     selectSelectedAgentId,
-    selectSelectedSource,
+    selectSelectedSources,
     selectSortOrder,
     selectSkillTypeFilter,
     selectExcludedSkillTypeFilters,
@@ -172,7 +176,7 @@ export const selectFilteredSkills = createSelector(
     searchQuery,
     searchScope,
     selectedAgentId,
-    selectedSource,
+    selectedSources,
     sortOrder,
     skillTypeFilter,
     excludedSkillTypeFilters,
@@ -184,10 +188,15 @@ export const selectFilteredSkills = createSelector(
       excludedSkillTypeFilters,
     )
 
-    // Source-repo filter pill — exact match. Local skills (source undefined)
-    // can never match a non-null pill value, so they drop out implicitly.
-    if (selectedSource) {
-      result = result.filter((skill) => skill.source === selectedSource)
+    // Source-repo include filter — keep only ticked repos. An empty set is a
+    // no-op. Local skills (source undefined) can never be in the set, so they
+    // drop out implicitly whenever the filter is active.
+    if (selectedSources.length > 0) {
+      const includedSources = new Set(selectedSources)
+      result = result.filter(
+        (skill) =>
+          skill.source !== undefined && includedSources.has(skill.source),
+      )
     }
 
     // Scope-aware search. ts-pattern + .exhaustive() makes adding a new
@@ -220,8 +229,9 @@ export const selectFilteredSkills = createSelector(
 
 /**
  * Exact repo choices for the Installed toolbar. It shares the agent/type gates
- * with `selectFilteredSkills`, but intentionally ignores the active source pill
- * and text query so users can recover from an over-narrowed filter.
+ * with `selectFilteredSkills`, but intentionally ignores the active source
+ * include filter and text query so users can recover from an over-narrowed
+ * filter.
  * @returns Sorted source options with matching row counts.
  * @example
  * const repoOptions = useAppSelector(selectRepoFacetOptions)
@@ -253,6 +263,169 @@ export const selectRepoFacetOptions = createSelector(
     return [...sourceCounts.entries()]
       .sort(([sourceA], [sourceB]) => sourceA.localeCompare(sourceB))
       .map(([source, count]) => ({ source, count }))
+  },
+)
+
+export interface SourceFilterRow {
+  source: RepositoryId
+  count: number
+  /** True when this repo is in `selectedSources` (drives the checkbox tick). */
+  checked: boolean
+}
+
+/**
+ * Everything the toolbar's source-repo filter UI needs, derived once so the
+ * trigger, dropdown, pills, hint, and bulk-confirm snapshot read from one
+ * consistent shape (no per-component recomputation or drift).
+ * - `selectedSources`: active include set (already pruned of dead ids at fetch
+ *   time); drives pills, the trigger count, and checkbox ticks.
+ * - `validRepoIds`: ticked ids that still back ≥1 visible row — snapshotted
+ *   into the bulk-confirm dialog so it states only scope the user can see.
+ * - `dropdownRows`: facet repos ∪ ticked repos, alpha-sorted; a ticked repo
+ *   narrowed to 0 rows by the type filter still renders (count 0, checked) so
+ *   the user can untick it.
+ * - `triggerLabel` / `triggerAriaLabel`: compact button text vs spelled SR copy.
+ * - `isSelectAllDisabled`: every facet repo already ticked (nothing to add).
+ * - `hasNoRepositories`: facet is empty → dropdown shows an empty state.
+ * - `localHiddenCount`: source-less Local skills suppressed by an active
+ *   include filter (drives the "N local skills hidden" hint); 0 when inactive.
+ *   Ignores the search query.
+ */
+interface SourceFilterViewModel {
+  selectedSources: RepositoryId[]
+  validRepoIds: RepositoryId[]
+  dropdownRows: SourceFilterRow[]
+  triggerLabel: string
+  triggerAriaLabel: string
+  isSelectAllDisabled: boolean
+  hasNoRepositories: boolean
+  localHiddenCount: number
+}
+
+/**
+ * Build the spelled aria-label for the source-repo filter trigger, naming up
+ * to `SOURCE_FILTER_MAX_VISIBLE_REPOS` repos then summarizing the remainder so
+ * screen-reader users hear the active scope without an unbounded list.
+ * @param selectedSources - The active repository include-filter.
+ * @returns
+ * - `[]` → "Filter by source repository"
+ * - 1 → "Filtering by source repository owner/repo"
+ * - ≤cap → "Filtering by N source repositories: a, b, c"
+ * - >cap → "Filtering by N source repositories: a, b, c, and M more"
+ * @example
+ * formatSourceFilterAriaLabel([]) // => "Filter by source repository"
+ */
+function formatSourceFilterAriaLabel(selectedSources: RepositoryId[]): string {
+  if (selectedSources.length === 0) return 'Filter by source repository'
+  if (selectedSources.length === 1) {
+    return `Filtering by source repository ${selectedSources[0]}`
+  }
+  const spelled = selectedSources
+    .slice(0, SOURCE_FILTER_MAX_VISIBLE_REPOS)
+    .join(', ')
+  const remainder = selectedSources.length - SOURCE_FILTER_MAX_VISIBLE_REPOS
+  const suffix = remainder > 0 ? `, and ${remainder} more` : ''
+  return `Filtering by ${selectedSources.length} source repositories: ${spelled}${suffix}`
+}
+
+/**
+ * Consolidated view-model for the Installed toolbar's source-repo include
+ * filter. Folds the active selection, the (agent/type-gated) facet options,
+ * and the hidden-local count into one memoized shape — see
+ * `SourceFilterViewModel` for field semantics. Recomputes the agent/type
+ * population internally for `localHiddenCount` rather than coupling
+ * `selectRepoFacetOptions` to that concern.
+ * @returns SourceFilterViewModel
+ * @example
+ * const sourceFilter = useAppSelector(selectSourceFilterViewModel)
+ * // sourceFilter.triggerLabel === '2 repos'
+ */
+export const selectSourceFilterViewModel = createSelector(
+  [
+    selectSkillsItems,
+    selectSelectedAgentId,
+    selectSkillTypeFilter,
+    selectExcludedSkillTypeFilters,
+    selectSelectedSources,
+    selectRepoFacetOptions,
+  ],
+  (
+    skills,
+    selectedAgentId,
+    skillTypeFilter,
+    excludedSkillTypeFilters,
+    selectedSources,
+    facetOptions,
+  ): SourceFilterViewModel => {
+    const facetSourceSet = new Set(facetOptions.map((option) => option.source))
+    const countBySource = new Map<RepositoryId, number>(
+      facetOptions.map((option): [RepositoryId, number] => [
+        option.source,
+        option.count,
+      ]),
+    )
+    const selectedSet = new Set(selectedSources)
+
+    // Dropdown render set = facet repos ∪ ticked repos. A repo the user ticked
+    // then narrowed to 0 rows via the type filter must still render (checked)
+    // so they can untick it — otherwise the include filter is stuck on.
+    const dropdownSourceSet = new Set<RepositoryId>([
+      ...facetSourceSet,
+      ...selectedSources,
+    ])
+    const dropdownRows: SourceFilterRow[] = [...dropdownSourceSet]
+      .sort((a, b) => a.localeCompare(b))
+      .map((source) => ({
+        source,
+        count: countBySource.get(source) ?? 0,
+        checked: selectedSet.has(source),
+      }))
+
+    // Ticked ids that still back ≥1 facet row. Snapshotted into the
+    // bulk-confirm dialog so it reflects only the scope the user can see.
+    const validRepoIds = selectedSources.filter((id) => facetSourceSet.has(id))
+
+    // Count source-less Local skills suppressed by an active include filter.
+    // Uses the SAME agent/type gate as the facet (ignores the search query) so
+    // it answers "how many local skills did the repo filter hide?".
+    let localHiddenCount = 0
+    if (selectedSources.length > 0) {
+      const population = applyAgentAndTypeFilters(
+        skills,
+        selectedAgentId,
+        skillTypeFilter,
+        excludedSkillTypeFilters,
+      )
+      for (const skill of population) {
+        if (!skill.source) localHiddenCount += 1
+      }
+    }
+
+    // Trigger text: compact for the button (CSS truncates further). 2-3 cases
+    // → plain branches per the ts-pattern threshold.
+    let triggerLabel: string
+    if (selectedSources.length === 0) {
+      triggerLabel = 'All repos'
+    } else if (selectedSources.length === 1) {
+      triggerLabel = formatRepositoryFacetLabel(selectedSources[0])
+    } else {
+      triggerLabel = `${selectedSources.length} repos`
+    }
+
+    return {
+      selectedSources,
+      validRepoIds,
+      dropdownRows,
+      triggerLabel,
+      triggerAriaLabel: formatSourceFilterAriaLabel(selectedSources),
+      // "Select all" is pointless once every facet repo is ticked; the empty
+      // facet case is handled by `hasNoRepositories` in the component.
+      isSelectAllDisabled:
+        facetOptions.length > 0 &&
+        facetOptions.every((option) => selectedSet.has(option.source)),
+      hasNoRepositories: facetOptions.length === 0,
+      localHiddenCount,
+    }
   },
 )
 
