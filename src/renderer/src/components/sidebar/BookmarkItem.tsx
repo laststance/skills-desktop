@@ -18,9 +18,11 @@ interface BookmarkItemProps {
 }
 
 /**
- * Single bookmarked skill in the sidebar.
- * Shows skill name + repo. "Install" button or "Installed" badge.
- * X button removes from bookmarks.
+ * Single bookmarked skill row in the sidebar; opens the detail modal on click.
+ * Shows name + repo with an inline "Installed" check or hover-revealed Install.
+ * Remove (X) fades in small at the top-right on hover (Sonner-style), sharing
+ * the app's canonical remove vocabulary with BookmarksWidget — destructive-tint
+ * hover, not a gray box — so the title keeps full width with no permanent slot.
  */
 export const BookmarkItem = React.memo(function BookmarkItem({
   bookmark,
@@ -65,34 +67,39 @@ export const BookmarkItem = React.memo(function BookmarkItem({
       tabIndex={0}
       aria-label={`View details for ${bookmark.name}`}
       className={cn(
-        'flex w-full items-center justify-between min-h-11 py-1.5 px-2 rounded-md transition-colors group cursor-pointer hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'relative flex w-full items-center py-1.5 px-2 rounded-md transition-colors group cursor-pointer hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
       )}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
     >
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex flex-col min-w-0 flex-1">
-            <span className="text-sm truncate">{bookmark.name}</span>
-            <span className="text-xs text-muted-foreground truncate">
-              {bookmark.repo}
-            </span>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="right">
-          <span>{bookmark.url}</span>
-        </TooltipContent>
-      </Tooltip>
+      {/* pr-7 reserves the top-right strip for the absolute Remove (X) below, */}
+      {/* so it never overlaps the title/status and the row doesn't shift on hover. */}
+      <div className="flex min-w-0 flex-1 items-center gap-2 pr-7">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-sm truncate">{bookmark.name}</span>
+              <span className="text-xs text-muted-foreground truncate">
+                {bookmark.repo}
+              </span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <span>{bookmark.url}</span>
+          </TooltipContent>
+        </Tooltip>
 
-      <div className="flex items-center gap-1 ml-2 shrink-0">
         {bookmark.isInstalled ? (
           <Tooltip>
             <TooltipTrigger asChild>
+              {/* Non-interactive status glyph — matches SkillItem's linked */}
+              {/* check vocabulary (text-success/70), calmer than the X beside it. */}
               <span
+                role="img"
                 aria-label="Installed"
-                className="text-emerald-500 flex items-center justify-center min-h-11 min-w-11"
+                className="shrink-0 text-success/70"
               >
-                <Check className="h-4 w-4" />
+                <Check className="h-3.5 w-3.5" aria-hidden="true" />
               </span>
             </TooltipTrigger>
             <TooltipContent side="left">Installed</TooltipContent>
@@ -101,22 +108,26 @@ export const BookmarkItem = React.memo(function BookmarkItem({
           <button
             type="button"
             aria-label={`Install ${bookmark.name}`}
-            className="min-h-11 min-w-11 flex items-center justify-center text-primary hover:text-primary/80 transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+            className="shrink-0 flex size-6 items-center justify-center rounded-md text-primary opacity-0 transition-[opacity,background-color,color] hover:bg-primary/10 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={handleInstall}
             disabled={isInstalling}
           >
-            <Download className="h-4 w-4" />
+            <Download className="h-3.5 w-3.5" />
           </button>
         )}
-        <button
-          type="button"
-          aria-label={`Remove ${bookmark.name} from bookmarks`}
-          className="min-h-11 min-w-11 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-          onClick={handleRemove}
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
       </div>
+
+      {/* Sonner-style remove: hidden at rest, fades in small at the top-right */}
+      {/* corner on hover/focus (absolute → frees the title's full width). Shares */}
+      {/* BookmarksWidget's destructive-tint hover vocabulary; 24px meets WCAG 2.5.8 AA. */}
+      <button
+        type="button"
+        aria-label={`Remove ${bookmark.name} from bookmarks`}
+        className="absolute top-1 right-1 flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-[opacity,background-color,color] hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={handleRemove}
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
     </div>
   )
 })
