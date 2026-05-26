@@ -94,8 +94,12 @@ export const BookmarkItem = React.memo(function BookmarkItem({
             <TooltipTrigger asChild>
               {/* Non-interactive status glyph — matches SkillItem's linked */}
               {/* check vocabulary (text-success/70), calmer than the X beside it. */}
-              <span aria-label="Installed" className="shrink-0 text-success/70">
-                <Check className="h-3.5 w-3.5" />
+              <span
+                role="img"
+                aria-label="Installed"
+                className="shrink-0 text-success/70"
+              >
+                <Check className="h-3.5 w-3.5" aria-hidden="true" />
               </span>
             </TooltipTrigger>
             <TooltipContent side="left">Installed</TooltipContent>
@@ -104,7 +108,7 @@ export const BookmarkItem = React.memo(function BookmarkItem({
           <button
             type="button"
             aria-label={`Install ${bookmark.name}`}
-            className="shrink-0 flex size-6 items-center justify-center rounded-md text-primary opacity-0 transition-[opacity,background-color,color] hover:bg-primary/10 hover:text-primary group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="shrink-0 flex size-6 items-center justify-center rounded-md text-primary opacity-0 transition-[opacity,background-color,color] hover:bg-primary/10 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={handleInstall}
             disabled={isInstalling}
           >
