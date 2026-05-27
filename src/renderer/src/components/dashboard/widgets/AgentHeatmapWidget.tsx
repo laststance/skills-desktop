@@ -50,11 +50,13 @@ function buildSymlinkIndex(skills: readonly Skill[]): Map<string, SymlinkInfo> {
 /**
  * Abbreviate an agent name for the column header. We show two letters so the
  * heatmap stays narrow enough that 6–10 agents fit without horizontal scroll.
- * "Claude Code" → "CC", "Cursor" → "Cu", "Codex" → "Co".
+ * Multi-word names take the first two words' initials; single-word names take
+ * the first two characters. Either way the result is fully uppercased.
  * @param name - Full agent display name
  * @returns Two-letter abbreviation, uppercased
- * @example abbreviateAgentName("Claude Code") // => "CC"
- * @example abbreviateAgentName("Cursor")       // => "Cu"
+ * @example abbreviateAgentName("Claude Code") // => "CC" (two-word initials)
+ * @example abbreviateAgentName("Cursor")      // => "CU" (first two chars, uppercased)
+ * @example abbreviateAgentName("Codex")       // => "CO"
  */
 function abbreviateAgentName(name: string): string {
   const parts = name.trim().split(/\s+/)
