@@ -18,6 +18,7 @@ describe('areSettingsEqual', () => {
     preferredTerminal: 'terminal',
     windowBackgroundBlurRadius: 0,
     hiddenAgentIds: [],
+    autoDownloadUpdates: false,
   }
 
   it('returns true for identical primitive-only settings', () => {

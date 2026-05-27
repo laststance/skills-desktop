@@ -1,11 +1,6 @@
 import React from 'react'
 
 import { Separator } from '@/renderer/src/components/ui/separator'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/renderer/src/components/ui/tooltip'
 
 interface SectionFrameProps {
   title: string
@@ -72,40 +67,5 @@ export const SectionRow = React.memo(function SectionRow({
       </div>
       <div>{children}</div>
     </div>
-  )
-})
-
-interface MockControlProps {
-  children: React.ReactNode
-}
-
-/**
- * Wraps a disabled control + its label with a "Coming in a future
- * release" tooltip. Used by the Appearance / Auto Updates panes to
- * communicate that the controls are visual stubs.
- *
- * Why a wrapper, not the control itself: Radix Tooltip's
- * `TooltipTrigger asChild` forwards events to its child, but a
- * disabled `<button>` / `<input>` does not fire pointer events. The
- * tooltip would silently not show. Wrapping in a focusable `<div>`
- * captures hover/focus so the tooltip works while the inner control
- * stays unambiguously disabled (50% opacity, cursor-not-allowed).
- */
-export const MockControl = React.memo(function MockControl({
-  children,
-}: MockControlProps): React.ReactElement {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div
-          tabIndex={0}
-          aria-disabled="true"
-          className="inline-flex w-fit cursor-not-allowed items-center gap-3 rounded-md opacity-60"
-        >
-          {children}
-        </div>
-      </TooltipTrigger>
-      <TooltipContent side="top">Coming in a future release</TooltipContent>
-    </Tooltip>
   )
 })

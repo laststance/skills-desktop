@@ -118,6 +118,16 @@ describe('settings:set lockstep with SettingsSchema', () => {
     )
   })
 
+  it('accepts the auto-download preference boolean', () => {
+    expect(schema.safeParse([{ autoDownloadUpdates: true }]).success).toBe(true)
+  })
+
+  it('rejects a non-boolean autoDownloadUpdates at the IPC boundary', () => {
+    expect(schema.safeParse([{ autoDownloadUpdates: 'yes' }]).success).toBe(
+      false,
+    )
+  })
+
   it('rejects an unknown enum value for preferredTerminal', () => {
     expect(
       schema.safeParse([{ preferredTerminal: 'fish-shell' }]).success,
@@ -172,6 +182,16 @@ describe('settings:set lockstep with SettingsSchema', () => {
   it('parsing a partial without windowBackgroundBlurRadius does NOT inject a default', () => {
     const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
     expect('windowBackgroundBlurRadius' in parsed[0]).toBe(false)
+  })
+
+  it('parsing a partial without autoDownloadUpdates does NOT inject its default', () => {
+    // Same wipe-on-every-write guard as hiddenAgentIds/blur: the IPC schema
+    // declares the toggle as a bare `z.boolean().optional()` rather than
+    // chaining `.optional()` over the disk schema's `.default(false)`. If it
+    // re-inherited the default, every unrelated settings:set would parse to
+    // `{ autoDownloadUpdates: false }` and clobber a user's persisted opt-in.
+    const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
+    expect('autoDownloadUpdates' in parsed[0]).toBe(false)
   })
 
   it('accepts an explicit hiddenAgentIds array on settings:set', () => {
