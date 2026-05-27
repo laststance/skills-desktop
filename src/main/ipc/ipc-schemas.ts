@@ -305,6 +305,14 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
           .array(z.enum(AGENT_IDS))
           .max(AGENT_IDS.length)
           .optional(),
+        // Auto-download preference. Declared as plain `z.boolean().optional()`
+        // rather than chaining `.optional()` off `SettingsSchema.shape.*`
+        // (which carries `.default(false)`): the same default-materialization
+        // footgun as hiddenAgentIds above — an omitted key would parse to
+        // `false` and clobber the persisted value on every unrelated
+        // settings:set. A bare boolean has no constraint that can drift, so
+        // there's nothing to keep in lockstep beyond the type itself.
+        autoDownloadUpdates: z.boolean().optional(),
       })
       .strict(),
   ]),

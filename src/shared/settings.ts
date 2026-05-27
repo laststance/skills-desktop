@@ -169,13 +169,17 @@ const HIDDEN_AGENT_IDS_SCHEMA = z
  *   Validated against `AGENT_IDS` so a stale id from a prior version
  *   (e.g. an agent removed upstream by `/cli-upgrade`) is silently
  *   dropped on parse rather than surfacing as a phantom hidden entry.
+ * - `autoDownloadUpdates`: when `true`, `electron-updater` downloads a new
+ *   release in the background as soon as it is detected. Default `false`
+ *   preserves the app's manual confirm-via-UI flow (`src/main/updater.ts`
+ *   keeps `autoUpdater.autoDownload` in sync with this field).
  *
  * Adding a field here requires widening `IPC_ARG_SCHEMAS['settings:set']`
  * in `src/main/ipc/ipc-schemas.ts` in lockstep — that schema is `.strict()`
  * so unknown keys are rejected at the IPC boundary (defense in depth).
  *
  * @example
- * SettingsSchema.parse({}) // { defaultSkillTab: 'files', preferredTerminal: 'terminal', windowBackgroundBlurRadius: 0, hiddenAgentIds: [] }
+ * SettingsSchema.parse({}) // { defaultSkillTab: 'files', preferredTerminal: 'terminal', windowBackgroundBlurRadius: 0, hiddenAgentIds: [], autoDownloadUpdates: false }
  */
 export const SettingsSchema = z.object({
   defaultSkillTab: z.enum(['files', 'info']).default('files'),
@@ -186,6 +190,10 @@ export const SettingsSchema = z.object({
     WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
   ),
   hiddenAgentIds: HIDDEN_AGENT_IDS_SCHEMA,
+  // Auto-download preference surfaced in Settings → Auto Updates. Defaults
+  // to false so the manual confirm-via-UI download flow is preserved unless
+  // the user opts in.
+  autoDownloadUpdates: z.boolean().default(false),
 })
 
 /**
@@ -207,4 +215,5 @@ export const DEFAULT_SETTINGS: Settings = {
   preferredTerminal: 'terminal',
   windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
   hiddenAgentIds: [],
+  autoDownloadUpdates: false,
 }

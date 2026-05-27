@@ -89,6 +89,22 @@ describe('SettingsSchema', () => {
     expect(DEFAULT_SETTINGS).toEqual(SettingsSchema.parse({}))
   })
 
+  it('defaults autoDownloadUpdates to off so a fresh install keeps manual confirm-via-UI downloads', () => {
+    const parsed = SettingsSchema.parse({})
+    expect(parsed.autoDownloadUpdates).toBe(false)
+  })
+
+  it('persists opting into background downloads', () => {
+    const parsed = SettingsSchema.parse({
+      autoDownloadUpdates: true,
+    })
+    expect(parsed.autoDownloadUpdates).toBe(true)
+  })
+
+  it('rejects a non-boolean autoDownloadUpdates', () => {
+    expect(() => SettingsSchema.parse({ autoDownloadUpdates: 'yes' })).toThrow()
+  })
+
   it('windowSize is optional and defaults to undefined', () => {
     const parsed = SettingsSchema.parse({})
     expect(parsed.windowSize).toBeUndefined()

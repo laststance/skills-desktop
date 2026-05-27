@@ -10,7 +10,6 @@ import { AutoUpdates } from '@/renderer/settings/sections/AutoUpdates'
 import { General } from '@/renderer/settings/sections/General'
 import { Keybindings } from '@/renderer/settings/sections/Keybindings'
 import {
-  MockControl,
   SectionFrame,
   SectionRow,
 } from '@/renderer/settings/sections/SectionFrame'
@@ -64,20 +63,16 @@ export const SectionPanes: Story = {
 
 export const SectionFrameParts: Story = {
   render: () => (
-    <StoryCard label="SectionFrame / SectionRow / MockControl">
+    <StoryCard label="SectionFrame / SectionRow">
       <SectionFrame
         title="Storybook Section"
         description="A compact settings section using the shared settings chrome."
       >
         <SectionRow
           label="Preview control"
-          description="Disabled controls still explain their future state."
+          description="A trailing control sits flush-right against its row label."
         >
-          <MockControl>
-            <Button size="sm" disabled>
-              Coming soon
-            </Button>
-          </MockControl>
+          <Button size="sm">Preview action</Button>
         </SectionRow>
       </SectionFrame>
     </StoryCard>

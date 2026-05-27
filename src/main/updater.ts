@@ -1,17 +1,46 @@
 import { autoUpdater } from 'electron-updater'
 
 import { IPC_CHANNELS } from '@/shared/ipc-channels'
+import type { Settings } from '@/shared/settings'
 import { semanticVersion } from '@/shared/types'
 
 import { broadcastTypedEvent as broadcastEvent } from './ipc/typedSend'
+import { getSettings } from './services/settings'
+
+/**
+ * Push the user's persisted update preference onto the live
+ * `electron-updater` singleton. Called once at init (so the boot-time
+ * update check honors the saved value) and again from the `settings:set`
+ * IPC handler whenever `autoDownloadUpdates` flips, so a mid-session change
+ * takes effect on the next check without an app restart.
+ *
+ * Also pins `autoInstallOnAppQuit` to `false`: electron-updater defaults it
+ * to `true`, which would silently install an already-downloaded update on the
+ * next quit and bypass the app's explicit confirm-via-UI install flow. Pinning
+ * it here (idempotently re-applied on every preference change) keeps installs
+ * user-initiated regardless of the auto-download setting.
+ * @param preferences - The `autoDownloadUpdates` slice of Settings.
+ * @example
+ * applyUpdaterPreferences({ autoDownloadUpdates: true })
+ * // autoUpdater.autoDownload === true, autoUpdater.autoInstallOnAppQuit === false
+ */
+export function applyUpdaterPreferences(
+  preferences: Pick<Settings, 'autoDownloadUpdates'>,
+): void {
+  autoUpdater.autoDownload = preferences.autoDownloadUpdates
+  // Never auto-install on quit — install stays user-initiated via the UI.
+  autoUpdater.autoInstallOnAppQuit = false
+}
 
 /**
  * Initialize auto updater with IPC-based UI notifications
  * Replaces native dialogs with in-app toast notifications
  */
 export function initAutoUpdater(): void {
-  // Disable auto download - user should confirm via UI
-  autoUpdater.autoDownload = false
+  // Seed the updater from the persisted user preference. The default keeps
+  // autoDownload off (manual confirm-via-UI flow) until the user opts in
+  // via Settings → Auto Updates.
+  applyUpdaterPreferences(getSettings())
 
   autoUpdater.on('checking-for-update', () => {
     console.log('Checking for updates...')

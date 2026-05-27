@@ -1,6 +1,7 @@
 import { getMainWindow } from '@/main/services/mainWindowState'
 import { getSettings, saveSettings } from '@/main/services/settings'
 import { createOrFocusSettingsWindow } from '@/main/services/settingsWindow'
+import { applyUpdaterPreferences } from '@/main/updater'
 import { applyWindowBackgroundBlur } from '@/main/utils/windowBackgroundBlur'
 import { IPC_CHANNELS } from '@/shared/ipc-channels'
 
@@ -46,6 +47,13 @@ export function registerSettingsHandlers(): void {
         if (mainWindow !== null) {
           applyWindowBackgroundBlur(mainWindow, next.windowBackgroundBlurRadius)
         }
+      }
+      // Push the auto-download preference onto the live updater so a
+      // mid-session toggle takes effect on the next check without an app
+      // restart. Harmless when the updater is inactive (dev / unpackaged):
+      // it only mutates config on the electron-updater singleton.
+      if (next.autoDownloadUpdates !== before.autoDownloadUpdates) {
+        applyUpdaterPreferences(next)
       }
       broadcastTypedEvent(IPC_CHANNELS.SETTINGS_CHANGED, next)
     }
