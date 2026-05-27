@@ -34,7 +34,6 @@ export const InstallModal = React.memo(
     const [selectedAgents, setSelectedAgents] = useState<AgentId[]>([
       'claude-code',
     ])
-    const [isGlobal] = useState(true) // Always install globally for now
 
     const isInstalling = status === 'installing'
     const existingAgents = useMemo(
@@ -62,7 +61,10 @@ export const InstallModal = React.memo(
 
       const options: InstallOptions = {
         repo: selectedSkill.repo,
-        global: isGlobal,
+        // Marketplace installs are global-only by design — skills land in the
+        // shared ~/.agents/skills/ source dir. Per-project (local) scope was
+        // considered and deliberately not built (see #177).
+        global: true,
         agents: selectedAgents,
         skills: [selectedSkill.name],
       }
@@ -71,7 +73,7 @@ export const InstallModal = React.memo(
       // Refresh the skills list after installation
       dispatch(fetchSkills())
       handleClose()
-    }, [dispatch, handleClose, isGlobal, selectedAgents, selectedSkill])
+    }, [dispatch, handleClose, selectedAgents, selectedSkill])
 
     return (
       <Dialog open={!!selectedSkill} onOpenChange={handleClose}>

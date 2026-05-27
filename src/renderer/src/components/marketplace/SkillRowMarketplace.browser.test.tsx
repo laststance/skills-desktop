@@ -117,7 +117,7 @@ describe('SkillRowMarketplace — installed row has no destructive action', () =
     // Static informational badge uses role="img" — `role="status"` is for
     // live regions that announce dynamic state changes, not labels. The
     // aria-label includes `--global` so the recipe matches how the app
-    // installs (InstallModal hardcodes isGlobal=true) and works when copied.
+    // installs (InstallModal installs globally by design) and works when copied.
     await expect
       .element(screen.getByRole('img', { name: /lint is installed/i }))
       .toBeInTheDocument()
