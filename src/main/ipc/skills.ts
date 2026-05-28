@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import type { Stats } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
@@ -42,75 +41,7 @@ type AgentPathRemovalResult =
   | { success: false; error: string; code?: string }
 
 /**
- * Recreate a reviewed symlink after a quarantined cleanup validation fails.
- * @param linkPath - Original reviewed agent slot path.
- * @param quarantinePath - Temporary path holding the reviewed symlink.
- * @param rawTarget - Verbatim readlink target to restore.
- * @returns void after the original path points at the reviewed target again.
- * @example
- * await restoreReviewedSymlink('/agent/task', '/agent/task.cleanup-1', '../source/task')
- */
-async function restoreReviewedSymlink(
-  linkPath: AbsolutePath,
-  quarantinePath: AbsolutePath,
-  rawTarget: string,
-): Promise<void> {
-  try {
-    // symlink() fails with EEXIST instead of overwriting a concurrent
-    // replacement at the reviewed path.
-    await fs.symlink(rawTarget, linkPath)
-    await fs.unlink(quarantinePath).catch(() => {
-      // The reviewed path is restored; leftover quarantine cleanup is best-effort.
-    })
-  } catch (error) {
-    const code = errorCode(error) ?? 'ESTALE'
-    throw new TrashError(
-      `Cleanup stopped, but the reviewed link could not be restored at ${linkPath}: ${extractErrorMessage(error)}`,
-      code,
-    )
-  }
-}
-
-/**
- * Move a quarantined non-reviewed entry back after validation proves it was not the reviewed symlink.
- * @param linkPath - Original reviewed agent slot path.
- * @param quarantinePath - Temporary path holding the entry moved by rename.
- * @returns void after the quarantined entry is restored or a detailed stale error is thrown.
- * @example
- * await restoreQuarantinedEntry('/agent/task', '/agent/task.cleanup-1')
- */
-async function restoreQuarantinedEntry(
-  linkPath: AbsolutePath,
-  quarantinePath: AbsolutePath,
-): Promise<void> {
-  try {
-    await fs.lstat(linkPath)
-    throw new TrashError(
-      `Cleanup stopped after the reviewed slot changed. Quarantined entry left at ${quarantinePath} because ${linkPath} is occupied.`,
-      'ESTALE',
-    )
-  } catch (error) {
-    if (error instanceof TrashError) throw error
-    if (!isMissingPathError(error)) {
-      throw new TrashError(
-        `Cleanup stopped, but ${linkPath} could not be checked before restoring quarantine: ${extractErrorMessage(error)}`,
-        errorCode(error),
-      )
-    }
-  }
-
-  try {
-    await fs.rename(quarantinePath, linkPath)
-  } catch (error) {
-    throw new TrashError(
-      `Cleanup stopped, but the quarantined entry could not be restored at ${linkPath}: ${extractErrorMessage(error)}`,
-      errorCode(error),
-    )
-  }
-}
-
-/**
- * Atomically quarantine, revalidate, and unlink one reviewed dangling symlink.
+ * Revalidate and unlink one reviewed dangling symlink without moving replacements.
  * @param options - Exact reviewed path/target plus messages for stale-target cases.
  * @returns `missing` when the slot was already gone; otherwise `unlinked`.
  * @example
@@ -124,59 +55,71 @@ async function unlinkReviewedDanglingSymlink(options: {
   targetProbePrefix: string
   beforeTargetProbe?: () => Promise<void>
 }): Promise<'missing' | 'unlinked'> {
-  const quarantinePath =
-    `${options.linkPath}.cleanup-${randomUUID()}` as AbsolutePath
+  let stats: Stats
   try {
-    await fs.rename(options.linkPath, quarantinePath)
+    stats = await fs.lstat(options.linkPath)
   } catch (error) {
     if (isMissingPathError(error)) return 'missing'
     throw new TrashError(extractErrorMessage(error), errorCode(error))
   }
 
-  let rawTarget: string | null = null
+  if (!stats.isSymbolicLink()) {
+    throw new TrashError(
+      'Reviewed cleanup slot is no longer a symlink',
+      'ESTALE',
+    )
+  }
+
+  let rawTarget: string
   try {
-    const stats = await fs.lstat(quarantinePath)
-    if (!stats.isSymbolicLink()) {
+    rawTarget = await fs.readlink(options.linkPath)
+  } catch (error) {
+    if (isMissingPathError(error)) return 'missing'
+    throw new TrashError(
+      'Reviewed cleanup slot is no longer a symlink',
+      'ESTALE',
+    )
+  }
+
+  const resolvedTarget = await resolveRawSymlinkTarget(
+    options.linkPath,
+    rawTarget,
+  )
+  if (resolve(resolvedTarget) !== resolve(options.targetPath)) {
+    throw new TrashError(options.targetChangedMessage, 'ESTALE')
+  }
+
+  await options.beforeTargetProbe?.()
+
+  try {
+    await fs.access(resolvedTarget)
+    throw new TrashError(options.targetExistsMessage, 'ESTALE')
+  } catch (error) {
+    if (error instanceof TrashError) throw error
+    if (!isMissingPathError(error)) {
+      throw new TrashError(
+        `${options.targetProbePrefix}: ${extractErrorMessage(error)}`,
+        errorCode(error),
+      )
+    }
+  }
+
+  try {
+    await fs.unlink(options.linkPath)
+  } catch (error) {
+    if (isMissingPathError(error)) return 'missing'
+    const code = errorCode(error)
+    // A concurrent folder replacement should never be moved or removed.
+    if (code === 'EISDIR' || code === 'EPERM' || code === 'EINVAL') {
       throw new TrashError(
         'Reviewed cleanup slot is no longer a symlink',
         'ESTALE',
       )
     }
-
-    rawTarget = await fs.readlink(quarantinePath)
-    const resolvedTarget = await resolveRawSymlinkTarget(
-      quarantinePath,
-      rawTarget,
-    )
-    if (resolve(resolvedTarget) !== resolve(options.targetPath)) {
-      throw new TrashError(options.targetChangedMessage, 'ESTALE')
-    }
-
-    await options.beforeTargetProbe?.()
-
-    try {
-      await fs.access(resolvedTarget)
-      throw new TrashError(options.targetExistsMessage, 'ESTALE')
-    } catch (error) {
-      if (error instanceof TrashError) throw error
-      if (!isMissingPathError(error)) {
-        throw new TrashError(
-          `${options.targetProbePrefix}: ${extractErrorMessage(error)}`,
-          errorCode(error),
-        )
-      }
-    }
-
-    await fs.unlink(quarantinePath)
-    return 'unlinked'
-  } catch (error) {
-    if (rawTarget !== null) {
-      await restoreReviewedSymlink(options.linkPath, quarantinePath, rawTarget)
-    } else {
-      await restoreQuarantinedEntry(options.linkPath, quarantinePath)
-    }
-    throw error
+    throw new TrashError(extractErrorMessage(error), code)
   }
+
+  return 'unlinked'
 }
 
 /**

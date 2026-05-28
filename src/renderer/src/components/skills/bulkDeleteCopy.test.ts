@@ -63,6 +63,38 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
+  it('warns when selected orphan rows require rescan before cleanup', () => {
+    // Arrange / Act
+    const description = renderBulkDeleteDescription({
+      totalCount: 1,
+      trashCount: 0,
+      orphanCleanupCount: 0,
+      orphanRescanCount: 1,
+      sourceSummary: null,
+    })
+
+    // Assert — stale orphan rows are not counted as cleanup-ready
+    expect(description).toBe(
+      'No selected orphan skills are cleanup-ready. 1 orphan skill needs a rescan before cleanup because the reviewed target identity is missing.',
+    )
+  })
+
+  it('keeps stale orphan copy separate from source-trash copy', () => {
+    // Arrange / Act
+    const description = renderBulkDeleteDescription({
+      totalCount: 2,
+      trashCount: 1,
+      orphanCleanupCount: 0,
+      orphanRescanCount: 1,
+      sourceSummary: null,
+    })
+
+    // Assert — only the source row promises trash/undo
+    expect(description).toBe(
+      'This moves 1 skill to the app trash with a 15-second restore window. 1 orphan skill needs a rescan before cleanup because the reviewed target identity is missing.',
+    )
+  })
+
   it('names the single in-scope repository', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({

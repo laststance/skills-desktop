@@ -603,6 +603,140 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
     })
     expect(mockSkillsDeleteSkills).not.toHaveBeenCalled()
   })
+
+  it('keeps failed source rows selected after mixed source and orphan delete', async () => {
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode, setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const sourceSkillName = 'source-task' as SkillName
+    const orphanSkillName = 'abandoned' as SkillName
+    const sourceSkill: Skill = {
+      name: sourceSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/source-task' as never,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+    const orphanSkill: Skill = {
+      name: orphanSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/abandoned' as never,
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'devin' as AgentId,
+          agentName: 'Devin' as never,
+          linkPath: '/Users/me/.config/devin/skills/abandoned' as never,
+          targetPath: '/Users/me/.agents/skills/abandoned' as never,
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: sourceSkillName,
+          outcome: 'error',
+          error: { message: 'Disk denied' },
+        },
+      ],
+    } satisfies BulkDeleteResult)
+    mockClearOrphanSymlinks.mockResolvedValue({
+      items: [
+        {
+          skillName: orphanSkillName,
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 1,
+          cascadeAgents: ['devin'],
+        },
+      ],
+    })
+
+    // Arrange: mixed batch has one retryable source failure and one orphan
+    // cleanup success; the source failure must stay selected for retry.
+    store.dispatch(fetchSkills.fulfilled([sourceSkill, orphanSkill], 'req-id'))
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection(sourceSkillName))
+    store.dispatch(toggleSelection(orphanSkillName))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [sourceSkillName, orphanSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockClearOrphanSymlinks.mock.calls.length).toBe(1)
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      sourceSkillName,
+    ])
+    expect(store.getState().ui.bulkSelectMode).toBe(true)
+  })
+
+  it('does not count stale orphan rows as cleanup-ready in delete confirmation', async () => {
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const orphanSkillName = 'stale-abandoned' as SkillName
+    const staleOrphanSkill: Skill = {
+      name: orphanSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/stale-abandoned' as never,
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'devin' as AgentId,
+          agentName: 'Devin' as never,
+          linkPath: '/Users/me/.config/devin/skills/stale-abandoned' as never,
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+
+    // Arrange
+    store.dispatch(fetchSkills.fulfilled([staleOrphanSkill], 'req-id'))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [orphanSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+      }),
+    )
+
+    // Assert
+    await expect
+      .element(
+        screen.getByText(
+          'No selected orphan skills are cleanup-ready. 1 orphan skill needs a rescan before cleanup because the reviewed target identity is missing.',
+        ),
+      )
+      .toBeVisible()
+    expect(
+      screen
+        .getByText(/removes reviewed dangling symlinks for 1 orphan skill/)
+        .query(),
+    ).toBeNull()
+  })
 })
 
 describe('MainContent SkillTypeFilter dropdown options', () => {

@@ -346,6 +346,9 @@ describe('SymlinkCleanupDialog', () => {
         ),
       )
       .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Rescan' }))
+      .toBeVisible()
     expect(screen.getByText(/Cleanup failed/).query()).toBeNull()
   })
 

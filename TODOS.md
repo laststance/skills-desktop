@@ -284,6 +284,38 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Show Rescan for error states as well, especially when no actionable plan is available.
 
+### P1. Mixed global Delete must preserve failed source rows
+
+**Status:** Fixed after third post-fix subagent review follow-up.
+
+**Finding:** Mixed global delete batches that include orphan cleanup clear selection and leave bulk mode before source-backed deletion resolves. If a source delete fails, the failed row no longer stays selected for retry.
+
+**Fix direction:** Clear selection eagerly only for true orphan-only batches, or reconcile final selection after both source delete and orphan cleanup so failed source rows remain selected.
+
+### P1. Complete-but-stale cleanup state needs a Rescan action
+
+**Status:** Fixed after third post-fix subagent review follow-up.
+
+**Finding:** When destructive cleanup succeeds but the post-cleanup dashboard refresh fails, the dialog says `Rescan to refresh the dashboard state` but the footer exposes only `Done`.
+
+**Fix direction:** Surface `Rescan` in the complete footer when the summary contains a post-cleanup refresh failure.
+
+### P1. Reviewed cleanup must not quarantine an unreviewed replacement
+
+**Status:** Fixed after third post-fix subagent review follow-up.
+
+**Finding:** The atomic quarantine path renames whatever currently occupies `linkPath` before proving it is still the reviewed symlink. If another process swaps in a local folder, a crash or restore failure can strand the user's folder under `.cleanup-*`.
+
+**Fix direction:** Avoid rename-first cleanup for paths that can become non-symlinks. Revalidate the reviewed symlink target immediately before unlinking, and treat non-symlink unlink failures as stale/manual rescan.
+
+### P2. Global Delete confirm copy must separate stale orphan rows
+
+**Status:** Fixed after third post-fix subagent review follow-up.
+
+**Finding:** The global delete confirmation counts preflight `orphanErrors` as actionable orphan cleanup, so stale orphan rows can be described as if they will remove reviewed dangling symlinks.
+
+**Fix direction:** Count only cleanup-ready orphan records as orphan cleanup and add a separate rescan warning for stale orphan rows.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

@@ -490,7 +490,7 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
     expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
   })
 
-  it('restores a local replacement quarantined by a swap before rename', async () => {
+  it('keeps a local replacement when a reviewed link becomes a folder before unlink', async () => {
     // Arrange
     const skillName = 'replacement-race-slot'
     const codexSkillsDir = join(tempHome, '.codex', 'skills')
@@ -503,12 +503,12 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
         await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
       return {
         ...actual,
-        rename: async (oldPath: string, newPath: string): Promise<void> => {
-          if (String(oldPath) === linkPath) {
+        unlink: async (path: string): Promise<void> => {
+          if (String(path) === linkPath) {
             await actual.rm(linkPath, { recursive: true, force: true })
             await actual.mkdir(linkPath, { recursive: true })
           }
-          return actual.rename(oldPath, newPath)
+          return actual.unlink(path)
         },
       }
     })

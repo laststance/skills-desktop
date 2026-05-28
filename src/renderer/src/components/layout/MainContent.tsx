@@ -593,12 +593,8 @@ export const MainContent = React.memo(
       const { deleteNames, orphanRecords, orphanErrors } =
         partitionGlobalDeleteTargets(skills, skillNames)
       const deleteItems: BulkDeleteItemResult[] = [...orphanErrors]
-      if (orphanRecords.length > 0 || orphanErrors.length > 0) {
-        // Orphan-only cleanup has no tombstone, so manually leave bulk mode in
-        // the same way the delete thunk's pending reducer would for source rows.
-        dispatch(clearSelection())
-        dispatch(exitBulkSelectMode())
-      }
+      const hasOrphanCleanupRows =
+        orphanRecords.length > 0 || orphanErrors.length > 0
 
       // Global view — normal skills still flow through the trash + UndoToast
       // pipeline. Orphan rows are not source skills, so they use exact reviewed
@@ -654,8 +650,21 @@ export const MainContent = React.memo(
         const failedNames = deleteItems
           .filter((item) => item.outcome === 'error')
           .map((item) => item.skillName)
+        const uniqueFailedNames = Array.from(new Set(failedNames))
 
-        flashFailedRows(failedNames)
+        flashFailedRows(uniqueFailedNames)
+        if (hasOrphanCleanupRows) {
+          // Orphan cleanup has no slice reducer, so reconcile its side effects
+          // after all paths settle: retryable rows stay selected, all-success
+          // batches leave bulk mode like source-delete success.
+          if (uniqueFailedNames.length > 0) {
+            dispatch(enterBulkSelectMode())
+            dispatch(selectAll(uniqueFailedNames))
+          } else {
+            dispatch(clearSelection())
+            dispatch(exitBulkSelectMode())
+          }
+        }
         refreshAllData(dispatch)
 
         if (tombstoneIds.length === 0) {
@@ -1087,8 +1096,9 @@ export const MainContent = React.memo(
                         bulkDeleteTargetSummary?.deleteNames.length ??
                         bulkConfirm.skillNames.length,
                       orphanCleanupCount:
-                        (bulkDeleteTargetSummary?.orphanRecords.length ?? 0) +
-                        (bulkDeleteTargetSummary?.orphanErrors.length ?? 0),
+                        bulkDeleteTargetSummary?.orphanRecords.length ?? 0,
+                      orphanRescanCount:
+                        bulkDeleteTargetSummary?.orphanErrors.length ?? 0,
                       sourceSummary: bulkConfirm.sourceSummary,
                     })
                   : `This removes the symlinks in ${bulkConfirm?.agentName ?? 'this agent'}. The underlying skill files stay in your source directory.`}

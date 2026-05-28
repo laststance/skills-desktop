@@ -389,6 +389,21 @@ function getRefreshFailureMessage(
 }
 
 /**
+ * Detects complete cleanup states whose dashboard refresh failed afterward.
+ * @param summary - Cleanup summary stored in dialog state.
+ * @returns True when the complete state should expose a direct rescan action.
+ * @example
+ * didCleanupRefreshFail({ phrases: ['Refresh failed after cleanup: offline.'], cleanedIssues: 1, orphanSymlinksRemoved: 0, brokenLinksUnlinked: 1, failedCount: 0 }) // => true
+ */
+function didCleanupRefreshFail(summary: CleanupSummary | null): boolean {
+  return (
+    summary?.phrases.some((phrase) =>
+      phrase.startsWith('Refresh failed after cleanup:'),
+    ) ?? false
+  )
+}
+
+/**
  * Aggregates bulk cleanup results into the compact final summary shown in the dialog.
  * @param params - Attempted item count and mutation results.
  * @returns Count and phrase summary for complete or partial-failure states.
@@ -799,6 +814,8 @@ export const SymlinkCleanupDialog = React.memo(
         />
       ))
       .exhaustive()
+    const completeNeedsRescan =
+      state.phase === 'complete' && didCleanupRefreshFail(state.summary)
 
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -822,7 +839,9 @@ export const SymlinkCleanupDialog = React.memo(
           <div className="min-h-0">{body}</div>
 
           <DialogFooter className="gap-2">
-            {state.phase === 'stale' || state.phase === 'error' ? (
+            {state.phase === 'stale' ||
+            state.phase === 'error' ||
+            completeNeedsRescan ? (
               <Button
                 type="button"
                 variant="outline"
@@ -940,10 +959,7 @@ interface CompleteSummaryProps {
 const CompleteSummary = React.memo(function CompleteSummary({
   summary,
 }: CompleteSummaryProps): React.ReactElement {
-  const didRefreshFail =
-    summary?.phrases.some((phrase) =>
-      phrase.startsWith('Refresh failed after cleanup:'),
-    ) ?? false
+  const didRefreshFail = didCleanupRefreshFail(summary)
   return (
     <div className="py-5 space-y-3 text-sm" role="status" aria-atomic="true">
       <div className="flex items-start gap-3">
