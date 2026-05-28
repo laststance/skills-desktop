@@ -90,7 +90,9 @@ export function getSkillItemVisibility(
     ? (symlinks.find(
         (s) =>
           s.agentId === selectedAgentId &&
-          (s.status === 'valid' || s.status === 'broken') &&
+          (s.status === 'valid' ||
+            s.status === 'broken' ||
+            s.status === 'inaccessible') &&
           !s.isLocal,
       ) ?? null)
     : null

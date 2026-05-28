@@ -19,6 +19,8 @@ const mockSyncExecute = vi.fn()
 const mockGetStats = vi.fn()
 const mockGetAll = vi.fn()
 const mockDeleteSkills = vi.fn()
+const mockClearOrphanSymlinks = vi.fn()
+const mockClearBrokenSymlinkSlots = vi.fn()
 const mockUnlinkManyFromAgent = vi.fn()
 
 vi.stubGlobal('window', {
@@ -33,6 +35,8 @@ vi.stubGlobal('window', {
     skills: {
       getAll: mockGetAll,
       deleteSkills: mockDeleteSkills,
+      clearOrphanSymlinks: mockClearOrphanSymlinks,
+      clearBrokenSymlinkSlots: mockClearBrokenSymlinkSlots,
       unlinkManyFromAgent: mockUnlinkManyFromAgent,
     },
   },
@@ -98,6 +102,76 @@ describe('uiSlice activeTab', () => {
     const { setActiveTab } = await import('./uiSlice')
     store.dispatch(setActiveTab('marketplace'))
     expect(store.getState().ui.activeTab).toBe('marketplace')
+  })
+})
+
+describe('uiSlice symlink cleanup dialog', () => {
+  it('starts with the Symlink Health cleanup dialog closed', async () => {
+    // Arrange
+    const store = await createTestStore()
+
+    // Act
+    const isOpen = store.getState().ui.symlinkCleanupDialogOpen
+
+    // Assert
+    expect(isOpen).toBe(false)
+  })
+
+  it('opens and closes the Symlink Health cleanup dialog', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { closeSymlinkCleanupDialog, openSymlinkCleanupDialog } =
+      await import('./uiSlice')
+
+    // Act
+    store.dispatch(openSymlinkCleanupDialog())
+    const openState = store.getState().ui.symlinkCleanupDialogOpen
+    store.dispatch(closeSymlinkCleanupDialog())
+    const closedState = store.getState().ui.symlinkCleanupDialogOpen
+
+    // Assert
+    expect(openState).toBe(true)
+    expect(closedState).toBe(false)
+  })
+
+  it('setActiveTab closes the Symlink Health cleanup dialog', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { openSymlinkCleanupDialog, setActiveTab } = await import('./uiSlice')
+    store.dispatch(openSymlinkCleanupDialog())
+
+    // Act
+    store.dispatch(setActiveTab('marketplace'))
+
+    // Assert
+    expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(false)
+  })
+
+  it('selectAgent closes the Symlink Health cleanup dialog', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { openSymlinkCleanupDialog, selectAgent } = await import('./uiSlice')
+    store.dispatch(openSymlinkCleanupDialog())
+
+    // Act
+    store.dispatch(selectAgent('cursor'))
+
+    // Assert
+    expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(false)
+  })
+
+  it('setCleanupAgentTarget closes the Symlink Health cleanup dialog', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { openSymlinkCleanupDialog, setCleanupAgentTarget } =
+      await import('./uiSlice')
+    store.dispatch(openSymlinkCleanupDialog())
+
+    // Act
+    store.dispatch(setCleanupAgentTarget('cursor'))
+
+    // Assert
+    expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(false)
   })
 })
 
@@ -770,6 +844,26 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     await promise
   })
 
+  it('deleteSelectedSkills.pending preserves the Symlink Health cleanup dialog it may be running inside', async () => {
+    const store = await createCombinedStore()
+    const { openSymlinkCleanupDialog } = await import('./uiSlice')
+    const { deleteSelectedSkills } = await import('./skillsSlice')
+    store.dispatch(openSymlinkCleanupDialog())
+
+    let resolve!: (value: BulkDeleteResult) => void
+    mockDeleteSkills.mockReturnValue(
+      new Promise<BulkDeleteResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(deleteSelectedSkills(['a']))
+
+    expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(true)
+
+    resolve({ items: [] })
+    await promise
+  })
+
   it('unlinkSelectedFromAgent.pending atomically clears all ephemeral UI state', async () => {
     const store = await createCombinedStore()
     await seedAllEphemeralState(store)
@@ -793,6 +887,31 @@ describe('uiSlice atomic-clear contract on context switch', () => {
       undoToast: null,
       bulkConfirm: null,
     })
+
+    resolve({ items: [] })
+    await promise
+  })
+
+  it('unlinkSelectedFromAgent.pending preserves the Symlink Health cleanup dialog it may be running inside', async () => {
+    const store = await createCombinedStore()
+    const { openSymlinkCleanupDialog } = await import('./uiSlice')
+    const { unlinkSelectedFromAgent } = await import('./skillsSlice')
+    store.dispatch(openSymlinkCleanupDialog())
+
+    let resolve!: (value: BulkUnlinkResult) => void
+    mockUnlinkManyFromAgent.mockReturnValue(
+      new Promise<BulkUnlinkResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(
+      unlinkSelectedFromAgent({
+        agentId: 'cursor' as AgentId,
+        selectedNames: ['a'],
+      }),
+    )
+
+    expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(true)
 
     resolve({ items: [] })
     await promise

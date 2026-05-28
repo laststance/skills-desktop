@@ -87,6 +87,56 @@ declare global {
               }
             | {
                 skillName: string
+                outcome: 'orphan-cleared'
+                symlinksRemoved: number
+                cascadeAgents: string[]
+              }
+            | {
+                skillName: string
+                outcome: 'error'
+                error: { message: string; code?: string }
+              }
+          >
+        }>
+        clearOrphanSymlinks: (options: {
+          items: Array<{
+            skillName: string
+            agents: Array<{ agentId: string; linkPath: string }>
+          }>
+        }) => Promise<{
+          items: Array<
+            | {
+                skillName: string
+                outcome: 'orphan-cleared'
+                symlinksRemoved: number
+                cascadeAgents: string[]
+              }
+            | {
+                skillName: string
+                outcome: 'error'
+                error: { message: string; code?: string }
+              }
+          >
+        }>
+        clearBrokenSymlinkSlots: (options: {
+          items: Array<{
+            agentId: string
+            skillName: string
+            linkPath: string
+            targetPath: string
+          }>
+        }) => Promise<{
+          items: Array<
+            | {
+                agentId: string
+                skillName: string
+                linkPath: string
+                outcome: 'unlinked'
+              }
+            | {
+                agentId: string
+                skillName: string
+                linkPath: string
                 outcome: 'error'
                 error: { message: string; code?: string }
               }

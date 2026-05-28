@@ -9,7 +9,7 @@ import type { z } from 'zod'
 
 import { AGENTS, SOURCE_DIR } from '@/main/constants'
 import { manifestSchema } from '@/main/ipc/ipc-schemas'
-import { errorCode } from '@/main/utils/errorCode'
+import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
 import { extractErrorMessage } from '@/main/utils/errors'
 import { UNDO_WINDOW_MS } from '@/shared/constants'
 import { tombstoneId } from '@/shared/types'
@@ -23,6 +23,7 @@ import type {
 } from '@/shared/types'
 
 import { getAllowedBases, validatePath } from './pathValidation'
+import { resolveRawSymlinkTarget } from './symlinkChecker'
 
 /** Root of the on-disk trash. Created lazily on first delete. */
 const TRASH_DIR = join(homedir(), '.agents', '.trash')
@@ -329,9 +330,7 @@ async function scanOrphanSymlinkPaths(
 
     // Probe target. `readlink` returns the verbatim string used at create
     // time — relative targets must be resolved against the link's own dir.
-    const resolvedTarget = isAbsolute(target)
-      ? target
-      : resolve(dirname(linkPath), target)
+    const resolvedTarget = await resolveRawSymlinkTarget(linkPath, target)
     try {
       await fs.access(resolvedTarget)
       // Target resolves — not orphan. Skip.
@@ -343,8 +342,7 @@ async function scanOrphanSymlinkPaths(
       // as orphan would let the subsequent `unlink` delete a working symlink
       // a privileged process needs, so we log + skip and leave the entry
       // for the user to investigate.
-      const code = errorCode(error)
-      if (code === 'ENOENT' || code === 'ENOTDIR') {
+      if (isMissingPathError(error)) {
         orphans.push({
           agentId: agent.id,
           linkPath: linkPath as AbsolutePath,
@@ -356,7 +354,7 @@ async function scanOrphanSymlinkPaths(
         agentId: agent.id,
         linkPath,
         resolvedTarget,
-        code,
+        code: errorCode(error),
         message: extractErrorMessage(error),
       })
     }

@@ -98,7 +98,10 @@ afterEach(() => {
  * @param selectedAgentId - Optional selected agent; when present, Location shows both source and symlink paths.
  * @returns Render handle and Redux store.
  */
-async function renderSkillDetail(selectedAgentId: AgentId | null = null) {
+async function renderSkillDetail(
+  selectedAgentId: AgentId | null = null,
+  skill: Skill = makeSkill(),
+) {
   const { default: settingsReducer } =
     await import('@/renderer/src/redux/slices/settingsSlice')
   const { setSettings } =
@@ -131,7 +134,7 @@ async function renderSkillDetail(selectedAgentId: AgentId | null = null) {
 
   const screen = await render(
     <Provider store={store}>
-      <SkillDetail skill={makeSkill()} />
+      <SkillDetail skill={skill} />
     </Provider>,
   )
 
@@ -173,5 +176,29 @@ describe('SkillDetail Info path copy', () => {
     await expect
       .poll(() => toastErrorMock.mock.calls[0]?.[0])
       .toBe('Failed to copy path')
+  })
+
+  it('counts inaccessible symlinks separately in the info summary', async () => {
+    // Arrange
+    const skill = makeSkill()
+    skill.symlinks = [
+      {
+        agentId: 'cursor' as AgentId,
+        agentName: 'Cursor',
+        status: 'inaccessible',
+        targetPath: SOURCE_PATH,
+        linkPath: CURSOR_PATH,
+        isLocal: false,
+      },
+    ]
+
+    // Act
+    const { screen } = await renderSkillDetail(null, skill)
+
+    // Assert
+    await expect.element(screen.getByText('Valid:')).toBeInTheDocument()
+    await expect.element(screen.getByText('Broken:')).toBeInTheDocument()
+    await expect.element(screen.getByText('Inaccessible:')).toBeInTheDocument()
+    await expect.element(screen.getByText('1')).toBeInTheDocument()
   })
 })

@@ -156,6 +156,34 @@ describe('SkillItem bulk-select checkbox visibility', () => {
   })
 })
 
+describe('SkillItem symlink status badges', () => {
+  it('shows inaccessible slots instead of treating them as unlinked', async () => {
+    // Arrange
+    const inaccessibleSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'inaccessible',
+          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          targetPath:
+            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          isLocal: false,
+        },
+      ],
+    })
+
+    // Act
+    const { screen } = await renderSkillItem(inaccessibleSkill)
+
+    // Assert
+    await expect
+      .element(screen.getByLabelText('Inaccessible: 1'))
+      .toBeInTheDocument()
+    expect(screen.getByText('Not linked to any agent').query()).toBeNull()
+  })
+})
+
 describe('SkillItem delete button', () => {
   // Every skill — including ones tracked in `~/.agents/.skill-lock.json` via a
   // `source` field — opens the same trash + UndoToast dialog. The CLI removal

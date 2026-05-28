@@ -14,6 +14,8 @@ describe('IPC contract alignment', () => {
       [IPC_CHANNELS.SKILLS_CREATE_SYMLINKS]: true,
       [IPC_CHANNELS.SKILLS_COPY_TO_AGENTS]: true,
       [IPC_CHANNELS.SKILLS_DELETE_BATCH]: true,
+      [IPC_CHANNELS.SKILLS_CLEAR_ORPHAN_SYMLINKS]: true,
+      [IPC_CHANNELS.SKILLS_CLEAR_BROKEN_SYMLINK_SLOTS]: true,
       [IPC_CHANNELS.SKILLS_UNLINK_MANY_FROM_AGENT]: true,
       [IPC_CHANNELS.SKILLS_RESTORE_DELETED]: true,
       [IPC_CHANNELS.AGENTS_GET_ALL]: true,
@@ -44,7 +46,7 @@ describe('IPC contract alignment', () => {
     // IPC channel (input validation, authz scope, side-effect blast radius).
     // The `satisfies` clause above is a structural guard; this length check is
     // the trip-wire that forces a human PR diff when a channel is added.
-    expect(Object.keys(invokeMapping)).toHaveLength(30)
+    expect(Object.keys(invokeMapping)).toHaveLength(32)
   })
 
   it('all IPC_CHANNELS event values are valid event contract keys', () => {

@@ -6,18 +6,27 @@ import type { IpcMainInvokeEvent } from 'electron'
 import { shell } from 'electron'
 import { match } from 'ts-pattern'
 
-import { AGENTS, findAgentById, isSharedAgentPath } from '@/main/constants'
+import {
+  AGENTS,
+  SOURCE_DIR,
+  findAgentById,
+  isSharedAgentPath,
+} from '@/main/constants'
 import { getAllowedBases, validatePath } from '@/main/services/pathValidation'
 import { scanSkills } from '@/main/services/skillScanner'
+import { resolveRawSymlinkTarget } from '@/main/services/symlinkChecker'
 import { moveToTrash, restore, TrashError } from '@/main/services/trashService'
-import { errorCode } from '@/main/utils/errorCode'
+import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
 import { extractErrorMessage } from '@/main/utils/errors'
 import { BULK_PROGRESS_THRESHOLD } from '@/shared/constants'
 import { IPC_CHANNELS } from '@/shared/ipc-channels'
 import type {
   AbsolutePath,
+  AgentId,
   BulkDeleteItemResult,
   BulkDeleteResult,
+  ClearBrokenSymlinkSlotItemResult,
+  ClearOrphanSymlinkItemResult,
   BulkUnlinkItemResult,
   BulkUnlinkResult,
   RestoreDeletedSkillResult,
@@ -119,6 +128,268 @@ async function removeFromAgent(
       success: false,
       error: extractErrorMessage(error),
       code: errorCode(error),
+    }
+  }
+}
+
+/**
+ * Removes one reviewed broken symlink slot after rechecking exact slot path and target identity.
+ * @param item - Reviewed broken-slot target from Symlink Health cleanup.
+ * @returns Per-slot unlink result.
+ * @example
+ * await clearReviewedBrokenSymlinkSlot({ agentId: 'codex', skillName: 'task', linkPath: '/Users/me/.codex/skills/task', targetPath: '/Users/me/.agents/skills/task' })
+ */
+async function clearReviewedBrokenSymlinkSlot(item: {
+  agentId: AgentId
+  skillName: SkillName
+  linkPath: AbsolutePath
+  targetPath: AbsolutePath
+}): Promise<ClearBrokenSymlinkSlotItemResult> {
+  try {
+    const agent = findAgentById(item.agentId)
+    if (!agent) throw new TrashError('Agent not found', 'ENOENT')
+
+    const expectedLinkPath = resolve(agent.path, item.skillName)
+    if (resolve(item.linkPath) !== expectedLinkPath) {
+      throw new TrashError(
+        'Reviewed broken link path no longer matches agent slot',
+        'ESTALE',
+      )
+    }
+
+    validatePath(dirname(item.linkPath), [agent.path])
+
+    let stats: Stats
+    try {
+      stats = await fs.lstat(item.linkPath)
+    } catch (error) {
+      if (isMissingPathError(error)) {
+        return {
+          agentId: item.agentId,
+          skillName: item.skillName,
+          linkPath: item.linkPath,
+          outcome: 'unlinked',
+        }
+      }
+      throw new TrashError(extractErrorMessage(error), errorCode(error))
+    }
+
+    if (!stats.isSymbolicLink()) {
+      throw new TrashError(
+        'Reviewed broken slot is no longer a symlink',
+        'ESTALE',
+      )
+    }
+
+    const rawTarget = await fs.readlink(item.linkPath)
+    const resolvedTarget = await resolveRawSymlinkTarget(
+      item.linkPath,
+      rawTarget,
+    )
+    if (resolve(resolvedTarget) !== resolve(item.targetPath)) {
+      throw new TrashError(
+        'Reviewed broken link target changed. Rescan before cleanup.',
+        'ESTALE',
+      )
+    }
+
+    try {
+      await fs.access(resolvedTarget)
+      throw new TrashError(
+        'Reviewed broken link target now exists. Rescan before cleanup.',
+        'ESTALE',
+      )
+    } catch (error) {
+      if (error instanceof TrashError) throw error
+      if (!isMissingPathError(error)) {
+        throw new TrashError(
+          `Cannot verify broken link target: ${extractErrorMessage(error)}`,
+          errorCode(error),
+        )
+      }
+    }
+
+    await fs.unlink(item.linkPath)
+    return {
+      agentId: item.agentId,
+      skillName: item.skillName,
+      linkPath: item.linkPath,
+      outcome: 'unlinked',
+    }
+  } catch (error) {
+    const message =
+      error instanceof TrashError ? error.message : extractErrorMessage(error)
+    const code = error instanceof TrashError ? error.code : errorCode(error)
+    return {
+      agentId: item.agentId,
+      skillName: item.skillName,
+      linkPath: item.linkPath,
+      outcome: 'error',
+      error: code ? { message, code } : { message },
+    }
+  }
+}
+
+/**
+ * Finds live filesystem entries that make orphan-only cleanup unsafe for one skill name.
+ * @param skillName - Agent-side skill directory name selected in the cleanup dialog.
+ * @returns Null when only symlinks/missing slots remain; otherwise a user-facing stale-plan reason.
+ * @example
+ * await findOrphanCleanupBlocker('abandoned') // => null
+ */
+async function findOrphanCleanupBlocker(
+  skillName: SkillName,
+): Promise<string | null> {
+  const sourcePath = join(SOURCE_DIR, skillName)
+  try {
+    await fs.lstat(sourcePath)
+    return 'Source skill exists. Rescan before cleanup.'
+  } catch (error) {
+    if (!isMissingPathError(error)) {
+      return `Cannot verify source skill: ${extractErrorMessage(error)}`
+    }
+  }
+
+  for (const agent of AGENTS) {
+    const agentSkillPath = join(agent.path, skillName)
+    try {
+      const stats = await fs.lstat(agentSkillPath)
+      if (stats.isSymbolicLink()) continue
+      if (stats.isDirectory()) {
+        return `${agent.name} has a local skill folder. Rescan before cleanup.`
+      }
+      return `${agent.name} has a non-symlink entry. Rescan before cleanup.`
+    } catch (error) {
+      if (isMissingPathError(error)) continue
+      return `Cannot verify ${agent.name}: ${extractErrorMessage(error)}`
+    }
+  }
+
+  return null
+}
+
+/**
+ * Removes one reviewed orphan symlink after rechecking the exact agent slot and dangling target.
+ * @param skillName - Skill name whose source is expected to be absent.
+ * @param reviewedLink - Agent and link path reviewed by the renderer.
+ * @returns Removed agent id when the link was unlinked or already gone.
+ * @example
+ * await clearReviewedOrphanLink('abandoned', { agentId: 'codex', linkPath: '/Users/me/.codex/skills/abandoned' })
+ */
+async function clearReviewedOrphanLink(
+  skillName: SkillName,
+  reviewedLink: { agentId: AgentId; linkPath: AbsolutePath },
+): Promise<AgentId> {
+  const agent = findAgentById(reviewedLink.agentId)
+  if (!agent) {
+    throw new TrashError('Agent not found', 'ENOENT')
+  }
+
+  const expectedLinkPath = resolve(agent.path, skillName)
+  if (resolve(reviewedLink.linkPath) !== expectedLinkPath) {
+    throw new TrashError(
+      'Reviewed link path no longer matches agent slot',
+      'ESTALE',
+    )
+  }
+
+  validatePath(dirname(reviewedLink.linkPath), [agent.path])
+
+  let stats: Stats
+  try {
+    stats = await fs.lstat(reviewedLink.linkPath)
+  } catch (error) {
+    if (isMissingPathError(error)) return agent.id
+    throw new TrashError(extractErrorMessage(error), errorCode(error))
+  }
+  if (!stats.isSymbolicLink()) {
+    throw new TrashError(
+      'Reviewed orphan slot is no longer a symlink',
+      'ESTALE',
+    )
+  }
+
+  let rawTarget: string
+  try {
+    rawTarget = await fs.readlink(reviewedLink.linkPath)
+  } catch (error) {
+    if (isMissingPathError(error)) return agent.id
+    throw new TrashError(extractErrorMessage(error), errorCode(error))
+  }
+  const resolvedTarget = await resolveRawSymlinkTarget(
+    reviewedLink.linkPath,
+    rawTarget,
+  )
+  try {
+    await fs.access(resolvedTarget)
+    throw new TrashError(
+      'Reviewed orphan link target now exists. Rescan before cleanup.',
+      'ESTALE',
+    )
+  } catch (error) {
+    if (error instanceof TrashError) throw error
+    if (!isMissingPathError(error)) {
+      throw new TrashError(
+        `Cannot verify orphan target: ${extractErrorMessage(error)}`,
+        errorCode(error),
+      )
+    }
+  }
+
+  const blocker = await findOrphanCleanupBlocker(skillName)
+  if (blocker) {
+    throw new TrashError(blocker, 'ESTALE')
+  }
+
+  try {
+    await fs.unlink(reviewedLink.linkPath)
+  } catch (error) {
+    if (!isMissingPathError(error)) {
+      throw new TrashError(extractErrorMessage(error), errorCode(error))
+    }
+  }
+
+  return agent.id
+}
+
+/**
+ * Clears one reviewed orphan record without ever calling source-delete paths.
+ * @param item - Skill name plus the exact orphan agent links selected in the dialog.
+ * @returns Per-item cleanup outcome for the dialog summary.
+ * @example
+ * await clearReviewedOrphanRecord({ skillName: 'abandoned', agents: [{ agentId: 'codex', linkPath: '/Users/me/.codex/skills/abandoned' }] })
+ */
+async function clearReviewedOrphanRecord(item: {
+  skillName: SkillName
+  agents: Array<{ agentId: AgentId; linkPath: AbsolutePath }>
+}): Promise<ClearOrphanSymlinkItemResult> {
+  try {
+    const blocker = await findOrphanCleanupBlocker(item.skillName)
+    if (blocker) {
+      throw new TrashError(blocker, 'ESTALE')
+    }
+
+    const cascadeAgents: AgentId[] = []
+    for (const reviewedLink of item.agents) {
+      cascadeAgents.push(
+        await clearReviewedOrphanLink(item.skillName, reviewedLink),
+      )
+    }
+
+    return {
+      skillName: item.skillName,
+      outcome: 'orphan-cleared',
+      symlinksRemoved: cascadeAgents.length,
+      cascadeAgents,
+    }
+  } catch (error) {
+    const message =
+      error instanceof TrashError ? error.message : extractErrorMessage(error)
+    const code = error instanceof TrashError ? error.code : errorCode(error)
+    return {
+      skillName: item.skillName,
+      outcome: 'error',
+      error: code ? { message, code } : { message },
     }
   }
 }
@@ -343,6 +614,41 @@ export function registerSkillsHandlers(): void {
 
       const result: BulkDeleteResult = { items: results }
       return result
+    },
+  )
+
+  /**
+   * Clear reviewed orphan symlinks without calling the source-delete path.
+   * Revalidates the exact agent slots in main so a stale renderer plan cannot
+   * delete live source skills or unrelated local folders.
+   * @param options - orphan records and exact agent link paths reviewed by the user
+   * @returns Per-orphan cleanup outcomes with no tombstones
+   * @example clearOrphanSymlinks({ items: [{ skillName: 'abandoned', agents: [...] }] })
+   */
+  typedHandle(IPC_CHANNELS.SKILLS_CLEAR_ORPHAN_SYMLINKS, async (_, options) => {
+    const results: ClearOrphanSymlinkItemResult[] = []
+    for (const item of options.items) {
+      results.push(await clearReviewedOrphanRecord(item))
+    }
+    return { items: results }
+  })
+
+  /**
+   * Clear reviewed broken symlink slots with exact main-process revalidation.
+   * Unlike generic unlink, this cleanup-only path refuses live, changed, or
+   * inaccessible targets so restored user links are never removed.
+   * @param options - exact broken slots selected in Symlink Health cleanup
+   * @returns Per-slot unlink outcomes
+   * @example clearBrokenSymlinkSlots({ items: [{ agentId: 'codex', skillName: 'task', linkPath, targetPath }] })
+   */
+  typedHandle(
+    IPC_CHANNELS.SKILLS_CLEAR_BROKEN_SYMLINK_SLOTS,
+    async (_, options) => {
+      const results: ClearBrokenSymlinkSlotItemResult[] = []
+      for (const item of options.items) {
+        results.push(await clearReviewedBrokenSymlinkSlot(item))
+      }
+      return { items: results }
     },
   )
 

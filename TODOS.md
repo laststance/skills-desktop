@@ -2,6 +2,128 @@
 
 Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
+## Symlink Health cleanup subagent review follow-ups (2026-05-28)
+
+### P0. Orphan cleanup must not reuse source skill deletion
+
+**Status:** Fixed in this branch.
+
+**Finding:** The Symlink Health dialog currently calls the generic source-delete flow for orphan cleanup. If a source skill is restored between scan and cleanup, or if the reviewed display name does not match the destructive link name, cleanup can delete a live source skill instead of unlinking only dangling agent links.
+
+**Fix direction:** Add an orphan-only main-process IPC path that revalidates selected dangling symlink paths, refuses when source/local copies exist, and only unlinks confirmed orphan agent links.
+
+### P0. Stale-plan guard must compare reviewed cleanup snapshots
+
+**Status:** Fixed in this branch.
+
+**Finding:** The stale-plan check only verifies that selected item IDs still exist. The same ID can later represent a different agent/link path/target, so cleanup can act on rows the user did not review.
+
+**Fix direction:** Compare full selected snapshots against the fresh plan before mutation, and execute from the fresh matched rows.
+
+### P1. Inaccessible symlink targets must not be treated as cleanup-ready broken links
+
+**Status:** Fixed in this branch.
+
+**Finding:** `access()` failures are all classified as `broken`, including `EACCES`, `EPERM`, and `ELOOP`. The cleanup UI can then offer a symlink to a real but inaccessible target for unlinking.
+
+**Fix direction:** Classify only `ENOENT` and `ENOTDIR` as cleanup-eligible broken targets. Represent other access failures as non-cleanup-safe and exclude them from cleanup.
+
+### P1. Relative target resolution must match between scan and destructive cleanup
+
+**Status:** Fixed in this branch.
+
+**Finding:** The scanner resolves relative readlink targets against the physical parent directory, but the orphan sweep in `trashService` still resolves against the logical symlink path parent. Under symlinked parents, scan and cleanup can disagree.
+
+**Fix direction:** Share the physical-parent resolver between scanner and cleanup code and cover it with a real filesystem test.
+
+### P1. Add missing destructive-flow regression tests
+
+**Status:** Fixed in this branch.
+
+**Finding:** Current E2E covers a valid Devin symlink under symlinked `~/.config` and a generic cleanup unlink, but not the combined case: broken Devin symlink under symlinked `~/.config` cleaned through the UI.
+
+**Fix direction:** Add E2E coverage that cleans a broken Devin slot under symlinked `~/.config`, preserves the source skill, preserves the `~/.config` symlink, and removes only the selected agent link.
+
+### P1. Add stale-plan and partial-failure dialog coverage
+
+**Status:** Fixed in this branch.
+
+**Finding:** Stale plan and partial failure branches are destructive-flow guards, but dialog-level tests do not cover them.
+
+**Fix direction:** Add browser/component tests proving stale cleanup does not call destructive IPC, and partial failure keeps failed rows selected with visible row errors.
+
+### P2. Dialog state and accessibility polish
+
+**Status:** Fixed in this branch.
+
+**Finding:** Partial failure renders from the old plan after refresh, scans are not generation-guarded, the close button remains focusable during cleaning, close autofocus can fall through when the trigger disappears, and the live region wraps the whole interactive body.
+
+**Fix direction:** Rebuild error state from fresh plan, guard late scan results, hide/disable the close affordance while cleaning, always prevent close autofocus with a stable fallback target, and move live announcements to status/error-only nodes.
+
+### P0. Broken-slot cleanup must revalidate exact reviewed symlink in main
+
+**Status:** Fixed in follow-up amend.
+
+**Finding:** The post-fix subagent review found that non-orphan broken-slot cleanup still called generic `unlinkManyFromAgent` with only `agentId + linkName`. A source/target restored after renderer fresh-scan could turn a reviewed dangling slot into a live symlink before main unlinks it.
+
+**Fix direction:** Add a broken-slot cleanup IPC that receives exact `agentId`, `linkName`, `linkPath`, and `targetPath`, then main revalidates slot path, symlink kind, resolved target equality, and missing-target error before unlinking.
+
+### P1. Partial-failure retry state must compare fresh row snapshots
+
+**Status:** Fixed in follow-up amend.
+
+**Finding:** Partial failure rendering rebuilt from fresh plan but only retained failed row IDs. If the same ID now represented a different path/target, row errors and retry selection could attach to the wrong target.
+
+**Fix direction:** Compare failed attempted rows against the post-cleanup plan with the same full snapshot matcher; stale out if any failed row no longer matches.
+
+### P2. Inaccessible-only health state must not say Healthy
+
+**Status:** Fixed in follow-up amend.
+
+**Finding:** HealthWidget counted inaccessible slots in the amber/degraded health ratio but still rendered `Healthy` when `broken === 0`.
+
+**Fix direction:** Render a non-cleanup manual-review state for inaccessible-only attention and add browser coverage.
+
+### P0. Missing-path helper must not parse path text for ENOENT
+
+**Status:** Fixed after second subagent review.
+
+**Finding:** `isMissingPathError` falls back to `error.message.includes('ENOENT')`, so an `EACCES`/`EPERM` path containing the text `ENOENT` can be misclassified as a missing target and become cleanup-eligible.
+
+**Fix direction:** Trust Node filesystem `error.code` only, and add a regression where `code: 'EACCES'` plus an `ENOENT` path returns inaccessible/manual-review.
+
+### P0. Broken-slot cleanup results must preserve reviewed row identity
+
+**Status:** Fixed after second subagent review.
+
+**Finding:** `skills:clearBrokenSymlinkSlots` returns only `skillName`, and the dialog reconstructs failed row ownership with `find(linkName)`. Two agents with the same broken basename can attach an error/retry selection to the wrong row.
+
+**Fix direction:** Return `agentId` and `linkPath` for each broken-slot result and group renderer summaries by the returned agent identity, not by skill name.
+
+### P1. Inaccessible slots must not render as unlinked in skill views
+
+**Status:** Fixed after second subagent review.
+
+**Finding:** `SkillItem` and `SkillDetail` count only `valid` and `broken`, so a skill with only `inaccessible` slots can say `Not linked to any agent` and under-report the manual-review state.
+
+**Fix direction:** Count and display inaccessible slots as their own amber/manual-review status in both summary and detail views.
+
+### P2. Dialog live-region and pending-cleaning coverage
+
+**Status:** Fixed after second subagent review.
+
+**Finding:** The ready live region is always mounted, including scan/clean phases, and browser tests do not hold cleanup pending to assert the cleaning state.
+
+**Fix direction:** Render the ready announcement only while the review list is shown, and add a deferred-IPC browser test for pending cleanup UI.
+
+### P1. HealthWidget must not label inaccessible slots as broken
+
+**Status:** Fixed after final subagent review.
+
+**Finding:** The HealthWidget footer correctly says `Manual review` for inaccessible-only state, but the health bar aria-label and legend still aggregate `broken + inaccessible` under the word `broken`.
+
+**Fix direction:** Use neutral `needs review` wording for the amber segment and add browser coverage so inaccessible-only state is not announced as broken.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

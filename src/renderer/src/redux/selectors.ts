@@ -41,7 +41,7 @@ interface RepoFacetOption {
  * Detect whether one scanner slot belongs to the active agent list.
  * @param slot - Symlink slot emitted by the skill scanner.
  * @param selectedAgentId - Agent currently selected in the Installed view.
- * @returns True for valid or broken slots that should appear in that agent.
+ * @returns True for occupied slots that should appear in that agent.
  * @example
  * isSelectedAgentSlot(skill.symlinks[0], 'cursor')
  */
@@ -51,7 +51,9 @@ function isSelectedAgentSlot(
 ): boolean {
   return (
     slot.agentId === selectedAgentId &&
-    (slot.status === 'valid' || slot.status === 'broken')
+    (slot.status === 'valid' ||
+      slot.status === 'broken' ||
+      slot.status === 'inaccessible')
   )
 }
 

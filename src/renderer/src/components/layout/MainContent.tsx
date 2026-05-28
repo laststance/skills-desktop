@@ -10,6 +10,7 @@ import {
 import React, { useCallback, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 
+import { SymlinkCleanupDialog } from '@/renderer/src/components/dashboard/SymlinkCleanupDialog'
 import { SkillsMarketplace } from '@/renderer/src/components/marketplace'
 import { CleanupAgentDialog } from '@/renderer/src/components/sidebar/CleanupAgentDialog'
 import { SyncConfirmDialog } from '@/renderer/src/components/sidebar/SyncConfirmDialog'
@@ -929,6 +930,7 @@ export const MainContent = React.memo(
         <SyncConflictDialog />
         <SyncResultDialog />
         <CleanupAgentDialog />
+        <SymlinkCleanupDialog />
 
         {/*
           Bulk delete / unlink confirmation. Copy is driven by

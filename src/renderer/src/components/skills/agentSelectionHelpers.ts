@@ -4,7 +4,7 @@ import type { Agent, AgentId, SymlinkInfo } from '@/shared/types'
  * Why an agent row is unavailable as a destination in Add/Copy flows.
  * - `linked`: a valid symlink already exists
  * - `local`: a real directory already exists in the agent's skills dir
- * - `broken`: a broken symlink occupies the destination path
+ * - `broken`: a broken or inaccessible symlink occupies the destination path
  */
 export type OccupiedAgentReason = 'linked' | 'local' | 'broken'
 
@@ -193,6 +193,10 @@ function getOccupiedAgentReason(
   }
 
   if (symlink.status === 'broken') {
+    return 'broken'
+  }
+
+  if (symlink.status === 'inaccessible') {
     return 'broken'
   }
 

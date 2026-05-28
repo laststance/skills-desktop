@@ -17,6 +17,8 @@ const mockUnlinkFromAgent = vi.fn()
 const mockCreateSymlinks = vi.fn()
 const mockCopyToAgents = vi.fn()
 const mockDeleteSkills = vi.fn()
+const mockClearOrphanSymlinks = vi.fn()
+const mockClearBrokenSymlinkSlots = vi.fn()
 const mockUnlinkManyFromAgent = vi.fn()
 const mockRestoreDeletedSkill = vi.fn()
 const mockOnDeleteProgress = vi.fn()
@@ -29,6 +31,8 @@ vi.stubGlobal('window', {
       createSymlinks: mockCreateSymlinks,
       copyToAgents: mockCopyToAgents,
       deleteSkills: mockDeleteSkills,
+      clearOrphanSymlinks: mockClearOrphanSymlinks,
+      clearBrokenSymlinkSlots: mockClearBrokenSymlinkSlots,
       unlinkManyFromAgent: mockUnlinkManyFromAgent,
       restoreDeletedSkill: mockRestoreDeletedSkill,
       onDeleteProgress: mockOnDeleteProgress,

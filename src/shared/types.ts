@@ -269,6 +269,7 @@ export interface SymlinkInfo {
    * Where the symlink points to (skill source directory). Omitted when no
    * symlink exists for this agent (`status === 'missing'`) or the entry is a
    * real local folder (`isLocal === true`) — both have no target to record.
+   * Inaccessible symlinks still record their target when `readlink` succeeds.
    * @example "/Users/me/.agents/skills/tdd-workflow"
    */
   targetPath?: AbsolutePath
@@ -292,18 +293,20 @@ export interface SymlinkInfo {
 /**
  * Symlink state between a skill source and an agent's skills directory.
  * Surfaced in `SymlinkInfo.status` and color-coded in the UI:
- * `--success` (green) for valid, amber for broken, `--muted-foreground`
- * for missing — the status drives every status-at-a-glance affordance.
+ * `--success` (green) for valid, amber for broken/inaccessible,
+ * `--muted-foreground` for missing — the status drives every
+ * status-at-a-glance affordance.
  *
  * - `valid`: symlink exists and points to a present source skill.
  * - `broken`: symlink exists but the target is missing (orphan).
+ * - `inaccessible`: symlink exists but the target cannot be probed safely.
  * - `missing`: no symlink for this agent (the skill is not linked here).
  *
  * @example 'valid'
  * @example 'broken'
  * @example 'missing'
  */
-export type SymlinkStatus = 'valid' | 'broken' | 'missing'
+export type SymlinkStatus = 'valid' | 'broken' | 'inaccessible' | 'missing'
 
 /**
  * Identifier for the macOS terminal application launched by
@@ -853,6 +856,88 @@ export type BulkDeleteItemResult =
 export interface BulkDeleteResult {
   /** Per-item outcome, index-aligned with the input `items` array (serial execution). */
   items: BulkDeleteItemResult[]
+}
+
+/**
+ * IPC argument for `skills:clearOrphanSymlinks` — remove reviewed dangling agent links without touching source skills.
+ * @example { items: [{ skillName: 'abandoned', agents: [{ agentId: 'codex', linkPath: '/Users/me/.codex/skills/abandoned' }] }] }
+ */
+export interface ClearOrphanSymlinksOptions {
+  /** Orphan records selected in the Symlink Health cleanup dialog. */
+  items: Array<{
+    skillName: SkillName
+    agents: Array<{ agentId: AgentId; linkPath: AbsolutePath }>
+  }>
+}
+
+/**
+ * Per-item result from orphan-only symlink cleanup.
+ * @example { skillName: 'abandoned', outcome: 'orphan-cleared', symlinksRemoved: 1, cascadeAgents: ['codex'] }
+ * @example { skillName: 'abandoned', outcome: 'error', error: { message: 'Plan changed' } }
+ */
+export type ClearOrphanSymlinkItemResult =
+  | {
+      skillName: SkillName
+      outcome: 'orphan-cleared'
+      symlinksRemoved: number
+      cascadeAgents: AgentId[]
+    }
+  | {
+      skillName: SkillName
+      outcome: 'error'
+      error: { message: string; code?: string }
+    }
+
+/**
+ * Orphan-only cleanup result. Same row shape as bulk delete for dialog summary reuse, but it never returns tombstones.
+ * @example { items: [{ skillName: 'abandoned', outcome: 'orphan-cleared', symlinksRemoved: 1, cascadeAgents: ['codex'] }] }
+ */
+export interface ClearOrphanSymlinksResult {
+  /** Per-orphan-record outcome, index-aligned with the selected orphan records. */
+  items: ClearOrphanSymlinkItemResult[]
+}
+
+/**
+ * IPC argument for `skills:clearBrokenSymlinkSlots` — remove reviewed broken agent links after exact target revalidation.
+ * @example { items: [{ agentId: 'codex', skillName: 'task', linkPath: '/Users/me/.codex/skills/task', targetPath: '/Users/me/.agents/skills/task' }] }
+ */
+export interface ClearBrokenSymlinkSlotsOptions {
+  /** Broken slots selected in the Symlink Health cleanup dialog. */
+  items: Array<{
+    agentId: AgentId
+    skillName: SkillName
+    linkPath: AbsolutePath
+    targetPath: AbsolutePath
+  }>
+}
+
+/**
+ * Per-slot result from broken-symlink cleanup, echoing the reviewed row identity.
+ * @example { agentId: 'codex', skillName: 'task', linkPath: '/Users/me/.codex/skills/task', outcome: 'unlinked' }
+ * @example { agentId: 'codex', skillName: 'task', linkPath: '/Users/me/.codex/skills/task', outcome: 'error', error: { message: 'Plan changed' } }
+ */
+export type ClearBrokenSymlinkSlotItemResult =
+  | {
+      agentId: AgentId
+      skillName: SkillName
+      linkPath: AbsolutePath
+      outcome: 'unlinked'
+    }
+  | {
+      agentId: AgentId
+      skillName: SkillName
+      linkPath: AbsolutePath
+      outcome: 'error'
+      error: { message: string; code?: string }
+    }
+
+/**
+ * Broken-slot cleanup result; item order matches the requested slot list.
+ * @example { items: [{ agentId: 'codex', skillName: 'task', linkPath: '/Users/me/.codex/skills/task', outcome: 'unlinked' }] }
+ */
+export interface ClearBrokenSymlinkSlotsResult {
+  /** Per-slot outcome, index-aligned with the input `items` array. */
+  items: ClearBrokenSymlinkSlotItemResult[]
 }
 
 /**

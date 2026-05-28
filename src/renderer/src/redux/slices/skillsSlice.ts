@@ -7,6 +7,9 @@ import type {
   AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
+  ClearOrphanSymlinksResult,
+  ClearBrokenSymlinkSlotsOptions,
+  ClearBrokenSymlinkSlotsResult,
   RestoreDeletedSkillResult,
   Skill,
   SkillName,
@@ -216,6 +219,39 @@ export const deleteSelectedSkills = createAsyncThunk<
     items: selectedNames.map((skillName) => ({ skillName })),
   })
   return result
+})
+
+/**
+ * Clear reviewed orphan symlink records without invoking source deletion.
+ * @param orphanRecords - Orphan skill name and exact agent link paths reviewed in the cleanup dialog.
+ * @returns Per-orphan cleanup result with no tombstones.
+ * @example
+ * await dispatch(clearSelectedOrphanSymlinks([{ skillName: 'abandoned', agents: [{ agentId: 'codex', linkPath: '/Users/me/.codex/skills/abandoned' }] }]))
+ */
+export const clearSelectedOrphanSymlinks = createAsyncThunk<
+  ClearOrphanSymlinksResult,
+  Array<{
+    skillName: SkillName
+    agents: Array<{ agentId: AgentId; linkPath: AbsolutePath }>
+  }>
+>('skills/clearSelectedOrphanSymlinks', async (orphanRecords) => {
+  return window.electron.skills.clearOrphanSymlinks({
+    items: orphanRecords,
+  })
+})
+
+/**
+ * Clear reviewed broken symlink slots after main revalidates exact path and target identity.
+ * @param brokenSlots - Broken agent symlinks selected in Symlink Health cleanup.
+ * @returns BulkUnlinkResult with per-slot outcome.
+ * @example
+ * await dispatch(clearSelectedBrokenSymlinkSlots({ items: [{ agentId: 'codex', skillName: 'task', linkPath: '/Users/me/.codex/skills/task', targetPath: '/Users/me/.agents/skills/task' }] }))
+ */
+export const clearSelectedBrokenSymlinkSlots = createAsyncThunk<
+  ClearBrokenSymlinkSlotsResult,
+  ClearBrokenSymlinkSlotsOptions
+>('skills/clearSelectedBrokenSymlinkSlots', async (options) => {
+  return window.electron.skills.clearBrokenSymlinkSlots(options)
 })
 
 /**

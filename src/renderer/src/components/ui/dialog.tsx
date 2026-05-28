@@ -12,6 +12,13 @@ const DialogPortal = DialogPrimitive.Portal
 
 const DialogClose = DialogPrimitive.Close
 
+type DialogContentProps = React.ComponentPropsWithRef<
+  typeof DialogPrimitive.Content
+> & {
+  /** Hides the built-in corner close button when a controlled dialog must block dismissal during an in-flight mutation. */
+  hideCloseButton?: boolean
+}
+
 const DialogOverlay = React.memo(function DialogOverlay({
   className,
   ref,
@@ -32,9 +39,10 @@ const DialogOverlay = React.memo(function DialogOverlay({
 const DialogContent = React.memo(function DialogContent({
   className,
   children,
+  hideCloseButton = false,
   ref,
   ...props
-}: React.ComponentPropsWithRef<typeof DialogPrimitive.Content>) {
+}: DialogContentProps) {
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -47,10 +55,12 @@ const DialogContent = React.memo(function DialogContent({
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground min-h-11 min-w-11 flex items-center justify-center">
-          <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
-        </DialogPrimitive.Close>
+        {hideCloseButton ? null : (
+          <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground min-h-11 min-w-11 flex items-center justify-center">
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        )}
       </DialogPrimitive.Content>
     </DialogPortal>
   )

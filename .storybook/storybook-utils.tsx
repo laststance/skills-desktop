@@ -436,6 +436,14 @@ export function installStorybookElectronMock(): void {
       createSymlinks: async () => createSymlinksResult,
       copyToAgents: async () => ({ success: true, copied: 1, failures: [] }),
       deleteSkills: async () => deleteResult,
+      clearOrphanSymlinks: async () => ({ items: [] }),
+      clearBrokenSymlinkSlots: async () => ({
+        items: unlinkResult.items.map((item) => ({
+          ...item,
+          agentId: 'cursor',
+          linkPath: '/Users/test/.cursor/skills/story-skill',
+        })),
+      }),
       unlinkManyFromAgent: async () => unlinkResult,
       restoreDeletedSkill: async () => restoreResult,
       onDeleteProgress: () => cleanup,

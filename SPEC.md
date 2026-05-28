@@ -213,6 +213,7 @@ When a skill source directory is deleted (e.g. `rm -rf ~/.agents/skills/foo`) bu
 | Per-skill unlink         | Skill row's action menu → "Unlink..."      | Removes one orphan skill from one or more selected agents    |
 | Per-agent cleanup dialog | Sidebar agent context menu → "Clean up..." | Previews and executes all orphan removals for a single agent |
 | Global cleanup           | Sidebar footer "Clean up orphan symlinks"  | Removes all orphan symlinks across every agent               |
+| Symlink Health cleanup   | Dashboard widget → "Scan issues"           | Reviews and removes orphan records plus broken agent links   |
 
 The per-agent dialog uses the scoped sync IPC (`sync:preview` / `sync:execute` accept an optional `agentId`) so both the preview and execution stay restricted to the targeted agent. When the dialog opens with no actionable orphans (only conflicts to acknowledge), it surfaces a "conflicts skipped" hint instead of an empty success.
 
@@ -227,14 +228,14 @@ Each skill displays:
 
 ### Actions
 
-| Action                 | Status     | Notes                                                                                                                                          |
-| ---------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| View skill details     | ✅ Done    | -                                                                                                                                              |
-| View symlink status    | ✅ Done    | -                                                                                                                                              |
-| Search skills          | ✅ Done    | Marketplace tab                                                                                                                                |
-| Install skill          | ✅ Done    | With agent selection                                                                                                                           |
-| Uninstall skill        | ✅ Done    | Delete button and bulk-delete route CLI-managed skills through `npx skills remove` (irreversible, no undo); plain skills go to trash with undo |
-| Repair broken symlinks | 🚧 Planned | -                                                                                                                                              |
+| Action                 | Status  | Notes                                                                                                                                          |
+| ---------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| View skill details     | ✅ Done | -                                                                                                                                              |
+| View symlink status    | ✅ Done | -                                                                                                                                              |
+| Search skills          | ✅ Done | Marketplace tab                                                                                                                                |
+| Install skill          | ✅ Done | With agent selection                                                                                                                           |
+| Uninstall skill        | ✅ Done | Delete button and bulk-delete route CLI-managed skills through `npx skills remove` (irreversible, no undo); plain skills go to trash with undo |
+| Repair broken symlinks | ✅ Done | Dashboard Symlink Health cleanup reviews and removes safe orphan/broken symlink issues without deleting live source skills                     |
 
 ## Tech Stack
 

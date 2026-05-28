@@ -41,7 +41,9 @@ function getGStackPathCandidatesForAgent(
     symlinks.find(
       (slot) =>
         slot.agentId === selectedAgentId &&
-        (slot.status === 'valid' || slot.status === 'broken') &&
+        (slot.status === 'valid' ||
+          slot.status === 'broken' ||
+          slot.status === 'inaccessible') &&
         !slot.isLocal,
     ) ?? null
 

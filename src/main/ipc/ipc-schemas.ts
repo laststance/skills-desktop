@@ -220,6 +220,39 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
         .min(1, 'At least one skill required for batch delete'),
     }),
   ]),
+  'skills:clearOrphanSymlinks': z.tuple([
+    z.object({
+      items: z
+        .array(
+          z.object({
+            skillName: skillNameString,
+            agents: z
+              .array(
+                z.object({
+                  agentId: nonEmptyString,
+                  linkPath: absolutePathArg,
+                }),
+              )
+              .min(1, 'At least one orphan symlink required'),
+          }),
+        )
+        .min(1, 'At least one orphan record required'),
+    }),
+  ]),
+  'skills:clearBrokenSymlinkSlots': z.tuple([
+    z.object({
+      items: z
+        .array(
+          z.object({
+            agentId: nonEmptyString,
+            skillName: skillNameString,
+            linkPath: absolutePathArg,
+            targetPath: absolutePathArg,
+          }),
+        )
+        .min(1, 'At least one broken symlink slot required'),
+    }),
+  ]),
   'skills:unlinkManyFromAgent': z.tuple([
     z.object({
       agentId: nonEmptyString,

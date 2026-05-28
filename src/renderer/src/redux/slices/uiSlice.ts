@@ -170,6 +170,12 @@ interface UiState {
    * agent-scoped counts and conflicts.
    */
   cleanupAgentTarget: AgentId | null
+  /**
+   * Whether the Dashboard Symlink Health cleanup dialog is open. The dialog
+   * keeps scan plan and row selection locally; Redux owns only foreground
+   * surface coordination with tabs, sync, and bulk operations.
+   */
+  symlinkCleanupDialogOpen: boolean
 }
 
 const initialState: UiState = {
@@ -192,6 +198,7 @@ const initialState: UiState = {
   bulkConfirm: null,
   bulkSelectMode: false,
   cleanupAgentTarget: null,
+  symlinkCleanupDialogOpen: false,
 }
 
 /**
@@ -276,6 +283,8 @@ const uiSlice = createSlice({
       state.bulkConfirm = null
       // The bulk-select affordance is list-scoped; leaving the list exits mode.
       state.bulkSelectMode = false
+      // The Dashboard cleanup dialog belongs to the current dashboard context.
+      state.symlinkCleanupDialogOpen = false
     },
     setSearchQuery: (state, action: PayloadAction<SearchQuery>) => {
       state.searchQuery = action.payload
@@ -333,6 +342,8 @@ const uiSlice = createSlice({
       state.bulkConfirm = null
       // Selection is agent-scoped in skillsSlice; mode should follow.
       state.bulkSelectMode = false
+      // Agent switches replace the symlink graph under review; close the dialog.
+      state.symlinkCleanupDialogOpen = false
     },
     toggleSortOrder: (state) => {
       state.sortOrder = state.sortOrder === 'asc' ? 'desc' : 'asc'
@@ -443,6 +454,8 @@ const uiSlice = createSlice({
      */
     setCleanupAgentTarget: (state, action: PayloadAction<AgentId>) => {
       state.cleanupAgentTarget = action.payload
+      // One cleanup surface at a time: per-agent missing-skill cleanup wins.
+      state.symlinkCleanupDialogOpen = false
     },
     /**
      * Close the per-agent Cleanup dialog. Also clears any stale
@@ -452,6 +465,20 @@ const uiSlice = createSlice({
     clearCleanupAgentTarget: (state) => {
       state.cleanupAgentTarget = null
       state.syncPreview = null
+    },
+    /**
+     * Open the Dashboard Symlink Health cleanup dialog. The component performs
+     * the awaited scan on open so Redux does not store stale filesystem plans.
+     */
+    openSymlinkCleanupDialog: (state) => {
+      state.symlinkCleanupDialogOpen = true
+    },
+    /**
+     * Close the Dashboard Symlink Health cleanup dialog. Local plan and row
+     * selection reset inside the dialog component on this close edge.
+     */
+    closeSymlinkCleanupDialog: (state) => {
+      state.symlinkCleanupDialogOpen = false
     },
   },
   extraReducers: (builder) => {
@@ -480,6 +507,8 @@ const uiSlice = createSlice({
         state.bulkConfirm = null
         // Sync preview supersedes bulk affordance; user's attention shifts.
         state.bulkSelectMode = false
+        // Sync is another filesystem plan; do not overlap with symlink cleanup.
+        state.symlinkCleanupDialogOpen = false
       })
       .addCase(fetchSyncPreview.fulfilled, (state, action) => {
         state.syncPreview = action.payload
@@ -561,6 +590,8 @@ export const {
   exitBulkSelectMode,
   setCleanupAgentTarget,
   clearCleanupAgentTarget,
+  openSymlinkCleanupDialog,
+  closeSymlinkCleanupDialog,
 } = uiSlice.actions
 export default uiSlice.reducer
 
@@ -604,3 +635,12 @@ export const selectBulkSelectMode = (state: RootState): boolean =>
  */
 export const selectCleanupAgentTarget = (state: RootState): AgentId | null =>
   state.ui.cleanupAgentTarget
+/**
+ * Whether the Dashboard Symlink Health cleanup dialog should be mounted open.
+ * @param state - Root Redux state.
+ * @returns True while the cleanup dialog owns the foreground surface.
+ * @example
+ * const open = useAppSelector(selectSymlinkCleanupDialogOpen)
+ */
+export const selectSymlinkCleanupDialogOpen = (state: RootState): boolean =>
+  state.ui.symlinkCleanupDialogOpen

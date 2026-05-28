@@ -54,7 +54,7 @@ import {
 } from '@/renderer/src/redux/slices/uiSlice'
 import { BULK_ITEM_FAILED_EVENT } from '@/renderer/src/utils/bulkOpVisuals'
 import { GSTACK_REPOSITORY_URL } from '@/shared/constants'
-import type { Skill, SkillName } from '@/shared/types'
+import type { Skill, SkillName, SymlinkInfo } from '@/shared/types'
 
 import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
 import { computeRangeSelection } from './bulkDeleteHelpers'
@@ -74,8 +74,103 @@ interface SkillItemProps {
   skill: Skill
 }
 
+interface SymlinkStatusBuckets {
+  validCount: number
+  brokenCount: number
+  inaccessibleCount: number
+  validAgentNames: string[]
+  brokenAgentNames: string[]
+  inaccessibleAgentNames: string[]
+}
+
 /** How long the partial-failure red edge persists (ms). */
 const PARTIAL_FAIL_FLASH_MS = 3_000
+
+/**
+ * Groups symlink status counts outside the large card render path to keep the component under fallow complexity limits.
+ * @param symlinks - Symlink rows attached to the skill being rendered.
+ * @returns Counts plus tooltip agent names for the global-view badges.
+ * @example
+ * getSymlinkStatusBuckets([{ status: 'valid', agentName: 'Codex', ... }]).validCount // => 1
+ */
+function getSymlinkStatusBuckets(
+  symlinks: readonly SymlinkInfo[],
+): SymlinkStatusBuckets {
+  const buckets: SymlinkStatusBuckets = {
+    validCount: 0,
+    brokenCount: 0,
+    inaccessibleCount: 0,
+    validAgentNames: [],
+    brokenAgentNames: [],
+    inaccessibleAgentNames: [],
+  }
+
+  for (const symlink of symlinks) {
+    if (symlink.status === 'valid') {
+      buckets.validCount += 1
+      buckets.validAgentNames.push(symlink.agentName)
+    } else if (symlink.status === 'broken') {
+      buckets.brokenCount += 1
+      buckets.brokenAgentNames.push(symlink.agentName)
+    } else if (symlink.status === 'inaccessible') {
+      buckets.inaccessibleCount += 1
+      buckets.inaccessibleAgentNames.push(symlink.agentName)
+    }
+  }
+
+  return buckets
+}
+
+interface GlobalStatusBadgesProps {
+  buckets: SymlinkStatusBuckets
+}
+
+/**
+ * Renders global-view symlink badges while keeping the already-large card component simple.
+ * @param props - Precomputed symlink status buckets for one skill.
+ * @returns Badge row showing valid, broken, inaccessible, or unlinked state.
+ * @example
+ * <GlobalStatusBadges buckets={buckets} />
+ */
+const GlobalStatusBadges = React.memo(function GlobalStatusBadges({
+  buckets,
+}: GlobalStatusBadgesProps): React.ReactElement {
+  const hasNoLinks =
+    buckets.validCount === 0 &&
+    buckets.brokenCount === 0 &&
+    buckets.inaccessibleCount === 0
+
+  return (
+    <div className="flex items-center gap-2 mt-3">
+      {buckets.validCount > 0 && (
+        <StatusBadge
+          status="valid"
+          count={buckets.validCount}
+          agentNames={buckets.validAgentNames}
+        />
+      )}
+      {buckets.brokenCount > 0 && (
+        <StatusBadge
+          status="broken"
+          count={buckets.brokenCount}
+          agentNames={buckets.brokenAgentNames}
+        />
+      )}
+      {buckets.inaccessibleCount > 0 && (
+        <StatusBadge
+          status="inaccessible"
+          count={buckets.inaccessibleCount}
+          agentNames={buckets.inaccessibleAgentNames}
+        />
+      )}
+      {hasNoLinks && (
+        <span className="text-xs text-muted-foreground">
+          Not linked to any agent
+        </span>
+      )}
+    </div>
+  )
+})
 
 /**
  * Single skill card in the skills list.
@@ -107,23 +202,9 @@ export const SkillItem = React.memo(function SkillItem({
   const isTicked = selectedNamesSet.has(skill.name)
   const isInFlight = inFlightRemovalSet.has(skill.name)
 
-  const validSymlinks = useMemo(
-    () => skill.symlinks.filter((s) => s.status === 'valid'),
+  const symlinkStatusBuckets = useMemo(
+    () => getSymlinkStatusBuckets(skill.symlinks),
     [skill.symlinks],
-  )
-  const brokenSymlinks = useMemo(
-    () => skill.symlinks.filter((s) => s.status === 'broken'),
-    [skill.symlinks],
-  )
-  const validCount = validSymlinks.length
-  const brokenCount = brokenSymlinks.length
-  const validAgentNames = useMemo(
-    () => validSymlinks.map((s) => s.agentName),
-    [validSymlinks],
-  )
-  const brokenAgentNames = useMemo(
-    () => brokenSymlinks.map((s) => s.agentName),
-    [brokenSymlinks],
   )
 
   const {
@@ -525,27 +606,7 @@ export const SkillItem = React.memo(function SkillItem({
 
             {/* Status badges — only shown in global view (no agent selected) */}
             {!selectedAgentId && (
-              <div className="flex items-center gap-2 mt-3">
-                {validCount > 0 && (
-                  <StatusBadge
-                    status="valid"
-                    count={validCount}
-                    agentNames={validAgentNames}
-                  />
-                )}
-                {brokenCount > 0 && (
-                  <StatusBadge
-                    status="broken"
-                    count={brokenCount}
-                    agentNames={brokenAgentNames}
-                  />
-                )}
-                {validCount === 0 && brokenCount === 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    Not linked to any agent
-                  </span>
-                )}
-              </div>
+              <GlobalStatusBadges buckets={symlinkStatusBuckets} />
             )}
           </CardContent>
         </Card>

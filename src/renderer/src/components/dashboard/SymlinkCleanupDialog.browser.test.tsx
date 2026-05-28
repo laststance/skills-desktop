@@ -1,0 +1,397 @@
+import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { render } from 'vitest-browser-react'
+
+import '@/renderer/src/styles/globals.css'
+import type { Agent, Skill, SkillName, SymlinkInfo } from '@/shared/types'
+
+const mockGetSkills = vi.fn()
+const mockGetAgents = vi.fn()
+const mockGetSourceStats = vi.fn()
+const mockClearOrphanSymlinks = vi.fn()
+const mockClearBrokenSymlinkSlots = vi.fn()
+
+vi.stubGlobal('electron', {
+  skills: {
+    getAll: mockGetSkills,
+    clearOrphanSymlinks: mockClearOrphanSymlinks,
+    clearBrokenSymlinkSlots: mockClearBrokenSymlinkSlots,
+  },
+  agents: {
+    getAll: mockGetAgents,
+  },
+  source: {
+    getStats: mockGetSourceStats,
+  },
+})
+
+const TEST_AGENTS: Agent[] = [
+  {
+    id: 'cursor',
+    name: 'Cursor',
+    path: '/Users/test/.cursor/skills',
+    exists: true,
+    skillCount: 0,
+    localSkillCount: 0,
+  },
+  {
+    id: 'codex',
+    name: 'Codex',
+    path: '/Users/test/.codex/skills',
+    exists: true,
+    skillCount: 0,
+    localSkillCount: 0,
+  },
+]
+
+/**
+ * Builds one broken symlink slot for SymlinkCleanupDialog browser specs.
+ * @param skillName - Skill name and agent-side link name.
+ * @param agentId - Agent that owns the broken slot.
+ * @returns SymlinkInfo fixture eligible for cleanup.
+ * @example
+ * makeBrokenSlot('task', 'cursor').status // => 'broken'
+ */
+function makeBrokenSlot(
+  skillName: SkillName,
+  agentId: 'cursor' | 'codex',
+): SymlinkInfo {
+  const agent = TEST_AGENTS.find((item) => item.id === agentId)
+  if (!agent) throw new Error(`Unknown test agent: ${agentId}`)
+  return {
+    agentId,
+    agentName: agent.name,
+    status: 'broken',
+    linkPath: `/Users/test/.${agentId}/skills/${skillName}`,
+    targetPath: `/Users/test/.agents/skills/${skillName}`,
+    isLocal: false,
+  }
+}
+
+/**
+ * Builds a source skill with one cleanup-eligible broken slot.
+ * @param skillName - Skill and link name.
+ * @param agentId - Agent that owns the broken slot.
+ * @returns Skill fixture for the scanner thunk mock.
+ * @example
+ * makeSkillWithBrokenSlot('task', 'cursor').symlinks.length // => 1
+ */
+function makeSkillWithBrokenSlot(
+  skillName: SkillName,
+  agentId: 'cursor' | 'codex',
+): Skill {
+  return {
+    name: skillName,
+    description: `${skillName} description`,
+    path: `/Users/test/.agents/skills/${skillName}`,
+    symlinkCount: 0,
+    symlinks: [makeBrokenSlot(skillName, agentId)],
+    isSource: true,
+    isOrphan: false,
+  }
+}
+
+/**
+ * Builds one source skill with multiple cleanup-eligible broken agent slots.
+ * @param skillName - Shared basename used by every broken slot.
+ * @param agentIds - Agents that own broken links for the same skill.
+ * @returns Skill fixture whose rows differ by agent identity, not skill name.
+ * @example
+ * makeSkillWithBrokenSlots('task', ['cursor', 'codex']).symlinks.length // => 2
+ */
+function makeSkillWithBrokenSlots(
+  skillName: SkillName,
+  agentIds: Array<'cursor' | 'codex'>,
+): Skill {
+  return {
+    ...makeSkillWithBrokenSlot(skillName, agentIds[0] ?? 'cursor'),
+    symlinks: agentIds.map((agentId) => makeBrokenSlot(skillName, agentId)),
+    symlinkCount: agentIds.length,
+  }
+}
+
+/**
+ * Builds an orphan skill record with one broken agent symlink.
+ * @param skillName - Orphan skill name selected for cleanup.
+ * @param agentId - Agent that still owns the dangling symlink.
+ * @returns Skill fixture whose cleanup uses orphan-only IPC.
+ * @example
+ * makeOrphanSkill('abandoned', 'codex').isOrphan // => true
+ */
+function makeOrphanSkill(
+  skillName: SkillName,
+  agentId: 'cursor' | 'codex',
+): Skill {
+  return {
+    ...makeSkillWithBrokenSlot(skillName, agentId),
+    path: `/Users/test/.${agentId}/skills/${skillName}`,
+    isSource: false,
+    isOrphan: true,
+  }
+}
+
+/**
+ * Renders an opened SymlinkCleanupDialog with real reducers and mocked preload IPC.
+ * @returns Browser screen for interaction assertions.
+ * @example
+ * const screen = await renderOpenedDialog()
+ */
+async function renderOpenedDialog() {
+  const [
+    { default: skillsReducer },
+    { default: agentsReducer },
+    { default: uiReducer, openSymlinkCleanupDialog },
+    { SymlinkCleanupDialog },
+  ] = await Promise.all([
+    import('@/renderer/src/redux/slices/skillsSlice'),
+    import('@/renderer/src/redux/slices/agentsSlice'),
+    import('@/renderer/src/redux/slices/uiSlice'),
+    import('./SymlinkCleanupDialog'),
+  ])
+  const store = configureStore({
+    reducer: { skills: skillsReducer, agents: agentsReducer, ui: uiReducer },
+  })
+  store.dispatch(openSymlinkCleanupDialog())
+
+  const screen = await render(
+    <Provider store={store}>
+      <main id="main-content" tabIndex={-1}>
+        <button type="button" data-symlink-cleanup-trigger="true">
+          Scan issues
+        </button>
+        <SymlinkCleanupDialog />
+      </main>
+    </Provider>,
+  )
+  return screen
+}
+
+describe('SymlinkCleanupDialog', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetAgents.mockResolvedValue(TEST_AGENTS)
+    mockGetSourceStats.mockResolvedValue({
+      skillCount: 0,
+      totalSize: '0 B',
+      path: '/Users/test/.agents/skills',
+      lastModified: '2026-05-28T00:00:00.000Z',
+    })
+  })
+
+  it('stops cleanup when the fresh scan no longer matches the reviewed plan', async () => {
+    // Arrange
+    mockGetSkills
+      .mockResolvedValueOnce([makeSkillWithBrokenSlot('stale-task', 'cursor')])
+      .mockResolvedValueOnce([])
+    const screen = await renderOpenedDialog()
+
+    // Act
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 1 selected' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Clean 1 selected' }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByText('Plan changed', { exact: true }))
+      .toBeVisible()
+    expect(mockClearOrphanSymlinks).not.toHaveBeenCalled()
+    expect(mockClearBrokenSymlinkSlots).not.toHaveBeenCalled()
+  })
+
+  it('keeps only failed rows selected after partial unlink failure refreshes the plan', async () => {
+    // Arrange
+    const firstPlan = [
+      makeSkillWithBrokenSlot('fixed-task', 'cursor'),
+      makeSkillWithBrokenSlot('failed-task', 'codex'),
+    ]
+    mockGetSkills
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce([makeSkillWithBrokenSlot('failed-task', 'codex')])
+    mockClearBrokenSymlinkSlots.mockImplementation(
+      async (options: {
+        items: Array<{ agentId: string; skillName: string; linkPath: string }>
+      }) => {
+        return {
+          items: options.items.map((item) => {
+            if (item.agentId === 'cursor') {
+              return { ...item, outcome: 'unlinked' }
+            }
+            return {
+              ...item,
+              outcome: 'error',
+              error: { message: 'Permission denied', code: 'EACCES' },
+            }
+          }),
+        }
+      },
+    )
+    const screen = await renderOpenedDialog()
+
+    // Act
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 2 selected' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Clean 2 selected' }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByText('Cleanup finished with failures.'))
+      .toBeVisible()
+    await expect.element(screen.getByText('Permission denied')).toBeVisible()
+    expect(screen.getByText('fixed-task', { exact: true }).query()).toBeNull()
+    await expect
+      .element(screen.getByText('failed-task', { exact: true }))
+      .toBeVisible()
+  })
+
+  it('keeps same-name broken slot failures attached to the failed agent row', async () => {
+    // Arrange
+    const firstPlan = [
+      makeSkillWithBrokenSlots('shared-task', ['cursor', 'codex']),
+    ]
+    mockGetSkills
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce([makeSkillWithBrokenSlot('shared-task', 'codex')])
+    mockClearBrokenSymlinkSlots.mockImplementation(
+      async (options: {
+        items: Array<{ agentId: string; skillName: string; linkPath: string }>
+      }) => ({
+        items: options.items.map((item) =>
+          item.agentId === 'cursor'
+            ? { ...item, outcome: 'unlinked' }
+            : {
+                ...item,
+                outcome: 'error',
+                error: { message: 'Codex permission denied', code: 'EACCES' },
+              },
+        ),
+      }),
+    )
+    const screen = await renderOpenedDialog()
+
+    // Act
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 2 selected' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Clean 2 selected' }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByText('Cleanup finished with failures.'))
+      .toBeVisible()
+    await expect
+      .element(screen.getByText('Codex permission denied'))
+      .toBeVisible()
+    await expect
+      .element(screen.getByText('Codex', { exact: true }))
+      .toBeVisible()
+    expect(screen.getByText('Cursor', { exact: true }).query()).toBeNull()
+  })
+
+  it('renders the cleaning phase while destructive IPC is pending', async () => {
+    // Arrange
+    let finishCleanup: (value: {
+      items: Array<{
+        agentId: string
+        skillName: string
+        linkPath: string
+        outcome: 'unlinked'
+      }>
+    }) => void = () => undefined
+    const firstPlan = [makeSkillWithBrokenSlot('pending-task', 'cursor')]
+    mockGetSkills
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce([])
+    mockClearBrokenSymlinkSlots.mockImplementation(async () => {
+      return new Promise((resolve) => {
+        finishCleanup = resolve
+      })
+    })
+    const screen = await renderOpenedDialog()
+
+    // Act
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 1 selected' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Clean 1 selected' }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByText('Cleaning selected issues'))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Cleaning...' }))
+      .toBeDisabled()
+    await expect
+      .element(screen.getByRole('button', { name: 'Cancel' }))
+      .toBeDisabled()
+
+    finishCleanup({
+      items: [
+        {
+          agentId: 'cursor',
+          skillName: 'pending-task',
+          linkPath: '/Users/test/.cursor/skills/pending-task',
+          outcome: 'unlinked',
+        },
+      ],
+    })
+    await expect
+      .element(screen.getByText(/Cleaned up 1 symlink issue/))
+      .toBeVisible()
+  })
+
+  it('surfaces orphan-only IPC failures without calling source delete', async () => {
+    // Arrange
+    const orphanPlan = [makeOrphanSkill('abandoned-task', 'codex')]
+    mockGetSkills
+      .mockResolvedValueOnce(orphanPlan)
+      .mockResolvedValueOnce(orphanPlan)
+      .mockResolvedValueOnce(orphanPlan)
+    mockClearOrphanSymlinks.mockResolvedValue({
+      items: [
+        {
+          skillName: 'abandoned-task',
+          outcome: 'error',
+          error: {
+            message: 'Source skill exists. Rescan before cleanup.',
+            code: 'ESTALE',
+          },
+        },
+      ],
+    })
+    const screen = await renderOpenedDialog()
+
+    // Act
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 1 selected' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Clean 1 selected' }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByText('Cleanup finished with failures.'))
+      .toBeVisible()
+    await expect
+      .element(screen.getByText('Source skill exists. Rescan before cleanup.'))
+      .toBeVisible()
+    expect(mockClearOrphanSymlinks).toHaveBeenCalledWith({
+      items: [
+        {
+          skillName: 'abandoned-task',
+          agents: [
+            {
+              agentId: 'codex',
+              linkPath: '/Users/test/.codex/skills/abandoned-task',
+            },
+          ],
+        },
+      ],
+    })
+  })
+})
