@@ -580,6 +580,22 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Extend the inaccessible E2E to assert the manual-review health copy and absence of cleanup-ready scan issues.
 
+### P1. Source-backed quarantine restore failure must abort delete
+
+**Status:** Fixed after eighth post-fix subagent review follow-up.
+
+**Finding:** Source-backed cascade catches every `ESTALE` from `unlinkReviewedSourceSymlink` as a safe skip. If the reviewed symlink is quarantined, validation fails, and restoring the quarantined entry also fails because the original slot became occupied, that restore failure is also `ESTALE`. The source delete can then continue and leave an unmanifested `.cleanup-*` entry behind.
+
+**Fix direction:** Distinguish stale-skip with successful restore from quarantine restore failure. Restore failure must abort source-backed delete before moving the source into trash and be covered by a race test.
+
+### P2. Unlink regular-file E2E must not depend on snapshot install
+
+**Status:** Fixed after eighth post-fix subagent review follow-up.
+
+**Finding:** The adjusted `unlinkFromAgent` regular-file E2E still calls `waitForInitialScan()` before staging its own fixture. With `E2E_SKIP_INSTALL=1`, an empty snapshot can timeout before the deletion-safety assertion runs.
+
+**Fix direction:** Stage the regular-file fixture directly and invoke IPC without waiting for pre-existing scanned skills.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

@@ -261,11 +261,9 @@ test('unlinkFromAgent treats a missing linkPath as an idempotent success', async
 })
 
 test('unlinkFromAgent refuses a regular file with the structured kind-mismatch error', async ({
-  appWindow,
   isolatedHome,
+  appWindow,
 }) => {
-  await waitForInitialScan(appWindow)
-
   const claudeAgentPath = join(isolatedHome, '.claude', 'skills')
   mkdirSync(claudeAgentPath, { recursive: true })
   const regularFilePath = join(claudeAgentPath, 'not-a-skill.txt')

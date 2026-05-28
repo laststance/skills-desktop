@@ -1,4 +1,13 @@
-import { mkdir, mkdtemp, lstat, readlink, rm, symlink } from 'node:fs/promises'
+import {
+  mkdir,
+  mkdtemp,
+  lstat,
+  readdir,
+  readlink,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import type * as NodeFsPromises from 'node:fs/promises'
 import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
@@ -96,5 +105,56 @@ describe('trashService orphan cleanup guarded commit', () => {
       `Failed to remove 1 of 1 orphan symlink for "${skillName}"`,
     )
     expect((await lstat(linkPath)).isDirectory()).toBe(true)
+  })
+
+  it('aborts source-backed delete when quarantined symlink restore fails', async () => {
+    // Arrange
+    const skillName = 'source-restore-failure'
+    const sourcePath = join(tempHome, '.agents', 'skills', skillName)
+    const cursorSkillsDir = join(tempHome, '.cursor', 'skills')
+    const linkPath = join(cursorSkillsDir, skillName)
+    const replacementTargetPath = join(
+      tempHome,
+      '.agents',
+      'skills',
+      'replacement-target',
+    )
+    await mkdir(sourcePath, { recursive: true })
+    await writeFile(join(sourcePath, 'SKILL.md'), `# ${skillName}\n`, 'utf-8')
+    await mkdir(cursorSkillsDir, { recursive: true })
+    await symlink(sourcePath, linkPath)
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        unlink: async (path: string): Promise<void> => {
+          if (String(path).startsWith(`${linkPath}.cleanup-`)) {
+            await actual.symlink(replacementTargetPath, linkPath)
+            const error = new Error(
+              'forced cleanup unlink failure',
+            ) as NodeJS.ErrnoException
+            error.code = 'EACCES'
+            throw error
+          }
+          return actual.unlink(path)
+        },
+      }
+    })
+    const { __getTrashDirForTests, moveToTrash } =
+      await import('./trashService')
+
+    // Act / Assert
+    await expect(moveToTrash(skillName)).rejects.toThrow(
+      /Moved entry left|could not be restored|Failed to remove symlinks/i,
+    )
+    expect((await lstat(sourcePath)).isDirectory()).toBe(true)
+    expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
+    expect(await readlink(linkPath)).toBe(replacementTargetPath)
+    const leftovers = await readdir(cursorSkillsDir)
+    expect(
+      leftovers.some((entry) => entry.startsWith(`${skillName}.cleanup-`)),
+    ).toBe(true)
+    expect(await readdir(__getTrashDirForTests())).toEqual([])
   })
 })

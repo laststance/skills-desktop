@@ -34,6 +34,9 @@ const TRASH_DIR = join(homedir(), '.agents', '.trash')
  */
 const ERR_MANIFEST_CORRUPT = 'EMANIFEST_CORRUPT'
 
+/** Stable code for a quarantined cleanup candidate that could not be restored. */
+const ERR_CLEANUP_RESTORE_FAILED = 'ECLEANUP_RESTORE_FAILED'
+
 /** How long a tombstone lives before being evicted in-session (ms). Matches E1 undo window. */
 const TRASH_TTL_MS = UNDO_WINDOW_MS
 
@@ -572,7 +575,14 @@ async function unlinkReviewedSourceSymlink(
     await fs.unlink(movedPath)
     return { outcome: 'unlinked', target: movedReviewed.rawTarget }
   } catch (error) {
-    await restoreMovedCleanupCandidate(linkPath, movedPath)
+    try {
+      await restoreMovedCleanupCandidate(linkPath, movedPath)
+    } catch (restoreError) {
+      throw new TrashError(
+        extractErrorMessage(restoreError),
+        ERR_CLEANUP_RESTORE_FAILED,
+      )
+    }
     throw error
   }
 }
