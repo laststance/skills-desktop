@@ -575,6 +575,23 @@ const skillsSlice = createSlice({
         state.bulkProgress = null
         state.error = action.error.message ?? 'Orphan cleanup failed'
       })
+      .addCase(clearSelectedBrokenSymlinkSlots.pending, (state, action) => {
+        state.inFlightUnlinkNames = reconcileByLiveNames(
+          state.items,
+          action.meta.arg.items.map((item) => item.linkName),
+        )
+        state.bulkUnlinking = true
+        state.error = null
+      })
+      .addCase(clearSelectedBrokenSymlinkSlots.fulfilled, (state) => {
+        state.inFlightUnlinkNames = []
+        state.bulkUnlinking = false
+      })
+      .addCase(clearSelectedBrokenSymlinkSlots.rejected, (state, action) => {
+        state.inFlightUnlinkNames = []
+        state.bulkUnlinking = false
+        state.error = action.error.message ?? 'Broken symlink cleanup failed'
+      })
       .addCase(unlinkSelectedFromAgent.pending, (state, action) => {
         state.inFlightUnlinkNames = reconcileByLiveNames(
           state.items,

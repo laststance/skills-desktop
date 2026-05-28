@@ -5,6 +5,7 @@ import type {
   AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
+  ClearBrokenSymlinkSlotsResult,
   ClearOrphanSymlinksResult,
   RestoreDeletedSkillResult,
   Skill,
@@ -771,6 +772,118 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
     const state = store.getState().skills
     expect(state.bulkDeleting).toBe(false)
     expect(state.inFlightDeleteNames).toEqual([])
+    expect(state.error).toBe('Permission denied')
+  })
+})
+
+describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  it('sets bulkUnlinking and reconciles broken-slot inFlightUnlinkNames on pending', async () => {
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill])
+    let resolve!: (value: ClearBrokenSymlinkSlotsResult) => void
+    mockClearBrokenSymlinkSlots.mockReturnValue(
+      new Promise<ClearBrokenSymlinkSlotsResult>((r) => {
+        resolve = r
+      }),
+    )
+
+    const { clearSelectedBrokenSymlinkSlots } = await import('./skillsSlice')
+    const promise = store.dispatch(
+      clearSelectedBrokenSymlinkSlots({
+        items: [
+          {
+            agentId: 'codex' as AgentId,
+            linkName: 'task',
+            linkPath: '/home/user/.codex/skills/task',
+            targetPath: '/home/user/.agents/skills/task',
+          },
+          {
+            agentId: 'cursor' as AgentId,
+            linkName: 'ghost',
+            linkPath: '/home/user/.cursor/skills/ghost',
+            targetPath: '/home/user/.agents/skills/ghost',
+          },
+        ],
+      }),
+    )
+
+    expect(store.getState().skills.bulkUnlinking).toBe(true)
+    expect(store.getState().skills.inFlightUnlinkNames).toEqual(['task'])
+
+    resolve({
+      items: [
+        {
+          agentId: 'codex' as AgentId,
+          skillName: 'task',
+          linkPath: '/home/user/.codex/skills/task',
+          outcome: 'unlinked',
+        },
+      ],
+    })
+    await promise
+  })
+
+  it('clears broken-slot busy state on fulfilled', async () => {
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill])
+    mockClearBrokenSymlinkSlots.mockResolvedValue({
+      items: [
+        {
+          agentId: 'codex' as AgentId,
+          skillName: 'task',
+          linkPath: '/home/user/.codex/skills/task',
+          outcome: 'unlinked',
+        },
+      ],
+    } satisfies ClearBrokenSymlinkSlotsResult)
+
+    const { clearSelectedBrokenSymlinkSlots } = await import('./skillsSlice')
+    await store.dispatch(
+      clearSelectedBrokenSymlinkSlots({
+        items: [
+          {
+            agentId: 'codex' as AgentId,
+            linkName: 'task',
+            linkPath: '/home/user/.codex/skills/task',
+            targetPath: '/home/user/.agents/skills/task',
+          },
+        ],
+      }),
+    )
+
+    const state = store.getState().skills
+    expect(state.bulkUnlinking).toBe(false)
+    expect(state.inFlightUnlinkNames).toEqual([])
+  })
+
+  it('clears broken-slot busy state and sets error on rejected', async () => {
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill])
+    mockClearBrokenSymlinkSlots.mockRejectedValue(
+      new Error('Permission denied'),
+    )
+
+    const { clearSelectedBrokenSymlinkSlots } = await import('./skillsSlice')
+    await store.dispatch(
+      clearSelectedBrokenSymlinkSlots({
+        items: [
+          {
+            agentId: 'codex' as AgentId,
+            linkName: 'task',
+            linkPath: '/home/user/.codex/skills/task',
+            targetPath: '/home/user/.agents/skills/task',
+          },
+        ],
+      }),
+    )
+
+    const state = store.getState().skills
+    expect(state.bulkUnlinking).toBe(false)
+    expect(state.inFlightUnlinkNames).toEqual([])
     expect(state.error).toBe('Permission denied')
   })
 })

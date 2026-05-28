@@ -5,10 +5,10 @@ import { Button } from '@/renderer/src/components/ui/button'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
+  selectBulkSelectableVisibleSkillNames,
   selectHiddenSelectedCount,
   selectSelectedCount,
   selectSelectedVisibleCount,
-  selectVisibleSkillNames,
 } from '@/renderer/src/redux/selectors'
 import {
   clearSelection,
@@ -64,7 +64,7 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
   const selectedCount = useAppSelector(selectSelectedCount)
   const visibleSelectedCount = useAppSelector(selectSelectedVisibleCount)
   const hiddenSelectedCount = useAppSelector(selectHiddenSelectedCount)
-  const visibleNames = useAppSelector(selectVisibleSkillNames)
+  const visibleNames = useAppSelector(selectBulkSelectableVisibleSkillNames)
   const selectedAgentId = useAppSelector(selectSelectedAgentId)
   const bulkSelectMode = useAppSelector(selectBulkSelectMode)
   const bulkDeleting = useAppSelector(selectBulkDeleting)

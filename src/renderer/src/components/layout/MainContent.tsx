@@ -61,10 +61,10 @@ import { useRenderEffect } from '@/renderer/src/hooks/useRenderEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
+  selectBulkSelectableVisibleSkillNames,
   selectRepoFacetOptions,
   selectSelectedVisibleNames,
   selectSourceFilterViewModel,
-  selectVisibleSkillNames,
 } from '@/renderer/src/redux/selectors'
 import type { SourceFilterRow } from '@/renderer/src/redux/selectors'
 import { setPreviewSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
@@ -102,6 +102,7 @@ import {
 } from '@/renderer/src/redux/slices/uiSlice'
 import type {
   ActiveTab,
+  BulkConfirmState,
   ExcludableSkillTypeFilter,
   SkillTypeFilter,
 } from '@/renderer/src/redux/slices/uiSlice'
@@ -253,6 +254,38 @@ function partitionGlobalDeleteTargets(
 }
 
 /**
+ * Build bulk-delete targets only for delete confirms so MainContent stays branch-light.
+ * @param bulkConfirm - Pending bulk confirm dialog state.
+ * @param skills - Current skill inventory used to resolve orphan rows.
+ * @returns Partitioned delete targets, or null for unlink/no dialog.
+ * @example
+ * getBulkDeleteTargetSummary(confirmState, skills)
+ */
+function getBulkDeleteTargetSummary(
+  bulkConfirm: BulkConfirmState | null,
+  skills: readonly Skill[],
+): PartitionedGlobalDeleteTargets | null {
+  if (!bulkConfirm || bulkConfirm.kind !== 'delete') return null
+  return partitionGlobalDeleteTargets(skills, bulkConfirm.skillNames)
+}
+
+/**
+ * Disable destructive confirm when selected orphan rows require rescan and no cleanup can run.
+ * @param bulkConfirm - Pending bulk confirm dialog state.
+ * @param summary - Partitioned delete targets for the dialog.
+ * @returns True when the primary button would be a no-op.
+ * @example
+ * isBulkDeleteConfirmPrimaryDisabled(confirmState, summary)
+ */
+function isBulkDeleteConfirmPrimaryDisabled(
+  bulkConfirm: BulkConfirmState | null,
+  summary: PartitionedGlobalDeleteTargets | null,
+): boolean {
+  if (bulkConfirm?.kind !== 'delete' || summary === null) return false
+  return summary.deleteNames.length === 0 && summary.orphanRecords.length === 0
+}
+
+/**
  * Detects orphan cleanup errors that need a fresh scan, not a direct retry.
  * @param item - Bulk delete item result from source delete or orphan cleanup.
  * @returns True when selecting the row again would repeat the same stale failure.
@@ -297,7 +330,7 @@ export const MainContent = React.memo(
     const skillTypeFilter = useAppSelector((state) => state.ui.skillTypeFilter)
     const { items: agents } = useAppSelector((state) => state.agents)
     const activeTab = useAppSelector((state) => state.ui.activeTab)
-    const visibleNames = useAppSelector(selectVisibleSkillNames)
+    const visibleNames = useAppSelector(selectBulkSelectableVisibleSkillNames)
     const selectedVisibleNames = useAppSelector(selectSelectedVisibleNames)
     const selectedAllNames = useAppSelector(selectSelectedSkillNames)
     const skills = useAppSelector(selectSkillsItems)
@@ -311,9 +344,12 @@ export const MainContent = React.memo(
 
     const selectedAgent = agents.find((a) => a.id === selectedAgentId)
     const bulkDeleteTargetSummary = useMemo(() => {
-      if (!bulkConfirm || bulkConfirm.kind !== 'delete') return null
-      return partitionGlobalDeleteTargets(skills, bulkConfirm.skillNames)
+      return getBulkDeleteTargetSummary(bulkConfirm, skills)
     }, [bulkConfirm, skills])
+    const isBulkConfirmPrimaryDisabled = isBulkDeleteConfirmPrimaryDisabled(
+      bulkConfirm,
+      bulkDeleteTargetSummary,
+    )
     const selectedSkillTypeLabel =
       SKILL_TYPE_FILTER_OPTIONS.find(
         (option) => option.value === skillTypeFilter,
@@ -731,7 +767,9 @@ export const MainContent = React.memo(
         } else {
           const message = errorToastDescription(action)
           if (deleteItems.length === 0) {
+            restoreUnresolvedMixedDeleteSelection([], cleanupReadyOrphanNames)
             toast.error('Bulk delete failed', { description: message })
+            refreshAllData(dispatch)
             return
           }
           deleteItems.push(
@@ -1223,6 +1261,7 @@ export const MainContent = React.memo(
                 variant={
                   bulkConfirm?.kind === 'delete' ? 'destructive' : 'default'
                 }
+                disabled={isBulkConfirmPrimaryDisabled}
                 onClick={handleConfirmBulk}
               >
                 {bulkConfirm?.kind === 'delete' ? 'Delete' : 'Unlink'}

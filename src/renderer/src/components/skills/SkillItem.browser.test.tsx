@@ -289,6 +289,34 @@ describe('SkillItem symlink status badges', () => {
       .poll(() => screen.getByRole('button', { name: /^Add$/i }).query())
       .toBeNull()
   })
+
+  it('does not render bulk checkbox for broken agent rows that cannot use generic unlink', async () => {
+    // Arrange
+    const brokenSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'broken',
+          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          targetPath:
+            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          isLocal: false,
+        },
+      ],
+      isOrphan: true,
+    })
+    const { screen, store } = await renderSkillItem(brokenSkill)
+    const { enterBulkSelectMode, selectAgent } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+
+    // Act
+    store.dispatch(selectAgent('cursor'))
+    store.dispatch(enterBulkSelectMode())
+
+    // Assert
+    await expect.poll(() => screen.getByRole('checkbox').query()).toBeNull()
+  })
 })
 
 describe('SkillItem delete button', () => {

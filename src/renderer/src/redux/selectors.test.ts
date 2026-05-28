@@ -17,6 +17,7 @@ import type {
 
 import {
   selectBookmarksWithInstallStatus,
+  selectBulkSelectableVisibleSkillNames,
   selectFilteredSkills,
   selectHiddenSelectedCount,
   selectInFlightDeleteNamesSet,
@@ -837,6 +838,62 @@ describe('selectVisibleSkillNames', () => {
     const skills = [makeSkill('task', 'claude-code')]
     const state = buildState({ skills, searchQuery: 'unmatched' })
     expect(selectVisibleSkillNames(state as never)).toEqual([])
+  })
+})
+
+describe('selectBulkSelectableVisibleSkillNames', () => {
+  it('keeps broken agent rows visible but excludes them from bulk unlink names', () => {
+    const brokenSkill: Skill = {
+      ...makeSkill('broken-skill', 'cursor'),
+      isSource: false,
+      isOrphan: true,
+      symlinks: [
+        {
+          agentId: 'cursor' as AgentId,
+          agentName: 'Cursor' as SymlinkInfo['agentName'],
+          linkPath: '/home/user/.cursor/skills/broken-skill',
+          targetPath: '/home/user/.agents/skills/broken-skill',
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+    }
+    const validSkill = makeSkill('valid-skill', 'cursor')
+    const state = buildState({
+      skills: [brokenSkill, validSkill],
+      selectedAgentId: 'cursor',
+    })
+
+    expect(selectVisibleSkillNames(state as never)).toEqual([
+      'broken-skill',
+      'valid-skill',
+    ])
+    expect(selectBulkSelectableVisibleSkillNames(state as never)).toEqual([
+      'valid-skill',
+    ])
+  })
+
+  it('excludes inaccessible agent rows from bulk unlink names', () => {
+    const inaccessibleSkill: Skill = {
+      ...makeSkill('manual-review', 'cursor'),
+      symlinks: [
+        {
+          agentId: 'cursor' as AgentId,
+          agentName: 'Cursor' as SymlinkInfo['agentName'],
+          linkPath: '/home/user/.cursor/skills/manual-review',
+          targetPath: '/home/user/.agents/skills/manual-review',
+          status: 'inaccessible',
+          isLocal: false,
+        },
+      ],
+    }
+    const state = buildState({
+      skills: [inaccessibleSkill],
+      selectedAgentId: 'cursor',
+    })
+
+    expect(selectFilteredSkills(state as never)).toHaveLength(1)
+    expect(selectBulkSelectableVisibleSkillNames(state as never)).toEqual([])
   })
 })
 

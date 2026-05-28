@@ -20,6 +20,7 @@ import type {
 } from '@/shared/types'
 
 import {
+  clearSelectedBrokenSymlinkSlots,
   clearSelectedOrphanSymlinks,
   deleteSelectedSkills,
   fetchSkills,
@@ -543,6 +544,11 @@ const uiSlice = createSlice({
         state.bulkSelectMode = false
       })
       .addCase(clearSelectedOrphanSymlinks.pending, (state) => {
+        state.undoToast = null
+        state.bulkConfirm = null
+        state.bulkSelectMode = false
+      })
+      .addCase(clearSelectedBrokenSymlinkSlots.pending, (state) => {
         state.undoToast = null
         state.bulkConfirm = null
         state.bulkSelectMode = false

@@ -831,6 +831,59 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
     expect(mockRefreshAllData).toHaveBeenCalledTimes(1)
   })
 
+  it('restores orphan-only selection and refreshes when reviewed orphan cleanup rejects', async () => {
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode, setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const orphanSkillName = 'abandoned' as SkillName
+    const orphanSkill: Skill = {
+      name: orphanSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/abandoned' as never,
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'devin' as AgentId,
+          agentName: 'Devin' as never,
+          linkPath: '/Users/me/.config/devin/skills/abandoned' as never,
+          targetPath: '/Users/me/.agents/skills/abandoned' as never,
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    mockClearOrphanSymlinks.mockRejectedValueOnce(new Error('Disk offline'))
+
+    // Arrange
+    store.dispatch(fetchSkills.fulfilled([orphanSkill], 'req-id'))
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection(orphanSkillName))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [orphanSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockClearOrphanSymlinks.mock.calls.length).toBe(1)
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      orphanSkillName,
+    ])
+    expect(store.getState().ui.bulkSelectMode).toBe(true)
+    expect(mockRefreshAllData).toHaveBeenCalledTimes(1)
+  })
+
   it('does not count stale orphan rows as cleanup-ready in delete confirmation', async () => {
     const { screen, store } = await renderMainContent()
     const { setBulkConfirm } =
@@ -876,6 +929,9 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
         ),
       )
       .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: /^Delete$/ }))
+      .toBeDisabled()
     expect(
       screen
         .getByText(/removes reviewed dangling symlinks for 1 orphan skill/)

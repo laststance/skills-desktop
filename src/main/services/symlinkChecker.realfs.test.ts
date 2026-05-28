@@ -18,6 +18,7 @@ import {
   checkSymlinkStatus,
   checkSymlinkTargetFromKnownLink,
   readSymlinkTargetIfPresent,
+  resolveRawSymlinkTarget,
 } from './symlinkChecker'
 
 describe('symlinkChecker real filesystem behavior', () => {
@@ -61,6 +62,27 @@ describe('symlinkChecker real filesystem behavior', () => {
       expect(displayedTarget).not.toBe(
         join(temporaryRoot, '.agents', 'skills', 'qa-skill'),
       )
+    } finally {
+      await rm(temporaryRoot, { recursive: true, force: true })
+    }
+  })
+
+  it('resolves absolute symlink targets without requiring the link parent to exist', async () => {
+    // Arrange
+    const temporaryRoot = await mkdtemp(
+      join(tmpdir(), 'skills-desktop-absolute-target-'),
+    )
+
+    try {
+      const removedParent = join(temporaryRoot, 'missing-agent', 'skills')
+      const linkPath = join(removedParent, 'qa-skill')
+      const target = join(temporaryRoot, '.agents', 'skills', 'qa-skill')
+
+      // Act
+      const resolvedTarget = await resolveRawSymlinkTarget(linkPath, target)
+
+      // Assert
+      expect(resolvedTarget).toBe(target)
     } finally {
       await rm(temporaryRoot, { recursive: true, force: true })
     }

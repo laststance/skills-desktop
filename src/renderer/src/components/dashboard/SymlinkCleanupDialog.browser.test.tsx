@@ -358,6 +358,12 @@ describe('SymlinkCleanupDialog', () => {
     await expect
       .element(screen.getByText('No safe cleanup items'))
       .toBeVisible()
+    await expect
+      .element(screen.getByText(/Dashboard refresh still offline/))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Rescan' }))
+      .toBeVisible()
     expect(screen.getByText(/Cleanup failed/).query()).toBeNull()
   })
 

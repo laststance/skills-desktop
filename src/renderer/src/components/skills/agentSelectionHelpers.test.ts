@@ -95,6 +95,23 @@ describe('buildCopyAgentOptionViewModel', () => {
     })
   })
 
+  it('labels inaccessible occupancy as manual review instead of broken cleanup', () => {
+    const agent = makeAgent({ id: 'cursor', exists: true, name: 'Cursor' })
+
+    const result = buildCopyAgentOptionViewModel(agent, {
+      occupiedAgentReasonById: new Map([['cursor' as AgentId, 'inaccessible']]),
+      selectedAgentIds: [],
+      copying: false,
+      isSourceUnavailable: false,
+    })
+
+    expect(result).toMatchObject({
+      checked: true,
+      disabled: true,
+      secondaryLabel: 'manual review required',
+    })
+  })
+
   it('disables otherwise-free rows while copying or source is unavailable', () => {
     const agent = makeAgent({ id: 'amp', exists: false, name: 'Amp' })
 
@@ -121,6 +138,15 @@ describe('getAddAgentSecondaryLabel', () => {
         exists: false,
       }),
     ).toBe('broken link')
+  })
+
+  it('returns manual review copy for inaccessible destinations', () => {
+    expect(
+      getAddAgentSecondaryLabel({
+        occupiedReason: 'inaccessible',
+        exists: true,
+      }),
+    ).toBe('manual review required')
   })
 
   it('returns not installed for free missing agents', () => {

@@ -465,6 +465,43 @@ export const selectVisibleSkillNames = createSelector(
 )
 
 /**
+ * Detect whether a visible agent-view row can use the generic bulk Unlink path.
+ * @param skill - Visible skill row.
+ * @param selectedAgentId - Active agent filter; null means global delete flow.
+ * @returns True when bulk action can safely include this row.
+ * @example
+ * isBulkSelectableSkill(validSkill, 'cursor') // => true
+ */
+function isBulkSelectableSkill(
+  skill: Skill,
+  selectedAgentId: AgentId | null,
+): boolean {
+  if (selectedAgentId === null) return true
+
+  return skill.symlinks.some(
+    (symlink) =>
+      symlink.agentId === selectedAgentId &&
+      (symlink.isLocal || symlink.status === 'valid'),
+  )
+}
+
+/**
+ * Ordered visible names that can safely flow through the current bulk action.
+ * Agent-view broken/inaccessible rows stay visible but are excluded because
+ * name-only bulk Unlink cannot revalidate their reviewed target identity.
+ * @returns Skill names eligible for Select all, Shift range, and primary action.
+ * @example
+ * const names = useAppSelector(selectBulkSelectableVisibleSkillNames)
+ */
+export const selectBulkSelectableVisibleSkillNames = createSelector(
+  [selectFilteredSkills, selectSelectedAgentId],
+  (filteredSkills, selectedAgentId): SkillName[] =>
+    filteredSkills
+      .filter((skill) => isBulkSelectableSkill(skill, selectedAgentId))
+      .map((skill) => skill.name),
+)
+
+/**
  * Count of items currently ticked in `selectedSkillNames`. Separate from
  * `selectedSkillNames.length` at callsites so components can subscribe to the
  * scalar without re-rendering on any selection mutation (toolbar shows
@@ -490,7 +527,7 @@ export const selectSelectedCount = createSelector(
  * // => ['task', 'browser']
  */
 export const selectSelectedVisibleNames = createSelector(
-  [selectSelectedSkillNames, selectVisibleSkillNames],
+  [selectSelectedSkillNames, selectBulkSelectableVisibleSkillNames],
   (selectedNames, visibleNames): SkillName[] => {
     const selectedSet = new Set(selectedNames)
     return visibleNames.filter((name) => selectedSet.has(name))
@@ -515,7 +552,7 @@ export const selectSelectedVisibleCount = createSelector(
  * @returns number — selected names that are NOT in the visible list
  */
 export const selectHiddenSelectedCount = createSelector(
-  [selectSelectedSkillNames, selectVisibleSkillNames],
+  [selectSelectedSkillNames, selectBulkSelectableVisibleSkillNames],
   (selectedNames, visibleNames): number => {
     const visibleSet = new Set(visibleNames)
     let hidden = 0

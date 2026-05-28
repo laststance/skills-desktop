@@ -6,6 +6,7 @@ import type {
   AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
+  ClearBrokenSymlinkSlotsResult,
   ClearOrphanSymlinksResult,
   Skill,
   SyncExecuteResult,
@@ -595,6 +596,39 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     await promise
   })
 
+  it('clearSelectedBrokenSymlinkSlots.pending clears undoToast (combined store)', async () => {
+    const store = await createCombinedStore()
+    const { setUndoToast } = await import('./uiSlice')
+    const { clearSelectedBrokenSymlinkSlots } = await import('./skillsSlice')
+
+    store.dispatch(setUndoToast(makeToast()))
+    expect(store.getState().ui.undoToast).not.toBeNull()
+
+    let resolve!: (value: ClearBrokenSymlinkSlotsResult) => void
+    mockClearBrokenSymlinkSlots.mockReturnValue(
+      new Promise<ClearBrokenSymlinkSlotsResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(
+      clearSelectedBrokenSymlinkSlots({
+        items: [
+          {
+            agentId: 'codex' as AgentId,
+            linkName: 'task',
+            linkPath: '/home/user/.codex/skills/task',
+            targetPath: '/home/user/.agents/skills/task',
+          },
+        ],
+      }),
+    )
+
+    expect(store.getState().ui.undoToast).toBeNull()
+
+    resolve({ items: [] })
+    await promise
+  })
+
   it('unlinkSelectedFromAgent.pending clears undoToast (combined store)', async () => {
     const store = await createCombinedStore()
     const { setUndoToast } = await import('./uiSlice')
@@ -738,6 +772,38 @@ describe('uiSlice bulkSelectMode', () => {
           ],
         },
       ]),
+    )
+
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+
+    resolve({ items: [] })
+    await promise
+  })
+
+  it('clearSelectedBrokenSymlinkSlots.pending clears bulkSelectMode (combined store)', async () => {
+    const store = await createCombinedStore()
+    const { enterBulkSelectMode } = await import('./uiSlice')
+    const { clearSelectedBrokenSymlinkSlots } = await import('./skillsSlice')
+
+    store.dispatch(enterBulkSelectMode())
+
+    let resolve!: (value: ClearBrokenSymlinkSlotsResult) => void
+    mockClearBrokenSymlinkSlots.mockReturnValue(
+      new Promise<ClearBrokenSymlinkSlotsResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(
+      clearSelectedBrokenSymlinkSlots({
+        items: [
+          {
+            agentId: 'codex' as AgentId,
+            linkName: 'task',
+            linkPath: '/home/user/.codex/skills/task',
+            targetPath: '/home/user/.agents/skills/task',
+          },
+        ],
+      }),
     )
 
     expect(store.getState().ui.bulkSelectMode).toBe(false)

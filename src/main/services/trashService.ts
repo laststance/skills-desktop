@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import type { Stats } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 import { match } from 'ts-pattern'
 import type { z } from 'zod'
@@ -65,6 +65,8 @@ export interface RecordedSymlink {
   // created — it may be absolute OR relative. fs.readlink returns it verbatim,
   // so narrowing to AbsolutePath would state a contract readlink cannot guarantee.
   target: string
+  /** Resolved target captured for orphan cleanup revalidation; not required in persisted manifests. */
+  targetPath?: AbsolutePath
 }
 
 /**
@@ -347,6 +349,7 @@ async function scanOrphanSymlinkPaths(
           agentId: agent.id,
           linkPath: linkPath as AbsolutePath,
           target,
+          targetPath: resolvedTarget,
         })
         continue
       }
@@ -360,6 +363,243 @@ async function scanOrphanSymlinkPaths(
     }
   }
   return orphans
+}
+
+/**
+ * Restore a moved cleanup candidate when post-rename validation finds stale state.
+ * @param linkPath - Original agent slot reviewed before cleanup.
+ * @param movedPath - Same-directory temporary path created during guarded commit.
+ * @returns void after the moved entry is restored or a TrashError explains why it could not be.
+ * @example
+ * await restoreMovedCleanupCandidate('/agent/skill', '/agent/skill.cleanup-deadbeef')
+ */
+async function restoreMovedCleanupCandidate(
+  linkPath: AbsolutePath,
+  movedPath: AbsolutePath,
+): Promise<void> {
+  try {
+    await fs.lstat(linkPath)
+    throw new TrashError(
+      `Cleanup stopped after the reviewed slot changed. Moved entry left at ${movedPath} because ${linkPath} is occupied.`,
+      'ESTALE',
+    )
+  } catch (error) {
+    if (error instanceof TrashError) throw error
+    if (!isMissingPathError(error)) {
+      throw new TrashError(
+        `Cleanup stopped, but ${linkPath} could not be checked before restoring the moved entry: ${extractErrorMessage(error)}`,
+        errorCode(error),
+      )
+    }
+  }
+
+  try {
+    await fs.rename(movedPath, linkPath)
+  } catch (error) {
+    throw new TrashError(
+      `Cleanup stopped, but the moved entry could not be restored at ${linkPath}: ${extractErrorMessage(error)}`,
+      errorCode(error),
+    )
+  }
+}
+
+/**
+ * Read and verify the exact reviewed symlink target at the destructive slot.
+ * @param options - Reviewed link path, target path, and stale-target message.
+ * @returns Raw and resolved target for the still-reviewed symlink.
+ * @example
+ * await readReviewedDanglingSymlink({ linkPath, targetPath, targetChangedMessage })
+ */
+export async function readReviewedDanglingSymlink(options: {
+  linkPath: AbsolutePath
+  targetPath: AbsolutePath
+  targetChangedMessage: string
+}): Promise<{ rawTarget: string; resolvedTarget: AbsolutePath }> {
+  let stats: Stats
+  try {
+    stats = await fs.lstat(options.linkPath)
+  } catch (error) {
+    if (isMissingPathError(error)) {
+      throw new TrashError('Reviewed cleanup slot is already missing', 'ENOENT')
+    }
+    throw new TrashError(extractErrorMessage(error), errorCode(error))
+  }
+
+  if (!stats.isSymbolicLink()) {
+    throw new TrashError(
+      'Reviewed cleanup slot is no longer a symlink',
+      'ESTALE',
+    )
+  }
+
+  let rawTarget: string
+  try {
+    rawTarget = await fs.readlink(options.linkPath)
+  } catch (error) {
+    if (isMissingPathError(error)) {
+      throw new TrashError('Reviewed cleanup slot is already missing', 'ENOENT')
+    }
+    throw new TrashError(
+      'Reviewed cleanup slot is no longer a symlink',
+      'ESTALE',
+    )
+  }
+
+  const resolvedTarget = await resolveRawSymlinkTarget(
+    options.linkPath,
+    rawTarget,
+  )
+  if (resolve(resolvedTarget) !== resolve(options.targetPath)) {
+    throw new TrashError(options.targetChangedMessage, 'ESTALE')
+  }
+
+  return { rawTarget, resolvedTarget }
+}
+
+/**
+ * Assert the reviewed symlink target is still absent and cleanup-safe.
+ * @param resolvedTarget - Absolute target path resolved from the reviewed symlink.
+ * @param targetExistsMessage - Stale message when the source target reappears.
+ * @param targetProbePrefix - Prefix for non-missing probe failures.
+ * @returns void when the target remains missing.
+ * @example
+ * await assertReviewedTargetMissing('/Users/me/.agents/skills/task', 'Target exists', 'Cannot verify target')
+ */
+export async function assertReviewedTargetMissing(
+  resolvedTarget: AbsolutePath,
+  targetExistsMessage: string,
+  targetProbePrefix: string,
+): Promise<void> {
+  try {
+    await fs.access(resolvedTarget)
+    throw new TrashError(targetExistsMessage, 'ESTALE')
+  } catch (error) {
+    if (error instanceof TrashError) throw error
+    if (!isMissingPathError(error)) {
+      throw new TrashError(
+        `${targetProbePrefix}: ${extractErrorMessage(error)}`,
+        errorCode(error),
+      )
+    }
+  }
+}
+
+/**
+ * Commit cleanup by moving the candidate, validating the moved entry, then unlinking it.
+ * @param options - Reviewed path and target messages for final validation.
+ * @returns void after the moved, verified symlink is removed.
+ * @example
+ * await commitReviewedDanglingSymlink({ linkPath, targetPath, targetChangedMessage, targetExistsMessage, targetProbePrefix })
+ */
+export async function commitReviewedDanglingSymlink(options: {
+  linkPath: AbsolutePath
+  targetPath: AbsolutePath
+  targetChangedMessage: string
+  targetExistsMessage: string
+  targetProbePrefix: string
+}): Promise<void> {
+  const movedPath =
+    `${options.linkPath}.cleanup-${randomBytes(4).toString('hex')}` as AbsolutePath
+
+  try {
+    await fs.rename(options.linkPath, movedPath)
+  } catch (error) {
+    if (isMissingPathError(error)) return
+    throw new TrashError(extractErrorMessage(error), errorCode(error))
+  }
+
+  try {
+    const movedReviewed = await readReviewedDanglingSymlink({
+      linkPath: movedPath,
+      targetPath: options.targetPath,
+      targetChangedMessage: options.targetChangedMessage,
+    })
+    await assertReviewedTargetMissing(
+      movedReviewed.resolvedTarget,
+      options.targetExistsMessage,
+      options.targetProbePrefix,
+    )
+    await fs.unlink(movedPath)
+  } catch (error) {
+    await restoreMovedCleanupCandidate(options.linkPath, movedPath)
+    throw error
+  }
+}
+
+/**
+ * Revalidate and unlink one reviewed dangling symlink while protecting same-path replacements.
+ * @param options - Exact reviewed path/target plus messages for stale-target cases.
+ * @returns `missing` when the slot was already gone; otherwise `unlinked`.
+ * @example
+ * await unlinkReviewedDanglingSymlink({ linkPath, targetPath, targetChangedMessage, targetExistsMessage, targetProbePrefix })
+ */
+export async function unlinkReviewedDanglingSymlink(options: {
+  linkPath: AbsolutePath
+  targetPath: AbsolutePath
+  targetChangedMessage: string
+  targetExistsMessage: string
+  targetProbePrefix: string
+  beforeTargetProbe?: () => Promise<void>
+}): Promise<'missing' | 'unlinked'> {
+  try {
+    const reviewed = await readReviewedDanglingSymlink(options)
+
+    await options.beforeTargetProbe?.()
+
+    await assertReviewedTargetMissing(
+      reviewed.resolvedTarget,
+      options.targetExistsMessage,
+      options.targetProbePrefix,
+    )
+
+    const finalReviewed = await readReviewedDanglingSymlink(options)
+    await assertReviewedTargetMissing(
+      finalReviewed.resolvedTarget,
+      options.targetExistsMessage,
+      options.targetProbePrefix,
+    )
+
+    await commitReviewedDanglingSymlink(options)
+  } catch (error) {
+    if (isMissingPathError(error)) return 'missing'
+    if (error instanceof TrashError) throw error
+    const code = errorCode(error)
+    // A concurrent folder replacement should never be moved or removed.
+    if (code === 'EISDIR' || code === 'EPERM' || code === 'EINVAL') {
+      throw new TrashError(
+        'Reviewed cleanup slot is no longer a symlink',
+        'ESTALE',
+      )
+    }
+    throw new TrashError(extractErrorMessage(error), code)
+  }
+
+  return 'unlinked'
+}
+
+/**
+ * Guard orphan cleanup by revalidating reviewed target identity before unlinking.
+ * @param orphan - Orphan symlink record captured by the scan.
+ * @returns `removed` when cleaned, `missing` when already gone.
+ * @example
+ * await commitReviewedOrphanSymlink({ agentId: 'codex', linkPath, target, targetPath })
+ */
+async function commitReviewedOrphanSymlink(
+  orphan: RecordedSymlink,
+): Promise<'removed' | 'missing'> {
+  const targetPath =
+    orphan.targetPath ??
+    (await resolveRawSymlinkTarget(orphan.linkPath, orphan.target))
+  const outcome = await unlinkReviewedDanglingSymlink({
+    linkPath: orphan.linkPath,
+    targetPath,
+    targetChangedMessage:
+      'Reviewed orphan link target changed. Rescan before cleanup.',
+    targetExistsMessage:
+      'Reviewed orphan link target now exists. Rescan before cleanup.',
+    targetProbePrefix: 'Cannot verify reviewed orphan target',
+  })
+  return outcome === 'unlinked' ? 'removed' : 'missing'
 }
 
 /**
@@ -397,7 +637,7 @@ async function clearOrphanSymlinks(
 
   for (const orphan of orphans) {
     try {
-      await fs.unlink(orphan.linkPath)
+      await commitReviewedOrphanSymlink(orphan)
       cascadeAgents.push(orphan.agentId)
       symlinksRemoved++
     } catch (error) {
@@ -1101,15 +1341,20 @@ async function restoreSourceBacked(
       symlinksSkipped++
       continue
     }
-    // Re-validate target stays inside SOURCE_DIR. `target` is the raw string
-    // `fs.readlink` returned at delete-time — it may be absolute or relative
-    // to the symlink's own directory (kernel resolution contract). A tampered
-    // manifest could otherwise steer restore into planting links at '/etc/...'.
-    const resolvedTarget = await resolveRawSymlinkTarget(
-      link.linkPath,
-      link.target,
-    )
+    // Ensure the parent exists before resolving relative targets. Devin-style
+    // symlinked config parents need a real directory for realpath(dirname).
     try {
+      await fs.mkdir(agent.path, { recursive: true })
+    } catch {
+      symlinksSkipped++
+      continue
+    }
+
+    // Re-validate target stays inside SOURCE_DIR. Per-link resolver failures
+    // skip the link instead of aborting after the source has already restored.
+    let resolvedTarget: AbsolutePath
+    try {
+      resolvedTarget = await resolveRawSymlinkTarget(link.linkPath, link.target)
       validatePath(resolvedTarget, [SOURCE_DIR])
     } catch {
       symlinksSkipped++
@@ -1137,7 +1382,6 @@ async function restoreSourceBacked(
       }
     }
     try {
-      await fs.mkdir(agent.path, { recursive: true })
       await fs.symlink(link.target, link.linkPath)
       symlinksRestored++
     } catch {

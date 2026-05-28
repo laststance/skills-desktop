@@ -34,6 +34,11 @@ const SYMLINKED_CONFIG_DEVIN_SKILL_NAME = 'valid-devin-symlink-parent-fixture'
 const CLEANUP_UI_SOURCE_PRESERVED_SKILL_NAME =
   'cleanup-ui-source-preserved-fixture'
 const BROKEN_DEVIN_CLEANUP_SKILL_NAME = 'broken-devin-cleanup-fixture'
+const STALE_CLEANUP_PRESERVES_REPLACEMENT_SKILL_NAME =
+  'stale-cleanup-preserves-replacement-fixture'
+const ORPHAN_CLEANUP_UI_SKILL_NAME = 'orphan-cleanup-ui-fixture'
+const INACCESSIBLE_MANUAL_REVIEW_SKILL_NAME =
+  'inaccessible-manual-review-fixture'
 
 const symlinkedConfigTest = test.extend({
   // Playwright inspects fixture parameter names; the empty object must remain.
@@ -283,4 +288,161 @@ test('Symlink Health cleanup unlinks a broken agent slot without deleting the so
   expect(existsSync(sourcePath)).toBe(true)
   expect(existsSync(join(sourcePath, 'SKILL.md'))).toBe(true)
   expect(() => lstatSync(codexLinkPath)).toThrow(/ENOENT/)
+})
+
+test('Symlink Health cleanup refuses a reviewed broken slot that becomes valid before Clean', async ({
+  appWindow,
+  isolatedHome,
+}) => {
+  await waitForInitialScan(appWindow)
+
+  // Arrange: the review plan sees a broken Codex slot for a live source skill.
+  const sourcePath = join(
+    isolatedHome,
+    '.agents',
+    'skills',
+    STALE_CLEANUP_PRESERVES_REPLACEMENT_SKILL_NAME,
+  )
+  const codexSkillsDir = join(isolatedHome, '.codex', 'skills')
+  const codexLinkPath = join(
+    codexSkillsDir,
+    STALE_CLEANUP_PRESERVES_REPLACEMENT_SKILL_NAME,
+  )
+
+  mkdirSync(sourcePath, { recursive: true })
+  writeFileSync(
+    join(sourcePath, 'SKILL.md'),
+    [
+      '---',
+      `name: ${STALE_CLEANUP_PRESERVES_REPLACEMENT_SKILL_NAME}`,
+      'description: E2E fixture for stale cleanup replacement preservation',
+      '---',
+      '',
+    ].join('\n'),
+  )
+  mkdirSync(codexSkillsDir, { recursive: true })
+  symlinkSync('../missing-target-for-stale-cleanup-ui', codexLinkPath)
+  await refreshSkillsState(appWindow)
+
+  await appWindow.getByRole('button', { name: 'Scan issues' }).click()
+  await expect(
+    appWindow.getByRole('heading', { name: 'Symlink cleanup' }),
+  ).toBeVisible()
+  await expect(
+    appWindow.getByText(STALE_CLEANUP_PRESERVES_REPLACEMENT_SKILL_NAME),
+  ).toBeVisible()
+
+  // Act: replace the reviewed dangling symlink with a valid symlink before
+  // the user commits cleanup.
+  rmSync(codexLinkPath, { force: true })
+  symlinkSync(sourcePath, codexLinkPath)
+  await appWindow.getByRole('button', { name: 'Clean 1 selected' }).click()
+
+  // Assert: the UI asks for rescan and preserves the replacement link.
+  await expect(
+    appWindow.getByText('Plan changed', { exact: true }),
+  ).toBeVisible()
+  await expect(
+    appWindow.getByText('Plan changed. Rescan required.'),
+  ).toBeVisible()
+  expect(lstatSync(codexLinkPath).isSymbolicLink()).toBe(true)
+  expect(realpathSync.native(codexLinkPath)).toBe(
+    realpathSync.native(sourcePath),
+  )
+})
+
+test('Symlink Health cleanup removes orphan records without creating an Undo affordance', async ({
+  appWindow,
+  isolatedHome,
+}) => {
+  await waitForInitialScan(appWindow)
+
+  // Arrange: no source skill exists; Codex owns only a dangling agent symlink.
+  const codexSkillsDir = join(isolatedHome, '.codex', 'skills')
+  const orphanLinkPath = join(codexSkillsDir, ORPHAN_CLEANUP_UI_SKILL_NAME)
+  const missingSourcePath = join(
+    isolatedHome,
+    '.agents',
+    'skills',
+    ORPHAN_CLEANUP_UI_SKILL_NAME,
+  )
+  mkdirSync(codexSkillsDir, { recursive: true })
+  symlinkSync(missingSourcePath, orphanLinkPath)
+  await refreshSkillsState(appWindow)
+
+  // Act: clean the orphan-record path from the Symlink Health dialog.
+  await appWindow.getByRole('button', { name: 'Scan issues' }).click()
+  await expect(
+    appWindow.getByRole('heading', { name: 'Symlink cleanup' }),
+  ).toBeVisible()
+  await expect(appWindow.getByText('Orphan records')).toBeVisible()
+  await expect(
+    appWindow.getByText(ORPHAN_CLEANUP_UI_SKILL_NAME, { exact: true }),
+  ).toBeVisible()
+  await appWindow.getByRole('button', { name: 'Clean 1 selected' }).click()
+
+  // Assert: only the dangling symlink is removed; no trash/undo path appears.
+  await expect(appWindow.getByText('Cleaned up 1 symlink issue')).toBeVisible()
+  await expect(appWindow.getByText('1 orphan symlink removed')).toBeVisible()
+  expect(() => lstatSync(orphanLinkPath)).toThrow(/ENOENT/)
+  expect(existsSync(missingSourcePath)).toBe(false)
+  await expect(appWindow.getByRole('button', { name: /^Undo$/ })).toHaveCount(0)
+})
+
+test('inaccessible agent symlinks stay visible for manual review without destructive row affordances', async ({
+  appWindow,
+  isolatedHome,
+}) => {
+  await waitForInitialScan(appWindow)
+
+  // Arrange: a self-referential Codex symlink produces ELOOP, which the app
+  // treats as inaccessible/manual-review rather than cleanup-ready broken.
+  const codexSkillsDir = join(isolatedHome, '.codex', 'skills')
+  const loopLinkPath = join(
+    codexSkillsDir,
+    INACCESSIBLE_MANUAL_REVIEW_SKILL_NAME,
+  )
+  mkdirSync(codexSkillsDir, { recursive: true })
+  symlinkSync(loopLinkPath, loopLinkPath)
+  await refreshSkillsState(appWindow)
+
+  // Act: open the Codex-scoped view where row Add/Unlink affordances render.
+  await appWindow.evaluate(() => {
+    const store = window.__store__ ?? window.__store
+    if (!store) throw new Error('Redux store unavailable in E2E build')
+    store.dispatch({ type: 'ui/selectAgent', payload: 'codex' })
+  })
+
+  // Assert: the row is visible as manual review and does not expose Add/Unlink.
+  await expect(
+    appWindow.getByText(INACCESSIBLE_MANUAL_REVIEW_SKILL_NAME),
+  ).toBeVisible()
+  await expect(
+    appWindow.getByLabel('Inaccessible link - manual review required'),
+  ).toBeVisible()
+  await expect(appWindow.getByRole('button', { name: /^Add$/ })).toHaveCount(0)
+  await expect(
+    appWindow.getByRole('button', {
+      name: `Unlink ${INACCESSIBLE_MANUAL_REVIEW_SKILL_NAME} from Codex`,
+    }),
+  ).toHaveCount(0)
+
+  const inaccessibleSnapshot = await getStoreState(
+    appWindow,
+    (state, name): string | undefined => {
+      const root = state as {
+        skills: {
+          items: Array<{
+            name: string
+            symlinks: Array<{ agentId: string; status: string }>
+          }>
+        }
+      }
+      return root.skills.items
+        .find((skill) => skill.name === name)
+        ?.symlinks.find((symlink) => symlink.agentId === 'codex')?.status
+    },
+    INACCESSIBLE_MANUAL_REVIEW_SKILL_NAME,
+  )
+  expect(inaccessibleSnapshot).toBe('inaccessible')
 })

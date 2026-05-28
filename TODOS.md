@@ -420,6 +420,102 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Call `refreshAllData(dispatch)` in the mixed rejection path after restoring unresolved selection.
 
+### P1. Agent-view bulk Unlink must not bypass reviewed cleanup
+
+**Status:** Fixed after sixth post-fix subagent review follow-up.
+
+**Finding:** Per-row Unlink is hidden for broken/inaccessible agent rows, but bulk selection still allows those rows and `MainContent` routes agent bulk actions through name-only `unlinkSelectedFromAgent`. That bypasses reviewed `linkPath`/`targetPath` revalidation and can remove a symlink that became live after scan.
+
+**Fix direction:** Exclude broken/inaccessible non-local rows from agent-view bulk-select names and checkbox rendering, with selector/browser coverage.
+
+### P1. Name-rescan orphan delete must not direct-unlink stale links
+
+**Status:** Fixed after sixth post-fix subagent review follow-up.
+
+**Finding:** `moveToTrash` orphan branch still scans by name and then `fs.unlink(orphan.linkPath)` directly. If the target/source is restored between scan and unlink, a live symlink can be removed outside the guarded cleanup path.
+
+**Fix direction:** Carry resolved reviewed target identity from orphan scan and commit through the same guarded rename/revalidate/unlink model, returning `ESTALE` when the target is restored.
+
+### P1. Restore loop must not abort after source restore when one symlink parent is missing
+
+**Status:** Fixed after sixth post-fix subagent review follow-up.
+
+**Finding:** `restoreSourceBacked` calls `resolveRawSymlinkTarget` before ensuring the agent skills directory exists and lets resolver failures escape the per-link skip loop. A missing agent dir can abort restore after the source has already been moved back.
+
+**Fix direction:** Resolve absolute targets without parent realpath, create the agent skills dir before relative resolution, and treat per-link resolver failures as skipped symlinks.
+
+### P1. Guarded stale cleanup needs E2E coverage
+
+**Status:** Fixed after sixth post-fix subagent review follow-up.
+
+**Finding:** E2E covers immediate cleanup but not the stale-after-review case where the selected slot changes before mutation. The lower-level race tests do not prove the UI preserves replacements and asks for rescan.
+
+**Fix direction:** Add an Electron E2E that opens Symlink Health cleanup, mutates the selected slot, clicks Clean, and asserts rescan/error copy plus preserved replacement.
+
+### P1. Orphan-only Delete rejection must refresh and restore retry state
+
+**Status:** Fixed after sixth post-fix subagent review follow-up.
+
+**Finding:** If `clearSelectedOrphanSymlinks` rejects before per-item results and no source delete ran, `MainContent` shows a toast and returns without refresh or re-entering bulk mode.
+
+**Fix direction:** On orphan cleanup thunk rejection with no prior delete items, reselect unresolved orphan rows, refresh all data, and add browser coverage.
+
+### P2. Broken cleanup thunk must update Redux busy state
+
+**Status:** Fixed after sixth post-fix subagent review follow-up.
+
+**Finding:** `clearSelectedBrokenSymlinkSlots` is dispatched by Symlink Cleanup but has no pending/fulfilled/rejected reducers, so global busy/error/ephemeral UI state can remain stale during broken-only cleanup.
+
+**Fix direction:** Add reducer and UI pending handling mirroring unlink cleanup state, with slice tests.
+
+### P2. Stale-only orphan confirm must not enable a no-op destructive Delete
+
+**Status:** Fixed after sixth post-fix subagent review follow-up.
+
+**Finding:** A selection containing only stale orphan rows shows "No selected orphan skills are cleanup-ready" but still enables the destructive Delete button. Clicking it does nothing because `deleteItems.length === 0`.
+
+**Fix direction:** Disable the confirm primary action when there are no source deletes and no cleanup-ready orphan records.
+
+### P2. Refresh-failed Rescan should preserve auxiliary refresh failure warning
+
+**Status:** Fixed after sixth post-fix subagent review follow-up.
+
+**Finding:** `runScan({ refreshDashboard: true })` now ignores `fetchAgents`/`fetchSourceStats` rejection when `fetchSkills` succeeds. That avoids a hard error but can make the stale-dashboard warning disappear.
+
+**Fix direction:** Keep the scan usable while surfacing an auxiliary refresh failure message and keeping a Rescan affordance.
+
+### P2. Inaccessible destination labels must not say "broken link"
+
+**Status:** Fixed after sixth post-fix subagent review follow-up.
+
+**Finding:** Add/Copy modal occupancy maps inaccessible destinations to the same `broken link` label, collapsing manual-review and cleanup-ready states.
+
+**Fix direction:** Add an `inaccessible` occupancy reason and label it as manual review required.
+
+### P2. Orphan cleanup needs route-specific guarded-race coverage
+
+**Status:** Fixed after sixth post-fix subagent review follow-up.
+
+**Finding:** Broken-slot guarded races are covered, but orphan cleanup has its own source/local-copy blocker and lacks analogous integration tests.
+
+**Fix direction:** Add orphan cleanup tests for target restored, local folder/source appearing, and commit-time replacement preservation.
+
+### P2. Symlink Cleanup orphan-record path needs E2E coverage
+
+**Status:** Fixed after sixth post-fix subagent review follow-up.
+
+**Finding:** Symlink Cleanup E2E covers broken slots, not source-absent orphan-record cleanup, busy controls, or no-undo/tombstone behavior.
+
+**Fix direction:** Add an Electron E2E with a dangling agent symlink and no source, asserting cleanup removes the orphan without creating undo affordance.
+
+### P2. Inaccessible/manual-review affordances need E2E coverage
+
+**Status:** Fixed after sixth post-fix subagent review follow-up.
+
+**Finding:** Unit/browser tests cover hidden Add/Copy/Unlink, but E2E does not assert the manual-review surface and absence of destructive affordances.
+
+**Fix direction:** Add or extend E2E coverage for inaccessible state if a stable fixture can create it without touching protected user paths.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

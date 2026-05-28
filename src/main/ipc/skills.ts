@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import type { Stats } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
@@ -16,7 +15,12 @@ import {
 import { getAllowedBases, validatePath } from '@/main/services/pathValidation'
 import { scanSkills } from '@/main/services/skillScanner'
 import { resolveRawSymlinkTarget } from '@/main/services/symlinkChecker'
-import { moveToTrash, restore, TrashError } from '@/main/services/trashService'
+import {
+  moveToTrash,
+  restore,
+  TrashError,
+  unlinkReviewedDanglingSymlink,
+} from '@/main/services/trashService'
 import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
 import { extractErrorMessage } from '@/main/utils/errors'
 import { BULK_PROGRESS_THRESHOLD } from '@/shared/constants'
@@ -40,217 +44,6 @@ import { typedSend } from './typedSend'
 type AgentPathRemovalResult =
   | { success: true }
   | { success: false; error: string; code?: string }
-
-/**
- * Read and verify the exact reviewed symlink target at the destructive slot.
- * @param options - Reviewed link path, target path, and stale-target message.
- * @returns Raw and resolved target for the still-reviewed symlink.
- * @example
- * await readReviewedDanglingSymlink({ linkPath, targetPath, targetChangedMessage })
- */
-async function readReviewedDanglingSymlink(options: {
-  linkPath: AbsolutePath
-  targetPath: AbsolutePath
-  targetChangedMessage: string
-}): Promise<{ rawTarget: string; resolvedTarget: AbsolutePath }> {
-  let stats: Stats
-  try {
-    stats = await fs.lstat(options.linkPath)
-  } catch (error) {
-    if (isMissingPathError(error)) {
-      throw new TrashError('Reviewed cleanup slot is already missing', 'ENOENT')
-    }
-    throw new TrashError(extractErrorMessage(error), errorCode(error))
-  }
-
-  if (!stats.isSymbolicLink()) {
-    throw new TrashError(
-      'Reviewed cleanup slot is no longer a symlink',
-      'ESTALE',
-    )
-  }
-
-  let rawTarget: string
-  try {
-    rawTarget = await fs.readlink(options.linkPath)
-  } catch (error) {
-    if (isMissingPathError(error)) {
-      throw new TrashError('Reviewed cleanup slot is already missing', 'ENOENT')
-    }
-    throw new TrashError(
-      'Reviewed cleanup slot is no longer a symlink',
-      'ESTALE',
-    )
-  }
-
-  const resolvedTarget = await resolveRawSymlinkTarget(
-    options.linkPath,
-    rawTarget,
-  )
-  if (resolve(resolvedTarget) !== resolve(options.targetPath)) {
-    throw new TrashError(options.targetChangedMessage, 'ESTALE')
-  }
-
-  return { rawTarget, resolvedTarget }
-}
-
-/**
- * Assert the reviewed symlink target is still absent and cleanup-safe.
- * @param resolvedTarget - Absolute target path resolved from the reviewed symlink.
- * @param targetExistsMessage - Stale message when the source target reappears.
- * @param targetProbePrefix - Prefix for non-missing probe failures.
- * @returns void when the target remains missing.
- * @example
- * await assertReviewedTargetMissing('/Users/me/.agents/skills/task', 'Target exists', 'Cannot verify target')
- */
-async function assertReviewedTargetMissing(
-  resolvedTarget: AbsolutePath,
-  targetExistsMessage: string,
-  targetProbePrefix: string,
-): Promise<void> {
-  try {
-    await fs.access(resolvedTarget)
-    throw new TrashError(targetExistsMessage, 'ESTALE')
-  } catch (error) {
-    if (error instanceof TrashError) throw error
-    if (!isMissingPathError(error)) {
-      throw new TrashError(
-        `${targetProbePrefix}: ${extractErrorMessage(error)}`,
-        errorCode(error),
-      )
-    }
-  }
-}
-
-/**
- * Restore a moved cleanup candidate when post-rename validation proves it is stale.
- * @param linkPath - Original agent slot path reviewed by the user.
- * @param movedPath - Same-directory temporary path created by guarded rename.
- * @returns void after the moved entry is back at the reviewed slot when possible.
- * @example
- * await restoreMovedCleanupCandidate('/agent/task', '/agent/task.cleanup-1')
- */
-async function restoreMovedCleanupCandidate(
-  linkPath: AbsolutePath,
-  movedPath: AbsolutePath,
-): Promise<void> {
-  try {
-    await fs.lstat(linkPath)
-    throw new TrashError(
-      `Cleanup stopped after the reviewed slot changed. Moved entry left at ${movedPath} because ${linkPath} is occupied.`,
-      'ESTALE',
-    )
-  } catch (error) {
-    if (error instanceof TrashError) throw error
-    if (!isMissingPathError(error)) {
-      throw new TrashError(
-        `Cleanup stopped, but ${linkPath} could not be checked before restoring the moved entry: ${extractErrorMessage(error)}`,
-        errorCode(error),
-      )
-    }
-  }
-
-  try {
-    await fs.rename(movedPath, linkPath)
-  } catch (error) {
-    throw new TrashError(
-      `Cleanup stopped, but the moved entry could not be restored at ${linkPath}: ${extractErrorMessage(error)}`,
-      errorCode(error),
-    )
-  }
-}
-
-/**
- * Commit cleanup by moving the candidate, validating the moved entry, then unlinking it.
- * @param options - Reviewed path and target messages for final validation.
- * @returns void after the moved, verified symlink is removed.
- * @example
- * await commitReviewedDanglingSymlink({ linkPath, targetPath, targetChangedMessage, targetExistsMessage, targetProbePrefix })
- */
-async function commitReviewedDanglingSymlink(options: {
-  linkPath: AbsolutePath
-  targetPath: AbsolutePath
-  targetChangedMessage: string
-  targetExistsMessage: string
-  targetProbePrefix: string
-}): Promise<void> {
-  const movedPath =
-    `${options.linkPath}.cleanup-${randomUUID()}` as AbsolutePath
-  try {
-    await fs.rename(options.linkPath, movedPath)
-  } catch (error) {
-    if (isMissingPathError(error)) return
-    throw new TrashError(extractErrorMessage(error), errorCode(error))
-  }
-
-  try {
-    const movedReviewed = await readReviewedDanglingSymlink({
-      linkPath: movedPath,
-      targetPath: options.targetPath,
-      targetChangedMessage: options.targetChangedMessage,
-    })
-    await assertReviewedTargetMissing(
-      movedReviewed.resolvedTarget,
-      options.targetExistsMessage,
-      options.targetProbePrefix,
-    )
-    await fs.unlink(movedPath)
-  } catch (error) {
-    await restoreMovedCleanupCandidate(options.linkPath, movedPath)
-    throw error
-  }
-}
-
-/**
- * Revalidate and unlink one reviewed dangling symlink without moving replacements.
- * @param options - Exact reviewed path/target plus messages for stale-target cases.
- * @returns `missing` when the slot was already gone; otherwise `unlinked`.
- * @example
- * await unlinkReviewedDanglingSymlink({ linkPath, targetPath, targetChangedMessage, targetExistsMessage, targetProbePrefix })
- */
-async function unlinkReviewedDanglingSymlink(options: {
-  linkPath: AbsolutePath
-  targetPath: AbsolutePath
-  targetChangedMessage: string
-  targetExistsMessage: string
-  targetProbePrefix: string
-  beforeTargetProbe?: () => Promise<void>
-}): Promise<'missing' | 'unlinked'> {
-  try {
-    const reviewed = await readReviewedDanglingSymlink(options)
-
-    await options.beforeTargetProbe?.()
-
-    await assertReviewedTargetMissing(
-      reviewed.resolvedTarget,
-      options.targetExistsMessage,
-      options.targetProbePrefix,
-    )
-
-    const finalReviewed = await readReviewedDanglingSymlink(options)
-    await assertReviewedTargetMissing(
-      finalReviewed.resolvedTarget,
-      options.targetExistsMessage,
-      options.targetProbePrefix,
-    )
-
-    await commitReviewedDanglingSymlink(options)
-  } catch (error) {
-    if (isMissingPathError(error)) return 'missing'
-    if (error instanceof TrashError) throw error
-    const code = errorCode(error)
-    // A concurrent folder replacement should never be moved or removed.
-    if (code === 'EISDIR' || code === 'EPERM' || code === 'EINVAL') {
-      throw new TrashError(
-        'Reviewed cleanup slot is no longer a symlink',
-        'ESTALE',
-      )
-    }
-    throw new TrashError(extractErrorMessage(error), code)
-  }
-
-  return 'unlinked'
-}
 
 /**
  * Remove an agent symlink path after the caller has already validated and

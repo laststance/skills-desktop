@@ -1,5 +1,5 @@
 import { lstat, readlink, access, realpath } from 'fs/promises'
-import { dirname, join, resolve } from 'path'
+import { dirname, isAbsolute, join, resolve } from 'path'
 
 import { match } from 'ts-pattern'
 
@@ -230,6 +230,9 @@ export async function resolveRawSymlinkTarget(
   linkPath: string,
   target: string,
 ): Promise<AbsolutePath> {
+  if (isAbsolute(target)) {
+    return resolve(target) as AbsolutePath
+  }
   const physicalParent = await realpath(dirname(linkPath))
   return resolve(physicalParent, target) as AbsolutePath
 }

@@ -30,9 +30,9 @@ import { useUnmountEffect } from '@/renderer/src/hooks/useUnmountEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
+  selectBulkSelectableVisibleSkillNames,
   selectAnyInFlightRemovalSet,
   selectSelectedSkillNamesSet,
-  selectVisibleSkillNames,
 } from '@/renderer/src/redux/selectors'
 import {
   addBookmark,
@@ -121,6 +121,24 @@ function getSymlinkStatusBuckets(
   return buckets
 }
 
+/**
+ * Decide whether this rendered row can participate in bulk selection.
+ * @param selectedAgentId - Current agent filter, or null in global view.
+ * @param visibleNames - Selector-approved names for agent-view bulk actions.
+ * @param skillName - Skill row currently rendered by SkillItem.
+ * @returns True when a checkbox should render for this row.
+ * @example
+ * canBulkSelectRenderedSkill(null, [], 'task') // => true
+ */
+function canBulkSelectRenderedSkill(
+  selectedAgentId: string | null,
+  visibleNames: readonly SkillName[],
+  skillName: SkillName,
+): boolean {
+  if (selectedAgentId === null) return true
+  return visibleNames.includes(skillName)
+}
+
 interface GlobalStatusBadgesProps {
   buckets: SymlinkStatusBuckets
 }
@@ -197,7 +215,7 @@ export const SkillItem = React.memo(function SkillItem({
   const selectedNamesSet = useAppSelector(selectSelectedSkillNamesSet)
   const inFlightRemovalSet = useAppSelector(selectAnyInFlightRemovalSet)
   const selectionAnchor = useAppSelector(selectSelectionAnchor)
-  const visibleNames = useAppSelector(selectVisibleSkillNames)
+  const visibleNames = useAppSelector(selectBulkSelectableVisibleSkillNames)
   const bulkSelectMode = useAppSelector(selectBulkSelectMode)
   const isTicked = selectedNamesSet.has(skill.name)
   const isInFlight = inFlightRemovalSet.has(skill.name)
@@ -219,6 +237,11 @@ export const SkillItem = React.memo(function SkillItem({
     selectedLocalSkillInfo,
     showGStackBadge,
   } = getSkillItemVisibility(selectedAgentId, skill)
+  const isBulkSelectable = canBulkSelectRenderedSkill(
+    selectedAgentId,
+    visibleNames,
+    skill.name,
+  )
 
   // Get selected agent name for tooltip
   const selectedAgentName =
@@ -524,7 +547,7 @@ export const SkillItem = React.memo(function SkillItem({
                   caused some screen readers to announce the skill twice.
                   Rendered only when the user has entered bulk-select mode via
                   the filter-row toggle; the default view stays clean. */}
-              {bulkSelectMode && (
+              {bulkSelectMode && isBulkSelectable && (
                 <label
                   className="shrink-0 min-h-11 min-w-11 flex items-center justify-center -mt-1 -ml-1 cursor-pointer"
                   onClick={(e) => e.stopPropagation()}

@@ -185,6 +185,31 @@ describe('trashService.restore target-containment', () => {
     await expect(stat(join(sharedSourceDir, skillName))).resolves.toBeTruthy()
   })
 
+  it('recreates a missing agent skills parent before restoring a recorded symlink', async () => {
+    // Arrange
+    const { restore } = await trashServicePromise
+    const skillName = 'missing-agent-parent'
+    const linkPath = join(sharedClaudeAgent, skillName)
+    const target = join(sharedSourceDir, skillName)
+    const tombstone = await buildFakeTrashEntry({
+      skillName,
+      symlinks: [{ agentId: 'claude-code', linkPath, target }],
+    })
+    await rm(sharedClaudeAgent, { recursive: true, force: true })
+
+    // Act
+    const result = await restore(tombstone as never)
+
+    // Assert
+    expect(result.outcome).toBe('restored')
+    if (result.outcome === 'restored') {
+      expect(result.symlinksRestored).toBe(1)
+      expect(result.symlinksSkipped).toBe(0)
+    }
+    expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
+    await expect(readlink(linkPath)).resolves.toBe(target)
+  })
+
   it('skips symlink when manifest target absolute-escapes SOURCE_DIR', async () => {
     const { restore } = await trashServicePromise
     const skillName = 'target-abs-escape'

@@ -90,7 +90,11 @@ type SymlinkCleanupDialogAction =
   | { type: 'reset' }
   | { type: 'scanning' }
   | { type: 'ready'; plan: SymlinkCleanupPlan }
-  | { type: 'no-safe-cleanup'; plan: SymlinkCleanupPlan }
+  | {
+      type: 'no-safe-cleanup'
+      plan: SymlinkCleanupPlan
+      message?: string | null
+    }
   | { type: 'stale'; message: string }
   | { type: 'cleaning' }
   | {
@@ -160,7 +164,7 @@ function symlinkCleanupDialogReducer(
         selectedItemIds: [],
         rowErrors: {},
         summary: null,
-        message: null,
+        message: action.message ?? null,
       }
     case 'stale':
       return {
@@ -233,6 +237,14 @@ function symlinkCleanupDialogReducer(
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message
   if (typeof error === 'string') return error
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    return error.message
+  }
   return 'Unknown error'
 }
 
@@ -510,16 +522,20 @@ export const SymlinkCleanupDialog = React.memo(
         scanRequestIdRef.current = requestId
         dispatchLocal({ type: 'scanning' })
         try {
+          let auxiliaryRefreshMessage: string | null = null
           const skills = refreshDashboard
             ? await (async () => {
-                const [skillsResult] = await Promise.allSettled([
-                  dispatch(fetchSkills()).unwrap(),
-                  dispatch(fetchAgents()).unwrap(),
-                  dispatch(fetchSourceStats()).unwrap(),
-                ] as const)
+                const [skillsResult, ...refreshResults] =
+                  await Promise.allSettled([
+                    dispatch(fetchSkills()).unwrap(),
+                    dispatch(fetchAgents()).unwrap(),
+                    dispatch(fetchSourceStats()).unwrap(),
+                  ] as const)
                 if (skillsResult.status === 'rejected') {
                   throw skillsResult.reason
                 }
+                auxiliaryRefreshMessage =
+                  getRefreshFailureMessage(refreshResults)
                 // Dashboard side panels can stay stale; the dialog only needs
                 // fresh skills to decide whether cleanup remains available.
                 return skillsResult.value
@@ -528,7 +544,11 @@ export const SymlinkCleanupDialog = React.memo(
           if (scanRequestIdRef.current !== requestId) return
           const plan = buildSymlinkCleanupPlan(skills)
           if (getSymlinkCleanupPlanItems(plan).length === 0) {
-            dispatchLocal({ type: 'no-safe-cleanup', plan })
+            dispatchLocal({
+              type: 'no-safe-cleanup',
+              plan,
+              message: auxiliaryRefreshMessage,
+            })
             return
           }
           dispatchLocal({ type: 'ready', plan })
@@ -582,9 +602,11 @@ export const SymlinkCleanupDialog = React.memo(
       // dialog's skill scan.
       void runScan({
         refreshDashboard:
-          state.phase === 'complete' && didCleanupRefreshFail(state.summary),
+          (state.phase === 'complete' &&
+            didCleanupRefreshFail(state.summary)) ||
+          (state.phase === 'no-safe-cleanup' && state.message !== null),
       })
-    }, [runScan, state.phase, state.summary])
+    }, [runScan, state.message, state.phase, state.summary])
 
     const handlePreventDismissDuringCleaning = useCallback(
       (event: Event): void => {
@@ -813,7 +835,10 @@ export const SymlinkCleanupDialog = React.memo(
         <StatusBlock
           icon={ShieldCheck}
           title="No safe cleanup items"
-          description="Missing coverage and local folders are not changed here."
+          description={
+            state.message ??
+            'Missing coverage and local folders are not changed here.'
+          }
         />
       ))
       .with('stale', () => (
@@ -840,6 +865,8 @@ export const SymlinkCleanupDialog = React.memo(
       .exhaustive()
     const completeNeedsRescan =
       state.phase === 'complete' && didCleanupRefreshFail(state.summary)
+    const noSafeNeedsRescan =
+      state.phase === 'no-safe-cleanup' && state.message !== null
 
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -865,7 +892,8 @@ export const SymlinkCleanupDialog = React.memo(
           <DialogFooter className="gap-2">
             {state.phase === 'stale' ||
             state.phase === 'error' ||
-            completeNeedsRescan ? (
+            completeNeedsRescan ||
+            noSafeNeedsRescan ? (
               <Button
                 type="button"
                 variant="outline"
