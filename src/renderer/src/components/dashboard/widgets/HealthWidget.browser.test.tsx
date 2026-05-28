@@ -156,4 +156,23 @@ describe('HealthWidget', () => {
       .element(screen.getByRole('button', { name: 'Scan issues' }))
       .toBeVisible()
   })
+
+  it('does not present a remaining cleanup issue as 100 percent healthy', async () => {
+    // Arrange
+    const symlinks = [
+      ...Array.from({ length: 1035 }, () => makeSymlink('valid')),
+      makeSymlink('broken'),
+    ]
+    const skills = [makeSkill(symlinks)]
+
+    // Act
+    const { screen } = await renderHealthWidget(skills)
+
+    // Assert
+    await expect.element(screen.getByText('99.9%')).toBeVisible()
+    expect(screen.getByText('100%').query()).toBeNull()
+    await expect
+      .element(screen.getByRole('button', { name: 'Scan issues' }))
+      .toBeVisible()
+  })
 })

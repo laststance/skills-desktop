@@ -44,17 +44,20 @@ function tallySymlinks(skills: readonly Skill[]): HealthTotals {
 }
 
 /**
- * Compute the valid-link percentage (ignoring `missing`).
- * "Health" is about the quality of links that *should* exist, not coverage,
- * so missing links don't drag the number down — that belongs in the Coverage
- * widget. Returns `null` when there are no links to judge yet.
- * @example healthPercent({valid:8, broken:2}) // => 80
- * @example healthPercent({valid:0, broken:0}) // => null
+ * Formats valid-link health so a remaining issue never presents as perfect.
+ * @param totals - Link totals counted from the current skill inventory.
+ * @returns Display label, or null when there are no attempted links.
+ * @example healthPercentLabel({valid:999, broken:1, inaccessible:0, missing:0}) // => '99.9%'
  */
-function healthPercent(totals: HealthTotals): number | null {
+function healthPercentLabel(totals: HealthTotals): string | null {
   const attempted = totals.valid + totals.broken + totals.inaccessible
   if (attempted === 0) return null
-  return Math.round((totals.valid / attempted) * 100)
+
+  const percent = (totals.valid / attempted) * 100
+  if (totals.valid === attempted) return '100%'
+
+  // Tiny issue counts are still issues; avoid visually rounding them to 100%.
+  return percent >= 99.5 ? `${percent.toFixed(1)}%` : `${Math.round(percent)}%`
 }
 
 // ----------------------------------------------------------------------------
@@ -112,7 +115,7 @@ export const HealthWidget = React.memo(
     const dispatch = useAppDispatch()
     const skills = useAppSelector(selectSkillsItems)
     const totals = useMemo(() => tallySymlinks(skills), [skills])
-    const percent = healthPercent(totals)
+    const percentLabel = healthPercentLabel(totals)
     const hasBrokenLinks = totals.broken > 0
     const hasManualReviewOnly = !hasBrokenLinks && totals.inaccessible > 0
 
@@ -127,7 +130,7 @@ export const HealthWidget = React.memo(
             Health
           </span>
           <span className="text-2xl font-semibold tabular-nums text-foreground">
-            {percent === null ? '—' : `${percent}%`}
+            {percentLabel === null ? '—' : percentLabel}
           </span>
         </div>
         <HealthBar
