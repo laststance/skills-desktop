@@ -620,6 +620,22 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Derive primary labels and aria labels from `visibleCount`, keeping the separate selected/hidden summary as the source of total-selection context.
 
+### P3. Hidden-only toolbar selection needs explicit zero-visible copy
+
+**Status:** Fixed after tenth post-fix subagent review follow-up.
+
+**Finding:** After switching primary labels to visible action targets, a hidden-only selection collapses to the single-item variant. The disabled button can still say `Delete skill` or `Unlink from Cursor` even though zero visible rows can be acted on.
+
+**Fix direction:** Add an explicit zero-visible toolbar state with disabled copy and aria labels that say no visible selected skills can be deleted or unlinked.
+
+### P2. Unlink-agent offline skip must not hide fixture-owned safety tests
+
+**Status:** Fixed after tenth post-fix subagent review follow-up.
+
+**Finding:** `unlink-agent.e2e.ts` has a file-level offline skip even though only the first `azure-ai` test depends on snapshot-installed skills. When the snapshot is genuinely offline/empty, the self-staged IPC and Trash safety tests are skipped unnecessarily.
+
+**Fix direction:** Remove the file-level offline skip and move the snapshot/offline guard into the single `azure-ai`-dependent test.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

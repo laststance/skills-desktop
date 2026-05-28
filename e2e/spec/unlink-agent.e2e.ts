@@ -102,19 +102,6 @@ function preStageLinkedSkills(
  * tests.
  */
 
-// Several tests in this file consume the snapshot's azure-* skills directly,
-// while others share the same isolated-home contract that assumes SOURCE_DIR
-// is populated. When global-setup classifies the runner as offline, the
-// snapshot is empty and any spec that lstats `~/.agents/skills/azure-ai` will
-// fail with confusing renderer errors. File-level skip is the simplest
-// guarantee that the suite degrades gracefully.
-test.beforeEach(() => {
-  test.skip(
-    isSnapshotOffline(),
-    'azure-* skills required for this suite; runner is offline (global-setup wrote snapshot.offline=true)',
-  )
-})
-
 test('unlinkFromAgent removes one valid azure-ai symlink without touching the source or other agents', async ({
   appWindow,
   isolatedHome,
@@ -126,7 +113,7 @@ test('unlinkFromAgent removes one valid azure-ai symlink without touching the so
     AZURE_AI_NAME,
   )
   test.skip(
-    !existsSync(expectedSourcePath),
+    isSnapshotOffline() || !existsSync(expectedSourcePath),
     'azure-ai snapshot skill is required for this snapshot-backed unlink test',
   )
 

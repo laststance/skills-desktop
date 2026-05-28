@@ -22,7 +22,7 @@ import type {
  * count>=2 surfaces the batch treatment (progress counter when >=10, etc.).
  */
 export type ToolbarView = 'global' | 'agent'
-type ToolbarCountKind = 'single' | 'multi'
+type ToolbarCountKind = 'zero' | 'single' | 'multi'
 
 export interface ToolbarStateInput {
   view: ToolbarView
@@ -48,8 +48,14 @@ export interface ToolbarStateOutput {
   isPrimaryDisabled: boolean
   /** Destructive styling flag — renders red accent; always true for global, always false for agent. */
   isDestructive: boolean
-  /** Key used to identify the four visual states during testing/debug. */
-  variantKey: 'global-single' | 'global-multi' | 'agent-single' | 'agent-multi'
+  /** Key used to identify the six visual states during testing/debug. */
+  variantKey:
+    | 'global-zero'
+    | 'global-single'
+    | 'global-multi'
+    | 'agent-zero'
+    | 'agent-single'
+    | 'agent-multi'
 }
 
 /**
@@ -77,7 +83,8 @@ export const getToolbarState = ({
   // The primary button acts only on selected rows that survived the current
   // filter, while the adjacent selection summary owns the total hidden count.
   const actionCount = visibleCount
-  const countKind: ToolbarCountKind = actionCount <= 1 ? 'single' : 'multi'
+  const countKind: ToolbarCountKind =
+    actionCount === 0 ? 'zero' : actionCount === 1 ? 'single' : 'multi'
   const isPrimaryDisabled = visibleCount === 0
   const ariaSelectionScope =
     count === visibleCount ? 'selected' : 'visible selected'
@@ -86,6 +93,13 @@ export const getToolbarState = ({
   const agentLabel = agentDisplayName ?? 'agent'
 
   return match({ view, countKind })
+    .with({ view: 'global', countKind: 'zero' }, () => ({
+      primaryLabel: 'No visible skills',
+      primaryAriaLabel: 'No visible selected skills to delete',
+      isPrimaryDisabled,
+      isDestructive: true,
+      variantKey: 'global-zero' as const,
+    }))
     .with({ view: 'global', countKind: 'single' }, () => ({
       primaryLabel: 'Delete skill',
       primaryAriaLabel: `Delete ${ariaSelectionScope} skill permanently`,
@@ -99,6 +113,13 @@ export const getToolbarState = ({
       isPrimaryDisabled,
       isDestructive: true,
       variantKey: 'global-multi' as const,
+    }))
+    .with({ view: 'agent', countKind: 'zero' }, () => ({
+      primaryLabel: 'No visible skills',
+      primaryAriaLabel: `No visible selected skills to unlink from ${agentLabel}`,
+      isPrimaryDisabled,
+      isDestructive: false,
+      variantKey: 'agent-zero' as const,
     }))
     .with({ view: 'agent', countKind: 'single' }, () => ({
       primaryLabel: `Unlink from ${agentLabel}`,

@@ -97,7 +97,26 @@ describe('getToolbarState', () => {
       count: 5, // user has 5 selected globally
       visibleCount: 0, // but search filter leaves none visible
     })
+    expect(result.variantKey).toBe('global-zero')
     expect(result.isPrimaryDisabled).toBe(true)
+    expect(result.primaryLabel).toBe('No visible skills')
+    expect(result.primaryAriaLabel).toBe('No visible selected skills to delete')
+  })
+
+  it('uses unlink-specific zero-visible copy in agent view', () => {
+    const result = getToolbarState({
+      view: 'agent',
+      agentId: 'cursor' as AgentId,
+      count: 3,
+      visibleCount: 0,
+      agentDisplayName: 'Cursor',
+    })
+    expect(result.variantKey).toBe('agent-zero')
+    expect(result.isPrimaryDisabled).toBe(true)
+    expect(result.primaryLabel).toBe('No visible skills')
+    expect(result.primaryAriaLabel).toBe(
+      'No visible selected skills to unlink from Cursor',
+    )
   })
 
   it('labels the primary button with visible action targets when filters hide selected rows', () => {
