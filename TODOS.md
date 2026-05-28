@@ -916,6 +916,54 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Attach `filesystemIdentity` to local slots returned by `checkSkillSymlinks()` and add coverage proving local source-agent slot unlink passes the reviewed identity.
 
+### P2. Offline snapshot skip must not hide self-staged destructive E2Es
+
+**Status:** Fixed after second-round subagent review.
+
+**Finding:** `e2e/spec/delete.e2e.ts` skips the whole file when the global azure snapshot is offline. The local-only delete and orphan cleanup tests stage their own Codex fixtures, so they should still run in offline/smoke mode.
+
+**Fix direction:** Move `isSnapshotOffline()` gating to only azure-dependent source-backed delete/restore/TTL tests, leaving self-staged destructive tests active against an empty isolated HOME.
+
+### P2. Bulk confirm state must require reviewed destructive snapshots
+
+**Status:** Fixed after second-round subagent review.
+
+**Finding:** `BulkConfirmState` still allows optional `deleteTargets` / `unlinkTargets`, and `MainContent` can rebuild targets from live rows at confirm time. That leaves a stale same-name replacement bypass path for future callers that omit the snapshot.
+
+**Fix direction:** Make `BulkConfirmState` a discriminated union with required reviewed delete/unlink snapshots, and remove live-row recompute fallbacks from dialog rendering and confirm execution.
+
+### P2. Source/local stale delete rows must not use orphan rescan copy
+
+**Status:** Fixed after second-round subagent review.
+
+**Finding:** Non-orphan source/local rows missing `filesystemIdentity` are currently stored in `orphanErrors`, so dialog copy can label a stale source/local row as an orphan cleanup rescan case.
+
+**Fix direction:** Split generic stale delete preflight errors from orphan cleanup preflight errors, render separate source/local rescan copy, and keep only orphan cleanup names in orphan-specific retry suppression.
+
+### P2. Deletion spec must stop claiming CLI-managed deletes are irreversible CLI removals
+
+**Status:** Fixed after second-round subagent review.
+
+**Finding:** `SPEC.md` still says CLI-managed skills are uninstalled with irreversible `npx skills remove`, but current delete flows move reviewed source/local skill folders to the app trash with undo.
+
+**Fix direction:** Update the Skill Types and Actions docs to describe reviewed app-trash delete/undo for both CLI-managed and plain skills; keep CLI uninstall wording only for marketplace uninstall hints.
+
+### P2. Status docs must include inaccessible symlink state
+
+**Status:** Fixed after second-round subagent review.
+
+**Finding:** README, SPEC, CLAUDE guidance, and symlinkChecker comments still document only `valid` / `broken` / `missing`, even though the branch adds `inaccessible` for manual-review symlinks.
+
+**Fix direction:** Update user/docs and code comments/type snippets to include `inaccessible` as distinct from broken and missing.
+
+### P2. Source scan must tolerate vanished source directories
+
+**Status:** Fixed after Codex CLI review during second-round subagent review.
+
+**Finding:** `scanSourceSkills()` lists valid source skill directories, then later captures `lstat(dir.path)` inside a per-row `Promise.all`. If another process deletes one source directory between listing/stat and identity capture, that single `ENOENT` rejects the whole scan and hides otherwise valid skills.
+
+**Fix direction:** Catch missing-path filesystem races per source row, drop only the vanished source skill from the scan result, and keep non-missing errors fatal.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

@@ -3,6 +3,7 @@ import { homedir } from 'os'
 import { join } from 'path'
 
 import { AGENTS, SOURCE_DIR } from '@/main/constants'
+import { isMissingPathError } from '@/main/utils/errorCode'
 import { formatBytes } from '@/shared/fileTypes'
 import { repositoryId } from '@/shared/types'
 import type {
@@ -270,27 +271,34 @@ async function scanSourceSkills(): Promise<Skill[]> {
   const validDirs = await listValidSourceSkillDirs()
 
   const skills = await Promise.all(
-    validDirs.map(async (dir) => {
-      const [metadata, symlinks, stats] = await Promise.all([
-        parseSkillMetadata(dir.path),
-        checkSkillSymlinks(dir.name),
-        lstat(dir.path),
-      ])
+    validDirs.map(async (dir): Promise<Skill | null> => {
+      try {
+        const [metadata, symlinks, stats] = await Promise.all([
+          parseSkillMetadata(dir.path),
+          checkSkillSymlinks(dir.name),
+          lstat(dir.path),
+        ])
 
-      return {
-        name: metadata.name,
-        description: metadata.description,
-        path: dir.path,
-        filesystemIdentity: filesystemIdentityFromStats(stats),
-        symlinkCount: countValidSymlinks(symlinks),
-        symlinks,
-        isSource: true,
-        isOrphan: false,
+        return {
+          name: metadata.name,
+          description: metadata.description,
+          path: dir.path,
+          filesystemIdentity: filesystemIdentityFromStats(stats),
+          symlinkCount: countValidSymlinks(symlinks),
+          symlinks,
+          isSource: true,
+          isOrphan: false,
+        }
+      } catch (error) {
+        // Race: another process deleted the source dir after readdir/stat but
+        // before identity capture. Drop only that stale row; keep the scan alive.
+        if (isMissingPathError(error)) return null
+        throw error
       }
     }),
   )
 
-  return skills
+  return skills.filter((skill): skill is Skill => skill !== null)
 }
 
 /**

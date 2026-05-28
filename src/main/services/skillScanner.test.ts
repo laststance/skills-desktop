@@ -57,6 +57,20 @@ function createDirectoryStats(seed: number): {
 }
 
 /**
+ * Build an fs-like error with a Node `code` field for branch-specific scanner tests.
+ * @param message - Human-readable failure message.
+ * @param code - Node-style errno code.
+ * @returns Error object carrying the requested code.
+ * @example createFsError('missing', 'ENOENT')
+ */
+function createFsError(
+  message: string,
+  code: string,
+): Error & { code: string } {
+  return Object.assign(new Error(message), { code })
+}
+
+/**
  * Mock lstat for reviewed skill directories that the scanner should accept.
  * @param paths - Directory paths expected to survive scanner identity capture.
  * @returns void after configuring the shared lstat mock.
@@ -530,6 +544,58 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     expect(skills).toHaveLength(1)
     expect(skills[0].name).toBe('theme-generator')
     expect(skills[0].isSource).toBe(true)
+  })
+
+  it('skips a source skill directory that disappears after the directory listing', async () => {
+    // Arrange: `listValidSourceSkillDirs()` sees two valid dirs because SKILL.md
+    // stat succeeded, then the second dir vanishes before scanSourceSkills()
+    // captures its reviewed filesystem identity.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        return [
+          createDirent('live-source', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+          createDirent('vanished-source', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (
+        path === '/mock/source/skills/live-source/SKILL.md' ||
+        path === '/mock/source/skills/vanished-source/SKILL.md'
+      ) {
+        return { isFile: () => true }
+      }
+      throw createFsError(`ENOENT: ${path}`, 'ENOENT')
+    })
+    lstatMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills/live-source') {
+        return createDirectoryStats(10)
+      }
+      if (path === '/mock/source/skills/vanished-source') {
+        throw createFsError(`ENOENT: ${path}`, 'ENOENT')
+      }
+      throw createFsError(`ENOENT: ${path}`, 'ENOENT')
+    })
+
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert: one stale source row is dropped instead of rejecting the whole scan.
+    expect(skills).toHaveLength(1)
+    expect(skills[0]).toMatchObject({
+      name: 'live-source',
+      path: '/mock/source/skills/live-source',
+      isSource: true,
+    })
   })
 
   it('merges orphan broken slots into a same-named local skill (regression for #127 follow-up)', async () => {

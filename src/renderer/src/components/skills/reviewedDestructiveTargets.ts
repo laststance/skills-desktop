@@ -18,6 +18,7 @@ export type ReviewedOrphanCleanupRecord =
 export interface PartitionedGlobalDeleteTargets {
   deleteTargets: DeleteSelectedSkillTarget[]
   orphanRecords: ReviewedOrphanCleanupRecord[]
+  staleDeleteErrors: BulkDeleteItemResult[]
   orphanErrors: BulkDeleteItemResult[]
 }
 
@@ -60,6 +61,7 @@ export function partitionGlobalDeleteTargets(
   const skillsByName = new Map(skills.map((skill) => [skill.name, skill]))
   const deleteTargets: DeleteSelectedSkillTarget[] = []
   const orphanRecords: ReviewedOrphanCleanupRecord[] = []
+  const staleDeleteErrors: BulkDeleteItemResult[] = []
   const orphanErrors: BulkDeleteItemResult[] = []
 
   for (const skillName of skillNames) {
@@ -73,7 +75,7 @@ export function partitionGlobalDeleteTargets(
         })
         continue
       }
-      orphanErrors.push({
+      staleDeleteErrors.push({
         skillName,
         outcome: 'error',
         error: {
@@ -108,7 +110,7 @@ export function partitionGlobalDeleteTargets(
     })
   }
 
-  return { deleteTargets, orphanRecords, orphanErrors }
+  return { deleteTargets, orphanRecords, staleDeleteErrors, orphanErrors }
 }
 
 /**

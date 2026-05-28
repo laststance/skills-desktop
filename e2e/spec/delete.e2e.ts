@@ -177,21 +177,23 @@ const azureSnapshotSelector = (state: unknown): AzureSnapshot => {
  * eviction live in dedicated tests below the source-backed pair.
  */
 
-// Every test in this file deletes / restores `azure-ai` from the snapshot
-// SOURCE_DIR. When global-setup is offline the snapshot is empty and the
-// `hasAzure: true` precondition would fail with a confusing renderer error
-// instead of a clean skip.
-test.beforeEach(() => {
+/**
+ * Skip only specs that depend on the azure skill snapshot installed by global setup.
+ * @returns void; Playwright marks the current test as skipped when offline.
+ * @example skipWhenAzureSnapshotOffline()
+ */
+function skipWhenAzureSnapshotOffline(): void {
   test.skip(
     isSnapshotOffline(),
     'azure-* skills required for this suite; runner is offline (global-setup wrote snapshot.offline=true)',
   )
-})
+}
 
 test('deleteSkill moves source-backed skill into trash and unlinks every agent symlink', async ({
   appWindow,
   isolatedHome,
 }) => {
+  skipWhenAzureSnapshotOffline()
   await waitForInitialScan(appWindow)
 
   const expectedSourcePath = join(
@@ -270,6 +272,7 @@ test('restoreDeletedSkill recovers a source-backed deletion within the undo wind
   appWindow,
   isolatedHome,
 }) => {
+  skipWhenAzureSnapshotOffline()
   await waitForInitialScan(appWindow)
 
   const expectedSourcePath = join(
@@ -562,6 +565,7 @@ test('source-backed delete entry is auto-evicted after UNDO_WINDOW_MS', async ({
   appWindow,
   isolatedHome,
 }) => {
+  skipWhenAzureSnapshotOffline()
   test.setTimeout(45_000)
 
   await waitForInitialScan(appWindow)

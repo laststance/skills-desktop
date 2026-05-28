@@ -277,7 +277,7 @@ export const SkillItem = React.memo(function SkillItem({
    */
   const handleDeleteClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
-    const { deleteTargets, orphanRecords, orphanErrors } =
+    const { deleteTargets, orphanRecords, staleDeleteErrors, orphanErrors } =
       partitionGlobalDeleteTargets([skill], [skill.name])
     dispatch(
       setBulkConfirm({
@@ -289,6 +289,7 @@ export const SkillItem = React.memo(function SkillItem({
         sourceSummary: null,
         deleteTargets,
         orphanRecords,
+        staleDeleteErrors,
         orphanErrors,
       }),
     )

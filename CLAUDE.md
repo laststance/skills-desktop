@@ -56,7 +56,7 @@ PRs are ready to ship only when `validate` and e2e both pass in that order.
 | --------- | -------------------- | -------------------------------------------------------------- |
 | Skill     | `~/.agents/skills/`  | Directory with SKILL.md                                        |
 | Agent     | `~/.<agent>/skills/` | AI agents (count = `AGENT_DEFINITIONS.length` in `src/shared/constants.ts`) |
-| Symlink   | Agent→Skill          | `valid` / `broken` / `missing`                                 |
+| Symlink   | Agent→Skill          | `valid` / `broken` / `inaccessible` / `missing`                  |
 | Universal | `~/.agents/skills/`  | 13 agents share this source dir (see `UNIVERSAL_AGENT_IDS` in `src/shared/constants.ts`) |
 
 ### Skills CLI

@@ -176,32 +176,24 @@ const SKILLS_SH_URL = 'https://skills.sh'
 /**
  * Build bulk-delete targets only for delete confirms so MainContent stays branch-light.
  * @param bulkConfirm - Pending bulk confirm dialog state.
- * @param skills - Current skill inventory used to resolve orphan rows.
  * @returns Partitioned delete targets, or null for unlink/no dialog.
  * @example
- * getBulkDeleteTargetSummary(confirmState, skills)
+ * getBulkDeleteTargetSummary(confirmState)
  */
 function getBulkDeleteTargetSummary(
   bulkConfirm: BulkConfirmState | null,
-  skills: readonly Skill[],
 ): PartitionedGlobalDeleteTargets | null {
   if (!bulkConfirm || bulkConfirm.kind !== 'delete') return null
-  if (
-    bulkConfirm.deleteTargets ||
-    bulkConfirm.orphanRecords ||
-    bulkConfirm.orphanErrors
-  ) {
-    return {
-      deleteTargets: bulkConfirm.deleteTargets ?? [],
-      orphanRecords: bulkConfirm.orphanRecords ?? [],
-      orphanErrors: bulkConfirm.orphanErrors ?? [],
-    }
+  return {
+    deleteTargets: bulkConfirm.deleteTargets,
+    orphanRecords: bulkConfirm.orphanRecords,
+    staleDeleteErrors: bulkConfirm.staleDeleteErrors,
+    orphanErrors: bulkConfirm.orphanErrors,
   }
-  return partitionGlobalDeleteTargets(skills, bulkConfirm.skillNames)
 }
 
 /**
- * Disable destructive confirm when selected orphan rows require rescan and no cleanup can run.
+ * Disable destructive confirm when every reviewed row is stale and no cleanup can run.
  * @param bulkConfirm - Pending bulk confirm dialog state.
  * @param summary - Partitioned delete targets for the dialog.
  * @returns True when the primary button would be a no-op.
@@ -239,20 +231,33 @@ function isRescanRequiredDeleteError(
 }
 
 /**
- * Appends stale-orphan guidance to bulk delete summaries when cleanup cannot run yet.
+ * Appends stale-row guidance to bulk delete summaries when cleanup cannot run yet.
  * @param summary - Existing formatted delete/orphan summary.
- * @param rescanRequiredCount - Number of stale orphan rows excluded from retry.
+ * @param staleDeleteCount - Number of source/local rows needing a fresh scan.
+ * @param orphanRescanCount - Number of stale orphan rows excluded from retry.
  * @returns Summary with explicit rescan guidance when needed.
  * @example
- * appendRescanRequiredSummary('Deleted 1 of 2 skills.', 1)
+ * appendDeleteRescanSummary('Deleted 1 of 3 skills.', 1, 1)
  */
-function appendRescanRequiredSummary(
+function appendDeleteRescanSummary(
   summary: string,
-  rescanRequiredCount: number,
+  staleDeleteCount: number,
+  orphanRescanCount: number,
 ): string {
-  if (rescanRequiredCount === 0) return summary
-  const guidance = `${rescanRequiredCount} orphan ${pluralize(rescanRequiredCount, 'skill')} ${pluralize(rescanRequiredCount, 'needs', 'need')} a rescan before cleanup.`
-  return summary.length > 0 ? `${summary} ${guidance}` : guidance
+  const guidance: string[] = []
+  if (staleDeleteCount > 0) {
+    guidance.push(
+      `${staleDeleteCount} selected ${pluralize(staleDeleteCount, 'skill')} ${pluralize(staleDeleteCount, 'needs', 'need')} a rescan before delete.`,
+    )
+  }
+  if (orphanRescanCount > 0) {
+    guidance.push(
+      `${orphanRescanCount} orphan ${pluralize(orphanRescanCount, 'skill')} ${pluralize(orphanRescanCount, 'needs', 'need')} a rescan before cleanup.`,
+    )
+  }
+  if (guidance.length === 0) return summary
+  const suffix = guidance.join(' ')
+  return summary.length > 0 ? `${summary} ${suffix}` : suffix
 }
 
 /**
@@ -282,8 +287,8 @@ export const MainContent = React.memo(
 
     const selectedAgent = agents.find((a) => a.id === selectedAgentId)
     const bulkDeleteTargetSummary = useMemo(() => {
-      return getBulkDeleteTargetSummary(bulkConfirm, skills)
-    }, [bulkConfirm, skills])
+      return getBulkDeleteTargetSummary(bulkConfirm)
+    }, [bulkConfirm])
     const isBulkConfirmPrimaryDisabled = isBulkDeleteConfirmPrimaryDisabled(
       bulkConfirm,
       bulkDeleteTargetSummary,
@@ -553,7 +558,7 @@ export const MainContent = React.memo(
         )
         return
       }
-      const { deleteTargets, orphanRecords, orphanErrors } =
+      const { deleteTargets, orphanRecords, staleDeleteErrors, orphanErrors } =
         partitionGlobalDeleteTargets(skills, selectedVisibleNames)
       dispatch(
         setBulkConfirm({
@@ -564,6 +569,7 @@ export const MainContent = React.memo(
           sourceSummary,
           deleteTargets,
           orphanRecords,
+          staleDeleteErrors,
           orphanErrors,
         }),
       )
@@ -658,19 +664,9 @@ export const MainContent = React.memo(
      */
     const confirmBulkUnlink = useCallback(
       async (confirm: BulkConfirmState): Promise<void> => {
-        const { skillNames, agentId, agentName } = confirm
-        if (!agentId) return
-        const { targets: unlinkTargets, staleNames } = confirm.unlinkTargets
-          ? { targets: confirm.unlinkTargets, staleNames: [] }
-          : buildAgentUnlinkTargets(skills, skillNames, agentId)
-        if (staleNames.length > 0) {
-          flashFailedRows(staleNames)
-          toast.error('Bulk unlink failed', {
-            description: 'Selection changed. Rescan before unlinking.',
-          })
-          refreshAllData(dispatch)
-          return
-        }
+        if (confirm.kind !== 'unlink') return
+        const { agentId, agentName } = confirm
+        const unlinkTargets = confirm.unlinkTargets
 
         const action = await dispatch(
           unlinkSelectedFromAgent({ agentId, selectedNames: unlinkTargets }),
@@ -700,7 +696,7 @@ export const MainContent = React.memo(
         }
         refreshAllData(dispatch)
       },
-      [dispatch, skills],
+      [dispatch],
     )
 
     /**
@@ -711,16 +707,17 @@ export const MainContent = React.memo(
      */
     const confirmBulkDelete = useCallback(
       async (confirm: BulkConfirmState): Promise<void> => {
-        const { skillNames } = confirm
-        const { deleteTargets, orphanRecords, orphanErrors } =
-          confirm.deleteTargets || confirm.orphanRecords || confirm.orphanErrors
-            ? {
-                deleteTargets: confirm.deleteTargets ?? [],
-                orphanRecords: confirm.orphanRecords ?? [],
-                orphanErrors: confirm.orphanErrors ?? [],
-              }
-            : partitionGlobalDeleteTargets(skills, skillNames)
-        const deleteItems: BulkDeleteItemResult[] = [...orphanErrors]
+        if (confirm.kind !== 'delete') return
+        const {
+          deleteTargets,
+          orphanRecords,
+          staleDeleteErrors,
+          orphanErrors,
+        } = confirm
+        const deleteItems: BulkDeleteItemResult[] = [
+          ...staleDeleteErrors,
+          ...orphanErrors,
+        ]
         const hasOrphanCleanupRows =
           orphanRecords.length > 0 || orphanErrors.length > 0
         const cleanupReadyOrphanNames = orphanRecords.map(
@@ -791,8 +788,9 @@ export const MainContent = React.memo(
           orphanCleanupNames,
         )
         refreshAllData(dispatch)
-        const summary = appendRescanRequiredSummary(
+        const summary = appendDeleteRescanSummary(
           formatCascadeSummary({ items: deleteItems }),
+          staleDeleteErrors.length,
           rescanRequiredNames.length,
         )
 
@@ -849,7 +847,6 @@ export const MainContent = React.memo(
         handleUndoDelete,
         reconcileMixedDeleteSelection,
         restoreUnresolvedMixedDeleteSelection,
-        skills,
       ],
     )
 
@@ -862,7 +859,7 @@ export const MainContent = React.memo(
       if (!bulkConfirm) return
       const confirm = bulkConfirm
       dispatch(clearBulkConfirm())
-      if (confirm.kind === 'unlink' && confirm.agentId) {
+      if (confirm.kind === 'unlink') {
         await confirmBulkUnlink(confirm)
         return
       }
@@ -1235,6 +1232,8 @@ export const MainContent = React.memo(
                         bulkConfirm.skillNames.length,
                       orphanCleanupCount:
                         bulkDeleteTargetSummary?.orphanRecords.length ?? 0,
+                      staleDeleteCount:
+                        bulkDeleteTargetSummary?.staleDeleteErrors.length ?? 0,
                       orphanRescanCount:
                         bulkDeleteTargetSummary?.orphanErrors.length ?? 0,
                       sourceSummary: bulkConfirm.sourceSummary,

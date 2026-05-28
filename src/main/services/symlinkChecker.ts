@@ -27,7 +27,7 @@ interface LinkOrLocalResult {
  * Check if a path is a symlink or local folder
  * @param path - Path to check
  * @returns
- * - Symlink: { status: 'valid'|'broken', isLocal: false }
+ * - Symlink: { status: 'valid'|'broken'|'inaccessible', isLocal: false }
  * - Local folder: { status: 'valid', isLocal: true }
  * - Missing: { status: 'missing', isLocal: false }
  * @example
@@ -147,7 +147,7 @@ export async function checkSkillSymlinks(
 /**
  * Check the status of a single symlink
  * @param linkPath - Path to the potential symlink
- * @returns Status: 'valid' | 'broken' | 'missing'
+ * @returns Status: 'valid' | 'broken' | 'inaccessible' | 'missing'
  * @example
  * checkSymlinkStatus('/Users/.claude/skills/foo')
  * // => 'valid' (if symlink exists and target exists)
@@ -176,8 +176,8 @@ export async function checkSymlinkStatus(
  * across all agent dirs during a full scan.
  *
  * @param linkPath - Path that is known (by the caller) to be a symbolic link
- * @returns 'valid' if target exists, 'broken' if dangling, 'missing' if the
- * link itself disappeared between the readdir snapshot and the lookup
+ * @returns 'valid' if target exists, 'broken' if dangling, 'inaccessible' if
+ * probe is unsafe, or 'missing' if the link disappeared during lookup
  * @example
  * // Inside a readdir loop where entry.isSymbolicLink() === true:
  * await checkSymlinkTargetFromKnownLink(join(dir, entry.name))
@@ -253,7 +253,7 @@ export async function resolveRawSymlinkTarget(
  * Shared core: read the symlink, resolve it relative to its physical parent, then probe for existence.
  * Centralizing this makes the slow-path and fast-path identical in meaning.
  * @param linkPath - Symlink path whose raw target should be checked.
- * @returns `valid` when the target exists, otherwise `broken`.
+ * @returns `valid` when target exists, `broken` when missing, or `inaccessible` when probing is unsafe.
  * @example
  * resolveSymlinkTarget('/Users/me/.config/devin/skills/foo')
  * // => 'valid'

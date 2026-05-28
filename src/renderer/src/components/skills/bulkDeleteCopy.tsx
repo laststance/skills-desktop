@@ -19,6 +19,7 @@ import { pluralize } from '@/renderer/src/utils/pluralize'
  * @param totalCount - Total skills in the pending batch.
  * @param trashCount - Source-backed rows that produce tombstones and undo.
  * @param orphanCleanupCount - Orphan rows cleaned as dangling symlinks only.
+ * @param staleDeleteCount - Source/local rows that need a fresh scan before delete.
  * @param orphanRescanCount - Stale orphan rows that need a fresh scan first.
  * @param sourceSummary - Active repo-filter scope snapshot, or null when no
  *   repo filter is active and no local skills are hidden.
@@ -45,17 +46,21 @@ export const renderBulkDeleteDescription = ({
   totalCount,
   trashCount = totalCount,
   orphanCleanupCount = 0,
+  staleDeleteCount = 0,
   orphanRescanCount = 0,
   sourceSummary,
 }: {
   totalCount: number
   trashCount?: number
   orphanCleanupCount?: number
+  staleDeleteCount?: number
   orphanRescanCount?: number
   sourceSummary: SourceFilterSummary | null
 }): React.ReactNode => {
   const base =
-    orphanCleanupCount === 0 && orphanRescanCount === 0
+    orphanCleanupCount === 0 &&
+    orphanRescanCount === 0 &&
+    staleDeleteCount === 0
       ? `This moves the ${pluralize(totalCount, 'skill')} to the app trash and removes every symlink pointing to ${pluralize(totalCount, 'it', 'them')}. You can restore within 15 seconds from the notification.`
       : trashCount > 0 && orphanCleanupCount === 0
         ? `This moves ${trashCount} ${pluralize(trashCount, 'skill')} to the app trash with a 15-second restore window.`
@@ -63,9 +68,16 @@ export const renderBulkDeleteDescription = ({
           ? `This removes reviewed dangling symlinks for ${orphanCleanupCount} orphan ${pluralize(orphanCleanupCount, 'skill')}. Source skill files are already missing, and this cleanup cannot be undone from the notification.`
           : trashCount > 0 && orphanCleanupCount > 0
             ? `This moves ${trashCount} ${pluralize(trashCount, 'skill')} to the app trash with a 15-second restore window and removes reviewed dangling symlinks for ${orphanCleanupCount} orphan ${pluralize(orphanCleanupCount, 'skill')}. Orphan cleanup cannot be undone from the notification.`
-            : 'No selected orphan skills are cleanup-ready.'
+            : orphanRescanCount > 0 && staleDeleteCount === 0
+              ? 'No selected orphan skills are cleanup-ready.'
+              : 'No selected skills are ready to delete.'
 
   const scopeSentences: string[] = []
+  if (staleDeleteCount > 0) {
+    scopeSentences.push(
+      `${staleDeleteCount} selected ${pluralize(staleDeleteCount, 'skill')} ${pluralize(staleDeleteCount, 'needs', 'need')} a rescan before delete because the reviewed filesystem identity is missing.`,
+    )
+  }
   if (orphanRescanCount > 0) {
     scopeSentences.push(
       `${orphanRescanCount} orphan ${pluralize(orphanRescanCount, 'skill')} ${pluralize(orphanRescanCount, 'needs', 'need')} a rescan before cleanup because the reviewed target identity is missing.`,

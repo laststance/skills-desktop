@@ -396,6 +396,7 @@ describe('SkillItem delete button', () => {
         },
       ],
       orphanRecords: [],
+      staleDeleteErrors: [],
       orphanErrors: [],
     })
   })
@@ -422,6 +423,7 @@ describe('SkillItem delete button', () => {
         },
       ],
       orphanRecords: [],
+      staleDeleteErrors: [],
       orphanErrors: [],
     })
   })

@@ -940,6 +940,10 @@ describe('uiSlice atomic-clear contract on context switch', () => {
         agentId: null,
         agentName: null,
         sourceSummary: null,
+        deleteTargets: [deleteTarget('a' as Skill['name'])],
+        orphanRecords: [],
+        staleDeleteErrors: [],
+        orphanErrors: [],
       }),
     )
   }

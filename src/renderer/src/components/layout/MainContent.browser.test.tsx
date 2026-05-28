@@ -3,6 +3,7 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
+import { partitionGlobalDeleteTargets } from '@/renderer/src/components/skills/reviewedDestructiveTargets'
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import type {
   AgentId,
@@ -520,15 +521,11 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
     }
     mockSkillsDeleteSkills.mockResolvedValue(result)
 
-    store.dispatch(
-      fetchSkills.fulfilled(
-        [
-          makeSkill('brainstorming' as SkillName, true),
-          makeSkill('local-skill' as SkillName, false),
-        ],
-        'req-id',
-      ),
-    )
+    const selectedSkills = [
+      makeSkill('brainstorming' as SkillName, true),
+      makeSkill('local-skill' as SkillName, false),
+    ]
+    store.dispatch(fetchSkills.fulfilled(selectedSkills, 'req-id'))
     store.dispatch(enterBulkSelectMode())
     store.dispatch(
       setBulkConfirm({
@@ -537,6 +534,10 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
         agentId: null,
         agentName: null,
         sourceSummary: null,
+        ...partitionGlobalDeleteTargets(selectedSkills, [
+          'brainstorming' as SkillName,
+          'local-skill' as SkillName,
+        ]),
       }),
     )
 
@@ -587,12 +588,8 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
     })
 
     // Arrange
-    store.dispatch(
-      fetchSkills.fulfilled(
-        [makeSkill(metadataName, false, folderName)],
-        'req',
-      ),
-    )
+    const selectedSkills = [makeSkill(metadataName, false, folderName)]
+    store.dispatch(fetchSkills.fulfilled(selectedSkills, 'req'))
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
@@ -600,6 +597,7 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
         agentId: null,
         agentName: null,
         sourceSummary: null,
+        ...partitionGlobalDeleteTargets(selectedSkills, [metadataName]),
       }),
     )
 
@@ -805,6 +803,7 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
         agentId: null,
         agentName: null,
         sourceSummary: null,
+        ...partitionGlobalDeleteTargets([orphanSkill], [orphanSkillName]),
       }),
     )
 
@@ -907,6 +906,10 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
         agentId: null,
         agentName: null,
         sourceSummary: null,
+        ...partitionGlobalDeleteTargets(
+          [sourceSkill, orphanSkill],
+          [sourceSkillName, orphanSkillName],
+        ),
       }),
     )
 
@@ -993,6 +996,10 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
         agentId: null,
         agentName: null,
         sourceSummary: null,
+        ...partitionGlobalDeleteTargets(
+          [sourceSkill, orphanSkill],
+          [sourceSkillName, orphanSkillName],
+        ),
       }),
     )
 
@@ -1068,6 +1075,10 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
         agentId: null,
         agentName: null,
         sourceSummary: null,
+        ...partitionGlobalDeleteTargets(
+          [sourceSkill, staleOrphanSkill],
+          [sourceSkillName, orphanSkillName],
+        ),
       }),
     )
 
@@ -1135,6 +1146,10 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
         agentId: null,
         agentName: null,
         sourceSummary: null,
+        ...partitionGlobalDeleteTargets(
+          [sourceSkill, orphanSkill],
+          [sourceSkillName, orphanSkillName],
+        ),
       }),
     )
 
@@ -1190,6 +1205,7 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
         agentId: null,
         agentName: null,
         sourceSummary: null,
+        ...partitionGlobalDeleteTargets([orphanSkill], [orphanSkillName]),
       }),
     )
 
@@ -1239,6 +1255,7 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
         agentId: null,
         agentName: null,
         sourceSummary: null,
+        ...partitionGlobalDeleteTargets([staleOrphanSkill], [orphanSkillName]),
       }),
     )
 
@@ -1258,6 +1275,50 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
         .getByText(/removes reviewed dangling symlinks for 1 orphan skill/)
         .query(),
     ).toBeNull()
+  })
+
+  it('labels stale source rows as delete rescans, not orphan cleanup rescans', async () => {
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const sourceSkillName = 'source-missing-identity' as SkillName
+    const staleSourceSkill: Skill = {
+      name: sourceSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/source-missing-identity' as never,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+
+    // Arrange
+    store.dispatch(fetchSkills.fulfilled([staleSourceSkill], 'req-id'))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [sourceSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([staleSourceSkill], [sourceSkillName]),
+      }),
+    )
+
+    // Assert
+    await expect
+      .element(
+        screen.getByText(
+          'No selected skills are ready to delete. 1 selected skill needs a rescan before delete because the reviewed filesystem identity is missing.',
+        ),
+      )
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: /^Delete$/ }))
+      .toBeDisabled()
+    expect(screen.getByText(/orphan skill needs a rescan/).query()).toBeNull()
   })
 })
 

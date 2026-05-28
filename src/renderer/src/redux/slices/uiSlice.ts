@@ -101,21 +101,32 @@ export interface SourceFilterSummary {
  * - `sourceSummary`: repository-filter scope snapshot, or null when no repo
  *   filter is active and no local skills are hidden.
  */
-export interface BulkConfirmState {
-  kind: 'delete' | 'unlink'
+interface BulkConfirmBase {
   skillNames: SkillName[]
-  agentId: AgentId | null
-  agentName: AgentName | null
   sourceSummary: SourceFilterSummary | null
-  /** Reviewed source/local delete targets captured when the dialog opened. */
-  deleteTargets?: DeleteSelectedSkillTarget[]
-  /** Reviewed orphan cleanup records captured when the dialog opened. */
-  orphanRecords?: ClearOrphanSymlinksOptions['items']
-  /** Stale preflight errors captured when the dialog opened. */
-  orphanErrors?: BulkDeleteItemResult[]
-  /** Reviewed symlink unlink targets captured when the dialog opened. */
-  unlinkTargets?: UnlinkSelectedSkillTarget[]
 }
+
+export type BulkConfirmState =
+  | (BulkConfirmBase & {
+      kind: 'delete'
+      agentId: null
+      agentName: null
+      /** Reviewed source/local delete targets captured when the dialog opened. */
+      deleteTargets: DeleteSelectedSkillTarget[]
+      /** Reviewed orphan cleanup records captured when the dialog opened. */
+      orphanRecords: ClearOrphanSymlinksOptions['items']
+      /** Stale source/local preflight errors captured when the dialog opened. */
+      staleDeleteErrors: BulkDeleteItemResult[]
+      /** Stale orphan preflight errors captured when the dialog opened. */
+      orphanErrors: BulkDeleteItemResult[]
+    })
+  | (BulkConfirmBase & {
+      kind: 'unlink'
+      agentId: AgentId
+      agentName: AgentName | null
+      /** Reviewed symlink unlink targets captured when the dialog opened. */
+      unlinkTargets: UnlinkSelectedSkillTarget[]
+    })
 
 interface UiState {
   /** Active main content tab */
