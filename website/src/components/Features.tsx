@@ -13,7 +13,7 @@ const features = [
     icon: Link2,
     title: 'Symlink Status at a Glance',
     description:
-      'See valid, broken, or missing symlinks for each skill across all your AI agents instantly.',
+      'See valid, broken, inaccessible, or missing symlinks for each skill across all your AI agents instantly.',
   },
   {
     icon: Palette,

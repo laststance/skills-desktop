@@ -1036,6 +1036,30 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Update README prerequisites / tech stack and the one-line `SymlinkInfo.status` comment.
 
+### P1. Restore rollback directory moves must not overwrite empty-directory replacements
+
+**Status:** Fixed after final re-run gstack-review subagent review.
+
+**Finding:** Restore and rollback paths use `fs.rename(source, destination)` after a previous destination-free check. On macOS, renaming a directory over an existing empty directory can replace it, so another process recreating the destination after the check can still be clobbered.
+
+**Fix direction:** Use no-overwrite directory copy plus source removal for restore-direction moves, preserve staged recovery entries on destination collisions, and add regressions for source-backed and local-only restore races.
+
+### P3. Website public copy must include inaccessible symlink state
+
+**Status:** Fixed after final re-run gstack-review subagent review.
+
+**Finding:** `website/src/components/Features.tsx` and `website/public/llms.txt` still described only valid/broken/missing symlink states after the app added `inaccessible` manual-review status.
+
+**Fix direction:** Update website feature and LLM copy to mention inaccessible/manual-review symlink status.
+
+### P2. Directory restore copies must preserve relative symlink bytes
+
+**Status:** Fixed after final re-run gstack-review subagent review.
+
+**Finding:** `copyDirectoryNoOverwrite()` uses `fs.cp(..., { recursive: true, force: false, errorOnExist: true })` without `verbatimSymlinks: true`. Restore/rollback copies can therefore rewrite relative symlink targets inside a skill directory instead of restoring the bytes the user had before deletion.
+
+**Fix direction:** Copy directory restores with `verbatimSymlinks: true` and add a local-only restore regression that asserts an internal relative symlink target stays relative.
+
 ### P2. Undo toast E2E must not depend on snapshot-installed azure-ai
 
 **Status:** Fixed after final gstack-review subagent review.

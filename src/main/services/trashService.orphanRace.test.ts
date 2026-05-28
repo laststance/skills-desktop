@@ -6,6 +6,7 @@ import {
   readFile,
   readlink,
   rm,
+  stat,
   symlink,
   writeFile,
 } from 'node:fs/promises'
@@ -191,6 +192,166 @@ describe('trashService orphan cleanup guarded commit', () => {
     expect((await lstat(cleanupPath)).isSymbolicLink()).toBe(true)
     expect(await readlink(cleanupPath)).toBe(sourcePath)
     expect(await readdir(__getTrashDirForTests())).toEqual([])
+  })
+
+  it('preserves source-backed tombstone when source path reappears as an empty directory during restore', async () => {
+    // Arrange
+    const skillName = 'source-restore-empty-dir-race'
+    const sourcePath = join(tempHome, '.agents', 'skills', skillName)
+    let seededReplacement = false
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        lstat: async (
+          path: string,
+          options?: Parameters<typeof actual.lstat>[1],
+        ): Promise<Awaited<ReturnType<typeof actual.lstat>>> => {
+          if (path === sourcePath && !seededReplacement) {
+            seededReplacement = true
+            await actual.mkdir(sourcePath, { recursive: true })
+            const error = new Error(
+              'source path was absent at review time',
+            ) as NodeJS.ErrnoException
+            error.code = 'ENOENT'
+            throw error
+          }
+          return actual.lstat(path, options)
+        },
+      }
+    })
+    const { __getTrashDirForTests, restore } = await import('./trashService')
+    const tombstone = `${Date.now()}-${skillName}-1234abcd`
+    const entryDir = join(__getTrashDirForTests(), tombstone)
+    const entrySourceDir = join(entryDir, 'source')
+    await mkdir(entrySourceDir, { recursive: true })
+    await writeFile(join(entrySourceDir, 'SKILL.md'), '# restored\n', 'utf-8')
+    await writeFile(
+      join(entryDir, 'manifest.json'),
+      JSON.stringify({
+        schemaVersion: 2,
+        kind: 'source-backed',
+        deletedAt: Date.now(),
+        skillName,
+        sourcePath,
+        symlinks: [],
+      }),
+      'utf-8',
+    )
+
+    // Act
+    const result = await restore(tombstone as never)
+
+    // Assert
+    expect(result.outcome).toBe('error')
+    if (result.outcome === 'error') {
+      expect(result.error.code).toBe('ERR_FS_CP_EEXIST')
+    }
+    expect(await readdir(sourcePath)).toEqual([])
+    await expect(stat(join(entrySourceDir, 'SKILL.md'))).resolves.toBeTruthy()
+  })
+
+  it('keeps local-only staged copy when agent slot reappears as an empty directory during restore', async () => {
+    // Arrange
+    const skillName = 'local-restore-empty-dir-race'
+    const linkPath = join(tempHome, '.claude', 'skills', skillName)
+    let seededReplacement = false
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        lstat: async (
+          path: string,
+          options?: Parameters<typeof actual.lstat>[1],
+        ): Promise<Awaited<ReturnType<typeof actual.lstat>>> => {
+          if (path === linkPath && !seededReplacement) {
+            seededReplacement = true
+            await actual.mkdir(linkPath, { recursive: true })
+            const error = new Error(
+              'agent slot was absent at review time',
+            ) as NodeJS.ErrnoException
+            error.code = 'ENOENT'
+            throw error
+          }
+          return actual.lstat(path, options)
+        },
+      }
+    })
+    const { __getTrashDirForTests, restore } = await import('./trashService')
+    const tombstone = `${Date.now()}-${skillName}-5678abcd`
+    const entryDir = join(__getTrashDirForTests(), tombstone)
+    const stagedPath = join(entryDir, 'local-copies', 'claude-code')
+    await mkdir(stagedPath, { recursive: true })
+    await writeFile(join(stagedPath, 'SKILL.md'), '# staged\n', 'utf-8')
+    await writeFile(
+      join(entryDir, 'manifest.json'),
+      JSON.stringify({
+        schemaVersion: 2,
+        kind: 'local-only',
+        deletedAt: Date.now(),
+        skillName,
+        localCopies: [{ agentId: 'claude-code', linkPath }],
+      }),
+      'utf-8',
+    )
+
+    // Act
+    const result = await restore(tombstone as never)
+
+    // Assert
+    expect(result.outcome).toBe('restored')
+    if (result.outcome === 'restored') {
+      expect(result.symlinksRestored).toBe(0)
+      expect(result.symlinksSkipped).toBe(1)
+    }
+    expect(await readdir(linkPath)).toEqual([])
+    await expect(stat(join(stagedPath, 'SKILL.md'))).resolves.toBeTruthy()
+    await expect(stat(join(entryDir, 'manifest.json'))).resolves.toBeTruthy()
+  })
+
+  it('preserves relative symlink targets inside local-only staged copies during restore', async () => {
+    // Arrange
+    const skillName = 'local-restore-relative-symlink'
+    const linkPath = join(tempHome, '.claude', 'skills', skillName)
+    const { __getTrashDirForTests, restore } = await import('./trashService')
+    const tombstone = `${Date.now()}-${skillName}-9abcdeff`
+    const entryDir = join(__getTrashDirForTests(), tombstone)
+    const stagedPath = join(entryDir, 'local-copies', 'claude-code')
+    const symlinkPath = join(stagedPath, 'links', 'target-link')
+    await mkdir(join(stagedPath, 'links'), { recursive: true })
+    await mkdir(join(stagedPath, 'target'), { recursive: true })
+    await writeFile(
+      join(stagedPath, 'target', 'SKILL.md'),
+      '# target\n',
+      'utf-8',
+    )
+    await symlink('../target', symlinkPath)
+    await writeFile(
+      join(entryDir, 'manifest.json'),
+      JSON.stringify({
+        schemaVersion: 2,
+        kind: 'local-only',
+        deletedAt: Date.now(),
+        skillName,
+        localCopies: [{ agentId: 'claude-code', linkPath }],
+      }),
+      'utf-8',
+    )
+
+    // Act
+    const result = await restore(tombstone as never)
+
+    // Assert
+    expect(result.outcome).toBe('restored')
+    if (result.outcome === 'restored') {
+      expect(result.symlinksRestored).toBe(1)
+      expect(result.symlinksSkipped).toBe(0)
+    }
+    await expect(
+      readlink(join(linkPath, 'links', 'target-link')),
+    ).resolves.toBe('../target')
   })
 
   it('restores earlier source-backed symlinks when a later agent aborts cascade cleanup', async () => {

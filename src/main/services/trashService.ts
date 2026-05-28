@@ -78,6 +78,7 @@ async function copyDirectoryNoOverwrite(
     recursive: true,
     force: false,
     errorOnExist: true,
+    verbatimSymlinks: true,
   })
 }
 
@@ -366,37 +367,18 @@ async function hasManualRecoveryMarker(entryDir: string): Promise<boolean> {
 }
 
 /**
- * Move a path with cross-device fallback. `fs.rename` is atomic within a single
- * filesystem but throws `EXDEV` when source and destination live on different
- * mount points (e.g. `$HOME` on the user partition vs `/tmp` on a tmpfs). On
- * `EXDEV` we fall back to recursive copy + remove, which is non-atomic but the
- * only portable recovery.
- *
- * Used by all three restore-direction call sites:
- *   - `rollbackMovedLocalCopies` (per-copy revert during forward-move failure),
- *   - `restoreLocalOnly` (per-copy restore from a local-only tombstone),
- *   - `restoreSourceBacked` (move the source dir back from the trash).
- * Centralised so the EXDEV fallback policy stays consistent across them.
- *
- * @param source - Absolute source path (file or directory)
- * @param destination - Absolute destination path (must not exist)
- * @example
- * await renameWithCrossDeviceFallback('/var/tmp/staged', '/home/u/.claude/skills/x')
+ * Restore a staged directory without letting same-device rename replace a recreated empty destination.
+ * @param source - Staged directory that should be returned to the user-visible slot.
+ * @param destination - Destination path that must still be absent when copied.
+ * @returns Promise that resolves after source is removed only when the no-overwrite copy succeeds.
+ * @example await moveDirectoryNoOverwrite('/tmp/staged', '/Users/me/.claude/skills/task')
  */
-async function renameWithCrossDeviceFallback(
+async function moveDirectoryNoOverwrite(
   source: string,
   destination: string,
 ): Promise<void> {
-  try {
-    await fs.rename(source, destination)
-  } catch (renameError) {
-    if (errorCode(renameError) === 'EXDEV') {
-      await copyDirectoryNoOverwrite(source, destination)
-      await fs.rm(source, { recursive: true, force: true })
-    } else {
-      throw renameError
-    }
-  }
+  await copyDirectoryNoOverwrite(source, destination)
+  await fs.rm(source, { recursive: true, force: true })
 }
 
 interface SourceMoveFailure {
@@ -426,7 +408,7 @@ async function moveSourceIntoTrashEntry(
       )
     } catch (identityError) {
       try {
-        await renameWithCrossDeviceFallback(entrySourceDir, sourcePath)
+        await moveDirectoryNoOverwrite(entrySourceDir, sourcePath)
       } catch {
         return {
           preserveEntryDirForManualRecovery: true,
@@ -468,7 +450,7 @@ async function moveSourceIntoTrashEntry(
             'Reviewed skill folder changed since review',
           )
         } catch (identityError) {
-          await renameWithCrossDeviceFallback(siblingStagePath, sourcePath)
+          await moveDirectoryNoOverwrite(siblingStagePath, sourcePath)
           return {
             preserveEntryDirForManualRecovery: false,
             error:
@@ -487,7 +469,7 @@ async function moveSourceIntoTrashEntry(
       } catch (fallbackError) {
         try {
           await fs.lstat(siblingStagePath)
-          await renameWithCrossDeviceFallback(siblingStagePath, sourcePath)
+          await moveDirectoryNoOverwrite(siblingStagePath, sourcePath)
         } catch (restoreError) {
           if (errorCode(restoreError) !== 'ENOENT') {
             preserveEntryDirForManualRecovery = true
@@ -575,7 +557,7 @@ async function rollbackMovedLocalCopies(
     const stagedPath = join(entryDir, 'local-copies', copy.agentId)
     try {
       await fs.mkdir(dirname(copy.linkPath), { recursive: true })
-      await renameWithCrossDeviceFallback(stagedPath, copy.linkPath)
+      await moveDirectoryNoOverwrite(stagedPath, copy.linkPath)
     } catch (error) {
       console.warn('trashService: rollback local copy failed', {
         agentId: copy.agentId,
@@ -1330,10 +1312,7 @@ async function moveLocalOnlyToTrash(
                 'Reviewed local skill folder changed since review',
               )
             } catch (identityError) {
-              await renameWithCrossDeviceFallback(
-                siblingStagePath,
-                copy.linkPath,
-              )
+              await moveDirectoryNoOverwrite(siblingStagePath, copy.linkPath)
               return {
                 kind: 'fatal' as const,
                 preserveEntryDir: false,
@@ -1354,10 +1333,7 @@ async function moveLocalOnlyToTrash(
           } catch (fallbackError) {
             try {
               await fs.lstat(siblingStagePath)
-              await renameWithCrossDeviceFallback(
-                siblingStagePath,
-                copy.linkPath,
-              )
+              await moveDirectoryNoOverwrite(siblingStagePath, copy.linkPath)
             } catch (restoreError) {
               if (errorCode(restoreError) !== 'ENOENT') {
                 stagedCopyCreated = true
@@ -1617,7 +1593,7 @@ async function restoreSourceBacked(
   // Validate sourcePath is within SOURCE_DIR specifically — skill sources
   // always live there. A tampered manifest could otherwise claim sourcePath
   // is in an agent dir and restore would happily plant the files there.
-  // MUST run before the fs.stat probe below so a forged path like `/etc/...`
+  // MUST run before the lstat probe below so a forged path like `/etc/...`
   // can't even trigger a filesystem existence check — defense in depth.
   try {
     validatePath(manifest.sourcePath, [SOURCE_DIR])
@@ -1649,10 +1625,9 @@ async function restoreSourceBacked(
     // ENOENT = free, proceed.
   }
 
-  // Rename source back. Centralised EXDEV fallback so this matches the
-  // local-only restore path (`restoreLocalOnly`) — both go through the helper.
+  // Restore source back through the same no-overwrite helper as local-only.
   try {
-    await renameWithCrossDeviceFallback(entrySourceDir, manifest.sourcePath)
+    await moveDirectoryNoOverwrite(entrySourceDir, manifest.sourcePath)
   } catch (error) {
     return {
       outcome: 'error',
@@ -1782,7 +1757,7 @@ async function restoreLocalOnly(
     const stagedPath = join(localCopiesRoot, copy.agentId)
     try {
       await fs.mkdir(agent.path, { recursive: true })
-      await renameWithCrossDeviceFallback(stagedPath, copy.linkPath)
+      await moveDirectoryNoOverwrite(stagedPath, copy.linkPath)
       symlinksRestored++
     } catch {
       symlinksSkipped++
