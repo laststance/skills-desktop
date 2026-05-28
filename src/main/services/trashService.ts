@@ -967,6 +967,9 @@ async function moveSourceBackedToTrash(
           // after scan. Leave them for manual review instead of cascading.
           continue
         }
+        // Source has not moved yet. Restore earlier cascade removals so a later
+        // fatal slot failure cannot leave a live source with missing agent links.
+        await rollbackRemovedSymlinks(recordedSymlinks)
         throw new TrashError(
           `Failed to remove symlinks: ${extractErrorMessage(error)}`,
           code,

@@ -74,8 +74,13 @@ export const getToolbarState = ({
   visibleCount,
   agentDisplayName,
 }: ToolbarStateInput): ToolbarStateOutput => {
-  const countKind: ToolbarCountKind = count <= 1 ? 'single' : 'multi'
+  // The primary button acts only on selected rows that survived the current
+  // filter, while the adjacent selection summary owns the total hidden count.
+  const actionCount = visibleCount
+  const countKind: ToolbarCountKind = actionCount <= 1 ? 'single' : 'multi'
   const isPrimaryDisabled = visibleCount === 0
+  const ariaSelectionScope =
+    count === visibleCount ? 'selected' : 'visible selected'
   // Fall back to "agent" when the caller doesn't know the display name yet
   // (e.g. render-before-data). Agent view is guaranteed by the match arm.
   const agentLabel = agentDisplayName ?? 'agent'
@@ -83,28 +88,28 @@ export const getToolbarState = ({
   return match({ view, countKind })
     .with({ view: 'global', countKind: 'single' }, () => ({
       primaryLabel: 'Delete skill',
-      primaryAriaLabel: 'Delete selected skill permanently',
+      primaryAriaLabel: `Delete ${ariaSelectionScope} skill permanently`,
       isPrimaryDisabled,
       isDestructive: true,
       variantKey: 'global-single' as const,
     }))
     .with({ view: 'global', countKind: 'multi' }, () => ({
-      primaryLabel: `Delete ${count} skills`,
-      primaryAriaLabel: `Delete ${count} selected skills permanently`,
+      primaryLabel: `Delete ${actionCount} skills`,
+      primaryAriaLabel: `Delete ${actionCount} ${ariaSelectionScope} skills permanently`,
       isPrimaryDisabled,
       isDestructive: true,
       variantKey: 'global-multi' as const,
     }))
     .with({ view: 'agent', countKind: 'single' }, () => ({
       primaryLabel: `Unlink from ${agentLabel}`,
-      primaryAriaLabel: `Unlink selected skill from ${agentLabel}`,
+      primaryAriaLabel: `Unlink ${ariaSelectionScope} skill from ${agentLabel}`,
       isPrimaryDisabled,
       isDestructive: false,
       variantKey: 'agent-single' as const,
     }))
     .with({ view: 'agent', countKind: 'multi' }, () => ({
-      primaryLabel: `Unlink ${count} from ${agentLabel}`,
-      primaryAriaLabel: `Unlink ${count} selected skills from ${agentLabel}`,
+      primaryLabel: `Unlink ${actionCount} from ${agentLabel}`,
+      primaryAriaLabel: `Unlink ${actionCount} ${ariaSelectionScope} skills from ${agentLabel}`,
       isPrimaryDisabled,
       isDestructive: false,
       variantKey: 'agent-multi' as const,

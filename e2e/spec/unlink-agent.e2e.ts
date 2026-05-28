@@ -119,14 +119,18 @@ test('unlinkFromAgent removes one valid azure-ai symlink without touching the so
   appWindow,
   isolatedHome,
 }) => {
-  await waitForInitialScan(appWindow)
-
   const expectedSourcePath = join(
     isolatedHome,
     '.agents',
     'skills',
     AZURE_AI_NAME,
   )
+  test.skip(
+    !existsSync(expectedSourcePath),
+    'azure-ai snapshot skill is required for this snapshot-backed unlink test',
+  )
+
+  await waitForInitialScan(appWindow)
 
   // Selector source is re-evaluated in renderer context (see redux.ts:23) so
   // closures over module-level constants are NOT preserved — `'azure-ai'`
@@ -233,8 +237,6 @@ test('unlinkFromAgent treats a missing linkPath as an idempotent success', async
   appWindow,
   isolatedHome,
 }) => {
-  await waitForInitialScan(appWindow)
-
   // Pre-create the parent agent dir so validatePath's allowed-bases check
   // succeeds. Without this, validatePath could throw before lstat runs and
   // we'd be testing the wrong failure branch.
@@ -484,18 +486,20 @@ test('removeAllFromAgent refuses when the agent path is a symlink alias to the u
     existsSync(cursorAgentPath),
     `cursor scanDir ${cursorAgentPath} unexpectedly exists pre-stage — global-setup or skills-cli behavior changed`,
   ).toBe(false)
+  const sentinelSourceName = `shared-source-refusal-${randomBytes(4).toString('hex')}`
+  const sentinelSourcePath = join(sourceDir, sentinelSourceName)
+  mkdirSync(sentinelSourcePath, { recursive: true })
+  writeFileSync(
+    join(sentinelSourcePath, 'SKILL.md'),
+    '# Shared source refusal fixture\n',
+  )
   mkdirSync(dirname(cursorAgentPath), { recursive: true })
   symlinkSync(sourceDir, cursorAgentPath)
 
   // Capture the SOURCE_DIR contents pre-call so we can assert nothing inside
   // it moved when the refusal path fires.
   const sourceContentsBefore = readdirSync(sourceDir).sort()
-  expect(
-    sourceContentsBefore.length,
-    'expected the snapshot source dir to be populated by global-setup',
-  ).toBeGreaterThan(0)
-
-  await waitForInitialScan(appWindow)
+  expect(sourceContentsBefore).toContain(sentinelSourceName)
 
   const result = await appWindow.evaluate(
     async (args: { agentId: string; agentPath: string }) =>

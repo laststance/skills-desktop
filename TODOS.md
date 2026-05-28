@@ -596,6 +596,30 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Stage the regular-file fixture directly and invoke IPC without waiting for pre-existing scanned skills.
 
+### P1. Source-backed cascade abort must roll back earlier symlinks
+
+**Status:** Fixed after ninth post-fix subagent review follow-up.
+
+**Finding:** `moveSourceBackedToTrash` rolls back symlinks if the source move fails, but a fatal symlink-removal error during the earlier source-backed cascade throws before rollback. If agent A was already unlinked and agent B then hits a quarantine restore failure, the source stays in place while agent A's symlink is lost without a tombstone or Undo path.
+
+**Fix direction:** Roll back all previously recorded symlinks before throwing from fatal cascade-removal failures, and add a multi-agent regression where an earlier removed symlink is restored after a later agent aborts.
+
+### P1. Unlink-agent E2E must support `E2E_SKIP_INSTALL`
+
+**Status:** Fixed after ninth post-fix subagent review follow-up.
+
+**Finding:** `unlink-agent.e2e.ts` still assumes snapshot-installed `azure-ai` / populated `SOURCE_DIR` in a few tests. With `E2E_SKIP_INSTALL=1`, the file can fail before reaching the deletion-safety assertions.
+
+**Fix direction:** Make snapshot-dependent tests skip on explicit fixture absence or stage their own fixture data, and remove `waitForInitialScan()` from direct-IPC tests that do not need scanned renderer state.
+
+### P2. Toolbar primary copy must count visible action targets
+
+**Status:** Fixed after ninth post-fix subagent review follow-up.
+
+**Finding:** The selection toolbar labels the destructive primary action with the total selected count, while `MainContent` acts on only selected rows that remain visible. With filtered selections, the button can say `Delete 5 skills` while the confirmation and IPC operate on 2 visible targets.
+
+**Fix direction:** Derive primary labels and aria labels from `visibleCount`, keeping the separate selected/hidden summary as the source of total-selection context.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

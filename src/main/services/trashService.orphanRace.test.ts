@@ -157,4 +157,61 @@ describe('trashService orphan cleanup guarded commit', () => {
     ).toBe(true)
     expect(await readdir(__getTrashDirForTests())).toEqual([])
   })
+
+  it('restores earlier source-backed symlinks when a later agent aborts cascade cleanup', async () => {
+    // Arrange
+    const skillName = 'source-partial-rollback'
+    const sourcePath = join(tempHome, '.agents', 'skills', skillName)
+    const claudeSkillsDir = join(tempHome, '.claude', 'skills')
+    const cursorSkillsDir = join(tempHome, '.cursor', 'skills')
+    const claudeLinkPath = join(claudeSkillsDir, skillName)
+    const cursorLinkPath = join(cursorSkillsDir, skillName)
+    const replacementTargetPath = join(
+      tempHome,
+      '.agents',
+      'skills',
+      'replacement-target',
+    )
+    await mkdir(sourcePath, { recursive: true })
+    await writeFile(join(sourcePath, 'SKILL.md'), `# ${skillName}\n`, 'utf-8')
+    await mkdir(claudeSkillsDir, { recursive: true })
+    await mkdir(cursorSkillsDir, { recursive: true })
+    await symlink(sourcePath, claudeLinkPath)
+    await symlink(sourcePath, cursorLinkPath)
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        unlink: async (path: string): Promise<void> => {
+          if (String(path).startsWith(`${cursorLinkPath}.cleanup-`)) {
+            await actual.symlink(replacementTargetPath, cursorLinkPath)
+            const error = new Error(
+              'forced cleanup unlink failure',
+            ) as NodeJS.ErrnoException
+            error.code = 'EACCES'
+            throw error
+          }
+          return actual.unlink(path)
+        },
+      }
+    })
+    const { __getTrashDirForTests, moveToTrash } =
+      await import('./trashService')
+
+    // Act / Assert
+    await expect(moveToTrash(skillName)).rejects.toThrow(
+      /Failed to remove symlinks|could not be restored/i,
+    )
+    expect((await lstat(sourcePath)).isDirectory()).toBe(true)
+    expect((await lstat(claudeLinkPath)).isSymbolicLink()).toBe(true)
+    expect(await readlink(claudeLinkPath)).toBe(sourcePath)
+    expect((await lstat(cursorLinkPath)).isSymbolicLink()).toBe(true)
+    expect(await readlink(cursorLinkPath)).toBe(replacementTargetPath)
+    const leftovers = await readdir(cursorSkillsDir)
+    expect(
+      leftovers.some((entry) => entry.startsWith(`${skillName}.cleanup-`)),
+    ).toBe(true)
+    expect(await readdir(__getTrashDirForTests())).toEqual([])
+  })
 })

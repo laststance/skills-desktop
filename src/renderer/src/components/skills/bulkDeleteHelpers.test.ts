@@ -100,7 +100,7 @@ describe('getToolbarState', () => {
     expect(result.isPrimaryDisabled).toBe(true)
   })
 
-  it('keeps the primary enabled when visibleCount > 0 even if it is lower than count', () => {
+  it('labels the primary button with visible action targets when filters hide selected rows', () => {
     const result = getToolbarState({
       view: 'global',
       agentId: null,
@@ -108,8 +108,10 @@ describe('getToolbarState', () => {
       visibleCount: 2,
     })
     expect(result.isPrimaryDisabled).toBe(false)
-    // Label reflects full selection count per v2.4 spec
-    expect(result.primaryLabel).toBe('Delete 5 skills')
+    expect(result.primaryLabel).toBe('Delete 2 skills')
+    expect(result.primaryAriaLabel).toBe(
+      'Delete 2 visible selected skills permanently',
+    )
   })
 })
 
