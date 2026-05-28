@@ -17,6 +17,7 @@ const mockGetAll = vi.fn()
 const mockShellOpenExternal = vi.fn()
 const mockOnDeleteProgress = vi.fn(() => () => {})
 const mockSkillsDeleteSkills = vi.fn()
+const mockClearOrphanSymlinks = vi.fn()
 
 /**
  * Short-circuit every heavy child MainContent renders so tests focus on the
@@ -76,6 +77,7 @@ beforeEach(() => {
   mockOnDeleteProgress.mockReset()
   mockOnDeleteProgress.mockImplementation(() => () => {})
   mockSkillsDeleteSkills.mockReset()
+  mockClearOrphanSymlinks.mockReset()
   // Install the `electron` IPC bridge — browser mode replaces the preload
   // context, so tests that exercise `window.electron.*` must plant a fake
   // before MainContent's mount effect fires.
@@ -84,6 +86,7 @@ beforeEach(() => {
       getAll: mockGetAll,
       onDeleteProgress: mockOnDeleteProgress,
       deleteSkills: mockSkillsDeleteSkills,
+      clearOrphanSymlinks: mockClearOrphanSymlinks,
     },
     shell: {
       openExternal: mockShellOpenExternal,
@@ -521,6 +524,77 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
     // microtask would otherwise slip through.
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(mockSkillsDeleteSkills).toHaveBeenCalledTimes(1)
+  })
+
+  it('routes global orphan deletes through reviewed orphan cleanup identity', async () => {
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const orphanSkillName = 'abandoned' as SkillName
+    const orphanSkill: Skill = {
+      name: orphanSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/abandoned' as never,
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'devin' as AgentId,
+          agentName: 'Devin' as never,
+          linkPath: '/Users/me/.config/devin/skills/abandoned' as never,
+          targetPath: '/Users/me/.agents/skills/abandoned' as never,
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    mockClearOrphanSymlinks.mockResolvedValue({
+      items: [
+        {
+          skillName: orphanSkillName,
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 1,
+          cascadeAgents: ['devin'],
+        },
+      ],
+    })
+
+    // Arrange: the global confirmation references an orphan row; this must not
+    // fall back to deleteSkills because that path rescans by name in main.
+    store.dispatch(fetchSkills.fulfilled([orphanSkill], 'req-id'))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [orphanSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockClearOrphanSymlinks.mock.calls.length).toBe(1)
+    expect(mockClearOrphanSymlinks.mock.calls[0][0]).toEqual({
+      items: [
+        {
+          skillName: 'abandoned',
+          agents: [
+            {
+              agentId: 'devin',
+              linkPath: '/Users/me/.config/devin/skills/abandoned',
+              targetPath: '/Users/me/.agents/skills/abandoned',
+            },
+          ],
+        },
+      ],
+    })
+    expect(mockSkillsDeleteSkills).not.toHaveBeenCalled()
   })
 })
 

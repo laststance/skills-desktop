@@ -5,6 +5,7 @@ import { Button } from '@/renderer/src/components/ui/button'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectSkillsItems } from '@/renderer/src/redux/slices/skillsSlice'
 import { openSymlinkCleanupDialog } from '@/renderer/src/redux/slices/uiSlice'
+import { pluralize } from '@/renderer/src/utils/pluralize'
 import type { Skill } from '@/shared/types'
 
 // ----------------------------------------------------------------------------
@@ -63,22 +64,25 @@ function healthPercent(totals: HealthTotals): number | null {
 
 interface HealthBarProps {
   valid: number
-  needsReview: number
+  cleanupIssues: number
+  manualReview: number
 }
 
 const HealthBar = React.memo(function HealthBar({
   valid,
-  needsReview,
+  cleanupIssues,
+  manualReview,
 }: HealthBarProps): React.ReactElement {
-  const total = valid + needsReview
+  const total = valid + cleanupIssues + manualReview
   const validPct = total > 0 ? (valid / total) * 100 : 0
-  const needsReviewPct = total > 0 ? (needsReview / total) * 100 : 0
+  const cleanupPct = total > 0 ? (cleanupIssues / total) * 100 : 0
+  const manualPct = total > 0 ? (manualReview / total) * 100 : 0
 
   return (
     <div
       className="h-1.5 w-full rounded-full bg-muted overflow-hidden flex"
       role="img"
-      aria-label={`${valid} valid, ${needsReview} need review`}
+      aria-label={`${valid} valid, ${cleanupIssues} ${pluralize(cleanupIssues, 'cleanup issue')}, ${manualReview} manual review`}
     >
       <div
         className="bg-success transition-[width] duration-300"
@@ -86,7 +90,11 @@ const HealthBar = React.memo(function HealthBar({
       />
       <div
         className="bg-amber-400 transition-[width] duration-300"
-        style={{ width: `${needsReviewPct}%` }}
+        style={{ width: `${cleanupPct}%` }}
+      />
+      <div
+        className="bg-amber-300 transition-[width] duration-300"
+        style={{ width: `${manualPct}%` }}
       />
     </div>
   )
@@ -106,7 +114,6 @@ export const HealthWidget = React.memo(
     const totals = useMemo(() => tallySymlinks(skills), [skills])
     const percent = healthPercent(totals)
     const hasBrokenLinks = totals.broken > 0
-    const attentionCount = totals.broken + totals.inaccessible
     const hasManualReviewOnly = !hasBrokenLinks && totals.inaccessible > 0
 
     const handleScanIssues = useCallback((): void => {
@@ -123,18 +130,40 @@ export const HealthWidget = React.memo(
             {percent === null ? '—' : `${percent}%`}
           </span>
         </div>
-        <HealthBar valid={totals.valid} needsReview={attentionCount} />
+        <HealthBar
+          valid={totals.valid}
+          cleanupIssues={totals.broken}
+          manualReview={totals.inaccessible}
+        />
         <div className="flex items-center justify-between text-xs">
           <span className="inline-flex items-center gap-1 text-success">
             <CheckCircle className="h-3 w-3" aria-hidden="true" />
             <span className="tabular-nums">{totals.valid}</span>
             <span className="text-muted-foreground">valid</span>
           </span>
-          <span className="inline-flex items-center gap-1 text-amber-400">
-            <AlertCircle className="h-3 w-3" aria-hidden="true" />
-            <span className="tabular-nums">{attentionCount}</span>
-            <span className="text-muted-foreground">needs review</span>
-          </span>
+          <div className="flex items-center gap-2">
+            {totals.broken > 0 ? (
+              <span className="inline-flex items-center gap-1 text-amber-400">
+                <AlertCircle className="h-3 w-3" aria-hidden="true" />
+                <span className="tabular-nums">{totals.broken}</span>
+                <span className="text-muted-foreground">cleanup</span>
+              </span>
+            ) : null}
+            {totals.inaccessible > 0 ? (
+              <span className="inline-flex items-center gap-1 text-amber-300">
+                <AlertCircle className="h-3 w-3" aria-hidden="true" />
+                <span className="tabular-nums">{totals.inaccessible}</span>
+                <span className="text-muted-foreground">manual</span>
+              </span>
+            ) : null}
+            {totals.broken === 0 && totals.inaccessible === 0 ? (
+              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                <AlertCircle className="h-3 w-3" aria-hidden="true" />
+                <span className="tabular-nums">0</span>
+                <span>needs review</span>
+              </span>
+            ) : null}
+          </div>
         </div>
         <div className="min-h-8 flex items-center justify-end">
           {hasBrokenLinks ? (

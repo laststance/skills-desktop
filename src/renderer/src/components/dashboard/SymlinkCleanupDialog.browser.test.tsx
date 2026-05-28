@@ -476,12 +476,26 @@ describe('SymlinkCleanupDialog', () => {
 
   it('shows link-folder identity before metadata name for broken cleanup rows', async () => {
     // Arrange
-    mockGetSkills.mockResolvedValueOnce([
+    const mismatchPlan = [
       makeSkillWithBrokenSlot('metadata-title', 'cursor', {
         linkPath: '/Users/test/.cursor/skills/link-folder-name',
         targetPath: '/Users/test/.agents/skills/missing-target',
       }),
-    ])
+    ]
+    mockGetSkills
+      .mockResolvedValueOnce(mismatchPlan)
+      .mockResolvedValueOnce(mismatchPlan)
+      .mockResolvedValueOnce([])
+    mockClearBrokenSymlinkSlots.mockResolvedValue({
+      items: [
+        {
+          agentId: 'cursor',
+          skillName: 'link-folder-name',
+          linkPath: '/Users/test/.cursor/skills/link-folder-name',
+          outcome: 'unlinked',
+        },
+      ],
+    })
 
     // Act
     const screen = await renderOpenedDialog()
@@ -497,5 +511,25 @@ describe('SymlinkCleanupDialog', () => {
         }),
       )
       .toBeInTheDocument()
+    await screen.getByRole('button', { name: 'Clean 1 selected' }).click()
+
+    // Assert: the destructive IPC uses the reviewed folder name and paths, not
+    // the metadata display name that happens to own the row in scanner output.
+    await expect
+      .poll(() => mockClearBrokenSymlinkSlots.mock.calls.length)
+      .toBe(1)
+    expect(mockClearBrokenSymlinkSlots).toHaveBeenCalledWith({
+      items: [
+        {
+          agentId: 'cursor',
+          skillName: 'link-folder-name',
+          linkPath: '/Users/test/.cursor/skills/link-folder-name',
+          targetPath: '/Users/test/.agents/skills/missing-target',
+        },
+      ],
+    })
+    await expect
+      .element(screen.getByText(/Cleaned up 1 symlink issue/))
+      .toBeVisible()
   })
 })

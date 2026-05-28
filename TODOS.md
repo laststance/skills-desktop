@@ -164,6 +164,54 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Show the agent-side `linkName` first and include the metadata display name when it differs; add browser coverage for the mismatch case.
 
+### P1. Global orphan Delete must use reviewed target identity
+
+**Status:** Fixed after post-fix subagent review.
+
+**Finding:** The global orphan row Delete / bulk delete path still routes through `deleteSelectedSkills(skillName)`, which rescans by name and calls `clearOrphanSymlinks` from fresh name matches. That bypasses the reviewed `linkPath + targetPath` identity now used by the Symlink Health dialog.
+
+**Fix direction:** Route selected global orphan deletes through the exact reviewed orphan cleanup IPC payload (`skillName`, `agentId`, `linkPath`, `targetPath`) and never fall back to name-only orphan sweeping for orphan rows. Added MainContent browser coverage for the IPC payload and deleteSkills bypass.
+
+### P2. Symlink cleanup should avoid check-then-unlink races
+
+**Status:** Fixed after post-fix subagent review.
+
+**Finding:** Broken-slot and orphan cleanup now revalidate the reviewed target immediately before unlinking, but the unlink is still a separate filesystem operation. A concurrent replacement between check and unlink could still remove a slot that was not reviewed.
+
+**Fix direction:** Use an atomic same-directory quarantine/rename cleanup path that validates the quarantined symlink and unlinks that exact entry, with conservative restoration behavior when validation fails.
+
+### P2. HealthWidget must distinguish cleanup-ready and manual-review counts
+
+**Status:** Fixed after post-fix subagent review.
+
+**Finding:** Mixed health states compress cleanup-ready `broken` slots and non-cleanup-safe `inaccessible` slots into one "needs review" count, while the cleanup dialog only shows cleanup-eligible broken rows. Users can see a higher widget count than the dialog can clean without an explanation.
+
+**Fix direction:** Split the widget footer/accessible copy into cleanup issue and manual-review counts while keeping the dialog button scoped to cleanup-ready rows. Added mixed-state browser coverage.
+
+### P2. E2E must assert removed symlink paths with `lstat`
+
+**Status:** Fixed after post-fix subagent review.
+
+**Finding:** The destructive cleanup E2E asserts removed symlink paths with `existsSync`, which follows symlinks. A broken symlink also returns false, so the test can pass when the symlink itself remains.
+
+**Fix direction:** Assert `lstatSync(path)` throws `ENOENT` after cleanup for both Devin and Codex cleanup E2E paths.
+
+### P2. Mismatched cleanup-row browser test must assert destructive payload
+
+**Status:** Fixed after post-fix subagent review.
+
+**Finding:** The mismatch test checks that the row label shows `linkName` first, but it does not prove the cleanup IPC payload uses that destructive link identity.
+
+**Fix direction:** Extend the browser test to click cleanup and assert `clearBrokenSymlinkSlots` receives the exact `skillName`, `linkPath`, and `targetPath` from the reviewed row.
+
+### P3. IPC schema tests must cover cleanup target paths
+
+**Status:** Fixed after post-fix subagent review.
+
+**Finding:** `ipc-schemas.test.ts` does not include the new cleanup IPC channels in the skill-name rejection coverage, and does not verify that cleanup `targetPath` values are required absolute paths.
+
+**Fix direction:** Add cleanup channel cases to the malicious skill-name table and add required/absolute `targetPath` schema tests for orphan and broken-slot cleanup payloads.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

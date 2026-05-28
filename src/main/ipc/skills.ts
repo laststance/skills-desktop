@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { Stats } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
@@ -39,6 +40,104 @@ import { typedSend } from './typedSend'
 type AgentPathRemovalResult =
   | { success: true }
   | { success: false; error: string; code?: string }
+
+/**
+ * Recreate a reviewed symlink after a quarantined cleanup validation fails.
+ * @param linkPath - Original reviewed agent slot path.
+ * @param quarantinePath - Temporary path holding the reviewed symlink.
+ * @param rawTarget - Verbatim readlink target to restore.
+ * @returns void after the original path points at the reviewed target again.
+ * @example
+ * await restoreReviewedSymlink('/agent/task', '/agent/task.cleanup-1', '../source/task')
+ */
+async function restoreReviewedSymlink(
+  linkPath: AbsolutePath,
+  quarantinePath: AbsolutePath,
+  rawTarget: string,
+): Promise<void> {
+  try {
+    // symlink() fails with EEXIST instead of overwriting a concurrent
+    // replacement at the reviewed path.
+    await fs.symlink(rawTarget, linkPath)
+    await fs.unlink(quarantinePath).catch(() => {
+      // The reviewed path is restored; leftover quarantine cleanup is best-effort.
+    })
+  } catch (error) {
+    const code = errorCode(error) ?? 'ESTALE'
+    throw new TrashError(
+      `Cleanup stopped, but the reviewed link could not be restored at ${linkPath}: ${extractErrorMessage(error)}`,
+      code,
+    )
+  }
+}
+
+/**
+ * Atomically quarantine, revalidate, and unlink one reviewed dangling symlink.
+ * @param options - Exact reviewed path/target plus messages for stale-target cases.
+ * @returns `missing` when the slot was already gone; otherwise `unlinked`.
+ * @example
+ * await unlinkReviewedDanglingSymlink({ linkPath, targetPath, targetChangedMessage, targetExistsMessage, targetProbePrefix })
+ */
+async function unlinkReviewedDanglingSymlink(options: {
+  linkPath: AbsolutePath
+  targetPath: AbsolutePath
+  targetChangedMessage: string
+  targetExistsMessage: string
+  targetProbePrefix: string
+  beforeTargetProbe?: () => Promise<void>
+}): Promise<'missing' | 'unlinked'> {
+  const quarantinePath =
+    `${options.linkPath}.cleanup-${randomUUID()}` as AbsolutePath
+  try {
+    await fs.rename(options.linkPath, quarantinePath)
+  } catch (error) {
+    if (isMissingPathError(error)) return 'missing'
+    throw new TrashError(extractErrorMessage(error), errorCode(error))
+  }
+
+  let rawTarget: string | null = null
+  try {
+    const stats = await fs.lstat(quarantinePath)
+    if (!stats.isSymbolicLink()) {
+      throw new TrashError(
+        'Reviewed cleanup slot is no longer a symlink',
+        'ESTALE',
+      )
+    }
+
+    rawTarget = await fs.readlink(quarantinePath)
+    const resolvedTarget = await resolveRawSymlinkTarget(
+      quarantinePath,
+      rawTarget,
+    )
+    if (resolve(resolvedTarget) !== resolve(options.targetPath)) {
+      throw new TrashError(options.targetChangedMessage, 'ESTALE')
+    }
+
+    await options.beforeTargetProbe?.()
+
+    try {
+      await fs.access(resolvedTarget)
+      throw new TrashError(options.targetExistsMessage, 'ESTALE')
+    } catch (error) {
+      if (error instanceof TrashError) throw error
+      if (!isMissingPathError(error)) {
+        throw new TrashError(
+          `${options.targetProbePrefix}: ${extractErrorMessage(error)}`,
+          errorCode(error),
+        )
+      }
+    }
+
+    await fs.unlink(quarantinePath)
+    return 'unlinked'
+  } catch (error) {
+    if (rawTarget !== null) {
+      await restoreReviewedSymlink(options.linkPath, quarantinePath, rawTarget)
+    }
+    throw error
+  }
+}
 
 /**
  * Remove an agent symlink path after the caller has already validated and
@@ -181,35 +280,15 @@ async function clearReviewedBrokenSymlinkSlot(item: {
       )
     }
 
-    const rawTarget = await fs.readlink(item.linkPath)
-    const resolvedTarget = await resolveRawSymlinkTarget(
-      item.linkPath,
-      rawTarget,
-    )
-    if (resolve(resolvedTarget) !== resolve(item.targetPath)) {
-      throw new TrashError(
+    await unlinkReviewedDanglingSymlink({
+      linkPath: item.linkPath,
+      targetPath: item.targetPath,
+      targetChangedMessage:
         'Reviewed broken link target changed. Rescan before cleanup.',
-        'ESTALE',
-      )
-    }
-
-    try {
-      await fs.access(resolvedTarget)
-      throw new TrashError(
+      targetExistsMessage:
         'Reviewed broken link target now exists. Rescan before cleanup.',
-        'ESTALE',
-      )
-    } catch (error) {
-      if (error instanceof TrashError) throw error
-      if (!isMissingPathError(error)) {
-        throw new TrashError(
-          `Cannot verify broken link target: ${extractErrorMessage(error)}`,
-          errorCode(error),
-        )
-      }
-    }
-
-    await fs.unlink(item.linkPath)
+      targetProbePrefix: 'Cannot verify broken link target',
+    })
     return {
       agentId: item.agentId,
       skillName: item.skillName,
@@ -313,52 +392,21 @@ async function clearReviewedOrphanLink(
     )
   }
 
-  let rawTarget: string
-  try {
-    rawTarget = await fs.readlink(reviewedLink.linkPath)
-  } catch (error) {
-    if (isMissingPathError(error)) return agent.id
-    throw new TrashError(extractErrorMessage(error), errorCode(error))
-  }
-  const resolvedTarget = await resolveRawSymlinkTarget(
-    reviewedLink.linkPath,
-    rawTarget,
-  )
-  if (resolve(resolvedTarget) !== resolve(reviewedLink.targetPath)) {
-    throw new TrashError(
+  await unlinkReviewedDanglingSymlink({
+    linkPath: reviewedLink.linkPath,
+    targetPath: reviewedLink.targetPath,
+    targetChangedMessage:
       'Reviewed orphan link target changed. Rescan before cleanup.',
-      'ESTALE',
-    )
-  }
-
-  const blocker = await findOrphanCleanupBlocker(skillName)
-  if (blocker) {
-    throw new TrashError(blocker, 'ESTALE')
-  }
-
-  try {
-    await fs.access(resolvedTarget)
-    throw new TrashError(
+    targetExistsMessage:
       'Reviewed orphan link target now exists. Rescan before cleanup.',
-      'ESTALE',
-    )
-  } catch (error) {
-    if (error instanceof TrashError) throw error
-    if (!isMissingPathError(error)) {
-      throw new TrashError(
-        `Cannot verify orphan target: ${extractErrorMessage(error)}`,
-        errorCode(error),
-      )
-    }
-  }
-
-  try {
-    await fs.unlink(reviewedLink.linkPath)
-  } catch (error) {
-    if (!isMissingPathError(error)) {
-      throw new TrashError(extractErrorMessage(error), errorCode(error))
-    }
-  }
+    targetProbePrefix: 'Cannot verify orphan target',
+    beforeTargetProbe: async () => {
+      const blocker = await findOrphanCleanupBlocker(skillName)
+      if (blocker) {
+        throw new TrashError(blocker, 'ESTALE')
+      }
+    },
+  })
 
   return agent.id
 }

@@ -70,9 +70,11 @@ import type { SourceFilterRow } from '@/renderer/src/redux/selectors'
 import { setPreviewSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
 import {
   clearSelection,
+  clearSelectedOrphanSymlinks,
   deleteSelectedSkills,
   selectAll,
   selectSelectedSkillNames,
+  selectSkillsItems,
   setBulkProgress,
   undoLastBulkDelete,
   unlinkSelectedFromAgent,
@@ -114,11 +116,15 @@ import {
 } from '@/shared/constants'
 import { FEATURE_FLAGS } from '@/shared/featureFlags'
 import type {
+  AbsolutePath,
   BulkDeleteItemResult,
+  ClearOrphanSymlinksOptions,
   IsoTimestamp,
   RepositoryId,
+  Skill,
   ToastId,
   TombstoneId,
+  SymlinkInfo,
 } from '@/shared/types'
 
 const SKILL_TYPE_FILTER_OPTIONS: {
@@ -164,6 +170,88 @@ function getUnavailableExcludeReason(
 
 const SKILLS_SH_URL = 'https://skills.sh'
 
+type ReviewedOrphanCleanupRecord = ClearOrphanSymlinksOptions['items'][number]
+
+interface PartitionedGlobalDeleteTargets {
+  deleteNames: Skill['name'][]
+  orphanRecords: ReviewedOrphanCleanupRecord[]
+  orphanErrors: BulkDeleteItemResult[]
+}
+
+/**
+ * Narrow to dangling, reviewed symlink slots that the orphan cleanup IPC can safely revalidate.
+ * @param symlink - Agent slot from the current renderer scan.
+ * @returns true when the slot has the exact path and target cleanup requires.
+ * @example
+ * isReviewedOrphanCleanupSlot(skill.symlinks[0]) // => true for broken non-local symlink with targetPath
+ */
+function isReviewedOrphanCleanupSlot(
+  symlink: SymlinkInfo,
+): symlink is SymlinkInfo & {
+  status: 'broken'
+  isLocal: false
+  targetPath: AbsolutePath
+} {
+  return (
+    symlink.status === 'broken' &&
+    symlink.isLocal === false &&
+    symlink.targetPath !== undefined
+  )
+}
+
+/**
+ * Split global delete selections so orphan rows use exact reviewed link cleanup instead of name rescans.
+ * @param skills - Current Redux skill inventory.
+ * @param skillNames - Names selected in the bulk confirm dialog.
+ * @returns Normal delete names, reviewed orphan cleanup records, and per-row preflight errors.
+ * @example
+ * partitionGlobalDeleteTargets(skills, ['abandoned'])
+ */
+function partitionGlobalDeleteTargets(
+  skills: readonly Skill[],
+  skillNames: readonly Skill['name'][],
+): PartitionedGlobalDeleteTargets {
+  const skillsByName = new Map(skills.map((skill) => [skill.name, skill]))
+  const deleteNames: Skill['name'][] = []
+  const orphanRecords: ReviewedOrphanCleanupRecord[] = []
+  const orphanErrors: BulkDeleteItemResult[] = []
+
+  for (const skillName of skillNames) {
+    const skill = skillsByName.get(skillName)
+    if (!skill?.isOrphan) {
+      deleteNames.push(skillName)
+      continue
+    }
+
+    const agents = skill.symlinks
+      .filter(isReviewedOrphanCleanupSlot)
+      .map((symlink) => ({
+        agentId: symlink.agentId,
+        linkPath: symlink.linkPath,
+        targetPath: symlink.targetPath,
+      }))
+
+    if (agents.length > 0) {
+      orphanRecords.push({ skillName, agents })
+      continue
+    }
+
+    // Do not fall back to name-only deletion for an orphan row whose reviewed
+    // slot identities are incomplete; ask for a rescan instead.
+    orphanErrors.push({
+      skillName,
+      outcome: 'error',
+      error: {
+        message:
+          'No reviewed orphan symlink targets available. Rescan before cleanup.',
+        code: 'ESTALE',
+      },
+    })
+  }
+
+  return { deleteNames, orphanRecords, orphanErrors }
+}
+
 /**
  * Main content area (flexible width).
  * Owns the Installed / Marketplace tabs, the bulk selection toolbar, and the
@@ -180,6 +268,7 @@ export const MainContent = React.memo(
     const visibleNames = useAppSelector(selectVisibleSkillNames)
     const selectedVisibleNames = useAppSelector(selectSelectedVisibleNames)
     const selectedAllNames = useAppSelector(selectSelectedSkillNames)
+    const skills = useAppSelector(selectSkillsItems)
     const bulkConfirm = useAppSelector(selectBulkConfirm)
     const bulkSelectMode = useAppSelector(selectBulkSelectMode)
     const sourceFilter = useAppSelector(selectSourceFilterViewModel)
@@ -497,14 +586,57 @@ export const MainContent = React.memo(
         return
       }
 
-      // Global view — bulk delete. Every skill (including ones tracked in
-      // `~/.agents/.skill-lock.json`) flows through the trash + UndoToast
-      // pipeline. The CLI removal path was retired because `npx skills remove`
-      // spawns were unreliable; stale lock-file entries are an acceptable
-      // trade-off for a deterministic delete that supports undo.
-      const action = await dispatch(deleteSelectedSkills(skillNames))
-      if (deleteSelectedSkills.fulfilled.match(action)) {
-        const tombstoneIds = action.payload.items
+      const { deleteNames, orphanRecords, orphanErrors } =
+        partitionGlobalDeleteTargets(skills, skillNames)
+      const deleteItems: BulkDeleteItemResult[] = [...orphanErrors]
+      if (orphanRecords.length > 0 || orphanErrors.length > 0) {
+        // Orphan-only cleanup has no tombstone, so manually leave bulk mode in
+        // the same way the delete thunk's pending reducer would for source rows.
+        dispatch(clearSelection())
+        dispatch(exitBulkSelectMode())
+      }
+
+      // Global view — normal skills still flow through the trash + UndoToast
+      // pipeline. Orphan rows are not source skills, so they use exact reviewed
+      // link cleanup below instead of the name-rescanning delete IPC.
+      if (deleteNames.length > 0) {
+        const action = await dispatch(deleteSelectedSkills(deleteNames))
+        if (deleteSelectedSkills.fulfilled.match(action)) {
+          deleteItems.push(...action.payload.items)
+        } else {
+          toast.error('Bulk delete failed', {
+            description: errorToastDescription(action),
+          })
+          return
+        }
+      }
+
+      if (orphanRecords.length > 0) {
+        const action = await dispatch(
+          clearSelectedOrphanSymlinks(orphanRecords),
+        )
+        if (clearSelectedOrphanSymlinks.fulfilled.match(action)) {
+          deleteItems.push(...action.payload.items)
+        } else {
+          const message = errorToastDescription(action)
+          if (deleteItems.length === 0) {
+            toast.error('Bulk delete failed', { description: message })
+            return
+          }
+          deleteItems.push(
+            ...orphanRecords.map(
+              (record): BulkDeleteItemResult => ({
+                skillName: record.skillName,
+                outcome: 'error',
+                error: { message },
+              }),
+            ),
+          )
+        }
+      }
+
+      if (deleteItems.length > 0) {
+        const tombstoneIds = deleteItems
           .filter(
             (
               item,
@@ -512,10 +644,10 @@ export const MainContent = React.memo(
               item.outcome === 'deleted',
           )
           .map((item) => item.tombstoneId)
-        const deletedNames = action.payload.items
+        const deletedNames = deleteItems
           .filter((item) => item.outcome === 'deleted')
           .map((item) => item.skillName)
-        const failedNames = action.payload.items
+        const failedNames = deleteItems
           .filter((item) => item.outcome === 'error')
           .map((item) => item.skillName)
 
@@ -527,15 +659,15 @@ export const MainContent = React.memo(
           // `orphan-cleared` (broken-symlink sweeps that have no undo path).
           // Distinguish all-errored from any-cleared so we don't slap an
           // "error" title on a row that the user actually wanted swept.
-          const anySuccess = action.payload.items.some(
+          const anySuccess = deleteItems.some(
             (item) =>
               item.outcome === 'deleted' || item.outcome === 'orphan-cleared',
           )
           if (anySuccess) {
-            toast.success(formatCascadeSummary(action.payload))
+            toast.success(formatCascadeSummary({ items: deleteItems }))
           } else {
             toast.error('Bulk delete failed', {
-              description: formatCascadeSummary(action.payload),
+              description: formatCascadeSummary({ items: deleteItems }),
             })
           }
           return
@@ -551,7 +683,7 @@ export const MainContent = React.memo(
         const expiresAt: IsoTimestamp = new Date(
           Date.now() + UNDO_WINDOW_MS,
         ).toISOString()
-        const summary = formatCascadeSummary(action.payload)
+        const summary = formatCascadeSummary({ items: deleteItems })
         const handleToastDismissed = (): void => {
           dispatch(clearUndoToast())
         }
@@ -583,12 +715,8 @@ export const MainContent = React.memo(
             summary,
           }),
         )
-      } else {
-        toast.error('Bulk delete failed', {
-          description: errorToastDescription(action),
-        })
       }
-    }, [bulkConfirm, dispatch, handleUndoDelete])
+    }, [bulkConfirm, dispatch, handleUndoDelete, skills])
 
     const handleCancelBulkConfirm = useCallback((): void => {
       dispatch(clearBulkConfirm())

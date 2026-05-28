@@ -112,14 +112,48 @@ describe('HealthWidget', () => {
 
     // Assert
     await expect.element(screen.getByText('Manual review')).toBeVisible()
-    await expect.element(screen.getByText('needs review')).toBeVisible()
     await expect
-      .element(screen.getByRole('img', { name: '0 valid, 1 need review' }))
+      .element(screen.getByText('manual', { exact: true }))
+      .toBeVisible()
+    await expect
+      .element(
+        screen.getByRole('img', {
+          name: '0 valid, 0 cleanup issues, 1 manual review',
+        }),
+      )
       .toBeInTheDocument()
     expect(screen.getByText('Healthy').query()).toBeNull()
     expect(screen.getByText('broken').query()).toBeNull()
     expect(
       screen.getByRole('button', { name: 'Scan issues' }).query(),
     ).toBeNull()
+  })
+
+  it('splits cleanup-ready and manual-review counts when both need attention', async () => {
+    // Arrange
+    const skills = [
+      makeSkill([
+        makeSymlink('valid'),
+        makeSymlink('broken'),
+        makeSymlink('inaccessible'),
+      ]),
+    ]
+
+    // Act
+    const { screen } = await renderHealthWidget(skills)
+
+    // Assert
+    await expect.element(screen.getByText('cleanup')).toBeVisible()
+    await expect.element(screen.getByText('manual')).toBeVisible()
+    await expect
+      .element(
+        screen.getByRole('img', {
+          name: '1 valid, 1 cleanup issue, 1 manual review',
+        }),
+      )
+      .toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('button', { name: 'Scan issues' }))
+      .toBeVisible()
   })
 })

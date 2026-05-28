@@ -232,7 +232,7 @@ symlinkedConfigTest(
     expect(existsSync(join(sourcePath, 'SKILL.md'))).toBe(true)
     expect(lstatSync(logicalConfigDir).isSymbolicLink()).toBe(true)
     expect(existsSync(physicalConfigDir)).toBe(true)
-    expect(existsSync(devinLinkPath)).toBe(false)
+    expect(() => lstatSync(devinLinkPath)).toThrow(/ENOENT/)
   },
 )
 
@@ -282,5 +282,5 @@ test('Symlink Health cleanup unlinks a broken agent slot without deleting the so
   await expect(appWindow.getByText('Cleaned up 1 symlink issue')).toBeVisible()
   expect(existsSync(sourcePath)).toBe(true)
   expect(existsSync(join(sourcePath, 'SKILL.md'))).toBe(true)
-  expect(existsSync(codexLinkPath)).toBe(false)
+  expect(() => lstatSync(codexLinkPath)).toThrow(/ENOENT/)
 })
