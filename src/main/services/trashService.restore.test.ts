@@ -73,6 +73,11 @@ interface TestSymlinkRecord {
   target: string
 }
 
+interface TestLocalCopyRecord {
+  agentId: string
+  linkPath: string
+}
+
 /**
  * Materialize a fake trash entry on disk so `restore()` has something to
  * consume. Returns the tombstoneId the caller should pass to `restore()`.
@@ -101,6 +106,39 @@ async function buildFakeTrashEntry(params: {
     skillName,
     sourcePath: join(sharedSourceDir, skillName),
     symlinks,
+  }
+  await writeFile(manifestPath, JSON.stringify(manifest), 'utf-8')
+  return tombstoneId
+}
+
+/**
+ * Materialize a fake local-only trash entry with staged agent folders.
+ * @param params - Skill name and local copy records to stage.
+ * @returns The tombstone id that can be passed to restore().
+ * @example await buildFakeLocalOnlyTrashEntry({ skillName: 'task', localCopies: [] })
+ */
+async function buildFakeLocalOnlyTrashEntry(params: {
+  skillName: string
+  localCopies: TestLocalCopyRecord[]
+}): Promise<string> {
+  const { skillName, localCopies } = params
+  const tombstoneId = `${Date.now()}-${skillName}-feedface`
+  const entryDir = join(sharedTrashDir, tombstoneId)
+  const localCopiesRoot = join(entryDir, 'local-copies')
+  const manifestPath = join(entryDir, 'manifest.json')
+
+  for (const copy of localCopies) {
+    const stagedPath = join(localCopiesRoot, copy.agentId)
+    await mkdir(stagedPath, { recursive: true })
+    await writeFile(join(stagedPath, 'SKILL.md'), `# ${skillName}\n`, 'utf-8')
+  }
+
+  const manifest = {
+    schemaVersion: 2,
+    kind: 'local-only',
+    deletedAt: Date.now(),
+    skillName,
+    localCopies,
   }
   await writeFile(manifestPath, JSON.stringify(manifest), 'utf-8')
   return tombstoneId
@@ -315,5 +353,34 @@ describe('trashService.restore target-containment', () => {
     }
     await stat(linkPathA)
     await expect(stat(linkPathB)).rejects.toThrow()
+  })
+
+  it('keeps local-only staged folders when destination collision skips restore', async () => {
+    // Arrange
+    const { restore } = await trashServicePromise
+    const skillName = 'local-partial-restore'
+    const linkPath = join(sharedClaudeAgent, skillName)
+    const tombstone = await buildFakeLocalOnlyTrashEntry({
+      skillName,
+      localCopies: [{ agentId: 'claude-code', linkPath }],
+    })
+    await mkdir(linkPath, { recursive: true })
+    await writeFile(join(linkPath, 'SKILL.md'), '# occupied\n', 'utf-8')
+
+    // Act
+    const result = await restore(tombstone as never)
+
+    // Assert
+    expect(result.outcome).toBe('restored')
+    if (result.outcome === 'restored') {
+      expect(result.symlinksRestored).toBe(0)
+      expect(result.symlinksSkipped).toBe(1)
+    }
+    const entryDir = join(sharedTrashDir, tombstone)
+    await expect(stat(entryDir)).resolves.toBeTruthy()
+    await expect(
+      stat(join(entryDir, 'local-copies', 'claude-code', 'SKILL.md')),
+    ).resolves.toBeTruthy()
+    await expect(stat(join(entryDir, 'manifest.json'))).resolves.toBeTruthy()
   })
 })

@@ -46,7 +46,7 @@ type AgentPathRemovalResult =
   | { success: false; error: string; code?: string }
 
 /**
- * Require a renderer path to name the same slot the main process derives.
+ * Require a renderer path to name the same derived main-process path.
  * @param rendererPath - Path supplied over IPC for backward-compatible callers
  * @param derivedPath - Path calculated from validated main-process state
  * @param subject - Human-readable path kind for error messages
@@ -64,6 +64,26 @@ function assertDerivedPathMatch(
     )
   }
   return derivedPath
+}
+
+/**
+ * Require a reviewed linkPath to be one direct child of the selected agent skills dir.
+ * @param rendererPath - Agent-side slot path reviewed in the renderer.
+ * @param agentPath - Selected agent skills directory from main-process constants.
+ * @returns Normalized rendererPath once its parent matches the selected agent dir.
+ * @example assertAgentSlotPath('/Users/me/.cursor/skills/slot', '/Users/me/.cursor/skills')
+ */
+function assertAgentSlotPath(
+  rendererPath: AbsolutePath,
+  agentPath: AbsolutePath,
+): AbsolutePath {
+  const normalizedPath = resolve(rendererPath)
+  if (dirname(normalizedPath) !== resolve(agentPath)) {
+    throw new Error(
+      'Renderer link path does not match the selected agent slot.',
+    )
+  }
+  return normalizedPath as AbsolutePath
 }
 
 /**
@@ -398,12 +418,7 @@ export function registerSkillsHandlers(): void {
    * @returns UnlinkResult with success status and optional error
    */
   typedHandle(IPC_CHANNELS.SKILLS_UNLINK_FROM_AGENT, async (_, options) => {
-    const {
-      agentId,
-      skillName,
-      linkPath,
-      confirmedLocalDirectoryDelete = false,
-    } = options
+    const { agentId, linkPath, confirmedLocalDirectoryDelete = false } = options
 
     try {
       const agent = findAgentById(agentId)
@@ -411,10 +426,9 @@ export function registerSkillsHandlers(): void {
         return { success: false, error: 'Agent not found' }
       }
 
-      const derivedLinkPath = assertDerivedPathMatch(
+      const derivedLinkPath = assertAgentSlotPath(
         linkPath,
-        join(agent.path, skillName) as AbsolutePath,
-        'link path',
+        agent.path as AbsolutePath,
       )
 
       // Allow agent dirs (for local skills) AND SOURCE_DIR (for symlinked skills).

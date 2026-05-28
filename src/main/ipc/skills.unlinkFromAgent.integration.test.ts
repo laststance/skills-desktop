@@ -139,4 +139,36 @@ describe('skills:unlinkFromAgent handler', () => {
     await expect(lstat(claudeLinkPath)).resolves.toBeDefined()
     expect(trashItemMock).not.toHaveBeenCalled()
   })
+
+  it('unlinks the reviewed slot when metadata name differs from the folder basename', async () => {
+    // Arrange
+    const metadataName = 'metadata-title'
+    const slotName = 'folder-basename'
+    const sourcePath = join(tempHome, '.agents', 'skills', slotName)
+    const cursorLinkPath = join(tempHome, '.cursor', 'skills', slotName)
+    await mkdir(sourcePath, { recursive: true })
+    await mkdir(join(tempHome, '.cursor', 'skills'), { recursive: true })
+    await writeFile(join(sourcePath, 'SKILL.md'), `name: ${metadataName}\n`)
+    await symlink(sourcePath, cursorLinkPath)
+
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+
+    // Act
+    const handler = getRegisteredHandler('skills:unlinkFromAgent')
+    const result = await handler(
+      {},
+      {
+        skillName: metadataName,
+        agentId: 'cursor',
+        linkPath: cursorLinkPath,
+      },
+    )
+
+    // Assert
+    expect(result.success).toBe(true)
+    await expect(lstat(cursorLinkPath)).rejects.toThrow(/ENOENT/)
+    await expect(lstat(sourcePath)).resolves.toBeDefined()
+    expect(trashItemMock).not.toHaveBeenCalled()
+  })
 })

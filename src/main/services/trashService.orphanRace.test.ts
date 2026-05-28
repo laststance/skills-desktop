@@ -222,4 +222,72 @@ describe('trashService orphan cleanup guarded commit', () => {
     expect(await readlink(cleanupPath)).toBe(sourcePath)
     expect(await readdir(__getTrashDirForTests())).toEqual([])
   })
+
+  it('preserves trash source directory when manifest rollback cannot restore source', async () => {
+    // Arrange
+    const skillName = 'source-manifest-stranded'
+    const sourcePath = join(tempHome, '.agents', 'skills', skillName)
+    const cursorSkillsDir = join(tempHome, '.cursor', 'skills')
+    const linkPath = join(cursorSkillsDir, skillName)
+    await mkdir(sourcePath, { recursive: true })
+    await writeFile(join(sourcePath, 'SKILL.md'), `# ${skillName}\n`, 'utf-8')
+    await mkdir(cursorSkillsDir, { recursive: true })
+    await symlink(sourcePath, linkPath)
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        rename: async (oldPath: string, newPath: string): Promise<void> => {
+          if (
+            oldPath.includes('/.agents/.trash/') &&
+            oldPath.endsWith('/source') &&
+            newPath === sourcePath
+          ) {
+            const error = new Error(
+              'forced source rollback failure',
+            ) as NodeJS.ErrnoException
+            error.code = 'EACCES'
+            throw error
+          }
+          return actual.rename(oldPath, newPath)
+        },
+        writeFile: async (
+          path: string,
+          data: Parameters<typeof actual.writeFile>[1],
+          options?: Parameters<typeof actual.writeFile>[2],
+        ): Promise<void> => {
+          if (
+            path.includes('/.agents/.trash/') &&
+            path.endsWith('/manifest.json')
+          ) {
+            const error = new Error(
+              'forced manifest write failure',
+            ) as NodeJS.ErrnoException
+            error.code = 'EACCES'
+            throw error
+          }
+          return actual.writeFile(path, data, options)
+        },
+      }
+    })
+    const { __getTrashDirForTests, moveToTrash } =
+      await import('./trashService')
+
+    // Act / Assert
+    await expect(moveToTrash(skillName)).rejects.toThrow(/source is stranded/i)
+    await expect(lstat(sourcePath)).rejects.toThrow()
+    expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
+    expect(await readlink(linkPath)).toBe(sourcePath)
+    const trashEntries = await readdir(__getTrashDirForTests())
+    expect(trashEntries).toHaveLength(1)
+    expect(
+      (
+        await lstat(join(__getTrashDirForTests(), trashEntries[0]!, 'source'))
+      ).isDirectory(),
+    ).toBe(true)
+    await expect(
+      lstat(join(__getTrashDirForTests(), trashEntries[0]!, 'manifest.json')),
+    ).rejects.toThrow()
+  })
 })

@@ -684,6 +684,38 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Separate filtered-hidden counts from visible-but-ineligible counts or clear/reconcile ineligible selections before rendering toolbar copy.
 
+### P2. Cleanup-dialog stale-plan return must clear list selection
+
+**Status:** Fixed after twelfth post-fix subagent review.
+
+**Finding:** `SymlinkCleanupDialog` clears Installed-list selection only after the fresh plan still matches. If the plan is stale, the dialog returns before clearing stale row ticks, so closing the dialog can resurrect actionable selection.
+
+**Fix direction:** Clear list selection immediately after entering the cleaning phase, before fresh-scan stale checks can return.
+
+### P1. Source-backed manifest rollback must preserve stranded source recovery path
+
+**Status:** Fixed after twelfth post-fix subagent review.
+
+**Finding:** On source-backed manifest-write failure, rollback can fail to restore the source from the trash entry. The catch path still removes `entryDir`, deleting the `entrySourceDir` path mentioned as the manual recovery location.
+
+**Fix direction:** Only remove `entryDir` when source rollback succeeded; if rollback failed, preserve the trash entry and surface the stranded `entrySourceDir` path.
+
+### P1. Local-only partial restore must not delete skipped staged copies
+
+**Status:** Fixed after twelfth post-fix subagent review.
+
+**Finding:** `restoreLocalOnly()` skips occupied, invalid, unknown-agent, or failed copy restores but then finalizes the tombstone, deleting the whole `local-copies/` tree and any skipped staged folders.
+
+**Fix direction:** Treat skipped local-only restore copies as partial restore requiring manual recovery: keep the trash entry, cancel the evict timer, and return skipped counts without deleting staged copies.
+
+### P2. Single-agent unlink must allow metadata name and slot basename mismatch
+
+**Status:** Fixed after Codex built-in review during twelfth subagent review.
+
+**Finding:** `skills:unlinkFromAgent` derives the reviewed link path from `skillName`, but renderer `skill.name` can come from `SKILL.md` metadata while the actual agent-side slot basename is carried by `symlink.linkPath`. A valid unlink can be rejected when those differ.
+
+**Fix direction:** Validate the reviewed `linkPath` as a direct child of the selected agent path instead of deriving it from the display skill name, while still rejecting source paths and other-agent paths.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

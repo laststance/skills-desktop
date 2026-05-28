@@ -946,7 +946,7 @@ export interface ClearBrokenSymlinkSlotsResult {
 
 /**
  * IPC argument for `skills:unlinkManyFromAgent` — batch unlink N skills from a single agent.
- * Main derives `linkPath = join(agent.path, skillName)` server-side.
+ * Main verifies `linkPath` is a direct child of the selected agent path.
  * @example { agentId: 'cursor', items: [{ skillName: 'task' }, { skillName: 'theme-generator' }] }
  */
 export interface UnlinkManyFromAgentOptions {

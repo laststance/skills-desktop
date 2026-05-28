@@ -642,6 +642,9 @@ export const SymlinkCleanupDialog = React.memo(
         state.selectedItemIds,
       )
       dispatchLocal({ type: 'cleaning' })
+      // Dashboard cleanup is independent from the Installed list selection.
+      // Clear stale row ticks before any fresh-scan early return can preserve them.
+      dispatch(clearSelection())
 
       try {
         const freshSkills = await dispatch(fetchSkills()).unwrap()
@@ -657,9 +660,6 @@ export const SymlinkCleanupDialog = React.memo(
           })
           return
         }
-        // Dashboard cleanup is independent from the Installed list selection.
-        // Clear stale row ticks here without changing MainContent retry behavior.
-        dispatch(clearSelection())
 
         const orphanRecords = freshItemsToClean
           .filter(

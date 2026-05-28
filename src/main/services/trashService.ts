@@ -1092,10 +1092,13 @@ async function moveSourceBackedToTrash(
     // Step 2: re-create the symlinks we removed. Best-effort; already logs per link.
     await rollbackRemovedSymlinks(recordedSymlinks)
 
-    // Step 3: drop the empty (or partial) trash entry dir.
-    await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
-      // entry cleanup is best-effort — caller already has the real error.
-    })
+    // Step 3: drop only fully rolled-back entries. If source restore failed,
+    // entrySourceDir is the manual recovery path and must survive this error.
+    if (!restoreSourceFailed) {
+      await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
+        // entry cleanup is best-effort — caller already has the real error.
+      })
+    }
 
     // If we couldn't put the source back the user is in a broken state. Flag
     // it in the thrown error so the caller surfaces "manual recovery" to the UI.
@@ -1532,8 +1535,8 @@ async function restoreSourceBacked(
 /**
  * Restore a local-only tombstone: for each `localCopies[i]`, rename
  * `<entryDir>/local-copies/<agentId>/` back to its original `linkPath`.
- * Per-copy collisions or unknown agents skip cleanly — partial restores are
- * still reported as `outcome: 'restored'` with `symlinksSkipped > 0`.
+ * Per-copy collisions or unknown agents skip cleanly. Partial restores keep
+ * the tombstone directory so skipped staged folders stay recoverable by hand.
  *
  * Reuses `symlinksRestored`/`symlinksSkipped` for parity with source-backed
  * — both fields semantically count "agent-side restorations" regardless of
@@ -1585,6 +1588,16 @@ async function restoreLocalOnly(
     }
   }
 
+  if (symlinksSkipped > 0) {
+    // Keep local-copies/<agentId> entries that could not be restored.
+    cancelEvictTimer(id)
+    return {
+      outcome: 'restored',
+      symlinksRestored,
+      symlinksSkipped,
+    }
+  }
+
   await finalizeRestore(id, entryDir)
 
   return {
@@ -1595,19 +1608,32 @@ async function restoreLocalOnly(
 }
 
 /**
- * Shared restore postlude: cancel pending evict timer + remove the trash entry
- * directory. Best-effort; called after both source-backed and local-only
- * restorations succeed past their per-record loop.
+ * Cancel the pending trash eviction timer without deleting the trash entry.
+ * @param id - Tombstone id whose timer should stop.
+ * @returns void
+ * @example cancelEvictTimer(tombstoneId('1729-task-deadbeef'))
  */
-async function finalizeRestore(
-  id: TombstoneId,
-  entryDir: string,
-): Promise<void> {
+function cancelEvictTimer(id: TombstoneId): void {
   const pendingTimer = evictTimers.get(id)
   if (pendingTimer) {
     clearTimeout(pendingTimer)
     evictTimers.delete(id)
   }
+}
+
+/**
+ * Shared restore postlude: cancel pending evict timer + remove the trash entry directory.
+ * Best-effort; called after complete source-backed or local-only restorations.
+ * @param id - Tombstone id whose timer and entry should be removed.
+ * @param entryDir - On-disk trash entry directory to delete.
+ * @returns Promise that resolves after the entry directory is removed.
+ * @example await finalizeRestore(tombstoneId('1729-task-deadbeef'), '/Users/me/.agents/.trash/1729-task-deadbeef')
+ */
+async function finalizeRestore(
+  id: TombstoneId,
+  entryDir: string,
+): Promise<void> {
+  cancelEvictTimer(id)
   await fs.rm(entryDir, { recursive: true, force: true })
 }
 

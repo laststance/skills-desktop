@@ -222,7 +222,14 @@ describe('SymlinkCleanupDialog', () => {
     mockGetSkills
       .mockResolvedValueOnce([makeSkillWithBrokenSlot('stale-task', 'cursor')])
       .mockResolvedValueOnce([])
-    const screen = await renderOpenedDialog()
+    const selectedSkillName = 'stale-list-row' as SkillName
+    const { screen, store } = await renderOpenedDialogWithStore()
+    const { toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(toggleSelection(selectedSkillName))
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      selectedSkillName,
+    ])
 
     // Act
     await expect
@@ -236,6 +243,7 @@ describe('SymlinkCleanupDialog', () => {
       .toBeVisible()
     expect(mockClearOrphanSymlinks).not.toHaveBeenCalled()
     expect(mockClearBrokenSymlinkSlots).not.toHaveBeenCalled()
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
   })
 
   it('stops cleanup when a same-id broken slot points at a new target', async () => {
