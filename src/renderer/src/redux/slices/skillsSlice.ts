@@ -223,16 +223,20 @@ export const deleteSelectedSkills = createAsyncThunk<
 
 /**
  * Clear reviewed orphan symlink records without invoking source deletion.
- * @param orphanRecords - Orphan skill name and exact agent link paths reviewed in the cleanup dialog.
+ * @param orphanRecords - Orphan skill name plus exact agent link and target paths reviewed in the cleanup dialog.
  * @returns Per-orphan cleanup result with no tombstones.
  * @example
- * await dispatch(clearSelectedOrphanSymlinks([{ skillName: 'abandoned', agents: [{ agentId: 'codex', linkPath: '/Users/me/.codex/skills/abandoned' }] }]))
+ * await dispatch(clearSelectedOrphanSymlinks([{ skillName: 'abandoned', agents: [{ agentId: 'codex', linkPath: '/Users/me/.codex/skills/abandoned', targetPath: '/Users/me/.agents/skills/abandoned' }] }]))
  */
 export const clearSelectedOrphanSymlinks = createAsyncThunk<
   ClearOrphanSymlinksResult,
   Array<{
     skillName: SkillName
-    agents: Array<{ agentId: AgentId; linkPath: AbsolutePath }>
+    agents: Array<{
+      agentId: AgentId
+      linkPath: AbsolutePath
+      targetPath: AbsolutePath
+    }>
   }>
 >('skills/clearSelectedOrphanSymlinks', async (orphanRecords) => {
   return window.electron.skills.clearOrphanSymlinks({

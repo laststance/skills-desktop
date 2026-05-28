@@ -278,7 +278,11 @@ async function findOrphanCleanupBlocker(
  */
 async function clearReviewedOrphanLink(
   skillName: SkillName,
-  reviewedLink: { agentId: AgentId; linkPath: AbsolutePath },
+  reviewedLink: {
+    agentId: AgentId
+    linkPath: AbsolutePath
+    targetPath: AbsolutePath
+  },
 ): Promise<AgentId> {
   const agent = findAgentById(reviewedLink.agentId)
   if (!agent) {
@@ -320,6 +324,18 @@ async function clearReviewedOrphanLink(
     reviewedLink.linkPath,
     rawTarget,
   )
+  if (resolve(resolvedTarget) !== resolve(reviewedLink.targetPath)) {
+    throw new TrashError(
+      'Reviewed orphan link target changed. Rescan before cleanup.',
+      'ESTALE',
+    )
+  }
+
+  const blocker = await findOrphanCleanupBlocker(skillName)
+  if (blocker) {
+    throw new TrashError(blocker, 'ESTALE')
+  }
+
   try {
     await fs.access(resolvedTarget)
     throw new TrashError(
@@ -334,11 +350,6 @@ async function clearReviewedOrphanLink(
         errorCode(error),
       )
     }
-  }
-
-  const blocker = await findOrphanCleanupBlocker(skillName)
-  if (blocker) {
-    throw new TrashError(blocker, 'ESTALE')
   }
 
   try {
@@ -357,11 +368,15 @@ async function clearReviewedOrphanLink(
  * @param item - Skill name plus the exact orphan agent links selected in the dialog.
  * @returns Per-item cleanup outcome for the dialog summary.
  * @example
- * await clearReviewedOrphanRecord({ skillName: 'abandoned', agents: [{ agentId: 'codex', linkPath: '/Users/me/.codex/skills/abandoned' }] })
+ * await clearReviewedOrphanRecord({ skillName: 'abandoned', agents: [{ agentId: 'codex', linkPath: '/Users/me/.codex/skills/abandoned', targetPath: '/Users/me/.agents/skills/abandoned' }] })
  */
 async function clearReviewedOrphanRecord(item: {
   skillName: SkillName
-  agents: Array<{ agentId: AgentId; linkPath: AbsolutePath }>
+  agents: Array<{
+    agentId: AgentId
+    linkPath: AbsolutePath
+    targetPath: AbsolutePath
+  }>
 }): Promise<ClearOrphanSymlinkItemResult> {
   try {
     const blocker = await findOrphanCleanupBlocker(item.skillName)

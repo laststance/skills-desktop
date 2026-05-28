@@ -295,10 +295,10 @@ function doesFreshItemMatchReviewedItem(
 
   if (freshItem.kind !== 'orphan-record') return false
   const reviewedAgents = reviewedItem.agents.map(
-    (agent) => `${agent.agentId}:${agent.linkPath}`,
+    (agent) => `${agent.agentId}:${agent.linkPath}:${agent.targetPath}`,
   )
   const freshAgents = freshItem.agents.map(
-    (agent) => `${agent.agentId}:${agent.linkPath}`,
+    (agent) => `${agent.agentId}:${agent.linkPath}:${agent.targetPath}`,
   )
   return (
     reviewedItem.skillName === freshItem.skillName &&
@@ -579,6 +579,7 @@ export const SymlinkCleanupDialog = React.memo(
             agents: item.agents.map((agent) => ({
               agentId: agent.agentId,
               linkPath: agent.linkPath,
+              targetPath: agent.targetPath,
             })),
           }))
         const deleteResult =
@@ -1089,7 +1090,11 @@ const CleanupRow = React.memo(function CleanupRow({
   onToggleItem,
 }: CleanupRowProps): React.ReactElement {
   const isOrphan = item.kind === 'orphan-record'
-  const label = isOrphan ? item.skillName : item.displaySkillName
+  const label = isOrphan
+    ? item.skillName
+    : item.displaySkillName === item.linkName
+      ? item.linkName
+      : `${item.linkName} (${item.displaySkillName})`
   const agentLabel = isOrphan
     ? `${item.agents.length} ${pluralize(item.agents.length, 'agent')}`
     : item.agentName

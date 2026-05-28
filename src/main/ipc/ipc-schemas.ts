@@ -231,6 +231,7 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
                 z.object({
                   agentId: nonEmptyString,
                   linkPath: absolutePathArg,
+                  targetPath: absolutePathArg,
                 }),
               )
               .min(1, 'At least one orphan symlink required'),

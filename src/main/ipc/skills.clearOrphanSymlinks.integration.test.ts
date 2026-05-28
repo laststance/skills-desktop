@@ -1,4 +1,4 @@
-import { lstat, mkdir, mkdtemp, rm, symlink } from 'node:fs/promises'
+import { lstat, mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises'
 import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
@@ -29,7 +29,7 @@ function getRegisteredHandler(channel: string): (
   arg: {
     items: Array<{
       skillName: string
-      agents?: Array<{ agentId: string; linkPath: string }>
+      agents?: Array<{ agentId: string; linkPath: string; targetPath: string }>
       agentId?: string
       linkPath?: string
       targetPath?: string
@@ -45,7 +45,11 @@ function getRegisteredHandler(channel: string): (
     arg: {
       items: Array<{
         skillName: string
-        agents?: Array<{ agentId: string; linkPath: string }>
+        agents?: Array<{
+          agentId: string
+          linkPath: string
+          targetPath: string
+        }>
         agentId?: string
         linkPath?: string
         targetPath?: string
@@ -88,9 +92,10 @@ describe('skills:clearOrphanSymlinks handler', () => {
     // Arrange
     const skillName = 'abandoned'
     const codexSkillsDir = join(tempHome, '.codex', 'skills')
+    const targetPath = join(tempHome, '.agents', 'skills', skillName)
     const linkPath = join(codexSkillsDir, skillName)
     await mkdir(codexSkillsDir, { recursive: true })
-    await symlink(join(tempHome, '.agents', 'skills', skillName), linkPath)
+    await symlink(targetPath, linkPath)
     const { registerSkillsHandlers } = await import('./skills')
     registerSkillsHandlers()
     const handler = getRegisteredHandler('skills:clearOrphanSymlinks')
@@ -102,7 +107,7 @@ describe('skills:clearOrphanSymlinks handler', () => {
         items: [
           {
             skillName,
-            agents: [{ agentId: 'codex', linkPath }],
+            agents: [{ agentId: 'codex', linkPath, targetPath }],
           },
         ],
       },
@@ -128,6 +133,7 @@ describe('skills:clearOrphanSymlinks handler', () => {
     const skillName = 'restored-source'
     const sourceDir = join(tempHome, '.agents', 'skills', skillName)
     const codexSkillsDir = join(tempHome, '.codex', 'skills')
+    const targetPath = sourceDir
     const linkPath = join(codexSkillsDir, skillName)
     await mkdir(sourceDir, { recursive: true })
     await mkdir(codexSkillsDir, { recursive: true })
@@ -143,7 +149,7 @@ describe('skills:clearOrphanSymlinks handler', () => {
         items: [
           {
             skillName,
-            agents: [{ agentId: 'codex', linkPath }],
+            agents: [{ agentId: 'codex', linkPath, targetPath }],
           },
         ],
       },
@@ -179,6 +185,10 @@ describe('skills:clearOrphanSymlinks handler', () => {
       physicalDevinSkillsDir,
       join(tempHome, '.agents', 'skills', skillName),
     )
+    const targetPath = join(
+      await realpath(physicalDevinSkillsDir),
+      relativeMissingTarget,
+    )
     await symlink(relativeMissingTarget, linkPath)
     const { registerSkillsHandlers } = await import('./skills')
     registerSkillsHandlers()
@@ -191,7 +201,7 @@ describe('skills:clearOrphanSymlinks handler', () => {
         items: [
           {
             skillName,
-            agents: [{ agentId: 'devin', linkPath }],
+            agents: [{ agentId: 'devin', linkPath, targetPath }],
           },
         ],
       },
@@ -210,6 +220,60 @@ describe('skills:clearOrphanSymlinks handler', () => {
     })
     await expect(lstat(linkPath)).rejects.toThrow(/ENOENT/)
     expect((await lstat(logicalConfigDir)).isSymbolicLink()).toBe(true)
+  })
+
+  it('refuses orphan cleanup when the reviewed target changed before unlink', async () => {
+    // Arrange
+    const skillName = 'orphan-target-swapped'
+    const codexSkillsDir = join(tempHome, '.codex', 'skills')
+    const reviewedTargetPath = join(tempHome, '.agents', 'skills', skillName)
+    const currentTargetPath = join(
+      tempHome,
+      '.agents',
+      'skills',
+      'other-orphan-target',
+    )
+    const linkPath = join(codexSkillsDir, skillName)
+    await mkdir(codexSkillsDir, { recursive: true })
+    await symlink(currentTargetPath, linkPath)
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+    const handler = getRegisteredHandler('skills:clearOrphanSymlinks')
+
+    // Act
+    const result = await handler(
+      {},
+      {
+        items: [
+          {
+            skillName,
+            agents: [
+              {
+                agentId: 'codex',
+                linkPath,
+                targetPath: reviewedTargetPath,
+              },
+            ],
+          },
+        ],
+      },
+    )
+
+    // Assert
+    expect(result).toEqual({
+      items: [
+        {
+          skillName,
+          outcome: 'error',
+          error: {
+            message:
+              'Reviewed orphan link target changed. Rescan before cleanup.',
+            code: 'ESTALE',
+          },
+        },
+      ],
+    })
+    expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
   })
 })
 

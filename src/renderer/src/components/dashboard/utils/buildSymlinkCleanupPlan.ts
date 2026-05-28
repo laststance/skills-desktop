@@ -18,6 +18,7 @@ export interface OrphanCleanupPlanItem {
     agentId: AgentId
     agentName: AgentName
     linkPath: AbsolutePath
+    targetPath: AbsolutePath
   }>
   symlinkCount: number
 }
@@ -170,6 +171,7 @@ export function buildSymlinkCleanupPlan(
           agentId: symlink.agentId,
           agentName: symlink.agentName,
           linkPath: symlink.linkPath,
+          targetPath: symlink.targetPath,
         })),
         symlinkCount: cleanupEligibleBrokenSlots.length,
       })

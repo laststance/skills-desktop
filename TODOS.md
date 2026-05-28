@@ -124,6 +124,46 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Use neutral `needs review` wording for the amber segment and add browser coverage so inaccessible-only state is not announced as broken.
 
+### P1. Orphan cleanup must revalidate reviewed target identity
+
+**Status:** Fixed after final parallel subagent review.
+
+**Finding:** Orphan cleanup sends only `agentId + linkPath` for each reviewed agent link. If that same slot is replaced with a different dangling symlink before cleanup, main still unlinks it because the current target is missing.
+
+**Fix direction:** Carry reviewed orphan `targetPath` through the cleanup plan, IPC schema, shared contract, and main handler, then reject cleanup when the current resolved target differs from the reviewed target.
+
+### P1. Inaccessible agent slots must not use the normal unlink affordance
+
+**Status:** Fixed after final parallel subagent review.
+
+**Finding:** In agent view, `inaccessible` symlinks still qualify for the row X button and `UnlinkDialog` falls through to the valid-link copy. Users can be told the removal is a normal safe unlink even though the target could not be verified.
+
+**Fix direction:** Keep inaccessible slots visible as amber manual-review state, hide the normal unlink button for non-local inaccessible links, and make `UnlinkDialog` treat inaccessible as a separate manual-review variant if it is ever reached defensively.
+
+### P1. Stale and partial-failure dialog tests must cover same-id snapshot drift
+
+**Status:** Fixed after final parallel subagent review.
+
+**Finding:** Browser tests cover disappearing rows and matching failed rows, but not the fixed guard where a row keeps the same id while `linkPath`, `targetPath`, or preserved source identity changes.
+
+**Fix direction:** Add dialog browser tests where the second/final scan keeps the same row id but changes `targetPath`; stale cleanup must not call destructive IPC and partial failure must switch to rescan-required state.
+
+### P2. Pending destructive cleanup must prove close affordances are blocked
+
+**Status:** Fixed after final parallel subagent review.
+
+**Finding:** Pending-cleanup coverage asserts the loading title and disabled buttons, but not the corner close button or Escape/outside dismissal guards.
+
+**Fix direction:** While cleanup IPC is unresolved, assert the close button is hidden and Escape leaves the dialog in the cleaning phase.
+
+### P2. Broken-slot cleanup rows must show destructive link identity first
+
+**Status:** Fixed after final parallel subagent review.
+
+**Finding:** When metadata skill name differs from the agent-side link basename, cleanup row labels and checkbox accessible names use only the display skill name, while main unlinks by the link basename.
+
+**Fix direction:** Show the agent-side `linkName` first and include the metadata display name when it differs; add browser coverage for the mismatch case.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

@@ -127,11 +127,13 @@ describe('buildSymlinkCleanupPlan', () => {
             agentId: 'cursor',
             agentName: 'Cursor',
             linkPath: '/Users/test/.cursor/skills/abandoned',
+            targetPath: '/Users/test/.agents/skills/abandoned',
           },
           {
             agentId: 'codex',
             agentName: 'Codex',
             linkPath: '/Users/test/.codex/skills/abandoned',
+            targetPath: '/Users/test/.agents/skills/abandoned',
           },
         ],
         symlinkCount: 2,

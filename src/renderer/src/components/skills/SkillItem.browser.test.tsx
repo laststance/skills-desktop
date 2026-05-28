@@ -182,6 +182,38 @@ describe('SkillItem symlink status badges', () => {
       .toBeInTheDocument()
     expect(screen.getByText('Not linked to any agent').query()).toBeNull()
   })
+
+  it('hides the normal unlink button for inaccessible slots in agent view', async () => {
+    // Arrange
+    const inaccessibleSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'inaccessible',
+          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          targetPath:
+            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(inaccessibleSkill)
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+
+    // Act
+    store.dispatch(selectAgent('cursor'))
+
+    // Assert
+    await expect
+      .element(
+        screen.getByLabelText('Inaccessible link - manual review required'),
+      )
+      .toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /^Unlink task from/i }).query(),
+    ).toBeNull()
+  })
 })
 
 describe('SkillItem delete button', () => {

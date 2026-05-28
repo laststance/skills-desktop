@@ -198,6 +198,21 @@ describe('getSkillItemVisibility', () => {
 
       expect(result.showUnlinkButton).toBe(false)
     })
+
+    it('hides normal unlink for inaccessible symlinks while keeping manual-review state visible', () => {
+      const symlinks = [
+        makeSymlink({
+          agentId: 'cursor',
+          status: 'inaccessible',
+          isLocal: false,
+        }),
+      ]
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
+
+      expect(result.showUnlinkButton).toBe(false)
+      expect(result.isInaccessibleSkill).toBe(true)
+      expect(result.selectedAgentSymlink).toBe(symlinks[0])
+    })
   })
 
   describe('showCopyButton', () => {

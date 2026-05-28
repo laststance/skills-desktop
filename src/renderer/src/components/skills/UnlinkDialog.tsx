@@ -16,13 +16,14 @@ import type { SymlinkInfo } from '@/shared/types'
  * - `local`  : real skill folder lives in the agent dir; removal is permanent.
  * - `broken` : the agent has a dangling symlink to a source that no longer
  *              exists (orphan); removal is permanent (nothing to restore to).
+ * - `inaccessible`: symlink target could not be verified; require manual review.
  * - `valid`  : a working symlink that can be safely removed (the source dir
  *              and any other agents' links survive).
  *
  * `'missing'` symlinks never reach this dialog — the unlink button is gated
  * out for them upstream (see SkillItemHelpers).
  */
-type UnlinkVariant = 'local' | 'broken' | 'valid'
+type UnlinkVariant = 'local' | 'broken' | 'inaccessible' | 'valid'
 
 interface UnlinkCopy {
   title: string
@@ -61,6 +62,16 @@ function getUnlinkCopy(
       successDescription: `Broken symlink to ${skillName} removed from ${agentName}`,
       errorTitle: 'Failed to remove broken link',
     }))
+    .with('inaccessible', () => ({
+      title: 'Manual Review Required',
+      detailText:
+        'The target could not be verified. Review the link in the filesystem before removing it.',
+      confirmLabel: 'Close',
+      loadingLabel: 'Closing...',
+      successTitle: `Manual review needed for ${agentName}`,
+      successDescription: `${skillName} was not removed because its target could not be verified.`,
+      errorTitle: 'Manual review required',
+    }))
     .with('valid', () => ({
       title: 'Remove from Agent',
       detailText:
@@ -85,6 +96,7 @@ function getUnlinkCopy(
  */
 function pickVariant(symlink: SymlinkInfo): UnlinkVariant {
   if (symlink.isLocal) return 'local'
+  if (symlink.status === 'inaccessible') return 'inaccessible'
   if (symlink.status === 'broken' || symlink.status === 'missing')
     return 'broken'
   return 'valid'
@@ -92,8 +104,8 @@ function pickVariant(symlink: SymlinkInfo): UnlinkVariant {
 
 /**
  * Confirmation dialog for removing a skill from the selected agent.
- * Handles three states (local folder delete / broken-symlink cleanup / live
- * symlink unlink) via an exhaustive ts-pattern match — adding a future
+ * Handles local, broken, inaccessible, and live symlink states via an
+ * exhaustive ts-pattern match — adding a future
  * variant forces the copy table to be updated at compile time.
  */
 export const UnlinkDialog = React.memo(
@@ -118,6 +130,13 @@ export const UnlinkDialog = React.memo(
 
     const handleUnlink = useCallback(async (): Promise<void> => {
       if (!skillToUnlink) return
+      if (variant === 'inaccessible') {
+        toast.warning(copy.errorTitle, {
+          description: copy.successDescription,
+        })
+        dispatch(setSkillToUnlink(null))
+        return
+      }
 
       const { skill, symlink } = skillToUnlink
       const result = await dispatch(unlinkSkillFromAgent({ skill, symlink }))
@@ -136,7 +155,7 @@ export const UnlinkDialog = React.memo(
       // so the SkillsList does not stay stuck on the error view.
       refreshAllData(dispatch)
       dispatch(setSkillToUnlink(null))
-    }, [copy, dispatch, skillToUnlink])
+    }, [copy, dispatch, skillToUnlink, variant])
 
     return (
       <DestructiveConfirmDialog

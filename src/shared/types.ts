@@ -860,13 +860,17 @@ export interface BulkDeleteResult {
 
 /**
  * IPC argument for `skills:clearOrphanSymlinks` — remove reviewed dangling agent links without touching source skills.
- * @example { items: [{ skillName: 'abandoned', agents: [{ agentId: 'codex', linkPath: '/Users/me/.codex/skills/abandoned' }] }] }
+ * @example { items: [{ skillName: 'abandoned', agents: [{ agentId: 'codex', linkPath: '/Users/me/.codex/skills/abandoned', targetPath: '/Users/me/.agents/skills/abandoned' }] }] }
  */
 export interface ClearOrphanSymlinksOptions {
   /** Orphan records selected in the Symlink Health cleanup dialog. */
   items: Array<{
     skillName: SkillName
-    agents: Array<{ agentId: AgentId; linkPath: AbsolutePath }>
+    agents: Array<{
+      agentId: AgentId
+      linkPath: AbsolutePath
+      targetPath: AbsolutePath
+    }>
   }>
 }
 

@@ -214,6 +214,7 @@ export const SkillItem = React.memo(function SkillItem({
     showDeleteButton,
     isLinked,
     isLocalSkill,
+    isInaccessibleSkill,
     selectedAgentSymlink,
     selectedLocalSkillInfo,
     showGStackBadge,
@@ -401,6 +402,9 @@ export const SkillItem = React.memo(function SkillItem({
             !didPartialFail &&
               isLocalSkill &&
               'border-l-2 border-l-emerald-400/40',
+            !didPartialFail &&
+              isInaccessibleSkill &&
+              'border-l-2 border-l-amber-400/60',
             // Orphan accent — surfaces dangling rows that the loosened
             // selectFilteredSkills now lets through. Mutually exclusive with
             // isLinked/isLocalSkill by definition (no source dir → no valid
@@ -552,6 +556,16 @@ export const SkillItem = React.memo(function SkillItem({
                     />
                   )}
                   <span className="truncate">{skill.name}</span>
+                  {isInaccessibleSkill && (
+                    <span
+                      role="img"
+                      className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0"
+                      aria-label="Inaccessible link - manual review required"
+                      title="Target cannot be verified - review this link before removing it"
+                    >
+                      inaccessible
+                    </span>
+                  )}
                   {/* Orphan badge — paired with the amber left-border so the
                       row's state is legible even when the user hasn't
                       noticed the border accent. The plain word "orphan"
