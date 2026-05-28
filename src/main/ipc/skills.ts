@@ -1,6 +1,7 @@
+import { randomUUID } from 'node:crypto'
 import type { Stats } from 'node:fs'
 import * as fs from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 
 import type { IpcMainInvokeEvent } from 'electron'
 import { shell } from 'electron'
@@ -37,6 +38,7 @@ import type {
   BulkUnlinkItemResult,
   BulkUnlinkResult,
   RestoreDeletedSkillResult,
+  FilesystemEntryIdentity,
   SkillName,
 } from '@/shared/types'
 
@@ -89,25 +91,160 @@ function assertAgentSlotPath(
 }
 
 /**
+ * Build a hidden sibling path for identity-bound destructive OS Trash commits.
+ * @param reviewedPath - Original reviewed path that will be quarantined.
+ * @param label - Operation label used in the hidden basename.
+ * @returns Hidden same-directory path for atomic rename before commit.
+ * @example buildQuarantinePath('/Users/me/.cursor/skills/task', 'unlink')
+ */
+function buildQuarantinePath(
+  reviewedPath: AbsolutePath,
+  label: string,
+): AbsolutePath {
+  return join(
+    dirname(reviewedPath),
+    `${basename(reviewedPath)}.${label}-${randomUUID()}`,
+  ) as AbsolutePath
+}
+
+/**
+ * Restore a quarantined path after validation or OS Trash fails.
+ * @param quarantinePath - Hidden same-directory path currently holding the entry.
+ * @param originalPath - Original reviewed path to restore.
+ * @returns true when restoration succeeds or the quarantine is already gone.
+ * @example restoreQuarantinedPath('/Users/me/.cursor/skills/.task.unlink-id', '/Users/me/.cursor/skills/task')
+ */
+async function restoreQuarantinedPath(
+  quarantinePath: AbsolutePath,
+  originalPath: AbsolutePath,
+): Promise<boolean> {
+  try {
+    await fs.rename(quarantinePath, originalPath)
+    return true
+  } catch (error) {
+    if (errorCode(error) === 'ENOENT') return true
+    return false
+  }
+}
+
+/**
+ * Move a reviewed directory to OS Trash only after quarantined identity revalidation.
+ * @param directoryPath - Reviewed directory path to trash.
+ * @param reviewedIdentity - Filesystem identity captured at review time.
+ * @param options - Human-readable stale error and optional skill-directory validation.
+ * @returns void when the quarantined reviewed directory reaches OS Trash.
+ * @example
+ * await trashReviewedDirectory('/Users/me/.cursor/skills/task', identity, { staleMessage: 'Reviewed local skill folder changed since review', validateSkillDirectory: true })
+ */
+async function trashReviewedDirectory(
+  directoryPath: AbsolutePath,
+  reviewedIdentity: FilesystemEntryIdentity,
+  options: {
+    staleMessage: string
+    validateSkillDirectory: boolean
+  },
+): Promise<void> {
+  const quarantinePath = buildQuarantinePath(directoryPath, 'trash')
+  await fs.rename(directoryPath, quarantinePath)
+
+  try {
+    const quarantinedStats = await fs.lstat(quarantinePath)
+    if (
+      !quarantinedStats.isDirectory() ||
+      quarantinedStats.isSymbolicLink() ||
+      !isSameFilesystemIdentity(quarantinedStats, reviewedIdentity)
+    ) {
+      const restored = await restoreQuarantinedPath(
+        quarantinePath,
+        directoryPath,
+      )
+      throw new Error(
+        restored
+          ? options.staleMessage
+          : `${options.staleMessage}; quarantined folder could not be restored from ${quarantinePath}`,
+      )
+    }
+    if (
+      options.validateSkillDirectory &&
+      !(await isValidSkillDir(quarantinePath))
+    ) {
+      const restored = await restoreQuarantinedPath(
+        quarantinePath,
+        directoryPath,
+      )
+      throw new Error(
+        restored
+          ? 'Reviewed local skill folder is no longer a valid skill.'
+          : `Reviewed local skill folder is no longer a valid skill; quarantined folder could not be restored from ${quarantinePath}`,
+      )
+    }
+
+    await shell.trashItem(quarantinePath)
+  } catch (error) {
+    await restoreQuarantinedPath(quarantinePath, directoryPath)
+    throw error
+  }
+}
+
+/**
  * Remove an agent symlink path after the caller has already validated and
  * lstat'd it. Directories are refused here so destructive local-folder removal
  * remains isolated to the single-unlink confirmation path.
  * @param linkPath - Validated path inside an agent skills directory
  * @param stats - `lstat` result for linkPath
+ * @param reviewedTargetPath - Target path captured when the symlink row was reviewed.
  * @returns Structured IPC result for renderer toast handling
  * @example
- * removeLinkPathByKind('/Users/me/.cursor/skills/task', stats)
+ * removeLinkPathByKind('/Users/me/.cursor/skills/task', stats, '/Users/me/.agents/skills/task')
  */
 async function removeLinkPathByKind(
   linkPath: AbsolutePath,
   stats: Stats,
+  reviewedTargetPath?: AbsolutePath,
 ): Promise<AgentPathRemovalResult> {
   return match({
     isSymlink: stats.isSymbolicLink(),
     isDirectory: stats.isDirectory(),
   })
     .with({ isSymlink: true }, async () => {
-      await fs.unlink(linkPath)
+      if (!reviewedTargetPath) {
+        return {
+          success: false as const,
+          error: 'Refusing to unlink a symlink without reviewed target path.',
+          code: 'ESTALE',
+        }
+      }
+      const quarantinePath = buildQuarantinePath(linkPath, 'unlink')
+      try {
+        await fs.rename(linkPath, quarantinePath)
+      } catch (error) {
+        if (errorCode(error) === 'ENOENT') return { success: true } as const
+        throw error
+      }
+      try {
+        const rawTarget = await fs.readlink(quarantinePath)
+        const resolvedTarget = await resolveRawSymlinkTarget(
+          quarantinePath,
+          rawTarget,
+        )
+        if (resolve(resolvedTarget) !== resolve(reviewedTargetPath)) {
+          const restored = await restoreQuarantinedPath(
+            quarantinePath,
+            linkPath,
+          )
+          return {
+            success: false as const,
+            error: restored
+              ? 'Reviewed symlink target changed since review.'
+              : `Reviewed symlink target changed since review; quarantined symlink could not be restored from ${quarantinePath}`,
+            code: 'ESTALE',
+          }
+        }
+        await fs.unlink(quarantinePath)
+      } catch (error) {
+        await restoreQuarantinedPath(quarantinePath, linkPath)
+        throw error
+      }
       return { success: true } as const
     })
     .with(
@@ -129,12 +266,14 @@ async function removeLinkPathByKind(
  * Remove the exact reviewed agent slot after validating it belongs to selected agent.
  * @param agentPath - Selected agent skills directory from main constants.
  * @param linkPath - Renderer-reviewed slot path to remove.
+ * @param reviewedTargetPath - Renderer-reviewed symlink target path, required when current slot is a symlink.
  * @returns Structured IPC result for bulk unlink reporting.
- * @example removeReviewedPathFromAgent('/Users/me/.cursor/skills', '/Users/me/.cursor/skills/folder-name')
+ * @example removeReviewedPathFromAgent('/Users/me/.cursor/skills', '/Users/me/.cursor/skills/folder-name', '/Users/me/.agents/skills/folder-name')
  */
 async function removeReviewedPathFromAgent(
   agentPath: AbsolutePath,
   linkPath: AbsolutePath,
+  reviewedTargetPath?: AbsolutePath,
 ): Promise<
   { success: true } | { success: false; error: string; code?: string }
 > {
@@ -170,7 +309,11 @@ async function removeReviewedPathFromAgent(
   }
 
   try {
-    return await removeLinkPathByKind(reviewedLinkPath, stats)
+    return await removeLinkPathByKind(
+      reviewedLinkPath,
+      stats,
+      reviewedTargetPath,
+    )
   } catch (error) {
     return {
       success: false,
@@ -479,14 +622,24 @@ export function registerSkillsHandlers(): void {
           }
         }
 
-        // Local skill deletion arrives from UnlinkDialog's destructive confirm
-        // action. Move to OS Trash instead of recursively deleting bytes so a
-        // mistaken confirmation is still recoverable at the filesystem level.
-        await shell.trashItem(derivedLinkPath)
+        // Quarantine before OS Trash so the commit acts on the reviewed folder,
+        // not a same-path replacement created after the dialog opened.
+        await trashReviewedDirectory(
+          derivedLinkPath,
+          options.reviewedDirectoryIdentity,
+          {
+            staleMessage: 'Reviewed local skill folder changed since review.',
+            validateSkillDirectory: true,
+          },
+        )
         return { success: true }
       }
 
-      return await removeLinkPathByKind(derivedLinkPath, stats)
+      return await removeLinkPathByKind(
+        derivedLinkPath,
+        stats,
+        options.targetPath,
+      )
     } catch (error) {
       return { success: false, error: extractErrorMessage(error) }
     }
@@ -501,7 +654,7 @@ export function registerSkillsHandlers(): void {
    * would wipe `~/.agents/skills` and cascade into every universal agent —
    * the exact v0.13.0 regression that motivated this handler rewrite.
    *
-   * @param options - agentId, agentPath
+   * @param options - agentId, agentPath, and reviewed directory identity.
    * @returns RemoveAllFromAgentResult with item count removed
    */
   typedHandle(IPC_CHANNELS.SKILLS_REMOVE_ALL_FROM_AGENT, async (_, options) => {
@@ -542,14 +695,30 @@ export function registerSkillsHandlers(): void {
         }
       }
 
-      // Idempotent missing-dir handling: `shell.trashItem` throws ENOENT,
-      // unlike the old `fs.rm({ force: true })` this handler used to call.
-      // Short-circuit when the dir is already gone so double-clicks and
-      // out-of-band deletes don't surface as errors.
+      // Idempotent missing-dir handling: lstat first because shell.trashItem
+      // throws ENOENT and follows no reviewed identity by itself.
+      let stats: Stats
       try {
-        await fs.access(derivedAgentPath)
-      } catch {
-        return { success: true, removedCount: 0 }
+        stats = await fs.lstat(derivedAgentPath)
+      } catch (error) {
+        if (errorCode(error) === 'ENOENT') {
+          return { success: true, removedCount: 0 }
+        }
+        throw error
+      }
+      if (!stats.isDirectory() || stats.isSymbolicLink()) {
+        return {
+          success: false,
+          removedCount: 0,
+          error: 'Reviewed agent skills path is no longer a real directory.',
+        }
+      }
+      if (!isSameFilesystemIdentity(stats, options.filesystemIdentity)) {
+        return {
+          success: false,
+          removedCount: 0,
+          error: 'Reviewed agent skills folder changed since review.',
+        }
       }
 
       // Count entries before deletion for reporting
@@ -561,9 +730,16 @@ export function registerSkillsHandlers(): void {
         // Directory may be unreadable (permissions) — proceed to trash anyway
       }
 
-      // Move to OS trash instead of hard-rm so accidents can be restored from
-      // Finder > Trash.
-      await shell.trashItem(derivedAgentPath)
+      // Move to OS trash instead of hard-rm, but only after quarantining the
+      // exact reviewed skills folder to close same-path replacement races.
+      await trashReviewedDirectory(
+        derivedAgentPath,
+        options.filesystemIdentity,
+        {
+          staleMessage: 'Reviewed agent skills folder changed since review.',
+          validateSkillDirectory: false,
+        },
+      )
 
       return { success: true, removedCount }
     } catch (error) {
@@ -713,7 +889,7 @@ export function registerSkillsHandlers(): void {
    * Batch unlink N skills from a single agent. Unlink is benign (it only
    * removes one symlink/folder, doesn't touch the source), so no trash entry
    * is created. Runs serially for predictable error reporting.
-   * @param options - agentId, items
+   * @param options - agentId and reviewed linkPath+targetPath items.
    * @returns BulkUnlinkResult with per-item discriminated outcome
    */
   typedHandle(
@@ -737,8 +913,12 @@ export function registerSkillsHandlers(): void {
         return result
       }
 
-      for (const { skillName, linkPath } of items) {
-        const outcome = await removeReviewedPathFromAgent(agent.path, linkPath)
+      for (const { skillName, linkPath, targetPath } of items) {
+        const outcome = await removeReviewedPathFromAgent(
+          agent.path,
+          linkPath,
+          targetPath,
+        )
         if (outcome.success) {
           results.push({ skillName, outcome: 'unlinked' })
         } else {

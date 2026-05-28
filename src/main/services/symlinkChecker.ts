@@ -7,10 +7,13 @@ import { AGENTS } from '@/main/constants'
 import { isMissingPathError } from '@/main/utils/errorCode'
 import type {
   AbsolutePath,
+  FilesystemEntryIdentity,
   SkillName,
   SymlinkInfo,
   SymlinkStatus,
 } from '@/shared/types'
+
+import { filesystemIdentityFromStats } from './filesystemIdentity'
 
 /**
  * Result from checking if a path is a symlink or local folder
@@ -101,6 +104,7 @@ export async function checkSkillSymlinks(
       // against the physical symlink parent, mirroring checkSymlinkStatus.
       let targetPath: AbsolutePath | undefined
       let skillMdSymlinkTarget: AbsolutePath | undefined
+      let filesystemIdentity: FilesystemEntryIdentity | undefined
       if (status !== 'missing' && !isLocal) {
         try {
           const target = await readlink(linkPath)
@@ -112,9 +116,16 @@ export async function checkSkillSymlinks(
         // Local folder: probe the SKILL.md inside it for a gstack-managed
         // symlink. Per-agent so the renderer's badge attribution is bound to
         // THIS slot, not to a sibling agent that happens to share the name.
-        skillMdSymlinkTarget = await readSymlinkTargetIfPresent(
-          join(linkPath, 'SKILL.md') as AbsolutePath,
-        )
+        const [skillMdTarget, localStats] = await Promise.all([
+          readSymlinkTargetIfPresent(
+            join(linkPath, 'SKILL.md') as AbsolutePath,
+          ),
+          lstat(linkPath).catch(() => undefined),
+        ])
+        skillMdSymlinkTarget = skillMdTarget
+        filesystemIdentity = localStats
+          ? filesystemIdentityFromStats(localStats)
+          : undefined
       }
 
       return {
@@ -124,6 +135,7 @@ export async function checkSkillSymlinks(
         targetPath,
         linkPath,
         isLocal,
+        filesystemIdentity,
         skillMdSymlinkTarget,
       }
     }),

@@ -16,10 +16,22 @@ function createStats(options: {
 }): {
   isSymbolicLink: () => boolean
   isDirectory: () => boolean
+  isFile: () => boolean
+  dev: number
+  ino: number
+  size: number
+  ctimeMs: number
+  mtimeMs: number
 } {
   return {
     isSymbolicLink: () => options.isSymbolicLink,
     isDirectory: () => options.isDirectory,
+    isFile: () => false,
+    dev: 1,
+    ino: 2,
+    size: 96,
+    ctimeMs: 3,
+    mtimeMs: 4,
   }
 }
 
@@ -279,6 +291,14 @@ describe('checkSkillSymlinks', () => {
       expect(r.status).toBe('valid')
       expect(r.isLocal).toBe(true)
       expect(r.targetPath).toBeUndefined()
+      expect(r.filesystemIdentity).toEqual({
+        kind: 'directory',
+        dev: 1,
+        ino: 2,
+        size: 96,
+        ctimeMs: 3,
+        mtimeMs: 4,
+      })
     }
   })
 

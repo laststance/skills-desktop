@@ -127,7 +127,11 @@ function unlinkTarget(
   skillName: Skill['name'],
   linkPath = `/home/user/.cursor/skills/${skillName}`,
 ) {
-  return { skillName, linkPath: linkPath as AbsolutePath }
+  return {
+    skillName,
+    linkPath: linkPath as AbsolutePath,
+    targetPath: `/home/user/.agents/skills/${skillName}` as AbsolutePath,
+  }
 }
 
 /** Seed items into the store so mid-op reconciliation has something to intersect. */
@@ -317,6 +321,31 @@ describe('skillsSlice', () => {
 
     expect(store.getState().skills.unlinking).toBe(false)
     expect(store.getState().skills.error).toBe('Permission denied')
+  })
+
+  it('unlinkSkillFromAgent passes reviewed local directory identity for local slots', async () => {
+    mockUnlinkFromAgent.mockResolvedValue({ success: true })
+    const localSymlink: SymlinkInfo = {
+      ...sampleSymlink,
+      isLocal: true,
+      targetPath: undefined,
+      filesystemIdentity: directoryIdentity,
+    }
+
+    const store = await createTestStore()
+    const { unlinkSkillFromAgent } = await import('./skillsSlice')
+    await store.dispatch(
+      unlinkSkillFromAgent({ skill: sampleSkill, symlink: localSymlink }),
+    )
+
+    expect(mockUnlinkFromAgent).toHaveBeenCalledWith({
+      skillName: 'task',
+      agentId: 'claude-code',
+      linkPath: '/home/user/.claude/skills/task',
+      targetPath: undefined,
+      confirmedLocalDirectoryDelete: true,
+      reviewedDirectoryIdentity: directoryIdentity,
+    })
   })
 
   // --- createSymlinks thunk ---
@@ -1030,6 +1059,8 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
             skillName: 'metadata-title',
             linkPath:
               '/home/user/.cursor/skills/folder-basename' as AbsolutePath,
+            targetPath:
+              '/home/user/.agents/skills/folder-basename' as AbsolutePath,
           },
         ],
       }),
@@ -1041,6 +1072,7 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
         {
           skillName: 'metadata-title',
           linkPath: '/home/user/.cursor/skills/folder-basename',
+          targetPath: '/home/user/.agents/skills/folder-basename',
         },
       ],
     })

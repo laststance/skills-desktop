@@ -1,9 +1,10 @@
-import { access, readdir } from 'fs/promises'
+import { access, lstat, readdir } from 'fs/promises'
 import { join } from 'path'
 
 import { AGENTS } from '@/main/constants'
 import type { Agent } from '@/shared/types'
 
+import { filesystemIdentityFromStats } from './filesystemIdentity'
 import { checkSymlinkStatus } from './symlinkChecker'
 
 /**
@@ -42,6 +43,11 @@ export async function scanAgents(): Promise<Agent[]> {
             countLocalSkills(agent.path),
           ])
         : [0, 0]
+      const filesystemIdentity = exists
+        ? await lstat(agent.path)
+            .then((stats) => filesystemIdentityFromStats(stats))
+            .catch(() => undefined)
+        : undefined
 
       return {
         id: agent.id,
@@ -50,6 +56,7 @@ export async function scanAgents(): Promise<Agent[]> {
         exists,
         skillCount,
         localSkillCount,
+        filesystemIdentity,
       }
     }),
   )

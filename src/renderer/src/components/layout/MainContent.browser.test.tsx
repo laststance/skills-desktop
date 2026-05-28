@@ -19,7 +19,9 @@ const mockShellOpenExternal = vi.fn()
 const mockOnDeleteProgress = vi.fn(() => () => {})
 const mockSkillsDeleteSkills = vi.fn()
 const mockClearOrphanSymlinks = vi.fn()
+const mockUnlinkManyFromAgent = vi.fn()
 const mockRefreshAllData = vi.hoisted(() => vi.fn())
+const mockSelectionToolbarState = vi.hoisted(() => ({ enabled: false }))
 
 const directoryIdentity: FilesystemEntryIdentity = {
   kind: 'directory',
@@ -46,7 +48,12 @@ vi.mock('../skills/SearchBox', () => ({
   SearchBox: () => null,
 }))
 vi.mock('../skills/SelectionToolbar', () => ({
-  SelectionToolbar: () => null,
+  SelectionToolbar: ({ onPrimaryAction }: { onPrimaryAction: () => void }) =>
+    mockSelectionToolbarState.enabled ? (
+      <button type="button" onClick={onPrimaryAction}>
+        Open bulk confirm
+      </button>
+    ) : null,
 }))
 vi.mock('../skills/UnlinkDialog', () => ({
   UnlinkDialog: () => null,
@@ -89,7 +96,9 @@ beforeEach(() => {
   mockOnDeleteProgress.mockImplementation(() => () => {})
   mockSkillsDeleteSkills.mockReset()
   mockClearOrphanSymlinks.mockReset()
+  mockUnlinkManyFromAgent.mockReset()
   mockRefreshAllData.mockReset()
+  mockSelectionToolbarState.enabled = false
   // Install the `electron` IPC bridge — browser mode replaces the preload
   // context, so tests that exercise `window.electron.*` must plant a fake
   // before MainContent's mount effect fires.
@@ -99,6 +108,7 @@ beforeEach(() => {
       onDeleteProgress: mockOnDeleteProgress,
       deleteSkills: mockSkillsDeleteSkills,
       clearOrphanSymlinks: mockClearOrphanSymlinks,
+      unlinkManyFromAgent: mockUnlinkManyFromAgent,
     },
     shell: {
       openExternal: mockShellOpenExternal,
@@ -609,6 +619,146 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
     })
   })
 
+  it('uses toolbar-captured delete targets when live rows drift before confirm', async () => {
+    mockSelectionToolbarState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const skillName = 'snapshot-delete' as SkillName
+    const originalSkill = makeSkill(
+      skillName,
+      false,
+      'reviewed-folder' as SkillName,
+    )
+    const replacementSkill: Skill = {
+      ...originalSkill,
+      path: '/home/user/.agents/skills/replacement-folder' as never,
+      filesystemIdentity: {
+        ...directoryIdentity,
+        ino: 999,
+      },
+    }
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName,
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1729180800000-snapshot-delete-a1b2c3d4'),
+          symlinksRemoved: 0,
+          cascadeAgents: [],
+        },
+      ],
+    } satisfies BulkDeleteResult)
+
+    // Arrange: open the real bulk-confirm path, then replace the live row with
+    // the same display name but a different reviewed filesystem identity.
+    store.dispatch(fetchSkills.fulfilled([originalSkill], 'req-original'))
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection(skillName))
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+    store.dispatch(fetchSkills.fulfilled([replacementSkill], 'req-replace'))
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockSkillsDeleteSkills.mock.calls.length).toBe(1)
+    expect(mockSkillsDeleteSkills.mock.calls[0][0]).toEqual({
+      items: [
+        {
+          skillName: 'snapshot-delete',
+          skillPath: '/home/user/.agents/skills/reviewed-folder',
+          filesystemIdentity: directoryIdentity,
+        },
+      ],
+    })
+  })
+
+  it('uses toolbar-captured unlink targets when live rows drift before confirm', async () => {
+    mockSelectionToolbarState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    const { enterBulkSelectMode, selectAgent } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const skillName = 'snapshot-unlink' as SkillName
+    const originalSkill: Skill = {
+      name: skillName,
+      description: '',
+      path: '/home/user/.agents/skills/snapshot-unlink' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 1,
+      symlinks: [
+        {
+          agentId: 'cursor' as AgentId,
+          agentName: 'Cursor' as never,
+          linkPath: '/home/user/.cursor/skills/reviewed-link' as never,
+          targetPath: '/home/user/.agents/skills/reviewed-target' as never,
+          status: 'valid',
+          isLocal: false,
+        },
+      ],
+      isSource: true,
+      isOrphan: false,
+    }
+    const replacementSkill: Skill = {
+      ...originalSkill,
+      symlinks: [
+        {
+          ...originalSkill.symlinks[0],
+          linkPath: '/home/user/.cursor/skills/replacement-link' as never,
+          targetPath: '/home/user/.agents/skills/replacement-target' as never,
+        } as SymlinkInfo,
+      ],
+    }
+    mockUnlinkManyFromAgent.mockResolvedValue({
+      items: [{ skillName, outcome: 'unlinked' }],
+    })
+
+    // Arrange
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'cursor' as AgentId,
+            name: 'Cursor' as never,
+            path: '/home/user/.cursor/skills' as never,
+            exists: true,
+            skillCount: 1,
+            localSkillCount: 0,
+          },
+        ],
+        'req-agent',
+      ),
+    )
+    store.dispatch(selectAgent('cursor' as AgentId))
+    store.dispatch(fetchSkills.fulfilled([originalSkill], 'req-original'))
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection(skillName))
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+    store.dispatch(fetchSkills.fulfilled([replacementSkill], 'req-replace'))
+
+    // Act
+    await screen.getByRole('button', { name: /^Unlink$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockUnlinkManyFromAgent.mock.calls.length).toBe(1)
+    expect(mockUnlinkManyFromAgent.mock.calls[0][0]).toEqual({
+      agentId: 'cursor',
+      items: [
+        {
+          skillName: 'snapshot-unlink',
+          linkPath: '/home/user/.cursor/skills/reviewed-link',
+          targetPath: '/home/user/.agents/skills/reviewed-target',
+        },
+      ],
+    })
+  })
+
   it('routes global orphan deletes through reviewed orphan cleanup identity', async () => {
     const { screen, store } = await renderMainContent()
     const { setBulkConfirm } =
@@ -746,6 +896,92 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
 
     // Arrange: mixed batch has one retryable source failure and one orphan
     // cleanup success; the source failure must stay selected for retry.
+    store.dispatch(fetchSkills.fulfilled([sourceSkill, orphanSkill], 'req-id'))
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection(sourceSkillName))
+    store.dispatch(toggleSelection(orphanSkillName))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [sourceSkillName, orphanSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockClearOrphanSymlinks.mock.calls.length).toBe(1)
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      sourceSkillName,
+    ])
+    expect(store.getState().ui.bulkSelectMode).toBe(true)
+  })
+
+  it('keeps source ESTALE selected instead of treating it as orphan rescan', async () => {
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode, setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const sourceSkillName = 'source-stale-task' as SkillName
+    const orphanSkillName = 'abandoned' as SkillName
+    const sourceSkill: Skill = {
+      name: sourceSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/source-stale-task' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+    const orphanSkill: Skill = {
+      name: orphanSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/abandoned' as never,
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'devin' as AgentId,
+          agentName: 'Devin' as never,
+          linkPath: '/Users/me/.config/devin/skills/abandoned' as never,
+          targetPath: '/Users/me/.agents/skills/abandoned' as never,
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: sourceSkillName,
+          outcome: 'error',
+          error: {
+            message: 'Reviewed skill folder changed since review',
+            code: 'ESTALE',
+          },
+        },
+      ],
+    } satisfies BulkDeleteResult)
+    mockClearOrphanSymlinks.mockResolvedValue({
+      items: [
+        {
+          skillName: orphanSkillName,
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 1,
+          cascadeAgents: ['devin'],
+        },
+      ],
+    })
+
+    // Arrange: source ESTALE is retry-visible; only orphan ESTALE/preflight
+    // rows should become rescan-required and be removed from retry selection.
     store.dispatch(fetchSkills.fulfilled([sourceSkill, orphanSkill], 'req-id'))
     store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(sourceSkillName))

@@ -212,6 +212,7 @@ describe('MainContent SelectionToolbar integration', () => {
         {
           skillName: 'valid-toolbar-task',
           linkPath: '/Users/test/.cursor/skills/valid-toolbar-folder',
+          targetPath: '/Users/test/.agents/skills/valid-toolbar-folder',
         },
       ],
     })

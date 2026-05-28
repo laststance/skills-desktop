@@ -221,13 +221,18 @@ function isBulkDeleteConfirmPrimaryDisabled(
 /**
  * Detects orphan cleanup errors that need a fresh scan, not a direct retry.
  * @param item - Bulk delete item result from source delete or orphan cleanup.
+ * @param orphanCleanupNames - Names known to come from orphan cleanup/preflight.
  * @returns True when selecting the row again would repeat the same stale failure.
  * @example
- * isRescanRequiredDeleteError({ skillName: 'task', outcome: 'error', error: { message: 'Rescan before cleanup.' } })
+ * isRescanRequiredDeleteError(item, new Set(['abandoned']))
  */
-function isRescanRequiredDeleteError(item: BulkDeleteItemResult): boolean {
+function isRescanRequiredDeleteError(
+  item: BulkDeleteItemResult,
+  orphanCleanupNames: ReadonlySet<Skill['name']>,
+): boolean {
   return (
     item.outcome === 'error' &&
+    orphanCleanupNames.has(item.skillName) &&
     (item.error.code === 'ESTALE' ||
       item.error.message.includes('Rescan before cleanup'))
   )
@@ -600,14 +605,16 @@ export const MainContent = React.memo(
      * Keeps retryable failures selected while dropping rescan-required orphan failures.
      * @param deleteItems - Combined source-delete and orphan-cleanup results.
      * @param hasOrphanCleanupRows - Whether this batch needed manual orphan reconciliation.
+     * @param orphanCleanupNames - Names that belong to reviewed orphan cleanup rows.
      * @returns Rescan-required orphan names for toast summary copy.
      * @example
-     * reconcileMixedDeleteSelection([{ skillName: 'orphan', outcome: 'error', error: { message: 'Rescan before cleanup.' } }], true)
+     * reconcileMixedDeleteSelection([orphanError], true, new Set(['orphan']))
      */
     const reconcileMixedDeleteSelection = useCallback(
       (
         deleteItems: readonly BulkDeleteItemResult[],
         hasOrphanCleanupRows: boolean,
+        orphanCleanupNames: ReadonlySet<Skill['name']>,
       ): { rescanRequiredNames: Skill['name'][] } => {
         const failedNames = deleteItems
           .filter((item) => item.outcome === 'error')
@@ -616,7 +623,9 @@ export const MainContent = React.memo(
         const rescanRequiredNames = Array.from(
           new Set(
             deleteItems
-              .filter(isRescanRequiredDeleteError)
+              .filter((item) =>
+                isRescanRequiredDeleteError(item, orphanCleanupNames),
+              )
               .map((item) => item.skillName),
           ),
         )
@@ -717,6 +726,10 @@ export const MainContent = React.memo(
         const cleanupReadyOrphanNames = orphanRecords.map(
           (record) => record.skillName,
         )
+        const orphanCleanupNames = new Set([
+          ...cleanupReadyOrphanNames,
+          ...orphanErrors.map((item) => item.skillName),
+        ])
 
         if (deleteTargets.length > 0) {
           const action = await dispatch(deleteSelectedSkills(deleteTargets))
@@ -775,6 +788,7 @@ export const MainContent = React.memo(
         const { rescanRequiredNames } = reconcileMixedDeleteSelection(
           deleteItems,
           hasOrphanCleanupRows,
+          orphanCleanupNames,
         )
         refreshAllData(dispatch)
         const summary = appendRescanRequiredSummary(

@@ -29,7 +29,40 @@ interface SymlinkSnapshot {
   linkPath: string
 }
 
+interface E2EFilesystemIdentity {
+  kind: 'directory' | 'symlink' | 'file' | 'other'
+  dev: number
+  ino: number
+  size: number
+  ctimeMs: number
+  mtimeMs: number
+}
+
 const AZURE_AI_NAME = 'azure-ai'
+
+/**
+ * Build the reviewed directory identity required by removeAllFromAgent IPC.
+ * @param path - Reviewed agent skills path.
+ * @returns Serializable identity copied from Node lstat metadata.
+ * @example filesystemIdentityForPath('/tmp/home/.config/agents/skills')
+ */
+function filesystemIdentityForPath(path: string): E2EFilesystemIdentity {
+  const stats = lstatSync(path)
+  return {
+    kind: stats.isSymbolicLink()
+      ? 'symlink'
+      : stats.isDirectory()
+        ? 'directory'
+        : stats.isFile()
+          ? 'file'
+          : 'other',
+    dev: stats.dev,
+    ino: stats.ino,
+    size: stats.size,
+    ctimeMs: stats.ctimeMs,
+    mtimeMs: stats.mtimeMs,
+  }
+}
 
 /**
  * Phase-2 final spec — three regressions, each guarding a separate fix that
@@ -296,9 +329,16 @@ test('removeAllFromAgent refuses on a multi-agent shared scanDir (.config/agents
   await waitForInitialScan(appWindow)
 
   const result = await appWindow.evaluate(
-    async (args: { agentId: string; agentPath: string }) =>
-      window.electron.skills.removeAllFromAgent(args),
-    { agentId: 'amp', agentPath: sharedScanDir },
+    async (args: {
+      agentId: string
+      agentPath: string
+      filesystemIdentity: E2EFilesystemIdentity
+    }) => window.electron.skills.removeAllFromAgent(args),
+    {
+      agentId: 'amp',
+      agentPath: sharedScanDir,
+      filesystemIdentity: filesystemIdentityForPath(sharedScanDir),
+    },
   )
 
   expectIronRuleRefusal(result)
@@ -360,9 +400,16 @@ test('removeAllFromAgent refusal leaves both aliased symlinks and local skill by
   await waitForInitialScan(appWindow)
 
   const result = await appWindow.evaluate(
-    async (args: { agentId: string; agentPath: string }) =>
-      window.electron.skills.removeAllFromAgent(args),
-    { agentId: 'amp', agentPath: sharedScanDir },
+    async (args: {
+      agentId: string
+      agentPath: string
+      filesystemIdentity: E2EFilesystemIdentity
+    }) => window.electron.skills.removeAllFromAgent(args),
+    {
+      agentId: 'amp',
+      agentPath: sharedScanDir,
+      filesystemIdentity: filesystemIdentityForPath(sharedScanDir),
+    },
   )
 
   expectIronRuleRefusal(result)
@@ -462,9 +509,16 @@ test('removeAllFromAgent refusal still fires when SOURCE_DIR itself is a symlink
   ).toBeGreaterThan(0)
 
   const result = await appWindow.evaluate(
-    async (args: { agentId: string; agentPath: string }) =>
-      window.electron.skills.removeAllFromAgent(args),
-    { agentId: 'cursor', agentPath: cursorAgentPath },
+    async (args: {
+      agentId: string
+      agentPath: string
+      filesystemIdentity: E2EFilesystemIdentity
+    }) => window.electron.skills.removeAllFromAgent(args),
+    {
+      agentId: 'cursor',
+      agentPath: cursorAgentPath,
+      filesystemIdentity: filesystemIdentityForPath(cursorAgentPath),
+    },
   )
 
   expectIronRuleRefusal(result)

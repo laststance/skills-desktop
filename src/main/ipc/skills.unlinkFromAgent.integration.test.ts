@@ -5,10 +5,12 @@ import { join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { filesystemIdentityFromStats } from '@/main/services/filesystemIdentity'
 import type {
   AbsolutePath,
   AgentId,
   BulkUnlinkResult,
+  FilesystemEntryIdentity,
   SkillName,
 } from '@/shared/types'
 
@@ -36,7 +38,9 @@ function getRegisteredHandler(channel: string): (
     skillName: string
     agentId: string
     linkPath: string
+    targetPath?: string
     confirmedLocalDirectoryDelete?: boolean
+    reviewedDirectoryIdentity?: FilesystemEntryIdentity
   },
 ) => Promise<{ success: boolean; error?: string }> {
   const registration = handleMock.mock.calls.find(([name]) => name === channel)
@@ -49,7 +53,9 @@ function getRegisteredHandler(channel: string): (
       skillName: string
       agentId: string
       linkPath: string
+      targetPath?: string
       confirmedLocalDirectoryDelete?: boolean
+      reviewedDirectoryIdentity?: FilesystemEntryIdentity
     },
   ) => Promise<{ success: boolean; error?: string }>
 }
@@ -185,6 +191,7 @@ describe('skills:unlinkFromAgent handler', () => {
         skillName: metadataName,
         agentId: 'cursor',
         linkPath: cursorLinkPath,
+        targetPath: sourcePath,
       },
     )
 
@@ -216,7 +223,11 @@ describe('skills:unlinkFromAgent handler', () => {
     const handler = getRegisteredInvokeHandler<
       {
         agentId: AgentId
-        items: Array<{ skillName: SkillName; linkPath: AbsolutePath }>
+        items: Array<{
+          skillName: SkillName
+          linkPath: AbsolutePath
+          targetPath: AbsolutePath
+        }>
       },
       BulkUnlinkResult
     >('skills:unlinkManyFromAgent')
@@ -224,7 +235,13 @@ describe('skills:unlinkFromAgent handler', () => {
       {},
       {
         agentId: 'cursor' as AgentId,
-        items: [{ skillName: metadataName, linkPath: cursorLinkPath }],
+        items: [
+          {
+            skillName: metadataName,
+            linkPath: cursorLinkPath,
+            targetPath: sourcePath as AbsolutePath,
+          },
+        ],
       },
     )
 
@@ -236,5 +253,101 @@ describe('skills:unlinkFromAgent handler', () => {
     await expect(lstat(decoyLinkPath)).resolves.toBeDefined()
     await expect(lstat(sourcePath)).resolves.toBeDefined()
     expect(trashItemMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects local folder delete without reviewed directory identity', async () => {
+    // Arrange
+    const skillName = 'local-missing-identity'
+    const localPath = join(tempHome, '.cursor', 'skills', skillName)
+    await mkdir(localPath, { recursive: true })
+    await writeFile(join(localPath, 'SKILL.md'), `name: ${skillName}\n`)
+
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+
+    // Act
+    const handler = getRegisteredHandler('skills:unlinkFromAgent')
+    const result = await handler(
+      {},
+      {
+        skillName,
+        agentId: 'cursor',
+        linkPath: localPath,
+        confirmedLocalDirectoryDelete: true,
+      },
+    )
+
+    // Assert
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/reviewed directory identity/i)
+    await expect(lstat(localPath)).resolves.toBeDefined()
+    expect(trashItemMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects local folder delete when same path was replaced after review', async () => {
+    // Arrange
+    const skillName = 'local-stale-identity'
+    const localPath = join(tempHome, '.cursor', 'skills', skillName)
+    await mkdir(localPath, { recursive: true })
+    await writeFile(join(localPath, 'SKILL.md'), `name: ${skillName}\n`)
+    const reviewedIdentity = filesystemIdentityFromStats(await lstat(localPath))
+    await rm(localPath, { recursive: true, force: true })
+    await mkdir(localPath, { recursive: true })
+    await writeFile(join(localPath, 'SKILL.md'), `name: ${skillName}\n`)
+
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+
+    // Act
+    const handler = getRegisteredHandler('skills:unlinkFromAgent')
+    const result = await handler(
+      {},
+      {
+        skillName,
+        agentId: 'cursor',
+        linkPath: localPath,
+        confirmedLocalDirectoryDelete: true,
+        reviewedDirectoryIdentity: reviewedIdentity,
+      },
+    )
+
+    // Assert
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/changed since review/i)
+    await expect(lstat(localPath)).resolves.toBeDefined()
+    expect(trashItemMock).not.toHaveBeenCalled()
+  })
+
+  it('trashes the quarantined reviewed local folder when identity still matches', async () => {
+    // Arrange
+    const skillName = 'local-reviewed-trash'
+    const localPath = join(tempHome, '.cursor', 'skills', skillName)
+    await mkdir(localPath, { recursive: true })
+    await writeFile(join(localPath, 'SKILL.md'), `name: ${skillName}\n`)
+    const reviewedIdentity = filesystemIdentityFromStats(await lstat(localPath))
+
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+
+    // Act
+    const handler = getRegisteredHandler('skills:unlinkFromAgent')
+    const result = await handler(
+      {},
+      {
+        skillName,
+        agentId: 'cursor',
+        linkPath: localPath,
+        confirmedLocalDirectoryDelete: true,
+        reviewedDirectoryIdentity: reviewedIdentity,
+      },
+    )
+
+    // Assert
+    expect(result.success).toBe(true)
+    await expect(lstat(localPath)).rejects.toThrow(/ENOENT/)
+    expect(trashItemMock).toHaveBeenCalledTimes(1)
+    expect(String(trashItemMock.mock.calls[0][0])).toContain(
+      join(tempHome, '.cursor', 'skills', 'local-reviewed-trash.trash-'),
+    )
   })
 })

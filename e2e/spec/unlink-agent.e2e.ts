@@ -34,9 +34,43 @@ interface SymlinkSnapshot {
   status: 'valid' | 'broken' | 'missing'
   isLocal: boolean
   linkPath: string
+  targetPath?: string
+}
+
+interface E2EFilesystemIdentity {
+  kind: 'directory' | 'symlink' | 'file' | 'other'
+  dev: number
+  ino: number
+  size: number
+  ctimeMs: number
+  mtimeMs: number
 }
 
 const AZURE_AI_NAME = 'azure-ai'
+
+/**
+ * Build the reviewed directory identity expected by destructive agent-folder IPC.
+ * @param path - Reviewed directory path.
+ * @returns Serializable identity copied from Node lstat metadata.
+ * @example filesystemIdentityForPath('/tmp/home/.cline/skills')
+ */
+function filesystemIdentityForPath(path: string): E2EFilesystemIdentity {
+  const stats = lstatSync(path)
+  return {
+    kind: stats.isSymbolicLink()
+      ? 'symlink'
+      : stats.isDirectory()
+        ? 'directory'
+        : stats.isFile()
+          ? 'file'
+          : 'other',
+    dev: stats.dev,
+    ino: stats.ino,
+    size: stats.size,
+    ctimeMs: stats.ctimeMs,
+    mtimeMs: stats.mtimeMs,
+  }
+}
 
 /**
  * Pre-stage `count` source-backed dummy skills under the isolated HOME's
@@ -93,6 +127,12 @@ function unlinkItemsFor(agentPath: string, skillNames: string[]) {
   return skillNames.map((skillName) => ({
     skillName,
     linkPath: join(agentPath, skillName),
+    targetPath: join(
+      dirname(dirname(agentPath)),
+      '.agents',
+      'skills',
+      skillName,
+    ),
   }))
 }
 
@@ -164,12 +204,17 @@ test('unlinkFromAgent removes one valid azure-ai symlink without touching the so
   )
 
   const ipcResult = await appWindow.evaluate(
-    async (args: { skillName: string; agentId: string; linkPath: string }) =>
-      window.electron.skills.unlinkFromAgent(args),
+    async (args: {
+      skillName: string
+      agentId: string
+      linkPath: string
+      targetPath?: string
+    }) => window.electron.skills.unlinkFromAgent(args),
     {
       skillName: AZURE_AI_NAME,
       agentId: target.agentId,
       linkPath: target.linkPath,
+      targetPath: target.targetPath,
     },
   )
 
@@ -333,7 +378,7 @@ test('unlinkManyFromAgent removes every pre-staged symlink and leaves source dir
   const result = await appWindow.evaluate(
     async (args: {
       agentId: string
-      items: Array<{ skillName: string; linkPath: string }>
+      items: Array<{ skillName: string; linkPath: string; targetPath: string }>
     }) => window.electron.skills.unlinkManyFromAgent(args),
     {
       agentId: 'claude-code',
@@ -381,11 +426,17 @@ test('unlinkManyFromAgent uses reviewed linkPath when metadata name differs from
   const result = await appWindow.evaluate(
     async (args: {
       agentId: string
-      items: Array<{ skillName: string; linkPath: string }>
+      items: Array<{ skillName: string; linkPath: string; targetPath: string }>
     }) => window.electron.skills.unlinkManyFromAgent(args),
     {
       agentId: 'claude-code',
-      items: [{ skillName: metadataName, linkPath: reviewedLinkPath }],
+      items: [
+        {
+          skillName: metadataName,
+          linkPath: reviewedLinkPath,
+          targetPath: sourcePath,
+        },
+      ],
     },
   )
 
@@ -468,7 +519,7 @@ test('unlinkManyFromAgent aggregates per-item failures without short-circuiting 
   const result = await appWindow.evaluate(
     async (args: {
       agentId: string
-      items: Array<{ skillName: string; linkPath: string }>
+      items: Array<{ skillName: string; linkPath: string; targetPath: string }>
     }) => window.electron.skills.unlinkManyFromAgent(args),
     {
       agentId: 'claude-code',
@@ -548,9 +599,16 @@ test('removeAllFromAgent refuses when the agent path is a symlink alias to the u
   expect(sourceContentsBefore).toContain(sentinelSourceName)
 
   const result = await appWindow.evaluate(
-    async (args: { agentId: string; agentPath: string }) =>
-      window.electron.skills.removeAllFromAgent(args),
-    { agentId: 'cursor', agentPath: cursorAgentPath },
+    async (args: {
+      agentId: string
+      agentPath: string
+      filesystemIdentity: E2EFilesystemIdentity
+    }) => window.electron.skills.removeAllFromAgent(args),
+    {
+      agentId: 'cursor',
+      agentPath: cursorAgentPath,
+      filesystemIdentity: filesystemIdentityForPath(cursorAgentPath),
+    },
   )
 
   expectIronRuleRefusal(result)
@@ -651,9 +709,16 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
   let createdTrashEntryPaths: string[] = []
   try {
     const result = await appWindow.evaluate(
-      async (args: { agentId: string; agentPath: string }) =>
-        window.electron.skills.removeAllFromAgent(args),
-      { agentId: 'cline', agentPath: clineAgentPath },
+      async (args: {
+        agentId: string
+        agentPath: string
+        filesystemIdentity: E2EFilesystemIdentity
+      }) => window.electron.skills.removeAllFromAgent(args),
+      {
+        agentId: 'cline',
+        agentPath: clineAgentPath,
+        filesystemIdentity: filesystemIdentityForPath(clineAgentPath),
+      },
     )
 
     // Diff ~/.Trash IMMEDIATELY after the IPC call returns, then narrow
@@ -787,9 +852,16 @@ test('removeAllFromAgent surfaces structured failure when shell.trashItem reject
   let regressionTrashEntryPaths: string[] = []
   try {
     const result = await appWindow.evaluate(
-      async (args: { agentId: string; agentPath: string }) =>
-        window.electron.skills.removeAllFromAgent(args),
-      { agentId: 'cline', agentPath: clineAgentPath },
+      async (args: {
+        agentId: string
+        agentPath: string
+        filesystemIdentity: E2EFilesystemIdentity
+      }) => window.electron.skills.removeAllFromAgent(args),
+      {
+        agentId: 'cline',
+        agentPath: clineAgentPath,
+        filesystemIdentity: filesystemIdentityForPath(clineAgentPath),
+      },
     )
 
     const { newPaths } = diffUserTrash(trashEntriesBefore)

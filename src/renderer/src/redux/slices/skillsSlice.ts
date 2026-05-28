@@ -123,6 +123,7 @@ export type DeleteSelectedSkillTarget = {
 export type UnlinkSelectedSkillTarget = {
   skillName: SkillName
   linkPath: AbsolutePath
+  targetPath: AbsolutePath
 }
 
 /**
@@ -153,7 +154,7 @@ function toDeleteSkillItem(target: DeleteSelectedSkillTarget): {
  * Read the display name from a bulk-unlink target that carries reviewed path identity.
  * @param target - Reviewed unlink target object.
  * @returns Display skill name used for selection reconciliation.
- * @example getUnlinkTargetName({ skillName: 'metadata-title', linkPath: '/x/slot' })
+ * @example getUnlinkTargetName({ skillName: 'metadata-title', linkPath: '/x/slot', targetPath: '/x/source' })
  */
 function getUnlinkTargetName(target: UnlinkSelectedSkillTarget): SkillName {
   return target.skillName
@@ -163,11 +164,12 @@ function getUnlinkTargetName(target: UnlinkSelectedSkillTarget): SkillName {
  * Convert renderer unlink targets into the IPC item shape that preserves reviewed link paths.
  * @param target - Reviewed unlink target object.
  * @returns IPC unlink item with mandatory linkPath.
- * @example toUnlinkSkillItem({ skillName: 'metadata-title', linkPath: '/x/slot' })
+ * @example toUnlinkSkillItem({ skillName: 'metadata-title', linkPath: '/x/slot', targetPath: '/x/source' })
  */
 function toUnlinkSkillItem(target: UnlinkSelectedSkillTarget): {
   skillName: SkillName
   linkPath: AbsolutePath
+  targetPath: AbsolutePath
 } {
   return target
 }
@@ -193,6 +195,7 @@ export const unlinkSkillFromAgent = createAsyncThunk(
       skillName: skill.name,
       agentId: symlink.agentId,
       linkPath: symlink.linkPath,
+      targetPath: symlink.isLocal ? undefined : symlink.targetPath,
       confirmedLocalDirectoryDelete: symlink.isLocal,
       reviewedDirectoryIdentity: symlink.isLocal
         ? symlink.filesystemIdentity
@@ -326,7 +329,7 @@ export const clearSelectedBrokenSymlinkSlots = createAsyncThunk<
  * @param params - agentId + reviewed link paths to unlink.
  * @returns BulkUnlinkResult with per-item outcome
  * @example
- * await dispatch(unlinkSelectedFromAgent({ agentId: 'cursor', selectedNames: [{ skillName: 'task', linkPath: '/Users/me/.cursor/skills/task' }] }))
+ * await dispatch(unlinkSelectedFromAgent({ agentId: 'cursor', selectedNames: [{ skillName: 'task', linkPath: '/Users/me/.cursor/skills/task', targetPath: '/Users/me/.agents/skills/task' }] }))
  */
 export const unlinkSelectedFromAgent = createAsyncThunk<
   BulkUnlinkResult,

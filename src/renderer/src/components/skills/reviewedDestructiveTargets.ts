@@ -131,8 +131,12 @@ export function buildAgentUnlinkTargets(
     const symlink = skillsByName
       .get(skillName)
       ?.symlinks.find((slot) => slot.agentId === agentId)
-    if (symlink?.linkPath) {
-      targets.push({ skillName, linkPath: symlink.linkPath })
+    if (symlink?.linkPath && symlink.targetPath) {
+      targets.push({
+        skillName,
+        linkPath: symlink.linkPath,
+        targetPath: symlink.targetPath,
+      })
       continue
     }
     staleNames.push(skillName)

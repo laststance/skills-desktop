@@ -193,6 +193,7 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       skillName: skillNameString,
       agentId: nonEmptyString,
       linkPath: absolutePathArg,
+      targetPath: absolutePathArg.optional(),
       confirmedLocalDirectoryDelete: z.boolean().optional(),
       reviewedDirectoryIdentity: filesystemEntryIdentitySchema.optional(),
     }),
@@ -200,7 +201,8 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
   'skills:removeAllFromAgent': z.tuple([
     z.object({
       agentId: nonEmptyString,
-      agentPath: nonEmptyString,
+      agentPath: absolutePathArg,
+      filesystemIdentity: filesystemEntryIdentitySchema,
     }),
   ]),
   'skills:deleteSkill': z.tuple([
@@ -281,6 +283,7 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
           z.object({
             skillName: skillNameString,
             linkPath: absolutePathArg,
+            targetPath: absolutePathArg,
           }),
         )
         .min(1, 'At least one skill required for batch unlink'),

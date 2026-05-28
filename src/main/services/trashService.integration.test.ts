@@ -360,6 +360,75 @@ describe('trashService (integration)', () => {
     ])
   })
 
+  it('moveToTrash rejects a same-path source replacement and preserves the replacement folder', async () => {
+    const { moveToTrash } = await trashServicePromise
+
+    // Arrange
+    const skillName = 'source-same-path-replacement'
+    const sourcePath = (await makeSourceSkill(skillName)) as AbsolutePath
+    const reviewedIdentity = filesystemIdentityFromStats(
+      await lstat(sourcePath),
+    )
+    await rm(sourcePath, { recursive: true, force: true })
+    await mkdir(sourcePath, { recursive: true })
+    await writeFile(join(sourcePath, 'SKILL.md'), '# replacement\n', 'utf-8')
+
+    // Act + Assert
+    await expect(
+      moveToTrash(skillName as SkillName, sourcePath, reviewedIdentity),
+    ).rejects.toMatchObject({ code: 'ESTALE' })
+    await expect(readFile(join(sourcePath, 'SKILL.md'), 'utf-8')).resolves.toBe(
+      '# replacement\n',
+    )
+    await expect(lstat(sharedTrashDir)).rejects.toThrow(/ENOENT/)
+  })
+
+  it('moveToTrash rejects a same-path local replacement and preserves the replacement folder', async () => {
+    const { moveToTrash } = await trashServicePromise
+
+    // Arrange
+    const skillName = 'local-same-path-replacement'
+    const localPath = (await makeLocalSkill(
+      skillName,
+      sharedAgentClaude,
+    )) as AbsolutePath
+    const reviewedIdentity = filesystemIdentityFromStats(await lstat(localPath))
+    await rm(localPath, { recursive: true, force: true })
+    await mkdir(localPath, { recursive: true })
+    await writeFile(join(localPath, 'SKILL.md'), '# replacement\n', 'utf-8')
+
+    // Act + Assert
+    await expect(
+      moveToTrash(skillName as SkillName, localPath, reviewedIdentity),
+    ).rejects.toMatchObject({ code: 'ESTALE' })
+    await expect(readFile(join(localPath, 'SKILL.md'), 'utf-8')).resolves.toBe(
+      '# replacement\n',
+    )
+    await expect(lstat(sharedTrashDir)).rejects.toThrow(/ENOENT/)
+  })
+
+  it('moveToTrash deletes only the reviewed local folder when another agent has the same basename', async () => {
+    const { moveToTrash } = await trashServicePromise
+
+    // Arrange
+    const skillName = 'same-basename-local'
+    const reviewedLocalPath = await makeLocalSkill(skillName, sharedAgentClaude)
+    const siblingLocalPath = await makeLocalSkill(skillName, sharedAgentCursor)
+
+    // Act
+    const deleteResult = await moveReviewedLocal(
+      moveToTrash,
+      skillName,
+      sharedAgentClaude,
+    )
+
+    // Assert
+    assertTombstoned(deleteResult)
+    expect(deleteResult.cascadeAgents).toEqual(['claude-code'])
+    await expect(lstat(reviewedLocalPath)).rejects.toThrow(/ENOENT/)
+    await expect(lstat(siblingLocalPath)).resolves.toBeDefined()
+  })
+
   it('evict: idempotent — calling evict on a missing entry does not throw', async () => {
     const { evict, tombstoneId } = await (async () => {
       const mod = await trashServicePromise

@@ -860,6 +860,62 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Reuse the absolute-path schema for the single-agent unlink payload and add IPC schema regression coverage.
 
+### P2. Source delete `ESTALE` must not be labeled as orphan cleanup rescan
+
+**Status:** Fixed after second parallel subagent review.
+
+**Finding:** `isRescanRequiredDeleteError` treated every `ESTALE` as an orphan-cleanup rescan. Source/local delete identity mismatches also return `ESTALE`, so stale source deletes could show orphan-specific copy and be dropped from retry selection.
+
+**Fix direction:** Pass the reviewed orphan cleanup candidate names into mixed-delete reconciliation, and only exclude/describe `ESTALE` rows as orphan rescans when they came from orphan cleanup or orphan preflight errors.
+
+### P1. Source trash move must revalidate identity at commit time
+
+**Status:** Fixed after second parallel subagent review.
+
+**Finding:** Source-backed delete validates the reviewed source directory before cascading agent symlink removal, then later moves `sourcePath` into the app trash by path. A same-path replacement between those steps can be the folder actually tombstoned.
+
+**Fix direction:** Carry the reviewed filesystem identity into the source trash move, validate the staged trash entry after rename/copy, and roll back symlink removals plus source staging when the staged identity differs.
+
+### P1. Local-only delete must not sweep same-basename agent folders
+
+**Status:** Fixed after second parallel subagent review and Codex review.
+
+**Finding:** Agent-local delete validates the reviewed local folder, then scans every agent for the same folder basename and moves all matches. That can delete unreviewed same-basename local skills and misses same-metadata skills under different folder basenames.
+
+**Fix direction:** Execute local-only delete from the exact reviewed local folder snapshot and filesystem identity, not from a fresh basename scan, and verify the staged directory identity before manifest write.
+
+### P1. Single local-folder unlink must be guarded through OS Trash commit
+
+**Status:** Fixed after second parallel subagent review.
+
+**Finding:** Single-agent local-folder unlink checks `reviewedDirectoryIdentity`, validates `SKILL.md`, then calls `shell.trashItem(derivedLinkPath)` by path. A same-path replacement between validation and OS Trash can move an unreviewed folder.
+
+**Fix direction:** Rename the reviewed directory to a private same-directory quarantine path, verify the quarantined entry identity, then call `shell.trashItem` on the quarantined path; restore on mismatch or trash failure.
+
+### P1. Remove-all-agent must require reviewed agent directory identity
+
+**Status:** Fixed after second parallel subagent review.
+
+**Finding:** `skills:removeAllFromAgent` accepts only `agentId + agentPath`, then trashes the whole selected skills directory by path. A stale confirm can trash a same-path replacement agent directory.
+
+**Fix direction:** Populate `Agent.filesystemIdentity` during agent scan, require it in remove-all IPC options/schema, verify the current directory identity, and use the same quarantine-then-trash commit path.
+
+### P2. Generic symlink unlink must bind reviewed target identity
+
+**Status:** Fixed after second parallel subagent review.
+
+**Finding:** Generic single/bulk unlink validates that `linkPath` is in the selected agent directory, but removes the current symlink by path without checking that it still points at the reviewed target. A stale confirm can unlink a replacement symlink in the same slot.
+
+**Fix direction:** Carry reviewed `targetPath` for symlink unlink payloads and verify the current resolved target before unlinking with guarded same-directory quarantine.
+
+### P2. Local source-agent slots must expose filesystem identity
+
+**Status:** Fixed after Codex review.
+
+**Finding:** Source skill rows can include a real local folder in an agent slot, but `checkSkillSymlinks()` does not attach `filesystemIdentity` for that local slot. The new local-folder unlink guard then rejects the supported Delete-from-Agent flow.
+
+**Fix direction:** Attach `filesystemIdentity` to local slots returned by `checkSkillSymlinks()` and add coverage proving local source-agent slot unlink passes the reviewed identity.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

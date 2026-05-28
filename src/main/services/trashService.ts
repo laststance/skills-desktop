@@ -23,11 +23,7 @@ import type {
   UnixTimestampMs,
 } from '@/shared/types'
 
-import {
-  filesystemIdentityFromStats,
-  isSameFilesystemEntryIdentity,
-  isSameFilesystemIdentity,
-} from './filesystemIdentity'
+import { isSameFilesystemIdentity } from './filesystemIdentity'
 import { getAllowedBases, validatePath } from './pathValidation'
 import { isValidSkillDir } from './skillValidation'
 import { resolveRawSymlinkTarget } from './symlinkChecker'
@@ -226,6 +222,48 @@ async function assertReviewedSkillDirectory(
 }
 
 /**
+ * Build a hidden sibling stage path so reviewed entries can be atomically renamed before copy/delete work.
+ * @param reviewedPath - Original reviewed directory path.
+ * @param label - Short operation label for diagnostics.
+ * @returns Hidden path in the same parent directory as the reviewed entry.
+ * @example buildSiblingStagePath('/Users/me/.agents/skills/task', 'trash')
+ */
+function buildSiblingStagePath(
+  reviewedPath: AbsolutePath,
+  label: string,
+): string {
+  const suffix = randomBytes(RAND_SUFFIX_BYTES).toString('hex')
+  return join(
+    dirname(reviewedPath),
+    `.${basename(reviewedPath)}.${label}-${suffix}`,
+  )
+}
+
+/**
+ * Verify a staged directory is still the entry the user reviewed before committing a destructive move.
+ * @param stagedPath - Directory path after an atomic rename/quarantine step.
+ * @param reviewedIdentity - Filesystem identity captured at review time.
+ * @param staleMessage - Error shown when the staged entry is not the reviewed one.
+ * @returns void after identity and directory-kind checks pass.
+ * @example
+ * await assertStagedReviewedDirectory('/tmp/.task.stage', reviewedIdentity, 'Reviewed skill folder changed since review')
+ */
+async function assertStagedReviewedDirectory(
+  stagedPath: string,
+  reviewedIdentity: FilesystemEntryIdentity,
+  staleMessage: string,
+): Promise<void> {
+  const stagedStats = await fs.lstat(stagedPath)
+  if (
+    !stagedStats.isDirectory() ||
+    stagedStats.isSymbolicLink() ||
+    !isSameFilesystemIdentity(stagedStats, reviewedIdentity)
+  ) {
+    throw new TrashError(staleMessage, 'ESTALE')
+  }
+}
+
+/**
  * Mark a trash entry as non-evictable because it contains manual recovery data.
  * @param entryDir - Trash entry directory that must survive TTL/startup cleanup.
  * @param reason - Human-readable recovery reason for operators and tests.
@@ -320,21 +358,85 @@ interface SourceMoveFailure {
 async function moveSourceIntoTrashEntry(
   sourcePath: AbsolutePath,
   entrySourceDir: string,
+  reviewedIdentity: FilesystemEntryIdentity,
 ): Promise<SourceMoveFailure | null> {
   try {
     await fs.rename(sourcePath, entrySourceDir)
+    try {
+      await assertStagedReviewedDirectory(
+        entrySourceDir,
+        reviewedIdentity,
+        'Reviewed skill folder changed since review',
+      )
+    } catch (identityError) {
+      try {
+        await renameWithCrossDeviceFallback(entrySourceDir, sourcePath)
+      } catch {
+        return {
+          preserveEntryDirForManualRecovery: true,
+          error:
+            identityError instanceof TrashError
+              ? identityError
+              : new TrashError(
+                  `Failed to validate staged source: ${extractErrorMessage(identityError)}`,
+                  errorCode(identityError),
+                ),
+        }
+      }
+      return {
+        preserveEntryDirForManualRecovery: false,
+        error:
+          identityError instanceof TrashError
+            ? identityError
+            : new TrashError(
+                `Failed to validate staged source: ${extractErrorMessage(identityError)}`,
+                errorCode(identityError),
+              ),
+      }
+    }
     return null
   } catch (error) {
     const code = errorCode(error)
 
     if (code === 'EXDEV') {
       let preserveEntryDirForManualRecovery = false
+      const siblingStagePath = buildSiblingStagePath(sourcePath, 'trash-source')
       try {
-        await fs.cp(sourcePath, entrySourceDir, { recursive: true })
+        // Cross-device fallback still starts with a same-directory rename, so
+        // the original reviewed entry is isolated before any copy/remove work.
+        await fs.rename(sourcePath, siblingStagePath)
+        try {
+          await assertStagedReviewedDirectory(
+            siblingStagePath,
+            reviewedIdentity,
+            'Reviewed skill folder changed since review',
+          )
+        } catch (identityError) {
+          await renameWithCrossDeviceFallback(siblingStagePath, sourcePath)
+          return {
+            preserveEntryDirForManualRecovery: false,
+            error:
+              identityError instanceof TrashError
+                ? identityError
+                : new TrashError(
+                    `Failed to validate staged source: ${extractErrorMessage(identityError)}`,
+                    errorCode(identityError),
+                  ),
+          }
+        }
+        await fs.cp(siblingStagePath, entrySourceDir, { recursive: true })
         preserveEntryDirForManualRecovery = true
-        await fs.rm(sourcePath, { recursive: true, force: true })
+        await fs.rm(siblingStagePath, { recursive: true, force: true })
         return null
       } catch (fallbackError) {
+        try {
+          await fs.lstat(siblingStagePath)
+          await renameWithCrossDeviceFallback(siblingStagePath, sourcePath)
+        } catch (restoreError) {
+          if (errorCode(restoreError) !== 'ENOENT') {
+            preserveEntryDirForManualRecovery = true
+          }
+        }
         const recoveryHint = preserveEntryDirForManualRecovery
           ? `; source copy preserved in ${entrySourceDir}`
           : ''
@@ -440,58 +542,6 @@ export type MoveToTrashResult = {
   tombstoneId: TombstoneId
   cascadeAgents: AgentId[]
   symlinksRemoved: number
-}
-
-/**
- * Walk every configured agent directory and find real (non-symlink) folders
- * matching `skillName`. Used by `moveToTrash` when `~/.agents/skills/<name>`
- * has no source dir but the skill exists as a local copy in one or more agents.
- *
- * Symlinks are deliberately ignored here — for local-only delete we only move
- * real directories. A stray symlink pointing at one of those copies will become
- * broken after delete and is surfaced by the next scan as a "broken" entry.
- *
- * @param skillName - Validated skill name (no separators)
- * @returns Per-agent local copy records, ordered by AGENTS iteration
- */
-async function scanLocalCopies(
-  skillName: SkillName,
-): Promise<RecordedLocalCopy[]> {
-  const copies: RecordedLocalCopy[] = []
-  for (const agent of AGENTS) {
-    const linkPath = join(agent.path, skillName)
-    try {
-      // For real directories validation can use [agent.path] specifically —
-      // unlike symlinks, realpath stops at the directory itself, which lives
-      // inside the agent's allowed base.
-      validatePath(linkPath, [agent.path])
-    } catch {
-      continue
-    }
-    let stats: Stats
-    try {
-      stats = await fs.lstat(linkPath)
-    } catch (error) {
-      if (errorCode(error) === 'ENOENT') continue
-      // Permission error or other — log and skip this agent rather than abort
-      // the whole scan; the user can retry once they've fixed perms.
-      console.warn('trashService: scanLocalCopies lstat failed', {
-        agentId: agent.id,
-        linkPath,
-        code: errorCode(error),
-        message: extractErrorMessage(error),
-      })
-      continue
-    }
-    if (stats.isDirectory() && !stats.isSymbolicLink()) {
-      copies.push({
-        agentId: agent.id,
-        linkPath: linkPath as AbsolutePath,
-        filesystemIdentity: filesystemIdentityFromStats(stats),
-      })
-    }
-  }
-  return copies
 }
 
 /**
@@ -875,25 +925,14 @@ export async function moveToTrash(
       deleteIdentity.reviewedLocalCopy.linkPath,
       reviewedIdentity,
     )
-    const localCopies = await scanLocalCopies(
-      deleteIdentity.filesystemSkillName,
-    )
-    const reviewedCopyStillPresent = localCopies.some(
-      (copy) =>
-        copy.linkPath === deleteIdentity.reviewedLocalCopy.linkPath &&
-        copy.filesystemIdentity !== undefined &&
-        isSameFilesystemEntryIdentity(
-          copy.filesystemIdentity,
-          reviewedIdentity,
-        ),
-    )
-    if (!reviewedCopyStillPresent) {
-      throw new TrashError(
-        'Reviewed local skill folder not found (already changed?)',
-        'ESTALE',
-      )
-    }
-    return moveLocalOnlyToTrash(skillName, localCopies)
+    // Local rows are reviewed one folder at a time; never sweep sibling agent
+    // folders that merely share the same basename.
+    return moveLocalOnlyToTrash(skillName, [
+      {
+        ...deleteIdentity.reviewedLocalCopy,
+        filesystemIdentity: reviewedIdentity,
+      },
+    ])
   }
 
   const { sourcePath } = deleteIdentity
@@ -901,7 +940,7 @@ export async function moveToTrash(
   // A reviewed source row must still be the same valid directory the user saw.
   await assertReviewedSkillDirectory(sourcePath, reviewedIdentity)
 
-  return moveSourceBackedToTrash(skillName, sourcePath)
+  return moveSourceBackedToTrash(skillName, sourcePath, reviewedIdentity)
 }
 
 /**
@@ -1005,6 +1044,7 @@ async function removeSourceBackedAgentSymlinks(
 async function moveSourceBackedToTrash(
   skillName: SkillName,
   sourcePath: AbsolutePath,
+  reviewedIdentity: FilesystemEntryIdentity,
 ): Promise<Extract<MoveToTrashResult, { kind: 'tombstoned' }>> {
   // fallow-ignore-next-line code-duplication
   const startTime = Date.now()
@@ -1027,6 +1067,7 @@ async function moveSourceBackedToTrash(
   const sourceMoveFailure = await moveSourceIntoTrashEntry(
     sourcePath,
     entrySourceDir,
+    reviewedIdentity,
   )
   if (sourceMoveFailure !== null) {
     // Rollback symlinks, but never delete an entry that now holds the recovery
@@ -1185,22 +1226,87 @@ async function moveLocalOnlyToTrash(
   const moved: RecordedLocalCopy[] = []
   for (const copy of localCopies) {
     const stagedPath = join(localCopiesRoot, copy.agentId)
+    if (!copy.filesystemIdentity) {
+      const unrestoredCopies = await rollbackMovedLocalCopies(entryDir, moved)
+      if (unrestoredCopies.length === 0) {
+        await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
+          // best-effort cleanup
+        })
+      } else {
+        await markManualRecoveryEntry(
+          entryDir,
+          'local-only rollback left staged copies in trash',
+        )
+      }
+      throw new TrashError(
+        'Reviewed local skill folder is missing filesystem identity',
+        'ESTALE',
+      )
+    }
+    const reviewedFilesystemIdentity = copy.filesystemIdentity
     try {
       await fs.rename(copy.linkPath, stagedPath)
       moved.push(copy)
+      await assertStagedReviewedDirectory(
+        stagedPath,
+        reviewedFilesystemIdentity,
+        'Reviewed local skill folder changed since review',
+      )
     } catch (error) {
       const code = errorCode(error)
       // EXDEV across volumes — fall back to cp + rm. ENOENT means the copy
       // disappeared mid-flight (race); skip and continue rather than abort.
       const recoveryOutcome = await match(code)
         .with('EXDEV', async () => {
+          const siblingStagePath = buildSiblingStagePath(
+            copy.linkPath,
+            `trash-local-${copy.agentId}`,
+          )
           let stagedCopyCreated = false
           try {
-            await fs.cp(copy.linkPath, stagedPath, { recursive: true })
+            // Rename inside the original agent dir first; this binds the copy
+            // to the reviewed identity before non-atomic cross-device copy.
+            await fs.rename(copy.linkPath, siblingStagePath)
+            try {
+              await assertStagedReviewedDirectory(
+                siblingStagePath,
+                reviewedFilesystemIdentity,
+                'Reviewed local skill folder changed since review',
+              )
+            } catch (identityError) {
+              await renameWithCrossDeviceFallback(
+                siblingStagePath,
+                copy.linkPath,
+              )
+              return {
+                kind: 'fatal' as const,
+                preserveEntryDir: false,
+                strandedAgentId: copy.agentId,
+                error:
+                  identityError instanceof TrashError
+                    ? identityError
+                    : new TrashError(
+                        `Failed to validate staged local copy (agent=${copy.agentId}): ${extractErrorMessage(identityError)}`,
+                        errorCode(identityError),
+                      ),
+              }
+            }
+            await fs.cp(siblingStagePath, stagedPath, { recursive: true })
             stagedCopyCreated = true
-            await fs.rm(copy.linkPath, { recursive: true, force: true })
+            await fs.rm(siblingStagePath, { recursive: true, force: true })
             return { kind: 'moved' as const }
           } catch (fallbackError) {
+            try {
+              await fs.lstat(siblingStagePath)
+              await renameWithCrossDeviceFallback(
+                siblingStagePath,
+                copy.linkPath,
+              )
+            } catch (restoreError) {
+              if (errorCode(restoreError) !== 'ENOENT') {
+                stagedCopyCreated = true
+              }
+            }
             const recoveryHint = stagedCopyCreated
               ? `; staged copy preserved in ${stagedPath}`
               : ''

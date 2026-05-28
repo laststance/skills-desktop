@@ -6,6 +6,15 @@ import type { Agent } from '@/shared/types'
 const mockGetAll = vi.fn()
 const mockRemoveAllFromAgent = vi.fn()
 
+const directoryIdentity = {
+  kind: 'directory' as const,
+  dev: 1,
+  ino: 2,
+  size: 96,
+  ctimeMs: 3,
+  mtimeMs: 4,
+}
+
 vi.stubGlobal('window', {
   electron: {
     agents: { getAll: mockGetAll },
@@ -25,6 +34,7 @@ const sampleAgent: Agent = {
   exists: true,
   skillCount: 3,
   localSkillCount: 0,
+  filesystemIdentity: directoryIdentity,
 }
 
 describe('agentsSlice', () => {
@@ -112,6 +122,25 @@ describe('agentsSlice', () => {
 
     expect(store.getState().agents.agentToDelete).toBeNull()
     expect(store.getState().agents.deleting).toBe(false)
+    expect(mockRemoveAllFromAgent).toHaveBeenCalledWith({
+      agentId: 'claude-code',
+      agentPath: '/home/user/.claude/skills',
+      filesystemIdentity: directoryIdentity,
+    })
+  })
+
+  it('removeAllSymlinksFromAgent rejects when reviewed agent identity is missing', async () => {
+    const staleAgent: Agent = { ...sampleAgent, filesystemIdentity: undefined }
+
+    const store = await createTestStore()
+    const { removeAllSymlinksFromAgent } = await import('./agentsSlice')
+    await store.dispatch(removeAllSymlinksFromAgent(staleAgent))
+
+    expect(store.getState().agents.deleting).toBe(false)
+    expect(store.getState().agents.error).toBe(
+      'Agent skills folder changed since review. Rescan before deleting.',
+    )
+    expect(mockRemoveAllFromAgent).not.toHaveBeenCalled()
   })
 
   it('removeAllSymlinksFromAgent sets deleting during pending', async () => {

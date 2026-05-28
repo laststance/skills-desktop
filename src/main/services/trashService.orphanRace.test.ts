@@ -311,7 +311,7 @@ describe('trashService orphan cleanup guarded commit', () => {
           path: string,
           options?: Parameters<typeof actual.rm>[1],
         ): Promise<void> => {
-          if (path === sourcePath) {
+          if (path.includes(`.${skillName}.trash-source-`)) {
             const error = new Error(
               'forced source remove failure',
             ) as NodeJS.ErrnoException
@@ -370,7 +370,7 @@ describe('trashService orphan cleanup guarded commit', () => {
           path: string,
           options?: Parameters<typeof actual.rm>[1],
         ): Promise<void> => {
-          if (path === localPath) {
+          if (path.includes(`.${skillName}.trash-local-claude-code-`)) {
             const error = new Error(
               'forced local remove failure',
             ) as NodeJS.ErrnoException

@@ -45,9 +45,15 @@ export const fetchAgents = createAsyncThunk('agents/fetchAll', async () => {
 export const removeAllSymlinksFromAgent = createAsyncThunk(
   'agents/removeAllSymlinks',
   async (agent: Agent) => {
+    if (!agent.filesystemIdentity) {
+      throw new Error(
+        'Agent skills folder changed since review. Rescan before deleting.',
+      )
+    }
     const result = await window.electron.skills.removeAllFromAgent({
       agentId: agent.id,
       agentPath: agent.path,
+      filesystemIdentity: agent.filesystemIdentity,
     })
     if (!result.success) {
       throw new Error(result.error || 'Failed to delete skills folder')

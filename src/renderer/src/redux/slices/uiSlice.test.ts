@@ -78,6 +78,7 @@ function unlinkTarget(skillName: Skill['name']) {
   return {
     skillName,
     linkPath: `/home/user/.cursor/skills/${skillName}`,
+    targetPath: `/home/user/.agents/skills/${skillName}`,
   }
 }
 

@@ -167,12 +167,17 @@ declare global {
           skillName: string
           agentId: string
           linkPath: string
+          targetPath?: string
           confirmedLocalDirectoryDelete?: boolean
           reviewedDirectoryIdentity?: FilesystemEntryIdentity
         }) => Promise<{ success: boolean; error?: string }>
         unlinkManyFromAgent: (options: {
           agentId: string
-          items: Array<{ skillName: string; linkPath: string }>
+          items: Array<{
+            skillName: string
+            linkPath: string
+            targetPath: string
+          }>
         }) => Promise<{
           items: Array<
             | { skillName: string; outcome: 'unlinked' }
@@ -186,6 +191,7 @@ declare global {
         removeAllFromAgent: (options: {
           agentId: string
           agentPath: string
+          filesystemIdentity: FilesystemEntryIdentity
         }) => Promise<{
           success: boolean
           removedCount: number

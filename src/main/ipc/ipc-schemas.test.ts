@@ -115,7 +115,13 @@ describe('skillNameString consistency across channels', () => {
         channel: 'skills:unlinkManyFromAgent',
         payload: {
           agentId: 'cursor',
-          items: [{ skillName: malicious, linkPath: '/tmp/link' }],
+          items: [
+            {
+              skillName: malicious,
+              linkPath: '/tmp/link',
+              targetPath: '/tmp/target',
+            },
+          ],
         },
       },
     ]
@@ -275,7 +281,15 @@ describe('destructive reviewed-path IPC schemas', () => {
     ).toBe(false)
     expect(
       batchDeleteSchema.safeParse([
-        { items: [{ skillName: 'task', skillPath: 'relative/path' }] },
+        {
+          items: [
+            {
+              skillName: 'task',
+              skillPath: 'relative/path',
+              filesystemIdentity: directoryIdentity,
+            },
+          ],
+        },
       ]).success,
     ).toBe(false)
     expect(
@@ -303,7 +317,13 @@ describe('destructive reviewed-path IPC schemas', () => {
       batchUnlinkSchema.safeParse([
         {
           agentId: 'cursor',
-          items: [{ skillName: 'task', linkPath: 'relative/path' }],
+          items: [
+            {
+              skillName: 'task',
+              linkPath: 'relative/path',
+              targetPath: '/tmp/target',
+            },
+          ],
         },
       ]).success,
     ).toBe(false)
@@ -311,7 +331,51 @@ describe('destructive reviewed-path IPC schemas', () => {
       batchUnlinkSchema.safeParse([
         {
           agentId: 'cursor',
-          items: [{ skillName: 'task', linkPath: '/tmp/task' }],
+          items: [
+            {
+              skillName: 'task',
+              linkPath: '/tmp/task',
+              targetPath: 'relative/target',
+            },
+          ],
+        },
+      ]).success,
+    ).toBe(false)
+    expect(
+      batchUnlinkSchema.safeParse([
+        {
+          agentId: 'cursor',
+          items: [
+            {
+              skillName: 'task',
+              linkPath: '/tmp/task',
+              targetPath: '/tmp/target',
+            },
+          ],
+        },
+      ]).success,
+    ).toBe(true)
+  })
+
+  it('requires remove-all agent path and directory identity', () => {
+    const removeAllSchema = IPC_ARG_SCHEMAS['skills:removeAllFromAgent']!
+
+    expect(
+      removeAllSchema.safeParse([
+        { agentId: 'cursor', agentPath: 'relative/path' },
+      ]).success,
+    ).toBe(false)
+    expect(
+      removeAllSchema.safeParse([
+        { agentId: 'cursor', agentPath: '/tmp/.cursor/skills' },
+      ]).success,
+    ).toBe(false)
+    expect(
+      removeAllSchema.safeParse([
+        {
+          agentId: 'cursor',
+          agentPath: '/tmp/.cursor/skills',
+          filesystemIdentity: directoryIdentity,
         },
       ]).success,
     ).toBe(true)

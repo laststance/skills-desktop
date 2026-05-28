@@ -264,6 +264,8 @@ export interface Agent {
   skillCount: number
   /** Number of local skills (real folders, not symlinks). @example 2 */
   localSkillCount: number
+  /** Directory identity for destructive "remove all" confirmation guards. */
+  filesystemIdentity?: FilesystemEntryIdentity
 }
 
 /**
@@ -742,6 +744,8 @@ export interface UnlinkFromAgentOptions {
   agentId: AgentId
   /** Absolute path to the symlink itself (inside the agent's skills directory). */
   linkPath: AbsolutePath
+  /** Reviewed resolved target for symlink unlink; omitted only for local folder delete. */
+  targetPath?: AbsolutePath
   /** True only after the local-folder destructive confirmation dialog submits. */
   confirmedLocalDirectoryDelete?: boolean
   /** Required when deleting a local folder; proves main still sees the reviewed directory. */
@@ -770,6 +774,8 @@ export interface RemoveAllFromAgentOptions {
   agentId: AgentId
   /** Absolute path to the agent's skills directory. @example "/Users/me/.claude/skills" */
   agentPath: AbsolutePath
+  /** Review-time directory identity for the agent skills folder. */
+  filesystemIdentity: FilesystemEntryIdentity
 }
 
 /**
@@ -978,14 +984,18 @@ export interface ClearBrokenSymlinkSlotsResult {
 
 /**
  * IPC argument for `skills:unlinkManyFromAgent` — batch unlink N reviewed slots from a single agent.
- * Main verifies each `linkPath` is a direct child of the selected agent path.
- * @example { agentId: 'cursor', items: [{ skillName: 'task', linkPath: '/Users/me/.cursor/skills/task' }] }
+ * Main verifies each `linkPath` is a direct child of the selected agent path and still points at `targetPath`.
+ * @example { agentId: 'cursor', items: [{ skillName: 'task', linkPath: '/Users/me/.cursor/skills/task', targetPath: '/Users/me/.agents/skills/task' }] }
  */
 export interface UnlinkManyFromAgentOptions {
   /** Agent the symlinks belong to. */
   agentId: AgentId
   /** Skills whose symlinks should be removed (serial processing, no tombstone — unlink is benign). */
-  items: Array<{ skillName: SkillName; linkPath: AbsolutePath }>
+  items: Array<{
+    skillName: SkillName
+    linkPath: AbsolutePath
+    targetPath: AbsolutePath
+  }>
 }
 
 /**
