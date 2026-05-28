@@ -214,6 +214,81 @@ describe('SkillItem symlink status badges', () => {
       screen.getByRole('button', { name: /^Unlink task from/i }).query(),
     ).toBeNull()
   })
+
+  it('hides the normal unlink button for broken slots in agent view', async () => {
+    // Arrange
+    const brokenSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'broken',
+          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          targetPath:
+            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          isLocal: false,
+        },
+        {
+          agentId: 'codex',
+          agentName: 'Codex',
+          status: 'valid',
+          linkPath: '/home/user/.codex/skills/task' as SymlinkInfo['linkPath'],
+          targetPath:
+            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          isLocal: false,
+        },
+      ],
+      isOrphan: false,
+    })
+    const { screen, store } = await renderSkillItem(brokenSkill)
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    await expect.element(screen.getByLabelText('Broken: 1')).toBeInTheDocument()
+
+    // Act
+    store.dispatch(selectAgent('cursor'))
+
+    // Assert
+    await expect
+      .poll(() => screen.getByLabelText('Broken: 1').query())
+      .toBeNull()
+    await expect
+      .poll(() =>
+        screen.getByRole('button', { name: /^Unlink task from/i }).query(),
+      )
+      .toBeNull()
+  })
+
+  it('hides Add for inaccessible slots so copy routing cannot fan out', async () => {
+    // Arrange
+    const inaccessibleSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'inaccessible',
+          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          targetPath:
+            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(inaccessibleSkill)
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+
+    // Act
+    store.dispatch(selectAgent('cursor'))
+
+    // Assert
+    await expect
+      .element(
+        screen.getByLabelText('Inaccessible link - manual review required'),
+      )
+      .toBeInTheDocument()
+    await expect
+      .poll(() => screen.getByRole('button', { name: /^Add$/i }).query())
+      .toBeNull()
+  })
 })
 
 describe('SkillItem delete button', () => {

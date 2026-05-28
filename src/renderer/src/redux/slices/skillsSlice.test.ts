@@ -5,6 +5,7 @@ import type {
   AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
+  ClearOrphanSymlinksResult,
   RestoreDeletedSkillResult,
   Skill,
   SymlinkInfo,
@@ -605,6 +606,172 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     expect(state.bulkDeleting).toBe(false)
     expect(state.inFlightDeleteNames).toEqual([])
     expect(state.error).toBe('EACCES')
+  })
+})
+
+describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  it('sets bulkDeleting and reconciles orphan inFlightDeleteNames against live items on pending', async () => {
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill, secondSkill])
+    let resolve!: (value: ClearOrphanSymlinksResult) => void
+    mockClearOrphanSymlinks.mockReturnValue(
+      new Promise<ClearOrphanSymlinksResult>((r) => {
+        resolve = r
+      }),
+    )
+
+    const { clearSelectedOrphanSymlinks } = await import('./skillsSlice')
+    const promise = store.dispatch(
+      clearSelectedOrphanSymlinks([
+        {
+          skillName: 'task',
+          agents: [
+            {
+              agentId: 'codex' as AgentId,
+              linkPath: '/home/user/.codex/skills/task',
+              targetPath: '/home/user/.agents/skills/task',
+            },
+          ],
+        },
+        {
+          skillName: 'ghost',
+          agents: [
+            {
+              agentId: 'cursor' as AgentId,
+              linkPath: '/home/user/.cursor/skills/ghost',
+              targetPath: '/home/user/.agents/skills/ghost',
+            },
+          ],
+        },
+      ]),
+    )
+
+    expect(store.getState().skills.bulkDeleting).toBe(true)
+    expect(store.getState().skills.inFlightDeleteNames).toEqual(['task'])
+
+    resolve({
+      items: [
+        {
+          skillName: 'task',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 1,
+          cascadeAgents: ['codex' as AgentId],
+        },
+      ],
+    })
+    await promise
+  })
+
+  it('clears orphan selection, anchor, inFlight, and progress on fulfilled', async () => {
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill])
+    mockClearOrphanSymlinks.mockResolvedValue({
+      items: [
+        {
+          skillName: 'task',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 1,
+          cascadeAgents: ['codex' as AgentId],
+        },
+      ],
+    } satisfies ClearOrphanSymlinksResult)
+
+    const { clearSelectedOrphanSymlinks, setBulkProgress, toggleSelection } =
+      await import('./skillsSlice')
+    store.dispatch(toggleSelection('task'))
+    store.dispatch(setBulkProgress({ current: 1, total: 1 }))
+
+    await store.dispatch(
+      clearSelectedOrphanSymlinks([
+        {
+          skillName: 'task',
+          agents: [
+            {
+              agentId: 'codex' as AgentId,
+              linkPath: '/home/user/.codex/skills/task',
+              targetPath: '/home/user/.agents/skills/task',
+            },
+          ],
+        },
+      ]),
+    )
+
+    const state = store.getState().skills
+    expect(state.bulkDeleting).toBe(false)
+    expect(state.inFlightDeleteNames).toEqual([])
+    expect(state.selectedSkillNames).toEqual([])
+    expect(state.selectionAnchor).toBeNull()
+    expect(state.bulkProgress).toBeNull()
+  })
+
+  it('keeps failed orphan rows selected while clearing busy state on fulfilled', async () => {
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill])
+    mockClearOrphanSymlinks.mockResolvedValue({
+      items: [
+        {
+          skillName: 'task',
+          outcome: 'error',
+          error: { message: 'Rescan before cleanup.' },
+        },
+      ],
+    } satisfies ClearOrphanSymlinksResult)
+
+    const { clearSelectedOrphanSymlinks, toggleSelection } =
+      await import('./skillsSlice')
+    store.dispatch(toggleSelection('task'))
+
+    await store.dispatch(
+      clearSelectedOrphanSymlinks([
+        {
+          skillName: 'task',
+          agents: [
+            {
+              agentId: 'codex' as AgentId,
+              linkPath: '/home/user/.codex/skills/task',
+              targetPath: '/home/user/.agents/skills/task',
+            },
+          ],
+        },
+      ]),
+    )
+
+    const state = store.getState().skills
+    expect(state.bulkDeleting).toBe(false)
+    expect(state.inFlightDeleteNames).toEqual([])
+    expect(state.selectedSkillNames).toEqual(['task'])
+    expect(state.selectionAnchor).toBe('task')
+  })
+
+  it('clears orphan in-flight state and sets error on rejected', async () => {
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill])
+    mockClearOrphanSymlinks.mockRejectedValue(new Error('Permission denied'))
+
+    const { clearSelectedOrphanSymlinks } = await import('./skillsSlice')
+    await store.dispatch(
+      clearSelectedOrphanSymlinks([
+        {
+          skillName: 'task',
+          agents: [
+            {
+              agentId: 'codex' as AgentId,
+              linkPath: '/home/user/.codex/skills/task',
+              targetPath: '/home/user/.agents/skills/task',
+            },
+          ],
+        },
+      ]),
+    )
+
+    const state = store.getState().skills
+    expect(state.bulkDeleting).toBe(false)
+    expect(state.inFlightDeleteNames).toEqual([])
+    expect(state.error).toBe('Permission denied')
   })
 })
 

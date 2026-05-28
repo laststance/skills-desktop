@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import type { Stats } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { dirname, isAbsolute, join, resolve } from 'node:path'
+import { dirname, join } from 'node:path'
 
 import { match } from 'ts-pattern'
 import type { z } from 'zod'
@@ -1105,9 +1105,10 @@ async function restoreSourceBacked(
     // `fs.readlink` returned at delete-time — it may be absolute or relative
     // to the symlink's own directory (kernel resolution contract). A tampered
     // manifest could otherwise steer restore into planting links at '/etc/...'.
-    const resolvedTarget = isAbsolute(link.target)
-      ? link.target
-      : resolve(dirname(link.linkPath), link.target)
+    const resolvedTarget = await resolveRawSymlinkTarget(
+      link.linkPath,
+      link.target,
+    )
     try {
       validatePath(resolvedTarget, [SOURCE_DIR])
     } catch {

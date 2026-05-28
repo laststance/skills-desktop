@@ -625,9 +625,9 @@ export const MainContent = React.memo(
 
         flashFailedRows(uniqueFailedNames)
         if (!hasOrphanCleanupRows) return { rescanRequiredNames }
-        // Orphan cleanup has no slice reducer, so reconcile its side effects
-        // after all paths settle: retryable rows stay selected, all-success
-        // batches leave bulk mode like source-delete success.
+        // Mixed source+orphan cleanup needs combined reconciliation after all
+        // paths settle: retryable rows stay selected, all-success batches
+        // leave bulk mode like source-delete success.
         if (retryableFailedNames.length > 0) {
           dispatch(enterBulkSelectMode())
           dispatch(selectAll(retryableFailedNames))
@@ -717,6 +717,7 @@ export const MainContent = React.memo(
           toast.error('Bulk delete failed', {
             description: errorToastDescription(action),
           })
+          refreshAllData(dispatch)
           return
         }
       }

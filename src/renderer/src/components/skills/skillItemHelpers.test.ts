@@ -106,34 +106,32 @@ describe('getSkillItemVisibility', () => {
       expect(result.selectedAgentSymlink).toBe(symlinks[0])
     })
 
-    it('shows unlink button for orphan-only broken symlink so user can clean it up', () => {
-      // PR #131 (issue #71 PR-2) intentionally surfaces unlink for orphan
-      // rows: removing a dangling symlink at `linkPath` is a safe `rm` op
-      // regardless of whether the target resolves, and it's how the user
-      // sweeps orphans one row at a time without the bulk Cleanup dialog.
-      // Add stays gated separately because re-adding requires a live source.
+    it('hides normal unlink for orphan-only broken symlink so reviewed cleanup owns it', () => {
+      // Broken rows can become live after scan. The normal per-row unlink
+      // lacks reviewed target revalidation, so cleanup must route through the
+      // exact broken-slot IPC instead of this generic affordance.
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'broken', isLocal: false }),
       ]
       const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
 
-      expect(result.showUnlinkButton).toBe(true)
+      expect(result.showUnlinkButton).toBe(false)
       // isLinked still requires status==='valid'; broken does NOT count as
-      // linked even though it now satisfies showUnlinkButton.
+      // linked.
       expect(result.isLinked).toBe(false)
     })
 
-    it('still shows unlink for broken symlink when another agent has a valid copy', () => {
+    it('hides normal unlink for broken symlink even when another agent has a valid copy', () => {
       // Live source skill with one healthy and one broken agent link — the
-      // orphan guard must NOT trigger here. Removing the broken link is safe
-      // and meaningful because the source still exists.
+      // source exists, but the reviewed link path can still be stale by the
+      // time the user clicks. The cleanup IPC owns the safe path.
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'broken', isLocal: false }),
         makeSymlink({ agentId: 'codex', status: 'valid', isLocal: false }),
       ]
       const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
 
-      expect(result.showUnlinkButton).toBe(true)
+      expect(result.showUnlinkButton).toBe(false)
       expect(result.isLinked).toBe(false)
     })
 
@@ -212,6 +210,21 @@ describe('getSkillItemVisibility', () => {
       expect(result.showUnlinkButton).toBe(false)
       expect(result.isInaccessibleSkill).toBe(true)
       expect(result.selectedAgentSymlink).toBe(symlinks[0])
+    })
+
+    it('hides Add and Copy for inaccessible symlinks so unverifiable targets cannot fan out', () => {
+      const symlinks = [
+        makeSymlink({
+          agentId: 'cursor',
+          status: 'inaccessible',
+          isLocal: false,
+        }),
+      ]
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
+
+      expect(result.showAddButton).toBe(false)
+      expect(result.showCopyButton).toBe(false)
+      expect(result.isInaccessibleSkill).toBe(true)
     })
   })
 
@@ -450,7 +463,7 @@ describe('getSkillItemVisibility', () => {
       expect(result.showAddButton).toBe(false)
     })
 
-    it('hides Add but shows Unlink for orphan skill in agent view', () => {
+    it('hides Add and normal Unlink for orphan skill in agent view', () => {
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'broken', isLocal: false }),
         makeSymlink({ agentId: 'codex', status: 'broken', isLocal: false }),
@@ -460,8 +473,8 @@ describe('getSkillItemVisibility', () => {
       // Add stays gated: even though the broken cursor entry passes the
       // `valid|broken` filter, there is no live source to symlink TO.
       expect(result.showAddButton).toBe(false)
-      // Unlink is the per-agent cleanup affordance for orphan rows.
-      expect(result.showUnlinkButton).toBe(true)
+      // Reviewed cleanup owns broken symlink removal.
+      expect(result.showUnlinkButton).toBe(false)
       // Copy fans out from the live source skill — same reason Add is
       // hidden, this must be hidden too. Without this assertion the
       // context-menu Copy entry leaks through and lands the user in

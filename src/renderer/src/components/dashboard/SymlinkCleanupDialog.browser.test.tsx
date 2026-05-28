@@ -314,7 +314,9 @@ describe('SymlinkCleanupDialog', () => {
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
-    mockGetAgents.mockRejectedValueOnce(new Error('Dashboard refresh offline'))
+    mockGetAgents
+      .mockRejectedValueOnce(new Error('Dashboard refresh offline'))
+      .mockRejectedValueOnce(new Error('Dashboard refresh still offline'))
     mockClearBrokenSymlinkSlots.mockResolvedValue({
       items: [
         {

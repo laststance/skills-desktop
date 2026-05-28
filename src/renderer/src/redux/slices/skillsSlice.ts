@@ -542,6 +542,39 @@ const skillsSlice = createSlice({
         state.bulkProgress = null
         state.error = action.error.message ?? 'Bulk delete failed'
       })
+      .addCase(clearSelectedOrphanSymlinks.pending, (state, action) => {
+        state.inFlightDeleteNames = reconcileByLiveNames(
+          state.items,
+          action.meta.arg.map((record) => record.skillName),
+        )
+        state.bulkDeleting = true
+        state.error = null
+      })
+      .addCase(clearSelectedOrphanSymlinks.fulfilled, (state, action) => {
+        state.inFlightDeleteNames = []
+        state.bulkDeleting = false
+        state.bulkProgress = null
+        const removedNames = new Set(
+          action.payload.items
+            .filter((item) => item.outcome === 'orphan-cleared')
+            .map((item) => item.skillName),
+        )
+        state.selectedSkillNames = state.selectedSkillNames.filter(
+          (name) => !removedNames.has(name),
+        )
+        const anchorWasRemoved =
+          state.selectionAnchor !== null &&
+          removedNames.has(state.selectionAnchor)
+        if (state.selectedSkillNames.length === 0 || anchorWasRemoved) {
+          state.selectionAnchor = null
+        }
+      })
+      .addCase(clearSelectedOrphanSymlinks.rejected, (state, action) => {
+        state.inFlightDeleteNames = []
+        state.bulkDeleting = false
+        state.bulkProgress = null
+        state.error = action.error.message ?? 'Orphan cleanup failed'
+      })
       .addCase(unlinkSelectedFromAgent.pending, (state, action) => {
         state.inFlightUnlinkNames = reconcileByLiveNames(
           state.items,

@@ -511,13 +511,19 @@ export const SymlinkCleanupDialog = React.memo(
         dispatchLocal({ type: 'scanning' })
         try {
           const skills = refreshDashboard
-            ? (
-                await Promise.all([
+            ? await (async () => {
+                const [skillsResult] = await Promise.allSettled([
                   dispatch(fetchSkills()).unwrap(),
                   dispatch(fetchAgents()).unwrap(),
                   dispatch(fetchSourceStats()).unwrap(),
-                ])
-              )[0]
+                ] as const)
+                if (skillsResult.status === 'rejected') {
+                  throw skillsResult.reason
+                }
+                // Dashboard side panels can stay stale; the dialog only needs
+                // fresh skills to decide whether cleanup remains available.
+                return skillsResult.value
+              })()
             : await dispatch(fetchSkills()).unwrap()
           if (scanRequestIdRef.current !== requestId) return
           const plan = buildSymlinkCleanupPlan(skills)

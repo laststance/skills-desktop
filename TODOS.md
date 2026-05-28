@@ -356,6 +356,70 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Treat both `deleted` and `orphan-cleared` as successful removal outcomes in selection and anchor reconciliation, with reducer coverage.
 
+### P1. Cleanup commit must not path-unlink a post-validation replacement
+
+**Status:** Fixed in `fix: close symlink cleanup fifth-review findings`.
+
+**Finding:** Final symlink/target revalidation still commits with `fs.unlink(linkPath)`. A replacement after final validation but before unlink can delete an unreviewed same-path symlink/file.
+
+**Fix direction:** Use a guarded commit step: rename the reviewed slot to a private same-directory path, revalidate that moved entry and missing target, restore on mismatch/stale target, and unlink only the verified temp entry.
+
+### P1. Restore must resolve relative symlink targets through physical parents
+
+**Status:** Fixed in `fix: close symlink cleanup fifth-review findings`.
+
+**Finding:** Undo restore resolves recorded relative symlink targets against the logical `linkPath` parent. For Devin under symlinked `~/.config`, this can resolve to `/Users/.agents/...` and skip restoring the symlink.
+
+**Fix direction:** Use `resolveRawSymlinkTarget(link.linkPath, link.target)` during restore and add a real filesystem symlinked-`.config` restore regression.
+
+### P1. Agent-row broken cleanup must not use generic unlink
+
+**Status:** Fixed in `fix: close symlink cleanup fifth-review findings`.
+
+**Finding:** Agent view exposes normal unlink for broken non-local rows, routing through generic `unlinkFromAgent` without reviewed `targetPath` revalidation. A broken row that becomes live after scan can be removed as if still broken.
+
+**Fix direction:** Hide the normal unlink affordance for non-local broken rows unless routed through `clearBrokenSymlinkSlots`; add browser/helper coverage.
+
+### P2. CopyToAgents must resolve symlinked-parent relative targets physically
+
+**Status:** Fixed in `fix: close symlink cleanup fifth-review findings`.
+
+**Finding:** `copyToAgents` resolves a source symlink's raw target with `resolve(dirname(sourcePath), rawTarget)`, reproducing the symlinked `~/.config` physical-parent bug for valid Devin links.
+
+**Fix direction:** Use `resolveRawSymlinkTarget(sourcePath, rawTarget)` and add an integration test for copying a valid Devin symlink under symlinked `.config`.
+
+### P2. Orphan cleanup thunk must set bulk busy state
+
+**Status:** Fixed in `fix: close symlink cleanup fifth-review findings`.
+
+**Finding:** Global orphan-only Delete dispatches `clearSelectedOrphanSymlinks`, but the slice never sets `bulkDeleting` or `inFlightDeleteNames`; toolbar controls stay enabled and duplicate submissions are possible.
+
+**Fix direction:** Add pending/fulfilled/rejected reducers and UI pending handling for `clearSelectedOrphanSymlinks`.
+
+### P2. Inaccessible rows must not expose Add or Copy fan-out
+
+**Status:** Fixed in `fix: close symlink cleanup fifth-review findings`.
+
+**Finding:** Inaccessible symlinks are manual-review rows but still expose Add/Copy actions, allowing the UI to replicate a target the app could not verify.
+
+**Fix direction:** Gate Add/Copy on `!isInaccessibleSkill` and add helper/browser coverage.
+
+### P2. Refresh-failed Rescan must not lose dashboard retry context
+
+**Status:** Fixed in `fix: close symlink cleanup fifth-review findings`.
+
+**Finding:** If the first refresh-failed Rescan retries `fetchAgents`/`fetchSourceStats` and one fails again, the dialog enters error state; future Rescan calls become skills-only.
+
+**Fix direction:** Treat auxiliary dashboard refresh failures as secondary when `fetchSkills` succeeds, keeping the scan result usable and avoiding downgrade to skills-only retry.
+
+### P2. Mixed Delete rejection must refresh sticky error state
+
+**Status:** Fixed in `fix: close symlink cleanup fifth-review findings`.
+
+**Finding:** Mixed Delete source thunk rejection restores selection but does not refetch, leaving `skills.error` set and hiding the restored retry state behind the SkillsList error view.
+
+**Fix direction:** Call `refreshAllData(dispatch)` in the mixed rejection path after restoring unresolved selection.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

@@ -20,6 +20,7 @@ import type {
 } from '@/shared/types'
 
 import {
+  clearSelectedOrphanSymlinks,
   deleteSelectedSkills,
   fetchSkills,
   unlinkSelectedFromAgent,
@@ -539,6 +540,11 @@ const uiSlice = createSlice({
         state.bulkConfirm = null
         // Bulk op committed — leaving mode ON would strand a checkbox column
         // over a fresh post-delete list the user is now observing for result.
+        state.bulkSelectMode = false
+      })
+      .addCase(clearSelectedOrphanSymlinks.pending, (state) => {
+        state.undoToast = null
+        state.bulkConfirm = null
         state.bulkSelectMode = false
       })
       .addCase(unlinkSelectedFromAgent.pending, (state) => {

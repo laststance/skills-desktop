@@ -75,13 +75,13 @@ export type SkillVisibilityInput = Pick<Skill, 'symlinks' | 'isOrphan'>
  * // => { showDeleteButton: true, showAddButton: false, showUnlinkButton: false, ... }
  *
  * @example
- * // Orphan in agent view — Unlink is shown so the user can clear the
- * // dangling agent-side symlink one row at a time. Add stays hidden.
+ * // Orphan in agent view — normal Unlink stays hidden so reviewed cleanup
+ * // paths handle stale broken links. Add stays hidden.
  * getSkillItemVisibility('cursor', {
  *   symlinks: [{ agentId: 'cursor', status: 'broken', isLocal: false, ... }],
  *   isOrphan: true,
  * })
- * // => { showDeleteButton: false, showAddButton: false, showUnlinkButton: true, ... }
+ * // => { showDeleteButton: false, showAddButton: false, showUnlinkButton: false, ... }
  */
 export function getSkillItemVisibility(
   selectedAgentId: AgentId | null,
@@ -103,10 +103,11 @@ export function getSkillItemVisibility(
     ? (symlinks.find((s) => s.agentId === selectedAgentId && s.isLocal) ?? null)
     : null
 
-  const isLocalSkill = !!selectedLocalSkillInfo
-  const hasSkillInSelectedAgent = !!selectedAgentSymlink || isLocalSkill
+  const isLocalSkill = Boolean(selectedLocalSkillInfo)
+  const hasSkillInSelectedAgent = selectedAgentSymlink !== null || isLocalSkill
   const isInaccessibleSkill =
-    !!selectedAgentSymlink && selectedAgentSymlink.status === 'inaccessible'
+    selectedAgentSymlink !== null &&
+    selectedAgentSymlink.status === 'inaccessible'
   // Orphan handling — see Skill.isOrphan for why the Add button is gated.
   // Source: scanOrphanSymlinks() in src/main/services/skillScanner.ts.
   const showGStackBadge = isGStackManagedForAgent(skill, selectedAgentId)
@@ -121,12 +122,18 @@ export function getSkillItemVisibility(
     // (which opens AddSymlinkModal / CopyToAgentsModal) would surface a flow
     // that can only fail. Stays gated on `!isOrphan` even after the Delete
     // and Unlink loosens.
-    showAddButton: (!selectedAgentId || hasSkillInSelectedAgent) && !isOrphan,
-    // Inaccessible symlinks need manual filesystem review before deletion; do
-    // not route them through the normal "safe unlink" affordance.
+    showAddButton:
+      (!selectedAgentId || hasSkillInSelectedAgent) &&
+      !isOrphan &&
+      !isInaccessibleSkill,
+    // Broken and inaccessible non-local symlinks need reviewed cleanup paths
+    // that recheck the target; generic unlink only stays for valid symlinks.
     showUnlinkButton:
-      isLocalSkill || (!!selectedAgentSymlink && !isInaccessibleSkill),
-    isLinked: !!selectedAgentSymlink && selectedAgentSymlink.status === 'valid',
+      isLocalSkill ||
+      (selectedAgentSymlink !== null &&
+        selectedAgentSymlink.status === 'valid'),
+    isLinked:
+      selectedAgentSymlink !== null && selectedAgentSymlink.status === 'valid',
     isLocalSkill,
     isInaccessibleSkill,
     selectedAgentSymlink,
@@ -134,7 +141,11 @@ export function getSkillItemVisibility(
     // "Copy to..." opens CopyToAgentsModal which fans out from the live
     // source skill — for an orphan, that source is gone. Hide the action
     // for the same reason `showAddButton` is gated on `!isOrphan`.
-    showCopyButton: !!selectedAgentId && hasSkillInSelectedAgent && !isOrphan,
+    showCopyButton:
+      selectedAgentId !== null &&
+      hasSkillInSelectedAgent &&
+      !isOrphan &&
+      !isInaccessibleSkill,
     showGStackBadge,
   }
 }

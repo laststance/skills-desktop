@@ -498,7 +498,7 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
     expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
   })
 
-  it('keeps a local replacement when a reviewed link becomes a folder before unlink', async () => {
+  it('keeps a local replacement when a reviewed link becomes a folder before guarded commit', async () => {
     // Arrange
     const skillName = 'replacement-race-slot'
     const codexSkillsDir = join(tempHome, '.codex', 'skills')
@@ -511,12 +511,12 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
         await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
       return {
         ...actual,
-        unlink: async (path: string): Promise<void> => {
-          if (String(path) === linkPath) {
+        rename: async (oldPath: string, newPath: string): Promise<void> => {
+          if (String(oldPath) === linkPath) {
             await actual.rm(linkPath, { recursive: true, force: true })
             await actual.mkdir(linkPath, { recursive: true })
           }
-          return actual.unlink(path)
+          return actual.rename(oldPath, newPath)
         },
       }
     })
@@ -555,6 +555,132 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
       ],
     })
     expect((await lstat(linkPath)).isDirectory()).toBe(true)
+  })
+
+  it('keeps a symlink replacement that appears during guarded commit rename', async () => {
+    // Arrange
+    const skillName = 'replacement-during-rename'
+    const codexSkillsDir = join(tempHome, '.codex', 'skills')
+    const targetPath = join(tempHome, '.agents', 'skills', skillName)
+    const replacementTargetPath = join(
+      tempHome,
+      '.agents',
+      'skills',
+      'rename-replacement-target',
+    )
+    const linkPath = join(codexSkillsDir, skillName)
+    await mkdir(codexSkillsDir, { recursive: true })
+    await symlink(targetPath, linkPath)
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        rename: async (oldPath: string, newPath: string): Promise<void> => {
+          if (String(oldPath) === linkPath) {
+            await actual.rm(linkPath, { force: true })
+            await actual.symlink(replacementTargetPath, linkPath)
+          }
+          return actual.rename(oldPath, newPath)
+        },
+      }
+    })
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+    const handler = getRegisteredHandler('skills:clearBrokenSymlinkSlots')
+
+    // Act
+    const result = await handler(
+      {},
+      {
+        items: [
+          {
+            agentId: 'codex',
+            linkName: skillName,
+            linkPath,
+            targetPath,
+          },
+        ],
+      },
+    )
+
+    // Assert
+    expect(result).toEqual({
+      items: [
+        {
+          agentId: 'codex',
+          skillName,
+          linkPath,
+          outcome: 'error',
+          error: {
+            message:
+              'Reviewed broken link target changed. Rescan before cleanup.',
+            code: 'ESTALE',
+          },
+        },
+      ],
+    })
+    expect(await readlink(linkPath)).toBe(replacementTargetPath)
+  })
+
+  it('restores the reviewed symlink when its target reappears during guarded commit rename', async () => {
+    // Arrange
+    const skillName = 'target-restore-during-rename'
+    const codexSkillsDir = join(tempHome, '.codex', 'skills')
+    const targetPath = join(tempHome, '.agents', 'skills', skillName)
+    const linkPath = join(codexSkillsDir, skillName)
+    await mkdir(codexSkillsDir, { recursive: true })
+    await symlink(targetPath, linkPath)
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        rename: async (oldPath: string, newPath: string): Promise<void> => {
+          if (String(oldPath) === linkPath) {
+            await actual.mkdir(targetPath, { recursive: true })
+          }
+          return actual.rename(oldPath, newPath)
+        },
+      }
+    })
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+    const handler = getRegisteredHandler('skills:clearBrokenSymlinkSlots')
+
+    // Act
+    const result = await handler(
+      {},
+      {
+        items: [
+          {
+            agentId: 'codex',
+            linkName: skillName,
+            linkPath,
+            targetPath,
+          },
+        ],
+      },
+    )
+
+    // Assert
+    expect(result).toEqual({
+      items: [
+        {
+          agentId: 'codex',
+          skillName,
+          linkPath,
+          outcome: 'error',
+          error: {
+            message:
+              'Reviewed broken link target now exists. Rescan before cleanup.',
+            code: 'ESTALE',
+          },
+        },
+      ],
+    })
+    expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
+    expect((await lstat(targetPath)).isDirectory()).toBe(true)
   })
 
   it('refuses when a reviewed link becomes a different symlink before final unlink', async () => {

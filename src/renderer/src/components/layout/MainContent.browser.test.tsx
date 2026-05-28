@@ -18,6 +18,7 @@ const mockShellOpenExternal = vi.fn()
 const mockOnDeleteProgress = vi.fn(() => () => {})
 const mockSkillsDeleteSkills = vi.fn()
 const mockClearOrphanSymlinks = vi.fn()
+const mockRefreshAllData = vi.hoisted(() => vi.fn())
 
 /**
  * Short-circuit every heavy child MainContent renders so tests focus on the
@@ -59,7 +60,7 @@ vi.mock('../skills/UndoToast', () => ({
   UndoToast: () => null,
 }))
 vi.mock('../../redux/thunks', () => ({
-  refreshAllData: vi.fn(),
+  refreshAllData: mockRefreshAllData,
 }))
 vi.mock('sonner', () => ({
   toast: Object.assign(vi.fn(), {
@@ -78,6 +79,7 @@ beforeEach(() => {
   mockOnDeleteProgress.mockImplementation(() => () => {})
   mockSkillsDeleteSkills.mockReset()
   mockClearOrphanSymlinks.mockReset()
+  mockRefreshAllData.mockReset()
   // Install the `electron` IPC bridge — browser mode replaces the preload
   // context, so tests that exercise `window.electron.*` must plant a fake
   // before MainContent's mount effect fires.
@@ -826,6 +828,7 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
       orphanSkillName,
     ])
     expect(store.getState().ui.bulkSelectMode).toBe(true)
+    expect(mockRefreshAllData).toHaveBeenCalledTimes(1)
   })
 
   it('does not count stale orphan rows as cleanup-ready in delete confirmation', async () => {

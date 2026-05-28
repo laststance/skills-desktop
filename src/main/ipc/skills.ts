@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { Stats } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
@@ -122,6 +123,85 @@ async function assertReviewedTargetMissing(
 }
 
 /**
+ * Restore a moved cleanup candidate when post-rename validation proves it is stale.
+ * @param linkPath - Original agent slot path reviewed by the user.
+ * @param movedPath - Same-directory temporary path created by guarded rename.
+ * @returns void after the moved entry is back at the reviewed slot when possible.
+ * @example
+ * await restoreMovedCleanupCandidate('/agent/task', '/agent/task.cleanup-1')
+ */
+async function restoreMovedCleanupCandidate(
+  linkPath: AbsolutePath,
+  movedPath: AbsolutePath,
+): Promise<void> {
+  try {
+    await fs.lstat(linkPath)
+    throw new TrashError(
+      `Cleanup stopped after the reviewed slot changed. Moved entry left at ${movedPath} because ${linkPath} is occupied.`,
+      'ESTALE',
+    )
+  } catch (error) {
+    if (error instanceof TrashError) throw error
+    if (!isMissingPathError(error)) {
+      throw new TrashError(
+        `Cleanup stopped, but ${linkPath} could not be checked before restoring the moved entry: ${extractErrorMessage(error)}`,
+        errorCode(error),
+      )
+    }
+  }
+
+  try {
+    await fs.rename(movedPath, linkPath)
+  } catch (error) {
+    throw new TrashError(
+      `Cleanup stopped, but the moved entry could not be restored at ${linkPath}: ${extractErrorMessage(error)}`,
+      errorCode(error),
+    )
+  }
+}
+
+/**
+ * Commit cleanup by moving the candidate, validating the moved entry, then unlinking it.
+ * @param options - Reviewed path and target messages for final validation.
+ * @returns void after the moved, verified symlink is removed.
+ * @example
+ * await commitReviewedDanglingSymlink({ linkPath, targetPath, targetChangedMessage, targetExistsMessage, targetProbePrefix })
+ */
+async function commitReviewedDanglingSymlink(options: {
+  linkPath: AbsolutePath
+  targetPath: AbsolutePath
+  targetChangedMessage: string
+  targetExistsMessage: string
+  targetProbePrefix: string
+}): Promise<void> {
+  const movedPath =
+    `${options.linkPath}.cleanup-${randomUUID()}` as AbsolutePath
+  try {
+    await fs.rename(options.linkPath, movedPath)
+  } catch (error) {
+    if (isMissingPathError(error)) return
+    throw new TrashError(extractErrorMessage(error), errorCode(error))
+  }
+
+  try {
+    const movedReviewed = await readReviewedDanglingSymlink({
+      linkPath: movedPath,
+      targetPath: options.targetPath,
+      targetChangedMessage: options.targetChangedMessage,
+    })
+    await assertReviewedTargetMissing(
+      movedReviewed.resolvedTarget,
+      options.targetExistsMessage,
+      options.targetProbePrefix,
+    )
+    await fs.unlink(movedPath)
+  } catch (error) {
+    await restoreMovedCleanupCandidate(options.linkPath, movedPath)
+    throw error
+  }
+}
+
+/**
  * Revalidate and unlink one reviewed dangling symlink without moving replacements.
  * @param options - Exact reviewed path/target plus messages for stale-target cases.
  * @returns `missing` when the slot was already gone; otherwise `unlinked`.
@@ -154,7 +234,7 @@ async function unlinkReviewedDanglingSymlink(options: {
       options.targetProbePrefix,
     )
 
-    await fs.unlink(options.linkPath)
+    await commitReviewedDanglingSymlink(options)
   } catch (error) {
     if (isMissingPathError(error)) return 'missing'
     if (error instanceof TrashError) throw error
@@ -899,11 +979,13 @@ export function registerSkillsHandlers(): void {
       })
         .with({ isSymlink: true }, async () => {
           // `readlink` returns the raw target, which can be relative to the
-          // symlink's own directory. Resolve it against `dirname(sourcePath)`
-          // so validation and replication see an absolute filesystem path
-          // rather than a cwd-relative string.
+          // symlink's physical parent. Resolve through realpath(dirname) so
+          // symlinked config roots like Devin's ~/.config stay valid.
           const rawTarget = await fs.readlink(sourcePath)
-          const resolvedTarget = resolve(dirname(sourcePath), rawTarget)
+          const resolvedTarget = await resolveRawSymlinkTarget(
+            sourcePath,
+            rawTarget,
+          )
           // Validate the resolved symlink target is within allowed bases.
           // After the CREATE_SYMLINKS fix, symlinks may legitimately point at
           // either SOURCE_DIR (source skills) or another agent's dir (local

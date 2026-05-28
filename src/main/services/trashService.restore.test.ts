@@ -1,7 +1,15 @@
 import { mkdtempSync, realpathSync } from 'node:fs'
-import { mkdir, rm, stat, writeFile } from 'node:fs/promises'
+import {
+  lstat,
+  mkdir,
+  readlink,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
 
 import {
   afterAll,
@@ -114,6 +122,8 @@ describe('trashService.restore target-containment', () => {
     await rm(sharedTrashDir, { recursive: true, force: true })
     await rm(sharedSourceDir, { recursive: true, force: true })
     await rm(sharedClaudeAgent, { recursive: true, force: true })
+    await rm(join(sharedHome, '.config'), { recursive: true, force: true })
+    await rm(join(sharedHome, 'dotfiles'), { recursive: true, force: true })
     await mkdir(sharedSourceDir, { recursive: true })
     await mkdir(sharedClaudeAgent, { recursive: true })
   })
@@ -140,6 +150,39 @@ describe('trashService.restore target-containment', () => {
     await stat(join(sharedSourceDir, skillName))
     // Symlink re-planted.
     await stat(linkPath)
+  })
+
+  it('restores a Devin symlink whose relative target depends on physical .config parent', async () => {
+    // Arrange
+    const { restore } = await trashServicePromise
+    const skillName = 'devin-relative-restore'
+    const physicalConfigDir = join(sharedHome, 'dotfiles', '.config')
+    const physicalDevinSkillsDir = join(physicalConfigDir, 'devin', 'skills')
+    const logicalConfigDir = join(sharedHome, '.config')
+    const logicalDevinSkillsDir = join(logicalConfigDir, 'devin', 'skills')
+    const linkPath = join(logicalDevinSkillsDir, skillName)
+    const target = relative(
+      physicalDevinSkillsDir,
+      join(sharedSourceDir, skillName),
+    )
+    await mkdir(physicalDevinSkillsDir, { recursive: true })
+    await symlink(physicalConfigDir, logicalConfigDir)
+    const tombstone = await buildFakeTrashEntry({
+      skillName,
+      symlinks: [{ agentId: 'devin', linkPath, target }],
+    })
+
+    // Act
+    const result = await restore(tombstone as never)
+
+    // Assert
+    expect(result.outcome).toBe('restored')
+    if (result.outcome === 'restored') {
+      expect(result.symlinksRestored).toBeGreaterThanOrEqual(1)
+    }
+    expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
+    await expect(readlink(linkPath)).resolves.toBe(target)
+    await expect(stat(join(sharedSourceDir, skillName))).resolves.toBeTruthy()
   })
 
   it('skips symlink when manifest target absolute-escapes SOURCE_DIR', async () => {
