@@ -1257,12 +1257,13 @@ const CleanupRow = React.memo(function CleanupRow({
       </div>
       <div
         id={pathDetailsId}
-        className="ml-14 mt-1 space-y-1 font-mono text-[11px] text-muted-foreground"
+        data-testid="cleanup-path-evidence"
+        className="ml-14 mt-2 space-y-1 rounded-md border border-border/70 bg-muted/30 px-2 py-1.5 font-mono text-xs text-foreground/75"
       >
         {pathDetails.map((pathDetail) => (
           <p
             key={pathDetail}
-            className="break-words leading-4"
+            className="break-all leading-5"
             title={pathDetail}
           >
             {pathDetail}

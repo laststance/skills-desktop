@@ -1140,6 +1140,24 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Update the type snippets to mirror `src/shared/types.ts` for `Skill`, `Agent`, and `SymlinkInfo`.
 
+## Design review follow-ups (2026-05-29)
+
+### P1. Skill row Add action must not be part of the heading
+
+**Status:** Fixed after gstack-design-review.
+
+**Finding:** The Installed list renders the `Add` button inside the row `<h3>`, so the accessibility tree exposes headings like `auto Add`. The action also uses a 20px-tall target, below the compact desktop 24px control floor in `DESIGN.md`.
+
+**Fix direction:** Split the title and row action into a header flex row, keep the `<h3>` to skill identity only, and size the compact `Add` button to at least 24px tall.
+
+### P1. Symlink cleanup dialog must make destructive path identity readable
+
+**Status:** Fixed after gstack-design-review.
+
+**Finding:** The cleanup dialog shows the exact `linkPath -> targetPath` identity in 11px muted monospace text. For a deletion-adjacent flow, that evidence is critical but visually recedes behind the row label and red action.
+
+**Fix direction:** Promote the path evidence into a compact tinted block with higher contrast, 12px monospace text, and wrapping that preserves long path inspection.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

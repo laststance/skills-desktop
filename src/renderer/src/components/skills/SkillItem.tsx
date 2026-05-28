@@ -191,6 +191,102 @@ const GlobalStatusBadges = React.memo(function GlobalStatusBadges({
   )
 })
 
+interface SkillTitleRowProps {
+  skill: Skill
+  isLinked: boolean
+  isLocalSkill: boolean
+  isInaccessibleSkill: boolean
+  showAddButton: boolean
+  showGStackBadge: boolean
+  onAddClick: React.MouseEventHandler<HTMLButtonElement>
+}
+
+/**
+ * Renders skill identity and compact row actions without merging controls into the heading.
+ * @param props - Skill state flags and Add click handler for one list row.
+ * @returns Header row with a clean skill heading plus adjacent actions.
+ * @example
+ * <SkillTitleRow skill={skill} isLinked={false} isLocalSkill={false} isInaccessibleSkill={false} showAddButton showGStackBadge={false} onAddClick={handleAddClick} />
+ */
+const SkillTitleRow = React.memo(function SkillTitleRow({
+  skill,
+  isLinked,
+  isLocalSkill,
+  isInaccessibleSkill,
+  showAddButton,
+  showGStackBadge,
+  onAddClick,
+}: SkillTitleRowProps): React.ReactElement {
+  return (
+    <div className="flex items-start gap-2">
+      <h3 className="font-medium truncate flex min-w-0 flex-1 items-center gap-1.5">
+        {isLinked && (
+          <Link2
+            className="h-3.5 w-3.5 shrink-0 text-success/70"
+            aria-label="Linked skill"
+          />
+        )}
+        {isLocalSkill && (
+          <FolderDot
+            className="h-3.5 w-3.5 shrink-0 text-emerald-400/70"
+            aria-label="Local skill"
+          />
+        )}
+        <span className="truncate">{skill.name}</span>
+        {isInaccessibleSkill && (
+          <span
+            role="img"
+            className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0"
+            aria-label="Inaccessible link - manual review required"
+            title="Target cannot be verified - review this link before removing it"
+          >
+            inaccessible
+          </span>
+        )}
+        {skill.isOrphan && (
+          <span
+            role="img"
+            data-testid={`skill-orphan-badge-${skill.name}`}
+            className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0"
+            aria-label="Orphan skill — source directory is missing"
+            title="Source directory is missing — use Cleanup to remove the dangling symlinks"
+          >
+            orphan
+          </span>
+        )}
+      </h3>
+      {(showAddButton || showGStackBadge) && (
+        <div className="flex shrink-0 items-center gap-1">
+          {showAddButton && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onAddClick}
+              className="h-6 px-2 text-xs"
+            >
+              <Plus className="mr-0.5 h-3 w-3" />
+              Add
+            </Button>
+          )}
+          {showGStackBadge && (
+            <a
+              href={GSTACK_REPOSITORY_URL}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex h-6 items-center gap-1 rounded-md border border-sky-400/40 bg-sky-500/15 px-1.5 text-[10px] font-semibold text-sky-300 transition-colors hover:bg-sky-500/25"
+              aria-label="Open G-Stack GitHub repository"
+            >
+              G-Stack
+              <ExternalLink className="h-2.5 w-2.5" />
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  )
+})
+
 /**
  * Single skill card in the skills list.
  *
@@ -572,73 +668,15 @@ export const SkillItem = React.memo(function SkillItem({
                 </label>
               )}
               <div className="flex-1 min-w-0">
-                <h3 className="font-medium truncate flex items-center gap-1.5">
-                  {isLinked && (
-                    <Link2
-                      className="h-3.5 w-3.5 shrink-0 text-success/70"
-                      aria-label="Linked skill"
-                    />
-                  )}
-                  {isLocalSkill && (
-                    <FolderDot
-                      className="h-3.5 w-3.5 shrink-0 text-emerald-400/70"
-                      aria-label="Local skill"
-                    />
-                  )}
-                  <span className="truncate">{skill.name}</span>
-                  {isInaccessibleSkill && (
-                    <span
-                      role="img"
-                      className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0"
-                      aria-label="Inaccessible link - manual review required"
-                      title="Target cannot be verified - review this link before removing it"
-                    >
-                      inaccessible
-                    </span>
-                  )}
-                  {/* Orphan badge — paired with the amber left-border so the
-                      row's state is legible even when the user hasn't
-                      noticed the border accent. The plain word "orphan"
-                      keeps it scannable; tooltip explains the action. */}
-                  {skill.isOrphan && (
-                    <span
-                      role="img"
-                      data-testid={`skill-orphan-badge-${skill.name}`}
-                      className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0"
-                      aria-label="Orphan skill — source directory is missing"
-                      title="Source directory is missing — use Cleanup to remove the dangling symlinks"
-                    >
-                      orphan
-                    </span>
-                  )}
-                  {/* Add button:
-                      - global view => AddSymlinkModal
-                      - agent view => CopyToAgentsModal */}
-                  {showAddButton && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleAddClick}
-                      className="h-5 px-1.5 text-xs shrink-0 ml-1"
-                    >
-                      <Plus className="h-3 w-3 mr-0.5" />
-                      Add
-                    </Button>
-                  )}
-                  {showGStackBadge && (
-                    <a
-                      href={GSTACK_REPOSITORY_URL}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 rounded-md border border-sky-400/40 bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-sky-300 transition-colors hover:bg-sky-500/25 shrink-0"
-                      aria-label="Open G-Stack GitHub repository"
-                    >
-                      G-Stack
-                      <ExternalLink className="h-2.5 w-2.5" />
-                    </a>
-                  )}
-                </h3>
+                <SkillTitleRow
+                  skill={skill}
+                  isLinked={isLinked}
+                  isLocalSkill={isLocalSkill}
+                  isInaccessibleSkill={isInaccessibleSkill}
+                  showAddButton={showAddButton}
+                  showGStackBadge={showGStackBadge}
+                  onAddClick={handleAddClick}
+                />
                 {skill.description && (
                   <p className="text-sm text-muted-foreground line-clamp-2 mt-1 min-h-10">
                     {skill.description}

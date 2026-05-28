@@ -195,6 +195,29 @@ describe('SymlinkCleanupDialog', () => {
     })
   })
 
+  it('shows destructive path evidence as a readable inspection block', async () => {
+    // Arrange
+    const destructivePath =
+      '/Users/test/.cursor/skills/readable-task -> /Users/test/.agents/skills/readable-task'
+    mockGetSkills.mockResolvedValueOnce([
+      makeSkillWithBrokenSlot('readable-task', 'cursor'),
+    ])
+
+    // Act
+    const screen = await renderOpenedDialog()
+
+    // Assert
+    const pathText = screen.getByText(destructivePath)
+    await expect.element(pathText).toBeVisible()
+    const evidence = pathText
+      .element()
+      .closest('[data-testid="cleanup-path-evidence"]')
+    expect(evidence).toBeInstanceOf(HTMLElement)
+    const evidenceElement = evidence as HTMLElement
+    expect(evidenceElement.className).toContain('text-xs')
+    expect(evidenceElement.className).toContain('bg-muted/30')
+  })
+
   it('shows a rescan affordance after an initial scan failure', async () => {
     // Arrange
     mockGetSkills

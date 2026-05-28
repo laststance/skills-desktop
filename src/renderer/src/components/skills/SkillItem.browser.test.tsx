@@ -446,6 +446,25 @@ describe('SkillItem delete button', () => {
 })
 
 describe('SkillItem Add button routing', () => {
+  it('keeps Add out of the row heading so screen readers announce only the skill name', async () => {
+    // Arrange
+    const { screen } = await renderSkillItem(makeSkill())
+
+    // Act
+    const headingWithAction = screen.getByRole('heading', {
+      name: /task Add/i,
+    })
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { name: /^task$/i }))
+      .toBeInTheDocument()
+    expect(headingWithAction.query()).toBeNull()
+    await expect
+      .element(screen.getByRole('button', { name: /^Add$/i }))
+      .toBeInTheDocument()
+  })
+
   it('shows Add button in agent view when the skill exists in selected agent', async () => {
     const { screen, store } = await renderSkillItem(
       makeSkill({
