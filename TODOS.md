@@ -516,6 +516,70 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Add or extend E2E coverage for inaccessible state if a stable fixture can create it without touching protected user paths.
 
+### P1. Legacy single unlink must derive the agent slot in main
+
+**Status:** Fixed after seventh post-fix subagent review follow-up.
+
+**Finding:** `skills:unlinkFromAgent` validates the renderer-supplied `linkPath` against broad allowed bases, so a tampered renderer can request a source path or another agent slot while presenting a different `agentId`.
+
+**Fix direction:** Resolve `agentId + skillName` in the main process, require the supplied `linkPath` to match that exact slot, and operate on the derived path only.
+
+### P1. Remove-all agent deletion must derive the agent path in main
+
+**Status:** Fixed after seventh post-fix subagent review follow-up.
+
+**Finding:** `skills:removeAllFromAgent` validates the renderer-supplied `agentPath` against all agent bases, so a tampered renderer can delete a different non-shared agent folder than the selected `agentId`.
+
+**Fix direction:** Resolve the selected agent by `agentId`, require the supplied `agentPath` to match the selected agent path exactly, and call `trashItem` only on the derived path.
+
+### P1. Guarded stale cleanup E2E must hit the main IPC commit guard
+
+**Status:** Fixed after seventh post-fix subagent review follow-up.
+
+**Finding:** The stale cleanup E2E mutates before the renderer fresh-scan, so it verifies the renderer `Plan changed` guard but not the main-process guarded cleanup path.
+
+**Fix direction:** Exercise the real renderer-to-main cleanup IPC with a reviewed stale payload after UI review, then assert the replacement survives and main returns an `ESTALE` cleanup result.
+
+### P2. Source-backed delete cascade must verify symlink target identity
+
+**Status:** Fixed after seventh post-fix subagent review follow-up.
+
+**Finding:** Source-backed deletion removes same-name agent symlinks without verifying that those symlinks point to the source being deleted.
+
+**Fix direction:** Resolve each candidate symlink target and skip stale or mismatched links instead of unlinking links that belong to another source.
+
+### P2. Refresh-failed ready scan must preserve the warning
+
+**Status:** Fixed after seventh post-fix subagent review follow-up.
+
+**Finding:** `runScan({ refreshDashboard: true })` preserves auxiliary refresh errors only for the no-safe-cleanup state. A fresh scan that still has cleanup items drops the warning and the Rescan affordance.
+
+**Fix direction:** Carry auxiliary refresh failure messages into the ready state and keep Rescan available while the dashboard refresh warning is present.
+
+### P2. Destructive E2Es must not depend on pre-existing snapshot skills
+
+**Status:** Fixed after seventh post-fix subagent review follow-up.
+
+**Finding:** Several symlink cleanup E2Es call `waitForInitialScan()` before arranging their throwaway fixture data, so an empty or skipped-install snapshot can timeout before the test reaches the intended path.
+
+**Fix direction:** Arrange the fixture first, then drive `refreshSkillsState()` or a direct scan so the test owns the data it needs.
+
+### P2. Agent-view toolbar bulk unlink needs real integration coverage
+
+**Status:** Fixed after seventh post-fix subagent review follow-up.
+
+**Finding:** `MainContent.browser.test.tsx` mocks `SelectionToolbar`, so the real toolbar Select all and Unlink path is not proving that broken or inaccessible rows are excluded from destructive bulk payloads.
+
+**Fix direction:** Add browser coverage with the real `SelectionToolbar`, select all visible agent rows, and assert the unlink payload contains only cleanup-safe valid rows.
+
+### P3. Inaccessible manual-review state needs health-surface E2E coverage
+
+**Status:** Fixed after seventh post-fix subagent review follow-up.
+
+**Finding:** The inaccessible E2E verifies row affordances but not the HealthWidget / scan-issues surface that tells users the item needs manual review rather than cleanup.
+
+**Fix direction:** Extend the inaccessible E2E to assert the manual-review health copy and absence of cleanup-ready scan issues.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

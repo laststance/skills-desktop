@@ -98,7 +98,9 @@ describe('skills:removeAllFromAgent handler', () => {
     const result = await handler({}, { agentId: 'cline', agentPath: sourceDir })
 
     expect(result.success).toBe(false)
-    expect(result.error).toMatch(/shared skills folder|path traversal/i)
+    expect(result.error).toMatch(
+      /shared skills folder|path traversal|does not match the selected agent slot/i,
+    )
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
@@ -120,7 +122,9 @@ describe('skills:removeAllFromAgent handler', () => {
     )
 
     expect(result.success).toBe(false)
-    expect(result.error).toMatch(/shared skills folder|path traversal/i)
+    expect(result.error).toMatch(
+      /shared skills folder|path traversal|does not match the selected agent slot/i,
+    )
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
@@ -141,6 +145,29 @@ describe('skills:removeAllFromAgent handler', () => {
     )
 
     expect(result).toEqual({ success: true, removedCount: 0 })
+    expect(trashItemMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects a renderer path for a different agent than the selected agentId', async () => {
+    // Arrange
+    const cursorDir = join(tempHome, '.cursor', 'skills')
+    const claudeDir = join(tempHome, '.claude', 'skills')
+    await mkdir(cursorDir, { recursive: true })
+    await mkdir(claudeDir, { recursive: true })
+
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+
+    // Act
+    const handler = getRegisteredHandler('skills:removeAllFromAgent')
+    const result = await handler(
+      {},
+      { agentId: 'cursor', agentPath: claudeDir },
+    )
+
+    // Assert
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/does not match the selected agent slot/i)
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 

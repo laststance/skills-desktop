@@ -284,7 +284,7 @@ test('unlinkFromAgent refuses a regular file with the structured kind-mismatch e
     async (args: { skillName: string; agentId: string; linkPath: string }) =>
       window.electron.skills.unlinkFromAgent(args),
     {
-      skillName: 'not-a-skill',
+      skillName: 'not-a-skill.txt',
       agentId: 'claude-code',
       linkPath: regularFilePath,
     },

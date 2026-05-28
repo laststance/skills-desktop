@@ -89,7 +89,7 @@ interface SymlinkCleanupDialogState {
 type SymlinkCleanupDialogAction =
   | { type: 'reset' }
   | { type: 'scanning' }
-  | { type: 'ready'; plan: SymlinkCleanupPlan }
+  | { type: 'ready'; plan: SymlinkCleanupPlan; message?: string | null }
   | {
       type: 'no-safe-cleanup'
       plan: SymlinkCleanupPlan
@@ -154,7 +154,7 @@ function symlinkCleanupDialogReducer(
         selectedItemIds,
         rowErrors: {},
         summary: null,
-        message: null,
+        message: action.message ?? null,
       }
     }
     case 'no-safe-cleanup':
@@ -551,7 +551,11 @@ export const SymlinkCleanupDialog = React.memo(
             })
             return
           }
-          dispatchLocal({ type: 'ready', plan })
+          dispatchLocal({
+            type: 'ready',
+            plan,
+            message: auxiliaryRefreshMessage,
+          })
         } catch (error) {
           if (scanRequestIdRef.current !== requestId) return
           dispatchLocal({
@@ -604,7 +608,8 @@ export const SymlinkCleanupDialog = React.memo(
         refreshDashboard:
           (state.phase === 'complete' &&
             didCleanupRefreshFail(state.summary)) ||
-          (state.phase === 'no-safe-cleanup' && state.message !== null),
+          ((state.phase === 'no-safe-cleanup' || state.phase === 'ready') &&
+            state.message !== null),
       })
     }, [runScan, state.message, state.phase, state.summary])
 
@@ -867,6 +872,7 @@ export const SymlinkCleanupDialog = React.memo(
       state.phase === 'complete' && didCleanupRefreshFail(state.summary)
     const noSafeNeedsRescan =
       state.phase === 'no-safe-cleanup' && state.message !== null
+    const readyNeedsRescan = state.phase === 'ready' && state.message !== null
 
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -893,7 +899,8 @@ export const SymlinkCleanupDialog = React.memo(
             {state.phase === 'stale' ||
             state.phase === 'error' ||
             completeNeedsRescan ||
-            noSafeNeedsRescan ? (
+            noSafeNeedsRescan ||
+            readyNeedsRescan ? (
               <Button
                 type="button"
                 variant="outline"

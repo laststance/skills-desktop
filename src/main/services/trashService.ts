@@ -457,6 +457,127 @@ export async function readReviewedDanglingSymlink(options: {
 }
 
 /**
+ * Compare paths by filesystem identity when possible, falling back to resolve().
+ * @param leftPath - First path to compare.
+ * @param rightPath - Second path to compare.
+ * @returns true when both paths identify the same filesystem target.
+ * @example await pathsReferenceSameTarget('/tmp/a-link-target', '/tmp/a')
+ */
+async function pathsReferenceSameTarget(
+  leftPath: AbsolutePath,
+  rightPath: AbsolutePath,
+): Promise<boolean> {
+  const normalizeForIdentity = async (path: AbsolutePath): Promise<string> => {
+    try {
+      return await fs.realpath(path)
+    } catch {
+      return resolve(path)
+    }
+  }
+
+  return (
+    (await normalizeForIdentity(leftPath)) ===
+    (await normalizeForIdentity(rightPath))
+  )
+}
+
+/**
+ * Read and verify a source-backed agent symlink still points to the source.
+ * @param linkPath - Candidate agent symlink path.
+ * @param sourcePath - Source skill directory being moved to trash.
+ * @returns Raw and resolved target for manifest recording.
+ * @example await readReviewedSourceSymlink(linkPath, sourcePath)
+ */
+async function readReviewedSourceSymlink(
+  linkPath: AbsolutePath,
+  sourcePath: AbsolutePath,
+): Promise<{ rawTarget: string; resolvedTarget: AbsolutePath }> {
+  let stats: Stats
+  try {
+    stats = await fs.lstat(linkPath)
+  } catch (error) {
+    if (isMissingPathError(error)) {
+      throw new TrashError(
+        'Source-backed agent symlink is already missing',
+        'ENOENT',
+      )
+    }
+    throw new TrashError(extractErrorMessage(error), errorCode(error))
+  }
+
+  if (!stats.isSymbolicLink()) {
+    throw new TrashError(
+      'Source-backed agent slot is no longer a symlink',
+      'ESTALE',
+    )
+  }
+
+  let rawTarget: string
+  try {
+    rawTarget = await fs.readlink(linkPath)
+  } catch (error) {
+    if (isMissingPathError(error)) {
+      throw new TrashError(
+        'Source-backed agent symlink is already missing',
+        'ENOENT',
+      )
+    }
+    throw new TrashError(
+      'Source-backed agent slot is no longer a symlink',
+      'ESTALE',
+    )
+  }
+
+  const resolvedTarget = await resolveRawSymlinkTarget(linkPath, rawTarget)
+  if (!(await pathsReferenceSameTarget(resolvedTarget, sourcePath))) {
+    throw new TrashError(
+      'Source-backed agent symlink no longer points to the source being deleted',
+      'ESTALE',
+    )
+  }
+
+  return { rawTarget, resolvedTarget }
+}
+
+/**
+ * Quarantine, revalidate, then unlink one source-owned agent symlink.
+ * @param linkPath - Candidate symlink path under an agent skills directory.
+ * @param sourcePath - Source directory whose matching symlinks may be removed.
+ * @returns Missing status or the raw target removed for manifest restore.
+ * @example await unlinkReviewedSourceSymlink(linkPath, sourcePath)
+ */
+async function unlinkReviewedSourceSymlink(
+  linkPath: AbsolutePath,
+  sourcePath: AbsolutePath,
+): Promise<'missing' | { outcome: 'unlinked'; target: string }> {
+  try {
+    await readReviewedSourceSymlink(linkPath, sourcePath)
+  } catch (error) {
+    if (isMissingPathError(error)) return 'missing'
+    throw error
+  }
+
+  const movedPath =
+    `${linkPath}.cleanup-${randomBytes(4).toString('hex')}` as AbsolutePath
+
+  try {
+    await fs.rename(linkPath, movedPath)
+  } catch (error) {
+    if (isMissingPathError(error)) return 'missing'
+    throw new TrashError(extractErrorMessage(error), errorCode(error))
+  }
+
+  try {
+    const movedReviewed = await readReviewedSourceSymlink(movedPath, sourcePath)
+    await fs.unlink(movedPath)
+    return { outcome: 'unlinked', target: movedReviewed.rawTarget }
+  } catch (error) {
+    await restoreMovedCleanupCandidate(linkPath, movedPath)
+    throw error
+  }
+}
+
+/**
  * Assert the reviewed symlink target is still absent and cleanup-safe.
  * @param resolvedTarget - Absolute target path resolved from the reviewed symlink.
  * @param targetExistsMessage - Stale message when the source target reappears.
@@ -823,25 +944,17 @@ async function moveSourceBackedToTrash(
     }
 
     if (stats.isSymbolicLink()) {
-      let target: string
+      let removal: 'missing' | { outcome: 'unlinked'; target: string }
       try {
-        target = await fs.readlink(linkPath)
-      } catch (error) {
-        const code = errorCode(error)
-        if (code === 'ENOENT') continue
-        throw new TrashError(
-          `Failed to read symlink target: ${extractErrorMessage(error)}`,
-          code,
+        removal = await unlinkReviewedSourceSymlink(
+          linkPath as AbsolutePath,
+          sourcePath,
         )
-      }
-      try {
-        await fs.unlink(linkPath)
       } catch (error) {
         const code = errorCode(error)
-        if (code === 'ENOENT') {
-          // Race: file disappeared between lstat and unlink. Record best-effort, continue.
-          recordedSymlinks.push({ agentId: agent.id, linkPath, target })
-          cascadeAgentIds.push(agent.id)
+        if (code === 'ENOENT' || code === 'ESTALE') {
+          // Stale/mismatched same-name links belong to another source or changed
+          // after scan. Leave them for manual review instead of cascading.
           continue
         }
         throw new TrashError(
@@ -849,7 +962,12 @@ async function moveSourceBackedToTrash(
           code,
         )
       }
-      recordedSymlinks.push({ agentId: agent.id, linkPath, target })
+      if (removal === 'missing') continue
+      recordedSymlinks.push({
+        agentId: agent.id,
+        linkPath,
+        target: removal.target,
+      })
       cascadeAgentIds.push(agent.id)
     }
     // Non-symlink directories inside agent dirs are "local skills" — leave them

@@ -548,6 +548,29 @@ describe('trashService (integration)', () => {
     await stat(orphanLocal)
   })
 
+  it('source-backed delete skips same-name symlinks that point to another source', async () => {
+    const { moveToTrash } = await trashServicePromise
+
+    // Arrange
+    const skillName = 'source-cascade-target-identity'
+    const sourcePath = await makeSourceSkill(skillName)
+    const otherSourcePath = await makeSourceSkill('other-cascade-owner')
+    const cursorLinkPath = join(sharedAgentCursor, skillName)
+    await symlink(otherSourcePath, cursorLinkPath)
+
+    // Act
+    const deleteResult = await moveToTrash(skillName)
+    assertTombstoned(deleteResult)
+
+    // Assert
+    expect(deleteResult.symlinksRemoved).toBe(0)
+    expect(deleteResult.cascadeAgents).not.toContain('cursor')
+    await expect(stat(sourcePath)).rejects.toThrow()
+    await expect(stat(otherSourcePath)).resolves.toBeDefined()
+    await expect(lstat(cursorLinkPath)).resolves.toBeDefined()
+    expect(await readlink(cursorLinkPath)).toBe(otherSourcePath)
+  })
+
   it('regression: moveToTrash no longer throws "already deleted" when only an agent-side local folder exists', async () => {
     // Direct repro of the user-reported bug. Pre-fix, the IPC handler called
     // moveToTrash with sourcePath = SOURCE_DIR/<name>, which didn't exist for

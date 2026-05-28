@@ -46,6 +46,27 @@ type AgentPathRemovalResult =
   | { success: false; error: string; code?: string }
 
 /**
+ * Require a renderer path to name the same slot the main process derives.
+ * @param rendererPath - Path supplied over IPC for backward-compatible callers
+ * @param derivedPath - Path calculated from validated main-process state
+ * @param subject - Human-readable path kind for error messages
+ * @returns Derived path after exact normalized equality passes
+ * @example assertDerivedPathMatch('/a/b', '/a/b/', 'agent path')
+ */
+function assertDerivedPathMatch(
+  rendererPath: AbsolutePath,
+  derivedPath: AbsolutePath,
+  subject: string,
+): AbsolutePath {
+  if (resolve(rendererPath) !== resolve(derivedPath)) {
+    throw new Error(
+      `Renderer ${subject} does not match the selected agent slot.`,
+    )
+  }
+  return derivedPath
+}
+
+/**
  * Remove an agent symlink path after the caller has already validated and
  * lstat'd it. Directories are refused here so destructive local-folder removal
  * remains isolated to the single-unlink confirmation path.
@@ -377,17 +398,33 @@ export function registerSkillsHandlers(): void {
    * @returns UnlinkResult with success status and optional error
    */
   typedHandle(IPC_CHANNELS.SKILLS_UNLINK_FROM_AGENT, async (_, options) => {
-    const { linkPath, confirmedLocalDirectoryDelete = false } = options
+    const {
+      agentId,
+      skillName,
+      linkPath,
+      confirmedLocalDirectoryDelete = false,
+    } = options
 
     try {
+      const agent = findAgentById(agentId)
+      if (!agent) {
+        return { success: false, error: 'Agent not found' }
+      }
+
+      const derivedLinkPath = assertDerivedPathMatch(
+        linkPath,
+        join(agent.path, skillName) as AbsolutePath,
+        'link path',
+      )
+
       // Allow agent dirs (for local skills) AND SOURCE_DIR (for symlinked skills).
       // validatePath calls realpathSync, which follows the symlink to its source
       // in ~/.agents/skills/. Without SOURCE_DIR in the allowed bases, every
       // symlinked-skill unlink fails with "Path traversal attempt detected".
-      validatePath(linkPath, getAllowedBases())
+      validatePath(derivedLinkPath, getAllowedBases())
       let stats: Stats
       try {
-        stats = await fs.lstat(linkPath)
+        stats = await fs.lstat(derivedLinkPath)
       } catch (error) {
         if (errorCode(error) === 'ENOENT') {
           // Already gone — match bulk unlink's idempotent no-op behavior.
@@ -408,11 +445,11 @@ export function registerSkillsHandlers(): void {
         // Local skill deletion arrives from UnlinkDialog's destructive confirm
         // action. Move to OS Trash instead of recursively deleting bytes so a
         // mistaken confirmation is still recoverable at the filesystem level.
-        await shell.trashItem(linkPath)
+        await shell.trashItem(derivedLinkPath)
         return { success: true }
       }
 
-      return await removeLinkPathByKind(linkPath, stats)
+      return await removeLinkPathByKind(derivedLinkPath, stats)
     } catch (error) {
       return { success: false, error: extractErrorMessage(error) }
     }
@@ -431,20 +468,35 @@ export function registerSkillsHandlers(): void {
    * @returns RemoveAllFromAgentResult with item count removed
    */
   typedHandle(IPC_CHANNELS.SKILLS_REMOVE_ALL_FROM_AGENT, async (_, options) => {
-    const { agentPath } = options
+    const { agentId, agentPath } = options
 
     try {
+      const agent = findAgentById(agentId)
+      if (!agent) {
+        return {
+          success: false,
+          removedCount: 0,
+          error: 'Agent not found',
+        }
+      }
+
+      const derivedAgentPath = assertDerivedPathMatch(
+        agentPath,
+        agent.path as AbsolutePath,
+        'agent path',
+      )
+
       const agentBases = AGENTS.map((a) => a.path)
       // validatePath throws on traversal attempts. We discard the return
       // value intentionally: SHARED_AGENT_PATHS is keyed by the resolve()-
       // normalized join() form, NOT by realpath, to avoid macOS firmlink
       // (/var → /private/var) false negatives. isSharedAgentPath handles
-      // symlink aliases itself via its realpathSync fallback. Using
-      // agentPath (not the realpath'd form) for trashItem is also safer:
-      // trashItem on a symlink moves the symlink, not its target.
-      validatePath(agentPath, agentBases)
+      // symlink aliases itself via its realpathSync fallback. Using the
+      // derived raw agent path for trashItem is also safer: trashItem on a
+      // symlink moves the symlink, not its target.
+      validatePath(derivedAgentPath, agentBases)
 
-      if (isSharedAgentPath(agentPath)) {
+      if (isSharedAgentPath(derivedAgentPath)) {
         return {
           success: false,
           removedCount: 0,
@@ -458,7 +510,7 @@ export function registerSkillsHandlers(): void {
       // Short-circuit when the dir is already gone so double-clicks and
       // out-of-band deletes don't surface as errors.
       try {
-        await fs.access(agentPath)
+        await fs.access(derivedAgentPath)
       } catch {
         return { success: true, removedCount: 0 }
       }
@@ -466,7 +518,7 @@ export function registerSkillsHandlers(): void {
       // Count entries before deletion for reporting
       let removedCount = 0
       try {
-        const entries = await fs.readdir(agentPath)
+        const entries = await fs.readdir(derivedAgentPath)
         removedCount = entries.length
       } catch {
         // Directory may be unreadable (permissions) — proceed to trash anyway
@@ -474,7 +526,7 @@ export function registerSkillsHandlers(): void {
 
       // Move to OS trash instead of hard-rm so accidents can be restored from
       // Finder > Trash.
-      await shell.trashItem(agentPath)
+      await shell.trashItem(derivedAgentPath)
 
       return { success: true, removedCount }
     } catch (error) {

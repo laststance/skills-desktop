@@ -367,6 +367,55 @@ describe('SymlinkCleanupDialog', () => {
     expect(screen.getByText(/Cleanup failed/).query()).toBeNull()
   })
 
+  it('keeps dashboard refresh warnings when rescan finds more cleanup items', async () => {
+    // Arrange
+    const firstPlan = [makeSkillWithBrokenSlot('refresh-ready-task', 'cursor')]
+    const nextPlan = [makeSkillWithBrokenSlot('next-refresh-task', 'codex')]
+    mockGetSkills
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce(nextPlan)
+      .mockResolvedValueOnce(nextPlan)
+    mockGetAgents
+      .mockRejectedValueOnce(new Error('Dashboard refresh offline'))
+      .mockRejectedValueOnce(new Error('Dashboard refresh still offline'))
+    mockClearBrokenSymlinkSlots.mockResolvedValue({
+      items: [
+        {
+          agentId: 'cursor',
+          skillName: 'refresh-ready-task',
+          linkPath: '/Users/test/.cursor/skills/refresh-ready-task',
+          outcome: 'unlinked',
+        },
+      ],
+    })
+    const screen = await renderOpenedDialog()
+
+    // Act
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 1 selected' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Clean 1 selected' }).click()
+    await expect
+      .element(screen.getByRole('button', { name: 'Rescan' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Rescan' }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByText('next-refresh-task', { exact: true }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 1 selected' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByText(/Dashboard refresh still offline/))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Rescan' }))
+      .toBeVisible()
+  })
+
   it('requires rescan when a failed row keeps its id but changes target after cleanup', async () => {
     // Arrange
     const firstPlan = [makeSkillWithBrokenSlot('failed-task', 'codex')]
