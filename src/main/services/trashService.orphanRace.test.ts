@@ -434,11 +434,15 @@ describe('trashService orphan cleanup guarded commit', () => {
         await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
       return {
         ...actual,
-        rename: async (oldPath: string, newPath: string): Promise<void> => {
+        cp: async (
+          source: string,
+          destination: string,
+          options?: Parameters<typeof actual.cp>[2],
+        ): Promise<void> => {
           if (
-            oldPath.includes('/.agents/.trash/') &&
-            oldPath.endsWith('/source') &&
-            newPath === sourcePath
+            source.includes('/.agents/.trash/') &&
+            source.endsWith('/source') &&
+            destination === sourcePath
           ) {
             const error = new Error(
               'forced source rollback failure',
@@ -446,7 +450,7 @@ describe('trashService orphan cleanup guarded commit', () => {
             error.code = 'EACCES'
             throw error
           }
-          return actual.rename(oldPath, newPath)
+          return actual.cp(source, destination, options)
         },
         writeFile: async (
           path: string,
@@ -591,7 +595,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     ).resolves.toBeDefined()
   })
 
-  it('does not overwrite a replacement during manifest rollback EXDEV restore', async () => {
+  it('does not overwrite a replacement during manifest rollback restore', async () => {
     // Arrange
     const skillName = 'source-manifest-exdev-collision'
     const sourcePath = join(tempHome, '.agents', 'skills', skillName)
@@ -610,11 +614,15 @@ describe('trashService orphan cleanup guarded commit', () => {
         await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
       return {
         ...actual,
-        rename: async (oldPath: string, newPath: string): Promise<void> => {
+        cp: async (
+          source: string,
+          destination: string,
+          options?: Parameters<typeof actual.cp>[2],
+        ): Promise<void> => {
           if (
-            oldPath.includes('/.agents/.trash/') &&
-            oldPath.endsWith('/source') &&
-            newPath === sourcePath
+            source.includes('/.agents/.trash/') &&
+            source.endsWith('/source') &&
+            destination === sourcePath
           ) {
             await actual.mkdir(sourcePath, { recursive: true })
             await actual.writeFile(
@@ -622,13 +630,9 @@ describe('trashService orphan cleanup guarded commit', () => {
               `# replacement ${skillName}\n`,
               'utf-8',
             )
-            const error = new Error(
-              'forced cross-device source rollback collision',
-            ) as NodeJS.ErrnoException
-            error.code = 'EXDEV'
-            throw error
+            return actual.cp(source, destination, options)
           }
-          return actual.rename(oldPath, newPath)
+          return actual.cp(source, destination, options)
         },
         writeFile: async (
           path: string,

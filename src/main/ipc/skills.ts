@@ -146,6 +146,7 @@ async function restoreQuarantinedPath(
         recursive: true,
         force: false,
         errorOnExist: true,
+        verbatimSymlinks: true,
       })
       await fs.rm(quarantinePath, { recursive: true, force: true })
       return true

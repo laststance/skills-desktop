@@ -1142,39 +1142,21 @@ async function moveSourceBackedToTrash(
     const manifestWriteCode = errorCode(manifestWriteError)
     const manifestWriteMessage = extractErrorMessage(manifestWriteError)
 
-    // Step 1: move the source back. Mirror the forward EXDEV fallback.
+    // Step 1: restore the source back without clobbering a recreated slot.
     let restoreSourceFailed = false
     try {
-      await fs.rename(entrySourceDir, sourcePath)
-    } catch (reverseMoveError) {
-      if (errorCode(reverseMoveError) === 'EXDEV') {
-        try {
-          await copyDirectoryNoOverwrite(entrySourceDir, sourcePath)
-          await fs.rm(entrySourceDir, { recursive: true, force: true })
-        } catch (reverseCopyError) {
-          restoreSourceFailed = true
-          console.error(
-            'trashService: manifest write rollback — failed to restore source (cross-device)',
-            {
-              skillName,
-              entryName,
-              code: errorCode(reverseCopyError),
-              message: extractErrorMessage(reverseCopyError),
-            },
-          )
-        }
-      } else {
-        restoreSourceFailed = true
-        console.error(
-          'trashService: manifest write rollback — failed to restore source',
-          {
-            skillName,
-            entryName,
-            code: errorCode(reverseMoveError),
-            message: extractErrorMessage(reverseMoveError),
-          },
-        )
-      }
+      await moveDirectoryNoOverwrite(entrySourceDir, sourcePath)
+    } catch (restoreError) {
+      restoreSourceFailed = true
+      console.error(
+        'trashService: manifest write rollback — failed to restore source',
+        {
+          skillName,
+          entryName,
+          code: errorCode(restoreError),
+          message: extractErrorMessage(restoreError),
+        },
+      )
     }
 
     // Step 2: re-create the symlinks we removed. Best-effort; already logs per link.

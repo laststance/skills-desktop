@@ -5,9 +5,9 @@ import { Monitor, Link2, Palette, Bot, FolderSync, Eye } from 'lucide-react'
 const features = [
   {
     icon: Bot,
-    title: '21 AI Agents Supported',
+    title: '54 AI Agents Supported',
     description:
-      'Claude Code, Cursor, Gemini CLI, OpenAI Codex, GitHub Copilot, and 16 more agents auto-detected.',
+      'Claude Code, Cursor, Gemini CLI, OpenAI Codex, GitHub Copilot, and dozens more agents auto-detected.',
   },
   {
     icon: Link2,
@@ -17,9 +17,9 @@ const features = [
   },
   {
     icon: Palette,
-    title: '26 Theme Presets',
+    title: '27 Theme Presets',
     description:
-      '12 OKLCH color themes with light/dark modes, plus shadcn/ui neutral themes for your preference.',
+      '44 visual themes across OKLCH color hues, pure neutrals, and shadcn/ui tinted neutrals.',
   },
   {
     icon: FolderSync,

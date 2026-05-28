@@ -4,6 +4,7 @@ import {
   mkdtemp,
   readdir,
   readFile,
+  readlink,
   rm,
   symlink,
   writeFile,
@@ -499,5 +500,45 @@ describe('skills:unlinkFromAgent handler', () => {
         'utf-8',
       ),
     ).toBe(`# original ${skillName}\n`)
+  })
+
+  it('preserves relative symlinks inside a quarantined local folder after trash failure rollback', async () => {
+    // Arrange
+    const skillName = 'local-restore-relative-symlink'
+    const localPath = join(tempHome, '.cursor', 'skills', skillName)
+    await mkdir(join(localPath, 'links'), { recursive: true })
+    await mkdir(join(localPath, 'target'), { recursive: true })
+    await writeFile(join(localPath, 'target', 'SKILL.md'), '# target\n')
+    await symlink('../target', join(localPath, 'links', 'target-link'))
+    const reviewedIdentity = filesystemIdentityFromStats(await lstat(localPath))
+    trashItemMock.mockRejectedValueOnce(
+      Object.assign(new Error('forced trash failure'), { code: 'EACCES' }),
+    )
+
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+
+    // Act
+    const handler = getRegisteredHandler('skills:unlinkFromAgent')
+    const result = await handler(
+      {},
+      {
+        skillName,
+        agentId: 'cursor',
+        linkPath: localPath,
+        confirmedLocalDirectoryDelete: true,
+        reviewedDirectoryIdentity: reviewedIdentity,
+      },
+    )
+
+    // Assert
+    expect(result.success).toBe(false)
+    await expect(
+      readlink(join(localPath, 'links', 'target-link')),
+    ).resolves.toBe('../target')
+    const entries = await readdir(join(tempHome, '.cursor', 'skills'))
+    expect(
+      entries.some((entry) => entry.startsWith(`${skillName}.trash-`)),
+    ).toBe(false)
   })
 })

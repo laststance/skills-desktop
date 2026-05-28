@@ -1060,6 +1060,30 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Copy directory restores with `verbatimSymlinks: true` and add a local-only restore regression that asserts an internal relative symlink target stays relative.
 
+### P1. Manifest write rollback must not overwrite same-device source replacements
+
+**Status:** Fixed after final re-run gstack-review subagent review.
+
+**Finding:** Manifest write rollback still used `fs.rename(entrySourceDir, sourcePath)`. A same-device empty directory recreated at `sourcePath` after the restore check could be overwritten before the delete failure is surfaced.
+
+**Fix direction:** Route manifest rollback through the same no-overwrite directory restore helper and add a same-device rollback collision regression.
+
+### P3. Website public copy must match current agent and theme counts
+
+**Status:** Fixed after final re-run gstack-review subagent review.
+
+**Finding:** Website feature and LLM copy still said 21 agents and 26 theme presets, while current README/SPEC/constants document 54 agents and 27 presets.
+
+**Fix direction:** Update website feature and LLM copy to the current counts.
+
+### P1. Quarantine directory restore must preserve relative symlink bytes
+
+**Status:** Fixed after final re-run gstack-review subagent review.
+
+**Finding:** `restoreQuarantinedPath()` copies quarantined local skill folders without `verbatimSymlinks: true`. A local-folder delete rollback could restore internal relative symlinks as absolute paths pointing into the quarantine directory that is then removed.
+
+**Fix direction:** Add `verbatimSymlinks: true` to the IPC quarantine directory copy and add a rollback regression that asserts an internal relative symlink target stays relative.
+
 ### P2. Undo toast E2E must not depend on snapshot-installed azure-ai
 
 **Status:** Fixed after final gstack-review subagent review.
