@@ -598,7 +598,7 @@ export const AGENT_DEFINITIONS = [
 ] as const
 
 /**
- * Any valid theme preset name — 12 OKLCH color hues + 2 neutral variants.
+ * Any valid theme preset name — 17 OKLCH hues, 2 pure neutrals, and 8 tinted neutrals.
  * Derived from `THEME_PRESETS` so new presets only need to be added in one
  * place; Redux reducers, selectors, and the ThemeSelector all pick up the
  * widened union automatically.

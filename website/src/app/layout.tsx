@@ -17,12 +17,12 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://skills-desktop.vercel.app'),
   title: 'Skills Desktop - AI Agent Skills Manager',
   description:
-    'Visualize and manage installed Skills across 21 AI agents. See symlink status, discover skills, and keep your AI tools in sync.',
+    'Visualize and manage installed Skills across 54 AI agents. See symlink status, discover skills, and keep your AI tools in sync.',
   keywords: ['AI', 'Claude Code', 'Skills', 'Desktop App', 'macOS', 'Electron'],
   authors: [{ name: 'Laststance.io' }],
   openGraph: {
     title: 'Skills Desktop - AI Agent Skills Manager',
-    description: 'Visualize and manage installed Skills across 21 AI agents',
+    description: 'Visualize and manage installed Skills across 54 AI agents',
     url: 'https://skills-desktop.vercel.app',
     siteName: 'Skills Desktop',
     images: [
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Skills Desktop - AI Agent Skills Manager',
-    description: 'Visualize and manage installed Skills across 21 AI agents',
+    description: 'Visualize and manage installed Skills across 54 AI agents',
     images: ['/og-image.png'],
   },
 }

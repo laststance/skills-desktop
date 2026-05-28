@@ -1084,6 +1084,14 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Add `verbatimSymlinks: true` to the IPC quarantine directory copy and add a rollback regression that asserts an internal relative symlink target stays relative.
 
+### P3. Remaining public copy and theme docs must match current counts
+
+**Status:** Fixed after final re-run gstack-review subagent review.
+
+**Finding:** `Hero.tsx`, `layout.tsx`, and the top of `llms.txt` still said 21 AI agents. `ThemePresetName` docs still described 12 OKLCH hues and 2 neutral variants.
+
+**Fix direction:** Update the remaining website/SEO/LLM copy to 54 agents and update the theme type comment to 17 OKLCH hues, 2 pure neutrals, and 8 tinted neutrals.
+
 ### P2. Undo toast E2E must not depend on snapshot-installed azure-ai
 
 **Status:** Fixed after final gstack-review subagent review.
