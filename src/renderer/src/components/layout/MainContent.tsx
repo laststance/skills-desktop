@@ -253,6 +253,38 @@ function partitionGlobalDeleteTargets(
 }
 
 /**
+ * Detects orphan cleanup errors that need a fresh scan, not a direct retry.
+ * @param item - Bulk delete item result from source delete or orphan cleanup.
+ * @returns True when selecting the row again would repeat the same stale failure.
+ * @example
+ * isRescanRequiredDeleteError({ skillName: 'task', outcome: 'error', error: { message: 'Rescan before cleanup.' } })
+ */
+function isRescanRequiredDeleteError(item: BulkDeleteItemResult): boolean {
+  return (
+    item.outcome === 'error' &&
+    (item.error.code === 'ESTALE' ||
+      item.error.message.includes('Rescan before cleanup'))
+  )
+}
+
+/**
+ * Appends stale-orphan guidance to bulk delete summaries when cleanup cannot run yet.
+ * @param summary - Existing formatted delete/orphan summary.
+ * @param rescanRequiredCount - Number of stale orphan rows excluded from retry.
+ * @returns Summary with explicit rescan guidance when needed.
+ * @example
+ * appendRescanRequiredSummary('Deleted 1 of 2 skills.', 1)
+ */
+function appendRescanRequiredSummary(
+  summary: string,
+  rescanRequiredCount: number,
+): string {
+  if (rescanRequiredCount === 0) return summary
+  const guidance = `${rescanRequiredCount} orphan ${pluralize(rescanRequiredCount, 'skill')} ${pluralize(rescanRequiredCount, 'needs', 'need')} a rescan before cleanup.`
+  return summary.length > 0 ? `${summary} ${guidance}` : guidance
+}
+
+/**
  * Main content area (flexible width).
  * Owns the Installed / Marketplace tabs, the bulk selection toolbar, and the
  * global keyboard shortcuts that back the bulk-delete flow (Cmd/Ctrl+A, Esc).
@@ -540,6 +572,75 @@ export const MainContent = React.memo(
     ])
 
     /**
+     * Reselect unresolved rows when source deletion rejects before orphan cleanup can run.
+     * @param deleteNames - Source-backed names whose delete thunk rejected.
+     * @param cleanupReadyOrphanNames - Orphan rows whose cleanup IPC never ran.
+     * @returns void after bulk selection is restored for retry.
+     * @example
+     * restoreUnresolvedMixedDeleteSelection(['task'], ['orphan'])
+     */
+    const restoreUnresolvedMixedDeleteSelection = useCallback(
+      (
+        deleteNames: readonly Skill['name'][],
+        cleanupReadyOrphanNames: readonly Skill['name'][],
+      ): void => {
+        const unresolvedNames = Array.from(
+          new Set([...deleteNames, ...cleanupReadyOrphanNames]),
+        )
+        flashFailedRows(unresolvedNames)
+        if (unresolvedNames.length === 0) return
+        dispatch(enterBulkSelectMode())
+        dispatch(selectAll(unresolvedNames))
+      },
+      [dispatch],
+    )
+
+    /**
+     * Keeps retryable failures selected while dropping rescan-required orphan failures.
+     * @param deleteItems - Combined source-delete and orphan-cleanup results.
+     * @param hasOrphanCleanupRows - Whether this batch needed manual orphan reconciliation.
+     * @returns Rescan-required orphan names for toast summary copy.
+     * @example
+     * reconcileMixedDeleteSelection([{ skillName: 'orphan', outcome: 'error', error: { message: 'Rescan before cleanup.' } }], true)
+     */
+    const reconcileMixedDeleteSelection = useCallback(
+      (
+        deleteItems: readonly BulkDeleteItemResult[],
+        hasOrphanCleanupRows: boolean,
+      ): { rescanRequiredNames: Skill['name'][] } => {
+        const failedNames = deleteItems
+          .filter((item) => item.outcome === 'error')
+          .map((item) => item.skillName)
+        const uniqueFailedNames = Array.from(new Set(failedNames))
+        const rescanRequiredNames = Array.from(
+          new Set(
+            deleteItems
+              .filter(isRescanRequiredDeleteError)
+              .map((item) => item.skillName),
+          ),
+        )
+        const retryableFailedNames = uniqueFailedNames.filter(
+          (name) => !rescanRequiredNames.includes(name),
+        )
+
+        flashFailedRows(uniqueFailedNames)
+        if (!hasOrphanCleanupRows) return { rescanRequiredNames }
+        // Orphan cleanup has no slice reducer, so reconcile its side effects
+        // after all paths settle: retryable rows stay selected, all-success
+        // batches leave bulk mode like source-delete success.
+        if (retryableFailedNames.length > 0) {
+          dispatch(enterBulkSelectMode())
+          dispatch(selectAll(retryableFailedNames))
+        } else {
+          dispatch(clearSelection())
+          dispatch(exitBulkSelectMode())
+        }
+        return { rescanRequiredNames }
+      },
+      [dispatch],
+    )
+
+    /**
      * Invoked by the BulkConfirmDialog's primary button. Reads the pending
      * payload from Redux, clears the dialog, then runs the existing thunk +
      * post-action logic (toast, refresh, undo toast for deletes).
@@ -595,6 +696,9 @@ export const MainContent = React.memo(
       const deleteItems: BulkDeleteItemResult[] = [...orphanErrors]
       const hasOrphanCleanupRows =
         orphanRecords.length > 0 || orphanErrors.length > 0
+      const cleanupReadyOrphanNames = orphanRecords.map(
+        (record) => record.skillName,
+      )
 
       // Global view — normal skills still flow through the trash + UndoToast
       // pipeline. Orphan rows are not source skills, so they use exact reviewed
@@ -604,6 +708,12 @@ export const MainContent = React.memo(
         if (deleteSelectedSkills.fulfilled.match(action)) {
           deleteItems.push(...action.payload.items)
         } else {
+          if (hasOrphanCleanupRows) {
+            restoreUnresolvedMixedDeleteSelection(
+              deleteNames,
+              cleanupReadyOrphanNames,
+            )
+          }
           toast.error('Bulk delete failed', {
             description: errorToastDescription(action),
           })
@@ -647,24 +757,10 @@ export const MainContent = React.memo(
         const deletedNames = deleteItems
           .filter((item) => item.outcome === 'deleted')
           .map((item) => item.skillName)
-        const failedNames = deleteItems
-          .filter((item) => item.outcome === 'error')
-          .map((item) => item.skillName)
-        const uniqueFailedNames = Array.from(new Set(failedNames))
-
-        flashFailedRows(uniqueFailedNames)
-        if (hasOrphanCleanupRows) {
-          // Orphan cleanup has no slice reducer, so reconcile its side effects
-          // after all paths settle: retryable rows stay selected, all-success
-          // batches leave bulk mode like source-delete success.
-          if (uniqueFailedNames.length > 0) {
-            dispatch(enterBulkSelectMode())
-            dispatch(selectAll(uniqueFailedNames))
-          } else {
-            dispatch(clearSelection())
-            dispatch(exitBulkSelectMode())
-          }
-        }
+        const { rescanRequiredNames } = reconcileMixedDeleteSelection(
+          deleteItems,
+          hasOrphanCleanupRows,
+        )
         refreshAllData(dispatch)
 
         if (tombstoneIds.length === 0) {
@@ -676,11 +772,15 @@ export const MainContent = React.memo(
             (item) =>
               item.outcome === 'deleted' || item.outcome === 'orphan-cleared',
           )
+          const summary = appendRescanRequiredSummary(
+            formatCascadeSummary({ items: deleteItems }),
+            rescanRequiredNames.length,
+          )
           if (anySuccess) {
-            toast.success(formatCascadeSummary({ items: deleteItems }))
+            toast.success(summary)
           } else {
             toast.error('Bulk delete failed', {
-              description: formatCascadeSummary({ items: deleteItems }),
+              description: summary,
             })
           }
           return
@@ -696,7 +796,10 @@ export const MainContent = React.memo(
         const expiresAt: IsoTimestamp = new Date(
           Date.now() + UNDO_WINDOW_MS,
         ).toISOString()
-        const summary = formatCascadeSummary({ items: deleteItems })
+        const summary = appendRescanRequiredSummary(
+          formatCascadeSummary({ items: deleteItems }),
+          rescanRequiredNames.length,
+        )
         const handleToastDismissed = (): void => {
           dispatch(clearUndoToast())
         }
@@ -729,7 +832,14 @@ export const MainContent = React.memo(
           }),
         )
       }
-    }, [bulkConfirm, dispatch, handleUndoDelete, skills])
+    }, [
+      bulkConfirm,
+      dispatch,
+      handleUndoDelete,
+      reconcileMixedDeleteSelection,
+      restoreUnresolvedMixedDeleteSelection,
+      skills,
+    ])
 
     const handleCancelBulkConfirm = useCallback((): void => {
       dispatch(clearBulkConfirm())

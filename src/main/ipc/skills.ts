@@ -41,25 +41,24 @@ type AgentPathRemovalResult =
   | { success: false; error: string; code?: string }
 
 /**
- * Revalidate and unlink one reviewed dangling symlink without moving replacements.
- * @param options - Exact reviewed path/target plus messages for stale-target cases.
- * @returns `missing` when the slot was already gone; otherwise `unlinked`.
+ * Read and verify the exact reviewed symlink target at the destructive slot.
+ * @param options - Reviewed link path, target path, and stale-target message.
+ * @returns Raw and resolved target for the still-reviewed symlink.
  * @example
- * await unlinkReviewedDanglingSymlink({ linkPath, targetPath, targetChangedMessage, targetExistsMessage, targetProbePrefix })
+ * await readReviewedDanglingSymlink({ linkPath, targetPath, targetChangedMessage })
  */
-async function unlinkReviewedDanglingSymlink(options: {
+async function readReviewedDanglingSymlink(options: {
   linkPath: AbsolutePath
   targetPath: AbsolutePath
   targetChangedMessage: string
-  targetExistsMessage: string
-  targetProbePrefix: string
-  beforeTargetProbe?: () => Promise<void>
-}): Promise<'missing' | 'unlinked'> {
+}): Promise<{ rawTarget: string; resolvedTarget: AbsolutePath }> {
   let stats: Stats
   try {
     stats = await fs.lstat(options.linkPath)
   } catch (error) {
-    if (isMissingPathError(error)) return 'missing'
+    if (isMissingPathError(error)) {
+      throw new TrashError('Reviewed cleanup slot is already missing', 'ENOENT')
+    }
     throw new TrashError(extractErrorMessage(error), errorCode(error))
   }
 
@@ -74,7 +73,9 @@ async function unlinkReviewedDanglingSymlink(options: {
   try {
     rawTarget = await fs.readlink(options.linkPath)
   } catch (error) {
-    if (isMissingPathError(error)) return 'missing'
+    if (isMissingPathError(error)) {
+      throw new TrashError('Reviewed cleanup slot is already missing', 'ENOENT')
+    }
     throw new TrashError(
       'Reviewed cleanup slot is no longer a symlink',
       'ESTALE',
@@ -89,25 +90,74 @@ async function unlinkReviewedDanglingSymlink(options: {
     throw new TrashError(options.targetChangedMessage, 'ESTALE')
   }
 
-  await options.beforeTargetProbe?.()
+  return { rawTarget, resolvedTarget }
+}
 
+/**
+ * Assert the reviewed symlink target is still absent and cleanup-safe.
+ * @param resolvedTarget - Absolute target path resolved from the reviewed symlink.
+ * @param targetExistsMessage - Stale message when the source target reappears.
+ * @param targetProbePrefix - Prefix for non-missing probe failures.
+ * @returns void when the target remains missing.
+ * @example
+ * await assertReviewedTargetMissing('/Users/me/.agents/skills/task', 'Target exists', 'Cannot verify target')
+ */
+async function assertReviewedTargetMissing(
+  resolvedTarget: AbsolutePath,
+  targetExistsMessage: string,
+  targetProbePrefix: string,
+): Promise<void> {
   try {
     await fs.access(resolvedTarget)
-    throw new TrashError(options.targetExistsMessage, 'ESTALE')
+    throw new TrashError(targetExistsMessage, 'ESTALE')
   } catch (error) {
     if (error instanceof TrashError) throw error
     if (!isMissingPathError(error)) {
       throw new TrashError(
-        `${options.targetProbePrefix}: ${extractErrorMessage(error)}`,
+        `${targetProbePrefix}: ${extractErrorMessage(error)}`,
         errorCode(error),
       )
     }
   }
+}
 
+/**
+ * Revalidate and unlink one reviewed dangling symlink without moving replacements.
+ * @param options - Exact reviewed path/target plus messages for stale-target cases.
+ * @returns `missing` when the slot was already gone; otherwise `unlinked`.
+ * @example
+ * await unlinkReviewedDanglingSymlink({ linkPath, targetPath, targetChangedMessage, targetExistsMessage, targetProbePrefix })
+ */
+async function unlinkReviewedDanglingSymlink(options: {
+  linkPath: AbsolutePath
+  targetPath: AbsolutePath
+  targetChangedMessage: string
+  targetExistsMessage: string
+  targetProbePrefix: string
+  beforeTargetProbe?: () => Promise<void>
+}): Promise<'missing' | 'unlinked'> {
   try {
+    const reviewed = await readReviewedDanglingSymlink(options)
+
+    await options.beforeTargetProbe?.()
+
+    await assertReviewedTargetMissing(
+      reviewed.resolvedTarget,
+      options.targetExistsMessage,
+      options.targetProbePrefix,
+    )
+
+    const finalReviewed = await readReviewedDanglingSymlink(options)
+    await assertReviewedTargetMissing(
+      finalReviewed.resolvedTarget,
+      options.targetExistsMessage,
+      options.targetProbePrefix,
+    )
+
     await fs.unlink(options.linkPath)
   } catch (error) {
     if (isMissingPathError(error)) return 'missing'
+    if (error instanceof TrashError) throw error
     const code = errorCode(error)
     // A concurrent folder replacement should never be moved or removed.
     if (code === 'EISDIR' || code === 'EPERM' || code === 'EINVAL') {

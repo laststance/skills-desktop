@@ -564,6 +564,35 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     expect(state.bulkProgress).toBeNull()
   })
 
+  it('clears selection and anchor when delete returns orphan-cleared', async () => {
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill])
+    mockDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: 'task',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 1,
+          cascadeAgents: ['claude-code' as AgentId],
+        },
+      ],
+    } satisfies BulkDeleteResult)
+
+    const { deleteSelectedSkills, toggleSelection, setBulkProgress } =
+      await import('./skillsSlice')
+    store.dispatch(toggleSelection('task'))
+    store.dispatch(setBulkProgress({ current: 1, total: 1 }))
+
+    await store.dispatch(deleteSelectedSkills(['task']))
+
+    const state = store.getState().skills
+    expect(state.bulkDeleting).toBe(false)
+    expect(state.inFlightDeleteNames).toEqual([])
+    expect(state.selectedSkillNames).toEqual([])
+    expect(state.selectionAnchor).toBeNull()
+    expect(state.bulkProgress).toBeNull()
+  })
+
   it('clears in-flight and sets error on rejected', async () => {
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])

@@ -313,6 +313,7 @@ describe('SymlinkCleanupDialog', () => {
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
     mockGetAgents.mockRejectedValueOnce(new Error('Dashboard refresh offline'))
     mockClearBrokenSymlinkSlots.mockResolvedValue({
       items: [
@@ -348,6 +349,12 @@ describe('SymlinkCleanupDialog', () => {
       .toBeVisible()
     await expect
       .element(screen.getByRole('button', { name: 'Rescan' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Rescan' }).click()
+    await expect.poll(() => mockGetAgents.mock.calls.length).toBe(2)
+    await expect.poll(() => mockGetSourceStats.mock.calls.length).toBe(2)
+    await expect
+      .element(screen.getByText('No safe cleanup items'))
       .toBeVisible()
     expect(screen.getByText(/Cleanup failed/).query()).toBeNull()
   })

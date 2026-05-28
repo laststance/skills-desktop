@@ -1,4 +1,12 @@
-import { lstat, mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises'
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readlink,
+  realpath,
+  rm,
+  symlink,
+} from 'node:fs/promises'
 import type * as NodeFsPromises from 'node:fs/promises'
 import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
@@ -547,5 +555,139 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
       ],
     })
     expect((await lstat(linkPath)).isDirectory()).toBe(true)
+  })
+
+  it('refuses when a reviewed link becomes a different symlink before final unlink', async () => {
+    // Arrange
+    const skillName = 'replacement-symlink-race'
+    const codexSkillsDir = join(tempHome, '.codex', 'skills')
+    const targetPath = join(tempHome, '.agents', 'skills', skillName)
+    const replacementTargetPath = join(
+      tempHome,
+      '.agents',
+      'skills',
+      'other-target',
+    )
+    const linkPath = join(codexSkillsDir, skillName)
+    await mkdir(codexSkillsDir, { recursive: true })
+    await symlink(targetPath, linkPath)
+    let targetProbeCount = 0
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        access: async (path: string): Promise<void> => {
+          if (String(path) === targetPath) {
+            targetProbeCount += 1
+            if (targetProbeCount === 1) {
+              await actual.rm(linkPath, { force: true })
+              await actual.symlink(replacementTargetPath, linkPath)
+            }
+            throw Object.assign(new Error('missing target'), { code: 'ENOENT' })
+          }
+          return actual.access(path)
+        },
+      }
+    })
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+    const handler = getRegisteredHandler('skills:clearBrokenSymlinkSlots')
+
+    // Act
+    const result = await handler(
+      {},
+      {
+        items: [
+          {
+            agentId: 'codex',
+            linkName: skillName,
+            linkPath,
+            targetPath,
+          },
+        ],
+      },
+    )
+
+    // Assert
+    expect(result).toEqual({
+      items: [
+        {
+          agentId: 'codex',
+          skillName,
+          linkPath,
+          outcome: 'error',
+          error: {
+            message:
+              'Reviewed broken link target changed. Rescan before cleanup.',
+            code: 'ESTALE',
+          },
+        },
+      ],
+    })
+    expect(await readlink(linkPath)).toBe(replacementTargetPath)
+  })
+
+  it('refuses when the reviewed target is restored before final unlink', async () => {
+    // Arrange
+    const skillName = 'restored-target-race'
+    const codexSkillsDir = join(tempHome, '.codex', 'skills')
+    const targetPath = join(tempHome, '.agents', 'skills', skillName)
+    const linkPath = join(codexSkillsDir, skillName)
+    await mkdir(codexSkillsDir, { recursive: true })
+    await symlink(targetPath, linkPath)
+    let targetProbeCount = 0
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        access: async (path: string): Promise<void> => {
+          if (String(path) === targetPath && targetProbeCount === 0) {
+            targetProbeCount += 1
+            await actual.mkdir(targetPath, { recursive: true })
+            throw Object.assign(new Error('missing target'), { code: 'ENOENT' })
+          }
+          return actual.access(path)
+        },
+      }
+    })
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+    const handler = getRegisteredHandler('skills:clearBrokenSymlinkSlots')
+
+    // Act
+    const result = await handler(
+      {},
+      {
+        items: [
+          {
+            agentId: 'codex',
+            linkName: skillName,
+            linkPath,
+            targetPath,
+          },
+        ],
+      },
+    )
+
+    // Assert
+    expect(result).toEqual({
+      items: [
+        {
+          agentId: 'codex',
+          skillName,
+          linkPath,
+          outcome: 'error',
+          error: {
+            message:
+              'Reviewed broken link target now exists. Rescan before cleanup.',
+            code: 'ESTALE',
+          },
+        },
+      ],
+    })
+    expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
+    expect((await lstat(targetPath)).isDirectory()).toBe(true)
   })
 })

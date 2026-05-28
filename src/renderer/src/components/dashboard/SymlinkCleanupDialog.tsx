@@ -503,27 +503,39 @@ export const SymlinkCleanupDialog = React.memo(
       [],
     )
 
-    const runScan = useCallback(async (): Promise<void> => {
-      const requestId = scanRequestIdRef.current + 1
-      scanRequestIdRef.current = requestId
-      dispatchLocal({ type: 'scanning' })
-      try {
-        const skills = await dispatch(fetchSkills()).unwrap()
-        if (scanRequestIdRef.current !== requestId) return
-        const plan = buildSymlinkCleanupPlan(skills)
-        if (getSymlinkCleanupPlanItems(plan).length === 0) {
-          dispatchLocal({ type: 'no-safe-cleanup', plan })
-          return
+    const runScan = useCallback(
+      async (options: { refreshDashboard?: boolean } = {}): Promise<void> => {
+        const { refreshDashboard = false } = options
+        const requestId = scanRequestIdRef.current + 1
+        scanRequestIdRef.current = requestId
+        dispatchLocal({ type: 'scanning' })
+        try {
+          const skills = refreshDashboard
+            ? (
+                await Promise.all([
+                  dispatch(fetchSkills()).unwrap(),
+                  dispatch(fetchAgents()).unwrap(),
+                  dispatch(fetchSourceStats()).unwrap(),
+                ])
+              )[0]
+            : await dispatch(fetchSkills()).unwrap()
+          if (scanRequestIdRef.current !== requestId) return
+          const plan = buildSymlinkCleanupPlan(skills)
+          if (getSymlinkCleanupPlanItems(plan).length === 0) {
+            dispatchLocal({ type: 'no-safe-cleanup', plan })
+            return
+          }
+          dispatchLocal({ type: 'ready', plan })
+        } catch (error) {
+          if (scanRequestIdRef.current !== requestId) return
+          dispatchLocal({
+            type: 'error',
+            message: `Scan failed: ${getErrorMessage(error)}`,
+          })
         }
-        dispatchLocal({ type: 'ready', plan })
-      } catch (error) {
-        if (scanRequestIdRef.current !== requestId) return
-        dispatchLocal({
-          type: 'error',
-          message: `Scan failed: ${getErrorMessage(error)}`,
-        })
-      }
-    }, [dispatch])
+      },
+      [dispatch],
+    )
 
     const handleOpenAutoFocus = useCallback(
       (event: Event): void => {
@@ -559,8 +571,14 @@ export const SymlinkCleanupDialog = React.memo(
     }, [handleClose])
 
     const handleRescanClick = useCallback((): void => {
-      void runScan()
-    }, [runScan])
+      // Complete+refresh-failed means the mutation succeeded but dashboard
+      // side data may be stale, so retry every dashboard source, not just the
+      // dialog's skill scan.
+      void runScan({
+        refreshDashboard:
+          state.phase === 'complete' && didCleanupRefreshFail(state.summary),
+      })
+    }, [runScan, state.phase, state.summary])
 
     const handlePreventDismissDuringCleaning = useCallback(
       (event: Event): void => {

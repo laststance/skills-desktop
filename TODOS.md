@@ -316,6 +316,46 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Count only cleanup-ready orphan records as orphan cleanup and add a separate rescan warning for stale orphan rows.
 
+### P1. Reviewed cleanup must revalidate immediately before unlink
+
+**Status:** Fixed after fourth post-fix subagent review follow-up.
+
+**Finding:** `unlinkReviewedDanglingSymlink` verifies the reviewed symlink and missing target, then awaits blocker probes before unlinking by path. A same-path symlink replacement or target restore during that window can make cleanup remove a slot that is no longer the reviewed dangling entry.
+
+**Fix direction:** Re-read `lstat + readlink + targetPath` immediately before unlink and repeat the missing-target probe, with integration tests for symlink-to-symlink replacement and target restore after the first probe.
+
+### P1. Refresh-failed cleanup Rescan must retry every failed dashboard source
+
+**Status:** Fixed after fourth post-fix subagent review follow-up.
+
+**Finding:** The complete-but-refresh-failed footer shows `Rescan`, but that action only reruns `fetchSkills`; if `fetchAgents` or `fetchSourceStats` failed, the dashboard state can remain stale after the advertised retry.
+
+**Fix direction:** In refresh-failed complete state, make Rescan retry `fetchSkills`, `fetchAgents`, and `fetchSourceStats` before rebuilding the cleanup plan.
+
+### P1. Stale orphan preflight failures must not become retry loops
+
+**Status:** Fixed after fourth post-fix subagent review follow-up.
+
+**Finding:** Global Delete mixes preflight `orphanErrors` into normal failed rows and reselects them. A stale orphan that requires rescan can stay selected and fail repeatedly, while the toast summary hides the rescan requirement.
+
+**Fix direction:** Separate rescan-required orphan failures from retryable failures, exclude them from retry selection, and append explicit rescan-required copy to the post-action summary.
+
+### P1. Mixed Delete rejection must restore unresolved selection
+
+**Status:** Fixed after fourth post-fix subagent review follow-up.
+
+**Finding:** If source delete rejects at the thunk level in a mixed source+orphan batch, the handler returns before orphan cleanup and does not restore source/orphan selection for retry.
+
+**Fix direction:** On rejected source delete with orphan cleanup involved, re-enter bulk mode and reselect unresolved source names plus not-yet-run cleanup-ready orphan records.
+
+### P1. Delete reducer must treat orphan-cleared as successful removal
+
+**Status:** Fixed after fourth post-fix subagent review follow-up.
+
+**Finding:** `deleteSelectedSkills.fulfilled` removes only `deleted` names from selection. If main returns `orphan-cleared`, a ghost selected row and anchor can remain until another context switch.
+
+**Fix direction:** Treat both `deleted` and `orphan-cleared` as successful removal outcomes in selection and anchor reconciliation, with reducer coverage.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

@@ -512,22 +512,26 @@ const skillsSlice = createSlice({
         state.inFlightDeleteNames = []
         state.bulkDeleting = false
         state.bulkProgress = null
-        // Narrow clearSelection to the items that actually deleted — keep
-        // failed ones selected so the user can retry without re-ticking them.
-        const deletedNames = new Set(
+        // Narrow clearSelection to the items that actually disappeared from
+        // the list — keep failed ones selected so the user can retry without
+        // re-ticking them.
+        const removedNames = new Set(
           action.payload.items
-            .filter((item) => item.outcome === 'deleted')
+            .filter(
+              (item) =>
+                item.outcome === 'deleted' || item.outcome === 'orphan-cleared',
+            )
             .map((item) => item.skillName),
         )
         state.selectedSkillNames = state.selectedSkillNames.filter(
-          (name) => !deletedNames.has(name),
+          (name) => !removedNames.has(name),
         )
         // Reconcile anchor: drop if selection emptied or if anchor itself was
         // deleted. Otherwise leave it so Shift+click continues from the same
         // origin.
         const anchorWasDeleted =
           state.selectionAnchor !== null &&
-          deletedNames.has(state.selectionAnchor)
+          removedNames.has(state.selectionAnchor)
         if (state.selectedSkillNames.length === 0 || anchorWasDeleted) {
           state.selectionAnchor = null
         }
