@@ -1,4 +1,5 @@
 import { lstat, mkdir, mkdtemp, realpath, rm, symlink } from 'node:fs/promises'
+import type * as NodeFsPromises from 'node:fs/promises'
 import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
@@ -28,7 +29,8 @@ function getRegisteredHandler(channel: string): (
   event: unknown,
   arg: {
     items: Array<{
-      skillName: string
+      skillName?: string
+      linkName?: string
       agents?: Array<{ agentId: string; linkPath: string; targetPath: string }>
       agentId?: string
       linkPath?: string
@@ -44,7 +46,8 @@ function getRegisteredHandler(channel: string): (
     event: unknown,
     arg: {
       items: Array<{
-        skillName: string
+        skillName?: string
+        linkName?: string
         agents?: Array<{
           agentId: string
           linkPath: string
@@ -85,6 +88,7 @@ describe('skills:clearOrphanSymlinks handler', () => {
   afterEach(async () => {
     vi.doUnmock('os')
     vi.doUnmock('node:os')
+    vi.doUnmock('node:fs/promises')
     await rm(tempHome, { recursive: true, force: true })
   })
 
@@ -325,8 +329,8 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
       {
         items: [
           {
-            skillName,
             agentId: 'codex',
+            linkName: skillName,
             linkPath,
             targetPath,
           },
@@ -360,8 +364,8 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
       {
         items: [
           {
-            skillName,
             agentId: 'codex',
+            linkName: skillName,
             linkPath,
             targetPath,
           },
@@ -407,8 +411,8 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
       {
         items: [
           {
-            skillName,
             agentId: 'codex',
+            linkName: skillName,
             linkPath: reviewedLinkPath,
             targetPath,
           },
@@ -458,8 +462,8 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
       {
         items: [
           {
-            skillName,
             agentId: 'codex',
+            linkName: skillName,
             linkPath,
             targetPath: reviewedTargetPath,
           },
@@ -484,5 +488,64 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
       ],
     })
     expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
+  })
+
+  it('restores a local replacement quarantined by a swap before rename', async () => {
+    // Arrange
+    const skillName = 'replacement-race-slot'
+    const codexSkillsDir = join(tempHome, '.codex', 'skills')
+    const targetPath = join(tempHome, '.agents', 'skills', skillName)
+    const linkPath = join(codexSkillsDir, skillName)
+    await mkdir(codexSkillsDir, { recursive: true })
+    await symlink(targetPath, linkPath)
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        rename: async (oldPath: string, newPath: string): Promise<void> => {
+          if (String(oldPath) === linkPath) {
+            await actual.rm(linkPath, { recursive: true, force: true })
+            await actual.mkdir(linkPath, { recursive: true })
+          }
+          return actual.rename(oldPath, newPath)
+        },
+      }
+    })
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+    const handler = getRegisteredHandler('skills:clearBrokenSymlinkSlots')
+
+    // Act
+    const result = await handler(
+      {},
+      {
+        items: [
+          {
+            agentId: 'codex',
+            linkName: skillName,
+            linkPath,
+            targetPath,
+          },
+        ],
+      },
+    )
+
+    // Assert
+    expect(result).toEqual({
+      items: [
+        {
+          agentId: 'codex',
+          skillName,
+          linkPath,
+          outcome: 'error',
+          error: {
+            message: 'Reviewed cleanup slot is no longer a symlink',
+            code: 'ESTALE',
+          },
+        },
+      ],
+    })
+    expect((await lstat(linkPath)).isDirectory()).toBe(true)
   })
 })

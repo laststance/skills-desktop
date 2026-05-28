@@ -101,7 +101,11 @@ declare global {
         clearOrphanSymlinks: (options: {
           items: Array<{
             skillName: string
-            agents: Array<{ agentId: string; linkPath: string }>
+            agents: Array<{
+              agentId: string
+              linkPath: string
+              targetPath: string
+            }>
           }>
         }) => Promise<{
           items: Array<
@@ -121,7 +125,7 @@ declare global {
         clearBrokenSymlinkSlots: (options: {
           items: Array<{
             agentId: string
-            skillName: string
+            linkName: string
             linkPath: string
             targetPath: string
           }>

@@ -576,6 +576,13 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
     )
 
     // Act
+    await expect
+      .element(
+        screen.getByText(
+          'This removes reviewed dangling symlinks for 1 orphan skill. Source skill files are already missing, and this cleanup cannot be undone from the notification.',
+        ),
+      )
+      .toBeVisible()
     await screen.getByRole('button', { name: /^Delete$/ }).click()
 
     // Assert

@@ -6,9 +6,8 @@ import { pluralize } from '@/renderer/src/utils/pluralize'
 /**
  * Render the DialogDescription body for the bulk-delete confirm dialog.
  *
- * Every skill — including ones tracked in `~/.agents/.skill-lock.json` — is
- * trashed via `moveToTrash` with a 15s undo window. The CLI removal branch
- * was removed; lock-file entries are not rewritten by the desktop app.
+ * Source-backed skills are trashed with a 15s undo window; orphan rows remove
+ * reviewed dangling symlinks directly and therefore have no undo toast.
  *
  * When a source-repo include filter is active, `sourceSummary` appends a scope
  * clause: which repositories the batch is drawn from, and how many source-less
@@ -18,10 +17,12 @@ import { pluralize } from '@/renderer/src/utils/pluralize'
  * copy stays testable without mounting the full MainContent tree.
  *
  * @param totalCount - Total skills in the pending batch.
+ * @param trashCount - Source-backed rows that produce tombstones and undo.
+ * @param orphanCleanupCount - Orphan rows cleaned as dangling symlinks only.
  * @param sourceSummary - Active repo-filter scope snapshot, or null when no
  *   repo filter is active and no local skills are hidden.
  * @returns
- * - Base trash + undo sentence (always present).
+ * - Trash + undo sentence for source rows, or no-undo cleanup copy for orphan rows.
  * - `+ " Only skills from <repo> are in scope."` when ≥1 repo is in scope.
  * - `+ " N local skills hidden by the source filter are not affected."` when
  *   the filter suppresses source-less local skills.
@@ -41,12 +42,21 @@ import { pluralize } from '@/renderer/src/utils/pluralize'
  */
 export const renderBulkDeleteDescription = ({
   totalCount,
+  trashCount = totalCount,
+  orphanCleanupCount = 0,
   sourceSummary,
 }: {
   totalCount: number
+  trashCount?: number
+  orphanCleanupCount?: number
   sourceSummary: SourceFilterSummary | null
 }): React.ReactNode => {
-  const base = `This moves the ${pluralize(totalCount, 'skill')} to the app trash and removes every symlink pointing to ${pluralize(totalCount, 'it', 'them')}. You can restore within 15 seconds from the notification.`
+  const base =
+    orphanCleanupCount === 0
+      ? `This moves the ${pluralize(totalCount, 'skill')} to the app trash and removes every symlink pointing to ${pluralize(totalCount, 'it', 'them')}. You can restore within 15 seconds from the notification.`
+      : trashCount === 0
+        ? `This removes reviewed dangling symlinks for ${orphanCleanupCount} orphan ${pluralize(orphanCleanupCount, 'skill')}. Source skill files are already missing, and this cleanup cannot be undone from the notification.`
+        : `This moves ${trashCount} ${pluralize(trashCount, 'skill')} to the app trash with a 15-second restore window and removes reviewed dangling symlinks for ${orphanCleanupCount} orphan ${pluralize(orphanCleanupCount, 'skill')}. Orphan cleanup cannot be undone from the notification.`
 
   // No active repo filter (and nothing hidden) → the base copy is complete.
   if (sourceSummary === null) return base

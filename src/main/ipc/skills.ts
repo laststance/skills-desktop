@@ -72,6 +72,44 @@ async function restoreReviewedSymlink(
 }
 
 /**
+ * Move a quarantined non-reviewed entry back after validation proves it was not the reviewed symlink.
+ * @param linkPath - Original reviewed agent slot path.
+ * @param quarantinePath - Temporary path holding the entry moved by rename.
+ * @returns void after the quarantined entry is restored or a detailed stale error is thrown.
+ * @example
+ * await restoreQuarantinedEntry('/agent/task', '/agent/task.cleanup-1')
+ */
+async function restoreQuarantinedEntry(
+  linkPath: AbsolutePath,
+  quarantinePath: AbsolutePath,
+): Promise<void> {
+  try {
+    await fs.lstat(linkPath)
+    throw new TrashError(
+      `Cleanup stopped after the reviewed slot changed. Quarantined entry left at ${quarantinePath} because ${linkPath} is occupied.`,
+      'ESTALE',
+    )
+  } catch (error) {
+    if (error instanceof TrashError) throw error
+    if (!isMissingPathError(error)) {
+      throw new TrashError(
+        `Cleanup stopped, but ${linkPath} could not be checked before restoring quarantine: ${extractErrorMessage(error)}`,
+        errorCode(error),
+      )
+    }
+  }
+
+  try {
+    await fs.rename(quarantinePath, linkPath)
+  } catch (error) {
+    throw new TrashError(
+      `Cleanup stopped, but the quarantined entry could not be restored at ${linkPath}: ${extractErrorMessage(error)}`,
+      errorCode(error),
+    )
+  }
+}
+
+/**
  * Atomically quarantine, revalidate, and unlink one reviewed dangling symlink.
  * @param options - Exact reviewed path/target plus messages for stale-target cases.
  * @returns `missing` when the slot was already gone; otherwise `unlinked`.
@@ -134,6 +172,8 @@ async function unlinkReviewedDanglingSymlink(options: {
   } catch (error) {
     if (rawTarget !== null) {
       await restoreReviewedSymlink(options.linkPath, quarantinePath, rawTarget)
+    } else {
+      await restoreQuarantinedEntry(options.linkPath, quarantinePath)
     }
     throw error
   }
@@ -236,11 +276,11 @@ async function removeFromAgent(
  * @param item - Reviewed broken-slot target from Symlink Health cleanup.
  * @returns Per-slot unlink result.
  * @example
- * await clearReviewedBrokenSymlinkSlot({ agentId: 'codex', skillName: 'task', linkPath: '/Users/me/.codex/skills/task', targetPath: '/Users/me/.agents/skills/task' })
+ * await clearReviewedBrokenSymlinkSlot({ agentId: 'codex', linkName: 'task', linkPath: '/Users/me/.codex/skills/task', targetPath: '/Users/me/.agents/skills/task' })
  */
 async function clearReviewedBrokenSymlinkSlot(item: {
   agentId: AgentId
-  skillName: SkillName
+  linkName: SkillName
   linkPath: AbsolutePath
   targetPath: AbsolutePath
 }): Promise<ClearBrokenSymlinkSlotItemResult> {
@@ -248,7 +288,7 @@ async function clearReviewedBrokenSymlinkSlot(item: {
     const agent = findAgentById(item.agentId)
     if (!agent) throw new TrashError('Agent not found', 'ENOENT')
 
-    const expectedLinkPath = resolve(agent.path, item.skillName)
+    const expectedLinkPath = resolve(agent.path, item.linkName)
     if (resolve(item.linkPath) !== expectedLinkPath) {
       throw new TrashError(
         'Reviewed broken link path no longer matches agent slot',
@@ -265,7 +305,7 @@ async function clearReviewedBrokenSymlinkSlot(item: {
       if (isMissingPathError(error)) {
         return {
           agentId: item.agentId,
-          skillName: item.skillName,
+          skillName: item.linkName,
           linkPath: item.linkPath,
           outcome: 'unlinked',
         }
@@ -291,7 +331,7 @@ async function clearReviewedBrokenSymlinkSlot(item: {
     })
     return {
       agentId: item.agentId,
-      skillName: item.skillName,
+      skillName: item.linkName,
       linkPath: item.linkPath,
       outcome: 'unlinked',
     }
@@ -301,7 +341,7 @@ async function clearReviewedBrokenSymlinkSlot(item: {
     const code = error instanceof TrashError ? error.code : errorCode(error)
     return {
       agentId: item.agentId,
-      skillName: item.skillName,
+      skillName: item.linkName,
       linkPath: item.linkPath,
       outcome: 'error',
       error: code ? { message, code } : { message },
@@ -702,7 +742,7 @@ export function registerSkillsHandlers(): void {
    * inaccessible targets so restored user links are never removed.
    * @param options - exact broken slots selected in Symlink Health cleanup
    * @returns Per-slot unlink outcomes
-   * @example clearBrokenSymlinkSlots({ items: [{ agentId: 'codex', skillName: 'task', linkPath, targetPath }] })
+   * @example clearBrokenSymlinkSlots({ items: [{ agentId: 'codex', linkName: 'task', linkPath, targetPath }] })
    */
   typedHandle(
     IPC_CHANNELS.SKILLS_CLEAR_BROKEN_SYMLINK_SLOTS,

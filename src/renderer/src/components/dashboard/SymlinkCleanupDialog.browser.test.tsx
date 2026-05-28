@@ -184,6 +184,28 @@ describe('SymlinkCleanupDialog', () => {
     })
   })
 
+  it('shows a rescan affordance after an initial scan failure', async () => {
+    // Arrange
+    mockGetSkills
+      .mockRejectedValueOnce(new Error('Transient scanner failure'))
+      .mockResolvedValueOnce([makeSkillWithBrokenSlot('retry-task', 'cursor')])
+    const screen = await renderOpenedDialog()
+
+    // Act
+    await expect
+      .element(screen.getByRole('button', { name: 'Rescan' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Rescan' }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 1 selected' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByText('retry-task', { exact: true }))
+      .toBeVisible()
+  })
+
   it('stops cleanup when the fresh scan no longer matches the reviewed plan', async () => {
     // Arrange
     mockGetSkills
@@ -242,15 +264,22 @@ describe('SymlinkCleanupDialog', () => {
       .mockResolvedValueOnce([makeSkillWithBrokenSlot('failed-task', 'codex')])
     mockClearBrokenSymlinkSlots.mockImplementation(
       async (options: {
-        items: Array<{ agentId: string; skillName: string; linkPath: string }>
+        items: Array<{ agentId: string; linkName: string; linkPath: string }>
       }) => {
         return {
           items: options.items.map((item) => {
             if (item.agentId === 'cursor') {
-              return { ...item, outcome: 'unlinked' }
+              return {
+                agentId: item.agentId,
+                skillName: item.linkName,
+                linkPath: item.linkPath,
+                outcome: 'unlinked',
+              }
             }
             return {
-              ...item,
+              agentId: item.agentId,
+              skillName: item.linkName,
+              linkPath: item.linkPath,
               outcome: 'error',
               error: { message: 'Permission denied', code: 'EACCES' },
             }
@@ -275,6 +304,49 @@ describe('SymlinkCleanupDialog', () => {
     await expect
       .element(screen.getByText('failed-task', { exact: true }))
       .toBeVisible()
+  })
+
+  it('keeps cleanup success when post-cleanup refresh fails', async () => {
+    // Arrange
+    const firstPlan = [makeSkillWithBrokenSlot('refresh-failed-task', 'cursor')]
+    mockGetSkills
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce([])
+    mockGetAgents.mockRejectedValueOnce(new Error('Dashboard refresh offline'))
+    mockClearBrokenSymlinkSlots.mockResolvedValue({
+      items: [
+        {
+          agentId: 'cursor',
+          skillName: 'refresh-failed-task',
+          linkPath: '/Users/test/.cursor/skills/refresh-failed-task',
+          outcome: 'unlinked',
+        },
+      ],
+    })
+    const screen = await renderOpenedDialog()
+
+    // Act
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 1 selected' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Clean 1 selected' }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByText(/Cleaned up 1 symlink issue/))
+      .toBeVisible()
+    await expect
+      .element(screen.getByText(/Refresh failed after cleanup/))
+      .toBeVisible()
+    await expect
+      .element(
+        screen.getByText(
+          'Cleanup succeeded. Rescan to refresh the dashboard state.',
+        ),
+      )
+      .toBeVisible()
+    expect(screen.getByText(/Cleanup failed/).query()).toBeNull()
   })
 
   it('requires rescan when a failed row keeps its id but changes target after cleanup', async () => {
@@ -328,13 +400,20 @@ describe('SymlinkCleanupDialog', () => {
       .mockResolvedValueOnce([makeSkillWithBrokenSlot('shared-task', 'codex')])
     mockClearBrokenSymlinkSlots.mockImplementation(
       async (options: {
-        items: Array<{ agentId: string; skillName: string; linkPath: string }>
+        items: Array<{ agentId: string; linkName: string; linkPath: string }>
       }) => ({
         items: options.items.map((item) =>
           item.agentId === 'cursor'
-            ? { ...item, outcome: 'unlinked' }
+            ? {
+                agentId: item.agentId,
+                skillName: item.linkName,
+                linkPath: item.linkPath,
+                outcome: 'unlinked',
+              }
             : {
-                ...item,
+                agentId: item.agentId,
+                skillName: item.linkName,
+                linkPath: item.linkPath,
                 outcome: 'error',
                 error: { message: 'Codex permission denied', code: 'EACCES' },
               },
@@ -458,6 +537,13 @@ describe('SymlinkCleanupDialog', () => {
     await expect
       .element(screen.getByText('Source skill exists. Rescan before cleanup.'))
       .toBeVisible()
+    await expect
+      .element(
+        screen.getByText(
+          'Codex: /Users/test/.codex/skills/abandoned-task -> /Users/test/.agents/skills/abandoned-task',
+        ),
+      )
+      .toBeVisible()
     expect(mockClearOrphanSymlinks).toHaveBeenCalledWith({
       items: [
         {
@@ -506,6 +592,13 @@ describe('SymlinkCleanupDialog', () => {
       .toBeVisible()
     await expect
       .element(
+        screen.getByText(
+          '/Users/test/.cursor/skills/link-folder-name -> /Users/test/.agents/skills/missing-target',
+        ),
+      )
+      .toBeVisible()
+    await expect
+      .element(
         screen.getByRole('checkbox', {
           name: 'Clean broken link for link-folder-name (metadata-title) from Cursor',
         }),
@@ -522,7 +615,7 @@ describe('SymlinkCleanupDialog', () => {
       items: [
         {
           agentId: 'cursor',
-          skillName: 'link-folder-name',
+          linkName: 'link-folder-name',
           linkPath: '/Users/test/.cursor/skills/link-folder-name',
           targetPath: '/Users/test/.agents/skills/missing-target',
         },

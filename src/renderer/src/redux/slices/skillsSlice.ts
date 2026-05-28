@@ -249,7 +249,7 @@ export const clearSelectedOrphanSymlinks = createAsyncThunk<
  * @param brokenSlots - Broken agent symlinks selected in Symlink Health cleanup.
  * @returns BulkUnlinkResult with per-slot outcome.
  * @example
- * await dispatch(clearSelectedBrokenSymlinkSlots({ items: [{ agentId: 'codex', skillName: 'task', linkPath: '/Users/me/.codex/skills/task', targetPath: '/Users/me/.agents/skills/task' }] }))
+ * await dispatch(clearSelectedBrokenSymlinkSlots({ items: [{ agentId: 'codex', linkName: 'task', linkPath: '/Users/me/.codex/skills/task', targetPath: '/Users/me/.agents/skills/task' }] }))
  */
 export const clearSelectedBrokenSymlinkSlots = createAsyncThunk<
   ClearBrokenSymlinkSlotsResult,

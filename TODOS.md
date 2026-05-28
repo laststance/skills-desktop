@@ -212,6 +212,78 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Add cleanup channel cases to the malicious skill-name table and add required/absolute `targetPath` schema tests for orphan and broken-slot cleanup payloads.
 
+### P1. Scanner orphan rows must carry reviewed target identity
+
+**Status:** Fixed after second post-fix subagent review follow-up.
+
+**Finding:** Real scanner-created orphan slots only carry `status` and `linkPath`, while cleanup eligibility now requires `targetPath`. Fixture-based tests passed because they manually populated `targetPath`, but real orphan rows can disappear from Symlink Health cleanup and global orphan Delete can fall into the rescan-required preflight error.
+
+**Fix direction:** Carry resolved `targetPath` through agent symlink status hits into `scanOrphanSymlinks`, and add scanner-to-plan regression coverage.
+
+### P1. Quarantine cleanup must restore non-symlink replacements
+
+**Status:** Fixed after second post-fix subagent review follow-up.
+
+**Finding:** Atomic quarantine currently restores only after `readlink` succeeds. If a reviewed symlink is replaced by a local folder or regular file between precheck and `rename`, cleanup can move that replacement to `.cleanup-*`, throw stale, and leave the original slot missing.
+
+**Fix direction:** Restore quarantined non-symlink entries back to the reviewed path on validation failure when possible, and cover the swap-before-rename race.
+
+### P1. Cleanup mutation success must not become cleanup failure after refresh failure
+
+**Status:** Fixed after second post-fix subagent review follow-up.
+
+**Finding:** `SymlinkCleanupDialog` runs destructive cleanup and post-cleanup refresh in the same `try`. If cleanup succeeds but `fetchSkills`, `fetchAgents`, or `fetchSourceStats` later rejects, the dialog reports `Cleanup failed`, encouraging a retry of a mutation that already happened.
+
+**Fix direction:** Finalize cleanup results first, refresh with `Promise.allSettled`, preserve success/partial-failure state, and surface refresh failures as secondary copy.
+
+### P1. Global orphan Delete confirm copy must not promise trash undo
+
+**Status:** Fixed after second post-fix subagent review follow-up.
+
+**Finding:** Global Delete confirmation still says rows move to app trash and can be restored within 15 seconds, but orphan rows now call orphan symlink cleanup and return no tombstone or undo path.
+
+**Fix direction:** Derive confirmation copy from the selected delete/orphan split, advertise undo only for tombstoned rows, and describe orphan rows as dangling symlink cleanup with no undo window.
+
+### P2. Agent-only inaccessible symlinks must stay visible
+
+**Status:** Fixed after second post-fix subagent review follow-up.
+
+**Finding:** Agent-only `inaccessible` symlink hits are dropped because linked scan keeps only `valid` and orphan scan keeps only `broken`. A manual-review symlink with no source skill can disappear from Health/manual-review UI.
+
+**Fix direction:** Group agent-only inaccessible symlinks into visible non-orphan skill records with inaccessible slots and no cleanup action, plus scanner coverage.
+
+### P2. Cleanup rows must expose full reviewed path identity
+
+**Status:** Fixed after second post-fix subagent review follow-up.
+
+**Finding:** Cleanup rows truncate the path detail and orphan checkbox labels omit the exact paths. Long links that differ only near the end can look identical, and screen-reader users cannot audit the reviewed destructive identity.
+
+**Fix direction:** Render full wrapped `linkPath -> targetPath` details, include orphan agent path pairs, and connect details to the checkbox via accessible description.
+
+### P2. E2E ambient cleanup contract must include targetPath
+
+**Status:** Fixed after second post-fix subagent review follow-up.
+
+**Finding:** `e2e/types.d.ts` still types `clearOrphanSymlinks` agent records without `targetPath`, even though shared IPC types and Zod require it.
+
+**Fix direction:** Update the E2E ambient type or reuse the shared contract so Playwright `page.evaluate` cleanup calls cannot type-check with stale payloads.
+
+### P3. Broken-slot cleanup request should name link identity explicitly
+
+**Status:** Fixed after second post-fix subagent review follow-up.
+
+**Finding:** `ClearBrokenSymlinkSlotsOptions.skillName` is semantically the agent-side link basename, not necessarily the visible source skill name. Future callers can reasonably pass the display skill name and trigger a false stale-path rejection.
+
+**Fix direction:** Rename the request field to `linkName` or derive it from `linkPath` in main; keep result identity backward-compatible where useful.
+
+### P3. Scan failure states need a retry affordance
+
+**Status:** Fixed after second post-fix subagent review follow-up.
+
+**Finding:** Initial scan failures show an error body but only Cancel plus disabled Clean; Rescan is gated to stale-plan states.
+
+**Fix direction:** Show Rescan for error states as well, especially when no actionable plan is available.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

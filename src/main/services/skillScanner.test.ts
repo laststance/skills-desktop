@@ -277,6 +277,65 @@ describe('scanSkills agent-only linked symlink surfacing', () => {
     })
     expect(cursor).toMatchObject({ status: 'missing', isLocal: false })
   })
+
+  it('surfaces inaccessible agent-only symlinks for manual review instead of dropping them', async () => {
+    // Arrange: Codex has a symlink whose target can be read but not safely
+    // probed. It has no source skill, so it must still appear in the inventory.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') return []
+      if (path === '/mock/agents/codex/skills') {
+        return [
+          createDirent('secure-review', {
+            isDirectory: false,
+            isSymbolicLink: true,
+          }),
+        ]
+      }
+      return []
+    })
+    accessMock.mockRejectedValue(new Error('ENOENT'))
+    statMock.mockRejectedValue(new Error('ENOENT'))
+    checkSymlinkTargetFromKnownLinkMock.mockImplementation(
+      async (linkPath: string) => {
+        if (linkPath === '/mock/agents/codex/skills/secure-review') {
+          return 'inaccessible'
+        }
+        return 'missing'
+      },
+    )
+    readSymlinkTargetIfPresentMock.mockImplementation(
+      async (linkPath: string) => {
+        if (linkPath === '/mock/agents/codex/skills/secure-review') {
+          return '/mock/secure/skills/secure-review'
+        }
+        return undefined
+      },
+    )
+
+    const { scanSkills } = await import('./skillScanner')
+    const skills = await scanSkills()
+
+    expect(skills).toHaveLength(1)
+    const manualReview = skills[0]
+    expect(manualReview.name).toBe('secure-review')
+    expect(manualReview.description).toBe(
+      'Inaccessible symlink — target cannot be verified',
+    )
+    expect(manualReview.path).toBe('/mock/secure/skills/secure-review')
+    expect(manualReview.symlinkCount).toBe(0)
+    expect(manualReview.isSource).toBe(false)
+    expect(manualReview.isOrphan).toBe(false)
+
+    const codex = manualReview.symlinks.find((s) => s.agentId === 'codex')
+    const cursor = manualReview.symlinks.find((s) => s.agentId === 'cursor')
+    expect(codex).toMatchObject({
+      status: 'inaccessible',
+      isLocal: false,
+      linkPath: '/mock/agents/codex/skills/secure-review',
+      targetPath: '/mock/secure/skills/secure-review',
+    })
+    expect(cursor).toMatchObject({ status: 'missing', isLocal: false })
+  })
 })
 
 describe('scanSkills orphan symlink surfacing (issue #127)', () => {
@@ -313,6 +372,14 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
         return 'missing'
       },
     )
+    readSymlinkTargetIfPresentMock.mockImplementation(
+      async (linkPath: string) => {
+        if (linkPath === '/mock/agents/codex/skills/connect-chrome') {
+          return '/mock/source/skills/connect-chrome'
+        }
+        return undefined
+      },
+    )
 
     const { scanSkills } = await import('./skillScanner')
     const skills = await scanSkills()
@@ -327,7 +394,11 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
 
     const codex = orphan.symlinks.find((s) => s.agentId === 'codex')
     const cursor = orphan.symlinks.find((s) => s.agentId === 'cursor')
-    expect(codex).toMatchObject({ status: 'broken', isLocal: false })
+    expect(codex).toMatchObject({
+      status: 'broken',
+      isLocal: false,
+      targetPath: '/mock/source/skills/connect-chrome',
+    })
     expect(cursor).toMatchObject({ status: 'missing', isLocal: false })
   })
 

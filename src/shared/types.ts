@@ -903,13 +903,13 @@ export interface ClearOrphanSymlinksResult {
 
 /**
  * IPC argument for `skills:clearBrokenSymlinkSlots` — remove reviewed broken agent links after exact target revalidation.
- * @example { items: [{ agentId: 'codex', skillName: 'task', linkPath: '/Users/me/.codex/skills/task', targetPath: '/Users/me/.agents/skills/task' }] }
+ * @example { items: [{ agentId: 'codex', linkName: 'task', linkPath: '/Users/me/.codex/skills/task', targetPath: '/Users/me/.agents/skills/task' }] }
  */
 export interface ClearBrokenSymlinkSlotsOptions {
   /** Broken slots selected in the Symlink Health cleanup dialog. */
   items: Array<{
     agentId: AgentId
-    skillName: SkillName
+    linkName: SkillName
     linkPath: AbsolutePath
     targetPath: AbsolutePath
   }>

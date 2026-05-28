@@ -278,6 +278,10 @@ export const MainContent = React.memo(
     )
 
     const selectedAgent = agents.find((a) => a.id === selectedAgentId)
+    const bulkDeleteTargetSummary = useMemo(() => {
+      if (!bulkConfirm || bulkConfirm.kind !== 'delete') return null
+      return partitionGlobalDeleteTargets(skills, bulkConfirm.skillNames)
+    }, [bulkConfirm, skills])
     const selectedSkillTypeLabel =
       SKILL_TYPE_FILTER_OPTIONS.find(
         (option) => option.value === skillTypeFilter,
@@ -1079,6 +1083,12 @@ export const MainContent = React.memo(
                 {bulkConfirm?.kind === 'delete'
                   ? renderBulkDeleteDescription({
                       totalCount: bulkConfirm.skillNames.length,
+                      trashCount:
+                        bulkDeleteTargetSummary?.deleteNames.length ??
+                        bulkConfirm.skillNames.length,
+                      orphanCleanupCount:
+                        (bulkDeleteTargetSummary?.orphanRecords.length ?? 0) +
+                        (bulkDeleteTargetSummary?.orphanErrors.length ?? 0),
                       sourceSummary: bulkConfirm.sourceSummary,
                     })
                   : `This removes the symlinks in ${bulkConfirm?.agentName ?? 'this agent'}. The underlying skill files stay in your source directory.`}

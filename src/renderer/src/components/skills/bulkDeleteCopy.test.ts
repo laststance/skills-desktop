@@ -33,6 +33,36 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
+  it('describes orphan-only cleanup without promising trash undo', () => {
+    // Arrange / Act
+    const description = renderBulkDeleteDescription({
+      totalCount: 2,
+      trashCount: 0,
+      orphanCleanupCount: 2,
+      sourceSummary: null,
+    })
+
+    // Assert — orphan cleanup has no tombstone or UndoToast restore path
+    expect(description).toBe(
+      'This removes reviewed dangling symlinks for 2 orphan skills. Source skill files are already missing, and this cleanup cannot be undone from the notification.',
+    )
+  })
+
+  it('separates trash undo from orphan cleanup in a mixed delete batch', () => {
+    // Arrange / Act
+    const description = renderBulkDeleteDescription({
+      totalCount: 3,
+      trashCount: 1,
+      orphanCleanupCount: 2,
+      sourceSummary: null,
+    })
+
+    // Assert — only tombstoned source skills advertise the undo window
+    expect(description).toBe(
+      'This moves 1 skill to the app trash with a 15-second restore window and removes reviewed dangling symlinks for 2 orphan skills. Orphan cleanup cannot be undone from the notification.',
+    )
+  })
+
   it('names the single in-scope repository', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({

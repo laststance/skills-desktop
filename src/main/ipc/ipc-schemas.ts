@@ -246,7 +246,7 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
         .array(
           z.object({
             agentId: nonEmptyString,
-            skillName: skillNameString,
+            linkName: skillNameString,
             linkPath: absolutePathArg,
             targetPath: absolutePathArg,
           }),

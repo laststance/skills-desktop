@@ -372,6 +372,23 @@ function collectFailedRows(params: {
 }
 
 /**
+ * Turns post-cleanup refresh failures into secondary copy so a successful mutation is not reported as failed.
+ * @param results - Settled refresh thunk results after cleanup mutation finishes.
+ * @returns Extra summary phrase, or null when every refresh thunk fulfilled.
+ * @example
+ * getRefreshFailureMessage([{ status: 'rejected', reason: new Error('offline') }]) // => 'Refresh failed after cleanup: offline. Rescan to update dashboard.'
+ */
+function getRefreshFailureMessage(
+  results: readonly PromiseSettledResult<unknown>[],
+): string | null {
+  const failedRefresh = results.find(
+    (result): result is PromiseRejectedResult => result.status === 'rejected',
+  )
+  if (!failedRefresh) return null
+  return `Refresh failed after cleanup: ${getErrorMessage(failedRefresh.reason)}. Rescan to update dashboard.`
+}
+
+/**
  * Aggregates bulk cleanup results into the compact final summary shown in the dialog.
  * @param params - Attempted item count and mutation results.
  * @returns Count and phrase summary for complete or partial-failure states.
@@ -382,6 +399,7 @@ function buildCleanupSummary(params: {
   attemptedCount: number
   deleteResult: BulkDeleteResult | null
   unlinkResults: Array<{ agentName: string; result: BulkUnlinkResult }>
+  refreshMessage?: string | null
 }): CleanupSummary {
   const deletePhrases = params.deleteResult
     ? [formatCascadeSummary(params.deleteResult)].filter(Boolean)
@@ -418,7 +436,11 @@ function buildCleanupSummary(params: {
   const failedCount = deleteFailureCount + unlinkFailureCount
 
   return {
-    phrases: [...deletePhrases, ...unlinkPhrases],
+    phrases: [
+      ...deletePhrases,
+      ...unlinkPhrases,
+      ...(params.refreshMessage ? [params.refreshMessage] : []),
+    ],
     cleanedIssues: params.attemptedCount - failedCount,
     orphanSymlinksRemoved,
     brokenLinksUnlinked,
@@ -600,7 +622,7 @@ export const SymlinkCleanupDialog = React.memo(
             clearSelectedBrokenSymlinkSlots({
               items: brokenItems.map((item) => ({
                 agentId: item.agentId,
-                skillName: item.linkName,
+                linkName: item.linkName,
                 linkPath: item.linkPath,
                 targetPath: item.targetPath,
               })),
@@ -626,19 +648,28 @@ export const SymlinkCleanupDialog = React.memo(
           }
         }
 
-        // Always refetch after cleanup: success updates the dashboard and
-        // failure rebuilds row state from the scanner the user now sees.
-        const [postCleanupSkills] = await Promise.all([
-          dispatch(fetchSkills()).unwrap(),
-          dispatch(fetchAgents()).unwrap(),
-          dispatch(fetchSourceStats()).unwrap(),
+        // Refresh failures after mutation are secondary: the cleanup already
+        // happened, so keep the mutation result and ask for an explicit rescan.
+        const [postCleanupSkillsResult, ...refreshResults] =
+          await Promise.allSettled([
+            dispatch(fetchSkills()).unwrap(),
+            dispatch(fetchAgents()).unwrap(),
+            dispatch(fetchSourceStats()).unwrap(),
+          ])
+        const refreshMessage = getRefreshFailureMessage([
+          postCleanupSkillsResult,
+          ...refreshResults,
         ])
-        const postCleanupPlan = buildSymlinkCleanupPlan(postCleanupSkills)
+        const postCleanupPlan =
+          postCleanupSkillsResult.status === 'fulfilled'
+            ? buildSymlinkCleanupPlan(postCleanupSkillsResult.value)
+            : freshPlan
 
         const summary = buildCleanupSummary({
           attemptedCount: freshItemsToClean.length,
           deleteResult,
           unlinkResults,
+          refreshMessage,
         })
         const { failedItemIds, rowErrors } = collectFailedRows({
           deleteResult,
@@ -791,7 +822,7 @@ export const SymlinkCleanupDialog = React.memo(
           <div className="min-h-0">{body}</div>
 
           <DialogFooter className="gap-2">
-            {state.phase === 'stale' ? (
+            {state.phase === 'stale' || state.phase === 'error' ? (
               <Button
                 type="button"
                 variant="outline"
@@ -909,6 +940,10 @@ interface CompleteSummaryProps {
 const CompleteSummary = React.memo(function CompleteSummary({
   summary,
 }: CompleteSummaryProps): React.ReactElement {
+  const didRefreshFail =
+    summary?.phrases.some((phrase) =>
+      phrase.startsWith('Refresh failed after cleanup:'),
+    ) ?? false
   return (
     <div className="py-5 space-y-3 text-sm" role="status" aria-atomic="true">
       <div className="flex items-start gap-3">
@@ -919,7 +954,9 @@ const CompleteSummary = React.memo(function CompleteSummary({
             {pluralize(summary?.cleanedIssues ?? 0, 'symlink issue')}
           </p>
           <p className="text-muted-foreground">
-            The dashboard will reflect the refreshed scanner state.
+            {didRefreshFail
+              ? 'Cleanup succeeded. Rescan to refresh the dashboard state.'
+              : 'The dashboard will reflect the refreshed scanner state.'}
           </p>
         </div>
       </div>
@@ -1100,9 +1137,13 @@ const CleanupRow = React.memo(function CleanupRow({
     : item.agentName
   const issueCount = isOrphan ? item.symlinkCount : 1
   const Icon = isOrphan ? Trash2 : Link2Off
-  const pathLine = isOrphan
-    ? item.agents.map((agent) => agent.linkPath).join(', ')
-    : `${item.linkPath}${item.targetPath ? ` -> ${item.targetPath}` : ''}`
+  const pathDetailsId = `${item.id}-path-details`
+  const pathDetails = isOrphan
+    ? item.agents.map(
+        (agent) =>
+          `${agent.agentName}: ${agent.linkPath} -> ${agent.targetPath}`,
+      )
+    : [`${item.linkPath} -> ${item.targetPath}`]
   const handleCheckedChange = useCallback((): void => {
     onToggleItem(item.id)
   }, [item.id, onToggleItem])
@@ -1118,6 +1159,7 @@ const CleanupRow = React.memo(function CleanupRow({
               ? `Clean orphan symlinks for ${label}`
               : `Clean broken link for ${label} from ${agentLabel}`
           }
+          aria-describedby={pathDetailsId}
         />
         <Icon
           className={cn(
@@ -1134,9 +1176,16 @@ const CleanupRow = React.memo(function CleanupRow({
           {issueCount}
         </span>
       </div>
-      <p className="ml-14 mt-1 truncate font-mono text-[11px] text-muted-foreground">
-        {pathLine}
-      </p>
+      <div
+        id={pathDetailsId}
+        className="ml-14 mt-1 space-y-1 font-mono text-[11px] text-muted-foreground"
+      >
+        {pathDetails.map((pathDetail) => (
+          <p key={pathDetail} className="break-all" title={pathDetail}>
+            {pathDetail}
+          </p>
+        ))}
+      </div>
       {error ? (
         <p className="ml-14 mt-1 text-xs text-destructive" role="alert">
           {error}

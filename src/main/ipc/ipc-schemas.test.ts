@@ -76,7 +76,7 @@ describe('skillNameString consistency across channels', () => {
           items: [
             {
               agentId: 'cursor',
-              skillName: malicious,
+              linkName: malicious,
               linkPath: '/tmp/link',
               targetPath: '/tmp/target',
             },
@@ -145,7 +145,7 @@ describe('cleanup IPC target path schemas', () => {
           items: [
             {
               agentId: 'cursor',
-              skillName: 'task',
+              linkName: 'task',
               linkPath: '/tmp/link',
             },
           ],
@@ -158,7 +158,7 @@ describe('cleanup IPC target path schemas', () => {
           items: [
             {
               agentId: 'cursor',
-              skillName: 'task',
+              linkName: 'task',
               linkPath: '/tmp/link',
               targetPath: 'relative/target',
             },
