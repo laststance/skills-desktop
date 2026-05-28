@@ -27,6 +27,7 @@ import {
   selectSelectedVisibleCount,
   selectSelectedVisibleNames,
   selectSourceFilterViewModel,
+  selectVisibleIneligibleSelectedCount,
   selectVisibleSkillNames,
 } from './selectors'
 
@@ -130,19 +131,21 @@ function buildState(overrides: {
  *   both `source` and `sourceUrl` on the skill so repo-scope tests can assert
  *   on a real value. Omitted by default to mimic the most common state where
  *   skills lack source metadata.
+ * @param status - Agent symlink status for bulk-action eligibility tests.
  */
 const makeSkill = (
   name: string,
   agentId: AgentId,
   isLocal = false,
   source?: string,
+  status: SymlinkInfo['status'] = 'valid',
 ): Skill => ({
   name,
   description: `${name} skill`,
   path: isLocal
     ? `/home/user/.${agentId}/skills/${name}`
     : `/home/user/.agents/skills/${name}`,
-  symlinkCount: isLocal ? 0 : 1,
+  symlinkCount: isLocal || status === 'missing' ? 0 : 1,
   symlinks: [
     {
       agentId: agentId as SymlinkInfo['agentId'],
@@ -151,7 +154,7 @@ const makeSkill = (
       targetPath: isLocal
         ? `/home/user/.${agentId}/skills/${name}`
         : `/home/user/.agents/skills/${name}`,
-      status: 'valid',
+      status,
       isLocal,
     },
   ],
@@ -978,6 +981,36 @@ describe('selectHiddenSelectedCount', () => {
       selectedSkillNames: ['alpha', 'browser'],
     })
     expect(selectHiddenSelectedCount(state as never)).toBe(0)
+  })
+
+  it('does not count visible but ineligible agent rows as hidden by filter', () => {
+    const skills = [
+      makeSkill('valid-task', 'cursor'),
+      makeSkill('broken-task', 'cursor', false, undefined, 'broken'),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      selectedSkillNames: ['valid-task', 'broken-task'],
+    })
+
+    expect(selectHiddenSelectedCount(state as never)).toBe(0)
+  })
+})
+
+describe('selectVisibleIneligibleSelectedCount', () => {
+  it('counts selected rows that are visible but excluded from bulk action', () => {
+    const skills = [
+      makeSkill('valid-task', 'cursor'),
+      makeSkill('broken-task', 'cursor', false, undefined, 'broken'),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      selectedSkillNames: ['valid-task', 'broken-task', 'hidden-task'],
+    })
+
+    expect(selectVisibleIneligibleSelectedCount(state as never)).toBe(1)
   })
 })
 

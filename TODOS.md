@@ -636,6 +636,54 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Remove the file-level offline skip and move the snapshot/offline guard into the single `azure-ai`-dependent test.
 
+### P1. Quarantine rollback tests must assert recovered symlink identity
+
+**Status:** Fixed after eleventh post-fix subagent review.
+
+**Finding:** `trashService.orphanRace.test.ts` only asserts that a `.cleanup-*` entry exists after rollback failure. The test can pass even if the quarantined leftover is not the original reviewed symlink.
+
+**Fix direction:** Capture the exact cleanup entry, assert it is still a symlink, and assert `readlink()` points to the original source path in both rollback-failure regressions.
+
+### P1. Global orphan Delete must not seed source-delete undo state
+
+**Status:** Fixed after eleventh post-fix subagent review.
+
+**Finding:** `MainContent.browser.test.tsx` verifies that global orphan Delete routes to reviewed orphan cleanup IPC and bypasses `deleteSkills`, but does not assert that the orphan-only path leaves no source-delete undo/tombstone state.
+
+**Fix direction:** Add a post-confirm assertion that `ui.undoToast` remains `null` after orphan-only cleanup succeeds.
+
+### P2. IPC integration fs mocks must be unmocked after cleanup-target tests
+
+**Status:** Fixed after eleventh post-fix subagent review.
+
+**Finding:** The cleanup target identity integration describe in `skills.clearOrphanSymlinks.integration.test.ts` mocks `node:fs/promises` but does not unmock it in `afterEach`, which can leak module state into later tests.
+
+**Fix direction:** Mirror the first describe's cleanup and call `vi.doUnmock('node:fs/promises')` in the second describe `afterEach`.
+
+### P1. Broken selected-agent rows must not expose Add or Copy affordances
+
+**Status:** Fixed after eleventh post-fix subagent review.
+
+**Finding:** `getSkillItemVisibility()` treats a broken selected-agent symlink as "present", enabling Add/Copy controls while the normal unlink control is hidden. Broken non-orphan rows can look actionable through the wrong flow instead of requiring cleanup/manual review.
+
+**Fix direction:** Derive Add/Copy visibility from a usable selected-agent slot (`local` or `valid`) rather than any selected-agent slot, and cover broken-slot visibility with focused tests.
+
+### P2. Cleanup-dialog bulk cleanup must not resurrect stale row selection
+
+**Status:** Fixed after eleventh post-fix subagent review.
+
+**Finding:** Cleanup thunks close bulk-select chrome on `.pending` but preserve `selectedSkillNames` for retry semantics. When cleanup starts from `SymlinkCleanupDialog`, stale list selection can later reappear when the user re-enters Select.
+
+**Fix direction:** Clear list selection only for the dashboard cleanup-dialog entry point, while preserving the existing fulfilled-time retry narrowing used by `MainContent` bulk actions.
+
+### P3. Selection toolbar must distinguish hidden rows from visible ineligible rows
+
+**Status:** Fixed after eleventh post-fix subagent review.
+
+**Finding:** `SelectionToolbar` reports selected rows outside `selectBulkSelectableVisibleSkillNames` as hidden by filter. Visible but ineligible rows, such as broken/manual-review rows, can be described as hidden even though they are on screen.
+
+**Fix direction:** Separate filtered-hidden counts from visible-but-ineligible counts or clear/reconcile ineligible selections before rendering toolbar copy.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

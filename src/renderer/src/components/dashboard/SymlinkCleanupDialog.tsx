@@ -41,6 +41,7 @@ import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { fetchAgents } from '@/renderer/src/redux/slices/agentsSlice'
 import {
+  clearSelection,
   clearSelectedBrokenSymlinkSlots,
   clearSelectedOrphanSymlinks,
   fetchSkills,
@@ -656,6 +657,9 @@ export const SymlinkCleanupDialog = React.memo(
           })
           return
         }
+        // Dashboard cleanup is independent from the Installed list selection.
+        // Clear stale row ticks here without changing MainContent retry behavior.
+        dispatch(clearSelection())
 
         const orphanRecords = freshItemsToClean
           .filter(

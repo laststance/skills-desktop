@@ -256,6 +256,9 @@ describe('SkillItem symlink status badges', () => {
         screen.getByRole('button', { name: /^Unlink task from/i }).query(),
       )
       .toBeNull()
+    await expect
+      .poll(() => screen.getByRole('button', { name: 'Add' }).query())
+      .toBeNull()
   })
 
   it('hides Add for inaccessible slots so copy routing cannot fan out', async () => {

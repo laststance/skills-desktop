@@ -138,11 +138,11 @@ function makeOrphanSkill(
 
 /**
  * Renders an opened SymlinkCleanupDialog with real reducers and mocked preload IPC.
- * @returns Browser screen for interaction assertions.
+ * @returns Browser screen and Redux store for interaction assertions.
  * @example
- * const screen = await renderOpenedDialog()
+ * const { screen, store } = await renderOpenedDialogWithStore()
  */
-async function renderOpenedDialog() {
+async function renderOpenedDialogWithStore() {
   const [
     { default: skillsReducer },
     { default: agentsReducer },
@@ -169,6 +169,17 @@ async function renderOpenedDialog() {
       </main>
     </Provider>,
   )
+  return { screen, store }
+}
+
+/**
+ * Renders an opened cleanup dialog and returns only the browser screen.
+ * @returns Browser screen for tests that do not inspect Redux state.
+ * @example
+ * const screen = await renderOpenedDialog()
+ */
+async function renderOpenedDialog() {
+  const { screen } = await renderOpenedDialogWithStore()
   return screen
 }
 
@@ -568,6 +579,47 @@ describe('SymlinkCleanupDialog', () => {
     await expect
       .element(screen.getByText(/Cleaned up 1 symlink issue/))
       .toBeVisible()
+  })
+
+  it('clears stale Installed-list selection when dashboard cleanup starts', async () => {
+    // Arrange
+    const selectedSkillName = 'stale-list-row' as SkillName
+    const cleanupPlan = [
+      makeSkillWithBrokenSlot('dialog-cleanup-task', 'cursor'),
+    ]
+    mockGetSkills
+      .mockResolvedValueOnce(cleanupPlan)
+      .mockResolvedValueOnce(cleanupPlan)
+      .mockResolvedValueOnce(cleanupPlan)
+    mockClearBrokenSymlinkSlots.mockResolvedValue({
+      items: [
+        {
+          agentId: 'cursor',
+          skillName: 'dialog-cleanup-task',
+          linkPath: '/Users/test/.cursor/skills/dialog-cleanup-task',
+          outcome: 'unlinked',
+        },
+      ],
+    })
+    const { screen, store } = await renderOpenedDialogWithStore()
+    const { toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(toggleSelection(selectedSkillName))
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      selectedSkillName,
+    ])
+
+    // Act
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 1 selected' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Clean 1 selected' }).click()
+
+    // Assert
+    await expect
+      .poll(() => mockClearBrokenSymlinkSlots.mock.calls.length)
+      .toBe(1)
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
   })
 
   it('surfaces orphan-only IPC failures without calling source delete', async () => {

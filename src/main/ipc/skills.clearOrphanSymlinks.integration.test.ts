@@ -316,6 +316,7 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
   afterEach(async () => {
     vi.doUnmock('os')
     vi.doUnmock('node:os')
+    vi.doUnmock('node:fs/promises')
     await rm(tempHome, { recursive: true, force: true })
   })
 

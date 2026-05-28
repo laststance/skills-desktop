@@ -547,12 +547,12 @@ export const selectSelectedVisibleCount = createSelector(
 
 /**
  * The hidden-selected count shown in the toolbar as a badge ("+2 hidden by
- * filter") so the user realizes they have out-of-view selections that the
- * Delete button will NOT act on.
+ * filter") so the user realizes they have out-of-view selections. Visible
+ * but ineligible rows are counted separately by `selectVisibleIneligibleSelectedCount`.
  * @returns number — selected names that are NOT in the visible list
  */
 export const selectHiddenSelectedCount = createSelector(
-  [selectSelectedSkillNames, selectBulkSelectableVisibleSkillNames],
+  [selectSelectedSkillNames, selectVisibleSkillNames],
   (selectedNames, visibleNames): number => {
     const visibleSet = new Set(visibleNames)
     let hidden = 0
@@ -560,6 +560,31 @@ export const selectHiddenSelectedCount = createSelector(
       if (!visibleSet.has(name)) hidden += 1
     }
     return hidden
+  },
+)
+
+/**
+ * Count selected rows that are visible but excluded from the current bulk action.
+ * @returns number — visible selected rows that cannot use Delete/Unlink safely.
+ * @example
+ * // broken agent-view row selected on screen => 1 not eligible
+ */
+export const selectVisibleIneligibleSelectedCount = createSelector(
+  [
+    selectSelectedSkillNames,
+    selectVisibleSkillNames,
+    selectBulkSelectableVisibleSkillNames,
+  ],
+  (selectedNames, visibleNames, eligibleVisibleNames): number => {
+    const selectedSet = new Set(selectedNames)
+    const eligibleSet = new Set(eligibleVisibleNames)
+    let visibleIneligible = 0
+    for (const name of visibleNames) {
+      if (selectedSet.has(name) && !eligibleSet.has(name)) {
+        visibleIneligible += 1
+      }
+    }
+    return visibleIneligible
   },
 )
 

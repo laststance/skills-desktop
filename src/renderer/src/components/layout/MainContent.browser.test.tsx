@@ -604,6 +604,7 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
       ],
     })
     expect(mockSkillsDeleteSkills).not.toHaveBeenCalled()
+    expect(store.getState().ui.undoToast).toBeNull()
   })
 
   it('keeps failed source rows selected after mixed source and orphan delete', async () => {

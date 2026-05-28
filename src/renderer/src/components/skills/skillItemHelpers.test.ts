@@ -135,6 +135,20 @@ describe('getSkillItemVisibility', () => {
       expect(result.isLinked).toBe(false)
     })
 
+    it('hides Add and Copy when the selected agent row is broken', () => {
+      // The source exists through another agent, but Cursor's visible row is a
+      // broken slot. Add/Copy would route through a generic source-copy flow
+      // instead of the reviewed cleanup path for this exact broken link.
+      const symlinks = [
+        makeSymlink({ agentId: 'cursor', status: 'broken', isLocal: false }),
+        makeSymlink({ agentId: 'codex', status: 'valid', isLocal: false }),
+      ]
+      const result = getSkillItemVisibility('cursor', makeSkill(symlinks))
+
+      expect(result.showAddButton).toBe(false)
+      expect(result.showCopyButton).toBe(false)
+    })
+
     it('hides unlink button when no symlink for selected agent', () => {
       const symlinks = [
         makeSymlink({ agentId: 'codex', status: 'valid', isLocal: false }),

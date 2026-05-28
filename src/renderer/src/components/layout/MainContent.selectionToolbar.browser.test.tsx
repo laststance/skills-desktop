@@ -184,11 +184,14 @@ describe('MainContent SelectionToolbar integration', () => {
     store.dispatch(selectAgent('cursor'))
     store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection('valid-toolbar-task' as SkillName))
+    store.dispatch(toggleSelection('broken-toolbar-task' as SkillName))
 
     // Act
     await expect
       .element(screen.getByRole('group', { name: 'Bulk selection actions' }))
       .toBeVisible()
+    await expect.element(screen.getByText('+1 not eligible')).toBeVisible()
+    expect(screen.getByText(/hidden by filter/).query()).toBeNull()
     await screen.getByRole('button', { name: 'Select all visible' }).click()
 
     // Assert

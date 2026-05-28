@@ -152,9 +152,13 @@ describe('trashService orphan cleanup guarded commit', () => {
     expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
     expect(await readlink(linkPath)).toBe(replacementTargetPath)
     const leftovers = await readdir(cursorSkillsDir)
-    expect(
-      leftovers.some((entry) => entry.startsWith(`${skillName}.cleanup-`)),
-    ).toBe(true)
+    const cleanupEntries = leftovers.filter((entry) =>
+      entry.startsWith(`${skillName}.cleanup-`),
+    )
+    expect(cleanupEntries).toHaveLength(1)
+    const cleanupPath = join(cursorSkillsDir, cleanupEntries[0]!)
+    expect((await lstat(cleanupPath)).isSymbolicLink()).toBe(true)
+    expect(await readlink(cleanupPath)).toBe(sourcePath)
     expect(await readdir(__getTrashDirForTests())).toEqual([])
   })
 
@@ -209,9 +213,13 @@ describe('trashService orphan cleanup guarded commit', () => {
     expect((await lstat(cursorLinkPath)).isSymbolicLink()).toBe(true)
     expect(await readlink(cursorLinkPath)).toBe(replacementTargetPath)
     const leftovers = await readdir(cursorSkillsDir)
-    expect(
-      leftovers.some((entry) => entry.startsWith(`${skillName}.cleanup-`)),
-    ).toBe(true)
+    const cleanupEntries = leftovers.filter((entry) =>
+      entry.startsWith(`${skillName}.cleanup-`),
+    )
+    expect(cleanupEntries).toHaveLength(1)
+    const cleanupPath = join(cursorSkillsDir, cleanupEntries[0]!)
+    expect((await lstat(cleanupPath)).isSymbolicLink()).toBe(true)
+    expect(await readlink(cleanupPath)).toBe(sourcePath)
     expect(await readdir(__getTrashDirForTests())).toEqual([])
   })
 })

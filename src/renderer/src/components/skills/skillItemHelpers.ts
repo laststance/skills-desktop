@@ -104,7 +104,8 @@ export function getSkillItemVisibility(
     : null
 
   const isLocalSkill = Boolean(selectedLocalSkillInfo)
-  const hasSkillInSelectedAgent = selectedAgentSymlink !== null || isLocalSkill
+  const hasUsableSkillInSelectedAgent =
+    isLocalSkill || selectedAgentSymlink?.status === 'valid'
   const isInaccessibleSkill =
     selectedAgentSymlink !== null &&
     selectedAgentSymlink.status === 'inaccessible'
@@ -123,7 +124,7 @@ export function getSkillItemVisibility(
     // that can only fail. Stays gated on `!isOrphan` even after the Delete
     // and Unlink loosens.
     showAddButton:
-      (!selectedAgentId || hasSkillInSelectedAgent) &&
+      (!selectedAgentId || hasUsableSkillInSelectedAgent) &&
       !isOrphan &&
       !isInaccessibleSkill,
     // Broken and inaccessible non-local symlinks need reviewed cleanup paths
@@ -143,7 +144,7 @@ export function getSkillItemVisibility(
     // for the same reason `showAddButton` is gated on `!isOrphan`.
     showCopyButton:
       selectedAgentId !== null &&
-      hasSkillInSelectedAgent &&
+      hasUsableSkillInSelectedAgent &&
       !isOrphan &&
       !isInaccessibleSkill,
     showGStackBadge,

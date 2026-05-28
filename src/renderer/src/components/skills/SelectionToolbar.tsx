@@ -9,6 +9,7 @@ import {
   selectHiddenSelectedCount,
   selectSelectedCount,
   selectSelectedVisibleCount,
+  selectVisibleIneligibleSelectedCount,
 } from '@/renderer/src/redux/selectors'
 import {
   clearSelection,
@@ -44,6 +45,7 @@ interface SelectionToolbarProps {
  * skill is ticked. Shows:
  *   - `N selected` (aria-live="polite")
  *   - `+K hidden by filter` badge when some ticked names are outside the filter
+ *   - `+K not eligible` badge when visible rows cannot use the bulk action
  *   - Primary action button (Delete / Unlink) whose label varies by view
  *   - Secondary "Select all visible" + "Clear selection" buttons
  *   - Progress counter ("3 of 12") during active bulk op when total >= 10
@@ -64,6 +66,9 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
   const selectedCount = useAppSelector(selectSelectedCount)
   const visibleSelectedCount = useAppSelector(selectSelectedVisibleCount)
   const hiddenSelectedCount = useAppSelector(selectHiddenSelectedCount)
+  const visibleIneligibleSelectedCount = useAppSelector(
+    selectVisibleIneligibleSelectedCount,
+  )
   const visibleNames = useAppSelector(selectBulkSelectableVisibleSkillNames)
   const selectedAgentId = useAppSelector(selectSelectedAgentId)
   const bulkSelectMode = useAppSelector(selectBulkSelectMode)
@@ -126,6 +131,17 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
           title={`${hiddenSelectedCount} selected ${hiddenSelectedCount === 1 ? 'row is' : 'rows are'} hidden by the current filter and will not be affected`}
         >
           +{hiddenSelectedCount} hidden by filter
+        </span>
+      )}
+
+      {/* Visible-but-ineligible indicator — separates on-screen manual-review
+          rows from genuinely hidden filtered selections. */}
+      {visibleIneligibleSelectedCount > 0 && (
+        <span
+          className="text-xs text-muted-foreground shrink-0"
+          title={`${visibleIneligibleSelectedCount} selected ${visibleIneligibleSelectedCount === 1 ? 'row is' : 'rows are'} visible but cannot use this bulk action`}
+        >
+          +{visibleIneligibleSelectedCount} not eligible
         </span>
       )}
 
