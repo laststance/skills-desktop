@@ -5,6 +5,13 @@ import { join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type {
+  AbsolutePath,
+  AgentId,
+  BulkUnlinkResult,
+  SkillName,
+} from '@/shared/types'
+
 const handleMock = vi.fn()
 const trashItemMock = vi.fn()
 
@@ -45,6 +52,22 @@ function getRegisteredHandler(channel: string): (
       confirmedLocalDirectoryDelete?: boolean
     },
   ) => Promise<{ success: boolean; error?: string }>
+}
+
+/**
+ * Return a typed IPC handler from the mocked Electron registry.
+ * @param channel - IPC channel name to locate.
+ * @returns Handler registered by registerSkillsHandlers().
+ * @example getRegisteredInvokeHandler('skills:unlinkManyFromAgent')
+ */
+function getRegisteredInvokeHandler<TArg, TResult>(
+  channel: string,
+): (event: unknown, arg: TArg) => Promise<TResult> {
+  const registration = handleMock.mock.calls.find(([name]) => name === channel)
+  if (!registration) {
+    throw new Error(`No handler registered for ${channel}`)
+  }
+  return registration[1] as (event: unknown, arg: TArg) => Promise<TResult>
 }
 
 describe('skills:unlinkFromAgent handler', () => {
@@ -168,6 +191,49 @@ describe('skills:unlinkFromAgent handler', () => {
     // Assert
     expect(result.success).toBe(true)
     await expect(lstat(cursorLinkPath)).rejects.toThrow(/ENOENT/)
+    await expect(lstat(sourcePath)).resolves.toBeDefined()
+    expect(trashItemMock).not.toHaveBeenCalled()
+  })
+
+  it('bulk unlink removes reviewed slot when metadata name differs from folder basename', async () => {
+    // Arrange
+    const metadataName = 'metadata-title-bulk' as SkillName
+    const slotName = 'folder-basename-bulk'
+    const sourcePath = join(tempHome, '.agents', 'skills', slotName)
+    const cursorSkillsDir = join(tempHome, '.cursor', 'skills')
+    const cursorLinkPath = join(cursorSkillsDir, slotName) as AbsolutePath
+    const decoyLinkPath = join(cursorSkillsDir, metadataName)
+    await mkdir(sourcePath, { recursive: true })
+    await mkdir(cursorSkillsDir, { recursive: true })
+    await writeFile(join(sourcePath, 'SKILL.md'), `name: ${metadataName}\n`)
+    await symlink(sourcePath, cursorLinkPath)
+    await symlink(sourcePath, decoyLinkPath)
+
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+
+    // Act
+    const handler = getRegisteredInvokeHandler<
+      {
+        agentId: AgentId
+        items: Array<{ skillName: SkillName; linkPath?: AbsolutePath }>
+      },
+      BulkUnlinkResult
+    >('skills:unlinkManyFromAgent')
+    const result = await handler(
+      {},
+      {
+        agentId: 'cursor' as AgentId,
+        items: [{ skillName: metadataName, linkPath: cursorLinkPath }],
+      },
+    )
+
+    // Assert
+    expect(result.items).toEqual([
+      { skillName: metadataName, outcome: 'unlinked' },
+    ])
+    await expect(lstat(cursorLinkPath)).rejects.toThrow(/ENOENT/)
+    await expect(lstat(decoyLinkPath)).resolves.toBeDefined()
     await expect(lstat(sourcePath)).resolves.toBeDefined()
     expect(trashItemMock).not.toHaveBeenCalled()
   })

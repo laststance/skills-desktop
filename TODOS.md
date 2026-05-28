@@ -716,6 +716,38 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Validate the reviewed `linkPath` as a direct child of the selected agent path instead of deriving it from the display skill name, while still rejecting source paths and other-agent paths.
 
+### P1. Startup trash cleanup must preserve manual-recovery entries
+
+**Status:** Fixed after thirteenth post-fix subagent review.
+
+**Finding:** Preserved tombstone entries that require manual recovery can still be swept by `startupCleanup()` after the 24h trash TTL. The recovery path is preserved during the failed operation, but restart-time cleanup can later delete it without checking that the entry is intentionally stranded.
+
+**Fix direction:** Mark stranded/manual-recovery trash entries and teach `startupCleanup()` to skip marked entries instead of evicting them by age.
+
+### P1. Cross-device fallback failures must not delete staged recovery copies
+
+**Status:** Fixed after thirteenth post-fix subagent review.
+
+**Finding:** The EXDEV fallback paths copy into the trash entry before removing the original path. If the copy succeeds but the remove fails, the current fatal rollback cleanup can delete the staged copy, which may be the only complete recovery copy.
+
+**Fix direction:** Track when a cross-device fallback has staged data in the trash entry, preserve that entry on fallback failure, and mark it for manual recovery.
+
+### P1. Source delete must use reviewed source path when metadata name differs
+
+**Status:** Fixed after thirteenth post-fix subagent review.
+
+**Finding:** Bulk source delete still sends only `skillName`, so main derives `SOURCE_DIR/<skillName>`. If `Skill.name` comes from `SKILL.md` metadata and differs from the actual source folder basename, delete can miss the selected folder or tombstone the wrong folder when a same-name folder exists.
+
+**Fix direction:** Pass the reviewed `Skill.path` through delete IPC and have main prefer that path as the filesystem identity after validating it under allowed skill directories.
+
+### P2. Bulk agent unlink must use reviewed link path when metadata name differs
+
+**Status:** Fixed after thirteenth post-fix subagent review.
+
+**Finding:** Bulk unlink still sends only `skillName`, so main derives `agent.path/skillName`. A selected row whose display metadata name differs from the actual agent slot basename can report success while leaving the reviewed slot untouched.
+
+**Fix direction:** Pass reviewed per-row `symlink.linkPath` through bulk unlink IPC and have main validate/remove that exact direct child of the selected agent directory.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

@@ -137,14 +137,32 @@ async function removeFromAgent(
 ): Promise<
   { success: true } | { success: false; error: string; code?: string }
 > {
-  const linkPath = join(agentPath, skillName)
+  const linkPath = join(agentPath, skillName) as AbsolutePath
+  return removeReviewedPathFromAgent(agentPath, linkPath)
+}
+
+/**
+ * Remove the exact reviewed agent slot after validating it belongs to selected agent.
+ * @param agentPath - Selected agent skills directory from main constants.
+ * @param linkPath - Renderer-reviewed slot path to remove.
+ * @returns Structured IPC result for bulk unlink reporting.
+ * @example removeReviewedPathFromAgent('/Users/me/.cursor/skills', '/Users/me/.cursor/skills/folder-name')
+ */
+async function removeReviewedPathFromAgent(
+  agentPath: AbsolutePath,
+  linkPath: AbsolutePath,
+): Promise<
+  { success: true } | { success: false; error: string; code?: string }
+> {
+  let reviewedLinkPath: AbsolutePath
   try {
+    reviewedLinkPath = assertAgentSlotPath(linkPath, agentPath)
     // Use getAllowedBases() instead of [agentPath] because validatePath
     // realpath-follows linkPath. For a legitimate agent symlink the realpath
     // lands in SOURCE_DIR (source-backed) or another agent dir (cross-agent
     // copy), both of which are valid bases. Restricting to [agentPath] alone
     // would false-positive every symlinked-skill unlink.
-    validatePath(linkPath, getAllowedBases())
+    validatePath(reviewedLinkPath, getAllowedBases())
   } catch (error) {
     return {
       success: false,
@@ -153,7 +171,7 @@ async function removeFromAgent(
   }
   let stats: Stats
   try {
-    stats = await fs.lstat(linkPath)
+    stats = await fs.lstat(reviewedLinkPath)
   } catch (error) {
     const code = errorCode(error)
     if (code === 'ENOENT') {
@@ -168,7 +186,7 @@ async function removeFromAgent(
   }
 
   try {
-    return await removeLinkPathByKind(linkPath, stats)
+    return await removeLinkPathByKind(reviewedLinkPath, stats)
   } catch (error) {
     return {
       success: false,
@@ -556,16 +574,18 @@ export function registerSkillsHandlers(): void {
    * Delete a single skill by delegating to trashService so the single-delete
    * path shares the same trash/undo/eviction code as batch delete.
    *
-   * `moveToTrash(skillName)` derives + validates `sourcePath` internally and
-   * also handles the local-only case (skill lives in agent dirs only with no
-   * `~/.agents/skills/<name>` source). The renderer never passes a path.
-   * @param options - { skillName }
+   * `moveToTrash(skillName, skillPath)` validates the reviewed row path when
+   * present so metadata names cannot redirect deletion to a same-name folder.
+   * @param options - { skillName, skillPath? }
    * @returns DeleteSkillResult with symlinksRemoved + cascadeAgents
    */
   typedHandle(IPC_CHANNELS.SKILLS_DELETE, async (_, options) => {
-    const { skillName } = options
+    const { skillName, skillPath } = options
     try {
-      const { cascadeAgents, symlinksRemoved } = await moveToTrash(skillName)
+      const { cascadeAgents, symlinksRemoved } = await moveToTrash(
+        skillName,
+        skillPath,
+      )
       return {
         success: true,
         symlinksRemoved,
@@ -592,7 +612,7 @@ export function registerSkillsHandlers(): void {
    * Progress: emits \`skills:deleteProgress\` after each item when N >= 10 so the
    * SelectionToolbar can show "Deleting 3 of 12". Smaller batches skip the
    * event to avoid toast churn.
-   * @param options - items: Array<{ skillName }>
+   * @param options - items: Array<{ skillName, skillPath? }>
    * @returns BulkDeleteResult with per-item discriminated outcome
    */
   typedHandle(
@@ -603,9 +623,9 @@ export function registerSkillsHandlers(): void {
       const emitProgress = total >= BULK_PROGRESS_THRESHOLD
       const results: BulkDeleteItemResult[] = []
 
-      for (const [itemIndex, { skillName }] of items.entries()) {
+      for (const [itemIndex, { skillName, skillPath }] of items.entries()) {
         try {
-          const moveResult = await moveToTrash(skillName)
+          const moveResult = await moveToTrash(skillName, skillPath)
           // Discriminate on `kind` so the renderer can tell apart "this row has
           // a tombstone, wire it into the Undo toast" from "this row is just a
           // broken-symlink sweep with no undo path".
@@ -715,8 +735,10 @@ export function registerSkillsHandlers(): void {
         return result
       }
 
-      for (const { skillName } of items) {
-        const outcome = await removeFromAgent(agent.path, skillName)
+      for (const { skillName, linkPath } of items) {
+        const outcome = linkPath
+          ? await removeReviewedPathFromAgent(agent.path, linkPath)
+          : await removeFromAgent(agent.path, skillName)
         if (outcome.success) {
           results.push({ skillName, outcome: 'unlinked' })
         } else {

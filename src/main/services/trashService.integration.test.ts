@@ -23,6 +23,8 @@ import {
   vi,
 } from 'vitest'
 
+import type { AbsolutePath, SkillName } from '@/shared/types'
+
 import type { MoveToTrashResult } from './trashService'
 
 // sharedHome is stamped SYNCHRONOUSLY at module load so that the vi.mock
@@ -237,6 +239,46 @@ describe('trashService (integration)', () => {
     }
     // Source is back on disk.
     await stat(sourcePath)
+  })
+
+  it('moveToTrash deletes the reviewed source folder when metadata name differs from basename', async () => {
+    const { moveToTrash } = await trashServicePromise
+
+    // Arrange
+    const metadataName = 'metadata-title-source' as SkillName
+    const folderName = 'folder-basename-source'
+    const sourcePath = await makeSourceSkill(folderName)
+    const decoyPath = await makeSourceSkill(metadataName)
+    const linkPath = join(sharedAgentCursor, folderName)
+    await writeFile(
+      join(sourcePath, 'SKILL.md'),
+      `name: ${metadataName}\n`,
+      'utf-8',
+    )
+    await symlink(sourcePath, linkPath)
+
+    // Act
+    const deleteResult = await moveToTrash(
+      metadataName,
+      sourcePath as AbsolutePath,
+    )
+    assertTombstoned(deleteResult)
+
+    // Assert
+    expect(deleteResult.symlinksRemoved).toBe(1)
+    await expect(stat(sourcePath)).rejects.toThrow()
+    await expect(stat(linkPath)).rejects.toThrow()
+    await expect(stat(decoyPath)).resolves.toBeDefined()
+    const manifestRaw = await readFile(
+      join(sharedTrashDir, deleteResult.tombstoneId, 'manifest.json'),
+      'utf-8',
+    )
+    const manifest = JSON.parse(manifestRaw) as {
+      skillName: string
+      sourcePath: string
+    }
+    expect(manifest.skillName).toBe(metadataName)
+    expect(manifest.sourcePath).toBe(sourcePath)
   })
 
   it('evict: idempotent — calling evict on a missing entry does not throw', async () => {

@@ -113,6 +113,60 @@ function reconcileByLiveNames(
   return names.filter((name) => liveNames.has(name))
 }
 
+export type DeleteSelectedSkillTarget =
+  | SkillName
+  | { skillName: SkillName; skillPath?: AbsolutePath }
+
+export type UnlinkSelectedSkillTarget =
+  | SkillName
+  | { skillName: SkillName; linkPath?: AbsolutePath }
+
+/**
+ * Read the display name from a bulk-delete target while keeping old name-only callers valid.
+ * @param target - Name string or reviewed delete target object.
+ * @returns Display skill name used for selection reconciliation.
+ * @example getDeleteTargetName({ skillName: 'metadata-title', skillPath: '/x/folder' })
+ */
+function getDeleteTargetName(target: DeleteSelectedSkillTarget): SkillName {
+  return typeof target === 'string' ? target : target.skillName
+}
+
+/**
+ * Convert renderer delete targets into the IPC item shape that preserves reviewed paths.
+ * @param target - Name string or reviewed delete target object.
+ * @returns IPC delete item with optional skillPath.
+ * @example toDeleteSkillItem({ skillName: 'metadata-title', skillPath: '/x/folder' })
+ */
+function toDeleteSkillItem(target: DeleteSelectedSkillTarget): {
+  skillName: SkillName
+  skillPath?: AbsolutePath
+} {
+  return typeof target === 'string' ? { skillName: target } : target
+}
+
+/**
+ * Read the display name from a bulk-unlink target while keeping old name-only callers valid.
+ * @param target - Name string or reviewed unlink target object.
+ * @returns Display skill name used for selection reconciliation.
+ * @example getUnlinkTargetName({ skillName: 'metadata-title', linkPath: '/x/slot' })
+ */
+function getUnlinkTargetName(target: UnlinkSelectedSkillTarget): SkillName {
+  return typeof target === 'string' ? target : target.skillName
+}
+
+/**
+ * Convert renderer unlink targets into the IPC item shape that preserves reviewed link paths.
+ * @param target - Name string or reviewed unlink target object.
+ * @returns IPC unlink item with optional linkPath.
+ * @example toUnlinkSkillItem({ skillName: 'metadata-title', linkPath: '/x/slot' })
+ */
+function toUnlinkSkillItem(target: UnlinkSelectedSkillTarget): {
+  skillName: SkillName
+  linkPath?: AbsolutePath
+} {
+  return typeof target === 'string' ? { skillName: target } : target
+}
+
 /**
  * Fetch all skills from the main process
  * @returns Promise<Skill[]> - Array of skill objects from ~/.agents/skills/
@@ -206,17 +260,17 @@ export const copyToAgents = createAsyncThunk(
  * `.pending` reducer intersects the passed list with `state.items` to
  * reconcile against any fresh `fetchSkills` that landed between the user
  * click and thunk dispatch.
- * @param selectedNames - Names to delete (already validated by caller).
+ * @param selectedTargets - Names or reviewed row identities to delete.
  * @returns BulkDeleteResult with per-item outcome
  * @example
  * await dispatch(deleteSelectedSkills(['task', 'browse']))
  */
 export const deleteSelectedSkills = createAsyncThunk<
   BulkDeleteResult,
-  SkillName[]
->('skills/deleteSelected', async (selectedNames) => {
+  DeleteSelectedSkillTarget[]
+>('skills/deleteSelected', async (selectedTargets) => {
   const result = await window.electron.skills.deleteSkills({
-    items: selectedNames.map((skillName) => ({ skillName })),
+    items: selectedTargets.map(toDeleteSkillItem),
   })
   return result
 })
@@ -261,18 +315,18 @@ export const clearSelectedBrokenSymlinkSlots = createAsyncThunk<
 /**
  * Unlink every selected skill from a single agent. No tombstone produced —
  * unlink is benign (removes one symlink/folder, keeps source intact).
- * @param params - agentId + names to unlink
+ * @param params - agentId + names or reviewed link paths to unlink.
  * @returns BulkUnlinkResult with per-item outcome
  * @example
  * await dispatch(unlinkSelectedFromAgent({ agentId: 'cursor', selectedNames: ['task'] }))
  */
 export const unlinkSelectedFromAgent = createAsyncThunk<
   BulkUnlinkResult,
-  { agentId: AgentId; selectedNames: SkillName[] }
+  { agentId: AgentId; selectedNames: UnlinkSelectedSkillTarget[] }
 >('skills/unlinkSelectedFromAgent', async ({ agentId, selectedNames }) => {
   const result = await window.electron.skills.unlinkManyFromAgent({
     agentId,
-    items: selectedNames.map((skillName) => ({ skillName })),
+    items: selectedNames.map(toUnlinkSkillItem),
   })
   return result
 })
@@ -501,7 +555,7 @@ const skillsSlice = createSlice({
       .addCase(deleteSelectedSkills.pending, (state, action) => {
         state.inFlightDeleteNames = reconcileByLiveNames(
           state.items,
-          action.meta.arg,
+          action.meta.arg.map(getDeleteTargetName),
         )
         state.bulkDeleting = true
         state.error = null
@@ -595,7 +649,7 @@ const skillsSlice = createSlice({
       .addCase(unlinkSelectedFromAgent.pending, (state, action) => {
         state.inFlightUnlinkNames = reconcileByLiveNames(
           state.items,
-          action.meta.arg.selectedNames,
+          action.meta.arg.selectedNames.map(getUnlinkTargetName),
         )
         state.bulkUnlinking = true
         state.error = null

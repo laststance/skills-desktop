@@ -79,6 +79,10 @@ import {
   undoLastBulkDelete,
   unlinkSelectedFromAgent,
 } from '@/renderer/src/redux/slices/skillsSlice'
+import type {
+  DeleteSelectedSkillTarget,
+  UnlinkSelectedSkillTarget,
+} from '@/renderer/src/redux/slices/skillsSlice'
 import {
   clearBulkConfirm,
   clearExcludedSkillTypeFilters,
@@ -118,6 +122,7 @@ import {
 import { FEATURE_FLAGS } from '@/shared/featureFlags'
 import type {
   AbsolutePath,
+  AgentId,
   BulkDeleteItemResult,
   ClearOrphanSymlinksOptions,
   IsoTimestamp,
@@ -174,7 +179,7 @@ const SKILLS_SH_URL = 'https://skills.sh'
 type ReviewedOrphanCleanupRecord = ClearOrphanSymlinksOptions['items'][number]
 
 interface PartitionedGlobalDeleteTargets {
-  deleteNames: Skill['name'][]
+  deleteTargets: DeleteSelectedSkillTarget[]
   orphanRecords: ReviewedOrphanCleanupRecord[]
   orphanErrors: BulkDeleteItemResult[]
 }
@@ -213,14 +218,21 @@ function partitionGlobalDeleteTargets(
   skillNames: readonly Skill['name'][],
 ): PartitionedGlobalDeleteTargets {
   const skillsByName = new Map(skills.map((skill) => [skill.name, skill]))
-  const deleteNames: Skill['name'][] = []
+  const deleteTargets: DeleteSelectedSkillTarget[] = []
   const orphanRecords: ReviewedOrphanCleanupRecord[] = []
   const orphanErrors: BulkDeleteItemResult[] = []
 
   for (const skillName of skillNames) {
     const skill = skillsByName.get(skillName)
     if (!skill?.isOrphan) {
-      deleteNames.push(skillName)
+      deleteTargets.push(
+        skill
+          ? {
+              skillName,
+              skillPath: skill.path,
+            }
+          : skillName,
+      )
       continue
     }
 
@@ -250,7 +262,31 @@ function partitionGlobalDeleteTargets(
     })
   }
 
-  return { deleteNames, orphanRecords, orphanErrors }
+  return { deleteTargets, orphanRecords, orphanErrors }
+}
+
+/**
+ * Build bulk-unlink targets with the reviewed agent slot path when available.
+ * @param skills - Current skill rows in Redux.
+ * @param skillNames - Display names selected in the confirmation dialog.
+ * @param agentId - Selected agent whose slots are being unlinked.
+ * @returns Name-compatible targets with optional reviewed linkPath.
+ * @example buildAgentUnlinkTargets(skills, ['metadata-title'], 'cursor')
+ */
+function buildAgentUnlinkTargets(
+  skills: readonly Skill[],
+  skillNames: readonly Skill['name'][],
+  agentId: AgentId,
+): UnlinkSelectedSkillTarget[] {
+  const skillsByName = new Map(skills.map((skill) => [skill.name, skill]))
+  return skillNames.map((skillName) => {
+    const symlink = skillsByName
+      .get(skillName)
+      ?.symlinks.find((slot) => slot.agentId === agentId)
+    return symlink?.linkPath
+      ? { skillName, linkPath: symlink.linkPath }
+      : skillName
+  })
 }
 
 /**
@@ -282,7 +318,9 @@ function isBulkDeleteConfirmPrimaryDisabled(
   summary: PartitionedGlobalDeleteTargets | null,
 ): boolean {
   if (bulkConfirm?.kind !== 'delete' || summary === null) return false
-  return summary.deleteNames.length === 0 && summary.orphanRecords.length === 0
+  return (
+    summary.deleteTargets.length === 0 && summary.orphanRecords.length === 0
+  )
 }
 
 /**
@@ -691,10 +729,15 @@ export const MainContent = React.memo(
 
       if (kind === 'unlink' && agentId) {
         // Agent view — bulk unlink (not tombstoned, no undo toast).
+        const unlinkTargets = buildAgentUnlinkTargets(
+          skills,
+          skillNames,
+          agentId,
+        )
         const action = await dispatch(
           unlinkSelectedFromAgent({
             agentId,
-            selectedNames: skillNames,
+            selectedNames: unlinkTargets,
           }),
         )
         if (unlinkSelectedFromAgent.fulfilled.match(action)) {
@@ -727,7 +770,7 @@ export const MainContent = React.memo(
         return
       }
 
-      const { deleteNames, orphanRecords, orphanErrors } =
+      const { deleteTargets, orphanRecords, orphanErrors } =
         partitionGlobalDeleteTargets(skills, skillNames)
       const deleteItems: BulkDeleteItemResult[] = [...orphanErrors]
       const hasOrphanCleanupRows =
@@ -739,14 +782,16 @@ export const MainContent = React.memo(
       // Global view — normal skills still flow through the trash + UndoToast
       // pipeline. Orphan rows are not source skills, so they use exact reviewed
       // link cleanup below instead of the name-rescanning delete IPC.
-      if (deleteNames.length > 0) {
-        const action = await dispatch(deleteSelectedSkills(deleteNames))
+      if (deleteTargets.length > 0) {
+        const action = await dispatch(deleteSelectedSkills(deleteTargets))
         if (deleteSelectedSkills.fulfilled.match(action)) {
           deleteItems.push(...action.payload.items)
         } else {
           if (hasOrphanCleanupRows) {
             restoreUnresolvedMixedDeleteSelection(
-              deleteNames,
+              deleteTargets.map((target) =>
+                typeof target === 'string' ? target : target.skillName,
+              ),
               cleanupReadyOrphanNames,
             )
           }
@@ -1242,7 +1287,7 @@ export const MainContent = React.memo(
                   ? renderBulkDeleteDescription({
                       totalCount: bulkConfirm.skillNames.length,
                       trashCount:
-                        bulkDeleteTargetSummary?.deleteNames.length ??
+                        bulkDeleteTargetSummary?.deleteTargets.length ??
                         bulkConfirm.skillNames.length,
                       orphanCleanupCount:
                         bulkDeleteTargetSummary?.orphanRecords.length ?? 0,

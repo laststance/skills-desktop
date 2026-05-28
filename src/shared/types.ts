@@ -761,14 +761,16 @@ export interface RemoveAllFromAgentResult {
 }
 
 /**
- * IPC argument for `skills:deleteSkill` — removes the skill source directory
- * AND every agent symlink pointing at it. Main derives `sourcePath` from
- * `SOURCE_DIR + skillName` server-side; renderer never passes a path.
- * @example { skillName: 'theme-generator' }
+ * IPC argument for `skills:deleteSkill` — removes the reviewed source/local path
+ * and every agent symlink pointing at it. `skillPath` preserves filesystem
+ * identity when the SKILL.md metadata name differs from the folder basename.
+ * @example { skillName: 'theme-generator', skillPath: '/Users/me/.agents/skills/theme-generator' }
  */
 export interface DeleteSkillOptions {
   /** Skill to delete. @example "theme-generator" */
   skillName: SkillName
+  /** Reviewed source/local folder path from the selected row. */
+  skillPath?: AbsolutePath
 }
 
 /**
@@ -802,14 +804,14 @@ export type TombstoneId = Brand<string, 'TombstoneId'>
 export const tombstoneId = (value: string): TombstoneId => value as TombstoneId
 
 /**
- * IPC argument for `skills:deleteSkills` — batch delete N skills atomically with trash/undo.
- * Main derives each `sourcePath = join(SOURCE_DIR, skillName)` server-side; the renderer
- * does not pass paths (security: removes a trust-boundary widening).
- * @example { items: [{ skillName: 'task' }, { skillName: 'theme-generator' }] }
+ * IPC argument for `skills:deleteSkills` — batch delete N reviewed skills atomically with trash/undo.
+ * `skillPath` is optional for old callers, but new renderer flows include it
+ * so main deletes the reviewed folder even when metadata name and basename differ.
+ * @example { items: [{ skillName: 'task', skillPath: '/Users/me/.agents/skills/task' }] }
  */
 export interface DeleteSkillsOptions {
   /** Skills to delete, in the order the user selected them (batch runs serially per reviewer #21). */
-  items: Array<{ skillName: SkillName }>
+  items: Array<{ skillName: SkillName; skillPath?: AbsolutePath }>
 }
 
 /**
@@ -945,15 +947,15 @@ export interface ClearBrokenSymlinkSlotsResult {
 }
 
 /**
- * IPC argument for `skills:unlinkManyFromAgent` — batch unlink N skills from a single agent.
- * Main verifies `linkPath` is a direct child of the selected agent path.
- * @example { agentId: 'cursor', items: [{ skillName: 'task' }, { skillName: 'theme-generator' }] }
+ * IPC argument for `skills:unlinkManyFromAgent` — batch unlink N reviewed slots from a single agent.
+ * Main verifies `linkPath` is a direct child of the selected agent path when supplied.
+ * @example { agentId: 'cursor', items: [{ skillName: 'task', linkPath: '/Users/me/.cursor/skills/task' }] }
  */
 export interface UnlinkManyFromAgentOptions {
   /** Agent the symlinks belong to. */
   agentId: AgentId
   /** Skills whose symlinks should be removed (serial processing, no tombstone — unlink is benign). */
-  items: Array<{ skillName: SkillName }>
+  items: Array<{ skillName: SkillName; linkPath?: AbsolutePath }>
 }
 
 /**

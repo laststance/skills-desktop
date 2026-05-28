@@ -72,19 +72,20 @@ const CURSOR_AGENT: Agent = {
 function makeCursorSkill(
   name: SkillName,
   status: SymlinkInfo['status'],
+  slotName: SkillName = name,
 ): Skill {
   return {
     name,
     description: '',
-    path: `/Users/test/.agents/skills/${name}`,
+    path: `/Users/test/.agents/skills/${slotName}`,
     symlinkCount: status === 'missing' ? 0 : 1,
     symlinks: [
       {
         agentId: 'cursor',
         agentName: 'Cursor',
         status,
-        linkPath: `/Users/test/.cursor/skills/${name}`,
-        targetPath: `/Users/test/.agents/skills/${name}`,
+        linkPath: `/Users/test/.cursor/skills/${slotName}`,
+        targetPath: `/Users/test/.agents/skills/${slotName}`,
         isLocal: false,
       },
     ],
@@ -165,13 +166,15 @@ describe('MainContent SelectionToolbar integration', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
+    const metadataName = 'valid-toolbar-task' as SkillName
+    const slotName = 'valid-toolbar-folder' as SkillName
 
     // Arrange
     store.dispatch(fetchAgents.fulfilled([CURSOR_AGENT], 'agents-req'))
     store.dispatch(
       fetchSkills.fulfilled(
         [
-          makeCursorSkill('valid-toolbar-task' as SkillName, 'valid'),
+          makeCursorSkill(metadataName, 'valid', slotName),
           makeCursorSkill('broken-toolbar-task' as SkillName, 'broken'),
           makeCursorSkill(
             'inaccessible-toolbar-task' as SkillName,
@@ -183,7 +186,7 @@ describe('MainContent SelectionToolbar integration', () => {
     )
     store.dispatch(selectAgent('cursor'))
     store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection('valid-toolbar-task' as SkillName))
+    store.dispatch(toggleSelection(metadataName))
     store.dispatch(toggleSelection('broken-toolbar-task' as SkillName))
 
     // Act
@@ -195,9 +198,7 @@ describe('MainContent SelectionToolbar integration', () => {
     await screen.getByRole('button', { name: 'Select all visible' }).click()
 
     // Assert
-    expect(store.getState().skills.selectedSkillNames).toEqual([
-      'valid-toolbar-task',
-    ])
+    expect(store.getState().skills.selectedSkillNames).toEqual([metadataName])
 
     await screen
       .getByRole('button', { name: 'Unlink selected skill from Cursor' })
@@ -207,7 +208,12 @@ describe('MainContent SelectionToolbar integration', () => {
     await expect.poll(() => mockUnlinkManyFromAgent.mock.calls.length).toBe(1)
     expect(mockUnlinkManyFromAgent).toHaveBeenCalledWith({
       agentId: 'cursor',
-      items: [{ skillName: 'valid-toolbar-task' }],
+      items: [
+        {
+          skillName: 'valid-toolbar-task',
+          linkPath: '/Users/test/.cursor/skills/valid-toolbar-folder',
+        },
+      ],
     })
   })
 })

@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import type { Stats } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 
 import { match } from 'ts-pattern'
 import type { z } from 'zod'
@@ -48,6 +48,9 @@ const STARTUP_CLEANUP_CONCURRENCY = 4
 
 /** Number of random bytes in the `rand8hex` suffix (4 bytes = 8 hex chars). */
 const RAND_SUFFIX_BYTES = 4
+
+/** Marker file for trash entries that contain data the user must recover by hand. */
+const MANUAL_RECOVERY_MARKER = '.manual-recovery'
 
 /**
  * In-process map of scheduled evict timers. Keys are tombstone ids; values are
@@ -96,6 +99,115 @@ function buildEntryName(skillName: SkillName): string {
 }
 
 /**
+ * Narrow a path basename back to a SkillName after IPC path validation supplied the parent.
+ * @param absolutePath - Reviewed source or agent slot path.
+ * @returns Basename safe for name-derived filesystem scans.
+ * @example skillNameFromPathBasename('/Users/me/.agents/skills/folder-name')
+ */
+function skillNameFromPathBasename(absolutePath: AbsolutePath): SkillName {
+  const name = basename(absolutePath)
+  if (
+    name.length === 0 ||
+    name.includes('/') ||
+    name.includes('\\') ||
+    name.includes('\0')
+  ) {
+    throw new TrashError('Reviewed skill path has an invalid basename')
+  }
+  return name as SkillName
+}
+
+/**
+ * Resolve a reviewed renderer path into the filesystem identity used for deletion.
+ * @param skillName - Display/metadata name selected by the user.
+ * @param reviewedSkillPath - Optional source or local folder path from the reviewed row.
+ * @returns Filesystem name plus optional source directory path.
+ * @example resolveDeleteIdentity('metadata-title', '/Users/me/.agents/skills/folder-basename')
+ */
+function resolveDeleteIdentity(
+  skillName: SkillName,
+  reviewedSkillPath?: AbsolutePath,
+): { filesystemSkillName: SkillName; sourcePath: AbsolutePath } {
+  if (!reviewedSkillPath) {
+    const sourcePath = join(SOURCE_DIR, skillName) as AbsolutePath
+    validatePath(sourcePath, [SOURCE_DIR])
+    return { filesystemSkillName: skillName, sourcePath }
+  }
+
+  const normalizedPath = resolve(reviewedSkillPath) as AbsolutePath
+  const sourceDir = resolve(SOURCE_DIR)
+  if (dirname(normalizedPath) === sourceDir) {
+    validatePath(normalizedPath, [SOURCE_DIR])
+    return {
+      filesystemSkillName: skillNameFromPathBasename(normalizedPath),
+      sourcePath: normalizedPath,
+    }
+  }
+
+  const isAgentSlotPath = AGENTS.some(
+    (agent) => dirname(normalizedPath) === resolve(agent.path),
+  )
+  if (isAgentSlotPath) {
+    validatePath(normalizedPath, getAllowedBases())
+    const filesystemSkillName = skillNameFromPathBasename(normalizedPath)
+    const sourcePath = join(SOURCE_DIR, filesystemSkillName) as AbsolutePath
+    validatePath(sourcePath, [SOURCE_DIR])
+    return {
+      filesystemSkillName,
+      sourcePath,
+    }
+  }
+
+  throw new TrashError('Reviewed skill path is outside known skill directories')
+}
+
+/**
+ * Mark a trash entry as non-evictable because it contains manual recovery data.
+ * @param entryDir - Trash entry directory that must survive TTL/startup cleanup.
+ * @param reason - Human-readable recovery reason for operators and tests.
+ * @returns Promise that resolves after the marker is written or best-effort logged.
+ * @example await markManualRecoveryEntry(entryDir, 'source rollback failed')
+ */
+async function markManualRecoveryEntry(
+  entryDir: string,
+  reason: string,
+): Promise<void> {
+  const markerPath = join(entryDir, MANUAL_RECOVERY_MARKER)
+  const body = `manual recovery required\nreason: ${reason}\nmarkedAt: ${new Date().toISOString()}\n`
+  try {
+    await fs.writeFile(markerPath, body, 'utf-8')
+  } catch (error) {
+    console.warn('trashService: failed to mark manual recovery entry', {
+      entryDir,
+      code: errorCode(error),
+      message: extractErrorMessage(error),
+    })
+  }
+}
+
+/**
+ * Check whether startup cleanup must leave a trash entry for manual recovery.
+ * @param entryDir - Trash entry directory under TRASH_DIR.
+ * @returns true when the marker exists or cannot be checked safely.
+ * @example await hasManualRecoveryMarker('/Users/me/.agents/.trash/...')
+ */
+async function hasManualRecoveryMarker(entryDir: string): Promise<boolean> {
+  try {
+    await fs.access(join(entryDir, MANUAL_RECOVERY_MARKER))
+    return true
+  } catch (error) {
+    const code = errorCode(error)
+    if (code === 'ENOENT') return false
+    console.warn('trashService: manual recovery marker check failed', {
+      entryDir,
+      code,
+      message: extractErrorMessage(error),
+    })
+    return true
+  }
+}
+
+/**
  * Move a path with cross-device fallback. `fs.rename` is atomic within a single
  * filesystem but throws `EXDEV` when source and destination live on different
  * mount points (e.g. `$HOME` on the user partition vs `/tmp` on a tmpfs). On
@@ -125,6 +237,66 @@ async function renameWithCrossDeviceFallback(
       await fs.rm(source, { recursive: true, force: true })
     } else {
       throw renameError
+    }
+  }
+}
+
+interface SourceMoveFailure {
+  error: TrashError
+  preserveEntryDirForManualRecovery: boolean
+}
+
+/**
+ * Move a source folder into a trash entry while preserving staged EXDEV recovery copies.
+ * @param sourcePath - Reviewed skill source directory to move.
+ * @param entrySourceDir - Destination `<entryDir>/source` directory.
+ * @returns null on success, otherwise a failure object describing cleanup safety.
+ * @example await moveSourceIntoTrashEntry('/Users/me/.agents/skills/x', '/Users/me/.agents/.trash/id/source')
+ */
+async function moveSourceIntoTrashEntry(
+  sourcePath: AbsolutePath,
+  entrySourceDir: string,
+): Promise<SourceMoveFailure | null> {
+  try {
+    await fs.rename(sourcePath, entrySourceDir)
+    return null
+  } catch (error) {
+    const code = errorCode(error)
+
+    if (code === 'EXDEV') {
+      let preserveEntryDirForManualRecovery = false
+      try {
+        await fs.cp(sourcePath, entrySourceDir, { recursive: true })
+        preserveEntryDirForManualRecovery = true
+        await fs.rm(sourcePath, { recursive: true, force: true })
+        return null
+      } catch (fallbackError) {
+        const recoveryHint = preserveEntryDirForManualRecovery
+          ? `; source copy preserved in ${entrySourceDir}`
+          : ''
+        return {
+          preserveEntryDirForManualRecovery,
+          error: new TrashError(
+            `Failed to move source to trash (cross-device): ${extractErrorMessage(fallbackError)}${recoveryHint}`,
+            errorCode(fallbackError),
+          ),
+        }
+      }
+    }
+
+    if (code === 'ENOENT') {
+      return {
+        preserveEntryDirForManualRecovery: false,
+        error: new TrashError('Skill not found (already deleted?)', code),
+      }
+    }
+
+    return {
+      preserveEntryDirForManualRecovery: false,
+      error: new TrashError(
+        `Failed to move source to trash: ${extractErrorMessage(error)}`,
+        code,
+      ),
     }
   }
 }
@@ -842,7 +1014,8 @@ async function clearOrphanSymlinks(
  * its broken peers (they get unlinked in the source-backed walk anyway), so
  * the orphan branch only fires when nothing else applies.
  *
- * @param skillName - Validated skill name (no path separators, enforced by Zod)
+ * @param skillName - Display skill name selected in the UI.
+ * @param reviewedSkillPath - Optional reviewed source/local folder path used when metadata name differs from folder basename.
  * @returns Discriminated `MoveToTrashResult`. Callers MUST switch on `kind`
  *   before reading `tombstoneId` — orphan-cleared has no tombstone.
  * @throws TrashError when the skill cannot be located in any form, or any
@@ -862,13 +1035,14 @@ async function clearOrphanSymlinks(
  */
 export async function moveToTrash(
   skillName: SkillName,
+  reviewedSkillPath?: AbsolutePath,
 ): Promise<MoveToTrashResult> {
-  // Construct sourcePath from the (Zod-validated) skill name and re-check it
-  // against SOURCE_DIR for defense in depth — even though the renderer never
-  // passes a path, this keeps the file's invariants self-evident if a future
-  // caller forgets to validate.
-  const sourcePath = join(SOURCE_DIR, skillName) as AbsolutePath
-  validatePath(sourcePath, [SOURCE_DIR])
+  // Destructive actions use the reviewed filesystem path when the renderer has
+  // one; display metadata can differ from the source/slot folder basename.
+  const { filesystemSkillName, sourcePath } = resolveDeleteIdentity(
+    skillName,
+    reviewedSkillPath,
+  )
 
   // Probe the source dir. If it exists, source-backed flow. Otherwise scan
   // agent dirs for local copies and dispatch to local-only flow if found.
@@ -890,14 +1064,14 @@ export async function moveToTrash(
     return moveSourceBackedToTrash(skillName, sourcePath)
   }
 
-  const localCopies = await scanLocalCopies(skillName)
+  const localCopies = await scanLocalCopies(filesystemSkillName)
   if (localCopies.length > 0) {
     return moveLocalOnlyToTrash(skillName, localCopies)
   }
 
   // Last-resort branch: nothing real or live exists, but agents may still
   // have broken symlinks. Sweep them with no manifest/undo (orphan-cleared).
-  const orphans = await scanOrphanSymlinkPaths(skillName)
+  const orphans = await scanOrphanSymlinkPaths(filesystemSkillName)
   if (orphans.length > 0) {
     return clearOrphanSymlinks(skillName, orphans)
   }
@@ -906,30 +1080,24 @@ export async function moveToTrash(
 }
 
 /**
- * Source-backed path of `moveToTrash`. Walks agent dirs, removes symlinks,
- * renames the source dir into the entry, writes a v2 source-backed manifest.
- * Same lifecycle as the original v0.13.x implementation, just gated on the
- * source-existed branch in the wrapper.
+ * Remove agent symlinks that still point at the reviewed source folder.
+ * @param sourcePath - Reviewed source directory being moved to trash.
+ * @returns Recorded symlinks plus agent IDs for manifest and UI reporting.
+ * @example await removeSourceBackedAgentSymlinks('/Users/me/.agents/skills/task')
  */
-async function moveSourceBackedToTrash(
-  skillName: SkillName,
+async function removeSourceBackedAgentSymlinks(
   sourcePath: AbsolutePath,
-): Promise<Extract<MoveToTrashResult, { kind: 'tombstoned' }>> {
-  // fallow-ignore-next-line code-duplication
-  const startTime = Date.now()
-  await fs.mkdir(TRASH_DIR, { recursive: true, mode: 0o755 })
-
-  const entryName = buildEntryName(skillName)
-  const entryDir = join(TRASH_DIR, entryName)
-  const entrySourceDir = join(entryDir, 'source')
-  const manifestPath = join(entryDir, 'manifest.json')
-
-  // Walk agents, collect + remove symlinks. Abort on non-ENOENT unlink failure.
+): Promise<{
+  recordedSymlinks: RecordedSymlink[]
+  cascadeAgentIds: AgentId[]
+}> {
+  const sourceFolderName = skillNameFromPathBasename(sourcePath)
   const recordedSymlinks: RecordedSymlink[] = []
   const cascadeAgentIds: AgentId[] = []
+
   for (const agent of AGENTS) {
     // fallow-ignore-next-line code-duplication
-    const linkPath = join(agent.path, skillName)
+    const linkPath = join(agent.path, sourceFolderName)
     // Use getAllowedBases() — validatePath realpath-follows linkPath. A valid
     // source-backed symlink resolves into SOURCE_DIR, which isn't under the
     // individual agent.path. Restricting to [agent.path] alone would false-
@@ -953,87 +1121,89 @@ async function moveSourceBackedToTrash(
       )
     }
 
-    if (stats.isSymbolicLink()) {
-      let removal: 'missing' | { outcome: 'unlinked'; target: string }
-      try {
-        removal = await unlinkReviewedSourceSymlink(
-          linkPath as AbsolutePath,
-          sourcePath,
-        )
-      } catch (error) {
-        const code = errorCode(error)
-        if (code === 'ENOENT' || code === 'ESTALE') {
-          // Stale/mismatched same-name links belong to another source or changed
-          // after scan. Leave them for manual review instead of cascading.
-          continue
-        }
-        // Source has not moved yet. Restore earlier cascade removals so a later
-        // fatal slot failure cannot leave a live source with missing agent links.
-        await rollbackRemovedSymlinks(recordedSymlinks)
-        throw new TrashError(
-          `Failed to remove symlinks: ${extractErrorMessage(error)}`,
-          code,
-        )
-      }
-      if (removal === 'missing') continue
-      recordedSymlinks.push({
-        agentId: agent.id,
-        linkPath,
-        target: removal.target,
-      })
-      cascadeAgentIds.push(agent.id)
+    if (!stats.isSymbolicLink()) {
+      // Local skills in agent dirs are unrelated to the source-backed delete.
+      continue
     }
-    // Non-symlink directories inside agent dirs are "local skills" — leave them
-    // alone. The skill being deleted owns the SOURCE_DIR copy only.
+
+    let removal: 'missing' | { outcome: 'unlinked'; target: string }
+    try {
+      removal = await unlinkReviewedSourceSymlink(
+        linkPath as AbsolutePath,
+        sourcePath,
+      )
+    } catch (error) {
+      const code = errorCode(error)
+      if (code === 'ENOENT' || code === 'ESTALE') {
+        // Stale/mismatched same-name links belong to another source or changed
+        // after scan. Leave them for manual review instead of cascading.
+        continue
+      }
+      await rollbackRemovedSymlinks(recordedSymlinks)
+      throw new TrashError(
+        `Failed to remove symlinks: ${extractErrorMessage(error)}`,
+        code,
+      )
+    }
+    if (removal === 'missing') continue
+    recordedSymlinks.push({
+      agentId: agent.id,
+      linkPath,
+      target: removal.target,
+    })
+    cascadeAgentIds.push(agent.id)
   }
+
+  return { recordedSymlinks, cascadeAgentIds }
+}
+
+/**
+ * Source-backed path of `moveToTrash`. Walks agent dirs, removes symlinks,
+ * renames the source dir into the entry, writes a v2 source-backed manifest.
+ * Same lifecycle as the original v0.13.x implementation, just gated on the
+ * source-existed branch in the wrapper.
+ */
+async function moveSourceBackedToTrash(
+  skillName: SkillName,
+  sourcePath: AbsolutePath,
+): Promise<Extract<MoveToTrashResult, { kind: 'tombstoned' }>> {
+  // fallow-ignore-next-line code-duplication
+  const startTime = Date.now()
+  await fs.mkdir(TRASH_DIR, { recursive: true, mode: 0o755 })
+
+  const entryName = buildEntryName(skillName)
+  const entryDir = join(TRASH_DIR, entryName)
+  const entrySourceDir = join(entryDir, 'source')
+  const manifestPath = join(entryDir, 'manifest.json')
+
+  // Walk agents, collect + remove symlinks. Abort on non-ENOENT unlink failure.
+  const { recordedSymlinks, cascadeAgentIds } =
+    await removeSourceBackedAgentSymlinks(sourcePath)
 
   // Atomically move source → trash entry. On EXDEV, copy + remove.
   // If the move fails, the symlinks we already unlinked would otherwise be
   // lost. Best-effort re-create them before re-throwing so the user is not
   // left with a half-deleted skill (source still on disk but agents unlinked).
   await fs.mkdir(entryDir, { recursive: true })
-  try {
-    await fs.rename(sourcePath, entrySourceDir)
-  } catch (error) {
-    const code = errorCode(error)
-    // Discriminate on the errno code:
-    //   EXDEV  → cross-device rename; fall back to copy + remove (returns null on success)
-    //   ENOENT → source already gone
-    //   other  → generic failure surfacing the underlying message
-    const trashError = await match(code)
-      .with('EXDEV', async () => {
-        try {
-          await fs.cp(sourcePath, entrySourceDir, { recursive: true })
-          await fs.rm(sourcePath, { recursive: true, force: true })
-          return null
-        } catch (fallbackError) {
-          return new TrashError(
-            `Failed to move source to trash (cross-device): ${extractErrorMessage(fallbackError)}`,
-            errorCode(fallbackError),
-          )
-        }
-      })
-      .with(
-        'ENOENT',
-        async () => new TrashError('Skill not found (already deleted?)', code),
+  const sourceMoveFailure = await moveSourceIntoTrashEntry(
+    sourcePath,
+    entrySourceDir,
+  )
+  if (sourceMoveFailure !== null) {
+    // Rollback symlinks, but never delete an entry that now holds the recovery
+    // copy created by the EXDEV fallback.
+    await rollbackRemovedSymlinks(recordedSymlinks)
+    if (sourceMoveFailure.preserveEntryDirForManualRecovery) {
+      await markManualRecoveryEntry(
+        entryDir,
+        'source EXDEV fallback copied to trash but removing original failed',
       )
-      .otherwise(
-        async () =>
-          new TrashError(
-            `Failed to move source to trash: ${extractErrorMessage(error)}`,
-            code,
-          ),
-      )
-
-    if (trashError !== null) {
-      // Rollback: re-create symlinks we unlinked earlier, and drop the empty
-      // trash entry dir. Errors are logged, never masked over the real cause.
-      await rollbackRemovedSymlinks(recordedSymlinks)
+    } else {
       await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
         // entryDir cleanup is best-effort — caller already has the real error.
       })
-      throw trashError
     }
+    throw sourceMoveFailure.error
   }
 
   // Write manifest. If this fails after the source was already moved in, we
@@ -1098,6 +1268,11 @@ async function moveSourceBackedToTrash(
       await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
         // entry cleanup is best-effort — caller already has the real error.
       })
+    } else {
+      await markManualRecoveryEntry(
+        entryDir,
+        'source manifest rollback failed to restore original path',
+      )
     }
 
     // If we couldn't put the source back the user is in a broken state. Flag
@@ -1180,15 +1355,22 @@ async function moveLocalOnlyToTrash(
       // disappeared mid-flight (race); skip and continue rather than abort.
       const recoveryOutcome = await match(code)
         .with('EXDEV', async () => {
+          let stagedCopyCreated = false
           try {
             await fs.cp(copy.linkPath, stagedPath, { recursive: true })
+            stagedCopyCreated = true
             await fs.rm(copy.linkPath, { recursive: true, force: true })
             return { kind: 'moved' as const }
           } catch (fallbackError) {
+            const recoveryHint = stagedCopyCreated
+              ? `; staged copy preserved in ${stagedPath}`
+              : ''
             return {
               kind: 'fatal' as const,
+              preserveEntryDir: stagedCopyCreated,
+              strandedAgentId: copy.agentId,
               error: new TrashError(
-                `Failed to move local copy (cross-device, agent=${copy.agentId}): ${extractErrorMessage(fallbackError)}`,
+                `Failed to move local copy (cross-device, agent=${copy.agentId}): ${extractErrorMessage(fallbackError)}${recoveryHint}`,
                 errorCode(fallbackError),
               ),
             }
@@ -1197,6 +1379,8 @@ async function moveLocalOnlyToTrash(
         .with('ENOENT', async () => ({ kind: 'race-skip' as const }))
         .otherwise(async () => ({
           kind: 'fatal' as const,
+          preserveEntryDir: false,
+          strandedAgentId: copy.agentId,
           error: new TrashError(
             `Failed to move local copy (agent=${copy.agentId}): ${extractErrorMessage(error)}`,
             code,
@@ -1205,7 +1389,10 @@ async function moveLocalOnlyToTrash(
 
       if (recoveryOutcome.kind === 'fatal') {
         const unrestoredCopies = await rollbackMovedLocalCopies(entryDir, moved)
-        if (unrestoredCopies.length === 0) {
+        if (
+          unrestoredCopies.length === 0 &&
+          !recoveryOutcome.preserveEntryDir
+        ) {
           // All copies restored — safe to drop the staged entry dir.
           await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
             // best-effort cleanup
@@ -1216,11 +1403,20 @@ async function moveLocalOnlyToTrash(
         // <entryDir>/local-copies/<agentId>/ is the ONLY remaining copy of
         // the user's data. Preserve entryDir and surface a recovery hint so
         // the caller (and ultimately the UI) can guide the user to it.
-        const strandedAgents = unrestoredCopies
-          .map((copy) => copy.agentId)
-          .join(', ')
+        await markManualRecoveryEntry(
+          entryDir,
+          'local-only EXDEV fallback or rollback left staged copies in trash',
+        )
+        const strandedAgents = Array.from(
+          new Set([
+            ...unrestoredCopies.map((copy) => copy.agentId),
+            ...(recoveryOutcome.preserveEntryDir
+              ? [recoveryOutcome.strandedAgentId]
+              : []),
+          ]),
+        ).join(', ')
         throw new TrashError(
-          `${recoveryOutcome.error.message}; ${unrestoredCopies.length} local copy/copies stranded in ${entryDir}/local-copies (agents: ${strandedAgents})`,
+          `${recoveryOutcome.error.message}; local copy/copies stranded in ${entryDir}/local-copies (agents: ${strandedAgents})`,
           recoveryOutcome.error.code,
         )
       }
@@ -1266,6 +1462,10 @@ async function moveLocalOnlyToTrash(
     // Manifest write failed AND rollback could not restore every copy. The
     // staged folder is the ONLY remaining copy of the user's data — keep
     // entryDir intact so they can recover manually from local-copies/.
+    await markManualRecoveryEntry(
+      entryDir,
+      'local-only manifest rollback left staged copies in trash',
+    )
     const strandedAgents = unrestoredCopies
       .map((copy) => copy.agentId)
       .join(', ')
@@ -1591,6 +1791,10 @@ async function restoreLocalOnly(
   if (symlinksSkipped > 0) {
     // Keep local-copies/<agentId> entries that could not be restored.
     cancelEvictTimer(id)
+    await markManualRecoveryEntry(
+      entryDir,
+      'local-only restore skipped one or more staged copies',
+    )
     return {
       outcome: 'restored',
       symlinksRestored,
@@ -1665,13 +1869,21 @@ export async function startupCleanup(): Promise<void> {
   const cutoff = Date.now() - STARTUP_CLEANUP_MAX_AGE_MS
   // Parse entry name → unix_ms prefix; only sweep old ones.
   const toSweep: string[] = []
+  let manualRecoverySkippedCount = 0
   for (const entryName of entries) {
     const ms = parseDeletedAtFromEntryName(entryName)
     if (ms === null) {
       // Unparseable name = foreign file; do not touch.
       continue
     }
-    if (ms < cutoff) toSweep.push(entryName)
+    if (ms < cutoff) {
+      const entryDir = join(TRASH_DIR, entryName)
+      if (await hasManualRecoveryMarker(entryDir)) {
+        manualRecoverySkippedCount++
+        continue
+      }
+      toSweep.push(entryName)
+    }
   }
 
   // Manual semaphore at concurrency 4.
@@ -1703,6 +1915,7 @@ export async function startupCleanup(): Promise<void> {
 
   console.info('trashService: startupCleanup', {
     sweptCount: toSweep.length,
+    manualRecoverySkippedCount,
     totalEntries: entries.length,
     durationMs: Date.now() - startTime,
   })

@@ -450,11 +450,15 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
    * Build a Skill fixture with either a `source` (CLI-tracked in the lock
    * file) or no source (plain). The pipeline now treats both identically.
    */
-  function makeSkill(name: SkillName, cliTracked: boolean): Skill {
+  function makeSkill(
+    name: SkillName,
+    cliTracked: boolean,
+    folderName: SkillName = name,
+  ): Skill {
     return {
       name,
       description: '',
-      path: `/home/user/.agents/skills/${name}` as Skill['path'],
+      path: `/home/user/.agents/skills/${folderName}` as Skill['path'],
       symlinkCount: 0,
       symlinks: [],
       isSource: true,
@@ -514,18 +518,78 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
 
     await screen.getByRole('button', { name: /^Delete$/ }).click()
 
-    // Single IPC call carrying BOTH names — partition is gone, no second
-    // pipeline. The payload shape is `{ items: [{ skillName }] }`; assert it
-    // verbatim so a future thunk tweak surfaces here.
+    // Single IPC call carrying BOTH reviewed row identities — partition is gone,
+    // no second pipeline. Assert the payload verbatim so thunk tweaks surface.
     await expect.poll(() => mockSkillsDeleteSkills.mock.calls.length).toBe(1)
     expect(mockSkillsDeleteSkills.mock.calls[0][0]).toEqual({
-      items: [{ skillName: 'brainstorming' }, { skillName: 'local-skill' }],
+      items: [
+        {
+          skillName: 'brainstorming',
+          skillPath: '/home/user/.agents/skills/brainstorming',
+        },
+        {
+          skillName: 'local-skill',
+          skillPath: '/home/user/.agents/skills/local-skill',
+        },
+      ],
     })
     // Flush the microtask queue and re-assert: `expect.poll` is satisfied at the
     // first hit, so a regression that triggers a *second* IPC call on a later
     // microtask would otherwise slip through.
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(mockSkillsDeleteSkills).toHaveBeenCalledTimes(1)
+  })
+
+  it('passes reviewed source path when metadata name differs from folder basename', async () => {
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const metadataName = 'metadata-title' as SkillName
+    const folderName = 'folder-basename' as SkillName
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: metadataName,
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1729180800000-metadata-title-a1b2c3d4'),
+          symlinksRemoved: 1,
+          cascadeAgents: ['cursor'],
+        },
+      ],
+    })
+
+    // Arrange
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [makeSkill(metadataName, false, folderName)],
+        'req',
+      ),
+    )
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [metadataName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockSkillsDeleteSkills.mock.calls.length).toBe(1)
+    expect(mockSkillsDeleteSkills.mock.calls[0][0]).toEqual({
+      items: [
+        {
+          skillName: 'metadata-title',
+          skillPath: '/home/user/.agents/skills/folder-basename',
+        },
+      ],
+    })
   })
 
   it('routes global orphan deletes through reviewed orphan cleanup identity', async () => {

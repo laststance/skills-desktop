@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type {
+  AbsolutePath,
   AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
@@ -536,6 +537,41 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     await promise
   })
 
+  it('passes reviewed skillPath through deleteSkills IPC', async () => {
+    const store = await createTestStore()
+    mockDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: 'metadata-title',
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1-metadata-title-aaaaaaaa'),
+          symlinksRemoved: 1,
+          cascadeAgents: [],
+        },
+      ],
+    } satisfies BulkDeleteResult)
+
+    const { deleteSelectedSkills } = await import('./skillsSlice')
+    await store.dispatch(
+      deleteSelectedSkills([
+        {
+          skillName: 'metadata-title',
+          skillPath:
+            '/home/user/.agents/skills/folder-basename' as AbsolutePath,
+        },
+      ]),
+    )
+
+    expect(mockDeleteSkills).toHaveBeenCalledWith({
+      items: [
+        {
+          skillName: 'metadata-title',
+          skillPath: '/home/user/.agents/skills/folder-basename',
+        },
+      ],
+    })
+  })
+
   it('clears selection, anchor, inFlight, and progress on fulfilled', async () => {
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])
@@ -924,6 +960,37 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
       ],
     })
     await promise
+  })
+
+  it('passes reviewed linkPath through unlinkManyFromAgent IPC', async () => {
+    const store = await createTestStore()
+    mockUnlinkManyFromAgent.mockResolvedValue({
+      items: [{ skillName: 'metadata-title', outcome: 'unlinked' }],
+    } satisfies BulkUnlinkResult)
+
+    const { unlinkSelectedFromAgent } = await import('./skillsSlice')
+    await store.dispatch(
+      unlinkSelectedFromAgent({
+        agentId: 'cursor' as AgentId,
+        selectedNames: [
+          {
+            skillName: 'metadata-title',
+            linkPath:
+              '/home/user/.cursor/skills/folder-basename' as AbsolutePath,
+          },
+        ],
+      }),
+    )
+
+    expect(mockUnlinkManyFromAgent).toHaveBeenCalledWith({
+      agentId: 'cursor',
+      items: [
+        {
+          skillName: 'metadata-title',
+          linkPath: '/home/user/.cursor/skills/folder-basename',
+        },
+      ],
+    })
   })
 
   it('clears selection, anchor, and inFlight on fulfilled', async () => {
