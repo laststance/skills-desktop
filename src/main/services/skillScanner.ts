@@ -1,4 +1,4 @@
-import { readdir, readFile, stat } from 'fs/promises'
+import { lstat, readdir, readFile, stat } from 'fs/promises'
 import { homedir } from 'os'
 import { join } from 'path'
 
@@ -17,6 +17,7 @@ import type {
 } from '@/shared/types'
 
 import { listValidSourceSkillDirs } from './dirScanner'
+import { filesystemIdentityFromStats } from './filesystemIdentity'
 import { parseSkillMetadata } from './metadataParser'
 import { isValidSkillDir } from './skillValidation'
 import {
@@ -270,15 +271,17 @@ async function scanSourceSkills(): Promise<Skill[]> {
 
   const skills = await Promise.all(
     validDirs.map(async (dir) => {
-      const [metadata, symlinks] = await Promise.all([
+      const [metadata, symlinks, stats] = await Promise.all([
         parseSkillMetadata(dir.path),
         checkSkillSymlinks(dir.name),
+        lstat(dir.path),
       ])
 
       return {
         name: metadata.name,
         description: metadata.description,
         path: dir.path,
+        filesystemIdentity: filesystemIdentityFromStats(stats),
         symlinkCount: countValidSymlinks(symlinks),
         symlinks,
         isSource: true,
@@ -465,16 +468,20 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
               // gstack source tree (~/.claude/skills/gstack/<name>/SKILL.md).
               // Capturing that target lets the renderer display the G-Stack
               // badge on every gstack-managed skill, not just the parent.
-              const [metadata, skillMdSymlinkTarget] = await Promise.all([
-                parseSkillMetadata(skillPath),
-                readSymlinkTargetIfPresent(
-                  join(skillPath, 'SKILL.md') as AbsolutePath,
-                ),
-              ])
+              const [metadata, skillMdSymlinkTarget, stats] = await Promise.all(
+                [
+                  parseSkillMetadata(skillPath),
+                  readSymlinkTargetIfPresent(
+                    join(skillPath, 'SKILL.md') as AbsolutePath,
+                  ),
+                  lstat(skillPath),
+                ],
+              )
               return {
                 agent,
                 dirName: dir.name,
                 skillPath,
+                filesystemIdentity: filesystemIdentityFromStats(stats),
                 metadata,
                 skillMdSymlinkTarget,
               }
@@ -501,6 +508,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
     agent,
     dirName,
     skillPath,
+    filesystemIdentity,
     metadata,
     skillMdSymlinkTarget,
   } of localHits) {
@@ -510,6 +518,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
         name: metadata.name,
         description: metadata.description,
         path: skillPath,
+        filesystemIdentity,
         symlinkCount: 0, // Local skills have 0 symlinks
         symlinks: createMissingSymlinkSlots(dirName),
         isSource: false,
@@ -521,6 +530,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
       status: 'valid',
       linkPath: join(agent.path, dirName) as AbsolutePath,
       isLocal: true,
+      filesystemIdentity,
       skillMdSymlinkTarget,
     })
   }

@@ -10,6 +10,7 @@ import type {
   ClearOrphanSymlinksResult,
   ClearBrokenSymlinkSlotsOptions,
   ClearBrokenSymlinkSlotsResult,
+  FilesystemEntryIdentity,
   RestoreDeletedSkillResult,
   Skill,
   SkillName,
@@ -116,6 +117,7 @@ function reconcileByLiveNames(
 export type DeleteSelectedSkillTarget = {
   skillName: SkillName
   skillPath: AbsolutePath
+  filesystemIdentity: FilesystemEntryIdentity
 }
 
 export type UnlinkSelectedSkillTarget = {
@@ -142,6 +144,7 @@ function getDeleteTargetName(target: DeleteSelectedSkillTarget): SkillName {
 function toDeleteSkillItem(target: DeleteSelectedSkillTarget): {
   skillName: SkillName
   skillPath: AbsolutePath
+  filesystemIdentity: FilesystemEntryIdentity
 } {
   return target
 }
@@ -191,6 +194,9 @@ export const unlinkSkillFromAgent = createAsyncThunk(
       agentId: symlink.agentId,
       linkPath: symlink.linkPath,
       confirmedLocalDirectoryDelete: symlink.isLocal,
+      reviewedDirectoryIdentity: symlink.isLocal
+        ? symlink.filesystemIdentity
+        : undefined,
     })
     if (!result.success) {
       throw new Error(result.error || 'Failed to unlink skill')

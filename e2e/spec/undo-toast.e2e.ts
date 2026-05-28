@@ -126,7 +126,7 @@ test('UI: clicking Undo on the bulk-delete toast restores azure-ai files and sym
   // resilient to visual-label tweaks ("Delete skill" → "Remove skill") that
   // would not change the underlying intent.
   await appWindow
-    .getByRole('button', { name: 'Delete selected skill permanently' })
+    .getByRole('button', { name: 'Move selected skill to app trash' })
     .click()
 
   // Confirm dialog mounts via Radix `<Dialog>`. The title is dynamic

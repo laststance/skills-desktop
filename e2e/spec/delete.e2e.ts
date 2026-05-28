@@ -51,6 +51,58 @@ interface SourceBackedManifest {
 
 const AZURE_AI_NAME = 'azure-ai'
 
+interface E2EFilesystemIdentity {
+  kind: 'directory' | 'symlink' | 'file' | 'other'
+  dev: number
+  ino: number
+  size: number
+  ctimeMs: number
+  mtimeMs: number
+}
+
+interface DeleteSkillPayload {
+  skillName: string
+  skillPath: string
+  filesystemIdentity: E2EFilesystemIdentity
+}
+
+/**
+ * Assert a path entry itself is gone; unlike existsSync, this detects dangling symlinks.
+ * @param path - Filesystem path expected to have no directory entry.
+ * @returns void after asserting lstat throws ENOENT.
+ * @example expectPathEntryMissing('/tmp/link')
+ */
+function expectPathEntryMissing(path: string): void {
+  expect(
+    () => lstatSync(path),
+    `expected ${path} directory entry to be removed`,
+  ).toThrow(/ENOENT/)
+}
+
+/**
+ * Build the reviewed directory identity expected by destructive delete IPC.
+ * @param path - Reviewed source/local skill folder.
+ * @returns Serializable identity copied from Node lstat metadata.
+ * @example filesystemIdentityForPath('/tmp/home/.agents/skills/task')
+ */
+function filesystemIdentityForPath(path: string): E2EFilesystemIdentity {
+  const stats = lstatSync(path)
+  return {
+    kind: stats.isSymbolicLink()
+      ? 'symlink'
+      : stats.isDirectory()
+        ? 'directory'
+        : stats.isFile()
+          ? 'file'
+          : 'other',
+    dev: stats.dev,
+    ino: stats.ino,
+    size: stats.size,
+    ctimeMs: stats.ctimeMs,
+    mtimeMs: stats.mtimeMs,
+  }
+}
+
 /**
  * Build the mandatory reviewed-path delete payload for E2E direct IPC calls.
  * @param isolatedHome - E2E fixture HOME.
@@ -64,7 +116,11 @@ function deleteSkillPayload(
   skillName: string,
   reviewedPath = join(isolatedHome, '.agents', 'skills', skillName),
 ) {
-  return { skillName, skillPath: reviewedPath }
+  return {
+    skillName,
+    skillPath: reviewedPath,
+    filesystemIdentity: filesystemIdentityForPath(reviewedPath),
+  }
 }
 
 /**
@@ -157,7 +213,7 @@ test('deleteSkill moves source-backed skill into trash and unlinks every agent s
   ).toBeGreaterThan(0)
 
   const ipcResult = await appWindow.evaluate(
-    async (payload: { skillName: string; skillPath: string }) =>
+    async (payload: DeleteSkillPayload) =>
       window.electron.skills.deleteSkill(payload),
     deleteSkillPayload(isolatedHome, AZURE_AI_NAME),
   )
@@ -173,10 +229,7 @@ test('deleteSkill moves source-backed skill into trash and unlinks every agent s
   // FS — source gone, every cascading symlink unlinked.
   expect(existsSync(expectedSourcePath)).toBe(false)
   for (const symlink of initial.validSymlinks) {
-    expect(
-      existsSync(symlink.linkPath),
-      `expected ${symlink.linkPath} to be unlinked after deleteSkill`,
-    ).toBe(false)
+    expectPathEntryMissing(symlink.linkPath)
   }
 
   // FS — trash entry exists with the expected layout. Entry basename matches
@@ -232,7 +285,7 @@ test('restoreDeletedSkill recovers a source-backed deletion within the undo wind
   expect(initial.validSymlinks.length).toBeGreaterThan(0)
 
   const deleteResult = await appWindow.evaluate(
-    async (payload: { skillName: string; skillPath: string }) =>
+    async (payload: DeleteSkillPayload) =>
       window.electron.skills.deleteSkill(payload),
     deleteSkillPayload(isolatedHome, AZURE_AI_NAME),
   )
@@ -342,7 +395,7 @@ test('deleteSkill moves a local-only skill into trash with kind="local-only" man
   await waitForInitialScan(appWindow)
 
   const ipcResult = await appWindow.evaluate(
-    async (payload: { skillName: string; skillPath: string }) =>
+    async (payload: DeleteSkillPayload) =>
       window.electron.skills.deleteSkill(payload),
     deleteSkillPayload(isolatedHome, skillName, codexAgentDir),
   )
@@ -524,7 +577,7 @@ test('source-backed delete entry is auto-evicted after UNDO_WINDOW_MS', async ({
   expect(initial.hasAzure).toBe(true)
 
   const deleteResult = await appWindow.evaluate(
-    async (payload: { skillName: string; skillPath: string }) =>
+    async (payload: DeleteSkillPayload) =>
       window.electron.skills.deleteSkill(payload),
     deleteSkillPayload(isolatedHome, AZURE_AI_NAME),
   )

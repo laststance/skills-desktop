@@ -7,6 +7,7 @@ import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import type {
   AgentId,
   BulkDeleteResult,
+  FilesystemEntryIdentity,
   Skill,
   SkillName,
   SymlinkInfo,
@@ -19,6 +20,15 @@ const mockOnDeleteProgress = vi.fn(() => () => {})
 const mockSkillsDeleteSkills = vi.fn()
 const mockClearOrphanSymlinks = vi.fn()
 const mockRefreshAllData = vi.hoisted(() => vi.fn())
+
+const directoryIdentity: FilesystemEntryIdentity = {
+  kind: 'directory',
+  dev: 1,
+  ino: 2,
+  size: 96,
+  ctimeMs: 3,
+  mtimeMs: 4,
+}
 
 /**
  * Short-circuit every heavy child MainContent renders so tests focus on the
@@ -186,6 +196,7 @@ function makeSourceSkill(name: string, source: string): Skill {
     name: name as SkillName,
     description: '',
     path: `/skills/${name}` as never,
+    filesystemIdentity: directoryIdentity,
     symlinkCount: 0,
     symlinks: [],
     isSource: true,
@@ -305,6 +316,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
         name: 'task' as SkillName,
         description: '',
         path: '/skills/task' as never,
+        filesystemIdentity: directoryIdentity,
         symlinkCount: 0,
         symlinks: [],
         isSource: true,
@@ -314,6 +326,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
         name: 'tdd' as SkillName,
         description: '',
         path: '/skills/tdd' as never,
+        filesystemIdentity: directoryIdentity,
         symlinkCount: 0,
         symlinks: [],
         isSource: true,
@@ -459,6 +472,7 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
       name,
       description: '',
       path: `/home/user/.agents/skills/${folderName}` as Skill['path'],
+      filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],
       isSource: true,
@@ -526,10 +540,12 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
         {
           skillName: 'brainstorming',
           skillPath: '/home/user/.agents/skills/brainstorming',
+          filesystemIdentity: directoryIdentity,
         },
         {
           skillName: 'local-skill',
           skillPath: '/home/user/.agents/skills/local-skill',
+          filesystemIdentity: directoryIdentity,
         },
       ],
     })
@@ -587,6 +603,7 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
         {
           skillName: 'metadata-title',
           skillPath: '/home/user/.agents/skills/folder-basename',
+          filesystemIdentity: directoryIdentity,
         },
       ],
     })
@@ -683,6 +700,7 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
       name: sourceSkillName,
       description: '',
       path: '/Users/me/.agents/skills/source-task' as never,
+      filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],
       isSource: true,
@@ -765,6 +783,7 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
       name: sourceSkillName,
       description: '',
       path: '/Users/me/.agents/skills/source-task' as never,
+      filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],
       isSource: true,
@@ -841,6 +860,7 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
       name: sourceSkillName,
       description: '',
       path: '/Users/me/.agents/skills/source-task' as never,
+      filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],
       isSource: true,
@@ -1118,6 +1138,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
       name: 'linked-one' as SkillName,
       description: '',
       path: '/skills/linked-one' as never,
+      filesystemIdentity: directoryIdentity,
       symlinkCount: 1,
       symlinks: [
         {

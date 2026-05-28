@@ -22,6 +22,45 @@ interface DeleteProgressPayload {
   total: number
 }
 
+interface E2EFilesystemIdentity {
+  kind: 'directory' | 'symlink' | 'file' | 'other'
+  dev: number
+  ino: number
+  size: number
+  ctimeMs: number
+  mtimeMs: number
+}
+
+interface DeleteSkillItem {
+  skillName: string
+  skillPath: string
+  filesystemIdentity: E2EFilesystemIdentity
+}
+
+/**
+ * Build the reviewed directory identity expected by destructive delete IPC.
+ * @param path - Reviewed source/local skill folder.
+ * @returns Serializable identity copied from Node lstat metadata.
+ * @example filesystemIdentityForPath('/tmp/home/.agents/skills/task')
+ */
+function filesystemIdentityForPath(path: string): E2EFilesystemIdentity {
+  const stats = lstatSync(path)
+  return {
+    kind: stats.isSymbolicLink()
+      ? 'symlink'
+      : stats.isDirectory()
+        ? 'directory'
+        : stats.isFile()
+          ? 'file'
+          : 'other',
+    dev: stats.dev,
+    ino: stats.ino,
+    size: stats.size,
+    ctimeMs: stats.ctimeMs,
+    mtimeMs: stats.mtimeMs,
+  }
+}
+
 /**
  * Pre-stage `count` source-backed dummy skills under the isolated HOME's
  * universal source dir (`~/.agents/skills/<name>`). Each skill gets a minimal
@@ -59,10 +98,14 @@ function preStageDummySkills(
  * @example deleteItemsFor(home, ['task'])
  */
 function deleteItemsFor(isolatedHome: string, skillNames: string[]) {
-  return skillNames.map((skillName) => ({
-    skillName,
-    skillPath: join(isolatedHome, '.agents', 'skills', skillName),
-  }))
+  return skillNames.map((skillName) => {
+    const skillPath = join(isolatedHome, '.agents', 'skills', skillName)
+    return {
+      skillName,
+      skillPath,
+      filesystemIdentity: filesystemIdentityForPath(skillPath),
+    }
+  })
 }
 
 /**
@@ -101,7 +144,7 @@ test('bulk deleteSkills below BULK_PROGRESS_THRESHOLD (N=9) skips progress event
   await clearIpcEvents(appWindow)
 
   const result = await appWindow.evaluate(
-    async (items: Array<{ skillName: string; skillPath: string }>) =>
+    async (items: DeleteSkillItem[]) =>
       window.electron.skills.deleteSkills({ items }),
     deleteItemsFor(isolatedHome, skillNames),
   )
@@ -155,7 +198,7 @@ test('bulk deleteSkills at BULK_PROGRESS_THRESHOLD (N=10) emits sequential progr
   await clearIpcEvents(appWindow)
 
   const result = await appWindow.evaluate(
-    async (items: Array<{ skillName: string; skillPath: string }>) =>
+    async (items: DeleteSkillItem[]) =>
       window.electron.skills.deleteSkills({ items }),
     deleteItemsFor(isolatedHome, skillNames),
   )
@@ -221,6 +264,7 @@ test('bulk deleteSkills with one missing source returns per-item error and conti
   // that aborts as soon as the first error fires.
   const failingIndex = 5
   const failingSkillName = skillNames[failingIndex]
+  const deleteItems = deleteItemsFor(isolatedHome, skillNames)
   rmSync(join(isolatedHome, '.agents', 'skills', failingSkillName), {
     recursive: true,
     force: true,
@@ -231,9 +275,9 @@ test('bulk deleteSkills with one missing source returns per-item error and conti
   await clearIpcEvents(appWindow)
 
   const result = await appWindow.evaluate(
-    async (items: Array<{ skillName: string; skillPath: string }>) =>
+    async (items: DeleteSkillItem[]) =>
       window.electron.skills.deleteSkills({ items }),
-    deleteItemsFor(isolatedHome, skillNames),
+    deleteItems,
   )
 
   expect(result.items).toHaveLength(10)
@@ -247,7 +291,7 @@ test('bulk deleteSkills with one missing source returns per-item error and conti
       expect(item.outcome).toBe('error')
       if (item.outcome === 'error') {
         expect(item.error.code).toBe('ENOENT')
-        expect(item.error.message).toMatch(/Reviewed skill source not found/)
+        expect(item.error.message).toMatch(/Reviewed skill folder not found/)
       }
     } else {
       expect(item.skillName).toBe(skillNames[index])
@@ -310,9 +354,13 @@ test('bulk deleteSkills uses reviewed skillPath when metadata name differs from 
 
   // Act
   const result = await appWindow.evaluate(
-    async (item: { skillName: string; skillPath: string }) =>
+    async (item: DeleteSkillItem) =>
       window.electron.skills.deleteSkills({ items: [item] }),
-    { skillName: metadataName, skillPath: sourcePath },
+    {
+      skillName: metadataName,
+      skillPath: sourcePath,
+      filesystemIdentity: filesystemIdentityForPath(sourcePath),
+    },
   )
 
   // Assert

@@ -5,7 +5,12 @@ import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import { GSTACK_REPOSITORY_URL } from '@/shared/constants'
-import type { Skill, SkillName, SymlinkInfo } from '@/shared/types'
+import type {
+  FilesystemEntryIdentity,
+  Skill,
+  SkillName,
+  SymlinkInfo,
+} from '@/shared/types'
 import { repositoryId } from '@/shared/types'
 
 const mockGetAll = vi.fn()
@@ -26,6 +31,15 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+const directoryIdentity: FilesystemEntryIdentity = {
+  kind: 'directory',
+  dev: 1,
+  ino: 2,
+  size: 96,
+  ctimeMs: 3,
+  mtimeMs: 4,
+}
+
 /**
  * Build a minimal Skill fixture.
  * @param overrides - Partial Skill overrides
@@ -37,6 +51,7 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
     name: 'task' as SkillName,
     description: 'Task management skill',
     path: '/home/user/.agents/skills/task' as Skill['path'],
+    filesystemIdentity: directoryIdentity,
     symlinkCount: 0,
     symlinks: [],
     isSource: true,
@@ -373,6 +388,15 @@ describe('SkillItem delete button', () => {
       agentName: null,
       // Single-row delete carries no repo-filter scope, so the summary is null.
       sourceSummary: null,
+      deleteTargets: [
+        {
+          skillName: 'brainstorming',
+          skillPath: '/home/user/.agents/skills/task',
+          filesystemIdentity: directoryIdentity,
+        },
+      ],
+      orphanRecords: [],
+      orphanErrors: [],
     })
   })
 
@@ -390,6 +414,15 @@ describe('SkillItem delete button', () => {
       agentName: null,
       // Single-row delete carries no repo-filter scope, so the summary is null.
       sourceSummary: null,
+      deleteTargets: [
+        {
+          skillName: 'local-skill',
+          skillPath: '/home/user/.agents/skills/task',
+          filesystemIdentity: directoryIdentity,
+        },
+      ],
+      orphanRecords: [],
+      orphanErrors: [],
     })
   })
 

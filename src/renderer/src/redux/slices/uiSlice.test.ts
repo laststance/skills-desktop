@@ -8,12 +8,22 @@ import type {
   BulkUnlinkResult,
   ClearBrokenSymlinkSlotsResult,
   ClearOrphanSymlinksResult,
+  FilesystemEntryIdentity,
   Skill,
   SyncExecuteResult,
   SyncPreviewResult,
   TombstoneId,
 } from '@/shared/types'
 import { repositoryId, tombstoneId } from '@/shared/types'
+
+const directoryIdentity: FilesystemEntryIdentity = {
+  kind: 'directory',
+  dev: 1,
+  ino: 2,
+  size: 96,
+  ctimeMs: 3,
+  mtimeMs: 4,
+}
 
 // Stub window.electron before importing the slice (thunks reference it at call time)
 const mockSyncPreview = vi.fn()
@@ -54,6 +64,7 @@ function deleteTarget(skillName: Skill['name']) {
   return {
     skillName,
     skillPath: `/home/user/.agents/skills/${skillName}`,
+    filesystemIdentity: directoryIdentity,
   }
 }
 

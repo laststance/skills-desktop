@@ -29,6 +29,15 @@ interface ExposedReduxStore {
 }
 
 declare global {
+  interface FilesystemEntryIdentity {
+    kind: 'directory' | 'symlink' | 'file' | 'other'
+    dev: number
+    ino: number
+    size: number
+    ctimeMs: number
+    mtimeMs: number
+  }
+
   interface Window {
     __store?: ExposedReduxStore
     __store__?: ExposedReduxStore
@@ -63,6 +72,7 @@ declare global {
         deleteSkill: (options: {
           skillName: string
           skillPath: string
+          filesystemIdentity: FilesystemEntryIdentity
         }) => Promise<{
           success: boolean
           symlinksRemoved: number
@@ -78,7 +88,11 @@ declare global {
           | { outcome: 'error'; error: { message: string; code?: string } }
         >
         deleteSkills: (options: {
-          items: Array<{ skillName: string; skillPath: string }>
+          items: Array<{
+            skillName: string
+            skillPath: string
+            filesystemIdentity: FilesystemEntryIdentity
+          }>
         }) => Promise<{
           items: Array<
             | {
@@ -153,6 +167,8 @@ declare global {
           skillName: string
           agentId: string
           linkPath: string
+          confirmedLocalDirectoryDelete?: boolean
+          reviewedDirectoryIdentity?: FilesystemEntryIdentity
         }) => Promise<{ success: boolean; error?: string }>
         unlinkManyFromAgent: (options: {
           agentId: string

@@ -16,13 +16,20 @@ import { tombstoneId } from '@/shared/types'
 import type {
   AbsolutePath,
   AgentId,
+  FilesystemEntryIdentity,
   RestoreDeletedSkillResult,
   SkillName,
   TombstoneId,
   UnixTimestampMs,
 } from '@/shared/types'
 
+import {
+  filesystemIdentityFromStats,
+  isSameFilesystemEntryIdentity,
+  isSameFilesystemIdentity,
+} from './filesystemIdentity'
 import { getAllowedBases, validatePath } from './pathValidation'
+import { isValidSkillDir } from './skillValidation'
 import { resolveRawSymlinkTarget } from './symlinkChecker'
 
 /** Root of the on-disk trash. Created lazily on first delete. */
@@ -83,6 +90,8 @@ export interface RecordedSymlink {
 export interface RecordedLocalCopy {
   agentId: AgentId
   linkPath: AbsolutePath
+  /** Scan-time directory identity, used to reject same-path replacements. */
+  filesystemIdentity?: FilesystemEntryIdentity
 }
 
 /**
@@ -170,6 +179,50 @@ function resolveDeleteIdentity(
   }
 
   throw new TrashError('Reviewed skill path is outside known skill directories')
+}
+
+/**
+ * Revalidate a reviewed source/local skill folder before moving it to trash.
+ * @param reviewedPath - Exact path displayed in the confirmation dialog.
+ * @param reviewedIdentity - lstat identity captured when the row was scanned.
+ * @returns Current stats when the same valid skill directory is still present.
+ * @throws TrashError when the path changed, became invalid, or is not a directory.
+ * @example await assertReviewedSkillDirectory('/Users/me/.agents/skills/task', identity)
+ */
+async function assertReviewedSkillDirectory(
+  reviewedPath: AbsolutePath,
+  reviewedIdentity: FilesystemEntryIdentity,
+): Promise<Stats> {
+  let stats: Stats
+  try {
+    stats = await fs.lstat(reviewedPath)
+  } catch (error) {
+    const code = errorCode(error)
+    throw new TrashError(
+      code === 'ENOENT'
+        ? 'Reviewed skill folder not found (already changed?)'
+        : `Failed to inspect reviewed skill folder: ${extractErrorMessage(error)}`,
+      code,
+    )
+  }
+
+  if (!stats.isDirectory() || stats.isSymbolicLink()) {
+    throw new TrashError(
+      'Reviewed skill path is no longer a real skill directory',
+      'ESTALE',
+    )
+  }
+  if (!isSameFilesystemIdentity(stats, reviewedIdentity)) {
+    throw new TrashError('Reviewed skill folder changed since review', 'ESTALE')
+  }
+  if (!(await isValidSkillDir(reviewedPath))) {
+    throw new TrashError(
+      'Reviewed skill directory is no longer a valid skill',
+      'ESTALE',
+    )
+  }
+
+  return stats
 }
 
 /**
@@ -431,7 +484,11 @@ async function scanLocalCopies(
       continue
     }
     if (stats.isDirectory() && !stats.isSymbolicLink()) {
-      copies.push({ agentId: agent.id, linkPath: linkPath as AbsolutePath })
+      copies.push({
+        agentId: agent.id,
+        linkPath: linkPath as AbsolutePath,
+        filesystemIdentity: filesystemIdentityFromStats(stats),
+      })
     }
   }
   return copies
@@ -791,32 +848,44 @@ export async function unlinkReviewedDanglingSymlink(options: {
  *
  * @param skillName - Display skill name selected in the UI.
  * @param reviewedSkillPath - Mandatory reviewed source/local folder path.
+ * @param reviewedIdentity - Directory identity captured when the row was reviewed.
  * @returns Tombstoned source-backed or local-only result.
  * @throws TrashError when the skill cannot be located in any form, or any
  *   filesystem op fails non-recoverably mid-move
  * @example
  * // source-backed
- * const result = await moveToTrash('theme-generator', '/Users/me/.agents/skills/theme-generator')
+ * const result = await moveToTrash('theme-generator', reviewedPath, reviewedIdentity)
  * // { kind: 'tombstoned', tombstoneId: '1729...-theme-generator-a1b2c3d4', cascadeAgents: ['cursor'], symlinksRemoved: 1 }
  * @example
  * // local-only (skill lives in ~/.claude/skills/architecture-decision-records)
- * const result = await moveToTrash('architecture-decision-records', '/Users/me/.claude/skills/architecture-decision-records')
+ * const result = await moveToTrash('architecture-decision-records', localPath, reviewedIdentity)
  * // { kind: 'tombstoned', tombstoneId: '1729...-architecture-decision-records-...', cascadeAgents: ['claude'], symlinksRemoved: 1 }
  */
 export async function moveToTrash(
   skillName: SkillName,
   reviewedSkillPath: AbsolutePath,
+  reviewedIdentity: FilesystemEntryIdentity,
 ): Promise<MoveToTrashResult> {
   // Destructive actions use the reviewed filesystem path when the renderer has
   // one; display metadata can differ from the source/slot folder basename.
   const deleteIdentity = resolveDeleteIdentity(reviewedSkillPath)
 
   if (deleteIdentity.kind === 'agent-local') {
+    await assertReviewedSkillDirectory(
+      deleteIdentity.reviewedLocalCopy.linkPath,
+      reviewedIdentity,
+    )
     const localCopies = await scanLocalCopies(
       deleteIdentity.filesystemSkillName,
     )
     const reviewedCopyStillPresent = localCopies.some(
-      (copy) => copy.linkPath === deleteIdentity.reviewedLocalCopy.linkPath,
+      (copy) =>
+        copy.linkPath === deleteIdentity.reviewedLocalCopy.linkPath &&
+        copy.filesystemIdentity !== undefined &&
+        isSameFilesystemEntryIdentity(
+          copy.filesystemIdentity,
+          reviewedIdentity,
+        ),
     )
     if (!reviewedCopyStillPresent) {
       throw new TrashError(
@@ -829,19 +898,8 @@ export async function moveToTrash(
 
   const { sourcePath } = deleteIdentity
 
-  // A reviewed source row must still be the reviewed source row. Local-only
-  // and orphan cleanup flows now have exact reviewed paths of their own.
-  try {
-    await fs.stat(sourcePath)
-  } catch (error) {
-    const code = errorCode(error)
-    throw new TrashError(
-      code === 'ENOENT'
-        ? 'Reviewed skill source not found (already changed?)'
-        : `Failed to inspect skill source: ${extractErrorMessage(error)}`,
-      code,
-    )
-  }
+  // A reviewed source row must still be the same valid directory the user saw.
+  await assertReviewedSkillDirectory(sourcePath, reviewedIdentity)
 
   return moveSourceBackedToTrash(skillName, sourcePath)
 }
@@ -1221,7 +1279,7 @@ async function moveLocalOnlyToTrash(
     kind: 'local-only' as const,
     deletedAt: Date.now(),
     skillName,
-    localCopies: moved,
+    localCopies: moved.map(({ agentId, linkPath }) => ({ agentId, linkPath })),
   }
   try {
     await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8')

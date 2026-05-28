@@ -12,8 +12,10 @@ import {
   findAgentById,
   isSharedAgentPath,
 } from '@/main/constants'
+import { isSameFilesystemIdentity } from '@/main/services/filesystemIdentity'
 import { getAllowedBases, validatePath } from '@/main/services/pathValidation'
 import { scanSkills } from '@/main/services/skillScanner'
+import { isValidSkillDir } from '@/main/services/skillValidation'
 import { resolveRawSymlinkTarget } from '@/main/services/symlinkChecker'
 import {
   moveToTrash,
@@ -455,6 +457,27 @@ export function registerSkillsHandlers(): void {
               'Refusing to delete a local skill without explicit confirmation.',
           }
         }
+        if (!options.reviewedDirectoryIdentity) {
+          return {
+            success: false,
+            error:
+              'Refusing to delete a local skill without reviewed directory identity.',
+          }
+        }
+        if (
+          !isSameFilesystemIdentity(stats, options.reviewedDirectoryIdentity)
+        ) {
+          return {
+            success: false,
+            error: 'Reviewed local skill folder changed since review.',
+          }
+        }
+        if (!(await isValidSkillDir(derivedLinkPath))) {
+          return {
+            success: false,
+            error: 'Reviewed local skill folder is no longer a valid skill.',
+          }
+        }
 
         // Local skill deletion arrives from UnlinkDialog's destructive confirm
         // action. Move to OS Trash instead of recursively deleting bytes so a
@@ -556,9 +579,10 @@ export function registerSkillsHandlers(): void {
    * Delete a single skill by delegating to trashService so the single-delete
    * path shares the same trash/undo/eviction code as batch delete.
    *
-   * `moveToTrash(skillName, skillPath)` validates the reviewed row path so
-   * metadata names cannot redirect deletion to a same-name folder.
-   * @param options - { skillName, skillPath }
+   * `moveToTrash(skillName, skillPath, filesystemIdentity)` validates the
+   * reviewed row path so metadata names cannot redirect deletion to a same-name
+   * folder or same-path replacement.
+   * @param options - Reviewed skill name, path, and filesystem identity.
    * @returns DeleteSkillResult with symlinksRemoved + cascadeAgents
    */
   typedHandle(IPC_CHANNELS.SKILLS_DELETE, async (_, options) => {
@@ -567,6 +591,7 @@ export function registerSkillsHandlers(): void {
       const { cascadeAgents, symlinksRemoved } = await moveToTrash(
         skillName,
         skillPath,
+        options.filesystemIdentity,
       )
       return {
         success: true,
@@ -605,9 +630,16 @@ export function registerSkillsHandlers(): void {
       const emitProgress = total >= BULK_PROGRESS_THRESHOLD
       const results: BulkDeleteItemResult[] = []
 
-      for (const [itemIndex, { skillName, skillPath }] of items.entries()) {
+      for (const [
+        itemIndex,
+        { skillName, skillPath, filesystemIdentity },
+      ] of items.entries()) {
         try {
-          const moveResult = await moveToTrash(skillName, skillPath)
+          const moveResult = await moveToTrash(
+            skillName,
+            skillPath,
+            filesystemIdentity,
+          )
           results.push({
             skillName,
             outcome: 'deleted',

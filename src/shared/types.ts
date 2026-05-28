@@ -41,6 +41,25 @@ export type SkillName = string
 export type AbsolutePath = string
 
 /**
+ * Filesystem object identity captured at scan/review time for destructive guards.
+ * @example { kind: 'directory', dev: 16777233, ino: 12345, size: 96, ctimeMs: 1710000000000, mtimeMs: 1710000000000 }
+ */
+export interface FilesystemEntryIdentity {
+  /** Filesystem entry kind observed by lstat. */
+  kind: 'directory' | 'symlink' | 'file' | 'other'
+  /** Device id from fs.Stats, paired with ino for stable same-object checks. */
+  dev: number
+  /** Inode/file id from fs.Stats, paired with dev for stable same-object checks. */
+  ino: number
+  /** Entry size from fs.Stats, used as fallback identity on filesystems without ino. */
+  size: number
+  /** Metadata change timestamp from fs.Stats, used as fallback identity. */
+  ctimeMs: number
+  /** Modification timestamp from fs.Stats, used as fallback identity. */
+  mtimeMs: number
+}
+
+/**
  * Filesystem path written with forward slashes, used for display and tree keys
  * regardless of the host OS. Always relative to some known root.
  * @example "lib/helper.py"
@@ -194,6 +213,8 @@ export interface Skill {
   description: string
   /** Absolute filesystem path to the skill directory. @example "/Users/me/.agents/skills/tdd-workflow" */
   path: AbsolutePath
+  /** Scan-time filesystem identity for `path`, required before source/local delete. */
+  filesystemIdentity?: FilesystemEntryIdentity
   /** Number of agents this skill is symlinked to (valid symlinks only). @example 3 */
   symlinkCount: SymlinkCount
   /** Per-agent symlink status entries */
@@ -277,6 +298,8 @@ export interface SymlinkInfo {
   linkPath: AbsolutePath
   /** true = real folder in agent dir (local skill), false = symlink */
   isLocal: boolean
+  /** Scan-time identity for real local folder slots, required before local-folder delete. */
+  filesystemIdentity?: FilesystemEntryIdentity
   /**
    * Resolved absolute path of THIS agent slot's `SKILL.md` symlink target,
    * when the slot is a real local folder whose `SKILL.md` is a symlink (e.g.
@@ -721,6 +744,8 @@ export interface UnlinkFromAgentOptions {
   linkPath: AbsolutePath
   /** True only after the local-folder destructive confirmation dialog submits. */
   confirmedLocalDirectoryDelete?: boolean
+  /** Required when deleting a local folder; proves main still sees the reviewed directory. */
+  reviewedDirectoryIdentity?: FilesystemEntryIdentity
 }
 
 /**
@@ -764,13 +789,15 @@ export interface RemoveAllFromAgentResult {
  * IPC argument for `skills:deleteSkill` — removes the reviewed source/local path
  * and every agent symlink pointing at it. `skillPath` preserves filesystem
  * identity when the SKILL.md metadata name differs from the folder basename.
- * @example { skillName: 'theme-generator', skillPath: '/Users/me/.agents/skills/theme-generator' }
+ * @example { skillName: 'theme-generator', skillPath: '/Users/me/.agents/skills/theme-generator', filesystemIdentity: { kind: 'directory', dev: 1, ino: 2, size: 96, ctimeMs: 1, mtimeMs: 1 } }
  */
 export interface DeleteSkillOptions {
   /** Skill to delete. @example "theme-generator" */
   skillName: SkillName
   /** Reviewed source/local folder path from the selected row. */
   skillPath: AbsolutePath
+  /** Scan-time identity for the reviewed source/local folder path. */
+  filesystemIdentity: FilesystemEntryIdentity
 }
 
 /**
@@ -806,11 +833,15 @@ export const tombstoneId = (value: string): TombstoneId => value as TombstoneId
 /**
  * IPC argument for `skills:deleteSkills` — batch delete N reviewed skills atomically with trash/undo.
  * `skillPath` is mandatory so main deletes the reviewed folder even when metadata name and basename differ.
- * @example { items: [{ skillName: 'task', skillPath: '/Users/me/.agents/skills/task' }] }
+ * @example { items: [{ skillName: 'task', skillPath: '/Users/me/.agents/skills/task', filesystemIdentity: { kind: 'directory', dev: 1, ino: 2, size: 96, ctimeMs: 1, mtimeMs: 1 } }] }
  */
 export interface DeleteSkillsOptions {
   /** Skills to delete, in the order the user selected them (batch runs serially per reviewer #21). */
-  items: Array<{ skillName: SkillName; skillPath: AbsolutePath }>
+  items: Array<{
+    skillName: SkillName
+    skillPath: AbsolutePath
+    filesystemIdentity: FilesystemEntryIdentity
+  }>
 }
 
 /**

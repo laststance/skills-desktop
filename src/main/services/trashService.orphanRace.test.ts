@@ -15,6 +15,20 @@ import { join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { filesystemIdentityFromStats } from './filesystemIdentity'
+
+/**
+ * Capture the reviewed identity for the exact directory about to be deleted.
+ * @param path - Source or agent-local skill folder path.
+ * @returns Serializable identity payload passed through destructive IPC.
+ * @example await reviewedIdentityForPath('/tmp/home/.agents/skills/task')
+ */
+async function reviewedIdentityForPath(
+  path: string,
+): Promise<ReturnType<typeof filesystemIdentityFromStats>> {
+  return filesystemIdentityFromStats(await lstat(path))
+}
+
 describe('trashService orphan cleanup guarded commit', () => {
   let tempHome = ''
 
@@ -82,7 +96,13 @@ describe('trashService orphan cleanup guarded commit', () => {
       await import('./trashService')
 
     // Act / Assert
-    await expect(moveToTrash(skillName, sourcePath)).rejects.toThrow(
+    await expect(
+      moveToTrash(
+        skillName,
+        sourcePath,
+        await reviewedIdentityForPath(sourcePath),
+      ),
+    ).rejects.toThrow(
       /Moved entry left|could not be restored|Failed to remove symlinks/i,
     )
     expect((await lstat(sourcePath)).isDirectory()).toBe(true)
@@ -141,9 +161,13 @@ describe('trashService orphan cleanup guarded commit', () => {
       await import('./trashService')
 
     // Act / Assert
-    await expect(moveToTrash(skillName, sourcePath)).rejects.toThrow(
-      /Failed to remove symlinks|could not be restored/i,
-    )
+    await expect(
+      moveToTrash(
+        skillName,
+        sourcePath,
+        await reviewedIdentityForPath(sourcePath),
+      ),
+    ).rejects.toThrow(/Failed to remove symlinks|could not be restored/i)
     expect((await lstat(sourcePath)).isDirectory()).toBe(true)
     expect((await lstat(claudeLinkPath)).isSymbolicLink()).toBe(true)
     expect(await readlink(claudeLinkPath)).toBe(sourcePath)
@@ -212,9 +236,13 @@ describe('trashService orphan cleanup guarded commit', () => {
       await import('./trashService')
 
     // Act / Assert
-    await expect(moveToTrash(skillName, sourcePath)).rejects.toThrow(
-      /source is stranded/i,
-    )
+    await expect(
+      moveToTrash(
+        skillName,
+        sourcePath,
+        await reviewedIdentityForPath(sourcePath),
+      ),
+    ).rejects.toThrow(/source is stranded/i)
     await expect(lstat(sourcePath)).rejects.toThrow()
     expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
     expect(await readlink(linkPath)).toBe(sourcePath)
@@ -298,9 +326,13 @@ describe('trashService orphan cleanup guarded commit', () => {
       await import('./trashService')
 
     // Act / Assert
-    await expect(moveToTrash(skillName, sourcePath)).rejects.toThrow(
-      /source copy preserved/i,
-    )
+    await expect(
+      moveToTrash(
+        skillName,
+        sourcePath,
+        await reviewedIdentityForPath(sourcePath),
+      ),
+    ).rejects.toThrow(/source copy preserved/i)
     expect((await lstat(sourcePath)).isDirectory()).toBe(true)
     expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
     const trashEntries = await readdir(__getTrashDirForTests())
@@ -353,9 +385,13 @@ describe('trashService orphan cleanup guarded commit', () => {
       await import('./trashService')
 
     // Act / Assert
-    await expect(moveToTrash(skillName, localPath)).rejects.toThrow(
-      /staged copy preserved/i,
-    )
+    await expect(
+      moveToTrash(
+        skillName,
+        localPath,
+        await reviewedIdentityForPath(localPath),
+      ),
+    ).rejects.toThrow(/staged copy preserved/i)
     expect((await lstat(localPath)).isDirectory()).toBe(true)
     const trashEntries = await readdir(__getTrashDirForTests())
     expect(trashEntries).toHaveLength(1)

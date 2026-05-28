@@ -804,6 +804,62 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Source-backed delete should remove reviewed source symlinks for both the display skill name and source folder basename, validating each link still resolves to the reviewed source before unlinking.
 
+### P1. Delete IPC must reject same-path filesystem replacements
+
+**Status:** Fixed in follow-up after parallel subagent review.
+
+**Finding:** Reviewed delete payloads carried `skillPath`, but main re-statted the current path without binding it to the entry the user reviewed. A stale payload replay could delete a replacement folder created at the same path after review.
+
+**Fix direction:** Capture scan-time filesystem identity for source and local skill directories, require it in single and bulk delete IPC payloads, and revalidate `lstat` identity plus `SKILL.md` validity before moving anything to trash.
+
+### P1. Single-agent local folder unlink must require reviewed directory identity
+
+**Status:** Fixed in follow-up after parallel subagent review.
+
+**Finding:** `skills:unlinkFromAgent` protected local folder deletion with `confirmedLocalDirectoryDelete`, but did not bind that confirmation to the reviewed directory. A stale or malicious renderer payload could trash a different direct child local skill folder.
+
+**Fix direction:** Pass `reviewedDirectoryIdentity` for local-folder unlink, reject missing or mismatched identities in main, and verify the current directory is still a valid skill before `shell.trashItem`.
+
+### P1. Bulk confirm must snapshot reviewed destructive targets
+
+**Status:** Fixed in follow-up after parallel subagent review.
+
+**Finding:** `BulkConfirmState` stored only names. If `fetchSkills` refreshed while the dialog was open, confirm rebuilt delete/unlink paths from live rows instead of the rows the user reviewed.
+
+**Fix direction:** Store reviewed delete targets, orphan cleanup records, orphan preflight errors, and unlink targets in `BulkConfirmState`; confirm now executes from that snapshot and only falls back to live reconstruction for legacy/test state.
+
+### P1. `moveToTrash` must validate reviewed paths are valid skill directories
+
+**Status:** Fixed in follow-up after parallel subagent review.
+
+**Finding:** `moveToTrash` accepted any direct child under a known skills directory. It did not revalidate that the reviewed path was still a real, non-symlink skill directory with `SKILL.md`.
+
+**Fix direction:** Add shared reviewed-directory validation that uses `lstat`, filesystem identity comparison, and `isValidSkillDir` before both source-backed and agent-local trash moves.
+
+### P1. Delete E2E must assert removed symlink entries with `lstat`
+
+**Status:** Fixed in follow-up after parallel subagent review.
+
+**Finding:** The source-backed delete E2E used `existsSync` on symlink paths. Since `existsSync` follows links, a leftover dangling symlink can look absent and make the test pass.
+
+**Fix direction:** Assert removal with `lstatSync` expecting `ENOENT`, so a dangling symlink left on disk fails the test.
+
+### P2. Bulk delete aria copy must not promise permanent deletion
+
+**Status:** Fixed in follow-up after parallel subagent review.
+
+**Finding:** Bulk delete accessibility copy said selected skills would be deleted permanently, even though source-backed delete moves files to app trash with an undo window.
+
+**Fix direction:** Change the label to "Move ... to app trash" so screen-reader copy matches the actual reversible behavior.
+
+### P2. Single-agent unlink path schema must require absolute reviewed paths
+
+**Status:** Fixed in follow-up after parallel subagent review.
+
+**Finding:** `skills:unlinkFromAgent.linkPath` was still validated as a non-empty string, leaving relative reviewed paths accepted at the IPC schema boundary.
+
+**Fix direction:** Reuse the absolute-path schema for the single-agent unlink payload and add IPC schema regression coverage.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

@@ -7,6 +7,15 @@ import {
 
 import { IPC_ARG_SCHEMAS } from './ipc-schemas'
 
+const directoryIdentity = {
+  kind: 'directory' as const,
+  dev: 1,
+  ino: 2,
+  size: 96,
+  ctimeMs: 3,
+  mtimeMs: 4,
+}
+
 /**
  * Runtime validation tests for IPC boundary schemas.
  *
@@ -38,12 +47,22 @@ describe('skillNameString consistency across channels', () => {
       },
       {
         channel: 'skills:deleteSkill',
-        payload: { skillName: malicious, skillPath: '/tmp/x' },
+        payload: {
+          skillName: malicious,
+          skillPath: '/tmp/x',
+          filesystemIdentity: directoryIdentity,
+        },
       },
       {
         channel: 'skills:deleteSkills',
         payload: {
-          items: [{ skillName: malicious, skillPath: '/tmp/x' }],
+          items: [
+            {
+              skillName: malicious,
+              skillPath: '/tmp/x',
+              filesystemIdentity: directoryIdentity,
+            },
+          ],
         },
       },
       {
@@ -185,6 +204,54 @@ describe('cleanup IPC target path schemas', () => {
   })
 })
 
+describe('reviewed destructive path schemas', () => {
+  const unlinkSchema = IPC_ARG_SCHEMAS['skills:unlinkFromAgent']!
+  const deleteSchema = IPC_ARG_SCHEMAS['skills:deleteSkill']!
+  const deleteBatchSchema = IPC_ARG_SCHEMAS['skills:deleteSkills']!
+
+  it('requires an absolute linkPath for single-agent unlink', () => {
+    // Arrange
+    const payload = {
+      skillName: 'task',
+      agentId: 'cursor',
+      linkPath: 'relative/link',
+    }
+
+    // Act
+    const result = unlinkSchema.safeParse([payload])
+
+    // Assert
+    expect(result.success).toBe(false)
+  })
+
+  it('requires a reviewed filesystem identity for single delete', () => {
+    // Arrange
+    const payload = {
+      skillName: 'task',
+      skillPath: '/tmp/task',
+    }
+
+    // Act
+    const result = deleteSchema.safeParse([payload])
+
+    // Assert
+    expect(result.success).toBe(false)
+  })
+
+  it('requires a reviewed filesystem identity for batch delete items', () => {
+    // Arrange
+    const payload = {
+      items: [{ skillName: 'task', skillPath: '/tmp/task' }],
+    }
+
+    // Act
+    const result = deleteBatchSchema.safeParse([payload])
+
+    // Assert
+    expect(result.success).toBe(false)
+  })
+})
+
 describe('destructive reviewed-path IPC schemas', () => {
   const singleDeleteSchema = IPC_ARG_SCHEMAS['skills:deleteSkill']!
   const batchDeleteSchema = IPC_ARG_SCHEMAS['skills:deleteSkills']!
@@ -196,7 +263,11 @@ describe('destructive reviewed-path IPC schemas', () => {
     )
     expect(
       singleDeleteSchema.safeParse([
-        { skillName: 'task', skillPath: 'relative/path' },
+        {
+          skillName: 'task',
+          skillPath: 'relative/path',
+          filesystemIdentity: directoryIdentity,
+        },
       ]).success,
     ).toBe(false)
     expect(
@@ -209,7 +280,15 @@ describe('destructive reviewed-path IPC schemas', () => {
     ).toBe(false)
     expect(
       batchDeleteSchema.safeParse([
-        { items: [{ skillName: 'task', skillPath: '/tmp/task' }] },
+        {
+          items: [
+            {
+              skillName: 'task',
+              skillPath: '/tmp/task',
+              filesystemIdentity: directoryIdentity,
+            },
+          ],
+        },
       ]).success,
     ).toBe(true)
   })

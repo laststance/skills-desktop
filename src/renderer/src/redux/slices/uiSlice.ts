@@ -6,6 +6,8 @@ import type {
   AgentId,
   AgentName,
   BookmarkedSkill,
+  BulkDeleteItemResult,
+  ClearOrphanSymlinksOptions,
   IsoTimestamp,
   RepositoryId,
   SearchQuery,
@@ -19,6 +21,10 @@ import type {
   TombstoneId,
 } from '@/shared/types'
 
+import type {
+  DeleteSelectedSkillTarget,
+  UnlinkSelectedSkillTarget,
+} from './skillsSlice'
 import {
   clearSelectedBrokenSymlinkSlots,
   clearSelectedOrphanSymlinks,
@@ -101,6 +107,14 @@ export interface BulkConfirmState {
   agentId: AgentId | null
   agentName: AgentName | null
   sourceSummary: SourceFilterSummary | null
+  /** Reviewed source/local delete targets captured when the dialog opened. */
+  deleteTargets?: DeleteSelectedSkillTarget[]
+  /** Reviewed orphan cleanup records captured when the dialog opened. */
+  orphanRecords?: ClearOrphanSymlinksOptions['items']
+  /** Stale preflight errors captured when the dialog opened. */
+  orphanErrors?: BulkDeleteItemResult[]
+  /** Reviewed symlink unlink targets captured when the dialog opened. */
+  unlinkTargets?: UnlinkSelectedSkillTarget[]
 }
 
 interface UiState {

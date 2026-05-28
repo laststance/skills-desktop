@@ -8,6 +8,7 @@ import type {
   BulkUnlinkResult,
   ClearBrokenSymlinkSlotsResult,
   ClearOrphanSymlinksResult,
+  FilesystemEntryIdentity,
   RestoreDeletedSkillResult,
   Skill,
   SymlinkInfo,
@@ -25,6 +26,15 @@ const mockClearBrokenSymlinkSlots = vi.fn()
 const mockUnlinkManyFromAgent = vi.fn()
 const mockRestoreDeletedSkill = vi.fn()
 const mockOnDeleteProgress = vi.fn()
+
+const directoryIdentity: FilesystemEntryIdentity = {
+  kind: 'directory',
+  dev: 1,
+  ino: 2,
+  size: 96,
+  ctimeMs: 3,
+  mtimeMs: 4,
+}
 
 vi.stubGlobal('window', {
   electron: {
@@ -57,6 +67,7 @@ const sampleSkill: Skill = {
   name: 'task',
   description: 'Task management skill',
   path: '/home/user/.agents/skills/task',
+  filesystemIdentity: directoryIdentity,
   symlinkCount: 1,
   symlinks: [
     {
@@ -98,7 +109,11 @@ function deleteTarget(
   skillName: Skill['name'],
   skillPath = `/home/user/.agents/skills/${skillName}`,
 ) {
-  return { skillName, skillPath: skillPath as AbsolutePath }
+  return {
+    skillName,
+    skillPath: skillPath as AbsolutePath,
+    filesystemIdentity: directoryIdentity,
+  }
 }
 
 /**
@@ -590,6 +605,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
           skillName: 'metadata-title',
           skillPath:
             '/home/user/.agents/skills/folder-basename' as AbsolutePath,
+          filesystemIdentity: directoryIdentity,
         },
       ]),
     )
@@ -599,6 +615,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
         {
           skillName: 'metadata-title',
           skillPath: '/home/user/.agents/skills/folder-basename',
+          filesystemIdentity: directoryIdentity,
         },
       ],
     })

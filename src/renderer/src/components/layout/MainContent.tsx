@@ -23,6 +23,11 @@ import {
   formatUnlinkSummary,
 } from '@/renderer/src/components/skills/bulkDeleteHelpers'
 import { CopyToAgentsModal } from '@/renderer/src/components/skills/CopyToAgentsModal'
+import {
+  buildAgentUnlinkTargets,
+  type PartitionedGlobalDeleteTargets,
+  partitionGlobalDeleteTargets,
+} from '@/renderer/src/components/skills/reviewedDestructiveTargets'
 import { SearchBox } from '@/renderer/src/components/skills/SearchBox'
 import { SelectionToolbar } from '@/renderer/src/components/skills/SelectionToolbar'
 import { SkillsList } from '@/renderer/src/components/skills/SkillsList'
@@ -79,10 +84,6 @@ import {
   undoLastBulkDelete,
   unlinkSelectedFromAgent,
 } from '@/renderer/src/redux/slices/skillsSlice'
-import type {
-  DeleteSelectedSkillTarget,
-  UnlinkSelectedSkillTarget,
-} from '@/renderer/src/redux/slices/skillsSlice'
 import {
   clearBulkConfirm,
   clearExcludedSkillTypeFilters,
@@ -121,16 +122,12 @@ import {
 } from '@/shared/constants'
 import { FEATURE_FLAGS } from '@/shared/featureFlags'
 import type {
-  AbsolutePath,
-  AgentId,
   BulkDeleteItemResult,
-  ClearOrphanSymlinksOptions,
   IsoTimestamp,
   RepositoryId,
   Skill,
   ToastId,
   TombstoneId,
-  SymlinkInfo,
 } from '@/shared/types'
 
 const SKILL_TYPE_FILTER_OPTIONS: {
@@ -176,136 +173,6 @@ function getUnavailableExcludeReason(
 
 const SKILLS_SH_URL = 'https://skills.sh'
 
-type ReviewedOrphanCleanupRecord = ClearOrphanSymlinksOptions['items'][number]
-
-interface PartitionedGlobalDeleteTargets {
-  deleteTargets: DeleteSelectedSkillTarget[]
-  orphanRecords: ReviewedOrphanCleanupRecord[]
-  orphanErrors: BulkDeleteItemResult[]
-}
-
-interface AgentUnlinkTargets {
-  targets: UnlinkSelectedSkillTarget[]
-  staleNames: Skill['name'][]
-}
-
-/**
- * Narrow to dangling, reviewed symlink slots that the orphan cleanup IPC can safely revalidate.
- * @param symlink - Agent slot from the current renderer scan.
- * @returns true when the slot has the exact path and target cleanup requires.
- * @example
- * isReviewedOrphanCleanupSlot(skill.symlinks[0]) // => true for broken non-local symlink with targetPath
- */
-function isReviewedOrphanCleanupSlot(
-  symlink: SymlinkInfo,
-): symlink is SymlinkInfo & {
-  status: 'broken'
-  isLocal: false
-  targetPath: AbsolutePath
-} {
-  return (
-    symlink.status === 'broken' &&
-    symlink.isLocal === false &&
-    symlink.targetPath !== undefined
-  )
-}
-
-/**
- * Split global delete selections so orphan rows use exact reviewed link cleanup instead of name rescans.
- * @param skills - Current Redux skill inventory.
- * @param skillNames - Names selected in the bulk confirm dialog.
- * @returns Reviewed source/local targets, reviewed orphan cleanup records, and per-row preflight errors.
- * @example
- * partitionGlobalDeleteTargets(skills, ['abandoned'])
- */
-function partitionGlobalDeleteTargets(
-  skills: readonly Skill[],
-  skillNames: readonly Skill['name'][],
-): PartitionedGlobalDeleteTargets {
-  const skillsByName = new Map(skills.map((skill) => [skill.name, skill]))
-  const deleteTargets: DeleteSelectedSkillTarget[] = []
-  const orphanRecords: ReviewedOrphanCleanupRecord[] = []
-  const orphanErrors: BulkDeleteItemResult[] = []
-
-  for (const skillName of skillNames) {
-    const skill = skillsByName.get(skillName)
-    if (!skill?.isOrphan) {
-      if (skill) {
-        deleteTargets.push({
-          skillName,
-          skillPath: skill.path,
-        })
-        continue
-      }
-      orphanErrors.push({
-        skillName,
-        outcome: 'error',
-        error: {
-          message: 'Selected skill row is stale. Rescan before delete.',
-          code: 'ESTALE',
-        },
-      })
-      continue
-    }
-
-    const agents = skill.symlinks
-      .filter(isReviewedOrphanCleanupSlot)
-      .map((symlink) => ({
-        agentId: symlink.agentId,
-        linkPath: symlink.linkPath,
-        targetPath: symlink.targetPath,
-      }))
-
-    if (agents.length > 0) {
-      orphanRecords.push({ skillName, agents })
-      continue
-    }
-
-    // Do not fall back to name-only deletion for an orphan row whose reviewed
-    // slot identities are incomplete; ask for a rescan instead.
-    orphanErrors.push({
-      skillName,
-      outcome: 'error',
-      error: {
-        message:
-          'No reviewed orphan symlink targets available. Rescan before cleanup.',
-        code: 'ESTALE',
-      },
-    })
-  }
-
-  return { deleteTargets, orphanRecords, orphanErrors }
-}
-
-/**
- * Build bulk-unlink targets with the reviewed agent slot path.
- * @param skills - Current skill rows in Redux.
- * @param skillNames - Display names selected in the confirmation dialog.
- * @param agentId - Selected agent whose slots are being unlinked.
- * @returns Reviewed unlink targets plus stale rows that need a rescan.
- * @example buildAgentUnlinkTargets(skills, ['metadata-title'], 'cursor')
- */
-function buildAgentUnlinkTargets(
-  skills: readonly Skill[],
-  skillNames: readonly Skill['name'][],
-  agentId: AgentId,
-): AgentUnlinkTargets {
-  const skillsByName = new Map(skills.map((skill) => [skill.name, skill]))
-  const targets: UnlinkSelectedSkillTarget[] = []
-  const staleNames: Skill['name'][] = []
-  for (const skillName of skillNames) {
-    const symlink = skillsByName
-      .get(skillName)
-      ?.symlinks.find((slot) => slot.agentId === agentId)
-    if (symlink?.linkPath) {
-      targets.push({ skillName, linkPath: symlink.linkPath })
-      continue
-    }
-    staleNames.push(skillName)
-  }
-  return { targets, staleNames }
-}
-
 /**
  * Build bulk-delete targets only for delete confirms so MainContent stays branch-light.
  * @param bulkConfirm - Pending bulk confirm dialog state.
@@ -319,6 +186,17 @@ function getBulkDeleteTargetSummary(
   skills: readonly Skill[],
 ): PartitionedGlobalDeleteTargets | null {
   if (!bulkConfirm || bulkConfirm.kind !== 'delete') return null
+  if (
+    bulkConfirm.deleteTargets ||
+    bulkConfirm.orphanRecords ||
+    bulkConfirm.orphanErrors
+  ) {
+    return {
+      deleteTargets: bulkConfirm.deleteTargets ?? [],
+      orphanRecords: bulkConfirm.orphanRecords ?? [],
+      orphanErrors: bulkConfirm.orphanErrors ?? [],
+    }
+  }
   return partitionGlobalDeleteTargets(skills, bulkConfirm.skillNames)
 }
 
@@ -644,13 +522,44 @@ export const MainContent = React.memo(
               localHiddenCount: sourceFilter.localHiddenCount,
             }
           : null
+      if (selectedAgentId) {
+        const { targets, staleNames } = buildAgentUnlinkTargets(
+          skills,
+          selectedVisibleNames,
+          selectedAgentId,
+        )
+        if (staleNames.length > 0) {
+          flashFailedRows(staleNames)
+          toast.error('Bulk unlink failed', {
+            description: 'Selection changed. Rescan before unlinking.',
+          })
+          refreshAllData(dispatch)
+          return
+        }
+        dispatch(
+          setBulkConfirm({
+            kind: 'unlink',
+            skillNames: targets.map((target) => target.skillName),
+            agentId: selectedAgentId,
+            agentName: selectedAgent?.name ?? null,
+            sourceSummary,
+            unlinkTargets: targets,
+          }),
+        )
+        return
+      }
+      const { deleteTargets, orphanRecords, orphanErrors } =
+        partitionGlobalDeleteTargets(skills, selectedVisibleNames)
       dispatch(
         setBulkConfirm({
-          kind: selectedAgentId ? 'unlink' : 'delete',
+          kind: 'delete',
           skillNames: selectedVisibleNames,
-          agentId: selectedAgentId,
-          agentName: selectedAgent?.name ?? null,
+          agentId: null,
+          agentName: null,
           sourceSummary,
+          deleteTargets,
+          orphanRecords,
+          orphanErrors,
         }),
       )
     }, [
@@ -658,6 +567,7 @@ export const MainContent = React.memo(
       selectedAgentId,
       selectedAgent?.name,
       selectedVisibleNames,
+      skills,
       sourceFilter.validRepoIds,
       sourceFilter.localHiddenCount,
     ])
@@ -732,25 +642,18 @@ export const MainContent = React.memo(
     )
 
     /**
-     * Invoked by the BulkConfirmDialog's primary button. Reads the pending
-     * payload from Redux, clears the dialog, then runs the existing thunk +
-     * post-action logic (toast, refresh, undo toast for deletes).
+     * Execute reviewed agent-view unlink confirmation after the dialog closes.
+     * @param confirm - Snapshot captured when the confirmation dialog opened.
+     * @returns void after thunk, toast, and refresh side effects finish.
+     * @example await confirmBulkUnlink(bulkConfirm)
      */
-    const handleConfirmBulk = useCallback(async (): Promise<void> => {
-      if (!bulkConfirm) return
-      const { kind, skillNames, agentId, agentName } = bulkConfirm
-      // Clear FIRST so the dialog unmounts before the thunk suspends; the
-      // thunk's `.pending` reducer also clears, but the explicit clear removes
-      // the "frozen dialog while request is in flight" race on slow disks.
-      dispatch(clearBulkConfirm())
-
-      if (kind === 'unlink' && agentId) {
-        // Agent view — bulk unlink (not tombstoned, no undo toast).
-        const { targets: unlinkTargets, staleNames } = buildAgentUnlinkTargets(
-          skills,
-          skillNames,
-          agentId,
-        )
+    const confirmBulkUnlink = useCallback(
+      async (confirm: BulkConfirmState): Promise<void> => {
+        const { skillNames, agentId, agentName } = confirm
+        if (!agentId) return
+        const { targets: unlinkTargets, staleNames } = confirm.unlinkTargets
+          ? { targets: confirm.unlinkTargets, staleNames: [] }
+          : buildAgentUnlinkTargets(skills, skillNames, agentId)
         if (staleNames.length > 0) {
           flashFailedRows(staleNames)
           toast.error('Bulk unlink failed', {
@@ -759,11 +662,9 @@ export const MainContent = React.memo(
           refreshAllData(dispatch)
           return
         }
+
         const action = await dispatch(
-          unlinkSelectedFromAgent({
-            agentId,
-            selectedNames: unlinkTargets,
-          }),
+          unlinkSelectedFromAgent({ agentId, selectedNames: unlinkTargets }),
         )
         if (unlinkSelectedFromAgent.fulfilled.match(action)) {
           const failedNames = action.payload.items
@@ -772,9 +673,6 @@ export const MainContent = React.memo(
           const unlinkedCount = action.payload.items.length - failedNames.length
           flashFailedRows(failedNames)
           if (unlinkedCount === 0) {
-            // Every item failed — a success toast would lie to the user.
-            // Match the delete-all-errored path: surface a failure toast with
-            // the same per-item summary we'd show on partial success.
             toast.error('Bulk unlink failed', {
               description: formatUnlinkSummary(
                 action.payload,
@@ -792,67 +690,80 @@ export const MainContent = React.memo(
           })
         }
         refreshAllData(dispatch)
-        return
-      }
+      },
+      [dispatch, skills],
+    )
 
-      const { deleteTargets, orphanRecords, orphanErrors } =
-        partitionGlobalDeleteTargets(skills, skillNames)
-      const deleteItems: BulkDeleteItemResult[] = [...orphanErrors]
-      const hasOrphanCleanupRows =
-        orphanRecords.length > 0 || orphanErrors.length > 0
-      const cleanupReadyOrphanNames = orphanRecords.map(
-        (record) => record.skillName,
-      )
-
-      // Global view — normal skills still flow through the trash + UndoToast
-      // pipeline. Orphan rows are not source skills, so they use exact reviewed
-      // link cleanup below instead of the name-rescanning delete IPC.
-      if (deleteTargets.length > 0) {
-        const action = await dispatch(deleteSelectedSkills(deleteTargets))
-        if (deleteSelectedSkills.fulfilled.match(action)) {
-          deleteItems.push(...action.payload.items)
-        } else {
-          if (hasOrphanCleanupRows) {
-            restoreUnresolvedMixedDeleteSelection(
-              deleteTargets.map((target) => target.skillName),
-              cleanupReadyOrphanNames,
-            )
-          }
-          toast.error('Bulk delete failed', {
-            description: errorToastDescription(action),
-          })
-          refreshAllData(dispatch)
-          return
-        }
-      }
-
-      if (orphanRecords.length > 0) {
-        const action = await dispatch(
-          clearSelectedOrphanSymlinks(orphanRecords),
+    /**
+     * Execute reviewed global delete confirmation, including orphan cleanup rows.
+     * @param confirm - Snapshot captured when the confirmation dialog opened.
+     * @returns void after delete/cleanup thunks, toast, undo, and refresh.
+     * @example await confirmBulkDelete(bulkConfirm)
+     */
+    const confirmBulkDelete = useCallback(
+      async (confirm: BulkConfirmState): Promise<void> => {
+        const { skillNames } = confirm
+        const { deleteTargets, orphanRecords, orphanErrors } =
+          confirm.deleteTargets || confirm.orphanRecords || confirm.orphanErrors
+            ? {
+                deleteTargets: confirm.deleteTargets ?? [],
+                orphanRecords: confirm.orphanRecords ?? [],
+                orphanErrors: confirm.orphanErrors ?? [],
+              }
+            : partitionGlobalDeleteTargets(skills, skillNames)
+        const deleteItems: BulkDeleteItemResult[] = [...orphanErrors]
+        const hasOrphanCleanupRows =
+          orphanRecords.length > 0 || orphanErrors.length > 0
+        const cleanupReadyOrphanNames = orphanRecords.map(
+          (record) => record.skillName,
         )
-        if (clearSelectedOrphanSymlinks.fulfilled.match(action)) {
-          deleteItems.push(...action.payload.items)
-        } else {
-          const message = errorToastDescription(action)
-          if (deleteItems.length === 0) {
-            restoreUnresolvedMixedDeleteSelection([], cleanupReadyOrphanNames)
-            toast.error('Bulk delete failed', { description: message })
+
+        if (deleteTargets.length > 0) {
+          const action = await dispatch(deleteSelectedSkills(deleteTargets))
+          if (deleteSelectedSkills.fulfilled.match(action)) {
+            deleteItems.push(...action.payload.items)
+          } else {
+            if (hasOrphanCleanupRows) {
+              restoreUnresolvedMixedDeleteSelection(
+                deleteTargets.map((target) => target.skillName),
+                cleanupReadyOrphanNames,
+              )
+            }
+            toast.error('Bulk delete failed', {
+              description: errorToastDescription(action),
+            })
             refreshAllData(dispatch)
             return
           }
-          deleteItems.push(
-            ...orphanRecords.map(
-              (record): BulkDeleteItemResult => ({
-                skillName: record.skillName,
-                outcome: 'error',
-                error: { message },
-              }),
-            ),
-          )
         }
-      }
 
-      if (deleteItems.length > 0) {
+        if (orphanRecords.length > 0) {
+          const action = await dispatch(
+            clearSelectedOrphanSymlinks(orphanRecords),
+          )
+          if (clearSelectedOrphanSymlinks.fulfilled.match(action)) {
+            deleteItems.push(...action.payload.items)
+          } else {
+            const message = errorToastDescription(action)
+            if (deleteItems.length === 0) {
+              restoreUnresolvedMixedDeleteSelection([], cleanupReadyOrphanNames)
+              toast.error('Bulk delete failed', { description: message })
+              refreshAllData(dispatch)
+              return
+            }
+            deleteItems.push(
+              ...orphanRecords.map(
+                (record): BulkDeleteItemResult => ({
+                  skillName: record.skillName,
+                  outcome: 'error',
+                  error: { message },
+                }),
+              ),
+            )
+          }
+        }
+
+        if (deleteItems.length === 0) return
         const tombstoneIds = deleteItems
           .filter(
             (
@@ -861,52 +772,32 @@ export const MainContent = React.memo(
               item.outcome === 'deleted',
           )
           .map((item) => item.tombstoneId)
-        const deletedNames = deleteItems
-          .filter((item) => item.outcome === 'deleted')
-          .map((item) => item.skillName)
         const { rescanRequiredNames } = reconcileMixedDeleteSelection(
           deleteItems,
           hasOrphanCleanupRows,
         )
         refreshAllData(dispatch)
-
-        if (tombstoneIds.length === 0) {
-          // No tombstones, but the rows still might have succeeded as
-          // `orphan-cleared` (broken-symlink sweeps that have no undo path).
-          // Distinguish all-errored from any-cleared so we don't slap an
-          // "error" title on a row that the user actually wanted swept.
-          const anySuccess = deleteItems.some(
-            (item) =>
-              item.outcome === 'deleted' || item.outcome === 'orphan-cleared',
-          )
-          const summary = appendRescanRequiredSummary(
-            formatCascadeSummary({ items: deleteItems }),
-            rescanRequiredNames.length,
-          )
-          if (anySuccess) {
-            toast.success(summary)
-          } else {
-            toast.error('Bulk delete failed', {
-              description: summary,
-            })
-          }
-          return
-        }
-
-        // Render via sonner's default-styled wrapper (NOT `toast.custom`) so
-        // the per-toast `closeButton: true` opt-in injects sonner's built-in ×
-        // — sonner only renders the close affordance on styled toasts, and
-        // `toast.custom` opts out of that styling.
-        //
-        // `onUndoComplete` reads `toastId` through the closure at click time,
-        // so it resolves after the surrounding const has been assigned.
-        const expiresAt: IsoTimestamp = new Date(
-          Date.now() + UNDO_WINDOW_MS,
-        ).toISOString()
         const summary = appendRescanRequiredSummary(
           formatCascadeSummary({ items: deleteItems }),
           rescanRequiredNames.length,
         )
+
+        if (tombstoneIds.length === 0) {
+          const anySuccess = deleteItems.some(
+            (item) =>
+              item.outcome === 'deleted' || item.outcome === 'orphan-cleared',
+          )
+          if (anySuccess) toast.success(summary)
+          else toast.error('Bulk delete failed', { description: summary })
+          return
+        }
+
+        const deletedNames = deleteItems
+          .filter((item) => item.outcome === 'deleted')
+          .map((item) => item.skillName)
+        const expiresAt: IsoTimestamp = new Date(
+          Date.now() + UNDO_WINDOW_MS,
+        ).toISOString()
         const handleToastDismissed = (): void => {
           dispatch(clearUndoToast())
         }
@@ -938,15 +829,31 @@ export const MainContent = React.memo(
             summary,
           }),
         )
+      },
+      [
+        dispatch,
+        handleUndoDelete,
+        reconcileMixedDeleteSelection,
+        restoreUnresolvedMixedDeleteSelection,
+        skills,
+      ],
+    )
+
+    /**
+     * Route the active bulk confirmation to the reviewed unlink or delete executor.
+     * @returns void after the selected executor completes.
+     * @example await handleConfirmBulk()
+     */
+    const handleConfirmBulk = useCallback(async (): Promise<void> => {
+      if (!bulkConfirm) return
+      const confirm = bulkConfirm
+      dispatch(clearBulkConfirm())
+      if (confirm.kind === 'unlink' && confirm.agentId) {
+        await confirmBulkUnlink(confirm)
+        return
       }
-    }, [
-      bulkConfirm,
-      dispatch,
-      handleUndoDelete,
-      reconcileMixedDeleteSelection,
-      restoreUnresolvedMixedDeleteSelection,
-      skills,
-    ])
+      await confirmBulkDelete(confirm)
+    }, [bulkConfirm, confirmBulkDelete, confirmBulkUnlink, dispatch])
 
     const handleCancelBulkConfirm = useCallback((): void => {
       dispatch(clearBulkConfirm())

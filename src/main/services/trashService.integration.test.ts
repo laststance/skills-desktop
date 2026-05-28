@@ -22,9 +22,23 @@ import {
   vi,
 } from 'vitest'
 
-import type { AbsolutePath, SkillName } from '@/shared/types'
+import type {
+  AbsolutePath,
+  FilesystemEntryIdentity,
+  SkillName,
+} from '@/shared/types'
 
+import { filesystemIdentityFromStats } from './filesystemIdentity'
 import type { MoveToTrashResult } from './trashService'
+
+const missingDirectoryIdentity: FilesystemEntryIdentity = {
+  kind: 'directory',
+  dev: 1,
+  ino: 1,
+  size: 96,
+  ctimeMs: 1,
+  mtimeMs: 1,
+}
 
 // sharedHome is stamped SYNCHRONOUSLY at module load so that the vi.mock
 // factory below captures a defined value by the time `trashService` is
@@ -180,12 +194,15 @@ describe('trashService (integration)', () => {
     moveToTrash: (
       skillName: SkillName,
       reviewedSkillPath: AbsolutePath,
+      reviewedIdentity: ReturnType<typeof filesystemIdentityFromStats>,
     ) => Promise<MoveToTrashResult>,
     skillName: string,
   ): Promise<MoveToTrashResult> {
+    const reviewedSkillPath = join(sharedSourceDir, skillName) as AbsolutePath
     return moveToTrash(
       skillName as SkillName,
-      join(sharedSourceDir, skillName) as AbsolutePath,
+      reviewedSkillPath,
+      filesystemIdentityFromStats(await lstat(reviewedSkillPath)),
     )
   }
 
@@ -201,13 +218,16 @@ describe('trashService (integration)', () => {
     moveToTrash: (
       skillName: SkillName,
       reviewedSkillPath: AbsolutePath,
+      reviewedIdentity: ReturnType<typeof filesystemIdentityFromStats>,
     ) => Promise<MoveToTrashResult>,
     skillName: string,
     agentBaseDir: string,
   ): Promise<MoveToTrashResult> {
+    const reviewedSkillPath = join(agentBaseDir, skillName) as AbsolutePath
     return moveToTrash(
       skillName as SkillName,
-      join(agentBaseDir, skillName) as AbsolutePath,
+      reviewedSkillPath,
+      filesystemIdentityFromStats(await lstat(reviewedSkillPath)),
     )
   }
 
@@ -283,6 +303,7 @@ describe('trashService (integration)', () => {
     const deleteResult = await moveToTrash(
       metadataName,
       sourcePath as AbsolutePath,
+      filesystemIdentityFromStats(await lstat(sourcePath)),
     )
     assertTombstoned(deleteResult)
 
@@ -405,9 +426,13 @@ describe('trashService (integration)', () => {
     // so we just verify the missing-everywhere case still surfaces ENOENT.
     const skillName = 'ghost-skill'
 
-    await expect(moveReviewedSource(moveToTrash, skillName)).rejects.toThrow(
-      /already changed/i,
-    )
+    await expect(
+      moveToTrash(
+        skillName,
+        join(sharedSourceDir, skillName) as AbsolutePath,
+        missingDirectoryIdentity,
+      ),
+    ).rejects.toThrow(/already changed/i)
   })
 
   it('produces unique tombstone ids when two calls happen in the same ms', async () => {

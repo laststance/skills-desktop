@@ -102,14 +102,14 @@ export const getToolbarState = ({
     }))
     .with({ view: 'global', countKind: 'single' }, () => ({
       primaryLabel: 'Delete skill',
-      primaryAriaLabel: `Delete ${ariaSelectionScope} skill permanently`,
+      primaryAriaLabel: `Move ${ariaSelectionScope} skill to app trash`,
       isPrimaryDisabled,
       isDestructive: true,
       variantKey: 'global-single' as const,
     }))
     .with({ view: 'global', countKind: 'multi' }, () => ({
       primaryLabel: `Delete ${actionCount} skills`,
-      primaryAriaLabel: `Delete ${actionCount} ${ariaSelectionScope} skills permanently`,
+      primaryAriaLabel: `Move ${actionCount} ${ariaSelectionScope} skills to app trash`,
       isPrimaryDisabled,
       isDestructive: true,
       variantKey: 'global-multi' as const,

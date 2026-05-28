@@ -38,7 +38,7 @@ describe('getToolbarState', () => {
     })
     expect(result.variantKey).toBe('global-multi')
     expect(result.primaryLabel).toBe('Delete 7 skills')
-    expect(result.primaryAriaLabel).toBe('Delete 7 selected skills permanently')
+    expect(result.primaryAriaLabel).toBe('Move 7 selected skills to app trash')
     expect(result.isDestructive).toBe(true)
   })
 
@@ -129,7 +129,7 @@ describe('getToolbarState', () => {
     expect(result.isPrimaryDisabled).toBe(false)
     expect(result.primaryLabel).toBe('Delete 2 skills')
     expect(result.primaryAriaLabel).toBe(
-      'Delete 2 visible selected skills permanently',
+      'Move 2 visible selected skills to app trash',
     )
   })
 })

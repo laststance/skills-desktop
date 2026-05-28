@@ -58,6 +58,7 @@ import type { Skill, SkillName, SymlinkInfo } from '@/shared/types'
 
 import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
 import { computeRangeSelection } from './bulkDeleteHelpers'
+import { partitionGlobalDeleteTargets } from './reviewedDestructiveTargets'
 import { getSkillItemVisibility } from './skillItemHelpers'
 import { SourceLink } from './SourceLink'
 
@@ -276,6 +277,8 @@ export const SkillItem = React.memo(function SkillItem({
    */
   const handleDeleteClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
+    const { deleteTargets, orphanRecords, orphanErrors } =
+      partitionGlobalDeleteTargets([skill], [skill.name])
     dispatch(
       setBulkConfirm({
         kind: 'delete',
@@ -284,6 +287,9 @@ export const SkillItem = React.memo(function SkillItem({
         agentName: null,
         // A single-row delete carries no repo-filter scope to report.
         sourceSummary: null,
+        deleteTargets,
+        orphanRecords,
+        orphanErrors,
       }),
     )
   }

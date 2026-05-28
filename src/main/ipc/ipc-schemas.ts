@@ -38,6 +38,16 @@ const absolutePathArg = z
   .refine((p) => p.startsWith('/'), {
     message: 'Path must be absolute (start with /)',
   })
+
+/** Serializable lstat identity captured when a destructive row was reviewed. */
+const filesystemEntryIdentitySchema = z.object({
+  kind: z.enum(['directory', 'symlink', 'file', 'other']),
+  dev: z.number().finite(),
+  ino: z.number().finite(),
+  size: z.number().finite(),
+  ctimeMs: z.number().finite(),
+  mtimeMs: z.number().finite(),
+})
 /**
  * Skill name must not contain path separators (prevents `../` traversal) or
  * null bytes (defense in depth: some libc wrappers truncate at `\0`, which
@@ -182,8 +192,9 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
     z.object({
       skillName: skillNameString,
       agentId: nonEmptyString,
-      linkPath: nonEmptyString,
+      linkPath: absolutePathArg,
       confirmedLocalDirectoryDelete: z.boolean().optional(),
+      reviewedDirectoryIdentity: filesystemEntryIdentitySchema.optional(),
     }),
   ]),
   'skills:removeAllFromAgent': z.tuple([
@@ -196,6 +207,7 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
     z.object({
       skillName: skillNameString,
       skillPath: absolutePathArg,
+      filesystemIdentity: filesystemEntryIdentitySchema,
     }),
   ]),
   'skills:createSymlinks': z.tuple([
@@ -221,6 +233,7 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
           z.object({
             skillName: skillNameString,
             skillPath: absolutePathArg,
+            filesystemIdentity: filesystemEntryIdentitySchema,
           }),
         )
         .min(1, 'At least one skill required for batch delete'),
