@@ -113,58 +113,60 @@ function reconcileByLiveNames(
   return names.filter((name) => liveNames.has(name))
 }
 
-export type DeleteSelectedSkillTarget =
-  | SkillName
-  | { skillName: SkillName; skillPath?: AbsolutePath }
+export type DeleteSelectedSkillTarget = {
+  skillName: SkillName
+  skillPath: AbsolutePath
+}
 
-export type UnlinkSelectedSkillTarget =
-  | SkillName
-  | { skillName: SkillName; linkPath?: AbsolutePath }
+export type UnlinkSelectedSkillTarget = {
+  skillName: SkillName
+  linkPath: AbsolutePath
+}
 
 /**
- * Read the display name from a bulk-delete target while keeping old name-only callers valid.
- * @param target - Name string or reviewed delete target object.
+ * Read the display name from a bulk-delete target that carries reviewed path identity.
+ * @param target - Reviewed delete target object.
  * @returns Display skill name used for selection reconciliation.
  * @example getDeleteTargetName({ skillName: 'metadata-title', skillPath: '/x/folder' })
  */
 function getDeleteTargetName(target: DeleteSelectedSkillTarget): SkillName {
-  return typeof target === 'string' ? target : target.skillName
+  return target.skillName
 }
 
 /**
  * Convert renderer delete targets into the IPC item shape that preserves reviewed paths.
- * @param target - Name string or reviewed delete target object.
- * @returns IPC delete item with optional skillPath.
+ * @param target - Reviewed delete target object.
+ * @returns IPC delete item with mandatory skillPath.
  * @example toDeleteSkillItem({ skillName: 'metadata-title', skillPath: '/x/folder' })
  */
 function toDeleteSkillItem(target: DeleteSelectedSkillTarget): {
   skillName: SkillName
-  skillPath?: AbsolutePath
+  skillPath: AbsolutePath
 } {
-  return typeof target === 'string' ? { skillName: target } : target
+  return target
 }
 
 /**
- * Read the display name from a bulk-unlink target while keeping old name-only callers valid.
- * @param target - Name string or reviewed unlink target object.
+ * Read the display name from a bulk-unlink target that carries reviewed path identity.
+ * @param target - Reviewed unlink target object.
  * @returns Display skill name used for selection reconciliation.
  * @example getUnlinkTargetName({ skillName: 'metadata-title', linkPath: '/x/slot' })
  */
 function getUnlinkTargetName(target: UnlinkSelectedSkillTarget): SkillName {
-  return typeof target === 'string' ? target : target.skillName
+  return target.skillName
 }
 
 /**
  * Convert renderer unlink targets into the IPC item shape that preserves reviewed link paths.
- * @param target - Name string or reviewed unlink target object.
- * @returns IPC unlink item with optional linkPath.
+ * @param target - Reviewed unlink target object.
+ * @returns IPC unlink item with mandatory linkPath.
  * @example toUnlinkSkillItem({ skillName: 'metadata-title', linkPath: '/x/slot' })
  */
 function toUnlinkSkillItem(target: UnlinkSelectedSkillTarget): {
   skillName: SkillName
-  linkPath?: AbsolutePath
+  linkPath: AbsolutePath
 } {
-  return typeof target === 'string' ? { skillName: target } : target
+  return target
 }
 
 /**
@@ -260,10 +262,10 @@ export const copyToAgents = createAsyncThunk(
  * `.pending` reducer intersects the passed list with `state.items` to
  * reconcile against any fresh `fetchSkills` that landed between the user
  * click and thunk dispatch.
- * @param selectedTargets - Names or reviewed row identities to delete.
+ * @param selectedTargets - Reviewed row identities to delete.
  * @returns BulkDeleteResult with per-item outcome
  * @example
- * await dispatch(deleteSelectedSkills(['task', 'browse']))
+ * await dispatch(deleteSelectedSkills([{ skillName: 'task', skillPath: '/Users/me/.agents/skills/task' }]))
  */
 export const deleteSelectedSkills = createAsyncThunk<
   BulkDeleteResult,
@@ -315,10 +317,10 @@ export const clearSelectedBrokenSymlinkSlots = createAsyncThunk<
 /**
  * Unlink every selected skill from a single agent. No tombstone produced —
  * unlink is benign (removes one symlink/folder, keeps source intact).
- * @param params - agentId + names or reviewed link paths to unlink.
+ * @param params - agentId + reviewed link paths to unlink.
  * @returns BulkUnlinkResult with per-item outcome
  * @example
- * await dispatch(unlinkSelectedFromAgent({ agentId: 'cursor', selectedNames: ['task'] }))
+ * await dispatch(unlinkSelectedFromAgent({ agentId: 'cursor', selectedNames: [{ skillName: 'task', linkPath: '/Users/me/.cursor/skills/task' }] }))
  */
 export const unlinkSelectedFromAgent = createAsyncThunk<
   BulkUnlinkResult,

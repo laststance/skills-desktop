@@ -36,7 +36,16 @@ describe('skillNameString consistency across channels', () => {
           linkPath: '/tmp/x',
         },
       },
-      { channel: 'skills:deleteSkill', payload: { skillName: malicious } },
+      {
+        channel: 'skills:deleteSkill',
+        payload: { skillName: malicious, skillPath: '/tmp/x' },
+      },
+      {
+        channel: 'skills:deleteSkills',
+        payload: {
+          items: [{ skillName: malicious, skillPath: '/tmp/x' }],
+        },
+      },
       {
         channel: 'skills:createSymlinks',
         payload: {
@@ -81,6 +90,13 @@ describe('skillNameString consistency across channels', () => {
               targetPath: '/tmp/target',
             },
           ],
+        },
+      },
+      {
+        channel: 'skills:unlinkManyFromAgent',
+        payload: {
+          agentId: 'cursor',
+          items: [{ skillName: malicious, linkPath: '/tmp/link' }],
         },
       },
     ]
@@ -166,6 +182,60 @@ describe('cleanup IPC target path schemas', () => {
         },
       ]).success,
     ).toBe(false)
+  })
+})
+
+describe('destructive reviewed-path IPC schemas', () => {
+  const singleDeleteSchema = IPC_ARG_SCHEMAS['skills:deleteSkill']!
+  const batchDeleteSchema = IPC_ARG_SCHEMAS['skills:deleteSkills']!
+  const batchUnlinkSchema = IPC_ARG_SCHEMAS['skills:unlinkManyFromAgent']!
+
+  it('requires an absolute skillPath for every delete request', () => {
+    expect(singleDeleteSchema.safeParse([{ skillName: 'task' }]).success).toBe(
+      false,
+    )
+    expect(
+      singleDeleteSchema.safeParse([
+        { skillName: 'task', skillPath: 'relative/path' },
+      ]).success,
+    ).toBe(false)
+    expect(
+      batchDeleteSchema.safeParse([{ items: [{ skillName: 'task' }] }]).success,
+    ).toBe(false)
+    expect(
+      batchDeleteSchema.safeParse([
+        { items: [{ skillName: 'task', skillPath: 'relative/path' }] },
+      ]).success,
+    ).toBe(false)
+    expect(
+      batchDeleteSchema.safeParse([
+        { items: [{ skillName: 'task', skillPath: '/tmp/task' }] },
+      ]).success,
+    ).toBe(true)
+  })
+
+  it('requires an absolute linkPath for every bulk unlink request', () => {
+    expect(
+      batchUnlinkSchema.safeParse([
+        { agentId: 'cursor', items: [{ skillName: 'task' }] },
+      ]).success,
+    ).toBe(false)
+    expect(
+      batchUnlinkSchema.safeParse([
+        {
+          agentId: 'cursor',
+          items: [{ skillName: 'task', linkPath: 'relative/path' }],
+        },
+      ]).success,
+    ).toBe(false)
+    expect(
+      batchUnlinkSchema.safeParse([
+        {
+          agentId: 'cursor',
+          items: [{ skillName: 'task', linkPath: '/tmp/task' }],
+        },
+      ]).success,
+    ).toBe(true)
   })
 })
 

@@ -748,6 +748,62 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Pass reviewed per-row `symlink.linkPath` through bulk unlink IPC and have main validate/remove that exact direct child of the selected agent directory.
 
+### P1. Reviewed-path source delete needs Electron E2E coverage
+
+**Status:** Fixed in this branch.
+
+**Finding:** `e2e/types.d.ts` and the current delete E2E still model `deleteSkills` items as `{ skillName }` only. Service and browser tests cover metadata-name vs folder-basename deletion, but the Electron IPC path can regress without an E2E failure.
+
+**Fix direction:** Update the E2E bridge type and add an Electron E2E that deletes a `metadata-title` row via reviewed `skillPath` pointing at `folder-basename`, while a decoy `metadata-title` folder remains untouched.
+
+### P1. Reviewed-link bulk unlink needs Electron E2E coverage
+
+**Status:** Fixed in this branch.
+
+**Finding:** `e2e/types.d.ts` and the current bulk unlink E2E still model `unlinkManyFromAgent` items as `{ skillName }` only. Main and renderer tests cover metadata-name vs slot-basename unlink, but the full Electron destructive flow does not.
+
+**Fix direction:** Update the E2E bridge type and add an Electron E2E that unlinks the reviewed `folder-basename` slot while a decoy `metadata-title` slot and the source directory remain intact.
+
+### P0. Destructive delete IPC must require reviewed skill paths
+
+**Status:** Fixed in this branch.
+
+**Finding:** `skills:deleteSkill` and `skills:deleteSkills` still accept payloads without `skillPath`, preserving the old name-derived `SOURCE_DIR/<skillName>` delete path for any stale renderer, preload caller, or test harness.
+
+**Fix direction:** Make reviewed `skillPath` mandatory in the shared contract, Zod IPC schemas, renderer thunk targets, and E2E bridge types so destructive source delete cannot fall back to a display-name-derived path.
+
+### P0. Agent-local delete must not collapse to a source-folder delete
+
+**Status:** Fixed in this branch.
+
+**Finding:** A reviewed agent-local folder path such as `~/.claude/skills/folder-basename` resolves to `SOURCE_DIR/folder-basename`; if a source folder with the same basename exists, delete can tombstone the unreviewed source instead of the reviewed local copy.
+
+**Fix direction:** Preserve source-backed and reviewed agent-local delete identities as separate branches. Agent-local deletes must require the exact reviewed local folder to still exist, then use the local-only trash flow without probing or moving a source folder.
+
+### P1. Bulk unlink IPC must require reviewed link paths
+
+**Status:** Fixed in this branch.
+
+**Finding:** `skills:unlinkManyFromAgent` still allows `linkPath` to be omitted and falls back to `removeFromAgent(agent.path, skillName)`, keeping the old display-name-derived unlink behavior reachable.
+
+**Fix direction:** Make `linkPath` mandatory for every bulk unlink item in shared types, schemas, renderer thunk targets, and E2E bridge types, then remove the name-derived fallback in main.
+
+### P1. Bulk agent unlink must exclude local folders
+
+**Status:** Fixed in this branch.
+
+**Finding:** `selectBulkSelectableVisibleSkillNames` treats selected-agent local folders as bulk unlink eligible, but bulk unlink is now reviewed-symlink-only and refuses real directories. The toolbar can offer a doomed destructive action.
+
+**Fix direction:** In selected-agent view, bulk unlink should select only valid non-local symlink rows until a separate reviewed local-delete batch flow exists.
+
+### P1. Source-backed delete must remove metadata-named agent links
+
+**Status:** Fixed in this branch.
+
+**Finding:** When `SKILL.md` metadata name differs from the source folder basename, renderer add/sync flows can create agent links at `agent.path/<metadataName>`. Source-backed delete only probes `agent.path/<sourceFolderName>`, leaving metadata-named links dangling after the source is moved to trash.
+
+**Fix direction:** Source-backed delete should remove reviewed source symlinks for both the display skill name and source folder basename, validating each link still resolves to the reviewed source before unlinking.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

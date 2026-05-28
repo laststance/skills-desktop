@@ -898,6 +898,34 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
     expect(selectFilteredSkills(state as never)).toHaveLength(1)
     expect(selectBulkSelectableVisibleSkillNames(state as never)).toEqual([])
   })
+
+  it('excludes local agent folders from bulk unlink names', () => {
+    const localSkill: Skill = {
+      ...makeSkill('local-only', 'cursor'),
+      symlinks: [
+        {
+          agentId: 'cursor' as AgentId,
+          agentName: 'Cursor' as SymlinkInfo['agentName'],
+          linkPath: '/home/user/.cursor/skills/local-only',
+          status: 'valid',
+          isLocal: true,
+        },
+      ],
+    }
+    const validSymlinkSkill = makeSkill('valid-symlink', 'cursor')
+    const state = buildState({
+      skills: [localSkill, validSymlinkSkill],
+      selectedAgentId: 'cursor',
+    })
+
+    expect(selectVisibleSkillNames(state as never)).toEqual([
+      'local-only',
+      'valid-symlink',
+    ])
+    expect(selectBulkSelectableVisibleSkillNames(state as never)).toEqual([
+      'valid-symlink',
+    ])
+  })
 })
 
 describe('selectSelectedCount', () => {

@@ -184,6 +184,11 @@ interface PartitionedGlobalDeleteTargets {
   orphanErrors: BulkDeleteItemResult[]
 }
 
+interface AgentUnlinkTargets {
+  targets: UnlinkSelectedSkillTarget[]
+  staleNames: Skill['name'][]
+}
+
 /**
  * Narrow to dangling, reviewed symlink slots that the orphan cleanup IPC can safely revalidate.
  * @param symlink - Agent slot from the current renderer scan.
@@ -209,7 +214,7 @@ function isReviewedOrphanCleanupSlot(
  * Split global delete selections so orphan rows use exact reviewed link cleanup instead of name rescans.
  * @param skills - Current Redux skill inventory.
  * @param skillNames - Names selected in the bulk confirm dialog.
- * @returns Normal delete names, reviewed orphan cleanup records, and per-row preflight errors.
+ * @returns Reviewed source/local targets, reviewed orphan cleanup records, and per-row preflight errors.
  * @example
  * partitionGlobalDeleteTargets(skills, ['abandoned'])
  */
@@ -225,14 +230,21 @@ function partitionGlobalDeleteTargets(
   for (const skillName of skillNames) {
     const skill = skillsByName.get(skillName)
     if (!skill?.isOrphan) {
-      deleteTargets.push(
-        skill
-          ? {
-              skillName,
-              skillPath: skill.path,
-            }
-          : skillName,
-      )
+      if (skill) {
+        deleteTargets.push({
+          skillName,
+          skillPath: skill.path,
+        })
+        continue
+      }
+      orphanErrors.push({
+        skillName,
+        outcome: 'error',
+        error: {
+          message: 'Selected skill row is stale. Rescan before delete.',
+          code: 'ESTALE',
+        },
+      })
       continue
     }
 
@@ -266,27 +278,32 @@ function partitionGlobalDeleteTargets(
 }
 
 /**
- * Build bulk-unlink targets with the reviewed agent slot path when available.
+ * Build bulk-unlink targets with the reviewed agent slot path.
  * @param skills - Current skill rows in Redux.
  * @param skillNames - Display names selected in the confirmation dialog.
  * @param agentId - Selected agent whose slots are being unlinked.
- * @returns Name-compatible targets with optional reviewed linkPath.
+ * @returns Reviewed unlink targets plus stale rows that need a rescan.
  * @example buildAgentUnlinkTargets(skills, ['metadata-title'], 'cursor')
  */
 function buildAgentUnlinkTargets(
   skills: readonly Skill[],
   skillNames: readonly Skill['name'][],
   agentId: AgentId,
-): UnlinkSelectedSkillTarget[] {
+): AgentUnlinkTargets {
   const skillsByName = new Map(skills.map((skill) => [skill.name, skill]))
-  return skillNames.map((skillName) => {
+  const targets: UnlinkSelectedSkillTarget[] = []
+  const staleNames: Skill['name'][] = []
+  for (const skillName of skillNames) {
     const symlink = skillsByName
       .get(skillName)
       ?.symlinks.find((slot) => slot.agentId === agentId)
-    return symlink?.linkPath
-      ? { skillName, linkPath: symlink.linkPath }
-      : skillName
-  })
+    if (symlink?.linkPath) {
+      targets.push({ skillName, linkPath: symlink.linkPath })
+      continue
+    }
+    staleNames.push(skillName)
+  }
+  return { targets, staleNames }
 }
 
 /**
@@ -729,11 +746,19 @@ export const MainContent = React.memo(
 
       if (kind === 'unlink' && agentId) {
         // Agent view — bulk unlink (not tombstoned, no undo toast).
-        const unlinkTargets = buildAgentUnlinkTargets(
+        const { targets: unlinkTargets, staleNames } = buildAgentUnlinkTargets(
           skills,
           skillNames,
           agentId,
         )
+        if (staleNames.length > 0) {
+          flashFailedRows(staleNames)
+          toast.error('Bulk unlink failed', {
+            description: 'Selection changed. Rescan before unlinking.',
+          })
+          refreshAllData(dispatch)
+          return
+        }
         const action = await dispatch(
           unlinkSelectedFromAgent({
             agentId,
@@ -789,9 +814,7 @@ export const MainContent = React.memo(
         } else {
           if (hasOrphanCleanupRows) {
             restoreUnresolvedMixedDeleteSelection(
-              deleteTargets.map((target) =>
-                typeof target === 'string' ? target : target.skillName,
-              ),
+              deleteTargets.map((target) => target.skillName),
               cleanupReadyOrphanNames,
             )
           }

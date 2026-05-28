@@ -1,9 +1,11 @@
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
@@ -50,6 +52,20 @@ function preStageDummySkills(
 }
 
 /**
+ * Build reviewed delete IPC items from source skill names in the isolated HOME.
+ * @param isolatedHome - E2E fixture HOME.
+ * @param skillNames - Source folder basenames to delete.
+ * @returns Payload items with mandatory reviewed source paths.
+ * @example deleteItemsFor(home, ['task'])
+ */
+function deleteItemsFor(isolatedHome: string, skillNames: string[]) {
+  return skillNames.map((skillName) => ({
+    skillName,
+    skillPath: join(isolatedHome, '.agents', 'skills', skillName),
+  }))
+}
+
+/**
  * Phase-2 spec covering the `BULK_PROGRESS_THRESHOLD` boundary in
  * `SKILLS_DELETE_BATCH`. The handler emits one `skills:deleteProgress` event
  * per item ONLY when the batch size meets or exceeds the threshold (10) —
@@ -85,9 +101,9 @@ test('bulk deleteSkills below BULK_PROGRESS_THRESHOLD (N=9) skips progress event
   await clearIpcEvents(appWindow)
 
   const result = await appWindow.evaluate(
-    async (items: Array<{ skillName: string }>) =>
+    async (items: Array<{ skillName: string; skillPath: string }>) =>
       window.electron.skills.deleteSkills({ items }),
-    skillNames.map((skillName) => ({ skillName })),
+    deleteItemsFor(isolatedHome, skillNames),
   )
 
   expect(result.items).toHaveLength(9)
@@ -139,9 +155,9 @@ test('bulk deleteSkills at BULK_PROGRESS_THRESHOLD (N=10) emits sequential progr
   await clearIpcEvents(appWindow)
 
   const result = await appWindow.evaluate(
-    async (items: Array<{ skillName: string }>) =>
+    async (items: Array<{ skillName: string; skillPath: string }>) =>
       window.electron.skills.deleteSkills({ items }),
-    skillNames.map((skillName) => ({ skillName })),
+    deleteItemsFor(isolatedHome, skillNames),
   )
 
   expect(result.items).toHaveLength(10)
@@ -215,9 +231,9 @@ test('bulk deleteSkills with one missing source returns per-item error and conti
   await clearIpcEvents(appWindow)
 
   const result = await appWindow.evaluate(
-    async (items: Array<{ skillName: string }>) =>
+    async (items: Array<{ skillName: string; skillPath: string }>) =>
       window.electron.skills.deleteSkills({ items }),
-    skillNames.map((skillName) => ({ skillName })),
+    deleteItemsFor(isolatedHome, skillNames),
   )
 
   expect(result.items).toHaveLength(10)
@@ -231,7 +247,7 @@ test('bulk deleteSkills with one missing source returns per-item error and conti
       expect(item.outcome).toBe('error')
       if (item.outcome === 'error') {
         expect(item.error.code).toBe('ENOENT')
-        expect(item.error.message).toMatch(/Skill not found/)
+        expect(item.error.message).toMatch(/Reviewed skill source not found/)
       }
     } else {
       expect(item.skillName).toBe(skillNames[index])
@@ -267,4 +283,63 @@ test('bulk deleteSkills with one missing source returns per-item error and conti
   expect(
     trashEntries.some((entry) => entry.includes(`-${failingSkillName}-`)),
   ).toBe(false)
+})
+
+test('bulk deleteSkills uses reviewed skillPath when metadata name differs from folder basename', async ({
+  appWindow,
+  isolatedHome,
+}) => {
+  const metadataName = 'metadata-title-e2e'
+  const folderName = 'folder-basename-e2e'
+  const sourceDir = join(isolatedHome, '.agents', 'skills')
+  const sourcePath = join(sourceDir, folderName)
+  const decoySourcePath = join(sourceDir, metadataName)
+  const cursorSkillsDir = join(isolatedHome, '.cursor', 'skills')
+  const folderLinkPath = join(cursorSkillsDir, folderName)
+  const metadataLinkPath = join(cursorSkillsDir, metadataName)
+
+  // Arrange
+  mkdirSync(sourcePath, { recursive: true })
+  mkdirSync(decoySourcePath, { recursive: true })
+  mkdirSync(cursorSkillsDir, { recursive: true })
+  writeFileSync(join(sourcePath, 'SKILL.md'), `name: ${metadataName}\n`)
+  writeFileSync(join(decoySourcePath, 'SKILL.md'), `# decoy\n`)
+  symlinkSync(sourcePath, folderLinkPath)
+  symlinkSync(sourcePath, metadataLinkPath)
+  await waitForInitialScan(appWindow)
+
+  // Act
+  const result = await appWindow.evaluate(
+    async (item: { skillName: string; skillPath: string }) =>
+      window.electron.skills.deleteSkills({ items: [item] }),
+    { skillName: metadataName, skillPath: sourcePath },
+  )
+
+  // Assert
+  expect(result.items).toEqual([
+    {
+      skillName: metadataName,
+      outcome: 'deleted',
+      tombstoneId: expect.stringMatching(
+        /^\d+-metadata-title-e2e-[0-9a-f]{8}$/,
+      ),
+      symlinksRemoved: 2,
+      cascadeAgents: ['cursor'],
+    },
+  ])
+  expect(existsSync(sourcePath)).toBe(false)
+  expect(existsSync(decoySourcePath)).toBe(true)
+  expect(() => lstatSync(folderLinkPath)).toThrow(/ENOENT/)
+  expect(() => lstatSync(metadataLinkPath)).toThrow(/ENOENT/)
+  const trashDir = join(isolatedHome, '.agents', '.trash')
+  const [trashEntry] = readdirSync(trashDir).filter((entry) =>
+    entry.includes('-metadata-title-e2e-'),
+  )
+  expect(trashEntry).toBeDefined()
+  if (!trashEntry) throw new Error('Expected metadata-title tombstone entry')
+  const manifest = JSON.parse(
+    readFileSync(join(trashDir, trashEntry, 'manifest.json'), 'utf-8'),
+  ) as { skillName: string; sourcePath: string }
+  expect(manifest.skillName).toBe(metadataName)
+  expect(manifest.sourcePath).toBe(sourcePath)
 })

@@ -52,6 +52,22 @@ interface SourceBackedManifest {
 const AZURE_AI_NAME = 'azure-ai'
 
 /**
+ * Build the mandatory reviewed-path delete payload for E2E direct IPC calls.
+ * @param isolatedHome - E2E fixture HOME.
+ * @param skillName - Display skill name to delete.
+ * @param reviewedPath - Optional reviewed source/local folder path override.
+ * @returns Payload accepted by `skills:deleteSkill`.
+ * @example deleteSkillPayload(home, 'azure-ai')
+ */
+function deleteSkillPayload(
+  isolatedHome: string,
+  skillName: string,
+  reviewedPath = join(isolatedHome, '.agents', 'skills', skillName),
+) {
+  return { skillName, skillPath: reviewedPath }
+}
+
+/**
  * Single snapshot selector for azure-ai used by every test in this file.
  *
  * `getStoreState` serializes this function via `Function.prototype.toString`
@@ -141,9 +157,9 @@ test('deleteSkill moves source-backed skill into trash and unlinks every agent s
   ).toBeGreaterThan(0)
 
   const ipcResult = await appWindow.evaluate(
-    async (skillName: string) =>
-      window.electron.skills.deleteSkill({ skillName }),
-    AZURE_AI_NAME,
+    async (payload: { skillName: string; skillPath: string }) =>
+      window.electron.skills.deleteSkill(payload),
+    deleteSkillPayload(isolatedHome, AZURE_AI_NAME),
   )
 
   expect(ipcResult.success).toBe(true)
@@ -216,9 +232,9 @@ test('restoreDeletedSkill recovers a source-backed deletion within the undo wind
   expect(initial.validSymlinks.length).toBeGreaterThan(0)
 
   const deleteResult = await appWindow.evaluate(
-    async (skillName: string) =>
-      window.electron.skills.deleteSkill({ skillName }),
-    AZURE_AI_NAME,
+    async (payload: { skillName: string; skillPath: string }) =>
+      window.electron.skills.deleteSkill(payload),
+    deleteSkillPayload(isolatedHome, AZURE_AI_NAME),
   )
   expect(deleteResult.success).toBe(true)
 
@@ -326,9 +342,9 @@ test('deleteSkill moves a local-only skill into trash with kind="local-only" man
   await waitForInitialScan(appWindow)
 
   const ipcResult = await appWindow.evaluate(
-    async (name: string) =>
-      window.electron.skills.deleteSkill({ skillName: name }),
-    skillName,
+    async (payload: { skillName: string; skillPath: string }) =>
+      window.electron.skills.deleteSkill(payload),
+    deleteSkillPayload(isolatedHome, skillName, codexAgentDir),
   )
 
   expect(ipcResult.success).toBe(true)
@@ -370,25 +386,17 @@ test('deleteSkill moves a local-only skill into trash with kind="local-only" man
 })
 
 /**
- * Orphan-cleared delete branch (issue #71 PR-1) — exercises the third arm of
- * `moveToTrash`'s dispatcher in `trashService.ts:moveToTrash`. Both the source
- * dir AND every agent's local copy are absent; the only remaining records are
- * dangling symlinks. The handler must:
+ * Orphan cleanup branch (issue #71 PR-1) — exercises the exact reviewed
+ * `clearOrphanSymlinks` IPC path. Both the source dir AND every agent's local
+ * copy are absent; the only remaining records are dangling symlinks. The
+ * handler must:
  *
- *   1. Probe `~/.agents/skills/<name>` → ENOENT, NOT throw.
- *   2. `scanLocalCopies` → empty (no real folders anywhere).
- *   3. `scanOrphanSymlinkPaths` → finds the dangling links.
- *   4. `clearOrphanSymlinks` unlinks each, returns `kind: 'orphan-cleared'`.
- *   5. NO trash entry, NO manifest, NO TTL timer — the source is gone, so
+ *   1. Revalidate the exact reviewed `linkPath + targetPath`.
+ *   2. `clearOrphanSymlinks` unlinks each dangling link.
+ *   3. NO trash entry, NO manifest, NO TTL timer — the source is gone, so
  *      "undo" would only restore broken links.
- *
- * The single-delete IPC `SKILLS_DELETE` strips `kind` and `tombstoneId` from
- * the result (see `src/main/ipc/skills.ts:SKILLS_DELETE`); only the bulk-delete
- * path discriminates on `outcome`. So this test asserts only the common-shape
- * fields (`success`, `symlinksRemoved`, `cascadeAgents`) plus the FS invariants
- * — link gone, trash dir untouched.
  */
-test('deleteSkill clears orphan (broken) symlinks with no trash entry', async ({
+test('clearOrphanSymlinks removes reviewed broken symlinks with no trash entry', async ({
   appWindow,
   isolatedHome,
 }) => {
@@ -410,16 +418,36 @@ test('deleteSkill clears orphan (broken) symlinks with no trash entry', async ({
   await waitForInitialScan(appWindow)
 
   const ipcResult = await appWindow.evaluate(
-    async (name: string) =>
-      window.electron.skills.deleteSkill({ skillName: name }),
-    skillName,
+    async (payload: {
+      items: Array<{
+        skillName: string
+        agents: Array<{ agentId: string; linkPath: string; targetPath: string }>
+      }>
+    }) => window.electron.skills.clearOrphanSymlinks(payload),
+    {
+      items: [
+        {
+          skillName,
+          agents: [
+            {
+              agentId: 'codex',
+              linkPath: orphanLinkPath,
+              targetPath: phantomSourcePath,
+            },
+          ],
+        },
+      ],
+    },
   )
 
-  expect(ipcResult.success).toBe(true)
-  // Common-shape fields work for both kinds. orphan-cleared returns the
-  // unlinked count and the agents whose links were swept.
-  expect(ipcResult.symlinksRemoved).toBe(1)
-  expect(ipcResult.cascadeAgents).toEqual(['codex'])
+  expect(ipcResult.items).toEqual([
+    {
+      skillName,
+      outcome: 'orphan-cleared',
+      symlinksRemoved: 1,
+      cascadeAgents: ['codex'],
+    },
+  ])
 
   // FS — the dangling symlink itself is gone (lstat throws ENOENT). Using
   // lstat (not stat) because stat follows symlinks and would have thrown
@@ -496,9 +524,9 @@ test('source-backed delete entry is auto-evicted after UNDO_WINDOW_MS', async ({
   expect(initial.hasAzure).toBe(true)
 
   const deleteResult = await appWindow.evaluate(
-    async (skillName: string) =>
-      window.electron.skills.deleteSkill({ skillName }),
-    AZURE_AI_NAME,
+    async (payload: { skillName: string; skillPath: string }) =>
+      window.electron.skills.deleteSkill(payload),
+    deleteSkillPayload(isolatedHome, AZURE_AI_NAME),
   )
   expect(deleteResult.success).toBe(true)
 

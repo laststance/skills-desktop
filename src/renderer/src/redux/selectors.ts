@@ -465,7 +465,7 @@ export const selectVisibleSkillNames = createSelector(
 )
 
 /**
- * Detect whether a visible agent-view row can use the generic bulk Unlink path.
+ * Detect whether a visible agent-view row can use the reviewed bulk Unlink path.
  * @param skill - Visible skill row.
  * @param selectedAgentId - Active agent filter; null means global delete flow.
  * @returns True when bulk action can safely include this row.
@@ -481,14 +481,15 @@ function isBulkSelectableSkill(
   return skill.symlinks.some(
     (symlink) =>
       symlink.agentId === selectedAgentId &&
-      (symlink.isLocal || symlink.status === 'valid'),
+      symlink.status === 'valid' &&
+      !symlink.isLocal,
   )
 }
 
 /**
  * Ordered visible names that can safely flow through the current bulk action.
- * Agent-view broken/inaccessible rows stay visible but are excluded because
- * name-only bulk Unlink cannot revalidate their reviewed target identity.
+ * Agent-view local/broken/inaccessible rows stay visible but are excluded
+ * because reviewed bulk Unlink only removes symlink slots.
  * @returns Skill names eligible for Select all, Shift range, and primary action.
  * @example
  * const names = useAppSelector(selectBulkSelectableVisibleSkillNames)

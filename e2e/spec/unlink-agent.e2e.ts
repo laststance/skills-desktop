@@ -83,6 +83,20 @@ function preStageLinkedSkills(
 }
 
 /**
+ * Build reviewed bulk-unlink IPC items for a selected agent directory.
+ * @param agentPath - Selected agent skills directory.
+ * @param skillNames - Agent slot basenames to unlink.
+ * @returns Payload items with mandatory reviewed link paths.
+ * @example unlinkItemsFor('/Users/me/.claude/skills', ['task'])
+ */
+function unlinkItemsFor(agentPath: string, skillNames: string[]) {
+  return skillNames.map((skillName) => ({
+    skillName,
+    linkPath: join(agentPath, skillName),
+  }))
+}
+
+/**
  * Phase-2 spec covering the three unlink-style IPCs that operate on agent-side
  * link paths without writing to trash:
  *   - `SKILLS_UNLINK_FROM_AGENT`        (single)
@@ -317,11 +331,13 @@ test('unlinkManyFromAgent removes every pre-staged symlink and leaves source dir
   }
 
   const result = await appWindow.evaluate(
-    async (args: { agentId: string; items: Array<{ skillName: string }> }) =>
-      window.electron.skills.unlinkManyFromAgent(args),
+    async (args: {
+      agentId: string
+      items: Array<{ skillName: string; linkPath: string }>
+    }) => window.electron.skills.unlinkManyFromAgent(args),
     {
       agentId: 'claude-code',
-      items: skillNames.map((skillName) => ({ skillName })),
+      items: unlinkItemsFor(claudeAgentPath, skillNames),
     },
   )
 
@@ -340,6 +356,47 @@ test('unlinkManyFromAgent removes every pre-staged symlink and leaves source dir
     expect(existsSync(sourcePath)).toBe(true)
     expect(existsSync(join(sourcePath, 'SKILL.md'))).toBe(true)
   }
+})
+
+test('unlinkManyFromAgent uses reviewed linkPath when metadata name differs from slot basename', async ({
+  appWindow,
+  isolatedHome,
+}) => {
+  const metadataName = 'metadata-title-unlink-e2e'
+  const slotName = 'folder-basename-unlink-e2e'
+  const sourcePath = join(isolatedHome, '.agents', 'skills', slotName)
+  const claudeAgentPath = join(isolatedHome, '.claude', 'skills')
+  const reviewedLinkPath = join(claudeAgentPath, slotName)
+  const decoyLinkPath = join(claudeAgentPath, metadataName)
+
+  // Arrange
+  mkdirSync(sourcePath, { recursive: true })
+  mkdirSync(claudeAgentPath, { recursive: true })
+  writeFileSync(join(sourcePath, 'SKILL.md'), `name: ${metadataName}\n`)
+  symlinkSync(sourcePath, reviewedLinkPath)
+  symlinkSync(sourcePath, decoyLinkPath)
+  await waitForInitialScan(appWindow)
+
+  // Act
+  const result = await appWindow.evaluate(
+    async (args: {
+      agentId: string
+      items: Array<{ skillName: string; linkPath: string }>
+    }) => window.electron.skills.unlinkManyFromAgent(args),
+    {
+      agentId: 'claude-code',
+      items: [{ skillName: metadataName, linkPath: reviewedLinkPath }],
+    },
+  )
+
+  // Assert
+  expect(result.items).toEqual([
+    { skillName: metadataName, outcome: 'unlinked' },
+  ])
+  expect(existsSync(reviewedLinkPath)).toBe(false)
+  expect(lstatSync(decoyLinkPath).isSymbolicLink()).toBe(true)
+  expect(existsSync(sourcePath)).toBe(true)
+  expect(existsSync(join(sourcePath, 'SKILL.md'))).toBe(true)
 })
 
 /**
@@ -409,11 +466,13 @@ test('unlinkManyFromAgent aggregates per-item failures without short-circuiting 
   expect(lstatSync(poisonedLinkPath).isSymbolicLink()).toBe(false)
 
   const result = await appWindow.evaluate(
-    async (args: { agentId: string; items: Array<{ skillName: string }> }) =>
-      window.electron.skills.unlinkManyFromAgent(args),
+    async (args: {
+      agentId: string
+      items: Array<{ skillName: string; linkPath: string }>
+    }) => window.electron.skills.unlinkManyFromAgent(args),
     {
       agentId: 'claude-code',
-      items: skillNames.map((skillName) => ({ skillName })),
+      items: unlinkItemsFor(claudeAgentPath, skillNames),
     },
   )
 

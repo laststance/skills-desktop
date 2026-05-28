@@ -195,7 +195,7 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
   'skills:deleteSkill': z.tuple([
     z.object({
       skillName: skillNameString,
-      skillPath: absolutePathArg.optional(),
+      skillPath: absolutePathArg,
     }),
   ]),
   'skills:createSymlinks': z.tuple([
@@ -220,7 +220,7 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
         .array(
           z.object({
             skillName: skillNameString,
-            skillPath: absolutePathArg.optional(),
+            skillPath: absolutePathArg,
           }),
         )
         .min(1, 'At least one skill required for batch delete'),
@@ -267,7 +267,7 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
         .array(
           z.object({
             skillName: skillNameString,
-            linkPath: absolutePathArg.optional(),
+            linkPath: absolutePathArg,
           }),
         )
         .min(1, 'At least one skill required for batch unlink'),

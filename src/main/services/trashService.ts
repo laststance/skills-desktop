@@ -86,6 +86,22 @@ export interface RecordedLocalCopy {
 }
 
 /**
+ * Reviewed delete identity after path validation; keeps source-backed and
+ * agent-local destructive flows separate so one cannot masquerade as the other.
+ */
+type DeleteIdentity =
+  | {
+      kind: 'source'
+      filesystemSkillName: SkillName
+      sourcePath: AbsolutePath
+    }
+  | {
+      kind: 'agent-local'
+      filesystemSkillName: SkillName
+      reviewedLocalCopy: RecordedLocalCopy
+    }
+
+/**
  * Build a unique trash entry name from skillName + current clock + random suffix.
  * `rand8hex` prevents same-ms collisions on fast machines (reviewer iter-2 HIGH-4).
  * @param skillName - Validated skill name (no path separators)
@@ -119,42 +135,37 @@ function skillNameFromPathBasename(absolutePath: AbsolutePath): SkillName {
 
 /**
  * Resolve a reviewed renderer path into the filesystem identity used for deletion.
- * @param skillName - Display/metadata name selected by the user.
- * @param reviewedSkillPath - Optional source or local folder path from the reviewed row.
- * @returns Filesystem name plus optional source directory path.
- * @example resolveDeleteIdentity('metadata-title', '/Users/me/.agents/skills/folder-basename')
+ * @param reviewedSkillPath - Source or local folder path from the reviewed row.
+ * @returns Reviewed filesystem identity for the exact destructive flow.
+ * @example resolveDeleteIdentity('/Users/me/.agents/skills/folder-basename')
  */
 function resolveDeleteIdentity(
-  skillName: SkillName,
-  reviewedSkillPath?: AbsolutePath,
-): { filesystemSkillName: SkillName; sourcePath: AbsolutePath } {
-  if (!reviewedSkillPath) {
-    const sourcePath = join(SOURCE_DIR, skillName) as AbsolutePath
-    validatePath(sourcePath, [SOURCE_DIR])
-    return { filesystemSkillName: skillName, sourcePath }
-  }
-
+  reviewedSkillPath: AbsolutePath,
+): DeleteIdentity {
   const normalizedPath = resolve(reviewedSkillPath) as AbsolutePath
   const sourceDir = resolve(SOURCE_DIR)
   if (dirname(normalizedPath) === sourceDir) {
     validatePath(normalizedPath, [SOURCE_DIR])
     return {
+      kind: 'source',
       filesystemSkillName: skillNameFromPathBasename(normalizedPath),
       sourcePath: normalizedPath,
     }
   }
 
-  const isAgentSlotPath = AGENTS.some(
+  const agent = AGENTS.find(
     (agent) => dirname(normalizedPath) === resolve(agent.path),
   )
-  if (isAgentSlotPath) {
-    validatePath(normalizedPath, getAllowedBases())
+  if (agent) {
+    validatePath(normalizedPath, [agent.path])
     const filesystemSkillName = skillNameFromPathBasename(normalizedPath)
-    const sourcePath = join(SOURCE_DIR, filesystemSkillName) as AbsolutePath
-    validatePath(sourcePath, [SOURCE_DIR])
     return {
+      kind: 'agent-local',
       filesystemSkillName,
-      sourcePath,
+      reviewedLocalCopy: {
+        agentId: agent.id,
+        linkPath: normalizedPath,
+      },
     }
   }
 
@@ -368,32 +379,15 @@ async function rollbackMovedLocalCopies(
 }
 
 /**
- * Discriminated result from `moveToTrash`.
- *
- * - `tombstoned`: source-backed or local-only delete; produces a trash entry +
- *   manifest + TTL evict timer; renderer can surface an Undo toast that calls
- *   `restore(tombstoneId)`.
- * - `orphan-cleared`: every record was a broken symlink whose target source no
- *   longer exists; cleanup is just a series of `unlink()` calls. No manifest,
- *   no TTL, no undo — there is nothing meaningful to restore (the resurrected
- *   symlinks would still be broken).
- *
- * Callers must dispatch on `kind` before reading `tombstoneId`. The discriminated
- * union makes the "no undo" property a compile-time guarantee instead of a
- * runtime convention.
+ * Tombstoned result from source-backed or local-only delete.
+ * @example { kind: 'tombstoned', tombstoneId, cascadeAgents: ['cursor'], symlinksRemoved: 1 }
  */
-export type MoveToTrashResult =
-  | {
-      kind: 'tombstoned'
-      tombstoneId: TombstoneId
-      cascadeAgents: AgentId[]
-      symlinksRemoved: number
-    }
-  | {
-      kind: 'orphan-cleared'
-      cascadeAgents: AgentId[]
-      symlinksRemoved: number
-    }
+export type MoveToTrashResult = {
+  kind: 'tombstoned'
+  tombstoneId: TombstoneId
+  cascadeAgents: AgentId[]
+  symlinksRemoved: number
+}
 
 /**
  * Walk every configured agent directory and find real (non-symlink) folders
@@ -441,103 +435,6 @@ async function scanLocalCopies(
     }
   }
   return copies
-}
-
-/**
- * Walk every configured agent directory and find broken symlinks matching
- * `skillName` — i.e. a symlink whose target no longer resolves. Used by
- * `moveToTrash` when neither a source dir nor any local folder copies exist
- * (every remaining record is a stranded link).
- *
- * Valid (resolvable) symlinks are deliberately ignored: if they exist we are
- * not in the orphan branch — `moveSourceBackedToTrash` already covers the
- * case where any symlink, broken or otherwise, sits next to a live source.
- *
- * @param skillName - Validated skill name (no separators)
- * @returns Per-agent broken-symlink records, ordered by AGENTS iteration
- * @example
- * // After `rm -rf ~/.agents/skills/abandoned`, all 14 agents still have
- * // dangling symlinks. scanOrphanSymlinkPaths('abandoned') returns one
- * // RecordedSymlink per agent with the broken target preserved for logging.
- */
-async function scanOrphanSymlinkPaths(
-  skillName: SkillName,
-): Promise<RecordedSymlink[]> {
-  const orphans: RecordedSymlink[] = []
-  for (const agent of AGENTS) {
-    // fallow-ignore-next-line code-duplication
-    const linkPath = join(agent.path, skillName)
-    // Use getAllowedBases() — validatePath realpath-follows linkPath. A broken
-    // symlink's realpath chase fails, so we fall through to the catch and skip
-    // this agent rather than mis-classify the unverifiable path.
-    try {
-      validatePath(linkPath, getAllowedBases())
-    } catch {
-      continue
-    }
-
-    let stats: Stats
-    try {
-      stats = await fs.lstat(linkPath)
-    } catch (error) {
-      if (errorCode(error) === 'ENOENT') continue
-      console.warn('trashService: scanOrphanSymlinkPaths lstat failed', {
-        agentId: agent.id,
-        linkPath,
-        code: errorCode(error),
-        message: extractErrorMessage(error),
-      })
-      continue
-    }
-    if (!stats.isSymbolicLink()) continue
-
-    let target: string
-    try {
-      target = await fs.readlink(linkPath)
-    } catch (error) {
-      if (errorCode(error) === 'ENOENT') continue
-      console.warn('trashService: scanOrphanSymlinkPaths readlink failed', {
-        agentId: agent.id,
-        linkPath,
-        code: errorCode(error),
-        message: extractErrorMessage(error),
-      })
-      continue
-    }
-
-    // Probe target. `readlink` returns the verbatim string used at create
-    // time — relative targets must be resolved against the link's own dir.
-    const resolvedTarget = await resolveRawSymlinkTarget(linkPath, target)
-    try {
-      await fs.access(resolvedTarget)
-      // Target resolves — not orphan. Skip.
-      continue
-    } catch (error) {
-      // Only ENOENT / ENOTDIR confirm "the target is gone". Other codes
-      // (EACCES, EPERM, ELOOP, etc.) mean we couldn't probe the target — the
-      // link might still be live and pointing at real data. Classifying those
-      // as orphan would let the subsequent `unlink` delete a working symlink
-      // a privileged process needs, so we log + skip and leave the entry
-      // for the user to investigate.
-      if (isMissingPathError(error)) {
-        orphans.push({
-          agentId: agent.id,
-          linkPath: linkPath as AbsolutePath,
-          target,
-          targetPath: resolvedTarget,
-        })
-        continue
-      }
-      console.warn('trashService: scanOrphanSymlinkPaths access failed', {
-        agentId: agent.id,
-        linkPath,
-        resolvedTarget,
-        code: errorCode(error),
-        message: extractErrorMessage(error),
-      })
-    }
-  }
-  return orphans
 }
 
 /**
@@ -881,124 +778,7 @@ export async function unlinkReviewedDanglingSymlink(options: {
 }
 
 /**
- * Guard orphan cleanup by revalidating reviewed target identity before unlinking.
- * @param orphan - Orphan symlink record captured by the scan.
- * @returns `removed` when cleaned, `missing` when already gone.
- * @example
- * await commitReviewedOrphanSymlink({ agentId: 'codex', linkPath, target, targetPath })
- */
-async function commitReviewedOrphanSymlink(
-  orphan: RecordedSymlink,
-): Promise<'removed' | 'missing'> {
-  const targetPath =
-    orphan.targetPath ??
-    (await resolveRawSymlinkTarget(orphan.linkPath, orphan.target))
-  const outcome = await unlinkReviewedDanglingSymlink({
-    linkPath: orphan.linkPath,
-    targetPath,
-    targetChangedMessage:
-      'Reviewed orphan link target changed. Rescan before cleanup.',
-    targetExistsMessage:
-      'Reviewed orphan link target now exists. Rescan before cleanup.',
-    targetProbePrefix: 'Cannot verify reviewed orphan target',
-  })
-  return outcome === 'unlinked' ? 'removed' : 'missing'
-}
-
-/**
- * Orphan path of `moveToTrash`. Removes every broken symlink for `skillName`
- * across agents. No tombstone, no manifest, no undo — the source is gone, so
- * resurrecting the broken links would only restore them to "still broken".
- *
- * Per-link errors are logged and skipped: bulk cleanup soldiers on so a
- * single permission-denied agent doesn't strand the rest. The returned
- * `symlinksRemoved` count reflects only successful unlinks.
- *
- * @param skillName - Validated skill name (only used for the info log)
- * @param orphans - Records produced by `scanOrphanSymlinkPaths`
- * @returns `kind: 'orphan-cleared'` with cascade list and unlink count
- */
-async function clearOrphanSymlinks(
-  skillName: SkillName,
-  orphans: RecordedSymlink[],
-): Promise<Extract<MoveToTrashResult, { kind: 'orphan-cleared' }>> {
-  const startTime = Date.now()
-  const cascadeAgents: AgentId[] = []
-  let symlinksRemoved = 0
-  /**
-   * Per-orphan unlink errors that did NOT recover via the ENOENT race path.
-   * Collected so we can fail the whole call atomically instead of returning
-   * a `'orphan-cleared'` success while data is still on disk — see why-throw
-   * note below.
-   */
-  const unlinkFailures: Array<{
-    agentId: AgentId
-    linkPath: AbsolutePath
-    code: string | undefined
-    message: string
-  }> = []
-
-  for (const orphan of orphans) {
-    try {
-      await commitReviewedOrphanSymlink(orphan)
-      cascadeAgents.push(orphan.agentId)
-      symlinksRemoved++
-    } catch (error) {
-      const code = errorCode(error)
-      if (code === 'ENOENT') {
-        // Race: link disappeared between scan and unlink. The user-visible
-        // outcome ("orphan is gone") is the same, so count it as success.
-        cascadeAgents.push(orphan.agentId)
-        symlinksRemoved++
-        continue
-      }
-      const message = extractErrorMessage(error)
-      console.warn('trashService: clearOrphanSymlinks unlink failed', {
-        agentId: orphan.agentId,
-        linkPath: orphan.linkPath,
-        code,
-        message,
-      })
-      unlinkFailures.push({
-        agentId: orphan.agentId,
-        linkPath: orphan.linkPath,
-        code,
-        message,
-      })
-    }
-  }
-
-  console.info('trashService: moveToTrash (orphan-cleared)', {
-    skillName,
-    orphanCount: orphans.length,
-    symlinksRemoved,
-    failureCount: unlinkFailures.length,
-    durationMs: Date.now() - startTime,
-  })
-
-  // Why throw on partial failure: the renderer (`MainContent.tsx`) treats
-  // `outcome: 'orphan-cleared'` as an unconditional success toast. Returning
-  // success while broken symlinks are still on disk would tell the user "all
-  // gone" while they're still seeing the orphan rows on the next scan — a
-  // trust-eroding lie. Throwing surfaces the failure as `outcome: 'error'`
-  // so the toast and row state stay honest. Successfully unlinked entries
-  // remain unlinked (no rollback) — re-running the delete will skip them via
-  // the ENOENT race path above, so the operation is idempotent.
-  if (unlinkFailures.length > 0) {
-    const firstFailure = unlinkFailures[0]
-    const summary = `Failed to remove ${unlinkFailures.length} of ${orphans.length} orphan ${orphans.length === 1 ? 'symlink' : 'symlinks'} for "${skillName}"`
-    throw new TrashError(summary, firstFailure?.code)
-  }
-
-  return {
-    kind: 'orphan-cleared',
-    cascadeAgents,
-    symlinksRemoved,
-  }
-}
-
-/**
- * Move a skill into the on-disk trash. The skill may be in one of three states:
+ * Move a skill into the on-disk trash. The skill may be in one of two states:
  *
  * - **source-backed** (`kind: 'tombstoned'`): `~/.agents/skills/<name>` exists;
  *   agent entries are symlinks pointing at it. Move source + unlink every
@@ -1006,152 +786,153 @@ async function clearOrphanSymlinks(
  * - **local-only** (`kind: 'tombstoned'`): no source dir; one or more agents
  *   hold the skill as a real folder. Move every real folder into
  *   `<entryDir>/local-copies/<agentId>/`. Writes a v2 manifest, supports undo.
- * - **orphan** (`kind: 'orphan-cleared'`): no source, no local folders, only
- *   broken symlinks remain. Unlink each broken symlink; no manifest, no
- *   tombstone, no undo (resurrection would only restore the broken state).
- *
- * Dispatch order matters: source > local-only > orphan. A live source covers
- * its broken peers (they get unlinked in the source-backed walk anyway), so
- * the orphan branch only fires when nothing else applies.
+ * Orphan symlink cleanup is intentionally outside this function and uses exact
+ * reviewed link+target records, not a source/local delete path.
  *
  * @param skillName - Display skill name selected in the UI.
- * @param reviewedSkillPath - Optional reviewed source/local folder path used when metadata name differs from folder basename.
- * @returns Discriminated `MoveToTrashResult`. Callers MUST switch on `kind`
- *   before reading `tombstoneId` — orphan-cleared has no tombstone.
+ * @param reviewedSkillPath - Mandatory reviewed source/local folder path.
+ * @returns Tombstoned source-backed or local-only result.
  * @throws TrashError when the skill cannot be located in any form, or any
  *   filesystem op fails non-recoverably mid-move
  * @example
  * // source-backed
- * const result = await moveToTrash('theme-generator')
+ * const result = await moveToTrash('theme-generator', '/Users/me/.agents/skills/theme-generator')
  * // { kind: 'tombstoned', tombstoneId: '1729...-theme-generator-a1b2c3d4', cascadeAgents: ['cursor'], symlinksRemoved: 1 }
  * @example
  * // local-only (skill lives in ~/.claude/skills/architecture-decision-records)
- * const result = await moveToTrash('architecture-decision-records')
+ * const result = await moveToTrash('architecture-decision-records', '/Users/me/.claude/skills/architecture-decision-records')
  * // { kind: 'tombstoned', tombstoneId: '1729...-architecture-decision-records-...', cascadeAgents: ['claude'], symlinksRemoved: 1 }
- * @example
- * // orphan (source already rm -rf'd, only broken symlinks remain)
- * const result = await moveToTrash('abandoned-skill')
- * // { kind: 'orphan-cleared', cascadeAgents: ['cursor', 'codex'], symlinksRemoved: 2 }
  */
 export async function moveToTrash(
   skillName: SkillName,
-  reviewedSkillPath?: AbsolutePath,
+  reviewedSkillPath: AbsolutePath,
 ): Promise<MoveToTrashResult> {
   // Destructive actions use the reviewed filesystem path when the renderer has
   // one; display metadata can differ from the source/slot folder basename.
-  const { filesystemSkillName, sourcePath } = resolveDeleteIdentity(
-    skillName,
-    reviewedSkillPath,
-  )
+  const deleteIdentity = resolveDeleteIdentity(reviewedSkillPath)
 
-  // Probe the source dir. If it exists, source-backed flow. Otherwise scan
-  // agent dirs for local copies and dispatch to local-only flow if found.
-  let sourceExists = false
-  try {
-    await fs.stat(sourcePath)
-    sourceExists = true
-  } catch (error) {
-    const code = errorCode(error)
-    if (code !== 'ENOENT') {
+  if (deleteIdentity.kind === 'agent-local') {
+    const localCopies = await scanLocalCopies(
+      deleteIdentity.filesystemSkillName,
+    )
+    const reviewedCopyStillPresent = localCopies.some(
+      (copy) => copy.linkPath === deleteIdentity.reviewedLocalCopy.linkPath,
+    )
+    if (!reviewedCopyStillPresent) {
       throw new TrashError(
-        `Failed to inspect skill source: ${extractErrorMessage(error)}`,
-        code,
+        'Reviewed local skill folder not found (already changed?)',
+        'ESTALE',
       )
     }
-  }
-
-  if (sourceExists) {
-    return moveSourceBackedToTrash(skillName, sourcePath)
-  }
-
-  const localCopies = await scanLocalCopies(filesystemSkillName)
-  if (localCopies.length > 0) {
     return moveLocalOnlyToTrash(skillName, localCopies)
   }
 
-  // Last-resort branch: nothing real or live exists, but agents may still
-  // have broken symlinks. Sweep them with no manifest/undo (orphan-cleared).
-  const orphans = await scanOrphanSymlinkPaths(filesystemSkillName)
-  if (orphans.length > 0) {
-    return clearOrphanSymlinks(skillName, orphans)
+  const { sourcePath } = deleteIdentity
+
+  // A reviewed source row must still be the reviewed source row. Local-only
+  // and orphan cleanup flows now have exact reviewed paths of their own.
+  try {
+    await fs.stat(sourcePath)
+  } catch (error) {
+    const code = errorCode(error)
+    throw new TrashError(
+      code === 'ENOENT'
+        ? 'Reviewed skill source not found (already changed?)'
+        : `Failed to inspect skill source: ${extractErrorMessage(error)}`,
+      code,
+    )
   }
 
-  throw new TrashError('Skill not found (already deleted?)', 'ENOENT')
+  return moveSourceBackedToTrash(skillName, sourcePath)
 }
 
 /**
  * Remove agent symlinks that still point at the reviewed source folder.
  * @param sourcePath - Reviewed source directory being moved to trash.
  * @returns Recorded symlinks plus agent IDs for manifest and UI reporting.
- * @example await removeSourceBackedAgentSymlinks('/Users/me/.agents/skills/task')
+ * @param skillName - Display/metadata name reviewed by the user.
+ * @param sourcePath - Reviewed source folder moved to the trash entry.
+ * @returns Removed symlink manifest records and affected agent ids.
+ * @example await removeSourceBackedAgentSymlinks('metadata-title', '/Users/me/.agents/skills/folder-basename')
  */
 async function removeSourceBackedAgentSymlinks(
+  skillName: SkillName,
   sourcePath: AbsolutePath,
 ): Promise<{
   recordedSymlinks: RecordedSymlink[]
   cascadeAgentIds: AgentId[]
 }> {
   const sourceFolderName = skillNameFromPathBasename(sourcePath)
+  const candidateSlotNames = Array.from(new Set([sourceFolderName, skillName]))
   const recordedSymlinks: RecordedSymlink[] = []
   const cascadeAgentIds: AgentId[] = []
+  const cascadeAgentIdSet = new Set<AgentId>()
+  const processedLinkPaths = new Set<string>()
 
   for (const agent of AGENTS) {
-    // fallow-ignore-next-line code-duplication
-    const linkPath = join(agent.path, sourceFolderName)
-    // Use getAllowedBases() — validatePath realpath-follows linkPath. A valid
-    // source-backed symlink resolves into SOURCE_DIR, which isn't under the
-    // individual agent.path. Restricting to [agent.path] alone would false-
-    // positive every legitimate symlink and silently skip cascade cleanup.
-    try {
-      validatePath(linkPath, getAllowedBases())
-    } catch {
-      continue
-    }
-
-    let stats: Stats
-    try {
-      stats = await fs.lstat(linkPath)
-    } catch (error) {
-      // Link doesn't exist — roll forward.
-      const code = errorCode(error)
-      if (code === 'ENOENT') continue
-      throw new TrashError(
-        `Failed to inspect symlink: ${extractErrorMessage(error)}`,
-        code,
-      )
-    }
-
-    if (!stats.isSymbolicLink()) {
-      // Local skills in agent dirs are unrelated to the source-backed delete.
-      continue
-    }
-
-    let removal: 'missing' | { outcome: 'unlinked'; target: string }
-    try {
-      removal = await unlinkReviewedSourceSymlink(
-        linkPath as AbsolutePath,
-        sourcePath,
-      )
-    } catch (error) {
-      const code = errorCode(error)
-      if (code === 'ENOENT' || code === 'ESTALE') {
-        // Stale/mismatched same-name links belong to another source or changed
-        // after scan. Leave them for manual review instead of cascading.
+    for (const slotName of candidateSlotNames) {
+      // fallow-ignore-next-line code-duplication
+      const linkPath = join(agent.path, slotName)
+      if (processedLinkPaths.has(linkPath)) continue
+      processedLinkPaths.add(linkPath)
+      // Use getAllowedBases() — validatePath realpath-follows linkPath. A valid
+      // source-backed symlink resolves into SOURCE_DIR, which isn't under the
+      // individual agent.path. Restricting to [agent.path] alone would false-
+      // positive every legitimate symlink and silently skip cascade cleanup.
+      try {
+        validatePath(linkPath, getAllowedBases())
+      } catch {
         continue
       }
-      await rollbackRemovedSymlinks(recordedSymlinks)
-      throw new TrashError(
-        `Failed to remove symlinks: ${extractErrorMessage(error)}`,
-        code,
-      )
+
+      let stats: Stats
+      try {
+        stats = await fs.lstat(linkPath)
+      } catch (error) {
+        // Link doesn't exist — roll forward.
+        const code = errorCode(error)
+        if (code === 'ENOENT') continue
+        throw new TrashError(
+          `Failed to inspect symlink: ${extractErrorMessage(error)}`,
+          code,
+        )
+      }
+
+      if (!stats.isSymbolicLink()) {
+        // Local skills in agent dirs are unrelated to the source-backed delete.
+        continue
+      }
+
+      let removal: 'missing' | { outcome: 'unlinked'; target: string }
+      try {
+        removal = await unlinkReviewedSourceSymlink(
+          linkPath as AbsolutePath,
+          sourcePath,
+        )
+      } catch (error) {
+        const code = errorCode(error)
+        if (code === 'ENOENT' || code === 'ESTALE') {
+          // Stale/mismatched same-name links belong to another source or changed
+          // after scan. Leave them for manual review instead of cascading.
+          continue
+        }
+        await rollbackRemovedSymlinks(recordedSymlinks)
+        throw new TrashError(
+          `Failed to remove symlinks: ${extractErrorMessage(error)}`,
+          code,
+        )
+      }
+      if (removal === 'missing') continue
+      recordedSymlinks.push({
+        agentId: agent.id,
+        linkPath,
+        target: removal.target,
+      })
+      if (!cascadeAgentIdSet.has(agent.id)) {
+        cascadeAgentIdSet.add(agent.id)
+        cascadeAgentIds.push(agent.id)
+      }
     }
-    if (removal === 'missing') continue
-    recordedSymlinks.push({
-      agentId: agent.id,
-      linkPath,
-      target: removal.target,
-    })
-    cascadeAgentIds.push(agent.id)
   }
 
   return { recordedSymlinks, cascadeAgentIds }
@@ -1178,7 +959,7 @@ async function moveSourceBackedToTrash(
 
   // Walk agents, collect + remove symlinks. Abort on non-ENOENT unlink failure.
   const { recordedSymlinks, cascadeAgentIds } =
-    await removeSourceBackedAgentSymlinks(sourcePath)
+    await removeSourceBackedAgentSymlinks(skillName, sourcePath)
 
   // Atomically move source → trash entry. On EXDEV, copy + remove.
   // If the move fails, the symlinks we already unlinked would otherwise be

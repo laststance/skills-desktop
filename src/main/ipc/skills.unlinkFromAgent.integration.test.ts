@@ -216,7 +216,7 @@ describe('skills:unlinkFromAgent handler', () => {
     const handler = getRegisteredInvokeHandler<
       {
         agentId: AgentId
-        items: Array<{ skillName: SkillName; linkPath?: AbsolutePath }>
+        items: Array<{ skillName: SkillName; linkPath: AbsolutePath }>
       },
       BulkUnlinkResult
     >('skills:unlinkManyFromAgent')

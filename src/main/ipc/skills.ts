@@ -124,24 +124,6 @@ async function removeLinkPathByKind(
 }
 
 /**
- * Unlink or remove a single link-path inside an agent directory. Shared by the
- * single-unlink handler and the batch-unlink handler so both behave identically.
- * @param agentPath - Validated agent skills directory (trust root)
- * @param skillName - Validated skill name (no separators)
- * @returns { success: boolean, error?: string; code?: string }
- * @example removeFromAgent('/Users/me/.cursor/skills', 'task')
- */
-async function removeFromAgent(
-  agentPath: AbsolutePath,
-  skillName: SkillName,
-): Promise<
-  { success: true } | { success: false; error: string; code?: string }
-> {
-  const linkPath = join(agentPath, skillName) as AbsolutePath
-  return removeReviewedPathFromAgent(agentPath, linkPath)
-}
-
-/**
  * Remove the exact reviewed agent slot after validating it belongs to selected agent.
  * @param agentPath - Selected agent skills directory from main constants.
  * @param linkPath - Renderer-reviewed slot path to remove.
@@ -574,9 +556,9 @@ export function registerSkillsHandlers(): void {
    * Delete a single skill by delegating to trashService so the single-delete
    * path shares the same trash/undo/eviction code as batch delete.
    *
-   * `moveToTrash(skillName, skillPath)` validates the reviewed row path when
-   * present so metadata names cannot redirect deletion to a same-name folder.
-   * @param options - { skillName, skillPath? }
+   * `moveToTrash(skillName, skillPath)` validates the reviewed row path so
+   * metadata names cannot redirect deletion to a same-name folder.
+   * @param options - { skillName, skillPath }
    * @returns DeleteSkillResult with symlinksRemoved + cascadeAgents
    */
   typedHandle(IPC_CHANNELS.SKILLS_DELETE, async (_, options) => {
@@ -612,7 +594,7 @@ export function registerSkillsHandlers(): void {
    * Progress: emits \`skills:deleteProgress\` after each item when N >= 10 so the
    * SelectionToolbar can show "Deleting 3 of 12". Smaller batches skip the
    * event to avoid toast churn.
-   * @param options - items: Array<{ skillName, skillPath? }>
+   * @param options - items: Array<{ skillName, skillPath }>
    * @returns BulkDeleteResult with per-item discriminated outcome
    */
   typedHandle(
@@ -626,25 +608,13 @@ export function registerSkillsHandlers(): void {
       for (const [itemIndex, { skillName, skillPath }] of items.entries()) {
         try {
           const moveResult = await moveToTrash(skillName, skillPath)
-          // Discriminate on `kind` so the renderer can tell apart "this row has
-          // a tombstone, wire it into the Undo toast" from "this row is just a
-          // broken-symlink sweep with no undo path".
-          if (moveResult.kind === 'tombstoned') {
-            results.push({
-              skillName,
-              outcome: 'deleted',
-              tombstoneId: moveResult.tombstoneId,
-              symlinksRemoved: moveResult.symlinksRemoved,
-              cascadeAgents: moveResult.cascadeAgents,
-            })
-          } else {
-            results.push({
-              skillName,
-              outcome: 'orphan-cleared',
-              symlinksRemoved: moveResult.symlinksRemoved,
-              cascadeAgents: moveResult.cascadeAgents,
-            })
-          }
+          results.push({
+            skillName,
+            outcome: 'deleted',
+            tombstoneId: moveResult.tombstoneId,
+            symlinksRemoved: moveResult.symlinksRemoved,
+            cascadeAgents: moveResult.cascadeAgents,
+          })
         } catch (error) {
           const message =
             error instanceof TrashError
@@ -736,9 +706,7 @@ export function registerSkillsHandlers(): void {
       }
 
       for (const { skillName, linkPath } of items) {
-        const outcome = linkPath
-          ? await removeReviewedPathFromAgent(agent.path, linkPath)
-          : await removeFromAgent(agent.path, skillName)
+        const outcome = await removeReviewedPathFromAgent(agent.path, linkPath)
         if (outcome.success) {
           results.push({ skillName, outcome: 'unlinked' })
         } else {

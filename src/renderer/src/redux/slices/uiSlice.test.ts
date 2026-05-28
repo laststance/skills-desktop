@@ -45,6 +45,32 @@ vi.stubGlobal('window', {
 })
 
 /**
+ * Build a reviewed delete target so combined-store tests satisfy destructive IPC shape.
+ * @param skillName - Display name selected by the user.
+ * @returns Delete thunk target with exact reviewed source path.
+ * @example deleteTarget('task')
+ */
+function deleteTarget(skillName: Skill['name']) {
+  return {
+    skillName,
+    skillPath: `/home/user/.agents/skills/${skillName}`,
+  }
+}
+
+/**
+ * Build a reviewed unlink target so combined-store tests satisfy destructive IPC shape.
+ * @param skillName - Display name selected by the user.
+ * @returns Unlink thunk target with exact reviewed agent slot path.
+ * @example unlinkTarget('task')
+ */
+function unlinkTarget(skillName: Skill['name']) {
+  return {
+    skillName,
+    linkPath: `/home/user/.cursor/skills/${skillName}`,
+  }
+}
+
+/**
  * Create a minimal Redux store with only the ui reducer.
  * Avoids storage middleware and listener middleware used in production.
  * @returns Test store instance
@@ -553,7 +579,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
         resolve = r
       }),
     )
-    const promise = store.dispatch(deleteSelectedSkills(['task']))
+    const promise = store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
 
     expect(store.getState().ui.undoToast).toBeNull()
 
@@ -646,7 +672,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
-        selectedNames: ['task'],
+        selectedNames: [unlinkTarget('task')],
       }),
     )
 
@@ -738,7 +764,7 @@ describe('uiSlice bulkSelectMode', () => {
         resolve = r
       }),
     )
-    const promise = store.dispatch(deleteSelectedSkills(['task']))
+    const promise = store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
 
     expect(store.getState().ui.bulkSelectMode).toBe(false)
 
@@ -828,7 +854,7 @@ describe('uiSlice bulkSelectMode', () => {
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
-        selectedNames: ['task'],
+        selectedNames: [unlinkTarget('task')],
       }),
     )
 
@@ -968,7 +994,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
         resolve = r
       }),
     )
-    const promise = store.dispatch(deleteSelectedSkills(['a']))
+    const promise = store.dispatch(deleteSelectedSkills([deleteTarget('a')]))
 
     expect(store.getState().ui).toMatchObject({
       bulkSelectMode: false,
@@ -992,7 +1018,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
         resolve = r
       }),
     )
-    const promise = store.dispatch(deleteSelectedSkills(['a']))
+    const promise = store.dispatch(deleteSelectedSkills([deleteTarget('a')]))
 
     expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(true)
 
@@ -1014,7 +1040,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
-        selectedNames: ['a'],
+        selectedNames: [unlinkTarget('a')],
       }),
     )
 
@@ -1043,7 +1069,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
-        selectedNames: ['a'],
+        selectedNames: [unlinkTarget('a')],
       }),
     )
 
@@ -1086,7 +1112,7 @@ describe('uiSlice bulkSelectMode on rejection', () => {
     store.dispatch(enterBulkSelectMode())
     mockDeleteSkills.mockRejectedValue(new Error('FS error'))
 
-    await store.dispatch(deleteSelectedSkills(['task']))
+    await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
 
     expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
@@ -1102,7 +1128,7 @@ describe('uiSlice bulkSelectMode on rejection', () => {
     await store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
-        selectedNames: ['task'],
+        selectedNames: [unlinkTarget('task')],
       }),
     )
 

@@ -87,6 +87,34 @@ const thirdSkill: Skill = {
 /** Sample symlink info */
 const sampleSymlink: SymlinkInfo = sampleSkill.symlinks[0]
 
+/**
+ * Build a reviewed delete target so tests exercise the mandatory path IPC contract.
+ * @param skillName - Display name selected by the user.
+ * @param skillPath - Reviewed source/local folder path.
+ * @returns Delete thunk target with exact filesystem identity.
+ * @example deleteTarget('task')
+ */
+function deleteTarget(
+  skillName: Skill['name'],
+  skillPath = `/home/user/.agents/skills/${skillName}`,
+) {
+  return { skillName, skillPath: skillPath as AbsolutePath }
+}
+
+/**
+ * Build a reviewed unlink target so tests exercise the mandatory slot IPC contract.
+ * @param skillName - Display name selected by the user.
+ * @param linkPath - Reviewed agent slot path.
+ * @returns Unlink thunk target with exact agent-slot identity.
+ * @example unlinkTarget('task')
+ */
+function unlinkTarget(
+  skillName: Skill['name'],
+  linkPath = `/home/user/.cursor/skills/${skillName}`,
+) {
+  return { skillName, linkPath: linkPath as AbsolutePath }
+}
+
 /** Seed items into the store so mid-op reconciliation has something to intersect. */
 async function seedItems(
   store: Awaited<ReturnType<typeof createTestStore>>,
@@ -501,7 +529,11 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     const { deleteSelectedSkills } = await import('./skillsSlice')
     // Include a ghost name that is NOT in state.items — reconciliation should drop it
     const promise = store.dispatch(
-      deleteSelectedSkills(['task', 'theme-generator', 'already-gone']),
+      deleteSelectedSkills([
+        deleteTarget('task'),
+        deleteTarget('theme-generator'),
+        deleteTarget('already-gone'),
+      ]),
     )
 
     expect(store.getState().skills.bulkDeleting).toBe(true)
@@ -592,7 +624,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     store.dispatch(toggleSelection('task'))
     store.dispatch(setBulkProgress({ current: 1, total: 1 }))
 
-    await store.dispatch(deleteSelectedSkills(['task']))
+    await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
 
     const state = store.getState().skills
     expect(state.bulkDeleting).toBe(false)
@@ -621,7 +653,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     store.dispatch(toggleSelection('task'))
     store.dispatch(setBulkProgress({ current: 1, total: 1 }))
 
-    await store.dispatch(deleteSelectedSkills(['task']))
+    await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
 
     const state = store.getState().skills
     expect(state.bulkDeleting).toBe(false)
@@ -637,7 +669,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     mockDeleteSkills.mockRejectedValue(new Error('EACCES'))
 
     const { deleteSelectedSkills } = await import('./skillsSlice')
-    await store.dispatch(deleteSelectedSkills(['task']))
+    await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
 
     const state = store.getState().skills
     expect(state.bulkDeleting).toBe(false)
@@ -943,7 +975,11 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
-        selectedNames: ['task', 'browser', 'ghost'],
+        selectedNames: [
+          unlinkTarget('task'),
+          unlinkTarget('browser'),
+          unlinkTarget('ghost'),
+        ],
       }),
     )
 
@@ -1007,7 +1043,7 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     await store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
-        selectedNames: ['task'],
+        selectedNames: [unlinkTarget('task')],
       }),
     )
 
@@ -1027,7 +1063,7 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     await store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
-        selectedNames: ['task'],
+        selectedNames: [unlinkTarget('task')],
       }),
     )
 

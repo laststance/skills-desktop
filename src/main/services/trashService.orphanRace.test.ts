@@ -44,69 +44,6 @@ describe('trashService orphan cleanup guarded commit', () => {
     await rm(tempHome, { recursive: true, force: true })
   })
 
-  it('refuses name-rescan orphan cleanup when the target is restored during commit', async () => {
-    // Arrange
-    const skillName = 'orphan-target-restored'
-    const cursorSkillsDir = join(tempHome, '.cursor', 'skills')
-    const targetPath = join(tempHome, '.agents', 'skills', skillName)
-    const linkPath = join(cursorSkillsDir, skillName)
-    await mkdir(cursorSkillsDir, { recursive: true })
-    await symlink(targetPath, linkPath)
-    vi.doMock('node:fs/promises', async () => {
-      const actual =
-        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
-      return {
-        ...actual,
-        rename: async (oldPath: string, newPath: string): Promise<void> => {
-          if (oldPath === linkPath) {
-            await actual.mkdir(targetPath, { recursive: true })
-          }
-          return actual.rename(oldPath, newPath)
-        },
-      }
-    })
-    const { moveToTrash } = await import('./trashService')
-
-    // Act / Assert
-    await expect(moveToTrash(skillName)).rejects.toThrow(
-      `Failed to remove 1 of 1 orphan symlink for "${skillName}"`,
-    )
-    expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
-    expect(await readlink(linkPath)).toBe(targetPath)
-    expect((await lstat(targetPath)).isDirectory()).toBe(true)
-  })
-
-  it('restores an unreviewed local replacement moved during orphan cleanup commit', async () => {
-    // Arrange
-    const skillName = 'orphan-slot-replaced'
-    const cursorSkillsDir = join(tempHome, '.cursor', 'skills')
-    const targetPath = join(tempHome, '.agents', 'skills', skillName)
-    const linkPath = join(cursorSkillsDir, skillName)
-    await mkdir(cursorSkillsDir, { recursive: true })
-    await symlink(targetPath, linkPath)
-    vi.doMock('node:fs/promises', async () => {
-      const actual =
-        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
-      return {
-        ...actual,
-        rename: async (oldPath: string, newPath: string): Promise<void> => {
-          if (oldPath === linkPath) {
-            await actual.rm(linkPath, { force: true })
-            await actual.mkdir(linkPath, { recursive: true })
-          }
-          return actual.rename(oldPath, newPath)
-        },
-      }
-    })
-    const { moveToTrash } = await import('./trashService')
-
-    // Act / Assert
-    await expect(moveToTrash(skillName)).rejects.toThrow(
-      `Failed to remove 1 of 1 orphan symlink for "${skillName}"`,
-    )
-    expect((await lstat(linkPath)).isDirectory()).toBe(true)
-  })
-
   it('aborts source-backed delete when quarantined symlink restore fails', async () => {
     // Arrange
     const skillName = 'source-restore-failure'
@@ -145,7 +82,7 @@ describe('trashService orphan cleanup guarded commit', () => {
       await import('./trashService')
 
     // Act / Assert
-    await expect(moveToTrash(skillName)).rejects.toThrow(
+    await expect(moveToTrash(skillName, sourcePath)).rejects.toThrow(
       /Moved entry left|could not be restored|Failed to remove symlinks/i,
     )
     expect((await lstat(sourcePath)).isDirectory()).toBe(true)
@@ -204,7 +141,7 @@ describe('trashService orphan cleanup guarded commit', () => {
       await import('./trashService')
 
     // Act / Assert
-    await expect(moveToTrash(skillName)).rejects.toThrow(
+    await expect(moveToTrash(skillName, sourcePath)).rejects.toThrow(
       /Failed to remove symlinks|could not be restored/i,
     )
     expect((await lstat(sourcePath)).isDirectory()).toBe(true)
@@ -275,7 +212,9 @@ describe('trashService orphan cleanup guarded commit', () => {
       await import('./trashService')
 
     // Act / Assert
-    await expect(moveToTrash(skillName)).rejects.toThrow(/source is stranded/i)
+    await expect(moveToTrash(skillName, sourcePath)).rejects.toThrow(
+      /source is stranded/i,
+    )
     await expect(lstat(sourcePath)).rejects.toThrow()
     expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
     expect(await readlink(linkPath)).toBe(sourcePath)
@@ -359,7 +298,7 @@ describe('trashService orphan cleanup guarded commit', () => {
       await import('./trashService')
 
     // Act / Assert
-    await expect(moveToTrash(skillName)).rejects.toThrow(
+    await expect(moveToTrash(skillName, sourcePath)).rejects.toThrow(
       /source copy preserved/i,
     )
     expect((await lstat(sourcePath)).isDirectory()).toBe(true)
@@ -414,7 +353,7 @@ describe('trashService orphan cleanup guarded commit', () => {
       await import('./trashService')
 
     // Act / Assert
-    await expect(moveToTrash(skillName)).rejects.toThrow(
+    await expect(moveToTrash(skillName, localPath)).rejects.toThrow(
       /staged copy preserved/i,
     )
     expect((await lstat(localPath)).isDirectory()).toBe(true)

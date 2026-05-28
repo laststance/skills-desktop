@@ -60,7 +60,10 @@ declare global {
           copied: number
           failures: Array<{ agentId: string; error: string }>
         }>
-        deleteSkill: (options: { skillName: string }) => Promise<{
+        deleteSkill: (options: {
+          skillName: string
+          skillPath: string
+        }) => Promise<{
           success: boolean
           symlinksRemoved: number
           cascadeAgents: string[]
@@ -75,7 +78,7 @@ declare global {
           | { outcome: 'error'; error: { message: string; code?: string } }
         >
         deleteSkills: (options: {
-          items: Array<{ skillName: string }>
+          items: Array<{ skillName: string; skillPath: string }>
         }) => Promise<{
           items: Array<
             | {
@@ -153,7 +156,7 @@ declare global {
         }) => Promise<{ success: boolean; error?: string }>
         unlinkManyFromAgent: (options: {
           agentId: string
-          items: Array<{ skillName: string }>
+          items: Array<{ skillName: string; linkPath: string }>
         }) => Promise<{
           items: Array<
             | { skillName: string; outcome: 'unlinked' }
