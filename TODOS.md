@@ -964,6 +964,78 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Catch missing-path filesystem races per source row, drop only the vanished source skill from the scan result, and keep non-missing errors fatal.
 
+### P1. Quarantine restore must not overwrite same-path replacements
+
+**Status:** Fixed after final gstack-review subagent review.
+
+**Finding:** `restoreQuarantinedPath()` used `fs.rename(quarantinePath, originalPath)`. If a file, symlink, or folder appeared at the original reviewed path after quarantine, rollback could overwrite that replacement.
+
+**Fix direction:** Restore quarantined entries with no-clobber behavior, refuse occupied original paths, preserve the quarantine for manual recovery, and surface the quarantine path in the error.
+
+### P1. EXDEV fallback copies must not overwrite recovery destinations
+
+**Status:** Fixed after final gstack-review subagent review.
+
+**Finding:** `fs.cp(source, destination, { recursive: true })` defaults to overwrite. Cross-device restore/rollback could copy into a destination that appeared after the previous existence check.
+
+**Fix direction:** Use no-overwrite copy options (`force: false`, `errorOnExist: true`) for EXDEV fallback copies and preserve staged trash/manual-recovery entries on destination collisions.
+
+### P1. Missing-identity unlink integration test must expect schema rejection
+
+**Status:** Fixed after Codex CLI review during final subagent review.
+
+**Finding:** After tightening `skills:unlinkFromAgent` to a symlink-vs-local schema union, the missing `reviewedDirectoryIdentity` case throws in `typedHandle` before the handler returns, but the integration test still expected `{ success: false }`.
+
+**Fix direction:** Assert the IPC validation rejection directly, then keep filesystem and trash-call assertions proving the unsafe local folder remains untouched.
+
+### P2. Undo toast E2E must not depend on snapshot-installed azure-ai
+
+**Status:** Fixed after final gstack-review subagent review.
+
+**Finding:** `e2e/spec/undo-toast.e2e.ts` skipped the whole UI bulk-delete to Undo restore flow when the snapshot was offline, even though the spec can stage its own source skill and agent symlink.
+
+**Fix direction:** Stage a throwaway source skill and symlink inside the isolated HOME, remove the blanket snapshot skip, and keep the renderer click-chain restore assertion active in offline runs.
+
+### P2. Regression E2E offline skip must not hide self-staged destructive safety tests
+
+**Status:** Fixed after final gstack-review subagent review.
+
+**Finding:** `e2e/spec/regression.e2e.ts` skipped the entire file when the azure snapshot was offline, hiding self-staged remove-all and cleanup safety regressions that do not need azure fixture data.
+
+**Fix direction:** Move snapshot gating into only azure-dependent tests, and make self-staged destructive tests own their source/local fixtures.
+
+### P2. Unlink-agent E2E must assert removed symlinks with lstat
+
+**Status:** Fixed after final gstack-review subagent review.
+
+**Finding:** `unlink-agent.e2e.ts` used `existsSync(path) === false` to prove symlink removal. A dangling symlink left behind at the same path also returns false.
+
+**Fix direction:** Add an `lstatSync`-based missing-path assertion and use it for every agent symlink expected to be removed.
+
+### P2. Single unlink IPC schema must require destructive identity variant fields
+
+**Status:** Fixed after final gstack-review subagent review.
+
+**Finding:** `UnlinkFromAgentOptions` and the Zod schema kept `targetPath` and `reviewedDirectoryIdentity` optional. Main rejected unsafe local deletes, but renderer/preload could still send a local delete without identity and show a failed mutation instead of a rescan-required preflight.
+
+**Fix direction:** Make the single unlink payload a symlink-vs-local discriminated union, require `targetPath` for symlink unlink and `reviewedDirectoryIdentity` for confirmed local folder delete, and add renderer preflight for missing identity.
+
+### P3. Inaccessible status spec color must match UI amber treatment
+
+**Status:** Fixed after final gstack-review subagent review.
+
+**Finding:** `SPEC.md` documented inaccessible status as red, while the UI renders inaccessible with the same amber/manual-review treatment used by broken status.
+
+**Fix direction:** Update the spec table to amber/manual-review copy unless the product intentionally adds a separate red variant.
+
+### P3. SPEC type snippets must include reviewed identity fields
+
+**Status:** Fixed after final gstack-review subagent review.
+
+**Finding:** `SPEC.md` still showed `SymlinkInfo.targetPath` as required and omitted `filesystemIdentity` / `skillMdSymlinkTarget`, despite destructive flows now depending on those reviewed identities.
+
+**Fix direction:** Update the type snippets to mirror `src/shared/types.ts` for `Skill`, `Agent`, and `SymlinkInfo`.
+
 ## Orphan filter follow-ups (2026-05-09)
 
 ### 1. Source-view orphan visibility

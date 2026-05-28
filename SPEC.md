@@ -141,7 +141,7 @@ GUI wrapper for `npx skills` CLI commands:
 | ------------ | ------ | --------------- | ----------------------------------------- |
 | Valid        | `✓`    | Cyan (#22D3EE)  | Symlink exists and points to valid target |
 | Broken       | `◐`    | Amber (#F59E0B) | Symlink exists but target is missing      |
-| Inaccessible | `!`    | Red (#EF4444)   | Symlink target could not be probed safely |
+| Inaccessible | `!`    | Amber (#F59E0B) | Symlink target needs manual review        |
 | Missing      | `○`    | Gray (#475569)  | No symlink for this agent                 |
 
 **Orphan skill** is a separate concept layered on top of these states: a
@@ -486,6 +486,7 @@ interface Skill {
   name: string
   description: string
   path: string
+  filesystemIdentity?: FilesystemEntryIdentity
   symlinkCount: number
   symlinks: SymlinkInfo[]
   /** True when the skill lives under SOURCE_DIR (`~/.agents/skills/`); false for agent-local-only skills. */
@@ -505,15 +506,27 @@ interface Agent {
   exists: boolean
   skillCount: number
   localSkillCount: number
+  filesystemIdentity?: FilesystemEntryIdentity
+}
+
+interface FilesystemEntryIdentity {
+  kind: 'directory' | 'symlink' | 'file' | 'other'
+  dev: number
+  ino: number
+  size: number
+  ctimeMs: number
+  mtimeMs: number
 }
 
 interface SymlinkInfo {
   agentId: string
   agentName: string
   status: SymlinkStatus
-  targetPath: string
+  targetPath?: string
   linkPath: string
   isLocal: boolean
+  filesystemIdentity?: FilesystemEntryIdentity
+  skillMdSymlinkTarget?: string
 }
 
 type SymlinkStatus = 'valid' | 'broken' | 'inaccessible' | 'missing'

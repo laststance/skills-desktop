@@ -3,6 +3,7 @@ import {
   mkdtemp,
   lstat,
   readdir,
+  readFile,
   readlink,
   rm,
   symlink,
@@ -320,6 +321,18 @@ describe('trashService orphan cleanup guarded commit', () => {
           }
           return actual.rm(path, options)
         },
+        cp: async (
+          source: string,
+          destination: string,
+          options?: Parameters<typeof actual.cp>[2],
+        ): Promise<void> => {
+          expect(options).toMatchObject({
+            recursive: true,
+            force: false,
+            errorOnExist: true,
+          })
+          return actual.cp(source, destination, options)
+        },
       }
     })
     const { __getTrashDirForTests, moveToTrash } =
@@ -339,6 +352,91 @@ describe('trashService orphan cleanup guarded commit', () => {
     expect(trashEntries).toHaveLength(1)
     const entryDir = join(__getTrashDirForTests(), trashEntries[0]!)
     expect((await lstat(join(entryDir, 'source'))).isDirectory()).toBe(true)
+    await expect(
+      lstat(join(entryDir, '.manual-recovery')),
+    ).resolves.toBeDefined()
+  })
+
+  it('does not overwrite a replacement during manifest rollback EXDEV restore', async () => {
+    // Arrange
+    const skillName = 'source-manifest-exdev-collision'
+    const sourcePath = join(tempHome, '.agents', 'skills', skillName)
+    const cursorSkillsDir = join(tempHome, '.cursor', 'skills')
+    const linkPath = join(cursorSkillsDir, skillName)
+    await mkdir(sourcePath, { recursive: true })
+    await writeFile(
+      join(sourcePath, 'SKILL.md'),
+      `# original ${skillName}\n`,
+      'utf-8',
+    )
+    await mkdir(cursorSkillsDir, { recursive: true })
+    await symlink(sourcePath, linkPath)
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        rename: async (oldPath: string, newPath: string): Promise<void> => {
+          if (
+            oldPath.includes('/.agents/.trash/') &&
+            oldPath.endsWith('/source') &&
+            newPath === sourcePath
+          ) {
+            await actual.mkdir(sourcePath, { recursive: true })
+            await actual.writeFile(
+              join(sourcePath, 'SKILL.md'),
+              `# replacement ${skillName}\n`,
+              'utf-8',
+            )
+            const error = new Error(
+              'forced cross-device source rollback collision',
+            ) as NodeJS.ErrnoException
+            error.code = 'EXDEV'
+            throw error
+          }
+          return actual.rename(oldPath, newPath)
+        },
+        writeFile: async (
+          path: string,
+          data: Parameters<typeof actual.writeFile>[1],
+          options?: Parameters<typeof actual.writeFile>[2],
+        ): Promise<void> => {
+          if (
+            path.includes('/.agents/.trash/') &&
+            path.endsWith('/manifest.json')
+          ) {
+            const error = new Error(
+              'forced manifest write failure',
+            ) as NodeJS.ErrnoException
+            error.code = 'EACCES'
+            throw error
+          }
+          return actual.writeFile(path, data, options)
+        },
+      }
+    })
+    const { __getTrashDirForTests, moveToTrash } =
+      await import('./trashService')
+
+    // Act / Assert
+    await expect(
+      moveToTrash(
+        skillName,
+        sourcePath,
+        await reviewedIdentityForPath(sourcePath),
+      ),
+    ).rejects.toThrow(/source is stranded/i)
+    expect(await readFile(join(sourcePath, 'SKILL.md'), 'utf-8')).toBe(
+      `# replacement ${skillName}\n`,
+    )
+    expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
+    expect(await readlink(linkPath)).toBe(sourcePath)
+    const trashEntries = await readdir(__getTrashDirForTests())
+    expect(trashEntries).toHaveLength(1)
+    const entryDir = join(__getTrashDirForTests(), trashEntries[0]!)
+    expect(await readFile(join(entryDir, 'source', 'SKILL.md'), 'utf-8')).toBe(
+      `# original ${skillName}\n`,
+    )
     await expect(
       lstat(join(entryDir, '.manual-recovery')),
     ).resolves.toBeDefined()
@@ -378,6 +476,18 @@ describe('trashService orphan cleanup guarded commit', () => {
             throw error
           }
           return actual.rm(path, options)
+        },
+        cp: async (
+          source: string,
+          destination: string,
+          options?: Parameters<typeof actual.cp>[2],
+        ): Promise<void> => {
+          expect(options).toMatchObject({
+            recursive: true,
+            force: false,
+            errorOnExist: true,
+          })
+          return actual.cp(source, destination, options)
         },
       }
     })

@@ -189,14 +189,24 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
 
   // Skills operations
   'skills:unlinkFromAgent': z.tuple([
-    z.object({
-      skillName: skillNameString,
-      agentId: nonEmptyString,
-      linkPath: absolutePathArg,
-      targetPath: absolutePathArg.optional(),
-      confirmedLocalDirectoryDelete: z.boolean().optional(),
-      reviewedDirectoryIdentity: filesystemEntryIdentitySchema.optional(),
-    }),
+    z.union([
+      z.object({
+        skillName: skillNameString,
+        agentId: nonEmptyString,
+        linkPath: absolutePathArg,
+        targetPath: absolutePathArg,
+        confirmedLocalDirectoryDelete: z.literal(false).optional(),
+        reviewedDirectoryIdentity: z.undefined().optional(),
+      }),
+      z.object({
+        skillName: skillNameString,
+        agentId: nonEmptyString,
+        linkPath: absolutePathArg,
+        confirmedLocalDirectoryDelete: z.literal(true),
+        reviewedDirectoryIdentity: filesystemEntryIdentitySchema,
+        targetPath: z.undefined().optional(),
+      }),
+    ]),
   ]),
   'skills:removeAllFromAgent': z.tuple([
     z.object({

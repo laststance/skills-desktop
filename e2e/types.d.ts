@@ -163,14 +163,25 @@ declare global {
               }
           >
         }>
-        unlinkFromAgent: (options: {
-          skillName: string
-          agentId: string
-          linkPath: string
-          targetPath?: string
-          confirmedLocalDirectoryDelete?: boolean
-          reviewedDirectoryIdentity?: FilesystemEntryIdentity
-        }) => Promise<{ success: boolean; error?: string }>
+        unlinkFromAgent: (
+          options:
+            | {
+                skillName: string
+                agentId: string
+                linkPath: string
+                targetPath: string
+                confirmedLocalDirectoryDelete?: false
+                reviewedDirectoryIdentity?: never
+              }
+            | {
+                skillName: string
+                agentId: string
+                linkPath: string
+                confirmedLocalDirectoryDelete: true
+                reviewedDirectoryIdentity: FilesystemEntryIdentity
+                targetPath?: never
+              },
+        ) => Promise<{ success: boolean; error?: string }>
         unlinkManyFromAgent: (options: {
           agentId: string
           items: Array<{

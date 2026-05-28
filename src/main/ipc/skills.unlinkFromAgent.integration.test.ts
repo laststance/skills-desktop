@@ -1,4 +1,13 @@
-import { lstat, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -125,6 +134,7 @@ describe('skills:unlinkFromAgent handler', () => {
         skillName,
         agentId: 'cursor',
         linkPath: sourcePath,
+        targetPath: sourcePath,
       },
     )
 
@@ -158,6 +168,7 @@ describe('skills:unlinkFromAgent handler', () => {
         skillName,
         agentId: 'cursor',
         linkPath: claudeLinkPath,
+        targetPath: sourcePath,
       },
     )
 
@@ -255,7 +266,7 @@ describe('skills:unlinkFromAgent handler', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
-  it('rejects local folder delete without reviewed directory identity', async () => {
+  it('rejects local folder delete at IPC validation without reviewed directory identity', async () => {
     // Arrange
     const skillName = 'local-missing-identity'
     const localPath = join(tempHome, '.cursor', 'skills', skillName)
@@ -265,21 +276,50 @@ describe('skills:unlinkFromAgent handler', () => {
     const { registerSkillsHandlers } = await import('./skills')
     registerSkillsHandlers()
 
-    // Act
+    // Act / Assert
     const handler = getRegisteredHandler('skills:unlinkFromAgent')
-    const result = await handler(
-      {},
-      {
-        skillName,
-        agentId: 'cursor',
-        linkPath: localPath,
-        confirmedLocalDirectoryDelete: true,
-      },
-    )
+    await expect(
+      handler(
+        {},
+        {
+          skillName,
+          agentId: 'cursor',
+          linkPath: localPath,
+          confirmedLocalDirectoryDelete: true,
+        },
+      ),
+    ).rejects.toThrow(/IPC validation failed/)
 
     // Assert
-    expect(result.success).toBe(false)
-    expect(result.error).toMatch(/reviewed directory identity/i)
+    await expect(lstat(localPath)).resolves.toBeDefined()
+    expect(trashItemMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects local folder delete without explicit confirmation', async () => {
+    // Arrange
+    const skillName = 'local-missing-confirmation'
+    const localPath = join(tempHome, '.cursor', 'skills', skillName)
+    await mkdir(localPath, { recursive: true })
+    await writeFile(join(localPath, 'SKILL.md'), `name: ${skillName}\n`)
+    const reviewedIdentity = filesystemIdentityFromStats(await lstat(localPath))
+
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+
+    // Act / Assert
+    const handler = getRegisteredHandler('skills:unlinkFromAgent')
+    await expect(
+      handler(
+        {},
+        {
+          skillName,
+          agentId: 'cursor',
+          linkPath: localPath,
+          targetPath: localPath,
+          reviewedDirectoryIdentity: reviewedIdentity,
+        },
+      ),
+    ).rejects.toThrow(/IPC validation failed/)
     await expect(lstat(localPath)).resolves.toBeDefined()
     expect(trashItemMock).not.toHaveBeenCalled()
   })
@@ -349,5 +389,60 @@ describe('skills:unlinkFromAgent handler', () => {
     expect(String(trashItemMock.mock.calls[0][0])).toContain(
       join(tempHome, '.cursor', 'skills', 'local-reviewed-trash.trash-'),
     )
+  })
+
+  it('preserves quarantined local folder when restore path is occupied after trash failure', async () => {
+    // Arrange
+    const skillName = 'local-restore-collision'
+    const cursorSkillsDir = join(tempHome, '.cursor', 'skills')
+    const localPath = join(cursorSkillsDir, skillName)
+    await mkdir(localPath, { recursive: true })
+    await writeFile(join(localPath, 'SKILL.md'), `# original ${skillName}\n`)
+    const reviewedIdentity = filesystemIdentityFromStats(await lstat(localPath))
+    trashItemMock.mockImplementationOnce(async () => {
+      await mkdir(localPath, { recursive: true })
+      await writeFile(
+        join(localPath, 'SKILL.md'),
+        `# replacement ${skillName}\n`,
+      )
+      const error = new Error('forced trash failure') as NodeJS.ErrnoException
+      error.code = 'EACCES'
+      throw error
+    })
+
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+
+    // Act
+    const handler = getRegisteredHandler('skills:unlinkFromAgent')
+    const result = await handler(
+      {},
+      {
+        skillName,
+        agentId: 'cursor',
+        linkPath: localPath,
+        confirmedLocalDirectoryDelete: true,
+        reviewedDirectoryIdentity: reviewedIdentity,
+      },
+    )
+
+    // Assert
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/quarantined folder could not be restored/i)
+    expect(await readFile(join(localPath, 'SKILL.md'), 'utf-8')).toBe(
+      `# replacement ${skillName}\n`,
+    )
+    const entries = await readdir(cursorSkillsDir)
+    const quarantineEntry = entries.find((entry) =>
+      entry.startsWith(`${skillName}.trash-`),
+    )
+    expect(quarantineEntry).toBeDefined()
+    if (!quarantineEntry) return
+    expect(
+      await readFile(
+        join(cursorSkillsDir, quarantineEntry, 'SKILL.md'),
+        'utf-8',
+      ),
+    ).toBe(`# original ${skillName}\n`)
   })
 })

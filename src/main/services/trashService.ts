@@ -64,6 +64,24 @@ const MANUAL_RECOVERY_MARKER = '.manual-recovery'
 const evictTimers = new Map<TombstoneId, NodeJS.Timeout>()
 
 /**
+ * Copy a recovery directory without overwriting anything already at destination.
+ * @param source - Staged source directory to copy from.
+ * @param destination - Destination that must be absent before the copy starts.
+ * @returns Promise that resolves only when no destination entry was overwritten.
+ * @example await copyDirectoryNoOverwrite('/trash/source', '/Users/me/.agents/skills/task')
+ */
+async function copyDirectoryNoOverwrite(
+  source: string,
+  destination: string,
+): Promise<void> {
+  await fs.cp(source, destination, {
+    recursive: true,
+    force: false,
+    errorOnExist: true,
+  })
+}
+
+/**
  * Record of a symlink that existed before delete, used to rebuild the agent's
  * skills directory on undo.
  */
@@ -335,7 +353,7 @@ async function renameWithCrossDeviceFallback(
     await fs.rename(source, destination)
   } catch (renameError) {
     if (errorCode(renameError) === 'EXDEV') {
-      await fs.cp(source, destination, { recursive: true })
+      await copyDirectoryNoOverwrite(source, destination)
       await fs.rm(source, { recursive: true, force: true })
     } else {
       throw renameError
@@ -424,7 +442,7 @@ async function moveSourceIntoTrashEntry(
                   ),
           }
         }
-        await fs.cp(siblingStagePath, entrySourceDir, { recursive: true })
+        await copyDirectoryNoOverwrite(siblingStagePath, entrySourceDir)
         preserveEntryDirForManualRecovery = true
         await fs.rm(siblingStagePath, { recursive: true, force: true })
         return null
@@ -1111,7 +1129,7 @@ async function moveSourceBackedToTrash(
     } catch (reverseMoveError) {
       if (errorCode(reverseMoveError) === 'EXDEV') {
         try {
-          await fs.cp(entrySourceDir, sourcePath, { recursive: true })
+          await copyDirectoryNoOverwrite(entrySourceDir, sourcePath)
           await fs.rm(entrySourceDir, { recursive: true, force: true })
         } catch (reverseCopyError) {
           restoreSourceFailed = true
@@ -1291,7 +1309,7 @@ async function moveLocalOnlyToTrash(
                       ),
               }
             }
-            await fs.cp(siblingStagePath, stagedPath, { recursive: true })
+            await copyDirectoryNoOverwrite(siblingStagePath, stagedPath)
             stagedCopyCreated = true
             await fs.rm(siblingStagePath, { recursive: true, force: true })
             return { kind: 'moved' as const }

@@ -1,8 +1,14 @@
-import { existsSync, lstatSync, readdirSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 
 import { test, expect } from '../fixtures/electron-app'
-import { isSnapshotOffline } from '../fixtures/isolated-home'
 import {
   getStoreState,
   refreshSkillsState,
@@ -16,22 +22,50 @@ interface SymlinkSnapshot {
   linkPath: string
 }
 
-interface AzureSnapshot {
-  hasAzure: boolean
+interface UndoFixtureSnapshot {
+  hasFixture: boolean
   sourcePath: string | null
   validSymlinks: SymlinkSnapshot[]
 }
 
-const AZURE_AI_NAME = 'azure-ai'
+const UNDO_TOAST_FIXTURE_NAME = 'undo-toast-fixture'
 
 /**
- * Snapshot selector for azure-ai. Mirrors `azureSnapshotSelector` in
- * delete.e2e.ts. Inlined here (rather than imported from a shared helper)
+ * Create the source skill and one agent symlink this undo spec owns.
+ * @param isolatedHome - Test HOME from the Electron fixture.
+ * @returns Source and agent-link paths for the staged skill.
+ * @example stageUndoToastSkillFixture('/tmp/home')
+ */
+function stageUndoToastSkillFixture(isolatedHome: string): {
+  sourcePath: string
+  linkPath: string
+} {
+  const sourcePath = join(
+    isolatedHome,
+    '.agents',
+    'skills',
+    UNDO_TOAST_FIXTURE_NAME,
+  )
+  const cursorSkillsDir = join(isolatedHome, '.cursor', 'skills')
+  const linkPath = join(cursorSkillsDir, UNDO_TOAST_FIXTURE_NAME)
+  mkdirSync(sourcePath, { recursive: true })
+  mkdirSync(cursorSkillsDir, { recursive: true })
+  writeFileSync(
+    join(sourcePath, 'SKILL.md'),
+    '# Undo Toast Fixture\n\nRestored by E2E.\n',
+  )
+  symlinkSync(sourcePath, linkPath)
+  return { sourcePath, linkPath }
+}
+
+/**
+ * Snapshot selector for the self-staged undo fixture. Inlined here (rather than
+ * imported from a shared helper)
  * because `getStoreState` serializes the function via `Function.prototype.toString`
  * — the body must NOT close over outer-scope identifiers, so the literal
- * `'azure-ai'` is hard-coded inside.
+ * `'undo-toast-fixture'` is hard-coded inside.
  */
-const azureSnapshotSelector = (state: unknown): AzureSnapshot => {
+const undoToastFixtureSelector = (state: unknown): UndoFixtureSnapshot => {
   const root = state as {
     skills: {
       items: Array<{
@@ -41,12 +75,14 @@ const azureSnapshotSelector = (state: unknown): AzureSnapshot => {
       }>
     }
   }
-  const azure = root.skills.items.find((skill) => skill.name === 'azure-ai')
+  const fixture = root.skills.items.find(
+    (skill) => skill.name === 'undo-toast-fixture',
+  )
   return {
-    hasAzure: Boolean(azure),
-    sourcePath: azure?.path ?? null,
+    hasFixture: Boolean(fixture),
+    sourcePath: fixture?.path ?? null,
     validSymlinks:
-      azure?.symlinks.filter((symlink) => symlink.status === 'valid') ?? [],
+      fixture?.symlinks.filter((symlink) => symlink.status === 'valid') ?? [],
   }
 }
 
@@ -74,31 +110,21 @@ const azureSnapshotSelector = (state: unknown): AzureSnapshot => {
  * delete.e2e.ts owns the bulk-delete IPC contract.
  */
 
-test.beforeEach(() => {
-  test.skip(
-    isSnapshotOffline(),
-    'azure-ai required from snapshot; runner is offline (global-setup wrote snapshot.offline=true)',
-  )
-})
-
-test('UI: clicking Undo on the bulk-delete toast restores azure-ai files and symlinks', async ({
+test('UI: clicking Undo on the bulk-delete toast restores staged source files and symlinks', async ({
   appWindow,
   isolatedHome,
 }) => {
+  const { sourcePath: expectedSourcePath } =
+    stageUndoToastSkillFixture(isolatedHome)
   await waitForInitialScan(appWindow)
 
-  const expectedSourcePath = join(
-    isolatedHome,
-    '.agents',
-    'skills',
-    AZURE_AI_NAME,
-  )
   const trashDir = join(isolatedHome, '.agents', '.trash')
 
-  const initial = await getStoreState(appWindow, azureSnapshotSelector)
-  expect(initial.hasAzure, 'azure-ai should be installed by global-setup').toBe(
-    true,
-  )
+  const initial = await getStoreState(appWindow, undoToastFixtureSelector)
+  expect(
+    initial.hasFixture,
+    'undo-toast-fixture should be staged by this spec before scan',
+  ).toBe(true)
   expect(initial.sourcePath).toBe(expectedSourcePath)
   expect(
     initial.validSymlinks.length,
@@ -117,7 +143,10 @@ test('UI: clicking Undo on the bulk-delete toast restores azure-ai files and sym
   await appWindow.evaluate(() => {
     const store = window.__store__ ?? window.__store
     store?.dispatch({ type: 'ui/enterBulkSelectMode' })
-    store?.dispatch({ type: 'skills/toggleSelection', payload: 'azure-ai' })
+    store?.dispatch({
+      type: 'skills/toggleSelection',
+      payload: 'undo-toast-fixture',
+    })
   })
 
   // Toolbar primary button — global view, single skill selected. The label is
@@ -202,7 +231,7 @@ test('UI: clicking Undo on the bulk-delete toast restores azure-ai files and sym
   // A residual entry would leave a phantom undo target around indefinitely.
   const residualTrashEntries = existsSync(trashDir)
     ? readdirSync(trashDir).filter((entry) =>
-        entry.includes(`-${AZURE_AI_NAME}-`),
+        entry.includes(`-${UNDO_TOAST_FIXTURE_NAME}-`),
       )
     : []
   expect(
@@ -210,7 +239,7 @@ test('UI: clicking Undo on the bulk-delete toast restores azure-ai files and sym
     'restore must remove the trash entry — leftover would leak undo targets',
   ).toEqual([])
 
-  // Redux — azure-ai is back with the same set of valid symlinks. Comparing
+  // Redux — the staged skill is back with the same set of valid symlinks. Comparing
   // the agentId set (not the snapshot identity) is enough: status booleans
   // for restored agents land on `valid` because the source dir exists and
   // the symlink target resolves. `refreshSkillsState` is needed because the
@@ -218,9 +247,9 @@ test('UI: clicking Undo on the bulk-delete toast restores azure-ai files and sym
   // the renderer's listener races the test's evaluation; an explicit refresh
   // collapses the race.
   await refreshSkillsState(appWindow)
-  const restored = await getStoreState(appWindow, azureSnapshotSelector)
+  const restored = await getStoreState(appWindow, undoToastFixtureSelector)
 
-  expect(restored.hasAzure).toBe(true)
+  expect(restored.hasFixture).toBe(true)
   expect(restored.sourcePath).toBe(expectedSourcePath)
   expect(
     restored.validSymlinks.map((symlink) => symlink.agentId).sort(),

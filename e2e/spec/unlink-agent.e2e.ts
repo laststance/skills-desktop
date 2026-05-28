@@ -137,6 +137,24 @@ function unlinkItemsFor(agentPath: string, skillNames: string[]) {
 }
 
 /**
+ * Assert a path is absent without letting dangling symlinks pass as removed.
+ * @param path - Filesystem path expected to have no directory entry.
+ * @returns void when lstat reports ENOENT.
+ * @example expectPathMissing('/tmp/home/.cursor/skills/task')
+ */
+function expectPathMissing(path: string): void {
+  try {
+    const stats = lstatSync(path)
+    throw new Error(
+      `expected ${path} to be absent, but lstat found ${stats.isSymbolicLink() ? 'a symlink' : 'an entry'}`,
+    )
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
+    throw error
+  }
+}
+
+/**
  * Phase-2 spec covering the three unlink-style IPCs that operate on agent-side
  * link paths without writing to trash:
  *   - `SKILLS_UNLINK_FROM_AGENT`        (single)
@@ -195,6 +213,11 @@ test('unlinkFromAgent removes one valid azure-ai symlink without touching the so
     'expected at least one valid azure-ai symlink — adjust global-setup if --global no longer creates per-agent links',
   ).toBeTruthy()
   if (!target) return
+  expect(
+    target.targetPath,
+    'valid symlink rows must include a reviewed targetPath for single unlink',
+  ).toBeTruthy()
+  if (!target.targetPath) return
 
   // Other valid symlinks act as the "untouched" control set — none of them
   // should be removed by a single-agent unlink.
@@ -208,7 +231,7 @@ test('unlinkFromAgent removes one valid azure-ai symlink without touching the so
       skillName: string
       agentId: string
       linkPath: string
-      targetPath?: string
+      targetPath: string
     }) => window.electron.skills.unlinkFromAgent(args),
     {
       skillName: AZURE_AI_NAME,
@@ -225,7 +248,7 @@ test('unlinkFromAgent removes one valid azure-ai symlink without touching the so
   // present. The third assertion is the load-bearing one: a regression that
   // unlinks too aggressively (e.g. cascading the realpath target) would wipe
   // every agent in this loop and the diff would be obvious.
-  expect(existsSync(target.linkPath)).toBe(false)
+  expectPathMissing(target.linkPath)
   expect(existsSync(expectedSourcePath)).toBe(true)
   expect(existsSync(join(expectedSourcePath, 'SKILL.md'))).toBe(true)
   for (const other of otherValidSymlinks) {
@@ -293,15 +316,20 @@ test('unlinkFromAgent treats a missing linkPath as an idempotent success', async
   // Sanity — confirm the path is genuinely absent before the IPC fires. A
   // false positive here would silently test the normal unlink path instead of
   // the idempotent missing-path branch.
-  expect(existsSync(missingLinkPath)).toBe(false)
+  expectPathMissing(missingLinkPath)
 
   const ipcResult = await appWindow.evaluate(
-    async (args: { skillName: string; agentId: string; linkPath: string }) =>
-      window.electron.skills.unlinkFromAgent(args),
+    async (args: {
+      skillName: string
+      agentId: string
+      linkPath: string
+      targetPath: string
+    }) => window.electron.skills.unlinkFromAgent(args),
     {
       skillName: 'never-existed',
       agentId: 'claude-code',
       linkPath: missingLinkPath,
+      targetPath: join(isolatedHome, '.agents', 'skills', 'never-existed'),
     },
   )
 
@@ -327,12 +355,17 @@ test('unlinkFromAgent refuses a regular file with the structured kind-mismatch e
   expect(stagedStat.isDirectory()).toBe(false)
 
   const ipcResult = await appWindow.evaluate(
-    async (args: { skillName: string; agentId: string; linkPath: string }) =>
-      window.electron.skills.unlinkFromAgent(args),
+    async (args: {
+      skillName: string
+      agentId: string
+      linkPath: string
+      targetPath: string
+    }) => window.electron.skills.unlinkFromAgent(args),
     {
       skillName: 'not-a-skill.txt',
       agentId: 'claude-code',
       linkPath: regularFilePath,
+      targetPath: join(isolatedHome, '.agents', 'skills', 'not-a-skill.txt'),
     },
   )
 
@@ -396,7 +429,7 @@ test('unlinkManyFromAgent removes every pre-staged symlink and leaves source dir
   // a regression that hard-rms the realpath target (instead of just the
   // symlink) would surface here as missing source dirs.
   for (const name of skillNames) {
-    expect(existsSync(join(claudeAgentPath, name))).toBe(false)
+    expectPathMissing(join(claudeAgentPath, name))
     const sourcePath = join(isolatedHome, '.agents', 'skills', name)
     expect(existsSync(sourcePath)).toBe(true)
     expect(existsSync(join(sourcePath, 'SKILL.md'))).toBe(true)
@@ -444,7 +477,7 @@ test('unlinkManyFromAgent uses reviewed linkPath when metadata name differs from
   expect(result.items).toEqual([
     { skillName: metadataName, outcome: 'unlinked' },
   ])
-  expect(existsSync(reviewedLinkPath)).toBe(false)
+  expectPathMissing(reviewedLinkPath)
   expect(lstatSync(decoyLinkPath).isSymbolicLink()).toBe(true)
   expect(existsSync(sourcePath)).toBe(true)
   expect(existsSync(join(sourcePath, 'SKILL.md'))).toBe(true)
@@ -558,7 +591,7 @@ test('unlinkManyFromAgent aggregates per-item failures without short-circuiting 
       expect(existsSync(join(poisonedLinkPath, 'SKILL.md'))).toBe(true)
       expect(lstatSync(poisonedLinkPath).isDirectory()).toBe(true)
     } else {
-      expect(existsSync(join(claudeAgentPath, name))).toBe(false)
+      expectPathMissing(join(claudeAgentPath, name))
     }
   }
 })
@@ -742,7 +775,7 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
     // FS — the agent dir is gone from its original location and every source
     // dir is intact. trashItem moves only the agent path itself; per-skill
     // source bytes under SOURCE_DIR must not be touched (unlink is benign).
-    expect(existsSync(clineAgentPath)).toBe(false)
+    expectPathMissing(clineAgentPath)
     for (const name of skillNames) {
       const sourcePath = join(isolatedHome, '.agents', 'skills', name)
       expect(existsSync(sourcePath)).toBe(true)

@@ -342,10 +342,56 @@ describe('skillsSlice', () => {
       skillName: 'task',
       agentId: 'claude-code',
       linkPath: '/home/user/.claude/skills/task',
-      targetPath: undefined,
       confirmedLocalDirectoryDelete: true,
       reviewedDirectoryIdentity: directoryIdentity,
     })
+  })
+
+  it('unlinkSkillFromAgent asks for rescan when local directory identity is missing', async () => {
+    // Arrange
+    const localSymlink: SymlinkInfo = {
+      ...sampleSymlink,
+      isLocal: true,
+      targetPath: undefined,
+      filesystemIdentity: undefined,
+    }
+
+    const store = await createTestStore()
+    const { unlinkSkillFromAgent } = await import('./skillsSlice')
+
+    // Act
+    await store.dispatch(
+      unlinkSkillFromAgent({ skill: sampleSkill, symlink: localSymlink }),
+    )
+
+    // Assert
+    expect(mockUnlinkFromAgent).not.toHaveBeenCalled()
+    expect(store.getState().skills.error).toBe(
+      'Rescan before delete. The reviewed local folder identity is missing.',
+    )
+  })
+
+  it('unlinkSkillFromAgent asks for rescan when symlink target identity is missing', async () => {
+    // Arrange
+    const staleSymlink: SymlinkInfo = {
+      ...sampleSymlink,
+      isLocal: false,
+      targetPath: undefined,
+    }
+
+    const store = await createTestStore()
+    const { unlinkSkillFromAgent } = await import('./skillsSlice')
+
+    // Act
+    await store.dispatch(
+      unlinkSkillFromAgent({ skill: sampleSkill, symlink: staleSymlink }),
+    )
+
+    // Assert
+    expect(mockUnlinkFromAgent).not.toHaveBeenCalled()
+    expect(store.getState().skills.error).toBe(
+      'Rescan before unlink. The reviewed symlink target is missing.',
+    )
   })
 
   // --- createSymlinks thunk ---

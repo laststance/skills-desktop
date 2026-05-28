@@ -41,6 +41,32 @@ interface E2EFilesystemIdentity {
 const AZURE_AI_NAME = 'azure-ai'
 
 /**
+ * Skip only tests whose assertion target comes from the snapshot install.
+ * @returns void; Playwright marks the current test skipped when offline.
+ * @example skipWhenAzureSnapshotOffline()
+ */
+function skipWhenAzureSnapshotOffline(): void {
+  test.skip(
+    isSnapshotOffline(),
+    'azure-* skills required for this test; runner is offline (global-setup wrote snapshot.offline=true)',
+  )
+}
+
+/**
+ * Stage a minimal source skill inside the isolated HOME before renderer scans.
+ * @param isolatedHome - Test HOME from the Electron fixture.
+ * @param skillName - Skill folder name to create under ~/.agents/skills.
+ * @returns Absolute source skill directory path.
+ * @example stageSourceSkill('/tmp/home', 'fixture-skill')
+ */
+function stageSourceSkill(isolatedHome: string, skillName: string): string {
+  const sourcePath = join(isolatedHome, '.agents', 'skills', skillName)
+  mkdirSync(sourcePath, { recursive: true })
+  writeFileSync(join(sourcePath, 'SKILL.md'), `# ${skillName}\n`)
+  return sourcePath
+}
+
+/**
  * Build the reviewed directory identity required by removeAllFromAgent IPC.
  * @param path - Reviewed agent skills path.
  * @returns Serializable identity copied from Node lstat metadata.
@@ -88,21 +114,10 @@ function filesystemIdentityForPath(path: string): E2EFilesystemIdentity {
  * one regression silently mask another.
  */
 
-// Every test in this file reads `~/.agents/skills/azure-ai` from the snapshot
-// (selection regressions dispatch `payload: AZURE_AI_NAME`; the IRON-RULE
-// suite walks the symlink chain rooted at the snapshot's SOURCE_DIR). When
-// global-setup is offline, SOURCE_DIR is empty and the renderer surfaces an
-// empty skill list, which would silently drop the assertion target.
-test.beforeEach(() => {
-  test.skip(
-    isSnapshotOffline(),
-    'azure-* skills required for this suite; runner is offline (global-setup wrote snapshot.offline=true)',
-  )
-})
-
 test('selection survives no further than a tab switch or agent switch (regression 2f05684)', async ({
   appWindow,
 }) => {
+  skipWhenAzureSnapshotOffline()
   await waitForInitialScan(appWindow)
 
   // Tab-switch leg — toggle one azure-* skill into the selection, flip the
@@ -175,6 +190,7 @@ test('selection survives no further than a tab switch or agent switch (regressio
 test('selection clears on fetchSyncPreview.pending — third listener-matcher leg (regression 2f05684 follow-up)', async ({
   appWindow,
 }) => {
+  skipWhenAzureSnapshotOffline()
   await waitForInitialScan(appWindow)
 
   // Tick one azure-* skill so the listener has something to clear. Leg-1/-2
@@ -234,6 +250,7 @@ test('cline/warp do NOT report universal source skills as their own local skills
   appWindow,
   isolatedHome,
 }) => {
+  skipWhenAzureSnapshotOffline()
   await waitForInitialScan(appWindow)
 
   // FS truth — universal source has azure-ai but neither cline nor warp's
@@ -326,7 +343,9 @@ test('removeAllFromAgent refuses on a multi-agent shared scanDir (.config/agents
   const sentinelPath = join(sharedScanDir, 'iron-rule-sentinel.md')
   writeFileSync(sentinelPath, '# sentinel\n')
 
-  await waitForInitialScan(appWindow)
+  await appWindow.waitForFunction(() =>
+    Boolean(window.electron?.skills?.removeAllFromAgent),
+  )
 
   const result = await appWindow.evaluate(
     async (args: {
@@ -381,12 +400,10 @@ test('removeAllFromAgent refusal leaves both aliased symlinks and local skill by
   const sharedScanDir = join(isolatedHome, '.config', 'agents', 'skills')
   mkdirSync(sharedScanDir, { recursive: true })
 
-  // Source skill the alias points at — the global-setup scan creates this.
-  const aliasTargetPath = join(isolatedHome, '.agents', 'skills', AZURE_AI_NAME)
-  expect(
-    existsSync(aliasTargetPath),
-    `expected snapshot SOURCE_DIR to contain ${AZURE_AI_NAME}; global-setup may have changed`,
-  ).toBe(true)
+  // Source skill the alias points at. This test owns the fixture so the safety
+  // check stays active even when the global snapshot install is offline.
+  const aliasSkillName = 'b1-source-alias-fixture'
+  const aliasTargetPath = stageSourceSkill(isolatedHome, aliasSkillName)
 
   // Pre-stage mixed contents inside the shared dir.
   const aliasLinkPath = join(sharedScanDir, 'b1-azure-alias')
@@ -459,6 +476,7 @@ test('removeAllFromAgent refusal still fires when SOURCE_DIR itself is a symlink
   appWindow,
   isolatedHome,
 }) => {
+  stageSourceSkill(isolatedHome, 'firmlink-source-fixture')
   // Wait for the renderer's initial scan BEFORE renaming SOURCE_DIR.
   // The scanner reads SOURCE_DIR's contents; renaming mid-scan would race
   // and could surface as a flaky ENOENT in the renderer's fetchSkills
@@ -478,7 +496,7 @@ test('removeAllFromAgent refusal still fires when SOURCE_DIR itself is a symlink
     `expected ${realSourceDirParent} to be absent — isolated home leaked across tests`,
   ).toBe(false)
 
-  // Step 1: relocate the snapshot's source bytes to .agents-real/skills/.
+  // Step 1: relocate the staged source bytes to .agents-real/skills/.
   // renameSync is sound here because cp -al -based snapshots create real
   // directories (only files are hardlinked); moving the directory entry
   // doesn't touch the file inodes underneath.
@@ -505,7 +523,7 @@ test('removeAllFromAgent refusal still fires when SOURCE_DIR itself is a symlink
   const realSourceContentsBefore = readdirSync(realSourceDir).sort()
   expect(
     realSourceContentsBefore.length,
-    'expected the relocated SOURCE_DIR to retain the snapshot contents',
+    'expected the relocated SOURCE_DIR to retain staged source contents',
   ).toBeGreaterThan(0)
 
   const result = await appWindow.evaluate(
@@ -566,7 +584,7 @@ test('removeAllFromAgent refusal still fires when SOURCE_DIR itself is a symlink
  *      slot would silently break the renderer's broken-vs-missing badge
  *      logic without surfacing in a sourced-skill assertion.
  *
- * Negative control on a real source (azure-ai) in the same store state
+ * Negative control on a self-staged real source in the same store state
  * confirms the orphan flag did NOT broaden across all rows — the previous
  * three assertions alone could pass while every row got `isOrphan: true`.
  */
@@ -574,6 +592,7 @@ test('scanSkills surfaces broken symlinks as orphan skills (regression #127)', a
   appWindow,
   isolatedHome,
 }) => {
+  stageSourceSkill(isolatedHome, 'source-control-fixture')
   await waitForInitialScan(appWindow)
 
   // Stage the orphan condition: a non-universal agent dir containing a
@@ -668,18 +687,16 @@ test('scanSkills surfaces broken symlinks as orphan skills (regression #127)', a
   )
   expect(claudeRow?.status).toBe('missing')
 
-  // Negative control — a real source skill (azure-ai) MUST NOT be flagged
+  // Negative control — a real source skill MUST NOT be flagged
   // as orphan. A regression that broadened the orphan branch (e.g. moving
   // `isOrphan: true` outside the orphan-scan block in scanSkills.ts) would
   // pass the orphan-row assertions above but flip every source skill into
   // `isOrphan: true`, hiding their delete/unlink buttons across the UI.
-  // The file-level `test.beforeEach` already skips this entire suite when
-  // the snapshot is offline, so azure-ai is guaranteed to be installed.
+  // This spec stages the control source itself so it remains active offline.
   // `getStoreState` re-evaluates the selector inside the renderer via
-  // `Function.toString`, so closure-scope identifiers like `AZURE_AI_NAME`
-  // would resolve to `undefined` at runtime. Inline the literal — same
-  // pattern delete.e2e.ts uses for `'azure-ai'` in azureSnapshotSelector.
-  const azureRecord = await getStoreState(
+  // `Function.toString`, so closure-scope identifiers would resolve to
+  // `undefined` at runtime. Inline the literal string.
+  const sourceRecord = await getStoreState(
     appWindow,
     (state): { isOrphan: boolean; isSource: boolean } | null => {
       const root = state as {
@@ -687,18 +704,20 @@ test('scanSkills surfaces broken symlinks as orphan skills (regression #127)', a
           items: Array<{ name: string; isOrphan: boolean; isSource: boolean }>
         }
       }
-      const azure = root.skills.items.find((skill) => skill.name === 'azure-ai')
-      return azure
-        ? { isOrphan: azure.isOrphan, isSource: azure.isSource }
+      const source = root.skills.items.find(
+        (skill) => skill.name === 'source-control-fixture',
+      )
+      return source
+        ? { isOrphan: source.isOrphan, isSource: source.isSource }
         : null
     },
   )
   expect(
-    azureRecord,
-    'azure-ai (real source) must remain in skills.items alongside the orphan',
+    sourceRecord,
+    'source-control-fixture (real source) must remain in skills.items alongside the orphan',
   ).not.toBeNull()
-  expect(azureRecord?.isOrphan).toBe(false)
-  expect(azureRecord?.isSource).toBe(true)
+  expect(sourceRecord?.isOrphan).toBe(false)
+  expect(sourceRecord?.isSource).toBe(true)
 })
 
 /**
@@ -741,15 +760,14 @@ test('scanSkills surfaces broken symlinks as orphan skills (regression #127)', a
  *      wrapper width assertion ever loses precision against a future Radix
  *      version.
  *
- * This test does not depend on the snapshot's azure-* skills — it only needs
- * the Sidebar mounted with the SourceCard visible. The file-level
- * `test.beforeEach` skip-gate against `isSnapshotOffline()` is irrelevant here
- * but harmless; we accept the false-positive skip on offline runs to keep the
- * suite uniform.
+ * This test does not depend on the snapshot's azure-* skills — it stages one
+ * minimal source so the Sidebar mounts with the SourceCard visible offline.
  */
 test('sidebar inner ScrollArea wrapper does not inflate beyond aside width (regression a541de9)', async ({
   appWindow,
+  isolatedHome,
 }) => {
+  stageSourceSkill(isolatedHome, 'sidebar-sourcecard-fixture')
   await waitForInitialScan(appWindow)
 
   const aside = appWindow.locator('aside[aria-label="Agent sidebar"]')
@@ -852,6 +870,7 @@ test('sidebar inner ScrollArea wrapper does not inflate beyond aside width (regr
 test('skills list scroll position survives a background refetch (regression 5619bb7)', async ({
   appWindow,
 }) => {
+  skipWhenAzureSnapshotOffline()
   await waitForInitialScan(appWindow)
 
   const itemCount = await getStoreState(appWindow, (state) => {

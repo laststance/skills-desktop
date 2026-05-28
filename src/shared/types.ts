@@ -730,27 +730,43 @@ export interface LeaderboardData {
 }
 
 /**
- * IPC argument for `skills:unlinkFromAgent` — removes one selected agent path.
- * Symlinks are unlinked without touching their target; local skill folders
- * require an explicit renderer confirmation flag before main moves them to OS
- * Trash.
+ * IPC argument for `skills:unlinkFromAgent` — removes one reviewed agent path.
+ * Symlink unlink requires the reviewed resolved target; local folder delete
+ * requires explicit confirmation plus reviewed directory identity.
  * @example
- * { skillName: 'tdd-workflow', agentId: 'cursor', linkPath: '/Users/me/.cursor/skills/tdd-workflow', confirmedLocalDirectoryDelete: false }
+ * { skillName: 'tdd-workflow', agentId: 'cursor', linkPath: '/Users/me/.cursor/skills/tdd-workflow', targetPath: '/Users/me/.agents/skills/tdd-workflow' }
+ * @example
+ * { skillName: 'local-task', agentId: 'cursor', linkPath: '/Users/me/.cursor/skills/local-task', confirmedLocalDirectoryDelete: true, reviewedDirectoryIdentity }
  */
-export interface UnlinkFromAgentOptions {
-  /** Skill whose symlink will be removed. @example "tdd-workflow" */
-  skillName: SkillName
-  /** Agent the symlink belongs to. */
-  agentId: AgentId
-  /** Absolute path to the symlink itself (inside the agent's skills directory). */
-  linkPath: AbsolutePath
-  /** Reviewed resolved target for symlink unlink; omitted only for local folder delete. */
-  targetPath?: AbsolutePath
-  /** True only after the local-folder destructive confirmation dialog submits. */
-  confirmedLocalDirectoryDelete?: boolean
-  /** Required when deleting a local folder; proves main still sees the reviewed directory. */
-  reviewedDirectoryIdentity?: FilesystemEntryIdentity
-}
+export type UnlinkFromAgentOptions =
+  | {
+      /** Skill whose symlink will be removed. @example "tdd-workflow" */
+      skillName: SkillName
+      /** Agent the symlink belongs to. */
+      agentId: AgentId
+      /** Absolute path to the symlink itself (inside the agent's skills directory). */
+      linkPath: AbsolutePath
+      /** Reviewed resolved target for symlink unlink. */
+      targetPath: AbsolutePath
+      /** Must be false/omitted for symlink unlink. */
+      confirmedLocalDirectoryDelete?: false
+      /** Local-folder identity is invalid for symlink unlink. */
+      reviewedDirectoryIdentity?: never
+    }
+  | {
+      /** Skill whose local folder will be moved to OS Trash. @example "local-task" */
+      skillName: SkillName
+      /** Agent the local folder belongs to. */
+      agentId: AgentId
+      /** Absolute path to the local folder inside the agent's skills directory. */
+      linkPath: AbsolutePath
+      /** True only after the local-folder destructive confirmation dialog submits. */
+      confirmedLocalDirectoryDelete: true
+      /** Required when deleting a local folder; proves main still sees the reviewed directory. */
+      reviewedDirectoryIdentity: FilesystemEntryIdentity
+      /** Symlink target is invalid for local folder delete. */
+      targetPath?: never
+    }
 
 /**
  * Result from unlinking a single symlink.

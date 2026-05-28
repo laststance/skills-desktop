@@ -108,7 +108,7 @@ function buildQuarantinePath(
 }
 
 /**
- * Restore a quarantined path after validation or OS Trash fails.
+ * Restore a quarantined path after validation or OS Trash fails without clobbering replacements.
  * @param quarantinePath - Hidden same-directory path currently holding the entry.
  * @param originalPath - Original reviewed path to restore.
  * @returns true when restoration succeeds or the quarantine is already gone.
@@ -119,10 +119,40 @@ async function restoreQuarantinedPath(
   originalPath: AbsolutePath,
 ): Promise<boolean> {
   try {
-    await fs.rename(quarantinePath, originalPath)
-    return true
+    await fs.lstat(originalPath)
+    return false
+  } catch (error) {
+    if (!isMissingPathError(error)) return false
+  }
+
+  let quarantineStats: Stats
+  try {
+    quarantineStats = await fs.lstat(quarantinePath)
   } catch (error) {
     if (errorCode(error) === 'ENOENT') return true
+    return false
+  }
+
+  try {
+    if (quarantineStats.isSymbolicLink()) {
+      const target = await fs.readlink(quarantinePath)
+      await fs.symlink(target, originalPath)
+      await fs.unlink(quarantinePath)
+      return true
+    }
+
+    if (quarantineStats.isDirectory()) {
+      await fs.cp(quarantinePath, originalPath, {
+        recursive: true,
+        force: false,
+        errorOnExist: true,
+      })
+      await fs.rm(quarantinePath, { recursive: true, force: true })
+      return true
+    }
+
+    return false
+  } catch {
     return false
   }
 }
@@ -181,7 +211,12 @@ async function trashReviewedDirectory(
 
     await shell.trashItem(quarantinePath)
   } catch (error) {
-    await restoreQuarantinedPath(quarantinePath, directoryPath)
+    const restored = await restoreQuarantinedPath(quarantinePath, directoryPath)
+    if (!restored) {
+      throw new Error(
+        `${extractErrorMessage(error)}; quarantined folder could not be restored from ${quarantinePath}`,
+      )
+    }
     throw error
   }
 }
@@ -242,7 +277,12 @@ async function removeLinkPathByKind(
         }
         await fs.unlink(quarantinePath)
       } catch (error) {
-        await restoreQuarantinedPath(quarantinePath, linkPath)
+        const restored = await restoreQuarantinedPath(quarantinePath, linkPath)
+        if (!restored) {
+          throw new Error(
+            `${extractErrorMessage(error)}; quarantined symlink could not be restored from ${quarantinePath}`,
+          )
+        }
         throw error
       }
       return { success: true } as const
@@ -563,7 +603,7 @@ export function registerSkillsHandlers(): void {
    * @returns UnlinkResult with success status and optional error
    */
   typedHandle(IPC_CHANNELS.SKILLS_UNLINK_FROM_AGENT, async (_, options) => {
-    const { agentId, linkPath, confirmedLocalDirectoryDelete = false } = options
+    const { agentId, linkPath } = options
 
     try {
       const agent = findAgentById(agentId)
@@ -593,18 +633,11 @@ export function registerSkillsHandlers(): void {
       }
 
       if (stats.isDirectory() && !stats.isSymbolicLink()) {
-        if (!confirmedLocalDirectoryDelete) {
+        if (options.confirmedLocalDirectoryDelete !== true) {
           return {
             success: false,
             error:
               'Refusing to delete a local skill without explicit confirmation.',
-          }
-        }
-        if (!options.reviewedDirectoryIdentity) {
-          return {
-            success: false,
-            error:
-              'Refusing to delete a local skill without reviewed directory identity.',
           }
         }
         if (
@@ -638,7 +671,9 @@ export function registerSkillsHandlers(): void {
       return await removeLinkPathByKind(
         derivedLinkPath,
         stats,
-        options.targetPath,
+        options.confirmedLocalDirectoryDelete === true
+          ? undefined
+          : options.targetPath,
       )
     } catch (error) {
       return { success: false, error: extractErrorMessage(error) }

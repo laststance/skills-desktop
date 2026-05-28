@@ -191,16 +191,36 @@ export const unlinkSkillFromAgent = createAsyncThunk(
   'skills/unlinkFromAgent',
   async (params: { skill: Skill; symlink: SymlinkInfo }) => {
     const { skill, symlink } = params
-    const result = await window.electron.skills.unlinkFromAgent({
-      skillName: skill.name,
-      agentId: symlink.agentId,
-      linkPath: symlink.linkPath,
-      targetPath: symlink.isLocal ? undefined : symlink.targetPath,
-      confirmedLocalDirectoryDelete: symlink.isLocal,
-      reviewedDirectoryIdentity: symlink.isLocal
-        ? symlink.filesystemIdentity
-        : undefined,
-    })
+    const result = await window.electron.skills.unlinkFromAgent(
+      symlink.isLocal
+        ? (() => {
+            if (!symlink.filesystemIdentity) {
+              throw new Error(
+                'Rescan before delete. The reviewed local folder identity is missing.',
+              )
+            }
+            return {
+              skillName: skill.name,
+              agentId: symlink.agentId,
+              linkPath: symlink.linkPath,
+              confirmedLocalDirectoryDelete: true,
+              reviewedDirectoryIdentity: symlink.filesystemIdentity,
+            }
+          })()
+        : (() => {
+            if (!symlink.targetPath) {
+              throw new Error(
+                'Rescan before unlink. The reviewed symlink target is missing.',
+              )
+            }
+            return {
+              skillName: skill.name,
+              agentId: symlink.agentId,
+              linkPath: symlink.linkPath,
+              targetPath: symlink.targetPath,
+            }
+          })(),
+    )
     if (!result.success) {
       throw new Error(result.error || 'Failed to unlink skill')
     }

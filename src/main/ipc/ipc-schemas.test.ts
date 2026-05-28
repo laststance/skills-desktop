@@ -43,6 +43,7 @@ describe('skillNameString consistency across channels', () => {
           skillName: malicious,
           agentId: 'cursor',
           linkPath: '/tmp/x',
+          targetPath: '/tmp/target',
         },
       },
       {
@@ -221,6 +222,7 @@ describe('reviewed destructive path schemas', () => {
       skillName: 'task',
       agentId: 'cursor',
       linkPath: 'relative/link',
+      targetPath: '/tmp/target',
     }
 
     // Act
@@ -228,6 +230,53 @@ describe('reviewed destructive path schemas', () => {
 
     // Assert
     expect(result.success).toBe(false)
+  })
+
+  it('requires targetPath for single-agent symlink unlink', () => {
+    // Arrange
+    const missingTargetPath = {
+      skillName: 'task',
+      agentId: 'cursor',
+      linkPath: '/tmp/task',
+    }
+    const relativeTargetPath = {
+      skillName: 'task',
+      agentId: 'cursor',
+      linkPath: '/tmp/task',
+      targetPath: 'relative/target',
+    }
+    const validSymlinkUnlink = {
+      skillName: 'task',
+      agentId: 'cursor',
+      linkPath: '/tmp/task',
+      targetPath: '/tmp/target',
+    }
+
+    // Act / Assert
+    expect(unlinkSchema.safeParse([missingTargetPath]).success).toBe(false)
+    expect(unlinkSchema.safeParse([relativeTargetPath]).success).toBe(false)
+    expect(unlinkSchema.safeParse([validSymlinkUnlink]).success).toBe(true)
+  })
+
+  it('requires reviewed identity for confirmed single-agent local delete', () => {
+    // Arrange
+    const missingIdentity = {
+      skillName: 'local-task',
+      agentId: 'cursor',
+      linkPath: '/tmp/local-task',
+      confirmedLocalDirectoryDelete: true,
+    }
+    const validLocalDelete = {
+      skillName: 'local-task',
+      agentId: 'cursor',
+      linkPath: '/tmp/local-task',
+      confirmedLocalDirectoryDelete: true,
+      reviewedDirectoryIdentity: directoryIdentity,
+    }
+
+    // Act / Assert
+    expect(unlinkSchema.safeParse([missingIdentity]).success).toBe(false)
+    expect(unlinkSchema.safeParse([validLocalDelete]).success).toBe(true)
   })
 
   it('requires a reviewed filesystem identity for single delete', () => {
