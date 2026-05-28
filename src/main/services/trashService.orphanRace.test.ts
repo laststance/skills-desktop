@@ -120,6 +120,79 @@ describe('trashService orphan cleanup guarded commit', () => {
     expect(await readdir(__getTrashDirForTests())).toEqual([])
   })
 
+  it('preserves moved cleanup symlink when restore destination appears after empty check', async () => {
+    // Arrange
+    const skillName = 'source-restore-race-after-check'
+    const sourcePath = join(tempHome, '.agents', 'skills', skillName)
+    const cursorSkillsDir = join(tempHome, '.cursor', 'skills')
+    const linkPath = join(cursorSkillsDir, skillName)
+    const replacementTargetPath = join(
+      tempHome,
+      '.agents',
+      'skills',
+      'replacement-after-check',
+    )
+    await mkdir(sourcePath, { recursive: true })
+    await writeFile(join(sourcePath, 'SKILL.md'), `# ${skillName}\n`, 'utf-8')
+    await mkdir(cursorSkillsDir, { recursive: true })
+    await symlink(sourcePath, linkPath)
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        unlink: async (path: string): Promise<void> => {
+          if (String(path).startsWith(`${linkPath}.cleanup-`)) {
+            const error = new Error(
+              'forced cleanup unlink failure before restore race',
+            ) as NodeJS.ErrnoException
+            error.code = 'EACCES'
+            throw error
+          }
+          return actual.unlink(path)
+        },
+        symlink: async (
+          target: string,
+          path: string,
+          type?: Parameters<typeof actual.symlink>[2],
+        ): Promise<void> => {
+          if (target === sourcePath && path === linkPath) {
+            await actual.symlink(replacementTargetPath, linkPath)
+            const error = new Error(
+              'forced restore destination collision',
+            ) as NodeJS.ErrnoException
+            error.code = 'EEXIST'
+            throw error
+          }
+          return actual.symlink(target, path, type)
+        },
+      }
+    })
+    const { __getTrashDirForTests, moveToTrash } =
+      await import('./trashService')
+
+    // Act / Assert
+    await expect(
+      moveToTrash(
+        skillName,
+        sourcePath,
+        await reviewedIdentityForPath(sourcePath),
+      ),
+    ).rejects.toThrow(/could not be restored/i)
+    expect((await lstat(sourcePath)).isDirectory()).toBe(true)
+    expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
+    expect(await readlink(linkPath)).toBe(replacementTargetPath)
+    const leftovers = await readdir(cursorSkillsDir)
+    const cleanupEntries = leftovers.filter((entry) =>
+      entry.startsWith(`${skillName}.cleanup-`),
+    )
+    expect(cleanupEntries).toHaveLength(1)
+    const cleanupPath = join(cursorSkillsDir, cleanupEntries[0]!)
+    expect((await lstat(cleanupPath)).isSymbolicLink()).toBe(true)
+    expect(await readlink(cleanupPath)).toBe(sourcePath)
+    expect(await readdir(__getTrashDirForTests())).toEqual([])
+  })
+
   it('restores earlier source-backed symlinks when a later agent aborts cascade cleanup', async () => {
     // Arrange
     const skillName = 'source-partial-rollback'

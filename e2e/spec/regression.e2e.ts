@@ -41,14 +41,16 @@ interface E2EFilesystemIdentity {
 const AZURE_AI_NAME = 'azure-ai'
 
 /**
- * Skip only tests whose assertion target comes from the snapshot install.
+ * Skip tests whose assertion target comes from the snapshot install.
+ * @param isolatedHome - E2E fixture HOME to inspect for the azure source dir.
  * @returns void; Playwright marks the current test skipped when offline.
- * @example skipWhenAzureSnapshotOffline()
+ * @example skipWhenAzureSnapshotUnavailable('/tmp/home')
  */
-function skipWhenAzureSnapshotOffline(): void {
+function skipWhenAzureSnapshotUnavailable(isolatedHome: string): void {
   test.skip(
-    isSnapshotOffline(),
-    'azure-* skills required for this test; runner is offline (global-setup wrote snapshot.offline=true)',
+    isSnapshotOffline() ||
+      !existsSync(join(isolatedHome, '.agents', 'skills', AZURE_AI_NAME)),
+    'azure-* skills required for this test; snapshot is offline or install was skipped',
   )
 }
 
@@ -116,8 +118,9 @@ function filesystemIdentityForPath(path: string): E2EFilesystemIdentity {
 
 test('selection survives no further than a tab switch or agent switch (regression 2f05684)', async ({
   appWindow,
+  isolatedHome,
 }) => {
-  skipWhenAzureSnapshotOffline()
+  skipWhenAzureSnapshotUnavailable(isolatedHome)
   await waitForInitialScan(appWindow)
 
   // Tab-switch leg — toggle one azure-* skill into the selection, flip the
@@ -189,8 +192,9 @@ test('selection survives no further than a tab switch or agent switch (regressio
  */
 test('selection clears on fetchSyncPreview.pending — third listener-matcher leg (regression 2f05684 follow-up)', async ({
   appWindow,
+  isolatedHome,
 }) => {
-  skipWhenAzureSnapshotOffline()
+  skipWhenAzureSnapshotUnavailable(isolatedHome)
   await waitForInitialScan(appWindow)
 
   // Tick one azure-* skill so the listener has something to clear. Leg-1/-2
@@ -250,7 +254,7 @@ test('cline/warp do NOT report universal source skills as their own local skills
   appWindow,
   isolatedHome,
 }) => {
-  skipWhenAzureSnapshotOffline()
+  skipWhenAzureSnapshotUnavailable(isolatedHome)
   await waitForInitialScan(appWindow)
 
   // FS truth — universal source has azure-ai but neither cline nor warp's
@@ -869,8 +873,9 @@ test('sidebar inner ScrollArea wrapper does not inflate beyond aside width (regr
  */
 test('skills list scroll position survives a background refetch (regression 5619bb7)', async ({
   appWindow,
+  isolatedHome,
 }) => {
-  skipWhenAzureSnapshotOffline()
+  skipWhenAzureSnapshotUnavailable(isolatedHome)
   await waitForInitialScan(appWindow)
 
   const itemCount = await getStoreState(appWindow, (state) => {

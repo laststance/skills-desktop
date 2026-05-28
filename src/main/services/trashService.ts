@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import type { Stats } from 'node:fs'
+import { constants, type Stats } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -79,6 +79,44 @@ async function copyDirectoryNoOverwrite(
     force: false,
     errorOnExist: true,
   })
+}
+
+/**
+ * Restore a moved cleanup candidate without overwriting a recreated destination.
+ * @param movedPath - Temporary same-directory path currently holding the entry.
+ * @param destination - Original reviewed slot that must still be absent.
+ * @returns Promise that resolves after the moved entry is restored and removed.
+ * @example await restorePathNoOverwrite('/agent/task.cleanup-id', '/agent/task')
+ */
+async function restorePathNoOverwrite(
+  movedPath: string,
+  destination: string,
+): Promise<void> {
+  const stats = await fs.lstat(movedPath)
+
+  if (stats.isSymbolicLink()) {
+    const target = await fs.readlink(movedPath)
+    await fs.symlink(target, destination)
+    await fs.unlink(movedPath)
+    return
+  }
+
+  if (stats.isDirectory()) {
+    await copyDirectoryNoOverwrite(movedPath, destination)
+    await fs.rm(movedPath, { recursive: true, force: true })
+    return
+  }
+
+  if (stats.isFile()) {
+    await fs.copyFile(movedPath, destination, constants.COPYFILE_EXCL)
+    await fs.unlink(movedPath)
+    return
+  }
+
+  throw new TrashError(
+    `Cleanup stopped, but the moved entry type cannot be restored safely from ${movedPath}.`,
+    'EINVAL',
+  )
 }
 
 /**
@@ -591,7 +629,7 @@ async function restoreMovedCleanupCandidate(
   }
 
   try {
-    await fs.rename(movedPath, linkPath)
+    await restorePathNoOverwrite(movedPath, linkPath)
   } catch (error) {
     throw new TrashError(
       `Cleanup stopped, but the moved entry could not be restored at ${linkPath}: ${extractErrorMessage(error)}`,
@@ -1590,9 +1628,9 @@ async function restoreSourceBacked(
     }
   }
 
-  // Source path free?
+  // Source path free? Use lstat so a dangling symlink still blocks restore.
   try {
-    await fs.stat(manifest.sourcePath)
+    await fs.lstat(manifest.sourcePath)
     return {
       outcome: 'error',
       error: {

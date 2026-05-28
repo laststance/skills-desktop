@@ -50,7 +50,7 @@ Download the latest release from [GitHub Releases](https://github.com/laststance
 ### Prerequisites
 
 - Node.js 20+
-- pnpm 9+
+- pnpm 10+
 
 ### Setup
 
@@ -103,7 +103,7 @@ APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 
 | Component | Technology                                           |
 | --------- | ---------------------------------------------------- |
-| Framework | Electron 41                                          |
+| Framework | Electron 42                                          |
 | Frontend  | React 19 + TypeScript                                |
 | State     | Redux Toolkit + @laststance/redux-storage-middleware |
 | Styling   | Tailwind CSS + shadcn/ui                             |

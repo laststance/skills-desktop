@@ -190,6 +190,38 @@ describe('trashService.restore target-containment', () => {
     await stat(linkPath)
   })
 
+  it('refuses source-backed restore when a dangling symlink occupies the source path', async () => {
+    // Arrange
+    const { restore } = await trashServicePromise
+    const skillName = 'source-path-dangling-collision'
+    const linkPath = join(sharedClaudeAgent, skillName)
+    const sourcePath = join(sharedSourceDir, skillName)
+    const tombstone = await buildFakeTrashEntry({
+      skillName,
+      symlinks: [{ agentId: 'claude-code', linkPath, target: sourcePath }],
+    })
+    await symlink(join(sharedSourceDir, 'missing-target'), sourcePath)
+
+    // Act
+    const result = await restore(tombstone as never)
+
+    // Assert
+    expect(result).toEqual({
+      outcome: 'error',
+      error: {
+        message: 'A skill already exists at the original path',
+        code: 'EEXIST',
+      },
+    })
+    expect((await lstat(sourcePath)).isSymbolicLink()).toBe(true)
+    await expect(readlink(sourcePath)).resolves.toBe(
+      join(sharedSourceDir, 'missing-target'),
+    )
+    await expect(
+      stat(join(sharedTrashDir, tombstone, 'source', 'SKILL.md')),
+    ).resolves.toBeTruthy()
+  })
+
   it('restores a Devin symlink whose relative target depends on physical .config parent', async () => {
     // Arrange
     const { restore } = await trashServicePromise

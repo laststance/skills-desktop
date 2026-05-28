@@ -3,6 +3,7 @@ import {
   lstatSync,
   mkdirSync,
   readdirSync,
+  realpathSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
@@ -225,6 +226,9 @@ test('UI: clicking Undo on the bulk-delete toast restores staged source files an
       lstatSync(symlink.linkPath).isSymbolicLink(),
       `expected ${symlink.linkPath} to be a symlink after Undo (not a regular file)`,
     ).toBe(true)
+    expect(realpathSync.native(symlink.linkPath)).toBe(
+      realpathSync.native(expectedSourcePath),
+    )
   }
 
   // Trash entry cleaned up by `finalizeRestore` (rm + cancel TTL timer).

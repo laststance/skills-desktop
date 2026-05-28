@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
@@ -178,14 +179,16 @@ const azureSnapshotSelector = (state: unknown): AzureSnapshot => {
  */
 
 /**
- * Skip only specs that depend on the azure skill snapshot installed by global setup.
+ * Skip specs that depend on the azure skill snapshot installed by global setup.
+ * @param isolatedHome - E2E fixture HOME to inspect for the azure source dir.
  * @returns void; Playwright marks the current test as skipped when offline.
- * @example skipWhenAzureSnapshotOffline()
+ * @example skipWhenAzureSnapshotUnavailable('/tmp/home')
  */
-function skipWhenAzureSnapshotOffline(): void {
+function skipWhenAzureSnapshotUnavailable(isolatedHome: string): void {
   test.skip(
-    isSnapshotOffline(),
-    'azure-* skills required for this suite; runner is offline (global-setup wrote snapshot.offline=true)',
+    isSnapshotOffline() ||
+      !existsSync(join(isolatedHome, '.agents', 'skills', AZURE_AI_NAME)),
+    'azure-* skills required for this suite; snapshot is offline or install was skipped',
   )
 }
 
@@ -193,7 +196,7 @@ test('deleteSkill moves source-backed skill into trash and unlinks every agent s
   appWindow,
   isolatedHome,
 }) => {
-  skipWhenAzureSnapshotOffline()
+  skipWhenAzureSnapshotUnavailable(isolatedHome)
   await waitForInitialScan(appWindow)
 
   const expectedSourcePath = join(
@@ -272,7 +275,7 @@ test('restoreDeletedSkill recovers a source-backed deletion within the undo wind
   appWindow,
   isolatedHome,
 }) => {
-  skipWhenAzureSnapshotOffline()
+  skipWhenAzureSnapshotUnavailable(isolatedHome)
   await waitForInitialScan(appWindow)
 
   const expectedSourcePath = join(
@@ -328,6 +331,9 @@ test('restoreDeletedSkill recovers a source-backed deletion within the undo wind
     expect(existsSync(symlink.linkPath)).toBe(true)
     const stat = lstatSync(symlink.linkPath)
     expect(stat.isSymbolicLink()).toBe(true)
+    expect(realpathSync.native(symlink.linkPath)).toBe(
+      realpathSync.native(expectedSourcePath),
+    )
   }
 
   // FS — trash entry cleaned up by finalizeRestore (rm + cancel TTL timer).
@@ -565,7 +571,7 @@ test('source-backed delete entry is auto-evicted after UNDO_WINDOW_MS', async ({
   appWindow,
   isolatedHome,
 }) => {
-  skipWhenAzureSnapshotOffline()
+  skipWhenAzureSnapshotUnavailable(isolatedHome)
   test.setTimeout(45_000)
 
   await waitForInitialScan(appWindow)

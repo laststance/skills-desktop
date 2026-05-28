@@ -8,6 +8,7 @@ import {
   symlink,
   writeFile,
 } from 'node:fs/promises'
+import type * as NodeFsPromises from 'node:fs/promises'
 import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -113,6 +114,7 @@ describe('skills:unlinkFromAgent handler', () => {
   afterEach(async () => {
     vi.doUnmock('os')
     vi.doUnmock('node:os')
+    vi.doUnmock('node:fs/promises')
     await rm(tempHome, { recursive: true, force: true })
   })
 
@@ -264,6 +266,59 @@ describe('skills:unlinkFromAgent handler', () => {
     await expect(lstat(decoyLinkPath)).resolves.toBeDefined()
     await expect(lstat(sourcePath)).resolves.toBeDefined()
     expect(trashItemMock).not.toHaveBeenCalled()
+  })
+
+  it('restores a same-path replacement file when a reviewed symlink changes during unlink', async () => {
+    // Arrange
+    const skillName = 'unlink-race-file-replacement'
+    const sourcePath = join(tempHome, '.agents', 'skills', skillName)
+    const cursorLinkPath = join(tempHome, '.cursor', 'skills', skillName)
+    await mkdir(sourcePath, { recursive: true })
+    await mkdir(join(tempHome, '.cursor', 'skills'), { recursive: true })
+    await writeFile(join(sourcePath, 'SKILL.md'), `name: ${skillName}\n`)
+    await symlink(sourcePath, cursorLinkPath)
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        rename: async (oldPath: string, newPath: string): Promise<void> => {
+          if (oldPath === cursorLinkPath && newPath.includes('.unlink-')) {
+            await actual.unlink(oldPath)
+            await actual.writeFile(
+              oldPath,
+              `replacement ${skillName}\n`,
+              'utf-8',
+            )
+          }
+          return actual.rename(oldPath, newPath)
+        },
+      }
+    })
+
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+
+    // Act
+    const handler = getRegisteredHandler('skills:unlinkFromAgent')
+    const result = await handler(
+      {},
+      {
+        skillName,
+        agentId: 'cursor',
+        linkPath: cursorLinkPath,
+        targetPath: sourcePath,
+      },
+    )
+
+    // Assert
+    expect(result.success).toBe(false)
+    expect(await readFile(cursorLinkPath, 'utf-8')).toBe(
+      `replacement ${skillName}\n`,
+    )
+    const leftovers = await readdir(join(tempHome, '.cursor', 'skills'))
+    expect(leftovers.some((entry) => entry.includes('.unlink-'))).toBe(false)
+    await expect(lstat(sourcePath)).resolves.toBeDefined()
   })
 
   it('rejects local folder delete at IPC validation without reviewed directory identity', async () => {

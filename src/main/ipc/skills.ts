@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { Stats } from 'node:fs'
+import { constants, type Stats } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 
@@ -148,6 +148,12 @@ async function restoreQuarantinedPath(
         errorOnExist: true,
       })
       await fs.rm(quarantinePath, { recursive: true, force: true })
+      return true
+    }
+
+    if (quarantineStats.isFile()) {
+      await fs.copyFile(quarantinePath, originalPath, constants.COPYFILE_EXCL)
+      await fs.unlink(quarantinePath)
       return true
     }
 

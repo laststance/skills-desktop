@@ -286,7 +286,7 @@ export interface SymlinkInfo {
   agentId: AgentId
   /** Agent display name. @example "Cursor" */
   agentName: AgentName
-  /** Current symlink state: valid (linked), broken (dangling), or missing (no link) */
+  /** Current symlink state: valid, broken, inaccessible, or missing. */
   status: SymlinkStatus
   /**
    * Where the symlink points to (skill source directory). Omitted when no
@@ -329,6 +329,7 @@ export interface SymlinkInfo {
  *
  * @example 'valid'
  * @example 'broken'
+ * @example 'inaccessible'
  * @example 'missing'
  */
 export type SymlinkStatus = 'valid' | 'broken' | 'inaccessible' | 'missing'

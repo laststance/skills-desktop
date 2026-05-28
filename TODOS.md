@@ -988,6 +988,54 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Fix direction:** Assert the IPC validation rejection directly, then keep filesystem and trash-call assertions proving the unsafe local folder remains untouched.
 
+### P1. Cleanup rollback must restore moved candidates without overwrite-prone rename
+
+**Status:** Fixed after re-run gstack-review subagent review.
+
+**Finding:** `restoreMovedCleanupCandidate()` checked that `linkPath` was absent and then restored with `fs.rename(movedPath, linkPath)`. Another process could recreate `linkPath` after the check but before rename, allowing rollback to overwrite the replacement.
+
+**Fix direction:** Restore moved symlinks by recreating the symlink, restore directories/files with no-overwrite copy, remove the moved candidate only after success, and leave the moved path in place when restoration collides.
+
+### P1. Quarantine restore must recover regular-file replacements
+
+**Status:** Fixed after re-run gstack-review subagent review.
+
+**Finding:** `restoreQuarantinedPath()` restored symlinks and directories but returned `false` for regular files. If a reviewed symlink slot was replaced by a file between lstat and quarantine rename, the replacement could be stranded as `.unlink-*`.
+
+**Fix direction:** Add no-overwrite regular-file restoration and cover the race where unlink review sees a symlink but the quarantined entry is a regular file.
+
+### P1. Azure-backed E2E skip must detect empty skip-install snapshots
+
+**Status:** Fixed after re-run gstack-review subagent review.
+
+**Finding:** Azure-dependent E2E skip helpers only checked `snapshot.offline`; `E2E_SKIP_INSTALL=1` writes `offline: false` while leaving the snapshot empty, causing azure-backed tests to time out instead of skipping.
+
+**Fix direction:** Treat the azure fixture as unavailable when the snapshot is offline or `~/.agents/skills/azure-ai` is absent in the isolated HOME, while keeping self-staged destructive tests active.
+
+### P2. Source restore must treat dangling source-path symlinks as occupied
+
+**Status:** Fixed after re-run gstack-review subagent review.
+
+**Finding:** Source-backed undo used `fs.stat(manifest.sourcePath)` to check whether the original source path was free. A dangling symlink at that path returns `ENOENT` through `stat`, so restore could overwrite an occupied directory entry.
+
+**Fix direction:** Use `lstat` for the source-path occupancy gate and add a restore regression where a dangling symlink occupies the original source path.
+
+### P2. Restore E2E must assert recreated symlink targets
+
+**Status:** Fixed after re-run gstack-review subagent review.
+
+**Finding:** Undo/restore E2E asserted that agent entries exist and are symlinks, but not that they point back to the reviewed restored source. A wrong-target symlink restore could still pass.
+
+**Fix direction:** Assert `realpathSync.native(symlink.linkPath) === realpathSync.native(expectedSourcePath)` after restore in both IPC and UI undo coverage.
+
+### P3. README tool versions and SymlinkInfo docs must match current code
+
+**Status:** Fixed after re-run gstack-review subagent review.
+
+**Finding:** README still said `pnpm 9+` / Electron 41, while the repo pins pnpm 10 and Electron 42. `SymlinkInfo.status` docs also omitted the `inaccessible` state.
+
+**Fix direction:** Update README prerequisites / tech stack and the one-line `SymlinkInfo.status` comment.
+
 ### P2. Undo toast E2E must not depend on snapshot-installed azure-ai
 
 **Status:** Fixed after final gstack-review subagent review.
