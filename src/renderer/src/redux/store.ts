@@ -15,6 +15,7 @@ import skillsReducer from './slices/skillsSlice'
 import themeReducer from './slices/themeSlice'
 import uiReducer from './slices/uiSlice'
 import updateReducer from './slices/updateSlice'
+import widgetPickerReducer from './slices/widgetPickerSlice'
 
 const rootReducer = combineReducers({
   theme: themeReducer,
@@ -25,6 +26,9 @@ const rootReducer = combineReducers({
   update: updateReducer,
   marketplace: marketplaceReducer,
   dashboard: dashboardReducer,
+  // Picker hover/focus preview state. Intentionally NOT persisted — last-hovered
+  // widget shouldn't survive an app restart.
+  widgetPicker: widgetPickerReducer,
   // Mirrors main-process settings.json. Intentionally NOT listed in
   // the redux-storage-middleware `slices` array — persistence is owned
   // by main, so layering localStorage here would create a dual-write race.

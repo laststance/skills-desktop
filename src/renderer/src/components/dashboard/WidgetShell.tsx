@@ -14,6 +14,12 @@ import { WIDGET_DRAG_HANDLE_CLASS } from './utils/gridConstants'
 interface WidgetShellProps {
   instance: WidgetInstance
   definition: WidgetDefinition
+  /**
+   * Render the widget's resting state for a non-interactive preview (e.g. the
+   * WidgetPicker live preview): the drag handle and remove button are always
+   * hidden even while the dashboard is in edit mode. Defaults to false.
+   */
+  isPreview?: boolean
 }
 
 /**
@@ -23,6 +29,8 @@ interface WidgetShellProps {
  *  - Title bar with icon + label (the draggable handle in edit mode).
  *  - Remove button (visible only in edit mode, 44×44 hit area per HIG).
  *  - Body slot where the widget's `Component` renders.
+ *  - In preview mode (`isPreview`), edit chrome is suppressed so the picker
+ *    shows exactly what the widget looks like at rest on the canvas.
  *
  * Intentionally dumb — the shell doesn't know what the widget is for, only
  * how to frame it. This keeps per-widget files small and uniform.
@@ -30,11 +38,15 @@ interface WidgetShellProps {
 export const WidgetShell = React.memo(function WidgetShell({
   instance,
   definition,
+  isPreview = false,
 }: WidgetShellProps): React.ReactElement {
   const dispatch = useAppDispatch()
   const isEditMode = useAppSelector(selectIsEditMode)
   const Icon = definition.icon
   const Body = definition.Component
+  // Edit affordances are gated on this rather than `isEditMode` directly so a
+  // preview never shows the drag handle / remove button mid-edit-session.
+  const showEditChrome = isEditMode && !isPreview
 
   const handleRemove = (event: React.MouseEvent): void => {
     event.stopPropagation()
@@ -48,12 +60,12 @@ export const WidgetShell = React.memo(function WidgetShell({
       <div
         className={cn(
           'flex items-center gap-2 px-3 h-9 border-b border-border shrink-0 bg-card/50',
-          isEditMode
+          showEditChrome
             ? `${WIDGET_DRAG_HANDLE_CLASS} cursor-grab active:cursor-grabbing`
             : '',
         )}
       >
-        {isEditMode && (
+        {showEditChrome && (
           <GripVertical
             className="h-3.5 w-3.5 text-muted-foreground shrink-0"
             aria-hidden="true"
@@ -67,7 +79,7 @@ export const WidgetShell = React.memo(function WidgetShell({
 
         {/* Remove button: only in edit mode.
             `onMouseDown` stops RGL from starting a drag when the user clicks it. */}
-        {isEditMode && (
+        {showEditChrome && (
           <button
             type="button"
             onClick={handleRemove}
