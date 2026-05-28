@@ -877,7 +877,7 @@ export const SymlinkCleanupDialog = React.memo(
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent
-          className="max-w-xl max-h-[85vh] overflow-hidden"
+          className="max-w-2xl max-h-[85vh] overflow-hidden"
           onOpenAutoFocus={handleOpenAutoFocus}
           onCloseAutoFocus={handleCloseAutoFocus}
           onEscapeKeyDown={handlePreventDismissDuringCleaning}
@@ -1244,10 +1244,10 @@ const CleanupRow = React.memo(function CleanupRow({
           aria-hidden="true"
         />
         <span className="min-w-0 truncate font-medium">{label}</span>
-        <span className="rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
+        <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
           {agentLabel}
         </span>
-        <span className="tabular-nums text-xs text-muted-foreground">
+        <span className="w-4 text-right tabular-nums text-xs text-muted-foreground">
           {issueCount}
         </span>
       </div>
@@ -1256,7 +1256,11 @@ const CleanupRow = React.memo(function CleanupRow({
         className="ml-14 mt-1 space-y-1 font-mono text-[11px] text-muted-foreground"
       >
         {pathDetails.map((pathDetail) => (
-          <p key={pathDetail} className="break-all" title={pathDetail}>
+          <p
+            key={pathDetail}
+            className="break-words leading-4"
+            title={pathDetail}
+          >
             {pathDetail}
           </p>
         ))}
