@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
 
 import {
   Dialog,
@@ -7,12 +7,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/renderer/src/components/ui/dialog'
-import { useAppDispatch } from '@/renderer/src/redux/hooks'
-import { addWidget } from '@/renderer/src/redux/slices/dashboardSlice'
+import { cn } from '@/renderer/src/lib/utils'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import {
+  addWidget,
+  selectWelcomeDismissed,
+} from '@/renderer/src/redux/slices/dashboardSlice'
 import { FEATURE_FLAGS } from '@/shared/featureFlags'
 
-import type { WidgetType } from './types'
-import { listAvailableWidgets } from './widgets/registry'
+import type { WidgetInstance, WidgetType } from './types'
+import { newWidgetInstanceId } from './utils/ids'
+import { widgetPreviewSize } from './utils/widgetPreviewSize'
+import { getWidgetDefinition, listAvailableWidgets } from './widgets/registry'
+import { WidgetShell } from './WidgetShell'
+
+// One stable id reused for whatever widget is previewed. Reuse is safe because
+// nothing keys off a preview instance's id — the object is never dispatched to
+// Redux. NOTE `inert` (see the wrapper below) only blocks pointer/focus/a11y,
+// not mount effects: Trending/What's New still fetch the leaderboard on preview.
+const PREVIEW_INSTANCE_ID = newWidgetInstanceId()
 
 interface WidgetPickerProps {
   open: boolean
@@ -20,13 +33,15 @@ interface WidgetPickerProps {
 }
 
 /**
- * Modal for adding a new widget to the current page.
+ * Modal for adding a new widget to the current page, with a live preview.
  *
- * Reads the visible widget catalog from the registry (filtered by the
- * `ENABLE_DASHBOARD_EXPERIMENTAL` flag so unfinished widgets stay hidden in
- * production builds). Clicking a widget dispatches `addWidget` — the reducer
- * finds the first empty grid slot on the current page, and auto-creates a
- * new page if the current one is full.
+ * Left: a compact list of every visible widget (catalog filtered by the
+ * `ENABLE_DASHBOARD_EXPERIMENTAL` flag). Right: the REAL widget body rendered
+ * on a neutral stage at its default-size aspect ratio, so the user sees exactly
+ * what they're adding — not just an icon + blurb. Hovering or keyboard-focusing
+ * a row swaps the preview; clicking a row adds the widget and closes the modal
+ * (one-click-add). The reducer finds the first empty grid slot on the current
+ * page, auto-creating a new page if the current one is full.
  *
  * @example
  * const [open, setOpen] = useState(false)
@@ -41,74 +56,186 @@ export const WidgetPicker = React.memo(function WidgetPicker({
     FEATURE_FLAGS.ENABLE_DASHBOARD_EXPERIMENTAL,
   )
 
+  // Welcome is first in the catalog, but once dismissed its body renders only a
+  // muted "already dismissed" hint (a GLOBAL flag, not per-instance). That makes
+  // a poor first frame for a live-preview modal, so returning users seed the
+  // open-default preview on the next widget. Welcome stays in the list and still
+  // previews truthfully when hovered.
+  const isWelcomeDismissed = useAppSelector(selectWelcomeDismissed)
+
+  // Which widget the preview shows. Driven by hover/focus; falls back to the
+  // default seed so the stage is never empty when the modal opens.
+  const [activePreviewType, setActivePreviewType] = useState<WidgetType | null>(
+    null,
+  )
+  const defaultPreviewType: WidgetType | undefined =
+    availableWidgets[0]?.type === 'welcome' && isWelcomeDismissed
+      ? availableWidgets[1]?.type
+      : availableWidgets[0]?.type
+  const previewType: WidgetType =
+    activePreviewType ?? defaultPreviewType ?? 'welcome'
+  const previewDefinition = getWidgetDefinition(previewType)
+
+  // Radix moves focus into the dialog on open. Left to its default it grabs the
+  // FIRST row, whose `onFocus` would override the seed — so for a returning user
+  // the stage would still open on the dismissed Welcome hint. We redirect that
+  // initial focus onto the seed row so the focused row and the preview always
+  // agree (and keyboard users land on the same widget the stage shows).
+  const seedRowRef = useRef<HTMLButtonElement>(null)
+  // Stable (refs never change identity) so the memoized DialogContent doesn't
+  // re-render on every keystroke-driven parent update.
+  const focusSeedRowOnOpen = useCallback((event: Event): void => {
+    if (!seedRowRef.current) return
+    event.preventDefault()
+    seedRowRef.current.focus()
+  }, [])
+  const previewBox = previewDefinition
+    ? widgetPreviewSize(previewDefinition.defaultSize)
+    : null
+
+  // Synthetic instance so the real widget body can render. The id is the
+  // constant PREVIEW_INSTANCE_ID (see above), reused because nothing keys off it.
+  const previewInstance = useMemo<WidgetInstance>(
+    () => ({
+      id: PREVIEW_INSTANCE_ID,
+      type: previewType,
+      x: 0,
+      y: 0,
+      w: previewDefinition?.defaultSize.w ?? 1,
+      h: previewDefinition?.defaultSize.h ?? 1,
+    }),
+    [previewType, previewDefinition],
+  )
+
+  // One-click-add must fire at most once per open: the close animation keeps the
+  // rows clickable for a frame, so a fast double-click could add the widget
+  // twice. The dialog stays mounted between sessions (the parent only toggles
+  // `open`), so this ref would persist — reset it when the dialog re-opens.
+  // Comparing the previous `open` during render is React's no-effect way to
+  // respond to a prop transition.
+  const hasAddedRef = useRef<boolean>(false)
+  const wasOpenRef = useRef<boolean>(open)
+  if (open && !wasOpenRef.current) {
+    hasAddedRef.current = false
+  }
+  wasOpenRef.current = open
+
   // Not wrapped in useCallback: each row already creates a new arrow in
   // `.map()`, so memoizing this helper offers zero stability benefit and
   // the lint rule `no-deopt-use-callback` correctly flags that pattern.
   const handleAddWidget = (widgetType: WidgetType): void => {
+    if (hasAddedRef.current) return
+    hasAddedRef.current = true
     dispatch(addWidget({ type: widgetType }))
     onOpenChange(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent
+        className="max-w-3xl max-h-[85vh] overflow-y-auto"
+        onOpenAutoFocus={focusSeedRowOnOpen}
+      >
         <DialogHeader>
           <DialogTitle>Add Widget</DialogTitle>
           <DialogDescription>
-            Pick a widget to add to the current page. If the page is full, a new
-            one will be created automatically.
+            Hover a widget to preview it live, then click to add it to the
+            current page. If the page is full, a new one will be created
+            automatically.
           </DialogDescription>
         </DialogHeader>
-        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 max-h-[60vh] overflow-y-auto pr-1">
-          {availableWidgets.map((widgetDefinition) => {
-            const WidgetIcon = widgetDefinition.icon
-            return (
-              <li key={widgetDefinition.type}>
-                <button
-                  type="button"
-                  onClick={() => handleAddWidget(widgetDefinition.type)}
-                  className="
-                    group w-full min-h-18 flex items-start gap-3 p-3 rounded-lg
-                    border border-border bg-card text-left
-                    hover:bg-muted hover:border-border/80
-                    transition-colors focus-visible:outline-none
-                    focus-visible:ring-2 focus-visible:ring-ring
-                  "
-                >
-                  <span
-                    className="
-                      shrink-0 inline-flex items-center justify-center
-                      w-8 h-8 rounded-md bg-primary/10 text-primary
-                      group-hover:bg-primary/15
-                    "
+
+        <div className="flex gap-4 mt-2">
+          {/* Left: compact widget list. Hover/focus drives the preview;
+              clicking a row adds it immediately (one-click-add). */}
+          <ul className="w-56 shrink-0 flex flex-col gap-1 max-h-[60vh] overflow-y-auto pr-1">
+            {availableWidgets.map((widgetDefinition) => {
+              const WidgetIcon = widgetDefinition.icon
+              const isActive = widgetDefinition.type === previewType
+              // The seed row receives the dialog's initial focus (see
+              // `focusSeedRowOnOpen`) so focus and preview start in agreement.
+              const isSeedRow = widgetDefinition.type === defaultPreviewType
+              return (
+                <li key={widgetDefinition.type}>
+                  <button
+                    type="button"
+                    ref={isSeedRow ? seedRowRef : undefined}
+                    onClick={() => handleAddWidget(widgetDefinition.type)}
+                    onMouseEnter={() =>
+                      setActivePreviewType(widgetDefinition.type)
+                    }
+                    onFocus={() => setActivePreviewType(widgetDefinition.type)}
+                    aria-current={isActive ? 'true' : undefined}
+                    className={cn(
+                      `group w-full flex items-center gap-2.5 p-2 rounded-lg border
+                       text-left transition-colors focus-visible:outline-none
+                       focus-visible:ring-2 focus-visible:ring-ring`,
+                      isActive
+                        ? 'bg-muted border-border/80'
+                        : 'border-transparent hover:bg-muted hover:border-border/80',
+                    )}
                   >
-                    <WidgetIcon className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <span className="flex-1 min-w-0 flex flex-col gap-0.5">
-                    <span className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                    <span className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md bg-primary/10 text-primary group-hover:bg-primary/15">
+                      <WidgetIcon className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span className="flex-1 min-w-0 text-sm font-medium text-foreground truncate flex items-center gap-1.5">
                       {widgetDefinition.label}
                       {widgetDefinition.experimental && (
                         <span
                           title="Experimental widget"
-                          className="
-                            text-[9px] font-mono uppercase tracking-wide
-                            text-amber-400 bg-amber-400/10
-                            px-1 py-0.5 rounded
-                          "
+                          className="shrink-0 text-[9px] font-mono uppercase tracking-wide text-amber-400 bg-amber-400/10 px-1 py-0.5 rounded"
                         >
                           exp
                         </span>
                       )}
                     </span>
-                    <span className="text-[11px] text-muted-foreground leading-relaxed">
-                      {widgetDefinition.description}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            )
-          })}
-        </ul>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+
+          {/* Right: live preview. The REAL widget body renders on a neutral
+              `--background` stage (the widget is `--card`, so the stage must
+              not be a card — no card-in-card per DESIGN.md). */}
+          <div className="flex-1 min-w-0 flex flex-col gap-3">
+            <div className="flex-1 min-h-[20rem] flex items-center justify-center rounded-lg border border-border bg-background p-4 overflow-hidden">
+              {previewDefinition && previewBox ? (
+                // `inert` removes the preview from tab order, the a11y tree, and
+                // pointer events in one declarative knob — the cloned widget's
+                // buttons/links can't be focused or clicked here. WidgetShell's
+                // root is already `h-full w-full`, so it fills this sized stage
+                // directly without an extra wrapper.
+                <div
+                  inert
+                  style={{
+                    width: previewBox.widthPx,
+                    aspectRatio: `${previewBox.widthPx} / ${previewBox.heightPx}`,
+                    maxWidth: '100%',
+                  }}
+                >
+                  <WidgetShell
+                    instance={previewInstance}
+                    definition={previewDefinition}
+                    isPreview
+                  />
+                </div>
+              ) : null}
+            </div>
+
+            {/* Name + blurb for the previewed widget (was per-card text). */}
+            {previewDefinition && (
+              <div className="px-0.5">
+                <p className="text-sm font-semibold text-foreground">
+                  {previewDefinition.label}
+                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {previewDefinition.description}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )

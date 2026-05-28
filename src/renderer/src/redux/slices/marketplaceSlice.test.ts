@@ -327,4 +327,56 @@ describe('marketplaceSlice', () => {
     expect(lb?.error).toBe('Offline')
     expect(lb?.skills).toEqual([])
   })
+
+  it('loadLeaderboard fires a single fetch when two mounts request the same filter at once', async () => {
+    // Arrange: keep the first request in flight so the second sees it pending
+    let resolve!: (value: SkillSearchResult[]) => void
+    mockLeaderboard.mockReturnValue(
+      new Promise<SkillSearchResult[]>((r) => {
+        resolve = r
+      }),
+    )
+    const store = await createTestStore()
+    const { loadLeaderboard } = await import('./marketplaceSlice')
+
+    // Act: two widgets (e.g. Trending + What's New) dispatch the same filter
+    const first = store.dispatch(loadLeaderboard('trending'))
+    const second = store.dispatch(loadLeaderboard('trending'))
+
+    // Assert: the second is short-circuited by `condition` — only one IPC call
+    expect(mockLeaderboard).toHaveBeenCalledTimes(1)
+
+    resolve([sampleResult])
+    await Promise.all([first, second])
+  })
+
+  it('loadLeaderboard keeps already-loaded skills visible while refreshing', async () => {
+    // Arrange: first fetch populates the cache
+    mockLeaderboard.mockResolvedValueOnce([sampleResult])
+    const store = await createTestStore()
+    const { loadLeaderboard } = await import('./marketplaceSlice')
+    await store.dispatch(loadLeaderboard('trending'))
+
+    // Expire the cache so the next dispatch actually refetches
+    vi.useFakeTimers()
+    vi.setSystemTime(Date.now() + 31 * 60 * 1000)
+
+    // Act: a refresh starts but has not resolved yet
+    let resolve!: (value: SkillSearchResult[]) => void
+    mockLeaderboard.mockReturnValueOnce(
+      new Promise<SkillSearchResult[]>((r) => {
+        resolve = r
+      }),
+    )
+    const refresh = store.dispatch(loadLeaderboard('trending'))
+
+    // Assert: status is loading, but the stale skill is still on screen
+    const lb = store.getState().marketplace.leaderboard['trending']
+    expect(lb?.status).toBe('loading')
+    expect(lb?.skills).toHaveLength(1)
+
+    resolve([sampleResult])
+    await refresh
+    vi.useRealTimers()
+  })
 })

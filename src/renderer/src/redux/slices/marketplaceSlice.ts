@@ -81,30 +81,46 @@ export const installSkill = createAsyncThunk(
 
 /**
  * Fetch leaderboard data from skills.sh for a ranking filter.
- * Respects per-filter cache TTL: skips fetch if cached data is fresh.
+ *
+ * The `condition` gate runs before `pending` and aborts the thunk (dispatching
+ * nothing) when a fetch for this filter is already in flight or the cached data
+ * is still within its TTL. That bounds the work to one network call per filter
+ * even when several widgets mount at once — Trending and What's New both render
+ * `LeaderboardWidget`, so each fires this on mount.
  * @param filter - Ranking filter ('all-time' | 'trending' | 'hot')
- * @returns Skills array and filter, or null if cache is fresh
+ * @returns Skills array and the filter they belong to.
+ * @example
+ * dispatch(loadLeaderboard('trending')) // => { skills: [...], filter: 'trending' }
  */
 export const loadLeaderboard = createAsyncThunk(
   'marketplace/loadLeaderboard',
   async (
     filter: RankingFilter,
-    { getState },
-  ): Promise<{ skills: SkillSearchResult[]; filter: RankingFilter } | null> => {
-    const state = (getState() as { marketplace: MarketplaceState }).marketplace
-    const cached = state.leaderboard[filter]
-
-    // Skip fetch if cache is fresh
-    if (
-      cached &&
-      cached.status !== 'error' &&
-      Date.now() - cached.lastFetched < CACHE_TTL_MS
-    ) {
-      return null
-    }
-
+  ): Promise<{ skills: SkillSearchResult[]; filter: RankingFilter }> => {
     const skills = await window.electron.marketplace.leaderboard({ filter })
     return { skills, filter }
+  },
+  {
+    // Runs synchronously before `pending`; returning false aborts the thunk and
+    // (with dispatchConditionRejection:false) dispatches no actions at all.
+    condition: (filter: RankingFilter, { getState }) => {
+      const cached = (getState() as { marketplace: MarketplaceState })
+        .marketplace.leaderboard[filter]
+      // A fetch for this filter is already running — let it win, don't refetch.
+      if (cached?.status === 'loading') {
+        return false
+      }
+      // Cached data is still fresh — skip the network entirely.
+      if (
+        cached &&
+        cached.status !== 'error' &&
+        Date.now() - cached.lastFetched < CACHE_TTL_MS
+      ) {
+        return false
+      }
+      return true
+    },
+    dispatchConditionRejection: false,
   },
 )
 
@@ -187,19 +203,16 @@ const marketplaceSlice = createSlice({
       .addCase(loadLeaderboard.pending, (state, action) => {
         const filter = action.meta.arg
         const existing = state.leaderboard[filter]
-        // Only show loading if no cached data exists yet
-        if (!existing || existing.skills.length === 0) {
-          state.leaderboard[filter] = {
-            skills: [],
-            lastFetched: 0,
-            filter,
-            status: 'loading',
-          }
+        // Mark loading but keep any already-loaded skills on screen, so a
+        // background refresh of a populated tab doesn't flash an empty skeleton.
+        state.leaderboard[filter] = {
+          skills: existing?.skills ?? [],
+          lastFetched: existing?.lastFetched ?? 0,
+          filter,
+          status: 'loading',
         }
       })
       .addCase(loadLeaderboard.fulfilled, (state, action) => {
-        // null means cache was fresh, no update needed
-        if (action.payload === null) return
         const { skills, filter } = action.payload
         state.leaderboard[filter] = {
           skills,
