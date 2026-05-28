@@ -357,26 +357,31 @@ describe('marketplaceSlice', () => {
     const { loadLeaderboard } = await import('./marketplaceSlice')
     await store.dispatch(loadLeaderboard('trending'))
 
-    // Expire the cache so the next dispatch actually refetches
+    // Expire the cache so the next dispatch actually refetches.
+    // try/finally guarantees real timers are restored even if an assertion
+    // throws — otherwise fake timers would leak into the next test.
     vi.useFakeTimers()
-    vi.setSystemTime(Date.now() + 31 * 60 * 1000)
+    try {
+      vi.setSystemTime(Date.now() + 31 * 60 * 1000)
 
-    // Act: a refresh starts but has not resolved yet
-    let resolve!: (value: SkillSearchResult[]) => void
-    mockLeaderboard.mockReturnValueOnce(
-      new Promise<SkillSearchResult[]>((r) => {
-        resolve = r
-      }),
-    )
-    const refresh = store.dispatch(loadLeaderboard('trending'))
+      // Act: a refresh starts but has not resolved yet
+      let resolve!: (value: SkillSearchResult[]) => void
+      mockLeaderboard.mockReturnValueOnce(
+        new Promise<SkillSearchResult[]>((r) => {
+          resolve = r
+        }),
+      )
+      const refresh = store.dispatch(loadLeaderboard('trending'))
 
-    // Assert: status is loading, but the stale skill is still on screen
-    const lb = store.getState().marketplace.leaderboard['trending']
-    expect(lb?.status).toBe('loading')
-    expect(lb?.skills).toHaveLength(1)
+      // Assert: status is loading, but the stale skill is still on screen
+      const lb = store.getState().marketplace.leaderboard['trending']
+      expect(lb?.status).toBe('loading')
+      expect(lb?.skills).toHaveLength(1)
 
-    resolve([sampleResult])
-    await refresh
-    vi.useRealTimers()
+      resolve([sampleResult])
+      await refresh
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

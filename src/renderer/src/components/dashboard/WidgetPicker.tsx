@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useMemo, useRef } from 'react'
 
 import {
   Dialog,
@@ -13,10 +13,16 @@ import {
   addWidget,
   selectWelcomeDismissed,
 } from '@/renderer/src/redux/slices/dashboardSlice'
+import {
+  resetActivePreview,
+  selectActivePreviewType,
+  setActivePreviewType,
+} from '@/renderer/src/redux/slices/widgetPickerSlice'
 import { FEATURE_FLAGS } from '@/shared/featureFlags'
 
 import type { WidgetInstance, WidgetType } from './types'
 import { newWidgetInstanceId } from './utils/ids'
+import { resolveSeedPreviewType } from './utils/resolveSeedPreviewType'
 import { widgetPreviewSize } from './utils/widgetPreviewSize'
 import { getWidgetDefinition, listAvailableWidgets } from './widgets/registry'
 import { WidgetShell } from './WidgetShell'
@@ -56,24 +62,19 @@ export const WidgetPicker = React.memo(function WidgetPicker({
     FEATURE_FLAGS.ENABLE_DASHBOARD_EXPERIMENTAL,
   )
 
-  // Welcome is first in the catalog, but once dismissed its body renders only a
-  // muted "already dismissed" hint (a GLOBAL flag, not per-instance). That makes
-  // a poor first frame for a live-preview modal, so returning users seed the
-  // open-default preview on the next widget. Welcome stays in the list and still
-  // previews truthfully when hovered.
+  // Welcome dismissal feeds the seed-fallthrough rule in `resolveSeedPreviewType`.
   const isWelcomeDismissed = useAppSelector(selectWelcomeDismissed)
 
-  // Which widget the preview shows. Driven by hover/focus; falls back to the
-  // default seed so the stage is never empty when the modal opens.
-  const [activePreviewType, setActivePreviewType] = useState<WidgetType | null>(
-    null,
-  )
-  const defaultPreviewType: WidgetType | undefined =
-    availableWidgets[0]?.type === 'welcome' && isWelcomeDismissed
-      ? availableWidgets[1]?.type
-      : availableWidgets[0]?.type
+  // Live hover/focus state. Lives in `widgetPickerSlice` per the renderer rule
+  // that modal/dialog state is slice-owned (not local useState). `null` means
+  // the preview falls through to the seed widget.
+  const activePreviewType = useAppSelector(selectActivePreviewType)
+  const seedPreviewType = resolveSeedPreviewType({
+    availableWidgets,
+    isWelcomeDismissed,
+  })
   const previewType: WidgetType =
-    activePreviewType ?? defaultPreviewType ?? 'welcome'
+    activePreviewType ?? seedPreviewType ?? 'welcome'
   const previewDefinition = getWidgetDefinition(previewType)
 
   // Radix moves focus into the dialog on open. Left to its default it grabs the
@@ -82,13 +83,35 @@ export const WidgetPicker = React.memo(function WidgetPicker({
   // initial focus onto the seed row so the focused row and the preview always
   // agree (and keyboard users land on the same widget the stage shows).
   const seedRowRef = useRef<HTMLButtonElement>(null)
+
+  // One-click-add must fire at most once per open: the close animation keeps the
+  // rows clickable for a frame, so a fast double-click could add the widget
+  // twice. Reset on the open edge (via `onOpenAutoFocus`) and gate every
+  // `handleAddWidget` call against it.
+  const hasAddedRef = useRef<boolean>(false)
+
   // Stable (refs never change identity) so the memoized DialogContent doesn't
-  // re-render on every keystroke-driven parent update.
-  const focusSeedRowOnOpen = useCallback((event: Event): void => {
+  // re-render on every keystroke-driven parent update. Fires once per open
+  // cycle when Radix mounts focus on DialogContent, so it doubles as our
+  // open-edge event for resetting the one-click-add guard.
+  const handleOpenAutoFocus = useCallback((event: Event): void => {
+    hasAddedRef.current = false
     if (!seedRowRef.current) return
     event.preventDefault()
     seedRowRef.current.focus()
   }, [])
+
+  // Wrap `onOpenChange` so the close transition (Esc, overlay click, X button,
+  // or our own `handleAddWidget`) drops the hover override before forwarding.
+  // The parent only opens via `setIsPickerOpen(true)` and routes every close
+  // through this callback, so this covers every close path.
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean): void => {
+      if (!nextOpen) dispatch(resetActivePreview())
+      onOpenChange(nextOpen)
+    },
+    [dispatch, onOpenChange],
+  )
   const previewBox = previewDefinition
     ? widgetPreviewSize(previewDefinition.defaultSize)
     : null
@@ -107,34 +130,22 @@ export const WidgetPicker = React.memo(function WidgetPicker({
     [previewType, previewDefinition],
   )
 
-  // One-click-add must fire at most once per open: the close animation keeps the
-  // rows clickable for a frame, so a fast double-click could add the widget
-  // twice. The dialog stays mounted between sessions (the parent only toggles
-  // `open`), so this ref would persist — reset it when the dialog re-opens.
-  // Comparing the previous `open` during render is React's no-effect way to
-  // respond to a prop transition.
-  const hasAddedRef = useRef<boolean>(false)
-  const wasOpenRef = useRef<boolean>(open)
-  if (open && !wasOpenRef.current) {
-    hasAddedRef.current = false
-  }
-  wasOpenRef.current = open
-
   // Not wrapped in useCallback: each row already creates a new arrow in
   // `.map()`, so memoizing this helper offers zero stability benefit and
   // the lint rule `no-deopt-use-callback` correctly flags that pattern.
+  // Routes through `handleOpenChange` so the close-edge cleanup runs.
   const handleAddWidget = (widgetType: WidgetType): void => {
     if (hasAddedRef.current) return
     hasAddedRef.current = true
     dispatch(addWidget({ type: widgetType }))
-    onOpenChange(false)
+    handleOpenChange(false)
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="max-w-3xl max-h-[85vh] overflow-y-auto"
-        onOpenAutoFocus={focusSeedRowOnOpen}
+        onOpenAutoFocus={handleOpenAutoFocus}
       >
         <DialogHeader>
           <DialogTitle>Add Widget</DialogTitle>
@@ -153,8 +164,8 @@ export const WidgetPicker = React.memo(function WidgetPicker({
               const WidgetIcon = widgetDefinition.icon
               const isActive = widgetDefinition.type === previewType
               // The seed row receives the dialog's initial focus (see
-              // `focusSeedRowOnOpen`) so focus and preview start in agreement.
-              const isSeedRow = widgetDefinition.type === defaultPreviewType
+              // `handleOpenAutoFocus`) so focus and preview start in agreement.
+              const isSeedRow = widgetDefinition.type === seedPreviewType
               return (
                 <li key={widgetDefinition.type}>
                   <button
@@ -162,9 +173,11 @@ export const WidgetPicker = React.memo(function WidgetPicker({
                     ref={isSeedRow ? seedRowRef : undefined}
                     onClick={() => handleAddWidget(widgetDefinition.type)}
                     onMouseEnter={() =>
-                      setActivePreviewType(widgetDefinition.type)
+                      dispatch(setActivePreviewType(widgetDefinition.type))
                     }
-                    onFocus={() => setActivePreviewType(widgetDefinition.type)}
+                    onFocus={() =>
+                      dispatch(setActivePreviewType(widgetDefinition.type))
+                    }
                     aria-current={isActive ? 'true' : undefined}
                     className={cn(
                       `group w-full flex items-center gap-2.5 p-2 rounded-lg border

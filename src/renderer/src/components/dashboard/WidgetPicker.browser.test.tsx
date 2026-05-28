@@ -23,11 +23,13 @@ async function renderPicker(
     { default: dashboardReducer, addPage, dismissWelcome },
     { default: skillsReducer },
     { default: agentsReducer },
+    { default: widgetPickerReducer },
     { WidgetPicker },
   ] = await Promise.all([
     import('@/renderer/src/redux/slices/dashboardSlice'),
     import('@/renderer/src/redux/slices/skillsSlice'),
     import('@/renderer/src/redux/slices/agentsSlice'),
+    import('@/renderer/src/redux/slices/widgetPickerSlice'),
     import('./WidgetPicker'),
   ])
 
@@ -36,6 +38,7 @@ async function renderPicker(
       dashboard: dashboardReducer,
       skills: skillsReducer,
       agents: agentsReducer,
+      widgetPicker: widgetPickerReducer,
     },
   })
   // One empty page so the clicked widget is placed via the common add path.
