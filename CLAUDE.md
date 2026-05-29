@@ -135,3 +135,33 @@ typography, spacing, radius, elevation, motion, component styling,
 accessibility, responsive behavior, and visual-polish guardrails. Keep design
 guidance there so agents and design tools have one place to read before
 changing UI.
+
+## Design Review Principles
+
+When running `/design-review` (or any visual critique), apply two standing
+principles **in addition to** DESIGN.md compliance:
+
+### 1. Benchmark against top-tier apps
+
+Don't grade UI only by "does it match DESIGN.md" — grade it against the bar set
+by best-in-class products: **Linear, Notion, Dia (The Browser Company), the
+Codex desktop app**, and peers (Warp, Raycast, VS Code). For every finding ask:
+*how would Linear / Notion / Dia / Codex handle this?* Surface where the app
+falls short of that bar, not just where it breaks a written rule. The goal is
+parity with top-tier craft, not mere rule-compliance.
+
+### 2. DESIGN.md is a living document — refine it, don't just obey it
+
+Using "DESIGN.md compliance" as the quality baseline only works if DESIGN.md
+actually encodes the rules needed for excellent UI/UX. It is almost certainly
+still incomplete. So a design review is **also an audit of DESIGN.md itself**:
+
+- When the top-tier benchmark (principle 1) surfaces a quality gap that DESIGN.md
+  has no rule for, that gap is a **DESIGN.md deficiency**, not just a one-off fix.
+- Propose the missing rule and fold it into DESIGN.md so the next review inherits
+  it.
+- Expanding/refining DESIGN.md is an expected, recurring part of the
+  design-review workflow — not a separate task.
+
+DESIGN.md stays the binding visual source of truth; these two principles are how
+it earns and keeps that authority.
