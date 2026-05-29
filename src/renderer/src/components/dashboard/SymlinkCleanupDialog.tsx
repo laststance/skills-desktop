@@ -86,6 +86,13 @@ interface SymlinkCleanupDialogState {
   rowErrors: Record<SymlinkCleanupItemId, string>
   summary: CleanupSummary | null
   message: string | null
+  /**
+   * True only when a 'stale' phase was reached *after* the cleanup mutation
+   * ran (so the dashboard side data may be stale and a rescan must refresh
+   * every source). False for the pre-mutation 'plan changed' stale and for
+   * every non-stale phase.
+   */
+  staleAfterMutation: boolean
 }
 
 type SymlinkCleanupDialogAction =
@@ -97,7 +104,7 @@ type SymlinkCleanupDialogAction =
       plan: SymlinkCleanupPlan
       message?: string | null
     }
-  | { type: 'stale'; message: string }
+  | { type: 'stale'; message: string; staleAfterMutation?: boolean }
   | { type: 'cleaning' }
   | {
       type: 'error'
@@ -122,6 +129,7 @@ const INITIAL_DIALOG_STATE: SymlinkCleanupDialogState = {
   rowErrors: {},
   summary: null,
   message: null,
+  staleAfterMutation: false,
 }
 
 const SYMLINK_CLEANUP_TRIGGER_SELECTOR = '[data-symlink-cleanup-trigger="true"]'
@@ -157,6 +165,7 @@ function symlinkCleanupDialogReducer(
         rowErrors: {},
         summary: null,
         message: action.message ?? null,
+        staleAfterMutation: false,
       }
     }
     case 'no-safe-cleanup':
@@ -167,12 +176,14 @@ function symlinkCleanupDialogReducer(
         rowErrors: {},
         summary: null,
         message: action.message ?? null,
+        staleAfterMutation: false,
       }
     case 'stale':
       return {
         ...state,
         phase: 'stale',
         message: action.message,
+        staleAfterMutation: action.staleAfterMutation ?? false,
       }
     case 'cleaning':
       return {
@@ -603,17 +614,28 @@ export const SymlinkCleanupDialog = React.memo(
     }, [handleClose])
 
     const handleRescanClick = useCallback((): void => {
-      // Complete+refresh-failed means the mutation succeeded but dashboard
-      // side data may be stale, so retry every dashboard source, not just the
-      // dialog's skill scan.
+      // A rescan refreshes every dashboard source (not just the dialog's skill
+      // scan) whenever the cleanup mutation already ran and may have left the
+      // dashboard side data stale: a 'complete' phase whose post-cleanup refresh
+      // failed, a 'ready'/'no-safe-cleanup' scan that carried a refresh-failure
+      // message, or a post-mutation 'stale' guard. The pre-mutation 'stale'
+      // ('plan changed' before any cleanup) is excluded — nothing mutated, so a
+      // skills-only rescan is enough.
       void runScan({
         refreshDashboard:
           (state.phase === 'complete' &&
             didCleanupRefreshFail(state.summary)) ||
           ((state.phase === 'no-safe-cleanup' || state.phase === 'ready') &&
-            state.message !== null),
+            state.message !== null) ||
+          (state.phase === 'stale' && state.staleAfterMutation),
       })
-    }, [runScan, state.message, state.phase, state.summary])
+    }, [
+      runScan,
+      state.message,
+      state.phase,
+      state.staleAfterMutation,
+      state.summary,
+    ])
 
     const handlePreventDismissDuringCleaning = useCallback(
       (event: Event): void => {
@@ -759,6 +781,7 @@ export const SymlinkCleanupDialog = React.memo(
               type: 'stale',
               message:
                 'Cleanup finished with failures, but the refresh failed. Rescan required.',
+              staleAfterMutation: true,
             })
             return
           }
@@ -783,6 +806,7 @@ export const SymlinkCleanupDialog = React.memo(
             dispatchLocal({
               type: 'stale',
               message: 'Cleanup result changed. Rescan required.',
+              staleAfterMutation: true,
             })
             return
           }
@@ -797,6 +821,7 @@ export const SymlinkCleanupDialog = React.memo(
             dispatchLocal({
               type: 'stale',
               message: 'Cleanup result changed. Rescan required.',
+              staleAfterMutation: true,
             })
             return
           }

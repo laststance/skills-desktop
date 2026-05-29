@@ -111,7 +111,9 @@ function buildQuarantinePath(
 }
 
 /**
- * Restore a quarantined path after validation or OS Trash fails without clobbering replacements.
+ * Restore a quarantined path after validation or OS Trash fails. The lstat
+ * pre-check + per-type guards prevent clobbering a recreated file/symlink or a
+ * non-empty directory; only an empty dir recreated in the race can be replaced.
  * @param quarantinePath - Hidden same-directory path currently holding the entry.
  * @param originalPath - Original reviewed path to restore.
  * @returns true when restoration succeeds or the quarantine is already gone.
@@ -146,12 +148,15 @@ async function restoreQuarantinedPath(
 
     if (quarantineStats.isDirectory()) {
       // Atomic same-directory restore (buildQuarantinePath keeps both paths in
-      // the same dir, so rename can't hit EXDEV). Replaces the previous
-      // cp+rm, which could leave a half-copied tree at originalPath on a
-      // mid-copy failure (ENOSPC/EACCES). The L124-129 pre-check already
-      // guarantees originalPath is absent; if a concurrent process recreated a
-      // *non-empty* dir in the race window, rename fails ENOTEMPTY → caught →
-      // false, so the no-clobber guarantee survives for the dangerous case.
+      // the same dir, so rename can't hit EXDEV). Replaces the previous cp+rm,
+      // which could leave a half-copied tree at originalPath on a mid-copy
+      // failure (ENOSPC/EACCES). The lstat pre-check makes originalPath absent
+      // in the common case. In the narrow race where another process recreates
+      // it first: a *non-empty* dir makes rename fail ENOTEMPTY → caught →
+      // false (no-clobber preserved); an *empty* dir is silently replaced, but
+      // it holds no data so nothing is lost. POSIX rename has no portable
+      // no-replace flag (renameat2/renamex_np need native bindings), and
+      // cp+rm's partial-tree failure is strictly worse, so rename stands.
       await fs.rename(quarantinePath, originalPath)
       return true
     }

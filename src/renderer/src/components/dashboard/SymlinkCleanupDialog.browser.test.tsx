@@ -540,6 +540,55 @@ describe('SymlinkCleanupDialog', () => {
     expect(screen.getByText('Permission denied').query()).toBeNull()
   })
 
+  it('refreshes every dashboard source when rescanning after a post-mutation stale prompt', async () => {
+    // Arrange — the cleanup row fails AND the post-cleanup fetchSkills rejects,
+    // so the dialog lands in the post-mutation 'stale' prompt. The rescan's
+    // fetchSkills then resolves a fresh plan, but the agent registry is offline
+    // only on that rescan: its warning surfaces solely if the rescan refreshes
+    // every dashboard source, which a pre-mutation stale rescan never does.
+    const firstPlan = [makeSkillWithBrokenSlot('stale-refresh-task', 'codex')]
+    mockGetSkills
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce(firstPlan)
+      .mockRejectedValueOnce(new Error('Scanner offline after cleanup'))
+      .mockResolvedValueOnce(firstPlan)
+    mockGetAgents
+      .mockResolvedValueOnce(TEST_AGENTS)
+      .mockRejectedValueOnce(new Error('Agent registry offline on rescan'))
+    mockClearBrokenSymlinkSlots.mockResolvedValue({
+      items: [
+        {
+          agentId: 'codex',
+          skillName: 'stale-refresh-task',
+          linkPath: '/Users/test/.codex/skills/stale-refresh-task',
+          outcome: 'error',
+          error: { message: 'Permission denied', code: 'EACCES' },
+        },
+      ],
+    })
+    const screen = await renderOpenedDialog()
+
+    // Act — clean (lands in the post-mutation stale prompt), then rescan.
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 1 selected' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Clean 1 selected' }).click()
+    await expect
+      .element(
+        screen.getByText(
+          'Cleanup finished with failures, but the refresh failed. Rescan required.',
+        ),
+      )
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Rescan' }).click()
+
+    // Assert — the rescan re-fetched the agent registry (a dashboard source),
+    // so its offline warning appears; a skills-only rescan would never show it.
+    await expect
+      .element(screen.getByText(/Agent registry offline on rescan/))
+      .toBeVisible()
+  })
+
   it('keeps cleanup success when only the post-cleanup skills refresh rejects', async () => {
     // Arrange — same fetchSkills rejection, but the cleanup row succeeds, so
     // the happy path must still report completion (not a stale rescan prompt).
