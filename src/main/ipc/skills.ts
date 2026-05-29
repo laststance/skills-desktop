@@ -568,13 +568,15 @@ async function clearReviewedOrphanRecord(item: {
     targetPath: AbsolutePath
   }>
 }): Promise<ClearOrphanSymlinkItemResult> {
+  // Hoisted above the try so a mid-loop throw (e.g. source reappears between
+  // adjacent agent unlinks) still reports the unlinks already committed to disk.
+  const cascadeAgents: AgentId[] = []
   try {
     const blocker = await findOrphanCleanupBlocker(item.skillName)
     if (blocker) {
       throw new TrashError(blocker, 'ESTALE')
     }
 
-    const cascadeAgents: AgentId[] = []
     for (const reviewedLink of item.agents) {
       cascadeAgents.push(
         await clearReviewedOrphanLink(item.skillName, reviewedLink),
@@ -591,10 +593,15 @@ async function clearReviewedOrphanRecord(item: {
     const message =
       error instanceof TrashError ? error.message : extractErrorMessage(error)
     const code = error instanceof TrashError ? error.code : errorCode(error)
+    // Surface any partial cleanup so the summary mirrors disk state instead of
+    // reporting zero removed when N-1 of N agents already unlinked.
     return {
       skillName: item.skillName,
       outcome: 'error',
       error: code ? { message, code } : { message },
+      ...(cascadeAgents.length > 0
+        ? { symlinksRemoved: cascadeAgents.length, cascadeAgents }
+        : {}),
     }
   }
 }

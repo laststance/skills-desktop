@@ -878,10 +878,14 @@ export interface DeleteSkillsOptions {
  *   exists. Cleanup is just `unlink()` calls — no tombstone, no undo, because
  *   resurrecting the broken links is meaningless.
  * - `error`: the operation failed mid-flight; the renderer flashes the row.
+ *   When a multi-agent cleanup fails partway, `cascadeAgents`/`symlinksRemoved`
+ *   carry the unlinks already committed to disk before the throw, so the
+ *   summary mirrors disk state instead of undercounting.
  *
  * @example { skillName: 'task', outcome: 'deleted', tombstoneId: '1729180800000-task-a1b2c3d4', symlinksRemoved: 3, cascadeAgents: ['cursor'] }
  * @example { skillName: 'abandoned', outcome: 'orphan-cleared', symlinksRemoved: 2, cascadeAgents: ['cursor', 'codex'] }
  * @example { skillName: 'task', outcome: 'error', error: { message: 'Permission denied', code: 'EACCES' } }
+ * @example { skillName: 'abandoned', outcome: 'error', error: { message: 'Source skill exists', code: 'ESTALE' }, symlinksRemoved: 2, cascadeAgents: ['codex', 'cursor'] }
  */
 export type BulkDeleteItemResult =
   | {
@@ -901,6 +905,10 @@ export type BulkDeleteItemResult =
       skillName: SkillName
       outcome: 'error'
       error: { message: string; code?: string }
+      /** Unlinks committed to disk before the failing iteration threw, if any. */
+      symlinksRemoved?: number
+      /** Agents whose links were removed before the throw, for partial-cleanup reporting. */
+      cascadeAgents?: AgentId[]
     }
 
 /**
@@ -933,6 +941,7 @@ export interface ClearOrphanSymlinksOptions {
  * Per-item result from orphan-only symlink cleanup.
  * @example { skillName: 'abandoned', outcome: 'orphan-cleared', symlinksRemoved: 1, cascadeAgents: ['codex'] }
  * @example { skillName: 'abandoned', outcome: 'error', error: { message: 'Plan changed' } }
+ * @example { skillName: 'abandoned', outcome: 'error', error: { message: 'Source skill exists', code: 'ESTALE' }, symlinksRemoved: 2, cascadeAgents: ['codex', 'cursor'] }
  */
 export type ClearOrphanSymlinkItemResult =
   | {
@@ -945,6 +954,10 @@ export type ClearOrphanSymlinkItemResult =
       skillName: SkillName
       outcome: 'error'
       error: { message: string; code?: string }
+      /** Unlinks committed to disk before the failing iteration threw, if any. */
+      symlinksRemoved?: number
+      /** Agents whose links were removed before the throw, for partial-cleanup reporting. */
+      cascadeAgents?: AgentId[]
     }
 
 /**

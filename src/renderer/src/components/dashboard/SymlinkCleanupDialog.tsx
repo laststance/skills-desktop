@@ -438,9 +438,16 @@ function buildCleanupSummary(params: {
 
   const deleteItems = params.deleteResult?.items ?? []
   const orphanSymlinksRemoved = deleteItems.reduce((total, item) => {
-    return item.outcome === 'orphan-cleared'
-      ? total + item.symlinksRemoved
-      : total
+    // Fully-cleared records plus partial cleanups that threw mid-loop: an error
+    // item carrying cascadeAgents already committed those unlinks to disk, so
+    // count them here instead of telling the user 0 were removed.
+    if (item.outcome === 'orphan-cleared') {
+      return total + item.symlinksRemoved
+    }
+    if (item.outcome === 'error' && item.cascadeAgents) {
+      return total + (item.symlinksRemoved ?? 0)
+    }
+    return total
   }, 0)
   const brokenLinksUnlinked = params.unlinkResults.reduce((total, group) => {
     return (

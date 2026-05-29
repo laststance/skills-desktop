@@ -297,6 +297,29 @@ describe('formatCascadeSummary', () => {
       'Cleaned up 2 orphan symlinks. 1 deletion failed.',
     )
   })
+
+  it('counts symlinks already unlinked when a multi-agent cleanup fails partway', () => {
+    // Arrange — a 3-agent orphan record where the source reappeared between
+    // the 2nd and 3rd unlink: codex + cursor committed to disk, then ESTALE.
+    // The error variant carries the partial cascade so the count is honest.
+    const result: BulkDeleteResult = {
+      items: [
+        {
+          skillName: 'abandoned',
+          outcome: 'error',
+          error: { message: 'Source skill exists', code: 'ESTALE' },
+          symlinksRemoved: 2,
+          cascadeAgents: ['codex' as AgentId, 'cursor' as AgentId],
+        },
+      ],
+    }
+
+    // Act
+    const summary = formatCascadeSummary(result)
+
+    // Assert — the 2 committed unlinks surface instead of an undercount of 0.
+    expect(summary).toBe('Cleaned up 2 orphan symlinks. 1 deletion failed.')
+  })
 })
 
 describe('formatUnlinkSummary', () => {

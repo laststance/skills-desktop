@@ -200,10 +200,18 @@ export const formatCascadeSummary = (result: BulkDeleteResult): string => {
     (sum, item) => sum + item.symlinksRemoved,
     0,
   )
-  const orphanSymlinks = orphanItems.reduce(
-    (sum, item) => sum + item.symlinksRemoved,
+  // Partial cleanups that threw mid-loop report their committed unlinks on the
+  // error variant — fold them into the orphan tally so the summary mirrors disk.
+  const partialErrorSymlinks = result.items.reduce(
+    (sum, item) =>
+      item.outcome === 'error' && item.cascadeAgents
+        ? sum + (item.symlinksRemoved ?? 0)
+        : sum,
     0,
   )
+  const orphanSymlinks =
+    orphanItems.reduce((sum, item) => sum + item.symlinksRemoved, 0) +
+    partialErrorSymlinks
 
   const phrases: string[] = []
 
