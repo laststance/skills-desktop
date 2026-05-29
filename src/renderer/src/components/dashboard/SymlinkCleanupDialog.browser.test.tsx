@@ -582,8 +582,62 @@ describe('SymlinkCleanupDialog', () => {
       .toBeVisible()
     await screen.getByRole('button', { name: 'Rescan' }).click()
 
-    // Assert — the rescan re-fetched the agent registry (a dashboard source),
-    // so its offline warning appears; a skills-only rescan would never show it.
+    // Assert — the rescan re-fetched every dashboard source: the source stats
+    // aggregate (fetched once on cleanup, once on rescan) and the agent registry
+    // (whose offline warning then appears; a skills-only rescan would show
+    // neither).
+    await expect.poll(() => mockGetSourceStats.mock.calls.length).toBe(2)
+    await expect
+      .element(screen.getByText(/Agent registry offline on rescan/))
+      .toBeVisible()
+  })
+
+  it('refreshes every dashboard source when rescanning after a post-mutation cleanup error', async () => {
+    // Arrange — the cleanup row fails AND a post-cleanup dashboard refresh (the
+    // agent registry) rejects, but the post-cleanup fetchSkills resolves with
+    // the failed row still present, so the dialog lands in the post-mutation
+    // 'error' phase carrying a refresh-failure summary (not a stale prompt). The
+    // rescan's agent registry is offline only on that rescan: its warning
+    // surfaces solely if the rescan refreshes every dashboard source, which the
+    // error phase does only because its summary records the post-cleanup
+    // refresh failure.
+    const firstPlan = [makeSkillWithBrokenSlot('error-refresh-task', 'codex')]
+    mockGetSkills
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce(firstPlan)
+    mockGetAgents
+      .mockRejectedValueOnce(new Error('Dashboard offline after cleanup'))
+      .mockRejectedValueOnce(new Error('Agent registry offline on rescan'))
+    mockClearBrokenSymlinkSlots.mockResolvedValue({
+      items: [
+        {
+          agentId: 'codex',
+          skillName: 'error-refresh-task',
+          linkPath: '/Users/test/.codex/skills/error-refresh-task',
+          outcome: 'error',
+          error: { message: 'Permission denied', code: 'EACCES' },
+        },
+      ],
+    })
+    const screen = await renderOpenedDialog()
+
+    // Act — clean (lands in the post-mutation error phase), then rescan.
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 1 selected' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Clean 1 selected' }).click()
+    await expect
+      .element(screen.getByText('Cleanup finished with failures.'))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Rescan' }).click()
+
+    // Assert — the rescan re-fetched every dashboard source: the source stats
+    // aggregate (fetched once on cleanup, once on rescan) and the agent registry
+    // (whose offline warning then appears; before the error-phase fix the rescan
+    // re-fetched skills only and showed neither).
+    await expect.poll(() => mockGetSourceStats.mock.calls.length).toBe(2)
     await expect
       .element(screen.getByText(/Agent registry offline on rescan/))
       .toBeVisible()

@@ -616,14 +616,16 @@ export const SymlinkCleanupDialog = React.memo(
     const handleRescanClick = useCallback((): void => {
       // A rescan refreshes every dashboard source (not just the dialog's skill
       // scan) whenever the cleanup mutation already ran and may have left the
-      // dashboard side data stale: a 'complete' phase whose post-cleanup refresh
-      // failed, a 'ready'/'no-safe-cleanup' scan that carried a refresh-failure
-      // message, or a post-mutation 'stale' guard. The pre-mutation 'stale'
-      // ('plan changed' before any cleanup) is excluded — nothing mutated, so a
-      // skills-only rescan is enough.
+      // dashboard side data stale: a 'complete' or 'error' phase whose
+      // post-cleanup refresh failed (both carry that failure in the summary),
+      // a 'ready'/'no-safe-cleanup' scan that carried a refresh-failure message,
+      // or a post-mutation 'stale' guard. Pre-mutation phases are excluded —
+      // a 'stale' 'plan changed' (nothing mutated) and an 'error' scan failure
+      // (no summary, so didCleanupRefreshFail is false) only need a skills-only
+      // rescan.
       void runScan({
         refreshDashboard:
-          (state.phase === 'complete' &&
+          ((state.phase === 'complete' || state.phase === 'error') &&
             didCleanupRefreshFail(state.summary)) ||
           ((state.phase === 'no-safe-cleanup' || state.phase === 'ready') &&
             state.message !== null) ||
