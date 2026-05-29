@@ -126,6 +126,36 @@ Agent definitions are synced with [vercel-labs/skills CLI](https://github.com/ve
 - [x] Validate symlink integrity (valid/broken/inaccessible/missing)
 - [x] Local skills support with visual distinction
 
+### Dashboard
+
+When the **Installed** tab is open and no skill is selected, the detail panel renders a customizable, widget-based dashboard (`DashboardCanvas`) as the home view. It is not a separate tab — the app has only `installed` and `marketplace` tabs, and the dashboard fills the Installed tab's no-selection state. Layout is a draggable, resizable grid persisted across launches via the Redux `dashboard` slice.
+
+- [x] Widget grid with drag-to-move and resize (edit mode via `DashboardEditToolbar`)
+- [x] Multiple dashboard pages with tab navigation (`DashboardPageTabs`)
+- [x] Widget picker with live preview before adding (`WidgetPicker`)
+- [x] Keyboard shortcuts for edit-mode actions (`useDashboardKeyboardShortcuts`)
+- [x] Layout and page state persisted between sessions
+
+**Built-in widgets:**
+
+| Widget         | Shows                                                                                  |
+| -------------- | -------------------------------------------------------------------------------------- |
+| Welcome        | Dismissible introduction card shown on first launch                                    |
+| Skill Stats    | Totals for skills, linked skills, and agents at a glance                               |
+| Symlink Health | Valid vs. broken symlinks across all agents; "Scan issues" opens orphan/broken cleanup |
+| Agent Coverage | Which agents have which skills — quick matrix view                                     |
+| Bookmarks      | Saved skills from the marketplace                                                      |
+| Trending       | Popular marketplace skills right now                                                   |
+| What's New     | Recently added or updated marketplace skills                                           |
+| Quick Actions  | Frequent actions: sync, refresh, open marketplace                                      |
+
+**Experimental widgets** — hidden from the picker unless `FEATURE_FLAGS.ENABLE_DASHBOARD_EXPERIMENTAL` is enabled:
+
+| Widget            | Shows                                                |
+| ----------------- | ---------------------------------------------------- |
+| Agent Heatmap     | Symlink density per agent visualized as a heatmap    |
+| Activity Timeline | Recent add/remove/sync events in chronological order |
+
 ### Skills Marketplace
 
 GUI wrapper for `npx skills` CLI commands:
