@@ -3,10 +3,12 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
+import { partitionGlobalDeleteTargets } from '@/renderer/src/components/skills/reviewedDestructiveTargets'
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import type {
   AgentId,
   BulkDeleteResult,
+  FilesystemEntryIdentity,
   Skill,
   SkillName,
   SymlinkInfo,
@@ -17,6 +19,19 @@ const mockGetAll = vi.fn()
 const mockShellOpenExternal = vi.fn()
 const mockOnDeleteProgress = vi.fn(() => () => {})
 const mockSkillsDeleteSkills = vi.fn()
+const mockClearOrphanSymlinks = vi.fn()
+const mockUnlinkManyFromAgent = vi.fn()
+const mockRefreshAllData = vi.hoisted(() => vi.fn())
+const mockSelectionToolbarState = vi.hoisted(() => ({ enabled: false }))
+
+const directoryIdentity: FilesystemEntryIdentity = {
+  kind: 'directory',
+  dev: 1,
+  ino: 2,
+  size: 96,
+  ctimeMs: 3,
+  mtimeMs: 4,
+}
 
 /**
  * Short-circuit every heavy child MainContent renders so tests focus on the
@@ -34,7 +49,12 @@ vi.mock('../skills/SearchBox', () => ({
   SearchBox: () => null,
 }))
 vi.mock('../skills/SelectionToolbar', () => ({
-  SelectionToolbar: () => null,
+  SelectionToolbar: ({ onPrimaryAction }: { onPrimaryAction: () => void }) =>
+    mockSelectionToolbarState.enabled ? (
+      <button type="button" onClick={onPrimaryAction}>
+        Open bulk confirm
+      </button>
+    ) : null,
 }))
 vi.mock('../skills/UnlinkDialog', () => ({
   UnlinkDialog: () => null,
@@ -58,7 +78,7 @@ vi.mock('../skills/UndoToast', () => ({
   UndoToast: () => null,
 }))
 vi.mock('../../redux/thunks', () => ({
-  refreshAllData: vi.fn(),
+  refreshAllData: mockRefreshAllData,
 }))
 vi.mock('sonner', () => ({
   toast: Object.assign(vi.fn(), {
@@ -76,6 +96,10 @@ beforeEach(() => {
   mockOnDeleteProgress.mockReset()
   mockOnDeleteProgress.mockImplementation(() => () => {})
   mockSkillsDeleteSkills.mockReset()
+  mockClearOrphanSymlinks.mockReset()
+  mockUnlinkManyFromAgent.mockReset()
+  mockRefreshAllData.mockReset()
+  mockSelectionToolbarState.enabled = false
   // Install the `electron` IPC bridge — browser mode replaces the preload
   // context, so tests that exercise `window.electron.*` must plant a fake
   // before MainContent's mount effect fires.
@@ -84,6 +108,8 @@ beforeEach(() => {
       getAll: mockGetAll,
       onDeleteProgress: mockOnDeleteProgress,
       deleteSkills: mockSkillsDeleteSkills,
+      clearOrphanSymlinks: mockClearOrphanSymlinks,
+      unlinkManyFromAgent: mockUnlinkManyFromAgent,
     },
     shell: {
       openExternal: mockShellOpenExternal,
@@ -181,6 +207,7 @@ function makeSourceSkill(name: string, source: string): Skill {
     name: name as SkillName,
     description: '',
     path: `/skills/${name}` as never,
+    filesystemIdentity: directoryIdentity,
     symlinkCount: 0,
     symlinks: [],
     isSource: true,
@@ -300,6 +327,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
         name: 'task' as SkillName,
         description: '',
         path: '/skills/task' as never,
+        filesystemIdentity: directoryIdentity,
         symlinkCount: 0,
         symlinks: [],
         isSource: true,
@@ -309,6 +337,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
         name: 'tdd' as SkillName,
         description: '',
         path: '/skills/tdd' as never,
+        filesystemIdentity: directoryIdentity,
         symlinkCount: 0,
         symlinks: [],
         isSource: true,
@@ -445,11 +474,16 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
    * Build a Skill fixture with either a `source` (CLI-tracked in the lock
    * file) or no source (plain). The pipeline now treats both identically.
    */
-  function makeSkill(name: SkillName, cliTracked: boolean): Skill {
+  function makeSkill(
+    name: SkillName,
+    cliTracked: boolean,
+    folderName: SkillName = name,
+  ): Skill {
     return {
       name,
       description: '',
-      path: `/home/user/.agents/skills/${name}` as Skill['path'],
+      path: `/home/user/.agents/skills/${folderName}` as Skill['path'],
+      filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],
       isSource: true,
@@ -487,15 +521,11 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
     }
     mockSkillsDeleteSkills.mockResolvedValue(result)
 
-    store.dispatch(
-      fetchSkills.fulfilled(
-        [
-          makeSkill('brainstorming' as SkillName, true),
-          makeSkill('local-skill' as SkillName, false),
-        ],
-        'req-id',
-      ),
-    )
+    const selectedSkills = [
+      makeSkill('brainstorming' as SkillName, true),
+      makeSkill('local-skill' as SkillName, false),
+    ]
+    store.dispatch(fetchSkills.fulfilled(selectedSkills, 'req-id'))
     store.dispatch(enterBulkSelectMode())
     store.dispatch(
       setBulkConfirm({
@@ -504,23 +534,791 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
         agentId: null,
         agentName: null,
         sourceSummary: null,
+        ...partitionGlobalDeleteTargets(selectedSkills, [
+          'brainstorming' as SkillName,
+          'local-skill' as SkillName,
+        ]),
       }),
     )
 
     await screen.getByRole('button', { name: /^Delete$/ }).click()
 
-    // Single IPC call carrying BOTH names — partition is gone, no second
-    // pipeline. The payload shape is `{ items: [{ skillName }] }`; assert it
-    // verbatim so a future thunk tweak surfaces here.
+    // Single IPC call carrying BOTH reviewed row identities — partition is gone,
+    // no second pipeline. Assert the payload verbatim so thunk tweaks surface.
     await expect.poll(() => mockSkillsDeleteSkills.mock.calls.length).toBe(1)
     expect(mockSkillsDeleteSkills.mock.calls[0][0]).toEqual({
-      items: [{ skillName: 'brainstorming' }, { skillName: 'local-skill' }],
+      items: [
+        {
+          skillName: 'brainstorming',
+          skillPath: '/home/user/.agents/skills/brainstorming',
+          filesystemIdentity: directoryIdentity,
+        },
+        {
+          skillName: 'local-skill',
+          skillPath: '/home/user/.agents/skills/local-skill',
+          filesystemIdentity: directoryIdentity,
+        },
+      ],
     })
     // Flush the microtask queue and re-assert: `expect.poll` is satisfied at the
     // first hit, so a regression that triggers a *second* IPC call on a later
     // microtask would otherwise slip through.
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(mockSkillsDeleteSkills).toHaveBeenCalledTimes(1)
+  })
+
+  it('passes reviewed source path when metadata name differs from folder basename', async () => {
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const metadataName = 'metadata-title' as SkillName
+    const folderName = 'folder-basename' as SkillName
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: metadataName,
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1729180800000-metadata-title-a1b2c3d4'),
+          symlinksRemoved: 1,
+          cascadeAgents: ['cursor'],
+        },
+      ],
+    })
+
+    // Arrange
+    const selectedSkills = [makeSkill(metadataName, false, folderName)]
+    store.dispatch(fetchSkills.fulfilled(selectedSkills, 'req'))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [metadataName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets(selectedSkills, [metadataName]),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockSkillsDeleteSkills.mock.calls.length).toBe(1)
+    expect(mockSkillsDeleteSkills.mock.calls[0][0]).toEqual({
+      items: [
+        {
+          skillName: 'metadata-title',
+          skillPath: '/home/user/.agents/skills/folder-basename',
+          filesystemIdentity: directoryIdentity,
+        },
+      ],
+    })
+  })
+
+  it('uses toolbar-captured delete targets when live rows drift before confirm', async () => {
+    mockSelectionToolbarState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const skillName = 'snapshot-delete' as SkillName
+    const originalSkill = makeSkill(
+      skillName,
+      false,
+      'reviewed-folder' as SkillName,
+    )
+    const replacementSkill: Skill = {
+      ...originalSkill,
+      path: '/home/user/.agents/skills/replacement-folder' as never,
+      filesystemIdentity: {
+        ...directoryIdentity,
+        ino: 999,
+      },
+    }
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName,
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1729180800000-snapshot-delete-a1b2c3d4'),
+          symlinksRemoved: 0,
+          cascadeAgents: [],
+        },
+      ],
+    } satisfies BulkDeleteResult)
+
+    // Arrange: open the real bulk-confirm path, then replace the live row with
+    // the same display name but a different reviewed filesystem identity.
+    store.dispatch(fetchSkills.fulfilled([originalSkill], 'req-original'))
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection(skillName))
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+    store.dispatch(fetchSkills.fulfilled([replacementSkill], 'req-replace'))
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockSkillsDeleteSkills.mock.calls.length).toBe(1)
+    expect(mockSkillsDeleteSkills.mock.calls[0][0]).toEqual({
+      items: [
+        {
+          skillName: 'snapshot-delete',
+          skillPath: '/home/user/.agents/skills/reviewed-folder',
+          filesystemIdentity: directoryIdentity,
+        },
+      ],
+    })
+  })
+
+  it('uses toolbar-captured unlink targets when live rows drift before confirm', async () => {
+    mockSelectionToolbarState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    const { enterBulkSelectMode, selectAgent } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const skillName = 'snapshot-unlink' as SkillName
+    const originalSkill: Skill = {
+      name: skillName,
+      description: '',
+      path: '/home/user/.agents/skills/snapshot-unlink' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 1,
+      symlinks: [
+        {
+          agentId: 'cursor' as AgentId,
+          agentName: 'Cursor' as never,
+          linkPath: '/home/user/.cursor/skills/reviewed-link' as never,
+          targetPath: '/home/user/.agents/skills/reviewed-target' as never,
+          status: 'valid',
+          isLocal: false,
+        },
+      ],
+      isSource: true,
+      isOrphan: false,
+    }
+    const replacementSkill: Skill = {
+      ...originalSkill,
+      symlinks: [
+        {
+          ...originalSkill.symlinks[0],
+          linkPath: '/home/user/.cursor/skills/replacement-link' as never,
+          targetPath: '/home/user/.agents/skills/replacement-target' as never,
+        } as SymlinkInfo,
+      ],
+    }
+    mockUnlinkManyFromAgent.mockResolvedValue({
+      items: [{ skillName, outcome: 'unlinked' }],
+    })
+
+    // Arrange
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'cursor' as AgentId,
+            name: 'Cursor' as never,
+            path: '/home/user/.cursor/skills' as never,
+            exists: true,
+            skillCount: 1,
+            localSkillCount: 0,
+          },
+        ],
+        'req-agent',
+      ),
+    )
+    store.dispatch(selectAgent('cursor' as AgentId))
+    store.dispatch(fetchSkills.fulfilled([originalSkill], 'req-original'))
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection(skillName))
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+    store.dispatch(fetchSkills.fulfilled([replacementSkill], 'req-replace'))
+
+    // Act
+    await screen.getByRole('button', { name: /^Unlink$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockUnlinkManyFromAgent.mock.calls.length).toBe(1)
+    expect(mockUnlinkManyFromAgent.mock.calls[0][0]).toEqual({
+      agentId: 'cursor',
+      items: [
+        {
+          skillName: 'snapshot-unlink',
+          linkPath: '/home/user/.cursor/skills/reviewed-link',
+          targetPath: '/home/user/.agents/skills/reviewed-target',
+        },
+      ],
+    })
+  })
+
+  it('routes global orphan deletes through reviewed orphan cleanup identity', async () => {
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const orphanSkillName = 'abandoned' as SkillName
+    const orphanSkill: Skill = {
+      name: orphanSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/abandoned' as never,
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'devin' as AgentId,
+          agentName: 'Devin' as never,
+          linkPath: '/Users/me/.config/devin/skills/abandoned' as never,
+          targetPath: '/Users/me/.agents/skills/abandoned' as never,
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    mockClearOrphanSymlinks.mockResolvedValue({
+      items: [
+        {
+          skillName: orphanSkillName,
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 1,
+          cascadeAgents: ['devin'],
+        },
+      ],
+    })
+
+    // Arrange: the global confirmation references an orphan row; this must not
+    // fall back to deleteSkills because that path rescans by name in main.
+    store.dispatch(fetchSkills.fulfilled([orphanSkill], 'req-id'))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [orphanSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([orphanSkill], [orphanSkillName]),
+      }),
+    )
+
+    // Act
+    await expect
+      .element(
+        screen.getByText(
+          'This removes reviewed dangling symlinks for 1 orphan skill. Source skill files are already missing, and this cleanup cannot be undone from the notification.',
+        ),
+      )
+      .toBeVisible()
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockClearOrphanSymlinks.mock.calls.length).toBe(1)
+    expect(mockClearOrphanSymlinks.mock.calls[0][0]).toEqual({
+      items: [
+        {
+          skillName: 'abandoned',
+          agents: [
+            {
+              agentId: 'devin',
+              linkPath: '/Users/me/.config/devin/skills/abandoned',
+              targetPath: '/Users/me/.agents/skills/abandoned',
+            },
+          ],
+        },
+      ],
+    })
+    expect(mockSkillsDeleteSkills).not.toHaveBeenCalled()
+    expect(store.getState().ui.undoToast).toBeNull()
+  })
+
+  it('keeps failed source rows selected after mixed source and orphan delete', async () => {
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode, setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const sourceSkillName = 'source-task' as SkillName
+    const orphanSkillName = 'abandoned' as SkillName
+    const sourceSkill: Skill = {
+      name: sourceSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/source-task' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+    const orphanSkill: Skill = {
+      name: orphanSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/abandoned' as never,
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'devin' as AgentId,
+          agentName: 'Devin' as never,
+          linkPath: '/Users/me/.config/devin/skills/abandoned' as never,
+          targetPath: '/Users/me/.agents/skills/abandoned' as never,
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: sourceSkillName,
+          outcome: 'error',
+          error: { message: 'Disk denied' },
+        },
+      ],
+    } satisfies BulkDeleteResult)
+    mockClearOrphanSymlinks.mockResolvedValue({
+      items: [
+        {
+          skillName: orphanSkillName,
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 1,
+          cascadeAgents: ['devin'],
+        },
+      ],
+    })
+
+    // Arrange: mixed batch has one retryable source failure and one orphan
+    // cleanup success; the source failure must stay selected for retry.
+    store.dispatch(fetchSkills.fulfilled([sourceSkill, orphanSkill], 'req-id'))
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection(sourceSkillName))
+    store.dispatch(toggleSelection(orphanSkillName))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [sourceSkillName, orphanSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets(
+          [sourceSkill, orphanSkill],
+          [sourceSkillName, orphanSkillName],
+        ),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockClearOrphanSymlinks.mock.calls.length).toBe(1)
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      sourceSkillName,
+    ])
+    expect(store.getState().ui.bulkSelectMode).toBe(true)
+  })
+
+  it('keeps source ESTALE selected instead of treating it as orphan rescan', async () => {
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode, setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const sourceSkillName = 'source-stale-task' as SkillName
+    const orphanSkillName = 'abandoned' as SkillName
+    const sourceSkill: Skill = {
+      name: sourceSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/source-stale-task' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+    const orphanSkill: Skill = {
+      name: orphanSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/abandoned' as never,
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'devin' as AgentId,
+          agentName: 'Devin' as never,
+          linkPath: '/Users/me/.config/devin/skills/abandoned' as never,
+          targetPath: '/Users/me/.agents/skills/abandoned' as never,
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: sourceSkillName,
+          outcome: 'error',
+          error: {
+            message: 'Reviewed skill folder changed since review',
+            code: 'ESTALE',
+          },
+        },
+      ],
+    } satisfies BulkDeleteResult)
+    mockClearOrphanSymlinks.mockResolvedValue({
+      items: [
+        {
+          skillName: orphanSkillName,
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 1,
+          cascadeAgents: ['devin'],
+        },
+      ],
+    })
+
+    // Arrange: source ESTALE is retry-visible; only orphan ESTALE/preflight
+    // rows should become rescan-required and be removed from retry selection.
+    store.dispatch(fetchSkills.fulfilled([sourceSkill, orphanSkill], 'req-id'))
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection(sourceSkillName))
+    store.dispatch(toggleSelection(orphanSkillName))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [sourceSkillName, orphanSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets(
+          [sourceSkill, orphanSkill],
+          [sourceSkillName, orphanSkillName],
+        ),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockClearOrphanSymlinks.mock.calls.length).toBe(1)
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      sourceSkillName,
+    ])
+    expect(store.getState().ui.bulkSelectMode).toBe(true)
+  })
+
+  it('excludes stale orphan preflight errors from retry selection and names rescan in the summary', async () => {
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode, setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const sourceSkillName = 'source-task' as SkillName
+    const orphanSkillName = 'stale-abandoned' as SkillName
+    const sourceSkill: Skill = {
+      name: sourceSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/source-task' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+    const staleOrphanSkill: Skill = {
+      name: orphanSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/stale-abandoned' as never,
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'devin' as AgentId,
+          agentName: 'Devin' as never,
+          linkPath: '/Users/me/.config/devin/skills/stale-abandoned' as never,
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: sourceSkillName,
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('source-task-delete'),
+          symlinksRemoved: 0,
+          cascadeAgents: [],
+        },
+      ],
+    } satisfies BulkDeleteResult)
+
+    // Arrange: the source row succeeds, but the orphan row is stale before IPC.
+    store.dispatch(
+      fetchSkills.fulfilled([sourceSkill, staleOrphanSkill], 'req-id'),
+    )
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection(sourceSkillName))
+    store.dispatch(toggleSelection(orphanSkillName))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [sourceSkillName, orphanSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets(
+          [sourceSkill, staleOrphanSkill],
+          [sourceSkillName, orphanSkillName],
+        ),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockSkillsDeleteSkills.mock.calls.length).toBe(1)
+    expect(mockClearOrphanSymlinks).not.toHaveBeenCalled()
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+    expect(store.getState().ui.undoToast?.summary).toBe(
+      'Deleted 1 of 2 skills. 1 orphan skill needs a rescan before cleanup.',
+    )
+  })
+
+  it('restores unresolved mixed delete selection when source delete rejects', async () => {
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode, setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const sourceSkillName = 'source-task' as SkillName
+    const orphanSkillName = 'abandoned' as SkillName
+    const sourceSkill: Skill = {
+      name: sourceSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/source-task' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+    const orphanSkill: Skill = {
+      name: orphanSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/abandoned' as never,
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'devin' as AgentId,
+          agentName: 'Devin' as never,
+          linkPath: '/Users/me/.config/devin/skills/abandoned' as never,
+          targetPath: '/Users/me/.agents/skills/abandoned' as never,
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    mockSkillsDeleteSkills.mockRejectedValueOnce(new Error('Disk offline'))
+
+    // Arrange: source delete rejects before orphan cleanup can run, so both
+    // unresolved rows must remain selected for a later retry.
+    store.dispatch(fetchSkills.fulfilled([sourceSkill, orphanSkill], 'req-id'))
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection(sourceSkillName))
+    store.dispatch(toggleSelection(orphanSkillName))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [sourceSkillName, orphanSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets(
+          [sourceSkill, orphanSkill],
+          [sourceSkillName, orphanSkillName],
+        ),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockSkillsDeleteSkills.mock.calls.length).toBe(1)
+    expect(mockClearOrphanSymlinks).not.toHaveBeenCalled()
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      sourceSkillName,
+      orphanSkillName,
+    ])
+    expect(store.getState().ui.bulkSelectMode).toBe(true)
+    expect(mockRefreshAllData).toHaveBeenCalledTimes(1)
+  })
+
+  it('restores orphan-only selection and refreshes when reviewed orphan cleanup rejects', async () => {
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode, setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const orphanSkillName = 'abandoned' as SkillName
+    const orphanSkill: Skill = {
+      name: orphanSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/abandoned' as never,
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'devin' as AgentId,
+          agentName: 'Devin' as never,
+          linkPath: '/Users/me/.config/devin/skills/abandoned' as never,
+          targetPath: '/Users/me/.agents/skills/abandoned' as never,
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    mockClearOrphanSymlinks.mockRejectedValueOnce(new Error('Disk offline'))
+
+    // Arrange
+    store.dispatch(fetchSkills.fulfilled([orphanSkill], 'req-id'))
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection(orphanSkillName))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [orphanSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([orphanSkill], [orphanSkillName]),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockClearOrphanSymlinks.mock.calls.length).toBe(1)
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      orphanSkillName,
+    ])
+    expect(store.getState().ui.bulkSelectMode).toBe(true)
+    expect(mockRefreshAllData).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not count stale orphan rows as cleanup-ready in delete confirmation', async () => {
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const orphanSkillName = 'stale-abandoned' as SkillName
+    const staleOrphanSkill: Skill = {
+      name: orphanSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/stale-abandoned' as never,
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'devin' as AgentId,
+          agentName: 'Devin' as never,
+          linkPath: '/Users/me/.config/devin/skills/stale-abandoned' as never,
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+
+    // Arrange
+    store.dispatch(fetchSkills.fulfilled([staleOrphanSkill], 'req-id'))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [orphanSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([staleOrphanSkill], [orphanSkillName]),
+      }),
+    )
+
+    // Assert
+    await expect
+      .element(
+        screen.getByText(
+          'No selected orphan skills are cleanup-ready. 1 orphan skill needs a rescan before cleanup because the reviewed target identity is missing.',
+        ),
+      )
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: /^Delete$/ }))
+      .toBeDisabled()
+    expect(
+      screen
+        .getByText(/removes reviewed dangling symlinks for 1 orphan skill/)
+        .query(),
+    ).toBeNull()
+  })
+
+  it('labels stale source rows as delete rescans, not orphan cleanup rescans', async () => {
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const sourceSkillName = 'source-missing-identity' as SkillName
+    const staleSourceSkill: Skill = {
+      name: sourceSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/source-missing-identity' as never,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+
+    // Arrange
+    store.dispatch(fetchSkills.fulfilled([staleSourceSkill], 'req-id'))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [sourceSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([staleSourceSkill], [sourceSkillName]),
+      }),
+    )
+
+    // Assert
+    await expect
+      .element(
+        screen.getByText(
+          'No selected skills are ready to delete. 1 selected skill needs a rescan before delete because the reviewed filesystem identity is missing.',
+        ),
+      )
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: /^Delete$/ }))
+      .toBeDisabled()
+    expect(screen.getByText(/orphan skill needs a rescan/).query()).toBeNull()
   })
 })
 
@@ -637,6 +1435,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
       name: 'linked-one' as SkillName,
       description: '',
       path: '/skills/linked-one' as never,
+      filesystemIdentity: directoryIdentity,
       symlinkCount: 1,
       symlinks: [
         {

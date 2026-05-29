@@ -20,6 +20,8 @@ export interface SkillItemVisibility {
   isLinked: boolean
   /** Skill is a local (real folder) in selected agent's skills directory */
   isLocalSkill: boolean
+  /** Selected agent has a symlink whose target needs manual filesystem review */
+  isInaccessibleSkill: boolean
   /** The symlink for the selected agent, if any (needed for unlink handler) */
   selectedAgentSymlink: SymlinkInfo | null
   /** The local skill SymlinkInfo for the selected agent, if any (needed for delete handler) */
@@ -73,13 +75,13 @@ export type SkillVisibilityInput = Pick<Skill, 'symlinks' | 'isOrphan'>
  * // => { showDeleteButton: true, showAddButton: false, showUnlinkButton: false, ... }
  *
  * @example
- * // Orphan in agent view — Unlink is shown so the user can clear the
- * // dangling agent-side symlink one row at a time. Add stays hidden.
+ * // Orphan in agent view — normal Unlink stays hidden so reviewed cleanup
+ * // paths handle stale broken links. Add stays hidden.
  * getSkillItemVisibility('cursor', {
  *   symlinks: [{ agentId: 'cursor', status: 'broken', isLocal: false, ... }],
  *   isOrphan: true,
  * })
- * // => { showDeleteButton: false, showAddButton: false, showUnlinkButton: true, ... }
+ * // => { showDeleteButton: false, showAddButton: false, showUnlinkButton: false, ... }
  */
 export function getSkillItemVisibility(
   selectedAgentId: AgentId | null,
@@ -90,7 +92,9 @@ export function getSkillItemVisibility(
     ? (symlinks.find(
         (s) =>
           s.agentId === selectedAgentId &&
-          (s.status === 'valid' || s.status === 'broken') &&
+          (s.status === 'valid' ||
+            s.status === 'broken' ||
+            s.status === 'inaccessible') &&
           !s.isLocal,
       ) ?? null)
     : null
@@ -99,8 +103,12 @@ export function getSkillItemVisibility(
     ? (symlinks.find((s) => s.agentId === selectedAgentId && s.isLocal) ?? null)
     : null
 
-  const isLocalSkill = !!selectedLocalSkillInfo
-  const hasSkillInSelectedAgent = !!selectedAgentSymlink || isLocalSkill
+  const isLocalSkill = Boolean(selectedLocalSkillInfo)
+  const hasUsableSkillInSelectedAgent =
+    isLocalSkill || selectedAgentSymlink?.status === 'valid'
+  const isInaccessibleSkill =
+    selectedAgentSymlink !== null &&
+    selectedAgentSymlink.status === 'inaccessible'
   // Orphan handling — see Skill.isOrphan for why the Add button is gated.
   // Source: scanOrphanSymlinks() in src/main/services/skillScanner.ts.
   const showGStackBadge = isGStackManagedForAgent(skill, selectedAgentId)
@@ -115,19 +123,64 @@ export function getSkillItemVisibility(
     // (which opens AddSymlinkModal / CopyToAgentsModal) would surface a flow
     // that can only fail. Stays gated on `!isOrphan` even after the Delete
     // and Unlink loosens.
-    showAddButton: (!selectedAgentId || hasSkillInSelectedAgent) && !isOrphan,
-    // Unlink is the per-agent cleanup action — drives the right-click
-    // "Cleanup missing skills..." flow's row-level analogue. For orphans
-    // it removes the dangling symlink without touching siblings.
-    showUnlinkButton: hasSkillInSelectedAgent,
-    isLinked: !!selectedAgentSymlink && selectedAgentSymlink.status === 'valid',
+    showAddButton:
+      (!selectedAgentId || hasUsableSkillInSelectedAgent) &&
+      !isOrphan &&
+      !isInaccessibleSkill,
+    // Broken and inaccessible non-local symlinks need reviewed cleanup paths
+    // that recheck the target; generic unlink only stays for valid symlinks.
+    showUnlinkButton:
+      isLocalSkill ||
+      (selectedAgentSymlink !== null &&
+        selectedAgentSymlink.status === 'valid'),
+    isLinked:
+      selectedAgentSymlink !== null && selectedAgentSymlink.status === 'valid',
     isLocalSkill,
+    isInaccessibleSkill,
     selectedAgentSymlink,
     selectedLocalSkillInfo,
     // "Copy to..." opens CopyToAgentsModal which fans out from the live
     // source skill — for an orphan, that source is gone. Hide the action
     // for the same reason `showAddButton` is gated on `!isOrphan`.
-    showCopyButton: !!selectedAgentId && hasSkillInSelectedAgent && !isOrphan,
+    showCopyButton:
+      selectedAgentId !== null &&
+      hasUsableSkillInSelectedAgent &&
+      !isOrphan &&
+      !isInaccessibleSkill,
     showGStackBadge,
   }
+}
+
+/**
+ * Tailwind right-padding class for a SkillItem card body.
+ *
+ * Exists because the action buttons (bookmark + X) are `absolute`-positioned
+ * overlays out of the content flow, so the body needs a manual right gutter to
+ * keep its always-visible title-row controls (the "+ Add" button) from sliding
+ * under those overlays on hover. The bookmark + X form an 88px stack
+ * (bookmark at `right-11` = 44px wide, X at `right-0` = 44px wide), so a single
+ * `pr-14` (56px) reserve only clears one button — two need `pr-24` (96px).
+ *
+ * @param flags - Which overlay buttons render (from `getSkillItemVisibility` + `canBookmarkSkill`)
+ * @returns
+ * - `'pr-24'` (96px): bookmark AND an X button both show → clear the 88px stack
+ * - `'pr-14'` (56px): exactly one of bookmark / X shows → clear one 44px button
+ * - `'pr-4'` (16px): no overlay buttons → normal card padding
+ * @example
+ * getCardContentPaddingClass({ showBookmark: true, showUnlinkButton: false, showDeleteButton: true }) // => 'pr-24'
+ * getCardContentPaddingClass({ showBookmark: true, showUnlinkButton: false, showDeleteButton: false }) // => 'pr-14'
+ * getCardContentPaddingClass({ showBookmark: false, showUnlinkButton: false, showDeleteButton: false }) // => 'pr-4'
+ */
+export function getCardContentPaddingClass(flags: {
+  showBookmark: boolean
+  showUnlinkButton: boolean
+  showDeleteButton: boolean
+}): 'pr-24' | 'pr-14' | 'pr-4' {
+  const { showBookmark, showUnlinkButton, showDeleteButton } = flags
+  const hasXButton = showUnlinkButton || showDeleteButton
+  // Two stacked 44px buttons span 88px; only pr-24 (96px) leaves a gap.
+  if (showBookmark && hasXButton) return 'pr-24'
+  // Either button alone is a single 44px overlay; pr-14 (56px) clears it.
+  if (showBookmark || hasXButton) return 'pr-14'
+  return 'pr-4'
 }

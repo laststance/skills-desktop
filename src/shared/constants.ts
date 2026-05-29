@@ -27,8 +27,12 @@ export const PERSIST_STORAGE_KEY = 'skills-desktop-state'
  *    `modePreference` from it (e.g. mode='dark' → modePreference='dark').
  *    "system" is opt-in, never inherited from a pre-v3 user — they explicitly
  *    picked light or dark before, so we keep that pin.
+ *  - v3 → v4: dashboard widget `{w,h}` clamped upward again — the Symlink
+ *    Health widget's `minSize.h` grew 2 → 3 so its action row ("Scan issues")
+ *    no longer clips against the card's bottom edge. Same mechanism and
+ *    rationale as v1 → v2 (see `clampPersistedWidgetSizes`).
  */
-export const PERSIST_STATE_VERSION = 3
+export const PERSIST_STATE_VERSION = 4
 
 /**
  * Chroma value applied to OKLCH tokens for fully-saturated (color) presets.
@@ -598,7 +602,7 @@ export const AGENT_DEFINITIONS = [
 ] as const
 
 /**
- * Any valid theme preset name — 12 OKLCH color hues + 2 neutral variants.
+ * Any valid theme preset name — 17 OKLCH hues, 2 pure neutrals, and 8 tinted neutrals.
  * Derived from `THEME_PRESETS` so new presets only need to be added in one
  * place; Redux reducers, selectors, and the ThemeSelector all pick up the
  * widened union automatically.

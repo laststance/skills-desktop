@@ -1,8 +1,9 @@
-import { readdir, readFile, stat } from 'fs/promises'
+import { lstat, readdir, readFile, stat } from 'fs/promises'
 import { homedir } from 'os'
 import { join } from 'path'
 
 import { AGENTS, SOURCE_DIR } from '@/main/constants'
+import { isMissingPathError } from '@/main/utils/errorCode'
 import { formatBytes } from '@/shared/fileTypes'
 import { repositoryId } from '@/shared/types'
 import type {
@@ -17,6 +18,7 @@ import type {
 } from '@/shared/types'
 
 import { listValidSourceSkillDirs } from './dirScanner'
+import { filesystemIdentityFromStats } from './filesystemIdentity'
 import { parseSkillMetadata } from './metadataParser'
 import { isValidSkillDir } from './skillValidation'
 import {
@@ -62,6 +64,7 @@ interface AgentSymlinkStatusHit {
   name: SkillName
   linkPath: AbsolutePath
   status: SymlinkStatus
+  targetPath?: AbsolutePath
 }
 
 /**
@@ -128,8 +131,11 @@ async function scanAgentSymlinkStatusHits(
         return Promise.all(
           candidates.map(async (link) => {
             const linkPath = join(agent.path, link.name) as AbsolutePath
-            const status = await checkSymlinkTargetFromKnownLink(linkPath)
-            return { agent, name: link.name, linkPath, status }
+            const [status, targetPath] = await Promise.all([
+              checkSymlinkTargetFromKnownLink(linkPath),
+              readSymlinkTargetIfPresent(linkPath),
+            ])
+            return { agent, name: link.name, linkPath, status, targetPath }
           }),
         )
       } catch {
@@ -265,25 +271,34 @@ async function scanSourceSkills(): Promise<Skill[]> {
   const validDirs = await listValidSourceSkillDirs()
 
   const skills = await Promise.all(
-    validDirs.map(async (dir) => {
-      const [metadata, symlinks] = await Promise.all([
-        parseSkillMetadata(dir.path),
-        checkSkillSymlinks(dir.name),
-      ])
+    validDirs.map(async (dir): Promise<Skill | null> => {
+      try {
+        const [metadata, symlinks, stats] = await Promise.all([
+          parseSkillMetadata(dir.path),
+          checkSkillSymlinks(dir.name),
+          lstat(dir.path),
+        ])
 
-      return {
-        name: metadata.name,
-        description: metadata.description,
-        path: dir.path,
-        symlinkCount: countValidSymlinks(symlinks),
-        symlinks,
-        isSource: true,
-        isOrphan: false,
+        return {
+          name: metadata.name,
+          description: metadata.description,
+          path: dir.path,
+          filesystemIdentity: filesystemIdentityFromStats(stats),
+          symlinkCount: countValidSymlinks(symlinks),
+          symlinks,
+          isSource: true,
+          isOrphan: false,
+        }
+      } catch (error) {
+        // Race: another process deleted the source dir after readdir/stat but
+        // before identity capture. Drop only that stale row; keep the scan alive.
+        if (isMissingPathError(error)) return null
+        throw error
       }
     }),
   )
 
-  return skills
+  return skills.filter((skill): skill is Skill => skill !== null)
 }
 
 /**
@@ -298,7 +313,7 @@ async function scanSourceSkills(): Promise<Skill[]> {
  * address the actual path under the selected agent.
  *
  * @param sourceNames - Source skill names already represented by `scanSourceSkills`.
- * @returns Agent-only linked skills with valid non-local symlink slots.
+ * @returns Agent-only linked skills with valid or manual-review non-local symlink slots.
  * @example
  * // ~/.codex/skills/gstack-browse -> ~/gstack/.agents/skills/gstack-browse
  * scanAgentLinkedSymlinks(new Set())
@@ -310,14 +325,21 @@ async function scanAgentLinkedSymlinks(
   const linkedHits = (
     await Promise.all(
       (await scanAgentSymlinkStatusHits(sourceNames))
-        .filter((hit) => hit.status === 'valid')
+        .filter(
+          (hit) => hit.status === 'valid' || hit.status === 'inaccessible',
+        )
         .map(async (hit) => {
-          try {
-            const targetPath = await readSymlinkTargetIfPresent(hit.linkPath)
-            if (!targetPath) return null
+          if (hit.status === 'inaccessible') {
+            return {
+              ...hit,
+              metadata: null,
+            }
+          }
 
-            const metadata = await parseSkillMetadata(targetPath)
-            return { ...hit, targetPath, metadata }
+          try {
+            if (!hit.targetPath) return null
+            const metadata = await parseSkillMetadata(hit.targetPath)
+            return { ...hit, metadata }
           } catch {
             return null
           }
@@ -326,23 +348,37 @@ async function scanAgentLinkedSymlinks(
   ).filter((item): item is NonNullable<typeof item> => item !== null)
 
   const linkedSkillsByName = new Map<SkillName, Skill>()
-  for (const { agent, name, linkPath, targetPath, metadata } of linkedHits) {
+  for (const {
+    agent,
+    name,
+    linkPath,
+    status,
+    targetPath,
+    metadata,
+  } of linkedHits) {
     let skill = linkedSkillsByName.get(name)
     if (!skill) {
       skill = {
         name,
-        description: metadata.description,
-        path: targetPath,
+        description:
+          metadata?.description ??
+          'Inaccessible symlink — target cannot be verified',
+        path: targetPath ?? linkPath,
         symlinkCount: 0,
         symlinks: createMissingSymlinkSlots(name),
         isSource: false,
         isOrphan: false,
       }
       linkedSkillsByName.set(name, skill)
+    } else if (metadata) {
+      // If an inaccessible slot was seen before a valid sibling, upgrade the
+      // display metadata to the readable skill target.
+      skill.description = metadata.description
+      skill.path = targetPath ?? skill.path
     }
 
     updateAgentSymlinkSlot(skill, agent.id, {
-      status: 'valid',
+      status,
       targetPath,
       linkPath,
       isLocal: false,
@@ -382,7 +418,7 @@ async function scanOrphanSymlinks(
   // template (every agent 'missing'), subsequent sightings flip that agent's
   // slot to 'broken'. Single branch, no existing/new split.
   const orphansByName = new Map<SkillName, Skill>()
-  for (const { agent, name, linkPath } of brokenLinks) {
+  for (const { agent, name, linkPath, targetPath } of brokenLinks) {
     let skill = orphansByName.get(name)
     if (!skill) {
       skill = {
@@ -399,6 +435,7 @@ async function scanOrphanSymlinks(
     updateAgentSymlinkSlot(skill, agent.id, {
       status: 'broken',
       linkPath,
+      targetPath,
     })
   }
 
@@ -439,16 +476,20 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
               // gstack source tree (~/.claude/skills/gstack/<name>/SKILL.md).
               // Capturing that target lets the renderer display the G-Stack
               // badge on every gstack-managed skill, not just the parent.
-              const [metadata, skillMdSymlinkTarget] = await Promise.all([
-                parseSkillMetadata(skillPath),
-                readSymlinkTargetIfPresent(
-                  join(skillPath, 'SKILL.md') as AbsolutePath,
-                ),
-              ])
+              const [metadata, skillMdSymlinkTarget, stats] = await Promise.all(
+                [
+                  parseSkillMetadata(skillPath),
+                  readSymlinkTargetIfPresent(
+                    join(skillPath, 'SKILL.md') as AbsolutePath,
+                  ),
+                  lstat(skillPath),
+                ],
+              )
               return {
                 agent,
                 dirName: dir.name,
                 skillPath,
+                filesystemIdentity: filesystemIdentityFromStats(stats),
                 metadata,
                 skillMdSymlinkTarget,
               }
@@ -475,6 +516,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
     agent,
     dirName,
     skillPath,
+    filesystemIdentity,
     metadata,
     skillMdSymlinkTarget,
   } of localHits) {
@@ -484,6 +526,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
         name: metadata.name,
         description: metadata.description,
         path: skillPath,
+        filesystemIdentity,
         symlinkCount: 0, // Local skills have 0 symlinks
         symlinks: createMissingSymlinkSlots(dirName),
         isSource: false,
@@ -495,6 +538,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
       status: 'valid',
       linkPath: join(agent.path, dirName) as AbsolutePath,
       isLocal: true,
+      filesystemIdentity,
       skillMdSymlinkTarget,
     })
   }

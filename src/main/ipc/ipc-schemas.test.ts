@@ -7,6 +7,15 @@ import {
 
 import { IPC_ARG_SCHEMAS } from './ipc-schemas'
 
+const directoryIdentity = {
+  kind: 'directory' as const,
+  dev: 1,
+  ino: 2,
+  size: 96,
+  ctimeMs: 3,
+  mtimeMs: 4,
+}
+
 /**
  * Runtime validation tests for IPC boundary schemas.
  *
@@ -23,39 +32,402 @@ describe('skillNameString consistency across channels', () => {
   // and forgets to use skillNameString, this will not catch it directly
   // but the `../` rejections above will (all channels share the refinement).
   it('rejects "../etc/passwd" across every skill-name-accepting channel', () => {
-    const channels: Array<keyof typeof IPC_ARG_SCHEMAS> = [
-      'skills:unlinkFromAgent',
-      'skills:deleteSkill',
-      'skills:createSymlinks',
-      'skills:copyToAgents',
+    const malicious = '../etc/passwd'
+    const channelCases: Array<{
+      channel: keyof typeof IPC_ARG_SCHEMAS
+      payload: unknown
+    }> = [
+      {
+        channel: 'skills:unlinkFromAgent',
+        payload: {
+          skillName: malicious,
+          agentId: 'cursor',
+          linkPath: '/tmp/x',
+          targetPath: '/tmp/target',
+        },
+      },
+      {
+        channel: 'skills:deleteSkill',
+        payload: {
+          skillName: malicious,
+          skillPath: '/tmp/x',
+          filesystemIdentity: directoryIdentity,
+        },
+      },
+      {
+        channel: 'skills:deleteSkills',
+        payload: {
+          items: [
+            {
+              skillName: malicious,
+              skillPath: '/tmp/x',
+              filesystemIdentity: directoryIdentity,
+            },
+          ],
+        },
+      },
+      {
+        channel: 'skills:createSymlinks',
+        payload: {
+          skillName: malicious,
+          skillPath: '/tmp/x',
+          agentIds: ['cursor'],
+        },
+      },
+      {
+        channel: 'skills:copyToAgents',
+        payload: {
+          skillName: malicious,
+          sourcePath: '/tmp/x',
+          targetAgentIds: ['cursor'],
+        },
+      },
+      {
+        channel: 'skills:clearOrphanSymlinks',
+        payload: {
+          items: [
+            {
+              skillName: malicious,
+              agents: [
+                {
+                  agentId: 'cursor',
+                  linkPath: '/tmp/link',
+                  targetPath: '/tmp/target',
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        channel: 'skills:clearBrokenSymlinkSlots',
+        payload: {
+          items: [
+            {
+              agentId: 'cursor',
+              linkName: malicious,
+              linkPath: '/tmp/link',
+              targetPath: '/tmp/target',
+            },
+          ],
+        },
+      },
+      {
+        channel: 'skills:unlinkManyFromAgent',
+        payload: {
+          agentId: 'cursor',
+          items: [
+            {
+              skillName: malicious,
+              linkPath: '/tmp/link',
+              targetPath: '/tmp/target',
+            },
+          ],
+        },
+      },
     ]
 
-    const malicious = '../etc/passwd'
-    for (const channel of channels) {
+    for (const { channel, payload } of channelCases) {
       const schema = IPC_ARG_SCHEMAS[channel]!
-      // Build a minimally-valid payload but inject the malicious skillName.
-      // This avoids asserting the exact shape of each channel (too brittle)
-      // while still exercising the skillName refinement.
-      const payload: { skillName: string; [k: string]: unknown } = {
-        skillName: malicious,
-      }
-      // Supply the other required fields for schemas that need them.
-      if (channel === 'skills:unlinkFromAgent') {
-        payload.agentId = 'cursor'
-        payload.linkPath = '/tmp/x'
-      } else if (channel === 'skills:createSymlinks') {
-        payload.skillPath = '/tmp/x'
-        payload.agentIds = ['cursor']
-      } else if (channel === 'skills:copyToAgents') {
-        payload.sourcePath = '/tmp/x'
-        payload.targetAgentIds = ['cursor']
-      }
       const result = schema.safeParse([payload])
       expect(
         result.success,
         `channel ${channel} should reject ${malicious}`,
       ).toBe(false)
     }
+  })
+})
+
+describe('cleanup IPC target path schemas', () => {
+  const orphanSchema = IPC_ARG_SCHEMAS['skills:clearOrphanSymlinks']!
+  const brokenSchema = IPC_ARG_SCHEMAS['skills:clearBrokenSymlinkSlots']!
+
+  it('requires an absolute targetPath for orphan cleanup records', () => {
+    expect(
+      orphanSchema.safeParse([
+        {
+          items: [
+            {
+              skillName: 'abandoned',
+              agents: [
+                {
+                  agentId: 'cursor',
+                  linkPath: '/tmp/link',
+                },
+              ],
+            },
+          ],
+        },
+      ]).success,
+    ).toBe(false)
+    expect(
+      orphanSchema.safeParse([
+        {
+          items: [
+            {
+              skillName: 'abandoned',
+              agents: [
+                {
+                  agentId: 'cursor',
+                  linkPath: '/tmp/link',
+                  targetPath: 'relative/target',
+                },
+              ],
+            },
+          ],
+        },
+      ]).success,
+    ).toBe(false)
+  })
+
+  it('requires an absolute targetPath for broken-slot cleanup records', () => {
+    expect(
+      brokenSchema.safeParse([
+        {
+          items: [
+            {
+              agentId: 'cursor',
+              linkName: 'task',
+              linkPath: '/tmp/link',
+            },
+          ],
+        },
+      ]).success,
+    ).toBe(false)
+    expect(
+      brokenSchema.safeParse([
+        {
+          items: [
+            {
+              agentId: 'cursor',
+              linkName: 'task',
+              linkPath: '/tmp/link',
+              targetPath: 'relative/target',
+            },
+          ],
+        },
+      ]).success,
+    ).toBe(false)
+  })
+})
+
+describe('reviewed destructive path schemas', () => {
+  const unlinkSchema = IPC_ARG_SCHEMAS['skills:unlinkFromAgent']!
+  const deleteSchema = IPC_ARG_SCHEMAS['skills:deleteSkill']!
+  const deleteBatchSchema = IPC_ARG_SCHEMAS['skills:deleteSkills']!
+
+  it('requires an absolute linkPath for single-agent unlink', () => {
+    // Arrange
+    const payload = {
+      skillName: 'task',
+      agentId: 'cursor',
+      linkPath: 'relative/link',
+      targetPath: '/tmp/target',
+    }
+
+    // Act
+    const result = unlinkSchema.safeParse([payload])
+
+    // Assert
+    expect(result.success).toBe(false)
+  })
+
+  it('requires targetPath for single-agent symlink unlink', () => {
+    // Arrange
+    const missingTargetPath = {
+      skillName: 'task',
+      agentId: 'cursor',
+      linkPath: '/tmp/task',
+    }
+    const relativeTargetPath = {
+      skillName: 'task',
+      agentId: 'cursor',
+      linkPath: '/tmp/task',
+      targetPath: 'relative/target',
+    }
+    const validSymlinkUnlink = {
+      skillName: 'task',
+      agentId: 'cursor',
+      linkPath: '/tmp/task',
+      targetPath: '/tmp/target',
+    }
+
+    // Act / Assert
+    expect(unlinkSchema.safeParse([missingTargetPath]).success).toBe(false)
+    expect(unlinkSchema.safeParse([relativeTargetPath]).success).toBe(false)
+    expect(unlinkSchema.safeParse([validSymlinkUnlink]).success).toBe(true)
+  })
+
+  it('requires reviewed identity for confirmed single-agent local delete', () => {
+    // Arrange
+    const missingIdentity = {
+      skillName: 'local-task',
+      agentId: 'cursor',
+      linkPath: '/tmp/local-task',
+      confirmedLocalDirectoryDelete: true,
+    }
+    const validLocalDelete = {
+      skillName: 'local-task',
+      agentId: 'cursor',
+      linkPath: '/tmp/local-task',
+      confirmedLocalDirectoryDelete: true,
+      reviewedDirectoryIdentity: directoryIdentity,
+    }
+
+    // Act / Assert
+    expect(unlinkSchema.safeParse([missingIdentity]).success).toBe(false)
+    expect(unlinkSchema.safeParse([validLocalDelete]).success).toBe(true)
+  })
+
+  it('requires a reviewed filesystem identity for single delete', () => {
+    // Arrange
+    const payload = {
+      skillName: 'task',
+      skillPath: '/tmp/task',
+    }
+
+    // Act
+    const result = deleteSchema.safeParse([payload])
+
+    // Assert
+    expect(result.success).toBe(false)
+  })
+
+  it('requires a reviewed filesystem identity for batch delete items', () => {
+    // Arrange
+    const payload = {
+      items: [{ skillName: 'task', skillPath: '/tmp/task' }],
+    }
+
+    // Act
+    const result = deleteBatchSchema.safeParse([payload])
+
+    // Assert
+    expect(result.success).toBe(false)
+  })
+})
+
+describe('destructive reviewed-path IPC schemas', () => {
+  const singleDeleteSchema = IPC_ARG_SCHEMAS['skills:deleteSkill']!
+  const batchDeleteSchema = IPC_ARG_SCHEMAS['skills:deleteSkills']!
+  const batchUnlinkSchema = IPC_ARG_SCHEMAS['skills:unlinkManyFromAgent']!
+
+  it('requires an absolute skillPath for every delete request', () => {
+    expect(singleDeleteSchema.safeParse([{ skillName: 'task' }]).success).toBe(
+      false,
+    )
+    expect(
+      singleDeleteSchema.safeParse([
+        {
+          skillName: 'task',
+          skillPath: 'relative/path',
+          filesystemIdentity: directoryIdentity,
+        },
+      ]).success,
+    ).toBe(false)
+    expect(
+      batchDeleteSchema.safeParse([{ items: [{ skillName: 'task' }] }]).success,
+    ).toBe(false)
+    expect(
+      batchDeleteSchema.safeParse([
+        {
+          items: [
+            {
+              skillName: 'task',
+              skillPath: 'relative/path',
+              filesystemIdentity: directoryIdentity,
+            },
+          ],
+        },
+      ]).success,
+    ).toBe(false)
+    expect(
+      batchDeleteSchema.safeParse([
+        {
+          items: [
+            {
+              skillName: 'task',
+              skillPath: '/tmp/task',
+              filesystemIdentity: directoryIdentity,
+            },
+          ],
+        },
+      ]).success,
+    ).toBe(true)
+  })
+
+  it('requires an absolute linkPath for every bulk unlink request', () => {
+    expect(
+      batchUnlinkSchema.safeParse([
+        { agentId: 'cursor', items: [{ skillName: 'task' }] },
+      ]).success,
+    ).toBe(false)
+    expect(
+      batchUnlinkSchema.safeParse([
+        {
+          agentId: 'cursor',
+          items: [
+            {
+              skillName: 'task',
+              linkPath: 'relative/path',
+              targetPath: '/tmp/target',
+            },
+          ],
+        },
+      ]).success,
+    ).toBe(false)
+    expect(
+      batchUnlinkSchema.safeParse([
+        {
+          agentId: 'cursor',
+          items: [
+            {
+              skillName: 'task',
+              linkPath: '/tmp/task',
+              targetPath: 'relative/target',
+            },
+          ],
+        },
+      ]).success,
+    ).toBe(false)
+    expect(
+      batchUnlinkSchema.safeParse([
+        {
+          agentId: 'cursor',
+          items: [
+            {
+              skillName: 'task',
+              linkPath: '/tmp/task',
+              targetPath: '/tmp/target',
+            },
+          ],
+        },
+      ]).success,
+    ).toBe(true)
+  })
+
+  it('requires remove-all agent path and directory identity', () => {
+    const removeAllSchema = IPC_ARG_SCHEMAS['skills:removeAllFromAgent']!
+
+    expect(
+      removeAllSchema.safeParse([
+        { agentId: 'cursor', agentPath: 'relative/path' },
+      ]).success,
+    ).toBe(false)
+    expect(
+      removeAllSchema.safeParse([
+        { agentId: 'cursor', agentPath: '/tmp/.cursor/skills' },
+      ]).success,
+    ).toBe(false)
+    expect(
+      removeAllSchema.safeParse([
+        {
+          agentId: 'cursor',
+          agentPath: '/tmp/.cursor/skills',
+          filesystemIdentity: directoryIdentity,
+        },
+      ]).success,
+    ).toBe(true)
   })
 })
 

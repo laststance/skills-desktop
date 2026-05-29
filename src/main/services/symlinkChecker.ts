@@ -1,15 +1,19 @@
-import { lstat, readlink, access } from 'fs/promises'
-import { dirname, join, resolve } from 'path'
+import { lstat, readlink, access, realpath } from 'fs/promises'
+import { dirname, isAbsolute, join, resolve } from 'path'
 
 import { match } from 'ts-pattern'
 
 import { AGENTS } from '@/main/constants'
+import { isMissingPathError } from '@/main/utils/errorCode'
 import type {
   AbsolutePath,
+  FilesystemEntryIdentity,
   SkillName,
   SymlinkInfo,
   SymlinkStatus,
 } from '@/shared/types'
+
+import { filesystemIdentityFromStats } from './filesystemIdentity'
 
 /**
  * Result from checking if a path is a symlink or local folder
@@ -23,7 +27,7 @@ interface LinkOrLocalResult {
  * Check if a path is a symlink or local folder
  * @param path - Path to check
  * @returns
- * - Symlink: { status: 'valid'|'broken', isLocal: false }
+ * - Symlink: { status: 'valid'|'broken'|'inaccessible', isLocal: false }
  * - Local folder: { status: 'valid', isLocal: true }
  * - Missing: { status: 'missing', isLocal: false }
  * @example
@@ -44,15 +48,17 @@ async function checkLinkOrLocal(path: string): Promise<LinkOrLocalResult> {
       isDirectory: stats.isDirectory(),
     })
       .with({ isSymlink: true }, async (): Promise<LinkOrLocalResult> => {
-        // resolve() handles both absolute and relative targets correctly:
-        // absolute target → returned as-is, relative → resolved from symlink's directory
+        // Resolve through the physical parent so symlinked agent dirs mirror OS behavior.
         const target = await readlink(path)
-        const resolvedTarget = resolve(dirname(path), target)
+        const resolvedTarget = await resolveRawSymlinkTarget(path, target)
         try {
           await access(resolvedTarget)
           return { status: 'valid', isLocal: false }
-        } catch {
-          return { status: 'broken', isLocal: false }
+        } catch (error) {
+          return {
+            status: isMissingPathError(error) ? 'broken' : 'inaccessible',
+            isLocal: false,
+          }
         }
       })
       .with(
@@ -95,13 +101,14 @@ export async function checkSkillSymlinks(
       // readlink() returns the raw stored target string — relative when the
       // symlink was created with a relative target (`ln -s ../foo bar`). The
       // `AbsolutePath` contract requires an absolute path, so resolve it
-      // against the symlink's parent directory, mirroring checkSymlinkStatus.
+      // against the physical symlink parent, mirroring checkSymlinkStatus.
       let targetPath: AbsolutePath | undefined
       let skillMdSymlinkTarget: AbsolutePath | undefined
+      let filesystemIdentity: FilesystemEntryIdentity | undefined
       if (status !== 'missing' && !isLocal) {
         try {
           const target = await readlink(linkPath)
-          targetPath = resolve(dirname(linkPath), target) as AbsolutePath
+          targetPath = await resolveRawSymlinkTarget(linkPath, target)
         } catch {
           // Leave undefined — the link disappeared between lstat and readlink
         }
@@ -109,9 +116,16 @@ export async function checkSkillSymlinks(
         // Local folder: probe the SKILL.md inside it for a gstack-managed
         // symlink. Per-agent so the renderer's badge attribution is bound to
         // THIS slot, not to a sibling agent that happens to share the name.
-        skillMdSymlinkTarget = await readSymlinkTargetIfPresent(
-          join(linkPath, 'SKILL.md') as AbsolutePath,
-        )
+        const [skillMdTarget, localStats] = await Promise.all([
+          readSymlinkTargetIfPresent(
+            join(linkPath, 'SKILL.md') as AbsolutePath,
+          ),
+          lstat(linkPath).catch(() => undefined),
+        ])
+        skillMdSymlinkTarget = skillMdTarget
+        filesystemIdentity = localStats
+          ? filesystemIdentityFromStats(localStats)
+          : undefined
       }
 
       return {
@@ -121,6 +135,7 @@ export async function checkSkillSymlinks(
         targetPath,
         linkPath,
         isLocal,
+        filesystemIdentity,
         skillMdSymlinkTarget,
       }
     }),
@@ -132,7 +147,7 @@ export async function checkSkillSymlinks(
 /**
  * Check the status of a single symlink
  * @param linkPath - Path to the potential symlink
- * @returns Status: 'valid' | 'broken' | 'missing'
+ * @returns Status: 'valid' | 'broken' | 'inaccessible' | 'missing'
  * @example
  * checkSymlinkStatus('/Users/.claude/skills/foo')
  * // => 'valid' (if symlink exists and target exists)
@@ -161,8 +176,8 @@ export async function checkSymlinkStatus(
  * across all agent dirs during a full scan.
  *
  * @param linkPath - Path that is known (by the caller) to be a symbolic link
- * @returns 'valid' if target exists, 'broken' if dangling, 'missing' if the
- * link itself disappeared between the readdir snapshot and the lookup
+ * @returns 'valid' if target exists, 'broken' if dangling, 'inaccessible' if
+ * probe is unsafe, or 'missing' if the link disappeared during lookup
  * @example
  * // Inside a readdir loop where entry.isSymbolicLink() === true:
  * await checkSymlinkTargetFromKnownLink(join(dir, entry.name))
@@ -178,9 +193,9 @@ export async function checkSymlinkTargetFromKnownLink(
 }
 
 /**
- * Read the resolved target of a symbolic link if (and only if) the given path
- * is itself a symlink. Returns `undefined` when the path is a regular file or
- * directory, when it does not exist, or when readlink races with deletion.
+ * Read the OS-resolved target of a symbolic link if the given path is itself a symlink.
+ * Returns `undefined` when the path is a regular file or directory, when it
+ * does not exist, or when readlink races with deletion.
  *
  * Used by the skill scanner to capture where a `SKILL.md` symlink points —
  * gstack-managed sibling skills (e.g. `~/.claude/skills/ship/`) have a real
@@ -190,8 +205,8 @@ export async function checkSymlinkTargetFromKnownLink(
  *
  * @param path - Absolute path that *may or may not* be a symbolic link
  * @returns
- * - Path is a symlink: resolved absolute target (handles both absolute and
- *   relative `readlink(2)` results by anchoring relatives to the link's dir)
+ * - Path is a symlink: resolved absolute target (anchors relative targets to
+ *   the link's physical parent directory)
  * - Path is a regular file/directory, missing, or fails mid-syscall: `undefined`
  * @example
  * await readSymlinkTargetIfPresent('/Users/me/.claude/skills/ship/SKILL.md')
@@ -206,32 +221,53 @@ export async function readSymlinkTargetIfPresent(
     const stats = await lstat(path)
     if (!stats.isSymbolicLink()) return undefined
 
-    // readlink(2) returns the raw stored target — absolute when the link was
-    // created with an absolute target, relative otherwise. resolve(dirname,
-    // target) is a no-op for absolute targets and the correct anchor for
-    // relative ones, mirroring the resolveSymlinkTarget() helper above.
+    // Resolve through the physical parent so symlinked agent dirs mirror OS behavior.
     const target = await readlink(path)
-    return resolve(dirname(path), target) as AbsolutePath
+    return await resolveRawSymlinkTarget(path, target)
   } catch {
     return undefined
   }
 }
 
 /**
- * Shared core: read the symlink, resolve it relative to its own directory
- * (handles both absolute and relative targets), then probe for existence.
+ * Resolve readlink's raw target exactly as the OS does when parent dirs include symlinks.
+ * @param linkPath - Logical path to the symlink being inspected.
+ * @param target - Raw `readlink` target, absolute or relative.
+ * @returns Absolute target path anchored at the physical symlink parent.
+ * @example
+ * resolveRawSymlinkTarget('/home/me/.config/devin/skills/foo', '../../../../.agents/skills/foo')
+ * // => '/home/me/.agents/skills/foo' when `.config` points into dotfiles
+ */
+export async function resolveRawSymlinkTarget(
+  linkPath: string,
+  target: string,
+): Promise<AbsolutePath> {
+  if (isAbsolute(target)) {
+    return resolve(target) as AbsolutePath
+  }
+  const physicalParent = await realpath(dirname(linkPath))
+  return resolve(physicalParent, target) as AbsolutePath
+}
+
+/**
+ * Shared core: read the symlink, resolve it relative to its physical parent, then probe for existence.
  * Centralizing this makes the slow-path and fast-path identical in meaning.
+ * @param linkPath - Symlink path whose raw target should be checked.
+ * @returns `valid` when target exists, `broken` when missing, or `inaccessible` when probing is unsafe.
+ * @example
+ * resolveSymlinkTarget('/Users/me/.config/devin/skills/foo')
+ * // => 'valid'
  */
 async function resolveSymlinkTarget(
   linkPath: AbsolutePath,
 ): Promise<SymlinkStatus> {
   const target = await readlink(linkPath)
-  const resolvedTarget = resolve(dirname(linkPath), target)
+  const resolvedTarget = await resolveRawSymlinkTarget(linkPath, target)
   try {
     await access(resolvedTarget)
     return 'valid'
-  } catch {
-    return 'broken'
+  } catch (error) {
+    return isMissingPathError(error) ? 'broken' : 'inaccessible'
   }
 }
 

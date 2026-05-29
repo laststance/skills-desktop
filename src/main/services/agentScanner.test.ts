@@ -27,10 +27,12 @@ function createDirent(
 
 const readdirMock = vi.fn()
 const accessMock = vi.fn()
+const lstatMock = vi.fn()
 
 vi.mock('fs/promises', () => ({
   readdir: readdirMock,
   access: accessMock,
+  lstat: lstatMock,
 }))
 
 const checkSymlinkStatusMock = vi.fn()
@@ -59,6 +61,16 @@ vi.mock('../constants', () => ({
 describe('scanAgents', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    lstatMock.mockResolvedValue({
+      isSymbolicLink: () => false,
+      isDirectory: () => true,
+      isFile: () => false,
+      dev: 1,
+      ino: 2,
+      size: 96,
+      ctimeMs: 3,
+      mtimeMs: 4,
+    })
   })
 
   it('counts only valid symlinks, excluding broken ones', async () => {

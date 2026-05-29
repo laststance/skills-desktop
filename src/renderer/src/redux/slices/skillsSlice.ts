@@ -7,6 +7,10 @@ import type {
   AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
+  ClearOrphanSymlinksResult,
+  ClearBrokenSymlinkSlotsOptions,
+  ClearBrokenSymlinkSlotsResult,
+  FilesystemEntryIdentity,
   RestoreDeletedSkillResult,
   Skill,
   SkillName,
@@ -110,6 +114,77 @@ function reconcileByLiveNames(
   return names.filter((name) => liveNames.has(name))
 }
 
+export type DeleteSelectedSkillTarget = {
+  skillName: SkillName
+  skillPath: AbsolutePath
+  filesystemIdentity: FilesystemEntryIdentity
+}
+
+export type UnlinkSelectedSkillTarget = {
+  skillName: SkillName
+  linkPath: AbsolutePath
+  targetPath: AbsolutePath
+}
+
+/**
+ * Reviewed broken-slot target carrying the on-disk `linkName` (basename, used by
+ * main for path identity) alongside the `displaySkillName` (the source skill's
+ * display name) so the pending reducer can reconcile selection by the live
+ * `skill.name`, which can differ from the symlink basename.
+ */
+type ClearBrokenSymlinkSlotTarget =
+  ClearBrokenSymlinkSlotsOptions['items'][number] & {
+    displaySkillName: SkillName
+  }
+
+/**
+ * Read the display name from a bulk-delete target that carries reviewed path identity.
+ * @param target - Reviewed delete target object.
+ * @returns Display skill name used for selection reconciliation.
+ * @example getDeleteTargetName({ skillName: 'metadata-title', skillPath: '/x/folder' })
+ */
+function getDeleteTargetName(target: DeleteSelectedSkillTarget): SkillName {
+  return target.skillName
+}
+
+/**
+ * Convert renderer delete targets into the IPC item shape that preserves reviewed paths.
+ * @param target - Reviewed delete target object.
+ * @returns IPC delete item with mandatory skillPath.
+ * @example toDeleteSkillItem({ skillName: 'metadata-title', skillPath: '/x/folder' })
+ */
+function toDeleteSkillItem(target: DeleteSelectedSkillTarget): {
+  skillName: SkillName
+  skillPath: AbsolutePath
+  filesystemIdentity: FilesystemEntryIdentity
+} {
+  return target
+}
+
+/**
+ * Read the display name from a bulk-unlink target that carries reviewed path identity.
+ * @param target - Reviewed unlink target object.
+ * @returns Display skill name used for selection reconciliation.
+ * @example getUnlinkTargetName({ skillName: 'metadata-title', linkPath: '/x/slot', targetPath: '/x/source' })
+ */
+function getUnlinkTargetName(target: UnlinkSelectedSkillTarget): SkillName {
+  return target.skillName
+}
+
+/**
+ * Convert renderer unlink targets into the IPC item shape that preserves reviewed link paths.
+ * @param target - Reviewed unlink target object.
+ * @returns IPC unlink item with mandatory linkPath.
+ * @example toUnlinkSkillItem({ skillName: 'metadata-title', linkPath: '/x/slot', targetPath: '/x/source' })
+ */
+function toUnlinkSkillItem(target: UnlinkSelectedSkillTarget): {
+  skillName: SkillName
+  linkPath: AbsolutePath
+  targetPath: AbsolutePath
+} {
+  return target
+}
+
 /**
  * Fetch all skills from the main process
  * @returns Promise<Skill[]> - Array of skill objects from ~/.agents/skills/
@@ -127,12 +202,36 @@ export const unlinkSkillFromAgent = createAsyncThunk(
   'skills/unlinkFromAgent',
   async (params: { skill: Skill; symlink: SymlinkInfo }) => {
     const { skill, symlink } = params
-    const result = await window.electron.skills.unlinkFromAgent({
-      skillName: skill.name,
-      agentId: symlink.agentId,
-      linkPath: symlink.linkPath,
-      confirmedLocalDirectoryDelete: symlink.isLocal,
-    })
+    const result = await window.electron.skills.unlinkFromAgent(
+      symlink.isLocal
+        ? (() => {
+            if (!symlink.filesystemIdentity) {
+              throw new Error(
+                'Rescan before delete. The reviewed local folder identity is missing.',
+              )
+            }
+            return {
+              skillName: skill.name,
+              agentId: symlink.agentId,
+              linkPath: symlink.linkPath,
+              confirmedLocalDirectoryDelete: true,
+              reviewedDirectoryIdentity: symlink.filesystemIdentity,
+            }
+          })()
+        : (() => {
+            if (!symlink.targetPath) {
+              throw new Error(
+                'Rescan before unlink. The reviewed symlink target is missing.',
+              )
+            }
+            return {
+              skillName: skill.name,
+              agentId: symlink.agentId,
+              linkPath: symlink.linkPath,
+              targetPath: symlink.targetPath,
+            }
+          })(),
+    )
     if (!result.success) {
       throw new Error(result.error || 'Failed to unlink skill')
     }
@@ -203,36 +302,82 @@ export const copyToAgents = createAsyncThunk(
  * `.pending` reducer intersects the passed list with `state.items` to
  * reconcile against any fresh `fetchSkills` that landed between the user
  * click and thunk dispatch.
- * @param selectedNames - Names to delete (already validated by caller).
+ * @param selectedTargets - Reviewed row identities to delete.
  * @returns BulkDeleteResult with per-item outcome
  * @example
- * await dispatch(deleteSelectedSkills(['task', 'browse']))
+ * await dispatch(deleteSelectedSkills([{ skillName: 'task', skillPath: '/Users/me/.agents/skills/task' }]))
  */
 export const deleteSelectedSkills = createAsyncThunk<
   BulkDeleteResult,
-  SkillName[]
->('skills/deleteSelected', async (selectedNames) => {
+  DeleteSelectedSkillTarget[]
+>('skills/deleteSelected', async (selectedTargets) => {
   const result = await window.electron.skills.deleteSkills({
-    items: selectedNames.map((skillName) => ({ skillName })),
+    items: selectedTargets.map(toDeleteSkillItem),
   })
   return result
 })
 
 /**
+ * Clear reviewed orphan symlink records without invoking source deletion.
+ * @param orphanRecords - Orphan skill name plus exact agent link and target paths reviewed in the cleanup dialog.
+ * @returns Per-orphan cleanup result with no tombstones.
+ * @example
+ * await dispatch(clearSelectedOrphanSymlinks([{ skillName: 'abandoned', agents: [{ agentId: 'codex', linkPath: '/Users/me/.codex/skills/abandoned', targetPath: '/Users/me/.agents/skills/abandoned' }] }]))
+ */
+export const clearSelectedOrphanSymlinks = createAsyncThunk<
+  ClearOrphanSymlinksResult,
+  Array<{
+    skillName: SkillName
+    agents: Array<{
+      agentId: AgentId
+      linkPath: AbsolutePath
+      targetPath: AbsolutePath
+    }>
+  }>
+>('skills/clearSelectedOrphanSymlinks', async (orphanRecords) => {
+  return window.electron.skills.clearOrphanSymlinks({
+    items: orphanRecords,
+  })
+})
+
+/**
+ * Clear reviewed broken symlink slots after main revalidates exact path and target identity.
+ * @param brokenSlots - Broken agent symlinks selected in Symlink Health cleanup.
+ * @returns BulkUnlinkResult with per-slot outcome.
+ * @example
+ * await dispatch(clearSelectedBrokenSymlinkSlots({ items: [{ agentId: 'codex', linkName: 'task', displaySkillName: 'task', linkPath: '/Users/me/.codex/skills/task', targetPath: '/Users/me/.agents/skills/task' }] }))
+ */
+export const clearSelectedBrokenSymlinkSlots = createAsyncThunk<
+  ClearBrokenSymlinkSlotsResult,
+  { items: ClearBrokenSymlinkSlotTarget[] }
+>('skills/clearSelectedBrokenSymlinkSlots', async ({ items }) => {
+  // Strip the renderer-only `displaySkillName` before crossing IPC — main
+  // validates path identity from linkName/linkPath/targetPath only.
+  return window.electron.skills.clearBrokenSymlinkSlots({
+    items: items.map(({ agentId, linkName, linkPath, targetPath }) => ({
+      agentId,
+      linkName,
+      linkPath,
+      targetPath,
+    })),
+  })
+})
+
+/**
  * Unlink every selected skill from a single agent. No tombstone produced —
  * unlink is benign (removes one symlink/folder, keeps source intact).
- * @param params - agentId + names to unlink
+ * @param params - agentId + reviewed link paths to unlink.
  * @returns BulkUnlinkResult with per-item outcome
  * @example
- * await dispatch(unlinkSelectedFromAgent({ agentId: 'cursor', selectedNames: ['task'] }))
+ * await dispatch(unlinkSelectedFromAgent({ agentId: 'cursor', selectedNames: [{ skillName: 'task', linkPath: '/Users/me/.cursor/skills/task', targetPath: '/Users/me/.agents/skills/task' }] }))
  */
 export const unlinkSelectedFromAgent = createAsyncThunk<
   BulkUnlinkResult,
-  { agentId: AgentId; selectedNames: SkillName[] }
+  { agentId: AgentId; selectedNames: UnlinkSelectedSkillTarget[] }
 >('skills/unlinkSelectedFromAgent', async ({ agentId, selectedNames }) => {
   const result = await window.electron.skills.unlinkManyFromAgent({
     agentId,
-    items: selectedNames.map((skillName) => ({ skillName })),
+    items: selectedNames.map(toUnlinkSkillItem),
   })
   return result
 })
@@ -461,7 +606,7 @@ const skillsSlice = createSlice({
       .addCase(deleteSelectedSkills.pending, (state, action) => {
         state.inFlightDeleteNames = reconcileByLiveNames(
           state.items,
-          action.meta.arg,
+          action.meta.arg.map(getDeleteTargetName),
         )
         state.bulkDeleting = true
         state.error = null
@@ -472,22 +617,26 @@ const skillsSlice = createSlice({
         state.inFlightDeleteNames = []
         state.bulkDeleting = false
         state.bulkProgress = null
-        // Narrow clearSelection to the items that actually deleted — keep
-        // failed ones selected so the user can retry without re-ticking them.
-        const deletedNames = new Set(
+        // Narrow clearSelection to the items that actually disappeared from
+        // the list — keep failed ones selected so the user can retry without
+        // re-ticking them.
+        const removedNames = new Set(
           action.payload.items
-            .filter((item) => item.outcome === 'deleted')
+            .filter(
+              (item) =>
+                item.outcome === 'deleted' || item.outcome === 'orphan-cleared',
+            )
             .map((item) => item.skillName),
         )
         state.selectedSkillNames = state.selectedSkillNames.filter(
-          (name) => !deletedNames.has(name),
+          (name) => !removedNames.has(name),
         )
         // Reconcile anchor: drop if selection emptied or if anchor itself was
         // deleted. Otherwise leave it so Shift+click continues from the same
         // origin.
         const anchorWasDeleted =
           state.selectionAnchor !== null &&
-          deletedNames.has(state.selectionAnchor)
+          removedNames.has(state.selectionAnchor)
         if (state.selectedSkillNames.length === 0 || anchorWasDeleted) {
           state.selectionAnchor = null
         }
@@ -498,10 +647,62 @@ const skillsSlice = createSlice({
         state.bulkProgress = null
         state.error = action.error.message ?? 'Bulk delete failed'
       })
+      .addCase(clearSelectedOrphanSymlinks.pending, (state, action) => {
+        state.inFlightDeleteNames = reconcileByLiveNames(
+          state.items,
+          action.meta.arg.map((record) => record.skillName),
+        )
+        state.bulkDeleting = true
+        state.error = null
+      })
+      .addCase(clearSelectedOrphanSymlinks.fulfilled, (state, action) => {
+        state.inFlightDeleteNames = []
+        state.bulkDeleting = false
+        state.bulkProgress = null
+        const removedNames = new Set(
+          action.payload.items
+            .filter((item) => item.outcome === 'orphan-cleared')
+            .map((item) => item.skillName),
+        )
+        state.selectedSkillNames = state.selectedSkillNames.filter(
+          (name) => !removedNames.has(name),
+        )
+        const anchorWasRemoved =
+          state.selectionAnchor !== null &&
+          removedNames.has(state.selectionAnchor)
+        if (state.selectedSkillNames.length === 0 || anchorWasRemoved) {
+          state.selectionAnchor = null
+        }
+      })
+      .addCase(clearSelectedOrphanSymlinks.rejected, (state, action) => {
+        state.inFlightDeleteNames = []
+        state.bulkDeleting = false
+        state.bulkProgress = null
+        state.error = action.error.message ?? 'Orphan cleanup failed'
+      })
+      .addCase(clearSelectedBrokenSymlinkSlots.pending, (state, action) => {
+        state.inFlightUnlinkNames = reconcileByLiveNames(
+          state.items,
+          // Reconcile by display name (`skill.name`), not the symlink basename —
+          // the two can differ, and reconcileByLiveNames matches `skill.name`.
+          action.meta.arg.items.map((item) => item.displaySkillName),
+        )
+        state.bulkUnlinking = true
+        state.error = null
+      })
+      .addCase(clearSelectedBrokenSymlinkSlots.fulfilled, (state) => {
+        state.inFlightUnlinkNames = []
+        state.bulkUnlinking = false
+      })
+      .addCase(clearSelectedBrokenSymlinkSlots.rejected, (state, action) => {
+        state.inFlightUnlinkNames = []
+        state.bulkUnlinking = false
+        state.error = action.error.message ?? 'Broken symlink cleanup failed'
+      })
       .addCase(unlinkSelectedFromAgent.pending, (state, action) => {
         state.inFlightUnlinkNames = reconcileByLiveNames(
           state.items,
-          action.meta.arg.selectedNames,
+          action.meta.arg.selectedNames.map(getUnlinkTargetName),
         )
         state.bulkUnlinking = true
         state.error = null

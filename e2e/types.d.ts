@@ -29,6 +29,15 @@ interface ExposedReduxStore {
 }
 
 declare global {
+  interface FilesystemEntryIdentity {
+    kind: 'directory' | 'symlink' | 'file' | 'other'
+    dev: number
+    ino: number
+    size: number
+    ctimeMs: number
+    mtimeMs: number
+  }
+
   interface Window {
     __store?: ExposedReduxStore
     __store__?: ExposedReduxStore
@@ -60,7 +69,11 @@ declare global {
           copied: number
           failures: Array<{ agentId: string; error: string }>
         }>
-        deleteSkill: (options: { skillName: string }) => Promise<{
+        deleteSkill: (options: {
+          skillName: string
+          skillPath: string
+          filesystemIdentity: FilesystemEntryIdentity
+        }) => Promise<{
           success: boolean
           symlinksRemoved: number
           cascadeAgents: string[]
@@ -75,7 +88,11 @@ declare global {
           | { outcome: 'error'; error: { message: string; code?: string } }
         >
         deleteSkills: (options: {
-          items: Array<{ skillName: string }>
+          items: Array<{
+            skillName: string
+            skillPath: string
+            filesystemIdentity: FilesystemEntryIdentity
+          }>
         }) => Promise<{
           items: Array<
             | {
@@ -87,19 +104,91 @@ declare global {
               }
             | {
                 skillName: string
+                outcome: 'orphan-cleared'
+                symlinksRemoved: number
+                cascadeAgents: string[]
+              }
+            | {
+                skillName: string
                 outcome: 'error'
                 error: { message: string; code?: string }
               }
           >
         }>
-        unlinkFromAgent: (options: {
-          skillName: string
-          agentId: string
-          linkPath: string
-        }) => Promise<{ success: boolean; error?: string }>
+        clearOrphanSymlinks: (options: {
+          items: Array<{
+            skillName: string
+            agents: Array<{
+              agentId: string
+              linkPath: string
+              targetPath: string
+            }>
+          }>
+        }) => Promise<{
+          items: Array<
+            | {
+                skillName: string
+                outcome: 'orphan-cleared'
+                symlinksRemoved: number
+                cascadeAgents: string[]
+              }
+            | {
+                skillName: string
+                outcome: 'error'
+                error: { message: string; code?: string }
+              }
+          >
+        }>
+        clearBrokenSymlinkSlots: (options: {
+          items: Array<{
+            agentId: string
+            linkName: string
+            linkPath: string
+            targetPath: string
+          }>
+        }) => Promise<{
+          items: Array<
+            | {
+                agentId: string
+                skillName: string
+                linkPath: string
+                outcome: 'unlinked'
+              }
+            | {
+                agentId: string
+                skillName: string
+                linkPath: string
+                outcome: 'error'
+                error: { message: string; code?: string }
+              }
+          >
+        }>
+        unlinkFromAgent: (
+          options:
+            | {
+                skillName: string
+                agentId: string
+                linkPath: string
+                targetPath: string
+                confirmedLocalDirectoryDelete?: false
+                reviewedDirectoryIdentity?: never
+              }
+            | {
+                skillName: string
+                agentId: string
+                linkPath: string
+                confirmedLocalDirectoryDelete: true
+                reviewedDirectoryIdentity: FilesystemEntryIdentity
+                targetPath?: never
+              },
+        ) => Promise<{ success: boolean; error?: string }>
         unlinkManyFromAgent: (options: {
           agentId: string
-          items: Array<{ skillName: string }>
+          items: Array<{
+            skillName: string
+            linkPath: string
+            targetPath: string
+          }>
         }) => Promise<{
           items: Array<
             | { skillName: string; outcome: 'unlinked' }
@@ -113,6 +202,7 @@ declare global {
         removeAllFromAgent: (options: {
           agentId: string
           agentPath: string
+          filesystemIdentity: FilesystemEntryIdentity
         }) => Promise<{
           success: boolean
           removedCount: number

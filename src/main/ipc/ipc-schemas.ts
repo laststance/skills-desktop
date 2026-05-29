@@ -38,6 +38,16 @@ const absolutePathArg = z
   .refine((p) => p.startsWith('/'), {
     message: 'Path must be absolute (start with /)',
   })
+
+/** Serializable lstat identity captured when a destructive row was reviewed. */
+const filesystemEntryIdentitySchema = z.object({
+  kind: z.enum(['directory', 'symlink', 'file', 'other']),
+  dev: z.number().finite(),
+  ino: z.number().finite(),
+  size: z.number().finite(),
+  ctimeMs: z.number().finite(),
+  mtimeMs: z.number().finite(),
+})
 /**
  * Skill name must not contain path separators (prevents `../` traversal) or
  * null bytes (defense in depth: some libc wrappers truncate at `\0`, which
@@ -179,22 +189,37 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
 
   // Skills operations
   'skills:unlinkFromAgent': z.tuple([
-    z.object({
-      skillName: skillNameString,
-      agentId: nonEmptyString,
-      linkPath: nonEmptyString,
-      confirmedLocalDirectoryDelete: z.boolean().optional(),
-    }),
+    z.union([
+      z.object({
+        skillName: skillNameString,
+        agentId: nonEmptyString,
+        linkPath: absolutePathArg,
+        targetPath: absolutePathArg,
+        confirmedLocalDirectoryDelete: z.literal(false).optional(),
+        reviewedDirectoryIdentity: z.undefined().optional(),
+      }),
+      z.object({
+        skillName: skillNameString,
+        agentId: nonEmptyString,
+        linkPath: absolutePathArg,
+        confirmedLocalDirectoryDelete: z.literal(true),
+        reviewedDirectoryIdentity: filesystemEntryIdentitySchema,
+        targetPath: z.undefined().optional(),
+      }),
+    ]),
   ]),
   'skills:removeAllFromAgent': z.tuple([
     z.object({
       agentId: nonEmptyString,
-      agentPath: nonEmptyString,
+      agentPath: absolutePathArg,
+      filesystemIdentity: filesystemEntryIdentitySchema,
     }),
   ]),
   'skills:deleteSkill': z.tuple([
     z.object({
       skillName: skillNameString,
+      skillPath: absolutePathArg,
+      filesystemIdentity: filesystemEntryIdentitySchema,
     }),
   ]),
   'skills:createSymlinks': z.tuple([
@@ -216,15 +241,61 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
   'skills:deleteSkills': z.tuple([
     z.object({
       items: z
-        .array(z.object({ skillName: skillNameString }))
+        .array(
+          z.object({
+            skillName: skillNameString,
+            skillPath: absolutePathArg,
+            filesystemIdentity: filesystemEntryIdentitySchema,
+          }),
+        )
         .min(1, 'At least one skill required for batch delete'),
+    }),
+  ]),
+  'skills:clearOrphanSymlinks': z.tuple([
+    z.object({
+      items: z
+        .array(
+          z.object({
+            skillName: skillNameString,
+            agents: z
+              .array(
+                z.object({
+                  agentId: nonEmptyString,
+                  linkPath: absolutePathArg,
+                  targetPath: absolutePathArg,
+                }),
+              )
+              .min(1, 'At least one orphan symlink required'),
+          }),
+        )
+        .min(1, 'At least one orphan record required'),
+    }),
+  ]),
+  'skills:clearBrokenSymlinkSlots': z.tuple([
+    z.object({
+      items: z
+        .array(
+          z.object({
+            agentId: nonEmptyString,
+            linkName: skillNameString,
+            linkPath: absolutePathArg,
+            targetPath: absolutePathArg,
+          }),
+        )
+        .min(1, 'At least one broken symlink slot required'),
     }),
   ]),
   'skills:unlinkManyFromAgent': z.tuple([
     z.object({
       agentId: nonEmptyString,
       items: z
-        .array(z.object({ skillName: skillNameString }))
+        .array(
+          z.object({
+            skillName: skillNameString,
+            linkPath: absolutePathArg,
+            targetPath: absolutePathArg,
+          }),
+        )
         .min(1, 'At least one skill required for batch unlink'),
     }),
   ]),

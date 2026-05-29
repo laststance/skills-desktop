@@ -10,6 +10,7 @@ import {
 import React, { useCallback, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 
+import { SymlinkCleanupDialog } from '@/renderer/src/components/dashboard/SymlinkCleanupDialog'
 import { SkillsMarketplace } from '@/renderer/src/components/marketplace'
 import { CleanupAgentDialog } from '@/renderer/src/components/sidebar/CleanupAgentDialog'
 import { SyncConfirmDialog } from '@/renderer/src/components/sidebar/SyncConfirmDialog'
@@ -22,6 +23,11 @@ import {
   formatUnlinkSummary,
 } from '@/renderer/src/components/skills/bulkDeleteHelpers'
 import { CopyToAgentsModal } from '@/renderer/src/components/skills/CopyToAgentsModal'
+import {
+  buildAgentUnlinkTargets,
+  type PartitionedGlobalDeleteTargets,
+  partitionGlobalDeleteTargets,
+} from '@/renderer/src/components/skills/reviewedDestructiveTargets'
 import { SearchBox } from '@/renderer/src/components/skills/SearchBox'
 import { SelectionToolbar } from '@/renderer/src/components/skills/SelectionToolbar'
 import { SkillsList } from '@/renderer/src/components/skills/SkillsList'
@@ -60,18 +66,20 @@ import { useRenderEffect } from '@/renderer/src/hooks/useRenderEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
+  selectBulkSelectableVisibleSkillNames,
   selectRepoFacetOptions,
   selectSelectedVisibleNames,
   selectSourceFilterViewModel,
-  selectVisibleSkillNames,
 } from '@/renderer/src/redux/selectors'
 import type { SourceFilterRow } from '@/renderer/src/redux/selectors'
 import { setPreviewSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
 import {
   clearSelection,
+  clearSelectedOrphanSymlinks,
   deleteSelectedSkills,
   selectAll,
   selectSelectedSkillNames,
+  selectSkillsItems,
   setBulkProgress,
   undoLastBulkDelete,
   unlinkSelectedFromAgent,
@@ -99,6 +107,7 @@ import {
 } from '@/renderer/src/redux/slices/uiSlice'
 import type {
   ActiveTab,
+  BulkConfirmState,
   ExcludableSkillTypeFilter,
   SkillTypeFilter,
 } from '@/renderer/src/redux/slices/uiSlice'
@@ -116,6 +125,7 @@ import type {
   BulkDeleteItemResult,
   IsoTimestamp,
   RepositoryId,
+  Skill,
   ToastId,
   TombstoneId,
 } from '@/shared/types'
@@ -164,6 +174,93 @@ function getUnavailableExcludeReason(
 const SKILLS_SH_URL = 'https://skills.sh'
 
 /**
+ * Build bulk-delete targets only for delete confirms so MainContent stays branch-light.
+ * @param bulkConfirm - Pending bulk confirm dialog state.
+ * @returns Partitioned delete targets, or null for unlink/no dialog.
+ * @example
+ * getBulkDeleteTargetSummary(confirmState)
+ */
+function getBulkDeleteTargetSummary(
+  bulkConfirm: BulkConfirmState | null,
+): PartitionedGlobalDeleteTargets | null {
+  if (!bulkConfirm || bulkConfirm.kind !== 'delete') return null
+  return {
+    deleteTargets: bulkConfirm.deleteTargets,
+    orphanRecords: bulkConfirm.orphanRecords,
+    staleDeleteErrors: bulkConfirm.staleDeleteErrors,
+    orphanErrors: bulkConfirm.orphanErrors,
+  }
+}
+
+/**
+ * Disable destructive confirm when every reviewed row is stale and no cleanup can run.
+ * @param bulkConfirm - Pending bulk confirm dialog state.
+ * @param summary - Partitioned delete targets for the dialog.
+ * @returns True when the primary button would be a no-op.
+ * @example
+ * isBulkDeleteConfirmPrimaryDisabled(confirmState, summary)
+ */
+function isBulkDeleteConfirmPrimaryDisabled(
+  bulkConfirm: BulkConfirmState | null,
+  summary: PartitionedGlobalDeleteTargets | null,
+): boolean {
+  if (bulkConfirm?.kind !== 'delete' || summary === null) return false
+  return (
+    summary.deleteTargets.length === 0 && summary.orphanRecords.length === 0
+  )
+}
+
+/**
+ * Detects orphan cleanup errors that need a fresh scan, not a direct retry.
+ * @param item - Bulk delete item result from source delete or orphan cleanup.
+ * @param orphanCleanupNames - Names known to come from orphan cleanup/preflight.
+ * @returns True when selecting the row again would repeat the same stale failure.
+ * @example
+ * isRescanRequiredDeleteError(item, new Set(['abandoned']))
+ */
+function isRescanRequiredDeleteError(
+  item: BulkDeleteItemResult,
+  orphanCleanupNames: ReadonlySet<Skill['name']>,
+): boolean {
+  return (
+    item.outcome === 'error' &&
+    orphanCleanupNames.has(item.skillName) &&
+    (item.error.code === 'ESTALE' ||
+      item.error.message.includes('Rescan before cleanup'))
+  )
+}
+
+/**
+ * Appends stale-row guidance to bulk delete summaries when cleanup cannot run yet.
+ * @param summary - Existing formatted delete/orphan summary.
+ * @param staleDeleteCount - Number of source/local rows needing a fresh scan.
+ * @param orphanRescanCount - Number of stale orphan rows excluded from retry.
+ * @returns Summary with explicit rescan guidance when needed.
+ * @example
+ * appendDeleteRescanSummary('Deleted 1 of 3 skills.', 1, 1)
+ */
+function appendDeleteRescanSummary(
+  summary: string,
+  staleDeleteCount: number,
+  orphanRescanCount: number,
+): string {
+  const guidance: string[] = []
+  if (staleDeleteCount > 0) {
+    guidance.push(
+      `${staleDeleteCount} selected ${pluralize(staleDeleteCount, 'skill')} ${pluralize(staleDeleteCount, 'needs', 'need')} a rescan before delete.`,
+    )
+  }
+  if (orphanRescanCount > 0) {
+    guidance.push(
+      `${orphanRescanCount} orphan ${pluralize(orphanRescanCount, 'skill')} ${pluralize(orphanRescanCount, 'needs', 'need')} a rescan before cleanup.`,
+    )
+  }
+  if (guidance.length === 0) return summary
+  const suffix = guidance.join(' ')
+  return summary.length > 0 ? `${summary} ${suffix}` : suffix
+}
+
+/**
  * Main content area (flexible width).
  * Owns the Installed / Marketplace tabs, the bulk selection toolbar, and the
  * global keyboard shortcuts that back the bulk-delete flow (Cmd/Ctrl+A, Esc).
@@ -176,9 +273,10 @@ export const MainContent = React.memo(
     const skillTypeFilter = useAppSelector((state) => state.ui.skillTypeFilter)
     const { items: agents } = useAppSelector((state) => state.agents)
     const activeTab = useAppSelector((state) => state.ui.activeTab)
-    const visibleNames = useAppSelector(selectVisibleSkillNames)
+    const visibleNames = useAppSelector(selectBulkSelectableVisibleSkillNames)
     const selectedVisibleNames = useAppSelector(selectSelectedVisibleNames)
     const selectedAllNames = useAppSelector(selectSelectedSkillNames)
+    const skills = useAppSelector(selectSkillsItems)
     const bulkConfirm = useAppSelector(selectBulkConfirm)
     const bulkSelectMode = useAppSelector(selectBulkSelectMode)
     const sourceFilter = useAppSelector(selectSourceFilterViewModel)
@@ -188,6 +286,13 @@ export const MainContent = React.memo(
     )
 
     const selectedAgent = agents.find((a) => a.id === selectedAgentId)
+    const bulkDeleteTargetSummary = useMemo(() => {
+      return getBulkDeleteTargetSummary(bulkConfirm)
+    }, [bulkConfirm])
+    const isBulkConfirmPrimaryDisabled = isBulkDeleteConfirmPrimaryDisabled(
+      bulkConfirm,
+      bulkDeleteTargetSummary,
+    )
     const selectedSkillTypeLabel =
       SKILL_TYPE_FILTER_OPTIONS.find(
         (option) => option.value === skillTypeFilter,
@@ -427,13 +532,45 @@ export const MainContent = React.memo(
               localHiddenCount: sourceFilter.localHiddenCount,
             }
           : null
+      if (selectedAgentId) {
+        const { targets, staleNames } = buildAgentUnlinkTargets(
+          skills,
+          selectedVisibleNames,
+          selectedAgentId,
+        )
+        if (staleNames.length > 0) {
+          flashFailedRows(staleNames)
+          toast.error('Bulk unlink failed', {
+            description: 'Selection changed. Rescan before unlinking.',
+          })
+          refreshAllData(dispatch)
+          return
+        }
+        dispatch(
+          setBulkConfirm({
+            kind: 'unlink',
+            skillNames: targets.map((target) => target.skillName),
+            agentId: selectedAgentId,
+            agentName: selectedAgent?.name ?? null,
+            sourceSummary,
+            unlinkTargets: targets,
+          }),
+        )
+        return
+      }
+      const { deleteTargets, orphanRecords, staleDeleteErrors, orphanErrors } =
+        partitionGlobalDeleteTargets(skills, selectedVisibleNames)
       dispatch(
         setBulkConfirm({
-          kind: selectedAgentId ? 'unlink' : 'delete',
+          kind: 'delete',
           skillNames: selectedVisibleNames,
-          agentId: selectedAgentId,
-          agentName: selectedAgent?.name ?? null,
+          agentId: null,
+          agentName: null,
           sourceSummary,
+          deleteTargets,
+          orphanRecords,
+          staleDeleteErrors,
+          orphanErrors,
         }),
       )
     }, [
@@ -441,30 +578,98 @@ export const MainContent = React.memo(
       selectedAgentId,
       selectedAgent?.name,
       selectedVisibleNames,
+      skills,
       sourceFilter.validRepoIds,
       sourceFilter.localHiddenCount,
     ])
 
     /**
-     * Invoked by the BulkConfirmDialog's primary button. Reads the pending
-     * payload from Redux, clears the dialog, then runs the existing thunk +
-     * post-action logic (toast, refresh, undo toast for deletes).
+     * Reselect unresolved rows when source deletion rejects before orphan cleanup can run.
+     * @param deleteNames - Source-backed names whose delete thunk rejected.
+     * @param cleanupReadyOrphanNames - Orphan rows whose cleanup IPC never ran.
+     * @returns void after bulk selection is restored for retry.
+     * @example
+     * restoreUnresolvedMixedDeleteSelection(['task'], ['orphan'])
      */
-    const handleConfirmBulk = useCallback(async (): Promise<void> => {
-      if (!bulkConfirm) return
-      const { kind, skillNames, agentId, agentName } = bulkConfirm
-      // Clear FIRST so the dialog unmounts before the thunk suspends; the
-      // thunk's `.pending` reducer also clears, but the explicit clear removes
-      // the "frozen dialog while request is in flight" race on slow disks.
-      dispatch(clearBulkConfirm())
+    const restoreUnresolvedMixedDeleteSelection = useCallback(
+      (
+        deleteNames: readonly Skill['name'][],
+        cleanupReadyOrphanNames: readonly Skill['name'][],
+      ): void => {
+        const unresolvedNames = Array.from(
+          new Set([...deleteNames, ...cleanupReadyOrphanNames]),
+        )
+        flashFailedRows(unresolvedNames)
+        if (unresolvedNames.length === 0) return
+        dispatch(enterBulkSelectMode())
+        dispatch(selectAll(unresolvedNames))
+      },
+      [dispatch],
+    )
 
-      if (kind === 'unlink' && agentId) {
-        // Agent view — bulk unlink (not tombstoned, no undo toast).
+    /**
+     * Keeps retryable failures selected while dropping rescan-required orphan failures.
+     * @param deleteItems - Combined source-delete and orphan-cleanup results.
+     * @param hasOrphanCleanupRows - Whether this batch needed manual orphan reconciliation.
+     * @param orphanCleanupNames - Names that belong to reviewed orphan cleanup rows.
+     * @returns Rescan-required orphan names for toast summary copy.
+     * @example
+     * reconcileMixedDeleteSelection([orphanError], true, new Set(['orphan']))
+     */
+    const reconcileMixedDeleteSelection = useCallback(
+      (
+        deleteItems: readonly BulkDeleteItemResult[],
+        hasOrphanCleanupRows: boolean,
+        orphanCleanupNames: ReadonlySet<Skill['name']>,
+      ): { rescanRequiredNames: Skill['name'][] } => {
+        const failedNames = deleteItems
+          .filter((item) => item.outcome === 'error')
+          .map((item) => item.skillName)
+        const uniqueFailedNames = Array.from(new Set(failedNames))
+        const rescanRequiredNames = Array.from(
+          new Set(
+            deleteItems
+              .filter((item) =>
+                isRescanRequiredDeleteError(item, orphanCleanupNames),
+              )
+              .map((item) => item.skillName),
+          ),
+        )
+        const retryableFailedNames = uniqueFailedNames.filter(
+          (name) => !rescanRequiredNames.includes(name),
+        )
+
+        flashFailedRows(uniqueFailedNames)
+        if (!hasOrphanCleanupRows) return { rescanRequiredNames }
+        // Mixed source+orphan cleanup needs combined reconciliation after all
+        // paths settle: retryable rows stay selected, all-success batches
+        // leave bulk mode like source-delete success.
+        if (retryableFailedNames.length > 0) {
+          dispatch(enterBulkSelectMode())
+          dispatch(selectAll(retryableFailedNames))
+        } else {
+          dispatch(clearSelection())
+          dispatch(exitBulkSelectMode())
+        }
+        return { rescanRequiredNames }
+      },
+      [dispatch],
+    )
+
+    /**
+     * Execute reviewed agent-view unlink confirmation after the dialog closes.
+     * @param confirm - Snapshot captured when the confirmation dialog opened.
+     * @returns void after thunk, toast, and refresh side effects finish.
+     * @example await confirmBulkUnlink(bulkConfirm)
+     */
+    const confirmBulkUnlink = useCallback(
+      async (confirm: BulkConfirmState): Promise<void> => {
+        if (confirm.kind !== 'unlink') return
+        const { agentId, agentName } = confirm
+        const unlinkTargets = confirm.unlinkTargets
+
         const action = await dispatch(
-          unlinkSelectedFromAgent({
-            agentId,
-            selectedNames: skillNames,
-          }),
+          unlinkSelectedFromAgent({ agentId, selectedNames: unlinkTargets }),
         )
         if (unlinkSelectedFromAgent.fulfilled.match(action)) {
           const failedNames = action.payload.items
@@ -473,9 +678,6 @@ export const MainContent = React.memo(
           const unlinkedCount = action.payload.items.length - failedNames.length
           flashFailedRows(failedNames)
           if (unlinkedCount === 0) {
-            // Every item failed — a success toast would lie to the user.
-            // Match the delete-all-errored path: surface a failure toast with
-            // the same per-item summary we'd show on partial success.
             toast.error('Bulk unlink failed', {
               description: formatUnlinkSummary(
                 action.payload,
@@ -493,17 +695,86 @@ export const MainContent = React.memo(
           })
         }
         refreshAllData(dispatch)
-        return
-      }
+      },
+      [dispatch],
+    )
 
-      // Global view — bulk delete. Every skill (including ones tracked in
-      // `~/.agents/.skill-lock.json`) flows through the trash + UndoToast
-      // pipeline. The CLI removal path was retired because `npx skills remove`
-      // spawns were unreliable; stale lock-file entries are an acceptable
-      // trade-off for a deterministic delete that supports undo.
-      const action = await dispatch(deleteSelectedSkills(skillNames))
-      if (deleteSelectedSkills.fulfilled.match(action)) {
-        const tombstoneIds = action.payload.items
+    /**
+     * Execute reviewed global delete confirmation, including orphan cleanup rows.
+     * @param confirm - Snapshot captured when the confirmation dialog opened.
+     * @returns void after delete/cleanup thunks, toast, undo, and refresh.
+     * @example await confirmBulkDelete(bulkConfirm)
+     */
+    const confirmBulkDelete = useCallback(
+      async (confirm: BulkConfirmState): Promise<void> => {
+        if (confirm.kind !== 'delete') return
+        const {
+          deleteTargets,
+          orphanRecords,
+          staleDeleteErrors,
+          orphanErrors,
+        } = confirm
+        const deleteItems: BulkDeleteItemResult[] = [
+          ...staleDeleteErrors,
+          ...orphanErrors,
+        ]
+        const hasOrphanCleanupRows =
+          orphanRecords.length > 0 || orphanErrors.length > 0
+        const cleanupReadyOrphanNames = orphanRecords.map(
+          (record) => record.skillName,
+        )
+        const orphanCleanupNames = new Set([
+          ...cleanupReadyOrphanNames,
+          ...orphanErrors.map((item) => item.skillName),
+        ])
+
+        if (deleteTargets.length > 0) {
+          const action = await dispatch(deleteSelectedSkills(deleteTargets))
+          if (deleteSelectedSkills.fulfilled.match(action)) {
+            deleteItems.push(...action.payload.items)
+          } else {
+            if (hasOrphanCleanupRows) {
+              restoreUnresolvedMixedDeleteSelection(
+                deleteTargets.map((target) => target.skillName),
+                cleanupReadyOrphanNames,
+              )
+            }
+            toast.error('Bulk delete failed', {
+              description: errorToastDescription(action),
+            })
+            refreshAllData(dispatch)
+            return
+          }
+        }
+
+        if (orphanRecords.length > 0) {
+          const action = await dispatch(
+            clearSelectedOrphanSymlinks(orphanRecords),
+          )
+          if (clearSelectedOrphanSymlinks.fulfilled.match(action)) {
+            deleteItems.push(...action.payload.items)
+          } else {
+            const message = errorToastDescription(action)
+            if (deleteItems.length === 0) {
+              restoreUnresolvedMixedDeleteSelection([], cleanupReadyOrphanNames)
+              toast.error('Bulk delete failed', { description: message })
+              refreshAllData(dispatch)
+              return
+            }
+            deleteItems.push(
+              ...orphanRecords.map(
+                (record): BulkDeleteItemResult => ({
+                  skillName: record.skillName,
+                  outcome: 'error',
+                  error: { message },
+                }),
+              ),
+            )
+          }
+        }
+
+        if (deleteItems.length === 0) return
+        const tombstoneIds = deleteItems
           .filter(
             (
               item,
@@ -511,46 +782,34 @@ export const MainContent = React.memo(
               item.outcome === 'deleted',
           )
           .map((item) => item.tombstoneId)
-        const deletedNames = action.payload.items
-          .filter((item) => item.outcome === 'deleted')
-          .map((item) => item.skillName)
-        const failedNames = action.payload.items
-          .filter((item) => item.outcome === 'error')
-          .map((item) => item.skillName)
-
-        flashFailedRows(failedNames)
+        const { rescanRequiredNames } = reconcileMixedDeleteSelection(
+          deleteItems,
+          hasOrphanCleanupRows,
+          orphanCleanupNames,
+        )
         refreshAllData(dispatch)
+        const summary = appendDeleteRescanSummary(
+          formatCascadeSummary({ items: deleteItems }),
+          staleDeleteErrors.length,
+          rescanRequiredNames.length,
+        )
 
         if (tombstoneIds.length === 0) {
-          // No tombstones, but the rows still might have succeeded as
-          // `orphan-cleared` (broken-symlink sweeps that have no undo path).
-          // Distinguish all-errored from any-cleared so we don't slap an
-          // "error" title on a row that the user actually wanted swept.
-          const anySuccess = action.payload.items.some(
+          const anySuccess = deleteItems.some(
             (item) =>
               item.outcome === 'deleted' || item.outcome === 'orphan-cleared',
           )
-          if (anySuccess) {
-            toast.success(formatCascadeSummary(action.payload))
-          } else {
-            toast.error('Bulk delete failed', {
-              description: formatCascadeSummary(action.payload),
-            })
-          }
+          if (anySuccess) toast.success(summary)
+          else toast.error('Bulk delete failed', { description: summary })
           return
         }
 
-        // Render via sonner's default-styled wrapper (NOT `toast.custom`) so
-        // the per-toast `closeButton: true` opt-in injects sonner's built-in ×
-        // — sonner only renders the close affordance on styled toasts, and
-        // `toast.custom` opts out of that styling.
-        //
-        // `onUndoComplete` reads `toastId` through the closure at click time,
-        // so it resolves after the surrounding const has been assigned.
+        const deletedNames = deleteItems
+          .filter((item) => item.outcome === 'deleted')
+          .map((item) => item.skillName)
         const expiresAt: IsoTimestamp = new Date(
           Date.now() + UNDO_WINDOW_MS,
         ).toISOString()
-        const summary = formatCascadeSummary(action.payload)
         const handleToastDismissed = (): void => {
           dispatch(clearUndoToast())
         }
@@ -582,12 +841,30 @@ export const MainContent = React.memo(
             summary,
           }),
         )
-      } else {
-        toast.error('Bulk delete failed', {
-          description: errorToastDescription(action),
-        })
+      },
+      [
+        dispatch,
+        handleUndoDelete,
+        reconcileMixedDeleteSelection,
+        restoreUnresolvedMixedDeleteSelection,
+      ],
+    )
+
+    /**
+     * Route the active bulk confirmation to the reviewed unlink or delete executor.
+     * @returns void after the selected executor completes.
+     * @example await handleConfirmBulk()
+     */
+    const handleConfirmBulk = useCallback(async (): Promise<void> => {
+      if (!bulkConfirm) return
+      const confirm = bulkConfirm
+      dispatch(clearBulkConfirm())
+      if (confirm.kind === 'unlink') {
+        await confirmBulkUnlink(confirm)
+        return
       }
-    }, [bulkConfirm, dispatch, handleUndoDelete])
+      await confirmBulkDelete(confirm)
+    }, [bulkConfirm, confirmBulkDelete, confirmBulkUnlink, dispatch])
 
     const handleCancelBulkConfirm = useCallback((): void => {
       dispatch(clearBulkConfirm())
@@ -929,6 +1206,7 @@ export const MainContent = React.memo(
         <SyncConflictDialog />
         <SyncResultDialog />
         <CleanupAgentDialog />
+        <SymlinkCleanupDialog />
 
         {/*
           Bulk delete / unlink confirmation. Copy is driven by
@@ -949,6 +1227,15 @@ export const MainContent = React.memo(
                 {bulkConfirm?.kind === 'delete'
                   ? renderBulkDeleteDescription({
                       totalCount: bulkConfirm.skillNames.length,
+                      trashCount:
+                        bulkDeleteTargetSummary?.deleteTargets.length ??
+                        bulkConfirm.skillNames.length,
+                      orphanCleanupCount:
+                        bulkDeleteTargetSummary?.orphanRecords.length ?? 0,
+                      staleDeleteCount:
+                        bulkDeleteTargetSummary?.staleDeleteErrors.length ?? 0,
+                      orphanRescanCount:
+                        bulkDeleteTargetSummary?.orphanErrors.length ?? 0,
                       sourceSummary: bulkConfirm.sourceSummary,
                     })
                   : `This removes the symlinks in ${bulkConfirm?.agentName ?? 'this agent'}. The underlying skill files stay in your source directory.`}
@@ -962,6 +1249,7 @@ export const MainContent = React.memo(
                 variant={
                   bulkConfirm?.kind === 'delete' ? 'destructive' : 'default'
                 }
+                disabled={isBulkConfirmPrimaryDisabled}
                 onClick={handleConfirmBulk}
               >
                 {bulkConfirm?.kind === 'delete' ? 'Delete' : 'Unlink'}

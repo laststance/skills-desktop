@@ -26,11 +26,69 @@ function createDirent(
 const readdirMock = vi.fn()
 const accessMock = vi.fn()
 const statMock = vi.fn()
+const lstatMock = vi.fn()
+
+/**
+ * Build the subset of fs.Stats consumed by filesystem identity guards.
+ * @param seed - Stable number that makes mocked inodes distinct enough for tests.
+ * @returns Directory-shaped stats object with identity fields.
+ * @example createDirectoryStats(7).isDirectory() // => true
+ */
+function createDirectoryStats(seed: number): {
+  isDirectory: () => boolean
+  isSymbolicLink: () => boolean
+  isFile: () => boolean
+  dev: number
+  ino: number
+  size: number
+  ctimeMs: number
+  mtimeMs: number
+} {
+  return {
+    isDirectory: () => true,
+    isSymbolicLink: () => false,
+    isFile: () => false,
+    dev: 1,
+    ino: seed,
+    size: 96,
+    ctimeMs: seed,
+    mtimeMs: seed,
+  }
+}
+
+/**
+ * Build an fs-like error with a Node `code` field for branch-specific scanner tests.
+ * @param message - Human-readable failure message.
+ * @param code - Node-style errno code.
+ * @returns Error object carrying the requested code.
+ * @example createFsError('missing', 'ENOENT')
+ */
+function createFsError(
+  message: string,
+  code: string,
+): Error & { code: string } {
+  return Object.assign(new Error(message), { code })
+}
+
+/**
+ * Mock lstat for reviewed skill directories that the scanner should accept.
+ * @param paths - Directory paths expected to survive scanner identity capture.
+ * @returns void after configuring the shared lstat mock.
+ * @example mockLstatDirectories(['/mock/agents/codex/skills/task'])
+ */
+function mockLstatDirectories(paths: readonly string[]): void {
+  const validPaths = new Set(paths)
+  lstatMock.mockImplementation(async (path: string) => {
+    if (validPaths.has(path)) return createDirectoryStats(path.length)
+    throw new Error(`ENOENT: ${path}`)
+  })
+}
 
 vi.mock('fs/promises', () => ({
   readdir: readdirMock,
   access: accessMock,
   stat: statMock,
+  lstat: lstatMock,
 }))
 
 vi.mock('../constants', () => ({
@@ -71,6 +129,7 @@ describe('scanSkills local skill aggregation', () => {
   beforeEach(() => {
     readdirMock.mockReset()
     accessMock.mockReset()
+    lstatMock.mockReset()
     checkSymlinkTargetFromKnownLinkMock.mockReset()
     checkSymlinkTargetFromKnownLinkMock.mockResolvedValue('missing')
     readSymlinkTargetIfPresentMock.mockReset()
@@ -126,6 +185,10 @@ describe('scanSkills local skill aggregation', () => {
 
       throw new Error(`ENOENT: ${path}`)
     })
+    mockLstatDirectories([
+      join('/mock/agents/codex/skills', 'frontend-design'),
+      join('/mock/agents/cursor/skills', 'frontend-design'),
+    ])
   })
 
   it('keeps same local skill as valid for multiple agents', async () => {
@@ -215,6 +278,8 @@ describe('scanSkills agent-only linked symlink surfacing', () => {
     readdirMock.mockReset()
     accessMock.mockReset()
     statMock.mockReset()
+    lstatMock.mockReset()
+    lstatMock.mockRejectedValue(new Error('ENOENT'))
     checkSymlinkTargetFromKnownLinkMock.mockReset()
     readSymlinkTargetIfPresentMock.mockReset()
     readSymlinkTargetIfPresentMock.mockResolvedValue(undefined)
@@ -277,6 +342,65 @@ describe('scanSkills agent-only linked symlink surfacing', () => {
     })
     expect(cursor).toMatchObject({ status: 'missing', isLocal: false })
   })
+
+  it('surfaces inaccessible agent-only symlinks for manual review instead of dropping them', async () => {
+    // Arrange: Codex has a symlink whose target can be read but not safely
+    // probed. It has no source skill, so it must still appear in the inventory.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') return []
+      if (path === '/mock/agents/codex/skills') {
+        return [
+          createDirent('secure-review', {
+            isDirectory: false,
+            isSymbolicLink: true,
+          }),
+        ]
+      }
+      return []
+    })
+    accessMock.mockRejectedValue(new Error('ENOENT'))
+    statMock.mockRejectedValue(new Error('ENOENT'))
+    checkSymlinkTargetFromKnownLinkMock.mockImplementation(
+      async (linkPath: string) => {
+        if (linkPath === '/mock/agents/codex/skills/secure-review') {
+          return 'inaccessible'
+        }
+        return 'missing'
+      },
+    )
+    readSymlinkTargetIfPresentMock.mockImplementation(
+      async (linkPath: string) => {
+        if (linkPath === '/mock/agents/codex/skills/secure-review') {
+          return '/mock/secure/skills/secure-review'
+        }
+        return undefined
+      },
+    )
+
+    const { scanSkills } = await import('./skillScanner')
+    const skills = await scanSkills()
+
+    expect(skills).toHaveLength(1)
+    const manualReview = skills[0]
+    expect(manualReview.name).toBe('secure-review')
+    expect(manualReview.description).toBe(
+      'Inaccessible symlink — target cannot be verified',
+    )
+    expect(manualReview.path).toBe('/mock/secure/skills/secure-review')
+    expect(manualReview.symlinkCount).toBe(0)
+    expect(manualReview.isSource).toBe(false)
+    expect(manualReview.isOrphan).toBe(false)
+
+    const codex = manualReview.symlinks.find((s) => s.agentId === 'codex')
+    const cursor = manualReview.symlinks.find((s) => s.agentId === 'cursor')
+    expect(codex).toMatchObject({
+      status: 'inaccessible',
+      isLocal: false,
+      linkPath: '/mock/agents/codex/skills/secure-review',
+      targetPath: '/mock/secure/skills/secure-review',
+    })
+    expect(cursor).toMatchObject({ status: 'missing', isLocal: false })
+  })
 })
 
 describe('scanSkills orphan symlink surfacing (issue #127)', () => {
@@ -284,6 +408,8 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     readdirMock.mockReset()
     accessMock.mockReset()
     statMock.mockReset()
+    lstatMock.mockReset()
+    lstatMock.mockRejectedValue(new Error('ENOENT'))
     checkSymlinkTargetFromKnownLinkMock.mockReset()
     readSymlinkTargetIfPresentMock.mockReset()
     readSymlinkTargetIfPresentMock.mockResolvedValue(undefined)
@@ -313,6 +439,14 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
         return 'missing'
       },
     )
+    readSymlinkTargetIfPresentMock.mockImplementation(
+      async (linkPath: string) => {
+        if (linkPath === '/mock/agents/codex/skills/connect-chrome') {
+          return '/mock/source/skills/connect-chrome'
+        }
+        return undefined
+      },
+    )
 
     const { scanSkills } = await import('./skillScanner')
     const skills = await scanSkills()
@@ -327,7 +461,11 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
 
     const codex = orphan.symlinks.find((s) => s.agentId === 'codex')
     const cursor = orphan.symlinks.find((s) => s.agentId === 'cursor')
-    expect(codex).toMatchObject({ status: 'broken', isLocal: false })
+    expect(codex).toMatchObject({
+      status: 'broken',
+      isLocal: false,
+      targetPath: '/mock/source/skills/connect-chrome',
+    })
     expect(cursor).toMatchObject({ status: 'missing', isLocal: false })
   })
 
@@ -396,6 +534,7 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
       }
       throw new Error(`ENOENT: ${path}`)
     })
+    mockLstatDirectories(['/mock/source/skills/theme-generator'])
     checkSymlinkTargetFromKnownLinkMock.mockResolvedValue('broken')
 
     const { scanSkills } = await import('./skillScanner')
@@ -405,6 +544,58 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     expect(skills).toHaveLength(1)
     expect(skills[0].name).toBe('theme-generator')
     expect(skills[0].isSource).toBe(true)
+  })
+
+  it('skips a source skill directory that disappears after the directory listing', async () => {
+    // Arrange: `listValidSourceSkillDirs()` sees two valid dirs because SKILL.md
+    // stat succeeded, then the second dir vanishes before scanSourceSkills()
+    // captures its reviewed filesystem identity.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        return [
+          createDirent('live-source', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+          createDirent('vanished-source', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (
+        path === '/mock/source/skills/live-source/SKILL.md' ||
+        path === '/mock/source/skills/vanished-source/SKILL.md'
+      ) {
+        return { isFile: () => true }
+      }
+      throw createFsError(`ENOENT: ${path}`, 'ENOENT')
+    })
+    lstatMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills/live-source') {
+        return createDirectoryStats(10)
+      }
+      if (path === '/mock/source/skills/vanished-source') {
+        throw createFsError(`ENOENT: ${path}`, 'ENOENT')
+      }
+      throw createFsError(`ENOENT: ${path}`, 'ENOENT')
+    })
+
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert: one stale source row is dropped instead of rejecting the whole scan.
+    expect(skills).toHaveLength(1)
+    expect(skills[0]).toMatchObject({
+      name: 'live-source',
+      path: '/mock/source/skills/live-source',
+      isSource: true,
+    })
   })
 
   it('merges orphan broken slots into a same-named local skill (regression for #127 follow-up)', async () => {
@@ -443,6 +634,7 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
       }
       throw new Error(`ENOENT: ${path}`)
     })
+    mockLstatDirectories(['/mock/agents/cursor/skills/frontend-design'])
     checkSymlinkTargetFromKnownLinkMock.mockImplementation(
       async (linkPath: string) => {
         if (linkPath === '/mock/agents/codex/skills/frontend-design')

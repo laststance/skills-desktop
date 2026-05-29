@@ -22,7 +22,7 @@ import type {
  * count>=2 surfaces the batch treatment (progress counter when >=10, etc.).
  */
 export type ToolbarView = 'global' | 'agent'
-type ToolbarCountKind = 'single' | 'multi'
+type ToolbarCountKind = 'zero' | 'single' | 'multi'
 
 export interface ToolbarStateInput {
   view: ToolbarView
@@ -48,8 +48,14 @@ export interface ToolbarStateOutput {
   isPrimaryDisabled: boolean
   /** Destructive styling flag — renders red accent; always true for global, always false for agent. */
   isDestructive: boolean
-  /** Key used to identify the four visual states during testing/debug. */
-  variantKey: 'global-single' | 'global-multi' | 'agent-single' | 'agent-multi'
+  /** Key used to identify the six visual states during testing/debug. */
+  variantKey:
+    | 'global-zero'
+    | 'global-single'
+    | 'global-multi'
+    | 'agent-zero'
+    | 'agent-single'
+    | 'agent-multi'
 }
 
 /**
@@ -74,43 +80,87 @@ export const getToolbarState = ({
   visibleCount,
   agentDisplayName,
 }: ToolbarStateInput): ToolbarStateOutput => {
-  const countKind: ToolbarCountKind = count <= 1 ? 'single' : 'multi'
+  // The primary button acts only on selected rows that survived the current
+  // filter, while the adjacent selection summary owns the total hidden count.
+  const actionCount = visibleCount
+  const countKind: ToolbarCountKind =
+    actionCount === 0 ? 'zero' : actionCount === 1 ? 'single' : 'multi'
   const isPrimaryDisabled = visibleCount === 0
+  const ariaSelectionScope =
+    count === visibleCount ? 'selected' : 'visible selected'
   // Fall back to "agent" when the caller doesn't know the display name yet
   // (e.g. render-before-data). Agent view is guaranteed by the match arm.
   const agentLabel = agentDisplayName ?? 'agent'
 
   return match({ view, countKind })
+    .with({ view: 'global', countKind: 'zero' }, () => ({
+      primaryLabel: 'No visible skills',
+      primaryAriaLabel: 'No visible selected skills to delete',
+      isPrimaryDisabled,
+      isDestructive: true,
+      variantKey: 'global-zero' as const,
+    }))
     .with({ view: 'global', countKind: 'single' }, () => ({
       primaryLabel: 'Delete skill',
-      primaryAriaLabel: 'Delete selected skill permanently',
+      primaryAriaLabel: `Move ${ariaSelectionScope} skill to app trash`,
       isPrimaryDisabled,
       isDestructive: true,
       variantKey: 'global-single' as const,
     }))
     .with({ view: 'global', countKind: 'multi' }, () => ({
-      primaryLabel: `Delete ${count} skills`,
-      primaryAriaLabel: `Delete ${count} selected skills permanently`,
+      primaryLabel: `Delete ${actionCount} skills`,
+      primaryAriaLabel: `Move ${actionCount} ${ariaSelectionScope} skills to app trash`,
       isPrimaryDisabled,
       isDestructive: true,
       variantKey: 'global-multi' as const,
     }))
+    .with({ view: 'agent', countKind: 'zero' }, () => ({
+      primaryLabel: 'No visible skills',
+      primaryAriaLabel: `No visible selected skills to unlink from ${agentLabel}`,
+      isPrimaryDisabled,
+      isDestructive: false,
+      variantKey: 'agent-zero' as const,
+    }))
     .with({ view: 'agent', countKind: 'single' }, () => ({
       primaryLabel: `Unlink from ${agentLabel}`,
-      primaryAriaLabel: `Unlink selected skill from ${agentLabel}`,
+      primaryAriaLabel: `Unlink ${ariaSelectionScope} skill from ${agentLabel}`,
       isPrimaryDisabled,
       isDestructive: false,
       variantKey: 'agent-single' as const,
     }))
     .with({ view: 'agent', countKind: 'multi' }, () => ({
-      primaryLabel: `Unlink ${count} from ${agentLabel}`,
-      primaryAriaLabel: `Unlink ${count} selected skills from ${agentLabel}`,
+      primaryLabel: `Unlink ${actionCount} from ${agentLabel}`,
+      primaryAriaLabel: `Unlink ${actionCount} ${ariaSelectionScope} skills from ${agentLabel}`,
       isPrimaryDisabled,
       isDestructive: false,
       variantKey: 'agent-multi' as const,
     }))
     .exhaustive()
 }
+
+/**
+ * Sum every orphan symlink unlink that actually reached disk: fully
+ * orphan-cleared rows PLUS partial cleanups that threw mid-loop after
+ * committing unlinks (error rows that still carry `cascadeAgents`). Exists so
+ * the result toast (`formatCascadeSummary`) and the cleanup dialog
+ * (`buildCleanupSummary`) report one identical count instead of drifting when
+ * only one site is edited; called by both.
+ * @param result - Bulk delete outcome set from the main-process thunk.
+ * @returns Total orphan symlinks removed across cleared + partial-error rows.
+ * @example
+ * countOrphanSymlinksRemoved({ items: [
+ *   { skillName: 'a', outcome: 'orphan-cleared', symlinksRemoved: 2, cascadeAgents: ['cursor'] },
+ *   { skillName: 'b', outcome: 'error', symlinksRemoved: 1, cascadeAgents: ['claude-code'], error: { message: 'EACCES', code: 'EACCES' } },
+ * ] }) // => 3
+ */
+export const countOrphanSymlinksRemoved = (result: BulkDeleteResult): number =>
+  result.items.reduce((total, item) => {
+    if (item.outcome === 'orphan-cleared') return total + item.symlinksRemoved
+    if (item.outcome === 'error' && item.cascadeAgents) {
+      return total + (item.symlinksRemoved ?? 0)
+    }
+    return total
+  }, 0)
 
 /**
  * Build the summary string shown in the toast body after a bulk DELETE.
@@ -158,12 +208,6 @@ export const formatCascadeSummary = (result: BulkDeleteResult): string => {
     (item): item is Extract<BulkDeleteItemResult, { outcome: 'deleted' }> =>
       item.outcome === 'deleted',
   )
-  const orphanItems = result.items.filter(
-    (
-      item,
-    ): item is Extract<BulkDeleteItemResult, { outcome: 'orphan-cleared' }> =>
-      item.outcome === 'orphan-cleared',
-  )
   const errorCount = result.items.filter(
     (item) => item.outcome === 'error',
   ).length
@@ -174,10 +218,9 @@ export const formatCascadeSummary = (result: BulkDeleteResult): string => {
     (sum, item) => sum + item.symlinksRemoved,
     0,
   )
-  const orphanSymlinks = orphanItems.reduce(
-    (sum, item) => sum + item.symlinksRemoved,
-    0,
-  )
+  // Orphan tally (cleared rows + mid-loop partial-error commits) is computed by
+  // the shared helper so this toast and the cleanup dialog never drift.
+  const orphanSymlinks = countOrphanSymlinksRemoved(result)
 
   const phrases: string[] = []
 

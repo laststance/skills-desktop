@@ -33,6 +33,8 @@ export const IPC_CHANNELS = {
   SKILLS_COPY_TO_AGENTS: 'skills:copyToAgents',
   // Skills bulk delete + undo
   SKILLS_DELETE_BATCH: 'skills:deleteSkills',
+  SKILLS_CLEAR_ORPHAN_SYMLINKS: 'skills:clearOrphanSymlinks',
+  SKILLS_CLEAR_BROKEN_SYMLINK_SLOTS: 'skills:clearBrokenSymlinkSlots',
   SKILLS_UNLINK_MANY_FROM_AGENT: 'skills:unlinkManyFromAgent',
   SKILLS_RESTORE_DELETED: 'skills:restoreDeletedSkill',
   SKILLS_DELETE_PROGRESS: 'skills:deleteProgress',

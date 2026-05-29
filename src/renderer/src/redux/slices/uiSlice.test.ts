@@ -6,6 +6,9 @@ import type {
   AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
+  ClearBrokenSymlinkSlotsResult,
+  ClearOrphanSymlinksResult,
+  FilesystemEntryIdentity,
   Skill,
   SyncExecuteResult,
   SyncPreviewResult,
@@ -13,12 +16,23 @@ import type {
 } from '@/shared/types'
 import { repositoryId, tombstoneId } from '@/shared/types'
 
+const directoryIdentity: FilesystemEntryIdentity = {
+  kind: 'directory',
+  dev: 1,
+  ino: 2,
+  size: 96,
+  ctimeMs: 3,
+  mtimeMs: 4,
+}
+
 // Stub window.electron before importing the slice (thunks reference it at call time)
 const mockSyncPreview = vi.fn()
 const mockSyncExecute = vi.fn()
 const mockGetStats = vi.fn()
 const mockGetAll = vi.fn()
 const mockDeleteSkills = vi.fn()
+const mockClearOrphanSymlinks = vi.fn()
+const mockClearBrokenSymlinkSlots = vi.fn()
 const mockUnlinkManyFromAgent = vi.fn()
 
 vi.stubGlobal('window', {
@@ -33,10 +47,40 @@ vi.stubGlobal('window', {
     skills: {
       getAll: mockGetAll,
       deleteSkills: mockDeleteSkills,
+      clearOrphanSymlinks: mockClearOrphanSymlinks,
+      clearBrokenSymlinkSlots: mockClearBrokenSymlinkSlots,
       unlinkManyFromAgent: mockUnlinkManyFromAgent,
     },
   },
 })
+
+/**
+ * Build a reviewed delete target so combined-store tests satisfy destructive IPC shape.
+ * @param skillName - Display name selected by the user.
+ * @returns Delete thunk target with exact reviewed source path.
+ * @example deleteTarget('task')
+ */
+function deleteTarget(skillName: Skill['name']) {
+  return {
+    skillName,
+    skillPath: `/home/user/.agents/skills/${skillName}`,
+    filesystemIdentity: directoryIdentity,
+  }
+}
+
+/**
+ * Build a reviewed unlink target so combined-store tests satisfy destructive IPC shape.
+ * @param skillName - Display name selected by the user.
+ * @returns Unlink thunk target with exact reviewed agent slot path.
+ * @example unlinkTarget('task')
+ */
+function unlinkTarget(skillName: Skill['name']) {
+  return {
+    skillName,
+    linkPath: `/home/user/.cursor/skills/${skillName}`,
+    targetPath: `/home/user/.agents/skills/${skillName}`,
+  }
+}
 
 /**
  * Create a minimal Redux store with only the ui reducer.
@@ -98,6 +142,76 @@ describe('uiSlice activeTab', () => {
     const { setActiveTab } = await import('./uiSlice')
     store.dispatch(setActiveTab('marketplace'))
     expect(store.getState().ui.activeTab).toBe('marketplace')
+  })
+})
+
+describe('uiSlice symlink cleanup dialog', () => {
+  it('starts with the Symlink Health cleanup dialog closed', async () => {
+    // Arrange
+    const store = await createTestStore()
+
+    // Act
+    const isOpen = store.getState().ui.symlinkCleanupDialogOpen
+
+    // Assert
+    expect(isOpen).toBe(false)
+  })
+
+  it('opens and closes the Symlink Health cleanup dialog', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { closeSymlinkCleanupDialog, openSymlinkCleanupDialog } =
+      await import('./uiSlice')
+
+    // Act
+    store.dispatch(openSymlinkCleanupDialog())
+    const openState = store.getState().ui.symlinkCleanupDialogOpen
+    store.dispatch(closeSymlinkCleanupDialog())
+    const closedState = store.getState().ui.symlinkCleanupDialogOpen
+
+    // Assert
+    expect(openState).toBe(true)
+    expect(closedState).toBe(false)
+  })
+
+  it('setActiveTab closes the Symlink Health cleanup dialog', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { openSymlinkCleanupDialog, setActiveTab } = await import('./uiSlice')
+    store.dispatch(openSymlinkCleanupDialog())
+
+    // Act
+    store.dispatch(setActiveTab('marketplace'))
+
+    // Assert
+    expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(false)
+  })
+
+  it('selectAgent closes the Symlink Health cleanup dialog', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { openSymlinkCleanupDialog, selectAgent } = await import('./uiSlice')
+    store.dispatch(openSymlinkCleanupDialog())
+
+    // Act
+    store.dispatch(selectAgent('cursor'))
+
+    // Assert
+    expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(false)
+  })
+
+  it('setCleanupAgentTarget closes the Symlink Health cleanup dialog', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { openSymlinkCleanupDialog, setCleanupAgentTarget } =
+      await import('./uiSlice')
+    store.dispatch(openSymlinkCleanupDialog())
+
+    // Act
+    store.dispatch(setCleanupAgentTarget('cursor'))
+
+    // Assert
+    expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(false)
   })
 })
 
@@ -477,7 +591,76 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
         resolve = r
       }),
     )
-    const promise = store.dispatch(deleteSelectedSkills(['task']))
+    const promise = store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
+
+    expect(store.getState().ui.undoToast).toBeNull()
+
+    resolve({ items: [] })
+    await promise
+  })
+
+  it('clearSelectedOrphanSymlinks.pending clears undoToast (combined store)', async () => {
+    const store = await createCombinedStore()
+    const { setUndoToast } = await import('./uiSlice')
+    const { clearSelectedOrphanSymlinks } = await import('./skillsSlice')
+
+    store.dispatch(setUndoToast(makeToast()))
+    expect(store.getState().ui.undoToast).not.toBeNull()
+
+    let resolve!: (value: ClearOrphanSymlinksResult) => void
+    mockClearOrphanSymlinks.mockReturnValue(
+      new Promise<ClearOrphanSymlinksResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(
+      clearSelectedOrphanSymlinks([
+        {
+          skillName: 'task',
+          agents: [
+            {
+              agentId: 'codex' as AgentId,
+              linkPath: '/home/user/.codex/skills/task',
+              targetPath: '/home/user/.agents/skills/task',
+            },
+          ],
+        },
+      ]),
+    )
+
+    expect(store.getState().ui.undoToast).toBeNull()
+
+    resolve({ items: [] })
+    await promise
+  })
+
+  it('clearSelectedBrokenSymlinkSlots.pending clears undoToast (combined store)', async () => {
+    const store = await createCombinedStore()
+    const { setUndoToast } = await import('./uiSlice')
+    const { clearSelectedBrokenSymlinkSlots } = await import('./skillsSlice')
+
+    store.dispatch(setUndoToast(makeToast()))
+    expect(store.getState().ui.undoToast).not.toBeNull()
+
+    let resolve!: (value: ClearBrokenSymlinkSlotsResult) => void
+    mockClearBrokenSymlinkSlots.mockReturnValue(
+      new Promise<ClearBrokenSymlinkSlotsResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(
+      clearSelectedBrokenSymlinkSlots({
+        items: [
+          {
+            agentId: 'codex' as AgentId,
+            linkName: 'task',
+            displaySkillName: 'task',
+            linkPath: '/home/user/.codex/skills/task',
+            targetPath: '/home/user/.agents/skills/task',
+          },
+        ],
+      }),
+    )
 
     expect(store.getState().ui.undoToast).toBeNull()
 
@@ -502,7 +685,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
-        selectedNames: ['task'],
+        selectedNames: [unlinkTarget('task')],
       }),
     )
 
@@ -594,7 +777,74 @@ describe('uiSlice bulkSelectMode', () => {
         resolve = r
       }),
     )
-    const promise = store.dispatch(deleteSelectedSkills(['task']))
+    const promise = store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
+
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+
+    resolve({ items: [] })
+    await promise
+  })
+
+  it('clearSelectedOrphanSymlinks.pending clears bulkSelectMode (combined store)', async () => {
+    const store = await createCombinedStore()
+    const { enterBulkSelectMode } = await import('./uiSlice')
+    const { clearSelectedOrphanSymlinks } = await import('./skillsSlice')
+
+    store.dispatch(enterBulkSelectMode())
+
+    let resolve!: (value: ClearOrphanSymlinksResult) => void
+    mockClearOrphanSymlinks.mockReturnValue(
+      new Promise<ClearOrphanSymlinksResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(
+      clearSelectedOrphanSymlinks([
+        {
+          skillName: 'task',
+          agents: [
+            {
+              agentId: 'codex' as AgentId,
+              linkPath: '/home/user/.codex/skills/task',
+              targetPath: '/home/user/.agents/skills/task',
+            },
+          ],
+        },
+      ]),
+    )
+
+    expect(store.getState().ui.bulkSelectMode).toBe(false)
+
+    resolve({ items: [] })
+    await promise
+  })
+
+  it('clearSelectedBrokenSymlinkSlots.pending clears bulkSelectMode (combined store)', async () => {
+    const store = await createCombinedStore()
+    const { enterBulkSelectMode } = await import('./uiSlice')
+    const { clearSelectedBrokenSymlinkSlots } = await import('./skillsSlice')
+
+    store.dispatch(enterBulkSelectMode())
+
+    let resolve!: (value: ClearBrokenSymlinkSlotsResult) => void
+    mockClearBrokenSymlinkSlots.mockReturnValue(
+      new Promise<ClearBrokenSymlinkSlotsResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(
+      clearSelectedBrokenSymlinkSlots({
+        items: [
+          {
+            agentId: 'codex' as AgentId,
+            linkName: 'task',
+            displaySkillName: 'task',
+            linkPath: '/home/user/.codex/skills/task',
+            targetPath: '/home/user/.agents/skills/task',
+          },
+        ],
+      }),
+    )
 
     expect(store.getState().ui.bulkSelectMode).toBe(false)
 
@@ -618,7 +868,7 @@ describe('uiSlice bulkSelectMode', () => {
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
-        selectedNames: ['task'],
+        selectedNames: [unlinkTarget('task')],
       }),
     )
 
@@ -692,6 +942,10 @@ describe('uiSlice atomic-clear contract on context switch', () => {
         agentId: null,
         agentName: null,
         sourceSummary: null,
+        deleteTargets: [deleteTarget('a' as Skill['name'])],
+        orphanRecords: [],
+        staleDeleteErrors: [],
+        orphanErrors: [],
       }),
     )
   }
@@ -758,13 +1012,33 @@ describe('uiSlice atomic-clear contract on context switch', () => {
         resolve = r
       }),
     )
-    const promise = store.dispatch(deleteSelectedSkills(['a']))
+    const promise = store.dispatch(deleteSelectedSkills([deleteTarget('a')]))
 
     expect(store.getState().ui).toMatchObject({
       bulkSelectMode: false,
       undoToast: null,
       bulkConfirm: null,
     })
+
+    resolve({ items: [] })
+    await promise
+  })
+
+  it('deleteSelectedSkills.pending preserves the Symlink Health cleanup dialog it may be running inside', async () => {
+    const store = await createCombinedStore()
+    const { openSymlinkCleanupDialog } = await import('./uiSlice')
+    const { deleteSelectedSkills } = await import('./skillsSlice')
+    store.dispatch(openSymlinkCleanupDialog())
+
+    let resolve!: (value: BulkDeleteResult) => void
+    mockDeleteSkills.mockReturnValue(
+      new Promise<BulkDeleteResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(deleteSelectedSkills([deleteTarget('a')]))
+
+    expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(true)
 
     resolve({ items: [] })
     await promise
@@ -784,7 +1058,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
-        selectedNames: ['a'],
+        selectedNames: [unlinkTarget('a')],
       }),
     )
 
@@ -793,6 +1067,31 @@ describe('uiSlice atomic-clear contract on context switch', () => {
       undoToast: null,
       bulkConfirm: null,
     })
+
+    resolve({ items: [] })
+    await promise
+  })
+
+  it('unlinkSelectedFromAgent.pending preserves the Symlink Health cleanup dialog it may be running inside', async () => {
+    const store = await createCombinedStore()
+    const { openSymlinkCleanupDialog } = await import('./uiSlice')
+    const { unlinkSelectedFromAgent } = await import('./skillsSlice')
+    store.dispatch(openSymlinkCleanupDialog())
+
+    let resolve!: (value: BulkUnlinkResult) => void
+    mockUnlinkManyFromAgent.mockReturnValue(
+      new Promise<BulkUnlinkResult>((r) => {
+        resolve = r
+      }),
+    )
+    const promise = store.dispatch(
+      unlinkSelectedFromAgent({
+        agentId: 'cursor' as AgentId,
+        selectedNames: [unlinkTarget('a')],
+      }),
+    )
+
+    expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(true)
 
     resolve({ items: [] })
     await promise
@@ -831,7 +1130,7 @@ describe('uiSlice bulkSelectMode on rejection', () => {
     store.dispatch(enterBulkSelectMode())
     mockDeleteSkills.mockRejectedValue(new Error('FS error'))
 
-    await store.dispatch(deleteSelectedSkills(['task']))
+    await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
 
     expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
@@ -847,7 +1146,7 @@ describe('uiSlice bulkSelectMode on rejection', () => {
     await store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
-        selectedNames: ['task'],
+        selectedNames: [unlinkTarget('task')],
       }),
     )
 

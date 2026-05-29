@@ -1,9 +1,12 @@
-import { mkdir, mkdtemp, rm, symlink } from 'node:fs/promises'
+import { lstat, mkdir, mkdtemp, rm, symlink } from 'node:fs/promises'
 import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { filesystemIdentityFromStats } from '@/main/services/filesystemIdentity'
+import type { FilesystemEntryIdentity } from '@/shared/types'
 
 const handleMock = vi.fn()
 const trashItemMock = vi.fn()
@@ -26,7 +29,11 @@ vi.mock('electron', () => ({
  */
 function getRegisteredHandler(channel: string): (
   event: unknown,
-  arg: { agentId: string; agentPath: string },
+  arg: {
+    agentId: string
+    agentPath: string
+    filesystemIdentity?: FilesystemEntryIdentity
+  },
 ) => Promise<{
   success: boolean
   removedCount: number
@@ -38,12 +45,28 @@ function getRegisteredHandler(channel: string): (
   }
   return registration[1] as (
     event: unknown,
-    arg: { agentId: string; agentPath: string },
+    arg: {
+      agentId: string
+      agentPath: string
+      filesystemIdentity?: FilesystemEntryIdentity
+    },
   ) => Promise<{
     success: boolean
     removedCount: number
     error?: string
   }>
+}
+
+/**
+ * Capture the reviewed directory identity expected by removeAllFromAgent.
+ * @param path - Agent skills directory reviewed by the user.
+ * @returns Serializable filesystem identity for the IPC payload.
+ * @example reviewedIdentity('/tmp/home/.cursor/skills')
+ */
+async function reviewedIdentity(
+  path: string,
+): Promise<FilesystemEntryIdentity> {
+  return filesystemIdentityFromStats(await lstat(path))
 }
 
 describe('skills:removeAllFromAgent handler', () => {
@@ -95,10 +118,19 @@ describe('skills:removeAllFromAgent handler', () => {
     registerSkillsHandlers()
 
     const handler = getRegisteredHandler('skills:removeAllFromAgent')
-    const result = await handler({}, { agentId: 'cline', agentPath: sourceDir })
+    const result = await handler(
+      {},
+      {
+        agentId: 'cline',
+        agentPath: sourceDir,
+        filesystemIdentity: await reviewedIdentity(sourceDir),
+      },
+    )
 
     expect(result.success).toBe(false)
-    expect(result.error).toMatch(/shared skills folder|path traversal/i)
+    expect(result.error).toMatch(
+      /shared skills folder|path traversal|does not match the selected agent slot/i,
+    )
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
@@ -114,13 +146,20 @@ describe('skills:removeAllFromAgent handler', () => {
     registerSkillsHandlers()
 
     const handler = getRegisteredHandler('skills:removeAllFromAgent')
+    const sourceIdentity = await reviewedIdentity(sourceDir)
     const result = await handler(
       {},
-      { agentId: 'cline', agentPath: sourceDir + '/' },
+      {
+        agentId: 'cline',
+        agentPath: sourceDir + '/',
+        filesystemIdentity: sourceIdentity,
+      },
     )
 
     expect(result.success).toBe(false)
-    expect(result.error).toMatch(/shared skills folder|path traversal/i)
+    expect(result.error).toMatch(
+      /shared skills folder|path traversal|does not match the selected agent slot/i,
+    )
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
@@ -128,8 +167,10 @@ describe('skills:removeAllFromAgent handler', () => {
   // fs.rm({force:true}) this handler used to call). Pre-checking with
   // fs.access lets double-clicks and out-of-band deletes resolve cleanly.
   it('returns success with 0 count when agent dir does not exist', async () => {
-    // Never mkdir — the .cursor/skills dir is absent.
     const cursorDir = join(tempHome, '.cursor', 'skills')
+    await mkdir(cursorDir, { recursive: true })
+    const staleIdentity = await reviewedIdentity(cursorDir)
+    await rm(cursorDir, { recursive: true, force: true })
 
     const { registerSkillsHandlers } = await import('./skills')
     registerSkillsHandlers()
@@ -137,10 +178,41 @@ describe('skills:removeAllFromAgent handler', () => {
     const handler = getRegisteredHandler('skills:removeAllFromAgent')
     const result = await handler(
       {},
-      { agentId: 'cursor', agentPath: cursorDir },
+      {
+        agentId: 'cursor',
+        agentPath: cursorDir,
+        filesystemIdentity: staleIdentity,
+      },
     )
 
     expect(result).toEqual({ success: true, removedCount: 0 })
+    expect(trashItemMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects a renderer path for a different agent than the selected agentId', async () => {
+    // Arrange
+    const cursorDir = join(tempHome, '.cursor', 'skills')
+    const claudeDir = join(tempHome, '.claude', 'skills')
+    await mkdir(cursorDir, { recursive: true })
+    await mkdir(claudeDir, { recursive: true })
+
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+
+    // Act
+    const handler = getRegisteredHandler('skills:removeAllFromAgent')
+    const result = await handler(
+      {},
+      {
+        agentId: 'cursor',
+        agentPath: claudeDir,
+        filesystemIdentity: await reviewedIdentity(claudeDir),
+      },
+    )
+
+    // Assert
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/does not match the selected agent slot/i)
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
@@ -155,11 +227,58 @@ describe('skills:removeAllFromAgent handler', () => {
     const handler = getRegisteredHandler('skills:removeAllFromAgent')
     const result = await handler(
       {},
-      { agentId: 'cursor', agentPath: cursorDir },
+      {
+        agentId: 'cursor',
+        agentPath: cursorDir,
+        filesystemIdentity: await reviewedIdentity(cursorDir),
+      },
     )
 
     expect(result).toEqual({ success: true, removedCount: 2 })
     expect(trashItemMock).toHaveBeenCalledTimes(1)
+    expect(String(trashItemMock.mock.calls[0][0])).toContain(
+      join(tempHome, '.cursor', 'skills.trash-'),
+    )
+  })
+
+  it('rejects a same-path replacement before moving the agent dir to OS Trash', async () => {
+    // Arrange
+    const cursorDir = join(tempHome, '.cursor', 'skills')
+    await mkdir(join(cursorDir, 'reviewed-skill'), { recursive: true })
+    await rm(cursorDir, { recursive: true, force: true })
+    await mkdir(join(cursorDir, 'replacement-skill'), { recursive: true })
+    // Synthesize the reviewed identity from the replacement dir but with a
+    // distinct ctime. This deterministically simulates an in-place same-path
+    // replacement (dev+ino reused as ext4 does, fresh ctime) without depending
+    // on the host filesystem's ctime granularity, which can otherwise let the
+    // recreated dir reuse the captured ctime and make the test flaky.
+    const replacementIdentity = await reviewedIdentity(cursorDir)
+    const staleIdentity: FilesystemEntryIdentity = {
+      ...replacementIdentity,
+      ctimeMs: replacementIdentity.ctimeMs - 60_000,
+    }
+
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+
+    // Act
+    const handler = getRegisteredHandler('skills:removeAllFromAgent')
+    const result = await handler(
+      {},
+      {
+        agentId: 'cursor',
+        agentPath: cursorDir,
+        filesystemIdentity: staleIdentity,
+      },
+    )
+
+    // Assert
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/changed since review/i)
+    await expect(
+      lstat(join(cursorDir, 'replacement-skill')),
+    ).resolves.toBeDefined()
+    expect(trashItemMock).not.toHaveBeenCalled()
   })
 
   // Exercises the `realpathSync.native` fallback inside isSharedAgentPath.
@@ -178,7 +297,14 @@ describe('skills:removeAllFromAgent handler', () => {
     registerSkillsHandlers()
 
     const handler = getRegisteredHandler('skills:removeAllFromAgent')
-    const result = await handler({}, { agentId: 'cursor', agentPath: aliasDir })
+    const result = await handler(
+      {},
+      {
+        agentId: 'cursor',
+        agentPath: aliasDir,
+        filesystemIdentity: await reviewedIdentity(aliasDir),
+      },
+    )
 
     expect(result.success).toBe(false)
     expect(result.error).toMatch(/shared skills folder/)

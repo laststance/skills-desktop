@@ -29,6 +29,12 @@ const STATUS_CONFIG = {
     variant: 'broken' as const,
     tooltip: 'Broken symlink',
   },
+  inaccessible: {
+    icon: AlertCircle,
+    label: 'Inaccessible',
+    variant: 'broken' as const,
+    tooltip: 'Symlink target cannot be checked safely',
+  },
   missing: {
     icon: Circle,
     label: 'Missing',
@@ -40,7 +46,7 @@ const STATUS_CONFIG = {
 /**
  * Badge showing symlink status with optional count.
  * Displays tooltip on hover explaining the status meaning.
- * @param status - The symlink status: 'valid' | 'broken' | 'missing'
+ * @param status - The symlink status: 'valid' | 'broken' | 'inaccessible' | 'missing'
  * @param count - Optional count to display instead of label
  * @param agentNames - Agent names to list in tooltip
  * @returns Badge with icon and tooltip
@@ -55,11 +61,17 @@ export const StatusBadge = React.memo(function StatusBadge({
 }: StatusBadgeProps): React.ReactElement {
   const config = STATUS_CONFIG[status]
   const Icon = config.icon
+  const accessibleLabel =
+    count !== undefined ? `${config.label}: ${count}` : config.label
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Badge variant={config.variant} className="gap-1 cursor-default">
+        <Badge
+          variant={config.variant}
+          className="gap-1 cursor-default"
+          aria-label={accessibleLabel}
+        >
           <Icon className="h-3 w-3" aria-hidden="true" />
           <span>{count !== undefined ? count : config.label}</span>
         </Badge>

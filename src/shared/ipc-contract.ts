@@ -4,6 +4,10 @@ import type {
   Agent,
   BulkDeleteResult,
   BulkUnlinkResult,
+  ClearOrphanSymlinksOptions,
+  ClearOrphanSymlinksResult,
+  ClearBrokenSymlinkSlotsOptions,
+  ClearBrokenSymlinkSlotsResult,
   CliCommandResult,
   CopyToAgentsOptions,
   CopyToAgentsResult,
@@ -78,6 +82,14 @@ export interface IpcInvokeContract {
   'skills:deleteSkills': {
     args: [DeleteSkillsOptions]
     result: BulkDeleteResult
+  }
+  'skills:clearOrphanSymlinks': {
+    args: [ClearOrphanSymlinksOptions]
+    result: ClearOrphanSymlinksResult
+  }
+  'skills:clearBrokenSymlinkSlots': {
+    args: [ClearBrokenSymlinkSlotsOptions]
+    result: ClearBrokenSymlinkSlotsResult
   }
   'skills:unlinkManyFromAgent': {
     args: [UnlinkManyFromAgentOptions]

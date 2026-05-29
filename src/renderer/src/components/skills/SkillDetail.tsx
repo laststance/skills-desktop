@@ -61,6 +61,9 @@ export const SkillDetail = React.memo(function SkillDetail({
   const brokenCount = filteredSymlinks.filter(
     (s) => s.status === 'broken',
   ).length
+  const inaccessibleCount = filteredSymlinks.filter(
+    (s) => s.status === 'inaccessible',
+  ).length
 
   return (
     <div className="flex flex-col h-full">
@@ -127,6 +130,7 @@ export const SkillDetail = React.memo(function SkillDetail({
             filteredSymlinks={filteredSymlinks}
             validCount={validCount}
             brokenCount={brokenCount}
+            inaccessibleCount={inaccessibleCount}
             location={locationView}
           />
         </Activity>
@@ -161,6 +165,7 @@ interface InfoViewProps {
   filteredSymlinks: SymlinkInfo[]
   validCount: number
   brokenCount: number
+  inaccessibleCount: number
   location: LocationViewModel
 }
 
@@ -221,6 +226,7 @@ const InfoView = React.memo(function InfoView({
   filteredSymlinks,
   validCount,
   brokenCount,
+  inaccessibleCount,
   location,
 }: InfoViewProps): React.ReactElement {
   const { copiedPath, copyPath } = useLocationPathClipboard()
@@ -237,6 +243,10 @@ const InfoView = React.memo(function InfoView({
         <div>
           <span className="text-muted-foreground">Broken:</span>
           <span className="ml-1 text-amber-400">{brokenCount}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Inaccessible:</span>
+          <span className="ml-1 text-amber-400">{inaccessibleCount}</span>
         </div>
       </div>
 

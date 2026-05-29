@@ -10,6 +10,7 @@ import { tombstoneId } from '@/shared/types'
 
 import {
   computeRangeSelection,
+  countOrphanSymlinksRemoved,
   formatCascadeSummary,
   formatUnlinkSummary,
   getToolbarState,
@@ -38,7 +39,7 @@ describe('getToolbarState', () => {
     })
     expect(result.variantKey).toBe('global-multi')
     expect(result.primaryLabel).toBe('Delete 7 skills')
-    expect(result.primaryAriaLabel).toBe('Delete 7 selected skills permanently')
+    expect(result.primaryAriaLabel).toBe('Move 7 selected skills to app trash')
     expect(result.isDestructive).toBe(true)
   })
 
@@ -97,10 +98,29 @@ describe('getToolbarState', () => {
       count: 5, // user has 5 selected globally
       visibleCount: 0, // but search filter leaves none visible
     })
+    expect(result.variantKey).toBe('global-zero')
     expect(result.isPrimaryDisabled).toBe(true)
+    expect(result.primaryLabel).toBe('No visible skills')
+    expect(result.primaryAriaLabel).toBe('No visible selected skills to delete')
   })
 
-  it('keeps the primary enabled when visibleCount > 0 even if it is lower than count', () => {
+  it('uses unlink-specific zero-visible copy in agent view', () => {
+    const result = getToolbarState({
+      view: 'agent',
+      agentId: 'cursor' as AgentId,
+      count: 3,
+      visibleCount: 0,
+      agentDisplayName: 'Cursor',
+    })
+    expect(result.variantKey).toBe('agent-zero')
+    expect(result.isPrimaryDisabled).toBe(true)
+    expect(result.primaryLabel).toBe('No visible skills')
+    expect(result.primaryAriaLabel).toBe(
+      'No visible selected skills to unlink from Cursor',
+    )
+  })
+
+  it('labels the primary button with visible action targets when filters hide selected rows', () => {
     const result = getToolbarState({
       view: 'global',
       agentId: null,
@@ -108,8 +128,67 @@ describe('getToolbarState', () => {
       visibleCount: 2,
     })
     expect(result.isPrimaryDisabled).toBe(false)
-    // Label reflects full selection count per v2.4 spec
-    expect(result.primaryLabel).toBe('Delete 5 skills')
+    expect(result.primaryLabel).toBe('Delete 2 skills')
+    expect(result.primaryAriaLabel).toBe(
+      'Move 2 visible selected skills to app trash',
+    )
+  })
+})
+
+describe('countOrphanSymlinksRemoved', () => {
+  it('adds mid-loop partial-error commits to the orphan-cleared total', () => {
+    // Arrange — one fully orphan-cleared row plus one cleanup that threw
+    // mid-loop after committing unlinks (error row still carrying cascadeAgents).
+    const result: BulkDeleteResult = {
+      items: [
+        {
+          skillName: 'abandoned',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 2,
+          cascadeAgents: ['cursor' as AgentId],
+        },
+        {
+          skillName: 'half-cleared',
+          outcome: 'error',
+          symlinksRemoved: 1,
+          cascadeAgents: ['claude-code' as AgentId],
+          error: { message: 'EACCES', code: 'EACCES' },
+        },
+      ],
+    }
+
+    // Act
+    const total = countOrphanSymlinksRemoved(result)
+
+    // Assert — 2 cleared + 1 committed-before-throw = 3.
+    expect(total).toBe(3)
+  })
+
+  it('ignores deleted rows and clean errors that committed nothing', () => {
+    // Arrange — a tombstoned delete (its symlinks belong to the Undo cascade,
+    // not orphan cleanup) and an error row with no cascadeAgents (committed 0).
+    const result: BulkDeleteResult = {
+      items: [
+        {
+          skillName: 'task',
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1-task-aaaa'),
+          symlinksRemoved: 5,
+          cascadeAgents: ['cursor' as AgentId],
+        },
+        {
+          skillName: 'locked',
+          outcome: 'error',
+          error: { message: 'EACCES', code: 'EACCES' },
+        },
+      ],
+    }
+
+    // Act
+    const total = countOrphanSymlinksRemoved(result)
+
+    // Assert — neither row contributes to the orphan tally.
+    expect(total).toBe(0)
   })
 })
 
@@ -275,6 +354,29 @@ describe('formatCascadeSummary', () => {
     expect(formatCascadeSummary(result)).toBe(
       'Cleaned up 2 orphan symlinks. 1 deletion failed.',
     )
+  })
+
+  it('counts symlinks already unlinked when a multi-agent cleanup fails partway', () => {
+    // Arrange — a 3-agent orphan record where the source reappeared between
+    // the 2nd and 3rd unlink: codex + cursor committed to disk, then ESTALE.
+    // The error variant carries the partial cascade so the count is honest.
+    const result: BulkDeleteResult = {
+      items: [
+        {
+          skillName: 'abandoned',
+          outcome: 'error',
+          error: { message: 'Source skill exists', code: 'ESTALE' },
+          symlinksRemoved: 2,
+          cascadeAgents: ['codex' as AgentId, 'cursor' as AgentId],
+        },
+      ],
+    }
+
+    // Act
+    const summary = formatCascadeSummary(result)
+
+    // Assert — the 2 committed unlinks surface instead of an undercount of 0.
+    expect(summary).toBe('Cleaned up 2 orphan symlinks. 1 deletion failed.')
   })
 })
 

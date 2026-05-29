@@ -5,8 +5,9 @@ import type { Agent, AgentId, SymlinkInfo } from '@/shared/types'
  * - `linked`: a valid symlink already exists
  * - `local`: a real directory already exists in the agent's skills dir
  * - `broken`: a broken symlink occupies the destination path
+ * - `inaccessible`: a symlink exists but needs manual filesystem review
  */
-export type OccupiedAgentReason = 'linked' | 'local' | 'broken'
+export type OccupiedAgentReason = 'linked' | 'local' | 'broken' | 'inaccessible'
 
 export interface CopyAgentOptionViewModel {
   agentId: AgentId
@@ -20,6 +21,7 @@ const OCCUPIED_AGENT_REASON_LABELS: Record<OccupiedAgentReason, string> = {
   linked: 'linked',
   local: 'local',
   broken: 'broken link',
+  inaccessible: 'manual review required',
 }
 
 /**
@@ -176,6 +178,7 @@ export function buildCopyAgentOptionViewModel(
  * - `linked`: valid symlink already present
  * - `local`: local skill directory already present
  * - `broken`: broken symlink still occupies the destination path
+ * - `inaccessible`: target cannot be verified; manual review required
  * - `null`: destination is free (`missing`)
  * @example
  * getOccupiedAgentReason({ status: 'broken', isLocal: false } as SymlinkInfo)
@@ -194,6 +197,10 @@ function getOccupiedAgentReason(
 
   if (symlink.status === 'broken') {
     return 'broken'
+  }
+
+  if (symlink.status === 'inaccessible') {
+    return 'inaccessible'
   }
 
   return null

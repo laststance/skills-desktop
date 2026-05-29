@@ -27,6 +27,10 @@ import type {
   DeleteSkillResult,
   DeleteSkillsOptions,
   BulkDeleteResult,
+  ClearOrphanSymlinksOptions,
+  ClearOrphanSymlinksResult,
+  ClearBrokenSymlinkSlotsOptions,
+  ClearBrokenSymlinkSlotsResult,
   UnlinkManyFromAgentOptions,
   BulkUnlinkResult,
   RestoreDeletedSkillOptions,
@@ -66,6 +70,12 @@ declare global {
         deleteSkills: (
           options: DeleteSkillsOptions,
         ) => Promise<BulkDeleteResult>
+        clearOrphanSymlinks: (
+          options: ClearOrphanSymlinksOptions,
+        ) => Promise<ClearOrphanSymlinksResult>
+        clearBrokenSymlinkSlots: (
+          options: ClearBrokenSymlinkSlotsOptions,
+        ) => Promise<ClearBrokenSymlinkSlotsResult>
         unlinkManyFromAgent: (
           options: UnlinkManyFromAgentOptions,
         ) => Promise<BulkUnlinkResult>

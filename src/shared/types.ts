@@ -41,6 +41,25 @@ export type SkillName = string
 export type AbsolutePath = string
 
 /**
+ * Filesystem object identity captured at scan/review time for destructive guards.
+ * @example { kind: 'directory', dev: 16777233, ino: 12345, size: 96, ctimeMs: 1710000000000, mtimeMs: 1710000000000 }
+ */
+export interface FilesystemEntryIdentity {
+  /** Filesystem entry kind observed by lstat. */
+  kind: 'directory' | 'symlink' | 'file' | 'other'
+  /** Device id from fs.Stats, paired with ino for stable same-object checks. */
+  dev: number
+  /** Inode/file id from fs.Stats, paired with dev for stable same-object checks. */
+  ino: number
+  /** Entry size from fs.Stats, used as fallback identity on filesystems without ino. */
+  size: number
+  /** Metadata change timestamp from fs.Stats; strict gates also compare it to reject reused-inode same-path replacements. */
+  ctimeMs: number
+  /** Modification timestamp from fs.Stats, used as fallback identity. */
+  mtimeMs: number
+}
+
+/**
  * Filesystem path written with forward slashes, used for display and tree keys
  * regardless of the host OS. Always relative to some known root.
  * @example "lib/helper.py"
@@ -194,6 +213,8 @@ export interface Skill {
   description: string
   /** Absolute filesystem path to the skill directory. @example "/Users/me/.agents/skills/tdd-workflow" */
   path: AbsolutePath
+  /** Scan-time filesystem identity for `path`, required before source/local delete. */
+  filesystemIdentity?: FilesystemEntryIdentity
   /** Number of agents this skill is symlinked to (valid symlinks only). @example 3 */
   symlinkCount: SymlinkCount
   /** Per-agent symlink status entries */
@@ -243,6 +264,8 @@ export interface Agent {
   skillCount: number
   /** Number of local skills (real folders, not symlinks). @example 2 */
   localSkillCount: number
+  /** Directory identity for destructive "remove all" confirmation guards. */
+  filesystemIdentity?: FilesystemEntryIdentity
 }
 
 /**
@@ -263,12 +286,13 @@ export interface SymlinkInfo {
   agentId: AgentId
   /** Agent display name. @example "Cursor" */
   agentName: AgentName
-  /** Current symlink state: valid (linked), broken (dangling), or missing (no link) */
+  /** Current symlink state: valid, broken, inaccessible, or missing. */
   status: SymlinkStatus
   /**
    * Where the symlink points to (skill source directory). Omitted when no
    * symlink exists for this agent (`status === 'missing'`) or the entry is a
    * real local folder (`isLocal === true`) — both have no target to record.
+   * Inaccessible symlinks still record their target when `readlink` succeeds.
    * @example "/Users/me/.agents/skills/tdd-workflow"
    */
   targetPath?: AbsolutePath
@@ -276,6 +300,8 @@ export interface SymlinkInfo {
   linkPath: AbsolutePath
   /** true = real folder in agent dir (local skill), false = symlink */
   isLocal: boolean
+  /** Scan-time identity for real local folder slots, required before local-folder delete. */
+  filesystemIdentity?: FilesystemEntryIdentity
   /**
    * Resolved absolute path of THIS agent slot's `SKILL.md` symlink target,
    * when the slot is a real local folder whose `SKILL.md` is a symlink (e.g.
@@ -292,18 +318,21 @@ export interface SymlinkInfo {
 /**
  * Symlink state between a skill source and an agent's skills directory.
  * Surfaced in `SymlinkInfo.status` and color-coded in the UI:
- * `--success` (green) for valid, amber for broken, `--muted-foreground`
- * for missing — the status drives every status-at-a-glance affordance.
+ * `--success` (green) for valid, amber for broken/inaccessible,
+ * `--muted-foreground` for missing — the status drives every
+ * status-at-a-glance affordance.
  *
  * - `valid`: symlink exists and points to a present source skill.
  * - `broken`: symlink exists but the target is missing (orphan).
+ * - `inaccessible`: symlink exists but the target cannot be probed safely.
  * - `missing`: no symlink for this agent (the skill is not linked here).
  *
  * @example 'valid'
  * @example 'broken'
+ * @example 'inaccessible'
  * @example 'missing'
  */
-export type SymlinkStatus = 'valid' | 'broken' | 'missing'
+export type SymlinkStatus = 'valid' | 'broken' | 'inaccessible' | 'missing'
 
 /**
  * Identifier for the macOS terminal application launched by
@@ -702,23 +731,43 @@ export interface LeaderboardData {
 }
 
 /**
- * IPC argument for `skills:unlinkFromAgent` — removes one selected agent path.
- * Symlinks are unlinked without touching their target; local skill folders
- * require an explicit renderer confirmation flag before main moves them to OS
- * Trash.
+ * IPC argument for `skills:unlinkFromAgent` — removes one reviewed agent path.
+ * Symlink unlink requires the reviewed resolved target; local folder delete
+ * requires explicit confirmation plus reviewed directory identity.
  * @example
- * { skillName: 'tdd-workflow', agentId: 'cursor', linkPath: '/Users/me/.cursor/skills/tdd-workflow', confirmedLocalDirectoryDelete: false }
+ * { skillName: 'tdd-workflow', agentId: 'cursor', linkPath: '/Users/me/.cursor/skills/tdd-workflow', targetPath: '/Users/me/.agents/skills/tdd-workflow' }
+ * @example
+ * { skillName: 'local-task', agentId: 'cursor', linkPath: '/Users/me/.cursor/skills/local-task', confirmedLocalDirectoryDelete: true, reviewedDirectoryIdentity }
  */
-export interface UnlinkFromAgentOptions {
-  /** Skill whose symlink will be removed. @example "tdd-workflow" */
-  skillName: SkillName
-  /** Agent the symlink belongs to. */
-  agentId: AgentId
-  /** Absolute path to the symlink itself (inside the agent's skills directory). */
-  linkPath: AbsolutePath
-  /** True only after the local-folder destructive confirmation dialog submits. */
-  confirmedLocalDirectoryDelete?: boolean
-}
+export type UnlinkFromAgentOptions =
+  | {
+      /** Skill whose symlink will be removed. @example "tdd-workflow" */
+      skillName: SkillName
+      /** Agent the symlink belongs to. */
+      agentId: AgentId
+      /** Absolute path to the symlink itself (inside the agent's skills directory). */
+      linkPath: AbsolutePath
+      /** Reviewed resolved target for symlink unlink. */
+      targetPath: AbsolutePath
+      /** Must be false/omitted for symlink unlink. */
+      confirmedLocalDirectoryDelete?: false
+      /** Local-folder identity is invalid for symlink unlink. */
+      reviewedDirectoryIdentity?: never
+    }
+  | {
+      /** Skill whose local folder will be moved to OS Trash. @example "local-task" */
+      skillName: SkillName
+      /** Agent the local folder belongs to. */
+      agentId: AgentId
+      /** Absolute path to the local folder inside the agent's skills directory. */
+      linkPath: AbsolutePath
+      /** True only after the local-folder destructive confirmation dialog submits. */
+      confirmedLocalDirectoryDelete: true
+      /** Required when deleting a local folder; proves main still sees the reviewed directory. */
+      reviewedDirectoryIdentity: FilesystemEntryIdentity
+      /** Symlink target is invalid for local folder delete. */
+      targetPath?: never
+    }
 
 /**
  * Result from unlinking a single symlink.
@@ -742,6 +791,8 @@ export interface RemoveAllFromAgentOptions {
   agentId: AgentId
   /** Absolute path to the agent's skills directory. @example "/Users/me/.claude/skills" */
   agentPath: AbsolutePath
+  /** Review-time directory identity for the agent skills folder. */
+  filesystemIdentity: FilesystemEntryIdentity
 }
 
 /**
@@ -758,14 +809,18 @@ export interface RemoveAllFromAgentResult {
 }
 
 /**
- * IPC argument for `skills:deleteSkill` — removes the skill source directory
- * AND every agent symlink pointing at it. Main derives `sourcePath` from
- * `SOURCE_DIR + skillName` server-side; renderer never passes a path.
- * @example { skillName: 'theme-generator' }
+ * IPC argument for `skills:deleteSkill` — removes the reviewed source/local path
+ * and every agent symlink pointing at it. `skillPath` preserves filesystem
+ * identity when the SKILL.md metadata name differs from the folder basename.
+ * @example { skillName: 'theme-generator', skillPath: '/Users/me/.agents/skills/theme-generator', filesystemIdentity: { kind: 'directory', dev: 1, ino: 2, size: 96, ctimeMs: 1, mtimeMs: 1 } }
  */
 export interface DeleteSkillOptions {
   /** Skill to delete. @example "theme-generator" */
   skillName: SkillName
+  /** Reviewed source/local folder path from the selected row. */
+  skillPath: AbsolutePath
+  /** Scan-time identity for the reviewed source/local folder path. */
+  filesystemIdentity: FilesystemEntryIdentity
 }
 
 /**
@@ -799,14 +854,17 @@ export type TombstoneId = Brand<string, 'TombstoneId'>
 export const tombstoneId = (value: string): TombstoneId => value as TombstoneId
 
 /**
- * IPC argument for `skills:deleteSkills` — batch delete N skills atomically with trash/undo.
- * Main derives each `sourcePath = join(SOURCE_DIR, skillName)` server-side; the renderer
- * does not pass paths (security: removes a trust-boundary widening).
- * @example { items: [{ skillName: 'task' }, { skillName: 'theme-generator' }] }
+ * IPC argument for `skills:deleteSkills` — batch delete N reviewed skills atomically with trash/undo.
+ * `skillPath` is mandatory so main deletes the reviewed folder even when metadata name and basename differ.
+ * @example { items: [{ skillName: 'task', skillPath: '/Users/me/.agents/skills/task', filesystemIdentity: { kind: 'directory', dev: 1, ino: 2, size: 96, ctimeMs: 1, mtimeMs: 1 } }] }
  */
 export interface DeleteSkillsOptions {
   /** Skills to delete, in the order the user selected them (batch runs serially per reviewer #21). */
-  items: Array<{ skillName: SkillName }>
+  items: Array<{
+    skillName: SkillName
+    skillPath: AbsolutePath
+    filesystemIdentity: FilesystemEntryIdentity
+  }>
 }
 
 /**
@@ -820,10 +878,14 @@ export interface DeleteSkillsOptions {
  *   exists. Cleanup is just `unlink()` calls — no tombstone, no undo, because
  *   resurrecting the broken links is meaningless.
  * - `error`: the operation failed mid-flight; the renderer flashes the row.
+ *   When a multi-agent cleanup fails partway, `cascadeAgents`/`symlinksRemoved`
+ *   carry the unlinks already committed to disk before the throw, so the
+ *   summary mirrors disk state instead of undercounting.
  *
  * @example { skillName: 'task', outcome: 'deleted', tombstoneId: '1729180800000-task-a1b2c3d4', symlinksRemoved: 3, cascadeAgents: ['cursor'] }
  * @example { skillName: 'abandoned', outcome: 'orphan-cleared', symlinksRemoved: 2, cascadeAgents: ['cursor', 'codex'] }
  * @example { skillName: 'task', outcome: 'error', error: { message: 'Permission denied', code: 'EACCES' } }
+ * @example { skillName: 'abandoned', outcome: 'error', error: { message: 'Source skill exists', code: 'ESTALE' }, symlinksRemoved: 2, cascadeAgents: ['codex', 'cursor'] }
  */
 export type BulkDeleteItemResult =
   | {
@@ -843,6 +905,10 @@ export type BulkDeleteItemResult =
       skillName: SkillName
       outcome: 'error'
       error: { message: string; code?: string }
+      /** Unlinks committed to disk before the failing iteration threw, if any. */
+      symlinksRemoved?: number
+      /** Agents whose links were removed before the throw, for partial-cleanup reporting. */
+      cascadeAgents?: AgentId[]
     }
 
 /**
@@ -856,15 +922,110 @@ export interface BulkDeleteResult {
 }
 
 /**
- * IPC argument for `skills:unlinkManyFromAgent` — batch unlink N skills from a single agent.
- * Main derives `linkPath = join(agent.path, skillName)` server-side.
- * @example { agentId: 'cursor', items: [{ skillName: 'task' }, { skillName: 'theme-generator' }] }
+ * IPC argument for `skills:clearOrphanSymlinks` — remove reviewed dangling agent links without touching source skills.
+ * @example { items: [{ skillName: 'abandoned', agents: [{ agentId: 'codex', linkPath: '/Users/me/.codex/skills/abandoned', targetPath: '/Users/me/.agents/skills/abandoned' }] }] }
+ */
+export interface ClearOrphanSymlinksOptions {
+  /** Orphan records selected in the Symlink Health cleanup dialog. */
+  items: Array<{
+    skillName: SkillName
+    agents: Array<{
+      agentId: AgentId
+      linkPath: AbsolutePath
+      targetPath: AbsolutePath
+    }>
+  }>
+}
+
+/**
+ * Per-item result from orphan-only symlink cleanup.
+ * @example { skillName: 'abandoned', outcome: 'orphan-cleared', symlinksRemoved: 1, cascadeAgents: ['codex'] }
+ * @example { skillName: 'abandoned', outcome: 'error', error: { message: 'Plan changed' } }
+ * @example { skillName: 'abandoned', outcome: 'error', error: { message: 'Source skill exists', code: 'ESTALE' }, symlinksRemoved: 2, cascadeAgents: ['codex', 'cursor'] }
+ */
+export type ClearOrphanSymlinkItemResult =
+  | {
+      skillName: SkillName
+      outcome: 'orphan-cleared'
+      symlinksRemoved: number
+      cascadeAgents: AgentId[]
+    }
+  | {
+      skillName: SkillName
+      outcome: 'error'
+      error: { message: string; code?: string }
+      /** Unlinks committed to disk before the failing iteration threw, if any. */
+      symlinksRemoved?: number
+      /** Agents whose links were removed before the throw, for partial-cleanup reporting. */
+      cascadeAgents?: AgentId[]
+    }
+
+/**
+ * Orphan-only cleanup result. Same row shape as bulk delete for dialog summary reuse, but it never returns tombstones.
+ * @example { items: [{ skillName: 'abandoned', outcome: 'orphan-cleared', symlinksRemoved: 1, cascadeAgents: ['codex'] }] }
+ */
+export interface ClearOrphanSymlinksResult {
+  /** Per-orphan-record outcome, index-aligned with the selected orphan records. */
+  items: ClearOrphanSymlinkItemResult[]
+}
+
+/**
+ * IPC argument for `skills:clearBrokenSymlinkSlots` — remove reviewed broken agent links after exact target revalidation.
+ * @example { items: [{ agentId: 'codex', linkName: 'task', linkPath: '/Users/me/.codex/skills/task', targetPath: '/Users/me/.agents/skills/task' }] }
+ */
+export interface ClearBrokenSymlinkSlotsOptions {
+  /** Broken slots selected in the Symlink Health cleanup dialog. */
+  items: Array<{
+    agentId: AgentId
+    linkName: SkillName
+    linkPath: AbsolutePath
+    targetPath: AbsolutePath
+  }>
+}
+
+/**
+ * Per-slot result from broken-symlink cleanup, echoing the reviewed row identity.
+ * @example { agentId: 'codex', skillName: 'task', linkPath: '/Users/me/.codex/skills/task', outcome: 'unlinked' }
+ * @example { agentId: 'codex', skillName: 'task', linkPath: '/Users/me/.codex/skills/task', outcome: 'error', error: { message: 'Plan changed' } }
+ */
+export type ClearBrokenSymlinkSlotItemResult =
+  | {
+      agentId: AgentId
+      skillName: SkillName
+      linkPath: AbsolutePath
+      outcome: 'unlinked'
+    }
+  | {
+      agentId: AgentId
+      skillName: SkillName
+      linkPath: AbsolutePath
+      outcome: 'error'
+      error: { message: string; code?: string }
+    }
+
+/**
+ * Broken-slot cleanup result; item order matches the requested slot list.
+ * @example { items: [{ agentId: 'codex', skillName: 'task', linkPath: '/Users/me/.codex/skills/task', outcome: 'unlinked' }] }
+ */
+export interface ClearBrokenSymlinkSlotsResult {
+  /** Per-slot outcome, index-aligned with the input `items` array. */
+  items: ClearBrokenSymlinkSlotItemResult[]
+}
+
+/**
+ * IPC argument for `skills:unlinkManyFromAgent` — batch unlink N reviewed slots from a single agent.
+ * Main verifies each `linkPath` is a direct child of the selected agent path and still points at `targetPath`.
+ * @example { agentId: 'cursor', items: [{ skillName: 'task', linkPath: '/Users/me/.cursor/skills/task', targetPath: '/Users/me/.agents/skills/task' }] }
  */
 export interface UnlinkManyFromAgentOptions {
   /** Agent the symlinks belong to. */
   agentId: AgentId
   /** Skills whose symlinks should be removed (serial processing, no tombstone — unlink is benign). */
-  items: Array<{ skillName: SkillName }>
+  items: Array<{
+    skillName: SkillName
+    linkPath: AbsolutePath
+    targetPath: AbsolutePath
+  }>
 }
 
 /**

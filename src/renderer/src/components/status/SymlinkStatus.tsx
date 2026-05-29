@@ -19,6 +19,11 @@ const STATUS_STYLES = {
     iconClass: 'text-amber-400',
     bgClass: 'bg-amber-500/10',
   },
+  inaccessible: {
+    icon: AlertCircle,
+    iconClass: 'text-amber-400',
+    bgClass: 'bg-amber-500/10',
+  },
   missing: {
     icon: Circle,
     iconClass: 'text-muted-foreground',

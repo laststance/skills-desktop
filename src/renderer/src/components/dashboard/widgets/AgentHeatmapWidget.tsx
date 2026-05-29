@@ -23,6 +23,7 @@ const MAX_SKILL_ROWS = 20
 const STATUS_FILL: Record<SymlinkStatus, string> = {
   valid: 'bg-success',
   broken: 'bg-amber-400',
+  inaccessible: 'bg-amber-400',
   missing: 'bg-muted',
 }
 

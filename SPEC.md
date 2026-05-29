@@ -123,7 +123,7 @@ Agent definitions are synced with [vercel-labs/skills CLI](https://github.com/ve
 - [x] Auto-detect installed AI agents (54 agents)
 - [x] List all installed skills with metadata
 - [x] Show symlink status per skill per agent
-- [x] Validate symlink integrity (valid/broken/missing)
+- [x] Validate symlink integrity (valid/broken/inaccessible/missing)
 - [x] Local skills support with visual distinction
 
 ### Skills Marketplace
@@ -137,11 +137,12 @@ GUI wrapper for `npx skills` CLI commands:
 
 ### Symlink Status
 
-| Status  | Symbol | Color           | Description                               |
-| ------- | ------ | --------------- | ----------------------------------------- |
-| Valid   | `✓`    | Cyan (#22D3EE)  | Symlink exists and points to valid target |
-| Broken  | `◐`    | Amber (#F59E0B) | Symlink exists but target is missing      |
-| Missing | `○`    | Gray (#475569)  | No symlink for this agent                 |
+| Status       | Symbol | Color           | Description                               |
+| ------------ | ------ | --------------- | ----------------------------------------- |
+| Valid        | `✓`    | Cyan (#22D3EE)  | Symlink exists and points to valid target |
+| Broken       | `◐`    | Amber (#F59E0B) | Symlink exists but target is missing      |
+| Inaccessible | `!`    | Amber (#F59E0B) | Symlink target needs manual review        |
+| Missing      | `○`    | Gray (#475569)  | No symlink for this agent                 |
 
 **Orphan skill** is a separate concept layered on top of these states: a
 skill record whose source directory under `~/.agents/skills/` was deleted
@@ -182,14 +183,14 @@ interface Agent {
 
 ### Skill Types
 
-Skills fall into two categories based on their installation path. The distinction drives deletion UX (irreversible CLI remove vs trash-with-undo):
+Skills fall into two categories based on their installation path. Both in-app delete paths require reviewed filesystem identity and move the selected source/local folder to the app trash with a 15-second undo window:
 
-| Type        | Installation                   | Lock file tracked                  | Uninstall path                      |
+| Type        | Installation                   | Lock file tracked                  | In-app delete path                  |
 | ----------- | ------------------------------ | ---------------------------------- | ----------------------------------- |
-| CLI-managed | `npx skills add <owner/repo>`  | Yes (`~/.agents/.skill-lock.json`) | `npx skills remove` (irreversible)  |
+| CLI-managed | `npx skills add <owner/repo>`  | Yes (`~/.agents/.skill-lock.json`) | Move to app trash (undo within 15s) |
 | Plain       | Created directly in skills dir | No                                 | Move to app trash (undo within 15s) |
 
-The app detects CLI-managed skills by the `source` field on the Skill record (populated during scan from the lock file). The in-app delete button and bulk-delete flow route each skill through the matching path.
+The app detects CLI-managed skills by the `source` field on the Skill record (populated during scan from the lock file). The in-app delete button and bulk-delete flow route both CLI-managed and plain skills through reviewed app-trash deletion; CLI uninstall hints are used only in Marketplace install/uninstall copy.
 
 ### Orphan Skill Cleanup
 
@@ -213,6 +214,7 @@ When a skill source directory is deleted (e.g. `rm -rf ~/.agents/skills/foo`) bu
 | Per-skill unlink         | Skill row's action menu → "Unlink..."      | Removes one orphan skill from one or more selected agents    |
 | Per-agent cleanup dialog | Sidebar agent context menu → "Clean up..." | Previews and executes all orphan removals for a single agent |
 | Global cleanup           | Sidebar footer "Clean up orphan symlinks"  | Removes all orphan symlinks across every agent               |
+| Symlink Health cleanup   | Dashboard widget → "Scan issues"           | Reviews and removes orphan records plus broken agent links   |
 
 The per-agent dialog uses the scoped sync IPC (`sync:preview` / `sync:execute` accept an optional `agentId`) so both the preview and execution stay restricted to the targeted agent. When the dialog opens with no actionable orphans (only conflicts to acknowledge), it surfaces a "conflicts skipped" hint instead of an empty success.
 
@@ -227,14 +229,14 @@ Each skill displays:
 
 ### Actions
 
-| Action                 | Status     | Notes                                                                                                                                          |
-| ---------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| View skill details     | ✅ Done    | -                                                                                                                                              |
-| View symlink status    | ✅ Done    | -                                                                                                                                              |
-| Search skills          | ✅ Done    | Marketplace tab                                                                                                                                |
-| Install skill          | ✅ Done    | With agent selection                                                                                                                           |
-| Uninstall skill        | ✅ Done    | Delete button and bulk-delete route CLI-managed skills through `npx skills remove` (irreversible, no undo); plain skills go to trash with undo |
-| Repair broken symlinks | 🚧 Planned | -                                                                                                                                              |
+| Action                 | Status  | Notes                                                                                                                                                 |
+| ---------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| View skill details     | ✅ Done | -                                                                                                                                                     |
+| View symlink status    | ✅ Done | -                                                                                                                                                     |
+| Search skills          | ✅ Done | Marketplace tab                                                                                                                                       |
+| Install skill          | ✅ Done | With agent selection                                                                                                                                  |
+| Uninstall skill        | ✅ Done | Delete button and bulk-delete move reviewed CLI-managed/plain skills to app trash with undo; Marketplace hints still use `npx skills remove --global` |
+| Repair broken symlinks | ✅ Done | Dashboard Symlink Health cleanup reviews and removes safe orphan/broken symlink issues without deleting live source skills                            |
 
 ## Tech Stack
 
@@ -484,6 +486,7 @@ interface Skill {
   name: string
   description: string
   path: string
+  filesystemIdentity?: FilesystemEntryIdentity
   symlinkCount: number
   symlinks: SymlinkInfo[]
   /** True when the skill lives under SOURCE_DIR (`~/.agents/skills/`); false for agent-local-only skills. */
@@ -503,18 +506,30 @@ interface Agent {
   exists: boolean
   skillCount: number
   localSkillCount: number
+  filesystemIdentity?: FilesystemEntryIdentity
+}
+
+interface FilesystemEntryIdentity {
+  kind: 'directory' | 'symlink' | 'file' | 'other'
+  dev: number
+  ino: number
+  size: number
+  ctimeMs: number
+  mtimeMs: number
 }
 
 interface SymlinkInfo {
   agentId: string
   agentName: string
   status: SymlinkStatus
-  targetPath: string
+  targetPath?: string
   linkPath: string
   isLocal: boolean
+  filesystemIdentity?: FilesystemEntryIdentity
+  skillMdSymlinkTarget?: string
 }
 
-type SymlinkStatus = 'valid' | 'broken' | 'missing'
+type SymlinkStatus = 'valid' | 'broken' | 'inaccessible' | 'missing'
 
 interface SourceStats {
   path: string

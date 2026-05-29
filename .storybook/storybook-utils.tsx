@@ -436,6 +436,26 @@ export function installStorybookElectronMock(): void {
       createSymlinks: async () => createSymlinksResult,
       copyToAgents: async () => ({ success: true, copied: 1, failures: [] }),
       deleteSkills: async () => deleteResult,
+      clearOrphanSymlinks: async (options) => ({
+        // Echo the requested rows 1:1 so stories reflect exactly what was
+        // selected, preserving skill identity and order.
+        items: options.items.map((item) => ({
+          skillName: item.skillName,
+          outcome: 'orphan-cleared' as const,
+          symlinksRemoved: item.agents.length,
+          cascadeAgents: item.agents.map((agent) => agent.agentId),
+        })),
+      }),
+      clearBrokenSymlinkSlots: async (options) => ({
+        // Echo each requested slot 1:1, keeping the caller's agent + link path
+        // instead of substituting a hardcoded fixture.
+        items: options.items.map((item) => ({
+          agentId: item.agentId,
+          skillName: item.linkName,
+          linkPath: item.linkPath,
+          outcome: 'unlinked' as const,
+        })),
+      }),
       unlinkManyFromAgent: async () => unlinkResult,
       restoreDeletedSkill: async () => restoreResult,
       onDeleteProgress: () => cleanup,

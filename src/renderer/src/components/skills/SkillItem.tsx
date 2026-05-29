@@ -30,9 +30,9 @@ import { useUnmountEffect } from '@/renderer/src/hooks/useUnmountEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
+  selectBulkSelectableVisibleSkillNames,
   selectAnyInFlightRemovalSet,
   selectSelectedSkillNamesSet,
-  selectVisibleSkillNames,
 } from '@/renderer/src/redux/selectors'
 import {
   addBookmark,
@@ -54,11 +54,15 @@ import {
 } from '@/renderer/src/redux/slices/uiSlice'
 import { BULK_ITEM_FAILED_EVENT } from '@/renderer/src/utils/bulkOpVisuals'
 import { GSTACK_REPOSITORY_URL } from '@/shared/constants'
-import type { Skill, SkillName } from '@/shared/types'
+import type { Skill, SkillName, SymlinkInfo } from '@/shared/types'
 
 import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
 import { computeRangeSelection } from './bulkDeleteHelpers'
-import { getSkillItemVisibility } from './skillItemHelpers'
+import { partitionGlobalDeleteTargets } from './reviewedDestructiveTargets'
+import {
+  getCardContentPaddingClass,
+  getSkillItemVisibility,
+} from './skillItemHelpers'
 import { SourceLink } from './SourceLink'
 
 // Strongly-type the `skills:bulkItemFailed` CustomEvent so the cast inside
@@ -74,8 +78,217 @@ interface SkillItemProps {
   skill: Skill
 }
 
+interface SymlinkStatusBuckets {
+  validCount: number
+  brokenCount: number
+  inaccessibleCount: number
+  validAgentNames: string[]
+  brokenAgentNames: string[]
+  inaccessibleAgentNames: string[]
+}
+
 /** How long the partial-failure red edge persists (ms). */
 const PARTIAL_FAIL_FLASH_MS = 3_000
+
+/**
+ * Groups symlink status counts outside the large card render path to keep the component under fallow complexity limits.
+ * @param symlinks - Symlink rows attached to the skill being rendered.
+ * @returns Counts plus tooltip agent names for the global-view badges.
+ * @example
+ * getSymlinkStatusBuckets([{ status: 'valid', agentName: 'Codex', ... }]).validCount // => 1
+ */
+function getSymlinkStatusBuckets(
+  symlinks: readonly SymlinkInfo[],
+): SymlinkStatusBuckets {
+  const buckets: SymlinkStatusBuckets = {
+    validCount: 0,
+    brokenCount: 0,
+    inaccessibleCount: 0,
+    validAgentNames: [],
+    brokenAgentNames: [],
+    inaccessibleAgentNames: [],
+  }
+
+  for (const symlink of symlinks) {
+    if (symlink.status === 'valid') {
+      buckets.validCount += 1
+      buckets.validAgentNames.push(symlink.agentName)
+    } else if (symlink.status === 'broken') {
+      buckets.brokenCount += 1
+      buckets.brokenAgentNames.push(symlink.agentName)
+    } else if (symlink.status === 'inaccessible') {
+      buckets.inaccessibleCount += 1
+      buckets.inaccessibleAgentNames.push(symlink.agentName)
+    }
+  }
+
+  return buckets
+}
+
+/**
+ * Decide whether this rendered row can participate in bulk selection.
+ * @param selectedAgentId - Current agent filter, or null in global view.
+ * @param visibleNames - Selector-approved names for agent-view bulk actions.
+ * @param skillName - Skill row currently rendered by SkillItem.
+ * @returns True when a checkbox should render for this row.
+ * @example
+ * canBulkSelectRenderedSkill(null, [], 'task') // => true
+ */
+function canBulkSelectRenderedSkill(
+  selectedAgentId: string | null,
+  visibleNames: readonly SkillName[],
+  skillName: SkillName,
+): boolean {
+  if (selectedAgentId === null) return true
+  return visibleNames.includes(skillName)
+}
+
+interface GlobalStatusBadgesProps {
+  buckets: SymlinkStatusBuckets
+}
+
+/**
+ * Renders global-view symlink badges while keeping the already-large card component simple.
+ * @param props - Precomputed symlink status buckets for one skill.
+ * @returns Badge row showing valid, broken, inaccessible, or unlinked state.
+ * @example
+ * <GlobalStatusBadges buckets={buckets} />
+ */
+const GlobalStatusBadges = React.memo(function GlobalStatusBadges({
+  buckets,
+}: GlobalStatusBadgesProps): React.ReactElement {
+  const hasNoLinks =
+    buckets.validCount === 0 &&
+    buckets.brokenCount === 0 &&
+    buckets.inaccessibleCount === 0
+
+  return (
+    <div className="flex items-center gap-2 mt-3">
+      {buckets.validCount > 0 && (
+        <StatusBadge
+          status="valid"
+          count={buckets.validCount}
+          agentNames={buckets.validAgentNames}
+        />
+      )}
+      {buckets.brokenCount > 0 && (
+        <StatusBadge
+          status="broken"
+          count={buckets.brokenCount}
+          agentNames={buckets.brokenAgentNames}
+        />
+      )}
+      {buckets.inaccessibleCount > 0 && (
+        <StatusBadge
+          status="inaccessible"
+          count={buckets.inaccessibleCount}
+          agentNames={buckets.inaccessibleAgentNames}
+        />
+      )}
+      {hasNoLinks && (
+        <span className="text-xs text-muted-foreground">
+          Not linked to any agent
+        </span>
+      )}
+    </div>
+  )
+})
+
+interface SkillTitleRowProps {
+  skill: Skill
+  isLinked: boolean
+  isLocalSkill: boolean
+  isInaccessibleSkill: boolean
+  showAddButton: boolean
+  showGStackBadge: boolean
+  onAddClick: React.MouseEventHandler<HTMLButtonElement>
+}
+
+/**
+ * Renders skill identity and compact row actions without merging controls into the heading.
+ * @param props - Skill state flags and Add click handler for one list row.
+ * @returns Header row with a clean skill heading plus adjacent actions.
+ * @example
+ * <SkillTitleRow skill={skill} isLinked={false} isLocalSkill={false} isInaccessibleSkill={false} showAddButton showGStackBadge={false} onAddClick={handleAddClick} />
+ */
+const SkillTitleRow = React.memo(function SkillTitleRow({
+  skill,
+  isLinked,
+  isLocalSkill,
+  isInaccessibleSkill,
+  showAddButton,
+  showGStackBadge,
+  onAddClick,
+}: SkillTitleRowProps): React.ReactElement {
+  return (
+    <div className="flex items-start gap-2">
+      <h3 className="font-medium truncate flex min-w-0 flex-1 items-center gap-1.5">
+        {isLinked && (
+          <Link2
+            className="h-3.5 w-3.5 shrink-0 text-success/70"
+            aria-label="Linked skill"
+          />
+        )}
+        {isLocalSkill && (
+          <FolderDot
+            className="h-3.5 w-3.5 shrink-0 text-emerald-400/70"
+            aria-label="Local skill"
+          />
+        )}
+        <span className="truncate">{skill.name}</span>
+        {isInaccessibleSkill && (
+          <span
+            role="img"
+            className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0"
+            aria-label="Inaccessible link - manual review required"
+            title="Target cannot be verified - review this link before removing it"
+          >
+            inaccessible
+          </span>
+        )}
+        {skill.isOrphan && (
+          <span
+            role="img"
+            data-testid={`skill-orphan-badge-${skill.name}`}
+            className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0"
+            aria-label="Orphan skill — source directory is missing"
+            title="Source directory is missing — use Cleanup to remove the dangling symlinks"
+          >
+            orphan
+          </span>
+        )}
+      </h3>
+      {(showAddButton || showGStackBadge) && (
+        <div className="flex shrink-0 items-center gap-1">
+          {showAddButton && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onAddClick}
+              className="h-6 px-2 text-xs"
+            >
+              <Plus className="mr-0.5 h-3 w-3" />
+              Add
+            </Button>
+          )}
+          {showGStackBadge && (
+            <a
+              href={GSTACK_REPOSITORY_URL}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex h-6 items-center gap-1 rounded-md border border-sky-400/40 bg-sky-500/15 px-1.5 text-[10px] font-semibold text-sky-300 transition-colors hover:bg-sky-500/25"
+              aria-label="Open G-Stack GitHub repository"
+            >
+              G-Stack
+              <ExternalLink className="h-2.5 w-2.5" />
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  )
+})
 
 /**
  * Single skill card in the skills list.
@@ -102,28 +315,14 @@ export const SkillItem = React.memo(function SkillItem({
   const selectedNamesSet = useAppSelector(selectSelectedSkillNamesSet)
   const inFlightRemovalSet = useAppSelector(selectAnyInFlightRemovalSet)
   const selectionAnchor = useAppSelector(selectSelectionAnchor)
-  const visibleNames = useAppSelector(selectVisibleSkillNames)
+  const visibleNames = useAppSelector(selectBulkSelectableVisibleSkillNames)
   const bulkSelectMode = useAppSelector(selectBulkSelectMode)
   const isTicked = selectedNamesSet.has(skill.name)
   const isInFlight = inFlightRemovalSet.has(skill.name)
 
-  const validSymlinks = useMemo(
-    () => skill.symlinks.filter((s) => s.status === 'valid'),
+  const symlinkStatusBuckets = useMemo(
+    () => getSymlinkStatusBuckets(skill.symlinks),
     [skill.symlinks],
-  )
-  const brokenSymlinks = useMemo(
-    () => skill.symlinks.filter((s) => s.status === 'broken'),
-    [skill.symlinks],
-  )
-  const validCount = validSymlinks.length
-  const brokenCount = brokenSymlinks.length
-  const validAgentNames = useMemo(
-    () => validSymlinks.map((s) => s.agentName),
-    [validSymlinks],
-  )
-  const brokenAgentNames = useMemo(
-    () => brokenSymlinks.map((s) => s.agentName),
-    [brokenSymlinks],
   )
 
   const {
@@ -133,10 +332,16 @@ export const SkillItem = React.memo(function SkillItem({
     showDeleteButton,
     isLinked,
     isLocalSkill,
+    isInaccessibleSkill,
     selectedAgentSymlink,
     selectedLocalSkillInfo,
     showGStackBadge,
   } = getSkillItemVisibility(selectedAgentId, skill)
+  const isBulkSelectable = canBulkSelectRenderedSkill(
+    selectedAgentId,
+    visibleNames,
+    skill.name,
+  )
 
   // Get selected agent name for tooltip
   const selectedAgentName =
@@ -171,6 +376,8 @@ export const SkillItem = React.memo(function SkillItem({
    */
   const handleDeleteClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
+    const { deleteTargets, orphanRecords, staleDeleteErrors, orphanErrors } =
+      partitionGlobalDeleteTargets([skill], [skill.name])
     dispatch(
       setBulkConfirm({
         kind: 'delete',
@@ -179,6 +386,10 @@ export const SkillItem = React.memo(function SkillItem({
         agentName: null,
         // A single-row delete carries no repo-filter scope to report.
         sourceSummary: null,
+        deleteTargets,
+        orphanRecords,
+        staleDeleteErrors,
+        orphanErrors,
       }),
     )
   }
@@ -320,6 +531,9 @@ export const SkillItem = React.memo(function SkillItem({
             !didPartialFail &&
               isLocalSkill &&
               'border-l-2 border-l-emerald-400/40',
+            !didPartialFail &&
+              isInaccessibleSkill &&
+              'border-l-2 border-l-amber-400/60',
             // Orphan accent — surfaces dangling rows that the loosened
             // selectFilteredSkills now lets through. Mutually exclusive with
             // isLinked/isLocalSkill by definition (no source dir → no valid
@@ -350,7 +564,7 @@ export const SkillItem = React.memo(function SkillItem({
                       ? `Delete ${skill.name} from ${selectedAgentName}`
                       : `Unlink ${skill.name} from ${selectedAgentName}`
                   }
-                  className="absolute top-0 right-0 min-h-11 min-w-11 flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                  className="absolute top-1.5 right-0 min-h-11 min-w-11 flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -375,7 +589,7 @@ export const SkillItem = React.memo(function SkillItem({
                   onClick={handleDeleteClick}
                   aria-label={`Delete ${skill.name}`}
                   data-testid={`skill-delete-${skill.name}`}
-                  className="absolute top-0 right-0 min-h-11 min-w-11 flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                  className="absolute top-1.5 right-0 min-h-11 min-w-11 flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -398,7 +612,7 @@ export const SkillItem = React.memo(function SkillItem({
                       : `Bookmark ${skill.name}`
                   }
                   className={cn(
-                    'absolute top-0 min-h-11 min-w-11 flex items-center justify-center rounded-md z-10 transition-opacity',
+                    'absolute top-1.5 min-h-11 min-w-11 flex items-center justify-center rounded-md z-10 transition-opacity',
                     // Right-align: slide the bookmark left of the X when an
                     // X button (unlink in agent view, delete in global view)
                     // shares the top-right corner.
@@ -407,7 +621,7 @@ export const SkillItem = React.memo(function SkillItem({
                       : 'right-0',
                     isBookmarked
                       ? 'text-primary'
-                      : 'text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
+                      : 'text-muted-foreground hover:text-foreground opacity-40 group-hover:opacity-100 focus-visible:opacity-100',
                   )}
                 >
                   {isBookmarked ? (
@@ -426,10 +640,15 @@ export const SkillItem = React.memo(function SkillItem({
           <CardContent
             className={cn(
               'p-4',
-              // Reserve right space for the X/bookmark buttons when shown.
-              showUnlinkButton || showDeleteButton || showBookmark
-                ? 'pr-14'
-                : 'pr-4',
+              // Reserve right space for the absolute-positioned X/bookmark
+              // overlays so the always-visible "+ Add" control never slides
+              // under them on hover. Bookmark + X stack to 88px, so that case
+              // needs pr-24 (96px), not the single-button pr-14 (56px).
+              getCardContentPaddingClass({
+                showBookmark,
+                showUnlinkButton,
+                showDeleteButton,
+              }),
             )}
           >
             <div className="flex items-start gap-3">
@@ -448,72 +667,30 @@ export const SkillItem = React.memo(function SkillItem({
                     checked={isTicked}
                     onCheckedChange={handleCheckedChange}
                     onPointerDown={handleCheckboxPointerDown}
+                    // Keep the slot rendered for every row in bulk mode so titles
+                    // stay aligned, but block selecting an ineligible row (still
+                    // allow deselecting one that is already ticked).
+                    disabled={!isBulkSelectable && !isTicked}
                     aria-label={
                       isTicked
                         ? `Deselect ${skill.name}`
-                        : `Select ${skill.name}`
+                        : isBulkSelectable
+                          ? `Select ${skill.name}`
+                          : `${skill.name} is not eligible for bulk selection`
                     }
                   />
                 </label>
               )}
               <div className="flex-1 min-w-0">
-                <h3 className="font-medium truncate flex items-center gap-1.5">
-                  {isLinked && (
-                    <Link2
-                      className="h-3.5 w-3.5 shrink-0 text-success/70"
-                      aria-label="Linked skill"
-                    />
-                  )}
-                  {isLocalSkill && (
-                    <FolderDot
-                      className="h-3.5 w-3.5 shrink-0 text-emerald-400/70"
-                      aria-label="Local skill"
-                    />
-                  )}
-                  <span className="truncate">{skill.name}</span>
-                  {/* Orphan badge — paired with the amber left-border so the
-                      row's state is legible even when the user hasn't
-                      noticed the border accent. The plain word "orphan"
-                      keeps it scannable; tooltip explains the action. */}
-                  {skill.isOrphan && (
-                    <span
-                      role="img"
-                      data-testid={`skill-orphan-badge-${skill.name}`}
-                      className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0"
-                      aria-label="Orphan skill — source directory is missing"
-                      title="Source directory is missing — use Cleanup to remove the dangling symlinks"
-                    >
-                      orphan
-                    </span>
-                  )}
-                  {/* Add button:
-                      - global view => AddSymlinkModal
-                      - agent view => CopyToAgentsModal */}
-                  {showAddButton && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleAddClick}
-                      className="h-5 px-1.5 text-xs shrink-0 ml-1"
-                    >
-                      <Plus className="h-3 w-3 mr-0.5" />
-                      Add
-                    </Button>
-                  )}
-                  {showGStackBadge && (
-                    <a
-                      href={GSTACK_REPOSITORY_URL}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 rounded-md border border-sky-400/40 bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-sky-300 transition-colors hover:bg-sky-500/25 shrink-0"
-                      aria-label="Open G-Stack GitHub repository"
-                    >
-                      G-Stack
-                      <ExternalLink className="h-2.5 w-2.5" />
-                    </a>
-                  )}
-                </h3>
+                <SkillTitleRow
+                  skill={skill}
+                  isLinked={isLinked}
+                  isLocalSkill={isLocalSkill}
+                  isInaccessibleSkill={isInaccessibleSkill}
+                  showAddButton={showAddButton}
+                  showGStackBadge={showGStackBadge}
+                  onAddClick={handleAddClick}
+                />
                 {skill.description && (
                   <p className="text-sm text-muted-foreground line-clamp-2 mt-1 min-h-10">
                     {skill.description}
@@ -525,27 +702,7 @@ export const SkillItem = React.memo(function SkillItem({
 
             {/* Status badges — only shown in global view (no agent selected) */}
             {!selectedAgentId && (
-              <div className="flex items-center gap-2 mt-3">
-                {validCount > 0 && (
-                  <StatusBadge
-                    status="valid"
-                    count={validCount}
-                    agentNames={validAgentNames}
-                  />
-                )}
-                {brokenCount > 0 && (
-                  <StatusBadge
-                    status="broken"
-                    count={brokenCount}
-                    agentNames={brokenAgentNames}
-                  />
-                )}
-                {validCount === 0 && brokenCount === 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    Not linked to any agent
-                  </span>
-                )}
-              </div>
+              <GlobalStatusBadges buckets={symlinkStatusBuckets} />
             )}
           </CardContent>
         </Card>

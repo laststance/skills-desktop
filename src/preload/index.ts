@@ -4,6 +4,8 @@ import { IPC_CHANNELS } from '@/shared/ipc-channels'
 import type { Settings } from '@/shared/settings'
 import type {
   AbsolutePath,
+  ClearOrphanSymlinksOptions,
+  ClearBrokenSymlinkSlotsOptions,
   CopyToAgentsOptions,
   CreateSymlinksOptions,
   DeleteProgressPayload,
@@ -55,6 +57,10 @@ contextBridge.exposeInMainWorld('electron', {
     // deleteSkills runs serially in main; batches of >=10 emit progress events.
     deleteSkills: async (options: DeleteSkillsOptions) =>
       typedInvoke('skills:deleteSkills', options),
+    clearOrphanSymlinks: async (options: ClearOrphanSymlinksOptions) =>
+      typedInvoke('skills:clearOrphanSymlinks', options),
+    clearBrokenSymlinkSlots: async (options: ClearBrokenSymlinkSlotsOptions) =>
+      typedInvoke('skills:clearBrokenSymlinkSlots', options),
     unlinkManyFromAgent: async (options: UnlinkManyFromAgentOptions) =>
       typedInvoke('skills:unlinkManyFromAgent', options),
     restoreDeletedSkill: async (options: RestoreDeletedSkillOptions) =>

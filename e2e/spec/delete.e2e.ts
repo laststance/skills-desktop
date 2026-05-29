@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
@@ -50,6 +51,78 @@ interface SourceBackedManifest {
 }
 
 const AZURE_AI_NAME = 'azure-ai'
+
+interface E2EFilesystemIdentity {
+  kind: 'directory' | 'symlink' | 'file' | 'other'
+  dev: number
+  ino: number
+  size: number
+  ctimeMs: number
+  mtimeMs: number
+}
+
+interface DeleteSkillPayload {
+  skillName: string
+  skillPath: string
+  filesystemIdentity: E2EFilesystemIdentity
+}
+
+/**
+ * Assert a path entry itself is gone; unlike existsSync, this detects dangling symlinks.
+ * @param path - Filesystem path expected to have no directory entry.
+ * @returns void after asserting lstat throws ENOENT.
+ * @example expectPathEntryMissing('/tmp/link')
+ */
+function expectPathEntryMissing(path: string): void {
+  expect(
+    () => lstatSync(path),
+    `expected ${path} directory entry to be removed`,
+  ).toThrow(/ENOENT/)
+}
+
+/**
+ * Build the reviewed directory identity expected by destructive delete IPC.
+ * @param path - Reviewed source/local skill folder.
+ * @returns Serializable identity copied from Node lstat metadata.
+ * @example filesystemIdentityForPath('/tmp/home/.agents/skills/task')
+ */
+function filesystemIdentityForPath(path: string): E2EFilesystemIdentity {
+  const stats = lstatSync(path)
+  return {
+    kind: stats.isSymbolicLink()
+      ? 'symlink'
+      : stats.isDirectory()
+        ? 'directory'
+        : stats.isFile()
+          ? 'file'
+          : 'other',
+    dev: stats.dev,
+    ino: stats.ino,
+    size: stats.size,
+    ctimeMs: stats.ctimeMs,
+    mtimeMs: stats.mtimeMs,
+  }
+}
+
+/**
+ * Build the mandatory reviewed-path delete payload for E2E direct IPC calls.
+ * @param isolatedHome - E2E fixture HOME.
+ * @param skillName - Display skill name to delete.
+ * @param reviewedPath - Optional reviewed source/local folder path override.
+ * @returns Payload accepted by `skills:deleteSkill`.
+ * @example deleteSkillPayload(home, 'azure-ai')
+ */
+function deleteSkillPayload(
+  isolatedHome: string,
+  skillName: string,
+  reviewedPath = join(isolatedHome, '.agents', 'skills', skillName),
+) {
+  return {
+    skillName,
+    skillPath: reviewedPath,
+    filesystemIdentity: filesystemIdentityForPath(reviewedPath),
+  }
+}
 
 /**
  * Single snapshot selector for azure-ai used by every test in this file.
@@ -105,21 +178,25 @@ const azureSnapshotSelector = (state: unknown): AzureSnapshot => {
  * eviction live in dedicated tests below the source-backed pair.
  */
 
-// Every test in this file deletes / restores `azure-ai` from the snapshot
-// SOURCE_DIR. When global-setup is offline the snapshot is empty and the
-// `hasAzure: true` precondition would fail with a confusing renderer error
-// instead of a clean skip.
-test.beforeEach(() => {
+/**
+ * Skip specs that depend on the azure skill snapshot installed by global setup.
+ * @param isolatedHome - E2E fixture HOME to inspect for the azure source dir.
+ * @returns void; Playwright marks the current test as skipped when offline.
+ * @example skipWhenAzureSnapshotUnavailable('/tmp/home')
+ */
+function skipWhenAzureSnapshotUnavailable(isolatedHome: string): void {
   test.skip(
-    isSnapshotOffline(),
-    'azure-* skills required for this suite; runner is offline (global-setup wrote snapshot.offline=true)',
+    isSnapshotOffline() ||
+      !existsSync(join(isolatedHome, '.agents', 'skills', AZURE_AI_NAME)),
+    'azure-* skills required for this suite; snapshot is offline or install was skipped',
   )
-})
+}
 
 test('deleteSkill moves source-backed skill into trash and unlinks every agent symlink', async ({
   appWindow,
   isolatedHome,
 }) => {
+  skipWhenAzureSnapshotUnavailable(isolatedHome)
   await waitForInitialScan(appWindow)
 
   const expectedSourcePath = join(
@@ -141,9 +218,9 @@ test('deleteSkill moves source-backed skill into trash and unlinks every agent s
   ).toBeGreaterThan(0)
 
   const ipcResult = await appWindow.evaluate(
-    async (skillName: string) =>
-      window.electron.skills.deleteSkill({ skillName }),
-    AZURE_AI_NAME,
+    async (payload: DeleteSkillPayload) =>
+      window.electron.skills.deleteSkill(payload),
+    deleteSkillPayload(isolatedHome, AZURE_AI_NAME),
   )
 
   expect(ipcResult.success).toBe(true)
@@ -157,10 +234,7 @@ test('deleteSkill moves source-backed skill into trash and unlinks every agent s
   // FS — source gone, every cascading symlink unlinked.
   expect(existsSync(expectedSourcePath)).toBe(false)
   for (const symlink of initial.validSymlinks) {
-    expect(
-      existsSync(symlink.linkPath),
-      `expected ${symlink.linkPath} to be unlinked after deleteSkill`,
-    ).toBe(false)
+    expectPathEntryMissing(symlink.linkPath)
   }
 
   // FS — trash entry exists with the expected layout. Entry basename matches
@@ -201,6 +275,7 @@ test('restoreDeletedSkill recovers a source-backed deletion within the undo wind
   appWindow,
   isolatedHome,
 }) => {
+  skipWhenAzureSnapshotUnavailable(isolatedHome)
   await waitForInitialScan(appWindow)
 
   const expectedSourcePath = join(
@@ -216,9 +291,9 @@ test('restoreDeletedSkill recovers a source-backed deletion within the undo wind
   expect(initial.validSymlinks.length).toBeGreaterThan(0)
 
   const deleteResult = await appWindow.evaluate(
-    async (skillName: string) =>
-      window.electron.skills.deleteSkill({ skillName }),
-    AZURE_AI_NAME,
+    async (payload: DeleteSkillPayload) =>
+      window.electron.skills.deleteSkill(payload),
+    deleteSkillPayload(isolatedHome, AZURE_AI_NAME),
   )
   expect(deleteResult.success).toBe(true)
 
@@ -256,6 +331,9 @@ test('restoreDeletedSkill recovers a source-backed deletion within the undo wind
     expect(existsSync(symlink.linkPath)).toBe(true)
     const stat = lstatSync(symlink.linkPath)
     expect(stat.isSymbolicLink()).toBe(true)
+    expect(realpathSync.native(symlink.linkPath)).toBe(
+      realpathSync.native(expectedSourcePath),
+    )
   }
 
   // FS — trash entry cleaned up by finalizeRestore (rm + cancel TTL timer).
@@ -326,9 +404,9 @@ test('deleteSkill moves a local-only skill into trash with kind="local-only" man
   await waitForInitialScan(appWindow)
 
   const ipcResult = await appWindow.evaluate(
-    async (name: string) =>
-      window.electron.skills.deleteSkill({ skillName: name }),
-    skillName,
+    async (payload: DeleteSkillPayload) =>
+      window.electron.skills.deleteSkill(payload),
+    deleteSkillPayload(isolatedHome, skillName, codexAgentDir),
   )
 
   expect(ipcResult.success).toBe(true)
@@ -370,25 +448,17 @@ test('deleteSkill moves a local-only skill into trash with kind="local-only" man
 })
 
 /**
- * Orphan-cleared delete branch (issue #71 PR-1) — exercises the third arm of
- * `moveToTrash`'s dispatcher in `trashService.ts:moveToTrash`. Both the source
- * dir AND every agent's local copy are absent; the only remaining records are
- * dangling symlinks. The handler must:
+ * Orphan cleanup branch (issue #71 PR-1) — exercises the exact reviewed
+ * `clearOrphanSymlinks` IPC path. Both the source dir AND every agent's local
+ * copy are absent; the only remaining records are dangling symlinks. The
+ * handler must:
  *
- *   1. Probe `~/.agents/skills/<name>` → ENOENT, NOT throw.
- *   2. `scanLocalCopies` → empty (no real folders anywhere).
- *   3. `scanOrphanSymlinkPaths` → finds the dangling links.
- *   4. `clearOrphanSymlinks` unlinks each, returns `kind: 'orphan-cleared'`.
- *   5. NO trash entry, NO manifest, NO TTL timer — the source is gone, so
+ *   1. Revalidate the exact reviewed `linkPath + targetPath`.
+ *   2. `clearOrphanSymlinks` unlinks each dangling link.
+ *   3. NO trash entry, NO manifest, NO TTL timer — the source is gone, so
  *      "undo" would only restore broken links.
- *
- * The single-delete IPC `SKILLS_DELETE` strips `kind` and `tombstoneId` from
- * the result (see `src/main/ipc/skills.ts:SKILLS_DELETE`); only the bulk-delete
- * path discriminates on `outcome`. So this test asserts only the common-shape
- * fields (`success`, `symlinksRemoved`, `cascadeAgents`) plus the FS invariants
- * — link gone, trash dir untouched.
  */
-test('deleteSkill clears orphan (broken) symlinks with no trash entry', async ({
+test('clearOrphanSymlinks removes reviewed broken symlinks with no trash entry', async ({
   appWindow,
   isolatedHome,
 }) => {
@@ -410,16 +480,36 @@ test('deleteSkill clears orphan (broken) symlinks with no trash entry', async ({
   await waitForInitialScan(appWindow)
 
   const ipcResult = await appWindow.evaluate(
-    async (name: string) =>
-      window.electron.skills.deleteSkill({ skillName: name }),
-    skillName,
+    async (payload: {
+      items: Array<{
+        skillName: string
+        agents: Array<{ agentId: string; linkPath: string; targetPath: string }>
+      }>
+    }) => window.electron.skills.clearOrphanSymlinks(payload),
+    {
+      items: [
+        {
+          skillName,
+          agents: [
+            {
+              agentId: 'codex',
+              linkPath: orphanLinkPath,
+              targetPath: phantomSourcePath,
+            },
+          ],
+        },
+      ],
+    },
   )
 
-  expect(ipcResult.success).toBe(true)
-  // Common-shape fields work for both kinds. orphan-cleared returns the
-  // unlinked count and the agents whose links were swept.
-  expect(ipcResult.symlinksRemoved).toBe(1)
-  expect(ipcResult.cascadeAgents).toEqual(['codex'])
+  expect(ipcResult.items).toEqual([
+    {
+      skillName,
+      outcome: 'orphan-cleared',
+      symlinksRemoved: 1,
+      cascadeAgents: ['codex'],
+    },
+  ])
 
   // FS — the dangling symlink itself is gone (lstat throws ENOENT). Using
   // lstat (not stat) because stat follows symlinks and would have thrown
@@ -481,6 +571,7 @@ test('source-backed delete entry is auto-evicted after UNDO_WINDOW_MS', async ({
   appWindow,
   isolatedHome,
 }) => {
+  skipWhenAzureSnapshotUnavailable(isolatedHome)
   test.setTimeout(45_000)
 
   await waitForInitialScan(appWindow)
@@ -496,9 +587,9 @@ test('source-backed delete entry is auto-evicted after UNDO_WINDOW_MS', async ({
   expect(initial.hasAzure).toBe(true)
 
   const deleteResult = await appWindow.evaluate(
-    async (skillName: string) =>
-      window.electron.skills.deleteSkill({ skillName }),
-    AZURE_AI_NAME,
+    async (payload: DeleteSkillPayload) =>
+      window.electron.skills.deleteSkill(payload),
+    deleteSkillPayload(isolatedHome, AZURE_AI_NAME),
   )
   expect(deleteResult.success).toBe(true)
 

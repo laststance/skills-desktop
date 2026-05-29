@@ -4,13 +4,14 @@ import {
   mkdtemp,
   readFile,
   readlink,
+  realpath,
   rm,
   symlink,
   writeFile,
 } from 'node:fs/promises'
 import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -158,5 +159,50 @@ describe('skills:copyToAgents handler', () => {
         'utf-8',
       ),
     ).resolves.toBe('nested guide')
+  })
+
+  it('copies a Devin symlink under symlinked .config using its physical relative target', async () => {
+    // Arrange
+    const skillName = 'devin-copy'
+    const targetPath = join(tempHome, '.agents', 'skills', skillName)
+    const physicalConfigDir = join(tempHome, 'dotfiles', '.config')
+    const physicalDevinSkillsDir = join(physicalConfigDir, 'devin', 'skills')
+    const logicalConfigDir = join(tempHome, '.config')
+    const sourcePath = join(logicalConfigDir, 'devin', 'skills', skillName)
+    const rawTarget = relative(physicalDevinSkillsDir, targetPath)
+    await mkdir(targetPath, { recursive: true })
+    await writeFile(join(targetPath, 'SKILL.md'), '# Devin copy\n')
+    await mkdir(physicalDevinSkillsDir, { recursive: true })
+    await symlink(physicalConfigDir, logicalConfigDir)
+    await symlink(rawTarget, sourcePath)
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+    const copyToAgentsHandler = getRegisteredHandler('skills:copyToAgents')
+
+    // Act
+    const result = (await copyToAgentsHandler(
+      {},
+      {
+        skillName,
+        sourcePath,
+        targetAgentIds: ['cursor'],
+      },
+    )) as {
+      success: boolean
+      copied: number
+      failures: unknown[]
+    }
+
+    // Assert
+    expect(result).toEqual({
+      success: true,
+      copied: 1,
+      failures: [],
+    })
+    const copiedLinkPath = join(tempHome, '.cursor', 'skills', skillName)
+    expect((await lstat(copiedLinkPath)).isSymbolicLink()).toBe(true)
+    await expect(readlink(copiedLinkPath)).resolves.toBe(
+      await realpath(targetPath),
+    )
   })
 })

@@ -41,7 +41,7 @@ interface RepoFacetOption {
  * Detect whether one scanner slot belongs to the active agent list.
  * @param slot - Symlink slot emitted by the skill scanner.
  * @param selectedAgentId - Agent currently selected in the Installed view.
- * @returns True for valid or broken slots that should appear in that agent.
+ * @returns True for occupied slots that should appear in that agent.
  * @example
  * isSelectedAgentSlot(skill.symlinks[0], 'cursor')
  */
@@ -51,7 +51,9 @@ function isSelectedAgentSlot(
 ): boolean {
   return (
     slot.agentId === selectedAgentId &&
-    (slot.status === 'valid' || slot.status === 'broken')
+    (slot.status === 'valid' ||
+      slot.status === 'broken' ||
+      slot.status === 'inaccessible')
   )
 }
 
@@ -463,6 +465,44 @@ export const selectVisibleSkillNames = createSelector(
 )
 
 /**
+ * Detect whether a visible agent-view row can use the reviewed bulk Unlink path.
+ * @param skill - Visible skill row.
+ * @param selectedAgentId - Active agent filter; null means global delete flow.
+ * @returns True when bulk action can safely include this row.
+ * @example
+ * isBulkSelectableSkill(validSkill, 'cursor') // => true
+ */
+function isBulkSelectableSkill(
+  skill: Skill,
+  selectedAgentId: AgentId | null,
+): boolean {
+  if (selectedAgentId === null) return true
+
+  return skill.symlinks.some(
+    (symlink) =>
+      symlink.agentId === selectedAgentId &&
+      symlink.status === 'valid' &&
+      !symlink.isLocal,
+  )
+}
+
+/**
+ * Ordered visible names that can safely flow through the current bulk action.
+ * Agent-view local/broken/inaccessible rows stay visible but are excluded
+ * because reviewed bulk Unlink only removes symlink slots.
+ * @returns Skill names eligible for Select all, Shift range, and primary action.
+ * @example
+ * const names = useAppSelector(selectBulkSelectableVisibleSkillNames)
+ */
+export const selectBulkSelectableVisibleSkillNames = createSelector(
+  [selectFilteredSkills, selectSelectedAgentId],
+  (filteredSkills, selectedAgentId): SkillName[] =>
+    filteredSkills
+      .filter((skill) => isBulkSelectableSkill(skill, selectedAgentId))
+      .map((skill) => skill.name),
+)
+
+/**
  * Count of items currently ticked in `selectedSkillNames`. Separate from
  * `selectedSkillNames.length` at callsites so components can subscribe to the
  * scalar without re-rendering on any selection mutation (toolbar shows
@@ -488,7 +528,7 @@ export const selectSelectedCount = createSelector(
  * // => ['task', 'browser']
  */
 export const selectSelectedVisibleNames = createSelector(
-  [selectSelectedSkillNames, selectVisibleSkillNames],
+  [selectSelectedSkillNames, selectBulkSelectableVisibleSkillNames],
   (selectedNames, visibleNames): SkillName[] => {
     const selectedSet = new Set(selectedNames)
     return visibleNames.filter((name) => selectedSet.has(name))
@@ -508,8 +548,8 @@ export const selectSelectedVisibleCount = createSelector(
 
 /**
  * The hidden-selected count shown in the toolbar as a badge ("+2 hidden by
- * filter") so the user realizes they have out-of-view selections that the
- * Delete button will NOT act on.
+ * filter") so the user realizes they have out-of-view selections. Visible
+ * but ineligible rows are counted separately by `selectVisibleIneligibleSelectedCount`.
  * @returns number — selected names that are NOT in the visible list
  */
 export const selectHiddenSelectedCount = createSelector(
@@ -521,6 +561,31 @@ export const selectHiddenSelectedCount = createSelector(
       if (!visibleSet.has(name)) hidden += 1
     }
     return hidden
+  },
+)
+
+/**
+ * Count selected rows that are visible but excluded from the current bulk action.
+ * @returns number — visible selected rows that cannot use Delete/Unlink safely.
+ * @example
+ * // broken agent-view row selected on screen => 1 not eligible
+ */
+export const selectVisibleIneligibleSelectedCount = createSelector(
+  [
+    selectSelectedSkillNames,
+    selectVisibleSkillNames,
+    selectBulkSelectableVisibleSkillNames,
+  ],
+  (selectedNames, visibleNames, eligibleVisibleNames): number => {
+    const selectedSet = new Set(selectedNames)
+    const eligibleSet = new Set(eligibleVisibleNames)
+    let visibleIneligible = 0
+    for (const name of visibleNames) {
+      if (selectedSet.has(name) && !eligibleSet.has(name)) {
+        visibleIneligible += 1
+      }
+    }
+    return visibleIneligible
   },
 )
 

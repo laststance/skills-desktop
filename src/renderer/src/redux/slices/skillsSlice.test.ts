@@ -2,9 +2,13 @@ import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type {
+  AbsolutePath,
   AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
+  ClearBrokenSymlinkSlotsResult,
+  ClearOrphanSymlinksResult,
+  FilesystemEntryIdentity,
   RestoreDeletedSkillResult,
   Skill,
   SymlinkInfo,
@@ -17,9 +21,20 @@ const mockUnlinkFromAgent = vi.fn()
 const mockCreateSymlinks = vi.fn()
 const mockCopyToAgents = vi.fn()
 const mockDeleteSkills = vi.fn()
+const mockClearOrphanSymlinks = vi.fn()
+const mockClearBrokenSymlinkSlots = vi.fn()
 const mockUnlinkManyFromAgent = vi.fn()
 const mockRestoreDeletedSkill = vi.fn()
 const mockOnDeleteProgress = vi.fn()
+
+const directoryIdentity: FilesystemEntryIdentity = {
+  kind: 'directory',
+  dev: 1,
+  ino: 2,
+  size: 96,
+  ctimeMs: 3,
+  mtimeMs: 4,
+}
 
 vi.stubGlobal('window', {
   electron: {
@@ -29,6 +44,8 @@ vi.stubGlobal('window', {
       createSymlinks: mockCreateSymlinks,
       copyToAgents: mockCopyToAgents,
       deleteSkills: mockDeleteSkills,
+      clearOrphanSymlinks: mockClearOrphanSymlinks,
+      clearBrokenSymlinkSlots: mockClearBrokenSymlinkSlots,
       unlinkManyFromAgent: mockUnlinkManyFromAgent,
       restoreDeletedSkill: mockRestoreDeletedSkill,
       onDeleteProgress: mockOnDeleteProgress,
@@ -50,6 +67,7 @@ const sampleSkill: Skill = {
   name: 'task',
   description: 'Task management skill',
   path: '/home/user/.agents/skills/task',
+  filesystemIdentity: directoryIdentity,
   symlinkCount: 1,
   symlinks: [
     {
@@ -79,6 +97,42 @@ const thirdSkill: Skill = {
 
 /** Sample symlink info */
 const sampleSymlink: SymlinkInfo = sampleSkill.symlinks[0]
+
+/**
+ * Build a reviewed delete target so tests exercise the mandatory path IPC contract.
+ * @param skillName - Display name selected by the user.
+ * @param skillPath - Reviewed source/local folder path.
+ * @returns Delete thunk target with exact filesystem identity.
+ * @example deleteTarget('task')
+ */
+function deleteTarget(
+  skillName: Skill['name'],
+  skillPath = `/home/user/.agents/skills/${skillName}`,
+) {
+  return {
+    skillName,
+    skillPath: skillPath as AbsolutePath,
+    filesystemIdentity: directoryIdentity,
+  }
+}
+
+/**
+ * Build a reviewed unlink target so tests exercise the mandatory slot IPC contract.
+ * @param skillName - Display name selected by the user.
+ * @param linkPath - Reviewed agent slot path.
+ * @returns Unlink thunk target with exact agent-slot identity.
+ * @example unlinkTarget('task')
+ */
+function unlinkTarget(
+  skillName: Skill['name'],
+  linkPath = `/home/user/.cursor/skills/${skillName}`,
+) {
+  return {
+    skillName,
+    linkPath: linkPath as AbsolutePath,
+    targetPath: `/home/user/.agents/skills/${skillName}` as AbsolutePath,
+  }
+}
 
 /** Seed items into the store so mid-op reconciliation has something to intersect. */
 async function seedItems(
@@ -267,6 +321,77 @@ describe('skillsSlice', () => {
 
     expect(store.getState().skills.unlinking).toBe(false)
     expect(store.getState().skills.error).toBe('Permission denied')
+  })
+
+  it('unlinkSkillFromAgent passes reviewed local directory identity for local slots', async () => {
+    mockUnlinkFromAgent.mockResolvedValue({ success: true })
+    const localSymlink: SymlinkInfo = {
+      ...sampleSymlink,
+      isLocal: true,
+      targetPath: undefined,
+      filesystemIdentity: directoryIdentity,
+    }
+
+    const store = await createTestStore()
+    const { unlinkSkillFromAgent } = await import('./skillsSlice')
+    await store.dispatch(
+      unlinkSkillFromAgent({ skill: sampleSkill, symlink: localSymlink }),
+    )
+
+    expect(mockUnlinkFromAgent).toHaveBeenCalledWith({
+      skillName: 'task',
+      agentId: 'claude-code',
+      linkPath: '/home/user/.claude/skills/task',
+      confirmedLocalDirectoryDelete: true,
+      reviewedDirectoryIdentity: directoryIdentity,
+    })
+  })
+
+  it('unlinkSkillFromAgent asks for rescan when local directory identity is missing', async () => {
+    // Arrange
+    const localSymlink: SymlinkInfo = {
+      ...sampleSymlink,
+      isLocal: true,
+      targetPath: undefined,
+      filesystemIdentity: undefined,
+    }
+
+    const store = await createTestStore()
+    const { unlinkSkillFromAgent } = await import('./skillsSlice')
+
+    // Act
+    await store.dispatch(
+      unlinkSkillFromAgent({ skill: sampleSkill, symlink: localSymlink }),
+    )
+
+    // Assert
+    expect(mockUnlinkFromAgent).not.toHaveBeenCalled()
+    expect(store.getState().skills.error).toBe(
+      'Rescan before delete. The reviewed local folder identity is missing.',
+    )
+  })
+
+  it('unlinkSkillFromAgent asks for rescan when symlink target identity is missing', async () => {
+    // Arrange
+    const staleSymlink: SymlinkInfo = {
+      ...sampleSymlink,
+      isLocal: false,
+      targetPath: undefined,
+    }
+
+    const store = await createTestStore()
+    const { unlinkSkillFromAgent } = await import('./skillsSlice')
+
+    // Act
+    await store.dispatch(
+      unlinkSkillFromAgent({ skill: sampleSkill, symlink: staleSymlink }),
+    )
+
+    // Assert
+    expect(mockUnlinkFromAgent).not.toHaveBeenCalled()
+    expect(store.getState().skills.error).toBe(
+      'Rescan before unlink. The reviewed symlink target is missing.',
+    )
   })
 
   // --- createSymlinks thunk ---
@@ -494,7 +619,11 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     const { deleteSelectedSkills } = await import('./skillsSlice')
     // Include a ghost name that is NOT in state.items — reconciliation should drop it
     const promise = store.dispatch(
-      deleteSelectedSkills(['task', 'theme-generator', 'already-gone']),
+      deleteSelectedSkills([
+        deleteTarget('task'),
+        deleteTarget('theme-generator'),
+        deleteTarget('already-gone'),
+      ]),
     )
 
     expect(store.getState().skills.bulkDeleting).toBe(true)
@@ -530,6 +659,43 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     await promise
   })
 
+  it('passes reviewed skillPath through deleteSkills IPC', async () => {
+    const store = await createTestStore()
+    mockDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: 'metadata-title',
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1-metadata-title-aaaaaaaa'),
+          symlinksRemoved: 1,
+          cascadeAgents: [],
+        },
+      ],
+    } satisfies BulkDeleteResult)
+
+    const { deleteSelectedSkills } = await import('./skillsSlice')
+    await store.dispatch(
+      deleteSelectedSkills([
+        {
+          skillName: 'metadata-title',
+          skillPath:
+            '/home/user/.agents/skills/folder-basename' as AbsolutePath,
+          filesystemIdentity: directoryIdentity,
+        },
+      ]),
+    )
+
+    expect(mockDeleteSkills).toHaveBeenCalledWith({
+      items: [
+        {
+          skillName: 'metadata-title',
+          skillPath: '/home/user/.agents/skills/folder-basename',
+          filesystemIdentity: directoryIdentity,
+        },
+      ],
+    })
+  })
+
   it('clears selection, anchor, inFlight, and progress on fulfilled', async () => {
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])
@@ -550,7 +716,36 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     store.dispatch(toggleSelection('task'))
     store.dispatch(setBulkProgress({ current: 1, total: 1 }))
 
-    await store.dispatch(deleteSelectedSkills(['task']))
+    await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
+
+    const state = store.getState().skills
+    expect(state.bulkDeleting).toBe(false)
+    expect(state.inFlightDeleteNames).toEqual([])
+    expect(state.selectedSkillNames).toEqual([])
+    expect(state.selectionAnchor).toBeNull()
+    expect(state.bulkProgress).toBeNull()
+  })
+
+  it('clears selection and anchor when delete returns orphan-cleared', async () => {
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill])
+    mockDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: 'task',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 1,
+          cascadeAgents: ['claude-code' as AgentId],
+        },
+      ],
+    } satisfies BulkDeleteResult)
+
+    const { deleteSelectedSkills, toggleSelection, setBulkProgress } =
+      await import('./skillsSlice')
+    store.dispatch(toggleSelection('task'))
+    store.dispatch(setBulkProgress({ current: 1, total: 1 }))
+
+    await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
 
     const state = store.getState().skills
     expect(state.bulkDeleting).toBe(false)
@@ -566,12 +761,297 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     mockDeleteSkills.mockRejectedValue(new Error('EACCES'))
 
     const { deleteSelectedSkills } = await import('./skillsSlice')
-    await store.dispatch(deleteSelectedSkills(['task']))
+    await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
 
     const state = store.getState().skills
     expect(state.bulkDeleting).toBe(false)
     expect(state.inFlightDeleteNames).toEqual([])
     expect(state.error).toBe('EACCES')
+  })
+})
+
+describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  it('sets bulkDeleting and reconciles orphan inFlightDeleteNames against live items on pending', async () => {
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill, secondSkill])
+    let resolve!: (value: ClearOrphanSymlinksResult) => void
+    mockClearOrphanSymlinks.mockReturnValue(
+      new Promise<ClearOrphanSymlinksResult>((r) => {
+        resolve = r
+      }),
+    )
+
+    const { clearSelectedOrphanSymlinks } = await import('./skillsSlice')
+    const promise = store.dispatch(
+      clearSelectedOrphanSymlinks([
+        {
+          skillName: 'task',
+          agents: [
+            {
+              agentId: 'codex' as AgentId,
+              linkPath: '/home/user/.codex/skills/task',
+              targetPath: '/home/user/.agents/skills/task',
+            },
+          ],
+        },
+        {
+          skillName: 'ghost',
+          agents: [
+            {
+              agentId: 'cursor' as AgentId,
+              linkPath: '/home/user/.cursor/skills/ghost',
+              targetPath: '/home/user/.agents/skills/ghost',
+            },
+          ],
+        },
+      ]),
+    )
+
+    expect(store.getState().skills.bulkDeleting).toBe(true)
+    expect(store.getState().skills.inFlightDeleteNames).toEqual(['task'])
+
+    resolve({
+      items: [
+        {
+          skillName: 'task',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 1,
+          cascadeAgents: ['codex' as AgentId],
+        },
+      ],
+    })
+    await promise
+  })
+
+  it('clears orphan selection, anchor, inFlight, and progress on fulfilled', async () => {
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill])
+    mockClearOrphanSymlinks.mockResolvedValue({
+      items: [
+        {
+          skillName: 'task',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 1,
+          cascadeAgents: ['codex' as AgentId],
+        },
+      ],
+    } satisfies ClearOrphanSymlinksResult)
+
+    const { clearSelectedOrphanSymlinks, setBulkProgress, toggleSelection } =
+      await import('./skillsSlice')
+    store.dispatch(toggleSelection('task'))
+    store.dispatch(setBulkProgress({ current: 1, total: 1 }))
+
+    await store.dispatch(
+      clearSelectedOrphanSymlinks([
+        {
+          skillName: 'task',
+          agents: [
+            {
+              agentId: 'codex' as AgentId,
+              linkPath: '/home/user/.codex/skills/task',
+              targetPath: '/home/user/.agents/skills/task',
+            },
+          ],
+        },
+      ]),
+    )
+
+    const state = store.getState().skills
+    expect(state.bulkDeleting).toBe(false)
+    expect(state.inFlightDeleteNames).toEqual([])
+    expect(state.selectedSkillNames).toEqual([])
+    expect(state.selectionAnchor).toBeNull()
+    expect(state.bulkProgress).toBeNull()
+  })
+
+  it('keeps failed orphan rows selected while clearing busy state on fulfilled', async () => {
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill])
+    mockClearOrphanSymlinks.mockResolvedValue({
+      items: [
+        {
+          skillName: 'task',
+          outcome: 'error',
+          error: { message: 'Rescan before cleanup.' },
+        },
+      ],
+    } satisfies ClearOrphanSymlinksResult)
+
+    const { clearSelectedOrphanSymlinks, toggleSelection } =
+      await import('./skillsSlice')
+    store.dispatch(toggleSelection('task'))
+
+    await store.dispatch(
+      clearSelectedOrphanSymlinks([
+        {
+          skillName: 'task',
+          agents: [
+            {
+              agentId: 'codex' as AgentId,
+              linkPath: '/home/user/.codex/skills/task',
+              targetPath: '/home/user/.agents/skills/task',
+            },
+          ],
+        },
+      ]),
+    )
+
+    const state = store.getState().skills
+    expect(state.bulkDeleting).toBe(false)
+    expect(state.inFlightDeleteNames).toEqual([])
+    expect(state.selectedSkillNames).toEqual(['task'])
+    expect(state.selectionAnchor).toBe('task')
+  })
+
+  it('clears orphan in-flight state and sets error on rejected', async () => {
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill])
+    mockClearOrphanSymlinks.mockRejectedValue(new Error('Permission denied'))
+
+    const { clearSelectedOrphanSymlinks } = await import('./skillsSlice')
+    await store.dispatch(
+      clearSelectedOrphanSymlinks([
+        {
+          skillName: 'task',
+          agents: [
+            {
+              agentId: 'codex' as AgentId,
+              linkPath: '/home/user/.codex/skills/task',
+              targetPath: '/home/user/.agents/skills/task',
+            },
+          ],
+        },
+      ]),
+    )
+
+    const state = store.getState().skills
+    expect(state.bulkDeleting).toBe(false)
+    expect(state.inFlightDeleteNames).toEqual([])
+    expect(state.error).toBe('Permission denied')
+  })
+})
+
+describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  it('sets bulkUnlinking and reconciles broken-slot inFlightUnlinkNames on pending', async () => {
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill])
+    let resolve!: (value: ClearBrokenSymlinkSlotsResult) => void
+    mockClearBrokenSymlinkSlots.mockReturnValue(
+      new Promise<ClearBrokenSymlinkSlotsResult>((r) => {
+        resolve = r
+      }),
+    )
+
+    const { clearSelectedBrokenSymlinkSlots } = await import('./skillsSlice')
+    const promise = store.dispatch(
+      clearSelectedBrokenSymlinkSlots({
+        items: [
+          {
+            agentId: 'codex' as AgentId,
+            // linkName (on-disk basename) intentionally differs from
+            // displaySkillName to prove reconciliation matches the live
+            // skill.name ('task'), not the symlink basename.
+            linkName: 'task-symlink',
+            displaySkillName: 'task',
+            linkPath: '/home/user/.codex/skills/task-symlink',
+            targetPath: '/home/user/.agents/skills/task',
+          },
+          {
+            agentId: 'cursor' as AgentId,
+            linkName: 'ghost',
+            displaySkillName: 'ghost',
+            linkPath: '/home/user/.cursor/skills/ghost',
+            targetPath: '/home/user/.agents/skills/ghost',
+          },
+        ],
+      }),
+    )
+
+    expect(store.getState().skills.bulkUnlinking).toBe(true)
+    expect(store.getState().skills.inFlightUnlinkNames).toEqual(['task'])
+
+    resolve({
+      items: [
+        {
+          agentId: 'codex' as AgentId,
+          skillName: 'task',
+          linkPath: '/home/user/.codex/skills/task',
+          outcome: 'unlinked',
+        },
+      ],
+    })
+    await promise
+  })
+
+  it('clears broken-slot busy state on fulfilled', async () => {
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill])
+    mockClearBrokenSymlinkSlots.mockResolvedValue({
+      items: [
+        {
+          agentId: 'codex' as AgentId,
+          skillName: 'task',
+          linkPath: '/home/user/.codex/skills/task',
+          outcome: 'unlinked',
+        },
+      ],
+    } satisfies ClearBrokenSymlinkSlotsResult)
+
+    const { clearSelectedBrokenSymlinkSlots } = await import('./skillsSlice')
+    await store.dispatch(
+      clearSelectedBrokenSymlinkSlots({
+        items: [
+          {
+            agentId: 'codex' as AgentId,
+            linkName: 'task',
+            displaySkillName: 'task',
+            linkPath: '/home/user/.codex/skills/task',
+            targetPath: '/home/user/.agents/skills/task',
+          },
+        ],
+      }),
+    )
+
+    const state = store.getState().skills
+    expect(state.bulkUnlinking).toBe(false)
+    expect(state.inFlightUnlinkNames).toEqual([])
+  })
+
+  it('clears broken-slot busy state and sets error on rejected', async () => {
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill])
+    mockClearBrokenSymlinkSlots.mockRejectedValue(
+      new Error('Permission denied'),
+    )
+
+    const { clearSelectedBrokenSymlinkSlots } = await import('./skillsSlice')
+    await store.dispatch(
+      clearSelectedBrokenSymlinkSlots({
+        items: [
+          {
+            agentId: 'codex' as AgentId,
+            linkName: 'task',
+            displaySkillName: 'task',
+            linkPath: '/home/user/.codex/skills/task',
+            targetPath: '/home/user/.agents/skills/task',
+          },
+        ],
+      }),
+    )
+
+    const state = store.getState().skills
+    expect(state.bulkUnlinking).toBe(false)
+    expect(state.inFlightUnlinkNames).toEqual([])
+    expect(state.error).toBe('Permission denied')
   })
 })
 
@@ -594,7 +1074,11 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
-        selectedNames: ['task', 'browser', 'ghost'],
+        selectedNames: [
+          unlinkTarget('task'),
+          unlinkTarget('browser'),
+          unlinkTarget('ghost'),
+        ],
       }),
     )
 
@@ -613,6 +1097,40 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     await promise
   })
 
+  it('passes reviewed linkPath through unlinkManyFromAgent IPC', async () => {
+    const store = await createTestStore()
+    mockUnlinkManyFromAgent.mockResolvedValue({
+      items: [{ skillName: 'metadata-title', outcome: 'unlinked' }],
+    } satisfies BulkUnlinkResult)
+
+    const { unlinkSelectedFromAgent } = await import('./skillsSlice')
+    await store.dispatch(
+      unlinkSelectedFromAgent({
+        agentId: 'cursor' as AgentId,
+        selectedNames: [
+          {
+            skillName: 'metadata-title',
+            linkPath:
+              '/home/user/.cursor/skills/folder-basename' as AbsolutePath,
+            targetPath:
+              '/home/user/.agents/skills/folder-basename' as AbsolutePath,
+          },
+        ],
+      }),
+    )
+
+    expect(mockUnlinkManyFromAgent).toHaveBeenCalledWith({
+      agentId: 'cursor',
+      items: [
+        {
+          skillName: 'metadata-title',
+          linkPath: '/home/user/.cursor/skills/folder-basename',
+          targetPath: '/home/user/.agents/skills/folder-basename',
+        },
+      ],
+    })
+  })
+
   it('clears selection, anchor, and inFlight on fulfilled', async () => {
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])
@@ -627,7 +1145,7 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     await store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
-        selectedNames: ['task'],
+        selectedNames: [unlinkTarget('task')],
       }),
     )
 
@@ -647,7 +1165,7 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     await store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
-        selectedNames: ['task'],
+        selectedNames: [unlinkTarget('task')],
       }),
     )
 

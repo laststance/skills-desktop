@@ -40,8 +40,8 @@ export const WIDGET_SIZES: Readonly<
     minSize: { w: 2, h: 2 },
   },
   health: {
-    defaultSize: { w: 3, h: 2 },
-    minSize: { w: 2, h: 2 },
+    defaultSize: { w: 3, h: 3 },
+    minSize: { w: 2, h: 3 },
   },
   coverage: {
     defaultSize: { w: 6, h: 3 },

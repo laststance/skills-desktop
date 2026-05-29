@@ -18,3 +18,15 @@ export function errorCode(error: unknown): string | undefined {
   }
   return undefined
 }
+
+/**
+ * Checks whether an fs probe proves a path component is gone; cleanup callers use it to avoid treating permission failures as dangling symlinks.
+ * @param error - The caught filesystem error.
+ * @returns True only for Node codes that mean the target path cannot exist.
+ * @example
+ * isMissingPathError(Object.assign(new Error('missing'), { code: 'ENOENT' })) // => true
+ */
+export function isMissingPathError(error: unknown): boolean {
+  const code = errorCode(error)
+  return code === 'ENOENT' || code === 'ENOTDIR'
+}

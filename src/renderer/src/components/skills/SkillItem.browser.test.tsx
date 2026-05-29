@@ -5,7 +5,12 @@ import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import { GSTACK_REPOSITORY_URL } from '@/shared/constants'
-import type { Skill, SkillName, SymlinkInfo } from '@/shared/types'
+import type {
+  FilesystemEntryIdentity,
+  Skill,
+  SkillName,
+  SymlinkInfo,
+} from '@/shared/types'
 import { repositoryId } from '@/shared/types'
 
 const mockGetAll = vi.fn()
@@ -26,6 +31,15 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+const directoryIdentity: FilesystemEntryIdentity = {
+  kind: 'directory',
+  dev: 1,
+  ino: 2,
+  size: 96,
+  ctimeMs: 3,
+  mtimeMs: 4,
+}
+
 /**
  * Build a minimal Skill fixture.
  * @param overrides - Partial Skill overrides
@@ -37,6 +51,7 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
     name: 'task' as SkillName,
     description: 'Task management skill',
     path: '/home/user/.agents/skills/task' as Skill['path'],
+    filesystemIdentity: directoryIdentity,
     symlinkCount: 0,
     symlinks: [],
     isSource: true,
@@ -156,6 +171,179 @@ describe('SkillItem bulk-select checkbox visibility', () => {
   })
 })
 
+describe('SkillItem symlink status badges', () => {
+  it('shows inaccessible slots instead of treating them as unlinked', async () => {
+    // Arrange
+    const inaccessibleSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'inaccessible',
+          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          targetPath:
+            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          isLocal: false,
+        },
+      ],
+    })
+
+    // Act
+    const { screen } = await renderSkillItem(inaccessibleSkill)
+
+    // Assert
+    await expect
+      .element(screen.getByLabelText('Inaccessible: 1'))
+      .toBeInTheDocument()
+    expect(screen.getByText('Not linked to any agent').query()).toBeNull()
+  })
+
+  it('hides the normal unlink button for inaccessible slots in agent view', async () => {
+    // Arrange
+    const inaccessibleSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'inaccessible',
+          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          targetPath:
+            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(inaccessibleSkill)
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+
+    // Act
+    store.dispatch(selectAgent('cursor'))
+
+    // Assert
+    await expect
+      .element(
+        screen.getByLabelText('Inaccessible link - manual review required'),
+      )
+      .toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /^Unlink task from/i }).query(),
+    ).toBeNull()
+  })
+
+  it('hides the normal unlink button for broken slots in agent view', async () => {
+    // Arrange
+    const brokenSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'broken',
+          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          targetPath:
+            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          isLocal: false,
+        },
+        {
+          agentId: 'codex',
+          agentName: 'Codex',
+          status: 'valid',
+          linkPath: '/home/user/.codex/skills/task' as SymlinkInfo['linkPath'],
+          targetPath:
+            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          isLocal: false,
+        },
+      ],
+      isOrphan: false,
+    })
+    const { screen, store } = await renderSkillItem(brokenSkill)
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    await expect.element(screen.getByLabelText('Broken: 1')).toBeInTheDocument()
+
+    // Act
+    store.dispatch(selectAgent('cursor'))
+
+    // Assert
+    await expect
+      .poll(() => screen.getByLabelText('Broken: 1').query())
+      .toBeNull()
+    await expect
+      .poll(() =>
+        screen.getByRole('button', { name: /^Unlink task from/i }).query(),
+      )
+      .toBeNull()
+    await expect
+      .poll(() => screen.getByRole('button', { name: 'Add' }).query())
+      .toBeNull()
+  })
+
+  it('hides Add for inaccessible slots so copy routing cannot fan out', async () => {
+    // Arrange
+    const inaccessibleSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'inaccessible',
+          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          targetPath:
+            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(inaccessibleSkill)
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+
+    // Act
+    store.dispatch(selectAgent('cursor'))
+
+    // Assert
+    await expect
+      .element(
+        screen.getByLabelText('Inaccessible link - manual review required'),
+      )
+      .toBeInTheDocument()
+    await expect
+      .poll(() => screen.getByRole('button', { name: /^Add$/i }).query())
+      .toBeNull()
+  })
+
+  it('renders a disabled checkbox for broken agent rows that cannot use generic unlink', async () => {
+    // Arrange
+    const brokenSkill = makeSkill({
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'broken',
+          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          targetPath:
+            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          isLocal: false,
+        },
+      ],
+      isOrphan: true,
+    })
+    const { screen, store } = await renderSkillItem(brokenSkill)
+    const { enterBulkSelectMode, selectAgent } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+
+    // Act
+    store.dispatch(selectAgent('cursor'))
+    store.dispatch(enterBulkSelectMode())
+
+    // Assert — the slot stays rendered (so titles stay aligned) but the row is
+    // marked out-of-scope via a disabled checkbox and an "is not eligible"
+    // label, instead of vanishing. Keeping the checkbox lets a row that was
+    // selected and then became ineligible still be deselected individually.
+    const ineligibleCheckbox = screen.getByRole('checkbox', {
+      name: 'task is not eligible for bulk selection',
+    })
+    await expect.element(ineligibleCheckbox).toBeInTheDocument()
+    await expect.element(ineligibleCheckbox).toBeDisabled()
+  })
+})
+
 describe('SkillItem delete button', () => {
   // Every skill — including ones tracked in `~/.agents/.skill-lock.json` via a
   // `source` field — opens the same trash + UndoToast dialog. The CLI removal
@@ -207,6 +395,16 @@ describe('SkillItem delete button', () => {
       agentName: null,
       // Single-row delete carries no repo-filter scope, so the summary is null.
       sourceSummary: null,
+      deleteTargets: [
+        {
+          skillName: 'brainstorming',
+          skillPath: '/home/user/.agents/skills/task',
+          filesystemIdentity: directoryIdentity,
+        },
+      ],
+      orphanRecords: [],
+      staleDeleteErrors: [],
+      orphanErrors: [],
     })
   })
 
@@ -224,6 +422,16 @@ describe('SkillItem delete button', () => {
       agentName: null,
       // Single-row delete carries no repo-filter scope, so the summary is null.
       sourceSummary: null,
+      deleteTargets: [
+        {
+          skillName: 'local-skill',
+          skillPath: '/home/user/.agents/skills/task',
+          filesystemIdentity: directoryIdentity,
+        },
+      ],
+      orphanRecords: [],
+      staleDeleteErrors: [],
+      orphanErrors: [],
     })
   })
 
@@ -245,6 +453,25 @@ describe('SkillItem delete button', () => {
 })
 
 describe('SkillItem Add button routing', () => {
+  it('keeps Add out of the row heading so screen readers announce only the skill name', async () => {
+    // Arrange
+    const { screen } = await renderSkillItem(makeSkill())
+
+    // Act
+    const headingWithAction = screen.getByRole('heading', {
+      name: /task Add/i,
+    })
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { name: /^task$/i }))
+      .toBeInTheDocument()
+    expect(headingWithAction.query()).toBeNull()
+    await expect
+      .element(screen.getByRole('button', { name: /^Add$/i }))
+      .toBeInTheDocument()
+  })
+
   it('shows Add button in agent view when the skill exists in selected agent', async () => {
     const { screen, store } = await renderSkillItem(
       makeSkill({

@@ -16,21 +16,45 @@ function createStats(options: {
 }): {
   isSymbolicLink: () => boolean
   isDirectory: () => boolean
+  isFile: () => boolean
+  dev: number
+  ino: number
+  size: number
+  ctimeMs: number
+  mtimeMs: number
 } {
   return {
     isSymbolicLink: () => options.isSymbolicLink,
     isDirectory: () => options.isDirectory,
+    isFile: () => false,
+    dev: 1,
+    ino: 2,
+    size: 96,
+    ctimeMs: 3,
+    mtimeMs: 4,
   }
+}
+
+/**
+ * Build a Node-style filesystem error with a stable `code` field.
+ * @param code - Errno code the production helper branches on.
+ * @returns Error object shaped like fs/promises rejections.
+ * @example makeFsError('ENOENT').code // => 'ENOENT'
+ */
+function makeFsError(code: string): Error & { code: string } {
+  return Object.assign(new Error(code), { code })
 }
 
 const lstatMock = vi.fn()
 const readlinkMock = vi.fn()
 const accessMock = vi.fn()
+const realpathMock = vi.fn()
 
 vi.mock('fs/promises', () => ({
   lstat: lstatMock,
   readlink: readlinkMock,
   access: accessMock,
+  realpath: realpathMock,
 }))
 
 vi.mock('../constants', () => ({
@@ -48,6 +72,7 @@ vi.mock('../constants', () => ({
 describe('checkSymlinkStatus', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    realpathMock.mockImplementation(async (path: string) => path)
   })
 
   it('returns valid when symlink exists and target is accessible', async () => {
@@ -76,7 +101,7 @@ describe('checkSymlinkStatus', () => {
       createStats({ isSymbolicLink: true, isDirectory: false }),
     )
     readlinkMock.mockResolvedValue('/mock/source/skills/deleted-skill')
-    accessMock.mockRejectedValue(new Error('ENOENT'))
+    accessMock.mockRejectedValue(makeFsError('ENOENT'))
 
     const { checkSymlinkStatus } = await import('./symlinkChecker')
     const result = await checkSymlinkStatus(
@@ -86,8 +111,25 @@ describe('checkSymlinkStatus', () => {
     expect(result).toBe('broken')
   })
 
+  it('returns inaccessible when symlink target cannot be probed safely', async () => {
+    lstatMock.mockResolvedValue(
+      createStats({ isSymbolicLink: true, isDirectory: false }),
+    )
+    readlinkMock.mockResolvedValue('/mock/source/skills/locked-skill')
+    accessMock.mockRejectedValue(
+      Object.assign(new Error('EPERM'), { code: 'EPERM' }),
+    )
+
+    const { checkSymlinkStatus } = await import('./symlinkChecker')
+    const result = await checkSymlinkStatus(
+      '/mock/agents/claude/skills/locked-skill',
+    )
+
+    expect(result).toBe('inaccessible')
+  })
+
   it('returns missing when path does not exist (lstat throws ENOENT)', async () => {
-    lstatMock.mockRejectedValue(new Error('ENOENT'))
+    lstatMock.mockRejectedValue(makeFsError('ENOENT'))
 
     const { checkSymlinkStatus } = await import('./symlinkChecker')
     const result = await checkSymlinkStatus(
@@ -128,11 +170,39 @@ describe('checkSymlinkStatus', () => {
     expect(result).toBe('valid')
     expect(accessMock).toHaveBeenCalledWith(expectedResolved)
   })
+
+  it('keeps relative symlink valid when parent directory is itself symlinked', async () => {
+    // Arrange
+    const linkPath = '/Users/raphtalia/.config/devin/skills/analyze-app'
+    const relativeTarget = '../../../../.agents/skills/analyze-app'
+    const physicalParent = '/Users/raphtalia/dotfiles/.config/devin/skills'
+    const expectedPhysicalTarget = '/Users/raphtalia/.agents/skills/analyze-app'
+
+    lstatMock.mockResolvedValue(
+      createStats({ isSymbolicLink: true, isDirectory: false }),
+    )
+    readlinkMock.mockResolvedValue(relativeTarget)
+    realpathMock.mockResolvedValue(physicalParent)
+    accessMock.mockResolvedValue(undefined)
+
+    // Act
+    const { checkSymlinkStatus } = await import('./symlinkChecker')
+    const result = await checkSymlinkStatus(linkPath)
+
+    // Assert
+    expect(result).toBe('valid')
+    expect(realpathMock).toHaveBeenCalledWith(dirname(linkPath))
+    expect(accessMock).toHaveBeenCalledWith(expectedPhysicalTarget)
+    expect(accessMock).not.toHaveBeenCalledWith(
+      '/Users/.agents/skills/analyze-app',
+    )
+  })
 })
 
 describe('checkSkillSymlinks', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    realpathMock.mockImplementation(async (path: string) => path)
   })
 
   it('returns correct status for each agent with broken symlink', async () => {
@@ -143,14 +213,14 @@ describe('checkSkillSymlinks', () => {
       if (path === join('/mock/agents/cursor/skills', 'my-skill')) {
         return createStats({ isSymbolicLink: true, isDirectory: false })
       }
-      throw new Error('ENOENT')
+      throw makeFsError('ENOENT')
     })
 
     readlinkMock.mockResolvedValue('/mock/source/skills/my-skill')
 
     accessMock.mockImplementation(async (path: string) => {
       if (path === '/mock/source/skills/my-skill') {
-        throw new Error('ENOENT')
+        throw makeFsError('ENOENT')
       }
     })
 
@@ -172,11 +242,11 @@ describe('checkSkillSymlinks', () => {
         return createStats({ isSymbolicLink: true, isDirectory: false })
       }
       // Cursor has no entry
-      throw new Error('ENOENT')
+      throw makeFsError('ENOENT')
     })
 
     readlinkMock.mockResolvedValue('/mock/source/skills/deleted-target')
-    accessMock.mockRejectedValue(new Error('ENOENT'))
+    accessMock.mockRejectedValue(makeFsError('ENOENT'))
 
     const { checkSkillSymlinks } = await import('./symlinkChecker')
     const results = await checkSkillSymlinks('partial-skill')
@@ -221,11 +291,19 @@ describe('checkSkillSymlinks', () => {
       expect(r.status).toBe('valid')
       expect(r.isLocal).toBe(true)
       expect(r.targetPath).toBeUndefined()
+      expect(r.filesystemIdentity).toEqual({
+        kind: 'directory',
+        dev: 1,
+        ino: 2,
+        size: 96,
+        ctimeMs: 3,
+        mtimeMs: 4,
+      })
     }
   })
 
   it('returns missing for all agents when no entries exist', async () => {
-    lstatMock.mockRejectedValue(new Error('ENOENT'))
+    lstatMock.mockRejectedValue(makeFsError('ENOENT'))
 
     const { checkSkillSymlinks } = await import('./symlinkChecker')
     const results = await checkSkillSymlinks('nonexistent-skill')
@@ -269,8 +347,37 @@ describe('checkSkillSymlinks', () => {
     }
   })
 
+  it('reports physical targetPath for relative symlinks under a symlinked parent directory', async () => {
+    // Arrange
+    const relativeTarget = '../../../../.agents/skills/good-skill'
+    const physicalParent = '/Users/raphtalia/dotfiles/.config/devin/skills'
+    const expectedPhysicalTarget = '/Users/raphtalia/.agents/skills/good-skill'
+
+    lstatMock.mockResolvedValue(
+      createStats({ isSymbolicLink: true, isDirectory: false }),
+    )
+    readlinkMock.mockResolvedValue(relativeTarget)
+    realpathMock.mockResolvedValue(physicalParent)
+    accessMock.mockResolvedValue(undefined)
+
+    // Act
+    const { checkSkillSymlinks } = await import('./symlinkChecker')
+    const results = await checkSkillSymlinks('good-skill')
+
+    // Assert
+    expect(results).toHaveLength(2)
+    for (const result of results) {
+      expect(result.status).toBe('valid')
+      expect(result.isLocal).toBe(false)
+      expect(result.targetPath).toBe(expectedPhysicalTarget)
+    }
+    expect(accessMock).not.toHaveBeenCalledWith(
+      '/Users/.agents/skills/good-skill',
+    )
+  })
+
   it('populates linkPath for each agent correctly', async () => {
-    lstatMock.mockRejectedValue(new Error('ENOENT'))
+    lstatMock.mockRejectedValue(makeFsError('ENOENT'))
 
     const { checkSkillSymlinks } = await import('./symlinkChecker')
     const results = await checkSkillSymlinks('any-skill')
@@ -290,6 +397,7 @@ describe('checkSkillSymlinks', () => {
 describe('readSymlinkTargetIfPresent', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    realpathMock.mockImplementation(async (path: string) => path)
   })
 
   it('returns resolved absolute target when path is a symlink with absolute target', async () => {
@@ -376,7 +484,7 @@ describe('readSymlinkTargetIfPresent', () => {
   })
 
   it('returns undefined when path does not exist (lstat throws)', async () => {
-    lstatMock.mockRejectedValue(new Error('ENOENT'))
+    lstatMock.mockRejectedValue(makeFsError('ENOENT'))
 
     const { readSymlinkTargetIfPresent } = await import('./symlinkChecker')
     const result = await readSymlinkTargetIfPresent('/mock/missing/SKILL.md')
@@ -388,7 +496,7 @@ describe('readSymlinkTargetIfPresent', () => {
     lstatMock.mockResolvedValue(
       createStats({ isSymbolicLink: true, isDirectory: false }),
     )
-    readlinkMock.mockRejectedValue(new Error('ENOENT'))
+    readlinkMock.mockRejectedValue(makeFsError('ENOENT'))
 
     const { readSymlinkTargetIfPresent } = await import('./symlinkChecker')
     const result = await readSymlinkTargetIfPresent(

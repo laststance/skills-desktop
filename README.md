@@ -15,7 +15,7 @@ Skills Desktop provides a GUI to manage and monitor skills installed via [`npx s
 ## Features
 
 - **54 AI Agents Supported** - Auto-detects Claude Code, Cursor, Codex, Gemini CLI, and more
-- **Symlink Status Visualization** - Valid (✓), Broken (◐), Missing (○) indicators
+- **Symlink Status Visualization** - Valid (✓), Broken (◐), Inaccessible (!), Missing (○) indicators
 - **44 Themes** - 34 OKLCH color themes (17 hues × light/dark) + 2 pure neutral + 8 tinted neutral
 - **Auto Update** - Automatic updates via GitHub Releases
 
@@ -50,7 +50,7 @@ Download the latest release from [GitHub Releases](https://github.com/laststance
 ### Prerequisites
 
 - Node.js 20+
-- pnpm 9+
+- pnpm 10+
 
 ### Setup
 
@@ -103,7 +103,7 @@ APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 
 | Component | Technology                                           |
 | --------- | ---------------------------------------------------- |
-| Framework | Electron 41                                          |
+| Framework | Electron 42                                          |
 | Frontend  | React 19 + TypeScript                                |
 | State     | Redux Toolkit + @laststance/redux-storage-middleware |
 | Styling   | Tailwind CSS + shadcn/ui                             |

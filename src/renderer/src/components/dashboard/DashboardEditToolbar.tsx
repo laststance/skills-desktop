@@ -9,6 +9,7 @@ import {
   selectIsEditMode,
   toggleEditMode,
 } from '@/renderer/src/redux/slices/dashboardSlice'
+import { closeSymlinkCleanupDialog } from '@/renderer/src/redux/slices/uiSlice'
 
 import { WidgetPicker } from './WidgetPicker'
 
@@ -52,11 +53,13 @@ export const DashboardEditToolbar = React.memo(
         'Reset dashboard to default layout? Your current arrangement will be lost.',
       )
       if (userConfirmed) {
+        dispatch(closeSymlinkCleanupDialog())
         dispatch(resetToDefaults())
       }
     }, [dispatch])
 
     const handleToggleEditMode = useCallback((): void => {
+      dispatch(closeSymlinkCleanupDialog())
       dispatch(toggleEditMode())
     }, [dispatch])
 
