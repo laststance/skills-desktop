@@ -13,7 +13,10 @@ import {
   findAgentById,
   isSharedAgentPath,
 } from '@/main/constants'
-import { isSameFilesystemIdentity } from '@/main/services/filesystemIdentity'
+import {
+  isReviewedEntryUnchanged,
+  isSameFilesystemIdentity,
+} from '@/main/services/filesystemIdentity'
 import { getAllowedBases, validatePath } from '@/main/services/pathValidation'
 import { scanSkills } from '@/main/services/skillScanner'
 import { isValidSkillDir } from '@/main/services/skillValidation'
@@ -647,8 +650,10 @@ export function registerSkillsHandlers(): void {
               'Refusing to delete a local skill without explicit confirmation.',
           }
         }
+        // Pre-rename gate: catch a same-path replacement before quarantining,
+        // including the reused-inode case dev+ino alone misses on ext4/CI.
         if (
-          !isSameFilesystemIdentity(stats, options.reviewedDirectoryIdentity)
+          !isReviewedEntryUnchanged(stats, options.reviewedDirectoryIdentity)
         ) {
           return {
             success: false,
@@ -755,7 +760,9 @@ export function registerSkillsHandlers(): void {
           error: 'Reviewed agent skills path is no longer a real directory.',
         }
       }
-      if (!isSameFilesystemIdentity(stats, options.filesystemIdentity)) {
+      // Pre-rename gate: catch a same-path replacement before quarantining,
+      // including the reused-inode case dev+ino alone misses on ext4/CI.
+      if (!isReviewedEntryUnchanged(stats, options.filesystemIdentity)) {
         return {
           success: false,
           removedCount: 0,

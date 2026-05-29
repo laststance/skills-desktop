@@ -23,7 +23,10 @@ import type {
   UnixTimestampMs,
 } from '@/shared/types'
 
-import { isSameFilesystemIdentity } from './filesystemIdentity'
+import {
+  isReviewedEntryUnchanged,
+  isSameFilesystemIdentity,
+} from './filesystemIdentity'
 import { getAllowedBases, validatePath } from './pathValidation'
 import { isValidSkillDir } from './skillValidation'
 import { resolveRawSymlinkTarget } from './symlinkChecker'
@@ -265,7 +268,9 @@ async function assertReviewedSkillDirectory(
       'ESTALE',
     )
   }
-  if (!isSameFilesystemIdentity(stats, reviewedIdentity)) {
+  // Pre-staging gate: reject a same-path rm+mkdir replacement even when the
+  // OS recycled the inode number (ext4/CI), which dev+ino alone would miss.
+  if (!isReviewedEntryUnchanged(stats, reviewedIdentity)) {
     throw new TrashError('Reviewed skill folder changed since review', 'ESTALE')
   }
   if (!(await isValidSkillDir(reviewedPath))) {

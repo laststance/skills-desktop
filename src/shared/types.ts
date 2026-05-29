@@ -53,7 +53,7 @@ export interface FilesystemEntryIdentity {
   ino: number
   /** Entry size from fs.Stats, used as fallback identity on filesystems without ino. */
   size: number
-  /** Metadata change timestamp from fs.Stats, used as fallback identity. */
+  /** Metadata change timestamp from fs.Stats; strict gates also compare it to reject reused-inode same-path replacements. */
   ctimeMs: number
   /** Modification timestamp from fs.Stats, used as fallback identity. */
   mtimeMs: number
