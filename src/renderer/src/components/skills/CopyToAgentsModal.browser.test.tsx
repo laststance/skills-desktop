@@ -138,6 +138,7 @@ async function renderModal(options: {
 
 describe('CopyToAgentsModal source guards', () => {
   it('disables copy actions when the selected source is a broken symlink', async () => {
+    // Arrange
     const skill = makeSkill([
       {
         agentId: 'claude-code',
@@ -149,6 +150,7 @@ describe('CopyToAgentsModal source guards', () => {
       },
     ])
 
+    // Act
     const { screen } = await renderModal({
       skill,
       agents: [
@@ -158,6 +160,7 @@ describe('CopyToAgentsModal source guards', () => {
       selectedAgentId: 'claude-code',
     })
 
+    // Assert
     await expect
       .element(screen.getByText(/selected source is unavailable/i))
       .toBeInTheDocument()

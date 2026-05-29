@@ -17,45 +17,55 @@ import {
 } from './bulkDeleteHelpers'
 
 describe('getToolbarState', () => {
-  it('returns the global-single variant for a single selection in global view', () => {
+  it('offers a destructive "Delete skill" button for one skill in global view', () => {
+    // Arrange / Act
     const result = getToolbarState({
       view: 'global',
       agentId: null,
       count: 1,
       visibleCount: 1,
     })
+
+    // Assert
     expect(result.variantKey).toBe('global-single')
     expect(result.primaryLabel).toBe('Delete skill')
     expect(result.isDestructive).toBe(true)
     expect(result.isPrimaryDisabled).toBe(false)
   })
 
-  it('returns the global-multi variant with the count embedded', () => {
+  it('shows the selected count in the "Delete N skills" button in global view', () => {
+    // Arrange / Act
     const result = getToolbarState({
       view: 'global',
       agentId: null,
       count: 7,
       visibleCount: 7,
     })
+
+    // Assert
     expect(result.variantKey).toBe('global-multi')
     expect(result.primaryLabel).toBe('Delete 7 skills')
     expect(result.primaryAriaLabel).toBe('Move 7 selected skills to app trash')
     expect(result.isDestructive).toBe(true)
   })
 
-  it('returns the agent-single variant (non-destructive) with placeholder label when no display name', () => {
+  it('offers a non-destructive unlink button with a generic agent label when the display name is unknown', () => {
+    // Arrange / Act
     const result = getToolbarState({
       view: 'agent',
       agentId: 'cursor' as AgentId,
       count: 1,
       visibleCount: 1,
     })
+
+    // Assert
     expect(result.variantKey).toBe('agent-single')
     expect(result.primaryLabel).toBe('Unlink from agent')
     expect(result.isDestructive).toBe(false)
   })
 
-  it('embeds the agentDisplayName directly into the agent-single label', () => {
+  it('names the agent in the single-skill unlink button when a display name is given', () => {
+    // Arrange / Act
     const result = getToolbarState({
       view: 'agent',
       agentId: 'cursor' as AgentId,
@@ -63,23 +73,29 @@ describe('getToolbarState', () => {
       visibleCount: 1,
       agentDisplayName: 'Cursor',
     })
+
+    // Assert
     expect(result.primaryLabel).toBe('Unlink from Cursor')
     expect(result.primaryAriaLabel).toBe('Unlink selected skill from Cursor')
   })
 
-  it('returns the agent-multi variant with the count and placeholder label', () => {
+  it('shows the selected count in a non-destructive multi-skill unlink button with a generic agent label', () => {
+    // Arrange / Act
     const result = getToolbarState({
       view: 'agent',
       agentId: 'cursor' as AgentId,
       count: 4,
       visibleCount: 4,
     })
+
+    // Assert
     expect(result.variantKey).toBe('agent-multi')
     expect(result.primaryLabel).toBe('Unlink 4 from agent')
     expect(result.isDestructive).toBe(false)
   })
 
-  it('embeds the agentDisplayName into the agent-multi label', () => {
+  it('names the agent in the multi-skill unlink button when a display name is given', () => {
+    // Arrange / Act
     const result = getToolbarState({
       view: 'agent',
       agentId: 'cursor' as AgentId,
@@ -87,24 +103,30 @@ describe('getToolbarState', () => {
       visibleCount: 4,
       agentDisplayName: 'Cursor',
     })
+
+    // Assert
     expect(result.primaryLabel).toBe('Unlink 4 from Cursor')
     expect(result.primaryAriaLabel).toBe('Unlink 4 selected skills from Cursor')
   })
 
-  it('disables the primary button when visibleCount is 0 (hidden-only selection)', () => {
+  it('disables the delete button when a search filter hides every selected skill in global view', () => {
+    // Arrange / Act
     const result = getToolbarState({
       view: 'global',
       agentId: null,
       count: 5, // user has 5 selected globally
       visibleCount: 0, // but search filter leaves none visible
     })
+
+    // Assert
     expect(result.variantKey).toBe('global-zero')
     expect(result.isPrimaryDisabled).toBe(true)
     expect(result.primaryLabel).toBe('No visible skills')
     expect(result.primaryAriaLabel).toBe('No visible selected skills to delete')
   })
 
-  it('uses unlink-specific zero-visible copy in agent view', () => {
+  it('disables the button with unlink-specific copy when no selected skill is visible in agent view', () => {
+    // Arrange / Act
     const result = getToolbarState({
       view: 'agent',
       agentId: 'cursor' as AgentId,
@@ -112,6 +134,8 @@ describe('getToolbarState', () => {
       visibleCount: 0,
       agentDisplayName: 'Cursor',
     })
+
+    // Assert
     expect(result.variantKey).toBe('agent-zero')
     expect(result.isPrimaryDisabled).toBe(true)
     expect(result.primaryLabel).toBe('No visible skills')
@@ -120,13 +144,16 @@ describe('getToolbarState', () => {
     )
   })
 
-  it('labels the primary button with visible action targets when filters hide selected rows', () => {
+  it('counts only the visible selected skills in the delete button when filters hide some rows', () => {
+    // Arrange / Act
     const result = getToolbarState({
       view: 'global',
       agentId: null,
       count: 5,
       visibleCount: 2,
     })
+
+    // Assert
     expect(result.isPrimaryDisabled).toBe(false)
     expect(result.primaryLabel).toBe('Delete 2 skills')
     expect(result.primaryAriaLabel).toBe(
@@ -193,7 +220,8 @@ describe('countOrphanSymlinksRemoved', () => {
 })
 
 describe('formatCascadeSummary', () => {
-  it('formats a fully successful delete with symlinks', () => {
+  it('reports the deleted skill count and the total symlinks swept on a full success', () => {
+    // Arrange
     const result: BulkDeleteResult = {
       items: [
         {
@@ -213,12 +241,15 @@ describe('formatCascadeSummary', () => {
       ],
     }
 
-    expect(formatCascadeSummary(result)).toBe(
-      'Deleted 2 skills. 3 symlinks removed.',
-    )
+    // Act
+    const summary = formatCascadeSummary(result)
+
+    // Assert
+    expect(summary).toBe('Deleted 2 skills. 3 symlinks removed.')
   })
 
-  it('handles the partial-failure case with explicit "K of N"', () => {
+  it('reports a partial failure as "Deleted K of N skills"', () => {
+    // Arrange
     const result: BulkDeleteResult = {
       items: [
         {
@@ -236,12 +267,15 @@ describe('formatCascadeSummary', () => {
       ],
     }
 
-    expect(formatCascadeSummary(result)).toBe(
-      'Deleted 1 of 2 skills. 1 symlink removed.',
-    )
+    // Act
+    const summary = formatCascadeSummary(result)
+
+    // Assert
+    expect(summary).toBe('Deleted 1 of 2 skills. 1 symlink removed.')
   })
 
-  it('omits the symlinks phrase when no symlinks cascaded', () => {
+  it('drops the symlinks sentence when a delete cascaded no symlinks', () => {
+    // Arrange
     const result: BulkDeleteResult = {
       items: [
         {
@@ -254,10 +288,15 @@ describe('formatCascadeSummary', () => {
       ],
     }
 
-    expect(formatCascadeSummary(result)).toBe('Deleted 1 skill.')
+    // Act
+    const summary = formatCascadeSummary(result)
+
+    // Assert
+    expect(summary).toBe('Deleted 1 skill.')
   })
 
-  it('uses singular "skill"/"symlink" for count === 1', () => {
+  it('uses singular "skill" and "symlink" wording when exactly one of each is removed', () => {
+    // Arrange
     const result: BulkDeleteResult = {
       items: [
         {
@@ -270,15 +309,18 @@ describe('formatCascadeSummary', () => {
       ],
     }
 
-    expect(formatCascadeSummary(result)).toBe(
-      'Deleted 1 skill. 1 symlink removed.',
-    )
+    // Act
+    const summary = formatCascadeSummary(result)
+
+    // Assert
+    expect(summary).toBe('Deleted 1 skill. 1 symlink removed.')
   })
 
-  it('keeps orphan-cleared distinct from the Undo-facing "Deleted" phrase', () => {
+  it('excludes irreversible orphan cleanup from the undoable "Deleted" count', () => {
     // Issue #71 PR-1: orphan-cleared has no tombstoneId so Undo can't restore
     // it — therefore the "Deleted N" wording must NOT include it (otherwise
     // the toast lies about how many rows the user can bring back).
+    // Arrange
     const result: BulkDeleteResult = {
       items: [
         {
@@ -297,17 +339,22 @@ describe('formatCascadeSummary', () => {
       ],
     }
 
+    // Act
     // 1 truly-deleted (undoable) + 2 orphan symlinks swept (irreversible) +
     // 1 cascaded symlink from the deleted row. Three independent phrases.
-    expect(formatCascadeSummary(result)).toBe(
+    const summary = formatCascadeSummary(result)
+
+    // Assert
+    expect(summary).toBe(
       'Deleted 1 skill. Cleaned up 2 orphan symlinks. 1 symlink removed.',
     )
   })
 
-  it('reports orphan-only batches without any "Deleted" phrase', () => {
+  it('omits the "Deleted" phrase entirely for an orphan-only cleanup batch', () => {
     // The all-orphan case: e.g. user deleted the source first, then bulk
     // selected the broken-symlink rows in agent view to clean them up.
     // Nothing was tombstoned, so "Deleted" stays out of the message entirely.
+    // Arrange
     const result: BulkDeleteResult = {
       items: [
         {
@@ -329,12 +376,17 @@ describe('formatCascadeSummary', () => {
       ],
     }
 
-    expect(formatCascadeSummary(result)).toBe('Cleaned up 4 orphan symlinks.')
+    // Act
+    const summary = formatCascadeSummary(result)
+
+    // Assert
+    expect(summary).toBe('Cleaned up 4 orphan symlinks.')
   })
 
-  it('reports mixed orphan + error as separate phrases (no K-of-N form)', () => {
+  it('reports an orphan cleanup and a failed deletion as two standalone phrases, not a K-of-N form', () => {
     // No tombstoned rows means the K-of-N "Deleted X of Y" form has nothing
     // to attach to; the error count gets its own standalone phrase instead.
+    // Arrange
     const result: BulkDeleteResult = {
       items: [
         {
@@ -351,9 +403,11 @@ describe('formatCascadeSummary', () => {
       ],
     }
 
-    expect(formatCascadeSummary(result)).toBe(
-      'Cleaned up 2 orphan symlinks. 1 deletion failed.',
-    )
+    // Act
+    const summary = formatCascadeSummary(result)
+
+    // Assert
+    expect(summary).toBe('Cleaned up 2 orphan symlinks. 1 deletion failed.')
   })
 
   it('counts symlinks already unlinked when a multi-agent cleanup fails partway', () => {
@@ -381,80 +435,108 @@ describe('formatCascadeSummary', () => {
 })
 
 describe('formatUnlinkSummary', () => {
-  it('formats an all-success unlink', () => {
+  it('names the agent and the unlinked skill count when every unlink succeeds', () => {
+    // Arrange
     const result: BulkUnlinkResult = {
       items: [
         { skillName: 'task', outcome: 'unlinked' },
         { skillName: 'theme', outcome: 'unlinked' },
       ],
     }
-    expect(formatUnlinkSummary(result, 'Cursor')).toBe(
-      'Unlinked 2 skills from Cursor.',
-    )
+
+    // Act
+    const summary = formatUnlinkSummary(result, 'Cursor')
+
+    // Assert
+    expect(summary).toBe('Unlinked 2 skills from Cursor.')
   })
 
-  it('formats a partial-failure unlink', () => {
+  it('reports a partial unlink failure as "Unlinked K of N skills"', () => {
+    // Arrange
     const result: BulkUnlinkResult = {
       items: [
         { skillName: 'task', outcome: 'unlinked' },
         { skillName: 'locked', outcome: 'error', error: { message: 'EACCES' } },
       ],
     }
-    expect(formatUnlinkSummary(result, 'Cursor')).toBe(
-      'Unlinked 1 of 2 skills from Cursor.',
-    )
+
+    // Act
+    const summary = formatUnlinkSummary(result, 'Cursor')
+
+    // Assert
+    expect(summary).toBe('Unlinked 1 of 2 skills from Cursor.')
   })
 
-  it('uses singular skill for count === 1', () => {
+  it('uses singular "skill" wording when only one skill is unlinked', () => {
+    // Arrange
     const result: BulkUnlinkResult = {
       items: [{ skillName: 'task', outcome: 'unlinked' }],
     }
-    expect(formatUnlinkSummary(result, 'Cursor')).toBe(
-      'Unlinked 1 skill from Cursor.',
-    )
+
+    // Act
+    const summary = formatUnlinkSummary(result, 'Cursor')
+
+    // Assert
+    expect(summary).toBe('Unlinked 1 skill from Cursor.')
   })
 })
 
 describe('computeRangeSelection', () => {
   const visible: SkillName[] = ['alpha', 'browser', 'task', 'theme', 'zebra']
 
-  it('returns the inclusive slice when anchor is below target', () => {
-    expect(computeRangeSelection('task', 'zebra', visible)).toEqual([
-      'task',
-      'theme',
-      'zebra',
-    ])
+  it('shift-selects every row between an earlier anchor and a later click, inclusive', () => {
+    // Arrange / Act
+    const range = computeRangeSelection('task', 'zebra', visible)
+
+    // Assert
+    expect(range).toEqual(['task', 'theme', 'zebra'])
   })
 
-  it('returns the inclusive slice when anchor is above target', () => {
-    expect(computeRangeSelection('zebra', 'task', visible)).toEqual([
-      'task',
-      'theme',
-      'zebra',
-    ])
+  it('shift-selects the same inclusive range when the anchor sits below the clicked row', () => {
+    // Arrange / Act
+    const range = computeRangeSelection('zebra', 'task', visible)
+
+    // Assert
+    expect(range).toEqual(['task', 'theme', 'zebra'])
   })
 
-  it('returns a single-item range when anchor === target', () => {
-    expect(computeRangeSelection('task', 'task', visible)).toEqual(['task'])
+  it('selects just the clicked row when the anchor and target are the same row', () => {
+    // Arrange / Act
+    const range = computeRangeSelection('task', 'task', visible)
+
+    // Assert
+    expect(range).toEqual(['task'])
   })
 
-  it('falls back to just [target] when anchor is null', () => {
-    expect(computeRangeSelection(null, 'task', visible)).toEqual(['task'])
+  it('selects just the clicked row when there is no prior anchor', () => {
+    // Arrange / Act
+    const range = computeRangeSelection(null, 'task', visible)
+
+    // Assert
+    expect(range).toEqual(['task'])
   })
 
-  it('falls back to just [target] when anchor is filtered out', () => {
-    expect(
-      computeRangeSelection('removed-by-search', 'zebra', visible),
-    ).toEqual(['zebra'])
+  it('selects just the clicked row when the anchor was filtered out by search', () => {
+    // Arrange / Act
+    const range = computeRangeSelection('removed-by-search', 'zebra', visible)
+
+    // Assert
+    expect(range).toEqual(['zebra'])
   })
 
-  it('falls back to just [target] when target is missing (edge case)', () => {
-    expect(computeRangeSelection('task', 'missing', visible)).toEqual([
-      'missing',
-    ])
+  it('selects just the clicked row when the clicked target is not in the visible list', () => {
+    // Arrange / Act
+    const range = computeRangeSelection('task', 'missing', visible)
+
+    // Assert
+    expect(range).toEqual(['missing'])
   })
 
-  it('handles the first and last items correctly', () => {
-    expect(computeRangeSelection('alpha', 'zebra', visible)).toEqual(visible)
+  it('shift-selects the whole visible list when spanning from the first row to the last', () => {
+    // Arrange / Act
+    const range = computeRangeSelection('alpha', 'zebra', visible)
+
+    // Assert
+    expect(range).toEqual(visible)
   })
 })

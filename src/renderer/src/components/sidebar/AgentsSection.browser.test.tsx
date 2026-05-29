@@ -135,30 +135,45 @@ async function renderSection(
  *  - "(n)" header counter reflects ONLY visible agents
  */
 describe('Sidebar → AgentsSection', () => {
-  it('shows the loading placeholder while agents.loading is true', async () => {
+  it('shows a loading placeholder while agents are still being fetched', async () => {
     // Pre-seed the loading flag and force the on-mount fetchAgents() to never
     // resolve so the placeholder survives the assertion window.
+    // Arrange
     mockAgentsGetAll.mockReturnValueOnce(new Promise(() => {}))
+
+    // Act
     const { screen } = await renderSection([], [], true)
+
+    // Assert
     await expect.element(screen.getByText(/Loading\.\.\./i)).toBeInTheDocument()
   })
 
-  it('shows "No agents detected" when nothing is installed', async () => {
+  it('shows "No agents detected" on a fresh machine with nothing installed', async () => {
     // totalInstalled === 0 branch — happens on a fresh machine where no agent
     // directories exist yet.
+    // Arrange
     mockAgentsGetAll.mockResolvedValueOnce([])
+
+    // Act
     const { screen } = await renderSection([], [], false)
+
+    // Assert
     await expect
       .element(screen.getByText(/No agents detected/i))
       .toBeInTheDocument()
   })
 
-  it('shows the all-hidden hint when every installed agent is hidden', async () => {
+  it('guides the user back to Settings when every installed agent is hidden', async () => {
     // Distinct fall-through: totalInstalled > 0 but visibleInstalled.length === 0.
     // The user has installed agents but hidden every one; copy points back at
     // Settings → Agents so they can recover without leaving the sidebar.
+    // Arrange
     const allHidden: AgentId[] = ['claude-code', 'cursor']
+
+    // Act
     const { screen } = await renderSection(allHidden)
+
+    // Assert
     await expect
       .element(screen.getByText(/All installed agents are hidden/i))
       .toBeInTheDocument()
@@ -167,32 +182,43 @@ describe('Sidebar → AgentsSection', () => {
       .toBeInTheDocument()
   })
 
-  it('renders the "N hidden" disclosure when at least one agent is hidden', async () => {
+  it('discloses how many agents are hidden when at least one is hidden', async () => {
     // The disclosure exists ONLY when hiddenInstalled.length > 0 — the inverse
     // case (no hidden agents → no disclosure) is implicitly covered by the
     // visible-counter test below.
+    // Arrange + Act
     const { screen } = await renderSection(['cursor'])
+
+    // Assert
     await expect.element(screen.getByText(/^1 hidden$/)).toBeInTheDocument()
   })
 
-  it('header counter reflects ONLY visible agents, not the total installed set', async () => {
+  it('counts only visible agents in the header, excluding hidden ones', async () => {
     // With one hidden of two installed, the "(n)" counter must show "(1)"
     // rather than "(2)" — otherwise the user can't tell at a glance that a
     // hide is in effect.
+    // Arrange + Act
     const { screen } = await renderSection(['cursor'])
+
+    // Assert
     await expect.element(screen.getByText(/^\(1\)$/)).toBeInTheDocument()
   })
 
-  it('renders the "N not installed" disclosure alongside hidden when both exist', async () => {
+  it('shows hidden and not-installed disclosures side by side when both apply', async () => {
     // missingAgents.length > 0 path coexists with hiddenInstalled.length > 0;
     // both disclosures must render. Pinning the dual case here guards against
     // a future refactor that conflates the two lists.
     //
     // Override the fetchAgents resolution too — the on-mount effect would
     // otherwise resolve with FIXTURE_AGENTS and drop the NOT_INSTALLED seed.
+    // Arrange
     const itemsWithMissing = [...FIXTURE_AGENTS, NOT_INSTALLED_AGENT]
     mockAgentsGetAll.mockResolvedValueOnce(itemsWithMissing)
+
+    // Act
     const { screen } = await renderSection(['cursor'], itemsWithMissing)
+
+    // Assert
     await expect.element(screen.getByText(/^1 hidden$/)).toBeInTheDocument()
     await expect
       .element(screen.getByText(/^1 not installed$/))

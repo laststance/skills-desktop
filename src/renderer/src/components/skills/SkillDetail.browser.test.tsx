@@ -143,11 +143,14 @@ async function renderSkillDetail(
 
 describe('SkillDetail Info path copy', () => {
   it('copies the single source path when no agent is selected', async () => {
+    // Arrange
     const { screen } = await renderSkillDetail()
 
+    // Act
     await expect.element(screen.getByText('Path')).toBeInTheDocument()
     await screen.getByRole('button', { name: /^Copy path$/i }).click()
 
+    // Assert
     expect(mockWriteText).toHaveBeenCalledWith(SOURCE_PATH)
     await expect
       .element(screen.getByRole('button', { name: /^Copy path$/i }))
@@ -155,23 +158,29 @@ describe('SkillDetail Info path copy', () => {
   })
 
   it('copies source and symlink paths independently in agent view', async () => {
+    // Arrange
     const { screen } = await renderSkillDetail('cursor' as AgentId)
 
+    // Act
     await screen
       .getByRole('button', { name: /Copy Source Files path/i })
       .click()
     await screen.getByRole('button', { name: /Copy Symlink path/i }).click()
 
+    // Assert
     expect(mockWriteText).toHaveBeenNthCalledWith(1, SOURCE_PATH)
     expect(mockWriteText).toHaveBeenNthCalledWith(2, CURSOR_PATH)
   })
 
   it('toasts when copying the source path fails', async () => {
+    // Arrange
     mockWriteText.mockRejectedValueOnce(new Error('copy failed'))
     const { screen } = await renderSkillDetail()
 
+    // Act
     await screen.getByRole('button', { name: /^Copy path$/i }).click()
 
+    // Assert
     expect(mockWriteText).toHaveBeenCalledWith(SOURCE_PATH)
     await expect
       .poll(() => toastErrorMock.mock.calls[0]?.[0])

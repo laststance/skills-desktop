@@ -79,17 +79,20 @@ async function renderClosedThenOpen(agentId: AgentId) {
 }
 
 describe('CleanupAgentDialog', () => {
-  it('stays closed and skips preview when no agent target is active', async () => {
+  it('stays hidden and runs no preview when no cleanup target is set', async () => {
+    // Arrange
     const store = await createStore()
     const { CleanupAgentDialog } = await import('./CleanupAgentDialog')
 
+    // Act
     const screen = await render(
       <Provider store={store}>
         <CleanupAgentDialog />
       </Provider>,
     )
-
     await new Promise((resolve) => setTimeout(resolve, 0))
+
+    // Assert
     expect(mockSyncPreview).toHaveBeenCalledTimes(0)
     expect(screen.getByText(/Cleanup missing skills/i).query()).toBeNull()
     expect(
@@ -97,9 +100,11 @@ describe('CleanupAgentDialog', () => {
     ).toBeNull()
   })
 
-  it('opens from the closed state without changing the hook order', async () => {
+  it('opens with the agent name, preview, and skill count when a target is set', async () => {
+    // Arrange + Act
     const { screen } = await renderClosedThenOpen('claude-code')
 
+    // Assert
     await expect
       .poll(() =>
         mockSyncPreview.mock.calls.some(

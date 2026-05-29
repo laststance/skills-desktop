@@ -111,26 +111,30 @@ describe('WCAG contrast — unified OKLCH palette', () => {
       for (const mode of modes) {
         const tokens = mode === 'dark' ? DARK_TOKENS : LIGHT_TOKENS
 
-        it(`${mode}: foreground on background >= 4.5 (AA text)`, () => {
-          expect(
-            contrast(
-              tokens.foreground,
-              tokens.background,
-              config.chroma,
-              config.hue,
-            ),
-          ).toBeGreaterThanOrEqual(4.5)
+        it(`${mode}: keeps body text readable on the background (AA 4.5:1)`, () => {
+          // Arrange — foreground vs background tokens for this preset × mode
+          // Act
+          const ratio = contrast(
+            tokens.foreground,
+            tokens.background,
+            config.chroma,
+            config.hue,
+          )
+          // Assert — body copy clears the WCAG AA normal-text floor
+          expect(ratio).toBeGreaterThanOrEqual(4.5)
         })
 
-        it(`${mode}: card-foreground on card >= 4.5 (AA text)`, () => {
-          expect(
-            contrast(
-              tokens.cardForeground,
-              tokens.card,
-              config.chroma,
-              config.hue,
-            ),
-          ).toBeGreaterThanOrEqual(4.5)
+        it(`${mode}: keeps card text readable on its card surface (AA 4.5:1)`, () => {
+          // Arrange — card-foreground vs card tokens for this preset × mode
+          // Act
+          const ratio = contrast(
+            tokens.cardForeground,
+            tokens.card,
+            config.chroma,
+            config.hue,
+          )
+          // Assert — card body copy clears the WCAG AA normal-text floor
+          expect(ratio).toBeGreaterThanOrEqual(4.5)
         })
 
         // `primary` surfaces `<Button variant="default">` (used in the
@@ -139,15 +143,17 @@ describe('WCAG contrast — unified OKLCH palette', () => {
         // as "large text" and permits the 3.0:1 minimum for both the UI
         // background and its label. If `primary` is ever adopted for
         // small (<14px regular) body copy, bump this to 4.5.
-        it(`${mode}: primary-foreground on primary >= 3.0 (UI / large-text)`, () => {
-          expect(
-            contrast(
-              tokens.primaryForeground,
-              tokens.primary,
-              config.chroma,
-              config.hue,
-            ),
-          ).toBeGreaterThanOrEqual(3.0)
+        it(`${mode}: keeps the primary button label legible on its fill (UI/large-text 3.0:1)`, () => {
+          // Arrange — primary-foreground label vs primary fill for this preset × mode
+          // Act
+          const ratio = contrast(
+            tokens.primaryForeground,
+            tokens.primary,
+            config.chroma,
+            config.hue,
+          )
+          // Assert — the 14px-bold button label clears the WCAG UI/large-text floor
+          expect(ratio).toBeGreaterThanOrEqual(3.0)
         })
 
         // `muted-foreground` on `muted` drives secondary info (path hints
@@ -156,15 +162,17 @@ describe('WCAG contrast — unified OKLCH palette', () => {
         // WCAG 2.1 UI/large-text threshold of 3.0:1 applies. The moment
         // muted carries primary body copy (e.g., a paragraph in an
         // empty-state screen), this assertion must be raised to 4.5.
-        it(`${mode}: muted-foreground on muted >= 3.0 (UI / secondary text)`, () => {
-          expect(
-            contrast(
-              tokens.mutedForeground,
-              tokens.muted,
-              config.chroma,
-              config.hue,
-            ),
-          ).toBeGreaterThanOrEqual(3.0)
+        it(`${mode}: keeps muted secondary text legible on its muted surface (UI/secondary 3.0:1)`, () => {
+          // Arrange — muted-foreground vs muted tokens for this preset × mode
+          // Act
+          const ratio = contrast(
+            tokens.mutedForeground,
+            tokens.muted,
+            config.chroma,
+            config.hue,
+          )
+          // Assert — secondary supporting text clears the WCAG UI/secondary floor
+          expect(ratio).toBeGreaterThanOrEqual(3.0)
         })
       }
     })
@@ -192,14 +200,22 @@ describe('WCAG contrast — globals.css drift guard', () => {
   }
 
   for (const [token, spec] of Object.entries(DARK_TOKENS)) {
-    it(`.dark ${token} L=${spec.L} step=${spec.step} matches globals.css`, () => {
-      expect(darkBlock).toContain(expectedFragment(spec))
+    it(`flags drift if the .dark ${token} L/chroma stops matching globals.css`, () => {
+      // Arrange — the expected oklch fragment for this dark token
+      const expectedOklchFragment = expectedFragment(spec)
+      // Act — (darkBlock is the .dark CSS text extracted above)
+      // Assert — the mirrored L/step still appears verbatim in globals.css
+      expect(darkBlock).toContain(expectedOklchFragment)
     })
   }
 
   for (const [token, spec] of Object.entries(LIGHT_TOKENS)) {
-    it(`.light ${token} L=${spec.L} step=${spec.step} matches globals.css`, () => {
-      expect(lightBlock).toContain(expectedFragment(spec))
+    it(`flags drift if the .light ${token} L/chroma stops matching globals.css`, () => {
+      // Arrange — the expected oklch fragment for this light token
+      const expectedOklchFragment = expectedFragment(spec)
+      // Act — (lightBlock is the .light CSS text extracted above)
+      // Assert — the mirrored L/step still appears verbatim in globals.css
+      expect(lightBlock).toContain(expectedOklchFragment)
     })
   }
 })

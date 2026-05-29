@@ -23,16 +23,24 @@ async function createTestStore() {
 }
 
 describe('settingsSlice', () => {
-  it('initial state matches DEFAULT_SETTINGS (with empty hiddenAgentIds)', async () => {
+  it('starts from the default settings with no agents hidden', async () => {
+    // Arrange
     const store = await createTestStore()
-    expect(store.getState().settings).toEqual(DEFAULT_SETTINGS)
-    expect(store.getState().settings.hiddenAgentIds).toEqual([])
+
+    // Act
+    const settings = store.getState().settings
+
+    // Assert
+    expect(settings).toEqual(DEFAULT_SETTINGS)
+    expect(settings.hiddenAgentIds).toEqual([])
   })
 
-  it('setSettings replaces the entire settings object idempotently', async () => {
+  it('applies an updated settings object so the new tab and hidden agents take effect', async () => {
+    // Arrange
     const { setSettings } = await import('./settingsSlice')
     const store = await createTestStore()
 
+    // Act
     store.dispatch(
       setSettings({
         ...DEFAULT_SETTINGS,
@@ -41,6 +49,7 @@ describe('settingsSlice', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().settings.defaultSkillTab).toBe('info')
     expect(store.getState().settings.hiddenAgentIds).toEqual(['claude-code'])
   })
@@ -54,11 +63,11 @@ describe('settingsSlice', () => {
  *    default `===` comparison can short-circuit downstream re-renders
  */
 describe('selectHiddenAgentIds', () => {
-  it('returns the persisted hiddenAgentIds array', async () => {
+  it('exposes the persisted hidden agents exactly as stored', async () => {
+    // Arrange
     const { selectHiddenAgentIds } = await import('./settingsSlice')
     const { setSettings } = await import('./settingsSlice')
     const store = await createTestStore()
-
     store.dispatch(
       setSettings({
         ...DEFAULT_SETTINGS,
@@ -66,18 +75,23 @@ describe('selectHiddenAgentIds', () => {
       }),
     )
 
-    expect(selectHiddenAgentIds(store.getState() as RootState)).toEqual([
-      'claude-code',
-      'cursor',
-    ])
+    // Act
+    const hiddenAgentIds = selectHiddenAgentIds(store.getState() as RootState)
+
+    // Assert
+    expect(hiddenAgentIds).toEqual(['claude-code', 'cursor'])
   })
 
-  it('returns the same reference across consecutive reads when state is unchanged', async () => {
+  it('returns a stable array reference between reads so subscribers skip needless re-renders', async () => {
+    // Arrange
     const { selectHiddenAgentIds } = await import('./settingsSlice')
     const store = await createTestStore()
 
+    // Act
     const firstRead = selectHiddenAgentIds(store.getState() as RootState)
     const secondRead = selectHiddenAgentIds(store.getState() as RootState)
+
+    // Assert
     expect(firstRead).toBe(secondRead)
   })
 })

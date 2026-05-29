@@ -166,7 +166,8 @@ describe('trashService.restore target-containment', () => {
     await mkdir(sharedClaudeAgent, { recursive: true })
   })
 
-  it('baseline: legit absolute target inside SOURCE_DIR is restored', async () => {
+  it('restores a symlink whose absolute target legitimately lives inside SOURCE_DIR', async () => {
+    // Arrange
     // Control case. Without this passing, every "should skip" case below is
     // meaningless — if the happy path plants nothing we're testing a broken
     // pipeline rather than the containment check.
@@ -179,7 +180,10 @@ describe('trashService.restore target-containment', () => {
       symlinks: [{ agentId: 'claude-code', linkPath, target }],
     })
 
+    // Act
     const result = await restore(tombstone as never)
+
+    // Assert
     expect(result.outcome).toBe('restored')
     if (result.outcome === 'restored') {
       expect(result.symlinksRestored).toBeGreaterThanOrEqual(1)
@@ -280,7 +284,8 @@ describe('trashService.restore target-containment', () => {
     await expect(readlink(linkPath)).resolves.toBe(target)
   })
 
-  it('skips symlink when manifest target absolute-escapes SOURCE_DIR', async () => {
+  it('refuses to plant a tampered symlink whose absolute target escapes SOURCE_DIR', async () => {
+    // Arrange
     const { restore } = await trashServicePromise
     const skillName = 'target-abs-escape'
     const linkPath = join(sharedClaudeAgent, skillName)
@@ -289,7 +294,10 @@ describe('trashService.restore target-containment', () => {
       symlinks: [{ agentId: 'claude-code', linkPath, target: '/etc/passwd' }],
     })
 
+    // Act
     const result = await restore(tombstone as never)
+
+    // Assert
     expect(result.outcome).toBe('restored')
     if (result.outcome === 'restored') {
       // Containment check must skip this link — 0 restored, 1 skipped.
@@ -299,7 +307,8 @@ describe('trashService.restore target-containment', () => {
     await expect(stat(linkPath)).rejects.toThrow()
   })
 
-  it('skips symlink when relative target escapes SOURCE_DIR via parent traversal', async () => {
+  it('refuses to plant a tampered symlink whose relative target traverses out of SOURCE_DIR', async () => {
+    // Arrange
     const { restore } = await trashServicePromise
     const skillName = 'target-rel-escape'
     const linkPath = join(sharedClaudeAgent, skillName)
@@ -316,7 +325,10 @@ describe('trashService.restore target-containment', () => {
       ],
     })
 
+    // Act
     const result = await restore(tombstone as never)
+
+    // Assert
     expect(result.outcome).toBe('restored')
     if (result.outcome === 'restored') {
       expect(result.symlinksRestored).toBe(0)
@@ -325,7 +337,8 @@ describe('trashService.restore target-containment', () => {
     await expect(stat(linkPath)).rejects.toThrow()
   })
 
-  it('skips symlink when target points at an unrelated path inside homedir (but outside SOURCE_DIR)', async () => {
+  it('refuses to plant a tampered symlink that points inside homedir but outside SOURCE_DIR', async () => {
+    // Arrange
     const { restore } = await trashServicePromise
     const skillName = 'target-sibling-dir'
     const linkPath = join(sharedClaudeAgent, skillName)
@@ -342,7 +355,10 @@ describe('trashService.restore target-containment', () => {
       ],
     })
 
+    // Act
     const result = await restore(tombstone as never)
+
+    // Assert
     expect(result.outcome).toBe('restored')
     if (result.outcome === 'restored') {
       expect(result.symlinksRestored).toBe(0)
@@ -351,7 +367,8 @@ describe('trashService.restore target-containment', () => {
     await expect(stat(linkPath)).rejects.toThrow()
   })
 
-  it('mixed manifest: skips tampered entries but plants legit ones', async () => {
+  it('plants the legit link and skips the tampered one when a manifest mixes both', async () => {
+    // Arrange
     // Belt-and-suspenders: a manifest with one legit + one tampered entry
     // must plant exactly one link. Catches regressions where the check
     // accidentally short-circuits the whole loop on the first bad entry.
@@ -377,7 +394,10 @@ describe('trashService.restore target-containment', () => {
       ],
     })
 
+    // Act
     const result = await restore(tombstone as never)
+
+    // Assert
     expect(result.outcome).toBe('restored')
     if (result.outcome === 'restored') {
       expect(result.symlinksRestored).toBe(1)

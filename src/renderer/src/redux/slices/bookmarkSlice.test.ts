@@ -10,15 +10,23 @@ async function createTestStore() {
 }
 
 describe('bookmarkSlice', () => {
-  it('has correct initial state', async () => {
+  it('starts with an empty saved list', async () => {
+    // Arrange
     const store = await createTestStore()
-    expect(store.getState().bookmarks.items).toEqual([])
+
+    // Act
+    const items = store.getState().bookmarks.items
+
+    // Assert
+    expect(items).toEqual([])
   })
 
-  it('addBookmark adds a skill to bookmarks', async () => {
+  it('bookmarking a skill makes it appear in the saved list with its repo and url', async () => {
+    // Arrange
     const { addBookmark } = await import('./bookmarkSlice')
     const store = await createTestStore()
 
+    // Act
     store.dispatch(
       addBookmark({
         name: 'task',
@@ -27,6 +35,7 @@ describe('bookmarkSlice', () => {
       }),
     )
 
+    // Assert
     const items = store.getState().bookmarks.items
     expect(items).toHaveLength(1)
     expect(items[0].name).toBe('task')
@@ -35,10 +44,12 @@ describe('bookmarkSlice', () => {
     expect(items[0].bookmarkedAt).toBeTruthy()
   })
 
-  it('addBookmark sets bookmarkedAt as ISO string', async () => {
+  it('stamps the saved skill with an ISO-formatted bookmark time', async () => {
+    // Arrange
     const { addBookmark } = await import('./bookmarkSlice')
     const store = await createTestStore()
 
+    // Act
     store.dispatch(
       addBookmark({
         name: 'task',
@@ -47,29 +58,35 @@ describe('bookmarkSlice', () => {
       }),
     )
 
+    // Assert
     const { bookmarkedAt } = store.getState().bookmarks.items[0]
     expect(new Date(bookmarkedAt).toISOString()).toBe(bookmarkedAt)
   })
 
-  it('addBookmark ignores duplicate by name', async () => {
+  it('keeps a single entry when the same skill is bookmarked twice', async () => {
+    // Arrange
     const { addBookmark } = await import('./bookmarkSlice')
     const store = await createTestStore()
-
     const payload = {
       name: 'task',
       repo: repositoryId('vercel-labs/skills'),
       url: 'https://skills.sh/task',
     }
+
+    // Act
     store.dispatch(addBookmark(payload))
     store.dispatch(addBookmark(payload))
 
+    // Assert
     expect(store.getState().bookmarks.items).toHaveLength(1)
   })
 
-  it('addBookmark allows different skills', async () => {
+  it('saves two distinct skills as separate entries', async () => {
+    // Arrange
     const { addBookmark } = await import('./bookmarkSlice')
     const store = await createTestStore()
 
+    // Act
     store.dispatch(
       addBookmark({
         name: 'task',
@@ -85,13 +102,14 @@ describe('bookmarkSlice', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().bookmarks.items).toHaveLength(2)
   })
 
-  it('removeBookmark removes by name', async () => {
+  it('removing a bookmark drops only that skill and leaves the rest saved', async () => {
+    // Arrange
     const { addBookmark, removeBookmark } = await import('./bookmarkSlice')
     const store = await createTestStore()
-
     store.dispatch(
       addBookmark({
         name: 'task',
@@ -107,17 +125,19 @@ describe('bookmarkSlice', () => {
       }),
     )
 
+    // Act
     store.dispatch(removeBookmark('task'))
 
+    // Assert
     const items = store.getState().bookmarks.items
     expect(items).toHaveLength(1)
     expect(items[0].name).toBe('tdd')
   })
 
-  it('removeBookmark is no-op for non-existent name', async () => {
+  it('leaves the saved list unchanged when removing a name that was never bookmarked', async () => {
+    // Arrange
     const { addBookmark, removeBookmark } = await import('./bookmarkSlice')
     const store = await createTestStore()
-
     store.dispatch(
       addBookmark({
         name: 'task',
@@ -126,15 +146,19 @@ describe('bookmarkSlice', () => {
       }),
     )
 
+    // Act
     store.dispatch(removeBookmark('nonexistent'))
 
+    // Assert
     expect(store.getState().bookmarks.items).toHaveLength(1)
   })
 
-  it('selectBookmarkItems returns items array', async () => {
+  it('exposes the saved skill through the bookmark items state', async () => {
+    // Arrange
     const { addBookmark } = await import('./bookmarkSlice')
     const store = await createTestStore()
 
+    // Act
     store.dispatch(
       addBookmark({
         name: 'task',
@@ -143,15 +167,16 @@ describe('bookmarkSlice', () => {
       }),
     )
 
+    // Assert
     const items = store.getState().bookmarks.items
     expect(items).toHaveLength(1)
     expect(items[0].name).toBe('task')
   })
 
-  it('selectIsBookmarked returns true for bookmarked skill', async () => {
+  it('reports a skill as bookmarked only when it is in the saved list', async () => {
+    // Arrange
     const { addBookmark, selectIsBookmarked } = await import('./bookmarkSlice')
     const store = await createTestStore()
-
     store.dispatch(
       addBookmark({
         name: 'task',
@@ -160,11 +185,18 @@ describe('bookmarkSlice', () => {
       }),
     )
 
-    expect(
-      selectIsBookmarked(store.getState() as unknown as RootState, 'task'),
-    ).toBe(true)
-    expect(
-      selectIsBookmarked(store.getState() as unknown as RootState, 'other'),
-    ).toBe(false)
+    // Act
+    const isTaskBookmarked = selectIsBookmarked(
+      store.getState() as unknown as RootState,
+      'task',
+    )
+    const isOtherBookmarked = selectIsBookmarked(
+      store.getState() as unknown as RootState,
+      'other',
+    )
+
+    // Assert
+    expect(isTaskBookmarked).toBe(true)
+    expect(isOtherBookmarked).toBe(false)
   })
 })

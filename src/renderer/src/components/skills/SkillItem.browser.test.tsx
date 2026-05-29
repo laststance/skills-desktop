@@ -104,9 +104,14 @@ async function renderSkillItem(skill: Skill) {
 }
 
 describe('SkillItem bulk-select checkbox visibility', () => {
-  it('hides the checkbox when bulkSelectMode=false (default clean list)', async () => {
+  it('hides the bulk-select checkbox in a normal clean list', async () => {
+    // Arrange
     const { screen } = await renderSkillItem(makeSkill())
 
+    // Act
+    // (no interaction — bulk select mode is off by default)
+
+    // Assert
     // `.query()` returns the matched element or null synchronously. Using
     // this over `getBy(...).not.toBeInTheDocument()` avoids the strict-single-
     // match locator resolution error path, so a future regression that
@@ -115,31 +120,38 @@ describe('SkillItem bulk-select checkbox visibility', () => {
     expect(screen.getByRole('checkbox').query()).toBeNull()
   })
 
-  it('renders the checkbox when bulkSelectMode=true', async () => {
+  it('reveals the bulk-select checkbox after entering bulk select mode', async () => {
+    // Arrange
     const { screen, store } = await renderSkillItem(makeSkill())
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
 
+    // Act
     store.dispatch(enterBulkSelectMode())
 
+    // Assert
     await expect.element(screen.getByRole('checkbox')).toBeInTheDocument()
   })
 
-  it('checkbox aria-label is "Select {name}" when not ticked', async () => {
+  it('labels the unticked bulk checkbox "Select {name}" for screen readers', async () => {
+    // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: 'task' as SkillName }),
     )
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
 
+    // Act
     store.dispatch(enterBulkSelectMode())
 
+    // Assert
     await expect
       .element(screen.getByRole('checkbox', { name: /Select task/i }))
       .toBeInTheDocument()
   })
 
-  it('checkbox aria-label flips to "Deselect {name}" once ticked', async () => {
+  it('flips the checkbox label to "Deselect {name}" once the skill is ticked', async () => {
+    // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: 'task' as SkillName }),
     )
@@ -148,23 +160,28 @@ describe('SkillItem bulk-select checkbox visibility', () => {
     const { toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
 
+    // Act
     store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection('task' as SkillName))
 
+    // Assert
     await expect
       .element(screen.getByRole('checkbox', { name: /Deselect task/i }))
       .toBeInTheDocument()
   })
 
-  it('exiting bulk mode removes the checkbox from the DOM', async () => {
+  it('removes the bulk-select checkbox when exiting bulk select mode', async () => {
+    // Arrange
     const { screen, store } = await renderSkillItem(makeSkill())
     const { enterBulkSelectMode, exitBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
-
     store.dispatch(enterBulkSelectMode())
     await expect.element(screen.getByRole('checkbox')).toBeInTheDocument()
 
+    // Act
     store.dispatch(exitBulkSelectMode())
+
+    // Assert
     // Poll until the checkbox unmounts — exit dispatch is sync but the
     // re-render that removes the node happens on the next commit cycle.
     await expect.poll(() => screen.getByRole('checkbox').query()).toBeNull()
@@ -350,7 +367,8 @@ describe('SkillItem delete button', () => {
   // fork was retired (npx skills spawn was unreliable for ~/.agents/skills);
   // stale lock-file entries are the accepted trade-off.
 
-  it('aria-label reads "Delete {name}" for a source-tracked skill', async () => {
+  it('offers a "Delete {name}" button for a source-tracked skill', async () => {
+    // Arrange
     const { screen } = await renderSkillItem(
       makeSkill({
         name: 'brainstorming' as SkillName,
@@ -358,22 +376,32 @@ describe('SkillItem delete button', () => {
       }),
     )
 
+    // Act
+    // (no interaction — assert the delete affordance is present)
+
+    // Assert
     await expect
       .element(screen.getByRole('button', { name: /^Delete brainstorming$/i }))
       .toBeInTheDocument()
   })
 
-  it('aria-label reads "Delete {name}" for a plain skill', async () => {
+  it('offers a "Delete {name}" button for a plain skill', async () => {
+    // Arrange
     const { screen } = await renderSkillItem(
       makeSkill({ name: 'local-skill' as SkillName }),
     )
 
+    // Act
+    // (no interaction — assert the delete affordance is present)
+
+    // Assert
     await expect
       .element(screen.getByRole('button', { name: /^Delete local-skill$/i }))
       .toBeInTheDocument()
   })
 
-  it('clicking the X opens bulkConfirm regardless of whether the skill is source-tracked', async () => {
+  it('opens the trash confirm dialog when deleting a source-tracked skill', async () => {
+    // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({
         name: 'brainstorming' as SkillName,
@@ -381,10 +409,12 @@ describe('SkillItem delete button', () => {
       }),
     )
 
+    // Act
     await screen
       .getByRole('button', { name: /^Delete brainstorming$/i })
       .click()
 
+    // Assert
     // Same trash + UndoToast dialog as plain skills — the handler no longer
     // forks on whether the skill is source-tracked. The payload shape must
     // match what BulkConfirmDialog expects (kind='delete', no agent).
@@ -408,13 +438,16 @@ describe('SkillItem delete button', () => {
     })
   })
 
-  it('clicking the X on a plain skill opens bulkConfirm (trash + undo path)', async () => {
+  it('opens the trash confirm dialog when deleting a plain skill', async () => {
+    // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: 'local-skill' as SkillName }),
     )
 
+    // Act
     await screen.getByRole('button', { name: /^Delete local-skill$/i }).click()
 
+    // Assert
     expect(store.getState().ui.bulkConfirm).toEqual({
       kind: 'delete',
       skillNames: ['local-skill'],
@@ -435,15 +468,18 @@ describe('SkillItem delete button', () => {
     })
   })
 
-  it('X button click does not trigger inspector selection (stopPropagation)', async () => {
+  it('does not open the inspector pane when the delete button is clicked', async () => {
+    // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: 'brainstorming' as SkillName }),
     )
 
+    // Act
     await screen
       .getByRole('button', { name: /^Delete brainstorming$/i })
       .click()
 
+    // Assert
     // If propagation leaked, the Card's onClick would fire `selectSkill(skill)`
     // and the inspector pane would open on the very skill we're deleting — an
     // obvious UX sin. The handler calls `e.stopPropagation()` specifically to
@@ -472,7 +508,8 @@ describe('SkillItem Add button routing', () => {
       .toBeInTheDocument()
   })
 
-  it('shows Add button in agent view when the skill exists in selected agent', async () => {
+  it('shows the Add button in agent view when the skill exists in the selected agent', async () => {
+    // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({
         symlinks: [
@@ -489,14 +526,17 @@ describe('SkillItem Add button routing', () => {
     )
     const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
 
+    // Act
     store.dispatch(selectAgent('cursor'))
 
+    // Assert
     await expect
       .element(screen.getByRole('button', { name: /^Add$/i }))
       .toBeInTheDocument()
   })
 
-  it('in agent view, Add click opens copy modal target (skillToCopy)', async () => {
+  it('opens the copy-to-agent modal when Add is clicked in agent view', async () => {
+    // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({
         symlinks: [
@@ -513,18 +553,23 @@ describe('SkillItem Add button routing', () => {
     )
     const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
 
+    // Act
     store.dispatch(selectAgent('cursor'))
     await screen.getByRole('button', { name: /^Add$/i }).click()
 
+    // Assert
     expect(store.getState().skills.skillToCopy?.name).toBe('task')
     expect(store.getState().skills.skillToAddSymlinks).toBeNull()
   })
 
-  it('in global view, Add click keeps existing add-symlink routing', async () => {
+  it('opens the add-symlink modal when Add is clicked in global view', async () => {
+    // Arrange
     const { screen, store } = await renderSkillItem(makeSkill())
 
+    // Act
     await screen.getByRole('button', { name: /^Add$/i }).click()
 
+    // Assert
     expect(store.getState().skills.skillToAddSymlinks?.name).toBe('task')
     expect(store.getState().skills.skillToCopy).toBeNull()
   })
@@ -532,6 +577,7 @@ describe('SkillItem Add button routing', () => {
 
 describe('SkillItem G-Stack badge', () => {
   it('shows a G-Stack badge link in supported agent view for gstack-managed skills', async () => {
+    // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({
         symlinks: [
@@ -548,8 +594,10 @@ describe('SkillItem G-Stack badge', () => {
     )
     const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
 
+    // Act
     store.dispatch(selectAgent('claude-code'))
 
+    // Assert
     const gstackLink = screen.getByRole('link', { name: /G-Stack/i })
     await expect.element(gstackLink).toBeInTheDocument()
     await expect
@@ -563,6 +611,7 @@ describe('SkillItem G-Stack badge', () => {
   })
 
   it('hides the G-Stack badge in global view', async () => {
+    // Arrange
     const { screen } = await renderSkillItem(
       makeSkill({
         symlinks: [
@@ -578,10 +627,15 @@ describe('SkillItem G-Stack badge', () => {
       }),
     )
 
+    // Act
+    // (no agent selected — global view is the default)
+
+    // Assert
     expect(screen.getByRole('link', { name: /G-Stack/i }).query()).toBeNull()
   })
 
   it('shows badge for gstack-managed sibling skills (local skill whose SKILL.md symlinks into gstack)', async () => {
+    // Arrange
     // Real production scenario: ~/.claude/skills/ship/ is a real directory
     // whose only entry is a SKILL.md symlink → ~/.claude/skills/gstack/ship/SKILL.md.
     // The skill's linkPath/targetPath alone do NOT contain "gstack" — only
@@ -607,8 +661,10 @@ describe('SkillItem G-Stack badge', () => {
     )
     const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
 
+    // Act
     store.dispatch(selectAgent('claude-code'))
 
+    // Assert
     const gstackLink = screen.getByRole('link', { name: /G-Stack/i })
     await expect.element(gstackLink).toBeInTheDocument()
     await expect
@@ -617,6 +673,7 @@ describe('SkillItem G-Stack badge', () => {
   })
 
   it('hides the badge when skillMdSymlinkTarget points outside the gstack tree', async () => {
+    // Arrange
     // Negative coverage at the wired-up SkillItem level: a local skill with
     // skillMdSymlinkTarget set but pointing at a user-managed path (no
     // `gstack` segment) must NOT receive the badge. The pure helper covers
@@ -643,8 +700,10 @@ describe('SkillItem G-Stack badge', () => {
     )
     const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
 
+    // Act
     store.dispatch(selectAgent('claude-code'))
 
+    // Assert
     expect(screen.getByRole('link', { name: /G-Stack/i }).query()).toBeNull()
   })
 })
@@ -655,16 +714,19 @@ describe('SkillItem bulk-select checkbox stopPropagation', () => {
   // fires alongside the toggle — a click on the checkbox would both tick AND
   // flip selectedSkill, which is never what the user wants.
 
-  it('toggling the checkbox does not set selectedSkill', async () => {
+  it('ticks the row for bulk select without opening the inspector pane', async () => {
+    // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: 'task' as SkillName }),
     )
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
 
+    // Act
     store.dispatch(enterBulkSelectMode())
     await screen.getByRole('checkbox', { name: /Select task/i }).click()
 
+    // Assert
     // Checkbox tick → selection updated in the skills slice, Inspector stays
     // closed. If stopPropagation regressed, selectedSkill would be set here.
     expect(store.getState().skills.selectedSkillNames).toEqual(['task'])

@@ -64,7 +64,8 @@ describe('listSkillFiles', () => {
     vi.clearAllMocks()
   })
 
-  it('returns SKILL.md first, then other files sorted by relative path', async () => {
+  it('puts SKILL.md first and sorts the rest by relative path', async () => {
+    // Arrange
     mockTree({
       '/skills/my-skill': [
         makeDirent('zebra.ts'),
@@ -74,7 +75,10 @@ describe('listSkillFiles', () => {
     })
     mockStat()
 
+    // Act
     const result = await listSkillFiles('/skills/my-skill')
+
+    // Assert
     expect(result.map((f) => f.name)).toEqual([
       'SKILL.md',
       'alpha.md',
@@ -82,7 +86,8 @@ describe('listSkillFiles', () => {
     ])
   })
 
-  it('filters out unsupported file extensions', async () => {
+  it('drops files with unsupported extensions from the listing', async () => {
+    // Arrange
     mockTree({
       '/skills/my-skill': [
         makeDirent('SKILL.md'),
@@ -93,7 +98,10 @@ describe('listSkillFiles', () => {
     })
     mockStat()
 
+    // Act
     const result = await listSkillFiles('/skills/my-skill')
+
+    // Assert
     const names = result.map((f) => f.name)
     expect(names).toContain('SKILL.md')
     expect(names).toContain('script.mjs')
@@ -101,7 +109,8 @@ describe('listSkillFiles', () => {
     expect(names).not.toContain('data.bin')
   })
 
-  it('classifies png/jpg as image previewable', async () => {
+  it('flags png and jpg as image-previewable and markdown as text-previewable', async () => {
+    // Arrange
     mockTree({
       '/skills/my-skill': [
         makeDirent('SKILL.md'),
@@ -111,14 +120,18 @@ describe('listSkillFiles', () => {
     })
     mockStat()
 
+    // Act
     const result = await listSkillFiles('/skills/my-skill')
+
+    // Assert
     const byName = Object.fromEntries(result.map((f) => [f.name, f]))
     expect(byName['SKILL.md'].previewable).toBe('text')
     expect(byName['preview.png'].previewable).toBe('image')
     expect(byName['photo.JPG'].previewable).toBe('image')
   })
 
-  it('includes python and shell files (Scope B extensions)', async () => {
+  it('lists python, shell, and toml files (Scope B extensions)', async () => {
+    // Arrange
     mockTree({
       '/skills/my-skill': [
         makeDirent('SKILL.md'),
@@ -129,13 +142,17 @@ describe('listSkillFiles', () => {
     })
     mockStat()
 
+    // Act
     const names = (await listSkillFiles('/skills/my-skill')).map((f) => f.name)
+
+    // Assert
     expect(names).toContain('helper.py')
     expect(names).toContain('install.sh')
     expect(names).toContain('Config.toml')
   })
 
-  it('recurses into subdirectories and populates relativePath', async () => {
+  it('walks into subdirectories and records each file relative path', async () => {
+    // Arrange
     mockTree({
       '/skills/my-skill': [
         makeDirent('SKILL.md'),
@@ -145,12 +162,16 @@ describe('listSkillFiles', () => {
     })
     mockStat()
 
+    // Act
     const result = await listSkillFiles('/skills/my-skill')
+
+    // Assert
     const byName = Object.fromEntries(result.map((f) => [f.name, f]))
     expect(byName['helper.py'].relativePath).toBe('lib/helper.py')
   })
 
-  it('skips excluded directories entirely (node_modules, .git, __pycache__)', async () => {
+  it('never descends into node_modules, .git, or __pycache__', async () => {
+    // Arrange
     mockTree({
       '/skills/my-skill': [
         makeDirent('SKILL.md'),
@@ -165,11 +186,15 @@ describe('listSkillFiles', () => {
     })
     mockStat()
 
+    // Act
     const names = (await listSkillFiles('/skills/my-skill')).map((f) => f.name)
+
+    // Assert
     expect(names).toEqual(['SKILL.md'])
   })
 
-  it('does not follow symlinked subdirectories', async () => {
+  it('refuses to traverse a symlinked subdirectory', async () => {
+    // Arrange
     mockTree({
       '/skills/my-skill': [
         makeDirent('SKILL.md'),
@@ -179,11 +204,15 @@ describe('listSkillFiles', () => {
     })
     mockStat()
 
+    // Act
     const names = (await listSkillFiles('/skills/my-skill')).map((f) => f.name)
+
+    // Assert
     expect(names).not.toContain('secret.md')
   })
 
-  it('does not include symlinked files at the top level', async () => {
+  it('omits a symlinked file sitting at the top level', async () => {
+    // Arrange
     mockTree({
       '/skills/my-skill': [
         makeDirent('SKILL.md'),
@@ -192,11 +221,15 @@ describe('listSkillFiles', () => {
     })
     mockStat()
 
+    // Act
     const names = (await listSkillFiles('/skills/my-skill')).map((f) => f.name)
+
+    // Assert
     expect(names).toEqual(['SKILL.md'])
   })
 
-  it('caps recursion at MAX_TREE_DEPTH (depth 4 — file at depth 5 excluded)', async () => {
+  it('stops recursing past the depth cap, excluding a file one level too deep', async () => {
+    // Arrange
     mockTree({
       '/r': [makeDirent('a', { isDirectory: true })],
       '/r/a': [makeDirent('b', { isDirectory: true })],
@@ -207,11 +240,15 @@ describe('listSkillFiles', () => {
     })
     mockStat()
 
+    // Act
     const names = (await listSkillFiles('/r')).map((f) => f.name)
+
+    // Assert
     expect(names).not.toContain('too-deep.md')
   })
 
-  it('includes files at the depth cap boundary', async () => {
+  it('still lists a file sitting exactly at the depth cap boundary', async () => {
+    // Arrange
     mockTree({
       '/r': [makeDirent('a', { isDirectory: true })],
       '/r/a': [makeDirent('b', { isDirectory: true })],
@@ -221,33 +258,49 @@ describe('listSkillFiles', () => {
     })
     mockStat()
 
+    // Act
     const names = (await listSkillFiles('/r')).map((f) => f.name)
+
+    // Assert
     expect(names).toContain('ok.md')
   })
 
-  it('marks oversized text files as previewable=binary', async () => {
+  it('treats an over-sized text file as non-previewable binary', async () => {
+    // Arrange
     mockTree({
       '/skills/my-skill': [makeDirent('huge.md')],
     })
     mockStat({ '/skills/my-skill/huge.md': MAX_TEXT_FILE_BYTES + 1 })
 
+    // Act
     const result = await listSkillFiles('/skills/my-skill')
+
+    // Assert
     expect(result[0].previewable).toBe('binary')
   })
 
-  it('marks oversized images as previewable=binary', async () => {
+  it('treats an over-sized image as non-previewable binary', async () => {
+    // Arrange
     mockTree({
       '/skills/my-skill': [makeDirent('big.png')],
     })
     mockStat({ '/skills/my-skill/big.png': MAX_IMAGE_FILE_BYTES + 1 })
 
+    // Act
     const result = await listSkillFiles('/skills/my-skill')
+
+    // Assert
     expect(result[0].previewable).toBe('binary')
   })
 
-  it('returns empty array when directory does not exist', async () => {
+  it('yields an empty listing when the directory does not exist', async () => {
+    // Arrange
     mockFs.readdir.mockRejectedValue(new Error('ENOENT'))
+
+    // Act
     const result = await listSkillFiles('/non/existent/path')
+
+    // Assert
     expect(result).toEqual([])
   })
 })
@@ -257,11 +310,15 @@ describe('readSkillFile', () => {
     vi.clearAllMocks()
   })
 
-  it('returns name, content, extension, and line count', async () => {
+  it('reads a file back with its name, content, extension, and line count', async () => {
+    // Arrange
     mockStat({}, 100)
     mockFs.readFile.mockResolvedValue('line one\nline two\nline three')
 
+    // Act
     const result = await readSkillFile('/skills/my-skill/SKILL.md')
+
+    // Assert
     expect(result).not.toBeNull()
     expect(result!.name).toBe('SKILL.md')
     expect(result!.content).toBe('line one\nline two\nline three')
@@ -269,26 +326,38 @@ describe('readSkillFile', () => {
     expect(result!.lineCount).toBe(3)
   })
 
-  it('returns null when file cannot be read', async () => {
+  it('skips a file it cannot read by returning null', async () => {
+    // Arrange
     mockStat({}, 100)
     mockFs.readFile.mockRejectedValue(new Error('ENOENT'))
 
+    // Act
     const result = await readSkillFile('/skills/my-skill/missing.md')
+
+    // Assert
     expect(result).toBeNull()
   })
 
-  it('returns null when file exceeds MAX_TEXT_FILE_BYTES', async () => {
+  it('refuses to read a file larger than the text size cap', async () => {
+    // Arrange
     mockStat({}, MAX_TEXT_FILE_BYTES + 1)
 
+    // Act
     const result = await readSkillFile('/skills/my-skill/huge.md')
+
+    // Assert
     expect(result).toBeNull()
   })
 
-  it('returns correct lowercase extension for uppercase filenames', async () => {
+  it('lowercases the extension of an upper-cased filename', async () => {
+    // Arrange
     mockStat({}, 10)
     mockFs.readFile.mockResolvedValue('# uppercase')
 
+    // Act
     const result = await readSkillFile('/skills/my-skill/README.MD')
+
+    // Assert
     expect(result!.extension).toBe('.md')
   })
 })
@@ -298,55 +367,79 @@ describe('readBinaryFile', () => {
     vi.clearAllMocks()
   })
 
-  it('returns a data URL for a png file', async () => {
+  it('encodes a png file as a base64 image data URL with its byte size', async () => {
+    // Arrange
     mockStat({}, 4)
     mockFs.readFile.mockResolvedValue(Buffer.from([0x89, 0x50, 0x4e, 0x47]))
 
+    // Act
     const result = await readBinaryFile('/skills/my-skill/preview.png')
+
+    // Assert
     expect(result).not.toBeNull()
     expect(result!.mimeType).toBe('image/png')
     expect(result!.dataUrl.startsWith('data:image/png;base64,')).toBe(true)
     expect(result!.size).toBe(4)
   })
 
-  it('maps jpg/jpeg to image/jpeg', async () => {
+  it('reports both .jpg and .jpeg as image/jpeg', async () => {
+    // Arrange
     mockStat({}, 2)
     mockFs.readFile.mockResolvedValue(Buffer.from([0xff, 0xd8]))
 
+    // Act
     const a = await readBinaryFile('/skills/my-skill/photo.jpg')
     const b = await readBinaryFile('/skills/my-skill/photo.jpeg')
+
+    // Assert
     expect(a!.mimeType).toBe('image/jpeg')
     expect(b!.mimeType).toBe('image/jpeg')
   })
 
-  it('returns null for unknown extensions', async () => {
+  it('refuses to render a file with an unknown image extension', async () => {
+    // Arrange
     mockStat({}, 2)
     mockFs.readFile.mockResolvedValue(Buffer.from([0, 0]))
 
+    // Act
     const result = await readBinaryFile('/skills/my-skill/data.bin')
+
+    // Assert
     expect(result).toBeNull()
   })
 
-  it('returns null when file exceeds MAX_IMAGE_FILE_BYTES', async () => {
+  it('refuses to render an image larger than the image size cap', async () => {
+    // Arrange
     mockStat({}, MAX_IMAGE_FILE_BYTES + 1)
 
+    // Act
     const result = await readBinaryFile('/skills/my-skill/big.png')
+
+    // Assert
     expect(result).toBeNull()
   })
 
-  it('returns null on read error', async () => {
+  it('returns nothing when the image cannot be read', async () => {
+    // Arrange
     mockStat({}, 2)
     mockFs.readFile.mockRejectedValue(new Error('EACCES'))
 
+    // Act
     const result = await readBinaryFile('/skills/my-skill/locked.png')
+
+    // Assert
     expect(result).toBeNull()
   })
 
-  it('emits a non-empty base64 payload for a tiny image', async () => {
+  it('produces a base64 payload past the data-URL prefix for a tiny image', async () => {
+    // Arrange
     mockStat({}, 3)
     mockFs.readFile.mockResolvedValue(Buffer.from([1, 2, 3]))
 
+    // Act
     const result = await readBinaryFile('/skills/my-skill/tiny.png')
+
+    // Assert
     // 3 bytes -> 4 base64 chars
     expect(result!.dataUrl.length).toBeGreaterThan(
       'data:image/png;base64,'.length,

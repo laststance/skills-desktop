@@ -21,133 +21,198 @@ describe('areSettingsEqual', () => {
     autoDownloadUpdates: false,
   }
 
-  it('returns true for identical primitive-only settings', () => {
-    expect(areSettingsEqual(baseSettings, { ...baseSettings })).toBe(true)
+  it('treats two settings with identical primitive fields as unchanged so no redundant save fires', () => {
+    // Arrange
+    const saved = baseSettings
+    const incoming = { ...baseSettings }
+
+    // Act
+    const result = areSettingsEqual(saved, incoming)
+
+    // Assert
+    expect(result).toBe(true)
   })
 
-  it('returns false when any primitive field differs', () => {
-    expect(
-      areSettingsEqual(baseSettings, {
-        ...baseSettings,
-        defaultSkillTab: 'info',
-      }),
-    ).toBe(false)
+  it('detects a changed primitive field so the new value gets persisted', () => {
+    // Arrange
+    const saved = baseSettings
+    const incoming: Settings = { ...baseSettings, defaultSkillTab: 'info' }
+
+    // Act
+    const result = areSettingsEqual(saved, incoming)
+
+    // Assert
+    expect(result).toBe(false)
   })
 
-  it('returns true when both windowSize values are undefined', () => {
-    expect(
-      areSettingsEqual(
-        { ...baseSettings, windowSize: undefined },
-        { ...baseSettings, windowSize: undefined },
-      ),
-    ).toBe(true)
+  it('treats two settings with no window size on either side as unchanged', () => {
+    // Arrange
+    const saved = { ...baseSettings, windowSize: undefined }
+    const incoming = { ...baseSettings, windowSize: undefined }
+
+    // Act
+    const result = areSettingsEqual(saved, incoming)
+
+    // Assert
+    expect(result).toBe(true)
   })
 
-  it('returns true when windowSize objects describe identical dimensions despite different references', () => {
-    // The bug this guards against: Zod parse produces a fresh object on
-    // every call, so the references are different even when values match.
-    expect(
-      areSettingsEqual(
-        { ...baseSettings, windowSize: { width: 1200, height: 800 } },
-        { ...baseSettings, windowSize: { width: 1200, height: 800 } },
-      ),
-    ).toBe(true)
+  it('treats matching window dimensions as unchanged even when Zod produced a fresh object reference', () => {
+    // Arrange: Zod parse produces a fresh object on every call, so the
+    // references differ even when the width/height values match.
+    const saved = { ...baseSettings, windowSize: { width: 1200, height: 800 } }
+    const incoming = {
+      ...baseSettings,
+      windowSize: { width: 1200, height: 800 },
+    }
+
+    // Act
+    const result = areSettingsEqual(saved, incoming)
+
+    // Assert
+    expect(result).toBe(true)
   })
 
-  it('returns false when only windowSize.width differs', () => {
-    expect(
-      areSettingsEqual(
-        { ...baseSettings, windowSize: { width: 1200, height: 800 } },
-        { ...baseSettings, windowSize: { width: 1201, height: 800 } },
-      ),
-    ).toBe(false)
+  it('detects a changed window width so the resized dimensions get persisted', () => {
+    // Arrange
+    const saved = { ...baseSettings, windowSize: { width: 1200, height: 800 } }
+    const incoming = {
+      ...baseSettings,
+      windowSize: { width: 1201, height: 800 },
+    }
+
+    // Act
+    const result = areSettingsEqual(saved, incoming)
+
+    // Assert
+    expect(result).toBe(false)
   })
 
-  it('returns false when only windowSize.height differs', () => {
-    expect(
-      areSettingsEqual(
-        { ...baseSettings, windowSize: { width: 1200, height: 800 } },
-        { ...baseSettings, windowSize: { width: 1200, height: 801 } },
-      ),
-    ).toBe(false)
+  it('detects a changed window height so the resized dimensions get persisted', () => {
+    // Arrange
+    const saved = { ...baseSettings, windowSize: { width: 1200, height: 800 } }
+    const incoming = {
+      ...baseSettings,
+      windowSize: { width: 1200, height: 801 },
+    }
+
+    // Act
+    const result = areSettingsEqual(saved, incoming)
+
+    // Assert
+    expect(result).toBe(false)
   })
 
-  it('returns false when one side has undefined windowSize and the other has a value', () => {
-    expect(
-      areSettingsEqual(
-        { ...baseSettings, windowSize: { width: 1200, height: 800 } },
-        { ...baseSettings, windowSize: undefined },
-      ),
-    ).toBe(false)
-    expect(
-      areSettingsEqual(
-        { ...baseSettings, windowSize: undefined },
-        { ...baseSettings, windowSize: { width: 1200, height: 800 } },
-      ),
-    ).toBe(false)
+  it('detects a change when one side has a window size and the other has none, in either direction', () => {
+    // Arrange
+    const withSize = {
+      ...baseSettings,
+      windowSize: { width: 1200, height: 800 },
+    }
+    const withoutSize = { ...baseSettings, windowSize: undefined }
+
+    // Act
+    const sizeThenNone = areSettingsEqual(withSize, withoutSize)
+    const noneThenSize = areSettingsEqual(withoutSize, withSize)
+
+    // Assert
+    expect(sizeThenNone).toBe(false)
+    expect(noneThenSize).toBe(false)
   })
 
-  it('returns false when one side omits the windowSize key entirely and the other has a value', () => {
-    // The asymmetric-shape bug: `Object.keys(a)` alone would skip a key
-    // that lives only on `b`, so an absent-vs-defined comparison would
-    // wrongly return `true`. Iterating the union of both objects' keys
-    // is what surfaces the difference.
-    expect(
-      areSettingsEqual(
-        { ...baseSettings },
-        { ...baseSettings, windowSize: { width: 1200, height: 800 } },
-      ),
-    ).toBe(false)
-    expect(
-      areSettingsEqual(
-        { ...baseSettings, windowSize: { width: 1200, height: 800 } },
-        { ...baseSettings },
-      ),
-    ).toBe(false)
+  it('detects a change when the windowSize key exists on only one side, not falsely matching', () => {
+    // Arrange: the asymmetric-shape bug — `Object.keys(a)` alone would skip
+    // a key that lives only on `b`, so an absent-vs-defined comparison would
+    // wrongly return `true`. Iterating the union of both keys surfaces it.
+    const withoutKey = { ...baseSettings }
+    const withKey = {
+      ...baseSettings,
+      windowSize: { width: 1200, height: 800 },
+    }
+
+    // Act
+    const missingThenPresent = areSettingsEqual(withoutKey, withKey)
+    const presentThenMissing = areSettingsEqual(withKey, withoutKey)
+
+    // Assert
+    expect(missingThenPresent).toBe(false)
+    expect(presentThenMissing).toBe(false)
   })
 
-  it('returns true when both sides omit windowSize entirely', () => {
-    expect(areSettingsEqual({ ...baseSettings }, { ...baseSettings })).toBe(
-      true,
-    )
+  it('treats two settings that both omit window size as unchanged', () => {
+    // Arrange
+    const saved = { ...baseSettings }
+    const incoming = { ...baseSettings }
+
+    // Act
+    const result = areSettingsEqual(saved, incoming)
+
+    // Assert
+    expect(result).toBe(true)
   })
 
-  it('returns true for hiddenAgentIds with identical contents in identical order', () => {
-    expect(
-      areSettingsEqual(
-        { ...baseSettings, hiddenAgentIds: ['claude-code', 'cursor'] },
-        { ...baseSettings, hiddenAgentIds: ['claude-code', 'cursor'] },
-      ),
-    ).toBe(true)
+  it('treats identical hidden-agent lists in the same order as unchanged', () => {
+    // Arrange
+    const saved: Settings = {
+      ...baseSettings,
+      hiddenAgentIds: ['claude-code', 'cursor'],
+    }
+    const incoming: Settings = {
+      ...baseSettings,
+      hiddenAgentIds: ['claude-code', 'cursor'],
+    }
+
+    // Act
+    const result = areSettingsEqual(saved, incoming)
+
+    // Assert
+    expect(result).toBe(true)
   })
 
-  it('returns true for hiddenAgentIds with identical contents in different order (set semantics)', () => {
-    // Renderer treats hiddenAgentIds as a set; equality must match that
-    // semantic so an order-only drift between disk and renderer doesn't
+  it('treats hidden-agent lists with the same members in different order as unchanged (set semantics)', () => {
+    // Arrange: renderer treats hiddenAgentIds as a set; equality must match
+    // that semantic so an order-only drift between disk and renderer doesn't
     // trigger a redundant atomic write + settings:changed broadcast.
-    expect(
-      areSettingsEqual(
-        { ...baseSettings, hiddenAgentIds: ['claude-code', 'cursor'] },
-        { ...baseSettings, hiddenAgentIds: ['cursor', 'claude-code'] },
-      ),
-    ).toBe(true)
+    const saved: Settings = {
+      ...baseSettings,
+      hiddenAgentIds: ['claude-code', 'cursor'],
+    }
+    const incoming: Settings = {
+      ...baseSettings,
+      hiddenAgentIds: ['cursor', 'claude-code'],
+    }
+
+    // Act
+    const result = areSettingsEqual(saved, incoming)
+
+    // Assert
+    expect(result).toBe(true)
   })
 
-  it('returns false when hiddenAgentIds length differs', () => {
-    expect(
-      areSettingsEqual(
-        { ...baseSettings, hiddenAgentIds: ['claude-code'] },
-        { ...baseSettings, hiddenAgentIds: ['claude-code', 'cursor'] },
-      ),
-    ).toBe(false)
+  it('detects a change when the hidden-agent list gains or loses an entry', () => {
+    // Arrange
+    const saved: Settings = { ...baseSettings, hiddenAgentIds: ['claude-code'] }
+    const incoming: Settings = {
+      ...baseSettings,
+      hiddenAgentIds: ['claude-code', 'cursor'],
+    }
+
+    // Act
+    const result = areSettingsEqual(saved, incoming)
+
+    // Assert
+    expect(result).toBe(false)
   })
 
-  it('returns false when hiddenAgentIds have same length but different members', () => {
-    expect(
-      areSettingsEqual(
-        { ...baseSettings, hiddenAgentIds: ['claude-code'] },
-        { ...baseSettings, hiddenAgentIds: ['cursor'] },
-      ),
-    ).toBe(false)
+  it('detects a change when the hidden-agent list swaps a member for a different one', () => {
+    // Arrange
+    const saved: Settings = { ...baseSettings, hiddenAgentIds: ['claude-code'] }
+    const incoming: Settings = { ...baseSettings, hiddenAgentIds: ['cursor'] }
+
+    // Act
+    const result = areSettingsEqual(saved, incoming)
+
+    // Assert
+    expect(result).toBe(false)
   })
 })

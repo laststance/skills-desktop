@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { WIDGET_REGISTRY } from '@/renderer/src/components/dashboard/widgets/registry'
-import {
-  COLOR_PRESET_CHROMA,
-  PERSIST_STATE_VERSION,
-  THEME_PRESETS,
-} from '@/shared/constants'
+import { COLOR_PRESET_CHROMA, PERSIST_STATE_VERSION } from '@/shared/constants'
 
 import {
   migrateState,
@@ -39,9 +35,9 @@ type LegacyTheme = ThemeState & {
  */
 
 describe('migrateState — v0 → v1 correctness', () => {
-  it('derives chroma from THEME_PRESETS when preset name is known but presetType is missing', () => {
-    // Tampered v0 payload: valid preset but no presetType. Pre-fix this
-    // landed as { preset: 'cyan', chroma: 0 } — grayscale cyan. Post-fix
+  it('keeps a known preset in full color when the legacy presetType is missing', () => {
+    // Arrange — tampered v0 payload: valid preset but no presetType. Pre-fix
+    // this landed as { preset: 'cyan', chroma: 0 } — grayscale cyan. Post-fix
     // the preset config wins.
     const state = {
       theme: {
@@ -50,14 +46,19 @@ describe('migrateState — v0 → v1 correctness', () => {
         preset: 'cyan',
       } as unknown as LegacyTheme,
     }
+
+    // Act
     const result = migrateState(state, 0)
+
+    // Assert
     expect(result.theme).toBeDefined()
     expect(result.theme!.preset).toBe('cyan')
-    expect(result.theme!.chroma).toBe(THEME_PRESETS.cyan.chroma)
-    expect(result.theme!.hue).toBe(THEME_PRESETS.cyan.hue)
+    expect(result.theme!.chroma).toBe(0.16)
+    expect(result.theme!.hue).toBe(195)
   })
 
-  it('falls back to presetType when preset name is unknown', () => {
+  it('rescues an unknown preset name to neutral-dark while honoring its legacy color presetType', () => {
+    // Arrange
     const state = {
       theme: {
         hue: 42,
@@ -66,21 +67,31 @@ describe('migrateState — v0 → v1 correctness', () => {
         presetType: 'color',
       } as unknown as LegacyTheme,
     }
+
+    // Act
     const result = migrateState(state, 0)
+
+    // Assert
     expect(result.theme).toBeDefined()
     expect(result.theme!.preset).toBe('neutral-dark')
     // unknown preset ⇒ THEME_PRESETS['neutral-dark'].chroma === 0, so
     // the `||` short-circuits to the presetType branch (0.16 for color).
-    expect(result.theme!.chroma).toBe(COLOR_PRESET_CHROMA)
+    expect(result.theme!.chroma).toBe(0.16)
   })
 
-  it('drops malformed theme slot so reducer defaults take over', () => {
+  it('drops a malformed theme slot so reducer defaults take over', () => {
+    // Arrange
     const state = { theme: null as unknown as LegacyTheme }
+
+    // Act
     const result = migrateState(state, 0)
+
+    // Assert
     expect(result.theme).toBeUndefined()
   })
 
-  it('v1+ input passes through untouched', () => {
+  it('leaves an already-current theme untouched when the stored version is up to date', () => {
+    // Arrange
     const state = {
       theme: {
         hue: 300,
@@ -91,7 +102,11 @@ describe('migrateState — v0 → v1 correctness', () => {
       },
     }
     const before = { ...state.theme }
+
+    // Act
     const result = migrateState(state, PERSIST_STATE_VERSION)
+
+    // Assert
     expect(result.theme).toEqual(before)
   })
 })
@@ -137,61 +152,86 @@ describe('migrateState — v1 → v2 dashboard widget min-size clamp', () => {
    * render, jolting neighboring widgets. The migration clamps in the store
    * so the post-rehydrate state already satisfies the new floor.
    */
-  it('clamps quick-actions widget h: 2 up to 3', () => {
+  it('grows an undersized Quick Actions widget up to its new height floor', () => {
+    // Arrange
     const state = makeDashboardState([
       {
         widgets: [{ id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 2 }],
       },
     ])
+
+    // Act
     migrateState(state, 1)
+
+    // Assert
     expect(state.dashboard.pages[0].widgets[0].h).toBe(3)
     expect(state.dashboard.pages[0].widgets[0].w).toBe(6)
   })
 
-  it('clamps quick-actions widget w: 2 up to 3', () => {
-    // The w-branch lives next to the h-branch and never had its own assertion
-    // before. If a future bump moves minSize.w independently of minSize.h, the
-    // test that only checks h would silently miss the regression.
+  it('grows an undersized Quick Actions widget up to its new width floor', () => {
+    // Arrange — the w-branch lives next to the h-branch and never had its own
+    // assertion before. If a future bump moves minSize.w independently of
+    // minSize.h, the test that only checks h would silently miss the regression.
     const state = makeDashboardState([
       {
         widgets: [{ id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 2, h: 5 }],
       },
     ])
+
+    // Act
     migrateState(state, 1)
+
+    // Assert
     expect(state.dashboard.pages[0].widgets[0].w).toBe(3)
     expect(state.dashboard.pages[0].widgets[0].h).toBe(5)
   })
 
-  it('leaves quick-actions widget h: 3 untouched (no over-clamp)', () => {
+  it('leaves a Quick Actions widget already at the height floor unchanged', () => {
+    // Arrange
     const state = makeDashboardState([
       {
         widgets: [{ id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 3 }],
       },
     ])
+
+    // Act
     migrateState(state, 1)
+
+    // Assert
     expect(state.dashboard.pages[0].widgets[0].h).toBe(3)
   })
 
-  it('leaves quick-actions widget h: 5 untouched (clamp is upward-only)', () => {
+  it('does not shrink a Quick Actions widget taller than the floor (clamp is upward-only)', () => {
+    // Arrange
     const state = makeDashboardState([
       {
         widgets: [{ id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 5 }],
       },
     ])
+
+    // Act
     migrateState(state, 1)
+
+    // Assert
     expect(state.dashboard.pages[0].widgets[0].h).toBe(5)
   })
 
-  it('does not touch widgets whose minSize did not change (e.g., stats)', () => {
+  it('leaves widgets whose minSize did not change untouched (e.g., stats)', () => {
+    // Arrange
     const state = makeDashboardState([
       { widgets: [{ id: 'w1', type: 'stats', x: 0, y: 0, w: 3, h: 2 }] },
     ])
+
+    // Act
     migrateState(state, 1)
+
+    // Assert
     expect(state.dashboard.pages[0].widgets[0].h).toBe(2)
     expect(state.dashboard.pages[0].widgets[0].w).toBe(3)
   })
 
-  it('handles missing dashboard slice gracefully', () => {
+  it('does not throw when the dashboard slice is missing', () => {
+    // Arrange
     const state = {
       theme: {
         hue: 0,
@@ -201,23 +241,31 @@ describe('migrateState — v1 → v2 dashboard widget min-size clamp', () => {
         preset: 'neutral-dark' as const,
       },
     }
+
+    // Act & Assert
     expect(() => migrateState(state, 1)).not.toThrow()
   })
 
-  it('handles malformed dashboard slice gracefully', () => {
+  it('does not throw when the dashboard slice is malformed', () => {
+    // Arrange
     const state = {
       dashboard: 'not-an-object' as unknown,
     }
+
+    // Act & Assert
     expect(() => migrateState(state, 1)).not.toThrow()
   })
 
-  it('handles dashboard with no pages array gracefully', () => {
+  it('does not throw when the dashboard has no pages array', () => {
+    // Arrange
     const state = { dashboard: {} as unknown }
+
+    // Act & Assert
     expect(() => migrateState(state, 1)).not.toThrow()
   })
 
-  it('survives null page entry without throwing (no total-wipe)', () => {
-    // A null entry inside dashboard.pages used to crash on the next
+  it('skips a null page entry and still clamps the surviving page (no total-wipe)', () => {
+    // Arrange — a null entry inside dashboard.pages used to crash on the next
     // dereference. When migrate() throws, the storage middleware calls
     // removeItem(key) and the user loses every persisted slice. The guard
     // skips the bad entry and migrates the rest.
@@ -235,14 +283,19 @@ describe('migrateState — v1 → v2 dashboard widget min-size clamp', () => {
         ],
       } as unknown,
     }
+
+    // Act
     expect(() => migrateState(state, 1)).not.toThrow()
+
+    // Assert
     const dashboard = state.dashboard as {
       pages: Array<{ widgets: Array<{ h: number }> } | null>
     }
     expect(dashboard.pages[1]?.widgets[0].h).toBe(3)
   })
 
-  it('survives null widget entry without throwing (no total-wipe)', () => {
+  it('skips a null widget entry and still clamps the surviving widget (no total-wipe)', () => {
+    // Arrange
     const state = {
       dashboard: {
         pages: [
@@ -257,14 +310,19 @@ describe('migrateState — v1 → v2 dashboard widget min-size clamp', () => {
         ],
       } as unknown,
     }
+
+    // Act
     expect(() => migrateState(state, 1)).not.toThrow()
+
+    // Assert
     const dashboard = state.dashboard as {
       pages: Array<{ widgets: Array<{ h: number } | null> }>
     }
     expect(dashboard.pages[0].widgets[1]?.h).toBe(3)
   })
 
-  it('clamps across multiple pages and multiple widgets', () => {
+  it('clamps every undersized widget across multiple pages while leaving others alone', () => {
+    // Arrange
     const state = makeDashboardState([
       {
         widgets: [
@@ -277,7 +335,11 @@ describe('migrateState — v1 → v2 dashboard widget min-size clamp', () => {
         widgets: [{ id: 'w3', type: 'quick-actions', x: 0, y: 0, w: 3, h: 2 }],
       },
     ])
+
+    // Act
     migrateState(state, 1)
+
+    // Assert
     expect(state.dashboard.pages[0].widgets[0].h).toBe(3)
     expect(state.dashboard.pages[0].widgets[1].h).toBe(2) // stats untouched
     expect(state.dashboard.pages[1].widgets[0].h).toBe(3)
@@ -399,7 +461,7 @@ describe('migrateState — v2 → v3 theme modePreference seeding', () => {
 
     // Assert
     expect(result.theme!.preset).toBe('cyan')
-    expect(result.theme!.chroma).toBe(THEME_PRESETS.cyan.chroma)
+    expect(result.theme!.chroma).toBe(0.16)
     expect(result.theme!.mode).toBe('dark')
     expect(result.theme!.modePreference).toBe('dark')
   })
@@ -445,43 +507,63 @@ describe('migrateState — v3 → v4 dashboard health min-size clamp', () => {
    * persisted on the old floor so react-grid-layout doesn't re-clamp (and shove
    * neighbors) on first render.
    */
-  it('clamps health widget h: 2 up to 3', () => {
+  it('grows an undersized Symlink Health widget up to its new height floor', () => {
+    // Arrange
     const state = makeDashboardState([
       { widgets: [{ id: 'w1', type: 'health', x: 3, y: 3, w: 3, h: 2 }] },
     ])
+
+    // Act
     migrateState(state, 3)
+
+    // Assert
     expect(state.dashboard.pages[0].widgets[0].h).toBe(3)
     expect(state.dashboard.pages[0].widgets[0].w).toBe(3)
   })
 
-  it('leaves health widget h: 3 untouched (no over-clamp)', () => {
+  it('leaves a Symlink Health widget already at the height floor unchanged', () => {
+    // Arrange
     const state = makeDashboardState([
       { widgets: [{ id: 'w1', type: 'health', x: 3, y: 3, w: 3, h: 3 }] },
     ])
+
+    // Act
     migrateState(state, 3)
+
+    // Assert
     expect(state.dashboard.pages[0].widgets[0].h).toBe(3)
   })
 
-  it('leaves health widget h: 4 untouched (clamp is upward-only)', () => {
+  it('does not shrink a Symlink Health widget taller than the floor (clamp is upward-only)', () => {
+    // Arrange
     const state = makeDashboardState([
       { widgets: [{ id: 'w1', type: 'health', x: 3, y: 3, w: 3, h: 4 }] },
     ])
+
+    // Act
     migrateState(state, 3)
+
+    // Assert
     expect(state.dashboard.pages[0].widgets[0].h).toBe(4)
   })
 
-  it('does not touch widgets outside the v4 floor map (e.g., stats)', () => {
-    // stats shares health's old { w: 3, h: 2 } footprint but is absent from
-    // V4_WIDGET_MIN_SIZES, so the v3 → v4 clamp must leave it alone.
+  it('leaves widgets outside the v4 floor map untouched (e.g., stats)', () => {
+    // Arrange — stats shares health's old { w: 3, h: 2 } footprint but is absent
+    // from V4_WIDGET_MIN_SIZES, so the v3 → v4 clamp must leave it alone.
     const state = makeDashboardState([
       { widgets: [{ id: 'w1', type: 'stats', x: 0, y: 3, w: 3, h: 2 }] },
     ])
+
+    // Act
     migrateState(state, 3)
+
+    // Assert
     expect(state.dashboard.pages[0].widgets[0].h).toBe(2)
     expect(state.dashboard.pages[0].widgets[0].w).toBe(3)
   })
 
-  it('handles missing dashboard slice gracefully', () => {
+  it('does not throw when the dashboard slice is missing', () => {
+    // Arrange
     const state = {
       theme: {
         hue: 0,
@@ -491,18 +573,24 @@ describe('migrateState — v3 → v4 dashboard health min-size clamp', () => {
         preset: 'neutral-dark' as const,
       },
     }
+
+    // Act & Assert
     expect(() => migrateState(state, 3)).not.toThrow()
   })
 
-  it('clamps health when migrating across the full v1 → v4 chain', () => {
-    // Guards that `case 3` is actually wired into the switch: a layout
+  it('clamps the Symlink Health widget when migrating across the full v1 → v4 chain', () => {
+    // Arrange — guards that `case 3` is actually wired into the switch: a layout
     // persisted way back at v1 must still pick up the v4 health floor in a
     // single migrateState() call (v1 → v2 leaves health alone, v2 → v3 is
     // theme-only, v3 → v4 clamps it).
     const state = makeDashboardState([
       { widgets: [{ id: 'w1', type: 'health', x: 3, y: 3, w: 3, h: 2 }] },
     ])
+
+    // Act
     migrateState(state, 1)
+
+    // Assert
     expect(state.dashboard.pages[0].widgets[0].h).toBe(3)
   })
 })
@@ -521,7 +609,10 @@ describe('V2_WIDGET_MIN_SIZES drift guard', () => {
   // not fail this test. That is correct for a frozen v2 floor — the right
   // response to a future registry bump is to add `V3_WIDGET_MIN_SIZES`
   // alongside a `migrateV2ToV3`, not to retroactively expand v2's scope.
-  it('mirror entries match WIDGET_REGISTRY minSize', () => {
+  it('stays in sync with the live registry so persisted v2 layouts never violate runtime minimums', () => {
+    // Act & Assert — every frozen v2 floor entry must still match the
+    // registry's current minSize; a desync fails here before users see
+    // neighbors shoved by the runtime clamp.
     for (const [type, min] of Object.entries(V2_WIDGET_MIN_SIZES)) {
       const registryEntry =
         WIDGET_REGISTRY[type as keyof typeof WIDGET_REGISTRY]
@@ -545,7 +636,10 @@ describe('V4_WIDGET_MIN_SIZES drift guard', () => {
   // constraint after upgrade. One-way by design (see the V2 guard note): a
   // future bump of a widget NOT in the v4 map is the trigger to add a V5 floor
   // + migrateV4ToV5, not to retroactively widen v4's scope.
-  it('mirror entries match WIDGET_REGISTRY minSize', () => {
+  it('stays in sync with the live registry so persisted v4 layouts never violate runtime minimums', () => {
+    // Act & Assert — every frozen v4 floor entry must still match the
+    // registry's current minSize; a desync fails here before users see
+    // neighbors shoved by the runtime clamp.
     for (const [type, min] of Object.entries(V4_WIDGET_MIN_SIZES)) {
       const registryEntry =
         WIDGET_REGISTRY[type as keyof typeof WIDGET_REGISTRY]
@@ -562,11 +656,11 @@ describe('V4_WIDGET_MIN_SIZES drift guard', () => {
 })
 
 describe('migrateState — drift guard', () => {
-  it('handles every version below PERSIST_STATE_VERSION', () => {
-    // If PERSIST_STATE_VERSION is bumped without adding a matching
-    // migrateVNToV(N+1) branch, the switch's default-case throw fires
-    // here. Keep each iteration producing a valid theme so regressions
-    // in a specific version's handler surface as a concrete failure.
+  it('migrates from every supported version without throwing when a new schema version ships', () => {
+    // Act & Assert — if PERSIST_STATE_VERSION is bumped without adding a
+    // matching migrateVNToV(N+1) branch, the switch's default-case throw fires
+    // here. Keep each iteration producing a valid theme so regressions in a
+    // specific version's handler surface as a concrete failure.
     for (let v = 0; v < PERSIST_STATE_VERSION; v++) {
       const state = {
         theme: {
@@ -581,10 +675,9 @@ describe('migrateState — drift guard', () => {
     }
   })
 
-  it('throws for an unknown source version', () => {
-    // Explicit guard: a negative or out-of-band version (corrupted
-    // localStorage) should fail fast with a clear error pointing at the
-    // missing migration branch.
+  it('fails fast with a clear error for a corrupted out-of-band source version', () => {
+    // Arrange — a negative or out-of-band version (corrupted localStorage)
+    // should fail fast with a clear error pointing at the missing branch.
     const state = {
       theme: {
         hue: 0,
@@ -594,6 +687,8 @@ describe('migrateState — drift guard', () => {
         preset: 'neutral-dark' as const,
       },
     }
+
+    // Act & Assert
     expect(() => migrateState(state, -1)).toThrow(/no path from v-1/)
   })
 })

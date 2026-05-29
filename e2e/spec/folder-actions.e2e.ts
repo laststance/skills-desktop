@@ -36,16 +36,19 @@ test.beforeEach(() => {
   )
 })
 
-test('SourceCard kebab exposes Reveal in Finder + Open in Terminal', async ({
+test('the source folder menu offers Reveal in Finder and Open in Terminal', async ({
   appWindow,
 }) => {
+  // Arrange — wait for the initial scan so the source card renders.
   await waitForInitialScan(appWindow)
 
+  // Act — open the source folder actions menu via its kebab trigger.
   // Single kebab-only trigger; right-click on the card body opens the same
   // menu but is covered separately by the unit-level component story. Here
   // we exercise the explicit click path the user typically takes.
   await appWindow.getByLabel('Source folder actions').click()
 
+  // Assert — both folder action items are visible in the menu.
   await expect(
     appWindow.getByRole('menuitem', { name: 'Reveal in Finder' }),
   ).toBeVisible()
@@ -54,18 +57,19 @@ test('SourceCard kebab exposes Reveal in Finder + Open in Terminal', async ({
   ).toBeVisible()
 })
 
-test('AgentItem right-click menu exposes folder actions above destructive items', async ({
+test('right-clicking an agent shows the safe folder actions above the destructive Cleanup and Delete items', async ({
   appWindow,
   isolatedHome,
 }) => {
-  // Stage `.cursor/skills` so the Cursor agent reports `exists: true` —
-  // `handleContextMenu` short-circuits when the agent dir is absent, so the
-  // menu would never open without this. Single mkdir is enough; we never
+  // Arrange — stage `.cursor/skills` so the Cursor agent reports `exists: true`
+  // (`handleContextMenu` short-circuits when the agent dir is absent, so the
+  // menu would never open without this). Single mkdir is enough; we never
   // write any skill files because the test asserts DOM, not symlink state.
   mkdirSync(join(isolatedHome, '.cursor', 'skills'), { recursive: true })
 
   await waitForInitialScan(appWindow)
 
+  // Act — right-click the Cursor row to open its context menu.
   // The Cursor row's aria-label is "Filter skills by Cursor (N linked, M local)";
   // the prefix is stable across snapshot churn so we anchor on it. Right-click
   // is the documented gesture for opening the menu — left-click only filters.
@@ -74,6 +78,8 @@ test('AgentItem right-click menu exposes folder actions above destructive items'
     .first()
     .click({ button: 'right' })
 
+  // Assert — all four items are visible and the safe folder actions sit above
+  // Cleanup/Delete on the y-axis.
   // Folder actions render above Cleanup/Delete by design (see AgentItem.tsx
   // comment on line 158-159) — keyboard nav (Down then Enter) lands on a
   // safe action first. Asserting both the new and existing items pins the
@@ -114,6 +120,7 @@ test('Settings → Preferred terminal picker lists all 8 IDs and reveals custom 
   appWindow,
   electronApp,
 }) => {
+  // Arrange — open Settings in its own window and surface the terminal picker.
   await waitForInitialScan(appWindow)
 
   // Opening Settings spawns a second BrowserWindow. Capture the window event
@@ -127,6 +134,7 @@ test('Settings → Preferred terminal picker lists all 8 IDs and reveals custom 
   const picker = settingsWindow.getByLabel('Preferred terminal')
   await picker.waitFor({ state: 'visible' })
 
+  // Assert — the picker lists all 8 terminal IDs in order.
   // Pin the option list against `TERMINAL_APP_IDS` order. A regression that
   // appended/removed an ID without updating the picker would land here, not
   // in production where the user notices a missing terminal a week later.
@@ -144,6 +152,7 @@ test('Settings → Preferred terminal picker lists all 8 IDs and reveals custom 
     'custom',
   ])
 
+  // Act — choose the 'custom' option.
   // The custom-name <input> is rendered conditionally on
   // `settings.preferredTerminal === 'custom'` (General.tsx:163). The
   // load-bearing assertion is that selecting 'custom' makes the input
@@ -151,6 +160,8 @@ test('Settings → Preferred terminal picker lists all 8 IDs and reveals custom 
   // persisted into the snapshot HOME from a prior dev session, which
   // would make a "starts hidden" precondition flaky.
   await picker.selectOption('custom')
+
+  // Assert — the custom terminal name input becomes visible.
   await expect(
     settingsWindow.getByLabel('Custom terminal app name'),
   ).toBeVisible()

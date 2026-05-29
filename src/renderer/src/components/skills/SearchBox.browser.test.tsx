@@ -30,37 +30,46 @@ async function renderSearchBox() {
 }
 
 describe('SearchBox scope toggle', () => {
-  it('clicking the Repo toggle dispatches setSearchScope("repo")', async () => {
+  it('switches search to repository scope when the Repo toggle is clicked', async () => {
+    // Arrange
     const { screen, store } = await renderSearchBox()
 
+    // Act
     await screen.getByRole('radio', { name: /Search by repository/i }).click()
 
+    // Assert
     await expect.poll(() => store.getState().ui.searchScope).toBe('repo')
   })
 
-  it('typing in the input dispatches setSearchQuery', async () => {
+  it('filters skills by the text the user types into the search box', async () => {
+    // Arrange
     const { screen, store } = await renderSearchBox()
-
     // The placeholder defaults to the name-mode copy.
     const input = screen.getByPlaceholder('Search skills...')
+
+    // Act
     await input.fill('react')
 
+    // Assert
     await expect.poll(() => store.getState().ui.searchQuery).toBe('react')
   })
 
-  it('aria-label flips to the repository copy when scope=repo', async () => {
+  it('relabels the search box for screen readers as repository search when scope flips to repo', async () => {
+    // Arrange
     const { screen, store } = await renderSearchBox()
     const { setSearchScope } =
       await import('@/renderer/src/redux/slices/uiSlice')
 
-    // Default is 'name'; verify both states so a regression renaming one
-    // copy without the other (the original aria-label bug) is caught.
+    // Assert: default is 'name'; verify both states so a regression renaming
+    // one copy without the other (the original aria-label bug) is caught.
     await expect
       .element(screen.getByRole('searchbox', { name: 'Search skills by name' }))
       .toBeInTheDocument()
 
+    // Act
     store.dispatch(setSearchScope('repo'))
 
+    // Assert
     await expect
       .element(
         screen.getByRole('searchbox', { name: 'Search skills by repository' }),
@@ -68,17 +77,21 @@ describe('SearchBox scope toggle', () => {
       .toBeInTheDocument()
   })
 
-  it('placeholder flips to the repository copy when scope=repo', async () => {
+  it('shows the repository search hint in the input when scope flips to repo', async () => {
+    // Arrange
     const { screen, store } = await renderSearchBox()
     const { setSearchScope } =
       await import('@/renderer/src/redux/slices/uiSlice')
 
+    // Assert: name-mode placeholder is shown before the scope changes.
     await expect
       .element(screen.getByPlaceholder('Search skills...'))
       .toBeInTheDocument()
 
+    // Act
     store.dispatch(setSearchScope('repo'))
 
+    // Assert
     await expect
       .element(screen.getByPlaceholder('Search by repository...'))
       .toBeInTheDocument()

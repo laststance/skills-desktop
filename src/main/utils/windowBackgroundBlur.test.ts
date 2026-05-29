@@ -64,39 +64,82 @@ function makeWindowMock(
  * color contract before values reach Electron.
  */
 describe('windowBackgroundBlur helpers', () => {
-  it('clamps persisted blur radius values to the supported range', () => {
-    expect(normalizeWindowBackgroundBlurRadius(-12)).toBe(0)
-    expect(normalizeWindowBackgroundBlurRadius(12.9)).toBe(12)
-    expect(normalizeWindowBackgroundBlurRadius(99)).toBe(
-      WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
-    )
+  it('floors negative, truncates fractional, and caps over-max persisted blur radii to the supported range', () => {
+    // Arrange
+    const negativeRadius = -12
+    const fractionalRadius = 12.9
+    const overMaxRadius = 99
+
+    // Act
+    const flooredRadius = normalizeWindowBackgroundBlurRadius(negativeRadius)
+    const roundedRadius = normalizeWindowBackgroundBlurRadius(fractionalRadius)
+    const cappedRadius = normalizeWindowBackgroundBlurRadius(overMaxRadius)
+
+    // Assert
+    expect(flooredRadius).toBe(0)
+    expect(roundedRadius).toBe(12)
+    expect(cappedRadius).toBe(WINDOW_BACKGROUND_BLUR_MAX_RADIUS)
   })
 
-  it('uses an opaque background when blur is disabled', () => {
-    expect(getMainWindowBackgroundColor(0)).toBe(MAIN_WINDOW_OPAQUE_BACKGROUND)
+  it('paints an opaque window background when the user turns blur off', () => {
+    // Arrange
+    const blurDisabledRadius = 0
+
+    // Act
+    const backgroundColor = getMainWindowBackgroundColor(blurDisabledRadius)
+
+    // Assert
+    expect(backgroundColor).toBe(MAIN_WINDOW_OPAQUE_BACKGROUND)
   })
 
-  it('uses a clear background when blur is enabled', () => {
-    expect(getMainWindowBackgroundColor(12)).toBe(
-      MAIN_WINDOW_TRANSPARENT_BACKGROUND,
-    )
+  it('paints a see-through window background when the user turns blur on', () => {
+    // Arrange
+    const blurEnabledRadius = 12
+
+    // Act
+    const backgroundColor = getMainWindowBackgroundColor(blurEnabledRadius)
+
+    // Assert
+    expect(backgroundColor).toBe(MAIN_WINDOW_TRANSPARENT_BACKGROUND)
   })
 
-  it('maps the blur slider to real BrowserWindow opacity', () => {
-    expect(getMainWindowOpacity(0)).toBe(1)
-    expect(getMainWindowOpacity(WINDOW_BACKGROUND_BLUR_MAX_RADIUS)).toBe(0.45)
+  it('keeps the window fully opaque at zero blur and drops to 0.45 opacity at max blur', () => {
+    // Arrange
+    const blurDisabledRadius = 0
+    const maxBlurRadius = WINDOW_BACKGROUND_BLUR_MAX_RADIUS
+
+    // Act
+    const opacityAtNoBlur = getMainWindowOpacity(blurDisabledRadius)
+    const opacityAtMaxBlur = getMainWindowOpacity(maxBlurRadius)
+
+    // Assert
+    expect(opacityAtNoBlur).toBe(1)
+    expect(opacityAtMaxBlur).toBe(0.45)
   })
 
-  it('enables native blur only for non-zero radius values', () => {
-    expect(shouldUseNativeWindowBlur(0)).toBe(false)
-    expect(shouldUseNativeWindowBlur(1)).toBe(true)
+  it('turns on native blur only once the radius rises above zero', () => {
+    // Arrange
+    const blurDisabledRadius = 0
+    const blurEnabledRadius = 1
+
+    // Act
+    const blurOffUsesNative = shouldUseNativeWindowBlur(blurDisabledRadius)
+    const blurOnUsesNative = shouldUseNativeWindowBlur(blurEnabledRadius)
+
+    // Assert
+    expect(blurOffUsesNative).toBe(false)
+    expect(blurOnUsesNative).toBe(true)
   })
 
-  it('applies opaque color and zero blur when the radius is disabled', () => {
+  it('renders a solid opaque window with vibrancy off when the user disables blur', () => {
+    // Arrange
     const { window, contentView } = makeWindowMock(true)
+    const blurDisabledRadius = 0
 
-    applyWindowBackgroundBlur(window, 0)
+    // Act
+    applyWindowBackgroundBlur(window, blurDisabledRadius)
 
+    // Assert
     expect(window.setOpacity).toHaveBeenCalledWith(1)
     expect(window.setBackgroundColor).toHaveBeenCalledWith(
       MAIN_WINDOW_OPAQUE_BACKGROUND,
@@ -108,11 +151,15 @@ describe('windowBackgroundBlur helpers', () => {
     expect(contentView.setBackgroundBlur).toHaveBeenCalledWith(0)
   })
 
-  it('applies alpha color and clamped blur when Electron 42 blur is available', () => {
+  it('renders a translucent blurred window clamped to max radius when Electron 42 blur is available', () => {
+    // Arrange
     const { window, contentView } = makeWindowMock(true)
+    const overMaxRadius = WINDOW_BACKGROUND_BLUR_MAX_RADIUS + 1
 
-    applyWindowBackgroundBlur(window, WINDOW_BACKGROUND_BLUR_MAX_RADIUS + 1)
+    // Act
+    applyWindowBackgroundBlur(window, overMaxRadius)
 
+    // Assert
     expect(window.setOpacity).toHaveBeenCalledWith(0.45)
     expect(window.setBackgroundColor).toHaveBeenCalledWith(
       MAIN_WINDOW_TRANSPARENT_BACKGROUND,
@@ -126,10 +173,15 @@ describe('windowBackgroundBlur helpers', () => {
     )
   })
 
-  it('skips blur safely when Electron exposes no setBackgroundBlur method', () => {
+  it('falls back to translucency without crashing when Electron lacks setBackgroundBlur', () => {
+    // Arrange
     const { window, contentView } = makeWindowMock(false)
+    const blurEnabledRadius = 12
 
-    expect(() => applyWindowBackgroundBlur(window, 12)).not.toThrow()
+    // Act + Assert
+    expect(() =>
+      applyWindowBackgroundBlur(window, blurEnabledRadius),
+    ).not.toThrow()
     expect(window.setOpacity).toHaveBeenCalledWith(0.86)
     expect(window.setBackgroundColor).toHaveBeenCalledWith(
       MAIN_WINDOW_TRANSPARENT_BACKGROUND,
@@ -140,10 +192,15 @@ describe('windowBackgroundBlur helpers', () => {
     expect('setBackgroundBlur' in contentView).toBe(false)
   })
 
-  it('skips contentView background safely when the method is absent', () => {
+  it('still applies window-level blur without crashing when contentView lacks setBackgroundColor', () => {
+    // Arrange
     const { window, contentView } = makeWindowMock(true, false)
+    const blurEnabledRadius = 12
 
-    expect(() => applyWindowBackgroundBlur(window, 12)).not.toThrow()
+    // Act + Assert
+    expect(() =>
+      applyWindowBackgroundBlur(window, blurEnabledRadius),
+    ).not.toThrow()
     expect(window.setOpacity).toHaveBeenCalledWith(0.86)
     expect(window.setBackgroundColor).toHaveBeenCalledWith(
       MAIN_WINDOW_TRANSPARENT_BACKGROUND,

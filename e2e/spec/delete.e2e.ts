@@ -192,10 +192,11 @@ function skipWhenAzureSnapshotUnavailable(isolatedHome: string): void {
   )
 }
 
-test('deleteSkill moves source-backed skill into trash and unlinks every agent symlink', async ({
+test('deleting a source-backed skill removes its source and unlinks it from every agent', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange — wait for the scan and snapshot azure-ai's source path and links.
   skipWhenAzureSnapshotUnavailable(isolatedHome)
   await waitForInitialScan(appWindow)
 
@@ -217,12 +218,15 @@ test('deleteSkill moves source-backed skill into trash and unlinks every agent s
     'expected at least one valid agent symlink to exercise the cascade',
   ).toBeGreaterThan(0)
 
+  // Act — delete the source-backed azure-ai skill.
   const ipcResult = await appWindow.evaluate(
     async (payload: DeleteSkillPayload) =>
       window.electron.skills.deleteSkill(payload),
     deleteSkillPayload(isolatedHome, AZURE_AI_NAME),
   )
 
+  // Assert — IPC reports the cascade, source + every symlink gone, a single
+  // source-backed trash entry written, and the store drops azure-ai on refresh.
   expect(ipcResult.success).toBe(true)
   expect(ipcResult.symlinksRemoved).toBe(initial.validSymlinks.length)
   // cascadeAgents order follows the AGENTS iteration in main, not the
@@ -271,10 +275,11 @@ test('deleteSkill moves source-backed skill into trash and unlinks every agent s
   expect(afterDelete).toBe(false)
 })
 
-test('restoreDeletedSkill recovers a source-backed deletion within the undo window', async ({
+test('undoing a delete within the undo window brings the skill and its agent links back', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange — snapshot azure-ai, then delete it so there is something to undo.
   skipWhenAzureSnapshotUnavailable(isolatedHome)
   await waitForInitialScan(appWindow)
 
@@ -307,12 +312,15 @@ test('restoreDeletedSkill recovers a source-backed deletion within the undo wind
   expect(trashEntries).toHaveLength(1)
   const tombstoneIdValue = trashEntries[0]
 
+  // Act — restore the deleted skill from its tombstone.
   const restoreResult = await appWindow.evaluate(
     async (id: string) =>
       window.electron.skills.restoreDeletedSkill({ tombstoneId: id }),
     tombstoneIdValue,
   )
 
+  // Assert — IPC reports a full restore, the source + symlinks are recreated,
+  // the tombstone is cleaned up, and the store shows azure-ai with its links again.
   expect(restoreResult.outcome).toBe('restored')
   if (restoreResult.outcome === 'restored') {
     expect(restoreResult.symlinksRestored).toBe(initial.validSymlinks.length)
@@ -381,10 +389,12 @@ interface LocalOnlyManifest {
  * symlink rows, so a post-delete `state.skills.items` lookup is the canonical
  * way to confirm the entry vanished — same shape as the source-backed test.
  */
-test('deleteSkill moves a local-only skill into trash with kind="local-only" manifest', async ({
+test('deleting a skill that lives only inside an agent folder trashes it as a local-only entry', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange — stage a skill that exists ONLY under codex's agent dir, with no
+  // universal source dir backing it.
   const skillName = 'local-only-skill'
   const codexAgentDir = join(isolatedHome, '.codex', 'skills', skillName)
   mkdirSync(codexAgentDir, { recursive: true })
@@ -403,12 +413,15 @@ test('deleteSkill moves a local-only skill into trash with kind="local-only" man
 
   await waitForInitialScan(appWindow)
 
+  // Act — delete the local-only skill via the codex agent folder path.
   const ipcResult = await appWindow.evaluate(
     async (payload: DeleteSkillPayload) =>
       window.electron.skills.deleteSkill(payload),
     deleteSkillPayload(isolatedHome, skillName, codexAgentDir),
   )
 
+  // Assert — codex folder moved to trash under local-copies/ with a
+  // kind="local-only" manifest (no source/ subdir).
   expect(ipcResult.success).toBe(true)
   // The local-only return reuses `symlinksRemoved` to mean "agent folders
   // moved" — see trashService.ts:660-664. One agent staged, so 1.
@@ -458,10 +471,12 @@ test('deleteSkill moves a local-only skill into trash with kind="local-only" man
  *   3. NO trash entry, NO manifest, NO TTL timer — the source is gone, so
  *      "undo" would only restore broken links.
  */
-test('clearOrphanSymlinks removes reviewed broken symlinks with no trash entry', async ({
+test('cleaning up a broken orphan symlink removes the dangling link without creating an undo entry', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange — stage a dangling symlink under codex pointing at a source that
+  // never exists, so the orphan scanner picks it up.
   const skillName = 'orphan-only-fixture'
   // Stage a dangling symlink under codex (chosen for the same QA Safety
   // reason as the local-only test above — avoids touching .claude/.cursor).
@@ -479,6 +494,7 @@ test('clearOrphanSymlinks removes reviewed broken symlinks with no trash entry',
 
   await waitForInitialScan(appWindow)
 
+  // Act — clear the reviewed orphan symlink for codex.
   const ipcResult = await appWindow.evaluate(
     async (payload: {
       items: Array<{
@@ -502,6 +518,8 @@ test('clearOrphanSymlinks removes reviewed broken symlinks with no trash entry',
     },
   )
 
+  // Assert — IPC reports orphan-cleared, the dangling link is gone, NO trash
+  // entry was written, and the orphan row disappears from the store on rescan.
   expect(ipcResult.items).toEqual([
     {
       skillName,
@@ -567,10 +585,11 @@ test('clearOrphanSymlinks removes reviewed broken symlinks with no trash entry',
  * macOS CI variance. Happy path returns as soon as `existsSync(entryDir)`
  * flips false (typically within ~100ms of UNDO_WINDOW_MS firing).
  */
-test('source-backed delete entry is auto-evicted after UNDO_WINDOW_MS', async ({
+test('a deleted skill becomes permanently unrecoverable once the undo window elapses', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange — snapshot azure-ai and allow extra wall-time for the real timer.
   skipWhenAzureSnapshotUnavailable(isolatedHome)
   test.setTimeout(45_000)
 
@@ -586,6 +605,7 @@ test('source-backed delete entry is auto-evicted after UNDO_WINDOW_MS', async ({
   const initial = await getStoreState(appWindow, azureSnapshotSelector)
   expect(initial.hasAzure).toBe(true)
 
+  // Act — delete azure-ai, then wait for the undo window to elapse.
   const deleteResult = await appWindow.evaluate(
     async (payload: DeleteSkillPayload) =>
       window.electron.skills.deleteSkill(payload),
@@ -609,6 +629,8 @@ test('source-backed delete entry is auto-evicted after UNDO_WINDOW_MS', async ({
   expect(existsSync(entryDir)).toBe(true)
   expect(existsSync(expectedSourcePath)).toBe(false)
 
+  // Assert — after the undo window the trash entry is auto-evicted and the
+  // source stays gone (eviction deletes the staged copy, never resurrects it).
   // KEY assertion — the entire entry is gone. A bounded poll instead of a
   // fixed sleep: the happy path returns as soon as eviction lands (under
   // load CI macOS runners can take an extra few hundred ms after the timer

@@ -4,8 +4,9 @@ import { IPC_CHANNELS } from './ipc-channels'
 import type { IpcEventContract, IpcInvokeContract } from './ipc-contract'
 
 describe('IPC contract alignment', () => {
-  it('all IPC_CHANNELS invoke values are valid contract keys', () => {
+  it('forces a security review by tripping when an invoke channel is added or removed', () => {
     // Exhaustive compile-time check: missing or extra keys fail compilation
+    // Arrange
     const invokeMapping = {
       [IPC_CHANNELS.SKILLS_GET_ALL]: true,
       [IPC_CHANNELS.SKILLS_UNLINK_FROM_AGENT]: true,
@@ -41,16 +42,21 @@ describe('IPC contract alignment', () => {
       [IPC_CHANNELS.WINDOW_GET_MAIN_BOUNDS]: true,
     } as const satisfies Record<keyof IpcInvokeContract, true>
 
+    // Act
+    const invokeChannelKeys = Object.keys(invokeMapping)
+
     // Runtime assertion: mapping covers exactly the contract keys.
     // SECURITY: increment this number only after a security review of the new
     // IPC channel (input validation, authz scope, side-effect blast radius).
     // The `satisfies` clause above is a structural guard; this length check is
     // the trip-wire that forces a human PR diff when a channel is added.
-    expect(Object.keys(invokeMapping)).toHaveLength(32)
+    // Assert
+    expect(invokeChannelKeys).toHaveLength(32)
   })
 
-  it('all IPC_CHANNELS event values are valid event contract keys', () => {
+  it('forces a review by tripping when a push-event channel is added or removed', () => {
     // Exhaustive compile-time check: missing or extra keys fail compilation
+    // Arrange
     const eventMapping = {
       [IPC_CHANNELS.SKILLS_CLI_PROGRESS]: true,
       [IPC_CHANNELS.SKILLS_DELETE_PROGRESS]: true,
@@ -63,7 +69,11 @@ describe('IPC contract alignment', () => {
       [IPC_CHANNELS.SETTINGS_CHANGED]: true,
     } as const satisfies Record<keyof IpcEventContract, true>
 
+    // Act
+    const eventChannelKeys = Object.keys(eventMapping)
+
     // Runtime assertion: mapping covers exactly the contract keys
-    expect(Object.keys(eventMapping)).toHaveLength(9)
+    // Assert
+    expect(eventChannelKeys).toHaveLength(9)
   })
 })

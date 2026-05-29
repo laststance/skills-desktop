@@ -42,6 +42,7 @@ async function createStore(
 
 describe('Settings → Auto Updates', () => {
   it('persists opting into automatic background downloads', async () => {
+    // Arrange
     const store = await createStore()
     const { AutoUpdates } = await import('./AutoUpdates')
     const screen = await render(
@@ -50,18 +51,20 @@ describe('Settings → Auto Updates', () => {
       </Provider>,
     )
 
+    // Act
     await screen
       .getByRole('checkbox', { name: /Download updates automatically/i })
       .click()
 
+    // Assert
     await expect.poll(() => mockSettingsSet.mock.calls.length).toBe(1)
     expect(mockSettingsSet).toHaveBeenCalledWith({ autoDownloadUpdates: true })
   })
 
   it('persists turning automatic background downloads back off', async () => {
-    // Pin the `checked === true` coercion's false-path: an already-checked
-    // box, when clicked, must persist `false` — never the indeterminate
-    // sentinel Radix can report.
+    // Arrange — Pin the `checked === true` coercion's false-path: an
+    // already-checked box, when clicked, must persist `false` — never the
+    // indeterminate sentinel Radix can report.
     const store = await createStore({ autoDownloadUpdates: true })
     const { AutoUpdates } = await import('./AutoUpdates')
     const screen = await render(
@@ -70,15 +73,18 @@ describe('Settings → Auto Updates', () => {
       </Provider>,
     )
 
+    // Act
     await screen
       .getByRole('checkbox', { name: /Download updates automatically/i })
       .click()
 
+    // Assert
     await expect.poll(() => mockSettingsSet.mock.calls.length).toBe(1)
     expect(mockSettingsSet).toHaveBeenCalledWith({ autoDownloadUpdates: false })
   })
 
   it('reflects a persisted opt-in as an already-checked box', async () => {
+    // Arrange
     const store = await createStore({ autoDownloadUpdates: true })
     const { AutoUpdates } = await import('./AutoUpdates')
     const screen = await render(
@@ -87,12 +93,12 @@ describe('Settings → Auto Updates', () => {
       </Provider>,
     )
 
-    await expect
-      .element(
-        screen.getByRole('checkbox', {
-          name: /Download updates automatically/i,
-        }),
-      )
-      .toBeChecked()
+    // Act
+    const checkbox = screen.getByRole('checkbox', {
+      name: /Download updates automatically/i,
+    })
+
+    // Assert
+    await expect.element(checkbox).toBeChecked()
   })
 })

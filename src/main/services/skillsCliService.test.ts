@@ -77,18 +77,21 @@ describe('skillsCliService.cancel', () => {
   })
 
   it('kills all running CLI children on cancel()', async () => {
+    // Arrange
     const first = simulateCli({ autoClose: false })
     const second = simulateCli({ autoClose: false })
-
     const { skillsCliService } = await import('./skillsCliService')
     const searchA = skillsCliService.search('a')
     const searchB = skillsCliService.search('b')
 
+    // Act
     skillsCliService.cancel()
 
+    // Assert
     expect(first.kill).toHaveBeenCalledWith('SIGTERM')
     expect(second.kill).toHaveBeenCalledWith('SIGTERM')
 
+    // Drain the killed children so the pending search promises settle.
     first.emit('close', 0)
     second.emit('close', 0)
     await Promise.all([searchA, searchB])
@@ -108,14 +111,17 @@ describe('skillsCliService.execCli environment', () => {
   })
 
   it('adds common Node toolchain paths so Finder-launched installs can find npx', async () => {
+    // Arrange
     simulateCli({
       stdout:
         'vercel-labs/skills@find-skills\n└ https://skills.sh/vercel-labs/skills/find-skills\n',
     })
-
     const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
     await skillsCliService.search('find-skills')
 
+    // Assert
     expect(spawnMock).toHaveBeenCalledWith(
       'npx',
       [`skills@${SKILLS_CLI_VERSION}`, 'find', 'find-skills'],
@@ -140,7 +146,8 @@ describe('skillsCliService.search', () => {
     process.env.PATH = ORIGINAL_PATH
   })
 
-  it('parses current skills find output with install counts', async () => {
+  it('shows search results ranked with their install counts from the current CLI output', async () => {
+    // Arrange
     simulateCli({
       stdout: [
         'Install with npx skills add <owner/repo@skill>',
@@ -152,10 +159,12 @@ describe('skillsCliService.search', () => {
         '└ https://skills.sh/google-labs-code/stitch-skills/react:components',
       ].join('\n'),
     })
-
     const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
     const results = await skillsCliService.search('react')
 
+    // Assert
     expect(results).toEqual([
       {
         rank: 1,
@@ -174,17 +183,20 @@ describe('skillsCliService.search', () => {
     ])
   })
 
-  it('parses legacy skills find output without install counts', async () => {
+  it('shows search results without an install count when the legacy CLI output omits one', async () => {
+    // Arrange
     simulateCli({
       stdout: [
         'vercel-labs/agent-skills@vercel-react-best-practices',
         '└ https://skills.sh/vercel-labs/agent-skills/vercel-react-best-practices',
       ].join('\n'),
     })
-
     const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
     const results = await skillsCliService.search('react')
 
+    // Assert
     expect(results).toEqual([
       {
         rank: 1,

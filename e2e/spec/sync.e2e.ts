@@ -67,10 +67,11 @@ test.beforeEach(() => {
   )
 })
 
-test('fetchSyncPreview populates state.ui.syncPreview with non-zero toCreate (global)', async ({
+test('clicking Sync on the source card previews how many agent links a global sync would create', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   await waitForInitialScan(appWindow)
 
   // Stage two agent dirs that the snapshot did NOT pre-stage. Cursor and
@@ -84,6 +85,7 @@ test('fetchSyncPreview populates state.ui.syncPreview with non-zero toCreate (gl
   mkdirSync(join(isolatedHome, '.cursor'), { recursive: true })
   mkdirSync(join(isolatedHome, '.cline'), { recursive: true })
 
+  // Act
   // Click the SourceCard's Sync button. Scoped to `<aside>` so the
   // selector also-matches-by-text doesn't collide with the
   // SyncConfirmDialog's submit button (which is named "Sync" too) — the
@@ -113,6 +115,7 @@ test('fetchSyncPreview populates state.ui.syncPreview with non-zero toCreate (gl
     return root.ui.syncPreview
   })
 
+  // Assert
   expect(
     preview,
     'syncPreview should be populated after thunk fulfills',
@@ -139,10 +142,11 @@ test('fetchSyncPreview populates state.ui.syncPreview with non-zero toCreate (gl
   expect(preview!.forAgent).toBeUndefined()
 })
 
-test('per-agent preview narrows scope and echoes forAgent', async ({
+test('previewing sync for a single agent narrows the scope to just that agent', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   await waitForInitialScan(appWindow)
 
   // The snapshot already pre-stages ~30 agent dirs (see file-level doc),
@@ -152,6 +156,7 @@ test('per-agent preview narrows scope and echoes forAgent', async ({
   // even though the baseline has many agents on disk.
   mkdirSync(join(isolatedHome, '.cursor'), { recursive: true })
 
+  // Act
   // Direct preload-bridge call. The per-agent Cleanup flow uses this
   // option internally; there's no top-level UI button that emits
   // `{ agentId }` from the renderer, so wiring this through a click
@@ -169,6 +174,7 @@ test('per-agent preview narrows scope and echoes forAgent', async ({
     forAgent?: string
   }
 
+  // Assert
   expect(preview.forAgent).toBe('cursor')
   // Despite ~31 agents existing on disk (snapshot side-effects + our
   // staged cursor), totalAgents collapses to 1 because the filter ran.
@@ -179,10 +185,11 @@ test('per-agent preview narrows scope and echoes forAgent', async ({
   expect(preview.conflicts).toEqual([])
 })
 
-test('executing sync creates symlinks and opens SyncResultDialog', async ({
+test('confirming a sync creates the agent symlinks and opens the Sync Results dialog', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   await waitForInitialScan(appWindow)
 
   // One staged agent is enough for the execute proof — keeping it to
@@ -190,6 +197,7 @@ test('executing sync creates symlinks and opens SyncResultDialog', async ({
   // for filesystem evidence below.
   mkdirSync(join(isolatedHome, '.cursor'), { recursive: true })
 
+  // Act
   // Step 1: trigger preview via the SourceCard. The dialog auto-mounts
   // when `state.ui.syncPreview.toCreate > 0 && conflicts.length === 0`
   // (via `shouldShowSyncConfirm`), so this single click both fetches
@@ -231,6 +239,7 @@ test('executing sync creates symlinks and opens SyncResultDialog', async ({
     return root.ui.syncResult
   })
 
+  // Assert
   expect(
     result,
     'syncResult should be populated after execute fulfills',

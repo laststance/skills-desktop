@@ -110,13 +110,15 @@ describe('skills:removeAllFromAgent handler', () => {
   // for paths like `~/.config/agents/skills` that DO match an agent base).
   // Either rejection satisfies the contract — what matters is `success:
   // false` and trashItem never firing.
-  it('rejects SOURCE_DIR — the v0.13.0 regression path', async () => {
+  it('refuses to trash the shared SOURCE_DIR so it cannot cascade into every universal agent (v0.13.0 regression)', async () => {
+    // Arrange
     const sourceDir = join(tempHome, '.agents', 'skills')
     await mkdir(sourceDir, { recursive: true })
 
     const { registerSkillsHandlers } = await import('./skills')
     registerSkillsHandlers()
 
+    // Act
     const handler = getRegisteredHandler('skills:removeAllFromAgent')
     const result = await handler(
       {},
@@ -127,6 +129,7 @@ describe('skills:removeAllFromAgent handler', () => {
       },
     )
 
+    // Assert
     expect(result.success).toBe(false)
     expect(result.error).toMatch(
       /shared skills folder|path traversal|does not match the selected agent slot/i,
@@ -134,7 +137,8 @@ describe('skills:removeAllFromAgent handler', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
-  it('rejects a trailing-slash bypass of SOURCE_DIR', async () => {
+  it('refuses to trash SOURCE_DIR even when a trailing slash is appended to dodge the guard', async () => {
+    // Arrange
     // A raw string `~/.agents/skills/` would miss SHARED_AGENT_PATHS.has()
     // without the resolve() normalization in isSharedAgentPath. Post-fix
     // it's normally caught one layer earlier by validatePath, but the
@@ -145,6 +149,7 @@ describe('skills:removeAllFromAgent handler', () => {
     const { registerSkillsHandlers } = await import('./skills')
     registerSkillsHandlers()
 
+    // Act
     const handler = getRegisteredHandler('skills:removeAllFromAgent')
     const sourceIdentity = await reviewedIdentity(sourceDir)
     const result = await handler(
@@ -156,6 +161,7 @@ describe('skills:removeAllFromAgent handler', () => {
       },
     )
 
+    // Assert
     expect(result.success).toBe(false)
     expect(result.error).toMatch(
       /shared skills folder|path traversal|does not match the selected agent slot/i,
@@ -166,7 +172,8 @@ describe('skills:removeAllFromAgent handler', () => {
   // Idempotency contract: shell.trashItem throws ENOENT (unlike the old
   // fs.rm({force:true}) this handler used to call). Pre-checking with
   // fs.access lets double-clicks and out-of-band deletes resolve cleanly.
-  it('returns success with 0 count when agent dir does not exist', async () => {
+  it('treats removing an already-gone agent dir as a no-op success (idempotent double-click)', async () => {
+    // Arrange
     const cursorDir = join(tempHome, '.cursor', 'skills')
     await mkdir(cursorDir, { recursive: true })
     const staleIdentity = await reviewedIdentity(cursorDir)
@@ -175,6 +182,7 @@ describe('skills:removeAllFromAgent handler', () => {
     const { registerSkillsHandlers } = await import('./skills')
     registerSkillsHandlers()
 
+    // Act
     const handler = getRegisteredHandler('skills:removeAllFromAgent')
     const result = await handler(
       {},
@@ -185,6 +193,7 @@ describe('skills:removeAllFromAgent handler', () => {
       },
     )
 
+    // Assert
     expect(result).toEqual({ success: true, removedCount: 0 })
     expect(trashItemMock).not.toHaveBeenCalled()
   })
@@ -216,7 +225,8 @@ describe('skills:removeAllFromAgent handler', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
-  it('trashes a real agent dir and returns count of entries', async () => {
+  it('moves a real agent dir to the Trash and reports how many skills it held', async () => {
+    // Arrange
     const cursorDir = join(tempHome, '.cursor', 'skills')
     await mkdir(join(cursorDir, 'skill-a'), { recursive: true })
     await mkdir(join(cursorDir, 'skill-b'), { recursive: true })
@@ -224,6 +234,7 @@ describe('skills:removeAllFromAgent handler', () => {
     const { registerSkillsHandlers } = await import('./skills')
     registerSkillsHandlers()
 
+    // Act
     const handler = getRegisteredHandler('skills:removeAllFromAgent')
     const result = await handler(
       {},
@@ -234,6 +245,7 @@ describe('skills:removeAllFromAgent handler', () => {
       },
     )
 
+    // Assert
     expect(result).toEqual({ success: true, removedCount: 2 })
     expect(trashItemMock).toHaveBeenCalledTimes(1)
     expect(String(trashItemMock.mock.calls[0][0])).toContain(
@@ -286,7 +298,8 @@ describe('skills:removeAllFromAgent handler', () => {
   // the realpath stage follows the symlink to ~/.agents/skills and catches
   // it. Without the fallback, a user who manually symlinked their agent
   // dir to the universal source could still trip the v0.13.0 cascade.
-  it('rejects a symlink alias whose realpath lands on SOURCE_DIR', async () => {
+  it('refuses to trash an agent dir that is a symlink resolving to the shared SOURCE_DIR', async () => {
+    // Arrange
     const sourceDir = join(tempHome, '.agents', 'skills')
     const aliasDir = join(tempHome, '.cursor', 'skills')
     await mkdir(sourceDir, { recursive: true })
@@ -296,6 +309,7 @@ describe('skills:removeAllFromAgent handler', () => {
     const { registerSkillsHandlers } = await import('./skills')
     registerSkillsHandlers()
 
+    // Act
     const handler = getRegisteredHandler('skills:removeAllFromAgent')
     const result = await handler(
       {},
@@ -306,6 +320,7 @@ describe('skills:removeAllFromAgent handler', () => {
       },
     )
 
+    // Assert
     expect(result.success).toBe(false)
     expect(result.error).toMatch(/shared skills folder/)
     expect(trashItemMock).not.toHaveBeenCalled()

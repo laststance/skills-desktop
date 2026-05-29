@@ -51,14 +51,17 @@ describe('installDevelopmentDevToolsExtensions', () => {
     vi.restoreAllMocks()
   })
 
-  it('installs React and Redux DevTools for local development', async () => {
+  it('installs React and Redux DevTools and logs them on a local dev launch', async () => {
+    // Arrange
     mockInstallExtension.mockResolvedValue([
       { name: 'React Developer Tools' },
       { name: 'Redux DevTools' },
     ])
 
+    // Act
     await installDevelopmentDevToolsExtensions()
 
+    // Assert
     expect(mockInstallExtension).toHaveBeenCalledWith(
       [{ id: 'react-devtools' }, { id: 'redux-devtools' }],
       {
@@ -72,37 +75,51 @@ describe('installDevelopmentDevToolsExtensions', () => {
     )
   })
 
-  it('skips packaged builds', async () => {
+  it('never downloads DevTools extensions into a packaged production build', async () => {
+    // Arrange
     mockState.isPackaged = true
 
-    expect(shouldInstallDevelopmentDevToolsExtensions()).toBe(false)
+    // Act
+    const shouldInstall = shouldInstallDevelopmentDevToolsExtensions()
     await installDevelopmentDevToolsExtensions()
 
+    // Assert
+    expect(shouldInstall).toBe(false)
     expect(mockInstallExtension).not.toHaveBeenCalled()
   })
 
-  it('skips hidden E2E launches', async () => {
+  it('never downloads DevTools extensions during a hidden E2E launch', async () => {
+    // Arrange
     mockState.isE2EBackgroundLaunch = true
 
-    expect(shouldInstallDevelopmentDevToolsExtensions()).toBe(false)
+    // Act
+    const shouldInstall = shouldInstallDevelopmentDevToolsExtensions()
     await installDevelopmentDevToolsExtensions()
 
+    // Assert
+    expect(shouldInstall).toBe(false)
     expect(mockInstallExtension).not.toHaveBeenCalled()
   })
 
-  it('skips when the local opt-out env var is enabled', async () => {
+  it('honors the local opt-out env var and skips the DevTools download', async () => {
+    // Arrange
     process.env['SKILLS_DESKTOP_DISABLE_DEVTOOLS_EXTENSIONS'] = '1'
 
-    expect(shouldInstallDevelopmentDevToolsExtensions()).toBe(false)
+    // Act
+    const shouldInstall = shouldInstallDevelopmentDevToolsExtensions()
     await installDevelopmentDevToolsExtensions()
 
+    // Assert
+    expect(shouldInstall).toBe(false)
     expect(mockInstallExtension).not.toHaveBeenCalled()
   })
 
-  it('logs installer errors without blocking startup', async () => {
+  it('warns but still finishes startup when the DevTools download fails', async () => {
+    // Arrange
     const error = new Error('chrome web store unavailable')
     mockInstallExtension.mockRejectedValue(error)
 
+    // Act + Assert
     await expect(
       installDevelopmentDevToolsExtensions(),
     ).resolves.toBeUndefined()

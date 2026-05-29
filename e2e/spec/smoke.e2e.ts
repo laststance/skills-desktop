@@ -13,10 +13,12 @@ import { test, expect } from '../fixtures/electron-app'
  * Specs covering the actual copy/delete IPC channels arrive in Phase 2.
  */
 test('app launches with E2E build harness exposed', async ({ appWindow }) => {
+  // Act — read the harness globals the production bundle only exposes under E2E_BUILD=1.
   const exposedStore = await appWindow.evaluate(() => Boolean(window.__store__))
   const exposedEvents = await appWindow.evaluate(() =>
     Boolean(window.__ipcEvents__),
   )
+  // Assert
   expect(
     exposedStore,
     'window.__store__ should be exposed under E2E_BUILD=1',
@@ -26,9 +28,11 @@ test('app launches with E2E build harness exposed', async ({ appWindow }) => {
     'window.__ipcEvents__ should be exposed under E2E_BUILD=1',
   ).toBe(true)
 
+  // Act — the exposed store must yield real state, not an undefined stub.
   const initialState = await appWindow.evaluate(() =>
     window.__store__?.getState(),
   )
+  // Assert
   expect(
     initialState,
     'store.getState() should return a real object',
@@ -41,12 +45,14 @@ test('app launches with E2E build harness exposed', async ({ appWindow }) => {
   // `update:error` channel for the entire process lifetime. Reading the
   // recorder once at the end of launch is enough — these channels fire
   // synchronously off `app.whenReady` in the production code path.
+  // Act — collect every recorded update:* IPC event seen during launch.
   const updaterIpcEvents = await appWindow.evaluate(
     () =>
       window.__ipcEvents__
         ?.list()
         .filter((event) => event.channel.startsWith('update:')) ?? [],
   )
+  // Assert
   expect(
     updaterIpcEvents,
     'auto-updater should stay dormant under E2E_DISABLE_UPDATE=1',

@@ -33,7 +33,8 @@ const makeSkill = (
 })
 
 describe('getLocationViewModel', () => {
-  it('omits symlinkPath when no agent is selected', () => {
+  it('shows only the source path when no agent is selected', () => {
+    // Arrange — a sourced skill linked into opencode, but nothing selected
     const skill = makeSkill('/u/me/.agents/skills/foo', [
       makeSymlink(
         'opencode',
@@ -42,13 +43,18 @@ describe('getLocationViewModel', () => {
       ),
     ])
 
-    expect(getLocationViewModel(skill, null)).toEqual({
+    // Act
+    const viewModel = getLocationViewModel(skill, null)
+
+    // Assert — with no selection there is no agent symlink to surface
+    expect(viewModel).toEqual({
       sourcePath: '/u/me/.agents/skills/foo',
       symlinkPath: undefined,
     })
   })
 
-  it('omits symlinkPath when the selected agent has no symlink for this skill', () => {
+  it('shows only the source path when the selected agent has no symlink for this skill', () => {
+    // Arrange — skill is linked into opencode but the selected agent is cursor
     const skill = makeSkill('/u/me/.agents/skills/foo', [
       makeSymlink(
         'opencode',
@@ -57,13 +63,18 @@ describe('getLocationViewModel', () => {
       ),
     ])
 
-    expect(getLocationViewModel(skill, 'cursor')).toEqual({
+    // Act
+    const viewModel = getLocationViewModel(skill, 'cursor')
+
+    // Assert — cursor has no link here, so no symlink path is shown
+    expect(viewModel).toEqual({
       sourcePath: '/u/me/.agents/skills/foo',
       symlinkPath: undefined,
     })
   })
 
-  it('omits symlinkPath for a local skill where linkPath equals skill.path', () => {
+  it('hides the symlink path for a local skill whose link path equals its own path', () => {
+    // Arrange — a local (non-sourced) cursor skill that links to itself
     const skill = makeSkill(
       '/u/me/.cursor/skills/foo',
       [
@@ -77,13 +88,18 @@ describe('getLocationViewModel', () => {
       false,
     )
 
-    expect(getLocationViewModel(skill, 'cursor')).toEqual({
+    // Act
+    const viewModel = getLocationViewModel(skill, 'cursor')
+
+    // Assert — a self-referential local link is not shown as a separate path
+    expect(viewModel).toEqual({
       sourcePath: '/u/me/.cursor/skills/foo',
       symlinkPath: undefined,
     })
   })
 
-  it('returns symlinkPath when the selected agent links to a different path', () => {
+  it('shows the symlink path when the selected agent links to a different path', () => {
+    // Arrange — skill sourced in .agents and linked into both opencode and claude
     const skill = makeSkill('/u/me/.agents/skills/foo', [
       makeSymlink(
         'opencode',
@@ -97,7 +113,11 @@ describe('getLocationViewModel', () => {
       ),
     ])
 
-    expect(getLocationViewModel(skill, 'opencode')).toEqual({
+    // Act
+    const viewModel = getLocationViewModel(skill, 'opencode')
+
+    // Assert — opencode's distinct link path surfaces alongside the source
+    expect(viewModel).toEqual({
       sourcePath: '/u/me/.agents/skills/foo',
       symlinkPath: '/u/me/.opencode/skills/foo',
     })

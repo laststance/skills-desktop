@@ -130,10 +130,11 @@ function deleteItemsFor(isolatedHome: string, skillNames: string[]) {
  * linking behavior — bulk delete only requires the source dir to exist.
  */
 
-test('bulk deleteSkills below BULK_PROGRESS_THRESHOLD (N=9) skips progress events', async ({
+test('bulk delete of fewer than 10 skills shows no progress toast updates', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange — pre-stage 9 source-backed dummy skills (below the toast threshold).
   const skillNames = preStageDummySkills(isolatedHome, 9, 'bulk-below')
 
   // Wait for renderer to mount + finish initial scan. Pre-staged skills may
@@ -143,12 +144,14 @@ test('bulk deleteSkills below BULK_PROGRESS_THRESHOLD (N=9) skips progress event
 
   await clearIpcEvents(appWindow)
 
+  // Act — bulk-delete all 9 staged skills via the IPC handler.
   const result = await appWindow.evaluate(
     async (items: DeleteSkillItem[]) =>
       window.electron.skills.deleteSkills({ items }),
     deleteItemsFor(isolatedHome, skillNames),
   )
 
+  // Assert — every item deleted, no progress events, and trash entries written.
   expect(result.items).toHaveLength(9)
   for (const item of result.items) {
     expect(item.outcome).toBe('deleted')
@@ -187,22 +190,25 @@ test('bulk deleteSkills below BULK_PROGRESS_THRESHOLD (N=9) skips progress event
   expect(sampleManifest.kind).toBe('source-backed')
 })
 
-test('bulk deleteSkills at BULK_PROGRESS_THRESHOLD (N=10) emits sequential progress events', async ({
+test('bulk delete of exactly 10 skills reports progress 1-of-10 through 10-of-10 in order', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange — pre-stage exactly 10 source-backed dummy skills (at the threshold).
   const skillNames = preStageDummySkills(isolatedHome, 10, 'bulk-at')
 
   await waitForInitialScan(appWindow)
 
   await clearIpcEvents(appWindow)
 
+  // Act — bulk-delete all 10 staged skills via the IPC handler.
   const result = await appWindow.evaluate(
     async (items: DeleteSkillItem[]) =>
       window.electron.skills.deleteSkills({ items }),
     deleteItemsFor(isolatedHome, skillNames),
   )
 
+  // Assert — every item deleted in order, with 10 sequential progress ticks.
   expect(result.items).toHaveLength(10)
   for (const [index, item] of result.items.entries()) {
     expect(item.outcome).toBe('deleted')
@@ -254,10 +260,12 @@ test('bulk deleteSkills at BULK_PROGRESS_THRESHOLD (N=10) emits sequential progr
  *      drop the failing item's tick and the progress stream would only have
  *      9 events for a 10-item batch.
  */
-test('bulk deleteSkills with one missing source returns per-item error and continues the batch', async ({
+test('bulk delete keeps deleting the rest of the batch when one skill is already gone from disk', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange — stage 10 skills, then wipe a middle one out-of-band so its
+  // delete raises ENOENT mid-batch.
   const skillNames = preStageDummySkills(isolatedHome, 10, 'bulk-partial')
   // Pick a middle index so a regression that breaks AFTER the first error
   // still trips the assertion. Index 0 or N-1 would not catch a partial loop
@@ -274,12 +282,14 @@ test('bulk deleteSkills with one missing source returns per-item error and conti
 
   await clearIpcEvents(appWindow)
 
+  // Act — bulk-delete the 10 items, one of which now points at a missing source.
   const result = await appWindow.evaluate(
     async (items: DeleteSkillItem[]) =>
       window.electron.skills.deleteSkills({ items }),
     deleteItems,
   )
 
+  // Assert — 10 result rows: one error at the failing index, nine deleted.
   expect(result.items).toHaveLength(10)
 
   // Per-item assertions — exactly one error row at the expected index, every
@@ -329,7 +339,7 @@ test('bulk deleteSkills with one missing source returns per-item error and conti
   ).toBe(false)
 })
 
-test('bulk deleteSkills uses reviewed skillPath when metadata name differs from folder basename', async ({
+test('bulk delete removes the reviewed folder, not the decoy that shares the skill metadata name', async ({
   appWindow,
   isolatedHome,
 }) => {

@@ -81,16 +81,18 @@ async function renderSourceCard() {
 
 describe('Sidebar → SourceCard navigation', () => {
   it('switches Marketplace back to Installed and clears filters when clicked', async () => {
+    // Arrange
     const { screen, store } = await renderSourceCard()
     const { selectAgent, setActiveTab, setSearchQuery } =
       await import('@/renderer/src/redux/slices/uiSlice')
-
     store.dispatch(setActiveTab('marketplace'))
     store.dispatch(selectAgent('claude-code'))
     store.dispatch(setSearchQuery('task'))
 
+    // Act
     await screen.getByText('~/.agents/skills').click()
 
+    // Assert
     expect(store.getState().ui.activeTab).toBe('installed')
     expect(store.getState().ui.selectedAgentId).toBeNull()
     expect(store.getState().ui.searchQuery).toBe('')

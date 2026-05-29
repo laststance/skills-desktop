@@ -69,7 +69,8 @@ describe('skills:copyToAgents handler', () => {
     await rm(tempHome, { recursive: true, force: true })
   })
 
-  it('accepts a source skill directory path and copies it into the target agent dir', async () => {
+  it('copies a source skill into the chosen agent so its files land in the agent dir', async () => {
+    // Arrange
     const sourcePath = join(tempHome, '.agents', 'skills', 'task')
     await mkdir(sourcePath, { recursive: true })
     await writeFile(
@@ -80,8 +81,9 @@ describe('skills:copyToAgents handler', () => {
 
     const { registerSkillsHandlers } = await import('./skills')
     registerSkillsHandlers()
-
     const copyToAgentsHandler = getRegisteredHandler('skills:copyToAgents')
+
+    // Act
     const result = (await copyToAgentsHandler(
       {},
       {
@@ -95,6 +97,7 @@ describe('skills:copyToAgents handler', () => {
       failures: unknown[]
     }
 
+    // Assert
     expect(result).toEqual({
       success: true,
       copied: 1,
@@ -110,7 +113,8 @@ describe('skills:copyToAgents handler', () => {
     ).resolves.toBe('copied payload')
   })
 
-  it('preserves nested symlinks when copying a source directory', async () => {
+  it('keeps nested symlinks as symlinks when copying a source skill into an agent', async () => {
+    // Arrange
     const sourcePath = join(tempHome, '.agents', 'skills', 'task')
     await mkdir(join(sourcePath, 'docs'), { recursive: true })
     await writeFile(
@@ -122,8 +126,9 @@ describe('skills:copyToAgents handler', () => {
 
     const { registerSkillsHandlers } = await import('./skills')
     registerSkillsHandlers()
-
     const copyToAgentsHandler = getRegisteredHandler('skills:copyToAgents')
+
+    // Act
     const result = (await copyToAgentsHandler(
       {},
       {
@@ -137,6 +142,7 @@ describe('skills:copyToAgents handler', () => {
       failures: unknown[]
     }
 
+    // Assert
     expect(result).toEqual({
       success: true,
       copied: 1,

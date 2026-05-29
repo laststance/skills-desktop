@@ -39,9 +39,14 @@ describe('marketplaceSlice', () => {
     vi.resetAllMocks()
   })
 
-  it('has correct initial state', async () => {
+  it('opens the Marketplace tab on a clean, idle search panel', async () => {
+    // Arrange
     const store = await createTestStore()
+
+    // Act
     const state = store.getState().marketplace
+
+    // Assert
     expect(state.status).toBe('idle')
     expect(state.searchQuery).toBe('')
     expect(state.searchResults).toEqual([])
@@ -51,120 +56,156 @@ describe('marketplaceSlice', () => {
   })
 
   // --- Sync reducers ---
-  it('setMarketplaceSearchQuery updates query', async () => {
+  it('reflects what the user typed into the marketplace search box', async () => {
+    // Arrange
     const { setMarketplaceSearchQuery } = await import('./marketplaceSlice')
     const store = await createTestStore()
+
+    // Act
     store.dispatch(setMarketplaceSearchQuery('react'))
+
+    // Assert
     expect(store.getState().marketplace.searchQuery).toBe('react')
   })
 
-  it('selectSkillForInstall sets and clears selection', async () => {
+  it('highlights a skill chosen to install, then deselects it when dismissed', async () => {
+    // Arrange
     const { selectSkillForInstall } = await import('./marketplaceSlice')
     const store = await createTestStore()
+
+    // Act + Assert — selecting a skill marks it for install
     store.dispatch(selectSkillForInstall(sampleResult))
     expect(store.getState().marketplace.selectedSkill).toEqual(sampleResult)
 
+    // Act + Assert — passing null dismisses the install selection
     store.dispatch(selectSkillForInstall(null))
     expect(store.getState().marketplace.selectedSkill).toBeNull()
   })
 
-  it('setPreviewSkill sets and clears preview selection', async () => {
+  it('opens a skill in the preview pane, then closes the preview when dismissed', async () => {
+    // Arrange
     const { setPreviewSkill } = await import('./marketplaceSlice')
     const store = await createTestStore()
+
+    // Act + Assert — selecting a skill shows its preview
     store.dispatch(setPreviewSkill(sampleResult))
     expect(store.getState().marketplace.previewSkill).toEqual(sampleResult)
 
+    // Act + Assert — passing null closes the preview
     store.dispatch(setPreviewSkill(null))
     expect(store.getState().marketplace.previewSkill).toBeNull()
   })
 
-  it('cancelOperation calls IPC cancel and resets state', async () => {
+  it('aborts the in-flight CLI operation and returns the panel to idle when the user cancels', async () => {
+    // Arrange
     const { cancelOperation } = await import('./marketplaceSlice')
     const store = await createTestStore()
+
+    // Act
     store.dispatch(cancelOperation())
+
+    // Assert
     expect(mockCancel).toHaveBeenCalled()
     expect(store.getState().marketplace.status).toBe('idle')
   })
 
-  it('clearError resets error and status', async () => {
+  it('dismisses a surfaced error banner and lets the user search again', async () => {
+    // Arrange — drive the panel into the error state via a failing search
     const { clearError } = await import('./marketplaceSlice')
     const store = await createTestStore()
-    // Simulate error state by searching then failing
     mockSearch.mockRejectedValue(new Error('fail'))
     const { searchSkills } = await import('./marketplaceSlice')
     await store.dispatch(searchSkills('test'))
     expect(store.getState().marketplace.status).toBe('error')
 
+    // Act
     store.dispatch(clearError())
+
+    // Assert
     expect(store.getState().marketplace.error).toBeNull()
     expect(store.getState().marketplace.status).toBe('idle')
   })
 
-  it('clearSearchResults empties results and query', async () => {
+  it('empties the results list and the search box when results are cleared', async () => {
+    // Arrange
     const { setMarketplaceSearchQuery, clearSearchResults } =
       await import('./marketplaceSlice')
     const store = await createTestStore()
     store.dispatch(setMarketplaceSearchQuery('react'))
+
+    // Act
     store.dispatch(clearSearchResults())
 
+    // Assert
     expect(store.getState().marketplace.searchResults).toEqual([])
     expect(store.getState().marketplace.searchQuery).toBe('')
   })
 
   // --- searchSkills thunk ---
-  it('searchSkills sets searching during pending', async () => {
+  it('shows a searching spinner state while the search request is in flight', async () => {
+    // Arrange — keep the search request pending so the spinner state is observable
     let resolve!: (value: SkillSearchResult[]) => void
     mockSearch.mockReturnValue(
       new Promise<SkillSearchResult[]>((r) => {
         resolve = r
       }),
     )
-
     const store = await createTestStore()
     const { searchSkills } = await import('./marketplaceSlice')
+
+    // Act
     const promise = store.dispatch(searchSkills('react'))
 
+    // Assert
     expect(store.getState().marketplace.status).toBe('searching')
 
     resolve([sampleResult])
     await promise
   })
 
-  it('searchSkills populates results on fulfilled', async () => {
+  it('lists the matching skills once the search resolves', async () => {
+    // Arrange
     mockSearch.mockResolvedValue([sampleResult])
-
     const store = await createTestStore()
     const { searchSkills } = await import('./marketplaceSlice')
+
+    // Act
     await store.dispatch(searchSkills('task'))
 
+    // Assert
     const state = store.getState().marketplace
     expect(state.status).toBe('idle')
     expect(state.searchResults).toHaveLength(1)
     expect(state.searchResults[0].name).toBe('task')
   })
 
-  it('searchSkills sets error on rejected', async () => {
+  it('surfaces the failure message when a search request errors out', async () => {
+    // Arrange
     mockSearch.mockRejectedValue(new Error('API timeout'))
-
     const store = await createTestStore()
     const { searchSkills } = await import('./marketplaceSlice')
+
+    // Act
     await store.dispatch(searchSkills('test'))
 
+    // Assert
     expect(store.getState().marketplace.status).toBe('error')
     expect(store.getState().marketplace.error).toBe('API timeout')
   })
 
   // --- installSkill thunk ---
-  it('installSkill sets installing during pending', async () => {
+  it('shows an installing state while the install request is in flight', async () => {
+    // Arrange — keep the install request pending so the installing state is observable
     let resolve!: (value: { success: boolean }) => void
     mockInstall.mockReturnValue(
       new Promise((r) => {
         resolve = r
       }),
     )
-
     const store = await createTestStore()
     const { installSkill } = await import('./marketplaceSlice')
+
+    // Act
     const promise = store.dispatch(
       installSkill({
         repo: repositoryId('vercel-labs/skill-task'),
@@ -173,19 +214,22 @@ describe('marketplaceSlice', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().marketplace.status).toBe('installing')
 
     resolve({ success: true })
     await promise
   })
 
-  it('installSkill clears selection on fulfilled', async () => {
+  it('clears the install selection and returns to idle once the install succeeds', async () => {
+    // Arrange
     mockInstall.mockResolvedValue({ success: true })
-
     const store = await createTestStore()
     const { selectSkillForInstall, installSkill } =
       await import('./marketplaceSlice')
     store.dispatch(selectSkillForInstall(sampleResult))
+
+    // Act
     await store.dispatch(
       installSkill({
         repo: repositoryId('vercel-labs/skill-task'),
@@ -194,15 +238,18 @@ describe('marketplaceSlice', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().marketplace.selectedSkill).toBeNull()
     expect(store.getState().marketplace.status).toBe('idle')
   })
 
-  it('installSkill sets error on rejected', async () => {
+  it('surfaces the failure message when an install request errors out', async () => {
+    // Arrange
     mockInstall.mockRejectedValue(new Error('Install failed'))
-
     const store = await createTestStore()
     const { installSkill } = await import('./marketplaceSlice')
+
+    // Act
     await store.dispatch(
       installSkill({
         repo: repositoryId('vercel-labs/skill-task'),
@@ -211,23 +258,27 @@ describe('marketplaceSlice', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().marketplace.status).toBe('error')
     expect(store.getState().marketplace.error).toBe('Install failed')
   })
 
   // --- loadLeaderboard thunk ---
-  it('loadLeaderboard sets loading state for new filter', async () => {
+  it('shows a loading leaderboard for a filter that has never been fetched', async () => {
+    // Arrange — keep the leaderboard request pending so the loading state is observable
     let resolve!: (value: SkillSearchResult[]) => void
     mockLeaderboard.mockReturnValue(
       new Promise<SkillSearchResult[]>((r) => {
         resolve = r
       }),
     )
-
     const store = await createTestStore()
     const { loadLeaderboard } = await import('./marketplaceSlice')
+
+    // Act
     const promise = store.dispatch(loadLeaderboard('all-time'))
 
+    // Assert
     const lb = store.getState().marketplace.leaderboard['all-time']
     expect(lb?.status).toBe('loading')
     expect(lb?.skills).toEqual([])
@@ -236,13 +287,16 @@ describe('marketplaceSlice', () => {
     await promise
   })
 
-  it('loadLeaderboard populates per-filter cache on fulfilled', async () => {
+  it('caches the fetched leaderboard rows under their filter key once loaded', async () => {
+    // Arrange
     mockLeaderboard.mockResolvedValue([sampleResult])
-
     const store = await createTestStore()
     const { loadLeaderboard } = await import('./marketplaceSlice')
+
+    // Act
     await store.dispatch(loadLeaderboard('trending'))
 
+    // Assert
     const lb = store.getState().marketplace.leaderboard['trending']
     expect(lb?.status).toBe('idle')
     expect(lb?.skills).toHaveLength(1)
@@ -250,22 +304,25 @@ describe('marketplaceSlice', () => {
     expect(lb?.lastFetched).toBeGreaterThan(0)
   })
 
-  it('loadLeaderboard skips fetch when cache is fresh', async () => {
+  it('serves a fresh leaderboard from cache instead of refetching the same filter', async () => {
+    // Arrange
     mockLeaderboard.mockResolvedValue([sampleResult])
-
     const store = await createTestStore()
     const { loadLeaderboard } = await import('./marketplaceSlice')
 
-    // First fetch populates cache
+    // Act — first dispatch populates the cache
     await store.dispatch(loadLeaderboard('all-time'))
     expect(mockLeaderboard).toHaveBeenCalledTimes(1)
 
-    // Second fetch skips (cache is fresh)
+    // Act — second dispatch is served from the still-fresh cache
     await store.dispatch(loadLeaderboard('all-time'))
+
+    // Assert — no second IPC call was made
     expect(mockLeaderboard).toHaveBeenCalledTimes(1)
   })
 
-  it('loadLeaderboard stores different data per filter', async () => {
+  it('keeps each leaderboard filter cached separately so they do not overwrite each other', async () => {
+    // Arrange
     const trendingResult: SkillSearchResult = {
       ...sampleResult,
       name: 'trending-skill',
@@ -273,25 +330,24 @@ describe('marketplaceSlice', () => {
     mockLeaderboard
       .mockResolvedValueOnce([sampleResult])
       .mockResolvedValueOnce([trendingResult])
-
     const store = await createTestStore()
     const { loadLeaderboard } = await import('./marketplaceSlice')
 
+    // Act
     await store.dispatch(loadLeaderboard('all-time'))
     await store.dispatch(loadLeaderboard('trending'))
 
+    // Assert — each filter key holds its own rows
     const state = store.getState().marketplace
     expect(state.leaderboard['all-time']?.skills[0].name).toBe('task')
     expect(state.leaderboard['trending']?.skills[0].name).toBe('trending-skill')
   })
 
-  it('loadLeaderboard keeps stale data on error', async () => {
+  it('leaves the last good leaderboard on screen when a stale-cache refetch fails', async () => {
+    // Arrange — first fetch populates the cache
     mockLeaderboard.mockResolvedValueOnce([sampleResult])
-
     const store = await createTestStore()
     const { loadLeaderboard } = await import('./marketplaceSlice')
-
-    // First fetch succeeds
     await store.dispatch(loadLeaderboard('hot'))
     expect(
       store.getState().marketplace.leaderboard['hot']?.skills,
@@ -303,25 +359,28 @@ describe('marketplaceSlice', () => {
     vi.useFakeTimers()
     vi.setSystemTime(Date.now() + 31 * 60 * 1000)
 
-    // Second fetch fails
+    // Act — the stale-cache refetch fails
     mockLeaderboard.mockRejectedValueOnce(new Error('Network error'))
     await store.dispatch(loadLeaderboard('hot'))
 
     vi.useRealTimers()
 
-    // Should still have the stale data but status is error
+    // Assert — the stale rows remain but the status flips to error
     const state = store.getState().marketplace.leaderboard['hot']
     expect(state?.skills).toHaveLength(1)
     expect(state?.status).toBe('error')
   })
 
-  it('loadLeaderboard sets error when no cache exists', async () => {
+  it('shows an error and no rows when the first-ever leaderboard fetch fails', async () => {
+    // Arrange
     mockLeaderboard.mockRejectedValue(new Error('Offline'))
-
     const store = await createTestStore()
     const { loadLeaderboard } = await import('./marketplaceSlice')
+
+    // Act
     await store.dispatch(loadLeaderboard('all-time'))
 
+    // Assert
     const lb = store.getState().marketplace.leaderboard['all-time']
     expect(lb?.status).toBe('error')
     expect(lb?.error).toBe('Offline')

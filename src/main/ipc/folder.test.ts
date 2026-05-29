@@ -7,86 +7,138 @@ import { buildOpenArgs } from './folder'
  * curated × custom matrix without spawning processes or touching the filesystem.
  * Integration tests (mocked spawn / realpath) live in `folder.integration.test.ts`.
  */
-describe('buildOpenArgs', () => {
-  it('maps curated id "terminal" to Apple Terminal display name', () => {
-    expect(buildOpenArgs('terminal', undefined, '/x')).toEqual([
-      '-a',
-      'Terminal',
-      '/x',
-    ])
+describe('Open in Terminal: choosing which app launches', () => {
+  it('opens the Terminal app when the user picked the "terminal" preset', () => {
+    // Arrange
+    const preferredTerminal = 'terminal'
+
+    // Act
+    const openArgs = buildOpenArgs(preferredTerminal, undefined, '/x')
+
+    // Assert
+    expect(openArgs).toEqual(['-a', 'Terminal', '/x'])
   })
 
-  it('maps curated id "iterm" to iTerm display name', () => {
-    expect(buildOpenArgs('iterm', undefined, '/x')).toEqual([
-      '-a',
-      'iTerm',
-      '/x',
-    ])
+  it('opens iTerm when the user picked the "iterm" preset', () => {
+    // Arrange
+    const preferredTerminal = 'iterm'
+
+    // Act
+    const openArgs = buildOpenArgs(preferredTerminal, undefined, '/x')
+
+    // Assert
+    expect(openArgs).toEqual(['-a', 'iTerm', '/x'])
   })
 
-  it('maps curated id "warp" to Warp display name', () => {
-    expect(buildOpenArgs('warp', undefined, '/x')).toEqual(['-a', 'Warp', '/x'])
+  it('opens Warp when the user picked the "warp" preset', () => {
+    // Arrange
+    const preferredTerminal = 'warp'
+
+    // Act
+    const openArgs = buildOpenArgs(preferredTerminal, undefined, '/x')
+
+    // Assert
+    expect(openArgs).toEqual(['-a', 'Warp', '/x'])
   })
 
-  it('maps curated id "ghostty" to Ghostty display name', () => {
-    expect(buildOpenArgs('ghostty', undefined, '/x')).toEqual([
-      '-a',
-      'Ghostty',
-      '/x',
-    ])
+  it('opens Ghostty when the user picked the "ghostty" preset', () => {
+    // Arrange
+    const preferredTerminal = 'ghostty'
+
+    // Act
+    const openArgs = buildOpenArgs(preferredTerminal, undefined, '/x')
+
+    // Assert
+    expect(openArgs).toEqual(['-a', 'Ghostty', '/x'])
   })
 
-  it('maps curated id "alacritty" to Alacritty display name', () => {
-    expect(buildOpenArgs('alacritty', undefined, '/x')).toEqual([
-      '-a',
-      'Alacritty',
-      '/x',
-    ])
+  it('opens Alacritty when the user picked the "alacritty" preset', () => {
+    // Arrange
+    const preferredTerminal = 'alacritty'
+
+    // Act
+    const openArgs = buildOpenArgs(preferredTerminal, undefined, '/x')
+
+    // Assert
+    expect(openArgs).toEqual(['-a', 'Alacritty', '/x'])
   })
 
-  it('maps curated id "kitty" to lowercased "kitty" display name', () => {
-    expect(buildOpenArgs('kitty', undefined, '/x')).toEqual([
-      '-a',
-      'kitty',
-      '/x',
-    ])
+  it('opens kitty using its lowercased app name when the user picked the "kitty" preset', () => {
+    // Arrange
+    const preferredTerminal = 'kitty'
+
+    // Act
+    const openArgs = buildOpenArgs(preferredTerminal, undefined, '/x')
+
+    // Assert
+    expect(openArgs).toEqual(['-a', 'kitty', '/x'])
   })
 
-  it('maps curated id "wezterm" to WezTerm display name', () => {
-    expect(buildOpenArgs('wezterm', undefined, '/x')).toEqual([
-      '-a',
-      'WezTerm',
-      '/x',
-    ])
+  it('opens WezTerm when the user picked the "wezterm" preset', () => {
+    // Arrange
+    const preferredTerminal = 'wezterm'
+
+    // Act
+    const openArgs = buildOpenArgs(preferredTerminal, undefined, '/x')
+
+    // Assert
+    expect(openArgs).toEqual(['-a', 'WezTerm', '/x'])
   })
 
-  it('uses customTerminalAppName when preferredTerminal is "custom"', () => {
-    expect(buildOpenArgs('custom', 'Hyper', '/x')).toEqual([
-      '-a',
-      'Hyper',
-      '/x',
-    ])
+  it('opens the user-named custom app when the "custom" preset is selected', () => {
+    // Arrange
+    const customTerminalAppName = 'Hyper'
+
+    // Act
+    const openArgs = buildOpenArgs('custom', customTerminalAppName, '/x')
+
+    // Assert
+    expect(openArgs).toEqual(['-a', 'Hyper', '/x'])
   })
 
-  it('returns null for "custom" with undefined customTerminalAppName', () => {
-    expect(buildOpenArgs('custom', undefined, '/x')).toBeNull()
+  it('refuses to open anything when "custom" is selected but no app name is configured', () => {
+    // Arrange
+    const customTerminalAppName = undefined
+
+    // Act
+    const openArgs = buildOpenArgs('custom', customTerminalAppName, '/x')
+
+    // Assert
+    expect(openArgs).toBeNull()
   })
 
-  it('returns null for "custom" with empty string customTerminalAppName', () => {
-    expect(buildOpenArgs('custom', '', '/x')).toBeNull()
+  it('refuses to open anything when the custom app name is an empty string', () => {
+    // Arrange
+    const customTerminalAppName = ''
+
+    // Act
+    const openArgs = buildOpenArgs('custom', customTerminalAppName, '/x')
+
+    // Assert
+    expect(openArgs).toBeNull()
   })
 
-  it('returns null for "custom" with whitespace-only customTerminalAppName', () => {
+  it('refuses to open anything when the custom app name is only whitespace', () => {
+    // Arrange
     // Defense-in-depth: Zod already trims+min(1)s the input, but the function
     // also trims internally so a stale settings.json with '   ' is rejected.
-    expect(buildOpenArgs('custom', '   ', '/x')).toBeNull()
+    const customTerminalAppName = '   '
+
+    // Act
+    const openArgs = buildOpenArgs('custom', customTerminalAppName, '/x')
+
+    // Assert
+    expect(openArgs).toBeNull()
   })
 
-  it('trims surrounding whitespace from custom name', () => {
-    expect(buildOpenArgs('custom', '  Hyper  ', '/x')).toEqual([
-      '-a',
-      'Hyper',
-      '/x',
-    ])
+  it('strips surrounding whitespace from the custom app name before opening', () => {
+    // Arrange
+    const customTerminalAppName = '  Hyper  '
+
+    // Act
+    const openArgs = buildOpenArgs('custom', customTerminalAppName, '/x')
+
+    // Assert
+    expect(openArgs).toEqual(['-a', 'Hyper', '/x'])
   })
 })

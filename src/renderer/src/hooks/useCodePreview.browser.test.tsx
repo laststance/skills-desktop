@@ -68,15 +68,18 @@ afterEach(() => {
 })
 
 describe('useCodePreview', () => {
-  it('loads files and auto-selects first file content', async () => {
+  it('auto-selects and previews the first file when a skill is opened', async () => {
+    // Arrange
     const file = makeFile()
     const body = makeTextContent()
     listMock.mockResolvedValue([file])
     readMock.mockResolvedValue(body)
 
+    // Act
     const { useCodePreview } = await import('./useCodePreview')
     const { result } = await renderHook(() => useCodePreview('/skills/tdd'))
 
+    // Assert
     // Poll the loaded content instead of `loading === false`. `loading` starts
     // false and transitions true→false, so a `loading === false` poll can race
     // past the effect and observe the pre-load snapshot.
@@ -88,12 +91,15 @@ describe('useCodePreview', () => {
     expect(result.current.loading).toBe(false)
   })
 
-  it('handles empty skill by leaving content empty', async () => {
+  it('shows an empty preview and reads no file content when the skill has no files', async () => {
+    // Arrange
     listMock.mockResolvedValue([])
 
+    // Act
     const { useCodePreview } = await import('./useCodePreview')
     const { result } = await renderHook(() => useCodePreview('/skills/empty'))
 
+    // Assert
     // `content` is `{kind:'empty'}` before AND after the effect for this case,
     // so gate on the IPC call count instead to prove the effect actually ran.
     await expect.poll(() => listMock.mock.calls.length).toBe(1)
@@ -103,7 +109,8 @@ describe('useCodePreview', () => {
     expect(readMock).not.toHaveBeenCalled()
   })
 
-  it('setActiveFile fetches selected file content', async () => {
+  it('previews a different file when the user selects it', async () => {
+    // Arrange
     const first = makeFile()
     const second = makeFile({
       name: 'notes.md',
@@ -126,15 +133,18 @@ describe('useCodePreview', () => {
       .poll(() => result.current.content)
       .toEqual({ kind: 'text', data: firstBody })
 
+    // Act
     await act(async () => {
       await result.current.setActiveFile(second.path)
     })
 
+    // Assert
     expect(result.current.activeFile).toBe(second.path)
     expect(result.current.content).toEqual({ kind: 'text', data: secondBody })
   })
 
-  it('setActiveFile is a no-op when clicking the already-active file', async () => {
+  it('does not re-fetch when the user re-selects the file already being previewed', async () => {
+    // Arrange
     const file = makeFile()
     listMock.mockResolvedValue([file])
     readMock.mockResolvedValue(makeTextContent())
@@ -147,15 +157,18 @@ describe('useCodePreview', () => {
     await expect.poll(() => result.current.activeFile).toBe(file.path)
     expect(readMock).toHaveBeenCalledTimes(1)
 
+    // Act
     await act(async () => {
       await result.current.setActiveFile(file.path)
     })
 
+    // Assert
     // No extra read — the guard short-circuited before the IPC call
     expect(readMock).toHaveBeenCalledTimes(1)
   })
 
-  it('race guard: user selection wins over slow initial-load setContent', async () => {
+  it('keeps the user-selected file showing when a slow initial-load read finally resolves', async () => {
+    // Arrange
     const first = makeFile()
     const second = makeFile({
       name: 'notes.md',
@@ -193,22 +206,29 @@ describe('useCodePreview', () => {
       .poll(() => readMock.mock.calls.some((c) => c[0] === first.path))
       .toBe(true)
 
+    // Act
     await act(async () => {
       await result.current.setActiveFile(second.path)
     })
+
+    // Assert
     expect(result.current.activeFile).toBe(second.path)
     expect(result.current.content).toEqual({ kind: 'text', data: secondBody })
 
+    // Act
     // Now the slow initial read resolves — it must NOT clobber user's selection.
     await act(async () => {
       resolveFirst?.(makeTextContent())
       await Promise.resolve()
     })
+
+    // Assert
     expect(result.current.activeFile).toBe(second.path)
     expect(result.current.content).toEqual({ kind: 'text', data: secondBody })
   })
 
-  it('race guard: subsequent user selection wins over slow prior setActiveFile', async () => {
+  it('keeps the latest selection showing when a slow earlier selection finally resolves', async () => {
+    // Arrange
     const first = makeFile()
     const second = makeFile({
       name: 'notes.md',
@@ -247,6 +267,7 @@ describe('useCodePreview', () => {
       .poll(() => result.current.content)
       .toEqual({ kind: 'text', data: firstBody })
 
+    // Act
     // Fire the slow click — don't await so the fetch stays pending.
     let slowPromise: Promise<void> | null = null
     await act(async () => {
@@ -255,25 +276,34 @@ describe('useCodePreview', () => {
       // the next setActiveFile call reads `activeFile` via closure.
       await Promise.resolve()
     })
+
+    // Assert
     expect(result.current.activeFile).toBe(second.path)
 
+    // Act
     // Fire the winning click — this one resolves quickly.
     await act(async () => {
       await result.current.setActiveFile(third.path)
     })
+
+    // Assert
     expect(result.current.activeFile).toBe(third.path)
     expect(result.current.content).toEqual({ kind: 'text', data: thirdBody })
 
+    // Act
     // Now resolve the hanging read(second). Guard must drop its result.
     await act(async () => {
       resolveSecond?.(makeTextContent({ name: 'notes.md', content: 'stale' }))
       await slowPromise
     })
+
+    // Assert
     expect(result.current.activeFile).toBe(third.path)
     expect(result.current.content).toEqual({ kind: 'text', data: thirdBody })
   })
 
-  it('skillPath change resets state synchronously', async () => {
+  it('clears the previous file preview immediately when the user switches to another skill', async () => {
+    // Arrange
     const fileA = makeFile({
       path: '/skills/a/SKILL.md',
       relativePath: 'SKILL.md',
@@ -309,8 +339,10 @@ describe('useCodePreview', () => {
       .poll(() => result.current.content)
       .toEqual({ kind: 'text', data: bodyA })
 
+    // Act
     rerender({ path: '/skills/b' })
 
+    // Assert
     // Synchronous reset branch: the render-phase `setUserSelectedFile(null)`
     // + `setContent({kind:'empty'})` in useCodePreview fire when
     // `prevSkillPathRef.current !== skillPath`. With the listMock for path B
@@ -320,6 +352,7 @@ describe('useCodePreview', () => {
     await expect.poll(() => result.current.loading).toBe(true)
     expect(result.current.content).toEqual({ kind: 'empty' })
 
+    // Act
     // Unblock path B's IPC and verify the eventual happy path. Wrapping the
     // resolver call in `act()` keeps effect flushing under React's control
     // and sidesteps TS's closure-narrowing of `resolveListB` to `null`.
@@ -327,6 +360,8 @@ describe('useCodePreview', () => {
       resolveListB?.([fileB])
       await Promise.resolve()
     })
+
+    // Assert
     await expect
       .poll(() => result.current.content)
       .toEqual({ kind: 'text', data: bodyB })
@@ -334,7 +369,8 @@ describe('useCodePreview', () => {
     expect(result.current.loading).toBe(false)
   })
 
-  it('routes image files through readBinary', async () => {
+  it('previews an image file through the binary reader without calling the text reader', async () => {
+    // Arrange
     const image = makeFile({
       name: 'logo.png',
       path: '/skills/tdd/logo.png',
@@ -351,16 +387,19 @@ describe('useCodePreview', () => {
     listMock.mockResolvedValue([image])
     readBinaryMock.mockResolvedValue(binary)
 
+    // Act
     const { useCodePreview } = await import('./useCodePreview')
     const { result } = await renderHook(() => useCodePreview('/skills/tdd'))
 
+    // Assert
     await expect
       .poll(() => result.current.content)
       .toEqual({ kind: 'image', data: binary })
     expect(readMock).not.toHaveBeenCalled()
   })
 
-  it('falls back to binary placeholder for oversized files', async () => {
+  it('shows a placeholder instead of reading content for an oversized file', async () => {
+    // Arrange
     const big = makeFile({
       name: 'dump.bin',
       path: '/skills/tdd/dump.bin',
@@ -371,9 +410,11 @@ describe('useCodePreview', () => {
     })
     listMock.mockResolvedValue([big])
 
+    // Act
     const { useCodePreview } = await import('./useCodePreview')
     const { result } = await renderHook(() => useCodePreview('/skills/tdd'))
 
+    // Assert
     await expect
       .poll(() => result.current.content)
       .toEqual({

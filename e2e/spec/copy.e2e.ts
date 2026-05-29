@@ -77,10 +77,12 @@ test.beforeEach(() => {
   )
 })
 
-test('copyToAgents replicates azure-ai to a missing target agent', async ({
+test('copying azure-ai to an unlinked agent makes that agent show it as installed', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange — wait for the renderer's initial fetch, then locate azure-ai and
+  // an agent that does not yet have it linked.
   // Wait for the renderer's initial fetch — both skills and agents must land
   // before the spec can pick a target. Generous timeout because the fetch
   // races with skillScanner walking the snapshot HOME.
@@ -126,6 +128,7 @@ test('copyToAgents replicates azure-ai to a missing target agent', async ({
 
   await clearIpcEvents(appWindow)
 
+  // Act — copy azure-ai into the unlinked target agent.
   const ipcResult = await appWindow.evaluate(
     async (args: {
       skillName: string
@@ -139,6 +142,8 @@ test('copyToAgents replicates azure-ai to a missing target agent', async ({
     },
   )
 
+  // Assert — IPC reports one successful copy, the target dir exists on disk,
+  // the refreshed store reads the link as valid, and no progress events fired.
   expect(ipcResult.success).toBe(true)
   expect(ipcResult.copied).toBe(1)
   expect(ipcResult.failures).toEqual([])
@@ -205,10 +210,12 @@ test('copyToAgents replicates azure-ai to a missing target agent', async ({
  * target instead of a symlink, and the test would catch it before the broken
  * "deleting the target deletes the source" UX shipped.
  */
-test('copyToAgents replicates a symlink source verbatim (local-copy variant)', async ({
+test('copying from an agent that has azure-ai linked re-links it without duplicating the files', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange — wait for the initial scan, then find a valid linked agent (the
+  // symlink source) and an unlinked agent (the target).
   await waitForInitialScan(appWindow)
 
   const expectedSourceDir = join(
@@ -270,6 +277,7 @@ test('copyToAgents replicates a symlink source verbatim (local-copy variant)', a
 
   await clearIpcEvents(appWindow)
 
+  // Act — copy using the source agent's symlink as the source path.
   const ipcResult = await appWindow.evaluate(
     async (args: {
       skillName: string
@@ -283,6 +291,8 @@ test('copyToAgents replicates a symlink source verbatim (local-copy variant)', a
     },
   )
 
+  // Assert — IPC reports one copy, the target is itself a symlink (not a copied
+  // directory) that resolves back to the universal source, and the store reads valid.
   expect(ipcResult.success).toBe(true)
   expect(ipcResult.copied).toBe(1)
   expect(ipcResult.failures).toEqual([])
@@ -329,10 +339,11 @@ test('copyToAgents replicates a symlink source verbatim (local-copy variant)', a
  * Source is a fresh dummy dir created procedurally so the snapshot's azure-*
  * link topology is irrelevant to the assertion.
  */
-test('copyToAgents reports per-target Already exists and continues with the rest (no rollback)', async ({
+test('copying to one occupied and one free agent skips the occupied one and still copies to the free one', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange — create a fresh source skill plus two distinct target agents.
   // Brand-new skill name so no agent in the snapshot has it linked. Avoids
   // dependency on global-setup's --global link set.
   const skillName = 'copy-partial'
@@ -395,6 +406,7 @@ test('copyToAgents reports per-target Already exists and continues with the rest
   const sentinelContent = `# pre-existing\nDO NOT OVERWRITE — collision sentinel.\n`
   writeFileSync(join(occupiedSkillDir, 'SKILL.md'), sentinelContent)
 
+  // Act — copy to both the occupied and the free agent in one call.
   const ipcResult = await appWindow.evaluate(
     async (args: {
       skillName: string
@@ -408,6 +420,8 @@ test('copyToAgents reports per-target Already exists and continues with the rest
     },
   )
 
+  // Assert — partial success: the occupied target is reported as Already
+  // exists with its sentinel intact, while the free target receives the source.
   expect(ipcResult.success).toBe(false)
   expect(ipcResult.copied).toBe(1)
   expect(ipcResult.failures).toEqual([
@@ -451,9 +465,11 @@ test('copyToAgents reports per-target Already exists and continues with the rest
  * and the primary button must fire the `copyToAgents` thunk. Filesystem
  * existence is the simplest proxy that the whole click chain reached `fs.cp`.
  */
-test('copyToAgents UI-driven modal copies via dispatch + checkbox click', async ({
+test('the Copy to Agents modal copies a skill to the agent whose checkbox is ticked', async ({
   appWindow,
 }) => {
+  // Arrange — wait for the scan, then locate a valid source agent plus an
+  // unlinked target agent (with its display name for the checkbox label).
   await waitForInitialScan(appWindow)
 
   // Locate a valid source agent (provides linkPath the modal needs) plus a
@@ -498,13 +514,14 @@ test('copyToAgents UI-driven modal copies via dispatch + checkbox click', async 
   }
   const targetLinkPath = modalSelection.targetLinkPath
 
-  // Pre-condition the FS state. If a snapshot reset ever leaves stale bytes
-  // at this path, the post-click existence check would be a false positive
-  // — a "test passed" outcome that doesn't prove the click chain reached
-  // `fs.cp` at all. Asserting non-existence up front converts that mode
+  // Arrange — pre-condition the FS state. If a snapshot reset ever leaves stale
+  // bytes at this path, the post-click existence check would be a false
+  // positive — a "test passed" outcome that doesn't prove the click chain
+  // reached `fs.cp` at all. Asserting non-existence up front converts that mode
   // into a loud failure right at the boundary.
   expect(existsSync(targetLinkPath)).toBe(false)
 
+  // Act — drive Redux to open the modal, tick the target checkbox, click Copy.
   // Drive Redux. `selectedAgentId` is set first because the modal's
   // `targetAgents` memo depends on it; toggling order would briefly render
   // an empty list. Action types are inlined string literals — these
@@ -548,6 +565,7 @@ test('copyToAgents UI-driven modal copies via dispatch + checkbox click', async 
     .getByRole('button', { name: /^Copy to \d+ agent\(s\)$/ })
     .click()
 
+  // Assert — the copied entry appears at the target link path.
   // Poll the FS directly. `state.skills.copying` flips false on both initial
   // mount AND fulfillment, so a Redux poll can pass before the click chain
   // ever reaches `fs.cp` — masking a regression where the dispatch never

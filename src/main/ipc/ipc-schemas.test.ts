@@ -25,38 +25,39 @@ const directoryIdentity = {
  * sandbox escape.
  */
 
-describe('skillNameString consistency across channels', () => {
+describe('path-traversal skill names blocked on every skill-name-accepting channel', () => {
   // The same refined string is used by every skill-name-accepting channel;
   // a regression in one place would undermine the overall boundary. This
   // test asserts the uniformity explicitly — if someone adds a new channel
   // and forgets to use skillNameString, this will not catch it directly
   // but the `../` rejections above will (all channels share the refinement).
-  it('rejects "../etc/passwd" across every skill-name-accepting channel', () => {
+  it('blocks a path-traversal skill name ("../etc/passwd") on every skill-name-accepting channel', () => {
+    // Arrange
     const malicious = '../etc/passwd'
-    const channelCases: Array<{
-      channel: keyof typeof IPC_ARG_SCHEMAS
-      payload: unknown
-    }> = [
-      {
-        channel: 'skills:unlinkFromAgent',
-        payload: {
+
+    // Act / Assert — each channel must reject the traversal name independently.
+    expect(
+      IPC_ARG_SCHEMAS['skills:unlinkFromAgent']!.safeParse([
+        {
           skillName: malicious,
           agentId: 'cursor',
           linkPath: '/tmp/x',
           targetPath: '/tmp/target',
         },
-      },
-      {
-        channel: 'skills:deleteSkill',
-        payload: {
+      ]).success,
+    ).toBe(false)
+    expect(
+      IPC_ARG_SCHEMAS['skills:deleteSkill']!.safeParse([
+        {
           skillName: malicious,
           skillPath: '/tmp/x',
           filesystemIdentity: directoryIdentity,
         },
-      },
-      {
-        channel: 'skills:deleteSkills',
-        payload: {
+      ]).success,
+    ).toBe(false)
+    expect(
+      IPC_ARG_SCHEMAS['skills:deleteSkills']!.safeParse([
+        {
           items: [
             {
               skillName: malicious,
@@ -65,26 +66,29 @@ describe('skillNameString consistency across channels', () => {
             },
           ],
         },
-      },
-      {
-        channel: 'skills:createSymlinks',
-        payload: {
+      ]).success,
+    ).toBe(false)
+    expect(
+      IPC_ARG_SCHEMAS['skills:createSymlinks']!.safeParse([
+        {
           skillName: malicious,
           skillPath: '/tmp/x',
           agentIds: ['cursor'],
         },
-      },
-      {
-        channel: 'skills:copyToAgents',
-        payload: {
+      ]).success,
+    ).toBe(false)
+    expect(
+      IPC_ARG_SCHEMAS['skills:copyToAgents']!.safeParse([
+        {
           skillName: malicious,
           sourcePath: '/tmp/x',
           targetAgentIds: ['cursor'],
         },
-      },
-      {
-        channel: 'skills:clearOrphanSymlinks',
-        payload: {
+      ]).success,
+    ).toBe(false)
+    expect(
+      IPC_ARG_SCHEMAS['skills:clearOrphanSymlinks']!.safeParse([
+        {
           items: [
             {
               skillName: malicious,
@@ -98,10 +102,11 @@ describe('skillNameString consistency across channels', () => {
             },
           ],
         },
-      },
-      {
-        channel: 'skills:clearBrokenSymlinkSlots',
-        payload: {
+      ]).success,
+    ).toBe(false)
+    expect(
+      IPC_ARG_SCHEMAS['skills:clearBrokenSymlinkSlots']!.safeParse([
+        {
           items: [
             {
               agentId: 'cursor',
@@ -111,10 +116,11 @@ describe('skillNameString consistency across channels', () => {
             },
           ],
         },
-      },
-      {
-        channel: 'skills:unlinkManyFromAgent',
-        payload: {
+      ]).success,
+    ).toBe(false)
+    expect(
+      IPC_ARG_SCHEMAS['skills:unlinkManyFromAgent']!.safeParse([
+        {
           agentId: 'cursor',
           items: [
             {
@@ -124,17 +130,8 @@ describe('skillNameString consistency across channels', () => {
             },
           ],
         },
-      },
-    ]
-
-    for (const { channel, payload } of channelCases) {
-      const schema = IPC_ARG_SCHEMAS[channel]!
-      const result = schema.safeParse([payload])
-      expect(
-        result.success,
-        `channel ${channel} should reject ${malicious}`,
-      ).toBe(false)
-    }
+      ]).success,
+    ).toBe(false)
   })
 })
 
@@ -142,7 +139,8 @@ describe('cleanup IPC target path schemas', () => {
   const orphanSchema = IPC_ARG_SCHEMAS['skills:clearOrphanSymlinks']!
   const brokenSchema = IPC_ARG_SCHEMAS['skills:clearBrokenSymlinkSlots']!
 
-  it('requires an absolute targetPath for orphan cleanup records', () => {
+  it('rejects orphan cleanup records that omit or relativize the reviewed target path', () => {
+    // Arrange / Act / Assert — a missing targetPath is rejected.
     expect(
       orphanSchema.safeParse([
         {
@@ -160,6 +158,7 @@ describe('cleanup IPC target path schemas', () => {
         },
       ]).success,
     ).toBe(false)
+    // Act / Assert — a relative targetPath is rejected.
     expect(
       orphanSchema.safeParse([
         {
@@ -180,7 +179,8 @@ describe('cleanup IPC target path schemas', () => {
     ).toBe(false)
   })
 
-  it('requires an absolute targetPath for broken-slot cleanup records', () => {
+  it('rejects broken-slot cleanup records that omit or relativize the reviewed target path', () => {
+    // Arrange / Act / Assert — a missing targetPath is rejected.
     expect(
       brokenSchema.safeParse([
         {
@@ -194,6 +194,7 @@ describe('cleanup IPC target path schemas', () => {
         },
       ]).success,
     ).toBe(false)
+    // Act / Assert — a relative targetPath is rejected.
     expect(
       brokenSchema.safeParse([
         {
@@ -312,10 +313,12 @@ describe('destructive reviewed-path IPC schemas', () => {
   const batchDeleteSchema = IPC_ARG_SCHEMAS['skills:deleteSkills']!
   const batchUnlinkSchema = IPC_ARG_SCHEMAS['skills:unlinkManyFromAgent']!
 
-  it('requires an absolute skillPath for every delete request', () => {
+  it('accepts an absolute skillPath for delete but rejects a missing or relative one (single and batch)', () => {
+    // Act / Assert — single delete without a skillPath is rejected.
     expect(singleDeleteSchema.safeParse([{ skillName: 'task' }]).success).toBe(
       false,
     )
+    // Act / Assert — single delete with a relative skillPath is rejected.
     expect(
       singleDeleteSchema.safeParse([
         {
@@ -325,9 +328,11 @@ describe('destructive reviewed-path IPC schemas', () => {
         },
       ]).success,
     ).toBe(false)
+    // Act / Assert — batch delete without a skillPath is rejected.
     expect(
       batchDeleteSchema.safeParse([{ items: [{ skillName: 'task' }] }]).success,
     ).toBe(false)
+    // Act / Assert — batch delete with a relative skillPath is rejected.
     expect(
       batchDeleteSchema.safeParse([
         {
@@ -341,6 +346,7 @@ describe('destructive reviewed-path IPC schemas', () => {
         },
       ]).success,
     ).toBe(false)
+    // Act / Assert — batch delete with an absolute skillPath is accepted.
     expect(
       batchDeleteSchema.safeParse([
         {
@@ -356,12 +362,14 @@ describe('destructive reviewed-path IPC schemas', () => {
     ).toBe(true)
   })
 
-  it('requires an absolute linkPath for every bulk unlink request', () => {
+  it('accepts an absolute linkPath and target for bulk unlink but rejects a missing or relative one', () => {
+    // Act / Assert — bulk unlink without a linkPath is rejected.
     expect(
       batchUnlinkSchema.safeParse([
         { agentId: 'cursor', items: [{ skillName: 'task' }] },
       ]).success,
     ).toBe(false)
+    // Act / Assert — a relative linkPath is rejected.
     expect(
       batchUnlinkSchema.safeParse([
         {
@@ -376,6 +384,7 @@ describe('destructive reviewed-path IPC schemas', () => {
         },
       ]).success,
     ).toBe(false)
+    // Act / Assert — a relative targetPath is rejected.
     expect(
       batchUnlinkSchema.safeParse([
         {
@@ -390,6 +399,7 @@ describe('destructive reviewed-path IPC schemas', () => {
         },
       ]).success,
     ).toBe(false)
+    // Act / Assert — absolute linkPath and targetPath are accepted.
     expect(
       batchUnlinkSchema.safeParse([
         {
@@ -406,19 +416,23 @@ describe('destructive reviewed-path IPC schemas', () => {
     ).toBe(true)
   })
 
-  it('requires remove-all agent path and directory identity', () => {
+  it('accepts remove-all only with an absolute agent path AND a reviewed directory identity', () => {
+    // Arrange
     const removeAllSchema = IPC_ARG_SCHEMAS['skills:removeAllFromAgent']!
 
+    // Act / Assert — a relative agentPath is rejected.
     expect(
       removeAllSchema.safeParse([
         { agentId: 'cursor', agentPath: 'relative/path' },
       ]).success,
     ).toBe(false)
+    // Act / Assert — an absolute agentPath without a reviewed identity is rejected.
     expect(
       removeAllSchema.safeParse([
         { agentId: 'cursor', agentPath: '/tmp/.cursor/skills' },
       ]).success,
     ).toBe(false)
+    // Act / Assert — an absolute agentPath plus a reviewed identity is accepted.
     expect(
       removeAllSchema.safeParse([
         {
@@ -441,25 +455,38 @@ describe('folder:* channels', () => {
   const finderSchema = IPC_ARG_SCHEMAS['folder:revealInFinder']!
   const terminalSchema = IPC_ARG_SCHEMAS['folder:openInTerminal']!
 
-  it('folder:revealInFinder accepts an absolute path', () => {
-    expect(finderSchema.safeParse(['/Users/me/.agents/skills']).success).toBe(
-      true,
-    )
+  it('lets Reveal in Finder run on an absolute folder path', () => {
+    // Arrange
+    const absolutePath = '/Users/me/.agents/skills'
+
+    // Act / Assert
+    expect(finderSchema.safeParse([absolutePath]).success).toBe(true)
   })
 
-  it('folder:revealInFinder rejects empty string', () => {
-    expect(finderSchema.safeParse(['']).success).toBe(false)
+  it('blocks Reveal in Finder on an empty path at the IPC boundary', () => {
+    // Arrange
+    const emptyPath = ''
+
+    // Act / Assert
+    expect(finderSchema.safeParse([emptyPath]).success).toBe(false)
   })
 
-  it('folder:revealInFinder rejects relative path', () => {
-    expect(finderSchema.safeParse(['relative/path']).success).toBe(false)
+  it('blocks Reveal in Finder on a relative path at the IPC boundary', () => {
+    // Arrange
+    const relativePath = 'relative/path'
+
+    // Act / Assert
+    expect(finderSchema.safeParse([relativePath]).success).toBe(false)
   })
 
-  it('folder:openInTerminal mirrors the same absolute-path guard', () => {
+  it('guards Open in Terminal with the same absolute-path-only rule', () => {
+    // Act / Assert — an absolute path is accepted.
     expect(terminalSchema.safeParse(['/Users/me/.cline/skills']).success).toBe(
       true,
     )
+    // Act / Assert — an empty path is rejected.
     expect(terminalSchema.safeParse(['']).success).toBe(false)
+    // Act / Assert — a relative path is rejected.
     expect(terminalSchema.safeParse(['./relative']).success).toBe(false)
   })
 })
@@ -472,47 +499,58 @@ describe('folder:* channels', () => {
 describe('settings:set lockstep with SettingsSchema', () => {
   const schema = IPC_ARG_SCHEMAS['settings:set']!
 
-  it('accepts the new preferredTerminal field', () => {
+  it('lets the user persist a preferredTerminal choice', () => {
+    // Arrange / Act / Assert
     expect(schema.safeParse([{ preferredTerminal: 'iterm' }]).success).toBe(
       true,
     )
   })
 
-  it('accepts customTerminalAppName within length cap', () => {
+  it('lets the user persist a custom terminal app name within the length cap', () => {
+    // Arrange / Act / Assert
     expect(schema.safeParse([{ customTerminalAppName: 'Hyper' }]).success).toBe(
       true,
     )
   })
 
-  it('accepts the bounded windowBackgroundBlurRadius field', () => {
+  it('lets the user persist a window background blur radius within bounds', () => {
+    // Arrange / Act / Assert
     expect(schema.safeParse([{ windowBackgroundBlurRadius: 24 }]).success).toBe(
       true,
     )
   })
 
-  it('accepts the auto-download preference boolean', () => {
+  it('lets the user persist the auto-download updates toggle', () => {
+    // Arrange / Act / Assert
     expect(schema.safeParse([{ autoDownloadUpdates: true }]).success).toBe(true)
   })
 
-  it('rejects a non-boolean autoDownloadUpdates at the IPC boundary', () => {
+  it('blocks a non-boolean auto-download toggle from reaching disk', () => {
+    // Arrange / Act / Assert
     expect(schema.safeParse([{ autoDownloadUpdates: 'yes' }]).success).toBe(
       false,
     )
   })
 
-  it('rejects an unknown enum value for preferredTerminal', () => {
+  it('blocks an unknown terminal preset from reaching disk', () => {
+    // Arrange / Act / Assert
     expect(
       schema.safeParse([{ preferredTerminal: 'fish-shell' }]).success,
     ).toBe(false)
   })
 
-  it('rejects customTerminalAppName longer than 64 chars', () => {
+  it('blocks a custom terminal app name longer than the 64-char cap', () => {
+    // Arrange
+    const overlongName = 'a'.repeat(65)
+
+    // Act / Assert
     expect(
-      schema.safeParse([{ customTerminalAppName: 'a'.repeat(65) }]).success,
+      schema.safeParse([{ customTerminalAppName: overlongName }]).success,
     ).toBe(false)
   })
 
-  it('rejects an invalid windowBackgroundBlurRadius value', () => {
+  it('blocks an out-of-range or fractional window background blur radius', () => {
+    // Act / Assert — below the allowed minimum is rejected.
     expect(
       schema.safeParse([
         {
@@ -520,9 +558,11 @@ describe('settings:set lockstep with SettingsSchema', () => {
         },
       ]).success,
     ).toBe(false)
+    // Act / Assert — a fractional radius is rejected.
     expect(
       schema.safeParse([{ windowBackgroundBlurRadius: 24.5 }]).success,
     ).toBe(false)
+    // Act / Assert — above the allowed maximum is rejected.
     expect(
       schema.safeParse([
         {
@@ -532,14 +572,16 @@ describe('settings:set lockstep with SettingsSchema', () => {
     ).toBe(false)
   })
 
-  it('rejects unknown extra keys (.strict())', () => {
+  it('blocks an unknown extra settings key (.strict()) from a compromised renderer', () => {
+    // Arrange / Act / Assert
     expect(
       schema.safeParse([{ defaultSkillTab: 'files', somethingElse: 'x' }])
         .success,
     ).toBe(false)
   })
 
-  it('parsing a partial without hiddenAgentIds does NOT inject a default', () => {
+  it('does not wipe a persisted hiddenAgentIds when an unrelated setting is saved', () => {
+    // Arrange
     // Regression for the wipe-on-every-write bug: when the IPC schema for
     // `hiddenAgentIds` chained `.optional()` over the disk schema's
     // `.default([])`, every settings:set call that omitted the key
@@ -547,45 +589,64 @@ describe('settings:set lockstep with SettingsSchema', () => {
     // clobbered the persisted value via `{ ...current, ...partial }` in
     // saveSettings(). Pin this so the IPC schema can never re-inherit a
     // default.
+
+    // Act
     const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
+
+    // Assert
     expect('hiddenAgentIds' in parsed[0]).toBe(false)
   })
 
-  it('parsing a partial without windowBackgroundBlurRadius does NOT inject a default', () => {
+  it('does not wipe a persisted window blur radius when an unrelated setting is saved', () => {
+    // Arrange / Act
     const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
+
+    // Assert
     expect('windowBackgroundBlurRadius' in parsed[0]).toBe(false)
   })
 
-  it('parsing a partial without autoDownloadUpdates does NOT inject its default', () => {
+  it('does not wipe a persisted auto-download opt-in when an unrelated setting is saved', () => {
+    // Arrange
     // Same wipe-on-every-write guard as hiddenAgentIds/blur: the IPC schema
     // declares the toggle as a bare `z.boolean().optional()` rather than
     // chaining `.optional()` over the disk schema's `.default(false)`. If it
     // re-inherited the default, every unrelated settings:set would parse to
     // `{ autoDownloadUpdates: false }` and clobber a user's persisted opt-in.
+
+    // Act
     const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
+
+    // Assert
     expect('autoDownloadUpdates' in parsed[0]).toBe(false)
   })
 
-  it('accepts an explicit hiddenAgentIds array on settings:set', () => {
+  it('lets the user persist an explicit hiddenAgentIds list', () => {
+    // Arrange / Act / Assert
     expect(
       schema.safeParse([{ hiddenAgentIds: ['claude-code'] }]).success,
     ).toBe(true)
   })
 
-  it('rejects an unknown id in hiddenAgentIds at the IPC boundary', () => {
+  it('blocks an unknown agent id in hiddenAgentIds from a compromised renderer', () => {
+    // Arrange
     // The renderer should never emit a non-AgentId. Disk reads are
     // forgiving (drop stale ids); the IPC channel is strict.
+
+    // Act / Assert
     expect(
       schema.safeParse([{ hiddenAgentIds: ['definitely-not-an-agent'] }])
         .success,
     ).toBe(false)
   })
 
-  it('rejects a hiddenAgentIds payload longer than AGENT_IDS', () => {
+  it('blocks an oversized hiddenAgentIds payload longer than the agent roster', () => {
+    // Arrange
     // Defense-in-depth payload cap — a misbehaving renderer cannot push
     // an arbitrarily long list past the IPC boundary. Every legitimate
     // entry beyond AGENT_IDS.length would have to be a duplicate anyway.
     const oversized = Array.from({ length: 100 }, () => 'claude-code' as const)
+
+    // Act / Assert
     expect(schema.safeParse([{ hiddenAgentIds: oversized }]).success).toBe(
       false,
     )

@@ -115,6 +115,7 @@ test('UI: clicking Undo on the bulk-delete toast restores staged source files an
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   const { sourcePath: expectedSourcePath } =
     stageUndoToastSkillFixture(isolatedHome)
   await waitForInitialScan(appWindow)
@@ -132,6 +133,7 @@ test('UI: clicking Undo on the bulk-delete toast restores staged source files an
     'expected at least one valid agent symlink so restore actually has work to do',
   ).toBeGreaterThan(0)
 
+  // Act
   // Drive Redux directly into the bulk-select + selected state. Action types
   // are inlined string literals because the dispatch re-evaluates inside the
   // renderer where the slice action creators are out of scope.
@@ -185,6 +187,7 @@ test('UI: clicking Undo on the bulk-delete toast restores staged source files an
   await undoButton.waitFor({ state: 'visible', timeout: 5_000 })
   await undoButton.click()
 
+  // Assert
   // PRIMARY ASSERTION — wait for the FULL restored state in a single poll so
   // we don't race the order of "dir restored → SKILL.md written → symlinks
   // recreated". Polling only the source-dir existence and then doing

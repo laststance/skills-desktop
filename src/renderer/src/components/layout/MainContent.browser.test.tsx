@@ -246,33 +246,43 @@ function makeAgentLocalSkill(name: string, agentId: AgentId): Skill {
 }
 
 describe('MainContent bulk-select toggle button', () => {
-  it('shows "Select" and aria-pressed=false by default', async () => {
+  it('labels the bulk toggle "Select" and unpressed before the user enters bulk mode', async () => {
+    // Arrange
     const { screen } = await renderMainContent()
 
+    // Act
     const toggle = screen.getByRole('button', {
       name: /Enter bulk select mode/i,
     })
+
+    // Assert
     await expect.element(toggle).toHaveTextContent(/Select/)
     await expect.element(toggle).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('clicking "Select" enters bulk select mode', async () => {
+  it('enters bulk select mode when the user clicks Select', async () => {
+    // Arrange
     const { screen, store } = await renderMainContent()
 
+    // Act
     await screen
       .getByRole('button', { name: /Enter bulk select mode/i })
       .click()
 
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(true)
   })
 
-  it('after entering mode the label flips to "Cancel" and aria-pressed=true', async () => {
+  it('flips the bulk toggle to a pressed "Cancel" once bulk mode is active', async () => {
+    // Arrange
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
 
+    // Act
     store.dispatch(enterBulkSelectMode())
 
+    // Assert
     const toggle = screen.getByRole('button', {
       name: /Exit bulk select mode/i,
     })
@@ -280,7 +290,8 @@ describe('MainContent bulk-select toggle button', () => {
     await expect.element(toggle).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('clicking "Cancel" exits mode AND clears accumulated selection', async () => {
+  it('clears the accumulated selection when the user clicks Cancel to leave bulk mode', async () => {
+    // Arrange
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -292,31 +303,39 @@ describe('MainContent bulk-select toggle button', () => {
     store.dispatch(toggleSelection('tdd' as SkillName))
     expect(store.getState().skills.selectedSkillNames.length).toBe(2)
 
+    // Act
     await screen.getByRole('button', { name: /Exit bulk select mode/i }).click()
 
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
     expect(store.getState().skills.selectedSkillNames).toEqual([])
   })
 })
 
 describe('MainContent keyboard shortcuts (Cmd+A)', () => {
-  it('Cmd+A is a no-op when bulkSelectMode=false (guards against hidden selection)', async () => {
+  it('ignores Cmd+A outside bulk mode so nothing gets silently selected', async () => {
+    // Arrange
     const { store } = await renderMainContent()
 
+    // Act
     dispatchKey({ key: 'a', metaKey: true })
 
+    // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual([])
   })
 
-  it('Ctrl+A is also a no-op when bulkSelectMode=false', async () => {
+  it('ignores Ctrl+A outside bulk mode so nothing gets silently selected', async () => {
+    // Arrange
     const { store } = await renderMainContent()
 
+    // Act
     dispatchKey({ key: 'a', ctrlKey: true })
 
+    // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual([])
   })
 
-  it('Cmd+A dispatches selectAll over visible names when bulkSelectMode=true', async () => {
+  it('selects every visible skill on Cmd+A while in bulk mode', async () => {
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -345,6 +364,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
       },
     ]
 
+    // Arrange
     // Seeding via the thunk's fulfilled action avoids mocking the IPC call
     // and exercises the real reducer path that fills `items` in production.
     store.dispatch(fetchSkills.fulfilled(skillFixtures, 'req-id'))
@@ -352,19 +372,22 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
 
     await waitForBulkSelectReady(screen)
 
+    // Act
     dispatchKey({ key: 'a', metaKey: true })
 
+    // Assert
     const selectedNames = store.getState().skills.selectedSkillNames
     expect(selectedNames).toContain('task')
     expect(selectedNames).toContain('tdd')
     expect(selectedNames.length).toBe(2)
   })
 
-  it('Cmd+A is ignored when focus is inside an editable target', async () => {
+  it('does not select skills on Cmd+A while typing in a text field', async () => {
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
 
+    // Arrange
     store.dispatch(enterBulkSelectMode())
     // Wait for the bulk-mode render to commit so `bulkSelectModeRef.current`
     // is true when keydown fires. Without this wait the guard can pass via
@@ -374,6 +397,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
     const textInput = document.createElement('input')
     document.body.appendChild(textInput)
     try {
+      // Act
       textInput.focus()
       textInput.dispatchEvent(
         new KeyboardEvent('keydown', {
@@ -383,6 +407,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
         }),
       )
 
+      // Assert
       expect(store.getState().skills.selectedSkillNames).toEqual([])
     } finally {
       // Removal in `finally` so a failing assertion doesn't leak a focused
@@ -394,7 +419,8 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
 })
 
 describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
-  it('first Esc with non-empty selection clears selection only (mode stays on)', async () => {
+  it('clears the selection but stays in bulk mode on the first Esc when skills are selected', async () => {
+    // Arrange
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -406,13 +432,17 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
     expect(store.getState().skills.selectedSkillNames.length).toBe(1)
 
     await waitForBulkSelectReady(screen)
+
+    // Act
     dispatchKey({ key: 'Escape' })
 
+    // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual([])
     expect(store.getState().ui.bulkSelectMode).toBe(true)
   })
 
-  it('second Esc with empty selection exits bulk select mode', async () => {
+  it('leaves bulk mode on Esc once the selection is already empty', async () => {
+    // Arrange
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -420,21 +450,28 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
     store.dispatch(enterBulkSelectMode())
 
     await waitForBulkSelectReady(screen)
+
+    // Act
     dispatchKey({ key: 'Escape' })
 
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
 
-  it('Esc is a no-op when bulkSelectMode=false', async () => {
+  it('ignores Esc entirely when the user is not in bulk mode', async () => {
+    // Arrange
     const { store } = await renderMainContent()
 
+    // Act
     dispatchKey({ key: 'Escape' })
 
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
     expect(store.getState().skills.selectedSkillNames).toEqual([])
   })
 
-  it('Esc is ignored when focus is inside an editable target', async () => {
+  it('does not clear the selection on Esc while the user is typing in a text field', async () => {
+    // Arrange
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -450,11 +487,13 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
     const textInput = document.createElement('input')
     document.body.appendChild(textInput)
     try {
+      // Act
       textInput.focus()
       textInput.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
       )
 
+      // Assert
       expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
       expect(store.getState().ui.bulkSelectMode).toBe(true)
     } finally {
@@ -463,7 +502,7 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
   })
 })
 
-describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
+describe('MainContent bulk delete — uniform delete pipeline', () => {
   // After the CLI removal path was retired (npx skills spawn was unreliable
   // for ~/.agents/skills targets), every global-view bulk delete — including
   // skills tracked in `~/.agents/.skill-lock.json` via a `source` field —
@@ -494,7 +533,8 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
     }
   }
 
-  it('routes both source-tracked and plain skills through deleteSkills in one call', async () => {
+  it('deletes both source-tracked and plain skills through a single delete call', async () => {
+    // Arrange
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode, setBulkConfirm } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -541,8 +581,10 @@ describe('MainContent handleConfirmBulk — uniform delete pipeline', () => {
       }),
     )
 
+    // Act
     await screen.getByRole('button', { name: /^Delete$/ }).click()
 
+    // Assert
     // Single IPC call carrying BOTH reviewed row identities — partition is gone,
     // no second pipeline. Assert the payload verbatim so thunk tweaks surface.
     await expect.poll(() => mockSkillsDeleteSkills.mock.calls.length).toBe(1)
@@ -1327,7 +1369,8 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
   // (source view never offers it), and each option writes the Redux state that
   // selectors use to narrow the visible list.
 
-  it('renders the Orphan radio item with a destructive dot when an agent is selected', async () => {
+  it('offers an Orphan filter marked with a destructive dot when an agent is selected', async () => {
+    // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
       await import('@/renderer/src/redux/slices/agentsSlice')
@@ -1350,11 +1393,13 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     )
     store.dispatch(selectAgent('cursor'))
 
+    // Act
     // Open the dropdown from the agent-only skill type trigger.
     await screen
       .getByRole('button', { name: /Skill type filter: All/i })
       .click()
 
+    // Assert
     const orphanItem = screen.getByRole('menuitemradio', { name: /Orphan/i })
     await expect.element(orphanItem).toBeInTheDocument()
     // The colored dot is a sibling span; assert the className substring is
@@ -1368,7 +1413,8 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     ).not.toBeNull()
   })
 
-  it('renders the G-Stack radio item with a sky dot when an agent is selected', async () => {
+  it('offers a G-Stack filter marked with a sky dot when an agent is selected', async () => {
+    // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
       await import('@/renderer/src/redux/slices/agentsSlice')
@@ -1391,11 +1437,13 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     )
     store.dispatch(selectAgent('cursor'))
 
+    // Act
     // Open the dropdown — G-Stack sits beside Symlinked/Local as a type filter.
     await screen
       .getByRole('button', { name: /Skill type filter: All/i })
       .click()
 
+    // Assert
     const gstackItem = screen.getByRole('menuitemradio', { name: /G-Stack/i })
     await expect.element(gstackItem).toBeInTheDocument()
     const dot = gstackItem.element().querySelector('.bg-gstack')
@@ -1405,7 +1453,8 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     ).not.toBeNull()
   })
 
-  it('selecting Orphan narrows visible list to skills with isOrphan=true', async () => {
+  it('narrows the visible list to only orphan skills when the Orphan filter is chosen', async () => {
+    // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
       await import('@/renderer/src/redux/slices/agentsSlice')
@@ -1469,11 +1518,13 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     store.dispatch(selectAgent('cursor'))
     store.dispatch(fetchSkills.fulfilled([orphanSkill, linkedSkill], 'req-id'))
 
+    // Act
     await screen
       .getByRole('button', { name: /Skill type filter: All/i })
       .click()
     await screen.getByRole('menuitemradio', { name: /Orphan/i }).click()
 
+    // Assert
     // Slice state — single source of truth that the selector reads from.
     expect(store.getState().ui.skillTypeFilter).toBe('orphan')
 
@@ -1484,7 +1535,8 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     expect(filtered.map((skill) => skill.name)).toEqual(['orphan-one'])
   })
 
-  it('toggling an exclude checkbox updates state while keeping the dropdown open', async () => {
+  it('keeps the dropdown open and reveals Clear excludes when a type is excluded', async () => {
+    // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
       await import('@/renderer/src/redux/slices/agentsSlice')
@@ -1507,11 +1559,13 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     )
     store.dispatch(selectAgent('cursor'))
 
+    // Act
     await screen
       .getByRole('button', { name: /Skill type filter: All/i })
       .click()
     await screen.getByRole('menuitemcheckbox', { name: /Local/i }).click()
 
+    // Assert
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['local'])
     await expect
       .element(screen.getByRole('menuitem', { name: /Clear excludes/i }))
@@ -1520,7 +1574,8 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
 })
 
 describe('MainContent repo facet dropdown', () => {
-  it('selects a repository from source-count options', async () => {
+  it('filters by a repository when its source-count option is picked', async () => {
+    // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
@@ -1536,6 +1591,7 @@ describe('MainContent repo facet dropdown', () => {
       ),
     )
 
+    // Act
     await screen
       .getByRole('button', { name: /Filter by source repository/i })
       .click()
@@ -1545,6 +1601,7 @@ describe('MainContent repo facet dropdown', () => {
       })
       .click()
 
+    // Assert
     expect(store.getState().ui.selectedSources).toEqual([
       repositoryId('pbakaus/impeccable'),
     ])
@@ -1557,7 +1614,8 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
   // simultaneously. These tests pin the contract: each pill renders only
   // when its own state is set, and clearing one does not touch the other.
 
-  it('renders the Source pill with repo name and clears state on click', async () => {
+  it('shows a Source pill naming the repo and hides it again when the pill is cleared', async () => {
+    // Arrange
     const { screen, store } = await renderMainContent()
     const { setSelectedSources } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -1565,21 +1623,26 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
     // No source filter active: pill must not render.
     expect(screen.getByTestId('source-filter-pill').query()).toBeNull()
 
+    // Act — turn on the source filter
     store.dispatch(setSelectedSources([repositoryId('vercel-labs/skills')]))
 
+    // Assert — the pill appears, naming the repo
     const pill = screen.getByTestId('source-filter-pill')
     await expect.element(pill).toBeInTheDocument()
     await expect.element(pill).toHaveTextContent(/from/)
     await expect.element(pill).toHaveTextContent('vercel-labs/skills')
 
+    // Act — clear the filter via the pill's Clear button
     // Clear button inside the pill resets the slice field.
     await pill.getByRole('button', { name: /Clear/i }).click()
 
+    // Assert — filter is empty and the pill is gone
     await expect.poll(() => store.getState().ui.selectedSources).toEqual([])
     expect(screen.getByTestId('source-filter-pill').query()).toBeNull()
   })
 
-  it('Agent + Source pills both render when both filters are active', async () => {
+  it('shows both the Agent and Source pills when an agent and a source are filtered together', async () => {
+    // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
       await import('@/renderer/src/redux/slices/agentsSlice')
@@ -1602,9 +1665,12 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
         'req-id',
       ),
     )
+
+    // Act
     store.dispatch(selectAgent('claude-code'))
     store.dispatch(setSelectedSources([repositoryId('vercel-labs/skills')]))
 
+    // Assert
     await expect
       .element(screen.getByTestId('agent-filter-pill'))
       .toHaveTextContent('Claude Code')
@@ -1613,7 +1679,8 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
       .toHaveTextContent('vercel-labs/skills')
   })
 
-  it('clearing the Source pill leaves the Agent pill intact (orthogonal)', async () => {
+  it('keeps the Agent pill and agent filter when only the Source pill is cleared', async () => {
+    // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
       await import('@/renderer/src/redux/slices/agentsSlice')
@@ -1638,12 +1705,14 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
     store.dispatch(selectAgent('claude-code'))
     store.dispatch(setSelectedSources([repositoryId('vercel-labs/skills')]))
 
+    // Act
     // Clear ONLY the source pill.
     await screen
       .getByTestId('source-filter-pill')
       .getByRole('button', { name: /Clear/i })
       .click()
 
+    // Assert
     // Agent pill must still be rendered with its label intact; selectedSources
     // must be empty. This pins Issue 4 from the design review: source clear
     // does not bleed into agent state.

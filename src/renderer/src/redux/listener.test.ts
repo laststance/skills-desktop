@@ -50,12 +50,15 @@ beforeEach(() => {
 })
 
 describe('theme listener — applyThemeToDOM', () => {
-  it('writes --theme-hue, --theme-chroma, and .dark on setTheme(cyan)', async () => {
+  it('paints a color preset onto <html> in dark mode when the user picks Cyan', async () => {
+    // Arrange
     const store = await createThemedStore()
     const { setTheme } = await import('./slices/themeSlice')
 
+    // Act
     store.dispatch(setTheme('cyan'))
 
+    // Assert
     const root = document.documentElement
     expect(root.style.getPropertyValue('--theme-hue')).toBe('195')
     // chroma value depends on COLOR_PRESET_CHROMA; just assert it's non-zero.
@@ -66,57 +69,63 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(root.classList.contains('light')).toBe(false)
   })
 
-  it('resets --theme-chroma to 0 when switching to a neutral preset', async () => {
+  it('drains color back to grayscale when the user switches to a neutral preset', async () => {
+    // Arrange — start on a colored preset so chroma is non-zero
     const store = await createThemedStore()
     const { setTheme } = await import('./slices/themeSlice')
-
     store.dispatch(setTheme('rose'))
     expect(
       Number(document.documentElement.style.getPropertyValue('--theme-chroma')),
     ).toBeGreaterThan(0)
 
+    // Act
     store.dispatch(setTheme('neutral-dark'))
+
+    // Assert
     expect(
       document.documentElement.style.getPropertyValue('--theme-chroma'),
     ).toBe('0')
   })
 
-  it('setModePreference flips .dark ↔ .light classes', async () => {
+  it('toggles the <html> dark/light classes when the user flips the mode preference', async () => {
+    // Arrange — start with a color preset so we can flip mode independently
     const store = await createThemedStore()
     const { setTheme, setModePreference } = await import('./slices/themeSlice')
-
-    // Start with a color preset so we can flip independently.
     store.dispatch(setTheme('violet'))
     expect(document.documentElement.classList.contains('dark')).toBe(true)
 
+    // Act — flip to light
     store.dispatch(setModePreference('light'))
+
+    // Assert
     expect(document.documentElement.classList.contains('dark')).toBe(false)
     expect(document.documentElement.classList.contains('light')).toBe(true)
 
+    // Act — flip back to dark
     store.dispatch(setModePreference('dark'))
+
+    // Assert
     expect(document.documentElement.classList.contains('dark')).toBe(true)
     expect(document.documentElement.classList.contains('light')).toBe(false)
   })
 
-  it('applies persisted theme on ACTION_HYDRATE_COMPLETE', async () => {
-    // Simulate storage-middleware finishing hydration with a saved color
-    // preset. The listener reads `state.theme` at that instant and projects
-    // it onto <html>. Without this path, first paint post-hydration is blank.
+  it('repaints the persisted theme onto <html> when hydration completes', async () => {
+    // Arrange — simulate storage-middleware finishing hydration with a saved
+    // color preset. The listener reads `state.theme` at that instant and
+    // projects it onto <html>. Without this path, first paint post-hydration
+    // is blank. Reset the DOM first so we only observe the hydrate effect.
     const store = await createThemedStore()
     const { setTheme } = await import('./slices/themeSlice')
-
-    // Seed state as if hydration just completed with a color preset.
     store.dispatch(setTheme('blue'))
-
-    // Fire the hydrate-complete action explicitly (separate from setTheme).
-    // Reset DOM first so we only observe the hydrate effect.
     const root = document.documentElement
     root.style.removeProperty('--theme-hue')
     root.style.removeProperty('--theme-chroma')
     root.classList.remove('dark', 'light')
 
+    // Act
     store.dispatch({ type: ACTION_HYDRATE_COMPLETE })
 
+    // Assert
     expect(root.style.getPropertyValue('--theme-hue')).toBe('250')
     expect(
       Number(root.style.getPropertyValue('--theme-chroma')),
@@ -144,13 +153,16 @@ describe('theme listener — applyThemeToDOM', () => {
         getDefault().prepend(listenerMiddleware.middleware),
     })
 
+    // Arrange — select the agent that is about to be hidden
     store.dispatch(selectAgent('claude-code'))
     expect(store.getState().ui.selectedAgentId).toBe('claude-code')
 
+    // Act — hide the currently-selected agent via Settings
     store.dispatch(
       setSettings({ ...DEFAULT_SETTINGS, hiddenAgentIds: ['claude-code'] }),
     )
 
+    // Assert
     expect(store.getState().ui.selectedAgentId).toBeNull()
   })
 
@@ -171,11 +183,15 @@ describe('theme listener — applyThemeToDOM', () => {
         getDefault().prepend(listenerMiddleware.middleware),
     })
 
+    // Arrange — select cursor, the agent that will NOT be hidden
     store.dispatch(selectAgent('cursor'))
+
+    // Act — hide a different agent (claude-code)
     store.dispatch(
       setSettings({ ...DEFAULT_SETTINGS, hiddenAgentIds: ['claude-code'] }),
     )
 
+    // Assert
     expect(store.getState().ui.selectedAgentId).toBe('cursor')
   })
 
@@ -197,13 +213,17 @@ describe('theme listener — applyThemeToDOM', () => {
         getDefault().prepend(listenerMiddleware.middleware),
     })
 
-    // Capture the ui slice reference before the settings update — if the
-    // listener's no-op short-circuit holds, the reducer is never re-run
+    // Arrange — capture the ui slice reference before the settings update; if
+    // the listener's no-op short-circuit holds, the reducer is never re-run
     // and the ui slice keeps the same reference.
     const uiBefore = store.getState().ui
+
+    // Act — a hide lands while no agent is selected
     store.dispatch(
       setSettings({ ...DEFAULT_SETTINGS, hiddenAgentIds: ['claude-code'] }),
     )
+
+    // Assert — ui slice untouched (same reference) and selection still null
     expect(store.getState().ui).toBe(uiBefore)
     expect(store.getState().ui.selectedAgentId).toBeNull()
   })
@@ -306,29 +326,29 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(store.getState().theme.modePreference).toBe('light')
   })
 
-  it('rapid preset switches write to the DOM in dispatch order (no stale/async reordering)', async () => {
-    // Regression guard for the "stale listener write" class of bug — if the
-    // listener ever queues async writes (via Promise.resolve, microtask,
+  it('paints rapid preset switches onto <html> in dispatch order without stale reordering', async () => {
+    // Arrange — regression guard for the "stale listener write" class of bug:
+    // if the listener ever queues async writes (via Promise.resolve, microtask,
     // requestAnimationFrame, etc.), the order of setProperty calls could
-    // diverge from dispatch order and the final DOM could reflect an
-    // earlier preset. Asserting only on final state would miss that: we
-    // also spy on setProperty and pin the `--theme-hue` call sequence to
-    // the dispatched sequence, which is what actually catches reordering.
+    // diverge from dispatch order and the final DOM could reflect an earlier
+    // preset. Asserting only on final state would miss that: we also spy on
+    // setProperty and pin the `--theme-hue` call sequence to the dispatched
+    // sequence, which is what actually catches reordering.
     const store = await createThemedStore()
     const { setTheme } = await import('./slices/themeSlice')
-
     const setPropertySpy = vi.spyOn(
       document.documentElement.style,
       'setProperty',
     )
 
+    // Act
     store.dispatch(setTheme('rose'))
     store.dispatch(setTheme('cyan'))
     store.dispatch(setTheme('violet'))
     store.dispatch(setTheme('neutral-light'))
 
-    // Extract --theme-hue writes in the order they happened. Expected
-    // sequence mirrors the four dispatches above (350 → 195 → 300 → 0).
+    // Assert — extract --theme-hue writes in the order they happened; the
+    // expected sequence mirrors the four dispatches above (350 → 195 → 300 → 0).
     const hueWrites = setPropertySpy.mock.calls
       .filter(([prop]) => prop === '--theme-hue')
       .map(([, value]) => value)

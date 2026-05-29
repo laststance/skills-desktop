@@ -65,11 +65,11 @@ test('toggling Cursor in Settings → Agents hides it from the sidebar and persi
   electronApp,
   isolatedHome,
 }) => {
-  // Pre-stage `~/.cursor/skills` so Cursor reports `exists: true` in the
-  // agent scan. Without this, all 21 agents land in the "21 not installed"
-  // disclosure and the "Show Cursor in sidebar" checkbox renders disabled.
-  // Same recipe as folder-actions.e2e.ts:65 for the AgentItem context-menu
-  // test.
+  // Arrange — pre-stage `~/.cursor/skills` so Cursor reports `exists: true`
+  // in the agent scan. Without this, all 21 agents land in the "21 not
+  // installed" disclosure and the "Show Cursor in sidebar" checkbox renders
+  // disabled. Same recipe as folder-actions.e2e.ts:65 for the AgentItem
+  // context-menu test.
   mkdirSync(join(isolatedHome, '.cursor', 'skills'), { recursive: true })
 
   await waitForInitialScan(appWindow)
@@ -92,8 +92,8 @@ test('toggling Cursor in Settings → Agents hides it from the sidebar and persi
     })
   })
 
-  // Sanity: Cursor is now installed in the main window's store. If this
-  // assertion fails, the rest of the test is meaningless because the
+  // Arrange sanity guard: Cursor is now installed in the main window's store.
+  // If this assertion fails, the rest of the test is meaningless because the
   // Settings checkbox would refer to a "not installed" agent.
   const cursorExistsBefore = await getStoreState(appWindow, (state) => {
     const root = state as {
@@ -103,14 +103,15 @@ test('toggling Cursor in Settings → Agents hides it from the sidebar and persi
   })
   expect(cursorExistsBefore).toBe(true)
 
-  // Initial state: nothing hidden yet — settings.json doesn't even exist
-  // on disk because `saveSettings` only writes after the first mutation.
+  // Arrange sanity guard: nothing hidden yet — settings.json doesn't even
+  // exist on disk because `saveSettings` only writes after the first mutation.
   const hiddenBefore = await getStoreState(appWindow, (state) => {
     const root = state as { settings: { hiddenAgentIds: string[] } }
     return root.settings.hiddenAgentIds
   })
   expect(hiddenBefore).toEqual([])
 
+  // Act — open Settings → Agents and uncheck "Show Cursor in sidebar".
   // Open Settings — spawns a second BrowserWindow. Capture the window
   // event BEFORE clicking; Electron fires it synchronously when the new
   // webContents is created and racing it surfaces as a flaky timeout.
@@ -133,6 +134,8 @@ test('toggling Cursor in Settings → Agents hides it from the sidebar and persi
 
   await cursorCheckbox.click()
 
+  // Assert — the hide propagated through IPC to the main window, the sidebar,
+  // and the on-disk settings.json.
   // Wait for the cross-window IPC roundtrip to land. The sequence is:
   //   1. Settings window: optimistic `setSettings` dispatch.
   //   2. Settings window: `settings:set` IPC fires.
@@ -172,13 +175,14 @@ test('IPC strict-enum boundary rejects unknown agent ids without persisting', as
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange — wait for the initial scan so the IPC surface is live.
   await waitForInitialScan(appWindow)
 
-  // Direct preload-bridge call, bypassing `useUpdateSettings` — that hook
-  // does an optimistic dispatch FIRST and then voids the IPC promise, so
-  // a rejection there would silently leave the renderer with the bad
-  // value. The boundary we're testing is the IPC schema, so we hit it
-  // directly and observe the rejection.
+  // Act — call the preload bridge directly with an unknown agent id,
+  // bypassing `useUpdateSettings` — that hook does an optimistic dispatch
+  // FIRST and then voids the IPC promise, so a rejection there would silently
+  // leave the renderer with the bad value. The boundary we're testing is the
+  // IPC schema, so we hit it directly and observe the rejection.
   const result = await appWindow.evaluate(async () => {
     try {
       // `window.electron.settings.set` is typed loosely in `e2e/types.d.ts`
@@ -195,6 +199,8 @@ test('IPC strict-enum boundary rejects unknown agent ids without persisting', as
     }
   })
 
+  // Assert — the boundary rejected, the error names the channel + validation
+  // marker, the renderer state stayed empty, and nothing was written to disk.
   expect(
     result.rejected,
     'settings.set should reject on unknown agent id',
@@ -224,8 +230,8 @@ test('IPC strict-enum boundary rejects unknown agent ids without persisting', as
 test('stale agent id is filtered from settings.json without dropping siblings', async ({
   isolatedHome,
 }) => {
-  // Pre-stage settings.json with a mix of valid + stale ids and several
-  // sibling fields. Writes must happen BEFORE Electron boots so
+  // Arrange — pre-stage settings.json with a mix of valid + stale ids and
+  // several sibling fields. Writes must happen BEFORE Electron boots so
   // `loadSettings` parses this file on startup. We don't request
   // `electronApp` or `appWindow` from the fixture so Playwright's lazy
   // fixture instantiation skips them — the default fixture would launch
@@ -257,10 +263,12 @@ test('stale agent id is filtered from settings.json without dropping siblings', 
     },
   })
   try {
+    // Act — boot the app so `loadSettings` parses the pre-staged file.
     const appWindow = await electronApp.firstWindow()
     await appWindow.waitForLoadState('domcontentloaded')
     await waitForInitialScan(appWindow)
 
+    // Assert — the stale id is dropped, the valid id survives, siblings intact.
     const settings = await getStoreState(appWindow, (state) => {
       const root = state as {
         settings: {

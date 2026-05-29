@@ -45,12 +45,17 @@ async function renderThemeSelector() {
 }
 
 describe('ThemeSelector — Pattern 1 layout', () => {
-  it('renders the trigger button with an accessible name', async () => {
+  it('exposes the theme trigger by accessible name for screen-reader users', async () => {
+    // Arrange
     const { screen } = await renderThemeSelector()
 
-    await expect
-      .element(screen.getByRole('button', { name: /Theme and color options/i }))
-      .toBeInTheDocument()
+    // Act
+    const trigger = screen.getByRole('button', {
+      name: /Theme and color options/i,
+    })
+
+    // Assert
+    await expect.element(trigger).toBeInTheDocument()
   })
 
   it('renders all 17 accent swatch buttons when the menu opens', async () => {
@@ -129,10 +134,9 @@ describe('ThemeSelector — Pattern 1 layout', () => {
       .toBeInTheDocument()
   })
 
-  it('clicking a color swatch dispatches setTheme(presetName) with correct hue/chroma', async () => {
+  it('applies the Cyan accent hue and chroma when its swatch is picked', async () => {
     // Arrange
     const { screen, store } = await renderThemeSelector()
-    const { THEME_PRESETS } = await import('@/shared/constants')
 
     // Act
     await screen
@@ -140,14 +144,15 @@ describe('ThemeSelector — Pattern 1 layout', () => {
       .click()
     await screen.getByRole('button', { name: 'Select Cyan theme' }).click()
 
-    // Assert
+    // Assert — hard-coded from THEME_PRESETS.cyan so a drifted hue/chroma in
+    // constants.ts is caught here instead of mirrored into the expectation.
     const { theme } = store.getState()
     expect(theme.preset).toBe('cyan')
-    expect(theme.hue).toBe(THEME_PRESETS.cyan.hue)
-    expect(theme.chroma).toBe(THEME_PRESETS.cyan.chroma)
+    expect(theme.hue).toBe(195)
+    expect(theme.chroma).toBe(0.16)
   })
 
-  it('aria-pressed reflects the currently selected color preset', async () => {
+  it('marks only the active accent swatch as pressed for assistive tech', async () => {
     // Arrange — seed a non-default preset before opening the menu so the
     // component reads it on first render. Guards against a regression where
     // aria-pressed was hard-wired to the initial state and never updated.
@@ -169,7 +174,7 @@ describe('ThemeSelector — Pattern 1 layout', () => {
       .toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('clicking Zinc family in Dark mode dispatches setTheme("zinc-dark")', async () => {
+  it('picks the dark Zinc partner when the Zinc family is chosen in Dark mode', async () => {
     // Arrange — initial mode is dark; user opens the dropdown.
     const { screen, store } = await renderThemeSelector()
 
@@ -185,7 +190,7 @@ describe('ThemeSelector — Pattern 1 layout', () => {
     expect(theme.mode).toBe('dark')
   })
 
-  it('clicking Zinc family in Light mode dispatches setTheme("zinc-light")', async () => {
+  it('picks the light Zinc partner when the Zinc family is chosen in Light mode', async () => {
     // Arrange — pin Light before opening the menu.
     const { screen, store } = await renderThemeSelector()
     const { setModePreference } =
@@ -204,7 +209,7 @@ describe('ThemeSelector — Pattern 1 layout', () => {
     expect(theme.mode).toBe('light')
   })
 
-  it('clicking the Light segmented item dispatches setModePreference("light")', async () => {
+  it('switches the app to Light appearance when the Light segment is clicked', async () => {
     // Arrange
     const { screen, store } = await renderThemeSelector()
     expect(store.getState().theme.modePreference).toBe('dark')
@@ -220,7 +225,7 @@ describe('ThemeSelector — Pattern 1 layout', () => {
     expect(store.getState().theme.modePreference).toBe('light')
   })
 
-  it('clicking the Dark segmented item dispatches setModePreference("dark")', async () => {
+  it('switches the app to Dark appearance when the Dark segment is clicked', async () => {
     // Arrange — start from Light so the Dark click is observable.
     const { screen, store } = await renderThemeSelector()
     const { setModePreference } =
@@ -238,7 +243,7 @@ describe('ThemeSelector — Pattern 1 layout', () => {
     expect(store.getState().theme.modePreference).toBe('dark')
   })
 
-  it('clicking the Auto segmented item dispatches setModePreference("system")', async () => {
+  it('follows the OS appearance when the Auto segment is clicked', async () => {
     // Arrange
     const { screen, store } = await renderThemeSelector()
 
