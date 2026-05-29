@@ -250,6 +250,19 @@ Rules:
   spatial placement.
 - Hover should clarify clickability through tint, not depth.
 - Selected rows need stronger contrast than hover rows.
+- Row and card corner actions follow a visibility asymmetry by intent — match
+  the affordance to whether the action helps or harms:
+  - Destructive actions (delete, unlink) stay hover/focus-revealed
+    (`opacity-0 group-hover:opacity-100 focus-visible:opacity-100`). They must
+    not advertise themselves at rest; a quiet corner avoids accidental clicks
+    and visual noise. (Linear, Finder, VS Code, GitHub issue rows.)
+  - Non-destructive value-add actions (bookmark, pin, copy) keep a quiet
+    always-visible rest state (`opacity-40`) that lifts to full on hover/focus.
+    For an action the user benefits from finding, discoverability outranks
+    restraint — hidden-until-hover hurts it. (Notion, GitHub favorite/star.)
+  - Reserve overlay space with padding so revealing a corner action never
+    shifts the row's content (zero-layout-shift); align overlays to the title
+    row, not the card's raw top edge.
 
 ### Cards and Widgets
 
@@ -302,6 +315,18 @@ finger-target minimum does not apply. The floor is WCAG 2.5.8 AA: 24x24 CSS px
   never over a row that is itself clickable: `opacity-0` controls stay
   pointer-active, so the halo would steal corner clicks meant for the row.
 - Do not shrink destructive or confirmation controls below the 24px floor.
+
+Quiet resting affordances:
+
+When a non-destructive action uses a muted always-visible rest state (see Lists
+and Rows), the resting treatment must not become an accessibility gap.
+
+- Keep the resting opacity high enough that the control never reads as disabled;
+  `opacity-40` is the practical floor for a muted-but-discoverable icon.
+- Restore full strength on BOTH hover and `focus-visible` — never hover alone.
+- The keyboard path must surface the control at full contrast (visible focus
+  ring plus full-opacity glyph), so a muted rest state is never the only way a
+  keyboard or low-vision user perceives the action.
 
 ## Responsive and Window Behavior
 
