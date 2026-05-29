@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { AbsolutePath, AgentId, Skill, SymlinkInfo } from '@/shared/types'
 
 import {
+  getCardContentPaddingClass,
   getSkillItemVisibility,
   type SkillVisibilityInput,
 } from './skillItemHelpers'
@@ -547,5 +548,86 @@ describe('getSkillItemVisibility', () => {
         false,
       )
     })
+  })
+})
+
+describe('getCardContentPaddingClass', () => {
+  it('reserves the wide gutter so the Add control never overlaps a stacked bookmark + delete pair', () => {
+    // Arrange — global-view repo skill: bookmark slides to right-11 (44px) and
+    // the delete X sits at right-0 (44px), forming an 88px stack. This is the
+    // exact state from the reported hover bug where "+ Add" slid under the
+    // bookmark.
+    const flags = {
+      showBookmark: true,
+      showUnlinkButton: false,
+      showDeleteButton: true,
+    }
+
+    // Act
+    const paddingClass = getCardContentPaddingClass(flags)
+
+    // Assert — pr-24 (96px) clears the 88px stack with an 8px gap.
+    expect(paddingClass).toBe('pr-24')
+  })
+
+  it('reserves the wide gutter when a bookmark stacks with the unlink button in agent view', () => {
+    // Arrange — agent view, valid symlink: bookmark + unlink X also stack to 88px.
+    const flags = {
+      showBookmark: true,
+      showUnlinkButton: true,
+      showDeleteButton: false,
+    }
+
+    // Act
+    const paddingClass = getCardContentPaddingClass(flags)
+
+    // Assert
+    expect(paddingClass).toBe('pr-24')
+  })
+
+  it('reserves a single-button gutter when only the bookmark shows', () => {
+    // Arrange — bookmarkable skill whose agent row is broken: no X button, so
+    // the bookmark sits alone at right-0 (one 44px overlay).
+    const flags = {
+      showBookmark: true,
+      showUnlinkButton: false,
+      showDeleteButton: false,
+    }
+
+    // Act
+    const paddingClass = getCardContentPaddingClass(flags)
+
+    // Assert — pr-14 (56px) clears one 44px button.
+    expect(paddingClass).toBe('pr-14')
+  })
+
+  it('reserves a single-button gutter when only an X button shows (non-bookmarkable skill)', () => {
+    // Arrange — local skill (no repo source → not bookmarkable) with an unlink X.
+    const flags = {
+      showBookmark: false,
+      showUnlinkButton: true,
+      showDeleteButton: false,
+    }
+
+    // Act
+    const paddingClass = getCardContentPaddingClass(flags)
+
+    // Assert
+    expect(paddingClass).toBe('pr-14')
+  })
+
+  it('uses normal padding when no overlay buttons render', () => {
+    // Arrange — no bookmark, no X (e.g. orphan row in agent view).
+    const flags = {
+      showBookmark: false,
+      showUnlinkButton: false,
+      showDeleteButton: false,
+    }
+
+    // Act
+    const paddingClass = getCardContentPaddingClass(flags)
+
+    // Assert — falls back to the default p-4 right padding.
+    expect(paddingClass).toBe('pr-4')
   })
 })

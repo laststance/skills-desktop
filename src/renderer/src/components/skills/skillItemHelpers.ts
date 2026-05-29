@@ -150,3 +150,37 @@ export function getSkillItemVisibility(
     showGStackBadge,
   }
 }
+
+/**
+ * Tailwind right-padding class for a SkillItem card body.
+ *
+ * Exists because the action buttons (bookmark + X) are `absolute`-positioned
+ * overlays out of the content flow, so the body needs a manual right gutter to
+ * keep its always-visible title-row controls (the "+ Add" button) from sliding
+ * under those overlays on hover. The bookmark + X form an 88px stack
+ * (bookmark at `right-11` = 44px wide, X at `right-0` = 44px wide), so a single
+ * `pr-14` (56px) reserve only clears one button — two need `pr-24` (96px).
+ *
+ * @param flags - Which overlay buttons render (from `getSkillItemVisibility` + `canBookmarkSkill`)
+ * @returns
+ * - `'pr-24'` (96px): bookmark AND an X button both show → clear the 88px stack
+ * - `'pr-14'` (56px): exactly one of bookmark / X shows → clear one 44px button
+ * - `'pr-4'` (16px): no overlay buttons → normal card padding
+ * @example
+ * getCardContentPaddingClass({ showBookmark: true, showUnlinkButton: false, showDeleteButton: true }) // => 'pr-24'
+ * getCardContentPaddingClass({ showBookmark: true, showUnlinkButton: false, showDeleteButton: false }) // => 'pr-14'
+ * getCardContentPaddingClass({ showBookmark: false, showUnlinkButton: false, showDeleteButton: false }) // => 'pr-4'
+ */
+export function getCardContentPaddingClass(flags: {
+  showBookmark: boolean
+  showUnlinkButton: boolean
+  showDeleteButton: boolean
+}): 'pr-24' | 'pr-14' | 'pr-4' {
+  const { showBookmark, showUnlinkButton, showDeleteButton } = flags
+  const hasXButton = showUnlinkButton || showDeleteButton
+  // Two stacked 44px buttons span 88px; only pr-24 (96px) leaves a gap.
+  if (showBookmark && hasXButton) return 'pr-24'
+  // Either button alone is a single 44px overlay; pr-14 (56px) clears it.
+  if (showBookmark || hasXButton) return 'pr-14'
+  return 'pr-4'
+}

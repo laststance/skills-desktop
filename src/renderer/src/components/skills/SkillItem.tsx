@@ -59,7 +59,10 @@ import type { Skill, SkillName, SymlinkInfo } from '@/shared/types'
 import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
 import { computeRangeSelection } from './bulkDeleteHelpers'
 import { partitionGlobalDeleteTargets } from './reviewedDestructiveTargets'
-import { getSkillItemVisibility } from './skillItemHelpers'
+import {
+  getCardContentPaddingClass,
+  getSkillItemVisibility,
+} from './skillItemHelpers'
 import { SourceLink } from './SourceLink'
 
 // Strongly-type the `skills:bulkItemFailed` CustomEvent so the cast inside
@@ -637,10 +640,15 @@ export const SkillItem = React.memo(function SkillItem({
           <CardContent
             className={cn(
               'p-4',
-              // Reserve right space for the X/bookmark buttons when shown.
-              showUnlinkButton || showDeleteButton || showBookmark
-                ? 'pr-14'
-                : 'pr-4',
+              // Reserve right space for the absolute-positioned X/bookmark
+              // overlays so the always-visible "+ Add" control never slides
+              // under them on hover. Bookmark + X stack to 88px, so that case
+              // needs pr-24 (96px), not the single-button pr-14 (56px).
+              getCardContentPaddingClass({
+                showBookmark,
+                showUnlinkButton,
+                showDeleteButton,
+              }),
             )}
           >
             <div className="flex items-start gap-3">
