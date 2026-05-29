@@ -120,26 +120,30 @@ test('selection survives no further than a tab switch or agent switch (regressio
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   skipWhenAzureSnapshotUnavailable(isolatedHome)
   await waitForInitialScan(appWindow)
 
-  // Tab-switch leg — toggle one azure-* skill into the selection, flip the
-  // active tab, expect listener middleware to dispatch clearSelection.
+  // Tab-switch leg.
+  // Arrange — toggle one azure-* skill into the selection.
   await dispatchAction(appWindow, {
     type: 'skills/toggleSelection',
     payload: AZURE_AI_NAME,
   })
   await waitForSelectionCount(appWindow, 1)
 
+  // Act — flip the active tab.
   await dispatchAction(appWindow, {
     type: 'ui/setActiveTab',
     payload: 'marketplace',
   })
+  // Assert — listener middleware dispatched clearSelection.
   await waitForSelectionCount(appWindow, 0)
 
   // Agent-switch leg — same matcher set in listener.ts, different action.
   // Re-tick the selection to prove the listener fires on a second action and
   // not just once per session.
+  // Arrange
   await dispatchAction(appWindow, {
     type: 'ui/setActiveTab',
     payload: 'installed',
@@ -150,10 +154,12 @@ test('selection survives no further than a tab switch or agent switch (regressio
   })
   await waitForSelectionCount(appWindow, 1)
 
+  // Act — switch the selected agent.
   await dispatchAction(appWindow, {
     type: 'ui/selectAgent',
     payload: 'cursor',
   })
+  // Assert — selection cleared again.
   await waitForSelectionCount(appWindow, 0)
 })
 
@@ -190,27 +196,29 @@ test('selection survives no further than a tab switch or agent switch (regressio
  * also bring brittleness (button visibility / disabled state during the test's
  * isolated-HOME bootstrap) that this test doesn't need to absorb.
  */
-test('selection clears on fetchSyncPreview.pending — third listener-matcher leg (regression 2f05684 follow-up)', async ({
+test('starting a sync preview clears the selection, but other sync thunks leave it intact (regression 2f05684 follow-up)', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   skipWhenAzureSnapshotUnavailable(isolatedHome)
   await waitForInitialScan(appWindow)
 
-  // Tick one azure-* skill so the listener has something to clear. Leg-1/-2
-  // test re-ticks between dispatches; we don't need that here because there's
-  // exactly one matcher leg under test.
+  // Arrange — tick one azure-* skill so the listener has something to clear.
+  // Leg-1/-2 test re-ticks between dispatches; we don't need that here because
+  // there's exactly one matcher leg under test.
   await dispatchAction(appWindow, {
     type: 'skills/toggleSelection',
     payload: AZURE_AI_NAME,
   })
   await waitForSelectionCount(appWindow, 1)
 
-  // Dispatch the exact action shape RTK builds when a real thunk fires .pending.
-  // `meta.requestStatus: 'pending'` is what RTK's internal action creators add;
-  // we mirror it for fidelity even though `isAnyOf` only inspects `.type`. If a
-  // future RTK version ever switched `isAnyOf` to also match on
-  // `meta.requestStatus`, this test stays correct without modification.
+  // Act — dispatch the exact action shape RTK builds when a real sync-preview
+  // thunk fires .pending. `meta.requestStatus: 'pending'` is what RTK's
+  // internal action creators add; we mirror it for fidelity even though
+  // `isAnyOf` only inspects `.type`. If a future RTK version ever switched
+  // `isAnyOf` to also match on `meta.requestStatus`, this test stays correct
+  // without modification.
   await dispatchAction(appWindow, {
     type: 'ui/fetchSyncPreview/pending',
     meta: {
@@ -219,6 +227,7 @@ test('selection clears on fetchSyncPreview.pending — third listener-matcher le
       requestStatus: 'pending',
     },
   })
+  // Assert — selection cleared.
   await waitForSelectionCount(appWindow, 0)
 
   // Negative control — `executeSyncAction.pending` has the same shape family
@@ -228,12 +237,14 @@ test('selection clears on fetchSyncPreview.pending — third listener-matcher le
   // matcher to `isAnyOf(..., fetchSyncPreview.pending, executeSyncAction.pending)`
   // would silently pass — losing the "selection clears on PREVIEW only, not on
   // every sync-related thunk" contract that the listener encodes.
+  // Arrange
   await dispatchAction(appWindow, {
     type: 'skills/toggleSelection',
     payload: AZURE_AI_NAME,
   })
   await waitForSelectionCount(appWindow, 1)
 
+  // Act — dispatch the wrong sync thunk's pending action.
   await dispatchAction(appWindow, {
     type: 'ui/executeSyncAction/pending',
     meta: {
@@ -242,7 +253,7 @@ test('selection clears on fetchSyncPreview.pending — third listener-matcher le
       requestStatus: 'pending',
     },
   })
-  // Assert selection count remains 1 after the wrong-thunk dispatch. Direct
+  // Assert — selection count remains 1 after the wrong-thunk dispatch. Direct
   // synchronous read instead of `waitForSelectionCount` because we need to
   // assert STABILITY (the listener should NOT have cleared); a wait helper
   // would silently succeed if the count happened to be 1 at the moment of
@@ -254,12 +265,14 @@ test('cline/warp do NOT report universal source skills as their own local skills
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   skipWhenAzureSnapshotUnavailable(isolatedHome)
   await waitForInitialScan(appWindow)
 
-  // FS truth — universal source has azure-ai but neither cline nor warp's
-  // own scanDir does. If post-fix scanner reads the right place, cline/warp
-  // symlink entries should reflect this asymmetry rather than mirror SOURCE_DIR.
+  // Arrange FS-truth guards — universal source has azure-ai but neither cline
+  // nor warp's own scanDir does. If post-fix scanner reads the right place,
+  // cline/warp symlink entries should reflect this asymmetry rather than
+  // mirror SOURCE_DIR.
   expect(
     existsSync(join(isolatedHome, '.agents', 'skills', AZURE_AI_NAME)),
   ).toBe(true)
@@ -287,6 +300,7 @@ test('cline/warp do NOT report universal source skills as their own local skills
     ).toBe(false)
   }
 
+  // Act — read azure-ai's per-agent symlink rows from the scanned store state.
   const azureSymlinks = await getStoreState(
     appWindow,
     (state): SymlinkSnapshot[] => {
@@ -300,7 +314,7 @@ test('cline/warp do NOT report universal source skills as their own local skills
     },
   )
 
-  // The load-bearing assertion. Pre-fix would have set
+  // Assert — the load-bearing checks. Pre-fix would have set
   //   { status: 'valid', isLocal: true, linkPath: '<HOME>/.agents/skills/azure-ai' }
   // because cline.path === SOURCE_DIR caused `checkLinkOrLocal` to lstat the
   // real source dir as if it belonged to cline. Post-fix the linkPath must
@@ -323,8 +337,8 @@ test('cline/warp do NOT report universal source skills as their own local skills
     ).not.toContain(`${isolatedHome}/.agents/skills/`)
   }
 
-  // Sanity — the source-side row for azure-ai still exists, so the regression
-  // would fail closed (assertion above) rather than silently skip.
+  // Assert sanity — the source-side row for azure-ai still exists, so the
+  // regression would fail closed (assertion above) rather than silently skip.
   await refreshSkillsState(appWindow)
   const stillPresent = await getStoreState(appWindow, (state) => {
     const root = state as { skills: { items: Array<{ name: string }> } }
@@ -333,12 +347,12 @@ test('cline/warp do NOT report universal source skills as their own local skills
   expect(stillPresent).toBe(true)
 })
 
-test('removeAllFromAgent refuses on a multi-agent shared scanDir (.config/agents/skills)', async ({
+test('refuses to delete every skill from a directory shared by multiple agents (.config/agents/skills)', async ({
   appWindow,
   isolatedHome,
 }) => {
-  // Pre-stage the shared scanDir as a real directory with a sentinel entry —
-  // amp, kimi-cli, replit all resolve to this path, so SHARED_AGENT_PATHS
+  // Arrange — pre-stage the shared scanDir as a real directory with a sentinel
+  // entry. amp, kimi-cli, replit all resolve to this path, so SHARED_AGENT_PATHS
   // includes it via the multi-agent collision pass in main/constants.ts.
   // No symlinking required: stage 1 (`SHARED_AGENT_PATHS.has(resolved)`) of
   // `isSharedAgentPath` short-circuits before any realpath fallback runs.
@@ -351,6 +365,7 @@ test('removeAllFromAgent refuses on a multi-agent shared scanDir (.config/agents
     Boolean(window.electron?.skills?.removeAllFromAgent),
   )
 
+  // Act — ask the IPC handler to remove all skills from the shared dir.
   const result = await appWindow.evaluate(
     async (args: {
       agentId: string
@@ -364,6 +379,7 @@ test('removeAllFromAgent refuses on a multi-agent shared scanDir (.config/agents
     },
   )
 
+  // Assert — the IRON RULE refused and the directory + sentinel survived.
   expectIronRuleRefusal(result)
 
   // FS — the sentinel still exists. If the IRON RULE check ever migrates to
@@ -397,10 +413,11 @@ test('removeAllFromAgent refuses on a multi-agent shared scanDir (.config/agents
  * "non-aliased shared path with rich contents" axis — distinct from
  * `unlink-agent.e2e.ts` Test 3 (stage 2/3 via symlink-alias scanDir).
  */
-test('removeAllFromAgent refusal leaves both aliased symlinks and local skill bytes untouched', async ({
+test('refuses to delete a shared directory and leaves both aliased symlinks and local skill bytes untouched', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange — stage the shared scanDir.
   const sharedScanDir = join(isolatedHome, '.config', 'agents', 'skills')
   mkdirSync(sharedScanDir, { recursive: true })
 
@@ -409,7 +426,8 @@ test('removeAllFromAgent refusal leaves both aliased symlinks and local skill by
   const aliasSkillName = 'b1-source-alias-fixture'
   const aliasTargetPath = stageSourceSkill(isolatedHome, aliasSkillName)
 
-  // Pre-stage mixed contents inside the shared dir.
+  // Arrange — pre-stage mixed contents inside the shared dir (one alias symlink
+  // plus one real local-only skill dir).
   const aliasLinkPath = join(sharedScanDir, 'b1-azure-alias')
   symlinkSync(aliasTargetPath, aliasLinkPath)
 
@@ -420,6 +438,7 @@ test('removeAllFromAgent refusal leaves both aliased symlinks and local skill by
 
   await waitForInitialScan(appWindow)
 
+  // Act — ask the IPC handler to remove all skills from the shared dir.
   const result = await appWindow.evaluate(
     async (args: {
       agentId: string
@@ -433,6 +452,7 @@ test('removeAllFromAgent refusal leaves both aliased symlinks and local skill by
     },
   )
 
+  // Assert — the IRON RULE refused; nothing in the mixed directory was touched.
   expectIronRuleRefusal(result)
 
   // FS — the alias still resolves to the source target, the local skill is
@@ -476,10 +496,11 @@ test('removeAllFromAgent refusal leaves both aliased symlinks and local skill by
  * destroying every universal agent's source bytes. The existing
  * `unlink-agent.e2e.ts` Test 3 covers stage 2 only (single-hop alias).
  */
-test('removeAllFromAgent refusal still fires when SOURCE_DIR itself is a symlink (firmlink edge)', async ({
+test('refuses to delete an agent dir even when SOURCE_DIR itself is a symlink (firmlink edge)', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   stageSourceSkill(isolatedHome, 'firmlink-source-fixture')
   // Wait for the renderer's initial scan BEFORE renaming SOURCE_DIR.
   // The scanner reads SOURCE_DIR's contents; renaming mid-scan would race
@@ -530,6 +551,7 @@ test('removeAllFromAgent refusal still fires when SOURCE_DIR itself is a symlink
     'expected the relocated SOURCE_DIR to retain staged source contents',
   ).toBeGreaterThan(0)
 
+  // Act — ask the IPC handler to remove all skills via the two-hop symlinked dir.
   const result = await appWindow.evaluate(
     async (args: {
       agentId: string
@@ -543,6 +565,7 @@ test('removeAllFromAgent refusal still fires when SOURCE_DIR itself is a symlink
     },
   )
 
+  // Assert — the IRON RULE refused and the relocated source survived intact.
   expectIronRuleRefusal(result)
 
   // FS — every link still in place, every byte in realSourceDir untouched.
@@ -592,14 +615,15 @@ test('removeAllFromAgent refusal still fires when SOURCE_DIR itself is a symlink
  * confirms the orphan flag did NOT broaden across all rows — the previous
  * three assertions alone could pass while every row got `isOrphan: true`.
  */
-test('scanSkills surfaces broken symlinks as orphan skills (regression #127)', async ({
+test('broken symlinks show up as orphan skill rows in the list (regression #127)', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   stageSourceSkill(isolatedHome, 'source-control-fixture')
   await waitForInitialScan(appWindow)
 
-  // Stage the orphan condition: a non-universal agent dir containing a
+  // Arrange — stage the orphan condition: a non-universal agent dir containing a
   // dangling symlink whose target source has never existed (equivalent to
   // a user-driven `rm -rf ~/.agents/skills/<name>` after install). The
   // `phantom-` prefix isolates this fixture from any name the snapshot's
@@ -621,13 +645,14 @@ test('scanSkills surfaces broken symlinks as orphan skills (regression #127)', a
   const orphanLinkPath = join(windsurfSkillsDir, orphanSkillName)
   symlinkSync(phantomSourcePath, orphanLinkPath)
 
-  // FS sanity — the staged shape must be a real symlink with an absent
+  // Arrange FS-sanity — the staged shape must be a real symlink with an absent
   // target. `existsSync` follows symlinks so a broken link reads as `false`;
   // `lstatSync` does NOT follow, so it confirms the symlink itself is real.
   expect(lstatSync(orphanLinkPath).isSymbolicLink()).toBe(true)
   expect(existsSync(phantomSourcePath)).toBe(false)
   expect(existsSync(orphanLinkPath)).toBe(false)
 
+  // Act — rescan so the orphan scanner picks up the dangling link.
   await refreshSkillsState(appWindow)
 
   interface OrphanSkillSnapshot {
@@ -652,6 +677,7 @@ test('scanSkills surfaces broken symlinks as orphan skills (regression #127)', a
     },
   )
 
+  // Assert — the orphan row exists with the right flags and per-agent statuses.
   expect(
     orphanRecord,
     'orphan skill must surface in state.skills.items — pre-fix bug indicator (the entire row was being silently dropped)',
@@ -771,15 +797,18 @@ test('sidebar inner ScrollArea wrapper does not inflate beyond aside width (regr
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange — stage one source skill so the Sidebar mounts with the SourceCard.
   stageSourceSkill(isolatedHome, 'sidebar-sourcecard-fixture')
   await waitForInitialScan(appWindow)
 
+  // Act — locate the aside, the inner Radix wrapper, and the truncated path.
   const aside = appWindow.locator('aside[aria-label="Agent sidebar"]')
   const wrapper = aside
     .locator('[data-radix-scroll-area-viewport] > div')
     .first()
   const truncatedPath = aside.getByText('~/.agents/skills', { exact: true })
 
+  // Assert — all three are present, then the wrapper width / display invariant.
   await expect(aside).toBeVisible()
   await expect(wrapper).toBeAttached()
   await expect(truncatedPath).toBeVisible()
@@ -875,9 +904,11 @@ test('skills list scroll position survives a background refetch (regression 5619
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   skipWhenAzureSnapshotUnavailable(isolatedHome)
   await waitForInitialScan(appWindow)
 
+  // Arrange sanity guard — the snapshot must contain rows to scroll.
   const itemCount = await getStoreState(appWindow, (state) => {
     const root = state as { skills: { items: unknown[] } }
     return root.skills.items.length
@@ -933,7 +964,7 @@ test('skills list scroll position survives a background refetch (regression 5619
     'browser refused the scrollTop assignment — element is not scrollable',
   ).toBeGreaterThan(0)
 
-  // Dispatch the thunk's pending action directly. Pre-fix, SkillsList's
+  // Act — dispatch the thunk's pending action directly. Pre-fix, SkillsList's
   // top-level `if (loading)` would unmount the List on the next render
   // tick, dropping the scroll container.
   await dispatchAction(appWindow, {
@@ -954,6 +985,7 @@ test('skills list scroll position survives a background refetch (regression 5619
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
   })
 
+  // Assert — the scroll container is still mounted and retained its scrollTop.
   const scrollTopAfter = await appWindow.evaluate(() => {
     const scroller = document.querySelector<HTMLElement>(
       '[data-e2e-scroll-target="true"]',

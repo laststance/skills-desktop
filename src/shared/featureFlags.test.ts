@@ -4,24 +4,38 @@ import { FEATURE_FLAGS } from './featureFlags'
 import type { FeatureFlag } from './featureFlags'
 
 describe('FEATURE_FLAGS', () => {
-  it('ENABLE_MARKETPLACE_UI is a boolean', () => {
-    expect(typeof FEATURE_FLAGS.ENABLE_MARKETPLACE_UI).toBe('boolean')
+  it('gates the marketplace UI behind a boolean toggle', () => {
+    // Arrange / Act
+    const flagType = typeof FEATURE_FLAGS.ENABLE_MARKETPLACE_UI
+    // Assert
+    expect(flagType).toBe('boolean')
   })
 
-  it('ENABLE_DASHBOARD_EXPERIMENTAL is a boolean', () => {
-    expect(typeof FEATURE_FLAGS.ENABLE_DASHBOARD_EXPERIMENTAL).toBe('boolean')
+  it('gates the experimental dashboard behind a boolean toggle', () => {
+    // Arrange / Act
+    const flagType = typeof FEATURE_FLAGS.ENABLE_DASHBOARD_EXPERIMENTAL
+    // Assert
+    expect(flagType).toBe('boolean')
   })
 
-  it('contains the ENABLE_MARKETPLACE_UI key', () => {
-    expect('ENABLE_MARKETPLACE_UI' in FEATURE_FLAGS).toBe(true)
+  it('exposes the marketplace UI toggle key', () => {
+    // Arrange / Act
+    const hasMarketplaceKey = 'ENABLE_MARKETPLACE_UI' in FEATURE_FLAGS
+    // Assert
+    expect(hasMarketplaceKey).toBe(true)
   })
 
-  it('contains the ENABLE_DASHBOARD_EXPERIMENTAL key', () => {
-    expect('ENABLE_DASHBOARD_EXPERIMENTAL' in FEATURE_FLAGS).toBe(true)
+  it('exposes the experimental dashboard toggle key', () => {
+    // Arrange / Act
+    const hasDashboardKey = 'ENABLE_DASHBOARD_EXPERIMENTAL' in FEATURE_FLAGS
+    // Assert
+    expect(hasDashboardKey).toBe(true)
   })
 
-  it('has no unexpected keys', () => {
+  it('ships exactly the two known toggles and no stray flags', () => {
+    // Arrange / Act
     const keys = Object.keys(FEATURE_FLAGS)
+    // Assert
     expect(keys).toEqual([
       'ENABLE_MARKETPLACE_UI',
       'ENABLE_DASHBOARD_EXPERIMENTAL',
@@ -30,8 +44,10 @@ describe('FEATURE_FLAGS', () => {
 })
 
 describe('FeatureFlag type', () => {
-  it('ENABLE_MARKETPLACE_UI is a valid FeatureFlag value at runtime', () => {
+  it('accepts a known flag name as a FeatureFlag value', () => {
+    // Arrange
     const flag: FeatureFlag = 'ENABLE_MARKETPLACE_UI'
+    // Act / Assert
     expect(flag).toBe('ENABLE_MARKETPLACE_UI')
   })
 })

@@ -132,15 +132,26 @@ const previewNoConflicts: SyncPreviewResult = {
 }
 
 describe('uiSlice activeTab', () => {
-  it('starts with activeTab=installed', async () => {
+  it('opens on the Installed tab by default', async () => {
+    // Arrange
     const store = await createTestStore()
-    expect(store.getState().ui.activeTab).toBe('installed')
+
+    // Act
+    const activeTab = store.getState().ui.activeTab
+
+    // Assert
+    expect(activeTab).toBe('installed')
   })
 
-  it('setActiveTab switches tab value', async () => {
+  it('switches to the Marketplace tab when the user clicks it', async () => {
+    // Arrange
     const store = await createTestStore()
     const { setActiveTab } = await import('./uiSlice')
+
+    // Act
     store.dispatch(setActiveTab('marketplace'))
+
+    // Assert
     expect(store.getState().ui.activeTab).toBe('marketplace')
   })
 })
@@ -216,54 +227,72 @@ describe('uiSlice symlink cleanup dialog', () => {
 })
 
 describe('uiSlice skill type excludes', () => {
-  it('starts with no excluded skill types', async () => {
+  it('starts with no skill types excluded', async () => {
+    // Arrange
     const store = await createTestStore()
-    expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
+
+    // Act
+    const excluded = store.getState().ui.excludedSkillTypeFilters
+
+    // Assert
+    expect(excluded).toEqual([])
   })
 
-  it('toggles an available excluded skill type on and off', async () => {
+  it('excludes a skill type when ticked and re-includes it when unticked', async () => {
+    // Arrange
     const store = await createTestStore()
     const { toggleExcludedSkillTypeFilter } = await import('./uiSlice')
 
+    // Act + Assert — ticking adds the exclude
     store.dispatch(toggleExcludedSkillTypeFilter('local'))
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['local'])
 
+    // Act + Assert — unticking removes it
     store.dispatch(toggleExcludedSkillTypeFilter('local'))
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
   })
 
-  it('ignores an excluded skill type unavailable for the active include filter', async () => {
+  it('refuses to exclude a skill type that the active include filter does not offer', async () => {
+    // Arrange
     const store = await createTestStore()
     const { setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
       await import('./uiSlice')
 
+    // Act — include only local, then try to exclude the unavailable symlinked type
     store.dispatch(setSkillTypeFilter('local'))
     store.dispatch(toggleExcludedSkillTypeFilter('symlinked'))
 
+    // Assert
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
   })
 
-  it('prunes stale excludes when the include filter changes', async () => {
+  it('drops excludes that no longer apply when the include filter narrows', async () => {
+    // Arrange
     const store = await createTestStore()
     const { setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
       await import('./uiSlice')
 
+    // Act — exclude two types, then narrow the include filter to local
     store.dispatch(toggleExcludedSkillTypeFilter('local'))
     store.dispatch(toggleExcludedSkillTypeFilter('gstack'))
     store.dispatch(setSkillTypeFilter('local'))
 
+    // Assert — only the still-applicable exclude survives
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['gstack'])
   })
 
-  it('selectAgent resets include and exclude filters together', async () => {
+  it('resets both the include and exclude skill-type filters when the user swaps agents', async () => {
+    // Arrange
     const store = await createTestStore()
     const { selectAgent, setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
       await import('./uiSlice')
-
     store.dispatch(setSkillTypeFilter('gstack'))
     store.dispatch(toggleExcludedSkillTypeFilter('local'))
+
+    // Act
     store.dispatch(selectAgent('cursor' as AgentId))
 
+    // Assert
     expect(store.getState().ui.skillTypeFilter).toBe('all')
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
   })
@@ -274,33 +303,37 @@ describe('uiSlice sync thunks', () => {
     vi.resetAllMocks()
   })
 
-  it('sets isSyncing=false when preview has conflicts (regression for disabled buttons bug)', async () => {
+  it('keeps the sync buttons enabled when a preview comes back with conflicts (regression for disabled buttons bug)', async () => {
+    // Arrange
     mockSyncPreview.mockResolvedValue(previewWithConflicts)
-
     const store = await createTestStore()
     const { fetchSyncPreview } = await import('./uiSlice')
+
+    // Act
     await store.dispatch(fetchSyncPreview())
 
+    // Assert
     const state = store.getState().ui
     expect(state.isSyncing).toBe(false)
     expect(state.syncPreview).not.toBeNull()
     expect(state.syncPreview!.conflicts).toHaveLength(1)
   })
 
-  it('sets isSyncing=true during pending state', async () => {
-    // Create a promise we control to keep the thunk pending
+  it('shows the syncing spinner while the preview request is in flight', async () => {
+    // Arrange — keep the preview request pending so the spinner state is observable
     let resolve!: (value: SyncPreviewResult) => void
     mockSyncPreview.mockReturnValue(
       new Promise<SyncPreviewResult>((r) => {
         resolve = r
       }),
     )
-
     const store = await createTestStore()
     const { fetchSyncPreview } = await import('./uiSlice')
+
+    // Act
     const promise = store.dispatch(fetchSyncPreview())
 
-    // While pending, isSyncing should be true
+    // Assert
     expect(store.getState().ui.isSyncing).toBe(true)
 
     // Resolve to clean up
@@ -308,30 +341,37 @@ describe('uiSlice sync thunks', () => {
     await promise
   })
 
-  it('sets isSyncing=false when preview is rejected', async () => {
+  it('stops the syncing spinner and shows no preview when the preview request fails', async () => {
+    // Arrange
     mockSyncPreview.mockRejectedValue(new Error('Network error'))
-
     const store = await createTestStore()
     const { fetchSyncPreview } = await import('./uiSlice')
+
+    // Act
     await store.dispatch(fetchSyncPreview())
 
+    // Assert
     expect(store.getState().ui.isSyncing).toBe(false)
     expect(store.getState().ui.syncPreview).toBeNull()
   })
 
-  it('populates syncPreview on fulfillment', async () => {
+  it('shows the sync preview once the preview request resolves', async () => {
+    // Arrange
     mockSyncPreview.mockResolvedValue(previewNoConflicts)
-
     const store = await createTestStore()
     const { fetchSyncPreview } = await import('./uiSlice')
+
+    // Act
     await store.dispatch(fetchSyncPreview())
 
+    // Assert
     const state = store.getState().ui
     expect(state.syncPreview).toEqual(previewNoConflicts)
     expect(state.isSyncing).toBe(false)
   })
 
-  it('clears syncPreview and isSyncing on executeSyncAction fulfilled', async () => {
+  it('replaces the preview with a results dialog once the sync runs to completion', async () => {
+    // Arrange
     mockSyncPreview.mockResolvedValue(previewWithConflicts)
     mockSyncExecute.mockResolvedValue({
       success: true,
@@ -343,21 +383,19 @@ describe('uiSlice sync thunks', () => {
         { skillName: 'skill-a', agentName: 'Claude Code', action: 'created' },
       ],
     } satisfies SyncExecuteResult)
-
     const store = await createTestStore()
     const { fetchSyncPreview, executeSyncAction } = await import('./uiSlice')
-
-    // First: load preview
     await store.dispatch(fetchSyncPreview())
     expect(store.getState().ui.syncPreview).not.toBeNull()
 
-    // Then: execute sync
+    // Act — execute the sync
     await store.dispatch(
       executeSyncAction({
         replaceConflicts: ['/home/user/.cursor/skills/agent-browser'],
       }),
     )
 
+    // Assert — preview is dismissed and a populated result drives the dialog
     const state = store.getState().ui
     expect(state.syncPreview).toBeNull()
     expect(state.isSyncing).toBe(false)
@@ -367,18 +405,22 @@ describe('uiSlice sync thunks', () => {
     expect(state.syncResult!.details).toHaveLength(1)
   })
 
-  it('sets syncResult to null on executeSyncAction rejected', async () => {
+  it('shows no results dialog when the sync execution fails', async () => {
+    // Arrange
     mockSyncExecute.mockRejectedValue(new Error('Permission denied'))
-
     const store = await createTestStore()
     const { executeSyncAction } = await import('./uiSlice')
+
+    // Act
     await store.dispatch(executeSyncAction({ replaceConflicts: [] }))
 
+    // Assert
     expect(store.getState().ui.isSyncing).toBe(false)
     expect(store.getState().ui.syncResult).toBeNull()
   })
 
-  it('clears syncResult via clearSyncResult action', async () => {
+  it('dismisses the sync results dialog when the user closes it', async () => {
+    // Arrange
     mockSyncExecute.mockResolvedValue({
       success: true,
       created: 1,
@@ -389,19 +431,20 @@ describe('uiSlice sync thunks', () => {
         { skillName: 's', agentName: 'Claude Code', action: 'created' },
       ],
     } satisfies SyncExecuteResult)
-
     const store = await createTestStore()
     const { executeSyncAction, clearSyncResult } = await import('./uiSlice')
-
     await store.dispatch(executeSyncAction({ replaceConflicts: [] }))
     expect(store.getState().ui.syncResult).not.toBeNull()
 
+    // Act
     store.dispatch(clearSyncResult())
+
+    // Assert
     expect(store.getState().ui.syncResult).toBeNull()
   })
 
-  it('clears syncResult when fetchSyncPreview.pending fires (prevents overlapping dialogs)', async () => {
-    // First: populate syncResult via a completed sync
+  it('dismisses a stale results dialog when a new preview starts (prevents overlapping dialogs)', async () => {
+    // Arrange — populate syncResult via a completed sync
     mockSyncExecute.mockResolvedValue({
       success: true,
       created: 1,
@@ -412,14 +455,12 @@ describe('uiSlice sync thunks', () => {
         { skillName: 's', agentName: 'Claude Code', action: 'created' },
       ],
     } satisfies SyncExecuteResult)
-
     const store = await createTestStore()
     const { executeSyncAction, fetchSyncPreview } = await import('./uiSlice')
-
     await store.dispatch(executeSyncAction({ replaceConflicts: [] }))
     expect(store.getState().ui.syncResult).not.toBeNull()
 
-    // Now: start a new preview. Pending should clear the old result.
+    // Act — start a new preview; the pending phase should clear the old result
     let resolve!: (value: SyncPreviewResult) => void
     mockSyncPreview.mockReturnValue(
       new Promise<SyncPreviewResult>((r) => {
@@ -428,23 +469,25 @@ describe('uiSlice sync thunks', () => {
     )
     const promise = store.dispatch(fetchSyncPreview())
 
-    // While pending, syncResult should already be cleared
+    // Assert
     expect(store.getState().ui.syncResult).toBeNull()
 
     resolve(previewNoConflicts)
     await promise
   })
 
-  it('clears syncPreview via setSyncPreview(null)', async () => {
+  it('dismisses the sync preview when it is cleared programmatically', async () => {
+    // Arrange
     mockSyncPreview.mockResolvedValue(previewWithConflicts)
-
     const store = await createTestStore()
     const { fetchSyncPreview, setSyncPreview } = await import('./uiSlice')
-
     await store.dispatch(fetchSyncPreview())
     expect(store.getState().ui.syncPreview).not.toBeNull()
 
+    // Act
     store.dispatch(setSyncPreview(null))
+
+    // Assert
     expect(store.getState().ui.syncPreview).toBeNull()
   })
 })
@@ -458,32 +501,44 @@ describe('uiSlice bookmark detail modal', () => {
     isInstalled: false,
   }
 
-  it('sets selectedBookmarkForDetail', async () => {
+  it('opens the bookmark detail modal for the chosen bookmark', async () => {
+    // Arrange
     const store = await createTestStore()
     const { setSelectedBookmarkForDetail } = await import('./uiSlice')
 
+    // Act
     store.dispatch(setSelectedBookmarkForDetail(sampleBookmark))
 
+    // Assert
     expect(store.getState().ui.selectedBookmarkForDetail).toEqual(
       sampleBookmark,
     )
   })
 
-  it('clears selectedBookmarkForDetail', async () => {
+  it('closes the bookmark detail modal when dismissed', async () => {
+    // Arrange
     const store = await createTestStore()
     const { setSelectedBookmarkForDetail, clearSelectedBookmarkForDetail } =
       await import('./uiSlice')
-
     store.dispatch(setSelectedBookmarkForDetail(sampleBookmark))
     expect(store.getState().ui.selectedBookmarkForDetail).not.toBeNull()
 
+    // Act
     store.dispatch(clearSelectedBookmarkForDetail())
+
+    // Assert
     expect(store.getState().ui.selectedBookmarkForDetail).toBeNull()
   })
 
-  it('starts with null selectedBookmarkForDetail', async () => {
+  it('starts with the bookmark detail modal closed', async () => {
+    // Arrange
     const store = await createTestStore()
-    expect(store.getState().ui.selectedBookmarkForDetail).toBeNull()
+
+    // Act
+    const selectedBookmark = store.getState().ui.selectedBookmarkForDetail
+
+    // Assert
+    expect(selectedBookmark).toBeNull()
   })
 })
 
@@ -508,59 +563,76 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
         : 'Unlinked 2 skills from Cursor.',
   })
 
-  it('starts with undoToast=null', async () => {
+  it('starts with no undo toast on screen', async () => {
+    // Arrange
     const store = await createTestStore()
-    expect(store.getState().ui.undoToast).toBeNull()
+
+    // Act
+    const undoToast = store.getState().ui.undoToast
+
+    // Assert
+    expect(undoToast).toBeNull()
   })
 
-  it('setUndoToast populates the state', async () => {
+  it('shows an undo toast after a bulk delete completes', async () => {
+    // Arrange
     const store = await createTestStore()
     const { setUndoToast } = await import('./uiSlice')
-
     const toast = makeToast('delete')
+
+    // Act
     store.dispatch(setUndoToast(toast))
 
+    // Assert
     expect(store.getState().ui.undoToast).toEqual(toast)
   })
 
-  it('clearUndoToast resets to null', async () => {
+  it('dismisses the undo toast when it is cleared', async () => {
+    // Arrange
     const store = await createTestStore()
     const { setUndoToast, clearUndoToast } = await import('./uiSlice')
-
     store.dispatch(setUndoToast(makeToast()))
     expect(store.getState().ui.undoToast).not.toBeNull()
 
+    // Act
     store.dispatch(clearUndoToast())
+
+    // Assert
     expect(store.getState().ui.undoToast).toBeNull()
   })
 
-  it('selectAgent clears an active undoToast (context switch invalidates it)', async () => {
+  it('dismisses an active undo toast when the user switches agents (context switch invalidates it)', async () => {
+    // Arrange
     const store = await createTestStore()
     const { setUndoToast, selectAgent } = await import('./uiSlice')
-
     store.dispatch(setUndoToast(makeToast()))
     expect(store.getState().ui.undoToast).not.toBeNull()
 
+    // Act
     store.dispatch(selectAgent('cursor' as AgentId))
+
+    // Assert
     expect(store.getState().ui.undoToast).toBeNull()
   })
 
-  it('setActiveTab clears an active undoToast (tab switch invalidates it)', async () => {
+  it('dismisses an active undo toast when the user switches tabs (tab switch invalidates it)', async () => {
+    // Arrange
     const store = await createTestStore()
     const { setUndoToast, setActiveTab } = await import('./uiSlice')
-
     store.dispatch(setUndoToast(makeToast()))
+
+    // Act
     store.dispatch(setActiveTab('marketplace'))
 
+    // Assert
     expect(store.getState().ui.undoToast).toBeNull()
   })
 
-  it('fetchSyncPreview.pending clears undoToast', async () => {
+  it('dismisses the undo toast when a sync preview starts', async () => {
+    // Arrange
     const store = await createTestStore()
     const { setUndoToast, fetchSyncPreview } = await import('./uiSlice')
-
     store.dispatch(setUndoToast(makeToast()))
-
     // Keep preview pending so .pending is the only case that runs.
     let resolve!: (value: SyncPreviewResult) => void
     mockSyncPreview.mockReturnValue(
@@ -568,22 +640,24 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
         resolve = r
       }),
     )
+
+    // Act
     const promise = store.dispatch(fetchSyncPreview())
 
+    // Assert
     expect(store.getState().ui.undoToast).toBeNull()
 
     resolve(previewNoConflicts)
     await promise
   })
 
-  it('deleteSelectedSkills.pending clears undoToast (combined store)', async () => {
+  it('dismisses the undo toast when a new bulk delete begins (combined store)', async () => {
+    // Arrange
     const store = await createCombinedStore()
     const { setUndoToast } = await import('./uiSlice')
     const { deleteSelectedSkills } = await import('./skillsSlice')
-
     store.dispatch(setUndoToast(makeToast()))
     expect(store.getState().ui.undoToast).not.toBeNull()
-
     // Hold pending so we observe the state during the .pending phase
     let resolve!: (value: BulkDeleteResult) => void
     mockDeleteSkills.mockReturnValue(
@@ -591,28 +665,32 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
         resolve = r
       }),
     )
+
+    // Act
     const promise = store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
 
+    // Assert
     expect(store.getState().ui.undoToast).toBeNull()
 
     resolve({ items: [] })
     await promise
   })
 
-  it('clearSelectedOrphanSymlinks.pending clears undoToast (combined store)', async () => {
+  it('dismisses the undo toast when an orphan-symlink cleanup begins (combined store)', async () => {
+    // Arrange
     const store = await createCombinedStore()
     const { setUndoToast } = await import('./uiSlice')
     const { clearSelectedOrphanSymlinks } = await import('./skillsSlice')
-
     store.dispatch(setUndoToast(makeToast()))
     expect(store.getState().ui.undoToast).not.toBeNull()
-
     let resolve!: (value: ClearOrphanSymlinksResult) => void
     mockClearOrphanSymlinks.mockReturnValue(
       new Promise<ClearOrphanSymlinksResult>((r) => {
         resolve = r
       }),
     )
+
+    // Act
     const promise = store.dispatch(
       clearSelectedOrphanSymlinks([
         {
@@ -628,26 +706,28 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
       ]),
     )
 
+    // Assert
     expect(store.getState().ui.undoToast).toBeNull()
 
     resolve({ items: [] })
     await promise
   })
 
-  it('clearSelectedBrokenSymlinkSlots.pending clears undoToast (combined store)', async () => {
+  it('dismisses the undo toast when a broken-slot cleanup begins (combined store)', async () => {
+    // Arrange
     const store = await createCombinedStore()
     const { setUndoToast } = await import('./uiSlice')
     const { clearSelectedBrokenSymlinkSlots } = await import('./skillsSlice')
-
     store.dispatch(setUndoToast(makeToast()))
     expect(store.getState().ui.undoToast).not.toBeNull()
-
     let resolve!: (value: ClearBrokenSymlinkSlotsResult) => void
     mockClearBrokenSymlinkSlots.mockReturnValue(
       new Promise<ClearBrokenSymlinkSlotsResult>((r) => {
         resolve = r
       }),
     )
+
+    // Act
     const promise = store.dispatch(
       clearSelectedBrokenSymlinkSlots({
         items: [
@@ -662,26 +742,28 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().ui.undoToast).toBeNull()
 
     resolve({ items: [] })
     await promise
   })
 
-  it('unlinkSelectedFromAgent.pending clears undoToast (combined store)', async () => {
+  it('dismisses the undo toast when a bulk unlink begins (combined store)', async () => {
+    // Arrange
     const store = await createCombinedStore()
     const { setUndoToast } = await import('./uiSlice')
     const { unlinkSelectedFromAgent } = await import('./skillsSlice')
-
     store.dispatch(setUndoToast(makeToast('unlink')))
     expect(store.getState().ui.undoToast).not.toBeNull()
-
     let resolve!: (value: BulkUnlinkResult) => void
     mockUnlinkManyFromAgent.mockReturnValue(
       new Promise<BulkUnlinkResult>((r) => {
         resolve = r
       }),
     )
+
+    // Act
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
@@ -689,6 +771,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().ui.undoToast).toBeNull()
 
     resolve({ items: [] })
@@ -701,103 +784,129 @@ describe('uiSlice bulkSelectMode', () => {
     vi.resetAllMocks()
   })
 
-  it('starts with bulkSelectMode=false (default is clean list)', async () => {
+  it('starts with bulk-select mode off (default is a clean list)', async () => {
+    // Arrange
     const store = await createTestStore()
-    expect(store.getState().ui.bulkSelectMode).toBe(false)
+
+    // Act
+    const bulkSelectMode = store.getState().ui.bulkSelectMode
+
+    // Assert
+    expect(bulkSelectMode).toBe(false)
   })
 
-  it('enterBulkSelectMode flips the flag to true', async () => {
+  it('turns on bulk-select mode when the user enters it', async () => {
+    // Arrange
     const store = await createTestStore()
     const { enterBulkSelectMode } = await import('./uiSlice')
 
+    // Act
     store.dispatch(enterBulkSelectMode())
+
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(true)
   })
 
-  it('exitBulkSelectMode flips the flag back to false', async () => {
+  it('turns off bulk-select mode when the user exits it', async () => {
+    // Arrange
     const store = await createTestStore()
     const { enterBulkSelectMode, exitBulkSelectMode } =
       await import('./uiSlice')
-
     store.dispatch(enterBulkSelectMode())
+
+    // Act
     store.dispatch(exitBulkSelectMode())
+
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
 
-  it('setActiveTab clears bulkSelectMode (tab switch exits mode)', async () => {
+  it('exits bulk-select mode when the user switches tabs', async () => {
+    // Arrange
     const store = await createTestStore()
     const { enterBulkSelectMode, setActiveTab } = await import('./uiSlice')
-
     store.dispatch(enterBulkSelectMode())
     expect(store.getState().ui.bulkSelectMode).toBe(true)
 
+    // Act
     store.dispatch(setActiveTab('marketplace'))
+
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
 
-  it('selectAgent clears bulkSelectMode (agent swap exits mode)', async () => {
+  it('exits bulk-select mode when the user swaps agents', async () => {
+    // Arrange
     const store = await createTestStore()
     const { enterBulkSelectMode, selectAgent } = await import('./uiSlice')
-
     store.dispatch(enterBulkSelectMode())
+
+    // Act
     store.dispatch(selectAgent('cursor' as AgentId))
+
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
 
-  it('fetchSyncPreview.pending clears bulkSelectMode', async () => {
+  it('exits bulk-select mode when a sync preview starts', async () => {
+    // Arrange
     const store = await createTestStore()
     const { enterBulkSelectMode, fetchSyncPreview } = await import('./uiSlice')
-
     store.dispatch(enterBulkSelectMode())
-
     let resolve!: (value: SyncPreviewResult) => void
     mockSyncPreview.mockReturnValue(
       new Promise<SyncPreviewResult>((r) => {
         resolve = r
       }),
     )
+
+    // Act
     const promise = store.dispatch(fetchSyncPreview())
 
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
 
     resolve(previewNoConflicts)
     await promise
   })
 
-  it('deleteSelectedSkills.pending clears bulkSelectMode (combined store)', async () => {
+  it('exits bulk-select mode when a bulk delete begins (combined store)', async () => {
+    // Arrange
     const store = await createCombinedStore()
     const { enterBulkSelectMode } = await import('./uiSlice')
     const { deleteSelectedSkills } = await import('./skillsSlice')
-
     store.dispatch(enterBulkSelectMode())
-
     let resolve!: (value: BulkDeleteResult) => void
     mockDeleteSkills.mockReturnValue(
       new Promise<BulkDeleteResult>((r) => {
         resolve = r
       }),
     )
+
+    // Act
     const promise = store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
 
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
 
     resolve({ items: [] })
     await promise
   })
 
-  it('clearSelectedOrphanSymlinks.pending clears bulkSelectMode (combined store)', async () => {
+  it('exits bulk-select mode when an orphan-symlink cleanup begins (combined store)', async () => {
+    // Arrange
     const store = await createCombinedStore()
     const { enterBulkSelectMode } = await import('./uiSlice')
     const { clearSelectedOrphanSymlinks } = await import('./skillsSlice')
-
     store.dispatch(enterBulkSelectMode())
-
     let resolve!: (value: ClearOrphanSymlinksResult) => void
     mockClearOrphanSymlinks.mockReturnValue(
       new Promise<ClearOrphanSymlinksResult>((r) => {
         resolve = r
       }),
     )
+
+    // Act
     const promise = store.dispatch(
       clearSelectedOrphanSymlinks([
         {
@@ -813,25 +922,27 @@ describe('uiSlice bulkSelectMode', () => {
       ]),
     )
 
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
 
     resolve({ items: [] })
     await promise
   })
 
-  it('clearSelectedBrokenSymlinkSlots.pending clears bulkSelectMode (combined store)', async () => {
+  it('exits bulk-select mode when a broken-slot cleanup begins (combined store)', async () => {
+    // Arrange
     const store = await createCombinedStore()
     const { enterBulkSelectMode } = await import('./uiSlice')
     const { clearSelectedBrokenSymlinkSlots } = await import('./skillsSlice')
-
     store.dispatch(enterBulkSelectMode())
-
     let resolve!: (value: ClearBrokenSymlinkSlotsResult) => void
     mockClearBrokenSymlinkSlots.mockReturnValue(
       new Promise<ClearBrokenSymlinkSlotsResult>((r) => {
         resolve = r
       }),
     )
+
+    // Act
     const promise = store.dispatch(
       clearSelectedBrokenSymlinkSlots({
         items: [
@@ -846,25 +957,27 @@ describe('uiSlice bulkSelectMode', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
 
     resolve({ items: [] })
     await promise
   })
 
-  it('unlinkSelectedFromAgent.pending clears bulkSelectMode (combined store)', async () => {
+  it('exits bulk-select mode when a bulk unlink begins (combined store)', async () => {
+    // Arrange
     const store = await createCombinedStore()
     const { enterBulkSelectMode } = await import('./uiSlice')
     const { unlinkSelectedFromAgent } = await import('./skillsSlice')
-
     store.dispatch(enterBulkSelectMode())
-
     let resolve!: (value: BulkUnlinkResult) => void
     mockUnlinkManyFromAgent.mockReturnValue(
       new Promise<BulkUnlinkResult>((r) => {
         resolve = r
       }),
     )
+
+    // Act
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
@@ -872,6 +985,7 @@ describe('uiSlice bulkSelectMode', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
 
     resolve({ items: [] })
@@ -883,21 +997,29 @@ describe('uiSlice bulkSelectMode', () => {
   // branches; if "already-true enter" started side-effecting, toggling rapidly
   // could wipe unrelated state. The invariant is a plain boolean assignment.
 
-  it('enterBulkSelectMode is idempotent when already true', async () => {
+  it('stays in bulk-select mode when entered twice in a row', async () => {
+    // Arrange
     const store = await createTestStore()
     const { enterBulkSelectMode } = await import('./uiSlice')
 
+    // Act
     store.dispatch(enterBulkSelectMode())
     store.dispatch(enterBulkSelectMode())
+
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(true)
   })
 
-  it('exitBulkSelectMode is idempotent when already false', async () => {
+  it('stays out of bulk-select mode when exited twice in a row', async () => {
+    // Arrange
     const store = await createTestStore()
     const { exitBulkSelectMode } = await import('./uiSlice')
 
+    // Act
     store.dispatch(exitBulkSelectMode())
     store.dispatch(exitBulkSelectMode())
+
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
 })
@@ -950,13 +1072,16 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     )
   }
 
-  it('setActiveTab atomically clears bulkSelectMode + undoToast + bulkConfirm', async () => {
+  it('clears bulk-select mode, the undo toast, and the bulk-confirm dialog together when switching tabs', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedAllEphemeralState(store)
     const { setActiveTab } = await import('./uiSlice')
 
+    // Act
     store.dispatch(setActiveTab('marketplace'))
 
+    // Assert
     expect(store.getState().ui).toMatchObject({
       bulkSelectMode: false,
       undoToast: null,
@@ -964,13 +1089,16 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     })
   })
 
-  it('selectAgent atomically clears bulkSelectMode + undoToast + bulkConfirm', async () => {
+  it('clears bulk-select mode, the undo toast, and the bulk-confirm dialog together when swapping agents', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedAllEphemeralState(store)
     const { selectAgent } = await import('./uiSlice')
 
+    // Act
     store.dispatch(selectAgent('cursor' as AgentId))
 
+    // Assert
     expect(store.getState().ui).toMatchObject({
       bulkSelectMode: false,
       undoToast: null,
@@ -978,19 +1106,22 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     })
   })
 
-  it('fetchSyncPreview.pending atomically clears all ephemeral UI state', async () => {
+  it('clears all ephemeral UI state together when a sync preview starts', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedAllEphemeralState(store)
     const { fetchSyncPreview } = await import('./uiSlice')
-
     let resolve!: (value: SyncPreviewResult) => void
     mockSyncPreview.mockReturnValue(
       new Promise<SyncPreviewResult>((r) => {
         resolve = r
       }),
     )
+
+    // Act
     const promise = store.dispatch(fetchSyncPreview())
 
+    // Assert
     expect(store.getState().ui).toMatchObject({
       bulkSelectMode: false,
       undoToast: null,
@@ -1001,19 +1132,22 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     await promise
   })
 
-  it('deleteSelectedSkills.pending atomically clears all ephemeral UI state', async () => {
+  it('clears all ephemeral UI state together when a bulk delete begins', async () => {
+    // Arrange
     const store = await createCombinedStore()
     await seedAllEphemeralState(store)
     const { deleteSelectedSkills } = await import('./skillsSlice')
-
     let resolve!: (value: BulkDeleteResult) => void
     mockDeleteSkills.mockReturnValue(
       new Promise<BulkDeleteResult>((r) => {
         resolve = r
       }),
     )
+
+    // Act
     const promise = store.dispatch(deleteSelectedSkills([deleteTarget('a')]))
 
+    // Assert
     expect(store.getState().ui).toMatchObject({
       bulkSelectMode: false,
       undoToast: null,
@@ -1024,37 +1158,42 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     await promise
   })
 
-  it('deleteSelectedSkills.pending preserves the Symlink Health cleanup dialog it may be running inside', async () => {
+  it('keeps the Symlink Health cleanup dialog open while a bulk delete runs inside it', async () => {
+    // Arrange
     const store = await createCombinedStore()
     const { openSymlinkCleanupDialog } = await import('./uiSlice')
     const { deleteSelectedSkills } = await import('./skillsSlice')
     store.dispatch(openSymlinkCleanupDialog())
-
     let resolve!: (value: BulkDeleteResult) => void
     mockDeleteSkills.mockReturnValue(
       new Promise<BulkDeleteResult>((r) => {
         resolve = r
       }),
     )
+
+    // Act
     const promise = store.dispatch(deleteSelectedSkills([deleteTarget('a')]))
 
+    // Assert
     expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(true)
 
     resolve({ items: [] })
     await promise
   })
 
-  it('unlinkSelectedFromAgent.pending atomically clears all ephemeral UI state', async () => {
+  it('clears all ephemeral UI state together when a bulk unlink begins', async () => {
+    // Arrange
     const store = await createCombinedStore()
     await seedAllEphemeralState(store)
     const { unlinkSelectedFromAgent } = await import('./skillsSlice')
-
     let resolve!: (value: BulkUnlinkResult) => void
     mockUnlinkManyFromAgent.mockReturnValue(
       new Promise<BulkUnlinkResult>((r) => {
         resolve = r
       }),
     )
+
+    // Act
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
@@ -1062,6 +1201,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().ui).toMatchObject({
       bulkSelectMode: false,
       undoToast: null,
@@ -1072,18 +1212,20 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     await promise
   })
 
-  it('unlinkSelectedFromAgent.pending preserves the Symlink Health cleanup dialog it may be running inside', async () => {
+  it('keeps the Symlink Health cleanup dialog open while a bulk unlink runs inside it', async () => {
+    // Arrange
     const store = await createCombinedStore()
     const { openSymlinkCleanupDialog } = await import('./uiSlice')
     const { unlinkSelectedFromAgent } = await import('./skillsSlice')
     store.dispatch(openSymlinkCleanupDialog())
-
     let resolve!: (value: BulkUnlinkResult) => void
     mockUnlinkManyFromAgent.mockReturnValue(
       new Promise<BulkUnlinkResult>((r) => {
         resolve = r
       }),
     )
+
+    // Act
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
@@ -1091,6 +1233,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(true)
 
     resolve({ items: [] })
@@ -1110,39 +1253,44 @@ describe('uiSlice bulkSelectMode on rejection', () => {
     vi.resetAllMocks()
   })
 
-  it('fetchSyncPreview.rejected leaves bulkSelectMode=false (no auto re-enter)', async () => {
+  it('does not re-enter bulk-select mode after a sync preview fails', async () => {
+    // Arrange
     const store = await createTestStore()
     const { enterBulkSelectMode, fetchSyncPreview } = await import('./uiSlice')
-
     store.dispatch(enterBulkSelectMode())
     mockSyncPreview.mockRejectedValue(new Error('Network error'))
 
+    // Act
     await store.dispatch(fetchSyncPreview())
 
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
 
-  it('deleteSelectedSkills.rejected keeps bulkSelectMode=false (no auto re-enter)', async () => {
+  it('does not re-enter bulk-select mode after a bulk delete fails', async () => {
+    // Arrange
     const store = await createCombinedStore()
     const { enterBulkSelectMode } = await import('./uiSlice')
     const { deleteSelectedSkills } = await import('./skillsSlice')
-
     store.dispatch(enterBulkSelectMode())
     mockDeleteSkills.mockRejectedValue(new Error('FS error'))
 
+    // Act
     await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
 
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
 
-  it('unlinkSelectedFromAgent.rejected keeps bulkSelectMode=false', async () => {
+  it('does not re-enter bulk-select mode after a bulk unlink fails', async () => {
+    // Arrange
     const store = await createCombinedStore()
     const { enterBulkSelectMode } = await import('./uiSlice')
     const { unlinkSelectedFromAgent } = await import('./skillsSlice')
-
     store.dispatch(enterBulkSelectMode())
     mockUnlinkManyFromAgent.mockRejectedValue(new Error('Permission denied'))
 
+    // Act
     await store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
@@ -1150,6 +1298,7 @@ describe('uiSlice bulkSelectMode on rejection', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
 })
@@ -1180,9 +1329,15 @@ describe('uiSlice source filter (selectedSources)', () => {
     }
   }
 
-  it('starts with an empty source include-filter', async () => {
+  it('starts with an empty source include-filter (shows all sources)', async () => {
+    // Arrange
     const store = await createTestStore()
-    expect(store.getState().ui.selectedSources).toEqual([])
+
+    // Act
+    const selectedSources = store.getState().ui.selectedSources
+
+    // Assert
+    expect(selectedSources).toEqual([])
   })
 
   it('toggleSource adds a repo to the empty include-filter', async () => {

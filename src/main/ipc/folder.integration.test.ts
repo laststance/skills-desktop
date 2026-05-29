@@ -122,19 +122,29 @@ describe('folder IPC handlers (integration)', () => {
   })
 
   describe('folder:revealInFinder', () => {
-    it('returns ok:true on happy path', async () => {
+    it('reveals an existing folder in Finder', async () => {
+      // Arrange
       realpathMock.mockResolvedValue('/Users/me/.agents/skills')
       openPathMock.mockResolvedValue('')
       const handler = getRegisteredHandler('folder:revealInFinder')
+
+      // Act
       const result = await handler({}, '/Users/me/.agents/skills')
+
+      // Assert
       expect(result).toEqual({ ok: true })
     })
 
-    it('returns not-found when realpath rejects with ENOENT', async () => {
+    it('tells the user the folder is gone instead of revealing it when the path no longer exists', async () => {
+      // Arrange
       const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
       realpathMock.mockRejectedValue(err)
       const handler = getRegisteredHandler('folder:revealInFinder')
+
+      // Act
       const result = await handler({}, '/missing/path')
+
+      // Assert
       expect(result).toEqual({
         ok: false,
         reason: 'not-found',
@@ -143,36 +153,54 @@ describe('folder IPC handlers (integration)', () => {
       expect(openPathMock).not.toHaveBeenCalled()
     })
 
-    it('returns not-found for ELOOP (symlink cycle)', async () => {
+    it('treats a symlink cycle (ELOOP) as a missing folder rather than reveal it', async () => {
+      // Arrange
       const err = Object.assign(new Error('ELOOP'), { code: 'ELOOP' })
       realpathMock.mockRejectedValue(err)
       const handler = getRegisteredHandler('folder:revealInFinder')
+
+      // Act
       const result = await handler({}, '/cycle')
+
+      // Assert
       expect(result).toMatchObject({ ok: false, reason: 'not-found' })
     })
 
-    it('returns not-found for ENOTDIR (parent component is a file)', async () => {
+    it('treats a file-in-the-path (ENOTDIR) as a missing folder rather than reveal it', async () => {
+      // Arrange
       const err = Object.assign(new Error('ENOTDIR'), { code: 'ENOTDIR' })
       realpathMock.mockRejectedValue(err)
       const handler = getRegisteredHandler('folder:revealInFinder')
+
+      // Act
       const result = await handler({}, '/file/inside')
+
+      // Assert
       expect(result).toMatchObject({ ok: false, reason: 'not-found' })
       expect(openPathMock).not.toHaveBeenCalled()
     })
 
-    it('rethrows unexpected realpath errors (e.g. EPERM) to the IPC boundary', async () => {
+    it('surfaces an unexpected filesystem error (e.g. EPERM) to the IPC boundary instead of swallowing it', async () => {
+      // Arrange
       const err = Object.assign(new Error('EPERM'), { code: 'EPERM' })
       realpathMock.mockRejectedValue(err)
       const handler = getRegisteredHandler('folder:revealInFinder')
+
+      // Act / Assert
       await expect(handler({}, '/locked')).rejects.toThrow('EPERM')
       expect(openPathMock).not.toHaveBeenCalled()
     })
 
-    it('returns launch-failed when shell.openPath returns an error string', async () => {
+    it('reports a launch failure when Finder cannot open the folder', async () => {
+      // Arrange
       realpathMock.mockResolvedValue('/x')
       openPathMock.mockResolvedValue('Permission denied')
       const handler = getRegisteredHandler('folder:revealInFinder')
+
+      // Act
       const result = await handler({}, '/x')
+
+      // Assert
       expect(result).toMatchObject({
         ok: false,
         reason: 'launch-failed',
@@ -185,13 +213,16 @@ describe('folder IPC handlers (integration)', () => {
   })
 
   describe('folder:openInTerminal', () => {
-    it('returns ok:true when spawn fires exit(0)', async () => {
+    it('opens the folder in Terminal and detaches the launched process', async () => {
+      // Arrange
       realpathMock.mockResolvedValue('/x')
       const child = spawnFiringEvent('exit', 0)
       const handler = getRegisteredHandler('folder:openInTerminal')
 
+      // Act
       const result = await handler({}, '/x')
 
+      // Assert
       expect(result).toEqual({ ok: true })
       expect(child.unref).toHaveBeenCalled()
       expect(spawnMock).toHaveBeenCalledWith('open', ['-a', 'Terminal', '/x'], {
@@ -199,31 +230,38 @@ describe('folder IPC handlers (integration)', () => {
       })
     })
 
-    it('returns not-found BEFORE getSettings/spawn when path missing', async () => {
+    it('reports a missing folder without reading settings or spawning a terminal', async () => {
+      // Arrange
       const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
       realpathMock.mockRejectedValue(err)
       const handler = getRegisteredHandler('folder:openInTerminal')
 
+      // Act
       const result = await handler({}, '/gone')
 
+      // Assert
       expect(result).toMatchObject({ ok: false, reason: 'not-found' })
       expect(getSettingsMock).not.toHaveBeenCalled()
       expect(spawnMock).not.toHaveBeenCalled()
     })
 
-    it('returns not-found for ENOTDIR (parent component is a file)', async () => {
+    it('treats a file-in-the-path (ENOTDIR) as missing and never spawns a terminal', async () => {
+      // Arrange
       const err = Object.assign(new Error('ENOTDIR'), { code: 'ENOTDIR' })
       realpathMock.mockRejectedValue(err)
       const handler = getRegisteredHandler('folder:openInTerminal')
 
+      // Act
       const result = await handler({}, '/file/inside')
 
+      // Assert
       expect(result).toMatchObject({ ok: false, reason: 'not-found' })
       expect(getSettingsMock).not.toHaveBeenCalled()
       expect(spawnMock).not.toHaveBeenCalled()
     })
 
-    it('returns invalid-path when preferredTerminal=custom and customTerminalAppName missing', async () => {
+    it('refuses to launch when a custom terminal is selected but no app name is configured', async () => {
+      // Arrange
       realpathMock.mockResolvedValue('/x')
       getSettingsMock.mockReturnValue({
         defaultSkillTab: 'files',
@@ -231,8 +269,10 @@ describe('folder IPC handlers (integration)', () => {
       })
       const handler = getRegisteredHandler('folder:openInTerminal')
 
+      // Act
       const result = await handler({}, '/x')
 
+      // Assert
       expect(result).toMatchObject({
         ok: false,
         reason: 'invalid-path',
@@ -240,26 +280,32 @@ describe('folder IPC handlers (integration)', () => {
       expect(spawnMock).not.toHaveBeenCalled()
     })
 
-    it('returns launch-failed on spawn exit(1) (app not installed)', async () => {
+    it('reports a launch failure when the terminal app is not installed (spawn exits non-zero)', async () => {
+      // Arrange
       realpathMock.mockResolvedValue('/x')
       spawnFiringEvent('exit', 1)
       const handler = getRegisteredHandler('folder:openInTerminal')
 
+      // Act
       const result = await handler({}, '/x')
 
+      // Assert
       expect(result).toMatchObject({
         ok: false,
         reason: 'launch-failed',
       })
     })
 
-    it('returns launch-failed on spawn error event', async () => {
+    it('reports a launch failure with the underlying error message when spawn errors', async () => {
+      // Arrange
       realpathMock.mockResolvedValue('/x')
       spawnFiringEvent('error', new Error('spawn ENOENT'))
       const handler = getRegisteredHandler('folder:openInTerminal')
 
+      // Act
       const result = await handler({}, '/x')
 
+      // Assert
       expect(result).toMatchObject({
         ok: false,
         reason: 'launch-failed',
@@ -270,11 +316,12 @@ describe('folder IPC handlers (integration)', () => {
       )
     })
 
-    it('reads getSettings on EVERY call (no module-load caching)', async () => {
+    it('honors a terminal preference changed in Settings without an app restart', async () => {
+      // Arrange
       realpathMock.mockResolvedValue('/x')
       const handler = getRegisteredHandler('folder:openInTerminal')
 
-      // First click: Terminal
+      // Act / Assert — first click launches the default Terminal.
       spawnFiringEvent('exit', 0)
       await handler({}, '/x')
       expect(spawnMock).toHaveBeenLastCalledWith(
@@ -283,7 +330,7 @@ describe('folder IPC handlers (integration)', () => {
         { stdio: 'ignore' },
       )
 
-      // User changed Settings to iTerm — no app restart, just another click.
+      // Act / Assert — user switched Settings to iTerm; next click uses iTerm.
       getSettingsMock.mockReturnValue({
         defaultSkillTab: 'files',
         preferredTerminal: 'iterm',

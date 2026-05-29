@@ -73,7 +73,8 @@ describe('scanAgents', () => {
     })
   })
 
-  it('counts only valid symlinks, excluding broken ones', async () => {
+  it('counts a skill toward an agent only when its symlink resolves, ignoring broken links', async () => {
+    // Arrange
     // Both agent dirs exist
     accessMock.mockResolvedValue(undefined)
 
@@ -102,16 +103,19 @@ describe('scanAgents', () => {
       return 'broken'
     })
 
+    // Act
     const { scanAgents } = await import('./agentScanner')
     const agents = await scanAgents()
 
+    // Assert
     const claude = agents.find((a) => a.id === 'claude-code')!
     expect(claude.exists).toBe(true)
     expect(claude.skillCount).toBe(3)
     expect(claude.localSkillCount).toBe(0)
   })
 
-  it('returns skillCount 0 when all symlinks are broken', async () => {
+  it('counts zero skills when every symlink is broken', async () => {
+    // Arrange
     accessMock.mockResolvedValue(undefined)
 
     readdirMock.mockImplementation(async (path: string) => {
@@ -132,14 +136,17 @@ describe('scanAgents', () => {
 
     checkSymlinkStatusMock.mockResolvedValue('broken')
 
+    // Act
     const { scanAgents } = await import('./agentScanner')
     const agents = await scanAgents()
 
+    // Assert
     const claude = agents.find((a) => a.id === 'claude-code')!
     expect(claude.skillCount).toBe(0)
   })
 
-  it('counts local skills independently from symlinked skills', async () => {
+  it('tallies local folder skills separately from symlinked skills', async () => {
+    // Arrange
     accessMock.mockImplementation(async (path: string) => {
       // Agent dirs exist
       if (path === '/mock/agents/claude/skills') return
@@ -170,15 +177,18 @@ describe('scanAgents', () => {
 
     checkSymlinkStatusMock.mockResolvedValue('valid')
 
+    // Act
     const { scanAgents } = await import('./agentScanner')
     const agents = await scanAgents()
 
+    // Assert
     const claude = agents.find((a) => a.id === 'claude-code')!
     expect(claude.skillCount).toBe(1)
     expect(claude.localSkillCount).toBe(1)
   })
 
-  it('returns exists: false with zero counts when agent dir is missing', async () => {
+  it('marks an agent as not existing with zero counts when its skills dir is absent', async () => {
+    // Arrange
     accessMock.mockImplementation(async (path: string) => {
       if (path === '/mock/agents/claude/skills') {
         throw new Error('ENOENT')
@@ -189,16 +199,19 @@ describe('scanAgents', () => {
 
     readdirMock.mockResolvedValue([])
 
+    // Act
     const { scanAgents } = await import('./agentScanner')
     const agents = await scanAgents()
 
+    // Assert
     const claude = agents.find((a) => a.id === 'claude-code')!
     expect(claude.exists).toBe(false)
     expect(claude.skillCount).toBe(0)
     expect(claude.localSkillCount).toBe(0)
   })
 
-  it('sorts existing agents before non-existing agents', async () => {
+  it('lists existing agents ahead of missing ones, then alphabetically by name', async () => {
+    // Arrange
     accessMock.mockImplementation(async (path: string) => {
       // Claude doesn't exist; cursor + the universal-resolving rows (cline,
       // warp both point at /mock/source/skills in the mock) do.
@@ -210,9 +223,11 @@ describe('scanAgents', () => {
 
     readdirMock.mockResolvedValue([])
 
+    // Act
     const { scanAgents } = await import('./agentScanner')
     const agents = await scanAgents()
 
+    // Assert
     // Existing rows sort first, then alphabetically by name:
     //   Cline, Cursor, Warp (exists=true) → Claude Code (exists=false)
     expect(agents.map((a) => a.id)).toEqual([
@@ -224,13 +239,16 @@ describe('scanAgents', () => {
     expect(agents[agents.length - 1].exists).toBe(false)
   })
 
-  it('includes every agent — even ones whose Skills CLI dir resolves to the Universal source', async () => {
+  it('keeps every agent visible even when its CLI dir resolves to the Universal source', async () => {
+    // Arrange
     accessMock.mockResolvedValue(undefined)
     readdirMock.mockResolvedValue([])
 
+    // Act
     const { scanAgents } = await import('./agentScanner')
     const agents = await scanAgents()
 
+    // Assert
     // Cline + Warp currently resolve to the Universal source in the mock.
     // We still render them AND pin `exists: true` — the dedicated/universal
     // relationship is a dual-source READ, not an alias. Hiding rows or
@@ -246,7 +264,8 @@ describe('scanAgents', () => {
     expect(agents.find((a) => a.id === 'cursor')).toBeDefined()
   })
 
-  it('excludes dot-prefixed directories from local skill count', async () => {
+  it('skips dot-prefixed directories when counting local skills', async () => {
+    // Arrange
     accessMock.mockResolvedValue(undefined)
 
     readdirMock.mockImplementation(async (path: string) => {
@@ -265,15 +284,18 @@ describe('scanAgents', () => {
       return []
     })
 
+    // Act
     const { scanAgents } = await import('./agentScanner')
     const agents = await scanAgents()
 
+    // Assert
     const claude = agents.find((a) => a.id === 'claude-code')!
     // .hidden-dir is excluded, visible-skill has SKILL.md (access resolves)
     expect(claude.localSkillCount).toBe(1)
   })
 
-  it('does not count local dirs without SKILL.md', async () => {
+  it('ignores a local directory that has no SKILL.md when counting local skills', async () => {
+    // Arrange
     accessMock.mockImplementation(async (path: string) => {
       // Agent dirs exist
       if (path === '/mock/agents/claude/skills') return
@@ -294,9 +316,11 @@ describe('scanAgents', () => {
       return []
     })
 
+    // Act
     const { scanAgents } = await import('./agentScanner')
     const agents = await scanAgents()
 
+    // Assert
     const claude = agents.find((a) => a.id === 'claude-code')!
     expect(claude.localSkillCount).toBe(0)
   })

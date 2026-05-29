@@ -138,18 +138,33 @@ beforeEach(() => {
 })
 
 describe('bootstrap — pre-hydration theme IIFE', () => {
-  it('drift guard: index.html contains PERSIST_STORAGE_KEY literal', () => {
+  it('keeps the inline bootstrap reading the storage key so first paint stays in sync with persisted state', () => {
+    // Arrange — read index.html as shipped
     const html = readFileSync(HTML_PATH, 'utf8')
+
+    // Act — (the file content is the subject under inspection)
+
+    // Assert — the bootstrap still references the literal storage key
     expect(html).toContain(`'${PERSIST_STORAGE_KEY}'`)
   })
 
-  it('drift guard: index.html contains COLOR_PRESET_CHROMA literal', () => {
+  it('keeps the inline bootstrap referencing the color-preset chroma so renamed constants fail loudly', () => {
+    // Arrange — read index.html as shipped
     const html = readFileSync(HTML_PATH, 'utf8')
+
+    // Act — (the file content is the subject under inspection)
+
+    // Assert — the bootstrap still references the literal chroma constant
     expect(html).toContain(`'${COLOR_PRESET_CHROMA}'`)
   })
 
-  it('no storage → keeps default .dark, sets no CSS vars', () => {
+  it('paints the default dark theme with no CSS vars when storage is empty', () => {
+    // Arrange — beforeEach already cleared storage and set the .dark baseline
+
+    // Act
     runBootstrap()
+
+    // Assert — stays on default .dark and writes no theme CSS variables
     const root = document.documentElement
     expect(root.classList.contains('dark')).toBe(true)
     expect(root.classList.contains('light')).toBe(false)
@@ -157,28 +172,39 @@ describe('bootstrap — pre-hydration theme IIFE', () => {
     expect(root.style.getPropertyValue('--theme-chroma')).toBe('')
   })
 
-  it('malformed JSON → falls back to default .dark', () => {
+  it('falls back to the default dark theme when persisted state is malformed JSON', () => {
+    // Arrange — corrupt the persisted blob so JSON.parse will throw
     localStorage.setItem(PERSIST_STORAGE_KEY, 'not-json{')
+
+    // Act
     runBootstrap()
+
+    // Assert — parse failure keeps .dark and writes no hue variable
     expect(document.documentElement.classList.contains('dark')).toBe(true)
     expect(document.documentElement.style.getPropertyValue('--theme-hue')).toBe(
       '',
     )
   })
 
-  it('null theme slot → bails without touching DOM', () => {
+  it('leaves the DOM untouched when the persisted theme slot is null', () => {
+    // Arrange — valid envelope but an explicitly null theme
     localStorage.setItem(
       PERSIST_STORAGE_KEY,
       JSON.stringify({ version: 1, state: { theme: null } }),
     )
+
+    // Act
     runBootstrap()
+
+    // Assert — a null theme bails early, keeping .dark and no hue variable
     expect(document.documentElement.classList.contains('dark')).toBe(true)
     expect(document.documentElement.style.getPropertyValue('--theme-hue')).toBe(
       '',
     )
   })
 
-  it('v1 color preset (cyan dark) → applies hue, chroma, keeps .dark', () => {
+  it('applies hue and chroma and keeps dark mode for a v1 color preset', () => {
+    // Arrange — a v1 cyan color preset in dark mode
     localStorage.setItem(
       PERSIST_STORAGE_KEY,
       JSON.stringify({
@@ -193,7 +219,11 @@ describe('bootstrap — pre-hydration theme IIFE', () => {
         },
       }),
     )
+
+    // Act
     runBootstrap()
+
+    // Assert — the stored hue/chroma paint through and .dark is preserved
     const root = document.documentElement
     expect(root.style.getPropertyValue('--theme-hue')).toBe('195')
     expect(Number(root.style.getPropertyValue('--theme-chroma'))).toBeCloseTo(
@@ -203,7 +233,8 @@ describe('bootstrap — pre-hydration theme IIFE', () => {
     expect(root.classList.contains('light')).toBe(false)
   })
 
-  it('v1 neutral preset (neutral-light) → chroma 0, flips to .light', () => {
+  it('zeroes chroma and flips to light mode for a v1 neutral preset', () => {
+    // Arrange — a v1 neutral-light preset in light mode
     localStorage.setItem(
       PERSIST_STORAGE_KEY,
       JSON.stringify({
@@ -213,17 +244,22 @@ describe('bootstrap — pre-hydration theme IIFE', () => {
         },
       }),
     )
+
+    // Act
     runBootstrap()
+
+    // Assert — chroma collapses to 0 and the baseline .dark flips to .light
     const root = document.documentElement
     expect(root.style.getPropertyValue('--theme-chroma')).toBe('0')
     expect(root.classList.contains('light')).toBe(true)
     expect(root.classList.contains('dark')).toBe(false)
   })
 
-  it('v0 color preset (legacy presetType=color, no chroma) → chroma derived from COLOR_PRESET_CHROMA', () => {
+  it('derives chroma from the legacy presetType so v0 color users skip the neutral-dark flash', () => {
     // Regression guard for post-landing finding MAJOR-2: the v1 bootstrap
     // only read `t.chroma`, so any user still on v0 storage saw a
     // neutral-dark flash for ~100ms until ACTION_HYDRATE_COMPLETE fired.
+    // Arrange — a v0 envelope with legacy presetType=color and no chroma field
     localStorage.setItem(
       PERSIST_STORAGE_KEY,
       JSON.stringify({
@@ -238,7 +274,11 @@ describe('bootstrap — pre-hydration theme IIFE', () => {
         },
       }),
     )
+
+    // Act
     runBootstrap()
+
+    // Assert — chroma is derived from COLOR_PRESET_CHROMA and .dark is kept
     const root = document.documentElement
     expect(root.style.getPropertyValue('--theme-hue')).toBe('195')
     expect(Number(root.style.getPropertyValue('--theme-chroma'))).toBeCloseTo(
@@ -247,7 +287,8 @@ describe('bootstrap — pre-hydration theme IIFE', () => {
     expect(root.classList.contains('dark')).toBe(true)
   })
 
-  it('v0 neutral preset (legacy presetType=neutral, no chroma) → chroma 0', () => {
+  it('zeroes chroma for a legacy v0 neutral preset', () => {
+    // Arrange — a v0 envelope with legacy presetType=neutral and no chroma field
     localStorage.setItem(
       PERSIST_STORAGE_KEY,
       JSON.stringify({
@@ -262,7 +303,11 @@ describe('bootstrap — pre-hydration theme IIFE', () => {
         },
       }),
     )
+
+    // Act
     runBootstrap()
+
+    // Assert — legacy neutral yields chroma 0 and flips to .light
     const root = document.documentElement
     expect(root.style.getPropertyValue('--theme-chroma')).toBe('0')
     expect(root.classList.contains('light')).toBe(true)

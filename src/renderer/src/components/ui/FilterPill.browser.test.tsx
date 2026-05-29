@@ -11,7 +11,8 @@ import { FilterPill } from './FilterPill'
  * tests exercise the integration; this file stays focused on the primitive.
  */
 describe('FilterPill', () => {
-  it('renders "Showing skills <label>" and calls onClear on Clear click', async () => {
+  it('shows "Showing skills <label>" and clears the filter when Clear is clicked', async () => {
+    // Arrange
     const onClear = vi.fn()
     const screen = await render(
       <FilterPill
@@ -24,14 +25,18 @@ describe('FilterPill', () => {
         testId="agent-filter-pill"
       />,
     )
-
     const pill = screen.getByTestId('agent-filter-pill')
+
+    // Assert
     await expect.element(pill).toBeInTheDocument()
     await expect
       .element(pill)
       .toHaveTextContent('Showing skills for Claude Code')
 
+    // Act
     await pill.getByRole('button', { name: /Clear/i }).click()
+
+    // Assert
     expect(onClear).toHaveBeenCalledTimes(1)
   })
 })

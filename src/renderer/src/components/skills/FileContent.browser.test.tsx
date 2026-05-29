@@ -25,6 +25,7 @@ function makeTextContent(
 
 describe('FileContent Markdown modes', () => {
   it('renders Markdown files in code mode first, then switches to Reading Mode', async () => {
+    // Arrange
     const { FileContent } = await import('./FileContent')
     const screen = await render(
       <FileContent
@@ -35,13 +36,16 @@ describe('FileContent Markdown modes', () => {
       />,
     )
 
+    // Assert: code mode is the initial view, so the heading is not rendered yet.
     await expect
       .element(screen.getByRole('radio', { name: /Show Markdown source/i }))
       .toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Install' }).query()).toBeNull()
 
+    // Act
     await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
 
+    // Assert
     await expect
       .element(screen.getByRole('heading', { name: 'Install' }))
       .toBeInTheDocument()
@@ -50,6 +54,7 @@ describe('FileContent Markdown modes', () => {
   })
 
   it('keeps Markdown that starts with a horizontal rule in Reading Mode', async () => {
+    // Arrange
     const { FileContent } = await import('./FileContent')
     const screen = await render(
       <FileContent
@@ -59,8 +64,10 @@ describe('FileContent Markdown modes', () => {
       />,
     )
 
+    // Act
     await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
 
+    // Assert
     await expect
       .element(screen.getByRole('heading', { name: 'Keep Me' }))
       .toBeInTheDocument()
@@ -68,6 +75,7 @@ describe('FileContent Markdown modes', () => {
   })
 
   it('renders language-less code fences as block code without AST attributes', async () => {
+    // Arrange
     const { FileContent } = await import('./FileContent')
     const screen = await render(
       <FileContent
@@ -78,8 +86,10 @@ describe('FileContent Markdown modes', () => {
       />,
     )
 
+    // Act
     await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
 
+    // Assert
     const blockCode = screen.getByText(/npx skills list --json/).query()
     const inlineCode = screen.getByText('skill', { exact: true }).query()
 
@@ -91,6 +101,7 @@ describe('FileContent Markdown modes', () => {
   })
 
   it('renders language-tagged code fences as block code', async () => {
+    // Arrange
     const { FileContent } = await import('./FileContent')
     const screen = await render(
       <FileContent
@@ -100,8 +111,10 @@ describe('FileContent Markdown modes', () => {
       />,
     )
 
+    // Act
     await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
 
+    // Assert
     const blockCode = screen.getByText(/const ok = true/).query()
 
     expect(blockCode).toBeInstanceOf(HTMLElement)
@@ -109,6 +122,7 @@ describe('FileContent Markdown modes', () => {
   })
 
   it('locks Reading Mode to vertical scrolling when Markdown is wider than the pane', async () => {
+    // Arrange
     const { FileContent } = await import('./FileContent')
     const wideInline = 'very-long-inline-token-'.repeat(30)
     const wideBlock = 'wide command '.repeat(40)
@@ -120,8 +134,10 @@ describe('FileContent Markdown modes', () => {
       />,
     )
 
+    // Act
     await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
 
+    // Assert
     const scrollPane = screen.container.querySelector(
       '[data-markdown-reading-scroll]',
     )
@@ -143,7 +159,10 @@ describe('FileContent Markdown modes', () => {
   })
 
   it('adds a bottom spacer after source code so the final line can breathe', async () => {
+    // Arrange
     const { FileContent } = await import('./FileContent')
+
+    // Act
     const screen = await render(
       <FileContent
         content={makeTextContent({
@@ -155,6 +174,7 @@ describe('FileContent Markdown modes', () => {
       />,
     )
 
+    // Assert
     const scrollPane = screen.container.querySelector(
       '[data-file-preview-scroll]',
     )

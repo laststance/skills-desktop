@@ -26,34 +26,63 @@ function buildWidget(
 }
 
 describe('findEmptySpot', () => {
-  it('returns origin on an empty page', () => {
-    expect(findEmptySpot([], { w: 6, h: 2 })).toEqual({ x: 0, y: 0 })
+  it('drops the first widget into the top-left corner of an empty page', () => {
+    // Arrange
+    const noWidgets: WidgetInstance[] = []
+
+    // Act
+    const spot = findEmptySpot(noWidgets, { w: 6, h: 2 })
+
+    // Assert
+    expect(spot).toEqual({ x: 0, y: 0 })
   })
 
-  it('places a widget below an existing full-width widget', () => {
+  it('stacks a new full-width widget on the row below an existing one', () => {
+    // Arrange
     const widgets = [buildWidget({ x: 0, y: 0, w: 6, h: 2 })]
-    expect(findEmptySpot(widgets, { w: 6, h: 2 })).toEqual({ x: 0, y: 2 })
+
+    // Act
+    const spot = findEmptySpot(widgets, { w: 6, h: 2 })
+
+    // Assert
+    expect(spot).toEqual({ x: 0, y: 2 })
   })
 
   it('packs a small widget beside a half-width one on the same row', () => {
-    // 3-wide widget on the left → next 3-wide widget can sit at x=3.
+    // Arrange — 3-wide widget on the left → next 3-wide widget can sit at x=3.
     const widgets = [buildWidget({ x: 0, y: 0, w: 3, h: 2 })]
-    expect(findEmptySpot(widgets, { w: 3, h: 2 })).toEqual({ x: 3, y: 0 })
+
+    // Act
+    const spot = findEmptySpot(widgets, { w: 3, h: 2 })
+
+    // Assert
+    expect(spot).toEqual({ x: 3, y: 0 })
   })
 
-  it('returns null when the page is at MAX_WIDGETS_PER_PAGE', () => {
-    // 4 widgets of any size → full page per the macOS-style overflow rule.
+  it('refuses to place a widget once the page already holds MAX_WIDGETS_PER_PAGE', () => {
+    // Arrange — 4 widgets of any size → full page per the macOS-style overflow rule.
     const widgets = [
       buildWidget({ x: 0, y: 0, w: 3, h: 1 }),
       buildWidget({ x: 3, y: 0, w: 3, h: 1 }),
       buildWidget({ x: 0, y: 1, w: 3, h: 1 }),
       buildWidget({ x: 3, y: 1, w: 3, h: 1 }),
     ]
-    expect(findEmptySpot(widgets, { w: 3, h: 1 })).toBeNull()
+
+    // Act
+    const spot = findEmptySpot(widgets, { w: 3, h: 1 })
+
+    // Assert
+    expect(spot).toBeNull()
   })
 
-  it('returns null when the requested width exceeds the grid', () => {
-    // 6-col grid; asking for width 7 can never fit.
-    expect(findEmptySpot([], { w: 7, h: 1 })).toBeNull()
+  it('refuses to place a widget wider than the grid itself', () => {
+    // Arrange — 6-col grid; asking for width 7 can never fit.
+    const noWidgets: WidgetInstance[] = []
+
+    // Act
+    const spot = findEmptySpot(noWidgets, { w: 7, h: 1 })
+
+    // Assert
+    expect(spot).toBeNull()
   })
 })

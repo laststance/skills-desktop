@@ -47,9 +47,14 @@ describe('themeSlice', () => {
     vi.unstubAllGlobals()
   })
 
-  it('has correct initial state', async () => {
+  it('boots into the neutral-dark theme with no tint applied', async () => {
+    // Arrange
     const store = await createTestStore()
+
+    // Act
     const state = store.getState().theme
+
+    // Assert
     expect(state.hue).toBe(0)
     expect(state.chroma).toBe(0)
     expect(state.mode).toBe('dark')
@@ -57,10 +62,15 @@ describe('themeSlice', () => {
     expect(state.preset).toBe('neutral-dark')
   })
 
-  it('setTheme applies hue and chroma from THEME_PRESETS for color presets', async () => {
+  it('tints the app to the chosen color swatch while keeping the current dark mode', async () => {
+    // Arrange
     const { setTheme } = await import('./themeSlice')
     const store = await createTestStore()
+
+    // Act
     store.dispatch(setTheme('violet'))
+
+    // Assert
     const state = store.getState().theme
     expect(state.preset).toBe('violet')
     expect(state.hue).toBe(300)
@@ -69,10 +79,15 @@ describe('themeSlice', () => {
     expect(state.mode).toBe('dark')
   })
 
-  it('setTheme forces mode for neutral presets', async () => {
+  it('switches to light mode when the user picks the neutral-light preset', async () => {
+    // Arrange
     const { setTheme } = await import('./themeSlice')
     const store = await createTestStore()
+
+    // Act
     store.dispatch(setTheme('neutral-light'))
+
+    // Assert
     const state = store.getState().theme
     expect(state.preset).toBe('neutral-light')
     expect(state.chroma).toBe(0)
@@ -235,26 +250,35 @@ describe('themeSlice', () => {
     })
   })
 
-  it('switching color → neutral drops chroma to 0', async () => {
+  it('removes the color tint when switching from a color swatch back to a neutral preset', async () => {
+    // Arrange
     const { setTheme } = await import('./themeSlice')
     const store = await createTestStore()
+
+    // Act + Assert — a color preset applies chroma
     store.dispatch(setTheme('rose'))
     expect(store.getState().theme.chroma).toBe(COLOR_PRESET_CHROMA)
+
+    // Act + Assert — switching to neutral drops chroma back to zero
     store.dispatch(setTheme('neutral-dark'))
     expect(store.getState().theme.chroma).toBe(0)
   })
 
-  it('setTheme falls back to neutral-dark when preset key is unknown', async () => {
+  it('falls back to neutral-dark instead of crashing on a stale unknown preset key', async () => {
     // Guards against the "stale preset from disk" crash: if a user has
     // `preset: 'mono-dark'` (a name proposed in a plan but never shipped),
     // THEME_PRESETS[preset] is undefined and `config.hue` would throw. The
     // guard must short-circuit to neutral-dark before that access.
+    // Arrange
     const { setTheme } = await import('./themeSlice')
     const store = await createTestStore()
-    // Force-cast an invalid preset name. Migration has its own guard; this
-    // exercises the reducer-level guard in case migration is bypassed (e.g.
-    // a dev action dispatch, or a future slice that lets users type names).
+
+    // Act — force-cast an invalid preset name. Migration has its own guard;
+    // this exercises the reducer-level guard in case migration is bypassed
+    // (e.g. a dev action dispatch, or a future slice that lets users type names).
     store.dispatch(setTheme('mono-dark' as never))
+
+    // Assert
     const state = store.getState().theme
     expect(state.preset).toBe('neutral-dark')
     expect(state.chroma).toBe(0)

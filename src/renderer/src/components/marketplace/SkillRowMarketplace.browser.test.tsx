@@ -91,29 +91,53 @@ async function renderRow(skill: SkillSearchResult, isInstalled: boolean) {
  * have to delete a test that explicitly says "no destructive action."
  */
 describe('SkillRowMarketplace — installed row has no destructive action', () => {
-  it('renders no Remove button when isInstalled=true', async () => {
+  it('offers no Remove button on an already-installed skill', async () => {
+    // Arrange
     const { screen } = await renderRow(makeSkill(), true)
+
+    // Act
     // Exact-match 'Remove' so we don't false-positive on the bookmark
     // toggle's "Remove <name> from bookmarks" aria-label.
-    expect(screen.getByRole('button', { name: 'Remove' }).query()).toBeNull()
+    const removeButton = screen.getByRole('button', { name: 'Remove' }).query()
+
+    // Assert
+    expect(removeButton).toBeNull()
   })
 
-  it('renders no Uninstall button when isInstalled=true', async () => {
+  it('offers no Uninstall button on an already-installed skill', async () => {
+    // Arrange
     const { screen } = await renderRow(makeSkill(), true)
-    expect(
-      screen.getByRole('button', { name: /uninstall/i }).query(),
-    ).toBeNull()
+
+    // Act
+    const uninstallButton = screen
+      .getByRole('button', { name: /uninstall/i })
+      .query()
+
+    // Assert
+    expect(uninstallButton).toBeNull()
   })
 
-  it('renders no Trash icon button when isInstalled=true', async () => {
+  it('offers no Trash or Delete icon button on an already-installed skill', async () => {
+    // Arrange
     const { screen } = await renderRow(makeSkill(), true)
-    expect(screen.getByRole('button', { name: /trash/i }).query()).toBeNull()
-    expect(screen.getByRole('button', { name: /delete/i }).query()).toBeNull()
+
+    // Act
+    const trashButton = screen.getByRole('button', { name: /trash/i }).query()
+    const deleteButton = screen.getByRole('button', { name: /delete/i }).query()
+
+    // Assert
+    expect(trashButton).toBeNull()
+    expect(deleteButton).toBeNull()
   })
 
-  it('renders the static Installed badge with a discoverable uninstall hint', async () => {
+  it('shows an Installed badge whose hint spells out the npx remove --global command', async () => {
+    // Arrange
     const skill = makeSkill({ name: 'lint' as SkillName })
+
+    // Act
     const { screen } = await renderRow(skill, true)
+
+    // Assert
     // Static informational badge uses role="img" — `role="status"` is for
     // live regions that announce dynamic state changes, not labels. The
     // aria-label includes `--global` so the recipe matches how the app
@@ -130,15 +154,19 @@ describe('SkillRowMarketplace — installed row has no destructive action', () =
       .toBeInTheDocument()
   })
 
-  it('still renders an Install button when isInstalled=false (sanity)', async () => {
+  it('shows an Install button on a not-yet-installed skill', async () => {
+    // Arrange
     const { screen } = await renderRow(makeSkill(), false)
+
+    // Act
     // Exact 'Install' (not /install/i) — the regex would also match the
     // Installed badge's "<name> is installed …" aria-label if both states
     // ever rendered together. Anchoring on the button's exact accessible
     // name keeps this assertion truthful regardless of future layout shifts.
-    await expect
-      .element(screen.getByRole('button', { name: 'Install' }))
-      .toBeInTheDocument()
+    const installButton = screen.getByRole('button', { name: 'Install' })
+
+    // Assert
+    await expect.element(installButton).toBeInTheDocument()
   })
 })
 
@@ -149,9 +177,14 @@ describe('SkillRowMarketplace — installed row has no destructive action', () =
  * it. Two cases lock both directions: unbookmarked → bookmarked and back.
  */
 describe('SkillRowMarketplace — bookmark toggle', () => {
-  it('toggles unbookmarked → bookmarked via star click', async () => {
+  it('bookmarks a skill and saves it when the star is clicked', async () => {
+    // Arrange
     const { screen, store } = await renderRow(makeSkill(), false)
+
+    // Act
     await screen.getByRole('button', { name: 'Bookmark task' }).click()
+
+    // Assert
     await expect
       .element(
         screen.getByRole('button', { name: 'Remove task from bookmarks' }),
@@ -162,13 +195,18 @@ describe('SkillRowMarketplace — bookmark toggle', () => {
     ])
   })
 
-  it('toggles bookmarked → unbookmarked on second click', async () => {
+  it('removes a skill from the saved list when its star is clicked a second time', async () => {
+    // Arrange
     const { screen, store } = await renderRow(makeSkill(), false)
     const bookmarkButton = screen.getByRole('button', { name: 'Bookmark task' })
     await bookmarkButton.click()
+
+    // Act
     await screen
       .getByRole('button', { name: 'Remove task from bookmarks' })
       .click()
+
+    // Assert
     await expect
       .element(screen.getByRole('button', { name: 'Bookmark task' }))
       .toBeInTheDocument()

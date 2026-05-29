@@ -92,42 +92,53 @@ async function renderItem(hiddenAgentIds: AgentId[] = []) {
  * button (mirrors the production right-click flow).
  */
 describe('Sidebar → AgentItem context menu', () => {
-  it('shows "Hide from sidebar" when the agent is currently visible', async () => {
+  it('offers "Hide from sidebar" in the right-click menu of a visible agent', async () => {
+    // Arrange
     const { screen } = await renderItem([])
-    // Open the dropdown via right-click on the agent row trigger.
     const trigger = screen.getByRole('button', {
       name: /Filter skills by Claude Code/i,
     })
     const triggerElement = trigger.element()
+
+    // Act
+    // Open the dropdown via right-click on the agent row trigger.
     triggerElement.dispatchEvent(
       new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
     )
+
+    // Assert
     await expect
       .element(screen.getByText(/^Hide from sidebar$/))
       .toBeInTheDocument()
   })
 
-  it('shows "Show in sidebar" when the agent is currently hidden', async () => {
+  it('offers "Show in sidebar" in the right-click menu of an already-hidden agent', async () => {
     // Hidden state flips the menu copy — without this branch users would
     // see "Hide from sidebar" on an already-hidden item with no obvious
     // way to restore it from the sidebar context menu.
+    // Arrange
     const { screen } = await renderItem(['claude-code'])
     const trigger = screen.getByRole('button', {
       name: /Filter skills by Claude Code/i,
     })
     const triggerElement = trigger.element()
+
+    // Act
     triggerElement.dispatchEvent(
       new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
     )
+
+    // Assert
     await expect
       .element(screen.getByText(/^Show in sidebar$/))
       .toBeInTheDocument()
   })
 
-  it('selecting "Hide from sidebar" dispatches settings:set with the agent appended', async () => {
+  it('hides the agent from the sidebar when "Hide from sidebar" is clicked', async () => {
     // The whole point of the menu item — clicking it must reach the IPC
     // boundary with the toggled array. Without this assertion the menu
     // could silently no-op and only Settings → Agents would work.
+    // Arrange
     const { screen } = await renderItem([])
     const trigger = screen.getByRole('button', {
       name: /Filter skills by Claude Code/i,
@@ -137,14 +148,19 @@ describe('Sidebar → AgentItem context menu', () => {
       new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
     )
     const hideItem = screen.getByText(/^Hide from sidebar$/)
+
+    // Act
     await hideItem.click()
+
+    // Assert
     expect(mockSettingsSet).toHaveBeenCalledWith({
       hiddenAgentIds: ['claude-code'],
     })
   })
 
-  it('selecting "Show in sidebar" dispatches settings:set with the agent removed', async () => {
+  it('restores the agent to the sidebar when "Show in sidebar" is clicked', async () => {
     // Inverse path — toggling an already-hidden agent must remove it.
+    // Arrange
     const { screen } = await renderItem(['claude-code'])
     const trigger = screen.getByRole('button', {
       name: /Filter skills by Claude Code/i,
@@ -154,7 +170,11 @@ describe('Sidebar → AgentItem context menu', () => {
       new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
     )
     const showItem = screen.getByText(/^Show in sidebar$/)
+
+    // Act
     await showItem.click()
+
+    // Assert
     expect(mockSettingsSet).toHaveBeenCalledWith({
       hiddenAgentIds: [],
     })
@@ -162,16 +182,18 @@ describe('Sidebar → AgentItem context menu', () => {
 })
 
 describe('Sidebar → AgentItem navigation', () => {
-  it('switches Marketplace back to Installed when an installed agent is clicked', async () => {
+  it('switches Marketplace back to Installed and selects the agent when clicked', async () => {
+    // Arrange
     const { screen, store } = await renderItem([])
     const { setActiveTab } = await import('@/renderer/src/redux/slices/uiSlice')
-
     store.dispatch(setActiveTab('marketplace'))
 
+    // Act
     await screen
       .getByRole('button', { name: /Filter skills by Claude Code/i })
       .click()
 
+    // Assert
     expect(store.getState().ui.activeTab).toBe('installed')
     expect(store.getState().ui.selectedAgentId).toBe('claude-code')
   })

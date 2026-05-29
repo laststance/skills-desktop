@@ -3,25 +3,52 @@ import { describe, expect, it } from 'vitest'
 import { formatInstallCount, toggleArrayMember } from './utils'
 
 describe('formatInstallCount', () => {
-  it('returns em dash when count is undefined', () => {
-    expect(formatInstallCount(undefined)).toBe('—')
+  it('shows an em dash when the install count is unknown', () => {
+    // Arrange
+    const unknownCount = undefined
+    // Act
+    const label = formatInstallCount(unknownCount)
+    // Assert
+    expect(label).toBe('—')
   })
 
-  it('returns raw number string for values below 1K', () => {
-    expect(formatInstallCount(0)).toBe('0')
-    expect(formatInstallCount(999)).toBe('999')
+  it('shows small install counts as a plain number without K notation', () => {
+    // Arrange
+    const zeroCount = 0
+    const justBelowOneThousand = 999
+    // Act
+    const zeroLabel = formatInstallCount(zeroCount)
+    const belowThousandLabel = formatInstallCount(justBelowOneThousand)
+    // Assert
+    expect(zeroLabel).toBe('0')
+    expect(belowThousandLabel).toBe('999')
   })
 
-  it('formats 1K boundary as K notation', () => {
-    expect(formatInstallCount(1_000)).toBe('1.0K')
+  it('abbreviates one thousand installs as 1.0K', () => {
+    // Arrange
+    const oneThousand = 1_000
+    // Act
+    const label = formatInstallCount(oneThousand)
+    // Assert
+    expect(label).toBe('1.0K')
   })
 
-  it('rounds near 1M boundary to M notation', () => {
-    expect(formatInstallCount(999_999)).toBe('1.0M')
+  it('rounds a count just below one million up to 1.0M', () => {
+    // Arrange
+    const justBelowOneMillion = 999_999
+    // Act
+    const label = formatInstallCount(justBelowOneMillion)
+    // Assert
+    expect(label).toBe('1.0M')
   })
 
-  it('formats 1M boundary as M notation', () => {
-    expect(formatInstallCount(1_000_000)).toBe('1.0M')
+  it('abbreviates one million installs as 1.0M', () => {
+    // Arrange
+    const oneMillion = 1_000_000
+    // Act
+    const label = formatInstallCount(oneMillion)
+    // Assert
+    expect(label).toBe('1.0M')
   })
 })
 
@@ -38,19 +65,39 @@ describe('formatInstallCount', () => {
  */
 describe('toggleArrayMember', () => {
   it('appends a value when it is not already present', () => {
-    expect(toggleArrayMember(['a', 'b'], 'c')).toEqual(['a', 'b', 'c'])
+    // Arrange
+    const members = ['a', 'b']
+    // Act
+    const toggled = toggleArrayMember(members, 'c')
+    // Assert
+    expect(toggled).toEqual(['a', 'b', 'c'])
   })
 
   it('removes a value when it is already present', () => {
-    expect(toggleArrayMember(['a', 'b'], 'a')).toEqual(['b'])
+    // Arrange
+    const members = ['a', 'b']
+    // Act
+    const toggled = toggleArrayMember(members, 'a')
+    // Assert
+    expect(toggled).toEqual(['b'])
   })
 
   it('appends to an empty array', () => {
-    expect(toggleArrayMember<string>([], 'x')).toEqual(['x'])
+    // Arrange
+    const members: string[] = []
+    // Act
+    const toggled = toggleArrayMember<string>(members, 'x')
+    // Assert
+    expect(toggled).toEqual(['x'])
   })
 
   it('returns an empty array when removing the only member', () => {
-    expect(toggleArrayMember(['x'], 'x')).toEqual([])
+    // Arrange
+    const members = ['x']
+    // Act
+    const toggled = toggleArrayMember(members, 'x')
+    // Assert
+    expect(toggled).toEqual([])
   })
 
   it('returns a new reference even when the result is structurally equal to the input', () => {
@@ -58,17 +105,23 @@ describe('toggleArrayMember', () => {
     // a fresh reference for `setSettings` to be detected as a change
     // by Redux's default ===-equality checks. Aliasing the input would
     // silently drop optimistic updates.
+    // Arrange
     const input = ['a', 'b']
+    // Act
     const removed = toggleArrayMember(input, 'a')
     const appended = toggleArrayMember(input, 'c')
+    // Assert
     expect(removed).not.toBe(input)
     expect(appended).not.toBe(input)
   })
 
   it('does not mutate the input array', () => {
+    // Arrange
     const input = ['a', 'b']
+    // Act
     toggleArrayMember(input, 'a')
     toggleArrayMember(input, 'c')
+    // Assert
     expect(input).toEqual(['a', 'b'])
   })
 })

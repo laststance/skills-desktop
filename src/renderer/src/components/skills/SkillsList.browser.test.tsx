@@ -127,6 +127,7 @@ async function renderSkillsList(skillsState: {
 
 describe('SkillsList loading branch — scroll-preservation regression', () => {
   it('shows the "Loading skills..." placeholder on initial fetch (loading=true, items=[])', async () => {
+    // Arrange
     // Pin getAll on a never-resolving promise so the on-mount fetchSkills
     // useEffect cannot flip loading→false before the assertion polls the
     // DOM. Without this the fulfilled reducer would land first and the
@@ -134,14 +135,17 @@ describe('SkillsList loading branch — scroll-preservation regression', () => {
     // placeholder — a flake unrelated to the bug under test.
     mockGetAll.mockReturnValue(new Promise(() => {}))
 
+    // Act
     const screen = await renderSkillsList({ loading: true, items: [] })
 
+    // Assert
     await expect
       .element(screen.getByText('Loading skills...'))
       .toBeInTheDocument()
   })
 
   it('keeps the list mounted during background refetch (loading=true, items=[skill])', async () => {
+    // Arrange
     // Background refetch after a mutation: Redux flips loading=true while
     // items still contain the previous data. The fix at SkillsList.tsx:93
     // (`if (loading && skills.length === 0)`) ensures the existing <List>
@@ -150,11 +154,13 @@ describe('SkillsList loading branch — scroll-preservation regression', () => {
     // placeholder shows — this assertion catches that regression.
     mockGetAll.mockReturnValue(new Promise(() => {}))
 
+    // Act
     const screen = await renderSkillsList({
       loading: true,
       items: [makeSkill({ name: 'task' as SkillName })],
     })
 
+    // Assert
     expect(screen.getByText('Loading skills...').query()).toBeNull()
   })
 })

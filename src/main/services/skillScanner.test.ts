@@ -192,9 +192,13 @@ describe('scanSkills local skill aggregation', () => {
   })
 
   it('keeps same local skill as valid for multiple agents', async () => {
+    // Arrange
     const { scanSkills } = await import('./skillScanner')
 
+    // Act
     const skills = await scanSkills()
+
+    // Assert
     expect(skills).toHaveLength(1)
 
     const localSkill = skills[0]
@@ -213,6 +217,7 @@ describe('scanSkills local skill aggregation', () => {
     // surface that target ON THE PER-AGENT SLOT so the renderer can show the
     // G-Stack badge for the agent that holds the gstack twin, without
     // bleeding to sibling agents that share the skill name.
+    // Arrange
     readSymlinkTargetIfPresentMock.mockImplementation(async (path: string) => {
       if (
         path ===
@@ -222,10 +227,12 @@ describe('scanSkills local skill aggregation', () => {
       }
       return undefined
     })
-
     const { scanSkills } = await import('./skillScanner')
+
+    // Act
     const skills = await scanSkills()
 
+    // Assert
     expect(skills).toHaveLength(1)
     const codex = skills[0].symlinks.find((s) => s.agentId === 'codex')
     expect(codex?.skillMdSymlinkTarget).toBe(
@@ -234,11 +241,15 @@ describe('scanSkills local skill aggregation', () => {
   })
 
   it('leaves skillMdSymlinkTarget undefined on every slot when SKILL.md is a regular file', async () => {
-    // Default mock returns undefined — explicit assertion guards against
-    // someone later changing the default and silently flipping the badge on.
+    // Arrange: default mock returns undefined — explicit assertion guards
+    // against someone later changing the default and silently flipping the
+    // badge on.
     const { scanSkills } = await import('./skillScanner')
+
+    // Act
     const skills = await scanSkills()
 
+    // Assert
     expect(skills).toHaveLength(1)
     for (const slot of skills[0].symlinks) {
       expect(slot.skillMdSymlinkTarget).toBeUndefined()
@@ -246,10 +257,10 @@ describe('scanSkills local skill aggregation', () => {
   })
 
   it('binds skillMdSymlinkTarget to the slot that detected it without bleeding to sibling agents', async () => {
-    // codex slot is a gstack-managed twin (SKILL.md symlinks into gstack);
-    // cursor slot is a plain local folder. Per-agent attribution: codex's
-    // slot must carry the target, cursor's slot must NOT — otherwise the
-    // badge would falsely appear on cursor's unrelated copy.
+    // Arrange: codex slot is a gstack-managed twin (SKILL.md symlinks into
+    // gstack); cursor slot is a plain local folder. Per-agent attribution:
+    // codex's slot must carry the target, cursor's slot must NOT — otherwise
+    // the badge would falsely appear on cursor's unrelated copy.
     readSymlinkTargetIfPresentMock.mockImplementation(async (path: string) => {
       if (
         path ===
@@ -259,10 +270,12 @@ describe('scanSkills local skill aggregation', () => {
       }
       return undefined
     })
-
     const { scanSkills } = await import('./skillScanner')
+
+    // Act
     const skills = await scanSkills()
 
+    // Assert
     expect(skills).toHaveLength(1)
     const codex = skills[0].symlinks.find((s) => s.agentId === 'codex')
     const cursor = skills[0].symlinks.find((s) => s.agentId === 'cursor')
@@ -287,9 +300,10 @@ describe('scanSkills agent-only linked symlink surfacing', () => {
   })
 
   it('surfaces valid agent symlinks whose names are not in the source directory', async () => {
-    // Codex has a valid gstack-managed symlink, but ~/.agents/skills has no
-    // matching source directory. The sidebar count includes this link, so the
-    // central agent view must include a linked card for the same on-disk entry.
+    // Arrange: Codex has a valid gstack-managed symlink, but ~/.agents/skills
+    // has no matching source directory. The sidebar count includes this link,
+    // so the central agent view must include a linked card for the same
+    // on-disk entry.
     readdirMock.mockImplementation(async (path: string) => {
       if (path === '/mock/source/skills') return []
       if (path === '/mock/agents/codex/skills') {
@@ -320,10 +334,12 @@ describe('scanSkills agent-only linked symlink surfacing', () => {
         return undefined
       },
     )
-
     const { scanSkills } = await import('./skillScanner')
+
+    // Act
     const skills = await scanSkills()
 
+    // Assert
     expect(skills).toHaveLength(1)
     const linked = skills[0]
     expect(linked.name).toBe('gstack-browse')
@@ -376,10 +392,12 @@ describe('scanSkills agent-only linked symlink surfacing', () => {
         return undefined
       },
     )
-
     const { scanSkills } = await import('./skillScanner')
+
+    // Act
     const skills = await scanSkills()
 
+    // Assert
     expect(skills).toHaveLength(1)
     const manualReview = skills[0]
     expect(manualReview.name).toBe('secure-review')
@@ -417,7 +435,7 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
   })
 
   it('surfaces broken symlinks whose source is missing as orphan Skill records', async () => {
-    // Source dir empty; codex has 1 broken symlink "connect-chrome".
+    // Arrange: source dir empty; codex has 1 broken symlink "connect-chrome".
     readdirMock.mockImplementation(async (path: string) => {
       if (path === '/mock/source/skills') return []
       if (path === '/mock/agents/codex/skills') {
@@ -447,10 +465,12 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
         return undefined
       },
     )
-
     const { scanSkills } = await import('./skillScanner')
+
+    // Act
     const skills = await scanSkills()
 
+    // Assert
     expect(skills).toHaveLength(1)
     const orphan = skills[0]
     expect(orphan.name).toBe('connect-chrome')
@@ -470,6 +490,7 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
   })
 
   it('collapses the same broken name across multiple agents into one orphan record', async () => {
+    // Arrange
     readdirMock.mockImplementation(async (path: string) => {
       if (path === '/mock/source/skills') return []
       if (
@@ -488,10 +509,12 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     accessMock.mockRejectedValue(new Error('ENOENT'))
     statMock.mockRejectedValue(new Error('ENOENT'))
     checkSymlinkTargetFromKnownLinkMock.mockResolvedValue('broken')
-
     const { scanSkills } = await import('./skillScanner')
+
+    // Act
     const skills = await scanSkills()
 
+    // Assert
     expect(skills).toHaveLength(1)
     const orphan = skills[0]
     const codex = orphan.symlinks.find((s) => s.agentId === 'codex')
@@ -501,9 +524,9 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
   })
 
   it('does NOT create orphan record when name matches a live source skill', async () => {
-    // Source has "theme-generator". Codex has a broken "theme-generator"
-    // symlink — broken status belongs in the source skill's symlinks[], not
-    // in a separate orphan record.
+    // Arrange: source has "theme-generator". Codex has a broken
+    // "theme-generator" symlink — broken status belongs in the source skill's
+    // symlinks[], not in a separate orphan record.
     readdirMock.mockImplementation(async (path: string) => {
       if (path === '/mock/source/skills') {
         return [
@@ -536,11 +559,12 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     })
     mockLstatDirectories(['/mock/source/skills/theme-generator'])
     checkSymlinkTargetFromKnownLinkMock.mockResolvedValue('broken')
-
     const { scanSkills } = await import('./skillScanner')
+
+    // Act
     const skills = await scanSkills()
 
-    // Exactly one record — the live source skill, no separate orphan.
+    // Assert: exactly one record — the live source skill, no separate orphan.
     expect(skills).toHaveLength(1)
     expect(skills[0].name).toBe('theme-generator')
     expect(skills[0].isSource).toBe(true)
@@ -599,7 +623,7 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
   })
 
   it('merges orphan broken slots into a same-named local skill (regression for #127 follow-up)', async () => {
-    // Cursor has a real folder named "frontend-design" → local skill.
+    // Arrange: Cursor has a real folder named "frontend-design" → local skill.
     // Codex has a broken symlink with the same name → source missing, orphan.
     // Naive first-wins (which the original merge used) would keep only the
     // local record and silently drop codex's broken status — recreating the
@@ -642,10 +666,12 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
         return 'missing'
       },
     )
-
     const { scanSkills } = await import('./skillScanner')
+
+    // Act
     const skills = await scanSkills()
 
+    // Assert
     expect(skills).toHaveLength(1)
     const merged = skills[0]
     expect(merged.name).toBe('frontend-design')

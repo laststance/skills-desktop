@@ -73,7 +73,7 @@ describe('resolveSeedPreviewType', () => {
     expect(seed).toBe('stats')
   })
 
-  it('returns undefined when the catalog is empty', () => {
+  it('seeds nothing when the catalog has no widgets to preview', () => {
     // Arrange
     const availableWidgets: readonly WidgetDefinition[] = []
 
@@ -87,7 +87,7 @@ describe('resolveSeedPreviewType', () => {
     expect(seed).toBeUndefined()
   })
 
-  it('returns undefined when Welcome is dismissed and there is no second widget', () => {
+  it('seeds nothing when Welcome is dismissed and no second widget remains to fall back to', () => {
     // Arrange
     const availableWidgets = [makeDefinition('welcome')]
 

@@ -126,6 +126,8 @@ test('agent-only valid symlinks appear as linked skills in the selected agent vi
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange — stage an external skill dir whose frontmatter name differs from
+  // its folder name, then symlink it into the codex agent's skills dir.
   await waitForStoreReady(appWindow)
 
   const externalSkillPath = join(isolatedHome, 'external-skills', LINK_NAME)
@@ -146,14 +148,17 @@ test('agent-only valid symlinks appear as linked skills in the selected agent vi
   )
   symlinkSync(externalSkillPath, codexLinkPath)
 
+  // Arrange — setup sanity that the staged entry is a real symlink on disk.
   expect(lstatSync(codexLinkPath).isSymbolicLink()).toBe(true)
 
+  // Act — rescan from disk and select the codex agent so the linked skill surfaces.
   await refreshSkillsState(appWindow)
   await dispatchAction(appWindow, {
     type: 'ui/selectAgent',
     payload: AGENT_ID,
   })
 
+  // Assert — the scan surfaces the agent-only symlink as a valid linked skill.
   const scanFacts = await getStoreState(
     appWindow,
     selectAgentLinkedSkillFacts,
@@ -175,6 +180,8 @@ test('agent-only valid symlinks appear as linked skills in the selected agent vi
     },
   })
 
+  // Assert — the folder name labels the heading, and the frontmatter name
+  // never wins (no heading rendered under the frontmatter alias).
   await expect(
     appWindow.getByRole('heading', {
       name: new RegExp(`Linked skill ${LINK_NAME}`),

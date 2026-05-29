@@ -41,7 +41,8 @@ async function createStore(
 }
 
 describe('Settings → Appearance', () => {
-  it('dispatches settings:set when the opacity slider changes', async () => {
+  it('persists the new window blur radius when the opacity slider moves', async () => {
+    // Arrange
     const store = await createStore()
     const { Appearance } = await import('./Appearance')
     const screen = await render(
@@ -50,9 +51,11 @@ describe('Settings → Appearance', () => {
       </Provider>,
     )
 
+    // Act
     const slider = screen.getByRole('slider', { name: /Opacity/i })
     await slider.fill('24')
 
+    // Assert
     await expect.element(screen.getByText('72% / 24px')).toBeVisible()
     await expect.poll(() => mockSettingsSet.mock.calls.length).toBe(1)
     expect(mockSettingsSet).toHaveBeenCalledWith({
@@ -60,7 +63,8 @@ describe('Settings → Appearance', () => {
     })
   })
 
-  it('cancels a pending slider persist when a settings broadcast arrives', async () => {
+  it('does not persist a slider drag that an incoming settings broadcast overrides', async () => {
+    // Arrange
     const store = await createStore(12)
     const { setSettings } =
       await import('@/renderer/src/redux/slices/settingsSlice')
@@ -71,6 +75,7 @@ describe('Settings → Appearance', () => {
       </Provider>,
     )
 
+    // Act
     const slider = screen.getByRole('slider', { name: /Opacity/i })
     await slider.fill('24')
     store.dispatch(
@@ -80,6 +85,7 @@ describe('Settings → Appearance', () => {
       }),
     )
 
+    // Assert
     await new Promise((resolve) => window.setTimeout(resolve, 180))
     expect(mockSettingsSet).not.toHaveBeenCalled()
   })

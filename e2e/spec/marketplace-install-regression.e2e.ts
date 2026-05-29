@@ -9,8 +9,6 @@ import { dirname, join, resolve } from 'node:path'
 
 import { _electron, type Page } from '@playwright/test'
 
-import { SKILLS_CLI_VERSION } from '@/shared/constants'
-
 import { test, expect } from '../fixtures/electron-app'
 import { dispatchAction } from '../helpers/redux'
 
@@ -130,13 +128,14 @@ test('Marketplace Install works when Electron starts with sparse macOS GUI PATH'
   })
 
   try {
+    // Arrange — boot the window and wait until Claude Code is installable.
     const appWindow = await electronApp.firstWindow()
     await appWindow.waitForLoadState('domcontentloaded')
     await waitForClaudeCodeAgent(appWindow)
 
-    // Drive the real Marketplace UI without relying on skills.sh or the real
-    // skills CLI search endpoint. The Install button still goes through IPC,
-    // skillsCliService, and child_process.spawn.
+    // Seed the Marketplace search results without hitting skills.sh. The
+    // Install button below still goes through IPC, skillsCliService, and
+    // child_process.spawn.
     await dispatchAction(appWindow, {
       type: 'marketplace/setMarketplaceSearchQuery',
       payload: 'find-skills',
@@ -151,6 +150,7 @@ test('Marketplace Install works when Electron starts with sparse macOS GUI PATH'
       },
     })
 
+    // Act — open the Marketplace tab and confirm the install through the dialog.
     await appWindow.getByRole('tab', { name: 'Marketplace' }).click()
     await appWindow
       .getByRole('button', { name: 'Install', exact: true })
@@ -161,11 +161,15 @@ test('Marketplace Install works when Electron starts with sparse macOS GUI PATH'
     await expect(dialog.getByText('find-skills')).toBeVisible()
     await dialog.getByRole('button', { name: 'Install', exact: true }).click()
 
+    // Assert — the fake npx ran with the pinned CLI version (SKILLS_CLI_VERSION
+    // is '1.5.5' in src/shared/constants.ts; hardcoded here so this test pins
+    // the literal command rather than computing the expectation from the same
+    // constant the production command builds from) and the installed badge shows.
     await expect
       .poll(() => existsSync(markerPath), { timeout: 10_000 })
       .toBe(true)
     expect(readFileSync(markerPath, 'utf-8')).toContain(
-      `skills@${SKILLS_CLI_VERSION} add vercel-labs/skills`,
+      'skills@1.5.5 add vercel-labs/skills',
     )
     await expect(
       appWindow.getByRole('img', { name: /find-skills is installed/i }),

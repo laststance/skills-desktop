@@ -46,8 +46,10 @@ async function renderBookmarksWidget(
 
 describe('BookmarksWidget', () => {
   it('keeps long bookmark text reachable alongside the remove control', async () => {
+    // Arrange + Act
     const { screen } = await renderBookmarksWidget()
 
+    // Assert
     await expect.element(screen.getByText('very-long-skill-name')).toBeVisible()
     await expect.element(screen.getByText('laststance/skills')).toBeVisible()
 
@@ -59,13 +61,16 @@ describe('BookmarksWidget', () => {
   })
 
   it('still removes the bookmark through the compact control', async () => {
+    // Arrange
     const { screen, store } = await renderBookmarksWidget('task' as SkillName)
     const removeButton = screen
       .getByRole('button', { name: /Remove bookmark task/i })
       .element() as HTMLButtonElement
 
+    // Act
     removeButton.click()
 
+    // Assert
     expect(store.getState().bookmarks.items).toEqual([])
   })
 })

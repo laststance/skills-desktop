@@ -26,67 +26,100 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
 }
 
 describe('canBookmarkSkill', () => {
-  it('returns true when skill has source', () => {
-    expect(
-      canBookmarkSkill(
-        makeSkill({ source: repositoryId('pbakaus/impeccable') }),
-      ),
-    ).toBe(true)
+  it('allows bookmarking a skill that has a source repo', () => {
+    // Arrange
+    const skill = makeSkill({ source: repositoryId('pbakaus/impeccable') })
+
+    // Act
+    const canBookmark = canBookmarkSkill(skill)
+
+    // Assert
+    expect(canBookmark).toBe(true)
   })
 
-  it('returns true when source is undefined (local skill)', () => {
-    expect(canBookmarkSkill(makeSkill({ source: undefined }))).toBe(true)
+  it('allows bookmarking a local skill that has no source repo', () => {
+    // Arrange
+    const skill = makeSkill({ source: undefined })
+
+    // Act
+    const canBookmark = canBookmarkSkill(skill)
+
+    // Assert
+    expect(canBookmark).toBe(true)
   })
 
-  it('returns true when source is empty string', () => {
-    expect(canBookmarkSkill(makeSkill({ source: repositoryId('') }))).toBe(true)
+  it('allows bookmarking a skill whose source is an empty string', () => {
+    // Arrange
+    const skill = makeSkill({ source: repositoryId('') })
+
+    // Act
+    const canBookmark = canBookmarkSkill(skill)
+
+    // Assert
+    expect(canBookmark).toBe(true)
   })
 })
 
 describe('skillToBookmarkData', () => {
-  it('derives url from sourceUrl by stripping .git suffix', () => {
-    const result = skillToBookmarkData(
-      makeSkill({
-        source: repositoryId('pbakaus/impeccable'),
-        sourceUrl: 'https://github.com/pbakaus/impeccable.git',
-      }),
-    )
+  it('saves a clean repo link by stripping the .git suffix off the source URL', () => {
+    // Arrange
+    const skill = makeSkill({
+      source: repositoryId('pbakaus/impeccable'),
+      sourceUrl: 'https://github.com/pbakaus/impeccable.git',
+    })
+
+    // Act
+    const result = skillToBookmarkData(skill)
+
+    // Assert
     expect(result).toEqual({
       repo: 'pbakaus/impeccable',
       url: 'https://github.com/pbakaus/impeccable',
     })
   })
 
-  it('uses sourceUrl as-is when no .git suffix', () => {
-    const result = skillToBookmarkData(
-      makeSkill({
-        source: repositoryId('laststance/skills'),
-        sourceUrl: 'https://github.com/laststance/skills',
-      }),
-    )
+  it('keeps a source URL that has no .git suffix unchanged when saving the bookmark', () => {
+    // Arrange
+    const skill = makeSkill({
+      source: repositoryId('laststance/skills'),
+      sourceUrl: 'https://github.com/laststance/skills',
+    })
+
+    // Act
+    const result = skillToBookmarkData(skill)
+
+    // Assert
     expect(result).toEqual({
       repo: 'laststance/skills',
       url: 'https://github.com/laststance/skills',
     })
   })
 
-  it('falls back to GitHub URL when sourceUrl is undefined', () => {
-    const result = skillToBookmarkData(
-      makeSkill({
-        source: repositoryId('laststance/skills'),
-        sourceUrl: undefined,
-      }),
-    )
+  it('builds a GitHub link from the repo when the skill carries no source URL', () => {
+    // Arrange
+    const skill = makeSkill({
+      source: repositoryId('laststance/skills'),
+      sourceUrl: undefined,
+    })
+
+    // Act
+    const result = skillToBookmarkData(skill)
+
+    // Assert
     expect(result).toEqual({
       repo: 'laststance/skills',
       url: 'https://github.com/laststance/skills',
     })
   })
 
-  it('uses empty string for repo when source is undefined', () => {
-    const result = skillToBookmarkData(
-      makeSkill({ source: undefined, sourceUrl: undefined }),
-    )
+  it('saves an empty repo when the skill has neither a source nor a source URL', () => {
+    // Arrange
+    const skill = makeSkill({ source: undefined, sourceUrl: undefined })
+
+    // Act
+    const result = skillToBookmarkData(skill)
+
+    // Assert
     expect(result).toEqual({
       repo: '',
       url: 'https://github.com/',

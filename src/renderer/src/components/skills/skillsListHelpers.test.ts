@@ -5,183 +5,227 @@ import { repositoryId } from '@/shared/types'
 import { getEmptyListMessage } from './skillsListHelpers'
 
 describe('getEmptyListMessage', () => {
-  it('returns the search message with repo context when searchQuery and source are active', () => {
+  it('names the active repo in the empty state when a search and a single source are both active', () => {
     // Search still wins as the user's most recent narrowing action, but the
     // active repo facet is named so the empty state explains the intersection.
-    expect(
-      getEmptyListMessage({
-        searchQuery: 'react',
-        selectedSources: [repositoryId('vercel-labs/skills')],
-        selectedAgentId: 'cursor',
-        skillTypeFilter: 'local',
-      }),
-    ).toBe('No skills match your search in vercel-labs/skills')
+    // Arrange: a search query plus a single selected source repo.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: 'react',
+      selectedSources: [repositoryId('vercel-labs/skills')],
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'local',
+    })
+
+    // Assert
+    expect(message).toBe('No skills match your search in vercel-labs/skills')
   })
 
-  it('returns the source message when only a single source is selected', () => {
-    expect(
-      getEmptyListMessage({
-        searchQuery: '',
-        selectedSources: [repositoryId('vercel-labs/skills')],
-        selectedAgentId: null,
-        skillTypeFilter: 'all',
-      }),
-    ).toBe('No skills from vercel-labs/skills')
+  it('names the single selected repo in the empty state when only that source is filtered', () => {
+    // Arrange: only a single selected source repo, no search/agent narrowing.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [repositoryId('vercel-labs/skills')],
+      selectedAgentId: null,
+      skillTypeFilter: 'all',
+    })
+
+    // Assert
+    expect(message).toBe('No skills from vercel-labs/skills')
   })
 
-  it('collapses multiple selected sources to "the selected repositories"', () => {
+  it('summarizes several selected repos as "the selected repositories" instead of listing each', () => {
     // With >1 repo in the include filter, naming each would bloat the empty
     // state; the helper summarizes instead of listing.
-    expect(
-      getEmptyListMessage({
-        searchQuery: '',
-        selectedSources: [
-          repositoryId('vercel-labs/skills'),
-          repositoryId('pbakaus/impeccable'),
-        ],
-        selectedAgentId: null,
-        skillTypeFilter: 'all',
-      }),
-    ).toBe('No skills from the selected repositories')
+    // Arrange: two selected source repos.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [
+        repositoryId('vercel-labs/skills'),
+        repositoryId('pbakaus/impeccable'),
+      ],
+      selectedAgentId: null,
+      skillTypeFilter: 'all',
+    })
+
+    // Assert
+    expect(message).toBe('No skills from the selected repositories')
   })
 
-  it('adds the multi-source summary to a search result', () => {
-    expect(
-      getEmptyListMessage({
-        searchQuery: 'react',
-        selectedSources: [
-          repositoryId('vercel-labs/skills'),
-          repositoryId('pbakaus/impeccable'),
-        ],
-        selectedAgentId: 'cursor',
-        skillTypeFilter: 'all',
-      }),
-    ).toBe('No skills match your search in the selected repositories')
+  it('appends the multi-repo summary to a search empty state when several sources are filtered', () => {
+    // Arrange: a search query plus two selected source repos.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: 'react',
+      selectedSources: [
+        repositoryId('vercel-labs/skills'),
+        repositoryId('pbakaus/impeccable'),
+      ],
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'all',
+    })
+
+    // Assert
+    expect(message).toBe(
+      'No skills match your search in the selected repositories',
+    )
   })
 
-  it('source message wins over agent + type when both are set (search empty)', () => {
+  it('prefers the source message over the agent+type message when the search box is empty', () => {
     // The pill is a more specific, more recent action than the persistent
     // agent tab. Order in the ladder is search > source > agent+type > agent.
-    expect(
-      getEmptyListMessage({
-        searchQuery: '',
-        selectedSources: [repositoryId('pbakaus/impeccable')],
-        selectedAgentId: 'claude-code',
-        skillTypeFilter: 'symlinked',
-      }),
-    ).toBe('No skills from pbakaus/impeccable')
+    // Arrange: a selected source repo competing with a selected agent + type.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [repositoryId('pbakaus/impeccable')],
+      selectedAgentId: 'claude-code',
+      skillTypeFilter: 'symlinked',
+    })
+
+    // Assert
+    expect(message).toBe('No skills from pbakaus/impeccable')
   })
 
-  it('adds repository context to a search result when both query and source are active', () => {
-    expect(
-      getEmptyListMessage({
-        searchQuery: 'trace',
-        selectedSources: [repositoryId('laststance/skills')],
-        selectedAgentId: 'cursor',
-        skillTypeFilter: 'all',
-      }),
-    ).toBe('No skills match your search in laststance/skills')
+  it('names the active repo in a search empty state when both a query and a single source are set', () => {
+    // Arrange: a search query plus a single selected source repo.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: 'trace',
+      selectedSources: [repositoryId('laststance/skills')],
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'all',
+    })
+
+    // Assert
+    expect(message).toBe('No skills match your search in laststance/skills')
   })
 
-  it('returns the agent + type message when both are set (no source / search)', () => {
-    expect(
-      getEmptyListMessage({
-        searchQuery: '',
-        selectedSources: [],
-        selectedAgentId: 'cursor',
-        skillTypeFilter: 'local',
-      }),
-    ).toBe('No local skills for this agent')
+  it('shows the agent-and-type empty state when an agent and a type filter are set without a source or search', () => {
+    // Arrange: a selected agent plus a local type filter, no source/search.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [],
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'local',
+    })
+
+    // Assert
+    expect(message).toBe('No local skills for this agent')
   })
 
-  it('adds excluded skill types to the selected source message', () => {
-    expect(
-      getEmptyListMessage({
-        searchQuery: '',
-        selectedSources: [repositoryId('vercel-labs/skills')],
-        selectedAgentId: 'cursor',
-        skillTypeFilter: 'all',
-        excludedSkillTypeFilters: ['gstack', 'orphan'],
-      }),
-    ).toBe(
+  it('appends the excluded skill types to the selected-source empty state', () => {
+    // Arrange: a selected source repo with two excluded skill types.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [repositoryId('vercel-labs/skills')],
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'all',
+      excludedSkillTypeFilters: ['gstack', 'orphan'],
+    })
+
+    // Assert
+    expect(message).toBe(
       'No skills from vercel-labs/skills while excluding G-Stack and orphan',
     )
   })
 
-  it('adds excluded skill types to the agent-only message', () => {
-    expect(
-      getEmptyListMessage({
-        searchQuery: '',
-        selectedSources: [],
-        selectedAgentId: 'cursor',
-        skillTypeFilter: 'all',
-        excludedSkillTypeFilters: ['local', 'gstack', 'orphan'],
-      }),
-    ).toBe(
+  it('appends the excluded skill types to the agent-only empty state, Oxford-comma joined', () => {
+    // Arrange: a selected agent with three excluded skill types.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [],
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'all',
+      excludedSkillTypeFilters: ['local', 'gstack', 'orphan'],
+    })
+
+    // Assert
+    expect(message).toBe(
       'No skills installed for this agent while excluding local, G-Stack, and orphan',
     )
   })
 
-  it('returns the symlinked variant when type filter is symlinked', () => {
-    expect(
-      getEmptyListMessage({
-        searchQuery: '',
-        selectedSources: [],
-        selectedAgentId: 'claude-code',
-        skillTypeFilter: 'symlinked',
-      }),
-    ).toBe('No symlinked skills for this agent')
+  it('shows the symlinked-only empty state when the type filter is symlinked', () => {
+    // Arrange: a selected agent with the symlinked type filter.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [],
+      selectedAgentId: 'claude-code',
+      skillTypeFilter: 'symlinked',
+    })
+
+    // Assert
+    expect(message).toBe('No symlinked skills for this agent')
   })
 
-  it('returns the G-Stack variant when type filter is gstack', () => {
-    expect(
-      getEmptyListMessage({
-        searchQuery: '',
-        selectedSources: [],
-        selectedAgentId: 'cursor',
-        skillTypeFilter: 'gstack',
-      }),
-    ).toBe('No G-Stack skills for this agent')
+  it('shows the G-Stack-only empty state when the type filter is gstack', () => {
+    // Arrange: a selected agent with the gstack type filter.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [],
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'gstack',
+    })
+
+    // Assert
+    expect(message).toBe('No G-Stack skills for this agent')
   })
 
-  it('returns the agent-only message when selectedAgentId is set and type is all', () => {
-    expect(
-      getEmptyListMessage({
-        searchQuery: '',
-        selectedSources: [],
-        selectedAgentId: 'cursor',
-        skillTypeFilter: 'all',
-      }),
-    ).toBe('No skills installed for this agent')
+  it('shows the generic agent empty state when an agent is selected and no type filter narrows it', () => {
+    // Arrange: a selected agent with the all type filter (no narrowing).
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [],
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'all',
+    })
+
+    // Assert
+    expect(message).toBe('No skills installed for this agent')
   })
 
-  it('returns the fallback when no narrowing is active', () => {
+  it('shows the generic fallback message when nothing is narrowing the list', () => {
     // The "no agent, no source, no search" fallback is unusual — typically
     // means filteredSkills is empty because skills.length is 0, which is
     // handled by an earlier branch in SkillsList. Still worth locking the
     // string so the fallback never accidentally returns undefined.
-    expect(
-      getEmptyListMessage({
-        searchQuery: '',
-        selectedSources: [],
-        selectedAgentId: null,
-        skillTypeFilter: 'all',
-      }),
-    ).toBe('No skills match your filter')
+    // Arrange: no search, no source, no agent, no type narrowing.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [],
+      selectedAgentId: null,
+      skillTypeFilter: 'all',
+    })
+
+    // Assert
+    expect(message).toBe('No skills match your filter')
   })
 
-  it('treats whitespace-only searchQuery as a non-empty query (current behavior)', () => {
+  it('treats a whitespace-only query as a real search rather than an empty one', () => {
     // Document the current contract: the helper checks `length > 0`, so
     // a single space counts. SkillsList trims-on-input is the right place
     // to change this if the UX wants to ignore whitespace; the helper only
     // mirrors the upstream value verbatim.
-    expect(
-      getEmptyListMessage({
-        searchQuery: ' ',
-        selectedSources: [],
-        selectedAgentId: null,
-        skillTypeFilter: 'all',
-      }),
-    ).toBe('No skills match your search')
+    // Arrange: a single-space search query.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: ' ',
+      selectedSources: [],
+      selectedAgentId: null,
+      skillTypeFilter: 'all',
+    })
+
+    // Assert
+    expect(message).toBe('No skills match your search')
   })
 })

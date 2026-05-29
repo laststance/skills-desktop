@@ -85,11 +85,15 @@ async function renderAppWithBlur(windowBackgroundBlurRadius: number) {
 
 describe('App window surface', () => {
   it('keeps the renderer surface solid while Electron owns opacity', async () => {
+    // Arrange — render the shell with a non-zero blur radius persisted
     const screen = await renderAppWithBlur(24)
+
+    // Act — read the painted window-background surface element
     const surface = screen
       .getByTestId('window-background-surface')
       .element() as HTMLElement
 
+    // Assert — the renderer surface stays opaque and never flags translucency
     expect(surface.style.backgroundColor).toBe('var(--background)')
     expect(surface.dataset['windowTranslucent']).toBeUndefined()
   })

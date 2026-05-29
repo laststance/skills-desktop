@@ -70,6 +70,8 @@ test('Orphan filter narrows visible list to orphan skills only', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange — wait for the initial scan, then stage a dangling symlink under
+  // windsurf so `scanOrphanSymlinks` surfaces a synthetic orphan row.
   await waitForInitialScan(appWindow)
 
   const orphanSkillName = 'orphan-filter-fixture'
@@ -87,11 +89,13 @@ test('Orphan filter narrows visible list to orphan skills only', async ({
   const orphanLinkPath = join(windsurfSkillsDir, orphanSkillName)
   symlinkSync(phantomSourcePath, orphanLinkPath)
 
+  // FS-truth sanity guards (still Arrange): a real symlink with an absent target.
   expect(lstatSync(orphanLinkPath).isSymbolicLink()).toBe(true)
   expect(existsSync(phantomSourcePath)).toBe(false)
 
   await refreshSkillsState(appWindow)
 
+  // Act — select windsurf and switch the visible list to the Orphan filter.
   await dispatchAction(appWindow, {
     type: 'ui/selectAgent',
     payload: 'windsurf',
@@ -101,6 +105,7 @@ test('Orphan filter narrows visible list to orphan skills only', async ({
     payload: 'orphan',
   })
 
+  // Assert — the UI state reflects the chosen agent + filter.
   const uiState = await getStoreState(appWindow, (state) => {
     const root = state as {
       ui: { selectedAgentId: string | null; skillTypeFilter: string }
@@ -113,8 +118,9 @@ test('Orphan filter narrows visible list to orphan skills only', async ({
   expect(uiState.selectedAgentId).toBe('windsurf')
   expect(uiState.skillTypeFilter).toBe('orphan')
 
-  // Single-row equality (not `.toContain`) so a regression that lets
-  // non-orphan rows leak shows the offending names in the failure diff.
+  // Assert — only the staged orphan remains under windsurf. Single-row
+  // equality (not `.toContain`) so a regression that lets non-orphan rows
+  // leak shows the offending names in the failure diff.
   const filteredNames = await getStoreState(
     appWindow,
     filterOrphanNamesByAgent,
@@ -122,15 +128,17 @@ test('Orphan filter narrows visible list to orphan skills only', async ({
   )
   expect(filteredNames).toEqual([orphanSkillName])
 
-  // Negative control — the orphan's only `'broken'` slot is on windsurf,
-  // so the agent-slot gate must drop it under cursor. Without this leg,
-  // a regression that ran the orphan predicate against the unfiltered
-  // skills array would still pass the positive assertion above.
+  // Act — switch to cursor for the negative control.
+  // The orphan's only `'broken'` slot is on windsurf, so the agent-slot gate
+  // must drop it under cursor. Without this leg, a regression that ran the
+  // orphan predicate against the unfiltered skills array would still pass the
+  // positive assertion above.
   await dispatchAction(appWindow, {
     type: 'ui/selectAgent',
     payload: 'cursor',
   })
 
+  // Assert — the orphan does not surface under cursor.
   const filteredNamesUnderCursor = await getStoreState(
     appWindow,
     filterOrphanNamesByAgent,

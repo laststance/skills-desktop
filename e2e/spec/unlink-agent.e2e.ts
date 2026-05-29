@@ -174,10 +174,11 @@ function expectPathMissing(path: string): void {
  * tests.
  */
 
-test('unlinkFromAgent removes one valid azure-ai symlink without touching the source or other agents', async ({
+test('unlinking one agent removes only that agent link and leaves the source skill and other agents intact', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   const expectedSourcePath = join(
     isolatedHome,
     '.agents',
@@ -226,6 +227,7 @@ test('unlinkFromAgent removes one valid azure-ai symlink without touching the so
       symlink.status === 'valid' && symlink.linkPath !== target.linkPath,
   )
 
+  // Act
   const ipcResult = await appWindow.evaluate(
     async (args: {
       skillName: string
@@ -241,6 +243,7 @@ test('unlinkFromAgent removes one valid azure-ai symlink without touching the so
     },
   )
 
+  // Assert
   expect(ipcResult.success).toBe(true)
   expect(ipcResult.error).toBeUndefined()
 
@@ -302,10 +305,11 @@ test('unlinkFromAgent removes one valid azure-ai symlink without touching the so
  * regular file the renderer happens to pass.
  */
 
-test('unlinkFromAgent treats a missing linkPath as an idempotent success', async ({
+test('unlinking an agent link that was already removed succeeds idempotently instead of erroring', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   // Pre-create the parent agent dir so validatePath's allowed-bases check
   // succeeds. Without this, validatePath could throw before lstat runs and
   // we'd be testing the wrong failure branch.
@@ -318,6 +322,7 @@ test('unlinkFromAgent treats a missing linkPath as an idempotent success', async
   // the idempotent missing-path branch.
   expectPathMissing(missingLinkPath)
 
+  // Act
   const ipcResult = await appWindow.evaluate(
     async (args: {
       skillName: string
@@ -333,13 +338,15 @@ test('unlinkFromAgent treats a missing linkPath as an idempotent success', async
     },
   )
 
+  // Assert
   expect(ipcResult).toEqual({ success: true })
 })
 
-test('unlinkFromAgent refuses a regular file with the structured kind-mismatch error', async ({
+test('unlinking refuses a stray regular file and leaves it on disk instead of deleting it', async ({
   isolatedHome,
   appWindow,
 }) => {
+  // Arrange
   const claudeAgentPath = join(isolatedHome, '.claude', 'skills')
   mkdirSync(claudeAgentPath, { recursive: true })
   const regularFilePath = join(claudeAgentPath, 'not-a-skill.txt')
@@ -354,6 +361,7 @@ test('unlinkFromAgent refuses a regular file with the structured kind-mismatch e
   expect(stagedStat.isSymbolicLink()).toBe(false)
   expect(stagedStat.isDirectory()).toBe(false)
 
+  // Act
   const ipcResult = await appWindow.evaluate(
     async (args: {
       skillName: string
@@ -369,6 +377,7 @@ test('unlinkFromAgent refuses a regular file with the structured kind-mismatch e
     },
   )
 
+  // Assert
   expect(ipcResult.success).toBe(false)
   // Pin the exact handler copy. If this string ever changes, the renderer
   // toast copy probably needs to update with it — surfacing the literal
@@ -384,10 +393,11 @@ test('unlinkFromAgent refuses a regular file with the structured kind-mismatch e
   expect(existsSync(regularFilePath)).toBe(true)
 })
 
-test('unlinkManyFromAgent removes every pre-staged symlink and leaves source dirs untouched', async ({
+test('batch-unlinking an agent removes every selected link while keeping all source skills', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   // Pre-stage BEFORE waiting for the renderer scan. The handler reads from
   // disk independently of the renderer's scan, so it doesn't matter whether
   // these landed before or after the initial fetchSkills.
@@ -408,6 +418,7 @@ test('unlinkManyFromAgent removes every pre-staged symlink and leaves source dir
     expect(lstatSync(linkPath).isSymbolicLink()).toBe(true)
   }
 
+  // Act
   const result = await appWindow.evaluate(
     async (args: {
       agentId: string
@@ -419,6 +430,7 @@ test('unlinkManyFromAgent removes every pre-staged symlink and leaves source dir
     },
   )
 
+  // Assert
   expect(result.items).toHaveLength(skillNames.length)
   for (const [index, item] of result.items.entries()) {
     expect(item.outcome).toBe('unlinked')
@@ -436,7 +448,7 @@ test('unlinkManyFromAgent removes every pre-staged symlink and leaves source dir
   }
 })
 
-test('unlinkManyFromAgent uses reviewed linkPath when metadata name differs from slot basename', async ({
+test('batch-unlinking removes the reviewed link slot, not a decoy whose name matches the skill metadata', async ({
   appWindow,
   isolatedHome,
 }) => {
@@ -508,10 +520,11 @@ test('unlinkManyFromAgent uses reviewed linkPath when metadata name differs from
  * "expected 'unlinked' got 'pending'" diff. Index 0 or N-1 wouldn't catch a
  * partial loop.
  */
-test('unlinkManyFromAgent aggregates per-item failures without short-circuiting the batch', async ({
+test('a single failing item in a batch unlink does not abort the rest and still refuses to delete the local skill', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   const claudeAgentPath = join(isolatedHome, '.claude', 'skills')
   const skillNames = preStageLinkedSkills(
     isolatedHome,
@@ -549,6 +562,7 @@ test('unlinkManyFromAgent aggregates per-item failures without short-circuiting 
   expect(lstatSync(poisonedLinkPath).isDirectory()).toBe(true)
   expect(lstatSync(poisonedLinkPath).isSymbolicLink()).toBe(false)
 
+  // Act
   const result = await appWindow.evaluate(
     async (args: {
       agentId: string
@@ -560,6 +574,7 @@ test('unlinkManyFromAgent aggregates per-item failures without short-circuiting 
     },
   )
 
+  // Assert
   expect(result.items).toHaveLength(skillNames.length)
 
   // Iterate by index instead of filtering so a regression that misroutes the
@@ -596,10 +611,11 @@ test('unlinkManyFromAgent aggregates per-item failures without short-circuiting 
   }
 })
 
-test('removeAllFromAgent refuses when the agent path is a symlink alias to the universal source', async ({
+test('removing all links from an agent is refused when its folder is a symlink alias to the universal source', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   // Pre-stage the IRON RULE trigger condition: an agent's scanDir is itself
   // a symlink alias to SOURCE_DIR. Without this layout the handler's
   // validatePath + isSharedAgentPath chain wouldn't fire — picking cursor
@@ -631,6 +647,7 @@ test('removeAllFromAgent refuses when the agent path is a symlink alias to the u
   const sourceContentsBefore = readdirSync(sourceDir).sort()
   expect(sourceContentsBefore).toContain(sentinelSourceName)
 
+  // Act
   const result = await appWindow.evaluate(
     async (args: {
       agentId: string
@@ -644,6 +661,7 @@ test('removeAllFromAgent refuses when the agent path is a symlink alias to the u
     },
   )
 
+  // Assert
   expectIronRuleRefusal(result)
 
   // FS — the symlink alias itself is still in place (handler short-circuits
@@ -683,10 +701,11 @@ test('removeAllFromAgent refuses when the agent path is a symlink alias to the u
  *      when targeted via `--agent`), giving us a clean tempdir corner to stage
  *      without colliding with snapshot fixture state.
  */
-test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports the right count', async ({
+test('removing all links from a non-shared agent moves its folder to the OS Trash and reports the removed count', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   // Cross-volume isolatedHome would route shell.trashItem into
   // <volume>/.Trashes/<uid> instead of ~/.Trash, breaking both the
   // diffUserTrash inspection and the cleanup. Skip loudly rather than
@@ -741,6 +760,7 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
   // cleanup.
   let createdTrashEntryPaths: string[] = []
   try {
+    // Act
     const result = await appWindow.evaluate(
       async (args: {
         agentId: string
@@ -754,6 +774,7 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
       },
     )
 
+    // Assert
     // Diff ~/.Trash IMMEDIATELY after the IPC call returns, then narrow
     // the cleanup target to OUR specific trashed dir — never the full
     // newPaths set. Match by exact-set of skill basenames (per-run unique
@@ -795,10 +816,11 @@ test('removeAllFromAgent moves a non-shared agent dir to OS Trash and reports th
   }
 })
 
-test('removeAllFromAgent surfaces structured failure when shell.trashItem rejects (parent dir is read-only)', async ({
+test('removing all links reports a structured failure and leaves the agent folder in place when the OS Trash move is rejected', async ({
   appWindow,
   isolatedHome,
 }) => {
+  // Arrange
   // Why this test exists
   // ====================
   // The handler at src/main/ipc/skills.ts wraps the entire body in a single
@@ -884,6 +906,7 @@ test('removeAllFromAgent surfaces structured failure when shell.trashItem reject
   // a false-fail and our entry never leaks on regression.
   let regressionTrashEntryPaths: string[] = []
   try {
+    // Act
     const result = await appWindow.evaluate(
       async (args: {
         agentId: string
@@ -897,6 +920,7 @@ test('removeAllFromAgent surfaces structured failure when shell.trashItem reject
       },
     )
 
+    // Assert
     const { newPaths } = diffUserTrash(trashEntriesBefore)
     const regressionTrashedAgentDir = findMatchingTrashedAgentDir(
       newPaths,

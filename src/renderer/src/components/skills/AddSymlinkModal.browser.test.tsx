@@ -155,12 +155,14 @@ async function renderModal(options: { skill: Skill; agents: Agent[] }) {
 }
 
 describe('AddSymlinkModal actions', () => {
-  it('renders both Add Symlink and Copy Skill files actions', async () => {
+  it('offers both Add Symlink and Copy Skill files as ways to attach a skill', async () => {
+    // Arrange / Act
     const { screen } = await renderModal({
       skill: makeSkill(),
       agents: [makeAgent({ id: 'codex', name: 'Codex' })],
     })
 
+    // Assert
     await expect
       .element(screen.getByRole('button', { name: /^Add Symlink$/i }))
       .toBeInTheDocument()
@@ -169,21 +171,23 @@ describe('AddSymlinkModal actions', () => {
       .toBeInTheDocument()
   })
 
-  it('dispatches createSymlinks with the existing skill path when Add Symlink is clicked', async () => {
+  it('links the skill into the chosen agent from its existing source path when Add Symlink is clicked', async () => {
+    // Arrange
     mockCreateSymlinks.mockResolvedValue({
       success: true,
       created: 1,
       failures: [],
     })
-
     const { screen } = await renderModal({
       skill: makeSkill(),
       agents: [makeAgent({ id: 'codex', name: 'Codex' })],
     })
 
+    // Act
     await screen.getByRole('checkbox', { name: /Codex/i }).click()
     await screen.getByRole('button', { name: /^Add Symlink$/i }).click()
 
+    // Assert
     await expect.poll(() => mockCreateSymlinks.mock.calls.length).toBe(1)
     expect(mockCreateSymlinks.mock.calls[0][0]).toEqual({
       skillName: 'task',
@@ -192,21 +196,23 @@ describe('AddSymlinkModal actions', () => {
     })
   })
 
-  it('dispatches copyToAgents with sourcePath when Copy Skill files is clicked', async () => {
+  it('copies the skill files into the chosen agent from the source dir when Copy Skill files is clicked', async () => {
+    // Arrange
     mockCopyToAgents.mockResolvedValue({
       success: true,
       copied: 1,
       failures: [],
     })
-
     const { screen } = await renderModal({
       skill: makeSkill(),
       agents: [makeAgent({ id: 'codex', name: 'Codex' })],
     })
 
+    // Act
     await screen.getByRole('checkbox', { name: /Codex/i }).click()
     await screen.getByRole('button', { name: /Copy Skill files/i }).click()
 
+    // Assert
     await expect.poll(() => mockCopyToAgents.mock.calls.length).toBe(1)
     expect(mockCopyToAgents.mock.calls[0][0]).toEqual({
       skillName: 'task',
@@ -216,25 +222,28 @@ describe('AddSymlinkModal actions', () => {
   })
 
   it('shows a warning toast when copying succeeds only for some agents', async () => {
+    // Arrange
     mockCopyToAgents.mockResolvedValue({
       success: false,
       copied: 1,
       failures: [{ agentId: 'cursor', error: 'Already exists' }],
     })
-
     const { screen } = await renderModal({
       skill: makeSkill(),
       agents: [makeAgent({ id: 'codex', name: 'Codex' })],
     })
 
+    // Act
     await screen.getByRole('checkbox', { name: /Codex/i }).click()
     await screen.getByRole('button', { name: /Copy Skill files/i }).click()
 
+    // Assert
     await expect.poll(() => toastWarning.mock.calls.length).toBe(1)
     expect(toastSuccess).not.toHaveBeenCalled()
   })
 
   it('clears selected agents when the modal closes externally and reopens', async () => {
+    // Arrange
     const firstSkill = makeSkill({ name: 'task' as SkillName })
     const secondSkill = makeSkill({
       name: 'review' as SkillName,
@@ -246,15 +255,16 @@ describe('AddSymlinkModal actions', () => {
     })
     const { setSkillToAddSymlinks } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-
     await screen.getByRole('checkbox', { name: /Codex/i }).click()
     await expect
       .element(screen.getByRole('checkbox', { name: /Codex/i }))
       .toBeChecked()
 
+    // Act: close the modal externally, then reopen it for a different skill.
     store.dispatch(setSkillToAddSymlinks(null))
     store.dispatch(setSkillToAddSymlinks(secondSkill))
 
+    // Assert
     await expect
       .element(screen.getByRole('dialog', { name: /Add Skill to Agents/i }))
       .toBeInTheDocument()
@@ -266,6 +276,7 @@ describe('AddSymlinkModal actions', () => {
 
 describe('AddSymlinkModal occupied-agent states', () => {
   it('disables linked, local, and broken destinations with their reason labels', async () => {
+    // Arrange
     const skill = makeSkill({
       symlinks: [
         {
@@ -295,6 +306,7 @@ describe('AddSymlinkModal occupied-agent states', () => {
       ],
     })
 
+    // Act
     const { screen } = await renderModal({
       skill,
       agents: [
@@ -305,6 +317,7 @@ describe('AddSymlinkModal occupied-agent states', () => {
       ],
     })
 
+    // Assert
     await expect
       .element(screen.getByRole('checkbox', { name: /Claude Code/i }))
       .toBeDisabled()
@@ -331,14 +344,16 @@ describe('AddSymlinkModal occupied-agent states', () => {
 
 describe('AddSymlinkModal busy state', () => {
   it('keeps the modal open and disables both actions while adding symlinks', async () => {
+    // Arrange
     const skill = makeSkill()
     const { screen, store } = await renderModal({
       skill,
       agents: [makeAgent({ id: 'codex', name: 'Codex' })],
     })
-
     const { createSymlinks } =
       await import('@/renderer/src/redux/slices/skillsSlice')
+
+    // Act: enter the in-flight add-symlinks state.
     store.dispatch(
       createSymlinks.pending('adding-request', {
         skill,
@@ -346,6 +361,7 @@ describe('AddSymlinkModal busy state', () => {
       }),
     )
 
+    // Assert: both actions are disabled while the add is in flight.
     await expect
       .element(screen.getByRole('button', { name: /Adding/i }))
       .toBeDisabled()
@@ -353,8 +369,10 @@ describe('AddSymlinkModal busy state', () => {
       .element(screen.getByRole('button', { name: /Copy Skill files/i }))
       .toBeDisabled()
 
+    // Act: attempt to close the busy modal.
     await screen.getByRole('button', { name: /^Close$/i }).click()
 
+    // Assert: the modal stays open with the skill still selected.
     await expect
       .element(screen.getByRole('dialog', { name: /Add Skill to Agents/i }))
       .toBeInTheDocument()
@@ -362,14 +380,16 @@ describe('AddSymlinkModal busy state', () => {
   })
 
   it('keeps the modal open and disables both actions while copying files', async () => {
+    // Arrange
     const skill = makeSkill()
     const { screen, store } = await renderModal({
       skill,
       agents: [makeAgent({ id: 'codex', name: 'Codex' })],
     })
-
     const { copyToAgents } =
       await import('@/renderer/src/redux/slices/skillsSlice')
+
+    // Act: enter the in-flight copy-files state.
     store.dispatch(
       copyToAgents.pending('copying-request', {
         skill,
@@ -378,6 +398,7 @@ describe('AddSymlinkModal busy state', () => {
       }),
     )
 
+    // Assert: both actions are disabled while the copy is in flight.
     await expect
       .element(screen.getByRole('button', { name: /^Add Symlink$/i }))
       .toBeDisabled()
@@ -385,8 +406,10 @@ describe('AddSymlinkModal busy state', () => {
       .element(screen.getByRole('button', { name: /Copying/i }))
       .toBeDisabled()
 
+    // Act: attempt to close the busy modal.
     await screen.getByRole('button', { name: /^Close$/i }).click()
 
+    // Assert: the modal stays open with the skill still selected.
     await expect
       .element(screen.getByRole('dialog', { name: /Add Skill to Agents/i }))
       .toBeInTheDocument()

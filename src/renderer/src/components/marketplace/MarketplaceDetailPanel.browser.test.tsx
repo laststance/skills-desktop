@@ -89,24 +89,32 @@ function createWillNavigateEvent(url: string): Event & { url: string } {
 }
 
 describe('MarketplaceDetailPanel routing', () => {
-  it('renders dashboard when no preview skill is selected', async () => {
+  it('shows the Marketplace dashboard heading when nothing is selected for preview', async () => {
+    // Arrange
     const store = await createStore()
     const { MarketplaceDetailPanel } = await import('./MarketplaceDetailPanel')
+
+    // Act
     const screen = await renderWithStore(<MarketplaceDetailPanel />, store)
 
+    // Assert
     await expect
       .element(screen.getByRole('heading', { name: 'Marketplace' }))
       .toBeInTheDocument()
   })
 
-  it('renders preview pane when previewSkill is set', async () => {
+  it('opens the skill preview with a Back to Dashboard escape hatch after a skill is chosen', async () => {
+    // Arrange
     const store = await createStore()
     const { setPreviewSkill } =
       await import('@/renderer/src/redux/slices/marketplaceSlice')
     const { MarketplaceDetailPanel } = await import('./MarketplaceDetailPanel')
     store.dispatch(setPreviewSkill(makeSkill({ name: 'lint' as SkillName })))
 
+    // Act
     const screen = await renderWithStore(<MarketplaceDetailPanel />, store)
+
+    // Assert
     await expect
       .element(screen.getByRole('button', { name: 'Back to Dashboard' }))
       .toBeInTheDocument()
@@ -114,17 +122,22 @@ describe('MarketplaceDetailPanel routing', () => {
 })
 
 describe('MarketplaceDashboard empty state', () => {
-  it('shows loading copy while trending leaderboard data is not loaded yet', async () => {
+  it('shows a loading message before trending skills have been fetched', async () => {
+    // Arrange
     const store = await createStore()
     const { MarketplaceDashboard } = await import('./MarketplaceDashboard')
 
+    // Act
     const screen = await renderWithStore(<MarketplaceDashboard />, store)
+
+    // Assert
     await expect
       .element(screen.getByText('Loading trending skills...'))
       .toBeInTheDocument()
   })
 
-  it('shows empty-result copy when trending leaderboard is fulfilled with no skills', async () => {
+  it('shows an empty-state message when trending skills load but return nothing', async () => {
+    // Arrange
     const store = await createStore()
     const { loadLeaderboard } =
       await import('@/renderer/src/redux/slices/marketplaceSlice')
@@ -137,7 +150,10 @@ describe('MarketplaceDashboard empty state', () => {
       ),
     )
 
+    // Act
     const screen = await renderWithStore(<MarketplaceDashboard />, store)
+
+    // Assert
     await expect
       .element(screen.getByText('No trending skills available'))
       .toBeInTheDocument()
@@ -145,7 +161,8 @@ describe('MarketplaceDashboard empty state', () => {
 })
 
 describe('MarketplaceSkillPreview will-navigate allowlist', () => {
-  it('prevents cross-origin navigation and allows skills.sh navigation', async () => {
+  it('blocks navigation to other origins and to skills.sh on a non-standard port while letting skills.sh through', async () => {
+    // Arrange
     const store = await createStore()
     const { MarketplaceSkillPreview } =
       await import('./MarketplaceSkillPreview')
@@ -167,18 +184,24 @@ describe('MarketplaceSkillPreview will-navigate allowlist', () => {
       return
     }
 
+    // Act — dispatch a foreign origin
     const blockedEvent = createWillNavigateEvent('https://evil.com/path')
     webview.dispatchEvent(blockedEvent)
+    // Assert — the foreign origin is cancelled
     expect(blockedEvent.defaultPrevented).toBe(true)
 
+    // Act — dispatch skills.sh on a custom port
     const blockedCustomPortEvent = createWillNavigateEvent(
       'https://skills.sh:444/trending',
     )
     webview.dispatchEvent(blockedCustomPortEvent)
+    // Assert — the custom-port URL is still cancelled
     expect(blockedCustomPortEvent.defaultPrevented).toBe(true)
 
+    // Act — dispatch canonical skills.sh
     const allowedEvent = createWillNavigateEvent('https://skills.sh/trending')
     webview.dispatchEvent(allowedEvent)
+    // Assert — canonical skills.sh is allowed through
     expect(allowedEvent.defaultPrevented).toBe(false)
   })
 })

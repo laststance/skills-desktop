@@ -149,9 +149,14 @@ describe('skillsSlice', () => {
     vi.resetAllMocks()
   })
 
-  it('has correct initial state', async () => {
+  it('opens with an empty, idle skills list and no pending bulk operations', async () => {
+    // Arrange
     const store = await createTestStore()
+
+    // Act
     const state = store.getState().skills
+
+    // Assert
     expect(state.items).toEqual([])
     expect(state.selectedSkill).toBeNull()
     expect(state.loading).toBe(false)
@@ -169,96 +174,122 @@ describe('skillsSlice', () => {
   })
 
   // --- Sync reducers (kept from pre-v2.4) ---
-  it('selectSkill sets selectedSkill', async () => {
+  it('opens the detail pane for the clicked skill, then closes it when deselected', async () => {
+    // Arrange
     const { selectSkill } = await import('./skillsSlice')
     const store = await createTestStore()
+
+    // Act + Assert — clicking a skill opens its detail
     store.dispatch(selectSkill(sampleSkill))
     expect(store.getState().skills.selectedSkill).toEqual(sampleSkill)
 
+    // Act + Assert — deselecting closes it
     store.dispatch(selectSkill(null))
     expect(store.getState().skills.selectedSkill).toBeNull()
   })
 
-  it('setSkillToUnlink sets and clears pending unlink', async () => {
+  it('opens the unlink confirm for the chosen skill, then closes it when dismissed', async () => {
+    // Arrange
     const { setSkillToUnlink } = await import('./skillsSlice')
     const store = await createTestStore()
+
+    // Act + Assert — selecting a skill/symlink arms the unlink confirm
     store.dispatch(
       setSkillToUnlink({ skill: sampleSkill, symlink: sampleSymlink }),
     )
     expect(store.getState().skills.skillToUnlink).not.toBeNull()
 
+    // Act + Assert — passing null dismisses it
     store.dispatch(setSkillToUnlink(null))
     expect(store.getState().skills.skillToUnlink).toBeNull()
   })
 
-  it('setSkillToAddSymlinks sets and clears pending add and resets modal selections', async () => {
+  it('opens the Add modal on a clean agent checklist and clears it again on close', async () => {
+    // Arrange — a stale agent tick exists before the modal opens
     const { setSkillToAddSymlinks, toggleAddAgentSelection } =
       await import('./skillsSlice')
     const store = await createTestStore()
     store.dispatch(toggleAddAgentSelection('codex' as AgentId))
+
+    // Act + Assert — opening the Add modal resets the checklist to empty
     store.dispatch(setSkillToAddSymlinks(sampleSkill))
     expect(store.getState().skills.skillToAddSymlinks).toEqual(sampleSkill)
     expect(store.getState().skills.selectedAddAgentIds).toEqual([])
 
+    // Act + Assert — closing the modal clears the checklist again
     store.dispatch(toggleAddAgentSelection('cursor' as AgentId))
     store.dispatch(setSkillToAddSymlinks(null))
     expect(store.getState().skills.skillToAddSymlinks).toBeNull()
     expect(store.getState().skills.selectedAddAgentIds).toEqual([])
   })
 
-  it('toggleAddAgentSelection toggles the Add modal agent list', async () => {
+  it('ticks and un-ticks an agent in the Add modal checklist', async () => {
+    // Arrange
     const { toggleAddAgentSelection } = await import('./skillsSlice')
     const store = await createTestStore()
 
+    // Act + Assert — first toggle ticks the agent
     store.dispatch(toggleAddAgentSelection('codex' as AgentId))
     expect(store.getState().skills.selectedAddAgentIds).toEqual(['codex'])
 
+    // Act + Assert — second toggle un-ticks it
     store.dispatch(toggleAddAgentSelection('codex' as AgentId))
     expect(store.getState().skills.selectedAddAgentIds).toEqual([])
   })
 
-  it('setSkillToCopy sets and clears pending copy', async () => {
+  it('opens the Copy modal for a skill, then clears the copy checklist on close', async () => {
+    // Arrange
     const { setSkillToCopy, toggleCopyAgentSelection } =
       await import('./skillsSlice')
     const store = await createTestStore()
+
+    // Act + Assert — opening arms the Copy modal
     store.dispatch(setSkillToCopy(sampleSkill))
     expect(store.getState().skills.skillToCopy).toEqual(sampleSkill)
 
+    // Act + Assert — closing clears both the target and the checklist
     store.dispatch(toggleCopyAgentSelection('cursor' as AgentId))
     store.dispatch(setSkillToCopy(null))
     expect(store.getState().skills.skillToCopy).toBeNull()
     expect(store.getState().skills.selectedCopyAgentIds).toEqual([])
   })
 
-  it('toggleCopyAgentSelection toggles the Copy modal agent list', async () => {
+  it('ticks, un-ticks, and bulk-clears agents in the Copy modal checklist', async () => {
+    // Arrange
     const { toggleCopyAgentSelection, clearCopyAgentSelection } =
       await import('./skillsSlice')
     const store = await createTestStore()
 
+    // Act + Assert — first toggle ticks the agent
     store.dispatch(toggleCopyAgentSelection('codex' as AgentId))
     expect(store.getState().skills.selectedCopyAgentIds).toEqual(['codex'])
 
+    // Act + Assert — second toggle un-ticks it
     store.dispatch(toggleCopyAgentSelection('codex' as AgentId))
     expect(store.getState().skills.selectedCopyAgentIds).toEqual([])
 
+    // Act + Assert — clearing wipes the whole checklist at once
     store.dispatch(toggleCopyAgentSelection('cursor' as AgentId))
     store.dispatch(clearCopyAgentSelection())
     expect(store.getState().skills.selectedCopyAgentIds).toEqual([])
   })
 
   // --- fetchSkills thunk ---
-  it('fetchSkills sets loading during pending', async () => {
+  it('shows a loading state while the skills inventory is being fetched', async () => {
+    // Arrange — keep the fetch pending so the loading state is observable
     let resolve!: (value: Skill[]) => void
     mockGetAll.mockReturnValue(
       new Promise<Skill[]>((r) => {
         resolve = r
       }),
     )
-
     const store = await createTestStore()
     const { fetchSkills } = await import('./skillsSlice')
+
+    // Act
     const promise = store.dispatch(fetchSkills())
 
+    // Assert
     expect(store.getState().skills.loading).toBe(true)
     expect(store.getState().skills.error).toBeNull()
 
@@ -266,64 +297,77 @@ describe('skillsSlice', () => {
     await promise
   })
 
-  it('fetchSkills populates items on fulfilled', async () => {
+  it('lists the fetched skills once the inventory load resolves', async () => {
+    // Arrange
     mockGetAll.mockResolvedValue([sampleSkill])
-
     const store = await createTestStore()
     const { fetchSkills } = await import('./skillsSlice')
+
+    // Act
     await store.dispatch(fetchSkills())
 
+    // Assert
     const state = store.getState().skills
     expect(state.items).toHaveLength(1)
     expect(state.items[0].name).toBe('task')
     expect(state.loading).toBe(false)
   })
 
-  it('fetchSkills sets error on rejected', async () => {
+  it('surfaces the failure message when the skills inventory load fails', async () => {
+    // Arrange
     mockGetAll.mockRejectedValue(new Error('Network error'))
-
     const store = await createTestStore()
     const { fetchSkills } = await import('./skillsSlice')
+
+    // Act
     await store.dispatch(fetchSkills())
 
+    // Assert
     const state = store.getState().skills
     expect(state.loading).toBe(false)
     expect(state.error).toBe('Network error')
   })
 
   // --- unlinkSkillFromAgent thunk ---
-  it('unlinkSkillFromAgent clears selectedSkill on fulfilled', async () => {
+  it('closes the detail pane and unlink confirm once a single unlink succeeds', async () => {
+    // Arrange
     mockUnlinkFromAgent.mockResolvedValue({ success: true })
-
     const store = await createTestStore()
     const { selectSkill, unlinkSkillFromAgent } = await import('./skillsSlice')
     store.dispatch(selectSkill(sampleSkill))
+
+    // Act
     await store.dispatch(
       unlinkSkillFromAgent({ skill: sampleSkill, symlink: sampleSymlink }),
     )
 
+    // Assert
     expect(store.getState().skills.selectedSkill).toBeNull()
     expect(store.getState().skills.skillToUnlink).toBeNull()
     expect(store.getState().skills.unlinking).toBe(false)
   })
 
-  it('unlinkSkillFromAgent sets error on failure response', async () => {
+  it('surfaces the failure message when a single unlink is rejected by the OS', async () => {
+    // Arrange
     mockUnlinkFromAgent.mockResolvedValue({
       success: false,
       error: 'Permission denied',
     })
-
     const store = await createTestStore()
     const { unlinkSkillFromAgent } = await import('./skillsSlice')
+
+    // Act
     await store.dispatch(
       unlinkSkillFromAgent({ skill: sampleSkill, symlink: sampleSymlink }),
     )
 
+    // Assert
     expect(store.getState().skills.unlinking).toBe(false)
     expect(store.getState().skills.error).toBe('Permission denied')
   })
 
-  it('unlinkSkillFromAgent passes reviewed local directory identity for local slots', async () => {
+  it('sends the reviewed local directory identity to IPC when unlinking a local slot', async () => {
+    // Arrange
     mockUnlinkFromAgent.mockResolvedValue({ success: true })
     const localSymlink: SymlinkInfo = {
       ...sampleSymlink,
@@ -331,13 +375,15 @@ describe('skillsSlice', () => {
       targetPath: undefined,
       filesystemIdentity: directoryIdentity,
     }
-
     const store = await createTestStore()
     const { unlinkSkillFromAgent } = await import('./skillsSlice')
+
+    // Act
     await store.dispatch(
       unlinkSkillFromAgent({ skill: sampleSkill, symlink: localSymlink }),
     )
 
+    // Assert
     expect(mockUnlinkFromAgent).toHaveBeenCalledWith({
       skillName: 'task',
       agentId: 'claude-code',
@@ -395,18 +441,20 @@ describe('skillsSlice', () => {
   })
 
   // --- createSymlinks thunk ---
-  it('createSymlinks clears skillToAddSymlinks on fulfilled', async () => {
+  it('closes the Add modal and clears its checklist once symlinks are created', async () => {
+    // Arrange
     mockCreateSymlinks.mockResolvedValue({
       success: true,
       created: 2,
       failures: [],
     })
-
     const store = await createTestStore()
     const { setSkillToAddSymlinks, toggleAddAgentSelection, createSymlinks } =
       await import('./skillsSlice')
     store.dispatch(setSkillToAddSymlinks(sampleSkill))
     store.dispatch(toggleAddAgentSelection('cursor' as AgentId))
+
+    // Act
     await store.dispatch(
       createSymlinks({
         skill: sampleSkill,
@@ -414,35 +462,39 @@ describe('skillsSlice', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().skills.skillToAddSymlinks).toBeNull()
     expect(store.getState().skills.selectedAddAgentIds).toEqual([])
     expect(store.getState().skills.addingSymlinks).toBe(false)
   })
 
-  it('createSymlinks sets error when all fail', async () => {
+  it('surfaces an error when every requested symlink fails to create', async () => {
+    // Arrange
     mockCreateSymlinks.mockResolvedValue({
       success: false,
       created: 0,
       failures: ['cursor'],
     })
-
     const store = await createTestStore()
     const { createSymlinks } = await import('./skillsSlice')
+
+    // Act
     await store.dispatch(
       createSymlinks({ skill: sampleSkill, agentIds: ['cursor' as AgentId] }),
     )
 
+    // Assert
     expect(store.getState().skills.error).toBe('Failed to create any symlinks')
   })
 
   // --- copyToAgents thunk ---
-  it('copyToAgents clears copy-related modal targets on fulfilled', async () => {
+  it('closes both the Copy and Add modals and clears their checklists once the copy succeeds', async () => {
+    // Arrange
     mockCopyToAgents.mockResolvedValue({
       success: true,
       copied: 1,
       failures: [],
     })
-
     const store = await createTestStore()
     const {
       setSkillToAddSymlinks,
@@ -455,6 +507,8 @@ describe('skillsSlice', () => {
     store.dispatch(setSkillToAddSymlinks(sampleSkill))
     store.dispatch(toggleAddAgentSelection('cursor' as AgentId))
     store.dispatch(toggleCopyAgentSelection('codex' as AgentId))
+
+    // Act
     await store.dispatch(
       copyToAgents({
         skill: sampleSkill,
@@ -463,6 +517,7 @@ describe('skillsSlice', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().skills.skillToCopy).toBeNull()
     expect(store.getState().skills.skillToAddSymlinks).toBeNull()
     expect(store.getState().skills.selectedAddAgentIds).toEqual([])
@@ -470,15 +525,17 @@ describe('skillsSlice', () => {
     expect(store.getState().skills.copying).toBe(false)
   })
 
-  it('copyToAgents sets error when all fail', async () => {
+  it('surfaces an error when the copy fails for every target agent', async () => {
+    // Arrange
     mockCopyToAgents.mockResolvedValue({
       success: false,
       copied: 0,
       failures: ['codex'],
     })
-
     const store = await createTestStore()
     const { copyToAgents } = await import('./skillsSlice')
+
+    // Act
     await store.dispatch(
       copyToAgents({
         skill: sampleSkill,
@@ -487,6 +544,7 @@ describe('skillsSlice', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().skills.error).toBe('Failed to copy to any agent')
   })
 })
@@ -496,33 +554,44 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     vi.resetAllMocks()
   })
 
-  it('toggleSelection adds a name and sets the anchor', async () => {
+  it('selects a clicked row and pins it as the range anchor', async () => {
+    // Arrange
     const { toggleSelection } = await import('./skillsSlice')
     const store = await createTestStore()
 
+    // Act
     store.dispatch(toggleSelection('task'))
+
+    // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
     expect(store.getState().skills.selectionAnchor).toBe('task')
   })
 
-  it('toggleSelection removes a name on the second toggle', async () => {
+  it('deselects a row on a second click but keeps it as the anchor', async () => {
+    // Arrange
     const { toggleSelection } = await import('./skillsSlice')
     const store = await createTestStore()
 
+    // Act
     store.dispatch(toggleSelection('task'))
     store.dispatch(toggleSelection('task'))
+
+    // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual([])
     // Anchor remains — matches macOS Finder "last clicked row" semantics
     expect(store.getState().skills.selectionAnchor).toBe('task')
   })
 
-  it('selectRange unions into existing selection preserving order', async () => {
+  it('shift-clicking a range adds the spanned rows in order and moves the anchor to the end', async () => {
+    // Arrange
     const { toggleSelection, selectRange } = await import('./skillsSlice')
     const store = await createTestStore()
 
+    // Act
     store.dispatch(toggleSelection('task'))
     store.dispatch(selectRange(['task', 'theme', 'browser']))
 
+    // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual([
       'task',
       'theme',
@@ -532,14 +601,17 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     expect(store.getState().skills.selectionAnchor).toBe('browser')
   })
 
-  it('selectRange does not duplicate names already selected', async () => {
+  it('keeps each row once when a shift-click range overlaps the existing selection', async () => {
+    // Arrange
     const { toggleSelection, selectRange } = await import('./skillsSlice')
     const store = await createTestStore()
 
+    // Act
     store.dispatch(toggleSelection('task'))
     store.dispatch(toggleSelection('browser'))
     store.dispatch(selectRange(['task', 'theme', 'browser']))
 
+    // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual([
       'task',
       'browser',
@@ -547,13 +619,16 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     ])
   })
 
-  it('selectAll replaces the entire selection', async () => {
+  it('replaces the whole selection and moves the anchor to the last row when select-all runs', async () => {
+    // Arrange
     const { toggleSelection, selectAll } = await import('./skillsSlice')
     const store = await createTestStore()
 
+    // Act
     store.dispatch(toggleSelection('zebra'))
     store.dispatch(selectAll(['task', 'theme', 'browser']))
 
+    // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual([
       'task',
       'theme',
@@ -562,39 +637,48 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     expect(store.getState().skills.selectionAnchor).toBe('browser')
   })
 
-  it('selectAll with empty array clears selection and anchor', async () => {
+  it('clears the selection and anchor when select-all is given an empty list', async () => {
+    // Arrange
     const { toggleSelection, selectAll } = await import('./skillsSlice')
     const store = await createTestStore()
 
+    // Act
     store.dispatch(toggleSelection('task'))
     store.dispatch(selectAll([]))
 
+    // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual([])
     expect(store.getState().skills.selectionAnchor).toBeNull()
   })
 
-  it('clearSelection resets names and anchor', async () => {
+  it('clears the selection and anchor when the user clears the selection', async () => {
+    // Arrange
     const { toggleSelection, clearSelection } = await import('./skillsSlice')
     const store = await createTestStore()
 
+    // Act
     store.dispatch(toggleSelection('task'))
     store.dispatch(toggleSelection('theme'))
     store.dispatch(clearSelection())
 
+    // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual([])
     expect(store.getState().skills.selectionAnchor).toBeNull()
   })
 
-  it('setBulkProgress sets and clears the progress counter', async () => {
+  it('shows the bulk progress counter during an operation and hides it when cleared', async () => {
+    // Arrange
     const { setBulkProgress } = await import('./skillsSlice')
     const store = await createTestStore()
 
+    // Act + Assert — setting a counter shows progress
     store.dispatch(setBulkProgress({ current: 3, total: 10 }))
     expect(store.getState().skills.bulkProgress).toEqual({
       current: 3,
       total: 10,
     })
 
+    // Act + Assert — clearing hides it
     store.dispatch(setBulkProgress(null))
     expect(store.getState().skills.bulkProgress).toBeNull()
   })
@@ -605,7 +689,8 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     vi.resetAllMocks()
   })
 
-  it('sets bulkDeleting and reconciles inFlightDeleteNames against live items on pending', async () => {
+  it('marks only the still-present skills as deleting and drops a ghost name while a bulk delete is in flight', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedItems(store, [sampleSkill, secondSkill])
     // Hold the thunk pending indefinitely
@@ -615,9 +700,9 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
         resolve = r
       }),
     )
-
     const { deleteSelectedSkills } = await import('./skillsSlice')
-    // Include a ghost name that is NOT in state.items — reconciliation should drop it
+
+    // Act — include a ghost name that is NOT in state.items; reconciliation should drop it
     const promise = store.dispatch(
       deleteSelectedSkills([
         deleteTarget('task'),
@@ -626,6 +711,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
       ]),
     )
 
+    // Assert
     expect(store.getState().skills.bulkDeleting).toBe(true)
     expect(store.getState().skills.inFlightDeleteNames).toEqual([
       'task',
@@ -659,7 +745,8 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     await promise
   })
 
-  it('passes reviewed skillPath through deleteSkills IPC', async () => {
+  it('sends the reviewed source path through the deleteSkills IPC call', async () => {
+    // Arrange
     const store = await createTestStore()
     mockDeleteSkills.mockResolvedValue({
       items: [
@@ -672,8 +759,9 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
         },
       ],
     } satisfies BulkDeleteResult)
-
     const { deleteSelectedSkills } = await import('./skillsSlice')
+
+    // Act
     await store.dispatch(
       deleteSelectedSkills([
         {
@@ -685,6 +773,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
       ]),
     )
 
+    // Assert
     expect(mockDeleteSkills).toHaveBeenCalledWith({
       items: [
         {
@@ -696,7 +785,8 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     })
   })
 
-  it('clears selection, anchor, inFlight, and progress on fulfilled', async () => {
+  it('resets the selection, anchor, busy flag, and progress counter once a bulk delete completes', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])
     mockDeleteSkills.mockResolvedValue({
@@ -710,14 +800,15 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
         },
       ],
     } satisfies BulkDeleteResult)
-
     const { deleteSelectedSkills, toggleSelection, setBulkProgress } =
       await import('./skillsSlice')
     store.dispatch(toggleSelection('task'))
     store.dispatch(setBulkProgress({ current: 1, total: 1 }))
 
+    // Act
     await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
 
+    // Assert
     const state = store.getState().skills
     expect(state.bulkDeleting).toBe(false)
     expect(state.inFlightDeleteNames).toEqual([])
@@ -726,7 +817,8 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     expect(state.bulkProgress).toBeNull()
   })
 
-  it('clears selection and anchor when delete returns orphan-cleared', async () => {
+  it('resets the selection and anchor when a delete instead clears an orphan symlink', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])
     mockDeleteSkills.mockResolvedValue({
@@ -739,14 +831,15 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
         },
       ],
     } satisfies BulkDeleteResult)
-
     const { deleteSelectedSkills, toggleSelection, setBulkProgress } =
       await import('./skillsSlice')
     store.dispatch(toggleSelection('task'))
     store.dispatch(setBulkProgress({ current: 1, total: 1 }))
 
+    // Act
     await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
 
+    // Assert
     const state = store.getState().skills
     expect(state.bulkDeleting).toBe(false)
     expect(state.inFlightDeleteNames).toEqual([])
@@ -755,14 +848,17 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     expect(state.bulkProgress).toBeNull()
   })
 
-  it('clears in-flight and sets error on rejected', async () => {
+  it('clears the in-flight delete state and surfaces the error when a bulk delete is rejected', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])
     mockDeleteSkills.mockRejectedValue(new Error('EACCES'))
-
     const { deleteSelectedSkills } = await import('./skillsSlice')
+
+    // Act
     await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
 
+    // Assert
     const state = store.getState().skills
     expect(state.bulkDeleting).toBe(false)
     expect(state.inFlightDeleteNames).toEqual([])
@@ -775,7 +871,8 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
     vi.resetAllMocks()
   })
 
-  it('sets bulkDeleting and reconciles orphan inFlightDeleteNames against live items on pending', async () => {
+  it('marks only the still-present orphan as clearing and drops a ghost name while cleanup is in flight', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedItems(store, [sampleSkill, secondSkill])
     let resolve!: (value: ClearOrphanSymlinksResult) => void
@@ -784,8 +881,9 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
         resolve = r
       }),
     )
-
     const { clearSelectedOrphanSymlinks } = await import('./skillsSlice')
+
+    // Act — 'ghost' is not in state.items so reconciliation should drop it
     const promise = store.dispatch(
       clearSelectedOrphanSymlinks([
         {
@@ -811,6 +909,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
       ]),
     )
 
+    // Assert
     expect(store.getState().skills.bulkDeleting).toBe(true)
     expect(store.getState().skills.inFlightDeleteNames).toEqual(['task'])
 
@@ -827,7 +926,8 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
     await promise
   })
 
-  it('clears orphan selection, anchor, inFlight, and progress on fulfilled', async () => {
+  it('resets the orphan selection, anchor, busy flag, and progress counter once cleanup completes', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])
     mockClearOrphanSymlinks.mockResolvedValue({
@@ -840,12 +940,12 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
         },
       ],
     } satisfies ClearOrphanSymlinksResult)
-
     const { clearSelectedOrphanSymlinks, setBulkProgress, toggleSelection } =
       await import('./skillsSlice')
     store.dispatch(toggleSelection('task'))
     store.dispatch(setBulkProgress({ current: 1, total: 1 }))
 
+    // Act
     await store.dispatch(
       clearSelectedOrphanSymlinks([
         {
@@ -861,6 +961,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
       ]),
     )
 
+    // Assert
     const state = store.getState().skills
     expect(state.bulkDeleting).toBe(false)
     expect(state.inFlightDeleteNames).toEqual([])
@@ -869,7 +970,8 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
     expect(state.bulkProgress).toBeNull()
   })
 
-  it('keeps failed orphan rows selected while clearing busy state on fulfilled', async () => {
+  it('keeps a failed orphan row selected for retry while ending the busy state', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])
     mockClearOrphanSymlinks.mockResolvedValue({
@@ -881,11 +983,11 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
         },
       ],
     } satisfies ClearOrphanSymlinksResult)
-
     const { clearSelectedOrphanSymlinks, toggleSelection } =
       await import('./skillsSlice')
     store.dispatch(toggleSelection('task'))
 
+    // Act
     await store.dispatch(
       clearSelectedOrphanSymlinks([
         {
@@ -901,6 +1003,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
       ]),
     )
 
+    // Assert
     const state = store.getState().skills
     expect(state.bulkDeleting).toBe(false)
     expect(state.inFlightDeleteNames).toEqual([])
@@ -908,12 +1011,14 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
     expect(state.selectionAnchor).toBe('task')
   })
 
-  it('clears orphan in-flight state and sets error on rejected', async () => {
+  it('clears the in-flight orphan state and surfaces the error when cleanup is rejected', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])
     mockClearOrphanSymlinks.mockRejectedValue(new Error('Permission denied'))
-
     const { clearSelectedOrphanSymlinks } = await import('./skillsSlice')
+
+    // Act
     await store.dispatch(
       clearSelectedOrphanSymlinks([
         {
@@ -929,6 +1034,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
       ]),
     )
 
+    // Assert
     const state = store.getState().skills
     expect(state.bulkDeleting).toBe(false)
     expect(state.inFlightDeleteNames).toEqual([])
@@ -941,7 +1047,8 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
     vi.resetAllMocks()
   })
 
-  it('sets bulkUnlinking and reconciles broken-slot inFlightUnlinkNames on pending', async () => {
+  it('matches a broken slot to its live skill by display name, not on-disk basename, while cleanup is in flight', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])
     let resolve!: (value: ClearBrokenSymlinkSlotsResult) => void
@@ -950,8 +1057,9 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
         resolve = r
       }),
     )
-
     const { clearSelectedBrokenSymlinkSlots } = await import('./skillsSlice')
+
+    // Act
     const promise = store.dispatch(
       clearSelectedBrokenSymlinkSlots({
         items: [
@@ -976,6 +1084,7 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().skills.bulkUnlinking).toBe(true)
     expect(store.getState().skills.inFlightUnlinkNames).toEqual(['task'])
 
@@ -992,7 +1101,8 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
     await promise
   })
 
-  it('clears broken-slot busy state on fulfilled', async () => {
+  it('ends the broken-slot busy state once the cleanup completes', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])
     mockClearBrokenSymlinkSlots.mockResolvedValue({
@@ -1005,8 +1115,9 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
         },
       ],
     } satisfies ClearBrokenSymlinkSlotsResult)
-
     const { clearSelectedBrokenSymlinkSlots } = await import('./skillsSlice')
+
+    // Act
     await store.dispatch(
       clearSelectedBrokenSymlinkSlots({
         items: [
@@ -1021,19 +1132,22 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
       }),
     )
 
+    // Assert
     const state = store.getState().skills
     expect(state.bulkUnlinking).toBe(false)
     expect(state.inFlightUnlinkNames).toEqual([])
   })
 
-  it('clears broken-slot busy state and sets error on rejected', async () => {
+  it('ends the broken-slot busy state and surfaces the error when cleanup is rejected', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])
     mockClearBrokenSymlinkSlots.mockRejectedValue(
       new Error('Permission denied'),
     )
-
     const { clearSelectedBrokenSymlinkSlots } = await import('./skillsSlice')
+
+    // Act
     await store.dispatch(
       clearSelectedBrokenSymlinkSlots({
         items: [
@@ -1048,6 +1162,7 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
       }),
     )
 
+    // Assert
     const state = store.getState().skills
     expect(state.bulkUnlinking).toBe(false)
     expect(state.inFlightUnlinkNames).toEqual([])
@@ -1060,7 +1175,8 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     vi.resetAllMocks()
   })
 
-  it('sets bulkUnlinking and reconciles inFlightUnlinkNames against live items on pending', async () => {
+  it('marks only the still-present skills as unlinking and drops a ghost name while a bulk unlink is in flight', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedItems(store, [sampleSkill, secondSkill, thirdSkill])
     let resolve!: (value: BulkUnlinkResult) => void
@@ -1069,8 +1185,9 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
         resolve = r
       }),
     )
-
     const { unlinkSelectedFromAgent } = await import('./skillsSlice')
+
+    // Act — 'ghost' is not in state.items so reconciliation should drop it
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
@@ -1082,6 +1199,7 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
       }),
     )
 
+    // Assert
     expect(store.getState().skills.bulkUnlinking).toBe(true)
     expect(store.getState().skills.inFlightUnlinkNames).toEqual([
       'task',
@@ -1097,13 +1215,15 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     await promise
   })
 
-  it('passes reviewed linkPath through unlinkManyFromAgent IPC', async () => {
+  it('sends the reviewed agent slot path through the unlinkManyFromAgent IPC call', async () => {
+    // Arrange
     const store = await createTestStore()
     mockUnlinkManyFromAgent.mockResolvedValue({
       items: [{ skillName: 'metadata-title', outcome: 'unlinked' }],
     } satisfies BulkUnlinkResult)
-
     const { unlinkSelectedFromAgent } = await import('./skillsSlice')
+
+    // Act
     await store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
@@ -1119,6 +1239,7 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
       }),
     )
 
+    // Assert
     expect(mockUnlinkManyFromAgent).toHaveBeenCalledWith({
       agentId: 'cursor',
       items: [
@@ -1131,17 +1252,18 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     })
   })
 
-  it('clears selection, anchor, and inFlight on fulfilled', async () => {
+  it('resets the selection, anchor, and busy flag once a bulk unlink completes', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])
     mockUnlinkManyFromAgent.mockResolvedValue({
       items: [{ skillName: 'task', outcome: 'unlinked' }],
     } satisfies BulkUnlinkResult)
-
     const { unlinkSelectedFromAgent, toggleSelection } =
       await import('./skillsSlice')
     store.dispatch(toggleSelection('task'))
 
+    // Act
     await store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
@@ -1149,6 +1271,7 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
       }),
     )
 
+    // Assert
     const state = store.getState().skills
     expect(state.bulkUnlinking).toBe(false)
     expect(state.inFlightUnlinkNames).toEqual([])
@@ -1156,12 +1279,14 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     expect(state.selectionAnchor).toBeNull()
   })
 
-  it('clears in-flight and sets error on rejected', async () => {
+  it('clears the in-flight unlink state and surfaces the error when a bulk unlink is rejected', async () => {
+    // Arrange
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])
     mockUnlinkManyFromAgent.mockRejectedValue(new Error('Permission denied'))
-
     const { unlinkSelectedFromAgent } = await import('./skillsSlice')
+
+    // Act
     await store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor' as AgentId,
@@ -1169,6 +1294,7 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
       }),
     )
 
+    // Assert
     const state = store.getState().skills
     expect(state.bulkUnlinking).toBe(false)
     expect(state.inFlightUnlinkNames).toEqual([])
@@ -1181,7 +1307,8 @@ describe('skillsSlice undoLastBulkDelete thunk', () => {
     vi.resetAllMocks()
   })
 
-  it('calls restoreDeletedSkill serially for each tombstone', async () => {
+  it('restores each tombstone one at a time in the order they were deleted', async () => {
+    // Arrange
     const calls: TombstoneId[] = []
     mockRestoreDeletedSkill.mockImplementation(
       async ({ tombstoneId: id }: { tombstoneId: TombstoneId }) => {
@@ -1193,20 +1320,23 @@ describe('skillsSlice undoLastBulkDelete thunk', () => {
         } satisfies RestoreDeletedSkillResult
       },
     )
-
     const store = await createTestStore()
     const { undoLastBulkDelete } = await import('./skillsSlice')
     const ids = [
       tombstoneId('1-task-aaaaaaaa'),
       tombstoneId('1-theme-bbbbbbbb'),
     ]
+
+    // Act
     await store.dispatch(undoLastBulkDelete(ids))
 
+    // Assert
     expect(calls).toEqual(ids)
     expect(mockRestoreDeletedSkill).toHaveBeenCalledTimes(2)
   })
 
-  it('returns per-item outcomes aligned with input order', async () => {
+  it('reports each undo result in the same order as the requested tombstones', async () => {
+    // Arrange
     mockRestoreDeletedSkill
       .mockResolvedValueOnce({
         outcome: 'restored',
@@ -1217,15 +1347,17 @@ describe('skillsSlice undoLastBulkDelete thunk', () => {
         outcome: 'error',
         error: { message: 'Trash entry missing' },
       } satisfies RestoreDeletedSkillResult)
-
     const store = await createTestStore()
     const { undoLastBulkDelete } = await import('./skillsSlice')
     const ids = [
       tombstoneId('1-task-aaaaaaaa'),
       tombstoneId('1-theme-bbbbbbbb'),
     ]
+
+    // Act
     const action = await store.dispatch(undoLastBulkDelete(ids))
 
+    // Assert
     if (!undoLastBulkDelete.fulfilled.match(action)) {
       throw new Error('Expected undoLastBulkDelete to fulfill, got rejected')
     }
@@ -1239,15 +1371,18 @@ describe('skillsSlice undoLastBulkDelete thunk', () => {
   // restored-items in the same batch (see Batch 6 / CodeRabbit thread #18).
   // As a result `state.skills.error` is NOT set on IPC rejection — callers
   // must inspect the per-item payload to build a "N of M restored" toast.
-  it('catches IPC rejection as per-item error outcome without slice-level error', async () => {
+  it('reports a failed restore as a per-item error without tripping the slice-level error banner', async () => {
+    // Arrange
     mockRestoreDeletedSkill.mockRejectedValue(new Error('Disk full'))
-
     const store = await createTestStore()
     const { undoLastBulkDelete } = await import('./skillsSlice')
+
+    // Act
     const action = await store.dispatch(
       undoLastBulkDelete([tombstoneId('1-task-aaaaaaaa')]),
     )
 
+    // Assert
     if (!undoLastBulkDelete.fulfilled.match(action)) {
       throw new Error('Expected undoLastBulkDelete to fulfill, got rejected')
     }
