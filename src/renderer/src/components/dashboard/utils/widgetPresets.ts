@@ -35,8 +35,12 @@ const PAGE_SPECS: readonly PageSpec[] = [
     widgets: [
       { type: 'welcome', x: 0, y: 0, w: 6, h: 3 },
       { type: 'stats', x: 0, y: 3 },
+      // health inherits its h=3 default (sizes.ts), occupying rows 3-5 at
+      // x3-5, so coverage starts at row 6 to clear it. (At y=5 the vertical
+      // compactor would push coverage to 6 on mount anyway; hand-author the
+      // honest value rather than rely on runtime collision-resolution.)
       { type: 'health', x: 3, y: 3 },
-      { type: 'coverage', x: 0, y: 5, w: 6, h: 3 },
+      { type: 'coverage', x: 0, y: 6, w: 6, h: 3 },
     ],
   },
   {

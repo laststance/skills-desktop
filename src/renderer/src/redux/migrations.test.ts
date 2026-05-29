@@ -7,7 +7,11 @@ import {
   THEME_PRESETS,
 } from '@/shared/constants'
 
-import { migrateState, V2_WIDGET_MIN_SIZES } from './migrations'
+import {
+  migrateState,
+  V2_WIDGET_MIN_SIZES,
+  V4_WIDGET_MIN_SIZES,
+} from './migrations'
 import type { ThemeState } from './slices/themeSlice'
 
 /**
@@ -401,6 +405,108 @@ describe('migrateState — v2 → v3 theme modePreference seeding', () => {
   })
 })
 
+describe('migrateState — v3 → v4 dashboard health min-size clamp', () => {
+  /**
+   * Same envelope builder as the v1 → v2 block, scoped locally so this
+   * describe stays self-contained (DAMP) — each test declares only the
+   * widget it exercises instead of restating the dashboard boilerplate.
+   */
+  type WidgetFixture = {
+    id: string
+    type: string
+    x: number
+    y: number
+    w: number
+    h: number
+  }
+  function makeDashboardState(
+    pages: Array<{ id?: string; name?: string; widgets: WidgetFixture[] }>,
+  ) {
+    const normalized = pages.map((p, i) => ({
+      id: p.id ?? `page-${i + 1}`,
+      name: p.name ?? 'Home',
+      widgets: p.widgets,
+    }))
+    return {
+      dashboard: {
+        pages: normalized,
+        currentPageId: normalized[0].id,
+        isEditMode: false,
+        welcomeDismissed: false,
+        initialized: true,
+      },
+    }
+  }
+
+  /**
+   * PR #185 added a "Scan issues" action row to the Symlink Health widget,
+   * which clipped against the card's bottom edge at the old h: 2. The fix grew
+   * `WIDGET_REGISTRY['health'].minSize.h` to 3; this migration rewrites layouts
+   * persisted on the old floor so react-grid-layout doesn't re-clamp (and shove
+   * neighbors) on first render.
+   */
+  it('clamps health widget h: 2 up to 3', () => {
+    const state = makeDashboardState([
+      { widgets: [{ id: 'w1', type: 'health', x: 3, y: 3, w: 3, h: 2 }] },
+    ])
+    migrateState(state, 3)
+    expect(state.dashboard.pages[0].widgets[0].h).toBe(3)
+    expect(state.dashboard.pages[0].widgets[0].w).toBe(3)
+  })
+
+  it('leaves health widget h: 3 untouched (no over-clamp)', () => {
+    const state = makeDashboardState([
+      { widgets: [{ id: 'w1', type: 'health', x: 3, y: 3, w: 3, h: 3 }] },
+    ])
+    migrateState(state, 3)
+    expect(state.dashboard.pages[0].widgets[0].h).toBe(3)
+  })
+
+  it('leaves health widget h: 4 untouched (clamp is upward-only)', () => {
+    const state = makeDashboardState([
+      { widgets: [{ id: 'w1', type: 'health', x: 3, y: 3, w: 3, h: 4 }] },
+    ])
+    migrateState(state, 3)
+    expect(state.dashboard.pages[0].widgets[0].h).toBe(4)
+  })
+
+  it('does not touch widgets outside the v4 floor map (e.g., stats)', () => {
+    // stats shares health's old { w: 3, h: 2 } footprint but is absent from
+    // V4_WIDGET_MIN_SIZES, so the v3 → v4 clamp must leave it alone.
+    const state = makeDashboardState([
+      { widgets: [{ id: 'w1', type: 'stats', x: 0, y: 3, w: 3, h: 2 }] },
+    ])
+    migrateState(state, 3)
+    expect(state.dashboard.pages[0].widgets[0].h).toBe(2)
+    expect(state.dashboard.pages[0].widgets[0].w).toBe(3)
+  })
+
+  it('handles missing dashboard slice gracefully', () => {
+    const state = {
+      theme: {
+        hue: 0,
+        chroma: 0,
+        mode: 'dark' as const,
+        modePreference: 'dark' as const,
+        preset: 'neutral-dark' as const,
+      },
+    }
+    expect(() => migrateState(state, 3)).not.toThrow()
+  })
+
+  it('clamps health when migrating across the full v1 → v4 chain', () => {
+    // Guards that `case 3` is actually wired into the switch: a layout
+    // persisted way back at v1 must still pick up the v4 health floor in a
+    // single migrateState() call (v1 → v2 leaves health alone, v2 → v3 is
+    // theme-only, v3 → v4 clamps it).
+    const state = makeDashboardState([
+      { widgets: [{ id: 'w1', type: 'health', x: 3, y: 3, w: 3, h: 2 }] },
+    ])
+    migrateState(state, 1)
+    expect(state.dashboard.pages[0].widgets[0].h).toBe(3)
+  })
+})
+
 describe('V2_WIDGET_MIN_SIZES drift guard', () => {
   // The map in migrations.ts mirrors `WIDGET_REGISTRY[*].minSize`. If anyone
   // bumps a widget's runtime min in the registry without updating the
@@ -422,6 +528,30 @@ describe('V2_WIDGET_MIN_SIZES drift guard', () => {
       expect(
         registryEntry,
         `V2_WIDGET_MIN_SIZES has '${type}' but WIDGET_REGISTRY does not`,
+      ).toBeDefined()
+      expect(
+        registryEntry.minSize,
+        `WIDGET_REGISTRY['${type}'].minSize is missing — bump migrations or registry`,
+      ).toEqual(min)
+    }
+  })
+})
+
+describe('V4_WIDGET_MIN_SIZES drift guard', () => {
+  // Mirrors the V2 guard: `V4_WIDGET_MIN_SIZES` must stay in sync with
+  // `WIDGET_REGISTRY[*].minSize`. If someone changes the health widget's
+  // runtime min again without updating this map AND shipping a migration,
+  // persisted layouts on the prior floor silently violate the registry
+  // constraint after upgrade. One-way by design (see the V2 guard note): a
+  // future bump of a widget NOT in the v4 map is the trigger to add a V5 floor
+  // + migrateV4ToV5, not to retroactively widen v4's scope.
+  it('mirror entries match WIDGET_REGISTRY minSize', () => {
+    for (const [type, min] of Object.entries(V4_WIDGET_MIN_SIZES)) {
+      const registryEntry =
+        WIDGET_REGISTRY[type as keyof typeof WIDGET_REGISTRY]
+      expect(
+        registryEntry,
+        `V4_WIDGET_MIN_SIZES has '${type}' but WIDGET_REGISTRY does not`,
       ).toBeDefined()
       expect(
         registryEntry.minSize,

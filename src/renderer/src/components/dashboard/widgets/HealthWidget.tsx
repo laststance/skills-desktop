@@ -61,7 +61,7 @@ function healthPercentLabel(totals: HealthTotals): string | null {
 }
 
 // ----------------------------------------------------------------------------
-// HealthBar — a 2-segment horizontal bar showing valid|needs-review ratio.
+// HealthBar — a 3-segment horizontal bar showing valid|cleanup|manual ratio.
 // Pure presentational; accepts already-computed numbers to stay testable.
 // ----------------------------------------------------------------------------
 
@@ -83,7 +83,7 @@ const HealthBar = React.memo(function HealthBar({
 
   return (
     <div
-      className="h-1.5 w-full rounded-full bg-muted overflow-hidden flex"
+      className="h-1 w-full shrink-0 rounded-full bg-muted overflow-hidden flex"
       role="img"
       aria-label={`${valid} valid, ${cleanupIssues} ${pluralize(cleanupIssues, 'cleanup issue')}, ${manualReview} manual review`}
     >
@@ -95,8 +95,9 @@ const HealthBar = React.memo(function HealthBar({
         className="bg-amber-400 transition-[width] duration-300"
         style={{ width: `${cleanupPct}%` }}
       />
+      {/* Manual-review shares cleanup's amber-400 (broken + inaccessible = one needs-review hue app-wide; see SymlinkStatus). */}
       <div
-        className="bg-amber-300 transition-[width] duration-300"
+        className="bg-amber-400 transition-[width] duration-300"
         style={{ width: `${manualPct}%` }}
       />
     </div>
@@ -124,15 +125,12 @@ export const HealthWidget = React.memo(
     }, [dispatch])
 
     return (
-      <div className="h-full w-full flex flex-col justify-center gap-2.5 px-4 py-3">
-        <div className="flex items-baseline justify-between">
-          <span className="text-[11px] text-muted-foreground uppercase tracking-wide">
-            Health
-          </span>
-          <span className="text-2xl font-semibold tabular-nums text-foreground">
-            {percentLabel === null ? '—' : percentLabel}
-          </span>
-        </div>
+      <div className="h-full w-full flex flex-col gap-2 px-4 py-3">
+        {/* Percentage is the hero metric; the card title ("Symlink Health") already
+            names the widget, so the inline "HEALTH" label was redundant and removed. */}
+        <span className="text-2xl font-semibold tabular-nums text-foreground">
+          {percentLabel === null ? '—' : percentLabel}
+        </span>
         <HealthBar
           valid={totals.valid}
           cleanupIssues={totals.broken}
@@ -153,7 +151,7 @@ export const HealthWidget = React.memo(
               </span>
             ) : null}
             {totals.inaccessible > 0 ? (
-              <span className="inline-flex items-center gap-1 text-amber-300">
+              <span className="inline-flex items-center gap-1 text-amber-400">
                 <AlertCircle className="h-3 w-3" aria-hidden="true" />
                 <span className="tabular-nums">{totals.inaccessible}</span>
                 <span className="text-muted-foreground">manual</span>
@@ -168,14 +166,14 @@ export const HealthWidget = React.memo(
             ) : null}
           </div>
         </div>
-        <div className="min-h-8 flex items-center justify-end">
+        <div className="min-h-8 mt-auto flex items-center justify-end">
           {hasBrokenLinks ? (
             <Button
               type="button"
               size="sm"
               variant="secondary"
               onClick={handleScanIssues}
-              className="h-8 min-h-8 px-2.5 text-[11px]"
+              className="h-8 min-h-8 px-2 text-[11px]"
               data-symlink-cleanup-trigger="true"
             >
               <Search className="h-3.5 w-3.5" aria-hidden="true" />

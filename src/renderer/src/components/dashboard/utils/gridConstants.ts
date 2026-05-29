@@ -8,10 +8,12 @@
  * Row height is 64px. `WidgetShell` burns a fixed 36px header on every widget
  * (see WidgetShell.tsx — `h-9` Tailwind class; keep both sites in sync if the
  * header height ever changes). A 48px row left h=2 widgets with only ~68px of
- * body — not enough for stat tiles (icon+number+label ≈ 72px) or the health
- * widget's label/bar/legend stack (≈90px). Bumping to 64 gives h=2 ≈ 100px
- * body (fits the tightest content + breathing room) and keeps h=3/h=4 generous
- * for lists and cards.
+ * body — not enough for stat tiles (icon+number+label ≈ 72px). Bumping to 64
+ * gives h=2 ≈ 100px body, fitting the stat tiles with breathing room, and keeps
+ * h=3/h=4 generous for lists and cards. The Symlink Health widget is the
+ * exception that needs h=3, not h=2: PR #185 added a "Scan issues" action row
+ * below its label/bar/legend stack, so its `minSize.h` is 3 (see
+ * widgets/sizes.ts) and a v3 → v4 migration clamps persisted layouts up.
  */
 export const GRID_COLS = 6
 export const GRID_ROW_HEIGHT_PX = 64

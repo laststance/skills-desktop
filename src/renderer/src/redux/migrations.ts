@@ -39,6 +39,18 @@ export const V2_WIDGET_MIN_SIZES = {
 } as const satisfies Partial<Record<WidgetType, { w: number; h: number }>>
 
 /**
+ * v4 floor — the Symlink Health widget's `minSize.h` grew 2 → 3 (PR #185 added
+ * a "Scan issues" action row that clipped against the card's bottom edge at
+ * h=2). **Mirror** of `WIDGET_REGISTRY['health'].minSize`, kept here for the
+ * same reason as {@link V2_WIDGET_MIN_SIZES} — this module must stay free of
+ * the widget-component graph. Same contract: bump the registry, add the floor
+ * here, AND ship a migration.
+ */
+export const V4_WIDGET_MIN_SIZES = {
+  health: { w: 2, h: 3 },
+} as const satisfies Partial<Record<WidgetType, { w: number; h: number }>>
+
+/**
  * v0 → v1 migration for the theme slice. The old shape carried a
  * `presetType: 'color' | 'neutral'` discriminator; v1 replaces that with a
  * numeric `chroma` scalar so the same OKLCH formula drives both ramps. When
@@ -79,18 +91,27 @@ function migrateV0ToV1(state: MigratableState): void {
 }
 
 /**
- * v1 → v2 migration for the dashboard slice. The Quick Actions widget's
- * `minSize.h` was bumped from 2 to 3 alongside a `GRID_ROW_HEIGHT_PX`
- * increase (48 → 64). Persisted layouts saved before the bump carry the old
- * `h: 2` for Quick Actions; without a clamp, react-grid-layout would silently
- * re-clamp on first render, shoving neighboring widgets and producing a
- * surprise jolt for users who carefully arranged their dashboard.
+ * Walk every persisted dashboard widget and clamp `{w,h}` upward to a per-type
+ * floor — the shared engine behind the v1 → v2 and v3 → v4 dashboard
+ * migrations. Both raised a widget's registry `minSize`, so layouts persisted
+ * on the old floor must be rewritten in storage; otherwise react-grid-layout
+ * re-clamps them mid-render and shoves the user's arranged neighbors. Mutates
+ * `state.dashboard` in place and no-ops when the slice is missing or malformed
+ * (a thrown migration makes the storage middleware wipe every persisted slice).
  *
- * Strategy: walk every persisted widget, look up its floor in
- * `V2_WIDGET_MIN_SIZES`, and clamp `{w,h}` upward in place. Widgets whose
- * type isn't in the map (most of them) are untouched.
+ * @param state - migratable persisted state; `dashboard` may be any shape.
+ * @param floors - per-widget-type minimum `{w,h}`; types absent are untouched.
+ * @param migrationName - label used in the dev-only malformed-entry warnings.
+ * @returns nothing — `state.dashboard` is mutated in place.
+ * @example
+ * // health persisted at h:2 is raised to the v4 floor h:3
+ * clampPersistedWidgetSizes(state, V4_WIDGET_MIN_SIZES, 'migrateV3ToV4')
  */
-function migrateV1ToV2(state: MigratableState): void {
+function clampPersistedWidgetSizes(
+  state: MigratableState,
+  floors: Partial<Record<string, { w: number; h: number }>>,
+  migrationName: string,
+): void {
   if (!state.dashboard || typeof state.dashboard !== 'object') return
   const dashboard = state.dashboard as {
     pages?: Array<{
@@ -110,7 +131,7 @@ function migrateV1ToV2(state: MigratableState): void {
       // console clean for users.
       if (import.meta.env.DEV) {
         console.warn(
-          `migrateV1ToV2: skipping malformed page at index ${pageIndex}`,
+          `${migrationName}: skipping malformed page at index ${pageIndex}`,
         )
       }
       continue
@@ -122,24 +143,34 @@ function migrateV1ToV2(state: MigratableState): void {
       if (!widget || typeof widget !== 'object') {
         if (import.meta.env.DEV) {
           console.warn(
-            `migrateV1ToV2: skipping malformed widget on page ${pageIndex}`,
+            `${migrationName}: skipping malformed widget on page ${pageIndex}`,
           )
         }
         continue
       }
       if (!widget.type) continue
-      // `satisfies` keeps V2_WIDGET_MIN_SIZES literal-typed for the drift
-      // test, but the indexer here expects WidgetType (a wider union than
-      // the v2 map). Cast to a partial-record at the call site to recover
-      // "lookup may miss" semantics — most widget types aren't in v2's map.
-      const min = (
-        V2_WIDGET_MIN_SIZES as Partial<Record<string, { w: number; h: number }>>
-      )[widget.type]
+      // `floors` is already string-keyed, so indexing with `widget.type`
+      // (string) needs no cast — the lookup is `{ w, h } | undefined` and the
+      // guard below recovers "type not in this version's floor map" semantics.
+      const min = floors[widget.type]
       if (!min) continue
       if (typeof widget.w === 'number' && widget.w < min.w) widget.w = min.w
       if (typeof widget.h === 'number' && widget.h < min.h) widget.h = min.h
     }
   }
+}
+
+/**
+ * v1 → v2 migration for the dashboard slice. The Quick Actions widget's
+ * `minSize.h` was bumped from 2 to 3 alongside a `GRID_ROW_HEIGHT_PX`
+ * increase (48 → 64). Persisted layouts saved before the bump carry the old
+ * `h: 2` for Quick Actions; without a clamp, react-grid-layout would silently
+ * re-clamp on first render, shoving neighboring widgets and producing a
+ * surprise jolt for users who carefully arranged their dashboard. Delegates to
+ * {@link clampPersistedWidgetSizes} with the v2 floors.
+ */
+function migrateV1ToV2(state: MigratableState): void {
+  clampPersistedWidgetSizes(state, V2_WIDGET_MIN_SIZES, 'migrateV1ToV2')
 }
 
 /**
@@ -172,6 +203,19 @@ function migrateV2ToV3(state: MigratableState): void {
 }
 
 /**
+ * v3 → v4 migration for the dashboard slice. The Symlink Health widget's
+ * `minSize.h` grew 2 → 3 so its "Scan issues" action row (added in PR #185)
+ * stops clipping against the card's bottom edge. Layouts persisted at the old
+ * `h: 2` are clamped up to the v4 floor; react-grid-layout's default vertical
+ * compactor then reflows any widget the taller card now overlaps on first
+ * render (and re-persists the result via `onLayoutChange`), so only the size
+ * needs rewriting here. Delegates to {@link clampPersistedWidgetSizes}.
+ */
+function migrateV3ToV4(state: MigratableState): void {
+  clampPersistedWidgetSizes(state, V4_WIDGET_MIN_SIZES, 'migrateV3ToV4')
+}
+
+/**
  * Chain migrations up to `PERSIST_STATE_VERSION`. Each `case` must advance
  * `current` to the next schema version; unknown sources throw so bumping
  * `PERSIST_STATE_VERSION` without adding a migration fails loudly in tests
@@ -199,6 +243,10 @@ export function migrateState<T extends MigratableState>(
       case 2:
         migrateV2ToV3(state)
         current = 3
+        break
+      case 3:
+        migrateV3ToV4(state)
+        current = 4
         break
       default:
         throw new Error(
