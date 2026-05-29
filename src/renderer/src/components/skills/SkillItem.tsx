@@ -621,7 +621,7 @@ export const SkillItem = React.memo(function SkillItem({
                       : 'right-0',
                     isBookmarked
                       ? 'text-primary'
-                      : 'text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
+                      : 'text-muted-foreground hover:text-foreground opacity-40 group-hover:opacity-100 focus-visible:opacity-100',
                   )}
                 >
                   {isBookmarked ? (
