@@ -328,6 +328,16 @@ describe('destructive reviewed-path IPC schemas', () => {
         },
       ]).success,
     ).toBe(false)
+    // Act / Assert — single delete with an absolute skillPath is accepted.
+    expect(
+      singleDeleteSchema.safeParse([
+        {
+          skillName: 'task',
+          skillPath: '/tmp/task',
+          filesystemIdentity: directoryIdentity,
+        },
+      ]).success,
+    ).toBe(true)
     // Act / Assert — batch delete without a skillPath is rejected.
     expect(
       batchDeleteSchema.safeParse([{ items: [{ skillName: 'task' }] }]).success,
