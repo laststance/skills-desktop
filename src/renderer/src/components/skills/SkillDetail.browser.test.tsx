@@ -199,6 +199,15 @@ describe('SkillDetail Info path copy', () => {
     await expect.element(screen.getByText('Valid:')).toBeInTheDocument()
     await expect.element(screen.getByText('Broken:')).toBeInTheDocument()
     await expect.element(screen.getByText('Inaccessible:')).toBeInTheDocument()
-    await expect.element(screen.getByText('1')).toBeInTheDocument()
+    // Scope the count assertion to the Inaccessible row so it cannot pass on a
+    // stray "1" rendered elsewhere (e.g. if the count landed in Valid instead).
+    const inaccessibleRow = screen
+      .getByText('Inaccessible:')
+      .element()
+      .closest('div')
+    expect(inaccessibleRow).toBeInstanceOf(HTMLElement)
+    await expect
+      .element(inaccessibleRow as HTMLElement)
+      .toHaveTextContent(/Inaccessible:\s*1/)
   })
 })

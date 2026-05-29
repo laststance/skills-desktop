@@ -654,6 +654,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
           {
             agentId: 'codex' as AgentId,
             linkName: 'task',
+            displaySkillName: 'task',
             linkPath: '/home/user/.codex/skills/task',
             targetPath: '/home/user/.agents/skills/task',
           },
@@ -837,6 +838,7 @@ describe('uiSlice bulkSelectMode', () => {
           {
             agentId: 'codex' as AgentId,
             linkName: 'task',
+            displaySkillName: 'task',
             linkPath: '/home/user/.codex/skills/task',
             targetPath: '/home/user/.agents/skills/task',
           },

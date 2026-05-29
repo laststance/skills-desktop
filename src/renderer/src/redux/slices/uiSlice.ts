@@ -499,6 +499,9 @@ const uiSlice = createSlice({
      */
     openSymlinkCleanupDialog: (state) => {
       state.symlinkCleanupDialogOpen = true
+      // One cleanup surface at a time: opening the dashboard dialog clears any
+      // per-agent target so the two cleanup surfaces stay mutually exclusive.
+      state.cleanupAgentTarget = null
     },
     /**
      * Close the Dashboard Symlink Health cleanup dialog. Local plan and row

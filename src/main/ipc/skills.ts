@@ -145,16 +145,22 @@ async function restoreQuarantinedPath(
     }
 
     if (quarantineStats.isDirectory()) {
-      await fs.cp(quarantinePath, originalPath, {
-        recursive: true,
-        force: false,
-        errorOnExist: true,
-        verbatimSymlinks: true,
-      })
-      await fs.rm(quarantinePath, { recursive: true, force: true })
+      // Atomic same-directory restore (buildQuarantinePath keeps both paths in
+      // the same dir, so rename can't hit EXDEV). Replaces the previous
+      // cp+rm, which could leave a half-copied tree at originalPath on a
+      // mid-copy failure (ENOSPC/EACCES). The L124-129 pre-check already
+      // guarantees originalPath is absent; if a concurrent process recreated a
+      // *non-empty* dir in the race window, rename fails ENOTEMPTY → caught →
+      // false, so the no-clobber guarantee survives for the dangerous case.
+      await fs.rename(quarantinePath, originalPath)
       return true
     }
 
+    // File and symlink restores intentionally keep copy-then-unlink with
+    // COPYFILE_EXCL / symlink's implicit EEXIST: there is a real
+    // (if narrow) race where originalPath is recreated as a file/symlink after
+    // the pre-check, and plain rename would SILENTLY overwrite it — exactly the
+    // same-path replacement this PR exists to defend against.
     if (quarantineStats.isFile()) {
       await fs.copyFile(quarantinePath, originalPath, constants.COPYFILE_EXCL)
       await fs.unlink(quarantinePath)
@@ -398,7 +404,7 @@ async function clearReviewedBrokenSymlinkSlot(item: {
       )
     }
 
-    validatePath(dirname(item.linkPath), [agent.path])
+    assertAgentSlotPath(item.linkPath, agent.path)
 
     let stats: Stats
     try {
@@ -518,7 +524,7 @@ async function clearReviewedOrphanLink(
     )
   }
 
-  validatePath(dirname(reviewedLink.linkPath), [agent.path])
+  assertAgentSlotPath(reviewedLink.linkPath, agent.path)
 
   let stats: Stats
   try {

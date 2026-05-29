@@ -308,7 +308,7 @@ describe('SkillItem symlink status badges', () => {
       .toBeNull()
   })
 
-  it('does not render bulk checkbox for broken agent rows that cannot use generic unlink', async () => {
+  it('renders a disabled checkbox for broken agent rows that cannot use generic unlink', async () => {
     // Arrange
     const brokenSkill = makeSkill({
       symlinks: [
@@ -332,8 +332,15 @@ describe('SkillItem symlink status badges', () => {
     store.dispatch(selectAgent('cursor'))
     store.dispatch(enterBulkSelectMode())
 
-    // Assert
-    await expect.poll(() => screen.getByRole('checkbox').query()).toBeNull()
+    // Assert — the slot stays rendered (so titles stay aligned) but the row is
+    // marked out-of-scope via a disabled checkbox and an "is not eligible"
+    // label, instead of vanishing. Keeping the checkbox lets a row that was
+    // selected and then became ineligible still be deselected individually.
+    const ineligibleCheckbox = screen.getByRole('checkbox', {
+      name: 'task is not eligible for bulk selection',
+    })
+    await expect.element(ineligibleCheckbox).toBeInTheDocument()
+    await expect.element(ineligibleCheckbox).toBeDisabled()
   })
 })
 

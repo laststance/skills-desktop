@@ -24,6 +24,7 @@ import type {
   SymlinkCleanupPlanItem,
 } from '@/renderer/src/components/dashboard/utils/buildSymlinkCleanupPlan'
 import {
+  countOrphanSymlinksRemoved,
   formatCascadeSummary,
   formatUnlinkSummary,
 } from '@/renderer/src/components/skills/bulkDeleteHelpers'
@@ -437,18 +438,11 @@ function buildCleanupSummary(params: {
     .filter(Boolean)
 
   const deleteItems = params.deleteResult?.items ?? []
-  const orphanSymlinksRemoved = deleteItems.reduce((total, item) => {
-    // Fully-cleared records plus partial cleanups that threw mid-loop: an error
-    // item carrying cascadeAgents already committed those unlinks to disk, so
-    // count them here instead of telling the user 0 were removed.
-    if (item.outcome === 'orphan-cleared') {
-      return total + item.symlinksRemoved
-    }
-    if (item.outcome === 'error' && item.cascadeAgents) {
-      return total + (item.symlinksRemoved ?? 0)
-    }
-    return total
-  }, 0)
+  // Shared with the result toast (formatCascadeSummary) via one pure helper so
+  // the dialog and toast can never report divergent orphan counts.
+  const orphanSymlinksRemoved = params.deleteResult
+    ? countOrphanSymlinksRemoved(params.deleteResult)
+    : 0
   const brokenLinksUnlinked = params.unlinkResults.reduce((total, group) => {
     return (
       total +
@@ -700,6 +694,7 @@ export const SymlinkCleanupDialog = React.memo(
               items: brokenItems.map((item) => ({
                 agentId: item.agentId,
                 linkName: item.linkName,
+                displaySkillName: item.displaySkillName,
                 linkPath: item.linkPath,
                 targetPath: item.targetPath,
               })),
@@ -740,7 +735,7 @@ export const SymlinkCleanupDialog = React.memo(
         const postCleanupPlan =
           postCleanupSkillsResult.status === 'fulfilled'
             ? buildSymlinkCleanupPlan(postCleanupSkillsResult.value)
-            : freshPlan
+            : null
 
         const summary = buildCleanupSummary({
           attemptedCount: freshItemsToClean.length,
@@ -754,6 +749,19 @@ export const SymlinkCleanupDialog = React.memo(
         })
 
         if (failedItemIds.length > 0) {
+          // The failed-row visibility check and the error dispatch below both
+          // need a post-cleanup plan. When the refresh rejected we cannot
+          // recompute it — falling back to the pre-cleanup plan would compare
+          // failed rows against stale state and mis-report them — so require an
+          // explicit rescan instead.
+          if (!postCleanupPlan) {
+            dispatchLocal({
+              type: 'stale',
+              message:
+                'Cleanup finished with failures, but the refresh failed. Rescan required.',
+            })
+            return
+          }
           const postCleanupItemsById = new Map(
             getSymlinkCleanupPlanItems(postCleanupPlan).map((item) => [
               item.id,

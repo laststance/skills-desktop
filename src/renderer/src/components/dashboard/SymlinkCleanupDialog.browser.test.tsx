@@ -498,6 +498,97 @@ describe('SymlinkCleanupDialog', () => {
     expect(screen.getByText('Permission denied').query()).toBeNull()
   })
 
+  it('requires rescan when a row fails and the post-cleanup skills refresh rejects', async () => {
+    // Arrange — open scan + pre-clean fetch succeed; the post-cleanup
+    // fetchSkills (the plan source) rejects so no post-cleanup plan exists.
+    const firstPlan = [makeSkillWithBrokenSlot('refresh-reject-task', 'codex')]
+    mockGetSkills
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce(firstPlan)
+      .mockRejectedValueOnce(new Error('Scanner offline after cleanup'))
+    mockClearBrokenSymlinkSlots.mockResolvedValue({
+      items: [
+        {
+          agentId: 'codex',
+          skillName: 'refresh-reject-task',
+          linkPath: '/Users/test/.codex/skills/refresh-reject-task',
+          outcome: 'error',
+          error: { message: 'Permission denied', code: 'EACCES' },
+        },
+      ],
+    })
+    const screen = await renderOpenedDialog()
+
+    // Act
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 1 selected' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Clean 1 selected' }).click()
+
+    // Assert — the failed branch cannot recompute visibility without a fresh
+    // plan, so it asks for an explicit rescan instead of rendering row errors.
+    await expect
+      .element(
+        screen.getByText(
+          'Cleanup finished with failures, but the refresh failed. Rescan required.',
+        ),
+      )
+      .toBeVisible()
+    expect(
+      screen.getByText('Cleanup finished with failures.').query(),
+    ).toBeNull()
+    expect(screen.getByText('Permission denied').query()).toBeNull()
+  })
+
+  it('keeps cleanup success when only the post-cleanup skills refresh rejects', async () => {
+    // Arrange — same fetchSkills rejection, but the cleanup row succeeds, so
+    // the happy path must still report completion (not a stale rescan prompt).
+    const firstPlan = [makeSkillWithBrokenSlot('refresh-reject-ok', 'codex')]
+    mockGetSkills
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce(firstPlan)
+      .mockRejectedValueOnce(new Error('Scanner offline after cleanup'))
+    mockClearBrokenSymlinkSlots.mockResolvedValue({
+      items: [
+        {
+          agentId: 'codex',
+          skillName: 'refresh-reject-ok',
+          linkPath: '/Users/test/.codex/skills/refresh-reject-ok',
+          outcome: 'unlinked',
+        },
+      ],
+    })
+    const screen = await renderOpenedDialog()
+
+    // Act
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 1 selected' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Clean 1 selected' }).click()
+
+    // Assert — completion summary with a refresh warning, never the stale guard.
+    await expect
+      .element(screen.getByText(/Cleaned up 1 symlink issue/))
+      .toBeVisible()
+    await expect
+      .element(screen.getByText(/Refresh failed after cleanup/))
+      .toBeVisible()
+    await expect
+      .element(
+        screen.getByText(
+          'Cleanup succeeded. Rescan to refresh the dashboard state.',
+        ),
+      )
+      .toBeVisible()
+    expect(
+      screen
+        .getByText(
+          'Cleanup finished with failures, but the refresh failed. Rescan required.',
+        )
+        .query(),
+    ).toBeNull()
+  })
+
   it('keeps same-name broken slot failures attached to the failed agent row', async () => {
     // Arrange
     const firstPlan = [

@@ -127,6 +127,17 @@ export type UnlinkSelectedSkillTarget = {
 }
 
 /**
+ * Reviewed broken-slot target carrying the on-disk `linkName` (basename, used by
+ * main for path identity) alongside the `displaySkillName` (the source skill's
+ * display name) so the pending reducer can reconcile selection by the live
+ * `skill.name`, which can differ from the symlink basename.
+ */
+type ClearBrokenSymlinkSlotTarget =
+  ClearBrokenSymlinkSlotsOptions['items'][number] & {
+    displaySkillName: SkillName
+  }
+
+/**
  * Read the display name from a bulk-delete target that carries reviewed path identity.
  * @param target - Reviewed delete target object.
  * @returns Display skill name used for selection reconciliation.
@@ -334,13 +345,22 @@ export const clearSelectedOrphanSymlinks = createAsyncThunk<
  * @param brokenSlots - Broken agent symlinks selected in Symlink Health cleanup.
  * @returns BulkUnlinkResult with per-slot outcome.
  * @example
- * await dispatch(clearSelectedBrokenSymlinkSlots({ items: [{ agentId: 'codex', linkName: 'task', linkPath: '/Users/me/.codex/skills/task', targetPath: '/Users/me/.agents/skills/task' }] }))
+ * await dispatch(clearSelectedBrokenSymlinkSlots({ items: [{ agentId: 'codex', linkName: 'task', displaySkillName: 'task', linkPath: '/Users/me/.codex/skills/task', targetPath: '/Users/me/.agents/skills/task' }] }))
  */
 export const clearSelectedBrokenSymlinkSlots = createAsyncThunk<
   ClearBrokenSymlinkSlotsResult,
-  ClearBrokenSymlinkSlotsOptions
->('skills/clearSelectedBrokenSymlinkSlots', async (options) => {
-  return window.electron.skills.clearBrokenSymlinkSlots(options)
+  { items: ClearBrokenSymlinkSlotTarget[] }
+>('skills/clearSelectedBrokenSymlinkSlots', async ({ items }) => {
+  // Strip the renderer-only `displaySkillName` before crossing IPC — main
+  // validates path identity from linkName/linkPath/targetPath only.
+  return window.electron.skills.clearBrokenSymlinkSlots({
+    items: items.map(({ agentId, linkName, linkPath, targetPath }) => ({
+      agentId,
+      linkName,
+      linkPath,
+      targetPath,
+    })),
+  })
 })
 
 /**
@@ -663,7 +683,9 @@ const skillsSlice = createSlice({
       .addCase(clearSelectedBrokenSymlinkSlots.pending, (state, action) => {
         state.inFlightUnlinkNames = reconcileByLiveNames(
           state.items,
-          action.meta.arg.items.map((item) => item.linkName),
+          // Reconcile by display name (`skill.name`), not the symlink basename —
+          // the two can differ, and reconcileByLiveNames matches `skill.name`.
+          action.meta.arg.items.map((item) => item.displaySkillName),
         )
         state.bulkUnlinking = true
         state.error = null

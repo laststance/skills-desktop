@@ -245,9 +245,18 @@ describe('skills:removeAllFromAgent handler', () => {
     // Arrange
     const cursorDir = join(tempHome, '.cursor', 'skills')
     await mkdir(join(cursorDir, 'reviewed-skill'), { recursive: true })
-    const staleIdentity = await reviewedIdentity(cursorDir)
     await rm(cursorDir, { recursive: true, force: true })
     await mkdir(join(cursorDir, 'replacement-skill'), { recursive: true })
+    // Synthesize the reviewed identity from the replacement dir but with a
+    // distinct ctime. This deterministically simulates an in-place same-path
+    // replacement (dev+ino reused as ext4 does, fresh ctime) without depending
+    // on the host filesystem's ctime granularity, which can otherwise let the
+    // recreated dir reuse the captured ctime and make the test flaky.
+    const replacementIdentity = await reviewedIdentity(cursorDir)
+    const staleIdentity: FilesystemEntryIdentity = {
+      ...replacementIdentity,
+      ctimeMs: replacementIdentity.ctimeMs - 60_000,
+    }
 
     const { registerSkillsHandlers } = await import('./skills')
     registerSkillsHandlers()

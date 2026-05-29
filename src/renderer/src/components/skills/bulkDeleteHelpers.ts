@@ -139,6 +139,30 @@ export const getToolbarState = ({
 }
 
 /**
+ * Sum every orphan symlink unlink that actually reached disk: fully
+ * orphan-cleared rows PLUS partial cleanups that threw mid-loop after
+ * committing unlinks (error rows that still carry `cascadeAgents`). Exists so
+ * the result toast (`formatCascadeSummary`) and the cleanup dialog
+ * (`buildCleanupSummary`) report one identical count instead of drifting when
+ * only one site is edited; called by both.
+ * @param result - Bulk delete outcome set from the main-process thunk.
+ * @returns Total orphan symlinks removed across cleared + partial-error rows.
+ * @example
+ * countOrphanSymlinksRemoved({ items: [
+ *   { skillName: 'a', outcome: 'orphan-cleared', symlinksRemoved: 2, cascadeAgents: ['cursor'] },
+ *   { skillName: 'b', outcome: 'error', symlinksRemoved: 1, cascadeAgents: ['claude-code'], error: { message: 'EACCES', code: 'EACCES' } },
+ * ] }) // => 3
+ */
+export const countOrphanSymlinksRemoved = (result: BulkDeleteResult): number =>
+  result.items.reduce((total, item) => {
+    if (item.outcome === 'orphan-cleared') return total + item.symlinksRemoved
+    if (item.outcome === 'error' && item.cascadeAgents) {
+      return total + (item.symlinksRemoved ?? 0)
+    }
+    return total
+  }, 0)
+
+/**
  * Build the summary string shown in the toast body after a bulk DELETE.
  *
  * The phrases are deliberately independent so the Undo-facing text only
@@ -184,12 +208,6 @@ export const formatCascadeSummary = (result: BulkDeleteResult): string => {
     (item): item is Extract<BulkDeleteItemResult, { outcome: 'deleted' }> =>
       item.outcome === 'deleted',
   )
-  const orphanItems = result.items.filter(
-    (
-      item,
-    ): item is Extract<BulkDeleteItemResult, { outcome: 'orphan-cleared' }> =>
-      item.outcome === 'orphan-cleared',
-  )
   const errorCount = result.items.filter(
     (item) => item.outcome === 'error',
   ).length
@@ -200,18 +218,9 @@ export const formatCascadeSummary = (result: BulkDeleteResult): string => {
     (sum, item) => sum + item.symlinksRemoved,
     0,
   )
-  // Partial cleanups that threw mid-loop report their committed unlinks on the
-  // error variant — fold them into the orphan tally so the summary mirrors disk.
-  const partialErrorSymlinks = result.items.reduce(
-    (sum, item) =>
-      item.outcome === 'error' && item.cascadeAgents
-        ? sum + (item.symlinksRemoved ?? 0)
-        : sum,
-    0,
-  )
-  const orphanSymlinks =
-    orphanItems.reduce((sum, item) => sum + item.symlinksRemoved, 0) +
-    partialErrorSymlinks
+  // Orphan tally (cleared rows + mid-loop partial-error commits) is computed by
+  // the shared helper so this toast and the cleanup dialog never drift.
+  const orphanSymlinks = countOrphanSymlinksRemoved(result)
 
   const phrases: string[] = []
 

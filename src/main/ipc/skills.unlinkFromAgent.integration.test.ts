@@ -386,10 +386,20 @@ describe('skills:unlinkFromAgent handler', () => {
     const localPath = join(tempHome, '.cursor', 'skills', skillName)
     await mkdir(localPath, { recursive: true })
     await writeFile(join(localPath, 'SKILL.md'), `name: ${skillName}\n`)
-    const reviewedIdentity = filesystemIdentityFromStats(await lstat(localPath))
     await rm(localPath, { recursive: true, force: true })
     await mkdir(localPath, { recursive: true })
     await writeFile(join(localPath, 'SKILL.md'), `name: ${skillName}\n`)
+    // Synthesize the reviewed identity from the replacement folder but with a
+    // distinct ctime so the rejection is deterministic regardless of the host
+    // filesystem's ctime granularity (ext4 can reuse the freed inode number,
+    // which would otherwise let the recreated folder pass the dev+ino check).
+    const replacementIdentity = filesystemIdentityFromStats(
+      await lstat(localPath),
+    )
+    const reviewedIdentity: FilesystemEntryIdentity = {
+      ...replacementIdentity,
+      ctimeMs: replacementIdentity.ctimeMs - 60_000,
+    }
 
     const { registerSkillsHandlers } = await import('./skills')
     registerSkillsHandlers()

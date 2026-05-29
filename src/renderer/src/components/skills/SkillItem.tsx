@@ -650,7 +650,7 @@ export const SkillItem = React.memo(function SkillItem({
                   caused some screen readers to announce the skill twice.
                   Rendered only when the user has entered bulk-select mode via
                   the filter-row toggle; the default view stays clean. */}
-              {bulkSelectMode && isBulkSelectable && (
+              {bulkSelectMode && (
                 <label
                   className="shrink-0 min-h-11 min-w-11 flex items-center justify-center -mt-1 -ml-1 cursor-pointer"
                   onClick={(e) => e.stopPropagation()}
@@ -659,10 +659,16 @@ export const SkillItem = React.memo(function SkillItem({
                     checked={isTicked}
                     onCheckedChange={handleCheckedChange}
                     onPointerDown={handleCheckboxPointerDown}
+                    // Keep the slot rendered for every row in bulk mode so titles
+                    // stay aligned, but block selecting an ineligible row (still
+                    // allow deselecting one that is already ticked).
+                    disabled={!isBulkSelectable && !isTicked}
                     aria-label={
                       isTicked
                         ? `Deselect ${skill.name}`
-                        : `Select ${skill.name}`
+                        : isBulkSelectable
+                          ? `Select ${skill.name}`
+                          : `${skill.name} is not eligible for bulk selection`
                     }
                   />
                 </label>

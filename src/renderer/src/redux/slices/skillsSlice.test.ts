@@ -957,13 +957,18 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
         items: [
           {
             agentId: 'codex' as AgentId,
-            linkName: 'task',
-            linkPath: '/home/user/.codex/skills/task',
+            // linkName (on-disk basename) intentionally differs from
+            // displaySkillName to prove reconciliation matches the live
+            // skill.name ('task'), not the symlink basename.
+            linkName: 'task-symlink',
+            displaySkillName: 'task',
+            linkPath: '/home/user/.codex/skills/task-symlink',
             targetPath: '/home/user/.agents/skills/task',
           },
           {
             agentId: 'cursor' as AgentId,
             linkName: 'ghost',
+            displaySkillName: 'ghost',
             linkPath: '/home/user/.cursor/skills/ghost',
             targetPath: '/home/user/.agents/skills/ghost',
           },
@@ -1008,6 +1013,7 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
           {
             agentId: 'codex' as AgentId,
             linkName: 'task',
+            displaySkillName: 'task',
             linkPath: '/home/user/.codex/skills/task',
             targetPath: '/home/user/.agents/skills/task',
           },
@@ -1034,6 +1040,7 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
           {
             agentId: 'codex' as AgentId,
             linkName: 'task',
+            displaySkillName: 'task',
             linkPath: '/home/user/.codex/skills/task',
             targetPath: '/home/user/.agents/skills/task',
           },

@@ -10,6 +10,7 @@ import { tombstoneId } from '@/shared/types'
 
 import {
   computeRangeSelection,
+  countOrphanSymlinksRemoved,
   formatCascadeSummary,
   formatUnlinkSummary,
   getToolbarState,
@@ -131,6 +132,63 @@ describe('getToolbarState', () => {
     expect(result.primaryAriaLabel).toBe(
       'Move 2 visible selected skills to app trash',
     )
+  })
+})
+
+describe('countOrphanSymlinksRemoved', () => {
+  it('adds mid-loop partial-error commits to the orphan-cleared total', () => {
+    // Arrange — one fully orphan-cleared row plus one cleanup that threw
+    // mid-loop after committing unlinks (error row still carrying cascadeAgents).
+    const result: BulkDeleteResult = {
+      items: [
+        {
+          skillName: 'abandoned',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 2,
+          cascadeAgents: ['cursor' as AgentId],
+        },
+        {
+          skillName: 'half-cleared',
+          outcome: 'error',
+          symlinksRemoved: 1,
+          cascadeAgents: ['claude-code' as AgentId],
+          error: { message: 'EACCES', code: 'EACCES' },
+        },
+      ],
+    }
+
+    // Act
+    const total = countOrphanSymlinksRemoved(result)
+
+    // Assert — 2 cleared + 1 committed-before-throw = 3.
+    expect(total).toBe(3)
+  })
+
+  it('ignores deleted rows and clean errors that committed nothing', () => {
+    // Arrange — a tombstoned delete (its symlinks belong to the Undo cascade,
+    // not orphan cleanup) and an error row with no cascadeAgents (committed 0).
+    const result: BulkDeleteResult = {
+      items: [
+        {
+          skillName: 'task',
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1-task-aaaa'),
+          symlinksRemoved: 5,
+          cascadeAgents: ['cursor' as AgentId],
+        },
+        {
+          skillName: 'locked',
+          outcome: 'error',
+          error: { message: 'EACCES', code: 'EACCES' },
+        },
+      ],
+    }
+
+    // Act
+    const total = countOrphanSymlinksRemoved(result)
+
+    // Assert — neither row contributes to the orphan tally.
+    expect(total).toBe(0)
   })
 })
 

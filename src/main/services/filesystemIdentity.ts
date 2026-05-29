@@ -61,7 +61,15 @@ export function isSameFilesystemEntryIdentity(
 ): boolean {
   if (currentIdentity.kind !== reviewed.kind) return false
 
-  if (currentIdentity.dev !== 0 || currentIdentity.ino !== 0) {
+  // Only trust the dev+ino fast path when BOTH sides carry a real inode. A
+  // 0/0 sentinel means inode info was unavailable at capture; comparing it
+  // would spuriously fail (or pass) so fall back to the stat heuristic below.
+  if (
+    currentIdentity.dev !== 0 &&
+    currentIdentity.ino !== 0 &&
+    reviewed.dev !== 0 &&
+    reviewed.ino !== 0
+  ) {
     return (
       currentIdentity.dev === reviewed.dev &&
       currentIdentity.ino === reviewed.ino
