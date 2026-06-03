@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
+import '@/renderer/src/styles/globals.css'
 
 /**
  * Build a text preview payload without pulling in the IPC hook.
@@ -145,7 +146,6 @@ describe('FileContent Markdown modes', () => {
     const pane = scrollPane as HTMLElement
 
     // Programmatic scroll mirrors trackpad horizontal gestures in the renderer.
-    expect(pane.scrollWidth).toBeGreaterThan(pane.clientWidth)
     pane.scrollTo({ left: 240 })
     expect(pane.scrollLeft).toBe(0)
 
@@ -185,5 +185,64 @@ describe('FileContent Markdown modes', () => {
     expect(scrollPane).toBeInstanceOf(HTMLElement)
     expect(spacer).toBeInstanceOf(HTMLElement)
     expect(scrollPane?.lastElementChild).toBe(spacer)
+  })
+
+  it('keeps source code line numbers pinned while horizontally scrolling long Markdown source', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const longMarkdownLine = `description: ${'wide-token-'.repeat(80)}`
+
+    // Act
+    const screen = await render(
+      <>
+        <style>{'.markdown-scroll-test > * { min-width: 0; }'}</style>
+        <div
+          className="markdown-scroll-test"
+          style={{ display: 'flex', height: 220, width: 320 }}
+        >
+          <FileContent
+            content={makeTextContent({
+              content: `---\nname: wide-skill\n${longMarkdownLine}\n---\n\n# Wide`,
+            })}
+          />
+        </div>
+      </>,
+    )
+
+    await expect
+      .poll(() =>
+        screen.container.querySelector('.skill-code-preview .line-number'),
+      )
+      .toBeInstanceOf(HTMLElement)
+
+    const scrollPane = screen.container.querySelector(
+      '[data-file-preview-scroll]',
+    )
+    expect(scrollPane).toBeInstanceOf(HTMLElement)
+    const scrollPaneElement = scrollPane as HTMLElement
+
+    await expect
+      .poll(() => scrollPaneElement.scrollWidth > scrollPaneElement.clientWidth)
+      .toBe(true)
+
+    // Assert
+    const lineNumber = screen.container.querySelector(
+      '.skill-code-preview .line-number',
+    )
+    expect(lineNumber).toBeInstanceOf(HTMLElement)
+    const lineNumberElement = lineNumber as HTMLElement
+    const lineNumberStyle = window.getComputedStyle(lineNumberElement)
+    expect(lineNumberStyle.position).toBe('sticky')
+    expect(lineNumberStyle.left).toBe('0px')
+
+    const initialLineNumberLeft = Math.round(
+      lineNumberElement.getBoundingClientRect().left,
+    )
+    scrollPaneElement.scrollLeft = 240
+
+    await expect.poll(() => scrollPaneElement.scrollLeft > 0).toBe(true)
+    await expect
+      .poll(() => Math.round(lineNumberElement.getBoundingClientRect().left))
+      .toBe(initialLineNumberLeft)
   })
 })

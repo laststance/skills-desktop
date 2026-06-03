@@ -163,6 +163,21 @@ const SyntaxHighlightedCode = React.memo(function SyntaxHighlightedCode({
             light: 'github-light',
           },
           defaultColor: false,
+          transformers: [
+            {
+              line(node, lineNumber) {
+                node.children.unshift({
+                  type: 'element',
+                  tagName: 'span',
+                  properties: {
+                    ariaHidden: 'true',
+                    class: 'line-number',
+                  },
+                  children: [{ type: 'text', value: String(lineNumber) }],
+                })
+              },
+            },
+          ],
         })
         if (!cancelled) setHighlightedHtml(html)
       } catch {
@@ -218,7 +233,7 @@ const PlainTextCode = React.memo(function PlainTextCode({
       <tbody>
         {lines.map((line, idx) => (
           <tr key={idx} className="hover:bg-foreground/5">
-            <td className="h-5 w-12 px-2 py-0 text-right text-muted-foreground select-none border-r border-border/50 align-top">
+            <td className="sticky left-0 z-10 h-5 w-12 bg-muted px-2 py-0 text-right text-muted-foreground select-none border-r border-border/50 align-top">
               {idx + 1}
             </td>
             <td className="h-5 px-3 py-0 whitespace-pre text-foreground">

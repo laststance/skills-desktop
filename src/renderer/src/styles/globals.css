@@ -162,6 +162,12 @@
     width: 100%;
   }
 
+  /* Source previews own both scroll axes so sticky line numbers can pin inside
+   * the actual preview pane instead of the window. */
+  [data-file-preview-scroll] {
+    overflow: auto;
+  }
+
   /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 8px;
@@ -217,7 +223,6 @@
 
   .skill-code-preview code {
     display: block;
-    counter-reset: line;
     /* Shiki formats `<span class="line">` nodes with newline text between
      * them; normal whitespace prevents those source-formatting newlines from
      * becoming extra visual rows. */
@@ -238,17 +243,24 @@
     background: oklch(from var(--foreground) l c h / 0.05);
   }
 
-  .skill-code-preview .line::before {
-    counter-increment: line;
-    content: counter(line);
+  .skill-code-preview .line-number {
     display: inline-block;
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    box-sizing: border-box;
     width: 3rem;
     margin-right: 0.75rem;
     padding-right: 0.5rem;
     border-right: 1px solid var(--border);
+    background: var(--muted);
     color: var(--muted-foreground);
     text-align: right;
     user-select: none;
+  }
+
+  .skill-code-preview .line:hover .line-number {
+    background: color-mix(in oklch, var(--foreground) 5%, var(--muted));
   }
 }
 
