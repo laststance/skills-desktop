@@ -269,4 +269,62 @@ describe('SkillsList scrollbar gutter layout', () => {
       layoutStyleElement.remove()
     }
   })
+
+  it('keeps installed skill cards and reserved scrollbar gutter balanced when vertical scrolling is unnecessary', async () => {
+    // Arrange
+    const layoutStyleElement = installLayoutStyles()
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    const visibleSkills = [
+      makeSkill({
+        name: 'single-skill' as SkillName,
+        description: 'A short list should not need vertical scrolling.',
+      }),
+    ]
+
+    try {
+      // Act
+      const screen = await renderInstalledListShell({ items: visibleSkills })
+      await expect.element(screen.getByText('single-skill')).toBeInTheDocument()
+
+      // Assert
+      const shell = requireHTMLElement(
+        document.querySelector('[data-testid="installed-list-shell"]'),
+        'installed list shell',
+      )
+      const list = requireHTMLElement(
+        document.querySelector('[role="list"]'),
+        'virtualized list',
+      )
+      const deleteButton = requireHTMLElement(
+        document.querySelector('button[aria-label="Delete single-skill"]'),
+        'single skill delete button',
+      )
+      const card = requireHTMLElement(
+        deleteButton.closest('.group'),
+        'single skill card',
+      )
+      const shellRect = shell.getBoundingClientRect()
+      const listRect = list.getBoundingClientRect()
+      const cardRect = card.getBoundingClientRect()
+      const reservedGutterWidthPx = list.offsetWidth - list.clientWidth
+      const reservedGutterLeftPx = listRect.right - reservedGutterWidthPx
+      const leftGutterPx = Math.round(cardRect.left - shellRect.left)
+      const rightGutterPx = Math.round(shellRect.right - cardRect.right)
+      const reservedGutterLeftSpacingPx = Math.round(
+        reservedGutterLeftPx - cardRect.right,
+      )
+      const reservedGutterRightSpacingPx = Math.round(
+        shellRect.right - listRect.right,
+      )
+
+      expect(list.scrollHeight).toBeLessThanOrEqual(list.clientHeight)
+      expect(reservedGutterWidthPx).toBe(6)
+      expect(leftGutterPx).toBe(16)
+      expect(rightGutterPx).toBe(16)
+      expect(reservedGutterLeftSpacingPx).toBe(5)
+      expect(reservedGutterRightSpacingPx).toBe(5)
+    } finally {
+      layoutStyleElement.remove()
+    }
+  })
 })
