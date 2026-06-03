@@ -242,13 +242,22 @@
     counter-increment: line;
     content: counter(line);
     display: inline-block;
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    box-sizing: border-box;
     width: 3rem;
     margin-right: 0.75rem;
     padding-right: 0.5rem;
     border-right: 1px solid var(--border);
+    background: var(--muted);
     color: var(--muted-foreground);
     text-align: right;
     user-select: none;
+  }
+
+  .skill-code-preview .line:hover::before {
+    background: color-mix(in oklch, var(--foreground) 5%, var(--muted));
   }
 }
 
