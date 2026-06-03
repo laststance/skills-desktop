@@ -162,6 +162,12 @@
     width: 100%;
   }
 
+  /* Source previews own both scroll axes so sticky line numbers can pin inside
+   * the actual preview pane instead of the window. */
+  [data-file-preview-scroll] {
+    overflow: auto;
+  }
+
   /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 8px;

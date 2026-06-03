@@ -215,23 +215,14 @@ describe('FileContent Markdown modes', () => {
       )
       .toBeInstanceOf(HTMLElement)
 
-    const codePreview = screen.container.querySelector('.skill-code-preview')
-    expect(codePreview).toBeInstanceOf(HTMLElement)
-    const codePreviewElement = codePreview as HTMLElement
-    const scrollBox = document.createElement('div')
-    Object.assign(scrollBox.style, {
-      maxWidth: '320px',
-      overflowX: 'auto',
-      width: '320px',
-    })
-    codePreviewElement.parentElement?.insertBefore(
-      scrollBox,
-      codePreviewElement,
+    const scrollPane = screen.container.querySelector(
+      '[data-file-preview-scroll]',
     )
-    scrollBox.appendChild(codePreviewElement)
+    expect(scrollPane).toBeInstanceOf(HTMLElement)
+    const scrollPaneElement = scrollPane as HTMLElement
 
     await expect
-      .poll(() => scrollBox.scrollWidth > scrollBox.clientWidth)
+      .poll(() => scrollPaneElement.scrollWidth > scrollPaneElement.clientWidth)
       .toBe(true)
 
     // Assert
@@ -247,9 +238,9 @@ describe('FileContent Markdown modes', () => {
     const initialLineNumberLeft = Math.round(
       lineNumberElement.getBoundingClientRect().left,
     )
-    scrollBox.scrollLeft = 240
+    scrollPaneElement.scrollLeft = 240
 
-    await expect.poll(() => scrollBox.scrollLeft > 0).toBe(true)
+    await expect.poll(() => scrollPaneElement.scrollLeft > 0).toBe(true)
     await expect
       .poll(() => Math.round(lineNumberElement.getBoundingClientRect().left))
       .toBe(initialLineNumberLeft)
