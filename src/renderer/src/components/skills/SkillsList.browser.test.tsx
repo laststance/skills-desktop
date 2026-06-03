@@ -172,6 +172,51 @@ function requireHTMLElement(
   return element
 }
 
+/**
+ * Measure the Installed list card and reserved scrollbar gutter geometry.
+ * @param deleteButtonAriaLabel - Exact aria-label for the row delete button.
+ * @param cardLabel - Human-readable card label for failure output.
+ * @returns DOM list element plus rounded gutter and spacing metrics.
+ * @example
+ * const metrics = measureInstalledListLayout('Delete skill-0', 'first skill card')
+ */
+function measureInstalledListLayout(
+  deleteButtonAriaLabel: string,
+  cardLabel: string,
+) {
+  const shell = requireHTMLElement(
+    document.querySelector('[data-testid="installed-list-shell"]'),
+    'installed list shell',
+  )
+  const list = requireHTMLElement(
+    document.querySelector('[role="list"]'),
+    'virtualized list',
+  )
+  const deleteButton = requireHTMLElement(
+    Array.from(document.querySelectorAll('button')).find(
+      (button) => button.getAttribute('aria-label') === deleteButtonAriaLabel,
+    ) ?? null,
+    `${cardLabel} delete button`,
+  )
+  const card = requireHTMLElement(deleteButton.closest('.group'), cardLabel)
+  const shellRect = shell.getBoundingClientRect()
+  const listRect = list.getBoundingClientRect()
+  const cardRect = card.getBoundingClientRect()
+  const reservedGutterWidthPx = list.offsetWidth - list.clientWidth
+  const reservedGutterLeftPx = listRect.right - reservedGutterWidthPx
+
+  return {
+    list,
+    reservedGutterWidthPx,
+    leftGutterPx: Math.round(cardRect.left - shellRect.left),
+    rightGutterPx: Math.round(shellRect.right - cardRect.right),
+    reservedGutterLeftSpacingPx: Math.round(
+      reservedGutterLeftPx - cardRect.right,
+    ),
+    reservedGutterRightSpacingPx: Math.round(shellRect.right - listRect.right),
+  }
+}
+
 describe('SkillsList loading branch — scroll-preservation regression', () => {
   it('shows the "Loading skills..." placeholder on initial fetch (loading=true, items=[])', async () => {
     // Arrange
@@ -230,41 +275,16 @@ describe('SkillsList scrollbar gutter layout', () => {
       await expect.element(screen.getByText('skill-0')).toBeInTheDocument()
 
       // Assert
-      const shell = requireHTMLElement(
-        document.querySelector('[data-testid="installed-list-shell"]'),
-        'installed list shell',
-      )
-      const list = requireHTMLElement(
-        document.querySelector('[role="list"]'),
-        'virtualized list',
-      )
-      const deleteButton = requireHTMLElement(
-        document.querySelector('button[aria-label="Delete skill-0"]'),
-        'first delete button',
-      )
-      const card = requireHTMLElement(
-        deleteButton.closest('.group'),
+      const metrics = measureInstalledListLayout(
+        'Delete skill-0',
         'first skill card',
       )
-      const shellRect = shell.getBoundingClientRect()
-      const listRect = list.getBoundingClientRect()
-      const cardRect = card.getBoundingClientRect()
-      const scrollbarWidthPx = list.offsetWidth - list.clientWidth
-      const scrollbarLeftPx = listRect.right - scrollbarWidthPx
-      const leftGutterPx = Math.round(cardRect.left - shellRect.left)
-      const rightGutterPx = Math.round(shellRect.right - cardRect.right)
-      const scrollbarLeftSpacingPx = Math.round(
-        scrollbarLeftPx - cardRect.right,
-      )
-      const scrollbarRightSpacingPx = Math.round(
-        shellRect.right - listRect.right,
-      )
 
-      expect(scrollbarWidthPx).toBe(6)
-      expect(leftGutterPx).toBe(16)
-      expect(rightGutterPx).toBe(16)
-      expect(scrollbarLeftSpacingPx).toBe(5)
-      expect(scrollbarRightSpacingPx).toBe(5)
+      expect(metrics.reservedGutterWidthPx).toBe(6)
+      expect(metrics.leftGutterPx).toBe(16)
+      expect(metrics.rightGutterPx).toBe(16)
+      expect(metrics.reservedGutterLeftSpacingPx).toBe(5)
+      expect(metrics.reservedGutterRightSpacingPx).toBe(5)
     } finally {
       layoutStyleElement.remove()
     }
@@ -287,42 +307,19 @@ describe('SkillsList scrollbar gutter layout', () => {
       await expect.element(screen.getByText('single-skill')).toBeInTheDocument()
 
       // Assert
-      const shell = requireHTMLElement(
-        document.querySelector('[data-testid="installed-list-shell"]'),
-        'installed list shell',
-      )
-      const list = requireHTMLElement(
-        document.querySelector('[role="list"]'),
-        'virtualized list',
-      )
-      const deleteButton = requireHTMLElement(
-        document.querySelector('button[aria-label="Delete single-skill"]'),
-        'single skill delete button',
-      )
-      const card = requireHTMLElement(
-        deleteButton.closest('.group'),
+      const metrics = measureInstalledListLayout(
+        'Delete single-skill',
         'single skill card',
       )
-      const shellRect = shell.getBoundingClientRect()
-      const listRect = list.getBoundingClientRect()
-      const cardRect = card.getBoundingClientRect()
-      const reservedGutterWidthPx = list.offsetWidth - list.clientWidth
-      const reservedGutterLeftPx = listRect.right - reservedGutterWidthPx
-      const leftGutterPx = Math.round(cardRect.left - shellRect.left)
-      const rightGutterPx = Math.round(shellRect.right - cardRect.right)
-      const reservedGutterLeftSpacingPx = Math.round(
-        reservedGutterLeftPx - cardRect.right,
-      )
-      const reservedGutterRightSpacingPx = Math.round(
-        shellRect.right - listRect.right,
-      )
 
-      expect(list.scrollHeight).toBeLessThanOrEqual(list.clientHeight)
-      expect(reservedGutterWidthPx).toBe(6)
-      expect(leftGutterPx).toBe(16)
-      expect(rightGutterPx).toBe(16)
-      expect(reservedGutterLeftSpacingPx).toBe(5)
-      expect(reservedGutterRightSpacingPx).toBe(5)
+      expect(metrics.list.scrollHeight).toBeLessThanOrEqual(
+        metrics.list.clientHeight,
+      )
+      expect(metrics.reservedGutterWidthPx).toBe(6)
+      expect(metrics.leftGutterPx).toBe(16)
+      expect(metrics.rightGutterPx).toBe(16)
+      expect(metrics.reservedGutterLeftSpacingPx).toBe(5)
+      expect(metrics.reservedGutterRightSpacingPx).toBe(5)
     } finally {
       layoutStyleElement.remove()
     }
