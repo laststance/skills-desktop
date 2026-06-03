@@ -181,6 +181,11 @@
     background: var(--muted-foreground);
   }
 
+  .skills-list-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
   /* Shiki emits semantic CSS variables for light/dark token colors. Scoping
    * them to the skill preview keeps Markdown/code panes aligned with the app
    * theme without leaking highlighter styles into other UI. */

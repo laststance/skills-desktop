@@ -1186,7 +1186,7 @@ export const MainContent = React.memo(
               agentDisplayName={selectedAgent?.name}
             />
 
-            <div className="flex-1 min-h-0 overflow-auto p-4">
+            <div className="flex-1 min-h-0 overflow-hidden py-4 pl-4 pr-[5px]">
               <SkillsList />
             </div>
           </TabsContent>
