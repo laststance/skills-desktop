@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
+import { installLayoutStyles } from '@/renderer/src/test/installLayoutStyles'
 import type { Skill, SkillName } from '@/shared/types'
 
 const mockGetAll = vi.fn()
@@ -125,6 +126,52 @@ async function renderSkillsList(skillsState: {
   )
 }
 
+/**
+ * Render SkillsList in the same scroll shell used by the Installed tab.
+ * @param skillsState - Skill slice fields needed for the visible rows.
+ * @returns vitest-browser-react screen for locator queries.
+ * @example
+ * await renderInstalledListShell({ items: [makeSkill()] })
+ */
+async function renderInstalledListShell(skillsState: {
+  loading?: boolean
+  items?: Skill[]
+}) {
+  const store = await createStore(skillsState)
+  const { SkillsList } = await import('./SkillsList')
+  return render(
+    <Provider store={store}>
+      <TooltipProvider>
+        <div
+          data-testid="installed-list-shell"
+          className="overflow-hidden py-4 pl-4 pr-[5px]"
+          style={{ height: 360, width: 800 }}
+        >
+          <SkillsList />
+        </div>
+      </TooltipProvider>
+    </Provider>,
+  )
+}
+
+/**
+ * Require a DOM node to be an HTMLElement before layout measurement.
+ * @param element - Candidate node from querySelector or closest.
+ * @param label - Human-readable selector name for failure output.
+ * @returns HTMLElement safe for getBoundingClientRect measurement.
+ * @example
+ * const card = requireHTMLElement(document.querySelector('.group'), 'card')
+ */
+function requireHTMLElement(
+  element: Element | null,
+  label: string,
+): HTMLElement {
+  if (!(element instanceof HTMLElement)) {
+    throw new Error(`${label} should exist for layout measurement`)
+  }
+  return element
+}
+
 describe('SkillsList loading branch — scroll-preservation regression', () => {
   it('shows the "Loading skills..." placeholder on initial fetch (loading=true, items=[])', async () => {
     // Arrange
@@ -162,5 +209,64 @@ describe('SkillsList loading branch — scroll-preservation regression', () => {
 
     // Assert
     expect(screen.getByText('Loading skills...').query()).toBeNull()
+  })
+})
+
+describe('SkillsList scrollbar gutter layout', () => {
+  it('keeps installed skill cards and scrollbar spacing balanced when the vertical scrollbar is visible', async () => {
+    // Arrange
+    const layoutStyleElement = installLayoutStyles()
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    const visibleSkills = Array.from({ length: 8 }, (_value, index) =>
+      makeSkill({
+        name: `skill-${index}` as SkillName,
+        description: `Skill ${index} with enough body copy to use the normal installed card height.`,
+      }),
+    )
+
+    try {
+      // Act
+      const screen = await renderInstalledListShell({ items: visibleSkills })
+      await expect.element(screen.getByText('skill-0')).toBeInTheDocument()
+
+      // Assert
+      const shell = requireHTMLElement(
+        document.querySelector('[data-testid="installed-list-shell"]'),
+        'installed list shell',
+      )
+      const list = requireHTMLElement(
+        document.querySelector('[role="list"]'),
+        'virtualized list',
+      )
+      const deleteButton = requireHTMLElement(
+        document.querySelector('button[aria-label="Delete skill-0"]'),
+        'first delete button',
+      )
+      const card = requireHTMLElement(
+        deleteButton.closest('.group'),
+        'first skill card',
+      )
+      const shellRect = shell.getBoundingClientRect()
+      const listRect = list.getBoundingClientRect()
+      const cardRect = card.getBoundingClientRect()
+      const scrollbarWidthPx = list.offsetWidth - list.clientWidth
+      const scrollbarLeftPx = listRect.right - scrollbarWidthPx
+      const leftGutterPx = Math.round(cardRect.left - shellRect.left)
+      const rightGutterPx = Math.round(shellRect.right - cardRect.right)
+      const scrollbarLeftSpacingPx = Math.round(
+        scrollbarLeftPx - cardRect.right,
+      )
+      const scrollbarRightSpacingPx = Math.round(
+        shellRect.right - listRect.right,
+      )
+
+      expect(scrollbarWidthPx).toBe(6)
+      expect(leftGutterPx).toBe(16)
+      expect(rightGutterPx).toBe(16)
+      expect(scrollbarLeftSpacingPx).toBe(5)
+      expect(scrollbarRightSpacingPx).toBe(5)
+    } finally {
+      layoutStyleElement.remove()
+    }
   })
 })

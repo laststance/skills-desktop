@@ -50,7 +50,7 @@ function SkillRow({
 }: RowComponentProps<SkillRowProps>): React.ReactElement {
   return (
     <div style={style}>
-      <div className="pb-3 pr-2">
+      <div className="pb-3 pr-[5px]">
         <SkillItem skill={data[index]} />
       </div>
     </div>
@@ -95,7 +95,14 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
     [filteredSkills, selectedAgentId],
   )
   const rowProps = useMemo(() => ({ data: filteredSkills }), [filteredSkills])
-  const listStyle = useMemo(() => ({ width: '100%', height: '100%' }), [])
+  const listStyle = useMemo<React.CSSProperties>(
+    () => ({
+      width: '100%',
+      height: '100%',
+      scrollbarGutter: 'stable',
+    }),
+    [],
+  )
 
   if (loading && skills.length === 0) {
     return (
@@ -144,6 +151,7 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
 
   return (
     <List<SkillRowProps>
+      className="skills-list-scrollbar"
       rowComponent={SkillRow}
       rowCount={filteredSkills.length}
       rowHeight={getRowHeight}
