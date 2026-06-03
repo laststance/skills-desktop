@@ -66,7 +66,8 @@ export const SkillDetail = React.memo(function SkillDetail({
   ).length
 
   return (
-    <div className="flex flex-col h-full">
+    // Fill DetailPanel's remaining height after its drag strip so tab scrollers are not clipped.
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Header with skill name */}
       <div className="p-4 border-b border-border">
         <h2 className="text-lg font-semibold truncate">{skill.name}</h2>
@@ -232,7 +233,7 @@ const InfoView = React.memo(function InfoView({
   const { copiedPath, copyPath } = useLocationPathClipboard()
 
   return (
-    <div className="p-4 overflow-auto h-full">
+    <div data-skill-info-scroll className="h-full overflow-auto px-4 pt-4 pb-6">
       <SourceLink source={skill.source} sourceUrl={skill.sourceUrl} />
 
       <div className="flex gap-4 text-sm mb-4">
