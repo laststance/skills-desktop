@@ -9,6 +9,7 @@ import {
   session,
 } from 'electron'
 
+import { MACOS_TRAFFIC_LIGHT_POSITION_PX } from '@/shared/constants'
 import { isAllowedSkillsUrl } from '@/shared/marketplaceUrlPolicy'
 
 import { registerAllHandlers } from './ipc/handlers'
@@ -94,7 +95,7 @@ function createWindow(): void {
     // to reveal the desktop behind the app when the Appearance slider is on.
     transparent: true,
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
+    trafficLightPosition: MACOS_TRAFFIC_LIGHT_POSITION_PX,
     webPreferences: {
       ...getSecureWebPreferences(),
       // Main-window-only: <webview> is used by the marketplace tab to

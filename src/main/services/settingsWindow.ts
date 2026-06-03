@@ -5,6 +5,7 @@ import { app, BrowserWindow } from 'electron'
 import { attachExternalLinkHandler } from '@/main/utils/attachExternalLinkHandler'
 import { isE2EBackgroundLaunch } from '@/main/utils/e2eEnv'
 import { getSecureWebPreferences } from '@/main/utils/secureWebPreferences'
+import { MACOS_TRAFFIC_LIGHT_POSITION_PX } from '@/shared/constants'
 
 /**
  * Single-instance reference to the Settings window. Held at module scope
@@ -19,9 +20,10 @@ let settingsWindow: BrowserWindow | null = null
  * separate `settings/index.html` Rollup entry — see
  * `electron.vite.config.ts` for the multi-entry config.
  *
- * Window chrome: standard macOS title bar (NOT hidden-inset like the
- * main window) so the title "Settings" reads naturally; not minimizable,
+ * Window chrome: hidden-inset like the main window so Electron's default
+ * header frame never stacks above the Settings UI; not minimizable,
  * maximizable, or fullscreen-able to match Inkdrop's pattern.
+ * @returns void.
  * @example
  * // Wired into the App menu and the sidebar gear icon button.
  * createOrFocusSettingsWindow()
@@ -44,6 +46,8 @@ export function createOrFocusSettingsWindow(): void {
     maximizable: false,
     fullscreenable: false,
     backgroundColor: '#0A0F1C',
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: MACOS_TRAFFIC_LIGHT_POSITION_PX,
     webPreferences: getSecureWebPreferences(),
   })
 
