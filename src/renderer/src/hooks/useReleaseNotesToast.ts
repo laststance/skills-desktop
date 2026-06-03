@@ -46,6 +46,7 @@ export function useReleaseNotesToast(): void {
           duration: 8000,
           closeButton: true,
           classNames: {
+            // Sonner seats the 20px × at 8px from the left; pl-7 reserves that 28px on the 4px grid.
             title: 'text-popover-foreground pl-7',
           },
           action: {
