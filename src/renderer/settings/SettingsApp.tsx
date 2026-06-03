@@ -65,10 +65,15 @@ export const SettingsApp = React.memo(
     const [activeSection, setActiveSection] = useState<Section>('general')
 
     return (
-      <div className="flex h-screen bg-background text-foreground window-glow">
+      <div className="relative flex h-screen bg-background text-foreground window-glow">
+        {/* Hidden titlebar leaves full-size content; this keeps a native drag target without drawing a header. */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-12 drag-region"
+        />
         <nav
           aria-label="Settings sections"
-          className="w-50 shrink-0 border-r border-border bg-sidebar/30 py-4"
+          className="w-50 shrink-0 border-r border-border bg-sidebar/30 pt-14 pb-4"
         >
           <ul className="flex flex-col gap-0.5 px-2">
             {NAV_ITEMS.map((item) => {
@@ -96,7 +101,7 @@ export const SettingsApp = React.memo(
           </ul>
         </nav>
         <ScrollArea className="flex-1">
-          <div className="px-8 py-6">
+          <div className="px-8 pt-14 pb-6">
             {match(activeSection)
               .with('general', () => <General />)
               .with('appearance', () => <Appearance />)

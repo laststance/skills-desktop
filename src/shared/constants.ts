@@ -805,6 +805,12 @@ export const SKILLS_CLI_VERSION = '1.5.5'
 export const SKILLS_SH_HOSTNAME = 'skills.sh'
 
 /**
+ * Native macOS traffic-light inset for hidden-inset BrowserWindows (px).
+ * Shared by main and Settings windows so their chrome alignment cannot drift.
+ */
+export const MACOS_TRAFFIC_LIGHT_POSITION_PX = { x: 16, y: 16 } as const
+
+/**
  * Undo window for bulk skill deletes (ms). The trashService tombstone TTL and
  * the renderer undo-toast duration must stay in lockstep — if the on-disk
  * tombstone expires before the toast, a user's "undo" click races an empty
