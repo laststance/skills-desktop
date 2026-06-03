@@ -44,6 +44,11 @@ export function useReleaseNotesToast(): void {
         toast(`Updated to v${currentVersion}`, {
           description: 'See what changed in this release.',
           duration: 8000,
+          closeButton: true,
+          classNames: {
+            // Sonner seats the 20px × at 8px from the left; pl-7 reserves that 28px on the 4px grid.
+            title: 'text-popover-foreground pl-7',
+          },
           action: {
             label: 'View',
             onClick: () => {
