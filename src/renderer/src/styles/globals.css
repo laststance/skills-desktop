@@ -217,7 +217,6 @@
 
   .skill-code-preview code {
     display: block;
-    counter-reset: line;
     /* Shiki formats `<span class="line">` nodes with newline text between
      * them; normal whitespace prevents those source-formatting newlines from
      * becoming extra visual rows. */
@@ -238,9 +237,7 @@
     background: oklch(from var(--foreground) l c h / 0.05);
   }
 
-  .skill-code-preview .line::before {
-    counter-increment: line;
-    content: counter(line);
+  .skill-code-preview .line-number {
     display: inline-block;
     position: sticky;
     left: 0;
@@ -256,7 +253,7 @@
     user-select: none;
   }
 
-  .skill-code-preview .line:hover::before {
+  .skill-code-preview .line:hover .line-number {
     background: color-mix(in oklch, var(--foreground) 5%, var(--muted));
   }
 }

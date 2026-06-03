@@ -163,6 +163,21 @@ const SyntaxHighlightedCode = React.memo(function SyntaxHighlightedCode({
             light: 'github-light',
           },
           defaultColor: false,
+          transformers: [
+            {
+              line(node, lineNumber) {
+                node.children.unshift({
+                  type: 'element',
+                  tagName: 'span',
+                  properties: {
+                    ariaHidden: 'true',
+                    class: 'line-number',
+                  },
+                  children: [{ type: 'text', value: String(lineNumber) }],
+                })
+              },
+            },
+          ],
         })
         if (!cancelled) setHighlightedHtml(html)
       } catch {

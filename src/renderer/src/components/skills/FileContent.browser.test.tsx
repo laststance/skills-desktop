@@ -194,29 +194,64 @@ describe('FileContent Markdown modes', () => {
 
     // Act
     const screen = await render(
-      <div style={{ display: 'flex', height: 220, width: 320 }}>
-        <FileContent
-          content={makeTextContent({
-            content: `---\nname: wide-skill\n${longMarkdownLine}\n---\n\n# Wide`,
-          })}
-        />
-      </div>,
+      <>
+        <style>{'.markdown-scroll-test > * { min-width: 0; }'}</style>
+        <div
+          className="markdown-scroll-test"
+          style={{ display: 'flex', height: 220, width: 320 }}
+        >
+          <FileContent
+            content={makeTextContent({
+              content: `---\nname: wide-skill\n${longMarkdownLine}\n---\n\n# Wide`,
+            })}
+          />
+        </div>
+      </>,
     )
 
     await expect
-      .poll(() => screen.container.querySelector('.skill-code-preview .line'))
+      .poll(() =>
+        screen.container.querySelector('.skill-code-preview .line-number'),
+      )
       .toBeInstanceOf(HTMLElement)
-    // Assert
-    const highlightedLine = screen.container.querySelector(
-      '.skill-code-preview .line',
-    )
-    expect(highlightedLine).toBeInstanceOf(HTMLElement)
-    const lineNumberStyle = window.getComputedStyle(
-      highlightedLine as HTMLElement,
-      '::before',
-    )
 
+    const codePreview = screen.container.querySelector('.skill-code-preview')
+    expect(codePreview).toBeInstanceOf(HTMLElement)
+    const codePreviewElement = codePreview as HTMLElement
+    const scrollBox = document.createElement('div')
+    Object.assign(scrollBox.style, {
+      maxWidth: '320px',
+      overflowX: 'auto',
+      width: '320px',
+    })
+    codePreviewElement.parentElement?.insertBefore(
+      scrollBox,
+      codePreviewElement,
+    )
+    scrollBox.appendChild(codePreviewElement)
+
+    await expect
+      .poll(() => scrollBox.scrollWidth > scrollBox.clientWidth)
+      .toBe(true)
+
+    // Assert
+    const lineNumber = screen.container.querySelector(
+      '.skill-code-preview .line-number',
+    )
+    expect(lineNumber).toBeInstanceOf(HTMLElement)
+    const lineNumberElement = lineNumber as HTMLElement
+    const lineNumberStyle = window.getComputedStyle(lineNumberElement)
     expect(lineNumberStyle.position).toBe('sticky')
     expect(lineNumberStyle.left).toBe('0px')
+
+    const initialLineNumberLeft = Math.round(
+      lineNumberElement.getBoundingClientRect().left,
+    )
+    scrollBox.scrollLeft = 240
+
+    await expect.poll(() => scrollBox.scrollLeft > 0).toBe(true)
+    await expect
+      .poll(() => Math.round(lineNumberElement.getBoundingClientRect().left))
+      .toBe(initialLineNumberLeft)
   })
 })
