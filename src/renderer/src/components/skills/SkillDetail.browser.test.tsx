@@ -3,6 +3,7 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
+import { installLayoutStyles } from '@/renderer/src/test/installLayoutStyles'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type {
   Agent,
@@ -129,32 +130,6 @@ function makeOverflowSkillFixture(): { agents: Agent[]; skill: Skill } {
       symlinks,
     },
   }
-}
-
-/**
- * Install the Tailwind layout subset this isolated browser test needs to reproduce the app shell.
- * @returns Style element for removal after the layout assertion finishes.
- * @example
- * const styleElement = installSkillDetailLayoutStyles()
- */
-function installSkillDetailLayoutStyles(): HTMLStyleElement {
-  const styleElement = document.createElement('style')
-  styleElement.textContent = `
-    *, ::before, ::after { box-sizing: border-box; }
-    .flex { display: flex; }
-    .flex-col { flex-direction: column; }
-    .flex-1 { flex: 1 1 0%; }
-    .min-h-0 { min-height: 0; }
-    .h-full { height: 100%; }
-    .shrink-0 { flex-shrink: 0; }
-    .overflow-auto { overflow: auto; }
-    .p-4 { padding: 16px; }
-    .px-4 { padding-left: 16px; padding-right: 16px; }
-    .pt-4 { padding-top: 16px; }
-    .pb-6 { padding-bottom: 24px; }
-  `
-  document.head.append(styleElement)
-  return styleElement
 }
 
 beforeEach(() => {
@@ -334,7 +309,7 @@ describe('SkillDetail Info path copy', () => {
 
   it('keeps Location paths visible after scrolling the Info tab inside detail chrome', async () => {
     // Arrange
-    const layoutStyleElement = installSkillDetailLayoutStyles()
+    const layoutStyleElement = installLayoutStyles()
     const { agents, skill } = makeOverflowSkillFixture()
     try {
       const { screen } = await renderSkillDetail('cursor' as AgentId, skill, {
