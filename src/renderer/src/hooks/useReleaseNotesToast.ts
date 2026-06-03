@@ -44,6 +44,10 @@ export function useReleaseNotesToast(): void {
         toast(`Updated to v${currentVersion}`, {
           description: 'See what changed in this release.',
           duration: 8000,
+          closeButton: true,
+          classNames: {
+            title: 'text-popover-foreground pl-7',
+          },
           action: {
             label: 'View',
             onClick: () => {
