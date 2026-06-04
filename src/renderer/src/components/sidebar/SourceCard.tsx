@@ -178,7 +178,7 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
               <Button
                 variant="ghost"
                 size="sm"
-                className="min-h-11 px-2 text-xs font-medium gap-1"
+                className="px-2 text-xs font-medium gap-1"
                 onClick={handleSyncClick}
                 disabled={isSyncing}
               >
@@ -194,7 +194,6 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-11 w-11"
                 aria-label={
                   isRefreshing
                     ? 'Refreshing skills and agent status'
@@ -214,7 +213,6 @@ export const SourceCard = React.memo(function SourceCard(): React.ReactElement {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-11 w-11"
                   aria-label="Source folder actions"
                   disabled={!sourceStats}
                   onClick={handleKebabClick}

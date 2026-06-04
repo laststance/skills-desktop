@@ -24,8 +24,10 @@ interface SkillRowMarketplaceProps {
 // (VL-001 / #171): at the ~1400px default window the 3-pane layout leaves the
 // list only ~510px, so every pixel reserved here is one the skill name — the
 // primary identifier a user scans to decide what to install — loses. Bookmark
-// stays 44px to preserve the 44×44 touch target (DESIGN.md target sizing).
-const BOOKMARK_COLUMN_WIDTH_PX = 44
+// column is 28px (size-7) — the refined glyph-button hit-area around the 16px
+// star glyph (DESIGN.md button scale). Pointer-precise on desktop; the old 44px
+// was a mobile touch reflex that wasted ~16px of the width-precious name column.
+const BOOKMARK_COLUMN_WIDTH_PX = 28
 const INSTALL_COUNT_COLUMN_WIDTH_PX = 80
 const ACTION_COLUMN_WIDTH_PX = 128
 
@@ -100,7 +102,7 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
             ? `Remove ${skill.name} from bookmarks`
             : `Bookmark ${skill.name}`
         }
-        className="min-h-11 min-w-11 flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md"
+        className="min-h-7 min-w-7 flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-md"
         onClick={handleToggleBookmark}
       >
         <Star
@@ -146,7 +148,7 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
             onClick={handleInstall}
             disabled={isOperating}
             className={cn(
-              'flex items-center gap-1.5 px-4 py-2 rounded-md min-h-11',
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-md min-h-8',
               'bg-primary text-primary-foreground text-[13px] font-semibold',
               'hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
               'disabled:opacity-50 disabled:cursor-not-allowed',
