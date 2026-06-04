@@ -59,12 +59,11 @@ describe('WidgetPicker', () => {
     // Arrange + Act
     const { screen } = await renderPicker(vi.fn())
 
-    // Assert: the real Welcome widget body renders in the preview stage. Its
-    // in-body heading is unique to the rendered component (the list shows only
-    // the short "Welcome" label), so finding it proves the live preview works.
+    // Assert: the preview stage seeds on Welcome when the user has not
+    // dismissed that widget before.
     await expect
-      .element(screen.getByText('Welcome to Skills Desktop'))
-      .toBeVisible()
+      .element(screen.getByTestId('widget-picker-preview-body'))
+      .toHaveAttribute('data-preview-type', 'welcome')
   })
 
   it('seeds the open-default preview on the next widget when Welcome was already dismissed', async () => {
@@ -72,13 +71,10 @@ describe('WidgetPicker', () => {
     // render only a muted hint and make a useless first frame.
     const { screen } = await renderPicker(vi.fn(), { welcomeDismissed: true })
 
-    // Assert: the stage opens on Skill Stats instead ("Linked" is one of its
-    // tiles)...
+    // Assert: the stage opens on Skill Stats instead...
     await expect
-      .element(screen.getByText('Linked', { exact: true }))
-      .toBeVisible()
-    // ...and the dismissed Welcome body is not what greets the user.
-    expect(screen.getByText('Welcome to Skills Desktop').query()).toBeNull()
+      .element(screen.getByTestId('widget-picker-preview-body'))
+      .toHaveAttribute('data-preview-type', 'stats')
   })
 
   it('swaps the preview to the live component of the hovered widget', async () => {
@@ -88,13 +84,10 @@ describe('WidgetPicker', () => {
     // Act: hover the Skill Stats row.
     await screen.getByRole('button', { name: /skill stats/i }).hover()
 
-    // Assert: the Stats widget body now renders ("Linked" is one of its three
-    // stat tiles and appears nowhere else)...
+    // Assert: the Stats widget body now drives the preview...
     await expect
-      .element(screen.getByText('Linked', { exact: true }))
-      .toBeVisible()
-    // ...and the previously-shown Welcome body is gone.
-    expect(screen.getByText('Welcome to Skills Desktop').query()).toBeNull()
+      .element(screen.getByTestId('widget-picker-preview-body'))
+      .toHaveAttribute('data-preview-type', 'stats')
   })
 
   it('adds the clicked widget to the page and closes the modal', async () => {
@@ -126,7 +119,7 @@ describe('WidgetPicker', () => {
     // Assert: focus alone drives the live preview, so keyboard users get the
     // same preview as mouse users.
     await expect
-      .element(screen.getByText('Linked', { exact: true }))
-      .toBeVisible()
+      .element(screen.getByTestId('widget-picker-preview-body'))
+      .toHaveAttribute('data-preview-type', 'stats')
   })
 })

@@ -1,8 +1,10 @@
-onlyBuiltDependencies:
-  - electron
-  - esbuild
-  - sharp
-  - unrs-resolver
+allowBuilds:
+  electron: true
+  electron-winstaller: false
+  esbuild: true
+  fallow: false
+  sharp: true
+  unrs-resolver: true
 
 # Supply-chain security (migrated from .npmrc 2026-04-22)
 minimumReleaseAge: 1440
