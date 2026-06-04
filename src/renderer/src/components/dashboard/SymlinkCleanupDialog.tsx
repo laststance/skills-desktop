@@ -146,87 +146,85 @@ function symlinkCleanupDialogReducer(
   state: SymlinkCleanupDialogState,
   action: SymlinkCleanupDialogAction,
 ): SymlinkCleanupDialogState {
-  switch (action.type) {
-    case 'reset':
-      return INITIAL_DIALOG_STATE
-    case 'scanning':
-      return {
-        ...INITIAL_DIALOG_STATE,
-        phase: 'scanning',
-      }
-    case 'ready': {
-      const selectedItemIds = getSymlinkCleanupPlanItems(action.plan).map(
+  // Cleanup actions are a closed union; every transition must update phase, selection, and errors.
+  return match(action)
+    .returnType<SymlinkCleanupDialogState>()
+    .with({ type: 'reset' }, () => INITIAL_DIALOG_STATE)
+    .with({ type: 'scanning' }, () => ({
+      ...INITIAL_DIALOG_STATE,
+      phase: 'scanning',
+    }))
+    .with({ type: 'ready' }, ({ plan, message }) => {
+      const selectedItemIds = getSymlinkCleanupPlanItems(plan).map(
         (item) => item.id,
       )
       return {
         phase: 'ready',
-        plan: action.plan,
+        plan,
         selectedItemIds,
         rowErrors: {},
         summary: null,
-        message: action.message ?? null,
+        message: message ?? null,
         staleAfterMutation: false,
       }
-    }
-    case 'no-safe-cleanup':
-      return {
-        phase: 'no-safe-cleanup',
-        plan: action.plan,
-        selectedItemIds: [],
-        rowErrors: {},
-        summary: null,
-        message: action.message ?? null,
-        staleAfterMutation: false,
-      }
-    case 'stale':
-      return {
-        ...state,
-        phase: 'stale',
-        message: action.message,
-        staleAfterMutation: action.staleAfterMutation ?? false,
-      }
-    case 'cleaning':
-      return {
-        ...state,
-        phase: 'cleaning',
-        rowErrors: {},
-        message: null,
-      }
-    case 'error':
-      return {
+    })
+    .with({ type: 'no-safe-cleanup' }, ({ plan, message }) => ({
+      phase: 'no-safe-cleanup',
+      plan,
+      selectedItemIds: [],
+      rowErrors: {},
+      summary: null,
+      message: message ?? null,
+      staleAfterMutation: false,
+    }))
+    .with({ type: 'stale' }, ({ message, staleAfterMutation }) => ({
+      ...state,
+      phase: 'stale',
+      message,
+      staleAfterMutation: staleAfterMutation ?? false,
+    }))
+    .with({ type: 'cleaning' }, () => ({
+      ...state,
+      phase: 'cleaning',
+      rowErrors: {},
+      message: null,
+    }))
+    .with(
+      { type: 'error' },
+      ({ message, plan, rowErrors, selectedItemIds, summary }) => ({
         ...state,
         phase: 'error',
-        message: action.message,
-        rowErrors: action.rowErrors ?? state.rowErrors,
-        selectedItemIds: action.selectedItemIds ?? state.selectedItemIds,
-        summary: action.summary ?? state.summary,
-        plan: action.plan ?? state.plan,
-      }
-    case 'complete':
-      return {
-        ...state,
-        phase: 'complete',
-        selectedItemIds: [],
-        rowErrors: {},
-        summary: action.summary,
-        message: null,
-      }
-    case 'toggle-item': {
+        message,
+        rowErrors: rowErrors ?? state.rowErrors,
+        selectedItemIds: selectedItemIds ?? state.selectedItemIds,
+        summary: summary ?? state.summary,
+        plan: plan ?? state.plan,
+      }),
+    )
+    .with({ type: 'complete' }, ({ summary }) => ({
+      ...state,
+      phase: 'complete',
+      selectedItemIds: [],
+      rowErrors: {},
+      summary,
+      message: null,
+    }))
+    .with({ type: 'toggle-item' }, ({ itemId }) => {
       const selected = new Set(state.selectedItemIds)
-      if (selected.has(action.itemId)) {
-        selected.delete(action.itemId)
+      if (selected.has(itemId)) {
+        selected.delete(itemId)
       } else {
-        selected.add(action.itemId)
+        selected.add(itemId)
       }
       return {
         ...state,
         selectedItemIds: Array.from(selected),
       }
-    }
-    case 'set-section': {
+    })
+    .with({ type: 'set-section' }, ({ checked, itemIds }) => {
       const selected = new Set(state.selectedItemIds)
-      for (const itemId of action.itemIds) {
-        if (action.checked) {
+      for (const itemId of itemIds) {
+        if (checked) {
           selected.add(itemId)
         } else {
           selected.delete(itemId)
@@ -236,8 +234,8 @@ function symlinkCleanupDialogReducer(
         ...state,
         selectedItemIds: Array.from(selected),
       }
-    }
-  }
+    })
+    .exhaustive()
 }
 
 /**

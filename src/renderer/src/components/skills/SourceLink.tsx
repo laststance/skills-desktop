@@ -1,5 +1,6 @@
 import { ExternalLink } from 'lucide-react'
 import React from 'react'
+import { match } from 'ts-pattern'
 
 import { useAppDispatch } from '@/renderer/src/redux/hooks'
 import { setSelectedSources } from '@/renderer/src/redux/slices/uiSlice'
@@ -47,58 +48,56 @@ export const SourceLink = React.memo(function SourceLink({
   const dispatch = useAppDispatch()
   const model = getSourceLinkModel(source, sourceUrl)
 
-  if (model.kind === 'local') {
-    return (
+  // SourceLinkModel has three render modes; new modes must add explicit JSX here.
+  return match(model)
+    .with({ kind: 'local' }, () => (
       <span className="text-sm text-muted-foreground/70 mb-2 block">Local</span>
-    )
-  }
-
-  if (model.kind === 'text') {
-    return (
+    ))
+    .with({ kind: 'text' }, ({ source }) => (
       <span className="text-sm text-muted-foreground inline-flex items-center gap-1 mb-2">
-        {model.source}
+        {source}
       </span>
-    )
-  }
+    ))
+    .with({ kind: 'link' }, ({ href, source }) => {
+      // Stop both clicks from reaching the surrounding `<Card>`'s onClick so
+      // filtering/opening a repository never toggles skill selection.
+      const handleFilterClick = (
+        event: React.MouseEvent<HTMLButtonElement>,
+      ): void => {
+        event.stopPropagation()
+        // Replace active repo filters with this focused "show me this repo"
+        // jump, rather than adding another filter to the existing selection.
+        dispatch(setSelectedSources([source]))
+      }
 
-  // Stop both clicks from reaching the surrounding `<Card>`'s onClick — that
-  // would silently toggle skill selection when the user just wanted to filter
-  // or open the repository.
-  const handleFilterClick = (
-    event: React.MouseEvent<HTMLButtonElement>,
-  ): void => {
-    event.stopPropagation()
-    // Replace any active repo filter with just this one — a SourceLink click is
-    // a focused "show me this repo" jump, not an additive toggle.
-    dispatch(setSelectedSources([model.source]))
-  }
+      const handleExternalClick = (
+        event: React.MouseEvent<HTMLAnchorElement>,
+      ): void => {
+        event.stopPropagation()
+      }
 
-  const handleExternalClick = (
-    event: React.MouseEvent<HTMLAnchorElement>,
-  ): void => {
-    event.stopPropagation()
-  }
-
-  return (
-    <span className="inline-flex items-center gap-1 mb-2">
-      <button
-        type="button"
-        onClick={handleFilterClick}
-        aria-label={`Filter skills by repository ${model.source}`}
-        className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-      >
-        {model.source}
-      </button>
-      <a
-        href={model.href}
-        target="_blank"
-        rel="noreferrer"
-        onClick={handleExternalClick}
-        aria-label={`Open ${model.source} on GitHub`}
-        className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center"
-      >
-        <ExternalLink className="h-3 w-3" />
-      </a>
-    </span>
-  )
+      return (
+        <span className="inline-flex items-center gap-1 mb-2">
+          <button
+            type="button"
+            onClick={handleFilterClick}
+            aria-label={`Filter skills by repository ${source}`}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          >
+            {source}
+          </button>
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            onClick={handleExternalClick}
+            aria-label={`Open ${source} on GitHub`}
+            className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center"
+          >
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </span>
+      )
+    })
+    .exhaustive()
 })
