@@ -95,25 +95,32 @@ test('Marketplace preview expands into a focused overlay without re-parenting th
 test('Marketplace preview overlay closes on backdrop click and via the close button', async ({
   appWindow,
 }) => {
-  // Arrange.
+  // Arrange — capture the pre-expand body overflow so the scroll-lock-release
+  // assertion compares against the real baseline, not a hardcoded '' that only
+  // happens to be correct in this environment (the hook restores the prior value).
   await waitForInitialScan(appWindow)
   const expandButton = await openPreview(appWindow)
+  const initialOverflow = await appWindow.evaluate(
+    () => document.body.style.overflow,
+  )
 
-  // Act — expand, then click the scrim behind the overlay.
+  // Act — expand, then click the scrim behind the overlay. Drive it through a
+  // real locator click (not evaluate()'s raw HTMLElement.click, which skips
+  // Playwright's actionability/hit-test). The scrim is inset-0 z-40 but the
+  // preview panel sits on top at inset-4 z-50, so click a point inside the
+  // exposed ~16px margin where the scrim is the genuine hit-test target.
   await expandButton.click()
   const dialog = appWindow.getByRole('dialog', { name: /find-skills preview/i })
   await expect(dialog).toBeVisible()
-  await appWindow.evaluate(() => {
-    const backdrop = document.querySelector<HTMLElement>(
-      '[aria-hidden="true"].fixed.inset-0',
-    )
-    if (!backdrop) throw new Error('overlay backdrop not rendered')
-    backdrop.click()
-  })
+  const backdrop = appWindow.locator('[aria-hidden="true"].fixed.inset-0')
+  await expect(backdrop).toBeVisible()
+  await backdrop.click({ position: { x: 5, y: 5 } })
 
-  // Assert — backdrop click collapses; body scroll-lock is released.
+  // Assert — backdrop click collapses; body scroll-lock is released to baseline.
   await expect(dialog).toBeHidden()
-  expect(await appWindow.evaluate(() => document.body.style.overflow)).toBe('')
+  expect(await appWindow.evaluate(() => document.body.style.overflow)).toBe(
+    initialOverflow,
+  )
 
   // Act — expand again and close via the explicit button.
   await expandButton.click()
