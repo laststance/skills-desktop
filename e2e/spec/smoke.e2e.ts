@@ -1,7 +1,7 @@
 import { test, expect } from '../fixtures/electron-app'
 
 /**
- * Phase-1 smoke test. Confirms:
+ * Smoke test. Confirms:
  *   1. The production build at `out/main/index.mjs` launches under Playwright
  *   2. The first window mounts and reaches DOMContentLoaded
  *   3. `window.__store__` and `window.__ipcEvents__` are exposed

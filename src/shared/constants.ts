@@ -373,7 +373,6 @@ export const AGENT_DEFINITIONS = [
     installDir: '.config/agents',
     scanDir: '.config/agents',
   },
-  // Additional agents synced through Skills CLI v1.5.1
   {
     id: 'bob',
     cliId: 'bob',
@@ -528,7 +527,6 @@ export const AGENT_DEFINITIONS = [
     installDir: '.agents',
     scanDir: '.warp',
   },
-  // Additional agents synced through Skills CLI v1.5.5
   {
     id: 'aider-desk',
     cliId: 'aider-desk',

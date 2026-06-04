@@ -156,7 +156,7 @@ const azureSnapshotSelector = (state: unknown): AzureSnapshot => {
 }
 
 /**
- * Phase-2 spec covering `SKILLS_DELETE` + `SKILLS_RESTORE_DELETED` end-to-end.
+ * Spec covering `SKILLS_DELETE` + `SKILLS_RESTORE_DELETED` end-to-end.
  *
  * Two tests, both using the source-backed flow (azure-ai is installed by
  * global-setup with a real source dir under `~/.agents/skills/` and at least
@@ -371,9 +371,8 @@ interface LocalOnlyManifest {
 
 /**
  * Local-only delete branch — exercises the second arm of `moveToTrash`'s
- * dispatcher in `trashService.ts:265-273`. Source dir at
- * `~/.agents/skills/<name>` is intentionally absent; the skill exists ONLY
- * as a real folder under one or more agent dirs. The handler must:
+ * dispatcher. Source dir at `~/.agents/skills/<name>` is intentionally absent;
+ * the skill exists ONLY as a real folder under one or more agent dirs. The handler must:
  *
  *   1. Probe `~/.agents/skills/<name>` → ENOENT, NOT throw.
  *   2. `scanLocalCopies(skillName)` finds the real folder(s).
@@ -383,7 +382,7 @@ interface LocalOnlyManifest {
  * Codex is chosen over claude/cursor because the QA Safety contract in
  * CLAUDE.md flags those two as the user's live working sets — even though
  * this test runs under an isolated tempdir HOME, picking codex keeps the
- * pattern consistent with the spirit of the rule for any human reviewer.
+ * pattern consistent with the spirit of the rule for manual audit.
  *
  * The renderer-side scanSkills surfaces local-only skills with `isLocal: true`
  * symlink rows, so a post-delete `state.skills.items` lookup is the canonical
@@ -423,8 +422,7 @@ test('deleting a skill that lives only inside an agent folder trashes it as a lo
   // Assert — codex folder moved to trash under local-copies/ with a
   // kind="local-only" manifest (no source/ subdir).
   expect(ipcResult.success).toBe(true)
-  // The local-only return reuses `symlinksRemoved` to mean "agent folders
-  // moved" — see trashService.ts:660-664. One agent staged, so 1.
+  // The local-only return reuses `symlinksRemoved` to mean "agent folders moved".
   expect(ipcResult.symlinksRemoved).toBe(1)
   expect(ipcResult.cascadeAgents).toEqual(['codex'])
 
@@ -566,8 +564,7 @@ test('cleaning up a broken orphan symlink removes the dangling link without crea
 
 /**
  * Undo-window TTL eviction — `moveToTrash` schedules `setTimeout(evict,
- * UNDO_WINDOW_MS)` after staging the entry (see `trashService.ts:484-487` for
- * source-backed and `:648-651` for local-only). After the timer fires:
+ * UNDO_WINDOW_MS)` after staging the entry. After the timer fires:
  *
  *   1. The entry dir is removed from `.trash/`.
  *   2. The internal `evictTimers` map drops the id (idempotent next call).

@@ -7,7 +7,6 @@ export function Download() {
     <section className="py-20 lg:py-32">
       <div className="container mx-auto px-4">
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card/30">
-          {/* Background decoration */}
           <div className="absolute -right-20 -top-20 size-64 rounded-full bg-primary/10 blur-3xl" />
           <div className="absolute -bottom-20 -left-20 size-64 rounded-full bg-accent/10 blur-3xl" />
 
@@ -22,7 +21,6 @@ export function Download() {
                 Macs.
               </p>
 
-              {/* Download buttons */}
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
                 <a
                   href="https://github.com/laststance/skills-desktop/releases/download/v0.21.2/skills-desktop-0.21.2-arm64.dmg"
@@ -51,7 +49,6 @@ export function Download() {
                 </a>
               </div>
 
-              {/* Alternative download */}
               <div className="mt-8">
                 <a
                   href="https://github.com/laststance/skills-desktop/releases"
@@ -62,7 +59,6 @@ export function Download() {
                 </a>
               </div>
 
-              {/* System requirements */}
               <div className="mt-12 rounded-lg border border-border/50 bg-background/50 p-4">
                 <h3 className="mb-2 text-sm font-semibold">
                   System Requirements

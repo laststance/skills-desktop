@@ -63,7 +63,7 @@ const skillNameString = z
  * Tombstone id format: `<unix_ms>-<skillName>-<rand8hex>`.
  * Regex blocks path separators in both skillName and rand8 segments so a
  * crafted id cannot escape `TRASH_DIR` when joined.
- * The trailing 8-hex group prevents same-ms entry collisions (reviewer iter-2 HIGH-4).
+ * The trailing 8-hex group prevents same-ms entry collisions.
  * @example "1729180800000-theme-generator-a1b2c3d4"
  */
 export const tombstoneIdSchema = z

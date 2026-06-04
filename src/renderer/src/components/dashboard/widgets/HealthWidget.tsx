@@ -126,8 +126,6 @@ export const HealthWidget = React.memo(
 
     return (
       <div className="h-full w-full flex flex-col gap-2 px-4 py-3">
-        {/* Percentage is the hero metric; the card title ("Symlink Health") already
-            names the widget, so the inline "HEALTH" label was redundant and removed. */}
         <span className="text-2xl font-semibold tabular-nums text-foreground">
           {percentLabel === null ? '—' : percentLabel}
         </span>

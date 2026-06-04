@@ -11,9 +11,9 @@
  * body — not enough for stat tiles (icon+number+label ≈ 72px). Bumping to 64
  * gives h=2 ≈ 100px body, fitting the stat tiles with breathing room, and keeps
  * h=3/h=4 generous for lists and cards. The Symlink Health widget is the
- * exception that needs h=3, not h=2: PR #185 added a "Scan issues" action row
- * below its label/bar/legend stack, so its `minSize.h` is 3 (see
- * widgets/sizes.ts) and a v3 → v4 migration clamps persisted layouts up.
+ * exception that needs h=3, not h=2: its "Scan issues" action row sits below
+ * the label/bar/legend stack, so `minSize.h` is 3 (see widgets/sizes.ts) and a
+ * v3 → v4 migration clamps persisted layouts up.
  */
 export const GRID_COLS = 6
 export const GRID_ROW_HEIGHT_PX = 64

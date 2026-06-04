@@ -75,7 +75,6 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
         gridTemplateColumns: `minmax(0, 1fr) ${BOOKMARK_COLUMN_WIDTH_PX}px ${INSTALL_COUNT_COLUMN_WIDTH_PX}px ${ACTION_COLUMN_WIDTH_PX}px`,
       }}
     >
-      {/* Rank Badge + Skill Info — clickable preview area */}
       <button
         type="button"
         onClick={handleRowClick}
@@ -94,7 +93,6 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
         </div>
       </button>
 
-      {/* Bookmark Toggle */}
       <button
         type="button"
         aria-label={
@@ -115,7 +113,6 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
         />
       </button>
 
-      {/* Install Count */}
       <div className="flex items-center justify-end gap-1.5 text-muted-foreground shrink-0">
         <Download className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="font-mono text-[13px] font-medium">
@@ -123,7 +120,6 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
         </span>
       </div>
 
-      {/* Action Button (or Installed badge) */}
       <div className="flex justify-end">
         {isInstalled ? (
           // Informational badge, intentionally non-interactive. Uninstall lives in

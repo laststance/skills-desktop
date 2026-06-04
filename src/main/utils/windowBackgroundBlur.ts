@@ -14,7 +14,6 @@ export const MAIN_WINDOW_OPAQUE_BACKGROUND = 'rgb(10, 15, 28)'
 
 /**
  * Fully transparent BrowserWindow backplate used when real window opacity is on.
- * Corelive BrainDump uses the same clear backplate before applying setOpacity.
  */
 export const MAIN_WINDOW_TRANSPARENT_BACKGROUND = '#00000000'
 
@@ -40,7 +39,7 @@ export function shouldUseNativeWindowBlur(blurRadius: number): boolean {
 /**
  * Convert the blur slider into the real Electron window opacity.
  * @param blurRadius - Normalized or raw blur radius.
- * @returns Whole-window opacity from opaque to Corelive-style transparent.
+ * @returns Whole-window opacity from opaque to transparent.
  * @example
  * getMainWindowOpacity(48) // => 0.45
  */

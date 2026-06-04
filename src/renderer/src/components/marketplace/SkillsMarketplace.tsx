@@ -80,16 +80,13 @@ export const SkillsMarketplace = React.memo(
       dispatch(loadLeaderboard(rankingFilter))
     }, [dispatch, rankingFilter])
 
-    /** Handle tab change: switch filter and load data */
     const handleFilterChange = useCallback((filter: RankingFilter): void => {
       setRankingFilter(filter)
     }, [])
 
     return (
       <div className="h-full flex flex-col">
-        {/* Header with Title and Search */}
         <div className="p-6 pb-4 space-y-4">
-          {/* Title */}
           <div>
             <h1 className="text-[28px] font-bold text-foreground">
               Skills Marketplace
@@ -99,42 +96,35 @@ export const SkillsMarketplace = React.memo(
             </p>
           </div>
 
-          {/* Ranking Tabs */}
           <RankingTabs
             value={rankingFilter}
             onChange={handleFilterChange}
             disabled={hasSearched}
           />
 
-          {/* Search */}
           <MarketplaceSearch />
         </div>
 
-        {/* Error display */}
         {error && (
           <div className="mx-6 mb-4 px-4 py-2 bg-destructive/10 border border-destructive/20 rounded-md">
             <p className="text-sm text-destructive">{error}</p>
           </div>
         )}
 
-        {/* Results area */}
         <div className="flex-1 overflow-y-auto px-6">
           <div
             className="pb-6 min-w-0"
             aria-busy={isLeaderboardLoading || isSearching}
             aria-live="polite"
           >
-            {/* === Search results (takes priority over leaderboard) === */}
             {hasSearched && (
               <>
-                {/* Loading state */}
                 {isSearching && (
                   <div className="flex items-center justify-center py-16">
                     <div className="text-muted-foreground">Searching...</div>
                   </div>
                 )}
 
-                {/* No results */}
                 {!isSearching && searchResults.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <p className="text-muted-foreground">
@@ -146,7 +136,6 @@ export const SkillsMarketplace = React.memo(
                   </div>
                 )}
 
-                {/* Results list */}
                 {searchResults.length > 0 && (
                   <div className="flex flex-col gap-2">
                     <p className="text-sm text-muted-foreground mb-3">
@@ -167,13 +156,10 @@ export const SkillsMarketplace = React.memo(
               </>
             )}
 
-            {/* === Leaderboard (shown when no search is active) === */}
             {!hasSearched && (
               <>
-                {/* Skeleton loading */}
                 {isLeaderboardLoading && <LeaderboardSkeleton />}
 
-                {/* Network error with no cache */}
                 {isLeaderboardError && (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <WifiOff className="h-12 w-12 text-muted-foreground mb-4" />
@@ -186,10 +172,8 @@ export const SkillsMarketplace = React.memo(
                   </div>
                 )}
 
-                {/* Leaderboard data */}
                 {leaderboardSkills.length > 0 && (
                   <div className="flex flex-col gap-2">
-                    {/* Header: count + filter label (left) + updated timestamp (right) */}
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-sm text-muted-foreground">
                         {leaderboardSkills.length} skill
@@ -213,7 +197,6 @@ export const SkillsMarketplace = React.memo(
                   </div>
                 )}
 
-                {/* Edge case: fetch succeeded but returned 0 skills */}
                 {!isLeaderboardLoading &&
                   !isLeaderboardError &&
                   leaderboardSkills.length === 0 &&
@@ -233,7 +216,6 @@ export const SkillsMarketplace = React.memo(
           </div>
         </div>
 
-        {/* Modals */}
         <InstallModal />
       </div>
     )

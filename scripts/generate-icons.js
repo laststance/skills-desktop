@@ -13,15 +13,12 @@ const OUTPUT_DIR = path.join(__dirname, '../resources')
 const ICONSET_DIR = path.join(OUTPUT_DIR, 'icon.iconset')
 
 async function generateIcons() {
-  // Create iconset directory
   if (!fs.existsSync(ICONSET_DIR)) {
     fs.mkdirSync(ICONSET_DIR, { recursive: true })
   }
 
-  // Read SVG
   const svgBuffer = fs.readFileSync(SVG_PATH)
 
-  // Generate PNGs for iconset
   for (const size of SIZES) {
     const filename =
       size === 1024 ? `icon_512x512@2x.png` : `icon_${size}x${size}.png`
@@ -42,7 +39,6 @@ async function generateIcons() {
     console.log(`Generated ${filename}`)
   }
 
-  // Also create main icon.png
   await sharp(svgBuffer)
     .resize(1024, 1024)
     .png()
@@ -59,7 +55,6 @@ async function generateIcons() {
     console.error('Failed to generate icns (requires macOS):', err.message)
   }
 
-  // Clean up iconset directory
   fs.rmSync(ICONSET_DIR, { recursive: true })
   console.log('Cleaned up iconset directory')
 }

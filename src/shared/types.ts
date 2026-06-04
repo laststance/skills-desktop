@@ -925,7 +925,7 @@ export const tombstoneId = (value: string): TombstoneId => value as TombstoneId
  * @example { items: [{ skillName: 'task', skillPath: '/Users/me/.agents/skills/task', filesystemIdentity: { kind: 'directory', dev: 1, ino: 2, size: 96, ctimeMs: 1, mtimeMs: 1 } }] }
  */
 export interface DeleteSkillsOptions {
-  /** Skills to delete, in the order the user selected them (batch runs serially per reviewer #21). */
+  /** Skills to delete in the order the user selected them; batch runs serially. */
   items: Array<{
     skillName: SkillName
     skillPath: AbsolutePath
@@ -935,7 +935,7 @@ export interface DeleteSkillsOptions {
 
 /**
  * Per-item result from a batch delete. Discriminated on `outcome` so error items
- * never carry a phantom `tombstoneId` (reviewer CRITICAL-1).
+ * never carry a phantom `tombstoneId`.
  *
  * Three success-or-failure shapes:
  * - `deleted`: tombstoned (source-backed or local-only). Carries a `tombstoneId`

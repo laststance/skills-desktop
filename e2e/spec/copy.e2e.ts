@@ -48,7 +48,7 @@ interface RootState {
 const AZURE_AI_NAME = 'azure-ai'
 
 /**
- * First Phase-2 spec — covers the `SKILLS_COPY_TO_AGENTS` IPC end-to-end.
+ * Covers the `SKILLS_COPY_TO_AGENTS` IPC end-to-end.
  *
  * Drives the IPC directly (`window.electron.skills.copyToAgents`) instead of
  * walking the AddSymlinkModal because the modal interaction is already covered
@@ -553,8 +553,7 @@ test('the Copy to Agents modal copies a skill to the agent whose checkbox is tic
     timeout: 5_000,
   })
 
-  // Tick the target agent's checkbox. aria-label is the agent's display
-  // name (see CopyToAgentsModal.tsx:165 — `<Checkbox aria-label={agent.name} />`).
+  // Tick the target agent's checkbox. aria-label is the agent's display name.
   await appWindow
     .getByRole('checkbox', { name: modalSelection.targetAgentName })
     .check()

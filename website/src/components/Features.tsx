@@ -45,7 +45,6 @@ export function Features() {
   return (
     <section className="py-20 lg:py-32">
       <div className="container mx-auto px-4">
-        {/* Section header */}
         <div className="mb-16 text-center">
           <h2 className="mb-4 text-3xl font-semibold tracking-tight sm:text-4xl">
             Everything You Need to Manage Skills
@@ -56,7 +55,6 @@ export function Features() {
           </p>
         </div>
 
-        {/* Feature grid */}
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => (
             <div
@@ -72,7 +70,6 @@ export function Features() {
           ))}
         </div>
 
-        {/* Agent logos section */}
         <div className="mt-20">
           <p className="mb-8 text-center text-sm text-muted-foreground">
             Works with your favorite AI coding assistants

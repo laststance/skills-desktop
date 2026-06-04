@@ -155,7 +155,7 @@ function expectPathMissing(path: string): void {
 }
 
 /**
- * Phase-2 spec covering the three unlink-style IPCs that operate on agent-side
+ * Spec covering the three unlink-style IPCs that operate on agent-side
  * link paths without writing to trash:
  *   - `SKILLS_UNLINK_FROM_AGENT`        (single)
  *   - `SKILLS_UNLINK_MANY_FROM_AGENT`   (batch)
@@ -291,8 +291,8 @@ test('unlinking one agent removes only that agent link and leaves the source ski
 })
 
 /**
- * Phase-4 A1 (issue #114) — negative paths for the single unlink IPC. The
- * handler dispatches on `lstat` kind via ts-pattern (skills.ts:130-145):
+ * Negative paths for the single unlink IPC. The
+ * handler dispatches on `lstat` kind via ts-pattern:
  *
  *   - symlink                    → fs.unlink, success: true
  *   - directory (local skill)    → confirmed shell.trashItem, success: true
@@ -496,12 +496,11 @@ test('batch-unlinking removes the reviewed link slot, not a decoy whose name mat
 })
 
 /**
- * Phase-4 A2 (issue #114) — partial failure aggregation for the batch unlink.
+ * Partial failure aggregation for the batch unlink.
  *
- * The serial loop in `SKILLS_UNLINK_MANY_FROM_AGENT` (skills.ts:341-354) calls
- * `removeFromAgent` per item and pushes either an `'unlinked'` row or an
- * `'error'` row with the structured `{ message, code? }` shape. The contract
- * we're locking in:
+ * The serial loop in `SKILLS_UNLINK_MANY_FROM_AGENT` processes each reviewed
+ * path and pushes either an `'unlinked'` row or an `'error'` row with the
+ * structured `{ message, code? }` shape. The contract we're locking in:
  *
  *   1. Per-item failures DO NOT short-circuit the loop. The 4 healthy items
  *      still unlink even though index 2 is poisoned.
@@ -510,10 +509,8 @@ test('batch-unlinking removes the reviewed link slot, not a decoy whose name mat
  *      its toast/state per skill.
  *   3. The "directory at link path" branch refuses with a meaningful copy
  *      ("Cannot unlink a local skill...") rather than rm-rfing the dir.
- *      Single-unlink rm-rfs (skills.ts:138-141) but the BATCH path is
- *      explicitly non-destructive (skills.ts:85-89). A regression that
- *      copy-pasted the single-unlink dispatch into the batch loop would
- *      silently destroy local skills mid-batch.
+ *      A regression that copy-pasted the single-unlink dispatch into the
+ *      batch loop would silently destroy local skills mid-batch.
  *
  * Index 2 (middle) is poisoned so a regression that aborts the loop on first
  * failure leaves indexes 3-4 unprocessed and the test fails with a clear
@@ -673,7 +670,7 @@ test('removing all links from an agent is refused when its folder is a symlink a
 })
 
 /**
- * Phase-4 C1 + C2 (issue #114) — happy path for `removeAllFromAgent`.
+ * Happy path for `removeAllFromAgent`.
  *
  * The two refusal tests above (`unlink-agent.e2e.ts` Test 3, `regression.e2e.ts`
  * B1/B2) pin every IRON RULE branch, but they all short-circuit BEFORE any
@@ -684,10 +681,9 @@ test('removing all links from an agent is refused when its folder is a symlink a
  *
  * `delete.e2e.ts` and `bulk-delete.e2e.ts` test the IN-APP trash at
  * `<HOME>/.agents/.trash/` — that's `trashService.moveToTrash`, a different
- * code path. `removeAllFromAgent` calls `shell.trashItem` directly (skills.ts:209)
- * which routes to the OS Trash via NSWorkspace on macOS. The handler's contract
- * — "moves to OS trash so accidents can be restored from Finder" (skills.ts:208) —
- * is verifiable only by inspecting the user's actual `~/.Trash/`.
+ * code path. `removeAllFromAgent` calls `shell.trashItem` directly, which routes
+ * to the OS Trash via NSWorkspace on macOS. The handler's contract is verifiable
+ * only by inspecting the user's actual `~/.Trash/`.
  *
  * macOS `shell.trashItem` routing is uid-based (NSWorkspace), NOT HOME-env-based,
  * so the isolated HOME doesn't affect routing — the agent dir lands in the

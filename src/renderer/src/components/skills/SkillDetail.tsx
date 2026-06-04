@@ -68,7 +68,6 @@ export const SkillDetail = React.memo(function SkillDetail({
   return (
     // Fill DetailPanel's remaining height after its drag strip so tab scrollers are not clipped.
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Header with skill name */}
       <div className="p-4 border-b border-border">
         <h2 className="text-lg font-semibold truncate">{skill.name}</h2>
         {skill.description && (
@@ -78,7 +77,6 @@ export const SkillDetail = React.memo(function SkillDetail({
         )}
       </div>
 
-      {/* Tab buttons */}
       <div className="flex border-b border-border">
         <button
           type="button"

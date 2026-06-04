@@ -239,11 +239,10 @@ describe('SkillsList loading branch — scroll-preservation regression', () => {
   it('keeps the list mounted during background refetch (loading=true, items=[skill])', async () => {
     // Arrange
     // Background refetch after a mutation: Redux flips loading=true while
-    // items still contain the previous data. The fix at SkillsList.tsx:93
-    // (`if (loading && skills.length === 0)`) ensures the existing <List>
-    // stays mounted so react-window's internal scrollTop survives. If a
-    // future change reverts to `if (loading)` the list unmounts and the
-    // placeholder shows — this assertion catches that regression.
+    // items still contain the previous data. The `loading && skills.length === 0`
+    // guard ensures the existing <List> stays mounted so react-window's
+    // internal scrollTop survives. If a future change reverts to `if (loading)`
+    // the list unmounts and the placeholder shows — this assertion catches that regression.
     mockGetAll.mockReturnValue(new Promise(() => {}))
 
     // Act

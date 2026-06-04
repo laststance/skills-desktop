@@ -3,11 +3,8 @@ import type { Page } from '@playwright/test'
 /**
  * Action type that the `skillsSlice` `fetchAll` thunk dispatches on success.
  *
- * This is duplicated from `src/renderer/src/store/skillsSlice.ts` because
- * `helpers/*` runs in the Playwright Node context — it cannot import the
- * renderer bundle. Keeping the literal in one place (here) gives `grep`-able
- * coupling: if the slice ever renames the thunk, the only spot a stale
- * literal lingers is this constant.
+ * Kept in the Playwright helper because `helpers/*` runs in Node and cannot
+ * import the renderer bundle; one literal keeps thunk renames grep-able.
  *
  * @see refreshSkillsState for the consumer.
  */
@@ -83,7 +80,7 @@ export async function getStoreState<T, A = undefined>(
 
 /**
  * Read the refreshed symlink status for `skillName` against `agentId` directly
- * from the renderer store. Used by Phase-2 specs after `refreshSkillsState` to
+ * from the renderer store. Used by IPC specs after `refreshSkillsState` to
  * confirm an IPC-driven mutation (copy / unlink) propagated correctly.
  *
  * Returns `undefined` when the skill is not present in the store OR the agent

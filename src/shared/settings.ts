@@ -27,8 +27,7 @@ export const WINDOW_BACKGROUND_BLUR_MAX_RADIUS = 48
 
 /**
  * Visual opacity range paired with the background blur slider.
- * `1` keeps the app surface fully opaque when blur is off; the minimum mirrors
- * Corelive BrainDump's real Electron window opacity so the desktop is visible.
+ * `1` keeps the app surface fully opaque when blur is off; the minimum keeps the desktop visible.
  */
 export const WINDOW_BACKGROUND_OPACITY_MAX = 1
 export const WINDOW_BACKGROUND_OPACITY_MIN = 0.45

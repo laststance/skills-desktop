@@ -9,6 +9,7 @@ import {
   symlink,
   writeFile,
 } from 'node:fs/promises'
+import type * as NodeFs from 'node:fs/promises'
 import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
@@ -66,6 +67,7 @@ describe('skills:copyToAgents handler', () => {
   afterEach(async () => {
     vi.doUnmock('os')
     vi.doUnmock('node:os')
+    vi.doUnmock('node:fs/promises')
     await rm(tempHome, { recursive: true, force: true })
   })
 
@@ -210,5 +212,55 @@ describe('skills:copyToAgents handler', () => {
     await expect(readlink(copiedLinkPath)).resolves.toBe(
       await realpath(targetPath),
     )
+  })
+
+  it('reports destination inspection errors without copying to that agent', async () => {
+    // Arrange
+    const skillName = 'task'
+    const sourcePath = join(tempHome, '.agents', 'skills', skillName)
+    const blockedDestPath = join(tempHome, '.cursor', 'skills', skillName)
+    await mkdir(sourcePath, { recursive: true })
+    await writeFile(join(sourcePath, 'SKILL.md'), '# Task\n')
+    vi.doMock('node:fs/promises', async () => {
+      const actual = await vi.importActual<typeof NodeFs>('node:fs/promises')
+      return {
+        ...actual,
+        lstat: async (path: string) => {
+          if (path === blockedDestPath) {
+            throw Object.assign(new Error('permission denied'), {
+              code: 'EACCES',
+            })
+          }
+          return actual.lstat(path)
+        },
+      }
+    })
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+    const copyToAgentsHandler = getRegisteredHandler('skills:copyToAgents')
+
+    // Act
+    const result = (await copyToAgentsHandler(
+      {},
+      {
+        skillName,
+        sourcePath,
+        targetAgentIds: ['cursor'],
+      },
+    )) as {
+      success: boolean
+      copied: number
+      failures: unknown[]
+    }
+
+    // Assert
+    expect(result).toEqual({
+      success: false,
+      copied: 0,
+      failures: [{ agentId: 'cursor', error: 'permission denied' }],
+    })
+    await expect(lstat(blockedDestPath)).rejects.toMatchObject({
+      code: 'ENOENT',
+    })
   })
 })

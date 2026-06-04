@@ -53,7 +53,6 @@ contextBridge.exposeInMainWorld('electron', {
       typedInvoke('skills:createSymlinks', options),
     copyToAgents: async (options: CopyToAgentsOptions) =>
       typedInvoke('skills:copyToAgents', options),
-    // Bulk delete + undo (Section E of the bulk-delete plan).
     // deleteSkills runs serially in main; batches of >=10 emit progress events.
     deleteSkills: async (options: DeleteSkillsOptions) =>
       typedInvoke('skills:deleteSkills', options),
@@ -155,7 +154,7 @@ contextBridge.exposeInMainWorld('electron', {
 
 // E2E-only escape hatch from the typed `electron.*` IPC contract above.
 //
-// Why this lives outside the contract: Phase-2 specs need to assert on raw
+// Why this lives outside the contract: E2E specs need to assert on raw
 // IPC traffic (e.g. "SKILLS_DELETE_PROGRESS fired exactly 10 times for the
 // bulk-delete batch at the threshold"). Routing those assertions through the
 // typed surface would force every channel to ship an `events()` accessor in

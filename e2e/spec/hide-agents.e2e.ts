@@ -9,7 +9,7 @@ import { getStoreState, waitForInitialScan } from '../helpers/redux'
 import { readSettingsFile, writeSettingsFile } from '../helpers/settings-file'
 
 /**
- * PR #144 — Hide unused agents from the sidebar.
+ * Hide unused agents from the sidebar.
  *
  * Coverage strategy: the feature crosses three boundaries that each fail
  * differently, so each gets its own test rather than a single flow that
@@ -68,8 +68,7 @@ test('toggling Cursor in Settings → Agents hides it from the sidebar and persi
   // Arrange — pre-stage `~/.cursor/skills` so Cursor reports `exists: true`
   // in the agent scan. Without this, all 21 agents land in the "21 not
   // installed" disclosure and the "Show Cursor in sidebar" checkbox renders
-  // disabled. Same recipe as folder-actions.e2e.ts:65 for the AgentItem
-  // context-menu test.
+  // disabled.
   mkdirSync(join(isolatedHome, '.cursor', 'skills'), { recursive: true })
 
   await waitForInitialScan(appWindow)
@@ -115,7 +114,6 @@ test('toggling Cursor in Settings → Agents hides it from the sidebar and persi
   // Open Settings — spawns a second BrowserWindow. Capture the window
   // event BEFORE clicking; Electron fires it synchronously when the new
   // webContents is created and racing it surfaces as a flaky timeout.
-  // Pattern mirrors folder-actions.e2e.ts:122.
   const settingsWindowPromise = electronApp.waitForEvent('window')
   await appWindow.getByLabel('Open settings').click()
   const settingsWindow = await settingsWindowPromise

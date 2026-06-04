@@ -119,12 +119,10 @@ const App = React.memo(function App(): React.ReactElement {
 
   return (
     <TooltipProvider delayDuration={200}>
-      {/* Window glow effect - subtle inner shadow for depth */}
       <div
         data-testid="window-background-surface"
         className="window-background-surface flex h-screen text-foreground window-glow transition-[background-color]"
-        // Match Corelive BrainDump: renderer paints a solid surface, while
-        // BrowserWindow.setOpacity controls real desktop transparency.
+        // Renderer paints a solid surface while BrowserWindow.setOpacity controls real desktop transparency.
         style={{ backgroundColor: 'var(--background)' }}
       >
         <Sidebar />

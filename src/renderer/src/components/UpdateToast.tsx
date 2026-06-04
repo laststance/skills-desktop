@@ -111,7 +111,6 @@ export const UpdateToast = React.memo(
           'animate-in slide-in-from-bottom-4 fade-in duration-300',
         )}
       >
-        {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-border">
           <div className="flex items-center gap-2">
             {headerIcon}
@@ -129,7 +128,6 @@ export const UpdateToast = React.memo(
           </Button>
         </div>
 
-        {/* Content */}
         <div className="p-3">
           <p className="text-sm text-muted-foreground">{bodyText}</p>
 
@@ -149,7 +147,6 @@ export const UpdateToast = React.memo(
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex items-center justify-end gap-2 mt-3">
             {actions}
           </div>

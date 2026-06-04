@@ -13,9 +13,7 @@ export const LeaderboardSkeleton = React.memo(
             key={i}
             className="rounded-lg bg-card p-4 flex items-center gap-4 h-19"
           >
-            {/* Rank square */}
             <div className="h-8 w-8 rounded bg-muted animate-pulse shrink-0" />
-            {/* Name + repo */}
             <div className="flex-1 space-y-2">
               <div
                 className="h-4 bg-muted animate-pulse rounded"
@@ -26,9 +24,7 @@ export const LeaderboardSkeleton = React.memo(
                 style={{ width: '30%' }}
               />
             </div>
-            {/* Install count */}
             <div className="h-4 w-12 bg-muted animate-pulse rounded shrink-0" />
-            {/* Button placeholder */}
             <div className="h-8 w-20 bg-muted animate-pulse rounded shrink-0" />
           </div>
         ))}
