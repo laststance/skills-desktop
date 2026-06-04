@@ -12,7 +12,7 @@ import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
 import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { formatBytes } from '@/shared/fileTypes'
-import type { SkillFileContent } from '@/shared/types'
+import type { FileName, FileSizeBytes, SkillFileContent } from '@/shared/types'
 
 import { isMarkdownPreview, languageForPreview } from './filePreviewLanguage'
 import { codeToHtml } from './shikiPreview'
@@ -566,8 +566,8 @@ const EmptyState = React.memo(function EmptyState(): React.ReactElement {
 })
 
 interface BinaryPlaceholderProps {
-  fileName: string
-  size: number
+  fileName: FileName
+  size: FileSizeBytes
 }
 
 const BinaryPlaceholder = React.memo(function BinaryPlaceholder({

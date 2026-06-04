@@ -42,6 +42,14 @@ export type ShikiPreviewLanguage =
   | 'yaml'
   | 'zsh'
 
+/** Minimal file metadata needed to choose a Shiki grammar without depending on full file content. */
+type PreviewLanguageFileInput = Pick<SkillFileContent, 'extension' | 'name'>
+
+/** Minimal file metadata needed to decide whether the reading-mode toggle is available. */
+type MarkdownPreviewFileInput = Pick<SkillFileContent, 'name'> & {
+  extension?: string | null
+}
+
 /**
  * Normalize user/file-system extensions into the lookup key shape.
  * @param extension - Optional file extension, with or without a leading dot.
@@ -131,7 +139,7 @@ export function languageFromExtension(
  * // => 'markdown'
  */
 export function languageForPreview(
-  file: Pick<SkillFileContent, 'extension' | 'name'>,
+  file: PreviewLanguageFileInput,
 ): ShikiPreviewLanguage {
   // Extension wins because the main process already normalizes special cases.
   const byExtension = languageFromExtension(file.extension)
@@ -152,9 +160,7 @@ export function languageForPreview(
  * @example
  * isMarkdownPreview({ name: 'SKILL.md', extension: '.md' }) // => true
  */
-export function isMarkdownPreview(
-  file: Pick<SkillFileContent, 'name'> & { extension?: string | null },
-): boolean {
+export function isMarkdownPreview(file: MarkdownPreviewFileInput): boolean {
   const extension = normalizeFileExtension(file.extension)
   if (
     extension === '.md' ||

@@ -173,19 +173,12 @@ export const WidgetPicker = React.memo(function WidgetPicker({
                     type="button"
                     ref={isSeedRow ? seedRowRef : undefined}
                     onClick={() => handleAddWidget(widgetDefinition.type)}
-                    onMouseEnter={() =>
+                    onPointerMove={() => {
+                      if (activePreviewType === widgetDefinition.type) return
                       dispatch(setActivePreviewType(widgetDefinition.type))
-                    }
+                    }}
                     onFocus={() => {
-                      // Radix/browser autofocus can jump to a later row on the
-                      // open frame. Before any real preview override exists,
-                      // let only the seed row claim focus-driven preview.
-                      if (
-                        activePreviewType === null &&
-                        widgetDefinition.type !== seedPreviewType
-                      ) {
-                        return
-                      }
+                      if (activePreviewType === widgetDefinition.type) return
                       dispatch(setActivePreviewType(widgetDefinition.type))
                     }}
                     aria-current={isActive ? 'true' : undefined}

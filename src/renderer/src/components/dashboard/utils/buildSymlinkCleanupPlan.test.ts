@@ -12,6 +12,7 @@ import type {
 import {
   buildSymlinkCleanupPlan,
   createBrokenSlotCleanupItemId,
+  createOrphanCleanupItemId,
   getLinkNameFromPath,
   getSymlinkCleanupPlanItems,
 } from './buildSymlinkCleanupPlan'
@@ -267,6 +268,17 @@ describe('buildSymlinkCleanupPlan', () => {
 
     // Assert
     expect(itemId).toBe('broken:cursor:name%3Awith%2Fslash')
+  })
+
+  it('keeps orphan cleanup id literals stable for persisted row state', () => {
+    // Arrange
+    const skillName = 'name:with/slash' as SkillName
+
+    // Act
+    const itemId = createOrphanCleanupItemId(skillName)
+
+    // Assert
+    expect(itemId).toBe('orphan:name%3Awith%2Fslash')
   })
 })
 

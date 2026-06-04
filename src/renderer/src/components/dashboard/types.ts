@@ -38,12 +38,42 @@ export type WidgetInstanceId = Brand<string, 'WidgetInstanceId'>
  */
 export type DashboardPageId = Brand<string, 'DashboardPageId'>
 
+/**
+ * @description Human-readable tab name shown in the dashboard page strip.
+ * @example "Overview"
+ */
+export type DashboardPageName = string
+
 // ============================================================================
 // Placement
 // ----------------------------------------------------------------------------
 // `x`/`y`/`w`/`h` are 6-col grid cells (not pixels). See `GRID_COLS` /
 // `GRID_ROW_HEIGHT_PX` in utils. Kept small-integer to match react-grid-layout.
 // ============================================================================
+
+/**
+ * @description Zero-based grid column where a widget begins.
+ * @example 3
+ */
+export type GridColumnStart = number
+
+/**
+ * @description Zero-based grid row where a widget begins.
+ * @example 6
+ */
+export type GridRowStart = number
+
+/**
+ * @description Width of a widget measured in dashboard grid columns.
+ * @example 6
+ */
+export type GridColumnSpan = number
+
+/**
+ * @description Height of a widget measured in dashboard grid rows.
+ * @example 3
+ */
+export type GridRowSpan = number
 
 /**
  * A single placed widget on a page.
@@ -54,10 +84,10 @@ export type DashboardPageId = Brand<string, 'DashboardPageId'>
 export interface WidgetInstance {
   id: WidgetInstanceId
   type: WidgetType
-  x: number
-  y: number
-  w: number
-  h: number
+  x: GridColumnStart
+  y: GridRowStart
+  w: GridColumnSpan
+  h: GridRowSpan
 }
 
 /**
@@ -66,7 +96,7 @@ export interface WidgetInstance {
  */
 export interface DashboardPage {
   id: DashboardPageId
-  name: string
+  name: DashboardPageName
   widgets: WidgetInstance[]
 }
 
@@ -82,8 +112,8 @@ export interface DashboardPage {
  * Grid size bounds for a widget, in 6-col cells.
  */
 export interface WidgetSize {
-  w: number
-  h: number
+  w: GridColumnSpan
+  h: GridRowSpan
 }
 
 /**

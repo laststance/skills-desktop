@@ -1,4 +1,4 @@
-import type { Settings } from './settings'
+import type { Settings, SettingsPatch } from './settings'
 import type {
   AbsolutePath,
   Agent,
@@ -130,7 +130,7 @@ export interface IpcInvokeContract {
   'shell:openExternal': { args: [HttpUrl]; result: void }
   'settings:open': { args: []; result: void }
   'settings:get': { args: []; result: Settings }
-  'settings:set': { args: [Partial<Settings>]; result: Settings }
+  'settings:set': { args: [SettingsPatch]; result: Settings }
   // Folder actions are intentionally typed as `Promise<FolderActionResult>`
   // (never throws) so the renderer can render a toast without try/catch.
   // Main-process exceptions get caught at the typedHandle boundary and

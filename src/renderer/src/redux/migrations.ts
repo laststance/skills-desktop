@@ -1,4 +1,7 @@
-import type { WidgetType } from '@/renderer/src/components/dashboard/types'
+import type {
+  WidgetSize,
+  WidgetType,
+} from '@/renderer/src/components/dashboard/types'
 import {
   COLOR_PRESET_CHROMA,
   PERSIST_STATE_VERSION,
@@ -36,7 +39,7 @@ export interface MigratableState {
  */
 export const V2_WIDGET_MIN_SIZES = {
   'quick-actions': { w: 3, h: 3 },
-} as const satisfies Partial<Record<WidgetType, { w: number; h: number }>>
+} as const satisfies Partial<Record<WidgetType, WidgetSize>>
 
 /**
  * v4 floor — the Symlink Health widget's `minSize.h` grew 2 → 3 (PR #185 added
@@ -48,7 +51,7 @@ export const V2_WIDGET_MIN_SIZES = {
  */
 export const V4_WIDGET_MIN_SIZES = {
   health: { w: 2, h: 3 },
-} as const satisfies Partial<Record<WidgetType, { w: number; h: number }>>
+} as const satisfies Partial<Record<WidgetType, WidgetSize>>
 
 /**
  * v0 → v1 migration for the theme slice. The old shape carried a
@@ -109,7 +112,7 @@ function migrateV0ToV1(state: MigratableState): void {
  */
 function clampPersistedWidgetSizes(
   state: MigratableState,
-  floors: Partial<Record<string, { w: number; h: number }>>,
+  floors: Partial<Record<string, WidgetSize>>,
   migrationName: string,
 ): void {
   if (!state.dashboard || typeof state.dashboard !== 'object') return

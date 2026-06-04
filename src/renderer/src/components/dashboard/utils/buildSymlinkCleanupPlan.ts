@@ -1,14 +1,22 @@
 import type {
   AbsolutePath,
+  AgentCount,
   AgentId,
   AgentName,
+  Brand,
   IsoTimestamp,
   Skill,
+  SkillCount,
   SkillName,
+  SymlinkCount,
   SymlinkInfo,
 } from '@/shared/types'
 
-export type SymlinkCleanupItemId = string
+/**
+ * @description Stable review-row identifier generated for Symlink Health cleanup selection.
+ * @example "broken:cursor:my-skill" or "broken:cursor:name%3Awith%2Fslash" when escaped.
+ */
+export type SymlinkCleanupItemId = Brand<string, 'SymlinkCleanupItemId'>
 
 export interface OrphanCleanupPlanItem {
   id: SymlinkCleanupItemId
@@ -20,7 +28,7 @@ export interface OrphanCleanupPlanItem {
     linkPath: AbsolutePath
     targetPath: AbsolutePath
   }>
-  symlinkCount: number
+  symlinkCount: SymlinkCount
 }
 
 export interface BrokenSlotCleanupPlanItem {
@@ -39,15 +47,23 @@ export type SymlinkCleanupPlanItem =
   | OrphanCleanupPlanItem
   | BrokenSlotCleanupPlanItem
 
+/**
+ * @description Broken cleanup rows grouped by owning agent for sectioned dashboard rendering.
+ * @example { cursor: [{ kind: 'broken-slot', id: 'broken:cursor:task', ... }] }
+ */
+export type BrokenSlotsByAgent = Partial<
+  Record<AgentId, BrokenSlotCleanupPlanItem[]>
+>
+
 export interface SymlinkCleanupPlan {
   generatedAt: IsoTimestamp
   orphanRecords: OrphanCleanupPlanItem[]
-  brokenSlotsByAgent: Partial<Record<AgentId, BrokenSlotCleanupPlanItem[]>>
+  brokenSlotsByAgent: BrokenSlotsByAgent
   totals: {
-    orphanRecords: number
-    orphanSymlinks: number
-    brokenSlots: number
-    affectedAgents: number
+    orphanRecords: SkillCount
+    orphanSymlinks: SymlinkCount
+    brokenSlots: SymlinkCount
+    affectedAgents: AgentCount
   }
 }
 
@@ -72,7 +88,7 @@ function encodeCleanupIdSegment(value: string): string {
 export function createOrphanCleanupItemId(
   skillName: SkillName,
 ): SymlinkCleanupItemId {
-  return `orphan:${encodeCleanupIdSegment(skillName)}`
+  return `orphan:${encodeCleanupIdSegment(skillName)}` as SymlinkCleanupItemId
 }
 
 /**
@@ -87,7 +103,7 @@ export function createBrokenSlotCleanupItemId(
   agentId: AgentId,
   linkName: SkillName,
 ): SymlinkCleanupItemId {
-  return `broken:${encodeCleanupIdSegment(agentId)}:${encodeCleanupIdSegment(linkName)}`
+  return `broken:${encodeCleanupIdSegment(agentId)}:${encodeCleanupIdSegment(linkName)}` as SymlinkCleanupItemId
 }
 
 /**
@@ -151,9 +167,7 @@ export function buildSymlinkCleanupPlan(
   skills: readonly Skill[],
 ): SymlinkCleanupPlan {
   const orphanRecords: OrphanCleanupPlanItem[] = []
-  const brokenSlotsByAgent: Partial<
-    Record<AgentId, BrokenSlotCleanupPlanItem[]>
-  > = {}
+  const brokenSlotsByAgent: BrokenSlotsByAgent = {}
   const affectedAgentIds = new Set<AgentId>()
 
   for (const skill of skills) {

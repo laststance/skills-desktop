@@ -1,7 +1,7 @@
 import { contextBridge } from 'electron'
 
 import { IPC_CHANNELS } from '@/shared/ipc-channels'
-import type { Settings } from '@/shared/settings'
+import type { Settings, SettingsPatch } from '@/shared/settings'
 import type {
   AbsolutePath,
   ClearOrphanSymlinksOptions,
@@ -132,8 +132,7 @@ contextBridge.exposeInMainWorld('electron', {
   settings: {
     open: async () => typedInvoke('settings:open'),
     get: async () => typedInvoke('settings:get'),
-    set: async (partial: Partial<Settings>) =>
-      typedInvoke('settings:set', partial),
+    set: async (partial: SettingsPatch) => typedInvoke('settings:set', partial),
     onChanged: createIpcListener<Settings>(IPC_CHANNELS.SETTINGS_CHANGED),
   },
   // Folder actions — main-process-only because both `shell.openPath` and

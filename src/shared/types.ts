@@ -52,7 +52,7 @@ export interface FilesystemEntryIdentity {
   /** Inode/file id from fs.Stats, paired with dev for stable same-object checks. */
   ino: number
   /** Entry size from fs.Stats, used as fallback identity on filesystems without ino. */
-  size: number
+  size: FileSizeBytes
   /** Metadata change timestamp from fs.Stats; strict gates also compare it to reject reused-inode same-path replacements. */
   ctimeMs: number
   /** Modification timestamp from fs.Stats, used as fallback identity. */
@@ -117,6 +117,72 @@ export type PixelWidth = number
  * @example 800
  */
 export type PixelHeight = number
+
+/**
+ * @description File basename or display name including its extension when one exists.
+ * @example "SKILL.md"
+ */
+export type FileName = string
+
+/**
+ * @description Base64 data URL that can be assigned directly to media `src` attributes.
+ * @example "data:image/png;base64,iVBORw0KGgo..."
+ */
+export type DataUrl = string
+
+/**
+ * @description Raw file size in bytes as reported by filesystem readers.
+ * @example 48201
+ */
+export type FileSizeBytes = number
+
+/**
+ * @description Number of text lines in a previewed file.
+ * @example 42
+ */
+export type LineCount = number
+
+/**
+ * @description Count of skill records, directories, or skill-like entries.
+ * @example 15
+ */
+export type SkillCount = number
+
+/**
+ * @description Count of agents included in a scan, sync, or dashboard operation.
+ * @example 3
+ */
+export type AgentCount = number
+
+/**
+ * @description Raw byte count transferred or expected by a download operation.
+ * @example 10485760
+ */
+export type ByteCount = number
+
+/**
+ * @description Download throughput measured in bytes per second.
+ * @example 524288
+ */
+export type BytesPerSecond = number
+
+/**
+ * @description Completion percentage in the inclusive 0..100 range.
+ * @example 45.2
+ */
+export type ProgressPercent = number
+
+/**
+ * @description 1-based index of the item currently processed in a batch operation.
+ * @example 3
+ */
+export type BatchItemIndex = number
+
+/**
+ * @description Total item count in a batch operation.
+ * @example 12
+ */
+export type BatchItemCount = number
 
 /**
  * A non-negative count of agent symlinks. Used in two senses, both of which
@@ -261,9 +327,9 @@ export interface Agent {
   /** Whether the agent's skills directory exists on disk */
   exists: boolean
   /** Number of valid symlinked skills. @example 12 */
-  skillCount: number
+  skillCount: SkillCount
   /** Number of local skills (real folders, not symlinks). @example 2 */
-  localSkillCount: number
+  localSkillCount: SkillCount
   /** Directory identity for destructive "remove all" confirmation guards. */
   filesystemIdentity?: FilesystemEntryIdentity
 }
@@ -401,7 +467,7 @@ export interface SourceStats {
   /** Absolute path to the source directory. @example "/Users/me/.agents/skills" */
   path: AbsolutePath
   /** Total number of skill directories. @example 15 */
-  skillCount: number
+  skillCount: SkillCount
   /** Human-readable total size. @example "2.4 MB" */
   totalSize: HumanFileSize
   /** ISO 8601 last-modified timestamp. @example "2026-04-10T08:00:00.000Z" */
@@ -444,7 +510,7 @@ export interface SkillMetadata {
  */
 export interface SkillFile {
   /** File name with extension. @example "SKILL.md" */
-  name: string
+  name: FileName
   /** Absolute path to the file. @example "/Users/me/.agents/skills/tdd/SKILL.md" */
   path: AbsolutePath
   /** POSIX-style path relative to the skill root. @example "lib/helper.py" */
@@ -452,7 +518,7 @@ export interface SkillFile {
   /** File extension with leading dot (lowercase). @example ".md" */
   extension: FileExtension
   /** File size in bytes. @example 1024 */
-  size: number
+  size: FileSizeBytes
   /** How the renderer should display this file. */
   previewable: FilePreviewKind
 }
@@ -463,13 +529,13 @@ export interface SkillFile {
  */
 export interface SkillFileContent {
   /** File name with extension. @example "SKILL.md" */
-  name: string
+  name: FileName
   /** Full text content of the file */
   content: string
   /** File extension without dot. @example "md" */
   extension: FileExtension
   /** Number of lines in the file. @example 42 */
-  lineCount: number
+  lineCount: LineCount
 }
 
 /**
@@ -485,13 +551,13 @@ export interface SkillFileContent {
  */
 export interface SkillBinaryContent {
   /** File name with extension. @example "preview.png" */
-  name: string
+  name: FileName
   /** base64-encoded data URL ready to use in `<img src>`. */
-  dataUrl: string
+  dataUrl: DataUrl
   /** MIME type derived from the file extension. @example "image/png" */
   mimeType: MimeType
   /** File size in bytes. @example 48201 */
-  size: number
+  size: FileSizeBytes
 }
 
 /**
@@ -526,9 +592,9 @@ export interface UpdateInfo {
  */
 export interface DeleteProgressPayload {
   /** 1-based index of the item just processed. @example 3 */
-  current: number
+  current: BatchItemIndex
   /** Total items in this batch. @example 12 */
-  total: number
+  total: BatchItemCount
 }
 
 /**
@@ -537,13 +603,13 @@ export interface DeleteProgressPayload {
  */
 export interface DownloadProgress {
   /** Download completion percentage (0–100). @example 45.2 */
-  percent: number
+  percent: ProgressPercent
   /** Current download speed in bytes per second. @example 524288 */
-  bytesPerSecond: number
+  bytesPerSecond: BytesPerSecond
   /** Total download size in bytes. @example 10485760 */
-  total: number
+  total: ByteCount
   /** Bytes transferred so far. @example 4739174 */
-  transferred: number
+  transferred: ByteCount
 }
 
 /**
@@ -831,7 +897,7 @@ export interface DeleteSkillResult {
   /** true if both the source and all symlinks were removed. */
   success: boolean
   /** Count of agent symlinks that pointed at the skill before deletion. @example 3 */
-  symlinksRemoved: number
+  symlinksRemoved: SymlinkCount
   /** Agent IDs whose symlinks were removed during the delete. Empty if the skill had no symlinks. @example ["cursor", "codex"] */
   cascadeAgents: AgentId[]
   /** Failure reason when `success` is false. */
@@ -892,13 +958,13 @@ export type BulkDeleteItemResult =
       skillName: SkillName
       outcome: 'deleted'
       tombstoneId: TombstoneId
-      symlinksRemoved: number
+      symlinksRemoved: SymlinkCount
       cascadeAgents: AgentId[]
     }
   | {
       skillName: SkillName
       outcome: 'orphan-cleared'
-      symlinksRemoved: number
+      symlinksRemoved: SymlinkCount
       cascadeAgents: AgentId[]
     }
   | {
@@ -906,7 +972,7 @@ export type BulkDeleteItemResult =
       outcome: 'error'
       error: { message: string; code?: string }
       /** Unlinks committed to disk before the failing iteration threw, if any. */
-      symlinksRemoved?: number
+      symlinksRemoved?: SymlinkCount
       /** Agents whose links were removed before the throw, for partial-cleanup reporting. */
       cascadeAgents?: AgentId[]
     }
@@ -947,7 +1013,7 @@ export type ClearOrphanSymlinkItemResult =
   | {
       skillName: SkillName
       outcome: 'orphan-cleared'
-      symlinksRemoved: number
+      symlinksRemoved: SymlinkCount
       cascadeAgents: AgentId[]
     }
   | {
@@ -955,7 +1021,7 @@ export type ClearOrphanSymlinkItemResult =
       outcome: 'error'
       error: { message: string; code?: string }
       /** Unlinks committed to disk before the failing iteration threw, if any. */
-      symlinksRemoved?: number
+      symlinksRemoved?: SymlinkCount
       /** Agents whose links were removed before the throw, for partial-cleanup reporting. */
       cascadeAgents?: AgentId[]
     }
@@ -1068,7 +1134,11 @@ export interface RestoreDeletedSkillOptions {
  * @example { outcome: 'error', error: { message: 'Trash entry missing' } }
  */
 export type RestoreDeletedSkillResult =
-  | { outcome: 'restored'; symlinksRestored: number; symlinksSkipped: number }
+  | {
+      outcome: 'restored'
+      symlinksRestored: SymlinkCount
+      symlinksSkipped: SymlinkCount
+    }
   | { outcome: 'error'; error: { message: string; code?: string } }
 
 /**
@@ -1095,7 +1165,7 @@ export interface CreateSymlinksResult {
   /** true if every requested agent now has a valid symlink. */
   success: boolean
   /** Number of agents for which a symlink was newly created. @example 2 */
-  created: number
+  created: SymlinkCount
   /** Per-agent failure list (empty on full success). */
   failures: Array<{ agentId: AgentId; error: string }>
 }
@@ -1125,7 +1195,7 @@ export interface CopyToAgentsResult {
   /** true if every target agent received a copy. */
   success: boolean
   /** Number of agents successfully copied to. @example 2 */
-  copied: number
+  copied: AgentCount
   /** Per-agent failure list (empty on full success). */
   failures: Array<{ agentId: AgentId; error: string }>
 }
@@ -1173,9 +1243,9 @@ export interface SyncPreviewOptions {
  */
 export interface SyncPreviewResult {
   /** Number of source skills considered. @example 5 */
-  totalSkills: number
+  totalSkills: SkillCount
   /** Number of agents considered (1 when scoped to one agent). @example 3 */
-  totalAgents: number
+  totalAgents: AgentCount
   /** Symlinks that would be created on execute (excludes conflicts). @example 10 */
   toCreate: SymlinkCount
   /** Symlinks already in place — nothing to do for these. @example 5 */

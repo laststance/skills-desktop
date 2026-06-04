@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type {
   AbsolutePath,
+  FileName,
+  FileSizeBytes,
   SkillBinaryContent,
   SkillFile,
   SkillFileContent,
@@ -14,7 +16,7 @@ import type {
 export type PreviewContent =
   | { kind: 'text'; data: SkillFileContent }
   | { kind: 'image'; data: SkillBinaryContent }
-  | { kind: 'binary'; fileName: string; size: number }
+  | { kind: 'binary'; fileName: FileName; size: FileSizeBytes }
   | { kind: 'empty' }
 
 interface UseCodePreviewReturn {

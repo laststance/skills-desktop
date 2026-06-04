@@ -59,6 +59,9 @@ interface SkillLockContent {
 
 type AgentDefinition = (typeof AGENTS)[number]
 
+/** Partial slot update used only while merging scanner observations into a grouped skill record. */
+type SymlinkInfoPatch = Partial<SymlinkInfo>
+
 interface AgentSymlinkStatusHit {
   agent: AgentDefinition
   name: SkillName
@@ -97,7 +100,7 @@ function createMissingSymlinkSlots(name: SkillName): SymlinkInfo[] {
 function updateAgentSymlinkSlot(
   skill: Skill,
   agentId: AgentDefinition['id'],
-  patch: Partial<SymlinkInfo>,
+  patch: SymlinkInfoPatch,
 ): void {
   const slot = skill.symlinks.findIndex(
     (symlink) => symlink.agentId === agentId,
