@@ -178,7 +178,7 @@ export const WidgetPicker = React.memo(function WidgetPicker({
                     type="button"
                     ref={isSeedRow ? seedRowRef : undefined}
                     onClick={() => handleAddWidget(widgetDefinition.type)}
-                    onMouseEnter={() =>
+                    onPointerMove={() =>
                       dispatch(setActivePreviewType(widgetDefinition.type))
                     }
                     onFocus={() => {
