@@ -1,4 +1,4 @@
-import { match } from 'ts-pattern'
+import { match, P } from 'ts-pattern'
 
 import { pluralize } from '@/renderer/src/utils/pluralize'
 import type {
@@ -83,8 +83,12 @@ export const getToolbarState = ({
   // The primary button acts only on selected rows that survived the current
   // filter, while the adjacent selection summary owns the total hidden count.
   const actionCount = visibleCount
-  const countKind: ToolbarCountKind =
-    actionCount === 0 ? 'zero' : actionCount === 1 ? 'single' : 'multi'
+  // ToolbarCountKind exhaustively buckets every visible count into zero, single, or multi copy.
+  const countKind: ToolbarCountKind = match(actionCount)
+    .with(0, () => 'zero' as const)
+    .with(1, () => 'single' as const)
+    .with(P.number, () => 'multi' as const)
+    .exhaustive()
   const isPrimaryDisabled = visibleCount === 0
   const ariaSelectionScope =
     count === visibleCount ? 'selected' : 'visible selected'

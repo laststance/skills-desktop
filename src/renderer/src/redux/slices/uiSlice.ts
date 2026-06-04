@@ -1,5 +1,6 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
+import { match } from 'ts-pattern'
 
 import type { RootState } from '@/renderer/src/redux/store'
 import type {
@@ -282,18 +283,15 @@ export const executeSyncAction = createAsyncThunk(
 export function getAvailableExcludeTypes(
   skillTypeFilter: SkillTypeFilter,
 ): ExcludableSkillTypeFilter[] {
-  switch (skillTypeFilter) {
-    case 'all':
-      return ['symlinked', 'local', 'gstack', 'orphan']
-    case 'symlinked':
-      return ['gstack', 'orphan']
-    case 'local':
-      return ['gstack']
-    case 'gstack':
-      return ['symlinked', 'local', 'orphan']
-    case 'orphan':
-      return ['gstack']
-  }
+  // SkillTypeFilter has five include modes; new modes must declare valid exclusions here.
+  return match(skillTypeFilter)
+    .returnType<ExcludableSkillTypeFilter[]>()
+    .with('all', () => ['symlinked', 'local', 'gstack', 'orphan'])
+    .with('symlinked', () => ['gstack', 'orphan'])
+    .with('local', () => ['gstack'])
+    .with('gstack', () => ['symlinked', 'local', 'orphan'])
+    .with('orphan', () => ['gstack'])
+    .exhaustive()
 }
 
 const uiSlice = createSlice({

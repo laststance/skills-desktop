@@ -1,4 +1,5 @@
 import type React from 'react'
+import { match } from 'ts-pattern'
 
 import type { SourceFilterSummary } from '@/renderer/src/redux/slices/uiSlice'
 import { pluralize } from '@/renderer/src/utils/pluralize'
@@ -57,20 +58,52 @@ export const renderBulkDeleteDescription = ({
   orphanRescanCount?: number
   sourceSummary: SourceFilterSummary | null
 }): React.ReactNode => {
-  const base =
+  const hasBaseTrashCopy =
     orphanCleanupCount === 0 &&
     orphanRescanCount === 0 &&
     staleDeleteCount === 0
-      ? `This moves the ${pluralize(totalCount, 'skill')} to the app trash and removes every symlink pointing to ${pluralize(totalCount, 'it', 'them')}. You can restore within 15 seconds from the notification.`
-      : trashCount > 0 && orphanCleanupCount === 0
-        ? `This moves ${trashCount} ${pluralize(trashCount, 'skill')} to the app trash with a 15-second restore window.`
-        : trashCount === 0 && orphanCleanupCount > 0
-          ? `This removes reviewed dangling symlinks for ${orphanCleanupCount} orphan ${pluralize(orphanCleanupCount, 'skill')}. Source skill files are already missing, and this cleanup cannot be undone from the notification.`
-          : trashCount > 0 && orphanCleanupCount > 0
-            ? `This moves ${trashCount} ${pluralize(trashCount, 'skill')} to the app trash with a 15-second restore window and removes reviewed dangling symlinks for ${orphanCleanupCount} orphan ${pluralize(orphanCleanupCount, 'skill')}. Orphan cleanup cannot be undone from the notification.`
-            : orphanRescanCount > 0 && staleDeleteCount === 0
-              ? 'No selected orphan skills are cleanup-ready.'
-              : 'No selected skills are ready to delete.'
+  const hasTrashRows = trashCount > 0
+  const hasOrphanCleanupRows = orphanCleanupCount > 0
+  const hasOnlyOrphanRescan = orphanRescanCount > 0 && staleDeleteCount === 0
+  // Bulk delete copy exhaustively covers preflight buckets before scope/rescan details append.
+  const base = match({
+    hasBaseTrashCopy,
+    hasTrashRows,
+    hasOrphanCleanupRows,
+    hasOnlyOrphanRescan,
+  })
+    .with({ hasBaseTrashCopy: true }, () => {
+      return `This moves the ${pluralize(totalCount, 'skill')} to the app trash and removes every symlink pointing to ${pluralize(totalCount, 'it', 'them')}. You can restore within 15 seconds from the notification.`
+    })
+    .with(
+      { hasTrashRows: true, hasOrphanCleanupRows: false },
+      () =>
+        `This moves ${trashCount} ${pluralize(trashCount, 'skill')} to the app trash with a 15-second restore window.`,
+    )
+    .with(
+      { hasTrashRows: false, hasOrphanCleanupRows: true },
+      () =>
+        `This removes reviewed dangling symlinks for ${orphanCleanupCount} orphan ${pluralize(orphanCleanupCount, 'skill')}. Source skill files are already missing, and this cleanup cannot be undone from the notification.`,
+    )
+    .with(
+      { hasTrashRows: true, hasOrphanCleanupRows: true },
+      () =>
+        `This moves ${trashCount} ${pluralize(trashCount, 'skill')} to the app trash with a 15-second restore window and removes reviewed dangling symlinks for ${orphanCleanupCount} orphan ${pluralize(orphanCleanupCount, 'skill')}. Orphan cleanup cannot be undone from the notification.`,
+    )
+    .with(
+      { hasOnlyOrphanRescan: true },
+      () => 'No selected orphan skills are cleanup-ready.',
+    )
+    .with(
+      {
+        hasBaseTrashCopy: false,
+        hasTrashRows: false,
+        hasOrphanCleanupRows: false,
+        hasOnlyOrphanRescan: false,
+      },
+      () => 'No selected skills are ready to delete.',
+    )
+    .exhaustive()
 
   const scopeSentences: string[] = []
   if (staleDeleteCount > 0) {
