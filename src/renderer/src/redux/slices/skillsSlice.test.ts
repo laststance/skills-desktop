@@ -710,6 +710,36 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
       'beta',
     ])
   })
+
+  it('cancels a dispatch while another bulk copy is already in flight (single-flight guard)', async () => {
+    // Arrange — simulate an in-flight batch by putting the slice in its pending
+    // state, exactly as a real first dispatch would (bulkCopying = true).
+    const store = await createTestStore()
+    const { bulkCopyToAgents } = await import('./skillsSlice')
+    store.dispatch(
+      bulkCopyToAgents.pending('inflight-request-id', {
+        items: [item('alpha')],
+        agentIds: ['codex' as AgentId],
+      }),
+    )
+    expect(store.getState().skills.bulkCopying).toBe(true)
+
+    // Act — a second concurrent dispatch must be cancelled by the thunk's
+    // `condition` before its payload creator (the IPC fan-out) ever runs.
+    const result = await store.dispatch(
+      bulkCopyToAgents({
+        items: [item('beta')],
+        agentIds: ['codex' as AgentId],
+      }),
+    )
+
+    // Assert — rejected via `condition`, and the copy IPC was never invoked
+    expect(bulkCopyToAgents.rejected.match(result)).toBe(true)
+    if (bulkCopyToAgents.rejected.match(result)) {
+      expect(result.meta.condition).toBe(true)
+    }
+    expect(mockCopyToAgents).not.toHaveBeenCalled()
+  })
 })
 
 describe('skillsSlice bulk selection reducers (v2.4)', () => {

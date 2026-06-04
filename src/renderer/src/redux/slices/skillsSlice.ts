@@ -320,38 +320,57 @@ export const bulkCopyToAgents = createAsyncThunk<
   {
     items: Array<{ skillName: SkillName; sourcePath: AbsolutePath }>
     agentIds: AgentId[]
-  }
->('skills/bulkCopyToAgents', async ({ items, agentIds }) => {
-  const perSkill: BulkCopyToAgentsResult['perSkill'] = []
-  // Serial fan-out: one IPC round-trip per skill. Each iteration is isolated so
-  // a rejected copy (e.g. source path failed validation) fails only that skill.
-  for (const item of items) {
-    try {
-      const result = await window.electron.skills.copyToAgents({
-        skillName: item.skillName,
-        sourcePath: item.sourcePath,
-        targetAgentIds: agentIds,
-      })
-      perSkill.push({
-        skillName: item.skillName,
-        copied: result.copied,
-        failures: result.failures,
-      })
-    } catch (error) {
-      // IPC rejected outright → record every target as failed for this skill
-      // and keep going; the aggregate surfaces it as a partial failure.
-      perSkill.push({
-        skillName: item.skillName,
-        copied: 0,
-        failures: agentIds.map((agentId) => ({
-          agentId,
-          error: error instanceof Error ? error.message : 'Copy failed',
-        })),
-      })
+  },
+  // The condition only reads `state.skills.bulkCopying`, so depend on exactly
+  // that slice (indexed from RootState) rather than the whole store. This keeps
+  // the thunk dispatchable from both the app store and the skills-only test
+  // store, and documents the thunk's true state surface.
+  { state: Pick<RootState, 'skills'> }
+>(
+  'skills/bulkCopyToAgents',
+  async ({ items, agentIds }) => {
+    const perSkill: BulkCopyToAgentsResult['perSkill'] = []
+    // Serial fan-out: one IPC round-trip per skill. Each iteration is isolated so
+    // a rejected copy (e.g. source path failed validation) fails only that skill.
+    for (const item of items) {
+      try {
+        const result = await window.electron.skills.copyToAgents({
+          skillName: item.skillName,
+          sourcePath: item.sourcePath,
+          targetAgentIds: agentIds,
+        })
+        perSkill.push({
+          skillName: item.skillName,
+          copied: result.copied,
+          failures: result.failures,
+        })
+      } catch (error) {
+        // IPC rejected outright → record every target as failed for this skill
+        // and keep going; the aggregate surfaces it as a partial failure.
+        perSkill.push({
+          skillName: item.skillName,
+          copied: 0,
+          failures: agentIds.map((agentId) => ({
+            agentId,
+            error: error instanceof Error ? error.message : 'Copy failed',
+          })),
+        })
+      }
     }
-  }
-  return { perSkill }
-})
+    return { perSkill }
+  },
+  {
+    // Dispatch-level single-flight guard: the modal's disabled button and early
+    // return both read a render-stale `bulkCopying`, so a same-frame double click
+    // (or any programmatic re-dispatch) could slip a second batch through before
+    // React re-renders. `bulkCopying` flips true synchronously in this thunk's
+    // `pending` reducer, so cancelling when it is already set makes the re-entrant
+    // dispatch a no-op — the only race-free point to enforce single-flight.
+    condition: (_arg, { getState }) => {
+      if (getState().skills.bulkCopying) return false
+    },
+  },
+)
 
 /**
  * Delete every selected skill in a single batch. Serial execution happens in
