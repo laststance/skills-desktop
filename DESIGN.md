@@ -210,26 +210,46 @@ changing layout or meaning.
 
 ### Buttons
 
-| Type               | Visual height  | Hit target                          | Use                        |
-| ------------------ | -------------- | ----------------------------------- | -------------------------- |
-| Primary action     | 32-36px        | >= 36px                             | Install, sync, confirm     |
-| Secondary action   | 30-34px        | >= 36px                             | Cancel, alternate actions  |
-| Small dense action | 28-32px        | May use expanded invisible hit area | Row tools, filters         |
-| Icon-only          | 24-32px visual | >= 24x24px (WCAG 2.5.8 AA floor)    | Close, settings, row tools |
+The size scale lives once in `button.tsx` (cva `size` variants); this table
+mirrors it exactly. On a pointer-driven desktop the visual height **is** the hit
+target — there is no 44px touch inflation. Use a token below; never hard-code
+`h-11`/`min-h-11` (44px) on a visible button (see Target sizing for the one
+invisible-hit-area exception).
+
+| Variant   | Class        | Height | Use                                            |
+| --------- | ------------ | ------ | ---------------------------------------------- |
+| `xs`      | `h-6 px-2`   | 24px   | Inline / metadata-dense actions (AA floor)     |
+| `sm`      | `h-7 px-2.5` | 28px   | Row tools, toolbar buttons, filters            |
+| `default` | `h-8 px-3`   | 32px   | Primary and secondary actions (Install, sync)  |
+| `lg`      | `h-9 px-4`   | 36px   | Prominent / isolated hero CTAs                 |
+| `icon`    | `size-7`     | 28px   | Icon-only buttons (close, settings, row tools) |
+
+Base (all variants): `text-[13px]`, `rounded-md`, 16px glyphs (`[&_svg]:size-4`),
+`focus-visible:ring-1`.
 
 Rules:
 
-- If a button feels too tall, reduce the visual surface before reducing
+- **Filled buttons are flat** — no `shadow`/`shadow-sm` on default, secondary,
+  outline, or destructive. Convey state with surface + border + hover tint, not
+  drop shadow (see Depth and Elevation). "Chunky" = tall + heavily padded +
+  raised; the refined scale removes all three. Shadow is reserved for floating UI
+  (popovers, dialogs, toasts).
+- `default` (32px) is the baseline for text buttons. Reach for `lg` (36px) only
+  for an isolated hero CTA; use `sm` (28px) in dense toolbars and row tools.
+- Icon-only buttons are `icon` (28px) by default; drop to `size-6` (24px, the
+  WCAG 2.5.8 AA floor) only for genuinely dense rows. Never go below 24px.
+- If a button feels too tall, reduce the visual surface before reducing the
   accessible hit area.
-- Size icon buttons to context: `size="icon"` for comfortable standalone
-  controls, `size-6` (24px, WCAG 2.5.8 AA floor) for dense row tools.
-- Prefer lucide icons for tool buttons.
+- Prefer lucide icons for tool buttons; glyphs stay 14-16px, not scaled to the
+  button.
 - Avoid multiple primary buttons in one region.
-- Destructive buttons should be visually explicit and never rely on icon alone.
+- Destructive buttons must be visually explicit and never rely on icon alone.
 
 ### Inputs and Search
 
-- Height: 32-36px for standard fields.
+- Height: 32px (`h-8`) for standard fields; 36px (`h-9`) only for a prominent,
+  isolated field. Match the adjacent button scale so a field and its submit
+  button align to the same height.
 - Use border + muted background, not heavy inset shadows.
 - Placeholder text must stay lower contrast than real values.
 - Search should feel command-palette-adjacent: compact, keyboard-first,
@@ -237,6 +257,8 @@ Rules:
 
 ### Tabs and Segmented Controls
 
+- Tabs and segmented-control items are 32px (`min-h-8`, or ToggleGroup
+  `default`); use the `sm` size (28px) only inside an already-dense popover.
 - Tabs should be compact and stable.
 - Use underline, border, or subtle background to communicate selection.
 - Do not increase container height on hover or active state.
@@ -308,8 +330,18 @@ This is a pointer-driven desktop app (mouse and trackpad), so the mobile 44px
 finger-target minimum does not apply. The floor is WCAG 2.5.8 AA: 24x24 CSS px
 (`size-6`). Comfortable standalone controls can still be larger.
 
-- Standalone icon buttons: 24x24px (`size-6`) meets the AA floor; size up toward
-  32px when the control is primary or isolated.
+- Standalone icon buttons are 28px (`size-7`, the `icon` variant) by default.
+  `size-6` (24px) is the AA floor, reserved for genuinely dense rows; only an
+  isolated hero icon control sizes up toward 32px (`size-8`).
+- A **visible, always-on control sets real layout** — its box, and any space
+  reserved for it (e.g. a fixed list column like `BOOKMARK_COLUMN_WIDTH_PX`),
+  follows the button scale above. Never reserve 44px around a 16px glyph; that is
+  wasted width on a pointer-driven app, and width is scarce in the center list.
+- An **invisible or conditional hit area carries no resting box and no layout
+  cost**, so it MAY exceed the scale. An `opacity-0 group-hover` corner action or
+  a bulk-select checkbox wrapper can keep a 44px (`min-h-11 min-w-11`) target:
+  the glyph stays small, nothing reads as chunky, and the larger target is pure
+  ergonomics. This is the ONLY sanctioned use of 44px on a control.
 - Dense row controls may show a smaller glyph inside a 24px-or-larger target. An
   invisible `after:-inset-*` halo can extend the comfortable click area, but
   never over a row that is itself clickable: `opacity-0` controls stay
@@ -379,10 +411,14 @@ When making small visual refinements, prefer this order:
 
 Likely app-safe improvements:
 
-- Compact default buttons from 36px toward 32-34px where the surrounding target
-  remains comfortable.
-- Keep standalone icon buttons at a comfortable hit area (24px AA floor, larger
-  when isolated), but use a smaller visible glyph and subtle hover background.
+- The refined button scale (xs 24 / sm 28 / default 32 / lg 36 / icon 28) is now
+  codified in `button.tsx` and the Buttons table above; new surfaces inherit it.
+  Remaining drift work is catching stray `h-11`/`min-h-11` on visible buttons —
+  the only place 44px belongs is an invisible/conditional hit area (Target
+  sizing).
+- Keep standalone icon buttons at the 28px (`size-7`) default — 24px (`size-6`)
+  AA floor for dense rows — with a smaller visible glyph and subtle hover
+  background.
 - Reduce ordinary card shadow intensity; reserve stronger shadows for toasts,
   dropdowns, and dialogs.
 - Add 120-180ms color/opacity transitions to selected rows and tabs.
