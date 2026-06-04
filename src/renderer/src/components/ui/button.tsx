@@ -25,9 +25,9 @@ const buttonVariants = cva(
       // so the visual height IS the hit target — no 44px touch inflation needed.
       size: {
         default: 'h-8 px-3', // 32px — Linear/Raycast density, 13px label from base
-        xs: 'h-6 px-2 text-xs', // 24px — dense chips, inline actions
-        sm: 'h-7 px-2.5 text-xs', // 28px — toolbar / filter buttons
-        lg: 'h-9 px-4 text-sm', // 36px — primary CTAs
+        xs: 'h-6 px-2', // 24px — dense chips, inline actions
+        sm: 'h-7 px-2.5', // 28px — toolbar / filter buttons
+        lg: 'h-9 px-4', // 36px — primary CTAs
         // Standalone icon button. Dense row tools use size-6 (24px WCAG 2.5.8 AA floor).
         icon: 'size-7', // 28px, 16px glyph
       },

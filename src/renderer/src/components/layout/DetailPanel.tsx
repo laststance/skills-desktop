@@ -27,7 +27,7 @@ export const DetailPanel = React.memo(
             <button
               type="button"
               onClick={() => dispatch(selectSkill(null))}
-              className="no-drag min-h-7 min-w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              className="no-drag min-h-7 min-w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               aria-label="Close detail panel"
             >
               <X size={14} />

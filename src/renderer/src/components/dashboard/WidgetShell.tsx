@@ -27,7 +27,7 @@ interface WidgetShellProps {
  *
  * Responsibilities:
  *  - Title bar with icon + label (the draggable handle in edit mode).
- *  - Remove button (visible only in edit mode, 44×44 hit area per HIG).
+ *  - Remove button (visible only in edit mode, 28×28 hit area — pointer-driven, no 44px touch inflation).
  *  - Body slot where the widget's `Component` renders.
  *  - In preview mode (`isPreview`), edit chrome is suppressed so the picker
  *    shows exactly what the widget looks like at rest on the canvas.
