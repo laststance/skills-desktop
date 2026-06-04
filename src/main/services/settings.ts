@@ -7,6 +7,7 @@ import {
   DEFAULT_SETTINGS,
   SettingsSchema,
   type Settings,
+  type SettingsPatch,
 } from '@/shared/settings'
 
 /**
@@ -140,9 +141,7 @@ export function areSettingsEqual(a: Settings, b: Settings): boolean {
  * await saveSettings({ defaultSkillTab: 'info' })
  * // => { defaultSkillTab: 'info' }
  */
-export async function saveSettings(
-  partial: Partial<Settings>,
-): Promise<Settings> {
+export async function saveSettings(partial: SettingsPatch): Promise<Settings> {
   const current = getSettings()
   const merged = SettingsSchema.parse({ ...current, ...partial })
   // No-op guard: when nothing actually changed (e.g. tapping the

@@ -205,6 +205,12 @@ export const SettingsSchema = z.object({
 export type Settings = z.infer<typeof SettingsSchema>
 
 /**
+ * @description Partial settings payload accepted by the `settings:set` IPC write boundary.
+ * @example { defaultSkillTab: 'info' }
+ */
+export type SettingsPatch = Partial<Settings>
+
+/**
  * Default settings used when `settings.json` is missing or fails
  * Zod validation. Kept here (not derived from `.parse({})`) so the
  * defaults are visible to both main and renderer without instantiating

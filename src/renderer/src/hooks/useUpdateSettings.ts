@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { setSettings } from '@/renderer/src/redux/slices/settingsSlice'
-import type { Settings } from '@/shared/settings'
+import type { SettingsPatch } from '@/shared/settings'
 
 /**
  * Encapsulates the optimistic-dispatch + IPC-write pair used whenever
@@ -29,12 +29,12 @@ import type { Settings } from '@/shared/settings'
  * const updateSettings = useUpdateSettings()
  * updateSettings({ defaultSkillTab: 'info' })
  */
-export function useUpdateSettings(): (partial: Partial<Settings>) => void {
+export function useUpdateSettings(): (partial: SettingsPatch) => void {
   const dispatch = useAppDispatch()
   const settings = useAppSelector((state) => state.settings)
 
   return useCallback(
-    (partial: Partial<Settings>): void => {
+    (partial: SettingsPatch): void => {
       dispatch(setSettings({ ...settings, ...partial }))
       void window.electron.settings.set(partial)
     },

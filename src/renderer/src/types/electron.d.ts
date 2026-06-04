@@ -1,4 +1,4 @@
-import type { Settings } from '../../../shared/settings'
+import type { Settings, SettingsPatch } from '../../../shared/settings'
 import type {
   AbsolutePath,
   Skill,
@@ -134,7 +134,7 @@ declare global {
       settings: {
         open: () => Promise<void>
         get: () => Promise<Settings>
-        set: (partial: Partial<Settings>) => Promise<Settings>
+        set: (partial: SettingsPatch) => Promise<Settings>
         onChanged: (callback: (settings: Settings) => void) => () => void
       }
       folder: {

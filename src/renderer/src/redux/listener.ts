@@ -12,6 +12,10 @@ import { fetchSyncPreview, selectAgent, setActiveTab } from './slices/uiSlice'
 
 export const listenerMiddleware = createListenerMiddleware()
 
+type ListenerEffectApi = Parameters<
+  Parameters<typeof listenerMiddleware.startListening>[0]['effect']
+>[1]
+
 // Type for state accessed in listeners (avoids circular RootState import)
 interface ListenerState {
   theme: ThemeState
@@ -58,11 +62,7 @@ let systemThemeListenerInstalled = false
  * doesn't always implement matchMedia) so the listener stays safe to
  * import everywhere.
  */
-function installSystemThemeListener(
-  listenerApi: Parameters<
-    Parameters<typeof listenerMiddleware.startListening>[0]['effect']
-  >[1],
-): void {
+function installSystemThemeListener(listenerApi: ListenerEffectApi): void {
   if (systemThemeListenerInstalled) return
   if (
     typeof window === 'undefined' ||

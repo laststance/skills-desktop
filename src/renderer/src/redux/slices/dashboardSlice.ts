@@ -4,6 +4,11 @@ import { createSlice } from '@reduxjs/toolkit'
 import type {
   DashboardPage,
   DashboardPageId,
+  DashboardPageName,
+  GridColumnSpan,
+  GridColumnStart,
+  GridRowSpan,
+  GridRowStart,
   WidgetInstance,
   WidgetInstanceId,
   WidgetType,
@@ -38,6 +43,18 @@ interface DashboardState {
   welcomeDismissed: boolean
   /** True once defaults have been populated. Prevents re-seeding on every load. */
   initialized: boolean
+}
+
+/**
+ * Layout payload emitted by React Grid Layout when the user drags or resizes widgets.
+ * @example { i: 'w_abc', x: 0, y: 0, w: 6, h: 2 }
+ */
+interface DashboardLayoutItem {
+  i: string
+  x: GridColumnStart
+  y: GridRowStart
+  w: GridColumnSpan
+  h: GridRowSpan
 }
 
 const initialState: DashboardState = {
@@ -101,13 +118,7 @@ const dashboardSlice = createSlice({
       state,
       action: PayloadAction<{
         pageId: DashboardPageId
-        layout: readonly {
-          i: string
-          x: number
-          y: number
-          w: number
-          h: number
-        }[]
+        layout: readonly DashboardLayoutItem[]
       }>,
     ) => {
       const page = state.pages.find((p) => p.id === action.payload.pageId)
@@ -193,7 +204,10 @@ const dashboardSlice = createSlice({
      * Create a new empty page and switch to it. User-driven — auto-overflow
      * uses `addWidget`'s fallback path instead.
      */
-    addPage: (state, action: PayloadAction<{ name?: string } | undefined>) => {
+    addPage: (
+      state,
+      action: PayloadAction<{ name?: DashboardPageName } | undefined>,
+    ) => {
       const newPage: DashboardPage = {
         id: newDashboardPageId(),
         name: action.payload?.name ?? `Page ${state.pages.length + 1}`,
@@ -208,7 +222,10 @@ const dashboardSlice = createSlice({
      */
     renamePage: (
       state,
-      action: PayloadAction<{ pageId: DashboardPageId; name: string }>,
+      action: PayloadAction<{
+        pageId: DashboardPageId
+        name: DashboardPageName
+      }>,
     ) => {
       const page = state.pages.find((p) => p.id === action.payload.pageId)
       if (page) page.name = action.payload.name

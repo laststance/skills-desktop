@@ -1,4 +1,6 @@
 import type {
+  GridColumnStart,
+  GridRowStart,
   WidgetInstance,
   WidgetSize,
 } from '@/renderer/src/components/dashboard/types'
@@ -27,7 +29,7 @@ import {
 export function findEmptySpot(
   widgets: readonly WidgetInstance[],
   size: WidgetSize,
-): { x: number; y: number } | null {
+): { x: GridColumnStart; y: GridRowStart } | null {
   // Page-fullness shortcut: macOS-style overflow kicks in once the user's
   // visible-widget budget is exhausted, even if the grid is technically free.
   if (widgets.length >= MAX_WIDGETS_PER_PAGE) return null
@@ -62,8 +64,8 @@ export function findEmptySpot(
  */
 function fitsAt(
   occupied: ReadonlySet<string>,
-  originX: number,
-  originY: number,
+  originX: GridColumnStart,
+  originY: GridRowStart,
   size: WidgetSize,
 ): boolean {
   for (let dx = 0; dx < size.w; dx++) {

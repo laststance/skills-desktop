@@ -17,6 +17,7 @@ import {
   getSymlinkCleanupPlanItems,
 } from '@/renderer/src/components/dashboard/utils/buildSymlinkCleanupPlan'
 import type {
+  BrokenSlotsByAgent,
   BrokenSlotCleanupPlanItem,
   OrphanCleanupPlanItem,
   SymlinkCleanupItemId,
@@ -292,6 +293,19 @@ function getSelectedPlanItems(
 }
 
 /**
+ * Flattens grouped broken-slot rows while preserving the cleanup plan's row-id type.
+ * @param brokenSlotsByAgent - Agent-keyed broken-slot rows from the cleanup plan.
+ * @returns Broken-slot rows in stable grouped order.
+ * @example
+ * getBrokenSlotPlanItems(plan.brokenSlotsByAgent).map((item) => item.id)
+ */
+function getBrokenSlotPlanItems(
+  brokenSlotsByAgent: BrokenSlotsByAgent,
+): BrokenSlotCleanupPlanItem[] {
+  return Object.values(brokenSlotsByAgent).flatMap((items) => items ?? [])
+}
+
+/**
  * Checks whether a selected row still describes the exact cleanup target the user reviewed.
  * @param reviewedItem - Row from the visible review plan.
  * @param freshItem - Row rebuilt from a just-fetched scanner snapshot.
@@ -392,6 +406,27 @@ function collectFailedRows(params: {
   }
 
   return { failedItemIds, rowErrors }
+}
+
+/**
+ * Keeps only errors still visible after the post-cleanup rescan without widening branded ids to strings.
+ * @param rowErrors - Errors keyed by cleanup row id from the attempted cleanup.
+ * @param visibleFailedItemIds - Failed row ids still present in the refreshed plan.
+ * @returns Row errors for failed rows that the retry UI can still display.
+ * @example
+ * pickVisibleRowErrors(errors, failedIds)
+ */
+function pickVisibleRowErrors(
+  rowErrors: Record<SymlinkCleanupItemId, string>,
+  visibleFailedItemIds: readonly SymlinkCleanupItemId[],
+): Record<SymlinkCleanupItemId, string> {
+  const visibleRowErrors: Record<SymlinkCleanupItemId, string> = {}
+  for (const itemId of visibleFailedItemIds) {
+    if (Object.prototype.hasOwnProperty.call(rowErrors, itemId)) {
+      visibleRowErrors[itemId] = rowErrors[itemId]
+    }
+  }
+  return visibleRowErrors
 }
 
 /**
@@ -810,10 +845,9 @@ export const SymlinkCleanupDialog = React.memo(
             })
             return
           }
-          const visibleRowErrors = Object.fromEntries(
-            Object.entries(rowErrors).filter(([itemId]) =>
-              visibleFailedItemIds.includes(itemId as SymlinkCleanupItemId),
-            ),
+          const visibleRowErrors = pickVisibleRowErrors(
+            rowErrors,
+            visibleFailedItemIds,
           )
           if (
             Object.keys(visibleRowErrors).length !== visibleFailedItemIds.length
@@ -1150,17 +1184,15 @@ const ReviewContent = React.memo(function ReviewContent({
         selectedItemIdSet={selectedItemIdSet}
         onSetSection={onSetSection}
       >
-        {Object.values(plan?.brokenSlotsByAgent ?? {}).flatMap((items) =>
-          (items ?? []).map((item) => (
-            <CleanupRow
-              key={item.id}
-              item={item}
-              checked={selectedItemIdSet.has(item.id)}
-              error={rowErrors[item.id]}
-              onToggleItem={onToggleItem}
-            />
-          )),
-        )}
+        {getBrokenSlotPlanItems(plan?.brokenSlotsByAgent ?? {}).map((item) => (
+          <CleanupRow
+            key={item.id}
+            item={item}
+            checked={selectedItemIdSet.has(item.id)}
+            error={rowErrors[item.id]}
+            onToggleItem={onToggleItem}
+          />
+        ))}
       </CleanupSection>
     </div>
   )

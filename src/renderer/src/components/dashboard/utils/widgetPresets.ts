@@ -1,5 +1,10 @@
 import type {
   DashboardPage,
+  DashboardPageName,
+  GridColumnSpan,
+  GridColumnStart,
+  GridRowSpan,
+  GridRowStart,
   WidgetInstance,
   WidgetType,
 } from '@/renderer/src/components/dashboard/types'
@@ -18,14 +23,14 @@ import { newDashboardPageId, newWidgetInstanceId } from './ids'
 
 /** Specification for a page-to-be-built — layout is laid out by hand per preset. */
 interface PageSpec {
-  name: string
+  name: DashboardPageName
   widgets: readonly {
     type: WidgetType
-    x: number
-    y: number
+    x: GridColumnStart
+    y: GridRowStart
     /** Optional size overrides. If omitted, the registry default is used. */
-    w?: number
-    h?: number
+    w?: GridColumnSpan
+    h?: GridRowSpan
   }[]
 }
 
