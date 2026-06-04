@@ -11,6 +11,7 @@ import type {
   FilesystemEntryIdentity,
   RestoreDeletedSkillResult,
   Skill,
+  SkillName,
   SymlinkInfo,
   TombstoneId,
 } from '@/shared/types'
@@ -546,6 +547,142 @@ describe('skillsSlice', () => {
 
     // Assert
     expect(store.getState().skills.error).toBe('Failed to copy to any agent')
+  })
+})
+
+describe('skillsSlice bulkCopyToAgents thunk', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  const item = (
+    name: string,
+  ): { skillName: SkillName; sourcePath: AbsolutePath } => ({
+    skillName: name as SkillName,
+    sourcePath: `/Users/me/.agents/skills/${name}` as AbsolutePath,
+  })
+
+  it('copies every selected skill to the chosen agents and returns one outcome per skill', async () => {
+    // Arrange
+    mockCopyToAgents.mockResolvedValue({
+      success: true,
+      copied: 2,
+      failures: [],
+    })
+    const store = await createTestStore()
+    const { bulkCopyToAgents } = await import('./skillsSlice')
+
+    // Act
+    const result = await store.dispatch(
+      bulkCopyToAgents({
+        items: [item('alpha'), item('beta')],
+        agentIds: ['codex' as AgentId, 'cursor' as AgentId],
+      }),
+    )
+
+    // Assert
+    expect(mockCopyToAgents).toHaveBeenCalledTimes(2)
+    expect(bulkCopyToAgents.fulfilled.match(result)).toBe(true)
+    if (bulkCopyToAgents.fulfilled.match(result)) {
+      expect(result.payload.perSkill).toEqual([
+        { skillName: 'alpha', copied: 2, failures: [] },
+        { skillName: 'beta', copied: 2, failures: [] },
+      ])
+    }
+    expect(store.getState().skills.bulkCopying).toBe(false)
+  })
+
+  it('keeps copying the rest of the batch when one skill fails on an occupied target', async () => {
+    // Arrange — alpha is clean; beta already exists on codex
+    mockCopyToAgents
+      .mockResolvedValueOnce({ success: true, copied: 1, failures: [] })
+      .mockResolvedValueOnce({
+        success: false,
+        copied: 0,
+        failures: [{ agentId: 'codex', error: 'Already exists' }],
+      })
+    const store = await createTestStore()
+    const { bulkCopyToAgents } = await import('./skillsSlice')
+
+    // Act
+    const result = await store.dispatch(
+      bulkCopyToAgents({
+        items: [item('alpha'), item('beta')],
+        agentIds: ['codex' as AgentId],
+      }),
+    )
+
+    // Assert — both attempted (no abort), beta's per-target failure recorded
+    expect(mockCopyToAgents).toHaveBeenCalledTimes(2)
+    if (bulkCopyToAgents.fulfilled.match(result)) {
+      expect(result.payload.perSkill[0]).toEqual({
+        skillName: 'alpha',
+        copied: 1,
+        failures: [],
+      })
+      expect(result.payload.perSkill[1]).toEqual({
+        skillName: 'beta',
+        copied: 0,
+        failures: [{ agentId: 'codex', error: 'Already exists' }],
+      })
+    }
+  })
+
+  it('records a per-target failure when the copy IPC rejects, without aborting the batch', async () => {
+    // Arrange — alpha's IPC throws (e.g. source path validation), beta succeeds
+    mockCopyToAgents
+      .mockRejectedValueOnce(new Error('Invalid source path'))
+      .mockResolvedValueOnce({ success: true, copied: 1, failures: [] })
+    const store = await createTestStore()
+    const { bulkCopyToAgents } = await import('./skillsSlice')
+
+    // Act
+    const result = await store.dispatch(
+      bulkCopyToAgents({
+        items: [item('alpha'), item('beta')],
+        agentIds: ['codex' as AgentId],
+      }),
+    )
+
+    // Assert — alpha rejected → recorded as a failure; beta still copied
+    expect(mockCopyToAgents).toHaveBeenCalledTimes(2)
+    if (bulkCopyToAgents.fulfilled.match(result)) {
+      expect(result.payload.perSkill[0]).toEqual({
+        skillName: 'alpha',
+        copied: 0,
+        failures: [{ agentId: 'codex', error: 'Invalid source path' }],
+      })
+      expect(result.payload.perSkill[1]).toEqual({
+        skillName: 'beta',
+        copied: 1,
+        failures: [],
+      })
+    }
+  })
+
+  it('sets bulkCopying true while in flight and false once settled', async () => {
+    // Arrange
+    mockCopyToAgents.mockResolvedValue({
+      success: true,
+      copied: 1,
+      failures: [],
+    })
+    const store = await createTestStore()
+    const { bulkCopyToAgents } = await import('./skillsSlice')
+
+    // Act — read the flag before awaiting the dispatch
+    const pending = store.dispatch(
+      bulkCopyToAgents({
+        items: [item('alpha')],
+        agentIds: ['codex' as AgentId],
+      }),
+    )
+    const inFlight = store.getState().skills.bulkCopying
+    await pending
+
+    // Assert
+    expect(inFlight).toBe(true)
+    expect(store.getState().skills.bulkCopying).toBe(false)
   })
 })
 

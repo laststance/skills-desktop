@@ -17,6 +17,7 @@ import { SyncConfirmDialog } from '@/renderer/src/components/sidebar/SyncConfirm
 import { SyncConflictDialog } from '@/renderer/src/components/sidebar/SyncConflictDialog'
 import { SyncResultDialog } from '@/renderer/src/components/sidebar/SyncResultDialog'
 import { AddSymlinkModal } from '@/renderer/src/components/skills/AddSymlinkModal'
+import { BulkCopyToAgentsModal } from '@/renderer/src/components/skills/BulkCopyToAgentsModal'
 import { renderBulkDeleteDescription } from '@/renderer/src/components/skills/bulkDeleteCopy'
 import {
   formatCascadeSummary,
@@ -80,6 +81,7 @@ import {
   selectAll,
   selectSelectedSkillNames,
   selectSkillsItems,
+  setBulkCopyModalOpen,
   setBulkProgress,
   undoLastBulkDelete,
   unlinkSelectedFromAgent,
@@ -518,6 +520,11 @@ export const MainContent = React.memo(
      * the "no window.confirm in renderer" review rule) without leaking the
      * thunk wiring into Redux state.
      */
+    /** Open the bulk copy-to-agents modal for the current global-view selection. */
+    const handleCopyAction = useCallback((): void => {
+      dispatch(setBulkCopyModalOpen(true))
+    }, [dispatch])
+
     const handlePrimaryAction = useCallback((): void => {
       if (selectedVisibleNames.length === 0) return
       // Snapshot the active repo-filter scope so the confirm dialog can state
@@ -1183,6 +1190,7 @@ export const MainContent = React.memo(
             {/* Renders only when at least one skill is ticked. */}
             <SelectionToolbar
               onPrimaryAction={handlePrimaryAction}
+              onCopyAction={handleCopyAction}
               agentDisplayName={selectedAgent?.name}
             />
 
@@ -1202,6 +1210,7 @@ export const MainContent = React.memo(
         <UnlinkDialog />
         <AddSymlinkModal />
         <CopyToAgentsModal />
+        <BulkCopyToAgentsModal />
         <SyncConfirmDialog />
         <SyncConflictDialog />
         <SyncResultDialog />

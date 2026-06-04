@@ -1201,6 +1201,32 @@ export interface CopyToAgentsResult {
 }
 
 /**
+ * One selected skill's outcome inside a {@link BulkCopyToAgentsResult}.
+ * Mirrors a single `copyToAgents` IPC result, tagged with the skill it came from.
+ * @example { skillName: 'my-skill', copied: 2, failures: [] }
+ */
+export interface PerSkillCopyOutcome {
+  /** The skill that was copied. */
+  skillName: SkillName
+  /** Number of target agents this skill was successfully copied to. @example 2 */
+  copied: AgentCount
+  /** Per-agent failures for THIS skill (e.g. destination already exists). */
+  failures: CopyToAgentsResult['failures']
+}
+
+/**
+ * Aggregate result of a bulk copy-to-agents run. The renderer fans the
+ * `copyToAgents` IPC out once per selected skill and collects every outcome —
+ * even when some skills or targets fail — so the batch never aborts on a single
+ * bad skill. Summarised for the user by `summarizeBulkCopyResult`.
+ * @example { perSkill: [{ skillName: 'a', copied: 1, failures: [] }] }
+ */
+export interface BulkCopyToAgentsResult {
+  /** One outcome per selected skill, in dispatch order. */
+  perSkill: PerSkillCopyOutcome[]
+}
+
+/**
  * A sync conflict: a real folder already exists at the path where the skill
  * symlink would be created. Surfaced to the user for create-vs-replace choice.
  * @example

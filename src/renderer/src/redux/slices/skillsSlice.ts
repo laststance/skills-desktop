@@ -5,6 +5,7 @@ import type { RootState } from '@/renderer/src/redux/store'
 import type {
   AbsolutePath,
   AgentId,
+  BulkCopyToAgentsResult,
   BulkDeleteResult,
   BulkUnlinkResult,
   ClearOrphanSymlinksResult,
@@ -68,6 +69,10 @@ interface SkillsState {
   bulkDeleting: boolean
   /** true while a batch unlink thunk is between .pending and settled. */
   bulkUnlinking: boolean
+  /** true while a batch copy-to-agents thunk is between .pending and settled. */
+  bulkCopying: boolean
+  /** true while the BulkCopyToAgentsModal (global-view multi-skill copy) is open. */
+  bulkCopyModalOpen: boolean
   /** Progress counter emitted by main for batches with total >= 10. */
   bulkProgress: { current: number; total: number } | null
 }
@@ -91,6 +96,8 @@ const initialState: SkillsState = {
   inFlightUnlinkNames: [],
   bulkDeleting: false,
   bulkUnlinking: false,
+  bulkCopying: false,
+  bulkCopyModalOpen: false,
   bulkProgress: null,
 }
 
@@ -294,6 +301,59 @@ export const copyToAgents = createAsyncThunk(
 )
 
 /**
+ * Copy every selected skill to the chosen target agents in one batch.
+ *
+ * Renderer-side fan-out: loops the RAW `copyToAgents` IPC once per selected
+ * skill — NOT the single `copyToAgents` thunk, which throws when a skill copies
+ * to zero agents and would abort the whole batch. Each skill's per-agent result
+ * is collected even when some targets fail ("Already exists", broken source),
+ * so one bad skill never blocks the rest. Non-destructive: the source skills are
+ * never modified or removed, so the list selection survives the operation.
+ * @param params.items - selected skills as `{ skillName, sourcePath }`; sourcePath = `skill.path` in global view
+ * @param params.agentIds - target agents every selected skill is copied into
+ * @returns BulkCopyToAgentsResult — one PerSkillCopyOutcome per item, in dispatch order
+ * @example
+ * await dispatch(bulkCopyToAgents({ items: [{ skillName: 'a', sourcePath: '/Users/me/.agents/skills/a' }], agentIds: ['codex'] }))
+ */
+export const bulkCopyToAgents = createAsyncThunk<
+  BulkCopyToAgentsResult,
+  {
+    items: Array<{ skillName: SkillName; sourcePath: AbsolutePath }>
+    agentIds: AgentId[]
+  }
+>('skills/bulkCopyToAgents', async ({ items, agentIds }) => {
+  const perSkill: BulkCopyToAgentsResult['perSkill'] = []
+  // Serial fan-out: one IPC round-trip per skill. Each iteration is isolated so
+  // a rejected copy (e.g. source path failed validation) fails only that skill.
+  for (const item of items) {
+    try {
+      const result = await window.electron.skills.copyToAgents({
+        skillName: item.skillName,
+        sourcePath: item.sourcePath,
+        targetAgentIds: agentIds,
+      })
+      perSkill.push({
+        skillName: item.skillName,
+        copied: result.copied,
+        failures: result.failures,
+      })
+    } catch (error) {
+      // IPC rejected outright → record every target as failed for this skill
+      // and keep going; the aggregate surfaces it as a partial failure.
+      perSkill.push({
+        skillName: item.skillName,
+        copied: 0,
+        failures: agentIds.map((agentId) => ({
+          agentId,
+          error: error instanceof Error ? error.message : 'Copy failed',
+        })),
+      })
+    }
+  }
+  return { perSkill }
+})
+
+/**
  * Delete every selected skill in a single batch. Serial execution happens in
  * main; the renderer receives a `BulkDeleteResult` with a per-item outcome.
  *
@@ -470,6 +530,14 @@ const skillsSlice = createSlice({
       state.selectedCopyAgentIds = []
     },
     /**
+     * Open/close the BulkCopyToAgentsModal (global-view multi-skill copy).
+     * The toolbar's "Copy to…" opens it; the modal dispatches false on
+     * dismiss/Cancel/completion. List selection is untouched (non-destructive).
+     */
+    setBulkCopyModalOpen: (state, action: PayloadAction<boolean>) => {
+      state.bulkCopyModalOpen = action.payload
+    },
+    /**
      * Toggle one target agent in the AddSymlinkModal selection.
      */
     toggleAddAgentSelection: (state, action: PayloadAction<AgentId>) => {
@@ -602,6 +670,21 @@ const skillsSlice = createSlice({
       .addCase(copyToAgents.rejected, (state, action) => {
         state.copying = false
         state.error = action.error.message ?? 'Failed to copy skill'
+      })
+      // Bulk copy to agents (renderer fan-out over the copyToAgents IPC)
+      .addCase(bulkCopyToAgents.pending, (state) => {
+        state.bulkCopying = true
+        state.error = null
+      })
+      .addCase(bulkCopyToAgents.fulfilled, (state) => {
+        // Selection is intentionally preserved: copy is non-destructive, so the
+        // user can keep the same rows ticked to copy elsewhere. The modal closes
+        // itself and refreshAllData repopulates the list.
+        state.bulkCopying = false
+      })
+      .addCase(bulkCopyToAgents.rejected, (state, action) => {
+        state.bulkCopying = false
+        state.error = action.error.message ?? 'Failed to copy skills'
       })
       .addCase(deleteSelectedSkills.pending, (state, action) => {
         state.inFlightDeleteNames = reconcileByLiveNames(
@@ -754,6 +837,7 @@ export const {
   selectAll,
   clearSelection,
   setBulkProgress,
+  setBulkCopyModalOpen,
 } = skillsSlice.actions
 export default skillsSlice.reducer
 
@@ -776,6 +860,10 @@ export const selectBulkDeleting = (state: RootState): boolean =>
   state.skills.bulkDeleting
 export const selectBulkUnlinking = (state: RootState): boolean =>
   state.skills.bulkUnlinking
+export const selectBulkCopying = (state: RootState): boolean =>
+  state.skills.bulkCopying
+export const selectBulkCopyModalOpen = (state: RootState): boolean =>
+  state.skills.bulkCopyModalOpen
 export const selectBulkProgress = (
   state: RootState,
 ): { current: number; total: number } | null => state.skills.bulkProgress

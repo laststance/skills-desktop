@@ -97,6 +97,8 @@ async function createStore(
         inFlightUnlinkNames: [],
         bulkDeleting: false,
         bulkUnlinking: false,
+        bulkCopying: false,
+        bulkCopyModalOpen: false,
         bulkProgress: null,
       },
     },

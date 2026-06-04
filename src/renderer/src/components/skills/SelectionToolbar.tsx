@@ -1,4 +1,4 @@
-import { Loader2, Trash2, Unlink, X } from 'lucide-react'
+import { Copy, Loader2, Trash2, Unlink, X } from 'lucide-react'
 import React, { useCallback } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
@@ -14,6 +14,7 @@ import {
 import {
   clearSelection,
   selectAll,
+  selectBulkCopying,
   selectBulkDeleting,
   selectBulkProgress,
   selectBulkUnlinking,
@@ -38,6 +39,12 @@ interface SelectionToolbarProps {
    * Undefined when in global view.
    */
   agentDisplayName?: string
+  /**
+   * Callback fired when the non-destructive "Copy to…" action is clicked.
+   * MainContent opens the BulkCopyToAgentsModal. Only rendered in global view
+   * (selectedAgentId === null); omit it to hide the button.
+   */
+  onCopyAction?: () => void
 }
 
 /**
@@ -60,6 +67,7 @@ interface SelectionToolbarProps {
 export const SelectionToolbar = React.memo(function SelectionToolbar({
   onPrimaryAction,
   agentDisplayName,
+  onCopyAction,
 }: SelectionToolbarProps): React.ReactElement | null {
   const dispatch = useAppDispatch()
 
@@ -74,6 +82,7 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
   const bulkSelectMode = useAppSelector(selectBulkSelectMode)
   const bulkDeleting = useAppSelector(selectBulkDeleting)
   const bulkUnlinking = useAppSelector(selectBulkUnlinking)
+  const bulkCopying = useAppSelector(selectBulkCopying)
   const bulkProgress = useAppSelector(selectBulkProgress)
 
   const handleSelectAllVisible = useCallback((): void => {
@@ -99,7 +108,7 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
     visibleCount: visibleSelectedCount,
     agentDisplayName,
   })
-  const isBusy = bulkDeleting || bulkUnlinking
+  const isBusy = bulkDeleting || bulkUnlinking || bulkCopying
 
   const showProgress =
     bulkProgress !== null && bulkProgress.total >= BULK_PROGRESS_THRESHOLD
@@ -177,6 +186,22 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
         <X className="h-3 w-3 mr-1" />
         Clear
       </Button>
+
+      {/* Non-destructive bulk copy — global view only. The outline variant +
+          Copy icon visually separates it from the destructive Delete (AC#4). */}
+      {selectedAgentId === null && onCopyAction && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onCopyAction}
+          disabled={isBusy}
+          aria-label="Copy selected skills to agents"
+          className="shrink-0"
+        >
+          <Copy className="h-4 w-4" />
+          Copy to...
+        </Button>
+      )}
 
       <Button
         variant={toolbarState.isDestructive ? 'destructive' : 'default'}

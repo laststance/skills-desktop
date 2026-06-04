@@ -637,3 +637,16 @@ export const selectSelectedSkillNamesSet = createSelector(
   [selectSelectedSkillNames],
   (names): ReadonlySet<SkillName> => new Set(names),
 )
+
+/**
+ * The full `Skill` objects for the currently ticked names. Resolves
+ * `selectedSkillNames` against `state.skills.items`, dropping any name with no
+ * live skill (e.g. removed by a concurrent refresh). Feeds the bulk copy modal,
+ * which needs each skill's `path` as the copy source.
+ * @returns Skill[] in `items` order
+ */
+export const selectSelectedSkillObjects = createSelector(
+  [selectSkillsItems, selectSelectedSkillNamesSet],
+  (items, selectedNames): Skill[] =>
+    items.filter((skill) => selectedNames.has(skill.name)),
+)
