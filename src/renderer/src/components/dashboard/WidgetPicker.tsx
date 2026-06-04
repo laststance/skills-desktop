@@ -84,7 +84,6 @@ export const WidgetPicker = React.memo(function WidgetPicker({
   // initial focus onto the seed row so the focused row and the preview always
   // agree (and keyboard users land on the same widget the stage shows).
   const seedRowRef = useRef<HTMLButtonElement>(null)
-  const isOpeningAutoFocusRef = useRef<boolean>(false)
 
   // One-click-add must fire at most once per open: the close animation keeps the
   // rows clickable for a frame, so a fast double-click could add the widget
@@ -100,11 +99,7 @@ export const WidgetPicker = React.memo(function WidgetPicker({
     hasAddedRef.current = false
     if (!seedRowRef.current) return
     event.preventDefault()
-    isOpeningAutoFocusRef.current = true
     seedRowRef.current.focus()
-    requestAnimationFrame(() => {
-      isOpeningAutoFocusRef.current = false
-    })
   }, [])
 
   // Wrap `onOpenChange` so the close transition (Esc, overlay click, X button,
@@ -178,25 +173,12 @@ export const WidgetPicker = React.memo(function WidgetPicker({
                     type="button"
                     ref={isSeedRow ? seedRowRef : undefined}
                     onClick={() => handleAddWidget(widgetDefinition.type)}
-                    onPointerMove={() =>
+                    onPointerMove={() => {
+                      if (activePreviewType === widgetDefinition.type) return
                       dispatch(setActivePreviewType(widgetDefinition.type))
-                    }
+                    }}
                     onFocus={() => {
-                      // Radix/browser autofocus can jump to a later row on the
-                      // open frame. Before any real preview override exists,
-                      // let only the seed row claim focus-driven preview.
-                      if (
-                        isOpeningAutoFocusRef.current &&
-                        widgetDefinition.type !== seedPreviewType
-                      ) {
-                        return
-                      }
-                      if (
-                        activePreviewType === null &&
-                        widgetDefinition.type !== seedPreviewType
-                      ) {
-                        return
-                      }
+                      if (activePreviewType === widgetDefinition.type) return
                       dispatch(setActivePreviewType(widgetDefinition.type))
                     }}
                     aria-current={isActive ? 'true' : undefined}
