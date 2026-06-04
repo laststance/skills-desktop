@@ -24,6 +24,7 @@ import {
   selectRepoFacetOptions,
   selectSelectedCount,
   selectSelectedSkillNamesSet,
+  selectSelectedVisibleSkillObjects,
   selectSelectedVisibleCount,
   selectSelectedVisibleNames,
   selectSourceFilterViewModel,
@@ -67,6 +68,8 @@ function buildState(overrides: {
       inFlightUnlinkNames: overrides.inFlightUnlinkNames ?? [],
       bulkDeleting: false,
       bulkUnlinking: false,
+      bulkCopying: false,
+      bulkCopyModalOpen: false,
       bulkProgress: null,
     },
     ui: {
@@ -1302,6 +1305,63 @@ describe('selectSelectedSkillNamesSet', () => {
 
     // Assert
     expect(result1).toBe(result2)
+  })
+})
+
+describe('selectSelectedVisibleSkillObjects', () => {
+  it('resolves the ticked names to their full skill objects so the bulk-copy modal can read each path', () => {
+    // Arrange — three live skills, two of them ticked, no filter active
+    const skills = [
+      makeSkill('alpha', 'claude-code'),
+      makeSkill('beta', 'claude-code'),
+      makeSkill('gamma', 'claude-code'),
+    ]
+    const state = buildState({
+      skills,
+      selectedSkillNames: ['gamma', 'alpha'],
+    })
+
+    // Act
+    const result = selectSelectedVisibleSkillObjects(state as never)
+
+    // Assert — kept in items order (alpha, gamma), each a full Skill with a path
+    expect(result.map((skill) => skill.name)).toEqual(['alpha', 'gamma'])
+    expect(result[0].path).toBe('/home/user/.agents/skills/alpha')
+  })
+
+  it('drops ticked names whose skill is gone so a stale selection cannot copy a phantom', () => {
+    // Arrange — "ghost" was ticked then removed by a background refresh
+    const skills = [makeSkill('alpha', 'claude-code')]
+    const state = buildState({
+      skills,
+      selectedSkillNames: ['alpha', 'ghost'],
+    })
+
+    // Act
+    const result = selectSelectedVisibleSkillObjects(state as never)
+
+    // Assert
+    expect(result.map((skill) => skill.name)).toEqual(['alpha'])
+  })
+
+  it('excludes ticked skills hidden by the active filter so bulk copy honors the "will not be affected" promise', () => {
+    // Arrange — alpha and beta both ticked, but a search query hides beta
+    const skills = [
+      makeSkill('alpha', 'claude-code'),
+      makeSkill('beta', 'claude-code'),
+    ]
+    const state = buildState({
+      skills,
+      selectedSkillNames: ['alpha', 'beta'],
+      searchQuery: 'alpha',
+    })
+
+    // Act
+    const result = selectSelectedVisibleSkillObjects(state as never)
+
+    // Assert — only the visible-and-ticked skill survives; hidden beta is dropped,
+    // matching the bulk delete/unlink behavior the toolbar badge advertises
+    expect(result.map((skill) => skill.name)).toEqual(['alpha'])
   })
 })
 
