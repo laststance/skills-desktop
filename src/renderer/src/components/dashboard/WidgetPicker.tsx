@@ -221,6 +221,8 @@ export const WidgetPicker = React.memo(function WidgetPicker({
                 // directly without an extra wrapper.
                 <div
                   inert
+                  data-testid="widget-picker-preview-body"
+                  data-preview-type={previewType}
                   style={{
                     width: previewBox.widthPx,
                     aspectRatio: `${previewBox.widthPx} / ${previewBox.heightPx}`,
