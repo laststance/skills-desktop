@@ -14,7 +14,7 @@ import type {
 
 /**
  * @description Stable review-row identifier generated for Symlink Health cleanup selection.
- * @example "broken:cursor:agent%3Askill"
+ * @example "broken:cursor:my-skill" or "broken:cursor:name%3Awith%2Fslash" when escaped.
  */
 export type SymlinkCleanupItemId = Brand<string, 'SymlinkCleanupItemId'>
 
