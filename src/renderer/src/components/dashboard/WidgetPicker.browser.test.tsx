@@ -54,27 +54,36 @@ async function renderPicker(
   return { screen, store }
 }
 
+/**
+ * Read the live preview type from the newest open WidgetPicker portal.
+ * @returns The widget type currently mounted in the preview, if rendered.
+ * @example
+ * getPreviewType() // => 'stats'
+ */
+function getPreviewType(): string | undefined {
+  const previews = document.querySelectorAll<HTMLElement>(
+    '[data-testid="widget-picker-preview-body"]',
+  )
+  return previews.item(previews.length - 1)?.dataset.previewType
+}
+
 describe('WidgetPicker', () => {
   it('previews the first widget live when the modal opens', async () => {
     // Arrange + Act
-    const { screen } = await renderPicker(vi.fn())
+    await renderPicker(vi.fn())
 
     // Assert: the preview stage seeds on Welcome when the user has not
     // dismissed that widget before.
-    await expect
-      .element(screen.getByTestId('widget-picker-preview-body'))
-      .toHaveAttribute('data-preview-type', 'welcome')
+    await expect.poll(() => getPreviewType()).toBe('welcome')
   })
 
   it('seeds the open-default preview on the next widget when Welcome was already dismissed', async () => {
     // Arrange + Act: returning user — Welcome is dismissed, so its body would
     // render only a muted hint and make a useless first frame.
-    const { screen } = await renderPicker(vi.fn(), { welcomeDismissed: true })
+    await renderPicker(vi.fn(), { welcomeDismissed: true })
 
     // Assert: the stage opens on Skill Stats instead...
-    await expect
-      .element(screen.getByTestId('widget-picker-preview-body'))
-      .toHaveAttribute('data-preview-type', 'stats')
+    await expect.poll(() => getPreviewType()).toBe('stats')
   })
 
   it('swaps the preview to the live component of the hovered widget', async () => {
@@ -85,9 +94,7 @@ describe('WidgetPicker', () => {
     await screen.getByRole('button', { name: /skill stats/i }).hover()
 
     // Assert: the Stats widget body now drives the preview...
-    await expect
-      .element(screen.getByTestId('widget-picker-preview-body'))
-      .toHaveAttribute('data-preview-type', 'stats')
+    await expect.poll(() => getPreviewType()).toBe('stats')
   })
 
   it('adds the clicked widget to the page and closes the modal', async () => {
@@ -118,8 +125,6 @@ describe('WidgetPicker', () => {
 
     // Assert: focus alone drives the live preview, so keyboard users get the
     // same preview as mouse users.
-    await expect
-      .element(screen.getByTestId('widget-picker-preview-body'))
-      .toHaveAttribute('data-preview-type', 'stats')
+    await expect.poll(() => getPreviewType()).toBe('stats')
   })
 })
