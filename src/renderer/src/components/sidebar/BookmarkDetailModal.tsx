@@ -136,11 +136,7 @@ export const BookmarkDetailModal = React.memo(
                     Installed
                   </span>
                 ) : bookmark.repo ? (
-                  <Button
-                    onClick={handleInstall}
-                    disabled={isInstalling}
-                    className="h-11"
-                  >
+                  <Button onClick={handleInstall} disabled={isInstalling}>
                     {isInstalling && (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     )}
@@ -151,11 +147,7 @@ export const BookmarkDetailModal = React.memo(
                     Not installed
                   </span>
                 )}
-                <Button
-                  variant="ghost"
-                  onClick={handleRemoveBookmark}
-                  className="h-11"
-                >
+                <Button variant="ghost" onClick={handleRemoveBookmark}>
                   Remove Bookmark
                 </Button>
               </div>

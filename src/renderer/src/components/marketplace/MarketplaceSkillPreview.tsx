@@ -75,7 +75,7 @@ export const MarketplaceSkillPreview = React.memo(
           <button
             type="button"
             onClick={handleBack}
-            className="text-primary underline min-h-11"
+            className="text-primary underline"
           >
             Back to Dashboard
           </button>
@@ -89,7 +89,7 @@ export const MarketplaceSkillPreview = React.memo(
           <button
             type="button"
             onClick={handleBack}
-            className="flex items-center gap-1.5 px-2 py-1.5 rounded text-xs text-muted-foreground hover:text-foreground transition-colors min-h-11"
+            className="flex items-center gap-1.5 px-2 py-1.5 rounded text-xs text-muted-foreground hover:text-foreground transition-colors min-h-8"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Back to Dashboard

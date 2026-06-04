@@ -922,7 +922,7 @@ export const MainContent = React.memo(
                     : 'Sorted Z to A, click to reverse'
                 }
                 onClick={handleToggleSortOrder}
-                className="shrink-0 text-muted-foreground hover:text-foreground min-h-11 min-w-11"
+                className="shrink-0 text-muted-foreground hover:text-foreground"
               >
                 {sortOrder === 'asc' ? (
                   <ArrowDownAZ className="h-4 w-4" />
@@ -942,7 +942,7 @@ export const MainContent = React.memo(
                     size="sm"
                     aria-label={sourceFilter.triggerAriaLabel}
                     className={cn(
-                      'shrink-0 gap-1.5 min-h-11 max-w-44',
+                      'shrink-0 gap-1.5 max-w-44',
                       sourceFilter.selectedSources.length > 0
                         ? 'text-primary'
                         : 'text-muted-foreground hover:text-foreground',
@@ -1005,7 +1005,7 @@ export const MainContent = React.memo(
                 }
                 onClick={handleToggleBulkSelectMode}
                 className={cn(
-                  'shrink-0 gap-1.5 min-h-11',
+                  'shrink-0 gap-1.5',
                   bulkSelectMode
                     ? 'text-primary'
                     : 'text-muted-foreground hover:text-foreground',
@@ -1032,7 +1032,7 @@ export const MainContent = React.memo(
                           : `Skill type filter: ${selectedSkillTypeLabel}, excluding ${excludedSkillTypeFilters.length} types`
                       }
                       className={cn(
-                        'shrink-0 gap-1.5 min-h-11 max-w-48',
+                        'shrink-0 gap-1.5 max-w-48',
                         skillTypeFilter !== 'all' ||
                           excludedSkillTypeFilters.length > 0
                           ? 'text-primary'

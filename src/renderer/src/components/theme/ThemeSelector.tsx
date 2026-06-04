@@ -203,7 +203,6 @@ export const ThemeSelector = React.memo(function ThemeSelector(): ReactElement {
         <Button
           variant="ghost"
           size="icon"
-          className="h-11 w-11"
           aria-label="Theme and color options"
         >
           <Palette className="h-4 w-4" />
@@ -278,7 +277,7 @@ export const ThemeSelector = React.memo(function ThemeSelector(): ReactElement {
                 key={name}
                 type="button"
                 onClick={() => dispatch(setTheme(name))}
-                className="min-h-11 min-w-11 flex items-center justify-center"
+                className="min-h-8 min-w-8 flex items-center justify-center"
                 title={config.label}
                 aria-label={`Select ${config.label} theme`}
                 aria-pressed={isSelected}
@@ -327,7 +326,7 @@ export const ThemeSelector = React.memo(function ThemeSelector(): ReactElement {
                 title={family.label}
                 aria-label={`Select ${family.label} theme`}
                 aria-pressed={isSelected}
-                className="flex-1 flex flex-col items-center gap-1 py-1.5 rounded-md hover:bg-muted transition-colors min-h-11"
+                className="flex-1 flex flex-col items-center gap-1 py-1.5 rounded-md hover:bg-muted transition-colors"
               >
                 <span
                   className={cn(
