@@ -5,30 +5,25 @@ import { Apple, Cpu } from 'lucide-react'
 export function Hero() {
   return (
     <section className="relative overflow-hidden py-20 lg:py-32">
-      {/* Background gradient */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
 
       <div className="container mx-auto px-4">
         <div className="flex flex-col items-center text-center">
-          {/* Badge */}
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card/50 px-4 py-1.5 text-sm text-muted-foreground">
             <span className="size-2 rounded-full bg-primary animate-pulse" />
             Now available for macOS
           </div>
 
-          {/* Title */}
           <h1 className="mb-6 max-w-4xl text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
             Manage Your AI Agent <span className="gradient-text">Skills</span>{' '}
             in One Place
           </h1>
 
-          {/* Subtitle */}
           <p className="mb-10 max-w-2xl text-lg text-muted-foreground lg:text-xl">
             Visualize installed Skills, check symlink status across 54 AI
             agents, and keep your development tools perfectly synchronized.
           </p>
 
-          {/* CTA Buttons */}
           <div className="flex flex-col gap-4 sm:flex-row">
             <a
               href="https://github.com/laststance/skills-desktop/releases/download/v0.21.2/skills-desktop-0.21.2-arm64.dmg"
@@ -64,7 +59,6 @@ export function Hero() {
             </a>
           </div>
 
-          {/* App Screenshot */}
           <div className="relative mt-16 w-full max-w-5xl">
             <div className="absolute -inset-4 rounded-2xl bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 blur-2xl" />
             <div className="glass relative overflow-hidden rounded-xl shadow-2xl">
@@ -77,9 +71,7 @@ export function Hero() {
                 </span>
               </div>
               <div className="aspect-[16/10] bg-background/50 p-4">
-                {/* Placeholder for actual screenshot */}
                 <div className="flex h-full gap-4">
-                  {/* Sidebar */}
                   <div className="w-60 rounded-lg bg-card/50 p-4">
                     <div className="mb-4 font-mono text-lg font-semibold text-primary">
                       Skills Desktop
@@ -96,7 +88,6 @@ export function Hero() {
                       </div>
                     </div>
                   </div>
-                  {/* Main content */}
                   <div className="flex-1 rounded-lg bg-card/30 p-4">
                     <div className="grid gap-4 sm:grid-cols-2">
                       {[

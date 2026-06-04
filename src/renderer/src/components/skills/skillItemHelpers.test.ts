@@ -531,15 +531,7 @@ describe('getSkillItemVisibility', () => {
   })
 
   describe('orphan skill guard', () => {
-    // PR #131 (issue #71 PR-2) loosens the orphan gate on Delete and Unlink
-    // so users can sweep orphans surfaced by the new amber-border row UI.
-    // Add stays gated because there is no live source to point a new
-    // symlink at. The original #127 hide-everything stance is gone.
     it('shows global Delete for an orphan-only skill so the user can sweep the dangling row', () => {
-      // Source removed, broken symlinks across two agents, no real folders.
-      // Delete clears all dangling agent symlinks plus the now-empty source
-      // tombstone in one shot — the bulk version of the Cleanup-per-agent
-      // flow.
       // Arrange — orphan skill: broken symlinks on two agents, no live source.
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'broken', isLocal: false }),
@@ -582,9 +574,6 @@ describe('getSkillItemVisibility', () => {
     })
 
     it('keeps global Delete but still gates Add when a skill is explicitly marked orphan', () => {
-      // After the loosen, Delete is purely a global-view concern (`!selectedAgentId`).
-      // The explicit isOrphan override no longer suppresses it — the override
-      // only steers Add visibility now.
       // Arrange — valid symlink but the skill is force-flagged isOrphan: true.
       const symlinks = [
         makeSymlink({ agentId: 'cursor', status: 'valid', isLocal: false }),

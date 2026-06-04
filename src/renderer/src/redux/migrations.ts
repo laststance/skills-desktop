@@ -42,9 +42,9 @@ export const V2_WIDGET_MIN_SIZES = {
 } as const satisfies Partial<Record<WidgetType, WidgetSize>>
 
 /**
- * v4 floor — the Symlink Health widget's `minSize.h` grew 2 → 3 (PR #185 added
- * a "Scan issues" action row that clipped against the card's bottom edge at
- * h=2). **Mirror** of `WIDGET_REGISTRY['health'].minSize`, kept here for the
+ * v4 floor — the Symlink Health widget's `minSize.h` grew 2 → 3 after its
+ * "Scan issues" action row clipped against the card's bottom edge at h=2.
+ * **Mirror** of `WIDGET_REGISTRY['health'].minSize`, kept here for the
  * same reason as {@link V2_WIDGET_MIN_SIZES} — this module must stay free of
  * the widget-component graph. Same contract: bump the registry, add the floor
  * here, AND ship a migration.
@@ -207,8 +207,8 @@ function migrateV2ToV3(state: MigratableState): void {
 
 /**
  * v3 → v4 migration for the dashboard slice. The Symlink Health widget's
- * `minSize.h` grew 2 → 3 so its "Scan issues" action row (added in PR #185)
- * stops clipping against the card's bottom edge. Layouts persisted at the old
+ * `minSize.h` grew 2 → 3 so its "Scan issues" action row stops clipping
+ * against the card's bottom edge. Layouts persisted at the old
  * `h: 2` are clamped up to the v4 floor; react-grid-layout's default vertical
  * compactor then reflows any widget the taller card now overlaps on first
  * render (and re-persists the result via `onLayoutChange`), so only the size

@@ -501,8 +501,8 @@ describe('migrateState — v3 → v4 dashboard health min-size clamp', () => {
   }
 
   /**
-   * PR #185 added a "Scan issues" action row to the Symlink Health widget,
-   * which clipped against the card's bottom edge at the old h: 2. The fix grew
+   * The Symlink Health widget's "Scan issues" action row clipped against the
+   * card's bottom edge at the old h: 2. The fix grew
    * `WIDGET_REGISTRY['health'].minSize.h` to 3; this migration rewrites layouts
    * persisted on the old floor so react-grid-layout doesn't re-clamp (and shove
    * neighbors) on first render.

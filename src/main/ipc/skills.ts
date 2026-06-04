@@ -788,7 +788,6 @@ export function registerSkillsHandlers(): void {
         }
       }
 
-      // Count entries before deletion for reporting
       let removedCount = 0
       try {
         const entries = await fs.readdir(derivedAgentPath)
@@ -855,9 +854,8 @@ export function registerSkillsHandlers(): void {
   })
 
   /**
-   * Batch delete N skills. Runs serially (for...of await) per reviewer #21 so
-   * that per-item tombstone creation, agent symlink walks, and manifest writes
-   * don't race each other on the same filesystem.
+   * Batch delete N skills. Runs serially (for...of await) so per-item tombstone
+   * creation, agent symlink walks, and manifest writes don't race each other.
    *
    * Progress: emits \`skills:deleteProgress\` after each item when N >= 10 so the
    * SelectionToolbar can show "Deleting 3 of 12". Smaller batches skip the
@@ -1056,7 +1054,6 @@ export function registerSkillsHandlers(): void {
       }
 
       try {
-        // Ensure agent skills directory exists
         await fs.mkdir(agent.path, { recursive: true })
 
         // Atomic: attempt symlink directly, handle EEXIST
@@ -1161,7 +1158,6 @@ export function registerSkillsHandlers(): void {
       const destPath = join(agent.path, skillName)
 
       try {
-        // Ensure agent skills directory exists
         await fs.mkdir(agent.path, { recursive: true })
 
         // Check if something already exists at the destination
@@ -1169,9 +1165,7 @@ export function registerSkillsHandlers(): void {
           await fs.lstat(destPath)
           failures.push({ agentId, error: 'Already exists' })
           continue
-        } catch {
-          // Nothing exists, proceed
-        }
+        } catch {}
 
         if (isSymlink) {
           await fs.symlink(symlinkTarget, destPath)

@@ -87,7 +87,6 @@ export const InstallModal = React.memo(
           </DialogHeader>
 
           <div className="py-4">
-            {/* Agent selection */}
             <div>
               <h4 className="text-sm font-medium mb-3">Select Agents</h4>
               <div className="max-h-60 overflow-y-auto rounded-md border p-2 space-y-1">
@@ -109,7 +108,6 @@ export const InstallModal = React.memo(
               )}
             </div>
 
-            {/* Progress indicator */}
             {isInstalling && installProgress && (
               <div className="mt-4 p-3 bg-primary/10 rounded-md">
                 <div className="flex items-center gap-2">

@@ -93,7 +93,7 @@ function filesystemIdentityForPath(path: string): E2EFilesystemIdentity {
 }
 
 /**
- * Phase-2 final spec — three regressions, each guarding a separate fix that
+ * Three regressions, each guarding a separate fix that
  * shipped in the recent release window:
  *
  * 1. Selection clear on tab/agent switch (commit 2f05684) — `redux/listener.ts`
@@ -164,8 +164,8 @@ test('selection survives no further than a tab switch or agent switch (regressio
 })
 
 /**
- * Phase-4 D1 (issue #114) — selection clears when `fetchSyncPreview.pending`
- * fires. This is the THIRD leg of the listener matcher in `redux/listener.ts:79`
+ * Selection clears when `fetchSyncPreview.pending`
+ * fires. This is the THIRD leg of the listener matcher
  * (`isAnyOf(setActiveTab, selectAgent, fetchSyncPreview.pending)`); the test
  * above pins the first two legs but the thunk leg has been silently uncovered.
  *
@@ -391,7 +391,7 @@ test('refuses to delete every skill from a directory shared by multiple agents (
 })
 
 /**
- * Phase-4 B1 (issue #114) — IRON RULE refusal preserves BOTH symlink aliases
+ * IRON RULE refusal preserves BOTH symlink aliases
  * and legitimate per-agent local skills inside a shared scanDir.
  *
  * The previous test verifies the refusal copy + the trivial sentinel survives.
@@ -469,7 +469,7 @@ test('refuses to delete a shared directory and leaves both aliased symlinks and 
 })
 
 /**
- * Phase-4 B2 (issue #114) — IRON RULE refusal must trigger even when
+ * IRON RULE refusal must trigger even when
  * SOURCE_DIR itself is a symlink (macOS firmlink edge).
  *
  * On macOS, paths like `/var → /private/var` are firmlinks: a path can be
@@ -763,9 +763,8 @@ test('broken symlinks show up as orphan skill rows in the list (regression #127)
  * truncation entirely, inflating the wrapper to ~325px and bleeding the long
  * path into the center panel.
  *
- * The fix is the `[&>div]:!block` modifier on `ScrollAreaPrimitive.Viewport`
- * in `src/renderer/src/components/ui/scroll-area.tsx:39`, which forces Radix's
- * inline `display: table` to `block`. The `!important` is required because
+ * The fix is the viewport child `block!` modifier, which forces Radix's inline
+ * `display: table` to `block`. The `!important` is required because
  * Radix sets `display` via inline style — class rules don't outrank inline
  * styles without it. With `display: block`, the wrapper takes exactly the
  * viewport width and `truncate` can clip again.
@@ -867,11 +866,9 @@ test('sidebar inner ScrollArea wrapper does not inflate beyond aside width (regr
  * v0.16.0 — Skills list scroll position survives a background refetch
  * (regression 5619bb7).
  *
- * Pre-fix `SkillsList.tsx:93` was `if (loading) return <Loading />`. ANY
- * refetch (post-sync, manual refresh, post-mutation) flipped
- * `state.skills.loading` to `true` and unmounted the entire react-window
- * `<List>` until the next `fulfilled`. Mid-scroll users saw the list reset
- * to the top, losing their position and any in-progress reading.
+ * Pre-fix behavior returned a full loading state for every refetch, unmounting
+ * the react-window `<List>` until the next `fulfilled`. Mid-scroll users saw
+ * the list reset to the top, losing their position and any in-progress reading.
  *
  * Post-fix the guard became `if (loading && skills.length === 0)` — the
  * Loading state only renders on the FIRST fetch (when `items` is still
@@ -896,8 +893,8 @@ test('sidebar inner ScrollArea wrapper does not inflate beyond aside width (regr
  *
  * Why a single test rather than two (UI-driven vs synthetic)? UI-driven
  * coverage of the same code path is part of the sync test suite (T4); this
- * regression test isolates the guard at SkillsList.tsx:93 specifically, so a
- * UI flow would only add brittleness (button visibility / disabled state)
+ * regression test isolates the loading-with-existing-items guard specifically,
+ * so a UI flow would only add brittleness (button visibility / disabled state)
  * without strengthening the assertion against this guard.
  */
 test('skills list scroll position survives a background refetch (regression 5619bb7)', async ({
@@ -919,9 +916,9 @@ test('skills list scroll position survives a background refetch (regression 5619
   ).toBeGreaterThan(0)
 
   // Resolve the scrollable container. The wrapper around `<SkillsList />` is
-  // `<div class="flex-1 min-h-0 overflow-auto p-4">` (MainContent.tsx:598)
-  // and react-window v2 may add its own inner scroll container. Find the
-  // first descendant inside the active TabsContent panel whose
+  // `<div class="flex-1 min-h-0 overflow-auto p-4">`, and react-window v2
+  // may add its own inner scroll container. Find the first descendant inside
+  // the active TabsContent panel whose
   // `scrollHeight > clientHeight` — that's the ACTUAL scroller regardless of
   // which layer wins. Returning a unique data-attr-tag on the resolved
   // element lets us read it back deterministically after the dispatch
@@ -999,7 +996,7 @@ test('skills list scroll position survives a background refetch (regression 5619
     scrollTopAfter,
     'data-e2e-scroll-target attribute lost — the element was removed from the DOM. ' +
       'SkillsList remounted instead of staying mounted with stale data. ' +
-      'Check the `loading && skills.length === 0` guard at SkillsList.tsx:93.',
+      'Check the `loading && skills.length === 0` guard.',
   ).not.toBeNull()
   if (scrollTopAfter === null) return
   expect(

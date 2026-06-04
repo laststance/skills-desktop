@@ -286,8 +286,8 @@ describe('selectFilteredSkills', () => {
     // An orphan: source dir vanished, but cursor still has a dangling symlink
     // pointing at where the source used to live. The per-agent view must
     // surface this row so the right-click "Cleanup missing skills..." flow
-    // (PR #71) has something to act on. Hiding it would silently strand the
-    // orphan symlink in the agent dir.
+    // has something to act on. Hiding it would silently strand the orphan
+    // symlink in the agent dir.
     // Arrange
     const skill: Skill = {
       name: 'broken-skill',

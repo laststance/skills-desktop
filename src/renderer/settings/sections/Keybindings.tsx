@@ -5,7 +5,7 @@ import { KEYBINDINGS } from '@/shared/constants'
 import { SectionFrame } from './SectionFrame'
 
 /**
- * Keybindings pane — read-only list for v0.15.0.
+ * Keybindings pane — read-only list.
  *
  * The list is sourced from the canonical `KEYBINDINGS` constant in
  * `src/shared/constants.ts` so adding or renaming a menu accelerator

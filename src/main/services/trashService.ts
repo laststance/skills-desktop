@@ -168,7 +168,7 @@ type DeleteIdentity =
 
 /**
  * Build a unique trash entry name from skillName + current clock + random suffix.
- * `rand8hex` prevents same-ms collisions on fast machines (reviewer iter-2 HIGH-4).
+ * `rand8hex` prevents same-ms collisions on fast machines.
  * @param skillName - Validated skill name (no path separators)
  * @returns Entry basename safe to use under TRASH_DIR
  * @example buildEntryName('theme-generator') // '1729180800000-theme-generator-a1b2c3d4'
@@ -1081,8 +1081,6 @@ async function removeSourceBackedAgentSymlinks(
 /**
  * Source-backed path of `moveToTrash`. Walks agent dirs, removes symlinks,
  * renames the source dir into the entry, writes a v2 source-backed manifest.
- * Same lifecycle as the original v0.13.x implementation, just gated on the
- * source-existed branch in the wrapper.
  */
 async function moveSourceBackedToTrash(
   skillName: SkillName,

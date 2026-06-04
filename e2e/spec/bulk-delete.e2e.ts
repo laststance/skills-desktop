@@ -109,10 +109,10 @@ function deleteItemsFor(isolatedHome: string, skillNames: string[]) {
 }
 
 /**
- * Phase-2 spec covering the `BULK_PROGRESS_THRESHOLD` boundary in
+ * Spec covering the `BULK_PROGRESS_THRESHOLD` boundary in
  * `SKILLS_DELETE_BATCH`. The handler emits one `skills:deleteProgress` event
  * per item ONLY when the batch size meets or exceeds the threshold (10) —
- * smaller batches skip the event to avoid toast churn (see skills.ts:269).
+ * smaller batches skip the event to avoid toast churn.
  *
  * Two tests, both pre-staging dummy source-backed skills procedurally so the
  * tests don't depend on the global-setup skill catalog. Each test runs in a

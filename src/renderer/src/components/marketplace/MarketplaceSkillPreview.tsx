@@ -85,7 +85,6 @@ export const MarketplaceSkillPreview = React.memo(
 
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Back bar */}
         <div className="flex items-center justify-between px-3 py-2 shrink-0">
           <button
             type="button"
@@ -100,10 +99,8 @@ export const MarketplaceSkillPreview = React.memo(
           </span>
         </div>
 
-        {/* Separator */}
         <div className="h-px bg-border shrink-0" />
 
-        {/* Webview area */}
         <div className="flex-1 relative min-h-0">
           {isLoading && <WebviewSkeleton />}
           <webview
@@ -115,7 +112,6 @@ export const MarketplaceSkillPreview = React.memo(
           />
         </div>
 
-        {/* URL bar */}
         <div className="px-3 py-1.5 bg-background border-t border-border shrink-0">
           <span className="text-[11px] text-muted-foreground font-mono">
             {skill.url}
@@ -134,25 +130,19 @@ const WebviewSkeleton = React.memo(
   function WebviewSkeleton(): React.ReactElement {
     return (
       <div className="absolute inset-0 p-8 flex flex-col gap-5 bg-background">
-        {/* Title */}
         <div className="h-7 w-48 bg-muted animate-pulse rounded" />
-        {/* Subtitle */}
         <div className="h-4 w-36 bg-muted animate-pulse rounded" />
-        {/* Description lines */}
         <div className="flex flex-col gap-2">
           <div className="h-4 w-full bg-muted animate-pulse rounded" />
           <div className="h-4 w-4/5 bg-muted animate-pulse rounded" />
           <div className="h-4 w-3/5 bg-muted animate-pulse rounded" />
         </div>
-        {/* Stats row */}
         <div className="flex gap-6 pt-2">
           <div className="h-10 w-16 bg-muted animate-pulse rounded" />
           <div className="h-10 w-16 bg-muted animate-pulse rounded" />
           <div className="h-10 w-16 bg-muted animate-pulse rounded" />
         </div>
-        {/* Separator */}
         <div className="h-px bg-border" />
-        {/* README placeholder */}
         <div className="h-4 w-24 bg-muted animate-pulse rounded" />
         <div className="flex flex-col gap-2">
           <div className="h-4 w-full bg-muted animate-pulse rounded" />

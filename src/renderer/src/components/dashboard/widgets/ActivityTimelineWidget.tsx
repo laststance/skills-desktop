@@ -86,10 +86,9 @@ const TimelineRow = React.memo(function TimelineRow({
  *
  * Today this surface only has one data source: the last sync execution
  * (`uiSlice.syncResult.details`). A proper timeline would need main-process
- * event tracking for add/remove/sync/rename — see `docs/activity-log.md`
- * (TODO). For now the widget shows the most recent sync's per-item actions
- * so the ecosystem hook exists and the widget isn't empty when
- * `ENABLE_DASHBOARD_EXPERIMENTAL` is on.
+ * event tracking for add/remove/sync/rename. For now the widget shows the
+ * most recent sync's per-item actions so the ecosystem hook exists and the
+ * widget isn't empty when `ENABLE_DASHBOARD_EXPERIMENTAL` is on.
  */
 export const ActivityTimelineWidget = React.memo(
   function ActivityTimelineWidget(): React.ReactElement {

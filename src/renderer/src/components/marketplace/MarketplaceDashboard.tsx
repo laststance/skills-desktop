@@ -38,7 +38,6 @@ export const MarketplaceDashboard = React.memo(
       <div className="flex-1 flex flex-col p-6 gap-6 overflow-auto">
         <h2 className="text-xl font-bold text-foreground">Marketplace</h2>
 
-        {/* Stats cards */}
         <div className="flex gap-4">
           <div className="flex-1 rounded-lg bg-muted border border-border p-4 flex flex-col gap-2">
             <span className="text-xs font-medium text-muted-foreground">
@@ -58,7 +57,6 @@ export const MarketplaceDashboard = React.memo(
           </div>
         </div>
 
-        {/* Trending section */}
         <div className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-primary" />
           <h3 className="text-base font-semibold text-foreground">Trending</h3>
@@ -104,7 +102,6 @@ export const MarketplaceDashboard = React.memo(
           </div>
         )}
 
-        {/* Browse prompt */}
         <div className="flex items-center justify-center py-4">
           <p className="text-[13px] text-muted-foreground flex items-center gap-1.5">
             <Star className="h-3.5 w-3.5" />

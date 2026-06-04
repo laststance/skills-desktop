@@ -475,12 +475,6 @@ export const SkillItem = React.memo(function SkillItem({
     dispatch(selectSkill(isSelected ? null : skill))
   }, [dispatch, isSelected, skill])
 
-  // Partial-fail flash (local to the row). The parent (MainContent) decides
-  // which skills recently failed by subscribing to the thunk result and
-  // seeding a DOM-level data attribute or ref; for now, the flag is wired
-  // through a ref kept in sync with a sentinel attribute so Phase D (if any)
-  // can animate it without structural changes. Initialised off; the
-  // MainContent-level effect flips it on when a bulk op returns errors.
   const [didPartialFail, setDidPartialFail] = useState(false)
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useUnmountEffect(() => {
@@ -534,12 +528,8 @@ export const SkillItem = React.memo(function SkillItem({
             !didPartialFail &&
               isInaccessibleSkill &&
               'border-l-2 border-l-amber-400/60',
-            // Orphan accent — surfaces dangling rows that the loosened
-            // selectFilteredSkills now lets through. Mutually exclusive with
-            // isLinked/isLocalSkill by definition (no source dir → no valid
-            // symlinks and no local copy could've kept it from being marked
-            // orphan), so the order below is purely for the partial-fail
-            // override.
+            // Orphan accent — mutually exclusive with linked/local rows by
+            // definition, so the order below is purely for the partial-fail override.
             !didPartialFail &&
               skill.isOrphan &&
               'border-l-2 border-l-amber-400/60',

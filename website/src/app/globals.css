@@ -46,7 +46,6 @@
   }
 }
 
-/* Custom animations */
 @keyframes float {
   0%,
   100% {
@@ -61,7 +60,6 @@
   animation: float 3s ease-in-out infinite;
 }
 
-/* Gradient text */
 .gradient-text {
   background: linear-gradient(135deg, #22d3ee 0%, #3b82f6 50%, #8b5cf6 100%);
   -webkit-background-clip: text;
@@ -69,7 +67,6 @@
   background-clip: text;
 }
 
-/* Glass effect */
 .glass {
   background: rgba(30, 41, 59, 0.7);
   backdrop-filter: blur(12px);

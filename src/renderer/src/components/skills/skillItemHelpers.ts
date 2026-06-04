@@ -116,13 +116,10 @@ export function getSkillItemVisibility(
   return {
     // Delete is the primary cleanup action for orphans in global view —
     // sweeping the dangling row removes every agent-side symlink at once.
-    // Restored so users have an explicit way to act on what the loosened
-    // selectFilteredSkills now shows them.
     showDeleteButton: !selectedAgentId,
     // Orphan skills have no live source to symlink _to_, so the Add button
     // (which opens AddSymlinkModal / CopyToAgentsModal) would surface a flow
-    // that can only fail. Stays gated on `!isOrphan` even after the Delete
-    // and Unlink loosens.
+    // that can only fail.
     showAddButton:
       (!selectedAgentId || hasUsableSkillInSelectedAgent) &&
       !isOrphan &&

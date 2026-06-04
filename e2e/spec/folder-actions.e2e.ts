@@ -80,10 +80,8 @@ test('right-clicking an agent shows the safe folder actions above the destructiv
 
   // Assert — all four items are visible and the safe folder actions sit above
   // Cleanup/Delete on the y-axis.
-  // Folder actions render above Cleanup/Delete by design (see AgentItem.tsx
-  // comment on line 158-159) — keyboard nav (Down then Enter) lands on a
-  // safe action first. Asserting both the new and existing items pins the
-  // ordering contract.
+  // Folder actions render above Cleanup/Delete by design: keyboard nav
+  // (Down then Enter) lands on a safe action first.
   const reveal = appWindow.getByRole('menuitem', { name: 'Reveal in Finder' })
   const openTerm = appWindow.getByRole('menuitem', { name: 'Open in Terminal' })
   const cleanup = appWindow.getByRole('menuitem', {
@@ -154,11 +152,10 @@ test('Settings → Preferred terminal picker lists all 8 IDs and reveals custom 
 
   // Act — choose the 'custom' option.
   // The custom-name <input> is rendered conditionally on
-  // `settings.preferredTerminal === 'custom'` (General.tsx:163). The
-  // load-bearing assertion is that selecting 'custom' makes the input
-  // visible — we don't assert the pre-state because settings.json may be
-  // persisted into the snapshot HOME from a prior dev session, which
-  // would make a "starts hidden" precondition flaky.
+  // `settings.preferredTerminal === 'custom'`. The load-bearing assertion is
+  // that selecting 'custom' makes the input visible — we don't assert the
+  // pre-state because settings.json may be persisted into the snapshot HOME
+  // from a prior dev session.
   await picker.selectOption('custom')
 
   // Assert — the custom terminal name input becomes visible.

@@ -45,7 +45,7 @@ function statusLabel(status: CheckStatus): string {
 /**
  * About pane.
  *
- * Real surfaces (v0.15.0):
+ * Real surfaces:
  *  - App version from `__APP_VERSION__` (Vite define injecting
  *    `package.json#version`).
  *  - "Check for Updates" calls the existing `update:check` IPC and
