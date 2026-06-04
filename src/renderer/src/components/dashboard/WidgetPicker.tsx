@@ -73,6 +73,7 @@ export const WidgetPicker = React.memo(function WidgetPicker({
     availableWidgets,
     isWelcomeDismissed,
   })
+
   const previewType: WidgetType =
     activePreviewType ?? seedPreviewType ?? 'welcome'
   const previewDefinition = getWidgetDefinition(previewType)
@@ -175,9 +176,18 @@ export const WidgetPicker = React.memo(function WidgetPicker({
                     onMouseEnter={() =>
                       dispatch(setActivePreviewType(widgetDefinition.type))
                     }
-                    onFocus={() =>
+                    onFocus={() => {
+                      // Radix/browser autofocus can jump to a later row on the
+                      // open frame. Before any real preview override exists,
+                      // let only the seed row claim focus-driven preview.
+                      if (
+                        activePreviewType === null &&
+                        widgetDefinition.type !== seedPreviewType
+                      ) {
+                        return
+                      }
                       dispatch(setActivePreviewType(widgetDefinition.type))
-                    }
+                    }}
                     aria-current={isActive ? 'true' : undefined}
                     className={cn(
                       `group w-full flex items-center gap-2.5 p-2 rounded-lg border
