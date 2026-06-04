@@ -116,8 +116,10 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
   return (
     <div
       // Sticky below the search/filter row; matches the border styling of
-      // MainContent's neighbouring bars for visual continuity.
-      className="px-4 py-2 border-b border-border bg-primary/5 flex items-center gap-3 flex-wrap"
+      // MainContent's neighbouring bars for visual continuity. `gap-y-2` gives
+      // the action cluster breathing room on the rare second row at narrow
+      // widths; `gap-x-3` keeps the count↔cluster horizontal rhythm.
+      className="px-4 py-2 border-b border-border bg-primary/5 flex items-center gap-x-3 gap-y-2 flex-wrap"
       // `role="group"` rather than `role="toolbar"`: the WAI-ARIA toolbar
       // pattern requires roving-tabindex arrow-key navigation between its
       // children, which we do not implement. `group` keeps the labelled
@@ -164,65 +166,71 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
         </span>
       )}
 
-      <div className="flex-1" />
-
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleSelectAllVisible}
-        disabled={isBusy}
-        className="shrink-0"
-      >
-        Select all visible
-      </Button>
-
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleClear}
-        disabled={isBusy}
-        className="shrink-0"
-      >
-        <X className="h-3 w-3 mr-1" />
-        Clear
-      </Button>
-
-      {/* Non-destructive bulk copy — global view only. The outline variant +
-          Copy icon visually separates it from the destructive Delete (AC#4). */}
-      {selectedAgentId === null && onCopyAction && (
+      {/* Action cluster — kept as one `ml-auto` right-aligned group so that
+          when the count + buttons exceed the panel width the whole cluster
+          wraps to a second row as a cohesive, right-aligned block, rather than
+          the toolbar's own flex-wrap orphaning the trailing primary button on a
+          lone left-aligned row. Also absorbs agent-view's long "Unlink from
+          {agent}" label without disturbing the count on the left. */}
+      <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
-          onClick={onCopyAction}
+          onClick={handleSelectAllVisible}
           disabled={isBusy}
-          aria-label="Copy selected skills to agents"
           className="shrink-0"
         >
-          <Copy className="h-4 w-4" />
-          Copy to...
+          Select all visible
         </Button>
-      )}
 
-      <Button
-        variant={toolbarState.isDestructive ? 'destructive' : 'default'}
-        size="sm"
-        onClick={onPrimaryAction}
-        disabled={toolbarState.isPrimaryDisabled || isBusy}
-        aria-label={toolbarState.primaryAriaLabel}
-        className={cn(
-          'shrink-0 gap-1.5',
-          toolbarState.isDestructive && 'font-medium',
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleClear}
+          disabled={isBusy}
+          className="shrink-0"
+        >
+          <X className="h-3 w-3 mr-1" />
+          Clear
+        </Button>
+
+        {/* Non-destructive bulk copy — global view only. The outline variant +
+            Copy icon visually separates it from the destructive Delete (AC#4). */}
+        {selectedAgentId === null && onCopyAction && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCopyAction}
+            disabled={isBusy}
+            aria-label="Copy selected skills to agents"
+            className="shrink-0"
+          >
+            <Copy className="h-4 w-4" />
+            Copy to...
+          </Button>
         )}
-      >
-        {isBusy ? (
-          <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-        ) : toolbarState.isDestructive ? (
-          <Trash2 className="h-4 w-4" />
-        ) : (
-          <Unlink className="h-4 w-4" />
-        )}
-        {toolbarState.primaryLabel}
-      </Button>
+
+        <Button
+          variant={toolbarState.isDestructive ? 'destructive' : 'default'}
+          size="sm"
+          onClick={onPrimaryAction}
+          disabled={toolbarState.isPrimaryDisabled || isBusy}
+          aria-label={toolbarState.primaryAriaLabel}
+          className={cn(
+            'shrink-0 gap-1.5',
+            toolbarState.isDestructive && 'font-medium',
+          )}
+        >
+          {isBusy ? (
+            <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+          ) : toolbarState.isDestructive ? (
+            <Trash2 className="h-4 w-4" />
+          ) : (
+            <Unlink className="h-4 w-4" />
+          )}
+          {toolbarState.primaryLabel}
+        </Button>
+      </div>
     </div>
   )
 })
