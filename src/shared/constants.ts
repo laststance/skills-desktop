@@ -817,6 +817,16 @@ export const MACOS_TRAFFIC_LIGHT_POSITION_PX = { x: 16, y: 16 } as const
 export const UNDO_WINDOW_MS = 15_000
 
 /**
+ * How long a "Copied" affordance stays lit after a successful clipboard write
+ * (ms). Shared by every copy-to-clipboard surface (skill Location-path rows,
+ * marketplace preview URL) so the confirmation flash has one duration and a new
+ * copy button can grep for the contract instead of re-picking a timeout.
+ * @example
+ * window.setTimeout(() => setCopied(false), COPIED_FEEDBACK_DURATION_MS)
+ */
+export const COPIED_FEEDBACK_DURATION_MS = 1600
+
+/**
  * Batch size at which bulk ops surface a live per-item progress counter in the
  * toolbar. Below this, the final `.fulfilled` toast is a better UX than a
  * flashing "k of n". Main-process `emitProgress` and renderer-side display

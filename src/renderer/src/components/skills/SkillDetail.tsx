@@ -10,14 +10,12 @@ import { cn } from '@/renderer/src/lib/utils'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
 import type { LocationViewModel } from '@/renderer/src/utils/getLocationViewModel'
 import { getLocationViewModel } from '@/renderer/src/utils/getLocationViewModel'
+import { COPIED_FEEDBACK_DURATION_MS } from '@/shared/constants'
 import type { Settings } from '@/shared/settings'
 import type { Skill, SymlinkInfo } from '@/shared/types'
 
 import { CodePreview } from './CodePreview'
 import { SourceLink } from './SourceLink'
-
-// Keep copied feedback visible long enough to be noticed without lingering.
-const COPIED_FEEDBACK_DURATION_MS = 1600
 
 interface SkillDetailProps {
   skill: Skill
