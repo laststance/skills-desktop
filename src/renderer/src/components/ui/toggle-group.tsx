@@ -12,10 +12,10 @@ import { cn } from '@/renderer/src/lib/utils'
  * be dead code.
  *
  * Tuning notes:
- * - Default size is `h-11` (44px) so it clears the Apple HIG / WCAG 2.2 AA
- *   tap-target floor without callers having to remember to bump `size`. The
- *   `sm` variant intentionally stays at 32px — it's a "compact" opt-in for
- *   inspector toolbars where the user has explicitly chosen density.
+ * - Refined desktop scale parallels `button.tsx`: default `h-8` (32px),
+ *   `sm` (28px), `lg` (36px). This is a pointer-driven app, so the visual
+ *   height is the hit target — no 44px touch inflation. Glyph-only items
+ *   still clear the 24px WCAG 2.5.8 AA floor via `min-w`.
  * - Focus ring is `ring-2 ring-offset-2`. Single-pixel rings disappear into
  *   the input border on `outline` variants when the theme preset has low
  *   chroma (neutral-light); the offset gives the ring its own breathing room
@@ -26,7 +26,7 @@ import { cn } from '@/renderer/src/lib/utils'
  *   width change) so there is no layout shift when toggling.
  */
 const toggleVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors hover:bg-muted hover:text-muted-foreground disabled:pointer-events-none disabled:opacity-50 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+  'inline-flex items-center justify-center gap-2 rounded-md text-[13px] font-medium transition-colors hover:bg-muted hover:text-muted-foreground disabled:pointer-events-none disabled:opacity-50 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
   {
     variants: {
       variant: {
@@ -35,9 +35,9 @@ const toggleVariants = cva(
           'border border-input bg-transparent shadow-sm hover:bg-accent hover:text-accent-foreground data-[state=on]:border-primary',
       },
       size: {
-        default: 'h-11 px-3 min-w-11',
-        sm: 'h-8 px-1.5 min-w-8',
-        lg: 'h-12 px-3.5 min-w-12',
+        default: 'h-8 px-3 min-w-8',
+        sm: 'h-7 px-1.5 min-w-7',
+        lg: 'h-9 px-3.5 min-w-9',
       },
     },
     defaultVariants: {
