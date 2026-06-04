@@ -1165,7 +1165,18 @@ export function registerSkillsHandlers(): void {
           await fs.lstat(destPath)
           failures.push({ agentId, error: 'Already exists' })
           continue
-        } catch {}
+        } catch (error) {
+          if (errorCode(error) !== 'ENOENT') {
+            failures.push({
+              agentId,
+              error: extractErrorMessage(
+                error,
+                'Cannot verify destination path',
+              ),
+            })
+            continue
+          }
+        }
 
         if (isSymlink) {
           await fs.symlink(symlinkTarget, destPath)
