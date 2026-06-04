@@ -22,7 +22,7 @@ interface TargetAgent {
  * scanner derives skill identity from `name:` when present and otherwise falls
  * back to the folder basename (see bulk-delete.e2e.ts `preStageDummySkills`,
  * whose `# ${name}` skills are identified by basename). The bulk-copy modal
- * selects skills by basename via `selectSelectedSkillObjects`, so the heading
+ * selects skills by basename via `selectSelectedVisibleSkillObjects`, so the heading
  * form keeps identity == basename while still giving each skill distinct bytes
  * to assert the *right* source landed at each destination.
  *
@@ -100,7 +100,7 @@ async function pickDistinctTargetAgents(
 /**
  * Read which staged skills the renderer store now knows about by name. Used as
  * a boundary assertion after `refreshSkillsState`: if the scanner ever names a
- * staged skill differently from its basename, `selectSelectedSkillObjects`
+ * staged skill differently from its basename, `selectSelectedVisibleSkillObjects`
  * resolves to `[]`, the modal's Copy button stays disabled, and the UI click
  * would time out with an opaque failure. Asserting presence up front converts
  * that into a clear "staged skill missing from store" at the setup boundary.
@@ -145,7 +145,7 @@ test('the bulk Copy-to-Agents modal copies every selected skill into every ticke
   isolatedHome,
 }) => {
   // Arrange — stage two fresh source skills, then make the renderer aware of
-  // them so the modal's `selectSelectedSkillObjects` can resolve their paths.
+  // them so the modal's `selectSelectedVisibleSkillObjects` can resolve their paths.
   const sourceDir = join(isolatedHome, '.agents', 'skills')
   const skillNames = ['bulk-copy-alpha', 'bulk-copy-beta']
   preStageSourceSkills(isolatedHome, skillNames)

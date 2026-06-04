@@ -684,6 +684,32 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
     expect(inFlight).toBe(true)
     expect(store.getState().skills.bulkCopying).toBe(false)
   })
+
+  it('leaves the list selection intact after copying so the same rows can be copied elsewhere', async () => {
+    // Arrange — two skills ticked; copy is non-destructive
+    mockCopyToAgents.mockResolvedValue({
+      success: true,
+      copied: 1,
+      failures: [],
+    })
+    const store = await createTestStore()
+    const { bulkCopyToAgents, selectAll } = await import('./skillsSlice')
+    store.dispatch(selectAll(['alpha' as SkillName, 'beta' as SkillName]))
+
+    // Act
+    await store.dispatch(
+      bulkCopyToAgents({
+        items: [item('alpha'), item('beta')],
+        agentIds: ['codex' as AgentId],
+      }),
+    )
+
+    // Assert — selection survives (unlike deleteSelectedSkills, which clears it)
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      'alpha',
+      'beta',
+    ])
+  })
 })
 
 describe('skillsSlice bulk selection reducers (v2.4)', () => {

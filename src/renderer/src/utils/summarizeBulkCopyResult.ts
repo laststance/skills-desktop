@@ -19,19 +19,23 @@ export interface BulkCopyToastContent {
  * fulfilment.
  *
  * @param perSkill - one outcome per selected skill (`BulkCopyToAgentsResult.perSkill`)
+ * @param targetAgentCount - how many agents the user ticked; the authoritative
+ *   denominator for the success title, sourced from the modal's checked agents
+ *   rather than inferred from any single skill's `copied`
  * @returns
  * - every target copied → `success`, lists the copied skill names so each is recognizable later
  * - nothing copied at all → `error`, lists the failures
  * - mixed → `warning`, reports the fully-copied count and the per-target failures
  * @example
- * summarizeBulkCopyResult([{ skillName: 'a', copied: 2, failures: [] }])
+ * summarizeBulkCopyResult([{ skillName: 'a', copied: 2, failures: [] }], 2)
  * // => { tone: 'success', title: 'Copied 1 skill to 2 agents', description: 'a' }
  * @example
- * summarizeBulkCopyResult([{ skillName: 'a', copied: 1, failures: [{ agentId: 'codex', error: 'Already exists' }] }])
+ * summarizeBulkCopyResult([{ skillName: 'a', copied: 1, failures: [{ agentId: 'codex', error: 'Already exists' }] }], 2)
  * // => { tone: 'warning', title: 'Copied 0 of 1 skill, 1 copy failed', description: 'a → codex: Already exists' }
  */
 export function summarizeBulkCopyResult(
   perSkill: BulkCopyToAgentsResult['perSkill'],
+  targetAgentCount: number,
 ): BulkCopyToastContent {
   // Defensive: callers guard against this, but never fabricate a "success".
   if (perSkill.length === 0) {
@@ -75,13 +79,13 @@ export function summarizeBulkCopyResult(
     }
   }
 
-  // Every selected skill copied to every chosen agent. With zero failures each
-  // skill targeted the same agents, so any outcome's `copied` is the agent count.
-  const agentsPerSkill = perSkill[0].copied
-  const agentWord = agentsPerSkill === 1 ? 'agent' : 'agents'
+  // Every selected skill copied to every chosen agent. Use the authoritative
+  // ticked-agent count for the title rather than inferring it from a skill's
+  // `copied`, so the wording can't drift if the IPC contract ever changes.
+  const agentWord = targetAgentCount === 1 ? 'agent' : 'agents'
   return {
     tone: 'success',
-    title: `Copied ${skillCount} ${skillWord} to ${agentsPerSkill} ${agentWord}`,
+    title: `Copied ${skillCount} ${skillWord} to ${targetAgentCount} ${agentWord}`,
     description: perSkill.map((outcome) => outcome.skillName).join(', '),
   }
 }

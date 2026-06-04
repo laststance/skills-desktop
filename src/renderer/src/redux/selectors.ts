@@ -639,14 +639,19 @@ export const selectSelectedSkillNamesSet = createSelector(
 )
 
 /**
- * The full `Skill` objects for the currently ticked names. Resolves
- * `selectedSkillNames` against `state.skills.items`, dropping any name with no
- * live skill (e.g. removed by a concurrent refresh). Feeds the bulk copy modal,
- * which needs each skill's `path` as the copy source.
- * @returns Skill[] in `items` order
+ * The full `Skill` objects for the ticked names that are ALSO currently visible
+ * (pass the active search/repo filter). Mirrors `selectSelectedVisibleNames`
+ * used by bulk delete/unlink, so bulk copy honors the toolbar's "+K hidden by
+ * filter — will not be affected" promise instead of silently copying hidden
+ * selections. Any ticked name with no live skill (removed by a concurrent
+ * refresh) is dropped too. Feeds the bulk copy modal, which needs each skill's
+ * `path` as the copy source.
+ * @returns Skill[] in `items` order, restricted to the visible-and-selected set
  */
-export const selectSelectedSkillObjects = createSelector(
-  [selectSkillsItems, selectSelectedSkillNamesSet],
-  (items, selectedNames): Skill[] =>
-    items.filter((skill) => selectedNames.has(skill.name)),
+export const selectSelectedVisibleSkillObjects = createSelector(
+  [selectSkillsItems, selectSelectedVisibleNames],
+  (items, visibleSelectedNames): Skill[] => {
+    const visibleSelectedSet = new Set(visibleSelectedNames)
+    return items.filter((skill) => visibleSelectedSet.has(skill.name))
+  },
 )

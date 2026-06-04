@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/renderer/src/components/ui/dialog'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
-import { selectSelectedSkillObjects } from '@/renderer/src/redux/selectors'
+import { selectSelectedVisibleSkillObjects } from '@/renderer/src/redux/selectors'
 import {
   bulkCopyToAgents,
   selectBulkCopying,
@@ -30,7 +30,7 @@ import { AgentSelectionOption } from './AgentSelectionOption'
  * Modal for copying every currently-selected skill to a chosen set of agents.
  *
  * The bulk analogue of `CopyToAgentsModal`: instead of one `skillToCopy`, it
- * reads the whole list selection (`selectSelectedSkillObjects`) and fans the
+ * reads the visible list selection (`selectSelectedVisibleSkillObjects`) and fans the
  * `copyToAgents` IPC out across it via the `bulkCopyToAgents` thunk. Global
  * view only — each skill's source is its own `skill.path` (mirrors the
  * AddSymlinkModal "copy files" path). Non-destructive, so the selection is left
@@ -45,7 +45,7 @@ export const BulkCopyToAgentsModal = React.memo(
   function BulkCopyToAgentsModal(): React.ReactElement {
     const dispatch = useAppDispatch()
     const open = useAppSelector(selectBulkCopyModalOpen)
-    const selectedSkills = useAppSelector(selectSelectedSkillObjects)
+    const selectedSkills = useAppSelector(selectSelectedVisibleSkillObjects)
     const { items: agents } = useAppSelector((state) => state.agents)
     const bulkCopying = useAppSelector(selectBulkCopying)
 
@@ -82,6 +82,11 @@ export const BulkCopyToAgentsModal = React.memo(
     )
 
     const handleCopy = useCallback(async (): Promise<void> => {
+      // Re-entrancy guard: the button is disabled while `bulkCopying`, but a
+      // fast double-click can fire two handlers before React re-renders the
+      // disabled state. Bail here so a single click never dispatches twice and
+      // races itself in main (lstat-then-write would see its own half-write).
+      if (bulkCopying) return
       if (selectedSkills.length === 0 || checkedAgentIds.length === 0) return
       const items = selectedSkills.map((skill) => ({
         skillName: skill.name,
@@ -91,7 +96,10 @@ export const BulkCopyToAgentsModal = React.memo(
         bulkCopyToAgents({ items, agentIds: checkedAgentIds }),
       )
       if (bulkCopyToAgents.fulfilled.match(result)) {
-        const content = summarizeBulkCopyResult(result.payload.perSkill)
+        const content = summarizeBulkCopyResult(
+          result.payload.perSkill,
+          checkedAgentIds.length,
+        )
         toast[content.tone](content.title, { description: content.description })
       } else {
         toast.error('Failed to copy skills', {
@@ -104,7 +112,7 @@ export const BulkCopyToAgentsModal = React.memo(
       // Selection is preserved (non-destructive); only the local checks reset.
       setCheckedAgentIds([])
       dispatch(setBulkCopyModalOpen(false))
-    }, [dispatch, selectedSkills, checkedAgentIds])
+    }, [dispatch, selectedSkills, checkedAgentIds, bulkCopying])
 
     const skillCount = selectedSkills.length
     const skillWord = skillCount === 1 ? 'skill' : 'skills'

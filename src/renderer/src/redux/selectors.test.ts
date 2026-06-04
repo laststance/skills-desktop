@@ -24,7 +24,7 @@ import {
   selectRepoFacetOptions,
   selectSelectedCount,
   selectSelectedSkillNamesSet,
-  selectSelectedSkillObjects,
+  selectSelectedVisibleSkillObjects,
   selectSelectedVisibleCount,
   selectSelectedVisibleNames,
   selectSourceFilterViewModel,
@@ -1308,9 +1308,9 @@ describe('selectSelectedSkillNamesSet', () => {
   })
 })
 
-describe('selectSelectedSkillObjects', () => {
+describe('selectSelectedVisibleSkillObjects', () => {
   it('resolves the ticked names to their full skill objects so the bulk-copy modal can read each path', () => {
-    // Arrange — three live skills, two of them ticked
+    // Arrange — three live skills, two of them ticked, no filter active
     const skills = [
       makeSkill('alpha', 'claude-code'),
       makeSkill('beta', 'claude-code'),
@@ -1322,7 +1322,7 @@ describe('selectSelectedSkillObjects', () => {
     })
 
     // Act
-    const result = selectSelectedSkillObjects(state as never)
+    const result = selectSelectedVisibleSkillObjects(state as never)
 
     // Assert — kept in items order (alpha, gamma), each a full Skill with a path
     expect(result.map((skill) => skill.name)).toEqual(['alpha', 'gamma'])
@@ -1338,9 +1338,29 @@ describe('selectSelectedSkillObjects', () => {
     })
 
     // Act
-    const result = selectSelectedSkillObjects(state as never)
+    const result = selectSelectedVisibleSkillObjects(state as never)
 
     // Assert
+    expect(result.map((skill) => skill.name)).toEqual(['alpha'])
+  })
+
+  it('excludes ticked skills hidden by the active filter so bulk copy honors the "will not be affected" promise', () => {
+    // Arrange — alpha and beta both ticked, but a search query hides beta
+    const skills = [
+      makeSkill('alpha', 'claude-code'),
+      makeSkill('beta', 'claude-code'),
+    ]
+    const state = buildState({
+      skills,
+      selectedSkillNames: ['alpha', 'beta'],
+      searchQuery: 'alpha',
+    })
+
+    // Act
+    const result = selectSelectedVisibleSkillObjects(state as never)
+
+    // Assert — only the visible-and-ticked skill survives; hidden beta is dropped,
+    // matching the bulk delete/unlink behavior the toolbar badge advertises
     expect(result.map((skill) => skill.name)).toEqual(['alpha'])
   })
 })
