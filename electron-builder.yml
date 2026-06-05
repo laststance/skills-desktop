@@ -37,6 +37,7 @@ mac:
   gatekeeperAssess: false
 
 dmg:
+  sign: true
   artifactName: '${name}-${version}-${arch}.${ext}'
 
 publish:
