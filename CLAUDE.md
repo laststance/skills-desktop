@@ -26,6 +26,15 @@ APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 
 Without `APPLE_KEYCHAIN_PROFILE`: signing succeeds but notarization fails → Gatekeeper blocks the app.
 
+## Skill Execution Contract
+
+When a user explicitly invokes a skill, treat the skill document as the
+controlling workflow for that turn. Do not narrow the task to only the literal
+wording after the skill reference when the skill defines a broader end-to-end
+procedure. Execute the skill's required phases unless the user explicitly limits
+scope, a step is impossible, or continuing would be unsafe. If stopping early,
+state which skill step is being skipped and why.
+
 ## Gotchas
 
 - **`*.browser.test.tsx`** runs in the Chromium lane via vitest browser mode. Vitest 4 projects need `dedupe + optimizeDeps` duplicated inline or React context breaks across files
