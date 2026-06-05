@@ -38,8 +38,7 @@ export function applyUpdaterPreferences(
  */
 export function initAutoUpdater(): void {
   // Seed the updater from the persisted user preference. The default keeps
-  // autoDownload off (manual confirm-via-UI flow) until the user opts in
-  // via Settings → Auto Updates.
+  // autoDownload off, preserving the manual confirm-via-UI flow.
   applyUpdaterPreferences(getSettings())
 
   autoUpdater.on('checking-for-update', () => {
