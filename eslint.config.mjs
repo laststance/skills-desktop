@@ -109,6 +109,8 @@ export default defineConfig([
       'storybook-static/**',
       'scripts/**',
       'website/**',
+      // Agent tooling (Claude Code skills), not app source — keep out of linting.
+      '.claude/**',
     ],
   },
   // React "You Might Not Need an Effect" rules (explicit instead of configs.recommended)
