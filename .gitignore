@@ -71,3 +71,11 @@ playwright/.cache/
 .claude/goal.json
 .claude/goal-notes.md
 .gbrain-source
+
+# Track this repo's Claude Code project skills, overriding the user-global
+# ~/.gitignore_global rule that drops all of .claude/. Order matters: un-ignore
+# the dir so git descends into it, re-ignore its contents (keeps goal.json etc.
+# out), then allow only .claude/skills/ back in.
+!.claude/
+.claude/*
+!.claude/skills/
