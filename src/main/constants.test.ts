@@ -84,7 +84,7 @@ describe('SHARED_AGENT_PATHS', () => {
     expect(isGuarded).toBe(true)
   })
 
-  it('guards ~/.config/agents/skills so deleting amp or kimi-cli cannot wipe the dir they share', () => {
+  it('guards ~/.config/agents/skills so deleting amp or replit cannot wipe the dir they share', () => {
     // Arrange
     const sharedConfigPath = join(homedir(), '.config', 'agents', 'skills')
 
@@ -112,21 +112,36 @@ describe('SHARED_AGENT_PATHS', () => {
     expect(codexIsGuarded).toBe(false)
   })
 
-  it('guards the path that amp and kimi-cli both point at so neither delete destroys the other’s skills', () => {
-    // amp and kimi-cli are the two agents whose scanDir resolves to the
+  it('guards the path that amp and replit both point at so neither delete destroys the other’s skills', () => {
+    // amp and replit are the two agents whose scanDir resolves to the
     // same ~/.config/agents/skills directory; both must be guarded so a
     // delete on either cannot wipe the directory shared with the other.
+    // (Kimi left this shared dir in CLI 1.5.10 — see the dedicated-dir test.)
     // Arrange
     const amp = AGENTS.find((a) => a.id === 'amp')!
-    const kimiCli = AGENTS.find((a) => a.id === 'kimi-cli')!
+    const replit = AGENTS.find((a) => a.id === 'replit')!
 
     // Act
     const ampIsGuarded = SHARED_AGENT_PATHS.has(amp.path)
-    const kimiCliIsGuarded = SHARED_AGENT_PATHS.has(kimiCli.path)
+    const replitIsGuarded = SHARED_AGENT_PATHS.has(replit.path)
 
     // Assert
     expect(ampIsGuarded).toBe(true)
-    expect(kimiCliIsGuarded).toBe(true)
+    expect(replitIsGuarded).toBe(true)
+  })
+
+  it('lets Kimi (migrated to its own .kimi dir in CLI 1.5.10) be deleted without tripping the shared-path guard', () => {
+    // Kimi moved off the shared ~/.config/agents/skills dir to its own
+    // ~/.kimi/skills (scanDir '.kimi'), so its dedicated path is no longer
+    // shared and a delete on Kimi cannot wipe another agent's skills.
+    // Arrange
+    const kimiCli = AGENTS.find((a) => a.id === 'kimi-cli')!
+
+    // Act
+    const kimiCliIsGuarded = SHARED_AGENT_PATHS.has(kimiCli.path)
+
+    // Assert
+    expect(kimiCliIsGuarded).toBe(false)
   })
 })
 

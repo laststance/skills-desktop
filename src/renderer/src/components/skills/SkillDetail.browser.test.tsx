@@ -30,7 +30,7 @@ const OVERFLOW_AGENT_ROWS = [
   { id: 'opencode', name: 'OpenCode' },
   { id: 'github-copilot', name: 'GitHub Copilot' },
   { id: 'cline', name: 'Cline' },
-  { id: 'windsurf', name: 'Windsurf' },
+  { id: 'windsurf', name: 'Devin Desktop' },
   { id: 'junie', name: 'Junie' },
   { id: 'antigravity', name: 'Antigravity' },
   { id: 'kiro-cli', name: 'Kiro CLI' },

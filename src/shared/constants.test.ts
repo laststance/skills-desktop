@@ -56,7 +56,6 @@ describe('AGENT_DEFINITIONS', () => {
     const cline = AGENT_DEFINITIONS.find((a) => a.id === 'cline')
     const warp = AGENT_DEFINITIONS.find((a) => a.id === 'warp')
     const amp = AGENT_DEFINITIONS.find((a) => a.id === 'amp')
-    const kimiCli = AGENT_DEFINITIONS.find((a) => a.id === 'kimi-cli')
     const opencode = AGENT_DEFINITIONS.find((a) => a.id === 'opencode')
     const deepAgents = AGENT_DEFINITIONS.find((a) => a.id === 'deepagents')
     const replit = AGENT_DEFINITIONS.find((a) => a.id === 'replit')
@@ -65,21 +64,24 @@ describe('AGENT_DEFINITIONS', () => {
     expect(cline?.installDir).toBe('.agents')
     expect(warp?.installDir).toBe('.agents')
     expect(amp?.installDir).toBe('.config/agents')
-    expect(kimiCli?.installDir).toBe('.config/agents')
     expect(opencode?.installDir).toBe('.config/opencode')
     expect(deepAgents?.installDir).toBe('.deepagents/agent')
     expect(replit?.installDir).toBe('.config/agents')
   })
 
-  // Regression guard for the v0.13.0 cascade. Cline, Warp, and Dexto's
-  // installDir points at the universal source; without a divergent
-  // scanDir, the scanner would surface every source skill as their
-  // "local skills".
-  it('does not surface the whole universal source as Cline, Warp, or Dexto local skills', () => {
+  // Regression guard for the v0.13.0 cascade. Every agent whose installDir
+  // points at the universal source (~/.agents/skills) must declare a
+  // divergent scanDir; otherwise the scanner surfaces every source skill as
+  // that agent's "local skills". Kimi (migrated in CLI 1.5.10), Loaf, and Zed
+  // joined Cline/Warp/Dexto in this universal-source group.
+  it('does not surface the whole universal source as Cline, Warp, Dexto, Kimi, Loaf, or Zed local skills', () => {
     // Arrange / Act
     const cline = AGENT_DEFINITIONS.find((a) => a.id === 'cline')
     const warp = AGENT_DEFINITIONS.find((a) => a.id === 'warp')
     const dexto = AGENT_DEFINITIONS.find((a) => a.id === 'dexto')
+    const kimiCli = AGENT_DEFINITIONS.find((a) => a.id === 'kimi-cli')
+    const loaf = AGENT_DEFINITIONS.find((a) => a.id === 'loaf')
+    const zed = AGENT_DEFINITIONS.find((a) => a.id === 'zed')
 
     // Assert
     expect(cline?.installDir).toBe('.agents')
@@ -88,6 +90,12 @@ describe('AGENT_DEFINITIONS', () => {
     expect(warp?.scanDir).toBe('.warp')
     expect(dexto?.installDir).toBe('.agents')
     expect(dexto?.scanDir).toBe('.dexto')
+    expect(kimiCli?.installDir).toBe('.agents')
+    expect(kimiCli?.scanDir).toBe('.kimi')
+    expect(loaf?.installDir).toBe('.agents')
+    expect(loaf?.scanDir).toBe('.loaf')
+    expect(zed?.installDir).toBe('.agents')
+    expect(zed?.scanDir).toBe('.zed')
   })
 
   it('exposes every community agent added in CLI v1.5.5', () => {
@@ -105,6 +113,38 @@ describe('AGENT_DEFINITIONS', () => {
     expect(ids).toContain('rovodev')
     expect(ids).toContain('tabnine-cli')
   })
+
+  it('exposes every community agent added in CLI v1.5.10', () => {
+    // Act
+    const ids = AGENT_DEFINITIONS.map((a) => a.id)
+    // Assert
+    expect(ids).toContain('antigravity-cli')
+    expect(ids).toContain('astrbot')
+    expect(ids).toContain('autohand-code')
+    expect(ids).toContain('inference-sh')
+    expect(ids).toContain('jazz')
+    expect(ids).toContain('lingma')
+    expect(ids).toContain('loaf')
+    expect(ids).toContain('moxby')
+    expect(ids).toContain('ona')
+    expect(ids).toContain('qoder-cn')
+    expect(ids).toContain('reasonix')
+    expect(ids).toContain('terramind')
+    expect(ids).toContain('tinycloud')
+    expect(ids).toContain('zed')
+  })
+
+  it('maps Kimi internal id to the renamed kimi-code-cli CLI flag (1.5.10 rename)', () => {
+    // The CLI renamed the --agent value to 'kimi-code-cli' and moved it to the
+    // universal source. Internal id stays 'kimi-cli' so persisted Redux state
+    // survives; only the cliId tracks upstream.
+    // Arrange / Act
+    const kimiCli = AGENT_DEFINITIONS.find((a) => a.id === 'kimi-cli')
+    // Assert
+    expect(kimiCli?.cliId).toBe('kimi-code-cli')
+    expect(kimiCli?.installDir).toBe('.agents')
+    expect(kimiCli?.scanDir).toBe('.kimi')
+  })
 })
 
 describe('UNIVERSAL_AGENT_IDS', () => {
@@ -117,10 +157,11 @@ describe('UNIVERSAL_AGENT_IDS', () => {
     }
   })
 
-  it('treats the 13 shared-source agents as Universal and excludes Replit', () => {
+  it('treats the 16 shared-source agents as Universal and excludes Replit', () => {
     // Arrange / Act / Assert
     expect(UNIVERSAL_AGENT_IDS).toContain('amp')
     expect(UNIVERSAL_AGENT_IDS).toContain('antigravity')
+    expect(UNIVERSAL_AGENT_IDS).toContain('antigravity-cli')
     expect(UNIVERSAL_AGENT_IDS).toContain('cline')
     expect(UNIVERSAL_AGENT_IDS).toContain('codex')
     expect(UNIVERSAL_AGENT_IDS).toContain('cursor')
@@ -130,8 +171,10 @@ describe('UNIVERSAL_AGENT_IDS', () => {
     expect(UNIVERSAL_AGENT_IDS).toContain('gemini-cli')
     expect(UNIVERSAL_AGENT_IDS).toContain('github-copilot')
     expect(UNIVERSAL_AGENT_IDS).toContain('kimi-cli')
+    expect(UNIVERSAL_AGENT_IDS).toContain('loaf')
     expect(UNIVERSAL_AGENT_IDS).toContain('opencode')
     expect(UNIVERSAL_AGENT_IDS).toContain('warp')
+    expect(UNIVERSAL_AGENT_IDS).toContain('zed')
     expect(UNIVERSAL_AGENT_IDS).not.toContain('replit')
   })
 })

@@ -28,7 +28,7 @@ export const AGENTS = AGENT_DEFINITIONS.map((agent) => ({
  * Paths where a "delete everything under this agent" op would destroy data
  * that belongs to more than just that agent — either the Universal source
  * itself, or a directory that multiple agent rows point at on disk
- * (e.g. `~/.config/agents/skills`, shared by amp/kimi-cli/replit).
+ * (e.g. `~/.config/agents/skills`, shared by amp/replit).
  *
  * Mental model: each agent has its OWN dedicated skills dir (`AGENTS.path`,
  * derived from `scanDir`) AND additionally reads from the universal source

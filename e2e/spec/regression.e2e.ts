@@ -107,7 +107,7 @@ function filesystemIdentityForPath(path: string): E2EFilesystemIdentity {
  *    scanner reads each agent's own home dir, not the universal source.
  *
  * 3. IRON RULE multi-agent path collision — `SHARED_AGENT_PATHS` adds any
- *    `agent.path` shared by ≥2 agent definitions (amp/kimi-cli/replit all
+ *    `agent.path` shared by ≥2 agent definitions (amp/replit both
  *    resolve to `.config/agents/skills`). `isSharedAgentPath` stage 1 catches
  *    this without realpath, distinct from the symlink-alias path covered in
  *    `unlink-agent.e2e.ts` Test 3 (stages 2/3).
@@ -352,7 +352,7 @@ test('refuses to delete every skill from a directory shared by multiple agents (
   isolatedHome,
 }) => {
   // Arrange — pre-stage the shared scanDir as a real directory with a sentinel
-  // entry. amp, kimi-cli, replit all resolve to this path, so SHARED_AGENT_PATHS
+  // entry. amp, replit both resolve to this path, so SHARED_AGENT_PATHS
   // includes it via the multi-agent collision pass in main/constants.ts.
   // No symlinking required: stage 1 (`SHARED_AGENT_PATHS.has(resolved)`) of
   // `isSharedAgentPath` short-circuits before any realpath fallback runs.

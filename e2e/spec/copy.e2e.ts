@@ -359,7 +359,7 @@ test('copying to one occupied and one free agent skips the occupied one and stil
   // to AGENT_DEFINITIONS by name; the contract being verified is the
   // collision *policy*, not the survival of any particular agent in the
   // catalog. Filtering on `seenPaths` also sidesteps the IRON RULE shared
-  // scanDirs (amp / kimi-cli / replit on .config/agents/skills) — picking
+  // scanDirs (amp / replit on .config/agents/skills) — picking
   // two agents that share a path would let the second mkdirSync see the
   // first's collision and break the asymmetric setup.
   const agentSelection = await getStoreState(appWindow, (state) => {
