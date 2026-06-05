@@ -54,11 +54,11 @@ function preStageSourceSkills(isolatedHome: string, names: string[]): void {
 /**
  * Pick `count` distinct-path agents that can serve as bulk-copy targets.
  *
- * Excludes the universal source dir itself — the 13 universal agents share
+ * Excludes the universal source dir itself — the 16 universal agents share
  * `~/.agents/skills`, so copying a source skill "into" one of them resolves to
  * `<sourceDir>/<skill>` (the source) and the handler reports `Already exists`
  * (skills.ts:1158-1166). Dedups by path so IRON-RULE shared scan dirs (amp /
- * kimi-cli / replit) cannot let one tick write into another target's space. No
+ * replit) cannot let one tick write into another target's space. No
  * `exists` filter: the handler `mkdir -p`s the destination (skills.ts:1161), so
  * a not-installed agent is still a valid, faithful target.
  *

@@ -290,9 +290,13 @@ export const AGENT_DEFINITIONS = [
     scanDir: '.config/goose',
   },
   {
+    // Display renamed to Devin Desktop (Windsurf rebrand, Cognition 2026-06-02).
+    // id/cliId/dirs stay 'windsurf': upstream CLI has NOT renamed the agent and
+    // the ~/.codeium/windsurf path is still live during the transition (the app
+    // observes both ~/.devin and ~/.windsurf coexisting on disk).
     id: 'windsurf',
     cliId: 'windsurf',
-    name: 'Windsurf',
+    name: 'Devin Desktop',
     installDir: '.codeium/windsurf',
     scanDir: '.codeium/windsurf',
   },
@@ -367,11 +371,15 @@ export const AGENT_DEFINITIONS = [
     scanDir: '.adal',
   },
   {
+    // id≠cliId: upstream (CLI 1.5.10) renamed the --agent value to
+    // 'kimi-code-cli' and moved its globalSkillsDir to the universal source
+    // (~/.agents/skills). Internal `id` stays 'kimi-cli' to preserve persisted
+    // Redux state; scanDir diverges to '.kimi' per the v0.13.0 universal guard.
     id: 'kimi-cli',
-    cliId: 'kimi-cli',
+    cliId: 'kimi-code-cli',
     name: 'Kimi Code CLI',
-    installDir: '.config/agents',
-    scanDir: '.config/agents',
+    installDir: '.agents',
+    scanDir: '.kimi',
   },
   {
     id: 'bob',
@@ -597,6 +605,109 @@ export const AGENT_DEFINITIONS = [
     installDir: '.tabnine/agent',
     scanDir: '.tabnine/agent',
   },
+  // Community agents added in skills CLI v1.5.10 (synced 2026-06-05).
+  {
+    id: 'antigravity-cli',
+    cliId: 'antigravity-cli',
+    name: 'Antigravity CLI',
+    installDir: '.gemini/antigravity-cli',
+    scanDir: '.gemini/antigravity-cli',
+  },
+  {
+    id: 'astrbot',
+    cliId: 'astrbot',
+    name: 'AstrBot',
+    installDir: '.astrbot/data',
+    scanDir: '.astrbot/data',
+  },
+  {
+    id: 'autohand-code',
+    cliId: 'autohand-code',
+    name: 'Autohand Code CLI',
+    installDir: '.autohand',
+    scanDir: '.autohand',
+  },
+  {
+    id: 'inference-sh',
+    cliId: 'inference-sh',
+    name: 'inference.sh',
+    installDir: '.inferencesh',
+    scanDir: '.inferencesh',
+  },
+  {
+    id: 'jazz',
+    cliId: 'jazz',
+    name: 'Jazz',
+    installDir: '.jazz',
+    scanDir: '.jazz',
+  },
+  {
+    id: 'lingma',
+    cliId: 'lingma',
+    name: 'Lingma',
+    installDir: '.lingma',
+    scanDir: '.lingma',
+  },
+  {
+    // Universal-source agent: installs to ~/.agents/skills; scanDir diverges
+    // to '.loaf' per the v0.13.0 guard so the scanner reads its own home dir.
+    id: 'loaf',
+    cliId: 'loaf',
+    name: 'Loaf',
+    installDir: '.agents',
+    scanDir: '.loaf',
+  },
+  {
+    id: 'moxby',
+    cliId: 'moxby',
+    name: 'Moxby',
+    installDir: '.moxby',
+    scanDir: '.moxby',
+  },
+  {
+    id: 'ona',
+    cliId: 'ona',
+    name: 'Ona',
+    installDir: '.ona',
+    scanDir: '.ona',
+  },
+  {
+    id: 'qoder-cn',
+    cliId: 'qoder-cn',
+    name: 'Qoder CN',
+    installDir: '.qoder-cn',
+    scanDir: '.qoder-cn',
+  },
+  {
+    id: 'reasonix',
+    cliId: 'reasonix',
+    name: 'Reasonix',
+    installDir: '.reasonix',
+    scanDir: '.reasonix',
+  },
+  {
+    id: 'terramind',
+    cliId: 'terramind',
+    name: 'Terramind',
+    installDir: '.terramind',
+    scanDir: '.terramind',
+  },
+  {
+    id: 'tinycloud',
+    cliId: 'tinycloud',
+    name: 'Tinycloud',
+    installDir: '.tinycloud',
+    scanDir: '.tinycloud',
+  },
+  {
+    // Universal-source agent: installs to ~/.agents/skills; scanDir diverges
+    // to '.zed' per the v0.13.0 guard so the scanner reads its own home dir.
+    id: 'zed',
+    cliId: 'zed',
+    name: 'Zed',
+    installDir: '.agents',
+    scanDir: '.zed',
+  },
 ] as const
 
 /**
@@ -688,11 +799,13 @@ export const RELEASE_NOTES_LAST_SEEN_VERSION_KEY =
  * Source: https://github.com/vercel-labs/skills/blob/main/src/agents.ts
  *
  * @example
- * UNIVERSAL_AGENT_IDS // => ['amp', 'codex', 'gemini-cli', 'github-copilot', 'kimi-cli', 'opencode']
+ * // Universal agents read ~/.agents/skills directly, so no per-agent symlink is made:
+ * UNIVERSAL_AGENT_IDS.includes('zed') // => true
  */
 export const UNIVERSAL_AGENT_IDS = [
   'amp',
   'antigravity',
+  'antigravity-cli',
   'cline',
   'codex',
   'cursor',
@@ -702,8 +815,10 @@ export const UNIVERSAL_AGENT_IDS = [
   'gemini-cli',
   'github-copilot',
   'kimi-cli',
+  'loaf',
   'opencode',
   'warp',
+  'zed',
 ] as const satisfies readonly AgentId[]
 
 /**
@@ -792,7 +907,7 @@ export const TERMINAL_APP_UI_LABELS: Record<
  * @example
  * spawn('npx', [`skills@${SKILLS_CLI_VERSION}`, 'find', 'react'])
  */
-export const SKILLS_CLI_VERSION = '1.5.5'
+export const SKILLS_CLI_VERSION = '1.5.10'
 
 /**
  * Canonical hostname for skills marketplace pages used by renderer/main
