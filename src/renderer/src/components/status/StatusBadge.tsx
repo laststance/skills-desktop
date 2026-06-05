@@ -51,8 +51,8 @@ const STATUS_CONFIG = {
  * @param agentNames - Agent names to list in tooltip
  * @returns Badge with icon and tooltip
  * @example
- * <StatusBadge status="valid" count={3} agentNames={["Claude", "Cursor", "Windsurf"]} />
- * // Shows: ✓ 3 with tooltip listing "Claude, Cursor, Windsurf"
+ * <StatusBadge status="valid" count={3} agentNames={["Claude", "Cursor", "Devin Desktop"]} />
+ * // Shows: ✓ 3 with tooltip listing "Claude, Cursor, Devin Desktop"
  */
 export const StatusBadge = React.memo(function StatusBadge({
   status,

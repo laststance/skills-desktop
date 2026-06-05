@@ -43,7 +43,7 @@ describe('AGENT_DEFINITIONS', () => {
 
   it('keeps every scan target inside a dot-prefixed home subdir', () => {
     // scanDir is required on every entry (no optional fallback). New
-    // agents added via /cli-upgrade must declare scanDir explicitly,
+    // agents added via a Skills CLI sync must declare scanDir explicitly,
     // which forces consideration of universal-source aliasing.
     // Arrange / Act / Assert
     for (const agent of AGENT_DEFINITIONS) {

@@ -102,7 +102,7 @@ const windowSizeSchema = z
  * Forgiving disk-side schema for `hiddenAgentIds`.
  *
  * Pre-filters against `AGENT_IDS` via `transform` instead of validating
- * with `z.enum(AGENT_IDS)`: if an upstream `/cli-upgrade` removes an
+ * with `z.enum(AGENT_IDS)`: if an upstream Skills CLI sync removes an
  * agent that was previously hidden, the stale id silently falls out of
  * the array rather than rejecting the whole settings file. With strict
  * enum validation, ONE bad id makes `loadSettings()` fall back to
@@ -166,7 +166,7 @@ const HIDDEN_AGENT_IDS_SCHEMA = z
  *   sidebar's installed list. Pure visibility toggle — the agent's
  *   skills folder, symlinks, and Marketplace presence are unaffected.
  *   Validated against `AGENT_IDS` so a stale id from a prior version
- *   (e.g. an agent removed upstream by `/cli-upgrade`) is silently
+ *   (e.g. an agent removed upstream by a Skills CLI sync) is silently
  *   dropped on parse rather than surfacing as a phantom hidden entry.
  * - `autoDownloadUpdates`: when `true`, `electron-updater` downloads a new
  *   release in the background as soon as it is detected. Default `false`

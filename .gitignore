@@ -70,3 +70,4 @@ playwright/.cache/
 .understand-anything/
 .claude/goal.json
 .claude/goal-notes.md
+.gbrain-source

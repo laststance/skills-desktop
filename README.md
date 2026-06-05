@@ -14,7 +14,7 @@ Skills Desktop provides a GUI to manage and monitor skills installed via [`npx s
 
 ## Features
 
-- **54 AI Agents Supported** - Auto-detects Claude Code, Cursor, Codex, Gemini CLI, and more
+- **68 AI Agents Supported** - Auto-detects Claude Code, Cursor, Codex, Gemini CLI, and more
 - **Symlink Status Visualization** - Valid (✓), Broken (◐), Inaccessible (!), Missing (○) indicators
 - **Customizable Dashboard** - Widget-based home view with skill stats, symlink health, agent coverage, bookmarks, and quick actions — drag, resize, and arrange across multiple pages
 - **44 Themes** - 34 OKLCH color themes (17 hues × light/dark) + 2 pure neutral + 8 tinted neutral
@@ -32,10 +32,10 @@ Skills Desktop provides a GUI to manage and monitor skills installed via [`npx s
 | Cline            | `~/.cline/skills/`            |
 | Roo Code         | `~/.roo/skills/`              |
 | Junie            | `~/.junie/skills/`            |
-| Windsurf         | `~/.codeium/windsurf/skills/` |
+| Devin Desktop    | `~/.codeium/windsurf/skills/` |
 | OpenCode         | `~/.config/opencode/skills/`  |
 | Continue         | `~/.continue/skills/`         |
-| _...and 43 more_ |                               |
+| _...and 57 more_ |                               |
 
 ## Installation
 

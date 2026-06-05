@@ -239,7 +239,7 @@ describe('SettingsSchema', () => {
   })
 
   it('keeps the valid hidden agent ids and drops the stale ones beside them', () => {
-    // Regression for the `/cli-upgrade`-removed-an-agent scenario: with
+    // Regression for the Skills-CLI-removed-an-agent scenario: with
     // strict z.enum the whole array (and everything else in settings.json)
     // would reject. The transform must filter, not throw.
     // Arrange

@@ -39,7 +39,7 @@ export const AGENTS = AGENT_DEFINITIONS.map((agent) => ({
  * SOURCE_DIR is always seeded so it's protected even when no agent path
  * collides with it (post-fix Cline/Warp scan their own home dirs, leaving
  * SOURCE_DIR unaliased among AGENTS). Computed once so adding another
- * universal-style agent via `/cli-upgrade` auto-populates this set without
+ * universal-style agent via a Skills CLI sync auto-populates this set without
  * touching every caller. Consumed by the IPC destructive-op handler as a
  * last-line guard; the sidebar does NOT filter on this set — visibility of
  * every agent is load-bearing for Cursor-style direct-file workflows.

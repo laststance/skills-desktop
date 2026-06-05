@@ -45,7 +45,7 @@ describe('AGENTS path computation', () => {
   it('keeps every agent path off the universal source so the scanner never surfaces source content as agent-local skills', () => {
     // If any agent path equals SOURCE_DIR, the scanner will surface
     // source content as that agent's local skills — the exact bug the
-    // scanDir divergence was added to prevent. Future cli-upgrade syncs
+    // scanDir divergence was added to prevent. Future Skills CLI syncs
     // that introduce new universal-style agents must diverge scanDir
     // from installDir.
     // Arrange

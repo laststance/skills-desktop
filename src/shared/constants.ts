@@ -206,13 +206,13 @@ export const THEME_PRESETS = {
  * - `name`: Display name shown in UI
  * - `installDir`: Home subdir where the CLI installs skills globally for
  *   this agent. Mirrors the parent of the CLI's `globalSkillsDir`. Used by
- *   `/cli-upgrade` to detect upstream divergence.
+ *   a Skills CLI sync to detect upstream divergence.
  * - `scanDir`: Home subdir this app scans for the agent's OWN symlinks.
  *   Equals `installDir` for most agents. Diverges for agents whose
  *   `globalSkillsDir` resolves to the universal source `~/.agents/skills`
  *   (Cline, Warp): if `scanDir` aliased the source, the scanner would
  *   surface every source skill as a "valid local skill" of those agents
- *   (the v0.13.0 regression). Required on every entry so `/cli-upgrade`
+ *   (the v0.13.0 regression). Required on every entry so a Skills CLI sync
  *   must consider it for new agents — no silent fallback.
  *
  * When id !== cliId, the skillsCliService maps id → cliId for CLI commands
@@ -900,7 +900,7 @@ export const TERMINAL_APP_UI_LABELS: Record<
 /**
  * Pinned `vercel-labs/skills` CLI version used by the main-process
  * `skillsCliService` when spawning `npx skills@<version> ...`. Kept in the
- * shared module so the `/cli-upgrade` maintenance skill has a single place
+ * shared module so a Skills CLI sync has a single place
  * to bump alongside `AGENT_DEFINITIONS`. Consumers must template this into
  * their spawn args rather than hard-coding a version string — drift here
  * would silently run a stale CLI against up-to-date agent definitions.

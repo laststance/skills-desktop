@@ -32,7 +32,7 @@ import { readSettingsFile, writeSettingsFile } from '../helpers/settings-file'
  *   3. **Disk forgiving-schema boundary** — `HIDDEN_AGENT_IDS_SCHEMA` in
  *      `src/shared/settings.ts` is intentionally forgiving on disk read:
  *      it filters unknown ids via `.transform` so a stale id from a prior
- *      version (after `/cli-upgrade` removes an agent) silently drops
+ *      version (after a Skills CLI sync removes an agent) silently drops
  *      without taking down the whole settings file. If a future refactor
  *      tightens the disk schema, users with stale ids would lose their
  *      OTHER settings (default tab, terminal, window size) — a far worse
