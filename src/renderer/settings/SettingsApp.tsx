@@ -1,11 +1,4 @@
-import {
-  Info,
-  Keyboard,
-  Palette,
-  RefreshCw,
-  SlidersHorizontal,
-  Users,
-} from 'lucide-react'
+import { Info, Keyboard, Palette, SlidersHorizontal, Users } from 'lucide-react'
 import React, { useState } from 'react'
 import { match } from 'ts-pattern'
 
@@ -16,7 +9,6 @@ import { cn } from '@/renderer/src/lib/utils'
 import { About } from './sections/About'
 import { Agents } from './sections/Agents'
 import { Appearance } from './sections/Appearance'
-import { AutoUpdates } from './sections/AutoUpdates'
 import { General } from './sections/General'
 import { Keybindings } from './sections/Keybindings'
 
@@ -34,7 +26,6 @@ const NAV_ITEMS = [
   { id: 'general', label: 'General', icon: SlidersHorizontal },
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'agents', label: 'Agents', icon: Users },
-  { id: 'autoUpdates', label: 'Auto Updates', icon: RefreshCw },
   { id: 'keybindings', label: 'Keybindings', icon: Keyboard },
   { id: 'about', label: 'About', icon: Info },
 ] as const satisfies ReadonlyArray<{
@@ -106,7 +97,6 @@ export const SettingsApp = React.memo(
               .with('general', () => <General />)
               .with('appearance', () => <Appearance />)
               .with('agents', () => <Agents />)
-              .with('autoUpdates', () => <AutoUpdates />)
               .with('keybindings', () => <Keybindings />)
               .with('about', () => <About />)
               .exhaustive()}

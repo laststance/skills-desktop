@@ -189,9 +189,9 @@ export const SettingsSchema = z.object({
     WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
   ),
   hiddenAgentIds: HIDDEN_AGENT_IDS_SCHEMA,
-  // Auto-download preference surfaced in Settings → Auto Updates. Defaults
-  // to false so the manual confirm-via-UI download flow is preserved unless
-  // the user opts in.
+  // Legacy auto-download preference. Defaults to false so the manual
+  // confirm-via-UI download flow is preserved unless a persisted opt-in
+  // already exists from an older version.
   autoDownloadUpdates: z.boolean().default(false),
 })
 

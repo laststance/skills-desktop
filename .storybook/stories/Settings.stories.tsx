@@ -6,7 +6,6 @@ import { SettingsApp } from '@/renderer/settings/SettingsApp'
 import { About } from '@/renderer/settings/sections/About'
 import { Agents } from '@/renderer/settings/sections/Agents'
 import { Appearance } from '@/renderer/settings/sections/Appearance'
-import { AutoUpdates } from '@/renderer/settings/sections/AutoUpdates'
 import { General } from '@/renderer/settings/sections/General'
 import { Keybindings } from '@/renderer/settings/sections/Keybindings'
 import {
@@ -47,9 +46,6 @@ export const SectionPanes: Story = {
       </StoryCard>
       <StoryCard label="Agents">
         <Agents />
-      </StoryCard>
-      <StoryCard label="AutoUpdates">
-        <AutoUpdates />
       </StoryCard>
       <StoryCard label="Keybindings">
         <Keybindings />
