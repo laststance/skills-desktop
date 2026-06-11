@@ -219,6 +219,35 @@ describe('InstallModal target selection', () => {
     expect(mockInstall).not.toHaveBeenCalled()
   })
 
+  it('ignores the default symlink target when that agent is not installed', async () => {
+    // Arrange
+    const { screen } = await renderInstallModal({
+      skill: makeSkill(),
+      agents: [makeAgent({ id: 'cursor', name: 'Cursor' })],
+    })
+
+    // Assert
+    await expect
+      .element(screen.getByRole('button', { name: 'Install' }))
+      .toBeDisabled()
+    await expect
+      .element(screen.getByText('Please select at least one agent'))
+      .toBeInTheDocument()
+
+    // Act
+    await screen.getByRole('checkbox', { name: 'Cursor' }).click()
+    await screen.getByRole('button', { name: 'Install' }).click()
+
+    // Assert
+    await expect.poll(() => mockInstall.mock.calls.length).toBe(1)
+    expect(mockInstall).toHaveBeenCalledWith({
+      repo: repositoryId('vercel-labs/skills'),
+      global: true,
+      agents: ['cursor'],
+      skills: ['task'],
+    })
+  })
+
   it('passes every checked agent when creating Universal symlinks', async () => {
     // Arrange
     const { screen } = await renderInstallModal({

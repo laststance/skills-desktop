@@ -83,12 +83,20 @@ export const InstallModal = React.memo(
       () => agents.filter((a) => a.exists),
       [agents],
     )
+    const existingAgentIds = useMemo(
+      () => new Set(existingAgents.map((agent) => agent.id)),
+      [existingAgents],
+    )
+    const validSelectedAgents = useMemo(
+      () => selectedAgents.filter((id) => existingAgentIds.has(id)),
+      [existingAgentIds, selectedAgents],
+    )
     const shouldCreateAgentSymlinks =
       installTargetMode === 'universal-and-agents'
     const canInstall =
       !isInstalling &&
       selectedSkill !== null &&
-      (!shouldCreateAgentSymlinks || selectedAgents.length > 0)
+      (!shouldCreateAgentSymlinks || validSelectedAgents.length > 0)
 
     const handleClose = useCallback((): void => {
       if (!isInstalling) {
@@ -121,7 +129,7 @@ export const InstallModal = React.memo(
         // shared ~/.agents/skills/ source dir. The target mode below only
         // controls whether the CLI also creates agent symlinks.
         global: true,
-        agents: getInstallAgentIds(installTargetMode, selectedAgents),
+        agents: getInstallAgentIds(installTargetMode, validSelectedAgents),
         skills: [selectedSkill.name],
       }
 
@@ -134,8 +142,8 @@ export const InstallModal = React.memo(
       dispatch,
       handleClose,
       installTargetMode,
-      selectedAgents,
       selectedSkill,
+      validSelectedAgents,
     ])
 
     return (
@@ -195,7 +203,7 @@ export const InstallModal = React.memo(
                       />
                     ))}
                   </div>
-                  {selectedAgents.length === 0 && (
+                  {validSelectedAgents.length === 0 && (
                     <p className="text-sm text-destructive mt-2">
                       Please select at least one agent
                     </p>
