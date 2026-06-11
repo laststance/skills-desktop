@@ -11,6 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/renderer/src/components/ui/dialog'
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@/renderer/src/components/ui/toggle-group'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   selectSkillForInstall,
@@ -19,8 +23,46 @@ import {
 import { fetchSkills } from '@/renderer/src/redux/slices/skillsSlice'
 import type { AgentId, InstallOptions } from '@/shared/types'
 
+type InstallTargetMode = 'universal-only' | 'universal-and-agents'
+
+const DEFAULT_INSTALL_TARGET_MODE: InstallTargetMode = 'universal-and-agents'
+const DEFAULT_SELECTED_AGENT_IDS: AgentId[] = ['claude-code']
+
 /**
- * Modal dialog for configuring skill installation options
+ * Check whether Radix emitted a real install target mode before committing it to state.
+ * @param value - ToggleGroup value emitted by the install target segmented control.
+ * @returns true when the value is one of the supported install target modes.
+ * @example
+ * isInstallTargetMode('universal-only') // => true
+ */
+function isInstallTargetMode(value: string): value is InstallTargetMode {
+  return value === 'universal-only' || value === 'universal-and-agents'
+}
+
+/**
+ * Resolve the CLI agent payload from the visible install mode.
+ * @param mode - Install target selected in the Marketplace modal.
+ * @param selectedAgents - Agent ids checked for symlink creation.
+ * @returns Empty for Universal-only installs; selected ids when symlinks should be created.
+ * @example
+ * getInstallAgentIds('universal-only', ['claude-code']) // => []
+ */
+function getInstallAgentIds(
+  mode: InstallTargetMode,
+  selectedAgents: AgentId[],
+): AgentId[] {
+  if (mode === 'universal-only') {
+    return []
+  }
+
+  return selectedAgents
+}
+
+/**
+ * Modal dialog for configuring Marketplace installs before the CLI runs.
+ * @returns Dialog UI when a Marketplace skill is selected, otherwise an inert closed dialog.
+ * @example
+ * <InstallModal />
  */
 export const InstallModal = React.memo(
   function InstallModal(): React.ReactElement {
@@ -30,9 +72,10 @@ export const InstallModal = React.memo(
     )
     const { items: agents } = useAppSelector((state) => state.agents)
 
-    // Default to Claude Code selected
+    const [installTargetMode, setInstallTargetMode] =
+      useState<InstallTargetMode>(DEFAULT_INSTALL_TARGET_MODE)
     const [selectedAgents, setSelectedAgents] = useState<AgentId[]>([
-      'claude-code',
+      ...DEFAULT_SELECTED_AGENT_IDS,
     ])
 
     const isInstalling = status === 'installing'
@@ -40,13 +83,39 @@ export const InstallModal = React.memo(
       () => agents.filter((a) => a.exists),
       [agents],
     )
+    const existingAgentIds = useMemo(
+      () => new Set(existingAgents.map((agent) => agent.id)),
+      [existingAgents],
+    )
+    const validSelectedAgents = useMemo(
+      () => selectedAgents.filter((id) => existingAgentIds.has(id)),
+      [existingAgentIds, selectedAgents],
+    )
+    const hasAvailableAgents = existingAgents.length > 0
+    // With no installed agents, Universal-only is the only actionable target.
+    const effectiveInstallTargetMode: InstallTargetMode = hasAvailableAgents
+      ? installTargetMode
+      : 'universal-only'
+    const shouldCreateAgentSymlinks =
+      effectiveInstallTargetMode === 'universal-and-agents'
+    const canInstall =
+      !isInstalling &&
+      selectedSkill !== null &&
+      (!shouldCreateAgentSymlinks || validSelectedAgents.length > 0)
 
     const handleClose = useCallback((): void => {
       if (!isInstalling) {
         dispatch(selectSkillForInstall(null))
-        setSelectedAgents(['claude-code'])
+        setInstallTargetMode(DEFAULT_INSTALL_TARGET_MODE)
+        setSelectedAgents([...DEFAULT_SELECTED_AGENT_IDS])
       }
     }, [dispatch, isInstalling])
+
+    const handleInstallTargetModeChange = useCallback((value: string): void => {
+      if (isInstallTargetMode(value)) {
+        setInstallTargetMode(value)
+      }
+    }, [])
 
     const handleAgentToggle = useCallback((agentId: AgentId): void => {
       setSelectedAgents((prev) =>
@@ -57,15 +126,18 @@ export const InstallModal = React.memo(
     }, [])
 
     const handleInstall = useCallback(async (): Promise<void> => {
-      if (!selectedSkill || selectedAgents.length === 0) return
+      if (!canInstall || !selectedSkill) return
 
       const options: InstallOptions = {
         repo: selectedSkill.repo,
         // Marketplace installs are global-only by design — skills land in the
-        // shared ~/.agents/skills/ source dir. Per-project (local) scope was
-        // considered and deliberately not built (see #177).
+        // shared ~/.agents/skills/ source dir. The target mode below only
+        // controls whether the CLI also creates agent symlinks.
         global: true,
-        agents: selectedAgents,
+        agents: getInstallAgentIds(
+          effectiveInstallTargetMode,
+          validSelectedAgents,
+        ),
         skills: [selectedSkill.name],
       }
 
@@ -73,7 +145,14 @@ export const InstallModal = React.memo(
       // Refresh the skills list after installation
       dispatch(fetchSkills())
       handleClose()
-    }, [dispatch, handleClose, selectedAgents, selectedSkill])
+    }, [
+      canInstall,
+      dispatch,
+      effectiveInstallTargetMode,
+      handleClose,
+      selectedSkill,
+      validSelectedAgents,
+    ])
 
     return (
       <Dialog open={!!selectedSkill} onOpenChange={handleClose}>
@@ -87,24 +166,65 @@ export const InstallModal = React.memo(
           </DialogHeader>
 
           <div className="py-4">
-            <div>
-              <h4 className="text-sm font-medium mb-3">Select Agents</h4>
-              <div className="max-h-60 overflow-y-auto rounded-md border p-2 space-y-1">
-                {existingAgents.map((agent) => (
-                  <InstallAgentOption
-                    key={agent.id}
-                    agentId={agent.id}
-                    name={agent.name}
-                    checked={selectedAgents.includes(agent.id)}
-                    disabled={isInstalling}
-                    onToggle={handleAgentToggle}
-                  />
-                ))}
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-medium mb-2">Install target</h4>
+                <ToggleGroup
+                  type="single"
+                  value={effectiveInstallTargetMode}
+                  onValueChange={handleInstallTargetModeChange}
+                  variant="outline"
+                  disabled={isInstalling}
+                  className="w-full gap-0 rounded-md border border-border/60 bg-muted/30 p-0.5"
+                >
+                  <ToggleGroupItem
+                    value="universal-only"
+                    aria-label="Universal only"
+                    className="h-8 flex-1 rounded-r-none"
+                  >
+                    Universal
+                  </ToggleGroupItem>
+                  <ToggleGroupItem
+                    value="universal-and-agents"
+                    aria-label="Universal plus selected agents"
+                    disabled={!hasAvailableAgents}
+                    className="h-8 flex-1 rounded-l-none border-l-0"
+                  >
+                    Universal + agents
+                  </ToggleGroupItem>
+                </ToggleGroup>
               </div>
-              {selectedAgents.length === 0 && (
-                <p className="text-sm text-destructive mt-2">
-                  Please select at least one agent
-                </p>
+
+              {shouldCreateAgentSymlinks ? (
+                <div>
+                  <h4 className="text-sm font-medium mb-3">
+                    Symlink agent directories
+                  </h4>
+                  <div className="max-h-60 overflow-y-auto rounded-md border p-2 space-y-1">
+                    {existingAgents.map((agent) => (
+                      <InstallAgentOption
+                        key={agent.id}
+                        agentId={agent.id}
+                        name={agent.name}
+                        checked={selectedAgents.includes(agent.id)}
+                        disabled={isInstalling}
+                        onToggle={handleAgentToggle}
+                      />
+                    ))}
+                  </div>
+                  {validSelectedAgents.length === 0 && (
+                    <p className="text-sm text-destructive mt-2">
+                      Please select at least one agent
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-md border bg-muted/20 p-3">
+                  <p className="text-sm font-medium">No agent symlinks</p>
+                  <p className="mt-1 font-mono text-xs text-muted-foreground">
+                    ~/.agents/skills/{selectedSkill?.name}
+                  </p>
+                </div>
               )}
             </div>
 
@@ -130,7 +250,7 @@ export const InstallModal = React.memo(
             <Button
               type="button"
               onClick={handleInstall}
-              disabled={isInstalling || selectedAgents.length === 0}
+              disabled={!canInstall}
             >
               {isInstalling ? (
                 <>
@@ -156,6 +276,13 @@ interface InstallAgentOptionProps {
   onToggle: (agentId: AgentId) => void
 }
 
+/**
+ * Checkbox row for choosing which installed agent dirs receive Marketplace symlinks.
+ * @param props - Agent identity, disabled state, checked state, and toggle callback.
+ * @returns A compact selectable row for the install dialog.
+ * @example
+ * <InstallAgentOption agentId="claude-code" name="Claude Code" checked={true} disabled={false} onToggle={toggle} />
+ */
 const InstallAgentOption = React.memo(function InstallAgentOption({
   agentId,
   name,

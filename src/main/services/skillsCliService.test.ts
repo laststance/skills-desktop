@@ -3,6 +3,7 @@ import { EventEmitter } from 'events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { SKILLS_CLI_VERSION } from '@/shared/constants'
+import { repositoryId } from '@/shared/types'
 
 /**
  * Fake child process so we can drive stdout/stderr/close from the test.
@@ -206,5 +207,79 @@ describe('skillsCliService.search', () => {
       },
     ])
     expect(results[0]).not.toHaveProperty('installCount')
+  })
+})
+
+describe('skillsCliService.install', () => {
+  beforeEach(() => {
+    vi.useRealTimers()
+    vi.resetModules()
+    spawnMock.mockReset()
+  })
+
+  afterEach(() => {
+    process.env.PATH = ORIGINAL_PATH
+  })
+
+  it('installs globally without agent flags for a Universal-only Marketplace install', async () => {
+    // Arrange
+    simulateCli({ stdout: 'Installation complete' })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    await skillsCliService.install({
+      repo: repositoryId('vercel-labs/skills'),
+      global: true,
+      agents: [],
+      skills: ['task'],
+    })
+
+    // Assert
+    expect(spawnMock).toHaveBeenCalledWith(
+      'npx',
+      [
+        `skills@${SKILLS_CLI_VERSION}`,
+        'add',
+        'vercel-labs/skills',
+        '-y',
+        '--global',
+        '--skill',
+        'task',
+      ],
+      expect.any(Object),
+    )
+  })
+
+  it('adds one --agent flag per selected symlink target for Universal plus agents', async () => {
+    // Arrange
+    simulateCli({ stdout: 'Installation complete' })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    await skillsCliService.install({
+      repo: repositoryId('vercel-labs/skills'),
+      global: true,
+      agents: ['claude-code', 'cursor'],
+      skills: ['task'],
+    })
+
+    // Assert
+    expect(spawnMock).toHaveBeenCalledWith(
+      'npx',
+      [
+        `skills@${SKILLS_CLI_VERSION}`,
+        'add',
+        'vercel-labs/skills',
+        '-y',
+        '--global',
+        '--agent',
+        'claude-code',
+        '--agent',
+        'cursor',
+        '--skill',
+        'task',
+      ],
+      expect.any(Object),
+    )
   })
 })
