@@ -1,4 +1,5 @@
 import { registerAgentsHandlers } from './agents'
+import { registerCliCommandHandlers } from './cliCommand'
 import { registerFilesHandlers } from './files'
 import { registerFolderHandlers } from './folder'
 import { registerLeaderboardHandlers } from './leaderboard'
@@ -18,6 +19,7 @@ import { registerWindowHandlers } from './window'
 export function registerAllHandlers(): void {
   registerSkillsHandlers()
   registerSkillsCliHandlers()
+  registerCliCommandHandlers()
   registerLeaderboardHandlers()
   registerAgentsHandlers()
   registerSourceHandlers()

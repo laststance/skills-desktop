@@ -6,6 +6,8 @@ import type {
   AbsolutePath,
   ClearOrphanSymlinksOptions,
   ClearBrokenSymlinkSlotsOptions,
+  CliCommandOperationResult,
+  CliCommandStatus,
   CopyToAgentsOptions,
   CreateSymlinksOptions,
   DeleteProgressPayload,
@@ -39,6 +41,16 @@ contextBridge.exposeInMainWorld('electron', {
   shell: {
     openExternal: async (url: HttpUrl) =>
       typedInvoke('shell:openExternal', url),
+  },
+  // App CLI command API. Renderer asks main to inspect or mutate
+  // ~/.local/bin/skills-desktop because Context Isolation forbids direct fs.
+  cliCommand: {
+    getStatus: async (): Promise<CliCommandStatus> =>
+      typedInvoke('cliCommand:getStatus'),
+    install: async (): Promise<CliCommandOperationResult> =>
+      typedInvoke('cliCommand:install'),
+    remove: async (): Promise<CliCommandOperationResult> =>
+      typedInvoke('cliCommand:remove'),
   },
   // Skills API
   skills: {

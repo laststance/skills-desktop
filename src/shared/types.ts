@@ -717,6 +717,42 @@ export interface CliCommandResult {
 }
 
 /**
+ * Installation state of the app-level `skills-desktop` command in ~/.local/bin.
+ * @example 'not-installed'
+ * @example 'installed'
+ * @example 'blocked'
+ */
+export type CliCommandStatusKind = 'not-installed' | 'installed' | 'blocked'
+
+/**
+ * Status payload for the app-level command line shim.
+ * @example { status: 'installed', commandName: 'skills-desktop', commandPath: '/Users/me/.local/bin/skills-desktop', message: 'Command is installed.' }
+ */
+export interface CliCommandStatus {
+  /** Whether the command is absent, safely managed, or blocked by another entry. */
+  status: CliCommandStatusKind
+  /** Command users type in a terminal. @example "skills-desktop" */
+  commandName: string
+  /** Absolute path where the shim is expected. @example "/Users/me/.local/bin/skills-desktop" */
+  commandPath: AbsolutePath
+  /** User-safe explanation for status text in Settings. */
+  message: string
+}
+
+/**
+ * Result returned after installing or removing the app-level CLI command.
+ * @example { ok: true, status: { status: 'installed', commandName: 'skills-desktop', commandPath: '/Users/me/.local/bin/skills-desktop', message: 'Command is installed.' }, message: 'Command installed.' }
+ */
+export interface CliCommandOperationResult {
+  /** true only when the requested install/remove completed or was already satisfied. */
+  ok: boolean
+  /** Fresh command status after the operation attempt. */
+  status: CliCommandStatus
+  /** User-safe operation outcome. */
+  message: string
+}
+
+/**
  * Streamed progress event emitted while the skills CLI runs an install.
  * Pushed over IPC on the `skills:cli:progress` channel.
  * @example { phase: 'cloning', message: 'Fetching vercel-labs/skills...' }

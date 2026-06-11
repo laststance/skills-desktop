@@ -1,4 +1,4 @@
-import { Files, Info } from 'lucide-react'
+import { Files, Info, Terminal, Trash2 } from 'lucide-react'
 import React, { useCallback, useState } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
@@ -12,6 +12,7 @@ import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
 import { TERMINAL_APP_IDS, TERMINAL_APP_UI_LABELS } from '@/shared/constants'
 import type { Settings } from '@/shared/settings'
+import type { CliCommandStatus } from '@/shared/types'
 
 import { SectionFrame, SectionRow } from './SectionFrame'
 
@@ -38,6 +39,81 @@ const DEFAULT_TAB_OPTIONS: ReadonlyArray<{
  */
 const CUSTOM_APP_NAME_MAX_LENGTH = 64
 
+interface CliCommandControlState {
+  status: CliCommandStatus | null
+  message: string | null
+  isBusy: boolean
+  install: () => void
+  remove: () => void
+}
+
+/**
+ * Owns the Settings-only state machine for inspecting/installing/removing the app CLI shim.
+ * @returns Current status, message, busy flag, and stable command actions.
+ * @example const cliCommand = useCliCommandControl()
+ */
+function useCliCommandControl(): CliCommandControlState {
+  const [status, setStatus] = useState<CliCommandStatus | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [isBusy, setIsBusy] = useState<boolean>(false)
+
+  useInitialEffect(() => {
+    let cancelled = false
+
+    window.electron.cliCommand
+      .getStatus()
+      .then((nextStatus) => {
+        if (cancelled) return
+        setStatus(nextStatus)
+        setMessage(null)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setMessage('Could not read command status.')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  })
+
+  const install = useCallback((): void => {
+    setIsBusy(true)
+    setMessage(null)
+    void window.electron.cliCommand
+      .install()
+      .then((result) => {
+        setStatus(result.status)
+        setMessage(result.message)
+      })
+      .catch(() => {
+        setMessage('Could not install command.')
+      })
+      .finally(() => {
+        setIsBusy(false)
+      })
+  }, [])
+
+  const remove = useCallback((): void => {
+    setIsBusy(true)
+    setMessage(null)
+    void window.electron.cliCommand
+      .remove()
+      .then((result) => {
+        setStatus(result.status)
+        setMessage(result.message)
+      })
+      .catch(() => {
+        setMessage('Could not remove command.')
+      })
+      .finally(() => {
+        setIsBusy(false)
+      })
+  }, [])
+
+  return { status, message, isBusy, install, remove }
+}
+
 /**
  * General settings pane.
  *
@@ -61,6 +137,13 @@ const CUSTOM_APP_NAME_MAX_LENGTH = 64
 export const General = React.memo(function General(): React.ReactElement {
   const settings = useAppSelector((state) => state.settings)
   const updateSettings = useUpdateSettings()
+  const {
+    status: cliCommandStatus,
+    message: cliCommandMessage,
+    isBusy: isCliCommandBusy,
+    install: installCliCommand,
+    remove: removeCliCommand,
+  } = useCliCommandControl()
 
   // Local mirror of the custom name field so users can type without
   // committing on every keystroke. Initial value is whatever's in settings
@@ -183,6 +266,27 @@ export const General = React.memo(function General(): React.ReactElement {
 
   const persistedWindowSize = settings.windowSize
   const hasCustomWindowSize = persistedWindowSize !== undefined
+  const isCliCommandInstalled = cliCommandStatus?.status === 'installed'
+  const isCliCommandBlocked = cliCommandStatus?.status === 'blocked'
+  const isCliCommandUnknown = cliCommandStatus === null
+  const CliCommandButtonIcon = isCliCommandInstalled ? Trash2 : Terminal
+  const cliCommandButtonLabel = isCliCommandInstalled
+    ? 'Remove command'
+    : 'Install command'
+  const cliCommandStatusMessage =
+    cliCommandMessage ??
+    cliCommandStatus?.message ??
+    'Checking command status...'
+
+  const handleCliCommandClick = useCallback((): void => {
+    // Installed state maps the same row to removal; every other actionable
+    // state installs the managed shim.
+    if (isCliCommandInstalled) {
+      removeCliCommand()
+      return
+    }
+    installCliCommand()
+  }, [installCliCommand, isCliCommandInstalled, removeCliCommand])
 
   return (
     <SectionFrame
@@ -316,6 +420,45 @@ export const General = React.memo(function General(): React.ReactElement {
           <p className="text-xs text-muted-foreground">
             Takes effect the next time you launch the app.
           </p>
+        </div>
+      </SectionRow>
+
+      <SectionRow
+        label="Command line command"
+        description="Install a local command so Terminal can open Skills Desktop."
+      >
+        <div className="flex flex-col gap-2">
+          <p className="text-sm">
+            Run <code>skills-desktop</code> from your shell.
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant={isCliCommandInstalled ? 'destructive' : 'outline'}
+              size="sm"
+              onClick={handleCliCommandClick}
+              disabled={
+                isCliCommandBusy || isCliCommandUnknown || isCliCommandBlocked
+              }
+            >
+              <CliCommandButtonIcon className="h-3.5 w-3.5" />
+              {cliCommandButtonLabel}
+            </Button>
+            {isCliCommandBusy && (
+              <span className="text-xs text-muted-foreground">Working...</span>
+            )}
+          </div>
+          <p
+            className="text-xs text-muted-foreground"
+            aria-label="Command line command status"
+          >
+            {cliCommandStatusMessage}
+          </p>
+          {cliCommandStatus && (
+            <p className="text-xs text-muted-foreground">
+              Path: <code>{cliCommandStatus.commandPath}</code>
+            </p>
+          )}
         </div>
       </SectionRow>
     </SectionFrame>
