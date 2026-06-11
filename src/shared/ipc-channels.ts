@@ -46,6 +46,11 @@ export const IPC_CHANNELS = {
   // Shell (main-process-only APIs exposed via IPC)
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',
 
+  // App CLI command (~/.local/bin/skills-desktop)
+  CLI_COMMAND_GET_STATUS: 'cliCommand:getStatus',
+  CLI_COMMAND_INSTALL: 'cliCommand:install',
+  CLI_COMMAND_REMOVE: 'cliCommand:remove',
+
   // Update
   UPDATE_DOWNLOAD: 'update:download',
   UPDATE_INSTALL: 'update:install',

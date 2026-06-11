@@ -424,6 +424,34 @@ export function installStorybookElectronMock(): void {
     shell: {
       openExternal: async () => undefined,
     },
+    cliCommand: {
+      getStatus: async () => ({
+        status: 'not-installed',
+        commandName: 'skills-desktop',
+        commandPath: '/Users/story/.local/bin/skills-desktop',
+        message: 'Command is not installed.',
+      }),
+      install: async () => ({
+        ok: true,
+        status: {
+          status: 'installed',
+          commandName: 'skills-desktop',
+          commandPath: '/Users/story/.local/bin/skills-desktop',
+          message: 'Command is installed.',
+        },
+        message: 'Command installed at /Users/story/.local/bin/skills-desktop.',
+      }),
+      remove: async () => ({
+        ok: true,
+        status: {
+          status: 'not-installed',
+          commandName: 'skills-desktop',
+          commandPath: '/Users/story/.local/bin/skills-desktop',
+          message: 'Command is not installed.',
+        },
+        message: 'Command removed.',
+      }),
+    },
     skills: {
       getAll: async () => storySkills,
       unlinkFromAgent: async () => ({ success: true }),

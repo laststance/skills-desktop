@@ -12,12 +12,14 @@ import type {
   DeleteProgressPayload,
   DownloadProgress,
   FolderActionResult,
+  CliCommandOperationResult,
   PixelHeight,
   PixelWidth,
   RankingFilter,
   SkillSearchResult,
   InstallOptions,
   CliCommandResult,
+  CliCommandStatus,
   InstallProgress,
   UnlinkFromAgentOptions,
   UnlinkResult,
@@ -50,6 +52,11 @@ declare global {
     electron: {
       shell: {
         openExternal: (url: string) => Promise<void>
+      }
+      cliCommand: {
+        getStatus: () => Promise<CliCommandStatus>
+        install: () => Promise<CliCommandOperationResult>
+        remove: () => Promise<CliCommandOperationResult>
       }
       skills: {
         getAll: () => Promise<Skill[]>

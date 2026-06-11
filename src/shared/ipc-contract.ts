@@ -8,7 +8,9 @@ import type {
   ClearOrphanSymlinksResult,
   ClearBrokenSymlinkSlotsOptions,
   ClearBrokenSymlinkSlotsResult,
+  CliCommandOperationResult,
   CliCommandResult,
+  CliCommandStatus,
   CopyToAgentsOptions,
   CopyToAgentsResult,
   CreateSymlinksOptions,
@@ -128,6 +130,9 @@ export interface IpcInvokeContract {
   'update:install': { args: []; result: void }
   'update:check': { args: []; result: void }
   'shell:openExternal': { args: [HttpUrl]; result: void }
+  'cliCommand:getStatus': { args: []; result: CliCommandStatus }
+  'cliCommand:install': { args: []; result: CliCommandOperationResult }
+  'cliCommand:remove': { args: []; result: CliCommandOperationResult }
   'settings:open': { args: []; result: void }
   'settings:get': { args: []; result: Settings }
   'settings:set': { args: [SettingsPatch]; result: Settings }
