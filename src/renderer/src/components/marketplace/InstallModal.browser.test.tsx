@@ -199,6 +199,36 @@ describe('InstallModal target selection', () => {
     })
   })
 
+  it('falls back to Universal only when no agent directories are available', async () => {
+    // Arrange
+    const { screen } = await renderInstallModal({
+      skill: makeSkill(),
+      agents: [],
+    })
+
+    // Assert
+    await expect
+      .element(screen.getByRole('radio', { name: 'Universal only' }))
+      .toBeChecked()
+    await expect
+      .element(
+        screen.getByRole('radio', { name: 'Universal plus selected agents' }),
+      )
+      .toBeDisabled()
+
+    // Act
+    await screen.getByRole('button', { name: 'Install' }).click()
+
+    // Assert
+    await expect.poll(() => mockInstall.mock.calls.length).toBe(1)
+    expect(mockInstall).toHaveBeenCalledWith({
+      repo: repositoryId('vercel-labs/skills'),
+      global: true,
+      agents: [],
+      skills: ['task'],
+    })
+  })
+
   it('requires at least one symlink agent when Universal plus agents is selected', async () => {
     // Arrange
     const { screen } = await renderInstallModal({

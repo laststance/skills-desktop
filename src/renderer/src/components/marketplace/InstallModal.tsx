@@ -91,8 +91,13 @@ export const InstallModal = React.memo(
       () => selectedAgents.filter((id) => existingAgentIds.has(id)),
       [existingAgentIds, selectedAgents],
     )
+    const hasAvailableAgents = existingAgents.length > 0
+    // With no installed agents, Universal-only is the only actionable target.
+    const effectiveInstallTargetMode: InstallTargetMode = hasAvailableAgents
+      ? installTargetMode
+      : 'universal-only'
     const shouldCreateAgentSymlinks =
-      installTargetMode === 'universal-and-agents'
+      effectiveInstallTargetMode === 'universal-and-agents'
     const canInstall =
       !isInstalling &&
       selectedSkill !== null &&
@@ -129,7 +134,10 @@ export const InstallModal = React.memo(
         // shared ~/.agents/skills/ source dir. The target mode below only
         // controls whether the CLI also creates agent symlinks.
         global: true,
-        agents: getInstallAgentIds(installTargetMode, validSelectedAgents),
+        agents: getInstallAgentIds(
+          effectiveInstallTargetMode,
+          validSelectedAgents,
+        ),
         skills: [selectedSkill.name],
       }
 
@@ -140,8 +148,8 @@ export const InstallModal = React.memo(
     }, [
       canInstall,
       dispatch,
+      effectiveInstallTargetMode,
       handleClose,
-      installTargetMode,
       selectedSkill,
       validSelectedAgents,
     ])
@@ -163,7 +171,7 @@ export const InstallModal = React.memo(
                 <h4 className="text-sm font-medium mb-2">Install target</h4>
                 <ToggleGroup
                   type="single"
-                  value={installTargetMode}
+                  value={effectiveInstallTargetMode}
                   onValueChange={handleInstallTargetModeChange}
                   variant="outline"
                   disabled={isInstalling}
@@ -179,6 +187,7 @@ export const InstallModal = React.memo(
                   <ToggleGroupItem
                     value="universal-and-agents"
                     aria-label="Universal plus selected agents"
+                    disabled={!hasAvailableAgents}
                     className="h-8 flex-1 rounded-l-none border-l-0"
                   >
                     Universal + agents
