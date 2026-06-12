@@ -230,6 +230,17 @@ export const selectFilteredSkills = createSelector(
 )
 
 /**
+ * Count visible Installed rows after every active Installed filter has run.
+ * @returns Number of rows currently rendered by `SkillsList`.
+ * @example
+ * const count = useAppSelector(selectFilteredSkillCount) // => 24
+ */
+export const selectFilteredSkillCount = createSelector(
+  [selectFilteredSkills],
+  (filteredSkills): number => filteredSkills.length,
+)
+
+/**
  * Exact repo choices for the Installed toolbar. It shares the agent/type gates
  * with `selectFilteredSkills`, but intentionally ignores the active source
  * include filter and text query so users can recover from an over-narrowed

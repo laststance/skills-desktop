@@ -535,11 +535,29 @@ describe('settings:set lockstep with SettingsSchema', () => {
     expect(schema.safeParse([{ autoDownloadUpdates: true }]).success).toBe(true)
   })
 
+  it('lets the user persist the Installed search count display placement', () => {
+    // Arrange / Act / Assert
+    expect(
+      schema.safeParse([{ installedSearchCountDisplay: 'inline' }]).success,
+    ).toBe(true)
+    expect(
+      schema.safeParse([{ installedSearchCountDisplay: 'tab' }]).success,
+    ).toBe(true)
+  })
+
   it('blocks a non-boolean auto-download toggle from reaching disk', () => {
     // Arrange / Act / Assert
     expect(schema.safeParse([{ autoDownloadUpdates: 'yes' }]).success).toBe(
       false,
     )
+  })
+
+  it('blocks an unknown Installed search count display placement from reaching disk', () => {
+    // Arrange / Act / Assert
+    expect(
+      schema.safeParse([{ installedSearchCountDisplay: 'marketplace' }])
+        .success,
+    ).toBe(false)
   })
 
   it('blocks an unknown terminal preset from reaching disk', () => {
@@ -628,6 +646,14 @@ describe('settings:set lockstep with SettingsSchema', () => {
 
     // Assert
     expect('autoDownloadUpdates' in parsed[0]).toBe(false)
+  })
+
+  it('does not wipe a persisted Installed search count placement when an unrelated setting is saved', () => {
+    // Arrange / Act
+    const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
+
+    // Assert
+    expect('installedSearchCountDisplay' in parsed[0]).toBe(false)
   })
 
   it('lets the user persist an explicit hiddenAgentIds list', () => {

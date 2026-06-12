@@ -33,6 +33,12 @@ export const WINDOW_BACKGROUND_OPACITY_MAX = 1
 export const WINDOW_BACKGROUND_OPACITY_MIN = 0.45
 
 /**
+ * Allowed placements for the Installed view's current result count.
+ * Exported so disk schema and strict IPC schema share the same value set.
+ */
+export const INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS = ['tab', 'inline'] as const
+
+/**
  * Clamp a persisted blur radius before it touches Electron or CSS surfaces.
  * @param blurRadius - User setting from `settings.json` or IPC.
  * @returns Whole-pixel radius inside the app-supported range.
@@ -162,6 +168,9 @@ const HIDDEN_AGENT_IDS_SCHEMA = z
  * - `windowBackgroundBlurRadius`: Electron 42 `View#setBackgroundBlur`
  *   radius for the main window. `0` disables the translucent surface and
  *   restores the opaque app background.
+ * - `installedSearchCountDisplay`: where the Installed view shows the
+ *   current visible result count. `'tab'` is the default compact badge;
+ *   `'inline'` moves the count into the search toolbar.
  * - `hiddenAgentIds`: agents the user has chosen to hide from the
  *   sidebar's installed list. Pure visibility toggle — the agent's
  *   skills folder, symlinks, and Marketplace presence are unaffected.
@@ -178,7 +187,7 @@ const HIDDEN_AGENT_IDS_SCHEMA = z
  * so unknown keys are rejected at the IPC boundary (defense in depth).
  *
  * @example
- * SettingsSchema.parse({}) // { defaultSkillTab: 'files', preferredTerminal: 'terminal', windowBackgroundBlurRadius: 0, hiddenAgentIds: [], autoDownloadUpdates: false }
+ * SettingsSchema.parse({}) // { defaultSkillTab: 'files', preferredTerminal: 'terminal', windowBackgroundBlurRadius: 0, installedSearchCountDisplay: 'tab', hiddenAgentIds: [], autoDownloadUpdates: false }
  */
 export const SettingsSchema = z.object({
   defaultSkillTab: z.enum(['files', 'info']).default('files'),
@@ -188,6 +197,9 @@ export const SettingsSchema = z.object({
   windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA.default(
     WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
   ),
+  installedSearchCountDisplay: z
+    .enum(INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS)
+    .default('tab'),
   hiddenAgentIds: HIDDEN_AGENT_IDS_SCHEMA,
   // Legacy auto-download preference. Defaults to false so the manual
   // confirm-via-UI download flow is preserved unless a persisted opt-in
@@ -219,6 +231,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultSkillTab: 'files',
   preferredTerminal: 'terminal',
   windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
+  installedSearchCountDisplay: 'tab',
   hiddenAgentIds: [],
   autoDownloadUpdates: false,
 }

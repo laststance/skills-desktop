@@ -41,6 +41,30 @@ async function createStore(
 }
 
 describe('Settings → Appearance', () => {
+  it('persists Toolbar text when the Installed search count display is changed', async () => {
+    // Arrange
+    const store = await createStore()
+    const { Appearance } = await import('./Appearance')
+    const screen = await render(
+      <Provider store={store}>
+        <Appearance />
+      </Provider>,
+    )
+
+    // Act
+    await screen.getByRole('radio', { name: /Toolbar text/i }).click()
+
+    // Assert
+    await expect.poll(() => mockSettingsSet.mock.calls.length).toBe(1)
+    expect(mockSettingsSet).toHaveBeenCalledWith({
+      installedSearchCountDisplay: 'inline',
+    })
+    const settingsState = store.getState() as {
+      settings: typeof DEFAULT_SETTINGS
+    }
+    expect(settingsState.settings.installedSearchCountDisplay).toBe('inline')
+  })
+
   it('persists the new window blur radius when the opacity slider moves', async () => {
     // Arrange
     const store = await createStore()

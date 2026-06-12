@@ -68,6 +68,7 @@ import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   selectBulkSelectableVisibleSkillNames,
+  selectFilteredSkillCount,
   selectRepoFacetOptions,
   selectSelectedVisibleNames,
   selectSourceFilterViewModel,
@@ -123,6 +124,7 @@ import {
   UNDO_WINDOW_MS,
 } from '@/shared/constants'
 import { FEATURE_FLAGS } from '@/shared/featureFlags'
+import type { Settings } from '@/shared/settings'
 import type {
   BulkDeleteItemResult,
   IsoTimestamp,
@@ -174,6 +176,87 @@ function getUnavailableExcludeReason(
 }
 
 const SKILLS_SH_URL = 'https://skills.sh'
+
+/**
+ * Formats the Installed visible count for tab and toolbar UI in MainContent.
+ * @param count - Current `selectFilteredSkills.length` after all Installed filters.
+ * @returns Short count label with singular/plural skill copy.
+ * @example
+ * formatInstalledSearchCount(1) // => "1 skill"
+ * formatInstalledSearchCount(24) // => "24 skills"
+ */
+function formatInstalledSearchCount(count: number): string {
+  return `${count} ${pluralize(count, 'skill')}`
+}
+
+interface InstalledTabLabelProps {
+  count: number
+  countText: string
+  display: Settings['installedSearchCountDisplay']
+}
+
+/**
+ * Installed tab label with the optional current visible-count badge.
+ * @param props - Count text and placement setting read by MainContent.
+ * @returns TabsTrigger for the Installed tab.
+ * @example
+ * <InstalledTabLabel count={24} countText="24 skills" display="tab" />
+ */
+const InstalledTabLabel = React.memo(function InstalledTabLabel({
+  count,
+  countText,
+  display,
+}: InstalledTabLabelProps): React.ReactElement {
+  const shouldShowCount = display === 'tab'
+  const accessibleText = `${countText} visible`
+
+  return (
+    <TabsTrigger
+      value="installed"
+      className="group flex-1 gap-2"
+      aria-label={shouldShowCount ? `Installed, ${accessibleText}` : undefined}
+    >
+      Installed
+      {shouldShowCount && (
+        <span
+          aria-hidden="true"
+          className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-semibold tabular-nums text-muted-foreground transition-colors group-data-[state=active]:bg-primary/10 group-data-[state=active]:text-primary"
+        >
+          {count}
+        </span>
+      )}
+    </TabsTrigger>
+  )
+})
+
+interface InstalledInlineCountProps {
+  countText: string
+  display: Settings['installedSearchCountDisplay']
+}
+
+/**
+ * Search toolbar count used when the user prefers inline Installed counts.
+ * @param props - Count text and placement setting read by MainContent.
+ * @returns Muted toolbar count, or null when tab-badge mode is active.
+ * @example
+ * <InstalledInlineCount countText="24 skills" display="inline" />
+ */
+const InstalledInlineCount = React.memo(function InstalledInlineCount({
+  countText,
+  display,
+}: InstalledInlineCountProps): React.ReactElement | null {
+  if (display !== 'inline') return null
+
+  return (
+    <p
+      className="min-w-20 shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      {countText}
+    </p>
+  )
+})
 
 /**
  * Build bulk-delete targets only for delete confirms so MainContent stays branch-light.
@@ -283,9 +366,16 @@ export const MainContent = React.memo(
     const bulkSelectMode = useAppSelector(selectBulkSelectMode)
     const sourceFilter = useAppSelector(selectSourceFilterViewModel)
     const repoFacetOptions = useAppSelector(selectRepoFacetOptions)
+    const filteredSkillCount = useAppSelector(selectFilteredSkillCount)
+    const installedSearchCountDisplay = useAppSelector(
+      (state) => state.settings.installedSearchCountDisplay,
+    )
     const excludedSkillTypeFilters = useAppSelector(
       selectExcludedSkillTypeFilters,
     )
+
+    const installedSearchCountText =
+      formatInstalledSearchCount(filteredSkillCount)
 
     const selectedAgent = agents.find((a) => a.id === selectedAgentId)
     const bulkDeleteTargetSummary = useMemo(() => {
@@ -890,9 +980,11 @@ export const MainContent = React.memo(
         >
           <div className="p-4 border-b border-border">
             <TabsList className="w-full">
-              <TabsTrigger value="installed" className="flex-1">
-                Installed
-              </TabsTrigger>
+              <InstalledTabLabel
+                count={filteredSkillCount}
+                countText={installedSearchCountText}
+                display={installedSearchCountDisplay}
+              />
               {FEATURE_FLAGS.ENABLE_MARKETPLACE_UI ? (
                 <TabsTrigger value="marketplace" className="flex-1">
                   Marketplace
@@ -918,6 +1010,11 @@ export const MainContent = React.memo(
               <div className="min-w-64 flex-[1_1_20rem]">
                 <SearchBox />
               </div>
+
+              <InstalledInlineCount
+                countText={installedSearchCountText}
+                display={installedSearchCountDisplay}
+              />
 
               {/* Sort toggle: A→Z ⟷ Z→A */}
               <Button

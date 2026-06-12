@@ -1,6 +1,10 @@
 import React from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@/renderer/src/components/ui/toggle-group'
 import { useUnmountEffect } from '@/renderer/src/hooks/useUnmountEffect'
 import { useUpdateEffect } from '@/renderer/src/hooks/useUpdateEffect'
 import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
@@ -8,13 +12,28 @@ import { useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   DEFAULT_SETTINGS,
   getWindowBackgroundOpacity,
+  INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS as INSTALLED_SEARCH_COUNT_DISPLAY_VALUES,
   WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
   WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
 } from '@/shared/settings'
+import type { Settings } from '@/shared/settings'
 
 import { SectionFrame, SectionRow } from './SectionFrame'
 
 const BACKGROUND_BLUR_LABEL = 'Opacity / Blur'
+const INSTALLED_SEARCH_COUNT_DISPLAY_LABEL = 'Installed search count'
+const INSTALLED_SEARCH_COUNT_DISPLAY_LABELS: Record<
+  Settings['installedSearchCountDisplay'],
+  string
+> = {
+  tab: 'Tab badge',
+  inline: 'Toolbar text',
+}
+const INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS =
+  INSTALLED_SEARCH_COUNT_DISPLAY_VALUES.map((value) => ({
+    value,
+    label: INSTALLED_SEARCH_COUNT_DISPLAY_LABELS[value],
+  }))
 
 interface BackgroundBlurRangeInputProps {
   value: number
@@ -70,6 +89,9 @@ export const Appearance = React.memo(function Appearance(): React.ReactElement {
   const windowBackgroundBlurRadius = useAppSelector(
     (state) => state.settings.windowBackgroundBlurRadius,
   )
+  const installedSearchCountDisplay = useAppSelector(
+    (state) => state.settings.installedSearchCountDisplay,
+  )
   const updateSettings = useUpdateSettings()
   const [blurRadiusDraft, setBlurRadiusDraft] = React.useState<number>(
     windowBackgroundBlurRadius,
@@ -109,6 +131,14 @@ export const Appearance = React.memo(function Appearance(): React.ReactElement {
     })
   }, [clearPersistTimer, updateSettings])
 
+  const handleSearchCountDisplayChange = React.useCallback(
+    (nextValue: string): void => {
+      if (nextValue !== 'tab' && nextValue !== 'inline') return
+      updateSettings({ installedSearchCountDisplay: nextValue })
+    },
+    [updateSettings],
+  )
+
   useUpdateEffect(() => {
     clearPersistTimer()
     setBlurRadiusDraft(windowBackgroundBlurRadius)
@@ -133,6 +163,26 @@ export const Appearance = React.memo(function Appearance(): React.ReactElement {
       title="Appearance"
       description="Visual options for the main window."
     >
+      <SectionRow
+        label={INSTALLED_SEARCH_COUNT_DISPLAY_LABEL}
+        description="Choose where the current Installed result count appears."
+      >
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          value={installedSearchCountDisplay}
+          onValueChange={handleSearchCountDisplayChange}
+          aria-label={INSTALLED_SEARCH_COUNT_DISPLAY_LABEL}
+        >
+          {INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS.map((option) => (
+            <ToggleGroupItem key={option.value} value={option.value}>
+              {option.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </SectionRow>
+
       <SectionRow
         label={BACKGROUND_BLUR_LABEL}
         description="Surface opacity and background blur for the main window."
