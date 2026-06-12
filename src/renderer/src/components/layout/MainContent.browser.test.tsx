@@ -5,6 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import { partitionGlobalDeleteTargets } from '@/renderer/src/components/skills/reviewedDestructiveTargets'
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
+import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type {
   AgentId,
   BulkDeleteResult,
@@ -138,6 +139,8 @@ async function createStore() {
     await import('@/renderer/src/redux/slices/bookmarkSlice')
   const { default: marketplaceReducer } =
     await import('@/renderer/src/redux/slices/marketplaceSlice')
+  const { default: settingsReducer } =
+    await import('@/renderer/src/redux/slices/settingsSlice')
   return configureStore({
     reducer: {
       ui: uiReducer,
@@ -145,6 +148,10 @@ async function createStore() {
       agents: agentsReducer,
       bookmarks: bookmarksReducer,
       marketplace: marketplaceReducer,
+      settings: settingsReducer,
+    },
+    preloadedState: {
+      settings: { ...DEFAULT_SETTINGS },
     },
   })
 }
@@ -244,6 +251,129 @@ function makeAgentLocalSkill(name: string, agentId: AgentId): Skill {
     isOrphan: false,
   }
 }
+
+describe('MainContent Installed search count display', () => {
+  it('shows the current visible count in the Installed tab by default and keeps Marketplace count-free', async () => {
+    // Arrange
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSourceSkill('alpha', 'laststance/skills'),
+          makeSourceSkill('beta', 'laststance/skills'),
+          makeSourceSkill('gamma', 'pbakaus/impeccable'),
+        ],
+        'req-id',
+      ),
+    )
+
+    // Assert
+    await expect
+      .element(
+        screen.getByRole('tab', {
+          name: /Installed, 3 skills visible/i,
+        }),
+      )
+      .toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('tab', { name: /^Marketplace$/ }))
+      .toBeInTheDocument()
+  })
+
+  it('updates the Installed tab count when search and repo filters change visible skills', async () => {
+    // Arrange
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { setSearchQuery, setSelectedSources } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSourceSkill('alpha', 'laststance/skills'),
+          makeSourceSkill('beta', 'laststance/skills'),
+          makeSourceSkill('gamma', 'pbakaus/impeccable'),
+        ],
+        'req-id',
+      ),
+    )
+
+    // Act
+    store.dispatch(setSearchQuery('alpha'))
+
+    // Assert
+    await expect
+      .element(
+        screen.getByRole('tab', {
+          name: /Installed, 1 skill visible/i,
+        }),
+      )
+      .toBeInTheDocument()
+
+    // Act
+    store.dispatch(setSearchQuery(''))
+    store.dispatch(setSelectedSources([repositoryId('pbakaus/impeccable')]))
+
+    // Assert
+    await expect
+      .element(
+        screen.getByRole('tab', {
+          name: /Installed, 1 skill visible/i,
+        }),
+      )
+      .toBeInTheDocument()
+
+    // Act
+    store.dispatch(setSearchQuery('missing'))
+
+    // Assert
+    await expect
+      .element(
+        screen.getByRole('tab', {
+          name: /Installed, 0 skills visible/i,
+        }),
+      )
+      .toBeInTheDocument()
+  })
+
+  it('moves the current visible count into the toolbar when the inline setting is selected', async () => {
+    // Arrange
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { setSettings } =
+      await import('@/renderer/src/redux/slices/settingsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSourceSkill('alpha', 'laststance/skills'),
+          makeSourceSkill('beta', 'laststance/skills'),
+          makeSourceSkill('gamma', 'pbakaus/impeccable'),
+        ],
+        'req-id',
+      ),
+    )
+
+    // Act
+    store.dispatch(
+      setSettings({
+        ...DEFAULT_SETTINGS,
+        installedSearchCountDisplay: 'inline',
+      }),
+    )
+
+    // Assert
+    await expect.element(screen.getByText(/^3 skills$/)).toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('tab', { name: /^Installed$/ }))
+      .toBeInTheDocument()
+    expect(
+      screen.getByRole('tab', { name: /Installed, 3 skills visible/i }).query(),
+    ).toBeNull()
+  })
+})
 
 describe('MainContent bulk-select toggle button', () => {
   it('labels the bulk toggle "Select" and unpressed before the user enters bulk mode', async () => {

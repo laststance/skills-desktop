@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import type { Settings } from '@/shared/settings'
+import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
 
 import { areSettingsEqual } from './settings'
 
@@ -13,13 +13,7 @@ import { areSettingsEqual } from './settings'
  * the saved dimensions are identical.
  */
 describe('areSettingsEqual', () => {
-  const baseSettings: Settings = {
-    defaultSkillTab: 'files',
-    preferredTerminal: 'terminal',
-    windowBackgroundBlurRadius: 0,
-    hiddenAgentIds: [],
-    autoDownloadUpdates: false,
-  }
+  const baseSettings: Settings = DEFAULT_SETTINGS
 
   it('treats two settings with identical primitive fields as unchanged so no redundant save fires', () => {
     // Arrange

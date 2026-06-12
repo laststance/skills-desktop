@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
+import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type { Agent, Skill, SkillName, SymlinkInfo } from '@/shared/types'
 
 const mockUnlinkManyFromAgent = vi.fn()
@@ -106,6 +107,7 @@ async function renderMainContentWithToolbar() {
     { default: agentsReducer },
     { default: bookmarksReducer },
     { default: marketplaceReducer },
+    { default: settingsReducer },
     { MainContent },
   ] = await Promise.all([
     import('@/renderer/src/redux/slices/uiSlice'),
@@ -113,6 +115,7 @@ async function renderMainContentWithToolbar() {
     import('@/renderer/src/redux/slices/agentsSlice'),
     import('@/renderer/src/redux/slices/bookmarkSlice'),
     import('@/renderer/src/redux/slices/marketplaceSlice'),
+    import('@/renderer/src/redux/slices/settingsSlice'),
     import('./MainContent'),
   ])
   const store = configureStore({
@@ -122,6 +125,10 @@ async function renderMainContentWithToolbar() {
       agents: agentsReducer,
       bookmarks: bookmarksReducer,
       marketplace: marketplaceReducer,
+      settings: settingsReducer,
+    },
+    preloadedState: {
+      settings: { ...DEFAULT_SETTINGS },
     },
   })
   const screen = await render(

@@ -110,6 +110,29 @@ describe('SettingsSchema', () => {
     expect(parsed.autoDownloadUpdates).toBe(false)
   })
 
+  it('defaults the Installed search count display to the tab badge', () => {
+    // Arrange / Act
+    const parsed = SettingsSchema.parse({})
+    // Assert
+    expect(parsed.installedSearchCountDisplay).toBe('tab')
+  })
+
+  it('persists moving the Installed search count into the toolbar', () => {
+    // Arrange / Act
+    const parsed = SettingsSchema.parse({
+      installedSearchCountDisplay: 'inline',
+    })
+    // Assert
+    expect(parsed.installedSearchCountDisplay).toBe('inline')
+  })
+
+  it('rejects an unknown Installed search count display placement', () => {
+    // Arrange / Act / Assert
+    expect(() =>
+      SettingsSchema.parse({ installedSearchCountDisplay: 'marketplace' }),
+    ).toThrow()
+  })
+
   it('persists opting into background downloads', () => {
     // Arrange / Act
     const parsed = SettingsSchema.parse({

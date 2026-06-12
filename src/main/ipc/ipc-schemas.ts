@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { AGENT_IDS, TERMINAL_APP_IDS } from '@/shared/constants'
 import type { IpcInvokeChannel } from '@/shared/ipc-contract'
 import {
+  INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS,
   SettingsSchema,
   WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA,
 } from '@/shared/settings'
@@ -360,6 +361,11 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
         // unrelated partial settings writes do not reset blur to zero.
         windowBackgroundBlurRadius:
           WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA.optional(),
+        // Search-count display preference. Keep this as a non-defaulting enum
+        // so unrelated partial settings writes do not reset the user's choice.
+        installedSearchCountDisplay: z
+          .enum(INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS)
+          .optional(),
         // Strict z.enum here — renderers should only ever emit valid ids.
         // Intentionally NOT chained off `SettingsSchema.shape.hiddenAgentIds`:
         // that field carries a `.default([])` for forgiving disk reads, and
