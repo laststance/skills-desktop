@@ -10,6 +10,8 @@ import { join } from 'node:path'
 
 import type { Page } from '@playwright/test'
 
+import type { Settings } from '@/shared/settings'
+
 import { test, expect } from '../fixtures/electron-app'
 import { readSettingsFile, writeSettingsFile } from '../helpers/settings-file'
 
@@ -19,7 +21,7 @@ const SEARCH_COUNT_SKILLS = [
   { name: 'gamma-count-e2e', source: 'pbakaus/impeccable' },
 ]
 
-type SearchCountDisplaySetting = 'tab' | 'inline'
+type SearchCountDisplaySetting = Settings['installedSearchCountDisplay']
 type IsolatedHomeUse = (home: string) => Promise<void>
 
 /**
@@ -117,7 +119,7 @@ async function applyInstalledFilters(
   filters: { query: string; sources: string[] },
 ): Promise<void> {
   await page.evaluate(({ query, sources }) => {
-    const store = window.__store__ ?? window.__store
+    const store = window.__store__
     if (!store) throw new Error('window.__store__ is not exposed')
     store.dispatch({
       type: 'ui/setSearchQuery',
@@ -206,7 +208,7 @@ inlineInstalledCountTest(
   async ({ appWindow, isolatedHome }) => {
     // Arrange / Assert
     await appWindow.waitForFunction(() => {
-      const store = window.__store__ ?? window.__store
+      const store = window.__store__
       if (!store) return false
       const state = store.getState() as {
         settings?: { installedSearchCountDisplay?: string }

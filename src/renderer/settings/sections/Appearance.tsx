@@ -12,6 +12,7 @@ import { useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   DEFAULT_SETTINGS,
   getWindowBackgroundOpacity,
+  INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS as INSTALLED_SEARCH_COUNT_DISPLAY_VALUES,
   WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
   WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
 } from '@/shared/settings'
@@ -21,13 +22,18 @@ import { SectionFrame, SectionRow } from './SectionFrame'
 
 const BACKGROUND_BLUR_LABEL = 'Opacity / Blur'
 const INSTALLED_SEARCH_COUNT_DISPLAY_LABEL = 'Installed search count'
-const INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS: ReadonlyArray<{
-  value: Settings['installedSearchCountDisplay']
-  label: string
-}> = [
-  { value: 'tab', label: 'Tab badge' },
-  { value: 'inline', label: 'Toolbar text' },
-]
+const INSTALLED_SEARCH_COUNT_DISPLAY_LABELS: Record<
+  Settings['installedSearchCountDisplay'],
+  string
+> = {
+  tab: 'Tab badge',
+  inline: 'Toolbar text',
+}
+const INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS =
+  INSTALLED_SEARCH_COUNT_DISPLAY_VALUES.map((value) => ({
+    value,
+    label: INSTALLED_SEARCH_COUNT_DISPLAY_LABELS[value],
+  }))
 
 interface BackgroundBlurRangeInputProps {
   value: number
