@@ -1,106 +1,107 @@
+import {
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import type { Page } from '@playwright/test'
 
-import { repositoryId, type AbsolutePath, type Skill } from '@/shared/types'
-
 import { test, expect } from '../fixtures/electron-app'
-import { readSettingsFile } from '../helpers/settings-file'
+import { readSettingsFile, writeSettingsFile } from '../helpers/settings-file'
 
 const SEARCH_COUNT_SKILLS = [
-  makeSourceSkill('alpha-count-e2e', 'laststance/skills'),
-  makeSourceSkill('beta-count-e2e', 'laststance/skills'),
-  makeSourceSkill('gamma-count-e2e', 'pbakaus/impeccable'),
+  { name: 'alpha-count-e2e', source: 'laststance/skills' },
+  { name: 'beta-count-e2e', source: 'laststance/skills' },
+  { name: 'gamma-count-e2e', source: 'pbakaus/impeccable' },
 ]
 
+type SearchCountDisplaySetting = 'tab' | 'inline'
+type IsolatedHomeUse = (home: string) => Promise<void>
+
 /**
- * Create a minimal source skill row for the Installed count E2E fixture.
- * @param name - Display name that the Installed search field matches.
- * @param source - Repository id used by the repo include filter.
- * @returns Serializable skill object accepted by the renderer Redux slice.
+ * Write one source skill folder that the real scanner will count after app launch.
+ * @param home - Isolated E2E HOME used by the Electron fixture.
+ * @param skillName - Folder name and SKILL.md title for the staged skill.
+ * @returns void after the source skill exists on disk.
  * @example
- * makeSourceSkill('alpha-count-e2e', 'laststance/skills')
+ * stageSourceSkill('/tmp/home', 'alpha-count-e2e')
  */
-function makeSourceSkill(name: string, source: string): Skill {
-  return {
-    name,
-    description: `${name} description`,
-    path: `/tmp/skills-desktop-e2e/${name}` as AbsolutePath,
-    filesystemIdentity: {
-      kind: 'directory',
-      dev: 101,
-      ino: name.length,
-      size: 96,
-      ctimeMs: 1,
-      mtimeMs: 2,
-    },
-    symlinkCount: 0,
-    symlinks: [],
-    isSource: true,
-    isOrphan: false,
-    source: repositoryId(source),
-    sourceUrl: `https://github.com/${source}.git`,
-  }
+function stageSourceSkill(home: string, skillName: string): void {
+  const sourcePath = join(home, '.agents', 'skills', skillName)
+  mkdirSync(sourcePath, { recursive: true })
+  writeFileSync(
+    join(sourcePath, 'SKILL.md'),
+    `---\nname: ${skillName}\ndescription: ${skillName} description\n---\n# ${skillName}\n`,
+    'utf8',
+  )
 }
 
 /**
- * Wait for the E2E Redux bridge before dispatching synthetic scan data.
- * @param page - Electron renderer page under test.
- * @returns Promise that resolves once `window.__store__` is available.
+ * Write the skills CLI lockfile so the real scanner exposes deterministic repo facets.
+ * @param home - Isolated E2E HOME used by the Electron fixture.
+ * @returns void after `.skill-lock.json` maps each staged skill to its repo.
  * @example
- * await waitForExposedStore(appWindow)
+ * stageSkillLock('/tmp/home')
  */
-async function waitForExposedStore(page: Page): Promise<void> {
-  await page.waitForFunction(() => Boolean(window.__store__ ?? window.__store))
-}
-
-/**
- * Replace scanner output with a fixed Installed inventory and reset filters.
- * @param page - Electron renderer page under test.
- * @returns Promise that resolves once Redux has the deterministic fixture.
- * @example
- * await seedInstalledCountFixture(appWindow)
- */
-async function seedInstalledCountFixture(page: Page): Promise<void> {
-  await waitForExposedStore(page)
-  await page.evaluate((skills) => {
-    const store = window.__store__ ?? window.__store
-    if (!store) throw new Error('window.__store__ is not exposed')
-
-    store.dispatch({
-      type: 'ui/setActiveTab',
-      payload: 'installed',
-    })
-    store.dispatch({
-      type: 'ui/selectAgent',
-      payload: null,
-    })
-    store.dispatch({
-      type: 'ui/setSkillTypeFilter',
-      payload: 'all',
-    })
-    store.dispatch({
-      type: 'ui/clearExcludedSkillTypeFilters',
-    })
-    store.dispatch({
-      type: 'ui/setSearchScope',
-      payload: 'name',
-    })
-    store.dispatch({
-      type: 'ui/setSearchQuery',
-      payload: '',
-    })
-    store.dispatch({
-      type: 'ui/setSelectedSources',
-      payload: [],
-    })
-    store.dispatch({
-      type: 'skills/fetchAll/fulfilled',
-      payload: skills,
-      meta: {
-        requestId: 'e2e-installed-search-count',
-        requestStatus: 'fulfilled',
+function stageSkillLock(home: string): void {
+  const lockPath = join(home, '.agents', '.skill-lock.json')
+  const skills = Object.fromEntries(
+    SEARCH_COUNT_SKILLS.map((skill) => [
+      skill.name,
+      {
+        source: skill.source,
+        sourceType: 'github',
+        sourceUrl: `https://github.com/${skill.source}.git`,
       },
-    })
-  }, SEARCH_COUNT_SKILLS)
+    ]),
+  )
+
+  writeFileSync(lockPath, JSON.stringify({ skills }, null, 2), 'utf8')
+}
+
+/**
+ * Stage the complete Installed-count HOME before Electron starts scanning.
+ * @param home - Isolated E2E HOME used by the Electron fixture.
+ * @returns void after source skills and repo metadata are on disk.
+ * @example
+ * stageInstalledCountHome('/tmp/home')
+ */
+function stageInstalledCountHome(home: string): void {
+  mkdirSync(join(home, '.agents', 'skills'), { recursive: true })
+  for (const skill of SEARCH_COUNT_SKILLS) {
+    stageSourceSkill(home, skill.name)
+  }
+  stageSkillLock(home)
+}
+
+/**
+ * Provide an isolated HOME with only the three Installed-count skills staged.
+ * @param use - Playwright fixture continuation that launches Electron after setup.
+ * @param display - Optional persisted count placement to write before launch.
+ * @returns Promise that resolves after the fixture HOME is cleaned up.
+ * @example
+ * await useInstalledCountHome(use, 'inline')
+ */
+async function useInstalledCountHome(
+  use: IsolatedHomeUse,
+  display?: SearchCountDisplaySetting,
+): Promise<void> {
+  const home = realpathSync.native(
+    mkdtempSync(join(tmpdir(), 'skills-desktop-e2e-search-count-')),
+  )
+  try {
+    stageInstalledCountHome(home)
+    if (display) {
+      writeSettingsFile(home, { installedSearchCountDisplay: display })
+    }
+    await use(home)
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
 }
 
 /**
@@ -129,100 +130,106 @@ async function applyInstalledFilters(
   }, filters)
 }
 
-test('Installed tab badge tracks the current visible count and Marketplace stays count-free', async ({
-  appWindow,
-}) => {
-  // Arrange
-  await seedInstalledCountFixture(appWindow)
-
-  // Assert
-  await expect(
-    appWindow.getByRole('tab', {
-      name: /^Installed, 3 skills visible$/,
-    }),
-  ).toBeVisible()
-  await expect(
-    appWindow.getByRole('tab', { name: /^Marketplace$/ }),
-  ).toBeVisible()
-
-  // Act
-  await applyInstalledFilters(appWindow, {
-    query: 'alpha-count',
-    sources: [],
-  })
-
-  // Assert
-  await expect(
-    appWindow.getByRole('tab', {
-      name: /^Installed, 1 skill visible$/,
-    }),
-  ).toBeVisible()
-
-  // Act
-  await applyInstalledFilters(appWindow, {
-    query: '',
-    sources: ['pbakaus/impeccable'],
-  })
-
-  // Assert
-  await expect(
-    appWindow.getByRole('tab', {
-      name: /^Installed, 1 skill visible$/,
-    }),
-  ).toBeVisible()
-
-  // Act
-  await applyInstalledFilters(appWindow, {
-    query: 'missing-count-e2e',
-    sources: [],
-  })
-
-  // Assert
-  await expect(
-    appWindow.getByRole('tab', {
-      name: /^Installed, 0 skills visible$/,
-    }),
-  ).toBeVisible()
-  await expect(
-    appWindow.getByRole('tab', { name: /^Marketplace$/ }),
-  ).toBeVisible()
+const installedCountTest = test.extend<{ isolatedHome: string }>({
+  // eslint-disable-next-line no-empty-pattern
+  isolatedHome: async ({}, use) => {
+    await useInstalledCountHome(use)
+  },
 })
 
-test('persisted inline mode moves the count into the toolbar and removes the tab badge', async ({
-  appWindow,
-  isolatedHome,
-}) => {
-  // Arrange
-  await seedInstalledCountFixture(appWindow)
+const inlineInstalledCountTest = test.extend<{ isolatedHome: string }>({
+  // eslint-disable-next-line no-empty-pattern
+  isolatedHome: async ({}, use) => {
+    await useInstalledCountHome(use, 'inline')
+  },
+})
 
-  // Act
-  await appWindow.evaluate(async () => {
-    await window.electron.settings.set({
-      installedSearchCountDisplay: 'inline',
+installedCountTest(
+  'Installed tab badge tracks the current visible count and Marketplace stays count-free',
+  async ({ appWindow }) => {
+    // Arrange / Assert
+    await expect(
+      appWindow.getByRole('tab', {
+        name: /^Installed, 3 skills visible$/,
+      }),
+    ).toBeVisible()
+    await expect(
+      appWindow.getByRole('tab', { name: /^Marketplace$/ }),
+    ).toBeVisible()
+
+    // Act
+    await applyInstalledFilters(appWindow, {
+      query: 'alpha-count',
+      sources: [],
     })
-  })
 
-  // Assert
-  await appWindow.waitForFunction(() => {
-    const store = window.__store__ ?? window.__store
-    if (!store) return false
-    const state = store.getState() as {
-      settings?: { installedSearchCountDisplay?: string }
-    }
-    return state.settings?.installedSearchCountDisplay === 'inline'
-  })
-  await expect(
-    appWindow.getByRole('tab', { name: /^Installed$/ }),
-  ).toBeVisible()
-  await expect(
-    appWindow.getByRole('tab', {
-      name: /^Installed, 3 skills visible$/,
-    }),
-  ).toHaveCount(0)
-  await expect(appWindow.getByText(/^3 skills$/)).toBeVisible()
+    // Assert
+    await expect(
+      appWindow.getByRole('tab', {
+        name: /^Installed, 1 skill visible$/,
+      }),
+    ).toBeVisible()
 
-  const persisted = readSettingsFile(isolatedHome) as {
-    installedSearchCountDisplay?: string
-  } | null
-  expect(persisted?.installedSearchCountDisplay).toBe('inline')
-})
+    // Act
+    await applyInstalledFilters(appWindow, {
+      query: '',
+      sources: ['pbakaus/impeccable'],
+    })
+
+    // Assert
+    await expect(
+      appWindow.getByRole('tab', {
+        name: /^Installed, 1 skill visible$/,
+      }),
+    ).toBeVisible()
+
+    // Act
+    await applyInstalledFilters(appWindow, {
+      query: 'missing-count-e2e',
+      sources: [],
+    })
+
+    // Assert
+    await expect(
+      appWindow.getByRole('tab', {
+        name: /^Installed, 0 skills visible$/,
+      }),
+    ).toBeVisible()
+    await expect(
+      appWindow.getByRole('tab', { name: /^Marketplace$/ }),
+    ).toBeVisible()
+  },
+)
+
+inlineInstalledCountTest(
+  'persisted inline mode moves the count into the toolbar and removes the tab badge',
+  async ({ appWindow, isolatedHome }) => {
+    // Arrange / Assert
+    await appWindow.waitForFunction(() => {
+      const store = window.__store__ ?? window.__store
+      if (!store) return false
+      const state = store.getState() as {
+        settings?: { installedSearchCountDisplay?: string }
+      }
+      return state.settings?.installedSearchCountDisplay === 'inline'
+    })
+    await expect(
+      appWindow.getByRole('tab', { name: /^Installed$/ }),
+    ).toBeVisible()
+    await expect(
+      appWindow.getByRole('tab', {
+        name: /^Installed, 3 skills visible$/,
+      }),
+    ).toHaveCount(0)
+    await expect(
+      appWindow
+        .locator('[aria-live="polite"]')
+        .filter({ hasText: /^3 skills$/ }),
+    ).toBeVisible()
+
+    const persisted = readSettingsFile(isolatedHome) as {
+      installedSearchCountDisplay?: string
+    } | null
+    expect(persisted?.installedSearchCountDisplay).toBe('inline')
+  },
+)
