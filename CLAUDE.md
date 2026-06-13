@@ -14,7 +14,7 @@ Electron desktop app (macOS) for visualizing Skills symlink status across AI age
 **version bump → notarized build → ZIP rename → GitHub release → website URL update → artifacts upload**
 
 **Forbidden:**
-- `/ship` MUST NOT bump `package.json` version. `/ship` is for code commits/PRs only. Version bumps are owned exclusively by `/electron-release`.
+- `/ship` MUST NOT bump `package.json` version. Version bumps are owned exclusively by `/electron-release`.
 - Manual `gh release create` outside `/electron-release` (skips notarization check, ZIP rename, website update — auto-update breaks)
 - Manual edit of `package.json` `"version"` field
 
