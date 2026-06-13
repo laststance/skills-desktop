@@ -101,9 +101,11 @@ describe('theme listener — applyThemeToDOM', () => {
     store.dispatch(setTheme('cyan'))
     expect(root.classList.contains('tone-tinted')).toBe(false)
 
-    // Act + Assert — the pure-neutral default stays crisp too (unchanged look)
+    // Act + Assert — a light tinted-neutral preset (zinc-light) also gets the soft base
     store.dispatch(setTheme('zinc-light'))
     expect(root.classList.contains('tone-tinted')).toBe(true)
+
+    // Act + Assert — the pure-neutral default stays crisp (unchanged look)
     store.dispatch(setTheme('neutral-dark'))
     expect(root.classList.contains('tone-tinted')).toBe(false)
   })

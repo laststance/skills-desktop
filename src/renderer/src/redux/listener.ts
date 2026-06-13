@@ -26,9 +26,10 @@ interface ListenerState {
 
 /**
  * Project the current `ThemeState` onto `<html>` as CSS custom properties
- * plus a `.light` / `.dark` class. This is the only place that mutates the
- * DOM for theme purposes — Redux state stays authoritative and the CSS in
- * `globals.css` consumes `--theme-hue` / `--theme-chroma` directly.
+ * plus a `.light` / `.dark` class and, for tinted-neutral presets, a
+ * `.tone-tinted` class. This is the only place that mutates the DOM for theme
+ * purposes — Redux state stays authoritative and the CSS in `globals.css`
+ * consumes `--theme-hue` / `--theme-chroma` directly.
  *
  * Neutral presets persist `chroma: 0`, which collapses every OKLCH token to
  * the grayscale axis and makes the `--theme-hue` angle irrelevant (so we

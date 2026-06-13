@@ -52,8 +52,8 @@ const SWATCH_LIGHTNESS = 0.65
  * shape `THEME_PRESETS` produces after grouping by family prefix.
  *
  * Family id is derived from the preset name's prefix (`zinc-dark` → `zinc`).
- * The label drops the "Dark"/"Light" suffix so the row reads as a horizontal
- * palette picker rather than a list of mode-locked entries.
+ * The label drops the "Dark"/"Light" suffix so the grid reads as a palette
+ * picker rather than a list of mode-locked entries.
  *
  * @example
  * NEUTRAL_FAMILIES === [
