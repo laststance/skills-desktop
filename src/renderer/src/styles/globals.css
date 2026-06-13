@@ -7,7 +7,8 @@
   :root {
     /* Theme axes — mutated by redux/listener.ts:applyThemeToDOM.
      * --theme-hue:    OKLCH hue angle (0–360), irrelevant when chroma=0.
-     * --theme-chroma: 0 for neutral presets, COLOR_PRESET_CHROMA (0.16) for color.
+     * --theme-chroma: 0 for neutral, TINTED_NEUTRAL_CHROMA (0.05) for tinted
+     *                 neutral, COLOR_PRESET_CHROMA (0.16) for color presets.
      * All tokens below scale chroma off these two variables so a single
      * source of truth (THEME_PRESETS) fans out to every surface. */
     --theme-hue: 0;
@@ -158,17 +159,26 @@
    * Pure-neutral (chroma 0, the default) and full-color (chroma 0.16) keep
    * the crisp base ramp above, so the default appearance is unchanged.
    *
-   * Only the surface --*-l variables shift, by a uniform per-mode offset
-   * (+0.05 dark / −0.05 light); foreground / primary / accent / ring / border
-   * color stay as defined above so WCAG AA contrast and surface separation
-   * are preserved. Tune the gray depth here — these are the single source.
+   * Only the surface --*-l variables shift; foreground / primary / accent /
+   * ring color stay as defined above so text contrast and CTA affordance are
+   * preserved. The shift is per-mode: −0.05 light (uniform), and in dark +0.05
+   * for the headline surfaces (background / card / popover / border / input)
+   * but only +0.02 for secondary / muted. muted-foreground mid-gray text rides
+   * the --muted surface (e.g. the 10px ThemeSelector family label on hover), so
+   * a full +0.05 muted lift would drop it below WCAG AA 4.5:1. Tune the gray
+   * depth here — these are the single source. contrast.test.ts pins the
+   * muted/muted-foreground pair at the 4.5:1 normal-text floor.
    * ============================================ */
   .dark.tone-tinted {
     --background-l: 0.17;
     --card-l: 0.23;
     --popover-l: 0.23;
-    --secondary-l: 0.3;
-    --muted-l: 0.3;
+    /* secondary / muted lift only +0.02 (not +0.05 like the surfaces above):
+     * muted-foreground mid-gray text sits on --muted (the 10px ThemeSelector
+     * family label on hover). At 0.3 that pair is 4.21:1 — under WCAG AA 4.5;
+     * 0.27 lifts it to 4.66:1 while still reading as a tinted gray. */
+    --secondary-l: 0.27;
+    --muted-l: 0.27;
     --border-l: 0.35;
     --input-l: 0.35;
   }

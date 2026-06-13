@@ -78,15 +78,17 @@ const LIGHT_TOKENS: Record<string, TokenSpec> = {
 }
 
 // Tinted-neutral presets apply the `.tone-tinted` gray base from globals.css:
-// a uniform per-mode surface shift (+0.05 dark / −0.05 light). Only the
-// surface tokens that participate in a contrast pair move (background, card,
-// muted); foregrounds and primary stay fixed so text contrast is preserved.
-// These mirror `.dark.tone-tinted` / `.light.tone-tinted` in globals.css.
+// a per-mode surface shift. Light is a uniform −0.05; dark lifts the headline
+// surfaces +0.05 (background, card) but muted only +0.02 (to 0.27) so the
+// 10px muted-foreground ThemeSelector family label clears AA 4.5:1 on hover.
+// Only surface tokens in a contrast pair move (background, card, muted);
+// foregrounds and primary stay fixed. Mirrors `.dark.tone-tinted` /
+// `.light.tone-tinted` in globals.css.
 const DARK_TINTED_TOKENS: Record<string, TokenSpec> = {
   ...DARK_TOKENS,
   background: { L: 0.17, step: 'c5' },
   card: { L: 0.23, step: 'c6' },
-  muted: { L: 0.3, step: 'c7' },
+  muted: { L: 0.27, step: 'c7' },
 }
 
 const LIGHT_TINTED_TOKENS: Record<string, TokenSpec> = {
@@ -207,13 +209,14 @@ describe('WCAG contrast — unified OKLCH palette', () => {
           expect(ratio).toBeGreaterThanOrEqual(3.0)
         })
 
-        // `muted-foreground` on `muted` drives secondary info (path hints
-        // in `FileContent`, timestamps in the sidebar, nav section
-        // headers). These surfaces are non-critical supporting text; the
-        // WCAG 2.1 UI/large-text threshold of 3.0:1 applies. The moment
-        // muted carries primary body copy (e.g., a paragraph in an
-        // empty-state screen), this assertion must be raised to 4.5.
-        it(`${mode}: keeps muted secondary text legible on its muted surface (UI/secondary 3.0:1)`, () => {
+        // `muted-foreground` on `muted` backs the 10px ThemeSelector family
+        // labels, which sit on `hover:bg-muted`. 10px is WCAG normal text, so
+        // this pair must clear the AA 4.5:1 normal-text floor, not the 3.0:1
+        // UI floor. (It also drives path hints / timestamps elsewhere — all
+        // small supporting text — so 4.5 is the right universal bar.) A full
+        // +0.05 dark-tinted lift of --muted broke this at 4.21:1; globals.css
+        // caps the dark muted lift at +0.02 (L 0.27 → 4.66:1) to hold 4.5.
+        it(`${mode}: keeps the 10px muted label legible on its muted surface (AA 4.5:1)`, () => {
           // Arrange — muted-foreground vs muted tokens for this preset × mode
           // Act
           const ratio = contrast(
@@ -222,8 +225,8 @@ describe('WCAG contrast — unified OKLCH palette', () => {
             config.chroma,
             config.hue,
           )
-          // Assert — secondary supporting text clears the WCAG UI/secondary floor
-          expect(ratio).toBeGreaterThanOrEqual(3.0)
+          // Assert — 10px label text clears the WCAG AA normal-text floor
+          expect(ratio).toBeGreaterThanOrEqual(4.5)
         })
       }
     })
