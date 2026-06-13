@@ -1,5 +1,5 @@
-import { Check, ExternalLink, Loader2 } from 'lucide-react'
-import React, { useCallback, useRef, useState } from 'react'
+import { Check, ExternalLink } from 'lucide-react'
+import React, { useCallback } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import {
@@ -12,8 +12,7 @@ import {
 import { Separator } from '@/renderer/src/components/ui/separator'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { removeBookmark } from '@/renderer/src/redux/slices/bookmarkSlice'
-import { installSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
-import { fetchSkills } from '@/renderer/src/redux/slices/skillsSlice'
+import { selectSkillForInstall } from '@/renderer/src/redux/slices/marketplaceSlice'
 import {
   clearSelectedBookmarkForDetail,
   selectSelectedBookmarkForDetail,
@@ -29,50 +28,21 @@ export const BookmarkDetailModal = React.memo(
   function BookmarkDetailModal(): React.ReactElement | null {
     const dispatch = useAppDispatch()
     const bookmark = useAppSelector(selectSelectedBookmarkForDetail)
-    const [isInstalling, setIsInstalling] = useState(false)
-    const [installSuccess, setInstallSuccess] = useState(false)
-    const [installError, setInstallError] = useState<string | null>(null)
-    // Generation counter: invalidates in-flight installs when modal closes/reopens
-    const installGenRef = useRef(0)
 
     const handleClose = useCallback((): void => {
-      installGenRef.current++
       dispatch(clearSelectedBookmarkForDetail())
-      setIsInstalling(false)
-      setInstallSuccess(false)
-      setInstallError(null)
     }, [dispatch])
 
-    const handleInstall = useCallback(async (): Promise<void> => {
+    // Hand off to the shared InstallModal (the exact marketplace install path):
+    // close this detail dialog, then open the agent-target picker seeded with
+    // this bookmark. No local install state — InstallModal owns progress/errors
+    // and refreshes the skill list, so the sidebar's Installed badge updates.
+    const handleInstall = useCallback((): void => {
       if (!bookmark || !bookmark.repo) return
-      const gen = ++installGenRef.current
-      setIsInstalling(true)
-      setInstallError(null)
-      try {
-        const success = await dispatch(
-          installSkill({
-            repo: bookmark.repo,
-            global: true,
-            agents: [],
-            skills: [bookmark.name],
-          }),
-        ).unwrap()
-        if (gen !== installGenRef.current) return
-        if (success) {
-          setInstallSuccess(true)
-          dispatch(fetchSkills())
-        } else {
-          setInstallError('Installation did not complete successfully')
-        }
-      } catch (err) {
-        if (gen !== installGenRef.current) return
-        const message = (err as { message?: string })?.message ?? String(err)
-        setInstallError(message)
-      } finally {
-        if (gen === installGenRef.current) {
-          setIsInstalling(false)
-        }
-      }
+      dispatch(
+        selectSkillForInstall({ name: bookmark.name, repo: bookmark.repo }),
+      )
+      dispatch(clearSelectedBookmarkForDetail())
     }, [bookmark, dispatch])
 
     const handleRemoveBookmark = useCallback((): void => {
@@ -88,7 +58,7 @@ export const BookmarkDetailModal = React.memo(
       [handleClose],
     )
 
-    const isInstalled = bookmark?.isInstalled || installSuccess
+    const isInstalled = bookmark?.isInstalled ?? false
 
     return (
       <Dialog open={bookmark !== null} onOpenChange={handleOpenChange}>
@@ -136,12 +106,7 @@ export const BookmarkDetailModal = React.memo(
                     Installed
                   </span>
                 ) : bookmark.repo ? (
-                  <Button onClick={handleInstall} disabled={isInstalling}>
-                    {isInstalling && (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    )}
-                    {isInstalling ? 'Installing...' : 'Install'}
-                  </Button>
+                  <Button onClick={handleInstall}>Install</Button>
                 ) : (
                   <span className="text-sm text-muted-foreground">
                     Not installed
@@ -151,12 +116,6 @@ export const BookmarkDetailModal = React.memo(
                   Remove Bookmark
                 </Button>
               </div>
-
-              {installError && (
-                <p className="text-sm text-amber-500">
-                  Install failed: {installError}
-                </p>
-              )}
             </>
           )}
         </DialogContent>

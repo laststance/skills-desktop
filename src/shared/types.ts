@@ -663,6 +663,17 @@ export interface SkillSearchResult {
 }
 
 /**
+ * Minimal identity the install modal needs to drive an install: just the skill
+ * name and its source repo. Exists so every install entry point (marketplace
+ * rows AND sidebar bookmarks) can open the one shared `InstallModal` without
+ * fabricating the leaderboard-only fields (`rank`, `url`, `installCount`) that
+ * a bookmark has no business inventing. Set as `marketplace.selectedSkill` via
+ * `selectSkillForInstall`; read by `InstallModal`.
+ * @example { name: 'task', repo: 'vercel-labs/skills' }
+ */
+export type InstallIntent = Pick<SkillSearchResult, 'name' | 'repo'>
+
+/**
  * A skill bookmarked for later reinstall.
  * Stored in Redux and persisted to localStorage.
  * @example

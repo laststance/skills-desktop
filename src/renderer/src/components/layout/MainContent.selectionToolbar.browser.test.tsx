@@ -158,6 +158,10 @@ describe('MainContent SelectionToolbar integration', () => {
         onDeleteProgress: mockOnDeleteProgress,
         unlinkManyFromAgent: mockUnlinkManyFromAgent,
       },
+      // MainContent now hosts useMarketplaceProgress(); stub its subscription.
+      skillsCli: {
+        onProgress: vi.fn(() => () => {}),
+      },
     })
   })
 

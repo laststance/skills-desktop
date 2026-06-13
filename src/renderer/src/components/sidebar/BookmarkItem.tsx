@@ -7,9 +7,9 @@ import {
   TooltipTrigger,
 } from '@/renderer/src/components/ui/tooltip'
 import { cn } from '@/renderer/src/lib/utils'
-import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { useAppDispatch } from '@/renderer/src/redux/hooks'
 import { removeBookmark } from '@/renderer/src/redux/slices/bookmarkSlice'
-import { installSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
+import { selectSkillForInstall } from '@/renderer/src/redux/slices/marketplaceSlice'
 import type { BookmarkForDetail } from '@/renderer/src/redux/slices/uiSlice'
 import { setSelectedBookmarkForDetail } from '@/renderer/src/redux/slices/uiSlice'
 
@@ -28,20 +28,15 @@ export const BookmarkItem = React.memo(function BookmarkItem({
   bookmark,
 }: BookmarkItemProps): React.ReactElement {
   const dispatch = useAppDispatch()
-  const isInstalling = useAppSelector(
-    (state) => state.marketplace.status === 'installing',
-  )
 
+  // Open the shared InstallModal (the exact marketplace install path) seeded
+  // with this bookmark, instead of firing a hardcoded universal-only install.
+  // stopPropagation keeps the row's own click (open detail modal) from firing.
   const handleInstall = (e: React.MouseEvent): void => {
     e.stopPropagation()
     if (!bookmark.repo) return
     dispatch(
-      installSkill({
-        repo: bookmark.repo,
-        global: true,
-        agents: [],
-        skills: [bookmark.name],
-      }),
+      selectSkillForInstall({ name: bookmark.name, repo: bookmark.repo }),
     )
   }
 
@@ -110,7 +105,6 @@ export const BookmarkItem = React.memo(function BookmarkItem({
             aria-label={`Install ${bookmark.name}`}
             className="shrink-0 flex size-6 items-center justify-center rounded-md text-primary opacity-0 transition-[opacity,background-color,color] hover:bg-primary/10 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={handleInstall}
-            disabled={isInstalling}
           >
             <Download className="h-3.5 w-3.5" />
           </button>
