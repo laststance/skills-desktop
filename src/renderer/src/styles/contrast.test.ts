@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { wcagContrast } from 'culori'
 import { describe, expect, it } from 'vitest'
 
-import { THEME_PRESETS } from '@/shared/constants'
+import { COLOR_PRESET_CHROMA, THEME_PRESETS } from '@/shared/constants'
 import type { ThemePresetName } from '@/shared/constants'
 
 const GLOBALS_CSS_PATH = resolve(
@@ -25,9 +25,14 @@ const GLOBALS_CSS_PATH = resolve(
  * so a future tweak of `--chroma-N` multipliers or a shift in a token's
  * `L` value cannot silently render a preset × mode combo unreadable.
  * Prior review caught that the commit claimed "28 combinations verified"
- * while only 5 were hand-audited; this closes that gap with 104
- * deterministic assertions (12 color × 2 modes × 4 pairs + 2 neutral ×
- * 1 mode × 4 pairs).
+ * while only 5 were hand-audited; this closes that gap by iterating every
+ * key in `THEME_PRESETS` × its applicable mode(s) × 4 pairs (color presets
+ * flip both modes; neutral / tinted-neutral presets bake one mode in).
+ *
+ * Tinted-neutral presets (0 < chroma < COLOR_PRESET_CHROMA) additionally
+ * carry the `.tone-tinted` gray-base shift from globals.css, so their
+ * surface tokens (background / card / muted) are evaluated at the shifted
+ * `L` values in TINTED_*_TOKENS below, not the crisp base ramp.
  */
 
 // Mirror of `--chroma-1..7` multipliers in globals.css. If these values
@@ -72,6 +77,42 @@ const LIGHT_TOKENS: Record<string, TokenSpec> = {
   mutedForeground: { L: 0.45, step: 'c5' },
 }
 
+// Tinted-neutral presets apply the `.tone-tinted` gray base from globals.css:
+// a uniform per-mode surface shift (+0.05 dark / −0.05 light). Only the
+// surface tokens that participate in a contrast pair move (background, card,
+// muted); foregrounds and primary stay fixed so text contrast is preserved.
+// These mirror `.dark.tone-tinted` / `.light.tone-tinted` in globals.css.
+const DARK_TINTED_TOKENS: Record<string, TokenSpec> = {
+  ...DARK_TOKENS,
+  background: { L: 0.17, step: 'c5' },
+  card: { L: 0.23, step: 'c6' },
+  muted: { L: 0.3, step: 'c7' },
+}
+
+const LIGHT_TINTED_TOKENS: Record<string, TokenSpec> = {
+  ...LIGHT_TOKENS,
+  background: { L: 0.94, step: 'c1' },
+  card: { L: 0.92, step: 'c2' },
+  muted: { L: 0.9, step: 'c4' },
+}
+
+// Surface tokens whose L was extracted to a `--<token>-l` CSS variable so the
+// .tone-tinted gray base can override only the L. The drift guard checks
+// these differently from literal-L tokens (foreground, primary, …).
+const SURFACE_L_TOKENS = new Set(['background', 'card', 'muted'])
+
+/**
+ * A preset is tinted-neutral when its chroma sits strictly between
+ * pure-neutral (0) and full color (COLOR_PRESET_CHROMA) — exactly the
+ * presets that receive the `.tone-tinted` shifted gray base.
+ * @example isTintedNeutral(0.05) // => true  (zinc/clay/…)
+ * @example isTintedNeutral(0)    // => false (pure neutral)
+ * @example isTintedNeutral(0.16) // => false (full color)
+ */
+function isTintedNeutral(chroma: number): boolean {
+  return chroma > 0 && chroma < COLOR_PRESET_CHROMA
+}
+
 /** Build a culori OKLCH color record from a token spec + preset axes. */
 function tokenColor(
   token: TokenSpec,
@@ -107,9 +148,19 @@ describe('WCAG contrast — unified OKLCH palette', () => {
     const modes: Array<'dark' | 'light'> =
       'mode' in config ? [config.mode] : ['dark', 'light']
 
+    // Tinted-neutral presets carry the `.tone-tinted` shifted gray base.
+    const tinted = isTintedNeutral(config.chroma)
+
     describe(`preset "${name}" (hue ${config.hue}, chroma ${config.chroma})`, () => {
       for (const mode of modes) {
-        const tokens = mode === 'dark' ? DARK_TOKENS : LIGHT_TOKENS
+        const tokens =
+          mode === 'dark'
+            ? tinted
+              ? DARK_TINTED_TOKENS
+              : DARK_TOKENS
+            : tinted
+              ? LIGHT_TINTED_TOKENS
+              : LIGHT_TOKENS
 
         it(`${mode}: keeps body text readable on the background (AA 4.5:1)`, () => {
           // Arrange — foreground vs background tokens for this preset × mode
@@ -181,41 +232,83 @@ describe('WCAG contrast — unified OKLCH palette', () => {
 
 /**
  * Drift guard: the L/step tables above are hand-mirrored from globals.css.
- * If someone retunes `--background: oklch(0.12 var(--chroma-5) ...)` to a
- * different L without updating `DARK_TOKENS.background.L`, the contrast
+ * If someone retunes `--background-l: 0.12` (or the token's `oklch(...)`
+ * formula) without updating `DARK_TOKENS.background.L`, the contrast
  * assertions would evaluate a fictional palette and pass while real
  * rendering regresses. This reads globals.css as text and verifies each
- * `L var(--chroma-N)` pair the test makes claims about actually appears
- * in the CSS.
+ * pair the test makes claims about actually appears in the CSS.
+ *
+ * Surface tokens (background / card / muted) had their `L` extracted to a
+ * `--<token>-l` variable so `.tone-tinted` can override just the L. For
+ * those we verify two fragments: the `--<token>-l: <L>` declaration and the
+ * token's `oklch(var(--<token>-l) ...)` reference. Literal-L tokens
+ * (foreground, primary, …) are still matched as one `oklch(<L> ...)` chunk.
  */
 describe('WCAG contrast — globals.css drift guard', () => {
   const css = readFileSync(GLOBALS_CSS_PATH, 'utf8')
+  // `\.dark\s*\{` only matches the base `.dark {` block — `.dark.tone-tinted {`
+  // has a `.` (not whitespace/`{`) after `.dark`, so it is excluded here.
   const darkBlock = css.match(/\.dark\s*\{([\s\S]*?)\n\s*\}/)?.[1] ?? ''
   const lightBlock = css.match(/\.light\s*\{([\s\S]*?)\n\s*\}/)?.[1] ?? ''
+  const darkTintedBlock =
+    css.match(/\.dark\.tone-tinted\s*\{([\s\S]*?)\n\s*\}/)?.[1] ?? ''
+  const lightTintedBlock =
+    css.match(/\.light\.tone-tinted\s*\{([\s\S]*?)\n\s*\}/)?.[1] ?? ''
 
-  function expectedFragment(spec: TokenSpec): string {
-    return spec.step === 'full'
-      ? `oklch(${spec.L} var(--theme-chroma)`
-      : `oklch(${spec.L} var(--${spec.step.replace('c', 'chroma-')})`
+  /** The chroma part of an oklch token: `var(--theme-chroma)` or `var(--chroma-N)`. */
+  function chromaVarFragment(step: TokenSpec['step']): string {
+    return step === 'full'
+      ? 'var(--theme-chroma)'
+      : `var(--${step.replace('c', 'chroma-')})`
+  }
+
+  /** Assert one token's L/step is mirrored in the given base-mode CSS block. */
+  function expectTokenInBlock(
+    block: string,
+    token: string,
+    spec: TokenSpec,
+  ): void {
+    if (SURFACE_L_TOKENS.has(token)) {
+      // Surface token: L lives in a `--<token>-l` var, referenced by the token.
+      expect(block).toContain(`--${token}-l: ${spec.L}`)
+      expect(block).toContain(
+        `oklch(var(--${token}-l) ${chromaVarFragment(spec.step)}`,
+      )
+    } else {
+      expect(block).toContain(`oklch(${spec.L} ${chromaVarFragment(spec.step)}`)
+    }
   }
 
   for (const [token, spec] of Object.entries(DARK_TOKENS)) {
     it(`flags drift if the .dark ${token} L/chroma stops matching globals.css`, () => {
-      // Arrange — the expected oklch fragment for this dark token
-      const expectedOklchFragment = expectedFragment(spec)
-      // Act — (darkBlock is the .dark CSS text extracted above)
       // Assert — the mirrored L/step still appears verbatim in globals.css
-      expect(darkBlock).toContain(expectedOklchFragment)
+      expectTokenInBlock(darkBlock, token, spec)
     })
   }
 
   for (const [token, spec] of Object.entries(LIGHT_TOKENS)) {
     it(`flags drift if the .light ${token} L/chroma stops matching globals.css`, () => {
-      // Arrange — the expected oklch fragment for this light token
-      const expectedOklchFragment = expectedFragment(spec)
-      // Act — (lightBlock is the .light CSS text extracted above)
       // Assert — the mirrored L/step still appears verbatim in globals.css
-      expect(lightBlock).toContain(expectedOklchFragment)
+      expectTokenInBlock(lightBlock, token, spec)
+    })
+  }
+
+  // The `.tone-tinted` blocks override only the surface `--<token>-l` vars
+  // that the contrast test re-evaluates for tinted presets. Verify the
+  // shifted L values stay in lockstep with DARK_TINTED_TOKENS / LIGHT_TINTED_TOKENS.
+  for (const token of SURFACE_L_TOKENS) {
+    it(`flags drift if the .dark.tone-tinted ${token} L stops matching globals.css`, () => {
+      // Assert — shifted dark surface L still declared as a --<token>-l var
+      expect(darkTintedBlock).toContain(
+        `--${token}-l: ${DARK_TINTED_TOKENS[token].L}`,
+      )
+    })
+
+    it(`flags drift if the .light.tone-tinted ${token} L stops matching globals.css`, () => {
+      // Assert — shifted light surface L still declared as a --<token>-l var
+      expect(lightTintedBlock).toContain(
+        `--${token}-l: ${LIGHT_TINTED_TOKENS[token].L}`,
+      )
     })
   }
 })

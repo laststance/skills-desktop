@@ -140,13 +140,21 @@ export const THEME_PRESETS = {
   },
 
   // ── Tinted neutral (shadcn baseColor lookalikes) ──
-  // Hue values picked to match the published shadcn baseColor swatches:
-  //   zinc  → cool purple-gray (around 265°, matches `oklch(0.141 0.005 285.823)`)
-  //   slate → blue-gray
-  //   stone → warm sand-gray
-  //   mauve → purple-pink-gray
-  // All share TINTED_NEUTRAL_CHROMA so the four families form a coherent
-  // tier between pure neutral and full color.
+  // Hue values picked to match the published shadcn baseColor swatches and
+  // to stay perceptually distinct from each other at the low
+  // TINTED_NEUTRAL_CHROMA tint (min gap 25°, same spacing as slate↔zinc):
+  //   stone → warm sand-gray         (60)
+  //   olive → yellow-green gray      (105)
+  //   sage  → green gray             (150)
+  //   steel → cool cyan-blue gray    (200)
+  //   slate → blue-gray              (240)
+  //   zinc  → cool purple-gray       (265, ~`oklch(0.141 0.005 285.823)`)
+  //   mauve → purple-pink gray       (320)
+  //   plum  → pink-purple gray       (345)
+  //   clay  → warm terracotta-gray   (20)
+  // All nine families share TINTED_NEUTRAL_CHROMA so they form a coherent
+  // tier between pure neutral and full color. Each surfaces as one family
+  // swatch in the ThemeSelector (dark/light resolved from the active mode).
   'zinc-dark': {
     hue: 265,
     chroma: TINTED_NEUTRAL_CHROMA,
@@ -194,6 +202,66 @@ export const THEME_PRESETS = {
     chroma: TINTED_NEUTRAL_CHROMA,
     mode: 'light' as const,
     label: 'Mauve Light',
+  },
+  'clay-dark': {
+    hue: 20,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'dark' as const,
+    label: 'Clay Dark',
+  },
+  'clay-light': {
+    hue: 20,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'light' as const,
+    label: 'Clay Light',
+  },
+  'olive-dark': {
+    hue: 105,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'dark' as const,
+    label: 'Olive Dark',
+  },
+  'olive-light': {
+    hue: 105,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'light' as const,
+    label: 'Olive Light',
+  },
+  'sage-dark': {
+    hue: 150,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'dark' as const,
+    label: 'Sage Dark',
+  },
+  'sage-light': {
+    hue: 150,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'light' as const,
+    label: 'Sage Light',
+  },
+  'steel-dark': {
+    hue: 200,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'dark' as const,
+    label: 'Steel Dark',
+  },
+  'steel-light': {
+    hue: 200,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'light' as const,
+    label: 'Steel Light',
+  },
+  'plum-dark': {
+    hue: 345,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'dark' as const,
+    label: 'Plum Dark',
+  },
+  'plum-light': {
+    hue: 345,
+    chroma: TINTED_NEUTRAL_CHROMA,
+    mode: 'light' as const,
+    label: 'Plum Light',
   },
 } as const
 
@@ -711,7 +779,7 @@ export const AGENT_DEFINITIONS = [
 ] as const
 
 /**
- * Any valid theme preset name — 17 OKLCH hues, 2 pure neutrals, and 8 tinted neutrals.
+ * Any valid theme preset name — 17 OKLCH hues, 2 pure neutrals, and 18 tinted neutrals (9 families × dark/light).
  * Derived from `THEME_PRESETS` so new presets only need to be added in one
  * place; Redux reducers, selectors, and the ThemeSelector all pick up the
  * widened union automatically.

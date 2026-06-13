@@ -27,11 +27,19 @@
           if (typeof t.hue === 'number') {
             html.style.setProperty('--theme-hue', String(t.hue))
           }
+          // Resolve chroma from v1 (`t.chroma`) or the legacy v0 `presetType`
+          // so `chromaVal` can also decide the .tone-tinted gray base below.
+          var chromaVal = null
           if (typeof t.chroma === 'number') {
+            chromaVal = t.chroma
             html.style.setProperty('--theme-chroma', String(t.chroma))
           } else if (t.presetType === 'color') {
+            // v0 payload — async migration runs ~100ms later; without this
+            // branch the user sees a neutral-dark flash until hydration.
+            chromaVal = 0.16
             html.style.setProperty('--theme-chroma', '0.16')
           } else if (t.presetType === 'neutral') {
+            chromaVal = 0
             html.style.setProperty('--theme-chroma', '0')
           }
           if (t.mode === 'light') {
@@ -40,6 +48,17 @@
           } else if (t.mode === 'dark') {
             html.classList.add('dark')
             html.classList.remove('light')
+          }
+          // Tinted-neutral presets (0 < chroma < 0.16 = COLOR_PRESET_CHROMA)
+          // soften their gray base via .tone-tinted in globals.css. Apply it
+          // pre-hydration so a persisted tinted theme doesn't flash the crisp
+          // base ramp before React mounts. Pure-neutral (the default) and
+          // full-color presets never get the class. v0 storage had no tinted
+          // presets, so the legacy branches above always leave it off.
+          if (chromaVal !== null && chromaVal > 0 && chromaVal < 0.16) {
+            html.classList.add('tone-tinted')
+          } else {
+            html.classList.remove('tone-tinted')
           }
         } catch (_err) {
           // Malformed storage — fall back to default .dark

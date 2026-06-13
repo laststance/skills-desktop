@@ -158,6 +158,11 @@ describe('themeSlice', () => {
     ['slate-dark', 'slate-light', 240],
     ['stone-dark', 'stone-light', 60],
     ['mauve-dark', 'mauve-light', 320],
+    ['clay-dark', 'clay-light', 20],
+    ['olive-dark', 'olive-light', 105],
+    ['sage-dark', 'sage-light', 150],
+    ['steel-dark', 'steel-light', 200],
+    ['plum-dark', 'plum-light', 345],
   ] as const)(
     'setModePreference swaps %s ↔ %s so preset stays consistent with mode',
     async (darkPreset, lightPreset, expectedHue) => {

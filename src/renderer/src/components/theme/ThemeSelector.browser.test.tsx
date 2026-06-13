@@ -16,7 +16,8 @@ import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
  * Covers the user-visible contract:
  *  - Trigger is reachable by accessible name (screen-reader path)
  *  - All 17 accent swatch buttons render with stable aria-labels
- *  - All 5 tinted-neutral family swatches render (Neutral / Zinc / Slate / Stone / Mauve)
+ *  - All 10 tinted-neutral family swatches render (Neutral + Zinc / Slate /
+ *    Stone / Mauve / Clay / Olive / Sage / Steel / Plum)
  *  - Header shows the active preset name in mono
  *  - Light / Dark / Auto segmented control dispatches setModePreference
  *  - Clicking a family swatch resolves to the dark/light partner matching
@@ -96,7 +97,7 @@ describe('ThemeSelector — Pattern 1 layout', () => {
     }
   })
 
-  it('renders 5 tinted-neutral family swatches when the menu opens', async () => {
+  it('renders 10 tinted-neutral family swatches when the menu opens', async () => {
     // Arrange
     const { screen } = await renderThemeSelector()
 
@@ -107,7 +108,18 @@ describe('ThemeSelector — Pattern 1 layout', () => {
 
     // Assert — one button per family. Mode is resolved at click time, so
     // there's no "Dark"/"Light" suffix in the accessible name.
-    for (const familyLabel of ['Neutral', 'Zinc', 'Slate', 'Stone', 'Mauve']) {
+    for (const familyLabel of [
+      'Neutral',
+      'Zinc',
+      'Slate',
+      'Stone',
+      'Mauve',
+      'Clay',
+      'Olive',
+      'Sage',
+      'Steel',
+      'Plum',
+    ]) {
       await expect
         .element(
           screen.getByRole('button', { name: `Select ${familyLabel} theme` }),
