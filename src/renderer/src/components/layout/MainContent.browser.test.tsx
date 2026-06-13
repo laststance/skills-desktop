@@ -112,6 +112,11 @@ beforeEach(() => {
       clearOrphanSymlinks: mockClearOrphanSymlinks,
       unlinkManyFromAgent: mockUnlinkManyFromAgent,
     },
+    // MainContent now hosts useMarketplaceProgress(), whose mount effect
+    // subscribes to install progress — stub it so the effect's cleanup is valid.
+    skillsCli: {
+      onProgress: vi.fn(() => () => {}),
+    },
     shell: {
       openExternal: mockShellOpenExternal,
     },
@@ -375,6 +380,35 @@ describe('MainContent Installed search count display', () => {
   })
 })
 
+describe('MainContent hosts the shared InstallModal', () => {
+  it('opens the Install Skill dialog when a skill is selected for install (e.g. from a sidebar bookmark)', async () => {
+    // Arrange
+    // MainContent is the always-mounted host for <InstallModal/> (hoisted out of
+    // SkillsMarketplace, which Radix unmounts when the Marketplace tab is inactive).
+    // This test deliberately does NOT mount its own InstallModal, so it fails if
+    // MainContent stops rendering it — guarding the cross-tree path that sidebar
+    // bookmark installs depend on (BookmarkItem/BookmarkDetailModal unit tests
+    // mount their own sibling and cannot catch this regression).
+    const { screen, store } = await renderMainContent()
+    const { selectSkillForInstall } =
+      await import('@/renderer/src/redux/slices/marketplaceSlice')
+
+    // Act
+    // Exactly the payload BookmarkItem/BookmarkDetailModal dispatch from the sidebar.
+    store.dispatch(
+      selectSkillForInstall({
+        name: 'task',
+        repo: repositoryId('vercel-labs/skills'),
+      }),
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByRole('dialog', { name: 'Install Skill' }))
+      .toBeInTheDocument()
+  })
+})
+
 describe('MainContent bulk-select toggle button', () => {
   it('labels the bulk toggle "Select" and unpressed before the user enters bulk mode', async () => {
     // Arrange
@@ -629,6 +663,45 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
     } finally {
       document.body.removeChild(textInput)
     }
+  })
+
+  it('does not clear the selection or exit bulk mode when Escape closes an open install modal overlaying the Installed tab', async () => {
+    // Arrange
+    // The always-mounted InstallModal (hoisted onto MainContent so sidebar
+    // bookmark installs open it on any tab) can now overlay the Installed tab
+    // while bulk-select is active. Escape must close ONLY the modal; without the
+    // open-dialog guard in handleKey, the same Escape would also clear the
+    // selection — a double-fire that silently wipes the user's batch.
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectSkillForInstall } =
+      await import('@/renderer/src/redux/slices/marketplaceSlice')
+
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection('task' as SkillName))
+    await waitForBulkSelectReady(screen)
+
+    // Open the shared InstallModal (exactly the sidebar bookmark install path),
+    // then wait for the Radix dialog to mount with data-state="open".
+    store.dispatch(
+      selectSkillForInstall({
+        name: 'task',
+        repo: repositoryId('vercel-labs/skills'),
+      }),
+    )
+    await expect
+      .element(screen.getByRole('dialog', { name: 'Install Skill' }))
+      .toBeInTheDocument()
+
+    // Act
+    dispatchKey({ key: 'Escape' })
+
+    // Assert
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+    expect(store.getState().ui.bulkSelectMode).toBe(true)
   })
 })
 

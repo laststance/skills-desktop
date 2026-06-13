@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 
 import { SymlinkCleanupDialog } from '@/renderer/src/components/dashboard/SymlinkCleanupDialog'
 import { SkillsMarketplace } from '@/renderer/src/components/marketplace'
+import { InstallModal } from '@/renderer/src/components/marketplace/InstallModal'
 import { CleanupAgentDialog } from '@/renderer/src/components/sidebar/CleanupAgentDialog'
 import { SyncConfirmDialog } from '@/renderer/src/components/sidebar/SyncConfirmDialog'
 import { SyncConflictDialog } from '@/renderer/src/components/sidebar/SyncConflictDialog'
@@ -63,6 +64,7 @@ import {
 } from '@/renderer/src/components/ui/tabs'
 import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { useInitialEffect } from '@/renderer/src/hooks/useInitialEffect'
+import { useMarketplaceProgress } from '@/renderer/src/hooks/useMarketplaceProgress'
 import { useRenderEffect } from '@/renderer/src/hooks/useRenderEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
@@ -353,6 +355,10 @@ function appendDeleteRescanSummary(
 export const MainContent = React.memo(
   function MainContent(): React.ReactElement {
     const dispatch = useAppDispatch()
+    // Subscribe to install progress here (always-mounted host) rather than in
+    // SkillsMarketplace — the marketplace tab unmounts when "installed" is
+    // active, but bookmark installs fire from the always-visible sidebar.
+    useMarketplaceProgress()
     const selectedAgentId = useAppSelector((state) => state.ui.selectedAgentId)
     const sortOrder = useAppSelector((state) => state.ui.sortOrder)
     const skillTypeFilter = useAppSelector((state) => state.ui.skillTypeFilter)
@@ -441,6 +447,20 @@ export const MainContent = React.memo(
       const handleKey = (event: KeyboardEvent): void => {
         if (isEditableTarget(document.activeElement)) return
         if (!bulkSelectModeRef.current) return
+
+        // An open Radix dialog/alertdialog (e.g. the now always-mounted
+        // InstallModal — hoisted onto MainContent so sidebar-bookmark installs
+        // open it on any tab, including Installed) overlays this tab and owns
+        // Escape/Cmd+A while open. Bail so the modal, not the bulk-select
+        // handler, consumes the key: otherwise one Escape both closes the dialog
+        // AND clears the selection (a double-fire), and Cmd+A select-all leaks
+        // behind the modal.
+        if (
+          document.querySelector(
+            '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+          )
+        )
+          return
 
         // Cmd/Ctrl+A: select all visible
         if (
@@ -1304,6 +1324,12 @@ export const MainContent = React.memo(
           </TabsContent>
         </Tabs>
 
+        {/*
+          Shared install dialog — mounted here (always-rendered sibling of the
+          tabs) so BOTH marketplace rows and sidebar bookmarks open the exact
+          same agent-target picker. Redux-driven via marketplace.selectedSkill.
+        */}
+        <InstallModal />
         <UnlinkDialog />
         <AddSymlinkModal />
         <CopyToAgentsModal />

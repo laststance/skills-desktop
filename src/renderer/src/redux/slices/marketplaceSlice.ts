@@ -6,6 +6,7 @@ import type {
   RankingFilter,
   SearchQuery,
   SkillSearchResult,
+  InstallIntent,
   InstallOptions,
   InstallProgress,
   MarketplaceStatus,
@@ -30,8 +31,8 @@ interface MarketplaceState {
   searchQuery: SearchQuery
   /** Results from the most recent `skills find` call. */
   searchResults: SkillSearchResult[]
-  /** Skill chosen in the install modal. */
-  selectedSkill: SkillSearchResult | null
+  /** Skill chosen in the install modal — name + repo only (see InstallIntent). */
+  selectedSkill: InstallIntent | null
   /** Skill selected for right-pane webview preview (separate from install modal). */
   previewSkill: SkillSearchResult | null
   /** Live progress for an in-flight install, or null when idle. */
@@ -133,7 +134,7 @@ const marketplaceSlice = createSlice({
     },
     selectSkillForInstall: (
       state,
-      action: PayloadAction<SkillSearchResult | null>,
+      action: PayloadAction<InstallIntent | null>,
     ) => {
       state.selectedSkill = action.payload
     },
