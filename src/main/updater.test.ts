@@ -2,13 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 /**
  * Mutable stand-in for the electron-updater singleton. `applyUpdaterPreferences`
- * writes the config values onto it; the tests read them back. `autoInstallOnAppQuit`
- * starts `true` to mirror electron-updater's real default so the consent-pin
- * assertion below is meaningful.
+ * and `initAutoUpdaterForE2E` write config values onto it; the tests read them
+ * back. `autoInstallOnAppQuit` starts `true` to mirror electron-updater's real
+ * default so the consent-pin assertion is meaningful. `checkForUpdates` resolves
+ * because `initAutoUpdaterForE2E` chains `.catch()` onto its result.
  */
 const mockAutoUpdater = vi.hoisted(() => ({
   autoDownload: false,
   autoInstallOnAppQuit: true,
+  forceDevUpdateConfig: false,
+  currentVersion: '1.0.0',
+  on: vi.fn(),
+  setFeedURL: vi.fn(),
+  checkForUpdates: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('electron-updater', () => ({
@@ -23,7 +29,7 @@ vi.mock('electron', () => ({
   BrowserWindow: { getAllWindows: vi.fn(() => []) },
 }))
 
-import { applyUpdaterPreferences } from './updater'
+import { applyUpdaterPreferences, initAutoUpdaterForE2E } from './updater'
 
 describe('applyUpdaterPreferences', () => {
   beforeEach(() => {
@@ -64,5 +70,67 @@ describe('applyUpdaterPreferences', () => {
 
     // Assert
     expect(mockAutoUpdater.autoInstallOnAppQuit).toBe(false)
+  })
+})
+
+describe('initAutoUpdaterForE2E', () => {
+  beforeEach(() => {
+    // Reset every field the seam touches so state does not leak between cases.
+    mockAutoUpdater.autoDownload = false
+    mockAutoUpdater.forceDevUpdateConfig = false
+    mockAutoUpdater.currentVersion = '1.0.0'
+    mockAutoUpdater.on.mockClear()
+    mockAutoUpdater.setFeedURL.mockClear()
+    mockAutoUpdater.checkForUpdates.mockClear()
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('forces dev update config so a check can run against the unpacked e2e build', () => {
+    // Arrange + Act
+    initAutoUpdaterForE2E({ feedUrl: 'http://127.0.0.1:54321' })
+
+    // Assert
+    expect(mockAutoUpdater.forceDevUpdateConfig).toBe(true)
+  })
+
+  it('disables auto-download so the dummy artifact is never fetched during detection', () => {
+    // Arrange + Act
+    initAutoUpdaterForE2E({ feedUrl: 'http://127.0.0.1:54321' })
+
+    // Assert
+    expect(mockAutoUpdater.autoDownload).toBe(false)
+  })
+
+  it('lowers currentVersion to the passed baseline so a higher feed version compares as available', () => {
+    // Arrange + Act
+    initAutoUpdaterForE2E({
+      feedUrl: 'http://127.0.0.1:54321',
+      currentVersion: '0.0.1',
+    })
+
+    // Assert
+    expect(mockAutoUpdater.currentVersion).toBe('0.0.1')
+  })
+
+  it('points the updater at the localhost generic feed', () => {
+    // Arrange + Act
+    initAutoUpdaterForE2E({ feedUrl: 'http://127.0.0.1:54321' })
+
+    // Assert
+    expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
+      provider: 'generic',
+      url: 'http://127.0.0.1:54321',
+    })
+  })
+
+  it('triggers an update check immediately so detection runs without the boot delay', () => {
+    // Arrange + Act
+    initAutoUpdaterForE2E({ feedUrl: 'http://127.0.0.1:54321' })
+
+    // Assert
+    expect(mockAutoUpdater.checkForUpdates).toHaveBeenCalledTimes(1)
   })
 })

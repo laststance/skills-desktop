@@ -71,3 +71,22 @@ export const OFFLINE_STDERR_PATTERNS = [
 
 /** File the global-setup writes for fixtures to discover the snapshot HOME. */
 export const SNAPSHOT_INFO_FILE = '.snapshot/info.json'
+
+/**
+ * Version advertised by the fake `latest-mac.yml` feed in the update-detection
+ * spec. Deliberately far higher than any real release so it always compares as
+ * newer than `UPDATE_DETECTION_CURRENT_VERSION`.
+ */
+export const UPDATE_DETECTION_ADVERTISED_VERSION = '99.0.0'
+
+/**
+ * Baseline version the update-detection spec assigns to `autoUpdater.currentVersion`
+ * so the advertised feed version compares as an available update.
+ */
+export const UPDATE_DETECTION_CURRENT_VERSION = '0.0.1'
+
+/**
+ * Loopback host the update-detection feed server binds to. `127.0.0.1` (not
+ * `localhost`) avoids DNS/IPv6 resolution flakiness in CI.
+ */
+export const UPDATE_DETECTION_FEED_HOST = '127.0.0.1'
