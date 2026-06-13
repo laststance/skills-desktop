@@ -17,7 +17,7 @@ import { getMainWindow, setMainWindow } from './services/mainWindowState'
 import { getSettings, loadSettings } from './services/settings'
 import { createOrFocusSettingsWindow } from './services/settingsWindow'
 import { startupCleanup as runTrashStartupCleanup } from './services/trashService'
-import { initAutoUpdater } from './updater'
+import { initAutoUpdater, initAutoUpdaterForE2E } from './updater'
 import { attachExternalLinkHandler } from './utils/attachExternalLinkHandler'
 import { clampSizeToWorkArea } from './utils/clampSizeToWorkArea'
 import { isE2EBackgroundLaunch } from './utils/e2eEnv'
@@ -326,10 +326,25 @@ app.whenReady().then(async () => {
   createMenu()
   createWindow()
 
-  // Initialize auto updater in production.
-  // E2E_DISABLE_UPDATE=1 lets Playwright tests run against a packaged-shaped
-  // build without the updater hitting the network or showing toasts.
-  if (app.isPackaged && process.env['E2E_DISABLE_UPDATE'] !== '1') {
+  // Initialize the auto updater.
+  //
+  // First branch: a TEST-ONLY seam. `E2E_UPDATE_FEED_URL` is injected only by
+  // the Electron update-detection e2e spec to point the updater at a localhost
+  // feed for a deterministic, offline detection check. It is NEVER set in
+  // production, so this branch is dead code in shipped builds. `app.isPackaged`
+  // is deliberately NOT required here because the e2e build runs unpacked.
+  //
+  // Else branch: preserves the EXACT original packaged gate — the updater runs
+  // only in a packaged build, and E2E_DISABLE_UPDATE=1 lets the other Playwright
+  // specs launch a packaged-shaped build without the updater hitting the network
+  // or showing toasts.
+  const e2eUpdateFeedUrl = process.env['E2E_UPDATE_FEED_URL']
+  if (e2eUpdateFeedUrl) {
+    initAutoUpdaterForE2E({
+      feedUrl: e2eUpdateFeedUrl,
+      currentVersion: process.env['E2E_UPDATE_CURRENT_VERSION'],
+    })
+  } else if (app.isPackaged && process.env['E2E_DISABLE_UPDATE'] !== '1') {
     initAutoUpdater()
   }
 
