@@ -324,4 +324,48 @@ describe('scanAgents', () => {
     const claude = agents.find((a) => a.id === 'claude-code')!
     expect(claude.localSkillCount).toBe(0)
   })
+
+  it('falls back to zero skill counts when an existing agent dir cannot be read', async () => {
+    // Arrange
+    // Agent dir passes the existence probe (access resolves)...
+    accessMock.mockResolvedValue(undefined)
+    // ...but enumerating its contents fails (e.g. EACCES / transient I/O error),
+    // so both the symlink tally and the local-folder tally must degrade to 0
+    // instead of throwing and crashing the whole scan.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/agents/claude/skills') {
+        throw new Error('EACCES: permission denied')
+      }
+      return []
+    })
+
+    // Act
+    const { scanAgents } = await import('./agentScanner')
+    const agents = await scanAgents()
+
+    // Assert
+    const claude = agents.find((a) => a.id === 'claude-code')!
+    expect(claude.exists).toBe(true)
+    expect(claude.skillCount).toBe(0)
+    expect(claude.localSkillCount).toBe(0)
+  })
+
+  it('omits filesystem identity for an agent whose directory stats cannot be read', async () => {
+    // Arrange
+    // Agent dir exists and is empty, but lstat fails after the existence probe
+    // (e.g. the dir is unstattable), so filesystemIdentity must be left
+    // undefined rather than propagating the lstat rejection.
+    accessMock.mockResolvedValue(undefined)
+    readdirMock.mockResolvedValue([])
+    lstatMock.mockRejectedValue(new Error('EACCES: permission denied'))
+
+    // Act
+    const { scanAgents } = await import('./agentScanner')
+    const agents = await scanAgents()
+
+    // Assert
+    const claude = agents.find((a) => a.id === 'claude-code')!
+    expect(claude.exists).toBe(true)
+    expect(claude.filesystemIdentity).toBeUndefined()
+  })
 })

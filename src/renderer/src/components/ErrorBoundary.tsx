@@ -39,6 +39,7 @@ export class ErrorBoundary extends Component<
           <button
             type="button"
             className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+            /* v8 ignore next -- window.location.reload() reloads the test iframe; reload is non-configurable/non-writable in Chromium so it can't be stubbed, and vitest fatally errors on the iframe reload */
             onClick={() => window.location.reload()}
           >
             Reload

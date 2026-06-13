@@ -103,4 +103,31 @@ describe('useFocusedOverlay', () => {
       .element(screen.getByTestId('overlay-state'))
       .toHaveTextContent('collapsed')
   })
+
+  it('returns focus to the trigger element after the overlay is collapsed', async () => {
+    // Arrange — the trigger is focused before opening, so expand() captures it.
+    const screen = await render(<OverlayHarness resetKey="skill-a" />)
+    const openOverlayButton = screen.getByRole('button', {
+      name: 'Open overlay',
+    })
+    const openOverlayElement = openOverlayButton.element()
+    if (!(openOverlayElement instanceof HTMLButtonElement)) {
+      throw new Error('Expected the Open overlay trigger to be a button')
+    }
+    openOverlayElement.focus()
+    expect(document.activeElement).toBe(openOverlayElement)
+
+    // Act — open the overlay (focus moves to Close), then collapse it.
+    await openOverlayButton.click()
+    await expect
+      .element(screen.getByTestId('overlay-state'))
+      .toHaveTextContent('expanded')
+    await screen.getByRole('button', { name: 'Close overlay' }).click()
+
+    // Assert — focus is restored to the element captured at expand time.
+    await expect
+      .element(screen.getByTestId('overlay-state'))
+      .toHaveTextContent('collapsed')
+    expect(document.activeElement).toBe(openOverlayElement)
+  })
 })

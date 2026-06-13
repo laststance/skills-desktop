@@ -257,6 +257,31 @@ describe('checkSkillSymlinks', () => {
     expect(results[1]).toMatchObject({ agentId: 'cursor', status: 'broken' })
   })
 
+  it('marks an agent inaccessible when a permission denial blocks probing the symlink target', async () => {
+    // Arrange
+    // Symlink resolves, but access() is denied (EACCES, not a missing-path
+    // code). checkLinkOrLocal's catch must map this to 'inaccessible', NOT
+    // 'broken' — a locked target is not the same as a deleted one.
+    lstatMock.mockResolvedValue(
+      createStats({ isSymbolicLink: true, isDirectory: false }),
+    )
+    readlinkMock.mockResolvedValue('/mock/source/skills/locked-skill')
+    accessMock.mockRejectedValue(makeFsError('EACCES'))
+
+    // Act
+    const { checkSkillSymlinks } = await import('./symlinkChecker')
+    const results = await checkSkillSymlinks('locked-skill')
+
+    // Assert
+    const claude = results.find((r) => r.agentId === 'claude-code')!
+    const cursor = results.find((r) => r.agentId === 'cursor')!
+    expect(results).toHaveLength(2)
+    expect(claude.status).toBe('inaccessible')
+    expect(claude.isLocal).toBe(false)
+    expect(cursor.status).toBe('inaccessible')
+    expect(cursor.isLocal).toBe(false)
+  })
+
   it('distinguishes a broken installed link from an agent that never had the skill', async () => {
     // Arrange
     lstatMock.mockImplementation(async (path: string) => {
@@ -447,6 +472,113 @@ describe('checkSkillSymlinks', () => {
     expect(cursor.linkPath).toBe(
       join('/mock/agents/cursor/skills', 'any-skill'),
     )
+  })
+
+  it('treats a plain file sitting in an agent dir as a missing skill, not a link', async () => {
+    // Arrange
+    // A regular file (not a symlink, not a directory) parked at the skill path:
+    // checkLinkOrLocal's ts-pattern falls through to the .otherwise branch, so
+    // the agent must show no installed skill rather than a half-read link.
+    lstatMock.mockResolvedValue(
+      createStats({ isSymbolicLink: false, isDirectory: false }),
+    )
+
+    // Act
+    const { checkSkillSymlinks } = await import('./symlinkChecker')
+    const results = await checkSkillSymlinks('stray-file-skill')
+
+    // Assert
+    const claude = results.find((r) => r.agentId === 'claude-code')!
+    const cursor = results.find((r) => r.agentId === 'cursor')!
+    expect(results).toHaveLength(2)
+    expect(claude.status).toBe('missing')
+    expect(claude.isLocal).toBe(false)
+    expect(claude.targetPath).toBeUndefined()
+    expect(cursor.status).toBe('missing')
+    expect(cursor.isLocal).toBe(false)
+    expect(cursor.targetPath).toBeUndefined()
+    // .otherwise short-circuits before any link read
+    expect(readlinkMock).not.toHaveBeenCalled()
+  })
+
+  it('still reports a local skill valid when its directory identity cannot be read mid-scan', async () => {
+    // Arrange
+    // Local-folder slot: the first lstat (inside checkLinkOrLocal) sees a real
+    // directory, but the follow-up lstat used to capture filesystem identity
+    // races with deletion and rejects. The .catch(() => undefined) must swallow
+    // that so the slot still reports valid+local, just without identity data.
+    const lstatCallsByPath = new Map<string, number>()
+    lstatMock.mockImplementation(async (path: string) => {
+      // No gstack SKILL.md symlink inside the folder
+      if (path.endsWith('SKILL.md')) {
+        throw makeFsError('ENOENT')
+      }
+      const previousCalls = lstatCallsByPath.get(path) ?? 0
+      const currentCall = previousCalls + 1
+      lstatCallsByPath.set(path, currentCall)
+      // 1st call per path: checkLinkOrLocal sees a directory -> isLocal
+      if (currentCall === 1) {
+        return createStats({ isSymbolicLink: false, isDirectory: true })
+      }
+      // 2nd call per path: identity-capturing lstat races with deletion
+      throw makeFsError('ENOENT')
+    })
+
+    // Act
+    const { checkSkillSymlinks } = await import('./symlinkChecker')
+    const results = await checkSkillSymlinks('vanishing-local-skill')
+
+    // Assert
+    const claude = results.find((r) => r.agentId === 'claude-code')!
+    const cursor = results.find((r) => r.agentId === 'cursor')!
+    expect(results).toHaveLength(2)
+    expect(claude.status).toBe('valid')
+    expect(claude.isLocal).toBe(true)
+    expect(claude.filesystemIdentity).toBeUndefined()
+    expect(cursor.status).toBe('valid')
+    expect(cursor.isLocal).toBe(true)
+    expect(cursor.filesystemIdentity).toBeUndefined()
+  })
+})
+
+describe('checkSymlinkTargetFromKnownLink', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    realpathMock.mockImplementation(async (path: string) => path)
+  })
+
+  it('reports a known link as valid when its target is reachable', async () => {
+    // Arrange
+    // The caller already proved this is a symlink (via Dirent.isSymbolicLink),
+    // so the fast path skips lstat and goes straight to the target probe.
+    readlinkMock.mockResolvedValue('/mock/source/skills/orphan-skill')
+    accessMock.mockResolvedValue(undefined)
+
+    // Act
+    const { checkSymlinkTargetFromKnownLink } = await import('./symlinkChecker')
+    const result = await checkSymlinkTargetFromKnownLink(
+      '/mock/agents/claude/skills/orphan-skill',
+    )
+
+    // Assert
+    expect(result).toBe('valid')
+    expect(lstatMock).not.toHaveBeenCalled() // Fast path skips the redundant lstat
+  })
+
+  it('reports the known link as missing when it disappears before its target can be read', async () => {
+    // Arrange
+    // readlink throws (link deleted mid-scan), so resolveSymlinkTarget bubbles
+    // the error out and the fast path falls back to 'missing' rather than crash.
+    readlinkMock.mockRejectedValue(makeFsError('ENOENT'))
+
+    // Act
+    const { checkSymlinkTargetFromKnownLink } = await import('./symlinkChecker')
+    const result = await checkSymlinkTargetFromKnownLink(
+      '/mock/agents/claude/skills/vanished-link',
+    )
+
+    // Assert
+    expect(result).toBe('missing')
   })
 })
 

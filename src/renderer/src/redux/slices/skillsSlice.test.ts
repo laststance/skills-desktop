@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { RootState } from '@/renderer/src/redux/store'
 import type {
   AbsolutePath,
   AgentId,
@@ -418,6 +419,35 @@ describe('skillsSlice', () => {
     )
   })
 
+  it('rejects the unlink action for retry when a local slot has no reviewed folder identity', async () => {
+    // Arrange — a stale local slot whose reviewed identity has been lost
+    const staleLocalSymlink: SymlinkInfo = {
+      ...sampleSymlink,
+      isLocal: true,
+      targetPath: undefined,
+      filesystemIdentity: undefined,
+    }
+    const store = await createTestStore()
+    const { unlinkSkillFromAgent } = await import('./skillsSlice')
+
+    // Act
+    const action = await store.dispatch(
+      unlinkSkillFromAgent({ skill: sampleSkill, symlink: staleLocalSymlink }),
+    )
+
+    // Assert — the guard short-circuits before IPC and the thunk rejects so the
+    // confirm dialog can stay open for a rescan-then-retry instead of closing.
+    expect(unlinkSkillFromAgent.rejected.match(action)).toBe(true)
+    // Narrow the dispatched action to the rejected variant so `.error` is typed.
+    if (unlinkSkillFromAgent.rejected.match(action)) {
+      expect(action.error.message).toBe(
+        'Rescan before delete. The reviewed local folder identity is missing.',
+      )
+    }
+    expect(mockUnlinkFromAgent).not.toHaveBeenCalled()
+    expect(store.getState().skills.unlinking).toBe(false)
+  })
+
   it('unlinkSkillFromAgent asks for rescan when symlink target identity is missing', async () => {
     // Arrange
     const staleSymlink: SymlinkInfo = {
@@ -740,6 +770,29 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
     }
     expect(mockCopyToAgents).not.toHaveBeenCalled()
   })
+
+  it('releases the toolbar and surfaces the error message when the whole copy batch rejects', async () => {
+    // Arrange — drive the slice into its in-flight pending state first, then
+    // reject the same request (a thrown payload creator, not a per-skill catch).
+    const store = await createTestStore()
+    const { bulkCopyToAgents } = await import('./skillsSlice')
+    store.dispatch(
+      bulkCopyToAgents.pending('req-1', { items: [], agentIds: [] }),
+    )
+    expect(store.getState().skills.bulkCopying).toBe(true)
+
+    // Act
+    store.dispatch(
+      bulkCopyToAgents.rejected(new Error('Bulk copy failed'), 'req-1', {
+        items: [],
+        agentIds: [],
+      }),
+    )
+
+    // Assert
+    expect(store.getState().skills.bulkCopying).toBe(false)
+    expect(store.getState().skills.error).toBe('Bulk copy failed')
+  })
 })
 
 describe('skillsSlice bulk selection reducers (v2.4)', () => {
@@ -874,6 +927,24 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     // Act + Assert — clearing hides it
     store.dispatch(setBulkProgress(null))
     expect(store.getState().skills.bulkProgress).toBeNull()
+  })
+
+  it('opens the bulk Copy-to-agents modal from the toolbar and closes it on dismiss', async () => {
+    // Arrange
+    const { setBulkCopyModalOpen } = await import('./skillsSlice')
+    const store = await createTestStore()
+
+    // Act — the toolbar "Copy to…" opens the BulkCopyToAgentsModal
+    store.dispatch(setBulkCopyModalOpen(true))
+
+    // Assert
+    expect(store.getState().skills.bulkCopyModalOpen).toBe(true)
+
+    // Act — the modal dispatches false on dismiss/Cancel/completion
+    store.dispatch(setBulkCopyModalOpen(false))
+
+    // Assert
+    expect(store.getState().skills.bulkCopyModalOpen).toBe(false)
   })
 })
 
@@ -1585,5 +1656,141 @@ describe('skillsSlice undoLastBulkDelete thunk', () => {
       expect(action.payload[0].result.error.message).toBe('Disk full')
     }
     expect(store.getState().skills.error).toBeNull()
+  })
+
+  it('surfaces the error banner when the whole undo restore batch is rejected', async () => {
+    // Arrange — the per-item path swallows IPC errors, so a banner only appears
+    // when the thunk itself rejects (e.g. the request creator throws upstream).
+    const store = await createTestStore()
+    const { undoLastBulkDelete } = await import('./skillsSlice')
+
+    // Act
+    store.dispatch(
+      undoLastBulkDelete.rejected(new Error('Undo failed'), 'req-1', []),
+    )
+
+    // Assert
+    expect(store.getState().skills.error).toBe('Undo failed')
+  })
+})
+
+describe('skillsSlice named selectors', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  it('reads the loaded skills list, loading flag, and error banner the UI renders from', async () => {
+    // Arrange — drive a full fetch lifecycle so all three read sites have data
+    const store = await createTestStore()
+    mockGetAll.mockResolvedValueOnce([sampleSkill])
+    const {
+      fetchSkills,
+      selectSkillsItems,
+      selectSkillsLoading,
+      selectSkillsError,
+    } = await import('./skillsSlice')
+    await store.dispatch(fetchSkills())
+
+    // Act
+    const items = selectSkillsItems(store.getState() as RootState)
+    const loading = selectSkillsLoading(store.getState() as RootState)
+    const error = selectSkillsError(store.getState() as RootState)
+
+    // Assert
+    expect(items).toEqual([sampleSkill])
+    expect(loading).toBe(false)
+    expect(error).toBeNull()
+  })
+
+  it('reads the bulk-select state (ticked rows, copy-agent ticks, and range anchor) for the toolbar', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const {
+      toggleSelection,
+      toggleCopyAgentSelection,
+      selectSelectedSkillNames,
+      selectSelectedCopyAgentIds,
+      selectSelectionAnchor,
+    } = await import('./skillsSlice')
+    store.dispatch(toggleSelection('task' as SkillName))
+    store.dispatch(toggleCopyAgentSelection('codex' as AgentId))
+
+    // Act
+    const selectedSkillNames = selectSelectedSkillNames(
+      store.getState() as RootState,
+    )
+    const selectedCopyAgentIds = selectSelectedCopyAgentIds(
+      store.getState() as RootState,
+    )
+    const selectionAnchor = selectSelectionAnchor(store.getState() as RootState)
+
+    // Assert
+    expect(selectedSkillNames).toEqual(['task'])
+    expect(selectedCopyAgentIds).toEqual(['codex'])
+    expect(selectionAnchor).toBe('task')
+  })
+
+  it('reads the in-flight delete fade list and every bulk-busy flag the toolbar disables on', async () => {
+    // Arrange — push the slice into delete/unlink/copy pending states at once
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill])
+    const {
+      deleteSelectedSkills,
+      unlinkSelectedFromAgent,
+      bulkCopyToAgents,
+      selectInFlightDeleteNames,
+      selectBulkDeleting,
+      selectBulkUnlinking,
+      selectBulkCopying,
+    } = await import('./skillsSlice')
+    store.dispatch(
+      deleteSelectedSkills.pending('del-1', [deleteTarget('task')]),
+    )
+    store.dispatch(
+      unlinkSelectedFromAgent.pending('unlink-1', {
+        agentId: 'cursor' as AgentId,
+        selectedNames: [unlinkTarget('task')],
+      }),
+    )
+    store.dispatch(
+      bulkCopyToAgents.pending('copy-1', { items: [], agentIds: [] }),
+    )
+
+    // Act
+    const inFlightDeleteNames = selectInFlightDeleteNames(
+      store.getState() as RootState,
+    )
+    const bulkDeleting = selectBulkDeleting(store.getState() as RootState)
+    const bulkUnlinking = selectBulkUnlinking(store.getState() as RootState)
+    const bulkCopying = selectBulkCopying(store.getState() as RootState)
+
+    // Assert
+    expect(inFlightDeleteNames).toEqual(['task'])
+    expect(bulkDeleting).toBe(true)
+    expect(bulkUnlinking).toBe(true)
+    expect(bulkCopying).toBe(true)
+  })
+
+  it('reads the bulk Copy-to-agents modal open flag and the progress counter', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const {
+      setBulkCopyModalOpen,
+      setBulkProgress,
+      selectBulkCopyModalOpen,
+      selectBulkProgress,
+    } = await import('./skillsSlice')
+    store.dispatch(setBulkCopyModalOpen(true))
+    store.dispatch(setBulkProgress({ current: 2, total: 5 }))
+
+    // Act
+    const bulkCopyModalOpen = selectBulkCopyModalOpen(
+      store.getState() as RootState,
+    )
+    const bulkProgress = selectBulkProgress(store.getState() as RootState)
+
+    // Assert
+    expect(bulkCopyModalOpen).toBe(true)
+    expect(bulkProgress).toEqual({ current: 2, total: 5 })
   })
 })

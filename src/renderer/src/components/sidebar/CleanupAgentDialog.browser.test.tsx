@@ -7,6 +7,15 @@ import type { AgentId, SyncPreviewResult } from '@/shared/types'
 
 const mockSyncPreview = vi.fn()
 const mockSyncExecute = vi.fn()
+const mockToastError = vi.fn()
+
+// CleanupAgentDialog surfaces a `toast.error` when the scoped preview thunk
+// rejects; mirror AgentDeleteDialog's sonner stub so that path is assertable.
+vi.mock('sonner', () => ({
+  toast: {
+    error: (...args: unknown[]) => mockToastError(...args),
+  },
+}))
 
 const SCOPED_PREVIEW: SyncPreviewResult = {
   totalSkills: 4,
@@ -22,6 +31,7 @@ beforeEach(() => {
   mockSyncPreview.mockResolvedValue(SCOPED_PREVIEW)
   mockSyncExecute.mockReset()
   mockSyncExecute.mockResolvedValue({ details: [] })
+  mockToastError.mockReset()
   // Browser mode replaces Electron's preload bridge, so install the sync IPC
   // surface that CleanupAgentDialog reaches through the Redux thunks.
   vi.stubGlobal('electron', {
@@ -119,5 +129,64 @@ describe('CleanupAgentDialog', () => {
     await expect
       .element(screen.getByRole('button', { name: 'Cleanup 2 skills' }))
       .toBeVisible()
+  })
+
+  it('warns and closes itself when the cleanup preview fails to load', async () => {
+    // Arrange
+    // A rejected scoped preview must not strand the user on the spinner; the
+    // dialog has to surface a toast and dismiss so they can recover.
+    mockSyncPreview.mockReset()
+    mockSyncPreview.mockRejectedValue(new Error('preview offline'))
+
+    // Act
+    const { store } = await renderClosedThenOpen('claude-code')
+
+    // Assert
+    await expect.poll(() => mockToastError.mock.calls.length).toBeGreaterThan(0)
+    expect(mockToastError).toHaveBeenCalledWith(
+      'Failed to load cleanup preview',
+      { description: expect.any(String) },
+    )
+    await expect.poll(() => store.getState().ui.cleanupAgentTarget).toBeNull()
+  })
+
+  it('recreates the missing symlinks and hands off to the result dialog on confirm', async () => {
+    // Arrange
+    const { screen, store } = await renderClosedThenOpen('claude-code')
+    await expect
+      .element(screen.getByRole('button', { name: 'Cleanup 2 skills' }))
+      .toBeVisible()
+
+    // Act
+    await screen.getByRole('button', { name: 'Cleanup 2 skills' }).click()
+
+    // Assert
+    await expect
+      .poll(() =>
+        mockSyncExecute.mock.calls.some(
+          ([options]) =>
+            options?.agentId === 'claude-code' &&
+            Array.isArray(options?.replaceConflicts) &&
+            options.replaceConflicts.length === 0,
+        ),
+      )
+      .toBe(true)
+    // Success clears the target so SyncResultDialog becomes the lone surface.
+    await expect.poll(() => store.getState().ui.cleanupAgentTarget).toBeNull()
+  })
+
+  it('dismisses without running cleanup when cancelled while idle', async () => {
+    // Arrange
+    const { screen, store } = await renderClosedThenOpen('claude-code')
+    await expect
+      .element(screen.getByRole('button', { name: 'Cancel' }))
+      .toBeVisible()
+
+    // Act
+    await screen.getByRole('button', { name: 'Cancel' }).click()
+
+    // Assert
+    await expect.poll(() => store.getState().ui.cleanupAgentTarget).toBeNull()
+    expect(mockSyncExecute).toHaveBeenCalledTimes(0)
   })
 })

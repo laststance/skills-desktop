@@ -1,8 +1,50 @@
-import { describe, it, expect } from 'vitest'
+import { mkdtempSync, realpathSync } from 'node:fs'
+import { readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
 
+import type * as SettingsModule from './settings'
 import { areSettingsEqual } from './settings'
+
+// Mutable userData dir handed to `app.getPath('userData')`. Each disk test
+// points it at a fresh tmpdir so reads/writes never collide and the real
+// fs read/write/rename/mkdir paths in settings.ts are exercised end-to-end.
+const electronUserData = vi.hoisted(() => ({ dir: '' }))
+
+vi.mock('electron', () => ({
+  app: {
+    getPath: (name: string) => {
+      if (name !== 'userData') {
+        throw new Error(`unexpected getPath(${name})`)
+      }
+      return electronUserData.dir
+    },
+  },
+}))
+
+/**
+ * Re-imports settings.ts with its module-level `cache` reset to `null` so a
+ * test that relies on "never loaded yet" or "loaded once" state starts clean.
+ * @returns Fresh settings module exports.
+ * @example
+ * const { getSettings } = await importFreshSettings()
+ */
+async function importFreshSettings(): Promise<typeof SettingsModule> {
+  vi.resetModules()
+  return import('./settings')
+}
 
 /**
  * Unit tests for the `areSettingsEqual` no-op guard. The motivation is
@@ -208,5 +250,198 @@ describe('areSettingsEqual', () => {
 
     // Assert
     expect(result).toBe(false)
+  })
+})
+
+/**
+ * Disk-backed tests for loadSettings/getSettings/saveSettings. They run
+ * against a real tmpdir aliased to `app.getPath('userData')` so the actual
+ * read → JSON.parse → Zod validate → atomic write → rename pipeline is
+ * exercised, not a mock of it.
+ */
+describe('settings persistence', () => {
+  let userDataDir: string
+
+  beforeEach(() => {
+    // Arrange a clean userData dir for each test, then point the mocked
+    // electron app at it.
+    userDataDir = realpathSync(mkdtempSync(join(tmpdir(), 'settings-svc-')))
+    electronUserData.dir = userDataDir
+  })
+
+  afterEach(async () => {
+    await rm(userDataDir, { recursive: true, force: true })
+  })
+
+  afterAll(() => {
+    vi.clearAllMocks()
+  })
+
+  describe('loadSettings', () => {
+    it('returns the validated on-disk settings when settings.json exists and is valid', async () => {
+      // Arrange
+      const { loadSettings } = await importFreshSettings()
+      await writeFile(
+        join(userDataDir, 'settings.json'),
+        JSON.stringify({
+          defaultSkillTab: 'info',
+          preferredTerminal: 'terminal',
+          windowBackgroundBlurRadius: 0,
+          installedSearchCountDisplay: 'tab',
+          hiddenAgentIds: ['cursor'],
+          autoDownloadUpdates: true,
+        }),
+        'utf8',
+      )
+
+      // Act
+      const loaded = await loadSettings()
+
+      // Assert
+      expect(loaded).toEqual({
+        defaultSkillTab: 'info',
+        preferredTerminal: 'terminal',
+        windowBackgroundBlurRadius: 0,
+        installedSearchCountDisplay: 'tab',
+        hiddenAgentIds: ['cursor'],
+        autoDownloadUpdates: true,
+      })
+    })
+
+    it('caches the loaded settings so a later getSettings returns the disk values without re-reading', async () => {
+      // Arrange
+      const { loadSettings, getSettings } = await importFreshSettings()
+      await writeFile(
+        join(userDataDir, 'settings.json'),
+        JSON.stringify({ defaultSkillTab: 'info' }),
+        'utf8',
+      )
+      await loadSettings()
+
+      // Act
+      const snapshot = getSettings()
+
+      // Assert
+      expect(snapshot.defaultSkillTab).toBe('info')
+    })
+
+    it('falls back to defaults silently on first launch when settings.json is absent', async () => {
+      // Arrange: a fresh userData dir with no settings.json — the ENOENT path
+      // must NOT log a warning because a missing file is expected on boot.
+      const { loadSettings } = await importFreshSettings()
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      // Act
+      const loaded = await loadSettings()
+
+      // Assert
+      expect(loaded).toEqual(DEFAULT_SETTINGS)
+      expect(warnSpy).not.toHaveBeenCalled()
+      warnSpy.mockRestore()
+    })
+
+    it('falls back to defaults and warns when settings.json holds malformed JSON', async () => {
+      // Arrange: a syntactically broken file triggers a non-ENOENT error,
+      // which must be logged so a corrupt file is visible in the dev console.
+      const { loadSettings } = await importFreshSettings()
+      await writeFile(join(userDataDir, 'settings.json'), '{ not json', 'utf8')
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      // Act
+      const loaded = await loadSettings()
+
+      // Assert
+      expect(loaded).toEqual(DEFAULT_SETTINGS)
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[settings] failed to load, using defaults:',
+        expect.anything(),
+      )
+      warnSpy.mockRestore()
+    })
+  })
+
+  describe('getSettings', () => {
+    it('returns the defaults when loadSettings has never run so IPC handlers can read without awaiting', async () => {
+      // Arrange: a freshly imported module has a null cache.
+      const { getSettings } = await importFreshSettings()
+
+      // Act
+      const snapshot = getSettings()
+
+      // Assert
+      expect(snapshot).toEqual(DEFAULT_SETTINGS)
+    })
+
+    it('returns the already-cached snapshot on repeated calls without re-seeding defaults', async () => {
+      // Arrange
+      const { getSettings } = await importFreshSettings()
+      const first = getSettings()
+
+      // Act
+      const second = getSettings()
+
+      // Assert: same cached reference, proving the null-cache branch ran once.
+      expect(second).toBe(first)
+    })
+  })
+
+  describe('saveSettings', () => {
+    it('writes the merged settings to disk and returns the new full settings object', async () => {
+      // Arrange
+      const { saveSettings } = await importFreshSettings()
+
+      // Act
+      const saved = await saveSettings({ defaultSkillTab: 'info' })
+
+      // Assert
+      expect(saved.defaultSkillTab).toBe('info')
+      const onDisk = JSON.parse(
+        await readFile(join(userDataDir, 'settings.json'), 'utf8'),
+      )
+      expect(onDisk.defaultSkillTab).toBe('info')
+    })
+
+    it('creates the userData directory on a fresh profile before writing settings.json', async () => {
+      // Arrange: point at a not-yet-created nested userData dir so the
+      // mkdir(recursive) guard is the only thing that lets the write succeed.
+      const nestedUserData = join(userDataDir, 'fresh', 'profile')
+      electronUserData.dir = nestedUserData
+      const { saveSettings } = await importFreshSettings()
+
+      // Act
+      const saved = await saveSettings({ preferredTerminal: 'iterm' })
+
+      // Assert
+      expect(saved.preferredTerminal).toBe('iterm')
+      const onDisk = JSON.parse(
+        await readFile(join(nestedUserData, 'settings.json'), 'utf8'),
+      )
+      expect(onDisk.preferredTerminal).toBe('iterm')
+    })
+
+    it('short-circuits without writing settings.json when the patch changes nothing', async () => {
+      // Arrange: an empty patch merges to the current defaults, so the no-op
+      // guard must return the existing settings before any disk write.
+      const { saveSettings } = await importFreshSettings()
+
+      // Act
+      const saved = await saveSettings({})
+
+      // Assert
+      expect(saved).toEqual(DEFAULT_SETTINGS)
+      await expect(
+        readFile(join(userDataDir, 'settings.json'), 'utf8'),
+      ).rejects.toMatchObject({ code: 'ENOENT' })
+    })
+
+    it('rejects the whole call when the merged settings fail Zod validation', async () => {
+      // Arrange: a window width below the 400px floor is schema-invalid.
+      const { saveSettings } = await importFreshSettings()
+
+      // Act / Assert
+      await expect(
+        saveSettings({ windowSize: { width: 10, height: 800 } }),
+      ).rejects.toThrow()
+    })
   })
 })

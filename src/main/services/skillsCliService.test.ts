@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { SKILLS_CLI_VERSION } from '@/shared/constants'
 import { repositoryId } from '@/shared/types'
+import type { InstallProgress } from '@/shared/types'
 
 /**
  * Fake child process so we can drive stdout/stderr/close from the test.
@@ -281,5 +282,234 @@ describe('skillsCliService.install', () => {
       ],
       expect.any(Object),
     )
+  })
+})
+
+describe('skillsCliService.search failure handling', () => {
+  beforeEach(() => {
+    vi.useRealTimers()
+    vi.resetModules()
+    spawnMock.mockReset()
+  })
+
+  afterEach(() => {
+    process.env.PATH = ORIGINAL_PATH
+  })
+
+  it('shows no results when the skills CLI exits with an error', async () => {
+    // Arrange — non-zero exit code with stderr exercises both the failure
+    // early-return and the stderr accumulation handler.
+    simulateCli({
+      stdout: '',
+      stderr: 'network unreachable',
+      exitCode: 1,
+    })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    const results = await skillsCliService.search('react')
+
+    // Assert
+    expect(results).toEqual([])
+  })
+
+  it('skips a malformed result row whose repo segment has no owner slash', async () => {
+    // Arrange — `notarepo@skill` matches the loose line pattern but fails the
+    // strict REPO_PATTERN (no `owner/repo` slash), so it must be discarded.
+    simulateCli({
+      stdout: [
+        'notarepo@skill 100 installs',
+        '└ https://skills.sh/notarepo/skill',
+        'vercel-labs/agent-skills@valid-skill 5 installs',
+        '└ https://skills.sh/vercel-labs/agent-skills/valid-skill',
+      ].join('\n'),
+    })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    const results = await skillsCliService.search('skill')
+
+    // Assert — only the well-formed row survives, ranked first.
+    expect(results).toEqual([
+      {
+        rank: 1,
+        name: 'valid-skill',
+        repo: 'vercel-labs/agent-skills',
+        url: 'https://skills.sh/vercel-labs/agent-skills/valid-skill',
+        installCount: 5,
+      },
+    ])
+  })
+})
+
+describe('skillsCliService.install failure and progress', () => {
+  beforeEach(() => {
+    vi.useRealTimers()
+    vi.resetModules()
+    spawnMock.mockReset()
+  })
+
+  afterEach(() => {
+    process.env.PATH = ORIGINAL_PATH
+  })
+
+  it('emits an error progress event carrying the CLI stderr when an install fails', async () => {
+    // Arrange
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+    const emittedPhases: InstallProgress[] = []
+    skillsCliService.on('progress', (progress: InstallProgress) => {
+      emittedPhases.push(progress)
+    })
+
+    // Act — drive a failing exit with stderr content.
+    const installPromise = skillsCliService.install({
+      repo: repositoryId('vercel-labs/skills'),
+      global: true,
+      agents: [],
+      skills: ['task'],
+    })
+    fake.stderr.emit('data', Buffer.from('permission denied'))
+    fake.emit('close', 1)
+    await installPromise
+
+    // Assert
+    expect(emittedPhases).toContainEqual({
+      phase: 'error',
+      message: 'permission denied',
+      percent: undefined,
+    })
+  })
+
+  it('emits a generic error message when a failed install produces no stderr', async () => {
+    // Arrange
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+    const emittedPhases: InstallProgress[] = []
+    skillsCliService.on('progress', (progress: InstallProgress) => {
+      emittedPhases.push(progress)
+    })
+
+    // Act — failing exit with empty stderr falls back to default copy.
+    const installPromise = skillsCliService.install({
+      repo: repositoryId('vercel-labs/skills'),
+      global: true,
+      agents: [],
+      skills: ['task'],
+    })
+    fake.emit('close', 1)
+    await installPromise
+
+    // Assert
+    expect(emittedPhases).toContainEqual({
+      phase: 'error',
+      message: 'Installation failed',
+      percent: undefined,
+    })
+  })
+
+  it('reports cloning, installing, and linking phases as the CLI streams progress', async () => {
+    // Arrange — three separate chunks, one keyword each, because the ts-pattern
+    // matcher returns on the FIRST hit; a single combined chunk would only
+    // exercise the cloning branch.
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+    const emittedPhases: InstallProgress[] = []
+    skillsCliService.on('progress', (progress: InstallProgress) => {
+      emittedPhases.push(progress)
+    })
+
+    // Act
+    const installPromise = skillsCliService.install({
+      repo: repositoryId('vercel-labs/skills'),
+      global: true,
+      agents: [],
+      skills: ['task'],
+    })
+    fake.stdout.emit('data', Buffer.from('Downloading repository archive'))
+    fake.stdout.emit('data', Buffer.from('Installing skill files now'))
+    fake.stdout.emit('data', Buffer.from('Creating symlink for agent'))
+    fake.emit('close', 0)
+    await installPromise
+
+    // Assert
+    expect(emittedPhases).toContainEqual({
+      phase: 'cloning',
+      message: 'Cloning repository...',
+      percent: undefined,
+    })
+    expect(emittedPhases).toContainEqual({
+      phase: 'installing',
+      message: 'Installing skill files...',
+      percent: undefined,
+    })
+    expect(emittedPhases).toContainEqual({
+      phase: 'linking',
+      message: 'Creating agent symlinks...',
+      percent: undefined,
+    })
+  })
+})
+
+describe('skillsCliService.execCli error and timeout paths', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    spawnMock.mockReset()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    process.env.PATH = ORIGINAL_PATH
+  })
+
+  it('returns no results when spawning npx itself fails', async () => {
+    // Arrange — the spawn `error` event (e.g. npx missing on PATH) resolves
+    // the command as a failure, so search() yields an empty list.
+    vi.useRealTimers()
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    const searchPromise = skillsCliService.search('react')
+    fake.emit('error', new Error('spawn npx ENOENT'))
+    const results = await searchPromise
+
+    // Assert
+    expect(results).toEqual([])
+  })
+
+  it('ignores a late close event after the process already errored out', async () => {
+    // Arrange — once finalize() has settled on the error path, a trailing
+    // close must be a no-op (the settled guard), and the search still resolves.
+    vi.useRealTimers()
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    const searchPromise = skillsCliService.search('react')
+    fake.emit('error', new Error('spawn npx ENOENT'))
+    fake.emit('close', 0)
+    const results = await searchPromise
+
+    // Assert — the second finalize was ignored; the error result stands.
+    expect(results).toEqual([])
+  })
+
+  it('aborts the CLI command and reports a timeout when npx hangs past the limit', async () => {
+    // Arrange — fake timers let us fast-forward past the spawn timeout without
+    // emitting any close/error, so the timeout handler fires and kills npx.
+    vi.useFakeTimers()
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    const searchPromise = skillsCliService.search('react')
+    await vi.advanceTimersByTimeAsync(60_000)
+    const results = await searchPromise
+
+    // Assert — search swallows the failure into an empty list, and the child
+    // was sent the kill signal by the timeout handler.
+    expect(results).toEqual([])
+    expect(fake.kill).toHaveBeenCalledWith('SIGTERM')
   })
 })

@@ -40,6 +40,8 @@ beforeEach(() => {
     },
     agents: { getAll: vi.fn().mockResolvedValue([]) },
     marketplace: { leaderboard: vi.fn().mockResolvedValue([]) },
+    // Clicking the repo link routes through shell.openExternal.
+    shell: { openExternal: vi.fn().mockResolvedValue(undefined) },
   })
 })
 
@@ -49,8 +51,9 @@ afterEach(() => {
 
 /**
  * Build the reducer store shared by BookmarkDetailModal and the InstallModal it
- * hands off to.
- * @returns Redux store with ui, marketplace, agents, and skills slices.
+ * hands off to. Includes the bookmarks slice so the Remove action has a real
+ * source of truth to mutate.
+ * @returns Redux store with ui, marketplace, agents, skills, and bookmarks slices.
  */
 async function createStore() {
   const [
@@ -58,11 +61,13 @@ async function createStore() {
     { default: marketplaceReducer },
     { default: agentsReducer },
     { default: skillsReducer },
+    { default: bookmarksReducer },
   ] = await Promise.all([
     import('@/renderer/src/redux/slices/uiSlice'),
     import('@/renderer/src/redux/slices/marketplaceSlice'),
     import('@/renderer/src/redux/slices/agentsSlice'),
     import('@/renderer/src/redux/slices/skillsSlice'),
+    import('@/renderer/src/redux/slices/bookmarkSlice'),
   ])
 
   return configureStore({
@@ -71,6 +76,7 @@ async function createStore() {
       marketplace: marketplaceReducer,
       agents: agentsReducer,
       skills: skillsReducer,
+      bookmarks: bookmarksReducer,
     },
   })
 }
@@ -109,5 +115,133 @@ describe('BookmarkDetailModal install', () => {
       name: 'task',
       repo: 'vercel-labs/skills',
     })
+  })
+})
+
+describe('BookmarkDetailModal remove', () => {
+  it('deletes the bookmark from the list and dismisses the modal when Remove Bookmark is clicked', async () => {
+    // Arrange
+    const store = await createStore()
+    const { BookmarkDetailModal } = await import('./BookmarkDetailModal')
+    const { setSelectedBookmarkForDetail } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { addBookmark } =
+      await import('@/renderer/src/redux/slices/bookmarkSlice')
+    store.dispatch(
+      addBookmark({
+        name: 'task',
+        repo: repositoryId('vercel-labs/skills'),
+        url: 'https://skills.sh/task',
+      }),
+    )
+    const screen = await render(
+      <Provider store={store}>
+        <BookmarkDetailModal />
+      </Provider>,
+    )
+    store.dispatch(setSelectedBookmarkForDetail(makeBookmark()))
+    await expect
+      .element(screen.getByRole('button', { name: 'Remove Bookmark' }))
+      .toBeInTheDocument()
+
+    // Act
+    await screen.getByRole('button', { name: 'Remove Bookmark' }).click()
+
+    // Assert
+    expect(store.getState().bookmarks.items).toEqual([])
+    await expect
+      .poll(() => store.getState().ui.selectedBookmarkForDetail)
+      .toBeNull()
+    await expect
+      .element(screen.getByRole('button', { name: 'Remove Bookmark' }))
+      .not.toBeInTheDocument()
+  })
+})
+
+describe('BookmarkDetailModal dismiss', () => {
+  it('clears the selected bookmark when the modal is closed via the Close button', async () => {
+    // Arrange
+    const store = await createStore()
+    const { BookmarkDetailModal } = await import('./BookmarkDetailModal')
+    const { setSelectedBookmarkForDetail } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const screen = await render(
+      <Provider store={store}>
+        <BookmarkDetailModal />
+      </Provider>,
+    )
+    store.dispatch(setSelectedBookmarkForDetail(makeBookmark()))
+    await expect
+      .element(screen.getByRole('button', { name: 'Close' }))
+      .toBeInTheDocument()
+
+    // Act
+    await screen.getByRole('button', { name: 'Close' }).click()
+
+    // Assert
+    await expect
+      .poll(() => store.getState().ui.selectedBookmarkForDetail)
+      .toBeNull()
+  })
+})
+
+describe('BookmarkDetailModal source link', () => {
+  it('opens the bookmark source repository externally when the repo link is clicked', async () => {
+    // Arrange
+    const store = await createStore()
+    const { BookmarkDetailModal } = await import('./BookmarkDetailModal')
+    const { setSelectedBookmarkForDetail } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const screen = await render(
+      <Provider store={store}>
+        <BookmarkDetailModal />
+      </Provider>,
+    )
+    store.dispatch(setSelectedBookmarkForDetail(makeBookmark()))
+    await expect
+      .element(screen.getByRole('button', { name: 'vercel-labs/skills' }))
+      .toBeInTheDocument()
+
+    // Act
+    await screen.getByRole('button', { name: 'vercel-labs/skills' }).click()
+
+    // Assert
+    expect(window.electron.shell.openExternal).toHaveBeenCalledWith(
+      'https://skills.sh/task',
+    )
+  })
+
+  it('keeps the detail modal open when opening the source repository fails', async () => {
+    // Arrange
+    const store = await createStore()
+    const { BookmarkDetailModal } = await import('./BookmarkDetailModal')
+    const { setSelectedBookmarkForDetail } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    // Retarget the shell mock so the external-open promise rejects, exercising
+    // the repo button's .catch swallow path (a left-open rejection would fail
+    // the run as an unhandled rejection).
+    vi.mocked(window.electron.shell.openExternal).mockRejectedValue(
+      new Error('Invalid URL'),
+    )
+    const screen = await render(
+      <Provider store={store}>
+        <BookmarkDetailModal />
+      </Provider>,
+    )
+    store.dispatch(setSelectedBookmarkForDetail(makeBookmark()))
+    await expect
+      .element(screen.getByRole('button', { name: 'vercel-labs/skills' }))
+      .toBeInTheDocument()
+
+    // Act
+    await screen.getByRole('button', { name: 'vercel-labs/skills' }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByRole('button', { name: 'vercel-labs/skills' }))
+      .toBeInTheDocument()
+    expect(window.electron.shell.openExternal).toHaveBeenCalledWith(
+      'https://skills.sh/task',
+    )
   })
 })

@@ -183,6 +183,21 @@ async function renderOpenedDialog() {
   return screen
 }
 
+/**
+ * Fires a native click on a Radix checkbox so its onCheckedChange runs in the
+ * browser lane, where the locator click skips zero-size unchecked checkboxes.
+ * @param element - Checkbox button element resolved from a locator.
+ * @returns Nothing; the click toggles selection via the real change handler.
+ * @example
+ * toggleCheckbox(rowCheckbox.element())
+ */
+function toggleCheckbox(element: Element): void {
+  if (!(element instanceof HTMLElement)) {
+    throw new Error('Expected a checkbox HTMLElement')
+  }
+  element.click()
+}
+
 describe('SymlinkCleanupDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -968,5 +983,216 @@ describe('SymlinkCleanupDialog', () => {
     await expect
       .element(screen.getByText(/Cleaned up 1 symlink issue/))
       .toBeVisible()
+  })
+
+  it('reports an unhelpful scanner failure as a generic scan error', async () => {
+    // Arrange — the scanner rejects with a plain object carrying no message,
+    // which RTK serializes to a non-Error, non-string value without a string
+    // message, so the dialog falls back to its generic copy.
+    mockGetSkills.mockRejectedValueOnce({ code: 'ENOSCAN' })
+
+    // Act
+    const screen = await renderOpenedDialog()
+
+    // Assert
+    await expect
+      .element(screen.getByText('Scan failed: Unknown error'))
+      .toBeVisible()
+  })
+
+  it('closes the dialog and discards the reviewed plan when cancelled', async () => {
+    // Arrange
+    mockGetSkills.mockResolvedValueOnce([
+      makeSkillWithBrokenSlot('cancel-task', 'cursor'),
+    ])
+    const { screen, store } = await renderOpenedDialogWithStore()
+    await expect
+      .element(screen.getByText('cancel-task', { exact: true }))
+      .toBeVisible()
+
+    // Act
+    await screen.getByRole('button', { name: 'Cancel' }).click()
+
+    // Assert — the dialog unmounts and its open flag is cleared.
+    await expect
+      .poll(() => store.getState().ui.symlinkCleanupDialogOpen)
+      .toBe(false)
+    expect(screen.getByText('Symlink cleanup').query()).toBeNull()
+  })
+
+  it('deselects then reselects a single row from its row checkbox', async () => {
+    // Arrange
+    mockGetSkills.mockResolvedValueOnce([
+      makeSkillWithBrokenSlot('toggle-task', 'cursor'),
+    ])
+    const screen = await renderOpenedDialog()
+    const rowCheckbox = screen.getByRole('checkbox', {
+      name: 'Clean broken link for toggle-task from Cursor',
+    })
+    await expect.element(rowCheckbox).toBeChecked()
+
+    // Act — uncheck the only row.
+    toggleCheckbox(rowCheckbox.element())
+
+    // Assert — unchecking the last row leaves zero selected.
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 0 selected' }))
+      .toBeDisabled()
+    await expect.element(rowCheckbox).not.toBeChecked()
+
+    // Act — re-check the same row.
+    toggleCheckbox(rowCheckbox.element())
+
+    // Assert — rechecking restores the selectable count.
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 1 selected' }))
+      .toBeVisible()
+    await expect.element(rowCheckbox).toBeChecked()
+  })
+
+  it('clears then restores every row in a section from the section checkbox', async () => {
+    // Arrange — two broken rows share one "Broken agent links" section.
+    mockGetSkills.mockResolvedValueOnce([
+      makeSkillWithBrokenSlot('section-a', 'cursor'),
+      makeSkillWithBrokenSlot('section-b', 'codex'),
+    ])
+    const screen = await renderOpenedDialog()
+    const rowA = screen.getByRole('checkbox', {
+      name: 'Clean broken link for section-a from Cursor',
+    })
+    const sectionCheckbox = screen.getByRole('checkbox', {
+      name: 'Select all Broken agent links',
+    })
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 2 selected' }))
+      .toBeVisible()
+
+    // Act — drop one row so the section header becomes a partial selection.
+    toggleCheckbox(rowA.element())
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 1 selected' }))
+      .toBeVisible()
+
+    // Act — the partial section checkbox selects every row in the section.
+    toggleCheckbox(sectionCheckbox.element())
+
+    // Assert — a partial "select all" promotes the section to fully selected.
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 2 selected' }))
+      .toBeVisible()
+
+    // Act — the now-full section checkbox clears every row in the section.
+    toggleCheckbox(sectionCheckbox.element())
+
+    // Assert — clearing the section drops the selection to zero.
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 0 selected' }))
+      .toBeDisabled()
+  })
+
+  it('reports a scan error when the post-cleanup rescan re-fetch rejects', async () => {
+    // Arrange — cleanup succeeds but its dashboard refresh fails, landing in a
+    // complete-with-rescan state. The rescan then refreshes every source, and
+    // its fetchSkills rejection must surface as a scan error (not a silent
+    // swallow) because the full-refresh scan re-throws the skills rejection.
+    const firstPlan = [makeSkillWithBrokenSlot('rescan-reject-task', 'cursor')]
+    mockGetSkills
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce([])
+      .mockRejectedValueOnce(new Error('Scanner offline on rescan'))
+    mockGetAgents.mockRejectedValueOnce(
+      new Error('Dashboard refresh offline after cleanup'),
+    )
+    mockClearBrokenSymlinkSlots.mockResolvedValue({
+      items: [
+        {
+          agentId: 'cursor',
+          skillName: 'rescan-reject-task',
+          linkPath: '/Users/test/.cursor/skills/rescan-reject-task',
+          outcome: 'unlinked',
+        },
+      ],
+    })
+    const screen = await renderOpenedDialog()
+
+    // Act — clean (lands in complete-needs-rescan), then rescan.
+    await screen.getByRole('button', { name: 'Clean 1 selected' }).click()
+    await expect
+      .element(screen.getByRole('button', { name: 'Rescan' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Rescan' }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByText('Scan failed: Scanner offline on rescan'))
+      .toBeVisible()
+  })
+
+  it('attaches multiple same-agent unlink results to one agent row', async () => {
+    // Arrange — two skills both have a broken slot on Cursor, so the unlink IPC
+    // returns two Cursor results that must collapse into a single agent group.
+    const firstPlan = [
+      makeSkillWithBrokenSlot('grouped-a', 'cursor'),
+      makeSkillWithBrokenSlot('grouped-b', 'cursor'),
+    ]
+    mockGetSkills
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce([])
+    mockClearBrokenSymlinkSlots.mockImplementation(
+      async (options: {
+        items: Array<{ agentId: string; linkName: string; linkPath: string }>
+      }) => ({
+        items: options.items.map((item) => ({
+          agentId: item.agentId,
+          skillName: item.linkName,
+          linkPath: item.linkPath,
+          outcome: 'unlinked',
+        })),
+      }),
+    )
+    const screen = await renderOpenedDialog()
+
+    // Act
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 2 selected' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Clean 2 selected' }).click()
+
+    // Assert — both Cursor unlinks roll up into the same summary line.
+    await expect
+      .element(screen.getByText(/Cleaned up 2 symlink issues/))
+      .toBeVisible()
+    await expect
+      .element(screen.getByText(/2 broken agent links unlinked/))
+      .toBeVisible()
+  })
+
+  it('reports a cleanup failure when the destructive IPC itself rejects', async () => {
+    // Arrange — the unlink IPC throws instead of returning per-row outcomes, so
+    // the executor's catch path must still refresh the dashboard and surface a
+    // generic cleanup error.
+    const firstPlan = [makeSkillWithBrokenSlot('throwing-task', 'cursor')]
+    mockGetSkills
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce(firstPlan)
+      .mockResolvedValueOnce([])
+    mockClearBrokenSymlinkSlots.mockRejectedValueOnce(
+      new Error('Unlink IPC crashed'),
+    )
+    const screen = await renderOpenedDialog()
+
+    // Act
+    await expect
+      .element(screen.getByRole('button', { name: 'Clean 1 selected' }))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Clean 1 selected' }).click()
+
+    // Assert — the catch path re-fetches skills and shows the failure copy.
+    await expect
+      .element(screen.getByText('Cleanup failed: Unlink IPC crashed'))
+      .toBeVisible()
+    await expect.poll(() => mockGetSkills.mock.calls.length).toBe(3)
   })
 })

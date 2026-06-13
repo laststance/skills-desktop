@@ -127,6 +127,20 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
+  it('treats the entire batch as trash-bound when no separate trash count is given', () => {
+    // Arrange / Act — omit trashCount so it defaults to totalCount (3)
+    const description = renderBulkDeleteDescription({
+      totalCount: 3,
+      orphanCleanupCount: 2,
+      sourceSummary: null,
+    })
+
+    // Assert — the "3 skills" count is the defaulted trashCount, not the 2 orphans
+    expect(description).toBe(
+      'This moves 3 skills to the app trash with a 15-second restore window and removes reviewed dangling symlinks for 2 orphan skills. Orphan cleanup cannot be undone from the notification.',
+    )
+  })
+
   it('names the single in-scope repository', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({

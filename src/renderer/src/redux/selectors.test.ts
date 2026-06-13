@@ -16,9 +16,11 @@ import type {
 } from '@/shared/types'
 
 import {
+  selectAnyInFlightRemovalSet,
   selectBookmarksWithInstallStatus,
   selectBulkSelectableVisibleSkillNames,
   selectFilteredSkills,
+  selectFilteredSkillCount,
   selectHiddenSelectedCount,
   selectInFlightDeleteNamesSet,
   selectRepoFacetOptions,
@@ -169,6 +171,38 @@ const makeSkill = (
         sourceUrl: `https://github.com/${source}.git`,
       }
     : {}),
+})
+
+describe('selectFilteredSkillCount', () => {
+  it('counts the visible Installed rows that survived the active filters', () => {
+    // Arrange — two unfiltered source skills, both visible
+    const skills = [
+      makeSkill('task', 'claude-code'),
+      makeSkill('browse', 'cursor'),
+    ]
+    const state = buildState({ skills })
+
+    // Act
+    const visibleRowCount = selectFilteredSkillCount(state as never)
+
+    // Assert
+    expect(visibleRowCount).toBe(2)
+  })
+
+  it('drops the count to zero when the search query matches no visible row', () => {
+    // Arrange — query that matches none of the source skills
+    const skills = [
+      makeSkill('task', 'claude-code'),
+      makeSkill('browse', 'cursor'),
+    ]
+    const state = buildState({ skills, searchQuery: 'nonexistent' })
+
+    // Act
+    const visibleRowCount = selectFilteredSkillCount(state as never)
+
+    // Assert
+    expect(visibleRowCount).toBe(0)
+  })
 })
 
 describe('selectFilteredSkills', () => {
@@ -1278,6 +1312,45 @@ describe('selectInFlightDeleteNamesSet', () => {
   })
 })
 
+describe('selectAnyInFlightRemovalSet', () => {
+  it('marks the rows of an active bulk delete as fading via Set membership', () => {
+    // Arrange
+    const state = buildState({
+      inFlightDeleteNames: ['skill-a', 'skill-b'],
+    })
+
+    // Act
+    const inFlightSet = selectAnyInFlightRemovalSet(state as never)
+
+    // Assert
+    expect(inFlightSet.has('skill-a')).toBe(true)
+    expect(inFlightSet.has('skill-b')).toBe(true)
+    expect(inFlightSet.has('skill-c')).toBe(false)
+    expect(inFlightSet.size).toBe(2)
+  })
+
+  it('returns the shared empty Set when no bulk delete is in flight so idle renders allocate nothing', () => {
+    // Arrange
+    const stateWithoutDeletes = buildState({
+      inFlightDeleteNames: [],
+    })
+    const otherIdleState = buildState({
+      inFlightDeleteNames: [],
+      selectedSkillNames: ['unrelated'],
+    })
+
+    // Act
+    const firstIdleSet = selectAnyInFlightRemovalSet(
+      stateWithoutDeletes as never,
+    )
+    const secondIdleSet = selectAnyInFlightRemovalSet(otherIdleState as never)
+
+    // Assert
+    expect(firstIdleSet.size).toBe(0)
+    expect(firstIdleSet).toBe(secondIdleSet)
+  })
+})
+
 describe('selectSelectedSkillNamesSet', () => {
   it('exposes the ticked skill names as a Set for fast membership checks', () => {
     // Arrange
@@ -1439,6 +1512,36 @@ describe('selectSourceFilterViewModel', () => {
     )
     // Every facet repo is ticked → "Select all" is pointless
     expect(viewModel.isSelectAllDisabled).toBe(true)
+  })
+
+  it('summarizes the overflow as "and N more" when the aria-label exceeds the spelled-repo cap', () => {
+    // Arrange — four repos ticked, one past SOURCE_FILTER_MAX_VISIBLE_REPOS (3),
+    // so the screen-reader label must name the first three then summarize the
+    // remainder instead of reading an unbounded list.
+    const skills = [
+      makeSkill('a', 'cursor', false, 'aaa/repo'),
+      makeSkill('b', 'cursor', false, 'bbb/repo'),
+      makeSkill('c', 'cursor', false, 'ccc/repo'),
+      makeSkill('d', 'cursor', false, 'ddd/repo'),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      selectedSources: [
+        repositoryId('aaa/repo'),
+        repositoryId('bbb/repo'),
+        repositoryId('ccc/repo'),
+        repositoryId('ddd/repo'),
+      ],
+    })
+
+    // Act
+    const viewModel = selectSourceFilterViewModel(state as never)
+
+    // Assert — first three repos spelled in selection order, fourth folded into "and 1 more"
+    expect(viewModel.triggerAriaLabel).toBe(
+      'Filtering by 4 source repositories: aaa/repo, bbb/repo, ccc/repo, and 1 more',
+    )
   })
 
   it('keeps a ticked repo with zero remaining rows in the dropdown but out of validRepoIds', () => {

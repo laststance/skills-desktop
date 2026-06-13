@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -52,17 +53,22 @@ afterEach(() => {
 
 /**
  * Build the reducer store shared by BookmarkItem and the hoisted InstallModal.
- * @returns Redux store with marketplace, agents, and skills slices.
+ * Includes bookmarks + ui slices so the remove/open-detail dispatches are observable.
+ * @returns Redux store with marketplace, agents, skills, bookmarks, and ui slices.
  */
 async function createStore() {
   const [
     { default: marketplaceReducer },
     { default: agentsReducer },
     { default: skillsReducer },
+    { default: bookmarkReducer },
+    { default: uiReducer },
   ] = await Promise.all([
     import('@/renderer/src/redux/slices/marketplaceSlice'),
     import('@/renderer/src/redux/slices/agentsSlice'),
     import('@/renderer/src/redux/slices/skillsSlice'),
+    import('@/renderer/src/redux/slices/bookmarkSlice'),
+    import('@/renderer/src/redux/slices/uiSlice'),
   ])
 
   return configureStore({
@@ -70,6 +76,8 @@ async function createStore() {
       marketplace: marketplaceReducer,
       agents: agentsReducer,
       skills: skillsReducer,
+      bookmarks: bookmarkReducer,
+      ui: uiReducer,
     },
   })
 }
@@ -130,5 +138,87 @@ describe('BookmarkItem install', () => {
     expect(
       screen.getByRole('dialog', { name: 'Install Skill' }).query(),
     ).toBeNull()
+  })
+})
+
+describe('BookmarkItem detail view', () => {
+  it('opens the skill detail view when the row is clicked', async () => {
+    // Arrange
+    const store = await createStore()
+    const { BookmarkItem } = await import('./BookmarkItem')
+    const bookmark = makeBookmark()
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <BookmarkItem bookmark={bookmark} />
+        </TooltipProvider>
+      </Provider>,
+    )
+
+    // Act
+    await screen.getByRole('button', { name: 'View details for task' }).click()
+
+    // Assert
+    expect(store.getState().ui.selectedBookmarkForDetail).toEqual(bookmark)
+  })
+
+  it('opens the skill detail view when Enter is pressed on the focused row', async () => {
+    // Arrange
+    const store = await createStore()
+    const { BookmarkItem } = await import('./BookmarkItem')
+    const bookmark = makeBookmark()
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <BookmarkItem bookmark={bookmark} />
+        </TooltipProvider>
+      </Provider>,
+    )
+    // Focus the row directly (not via click) so the keypress is the only trigger
+    // that could open the detail view — clicking would itself open it and mask the result.
+    const row = screen.getByRole('button', { name: 'View details for task' })
+    row.element().focus()
+
+    // Act
+    await userEvent.keyboard('{Enter}')
+
+    // Assert
+    expect(store.getState().ui.selectedBookmarkForDetail).toEqual(bookmark)
+  })
+})
+
+describe('BookmarkItem remove', () => {
+  it('removing a bookmark drops it from the list without opening its detail view', async () => {
+    // Arrange
+    const store = await createStore()
+    const { addBookmark } =
+      await import('@/renderer/src/redux/slices/bookmarkSlice')
+    const { BookmarkItem } = await import('./BookmarkItem')
+    const bookmark = makeBookmark()
+    // Seed the store so the remove reducer has a matching entry to filter out.
+    store.dispatch(
+      addBookmark({
+        name: bookmark.name,
+        repo: bookmark.repo,
+        url: bookmark.url,
+      }),
+    )
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <BookmarkItem bookmark={bookmark} />
+        </TooltipProvider>
+      </Provider>,
+    )
+
+    // Act
+    await screen
+      .getByRole('button', { name: 'Remove task from bookmarks' })
+      .click()
+
+    // Assert
+    expect(store.getState().bookmarks.items).toEqual([])
+    // stopPropagation must keep the row's own click (open detail) from firing.
+    expect(store.getState().ui.selectedBookmarkForDetail).toBeNull()
   })
 })

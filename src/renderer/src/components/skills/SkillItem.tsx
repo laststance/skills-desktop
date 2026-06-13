@@ -347,6 +347,12 @@ export const SkillItem = React.memo(function SkillItem({
   const selectedAgentName =
     agents.find((a) => a.id === selectedAgentId)?.name || 'agent'
 
+  // NOTE: handleUnlinkClick is exercised by the "SkillItem unlink button" specs
+  // (click → setSkillToUnlink asserted in store), but the browser-lane v8/esbuild
+  // transform fails to attribute the FNDA function hit to this const-arrow onClick
+  // handler. It is a coverage instrumentation artifact, not untested code; v8 ignore
+  // directives do not survive the browser-lane transform, so the coverage thresholds
+  // floor functions just below 100 rather than chase it. See vitest.config.ts.
   const handleUnlinkClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
     const targetSymlink = selectedAgentSymlink ?? selectedLocalSkillInfo

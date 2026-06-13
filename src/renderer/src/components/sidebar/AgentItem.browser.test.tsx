@@ -179,6 +179,94 @@ describe('Sidebar → AgentItem context menu', () => {
       hiddenAgentIds: [],
     })
   })
+
+  it('opens the agent skills folder in Finder when "Reveal in Finder" is clicked', async () => {
+    // The folder action must reach the IPC boundary with the agent's own
+    // path — a regression here would silently open the wrong (or no) folder.
+    // Arrange
+    const { screen } = await renderItem([])
+    const trigger = screen.getByRole('button', {
+      name: /Filter skills by Claude Code/i,
+    })
+    const triggerElement = trigger.element()
+    triggerElement.dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
+    )
+    const revealItem = screen.getByText(/^Reveal in Finder$/)
+
+    // Act
+    await revealItem.click()
+
+    // Assert
+    expect(mockRevealInFinder).toHaveBeenCalledWith(
+      '/Users/test/.claude/skills',
+    )
+  })
+
+  it('opens the agent skills folder in a terminal when "Open in Terminal" is clicked', async () => {
+    // Mirror of the Finder action — the terminal launch must target the
+    // agent's path so the shell opens at the right working directory.
+    // Arrange
+    const { screen } = await renderItem([])
+    const trigger = screen.getByRole('button', {
+      name: /Filter skills by Claude Code/i,
+    })
+    const triggerElement = trigger.element()
+    triggerElement.dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
+    )
+    const terminalItem = screen.getByText(/^Open in Terminal$/)
+
+    // Act
+    await terminalItem.click()
+
+    // Assert
+    expect(mockOpenInTerminal).toHaveBeenCalledWith(
+      '/Users/test/.claude/skills',
+    )
+  })
+
+  it('queues the agent for skills-folder deletion when "Delete skills folder" is clicked', async () => {
+    // Clicking the destructive item must stage the agent in Redux so the
+    // confirmation modal can mount — without it the menu would silently no-op.
+    // Arrange
+    const { screen, store } = await renderItem([])
+    const trigger = screen.getByRole('button', {
+      name: /Filter skills by Claude Code/i,
+    })
+    const triggerElement = trigger.element()
+    triggerElement.dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
+    )
+    const deleteItem = screen.getByText(/^Delete skills folder$/)
+
+    // Act
+    await deleteItem.click()
+
+    // Assert
+    expect(store.getState().agents.agentToDelete).toEqual(FIXTURE_AGENT)
+  })
+
+  it('opens the per-agent cleanup dialog when "Cleanup missing skills..." is clicked', async () => {
+    // The cleanup item must target the agent by id so CleanupAgentDialog
+    // mounts scoped to this agent — a wrong/empty target would clean nothing.
+    // Arrange
+    const { screen, store } = await renderItem([])
+    const trigger = screen.getByRole('button', {
+      name: /Filter skills by Claude Code/i,
+    })
+    const triggerElement = trigger.element()
+    triggerElement.dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
+    )
+    const cleanupItem = screen.getByText(/^Cleanup missing skills/)
+
+    // Act
+    await cleanupItem.click()
+
+    // Assert
+    expect(store.getState().ui.cleanupAgentTarget).toBe('claude-code')
+  })
 })
 
 describe('Sidebar → AgentItem navigation', () => {

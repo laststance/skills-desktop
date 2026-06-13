@@ -20,6 +20,7 @@ const DETAIL_DRAG_REGION_HEIGHT_PX = 32
 const VISIBLE_BOUNDS_TOLERANCE_PX = 1
 const mockWriteText = vi.fn()
 const toastErrorMock = vi.fn()
+const mockSettingsSet = vi.fn()
 let originalClipboardDescriptor: PropertyDescriptor | undefined
 
 const OVERFLOW_AGENT_ROWS = [
@@ -136,6 +137,13 @@ beforeEach(() => {
   mockWriteText.mockReset()
   mockWriteText.mockResolvedValue(undefined)
   toastErrorMock.mockReset()
+  mockSettingsSet.mockReset()
+  mockSettingsSet.mockResolvedValue(undefined)
+  // Browser mode replaces the preload context bridge — install a fake for
+  // the only window.electron.* surface SkillDetail reaches (tab persistence).
+  vi.stubGlobal('electron', {
+    settings: { set: mockSettingsSet },
+  })
   originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
     navigator,
     'clipboard',
@@ -152,6 +160,7 @@ afterEach(() => {
   } else {
     Reflect.deleteProperty(navigator, 'clipboard')
   }
+  vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
 
@@ -347,4 +356,86 @@ describe('SkillDetail Info path copy', () => {
       layoutStyleElement.remove()
     }
   })
+})
+
+describe('SkillDetail tab switching', () => {
+  it('persists the Files tab choice when switching away from the active Info tab', async () => {
+    // Arrange
+    const { screen } = await renderSkillDetail()
+
+    // Act
+    await screen.getByRole('button', { name: 'Files' }).click()
+
+    // Assert
+    expect(mockSettingsSet).toHaveBeenCalledWith({ defaultSkillTab: 'files' })
+  })
+
+  it('does not re-persist when tapping the tab that is already active', async () => {
+    // Arrange
+    const { screen } = await renderSkillDetail()
+
+    // Act
+    await screen.getByRole('button', { name: 'Info' }).click()
+
+    // Assert
+    expect(mockSettingsSet).not.toHaveBeenCalled()
+  })
+})
+
+describe('SkillDetail orphan skill', () => {
+  it('explains the source is missing instead of previewing files for an orphan skill', async () => {
+    // Arrange
+    const orphanSkill: Skill = { ...makeSkill(), isOrphan: true }
+
+    // Act
+    const { screen } = await renderSkillDetail(null, orphanSkill)
+
+    // Assert
+    await expect
+      .element(screen.getByText('Source skill is missing'))
+      .toBeInTheDocument()
+  })
+})
+
+describe('SkillDetail clipboard unavailable', () => {
+  it('toasts an error when the Clipboard API is missing entirely', async () => {
+    // Arrange
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {},
+    })
+    const { screen } = await renderSkillDetail()
+
+    // Act
+    await screen.getByRole('button', { name: /^Copy path$/i }).click()
+
+    // Assert
+    expect(mockWriteText).not.toHaveBeenCalled()
+    await expect
+      .poll(() => toastErrorMock.mock.calls[0]?.[0])
+      .toBe('Failed to copy path')
+  })
+})
+
+describe('SkillDetail copied feedback timeout', () => {
+  it('reverts the Copy button label after the confirmation window elapses', async () => {
+    // Arrange
+    const { screen } = await renderSkillDetail()
+
+    // Act
+    await screen.getByRole('button', { name: /^Copy path$/i }).click()
+    await expect
+      .element(screen.getByRole('button', { name: /^Copy path$/i }))
+      .toHaveTextContent(/Copied/)
+
+    // Assert
+    await expect
+      .poll(
+        () =>
+          screen.getByRole('button', { name: /^Copy path$/i }).element()
+            .textContent,
+        { timeout: 5000, interval: 100 },
+      )
+      .toBe('Copy')
+  }, 10000)
 })

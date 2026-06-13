@@ -191,6 +191,43 @@ describe('AgentHeatmapWidget', () => {
     ).not.toBeNull()
   })
 
+  it('orders skill rows with the most-linked skill first', async () => {
+    // Arrange: two skills whose coverage order disagrees with both alphabetical
+    // and input order. alpha-skill has 1 valid link (low coverage); zeta-skill
+    // has 2 valid links (high coverage). Input order lists alpha first.
+    const skills = [
+      makeSkill('alpha-skill', [
+        makeSymlink('claude-code', 'Claude Code', 'valid'),
+      ]),
+      makeSkill('zeta-skill', [
+        makeSymlink('claude-code', 'Claude Code', 'valid'),
+        makeSymlink('cursor', 'Cursor', 'valid'),
+      ]),
+    ]
+    const agents = [
+      makeAgent('claude-code', 'Claude Code', true),
+      makeAgent('cursor', 'Cursor', true),
+    ]
+
+    // Act
+    const { screen } = await renderHeatmap(skills, agents)
+
+    // Assert: the high-coverage zeta-skill row renders before the low-coverage
+    // alpha-skill row. Only a descending-by-coverage sort yields this order —
+    // input order or alphabetical order would put alpha-skill first.
+    const zetaRowLabel = screen
+      .getByText('zeta-skill', { exact: true })
+      .element()
+    const alphaRowLabel = screen
+      .getByText('alpha-skill', { exact: true })
+      .element()
+    const isZetaBeforeAlpha = Boolean(
+      zetaRowLabel.compareDocumentPosition(alphaRowLabel) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+    expect(isZetaBeforeAlpha).toBe(true)
+  })
+
   it('labels a local folder slot as local to its agent', async () => {
     // Arrange: the skill is present as a real local folder in Claude Code.
     const skills = [

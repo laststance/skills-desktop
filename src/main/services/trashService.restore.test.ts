@@ -407,6 +407,214 @@ describe('trashService.restore target-containment', () => {
     await expect(stat(linkPathB)).rejects.toThrow()
   })
 
+  it('skips a recorded symlink whose agent id no longer exists in the agent registry', async () => {
+    // Arrange
+    // A tampered/stale manifest names an agent that is not in AGENTS; that record
+    // must be skipped without aborting the rest of the restore.
+    const { restore } = await trashServicePromise
+    const skillName = 'unknown-agent-skip'
+    const linkPath = join(sharedClaudeAgent, skillName)
+    const tombstone = await buildFakeTrashEntry({
+      skillName,
+      symlinks: [
+        {
+          agentId: 'this-agent-does-not-exist',
+          linkPath,
+          target: join(sharedSourceDir, skillName),
+        },
+      ],
+    })
+
+    // Act
+    const result = await restore(tombstone as never)
+
+    // Assert
+    expect(result.outcome).toBe('restored')
+    if (result.outcome === 'restored') {
+      expect(result.symlinksRestored).toBe(0)
+      expect(result.symlinksSkipped).toBe(1)
+    }
+    // The source is still restored even though no symlink was planted.
+    await stat(join(sharedSourceDir, skillName))
+    await expect(stat(linkPath)).rejects.toThrow()
+  })
+
+  it('skips a recorded symlink whose link path falls outside its declared agent directory', async () => {
+    // Arrange
+    // The manifest claims agent 'claude-code' but the linkPath lives outside the
+    // claude-code base, so the per-link validation skips it.
+    const { restore } = await trashServicePromise
+    const skillName = 'linkpath-escapes-agent'
+    const escapingLinkPath = join(sharedHome, '.cursor', 'skills', skillName)
+    await mkdir(join(sharedHome, '.cursor', 'skills'), { recursive: true })
+    const tombstone = await buildFakeTrashEntry({
+      skillName,
+      symlinks: [
+        {
+          agentId: 'claude-code',
+          linkPath: escapingLinkPath,
+          target: join(sharedSourceDir, skillName),
+        },
+      ],
+    })
+
+    // Act
+    const result = await restore(tombstone as never)
+
+    // Assert
+    expect(result.outcome).toBe('restored')
+    if (result.outcome === 'restored') {
+      expect(result.symlinksRestored).toBe(0)
+      expect(result.symlinksSkipped).toBe(1)
+    }
+    await stat(join(sharedSourceDir, skillName))
+    await expect(stat(escapingLinkPath)).rejects.toThrow()
+  })
+
+  it('skips a recorded symlink whose source target no longer exists on disk', async () => {
+    // Arrange
+    // The target resolves inside SOURCE_DIR (passes containment) but the file is
+    // absent, so the existence probe skips the link instead of planting a
+    // dangling symlink.
+    const { restore } = await trashServicePromise
+    const skillName = 'target-absent-skip'
+    const linkPath = join(sharedClaudeAgent, skillName)
+    const tombstone = await buildFakeTrashEntry({
+      skillName,
+      symlinks: [
+        {
+          agentId: 'claude-code',
+          linkPath,
+          target: join(sharedSourceDir, 'absent-target-name'),
+        },
+      ],
+    })
+
+    // Act
+    const result = await restore(tombstone as never)
+
+    // Assert
+    expect(result.outcome).toBe('restored')
+    if (result.outcome === 'restored') {
+      expect(result.symlinksRestored).toBe(0)
+      expect(result.symlinksSkipped).toBe(1)
+    }
+    await stat(join(sharedSourceDir, skillName))
+    await expect(stat(linkPath)).rejects.toThrow()
+  })
+
+  it('skips a recorded symlink whose agent slot is already occupied', async () => {
+    // Arrange
+    // The target exists and is valid, but something already sits at linkPath, so
+    // restore must skip rather than overwrite the existing entry.
+    const { restore } = await trashServicePromise
+    const skillName = 'slot-occupied-skip'
+    const linkPath = join(sharedClaudeAgent, skillName)
+    const tombstone = await buildFakeTrashEntry({
+      skillName,
+      symlinks: [
+        {
+          agentId: 'claude-code',
+          linkPath,
+          target: join(sharedSourceDir, skillName),
+        },
+      ],
+    })
+    // Pre-occupy the destination so the free-slot lstat succeeds.
+    await mkdir(linkPath, { recursive: true })
+    await writeFile(join(linkPath, 'SKILL.md'), '# occupied\n', 'utf-8')
+
+    // Act
+    const result = await restore(tombstone as never)
+
+    // Assert
+    expect(result.outcome).toBe('restored')
+    if (result.outcome === 'restored') {
+      expect(result.symlinksRestored).toBe(0)
+      expect(result.symlinksSkipped).toBe(1)
+    }
+    // The pre-existing folder is untouched, not replaced by a symlink.
+    expect((await lstat(linkPath)).isDirectory()).toBe(true)
+  })
+
+  it('skips a local-only copy whose agent id no longer exists in the agent registry', async () => {
+    // Arrange
+    // A local-only manifest names an unknown agent; that staged copy is skipped
+    // and the entry is kept for manual recovery.
+    const { restore } = await trashServicePromise
+    const skillName = 'local-unknown-agent'
+    const linkPath = join(sharedClaudeAgent, skillName)
+    const tombstone = await buildFakeLocalOnlyTrashEntry({
+      skillName,
+      localCopies: [{ agentId: 'this-agent-does-not-exist', linkPath }],
+    })
+
+    // Act
+    const result = await restore(tombstone as never)
+
+    // Assert
+    expect(result.outcome).toBe('restored')
+    if (result.outcome === 'restored') {
+      expect(result.symlinksRestored).toBe(0)
+      expect(result.symlinksSkipped).toBe(1)
+    }
+    // The staged copy is preserved under the entry for manual recovery.
+    const entryDir = join(sharedTrashDir, tombstone)
+    await expect(stat(entryDir)).resolves.toBeTruthy()
+  })
+
+  it('skips a local-only copy whose link path falls outside its declared agent directory', async () => {
+    // Arrange
+    // The manifest claims agent 'claude-code' but the linkPath escapes that base,
+    // so the validation skips restoring the staged folder.
+    const { restore } = await trashServicePromise
+    const skillName = 'local-linkpath-escapes'
+    const escapingLinkPath = join(sharedHome, '.cursor', 'skills', skillName)
+    await mkdir(join(sharedHome, '.cursor', 'skills'), { recursive: true })
+    const tombstone = await buildFakeLocalOnlyTrashEntry({
+      skillName,
+      localCopies: [{ agentId: 'claude-code', linkPath: escapingLinkPath }],
+    })
+
+    // Act
+    const result = await restore(tombstone as never)
+
+    // Assert
+    expect(result.outcome).toBe('restored')
+    if (result.outcome === 'restored') {
+      expect(result.symlinksRestored).toBe(0)
+      expect(result.symlinksSkipped).toBe(1)
+    }
+    await expect(stat(escapingLinkPath)).rejects.toThrow()
+  })
+
+  it('skips a local-only copy whose destination agent slot is already occupied', async () => {
+    // Arrange
+    // Something already sits at the destination linkPath, so the free-slot lstat
+    // succeeds and restore skips rather than overwriting it.
+    const { restore } = await trashServicePromise
+    const skillName = 'local-slot-occupied'
+    const linkPath = join(sharedClaudeAgent, skillName)
+    const tombstone = await buildFakeLocalOnlyTrashEntry({
+      skillName,
+      localCopies: [{ agentId: 'claude-code', linkPath }],
+    })
+    await mkdir(linkPath, { recursive: true })
+    await writeFile(join(linkPath, 'SKILL.md'), '# occupied\n', 'utf-8')
+
+    // Act
+    const result = await restore(tombstone as never)
+
+    // Assert
+    expect(result.outcome).toBe('restored')
+    if (result.outcome === 'restored') {
+      expect(result.symlinksRestored).toBe(0)
+      expect(result.symlinksSkipped).toBe(1)
+    }
+    expect((await lstat(linkPath)).isDirectory()).toBe(true)
+    await expect(stat(join(linkPath, 'SKILL.md'))).resolves.toBeTruthy()
+  })
+
   it('keeps local-only staged folders when destination collision skips restore', async () => {
     // Arrange
     const { restore } = await trashServicePromise

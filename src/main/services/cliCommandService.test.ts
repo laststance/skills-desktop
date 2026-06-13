@@ -1,3 +1,4 @@
+import * as nodeFs from 'node:fs'
 import { mkdtempSync, realpathSync } from 'node:fs'
 import {
   lstat,
@@ -31,6 +32,8 @@ const servicePromise = (async () => import('./cliCommandService'))()
 
 describe('cliCommandService', () => {
   afterEach(async () => {
+    // Drop any per-test fs.promises spies so later tests hit the real filesystem.
+    vi.restoreAllMocks()
     await rm(join(sharedHome, '.local'), { recursive: true, force: true })
   })
 
@@ -172,5 +175,117 @@ exec open -b "io.laststance.skills-desktop"
       message: `${commandPath} is already occupied by an unmanaged symlink.`,
     })
     expect((await lstat(commandPath)).isSymbolicLink()).toBe(true)
+  })
+
+  it('blocks management when a directory squats on the command path', async () => {
+    // Arrange
+    const { getCliCommandStatus } = await servicePromise
+    await mkdir(commandPath, { recursive: true })
+
+    // Act
+    const status = await getCliCommandStatus()
+
+    // Assert
+    expect(status).toEqual({
+      status: 'blocked',
+      commandName: 'skills-desktop',
+      commandPath,
+      message: `${commandPath} is already occupied by another filesystem entry.`,
+    })
+  })
+
+  it('blocks management when the command path cannot be inspected', async () => {
+    // Arrange
+    const { getCliCommandStatus } = await servicePromise
+    // Make ~/.local/bin a regular file so lstat-ing a child path throws ENOTDIR.
+    await mkdir(join(sharedHome, '.local'), { recursive: true })
+    await writeFile(
+      join(sharedHome, '.local', 'bin'),
+      'not a directory',
+      'utf-8',
+    )
+
+    // Act
+    const status = await getCliCommandStatus()
+
+    // Assert
+    expect(status.status).toBe('blocked')
+    expect(status.commandName).toBe('skills-desktop')
+    expect(status.commandPath).toBe(commandPath)
+    expect(status.message).toContain(`Could not inspect ${commandPath}:`)
+  })
+
+  it('reports success without rewriting when the command is already installed', async () => {
+    // Arrange
+    const { installCliCommand } = await servicePromise
+    await installCliCommand()
+
+    // Act
+    const result = await installCliCommand()
+
+    // Assert
+    expect(result).toEqual({
+      ok: true,
+      status: {
+        status: 'installed',
+        commandName: 'skills-desktop',
+        commandPath,
+        message: 'Command is installed.',
+      },
+      message: 'Command is already installed.',
+    })
+  })
+
+  it('surfaces a failure message when writing the shim throws', async () => {
+    // Arrange
+    const { installCliCommand } = await servicePromise
+    vi.spyOn(nodeFs.promises, 'writeFile').mockRejectedValueOnce(
+      new Error('disk full'),
+    )
+
+    // Act
+    const result = await installCliCommand()
+
+    // Assert
+    expect(result.ok).toBe(false)
+    expect(result.status.status).toBe('not-installed')
+    expect(result.message).toBe('Could not install command: disk full')
+  })
+
+  it('reports success when the command is already absent', async () => {
+    // Arrange
+    const { removeCliCommand } = await servicePromise
+
+    // Act
+    const result = await removeCliCommand()
+
+    // Assert
+    expect(result).toEqual({
+      ok: true,
+      status: {
+        status: 'not-installed',
+        commandName: 'skills-desktop',
+        commandPath,
+        message: 'Command is not installed.',
+      },
+      message: 'Command is already removed.',
+    })
+  })
+
+  it('surfaces a failure message when deleting the managed shim throws', async () => {
+    // Arrange
+    const { installCliCommand, removeCliCommand } = await servicePromise
+    await installCliCommand()
+    vi.spyOn(nodeFs.promises, 'unlink').mockRejectedValueOnce(
+      new Error('disk full'),
+    )
+
+    // Act
+    const result = await removeCliCommand()
+
+    // Assert
+    expect(result.ok).toBe(false)
+    expect(result.status.status).toBe('installed')
+    expect(result.message).toBe('Could not remove command: disk full')
   })
 })

@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { THEME_PRESETS } from '@/shared/constants'
 
 import type { MigratableState } from './migrations'
+import { toggleSelection } from './slices/skillsSlice'
+import { setActiveTab } from './slices/uiSlice'
 
 /**
  * Regression tests for the full theme migration chain. Every user upgrading
@@ -242,5 +244,51 @@ describe('migrateState (v0 → v3 theme chain)', () => {
       const result = await migrate(state, 0)
       expect(result.theme?.preset).toBe(name)
     }
+  })
+})
+
+/**
+ * Wiring contract for the singleton Redux store. These guard the module-level
+ * `configureStore` assembly in store.ts: if a slice is dropped from the root
+ * reducer the feature that reads it renders against `undefined` on first paint,
+ * and if the listener middleware stops being prepended the cross-slice
+ * selection-clear silently dies (stale ticks survive a tab switch, re-enabling
+ * the "action-over-hidden-state" bug). Both are import-time regressions that no
+ * slice-level test can catch.
+ */
+describe('store wiring (singleton assembly)', () => {
+  it('exposes every feature slice on the initial state so no view paints against undefined', async () => {
+    // Arrange
+    const { store } = await import('./store')
+
+    // Act
+    const state = store.getState()
+
+    // Assert — every key listed in combineReducers must be present and defined
+    expect(Object.keys(state).sort()).toEqual([
+      'agents',
+      'bookmarks',
+      'dashboard',
+      'marketplace',
+      'settings',
+      'skills',
+      'theme',
+      'ui',
+      'update',
+      'widgetPicker',
+    ])
+  })
+
+  it('clears the skill selection when the active tab changes (listener middleware is prepended)', async () => {
+    // Arrange — tick a skill so the selection is non-empty before the context switch
+    const { store } = await import('./store')
+    store.dispatch(toggleSelection('alpha-skill'))
+    expect(store.getState().skills.selectedSkillNames).toEqual(['alpha-skill'])
+
+    // Act — switching tabs is a hard context change the cross-slice listener reacts to
+    store.dispatch(setActiveTab('marketplace'))
+
+    // Assert — the prepended listenerMiddleware dispatched clearSelection
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
   })
 })

@@ -326,3 +326,65 @@ describe('SkillsList scrollbar gutter layout', () => {
     }
   })
 })
+
+describe('SkillsList fetch-failure branch', () => {
+  it('surfaces the fetch error message instead of the skills list when the scan fails', async () => {
+    // Arrange
+    // Drive the real terminal state: the on-mount fetchSkills must REJECT so the
+    // rejected reducer lands loading=false + error=<message>. Pinning a pending
+    // promise would instead trap the loading guard (loading && items.length===0)
+    // and the placeholder, never the error, would show. The error branch must
+    // win over the empty-installed render so the user learns the scan failed.
+    mockGetAll.mockRejectedValue(new Error('Failed to scan skills directory'))
+
+    // Act
+    const screen = await renderSkillsList({})
+
+    // Assert
+    await expect
+      .element(screen.getByText('Failed to scan skills directory'))
+      .toBeInTheDocument()
+  })
+})
+
+describe('SkillsList empty-installed branch', () => {
+  it('shows the install hint when no skills are installed at all', async () => {
+    // Arrange
+    // Drive the real terminal state: the on-mount fetchSkills must RESOLVE with
+    // [] so the fulfilled reducer lands loading=false + items=[] with no error.
+    // No agent, no filters, no error, not loading, zero items → onboarding empty
+    // state. A pinned pending promise would trap the loading placeholder instead.
+    mockGetAll.mockResolvedValue([])
+
+    // Act
+    const screen = await renderSkillsList({})
+
+    // Assert
+    await expect
+      .element(screen.getByText('No skills installed'))
+      .toBeInTheDocument()
+  })
+})
+
+describe('SkillsList filtered-empty branch', () => {
+  it('explains that no skills match the active filter when every installed skill is filtered out', async () => {
+    // Arrange
+    // Drive the real terminal state: the on-mount fetchSkills must RESOLVE with
+    // one isSource:false skill so the fulfilled reducer lands it into items. With
+    // no agent selected, selectFilteredSkills keeps only isSource:true rows, so
+    // items is non-empty but filteredSkills is empty — the exact gap between the
+    // empty-installed and the rendered list. Default UI filters (no search, no
+    // source, no agent, type=all) make getEmptyListMessage fall to its catch-all.
+    mockGetAll.mockResolvedValue([
+      makeSkill({ name: 'hidden-skill' as SkillName, isSource: false }),
+    ])
+
+    // Act
+    const screen = await renderSkillsList({})
+
+    // Assert
+    await expect
+      .element(screen.getByText('No skills match your filter'))
+      .toBeInTheDocument()
+  })
+})

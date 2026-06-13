@@ -49,6 +49,20 @@ describe('buildDefaultDashboardPages', () => {
     expect(new Set(pageIds).size).toBe(pageIds.length)
   })
 
+  it('sizes a size-less preset widget from its registry default so the stats card mounts at 3x2', () => {
+    // Arrange
+    const [overviewPage] = buildDefaultDashboardPages()
+
+    // Act — the stats preset omits w/h, so the builder must fall back to the registry defaultSize.
+    const statsWidget = overviewPage.widgets.find(
+      (widget) => widget.type === 'stats',
+    )
+
+    // Assert
+    expect(statsWidget?.w).toBe(3)
+    expect(statsWidget?.h).toBe(2)
+  })
+
   it('places every default widget on-grid with a positive footprint', () => {
     // Arrange / Act
     const pages = buildDefaultDashboardPages()

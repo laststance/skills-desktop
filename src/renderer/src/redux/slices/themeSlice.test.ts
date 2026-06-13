@@ -253,6 +253,26 @@ describe('themeSlice', () => {
       expect(store.getState().theme.preset).toBe('cyan')
       expect(store.getState().theme.mode).toBe('light')
     })
+
+    it('defaults Auto to dark in a headless host that has no matchMedia (SSR / pre-hydration safety net)', async () => {
+      // Regression guard for the resolver's headless fallback: when a user is on
+      // "Auto" but the host lacks `window.matchMedia` (SSR, the pre-hydration
+      // bootstrap script, or a stripped test host), the reducer must stay total
+      // and pick a safe palette instead of crashing on a missing API. Dark is
+      // the chosen default so a flash-of-light is never shown on cold start.
+      // Arrange — strip matchMedia so `typeof window.matchMedia !== 'function'`.
+      const { setModePreference } = await import('./themeSlice')
+      const store = await createTestStore()
+      Reflect.deleteProperty(window, 'matchMedia')
+      expect(typeof window.matchMedia).toBe('undefined')
+
+      // Act — pick Auto with no OS-appearance API available to consult.
+      store.dispatch(setModePreference('system'))
+
+      // Assert — falls back to dark without touching matchMedia.
+      expect(store.getState().theme.modePreference).toBe('system')
+      expect(store.getState().theme.mode).toBe('dark')
+    })
   })
 
   it('removes the color tint when switching from a color swatch back to a neutral preset', async () => {

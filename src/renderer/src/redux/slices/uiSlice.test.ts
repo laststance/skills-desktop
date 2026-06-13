@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import type { UnknownAction } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { RootState } from '@/renderer/src/redux/store'
 import type {
   AgentId,
   BulkDeleteResult,
@@ -10,6 +11,7 @@ import type {
   ClearOrphanSymlinksResult,
   FilesystemEntryIdentity,
   Skill,
+  SourceStats,
   SyncExecuteResult,
   SyncPreviewResult,
   TombstoneId,
@@ -1443,5 +1445,397 @@ describe('uiSlice source filter (selectedSources)', () => {
     expect(store.getState().ui.selectedSources).toEqual([
       repositoryId('vercel-labs/skills'),
     ])
+  })
+})
+
+describe('getAvailableExcludeTypes offered subtractions per include mode', () => {
+  it('offers G-Stack and orphan as the only valid excludes while including symlinked skills', async () => {
+    // Arrange
+    const { getAvailableExcludeTypes } = await import('./uiSlice')
+
+    // Act
+    const offered = getAvailableExcludeTypes('symlinked')
+
+    // Assert
+    expect(offered).toEqual(['gstack', 'orphan'])
+  })
+
+  it('offers only G-Stack as a valid exclude while including orphan skills', async () => {
+    // Arrange
+    const { getAvailableExcludeTypes } = await import('./uiSlice')
+
+    // Act
+    const offered = getAvailableExcludeTypes('orphan')
+
+    // Assert
+    expect(offered).toEqual(['gstack'])
+  })
+
+  it('lets the user exclude orphan skills while the symlinked include mode is active', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
+      await import('./uiSlice')
+    store.dispatch(setSkillTypeFilter('symlinked'))
+
+    // Act
+    store.dispatch(toggleExcludedSkillTypeFilter('orphan'))
+
+    // Assert
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['orphan'])
+  })
+})
+
+describe('uiSlice search box', () => {
+  it('matches skills against the typed search query', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { setSearchQuery } = await import('./uiSlice')
+
+    // Act
+    store.dispatch(setSearchQuery('browser'))
+
+    // Assert
+    expect(store.getState().ui.searchQuery).toBe('browser')
+  })
+
+  it('switches the search box to match against repository names', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { setSearchScope } = await import('./uiSlice')
+
+    // Act
+    store.dispatch(setSearchScope('repo'))
+
+    // Assert
+    expect(store.getState().ui.searchScope).toBe('repo')
+  })
+})
+
+describe('uiSlice sort order', () => {
+  it('starts sorted A to Z', async () => {
+    // Arrange
+    const store = await createTestStore()
+
+    // Act
+    const sortOrder = store.getState().ui.sortOrder
+
+    // Assert
+    expect(sortOrder).toBe('asc')
+  })
+
+  it('flips the skill list to Z to A when the user toggles the sort control', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { toggleSortOrder } = await import('./uiSlice')
+
+    // Act
+    store.dispatch(toggleSortOrder())
+
+    // Assert
+    expect(store.getState().ui.sortOrder).toBe('desc')
+  })
+
+  it('flips the skill list back to A to Z when the user toggles the sort control again', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { toggleSortOrder } = await import('./uiSlice')
+    store.dispatch(toggleSortOrder())
+
+    // Act
+    store.dispatch(toggleSortOrder())
+
+    // Assert
+    expect(store.getState().ui.sortOrder).toBe('asc')
+  })
+})
+
+describe('uiSlice clear-all excluded skill types', () => {
+  it('removes every active skill-type exclude in one action', async () => {
+    // Arrange — exclude two types under the default "all" include mode
+    const store = await createTestStore()
+    const { toggleExcludedSkillTypeFilter, clearExcludedSkillTypeFilters } =
+      await import('./uiSlice')
+    store.dispatch(toggleExcludedSkillTypeFilter('local'))
+    store.dispatch(toggleExcludedSkillTypeFilter('gstack'))
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual([
+      'local',
+      'gstack',
+    ])
+
+    // Act
+    store.dispatch(clearExcludedSkillTypeFilters())
+
+    // Assert
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
+  })
+})
+
+describe('uiSlice bulk confirm dialog', () => {
+  it('closes the bulk confirm dialog when the user cancels or confirms', async () => {
+    // Arrange — open the dialog with a pending delete payload
+    const store = await createTestStore()
+    const { setBulkConfirm, clearBulkConfirm } = await import('./uiSlice')
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: ['task'],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        deleteTargets: [deleteTarget('task' as Skill['name'])],
+        orphanRecords: [],
+        staleDeleteErrors: [],
+        orphanErrors: [],
+      }),
+    )
+    expect(store.getState().ui.bulkConfirm).not.toBeNull()
+
+    // Act
+    store.dispatch(clearBulkConfirm())
+
+    // Assert
+    expect(store.getState().ui.bulkConfirm).toBeNull()
+  })
+})
+
+describe('uiSlice per-agent cleanup dialog', () => {
+  it('targets an agent for the per-agent cleanup dialog', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { setCleanupAgentTarget } = await import('./uiSlice')
+
+    // Act
+    store.dispatch(setCleanupAgentTarget('cursor' as AgentId))
+
+    // Assert
+    expect(store.getState().ui.cleanupAgentTarget).toBe('cursor')
+  })
+
+  it('closes the per-agent cleanup dialog and discards its scoped sync preview', async () => {
+    // Arrange — open the dialog with an agent target and a scoped preview present
+    const store = await createTestStore()
+    const { setCleanupAgentTarget, setSyncPreview, clearCleanupAgentTarget } =
+      await import('./uiSlice')
+    store.dispatch(setCleanupAgentTarget('cursor' as AgentId))
+    store.dispatch(setSyncPreview(previewWithConflicts))
+    expect(store.getState().ui.cleanupAgentTarget).toBe('cursor')
+    expect(store.getState().ui.syncPreview).not.toBeNull()
+
+    // Act
+    store.dispatch(clearCleanupAgentTarget())
+
+    // Assert — both the target and the stale scoped preview are cleared
+    expect(store.getState().ui.cleanupAgentTarget).toBeNull()
+    expect(store.getState().ui.syncPreview).toBeNull()
+  })
+})
+
+describe('uiSlice source stats refresh', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  /** Sample source-directory stats for the refresh thunk */
+  const sampleStats = {
+    path: '/Users/me/.agents/skills',
+    skillCount: 15,
+    totalSize: '2.4 MB',
+    lastModified: '2026-04-10T08:00:00.000Z',
+  } satisfies SourceStats
+
+  it('spins the Refresh button while the source-stats request is in flight', async () => {
+    // Arrange — keep the stats request pending so the spinner state is observable
+    let resolve!: (value: SourceStats) => void
+    mockGetStats.mockReturnValue(
+      new Promise<SourceStats>((r) => {
+        resolve = r
+      }),
+    )
+    const store = await createTestStore()
+    const { fetchSourceStats } = await import('./uiSlice')
+
+    // Act
+    const promise = store.dispatch(fetchSourceStats())
+
+    // Assert
+    expect(store.getState().ui.isRefreshing).toBe(true)
+
+    resolve(sampleStats)
+    await promise
+  })
+
+  it('shows the refreshed source stats and stops spinning once the request resolves', async () => {
+    // Arrange
+    mockGetStats.mockResolvedValue(sampleStats)
+    const store = await createTestStore()
+    const { fetchSourceStats } = await import('./uiSlice')
+
+    // Act
+    await store.dispatch(fetchSourceStats())
+
+    // Assert
+    const state = store.getState().ui
+    expect(state.sourceStats).toEqual(sampleStats)
+    expect(state.isRefreshing).toBe(false)
+  })
+
+  it('stops the Refresh spinner when the source-stats request fails', async () => {
+    // Arrange
+    mockGetStats.mockRejectedValue(new Error('Disk unreadable'))
+    const store = await createTestStore()
+    const { fetchSourceStats } = await import('./uiSlice')
+
+    // Act
+    await store.dispatch(fetchSourceStats())
+
+    // Assert
+    expect(store.getState().ui.isRefreshing).toBe(false)
+  })
+})
+
+describe('uiSlice selectors read the live ui state', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+  })
+
+  it('reads the typed query, scope, sources, agent, and sort order back through their selectors', async () => {
+    // Arrange — drive these fields into non-default values
+    const store = await createTestStore()
+    const {
+      setSearchQuery,
+      setSearchScope,
+      setSelectedSources,
+      selectAgent,
+      toggleSortOrder,
+      setSkillTypeFilter,
+      toggleExcludedSkillTypeFilter,
+      selectSearchQuery,
+      selectSearchScope,
+      selectSelectedSources,
+      selectSelectedAgentId,
+      selectSortOrder,
+      selectSkillTypeFilter,
+      selectExcludedSkillTypeFilters,
+    } = await import('./uiSlice')
+    // selectAgent resets skill-type filters, so set the type filters afterwards.
+    store.dispatch(selectAgent('claude-code' as AgentId))
+    store.dispatch(setSearchQuery('browser'))
+    store.dispatch(setSearchScope('repo'))
+    store.dispatch(setSelectedSources([repositoryId('vercel-labs/skills')]))
+    store.dispatch(toggleSortOrder())
+    store.dispatch(setSkillTypeFilter('symlinked'))
+    store.dispatch(toggleExcludedSkillTypeFilter('gstack'))
+
+    // Cast the ui-only test store to RootState; selectors only read state.ui.
+    const rootState = store.getState() as RootState
+
+    // Act + Assert — each selector returns the stored value
+    expect(selectSearchQuery(rootState)).toBe('browser')
+    expect(selectSearchScope(rootState)).toBe('repo')
+    expect(selectSelectedSources(rootState)).toEqual([
+      repositoryId('vercel-labs/skills'),
+    ])
+    expect(selectSelectedAgentId(rootState)).toBe('claude-code')
+    expect(selectSortOrder(rootState)).toBe('desc')
+    expect(selectSkillTypeFilter(rootState)).toBe('symlinked')
+    expect(selectExcludedSkillTypeFilters(rootState)).toEqual(['gstack'])
+  })
+
+  it('reports the Refresh spinner is idle through selectIsRefreshing by default', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { selectIsRefreshing } = await import('./uiSlice')
+
+    // Act
+    // Cast the ui-only test store to RootState; the selector only reads state.ui.
+    const isRefreshing = selectIsRefreshing(store.getState() as RootState)
+
+    // Assert
+    expect(isRefreshing).toBe(false)
+  })
+
+  it('reads the sync flags and result back through their selectors after a sync runs', async () => {
+    // Arrange — execute a sync so isSyncing settles false and syncResult fills
+    mockSyncExecute.mockResolvedValue({
+      success: true,
+      created: 2,
+      replaced: 0,
+      skipped: 0,
+      errors: [],
+      details: [
+        { skillName: 's', agentName: 'Claude Code', action: 'created' },
+      ],
+    } satisfies SyncExecuteResult)
+    const store = await createTestStore()
+    const {
+      executeSyncAction,
+      selectIsSyncing,
+      selectSyncPreview,
+      selectSyncResult,
+    } = await import('./uiSlice')
+    await store.dispatch(executeSyncAction({ replaceConflicts: [] }))
+
+    // Cast the ui-only test store to RootState; selectors only read state.ui.
+    const rootState = store.getState() as RootState
+
+    // Act + Assert
+    expect(selectIsSyncing(rootState)).toBe(false)
+    expect(selectSyncPreview(rootState)).toBeNull()
+    expect(selectSyncResult(rootState)).not.toBeNull()
+  })
+
+  it('reads the bookmark, bulk, cleanup, and dialog surfaces back through their selectors', async () => {
+    // Arrange — seed the foreground surfaces; order avoids the mutual-exclusion clears
+    const store = await createTestStore()
+    const {
+      setSelectedBookmarkForDetail,
+      setBulkConfirm,
+      enterBulkSelectMode,
+      openSymlinkCleanupDialog,
+      setCleanupAgentTarget,
+      selectSelectedBookmarkForDetail,
+      selectBulkConfirm,
+      selectBulkSelectMode,
+      selectCleanupAgentTarget,
+      selectSymlinkCleanupDialogOpen,
+    } = await import('./uiSlice')
+    store.dispatch(
+      setSelectedBookmarkForDetail({
+        name: 'task',
+        repo: repositoryId('vercel-labs/skills'),
+        url: 'https://github.com/vercel-labs/skills',
+        bookmarkedAt: '2026-04-01T08:00:00.000Z',
+        isInstalled: false,
+      }),
+    )
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: ['task'],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        deleteTargets: [deleteTarget('task' as Skill['name'])],
+        orphanRecords: [],
+        staleDeleteErrors: [],
+        orphanErrors: [],
+      }),
+    )
+    store.dispatch(enterBulkSelectMode())
+    // openSymlinkCleanupDialog clears cleanupAgentTarget, so set the target last.
+    store.dispatch(openSymlinkCleanupDialog())
+    store.dispatch(setCleanupAgentTarget('cursor' as AgentId))
+
+    // Cast the ui-only test store to RootState; selectors only read state.ui.
+    const rootState = store.getState() as RootState
+
+    // Act + Assert
+    expect(selectSelectedBookmarkForDetail(rootState)).not.toBeNull()
+    expect(selectBulkConfirm(rootState)).not.toBeNull()
+    expect(selectBulkSelectMode(rootState)).toBe(true)
+    expect(selectCleanupAgentTarget(rootState)).toBe('cursor')
+    // setCleanupAgentTarget closes the dashboard dialog (one surface at a time).
+    expect(selectSymlinkCleanupDialogOpen(rootState)).toBe(false)
   })
 })

@@ -150,4 +150,20 @@ describe('parseSkillMetadata', () => {
     // Assert
     expect(result.name).toBe('Unknown')
   })
+
+  it('leaves a block-scalar description empty when the next line is another key instead of indented content', async () => {
+    // Arrange
+    // `description: |` is immediately followed by the `name` key (non-indented),
+    // so the block scalar has no indented content line to read.
+    mockFs.readFile.mockResolvedValue(
+      '---\ndescription: |\nname: My Skill\n---\n',
+    )
+
+    // Act
+    const result = await parseSkillMetadata('/skills/my-skill')
+
+    // Assert
+    expect(result.name).toBe('My Skill')
+    expect(result.description).toBe('')
+  })
 })

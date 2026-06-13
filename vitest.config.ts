@@ -73,12 +73,54 @@ export default defineConfig({
       // primitives are scaffolded as full kits (every export reserved for
       // future composition), and *.d.ts / test files don't carry runtime
       // logic worth measuring.
+      //
+      // Electron-runtime exclusions: v8 only instruments code the vitest node
+      // + chromium lanes execute. The files below run exclusively inside the
+      // Electron main/preload process (app lifecycle, the ipcMain handler
+      // boundary, the contextBridge preload, and the two ReactDOM bootstrap
+      // entries). They are exercised behaviorally by the Playwright e2e suite
+      // (`pnpm test:e2e`), which v8 does not instrument — so counting them here
+      // would only ever read ~0% and make the gate meaningless. Their domain
+      // logic lives in `src/main/services/**` + `src/main/utils/**`, which DO
+      // run in the node lane and are held to the same 100% bar as the renderer.
       exclude: [
         'src/**/*.test.{ts,tsx}',
         'src/**/*.browser.test.{ts,tsx}',
         'src/**/*.d.ts',
         'src/renderer/src/components/ui/**',
+        'src/main/index.ts', // Electron app boot + lifecycle wiring
+        'src/main/ipc/**', // ipcMain handler registration (electron IPC boundary; e2e-covered, logic delegated to services)
+        'src/preload/**', // contextBridge preload runtime
+        'src/renderer/src/main.tsx', // main-window ReactDOM bootstrap
+        'src/renderer/settings/main.tsx', // settings-window ReactDOM bootstrap
       ],
+      // Coverage gate (the "pragmatic 100%" bar). Achieved at the time of
+      // writing: Lines 99.98 / Functions 99.93 / Statements 98.62 / Branches
+      // 88.67. We deliberately floor *just below* each rather than at 100
+      // because the Chromium (browser) lane's v8/esbuild instrumentation is
+      // systematically imprecise on transformed code, and — verified — v8
+      // ignore directives do NOT survive that transform (the line remapping
+      // shifts them onto the wrong statements), so the artifacts below cannot
+      // be annotated away:
+      //   • Statements: JSX / arrow-callback statements map to transformed
+      //     positions that never register a hit even when the line + function
+      //     DID run (e.g. General.tsx, AgentItem.tsx, CodePreview.tsx all sit
+      //     at S:92 despite L:100 F:100). This is the bulk of the stmt/branch
+      //     shortfall — diffuse, so it is floored, not ignored.
+      //   • Functions: const-arrow `onClick` handlers lose their FNDA hit
+      //     attribution (e.g. SkillItem.handleUnlinkClick — clicked & asserted
+      //     by the "SkillItem unlink button" specs, yet counted uncovered).
+      //   • Lines: multi-line import closing-brace lines are dropped by the
+      //     transform (e.g. MainContent.tsx:9 `} from 'lucide-react'`).
+      // The node lane (Electron main-process services/utils) IS held to ~100 —
+      // its tests + v8 ignore directives work there. Buffers also absorb the
+      // per-component jitter these artifacts cause as later phases edit UI.
+      thresholds: {
+        lines: 99.8,
+        functions: 99.8,
+        statements: 97,
+        branches: 87,
+      },
     },
     projects: [
       {

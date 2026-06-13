@@ -167,6 +167,34 @@ describe('useCodePreview', () => {
     expect(readMock).toHaveBeenCalledTimes(1)
   })
 
+  it('clears the preview to empty when the active file is deselected', async () => {
+    // Arrange
+    const file = makeFile()
+    const body = makeTextContent()
+    listMock.mockResolvedValue([file])
+    readMock.mockResolvedValue(body)
+
+    const { useCodePreview } = await import('./useCodePreview')
+    const { result, act } = await renderHook(() =>
+      useCodePreview('/skills/tdd'),
+    )
+
+    await expect
+      .poll(() => result.current.content)
+      .toEqual({ kind: 'text', data: body })
+
+    // Act
+    await act(async () => {
+      await result.current.setActiveFile(null)
+    })
+
+    // Assert
+    // Deselecting wipes the preview to the empty state without any IPC read.
+    expect(result.current.content).toEqual({ kind: 'empty' })
+    // Only the initial auto-select read ran — clearing skips loadContentForFile.
+    expect(readMock).toHaveBeenCalledTimes(1)
+  })
+
   it('keeps the user-selected file showing when a slow initial-load read finally resolves', async () => {
     // Arrange
     const first = makeFile()

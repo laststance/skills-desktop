@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   AGENT_DEFINITIONS,
+  AGENT_IDS,
   GSTACK_BADGE_AGENT_IDS,
   GSTACK_REPOSITORY_URL,
   UNIVERSAL_AGENT_IDS,
@@ -144,6 +145,18 @@ describe('AGENT_DEFINITIONS', () => {
     expect(kimiCli?.cliId).toBe('kimi-code-cli')
     expect(kimiCli?.installDir).toBe('.agents')
     expect(kimiCli?.scanDir).toBe('.kimi')
+  })
+})
+
+describe('AGENT_IDS', () => {
+  it('exposes a non-empty agent-id tuple so the settings z.enum always has at least one member', () => {
+    // The module guards AGENT_DEFINITIONS against being accidentally emptied
+    // before deriving AGENT_IDS, because z.enum(AGENT_IDS) in the settings IPC
+    // schema requires a non-empty tuple. If a refactor emptied the source
+    // array, the module would throw at load and break every IPC consumer.
+    // Arrange / Act / Assert
+    expect(AGENT_IDS.length).toBeGreaterThan(0)
+    expect(AGENT_IDS).toContain('claude-code')
   })
 })
 

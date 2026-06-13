@@ -126,4 +126,26 @@ describe('ActivityTimelineWidget', () => {
       .element(screen.getByText('EACCES: permission denied'))
       .toBeVisible()
   })
+
+  it('reveals the appended detail text when a row carries a failure message', async () => {
+    // Arrange: an errored row whose `error` message makes detailText truthy,
+    // which is the only way the appended detail span renders.
+    const syncResult = makeSyncResult([
+      {
+        skillName: 'epsilon-skill',
+        agentName: 'Codex',
+        action: 'error',
+        error: 'ENOENT: source skill no longer exists',
+      },
+    ])
+
+    // Act
+    const { screen } = await renderTimeline(syncResult)
+
+    // Assert: the detail span (only mounted on the truthy detailText path) is
+    // visible with its failure reason.
+    await expect
+      .element(screen.getByText('ENOENT: source skill no longer exists'))
+      .toBeVisible()
+  })
 })

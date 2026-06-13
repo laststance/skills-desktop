@@ -27,6 +27,7 @@ const readdirMock = vi.fn()
 const accessMock = vi.fn()
 const statMock = vi.fn()
 const lstatMock = vi.fn()
+const readFileMock = vi.fn()
 
 /**
  * Build the subset of fs.Stats consumed by filesystem identity guards.
@@ -89,6 +90,7 @@ vi.mock('fs/promises', () => ({
   access: accessMock,
   stat: statMock,
   lstat: lstatMock,
+  readFile: readFileMock,
 }))
 
 vi.mock('../constants', () => ({
@@ -99,16 +101,18 @@ vi.mock('../constants', () => ({
   ],
 }))
 
+/**
+ * Configurable parseSkillMetadata mock. Default mirrors the original inline
+ * stub (name from basename, static description); individual tests override it
+ * to simulate corrupt frontmatter or readable sibling targets.
+ */
+const parseSkillMetadataMock = vi.fn(async (path: string) => ({
+  name: basename(path),
+  description: 'mock description',
+}))
+
 vi.mock('./metadataParser', () => ({
-  /**
-   * Parse skill metadata from path.
-   * @param path - Skill directory path
-   * @returns Name and static description for tests
-   */
-  parseSkillMetadata: async (path: string) => ({
-    name: basename(path),
-    description: 'mock description',
-  }),
+  parseSkillMetadata: parseSkillMetadataMock,
 }))
 
 const checkSymlinkTargetFromKnownLinkMock = vi.fn()
@@ -130,6 +134,8 @@ describe('scanSkills local skill aggregation', () => {
     readdirMock.mockReset()
     accessMock.mockReset()
     lstatMock.mockReset()
+    readFileMock.mockReset()
+    readFileMock.mockRejectedValue(new Error('ENOENT'))
     checkSymlinkTargetFromKnownLinkMock.mockReset()
     checkSymlinkTargetFromKnownLinkMock.mockResolvedValue('missing')
     readSymlinkTargetIfPresentMock.mockReset()
@@ -293,6 +299,8 @@ describe('scanSkills agent-only linked symlink surfacing', () => {
     statMock.mockReset()
     lstatMock.mockReset()
     lstatMock.mockRejectedValue(new Error('ENOENT'))
+    readFileMock.mockReset()
+    readFileMock.mockRejectedValue(new Error('ENOENT'))
     checkSymlinkTargetFromKnownLinkMock.mockReset()
     readSymlinkTargetIfPresentMock.mockReset()
     readSymlinkTargetIfPresentMock.mockResolvedValue(undefined)
@@ -428,6 +436,8 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     statMock.mockReset()
     lstatMock.mockReset()
     lstatMock.mockRejectedValue(new Error('ENOENT'))
+    readFileMock.mockReset()
+    readFileMock.mockRejectedValue(new Error('ENOENT'))
     checkSymlinkTargetFromKnownLinkMock.mockReset()
     readSymlinkTargetIfPresentMock.mockReset()
     readSymlinkTargetIfPresentMock.mockResolvedValue(undefined)
@@ -682,5 +692,576 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     // Once a real local folder is present, the merged record is no longer an
     // orphan — the UI delete button must remain reachable.
     expect(merged.isOrphan).toBe(false)
+  })
+})
+
+describe('scanSkills result ordering', () => {
+  beforeEach(() => {
+    readdirMock.mockReset()
+    accessMock.mockReset()
+    statMock.mockReset()
+    lstatMock.mockReset()
+    readFileMock.mockReset()
+    readFileMock.mockRejectedValue(new Error('ENOENT'))
+    checkSymlinkTargetFromKnownLinkMock.mockReset()
+    checkSymlinkTargetFromKnownLinkMock.mockResolvedValue('missing')
+    readSymlinkTargetIfPresentMock.mockReset()
+    readSymlinkTargetIfPresentMock.mockResolvedValue(undefined)
+    countValidSymlinksMock.mockClear()
+  })
+
+  it('lists skills alphabetically by name regardless of on-disk directory order', async () => {
+    // Arrange: source dir returns two valid skills in reverse-alphabetical
+    // order on disk ("zeta-skill" before "alpha-skill"). The sidebar and the
+    // central inventory both render this array as-is, so a stable A→Z order is
+    // the contract — only the final name comparator can flip the disk order.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        return [
+          createDirent('zeta-skill', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+          createDirent('alpha-skill', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (
+        path === '/mock/source/skills/zeta-skill/SKILL.md' ||
+        path === '/mock/source/skills/alpha-skill/SKILL.md'
+      ) {
+        return { isFile: () => true }
+      }
+      throw new Error(`ENOENT: ${path}`)
+    })
+    mockLstatDirectories([
+      '/mock/source/skills/zeta-skill',
+      '/mock/source/skills/alpha-skill',
+    ])
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert: comparator sorted the reverse-order disk listing into A→Z.
+    expect(skills).toHaveLength(2)
+    expect(skills[0].name).toBe('alpha-skill')
+    expect(skills[1].name).toBe('zeta-skill')
+  })
+})
+
+describe('scanSkills source attribution from lock file', () => {
+  beforeEach(() => {
+    readdirMock.mockReset()
+    accessMock.mockReset()
+    statMock.mockReset()
+    lstatMock.mockReset()
+    readFileMock.mockReset()
+    readFileMock.mockRejectedValue(new Error('ENOENT'))
+    checkSymlinkTargetFromKnownLinkMock.mockReset()
+    checkSymlinkTargetFromKnownLinkMock.mockResolvedValue('missing')
+    readSymlinkTargetIfPresentMock.mockReset()
+    readSymlinkTargetIfPresentMock.mockResolvedValue(undefined)
+    countValidSymlinksMock.mockClear()
+  })
+
+  it('shows the GitHub source and clone URL on a skill listed in the lock file', async () => {
+    // Arrange: one live source skill "frontend-design", and a lock file that
+    // records where that skill was installed from. The marketplace badge and
+    // "open source repo" link depend on these fields being copied onto the row.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        return [
+          createDirent('frontend-design', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills/frontend-design/SKILL.md') {
+        return { isFile: () => true }
+      }
+      throw new Error(`ENOENT: ${path}`)
+    })
+    mockLstatDirectories(['/mock/source/skills/frontend-design'])
+    readFileMock.mockResolvedValue(
+      JSON.stringify({
+        skills: {
+          'frontend-design': {
+            source: 'pbakaus/impeccable',
+            sourceType: 'github',
+            sourceUrl: 'https://github.com/pbakaus/impeccable.git',
+          },
+        },
+      }),
+    )
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert
+    expect(skills).toHaveLength(1)
+    expect(skills[0].source).toBe('pbakaus/impeccable')
+    expect(skills[0].sourceUrl).toBe(
+      'https://github.com/pbakaus/impeccable.git',
+    )
+  })
+
+  it('leaves source fields unset for a skill absent from the lock file', async () => {
+    // Arrange: lock file has an unrelated entry, so the present skill must NOT
+    // inherit a stale source/sourceUrl — guards against attaching the wrong
+    // repo to a skill.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        return [
+          createDirent('frontend-design', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills/frontend-design/SKILL.md') {
+        return { isFile: () => true }
+      }
+      throw new Error(`ENOENT: ${path}`)
+    })
+    mockLstatDirectories(['/mock/source/skills/frontend-design'])
+    readFileMock.mockResolvedValue(
+      JSON.stringify({
+        skills: {
+          'some-other-skill': {
+            source: 'other/repo',
+            sourceType: 'github',
+            sourceUrl: 'https://github.com/other/repo.git',
+          },
+        },
+      }),
+    )
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert
+    expect(skills).toHaveLength(1)
+    expect(skills[0].source).toBeUndefined()
+    expect(skills[0].sourceUrl).toBeUndefined()
+  })
+
+  it('treats a lock file with no skills key as having no source data', async () => {
+    // Arrange: an older / partially-initialized lock file omits the `skills`
+    // key entirely. Parsing must still succeed and yield an empty source map
+    // rather than crashing the whole scan.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        return [
+          createDirent('frontend-design', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills/frontend-design/SKILL.md') {
+        return { isFile: () => true }
+      }
+      throw new Error(`ENOENT: ${path}`)
+    })
+    mockLstatDirectories(['/mock/source/skills/frontend-design'])
+    readFileMock.mockResolvedValue(JSON.stringify({ version: 1 }))
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert
+    expect(skills).toHaveLength(1)
+    expect(skills[0].source).toBeUndefined()
+  })
+})
+
+describe('scanSkills resilience to per-agent and source failures', () => {
+  beforeEach(() => {
+    readdirMock.mockReset()
+    accessMock.mockReset()
+    statMock.mockReset()
+    lstatMock.mockReset()
+    readFileMock.mockReset()
+    readFileMock.mockRejectedValue(new Error('ENOENT'))
+    checkSymlinkTargetFromKnownLinkMock.mockReset()
+    checkSymlinkTargetFromKnownLinkMock.mockResolvedValue('missing')
+    readSymlinkTargetIfPresentMock.mockReset()
+    readSymlinkTargetIfPresentMock.mockResolvedValue(undefined)
+    // Restore the default metadata parser before tests that override it for
+    // corrupt-frontmatter / readable-sibling scenarios.
+    parseSkillMetadataMock.mockReset()
+    parseSkillMetadataMock.mockImplementation(async (path: string) => ({
+      name: basename(path),
+      description: 'mock description',
+    }))
+    countValidSymlinksMock.mockClear()
+  })
+
+  it('keeps scanning when one agent directory cannot be read', async () => {
+    // Arrange: codex's skills dir read fails outright (e.g. EACCES). Both the
+    // local-folder scan and the symlink-status scan must swallow that agent's
+    // failure and still return cursor's valid local skill instead of aborting.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') return []
+      if (path === '/mock/agents/codex/skills') {
+        throw createFsError('EACCES: permission denied', 'EACCES')
+      }
+      if (path === '/mock/agents/cursor/skills') {
+        return [
+          createDirent('frontend-design', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/agents/cursor/skills/frontend-design/SKILL.md') {
+        return { isFile: () => true }
+      }
+      throw new Error(`ENOENT: ${path}`)
+    })
+    mockLstatDirectories(['/mock/agents/cursor/skills/frontend-design'])
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert
+    expect(skills).toHaveLength(1)
+    expect(skills[0].name).toBe('frontend-design')
+    const cursor = skills[0].symlinks.find((s) => s.agentId === 'cursor')
+    expect(cursor).toMatchObject({ status: 'valid', isLocal: true })
+  })
+
+  it('aborts the whole scan when a source skill fails with a non-missing error', async () => {
+    // Arrange: the source dir lists a skill that passes SKILL.md validation,
+    // but capturing its filesystem identity fails with EACCES (not ENOENT).
+    // A permission fault is not a benign race, so the scan must surface it
+    // rather than silently dropping the row.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        return [
+          createDirent('protected-skill', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills/protected-skill/SKILL.md') {
+        return { isFile: () => true }
+      }
+      throw new Error(`ENOENT: ${path}`)
+    })
+    lstatMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills/protected-skill') {
+        throw createFsError('EACCES: permission denied', 'EACCES')
+      }
+      throw createFsError(`ENOENT: ${path}`, 'ENOENT')
+    })
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act + Assert
+    await expect(scanSkills()).rejects.toThrow('EACCES: permission denied')
+  })
+
+  it('drops a valid agent link whose target metadata cannot be parsed', async () => {
+    // Arrange: codex has a "valid" symlink whose target exists but whose
+    // SKILL.md cannot be parsed (corrupt frontmatter). That link must be
+    // dropped from the linked list rather than surfacing a half-built row.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') return []
+      if (path === '/mock/agents/codex/skills') {
+        return [
+          createDirent('corrupt-link', {
+            isDirectory: false,
+            isSymbolicLink: true,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockRejectedValue(new Error('ENOENT'))
+    checkSymlinkTargetFromKnownLinkMock.mockImplementation(
+      async (linkPath: string) => {
+        if (linkPath === '/mock/agents/codex/skills/corrupt-link')
+          return 'valid'
+        return 'missing'
+      },
+    )
+    readSymlinkTargetIfPresentMock.mockImplementation(
+      async (linkPath: string) => {
+        if (linkPath === '/mock/agents/codex/skills/corrupt-link') {
+          return '/mock/external/corrupt-link'
+        }
+        return undefined
+      },
+    )
+    // parseSkillMetadata throws ONLY for the corrupt target path; the source
+    // mock returns a benign description for everything else.
+    parseSkillMetadataMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/external/corrupt-link') {
+        throw new Error('invalid frontmatter')
+      }
+      return { name: basename(path), description: 'mock description' }
+    })
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert: no row survives for the unparseable link.
+    expect(skills).toHaveLength(0)
+  })
+
+  it('upgrades an inaccessible link record to readable metadata when a valid sibling link is found', async () => {
+    // Arrange: two agents link the SAME skill name "shared-skill". Codex's link
+    // is inaccessible (seen first), cursor's link is valid with parseable
+    // metadata. The grouped record must adopt cursor's real description and
+    // target path instead of staying on the inaccessible placeholder.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') return []
+      if (path === '/mock/agents/codex/skills') {
+        return [
+          createDirent('shared-skill', {
+            isDirectory: false,
+            isSymbolicLink: true,
+          }),
+        ]
+      }
+      if (path === '/mock/agents/cursor/skills') {
+        return [
+          createDirent('shared-skill', {
+            isDirectory: false,
+            isSymbolicLink: true,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockRejectedValue(new Error('ENOENT'))
+    checkSymlinkTargetFromKnownLinkMock.mockImplementation(
+      async (linkPath: string) => {
+        if (linkPath === '/mock/agents/codex/skills/shared-skill') {
+          return 'inaccessible'
+        }
+        if (linkPath === '/mock/agents/cursor/skills/shared-skill') {
+          return 'valid'
+        }
+        return 'missing'
+      },
+    )
+    readSymlinkTargetIfPresentMock.mockImplementation(
+      async (linkPath: string) => {
+        if (linkPath === '/mock/agents/cursor/skills/shared-skill') {
+          return '/mock/external/shared-skill'
+        }
+        return undefined
+      },
+    )
+    parseSkillMetadataMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/external/shared-skill') {
+        return { name: 'shared-skill', description: 'readable description' }
+      }
+      return { name: basename(path), description: 'mock description' }
+    })
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert
+    expect(skills).toHaveLength(1)
+    const upgraded = skills[0]
+    expect(upgraded.name).toBe('shared-skill')
+    expect(upgraded.description).toBe('readable description')
+    expect(upgraded.path).toBe('/mock/external/shared-skill')
+  })
+})
+
+describe('getSkill single-skill lookup', () => {
+  beforeEach(() => {
+    readdirMock.mockReset()
+    accessMock.mockReset()
+    statMock.mockReset()
+    lstatMock.mockReset()
+    checkSymlinkTargetFromKnownLinkMock.mockReset()
+    readSymlinkTargetIfPresentMock.mockReset()
+    parseSkillMetadataMock.mockReset()
+    parseSkillMetadataMock.mockImplementation(async (path: string) => ({
+      name: basename(path),
+      description: 'mock description',
+    }))
+    countValidSymlinksMock.mockClear()
+  })
+
+  it('returns the full skill record when the named directory exists in the source dir', async () => {
+    // Arrange: stat resolves to a directory for the requested skill path.
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills/theme-generator') {
+        return { isDirectory: () => true }
+      }
+      throw new Error(`ENOENT: ${path}`)
+    })
+    const { getSkill } = await import('./skillScanner')
+
+    // Act
+    const skill = await getSkill('theme-generator')
+
+    // Assert
+    expect(skill).not.toBeNull()
+    expect(skill?.name).toBe('theme-generator')
+    expect(skill?.path).toBe('/mock/source/skills/theme-generator')
+    expect(skill?.isSource).toBe(true)
+    expect(skill?.isOrphan).toBe(false)
+    expect(skill?.symlinkCount).toBe(0)
+  })
+
+  it('returns null when the named path exists but is a file, not a directory', async () => {
+    // Arrange: stat resolves but the path is a regular file — not a skill dir.
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills/not-a-dir') {
+        return { isDirectory: () => false }
+      }
+      throw new Error(`ENOENT: ${path}`)
+    })
+    const { getSkill } = await import('./skillScanner')
+
+    // Act
+    const skill = await getSkill('not-a-dir')
+
+    // Assert
+    expect(skill).toBeNull()
+  })
+
+  it('returns null when the named skill directory does not exist', async () => {
+    // Arrange: stat rejects (ENOENT) for the requested path.
+    statMock.mockRejectedValue(new Error('ENOENT'))
+    const { getSkill } = await import('./skillScanner')
+
+    // Act
+    const skill = await getSkill('missing-skill')
+
+    // Assert
+    expect(skill).toBeNull()
+  })
+})
+
+describe('getSourceStats source directory summary', () => {
+  beforeEach(() => {
+    readdirMock.mockReset()
+    accessMock.mockReset()
+    statMock.mockReset()
+    lstatMock.mockReset()
+    checkSymlinkTargetFromKnownLinkMock.mockReset()
+    readSymlinkTargetIfPresentMock.mockReset()
+    countValidSymlinksMock.mockClear()
+  })
+
+  it('reports skill count, human-readable total size, and last-modified time', async () => {
+    // Arrange: source dir holds one valid skill folder containing a SKILL.md
+    // (2048 bytes) plus a nested assets dir with one PNG (1024 bytes). The
+    // summary must count the skill and sum the byte totals recursively.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        return [
+          createDirent('demo-skill', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      if (path === '/mock/source/skills/demo-skill') {
+        return [
+          {
+            name: 'SKILL.md',
+            isDirectory: () => false,
+            isFile: () => true,
+          },
+          {
+            name: 'assets',
+            isDirectory: () => true,
+            isFile: () => false,
+          },
+        ]
+      }
+      if (path === '/mock/source/skills/demo-skill/assets') {
+        return [
+          {
+            name: 'logo.png',
+            isDirectory: () => false,
+            isFile: () => true,
+          },
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      // listValidSourceSkillDirs validates SKILL.md via stat().isFile()
+      if (path === '/mock/source/skills/demo-skill/SKILL.md') {
+        return { isFile: () => true, isDirectory: () => false, size: 2048 }
+      }
+      if (path === '/mock/source/skills/demo-skill/assets/logo.png') {
+        return { isFile: () => true, isDirectory: () => false, size: 1024 }
+      }
+      // stat(SOURCE_DIR) for lastModified
+      if (path === '/mock/source/skills') {
+        return {
+          isDirectory: () => true,
+          mtime: new Date('2026-06-14T00:00:00.000Z'),
+        }
+      }
+      throw new Error(`ENOENT: ${path}`)
+    })
+    const { getSourceStats } = await import('./skillScanner')
+
+    // Act
+    const sourceStats = await getSourceStats()
+
+    // Assert
+    expect(sourceStats.path).toBe('/mock/source/skills')
+    expect(sourceStats.skillCount).toBe(1)
+    expect(sourceStats.totalSize).toBe('3.0 KB')
+    expect(sourceStats.lastModified).toBe('2026-06-14T00:00:00.000Z')
+  })
+
+  it('falls back to a zero-byte placeholder when the source dir cannot be stat-ed', async () => {
+    // Arrange: listValidSourceSkillDirs succeeds (empty), but stat(SOURCE_DIR)
+    // throws — getSourceStats must degrade gracefully instead of rejecting.
+    readdirMock.mockResolvedValue([])
+    statMock.mockRejectedValue(new Error('EACCES: permission denied'))
+    const { getSourceStats } = await import('./skillScanner')
+
+    // Act
+    const sourceStats = await getSourceStats()
+
+    // Assert
+    expect(sourceStats.path).toBe('/mock/source/skills')
+    expect(sourceStats.skillCount).toBe(0)
+    expect(sourceStats.totalSize).toBe('0 B')
+    expect(typeof sourceStats.lastModified).toBe('string')
   })
 })
