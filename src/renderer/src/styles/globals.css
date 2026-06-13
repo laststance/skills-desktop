@@ -7,7 +7,8 @@
   :root {
     /* Theme axes — mutated by redux/listener.ts:applyThemeToDOM.
      * --theme-hue:    OKLCH hue angle (0–360), irrelevant when chroma=0.
-     * --theme-chroma: 0 for neutral presets, COLOR_PRESET_CHROMA (0.16) for color.
+     * --theme-chroma: 0 for neutral, TINTED_NEUTRAL_CHROMA (0.05) for tinted
+     *                 neutral, COLOR_PRESET_CHROMA (0.16) for color presets.
      * All tokens below scale chroma off these two variables so a single
      * source of truth (THEME_PRESETS) fans out to every surface. */
     --theme-hue: 0;
@@ -35,13 +36,27 @@
    * ============================================ */
 
   .dark {
-    --background: oklch(0.12 var(--chroma-5) var(--theme-hue));
+    /* Surface lightness ramp — extracted to per-token --*-l variables so the
+     * tinted-neutral "lighter gray base" (.dark.tone-tinted, below) can lift
+     * every surface by a uniform offset by overriding only these L values,
+     * with no duplicated oklch() tokens. Foreground / primary / accent / ring
+     * stay literal: they must NOT shift or text contrast + CTA affordance
+     * would regress. */
+    --background-l: 0.12;
+    --card-l: 0.18;
+    --popover-l: 0.18;
+    --secondary-l: 0.25;
+    --muted-l: 0.25;
+    --border-l: 0.3;
+    --input-l: 0.3;
+
+    --background: oklch(var(--background-l) var(--chroma-5) var(--theme-hue));
     --foreground: oklch(0.98 var(--chroma-3) var(--theme-hue));
 
-    --card: oklch(0.18 var(--chroma-6) var(--theme-hue));
+    --card: oklch(var(--card-l) var(--chroma-6) var(--theme-hue));
     --card-foreground: oklch(0.98 var(--chroma-3) var(--theme-hue));
 
-    --popover: oklch(0.18 var(--chroma-6) var(--theme-hue));
+    --popover: oklch(var(--popover-l) var(--chroma-6) var(--theme-hue));
     --popover-foreground: oklch(0.98 var(--chroma-3) var(--theme-hue));
 
     /* Primary / accent ride the theme-chroma axis directly so color
@@ -50,10 +65,10 @@
     --primary: oklch(0.7 var(--theme-chroma) var(--theme-hue));
     --primary-foreground: oklch(0.12 var(--chroma-5) var(--theme-hue));
 
-    --secondary: oklch(0.25 var(--chroma-7) var(--theme-hue));
+    --secondary: oklch(var(--secondary-l) var(--chroma-7) var(--theme-hue));
     --secondary-foreground: oklch(0.98 var(--chroma-3) var(--theme-hue));
 
-    --muted: oklch(0.25 var(--chroma-7) var(--theme-hue));
+    --muted: oklch(var(--muted-l) var(--chroma-7) var(--theme-hue));
     --muted-foreground: oklch(0.65 var(--chroma-5) var(--theme-hue));
 
     --accent: oklch(0.7 var(--theme-chroma) var(--theme-hue));
@@ -64,8 +79,8 @@
     --destructive: oklch(0.55 0.2 25);
     --destructive-foreground: oklch(0.98 0.01 25);
 
-    --border: oklch(0.3 var(--chroma-6) var(--theme-hue));
-    --input: oklch(0.3 var(--chroma-6) var(--theme-hue));
+    --border: oklch(var(--border-l) var(--chroma-6) var(--theme-hue));
+    --input: oklch(var(--input-l) var(--chroma-6) var(--theme-hue));
     --ring: oklch(0.7 var(--theme-chroma) var(--theme-hue));
 
     /* G-Stack is a skill-type accent, so its dot follows the active theme
@@ -87,22 +102,34 @@
   }
 
   .light {
-    --background: oklch(0.99 var(--chroma-1) var(--theme-hue));
+    /* Surface lightness ramp — see the .dark note above. The tinted-neutral
+     * "deeper gray base" (.light.tone-tinted, below) lowers these L values by
+     * a uniform offset so light tinted themes read as soft gray instead of
+     * near-white. */
+    --background-l: 0.99;
+    --card-l: 0.97;
+    --popover-l: 0.99;
+    --secondary-l: 0.95;
+    --muted-l: 0.95;
+    --border-l: 0.88;
+    --input-l: 0.88;
+
+    --background: oklch(var(--background-l) var(--chroma-1) var(--theme-hue));
     --foreground: oklch(0.15 var(--chroma-7) var(--theme-hue));
 
-    --card: oklch(0.97 var(--chroma-2) var(--theme-hue));
+    --card: oklch(var(--card-l) var(--chroma-2) var(--theme-hue));
     --card-foreground: oklch(0.15 var(--chroma-7) var(--theme-hue));
 
-    --popover: oklch(0.99 var(--chroma-1) var(--theme-hue));
+    --popover: oklch(var(--popover-l) var(--chroma-1) var(--theme-hue));
     --popover-foreground: oklch(0.15 var(--chroma-7) var(--theme-hue));
 
     --primary: oklch(0.5 var(--theme-chroma) var(--theme-hue));
     --primary-foreground: oklch(0.99 var(--chroma-1) var(--theme-hue));
 
-    --secondary: oklch(0.95 var(--chroma-4) var(--theme-hue));
+    --secondary: oklch(var(--secondary-l) var(--chroma-4) var(--theme-hue));
     --secondary-foreground: oklch(0.15 var(--chroma-7) var(--theme-hue));
 
-    --muted: oklch(0.95 var(--chroma-4) var(--theme-hue));
+    --muted: oklch(var(--muted-l) var(--chroma-4) var(--theme-hue));
     --muted-foreground: oklch(0.45 var(--chroma-5) var(--theme-hue));
 
     --accent: oklch(0.5 var(--theme-chroma) var(--theme-hue));
@@ -111,14 +138,59 @@
     --destructive: oklch(0.55 0.22 25);
     --destructive-foreground: oklch(0.98 0.01 25);
 
-    --border: oklch(0.88 var(--chroma-4) var(--theme-hue));
-    --input: oklch(0.88 var(--chroma-4) var(--theme-hue));
+    --border: oklch(var(--border-l) var(--chroma-4) var(--theme-hue));
+    --input: oklch(var(--input-l) var(--chroma-4) var(--theme-hue));
     --ring: oklch(0.5 var(--theme-chroma) var(--theme-hue));
 
     --gstack: oklch(0.5 var(--theme-chroma) var(--theme-hue));
 
     --success: oklch(0.55 0.17 155);
     --success-foreground: oklch(0.99 0.01 155);
+  }
+
+  /* ============================================
+   * TINTED-NEUTRAL GRAY BASE (.tone-tinted)
+   * Softens the surface ramp for tinted-neutral presets only — a lighter
+   * gray base in dark mode and a deeper gray base in light mode — so they
+   * read as warm/cool gray rather than near-black / near-white. The
+   * .tone-tinted class is toggled on <html> by redux/listener.ts (and the
+   * pre-hydration bootstrap in index.html / settings/index.html) when the
+   * active preset's chroma is tinted (0 < chroma < COLOR_PRESET_CHROMA).
+   * Pure-neutral (chroma 0, the default) and full-color (chroma 0.16) keep
+   * the crisp base ramp above, so the default appearance is unchanged.
+   *
+   * Only the surface --*-l variables shift; foreground / primary / accent /
+   * ring color stay as defined above so text contrast and CTA affordance are
+   * preserved. The shift is per-mode: −0.05 light (uniform), and in dark +0.05
+   * for the headline surfaces (background / card / popover / border / input)
+   * but only +0.02 for secondary / muted. muted-foreground mid-gray text rides
+   * the --muted surface (e.g. the 10px ThemeSelector family label on hover), so
+   * a full +0.05 muted lift would drop it below WCAG AA 4.5:1. Tune the gray
+   * depth here — these are the single source. contrast.test.ts pins the
+   * muted/muted-foreground pair at the 4.5:1 normal-text floor.
+   * ============================================ */
+  .dark.tone-tinted {
+    --background-l: 0.17;
+    --card-l: 0.23;
+    --popover-l: 0.23;
+    /* secondary / muted lift only +0.02 (not +0.05 like the surfaces above):
+     * muted-foreground mid-gray text sits on --muted (the 10px ThemeSelector
+     * family label on hover). At 0.3 that pair is 4.21:1 — under WCAG AA 4.5;
+     * 0.27 lifts it to 4.66:1 while still reading as a tinted gray. */
+    --secondary-l: 0.27;
+    --muted-l: 0.27;
+    --border-l: 0.35;
+    --input-l: 0.35;
+  }
+
+  .light.tone-tinted {
+    --background-l: 0.94;
+    --card-l: 0.92;
+    --popover-l: 0.94;
+    --secondary-l: 0.9;
+    --muted-l: 0.9;
+    --border-l: 0.83;
+    --input-l: 0.83;
   }
 }
 

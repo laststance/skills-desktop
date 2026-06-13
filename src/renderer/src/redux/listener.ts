@@ -1,6 +1,7 @@
 import { ACTION_HYDRATE_COMPLETE } from '@laststance/redux-storage-middleware'
 import { createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit'
 
+import { COLOR_PRESET_CHROMA } from '@/shared/constants'
 import type { Settings } from '@/shared/settings'
 import type { AgentId } from '@/shared/types'
 
@@ -25,9 +26,10 @@ interface ListenerState {
 
 /**
  * Project the current `ThemeState` onto `<html>` as CSS custom properties
- * plus a `.light` / `.dark` class. This is the only place that mutates the
- * DOM for theme purposes — Redux state stays authoritative and the CSS in
- * `globals.css` consumes `--theme-hue` / `--theme-chroma` directly.
+ * plus a `.light` / `.dark` class and, for tinted-neutral presets, a
+ * `.tone-tinted` class. This is the only place that mutates the DOM for theme
+ * purposes — Redux state stays authoritative and the CSS in `globals.css`
+ * consumes `--theme-hue` / `--theme-chroma` directly.
  *
  * Neutral presets persist `chroma: 0`, which collapses every OKLCH token to
  * the grayscale axis and makes the `--theme-hue` angle irrelevant (so we
@@ -40,6 +42,15 @@ function applyThemeToDOM(state: ThemeState): void {
   root.style.setProperty('--theme-chroma', String(chroma))
   root.classList.toggle('dark', mode === 'dark')
   root.classList.toggle('light', mode === 'light')
+  // Tinted-neutral presets (0 < chroma < COLOR_PRESET_CHROMA) soften their
+  // gray base via the `.tone-tinted` overrides in globals.css — lighter in
+  // dark mode, deeper in light mode. Pure-neutral (chroma 0, the default) and
+  // full-color (chroma === COLOR_PRESET_CHROMA) keep the crisp base ramp, so
+  // the default neutral-dark appearance is unchanged.
+  root.classList.toggle(
+    'tone-tinted',
+    chroma > 0 && chroma < COLOR_PRESET_CHROMA,
+  )
 }
 
 /**

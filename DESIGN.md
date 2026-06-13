@@ -84,6 +84,33 @@ Rules:
 - Avoid single-hue UIs. Theme presets can tint the app, but surfaces should
   still read as neutral operational UI.
 
+### Tinted-neutral gray base
+
+The nine shadcn-baseColor families (clay, stone, olive, sage, steel, slate,
+zinc, mauve, plum) carry `--theme-chroma: 0.05` — the open band between pure
+neutral (`0`) and full color (`0.16`). When that band is active the root gets a
+`.tone-tinted` class that shifts the gray base in opposite directions per mode,
+so the subtle tint reads without washing surfaces out:
+
+| Mode  | Effect on the gray base                                |
+| ----- | ------------------------------------------------------ |
+| Light | **Deeper** gray surfaces (more contrast against white) |
+| Dark  | **Lighter** gray surfaces (lifts the near-black base)  |
+
+Implementation: the `.light.tone-tinted` / `.dark.tone-tinted` surface-lightness
+overrides live in `globals.css`; the class is toggled at runtime by
+`redux/listener.ts` and pre-hydration (no FOUC) by the byte-identical bootstrap
+IIFE in `renderer/index.html` and `renderer/settings/index.html`. Pure-neutral
+(`0`) and full-color (`0.16`) presets keep the crisp default ramp untouched, so
+the default neutral-dark appearance never changes.
+
+Rules:
+
+- Apply the tinted gray base only inside the open `(0, 0.16)` chroma band; never
+  to pure neutral or full color.
+- Hold dark tinted `--secondary` / `--muted` lightness at or below `0.27` so the
+  10px ThemeSelector family labels keep AA 4.5:1 contrast on `hover:bg-muted`.
+
 ## Typography
 
 | Use              | Typeface           | Size guidance | Notes                                      |

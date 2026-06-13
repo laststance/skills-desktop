@@ -46,14 +46,14 @@ const NEUTRAL_PRESET_NAMES = PRESET_NAMES.filter(
 const SWATCH_LIGHTNESS = 0.65
 
 /**
- * Tinted-neutral families surface in a single row of 5 swatches (no
+ * Tinted-neutral families surface as a 5-column grid of swatches (no
  * Dark/Light split — picking the family swatch resolves to the partner
  * key that matches the user's currently displayed mode). This is the
  * shape `THEME_PRESETS` produces after grouping by family prefix.
  *
  * Family id is derived from the preset name's prefix (`zinc-dark` → `zinc`).
- * The label drops the "Dark"/"Light" suffix so the row reads as a horizontal
- * palette picker rather than a list of mode-locked entries.
+ * The label drops the "Dark"/"Light" suffix so the grid reads as a palette
+ * picker rather than a list of mode-locked entries.
  *
  * @example
  * NEUTRAL_FAMILIES === [
@@ -158,10 +158,11 @@ export function resolveNeutralFamilySelection(
  *     and follows `prefers-color-scheme` via the listener middleware.
  *  3. Accent — the 17 hue-based color presets as a 6-column swatch grid.
  *     Mode-agnostic; clicking keeps the user's current mode.
- *  4. Tinted Neutral — the 5 families (Neutral, Zinc, Slate, Stone, Mauve)
- *     as a single horizontal row of swatches with labels underneath. Each
- *     swatch resolves to `${family}-${currentMode}` so users don't have to
- *     pick a Dark/Light variant twice.
+ *  4. Tinted Neutral — the 10 families (Neutral plus 9 tinted: Zinc, Slate,
+ *     Stone, Mauve, Clay, Olive, Sage, Steel, Plum) as a 5-column swatch
+ *     grid with labels underneath. Each swatch resolves to
+ *     `${family}-${currentMode}` so users don't have to pick a Dark/Light
+ *     variant twice.
  *
  * Wrapped in `React.memo` to match the project-wide memoization convention
  * (enforced by `@laststance/react-next/all-memo`). The component takes no
@@ -299,17 +300,18 @@ export const ThemeSelector = React.memo(function ThemeSelector(): ReactElement {
 
         <DropdownMenuSeparator />
 
-        {/* Tinted Neutral — 5 families × 1 swatch (no Dark/Light split).
-         * The previous design rendered 5 × 2 = 10 mode-locked buttons,
-         * which forced users to re-pick the mode every time they switched
-         * family. Pattern 1 collapses the row to one button per family
-         * and resolves the dark/light partner from `state.mode` so the
-         * mode segmented control above stays the single source of truth
-         * for light vs dark. */}
+        {/* Tinted Neutral — 10 families × 1 swatch (no Dark/Light split),
+         * laid out as a 5-column grid (2 rows). One button per family
+         * resolves the dark/light partner from `state.mode`, so the mode
+         * segmented control above stays the single source of truth for
+         * light vs dark and users never re-pick the mode when switching
+         * family. A grid (not a flex row) keeps the swatches aligned in
+         * two even rows now that there are more families than fit one row
+         * of the w-64 dropdown. */}
         <DropdownMenuLabel className="text-xs text-muted-foreground">
           Tinted Neutral
         </DropdownMenuLabel>
-        <div className="flex items-stretch gap-0.5 p-1">
+        <div className="grid grid-cols-5 gap-0.5 p-1">
           {NEUTRAL_FAMILIES.map((family) => {
             const { isSelected, targetPreset } = resolveNeutralFamilySelection(
               family,
@@ -326,7 +328,7 @@ export const ThemeSelector = React.memo(function ThemeSelector(): ReactElement {
                 title={family.label}
                 aria-label={`Select ${family.label} theme`}
                 aria-pressed={isSelected}
-                className="flex-1 flex flex-col items-center gap-1 py-1.5 rounded-md hover:bg-muted transition-colors"
+                className="flex flex-col items-center gap-1 py-1.5 rounded-md hover:bg-muted transition-colors"
               >
                 <span
                   className={cn(

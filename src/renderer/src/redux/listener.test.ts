@@ -46,7 +46,7 @@ beforeEach(() => {
   const root = document.documentElement
   root.style.removeProperty('--theme-hue')
   root.style.removeProperty('--theme-chroma')
-  root.classList.remove('dark', 'light')
+  root.classList.remove('dark', 'light', 'tone-tinted')
 })
 
 describe('theme listener — applyThemeToDOM', () => {
@@ -85,6 +85,29 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(
       document.documentElement.style.getPropertyValue('--theme-chroma'),
     ).toBe('0')
+  })
+
+  it('applies the tone-tinted gray base only for tinted-neutral presets, not pure-neutral or color', async () => {
+    // Arrange
+    const store = await createThemedStore()
+    const { setTheme } = await import('./slices/themeSlice')
+    const root = document.documentElement
+
+    // Act + Assert — a tinted-neutral preset (chroma 0.05) gets the soft base
+    store.dispatch(setTheme('zinc-dark'))
+    expect(root.classList.contains('tone-tinted')).toBe(true)
+
+    // Act + Assert — switching to a full-color preset removes it (crisp ramp)
+    store.dispatch(setTheme('cyan'))
+    expect(root.classList.contains('tone-tinted')).toBe(false)
+
+    // Act + Assert — a light tinted-neutral preset (zinc-light) also gets the soft base
+    store.dispatch(setTheme('zinc-light'))
+    expect(root.classList.contains('tone-tinted')).toBe(true)
+
+    // Act + Assert — the pure-neutral default stays crisp (unchanged look)
+    store.dispatch(setTheme('neutral-dark'))
+    expect(root.classList.contains('tone-tinted')).toBe(false)
   })
 
   it('toggles the <html> dark/light classes when the user flips the mode preference', async () => {

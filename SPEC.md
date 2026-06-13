@@ -307,15 +307,15 @@ Based on Terminal Minimal style with OKLCH dynamic theming.
 
 ### Theme System
 
-44 visual themes total (27 presets): 34 OKLCH color themes + 2 pure neutral themes + 8 shadcn-baseColor-style tinted neutral themes.
+54 visual themes total (37 presets): 34 OKLCH color themes + 2 pure neutral themes + 18 shadcn-baseColor-style tinted neutral themes.
 
 **Theme Types:**
 
-| Type           | Description                                                  | Count                    |
-| -------------- | ------------------------------------------------------------ | ------------------------ |
-| Color          | OKLCH hue-based dynamic colors (all UI elements tinted)      | 34 (17 hues × 2 modes)   |
-| Pure Neutral   | shadcn/ui default gray palette (chroma = 0)                  | 2 (Dark + Light)         |
-| Tinted Neutral | shadcn baseColor lookalikes (subtle hue tint, chroma = 0.05) | 8 (4 families × 2 modes) |
+| Type           | Description                                                  | Count                     |
+| -------------- | ------------------------------------------------------------ | ------------------------- |
+| Color          | OKLCH hue-based dynamic colors (all UI elements tinted)      | 34 (17 hues × 2 modes)    |
+| Pure Neutral   | shadcn/ui default gray palette (chroma = 0)                  | 2 (Dark + Light)          |
+| Tinted Neutral | shadcn baseColor lookalikes (subtle hue tint, chroma = 0.05) | 18 (9 families × 2 modes) |
 
 **Color Theme Hues (17):**
 
@@ -339,7 +339,7 @@ Based on Terminal Minimal style with OKLCH dynamic theming.
 | Fuchsia | 325 | `oklch(0.7 0.16 325)` |
 | Magenta | 340 | `oklch(0.7 0.16 340)` |
 
-**Tinted Neutral Families (4):**
+**Tinted Neutral Families (9):**
 
 shadcn-baseColor lookalikes — subtle hue tint at `chroma = 0.05` puts the
 background at ~`chroma 0.0055` (matches shadcn's `oklch(0.141 0.005 285.823)`
@@ -347,12 +347,17 @@ zinc value) while accents at L=0.7 read as "subtly tinted gray." Useful
 when you want the shadcn baseColor look without committing to a fully
 saturated theme.
 
-| Family | Hue | Character        |
-| ------ | --- | ---------------- |
-| Zinc   | 265 | Cool purple-gray |
-| Slate  | 240 | Blue-gray        |
-| Stone  | 60  | Warm sand-gray   |
-| Mauve  | 320 | Purple-pink-gray |
+| Family | Hue | Character            |
+| ------ | --- | -------------------- |
+| Clay   | 20  | Warm terracotta-gray |
+| Stone  | 60  | Warm sand-gray       |
+| Olive  | 105 | Yellow-green gray    |
+| Sage   | 150 | Green gray           |
+| Steel  | 200 | Cool cyan-blue gray  |
+| Slate  | 240 | Blue-gray            |
+| Zinc   | 265 | Cool purple-gray     |
+| Mauve  | 320 | Purple-pink-gray     |
+| Plum   | 345 | Pink-purple gray     |
 
 Each family ships with a `-dark` and `-light` preset (e.g. `zinc-dark`,
 `zinc-light`) that bakes in the mode, mirroring the shape of the existing
