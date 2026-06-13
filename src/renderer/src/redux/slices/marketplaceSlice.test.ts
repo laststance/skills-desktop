@@ -111,10 +111,11 @@ describe('marketplaceSlice', () => {
 
   it('dismisses a surfaced error banner and lets the user search again', async () => {
     // Arrange — drive the panel into the error state via a failing search
-    const { clearError } = await import('./marketplaceSlice')
+    const { clearError, searchSkills, setMarketplaceSearchQuery } =
+      await import('./marketplaceSlice')
     const store = await createTestStore()
     mockSearch.mockRejectedValue(new Error('fail'))
-    const { searchSkills } = await import('./marketplaceSlice')
+    store.dispatch(setMarketplaceSearchQuery('test'))
     await store.dispatch(searchSkills('test'))
     expect(store.getState().marketplace.status).toBe('error')
 
@@ -151,9 +152,11 @@ describe('marketplaceSlice', () => {
       }),
     )
     const store = await createTestStore()
-    const { searchSkills } = await import('./marketplaceSlice')
+    const { searchSkills, setMarketplaceSearchQuery } =
+      await import('./marketplaceSlice')
 
     // Act
+    store.dispatch(setMarketplaceSearchQuery('react'))
     const promise = store.dispatch(searchSkills('react'))
 
     // Assert
@@ -167,9 +170,12 @@ describe('marketplaceSlice', () => {
     // Arrange
     mockSearch.mockResolvedValue([sampleResult])
     const store = await createTestStore()
-    const { searchSkills } = await import('./marketplaceSlice')
+    const { searchSkills, setMarketplaceSearchQuery } =
+      await import('./marketplaceSlice')
 
-    // Act
+    // Act — the box holds the query before its results land (the real flow:
+    // MarketplaceSearch commits the query, then dispatches the search).
+    store.dispatch(setMarketplaceSearchQuery('task'))
     await store.dispatch(searchSkills('task'))
 
     // Assert
@@ -183,14 +189,162 @@ describe('marketplaceSlice', () => {
     // Arrange
     mockSearch.mockRejectedValue(new Error('API timeout'))
     const store = await createTestStore()
-    const { searchSkills } = await import('./marketplaceSlice')
+    const { searchSkills, setMarketplaceSearchQuery } =
+      await import('./marketplaceSlice')
 
     // Act
+    store.dispatch(setMarketplaceSearchQuery('test'))
     await store.dispatch(searchSkills('test'))
 
     // Assert
     expect(store.getState().marketplace.status).toBe('error')
     expect(store.getState().marketplace.error).toBe('API timeout')
+  })
+
+  it('keeps the latest query results when an earlier search resolves out of order', async () => {
+    // Arrange — two searches in flight. "rea" is dispatched first but its
+    // response is made to land AFTER "react" resolves, simulating an
+    // out-of-order IPC reply (the CLI runs searches concurrently).
+    let resolveRea!: (value: SkillSearchResult[]) => void
+    let resolveReact!: (value: SkillSearchResult[]) => void
+    const reaResult: SkillSearchResult = { ...sampleResult, name: 'rea-hit' }
+    const reactResult: SkillSearchResult = {
+      ...sampleResult,
+      name: 'react-hit',
+    }
+    mockSearch
+      .mockReturnValueOnce(
+        new Promise<SkillSearchResult[]>((r) => {
+          resolveRea = r
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise<SkillSearchResult[]>((r) => {
+          resolveReact = r
+        }),
+      )
+    const store = await createTestStore()
+    const { searchSkills, setMarketplaceSearchQuery } =
+      await import('./marketplaceSlice')
+
+    // Act — fire "rea", then "react" (the box now holds "react"). Resolve
+    // "react" first, then let the stale "rea" response arrive afterwards.
+    store.dispatch(setMarketplaceSearchQuery('rea'))
+    const reaSearch = store.dispatch(searchSkills('rea'))
+    store.dispatch(setMarketplaceSearchQuery('react'))
+    const reactSearch = store.dispatch(searchSkills('react'))
+    resolveReact([reactResult])
+    await reactSearch
+    resolveRea([reaResult])
+    await reaSearch
+
+    // Assert — the box shows "react", so only its results survive; the late
+    // "rea" reply is dropped instead of overwriting them.
+    const state = store.getState().marketplace
+    expect(state.searchResults).toEqual([reactResult])
+    expect(state.status).toBe('idle')
+  })
+
+  it('ignores a stale search failure once the query has moved on', async () => {
+    // Arrange — "rea" will reject, "react" will succeed; "react" resolves
+    // first, then the superseded "rea" rejection lands.
+    let rejectRea!: (reason: Error) => void
+    let resolveReact!: (value: SkillSearchResult[]) => void
+    mockSearch
+      .mockReturnValueOnce(
+        new Promise<SkillSearchResult[]>((_resolve, reject) => {
+          rejectRea = reject
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise<SkillSearchResult[]>((r) => {
+          resolveReact = r
+        }),
+      )
+    const store = await createTestStore()
+    const { searchSkills, setMarketplaceSearchQuery } =
+      await import('./marketplaceSlice')
+
+    // Act
+    store.dispatch(setMarketplaceSearchQuery('rea'))
+    const reaSearch = store.dispatch(searchSkills('rea'))
+    store.dispatch(setMarketplaceSearchQuery('react'))
+    const reactSearch = store.dispatch(searchSkills('react'))
+    resolveReact([sampleResult])
+    await reactSearch
+    rejectRea(new Error('rea timed out'))
+    await reaSearch
+
+    // Assert — the superseded failure must not raise an error banner over the
+    // "react" results the user is actually looking at.
+    const state = store.getState().marketplace
+    expect(state.error).toBeNull()
+    expect(state.status).toBe('idle')
+    expect(state.searchResults).toEqual([sampleResult])
+  })
+
+  it('discards a search response that lands after the box is cleared', async () => {
+    // Arrange — a search is still in flight when the user empties the box.
+    let resolveSearch!: (value: SkillSearchResult[]) => void
+    mockSearch.mockReturnValue(
+      new Promise<SkillSearchResult[]>((r) => {
+        resolveSearch = r
+      }),
+    )
+    const store = await createTestStore()
+    const { searchSkills, setMarketplaceSearchQuery, clearSearchResults } =
+      await import('./marketplaceSlice')
+
+    // Act — fire "react", clear the box, then let the response arrive.
+    store.dispatch(setMarketplaceSearchQuery('react'))
+    const search = store.dispatch(searchSkills('react'))
+    store.dispatch(clearSearchResults())
+    resolveSearch([sampleResult])
+    await search
+
+    // Assert — the emptied box stays on the leaderboard; the late response
+    // does not repopulate stale results behind it.
+    const state = store.getState().marketplace
+    expect(state.searchQuery).toBe('')
+    expect(state.searchResults).toEqual([])
+    expect(state.status).toBe('idle')
+  })
+
+  it('returns the panel to idle when the box is cleared mid-search', async () => {
+    // Arrange — keep a search pending so the panel sits in 'searching'.
+    mockSearch.mockReturnValue(new Promise<SkillSearchResult[]>(() => {}))
+    const store = await createTestStore()
+    const { searchSkills, setMarketplaceSearchQuery, clearSearchResults } =
+      await import('./marketplaceSlice')
+    store.dispatch(setMarketplaceSearchQuery('react'))
+    store.dispatch(searchSkills('react'))
+    expect(store.getState().marketplace.status).toBe('searching')
+
+    // Act
+    store.dispatch(clearSearchResults())
+
+    // Assert — the input spinner must not outlive the emptied box.
+    expect(store.getState().marketplace.status).toBe('idle')
+  })
+
+  it('clears a stranded error banner when the box is emptied after a failed search', async () => {
+    // Arrange — a search fails, leaving the destructive error banner on screen.
+    // The banner renders on `error` (not `status`), so emptying the box must
+    // wipe `error` too or the red banner outlives the query over the leaderboard.
+    mockSearch.mockRejectedValue(new Error('skills CLI offline'))
+    const store = await createTestStore()
+    const { searchSkills, setMarketplaceSearchQuery, clearSearchResults } =
+      await import('./marketplaceSlice')
+    store.dispatch(setMarketplaceSearchQuery('react'))
+    await store.dispatch(searchSkills('react'))
+    expect(store.getState().marketplace.error).toBe('skills CLI offline')
+
+    // Act — empty the box.
+    store.dispatch(clearSearchResults())
+
+    // Assert — no error string survives to render a banner over the leaderboard.
+    expect(store.getState().marketplace.error).toBeNull()
+    expect(store.getState().marketplace.status).toBe('idle')
   })
 
   // --- installSkill thunk ---

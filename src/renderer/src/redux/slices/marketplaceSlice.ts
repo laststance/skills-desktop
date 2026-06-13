@@ -161,6 +161,12 @@ const marketplaceSlice = createSlice({
     clearSearchResults: (state) => {
       state.searchResults = []
       state.searchQuery = ''
+      // Emptying the box returns to the leaderboard, so reset BOTH halves of the
+      // status/error pair: the input spinner keys off `status`, but the error
+      // banner renders on `error` itself — clearing only one leaves the last
+      // query's spinner or red banner stranded over the leaderboard.
+      state.status = 'idle'
+      state.error = null
     },
   },
   extraReducers: (builder) => {
@@ -171,10 +177,20 @@ const marketplaceSlice = createSlice({
         state.error = null
       })
       .addCase(searchSkills.fulfilled, (state, action) => {
+        // Latest-wins guard. Incremental search fires a new `skills find` on
+        // every debounced keystroke, and the CLI runs them concurrently — we
+        // never abort, because cancel() kills *every* child (the latest search
+        // and any install too). So an earlier "rea" response can resolve after
+        // "react"; drop any whose query no longer matches the box. `meta.arg`
+        // is the query that was searched; `searchQuery` is what's committed now.
+        if (action.meta.arg !== state.searchQuery) return
         state.status = 'idle'
         state.searchResults = action.payload
       })
       .addCase(searchSkills.rejected, (state, action) => {
+        // Same guard: a superseded query's failure must not raise an error
+        // banner over the results the user is actually looking at.
+        if (action.meta.arg !== state.searchQuery) return
         state.status = 'error'
         state.error = action.error.message || 'Search failed'
       })

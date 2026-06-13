@@ -119,7 +119,11 @@ export const SkillsMarketplace = React.memo(
           >
             {hasSearched && (
               <>
-                {isSearching && (
+                {/* First-search spinner only. While re-searching with results
+                    already on screen, keep them visible (the search box icon
+                    spins instead) so incremental typing never blanks the list —
+                    same "keep stale during refresh" intent as the leaderboard. */}
+                {isSearching && searchResults.length === 0 && (
                   <div className="flex items-center justify-center py-16">
                     <div className="text-muted-foreground">Searching...</div>
                   </div>
