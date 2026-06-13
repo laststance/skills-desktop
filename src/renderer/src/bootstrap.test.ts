@@ -415,6 +415,30 @@ describe.each(Object.entries(HTML_PATHS))(
         false,
       )
     })
+
+    it('strips a stale tone-tinted class when the persisted theme has neither chroma nor a known presetType', () => {
+      // Arrange — a parseable theme carrying hue + mode but NO numeric chroma
+      // and NO recognized presetType leaves the bootstrap's chromaVal null. Seed
+      // tone-tinted on the root first so this proves the gate's null arm
+      // actively REMOVES the class: a stale tinted base from a prior paint must
+      // not survive an unclassifiable theme (which would flash the wrong gray).
+      document.documentElement.classList.add('tone-tinted')
+      localStorage.setItem(
+        PERSIST_STORAGE_KEY,
+        JSON.stringify({
+          version: 1,
+          state: { theme: { hue: 195, mode: 'dark' } },
+        }),
+      )
+
+      // Act
+      runBootstrap(htmlPath)
+
+      // Assert — chromaVal stayed null, so the else arm cleared tone-tinted
+      expect(document.documentElement.classList.contains('tone-tinted')).toBe(
+        false,
+      )
+    })
   },
 )
 
