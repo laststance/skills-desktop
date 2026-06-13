@@ -8,6 +8,13 @@ import { broadcastTypedEvent as broadcastEvent } from './ipc/typedSend'
 import { getSettings } from './services/settings'
 
 /**
+ * Delay before the boot-time update check fires, giving the renderer time to
+ * mount and subscribe to the `update:*` IPC channels before the first
+ * `update-available`/`update-not-available` event is broadcast.
+ */
+const UPDATE_CHECK_DELAY_MS = 3000
+
+/**
  * Push the user's persisted update preference onto the live
  * `electron-updater` singleton. Called once at init (so the boot-time
  * update check honors the saved value) and again from the `settings:set`
@@ -33,14 +40,16 @@ export function applyUpdaterPreferences(
 }
 
 /**
- * Initialize auto updater with IPC-based UI notifications
- * Replaces native dialogs with in-app toast notifications
+ * Register the `electron-updater` lifecycle handlers that forward each phase
+ * to the renderer as a typed IPC broadcast. Extracted so both the production
+ * `initAutoUpdater` and the test-only `initAutoUpdaterForE2E` share one
+ * source of truth for the event-to-IPC mapping (no behavior drift between
+ * the two entry points).
+ * @example
+ * registerUpdaterEventHandlers()
+ * // autoUpdater now broadcasts UPDATE_CHECKING / UPDATE_AVAILABLE / etc. over IPC
  */
-export function initAutoUpdater(): void {
-  // Seed the updater from the persisted user preference. The default keeps
-  // autoDownload off, preserving the manual confirm-via-UI flow.
-  applyUpdaterPreferences(getSettings())
-
+function registerUpdaterEventHandlers(): void {
   autoUpdater.on('checking-for-update', () => {
     console.log('Checking for updates...')
     broadcastEvent(IPC_CHANNELS.UPDATE_CHECKING)
@@ -83,13 +92,92 @@ export function initAutoUpdater(): void {
         typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined,
     })
   })
+}
+
+/**
+ * Initialize auto updater with IPC-based UI notifications
+ * Replaces native dialogs with in-app toast notifications
+ */
+export function initAutoUpdater(): void {
+  // Seed the updater from the persisted user preference. The default keeps
+  // autoDownload off, preserving the manual confirm-via-UI flow.
+  applyUpdaterPreferences(getSettings())
+
+  registerUpdaterEventHandlers()
 
   // Check for updates after a short delay
   setTimeout(() => {
     autoUpdater.checkForUpdates().catch((err) => {
       console.error('Failed to check for updates:', err)
     })
-  }, 3000)
+  }, UPDATE_CHECK_DELAY_MS)
+}
+
+/**
+ * Options for {@link initAutoUpdaterForE2E}.
+ */
+interface E2EUpdaterOptions {
+  /** Localhost generic feed base URL; macOS GETs `<feedUrl>/latest-mac.yml`. */
+  feedUrl: string
+  /**
+   * Baseline version the feed is compared against. Set LOW (e.g. "0.0.1") so a
+   * higher advertised feed version compares as available. Omit to keep the
+   * real `app.version`.
+   */
+  currentVersion?: string
+}
+
+/**
+ * TEST-ONLY seam that drives a deterministic, OFFLINE update-DETECTION check
+ * against a localhost generic feed. Reached only from `src/main/index.ts` when
+ * the `E2E_UPDATE_FEED_URL` env var is set, which the Electron e2e spec
+ * (`e2e/spec/update-detection.e2e.ts`) injects; it is NEVER set in production,
+ * so this function is dead code in shipped builds. It forces dev-mode update
+ * config (so a check runs in the unpacked build), disables auto-download (the
+ * dummy artifact is never fetched), optionally lowers `currentVersion` so the
+ * feed compares as newer, points the feed at localhost, registers the shared
+ * IPC handlers, and triggers the check immediately (no boot delay).
+ * @param options - {@link E2EUpdaterOptions}: `feedUrl` (required localhost URL) and optional `currentVersion`.
+ * @example
+ * // Driven by the e2e harness, never in production:
+ * initAutoUpdaterForE2E({ feedUrl: 'http://127.0.0.1:54321', currentVersion: '0.0.1' })
+ * // -> GET http://127.0.0.1:54321/latest-mac.yml, then broadcasts UPDATE_AVAILABLE for the higher feed version
+ */
+export function initAutoUpdaterForE2E(options: E2EUpdaterOptions): void {
+  // Allow an update CHECK in the UNPACKED e2e build. Without this,
+  // isUpdaterActive() short-circuits (app.isPackaged === false) and
+  // checkForUpdates() logs "Skip checkForUpdates because application is not
+  // packed and dev update config is not forced" and does nothing.
+  autoUpdater.forceDevUpdateConfig = true
+
+  // Detection-only: never fetch the dummy artifact. With autoDownload=false the
+  // availability check stops after the version comparison (downloadPromise is null).
+  autoUpdater.autoDownload = false
+
+  // Force the comparison baseline LOW so the higher feed version compares as
+  // newer. `currentVersion` is declared `readonly currentVersion: SemVer` in
+  // electron-updater's .d.ts, but at runtime it is a plain writable instance
+  // field, and the comparison path uses semver gt/eq which accept a string —
+  // so a plain string works (e.g. gt('99.0.0','0.0.1') === true). The cast is
+  // REQUIRED to assign past the readonly type; importing `semver` to build a
+  // SemVer is not viable (transitive-only dep, ESM main process has no require).
+  if (options.currentVersion !== undefined) {
+    ;(autoUpdater as unknown as { currentVersion: string }).currentVersion =
+      options.currentVersion
+  }
+
+  // Point at the localhost generic feed. On macOS this GETs <feedUrl>/latest-mac.yml.
+  // Calling setFeedURL before checkForUpdates also short-circuits the on-disk
+  // dev-app-update.yml lookup, keeping the test fully offline.
+  autoUpdater.setFeedURL({ provider: 'generic', url: options.feedUrl })
+
+  registerUpdaterEventHandlers()
+
+  // Trigger detection immediately (no boot delay): fetch + parse + compare the
+  // yml, then broadcast UPDATE_AVAILABLE. No artifact download.
+  autoUpdater.checkForUpdates().catch((err) => {
+    console.error('Failed to check for updates (E2E):', err)
+  })
 }
 
 /**
