@@ -128,6 +128,30 @@ interface E2EUpdaterOptions {
 }
 
 /**
+ * Guard the test-only update feed URL to a localhost loopback http origin —
+ * `E2E_UPDATE_FEED_URL` flows straight into `setFeedURL`, so this stops the
+ * offline-E2E seam from ever being pointed at a real network host (which would
+ * also bypass the production `app.isPackaged` gate). Throws on any non-loopback
+ * or non-http URL; called first in {@link initAutoUpdaterForE2E}.
+ * @param feedUrl - Candidate feed base URL injected by the e2e harness.
+ * @returns void — returns only for a loopback http URL; throws otherwise.
+ * @example
+ * assertLoopbackFeedUrl('http://127.0.0.1:54321') // ok
+ * assertLoopbackFeedUrl('https://example.com')    // throws
+ */
+function assertLoopbackFeedUrl(feedUrl: string): void {
+  const parsedFeedUrl = new URL(feedUrl)
+  // WHATWG URL keeps IPv6 hosts bracketed (e.g. "[::1]"); strip the brackets so
+  // the bare-address comparison matches a real IPv6 loopback feed URL too.
+  const hostname = parsedFeedUrl.hostname.replace(/^\[|\]$/g, '')
+  const isLoopbackHost =
+    hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1'
+  if (parsedFeedUrl.protocol !== 'http:' || !isLoopbackHost) {
+    throw new Error(`E2E update feed must use a loopback http URL: ${feedUrl}`)
+  }
+}
+
+/**
  * TEST-ONLY seam that drives a deterministic, OFFLINE update-DETECTION check
  * against a localhost generic feed. Reached only from `src/main/index.ts` when
  * the `E2E_UPDATE_FEED_URL` env var is set, which the Electron e2e spec
@@ -144,6 +168,10 @@ interface E2EUpdaterOptions {
  * // -> GET http://127.0.0.1:54321/latest-mac.yml, then broadcasts UPDATE_AVAILABLE for the higher feed version
  */
 export function initAutoUpdaterForE2E(options: E2EUpdaterOptions): void {
+  // Defense-in-depth: this seam takes its URL straight from an env var, so
+  // refuse anything but a localhost loopback http feed before wiring it in.
+  assertLoopbackFeedUrl(options.feedUrl)
+
   // Allow an update CHECK in the UNPACKED e2e build. Without this,
   // isUpdaterActive() short-circuits (app.isPackaged === false) and
   // checkForUpdates() logs "Skip checkForUpdates because application is not

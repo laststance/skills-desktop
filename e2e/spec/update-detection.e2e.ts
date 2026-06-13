@@ -109,22 +109,24 @@ test('surfaces an available update when the release feed advertises a newer vers
   const { server, feedUrl } = await startUpdateFeed()
   const repoRoot = resolve(__dirname, '..', '..')
   const mainEntry = resolve(repoRoot, 'out', 'main', 'index.mjs')
-
-  const electronApp = await _electron.launch({
-    args: [mainEntry],
-    env: {
-      ...process.env,
-      HOME: isolatedHome,
-      E2E_USERDATA_DIR: resolve(isolatedHome, 'userData'),
-      E2E_BACKGROUND_LAUNCH: '1',
-      // Drives the test-only updater seam at the localhost feed. NOT setting
-      // E2E_DISABLE_UPDATE: this spec WANTS the updater active.
-      E2E_UPDATE_FEED_URL: feedUrl,
-      E2E_UPDATE_CURRENT_VERSION: UPDATE_DETECTION_CURRENT_VERSION,
-    },
-  })
+  // Declared before the try so the finally can clean up even if launch throws.
+  let electronApp: Awaited<ReturnType<typeof _electron.launch>> | null = null
 
   try {
+    electronApp = await _electron.launch({
+      args: [mainEntry],
+      env: {
+        ...process.env,
+        HOME: isolatedHome,
+        E2E_USERDATA_DIR: resolve(isolatedHome, 'userData'),
+        E2E_BACKGROUND_LAUNCH: '1',
+        // Drives the test-only updater seam at the localhost feed. NOT setting
+        // E2E_DISABLE_UPDATE: this spec WANTS the updater active.
+        E2E_UPDATE_FEED_URL: feedUrl,
+        E2E_UPDATE_CURRENT_VERSION: UPDATE_DETECTION_CURRENT_VERSION,
+      },
+    })
+
     // Act — wait for the renderer to mount, then let the detection result land
     // in Redux. The main process fires one check immediately, but that can race
     // the renderer's IPC subscription (webContents.send does not buffer for a
@@ -184,8 +186,12 @@ test('surfaces an available update when the release feed advertises a newer vers
       'the available version should match the version advertised by the feed',
     ).toBe(UPDATE_DETECTION_ADVERTISED_VERSION)
   } finally {
-    await electronApp.close()
-    await stopUpdateFeed(server)
-    destroyIsolatedHome(isolatedHome)
+    // Independent, resilient cleanup: one failing step must not skip the
+    // others, and a launch failure leaves electronApp null (nothing to close).
+    await Promise.allSettled([
+      electronApp ? electronApp.close() : Promise.resolve(),
+      stopUpdateFeed(server),
+      Promise.resolve().then(() => destroyIsolatedHome(isolatedHome)),
+    ])
   }
 })
