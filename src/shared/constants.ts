@@ -942,6 +942,18 @@ export const UNDO_WINDOW_MS = 15_000
 export const COPIED_FEEDBACK_DURATION_MS = 1600
 
 /**
+ * Quiet period (ms) the marketplace search box waits after the last keystroke
+ * before firing a remote `skills find` call. Exists because search runs as the
+ * user types (incremental search) and each call spawns an `npx skills` child —
+ * debouncing collapses a burst of keystrokes into one request. Consumed by
+ * `useDebouncedCallback` inside `MarketplaceSearch`; tuned to feel instant while
+ * sparing the CLI from per-character churn.
+ * @example
+ * const search = useDebouncedCallback(runSearch, SEARCH_DEBOUNCE_MS)
+ */
+export const SEARCH_DEBOUNCE_MS = 300
+
+/**
  * Batch size at which bulk ops surface a live per-item progress counter in the
  * toolbar. Below this, the final `.fulfilled` toast is a better UX than a
  * flashing "k of n". Main-process `emitProgress` and renderer-side display

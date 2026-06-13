@@ -254,6 +254,14 @@ Rules:
 - Placeholder text must stay lower contrast than real values.
 - Search should feel command-palette-adjacent: compact, keyboard-first,
   immediately scannable.
+- Reset native form chrome to the token palette. macOS Chromium renders the
+  `type="search"` clear control (`::-webkit-search-cancel-button`) in the system
+  accent (blue), which breaks the muted OKLCH surface. Prefer a palette-matched
+  affordance: recolor the pseudo-element via `appearance: none` + a masked SVG in
+  `--muted-foreground` (preserves one-click clear), or supply a custom clear
+  button. Top-tier tools (Linear, Raycast, Notion) never expose raw browser
+  chrome. The current native blue × is an accepted low-priority item — see Polish
+  Backlog Guidance.
 
 ### Tabs and Segmented Controls
 
@@ -285,6 +293,21 @@ Rules:
   - Reserve overlay space with padding so revealing a corner action never
     shifts the row's content (zero-layout-shift); align overlays to the title
     row, not the card's raw top edge.
+
+### Empty States
+
+- Empty-state prominence scales with severity. Match the treatment to whether
+  the empty is expected or a failure:
+  - Expected / transient empties (a search with no matches, a freshly filtered
+    list) stay to one quiet muted line. A zero-result search is a normal outcome
+    — typos, narrow queries — not an error, so it must not look like one.
+    (Spotlight, Linear, Raycast keep search misses understated.)
+  - Rare / terminal failures (network error, leaderboard unavailable) earn the
+    fuller icon + heading + description treatment, because they signal that
+    something actually broke and may need user action.
+- Never dress an expected empty as a failure: no `h-12` icon or `text-lg`
+  heading for a search miss. This is the operational reading of principle 5's
+  "no noisy empty states."
 
 ### Cards and Widgets
 
@@ -424,6 +447,13 @@ Likely app-safe improvements:
 - Add 120-180ms color/opacity transitions to selected rows and tabs.
 - Add 250-350ms width transitions to progress indicators only when they track
   real progress.
+- Recolor the native search clear control to the palette. Both the marketplace
+  and skills-tab search inputs use `type="search"`, so macOS Chromium paints the
+  `::-webkit-search-cancel-button` in system-accent blue. A single global rule
+  (`appearance: none` + masked SVG in `--muted-foreground` on the pseudo-element)
+  recolors both at once while preserving one-click clear; Electron's pinned
+  Chromium keeps the mask approach low-risk. Low priority — the blue × is the
+  only off-palette element in an otherwise clean search surface.
 
 ## Agent Prompt Guide
 
