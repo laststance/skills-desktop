@@ -168,6 +168,21 @@ describe.each(Object.entries(HTML_PATHS))(
       expect(html).toContain(`'${COLOR_PRESET_CHROMA}'`)
     })
 
+    it('keeps the inline tinted-gate upper bound pinned to COLOR_PRESET_CHROMA so a constant bump cannot desync first paint', () => {
+      // Arrange — read index.html as shipped. The .tone-tinted gate uses a
+      // BARE `chromaVal < 0.16` comparison (not the quoted setProperty arg the
+      // test above guards). If COLOR_PRESET_CHROMA is retuned but this bare
+      // literal is not, the pre-hydration bootstrap and the post-hydration
+      // listener (which imports the constant) disagree at the chroma boundary
+      // → flash of the wrong gray base on first paint.
+      const html = readFileSync(htmlPath, 'utf8')
+
+      // Act — (the file content is the subject under inspection)
+
+      // Assert — the bare upper-bound comparison still matches the constant
+      expect(html).toContain(`chromaVal < ${COLOR_PRESET_CHROMA}`)
+    })
+
     it('paints the default dark theme with no CSS vars when storage is empty', () => {
       // Arrange — beforeEach already cleared storage and set the .dark baseline
 
