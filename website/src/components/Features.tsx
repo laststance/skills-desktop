@@ -17,9 +17,9 @@ const features = [
   },
   {
     icon: Palette,
-    title: '27 Theme Presets',
+    title: '37 Theme Presets',
     description:
-      '44 visual themes across OKLCH color hues, pure neutrals, and shadcn/ui tinted neutrals.',
+      '54 visual themes across OKLCH color hues, pure neutrals, and shadcn/ui tinted neutrals.',
   },
   {
     icon: FolderSync,

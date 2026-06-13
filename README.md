@@ -17,7 +17,7 @@ Skills Desktop provides a GUI to manage and monitor skills installed via [`npx s
 - **68 AI Agents Supported** - Auto-detects Claude Code, Cursor, Codex, Gemini CLI, and more
 - **Symlink Status Visualization** - Valid (✓), Broken (◐), Inaccessible (!), Missing (○) indicators
 - **Customizable Dashboard** - Widget-based home view with skill stats, symlink health, agent coverage, bookmarks, and quick actions — drag, resize, and arrange across multiple pages
-- **44 Themes** - 34 OKLCH color themes (17 hues × light/dark) + 2 pure neutral + 8 tinted neutral
+- **54 Themes** - 34 OKLCH color themes (17 hues × light/dark) + 2 pure neutral + 18 tinted neutral
 - **Auto Update** - Automatic updates via GitHub Releases
 
 ## Supported Agents
