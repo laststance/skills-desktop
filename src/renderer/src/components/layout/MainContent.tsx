@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   ArrowDownAZ,
   ArrowUpAZ,
   CheckSquare,
@@ -278,6 +279,23 @@ function getBulkDeleteTargetSummary(
     staleDeleteErrors: bulkConfirm.staleDeleteErrors,
     orphanErrors: bulkConfirm.orphanErrors,
   }
+}
+
+/**
+ * Pick the bulk-confirm dialog's warning-icon tint: red for the irreversible
+ * delete, amber for the lighter unlink. Module-scope (taking the whole state,
+ * so the call site needs no optional chain) keeps this branch out of
+ * MainContent's complexity budget.
+ * @param bulkConfirm - Pending bulk confirm dialog state, or null when closed.
+ * @returns Tailwind text-color class for the AlertTriangle glyph.
+ * @example
+ * bulkConfirmIconColorClass({ kind: 'delete', ... }) // => 'text-destructive'
+ * bulkConfirmIconColorClass({ kind: 'unlink', ... }) // => 'text-amber-500'
+ */
+function bulkConfirmIconColorClass(
+  bulkConfirm: BulkConfirmState | null,
+): string {
+  return bulkConfirm?.kind === 'delete' ? 'text-destructive' : 'text-amber-500'
 }
 
 /**
@@ -1371,11 +1389,16 @@ export const MainContent = React.memo(
         >
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>
-                {bulkConfirm?.kind === 'delete'
-                  ? `Delete ${bulkConfirm.skillNames.length} ${pluralize(bulkConfirm.skillNames.length, 'skill')}?`
-                  : `Unlink ${bulkConfirm?.skillNames.length ?? 0} ${pluralize(bulkConfirm?.skillNames.length ?? 0, 'skill')} from ${bulkConfirm?.agentName ?? 'agent'}?`}
-              </DialogTitle>
+              <div className="flex items-center gap-2">
+                <AlertTriangle
+                  className={`h-5 w-5 ${bulkConfirmIconColorClass(bulkConfirm)}`}
+                />
+                <DialogTitle>
+                  {bulkConfirm?.kind === 'delete'
+                    ? `Delete ${bulkConfirm.skillNames.length} ${pluralize(bulkConfirm.skillNames.length, 'skill')}?`
+                    : `Unlink ${bulkConfirm?.skillNames.length ?? 0} ${pluralize(bulkConfirm?.skillNames.length ?? 0, 'skill')} from ${bulkConfirm?.agentName ?? 'agent'}?`}
+                </DialogTitle>
+              </div>
               <DialogDescription>
                 {bulkConfirm?.kind === 'delete'
                   ? renderBulkDeleteDescription({

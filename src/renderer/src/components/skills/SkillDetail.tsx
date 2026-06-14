@@ -86,7 +86,7 @@ export const SkillDetail = React.memo(function SkillDetail({
           aria-pressed={activeTab === 'files'}
           onClick={() => handleTabChange('files')}
           className={cn(
-            'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+            'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
             activeTab === 'files'
               ? 'text-primary border-primary'
               : 'text-muted-foreground border-transparent hover:text-foreground',
@@ -99,7 +99,7 @@ export const SkillDetail = React.memo(function SkillDetail({
           aria-pressed={activeTab === 'info'}
           onClick={() => handleTabChange('info')}
           className={cn(
-            'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+            'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
             activeTab === 'info'
               ? 'text-primary border-primary'
               : 'text-muted-foreground border-transparent hover:text-foreground',
@@ -242,15 +242,38 @@ const InfoView = React.memo(function InfoView({
       <div className="flex gap-4 text-sm mb-4">
         <div>
           <span className="text-muted-foreground">Valid:</span>
-          <span className="ml-1 text-success">{validCount}</span>
+          <span
+            className={cn(
+              'ml-1',
+              validCount > 0 ? 'text-success' : 'text-muted-foreground',
+            )}
+          >
+            {validCount}
+          </span>
         </div>
         <div>
           <span className="text-muted-foreground">Broken:</span>
-          <span className="ml-1 text-amber-400">{brokenCount}</span>
+          <span
+            className={cn(
+              'ml-1',
+              brokenCount > 0 ? 'text-amber-400' : 'text-muted-foreground',
+            )}
+          >
+            {brokenCount}
+          </span>
         </div>
         <div>
           <span className="text-muted-foreground">Inaccessible:</span>
-          <span className="ml-1 text-amber-400">{inaccessibleCount}</span>
+          <span
+            className={cn(
+              'ml-1',
+              inaccessibleCount > 0
+                ? 'text-amber-400'
+                : 'text-muted-foreground',
+            )}
+          >
+            {inaccessibleCount}
+          </span>
         </div>
       </div>
 

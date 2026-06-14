@@ -1,11 +1,34 @@
 import { configureStore } from '@reduxjs/toolkit'
 import type { ReactElement } from 'react'
 import { Provider } from 'react-redux'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { SkillName, SkillSearchResult } from '@/shared/types'
 import { repositoryId } from '@/shared/types'
+
+// MarketplaceDashboard (rendered by MarketplaceDetailPanel when nothing is
+// previewed) dispatches `loadLeaderboard('trending')` on mount, whose thunk
+// reads `window.electron.marketplace.leaderboard`. Browser-mode tests replace
+// the preload bridge, so the IPC surface is stubbed. The default never-resolving
+// promise lets each test pin the state it dispatched without a late `fulfilled`
+// racing in; the error test overrides it with a rejection so the re-fetch
+// (errors bypass the cache-TTL gate) settles back on the error branch.
+const mockLeaderboard = vi.fn()
+
+beforeEach(() => {
+  mockLeaderboard.mockReset()
+  mockLeaderboard.mockReturnValue(new Promise<SkillSearchResult[]>(() => {}))
+  vi.stubGlobal('electron', {
+    marketplace: {
+      leaderboard: mockLeaderboard,
+    },
+  })
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 /**
  * Build a minimal `SkillSearchResult` fixture and let callers override only
@@ -121,8 +144,8 @@ describe('MarketplaceDetailPanel routing', () => {
   })
 })
 
-describe('MarketplaceDashboard empty state', () => {
-  it('shows a loading message before trending skills have been fetched', async () => {
+describe('MarketplaceDashboard trending placeholders', () => {
+  it('shows a loading skeleton, announced to screen readers, before trending skills have been fetched', async () => {
     // Arrange
     const store = await createStore()
     const { MarketplaceDashboard } = await import('./MarketplaceDashboard')
@@ -130,9 +153,9 @@ describe('MarketplaceDashboard empty state', () => {
     // Act
     const screen = await renderWithStore(<MarketplaceDashboard />, store)
 
-    // Assert
+    // Assert — the pulsing placeholder carries an accessible loading status
     await expect
-      .element(screen.getByText('Loading trending skills...'))
+      .element(screen.getByRole('status', { name: 'Loading trending skills' }))
       .toBeInTheDocument()
   })
 
@@ -156,6 +179,32 @@ describe('MarketplaceDashboard empty state', () => {
     // Assert
     await expect
       .element(screen.getByText('No trending skills available'))
+      .toBeInTheDocument()
+  })
+
+  it('shows an offline notice when the trending fetch fails with nothing cached', async () => {
+    // Arrange — seed the failed state, then make the mount re-fetch fail too so
+    // the panel settles back on the error branch (errors bypass the TTL gate,
+    // so the dashboard re-requests trending on mount).
+    mockLeaderboard.mockRejectedValue(new Error('network down'))
+    const store = await createStore()
+    const { loadLeaderboard } =
+      await import('@/renderer/src/redux/slices/marketplaceSlice')
+    const { MarketplaceDashboard } = await import('./MarketplaceDashboard')
+    store.dispatch(
+      loadLeaderboard.rejected(
+        new Error('network down'),
+        'test-request',
+        'trending',
+      ),
+    )
+
+    // Act
+    const screen = await renderWithStore(<MarketplaceDashboard />, store)
+
+    // Assert — a failed load surfaces a recoverable offline notice, not a blank list
+    await expect
+      .element(screen.getByText('Trending unavailable'))
       .toBeInTheDocument()
   })
 })

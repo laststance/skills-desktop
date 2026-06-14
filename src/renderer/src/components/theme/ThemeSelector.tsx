@@ -278,16 +278,16 @@ export const ThemeSelector = React.memo(function ThemeSelector(): ReactElement {
                 key={name}
                 type="button"
                 onClick={() => dispatch(setTheme(name))}
-                className="min-h-8 min-w-8 flex items-center justify-center"
+                className="min-h-8 min-w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors"
                 title={config.label}
                 aria-label={`Select ${config.label} theme`}
                 aria-pressed={isSelected}
               >
                 <span
                   className={cn(
-                    'h-6 w-6 rounded-full transition-transform hover:scale-110 block',
+                    'h-6 w-6 rounded-full block',
                     isSelected &&
-                      'ring-2 ring-white ring-offset-2 ring-offset-background',
+                      'ring-2 ring-foreground ring-offset-2 ring-offset-background',
                   )}
                   style={{
                     backgroundColor: `oklch(${SWATCH_LIGHTNESS} ${config.chroma} ${config.hue})`,
@@ -332,9 +332,9 @@ export const ThemeSelector = React.memo(function ThemeSelector(): ReactElement {
               >
                 <span
                   className={cn(
-                    'h-6 w-6 rounded-full transition-transform hover:scale-110 block',
+                    'h-6 w-6 rounded-full block',
                     isSelected &&
-                      'ring-2 ring-white ring-offset-2 ring-offset-background',
+                      'ring-2 ring-foreground ring-offset-2 ring-offset-background',
                   )}
                   style={{
                     backgroundColor: `oklch(${SWATCH_LIGHTNESS} ${family.chroma} ${family.hue})`,
