@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { CODE_THEME_DEFINITIONS } from '@/shared/constants'
+
 /**
  * The focused Shiki bundle in `shikiPreview.ts` registers each grammar as a
  * lazy `() => import('shiki/langs/<lang>.mjs')` loader and wires up a singleton
@@ -98,12 +100,29 @@ vi.mock('shiki/langs/xml.mjs', () => stubLangModule('xml'))
 vi.mock('shiki/langs/yaml.mjs', () => stubLangModule('yaml'))
 vi.mock('shiki/langs/zsh.mjs', () => stubLangModule('zsh'))
 
-vi.mock('shiki/themes/github-dark.mjs', () => ({
-  default: { name: 'github-dark' },
-}))
-vi.mock('shiki/themes/github-light.mjs', () => ({
-  default: { name: 'github-light' },
-}))
+// Each Shiki theme module the SUT lazily imports is stubbed with the same
+// `{ default: { name } }` shape, so driving a loader proves the registered key
+// is wired to the matching theme module (not a mismatched one).
+const stubThemeModule = (themeName: string): { default: { name: string } } => ({
+  default: { name: themeName },
+})
+
+vi.mock('shiki/themes/github-dark.mjs', () => stubThemeModule('github-dark'))
+vi.mock('shiki/themes/github-light.mjs', () => stubThemeModule('github-light'))
+vi.mock('shiki/themes/light-plus.mjs', () => stubThemeModule('light-plus'))
+vi.mock('shiki/themes/dark-plus.mjs', () => stubThemeModule('dark-plus'))
+vi.mock('shiki/themes/vitesse-light.mjs', () =>
+  stubThemeModule('vitesse-light'),
+)
+vi.mock('shiki/themes/vitesse-dark.mjs', () => stubThemeModule('vitesse-dark'))
+vi.mock('shiki/themes/one-light.mjs', () => stubThemeModule('one-light'))
+vi.mock('shiki/themes/one-dark-pro.mjs', () => stubThemeModule('one-dark-pro'))
+vi.mock('shiki/themes/catppuccin-latte.mjs', () =>
+  stubThemeModule('catppuccin-latte'),
+)
+vi.mock('shiki/themes/catppuccin-mocha.mjs', () =>
+  stubThemeModule('catppuccin-mocha'),
+)
 
 describe('shikiPreview bundle', () => {
   beforeEach(() => {
@@ -200,23 +219,41 @@ describe('shikiPreview bundle', () => {
     }
   })
 
-  it('offers the github-dark and github-light themes for the preview pane', async () => {
-    // Arrange
+  it('bundles exactly the light/dark themes every curated pair needs, each wired to its own module', async () => {
+    // Arrange — the bundled theme set must be EXACTLY the union of every
+    // curated pair's light + dark names. Derived from CODE_THEME_DEFINITIONS
+    // (the source of truth) on purpose: this is the drift guard that fails when
+    // a pair is added to CODE_THEME_DEFINITIONS but its loaders are not added to
+    // shikiPreview.ts (or vice versa) — hard-coding the names would defeat it.
+    const expectedThemeNames = CODE_THEME_DEFINITIONS.flatMap((pair) => [
+      pair.light,
+      pair.dark,
+    ])
     await import('./shikiPreview')
     const capturedConfig = shikiCoreMocks.capturedBundleConfig.value
     expect(capturedConfig).not.toBeNull()
 
-    // Act — invoke both theme loaders to run their dynamic imports.
-    const darkTheme = await capturedConfig!.themes['github-dark']()
-    const lightTheme = await capturedConfig!.themes['github-light']()
+    // Assert — the registered theme keys are exactly that derived set.
+    expect(Object.keys(capturedConfig!.themes).sort()).toEqual(
+      [...expectedThemeNames].sort(),
+    )
 
-    // Assert
-    expect(Object.keys(capturedConfig!.themes).sort()).toEqual([
-      'github-dark',
-      'github-light',
-    ])
-    expect(darkTheme).toEqual({ default: { name: 'github-dark' } })
-    expect(lightTheme).toEqual({ default: { name: 'github-light' } })
+    // Act — drive every theme loader so its dynamic import runs, keeping the
+    // registered key paired with the module it resolves to.
+    const loadedThemesByName = await Promise.all(
+      expectedThemeNames.map(async (themeName) => ({
+        themeName,
+        themeModule: await capturedConfig!.themes[themeName](),
+      })),
+    )
+
+    // Assert — every registered key resolves to the theme module whose name
+    // matches it, so a mis-wired loader (e.g. 'one-dark-pro' pointing at
+    // one-light.mjs) is caught even though the total theme count stays 10.
+    expect(loadedThemesByName).toHaveLength(10)
+    for (const { themeName, themeModule } of loadedThemesByName) {
+      expect(themeModule).toEqual({ default: { name: themeName } })
+    }
   })
 
   it('highlights offline using the WASM-free JavaScript regex engine', async () => {

@@ -45,9 +45,21 @@ const createPreviewHighlighter = createBundledHighlighter({
     yaml: async () => import('shiki/langs/yaml.mjs'),
     zsh: async () => import('shiki/langs/zsh.mjs'),
   },
+  // Static `import('shiki/themes/<name>.mjs')` literals (not a template-literal
+  // glob) so the bundler tree-shakes to exactly these themes — the curated
+  // light/dark pairs in `CODE_THEME_DEFINITIONS`. A renderer drift-guard test
+  // asserts every pair there is bundled here.
   themes: {
     'github-dark': async () => import('shiki/themes/github-dark.mjs'),
     'github-light': async () => import('shiki/themes/github-light.mjs'),
+    'light-plus': async () => import('shiki/themes/light-plus.mjs'),
+    'dark-plus': async () => import('shiki/themes/dark-plus.mjs'),
+    'vitesse-light': async () => import('shiki/themes/vitesse-light.mjs'),
+    'vitesse-dark': async () => import('shiki/themes/vitesse-dark.mjs'),
+    'one-light': async () => import('shiki/themes/one-light.mjs'),
+    'one-dark-pro': async () => import('shiki/themes/one-dark-pro.mjs'),
+    'catppuccin-latte': async () => import('shiki/themes/catppuccin-latte.mjs'),
+    'catppuccin-mocha': async () => import('shiki/themes/catppuccin-mocha.mjs'),
   },
   // JavaScript regex avoids shipping the Oniguruma WASM runtime for this
   // read-only preview pane while keeping highlighting deterministic offline.

@@ -11,14 +11,27 @@ import {
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
 import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { cn } from '@/renderer/src/lib/utils'
+import { DEFAULT_CODE_THEME_ID } from '@/shared/constants'
+import type { CodeThemeId } from '@/shared/constants'
 import { formatBytes } from '@/shared/fileTypes'
+import {
+  CODE_FONT_SIZE_DEFAULT_PX,
+  MARKDOWN_FONT_SIZE_DEFAULT_PX,
+} from '@/shared/settings'
 import type { FileName, FileSizeBytes, SkillFileContent } from '@/shared/types'
 
+import { resolveCodeTheme } from './codeThemeHelpers'
 import { isMarkdownPreview, languageForPreview } from './filePreviewLanguage'
 import { codeToHtml } from './shikiPreview'
 
 interface FileContentProps {
   content: PreviewContent
+  /** Markdown reading-mode body font size (CSS px). */
+  markdownFontSizePx?: number
+  /** Shiki code preview font size (CSS px). */
+  codeFontSizePx?: number
+  /** Curated Shiki theme id for the code preview. */
+  codeThemeId?: CodeThemeId
 }
 
 type TextPreviewMode = 'code' | 'reading'
@@ -35,6 +48,9 @@ type TextPreviewMode = 'code' | 'reading'
  */
 export const FileContent = React.memo(function FileContent({
   content,
+  markdownFontSizePx = MARKDOWN_FONT_SIZE_DEFAULT_PX,
+  codeFontSizePx = CODE_FONT_SIZE_DEFAULT_PX,
+  codeThemeId = DEFAULT_CODE_THEME_ID,
 }: FileContentProps): React.ReactElement {
   // Exhaustive over PreviewContent: a future variant added to the union (e.g.
   // a `pdf` preview) fails compilation here instead of silently falling
@@ -53,12 +69,22 @@ export const FileContent = React.memo(function FileContent({
         />
       </div>
     ))
-    .with({ kind: 'text' }, ({ data }) => <TextPreview file={data} />)
+    .with({ kind: 'text' }, ({ data }) => (
+      <TextPreview
+        file={data}
+        markdownFontSizePx={markdownFontSizePx}
+        codeFontSizePx={codeFontSizePx}
+        codeThemeId={codeThemeId}
+      />
+    ))
     .exhaustive()
 })
 
 interface TextPreviewProps {
   file: SkillFileContent
+  markdownFontSizePx: number
+  codeFontSizePx: number
+  codeThemeId: CodeThemeId
 }
 
 /**
@@ -70,6 +96,9 @@ interface TextPreviewProps {
  */
 const TextPreview = React.memo(function TextPreview({
   file,
+  markdownFontSizePx,
+  codeFontSizePx,
+  codeThemeId,
 }: TextPreviewProps): React.ReactElement {
   const isMarkdown = isMarkdownPreview(file)
   const fileIdentity = `${file.name}:${file.extension}`
@@ -118,11 +147,16 @@ const TextPreview = React.memo(function TextPreview({
       )}
 
       {isMarkdown && mode === 'reading' ? (
-        <MarkdownReadingPreview content={file.content} />
+        <MarkdownReadingPreview
+          content={file.content}
+          fontSizePx={markdownFontSizePx}
+        />
       ) : (
         <SyntaxHighlightedCode
           content={file.content}
           language={languageForPreview(file)}
+          fontSizePx={codeFontSizePx}
+          codeThemeId={codeThemeId}
         />
       )}
     </div>
@@ -132,20 +166,26 @@ const TextPreview = React.memo(function TextPreview({
 interface SyntaxHighlightedCodeProps {
   content: string
   language: string
+  fontSizePx: number
+  codeThemeId: CodeThemeId
 }
 
 /**
  * Highlight code asynchronously with Shiki.
  * @param content - Raw file text.
  * @param language - Shiki language identifier.
+ * @param fontSizePx - Code font size; line metrics scale with it via em CSS.
+ * @param codeThemeId - Curated Shiki theme id resolved to a light/dark pair.
  * @returns Scrollable highlighted source with a bottom spacer after the final
  * line so the last row is reachable and not pinned to the pane edge.
  * @example
- * <SyntaxHighlightedCode content="const x = 1" language="typescript" />
+ * <SyntaxHighlightedCode content="const x = 1" language="typescript" fontSizePx={13} codeThemeId="github" />
  */
 const SyntaxHighlightedCode = React.memo(function SyntaxHighlightedCode({
   content,
   language,
+  fontSizePx,
+  codeThemeId,
 }: SyntaxHighlightedCodeProps): React.ReactElement {
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null)
   const plainTextLines = useMemo(() => content.split('\n'), [content])
@@ -153,14 +193,17 @@ const SyntaxHighlightedCode = React.memo(function SyntaxHighlightedCode({
   useCycleEffect(() => {
     let cancelled = false
     setHighlightedHtml(null)
+    // Resolve inside the effect so a theme change re-runs highlighting; the
+    // light/dark keys feed the --shiki-light / --shiki-dark CSS var bridge.
+    const codeTheme = resolveCodeTheme(codeThemeId)
 
     async function highlight(): Promise<void> {
       try {
         const html = await codeToHtml(content, {
           lang: language,
           themes: {
-            dark: 'github-dark',
-            light: 'github-light',
+            dark: codeTheme.dark,
+            light: codeTheme.light,
           },
           defaultColor: false,
           transformers: [
@@ -191,7 +234,8 @@ const SyntaxHighlightedCode = React.memo(function SyntaxHighlightedCode({
     return () => {
       cancelled = true
     }
-  }, [content, language])
+    // codeThemeId is a dep so switching themes re-highlights with the new pair.
+  }, [content, language, codeThemeId])
 
   return (
     <div
@@ -200,14 +244,17 @@ const SyntaxHighlightedCode = React.memo(function SyntaxHighlightedCode({
     >
       {highlightedHtml ? (
         <div
-          className="skill-code-preview min-w-max text-[13px] font-mono leading-5"
+          // Font size is inline so the slider scales it; `.line` line-height in
+          // globals.css is unitless, so rows scale with the font.
+          style={{ fontSize: `${fontSizePx}px` }}
+          className="skill-code-preview min-w-max font-mono"
           // Shiki escapes the source text before returning HTML; this injects
           // only the highlighter's `<pre><code><span>` structure and styles.
           // react-doctor-disable-next-line react-doctor/no-danger -- highlightedHtml is Shiki output; Shiki HTML-escapes the source text and emits only its own <pre><code><span> markup, so there is no attacker-controlled HTML path here.
           dangerouslySetInnerHTML={{ __html: highlightedHtml }}
         />
       ) : (
-        <PlainTextCode lines={plainTextLines} />
+        <PlainTextCode lines={plainTextLines} fontSizePx={fontSizePx} />
       )}
       <div className="h-8" data-file-preview-bottom-spacer aria-hidden />
     </div>
@@ -216,28 +263,34 @@ const SyntaxHighlightedCode = React.memo(function SyntaxHighlightedCode({
 
 interface PlainTextCodeProps {
   lines: string[]
+  fontSizePx: number
 }
 
 /**
  * Immediate plain-text fallback shown while Shiki loads or when highlighting
  * fails for an unknown grammar.
  * @param lines - Raw content split on newline boundaries.
+ * @param fontSizePx - Code font size; unitless line-height keeps rows scaling.
  * @returns Line-numbered plain text table.
  * @example
- * <PlainTextCode lines={['first', 'second']} />
+ * <PlainTextCode lines={['first', 'second']} fontSizePx={13} />
  */
 const PlainTextCode = React.memo(function PlainTextCode({
   lines,
+  fontSizePx,
 }: PlainTextCodeProps): React.ReactElement {
   return (
-    <table className="w-full min-w-max text-[13px] font-mono leading-5">
+    <table
+      style={{ fontSize: `${fontSizePx}px` }}
+      className="w-full min-w-max font-mono leading-[1.5]"
+    >
       <tbody>
         {lines.map((line, idx) => (
           <tr key={idx} className="hover:bg-foreground/5">
-            <td className="sticky left-0 z-10 h-5 w-12 bg-muted px-2 py-0 text-right text-muted-foreground select-none border-r border-border/50 align-top">
+            <td className="sticky left-0 z-10 w-12 bg-muted px-2 py-0 text-right text-muted-foreground select-none border-r border-border/50 align-top">
               {idx + 1}
             </td>
-            <td className="h-5 px-3 py-0 whitespace-pre text-foreground">
+            <td className="px-3 py-0 whitespace-pre text-foreground">
               {line || ' '}
             </td>
           </tr>
@@ -249,17 +302,20 @@ const PlainTextCode = React.memo(function PlainTextCode({
 
 interface MarkdownReadingPreviewProps {
   content: string
+  fontSizePx: number
 }
 
 /**
  * Render Markdown documents in a readable inspector view.
  * @param content - Markdown source.
+ * @param fontSizePx - Body font size; headings/code/tables scale via em.
  * @returns Scrollable article with GitHub Flavored Markdown features enabled.
  * @example
- * <MarkdownReadingPreview content="# Title\n\n- [x] done" />
+ * <MarkdownReadingPreview content="# Title\n\n- [x] done" fontSizePx={14} />
  */
 const MarkdownReadingPreview = React.memo(function MarkdownReadingPreview({
   content,
+  fontSizePx,
 }: MarkdownReadingPreviewProps): React.ReactElement {
   const readableContent = useMemo(
     () => stripMarkdownFrontmatter(content),
@@ -272,7 +328,13 @@ const MarkdownReadingPreview = React.memo(function MarkdownReadingPreview({
       className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background"
       data-markdown-reading-scroll
     >
-      <article className="markdown-reading-prose min-w-0 max-w-full overflow-x-hidden break-words px-7 py-6 pb-10 text-sm leading-7 text-foreground">
+      {/* Inline font size is the scale anchor: child sizes are em (heading,
+          code, table), so the whole document scales from this one value.
+          `leading-loose` (2.0) matches the prior `leading-7` (28px ÷ 14px). */}
+      <article
+        style={{ fontSize: `${fontSizePx}px` }}
+        className="markdown-reading-prose min-w-0 max-w-full overflow-x-hidden break-words px-7 py-6 pb-10 leading-loose text-foreground"
+      >
         <ReactMarkdown
           remarkPlugins={remarkPlugins}
           components={markdownComponents}
@@ -398,7 +460,9 @@ const markdownComponents: Components = {
         <code
           {...domProps}
           className={cn(
-            'block max-w-full overflow-x-hidden rounded-md border border-border bg-muted px-3 py-2 font-mono text-xs leading-6 text-foreground',
+            // em sizes (text-xs≈0.857em, leading-6≈2) so block code scales
+            // with the Markdown body font instead of staying a fixed 12px.
+            'block max-w-full overflow-x-hidden rounded-md border border-border bg-muted px-3 py-2 font-mono text-[0.857em] leading-[2] text-foreground',
             className,
           )}
         >
@@ -426,7 +490,8 @@ const markdownComponents: Components = {
       <h1
         {...domProps}
         className={cn(
-          'mb-4 mt-0 border-b border-border pb-3 text-2xl font-semibold leading-tight',
+          // text-2xl (24px) as em (24÷14) so headings scale with the body font.
+          'mb-4 mt-0 border-b border-border pb-3 text-[1.714em] font-semibold leading-tight',
           className,
         )}
       >
@@ -441,7 +506,8 @@ const markdownComponents: Components = {
       <h2
         {...domProps}
         className={cn(
-          'mb-3 mt-7 border-b border-border/70 pb-2 text-xl font-semibold leading-tight',
+          // text-xl (20px) as em (20÷14) so headings scale with the body font.
+          'mb-3 mt-7 border-b border-border/70 pb-2 text-[1.429em] font-semibold leading-tight',
           className,
         )}
       >
@@ -455,7 +521,12 @@ const markdownComponents: Components = {
     return (
       <h3
         {...domProps}
-        className={cn('mb-2 mt-6 text-base font-semibold', className)}
+        className={cn(
+          // text-base (16px) as em (16÷14); leading-normal restores the line
+          // height that the named text-base utility used to supply.
+          'mb-2 mt-6 text-[1.143em] font-semibold leading-normal',
+          className,
+        )}
       >
         {children}
       </h3>
@@ -508,7 +579,9 @@ const markdownComponents: Components = {
         <table
           {...domProps}
           className={cn(
-            'w-full table-fixed border-collapse text-left text-sm',
+            // No explicit size: the table inherits the article's em font so it
+            // scales with the Markdown body (was a fixed text-sm/14px).
+            'w-full table-fixed border-collapse text-left',
             className,
           )}
         >

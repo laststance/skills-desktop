@@ -47,6 +47,14 @@ const shikiPreviewDeps = [
   'shiki/langs/zsh.mjs',
   'shiki/themes/github-dark.mjs',
   'shiki/themes/github-light.mjs',
+  'shiki/themes/light-plus.mjs',
+  'shiki/themes/dark-plus.mjs',
+  'shiki/themes/vitesse-light.mjs',
+  'shiki/themes/vitesse-dark.mjs',
+  'shiki/themes/one-light.mjs',
+  'shiki/themes/one-dark-pro.mjs',
+  'shiki/themes/catppuccin-latte.mjs',
+  'shiki/themes/catppuccin-mocha.mjs',
 ] as const
 
 export default defineConfig({

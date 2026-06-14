@@ -1,7 +1,10 @@
+import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
+import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
 import type { AbsolutePath, SkillFile } from '@/shared/types'
 import '@/renderer/src/styles/globals.css'
 
@@ -59,6 +62,30 @@ function makeHookReturn(overrides: {
   }
 }
 
+/**
+ * Render CodePreview inside a settings-preloaded Redux Provider. CodePreview
+ * reads the preview-typography settings via `useAppSelector`, so every render
+ * needs a store; `overrides` preloads non-default appearance values.
+ * @param overrides - Settings fields that differ from DEFAULT_SETTINGS.
+ * @returns The vitest-browser-react render result.
+ * @example
+ * await renderCodePreview({ codeFontSizePx: 16 })
+ */
+async function renderCodePreview(overrides: Partial<Settings> = {}) {
+  const { default: settingsReducer } =
+    await import('@/renderer/src/redux/slices/settingsSlice')
+  const store = configureStore({
+    reducer: { settings: settingsReducer },
+    preloadedState: { settings: { ...DEFAULT_SETTINGS, ...overrides } },
+  })
+  const { CodePreview } = await import('./CodePreview')
+  return render(
+    <Provider store={store}>
+      <CodePreview skillPath={SKILL_PATH} />
+    </Provider>,
+  )
+}
+
 describe('CodePreview', () => {
   beforeEach(() => {
     mockUseCodePreview.mockReset()
@@ -67,10 +94,9 @@ describe('CodePreview', () => {
   it('shows a loading placeholder while the file list is still being fetched', async () => {
     // Arrange
     mockUseCodePreview.mockReturnValue(makeHookReturn({ loading: true }))
-    const { CodePreview } = await import('./CodePreview')
 
     // Act
-    const screen = await render(<CodePreview skillPath={SKILL_PATH} />)
+    const screen = await renderCodePreview()
 
     // Assert
     await expect
@@ -83,10 +109,9 @@ describe('CodePreview', () => {
     mockUseCodePreview.mockReturnValue(
       makeHookReturn({ loading: false, files: [] }),
     )
-    const { CodePreview } = await import('./CodePreview')
 
     // Act
-    const screen = await render(<CodePreview skillPath={SKILL_PATH} />)
+    const screen = await renderCodePreview()
 
     // Assert
     await expect
@@ -109,10 +134,9 @@ describe('CodePreview', () => {
         content: { kind: 'empty' },
       }),
     )
-    const { CodePreview } = await import('./CodePreview')
 
     // Act
-    const screen = await render(<CodePreview skillPath={SKILL_PATH} />)
+    const screen = await renderCodePreview()
 
     // Assert
     await expect
@@ -140,13 +164,51 @@ describe('CodePreview', () => {
         setActiveFile: setActiveFileSpy,
       }),
     )
-    const { CodePreview } = await import('./CodePreview')
-    const screen = await render(<CodePreview skillPath={SKILL_PATH} />)
+    const screen = await renderCodePreview()
 
     // Act
     await screen.getByRole('tab', { name: /README\.md/ }).click()
 
     // Assert
     expect(setActiveFileSpy).toHaveBeenCalledWith(readmeFile.path)
+  })
+
+  it('renders the code preview at the user-configured code font size from settings', async () => {
+    // Arrange — the Redux→props seam: a non-default codeFontSizePx persisted in
+    // settings must flow through CodePreview into FileContent's code root.
+    const skillFile = makeFile()
+    mockUseCodePreview.mockReturnValue(
+      makeHookReturn({
+        files: [skillFile],
+        activeFile: skillFile.path,
+        content: {
+          kind: 'text',
+          data: {
+            name: 'SKILL.md',
+            content: 'const answer = 42\n',
+            extension: '.md',
+            lineCount: 1,
+          },
+        },
+      }),
+    )
+
+    // Act
+    const screen = await renderCodePreview({ codeFontSizePx: 16 })
+
+    // Assert — the code scroll root (Shiki div or plain-text fallback table)
+    // carries the configured 16px inline font size.
+    const scrollPane = screen.container.querySelector(
+      '[data-file-preview-scroll]',
+    )
+    expect(scrollPane).toBeInstanceOf(HTMLElement)
+    await expect
+      .poll(() =>
+        (scrollPane as HTMLElement).firstElementChild instanceof HTMLElement
+          ? ((scrollPane as HTMLElement).firstElementChild as HTMLElement).style
+              .fontSize
+          : null,
+      )
+      .toBe('16px')
   })
 })

@@ -440,3 +440,52 @@ describe('FileContent Reading Mode element styling', () => {
     expect(headerCell?.closest('table')).toBeInstanceOf(HTMLTableElement)
   })
 })
+
+describe('FileContent preview typography scaling', () => {
+  it('renders the Markdown reading view at the configured body font size', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent
+        content={makeTextContent({ content: '# Title\n\nBody text' })}
+        markdownFontSizePx={18}
+      />,
+    )
+
+    // Act
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+
+    // Assert — the reading article is the scale anchor: its inline font size
+    // matches the configured body size exactly.
+    const article = screen.container.querySelector('.markdown-reading-prose')
+    expect(article).toBeInstanceOf(HTMLElement)
+    expect((article as HTMLElement).style.fontSize).toBe('18px')
+  })
+
+  it('renders the code view at the configured code font size', async () => {
+    // Arrange — default mode is code, so the syntax-highlighted view shows
+    // first; its scroll root carries the configured inline font size whether
+    // Shiki has resolved (div) or the plain-text fallback (table) is showing.
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent
+        content={makeTextContent({ content: 'const answer = 42\n' })}
+        codeFontSizePx={16}
+      />,
+    )
+
+    // Act
+    const scrollPane = screen.container.querySelector(
+      '[data-file-preview-scroll]',
+    )
+    expect(scrollPane).toBeInstanceOf(HTMLElement)
+
+    // Assert
+    await expect
+      .poll(() => {
+        const root = (scrollPane as HTMLElement).firstElementChild
+        return root instanceof HTMLElement ? root.style.fontSize : null
+      })
+      .toBe('16px')
+  })
+})
