@@ -1,4 +1,10 @@
-import { mkdtempSync, rmSync, symlinkSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+} from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -239,16 +245,33 @@ describe('isSharedAgentPath', () => {
     // Arrange
     const tempDir = mkdtempSync(join(tmpdir(), 'shared-agent-alias-'))
     tempDirsToCleanUp.push(tempDir)
+    // The realpath stages only fire when the symlink target exists on disk: a
+    // dangling link makes realpathSync.native throw ENOENT and
+    // isSharedAgentPath returns false. Dev machines running skills-desktop
+    // already have SOURCE_DIR, but a clean CI runner does not. Create it only
+    // when absent and remove only what we created, so a real source dir is
+    // never touched and the realpath branch is covered in every environment.
+    const sourceDirCreatedForTest = !existsSync(SOURCE_DIR)
+    if (sourceDirCreatedForTest) {
+      mkdirSync(SOURCE_DIR, { recursive: true })
+    }
     const aliasSymlinkPath = join(tempDir, 'aliased-skills')
     // Real on-disk symlink: aliased-skills → ~/.agents/skills (SOURCE_DIR).
     // The link's own string path is not in SHARED_AGENT_PATHS, so only the
     // realpath stage can catch it.
     symlinkSync(SOURCE_DIR, aliasSymlinkPath)
 
-    // Act
-    const isShared = isSharedAgentPath(aliasSymlinkPath)
+    try {
+      // Act
+      const isShared = isSharedAgentPath(aliasSymlinkPath)
 
-    // Assert
-    expect(isShared).toBe(true)
+      // Assert
+      expect(isShared).toBe(true)
+    } finally {
+      // Remove only the empty SOURCE_DIR this test created — never a real one.
+      if (sourceDirCreatedForTest) {
+        rmSync(SOURCE_DIR, { recursive: true, force: true })
+      }
+    }
   })
 })

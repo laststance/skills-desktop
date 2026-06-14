@@ -9,6 +9,12 @@ import { readSettingsFile, writeSettingsFile } from '../helpers/settings-file'
 
 type IsolatedHomeUse = (home: string) => Promise<void>
 
+// The three appearance fields these specs probe, all optional so the same shape
+// fits a partially-written settings.json, the Redux slice, and a missing file.
+type AppearanceProbe = Partial<
+  Pick<Settings, 'markdownFontSizePx' | 'codeFontSizePx' | 'codeThemeId'>
+>
+
 /**
  * Provide an isolated HOME for the Appearance round-trip specs, optionally
  * pre-staging a `settings.json` before Electron launches so the load path can
@@ -65,15 +71,8 @@ savedAppearanceTest(
     await appWindow.waitForFunction(() => {
       const store = window.__store__
       if (!store) return false
-      const settings = (
-        store.getState() as {
-          settings?: {
-            markdownFontSizePx?: number
-            codeFontSizePx?: number
-            codeThemeId?: string
-          }
-        }
-      ).settings
+      const settings = (store.getState() as { settings?: AppearanceProbe })
+        .settings
       return (
         settings?.markdownFontSizePx === 20 &&
         settings?.codeFontSizePx === 18 &&
@@ -84,11 +83,7 @@ savedAppearanceTest(
     // Assert — the renderer cache mirrors exactly what was on disk.
     const hydrated = await appWindow.evaluate(() => {
       const state = window.__store__?.getState() as {
-        settings?: {
-          markdownFontSizePx?: number
-          codeFontSizePx?: number
-          codeThemeId?: string
-        }
+        settings?: AppearanceProbe
       }
       return state?.settings ?? null
     })
@@ -97,11 +92,7 @@ savedAppearanceTest(
     expect(hydrated?.codeThemeId).toBe('vitesse')
 
     // Assert — a read-only launch leaves the on-disk file untouched.
-    const persisted = readSettingsFile(isolatedHome) as {
-      markdownFontSizePx?: number
-      codeFontSizePx?: number
-      codeThemeId?: string
-    } | null
+    const persisted = readSettingsFile(isolatedHome) as AppearanceProbe | null
     expect(persisted?.markdownFontSizePx).toBe(20)
     expect(persisted?.codeFontSizePx).toBe(18)
     expect(persisted?.codeThemeId).toBe('vitesse')
@@ -131,19 +122,12 @@ freshAppearanceTest(
     await expect
       .poll(
         () =>
-          (
-            readSettingsFile(isolatedHome) as {
-              markdownFontSizePx?: number
-            } | null
-          )?.markdownFontSizePx,
+          (readSettingsFile(isolatedHome) as AppearanceProbe | null)
+            ?.markdownFontSizePx,
       )
       .toBe(16)
 
-    const persisted = readSettingsFile(isolatedHome) as {
-      markdownFontSizePx?: number
-      codeFontSizePx?: number
-      codeThemeId?: string
-    } | null
+    const persisted = readSettingsFile(isolatedHome) as AppearanceProbe | null
     expect(persisted?.markdownFontSizePx).toBe(16)
     expect(persisted?.codeFontSizePx).toBe(11)
     expect(persisted?.codeThemeId).toBe('one')
