@@ -185,11 +185,14 @@ export type BatchItemIndex = number
 export type BatchItemCount = number
 
 /**
- * A non-negative count of agent symlinks. Used in two senses, both of which
- * count valid symlinks (broken/missing entries are excluded by callers):
+ * A non-negative count of agent symlink records. Used in three senses:
  * - Sync operation outcomes — `SyncExecuteResult.{created,replaced,skipped}`
- *   and `SyncPreviewResult.{toCreate,alreadySynced}`
- * - "Agents linked to this skill" — `Skill.symlinkCount`
+ *   and `SyncPreviewResult.{toCreate,alreadySynced}` — count valid symlinks
+ *   only (broken/missing excluded by those callers).
+ * - "Agents linked to this skill" — `Skill.symlinkCount` — valid links only.
+ * - Health tallies — the Symlink Health widget counts symlink records by
+ *   status, so every status bucket (valid/broken/inaccessible/missing) is a
+ *   `SymlinkCount`.
  * Distinguishes "number of symlinks" from other counts (skill counts,
  * install counts) at sync IPC boundaries and skill-list rendering.
  * @example 12
@@ -775,7 +778,7 @@ export interface InstallProgress {
   /** Human-readable status line surfaced in the UI. */
   message: string
   /** Overall completion percentage (0–100) when the stage can report one. */
-  percent?: number
+  percent?: ProgressPercent
 }
 
 /**
@@ -916,7 +919,7 @@ export interface RemoveAllFromAgentResult {
   /** true if the folder was emptied successfully. */
   success: boolean
   /** Number of entries (symlinks and local folders) removed. @example 5 */
-  removedCount: number
+  removedCount: SkillCount
   /** Failure reason when `success` is false. */
   error?: string
 }

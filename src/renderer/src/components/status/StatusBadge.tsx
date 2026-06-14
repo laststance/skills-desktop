@@ -7,13 +7,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/renderer/src/components/ui/tooltip'
-import type { SymlinkStatus } from '@/shared/types'
+import type { AgentName } from '@/shared/constants'
+import type { SymlinkCount, SymlinkStatus } from '@/shared/types'
 
 interface StatusBadgeProps {
   status: SymlinkStatus
-  count?: number
+  count?: SymlinkCount
   /** Agent names to display in tooltip (e.g. ["Claude", "Cursor"]) */
-  agentNames?: string[]
+  agentNames?: AgentName[]
 }
 
 const STATUS_CONFIG = {

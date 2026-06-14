@@ -36,6 +36,7 @@ import type { RootState } from '@/renderer/src/redux/store'
 // survives removing + re-adding the widget.
 // ============================================================================
 
+/** Redux state for the dashboard canvas: the persisted page arrangement, the active page, edit-mode toggle, and one-time onboarding flags. */
 interface DashboardState {
   pages: DashboardPage[]
   currentPageId: DashboardPageId | null

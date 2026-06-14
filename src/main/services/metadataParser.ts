@@ -1,7 +1,7 @@
 import { readFile } from 'fs/promises'
 import { join, basename } from 'path'
 
-import type { SkillMetadata } from '@/shared/types'
+import type { AbsolutePath, SkillMetadata } from '@/shared/types'
 
 /**
  * Parse SKILL.md frontmatter to extract metadata
@@ -12,7 +12,7 @@ import type { SkillMetadata } from '@/shared/types'
  * // => { name: 'theme-generator', description: 'Generate color themes...' }
  */
 export async function parseSkillMetadata(
-  skillPath: string,
+  skillPath: AbsolutePath,
 ): Promise<SkillMetadata> {
   const skillMdPath = join(skillPath, 'SKILL.md')
   const dirName = basename(skillPath) || 'Unknown'

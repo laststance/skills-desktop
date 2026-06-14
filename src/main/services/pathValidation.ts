@@ -2,6 +2,7 @@ import { realpathSync } from 'node:fs'
 import { isAbsolute, relative, resolve } from 'node:path'
 
 import { AGENTS, SOURCE_DIR } from '@/main/constants'
+import type { AbsolutePath } from '@/shared/types'
 
 /**
  * Validate that a file path is within an allowed base directory.
@@ -24,9 +25,9 @@ import { AGENTS, SOURCE_DIR } from '@/main/constants'
  * // => throws Error('Path traversal attempt detected')
  */
 export function validatePath(
-  requestedPath: string,
-  allowedBases: string[],
-): string {
+  requestedPath: AbsolutePath,
+  allowedBases: AbsolutePath[],
+): AbsolutePath {
   const normalized = resolve(requestedPath)
 
   // Two-mode comparison: if the request path exists we canonicalize both
@@ -70,6 +71,6 @@ export function validatePath(
  * getAllowedBases()
  * // => ['/Users/x/.agents/skills', '/Users/x/.claude/skills', '/Users/x/.cursor/skills', ...]
  */
-export function getAllowedBases(): string[] {
+export function getAllowedBases(): AbsolutePath[] {
   return [...new Set([SOURCE_DIR, ...AGENTS.map((a) => a.path)])]
 }

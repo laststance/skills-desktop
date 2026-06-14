@@ -10,8 +10,9 @@ import type { Brand } from '@/shared/types'
 // ============================================================================
 
 /**
- * All widget types recognized by the dashboard.
- * Experimental widgets are hidden behind `experimental: true` in the registry.
+ * @description All widget types recognized by the dashboard. Experimental
+ * widgets are hidden behind `experimental: true` in the registry.
+ * @example "stats"
  */
 export type WidgetType =
   | 'stats'
@@ -82,21 +83,32 @@ export type GridRowSpan = number
  * { id: 'w_abc', type: 'stats', x: 0, y: 0, w: 6, h: 2 }
  */
 export interface WidgetInstance {
+  /** Unique instance id (distinct from the page id and the widget type). */
   id: WidgetInstanceId
+  /** Which registered widget this instance renders. */
   type: WidgetType
+  /** Zero-based grid column where the widget begins. */
   x: GridColumnStart
+  /** Zero-based grid row where the widget begins. */
   y: GridRowStart
+  /** Width in grid columns. */
   w: GridColumnSpan
+  /** Height in grid rows. */
   h: GridRowSpan
 }
 
 /**
  * A dashboard page holding up to ~4 widgets. When the user adds a widget and
  * no empty grid cell fits, a new page is created automatically.
+ * @example
+ * { id: 'p_abc', name: 'Overview', widgets: [{ id: 'w_abc', type: 'stats', x: 0, y: 0, w: 6, h: 2 }] }
  */
 export interface DashboardPage {
+  /** Unique id for this page (tab). */
   id: DashboardPageId
+  /** Human-readable tab name shown in the page strip. */
   name: DashboardPageName
+  /** Widgets placed on this page, each with its own grid placement. */
   widgets: WidgetInstance[]
 }
 
@@ -109,18 +121,25 @@ export interface DashboardPage {
 // ============================================================================
 
 /**
- * Grid size bounds for a widget, in 6-col cells.
+ * @description Grid size bounds for a widget, in 6-col cells. Used for both
+ * `defaultSize` and `minSize` in a WidgetDefinition.
  */
 export interface WidgetSize {
+  /** Width in grid columns. */
   w: GridColumnSpan
+  /** Height in grid rows. */
   h: GridRowSpan
 }
 
 /**
- * Static description of a widget type — label, icon, default/min size, and
- * the component that renders its body inside the WidgetShell frame.
+ * @description Static description of a widget type — label, icon, default/min
+ * size, and the component that renders its body inside the WidgetShell frame.
+ * One entry per WidgetType lives in `widgets/registry.ts`.
+ * @example
+ * { type: 'stats', label: 'Skill Stats', description: 'Totals at a glance', icon: BarChart3, defaultSize: { w: 6, h: 2 }, minSize: { w: 3, h: 2 }, Component: StatsWidget }
  */
 export interface WidgetDefinition {
+  /** Which widget type this definition describes. */
   type: WidgetType
   /** Short label shown in WidgetPicker and in the widget's title bar. */
   label: string

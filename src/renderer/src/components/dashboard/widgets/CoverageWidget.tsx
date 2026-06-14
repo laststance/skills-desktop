@@ -5,7 +5,7 @@ import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectAgentItems } from '@/renderer/src/redux/slices/agentsSlice'
 import { selectSkillsItems } from '@/renderer/src/redux/slices/skillsSlice'
 import { selectAgent } from '@/renderer/src/redux/slices/uiSlice'
-import type { Agent, AgentId } from '@/shared/types'
+import type { Agent, AgentId, SkillCount } from '@/shared/types'
 
 // ----------------------------------------------------------------------------
 // Pure helpers
@@ -14,11 +14,11 @@ import type { Agent, AgentId } from '@/shared/types'
 interface CoverageRow {
   agent: Agent
   /** Total = symlinked + local — what shows up in that agent's skills dir. */
-  total: number
+  total: SkillCount
   /** Symlinked-from-source count (already on `agent.skillCount`). */
-  linked: number
+  linked: SkillCount
   /** Locally-created skills in that agent's directory. */
-  local: number
+  local: SkillCount
   /** `total / totalSkillsInSource` as 0..1, clamped to 1. */
   ratio: number
 }
@@ -37,7 +37,7 @@ interface CoverageRow {
  */
 function buildCoverageRows(
   agents: readonly Agent[],
-  totalSourceSkills: number,
+  totalSourceSkills: SkillCount,
 ): CoverageRow[] {
   return agents.map((agent) => {
     const total = agent.skillCount + agent.localSkillCount

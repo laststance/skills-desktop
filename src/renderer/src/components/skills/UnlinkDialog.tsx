@@ -9,7 +9,7 @@ import {
   unlinkSkillFromAgent,
 } from '@/renderer/src/redux/slices/skillsSlice'
 import { refreshAllData } from '@/renderer/src/redux/thunks'
-import type { SymlinkInfo } from '@/shared/types'
+import type { SkillName, SymlinkInfo } from '@/shared/types'
 
 /**
  * Three exhaustive states the dialog has to cover:
@@ -38,7 +38,7 @@ interface UnlinkCopy {
 /** Pure mapper from symlink shape → strings shown in the dialog and toast. */
 function getUnlinkCopy(
   variant: UnlinkVariant,
-  skillName: string,
+  skillName: SkillName,
   agentName: string,
 ): UnlinkCopy {
   return match(variant)

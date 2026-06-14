@@ -2,7 +2,7 @@ import { access, lstat, readdir } from 'fs/promises'
 import { join } from 'path'
 
 import { AGENTS } from '@/main/constants'
-import type { Agent } from '@/shared/types'
+import type { AbsolutePath, Agent, SkillCount } from '@/shared/types'
 
 import { filesystemIdentityFromStats } from './filesystemIdentity'
 import { checkSymlinkStatus } from './symlinkChecker'
@@ -73,7 +73,7 @@ export async function scanAgents(): Promise<Agent[]> {
  * @param agentPath - Path to agent's skills directory
  * @returns true if directory exists
  */
-async function checkAgentExists(agentPath: string): Promise<boolean> {
+async function checkAgentExists(agentPath: AbsolutePath): Promise<boolean> {
   try {
     await access(agentPath)
     return true
@@ -90,7 +90,7 @@ async function checkAgentExists(agentPath: string): Promise<boolean> {
  * countAgentSkills('/Users/.claude/skills')
  * // => 3 (only symlinks pointing to existing targets)
  */
-async function countAgentSkills(agentPath: string): Promise<number> {
+async function countAgentSkills(agentPath: AbsolutePath): Promise<SkillCount> {
   try {
     const entries = await readdir(agentPath, { withFileTypes: true })
     const symlinks = entries.filter((e) => e.isSymbolicLink())
@@ -118,7 +118,7 @@ async function countAgentSkills(agentPath: string): Promise<number> {
  * countLocalSkills('/Users/.claude/skills')
  * // => 1 (folders with SKILL.md, not symlinks)
  */
-async function countLocalSkills(agentPath: string): Promise<number> {
+async function countLocalSkills(agentPath: AbsolutePath): Promise<SkillCount> {
   try {
     const entries = await readdir(agentPath, { withFileTypes: true })
     // Get directories that are NOT symlinks and don't start with '.'

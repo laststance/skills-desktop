@@ -54,7 +54,13 @@ import {
 } from '@/renderer/src/redux/slices/uiSlice'
 import { BULK_ITEM_FAILED_EVENT } from '@/renderer/src/utils/bulkOpVisuals'
 import { GSTACK_REPOSITORY_URL } from '@/shared/constants'
-import type { Skill, SkillName, SymlinkInfo } from '@/shared/types'
+import type { AgentId, AgentName } from '@/shared/constants'
+import type {
+  Skill,
+  SkillName,
+  SymlinkCount,
+  SymlinkInfo,
+} from '@/shared/types'
 
 import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
 import { computeRangeSelection } from './bulkDeleteHelpers'
@@ -79,12 +85,12 @@ interface SkillItemProps {
 }
 
 interface SymlinkStatusBuckets {
-  validCount: number
-  brokenCount: number
-  inaccessibleCount: number
-  validAgentNames: string[]
-  brokenAgentNames: string[]
-  inaccessibleAgentNames: string[]
+  validCount: SymlinkCount
+  brokenCount: SymlinkCount
+  inaccessibleCount: SymlinkCount
+  validAgentNames: AgentName[]
+  brokenAgentNames: AgentName[]
+  inaccessibleAgentNames: AgentName[]
 }
 
 /** How long the partial-failure red edge persists (ms). */
@@ -135,7 +141,7 @@ function getSymlinkStatusBuckets(
  * canBulkSelectRenderedSkill(null, [], 'task') // => true
  */
 function canBulkSelectRenderedSkill(
-  selectedAgentId: string | null,
+  selectedAgentId: AgentId | null,
   visibleNames: readonly SkillName[],
   skillName: SkillName,
 ): boolean {

@@ -1,6 +1,10 @@
 import { REPO_PATTERN, SKILL_NAME_PATTERN } from '@/main/utils/skillIdentifiers'
 import { repositoryId } from '@/shared/types'
-import type { RankingFilter, SkillSearchResult } from '@/shared/types'
+import type {
+  InstallCount,
+  RankingFilter,
+  SkillSearchResult,
+} from '@/shared/types'
 
 /** Maps ranking filter to skills.sh URL */
 const LEADERBOARD_URLS: Record<RankingFilter, string> = {
@@ -28,7 +32,7 @@ const MAX_RESULTS = 50
  * parseFormattedCount('927')    // => 927
  * parseFormattedCount('12.3K')  // => 12300
  */
-export function parseFormattedCount(text: string): number {
+export function parseFormattedCount(text: string): InstallCount {
   const trimmed = text.trim().replace(/,/g, '')
   const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*([KMB])?$/i)
   if (!match) return 0

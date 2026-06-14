@@ -7,7 +7,9 @@ import type {
   BulkDeleteResult,
   BulkUnlinkItemResult,
   BulkUnlinkResult,
+  SkillCount,
   SkillName,
+  SymlinkCount,
 } from '@/shared/types'
 
 /**
@@ -28,9 +30,9 @@ export interface ToolbarStateInput {
   view: ToolbarView
   agentId: AgentId | null
   /** Number of items currently ticked (not intersected with visible). */
-  count: number
+  count: SkillCount
   /** Number of items currently ticked AND visible. */
-  visibleCount: number
+  visibleCount: SkillCount
   /**
    * Human-readable agent name (e.g. "Cursor"). When provided in agent view,
    * it is embedded directly into the primary label and aria label ("Unlink
@@ -157,7 +159,9 @@ export const getToolbarState = ({
  *   { skillName: 'b', outcome: 'error', symlinksRemoved: 1, cascadeAgents: ['claude-code'], error: { message: 'EACCES', code: 'EACCES' } },
  * ] }) // => 3
  */
-export const countOrphanSymlinksRemoved = (result: BulkDeleteResult): number =>
+export const countOrphanSymlinksRemoved = (
+  result: BulkDeleteResult,
+): SymlinkCount =>
   result.items.reduce((total, item) => {
     if (item.outcome === 'orphan-cleared') return total + item.symlinksRemoved
     if (item.outcome === 'error' && item.cascadeAgents) {

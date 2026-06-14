@@ -9,6 +9,7 @@ import type {
   AbsolutePath,
   FilesystemEntryIdentity,
   SkillName,
+  SymlinkCount,
   SymlinkInfo,
   SymlinkStatus,
 } from '@/shared/types'
@@ -35,7 +36,9 @@ interface LinkOrLocalResult {
  * // => { status: 'valid', isLocal: false } (symlink)
  * // => { status: 'valid', isLocal: true } (real folder)
  */
-async function checkLinkOrLocal(path: string): Promise<LinkOrLocalResult> {
+async function checkLinkOrLocal(
+  path: AbsolutePath,
+): Promise<LinkOrLocalResult> {
   try {
     const stats = await lstat(path)
 
@@ -239,7 +242,7 @@ export async function readSymlinkTargetIfPresent(
  * // => '/home/me/.agents/skills/foo' when `.config` points into dotfiles
  */
 export async function resolveRawSymlinkTarget(
-  linkPath: string,
+  linkPath: AbsolutePath,
   target: string,
 ): Promise<AbsolutePath> {
   if (isAbsolute(target)) {
@@ -279,6 +282,6 @@ async function resolveSymlinkTarget(
  * countValidSymlinks([{ status: 'valid' }, { status: 'missing' }])
  * // => 1
  */
-export function countValidSymlinks(symlinks: SymlinkInfo[]): number {
+export function countValidSymlinks(symlinks: SymlinkInfo[]): SymlinkCount {
   return symlinks.filter((s) => s.status === 'valid').length
 }

@@ -11,6 +11,7 @@ import type {
   ClearOrphanSymlinksResult,
   ClearBrokenSymlinkSlotsOptions,
   ClearBrokenSymlinkSlotsResult,
+  DeleteProgressPayload,
   FilesystemEntryIdentity,
   RestoreDeletedSkillResult,
   Skill,
@@ -74,7 +75,7 @@ interface SkillsState {
   /** true while the BulkCopyToAgentsModal (global-view multi-skill copy) is open. */
   bulkCopyModalOpen: boolean
   /** Progress counter emitted by main for batches with total >= 10. */
-  bulkProgress: { current: number; total: number } | null
+  bulkProgress: DeleteProgressPayload | null
 }
 
 const initialState: SkillsState = {
@@ -121,12 +122,20 @@ function reconcileByLiveNames(
   return names.filter((name) => liveNames.has(name))
 }
 
+/**
+ * Reviewed bulk-delete row identity: the display name plus the exact source
+ * path and filesystem identity main revalidates before deleting the source.
+ */
 export type DeleteSelectedSkillTarget = {
   skillName: SkillName
   skillPath: AbsolutePath
   filesystemIdentity: FilesystemEntryIdentity
 }
 
+/**
+ * Reviewed bulk-unlink row identity: the display name plus the exact agent link
+ * path and its symlink target captured when the confirm dialog opened.
+ */
 export type UnlinkSelectedSkillTarget = {
   skillName: SkillName
   linkPath: AbsolutePath
@@ -630,7 +639,7 @@ const skillsSlice = createSlice({
      */
     setBulkProgress: (
       state,
-      action: PayloadAction<{ current: number; total: number } | null>,
+      action: PayloadAction<DeleteProgressPayload | null>,
     ) => {
       state.bulkProgress = action.payload
     },
@@ -887,4 +896,4 @@ export const selectBulkCopyModalOpen = (state: RootState): boolean =>
   state.skills.bulkCopyModalOpen
 export const selectBulkProgress = (
   state: RootState,
-): { current: number; total: number } | null => state.skills.bulkProgress
+): DeleteProgressPayload | null => state.skills.bulkProgress

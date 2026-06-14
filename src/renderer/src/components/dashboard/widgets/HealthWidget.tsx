@@ -6,17 +6,17 @@ import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectSkillsItems } from '@/renderer/src/redux/slices/skillsSlice'
 import { openSymlinkCleanupDialog } from '@/renderer/src/redux/slices/uiSlice'
 import { pluralize } from '@/renderer/src/utils/pluralize'
-import type { Skill } from '@/shared/types'
+import type { Skill, SymlinkCount } from '@/shared/types'
 
 // ----------------------------------------------------------------------------
 // Pure helpers
 // ----------------------------------------------------------------------------
 
 interface HealthTotals {
-  valid: number
-  broken: number
-  inaccessible: number
-  missing: number
+  valid: SymlinkCount
+  broken: SymlinkCount
+  inaccessible: SymlinkCount
+  missing: SymlinkCount
 }
 
 /**
@@ -66,9 +66,9 @@ function healthPercentLabel(totals: HealthTotals): string | null {
 // ----------------------------------------------------------------------------
 
 interface HealthBarProps {
-  valid: number
-  cleanupIssues: number
-  manualReview: number
+  valid: SymlinkCount
+  cleanupIssues: SymlinkCount
+  manualReview: SymlinkCount
 }
 
 const HealthBar = React.memo(function HealthBar({

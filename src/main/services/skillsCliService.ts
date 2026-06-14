@@ -14,6 +14,8 @@ import type {
   InstallOptions,
   CliCommandResult,
   InstallProgress,
+  ProgressPercent,
+  SearchQuery,
 } from '@/shared/types'
 
 /**
@@ -127,7 +129,7 @@ class SkillsCliService extends EventEmitter {
    * search('react')
    * // => [{ rank: 1, name: 'vercel-react-best-practices', repo: 'vercel-labs/agent-skills', url: '...' }]
    */
-  async search(query: string): Promise<SkillSearchResult[]> {
+  async search(query: SearchQuery): Promise<SkillSearchResult[]> {
     const result = await this.execCli(['find', query])
     if (!result.success) {
       return []
@@ -357,9 +359,9 @@ class SkillsCliService extends EventEmitter {
   private emitProgress(
     phase: InstallProgress['phase'],
     message: string,
-    percent?: number,
+    percent?: ProgressPercent,
   ): void {
-    this.emit('progress', { phase, message, percent } as InstallProgress)
+    this.emit('progress', { phase, message, percent })
   }
 }
 

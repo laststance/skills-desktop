@@ -12,6 +12,7 @@ import type {
   IsoTimestamp,
   RepositoryId,
   SearchQuery,
+  SkillCount,
   SkillName,
   SourceStats,
   SyncExecuteOptions,
@@ -37,14 +38,21 @@ import {
 /** Bookmark with install status, used for the detail modal */
 export type BookmarkForDetail = BookmarkedSkill & { isInstalled: boolean }
 
+/** Sort direction for the skill-name sort (A→Z vs Z→A). */
 export type SortOrder = 'asc' | 'desc'
+/** Positive skill-type include mode for the agent-view list filter. */
 export type SkillTypeFilter =
   | 'all'
   | 'symlinked'
   | 'local'
   | 'gstack'
   | 'orphan'
+/** SkillTypeFilter minus `'all'` — the type modes that can be subtracted as excludes. */
 export type ExcludableSkillTypeFilter = Exclude<SkillTypeFilter, 'all'>
+/**
+ * Which top-level main-content tab is active.
+ * @example 'installed'
+ */
 export type ActiveTab = 'installed' | 'marketplace'
 /**
  * Which field the search box matches against.
@@ -86,7 +94,7 @@ interface UndoToastState {
  */
 export interface SourceFilterSummary {
   repositoryIds: RepositoryId[]
-  localHiddenCount: number
+  localHiddenCount: SkillCount
 }
 
 /**
@@ -107,6 +115,10 @@ interface BulkConfirmBase {
   sourceSummary: SourceFilterSummary | null
 }
 
+/**
+ * Discriminated bulk-confirm payload: the delete variant carries reviewed
+ * source/orphan targets, the unlink variant carries the target agent + links.
+ */
 export type BulkConfirmState =
   | (BulkConfirmBase & {
       kind: 'delete'
@@ -129,6 +141,7 @@ export type BulkConfirmState =
       unlinkTargets: UnlinkSelectedSkillTarget[]
     })
 
+/** Redux state for global UI surface coordination: tabs, filters, search, sync, and bulk/cleanup dialogs. */
 interface UiState {
   /** Active main content tab */
   activeTab: ActiveTab

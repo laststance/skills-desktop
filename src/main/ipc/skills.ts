@@ -641,10 +641,7 @@ export function registerSkillsHandlers(): void {
         return { success: false, error: 'Agent not found' }
       }
 
-      const derivedLinkPath = assertAgentSlotPath(
-        linkPath,
-        agent.path as AbsolutePath,
-      )
+      const derivedLinkPath = assertAgentSlotPath(linkPath, agent.path)
 
       // Allow agent dirs (for local skills) AND SOURCE_DIR (for symlinked skills).
       // validatePath calls realpathSync, which follows the symlink to its source
@@ -739,7 +736,7 @@ export function registerSkillsHandlers(): void {
 
       const derivedAgentPath = assertDerivedPathMatch(
         agentPath,
-        agent.path as AbsolutePath,
+        agent.path,
         'agent path',
       )
 

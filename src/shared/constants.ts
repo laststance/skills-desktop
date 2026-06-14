@@ -790,6 +790,7 @@ export type ThemePresetName = keyof typeof THEME_PRESETS
 /**
  * Agent IDs used in app state and IPC.
  * Derived from AGENT_DEFINITIONS to stay in sync with skills CLI.
+ * @example "claude-code"
  */
 export type AgentId = (typeof AGENT_DEFINITIONS)[number]['id']
 
@@ -822,6 +823,7 @@ export const AGENT_IDS = _AGENT_IDS as unknown as readonly [
 /**
  * Agent display names shown in UI.
  * Derived from AGENT_DEFINITIONS to avoid manual union maintenance.
+ * @example "Claude Code"
  */
 export type AgentName = (typeof AGENT_DEFINITIONS)[number]['name']
 
