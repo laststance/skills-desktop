@@ -1147,6 +1147,10 @@ export const DEFAULT_CODE_THEME_ID: CodeThemeId = 'github'
  * z.enum(CODE_THEME_IDS).safeParse('vitesse').success // => true
  */
 const _CODE_THEME_IDS = CODE_THEME_DEFINITIONS.map((theme) => theme.id)
+if (_CODE_THEME_IDS.length === 0) {
+  /* v8 ignore next -- defensive: CODE_THEME_DEFINITIONS is a non-empty const array literal, so no runtime input can empty it; only a future refactor would trip this */
+  throw new Error('CODE_THEME_DEFINITIONS must not be empty')
+}
 export const CODE_THEME_IDS = _CODE_THEME_IDS as unknown as readonly [
   CodeThemeId,
   ...CodeThemeId[],
