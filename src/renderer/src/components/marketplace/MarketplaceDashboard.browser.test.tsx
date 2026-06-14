@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { RootState } from '@/renderer/src/redux/store'
@@ -20,7 +20,30 @@ import type {
 // is active with no skill previewed. It reads three slices (installed count,
 // bookmark count, trending leaderboard cache) and lets the user pick a trending
 // row for preview. This file guards: the trending-row click → previewSkill
-// selection, and the loading vs settled-empty trending placeholders.
+// selection, the loading/error/settled-empty trending placeholders, and the
+// mount fetch that populates the panel.
+
+// The dashboard dispatches `loadLeaderboard('trending')` on mount, whose thunk
+// reads `window.electron.marketplace.leaderboard`. Browser-mode tests replace
+// the preload bridge, so the IPC surface is stubbed. The default is a
+// never-resolving promise: it lets each test pin the leaderboard state it seeded
+// without a late `fulfilled` action racing in and overwriting the rendered
+// branch (the fresh-cache TTL guard already blocks the fetch for seeded tests).
+const mockLeaderboard = vi.fn()
+
+beforeEach(() => {
+  mockLeaderboard.mockReset()
+  mockLeaderboard.mockReturnValue(new Promise<SkillSearchResult[]>(() => {}))
+  vi.stubGlobal('electron', {
+    marketplace: {
+      leaderboard: mockLeaderboard,
+    },
+  })
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 /**
  * Build a `SkillSearchResult` fixture so each test varies only the field it
@@ -58,8 +81,10 @@ function makeLeaderboardData(
 
 /**
  * Render MarketplaceDashboard over the real marketplace + skills + bookmark
- * reducers, seeded with `preloadedState`. The dashboard has no mount thunk, so
- * the seeded state is rendered verbatim with no async settling.
+ * reducers, seeded with `preloadedState`. The dashboard fires a mount fetch, but
+ * the stubbed IPC defaults to a never-resolving promise so seeded state renders
+ * without a late `fulfilled` overwriting it; fresh seeded entries also short-
+ * circuit the thunk via its cache-TTL guard.
  * @param preloadedState - Partial marketplace + skills + bookmarks state to seed
  */
 async function renderDashboard(preloadedState: {
@@ -170,16 +195,31 @@ describe('MarketplaceDashboard — trending preview selection', () => {
 })
 
 describe('MarketplaceDashboard — trending placeholders', () => {
-  it('shows a loading placeholder while the trending leaderboard has not loaded yet', async () => {
+  it('requests the trending leaderboard on mount so the panel populates itself', async () => {
+    // Arrange — an unseeded trending slot means the cache-TTL guard cannot
+    // short-circuit, so the mount thunk must reach the IPC bridge.
+    // Act
+    await renderDashboard({ marketplace: { leaderboard: {} } })
+
+    // Assert — the dashboard owns its own trending fetch (it is not piggy-backing
+    // on SkillsMarketplace's default 'all-time' request), keyed to the trending
+    // filter so the skeleton resolves without the user opening the ranking tab.
+    await expect
+      .poll(() => mockLeaderboard.mock.calls.length)
+      .toBeGreaterThan(0)
+    expect(mockLeaderboard).toHaveBeenCalledWith({ filter: 'trending' })
+  })
+
+  it('shows a loading skeleton, announced to screen readers, while the trending leaderboard has not loaded yet', async () => {
     // Arrange — no trending cache entry means trendingData is undefined, which
     // the dashboard treats as still loading.
     const { screen } = await renderDashboard({
       marketplace: { leaderboard: {} },
     })
 
-    // Act + Assert
+    // Act + Assert — pulsing rows expose an accessible loading status
     await expect
-      .element(screen.getByText('Loading trending skills...'))
+      .element(screen.getByRole('status', { name: 'Loading trending skills' }))
       .toBeInTheDocument()
   })
 
@@ -201,6 +241,31 @@ describe('MarketplaceDashboard — trending placeholders', () => {
     // Act + Assert
     await expect
       .element(screen.getByText('No trending skills available'))
+      .toBeInTheDocument()
+  })
+
+  it('shows an offline notice when the trending fetch failed and nothing is cached', async () => {
+    // Arrange — an errored trending entry with zero cached skills is the
+    // failure state, distinct from both loading and a settled-empty list. The
+    // mount thunk re-fetches errored filters (errors bypass the TTL gate), so
+    // the IPC mock must reject for state to settle back on the error branch
+    // instead of getting stuck on the in-flight skeleton.
+    mockLeaderboard.mockRejectedValue(new Error('network down'))
+    const { screen } = await renderDashboard({
+      marketplace: {
+        leaderboard: {
+          trending: makeLeaderboardData({
+            skills: [],
+            status: 'error',
+            error: 'network down',
+          }),
+        },
+      },
+    })
+
+    // Act + Assert
+    await expect
+      .element(screen.getByText('Trending unavailable'))
       .toBeInTheDocument()
   })
 })

@@ -297,6 +297,12 @@ Rules:
 - Tabs should be compact and stable.
 - Use underline, border, or subtle background to communicate selection.
 - Do not increase container height on hover or active state.
+- A segmented control sits left-aligned under its own label, sized to its
+  content — it does not stretch full-width or center in the row. Stretching reads
+  as a primary tab bar; a secondary setting toggle should stay a compact,
+  left-anchored affordance. Apply `justify-start` to the ToggleGroup whenever its
+  parent is a full-width flex column. (macOS System Settings, Linear preference
+  toggles.)
 - Keep Radix roles in mind when testing: some toggle groups expose `radio`.
 
 ### Lists and Rows
@@ -335,6 +341,24 @@ Rules:
 - Never dress an expected empty as a failure: no `h-12` icon or `text-lg`
   heading for a search miss. This is the operational reading of principle 5's
   "no noisy empty states."
+
+### Loading and Skeletons
+
+- A fixed-shape skeleton — not a single "Loading…" text line — is the default
+  first-load placeholder for any list or panel whose populated layout is known.
+  Mirror the populated layout (same row count, same chip / text / trailing
+  structure) so the panel does not reflow when real data lands. (Linear, GitHub,
+  Vercel load lists this way.)
+- A skeleton is silent to assistive tech: the visible "Loading…" text it
+  replaces was announced; pulsing bars are not. So the skeleton container MUST
+  carry `role="status"` plus a descriptive `aria-label` (e.g. "Loading trending
+  skills"), and the inner placeholder rows are `aria-hidden`. Swapping announced
+  text for a bare skeleton is an accessibility regression, not a neutral visual
+  change.
+- A panel that renders a skeleton must actually request its data. A skeleton with
+  no fetch behind it is a permanent broken-looking spinner; own the fetch on
+  mount (guarded by a cache TTL) wherever the populated state is the intended
+  resting state.
 
 ### Cards and Widgets
 

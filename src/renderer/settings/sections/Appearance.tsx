@@ -73,7 +73,7 @@ const BackgroundBlurRangeInput = React.memo(function BackgroundBlurRangeInput({
       value={value}
       onChange={handleInputChange}
       aria-label={label}
-      className="h-2 min-w-0 flex-1 accent-primary"
+      className="h-2 min-w-0 flex-1 accent-primary rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     />
   )
 })
@@ -171,6 +171,7 @@ export const Appearance = React.memo(function Appearance(): React.ReactElement {
           type="single"
           variant="outline"
           size="sm"
+          className="justify-start"
           value={installedSearchCountDisplay}
           onValueChange={handleSearchCountDisplayChange}
           aria-label={INSTALLED_SEARCH_COUNT_DISPLAY_LABEL}

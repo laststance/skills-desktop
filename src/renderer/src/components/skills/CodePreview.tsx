@@ -43,7 +43,7 @@ export const CodePreview = React.memo(function CodePreview({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
         Loading files...
       </div>
     )
@@ -51,7 +51,7 @@ export const CodePreview = React.memo(function CodePreview({
 
   if (files.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
         No preview files found
       </div>
     )

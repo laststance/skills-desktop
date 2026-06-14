@@ -82,7 +82,7 @@ export const SourceLink = React.memo(function SourceLink({
             type="button"
             onClick={handleFilterClick}
             aria-label={`Filter skills by repository ${source}`}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             {source}
           </button>
@@ -92,7 +92,7 @@ export const SourceLink = React.memo(function SourceLink({
             rel="noreferrer"
             onClick={handleExternalClick}
             aria-label={`Open ${source} on GitHub`}
-            className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center"
+            className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <ExternalLink className="h-3 w-3" />
           </a>

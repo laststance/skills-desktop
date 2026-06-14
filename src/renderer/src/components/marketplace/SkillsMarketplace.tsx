@@ -82,14 +82,9 @@ export const SkillsMarketplace = React.memo(
     return (
       <div className="h-full flex flex-col">
         <div className="p-6 pb-4 space-y-4">
-          <div>
-            <h1 className="text-[28px] font-bold text-foreground">
-              Skills Marketplace
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Browse, search and install skills from skills.sh
-            </p>
-          </div>
+          <h1 className="text-lg font-semibold text-foreground">
+            Skills Marketplace
+          </h1>
 
           <RankingTabs
             value={rankingFilter}

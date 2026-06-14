@@ -11,7 +11,7 @@ const Card = React.memo(function Card({
     <div
       ref={ref}
       className={cn(
-        'rounded-xl border border-border bg-card text-card-foreground shadow',
+        'rounded-lg border border-border bg-card text-card-foreground',
         className,
       )}
       {...props}

@@ -159,7 +159,7 @@ export const AgentItem = React.memo(function AgentItem({
               type="button"
               aria-label={`Filter skills by ${agent.name}${skillCountText ? ` (${skillCountText})` : ''}`}
               className={cn(
-                'flex w-full items-center gap-2 min-h-11 py-1.5 px-2 rounded-md transition-colors border-l-4 border-l-transparent text-left',
+                'flex w-full items-center gap-2 min-h-11 py-1.5 px-2 rounded-md transition-colors border-l-4 border-l-transparent text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
                 agent.exists && 'cursor-pointer hover:bg-muted/50',
                 isSelected && 'border-l-primary bg-primary/10',
               )}

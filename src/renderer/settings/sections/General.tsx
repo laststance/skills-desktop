@@ -301,6 +301,7 @@ export const General = React.memo(function General(): React.ReactElement {
           type="single"
           variant="outline"
           size="sm"
+          className="justify-start"
           value={settings.defaultSkillTab}
           onValueChange={handleDefaultTabChange}
           aria-label="Default tab when opening a skill"
