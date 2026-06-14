@@ -601,21 +601,6 @@ export const selectVisibleIneligibleSelectedCount = createSelector(
   },
 )
 
-/**
- * Memoized Set wrapper around `inFlightDeleteNames` so SkillItem's O(1)
- * `.has(name)` lookup does not trigger a Set-rebuild on every row render.
- * Without this, every row would create a fresh Set — the rebuild is cheap per
- * call but pathological across virtualized rows during a large batch.
- * @returns ReadonlySet<SkillName>
- * @example
- * const inFlight = useAppSelector(selectInFlightDeleteNamesSet)
- * const isFading = inFlight.has(skill.name)
- */
-export const selectInFlightDeleteNamesSet = createSelector(
-  [selectInFlightDeleteNames],
-  (names): ReadonlySet<SkillName> => new Set(names),
-)
-
 // Shared empty Set sentinel — returned by `selectAnyInFlightRemovalSet` when
 // no bulk delete is in flight, avoiding an allocation on every idle render.
 const EMPTY_SKILL_NAME_SET: ReadonlySet<SkillName> = new Set()

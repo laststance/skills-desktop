@@ -389,6 +389,24 @@ async function moveDirectoryNoOverwrite(
   await fs.rm(source, { recursive: true, force: true })
 }
 
+/**
+ * Normalize a caught identity-validation error into a TrashError, reused by the staged-source and staged-local-copy revert paths so message/code shaping stays consistent.
+ * @param error - The caught error (already a TrashError, or an unknown fs/identity error).
+ * @param messagePrefix - Human prefix prepended when wrapping a non-TrashError.
+ * @returns The error unchanged when it is already a TrashError; otherwise a new TrashError(`${messagePrefix}: <message>`, <code>).
+ * @example
+ * coerceTrashError(new Error('boom'), 'Failed to validate staged source')
+ * // => TrashError('Failed to validate staged source: boom')
+ */
+function coerceTrashError(error: unknown, messagePrefix: string): TrashError {
+  return error instanceof TrashError
+    ? error
+    : new TrashError(
+        `${messagePrefix}: ${extractErrorMessage(error)}`,
+        errorCode(error),
+      )
+}
+
 interface SourceMoveFailure {
   error: TrashError
   preserveEntryDirForManualRecovery: boolean
@@ -420,24 +438,18 @@ async function moveSourceIntoTrashEntry(
       } catch {
         return {
           preserveEntryDirForManualRecovery: true,
-          error:
-            identityError instanceof TrashError
-              ? identityError
-              : new TrashError(
-                  `Failed to validate staged source: ${extractErrorMessage(identityError)}`,
-                  errorCode(identityError),
-                ),
+          error: coerceTrashError(
+            identityError,
+            'Failed to validate staged source',
+          ),
         }
       }
       return {
         preserveEntryDirForManualRecovery: false,
-        error:
-          identityError instanceof TrashError
-            ? identityError
-            : new TrashError(
-                `Failed to validate staged source: ${extractErrorMessage(identityError)}`,
-                errorCode(identityError),
-              ),
+        error: coerceTrashError(
+          identityError,
+          'Failed to validate staged source',
+        ),
       }
     }
     return null
@@ -461,13 +473,10 @@ async function moveSourceIntoTrashEntry(
           await moveDirectoryNoOverwrite(siblingStagePath, sourcePath)
           return {
             preserveEntryDirForManualRecovery: false,
-            error:
-              identityError instanceof TrashError
-                ? identityError
-                : new TrashError(
-                    `Failed to validate staged source: ${extractErrorMessage(identityError)}`,
-                    errorCode(identityError),
-                  ),
+            error: coerceTrashError(
+              identityError,
+              'Failed to validate staged source',
+            ),
           }
         }
         await copyDirectoryNoOverwrite(siblingStagePath, entrySourceDir)
@@ -1314,13 +1323,10 @@ async function moveLocalOnlyToTrash(
                 kind: 'fatal' as const,
                 preserveEntryDir: false,
                 strandedAgentId: copy.agentId,
-                error:
-                  identityError instanceof TrashError
-                    ? identityError
-                    : new TrashError(
-                        `Failed to validate staged local copy (agent=${copy.agentId}): ${extractErrorMessage(identityError)}`,
-                        errorCode(identityError),
-                      ),
+                error: coerceTrashError(
+                  identityError,
+                  `Failed to validate staged local copy (agent=${copy.agentId})`,
+                ),
               }
             }
             await copyDirectoryNoOverwrite(siblingStagePath, stagedPath)
@@ -1481,11 +1487,7 @@ async function moveLocalOnlyToTrash(
  */
 export async function evict(id: TombstoneId): Promise<void> {
   const entryDir = join(TRASH_DIR, id)
-  const timer = evictTimers.get(id)
-  if (timer) {
-    clearTimeout(timer)
-    evictTimers.delete(id)
-  }
+  cancelEvictTimer(id)
   try {
     await fs.rm(entryDir, { recursive: true, force: true })
   } catch (error) {

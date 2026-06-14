@@ -1,5 +1,5 @@
 import type { PayloadAction } from '@reduxjs/toolkit'
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
+import { createSlice, createAsyncThunk, isAnyOf } from '@reduxjs/toolkit'
 import { match } from 'ts-pattern'
 
 import type { RootState } from '@/renderer/src/redux/store'
@@ -572,31 +572,6 @@ const uiSlice = createSlice({
         state.syncResult = null
         state.error = action.error.message ?? 'Sync failed'
       })
-      // ── Bulk delete/unlink: clear stale undo toast atomically ──────────
-      // A new bulk operation supersedes any in-flight undo affordance. The
-      // fresh fulfilled outcome will dispatch `setUndoToast` from MainContent.
-      .addCase(deleteSelectedSkills.pending, (state) => {
-        state.undoToast = null
-        state.bulkConfirm = null
-        // Bulk op committed — leaving mode ON would strand a checkbox column
-        // over a fresh post-delete list the user is now observing for result.
-        state.bulkSelectMode = false
-      })
-      .addCase(clearSelectedOrphanSymlinks.pending, (state) => {
-        state.undoToast = null
-        state.bulkConfirm = null
-        state.bulkSelectMode = false
-      })
-      .addCase(clearSelectedBrokenSymlinkSlots.pending, (state) => {
-        state.undoToast = null
-        state.bulkConfirm = null
-        state.bulkSelectMode = false
-      })
-      .addCase(unlinkSelectedFromAgent.pending, (state) => {
-        state.undoToast = null
-        state.bulkConfirm = null
-        state.bulkSelectMode = false
-      })
       // ── Prune stale repo filter ids when the skill inventory reloads ─────
       // After a refetch (delete, sync, manual refresh) a previously-ticked repo
       // may no longer back any skill. Drop those ids from `selectedSources` so
@@ -614,6 +589,24 @@ const uiSlice = createSlice({
           survivingSources.has(id),
         )
       })
+      // ── Bulk delete/unlink: clear stale undo toast atomically ──────────
+      // A new bulk operation supersedes any in-flight undo affordance. The
+      // fresh fulfilled outcome will dispatch `setUndoToast` from MainContent.
+      .addMatcher(
+        isAnyOf(
+          deleteSelectedSkills.pending,
+          clearSelectedOrphanSymlinks.pending,
+          clearSelectedBrokenSymlinkSlots.pending,
+          unlinkSelectedFromAgent.pending,
+        ),
+        (state) => {
+          state.undoToast = null
+          state.bulkConfirm = null
+          // Bulk op committed — leaving mode ON would strand a checkbox column
+          // over a fresh post-delete list the user is now observing for result.
+          state.bulkSelectMode = false
+        },
+      )
   },
 })
 

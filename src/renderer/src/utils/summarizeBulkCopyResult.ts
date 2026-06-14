@@ -1,3 +1,4 @@
+import { pluralize } from '@/renderer/src/utils/pluralize'
 import type { BulkCopyToAgentsResult } from '@/shared/types'
 
 /** Sonner toast severity for a bulk copy outcome. */
@@ -47,7 +48,7 @@ export function summarizeBulkCopyResult(
   }
 
   const skillCount = perSkill.length
-  const skillWord = skillCount === 1 ? 'skill' : 'skills'
+  const skillWord = pluralize(skillCount, 'skill')
   const totalCopied = perSkill.reduce((sum, outcome) => sum + outcome.copied, 0)
   const failureLines = perSkill.flatMap((outcome) =>
     outcome.failures.map(
@@ -68,7 +69,7 @@ export function summarizeBulkCopyResult(
 
   // Some targets rejected (e.g. destination already exists) — partial success.
   if (failureCount > 0) {
-    const copyWord = failureCount === 1 ? 'copy' : 'copies'
+    const copyWord = pluralize(failureCount, 'copy', 'copies')
     const fullySucceeded = perSkill.filter(
       (outcome) => outcome.failures.length === 0,
     ).length
@@ -82,7 +83,7 @@ export function summarizeBulkCopyResult(
   // Every selected skill copied to every chosen agent. Use the authoritative
   // ticked-agent count for the title rather than inferring it from a skill's
   // `copied`, so the wording can't drift if the IPC contract ever changes.
-  const agentWord = targetAgentCount === 1 ? 'agent' : 'agents'
+  const agentWord = pluralize(targetAgentCount, 'agent')
   return {
     tone: 'success',
     title: `Copied ${skillCount} ${skillWord} to ${targetAgentCount} ${agentWord}`,

@@ -53,6 +53,20 @@ type AgentPathRemovalResult =
   | { success: false; error: string; code?: string }
 
 /**
+ * Normalize a caught error into the IPC error shape, preferring TrashError's own message/code over generic extraction, so TrashError-aware normalization lives in one place across the skills delete/clear catch blocks.
+ * @param error - The caught error (unknown type).
+ * @returns `{ message, code }` where code is undefined when none is available.
+ * @example describeError(new TrashError('busy', 'EBUSY')) // => { message: 'busy', code: 'EBUSY' }
+ */
+function describeError(error: unknown): { message: string; code?: string } {
+  return {
+    message:
+      error instanceof TrashError ? error.message : extractErrorMessage(error),
+    code: error instanceof TrashError ? error.code : errorCode(error),
+  }
+}
+
+/**
  * Require a renderer path to name the same derived main-process path.
  * @param rendererPath - Path supplied over IPC for backward-compatible callers
  * @param derivedPath - Path calculated from validated main-process state
@@ -449,9 +463,7 @@ async function clearReviewedBrokenSymlinkSlot(item: {
       outcome: 'unlinked',
     }
   } catch (error) {
-    const message =
-      error instanceof TrashError ? error.message : extractErrorMessage(error)
-    const code = error instanceof TrashError ? error.code : errorCode(error)
+    const { message, code } = describeError(error)
     return {
       agentId: item.agentId,
       skillName: item.linkName,
@@ -603,9 +615,7 @@ async function clearReviewedOrphanRecord(item: {
       cascadeAgents,
     }
   } catch (error) {
-    const message =
-      error instanceof TrashError ? error.message : extractErrorMessage(error)
-    const code = error instanceof TrashError ? error.code : errorCode(error)
+    const { message, code } = describeError(error)
     // Surface any partial cleanup so the summary mirrors disk state instead of
     // reporting zero removed when N-1 of N agents already unlinked.
     return {
@@ -889,12 +899,7 @@ export function registerSkillsHandlers(): void {
             cascadeAgents: moveResult.cascadeAgents,
           })
         } catch (error) {
-          const message =
-            error instanceof TrashError
-              ? error.message
-              : extractErrorMessage(error)
-          const code =
-            error instanceof TrashError ? error.code : errorCode(error)
+          const { message, code } = describeError(error)
           results.push({
             skillName,
             outcome: 'error',
