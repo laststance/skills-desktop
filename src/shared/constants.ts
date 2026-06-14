@@ -1025,6 +1025,17 @@ export const COPIED_FEEDBACK_DURATION_MS = 1600
 export const SEARCH_DEBOUNCE_MS = 300
 
 /**
+ * Quiet period (ms) a Settings range slider waits after the last drag tick
+ * before persisting via the `settings:set` IPC. Collapses a drag's burst of
+ * input events into one disk write while the local draft updates instantly.
+ * Consumed by `useDraftRangeSetting` for the appearance sliders (blur,
+ * markdown/code font size).
+ * @example
+ * useDraftRangeSetting(value, def, commit, SETTINGS_RANGE_DEBOUNCE_MS)
+ */
+export const SETTINGS_RANGE_DEBOUNCE_MS = 120
+
+/**
  * Batch size at which bulk ops surface a live per-item progress counter in the
  * toolbar. Below this, the final `.fulfilled` toast is a better UX than a
  * flashing "k of n". Main-process `emitProgress` and renderer-side display
@@ -1071,6 +1082,75 @@ export const REPOSITORY_FACET_LABEL_MAX_CHARS = 28
  * <Button style={{ minHeight: MIN_TOUCH_TARGET_PX }}>Clear</Button>
  */
 export const MIN_TOUCH_TARGET_PX = 44
+
+/**
+ * Curated Shiki light/dark theme pairs offered in Settings → Appearance for the
+ * file/code preview pane. `light` / `dark` are the exact Shiki bundled-theme
+ * module names (`shiki/themes/<name>.mjs`) — they MUST stay in lockstep with
+ * the static imports in `shikiPreview.ts` (a renderer-only drift-guard test
+ * asserts every name here is bundled). `id` is the value persisted in
+ * `settings.json` (`codeThemeId`); `label` is the picker display string.
+ *
+ * Each pair is symmetrical (one light + one dark) so the preview recolors
+ * correctly whether the app is in light or dark mode — the same `themes:
+ * { light, dark }` object Shiki's `codeToHtml` consumes.
+ * @example
+ * CODE_THEME_DEFINITIONS.find((t) => t.id === 'one') // => { id:'one', label:'One', light:'one-light', dark:'one-dark-pro' }
+ */
+export const CODE_THEME_DEFINITIONS = [
+  { id: 'github', label: 'GitHub', light: 'github-light', dark: 'github-dark' },
+  {
+    id: 'vs',
+    label: 'Visual Studio',
+    light: 'light-plus',
+    dark: 'dark-plus',
+  },
+  {
+    id: 'vitesse',
+    label: 'Vitesse',
+    light: 'vitesse-light',
+    dark: 'vitesse-dark',
+  },
+  { id: 'one', label: 'One', light: 'one-light', dark: 'one-dark-pro' },
+  {
+    id: 'catppuccin',
+    label: 'Catppuccin',
+    light: 'catppuccin-latte',
+    dark: 'catppuccin-mocha',
+  },
+] as const satisfies readonly {
+  id: string
+  label: string
+  light: string
+  dark: string
+}[]
+
+/**
+ * Persisted code-theme identifier. Derived from CODE_THEME_DEFINITIONS so the
+ * Settings schema enum, the picker, and the resolver share one source of truth.
+ * @example "github"
+ */
+export type CodeThemeId = (typeof CODE_THEME_DEFINITIONS)[number]['id']
+
+/**
+ * Default code-theme id. GitHub matches the preview pane's prior hard-coded
+ * `github-light` / `github-dark` pair, so existing installs render unchanged.
+ */
+export const DEFAULT_CODE_THEME_ID: CodeThemeId = 'github'
+
+/**
+ * Runtime non-empty tuple of every CodeThemeId for `z.enum`, derived from
+ * CODE_THEME_DEFINITIONS so the two stay in lockstep automatically. Mirrors the
+ * `AGENT_IDS` cast pattern — `.map()` returns `CodeThemeId[]`, which the type
+ * system cannot narrow to the non-empty tuple `z.enum` requires.
+ * @example
+ * z.enum(CODE_THEME_IDS).safeParse('vitesse').success // => true
+ */
+const _CODE_THEME_IDS = CODE_THEME_DEFINITIONS.map((theme) => theme.id)
+export const CODE_THEME_IDS = _CODE_THEME_IDS as unknown as readonly [
+  CodeThemeId,
+  ...CodeThemeId[],
+]
 
 /**
  * Keyboard shortcuts surfaced read-only in the Settings window's

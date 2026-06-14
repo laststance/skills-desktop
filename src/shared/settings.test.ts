@@ -2,8 +2,12 @@ import { describe, it, expect } from 'vitest'
 
 import { AGENT_DEFINITIONS } from './constants'
 import {
+  CODE_FONT_SIZE_MAX_PX,
+  CODE_FONT_SIZE_MIN_PX,
   DEFAULT_SETTINGS,
   getWindowBackgroundOpacity,
+  MARKDOWN_FONT_SIZE_MAX_PX,
+  MARKDOWN_FONT_SIZE_MIN_PX,
   normalizeWindowBackgroundBlurRadius,
   SettingsSchema,
   WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
@@ -231,6 +235,99 @@ describe('SettingsSchema', () => {
     expect(() =>
       SettingsSchema.parse({ windowBackgroundBlurRadius: 12.5 }),
     ).toThrow()
+  })
+
+  it('defaults the Markdown reading font size to the prior 14px preview base', () => {
+    // Arrange / Act
+    const parsed = SettingsSchema.parse({})
+    // Assert
+    expect(parsed.markdownFontSizePx).toBe(14)
+  })
+
+  it('accepts a Markdown reading font size at the bounded min and max', () => {
+    // Arrange / Act
+    const atMin = SettingsSchema.parse({
+      markdownFontSizePx: MARKDOWN_FONT_SIZE_MIN_PX,
+    })
+    const atMax = SettingsSchema.parse({
+      markdownFontSizePx: MARKDOWN_FONT_SIZE_MAX_PX,
+    })
+    // Assert
+    expect(atMin.markdownFontSizePx).toBe(12)
+    expect(atMax.markdownFontSizePx).toBe(22)
+  })
+
+  it('rejects a Markdown reading font size outside the bounded range', () => {
+    // Arrange / Act / Assert
+    expect(() =>
+      SettingsSchema.parse({
+        markdownFontSizePx: MARKDOWN_FONT_SIZE_MIN_PX - 1,
+      }),
+    ).toThrow()
+    expect(() =>
+      SettingsSchema.parse({
+        markdownFontSizePx: MARKDOWN_FONT_SIZE_MAX_PX + 1,
+      }),
+    ).toThrow()
+  })
+
+  it('rejects a non-integer Markdown reading font size', () => {
+    // Arrange / Act / Assert
+    expect(() => SettingsSchema.parse({ markdownFontSizePx: 14.5 })).toThrow()
+  })
+
+  it('defaults the code preview font size to the prior 13px preview base', () => {
+    // Arrange / Act
+    const parsed = SettingsSchema.parse({})
+    // Assert
+    expect(parsed.codeFontSizePx).toBe(13)
+  })
+
+  it('accepts a code preview font size at the bounded min and max', () => {
+    // Arrange / Act
+    const atMin = SettingsSchema.parse({
+      codeFontSizePx: CODE_FONT_SIZE_MIN_PX,
+    })
+    const atMax = SettingsSchema.parse({
+      codeFontSizePx: CODE_FONT_SIZE_MAX_PX,
+    })
+    // Assert
+    expect(atMin.codeFontSizePx).toBe(11)
+    expect(atMax.codeFontSizePx).toBe(20)
+  })
+
+  it('rejects a code preview font size outside the bounded range', () => {
+    // Arrange / Act / Assert
+    expect(() =>
+      SettingsSchema.parse({ codeFontSizePx: CODE_FONT_SIZE_MIN_PX - 1 }),
+    ).toThrow()
+    expect(() =>
+      SettingsSchema.parse({ codeFontSizePx: CODE_FONT_SIZE_MAX_PX + 1 }),
+    ).toThrow()
+  })
+
+  it('rejects a non-integer code preview font size', () => {
+    // Arrange / Act / Assert
+    expect(() => SettingsSchema.parse({ codeFontSizePx: 13.5 })).toThrow()
+  })
+
+  it('defaults the code theme to the GitHub pair on a fresh parse', () => {
+    // Arrange / Act
+    const parsed = SettingsSchema.parse({})
+    // Assert
+    expect(parsed.codeThemeId).toBe('github')
+  })
+
+  it('persists choosing a curated code theme', () => {
+    // Arrange / Act
+    const parsed = SettingsSchema.parse({ codeThemeId: 'vitesse' })
+    // Assert
+    expect(parsed.codeThemeId).toBe('vitesse')
+  })
+
+  it('rejects an unknown code theme id', () => {
+    // Arrange / Act / Assert
+    expect(() => SettingsSchema.parse({ codeThemeId: 'dracula' })).toThrow()
   })
 
   it('hides no agents by default on a fresh parse', () => {

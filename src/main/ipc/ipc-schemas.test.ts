@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  CODE_FONT_SIZE_MAX_PX,
+  CODE_FONT_SIZE_MIN_PX,
+  MARKDOWN_FONT_SIZE_MAX_PX,
+  MARKDOWN_FONT_SIZE_MIN_PX,
   WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
   WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
 } from '@/shared/settings'
@@ -530,6 +534,21 @@ describe('settings:set lockstep with SettingsSchema', () => {
     )
   })
 
+  it('lets the user persist a Markdown reading font size within bounds', () => {
+    // Arrange / Act / Assert
+    expect(schema.safeParse([{ markdownFontSizePx: 18 }]).success).toBe(true)
+  })
+
+  it('lets the user persist a code preview font size within bounds', () => {
+    // Arrange / Act / Assert
+    expect(schema.safeParse([{ codeFontSizePx: 16 }]).success).toBe(true)
+  })
+
+  it('lets the user persist a curated code theme id', () => {
+    // Arrange / Act / Assert
+    expect(schema.safeParse([{ codeThemeId: 'catppuccin' }]).success).toBe(true)
+  })
+
   it('lets the user persist the auto-download updates toggle', () => {
     // Arrange / Act / Assert
     expect(schema.safeParse([{ autoDownloadUpdates: true }]).success).toBe(true)
@@ -600,6 +619,39 @@ describe('settings:set lockstep with SettingsSchema', () => {
     ).toBe(false)
   })
 
+  it('blocks an out-of-range or fractional Markdown reading font size', () => {
+    // Act / Assert — below the allowed minimum is rejected.
+    expect(
+      schema.safeParse([{ markdownFontSizePx: MARKDOWN_FONT_SIZE_MIN_PX - 1 }])
+        .success,
+    ).toBe(false)
+    // Act / Assert — a fractional size is rejected.
+    expect(schema.safeParse([{ markdownFontSizePx: 14.5 }]).success).toBe(false)
+    // Act / Assert — above the allowed maximum is rejected.
+    expect(
+      schema.safeParse([{ markdownFontSizePx: MARKDOWN_FONT_SIZE_MAX_PX + 1 }])
+        .success,
+    ).toBe(false)
+  })
+
+  it('blocks an out-of-range or fractional code preview font size', () => {
+    // Act / Assert — below the allowed minimum is rejected.
+    expect(
+      schema.safeParse([{ codeFontSizePx: CODE_FONT_SIZE_MIN_PX - 1 }]).success,
+    ).toBe(false)
+    // Act / Assert — a fractional size is rejected.
+    expect(schema.safeParse([{ codeFontSizePx: 13.5 }]).success).toBe(false)
+    // Act / Assert — above the allowed maximum is rejected.
+    expect(
+      schema.safeParse([{ codeFontSizePx: CODE_FONT_SIZE_MAX_PX + 1 }]).success,
+    ).toBe(false)
+  })
+
+  it('blocks an unknown code theme id from reaching disk', () => {
+    // Arrange / Act / Assert
+    expect(schema.safeParse([{ codeThemeId: 'dracula' }]).success).toBe(false)
+  })
+
   it('blocks an unknown extra settings key (.strict()) from a compromised renderer', () => {
     // Arrange / Act / Assert
     expect(
@@ -631,6 +683,38 @@ describe('settings:set lockstep with SettingsSchema', () => {
 
     // Assert
     expect('windowBackgroundBlurRadius' in parsed[0]).toBe(false)
+  })
+
+  it('does not wipe a persisted Markdown reading font size when an unrelated setting is saved', () => {
+    // Arrange
+    // Same wipe-on-every-write guard as blur: the IPC schema declares the
+    // size as a bare `.optional()` off the shared non-defaulting font schema
+    // rather than chaining `.optional()` over the disk schema's
+    // `.default(14)`. If it re-inherited the default, every unrelated
+    // settings:set would parse to `{ markdownFontSizePx: 14 }` and reset a
+    // user's chosen reading size.
+
+    // Act
+    const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
+
+    // Assert
+    expect('markdownFontSizePx' in parsed[0]).toBe(false)
+  })
+
+  it('does not wipe a persisted code preview font size when an unrelated setting is saved', () => {
+    // Arrange / Act
+    const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
+
+    // Assert
+    expect('codeFontSizePx' in parsed[0]).toBe(false)
+  })
+
+  it('does not wipe a persisted code theme choice when an unrelated setting is saved', () => {
+    // Arrange / Act
+    const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
+
+    // Assert
+    expect('codeThemeId' in parsed[0]).toBe(false)
   })
 
   it('does not wipe a persisted auto-download opt-in when an unrelated setting is saved', () => {
