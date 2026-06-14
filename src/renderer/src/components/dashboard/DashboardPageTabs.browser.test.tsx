@@ -145,11 +145,17 @@ describe('DashboardPageTabs', () => {
     // Act: click the trailing "+" button.
     await screen.getByRole('button', { name: 'Add page' }).click()
 
-    // Assert: a second page was created and became current.
+    // Assert: a second page was created and became the current selection.
     await expect.poll(() => store.getState().dashboard.pages.length).toBe(2)
     await expect
       .poll(() => store.getState().dashboard.pages[1]?.name)
       .toBe('Page 2')
+    await expect
+      .poll(() => {
+        const dashboard = store.getState().dashboard
+        return dashboard.currentPageId === dashboard.pages[1]?.id
+      })
+      .toBe(true)
   })
 
   it('moves selection to the previous tab on ArrowLeft and wraps past the first', async () => {
