@@ -3,7 +3,14 @@ import React, { useMemo } from 'react'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectAgentItems } from '@/renderer/src/redux/slices/agentsSlice'
 import { selectSkillsItems } from '@/renderer/src/redux/slices/skillsSlice'
-import type { Agent, Skill, SymlinkInfo, SymlinkStatus } from '@/shared/types'
+import type {
+  Agent,
+  AgentName,
+  Skill,
+  SkillName,
+  SymlinkInfo,
+  SymlinkStatus,
+} from '@/shared/types'
 
 // ----------------------------------------------------------------------------
 // Tunables
@@ -59,7 +66,7 @@ function buildSymlinkIndex(skills: readonly Skill[]): Map<string, SymlinkInfo> {
  * @example abbreviateAgentName("Cursor")      // => "CU" (first two chars, uppercased)
  * @example abbreviateAgentName("Codex")       // => "CO"
  */
-function abbreviateAgentName(name: string): string {
+function abbreviateAgentName(name: AgentName): string {
   const parts = name.trim().split(/\s+/)
   if (parts.length >= 2) {
     return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase()
@@ -75,8 +82,8 @@ function abbreviateAgentName(name: string): string {
 // ----------------------------------------------------------------------------
 
 interface HeatmapCellProps {
-  skillName: string
-  agentName: string
+  skillName: SkillName
+  agentName: AgentName
   link: SymlinkInfo | undefined
 }
 
@@ -109,7 +116,7 @@ const HeatmapCell = React.memo(function HeatmapCell({
 // ----------------------------------------------------------------------------
 
 interface HeatmapRowProps {
-  skillName: string
+  skillName: SkillName
   agents: readonly Agent[]
   symlinkIndex: Map<string, SymlinkInfo>
 }

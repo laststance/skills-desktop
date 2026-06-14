@@ -212,6 +212,16 @@ export const SettingsSchema = z.object({
  * `app.getPath('userData')/settings.json`. Renderers cache this in
  * Redux but never write directly — see `src/main/services/settings.ts`
  * and the `settings:get` / `settings:set` IPC handlers.
+ * @example
+ * {
+ *   defaultSkillTab: 'files',
+ *   preferredTerminal: 'iterm',
+ *   windowSize: { width: 1280, height: 800 },
+ *   windowBackgroundBlurRadius: 24,
+ *   installedSearchCountDisplay: 'tab',
+ *   hiddenAgentIds: ['claude-code'],
+ *   autoDownloadUpdates: false,
+ * }
  */
 export type Settings = z.infer<typeof SettingsSchema>
 

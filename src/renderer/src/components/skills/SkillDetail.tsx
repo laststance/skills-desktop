@@ -12,7 +12,12 @@ import type { LocationViewModel } from '@/renderer/src/utils/getLocationViewMode
 import { getLocationViewModel } from '@/renderer/src/utils/getLocationViewModel'
 import { COPIED_FEEDBACK_DURATION_MS } from '@/shared/constants'
 import type { Settings } from '@/shared/settings'
-import type { Skill, SymlinkInfo } from '@/shared/types'
+import type {
+  AbsolutePath,
+  Skill,
+  SymlinkCount,
+  SymlinkInfo,
+} from '@/shared/types'
 
 import { CodePreview } from './CodePreview'
 import { SourceLink } from './SourceLink'
@@ -161,15 +166,15 @@ const OrphanNotice = React.memo(function OrphanNotice(): React.ReactElement {
 interface InfoViewProps {
   skill: Skill
   filteredSymlinks: SymlinkInfo[]
-  validCount: number
-  brokenCount: number
-  inaccessibleCount: number
+  validCount: SymlinkCount
+  brokenCount: SymlinkCount
+  inaccessibleCount: SymlinkCount
   location: LocationViewModel
 }
 
 interface LocationPathClipboardState {
-  copiedPath: string | null
-  copyPath: (path: string, label: string) => Promise<void>
+  copiedPath: AbsolutePath | null
+  copyPath: (path: AbsolutePath, label: string) => Promise<void>
 }
 
 /**
@@ -179,7 +184,7 @@ interface LocationPathClipboardState {
  * const { copiedPath, copyPath } = useLocationPathClipboard()
  */
 function useLocationPathClipboard(): LocationPathClipboardState {
-  const [copiedPath, setCopiedPath] = React.useState<string | null>(null)
+  const [copiedPath, setCopiedPath] = React.useState<AbsolutePath | null>(null)
   const resetCopiedPathTimeoutRef = React.useRef<number | null>(null)
 
   // react-doctor-disable-next-line react-doctor/exhaustive-deps -- mount-once cleanup that intentionally reads the LATEST resetCopiedPathTimeoutRef.current at unmount to clear a pending timer; capturing it earlier would leak the timer.
@@ -192,7 +197,7 @@ function useLocationPathClipboard(): LocationPathClipboardState {
   }, [])
 
   const copyPath = React.useCallback(
-    async (path: string, label: string): Promise<void> => {
+    async (path: AbsolutePath, label: string): Promise<void> => {
       try {
         if (!navigator.clipboard?.writeText) {
           throw new Error('Clipboard API unavailable')
@@ -298,9 +303,9 @@ const InfoView = React.memo(function InfoView({
 
 interface LocationPathRowProps {
   label: string
-  path: string
+  path: AbsolutePath
   isCopied: boolean
-  onCopy: (path: string, label: string) => Promise<void>
+  onCopy: (path: AbsolutePath, label: string) => Promise<void>
 }
 
 /**

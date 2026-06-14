@@ -8,6 +8,7 @@ import type {
   AgentId,
   RepositoryId,
   Skill,
+  SkillCount,
   SkillName,
   SymlinkInfo,
 } from '@/shared/types'
@@ -34,7 +35,7 @@ import type {
 
 interface RepoFacetOption {
   source: RepositoryId
-  count: number
+  count: SkillCount
 }
 
 /**
@@ -281,7 +282,7 @@ export const selectRepoFacetOptions = createSelector(
 
 export interface SourceFilterRow {
   source: RepositoryId
-  count: number
+  count: SkillCount
   /** True when this repo is in `selectedSources` (drives the checkbox tick). */
   checked: boolean
 }
@@ -312,7 +313,7 @@ interface SourceFilterViewModel {
   triggerAriaLabel: string
   isSelectAllDisabled: boolean
   hasNoRepositories: boolean
-  localHiddenCount: number
+  localHiddenCount: SkillCount
 }
 
 /**

@@ -25,7 +25,7 @@ import {
   setCleanupAgentTarget,
 } from '@/renderer/src/redux/slices/uiSlice'
 import { AGENT_DEFINITIONS } from '@/shared/constants'
-import type { Agent, AgentId } from '@/shared/types'
+import type { Agent, AgentId, SkillCount } from '@/shared/types'
 
 interface AgentItemProps {
   agent: Agent
@@ -44,7 +44,10 @@ interface AgentItemProps {
  * buildSkillCountText(3, 1) // => "3 linked, 1 local"
  * buildSkillCountText(0, 2) // => "2 local"
  */
-function buildSkillCountText(linked: number, local: number): string | null {
+function buildSkillCountText(
+  linked: SkillCount,
+  local: SkillCount,
+): string | null {
   const parts: string[] = []
   if (linked > 0) parts.push(`${linked} linked`)
   if (local > 0) parts.push(`${local} local`)

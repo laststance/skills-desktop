@@ -172,5 +172,7 @@ export interface IpcEventContract {
   'settings:changed': Settings
 }
 
+/** Union of every request/response IPC invoke channel name in {@link IpcInvokeContract}. */
 export type IpcInvokeChannel = keyof IpcInvokeContract
+/** Union of every one-way (main → renderer) IPC event channel name in {@link IpcEventContract}. */
 export type IpcEventChannel = keyof IpcEventContract

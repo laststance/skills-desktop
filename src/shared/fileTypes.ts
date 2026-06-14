@@ -115,6 +115,7 @@ export const MAX_TREE_DEPTH = 4
  * - `text`: render the raw UTF-8 body in a <pre> block
  * - `image`: fetch as base64 via files:readBinary, render in an <img>
  * - `binary`: show a "binary file — cannot preview" placeholder
+ * @example 'text'
  */
 export type FilePreviewKind = 'text' | 'image' | 'binary'
 

@@ -8,6 +8,7 @@ import { formatBytes } from '@/shared/fileTypes'
 import { repositoryId } from '@/shared/types'
 import type {
   AbsolutePath,
+  FileSizeBytes,
   HttpUrl,
   RepositoryId,
   Skill,
@@ -62,11 +63,17 @@ type AgentDefinition = (typeof AGENTS)[number]
 /** Partial slot update used only while merging scanner observations into a grouped skill record. */
 type SymlinkInfoPatch = Partial<SymlinkInfo>
 
+/** One observed agent-side symlink entry from a status scan, grouped later by skill name into `Skill` records. */
 interface AgentSymlinkStatusHit {
+  /** Agent definition the symlink was found under. */
   agent: AgentDefinition
+  /** Link/directory name observed in the agent's skills dir. */
   name: SkillName
+  /** Absolute path to the symlink inside the agent's skills dir. */
   linkPath: AbsolutePath
+  /** Symlink state resolved for this entry (valid, broken, inaccessible, or missing). */
   status: SymlinkStatus
+  /** Resolved symlink target when readable; omitted when no target could be read. */
   targetPath?: AbsolutePath
 }
 
@@ -620,7 +627,9 @@ export async function getSourceStats(): Promise<SourceStats> {
  * @param dirPath - Directory path
  * @returns Total size in bytes
  */
-async function calculateDirectorySize(dirPath: string): Promise<number> {
+async function calculateDirectorySize(
+  dirPath: AbsolutePath,
+): Promise<FileSizeBytes> {
   let total = 0
 
   try {

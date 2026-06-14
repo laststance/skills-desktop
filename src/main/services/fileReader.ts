@@ -13,6 +13,8 @@ import {
 } from '@/shared/fileTypes'
 import type { FilePreviewKind } from '@/shared/fileTypes'
 import type {
+  AbsolutePath,
+  PosixRelativePath,
   SkillBinaryContent,
   SkillFile,
   SkillFileContent,
@@ -39,7 +41,9 @@ import type {
  * //   { name: 'logo.png',   relativePath: 'assets/logo.png', previewable: 'image', ... },
  * // ]
  */
-export async function listSkillFiles(skillPath: string): Promise<SkillFile[]> {
+export async function listSkillFiles(
+  skillPath: AbsolutePath,
+): Promise<SkillFile[]> {
   let collected: SkillFile[]
   try {
     collected = await walk(skillPath, skillPath, 0)
@@ -54,23 +58,23 @@ export async function listSkillFiles(skillPath: string): Promise<SkillFile[]> {
 }
 
 async function walk(
-  rootPath: string,
-  dirPath: string,
+  rootPath: AbsolutePath,
+  dirPath: AbsolutePath,
   depth: number,
 ): Promise<SkillFile[]> {
   if (depth > MAX_TREE_DEPTH) return []
 
   let entries: Dirent[]
   try {
-    entries = (await readdir(dirPath, { withFileTypes: true })) as Dirent[]
+    entries = await readdir(dirPath, { withFileTypes: true })
   } catch {
     return []
   }
 
-  const subDirs: string[] = []
+  const subDirs: AbsolutePath[] = []
   const previewableFiles: Array<{
     entry: Dirent
-    fullPath: string
+    fullPath: AbsolutePath
     kind: 'text' | 'image'
   }> = []
 
@@ -116,9 +120,9 @@ async function walk(
 }
 
 async function buildFileEntry(
-  rootPath: string,
+  rootPath: AbsolutePath,
   entry: Dirent,
-  fullPath: string,
+  fullPath: AbsolutePath,
   kind: 'text' | 'image',
 ): Promise<SkillFile | null> {
   let size = 0
@@ -148,7 +152,10 @@ async function buildFileEntry(
  * separator to split on regardless of host OS.
  * @example toPosixRelative('/a/b', '/a/b/lib/x.py') // => 'lib/x.py'
  */
-function toPosixRelative(root: string, full: string): string {
+function toPosixRelative(
+  root: AbsolutePath,
+  full: AbsolutePath,
+): PosixRelativePath {
   const rel = full.slice(root.length).replace(/^[/\\]+/, '')
   return rel.split(/[/\\]+/).join('/')
 }
@@ -164,7 +171,7 @@ function toPosixRelative(root: string, full: string): string {
  * // => { name: 'SKILL.md', content: '...', extension: '.md', lineCount: 42 }
  */
 export async function readSkillFile(
-  filePath: string,
+  filePath: AbsolutePath,
 ): Promise<SkillFileContent | null> {
   try {
     const size = (await stat(filePath)).size
@@ -194,7 +201,7 @@ export async function readSkillFile(
  * // => { name: 'logo.png', dataUrl: 'data:image/png;base64,...', mimeType: 'image/png', size: 2048 }
  */
 export async function readBinaryFile(
-  filePath: string,
+  filePath: AbsolutePath,
 ): Promise<SkillBinaryContent | null> {
   try {
     const size = (await stat(filePath)).size

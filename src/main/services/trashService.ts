@@ -19,6 +19,7 @@ import type {
   FilesystemEntryIdentity,
   RestoreDeletedSkillResult,
   SkillName,
+  SymlinkCount,
   TombstoneId,
   UnixTimestampMs,
 } from '@/shared/types'
@@ -74,8 +75,8 @@ const evictTimers = new Map<TombstoneId, NodeJS.Timeout>()
  * @example await copyDirectoryNoOverwrite('/trash/source', '/Users/me/.agents/skills/task')
  */
 async function copyDirectoryNoOverwrite(
-  source: string,
-  destination: string,
+  source: AbsolutePath,
+  destination: AbsolutePath,
 ): Promise<void> {
   await fs.cp(source, destination, {
     recursive: true,
@@ -93,8 +94,8 @@ async function copyDirectoryNoOverwrite(
  * @example await restorePathNoOverwrite('/agent/task.cleanup-id', '/agent/task')
  */
 async function restorePathNoOverwrite(
-  movedPath: string,
-  destination: string,
+  movedPath: AbsolutePath,
+  destination: AbsolutePath,
 ): Promise<void> {
   const stats = await fs.lstat(movedPath)
 
@@ -293,7 +294,7 @@ async function assertReviewedSkillDirectory(
 function buildSiblingStagePath(
   reviewedPath: AbsolutePath,
   label: string,
-): string {
+): AbsolutePath {
   const suffix = randomBytes(RAND_SUFFIX_BYTES).toString('hex')
   return join(
     dirname(reviewedPath),
@@ -333,7 +334,7 @@ async function assertStagedReviewedDirectory(
  * @example await markManualRecoveryEntry(entryDir, 'source rollback failed')
  */
 async function markManualRecoveryEntry(
-  entryDir: string,
+  entryDir: AbsolutePath,
   reason: string,
 ): Promise<void> {
   const markerPath = join(entryDir, MANUAL_RECOVERY_MARKER)
@@ -355,7 +356,9 @@ async function markManualRecoveryEntry(
  * @returns true when the marker exists or cannot be checked safely.
  * @example await hasManualRecoveryMarker('/Users/me/.agents/.trash/...')
  */
-async function hasManualRecoveryMarker(entryDir: string): Promise<boolean> {
+async function hasManualRecoveryMarker(
+  entryDir: AbsolutePath,
+): Promise<boolean> {
   try {
     await fs.access(join(entryDir, MANUAL_RECOVERY_MARKER))
     return true
@@ -379,8 +382,8 @@ async function hasManualRecoveryMarker(entryDir: string): Promise<boolean> {
  * @example await moveDirectoryNoOverwrite('/tmp/staged', '/Users/me/.claude/skills/task')
  */
 async function moveDirectoryNoOverwrite(
-  source: string,
-  destination: string,
+  source: AbsolutePath,
+  destination: AbsolutePath,
 ): Promise<void> {
   await copyDirectoryNoOverwrite(source, destination)
   await fs.rm(source, { recursive: true, force: true })
@@ -400,7 +403,7 @@ interface SourceMoveFailure {
  */
 async function moveSourceIntoTrashEntry(
   sourcePath: AbsolutePath,
-  entrySourceDir: string,
+  entrySourceDir: AbsolutePath,
   reviewedIdentity: FilesystemEntryIdentity,
 ): Promise<SourceMoveFailure | null> {
   try {
@@ -555,7 +558,7 @@ async function rollbackRemovedSymlinks(
  * @returns The copies whose restore failed (empty array means full success)
  */
 async function rollbackMovedLocalCopies(
-  entryDir: string,
+  entryDir: AbsolutePath,
   copies: RecordedLocalCopy[],
 ): Promise<RecordedLocalCopy[]> {
   const unrestoredCopies: RecordedLocalCopy[] = []
@@ -586,7 +589,7 @@ export type MoveToTrashResult = {
   kind: 'tombstoned'
   tombstoneId: TombstoneId
   cascadeAgents: AgentId[]
-  symlinksRemoved: number
+  symlinksRemoved: SymlinkCount
 }
 
 /**
@@ -1582,7 +1585,7 @@ export async function restore(
  */
 async function restoreSourceBacked(
   id: TombstoneId,
-  entryDir: string,
+  entryDir: AbsolutePath,
   manifest: Extract<z.infer<typeof manifestSchema>, { kind: 'source-backed' }>,
 ): Promise<RestoreDeletedSkillResult> {
   const entrySourceDir = join(entryDir, 'source')
@@ -1717,7 +1720,7 @@ async function restoreSourceBacked(
  */
 async function restoreLocalOnly(
   id: TombstoneId,
-  entryDir: string,
+  entryDir: AbsolutePath,
   manifest: Extract<z.infer<typeof manifestSchema>, { kind: 'local-only' }>,
 ): Promise<RestoreDeletedSkillResult> {
   let symlinksRestored = 0
@@ -1809,7 +1812,7 @@ function cancelEvictTimer(id: TombstoneId): void {
  */
 async function finalizeRestore(
   id: TombstoneId,
-  entryDir: string,
+  entryDir: AbsolutePath,
 ): Promise<void> {
   cancelEvictTimer(id)
   await fs.rm(entryDir, { recursive: true, force: true })

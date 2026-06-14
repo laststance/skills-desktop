@@ -1,3 +1,5 @@
+import type { PixelHeight, PixelWidth } from '@/shared/types'
+
 /**
  * Clamp a desired window size to a display's usable work area.
  *
@@ -23,9 +25,9 @@
  * // => { width: 1000, height: 700 }
  */
 export function clampSizeToWorkArea(
-  desired: { width: number; height: number },
-  workArea: { width: number; height: number },
-): { width: number; height: number } {
+  desired: { width: PixelWidth; height: PixelHeight },
+  workArea: { width: PixelWidth; height: PixelHeight },
+): { width: PixelWidth; height: PixelHeight } {
   return {
     width: Math.min(desired.width, workArea.width),
     height: Math.min(desired.height, workArea.height),

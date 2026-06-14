@@ -2,12 +2,13 @@ import * as TabsPrimitive from '@radix-ui/react-tabs'
 import React, { useCallback } from 'react'
 
 import { useCodePreview } from '@/renderer/src/hooks/useCodePreview'
+import type { AbsolutePath } from '@/shared/types'
 
 import { FileContent } from './FileContent'
 import { FileTabs } from './FileTabs'
 
 interface CodePreviewProps {
-  skillPath: string
+  skillPath: AbsolutePath
 }
 
 /**

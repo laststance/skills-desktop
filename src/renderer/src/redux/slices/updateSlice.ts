@@ -3,6 +3,7 @@ import { createSlice } from '@reduxjs/toolkit'
 
 import type {
   DownloadProgress,
+  ProgressPercent,
   SemanticVersion,
   UpdateInfo,
   UpdateStatus,
@@ -20,7 +21,7 @@ interface UpdateState {
   /** Markdown release notes attached to `version`, if provided by the publisher. */
   releaseNotes: string | null
   /** Download progress percentage (0–100). */
-  progress: number
+  progress: ProgressPercent
   /** Human-readable error from the last failed update step. */
   error: string | null
   /** true once the user has clicked "later" — suppresses the banner until next app start. */
