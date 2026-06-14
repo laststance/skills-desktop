@@ -10,7 +10,11 @@ import { SkipToMainContentLink } from './SkipToMainContentLink'
  * affordance can be asserted as a keyboard/screen-reader user would encounter
  * it: a focusable link pointing at the `#main-content` region. A parent that
  * re-renders without changing props drives React through the `memo` comparator
- * (`() => true`), proving the component bails out of wasted re-renders.
+ * (`() => true`) and the spec asserts the link keeps rendering across that
+ * parent update — the component stays stable while neighbouring state churns.
+ * (The comparator is pure render-optimisation; for a props-less component its
+ * skip is behaviourally unobservable, so this exercises the path rather than
+ * proving the re-render was avoided.)
  */
 
 // Harness whose own state changes force a parent re-render so React invokes the

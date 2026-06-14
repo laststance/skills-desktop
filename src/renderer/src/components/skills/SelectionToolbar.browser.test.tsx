@@ -248,10 +248,14 @@ describe('SelectionToolbar', () => {
       bulkCopyToAgents.pending('copy-req', { items: [], agentIds: [] }),
     )
 
-    // Assert — the primary action is disabled while the batch runs
+    // Assert — the primary action is disabled AND its idle Trash2 icon is
+    // swapped for the in-flight spinner (a regression that dropped the Loader2
+    // branch would still satisfy the disabled check but fail the spinner one).
     const deleteButton = screen.getByRole('button', {
       name: /Move .* to app trash/i,
     })
     await expect.element(deleteButton).toBeDisabled()
+    const spinner = deleteButton.element().querySelector('.animate-spin')
+    expect(spinner).not.toBeNull()
   })
 })

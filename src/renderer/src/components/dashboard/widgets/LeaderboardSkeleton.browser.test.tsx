@@ -13,8 +13,10 @@ import { LeaderboardSkeleton } from './LeaderboardSkeleton'
  * rows that hold layout steady. The skeleton is `aria-hidden`, so it is queried
  * by markup (class selectors) rather than by role/text — matching how the
  * sibling `LeaderboardWidget` test probes for `.animate-pulse`. A parent that
- * re-renders with unchanged props drives React through the `memo` comparator,
- * proving the component bails out of wasted re-renders.
+ * re-renders with unchanged props drives React through the `memo` boundary and
+ * the spec asserts the three placeholder rows keep rendering across that parent
+ * update — the skeleton stays stable while neighbouring state churns rather
+ * than disappearing or collapsing its reserved layout.
  */
 
 // Harness whose own state changes force a parent re-render so React invokes the

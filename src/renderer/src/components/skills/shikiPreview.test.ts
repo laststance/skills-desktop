@@ -182,21 +182,22 @@ describe('shikiPreview bundle', () => {
     expect(capturedConfig).not.toBeNull()
     const languageIds = Object.keys(capturedConfig!.langs)
 
-    // Act — drive each lazy loader so its dynamic import actually executes.
-    const loadedGrammars = await Promise.all(
-      languageIds.map(async (languageId) =>
-        capturedConfig!.langs[languageId](),
-      ),
+    // Act — drive each lazy loader so its dynamic import actually executes,
+    // keeping the registered key paired with the grammar module it resolves to.
+    const loadedGrammarsByLanguageId = await Promise.all(
+      languageIds.map(async (languageId) => ({
+        languageId,
+        grammar: await capturedConfig!.langs[languageId](),
+      })),
     )
 
-    // Assert — every loader resolves to a grammar payload (the stub module).
-    expect(loadedGrammars).toHaveLength(34)
-    for (const grammar of loadedGrammars) {
-      expect(grammar).toBeDefined()
+    // Assert — every registered key resolves to the grammar module whose name
+    // matches that key, so a mis-wired loader (e.g. `typescript` pointing at
+    // `python.mjs`) is caught even though the total grammar count stays 34.
+    expect(loadedGrammarsByLanguageId).toHaveLength(34)
+    for (const { languageId, grammar } of loadedGrammarsByLanguageId) {
+      expect(grammar).toEqual({ default: [{ name: languageId }] })
     }
-    // Spot-check that a specific loader resolves the expected grammar module.
-    const bashGrammar = await capturedConfig!.langs.bash()
-    expect(bashGrammar).toEqual({ default: [{ name: 'bash' }] })
   })
 
   it('offers the github-dark and github-light themes for the preview pane', async () => {
