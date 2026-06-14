@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { repositoryId } from '@/shared/types'
-import type { SkillSearchResult } from '@/shared/types'
+import type { InstallProgress, SkillSearchResult } from '@/shared/types'
 
 const mockSearch = vi.fn()
 const mockInstall = vi.fn()
@@ -140,6 +140,25 @@ describe('marketplaceSlice', () => {
     // Assert
     expect(store.getState().marketplace.searchResults).toEqual([])
     expect(store.getState().marketplace.searchQuery).toBe('')
+  })
+
+  it('shows the live install progress reported by the CLI, then clears it', async () => {
+    // Arrange
+    const { setInstallProgress } = await import('./marketplaceSlice')
+    const store = await createTestStore()
+    const progress: InstallProgress = {
+      phase: 'cloning',
+      message: 'Cloning vercel-labs/skill-task',
+      percent: 40,
+    }
+
+    // Act + Assert — a progress update from the CLI surfaces in the panel
+    store.dispatch(setInstallProgress(progress))
+    expect(store.getState().marketplace.installProgress).toEqual(progress)
+
+    // Act + Assert — passing null clears the progress indicator
+    store.dispatch(setInstallProgress(null))
+    expect(store.getState().marketplace.installProgress).toBeNull()
   })
 
   // --- searchSkills thunk ---
@@ -417,6 +436,32 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.error).toBe('Install failed')
   })
 
+  it('shows an install-failed error when the CLI completes but reports no success', async () => {
+    // Arrange — the install promise resolves (no throw) but the CLI reports
+    // success:false, e.g. a non-zero exit that the IPC layer swallowed.
+    mockInstall.mockResolvedValue({ success: false })
+    const store = await createTestStore()
+    const { selectSkillForInstall, installSkill } =
+      await import('./marketplaceSlice')
+    store.dispatch(selectSkillForInstall(sampleResult))
+
+    // Act
+    await store.dispatch(
+      installSkill({
+        repo: repositoryId('vercel-labs/skill-task'),
+        global: true,
+        agents: [],
+      }),
+    )
+
+    // Assert — the panel flips to error and keeps the chosen skill selected so
+    // the user can retry from the still-open install modal.
+    const state = store.getState().marketplace
+    expect(state.status).toBe('error')
+    expect(state.error).toBe('Installation failed')
+    expect(state.selectedSkill).toEqual(sampleResult)
+  })
+
   // --- loadLeaderboard thunk ---
   it('shows a loading leaderboard for a filter that has never been fetched', async () => {
     // Arrange — keep the leaderboard request pending so the loading state is observable
@@ -539,6 +584,28 @@ describe('marketplaceSlice', () => {
     expect(lb?.status).toBe('error')
     expect(lb?.error).toBe('Offline')
     expect(lb?.skills).toEqual([])
+  })
+
+  it('records an error placeholder for a filter that rejects without ever loading', async () => {
+    // Arrange — a rejection lands for a filter that has no cache entry yet.
+    // The normal thunk lifecycle runs `pending` first (which seeds an entry),
+    // so this stand-alone rejected action models a failure arriving before any
+    // pending state existed for the filter.
+    const store = await createTestStore()
+    const { loadLeaderboard } = await import('./marketplaceSlice')
+    expect(store.getState().marketplace.leaderboard['hot']).toBeUndefined()
+
+    // Act — dispatch the rejected action directly with 'hot' as its meta.arg.
+    store.dispatch(
+      loadLeaderboard.rejected(new Error('DNS failure'), 'req-1', 'hot'),
+    )
+
+    // Assert — a fresh error entry is created with empty rows and the message.
+    const lb = store.getState().marketplace.leaderboard['hot']
+    expect(lb?.status).toBe('error')
+    expect(lb?.error).toBe('DNS failure')
+    expect(lb?.skills).toEqual([])
+    expect(lb?.lastFetched).toBe(0)
   })
 
   it('loadLeaderboard fires a single fetch when two mounts request the same filter at once', async () => {

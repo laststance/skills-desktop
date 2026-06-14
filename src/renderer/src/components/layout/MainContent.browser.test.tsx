@@ -1,5 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
+import type { ReactElement } from 'react'
 import { Provider } from 'react-redux'
+import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
@@ -9,6 +11,7 @@ import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type {
   AgentId,
   BulkDeleteResult,
+  DeleteProgressPayload,
   FilesystemEntryIdentity,
   Skill,
   SkillName,
@@ -18,10 +21,13 @@ import { repositoryId, tombstoneId } from '@/shared/types'
 
 const mockGetAll = vi.fn()
 const mockShellOpenExternal = vi.fn()
-const mockOnDeleteProgress = vi.fn(() => () => {})
+const mockOnDeleteProgress = vi.fn(
+  (_callback: (payload: DeleteProgressPayload) => void) => () => {},
+)
 const mockSkillsDeleteSkills = vi.fn()
 const mockClearOrphanSymlinks = vi.fn()
 const mockUnlinkManyFromAgent = vi.fn()
+const mockRestoreDeletedSkill = vi.fn()
 const mockRefreshAllData = vi.hoisted(() => vi.fn())
 const mockSelectionToolbarState = vi.hoisted(() => ({ enabled: false }))
 
@@ -32,6 +38,27 @@ const directoryIdentity: FilesystemEntryIdentity = {
   size: 96,
   ctimeMs: 3,
   mtimeMs: 4,
+}
+
+/** Shape of the UndoToast element MainContent hands to the mocked sonner toast(). */
+type UndoToastElement = ReactElement<{
+  onUndo: (ids: ReturnType<typeof tombstoneId>[]) => Promise<void>
+}>
+
+/** sonner toast() option bag (second argument) carrying the dismiss callbacks. */
+type ToastOptions = NonNullable<Parameters<typeof toast>[1]>
+
+/**
+ * Type guard that narrows a recorded `toast(...)` call to the one that rendered
+ * the UndoToast element, so callers can read `onUndo`/`onDismiss` without casts.
+ * @param call - One entry from the mocked `toast` call list.
+ * @returns true when the first argument is a React element with an onUndo prop.
+ * @example toastMock.mock.calls.find(isUndoToastCall)
+ */
+function isUndoToastCall(
+  call: Parameters<typeof toast>,
+): call is [UndoToastElement, ToastOptions] {
+  return typeof call[0] === 'object' && call[0] !== null && 'props' in call[0]
 }
 
 /**
@@ -50,11 +77,24 @@ vi.mock('../skills/SearchBox', () => ({
   SearchBox: () => null,
 }))
 vi.mock('../skills/SelectionToolbar', () => ({
-  SelectionToolbar: ({ onPrimaryAction }: { onPrimaryAction: () => void }) =>
+  SelectionToolbar: ({
+    onPrimaryAction,
+    onCopyAction,
+  }: {
+    onPrimaryAction: () => void
+    onCopyAction?: () => void
+  }) =>
     mockSelectionToolbarState.enabled ? (
-      <button type="button" onClick={onPrimaryAction}>
-        Open bulk confirm
-      </button>
+      <>
+        <button type="button" onClick={onPrimaryAction}>
+          Open bulk confirm
+        </button>
+        {onCopyAction ? (
+          <button type="button" onClick={onCopyAction}>
+            Open bulk copy
+          </button>
+        ) : null}
+      </>
     ) : null,
 }))
 vi.mock('../skills/UnlinkDialog', () => ({
@@ -99,8 +139,17 @@ beforeEach(() => {
   mockSkillsDeleteSkills.mockReset()
   mockClearOrphanSymlinks.mockReset()
   mockUnlinkManyFromAgent.mockReset()
+  mockRestoreDeletedSkill.mockReset()
   mockRefreshAllData.mockReset()
   mockSelectionToolbarState.enabled = false
+  // The sonner `toast` mock is module-level (created once via vi.mock) and
+  // accumulates calls across every test in this file. Reset all four entry
+  // points each test so toast assertions (toHaveBeenCalledWith) can't read a
+  // stale call left by an earlier delete/unlink and report a false green.
+  vi.mocked(toast).mockClear()
+  vi.mocked(toast.success).mockClear()
+  vi.mocked(toast.error).mockClear()
+  vi.mocked(toast.info).mockClear()
   // Install the `electron` IPC bridge — browser mode replaces the preload
   // context, so tests that exercise `window.electron.*` must plant a fake
   // before MainContent's mount effect fires.
@@ -111,6 +160,7 @@ beforeEach(() => {
       deleteSkills: mockSkillsDeleteSkills,
       clearOrphanSymlinks: mockClearOrphanSymlinks,
       unlinkManyFromAgent: mockUnlinkManyFromAgent,
+      restoreDeletedSkill: mockRestoreDeletedSkill,
     },
     // MainContent now hosts useMarketplaceProgress(), whose mount effect
     // subscribes to install progress — stub it so the effect's cleanup is valid.
@@ -1985,5 +2035,980 @@ describe('MainContent hidden-locals caveat', () => {
 
     // Assert — …then confirm the caveat is absent with nothing filtered out
     expect(screen.getByText(/local skills hidden/).query()).toBeNull()
+  })
+})
+
+describe('MainContent toolbar quick actions', () => {
+  it('reverses the alphabetical sort order when the user clicks the sort toggle', async () => {
+    // Arrange
+    const { screen, store } = await renderMainContent()
+    expect(store.getState().ui.sortOrder).toBe('asc')
+
+    // Act
+    await screen
+      .getByRole('button', { name: /Sorted A to Z, click to reverse/i })
+      .click()
+
+    // Assert
+    expect(store.getState().ui.sortOrder).toBe('desc')
+  })
+
+  it('switches to the Marketplace tab and clears any open skill preview', async () => {
+    // Arrange
+    const { screen, store } = await renderMainContent()
+    const { setPreviewSkill } =
+      await import('@/renderer/src/redux/slices/marketplaceSlice')
+    store.dispatch(
+      setPreviewSkill({
+        rank: 1 as never,
+        name: 'task' as SkillName,
+        repo: repositoryId('vercel-labs/skills'),
+        url: 'https://skills.sh/task' as never,
+      }),
+    )
+
+    // Act
+    await screen.getByRole('tab', { name: /^Marketplace$/ }).click()
+
+    // Assert
+    expect(store.getState().ui.activeTab).toBe('marketplace')
+    expect(store.getState().marketplace.previewSkill).toBeNull()
+  })
+})
+
+describe('MainContent filter pill clear actions', () => {
+  it('clears the agent filter when the user clears the agent pill', async () => {
+    // Arrange
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'cursor',
+            name: 'Cursor',
+            path: '/Users/me/.cursor/skills' as never,
+            exists: true,
+            skillCount: 0,
+            localSkillCount: 0,
+          },
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(selectAgent('cursor'))
+
+    // Act
+    await screen
+      .getByTestId('agent-filter-pill')
+      .getByRole('button', { name: /Clear/i })
+      .click()
+
+    // Assert
+    expect(store.getState().ui.selectedAgentId).toBeNull()
+    expect(screen.getByTestId('agent-filter-pill').query()).toBeNull()
+  })
+
+  it('clears every source when the collapsed multi-repo pill is cleared', async () => {
+    // Arrange
+    // Selecting more than SOURCE_FILTER_MAX_VISIBLE_REPOS (3) repos collapses the
+    // individual pills into one "N repos" pill whose Clear wipes the whole set.
+    const { screen, store } = await renderMainContent()
+    const { setSelectedSources } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(
+      setSelectedSources([
+        repositoryId('org/repo-one'),
+        repositoryId('org/repo-two'),
+        repositoryId('org/repo-three'),
+        repositoryId('org/repo-four'),
+      ]),
+    )
+    await expect
+      .element(screen.getByTestId('source-filter-pill'))
+      .toHaveTextContent('4 repos')
+
+    // Act
+    await screen
+      .getByTestId('source-filter-pill')
+      .getByRole('button', { name: /Clear/i })
+      .click()
+
+    // Assert
+    await expect.poll(() => store.getState().ui.selectedSources).toEqual([])
+    expect(screen.getByTestId('source-filter-pill').query()).toBeNull()
+  })
+})
+
+describe('MainContent repo facet bulk shortcuts', () => {
+  it('clears the include filter when the user picks "Show all repos"', async () => {
+    // Arrange
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { setSelectedSources } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSourceSkill('alpha', 'vercel-labs/skills'),
+          makeSourceSkill('gamma', 'pbakaus/impeccable'),
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(setSelectedSources([repositoryId('vercel-labs/skills')]))
+
+    // Act
+    // One repo selected flips the trigger aria-label to "Filtering by …".
+    await screen.getByRole('button', { name: /source repositor/i }).click()
+    await screen.getByRole('menuitem', { name: /Show all repos/i }).click()
+
+    // Assert
+    await expect.poll(() => store.getState().ui.selectedSources).toEqual([])
+  })
+
+  it('ticks every facet repo when the user picks "Select all repos"', async () => {
+    // Arrange
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSourceSkill('alpha', 'vercel-labs/skills'),
+          makeSourceSkill('gamma', 'pbakaus/impeccable'),
+        ],
+        'req-id',
+      ),
+    )
+
+    // Act
+    await screen
+      .getByRole('button', { name: /Filter by source repository/i })
+      .click()
+    await screen.getByRole('menuitem', { name: /Select all repos/i }).click()
+
+    // Assert
+    await expect
+      .poll(() => [...store.getState().ui.selectedSources].sort())
+      .toEqual(
+        [
+          repositoryId('pbakaus/impeccable'),
+          repositoryId('vercel-labs/skills'),
+        ].sort(),
+      )
+  })
+})
+
+describe('MainContent skill-type exclude toggles', () => {
+  /**
+   * Seed a single Cursor agent and select it so the agent-only skill-type
+   * filter dropdown (with its Exclude checkboxes) is rendered.
+   * @returns Browser screen + store with the cursor agent selected.
+   */
+  async function renderWithCursorAgentSelected() {
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'cursor',
+            name: 'Cursor',
+            path: '/Users/me/.cursor/skills' as never,
+            exists: true,
+            skillCount: 0,
+            localSkillCount: 0,
+          },
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(selectAgent('cursor'))
+    return { screen, store }
+  }
+
+  it('excludes Symlinked skills when its exclude checkbox is ticked', async () => {
+    // Arrange
+    const { screen, store } = await renderWithCursorAgentSelected()
+
+    // Act
+    await screen
+      .getByRole('button', { name: /Skill type filter: All/i })
+      .click()
+    await screen.getByRole('menuitemcheckbox', { name: /^Symlinked$/i }).click()
+
+    // Assert
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['symlinked'])
+  })
+
+  it('excludes G-Stack skills when its exclude checkbox is ticked', async () => {
+    // Arrange
+    const { screen, store } = await renderWithCursorAgentSelected()
+
+    // Act
+    await screen
+      .getByRole('button', { name: /Skill type filter: All/i })
+      .click()
+    await screen.getByRole('menuitemcheckbox', { name: /^G-Stack$/i }).click()
+
+    // Assert
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['gstack'])
+  })
+
+  it('excludes Orphan skills when its exclude checkbox is ticked', async () => {
+    // Arrange
+    const { screen, store } = await renderWithCursorAgentSelected()
+
+    // Act
+    await screen
+      .getByRole('button', { name: /Skill type filter: All/i })
+      .click()
+    await screen.getByRole('menuitemcheckbox', { name: /^Orphan$/i }).click()
+
+    // Assert
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['orphan'])
+  })
+
+  it('clears all excludes when the user picks "Clear excludes"', async () => {
+    // Arrange
+    const { screen, store } = await renderWithCursorAgentSelected()
+    const { toggleExcludedSkillTypeFilter } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(toggleExcludedSkillTypeFilter('local'))
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['local'])
+
+    // Act
+    await screen
+      .getByRole('button', { name: /Skill type filter:.*excluding/i })
+      .click()
+    await screen.getByRole('menuitem', { name: /Clear excludes/i }).click()
+
+    // Assert
+    await expect
+      .poll(() => store.getState().ui.excludedSkillTypeFilters)
+      .toEqual([])
+  })
+})
+
+describe('MainContent bulk copy action', () => {
+  it('opens the bulk copy-to-agents modal from the global selection toolbar', async () => {
+    // Arrange — exercise the real toolbar's Copy action wired to MainContent.
+    mockSelectionToolbarState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled([makeSourceSkill('alpha', 'org/repo')], 'req-id'),
+    )
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection('alpha' as SkillName))
+
+    // Act
+    await screen.getByRole('button', { name: 'Open bulk copy' }).click()
+
+    // Assert
+    expect(store.getState().skills.bulkCopyModalOpen).toBe(true)
+  })
+})
+
+describe('MainContent delete progress wiring', () => {
+  it('mirrors main-process delete progress into Redux', async () => {
+    // Arrange — capture the progress callback MainContent subscribes on mount.
+    const { store } = await renderMainContent()
+    const progressCallback = mockOnDeleteProgress.mock.calls.at(-1)?.[0]
+    expect(typeof progressCallback).toBe('function')
+
+    // Act
+    progressCallback?.({ current: 3, total: 12 })
+
+    // Assert
+    expect(store.getState().skills.bulkProgress).toEqual({
+      current: 3,
+      total: 12,
+    })
+  })
+})
+
+describe('MainContent stale-source delete summary', () => {
+  it('names the rescan-needed source row in the undo summary after a partial delete', async () => {
+    // Arrange — one deletable source row plus one stale (identity-less) source
+    // row, so the delete succeeds for one and the summary appends rescan guidance.
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const deletableName = 'fresh-source' as SkillName
+    const staleName = 'stale-source' as SkillName
+    const deletableSkill: Skill = {
+      name: deletableName,
+      description: '',
+      path: '/Users/me/.agents/skills/fresh-source' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+    const staleSkill: Skill = {
+      name: staleName,
+      description: '',
+      path: '/Users/me/.agents/skills/stale-source' as never,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: deletableName,
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1729180800000-fresh-source-a1b2c3d4'),
+          symlinksRemoved: 0,
+          cascadeAgents: [],
+        },
+      ],
+    } satisfies BulkDeleteResult)
+    store.dispatch(
+      fetchSkills.fulfilled([deletableSkill, staleSkill], 'req-id'),
+    )
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [deletableName, staleName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets(
+          [deletableSkill, staleSkill],
+          [deletableName, staleName],
+        ),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockSkillsDeleteSkills.mock.calls.length).toBe(1)
+    await expect
+      .poll(() => store.getState().ui.undoToast?.summary)
+      .toContain('1 selected skill needs a rescan before delete.')
+  })
+})
+
+describe('MainContent undo bulk delete', () => {
+  /**
+   * Run a successful bulk delete with N tombstones, then return the live
+   * `onUndo` callback MainContent handed to the (mocked-away) UndoToast.
+   * @param tombstoneIds - Tombstone ids the deleted rows resolve to.
+   * @returns The captured onUndo callback plus the store for assertions.
+   */
+  async function deleteAndCaptureOnUndo(
+    tombstoneIds: ReturnType<typeof tombstoneId>[],
+  ) {
+    // The sonner `toast` mock is module-level and accumulates calls across the
+    // whole file. Clear it so the captured onUndo belongs to THIS test's mounted
+    // MainContent (and store), not an earlier delete that left a stale toast.
+    vi.mocked(toast).mockClear()
+    vi.mocked(toast.success).mockClear()
+    vi.mocked(toast.info).mockClear()
+    vi.mocked(toast.error).mockClear()
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const skills: Skill[] = tombstoneIds.map((_, index) => ({
+      name: `undo-skill-${index}` as SkillName,
+      description: '',
+      path: `/Users/me/.agents/skills/undo-skill-${index}` as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }))
+    const skillNames = skills.map((skill) => skill.name)
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: skills.map((skill, index) => ({
+        skillName: skill.name,
+        outcome: 'deleted',
+        tombstoneId: tombstoneIds[index],
+        symlinksRemoved: 0,
+        cascadeAgents: [],
+      })),
+    } satisfies BulkDeleteResult)
+    store.dispatch(fetchSkills.fulfilled(skills, 'req-id'))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames,
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets(skills, skillNames),
+      }),
+    )
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+    await expect.poll(() => mockSkillsDeleteSkills.mock.calls.length).toBe(1)
+
+    // The undo toast is rendered via the mocked `toast(<UndoToast/>)`; pull the
+    // onUndo prop off the React element passed to that mock to drive restore.
+    await expect
+      .poll(() => vi.mocked(toast).mock.calls.some(isUndoToastCall))
+      .toBe(true)
+    const undoToastCall = vi.mocked(toast).mock.calls.find(isUndoToastCall)
+    const onUndo: (ids: ReturnType<typeof tombstoneId>[]) => Promise<void> =
+      undoToastCall![0].props.onUndo
+    return { onUndo, store }
+  }
+
+  it('toasts a full-success message and clears the undo toast when every row restores', async () => {
+    // Arrange
+    const onlyTombstone = tombstoneId('1729180800000-undo-skill-0-a1b2c3d4')
+    const { onUndo, store } = await deleteAndCaptureOnUndo([onlyTombstone])
+    mockRestoreDeletedSkill.mockResolvedValue({
+      outcome: 'restored',
+      symlinksRestored: 0,
+      symlinksSkipped: 0,
+    })
+
+    // Act
+    await onUndo([onlyTombstone])
+
+    // Assert
+    expect(vi.mocked(toast.success)).toHaveBeenCalledWith('Restored 1 skill.')
+    await expect.poll(() => store.getState().ui.undoToast).toBeNull()
+    expect(mockRefreshAllData).toHaveBeenCalled()
+  })
+
+  it('toasts a partial-restore message when some rows fail to restore', async () => {
+    // Arrange — two tombstones; first restores, second rejects at the IPC.
+    const firstTombstone = tombstoneId('1729180800000-undo-skill-0-a1b2c3d4')
+    const secondTombstone = tombstoneId('1729180800000-undo-skill-1-e5f6a7b8')
+    const { onUndo } = await deleteAndCaptureOnUndo([
+      firstTombstone,
+      secondTombstone,
+    ])
+    mockRestoreDeletedSkill
+      .mockResolvedValueOnce({
+        outcome: 'restored',
+        symlinksRestored: 0,
+        symlinksSkipped: 0,
+      })
+      .mockRejectedValueOnce(new Error('Disk offline'))
+
+    // Act
+    await onUndo([firstTombstone, secondTombstone])
+
+    // Assert
+    expect(vi.mocked(toast.info)).toHaveBeenCalledWith(
+      'Restored 1 of 2 skills.',
+    )
+  })
+
+  it('toasts a restore-failed message when the undo dispatch rejects', async () => {
+    // Arrange — capture the live onUndo, then drive the defensive rejection
+    // branch (the undo thunk rejects when handed a non-iterable id list).
+    const onlyTombstone = tombstoneId('1729180800000-undo-skill-0-a1b2c3d4')
+    const { onUndo } = await deleteAndCaptureOnUndo([onlyTombstone])
+
+    // Act
+    await onUndo(null as never)
+
+    // Assert
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith(
+      'Restore failed',
+      expect.objectContaining({ description: expect.any(String) }),
+    )
+  })
+})
+
+describe('MainContent toolbar primary action guards', () => {
+  it('does nothing when the toolbar primary fires with no rows selected', async () => {
+    // Arrange — bulk-select mode is on but nothing is selected, so the toolbar
+    // primary must early-return without opening any confirmation dialog.
+    mockSelectionToolbarState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(enterBulkSelectMode())
+
+    // Act
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+
+    // Assert
+    expect(store.getState().ui.bulkConfirm).toBeNull()
+  })
+
+  it('blocks unlink and prompts a rescan when the selected agent slot went stale', async () => {
+    // Arrange — a cursor row is selectable (status valid) yet its slot lost the
+    // reviewed targetPath, so buildAgentUnlinkTargets reports it stale.
+    mockSelectionToolbarState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    const { enterBulkSelectMode, selectAgent } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const skillName = 'stale-unlink' as SkillName
+    const staleSkill: Skill = {
+      name: skillName,
+      description: '',
+      path: '/home/user/.agents/skills/stale-unlink' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 1,
+      symlinks: [
+        {
+          agentId: 'cursor' as AgentId,
+          agentName: 'Cursor' as never,
+          linkPath: '/home/user/.cursor/skills/stale-link' as never,
+          // Missing targetPath → buildAgentUnlinkTargets pushes it to staleNames.
+          targetPath: undefined as never,
+          status: 'valid',
+          isLocal: false,
+        },
+      ],
+      isSource: true,
+      isOrphan: false,
+    }
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'cursor' as AgentId,
+            name: 'Cursor' as never,
+            path: '/home/user/.cursor/skills' as never,
+            exists: true,
+            skillCount: 1,
+            localSkillCount: 0,
+          },
+        ],
+        'req-agent',
+      ),
+    )
+    store.dispatch(selectAgent('cursor' as AgentId))
+    store.dispatch(fetchSkills.fulfilled([staleSkill], 'req-stale'))
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection(skillName))
+
+    // Act
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+
+    // Assert
+    await expect
+      .poll(() => vi.mocked(toast.error).mock.calls.length)
+      .toBeGreaterThan(0)
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Bulk unlink failed', {
+      description: 'Selection changed. Rescan before unlinking.',
+    })
+    expect(store.getState().ui.bulkConfirm).toBeNull()
+    expect(mockRefreshAllData).toHaveBeenCalled()
+  })
+})
+
+describe('MainContent bulk unlink result toasts', () => {
+  /**
+   * Render agent view, select one row, and open the unlink confirmation dialog
+   * so each test only has to mock the IPC result and click Unlink.
+   * @returns { screen, store } after the unlink confirm dialog is open.
+   */
+  async function openUnlinkConfirmForCursor() {
+    mockSelectionToolbarState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    const { enterBulkSelectMode, selectAgent } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const skillName = 'linked-skill' as SkillName
+    const linkedSkill: Skill = {
+      name: skillName,
+      description: '',
+      path: '/home/user/.agents/skills/linked-skill' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 1,
+      symlinks: [
+        {
+          agentId: 'cursor' as AgentId,
+          agentName: 'Cursor' as never,
+          linkPath: '/home/user/.cursor/skills/linked-link' as never,
+          targetPath: '/home/user/.agents/skills/linked-target' as never,
+          status: 'valid',
+          isLocal: false,
+        },
+      ],
+      isSource: true,
+      isOrphan: false,
+    }
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'cursor' as AgentId,
+            name: 'Cursor' as never,
+            path: '/home/user/.cursor/skills' as never,
+            exists: true,
+            skillCount: 1,
+            localSkillCount: 0,
+          },
+        ],
+        'req-agent',
+      ),
+    )
+    store.dispatch(selectAgent('cursor' as AgentId))
+    store.dispatch(fetchSkills.fulfilled([linkedSkill], 'req-linked'))
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection(skillName))
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+    return { screen, store, skillName }
+  }
+
+  it('toasts a partial success summary when some rows unlink and some error', async () => {
+    // Arrange — IPC returns one unlinked and one errored slot.
+    const { screen } = await openUnlinkConfirmForCursor()
+    mockUnlinkManyFromAgent.mockResolvedValue({
+      items: [
+        { skillName: 'linked-skill', outcome: 'unlinked' },
+        {
+          skillName: 'sibling-skill',
+          outcome: 'error',
+          error: { message: 'EPERM' },
+        },
+      ],
+    })
+
+    // Act
+    await screen.getByRole('button', { name: /^Unlink$/ }).click()
+
+    // Assert
+    await expect.poll(() => vi.mocked(toast.success).mock.calls.length).toBe(1)
+    expect(vi.mocked(toast.success)).toHaveBeenCalledWith(
+      'Unlinked 1 of 2 skills from Cursor.',
+    )
+  })
+
+  it('toasts a failure summary when every slot errors on unlink', async () => {
+    // Arrange — IPC returns only error outcomes, so unlinkedCount is zero.
+    const { screen } = await openUnlinkConfirmForCursor()
+    mockUnlinkManyFromAgent.mockResolvedValue({
+      items: [
+        {
+          skillName: 'linked-skill',
+          outcome: 'error',
+          error: { message: 'EPERM' },
+        },
+      ],
+    })
+
+    // Act
+    await screen.getByRole('button', { name: /^Unlink$/ }).click()
+
+    // Assert
+    await expect.poll(() => vi.mocked(toast.error).mock.calls.length).toBe(1)
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Bulk unlink failed', {
+      description: 'Unlinked 0 of 1 skill from Cursor.',
+    })
+  })
+
+  it('toasts a failure when the unlink thunk rejects at the IPC boundary', async () => {
+    // Arrange — the unlink IPC rejects, so the thunk does not fulfil.
+    const { screen } = await openUnlinkConfirmForCursor()
+    mockUnlinkManyFromAgent.mockRejectedValue(new Error('Socket closed'))
+
+    // Act
+    await screen.getByRole('button', { name: /^Unlink$/ }).click()
+
+    // Assert
+    await expect.poll(() => vi.mocked(toast.error).mock.calls.length).toBe(1)
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith(
+      'Bulk unlink failed',
+      expect.objectContaining({ description: expect.any(String) }),
+    )
+  })
+})
+
+describe('MainContent bulk delete failure toasts', () => {
+  it('marks orphan rows as errored when cleanup rejects after a source delete succeeds', async () => {
+    // Arrange — a source row deletes successfully, then orphan cleanup rejects;
+    // because prior successes exist, the orphan rows are appended as errors
+    // rather than restoring the whole selection.
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const sourceSkillName = 'kept-source' as SkillName
+    const orphanSkillName = 'dropped-orphan' as SkillName
+    const sourceSkill: Skill = {
+      name: sourceSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/kept-source' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+    const orphanSkill: Skill = {
+      name: orphanSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/dropped-orphan' as never,
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'devin' as AgentId,
+          agentName: 'Devin' as never,
+          linkPath: '/Users/me/.config/devin/skills/dropped-orphan' as never,
+          targetPath: '/Users/me/.agents/skills/dropped-orphan' as never,
+          status: 'broken',
+          isLocal: false,
+        },
+      ],
+      isSource: false,
+      isOrphan: true,
+    }
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: sourceSkillName,
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1729180800000-kept-source-a1b2c3d4'),
+          symlinksRemoved: 0,
+          cascadeAgents: [],
+        },
+      ],
+    } satisfies BulkDeleteResult)
+    mockClearOrphanSymlinks.mockRejectedValue(new Error('Trash unavailable'))
+    store.dispatch(fetchSkills.fulfilled([sourceSkill, orphanSkill], 'req-id'))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [sourceSkillName, orphanSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets(
+          [sourceSkill, orphanSkill],
+          [sourceSkillName, orphanSkillName],
+        ),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert — the successful source delete still produced an undo toast, so the
+    // batch did not abort when orphan cleanup rejected.
+    await expect.poll(() => mockClearOrphanSymlinks.mock.calls.length).toBe(1)
+    await expect.poll(() => store.getState().ui.undoToast).not.toBeNull()
+  })
+
+  it('does nothing further when the delete IPC reports no items at all', async () => {
+    // Arrange — a single source target whose delete fulfils with an empty item
+    // list, so there is nothing to summarize or undo.
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const sourceSkillName = 'empty-result' as SkillName
+    const sourceSkill: Skill = {
+      name: sourceSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/empty-result' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [],
+    } satisfies BulkDeleteResult)
+    store.dispatch(fetchSkills.fulfilled([sourceSkill], 'req-id'))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [sourceSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([sourceSkill], [sourceSkillName]),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => mockSkillsDeleteSkills.mock.calls.length).toBe(1)
+    expect(store.getState().ui.undoToast).toBeNull()
+    expect(vi.mocked(toast.success)).not.toHaveBeenCalled()
+  })
+
+  it('toasts a delete failure when every row errors and no tombstone is produced', async () => {
+    // Arrange — the delete fulfils, but every item errored, so there is no
+    // tombstone and no success: the no-undo error branch must fire.
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const sourceSkillName = 'all-error' as SkillName
+    const sourceSkill: Skill = {
+      name: sourceSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/all-error' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: sourceSkillName,
+          outcome: 'error',
+          error: { message: 'Disk denied' },
+        },
+      ],
+    } satisfies BulkDeleteResult)
+    store.dispatch(fetchSkills.fulfilled([sourceSkill], 'req-id'))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [sourceSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([sourceSkill], [sourceSkillName]),
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+
+    // Assert
+    await expect.poll(() => vi.mocked(toast.error).mock.calls.length).toBe(1)
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith(
+      'Bulk delete failed',
+      expect.objectContaining({ description: expect.any(String) }),
+    )
+    expect(store.getState().ui.undoToast).toBeNull()
+  })
+})
+
+describe('MainContent bulk delete undo toast lifecycle', () => {
+  it('clears the persisted undo toast when the notification is dismissed', async () => {
+    // Arrange — run a successful delete so an undo toast is registered, then
+    // pull the onDismiss option off the toast() call to simulate a dismiss.
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const sourceSkillName = 'dismiss-me' as SkillName
+    const sourceSkill: Skill = {
+      name: sourceSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/dismiss-me' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: sourceSkillName,
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1729180800000-dismiss-me-a1b2c3d4'),
+          symlinksRemoved: 0,
+          cascadeAgents: [],
+        },
+      ],
+    } satisfies BulkDeleteResult)
+    store.dispatch(fetchSkills.fulfilled([sourceSkill], 'req-id'))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [sourceSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([sourceSkill], [sourceSkillName]),
+      }),
+    )
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+    await expect.poll(() => store.getState().ui.undoToast).not.toBeNull()
+
+    // The undo toast is rendered via toast(<UndoToast/>, options); grab the
+    // onDismiss option from that call to drive the dismissal side effect.
+    const undoToastCall = vi.mocked(toast).mock.calls.find(isUndoToastCall)
+
+    // Act — sonner types onDismiss as (toast: ToastT) => void; the handler
+    // ignores its argument, so a single cast is required to call it bare.
+    undoToastCall![1].onDismiss?.(undefined as never)
+
+    // Assert
+    expect(store.getState().ui.undoToast).toBeNull()
+  })
+})
+
+describe('MainContent bulk confirm cancellation', () => {
+  it('closes the confirmation dialog without acting when Cancel is clicked', async () => {
+    // Arrange — open a delete confirmation, then cancel it.
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const sourceSkillName = 'cancel-me' as SkillName
+    const sourceSkill: Skill = {
+      name: sourceSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/cancel-me' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+    store.dispatch(fetchSkills.fulfilled([sourceSkill], 'req-id'))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [sourceSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([sourceSkill], [sourceSkillName]),
+      }),
+    )
+    await expect
+      .element(screen.getByRole('button', { name: /^Delete$/ }))
+      .toBeVisible()
+
+    // Act
+    await screen.getByRole('button', { name: 'Cancel' }).click()
+
+    // Assert
+    expect(store.getState().ui.bulkConfirm).toBeNull()
+    expect(mockSkillsDeleteSkills).not.toHaveBeenCalled()
   })
 })

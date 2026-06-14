@@ -73,4 +73,73 @@ describe('BookmarksWidget', () => {
     // Assert
     expect(store.getState().bookmarks.items).toEqual([])
   })
+
+  it('shows the repository alongside a bookmark that has a source repo', async () => {
+    // Arrange
+    const [{ default: bookmarkReducer, addBookmark }, { BookmarksWidget }] =
+      await Promise.all([
+        import('@/renderer/src/redux/slices/bookmarkSlice'),
+        import('./BookmarksWidget'),
+      ])
+    const store = configureStore({
+      reducer: {
+        bookmarks: bookmarkReducer,
+      },
+    })
+    store.dispatch(
+      addBookmark({
+        name: 'task' as SkillName,
+        repo: 'vercel-labs/skills' as RepositoryId,
+        url: 'https://skills.sh/task' as HttpUrl,
+      }),
+    )
+
+    // Act
+    const screen = await render(
+      <Provider store={store}>
+        <BookmarksWidget />
+      </Provider>,
+    )
+
+    // Assert
+    await expect.element(screen.getByText('vercel-labs/skills')).toBeVisible()
+  })
+
+  it('omits the repository line for a bookmark saved without a source repo', async () => {
+    // Arrange
+    const [{ default: bookmarkReducer, addBookmark }, { BookmarksWidget }] =
+      await Promise.all([
+        import('@/renderer/src/redux/slices/bookmarkSlice'),
+        import('./BookmarksWidget'),
+      ])
+    const store = configureStore({
+      reducer: {
+        bookmarks: bookmarkReducer,
+      },
+    })
+    store.dispatch(
+      addBookmark({
+        name: 'repo-less-skill' as SkillName,
+        repo: '',
+        url: 'https://skills.sh/repo-less-skill' as HttpUrl,
+      }),
+    )
+
+    // Act
+    const screen = await render(
+      <Provider store={store}>
+        <BookmarksWidget />
+      </Provider>,
+    )
+
+    // Assert
+    const bookmarkLink = screen
+      .getByRole('link', { name: /repo-less-skill/i })
+      .element() as HTMLAnchorElement
+    await expect.element(screen.getByText('repo-less-skill')).toBeVisible()
+    // A repo-less bookmark renders only the name span — the `{bookmark.repo &&
+    // <span>…</span>}` subtitle must not mount. Assert the visible text rather
+    // than counting <span>s so the check survives non-text additions (icons).
+    expect(bookmarkLink.textContent?.trim()).toBe('repo-less-skill')
+  })
 })

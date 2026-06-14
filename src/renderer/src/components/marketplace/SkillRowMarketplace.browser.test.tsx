@@ -213,3 +213,50 @@ describe('SkillRowMarketplace — bookmark toggle', () => {
     expect(store.getState().bookmarks.items).toEqual([])
   })
 })
+
+/**
+ * Row body open-preview path. Clicking the skill name/rank/repo region is the
+ * primary way a user opens the detail preview pane; if the row's onClick stops
+ * dispatching `setPreviewSkill`, the preview never opens and this regresses with
+ * no other test catching it. The accessible name of the row button is the
+ * concatenation of its rank, name, and repo text.
+ */
+describe('SkillRowMarketplace — open preview from row body', () => {
+  it('opens the preview pane for the skill when its name row is clicked', async () => {
+    // Arrange
+    const skill = makeSkill({
+      rank: 1,
+      name: 'task' as SkillName,
+      repo: 'vercel-labs/skills' as RepositoryId,
+    })
+    const { screen, store } = await renderRow(skill, false)
+
+    // Act
+    // The row body is a single button with no aria-label; clicking the skill
+    // name text inside it bubbles to that button's onClick, which opens preview.
+    await screen.getByText('task').click()
+
+    // Assert
+    expect(store.getState().marketplace.previewSkill?.name).toBe('task')
+  })
+})
+
+/**
+ * Install entry-point. Clicking Install must stage the skill for installation by
+ * dispatching `selectSkillForInstall`, which the InstallModal reads from
+ * `state.marketplace.selectedSkill`. If the handler stops dispatching, the modal
+ * never opens and installs are dead — this test locks that wiring.
+ */
+describe('SkillRowMarketplace — stage install from row', () => {
+  it('stages the skill for installation when Install is clicked', async () => {
+    // Arrange
+    const skill = makeSkill({ name: 'lint' as SkillName })
+    const { screen, store } = await renderRow(skill, false)
+
+    // Act
+    await screen.getByRole('button', { name: 'Install' }).click()
+
+    // Assert
+    expect(store.getState().marketplace.selectedSkill?.name).toBe('lint')
+  })
+})

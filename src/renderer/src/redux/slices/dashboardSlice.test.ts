@@ -165,6 +165,87 @@ describe('dashboardSlice', () => {
     })
   })
 
+  describe('updateLayout', () => {
+    it('repositions widgets to match a layout dragged in react-grid-layout', async () => {
+      // Arrange
+      const { seedDefaultsIfEmpty, updateLayout } =
+        await import('./dashboardSlice')
+      const store = await createTestStore()
+      store.dispatch(seedDefaultsIfEmpty())
+      const overviewPage = store.getState().dashboard.pages[0]
+      const draggedWidget = overviewPage.widgets[0]
+
+      // Act
+      // RGL emits the moved widget plus an unrelated id that has no widget here.
+      store.dispatch(
+        updateLayout({
+          pageId: overviewPage.id,
+          layout: [
+            { i: draggedWidget.id, x: 3, y: 5, w: 4, h: 2 },
+            { i: 'ghost_layout_id', x: 0, y: 0, w: 1, h: 1 },
+          ],
+        }),
+      )
+
+      // Assert
+      const movedWidget = store
+        .getState()
+        .dashboard.pages[0].widgets.find((w) => w.id === draggedWidget.id)
+      expect(movedWidget).toMatchObject({ x: 3, y: 5, w: 4, h: 2 })
+    })
+
+    it('leaves widgets untouched when the layout omits them', async () => {
+      // Arrange
+      const { seedDefaultsIfEmpty, updateLayout } =
+        await import('./dashboardSlice')
+      const store = await createTestStore()
+      store.dispatch(seedDefaultsIfEmpty())
+      const overviewPage = store.getState().dashboard.pages[0]
+      const untouchedWidget = overviewPage.widgets[1]
+
+      // Act
+      // Layout only references the first widget — the second must keep its spot.
+      store.dispatch(
+        updateLayout({
+          pageId: overviewPage.id,
+          layout: [{ i: overviewPage.widgets[0].id, x: 9, y: 9, w: 1, h: 1 }],
+        }),
+      )
+
+      // Assert
+      const stillThere = store
+        .getState()
+        .dashboard.pages[0].widgets.find((w) => w.id === untouchedWidget.id)
+      expect(stillThere).toMatchObject({
+        x: untouchedWidget.x,
+        y: untouchedWidget.y,
+        w: untouchedWidget.w,
+        h: untouchedWidget.h,
+      })
+    })
+
+    it('ignores a layout update aimed at a page that no longer exists', async () => {
+      // Arrange
+      const { seedDefaultsIfEmpty, updateLayout } =
+        await import('./dashboardSlice')
+      const store = await createTestStore()
+      store.dispatch(seedDefaultsIfEmpty())
+      const overviewBefore = store.getState().dashboard.pages[0]
+
+      // Act
+      store.dispatch(
+        updateLayout({
+          pageId: 'p_deleted_page' as DashboardPageId,
+          layout: [{ i: overviewBefore.widgets[0].id, x: 2, y: 2, w: 2, h: 2 }],
+        }),
+      )
+
+      // Assert
+      // Same reference → reducer bailed before mutating any page.
+      expect(store.getState().dashboard.pages[0]).toBe(overviewBefore)
+    })
+  })
+
   describe('removeWidget', () => {
     it('takes the removed widget off its page while leaving the page in place', async () => {
       // Arrange
@@ -256,6 +337,26 @@ describe('dashboardSlice', () => {
       expect(pages.some((p) => p.id === discoveryPage.id)).toBe(false)
     })
 
+    it('jumps to the previous page after deleting the page being viewed', async () => {
+      // Arrange
+      const { removePage, seedDefaultsIfEmpty, setCurrentPage } =
+        await import('./dashboardSlice')
+      const store = await createTestStore()
+      store.dispatch(seedDefaultsIfEmpty())
+      const pages = store.getState().dashboard.pages
+      const actionsPage = pages[2]
+      const discoveryPage = pages[1]
+      // View the page we are about to delete so currentPageId === target.
+      store.dispatch(setCurrentPage(actionsPage.id))
+
+      // Act
+      store.dispatch(removePage(actionsPage.id))
+
+      // Assert
+      // Deleting the active page lands the view on its predecessor.
+      expect(store.getState().dashboard.currentPageId).toBe(discoveryPage.id)
+    })
+
     it('keeps the last remaining page when asked to delete it', async () => {
       // Arrange
       const { addPage, removePage } = await import('./dashboardSlice')
@@ -314,6 +415,126 @@ describe('dashboardSlice', () => {
       expect(state.pages.length).toBe(4)
       expect(state.isEditMode).toBe(false)
       expect(state.currentPageId).toBe(state.pages[0].id)
+    })
+  })
+
+  describe('selectors', () => {
+    it('exposes the full list of pages to the canvas', async () => {
+      // Arrange
+      const { seedDefaultsIfEmpty, selectDashboardPages } =
+        await import('./dashboardSlice')
+      const store = await createTestStore()
+      store.dispatch(seedDefaultsIfEmpty())
+
+      // Act
+      const pages = selectDashboardPages(store.getState())
+
+      // Assert
+      expect(pages.map((page) => page.name)).toEqual([
+        'Overview',
+        'Discovery',
+        'Actions',
+        'Personal',
+      ])
+    })
+
+    it('reports which page tab is currently active', async () => {
+      // Arrange
+      const { seedDefaultsIfEmpty, setCurrentPage, selectCurrentPageId } =
+        await import('./dashboardSlice')
+      const store = await createTestStore()
+      store.dispatch(seedDefaultsIfEmpty())
+      const discoveryPage = store.getState().dashboard.pages[1]
+      store.dispatch(setCurrentPage(discoveryPage.id))
+
+      // Act
+      const currentPageId = selectCurrentPageId(store.getState())
+
+      // Assert
+      expect(currentPageId).toBe(discoveryPage.id)
+    })
+
+    it('resolves the active page object from the selected id', async () => {
+      // Arrange
+      const { seedDefaultsIfEmpty, setCurrentPage, selectCurrentPage } =
+        await import('./dashboardSlice')
+      const store = await createTestStore()
+      store.dispatch(seedDefaultsIfEmpty())
+      const actionsPage = store.getState().dashboard.pages[2]
+      store.dispatch(setCurrentPage(actionsPage.id))
+
+      // Act
+      const currentPage = selectCurrentPage(store.getState())
+
+      // Assert
+      expect(currentPage?.id).toBe(actionsPage.id)
+    })
+
+    it('falls back to the first page when no page has been selected yet', async () => {
+      // Arrange
+      const { seedDefaultsIfEmpty, selectCurrentPage } =
+        await import('./dashboardSlice')
+      const store = await createTestStore()
+      store.dispatch(seedDefaultsIfEmpty())
+      // Force the "nothing selected" state the seed normally avoids.
+      const seededPages = store.getState().dashboard.pages
+      const stateWithoutSelection = {
+        dashboard: { ...store.getState().dashboard, currentPageId: null },
+      }
+
+      // Act
+      const currentPage = selectCurrentPage(stateWithoutSelection)
+
+      // Assert
+      expect(currentPage?.id).toBe(seededPages[0].id)
+    })
+
+    it('reflects whether the canvas is in edit mode', async () => {
+      // Arrange
+      const { toggleEditMode, selectIsEditMode } =
+        await import('./dashboardSlice')
+      const store = await createTestStore()
+
+      // Assert
+      expect(selectIsEditMode(store.getState())).toBe(false)
+
+      // Act
+      store.dispatch(toggleEditMode())
+
+      // Assert
+      expect(selectIsEditMode(store.getState())).toBe(true)
+    })
+
+    it('reflects whether the welcome widget has been dismissed', async () => {
+      // Arrange
+      const { dismissWelcome, selectWelcomeDismissed } =
+        await import('./dashboardSlice')
+      const store = await createTestStore()
+
+      // Assert
+      expect(selectWelcomeDismissed(store.getState())).toBe(false)
+
+      // Act
+      store.dispatch(dismissWelcome())
+
+      // Assert
+      expect(selectWelcomeDismissed(store.getState())).toBe(true)
+    })
+
+    it('signals once first-run defaults have been seeded', async () => {
+      // Arrange
+      const { seedDefaultsIfEmpty, selectIsInitialized } =
+        await import('./dashboardSlice')
+      const store = await createTestStore()
+
+      // Assert
+      expect(selectIsInitialized(store.getState())).toBe(false)
+
+      // Act
+      store.dispatch(seedDefaultsIfEmpty())
+
+      // Assert
+      expect(selectIsInitialized(store.getState())).toBe(true)
     })
   })
 })

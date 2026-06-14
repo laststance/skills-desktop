@@ -732,4 +732,369 @@ describe('SkillItem bulk-select checkbox stopPropagation', () => {
     expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
     expect(store.getState().skills.selectedSkill).toBeNull()
   })
+
+  it('extends the selection to the whole range on a shift-click with an existing anchor', async () => {
+    // Arrange
+    // Seed three visible rows so the range slice is meaningful, then plant an
+    // anchor on 'alpha' (toggleSelection records the anchor). The rendered row
+    // is the middle one ('task'); a shift-click on it should sweep alpha→task.
+    const { screen, store } = await renderSkillItem(
+      makeSkill({ name: 'task' as SkillName }),
+    )
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSkill({ name: 'alpha' as SkillName }),
+          makeSkill({ name: 'task' as SkillName }),
+          makeSkill({ name: 'zeta' as SkillName }),
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection('alpha' as SkillName))
+    // Precondition: anchor planted, so the shift branch will actually run.
+    expect(store.getState().skills.selectionAnchor).toBe('alpha')
+
+    // Act
+    // `.click()` can't carry the shift modifier and Radix swallows it before
+    // onClick, so fire the raw pointerdown the handler captures.
+    const checkboxLocator = screen.getByRole('checkbox', {
+      name: /^Select task$/i,
+    })
+    await expect.element(checkboxLocator).toBeInTheDocument()
+    checkboxLocator
+      .element()
+      .dispatchEvent(
+        new PointerEvent('pointerdown', { bubbles: true, shiftKey: true }),
+      )
+
+    // Assert
+    // Range covers alpha (anchor) through task (clicked) inclusive — zeta is
+    // outside the slice. alpha was already ticked, task is newly added.
+    await expect
+      .poll(() => store.getState().skills.selectedSkillNames)
+      .toEqual(['alpha', 'task'])
+  })
+})
+
+describe('SkillItem unlink button', () => {
+  it('stages the symlink for removal when unlinking a valid skill in agent view', async () => {
+    // Arrange
+    const validSkill = makeSkill({
+      name: 'task' as SkillName,
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          targetPath:
+            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(validSkill)
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+
+    // Act
+    store.dispatch(selectAgent('cursor'))
+    // The agent display name comes from the agents slice (empty in this store),
+    // so the button falls back to the generic "agent" label.
+    await screen
+      .getByRole('button', { name: /^Unlink task from agent$/i })
+      .click()
+
+    // Assert
+    // The X routes the selected agent's symlink into the UnlinkDialog via the
+    // skills slice; the staged payload must carry both skill and symlink.
+    expect(store.getState().skills.skillToUnlink?.skill.name).toBe('task')
+    expect(store.getState().skills.skillToUnlink?.symlink.agentId).toBe(
+      'cursor',
+    )
+    // stopPropagation keeps the inspector closed on the row being unlinked.
+    expect(store.getState().skills.selectedSkill).toBeNull()
+  })
+
+  it('stages the local-folder slot for removal when deleting a local skill in agent view', async () => {
+    // Arrange
+    // A real local folder (isLocal: true) in the selected agent's skills dir
+    // has no source symlink, so handleUnlinkClick must fall back to
+    // selectedLocalSkillInfo. The X button reads "Delete ... from ...".
+    const localSkill = makeSkill({
+      name: 'task' as SkillName,
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          isLocal: true,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(localSkill)
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+
+    // Act
+    store.dispatch(selectAgent('cursor'))
+    // Local skills surface as a "Delete ... from ..." affordance; the agents
+    // slice is empty in this store, so the label falls back to "agent".
+    await screen
+      .getByRole('button', { name: /^Delete task from agent$/i })
+      .click()
+
+    // Assert
+    // The fallback path stages the LOCAL slot itself (isLocal true) so the
+    // UnlinkDialog removes the real folder rather than a non-existent symlink.
+    expect(store.getState().skills.skillToUnlink?.skill.name).toBe('task')
+    expect(store.getState().skills.skillToUnlink?.symlink.agentId).toBe(
+      'cursor',
+    )
+    expect(store.getState().skills.skillToUnlink?.symlink.isLocal).toBe(true)
+    // stopPropagation keeps the inspector closed on the row being deleted.
+    expect(store.getState().skills.selectedSkill).toBeNull()
+  })
+})
+
+describe('SkillItem bookmark toggle', () => {
+  it('bookmarks an unbookmarked skill with its repo and url', async () => {
+    // Arrange
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        name: 'task' as SkillName,
+        source: repositoryId('vercel-labs/agent-skills'),
+        sourceUrl: 'https://github.com/vercel-labs/agent-skills.git',
+      }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Bookmark task$/i }).click()
+
+    // Assert
+    // addBookmark stores the derived repo + .git-stripped url so the Marketplace
+    // tab can re-offer the source later. (bookmarkedAt is stamped by the reducer
+    // and intentionally left out of the assertion.)
+    const bookmarks = store.getState().bookmarks.items
+    expect(bookmarks).toHaveLength(1)
+    expect(bookmarks[0].name).toBe('task')
+    expect(bookmarks[0].repo).toBe('vercel-labs/agent-skills')
+    expect(bookmarks[0].url).toBe('https://github.com/vercel-labs/agent-skills')
+  })
+
+  it('removes the bookmark when toggling an already-bookmarked skill', async () => {
+    // Arrange
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        name: 'task' as SkillName,
+        source: repositoryId('vercel-labs/agent-skills'),
+      }),
+    )
+    const { addBookmark } =
+      await import('@/renderer/src/redux/slices/bookmarkSlice')
+    store.dispatch(
+      addBookmark({
+        name: 'task' as SkillName,
+        repo: repositoryId('vercel-labs/agent-skills'),
+        url: 'https://github.com/vercel-labs/agent-skills',
+      }),
+    )
+
+    // Act
+    await screen
+      .getByRole('button', { name: /^Remove bookmark from task$/i })
+      .click()
+
+    // Assert
+    expect(store.getState().bookmarks.items).toEqual([])
+  })
+})
+
+describe('SkillItem card click', () => {
+  it('opens the inspector pane on the clicked skill when the card body is clicked', async () => {
+    // Arrange
+    const { screen, store } = await renderSkillItem(
+      makeSkill({
+        name: 'task' as SkillName,
+        description: 'Task management skill',
+      }),
+    )
+
+    // Act
+    // Click a non-button part of the card so the Card's onClick (not a child
+    // action) is what fires.
+    await screen.getByText('Task management skill').click()
+
+    // Assert
+    expect(store.getState().skills.selectedSkill?.name).toBe('task')
+  })
+})
+
+describe('SkillItem G-Stack badge click', () => {
+  it('keeps the inspector closed when the G-Stack badge is clicked', async () => {
+    // Arrange
+    // The badge is a real anchor; in agent view its onClick stops propagation
+    // so the row's Card onClick (inspector select) never fires. Block the
+    // anchor's default navigation for the duration so target=_blank cannot
+    // open a popup in the test runner.
+    const preventNavigation = (event: Event): void => event.preventDefault()
+    document.addEventListener('click', preventNavigation, { capture: true })
+    try {
+      const { screen, store } = await renderSkillItem(
+        makeSkill({
+          name: 'task' as SkillName,
+          symlinks: [
+            {
+              agentId: 'claude-code',
+              agentName: 'Claude Code',
+              status: 'valid',
+              targetPath: '/Users/me/.claude/skills/gstack/task',
+              linkPath: '/Users/me/.claude/skills/task',
+              isLocal: false,
+            },
+          ],
+        }),
+      )
+      const { selectAgent } =
+        await import('@/renderer/src/redux/slices/uiSlice')
+      store.dispatch(selectAgent('claude-code'))
+
+      // Act
+      // The anchor's aria-label ("Open G-Stack GitHub repository") is its
+      // accessible name; match a substring of it.
+      await screen
+        .getByRole('link', { name: /Open G-Stack GitHub repository/i })
+        .click()
+
+      // Assert
+      // stopPropagation on the badge keeps the Card onClick from selecting the
+      // skill — clicking the external link must not also open the inspector.
+      expect(store.getState().skills.selectedSkill).toBeNull()
+    } finally {
+      document.removeEventListener('click', preventNavigation, {
+        capture: true,
+      })
+    }
+  })
+})
+
+describe('SkillItem copy context menu', () => {
+  it('stages the skill for copy when "Copy to..." is chosen from the right-click menu', async () => {
+    // Arrange
+    // Copy is only offered in agent view for a usable (valid, non-local) skill.
+    const validSkill = makeSkill({
+      name: 'task' as SkillName,
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          targetPath:
+            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(validSkill)
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(selectAgent('cursor'))
+    // Wait for the agent-view re-render to commit before firing contextmenu —
+    // handleContextMenu closes over showCopyButton, which only flips true once
+    // the agent-view render lands.
+    await expect
+      .element(screen.getByRole('button', { name: /^Add$/i }))
+      .toBeInTheDocument()
+    // Right-click a stable child (the description) — the contextmenu event
+    // bubbles up to the Card's onContextMenu regardless of which child owns it.
+    const card = screen.getByText('Task management skill').element()
+
+    // Act
+    // Right-click opens the controlled DropdownMenu (contextOpen state), then
+    // choose the only item.
+    card.dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
+    )
+    await screen.getByRole('menuitem', { name: /Copy to/i }).click()
+
+    // Assert
+    expect(store.getState().skills.skillToCopy?.name).toBe('task')
+  })
+
+  it('does not open the right-click menu for a skill that cannot be copied', async () => {
+    // Arrange
+    // Global view: showCopyButton is false, so onContextMenu returns early and
+    // no menu item is ever rendered.
+    const { screen } = await renderSkillItem(
+      makeSkill({ name: 'task' as SkillName }),
+    )
+    const card = screen.getByText('Task management skill').element()
+
+    // Act
+    card.dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
+    )
+
+    // Assert
+    expect(
+      screen.getByRole('menuitem', { name: /Copy to/i }).query(),
+    ).toBeNull()
+  })
+})
+
+describe('SkillItem partial-failure flash', () => {
+  it('flashes a red left edge for the matching row then clears it after the timeout', async () => {
+    // Arrange
+    const { screen } = await renderSkillItem(
+      makeSkill({ name: 'task' as SkillName }),
+    )
+    const { flashFailedRows } =
+      await import('@/renderer/src/utils/bulkOpVisuals')
+    const card = screen.getByText('Task management skill').element()
+    // Walk up to the Card root that carries the data-skill-name + edge classes.
+    const cardRoot = card.closest('[data-skill-name="task"]')
+    expect(cardRoot).not.toBeNull()
+
+    // Act
+    // Fire the per-row failure event MainContent uses after a partial bulk op.
+    flashFailedRows(['task' as SkillName])
+
+    // Assert
+    // The red edge appears immediately for this row's name...
+    await expect
+      .poll(() => cardRoot?.className.includes('border-l-red-500/70'))
+      .toBe(true)
+    // ...and the 3s timer clears it again (real timer — this test runs ~3s).
+    await expect
+      .poll(() => cardRoot?.className.includes('border-l-red-500/70'), {
+        timeout: 5_000,
+      })
+      .toBe(false)
+  })
+
+  it('ignores a failure event addressed to a different row', async () => {
+    // Arrange
+    const { screen } = await renderSkillItem(
+      makeSkill({ name: 'task' as SkillName }),
+    )
+    const { flashFailedRows } =
+      await import('@/renderer/src/utils/bulkOpVisuals')
+    const card = screen.getByText('Task management skill').element()
+    const cardRoot = card.closest('[data-skill-name="task"]')
+
+    // Act
+    // A different skill's failure must not paint this row red (early return on
+    // the skillName guard).
+    flashFailedRows(['other-skill' as SkillName])
+
+    // Assert
+    await expect
+      .poll(() => cardRoot?.className.includes('border-l-red-500/70'))
+      .toBe(false)
+  })
 })

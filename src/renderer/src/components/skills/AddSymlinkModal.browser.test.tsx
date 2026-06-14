@@ -242,6 +242,47 @@ describe('AddSymlinkModal actions', () => {
     expect(toastSuccess).not.toHaveBeenCalled()
   })
 
+  it('dismisses the modal when Cancel is clicked and no action is in flight', async () => {
+    // Arrange
+    const { screen, store } = await renderModal({
+      skill: makeSkill(),
+      agents: [makeAgent({ id: 'codex', name: 'Codex' })],
+    })
+
+    // Act
+    await screen.getByRole('button', { name: /^Cancel$/i }).click()
+
+    // Assert
+    await expect
+      .poll(() => store.getState().skills.skillToAddSymlinks)
+      .toBe(null)
+    await expect
+      .element(screen.getByRole('dialog', { name: /Add Skill to Agents/i }))
+      .not.toBeInTheDocument()
+  })
+
+  it('shows an error toast when linking the skill fails for every agent', async () => {
+    // Arrange
+    mockCreateSymlinks.mockResolvedValue({
+      success: false,
+      created: 0,
+      failures: [{ agentId: 'codex', error: 'Permission denied' }],
+    })
+    const { screen } = await renderModal({
+      skill: makeSkill(),
+      agents: [makeAgent({ id: 'codex', name: 'Codex' })],
+    })
+
+    // Act
+    await screen.getByRole('checkbox', { name: /Codex/i }).click()
+    await screen.getByRole('button', { name: /^Add Symlink$/i }).click()
+
+    // Assert
+    await expect.poll(() => toastError.mock.calls.length).toBe(1)
+    expect(toastError.mock.calls[0][0]).toBe('Failed to create symlinks')
+    expect(toastSuccess).not.toHaveBeenCalled()
+  })
+
   it('clears selected agents when the modal closes externally and reopens', async () => {
     // Arrange
     const firstSkill = makeSkill({ name: 'task' as SkillName })

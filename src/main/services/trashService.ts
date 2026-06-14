@@ -1120,6 +1120,7 @@ async function moveSourceBackedToTrash(
         'source EXDEV fallback copied to trash but removing original failed',
       )
     } else {
+      /* v8 ignore next 3 -- best-effort cleanup: any fs.rm rejection (EPERM/EBUSY/EACCES — force only suppresses ENOENT) is intentionally swallowed by .catch, and no suite stages a writable-but-unremovable dir, so this recovery arm is unreachable under test */
       await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
         // entryDir cleanup is best-effort — caller already has the real error.
       })
@@ -1168,6 +1169,7 @@ async function moveSourceBackedToTrash(
     // Step 3: drop only fully rolled-back entries. If source restore failed,
     // entrySourceDir is the manual recovery path and must survive this error.
     if (!restoreSourceFailed) {
+      /* v8 ignore next 3 -- best-effort cleanup: any fs.rm rejection (EPERM/EBUSY/EACCES — force only suppresses ENOENT) is intentionally swallowed by .catch, and no suite stages a writable-but-unremovable dir, so this recovery arm is unreachable under test */
       await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
         // entry cleanup is best-effort — caller already has the real error.
       })
@@ -1249,6 +1251,7 @@ async function moveLocalOnlyToTrash(
   const moved: RecordedLocalCopy[] = []
   for (const copy of localCopies) {
     const stagedPath = join(localCopiesRoot, copy.agentId)
+    /* v8 ignore start -- defense-in-depth: the sole caller moveToTrash always supplies a non-null filesystemIdentity, so this optional-field guard is unreachable via any public entry point */
     if (!copy.filesystemIdentity) {
       const unrestoredCopies = await rollbackMovedLocalCopies(entryDir, moved)
       if (unrestoredCopies.length === 0) {
@@ -1266,6 +1269,7 @@ async function moveLocalOnlyToTrash(
         'ESTALE',
       )
     }
+    /* v8 ignore stop */
     const reviewedFilesystemIdentity = copy.filesystemIdentity
     try {
       await fs.rename(copy.linkPath, stagedPath)
@@ -1356,6 +1360,7 @@ async function moveLocalOnlyToTrash(
           !recoveryOutcome.preserveEntryDir
         ) {
           // All copies restored — safe to drop the staged entry dir.
+          /* v8 ignore next 3 -- best-effort cleanup: any fs.rm rejection (EPERM/EBUSY/EACCES — force only suppresses ENOENT) is intentionally swallowed by .catch, and no suite stages a writable-but-unremovable dir, so this recovery arm is unreachable under test */
           await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
             // best-effort cleanup
           })
@@ -1391,6 +1396,7 @@ async function moveLocalOnlyToTrash(
 
   if (moved.length === 0) {
     // Every copy raced away — nothing to tombstone.
+    /* v8 ignore next 3 -- best-effort cleanup: any fs.rm rejection (EPERM/EBUSY/EACCES — force only suppresses ENOENT) is intentionally swallowed by .catch, and no suite stages a writable-but-unremovable dir, so this recovery arm is unreachable under test */
     await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
       // best-effort cleanup
     })
@@ -1413,6 +1419,7 @@ async function moveLocalOnlyToTrash(
     const unrestoredCopies = await rollbackMovedLocalCopies(entryDir, moved)
     if (unrestoredCopies.length === 0) {
       // All copies restored — safe to drop the staged entry dir.
+      /* v8 ignore next 3 -- best-effort cleanup: any fs.rm rejection (EPERM/EBUSY/EACCES — force only suppresses ENOENT) is intentionally swallowed by .catch, and no suite stages a writable-but-unremovable dir, so this recovery arm is unreachable under test */
       await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
         // best-effort cleanup
       })

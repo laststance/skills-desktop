@@ -85,4 +85,17 @@ describe('findEmptySpot', () => {
     // Assert
     expect(spot).toBeNull()
   })
+
+  it('returns null when one widget fills every searchable row so no spot is left', () => {
+    // Arrange — a single full-width widget tall enough to occupy all 40 searched
+    // rows (w=6 = GRID_COLS, h=40 = MAX_GRID_ROWS_SEARCH). Count is 1, below the
+    // MAX_WIDGETS_PER_PAGE limit, so the search loop runs and exhausts every row.
+    const widgets = [buildWidget({ x: 0, y: 0, w: 6, h: 40 })]
+
+    // Act
+    const spot = findEmptySpot(widgets, { w: 6, h: 1 })
+
+    // Assert
+    expect(spot).toBeNull()
+  })
 })

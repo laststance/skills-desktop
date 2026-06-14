@@ -87,6 +87,31 @@ describe('Settings → Appearance', () => {
     })
   })
 
+  it('restores the opaque default window when Reset to default is pressed', async () => {
+    // Arrange
+    const store = await createStore(24)
+    const { Appearance } = await import('./Appearance')
+    const screen = await render(
+      <Provider store={store}>
+        <Appearance />
+      </Provider>,
+    )
+    await expect.element(screen.getByText('72% / 24px')).toBeVisible()
+
+    // Act
+    await screen.getByRole('button', { name: /Reset to default/i }).click()
+
+    // Assert
+    await expect.element(screen.getByText('Opaque')).toBeVisible()
+    await expect.poll(() => mockSettingsSet.mock.calls.length).toBe(1)
+    expect(mockSettingsSet).toHaveBeenCalledWith({
+      windowBackgroundBlurRadius: 0,
+    })
+    expect(
+      screen.getByRole('button', { name: /Reset to default/i }).element(),
+    ).toBeDisabled()
+  })
+
   it('does not persist a slider drag that an incoming settings broadcast overrides', async () => {
     // Arrange
     const store = await createStore(12)

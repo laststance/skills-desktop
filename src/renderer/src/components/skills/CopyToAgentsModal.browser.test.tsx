@@ -173,4 +173,175 @@ describe('CopyToAgentsModal source guards', () => {
 
     expect(mockCopyToAgents).not.toHaveBeenCalled()
   })
+
+  it('keeps copy actions enabled when the selected source is a valid linked skill', async () => {
+    // Arrange
+    const skill = makeSkill([
+      {
+        agentId: 'claude-code',
+        agentName: 'Claude Code',
+        status: 'valid',
+        targetPath: '/home/user/.agents/skills/task',
+        linkPath: '/home/user/.claude/skills/task',
+        isLocal: false,
+      },
+    ])
+
+    // Act
+    const { screen } = await renderModal({
+      skill,
+      agents: [
+        makeAgent({ id: 'claude-code', name: 'Claude Code' }),
+        makeAgent({ id: 'cursor', name: 'Cursor' }),
+      ],
+      selectedAgentId: 'claude-code',
+    })
+
+    // Assert — a valid source resolves a usable source path, so the unavailable
+    // warning never appears and the destination checkbox stays selectable
+    await expect
+      .element(screen.getByRole('checkbox', { name: /Cursor/i }))
+      .not.toBeDisabled()
+    expect(screen.container.textContent).not.toContain(
+      'selected source is unavailable',
+    )
+  })
+})
+
+describe('CopyToAgentsModal destination selection', () => {
+  it('marks a destination agent as chosen when its row is clicked', async () => {
+    // Arrange
+    const skill = makeSkill([
+      {
+        agentId: 'claude-code',
+        agentName: 'Claude Code',
+        status: 'valid',
+        targetPath: '/home/user/.agents/skills/task',
+        linkPath: '/home/user/.claude/skills/task',
+        isLocal: false,
+      },
+    ])
+    const { screen, store } = await renderModal({
+      skill,
+      agents: [
+        makeAgent({ id: 'claude-code', name: 'Claude Code' }),
+        makeAgent({ id: 'cursor', name: 'Cursor' }),
+      ],
+      selectedAgentId: 'claude-code',
+    })
+    const cursorCheckbox = screen.getByRole('checkbox', { name: /Cursor/i })
+
+    // Act
+    await cursorCheckbox.click()
+
+    // Assert
+    await expect.element(cursorCheckbox).toBeChecked()
+    expect(store.getState().skills.selectedCopyAgentIds).toContain('cursor')
+  })
+})
+
+describe('CopyToAgentsModal copy outcome', () => {
+  it('copies the source skill to every ticked agent when Copy is pressed', async () => {
+    // Arrange
+    mockCopyToAgents.mockResolvedValue({
+      success: true,
+      copied: 1,
+      failures: [],
+    })
+    const skill = makeSkill([
+      {
+        agentId: 'claude-code',
+        agentName: 'Claude Code',
+        status: 'valid',
+        targetPath: '/home/user/.agents/skills/task',
+        linkPath: '/home/user/.claude/skills/task',
+        isLocal: false,
+      },
+    ])
+    const { screen } = await renderModal({
+      skill,
+      agents: [
+        makeAgent({ id: 'claude-code', name: 'Claude Code' }),
+        makeAgent({ id: 'cursor', name: 'Cursor' }),
+      ],
+      selectedAgentId: 'claude-code',
+    })
+    await screen.getByRole('checkbox', { name: /Cursor/i }).click()
+
+    // Act
+    await screen.getByRole('button', { name: /Copy to 1 agent\(s\)/i }).click()
+
+    // Assert — the copy IPC receives the resolved source path and ticked target
+    await vi.waitFor(() => {
+      expect(mockCopyToAgents).toHaveBeenCalledWith({
+        skillName: 'task',
+        sourcePath: '/home/user/.claude/skills/task',
+        targetAgentIds: ['cursor'],
+      })
+    })
+  })
+})
+
+describe('CopyToAgentsModal dismissal', () => {
+  it('closes the modal when Cancel is pressed', async () => {
+    // Arrange
+    const skill = makeSkill([
+      {
+        agentId: 'claude-code',
+        agentName: 'Claude Code',
+        status: 'valid',
+        targetPath: '/home/user/.agents/skills/task',
+        linkPath: '/home/user/.claude/skills/task',
+        isLocal: false,
+      },
+    ])
+    const { screen, store } = await renderModal({
+      skill,
+      agents: [
+        makeAgent({ id: 'claude-code', name: 'Claude Code' }),
+        makeAgent({ id: 'cursor', name: 'Cursor' }),
+      ],
+      selectedAgentId: 'claude-code',
+    })
+
+    // Act
+    await screen.getByRole('button', { name: /Cancel/i }).click()
+
+    // Assert — clearing skillToCopy is what collapses the dialog
+    await vi.waitFor(() => {
+      expect(store.getState().skills.skillToCopy).toBeNull()
+    })
+  })
+
+  it('closes the modal when Escape requests the dialog to close', async () => {
+    // Arrange
+    const skill = makeSkill([
+      {
+        agentId: 'claude-code',
+        agentName: 'Claude Code',
+        status: 'valid',
+        targetPath: '/home/user/.agents/skills/task',
+        linkPath: '/home/user/.claude/skills/task',
+        isLocal: false,
+      },
+    ])
+    const { store } = await renderModal({
+      skill,
+      agents: [
+        makeAgent({ id: 'claude-code', name: 'Claude Code' }),
+        makeAgent({ id: 'cursor', name: 'Cursor' }),
+      ],
+      selectedAgentId: 'claude-code',
+    })
+
+    // Act — Escape drives Radix onOpenChange(false) -> handleOpenChange
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    )
+
+    // Assert
+    await vi.waitFor(() => {
+      expect(store.getState().skills.skillToCopy).toBeNull()
+    })
+  })
 })

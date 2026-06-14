@@ -126,4 +126,27 @@ describe('ActivityTimelineWidget', () => {
       .element(screen.getByText('EACCES: permission denied'))
       .toBeVisible()
   })
+
+  it('omits the appended detail text for a non-error row whose detailText is null', async () => {
+    // Arrange: a skipped row — `match(item).otherwise(() => null)` makes
+    // detailText null, so the appended " — detail" span must not render. This
+    // covers the falsy branch of `{detailText && <span>…</span>}`, the
+    // complement of the errored-row test above.
+    const syncResult = makeSyncResult([
+      {
+        skillName: 'epsilon-skill',
+        agentName: 'Codex',
+        action: 'skipped',
+      },
+    ])
+
+    // Act
+    const { screen } = await renderTimeline(syncResult)
+
+    // Assert: the skill row and its status label show, but the em-dash detail
+    // separator (rendered only on the truthy detailText path) is absent.
+    await expect.element(screen.getByText('epsilon-skill')).toBeVisible()
+    await expect.element(screen.getByText('skipped')).toBeVisible()
+    expect(screen.getByText(/—/).query()).toBeNull()
+  })
 })

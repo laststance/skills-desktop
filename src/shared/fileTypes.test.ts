@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { classifyFile, shouldExcludeDir } from './fileTypes'
+import { classifyFile, formatBytes, shouldExcludeDir } from './fileTypes'
 
 describe('classifyFile', () => {
   it('renders a markdown file as readable text', () => {
@@ -166,5 +166,61 @@ describe('shouldExcludeDir', () => {
     const excluded = shouldExcludeDir(dirName)
     // Assert
     expect(excluded).toBe(false)
+  })
+})
+
+describe('formatBytes', () => {
+  it('shows a small file size in whole bytes with no decimals', () => {
+    // Arrange
+    const byteCount = 512
+    // Act
+    const formatted = formatBytes(byteCount)
+    // Assert
+    expect(formatted).toBe('512 B')
+  })
+
+  it('shows a zero-byte file as plain bytes without scaling up a unit', () => {
+    // Arrange
+    const byteCount = 0
+    // Act
+    const formatted = formatBytes(byteCount)
+    // Assert
+    expect(formatted).toBe('0 B')
+  })
+
+  it('keeps a size just under one kilobyte in bytes', () => {
+    // Arrange
+    const byteCount = 1023
+    // Act
+    const formatted = formatBytes(byteCount)
+    // Assert
+    expect(formatted).toBe('1023 B')
+  })
+
+  it('rolls a one-kilobyte file up to KB with one decimal of precision', () => {
+    // Arrange
+    const byteCount = 1024
+    // Act
+    const formatted = formatBytes(byteCount)
+    // Assert
+    expect(formatted).toBe('1.0 KB')
+  })
+
+  it('rolls a multi-megabyte file up to MB with one decimal of precision', () => {
+    // Arrange
+    const byteCount = 5_242_880
+    // Act
+    const formatted = formatBytes(byteCount)
+    // Assert
+    expect(formatted).toBe('5.0 MB')
+  })
+
+  it('caps the unit at GB for very large files instead of inventing a bigger unit', () => {
+    // Arrange — 5 TB worth of bytes; only B/KB/MB/GB units exist so it stays in GB
+    const byteCount = 5 * 1024 * 1024 * 1024 * 1024
+    // Act
+    const formatted = formatBytes(byteCount)
+    // Assert
+    expect(formatted).toBe('5120.0 GB')
   })
 })

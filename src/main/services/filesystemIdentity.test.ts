@@ -1,8 +1,11 @@
+import type { Stats } from 'node:fs'
+
 import { describe, expect, it } from 'vitest'
 
 import type { FilesystemEntryIdentity } from '@/shared/types'
 
 import {
+  filesystemIdentityFromStats,
   isReviewedEntryUnchangedIdentity,
   isSameFilesystemEntryIdentity,
 } from './filesystemIdentity'
@@ -184,6 +187,71 @@ describe('filesystem identity guards for destructive deletes', () => {
 
       // Assert
       expect(isSame).toBe(false)
+    })
+  })
+
+  describe('filesystemIdentityFromStats (kind discriminant from fs.Stats)', () => {
+    // A fully-shaped Stats fixture with every predicate defaulting to false, so
+    // each arm test only flips the single predicate the ternary branches on.
+    const baseStats = {
+      isFile: () => false,
+      isDirectory: () => false,
+      isBlockDevice: () => false,
+      isCharacterDevice: () => false,
+      isSymbolicLink: () => false,
+      isFIFO: () => false,
+      isSocket: () => false,
+      dev: 16777233,
+      ino: 99,
+      mode: 0,
+      nlink: 0,
+      uid: 0,
+      gid: 0,
+      rdev: 0,
+      size: 96,
+      blksize: 0,
+      blocks: 0,
+      atimeMs: 0,
+      mtimeMs: 2_000,
+      ctimeMs: 1_000,
+      birthtimeMs: 0,
+      atime: new Date(0),
+      mtime: new Date(0),
+      ctime: new Date(0),
+      birthtime: new Date(0),
+    } satisfies Stats
+
+    it('labels an entry as a symlink so destructive UI treats it as a link, not its target', () => {
+      // Arrange: lstat saw a symbolic link (directory/file predicates irrelevant).
+      const symlinkStats = { ...baseStats, isSymbolicLink: () => true }
+
+      // Act
+      const identity = filesystemIdentityFromStats(symlinkStats)
+
+      // Assert
+      expect(identity.kind).toBe('symlink')
+    })
+
+    it('labels a non-symlink directory as a directory so a folder delete is gated as a folder', () => {
+      // Arrange: a real directory — symlink predicate false, directory predicate true.
+      const directoryStats = { ...baseStats, isDirectory: () => true }
+
+      // Act
+      const identity = filesystemIdentityFromStats(directoryStats)
+
+      // Assert
+      expect(identity.kind).toBe('directory')
+    })
+
+    it('labels a plain file as a file when it is neither a symlink nor a directory', () => {
+      // Arrange: a regular file — only isFile is true.
+      const fileStats = { ...baseStats, isFile: () => true }
+
+      // Act
+      const identity = filesystemIdentityFromStats(fileStats)
+
+      // Assert
+      expect(identity.kind).toBe('file')
     })
   })
 })

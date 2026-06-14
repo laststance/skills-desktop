@@ -253,6 +253,41 @@ describe('themeSlice', () => {
       expect(store.getState().theme.preset).toBe('cyan')
       expect(store.getState().theme.mode).toBe('light')
     })
+
+    it('defaults Auto to dark in a headless host that has no matchMedia (SSR / pre-hydration safety net)', async () => {
+      // Regression guard for the resolver's headless fallback: when a user is on
+      // "Auto" but the host lacks `window.matchMedia` (SSR, the pre-hydration
+      // bootstrap script, or a stripped test host), the reducer must stay total
+      // and pick a safe palette instead of crashing on a missing API. Dark is
+      // the chosen default so a flash-of-light is never shown on cold start.
+      // Arrange — strip matchMedia so `typeof window.matchMedia !== 'function'`.
+      const { setModePreference } = await import('./themeSlice')
+      const store = await createTestStore()
+      // Capture the descriptor so the deletion is reversible — the outer
+      // afterEach uses vi.unstubAllGlobals(), which cannot undo a
+      // Reflect.deleteProperty, so without this restore any test added after
+      // this one would silently inherit window.matchMedia === undefined.
+      const priorMatchMediaDescriptor = Object.getOwnPropertyDescriptor(
+        window,
+        'matchMedia',
+      )
+      Reflect.deleteProperty(window, 'matchMedia')
+      try {
+        expect(typeof window.matchMedia).toBe('undefined')
+
+        // Act — pick Auto with no OS-appearance API available to consult.
+        store.dispatch(setModePreference('system'))
+
+        // Assert — falls back to dark without touching matchMedia.
+        expect(store.getState().theme.modePreference).toBe('system')
+        expect(store.getState().theme.mode).toBe('dark')
+      } finally {
+        // Cleanup — restore matchMedia so test isolation holds regardless of order.
+        if (priorMatchMediaDescriptor) {
+          Object.defineProperty(window, 'matchMedia', priorMatchMediaDescriptor)
+        }
+      }
+    })
   })
 
   it('removes the color tint when switching from a color swatch back to a neutral preset', async () => {

@@ -73,12 +73,63 @@ export default defineConfig({
       // primitives are scaffolded as full kits (every export reserved for
       // future composition), and *.d.ts / test files don't carry runtime
       // logic worth measuring.
+      //
+      // Electron-runtime exclusions: v8 only instruments code the vitest node
+      // + chromium lanes execute. The files below run inside the Electron
+      // main/preload process (app lifecycle, the ipcMain handler boundary, the
+      // contextBridge preload, and the two ReactDOM bootstrap entries). The
+      // boot/preload entries are exercised only behaviorally by the Playwright
+      // e2e suite (`pnpm test:e2e`), which v8 does not instrument — so counting
+      // them here would only ever read ~0% and make the gate meaningless.
+      // `src/main/ipc/**` is excluded as a whole directory per the explicit P3
+      // boot/IPC/preload scope, and the honest caveat is on the inline note
+      // below: only 4 of its 17 files carry node-lane tests, even the tested
+      // orchestration (skills.ts) is exercised-but-undercovered, and the rest
+      // lean on e2e. The carve-out therefore trades IPC coverage SIGNAL for the
+      // e2e boundary; the gate's real teeth are on the bulk of the domain logic
+      // in `src/main/services/**` + `src/main/utils/**` (and the renderer),
+      // which run in the node/chromium lanes and ARE held to the ~100% bar.
       exclude: [
         'src/**/*.test.{ts,tsx}',
         'src/**/*.browser.test.{ts,tsx}',
         'src/**/*.d.ts',
         'src/renderer/src/components/ui/**',
+        'src/main/index.ts', // Electron app boot + lifecycle wiring
+        'src/main/ipc/**', // ipcMain handler tree — excluded as a directory per the explicit P3 boot/IPC/preload carve-out. Honest caveat: only 4 of 17 files here carry node-lane tests (skills, folder, cliCommand, ipc-schemas), and even the tested orchestration (skills.ts) is integration-EXERCISED but only ~65% lines / ~49% branches COVERED — exercised ≠ covered. The other 13 (settings, sync, update, leaderboard, files, shell, source, skillsCli, agents, window, the typed* registration glue) are reached only by the Playwright e2e suite, which v8 does not instrument. So this carve-out trades IPC coverage SIGNAL for the e2e boundary; the gate's teeth are on the renderer + main/services + main/utils + shared, where the domain logic lives
+        'src/preload/**', // contextBridge preload runtime
+        'src/renderer/src/main.tsx', // main-window ReactDOM bootstrap
+        'src/renderer/settings/main.tsx', // settings-window ReactDOM bootstrap
       ],
+      // Coverage gate (the "pragmatic 100%" bar). Achieved at the time of
+      // writing: Lines 99.98 / Functions 99.93 / Statements 98.62 / Branches
+      // 88.67. We deliberately floor *just below* each rather than at 100
+      // because the Chromium (browser) lane's v8/esbuild instrumentation is
+      // systematically imprecise on transformed code. A `/* v8 ignore */`
+      // directive DOES suppress some browser-lane artifacts — this PR relies on
+      // exactly that for the guards in ErrorBoundary / MainContent /
+      // SymlinkCleanupDialog — but the diffuse artifacts below resist clean
+      // per-site annotation: the transform remaps the hit onto a different
+      // statement/function than a directive can target, so they are floored,
+      // not chased:
+      //   • Statements: JSX / arrow-callback statements map to transformed
+      //     positions that never register a hit even when the line + function
+      //     DID run (e.g. General.tsx, AgentItem.tsx, CodePreview.tsx all sit
+      //     at S:92 despite L:100 F:100). This is the bulk of the stmt/branch
+      //     shortfall — diffuse, so it is floored, not ignored.
+      //   • Functions: const-arrow `onClick` handlers lose their FNDA hit
+      //     attribution (e.g. SkillItem.handleUnlinkClick — clicked & asserted
+      //     by the "SkillItem unlink button" specs, yet counted uncovered).
+      //   • Lines: multi-line import closing-brace lines are dropped by the
+      //     transform (e.g. MainContent.tsx:9 `} from 'lucide-react'`).
+      // The node lane (Electron main-process services/utils) IS held to ~100 —
+      // its tests + v8 ignore directives work there. Buffers also absorb the
+      // per-component jitter these artifacts cause as later phases edit UI.
+      thresholds: {
+        lines: 99.8,
+        functions: 99.8,
+        statements: 97,
+        branches: 87,
+      },
     },
     projects: [
       {

@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Agent, AgentId } from '@/shared/types'
+import type { Agent, AgentId, SymlinkInfo } from '@/shared/types'
 
 import {
   buildCopyAgentOptionViewModel,
   getAddAgentSecondaryLabel,
+  getOccupiedAgentReasonById,
   getTargetAgentsForSelection,
 } from './agentSelectionHelpers'
 
@@ -61,6 +62,25 @@ describe('getTargetAgentsForSelection', () => {
 
     // Assert
     expect(result.map((agent) => agent.id)).toEqual(['cursor', 'amp'])
+  })
+
+  it('keeps every agent selectable when no source agent is excluded', () => {
+    // Arrange
+    const agents: Agent[] = [
+      makeAgent({ id: 'claude-code', exists: true }),
+      makeAgent({ id: 'cursor', exists: true }),
+      makeAgent({ id: 'amp', exists: false }),
+    ]
+
+    // Act
+    const result = getTargetAgentsForSelection(agents, {})
+
+    // Assert
+    expect(result.map((agent) => agent.id)).toEqual([
+      'claude-code',
+      'cursor',
+      'amp',
+    ])
   })
 })
 
@@ -191,5 +211,73 @@ describe('getAddAgentSecondaryLabel', () => {
 
     // Assert
     expect(label).toBeUndefined()
+  })
+})
+
+/**
+ * Creates a minimal SymlinkInfo entry for occupancy-mapping tests.
+ * @param overrides - Test-specific fields (at minimum agentId + status).
+ * @returns SymlinkInfo fixture with stable defaults.
+ */
+function makeSymlink(
+  overrides: Partial<SymlinkInfo> & Pick<SymlinkInfo, 'agentId' | 'status'>,
+): SymlinkInfo {
+  return {
+    agentId: overrides.agentId,
+    agentName: overrides.agentName ?? ('Agent' as SymlinkInfo['agentName']),
+    status: overrides.status,
+    linkPath:
+      overrides.linkPath ??
+      ('/tmp/.agent/skills/demo' as SymlinkInfo['linkPath']),
+    isLocal: overrides.isLocal ?? false,
+    targetPath: overrides.targetPath,
+  }
+}
+
+describe('getOccupiedAgentReasonById', () => {
+  it('marks an inaccessible destination as manual-review so Add/Copy stays blocked', () => {
+    // Arrange
+    const symlinks: SymlinkInfo[] = [
+      makeSymlink({ agentId: 'cursor', status: 'inaccessible' }),
+    ]
+
+    // Act
+    const result = getOccupiedAgentReasonById(symlinks)
+
+    // Assert
+    expect(result.get('cursor')).toBe('inaccessible')
+  })
+
+  it('leaves a missing destination unblocked so users can still select it', () => {
+    // Arrange
+    const symlinks: SymlinkInfo[] = [
+      makeSymlink({ agentId: 'amp', status: 'missing' }),
+    ]
+
+    // Act
+    const result = getOccupiedAgentReasonById(symlinks)
+
+    // Assert
+    expect(result.has('amp')).toBe(false)
+    expect(result.size).toBe(0)
+  })
+
+  it('records local, valid, and broken slots while skipping the free missing slot', () => {
+    // Arrange
+    const symlinks: SymlinkInfo[] = [
+      makeSymlink({ agentId: 'claude-code', status: 'valid', isLocal: true }),
+      makeSymlink({ agentId: 'cursor', status: 'valid' }),
+      makeSymlink({ agentId: 'codex', status: 'broken' }),
+      makeSymlink({ agentId: 'amp', status: 'missing' }),
+    ]
+
+    // Act
+    const result = getOccupiedAgentReasonById(symlinks)
+
+    // Assert
+    expect(result.get('claude-code')).toBe('local')
+    expect(result.get('cursor')).toBe('linked')
+    expect(result.get('codex')).toBe('broken')
+    expect(result.has('amp')).toBe(false)
   })
 })

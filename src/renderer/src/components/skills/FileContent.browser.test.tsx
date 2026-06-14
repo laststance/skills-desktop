@@ -24,6 +24,41 @@ function makeTextContent(
   }
 }
 
+// 1x1 transparent PNG kept inline so the image branch never touches the IPC layer.
+const TRANSPARENT_PNG_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+
+/**
+ * Build an empty preview payload off the IPC layer.
+ * @returns PreviewContent for FileContent's `empty` branch.
+ */
+function makeEmptyContent(): PreviewContent {
+  return { kind: 'empty' }
+}
+
+/**
+ * Build a binary preview payload off the IPC layer.
+ * @param fileName - Display name shown in the placeholder.
+ * @param size - File size in bytes for the human-readable size label.
+ * @returns PreviewContent for FileContent's `binary` branch.
+ */
+function makeBinaryContent(fileName: string, size: number): PreviewContent {
+  return { kind: 'binary', fileName, size }
+}
+
+/**
+ * Build an image preview payload off the IPC layer.
+ * @param name - Display name used as the `<img>` alt text.
+ * @param dataUrl - base64 data URL rendered as the image source.
+ * @returns PreviewContent for FileContent's `image` branch.
+ */
+function makeImageContent(name: string, dataUrl: string): PreviewContent {
+  return {
+    kind: 'image',
+    data: { name, dataUrl, mimeType: 'image/png', size: 70 },
+  }
+}
+
 describe('FileContent Markdown modes', () => {
   it('renders Markdown files in code mode first, then switches to Reading Mode', async () => {
     // Arrange
@@ -244,5 +279,164 @@ describe('FileContent Markdown modes', () => {
     await expect
       .poll(() => Math.round(lineNumberElement.getBoundingClientRect().left))
       .toBe(initialLineNumberLeft)
+  })
+})
+
+describe('FileContent preview kinds', () => {
+  it('prompts the user to pick a file when nothing is selected', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+
+    // Act
+    const screen = await render(<FileContent content={makeEmptyContent()} />)
+
+    // Assert
+    await expect
+      .element(screen.getByText('Select a file to preview'))
+      .toBeInTheDocument()
+  })
+
+  it('explains that a binary file cannot be previewed and shows its size', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+
+    // Act
+    const screen = await render(
+      <FileContent content={makeBinaryContent('archive.zip', 2048)} />,
+    )
+
+    // Assert
+    await expect.element(screen.getByText('archive.zip')).toBeInTheDocument()
+    await expect
+      .element(screen.getByText(/Cannot preview binary or oversized file/))
+      .toBeInTheDocument()
+    await expect.element(screen.getByText('2.0 KB')).toBeInTheDocument()
+  })
+
+  it('shows the image itself when previewing an image file', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+
+    // Act
+    const screen = await render(
+      <FileContent
+        content={makeImageContent('preview.png', TRANSPARENT_PNG_DATA_URL)}
+      />,
+    )
+
+    // Assert
+    const image = screen.getByRole('img', { name: 'preview.png' })
+    await expect.element(image).toBeInTheDocument()
+    await expect.element(image).toHaveAttribute('src', TRANSPARENT_PNG_DATA_URL)
+  })
+})
+
+describe('FileContent Reading Mode element styling', () => {
+  it('opens Markdown links in a new tab safely', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent
+        content={makeTextContent({
+          content: '# Skill\n\n[Docs](https://example.com/docs)',
+        })}
+      />,
+    )
+
+    // Act
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+
+    // Assert
+    const link = screen.getByRole('link', { name: 'Docs' })
+    await expect.element(link).toBeInTheDocument()
+    await expect
+      .element(link)
+      .toHaveAttribute('href', 'https://example.com/docs')
+    await expect.element(link).toHaveAttribute('target', '_blank')
+    await expect.element(link).toHaveAttribute('rel', 'noreferrer')
+  })
+
+  it('renders Markdown blockquotes as quoted callouts', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent
+        content={makeTextContent({
+          content: '# Skill\n\n> Heed this warning',
+        })}
+      />,
+    )
+
+    // Act
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+
+    // Assert
+    const quote = screen.getByText('Heed this warning').query()
+    expect(quote?.closest('blockquote')).toBeInstanceOf(HTMLQuoteElement)
+  })
+
+  it('renders Markdown section and subsection headings as h2 and h3', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent
+        content={makeTextContent({
+          content: '# Title\n\n## Section Two\n\n### Section Three',
+        })}
+      />,
+    )
+
+    // Act
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByRole('heading', { level: 2, name: 'Section Two' }))
+      .toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('heading', { level: 3, name: 'Section Three' }))
+      .toBeInTheDocument()
+  })
+
+  it('renders ordered Markdown lists as numbered lists', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent
+        content={makeTextContent({
+          content: '# Skill\n\n1. First step\n2. Second step',
+        })}
+      />,
+    )
+
+    // Act
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+
+    // Assert
+    const firstItem = screen.getByText('First step').query()
+    expect(firstItem?.closest('ol')).toBeInstanceOf(HTMLOListElement)
+  })
+
+  it('renders GitHub Flavored Markdown tables with header and body cells', async () => {
+    // Arrange
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent
+        content={makeTextContent({
+          content:
+            '# Skill\n\n| Agent | Status |\n| --- | --- |\n| Claude | valid |',
+        })}
+      />,
+    )
+
+    // Act
+    await screen.getByRole('radio', { name: /Show rendered Markdown/i }).click()
+
+    // Assert: header cell renders as a <th>, body cell as a <td>.
+    const headerCell = screen.getByText('Agent').query()
+    const bodyCell = screen.getByText('Claude').query()
+    expect(headerCell?.closest('th')).toBeInstanceOf(HTMLTableCellElement)
+    expect(bodyCell?.closest('td')).toBeInstanceOf(HTMLTableCellElement)
+    expect(headerCell?.closest('table')).toBeInstanceOf(HTMLTableElement)
   })
 })

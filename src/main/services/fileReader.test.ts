@@ -303,6 +303,53 @@ describe('listSkillFiles', () => {
     // Assert
     expect(result).toEqual([])
   })
+
+  it('falls back to an empty listing when traversal throws on a malformed entry', async () => {
+    // Arrange
+    // readdir resolves, but the entry's own type-check throws mid-walk —
+    // this escapes the readdir try/catch and must be swallowed by the
+    // top-level listSkillFiles guard rather than crashing the caller.
+    const explodingEntry = {
+      name: 'corrupt',
+      isFile: () => false,
+      isDirectory: () => false,
+      isSymbolicLink: () => {
+        throw new Error('EIO: corrupt dirent')
+      },
+    }
+    ;(mockFs.readdir as ReturnType<typeof vi.fn>).mockResolvedValue([
+      explodingEntry,
+    ])
+    mockStat()
+
+    // Act
+    const result = await listSkillFiles('/skills/my-skill')
+
+    // Assert
+    expect(result).toEqual([])
+  })
+
+  it('drops a file from the listing when its stat call fails', async () => {
+    // Arrange
+    mockTree({
+      '/skills/my-skill': [makeDirent('SKILL.md'), makeDirent('vanished.md')],
+    })
+    // SKILL.md stats fine; vanished.md disappears between readdir and stat.
+    ;(mockFs.stat as ReturnType<typeof vi.fn>).mockImplementation(
+      async (path: string) => {
+        if (path === '/skills/my-skill/vanished.md') {
+          throw new Error('ENOENT: stat after readdir')
+        }
+        return { size: 100 }
+      },
+    )
+
+    // Act
+    const names = (await listSkillFiles('/skills/my-skill')).map((f) => f.name)
+
+    // Assert
+    expect(names).toEqual(['SKILL.md'])
+  })
 })
 
 describe('readSkillFile', () => {

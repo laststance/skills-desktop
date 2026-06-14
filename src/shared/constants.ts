@@ -811,6 +811,7 @@ export type AgentId = (typeof AGENT_DEFINITIONS)[number]['id']
  */
 const _AGENT_IDS = AGENT_DEFINITIONS.map((definition) => definition.id)
 if (_AGENT_IDS.length === 0) {
+  /* v8 ignore next -- defensive: AGENT_DEFINITIONS is a non-empty const array literal, so no runtime input can empty it; only a future refactor would trip this */
   throw new Error('AGENT_DEFINITIONS must not be empty')
 }
 export const AGENT_IDS = _AGENT_IDS as unknown as readonly [

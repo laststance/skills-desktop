@@ -115,4 +115,44 @@ describe('useCopyToClipboard', () => {
       .element(screen.getByTestId('copy-state'))
       .toHaveTextContent('idle')
   })
+
+  it('shows an error toast when the Clipboard API is unavailable', async () => {
+    // Arrange — no Clipboard API at all (e.g. insecure context), so the guard
+    // throws before any write is attempted.
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: undefined,
+    })
+    const screen = await render(<CopyHarness />)
+
+    // Act
+    await screen.getByRole('button', { name: 'Copy' }).click()
+
+    // Assert — error toast fired and the flash never lit.
+    await vi.waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith('Failed to copy preview URL')
+    })
+    await expect
+      .element(screen.getByTestId('copy-state'))
+      .toHaveTextContent('idle')
+  })
+
+  it('keeps the copied flash lit when re-copying before the window elapses', async () => {
+    // Arrange — first copy lights the flash and arms the reset timer.
+    const screen = await render(<CopyHarness />)
+    await screen.getByRole('button', { name: 'Copy' }).click()
+    await expect
+      .element(screen.getByTestId('copy-state'))
+      .toHaveTextContent('copied')
+
+    // Act — copy again while the reset timer is still pending; the in-flight
+    // timer is cleared and replaced so the flash extends rather than stacks.
+    await screen.getByRole('button', { name: 'Copy' }).click()
+
+    // Assert — flash remains lit and both copies wrote to the clipboard.
+    await expect
+      .element(screen.getByTestId('copy-state'))
+      .toHaveTextContent('copied')
+    expect(mockWriteText).toHaveBeenCalledTimes(2)
+  })
 })

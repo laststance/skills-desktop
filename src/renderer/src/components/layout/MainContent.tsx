@@ -416,9 +416,15 @@ export const MainContent = React.memo(
       [dispatch],
     )
 
+    /* v8 ignore start -- FEATURE_FLAGS.ENABLE_MARKETPLACE_UI is a constant true,
+       so the Marketplace surfaces as a tab; the link button that calls this
+       handler only renders in the `else` (flag-off) branch and is never mounted,
+       making this handler unreachable in production and untestable without
+       mutating the constant (which would break every Marketplace-tab sibling). */
     const handleOpenMarketplace = (): void => {
       window.electron.shell.openExternal(SKILLS_SH_URL)
     }
+    /* v8 ignore stop */
 
     // Stash the frequently-churning inputs in refs so the keydown listener
     // effect below only re-subscribes when the tab itself changes. Without
@@ -717,6 +723,10 @@ export const MainContent = React.memo(
           new Set([...deleteNames, ...cleanupReadyOrphanNames]),
         )
         flashFailedRows(unresolvedNames)
+        /* v8 ignore next -- both call sites pass a non-empty set: the source-reject
+           path maps non-empty deleteTargets (guarded by length > 0) and the
+           orphan-reject path runs only when orphanRecords.length > 0, so this
+           empty-guard return is unreachable. */
         if (unresolvedNames.length === 0) return
         dispatch(enterBulkSelectMode())
         dispatch(selectAll(unresolvedNames))
@@ -781,6 +791,9 @@ export const MainContent = React.memo(
      */
     const confirmBulkUnlink = useCallback(
       async (confirm: BulkConfirmState): Promise<void> => {
+        /* v8 ignore next -- the sole caller handleConfirmBulk already narrows on
+           confirm.kind === 'unlink' before calling, so this exhaustiveness guard
+           never returns; it exists to satisfy the discriminated-union type. */
         if (confirm.kind !== 'unlink') return
         const { agentId, agentName } = confirm
         const unlinkTargets = confirm.unlinkTargets
@@ -824,6 +837,9 @@ export const MainContent = React.memo(
      */
     const confirmBulkDelete = useCallback(
       async (confirm: BulkConfirmState): Promise<void> => {
+        /* v8 ignore next -- the sole caller handleConfirmBulk routes 'unlink' to
+           confirmBulkUnlink and only falls through to here for 'delete', so this
+           exhaustiveness guard never returns; it exists for the union type. */
         if (confirm.kind !== 'delete') return
         const {
           deleteTargets,
@@ -973,6 +989,9 @@ export const MainContent = React.memo(
      * @example await handleConfirmBulk()
      */
     const handleConfirmBulk = useCallback(async (): Promise<void> => {
+      /* v8 ignore next -- the Confirm button that calls this only mounts inside
+         <Dialog open={bulkConfirm !== null}>, so bulkConfirm is always set at
+         click time; this null-guard return is unreachable from the UI. */
       if (!bulkConfirm) return
       const confirm = bulkConfirm
       dispatch(clearBulkConfirm())

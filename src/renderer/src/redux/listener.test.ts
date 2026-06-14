@@ -302,6 +302,48 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(store.getState().theme.modePreference).toBe('system')
   })
 
+  it('subscribes to OS appearance only once even if hydration completes twice', async () => {
+    // Idempotency guard for the OS-appearance subscription: ACTION_HYDRATE_COMPLETE
+    // should fire once per session, but a hot-module-reload replay (or any future
+    // code path that re-dispatches it) must NOT stack a second
+    // `prefers-color-scheme` change listener. Without the
+    // `systemThemeListenerInstalled` short-circuit, every replayed hydrate would
+    // add another subscription, so one OS flip would re-resolve the theme N times
+    // and leak listeners. The guard makes the second hydrate a no-op for
+    // subscription setup, which we observe by counting matchMedia calls.
+
+    // Arrange — a matchMedia spy installed before importing the listener so the
+    // first hydrate wires its change handler against our stub.
+    let osAppearanceSubscriptions = 0
+    const matchMediaStub = vi.fn().mockImplementation((query: string) => ({
+      get matches() {
+        return false
+      },
+      media: query,
+      addEventListener: vi.fn((event: string) => {
+        if (event === 'change') osAppearanceSubscriptions += 1
+      }),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: matchMediaStub,
+    })
+
+    const store = await createThemedStore()
+
+    // Act — hydrate twice on the SAME store (same module instance, so the
+    // module-level installed flag persists between the two dispatches).
+    store.dispatch({ type: ACTION_HYDRATE_COMPLETE })
+    store.dispatch({ type: ACTION_HYDRATE_COMPLETE })
+
+    // Assert — only the first hydrate subscribed; the second hit the guard.
+    expect(osAppearanceSubscriptions).toBe(1)
+    expect(matchMediaStub).toHaveBeenCalledTimes(1)
+  })
+
   it('OS appearance change is ignored when modePreference is sticky light/dark', async () => {
     // Arrange — same wiring as the Auto test, but user pinned Light.
     let capturedChangeHandler: ((event: MediaQueryListEvent) => void) | null =
@@ -347,6 +389,52 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(false)
     expect(store.getState().theme.mode).toBe('light')
     expect(store.getState().theme.modePreference).toBe('light')
+  })
+
+  it('skips installing the OS-appearance subscription in environments without matchMedia', async () => {
+    // Regression guard for the headless-safety branch: when the renderer is
+    // imported somewhere `window.matchMedia` is absent (e.g. an SSR/headless
+    // probe or a stripped jsdom variant), hydration must still paint the theme
+    // and must NOT throw trying to subscribe to a non-existent media query.
+    // If the `typeof window.matchMedia !== 'function'` short-circuit ever
+    // regresses, this dispatch crashes with a TypeError instead of no-opping.
+
+    // Arrange — remove matchMedia so the listener's headless guard fires, but
+    // remember the original so sibling tests keep their stubbable matchMedia.
+    const originalMatchMedia = window.matchMedia
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: undefined,
+    })
+
+    try {
+      const store = await createThemedStore()
+      const { setTheme } = await import('./slices/themeSlice')
+      store.dispatch(setTheme('blue'))
+      const root = document.documentElement
+      root.style.removeProperty('--theme-hue')
+      root.style.removeProperty('--theme-chroma')
+      root.classList.remove('dark', 'light')
+
+      // Act — hydration completes; installSystemThemeListener must early-return
+      // on the missing matchMedia rather than calling window.matchMedia(...).
+      expect(() =>
+        store.dispatch({ type: ACTION_HYDRATE_COMPLETE }),
+      ).not.toThrow()
+
+      // Assert — the theme was still painted (hydrate's applyThemeToDOM ran),
+      // and no media-query subscription was attempted.
+      expect(root.style.getPropertyValue('--theme-hue')).toBe('250')
+      expect(root.classList.contains('dark')).toBe(true)
+    } finally {
+      // Restore the env-provided matchMedia for the remaining tests.
+      Object.defineProperty(window, 'matchMedia', {
+        configurable: true,
+        writable: true,
+        value: originalMatchMedia,
+      })
+    }
   })
 
   it('paints rapid preset switches onto <html> in dispatch order without stale reordering', async () => {

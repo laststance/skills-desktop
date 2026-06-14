@@ -852,12 +852,14 @@ export const SymlinkCleanupDialog = React.memo(
           if (
             Object.keys(visibleRowErrors).length !== visibleFailedItemIds.length
           ) {
+            /* v8 ignore start -- unreachable: collectFailedRows writes failedItemIds and rowErrors in lockstep, and visibleFailedItemIds is a subset of failedItemIds, so pickVisibleRowErrors always keeps an entry per id; only a future refactor breaking that invariant would trip this guard */
             dispatchLocal({
               type: 'stale',
               message: 'Cleanup result changed. Rescan required.',
               staleAfterMutation: true,
             })
             return
+            /* v8 ignore stop */
           }
           dispatchLocal({
             type: 'error',
