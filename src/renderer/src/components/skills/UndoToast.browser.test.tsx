@@ -97,8 +97,10 @@ describe('UndoToast', () => {
     // Arrange
     const { screen } = await renderUndoToast({ expiresAt: futureIso(30) })
 
-    // Act
-    const countdown = screen.getByLabelText('30 seconds remaining')
+    // Act — locate by the stable label suffix, not an exact second, so a
+    // sub-second clock drift between futureIso(30) and render (30→29) can't
+    // miss the element; ~30s is comfortably outside the urgent window either way.
+    const countdown = screen.getByLabelText(/seconds remaining$/)
 
     // Assert
     await expect.element(countdown).toHaveClass('text-muted-foreground')
@@ -108,8 +110,10 @@ describe('UndoToast', () => {
     // Arrange
     const { screen } = await renderUndoToast({ expiresAt: futureIso(3) })
 
-    // Act
-    const countdown = screen.getByLabelText('3 seconds remaining')
+    // Act — locate by the stable label suffix, not an exact second, so a
+    // sub-second clock drift between futureIso(3) and render (3→2) can't miss
+    // the element; ~3s stays inside the urgent window either way.
+    const countdown = screen.getByLabelText(/seconds remaining$/)
 
     // Assert
     await expect.element(countdown).toHaveClass('text-foreground')

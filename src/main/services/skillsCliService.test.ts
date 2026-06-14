@@ -498,13 +498,16 @@ describe('skillsCliService.execCli error and timeout paths', () => {
   it('aborts the CLI command and reports a timeout when npx hangs past the limit', async () => {
     // Arrange — fake timers let us fast-forward past the spawn timeout without
     // emitting any close/error, so the timeout handler fires and kills npx.
+    // Mirrors the module-private SPAWN_TIMEOUT_MS in skillsCliService.ts; keep
+    // this >= that value so advancing the clock always trips the timeout handler.
+    const PAST_SPAWN_TIMEOUT_MS = 60_000
     vi.useFakeTimers()
     const fake = simulateCli({ autoClose: false })
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act
     const searchPromise = skillsCliService.search('react')
-    await vi.advanceTimersByTimeAsync(60_000)
+    await vi.advanceTimersByTimeAsync(PAST_SPAWN_TIMEOUT_MS)
     const results = await searchPromise
 
     // Assert — search swallows the failure into an empty list, and the child

@@ -104,10 +104,13 @@ export default defineConfig({
       // writing: Lines 99.98 / Functions 99.93 / Statements 98.62 / Branches
       // 88.67. We deliberately floor *just below* each rather than at 100
       // because the Chromium (browser) lane's v8/esbuild instrumentation is
-      // systematically imprecise on transformed code, and — verified — v8
-      // ignore directives do NOT survive that transform (the line remapping
-      // shifts them onto the wrong statements), so the artifacts below cannot
-      // be annotated away:
+      // systematically imprecise on transformed code. A `/* v8 ignore */`
+      // directive DOES suppress some browser-lane artifacts — this PR relies on
+      // exactly that for the guards in ErrorBoundary / MainContent /
+      // SymlinkCleanupDialog — but the diffuse artifacts below resist clean
+      // per-site annotation: the transform remaps the hit onto a different
+      // statement/function than a directive can target, so they are floored,
+      // not chased:
       //   • Statements: JSX / arrow-callback statements map to transformed
       //     positions that never register a hit even when the line + function
       //     DID run (e.g. General.tsx, AgentItem.tsx, CodePreview.tsx all sit

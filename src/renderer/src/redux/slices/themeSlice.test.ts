@@ -263,15 +263,30 @@ describe('themeSlice', () => {
       // Arrange — strip matchMedia so `typeof window.matchMedia !== 'function'`.
       const { setModePreference } = await import('./themeSlice')
       const store = await createTestStore()
+      // Capture the descriptor so the deletion is reversible — the outer
+      // afterEach uses vi.unstubAllGlobals(), which cannot undo a
+      // Reflect.deleteProperty, so without this restore any test added after
+      // this one would silently inherit window.matchMedia === undefined.
+      const priorMatchMediaDescriptor = Object.getOwnPropertyDescriptor(
+        window,
+        'matchMedia',
+      )
       Reflect.deleteProperty(window, 'matchMedia')
-      expect(typeof window.matchMedia).toBe('undefined')
+      try {
+        expect(typeof window.matchMedia).toBe('undefined')
 
-      // Act — pick Auto with no OS-appearance API available to consult.
-      store.dispatch(setModePreference('system'))
+        // Act — pick Auto with no OS-appearance API available to consult.
+        store.dispatch(setModePreference('system'))
 
-      // Assert — falls back to dark without touching matchMedia.
-      expect(store.getState().theme.modePreference).toBe('system')
-      expect(store.getState().theme.mode).toBe('dark')
+        // Assert — falls back to dark without touching matchMedia.
+        expect(store.getState().theme.modePreference).toBe('system')
+        expect(store.getState().theme.mode).toBe('dark')
+      } finally {
+        // Cleanup — restore matchMedia so test isolation holds regardless of order.
+        if (priorMatchMediaDescriptor) {
+          Object.defineProperty(window, 'matchMedia', priorMatchMediaDescriptor)
+        }
+      }
     })
   })
 
