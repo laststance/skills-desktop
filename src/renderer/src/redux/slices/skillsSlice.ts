@@ -896,4 +896,4 @@ export const selectBulkCopyModalOpen = (state: RootState): boolean =>
   state.skills.bulkCopyModalOpen
 export const selectBulkProgress = (
   state: RootState,
-): { current: number; total: number } | null => state.skills.bulkProgress
+): DeleteProgressPayload | null => state.skills.bulkProgress
