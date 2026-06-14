@@ -240,8 +240,10 @@ describe('Settings → Appearance', () => {
     // which the change handler must drop rather than persist a blank display.
     await screen.getByRole('radio', { name: /Tab badge/i }).click()
 
-    // Assert — nothing persisted and the display stays 'tab'.
-    await new Promise((resolve) => window.setTimeout(resolve, 180))
+    // Assert — the change handler is synchronous (the '' guard returns before
+    // any persist), and awaiting .click() has already flushed Radix's
+    // onValueChange, so no fixed delay is needed: nothing persisted, display
+    // stays 'tab'.
     expect(mockSettingsSet).not.toHaveBeenCalled()
     const settingsState = store.getState() as {
       settings: typeof DEFAULT_SETTINGS

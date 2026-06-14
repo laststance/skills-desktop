@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import type { BigIntStats, Stats } from 'node:fs'
 import {
   mkdir,
@@ -3614,12 +3615,12 @@ describe('trashService orphan cleanup guarded commit', () => {
     })
   })
 
-  it('restores the source with no preserved-copy hint when the cross-device copy fails and the sibling is already gone', async () => {
+  it('reports a cross-device source failure with no preserved-copy hint when the sibling is already gone', async () => {
     // Arrange
     // EXDEV forces the sibling-stage + copy fallback. The copy into the trash entry
     // fails (so no recovery copy was created), and by the time the catch tries to
-    // restore the sibling it is already gone (ENOENT). The original must come back
-    // and the surfaced error must NOT claim a preserved copy.
+    // restore the sibling it is already gone (ENOENT) — so the original cannot be
+    // brought back. The surfaced error must NOT claim a preserved copy.
     const skillName = 'source-exdev-sibling-gone'
     const sourcePath = join(tempHome, '.agents', 'skills', skillName)
     await mkdir(sourcePath, { recursive: true })
@@ -3703,6 +3704,10 @@ describe('trashService orphan cleanup guarded commit', () => {
     )
     // No recovery copy → the trash entry is dropped, not preserved.
     expect(await readdir(__getTrashDirForTests())).toEqual([])
+    // Unrecoverable branch: the sibling-stage rename moved the source out and the
+    // ENOENT restore probe leaves nothing to bring back, so the original is gone
+    // from its path — exactly why the error honestly omits a preserved-copy hint.
+    expect(existsSync(sourcePath)).toBe(false)
   })
 
   it('reports a local cross-device failure with no staged-copy hint when the sibling is already gone', async () => {
@@ -3790,5 +3795,9 @@ describe('trashService orphan cleanup guarded commit', () => {
     expect((surfacedError as Error).message).not.toMatch(
       /staged copy preserved/,
     )
+    // Unrecoverable branch: the local copy was staged out and the ENOENT restore
+    // probe leaves nothing to bring back, so it is gone from its original path —
+    // exactly why the error honestly omits a staged-copy hint.
+    expect(existsSync(localPath)).toBe(false)
   })
 })
