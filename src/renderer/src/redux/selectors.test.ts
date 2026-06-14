@@ -22,7 +22,6 @@ import {
   selectFilteredSkills,
   selectFilteredSkillCount,
   selectHiddenSelectedCount,
-  selectInFlightDeleteNamesSet,
   selectRepoFacetOptions,
   selectSelectedCount,
   selectSelectedSkillNamesSet,
@@ -1278,37 +1277,6 @@ describe('selectVisibleIneligibleSelectedCount', () => {
 
     // Act & Assert
     expect(selectVisibleIneligibleSelectedCount(state as never)).toBe(1)
-  })
-})
-
-describe('selectInFlightDeleteNamesSet', () => {
-  it('exposes in-flight delete names as a Set for fast membership checks', () => {
-    // Arrange
-    const state = buildState({
-      inFlightDeleteNames: ['a', 'b', 'c'],
-    })
-
-    // Act
-    const result = selectInFlightDeleteNamesSet(state as never)
-
-    // Assert
-    expect(result.has('a')).toBe(true)
-    expect(result.has('z')).toBe(false)
-    expect(result.size).toBe(3)
-  })
-
-  it('returns the same Set reference on repeat reads so consumers do not re-render needlessly', () => {
-    // Arrange
-    const state = buildState({
-      inFlightDeleteNames: ['a'],
-    })
-
-    // Act
-    const result1 = selectInFlightDeleteNamesSet(state as never)
-    const result2 = selectInFlightDeleteNamesSet(state as never)
-
-    // Assert
-    expect(result1).toBe(result2)
   })
 })
 
