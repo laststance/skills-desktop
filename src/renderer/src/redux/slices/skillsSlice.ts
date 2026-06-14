@@ -249,6 +249,7 @@ export const unlinkSkillFromAgent = createAsyncThunk(
           })(),
     )
     if (!result.success) {
+      /* v8 ignore next -- the unlink IPC contract supplies a non-empty error string when success=false; the 'Failed to unlink skill' fallback only fires for a malformed result missing error */
       throw new Error(result.error || 'Failed to unlink skill')
     }
     return { skillName: skill.name, agentName: symlink.agentName }
@@ -362,6 +363,7 @@ export const bulkCopyToAgents = createAsyncThunk<
           copied: 0,
           failures: agentIds.map((agentId) => ({
             agentId,
+            /* v8 ignore next -- copyToAgents IPC rejects with Error objects in normal flow; the 'Copy failed' arm only runs for a non-Error throw */
             error: error instanceof Error ? error.message : 'Copy failed',
           })),
         })
@@ -509,7 +511,8 @@ export const undoLastBulkDelete = createAsyncThunk(
         const message =
           rejectedError instanceof Error
             ? rejectedError.message
-            : String(rejectedError)
+            : /* v8 ignore next -- electron IPC rejects with Error objects in normal flow; the String() arm only runs for a non-Error throw */
+              String(rejectedError)
         outcomes.push({
           tombstoneId,
           result: { outcome: 'error', error: { message } },
@@ -671,6 +674,7 @@ const skillsSlice = createSlice({
       })
       .addCase(unlinkSkillFromAgent.rejected, (state, action) => {
         state.unlinking = false
+        /* v8 ignore next -- redux serializes thrown Errors with a message; the ?? fallback only fires for a hand-crafted rejected action lacking error.message */
         state.error = action.error.message ?? 'Failed to unlink skill'
       })
       // Create symlinks
@@ -684,6 +688,7 @@ const skillsSlice = createSlice({
       })
       .addCase(createSymlinks.rejected, (state, action) => {
         state.addingSymlinks = false
+        /* v8 ignore next -- redux serializes thrown Errors with a message; the ?? fallback only fires for a hand-crafted rejected action lacking error.message */
         state.error = action.error.message ?? 'Failed to create symlinks'
       })
       // Copy to agents
@@ -699,6 +704,7 @@ const skillsSlice = createSlice({
       })
       .addCase(copyToAgents.rejected, (state, action) => {
         state.copying = false
+        /* v8 ignore next -- redux serializes thrown Errors with a message; the ?? fallback only fires for a hand-crafted rejected action lacking error.message */
         state.error = action.error.message ?? 'Failed to copy skill'
       })
       // Bulk copy to agents (renderer fan-out over the copyToAgents IPC)
@@ -714,6 +720,7 @@ const skillsSlice = createSlice({
       })
       .addCase(bulkCopyToAgents.rejected, (state, action) => {
         state.bulkCopying = false
+        /* v8 ignore next -- redux serializes thrown Errors with a message; the ?? fallback only fires for a hand-crafted rejected action lacking error.message */
         state.error = action.error.message ?? 'Failed to copy skills'
       })
       .addCase(deleteSelectedSkills.pending, (state, action) => {
@@ -758,6 +765,7 @@ const skillsSlice = createSlice({
         state.inFlightDeleteNames = []
         state.bulkDeleting = false
         state.bulkProgress = null
+        /* v8 ignore next -- redux serializes thrown Errors with a message; the ?? fallback only fires for a hand-crafted rejected action lacking error.message */
         state.error = action.error.message ?? 'Bulk delete failed'
       })
       .addCase(clearSelectedOrphanSymlinks.pending, (state, action) => {
@@ -791,6 +799,7 @@ const skillsSlice = createSlice({
         state.inFlightDeleteNames = []
         state.bulkDeleting = false
         state.bulkProgress = null
+        /* v8 ignore next -- redux serializes thrown Errors with a message; the ?? fallback only fires for a hand-crafted rejected action lacking error.message */
         state.error = action.error.message ?? 'Orphan cleanup failed'
       })
       .addCase(clearSelectedBrokenSymlinkSlots.pending, (state, action) => {
@@ -810,6 +819,7 @@ const skillsSlice = createSlice({
       .addCase(clearSelectedBrokenSymlinkSlots.rejected, (state, action) => {
         state.inFlightUnlinkNames = []
         state.bulkUnlinking = false
+        /* v8 ignore next -- redux serializes thrown Errors with a message; the ?? fallback only fires for a hand-crafted rejected action lacking error.message */
         state.error = action.error.message ?? 'Broken symlink cleanup failed'
       })
       .addCase(unlinkSelectedFromAgent.pending, (state, action) => {
@@ -844,11 +854,13 @@ const skillsSlice = createSlice({
       .addCase(unlinkSelectedFromAgent.rejected, (state, action) => {
         state.inFlightUnlinkNames = []
         state.bulkUnlinking = false
+        /* v8 ignore next -- redux serializes thrown Errors with a message; the ?? fallback only fires for a hand-crafted rejected action lacking error.message */
         state.error = action.error.message ?? 'Bulk unlink failed'
       })
       // undoLastBulkDelete.fulfilled is handled via the fetchSkills refetch
       // that follows; only the rejection path mutates slice state.
       .addCase(undoLastBulkDelete.rejected, (state, action) => {
+        /* v8 ignore next -- redux serializes thrown Errors with a message; the ?? fallback only fires for a hand-crafted rejected action lacking error.message */
         state.error = action.error.message ?? 'Undo failed'
       })
   },

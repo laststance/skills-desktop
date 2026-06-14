@@ -1,7 +1,11 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 
-import type { DashboardPageId } from '@/renderer/src/components/dashboard/types'
+import type {
+  DashboardPage,
+  DashboardPageId,
+  WidgetInstanceId,
+} from '@/renderer/src/components/dashboard/types'
 
 // Dynamic import keeps the slice out of the module graph until each test
 // needs it — matches the pattern established by `bookmarkSlice.test.ts` and
@@ -9,6 +13,29 @@ import type { DashboardPageId } from '@/renderer/src/components/dashboard/types'
 async function createTestStore() {
   const { default: dashboardReducer } = await import('./dashboardSlice')
   return configureStore({ reducer: { dashboard: dashboardReducer } })
+}
+
+/**
+ * Builds a store whose dashboard slice starts from a caller-supplied state —
+ * used to reproduce arrangements (e.g. a stale `currentPageId`) that the public
+ * actions deliberately never produce on their own.
+ * @param dashboard - Full dashboard slice state to preload.
+ * @returns A configured store seeded with that dashboard state.
+ * @example
+ * const store = await createTestStoreWithDashboard({ pages: [page], currentPageId: 'p_stale' as DashboardPageId, isEditMode: false, welcomeDismissed: false, initialized: true })
+ */
+async function createTestStoreWithDashboard(dashboard: {
+  pages: DashboardPage[]
+  currentPageId: DashboardPageId | null
+  isEditMode: boolean
+  welcomeDismissed: boolean
+  initialized: boolean
+}) {
+  const { default: dashboardReducer } = await import('./dashboardSlice')
+  return configureStore({
+    reducer: { dashboard: dashboardReducer },
+    preloadedState: { dashboard },
+  })
 }
 
 describe('dashboardSlice', () => {
@@ -163,6 +190,37 @@ describe('dashboardSlice', () => {
       // Auto-created page becomes the current page.
       expect(state.currentPageId).toBe(state.pages[state.pages.length - 1].id)
     })
+
+    it('drops the new widget on the first page when the active page id is stale', async () => {
+      // Arrange
+      // A persisted/rehydrated arrangement can point currentPageId at a page
+      // that no longer exists; addWidget must fall back to the first page
+      // rather than spilling onto a brand-new overflow page.
+      const { addWidget } = await import('./dashboardSlice')
+      const firstPage: DashboardPage = {
+        id: 'p_first' as DashboardPageId,
+        name: 'First',
+        widgets: [],
+      }
+      const store = await createTestStoreWithDashboard({
+        pages: [firstPage],
+        currentPageId: 'p_gone' as DashboardPageId,
+        isEditMode: false,
+        welcomeDismissed: false,
+        initialized: true,
+      })
+
+      // Act
+      store.dispatch(addWidget({ type: 'stats' }))
+
+      // Assert
+      const state = store.getState().dashboard
+      // No overflow page was created — the widget landed on the existing page.
+      expect(state.pages.length).toBe(1)
+      expect(state.pages[0].id).toBe('p_first')
+      expect(state.pages[0].widgets.length).toBe(1)
+      expect(state.pages[0].widgets[0].type).toBe('stats')
+    })
   })
 
   describe('updateLayout', () => {
@@ -283,6 +341,22 @@ describe('dashboardSlice', () => {
       // 4 seeded pages, the emptied Actions page is dropped → 3 remain.
       expect(store.getState().dashboard.pages.length).toBe(3)
     })
+
+    it('ignores removeWidget when the widget id is not found on any page', async () => {
+      // Arrange
+      const { removeWidget, seedDefaultsIfEmpty } =
+        await import('./dashboardSlice')
+      const store = await createTestStore()
+      store.dispatch(seedDefaultsIfEmpty())
+      const pagesBefore = store.getState().dashboard.pages
+
+      // Act
+      store.dispatch(removeWidget('w_not_a_real_widget' as WidgetInstanceId))
+
+      // Assert
+      // Same reference → reducer bailed before touching any page.
+      expect(store.getState().dashboard.pages).toBe(pagesBefore)
+    })
   })
 
   describe('page management', () => {
@@ -370,6 +444,43 @@ describe('dashboardSlice', () => {
 
       // Assert
       expect(store.getState().dashboard.pages).toHaveLength(1)
+    })
+
+    it('ignores renamePage when the page id does not exist', async () => {
+      // Arrange
+      const { renamePage, seedDefaultsIfEmpty } =
+        await import('./dashboardSlice')
+      const store = await createTestStore()
+      store.dispatch(seedDefaultsIfEmpty())
+
+      // Act
+      store.dispatch(
+        renamePage({
+          pageId: 'p_not_a_real_id' as DashboardPageId,
+          name: 'Renamed',
+        }),
+      )
+
+      // Assert
+      // No page adopted the new name — the seeded titles stay intact.
+      expect(store.getState().dashboard.pages.map((page) => page.name)).toEqual(
+        ['Overview', 'Discovery', 'Actions', 'Personal'],
+      )
+    })
+
+    it('ignores removePage when the page id does not exist', async () => {
+      // Arrange
+      const { removePage, seedDefaultsIfEmpty } =
+        await import('./dashboardSlice')
+      const store = await createTestStore()
+      store.dispatch(seedDefaultsIfEmpty())
+
+      // Act
+      store.dispatch(removePage('p_not_a_real_id' as DashboardPageId))
+
+      // Assert
+      // All four seeded pages remain — nothing matched, nothing removed.
+      expect(store.getState().dashboard.pages.length).toBe(4)
     })
   })
 
@@ -487,6 +598,42 @@ describe('dashboardSlice', () => {
 
       // Assert
       expect(currentPage?.id).toBe(seededPages[0].id)
+    })
+
+    it('reports no active page when the selected id is gone and no pages remain', async () => {
+      // Arrange
+      const { selectCurrentPage } = await import('./dashboardSlice')
+      // Stale selection pointing at a non-existent page with an empty page list
+      // (e.g. after every page was deleted) — there is nothing to resolve to.
+      const stateWithNoPages = {
+        dashboard: {
+          pages: [],
+          currentPageId: 'p_gone' as DashboardPageId,
+          isEditMode: false,
+          welcomeDismissed: false,
+          initialized: true,
+        },
+      }
+
+      // Act
+      const currentPage = selectCurrentPage(stateWithNoPages)
+
+      // Assert
+      expect(currentPage).toBeNull()
+    })
+
+    it('reports no active page on a blank dashboard before first-run seeding', async () => {
+      // Arrange
+      const { selectCurrentPage } = await import('./dashboardSlice')
+      const store = await createTestStore()
+
+      // Act
+      // Pristine store: no pages and nothing selected yet — selector must not
+      // invent a page when pages[0] is also absent.
+      const currentPage = selectCurrentPage(store.getState())
+
+      // Assert
+      expect(currentPage).toBeNull()
     })
 
     it('reflects whether the canvas is in edit mode', async () => {

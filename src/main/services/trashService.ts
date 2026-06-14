@@ -1916,6 +1916,7 @@ function parseDeletedAtFromEntryName(
   const prefix = entryName.slice(0, dashIndex)
   if (!/^\d+$/.test(prefix)) return null
   const parsed = Number.parseInt(prefix, 10)
+  /* v8 ignore next -- the `: null` arm needs Number.parseInt(prefix) to be non-finite, which requires a 309+ digit prefix; such a name exceeds the 255-byte filesystem NAME_MAX, so fs.readdir in startupCleanup (the sole caller) can never surface it. parseInt of any \d+ name short enough to exist on disk is always finite. */
   return Number.isFinite(parsed) ? parsed : null
 }
 

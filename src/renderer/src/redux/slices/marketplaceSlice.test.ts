@@ -220,6 +220,23 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.error).toBe('API timeout')
   })
 
+  it('shows a generic search-failed banner when the search error carries no message', async () => {
+    // Arrange — the rejected request throws an Error with an empty message,
+    // so the panel must fall back to a human-readable default banner.
+    mockSearch.mockRejectedValue(new Error(''))
+    const store = await createTestStore()
+    const { searchSkills, setMarketplaceSearchQuery } =
+      await import('./marketplaceSlice')
+
+    // Act
+    store.dispatch(setMarketplaceSearchQuery('test'))
+    await store.dispatch(searchSkills('test'))
+
+    // Assert
+    expect(store.getState().marketplace.status).toBe('error')
+    expect(store.getState().marketplace.error).toBe('Search failed')
+  })
+
   it('keeps the latest query results when an earlier search resolves out of order', async () => {
     // Arrange — two searches in flight. "rea" is dispatched first but its
     // response is made to land AFTER "react" resolves, simulating an
@@ -436,6 +453,27 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.error).toBe('Install failed')
   })
 
+  it('shows a generic installation-failed banner when the install error carries no message', async () => {
+    // Arrange — the install rejects with an Error whose message is empty, so
+    // the panel must fall back to a human-readable default banner.
+    mockInstall.mockRejectedValue(new Error(''))
+    const store = await createTestStore()
+    const { installSkill } = await import('./marketplaceSlice')
+
+    // Act
+    await store.dispatch(
+      installSkill({
+        repo: repositoryId('vercel-labs/skill-task'),
+        global: true,
+        agents: [],
+      }),
+    )
+
+    // Assert
+    expect(store.getState().marketplace.status).toBe('error')
+    expect(store.getState().marketplace.error).toBe('Installation failed')
+  })
+
   it('shows an install-failed error when the CLI completes but reports no success', async () => {
     // Arrange — the install promise resolves (no throw) but the CLI reports
     // success:false, e.g. a non-zero exit that the IPC layer swallowed.
@@ -570,6 +608,32 @@ describe('marketplaceSlice', () => {
     expect(state?.status).toBe('error')
   })
 
+  it('shows a generic leaderboard-failed banner on the cached entry when a stale-cache refetch errors without a message', async () => {
+    // Arrange — first fetch populates the cache, then it goes stale
+    mockLeaderboard.mockResolvedValueOnce([sampleResult])
+    const store = await createTestStore()
+    const { loadLeaderboard } = await import('./marketplaceSlice')
+    await store.dispatch(loadLeaderboard('hot'))
+
+    // Advance time past TTL (31 min) so the cached entry refetches
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(Date.now() + 31 * 60 * 1000)
+
+      // Act — the stale-cache refetch rejects with an empty-message Error
+      mockLeaderboard.mockRejectedValueOnce(new Error(''))
+      await store.dispatch(loadLeaderboard('hot'))
+    } finally {
+      vi.useRealTimers()
+    }
+
+    // Assert — the existing cache entry keeps its rows but shows the fallback
+    const state = store.getState().marketplace.leaderboard['hot']
+    expect(state?.status).toBe('error')
+    expect(state?.error).toBe('Failed to load leaderboard')
+    expect(state?.skills).toHaveLength(1)
+  })
+
   it('shows an error and no rows when the first-ever leaderboard fetch fails', async () => {
     // Arrange
     mockLeaderboard.mockRejectedValue(new Error('Offline'))
@@ -584,6 +648,26 @@ describe('marketplaceSlice', () => {
     expect(lb?.status).toBe('error')
     expect(lb?.error).toBe('Offline')
     expect(lb?.skills).toEqual([])
+  })
+
+  it('shows a generic leaderboard-failed banner for a filter that rejects without a message before ever loading', async () => {
+    // Arrange — a rejection lands for a filter that has no cache entry yet, and
+    // the Error carries an empty message. The normal thunk lifecycle runs
+    // `pending` first (which seeds an entry), so this stand-alone rejected
+    // action models a failure arriving before any pending state existed.
+    const store = await createTestStore()
+    const { loadLeaderboard } = await import('./marketplaceSlice')
+    expect(store.getState().marketplace.leaderboard['hot']).toBeUndefined()
+
+    // Act — dispatch the rejected action directly with an empty-message Error.
+    store.dispatch(loadLeaderboard.rejected(new Error(''), 'req-1', 'hot'))
+
+    // Assert — a fresh error entry is created carrying the fallback banner.
+    const lb = store.getState().marketplace.leaderboard['hot']
+    expect(lb?.status).toBe('error')
+    expect(lb?.error).toBe('Failed to load leaderboard')
+    expect(lb?.skills).toEqual([])
+    expect(lb?.lastFetched).toBe(0)
   })
 
   it('records an error placeholder for a filter that rejects without ever loading', async () => {

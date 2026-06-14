@@ -180,6 +180,36 @@ describe('parseLeaderboardHtml', () => {
     expect(results[0].name).toBe('good-skill')
   })
 
+  it('filters out skills whose repo or skill-name fails the identifier whitelist', () => {
+    // Arrange
+    // Three anchors reaching the line-97 guard (each has a valid <h3>):
+    //  - valid:        repo + name both pass the whitelist
+    //  - invalid repo: '.bad/repo' starts with '.', tripping REPO_PATTERN
+    //  - invalid name: 'bad@skill' contains '@', tripping SKILL_NAME_PATTERN
+    const html = `
+      <a href="/owner/repo/good-skill">
+        <h3>good-skill</h3>
+        <span>100</span>
+      </a>
+      <a href="/.bad/repo/some-skill">
+        <h3>skill</h3>
+        <span>200</span>
+      </a>
+      <a href="/owner/repo/another-skill">
+        <h3>bad@skill</h3>
+        <span>300</span>
+      </a>
+    `
+
+    // Act
+    const results = parseLeaderboardHtml(html)
+
+    // Assert
+    expect(results).toHaveLength(1)
+    expect(results[0].name).toBe('good-skill')
+    expect(results[0].repo).toBe('owner/repo')
+  })
+
   it('still parses rows when the all-time page wraps anchors in a table', () => {
     // Arrange
     const html = `

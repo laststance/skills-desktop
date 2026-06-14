@@ -82,6 +82,7 @@ const agentsSlice = createSlice({
       })
       .addCase(fetchAgents.rejected, (state, action) => {
         state.loading = false
+        /* v8 ignore next -- getAll() rejection always carries a populated Error.message in normal app flow; the empty-message fallback never fires */
         state.error = action.error.message || 'Failed to fetch agents'
       })
       .addCase(removeAllSymlinksFromAgent.pending, (state) => {
@@ -93,6 +94,7 @@ const agentsSlice = createSlice({
       })
       .addCase(removeAllSymlinksFromAgent.rejected, (state, action) => {
         state.deleting = false
+        /* v8 ignore next -- every reject path (identity guard, line-59 `||` fallback, IPC rejection) supplies a non-empty Error.message; the nullish fallback never fires in normal app flow */
         state.error = action.error.message ?? 'Failed to remove symlinks'
       })
   },

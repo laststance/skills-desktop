@@ -22,8 +22,8 @@ export interface ResolvedCodeTheme {
 const foundDefaultCodeThemeDefinition = CODE_THEME_DEFINITIONS.find(
   (theme) => theme.id === DEFAULT_CODE_THEME_ID,
 )
+/* v8 ignore next 3 -- defensive: DEFAULT_CODE_THEME_ID is always a CODE_THEME_DEFINITIONS member by construction ('github' is the first entry and the default), so .find() never returns undefined; only a refactor could empty it */
 if (!foundDefaultCodeThemeDefinition) {
-  /* v8 ignore next 2 -- defensive: DEFAULT_CODE_THEME_ID is always a CODE_THEME_DEFINITIONS member; only a refactor could empty it */
   throw new Error('DEFAULT_CODE_THEME_ID must exist in CODE_THEME_DEFINITIONS')
 }
 // Bind the post-throw narrowed value so the type carries into `resolveCodeTheme`

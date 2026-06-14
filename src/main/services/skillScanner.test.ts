@@ -290,6 +290,63 @@ describe('scanSkills local skill aggregation', () => {
     )
     expect(cursor?.skillMdSymlinkTarget).toBeUndefined()
   })
+
+  it('ignores an agent directory that is not a valid skill', async () => {
+    // Arrange: codex has a real folder "not-a-skill" with NO SKILL.md inside,
+    // so isValidSkillDir rejects it. A directory without a SKILL.md is not a
+    // skill and must never enter the inventory.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') return []
+      if (path === '/mock/agents/codex/skills') {
+        return [
+          createDirent('not-a-skill', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    // No SKILL.md exists anywhere → stat throws for every probe, so
+    // isValidSkillDir returns false for the candidate directory.
+    statMock.mockRejectedValue(new Error('ENOENT'))
+    lstatMock.mockRejectedValue(new Error('ENOENT'))
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert: the SKILL.md-less directory is excluded from the inventory.
+    expect(skills).toHaveLength(0)
+  })
+
+  it('skips directories without SKILL.md when listing valid source skills', async () => {
+    // Arrange: SOURCE_DIR holds one real folder "no-skill-md" that contains no
+    // SKILL.md file, so isValidSkillDir returns false for it. The source-dir
+    // lister must drop such a directory — a folder without SKILL.md is not a
+    // skill and must never be reported as an installable source.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        return [
+          createDirent('no-skill-md', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    // No SKILL.md exists, so the stat probe for "no-skill-md/SKILL.md" throws
+    // ENOENT and isValidSkillDir resolves false for the candidate directory.
+    statMock.mockRejectedValue(new Error('ENOENT'))
+    const { listValidSourceSkillDirs } = await import('./dirScanner')
+
+    // Act
+    const sourceSkillDirs = await listValidSourceSkillDirs()
+
+    // Assert: the SKILL.md-less directory yields an empty source-skill list.
+    expect(sourceSkillDirs).toEqual([])
+  })
 })
 
 describe('scanSkills agent-only linked symlink surfacing', () => {
@@ -426,6 +483,75 @@ describe('scanSkills agent-only linked symlink surfacing', () => {
       targetPath: '/mock/secure/skills/secure-review',
     })
     expect(cursor).toMatchObject({ status: 'missing', isLocal: false })
+  })
+
+  it('keeps the readable description when an inaccessible sibling is seen after a valid one', async () => {
+    // Arrange: two agents link the SAME skill name "shared-skill". Codex's link
+    // is valid with parseable metadata (seen first → builds the record), cursor's
+    // link is inaccessible (seen second → carries null metadata). The grouped
+    // record must NOT downgrade to the inaccessible placeholder; the readable
+    // description and target path from the valid codex link must survive.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') return []
+      if (path === '/mock/agents/codex/skills') {
+        return [
+          createDirent('shared-skill', {
+            isDirectory: false,
+            isSymbolicLink: true,
+          }),
+        ]
+      }
+      if (path === '/mock/agents/cursor/skills') {
+        return [
+          createDirent('shared-skill', {
+            isDirectory: false,
+            isSymbolicLink: true,
+          }),
+        ]
+      }
+      return []
+    })
+    accessMock.mockRejectedValue(new Error('ENOENT'))
+    statMock.mockRejectedValue(new Error('ENOENT'))
+    checkSymlinkTargetFromKnownLinkMock.mockImplementation(
+      async (linkPath: string) => {
+        if (linkPath === '/mock/agents/codex/skills/shared-skill') {
+          return 'valid'
+        }
+        if (linkPath === '/mock/agents/cursor/skills/shared-skill') {
+          return 'inaccessible'
+        }
+        return 'missing'
+      },
+    )
+    readSymlinkTargetIfPresentMock.mockImplementation(
+      async (linkPath: string) => {
+        if (linkPath === '/mock/agents/codex/skills/shared-skill') {
+          return '/mock/external/shared-skill'
+        }
+        return undefined
+      },
+    )
+    parseSkillMetadataMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/external/shared-skill') {
+        return { name: 'shared-skill', description: 'readable description' }
+      }
+      return { name: basename(path), description: 'mock description' }
+    })
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert
+    expect(skills).toHaveLength(1)
+    const merged = skills[0]
+    expect(merged.name).toBe('shared-skill')
+    expect(merged.description).toBe('readable description')
+    expect(merged.path).toBe('/mock/external/shared-skill')
+
+    const cursor = merged.symlinks.find((s) => s.agentId === 'cursor')
+    expect(cursor?.status).toBe('inaccessible')
   })
 })
 
@@ -1037,6 +1163,43 @@ describe('scanSkills resilience to per-agent and source failures', () => {
     expect(skills).toHaveLength(0)
   })
 
+  it('drops a valid agent link whose target path cannot be read', async () => {
+    // Arrange: codex has a "valid" symlink, but readSymlinkTargetIfPresent
+    // returns undefined for it (the link resolves as valid yet its target path
+    // cannot be read back). With no target path there is no SKILL.md to parse,
+    // so the link must be dropped rather than surfacing a row with no source.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') return []
+      if (path === '/mock/agents/codex/skills') {
+        return [
+          createDirent('unreadable-link', {
+            isDirectory: false,
+            isSymbolicLink: true,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockRejectedValue(new Error('ENOENT'))
+    checkSymlinkTargetFromKnownLinkMock.mockImplementation(
+      async (linkPath: string) => {
+        if (linkPath === '/mock/agents/codex/skills/unreadable-link') {
+          return 'valid'
+        }
+        return 'missing'
+      },
+    )
+    // Target path is unreadable for the valid link — undefined for every path.
+    readSymlinkTargetIfPresentMock.mockResolvedValue(undefined)
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert: no row survives for the link whose target path is unreadable.
+    expect(skills).toHaveLength(0)
+  })
+
   it('upgrades an inaccessible link record to readable metadata when a valid sibling link is found', async () => {
     // Arrange: two agents link the SAME skill name "shared-skill". Codex's link
     // is inaccessible (seen first), cursor's link is valid with parseable
@@ -1246,6 +1409,75 @@ describe('getSourceStats source directory summary', () => {
     expect(sourceStats.skillCount).toBe(1)
     expect(sourceStats.totalSize).toBe('3.0 KB')
     expect(sourceStats.lastModified).toBe('2026-06-14T00:00:00.000Z')
+  })
+
+  it('excludes symlink entries from the recursive size total', async () => {
+    // Arrange: source dir holds one valid skill folder with a SKILL.md (2048B)
+    // and a nested assets dir containing a PNG (1024B) plus a symlink entry
+    // (neither a directory nor a regular file). The size walk must count only
+    // real files — symlinks (and other special entries) contribute 0 bytes, so
+    // the reported total stays 3072B regardless of dangling links in the tree.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        return [
+          createDirent('demo-skill', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      if (path === '/mock/source/skills/demo-skill') {
+        return [
+          {
+            name: 'SKILL.md',
+            isDirectory: () => false,
+            isFile: () => true,
+          },
+          {
+            name: 'assets',
+            isDirectory: () => true,
+            isFile: () => false,
+          },
+        ]
+      }
+      if (path === '/mock/source/skills/demo-skill/assets') {
+        return [
+          {
+            name: 'logo.png',
+            isDirectory: () => false,
+            isFile: () => true,
+          },
+          {
+            name: 'broken-link',
+            isDirectory: () => false,
+            isFile: () => false,
+          },
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills/demo-skill/SKILL.md') {
+        return { isFile: () => true, isDirectory: () => false, size: 2048 }
+      }
+      if (path === '/mock/source/skills/demo-skill/assets/logo.png') {
+        return { isFile: () => true, isDirectory: () => false, size: 1024 }
+      }
+      if (path === '/mock/source/skills') {
+        return {
+          isDirectory: () => true,
+          mtime: new Date('2026-06-14T00:00:00.000Z'),
+        }
+      }
+      throw new Error(`ENOENT: ${path}`)
+    })
+    const { getSourceStats } = await import('./skillScanner')
+
+    // Act
+    const sourceStats = await getSourceStats()
+
+    // Assert: the symlink entry is uncounted; only SKILL.md + logo.png sum.
+    expect(sourceStats.totalSize).toBe('3.0 KB')
   })
 
   it('falls back to a zero-byte placeholder when the source dir cannot be stat-ed', async () => {

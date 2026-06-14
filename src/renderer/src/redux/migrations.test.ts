@@ -346,6 +346,68 @@ describe('migrateState — v1 → v2 dashboard widget min-size clamp', () => {
     // Quick Actions w: 3 already at the minimum — stays at 3.
     expect(state.dashboard.pages[1].widgets[0].w).toBe(3)
   })
+
+  it('skips a page whose widgets field is not an array and still clamps the surviving page (no total-wipe)', () => {
+    // Arrange — a valid page object whose `widgets` was persisted as a non-array
+    // (corrupted storage). Iterating it as an array would crash, throwing the
+    // migration and triggering the storage middleware's removeItem() total-wipe.
+    // The guard must skip it and migrate the well-formed page that follows.
+    const state = {
+      dashboard: {
+        pages: [
+          { id: 'page-1', name: 'Home', widgets: 'not-an-array' },
+          {
+            id: 'page-2',
+            name: 'Tools',
+            widgets: [
+              { id: 'w1', type: 'quick-actions', x: 0, y: 0, w: 6, h: 2 },
+            ],
+          },
+        ],
+      } as unknown,
+    }
+
+    // Act
+    expect(() => migrateState(state, 1)).not.toThrow()
+
+    // Assert
+    const dashboard = state.dashboard as {
+      pages: Array<{ widgets: unknown }>
+    }
+    expect(dashboard.pages[0].widgets).toBe('not-an-array')
+    expect((dashboard.pages[1].widgets as Array<{ h: number }>)[0].h).toBe(3)
+  })
+
+  it('skips a widget that has no type field and still clamps a typed sibling', () => {
+    // Arrange — a non-null widget object missing its `type` (corrupted entry).
+    // It has no per-type floor to apply, so the migration must `continue` past
+    // it without mutating it, while the typed Quick Actions sibling on the same
+    // page is still clamped up to its height floor.
+    const state = {
+      dashboard: {
+        pages: [
+          {
+            id: 'page-1',
+            name: 'Home',
+            widgets: [
+              { id: 'w1', x: 0, y: 0, w: 2, h: 2 },
+              { id: 'w2', type: 'quick-actions', x: 0, y: 0, w: 6, h: 2 },
+            ],
+          },
+        ],
+      } as unknown,
+    }
+
+    // Act
+    expect(() => migrateState(state, 1)).not.toThrow()
+
+    // Assert
+    const dashboard = state.dashboard as {
+      pages: Array<{ widgets: Array<{ h: number }> }>
+    }
+    expect(dashboard.pages[0].widgets[0].h).toBe(2) // type-less widget untouched
+    expect(dashboard.pages[0].widgets[1].h).toBe(3) // typed sibling clamped
+  })
 })
 
 describe('migrateState — v2 → v3 theme modePreference seeding', () => {

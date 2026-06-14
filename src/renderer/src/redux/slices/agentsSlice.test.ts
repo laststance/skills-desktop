@@ -209,6 +209,23 @@ describe('agentsSlice', () => {
     expect(store.getState().agents.error).toBe('Directory locked')
   })
 
+  it('shows a generic deletion-failure message when the backend reports failure without a reason', async () => {
+    // Arrange
+    mockRemoveAllFromAgent.mockResolvedValue({
+      success: false,
+      removedCount: 0,
+    })
+    const store = await createTestStore()
+    const { removeAllSymlinksFromAgent } = await import('./agentsSlice')
+
+    // Act
+    await store.dispatch(removeAllSymlinksFromAgent(sampleAgent))
+
+    // Assert
+    expect(store.getState().agents.deleting).toBe(false)
+    expect(store.getState().agents.error).toBe('Failed to delete skills folder')
+  })
+
   it('surfaces the thrown error when symlink removal rejects', async () => {
     // Arrange
     mockRemoveAllFromAgent.mockRejectedValue(new Error('Unexpected error'))

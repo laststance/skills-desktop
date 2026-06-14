@@ -883,6 +883,21 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     expect(store.getState().skills.selectionAnchor).toBe('browser')
   })
 
+  it('keeps the existing anchor when a shift-click range resolves to no rows', async () => {
+    // Arrange — a prior single click pinned 'task' as the range anchor
+    const { toggleSelection, selectRange } = await import('./skillsSlice')
+    const store = await createTestStore()
+    store.dispatch(toggleSelection('task'))
+
+    // Act — an empty range payload (no spanned rows) must not move the anchor
+    store.dispatch(selectRange([]))
+
+    // Assert — anchor stays on the last real click so a follow-up shift-click
+    // still extends from 'task' instead of losing its origin
+    expect(store.getState().skills.selectionAnchor).toBe('task')
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+  })
+
   it('clears the selection and anchor when select-all is given an empty list', async () => {
     // Arrange
     const { toggleSelection, selectAll } = await import('./skillsSlice')

@@ -152,6 +152,7 @@ export function getSymlinkCleanupPlanItems(
 ): SymlinkCleanupPlanItem[] {
   return [
     ...plan.orphanRecords,
+    /* v8 ignore next -- buildSymlinkCleanupPlan (sole producer) never emits undefined slot arrays; only a hand-built malformed plan reaches this */
     ...Object.values(plan.brokenSlotsByAgent).flatMap((items) => items ?? []),
   ]
 }
@@ -217,6 +218,7 @@ export function buildSymlinkCleanupPlan(
   }
 
   const brokenSlots = Object.values(brokenSlotsByAgent).reduce(
+    /* v8 ignore next -- brokenSlotsByAgent is a local const built only with non-empty arrays; no producer emits undefined slot arrays */
     (total, items) => total + (items?.length ?? 0),
     0,
   )

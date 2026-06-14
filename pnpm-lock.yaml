@@ -136,8 +136,8 @@ importers:
         specifier: ^4.1.8
         version: 4.1.8(@vitest/browser@4.1.8)(vitest@4.1.8)
       code-inspector-plugin:
-        specifier: ~1.5.1
-        version: 1.5.4
+        specifier: ~1.6.0
+        version: 1.6.0
       culori:
         specifier: ^4.0.2
         version: 4.0.2
@@ -172,8 +172,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0(eslint@10.5.0(jiti@2.7.0))
       fallow:
-        specifier: 2.95.0
-        version: 2.95.0
+        specifier: 2.96.0
+        version: 2.96.0
       happy-dom:
         specifier: ^20.10.3
         version: 20.10.3
@@ -307,23 +307,23 @@ packages:
   '@blazediff/core@1.9.1':
     resolution: {integrity: sha512-ehg3jIkYKulZh+8om/O25vkvSsXXwC+skXmyA87FFx6A/45eqOkZsBltMw/TVteb0mloiGT8oGRTcjRAz66zaA==}
 
-  '@code-inspector/core@1.5.4':
-    resolution: {integrity: sha512-Y6vmeskCz1wxf6DbdmWq4I046DJIFRW+TI0NTJXI4JARmp/53gWLSrWR6pBl91S7Kr4IpFuurUQZFXK9nWMX4g==}
+  '@code-inspector/core@1.6.0':
+    resolution: {integrity: sha512-RMJA9RQVpU12L5Df32lhOC7kh0CwBbydaqr/dQmTEX9rjcr2cyEAalWSaglcMber6+iOHDZSiyaFIJCGKOSV3w==}
 
-  '@code-inspector/esbuild@1.5.4':
-    resolution: {integrity: sha512-ElnxlXIgkNtS99Vg3uWocz45mjT6o06/8HmW9I50RCD3+JBJ5EX9vqvNRqRlQ2wtkkzh4icpT8prDrBVjVQR4A==}
+  '@code-inspector/esbuild@1.6.0':
+    resolution: {integrity: sha512-IDSOrQUaKDecklfd5wNqgU3j4TSlcqLspWw5+xGS8n5cFACy2kA4aM+vE4xWK3OXiooLB9sOGbVcOaZzda2hhA==}
 
-  '@code-inspector/mako@1.5.4':
-    resolution: {integrity: sha512-zRc2kWXru8iM8NOGDJBFITOzr+ctuq8TtghryyJpzx62BDrLiy1hx3JUVsBf351Q6CLNTjnc1tBGcosGqw3noA==}
+  '@code-inspector/mako@1.6.0':
+    resolution: {integrity: sha512-99fPSBfbEiYMpZWHc2NSShzxDecNgn8ykziqeYjSqnNZTdCjhlEmMR/KymOMoI/Ott1wLM3H5fqa7Lpehx9NxQ==}
 
-  '@code-inspector/turbopack@1.5.4':
-    resolution: {integrity: sha512-RIFODeMpxQhvLWqdsIrdTNTUGtqvlKsz9qhWj3dhy92qAGjNDUzuHXZi/BE5/ZMOk1crYhNDpMMeYAJxXfNmQg==}
+  '@code-inspector/turbopack@1.6.0':
+    resolution: {integrity: sha512-hhJGozLBa53NNi4Apn27Di0DAdfGzjFB5/iVsklQHKOxnGSJ7VviPO01Bi2W6sfOc6tY27wvsys1I1kc42KOLw==}
 
-  '@code-inspector/vite@1.5.4':
-    resolution: {integrity: sha512-IwY5XVvam4CQibEm0bFa7XEwiLpsXWJ/lJ1fE3+ftWOYTarg3tJ7+cDCkw1Vj7qSu4ZQFJEWP2ut62olteDICQ==}
+  '@code-inspector/vite@1.6.0':
+    resolution: {integrity: sha512-P406JrDxZ8iGr26X3YzRwuR/jeYtrAhhjJu9BH0FpXRVcMolyp3a4kvMYzZ2IfulAxNMvcEAZsfr4DHLBFNktg==}
 
-  '@code-inspector/webpack@1.5.4':
-    resolution: {integrity: sha512-9h8d/oMHThSC5WpWKxL6bIjDOlunF3AQi5cfYwNvYBybYJhLw2xfIulzukT5JBVbNb5RWALQWjinIGpL73jn6w==}
+  '@code-inspector/webpack@1.6.0':
+    resolution: {integrity: sha512-TVEYQ/hgWpyNTibUQh/nf/01ipDdP9/VGJJhL2eVpyBKlP4k8ipKusXaCEbC4hvUQsak6T11rwPQIXIf+WONRQ==}
 
   '@electron-internal/extract-zip@1.0.3':
     resolution: {integrity: sha512-OjKpjB7gohtEjZiq6nDx1egqjZJhGPN1iFOIED+NFhB/MMkXw/XRcHjh1DGXKT5z2W9eW7Jy2UKU3gpjvusFTQ==}
@@ -382,8 +382,8 @@ packages:
   '@emnapi/runtime@1.10.0':
     resolution: {integrity: sha512-ewvYlk86xUoGI0zQRNq/mC+16R1QeDlKQy21Ki3oSYXNgLb45GV1P6A0M+/s6nyCuNDqe5VpaY84BzXGwVbwFA==}
 
-  '@emnapi/runtime@1.11.0':
-    resolution: {integrity: sha512-55coeOFKHv1ywEcUXJtWU5f+Jr/W5tZDvZig8DLKSwUN1JpROQ4rk/SNOQiFWmaR/VKF4zuFyW1B8JduOSv6Pg==}
+  '@emnapi/runtime@1.11.1':
+    resolution: {integrity: sha512-vgj7R3y3Wgx24IQaGPA/R6YFXLHVMOZ0uVEyIQPaWs+rd1AzfEMXlAC22FYwO1XkKR6NPsq7mUandH8oIRdZFw==}
 
   '@emnapi/runtime@1.9.2':
     resolution: {integrity: sha512-3U4+MIWHImeyu1wnmVygh5WlgfYDtyf0k8AbLhMFxOipihf6nrWC4syIm/SwEeec0mNSafiiNnMJwbza/Is6Lw==}
@@ -733,43 +733,43 @@ packages:
     resolution: {integrity: sha512-+CNAzxglkrpNf/kKywqQfk74QjtceuOE7Qm+AF8miRvPF/wmmK5+OJOgVh3AVTT3RP2mH3+FOaxlE5v72owk0A==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
 
-  '@fallow-cli/darwin-arm64@2.95.0':
-    resolution: {integrity: sha512-j0u38kohZNXMn9SiBlrANTHZflAOmr5/cH6OVcJxD2ZVjb7rZGSSSDYIIcKOUfphNk62JADCPdfJfHcR1PvAGA==}
+  '@fallow-cli/darwin-arm64@2.96.0':
+    resolution: {integrity: sha512-y5zqGloIyeDnLXtrmCDSaANK+jrEXIR9an3UokkIhtCvztq2/Oi4ha2kWgBuNDQhrT8dk9tXTYX/+lBV9a7Yhg==}
     cpu: [arm64]
     os: [darwin]
 
-  '@fallow-cli/darwin-x64@2.95.0':
-    resolution: {integrity: sha512-mXevHgSMBfzva3BQ0fD2X0d8BM+sVJPp7DDjBUtMsOTPMG5uGRrJZWboWJxkzoIaPXWGdbnpzHHz7k3KTN0Kfw==}
+  '@fallow-cli/darwin-x64@2.96.0':
+    resolution: {integrity: sha512-ofN1Y4MoGV2bO19j0p7REZBdflZJ7oSAAel8DOQkrcoAqa5rEu2iJAFO0u9I0gSDxQG/g++GawojPK2jWsGz7Q==}
     cpu: [x64]
     os: [darwin]
 
-  '@fallow-cli/linux-arm64-gnu@2.95.0':
-    resolution: {integrity: sha512-zj92iptkkAxU1MOPQKdRGNII4A5/od4Efnr/hnOoqJu+wOJFRpoNmc6pzSj99OuMJBjI2NS2sShXozVO4vEMyw==}
+  '@fallow-cli/linux-arm64-gnu@2.96.0':
+    resolution: {integrity: sha512-GlHpuXQhrK/BpDLV2GahGHSL+LawzufDLGfFujdrLCsOsCHggqWr0T3NR6fuzHgapel/nhtjBRzWJSYAMz0PLg==}
     cpu: [arm64]
     os: [linux]
 
-  '@fallow-cli/linux-arm64-musl@2.95.0':
-    resolution: {integrity: sha512-y1vniS59wtvgheWgLs5xxOSikdsrR3oIRi3NGSUZ8tam9Ci48QmBzKnW+k/RACFuQhd8Z1DMWd6MDk0+h7BgGQ==}
+  '@fallow-cli/linux-arm64-musl@2.96.0':
+    resolution: {integrity: sha512-EAKnmAxvALNiSomznrT/UwGOSI3B/V2ISFoJFaIOcd+K2tVr9rbxNyv40gPWgzECWukiDn+u+vWMO+ul7fpd4A==}
     cpu: [arm64]
     os: [linux]
 
-  '@fallow-cli/linux-x64-gnu@2.95.0':
-    resolution: {integrity: sha512-bYF0P7Xu/OnxHQrjRAgvjlT0hXp2OHc68CnNRRmIXSSfz03ttWJCBb4iOexEQgtgmK2r3JQ3qQhFKxrWuYbPSA==}
+  '@fallow-cli/linux-x64-gnu@2.96.0':
+    resolution: {integrity: sha512-gobVZ9J1rhPanZyPkVHT0T9SmPHgC+C46IPPcjdjC0C655X7pAGV6CysVjvIBAo+pAIcUWVvkD5DiDa1OFYwgw==}
     cpu: [x64]
     os: [linux]
 
-  '@fallow-cli/linux-x64-musl@2.95.0':
-    resolution: {integrity: sha512-ylq2nCqkTKjMGMoUoieJR9sGlMr6TJcUzMMN47D7AWrCp+dzvX+FtbRSJqtaBmC2qSJJpCz92BfkmGx2gXTZFQ==}
+  '@fallow-cli/linux-x64-musl@2.96.0':
+    resolution: {integrity: sha512-SjeU14V5SYUhXzYjKOVo2oijpxYSbMxKoiKzeiKNK+hmMGC7SoCPruP9jD8IdsTr1NmgR+MdkKafxuGmWBvWKw==}
     cpu: [x64]
     os: [linux]
 
-  '@fallow-cli/win32-arm64-msvc@2.95.0':
-    resolution: {integrity: sha512-IIRFW7u16rb0lbMjXZMidMuPaab8vsVMfK1uxA6I81Pnja1WsI4Owqb2eehrVqrKGx7xLEGSVaTwb/jYCW1nwA==}
+  '@fallow-cli/win32-arm64-msvc@2.96.0':
+    resolution: {integrity: sha512-KL6Xf/J/XPOhK0VfIURFYCyJ11tfa4pn6+HzKc8hKa4DucwJlvpO+Pk4937hEQgCkLC/HmCzZWPn3rE7WiIvNQ==}
     cpu: [arm64]
     os: [win32]
 
-  '@fallow-cli/win32-x64-msvc@2.95.0':
-    resolution: {integrity: sha512-+HFHB89i98363HMIDgbc44qlUPSM6wyYmw6z6Cm+HWfEo/GIAQFUuxkq3lPvdu8gvT6IbLwcyjPBNX/yVGX3Wg==}
+  '@fallow-cli/win32-x64-msvc@2.96.0':
+    resolution: {integrity: sha512-WXrNyYxqW4A1jMAZuMLInGuzL4E35kQlaDfLtGqkbC3vbbq36eMPmdoXuK8trtllqg0NA8Cd+KYQwN8xA8zzNA==}
     cpu: [x64]
     os: [win32]
 
@@ -2687,8 +2687,8 @@ packages:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
 
-  code-inspector-plugin@1.5.4:
-    resolution: {integrity: sha512-/5g6uiVQSQFexgvBJNArjJ70EqTzlbxviygjElfOl1dMMtVkmwr1ppmExkSfNMasrhPwFJfqihBvEVmt+GfaaA==}
+  code-inspector-plugin@1.6.0:
+    resolution: {integrity: sha512-pH5sQoL5VGKXo92yimfzdF8yHWGU3hC8uA8kovLR3EB0WSJ7TfC+AZaPryLI2n5F2dSWUgaCv5zuoNvDvKHQBQ==}
 
   color-convert@2.0.1:
     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
@@ -3096,8 +3096,8 @@ packages:
   extend@3.0.2:
     resolution: {integrity: sha512-fjquC59cD7CyW6urNXK0FBufkZcoiGG80wTuPujX590cB5Ttln20E2UB4S/WARVqhXffZl2LNgS+gQdPIIim/g==}
 
-  fallow@2.95.0:
-    resolution: {integrity: sha512-gY9Oyw5ZgvF3ZZwqhj34zAJBE/9OlwTXVaEI4G9kWCz1+npOSgw5nNCm7UyeTbWd25hDt6zoli1tMX40ADky0Q==}
+  fallow@2.96.0:
+    resolution: {integrity: sha512-fNEj+b/LUVXwfyxZPnr+SJjdQHCKjUbWgluW/wC7Q5kcJENHNEJtmFDgpHEqKY6gY257xRCgyg1AlSC8YQgROA==}
     engines: {node: '>=16'}
     hasBin: true
 
@@ -5076,45 +5076,45 @@ snapshots:
 
   '@blazediff/core@1.9.1': {}
 
-  '@code-inspector/core@1.5.4':
+  '@code-inspector/core@1.6.0':
     dependencies:
       '@vue/compiler-dom': 3.5.38
-      chalk: 4.1.2
+      chalk: 4.1.1
       dotenv: 16.6.1
       launch-ide: 1.4.3
       portfinder: 1.0.38
     transitivePeerDependencies:
       - supports-color
 
-  '@code-inspector/esbuild@1.5.4':
+  '@code-inspector/esbuild@1.6.0':
     dependencies:
-      '@code-inspector/core': 1.5.4
+      '@code-inspector/core': 1.6.0
     transitivePeerDependencies:
       - supports-color
 
-  '@code-inspector/mako@1.5.4':
+  '@code-inspector/mako@1.6.0':
     dependencies:
-      '@code-inspector/core': 1.5.4
+      '@code-inspector/core': 1.6.0
     transitivePeerDependencies:
       - supports-color
 
-  '@code-inspector/turbopack@1.5.4':
+  '@code-inspector/turbopack@1.6.0':
     dependencies:
-      '@code-inspector/core': 1.5.4
-      '@code-inspector/webpack': 1.5.4
+      '@code-inspector/core': 1.6.0
+      '@code-inspector/webpack': 1.6.0
     transitivePeerDependencies:
       - supports-color
 
-  '@code-inspector/vite@1.5.4':
+  '@code-inspector/vite@1.6.0':
     dependencies:
-      '@code-inspector/core': 1.5.4
+      '@code-inspector/core': 1.6.0
       chalk: 4.1.1
     transitivePeerDependencies:
       - supports-color
 
-  '@code-inspector/webpack@1.5.4':
+  '@code-inspector/webpack@1.6.0':
     dependencies:
-      '@code-inspector/core': 1.5.4
+      '@code-inspector/core': 1.6.0
     transitivePeerDependencies:
       - supports-color
 
@@ -5236,7 +5236,7 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@emnapi/runtime@1.11.0':
+  '@emnapi/runtime@1.11.1':
     dependencies:
       tslib: 2.8.1
     optional: true
@@ -5437,28 +5437,28 @@ snapshots:
       '@eslint/core': 1.2.1
       levn: 0.4.1
 
-  '@fallow-cli/darwin-arm64@2.95.0':
+  '@fallow-cli/darwin-arm64@2.96.0':
     optional: true
 
-  '@fallow-cli/darwin-x64@2.95.0':
+  '@fallow-cli/darwin-x64@2.96.0':
     optional: true
 
-  '@fallow-cli/linux-arm64-gnu@2.95.0':
+  '@fallow-cli/linux-arm64-gnu@2.96.0':
     optional: true
 
-  '@fallow-cli/linux-arm64-musl@2.95.0':
+  '@fallow-cli/linux-arm64-musl@2.96.0':
     optional: true
 
-  '@fallow-cli/linux-x64-gnu@2.95.0':
+  '@fallow-cli/linux-x64-gnu@2.96.0':
     optional: true
 
-  '@fallow-cli/linux-x64-musl@2.95.0':
+  '@fallow-cli/linux-x64-musl@2.96.0':
     optional: true
 
-  '@fallow-cli/win32-arm64-msvc@2.95.0':
+  '@fallow-cli/win32-arm64-msvc@2.96.0':
     optional: true
 
-  '@fallow-cli/win32-x64-msvc@2.95.0':
+  '@fallow-cli/win32-x64-msvc@2.96.0':
     optional: true
 
   '@floating-ui/core@1.7.5':
@@ -5583,7 +5583,7 @@ snapshots:
 
   '@img/sharp-wasm32@0.35.1':
     dependencies:
-      '@emnapi/runtime': 1.11.0
+      '@emnapi/runtime': 1.11.1
     optional: true
 
   '@img/sharp-webcontainers-wasm32@0.35.1':
@@ -7234,14 +7234,14 @@ snapshots:
 
   clsx@2.1.1: {}
 
-  code-inspector-plugin@1.5.4:
+  code-inspector-plugin@1.6.0:
     dependencies:
-      '@code-inspector/core': 1.5.4
-      '@code-inspector/esbuild': 1.5.4
-      '@code-inspector/mako': 1.5.4
-      '@code-inspector/turbopack': 1.5.4
-      '@code-inspector/vite': 1.5.4
-      '@code-inspector/webpack': 1.5.4
+      '@code-inspector/core': 1.6.0
+      '@code-inspector/esbuild': 1.6.0
+      '@code-inspector/mako': 1.6.0
+      '@code-inspector/turbopack': 1.6.0
+      '@code-inspector/vite': 1.6.0
+      '@code-inspector/webpack': 1.6.0
       chalk: 4.1.1
     transitivePeerDependencies:
       - supports-color
@@ -7745,18 +7745,18 @@ snapshots:
 
   extend@3.0.2: {}
 
-  fallow@2.95.0:
+  fallow@2.96.0:
     dependencies:
       detect-libc: 2.1.2
     optionalDependencies:
-      '@fallow-cli/darwin-arm64': 2.95.0
-      '@fallow-cli/darwin-x64': 2.95.0
-      '@fallow-cli/linux-arm64-gnu': 2.95.0
-      '@fallow-cli/linux-arm64-musl': 2.95.0
-      '@fallow-cli/linux-x64-gnu': 2.95.0
-      '@fallow-cli/linux-x64-musl': 2.95.0
-      '@fallow-cli/win32-arm64-msvc': 2.95.0
-      '@fallow-cli/win32-x64-msvc': 2.95.0
+      '@fallow-cli/darwin-arm64': 2.96.0
+      '@fallow-cli/darwin-x64': 2.96.0
+      '@fallow-cli/linux-arm64-gnu': 2.96.0
+      '@fallow-cli/linux-arm64-musl': 2.96.0
+      '@fallow-cli/linux-x64-gnu': 2.96.0
+      '@fallow-cli/linux-x64-musl': 2.96.0
+      '@fallow-cli/win32-arm64-msvc': 2.96.0
+      '@fallow-cli/win32-x64-msvc': 2.96.0
 
   fast-deep-equal@3.1.3: {}
 
@@ -8187,7 +8187,7 @@ snapshots:
 
   launch-ide@1.4.3:
     dependencies:
-      chalk: 4.1.2
+      chalk: 4.1.1
       dotenv: 16.6.1
 
   lazy-val@1.0.5: {}

@@ -68,6 +68,27 @@ describe('filePreviewLanguage', () => {
     expect(language).toBe('text')
   })
 
+  it('highlights an extensionless Makefile with Make syntax', () => {
+    // Arrange — a Makefile has no extension, so the language must come from its name.
+    // Act
+    const language = languageForPreview({ name: 'Makefile', extension: '' })
+
+    // Assert
+    expect(language).toBe('make')
+  })
+
+  it('highlights an extensionless Dockerfile with Dockerfile syntax', () => {
+    // Arrange — a Dockerfile has no extension, so the language must come from its name.
+    // Act
+    const language = languageForPreview({
+      name: 'Dockerfile',
+      extension: '',
+    })
+
+    // Assert
+    expect(language).toBe('dockerfile')
+  })
+
   it('opens Markdown variants and extensionless READMEs in Reading Mode, but not look-alike files', () => {
     // Arrange — Markdown extensions in several spellings/cases plus an
     // extensionless README (all should be Markdown), alongside non-Markdown

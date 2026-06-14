@@ -166,4 +166,21 @@ describe('parseSkillMetadata', () => {
     expect(result.name).toBe('My Skill')
     expect(result.description).toBe('')
   })
+
+  it('skips whitespace-only lines when scanning a block-scalar for content', async () => {
+    // Arrange
+    // After `description: |` comes a whitespace-only line (neither indented
+    // content nor a new key), so the scanner skips it and continues until it
+    // reaches the next non-indented key, which ends the empty block scalar.
+    mockFs.readFile.mockResolvedValue(
+      '---\nname: My Skill\ndescription: |\n   \nanother_field: ignored\n---\n',
+    )
+
+    // Act
+    const result = await parseSkillMetadata('/skills/my-skill')
+
+    // Assert
+    expect(result.name).toBe('My Skill')
+    expect(result.description).toBe('')
+  })
 })

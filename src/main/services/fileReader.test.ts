@@ -228,6 +228,30 @@ describe('listSkillFiles', () => {
     expect(names).toEqual(['SKILL.md'])
   })
 
+  it('excludes a special filesystem entry that is neither file, directory, nor symlink', async () => {
+    // Arrange
+    // A FIFO / socket / device node surfaces from readdir as a Dirent that is
+    // not a file, not a directory, and not a symlink — it must be dropped so
+    // the renderer never tries to preview an unreadable special node.
+    mockTree({
+      '/skills/my-skill': [
+        makeDirent('SKILL.md'),
+        makeDirent('pipe.fifo', {
+          isFile: false,
+          isDirectory: false,
+          isSymbolicLink: false,
+        }),
+      ],
+    })
+    mockStat()
+
+    // Act
+    const names = (await listSkillFiles('/skills/my-skill')).map((f) => f.name)
+
+    // Assert
+    expect(names).toEqual(['SKILL.md'])
+  })
+
   it('stops recursing past the depth cap, excluding a file one level too deep', async () => {
     // Arrange
     mockTree({

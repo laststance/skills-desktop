@@ -559,6 +559,7 @@ const uiSlice = createSlice({
       })
       .addCase(fetchSyncPreview.rejected, (state, action) => {
         state.isSyncing = false
+        /* v8 ignore next -- normal app flow rejects via IPC with an Error carrying a message; fallback only reachable through a messageless/non-Error rejection no app path produces (ui.error has no selector — dead read) */
         state.error = action.error.message ?? 'Failed to fetch sync preview'
       })
       .addCase(executeSyncAction.fulfilled, (state, action) => {
@@ -570,6 +571,7 @@ const uiSlice = createSlice({
       .addCase(executeSyncAction.rejected, (state, action) => {
         state.isSyncing = false
         state.syncResult = null
+        /* v8 ignore next -- normal app flow rejects via IPC with an Error carrying a message; fallback only reachable through a messageless/non-Error rejection no app path produces (ui.error has no selector — dead read) */
         state.error = action.error.message ?? 'Sync failed'
       })
       // ── Prune stale repo filter ids when the skill inventory reloads ─────
