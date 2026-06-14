@@ -75,21 +75,27 @@ export default defineConfig({
       // logic worth measuring.
       //
       // Electron-runtime exclusions: v8 only instruments code the vitest node
-      // + chromium lanes execute. The files below run exclusively inside the
-      // Electron main/preload process (app lifecycle, the ipcMain handler
-      // boundary, the contextBridge preload, and the two ReactDOM bootstrap
-      // entries). They are exercised behaviorally by the Playwright e2e suite
-      // (`pnpm test:e2e`), which v8 does not instrument — so counting them here
-      // would only ever read ~0% and make the gate meaningless. Their domain
-      // logic lives in `src/main/services/**` + `src/main/utils/**`, which DO
-      // run in the node lane and are held to the same 100% bar as the renderer.
+      // + chromium lanes execute. The files below run inside the Electron
+      // main/preload process (app lifecycle, the ipcMain handler boundary, the
+      // contextBridge preload, and the two ReactDOM bootstrap entries). The
+      // boot/preload entries are exercised only behaviorally by the Playwright
+      // e2e suite (`pnpm test:e2e`), which v8 does not instrument — so counting
+      // them here would only ever read ~0% and make the gate meaningless.
+      // `src/main/ipc/**` is excluded as a whole directory per the explicit P3
+      // boot/IPC/preload scope, and the honest caveat is on the inline note
+      // below: only 4 of its 17 files carry node-lane tests, even the tested
+      // orchestration (skills.ts) is exercised-but-undercovered, and the rest
+      // lean on e2e. The carve-out therefore trades IPC coverage SIGNAL for the
+      // e2e boundary; the gate's real teeth are on the bulk of the domain logic
+      // in `src/main/services/**` + `src/main/utils/**` (and the renderer),
+      // which run in the node/chromium lanes and ARE held to the ~100% bar.
       exclude: [
         'src/**/*.test.{ts,tsx}',
         'src/**/*.browser.test.{ts,tsx}',
         'src/**/*.d.ts',
         'src/renderer/src/components/ui/**',
         'src/main/index.ts', // Electron app boot + lifecycle wiring
-        'src/main/ipc/**', // ipcMain handler registration (electron IPC boundary; e2e-covered, logic delegated to services)
+        'src/main/ipc/**', // ipcMain handler tree — excluded as a directory per the explicit P3 boot/IPC/preload carve-out. Honest caveat: only 4 of 17 files here carry node-lane tests (skills, folder, cliCommand, ipc-schemas), and even the tested orchestration (skills.ts) is integration-EXERCISED but only ~65% lines / ~49% branches COVERED — exercised ≠ covered. The other 13 (settings, sync, update, leaderboard, files, shell, source, skillsCli, agents, window, the typed* registration glue) are reached only by the Playwright e2e suite, which v8 does not instrument. So this carve-out trades IPC coverage SIGNAL for the e2e boundary; the gate's teeth are on the renderer + main/services + main/utils + shared, where the domain logic lives
         'src/preload/**', // contextBridge preload runtime
         'src/renderer/src/main.tsx', // main-window ReactDOM bootstrap
         'src/renderer/settings/main.tsx', // settings-window ReactDOM bootstrap
