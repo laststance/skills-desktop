@@ -12,9 +12,10 @@ import type { Skill } from '@/shared/types'
  *
  * Extracted out of the JSX so the routing decision is unit-testable without React
  * Testing Library (per the src/renderer .coderabbit.yaml guideline). Marketplace
- * wins first (mirrors the original ternary short-circuit); then selectedSkill:
- * Skill|null splits into nonNullable + null, so these three patterns cover the
- * full ActiveTab × (Skill|null) space — `.exhaustive()` needs no fallback.
+ * wins first; the two `'installed'` patterns spell out `activeTab` explicitly
+ * (rather than leaning on match order) so the three patterns cover the full
+ * ActiveTab × (Skill|null) space AND a future ActiveTab variant breaks
+ * `.exhaustive()` at compile time instead of silently routing.
  *
  * @param activeTab - The active top-level tab (`'installed' | 'marketplace'`).
  * @param selectedSkill - The currently selected skill, or `null` when none is selected.
@@ -32,9 +33,12 @@ export function resolveDetailPanelContent(
 ): React.ReactElement {
   return match({ activeTab, selectedSkill })
     .with({ activeTab: 'marketplace' }, () => <MarketplaceDetailPanel />)
-    .with({ selectedSkill: P.nonNullable }, ({ selectedSkill }) => (
-      <SkillDetail skill={selectedSkill} />
+    .with(
+      { activeTab: 'installed', selectedSkill: P.nonNullable },
+      ({ selectedSkill }) => <SkillDetail skill={selectedSkill} />,
+    )
+    .with({ activeTab: 'installed', selectedSkill: null }, () => (
+      <DashboardCanvas />
     ))
-    .with({ selectedSkill: null }, () => <DashboardCanvas />)
     .exhaustive()
 }
