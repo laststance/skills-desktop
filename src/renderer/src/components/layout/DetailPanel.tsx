@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import React from 'react'
+import { match, P } from 'ts-pattern'
 
 import { DashboardCanvas } from '@/renderer/src/components/dashboard/DashboardCanvas'
 import { MarketplaceDetailPanel } from '@/renderer/src/components/marketplace/MarketplaceDetailPanel'
@@ -34,13 +35,20 @@ export const DetailPanel = React.memo(
             </button>
           )}
         </div>
-        {activeTab === 'marketplace' ? (
-          <MarketplaceDetailPanel />
-        ) : selectedSkill ? (
-          <SkillDetail skill={selectedSkill} />
-        ) : (
-          <DashboardCanvas />
-        )}
+        {
+          // Marketplace tab wins first (mirrors the original short-circuit); then
+          // selectedSkill: Skill|null splits into nonNullable + null, so these three
+          // patterns cover the full ActiveTab × (Skill|null) space — .exhaustive() needs no fallback.
+          match({ activeTab, selectedSkill })
+            .with({ activeTab: 'marketplace' }, () => (
+              <MarketplaceDetailPanel />
+            ))
+            .with({ selectedSkill: P.nonNullable }, ({ selectedSkill }) => (
+              <SkillDetail skill={selectedSkill} />
+            ))
+            .with({ selectedSkill: null }, () => <DashboardCanvas />)
+            .exhaustive()
+        }
       </aside>
     )
   },
