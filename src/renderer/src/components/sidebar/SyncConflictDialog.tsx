@@ -64,6 +64,7 @@ export const SyncConflictDialog = React.memo(
           setSelectedPaths(new Set())
         }
       },
+      // react-doctor-disable-next-line react-doctor/exhaustive-deps -- all deps are present (no stale closure); `conflicts` is an unstable selector array so the memo may recreate per render, but this dialog mounts only during an active sync conflict (cold path) so the deopt is immaterial.
       [conflicts, executeSync, selectedPaths],
     )
 

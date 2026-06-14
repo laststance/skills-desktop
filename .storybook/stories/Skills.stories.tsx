@@ -134,6 +134,7 @@ export const FilePreviewStates: Story = {
         <UndoToast
           skillNames={[storySkills[0]!.name, storySkills[1]!.name]}
           tombstoneIds={storyTombstoneIds}
+          // react-doctor-disable-next-line react-doctor/rendering-hydration-mismatch-time -- Storybook story renders client-only with no SSR hydration boundary; Date.now() here is intentional fixture data (15s expiry) and cannot mismatch.
           expiresAt={new Date(Date.now() + 15_000).toISOString()}
           summary="Deleted 2 skills. 5 symlinks removed."
           onUndo={() => undefined}

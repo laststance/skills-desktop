@@ -590,9 +590,14 @@ export async function getSkill(skillName: SkillName): Promise<Skill | null> {
  */
 export async function getSourceStats(): Promise<SourceStats> {
   try {
-    const validDirs = await listValidSourceSkillDirs()
-    const stats = await stat(SOURCE_DIR)
-    const totalBytes = await calculateDirectorySize(SOURCE_DIR)
+    // Independent reads of SOURCE_DIR (dir list + stat + recursive size). Only
+    // stat() can reject; the other two are total, so Promise.all surfaces the
+    // exact same error to the outer catch as the sequential version did.
+    const [validDirs, stats, totalBytes] = await Promise.all([
+      listValidSourceSkillDirs(),
+      stat(SOURCE_DIR),
+      calculateDirectorySize(SOURCE_DIR),
+    ])
 
     return {
       path: SOURCE_DIR,
@@ -624,6 +629,7 @@ async function calculateDirectorySize(dirPath: string): Promise<number> {
     for (const entry of entries) {
       const fullPath = join(dirPath, entry.name)
       if (entry.isDirectory()) {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- recursive directory-size walk; parallelizing the recursion would fan out stat fds (EMFILE) on deep trees for no perceptible benefit.
         total += await calculateDirectorySize(fullPath)
       } else if (entry.isFile()) {
         const stats = await stat(fullPath)

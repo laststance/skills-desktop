@@ -44,6 +44,7 @@ export const RankingTabs = React.memo(function RankingTabs({
   }
 
   return (
+    // react-doctor-disable-next-line react-doctor/interactive-supports-focus -- roving-tabindex tablist: the child [role=tab] buttons own focus (tabIndex 0/-1); the container must not be a tab stop. onKeyDown handles arrows via event bubbling from the focused tab.
     <div
       role="tablist"
       aria-label="Leaderboard ranking"

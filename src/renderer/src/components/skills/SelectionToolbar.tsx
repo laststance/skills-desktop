@@ -124,6 +124,7 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
       // pattern requires roving-tabindex arrow-key navigation between its
       // children, which we do not implement. `group` keeps the labelled
       // container semantics without overclaiming behaviour we don't provide.
+      // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- role="group" is the correct labelled-container semantic; <address> (react-doctor's suggestion) is for contact info, not a toolbar group.
       role="group"
       aria-label="Bulk selection actions"
     >

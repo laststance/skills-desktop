@@ -203,6 +203,7 @@ const SyntaxHighlightedCode = React.memo(function SyntaxHighlightedCode({
           className="skill-code-preview min-w-max text-[13px] font-mono leading-5"
           // Shiki escapes the source text before returning HTML; this injects
           // only the highlighter's `<pre><code><span>` structure and styles.
+          // react-doctor-disable-next-line react-doctor/no-danger -- highlightedHtml is Shiki output; Shiki HTML-escapes the source text and emits only its own <pre><code><span> markup, so there is no attacker-controlled HTML path here.
           dangerouslySetInnerHTML={{ __html: highlightedHtml }}
         />
       ) : (

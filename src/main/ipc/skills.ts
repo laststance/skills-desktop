@@ -485,6 +485,7 @@ async function findOrphanCleanupBlocker(
   for (const agent of AGENTS) {
     const agentSkillPath = join(agent.path, skillName)
     try {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- short-circuiting probe over AGENTS: returns the first agent's blocker and continues otherwise, so parallelizing would lose first-blocker-wins ordering and early-exit.
       const stats = await fs.lstat(agentSkillPath)
       if (stats.isSymbolicLink()) continue
       if (stats.isDirectory()) {
@@ -590,6 +591,7 @@ async function clearReviewedOrphanRecord(item: {
 
     for (const reviewedLink of item.agents) {
       cascadeAgents.push(
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- each iteration unlinks a symlink and pushes to the shared cascadeAgents array; serial run is required so a mid-loop throw still reports the unlinks already committed.
         await clearReviewedOrphanLink(item.skillName, reviewedLink),
       )
     }
@@ -876,6 +878,7 @@ export function registerSkillsHandlers(): void {
         { skillName, skillPath, filesystemIdentity },
       ] of items.entries()) {
         try {
+          // react-doctor-disable-next-line react-doctor/async-await-in-loop -- runs serially so per-item tombstone/symlink/manifest writes don't race; moveToTrash calls share mutable trash + manifest state.
           const moveResult = await moveToTrash(
             skillName,
             skillPath,
@@ -926,6 +929,7 @@ export function registerSkillsHandlers(): void {
   typedHandle(IPC_CHANNELS.SKILLS_CLEAR_ORPHAN_SYMLINKS, async (_, options) => {
     const results: ClearOrphanSymlinkItemResult[] = []
     for (const item of options.items) {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- each item revalidates and unlinks cascading symlinks on disk; parallelizing fans out lstat/unlink fds (EMFILE) and loses ordered reporting for no local-fs gain.
       results.push(await clearReviewedOrphanRecord(item))
     }
     return { items: results }
@@ -944,6 +948,7 @@ export function registerSkillsHandlers(): void {
     async (_, options) => {
       const results: ClearBrokenSymlinkSlotItemResult[] = []
       for (const item of options.items) {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- each item revalidates and unlinks a broken slot on disk; concurrent runs risk fd fan-out and lose ordered result reporting.
         results.push(await clearReviewedBrokenSymlinkSlot(item))
       }
       return { items: results }
@@ -979,6 +984,7 @@ export function registerSkillsHandlers(): void {
       }
 
       for (const { skillName, linkPath, targetPath } of items) {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- runs serially for predictable error reporting; removeReviewedPathFromAgent mutates the agent's symlink/folder per item.
         const outcome = await removeReviewedPathFromAgent(
           agent.path,
           linkPath,
@@ -1054,6 +1060,7 @@ export function registerSkillsHandlers(): void {
       }
 
       try {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- iteration mutates the shared created counter and failures array (mkdir + symlink); the gain for the bounded set of local symlinks is imperceptible.
         await fs.mkdir(agent.path, { recursive: true })
 
         // Atomic: attempt symlink directly, handle EEXIST
@@ -1158,6 +1165,7 @@ export function registerSkillsHandlers(): void {
       const destPath = join(agent.path, skillName)
 
       try {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- iteration mutates shared copied/failures and runs recursive fs.cp per agent; parallel recursive copies risk EMFILE for negligible local-fs benefit.
         await fs.mkdir(agent.path, { recursive: true })
 
         // Check if something already exists at the destination

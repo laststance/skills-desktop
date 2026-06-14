@@ -219,6 +219,7 @@ const InstalledTabLabel = React.memo(function InstalledTabLabel({
       aria-label={shouldShowCount ? `Installed, ${accessibleText}` : undefined}
     >
       Installed
+      {/* react-doctor-disable-next-line react-doctor/rendering-conditional-render -- shouldShowCount is a boolean (display === 'tab'), not a number, so there is no stray-0 leak risk. */}
       {shouldShowCount && (
         <span
           aria-hidden="true"
@@ -421,6 +422,7 @@ export const MainContent = React.memo(
        handler only renders in the `else` (flag-off) branch and is never mounted,
        making this handler unreachable in production and untestable without
        mutating the constant (which would break every Marketplace-tab sibling). */
+    // react-doctor-disable-next-line react-doctor/prefer-module-scope-pure-function -- deliberately-dead handler (the calling button only renders in the flag-off branch that never mounts; see v8-ignore above). Hoisting an unreachable function adds churn for zero runtime benefit.
     const handleOpenMarketplace = (): void => {
       window.electron.shell.openExternal(SKILLS_SH_URL)
     }

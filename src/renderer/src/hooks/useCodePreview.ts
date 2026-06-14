@@ -99,6 +99,7 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
       }
       const file = files.find((f) => f.path === path)
       if (!file) return
+      // react-doctor-disable-next-line react-doctor/async-defer-await -- the post-await guards (below) deliberately re-read refs AFTER the async gap to drop a stale click or a skill switch that happened DURING the load; they cannot move before the await.
       const next = await loadContentForFile(file)
       // After the await, two things may have happened out of order:
       // (a) the user picked a different file (stale click loses)

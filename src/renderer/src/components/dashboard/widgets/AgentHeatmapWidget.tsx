@@ -94,6 +94,7 @@ const HeatmapCell = React.memo(function HeatmapCell({
 
   return (
     <div
+      // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- decorative heatmap status cell (colored div); aria-label conveys its meaning. <img> needs a src and cannot be a styled grid cell.
       role="img"
       aria-label={label}
       title={label}

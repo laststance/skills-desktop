@@ -238,6 +238,7 @@ const SkillTitleRow = React.memo(function SkillTitleRow({
         <span className="truncate">{skill.name}</span>
         {isInaccessibleSkill && (
           <span
+            // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- composed "inaccessible" text status badge collapsed to one labelled graphic via role="img"+aria-label. <img> needs a src and cannot contain the badge text.
             role="img"
             className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0"
             aria-label="Inaccessible link - manual review required"
@@ -248,6 +249,7 @@ const SkillTitleRow = React.memo(function SkillTitleRow({
         )}
         {skill.isOrphan && (
           <span
+            // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- composed "orphan" text status badge collapsed to one labelled graphic via role="img"+aria-label. <img> needs a src and cannot contain the badge text.
             role="img"
             data-testid={`skill-orphan-badge-${skill.name}`}
             className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0"
@@ -656,6 +658,7 @@ export const SkillItem = React.memo(function SkillItem({
                   Rendered only when the user has entered bulk-select mode via
                   the filter-row toggle; the default view stays clean. */}
               {bulkSelectMode && (
+                // react-doctor-disable-next-line react-doctor/label-has-associated-control, react-doctor/no-noninteractive-element-interactions -- the label wraps a Radix <Checkbox> (renders a real <input>) that react-doctor can't see as the control; the onClick is a stopPropagation guard, not an interactive handler.
                 <label
                   className="shrink-0 min-h-11 min-w-11 flex items-center justify-center -mt-1 -ml-1 cursor-pointer"
                   onClick={(e) => e.stopPropagation()}

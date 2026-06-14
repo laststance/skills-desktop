@@ -58,6 +58,7 @@ function mountHook(store: ReturnType<typeof makeSeededStore>['store']): void {
   }
   act(() => {
     root.render(
+      // react-doctor-disable-next-line react-doctor/no-children-prop -- test harness mounts via createElement (not JSX); children-as-prop is the canonical programmatic way to wrap the hook host in the Redux Provider.
       createElement(Provider, { store, children: createElement(HookHost) }),
     )
   })

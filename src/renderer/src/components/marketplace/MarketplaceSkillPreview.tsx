@@ -31,6 +31,7 @@ export const MarketplaceSkillPreview = React.memo(
     const [isLoading, setIsLoading] = useState(true)
     // The live URL the webview is showing (skill.url plus any in-allowlist
     // in-page navigation), so the footer + copy reflect what the user sees.
+    // react-doctor-disable-next-line react-doctor/no-derived-useState -- intentional live buffer: currentUrl seeds from skill.url then tracks in-allowlist in-page navigation so the footer/copy reflect what the user actually sees.
     const [currentUrl, setCurrentUrl] = useState(skill.url)
     const { copied, copy } = useCopyToClipboard()
     // Focused full-window overlay state + modal a11y. Keyed on skill.url so a
@@ -177,6 +178,7 @@ export const MarketplaceSkillPreview = React.memo(
           <webview
             ref={webviewRef}
             src={skill.url}
+            // react-doctor-disable-next-line react-doctor/no-unknown-property -- `partition` is a valid Electron <webview> attribute (session isolation); React's HTML prop registry doesn't know it but Electron consumes it at runtime.
             partition="marketplace"
             className={`absolute inset-0 ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity`}
             style={{ width: '100%', height: '100%' }}
