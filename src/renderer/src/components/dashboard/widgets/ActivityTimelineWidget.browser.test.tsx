@@ -127,25 +127,26 @@ describe('ActivityTimelineWidget', () => {
       .toBeVisible()
   })
 
-  it('reveals the appended detail text when a row carries a failure message', async () => {
-    // Arrange: an errored row whose `error` message makes detailText truthy,
-    // which is the only way the appended detail span renders.
+  it('omits the appended detail text for a non-error row whose detailText is null', async () => {
+    // Arrange: a skipped row — `match(item).otherwise(() => null)` makes
+    // detailText null, so the appended " — detail" span must not render. This
+    // covers the falsy branch of `{detailText && <span>…</span>}`, the
+    // complement of the errored-row test above.
     const syncResult = makeSyncResult([
       {
         skillName: 'epsilon-skill',
         agentName: 'Codex',
-        action: 'error',
-        error: 'ENOENT: source skill no longer exists',
+        action: 'skipped',
       },
     ])
 
     // Act
     const { screen } = await renderTimeline(syncResult)
 
-    // Assert: the detail span (only mounted on the truthy detailText path) is
-    // visible with its failure reason.
-    await expect
-      .element(screen.getByText('ENOENT: source skill no longer exists'))
-      .toBeVisible()
+    // Assert: the skill row and its status label show, but the em-dash detail
+    // separator (rendered only on the truthy detailText path) is absent.
+    await expect.element(screen.getByText('epsilon-skill')).toBeVisible()
+    await expect.element(screen.getByText('skipped')).toBeVisible()
+    expect(screen.getByText(/—/).query()).toBeNull()
   })
 })

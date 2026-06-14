@@ -137,6 +137,9 @@ describe('BookmarksWidget', () => {
       .getByRole('link', { name: /repo-less-skill/i })
       .element() as HTMLAnchorElement
     await expect.element(screen.getByText('repo-less-skill')).toBeVisible()
-    expect(bookmarkLink.querySelectorAll('span')).toHaveLength(1)
+    // A repo-less bookmark renders only the name span — the `{bookmark.repo &&
+    // <span>…</span>}` subtitle must not mount. Assert the visible text rather
+    // than counting <span>s so the check survives non-text additions (icons).
+    expect(bookmarkLink.textContent?.trim()).toBe('repo-less-skill')
   })
 })

@@ -151,12 +151,10 @@ describe('UpdateToast', () => {
       .element(screen.getByText('Downloading version 0.30.0...'))
       .toBeInTheDocument()
     await expect.element(screen.getByText('42%')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Download' }).query()).toBeNull()
     expect(
-      screen.getByRole('button', { name: 'Download' }).elements(),
-    ).toHaveLength(0)
-    expect(
-      screen.getByRole('button', { name: 'Restart Now' }).elements(),
-    ).toHaveLength(0)
+      screen.getByRole('button', { name: 'Restart Now' }).query(),
+    ).toBeNull()
   })
 
   it('shows the ready-to-install prompt with a Restart Now CTA', async () => {
@@ -260,8 +258,8 @@ describe('UpdateToast', () => {
     const { screen } = await renderToast({ status: 'idle' })
 
     // Assert — no toast title from any visible phase is in the document.
-    expect(screen.getByText('Update Available').elements()).toHaveLength(0)
-    expect(screen.getByText('Update Ready').elements()).toHaveLength(0)
+    expect(screen.getByText('Update Available').query()).toBeNull()
+    expect(screen.getByText('Update Ready').query()).toBeNull()
   })
 
   it('renders nothing while checking so the toast stays hidden during the version check', async () => {
@@ -269,8 +267,8 @@ describe('UpdateToast', () => {
     const { screen } = await renderToast({ status: 'checking' })
 
     // Assert
-    expect(screen.getByText('Downloading Update').elements()).toHaveLength(0)
-    expect(screen.getByText('Update Error').elements()).toHaveLength(0)
+    expect(screen.getByText('Downloading Update').query()).toBeNull()
+    expect(screen.getByText('Update Error').query()).toBeNull()
   })
 
   it('renders nothing once dismissed even when an update is available', async () => {
@@ -282,6 +280,6 @@ describe('UpdateToast', () => {
     })
 
     // Assert
-    expect(screen.getByText('Update Available').elements()).toHaveLength(0)
+    expect(screen.getByText('Update Available').query()).toBeNull()
   })
 })

@@ -115,12 +115,8 @@ describe('WelcomeWidget', () => {
     await expect
       .element(screen.getByText('Welcome to Skills Desktop'))
       .toBeVisible()
-    const dismissButton = screen
-      .getByRole('button', { name: /Dismiss welcome/i })
-      .element() as HTMLButtonElement
-
     // Act
-    dismissButton.click()
+    await screen.getByRole('button', { name: /Dismiss welcome/i }).click()
 
     // Assert: the widget is gone from its page and the dismissal persists.
     expect(store.getState().dashboard.pages[0].widgets).toEqual([])
@@ -131,12 +127,8 @@ describe('WelcomeWidget', () => {
     // Arrange: full pitch with the CTA, starting on the installed tab.
     const { screen, store } = await renderWelcomeWidget(false)
     expect(store.getState().ui.activeTab).toBe('installed')
-    const marketplaceButton = screen
-      .getByRole('button', { name: /Open Marketplace/i })
-      .element() as HTMLButtonElement
-
     // Act
-    marketplaceButton.click()
+    await screen.getByRole('button', { name: /Open Marketplace/i }).click()
 
     // Assert
     expect(store.getState().ui.activeTab).toBe('marketplace')

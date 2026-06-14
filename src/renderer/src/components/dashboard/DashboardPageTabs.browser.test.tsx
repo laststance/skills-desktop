@@ -147,7 +147,9 @@ describe('DashboardPageTabs', () => {
 
     // Assert: a second page was created and became current.
     await expect.poll(() => store.getState().dashboard.pages.length).toBe(2)
-    expect(store.getState().dashboard.pages[1]?.name).toBe('Page 2')
+    await expect
+      .poll(() => store.getState().dashboard.pages[1]?.name)
+      .toBe('Page 2')
   })
 
   it('moves selection to the previous tab on ArrowLeft and wraps past the first', async () => {
@@ -395,7 +397,9 @@ describe('DashboardPageTabs', () => {
     await expect
       .element(screen.getByRole('tab', { name: 'Overview' }))
       .toBeVisible()
-    expect(store.getState().dashboard.pages[0]?.name).toBe('Overview')
+    await expect
+      .poll(() => store.getState().dashboard.pages[0]?.name)
+      .toBe('Overview')
   })
 
   it('deletes the page after the confirm prompt is accepted', async () => {

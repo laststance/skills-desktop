@@ -44,7 +44,7 @@ describe('ErrorBoundary', () => {
     await expect
       .element(screen.getByText('Healthy content'))
       .toBeInTheDocument()
-    expect(screen.getByText('Something went wrong').elements()).toHaveLength(0)
+    expect(screen.getByText('Something went wrong').query()).toBeNull()
   })
 
   it('shows the crash fallback with the thrown error message when a child throws', async () => {
