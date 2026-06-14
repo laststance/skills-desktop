@@ -7,8 +7,6 @@ allowBuilds:
   unrs-resolver: true
 
 # Supply-chain security (migrated from .npmrc 2026-04-22)
-# no-downgrade rejects silently replayed/downgraded package versions (react-doctor require-pnpm-hardening)
-trustPolicy: no-downgrade
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - next
