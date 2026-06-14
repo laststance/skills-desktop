@@ -4,16 +4,9 @@ import type { LeaderboardStatus } from '@/shared/types'
 export type TrendingView = 'populated' | 'loading' | 'error' | 'empty'
 
 /**
- * Decide which Trending panel state the marketplace dashboard renders from the
- * cached skill count and fetch status. Extracted as a pure function so the
- * four-way visual branch is unit-testable without React Testing Library (per
- * the src/renderer `.coderabbit.yaml` guideline) and stays exhaustive.
- *
- * Precedence is stale-while-revalidate: any cached skills win first (so a
- * background refresh never blanks the list), then an in-flight/never-started
- * fetch shows the skeleton, then a failed fetch shows the offline notice, and
- * only a successful-but-empty result is treated as a genuine empty.
- *
+ * Pick the dashboard Trending panel's visual state from cached count + fetch
+ * status, stale-while-revalidate: cached skills win, then in-flight → skeleton,
+ * then failure → offline notice, then a successful-but-empty result → empty.
  * @param trendingSkillCount - Number of trending skills available to render.
  * @param status - Cache fetch status for the trending filter, or `undefined` when never fetched.
  * @returns

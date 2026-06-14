@@ -66,14 +66,30 @@ The app uses OKLCH CSS variables, driven by `THEME_PRESETS` in
 
 Status colors must remain semantically stable:
 
-| Status               | Color                   |
-| -------------------- | ----------------------- |
-| Valid / linked       | `--success` fixed green |
-| Broken               | Amber                   |
-| Missing              | `--muted-foreground`    |
-| Orphan / destructive | `--destructive`         |
-| Local skill type     | Emerald                 |
-| G-Stack skill type   | `--gstack`              |
+| Status                | Color                    |
+| --------------------- | ------------------------ |
+| Valid / linked        | `--success` fixed green  |
+| Broken / inaccessible | Amber (see amber shades) |
+| Missing               | `--muted-foreground`     |
+| Orphan / destructive  | `--destructive`          |
+| Local skill type      | Emerald                  |
+| G-Stack skill type    | `--gstack`               |
+
+Amber shades — Tailwind ships several amber steps; pin them by role so the
+"needs review" hue stays consistent and reviews don't churn:
+
+| Role                                                       | Class                     |
+| ---------------------------------------------------------- | ------------------------- |
+| Broken / inaccessible / needs-review status text + icons   | `text-amber-400`          |
+| Warning-dialog icon glyphs, bookmark / star, stat emphasis | `text-amber-500`          |
+| Amber tint backgrounds (badges, status chips, fills)       | `bg-amber-500/{10,15,20}` |
+
+`text-amber-400` is the app-wide needs-review hue (`SymlinkStatus`, `badge`
+broken variant, `HealthWidget`); `text-amber-500` is the slightly stronger amber
+for warning affordances and the bookmark accent. Tint backgrounds always use the
+`amber-500` base at low alpha regardless of which text shade sits on them. The
+lone exception is `text-amber-300` for badge text on a denser amber tint, where
+the lighter step is needed for contrast.
 
 Rules:
 
@@ -350,11 +366,20 @@ Rules:
   structure) so the panel does not reflow when real data lands. (Linear, GitHub,
   Vercel load lists this way.)
 - A skeleton is silent to assistive tech: the visible "Loading…" text it
-  replaces was announced; pulsing bars are not. So the skeleton container MUST
-  carry `role="status"` plus a descriptive `aria-label` (e.g. "Loading trending
-  skills"), and the inner placeholder rows are `aria-hidden`. Swapping announced
-  text for a bare skeleton is an accessibility regression, not a neutral visual
-  change.
+  replaces was announced; pulsing bars are not. How to restore the announcement
+  depends on whether the skeleton is a **primary loading surface** or a
+  **decorative one in a dense grid**:
+  - **Primary loading surface** — a main panel or list the user is actively
+    waiting on (e.g. the Trending panel). The skeleton container MUST carry
+    `role="status"` plus a descriptive `aria-label` (e.g. "Loading trending
+    skills"), and the inner placeholder rows are `aria-hidden`. Swapping
+    announced text for a bare skeleton here is an accessibility regression.
+  - **Decorative skeleton in a dense widget grid** — many small widgets loading
+    at once (e.g. `dashboard/widgets/*Skeleton`). It MAY instead be fully
+    `aria-hidden`, because announcing each of N silhouettes would fire a burst of
+    competing "Loading…" messages; the surrounding region's own status copy
+    covers the wait. Pick one mode — never put `role="status"` and `aria-hidden`
+    on the same element (they contradict).
 - A panel that renders a skeleton must actually request its data. A skeleton with
   no fetch behind it is a permanent broken-looking spinner; own the fetch on
   mount (guarded by a cache TTL) wherever the populated state is the intended
@@ -397,6 +422,25 @@ Baseline:
 - Icon-only controls need `aria-label`.
 - Use native controls before custom roles.
 - Do not remove focus outlines without a visible replacement.
+
+Focus indicators:
+
+The shared `button.tsx` is the source of truth — every variant ships
+`focus-visible:ring-1 ring-ring` (see Buttons). Use it for any standard button so
+the focus treatment is inherited, not re-invented. For focusable elements that
+genuinely can't use it (clickable rows, footer links, hand-rolled icon buttons):
+
+- Always pair `focus-visible:outline-none` with a visible `focus-visible:ring-*
+ring-ring`, and always use `focus-visible`, never bare `focus` — bare `focus`
+  also fires on pointer click, flashing a ring at mouse users.
+- Ring width tracks prominence, not a rigid tier: compact in-surface controls may
+  match `button.tsx`'s `ring-1`; standalone hand-rolled controls commonly use
+  `ring-2` (e.g. `BookmarkItem`, the sidebar gear). Both are fine as long as the
+  ring reads clearly against `--ring`. Do not treat a single width as mandatory.
+- Full-width or edge-adjacent controls add `focus-visible:ring-inset` so the ring
+  renders inside the control instead of clipping against a container border —
+  full-width rows (`AgentItem`), the footer `skills.sh` link, and underline-style
+  tabs all use the inset ring.
 
 Target sizing:
 

@@ -204,9 +204,10 @@ describe('MarketplaceDashboard — trending placeholders', () => {
     // Assert — the dashboard owns its own trending fetch (it is not piggy-backing
     // on SkillsMarketplace's default 'all-time' request), keyed to the trending
     // filter so the skeleton resolves without the user opening the ranking tab.
-    await expect
-      .poll(() => mockLeaderboard.mock.calls.length)
-      .toBeGreaterThan(0)
+    // Exactly one IPC call: the thunk's in-flight guard dedupes StrictMode's
+    // double-mount (the first dispatch sets status:'loading' synchronously, so
+    // the second dispatch's `condition` short-circuits before reaching IPC).
+    await expect.poll(() => mockLeaderboard.mock.calls.length).toBe(1)
     expect(mockLeaderboard).toHaveBeenCalledWith({ filter: 'trending' })
   })
 
@@ -242,6 +243,9 @@ describe('MarketplaceDashboard — trending placeholders', () => {
     await expect
       .element(screen.getByText('No trending skills available'))
       .toBeInTheDocument()
+    // …and the fresh (idle, just-fetched) cache entry short-circuits the mount
+    // thunk via its TTL guard, so no redundant IPC refetch fires.
+    expect(mockLeaderboard).not.toHaveBeenCalled()
   })
 
   it('shows an offline notice when the trending fetch failed and nothing is cached', async () => {

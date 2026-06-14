@@ -144,7 +144,7 @@ describe('MarketplaceDetailPanel routing', () => {
   })
 })
 
-describe('MarketplaceDashboard empty state', () => {
+describe('MarketplaceDashboard trending placeholders', () => {
   it('shows a loading skeleton, announced to screen readers, before trending skills have been fetched', async () => {
     // Arrange
     const store = await createStore()
