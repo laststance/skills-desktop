@@ -149,6 +149,25 @@ Do not bump `package.json` `version` — releases are owned solely by
 
 ## Latest run (example — point-in-time, NOT part of the procedure)
 
+**2026-06-14 · v1.5.10 → v1.5.11** (version-only bump)
+
+- **No agent-list change:** `src/agents.ts` is byte-identical between v1.5.10
+  and v1.5.11 (`diff` clean), so `AGENT_DEFINITIONS`, `UNIVERSAL_AGENT_IDS`, and
+  every doc agent-count stayed put. Drift gate confirmed: upstream `name:` set
+  (71) minus app `cliId` set (68) = exactly the 3 standing exclusions below;
+  zero app orphans.
+- **Edits:** bumped `SKILLS_CLI_VERSION` 1.5.10 → 1.5.11; bumped the e2e pin
+  (`marketplace-install-regression.e2e.ts` literal `skills@1.5.11 add …` +
+  comment); bumped the CLAUDE.md Domain-Concepts pinned-version cell.
+- **Unchanged history kept verbatim:** the "CLI 1.5.10" / "added in v1.5.10"
+  comments in `constants.ts` and the `*.test.ts` files are accurate history of
+  _when_ kimi migrated / agents landed — not bumped.
+- **Excluded at this version** (still valid, agents.ts unchanged): `promptscript`
+  (`globalSkillsDir: undefined`), `universal` (`showInUniversalList: false`),
+  `zenflow` (dir collides with zencoder's `~/.zencoder/skills`).
+- Gates: `reconcile-agents.mjs` clean, prettier clean, `pnpm validate` +
+  `pnpm test:e2e` green.
+
 **2026-06-05 · v1.5.5 → v1.5.10** (PR #204, commit `41b455e`)
 
 - **+14 community agents:** antigravity-cli, astrbot, autohand-code,
