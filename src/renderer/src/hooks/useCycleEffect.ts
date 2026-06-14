@@ -19,5 +19,6 @@ export function useCycleEffect(
   effect: EffectCallback,
   deps?: DependencyList,
 ): void {
+  // react-doctor-disable-next-line react-doctor/exhaustive-deps -- intentional useEffect wrapper (repo's no-direct-use-effect layer); `effect`/`deps` are parameters react-doctor cannot statically verify.
   useEffect(effect, deps)
 }

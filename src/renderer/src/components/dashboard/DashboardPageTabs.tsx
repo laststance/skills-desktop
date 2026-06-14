@@ -108,6 +108,7 @@ export const DashboardPageTabs = React.memo(
     if (pages.length <= 1 && !isEditMode) return null
 
     return (
+      // react-doctor-disable-next-line react-doctor/interactive-supports-focus -- roving-tabindex tablist: child [role=tab] buttons own focus (tabIndex 0/-1); the container must not be a tab stop. onKeyDown moves focus between tabs.
       <div
         ref={tablistRef}
         role="tablist"
@@ -181,6 +182,7 @@ const PageTab = React.memo(function PageTab({
 }: PageTabProps): React.ReactElement {
   const dispatch = useAppDispatch()
   const renameInputRef = useRef<HTMLInputElement>(null)
+  // react-doctor-disable-next-line react-doctor/no-derived-useState -- intentional edit buffer: draftName starts from page.name then diverges during inline rename, and is re-synced when rename mode opens (useCycleEffect below).
   const [draftName, setDraftName] = useState(page.name)
 
   // Reset the draft to the latest canonical name each time rename mode opens.

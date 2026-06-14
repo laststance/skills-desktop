@@ -109,7 +109,7 @@ const ToggleGroupItem = React.memo(function ToggleGroupItem({
   VariantProps<typeof toggleVariants> & {
     ref?: React.Ref<HTMLButtonElement>
   }) {
-  const context = React.useContext(ToggleGroupContext)
+  const context = React.use(ToggleGroupContext)
   return (
     <ToggleGroupPrimitive.Item
       ref={ref}

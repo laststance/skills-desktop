@@ -84,6 +84,7 @@ const HealthBar = React.memo(function HealthBar({
   return (
     <div
       className="h-1 w-full shrink-0 rounded-full bg-muted overflow-hidden flex"
+      // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- composed bar-chart graphic built from colored child divs; role="img"+aria-label collapses it to one labeled graphic. <img> needs a src and cannot contain children.
       role="img"
       aria-label={`${valid} valid, ${cleanupIssues} ${pluralize(cleanupIssues, 'cleanup issue')}, ${manualReview} manual review`}
     >

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://react.doctor/schema/config.json",
+  "deadCode": false,
+  "rules": {
+    "react-doctor/no-multi-comp": "off",
+    "react-doctor/only-export-components": "off",
+    "react-doctor/js-combine-iterations": "off",
+    "react-doctor/js-flatmap-filter": "off",
+    "react-doctor/js-index-maps": "off",
+    "react-doctor/no-polymorphic-children": "off"
+  }
+}

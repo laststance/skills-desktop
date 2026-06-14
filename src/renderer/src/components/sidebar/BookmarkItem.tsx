@@ -58,6 +58,7 @@ export const BookmarkItem = React.memo(function BookmarkItem({
 
   return (
     <div
+      // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- the row contains a nested Remove <button>; a native <button> cannot nest interactive children, so role="button" + tabIndex={0} + Enter/Space onKeyDown is the accessible equivalent.
       role="button"
       tabIndex={0}
       aria-label={`View details for ${bookmark.name}`}
@@ -90,6 +91,7 @@ export const BookmarkItem = React.memo(function BookmarkItem({
               {/* Non-interactive status glyph — matches SkillItem's linked */}
               {/* check vocabulary (text-success/70), calmer than the X beside it. */}
               <span
+                // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- composed status glyph (Check icon) collapsed to one labelled graphic via role="img"+aria-label. <img> needs a src and cannot wrap an icon component.
                 role="img"
                 aria-label="Installed"
                 className="shrink-0 text-success/70"

@@ -39,6 +39,7 @@ const CardTitle = React.memo(function CardTitle({
   ...props
 }: React.ComponentPropsWithRef<'h3'>) {
   return (
+    // react-doctor-disable-next-line react-doctor/heading-has-content -- shadcn primitive; heading text is supplied by consumers via children/props at the call site.
     <h3
       ref={ref}
       className={cn('font-semibold leading-none tracking-tight', className)}

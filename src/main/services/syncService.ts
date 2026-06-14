@@ -32,6 +32,7 @@ async function getExistingAgents(): Promise<ExistingAgent[]> {
     try {
       // Check parent dir (e.g. ~/.claude) not skills dir
       const parentDir = join(agent.path, '..')
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- access() per distinct agent parent dir pushed to existing[] in AGENTS order; N is bounded to the agent set, so parallel gain is imperceptible on local fs.
       await access(parentDir)
       existing.push(agent)
     } catch {
@@ -71,8 +72,12 @@ function filterAgentsByOption<TAgent extends { id: AgentId }>(
 export async function syncPreview(
   options?: SyncPreviewOptions,
 ): Promise<SyncPreviewResult> {
-  const skills = await listValidSourceSkillDirs()
-  const allAgents = await getExistingAgents()
+  // Independent reads (source skills + on-disk agents); both helpers are total
+  // (never reject), so parallelizing is behavior-identical aside from speed.
+  const [skills, allAgents] = await Promise.all([
+    listValidSourceSkillDirs(),
+    getExistingAgents(),
+  ])
   const agents = filterAgentsByOption(allAgents, options?.agentId)
 
   let toCreate = 0
@@ -84,6 +89,7 @@ export async function syncPreview(
       const linkPath = join(agent.path, skill.name)
 
       try {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- lstat per (skill x agent) symlink path classifying synced/conflict/missing; a bounded local-fs probe kept sequential to keep result accounting simple.
         const stats = await lstat(linkPath)
 
         if (stats.isSymbolicLink()) {
@@ -133,8 +139,12 @@ export async function syncExecute(
   const { replaceConflicts, agentId } = options
   const replaceSet = new Set(replaceConflicts)
 
-  const skills = await listValidSourceSkillDirs()
-  const allAgents = await getExistingAgents()
+  // Independent reads (source skills + on-disk agents); both helpers are total
+  // (never reject), so parallelizing is behavior-identical aside from speed.
+  const [skills, allAgents] = await Promise.all([
+    listValidSourceSkillDirs(),
+    getExistingAgents(),
+  ])
   const agents = filterAgentsByOption(allAgents, agentId)
 
   let created = 0

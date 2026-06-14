@@ -334,6 +334,7 @@ export const bulkCopyToAgents = createAsyncThunk<
     // a rejected copy (e.g. source path failed validation) fails only that skill.
     for (const item of items) {
       try {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- sequential per-skill IPC (copyToAgents) so each result updates Redux progress in order; concurrent IPC would interleave progress and main-process fs writes.
         const result = await window.electron.skills.copyToAgents({
           skillName: item.skillName,
           sourcePath: item.sourcePath,
@@ -490,6 +491,7 @@ export const undoLastBulkDelete = createAsyncThunk(
     // "N of M restored" summary.
     for (const tombstoneId of tombstoneIds) {
       try {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- sequential per-skill IPC (restoreDeletedSkill) preserving ordered progress and per-item error attribution; concurrent restores would race main-process fs.
         const result = await window.electron.skills.restoreDeletedSkill({
           tombstoneId,
         })

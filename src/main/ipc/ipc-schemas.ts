@@ -332,12 +332,9 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
 
   // Shell — restrict to http/https to prevent opening arbitrary URI schemes
   'shell:openExternal': z.tuple([
-    z
-      .string()
-      .url()
-      .refine((u) => /^https?:\/\//i.test(u), {
-        message: 'Only http(s) URLs are allowed',
-      }),
+    z.url().refine((u) => /^https?:\/\//i.test(u), {
+      message: 'Only http(s) URLs are allowed',
+    }),
   ]),
 
   // Settings — partial<Settings> with explicit allowed keys/values.
@@ -345,53 +342,51 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
   // this one too. Defense-in-depth so a compromised renderer cannot write
   // arbitrary JSON into settings.json.
   'settings:set': z.tuple([
-    z
-      .object({
-        defaultSkillTab: z.enum(['files', 'info']).optional(),
-        preferredTerminal: z.enum(TERMINAL_APP_IDS).optional(),
-        // Direct re-export from SettingsSchema — drift between the two
-        // constraint sets is mechanically impossible. `.shape` access yields
-        // the field's ZodOptional<ZodString> exactly as defined in settings.ts.
-        customTerminalAppName: SettingsSchema.shape.customTerminalAppName,
-        // Same source-of-truth pattern: re-use the schema's own field so
-        // the {min,int} constraints can never drift. `undefined` is how
-        // the Settings UI clears the persisted size back to "use default".
-        windowSize: SettingsSchema.shape.windowSize,
-        // Electron 42 blur radius. Use the shared non-defaulting schema so
-        // unrelated partial settings writes do not reset blur to zero.
-        windowBackgroundBlurRadius:
-          WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA.optional(),
-        // Search-count display preference. Keep this as a non-defaulting enum
-        // so unrelated partial settings writes do not reset the user's choice.
-        installedSearchCountDisplay: z
-          .enum(INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS)
-          .optional(),
-        // Strict z.enum here — renderers should only ever emit valid ids.
-        // Intentionally NOT chained off `SettingsSchema.shape.hiddenAgentIds`:
-        // that field carries a `.default([])` for forgiving disk reads, and
-        // wrapping it with `.optional()` materializes the default whenever
-        // the key is omitted from a partial update — which then clobbers
-        // the persisted hidden-agent set on every unrelated `settings:set`
-        // call. Independent declaration keeps the IPC and disk concerns
-        // separate; both still reference the same `AGENT_IDS` constant so
-        // the enum cannot drift. `.max(AGENT_IDS.length)` caps payload size
-        // so a misbehaving renderer cannot send an arbitrarily long list
-        // (every entry past `AGENT_IDS.length` would have to be a duplicate
-        // anyway, since the enum constrains values).
-        hiddenAgentIds: z
-          .array(z.enum(AGENT_IDS))
-          .max(AGENT_IDS.length)
-          .optional(),
-        // Auto-download preference. Declared as plain `z.boolean().optional()`
-        // rather than chaining `.optional()` off `SettingsSchema.shape.*`
-        // (which carries `.default(false)`): the same default-materialization
-        // footgun as hiddenAgentIds above — an omitted key would parse to
-        // `false` and clobber the persisted value on every unrelated
-        // settings:set. A bare boolean has no constraint that can drift, so
-        // there's nothing to keep in lockstep beyond the type itself.
-        autoDownloadUpdates: z.boolean().optional(),
-      })
-      .strict(),
+    z.strictObject({
+      defaultSkillTab: z.enum(['files', 'info']).optional(),
+      preferredTerminal: z.enum(TERMINAL_APP_IDS).optional(),
+      // Direct re-export from SettingsSchema — drift between the two
+      // constraint sets is mechanically impossible. `.shape` access yields
+      // the field's ZodOptional<ZodString> exactly as defined in settings.ts.
+      customTerminalAppName: SettingsSchema.shape.customTerminalAppName,
+      // Same source-of-truth pattern: re-use the schema's own field so
+      // the {min,int} constraints can never drift. `undefined` is how
+      // the Settings UI clears the persisted size back to "use default".
+      windowSize: SettingsSchema.shape.windowSize,
+      // Electron 42 blur radius. Use the shared non-defaulting schema so
+      // unrelated partial settings writes do not reset blur to zero.
+      windowBackgroundBlurRadius:
+        WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA.optional(),
+      // Search-count display preference. Keep this as a non-defaulting enum
+      // so unrelated partial settings writes do not reset the user's choice.
+      installedSearchCountDisplay: z
+        .enum(INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS)
+        .optional(),
+      // Strict z.enum here — renderers should only ever emit valid ids.
+      // Intentionally NOT chained off `SettingsSchema.shape.hiddenAgentIds`:
+      // that field carries a `.default([])` for forgiving disk reads, and
+      // wrapping it with `.optional()` materializes the default whenever
+      // the key is omitted from a partial update — which then clobbers
+      // the persisted hidden-agent set on every unrelated `settings:set`
+      // call. Independent declaration keeps the IPC and disk concerns
+      // separate; both still reference the same `AGENT_IDS` constant so
+      // the enum cannot drift. `.max(AGENT_IDS.length)` caps payload size
+      // so a misbehaving renderer cannot send an arbitrarily long list
+      // (every entry past `AGENT_IDS.length` would have to be a duplicate
+      // anyway, since the enum constrains values).
+      hiddenAgentIds: z
+        .array(z.enum(AGENT_IDS))
+        .max(AGENT_IDS.length)
+        .optional(),
+      // Auto-download preference. Declared as plain `z.boolean().optional()`
+      // rather than chaining `.optional()` off `SettingsSchema.shape.*`
+      // (which carries `.default(false)`): the same default-materialization
+      // footgun as hiddenAgentIds above — an omitted key would parse to
+      // `false` and clobber the persisted value on every unrelated
+      // settings:set. A bare boolean has no constraint that can drift, so
+      // there's nothing to keep in lockstep beyond the type itself.
+      autoDownloadUpdates: z.boolean().optional(),
+    }),
   ]),
 
   // Folder actions — `open -a` / `shell.openPath`. Path must be absolute;

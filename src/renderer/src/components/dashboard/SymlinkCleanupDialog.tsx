@@ -569,6 +569,7 @@ export const SymlinkCleanupDialog = React.memo(
         dispatchLocal({ type: 'scanning' })
         try {
           let auxiliaryRefreshMessage: string | null = null
+          // react-doctor-disable-next-line react-doctor/async-defer-await -- the awaited skills fetch is immediately followed by the post-await race guard `if (scanRequestIdRef.current !== requestId) return`, so the await cannot be deferred past that guard.
           const skills = refreshDashboard
             ? await (async () => {
                 const [skillsResult, ...refreshResults] =
@@ -610,6 +611,7 @@ export const SymlinkCleanupDialog = React.memo(
           })
         }
       },
+      // react-doctor-disable-next-line react-doctor/exhaustive-deps -- the only flagged dep is dispatchLocal, a useCallback(fn, []) (L555-562) wrapping stable setState, so its identity never changes; runScan's changing dep dispatch is already listed.
       [dispatch],
     )
 
@@ -639,6 +641,7 @@ export const SymlinkCleanupDialog = React.memo(
         dispatch(closeSymlinkCleanupDialog())
         dispatchLocal({ type: 'reset' })
       },
+      // react-doctor-disable-next-line react-doctor/exhaustive-deps -- dispatchLocal (L555-562, useCallback over stable setState) has stable identity; handleClose's changing dep state.phase is already listed, so no stale closure exists.
       [dispatch, state.phase],
     )
 
@@ -683,6 +686,7 @@ export const SymlinkCleanupDialog = React.memo(
       (itemId: SymlinkCleanupItemId): void => {
         dispatchLocal({ type: 'toggle-item', itemId })
       },
+      // react-doctor-disable-next-line react-doctor/exhaustive-deps -- handleToggleItem only references dispatchLocal, a stable useCallback(fn, []) (L555-562) over setState, so the empty dep array is correct.
       [],
     )
 
@@ -690,6 +694,7 @@ export const SymlinkCleanupDialog = React.memo(
       (itemIds: SymlinkCleanupItemId[], checked: boolean): void => {
         dispatchLocal({ type: 'set-section', itemIds, checked })
       },
+      // react-doctor-disable-next-line react-doctor/exhaustive-deps -- handleSetSection only references the stable dispatchLocal (L555-562, useCallback(fn, []) over setState), so the empty dep array is correct.
       [],
     )
 
@@ -886,6 +891,7 @@ export const SymlinkCleanupDialog = React.memo(
           message: `Cleanup failed: ${getErrorMessage(error)}`,
         })
       }
+      // react-doctor-disable-next-line react-doctor/exhaustive-deps -- the flagged missing dep is dispatchLocal, a stable useCallback(fn, []) (L555-562); handleCleanSelected's changing deps (dispatch, state.plan, state.selectedItemIds) are already listed.
     }, [dispatch, state.plan, state.selectedItemIds])
 
     const handleCleanSelectedClick = useCallback((): void => {
@@ -1066,6 +1072,7 @@ const StatusBlock = React.memo(function StatusBlock({
   return (
     <div
       className="py-8 flex items-start gap-3 text-sm"
+      // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- aria-live polite region announcing scan/clean/stale progress (StatusBlock), not a form-calculation result; <output> would be semantically wrong.
       role="status"
       aria-atomic="true"
     >
@@ -1100,7 +1107,12 @@ const CompleteSummary = React.memo(function CompleteSummary({
 }: CompleteSummaryProps): React.ReactElement {
   const didRefreshFail = didCleanupRefreshFail(summary)
   return (
-    <div className="py-5 space-y-3 text-sm" role="status" aria-atomic="true">
+    <div
+      className="py-5 space-y-3 text-sm"
+      // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- aria-live polite region announcing cleanup completion (CompleteSummary), not a form-calculation output; <output> would be semantically wrong.
+      role="status"
+      aria-atomic="true"
+    >
       <div className="flex items-start gap-3">
         <CheckCircle className="mt-0.5 h-4 w-4 text-success" aria-hidden />
         <div>

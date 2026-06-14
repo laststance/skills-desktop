@@ -9,6 +9,16 @@ import {
 
 const SKILLS_REGISTRY_URL = 'https://skills.sh/'
 
+/** Open the skills.sh registry in the user's default browser (footer link). */
+function handleSkillsLinkClick(): void {
+  window.electron.shell.openExternal(SKILLS_REGISTRY_URL)
+}
+
+/** Open the Settings window via IPC (footer gear), mirroring the App menu. */
+function handleSettingsClick(): void {
+  void window.electron.settings.open()
+}
+
 /**
  * Sidebar footer hosting two affordances:
  *  - the existing skills.sh marketplace link (opens in default browser)
@@ -21,14 +31,6 @@ const SKILLS_REGISTRY_URL = 'https://skills.sh/'
  */
 export const SidebarFooter = React.memo(
   function SidebarFooter(): React.ReactElement {
-    const handleSkillsLinkClick = (): void => {
-      window.electron.shell.openExternal(SKILLS_REGISTRY_URL)
-    }
-
-    const handleSettingsClick = (): void => {
-      void window.electron.settings.open()
-    }
-
     return (
       <div className="border-t border-border px-6 py-3 flex items-center">
         <button

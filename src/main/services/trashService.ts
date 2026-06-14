@@ -525,6 +525,7 @@ async function rollbackRemovedSymlinks(
 ): Promise<void> {
   for (const link of links) {
     try {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- intra-iteration dependent (mkdir parent before symlink); best-effort rollback over a growing set where parallelizing risks EMFILE.
       await fs.mkdir(dirname(link.linkPath), { recursive: true })
       await fs.symlink(link.target, link.linkPath)
     } catch (error) {
@@ -561,6 +562,7 @@ async function rollbackMovedLocalCopies(
   for (const copy of copies) {
     const stagedPath = join(entryDir, 'local-copies', copy.agentId)
     try {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- intra-iteration dependent (mkdir parent then move into it); best-effort rollback accumulating unrestoredCopies, order- and fd-sensitive.
       await fs.mkdir(dirname(copy.linkPath), { recursive: true })
       await moveDirectoryNoOverwrite(stagedPath, copy.linkPath)
     } catch (error) {
@@ -892,6 +894,7 @@ export async function unlinkReviewedDanglingSymlink(options: {
   beforeTargetProbe?: () => Promise<void>
 }): Promise<'missing' | 'unlinked'> {
   try {
+    // react-doctor-disable-next-line react-doctor/async-parallel -- deliberate ordered race-detection sequence (read, probe, assert-missing, re-read, re-assert, commit); the second read/assert catch concurrent slot/target changes, so they are order- and data-dependent.
     const reviewed = await readReviewedDanglingSymlink(options)
 
     await options.beforeTargetProbe?.()
@@ -1027,6 +1030,7 @@ async function removeSourceBackedAgentSymlinks(
 
       let stats: Stats
       try {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- lstat drives a sequential cascade mutating shared recordedSymlinks/cascadeAgentIds and rolling back already-removed symlinks on failure; order is load-bearing.
         stats = await fs.lstat(linkPath)
       } catch (error) {
         // Link doesn't exist — roll forward.
@@ -1253,6 +1257,7 @@ async function moveLocalOnlyToTrash(
     const stagedPath = join(localCopiesRoot, copy.agentId)
     /* v8 ignore start -- defense-in-depth: the sole caller moveToTrash always supplies a non-null filesystemIdentity, so this optional-field guard is unreachable via any public entry point */
     if (!copy.filesystemIdentity) {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- sequential move loop accumulates the moved array and must rename already-moved copies back in order on failure (also an unreachable v8-ignored guard).
       const unrestoredCopies = await rollbackMovedLocalCopies(entryDir, moved)
       if (unrestoredCopies.length === 0) {
         await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
@@ -1735,6 +1740,7 @@ async function restoreLocalOnly(
     }
     // linkPath free?
     try {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- lstat is a destination-occupancy check gating moveDirectoryNoOverwrite and incrementing shared restored/skipped counters per iteration.
       await fs.lstat(copy.linkPath)
       // Something already exists at the destination; skip rather than overwrite.
       symlinksSkipped++
@@ -1846,6 +1852,7 @@ export async function startupCleanup(): Promise<void> {
     }
     if (ms < cutoff) {
       const entryDir = join(TRASH_DIR, entryName)
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- marker reads only build the toSweep plan and mutate manualRecoverySkippedCount; the actual fs.rm deletion runs via a concurrency-4 pool below.
       if (await hasManualRecoveryMarker(entryDir)) {
         manualRecoverySkippedCount++
         continue

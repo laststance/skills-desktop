@@ -1,2 +1,7 @@
 allowBuilds:
   sharp: true
+
+# Supply-chain security (mirrors root pnpm-workspace.yaml)
+# no-downgrade rejects silently replayed/downgraded package versions; minimumReleaseAge delays brand-new releases (react-doctor require-pnpm-hardening)
+trustPolicy: no-downgrade
+minimumReleaseAge: 1440

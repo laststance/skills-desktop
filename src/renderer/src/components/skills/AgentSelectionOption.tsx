@@ -57,6 +57,7 @@ export const AgentSelectionOption = React.memo(function AgentSelectionOption({
   }, [])
 
   return (
+    // react-doctor-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- the row onClick is a mouse-only convenience that delegates to the keyboard-accessible <Checkbox> inside (it owns onCheckedChange); the real control is focusable and operable, so no separate row keyboard handler/role is needed.
     <div
       className={cn(
         'flex items-center gap-3 p-2 rounded-md',

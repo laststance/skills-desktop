@@ -37,6 +37,7 @@ export async function listValidSourceSkillDirs(): Promise<SkillDirEntry[]> {
     const results: SkillDirEntry[] = []
     for (const dir of dirs) {
       const skillPath = join(SOURCE_DIR, dir.name)
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- isValidSkillDir probe per entry building the valid-dirs list; bounded local-fs reads kept sequential to stay fd-bounded.
       if (await isValidSkillDir(skillPath)) {
         results.push({ name: dir.name, path: skillPath })
       }

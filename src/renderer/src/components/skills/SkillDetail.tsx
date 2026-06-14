@@ -124,6 +124,7 @@ export const SkillDetail = React.memo(function SkillDetail({
         <Activity mode={activeTab === 'info' ? 'visible' : 'hidden'}>
           <InfoView
             skill={skill}
+            // react-doctor-disable-next-line react-doctor/jsx-no-new-array-as-prop -- InfoView lives in a hidden <Activity>; memoizing this derived array is a render micro-opt deferred to /simplify (P8). No React Compiler here, so a manual useMemo risks the repo's no-deopt-use-memo rule.
             filteredSymlinks={filteredSymlinks}
             validCount={validCount}
             brokenCount={brokenCount}
@@ -181,6 +182,7 @@ function useLocationPathClipboard(): LocationPathClipboardState {
   const [copiedPath, setCopiedPath] = React.useState<string | null>(null)
   const resetCopiedPathTimeoutRef = React.useRef<number | null>(null)
 
+  // react-doctor-disable-next-line react-doctor/exhaustive-deps -- mount-once cleanup that intentionally reads the LATEST resetCopiedPathTimeoutRef.current at unmount to clear a pending timer; capturing it earlier would leak the timer.
   React.useEffect(() => {
     return () => {
       if (resetCopiedPathTimeoutRef.current !== null) {

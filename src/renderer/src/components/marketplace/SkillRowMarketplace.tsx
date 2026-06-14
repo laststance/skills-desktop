@@ -131,6 +131,7 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
           // `--success` keeps "installed" green across every theme preset; `bg-primary`
           // collapses to grayscale in neutral presets where chroma is 0.
           <div
+            // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- composite installed badge (Check icon + text) with a rich aria-label. <img> needs a src and cannot contain children.
             role="img"
             aria-label={`${skill.name} is installed. To uninstall, run: npx skills remove ${skill.name} --global`}
             title={`Installed. To uninstall: npx skills remove ${skill.name} --global`}
