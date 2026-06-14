@@ -145,6 +145,44 @@ Rules:
 - Use mono only for technical values, file paths, code, and exact commands.
 - Prefer sentence case for UI labels.
 
+### Preview typography (user-adjustable)
+
+The skill file preview has **two independent font-size anchors**, both surfaced
+as sliders in Settings → Appearance and persisted via `settings.json`:
+
+| Setting              | Governs                                                   | Default | Range   |
+| -------------------- | --------------------------------------------------------- | ------- | ------- |
+| `markdownFontSizePx` | The Markdown **Reading** view (`.markdown-reading-prose`) | 14px    | 12-22px |
+| `codeFontSizePx`     | The Shiki **code** pane and the plain-text code fallback  | 13px    | 11-20px |
+
+Anchoring rules — keep these straight, they are a common source of bugs:
+
+- **The two anchors do not cross.** `codeFontSizePx` sizes the syntax-highlighted
+  code pane only. `markdownFontSizePx` sizes the rendered Markdown. A fenced code
+  block (` ``` `) **inside** a Markdown document scales with
+  `markdownFontSizePx` (it is Markdown content), _not_ with `codeFontSizePx`.
+- **Child sizes are `em`-relative to their anchor**, set with `text-[Nem]` (h1
+  `1.714em`, h2 `1.429em`, h3 `1.143em`, block code `0.857em`, inline `0.85em`).
+  The anchor is applied as an inline `style={{ fontSize }}` so the whole subtree
+  scales from one number. Verify em-ratios in the **running app** — Tailwind
+  arbitrary-value classes like `text-[1.714em]` do not JIT-generate in the
+  vitest browser env, so computed-style assertions on them are false negatives;
+  test the anchor wiring via inline-style assertions instead.
+- **Code line-height is font-relative** (`min-height: 1.5em; line-height: 1.5`
+  on `.skill-code-preview .line`), not a fixed px. This is required so lines
+  grow with the font; the trade-off is ≈0.5px shorter per line at the 13px
+  default than the old fixed 20px — imperceptible, and the correct call over
+  breaking scalability.
+
+### Code theme
+
+`codeThemeId` selects one of five curated Shiki light/dark theme **pairs**
+(`github` default, `vs`, `vitesse`, `one`, `catppuccin`); the active half is
+chosen by the app's light/dark mode via Shiki's dual-theme `defaultColor: false`
+output. Theme changes re-render the preview live across windows through the
+`settings:changed` broadcast. Curated pairs are the only surface — do not expose
+raw single-theme selection; a pair guarantees both light and dark legibility.
+
 ## Spacing and Layout
 
 The base grid is 4px. Keep spacing small but breathable.

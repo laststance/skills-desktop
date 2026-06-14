@@ -301,12 +301,13 @@
     white-space: normal;
   }
 
-  /* GitHub source panes use a compact 20px row rhythm, which keeps long skill
-   * files scannable without making blank lines look oversized. */
+  /* Compact GitHub-style row rhythm. Metrics are font-relative (em min-height
+   * + unitless line-height) so the rows scale when the user changes the code
+   * preview font size in Settings; blank lines still hold a full row. */
   .skill-code-preview .line {
     display: block;
-    min-height: 1.25rem;
-    line-height: 1.25rem;
+    min-height: 1.5em;
+    line-height: 1.5;
     padding-right: 0.75rem;
     white-space: pre;
   }

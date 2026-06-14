@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { AGENT_IDS, TERMINAL_APP_IDS } from './constants'
+import {
+  AGENT_IDS,
+  CODE_THEME_IDS,
+  DEFAULT_CODE_THEME_ID,
+  TERMINAL_APP_IDS,
+} from './constants'
 import type { AgentId } from './types'
 
 /**
@@ -31,6 +36,26 @@ export const WINDOW_BACKGROUND_BLUR_MAX_RADIUS = 48
  */
 export const WINDOW_BACKGROUND_OPACITY_MAX = 1
 export const WINDOW_BACKGROUND_OPACITY_MIN = 0.45
+
+/**
+ * Bounds for the Markdown reading-mode body font size (CSS px). The default
+ * matches the preview's prior `text-sm` (14px) base so existing installs render
+ * identically; the range keeps a hand-edited settings file from requesting an
+ * unreadably small or oversized body. Markdown-embedded code fences scale with
+ * this size (they are `react-markdown`, not the Shiki preview pane).
+ */
+export const MARKDOWN_FONT_SIZE_MIN_PX = 12
+export const MARKDOWN_FONT_SIZE_MAX_PX = 22
+export const MARKDOWN_FONT_SIZE_DEFAULT_PX = 14
+
+/**
+ * Bounds for the syntax-highlighted code preview font size (CSS px). The
+ * default matches the preview pane's prior `text-[13px]` so existing installs
+ * render identically. Governs the dedicated Shiki preview pane only.
+ */
+export const CODE_FONT_SIZE_MIN_PX = 11
+export const CODE_FONT_SIZE_MAX_PX = 20
+export const CODE_FONT_SIZE_DEFAULT_PX = 13
 
 /**
  * Allowed placements for the Installed view's current result count.
@@ -87,6 +112,22 @@ export const WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA = z
   .int()
   .min(WINDOW_BACKGROUND_BLUR_MIN_RADIUS)
   .max(WINDOW_BACKGROUND_BLUR_MAX_RADIUS)
+
+/**
+ * Non-defaulting preview font-size schemas shared by disk and IPC boundaries.
+ * `SettingsSchema` adds the persisted default; the IPC schema keeps them
+ * optional so an unrelated partial write does not reset the user's font size.
+ */
+export const MARKDOWN_FONT_SIZE_SCHEMA = z
+  .number()
+  .int()
+  .min(MARKDOWN_FONT_SIZE_MIN_PX)
+  .max(MARKDOWN_FONT_SIZE_MAX_PX)
+export const CODE_FONT_SIZE_SCHEMA = z
+  .number()
+  .int()
+  .min(CODE_FONT_SIZE_MIN_PX)
+  .max(CODE_FONT_SIZE_MAX_PX)
 
 /**
  * Persisted startup window size. `undefined` means "no preference —
@@ -168,6 +209,13 @@ const HIDDEN_AGENT_IDS_SCHEMA = z
  * - `windowBackgroundBlurRadius`: Electron 42 `View#setBackgroundBlur`
  *   radius for the main window. `0` disables the translucent surface and
  *   restores the opaque app background.
+ * - `markdownFontSizePx`: body font size (CSS px) for the file preview's
+ *   Markdown reading mode. Heading/code sizes scale proportionally (em).
+ * - `codeFontSizePx`: font size (CSS px) for the Shiki syntax-highlighted
+ *   code preview pane.
+ * - `codeThemeId`: which curated Shiki light/dark theme pair the code
+ *   preview uses (see `CODE_THEME_DEFINITIONS`). The pane always picks the
+ *   light or dark variant to match the app theme.
  * - `installedSearchCountDisplay`: where the Installed view shows the
  *   current visible result count. `'tab'` is the default compact badge;
  *   `'inline'` moves the count into the search toolbar.
@@ -187,7 +235,7 @@ const HIDDEN_AGENT_IDS_SCHEMA = z
  * so unknown keys are rejected at the IPC boundary (defense in depth).
  *
  * @example
- * SettingsSchema.parse({}) // { defaultSkillTab: 'files', preferredTerminal: 'terminal', windowBackgroundBlurRadius: 0, installedSearchCountDisplay: 'tab', hiddenAgentIds: [], autoDownloadUpdates: false }
+ * SettingsSchema.parse({}) // { defaultSkillTab: 'files', preferredTerminal: 'terminal', windowBackgroundBlurRadius: 0, markdownFontSizePx: 14, codeFontSizePx: 13, codeThemeId: 'github', installedSearchCountDisplay: 'tab', hiddenAgentIds: [], autoDownloadUpdates: false }
  */
 export const SettingsSchema = z.object({
   defaultSkillTab: z.enum(['files', 'info']).default('files'),
@@ -197,6 +245,11 @@ export const SettingsSchema = z.object({
   windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA.default(
     WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
   ),
+  markdownFontSizePx: MARKDOWN_FONT_SIZE_SCHEMA.default(
+    MARKDOWN_FONT_SIZE_DEFAULT_PX,
+  ),
+  codeFontSizePx: CODE_FONT_SIZE_SCHEMA.default(CODE_FONT_SIZE_DEFAULT_PX),
+  codeThemeId: z.enum(CODE_THEME_IDS).default(DEFAULT_CODE_THEME_ID),
   installedSearchCountDisplay: z
     .enum(INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS)
     .default('tab'),
@@ -218,6 +271,9 @@ export const SettingsSchema = z.object({
  *   preferredTerminal: 'iterm',
  *   windowSize: { width: 1280, height: 800 },
  *   windowBackgroundBlurRadius: 24,
+ *   markdownFontSizePx: 14,
+ *   codeFontSizePx: 13,
+ *   codeThemeId: 'github',
  *   installedSearchCountDisplay: 'tab',
  *   hiddenAgentIds: ['claude-code'],
  *   autoDownloadUpdates: false,
@@ -241,6 +297,9 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultSkillTab: 'files',
   preferredTerminal: 'terminal',
   windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
+  markdownFontSizePx: MARKDOWN_FONT_SIZE_DEFAULT_PX,
+  codeFontSizePx: CODE_FONT_SIZE_DEFAULT_PX,
+  codeThemeId: DEFAULT_CODE_THEME_ID,
   installedSearchCountDisplay: 'tab',
   hiddenAgentIds: [],
   autoDownloadUpdates: false,

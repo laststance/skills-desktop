@@ -2,6 +2,7 @@ import * as TabsPrimitive from '@radix-ui/react-tabs'
 import React, { useCallback } from 'react'
 
 import { useCodePreview } from '@/renderer/src/hooks/useCodePreview'
+import { useAppSelector } from '@/renderer/src/redux/hooks'
 import type { AbsolutePath } from '@/shared/types'
 
 import { FileContent } from './FileContent'
@@ -32,6 +33,15 @@ export const CodePreview = React.memo(function CodePreview({
 }: CodePreviewProps): React.ReactElement {
   const { files, activeFile, setActiveFile, content, loading } =
     useCodePreview(skillPath)
+  // Preview typography is user-configurable in Settings → Appearance; this is
+  // the single Redux read that feeds the otherwise-presentational FileContent.
+  const markdownFontSizePx = useAppSelector(
+    (state) => state.settings.markdownFontSizePx,
+  )
+  const codeFontSizePx = useAppSelector(
+    (state) => state.settings.codeFontSizePx,
+  )
+  const codeThemeId = useAppSelector((state) => state.settings.codeThemeId)
 
   const handleValueChange = useCallback(
     (next: string) => {
@@ -68,7 +78,12 @@ export const CodePreview = React.memo(function CodePreview({
         value={activeFile ?? ''}
         className="flex-1 flex flex-col min-h-0 focus-visible:outline-none"
       >
-        <FileContent content={content} />
+        <FileContent
+          content={content}
+          markdownFontSizePx={markdownFontSizePx}
+          codeFontSizePx={codeFontSizePx}
+          codeThemeId={codeThemeId}
+        />
       </TabsPrimitive.Content>
     </TabsPrimitive.Root>
   )

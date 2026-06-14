@@ -1,9 +1,11 @@
 import { z } from 'zod'
 
-import { AGENT_IDS, TERMINAL_APP_IDS } from '@/shared/constants'
+import { AGENT_IDS, CODE_THEME_IDS, TERMINAL_APP_IDS } from '@/shared/constants'
 import type { IpcInvokeChannel } from '@/shared/ipc-contract'
 import {
+  CODE_FONT_SIZE_SCHEMA,
   INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS,
+  MARKDOWN_FONT_SIZE_SCHEMA,
   SettingsSchema,
   WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA,
 } from '@/shared/settings'
@@ -357,6 +359,13 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       // unrelated partial settings writes do not reset blur to zero.
       windowBackgroundBlurRadius:
         WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA.optional(),
+      // Preview font sizes + code theme. Shared non-defaulting schemas, kept
+      // `.optional()` (not chained off a defaulted SettingsSchema field) so an
+      // unrelated partial settings:set never materializes a default and
+      // clobbers the user's persisted font size / theme.
+      markdownFontSizePx: MARKDOWN_FONT_SIZE_SCHEMA.optional(),
+      codeFontSizePx: CODE_FONT_SIZE_SCHEMA.optional(),
+      codeThemeId: z.enum(CODE_THEME_IDS).optional(),
       // Search-count display preference. Keep this as a non-defaulting enum
       // so unrelated partial settings writes do not reset the user's choice.
       installedSearchCountDisplay: z
