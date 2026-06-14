@@ -1,9 +1,7 @@
 import { X } from 'lucide-react'
 import React from 'react'
 
-import { DashboardCanvas } from '@/renderer/src/components/dashboard/DashboardCanvas'
-import { MarketplaceDetailPanel } from '@/renderer/src/components/marketplace/MarketplaceDetailPanel'
-import { SkillDetail } from '@/renderer/src/components/skills/SkillDetail'
+import { resolveDetailPanelContent } from '@/renderer/src/components/layout/detailPanelHelpers'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectSkill } from '@/renderer/src/redux/slices/skillsSlice'
 
@@ -34,13 +32,7 @@ export const DetailPanel = React.memo(
             </button>
           )}
         </div>
-        {activeTab === 'marketplace' ? (
-          <MarketplaceDetailPanel />
-        ) : selectedSkill ? (
-          <SkillDetail skill={selectedSkill} />
-        ) : (
-          <DashboardCanvas />
-        )}
+        {resolveDetailPanelContent(activeTab, selectedSkill)}
       </aside>
     )
   },
