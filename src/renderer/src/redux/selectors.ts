@@ -74,6 +74,7 @@ function matchesSkillTypeFilter(
   selectedAgentId: AgentId | null,
   skillTypeFilter: SkillTypeFilter,
 ): boolean {
+  /* v8 ignore next -- defensive: applyAgentAndTypeFilters returns early on null selectedAgentId before reaching either matchesSkillTypeFilter call, so this guard is never hit via any selector */
   if (selectedAgentId === null) return false
 
   const hasSelectedAgentSlot = (slot: SymlinkInfo): boolean =>

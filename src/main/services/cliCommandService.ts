@@ -157,6 +157,7 @@ export async function installCliCommand(): Promise<CliCommandOperationResult> {
   return {
     ok: status.status === 'installed',
     status,
+    /* v8 ignore next 4 -- false arm of the message ternary is a TOCTOU race: it fires only if the shim is removed between the successful link() and the follow-up status check; normal app flow always reports installed here */
     message:
       status.status === 'installed'
         ? `Command installed at ${CLI_COMMAND_PATH}.`
@@ -202,6 +203,7 @@ export async function removeCliCommand(): Promise<CliCommandOperationResult> {
   return {
     ok: status.status === 'not-installed',
     status,
+    /* v8 ignore next 2 -- false arm of the message ternary is a TOCTOU race: it fires only if the shim reappears between the successful unlink() and the follow-up status check; normal app flow always reports not-installed here */
     message:
       status.status === 'not-installed' ? 'Command removed.' : status.message,
   }

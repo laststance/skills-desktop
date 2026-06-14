@@ -453,4 +453,137 @@ describe('useCodePreview', () => {
     expect(readMock).not.toHaveBeenCalled()
     expect(readBinaryMock).not.toHaveBeenCalled()
   })
+
+  it('drops the abandoned skill files when the user switches skills before the first list resolves', async () => {
+    // Arrange
+    const fileA = makeFile({
+      name: 'a.md',
+      path: '/skills/a/a.md',
+      relativePath: 'a.md',
+    })
+    const fileB = makeFile({
+      name: 'b.md',
+      path: '/skills/b/b.md',
+      relativePath: 'b.md',
+    })
+    const bodyB = makeTextContent({ name: 'b.md', content: 'B' })
+
+    // Skill A's list() hangs on an external promise so its effect is still
+    // mid-`await` when the user switches to skill B. Skill B resolves normally.
+    let resolveListA: ((v: SkillFile[]) => void) | null = null
+    listMock.mockImplementation(async (p) => {
+      if (p === '/skills/a') {
+        return new Promise<SkillFile[]>((res) => {
+          resolveListA = res
+        })
+      }
+      return [fileB]
+    })
+    readMock.mockResolvedValue(bodyB)
+
+    const { useCodePreview } = await import('./useCodePreview')
+    const { result, rerender, act } = await renderHook(
+      (props?: { path: string }) => useCodePreview(props?.path ?? '/skills/a'),
+      { initialProps: { path: '/skills/a' } },
+    )
+
+    // Gate on skill A's list() actually being in flight before switching, so
+    // the cleanup that flips its `cancelled` flag has something to cancel.
+    await expect
+      .poll(() => listMock.mock.calls.some((c) => c[0] === '/skills/a'))
+      .toBe(true)
+
+    // Act
+    // Switch to skill B — this tears down A's effect (cancelled = true).
+    rerender({ path: '/skills/b' })
+    await expect
+      .poll(() => result.current.content)
+      .toEqual({ kind: 'text', data: bodyB })
+
+    // Act
+    // Now the abandoned skill A list finally resolves. The cancelled guard must
+    // drop it so skill B's files are never clobbered.
+    await act(async () => {
+      resolveListA?.([fileA])
+      await Promise.resolve()
+    })
+
+    // Assert
+    // Skill B's files and content survive; the stale A list was discarded.
+    expect(result.current.files).toEqual([fileB])
+    expect(result.current.activeFile).toBe(fileB.path)
+    expect(result.current.content).toEqual({ kind: 'text', data: bodyB })
+  })
+
+  it('ignores a request to preview a path that is not in the file list and reads nothing extra', async () => {
+    // Arrange
+    const file = makeFile()
+    const body = makeTextContent()
+    listMock.mockResolvedValue([file])
+    readMock.mockResolvedValue(body)
+
+    const { useCodePreview } = await import('./useCodePreview')
+    const { result, act } = await renderHook(() =>
+      useCodePreview('/skills/tdd'),
+    )
+
+    await expect
+      .poll(() => result.current.content)
+      .toEqual({ kind: 'text', data: body })
+    expect(readMock).toHaveBeenCalledTimes(1)
+
+    // Act
+    // Ask for a path that never appeared in `files` (e.g. a ghost file removed
+    // from disk between list and click). It differs from activeFile so the
+    // early `path === activeFile` guard does not short-circuit first.
+    await act(async () => {
+      await result.current.setActiveFile('/skills/tdd/ghost.md')
+    })
+
+    // Assert
+    // The unknown path is ignored: no extra read fires and the preview is
+    // unchanged from the original auto-selected file.
+    expect(readMock).toHaveBeenCalledTimes(1)
+    expect(result.current.content).toEqual({ kind: 'text', data: body })
+  })
+
+  it('shows an empty preview when a text file read returns null because the file vanished mid-load', async () => {
+    // Arrange
+    const file = makeFile()
+    listMock.mockResolvedValue([file])
+    // read() resolves null — the file was deleted or became unreadable between
+    // listing and reading.
+    readMock.mockResolvedValue(null)
+
+    // Act
+    const { useCodePreview } = await import('./useCodePreview')
+    const { result } = await renderHook(() => useCodePreview('/skills/tdd'))
+
+    // Assert
+    await expect.poll(() => result.current.content).toEqual({ kind: 'empty' })
+    expect(readMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows an empty preview when an image file read returns null because the image vanished mid-load', async () => {
+    // Arrange
+    const image = makeFile({
+      name: 'logo.png',
+      path: '/skills/tdd/logo.png',
+      relativePath: 'logo.png',
+      extension: '.png',
+      previewable: 'image',
+    })
+    listMock.mockResolvedValue([image])
+    // readBinary() resolves null — the image was deleted or became unreadable
+    // between listing and reading.
+    readBinaryMock.mockResolvedValue(null)
+
+    // Act
+    const { useCodePreview } = await import('./useCodePreview')
+    const { result } = await renderHook(() => useCodePreview('/skills/tdd'))
+
+    // Assert
+    await expect.poll(() => result.current.content).toEqual({ kind: 'empty' })
+    expect(readBinaryMock).toHaveBeenCalledTimes(1)
+  })
 })

@@ -82,6 +82,7 @@ export function applyWindowBackgroundBlur(
 
   window.setOpacity(windowOpacity)
   window.setBackgroundColor(backgroundColor)
+  /* v8 ignore next -- false arm (Windows/Linux) is unreachable: the node test lane runs on macOS where process.platform is always 'darwin', and setVibrancy is a macOS-only API that must not be called off-platform */
   if (process.platform === 'darwin') {
     // macOS vibrancy supplies the system material seen through the transparent
     // Chromium surface. Turning it off at radius 0 restores the solid app.

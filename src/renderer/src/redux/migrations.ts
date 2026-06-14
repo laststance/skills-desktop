@@ -132,6 +132,7 @@ function clampPersistedWidgetSizes(
       // Dev-only diagnostic so "my dashboard is partially missing widgets"
       // bug reports point at a concrete cause; silent in prod to keep the
       // console clean for users.
+      /* v8 ignore next -- DEV-only console.warn; vitest always runs with import.meta.env.DEV=true, so the prod (false) branch is unreachable in this lane */
       if (import.meta.env.DEV) {
         console.warn(
           `${migrationName}: skipping malformed page at index ${pageIndex}`,
@@ -144,6 +145,7 @@ function clampPersistedWidgetSizes(
       // Same defense as the page guard above — a `null` widget would crash on
       // `widget.type` and trigger the same total-wipe path.
       if (!widget || typeof widget !== 'object') {
+        /* v8 ignore next -- DEV-only console.warn; vitest always runs with import.meta.env.DEV=true, so the prod (false) branch is unreachable in this lane */
         if (import.meta.env.DEV) {
           console.warn(
             `${migrationName}: skipping malformed widget on page ${pageIndex}`,

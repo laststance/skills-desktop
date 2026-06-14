@@ -153,6 +153,7 @@ class SkillsCliService extends EventEmitter {
 
     for (const agent of options.agents) {
       // Map internal agent ID to CLI identifier (e.g., 'claude' → 'claude-code')
+      /* v8 ignore next -- AgentId is derived from AGENT_DEFINITIONS and AGENT_ID_TO_CLI_NAME is built from the same source, so install()'s typed `agents` always map; the `?? agent` fallback is unreachable via the public surface */
       const cliAgentName = AGENT_ID_TO_CLI_NAME[agent] ?? agent
       args.push('--agent', cliAgentName)
     }

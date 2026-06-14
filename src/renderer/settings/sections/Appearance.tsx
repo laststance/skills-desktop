@@ -111,6 +111,7 @@ const SettingRangeInput = React.memo(function SettingRangeInput({
   ): void => {
     // Native range input emits strings; Zod validates the final integer at IPC.
     const nextValue = parseInt(event.currentTarget.value, 10)
+    /* v8 ignore next -- a native range input always emits a numeric string, so parseInt() never returns NaN here */
     if (Number.isNaN(nextValue)) return
     onValueChange(nextValue)
   }
@@ -219,6 +220,7 @@ const CodeThemeSelect = React.memo(function CodeThemeSelect({
     // `find` narrows the readonly tuple to CodeThemeId without an `as` cast;
     // the IPC schema (`z.enum(CODE_THEME_IDS)`) is the real trust boundary.
     const next = CODE_THEME_IDS.find((id) => id === event.target.value)
+    /* v8 ignore next -- the <select> renders only CODE_THEME_DEFINITIONS options and CODE_THEME_IDS is built from them, so find() never returns undefined */
     if (!next) return
     onValueChange(next)
   }

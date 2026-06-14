@@ -188,6 +188,36 @@ describe('filesystem identity guards for destructive deletes', () => {
       // Assert
       expect(isSame).toBe(false)
     })
+
+    it('treats two inode-less entries as the same object when size and both timestamps match', () => {
+      // Arrange: FAT32/network mounts report dev=ino=0, so the inode fast path
+      // is skipped and identity rests on size+ctime+mtime — all matching here.
+      const reviewedNoInode: FilesystemEntryIdentity = {
+        kind: 'directory',
+        dev: 0,
+        ino: 0,
+        size: 96,
+        ctimeMs: 1_000,
+        mtimeMs: 2_000,
+      }
+      const currentNoInode: FilesystemEntryIdentity = {
+        kind: 'directory',
+        dev: 0,
+        ino: 0,
+        size: 96,
+        ctimeMs: 1_000,
+        mtimeMs: 2_000,
+      }
+
+      // Act
+      const isSame = isSameFilesystemEntryIdentity(
+        currentNoInode,
+        reviewedNoInode,
+      )
+
+      // Assert
+      expect(isSame).toBe(true)
+    })
   })
 
   describe('filesystemIdentityFromStats (kind discriminant from fs.Stats)', () => {
@@ -252,6 +282,18 @@ describe('filesystem identity guards for destructive deletes', () => {
 
       // Assert
       expect(identity.kind).toBe('file')
+    })
+
+    it('labels a block/char/FIFO/socket as other when no standard predicate matches', () => {
+      // Arrange: a block device — not a symlink, directory, or file, so the
+      // ternary falls through to the 'other' arm the destructive UI must handle.
+      const blockDeviceStats = { ...baseStats, isBlockDevice: () => true }
+
+      // Act
+      const identity = filesystemIdentityFromStats(blockDeviceStats)
+
+      // Assert
+      expect(identity.kind).toBe('other')
     })
   })
 })

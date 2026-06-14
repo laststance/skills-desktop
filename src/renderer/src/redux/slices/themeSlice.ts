@@ -102,9 +102,11 @@ function partnerForMode(
   const config = THEME_PRESETS[preset]
   if (!config || !('mode' in config)) return null
   const lastDashIndex = preset.lastIndexOf('-')
+  /* v8 ignore next -- unreachable: passing line 103 means the preset has a 'mode' property, and every mode-bearing preset in THEME_PRESETS has the form '*-dark'|'*-light' (color presets lacking 'mode' already returned above), so lastIndexOf('-') is always >= 0 here; only adding a mode preset without a dash could fire this */
   if (lastDashIndex < 0) return null
   const family = preset.slice(0, lastDashIndex)
   const partnerKey = `${family}-${target}` as ThemePresetName
+  /* v8 ignore next -- the `: null` arm is unreachable: every mode-bearing family in THEME_PRESETS ships both a `-dark` and a `-light` variant, so a partnerKey built from a valid preset is always present; only adding a mode preset without its partner variant could fire this */
   return partnerKey in THEME_PRESETS ? partnerKey : null
 }
 

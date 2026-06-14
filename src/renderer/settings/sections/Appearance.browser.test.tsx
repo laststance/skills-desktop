@@ -226,6 +226,29 @@ describe('Settings → Appearance', () => {
     ).toBeDisabled()
   })
 
+  it('ignores deselecting the already-active Installed search count toggle', async () => {
+    // Arrange — default is the 'tab' display, so 'Tab badge' is the active toggle.
+    const store = await createStore()
+    const { Appearance } = await import('./Appearance')
+    const screen = await render(
+      <Provider store={store}>
+        <Appearance />
+      </Provider>,
+    )
+
+    // Act — re-clicking the active single-select toggle makes Radix emit '',
+    // which the change handler must drop rather than persist a blank display.
+    await screen.getByRole('radio', { name: /Tab badge/i }).click()
+
+    // Assert — nothing persisted and the display stays 'tab'.
+    await new Promise((resolve) => window.setTimeout(resolve, 180))
+    expect(mockSettingsSet).not.toHaveBeenCalled()
+    const settingsState = store.getState() as {
+      settings: typeof DEFAULT_SETTINGS
+    }
+    expect(settingsState.settings.installedSearchCountDisplay).toBe('tab')
+  })
+
   it('does not persist a slider drag that an incoming settings broadcast overrides', async () => {
     // Arrange
     const store = await createStore({ windowBackgroundBlurRadius: 12 })

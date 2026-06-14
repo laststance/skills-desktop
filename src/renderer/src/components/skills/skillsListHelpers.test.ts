@@ -151,6 +151,25 @@ describe('getEmptyListMessage', () => {
     )
   })
 
+  it('appends a single excluded skill type with no conjunction or comma when exactly one type is excluded', () => {
+    // With one exclude active, the copy must read plainly ("excluding G-Stack")
+    // — no "and", no Oxford comma, which only apply to multi-exclude lists.
+    // Arrange: a selected agent with exactly one excluded skill type.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [],
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'all',
+      excludedSkillTypeFilters: ['gstack'],
+    })
+
+    // Assert
+    expect(message).toBe(
+      'No skills installed for this agent while excluding G-Stack',
+    )
+  })
+
   it('shows the symlinked-only empty state when the type filter is symlinked', () => {
     // Arrange: a selected agent with the symlinked type filter.
     // Act

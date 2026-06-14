@@ -135,6 +135,28 @@ describe('skillsCliService.execCli environment', () => {
       }),
     )
   })
+
+  it('builds a clean PATH from only the toolchain fallbacks when the process has no inherited PATH', async () => {
+    // Arrange — a Finder launch can leave PATH unset entirely; deleting the var
+    // makes it genuinely `undefined` (assigning `undefined` would coerce to the
+    // string 'undefined' and never exercise the empty-string fallback).
+    delete process.env.PATH
+    simulateCli({
+      stdout:
+        'vercel-labs/skills@find-skills\n└ https://skills.sh/vercel-labs/skills/find-skills\n',
+    })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act — search must not crash on the missing PATH and still resolve.
+    const results = await skillsCliService.search('find-skills')
+
+    // Assert — the spawned env PATH contains the toolchain fallbacks and never
+    // leaks the literal string 'undefined' from a missing inherited PATH.
+    expect(results).toHaveLength(1)
+    const spawnEnv = spawnMock.mock.calls[0]?.[2] as { env: { PATH: string } }
+    expect(spawnEnv.env.PATH).toContain('/opt/homebrew/bin')
+    expect(spawnEnv.env.PATH).not.toContain('undefined')
+  })
 })
 
 describe('skillsCliService.search', () => {
@@ -209,6 +231,42 @@ describe('skillsCliService.search', () => {
     ])
     expect(results[0]).not.toHaveProperty('installCount')
   })
+
+  it('synthesizes a skills.sh URL for a result row whose CLI output has no matching URL line', async () => {
+    // Arrange — the first row carries a real `└ https://...` line, the second
+    // row is followed by free text that does not match the URL pattern, so its
+    // url must be reconstructed from the repo and skill name.
+    simulateCli({
+      stdout: [
+        'vercel-labs/agent-skills@with-url 10 installs',
+        '└ https://skills.sh/vercel-labs/agent-skills/with-url',
+        'vercel-labs/agent-skills@no-url 20 installs',
+        'No more results found',
+      ].join('\n'),
+    })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    const results = await skillsCliService.search('skills')
+
+    // Assert — the URL-less row falls back to the constructed skills.sh link.
+    expect(results).toEqual([
+      {
+        rank: 1,
+        name: 'with-url',
+        repo: 'vercel-labs/agent-skills',
+        url: 'https://skills.sh/vercel-labs/agent-skills/with-url',
+        installCount: 10,
+      },
+      {
+        rank: 2,
+        name: 'no-url',
+        repo: 'vercel-labs/agent-skills',
+        url: 'https://skills.sh/vercel-labs/agent-skills/no-url',
+        installCount: 20,
+      },
+    ])
+  })
 })
 
 describe('skillsCliService.install', () => {
@@ -279,6 +337,60 @@ describe('skillsCliService.install', () => {
         'cursor',
         '--skill',
         'task',
+      ],
+      expect.any(Object),
+    )
+  })
+
+  it('omits the --global flag for a project-local install', async () => {
+    // Arrange
+    simulateCli({ stdout: 'Installation complete' })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    await skillsCliService.install({
+      repo: repositoryId('vercel-labs/skills'),
+      global: false,
+      agents: [],
+      skills: ['task'],
+    })
+
+    // Assert — local scope means the CLI is invoked without `--global`.
+    expect(spawnMock).toHaveBeenCalledWith(
+      'npx',
+      [
+        `skills@${SKILLS_CLI_VERSION}`,
+        'add',
+        'vercel-labs/skills',
+        '-y',
+        '--skill',
+        'task',
+      ],
+      expect.any(Object),
+    )
+  })
+
+  it('omits every --skill flag when installing the entire repository', async () => {
+    // Arrange — no `skills` key means "install every skill in the repo".
+    simulateCli({ stdout: 'Installation complete' })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    await skillsCliService.install({
+      repo: repositoryId('vercel-labs/skills'),
+      global: true,
+      agents: [],
+    })
+
+    // Assert — the whole-repo install carries no `--skill` selector.
+    expect(spawnMock).toHaveBeenCalledWith(
+      'npx',
+      [
+        `skills@${SKILLS_CLI_VERSION}`,
+        'add',
+        'vercel-labs/skills',
+        '-y',
+        '--global',
       ],
       expect.any(Object),
     )

@@ -165,6 +165,7 @@ export const countOrphanSymlinksRemoved = (
   result.items.reduce((total, item) => {
     if (item.outcome === 'orphan-cleared') return total + item.symlinksRemoved
     if (item.outcome === 'error' && item.cascadeAgents) {
+      /* v8 ignore next -- error rows always include symlinksRemoved when cascadeAgents is set; the main-process spread couples them (`cascadeAgents.length > 0 ? { symlinksRemoved, cascadeAgents } : {}`), so no normal app flow leaves symlinksRemoved undefined here and this `?? 0` fallback never executes */
       return total + (item.symlinksRemoved ?? 0)
     }
     return total

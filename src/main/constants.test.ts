@@ -1,7 +1,8 @@
-import { homedir } from 'node:os'
+import { mkdtempSync, rmSync, symlinkSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   AGENTS,
@@ -213,6 +214,39 @@ describe('isSharedAgentPath', () => {
 
     // Act
     const isShared = isSharedAgentPath(doubleSlashPath)
+
+    // Assert
+    expect(isShared).toBe(true)
+  })
+
+  // Symlink-alias detection (JSDoc stage 2): a path whose *string* form is
+  // not a shared path but whose realpath follows a manually-created symlink
+  // back onto the universal source must still be blocked, or a
+  // `~/.cursor/skills → ~/.agents/skills` alias could be used to wipe the
+  // shared source through a back door. This is the only branch that catches
+  // a symlink whose target lands directly on a SHARED_AGENT_PATHS entry.
+  const tempDirsToCleanUp: string[] = []
+  // Removes every temp dir created by the symlink-alias test so a real
+  // symlink left on disk can never leak into another test run.
+  afterEach(() => {
+    while (tempDirsToCleanUp.length > 0) {
+      const dir = tempDirsToCleanUp.pop()!
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('blocks a delete on a symlink whose realpath resolves onto the universal source dir', () => {
+    // Arrange
+    const tempDir = mkdtempSync(join(tmpdir(), 'shared-agent-alias-'))
+    tempDirsToCleanUp.push(tempDir)
+    const aliasSymlinkPath = join(tempDir, 'aliased-skills')
+    // Real on-disk symlink: aliased-skills → ~/.agents/skills (SOURCE_DIR).
+    // The link's own string path is not in SHARED_AGENT_PATHS, so only the
+    // realpath stage can catch it.
+    symlinkSync(SOURCE_DIR, aliasSymlinkPath)
+
+    // Act
+    const isShared = isSharedAgentPath(aliasSymlinkPath)
 
     // Assert
     expect(isShared).toBe(true)

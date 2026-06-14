@@ -107,6 +107,7 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
       // Both guards read refs so they see the *current* value, not the
       // closure snapshot from when this fetch started.
       if (userSelectedFileRef.current !== path) return
+      /* v8 ignore next -- redundant double-guard: a skill switch runs the render-phase reset that nulls userSelectedFileRef.current, so any stale load after a switch already returns at the line-above guard (null !== path); reaching here with the skill changed would need the same absolute path re-selected on a different skill, which is impossible since paths are skill-specific */
       if (prevSkillPathRef.current !== skillPath) return
       setContent(next)
     },

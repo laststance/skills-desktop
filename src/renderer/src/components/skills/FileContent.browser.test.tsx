@@ -1,24 +1,37 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
 import '@/renderer/src/styles/globals.css'
 
+import * as shikiPreview from './shikiPreview'
+
+// Passthrough spy over the real Shiki highlighter: every test keeps genuine
+// highlighting by default, while the file-switch cancellation test uses
+// `mockReturnValueOnce` to hang one specific call so a stale rejection can be
+// raced against a later file's successful highlight.
+vi.mock('./shikiPreview', async (importOriginal) => {
+  const actual = await importOriginal<typeof shikiPreview>()
+  return { ...actual, codeToHtml: vi.fn(actual.codeToHtml) }
+})
+
 /**
  * Build a text preview payload without pulling in the IPC hook.
- * @param overrides - File metadata/content fields relevant to the preview.
+ * @param overrides - File metadata/content fields relevant to the preview;
+ *   `name`/`extension` default to a Markdown file, override them to render a
+ *   non-Markdown source file that is always shown in code mode.
  * @returns PreviewContent for FileContent's `text` branch.
  */
 function makeTextContent(
-  overrides: Partial<PreviewContent & { content: string }> = {},
+  overrides: Partial<{ content: string; name: string; extension: string }> = {},
 ): PreviewContent {
   const content = 'content' in overrides ? overrides.content : '# Skill\n'
   return {
     kind: 'text',
     data: {
-      name: 'SKILL.md',
+      name: overrides.name ?? 'SKILL.md',
       content: content ?? '# Skill\n',
-      extension: '.md',
+      extension: overrides.extension ?? '.md',
       lineCount: content?.split('\n').length ?? 1,
     },
   }
@@ -87,6 +100,98 @@ describe('FileContent Markdown modes', () => {
       .toBeInTheDocument()
     await expect.element(screen.getByText('Link agents')).toBeInTheDocument()
     expect(screen.getByText('name: install').query()).toBeNull()
+  })
+
+  it('stays in Code mode when the already-selected Code toggle is clicked again', async () => {
+    // Arrange — start in Code mode (the default) viewing a Markdown file whose
+    // heading only renders once Reading Mode is active.
+    const { FileContent } = await import('./FileContent')
+    const screen = await render(
+      <FileContent
+        content={makeTextContent({
+          content: '# Install\n\nBody copy',
+        })}
+      />,
+    )
+    const codeToggle = screen.getByRole('radio', {
+      name: /Show Markdown source/i,
+    })
+    await expect.element(codeToggle).toHaveAttribute('aria-checked', 'true')
+
+    // Act — clicking the active item makes Radix emit an empty string, which
+    // the mode guard must ignore so the view does not flip or blank out.
+    await codeToggle.click()
+
+    // Assert — still in Code mode: the toggle stays selected, the source-code
+    // scroll pane is still mounted, the Reading Mode pane never appears, and the
+    // raw Markdown is never rendered as an <h1> heading.
+    await expect.element(codeToggle).toHaveAttribute('aria-checked', 'true')
+    expect(
+      screen.container.querySelector('[data-file-preview-scroll]'),
+    ).toBeInstanceOf(HTMLElement)
+    expect(
+      screen.container.querySelector('[data-markdown-reading-scroll]'),
+    ).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Install' }).query()).toBeNull()
+  })
+
+  it('keeps the new file preview when a previous file highlight rejects after switching files', async () => {
+    // Arrange — switch the preview to a different file while the first file's
+    // Shiki highlight is still in flight, then make that stale call reject.
+    const { FileContent } = await import('./FileContent')
+    const mockedCodeToHtml = vi.mocked(shikiPreview.codeToHtml)
+    mockedCodeToHtml.mockClear()
+    let rejectStaleHighlight: (reason: Error) => void = () => {}
+    // The first (file A) highlight hangs until we reject it by hand; later calls
+    // fall through to the real Shiki highlighter for file B.
+    mockedCodeToHtml.mockReturnValueOnce(
+      new Promise<string>((_, reject) => {
+        rejectStaleHighlight = reject
+      }),
+    )
+    const screen = await render(
+      <FileContent
+        content={makeTextContent({
+          content: 'const fileA = 1\n',
+          name: 'fileA.ts',
+          extension: '.ts',
+        })}
+      />,
+    )
+
+    // Act — switch to file B; this cancels file A's in-flight effect and lets
+    // the real highlighter resolve file B's source.
+    await screen.rerender(
+      <FileContent
+        content={makeTextContent({
+          content: 'const fileB = 2\n',
+          name: 'fileB.ts',
+          extension: '.ts',
+        })}
+      />,
+    )
+    await expect
+      .poll(() => screen.container.querySelector('.skill-code-preview'))
+      .toBeInstanceOf(HTMLElement)
+    await expect
+      .element(screen.getByText(/const fileB = 2/))
+      .toBeInTheDocument()
+
+    // Reject file A's abandoned highlight now that file B is on screen.
+    rejectStaleHighlight(new Error('stale highlight rejected'))
+    // Let the rejection's catch handler and any resulting React flush settle so
+    // an unguarded `setHighlightedHtml(null)` would have already blanked B.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+
+    // Assert — file B's highlighted preview survives: the cancelled rejection
+    // never blanks the pane back to the plain-text fallback.
+    expect(
+      screen.container.querySelector('.skill-code-preview'),
+    ).toBeInstanceOf(HTMLElement)
+    await expect
+      .element(screen.getByText(/const fileB = 2/))
+      .toBeInTheDocument()
   })
 
   it('keeps Markdown that starts with a horizontal rule in Reading Mode', async () => {

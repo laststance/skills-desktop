@@ -154,6 +154,18 @@ describe('updateSlice', () => {
     expect(state.progress).toBe(100)
   })
 
+  it('leaves release notes empty when a ready update omits them', async () => {
+    // Arrange
+    const { setReady } = await import('./updateSlice')
+    const store = await createTestStore()
+
+    // Act
+    store.dispatch(setReady({ version: semanticVersion('2.0.0') }))
+
+    // Assert
+    expect(store.getState().update.releaseNotes).toBeNull()
+  })
+
   it('surfaces the failure message when the update flow errors', async () => {
     // Arrange
     const { setError } = await import('./updateSlice')

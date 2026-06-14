@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type {
+  AbsolutePath,
   AgentId,
   AgentName,
   Skill,
@@ -292,5 +293,16 @@ describe('getLinkNameFromPath', () => {
 
     // Assert
     expect(linkName).toBe('link-folder-name')
+  })
+
+  it('returns the raw path when it has no nameable final segment', () => {
+    // Arrange
+    const linkPath = '/' as AbsolutePath
+
+    // Act
+    const linkName = getLinkNameFromPath(linkPath)
+
+    // Assert
+    expect(linkName).toBe('/')
   })
 })

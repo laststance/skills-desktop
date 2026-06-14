@@ -112,6 +112,7 @@ function updateAgentSymlinkSlot(
   const slot = skill.symlinks.findIndex(
     (symlink) => symlink.agentId === agentId,
   )
+  /* v8 ignore next -- slots are built from AGENTS via createMissingSymlinkSlots and callers always pass an agent.id from that same list, so findIndex never returns -1 */
   if (slot < 0) return
 
   skill.symlinks[slot] = {
@@ -255,12 +256,14 @@ export async function scanSkills(): Promise<Skill[]> {
     // Once a real source or local folder is present, the skill is no longer
     // an orphan in the UI sense — only treat as orphan if every contributing
     // record agreed.
+    /* v8 ignore next -- on a name collision the surviving `existing` record is always a non-orphan (orphans merge last & are name-deduped), so existing.isOrphan is always false and skill.isOrphan is never evaluated */
     existing.isOrphan = existing.isOrphan && skill.isOrphan
   }
   const allSkills = Array.from(byName.values())
 
   // Attach source info from lock file
   for (const skill of allSkills) {
+    /* v8 ignore next -- skill.path is always a non-empty AbsolutePath from join(), so split('/').pop() is always non-empty; the || '' only satisfies the type checker */
     const dirName = skill.path.split('/').pop() || ''
     const lock = lockEntries.get(dirName) ?? lockEntries.get(skill.name)
     if (lock) {
@@ -384,6 +387,7 @@ async function scanAgentLinkedSymlinks(
       // If an inaccessible slot was seen before a valid sibling, upgrade the
       // display metadata to the readable skill target.
       skill.description = metadata.description
+      /* v8 ignore next -- metadata is truthy only for a valid hit that passed the line-350 targetPath guard, so targetPath is always defined and the ?? fallback never runs */
       skill.path = targetPath ?? skill.path
     }
 

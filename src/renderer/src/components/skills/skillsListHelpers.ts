@@ -43,6 +43,7 @@ function formatExcludedSkillTypeFilters(
   const labels = excludedSkillTypeFilters.map(
     (filter) => EXCLUDED_SKILL_TYPE_FILTER_LABELS[filter],
   )
+  /* v8 ignore next -- the `?? ''` empty-array fallback is unreachable: the only caller (withExcludeContext) returns early on length===0, so labels always has at least one defined element here */
   if (labels.length <= 1) return labels[0] ?? ''
   if (labels.length === 2) return `${labels[0]} and ${labels[1]}`
   return `${labels.slice(0, -1).join(', ')}, and ${labels.at(-1)}`

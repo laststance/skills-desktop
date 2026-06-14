@@ -428,6 +428,47 @@ describe('syncExecute', () => {
       recursive: true,
     })
   })
+
+  it('creates the agent skills directory only once when several new skills land in the same agent', async () => {
+    // Arrange: two new skills, both missing on disk, scoped to a single agent.
+    // The second skill must reuse the dir the first one already mkdir'd.
+    readdirMock.mockImplementation(async (dir: string) => {
+      if (dir === '/mock/source/skills') {
+        return [
+          { name: 'first-skill', isDirectory: () => true },
+          { name: 'second-skill', isDirectory: () => true },
+        ]
+      }
+      return []
+    })
+    accessMock.mockResolvedValue(undefined)
+    lstatMock.mockRejectedValue(new Error('ENOENT'))
+    const { syncExecute } = await import('./syncService')
+
+    // Act
+    const result = await syncExecute({
+      replaceConflicts: [],
+      agentId: 'cursor',
+    })
+
+    // Assert
+    expect(result.created).toBe(2) // 2 skills × 1 agent
+    // Directory ensured a single time despite two skills landing in it
+    expect(mkdirMock).toHaveBeenCalledTimes(1)
+    expect(mkdirMock).toHaveBeenCalledWith('/mock/agents/cursor/skills', {
+      recursive: true,
+    })
+    // Each skill still gets its own symlink
+    expect(symlinkMock).toHaveBeenCalledTimes(2)
+    expect(symlinkMock).toHaveBeenCalledWith(
+      join('/mock/source/skills', 'first-skill'),
+      join('/mock/agents/cursor/skills', 'first-skill'),
+    )
+    expect(symlinkMock).toHaveBeenCalledWith(
+      join('/mock/source/skills', 'second-skill'),
+      join('/mock/agents/cursor/skills', 'second-skill'),
+    )
+  })
 })
 
 /**

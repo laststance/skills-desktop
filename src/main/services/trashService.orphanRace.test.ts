@@ -3523,4 +3523,272 @@ describe('trashService orphan cleanup guarded commit', () => {
     ).toBe(true)
     warnSpy.mockRestore()
   })
+
+  it('reports an inspect failure when revalidating the reviewed folder hits a non-ENOENT error', async () => {
+    // Arrange
+    // assertReviewedSkillDirectory lstat()s the reviewed path before deleting.
+    // A non-ENOENT lstat failure (EACCES, e.g. parent perms changed) must surface
+    // as an "inspect" error, distinct from the "not found" message ENOENT yields.
+    const skillName = 'reviewed-inspect-eacces'
+    const sourcePath = join(tempHome, '.agents', 'skills', skillName)
+    await mkdir(sourcePath, { recursive: true })
+    await writeFile(join(sourcePath, 'SKILL.md'), `# ${skillName}\n`, 'utf-8')
+    const reviewedIdentity = await reviewedIdentityForPath(sourcePath)
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        lstat: async (
+          path: string,
+          options?: Parameters<typeof actual.lstat>[1],
+        ): Promise<Awaited<ReturnType<typeof actual.lstat>>> => {
+          // Only the reviewed-folder revalidation lstat fails; everything else is real.
+          if (path === sourcePath) {
+            const error = new Error(
+              'forced reviewed inspect failure',
+            ) as NodeJS.ErrnoException
+            error.code = 'EACCES'
+            throw error
+          }
+          return actual.lstat(path, options)
+        },
+      }
+    })
+    const { moveToTrash } = await import('./trashService')
+
+    // Act / Assert
+    await expect(
+      moveToTrash(skillName, sourcePath, reviewedIdentity),
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/Failed to inspect reviewed skill folder/),
+      code: 'EACCES',
+    })
+    // The reviewed source is left untouched because the move never started.
+    expect((await lstat(sourcePath)).isDirectory()).toBe(true)
+  })
+
+  it('wraps a non-TrashError staged-source validation failure into a TrashError', async () => {
+    // Arrange
+    // After the same-device rename into the trash entry, the staged-source identity
+    // recheck lstat()s `<entry>/source`. When that lstat throws a raw fs error
+    // (not already a TrashError), coerceTrashError must wrap it, preserving its code
+    // and prefixing the message — proving the non-TrashError arm of the wrapper.
+    const skillName = 'staged-source-wrap-eacces'
+    const sourcePath = join(tempHome, '.agents', 'skills', skillName)
+    await mkdir(sourcePath, { recursive: true })
+    await writeFile(join(sourcePath, 'SKILL.md'), `# ${skillName}\n`, 'utf-8')
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        lstat: async (
+          path: string,
+          options?: Parameters<typeof actual.lstat>[1],
+        ): Promise<Awaited<ReturnType<typeof actual.lstat>>> => {
+          // Fail the staged-source identity recheck with a raw (non-TrashError) error.
+          if (path.includes('/.agents/.trash/') && path.endsWith('/source')) {
+            const error = new Error(
+              'forced staged-source inspect failure',
+            ) as NodeJS.ErrnoException
+            error.code = 'EACCES'
+            throw error
+          }
+          return actual.lstat(path, options)
+        },
+      }
+    })
+    const { moveToTrash } = await import('./trashService')
+
+    // Act / Assert
+    await expect(
+      moveToTrash(
+        skillName,
+        sourcePath,
+        await reviewedIdentityForPath(sourcePath),
+      ),
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/^Failed to validate staged source: /),
+      code: 'EACCES',
+    })
+  })
+
+  it('restores the source with no preserved-copy hint when the cross-device copy fails and the sibling is already gone', async () => {
+    // Arrange
+    // EXDEV forces the sibling-stage + copy fallback. The copy into the trash entry
+    // fails (so no recovery copy was created), and by the time the catch tries to
+    // restore the sibling it is already gone (ENOENT). The original must come back
+    // and the surfaced error must NOT claim a preserved copy.
+    const skillName = 'source-exdev-sibling-gone'
+    const sourcePath = join(tempHome, '.agents', 'skills', skillName)
+    await mkdir(sourcePath, { recursive: true })
+    await writeFile(join(sourcePath, 'SKILL.md'), `# ${skillName}\n`, 'utf-8')
+    const siblingStageMarker = `.${skillName}.trash-source-`
+    let siblingLstatCalls = 0
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        rename: async (oldPath: string, newPath: string): Promise<void> => {
+          // Force the cross-device path on the move into the trash entry.
+          if (oldPath === sourcePath && newPath.includes('/.agents/.trash/')) {
+            const error = new Error(
+              'forced cross-device source move',
+            ) as NodeJS.ErrnoException
+            error.code = 'EXDEV'
+            throw error
+          }
+          return actual.rename(oldPath, newPath)
+        },
+        lstat: async (
+          path: string,
+          options?: Parameters<typeof actual.lstat>[1],
+        ): Promise<Awaited<ReturnType<typeof actual.lstat>>> => {
+          if (path.includes(siblingStageMarker)) {
+            siblingLstatCalls += 1
+            // 1st lstat = identity recheck (must pass); 2nd = restore probe → ENOENT.
+            if (siblingLstatCalls >= 2) {
+              const error = new Error(
+                'sibling already gone',
+              ) as NodeJS.ErrnoException
+              error.code = 'ENOENT'
+              throw error
+            }
+          }
+          return actual.lstat(path, options)
+        },
+        cp: async (
+          source: string,
+          destination: string,
+          options?: Parameters<typeof actual.cp>[2],
+        ): Promise<void> => {
+          // Fail the copy of the sibling into the trash entry's source dir.
+          if (
+            source.includes(siblingStageMarker) &&
+            destination.includes('/.agents/.trash/')
+          ) {
+            const error = new Error(
+              'forced cross-device copy failure',
+            ) as NodeJS.ErrnoException
+            error.code = 'EACCES'
+            throw error
+          }
+          return actual.cp(source, destination, options)
+        },
+      }
+    })
+    const { __getTrashDirForTests, moveToTrash } =
+      await import('./trashService')
+
+    // Act
+    let surfacedError: unknown
+    try {
+      await moveToTrash(
+        skillName,
+        sourcePath,
+        await reviewedIdentityForPath(sourcePath),
+      )
+    } catch (error) {
+      surfacedError = error
+    }
+
+    // Assert
+    expect((surfacedError as Error).message).toMatch(
+      /Failed to move source to trash \(cross-device\)/,
+    )
+    expect((surfacedError as Error).message).not.toMatch(
+      /source copy preserved/,
+    )
+    // No recovery copy → the trash entry is dropped, not preserved.
+    expect(await readdir(__getTrashDirForTests())).toEqual([])
+  })
+
+  it('reports a local cross-device failure with no staged-copy hint when the sibling is already gone', async () => {
+    // Arrange
+    // Local-only mirror of the source case: EXDEV forces the sibling-stage + copy
+    // fallback for an agent-local copy. The copy fails (no staged copy created) and
+    // the sibling restore probe finds it already gone (ENOENT). The surfaced fatal
+    // error must NOT claim a staged copy was preserved.
+    const skillName = 'local-exdev-sibling-gone'
+    const claudeSkillsDir = join(tempHome, '.claude', 'skills')
+    const localPath = join(claudeSkillsDir, skillName)
+    await mkdir(localPath, { recursive: true })
+    await writeFile(join(localPath, 'SKILL.md'), `# ${skillName}\n`, 'utf-8')
+    const siblingStageMarker = `.${skillName}.trash-local-claude-code-`
+    let siblingLstatCalls = 0
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        rename: async (oldPath: string, newPath: string): Promise<void> => {
+          if (oldPath === localPath && newPath.includes('/.agents/.trash/')) {
+            const error = new Error(
+              'forced cross-device local move',
+            ) as NodeJS.ErrnoException
+            error.code = 'EXDEV'
+            throw error
+          }
+          return actual.rename(oldPath, newPath)
+        },
+        lstat: async (
+          path: string,
+          options?: Parameters<typeof actual.lstat>[1],
+        ): Promise<Awaited<ReturnType<typeof actual.lstat>>> => {
+          if (path.includes(siblingStageMarker)) {
+            siblingLstatCalls += 1
+            // 1st lstat = identity recheck (must pass); 2nd = restore probe → ENOENT.
+            if (siblingLstatCalls >= 2) {
+              const error = new Error(
+                'sibling already gone',
+              ) as NodeJS.ErrnoException
+              error.code = 'ENOENT'
+              throw error
+            }
+          }
+          return actual.lstat(path, options)
+        },
+        cp: async (
+          source: string,
+          destination: string,
+          options?: Parameters<typeof actual.cp>[2],
+        ): Promise<void> => {
+          if (
+            source.includes(siblingStageMarker) &&
+            destination.includes('/.agents/.trash/')
+          ) {
+            const error = new Error(
+              'forced cross-device copy failure',
+            ) as NodeJS.ErrnoException
+            error.code = 'EACCES'
+            throw error
+          }
+          return actual.cp(source, destination, options)
+        },
+      }
+    })
+    const { moveToTrash } = await import('./trashService')
+
+    // Act
+    let surfacedError: unknown
+    try {
+      await moveToTrash(
+        skillName,
+        localPath,
+        await reviewedIdentityForPath(localPath),
+      )
+    } catch (error) {
+      surfacedError = error
+    }
+
+    // Assert
+    expect((surfacedError as Error).message).toMatch(
+      /Failed to move local copy \(cross-device, agent=claude-code\)/,
+    )
+    expect((surfacedError as Error).message).not.toMatch(
+      /staged copy preserved/,
+    )
+  })
 })

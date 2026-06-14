@@ -109,8 +109,8 @@ export default defineConfig({
         'src/renderer/settings/main.tsx', // settings-window ReactDOM bootstrap
       ],
       // Coverage gate (the "pragmatic 100%" bar). Achieved at the time of
-      // writing: Lines 99.98 / Functions 99.93 / Statements 98.62 / Branches
-      // 88.67. We deliberately floor *just below* each rather than at 100
+      // writing: Lines 99.98 / Functions 99.93 / Statements 98.71 / Branches
+      // 91.81. We deliberately floor *just below* each rather than at 100
       // because the Chromium (browser) lane's v8/esbuild instrumentation is
       // systematically imprecise on transformed code. A `/* v8 ignore */`
       // directive DOES suppress some browser-lane artifacts — this PR relies on
@@ -135,8 +135,8 @@ export default defineConfig({
       thresholds: {
         lines: 99.8,
         functions: 99.8,
-        statements: 97,
-        branches: 87,
+        statements: 98,
+        branches: 90,
       },
     },
     projects: [
