@@ -378,6 +378,37 @@ describe('dashboardSlice', () => {
       expect(state.currentPageId).toBe(lastPage.id)
     })
 
+    it('does not reuse a page name after a middle auto-named page is deleted', async () => {
+      // Arrange: seed 4 named pages, then auto-add "Page 5" and "Page 6".
+      const { addPage, removePage, seedDefaultsIfEmpty } =
+        await import('./dashboardSlice')
+      const store = await createTestStore()
+      store.dispatch(seedDefaultsIfEmpty())
+      store.dispatch(addPage()) // => "Page 5"
+      store.dispatch(addPage()) // => "Page 6"
+      const pageFive = store
+        .getState()
+        .dashboard.pages.find((page) => page.name === 'Page 5')
+      if (!pageFive) throw new Error('expected an auto-named "Page 5"')
+
+      // Act: delete the middle "Page 5", then auto-add another page.
+      store.dispatch(removePage(pageFive.id))
+      store.dispatch(addPage())
+
+      // Assert: the new page skips the still-present "Page 6" and becomes
+      // "Page 7", so no two tabs ever share a name.
+      const names = store.getState().dashboard.pages.map((page) => page.name)
+      expect(names).toEqual([
+        'Overview',
+        'Discovery',
+        'Actions',
+        'Personal',
+        'Page 6',
+        'Page 7',
+      ])
+      expect(new Set(names).size).toBe(names.length)
+    })
+
     it('renames a page to the new title', async () => {
       // Arrange
       const { renamePage, seedDefaultsIfEmpty } =

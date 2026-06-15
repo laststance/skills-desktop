@@ -18,6 +18,7 @@ import {
   newDashboardPageId,
   newWidgetInstanceId,
 } from '@/renderer/src/components/dashboard/utils/ids'
+import { nextPageName } from '@/renderer/src/components/dashboard/utils/nextPageName'
 import { buildDefaultDashboardPages } from '@/renderer/src/components/dashboard/utils/widgetPresets'
 import { WIDGET_SIZES } from '@/renderer/src/components/dashboard/widgets/sizes'
 import type { RootState } from '@/renderer/src/redux/store'
@@ -173,7 +174,7 @@ const dashboardSlice = createSlice({
       // Overflow: create a new page and drop the widget at the origin.
       const overflowPage: DashboardPage = {
         id: newDashboardPageId(),
-        name: `Page ${state.pages.length + 1}`,
+        name: nextPageName(state.pages),
         widgets: [newWidget],
       }
       state.pages.push(overflowPage)
@@ -215,7 +216,7 @@ const dashboardSlice = createSlice({
     ) => {
       const newPage: DashboardPage = {
         id: newDashboardPageId(),
-        name: action.payload?.name ?? `Page ${state.pages.length + 1}`,
+        name: action.payload?.name ?? nextPageName(state.pages),
         widgets: [],
       }
       state.pages.push(newPage)
