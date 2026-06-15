@@ -351,12 +351,22 @@ Rules:
 - Tabs should be compact and stable.
 - Use underline, border, or subtle background to communicate selection.
 - Do not increase container height on hover or active state.
+- **Mutually-exclusive single-select toggles use the connected (border-collapsed)
+  style — render `SegmentedControl` (`components/ui/segmented-control.tsx`), not a
+  bare `ToggleGroup` with hand-rolled rounding.** Segments share one continuous
+  border (`gap-0` + collapsed inner borders/corners) so 2, 3, or 4+ options read
+  as a single control. Do not put gaps between segments, and do not wrap them in a
+  separate padded "tray" (`p-0.5` + muted background) — the shared border is the
+  grouping affordance. This is the "Name/Repo" pattern generalized to N options;
+  the component also owns the Radix empty-string deselect guard so exactly one
+  option stays selected. (Linear, macOS System Settings, Codex desktop.)
 - A segmented control sits left-aligned under its own label, sized to its
   content — it does not stretch full-width or center in the row. Stretching reads
   as a primary tab bar; a secondary setting toggle should stay a compact,
-  left-anchored affordance. Apply `justify-start` to the ToggleGroup whenever its
-  parent is a full-width flex column. (macOS System Settings, Linear preference
-  toggles.)
+  left-anchored affordance (`SegmentedControl` is left-aligned by default; pass
+  `fullWidth` only when the control is the row's primary affordance and should
+  fill it, e.g. a modal's full-width choice). (macOS System Settings, Linear
+  preference toggles.)
 - Keep Radix roles in mind when testing: some toggle groups expose `radio`.
 
 ### Lists and Rows
