@@ -2,6 +2,7 @@ import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import React, { useCallback, useRef, useState } from 'react'
 import { match } from 'ts-pattern'
 
+import { DestructiveConfirmDialog } from '@/renderer/src/components/shared/DestructiveConfirmDialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -184,6 +185,8 @@ const PageTab = React.memo(function PageTab({
   const renameInputRef = useRef<HTMLInputElement>(null)
   // react-doctor-disable-next-line react-doctor/no-derived-useState -- intentional edit buffer: draftName starts from page.name then diverges during inline rename, and is re-synced when rename mode opens (useCycleEffect below).
   const [draftName, setDraftName] = useState(page.name)
+  // Controls the styled destructive-confirm dialog for page deletion.
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
   // Reset the draft to the latest canonical name each time rename mode opens.
   // Using rAF defers focus until after the input is mounted in the DOM.
@@ -214,17 +217,23 @@ const PageTab = React.memo(function PageTab({
     onFinishRename()
   }
 
-  const handleDelete = useCallback((): void => {
-    // The reducer already protects the last page, but the trigger is hidden
-    // in that case anyway — keep the guard for defensive symmetry.
+  // Open the styled confirm dialog instead of a native window.confirm so the
+  // destructive flow matches the app's design system. The reducer already
+  // protects the last page, but the trigger is hidden in that case anyway —
+  // keep the guard for defensive symmetry.
+  const handleRequestDelete = useCallback((): void => {
     if (!canDelete) return
-    const userConfirmed = window.confirm(
-      `Delete page "${page.name}"? All widgets on this page will be removed.`,
-    )
-    if (userConfirmed) {
-      dispatch(removePage(page.id))
-    }
-  }, [canDelete, dispatch, page.id, page.name])
+    setIsDeleteDialogOpen(true)
+  }, [canDelete])
+
+  const handleConfirmDelete = useCallback((): void => {
+    dispatch(removePage(page.id))
+    setIsDeleteDialogOpen(false)
+  }, [dispatch, page.id])
+
+  const handleCancelDelete = useCallback((): void => {
+    setIsDeleteDialogOpen(false)
+  }, [])
 
   if (isRenaming) {
     return (
@@ -294,7 +303,7 @@ const PageTab = React.memo(function PageTab({
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={handleDelete}
+                  onClick={handleRequestDelete}
                   className="text-destructive focus:text-destructive"
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -305,6 +314,21 @@ const PageTab = React.memo(function PageTab({
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+      <DestructiveConfirmDialog
+        open={isDeleteDialogOpen}
+        onClose={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+        loading={false}
+        title="Delete page"
+        description={
+          <>
+            Delete page <strong>{page.name}</strong>? All widgets on this page
+            will be removed. This action cannot be undone.
+          </>
+        }
+        confirmLabel="Delete"
+        loadingLabel="Deleting..."
+      />
     </div>
   )
 })
