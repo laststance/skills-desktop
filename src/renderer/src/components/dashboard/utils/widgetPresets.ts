@@ -17,8 +17,12 @@ import { newDashboardPageId, newWidgetInstanceId } from './ids'
 // ----------------------------------------------------------------------------
 // Shown on first launch. Four pages mirror the "information architecture" of
 // the app: Overview (at-a-glance state) → Discovery (marketplace) → Actions
-// (things to do) → Personal (your saved work). Each page holds 3–4 widgets,
-// staying under MAX_WIDGETS_PER_PAGE so the user can add one without overflow.
+// (things to do) → Personal (your saved work). Overview ships full — four
+// widgets, equal to MAX_WIDGETS_PER_PAGE (one is the dismissable Welcome card);
+// the other pages hold one or two. Adding a widget to a page that is already
+// full is non-destructive: `addWidget` drops the new widget onto a
+// freshly-created page and navigates there. Once Welcome is dismissed, Overview
+// falls to three widgets and accepts an in-place add.
 // ============================================================================
 
 /** Specification for a page-to-be-built — layout is laid out by hand per preset. */
