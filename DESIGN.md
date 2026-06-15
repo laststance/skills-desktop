@@ -352,7 +352,7 @@ Rules:
 - Use underline, border, or subtle background to communicate selection.
 - Do not increase container height on hover or active state.
 - **Mutually-exclusive single-select toggles use the connected (border-collapsed)
-  style — render `SegmentedControl` (`components/ui/segmented-control.tsx`), not a
+  style — render `SegmentedControl` (`components/shared/segmented-control.tsx`), not a
   bare `ToggleGroup` with hand-rolled rounding.** Segments share one continuous
   border (`gap-0` + collapsed inner borders/corners) so 2, 3, or 4+ options read
   as a single control. Do not put gaps between segments, and do not wrap them in a

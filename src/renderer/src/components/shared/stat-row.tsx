@@ -7,7 +7,7 @@ import React from 'react'
  *   (e.g. "Symlinks to create" when there is something to do).
  * - `amber`: warning hue; used for conflict or skipped counts.
  */
-export type StatRowTone = 'default' | 'primary' | 'amber'
+type StatRowTone = 'default' | 'primary' | 'amber'
 
 /**
  * Map of tone → utility classes applied to the value `<span>`. Centralised

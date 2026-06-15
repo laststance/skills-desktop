@@ -17,7 +17,7 @@ import {
   CardTitle,
 } from '@/renderer/src/components/ui/card'
 import { Checkbox } from '@/renderer/src/components/ui/checkbox'
-import { DialogIconHeader } from '@/renderer/src/components/ui/dialog-icon-header'
+import { DialogIconHeader } from '@/renderer/src/components/shared/dialog-icon-header'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -29,11 +29,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/renderer/src/components/ui/dropdown-menu'
-import { FilterPill } from '@/renderer/src/components/ui/FilterPill'
+import { FilterPill } from '@/renderer/src/components/shared/FilterPill'
 import { Input } from '@/renderer/src/components/ui/input'
 import { ScrollArea } from '@/renderer/src/components/ui/scroll-area'
 import { Separator } from '@/renderer/src/components/ui/separator'
-import { StatRow } from '@/renderer/src/components/ui/stat-row'
+import { StatRow } from '@/renderer/src/components/shared/stat-row'
 import {
   Tabs,
   TabsContent,

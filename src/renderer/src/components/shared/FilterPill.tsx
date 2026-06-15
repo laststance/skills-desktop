@@ -1,9 +1,8 @@
 import { X } from 'lucide-react'
 import React from 'react'
 
+import { Button } from '@/renderer/src/components/ui/button'
 import { MIN_TOUCH_TARGET_PX } from '@/shared/constants'
-
-import { Button } from './button'
 
 const filterPillButtonStyle = {
   minHeight: MIN_TOUCH_TARGET_PX,

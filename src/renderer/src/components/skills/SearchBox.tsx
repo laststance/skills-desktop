@@ -1,11 +1,11 @@
 import { Search } from 'lucide-react'
 import React, { useCallback } from 'react'
 
-import { Input } from '@/renderer/src/components/ui/input'
 import {
   SegmentedControl,
   type SegmentedControlOption,
-} from '@/renderer/src/components/ui/segmented-control'
+} from '@/renderer/src/components/shared/segmented-control'
+import { Input } from '@/renderer/src/components/ui/input'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   selectSearchQuery,

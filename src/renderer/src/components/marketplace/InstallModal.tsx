@@ -1,6 +1,10 @@
 import { Loader2 } from 'lucide-react'
 import React, { useCallback, useMemo, useState } from 'react'
 
+import {
+  SegmentedControl,
+  type SegmentedControlOption,
+} from '@/renderer/src/components/shared/segmented-control'
 import { Button } from '@/renderer/src/components/ui/button'
 import { Checkbox } from '@/renderer/src/components/ui/checkbox'
 import {
@@ -11,10 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/renderer/src/components/ui/dialog'
-import {
-  SegmentedControl,
-  type SegmentedControlOption,
-} from '@/renderer/src/components/ui/segmented-control'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   selectSkillForInstall,

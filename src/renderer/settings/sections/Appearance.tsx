@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react'
 
+import { SegmentedControl } from '@/renderer/src/components/shared/segmented-control'
 import { Button } from '@/renderer/src/components/ui/button'
-import { SegmentedControl } from '@/renderer/src/components/ui/segmented-control'
 import { useDraftRangeSetting } from '@/renderer/src/hooks/useDraftRangeSetting'
 import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
 import { useAppSelector } from '@/renderer/src/redux/hooks'

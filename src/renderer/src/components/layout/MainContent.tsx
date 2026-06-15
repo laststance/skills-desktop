@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import { SymlinkCleanupDialog } from '@/renderer/src/components/dashboard/SymlinkCleanupDialog'
 import { SkillsMarketplace } from '@/renderer/src/components/marketplace'
 import { InstallModal } from '@/renderer/src/components/marketplace/InstallModal'
+import { FilterPill } from '@/renderer/src/components/shared/FilterPill'
 import { CleanupAgentDialog } from '@/renderer/src/components/sidebar/CleanupAgentDialog'
 import { SyncConfirmDialog } from '@/renderer/src/components/sidebar/SyncConfirmDialog'
 import { SyncConflictDialog } from '@/renderer/src/components/sidebar/SyncConflictDialog'
@@ -56,7 +57,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/renderer/src/components/ui/dropdown-menu'
-import { FilterPill } from '@/renderer/src/components/ui/FilterPill'
 import {
   Tabs,
   TabsContent,

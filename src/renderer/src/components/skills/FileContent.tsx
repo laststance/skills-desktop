@@ -7,7 +7,7 @@ import { match } from 'ts-pattern'
 import {
   SegmentedControl,
   type SegmentedControlOption,
-} from '@/renderer/src/components/ui/segmented-control'
+} from '@/renderer/src/components/shared/segmented-control'
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
 import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { cn } from '@/renderer/src/lib/utils'

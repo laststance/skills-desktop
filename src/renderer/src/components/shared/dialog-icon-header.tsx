@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import React from 'react'
 
-import { DialogTitle } from './dialog'
+import { DialogTitle } from '@/renderer/src/components/ui/dialog'
 
 /**
  * Tone variants for the leading icon. Matches the two distinct accents
@@ -9,7 +9,7 @@ import { DialogTitle } from './dialog'
  * - `primary`: routine/positive flows (Sync, Cleanup).
  * - `amber`: warning flows (conflict resolution).
  */
-export type DialogIconHeaderTone = 'primary' | 'amber'
+type DialogIconHeaderTone = 'primary' | 'amber'
 
 /**
  * Map of tone → text colour utility for the icon. Kept here so dialogs
