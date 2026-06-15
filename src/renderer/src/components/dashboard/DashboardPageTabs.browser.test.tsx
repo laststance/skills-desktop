@@ -408,24 +408,46 @@ describe('DashboardPageTabs', () => {
       .toBe('Overview')
   })
 
-  it('deletes the page after the confirm prompt is accepted', async () => {
+  it('deletes the page after the destructive confirm dialog is accepted', async () => {
     // Arrange: two pages in edit mode so the delete item is offered.
     const overview = makePage('Overview')
     const discovery = makePage('Discovery')
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const { screen, store } = await renderTabs({
       pages: [overview, discovery],
       currentPageId: overview.id,
       isEditMode: true,
     })
 
-    // Act: open the first tab's menu and choose Delete (confirm returns true).
+    // Act: open the first tab's menu, choose Delete, then confirm in the dialog.
     await screen.getByRole('button', { name: 'Options for Overview' }).click()
     await screen.getByRole('menuitem', { name: 'Delete' }).click()
+    await screen.getByRole('button', { name: 'Delete' }).click()
 
-    // Assert: the user was warned and the page was removed from the store.
-    expect(confirmSpy).toHaveBeenCalledOnce()
+    // Assert: the page was removed from the store, leaving only Discovery.
     await expect.poll(() => store.getState().dashboard.pages.length).toBe(1)
     expect(store.getState().dashboard.pages[0]?.name).toBe('Discovery')
+  })
+
+  it('keeps the page when the destructive confirm dialog is cancelled', async () => {
+    // Arrange: two pages in edit mode so the delete item is offered.
+    const overview = makePage('Overview')
+    const discovery = makePage('Discovery')
+    const { screen, store } = await renderTabs({
+      pages: [overview, discovery],
+      currentPageId: overview.id,
+      isEditMode: true,
+    })
+
+    // Act: open the menu, choose Delete, then dismiss the dialog with Cancel.
+    await screen.getByRole('button', { name: 'Options for Overview' }).click()
+    await screen.getByRole('menuitem', { name: 'Delete' }).click()
+    await screen.getByRole('button', { name: 'Cancel' }).click()
+
+    // Assert: both pages survive — cancelling is non-destructive.
+    await expect.poll(() => store.getState().dashboard.pages.length).toBe(2)
+    expect(store.getState().dashboard.pages.map((page) => page.name)).toEqual([
+      'Overview',
+      'Discovery',
+    ])
   })
 })
