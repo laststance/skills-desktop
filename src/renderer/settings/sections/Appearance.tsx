@@ -1,10 +1,7 @@
 import React, { useCallback } from 'react'
 
+import { SegmentedControl } from '@/renderer/src/components/shared/segmented-control'
 import { Button } from '@/renderer/src/components/ui/button'
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from '@/renderer/src/components/ui/toggle-group'
 import { useDraftRangeSetting } from '@/renderer/src/hooks/useDraftRangeSetting'
 import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
@@ -283,8 +280,7 @@ export const Appearance = React.memo(function Appearance(): React.ReactElement {
   )
 
   const handleSearchCountDisplayChange = useCallback(
-    (nextValue: string): void => {
-      if (nextValue !== 'tab' && nextValue !== 'inline') return
+    (nextValue: Settings['installedSearchCountDisplay']): void => {
       updateSettings({ installedSearchCountDisplay: nextValue })
     },
     [updateSettings],
@@ -306,21 +302,13 @@ export const Appearance = React.memo(function Appearance(): React.ReactElement {
         label={INSTALLED_SEARCH_COUNT_DISPLAY_LABEL}
         description="Choose where the current Installed result count appears."
       >
-        <ToggleGroup
-          type="single"
-          variant="outline"
+        <SegmentedControl
+          aria-label={INSTALLED_SEARCH_COUNT_DISPLAY_LABEL}
           size="sm"
-          className="justify-start"
           value={installedSearchCountDisplay}
           onValueChange={handleSearchCountDisplayChange}
-          aria-label={INSTALLED_SEARCH_COUNT_DISPLAY_LABEL}
-        >
-          {INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS.map((option) => (
-            <ToggleGroupItem key={option.value} value={option.value}>
-              {option.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+          options={INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS}
+        />
       </SectionRow>
 
       <SectionRow

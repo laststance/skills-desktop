@@ -2,6 +2,8 @@ import { Eraser, Loader2 } from 'lucide-react'
 import React, { useCallback } from 'react'
 import { toast } from 'sonner'
 
+import { DialogIconHeader } from '@/renderer/src/components/shared/dialog-icon-header'
+import { StatRow } from '@/renderer/src/components/shared/stat-row'
 import { Button } from '@/renderer/src/components/ui/button'
 import {
   Dialog,
@@ -10,8 +12,6 @@ import {
   DialogFooter,
   DialogHeader,
 } from '@/renderer/src/components/ui/dialog'
-import { DialogIconHeader } from '@/renderer/src/components/ui/dialog-icon-header'
-import { StatRow } from '@/renderer/src/components/ui/stat-row'
 import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { useExecuteSync } from '@/renderer/src/hooks/useExecuteSync'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'

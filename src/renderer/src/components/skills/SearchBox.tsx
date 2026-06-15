@@ -1,11 +1,11 @@
 import { Search } from 'lucide-react'
 import React, { useCallback } from 'react'
 
-import { Input } from '@/renderer/src/components/ui/input'
 import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from '@/renderer/src/components/ui/toggle-group'
+  SegmentedControl,
+  type SegmentedControlOption,
+} from '@/renderer/src/components/shared/segmented-control'
+import { Input } from '@/renderer/src/components/ui/input'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   selectSearchQuery,
@@ -34,6 +34,13 @@ const SCOPE_COPY: Record<
   },
 }
 
+/** Name/Repo scope segments for the search box's connected toggle. */
+const SEARCH_SCOPE_OPTIONS: ReadonlyArray<SegmentedControlOption<SearchScope>> =
+  [
+    { value: 'name', label: 'Name', ariaLabel: 'Search by skill name' },
+    { value: 'repo', label: 'Repo', ariaLabel: 'Search by repository' },
+  ]
+
 /**
  * Search box for filtering skills. Combines a Name/Repo scope toggle with a
  * text input. The scope decides which `Skill` field the query matches against
@@ -46,12 +53,8 @@ export const SearchBox = React.memo(function SearchBox(): React.ReactElement {
   const copy = SCOPE_COPY[searchScope]
 
   const handleScopeChange = useCallback(
-    (value: string): void => {
-      // Radix returns "" when the user clicks the already-active item.
-      // Treat that as a no-op so scope is never undefined at runtime.
-      if (value === 'name' || value === 'repo') {
-        dispatch(setSearchScope(value))
-      }
+    (scope: SearchScope): void => {
+      dispatch(setSearchScope(scope))
     },
     [dispatch],
   )
@@ -65,30 +68,14 @@ export const SearchBox = React.memo(function SearchBox(): React.ReactElement {
 
   return (
     <div className="flex items-center gap-2">
-      <ToggleGroup
-        type="single"
-        variant="outline"
-        size="default"
+      <SegmentedControl
+        aria-label="Search field"
         value={searchScope}
         onValueChange={handleScopeChange}
-        aria-label="Search field"
-        className="shrink-0 gap-0"
-      >
-        <ToggleGroupItem
-          value="name"
-          aria-label="Search by skill name"
-          className="h-9 min-w-0 rounded-r-none focus:z-10 focus-visible:z-10"
-        >
-          Name
-        </ToggleGroupItem>
-        <ToggleGroupItem
-          value="repo"
-          aria-label="Search by repository"
-          className="h-9 min-w-0 rounded-l-none border-l-0 focus:z-10 focus-visible:z-10"
-        >
-          Repo
-        </ToggleGroupItem>
-      </ToggleGroup>
+        options={SEARCH_SCOPE_OPTIONS}
+        className="shrink-0"
+        itemClassName="h-9 min-w-0"
+      />
       <div className="relative flex-1 min-w-0">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input

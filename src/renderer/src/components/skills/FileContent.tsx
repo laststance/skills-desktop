@@ -1,13 +1,13 @@
 import { BookOpenText, Code2, FileQuestion } from 'lucide-react'
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { match } from 'ts-pattern'
 
 import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from '@/renderer/src/components/ui/toggle-group'
+  SegmentedControl,
+  type SegmentedControlOption,
+} from '@/renderer/src/components/shared/segmented-control'
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
 import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { cn } from '@/renderer/src/lib/utils'
@@ -35,6 +35,24 @@ interface FileContentProps {
 }
 
 type TextPreviewMode = 'code' | 'reading'
+
+/** Code/Reading segments for the Markdown preview-mode toggle. */
+const TEXT_PREVIEW_MODE_OPTIONS: ReadonlyArray<
+  SegmentedControlOption<TextPreviewMode>
+> = [
+  {
+    value: 'code',
+    label: 'Code',
+    icon: Code2,
+    ariaLabel: 'Show Markdown source',
+  },
+  {
+    value: 'reading',
+    label: 'Reading',
+    icon: BookOpenText,
+    ariaLabel: 'Show rendered Markdown',
+  },
+]
 
 /**
  * Right-panel file preview. Switches on `content.kind`:
@@ -108,41 +126,17 @@ const TextPreview = React.memo(function TextPreview({
     setMode('code')
   }, [fileIdentity])
 
-  const handleModeChange = useCallback((next: string): void => {
-    // Radix emits an empty string when the active item is clicked again.
-    if (next === 'code' || next === 'reading') setMode(next)
-  }, [])
-
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-muted">
       {isMarkdown && (
         <div className="shrink-0 flex items-center justify-end border-b border-border/60 bg-background/60 px-2 py-1.5">
-          <ToggleGroup
-            type="single"
-            value={mode}
-            onValueChange={handleModeChange}
-            variant="outline"
-            size="sm"
+          <SegmentedControl
             aria-label="Markdown preview mode"
-            className="rounded-md border border-border/60 bg-muted/50 p-0.5"
-          >
-            <ToggleGroupItem
-              value="code"
-              aria-label="Show Markdown source"
-              className="gap-1.5 text-[11px]"
-            >
-              <Code2 className="size-3.5" />
-              Code
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="reading"
-              aria-label="Show rendered Markdown"
-              className="gap-1.5 text-[11px]"
-            >
-              <BookOpenText className="size-3.5" />
-              Reading
-            </ToggleGroupItem>
-          </ToggleGroup>
+            size="sm"
+            value={mode}
+            onValueChange={setMode}
+            options={TEXT_PREVIEW_MODE_OPTIONS}
+          />
         </div>
       )}
 

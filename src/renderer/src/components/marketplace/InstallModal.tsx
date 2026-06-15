@@ -1,6 +1,10 @@
 import { Loader2 } from 'lucide-react'
 import React, { useCallback, useMemo, useState } from 'react'
 
+import {
+  SegmentedControl,
+  type SegmentedControlOption,
+} from '@/renderer/src/components/shared/segmented-control'
 import { Button } from '@/renderer/src/components/ui/button'
 import { Checkbox } from '@/renderer/src/components/ui/checkbox'
 import {
@@ -11,10 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/renderer/src/components/ui/dialog'
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from '@/renderer/src/components/ui/toggle-group'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   selectSkillForInstall,
@@ -27,17 +27,6 @@ type InstallTargetMode = 'universal-only' | 'universal-and-agents'
 
 const DEFAULT_INSTALL_TARGET_MODE: InstallTargetMode = 'universal-and-agents'
 const DEFAULT_SELECTED_AGENT_IDS: AgentId[] = ['claude-code']
-
-/**
- * Check whether Radix emitted a real install target mode before committing it to state.
- * @param value - ToggleGroup value emitted by the install target segmented control.
- * @returns true when the value is one of the supported install target modes.
- * @example
- * isInstallTargetMode('universal-only') // => true
- */
-function isInstallTargetMode(value: string): value is InstallTargetMode {
-  return value === 'universal-only' || value === 'universal-and-agents'
-}
 
 /**
  * Resolve the CLI agent payload from the visible install mode.
@@ -111,11 +100,33 @@ export const InstallModal = React.memo(
       }
     }, [dispatch, isInstalling])
 
-    const handleInstallTargetModeChange = useCallback((value: string): void => {
-      if (isInstallTargetMode(value)) {
+    const handleInstallTargetModeChange = useCallback(
+      (value: InstallTargetMode): void => {
         setInstallTargetMode(value)
-      }
-    }, [])
+      },
+      [],
+    )
+
+    // Build the segments here (not at module scope) so the second target can
+    // disable itself when no agents are installed to receive symlinks.
+    const installTargetOptions = useMemo<
+      ReadonlyArray<SegmentedControlOption<InstallTargetMode>>
+    >(
+      () => [
+        {
+          value: 'universal-only',
+          label: 'Universal',
+          ariaLabel: 'Universal only',
+        },
+        {
+          value: 'universal-and-agents',
+          label: 'Universal + agents',
+          ariaLabel: 'Universal plus selected agents',
+          disabled: !hasAvailableAgents,
+        },
+      ],
+      [hasAvailableAgents],
+    )
 
     const handleAgentToggle = useCallback((agentId: AgentId): void => {
       setSelectedAgents((prev) =>
@@ -169,30 +180,14 @@ export const InstallModal = React.memo(
             <div className="space-y-4">
               <div>
                 <h4 className="text-sm font-medium mb-2">Install target</h4>
-                <ToggleGroup
-                  type="single"
+                <SegmentedControl
+                  aria-label="Install target"
                   value={effectiveInstallTargetMode}
                   onValueChange={handleInstallTargetModeChange}
-                  variant="outline"
+                  options={installTargetOptions}
                   disabled={isInstalling}
-                  className="w-full gap-0 rounded-md border border-border/60 bg-muted/30 p-0.5"
-                >
-                  <ToggleGroupItem
-                    value="universal-only"
-                    aria-label="Universal only"
-                    className="h-8 flex-1 rounded-r-none"
-                  >
-                    Universal
-                  </ToggleGroupItem>
-                  <ToggleGroupItem
-                    value="universal-and-agents"
-                    aria-label="Universal plus selected agents"
-                    disabled={!hasAvailableAgents}
-                    className="h-8 flex-1 rounded-l-none border-l-0"
-                  >
-                    Universal + agents
-                  </ToggleGroupItem>
-                </ToggleGroup>
+                  fullWidth
+                />
               </div>
 
               {shouldCreateAgentSymlinks ? (

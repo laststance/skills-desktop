@@ -1,6 +1,7 @@
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import React, { useCallback, useState } from 'react'
 
+import { DialogIconHeader } from '@/renderer/src/components/shared/dialog-icon-header'
 import { Button } from '@/renderer/src/components/ui/button'
 import { Checkbox } from '@/renderer/src/components/ui/checkbox'
 import {
@@ -10,7 +11,6 @@ import {
   DialogFooter,
   DialogHeader,
 } from '@/renderer/src/components/ui/dialog'
-import { DialogIconHeader } from '@/renderer/src/components/ui/dialog-icon-header'
 import { useExecuteSync } from '@/renderer/src/hooks/useExecuteSync'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { setSyncPreview } from '@/renderer/src/redux/slices/uiSlice'
