@@ -485,7 +485,7 @@ export const SkillItem = React.memo(function SkillItem({
       [skill.name],
       // Pass the real protection state so business logic enforces the guard
       // even if the UI gate (showDeleteButton) is weakened in future refactors.
-      isProtected ? new Set([skill.name as string]) : new Set<string>(),
+      new Set<SkillName>(isProtected ? [skill.name] : []),
     )
     dispatch(
       setBulkConfirm({
