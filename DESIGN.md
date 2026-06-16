@@ -95,6 +95,7 @@ Rules:
 
 - Do not make status colors follow user theme hue.
 - Pair color with text, icon, position, or count; do not rely on color alone.
+- **Amber semantic cap** — amber carries exactly two meanings: broken/inaccessible status (`text-amber-400`) and the bookmark accent (`text-amber-500`). A third semantic (e.g. a lock/protection state) must use a different hue — `text-foreground` is the safe default. Adding a third amber role degrades both existing meanings.
 - Keep backgrounds low-chroma and accents high-chroma.
 - In neutral themes, linked state must never collapse to gray.
 - Avoid single-hue UIs. Theme presets can tint the app, but surfaces should
@@ -443,12 +444,30 @@ Rules:
   gradient borders.
 - Widget headers should stay compact and stable, typically 32-36px.
 
+### Toggleable Protection Controls
+
+Row-level toggleable controls (lock/protection, bookmark) that exist to guard or save state use a three-level opacity progression:
+
+- **Rest (off):** `opacity-40` always-visible — non-destructive value-add actions remain discoverable at rest per the visibility-asymmetry rule. Hover-only discovery is below the quality bar set by top-tier apps.
+- **Hover (off):** `opacity-70` — mid-state gives the interaction hint before commit.
+- **Active (on):** `opacity-100` + semantic color (`text-foreground` for protection, `text-amber-500` for bookmark) — the engaged state must be unambiguous.
+
+Always pair with a tooltip: `"Protected — cannot be deleted"` (on) / `"Click to protect"` (off). Lock semantics are not self-evident in operational UI.
+
 ### Dialogs, Popovers, and Toasts
 
 - Dialogs should be narrow, task-specific, and action-oriented.
 - Popovers should be visually above panels through shadow and border.
 - Toasts should stay compact, readable, and not shift as timers update.
 - Use motion only for entrance/exit and progress continuity.
+
+### Bulk Destructive Dialogs with Skipped Items
+
+When a bulk destructive action will silently skip a subset of selected items (protected, ineligible, stale), surface the skip count as secondary muted copy _before_ the action description:
+
+- Append as a separate sentence in `text-muted-foreground` style: _"N protected skills will be skipped."_ Singular/plural both required.
+- If **all** selected items are skipped (e.g. all locked), disable the primary CTA and replace the description with an inline message: _"All selected skills are protected and cannot be deleted."_ Do not open a confirm dialog when the guaranteed outcome is no-op — that is noise (see Linear pattern: inline state, no modal).
+- Never silently skip without surfacing a count. Silent skips erode user trust in bulk operations.
 
 ### Badges and Status Chips
 
