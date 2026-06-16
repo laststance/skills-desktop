@@ -1,6 +1,8 @@
+import { SearchX } from 'lucide-react'
 import React, { useCallback, useMemo } from 'react'
 import { List, type RowComponentProps } from 'react-window'
 
+import { Button } from '@/renderer/src/components/ui/button'
 import { useInitialEffect } from '@/renderer/src/hooks/useInitialEffect'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectFilteredSkills } from '@/renderer/src/redux/selectors'
@@ -16,6 +18,7 @@ import {
   selectSelectedAgentId,
   selectSelectedSources,
   selectSkillTypeFilter,
+  setSearchQuery,
 } from '@/renderer/src/redux/slices/uiSlice'
 import type { Skill } from '@/shared/types'
 
@@ -79,6 +82,11 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
     dispatch(fetchSkills())
   })
 
+  /** Resets the search query to empty; fired by the "Clear search" CTA in the search-miss empty state. */
+  const handleClearSearch = useCallback((): void => {
+    dispatch(setSearchQuery(''))
+  }, [dispatch])
+
   /**
    * Compute row height from skill data without DOM measurement.
    * @param index - Row index in filteredSkills
@@ -130,6 +138,23 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
         <code className="px-3 py-2 bg-muted rounded-md text-sm font-mono">
           npx skills add &lt;skill-name&gt;
         </code>
+      </div>
+    )
+  }
+
+  if (filteredSkills.length === 0 && searchQuery.length > 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
+        <SearchX
+          className="h-8 w-8 text-muted-foreground/40"
+          aria-hidden="true"
+        />
+        <p className="text-sm text-muted-foreground">
+          No skills match &ldquo;{searchQuery}&rdquo;
+        </p>
+        <Button variant="ghost" size="sm" onClick={handleClearSearch}>
+          Clear search
+        </Button>
       </div>
     )
   }

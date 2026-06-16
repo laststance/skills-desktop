@@ -840,10 +840,22 @@ The `KEYBINDINGS` constant is the single source of truth for the read-only Keybi
 
 ## Empty State
 
-When `~/.agents/skills/` does not exist:
+### No Skills Installed
+
+When no skills are installed (`skills.length === 0`):
 
 - Show "No skills installed" message
-- Display installation guide: `npx skills add <owner/repo>`
+- Display installation guide: `npx skills add <skill-name>`
+
+### Search Miss
+
+When a search query yields no results (`filteredSkills.length === 0 && searchQuery.length > 0`):
+
+- Show a `SearchX` icon (`h-8 w-8 text-muted-foreground/40`, decorative — `aria-hidden`)
+- Echo the query: `No skills match "{searchQuery}"` (`text-sm text-muted-foreground`)
+- Offer a ghost "Clear search" button that dispatches `setSearchQuery('')`
+
+The message must recede (never `font-medium` or `text-foreground`) so it doesn't compete with the empty result area. Implemented in `SkillsList.tsx`.
 
 ## Auto Update
 

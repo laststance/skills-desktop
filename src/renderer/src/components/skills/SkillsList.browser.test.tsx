@@ -369,6 +369,71 @@ describe('SkillsList empty-installed branch', () => {
   })
 })
 
+describe('SkillsList search-empty branch', () => {
+  it('search-miss empty state renders SearchX icon, echoed query, and Clear search button', async () => {
+    // Arrange — one installed skill; never-resolving getAll keeps preloadedState
+    // items intact so we stay out of the "No skills installed" branch.
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    const store = await createStore({
+      items: [makeSkill({ name: 'git-workflow' as SkillName })],
+    })
+    const { setSearchQuery: dispatchSearchQuery } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    // Dispatch before render so the component mounts with the query already set
+    store.dispatch(dispatchSearchQuery('zzznomatch'))
+    const { SkillsList } = await import('./SkillsList')
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <div style={{ height: 600, width: 800 }}>
+            <SkillsList />
+          </div>
+        </TooltipProvider>
+      </Provider>,
+    )
+
+    // Assert — SearchX icon placeholder, echoed query, and clear CTA present
+    await expect
+      .element(screen.getByText(/No skills match/))
+      .toBeInTheDocument()
+    await expect.element(screen.getByText(/zzznomatch/)).toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('button', { name: 'Clear search' }))
+      .toBeInTheDocument()
+  })
+
+  it('clicking Clear search clears the search query and exits the search-miss state', async () => {
+    // Arrange — one installed skill with an active search that matches nothing
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    const store = await createStore({
+      items: [makeSkill({ name: 'git-workflow' as SkillName })],
+    })
+    const { setSearchQuery: dispatchSearchQuery } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(dispatchSearchQuery('zzznomatch'))
+    const { SkillsList } = await import('./SkillsList')
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <div style={{ height: 600, width: 800 }}>
+            <SkillsList />
+          </div>
+        </TooltipProvider>
+      </Provider>,
+    )
+    await expect
+      .element(screen.getByRole('button', { name: 'Clear search' }))
+      .toBeInTheDocument()
+
+    // Act
+    await screen.getByRole('button', { name: 'Clear search' }).click()
+
+    // Assert — search query cleared in Redux and search-miss state no longer rendered
+    expect(store.getState().ui.searchQuery).toBe('')
+    expect(screen.getByText(/No skills match/).query()).toBeNull()
+  })
+})
+
 describe('SkillsList filtered-empty branch', () => {
   it('explains that no skills match the active filter when every installed skill is filtered out', async () => {
     // Arrange

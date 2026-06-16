@@ -95,7 +95,32 @@ async function renderToolbar(options: {
 }
 
 describe('SelectionToolbar', () => {
-  it('Clear empties the selection and dismisses the toolbar', async () => {
+  it('shows "Select all visible ⌘A" in zero-selection state when bulk mode is entered', async () => {
+    // Arrange — bulk mode active, nothing selected yet (zero-selection state)
+    const options = {
+      skills: [makeCursorSkill('alpha', 'valid')],
+      selectedNames: [],
+      agentId: null,
+    }
+
+    // Act
+    const { screen } = await renderToolbar(options)
+
+    // Assert — toolbar visible with "Select all visible" as the only action
+    await expect
+      .element(screen.getByRole('group', { name: 'Bulk selection actions' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Select all visible' }))
+      .toBeVisible()
+    // Count text and destructive primary action absent at 0 selections
+    expect(screen.getByText(/selected/).query()).toBeNull()
+    expect(
+      screen.getByRole('button', { name: /Move .* to app trash/i }).query(),
+    ).toBeNull()
+  })
+
+  it('Clear empties the selection and transitions toolbar to zero-selection state', async () => {
     // Arrange — global view with one ticked skill so the toolbar is shown
     const { screen, store } = await renderToolbar({
       skills: [makeCursorSkill('alpha', 'valid')],
@@ -109,10 +134,14 @@ describe('SelectionToolbar', () => {
     // Act — click Clear
     await screen.getByRole('button', { name: 'Clear' }).click()
 
-    // Assert — selection is emptied and the toolbar disappears entirely
+    // Assert — selection emptied; toolbar remains visible in zero-selection state
     expect(store.getState().skills.selectedSkillNames).toEqual([])
+    await expect
+      .element(screen.getByRole('group', { name: 'Bulk selection actions' }))
+      .toBeVisible()
+    // Destructive primary action is hidden at 0 selections
     expect(
-      screen.getByRole('group', { name: 'Bulk selection actions' }).query(),
+      screen.getByRole('button', { name: /Move .* to app trash/i }).query(),
     ).toBeNull()
   })
 

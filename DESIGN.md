@@ -406,6 +406,24 @@ Rules:
 - Never dress an expected empty as a failure: no `h-12` icon or `text-lg`
   heading for a search miss. This is the operational reading of principle 5's
   "no noisy empty states."
+- Search-miss empty state pattern: a small muted icon (`h-8 w-8
+text-muted-foreground/40`), one `text-sm text-muted-foreground` line echoing
+  the query in quotes, and an optional ghost "Clear search" CTA. The key
+  constraint is `text-muted-foreground` (never `text-foreground` or
+  `font-medium`) — the message must recede, not compete.
+
+### Keyboard Shortcut Hints
+
+Inline `<kbd>` badges communicate keyboard shortcuts without changing behavior.
+Use them on toolbar buttons where the shortcut is non-obvious:
+
+- Typography: `text-[10px] font-mono leading-none`
+- Surface: `bg-muted px-1 py-0.5 rounded`
+- Opacity: `opacity-50` — hints recede; they are not the action label
+- Placement: `ml-1.5` after the button text label
+- Accessible name: always add `aria-label` on the parent button to pin the
+  stable accessible name independently of the `<kbd>` text content, which would
+  otherwise inflate the name and break `getByRole` queries
 
 ### Loading and Skeletons
 
