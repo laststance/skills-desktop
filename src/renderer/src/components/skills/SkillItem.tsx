@@ -480,9 +480,13 @@ export const SkillItem = React.memo(function SkillItem({
       staleDeleteErrors,
       orphanErrors,
       protectedErrors,
-      // Empty set is intentional — the delete button is hidden for protected skills
-      // (showDeleteButton gates on !isProtected), so this handler never fires for them.
-    } = partitionGlobalDeleteTargets([skill], [skill.name], new Set())
+    } = partitionGlobalDeleteTargets(
+      [skill],
+      [skill.name],
+      // Pass the real protection state so business logic enforces the guard
+      // even if the UI gate (showDeleteButton) is weakened in future refactors.
+      isProtected ? new Set([skill.name as string]) : new Set<string>(),
+    )
     dispatch(
       setBulkConfirm({
         kind: 'delete',
@@ -752,7 +756,9 @@ export const SkillItem = React.memo(function SkillItem({
                 showProtect: true,
                 showBookmark,
                 showUnlinkButton,
-                showDeleteButton,
+                // Use the pre-gate value: ProtectButton position is computed from
+                // showDeleteButtonBase, so padding must match that slot count.
+                showDeleteButton: showDeleteButtonBase,
               }),
             )}
           >
