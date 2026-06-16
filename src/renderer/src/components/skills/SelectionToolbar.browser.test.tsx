@@ -97,11 +97,14 @@ async function renderToolbar(options: {
 describe('SelectionToolbar', () => {
   it('shows "Select all visible ⌘A" in zero-selection state when bulk mode is entered', async () => {
     // Arrange — bulk mode active, nothing selected yet (zero-selection state)
-    const { screen } = await renderToolbar({
+    const options = {
       skills: [makeCursorSkill('alpha', 'valid')],
       selectedNames: [],
       agentId: null,
-    })
+    }
+
+    // Act
+    const { screen } = await renderToolbar(options)
 
     // Assert — toolbar visible with "Select all visible" as the only action
     await expect

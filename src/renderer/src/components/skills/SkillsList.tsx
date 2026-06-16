@@ -82,15 +82,16 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
     dispatch(fetchSkills())
   })
 
+  /** Resets the search query to empty; fired by the "Clear search" CTA in the search-miss empty state. */
+  const handleClearSearch = useCallback((): void => {
+    dispatch(setSearchQuery(''))
+  }, [dispatch])
+
   /**
    * Compute row height from skill data without DOM measurement.
    * @param index - Row index in filteredSkills
    * @returns Height in px, accounting for description and status badges
    */
-  const handleClearSearch = useCallback((): void => {
-    dispatch(setSearchQuery(''))
-  }, [dispatch])
-
   const getRowHeight = useCallback(
     (index: number): number => {
       const skill = filteredSkills[index]

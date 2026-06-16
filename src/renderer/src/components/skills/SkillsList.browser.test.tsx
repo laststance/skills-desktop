@@ -370,7 +370,7 @@ describe('SkillsList empty-installed branch', () => {
 })
 
 describe('SkillsList search-empty branch', () => {
-  it('shows icon, echoed query, and clear button when search returns no results', async () => {
+  it('search-miss empty state renders SearchX icon, echoed query, and Clear search button', async () => {
     // Arrange — one installed skill; never-resolving getAll keeps preloadedState
     // items intact so we stay out of the "No skills installed" branch.
     mockGetAll.mockReturnValue(new Promise(() => {}))
