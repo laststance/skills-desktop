@@ -842,10 +842,10 @@ The `KEYBINDINGS` constant is the single source of truth for the read-only Keybi
 
 ### No Skills Installed
 
-When `~/.agents/skills/` does not exist:
+When no skills are installed (`skills.length === 0`):
 
 - Show "No skills installed" message
-- Display installation guide: `npx skills add <owner/repo>`
+- Display installation guide: `npx skills add <skill-name>`
 
 ### Search Miss
 

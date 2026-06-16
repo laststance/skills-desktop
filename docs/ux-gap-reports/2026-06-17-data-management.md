@@ -133,8 +133,11 @@ The "No skills installed" state (line 121) has full treatment: centered layout, 
 if (filteredSkills.length === 0 && searchQuery.length > 0) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
-      <SearchX className="h-8 w-8 text-muted-foreground/50" />
-      <p className="text-sm font-medium text-foreground">
+      <SearchX
+        className="h-8 w-8 text-muted-foreground/40"
+        aria-hidden="true"
+      />
+      <p className="text-sm text-muted-foreground">
         No skills match &ldquo;{searchQuery}&rdquo;
       </p>
       <Button
