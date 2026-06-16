@@ -148,7 +148,7 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
           className="h-8 w-8 text-muted-foreground/40"
           aria-hidden="true"
         />
-        <p className="text-sm font-medium text-foreground">
+        <p className="text-sm text-muted-foreground">
           No skills match &ldquo;{searchQuery}&rdquo;
         </p>
         <Button variant="ghost" size="sm" onClick={handleClearSearch}>
