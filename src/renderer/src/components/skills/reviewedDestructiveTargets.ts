@@ -20,6 +20,8 @@ export interface PartitionedGlobalDeleteTargets {
   orphanRecords: ReviewedOrphanCleanupRecord[]
   staleDeleteErrors: BulkDeleteItemResult[]
   orphanErrors: BulkDeleteItemResult[]
+  /** Skills skipped because the user has locked them — silently excluded from delete/orphan paths. */
+  protectedErrors: BulkDeleteItemResult[]
 }
 
 export interface AgentUnlinkTargets {
@@ -49,22 +51,40 @@ function isReviewedOrphanCleanupSlot(
 
 /**
  * Split reviewed global delete rows into source/local deletes and orphan cleanup.
+ * Protected names (locked by the user) are intercepted first and returned in
+ * `protectedErrors` — they never reach the delete or orphan paths.
  * @param skills - Skill rows exactly visible when the confirmation opened.
  * @param skillNames - Display names selected for deletion.
- * @returns Reviewed targets plus stale/preflight errors.
- * @example partitionGlobalDeleteTargets(skills, ['task'])
+ * @param protectedNames - Skill names the user has locked (from protectSlice).
+ * @returns Reviewed targets plus stale/preflight errors and skipped protected entries.
+ * @example partitionGlobalDeleteTargets(skills, ['task'], new Set(['task']))
  */
 export function partitionGlobalDeleteTargets(
   skills: readonly Skill[],
   skillNames: readonly Skill['name'][],
+  protectedNames: ReadonlySet<Skill['name']> = new Set(),
 ): PartitionedGlobalDeleteTargets {
   const skillsByName = new Map(skills.map((skill) => [skill.name, skill]))
   const deleteTargets: DeleteSelectedSkillTarget[] = []
   const orphanRecords: ReviewedOrphanCleanupRecord[] = []
   const staleDeleteErrors: BulkDeleteItemResult[] = []
   const orphanErrors: BulkDeleteItemResult[] = []
+  const protectedErrors: BulkDeleteItemResult[] = []
 
   for (const skillName of skillNames) {
+    // Protected check runs first — a locked skill is never deleted regardless of orphan status.
+    if (protectedNames.has(skillName)) {
+      protectedErrors.push({
+        skillName,
+        outcome: 'error',
+        error: {
+          message: 'Skill is protected. Unlock it before deleting.',
+          code: 'EPROTECTED',
+        },
+      })
+      continue
+    }
+
     const skill = skillsByName.get(skillName)
     if (!skill?.isOrphan) {
       if (skill?.filesystemIdentity) {
@@ -110,7 +130,13 @@ export function partitionGlobalDeleteTargets(
     })
   }
 
-  return { deleteTargets, orphanRecords, staleDeleteErrors, orphanErrors }
+  return {
+    deleteTargets,
+    orphanRecords,
+    staleDeleteErrors,
+    orphanErrors,
+    protectedErrors,
+  }
 }
 
 /**
