@@ -108,6 +108,7 @@ async function renderMainContentWithToolbar() {
     { default: bookmarksReducer },
     { default: marketplaceReducer },
     { default: settingsReducer },
+    { default: protectReducer },
     { MainContent },
   ] = await Promise.all([
     import('@/renderer/src/redux/slices/uiSlice'),
@@ -116,6 +117,7 @@ async function renderMainContentWithToolbar() {
     import('@/renderer/src/redux/slices/bookmarkSlice'),
     import('@/renderer/src/redux/slices/marketplaceSlice'),
     import('@/renderer/src/redux/slices/settingsSlice'),
+    import('@/renderer/src/redux/slices/protectSlice'),
     import('./MainContent'),
   ])
   const store = configureStore({
@@ -126,6 +128,7 @@ async function renderMainContentWithToolbar() {
       bookmarks: bookmarksReducer,
       marketplace: marketplaceReducer,
       settings: settingsReducer,
+      protect: protectReducer,
     },
     preloadedState: {
       settings: { ...DEFAULT_SETTINGS },

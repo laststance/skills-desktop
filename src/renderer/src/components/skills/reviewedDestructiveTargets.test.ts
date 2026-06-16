@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import type { AbsolutePath, AgentId, Skill, SymlinkInfo } from '@/shared/types'
+import type {
+  AbsolutePath,
+  AgentId,
+  FilesystemEntryIdentity,
+  Skill,
+  SymlinkInfo,
+} from '@/shared/types'
 
 import {
   buildAgentUnlinkTargets,
@@ -128,6 +134,129 @@ describe('buildAgentUnlinkTargets', () => {
     // Assert
     expect(result.targets).toEqual([])
     expect(result.staleNames).toEqual(['vanished'])
+  })
+})
+
+describe('partitionGlobalDeleteTargets — protected names', () => {
+  it('routes a protected skill to protectedErrors and excludes it from delete targets', () => {
+    // Arrange — a normal source skill selected for deletion, but locked by the user.
+    const sourceSkill: Skill = {
+      name: 'task',
+      description: 'desc',
+      path: '/Users/me/.agents/skills/task' as AbsolutePath,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+
+    // Act
+    const result = partitionGlobalDeleteTargets(
+      [sourceSkill],
+      ['task'],
+      new Set(['task']),
+    )
+
+    // Assert — protected skill is in protectedErrors, not deleteTargets
+    expect(result.protectedErrors).toEqual([
+      {
+        skillName: 'task',
+        outcome: 'error',
+        error: {
+          code: 'EPROTECTED',
+          message: 'Skill is protected. Unlock it before deleting.',
+        },
+      },
+    ])
+    expect(result.deleteTargets).toEqual([])
+    expect(result.orphanRecords).toEqual([])
+    expect(result.staleDeleteErrors).toEqual([])
+    expect(result.orphanErrors).toEqual([])
+  })
+
+  it('routes a protected orphan skill to protectedErrors and bypasses the orphan cleanup path', () => {
+    // Arrange — an orphan skill (isOrphan=true) that the user has locked.
+    // The orphan check runs after the protected check, so a locked orphan
+    // must never reach orphan-cleanup records.
+    const orphanSkill: Skill = {
+      name: 'abandoned',
+      description: 'desc',
+      path: '/Users/me/.agents/skills/abandoned' as AbsolutePath,
+      symlinkCount: 0,
+      symlinks: [
+        {
+          agentId: 'codex' as AgentId,
+          agentName: 'Codex',
+          status: 'broken',
+          linkPath: '/Users/me/.codex/skills/abandoned' as AbsolutePath,
+          targetPath: '/Users/me/.agents/skills/abandoned' as AbsolutePath,
+          isLocal: false,
+        },
+      ],
+      isSource: true,
+      isOrphan: true,
+    }
+
+    // Act
+    const result = partitionGlobalDeleteTargets(
+      [orphanSkill],
+      ['abandoned'],
+      new Set(['abandoned']),
+    )
+
+    // Assert — protection intercepts before orphan path
+    expect(result.protectedErrors).toHaveLength(1)
+    expect(result.protectedErrors[0].skillName).toBe('abandoned')
+    expect(result.orphanRecords).toEqual([])
+    expect(result.orphanErrors).toEqual([])
+  })
+
+  it('only routes the locked skill to protectedErrors when deleting a mixed batch', () => {
+    // Arrange — two skills selected; only one is locked. The unlocked skill must
+    // have filesystemIdentity so partitionGlobalDeleteTargets routes it to
+    // deleteTargets rather than staleDeleteErrors.
+    const identity: FilesystemEntryIdentity = {
+      kind: 'directory',
+      dev: 1,
+      ino: 2,
+      size: 96,
+      ctimeMs: 3,
+      mtimeMs: 4,
+    }
+    const skills: Skill[] = [
+      {
+        name: 'locked',
+        description: 'desc',
+        path: '/Users/me/.agents/skills/locked' as AbsolutePath,
+        symlinkCount: 0,
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+      {
+        name: 'unlocked',
+        description: 'desc',
+        path: '/Users/me/.agents/skills/unlocked' as AbsolutePath,
+        filesystemIdentity: identity,
+        symlinkCount: 0,
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+    ]
+
+    // Act
+    const result = partitionGlobalDeleteTargets(
+      skills,
+      ['locked', 'unlocked'],
+      new Set(['locked']),
+    )
+
+    // Assert — only the locked skill is skipped; unlocked proceeds to deleteTargets
+    expect(result.protectedErrors).toHaveLength(1)
+    expect(result.protectedErrors[0].skillName).toBe('locked')
+    expect(result.deleteTargets).toHaveLength(1)
+    expect(result.deleteTargets[0].skillName).toBe('unlocked')
   })
 })
 

@@ -49,6 +49,7 @@ export const renderBulkDeleteDescription = ({
   orphanCleanupCount = 0,
   staleDeleteCount = 0,
   orphanRescanCount = 0,
+  protectedCount = 0,
   sourceSummary,
 }: {
   totalCount: number
@@ -56,8 +57,22 @@ export const renderBulkDeleteDescription = ({
   orphanCleanupCount?: number
   staleDeleteCount?: number
   orphanRescanCount?: number
+  /** Skills the user has locked; they will be silently skipped by the delete. */
+  protectedCount?: number
   sourceSummary: SourceFilterSummary | null
 }): React.ReactNode => {
+  // All selected skills are protected and nothing will be moved — the confirm
+  // button is disabled, but the dialog description must still be accurate.
+  if (
+    protectedCount > 0 &&
+    trashCount === 0 &&
+    orphanCleanupCount === 0 &&
+    staleDeleteCount === 0 &&
+    orphanRescanCount === 0
+  ) {
+    return 'All selected skills are protected and cannot be deleted.'
+  }
+
   const hasBaseTrashCopy =
     orphanCleanupCount === 0 &&
     orphanRescanCount === 0 &&
@@ -106,6 +121,11 @@ export const renderBulkDeleteDescription = ({
     .exhaustive()
 
   const scopeSentences: string[] = []
+  if (protectedCount > 0) {
+    scopeSentences.push(
+      `${protectedCount} protected ${pluralize(protectedCount, 'skill')} will be skipped.`,
+    )
+  }
   if (staleDeleteCount > 0) {
     scopeSentences.push(
       `${staleDeleteCount} selected ${pluralize(staleDeleteCount, 'skill')} ${pluralize(staleDeleteCount, 'needs', 'need')} a rescan before delete because the reviewed filesystem identity is missing.`,

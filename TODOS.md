@@ -1183,3 +1183,29 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 - Surface a "Sticky filter" preference toggle in Settings
 
 **Why deferred:** Reset behavior was a deliberate UX choice for the original 3-option filter; changing it now needs a usage-based justification rather than speculation.
+
+## Skill deletion protection follow-ups (2026-06-16)
+
+### P2. Skill rename silently drops its lock
+
+**Context:** `addProtection` / `removeProtection` store skill names. If a skill is renamed (source directory renamed on disk), the locked name is orphaned — the renamed skill appears unlocked. This is identical behavior to bookmarks, which have the same limitation.
+
+**Fix direction:** On skill rename, migrate the old name to the new name in `protect.items`. Requires a rename event in the scan result or a diffing pass after each fetch.
+
+**Why deferred:** Skill rename is rare and the failure is silent-unlock (not silent-delete). The user discovers it naturally on their next interaction with the row. Same accepted trade-off as bookmarks.
+
+### P3. isLocal auto-protect
+
+**Context:** Skills with `isLocal: true` (agent-unique, not in the universal `~/.agents/skills/` dir) are at higher risk of accidental deletion. The plan considered auto-protecting them, but user chose manual lock only for this release.
+
+**Fix direction:** After gathering usage data on the manual lock feature, consider showing a "Protect automatically?" nudge for `isLocal` skills on first lock of any skill.
+
+**Why deferred:** User explicitly chose "manual lock only" — deferred until there is evidence of demand.
+
+### P3. Protection state persistence failure in private browsing
+
+**Context:** `redux-persist` writes to `localStorage`. Private/incognito mode and certain browser-based Electron sandboxes can silently cap or reject localStorage writes. Protected skills would be lost on app restart.
+
+**Fix direction:** Detect localStorage write failure in `redux-persist`'s storage adapter and show a one-time warning: "Skill lock list could not be saved — it will be lost when the app closes."
+
+**Why deferred:** Electron with a real user profile almost always has a working localStorage. Private mode is not a primary Electron use case.

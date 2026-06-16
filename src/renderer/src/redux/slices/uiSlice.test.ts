@@ -1070,6 +1070,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
         orphanRecords: [],
         staleDeleteErrors: [],
         orphanErrors: [],
+        protectedErrors: [],
       }),
     )
   }
@@ -1587,6 +1588,7 @@ describe('uiSlice bulk confirm dialog', () => {
         orphanRecords: [],
         staleDeleteErrors: [],
         orphanErrors: [],
+        protectedErrors: [],
       }),
     )
     expect(store.getState().ui.bulkConfirm).not.toBeNull()
@@ -1820,6 +1822,7 @@ describe('uiSlice selectors read the live ui state', () => {
         orphanRecords: [],
         staleDeleteErrors: [],
         orphanErrors: [],
+        protectedErrors: [],
       }),
     )
     store.dispatch(enterBulkSelectMode())

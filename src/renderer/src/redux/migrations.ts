@@ -24,6 +24,8 @@ import type { ThemeState } from './slices/themeSlice'
 export interface MigratableState {
   theme?: ThemeState
   dashboard?: unknown
+  /** New in v4+: protect slice starts from initialState on first load, no migration needed. */
+  protect?: unknown
 }
 
 /**

@@ -5,6 +5,8 @@ import {
   ExternalLink,
   FolderDot,
   Link2,
+  Lock,
+  LockOpen,
   Plus,
   X,
 } from 'lucide-react'
@@ -39,6 +41,11 @@ import {
   removeBookmark,
   selectIsBookmarked,
 } from '@/renderer/src/redux/slices/bookmarkSlice'
+import {
+  addProtection,
+  removeProtection,
+  selectIsProtected,
+} from '@/renderer/src/redux/slices/protectSlice'
 import {
   selectRange,
   selectSelectionAnchor,
@@ -79,6 +86,76 @@ declare global {
     'skills:bulkItemFailed': CustomEvent<{ skillName: SkillName }>
   }
 }
+
+interface ProtectButtonProps {
+  skillName: SkillName
+  /** Whether the bookmark button is visible (affects horizontal positioning). */
+  showBookmark: boolean
+  /** Whether an X button (unlink or delete) is visible (affects positioning). */
+  hasXButton: boolean
+}
+
+/**
+ * Lock / unlock toggle shown on every skill row. Manages its own Redux state
+ * so the parent SkillItem only needs `isProtected` for the delete-button gate.
+ * @param props - Skill name, bookmark visibility, and X-button visibility for positioning.
+ * @returns Tooltip-wrapped lock icon button that dispatches protect actions.
+ * @example
+ * <ProtectButton skillName="task" showBookmark={true} hasXButton={false} />
+ */
+const ProtectButton = React.memo(function ProtectButton({
+  skillName,
+  showBookmark,
+  hasXButton,
+}: ProtectButtonProps): React.ReactElement {
+  const dispatch = useAppDispatch()
+  const isProtected = useAppSelector((state) =>
+    selectIsProtected(state, skillName),
+  )
+
+  const handleToggle = (e: React.MouseEvent): void => {
+    e.stopPropagation()
+    dispatch(
+      isProtected ? removeProtection(skillName) : addProtection(skillName),
+    )
+  }
+
+  const rightClass =
+    showBookmark && hasXButton
+      ? 'right-22'
+      : hasXButton || showBookmark
+        ? 'right-11'
+        : 'right-0'
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={handleToggle}
+          aria-label={isProtected ? `Unlock ${skillName}` : `Lock ${skillName}`}
+          data-testid={`skill-protect-${skillName}`}
+          className={cn(
+            'absolute top-1.5 min-h-11 min-w-11 flex items-center justify-center rounded-md z-10 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            rightClass,
+            isProtected
+              ? 'text-foreground'
+              : 'text-muted-foreground opacity-40 hover:opacity-70 focus-visible:opacity-100',
+          )}
+        >
+          {isProtected ? (
+            <Lock className="h-3.5 w-3.5" />
+          ) : (
+            <LockOpen className="h-3.5 w-3.5" />
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="left">
+        {isProtected ? 'Protected — cannot be deleted' : 'Click to protect'}
+      </TooltipContent>
+    </Tooltip>
+  )
+})
 
 interface SkillItemProps {
   skill: Skill
@@ -318,6 +395,9 @@ export const SkillItem = React.memo(function SkillItem({
   const isBookmarked = useAppSelector((state) =>
     selectIsBookmarked(state, skill.name),
   )
+  const isProtected = useAppSelector((state) =>
+    selectIsProtected(state, skill.name),
+  )
   const showBookmark = canBookmarkSkill(skill)
 
   const selectedNamesSet = useAppSelector(selectSelectedSkillNamesSet)
@@ -337,7 +417,7 @@ export const SkillItem = React.memo(function SkillItem({
     showAddButton,
     showUnlinkButton,
     showCopyButton,
-    showDeleteButton,
+    showDeleteButton: showDeleteButtonBase,
     isLinked,
     isLocalSkill,
     isInaccessibleSkill,
@@ -345,6 +425,9 @@ export const SkillItem = React.memo(function SkillItem({
     selectedLocalSkillInfo,
     showGStackBadge,
   } = getSkillItemVisibility(selectedAgentId, skill)
+  // Protected skills hide the delete button. Unlink is intentionally NOT gated —
+  // unlinking from a single agent is reversible and should not require unlocking.
+  const showDeleteButton = showDeleteButtonBase && !isProtected
   const isBulkSelectable = canBulkSelectRenderedSkill(
     selectedAgentId,
     visibleNames,
@@ -391,8 +474,19 @@ export const SkillItem = React.memo(function SkillItem({
    */
   const handleDeleteClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
-    const { deleteTargets, orphanRecords, staleDeleteErrors, orphanErrors } =
-      partitionGlobalDeleteTargets([skill], [skill.name])
+    const {
+      deleteTargets,
+      orphanRecords,
+      staleDeleteErrors,
+      orphanErrors,
+      protectedErrors,
+    } = partitionGlobalDeleteTargets(
+      [skill],
+      [skill.name],
+      // Pass the real protection state so business logic enforces the guard
+      // even if the UI gate (showDeleteButton) is weakened in future refactors.
+      new Set<SkillName>(isProtected ? [skill.name] : []),
+    )
     dispatch(
       setBulkConfirm({
         kind: 'delete',
@@ -405,6 +499,7 @@ export const SkillItem = React.memo(function SkillItem({
         orphanRecords,
         staleDeleteErrors,
         orphanErrors,
+        protectedErrors,
       }),
     )
   }
@@ -603,6 +698,14 @@ export const SkillItem = React.memo(function SkillItem({
             </Tooltip>
           )}
 
+          {/* Lock toggle — always shown (protection is not source-gated).
+              Position adjusts based on which other overlay buttons are present. */}
+          <ProtectButton
+            skillName={skill.name}
+            showBookmark={showBookmark}
+            hasXButton={showUnlinkButton || showDeleteButtonBase}
+          />
+
           {/* Bookmark toggle — only for skills with repo source.
               Positioned to the left of the X button with a 44×44 hit area. */}
           {showBookmark && (
@@ -650,9 +753,12 @@ export const SkillItem = React.memo(function SkillItem({
               // under them on hover. Bookmark + X stack to 88px, so that case
               // needs pr-24 (96px), not the single-button pr-14 (56px).
               getCardContentPaddingClass({
+                showProtect: true,
                 showBookmark,
                 showUnlinkButton,
-                showDeleteButton,
+                // Use the pre-gate value: ProtectButton position is computed from
+                // showDeleteButtonBase, so padding must match that slot count.
+                showDeleteButton: showDeleteButtonBase,
               }),
             )}
           >

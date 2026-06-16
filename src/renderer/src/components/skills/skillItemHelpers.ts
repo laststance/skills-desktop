@@ -116,6 +116,7 @@ export function getSkillItemVisibility(
   return {
     // Delete is the primary cleanup action for orphans in global view —
     // sweeping the dangling row removes every agent-side symlink at once.
+    // Protected skills hide the delete button entirely; unlock before deleting.
     showDeleteButton: !selectedAgentId,
     // Orphan skills have no live source to symlink _to_, so the Add button
     // (which opens AddSymlinkModal / CopyToAgentsModal) would surface a flow
@@ -151,33 +152,43 @@ export function getSkillItemVisibility(
 /**
  * Tailwind right-padding class for a SkillItem card body.
  *
- * Exists because the action buttons (bookmark + X) are `absolute`-positioned
+ * Exists because the action buttons (lock + bookmark + X) are `absolute`-positioned
  * overlays out of the content flow, so the body needs a manual right gutter to
  * keep its always-visible title-row controls (the "+ Add" button) from sliding
- * under those overlays on hover. The bookmark + X form an 88px stack
- * (bookmark at `right-11` = 44px wide, X at `right-0` = 44px wide), so a single
- * `pr-14` (56px) reserve only clears one button — two need `pr-24` (96px).
+ * under those overlays on hover.
+ *
+ * Button positions (each 44px wide):
+ * - X (delete/unlink): right-0
+ * - bookmark: right-11 when X shows, else right-0
+ * - lock: right-22 when both X and bookmark show, else adjusts left
  *
  * @param flags - Which overlay buttons render (from `getSkillItemVisibility` + `canBookmarkSkill`)
  * @returns
- * - `'pr-24'` (96px): bookmark AND an X button both show → clear the 88px stack
- * - `'pr-14'` (56px): exactly one of bookmark / X shows → clear one 44px button
+ * - `'pr-36'` (144px): lock AND bookmark AND an X button all show → clear the 132px stack
+ * - `'pr-24'` (96px): two of the three overlay slots occupied
+ * - `'pr-14'` (56px): exactly one overlay slot occupied
  * - `'pr-4'` (16px): no overlay buttons → normal card padding
  * @example
- * getCardContentPaddingClass({ showBookmark: true, showUnlinkButton: false, showDeleteButton: true }) // => 'pr-24'
- * getCardContentPaddingClass({ showBookmark: true, showUnlinkButton: false, showDeleteButton: false }) // => 'pr-14'
- * getCardContentPaddingClass({ showBookmark: false, showUnlinkButton: false, showDeleteButton: false }) // => 'pr-4'
+ * getCardContentPaddingClass({ showProtect: true, showBookmark: true, showUnlinkButton: false, showDeleteButton: true }) // => 'pr-36'
+ * getCardContentPaddingClass({ showProtect: false, showBookmark: true, showUnlinkButton: false, showDeleteButton: true }) // => 'pr-24'
+ * getCardContentPaddingClass({ showProtect: false, showBookmark: true, showUnlinkButton: false, showDeleteButton: false }) // => 'pr-14'
+ * getCardContentPaddingClass({ showProtect: false, showBookmark: false, showUnlinkButton: false, showDeleteButton: false }) // => 'pr-4'
  */
 export function getCardContentPaddingClass(flags: {
+  showProtect: boolean
   showBookmark: boolean
   showUnlinkButton: boolean
   showDeleteButton: boolean
-}): 'pr-24' | 'pr-14' | 'pr-4' {
-  const { showBookmark, showUnlinkButton, showDeleteButton } = flags
+}): 'pr-36' | 'pr-24' | 'pr-14' | 'pr-4' {
+  const { showProtect, showBookmark, showUnlinkButton, showDeleteButton } =
+    flags
   const hasXButton = showUnlinkButton || showDeleteButton
-  // Two stacked 44px buttons span 88px; only pr-24 (96px) leaves a gap.
-  if (showBookmark && hasXButton) return 'pr-24'
-  // Either button alone is a single 44px overlay; pr-14 (56px) clears it.
-  if (showBookmark || hasXButton) return 'pr-14'
+  // Count occupied overlay slots to compute the total stack width.
+  const overlayCount = [showProtect, showBookmark, hasXButton].filter(
+    Boolean,
+  ).length
+  if (overlayCount >= 3) return 'pr-36'
+  if (overlayCount === 2) return 'pr-24'
+  if (overlayCount === 1) return 'pr-14'
   return 'pr-4'
 }
