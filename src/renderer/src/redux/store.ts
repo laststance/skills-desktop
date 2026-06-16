@@ -10,6 +10,7 @@ import agentsReducer from './slices/agentsSlice'
 import bookmarkReducer from './slices/bookmarkSlice'
 import dashboardReducer from './slices/dashboardSlice'
 import marketplaceReducer from './slices/marketplaceSlice'
+import protectReducer from './slices/protectSlice'
 import settingsReducer from './slices/settingsSlice'
 import skillsReducer from './slices/skillsSlice'
 import themeReducer from './slices/themeSlice'
@@ -22,6 +23,7 @@ const rootReducer = combineReducers({
   skills: skillsReducer,
   agents: agentsReducer,
   bookmarks: bookmarkReducer,
+  protect: protectReducer,
   ui: uiReducer,
   update: updateReducer,
   marketplace: marketplaceReducer,
@@ -43,7 +45,7 @@ const { middleware: storageMiddleware, reducer } =
   createStorageMiddleware<RootReducerState>({
     rootReducer,
     key: PERSIST_STORAGE_KEY,
-    slices: ['theme', 'bookmarks', 'dashboard'],
+    slices: ['theme', 'bookmarks', 'protect', 'dashboard'],
     version: PERSIST_STATE_VERSION,
     migrate: migrateState,
   })

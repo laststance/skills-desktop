@@ -270,6 +270,7 @@ describe('store wiring (singleton assembly)', () => {
       'bookmarks',
       'dashboard',
       'marketplace',
+      'protect',
       'settings',
       'skills',
       'theme',

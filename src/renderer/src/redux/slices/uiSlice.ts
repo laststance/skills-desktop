@@ -132,6 +132,8 @@ export type BulkConfirmState =
       staleDeleteErrors: BulkDeleteItemResult[]
       /** Stale orphan preflight errors captured when the dialog opened. */
       orphanErrors: BulkDeleteItemResult[]
+      /** Protected skills skipped by the user's lock — will not be deleted. */
+      protectedErrors: BulkDeleteItemResult[]
     })
   | (BulkConfirmBase & {
       kind: 'unlink'
