@@ -78,6 +78,7 @@ import {
 } from '@/renderer/src/redux/selectors'
 import type { SourceFilterRow } from '@/renderer/src/redux/selectors'
 import { setPreviewSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
+import { selectProtectedNamesSet } from '@/renderer/src/redux/slices/protectSlice'
 import {
   clearSelection,
   clearSelectedOrphanSymlinks,
@@ -278,7 +279,22 @@ function getBulkDeleteTargetSummary(
     orphanRecords: bulkConfirm.orphanRecords,
     staleDeleteErrors: bulkConfirm.staleDeleteErrors,
     orphanErrors: bulkConfirm.orphanErrors,
+    protectedErrors: bulkConfirm.protectedErrors,
   }
+}
+
+/**
+ * Extract the protected-skill count from a nullable bulk-delete summary.
+ * Module-scope keeps the `??` branch out of MainContent's complexity budget.
+ * @param summary - Partitioned delete targets, or null when no delete is pending.
+ * @returns Count of protected skills that will be skipped in this batch.
+ * @example
+ * getProtectedSkippedCount(null) // => 0
+ */
+function getProtectedSkippedCount(
+  summary: PartitionedGlobalDeleteTargets | null,
+): number {
+  return summary?.protectedErrors.length ?? 0
 }
 
 /**
@@ -311,6 +327,7 @@ function isBulkDeleteConfirmPrimaryDisabled(
   summary: PartitionedGlobalDeleteTargets | null,
 ): boolean {
   if (bulkConfirm?.kind !== 'delete' || summary === null) return false
+  // Disable when nothing can actually be deleted (all protected, all stale, or empty).
   return (
     summary.deleteTargets.length === 0 && summary.orphanRecords.length === 0
   )
@@ -398,6 +415,7 @@ export const MainContent = React.memo(
     const excludedSkillTypeFilters = useAppSelector(
       selectExcludedSkillTypeFilters,
     )
+    const protectedNamesSet = useAppSelector(selectProtectedNamesSet)
 
     const installedSearchCountText =
       formatInstalledSearchCount(filteredSkillCount)
@@ -701,8 +719,17 @@ export const MainContent = React.memo(
         )
         return
       }
-      const { deleteTargets, orphanRecords, staleDeleteErrors, orphanErrors } =
-        partitionGlobalDeleteTargets(skills, selectedVisibleNames)
+      const {
+        deleteTargets,
+        orphanRecords,
+        staleDeleteErrors,
+        orphanErrors,
+        protectedErrors,
+      } = partitionGlobalDeleteTargets(
+        skills,
+        selectedVisibleNames,
+        protectedNamesSet,
+      )
       dispatch(
         setBulkConfirm({
           kind: 'delete',
@@ -714,10 +741,12 @@ export const MainContent = React.memo(
           orphanRecords,
           staleDeleteErrors,
           orphanErrors,
+          protectedErrors,
         }),
       )
     }, [
       dispatch,
+      protectedNamesSet,
       selectedAgentId,
       selectedAgent?.name,
       selectedVisibleNames,
@@ -867,6 +896,10 @@ export const MainContent = React.memo(
           staleDeleteErrors,
           orphanErrors,
         } = confirm
+        // protectedErrors are intentional skips — exclude from deleteItems so
+        // formatCascadeSummary and reconcileMixedDeleteSelection treat them as
+        // successes, not failures. The confirm dialog already surfaced the skip
+        // count via protectedCount before the user clicked confirm.
         const deleteItems: BulkDeleteItemResult[] = [
           ...staleDeleteErrors,
           ...orphanErrors,
@@ -1412,6 +1445,9 @@ export const MainContent = React.memo(
                         bulkDeleteTargetSummary?.staleDeleteErrors.length ?? 0,
                       orphanRescanCount:
                         bulkDeleteTargetSummary?.orphanErrors.length ?? 0,
+                      protectedCount: getProtectedSkippedCount(
+                        bulkDeleteTargetSummary,
+                      ),
                       sourceSummary: bulkConfirm.sourceSummary,
                     })
                   : `This removes the symlinks in ${bulkConfirm?.agentName ?? 'this agent'}. The underlying skill files stay in your source directory.`}

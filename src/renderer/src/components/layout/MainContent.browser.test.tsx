@@ -196,6 +196,8 @@ async function createStore() {
     await import('@/renderer/src/redux/slices/marketplaceSlice')
   const { default: settingsReducer } =
     await import('@/renderer/src/redux/slices/settingsSlice')
+  const { default: protectReducer } =
+    await import('@/renderer/src/redux/slices/protectSlice')
   return configureStore({
     reducer: {
       ui: uiReducer,
@@ -204,6 +206,7 @@ async function createStore() {
       bookmarks: bookmarksReducer,
       marketplace: marketplaceReducer,
       settings: settingsReducer,
+      protect: protectReducer,
     },
     preloadedState: {
       settings: { ...DEFAULT_SETTINGS },

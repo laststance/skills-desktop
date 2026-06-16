@@ -75,12 +75,15 @@ async function createStore() {
     await import('@/renderer/src/redux/slices/agentsSlice')
   const { default: bookmarkReducer } =
     await import('@/renderer/src/redux/slices/bookmarkSlice')
+  const { default: protectReducer } =
+    await import('@/renderer/src/redux/slices/protectSlice')
   return configureStore({
     reducer: {
       ui: uiReducer,
       skills: skillsReducer,
       agents: agentsReducer,
       bookmarks: bookmarkReducer,
+      protect: protectReducer,
     },
   })
 }
@@ -435,6 +438,7 @@ describe('SkillItem delete button', () => {
       orphanRecords: [],
       staleDeleteErrors: [],
       orphanErrors: [],
+      protectedErrors: [],
     })
   })
 
@@ -465,6 +469,7 @@ describe('SkillItem delete button', () => {
       orphanRecords: [],
       staleDeleteErrors: [],
       orphanErrors: [],
+      protectedErrors: [],
     })
   })
 
@@ -1096,5 +1101,77 @@ describe('SkillItem partial-failure flash', () => {
     await expect
       .poll(() => cardRoot?.className.includes('border-l-red-500/70'))
       .toBe(false)
+  })
+})
+
+describe('SkillItem protection', () => {
+  it('shows a "Lock {name}" button when the skill is not protected', async () => {
+    // Arrange — default store has protect.items=[], so the skill is unlocked.
+    const { screen } = await renderSkillItem(
+      makeSkill({ name: 'task' as SkillName }),
+    )
+
+    // Act
+    // (no interaction — assert the lock affordance label matches the unlocked state)
+
+    // Assert — LockOpen icon with "Lock task" label indicates protection is off.
+    await expect
+      .element(screen.getByRole('button', { name: /^Lock task$/i }))
+      .toBeInTheDocument()
+  })
+
+  it('shows an "Unlock {name}" button when the skill is protected', async () => {
+    // Arrange — dispatch addProtection before rendering so ProtectButton
+    // receives isProtected=true and renders the Lock icon.
+    const { screen, store } = await renderSkillItem(
+      makeSkill({ name: 'task' as SkillName }),
+    )
+    const { addProtection } =
+      await import('@/renderer/src/redux/slices/protectSlice')
+
+    // Act
+    store.dispatch(addProtection('task' as SkillName))
+
+    // Assert — Lock icon + "Unlock task" label confirms the protected visual state.
+    await expect
+      .element(screen.getByRole('button', { name: /^Unlock task$/i }))
+      .toBeInTheDocument()
+  })
+
+  it('hides the delete button when the skill is locked', async () => {
+    // Arrange
+    const { screen, store } = await renderSkillItem(
+      makeSkill({ name: 'task' as SkillName }),
+    )
+    const { addProtection } =
+      await import('@/renderer/src/redux/slices/protectSlice')
+
+    // Act — lock the skill; protection gates showDeleteButton to false.
+    store.dispatch(addProtection('task' as SkillName))
+
+    // Assert — delete button must be absent; clicking it with protection on
+    // would mean the fat-finger guard is broken. Use async assertion so React
+    // has time to re-render after the store dispatch.
+    await expect
+      .element(screen.getByRole('button', { name: /^Delete task$/i }))
+      .not.toBeInTheDocument()
+  })
+
+  it('restores the delete button when the skill is unlocked', async () => {
+    // Arrange — start locked, then unlock.
+    const { screen, store } = await renderSkillItem(
+      makeSkill({ name: 'task' as SkillName }),
+    )
+    const { addProtection, removeProtection } =
+      await import('@/renderer/src/redux/slices/protectSlice')
+    store.dispatch(addProtection('task' as SkillName))
+
+    // Act
+    store.dispatch(removeProtection('task' as SkillName))
+
+    // Assert — delete button reappears after unlocking.
+    await expect
+      .element(screen.getByRole('button', { name: /^Delete task$/i }))
+      .toBeInTheDocument()
   })
 })

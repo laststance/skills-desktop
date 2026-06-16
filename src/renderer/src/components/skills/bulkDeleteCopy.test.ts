@@ -260,4 +260,63 @@ describe('renderBulkDeleteDescription', () => {
     // Assert
     expect(description).toBe(BASE_PLURAL)
   })
+
+  it('appends a singular "protected skill will be skipped" sentence when one skill is locked', () => {
+    // Arrange / Act
+    const description = renderBulkDeleteDescription({
+      totalCount: 3,
+      protectedCount: 1,
+      sourceSummary: null,
+    })
+
+    // Assert — "skill" singular, not "skills"
+    expect(description).toBe(
+      `${BASE_PLURAL} 1 protected skill will be skipped.`,
+    )
+  })
+
+  it('appends a plural "protected skills will be skipped" sentence when multiple skills are locked', () => {
+    // Arrange / Act
+    const description = renderBulkDeleteDescription({
+      totalCount: 5,
+      protectedCount: 2,
+      sourceSummary: null,
+    })
+
+    // Assert — "skills" plural
+    expect(description).toBe(
+      `${BASE_PLURAL} 2 protected skills will be skipped.`,
+    )
+  })
+
+  it('omits the protected-skills sentence when protectedCount is zero', () => {
+    // Arrange / Act
+    const description = renderBulkDeleteDescription({
+      totalCount: 3,
+      protectedCount: 0,
+      sourceSummary: null,
+    })
+
+    // Assert — zero protected skills → no extra sentence
+    expect(description).toBe(BASE_PLURAL)
+  })
+
+  it('returns the all-protected message when every selected skill is locked and nothing will be deleted', () => {
+    // Arrange — trashCount=0 and all other counts=0 means the confirm button is
+    // disabled, but the dialog description must still explain why.
+    const description = renderBulkDeleteDescription({
+      totalCount: 2,
+      trashCount: 0,
+      orphanCleanupCount: 0,
+      staleDeleteCount: 0,
+      orphanRescanCount: 0,
+      protectedCount: 2,
+      sourceSummary: null,
+    })
+
+    // Assert — early guard replaces the "moves to trash" copy entirely
+    expect(description).toBe(
+      'All selected skills are protected and cannot be deleted.',
+    )
+  })
 })

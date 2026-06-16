@@ -64,6 +64,8 @@ async function createStore(
     await import('@/renderer/src/redux/slices/agentsSlice')
   const { default: bookmarkReducer } =
     await import('@/renderer/src/redux/slices/bookmarkSlice')
+  const { default: protectReducer } =
+    await import('@/renderer/src/redux/slices/protectSlice')
 
   // Build a complete SkillsState that satisfies the slice's typing while
   // letting tests override only the two fields that matter for the render
@@ -76,6 +78,7 @@ async function createStore(
       skills: skillsReducer,
       agents: agentsReducer,
       bookmarks: bookmarkReducer,
+      protect: protectReducer,
     },
     preloadedState: {
       skills: {

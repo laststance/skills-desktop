@@ -700,6 +700,7 @@ describe('getCardContentPaddingClass', () => {
     // exact state from the reported hover bug where "+ Add" slid under the
     // bookmark.
     const flags = {
+      showProtect: false,
       showBookmark: true,
       showUnlinkButton: false,
       showDeleteButton: true,
@@ -715,6 +716,7 @@ describe('getCardContentPaddingClass', () => {
   it('reserves the wide gutter when a bookmark stacks with the unlink button in agent view', () => {
     // Arrange — agent view, valid symlink: bookmark + unlink X also stack to 88px.
     const flags = {
+      showProtect: false,
       showBookmark: true,
       showUnlinkButton: true,
       showDeleteButton: false,
@@ -731,6 +733,7 @@ describe('getCardContentPaddingClass', () => {
     // Arrange — bookmarkable skill whose agent row is broken: no X button, so
     // the bookmark sits alone at right-0 (one 44px overlay).
     const flags = {
+      showProtect: false,
       showBookmark: true,
       showUnlinkButton: false,
       showDeleteButton: false,
@@ -746,6 +749,7 @@ describe('getCardContentPaddingClass', () => {
   it('reserves a single-button gutter when only an X button shows (non-bookmarkable skill)', () => {
     // Arrange — local skill (no repo source → not bookmarkable) with an unlink X.
     const flags = {
+      showProtect: false,
       showBookmark: false,
       showUnlinkButton: true,
       showDeleteButton: false,
@@ -761,6 +765,7 @@ describe('getCardContentPaddingClass', () => {
   it('uses normal padding when no overlay buttons render', () => {
     // Arrange — no bookmark, no X (e.g. orphan row in agent view).
     const flags = {
+      showProtect: false,
       showBookmark: false,
       showUnlinkButton: false,
       showDeleteButton: false,
@@ -771,5 +776,88 @@ describe('getCardContentPaddingClass', () => {
 
     // Assert — falls back to the default p-4 right padding.
     expect(paddingClass).toBe('pr-4')
+  })
+
+  it('reserves the widest gutter when the lock, bookmark, and delete buttons all show (three-button stack)', () => {
+    // Arrange — protected skill with a bookmark and a delete button: the production
+    // case where ProtectButton sits at right-22 and the stack reaches 132px.
+    const flags = {
+      showProtect: true,
+      showBookmark: true,
+      showUnlinkButton: false,
+      showDeleteButton: true,
+    }
+
+    // Act
+    const paddingClass = getCardContentPaddingClass(flags)
+
+    // Assert — pr-36 (144px) clears the full three-button 132px stack.
+    expect(paddingClass).toBe('pr-36')
+  })
+
+  it('reserves the widest gutter when lock, bookmark, and unlink all show', () => {
+    // Arrange — agent-view skill with lock + bookmark + unlink X.
+    const flags = {
+      showProtect: true,
+      showBookmark: true,
+      showUnlinkButton: true,
+      showDeleteButton: false,
+    }
+
+    // Act
+    const paddingClass = getCardContentPaddingClass(flags)
+
+    // Assert
+    expect(paddingClass).toBe('pr-36')
+  })
+
+  it('reserves the two-button gutter when lock and bookmark show without an X', () => {
+    // Arrange — bookmarked source skill that has no X (e.g. broken agent row in
+    // install view but the user has locked it): lock + bookmark = two-button stack.
+    const flags = {
+      showProtect: true,
+      showBookmark: true,
+      showUnlinkButton: false,
+      showDeleteButton: false,
+    }
+
+    // Act
+    const paddingClass = getCardContentPaddingClass(flags)
+
+    // Assert — pr-24 (96px) clears the 88px two-button stack.
+    expect(paddingClass).toBe('pr-24')
+  })
+
+  it('reserves the two-button gutter when lock and an X show without a bookmark', () => {
+    // Arrange — non-bookmarkable skill (no source) with lock + delete X.
+    const flags = {
+      showProtect: true,
+      showBookmark: false,
+      showUnlinkButton: false,
+      showDeleteButton: true,
+    }
+
+    // Act
+    const paddingClass = getCardContentPaddingClass(flags)
+
+    // Assert
+    expect(paddingClass).toBe('pr-24')
+  })
+
+  it('reserves a single-button gutter when only the lock button shows', () => {
+    // Arrange — locked skill whose delete button is hidden (protected) and has
+    // no bookmark: lock sits alone at right-0.
+    const flags = {
+      showProtect: true,
+      showBookmark: false,
+      showUnlinkButton: false,
+      showDeleteButton: false,
+    }
+
+    // Act
+    const paddingClass = getCardContentPaddingClass(flags)
+
+    // Assert — pr-14 (56px) clears a single 44px button.
+    expect(paddingClass).toBe('pr-14')
   })
 })
