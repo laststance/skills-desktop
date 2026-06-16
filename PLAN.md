@@ -1,4 +1,3 @@
-<!-- /autoplan restore point: /Users/ryotamurakami/.gstack/projects/laststance-skills-desktop/main-autoplan-restore-20260616-222928.md -->
 <!-- Previous plan (Skill Delete Protection) was fully implemented as PR #226, merged 2026-06-16 -->
 
 # Plan: Search Box & Select-All Operability (UX Gap Fixes)
