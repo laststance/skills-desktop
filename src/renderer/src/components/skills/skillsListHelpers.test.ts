@@ -198,6 +198,37 @@ describe('getEmptyListMessage', () => {
     expect(message).toBe('No G-Stack skills for this agent')
   })
 
+  it('shows the unique-only empty state when the type filter is unique', () => {
+    // Arrange: a selected agent with the unique type filter and no other narrow.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [],
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'unique',
+    })
+
+    // Assert
+    expect(message).toBe('No unique skills for this agent')
+  })
+
+  it('appends a single excluded unique type to the agent-only empty state', () => {
+    // Arrange: a selected agent excluding the unique type under the all include.
+    // Act
+    const message = getEmptyListMessage({
+      searchQuery: '',
+      selectedSources: [],
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'all',
+      excludedSkillTypeFilters: ['unique'],
+    })
+
+    // Assert
+    expect(message).toBe(
+      'No skills installed for this agent while excluding unique',
+    )
+  })
+
   it('shows the generic agent empty state when an agent is selected and no type filter narrows it', () => {
     // Arrange: a selected agent with the all type filter (no narrowing).
     // Act

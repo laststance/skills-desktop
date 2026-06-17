@@ -1775,6 +1775,142 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     ).not.toBeNull()
   })
 
+  it('offers a Unique filter marked with a violet dot and a discoverability hint when an agent is selected', async () => {
+    // Arrange
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'cursor',
+            name: 'Cursor',
+            path: '/Users/me/.cursor/skills' as never,
+            exists: true,
+            skillCount: 0,
+            localSkillCount: 0,
+          },
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(selectAgent('cursor'))
+
+    // Act
+    // Open the dropdown — Unique is the single-agent skill type filter.
+    await screen
+      .getByRole('button', { name: /Skill type filter: All/i })
+      .click()
+
+    // Assert
+    const uniqueItem = screen.getByRole('menuitemradio', { name: /Unique/i })
+    await expect.element(uniqueItem).toBeInTheDocument()
+    const uniqueItemElement = uniqueItem.element()
+    const dot = uniqueItemElement.querySelector('.bg-violet-400')
+    expect(
+      dot,
+      'Unique menu item should contain a span with bg-violet-400',
+    ).not.toBeNull()
+    // The hint makes the opaque "Unique" label discoverable on hover.
+    expect(uniqueItemElement.getAttribute('title')).toBe(
+      'Available to only one agent',
+    )
+  })
+
+  it('narrows the visible list to only single-agent skills when the Unique filter is chosen', async () => {
+    // Arrange
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+
+    // A skill available to exactly one agent (a lone valid slot in cursor).
+    const uniqueSkill: Skill = {
+      name: 'cursor-unique' as SkillName,
+      description: '',
+      path: '/skills/cursor-unique' as never,
+      symlinkCount: 1,
+      symlinks: [
+        {
+          agentId: 'cursor' as never,
+          agentName: 'Cursor' as never,
+          linkPath: '/cursor/skills/cursor-unique' as never,
+          targetPath: '/skills/cursor-unique' as never,
+          status: 'valid',
+          isLocal: false,
+        },
+      ],
+      isSource: true,
+      isOrphan: false,
+    }
+    // A skill shared by two agents — visible in the cursor view, but NOT unique.
+    const sharedSkill: Skill = {
+      name: 'shared-two' as SkillName,
+      description: '',
+      path: '/skills/shared-two' as never,
+      symlinkCount: 2,
+      symlinks: [
+        {
+          agentId: 'cursor' as never,
+          agentName: 'Cursor' as never,
+          linkPath: '/cursor/skills/shared-two' as never,
+          targetPath: '/skills/shared-two' as never,
+          status: 'valid',
+          isLocal: false,
+        },
+        {
+          agentId: 'codex' as never,
+          agentName: 'Codex' as never,
+          linkPath: '/codex/skills/shared-two' as never,
+          targetPath: '/skills/shared-two' as never,
+          status: 'valid',
+          isLocal: false,
+        },
+      ],
+      isSource: true,
+      isOrphan: false,
+    }
+
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'cursor',
+            name: 'Cursor',
+            path: '/Users/me/.cursor/skills' as never,
+            exists: true,
+            skillCount: 0,
+            localSkillCount: 0,
+          },
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(selectAgent('cursor'))
+    store.dispatch(fetchSkills.fulfilled([uniqueSkill, sharedSkill], 'req-id'))
+
+    // Act
+    await screen
+      .getByRole('button', { name: /Skill type filter: All/i })
+      .click()
+    await screen.getByRole('menuitemradio', { name: /Unique/i }).click()
+
+    // Assert
+    // Slice state — single source of truth that the selector reads from.
+    expect(store.getState().ui.skillTypeFilter).toBe('unique')
+
+    // Selector view — only the single-agent skill survives the filter.
+    const { selectFilteredSkills } =
+      await import('@/renderer/src/redux/selectors')
+    const filtered = selectFilteredSkills(store.getState() as never)
+    expect(filtered.map((skill) => skill.name)).toEqual(['cursor-unique'])
+  })
+
   it('narrows the visible list to only orphan skills when the Orphan filter is chosen', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()

@@ -176,6 +176,51 @@ const makeSkill = (
     : {}),
 })
 
+/**
+ * Build a skill spanning several agent slots — `makeSkill` only models one
+ * agent, but the `'unique'` filter is about availability ACROSS agents, so
+ * these tests need multi-slot skills. Each slot defaults to a valid symlink.
+ * @param name - Skill name; also seeds the per-slot link/target paths.
+ * @param slots - Per-agent slot specs (status defaults to `'valid'`, isLocal to false).
+ * @param options.isOrphan - Mark the skill orphan (and non-source) to mirror scanner output.
+ * @returns A `Skill` with one `symlinks` entry per slot; `symlinkCount` counts valid non-local slots; `isSource` is `true` unless `isOrphan`.
+ * @example
+ * makeMultiSlotSkill('u', [{ agentId: 'cursor' }, { agentId: 'codex' }]) // 2 valid slots
+ */
+const makeMultiSlotSkill = (
+  name: string,
+  slots: {
+    agentId: AgentId
+    isLocal?: boolean
+    status?: SymlinkInfo['status']
+  }[],
+  options: { isOrphan?: boolean } = {},
+): Skill => {
+  const symlinks: SymlinkInfo[] = slots.map((slot) => {
+    const isLocal = slot.isLocal ?? false
+    return {
+      agentId: slot.agentId as SymlinkInfo['agentId'],
+      agentName: slot.agentId as SymlinkInfo['agentName'],
+      linkPath: `/home/user/.${slot.agentId}/skills/${name}`,
+      targetPath: isLocal
+        ? `/home/user/.${slot.agentId}/skills/${name}`
+        : `/home/user/.agents/skills/${name}`,
+      status: slot.status ?? 'valid',
+      isLocal,
+    }
+  })
+  return {
+    name,
+    description: `${name} skill`,
+    path: `/home/user/.agents/skills/${name}`,
+    symlinkCount: symlinks.filter((s) => s.status === 'valid' && !s.isLocal)
+      .length,
+    symlinks,
+    isSource: !options.isOrphan,
+    isOrphan: options.isOrphan ?? false,
+  }
+}
+
 describe('selectFilteredSkillCount', () => {
   it('counts the visible Installed rows that survived the active filters', () => {
     // Arrange — two unfiltered source skills, both visible
@@ -705,7 +750,7 @@ describe('selectFilteredSkills', () => {
     expect(result).toHaveLength(0)
   })
 
-  it.each(['all', 'symlinked', 'local', 'gstack', 'orphan'] as const)(
+  it.each(['all', 'symlinked', 'local', 'gstack', 'orphan', 'unique'] as const)(
     'ignores the skillTypeFilter (%s) in the SourceCard view where source-only filtering rules',
     (skillTypeFilter) => {
       // Arrange — SourceCard view applies its own source-only filter, so
@@ -724,6 +769,142 @@ describe('selectFilteredSkills', () => {
       expect(result.map((s) => s.name)).toEqual(['task'])
     },
   )
+
+  it('shows a skill that is a real folder in only the selected agent under the Unique filter', () => {
+    // Arrange — one real-folder slot, one agent → available to exactly one agent.
+    const skills = [makeSkill('solo-local', 'claude-code', true)]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'claude-code',
+      skillTypeFilter: 'unique',
+    })
+
+    // Act
+    const result = selectFilteredSkills(state as never)
+
+    // Assert
+    expect(result.map((s) => s.name)).toEqual(['solo-local'])
+  })
+
+  it('shows a lone valid symlink under Unique because Unique asks "how many agents", not "is it a symlink"', () => {
+    // Arrange — single valid symlink (isLocal false) in only the selected agent.
+    const skills = [makeSkill('solo-symlink', 'cursor', false)]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'cursor',
+      skillTypeFilter: 'unique',
+    })
+
+    // Act
+    const result = selectFilteredSkills(state as never)
+
+    // Assert
+    expect(result.map((s) => s.name)).toEqual(['solo-symlink'])
+  })
+
+  it('hides a non-symlink skill duplicated across two agents, even viewed from an owning agent (Unique is not Local)', () => {
+    // Arrange — two valid real-folder slots → available to 2 agents → NOT unique,
+    // though every slot is Local. Viewed from claude-code, which owns one copy.
+    const skills = [
+      makeMultiSlotSkill('dup-local', [
+        { agentId: 'claude-code', isLocal: true },
+        { agentId: 'cursor', isLocal: true },
+      ]),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'claude-code',
+      skillTypeFilter: 'unique',
+    })
+
+    // Act
+    const result = selectFilteredSkills(state as never)
+
+    // Assert
+    expect(result).toHaveLength(0)
+  })
+
+  it('hides a universal skill that is valid-symlinked into many agents under Unique', () => {
+    // Arrange — one source, valid symlinks in three agents → 3 valid slots.
+    const skills = [
+      makeMultiSlotSkill('universal', [
+        { agentId: 'claude-code' },
+        { agentId: 'cursor' },
+        { agentId: 'codex' },
+      ]),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'claude-code',
+      skillTypeFilter: 'unique',
+    })
+
+    // Act
+    const result = selectFilteredSkills(state as never)
+
+    // Assert
+    expect(result).toHaveLength(0)
+  })
+
+  it('hides a skill whose only valid slot belongs to a different agent than the one in view', () => {
+    // Arrange — unique to cursor, but the list is filtered for claude-code.
+    const skills = [makeSkill('cursor-only', 'cursor', true)]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'claude-code',
+      skillTypeFilter: 'unique',
+    })
+
+    // Act
+    const result = selectFilteredSkills(state as never)
+
+    // Assert
+    expect(result).toHaveLength(0)
+  })
+
+  it('treats a skill as Unique when its sole valid slot sits beside a broken slot in another agent', () => {
+    // Arrange — valid in claude-code, broken symlink in cursor. A broken slot is
+    // not "available", so the skill is still reachable by exactly one agent.
+    const skills = [
+      makeMultiSlotSkill('one-valid-one-broken', [
+        { agentId: 'claude-code', isLocal: true, status: 'valid' },
+        { agentId: 'cursor', isLocal: false, status: 'broken' },
+      ]),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'claude-code',
+      skillTypeFilter: 'unique',
+    })
+
+    // Act
+    const result = selectFilteredSkills(state as never)
+
+    // Assert
+    expect(result.map((s) => s.name)).toEqual(['one-valid-one-broken'])
+  })
+
+  it('hides an orphan skill under Unique because orphans carry only broken slots (available to no agent)', () => {
+    // Arrange — orphan: a broken slot only, zero valid slots anywhere.
+    const skills = [
+      makeMultiSlotSkill(
+        'orphan-skill',
+        [{ agentId: 'claude-code', isLocal: false, status: 'broken' }],
+        { isOrphan: true },
+      ),
+    ]
+    const state = buildState({
+      skills,
+      selectedAgentId: 'claude-code',
+      skillTypeFilter: 'unique',
+    })
+
+    // Act
+    const result = selectFilteredSkills(state as never)
+
+    // Assert
+    expect(result).toHaveLength(0)
+  })
 
   it('matches a repo-scope query against the skill repository slug', () => {
     // Arrange

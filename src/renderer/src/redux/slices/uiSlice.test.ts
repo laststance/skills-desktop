@@ -1450,7 +1450,7 @@ describe('uiSlice source filter (selectedSources)', () => {
 })
 
 describe('getAvailableExcludeTypes offered subtractions per include mode', () => {
-  it('offers G-Stack and orphan as the only valid excludes while including symlinked skills', async () => {
+  it('offers G-Stack, orphan, and unique as valid excludes while including symlinked skills', async () => {
     // Arrange
     const { getAvailableExcludeTypes } = await import('./uiSlice')
 
@@ -1458,17 +1458,40 @@ describe('getAvailableExcludeTypes offered subtractions per include mode', () =>
     const offered = getAvailableExcludeTypes('symlinked')
 
     // Assert
-    expect(offered).toEqual(['gstack', 'orphan'])
+    expect(offered).toEqual(['gstack', 'orphan', 'unique'])
   })
 
-  it('offers only G-Stack as a valid exclude while including orphan skills', async () => {
+  it('offers symlinked, local, and G-Stack — but not orphan — as excludes while including unique skills', async () => {
+    // Arrange
+    const { getAvailableExcludeTypes } = await import('./uiSlice')
+
+    // Act
+    const offered = getAvailableExcludeTypes('unique')
+
+    // Assert — orphan omitted: an orphan skill has no valid slots, so it can
+    // never also be unique (orphan ∩ unique = ∅).
+    expect(offered).toEqual(['symlinked', 'local', 'gstack'])
+  })
+
+  it('offers G-Stack and unique as the valid excludes while including local skills', async () => {
+    // Arrange
+    const { getAvailableExcludeTypes } = await import('./uiSlice')
+
+    // Act
+    const offered = getAvailableExcludeTypes('local')
+
+    // Assert
+    expect(offered).toEqual(['gstack', 'unique'])
+  })
+
+  it('does NOT offer unique as an exclude while including orphan skills (orphans are never unique)', async () => {
     // Arrange
     const { getAvailableExcludeTypes } = await import('./uiSlice')
 
     // Act
     const offered = getAvailableExcludeTypes('orphan')
 
-    // Assert
+    // Assert — unchanged from before unique existed; guards orphan ∩ unique = ∅.
     expect(offered).toEqual(['gstack'])
   })
 
@@ -1484,6 +1507,60 @@ describe('getAvailableExcludeTypes offered subtractions per include mode', () =>
 
     // Assert
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['orphan'])
+  })
+
+  it('lets the user exclude unique skills while the local include mode is active', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
+      await import('./uiSlice')
+    store.dispatch(setSkillTypeFilter('local'))
+
+    // Act
+    store.dispatch(toggleExcludedSkillTypeFilter('unique'))
+
+    // Assert
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['unique'])
+  })
+
+  it('refuses to exclude unique while the orphan include mode is active', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
+      await import('./uiSlice')
+    store.dispatch(setSkillTypeFilter('orphan'))
+
+    // Act — orphan ∩ unique = ∅, so excluding unique here must be a no-op.
+    store.dispatch(toggleExcludedSkillTypeFilter('unique'))
+
+    // Assert
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
+  })
+
+  it('drops a now-invalid unique exclude when the include filter narrows to orphan', async () => {
+    // Arrange — exclude unique under the permissive "all" include, then narrow.
+    const store = await createTestStore()
+    const { setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
+      await import('./uiSlice')
+    store.dispatch(toggleExcludedSkillTypeFilter('unique'))
+
+    // Act — narrowing to orphan must prune unique (unavailable for orphan).
+    store.dispatch(setSkillTypeFilter('orphan'))
+
+    // Assert
+    expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
+  })
+
+  it('accepts unique as the active include filter', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { setSkillTypeFilter } = await import('./uiSlice')
+
+    // Act
+    store.dispatch(setSkillTypeFilter('unique'))
+
+    // Assert
+    expect(store.getState().ui.skillTypeFilter).toBe('unique')
   })
 })
 

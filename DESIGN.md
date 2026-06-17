@@ -74,6 +74,7 @@ Status colors must remain semantically stable:
 | Orphan / destructive  | `--destructive`          |
 | Local skill type      | Emerald                  |
 | G-Stack skill type    | `--gstack`               |
+| Unique skill type     | Violet (theme-invariant) |
 
 Amber shades — Tailwind ships several amber steps; pin them by role so the
 "needs review" hue stays consistent and reviews don't churn:
@@ -488,6 +489,8 @@ Always pair with a tooltip: `"Protected — cannot be deleted"` (on) / `"Click t
 - Popovers should be visually above panels through shadow and border.
 - Toasts should stay compact, readable, and not shift as timers update.
 - Use motion only for entrance/exit and progress continuity.
+
+**Tooltips — styled vs native.** Use the shadcn `Tooltip` component (themed, fast, the app standard) for hints on standalone trigger elements: icon buttons, agent/skill rows, toggles. **Inside an open Radix menu** (`DropdownMenuItem` / `DropdownMenuRadioItem`), use the native `title` attribute instead — a Radix `Tooltip` nested inside a Radix menu fights the menu's focus/pointer trapping, and the app's `Tooltip` is only ever composed on triggers, never on items within open menu content. The skill-type filter's "Unique" radio item uses `title="Available to only one agent"` for this reason. Reserve hints for labels that aren't self-evident; never tooltip self-explanatory items (see Core Principle: "no obvious tooltips").
 
 ### Bulk Destructive Dialogs with Skipped Items
 
