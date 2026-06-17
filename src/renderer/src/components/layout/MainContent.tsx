@@ -144,12 +144,24 @@ const SKILL_TYPE_FILTER_OPTIONS: {
   label: string
   /** Colored dot class to match skill type visual indicators */
   dotClass?: string
+  /**
+   * Optional hover hint surfaced as a native tooltip. Used for modes whose
+   * label is not self-explanatory (Unique reads as opaque without it) so the
+   * filter is discoverable without docs. @see issue #203
+   */
+  hint?: string
 }[] = [
   { value: 'all', label: 'All' },
   { value: 'symlinked', label: 'Symlinked', dotClass: 'bg-success' },
   { value: 'local', label: 'Local', dotClass: 'bg-emerald-400' },
   { value: 'gstack', label: 'G-Stack', dotClass: 'bg-gstack' },
   { value: 'orphan', label: 'Orphan', dotClass: 'bg-destructive' },
+  {
+    value: 'unique',
+    label: 'Unique',
+    dotClass: 'bg-violet-400',
+    hint: 'Available to only one agent',
+  },
 ]
 
 const EXCLUDABLE_SKILL_TYPE_FILTER_OPTIONS = SKILL_TYPE_FILTER_OPTIONS.filter(
@@ -159,6 +171,7 @@ const EXCLUDABLE_SKILL_TYPE_FILTER_OPTIONS = SKILL_TYPE_FILTER_OPTIONS.filter(
     value: ExcludableSkillTypeFilter
     label: string
     dotClass?: string
+    hint?: string
   } => option.value !== 'all',
 )
 
@@ -634,6 +647,9 @@ export const MainContent = React.memo(
         },
         orphan: () => {
           handleToggleExcludedSkillTypeFilter('orphan')
+        },
+        unique: () => {
+          handleToggleExcludedSkillTypeFilter('unique')
         },
       }),
       [handleToggleExcludedSkillTypeFilter],
@@ -1269,6 +1285,7 @@ export const MainContent = React.memo(
                         <DropdownMenuRadioItem
                           key={option.value}
                           value={option.value}
+                          title={option.hint}
                           className="gap-2"
                         >
                           {option.dotClass ? (

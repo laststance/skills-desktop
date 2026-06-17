@@ -99,6 +99,23 @@ function matchesSkillTypeFilter(
       () =>
         skill.isOrphan === true && skill.symlinks.some(hasSelectedAgentSlot),
     )
+    .with('unique', () => {
+      // "Available to exactly one agent." Count slots the scanner marked usable:
+      // status 'valid' covers both a working symlink and a present real folder
+      // (see symlinkChecker), so a universal skill (many valid symlinks) and a
+      // skill duplicated across agents (>=2 valid slots) are both excluded —
+      // exactly the distinction from 'local'. The agentId equality below
+      // intentionally subsumes the hasSelectedAgentSlot guard the sibling arms
+      // use: if the lone valid slot belongs to the selected agent, the skill is
+      // by definition in this agent's view, so a separate slot guard would be
+      // redundant. Do not add one.
+      const validSlots = skill.symlinks.filter(
+        (slot) => slot.status === 'valid',
+      )
+      return (
+        validSlots.length === 1 && validSlots[0].agentId === selectedAgentId
+      )
+    })
     .exhaustive()
 }
 

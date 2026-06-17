@@ -20,6 +20,7 @@ const SKILL_TYPE_FILTER_LABELS = {
   local: 'local',
   gstack: 'G-Stack',
   orphan: 'orphan',
+  unique: 'unique',
 } as const satisfies Record<SkillTypeFilter, string>
 
 const EXCLUDED_SKILL_TYPE_FILTER_LABELS = {
@@ -27,6 +28,7 @@ const EXCLUDED_SKILL_TYPE_FILTER_LABELS = {
   local: 'local',
   gstack: 'G-Stack',
   orphan: 'orphan',
+  unique: 'unique',
 } as const satisfies Record<ExcludableSkillTypeFilter, string>
 
 /**
@@ -108,7 +110,7 @@ function formatSelectedSourcesPhrase(selectedSources: RepositoryId[]): string {
  * - When `selectedSources` is non-empty: `"No skills from <repo>"` (or
  *   `"the selected repositories"` when more than one repo is selected)
  * - When `selectedAgentId` is set AND `skillTypeFilter !== 'all'`:
- *   `"No <symlinked|local|G-Stack|orphan> skills for this agent"`
+ *   `"No <symlinked|local|G-Stack|orphan|unique> skills for this agent"`
  * - When only `selectedAgentId` is set: `"No skills installed for this agent"`
  * - Otherwise: `"No skills match your filter"`
  * Active excludes append `" while excluding <types>"` to whichever branch wins.

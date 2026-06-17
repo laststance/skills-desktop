@@ -40,13 +40,19 @@ export type BookmarkForDetail = BookmarkedSkill & { isInstalled: boolean }
 
 /** Sort direction for the skill-name sort (A→Z vs Z→A). */
 export type SortOrder = 'asc' | 'desc'
-/** Positive skill-type include mode for the agent-view list filter. */
+/**
+ * Positive skill-type include mode for the agent-view list filter.
+ * `'unique'` = available to exactly one agent (exactly one `status: 'valid'`
+ * slot across all agents); orthogonal to `'local'`, which only asks whether the
+ * slot is a real folder vs a symlink. See `matchesSkillTypeFilter`.
+ */
 export type SkillTypeFilter =
   | 'all'
   | 'symlinked'
   | 'local'
   | 'gstack'
   | 'orphan'
+  | 'unique'
 /** SkillTypeFilter minus `'all'` — the type modes that can be subtracted as excludes. */
 export type ExcludableSkillTypeFilter = Exclude<SkillTypeFilter, 'all'>
 /**
@@ -293,19 +299,25 @@ export const executeSyncAction = createAsyncThunk(
  * @param skillTypeFilter - The active positive include mode.
  * @returns Exclude filters that can subtract at least one possible row.
  * @example
- * getAvailableExcludeTypes('local') // => ['gstack']
+ * getAvailableExcludeTypes('local') // => ['gstack', 'unique']
  */
 export function getAvailableExcludeTypes(
   skillTypeFilter: SkillTypeFilter,
 ): ExcludableSkillTypeFilter[] {
-  // SkillTypeFilter has five include modes; new modes must declare valid exclusions here.
+  // SkillTypeFilter has six include modes; new modes must declare valid exclusions here.
+  // 'unique' (available to exactly one agent) is orthogonal to symlink-shape and
+  // management-status, so it co-occurs with — and can subtract from — every mode
+  // EXCEPT 'orphan': orphan skills carry zero 'valid' slots (skillScanner builds
+  // them broken/missing), so orphan ∩ unique = ∅. The relation is symmetric, so
+  // 'unique' likewise omits 'orphan' from its own exclude list.
   return match(skillTypeFilter)
     .returnType<ExcludableSkillTypeFilter[]>()
-    .with('all', () => ['symlinked', 'local', 'gstack', 'orphan'])
-    .with('symlinked', () => ['gstack', 'orphan'])
-    .with('local', () => ['gstack'])
-    .with('gstack', () => ['symlinked', 'local', 'orphan'])
+    .with('all', () => ['symlinked', 'local', 'gstack', 'orphan', 'unique'])
+    .with('symlinked', () => ['gstack', 'orphan', 'unique'])
+    .with('local', () => ['gstack', 'unique'])
+    .with('gstack', () => ['symlinked', 'local', 'orphan', 'unique'])
     .with('orphan', () => ['gstack'])
+    .with('unique', () => ['symlinked', 'local', 'gstack'])
     .exhaustive()
 }
 
