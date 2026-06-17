@@ -323,6 +323,33 @@ async function trashUnprotectedAgentEntry(
 }
 
 /**
+ * Re-check the reviewed agent skills directory before each child deletion so same-path replacement cannot redirect the loop while child mutations update directory timestamps.
+ * @param agentPath - Reviewed agent skills directory.
+ * @param reviewedIdentity - Filesystem identity captured when the dialog opened.
+ * @returns void when the parent still matches the reviewed real directory.
+ * @example await assertReviewedAgentFolderStillCurrent('/Users/me/.cursor/skills', identity)
+ */
+async function assertReviewedAgentFolderStillCurrent(
+  agentPath: AbsolutePath,
+  reviewedIdentity: FilesystemEntryIdentity,
+): Promise<void> {
+  let parentStats: Stats
+  try {
+    parentStats = await fs.lstat(agentPath)
+  } catch {
+    throw new Error('Reviewed agent skills folder changed since review.')
+  }
+
+  if (
+    !parentStats.isDirectory() ||
+    parentStats.isSymbolicLink() ||
+    !isSameFilesystemIdentity(parentStats, reviewedIdentity)
+  ) {
+    throw new Error('Reviewed agent skills folder changed since review.')
+  }
+}
+
+/**
  * Remove an agent symlink path after the caller has already validated and
  * lstat'd it. Directories are refused here so destructive local-folder removal
  * remains isolated to the single-unlink confirmation path.
@@ -869,7 +896,7 @@ export function registerSkillsHandlers(): void {
       )
       let entries: string[] = []
       try {
-        entries = await fs.readdir(derivedAgentPath)
+        entries = (await fs.readdir(derivedAgentPath)).sort()
       } catch (error) {
         if (protectedSlotPaths.size > 0) {
           throw new Error(
@@ -888,6 +915,13 @@ export function registerSkillsHandlers(): void {
       if (protectedExistingPaths.size > 0) {
         let removedCount = 0
         for (const entryName of entries) {
+          // The parent folder can be replaced between readdir() and child
+          // deletion; re-check it before each mutation so the loop cannot
+          // follow a fresh symlink into an unrelated directory.
+          await assertReviewedAgentFolderStillCurrent(
+            derivedAgentPath,
+            options.filesystemIdentity,
+          )
           const entryPath = join(derivedAgentPath, entryName) as AbsolutePath
           // Protected entries stay in place so the folder remains usable.
           if (protectedExistingPaths.has(resolve(entryPath))) continue

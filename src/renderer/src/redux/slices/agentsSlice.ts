@@ -67,32 +67,37 @@ function collectProtectedAgentSlotPaths(
  * @param agent - Agent whose skills folder will be deleted
  * @returns Agent name and removed item count for toast notification
  */
-export const removeAllSymlinksFromAgent = createAsyncThunk(
-  'agents/removeAllSymlinks',
-  async (agent: Agent, { getState }) => {
-    if (!agent.filesystemIdentity) {
-      throw new Error(
-        'Agent skills folder changed since review. Rescan before deleting.',
-      )
-    }
-    const state = getState() as RootState
-    const protectedSkillPaths = collectProtectedAgentSlotPaths(state, agent)
-    const result = await window.electron.skills.removeAllFromAgent({
-      agentId: agent.id,
-      agentPath: agent.path,
-      filesystemIdentity: agent.filesystemIdentity,
-      protectedSkillPaths,
-    })
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to delete skills folder')
-    }
-    return {
-      agentName: agent.name,
-      removedCount: result.removedCount,
-      preservedCount: result.preservedCount ?? 0,
-    }
+export const removeAllSymlinksFromAgent = createAsyncThunk<
+  {
+    agentName: Agent['name']
+    removedCount: number
+    preservedCount: number
   },
-)
+  Agent,
+  { state: RootState }
+>('agents/removeAllSymlinks', async (agent, { getState }) => {
+  if (!agent.filesystemIdentity) {
+    throw new Error(
+      'Agent skills folder changed since review. Rescan before deleting.',
+    )
+  }
+  const state = getState()
+  const protectedSkillPaths = collectProtectedAgentSlotPaths(state, agent)
+  const result = await window.electron.skills.removeAllFromAgent({
+    agentId: agent.id,
+    agentPath: agent.path,
+    filesystemIdentity: agent.filesystemIdentity,
+    protectedSkillPaths,
+  })
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to delete skills folder')
+  }
+  return {
+    agentName: agent.name,
+    removedCount: result.removedCount,
+    preservedCount: result.preservedCount ?? 0,
+  }
+})
 
 const agentsSlice = createSlice({
   name: 'agents',
