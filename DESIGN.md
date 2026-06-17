@@ -184,6 +184,14 @@ output. Theme changes re-render the preview live across windows through the
 `settings:changed` broadcast. Curated pairs are the only surface — do not expose
 raw single-theme selection; a pair guarantees both light and dark legibility.
 
+Re-highlighting is async (Shiki resolves off the render path). On a **theme-only**
+change, keep the already-highlighted output mounted until the new render resolves,
+then swap colored → colored — never blank the pane to the plain-text fallback
+mid-swap. That blanking flash is the FOUC fixed in #221. Drop to the plain-text
+fallback only on a genuine **content or language** change, where there is no prior
+colored output worth preserving (and bleeding the previous file's colors would be
+wrong). The same rule generalizes: see Motion.
+
 ## Spacing and Layout
 
 The base grid is 4px. Keep spacing small but breathable.
@@ -284,6 +292,11 @@ Avoid:
 - Hover scale on dense controls.
 - Bouncy easing.
 - Animations that delay destructive actions or bulk workflows.
+- Flashing a plain or unstyled intermediate state while asynchronously
+  re-rendering already-styled content (theme swaps, syntax re-highlight,
+  re-fetch of an already-painted view). Hold the prior styled output until the
+  new render resolves; blank to a fallback only when there is no prior output to
+  keep. See Code theme for the canonical case (#221).
 
 Respect `prefers-reduced-motion`; transitions should be removable without
 changing layout or meaning.
