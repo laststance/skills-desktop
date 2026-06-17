@@ -14,6 +14,7 @@ import type {
 } from '@/shared/types'
 
 import { selectBookmarkItems } from './slices/bookmarkSlice'
+import { selectProtectedNamesSet } from './slices/protectSlice'
 import {
   selectInFlightDeleteNames,
   selectSelectedSkillNames,
@@ -481,15 +482,18 @@ export const selectVisibleSkillNames = createSelector(
  * Detect whether a visible agent-view row can use the reviewed bulk Unlink path.
  * @param skill - Visible skill row.
  * @param selectedAgentId - Active agent filter; null means global delete flow.
+ * @param protectedNames - Skill names locked by the user.
  * @returns True when bulk action can safely include this row.
  * @example
- * isBulkSelectableSkill(validSkill, 'cursor') // => true
+ * isBulkSelectableSkill(validSkill, 'cursor', new Set()) // => true
  */
 function isBulkSelectableSkill(
   skill: Skill,
   selectedAgentId: AgentId | null,
+  protectedNames: ReadonlySet<SkillName>,
 ): boolean {
   if (selectedAgentId === null) return true
+  if (protectedNames.has(skill.name)) return false
 
   return skill.symlinks.some(
     (symlink) =>
@@ -508,10 +512,12 @@ function isBulkSelectableSkill(
  * const names = useAppSelector(selectBulkSelectableVisibleSkillNames)
  */
 export const selectBulkSelectableVisibleSkillNames = createSelector(
-  [selectFilteredSkills, selectSelectedAgentId],
-  (filteredSkills, selectedAgentId): SkillName[] =>
+  [selectFilteredSkills, selectSelectedAgentId, selectProtectedNamesSet],
+  (filteredSkills, selectedAgentId, protectedNames): SkillName[] =>
     filteredSkills
-      .filter((skill) => isBulkSelectableSkill(skill, selectedAgentId))
+      .filter((skill) =>
+        isBulkSelectableSkill(skill, selectedAgentId, protectedNames),
+      )
       .map((skill) => skill.name),
 )
 

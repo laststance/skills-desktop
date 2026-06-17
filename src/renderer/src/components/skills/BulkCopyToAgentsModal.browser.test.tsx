@@ -143,6 +143,8 @@ async function renderModal(options: {
     await import('@/renderer/src/redux/slices/agentsSlice')
   const { default: uiReducer } =
     await import('@/renderer/src/redux/slices/uiSlice')
+  const { default: protectReducer } =
+    await import('@/renderer/src/redux/slices/protectSlice')
   const { BulkCopyToAgentsModal } = await import('./BulkCopyToAgentsModal')
 
   const store = configureStore({
@@ -150,6 +152,7 @@ async function renderModal(options: {
       skills: skillsReducer,
       agents: agentsReducer,
       ui: uiReducer,
+      protect: protectReducer,
     },
   })
 
