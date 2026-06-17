@@ -292,11 +292,8 @@ Avoid:
 - Hover scale on dense controls.
 - Bouncy easing.
 - Animations that delay destructive actions or bulk workflows.
-- Flashing a plain or unstyled intermediate state while asynchronously
-  re-rendering already-styled content (theme swaps, syntax re-highlight,
-  re-fetch of an already-painted view). Hold the prior styled output until the
-  new render resolves; blank to a fallback only when there is no prior output to
-  keep. See Code theme for the canonical case (#221).
+- Flashing a plain or unstyled state while re-rendering already-styled content
+  (theme swap, syntax re-highlight, re-fetch of a painted view); see Code theme (#221).
 
 Respect `prefers-reduced-motion`; transitions should be removable without
 changing layout or meaning.

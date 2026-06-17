@@ -196,8 +196,7 @@ const SyntaxHighlightedCode = React.memo(function SyntaxHighlightedCode({
 
   useCycleEffect(() => {
     let cancelled = false
-    // Only blank on a genuine source change; a theme-only switch keeps the
-    // previous colored HTML visible until the new theme finishes highlighting.
+    // Blank only on a genuine source change (rationale on highlightedSourceRef above).
     const sourceChanged =
       highlightedSourceRef.current === null ||
       highlightedSourceRef.current.content !== content ||
