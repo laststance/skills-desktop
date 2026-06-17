@@ -24,7 +24,15 @@ vi.stubGlobal('window', {
 
 async function createTestStore() {
   const { default: agentsReducer } = await import('./agentsSlice')
-  return configureStore({ reducer: { agents: agentsReducer } })
+  const { default: skillsReducer } = await import('./skillsSlice')
+  const { default: protectReducer } = await import('./protectSlice')
+  return configureStore({
+    reducer: {
+      agents: agentsReducer,
+      skills: skillsReducer,
+      protect: protectReducer,
+    },
+  })
 }
 
 const sampleAgent: Agent = {
@@ -151,6 +159,7 @@ describe('agentsSlice', () => {
       agentId: 'claude-code',
       agentPath: '/home/user/.claude/skills',
       filesystemIdentity: directoryIdentity,
+      protectedSkillPaths: [],
     })
   })
 

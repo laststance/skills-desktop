@@ -216,6 +216,7 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       agentId: nonEmptyString,
       agentPath: absolutePathArg,
       filesystemIdentity: filesystemEntryIdentitySchema,
+      protectedSkillPaths: z.array(absolutePathArg).optional(),
     }),
   ]),
   'skills:deleteSkill': z.tuple([

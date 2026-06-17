@@ -898,9 +898,8 @@ export interface UnlinkResult {
 }
 
 /**
- * IPC argument for `skills:removeAllFromAgent` — wipes everything inside a single
- * agent's skills directory (used when resetting an agent).
- * @example { agentId: 'claude-code', agentPath: '/Users/me/.claude/skills' }
+ * IPC argument for `skills:removeAllFromAgent` — wipes one agent skills folder, unless protected slot paths are supplied so those direct children are left behind.
+ * @example { agentId: 'claude-code', agentPath: '/Users/me/.claude/skills', protectedSkillPaths: ['/Users/me/.claude/skills/locked'] }
  */
 export interface RemoveAllFromAgentOptions {
   /** Agent whose skills directory will be cleared. */
@@ -909,17 +908,21 @@ export interface RemoveAllFromAgentOptions {
   agentPath: AbsolutePath
   /** Review-time directory identity for the agent skills folder. */
   filesystemIdentity: FilesystemEntryIdentity
+  /** Protected direct-child slots to preserve when deleting the agent folder. */
+  protectedSkillPaths?: AbsolutePath[]
 }
 
 /**
  * Result from clearing an agent's skills folder.
- * @example { success: true, removedCount: 5 }
+ * @example { success: true, removedCount: 5, preservedCount: 1 }
  */
 export interface RemoveAllFromAgentResult {
   /** true if the folder was emptied successfully. */
   success: boolean
   /** Number of entries (symlinks and local folders) removed. @example 5 */
   removedCount: SkillCount
+  /** Number of protected entries intentionally left in the folder. @example 1 */
+  preservedCount?: SkillCount
   /** Failure reason when `success` is false. */
   error?: string
 }
