@@ -1,5 +1,5 @@
 import { BookOpenText, Code2, FileQuestion } from 'lucide-react'
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { match } from 'ts-pattern'
@@ -183,10 +183,29 @@ const SyntaxHighlightedCode = React.memo(function SyntaxHighlightedCode({
 }: SyntaxHighlightedCodeProps): React.ReactElement {
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null)
   const plainTextLines = useMemo(() => content.split('\n'), [content])
+  // Identifies which (content + language) the live `highlightedHtml` belongs to.
+  // A theme-only re-highlight leaves this unchanged, so the existing colored
+  // output stays mounted and is swapped only when the new theme resolves —
+  // blanking it first would flash the plain-text fallback (FOUC, #221). A
+  // content/language change DOES update this, so the pane blanks to plain text
+  // and never bleeds the previous file's colors into the new file's preview.
+  const highlightedSourceRef = useRef<{
+    content: string
+    language: string
+  } | null>(null)
 
   useCycleEffect(() => {
     let cancelled = false
-    setHighlightedHtml(null)
+    // Only blank on a genuine source change; a theme-only switch keeps the
+    // previous colored HTML visible until the new theme finishes highlighting.
+    const sourceChanged =
+      highlightedSourceRef.current === null ||
+      highlightedSourceRef.current.content !== content ||
+      highlightedSourceRef.current.language !== language
+    if (sourceChanged) {
+      setHighlightedHtml(null)
+    }
+    highlightedSourceRef.current = { content, language }
     // Resolve inside the effect so a theme change re-runs highlighting; the
     // light/dark keys feed the --shiki-light / --shiki-dark CSS var bridge.
     const codeTheme = resolveCodeTheme(codeThemeId)
