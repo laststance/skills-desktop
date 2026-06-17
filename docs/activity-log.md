@@ -21,7 +21,7 @@ Persistence is **owned by the main process**, mirroring `settings.ts`. The
 renderer never touches the file; it caches a copy in Redux and converges via an
 IPC broadcast.
 
-```
+```text
  mutation handler (skills.ts / sync.ts)
         │  recordActivityEvents([...])         ← flag-gated, never throws
         ▼

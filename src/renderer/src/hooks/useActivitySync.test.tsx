@@ -221,4 +221,24 @@ describe('useActivitySync', () => {
       payload: SNAPSHOT_EVENTS,
     })
   })
+
+  it('logs and swallows a failed initial hydration instead of throwing an unhandled rejection', async () => {
+    // Arrange — the `activity:list` IPC rejects; the hydrate path must catch it.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    listMock.mockRejectedValue(new Error('IPC down'))
+
+    // Act — mount, then flush the rejected list() → .catch microtask chain.
+    await mountHook()
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    // Assert — the failure was logged, nothing was dispatched, nothing threw.
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[activity] failed to hydrate from main:',
+      expect.anything(),
+    )
+    expect(dispatchSpy).not.toHaveBeenCalled()
+    warnSpy.mockRestore()
+  })
 })

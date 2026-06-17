@@ -31,11 +31,19 @@ export function useActivitySync(): void {
 
     let isCancelled = false
 
-    void window.electron.activity.list().then((events) => {
-      // Skip the late write if the component unmounted between the IPC call
-      // and its resolution (same cleanup contract as useSettingsSync).
-      if (!isCancelled) dispatch(setActivityEvents(events))
-    })
+    void window.electron.activity
+      .list()
+      .then((events) => {
+        // Skip the late write if the component unmounted between the IPC call
+        // and its resolution (same cleanup contract as useSettingsSync).
+        if (!isCancelled) dispatch(setActivityEvents(events))
+      })
+      .catch((err) => {
+        // Hydration is best-effort: a failed initial list must not surface as
+        // an unhandled rejection. Live updates still arrive via
+        // `activity:changed`, so the timeline just starts empty this session.
+        console.warn('[activity] failed to hydrate from main:', err)
+      })
 
     const unsubscribe = window.electron.activity.onChanged((events) => {
       dispatch(setActivityEvents(events))

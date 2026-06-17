@@ -183,6 +183,66 @@ describe('activity log persistence', () => {
         readFile(join(userDataDir, 'activity-log.json'), 'utf8'),
       ).rejects.toThrow()
     })
+
+    it('keeps every event when many appends race instead of dropping all but the last', async () => {
+      // Arrange
+      const { appendActivityEvents, getActivityLog } =
+        await importFreshActivityLog()
+
+      // Act: fire 20 appends at once WITHOUT awaiting between them — the exact
+      // interleaving where a naive read-modify-write lets each call read the
+      // same starting log and the last writer clobbers the other 19.
+      await Promise.all(
+        Array.from({ length: 20 }, async (_unused, index) =>
+          appendActivityEvents([
+            { type: 'created', skillName: `concurrent-${index}` },
+          ]),
+        ),
+      )
+
+      // Assert: all 20 distinct events survived in both the cache and on disk.
+      const log = getActivityLog()
+      expect(log).toHaveLength(20)
+      expect(new Set(log.map((event) => event.skillName)).size).toBe(20)
+      const onDisk = JSON.parse(
+        await readFile(join(userDataDir, 'activity-log.json'), 'utf8'),
+      )
+      expect(onDisk).toHaveLength(20)
+    })
+
+    it('keeps the queue alive so an append after a failed one still persists', async () => {
+      // Arrange: point userData at a regular FILE so the first append's mkdir
+      // rejects — without the chain's error-swallow this would wedge every
+      // later append.
+      const { appendActivityEvents } = await importFreshActivityLog()
+      const blockingFile = join(userDataDir, 'blocker')
+      await writeFile(blockingFile, 'x', 'utf8')
+      electronUserData.dir = blockingFile
+
+      // Act: the first append fails...
+      await expect(
+        appendActivityEvents([{ type: 'created', skillName: 'doomed' }]),
+      ).rejects.toThrow()
+
+      // ...then a real dir is restored and a second append runs.
+      electronUserData.dir = userDataDir
+      const log = await appendActivityEvents([
+        { type: 'created', skillName: 'after-failure' },
+      ])
+
+      // Assert: the post-failure append succeeded and persisted (queue not wedged).
+      expect(log.some((event) => event.skillName === 'after-failure')).toBe(
+        true,
+      )
+      const onDisk = JSON.parse(
+        await readFile(join(userDataDir, 'activity-log.json'), 'utf8'),
+      )
+      expect(
+        onDisk.some(
+          (event: { skillName: string }) => event.skillName === 'after-failure',
+        ),
+      ).toBe(true)
+    })
   })
 
   describe('listActivityEvents', () => {

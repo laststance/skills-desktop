@@ -22,6 +22,18 @@ import { MAX_ACTIVITY_EVENTS } from '@/shared/constants'
 let cache: ActivityLog | null = null
 
 /**
+ * Serializes {@link appendActivityEvents}: each append chains onto the previous
+ * one so the read-modify-write inside it can't interleave. Two concurrent
+ * appends would otherwise both read the same `cache`, and the second to finish
+ * would overwrite the first — silently dropping events from both the cache and
+ * the file (a lost update).
+ */
+let appendChain: Promise<unknown> = Promise.resolve()
+
+/** Monotonic counter for unique temp-file names, so no two writes share a `.tmp`. */
+let tempWriteCounter = 0
+
+/**
  * Resolves the on-disk path for `activity-log.json`. Lazy because
  * `app.getPath('userData')` is only valid after `app.whenReady()`; calling it
  * at module-load time crashes Electron in tests.
@@ -100,7 +112,9 @@ export function listActivityEvents(options?: ActivityListOptions): ActivityLog {
  * One write per batch — callers that touch many skill×agent pairs in a single
  * operation (e.g. a sync) must pass one summary event, not N, to avoid both
  * flooding the log and fanning out N atomic rewrites. The capped ring buffer
- * drops the oldest events past `MAX_ACTIVITY_EVENTS`.
+ * drops the oldest events past `MAX_ACTIVITY_EVENTS`. Concurrent calls are
+ * serialized (see {@link appendChain}) so an interleaved read-modify-write can
+ * never lose an event.
  * @param inputs - Events without `id`/`timestamp`; both are stamped here.
  * @returns
  * - The new full newest-first log (also updates the cache).
@@ -109,6 +123,32 @@ export function listActivityEvents(options?: ActivityListOptions): ActivityLog {
  * await appendActivityEvents([{ type: 'created', skillName: 'azure-ai', agentName: 'Claude Code' }])
  */
 export async function appendActivityEvents(
+  inputs: ActivityEventInput[],
+): Promise<ActivityLog> {
+  // Chain onto the previous append so the read-modify-write in
+  // `appendActivityEventsUnsafe` is serialized — concurrent callers (e.g. a
+  // sync and a delete firing from different windows) would otherwise lost-update
+  // each other. The chain swallows the prior result/error so one failed append
+  // cannot wedge every later one.
+  const run = appendChain.then(async () => appendActivityEventsUnsafe(inputs))
+  appendChain = run.then(
+    () => undefined,
+    () => undefined,
+  )
+  return run
+}
+
+/**
+ * The raw read-modify-write behind {@link appendActivityEvents}. NOT safe to
+ * call concurrently — always go through `appendActivityEvents`, which serializes
+ * it. Stamps `id`/`timestamp`, prepends the batch, caps the ring buffer, then
+ * persists the whole file atomically (unique temp file + rename).
+ * @param inputs - Events without `id`/`timestamp`; both are stamped here.
+ * @returns The new full newest-first log, or the unchanged log for an empty batch.
+ * @example
+ * await appendActivityEventsUnsafe([{ type: 'created', skillName: 'azure-ai' }])
+ */
+async function appendActivityEventsUnsafe(
   inputs: ActivityEventInput[],
 ): Promise<ActivityLog> {
   const current = getActivityLog()
@@ -126,7 +166,9 @@ export async function appendActivityEvents(
   // preserved within the batch), then the tail past the cap is dropped.
   const next = [...stamped, ...current].slice(0, MAX_ACTIVITY_EVENTS)
   const target = activityLogFilePath()
-  const tempPath = `${target}.tmp`
+  // Unique temp name per write (pid + counter) so an unexpected overlap can't
+  // have two writers racing on one `.tmp` before the atomic rename.
+  const tempPath = `${target}.${process.pid}.${(tempWriteCounter += 1)}.tmp`
   // Ensure userData dir exists — first run on a fresh profile may lack it.
   await fs.mkdir(app.getPath('userData'), { recursive: true })
   await fs.writeFile(tempPath, JSON.stringify(next, null, 2), 'utf8')
