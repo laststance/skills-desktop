@@ -3,7 +3,7 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
-import type { Agent, FilesystemEntryIdentity } from '@/shared/types'
+import type { Agent, FilesystemEntryIdentity, Skill } from '@/shared/types'
 
 const mockRemoveAllFromAgent = vi.fn()
 const mockSkillsGetAll = vi.fn()
@@ -95,6 +95,8 @@ async function renderDeleteDialog(options: { agent?: Agent } = {}) {
     await import('@/renderer/src/redux/slices/agentsSlice')
   const { default: skillsReducer } =
     await import('@/renderer/src/redux/slices/skillsSlice')
+  const { default: protectReducer } =
+    await import('@/renderer/src/redux/slices/protectSlice')
   const { default: uiReducer } =
     await import('@/renderer/src/redux/slices/uiSlice')
   const { setAgentToDelete } =
@@ -105,6 +107,7 @@ async function renderDeleteDialog(options: { agent?: Agent } = {}) {
     reducer: {
       agents: agentsReducer,
       skills: skillsReducer,
+      protect: protectReducer,
       ui: uiReducer,
     },
   })
@@ -148,6 +151,59 @@ describe('AgentDeleteDialog confirm action', () => {
     await expect
       .poll(() => mockAgentsGetAll.mock.calls.length)
       .toBeGreaterThan(0)
+  })
+
+  it('sends protected agent slot paths so folder delete preserves them', async () => {
+    // Arrange
+    mockRemoveAllFromAgent.mockResolvedValue({
+      success: true,
+      removedCount: 1,
+      preservedCount: 1,
+    })
+    const agent = makeAgent({ name: 'Claude Code' as Agent['name'] })
+    const protectedSkill: Skill = {
+      name: 'protected-task',
+      description: 'Protected task',
+      path: '/Users/test/.agents/skills/protected-task',
+      symlinkCount: 1,
+      symlinks: [
+        {
+          agentId: 'claude-code',
+          agentName: 'Claude Code',
+          status: 'valid',
+          targetPath: '/Users/test/.agents/skills/protected-task',
+          linkPath: '/Users/test/.claude/skills/folder-basename',
+          isLocal: false,
+        },
+      ],
+      isSource: true,
+      isOrphan: false,
+    }
+    const { screen, store } = await renderDeleteDialog({ agent })
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { addProtection } =
+      await import('@/renderer/src/redux/slices/protectSlice')
+    store.dispatch(fetchSkills.fulfilled([protectedSkill], 'skills-request'))
+    store.dispatch(addProtection('protected-task'))
+
+    // Act
+    await screen.getByRole('button', { name: /^Delete$/i }).click()
+
+    // Assert
+    await expect
+      .poll(() => mockRemoveAllFromAgent.mock.calls.length)
+      .toBeGreaterThan(0)
+    expect(mockRemoveAllFromAgent).toHaveBeenCalledWith({
+      agentId: 'claude-code',
+      agentPath: '/Users/test/.claude/skills',
+      filesystemIdentity: directoryIdentity,
+      protectedSkillPaths: ['/Users/test/.claude/skills/folder-basename'],
+    })
+    expect(mockToastSuccess).toHaveBeenCalledWith(
+      'Deleted unprotected skills for Claude Code',
+      { description: 'Removed 1 items; kept 1 protected' },
+    )
   })
 
   it('surfaces the IPC failure reason in an error toast when deletion fails', async () => {

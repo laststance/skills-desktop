@@ -2,7 +2,7 @@ import type { PayloadAction } from '@reduxjs/toolkit'
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 
 import type { RootState } from '@/renderer/src/redux/store'
-import type { Agent } from '@/shared/types'
+import type { AbsolutePath, Agent } from '@/shared/types'
 
 /**
  * Redux state for the Agents feature area.
@@ -38,29 +38,66 @@ export const fetchAgents = createAsyncThunk('agents/fetchAll', async () => {
 })
 
 /**
+ * Collect protected slots that physically live inside the selected agent folder so main can preserve those direct children while deleting everything else.
+ * @param state - Current Redux state containing protected names and scanned skills.
+ * @param agent - Agent whose skills folder is being deleted.
+ * @returns Absolute agent slot paths that should survive folder deletion.
+ * @example collectProtectedAgentSlotPaths(state, cursorAgent)
+ */
+function collectProtectedAgentSlotPaths(
+  state: RootState,
+  agent: Agent,
+): AbsolutePath[] {
+  const protectedNames = new Set(state.protect.items)
+
+  return state.skills.items
+    .filter((skill) => protectedNames.has(skill.name))
+    .flatMap((skill) =>
+      skill.symlinks
+        .filter(
+          (symlink) =>
+            symlink.agentId === agent.id && symlink.status !== 'missing',
+        )
+        .map((symlink) => symlink.linkPath),
+    )
+}
+
+/**
  * Delete a specific agent's entire skills folder
  * @param agent - Agent whose skills folder will be deleted
  * @returns Agent name and removed item count for toast notification
  */
-export const removeAllSymlinksFromAgent = createAsyncThunk(
-  'agents/removeAllSymlinks',
-  async (agent: Agent) => {
-    if (!agent.filesystemIdentity) {
-      throw new Error(
-        'Agent skills folder changed since review. Rescan before deleting.',
-      )
-    }
-    const result = await window.electron.skills.removeAllFromAgent({
-      agentId: agent.id,
-      agentPath: agent.path,
-      filesystemIdentity: agent.filesystemIdentity,
-    })
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to delete skills folder')
-    }
-    return { agentName: agent.name, removedCount: result.removedCount }
+export const removeAllSymlinksFromAgent = createAsyncThunk<
+  {
+    agentName: Agent['name']
+    removedCount: number
+    preservedCount: number
   },
-)
+  Agent,
+  { state: RootState }
+>('agents/removeAllSymlinks', async (agent, { getState }) => {
+  if (!agent.filesystemIdentity) {
+    throw new Error(
+      'Agent skills folder changed since review. Rescan before deleting.',
+    )
+  }
+  const state = getState()
+  const protectedSkillPaths = collectProtectedAgentSlotPaths(state, agent)
+  const result = await window.electron.skills.removeAllFromAgent({
+    agentId: agent.id,
+    agentPath: agent.path,
+    filesystemIdentity: agent.filesystemIdentity,
+    protectedSkillPaths,
+  })
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to delete skills folder')
+  }
+  return {
+    agentName: agent.name,
+    removedCount: result.removedCount,
+    preservedCount: result.preservedCount ?? 0,
+  }
+})
 
 const agentsSlice = createSlice({
   name: 'agents',

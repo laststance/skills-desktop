@@ -1,4 +1,4 @@
-import { lstat, mkdir, mkdtemp, rm, symlink } from 'node:fs/promises'
+import { lstat, mkdir, mkdtemp, readdir, rm, symlink } from 'node:fs/promises'
 import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -33,10 +33,12 @@ function getRegisteredHandler(channel: string): (
     agentId: string
     agentPath: string
     filesystemIdentity?: FilesystemEntryIdentity
+    protectedSkillPaths?: string[]
   },
 ) => Promise<{
   success: boolean
   removedCount: number
+  preservedCount?: number
   error?: string
 }> {
   const registration = handleMock.mock.calls.find(([name]) => name === channel)
@@ -49,10 +51,12 @@ function getRegisteredHandler(channel: string): (
       agentId: string
       agentPath: string
       filesystemIdentity?: FilesystemEntryIdentity
+      protectedSkillPaths?: string[]
     },
   ) => Promise<{
     success: boolean
     removedCount: number
+    preservedCount?: number
     error?: string
   }>
 }
@@ -251,6 +255,99 @@ describe('skills:removeAllFromAgent handler', () => {
     expect(String(trashItemMock.mock.calls[0][0])).toContain(
       join(tempHome, '.cursor', 'skills.trash-'),
     )
+  })
+
+  it('keeps only protected skill entries when deleting an agent folder with protected skills', async () => {
+    // Arrange
+    trashItemMock.mockImplementation(async (path: string) => {
+      await rm(path, { recursive: true, force: true })
+    })
+    const cursorDir = join(tempHome, '.cursor', 'skills')
+    const sourceDir = join(tempHome, '.agents', 'skills')
+    const protectedSource = join(sourceDir, 'protected-source')
+    const unprotectedSource = join(sourceDir, 'unprotected-source')
+    const protectedLink = join(cursorDir, 'protected-link')
+    const protectedLocal = join(cursorDir, 'protected-local')
+    await mkdir(protectedSource, { recursive: true })
+    await mkdir(unprotectedSource, { recursive: true })
+    await mkdir(protectedLocal, { recursive: true })
+    await mkdir(join(cursorDir, 'unprotected-local'), { recursive: true })
+    await symlink(protectedSource, protectedLink)
+    await symlink(unprotectedSource, join(cursorDir, 'unprotected-link'))
+
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+
+    // Act
+    const handler = getRegisteredHandler('skills:removeAllFromAgent')
+    const result = await handler(
+      {},
+      {
+        agentId: 'cursor',
+        agentPath: cursorDir,
+        filesystemIdentity: await reviewedIdentity(cursorDir),
+        protectedSkillPaths: [protectedLink, protectedLocal],
+      },
+    )
+
+    // Assert
+    expect(result).toEqual({
+      success: true,
+      removedCount: 2,
+      preservedCount: 2,
+    })
+    await expect(
+      readdir(cursorDir).then((entries) => entries.sort()),
+    ).resolves.toEqual(['protected-link', 'protected-local'])
+    await expect(lstat(protectedLink)).resolves.toBeDefined()
+    await expect(lstat(protectedLocal)).resolves.toBeDefined()
+    await expect(lstat(join(cursorDir, 'unprotected-link'))).rejects.toThrow(
+      /ENOENT/,
+    )
+    await expect(lstat(join(cursorDir, 'unprotected-local'))).rejects.toThrow(
+      /ENOENT/,
+    )
+    expect(trashItemMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('stops protected-folder deletion before a swapped parent symlink can redirect the next child delete', async () => {
+    // Arrange
+    const cursorDir = join(tempHome, '.cursor', 'skills')
+    const evilDir = join(tempHome, 'evil-target')
+    const protectedLocal = join(cursorDir, 'z-protected-local')
+    trashItemMock.mockImplementationOnce(async (path: string) => {
+      await rm(path, { recursive: true, force: true })
+      await rm(cursorDir, { recursive: true, force: true })
+      await symlink(evilDir, cursorDir, 'dir')
+    })
+    await mkdir(join(cursorDir, 'a-unprotected-local'), { recursive: true })
+    await mkdir(join(cursorDir, 'b-unprotected-local'), { recursive: true })
+    await mkdir(protectedLocal, { recursive: true })
+    await mkdir(join(evilDir, 'b-unprotected-local'), { recursive: true })
+    const cursorIdentity = await reviewedIdentity(cursorDir)
+
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+
+    // Act
+    const handler = getRegisteredHandler('skills:removeAllFromAgent')
+    const result = await handler(
+      {},
+      {
+        agentId: 'cursor',
+        agentPath: cursorDir,
+        filesystemIdentity: cursorIdentity,
+        protectedSkillPaths: [protectedLocal],
+      },
+    )
+
+    // Assert
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/changed since review/i)
+    await expect(
+      lstat(join(evilDir, 'b-unprotected-local')),
+    ).resolves.toBeDefined()
+    expect(trashItemMock).toHaveBeenCalledTimes(1)
   })
 
   it('rejects a same-path replacement before moving the agent dir to OS Trash', async () => {

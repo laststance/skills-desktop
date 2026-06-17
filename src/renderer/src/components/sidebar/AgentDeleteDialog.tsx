@@ -30,9 +30,21 @@ export const AgentDeleteDialog = React.memo(
       const result = await dispatch(removeAllSymlinksFromAgent(agentToDelete))
 
       if (removeAllSymlinksFromAgent.fulfilled.match(result)) {
-        toast.success(`Deleted skills folder for ${result.payload.agentName}`, {
-          description: `Removed ${result.payload.removedCount} items`,
-        })
+        if (result.payload.preservedCount > 0) {
+          toast.success(
+            `Deleted unprotected skills for ${result.payload.agentName}`,
+            {
+              description: `Removed ${result.payload.removedCount} items; kept ${result.payload.preservedCount} protected`,
+            },
+          )
+        } else {
+          toast.success(
+            `Deleted skills folder for ${result.payload.agentName}`,
+            {
+              description: `Removed ${result.payload.removedCount} items`,
+            },
+          )
+        }
         refreshAllData(dispatch)
       } else {
         toast.error('Failed to delete skills folder', {

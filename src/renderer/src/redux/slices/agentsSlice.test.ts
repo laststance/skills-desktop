@@ -24,7 +24,31 @@ vi.stubGlobal('window', {
 
 async function createTestStore() {
   const { default: agentsReducer } = await import('./agentsSlice')
-  return configureStore({ reducer: { agents: agentsReducer } })
+  const { default: bookmarkReducer } = await import('./bookmarkSlice')
+  const { default: dashboardReducer } = await import('./dashboardSlice')
+  const { default: marketplaceReducer } = await import('./marketplaceSlice')
+  const { default: protectReducer } = await import('./protectSlice')
+  const { default: settingsReducer } = await import('./settingsSlice')
+  const { default: skillsReducer } = await import('./skillsSlice')
+  const { default: themeReducer } = await import('./themeSlice')
+  const { default: uiReducer } = await import('./uiSlice')
+  const { default: updateReducer } = await import('./updateSlice')
+  const { default: widgetPickerReducer } = await import('./widgetPickerSlice')
+  return configureStore({
+    reducer: {
+      theme: themeReducer,
+      skills: skillsReducer,
+      agents: agentsReducer,
+      bookmarks: bookmarkReducer,
+      protect: protectReducer,
+      ui: uiReducer,
+      update: updateReducer,
+      marketplace: marketplaceReducer,
+      dashboard: dashboardReducer,
+      widgetPicker: widgetPickerReducer,
+      settings: settingsReducer,
+    },
+  })
 }
 
 const sampleAgent: Agent = {
@@ -151,6 +175,7 @@ describe('agentsSlice', () => {
       agentId: 'claude-code',
       agentPath: '/home/user/.claude/skills',
       filesystemIdentity: directoryIdentity,
+      protectedSkillPaths: [],
     })
   })
 

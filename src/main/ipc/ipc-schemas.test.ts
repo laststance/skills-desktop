@@ -453,9 +453,21 @@ describe('destructive reviewed-path IPC schemas', () => {
           agentId: 'cursor',
           agentPath: '/tmp/.cursor/skills',
           filesystemIdentity: directoryIdentity,
+          protectedSkillPaths: ['/tmp/.cursor/skills/locked'],
         },
       ]).success,
     ).toBe(true)
+    // Act / Assert — protected paths still must be absolute.
+    expect(
+      removeAllSchema.safeParse([
+        {
+          agentId: 'cursor',
+          agentPath: '/tmp/.cursor/skills',
+          filesystemIdentity: directoryIdentity,
+          protectedSkillPaths: ['relative/locked'],
+        },
+      ]).success,
+    ).toBe(false)
   })
 })
 

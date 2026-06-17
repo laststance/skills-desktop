@@ -14,6 +14,7 @@ import {
   isSharedAgentPath,
 } from '@/main/constants'
 import {
+  filesystemIdentityFromStats,
   isReviewedEntryUnchanged,
   isSameFilesystemIdentity,
 } from '@/main/services/filesystemIdentity'
@@ -193,36 +194,35 @@ async function restoreQuarantinedPath(
 }
 
 /**
- * Move a reviewed directory to OS Trash only after quarantined identity revalidation.
- * @param directoryPath - Reviewed directory path to trash.
- * @param reviewedIdentity - Filesystem identity captured at review time.
- * @param options - Human-readable stale error and optional skill-directory validation.
- * @returns void when the quarantined reviewed directory reaches OS Trash.
+ * Move a reviewed filesystem entry to OS Trash only after quarantined identity revalidation; used when a parent folder must keep protected siblings.
+ * @param entryPath - Reviewed file, symlink, or directory path to trash.
+ * @param reviewedIdentity - Filesystem identity captured before the quarantine rename.
+ * @param options - Human-readable stale error, directory requirement, and optional skill-directory validation.
+ * @returns void when the quarantined reviewed entry reaches OS Trash.
  * @example
- * await trashReviewedDirectory('/Users/me/.cursor/skills/task', identity, { staleMessage: 'Reviewed local skill folder changed since review', validateSkillDirectory: true })
+ * await trashReviewedFilesystemEntry('/Users/me/.cursor/skills/task', identity, { staleMessage: 'Reviewed entry changed', requireDirectory: false, validateSkillDirectory: false })
  */
-async function trashReviewedDirectory(
-  directoryPath: AbsolutePath,
+async function trashReviewedFilesystemEntry(
+  entryPath: AbsolutePath,
   reviewedIdentity: FilesystemEntryIdentity,
   options: {
     staleMessage: string
+    requireDirectory: boolean
     validateSkillDirectory: boolean
   },
 ): Promise<void> {
-  const quarantinePath = buildQuarantinePath(directoryPath, 'trash')
-  await fs.rename(directoryPath, quarantinePath)
+  const quarantinePath = buildQuarantinePath(entryPath, 'trash')
+  await fs.rename(entryPath, quarantinePath)
 
   try {
     const quarantinedStats = await fs.lstat(quarantinePath)
     if (
-      !quarantinedStats.isDirectory() ||
-      quarantinedStats.isSymbolicLink() ||
+      (options.requireDirectory &&
+        (!quarantinedStats.isDirectory() ||
+          quarantinedStats.isSymbolicLink())) ||
       !isSameFilesystemIdentity(quarantinedStats, reviewedIdentity)
     ) {
-      const restored = await restoreQuarantinedPath(
-        quarantinePath,
-        directoryPath,
-      )
+      const restored = await restoreQuarantinedPath(quarantinePath, entryPath)
       throw new Error(
         restored
           ? options.staleMessage
@@ -233,10 +233,7 @@ async function trashReviewedDirectory(
       options.validateSkillDirectory &&
       !(await isValidSkillDir(quarantinePath))
     ) {
-      const restored = await restoreQuarantinedPath(
-        quarantinePath,
-        directoryPath,
-      )
+      const restored = await restoreQuarantinedPath(quarantinePath, entryPath)
       throw new Error(
         restored
           ? 'Reviewed local skill folder is no longer a valid skill.'
@@ -246,13 +243,109 @@ async function trashReviewedDirectory(
 
     await shell.trashItem(quarantinePath)
   } catch (error) {
-    const restored = await restoreQuarantinedPath(quarantinePath, directoryPath)
+    const restored = await restoreQuarantinedPath(quarantinePath, entryPath)
     if (!restored) {
       throw new Error(
         `${extractErrorMessage(error)}; quarantined folder could not be restored from ${quarantinePath}`,
       )
     }
     throw error
+  }
+}
+
+/**
+ * Move a reviewed directory to OS Trash only after quarantined identity revalidation.
+ * @param directoryPath - Reviewed directory path to trash.
+ * @param reviewedIdentity - Filesystem identity captured at review time.
+ * @param options - Human-readable stale error and optional skill-directory validation.
+ * @returns void when the quarantined reviewed directory reaches OS Trash.
+ * @example await trashReviewedDirectory('/Users/me/.cursor/skills/task', identity, { staleMessage: 'Reviewed local skill folder changed since review', validateSkillDirectory: true })
+ */
+async function trashReviewedDirectory(
+  directoryPath: AbsolutePath,
+  reviewedIdentity: FilesystemEntryIdentity,
+  options: {
+    staleMessage: string
+    validateSkillDirectory: boolean
+  },
+): Promise<void> {
+  await trashReviewedFilesystemEntry(directoryPath, reviewedIdentity, {
+    ...options,
+    requireDirectory: true,
+  })
+}
+
+/**
+ * Normalize renderer-provided protected slots to direct children of the selected agent directory so only reviewed protected entries can survive deletion.
+ * @param agentPath - Selected agent skills directory from main-process constants.
+ * @param protectedSkillPaths - Renderer-scanned protected slots for this agent.
+ * @returns Resolved direct-child paths that should remain in place.
+ * @example normalizeProtectedAgentSlotPaths('/Users/me/.cursor/skills', ['/Users/me/.cursor/skills/task'])
+ */
+function normalizeProtectedAgentSlotPaths(
+  agentPath: AbsolutePath,
+  protectedSkillPaths: AbsolutePath[],
+): ReadonlySet<string> {
+  return new Set(
+    protectedSkillPaths.map((slotPath) =>
+      resolve(assertAgentSlotPath(slotPath, agentPath)),
+    ),
+  )
+}
+
+/**
+ * Trash one unprotected direct child of an agent skills folder after capturing its current identity; this leaves protected siblings untouched.
+ * @param entryPath - Direct child inside the reviewed agent skills folder.
+ * @returns True when an entry was removed, false when it was already gone.
+ * @example await trashUnprotectedAgentEntry('/Users/me/.cursor/skills/unlocked')
+ */
+async function trashUnprotectedAgentEntry(
+  entryPath: AbsolutePath,
+): Promise<boolean> {
+  let entryStats: Stats
+  try {
+    entryStats = await fs.lstat(entryPath)
+  } catch (error) {
+    if (errorCode(error) === 'ENOENT') return false
+    throw error
+  }
+
+  await trashReviewedFilesystemEntry(
+    entryPath,
+    filesystemIdentityFromStats(entryStats),
+    {
+      staleMessage: 'Reviewed agent skills folder entry changed since review.',
+      requireDirectory: false,
+      validateSkillDirectory: false,
+    },
+  )
+  return true
+}
+
+/**
+ * Re-check the reviewed agent skills directory before each child deletion so same-path replacement cannot redirect the loop while child mutations update directory timestamps.
+ * @param agentPath - Reviewed agent skills directory.
+ * @param reviewedIdentity - Filesystem identity captured when the dialog opened.
+ * @returns void when the parent still matches the reviewed real directory.
+ * @example await assertReviewedAgentFolderStillCurrent('/Users/me/.cursor/skills', identity)
+ */
+async function assertReviewedAgentFolderStillCurrent(
+  agentPath: AbsolutePath,
+  reviewedIdentity: FilesystemEntryIdentity,
+): Promise<void> {
+  let parentStats: Stats
+  try {
+    parentStats = await fs.lstat(agentPath)
+  } catch {
+    throw new Error('Reviewed agent skills folder changed since review.')
+  }
+
+  if (
+    !parentStats.isDirectory() ||
+    parentStats.isSymbolicLink() ||
+    !isSameFilesystemIdentity(parentStats, reviewedIdentity)
+  ) {
+    throw new Error('Reviewed agent skills folder changed since review.')
   }
 }
 
@@ -797,12 +890,52 @@ export function registerSkillsHandlers(): void {
         }
       }
 
-      let removedCount = 0
+      const protectedSlotPaths = normalizeProtectedAgentSlotPaths(
+        derivedAgentPath,
+        options.protectedSkillPaths ?? [],
+      )
+      let entries: string[] = []
       try {
-        const entries = await fs.readdir(derivedAgentPath)
-        removedCount = entries.length
-      } catch {
+        entries = (await fs.readdir(derivedAgentPath)).sort()
+      } catch (error) {
+        if (protectedSlotPaths.size > 0) {
+          throw new Error(
+            `Cannot inspect protected skills before deleting folder: ${extractErrorMessage(error)}`,
+          )
+        }
         // Directory may be unreadable (permissions) — proceed to trash anyway
+      }
+
+      const protectedExistingPaths = new Set(
+        entries
+          .map((entryName) => resolve(join(derivedAgentPath, entryName)))
+          .filter((entryPath) => protectedSlotPaths.has(entryPath)),
+      )
+
+      if (protectedExistingPaths.size > 0) {
+        let removedCount = 0
+        for (const entryName of entries) {
+          // The parent folder can be replaced between readdir() and child
+          // deletion; re-check it before each mutation so the loop cannot
+          // follow a fresh symlink into an unrelated directory.
+          await assertReviewedAgentFolderStillCurrent(
+            derivedAgentPath,
+            options.filesystemIdentity,
+          )
+          const entryPath = join(derivedAgentPath, entryName) as AbsolutePath
+          // Protected entries stay in place so the folder remains usable.
+          if (protectedExistingPaths.has(resolve(entryPath))) continue
+
+          // react-doctor-disable-next-line react-doctor/async-await-in-loop -- serial filesystem mutations preserve predictable Trash ordering and stop on the first protected-folder delete failure.
+          const removed = await trashUnprotectedAgentEntry(entryPath)
+          if (removed) removedCount++
+        }
+
+        return {
+          success: true,
+          removedCount,
+          preservedCount: protectedExistingPaths.size,
+        }
       }
 
       // Move to OS trash instead of hard-rm, but only after quarantining the
@@ -816,7 +949,7 @@ export function registerSkillsHandlers(): void {
         },
       )
 
-      return { success: true, removedCount }
+      return { success: true, removedCount: entries.length }
     } catch (error) {
       return {
         success: false,
