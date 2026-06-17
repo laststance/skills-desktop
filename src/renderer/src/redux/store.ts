@@ -6,6 +6,7 @@ import { PERSIST_STATE_VERSION, PERSIST_STORAGE_KEY } from '@/shared/constants'
 
 import { listenerMiddleware } from './listener'
 import { migrateState } from './migrations'
+import activityReducer from './slices/activitySlice'
 import agentsReducer from './slices/agentsSlice'
 import bookmarkReducer from './slices/bookmarkSlice'
 import dashboardReducer from './slices/dashboardSlice'
@@ -37,6 +38,10 @@ const rootReducer = combineReducers({
   // Both the Settings window (General → Default tab) and the main window
   // (SkillDetail tab buttons) read and write `defaultSkillTab` here.
   settings: settingsReducer,
+  // Mirrors main-process activity-log.json (Activity Timeline widget).
+  // Like `settings`, NOT in the redux-storage-middleware `slices` array —
+  // persistence is owned by main, so localStorage here would dual-write.
+  activity: activityReducer,
 })
 
 type RootReducerState = ReturnType<typeof rootReducer>

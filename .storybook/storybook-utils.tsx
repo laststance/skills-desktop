@@ -546,6 +546,10 @@ export function installStorybookElectronMock(): void {
       },
       onChanged: () => cleanup,
     },
+    activity: {
+      list: async () => [],
+      onChanged: () => cleanup,
+    },
     folder: {
       revealInFinder: async () => ({ ok: true }),
       openInTerminal: async () => ({ ok: true }),

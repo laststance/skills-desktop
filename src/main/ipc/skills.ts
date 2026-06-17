@@ -46,6 +46,7 @@ import type {
   SkillName,
 } from '@/shared/types'
 
+import { recordActivityEvents } from './activity'
 import { typedHandle } from './typedHandle'
 import { typedSend } from './typedSend'
 
@@ -977,6 +978,17 @@ export function registerSkillsHandlers(): void {
         skillPath,
         options.filesystemIdentity,
       )
+      // Activity log (dark unless the experimental flag is on; never throws).
+      await recordActivityEvents([
+        {
+          type: 'removed',
+          skillName,
+          detail:
+            cascadeAgents.length > 0
+              ? `${cascadeAgents.length} agent link${cascadeAgents.length === 1 ? '' : 's'}`
+              : undefined,
+        },
+      ])
       return {
         success: true,
         symlinksRemoved,
@@ -1047,6 +1059,17 @@ export function registerSkillsHandlers(): void {
           })
         }
       }
+
+      // One `removed` event per successfully-deleted skill, batched into a
+      // single atomic write (dark unless the experimental flag is on).
+      await recordActivityEvents(
+        results
+          .filter((item) => item.outcome === 'deleted')
+          .map((item) => ({
+            type: 'removed' as const,
+            skillName: item.skillName,
+          })),
+      )
 
       const result: BulkDeleteResult = { items: results }
       return result
@@ -1172,6 +1195,9 @@ export function registerSkillsHandlers(): void {
     // still constrains each constructed linkPath to its target agent dir.
     validatePath(skillPath, getAllowedBases())
     let created = 0
+    // Names of agents that got the symlink — emitted as `created` activity
+    // events after the loop (one atomic write, dark unless the flag is on).
+    const createdAgentNames: string[] = []
     const failures: Array<{
       agentId: (typeof agentIds)[number]
       error: string
@@ -1201,6 +1227,7 @@ export function registerSkillsHandlers(): void {
         // Atomic: attempt symlink directly, handle EEXIST
         await fs.symlink(skillPath, linkPath)
         created++
+        createdAgentNames.push(agent.name)
       } catch (error) {
         if (errorCode(error) === 'EEXIST') {
           failures.push({ agentId, error: 'Already exists' })
@@ -1209,6 +1236,15 @@ export function registerSkillsHandlers(): void {
         }
       }
     }
+
+    // One `created` event per agent the skill was symlinked into.
+    await recordActivityEvents(
+      createdAgentNames.map((agentName) => ({
+        type: 'created' as const,
+        skillName,
+        agentName,
+      })),
+    )
 
     return { success: failures.length === 0, created, failures }
   })
@@ -1227,6 +1263,9 @@ export function registerSkillsHandlers(): void {
     const { skillName, sourcePath, targetAgentIds } = options
     validatePath(sourcePath, getAllowedBases())
     let copied = 0
+    // Names of agents that received a copy — emitted as `created` activity
+    // events after the loop (one atomic write, dark unless the flag is on).
+    const copiedAgentNames: string[] = []
     const failures: Array<{
       agentId: (typeof targetAgentIds)[number]
       error: string
@@ -1330,10 +1369,20 @@ export function registerSkillsHandlers(): void {
           })
         }
         copied++
+        copiedAgentNames.push(agent.name)
       } catch (error) {
         failures.push({ agentId, error: extractErrorMessage(error) })
       }
     }
+
+    // One `created` event per agent the skill was copied into.
+    await recordActivityEvents(
+      copiedAgentNames.map((agentName) => ({
+        type: 'created' as const,
+        skillName,
+        agentName,
+      })),
+    )
 
     return { success: failures.length === 0, copied, failures }
   })

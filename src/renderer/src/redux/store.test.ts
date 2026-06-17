@@ -266,6 +266,7 @@ describe('store wiring (singleton assembly)', () => {
 
     // Assert — every key listed in combineReducers must be present and defined
     expect(Object.keys(state).sort()).toEqual([
+      'activity',
       'agents',
       'bookmarks',
       'dashboard',

@@ -1,3 +1,7 @@
+import type {
+  ActivityEvent,
+  ActivityListOptions,
+} from '../../../shared/activityLog'
 import type { Settings, SettingsPatch } from '../../../shared/settings'
 import type {
   AbsolutePath,
@@ -143,6 +147,10 @@ declare global {
         get: () => Promise<Settings>
         set: (partial: SettingsPatch) => Promise<Settings>
         onChanged: (callback: (settings: Settings) => void) => () => void
+      }
+      activity: {
+        list: (options?: ActivityListOptions) => Promise<ActivityEvent[]>
+        onChanged: (callback: (events: ActivityEvent[]) => void) => () => void
       }
       folder: {
         revealInFinder: (
