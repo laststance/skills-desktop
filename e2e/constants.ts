@@ -1,6 +1,14 @@
 /**
  * Constants shared across global-setup, fixtures, and helpers.
- * The skills CLI version is pinned to match the renderer's runtime constant.
+ *
+ * skills CLI version used to build the e2e azure-* snapshot. Deliberately
+ * INDEPENDENT of the renderer's runtime `SKILLS_CLI_VERSION`
+ * (`src/shared/constants.ts`): this governs only what the e2e fixture /
+ * live-install pulls, and is recorded in the committed fixture's meta sidecar.
+ * global-setup validates that sidecar against this value and falls back to a
+ * live install on mismatch, so bumping it triggers a graceful live-install
+ * fallback rather than silently serving a stale fixture. After bumping, run
+ * `pnpm gen:e2e-snapshot` to refresh the committed fixture and keep CI hermetic.
  */
 export const SKILLS_CLI_VERSION = '1.5.1'
 
@@ -71,6 +79,42 @@ export const OFFLINE_STDERR_PATTERNS = [
 
 /** File the global-setup writes for fixtures to discover the snapshot HOME. */
 export const SNAPSHOT_INFO_FILE = '.snapshot/info.json'
+
+/**
+ * Committed snapshot fixture (a gzip tarball of the azure-* install) and its
+ * provenance sidecar, both e2e-root-relative. Untarred into the snapshot HOME
+ * for a hermetic, offline-proof setup when the sidecar matches the constants
+ * above. Regenerate with `pnpm gen:e2e-snapshot`. Lives under `fixtures/`
+ * (committed input) — NOT `.snapshot/` (gitignored runtime output).
+ */
+export const SNAPSHOT_FIXTURE_TARBALL = 'fixtures/azure-skills-snapshot.tar.gz'
+export const SNAPSHOT_FIXTURE_META = 'fixtures/azure-skills-snapshot.meta.json'
+
+/** Skill-lock file inside a snapshot HOME, relative to the HOME root. */
+export const SNAPSHOT_LOCK_FILE = '.agents/.skill-lock.json'
+
+/**
+ * Universal source-dir segment every agent→skill symlink points into. Used to
+ * re-anchor an install-baked symlink target to a HOME-relative one so the
+ * snapshot tree is self-contained across tar/untar and hardlink copies.
+ */
+export const UNIVERSAL_SOURCE_SEGMENT = '.agents/skills/'
+
+/**
+ * Transient npm cache dir `npx` leaves under a snapshot HOME. Excluded from the
+ * symlink walk and dropped before the fixture tarball is written — its contents
+ * are never asserted, so committing them would only bloat the fixture.
+ */
+export const NPM_CACHE_DIR = '.npm'
+
+/**
+ * Fixed instant written into the committed fixture's lock-file timestamps so a
+ * regenerated fixture is byte-reproducible (content-derived hashes untouched).
+ */
+export const FIXED_FIXTURE_TIMESTAMP = '2020-01-01T00:00:00.000Z'
+
+/** Same instant in BSD `touch -t [[CC]YY]MMDDhhmm` form for pinning fixture file mtimes. */
+export const FIXED_FIXTURE_TOUCH_STAMP = '202001010000'
 
 /**
  * Version advertised by the fake `latest-mac.yml` feed in the update-detection

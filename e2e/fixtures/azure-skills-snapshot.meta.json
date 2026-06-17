@@ -1,0 +1,13 @@
+{
+  "cliVersion": "1.5.1",
+  "repo": "microsoft/azure-skills",
+  "skillNames": [
+    "azure-ai",
+    "azure-deploy",
+    "azure-prepare",
+    "azure-diagnostics",
+    "azure-compute",
+    "azure-validate",
+    "azure-storage"
+  ]
+}

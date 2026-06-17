@@ -10,6 +10,12 @@ import { dirname, join, resolve } from 'node:path'
 
 import { SNAPSHOT_INFO_FILE } from './constants'
 import { installAzureSkills, OfflineError } from './helpers/skills-cli'
+import {
+  captureCommittedFixture,
+  isCommittedFixtureUsable,
+  normalizeSnapshotSymlinks,
+  restoreCommittedFixture,
+} from './helpers/snapshot-fixture'
 
 /**
  * Run the skills CLI install for the snapshot HOME and classify the
@@ -88,11 +94,70 @@ async function globalSetup(): Promise<void> {
   // azure-* dependent assertions). `E2E_SKIP_INSTALL` is treated as a
   // distinct opt-out — it is NOT offline; the runner just doesn't want
   // to pay the install cost for this run.
+  //
+  // Three setup paths, in priority order:
+  //   1. E2E_SKIP_INSTALL=1 — empty snapshot, no skills (smoke tests).
+  //   2. committed fixture matches the constants (and not regenerating) —
+  //      untar it: fully hermetic (no DNS, no npx), so an air-gapped fresh
+  //      clone still runs the azure-* specs instead of skipping them. If the
+  //      untar throws (corrupt/truncated tarball), degrade to path 3.
+  //   3. otherwise live-install via the skills CLI, then normalize symlinks so
+  //      this path behaves identically to the fixture path. When regenerating
+  //      (E2E_GEN_SNAPSHOT=1) capture the freshly-installed tree as the new
+  //      committed fixture before the specs run.
+  const regenerateFixture = process.env['E2E_GEN_SNAPSHOT'] === '1'
+  const skipInstall = process.env['E2E_SKIP_INSTALL'] === '1'
   let offline = false
-  if (process.env['E2E_SKIP_INSTALL'] === '1') {
+  // Whether the hermetic committed-fixture path populated the snapshot HOME.
+  // Stays false if the fixture is unusable OR its restore threw, so the
+  // live-install fallback below picks up either case.
+  let restoredFromFixture = false
+
+  if (skipInstall) {
     console.log('[e2e:setup] E2E_SKIP_INSTALL=1 — skipping skills CLI install')
-  } else {
+  } else if (!regenerateFixture && isCommittedFixtureUsable()) {
+    try {
+      restoreCommittedFixture(snapshotHome)
+      restoredFromFixture = true
+      console.log(
+        '[e2e:setup] Using committed snapshot fixture (hermetic; no network)',
+      )
+    } catch (err) {
+      // A corrupt/truncated tarball passes the provenance gate (existence +
+      // meta match) yet fails at untar. Degrade to a live install instead of
+      // hard-failing the whole suite. Reset the HOME first so a partial
+      // extraction can't leak stale agent dirs into the fresh install.
+      rmSync(snapshotHome, { recursive: true, force: true })
+      mkdirSync(join(snapshotHome, '.agents', 'skills'), { recursive: true })
+      console.warn(
+        `[e2e:setup] Committed fixture restore failed; falling back to live install.\n[e2e:setup] ${err instanceof Error ? err.message : String(err)}`,
+      )
+    }
+  }
+
+  // Live-install fallback: runs when no committed fixture was used (drift,
+  // missing, or E2E_GEN_SNAPSHOT regen) AND when a fixture restore failed
+  // above. Skipped for E2E_SKIP_INSTALL and when the restore succeeded.
+  if (!skipInstall && !restoredFromFixture) {
     offline = await installSnapshotOrClassifyOffline(snapshotHome)
+    if (!offline) {
+      // Re-anchor agent symlinks to HOME-relative so the live tree matches the
+      // fixture tree — both resolve within whichever HOME they are copied into.
+      const rewritten = normalizeSnapshotSymlinks(snapshotHome)
+      console.log(
+        `[e2e:setup] Normalized ${rewritten} agent symlinks to HOME-relative`,
+      )
+      if (regenerateFixture) {
+        captureCommittedFixture(snapshotHome)
+        console.log(
+          '[e2e:setup] Captured committed snapshot fixture (E2E_GEN_SNAPSHOT=1)',
+        )
+      }
+    } else if (regenerateFixture) {
+      console.warn(
+        '[e2e:setup] E2E_GEN_SNAPSHOT=1 but runner is offline — fixture NOT regenerated',
+      )
+    }
   }
 
   mkdirSync(dirname(snapshotInfoPath), { recursive: true })
