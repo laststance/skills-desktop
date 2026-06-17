@@ -2554,6 +2554,67 @@ describe('MainContent toolbar primary action guards', () => {
     expect(store.getState().ui.bulkConfirm).toBeNull()
   })
 
+  it('does nothing when only protected rows are selected in agent view', async () => {
+    // Arrange — the row is visible and selected, but protection excludes it from
+    // agent-view bulk unlink candidates before the confirm dialog can open.
+    mockSelectionToolbarState.enabled = true
+    const { screen, store } = await renderMainContent()
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    const { enterBulkSelectMode, selectAgent } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { addProtection } =
+      await import('@/renderer/src/redux/slices/protectSlice')
+    const skillName = 'protected-link' as SkillName
+    const protectedSkill: Skill = {
+      name: skillName,
+      description: '',
+      path: '/home/user/.agents/skills/protected-link' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 1,
+      symlinks: [
+        {
+          agentId: 'cursor' as AgentId,
+          agentName: 'Cursor' as never,
+          linkPath: '/home/user/.cursor/skills/protected-link' as never,
+          targetPath: '/home/user/.agents/skills/protected-link' as never,
+          status: 'valid',
+          isLocal: false,
+        },
+      ],
+      isSource: true,
+      isOrphan: false,
+    }
+    store.dispatch(
+      fetchAgents.fulfilled(
+        [
+          {
+            id: 'cursor' as AgentId,
+            name: 'Cursor' as never,
+            path: '/home/user/.cursor/skills' as never,
+            exists: true,
+            skillCount: 1,
+            localSkillCount: 0,
+          },
+        ],
+        'req-agent',
+      ),
+    )
+    store.dispatch(selectAgent('cursor' as AgentId))
+    store.dispatch(fetchSkills.fulfilled([protectedSkill], 'req-protected'))
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection(skillName))
+    store.dispatch(addProtection(skillName))
+
+    // Act
+    await screen.getByRole('button', { name: 'Open bulk confirm' }).click()
+
+    // Assert
+    expect(store.getState().ui.bulkConfirm).toBeNull()
+  })
+
   it('blocks unlink and prompts a rescan when the selected agent slot went stale', async () => {
     // Arrange — a cursor row is selectable (status valid) yet its slot lost the
     // reviewed targetPath, so buildAgentUnlinkTargets reports it stale.

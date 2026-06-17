@@ -151,7 +151,9 @@ const ProtectButton = React.memo(function ProtectButton({
         </button>
       </TooltipTrigger>
       <TooltipContent side="left">
-        {isProtected ? 'Protected — cannot be deleted' : 'Click to protect'}
+        {isProtected
+          ? 'Protected — cannot be deleted or removed'
+          : 'Click to protect'}
       </TooltipContent>
     </Tooltip>
   )
@@ -415,7 +417,7 @@ export const SkillItem = React.memo(function SkillItem({
 
   const {
     showAddButton,
-    showUnlinkButton,
+    showUnlinkButton: showUnlinkButtonBase,
     showCopyButton,
     showDeleteButton: showDeleteButtonBase,
     isLinked,
@@ -425,9 +427,10 @@ export const SkillItem = React.memo(function SkillItem({
     selectedLocalSkillInfo,
     showGStackBadge,
   } = getSkillItemVisibility(selectedAgentId, skill)
-  // Protected skills hide the delete button. Unlink is intentionally NOT gated —
-  // unlinking from a single agent is reversible and should not require unlocking.
+  // Protected skills hide every destructive X action, including agent-view
+  // unlink/delete, so the lock copy matches the actual behavior.
   const showDeleteButton = showDeleteButtonBase && !isProtected
+  const showUnlinkButton = showUnlinkButtonBase && !isProtected
   const isBulkSelectable = canBulkSelectRenderedSkill(
     selectedAgentId,
     visibleNames,
@@ -447,6 +450,9 @@ export const SkillItem = React.memo(function SkillItem({
   // threshold is floored just below 100 rather than chased. See vitest.config.ts.
   const handleUnlinkClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
+    // Protection is enforced here too so future UI refactors cannot stage a
+    // locked skill for removal by accidentally showing the button.
+    if (isProtected) return
     const targetSymlink = selectedAgentSymlink ?? selectedLocalSkillInfo
     if (targetSymlink) {
       dispatch(setSkillToUnlink({ skill, symlink: targetSymlink }))
@@ -703,7 +709,7 @@ export const SkillItem = React.memo(function SkillItem({
           <ProtectButton
             skillName={skill.name}
             showBookmark={showBookmark}
-            hasXButton={showUnlinkButton || showDeleteButtonBase}
+            hasXButton={showUnlinkButtonBase || showDeleteButtonBase}
           />
 
           {/* Bookmark toggle — only for skills with repo source.
@@ -755,7 +761,7 @@ export const SkillItem = React.memo(function SkillItem({
               getCardContentPaddingClass({
                 showProtect: true,
                 showBookmark,
-                showUnlinkButton,
+                showUnlinkButton: showUnlinkButtonBase,
                 // Use the pre-gate value: ProtectButton position is computed from
                 // showDeleteButtonBase, so padding must match that slot count.
                 showDeleteButton: showDeleteButtonBase,

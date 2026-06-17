@@ -1174,4 +1174,112 @@ describe('SkillItem protection', () => {
       .element(screen.getByRole('button', { name: /^Delete task$/i }))
       .toBeInTheDocument()
   })
+
+  it('hides the agent-view unlink button when the skill is locked', async () => {
+    // Arrange
+    const linkedSkill = makeSkill({
+      name: 'task' as SkillName,
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          targetPath:
+            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(linkedSkill)
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    const { addProtection } =
+      await import('@/renderer/src/redux/slices/protectSlice')
+
+    // Act
+    store.dispatch(selectAgent('cursor'))
+    store.dispatch(addProtection('task' as SkillName))
+
+    // Assert
+    await expect
+      .element(screen.getByRole('button', { name: /^Unlock task$/i }))
+      .toBeInTheDocument()
+    await expect
+      .poll(() =>
+        screen
+          .getByRole('button', { name: /^Unlink task from agent$/i })
+          .query(),
+      )
+      .toBeNull()
+  })
+
+  it('hides the agent-view local delete button when the skill is locked', async () => {
+    // Arrange
+    const localSkill = makeSkill({
+      name: 'task' as SkillName,
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          isLocal: true,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(localSkill)
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    const { addProtection } =
+      await import('@/renderer/src/redux/slices/protectSlice')
+
+    // Act
+    store.dispatch(selectAgent('cursor'))
+    store.dispatch(addProtection('task' as SkillName))
+
+    // Assert
+    await expect
+      .element(screen.getByRole('button', { name: /^Unlock task$/i }))
+      .toBeInTheDocument()
+    await expect
+      .poll(() =>
+        screen
+          .getByRole('button', { name: /^Delete task from agent$/i })
+          .query(),
+      )
+      .toBeNull()
+  })
+
+  it('restores the agent-view unlink button when the skill is unlocked', async () => {
+    // Arrange
+    const linkedSkill = makeSkill({
+      name: 'task' as SkillName,
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          targetPath:
+            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(linkedSkill)
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    const { addProtection, removeProtection } =
+      await import('@/renderer/src/redux/slices/protectSlice')
+    store.dispatch(selectAgent('cursor'))
+    store.dispatch(addProtection('task' as SkillName))
+
+    // Act
+    store.dispatch(removeProtection('task' as SkillName))
+
+    // Assert
+    await expect
+      .element(
+        screen.getByRole('button', { name: /^Unlink task from agent$/i }),
+      )
+      .toBeInTheDocument()
+  })
 })

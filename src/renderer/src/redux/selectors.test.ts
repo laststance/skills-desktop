@@ -47,6 +47,7 @@ function buildState(overrides: {
   selectedSkillNames?: SkillName[]
   inFlightDeleteNames?: SkillName[]
   inFlightUnlinkNames?: SkillName[]
+  protectedSkillNames?: SkillName[]
 }) {
   return {
     skills: {
@@ -123,6 +124,9 @@ function buildState(overrides: {
     },
     bookmarks: {
       items: overrides.bookmarks ?? [],
+    },
+    protect: {
+      items: overrides.protectedSkillNames ?? [],
     },
   }
 }
@@ -1138,6 +1142,45 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
     expect(selectBulkSelectableVisibleSkillNames(state as never)).toEqual([
       'valid-symlink',
     ])
+  })
+
+  it('excludes protected valid agent rows from bulk unlink names', () => {
+    // Arrange
+    const protectedSkill = makeSkill('protected-skill', 'cursor')
+    const availableSkill = makeSkill('available-skill', 'cursor')
+    const state = buildState({
+      skills: [protectedSkill, availableSkill],
+      selectedAgentId: 'cursor',
+      protectedSkillNames: ['protected-skill' as SkillName],
+    })
+
+    // Act
+    const visibleNames = selectVisibleSkillNames(state as never)
+    const bulkSelectableNames = selectBulkSelectableVisibleSkillNames(
+      state as never,
+    )
+
+    // Assert
+    expect(visibleNames).toEqual(['available-skill', 'protected-skill'])
+    expect(bulkSelectableNames).toEqual(['available-skill'])
+  })
+
+  it('keeps protected rows selectable in global delete view so the confirm dialog can report the skip', () => {
+    // Arrange
+    const protectedSkill = makeSkill('protected-skill', 'cursor')
+    const state = buildState({
+      skills: [protectedSkill],
+      selectedAgentId: null,
+      protectedSkillNames: ['protected-skill' as SkillName],
+    })
+
+    // Act
+    const bulkSelectableNames = selectBulkSelectableVisibleSkillNames(
+      state as never,
+    )
+
+    // Assert
+    expect(bulkSelectableNames).toEqual(['protected-skill'])
   })
 })
 
