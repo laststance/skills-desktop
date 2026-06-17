@@ -122,6 +122,7 @@ import { refreshAllData } from '@/renderer/src/redux/thunks'
 import { flashFailedRows } from '@/renderer/src/utils/bulkOpVisuals'
 import { errorToastDescription } from '@/renderer/src/utils/errorToastDescription'
 import { isEditableTarget } from '@/renderer/src/utils/isEditableTarget'
+import { isSearchInput } from '@/renderer/src/utils/isSearchInput'
 import { pluralize } from '@/renderer/src/utils/pluralize'
 import {
   SOURCE_FILTER_MAX_VISIBLE_REPOS,
@@ -489,7 +490,6 @@ export const MainContent = React.memo(
     useCycleEffect(() => {
       if (activeTab !== 'installed') return
       const handleKey = (event: KeyboardEvent): void => {
-        if (isEditableTarget(document.activeElement)) return
         if (!bulkSelectModeRef.current) return
 
         // An open Radix dialog/alertdialog (e.g. the now always-mounted
@@ -506,11 +506,29 @@ export const MainContent = React.memo(
         )
           return
 
-        // Cmd/Ctrl+A: select all visible
-        if (
-          (event.metaKey || event.ctrlKey) &&
-          event.key.toLowerCase() === 'a'
-        ) {
+        const activeElement = document.activeElement
+        const isSelectAllChord =
+          (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a'
+
+        // Cmd/Ctrl+A while the search box is focused: the canonical bulk flow is
+        // "type a query → results filter → Cmd+A to grab the filtered rows". The
+        // search box keeps focus, so the browser would otherwise select the
+        // input's own text and nothing happens to the list. Blur the box first,
+        // then select all visible. Checked BEFORE the editable-target stand-down
+        // below so the search box is the one text surface we deliberately act on.
+        if (isSelectAllChord && isSearchInput(activeElement)) {
+          activeElement.blur()
+          event.preventDefault()
+          dispatch(selectAll(visibleNamesRef.current))
+          return
+        }
+
+        // Every other editable surface (rename fields, modal inputs, ...) keeps
+        // native behavior — stand down so the user's keystrokes reach the field.
+        if (isEditableTarget(activeElement)) return
+
+        // Cmd/Ctrl+A with focus outside any text field: select all visible.
+        if (isSelectAllChord) {
           event.preventDefault()
           dispatch(selectAll(visibleNamesRef.current))
           return

@@ -633,6 +633,72 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
       document.body.removeChild(textInput)
     }
   })
+
+  it('selects every visible skill on Cmd+A even while the search box is focused, blurring it first', async () => {
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const skillFixtures = [
+      {
+        name: 'task' as SkillName,
+        description: '',
+        path: '/skills/task' as never,
+        filesystemIdentity: directoryIdentity,
+        symlinkCount: 0,
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+      {
+        name: 'tdd' as SkillName,
+        description: '',
+        path: '/skills/tdd' as never,
+        filesystemIdentity: directoryIdentity,
+        symlinkCount: 0,
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+    ]
+
+    // Arrange — skills loaded and bulk mode on. The search box renders as
+    // <input type="search"> (asserted in SearchBox.browser.test.tsx); here we
+    // stand in a focused search input to exercise the handler's special case,
+    // mirroring the focused-text-field test above for a clean contrast pair.
+    store.dispatch(fetchSkills.fulfilled(skillFixtures, 'req-id'))
+    store.dispatch(enterBulkSelectMode())
+    await waitForBulkSelectReady(screen)
+
+    const searchInput = document.createElement('input')
+    searchInput.type = 'search'
+    document.body.appendChild(searchInput)
+    try {
+      // Act — the canonical flow: query typed, box still focused, user hits Cmd+A
+      searchInput.focus()
+      expect(document.activeElement).toBe(searchInput)
+      searchInput.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'a',
+          metaKey: true,
+          bubbles: true,
+        }),
+      )
+
+      // Assert — every filtered row is selected (pre-fix bug: nothing happened)...
+      const selectedNames = store.getState().skills.selectedSkillNames
+      expect(selectedNames).toContain('task')
+      expect(selectedNames).toContain('tdd')
+      expect(selectedNames.length).toBe(2)
+      // ...and the box was blurred so the browser didn't just select its own text
+      expect(document.activeElement).not.toBe(searchInput)
+    } finally {
+      // Removal in `finally` so a failing assertion doesn't leak a focused
+      // <input type="search"> into the reused Chromium page.
+      document.body.removeChild(searchInput)
+    }
+  })
 })
 
 describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
