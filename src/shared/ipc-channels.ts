@@ -68,6 +68,12 @@ export const IPC_CHANNELS = {
   SETTINGS_SET: 'settings:set',
   SETTINGS_CHANGED: 'settings:changed',
 
+  // Activity timeline (dashboard) — append-only event log persisted under
+  // userData. `list` hydrates the widget on mount; `changed` broadcasts the
+  // new log after each recorded add/remove/sync.
+  ACTIVITY_LIST: 'activity:list',
+  ACTIVITY_CHANGED: 'activity:changed',
+
   // Folder actions (Reveal in Finder, Open in Terminal)
   FOLDER_REVEAL_IN_FINDER: 'folder:revealInFinder',
   FOLDER_OPEN_IN_TERMINAL: 'folder:openInTerminal',

@@ -1044,6 +1044,15 @@ export const SETTINGS_RANGE_DEBOUNCE_MS = 120
 export const BULK_PROGRESS_THRESHOLD = 10
 
 /**
+ * Hard cap on persisted activity-log entries. The main-process store keeps a
+ * newest-first ring buffer trimmed to this length so `activity-log.json` cannot
+ * grow unbounded; older events fall off the tail. 200 covers weeks of typical
+ * add / remove / sync activity while staying small enough to rewrite the whole
+ * file atomically on every append.
+ */
+export const MAX_ACTIVITY_EVENTS = 200
+
+/**
  * Max number of source repositories enumerated individually before the
  * source-repo filter collapses to a count summary. Drives BOTH the toolbar
  * pills (≤ cap → one chip per repo; > cap → a single "from N repos" chip) and

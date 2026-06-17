@@ -4,56 +4,26 @@ import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
-import type { SyncExecuteResult, SyncResultItem } from '@/shared/types'
+import type { ActivityEvent } from '@/shared/activityLog'
 
 /**
- * Build a SyncExecuteResult from just the per-item `details` the widget renders.
- * The summary counts (`created`/`replaced`/`skipped`/`errors`) are derived so
- * the fixture stays internally consistent even though the widget ignores them.
- * @param details - Per-item sync outcomes shown as timeline rows.
+ * Seed the activity slice with the given events and render the timeline inside
+ * a sized wrapper. Dispatching `setActivityEvents` is exactly what
+ * `useActivitySync` does after `activity:list` resolves, so this exercises the
+ * real renderer data path without mocking IPC.
+ * @param events - Newest-first events to seed, or [] for the pristine state.
  */
-function makeSyncResult(details: SyncResultItem[]): SyncExecuteResult {
-  const errors = details.flatMap((item) =>
-    item.action === 'error'
-      ? [
-          {
-            path: `/Users/test/.agents/skills/${item.skillName}`,
-            error: item.error,
-          },
-        ]
-      : [],
-  )
-  return {
-    success: errors.length === 0,
-    created: details.filter((item) => item.action === 'created').length,
-    replaced: details.filter((item) => item.action === 'replaced').length,
-    skipped: details.filter((item) => item.action === 'skipped').length,
-    errors,
-    details,
-  }
-}
-
-/**
- * Seed `ui.syncResult` with the given result (or leave it null) and render the
- * timeline inside a sized wrapper. Seeding via `executeSyncAction.fulfilled`
- * avoids mocking the sync IPC call.
- * @param syncResult - Result to seed, or null for the pristine "no activity" state.
- */
-async function renderTimeline(syncResult: SyncExecuteResult | null) {
+async function renderTimeline(events: ActivityEvent[]) {
   const [
-    { default: uiReducer, executeSyncAction },
+    { default: activityReducer, setActivityEvents },
     { ActivityTimelineWidget },
   ] = await Promise.all([
-    import('@/renderer/src/redux/slices/uiSlice'),
+    import('@/renderer/src/redux/slices/activitySlice'),
     import('./ActivityTimelineWidget'),
   ])
-  const store = configureStore({ reducer: { ui: uiReducer } })
-  if (syncResult) {
-    store.dispatch(
-      executeSyncAction.fulfilled(syncResult, 'req-sync', {
-        replaceConflicts: [],
-      }),
-    )
+  const store = configureStore({ reducer: { activity: activityReducer } })
+  if (events.length > 0) {
+    store.dispatch(setActivityEvents(events))
   }
 
   const screen = await render(
@@ -67,86 +37,110 @@ async function renderTimeline(syncResult: SyncExecuteResult | null) {
 }
 
 describe('ActivityTimelineWidget', () => {
-  it('shows the no-activity hint before any sync has run', async () => {
-    // Arrange + Act: no sync result seeded into the store.
-    const { screen } = await renderTimeline(null)
+  it('shows the no-activity hint before any activity has been recorded', async () => {
+    // Arrange + Act: no events seeded into the store.
+    const { screen } = await renderTimeline([])
 
     // Assert
     await expect.element(screen.getByText('No recent activity')).toBeVisible()
     await expect
-      .element(screen.getByText('Run Sync to see per-item results here.'))
+      .element(
+        screen.getByText('Add, remove, or sync skills to see activity here.'),
+      )
       .toBeVisible()
   })
 
-  it('lists each synced skill alongside its agent and action label', async () => {
-    // Arrange: three rows from one sync, distinct agents and actions.
-    const syncResult = makeSyncResult([
-      { skillName: 'alpha-skill', agentName: 'Claude Code', action: 'created' },
-      { skillName: 'beta-skill', agentName: 'Cursor', action: 'skipped' },
-      { skillName: 'gamma-skill', agentName: 'Codex', action: 'replaced' },
-    ])
+  it('lists each event with its skill, agent, and action label in newest-first order', async () => {
+    // Arrange: three events of distinct types, already newest-first.
+    const events: ActivityEvent[] = [
+      {
+        id: 'e1',
+        timestamp: '2026-06-18T10:00:00.000Z',
+        type: 'created',
+        skillName: 'alpha-skill',
+        agentName: 'Claude Code',
+      },
+      {
+        id: 'e2',
+        timestamp: '2026-06-18T09:00:00.000Z',
+        type: 'removed',
+        skillName: 'beta-skill',
+        agentName: 'Cursor',
+      },
+      {
+        id: 'e3',
+        timestamp: '2026-06-18T08:00:00.000Z',
+        type: 'synced',
+        skillName: 'Sync',
+        detail: '4 created · 0 replaced · 1 skipped',
+      },
+    ]
 
     // Act
-    const { screen } = await renderTimeline(syncResult)
+    const { screen } = await renderTimeline(events)
 
     // Assert: scope each assertion to its own row (`listitem`) so the test
-    // verifies same-row correspondence. A regression that scrambled which
-    // agent or action renders next to which skill would fail here, whereas a
-    // global text search would still pass. Rows render in sync-result order.
+    // verifies same-row correspondence. A regression that scrambled which agent
+    // or label renders next to which skill would fail here, whereas a global
+    // text search would still pass. Rows render in the seeded (newest-first) order.
     const rows = screen.getByRole('listitem')
     await expect.element(rows.nth(0)).toHaveTextContent('alpha-skill')
     await expect.element(rows.nth(0)).toHaveTextContent('Claude Code')
     await expect.element(rows.nth(0)).toHaveTextContent('created')
     await expect.element(rows.nth(1)).toHaveTextContent('beta-skill')
     await expect.element(rows.nth(1)).toHaveTextContent('Cursor')
-    await expect.element(rows.nth(1)).toHaveTextContent('skipped')
-    await expect.element(rows.nth(2)).toHaveTextContent('gamma-skill')
-    await expect.element(rows.nth(2)).toHaveTextContent('Codex')
-    await expect.element(rows.nth(2)).toHaveTextContent('replaced')
+    await expect.element(rows.nth(1)).toHaveTextContent('removed')
+    await expect.element(rows.nth(2)).toHaveTextContent('Sync')
+    await expect.element(rows.nth(2)).toHaveTextContent('synced')
   })
 
-  it('shows the failure reason on an errored sync row', async () => {
-    // Arrange: a single errored row carrying a permission-denied message.
-    const syncResult = makeSyncResult([
+  it('shows the detail text on a sync summary event that carries one', async () => {
+    // Arrange: a single sync summary event with a counts detail string.
+    const events: ActivityEvent[] = [
       {
-        skillName: 'delta-skill',
-        agentName: 'Claude Code',
-        action: 'error',
-        error: 'EACCES: permission denied',
+        id: 's1',
+        timestamp: '2026-06-18T10:00:00.000Z',
+        type: 'synced',
+        skillName: 'Sync',
+        detail: '10 created · 1 replaced · 5 skipped',
       },
-    ])
+    ]
 
     // Act
-    const { screen } = await renderTimeline(syncResult)
+    const { screen } = await renderTimeline(events)
 
-    // Assert: the row shows the skill, the error label, and the reason text.
-    await expect.element(screen.getByText('delta-skill')).toBeVisible()
-    await expect.element(screen.getByText('error')).toBeVisible()
+    // Assert: scope to the single row to avoid the 'Sync'/'synced' substring
+    // overlap (Playwright getByText is case-insensitive substring). The row
+    // carries the skill label, the action label, and the detail counts.
+    const row = screen.getByRole('listitem')
+    await expect.element(row).toHaveTextContent('Sync')
+    await expect.element(row).toHaveTextContent('synced')
     await expect
-      .element(screen.getByText('EACCES: permission denied'))
-      .toBeVisible()
+      .element(row)
+      .toHaveTextContent('10 created · 1 replaced · 5 skipped')
   })
 
-  it('omits the appended detail text for a non-error row whose detailText is null', async () => {
-    // Arrange: a skipped row — `match(item).otherwise(() => null)` makes
-    // detailText null, so the appended " — detail" span must not render. This
-    // covers the falsy branch of `{detailText && <span>…</span>}`, the
-    // complement of the errored-row test above.
-    const syncResult = makeSyncResult([
+  it('omits the appended detail separator for an event with no detail', async () => {
+    // Arrange: a `created` event with no detail — the appended " — detail" span
+    // must not render. Covers the falsy branch of `{event.detail && <span>…}`,
+    // the complement of the sync-summary test above.
+    const events: ActivityEvent[] = [
       {
+        id: 'c1',
+        timestamp: '2026-06-18T10:00:00.000Z',
+        type: 'created',
         skillName: 'epsilon-skill',
         agentName: 'Codex',
-        action: 'skipped',
       },
-    ])
+    ]
 
     // Act
-    const { screen } = await renderTimeline(syncResult)
+    const { screen } = await renderTimeline(events)
 
-    // Assert: the skill row and its status label show, but the em-dash detail
-    // separator (rendered only on the truthy detailText path) is absent.
+    // Assert: the skill row and its action label show, but the em-dash detail
+    // separator (rendered only on the truthy `event.detail` path) is absent.
     await expect.element(screen.getByText('epsilon-skill')).toBeVisible()
-    await expect.element(screen.getByText('skipped')).toBeVisible()
+    await expect.element(screen.getByText('created')).toBeVisible()
     expect(screen.getByText(/—/).query()).toBeNull()
   })
 })

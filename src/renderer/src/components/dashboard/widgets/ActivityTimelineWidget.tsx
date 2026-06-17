@@ -1,20 +1,14 @@
-import {
-  AlertCircle,
-  FileClock,
-  MinusCircle,
-  Plus,
-  Replace,
-} from 'lucide-react'
+import { FileClock, MinusCircle, Plus, RefreshCw, Replace } from 'lucide-react'
 import React from 'react'
-import { match } from 'ts-pattern'
 
 import { useAppSelector } from '@/renderer/src/redux/hooks'
-import { selectSyncResult } from '@/renderer/src/redux/slices/uiSlice'
-import type { SyncResultAction, SyncResultItem } from '@/shared/types'
+import { selectActivityEvents } from '@/renderer/src/redux/slices/activitySlice'
+import type { ActivityEvent, ActivityEventType } from '@/shared/activityLog'
 
 // ----------------------------------------------------------------------------
-// Action → visual mapping. Centralizes the icon + color per action so the
-// row renderer stays small.
+// Event type → visual mapping. A Record (not a ts-pattern `match`) because each
+// row needs only a constant icon/color/label lookup — the row body is identical
+// across types, so there is nothing to branch on.
 // ----------------------------------------------------------------------------
 
 interface ActionVisual {
@@ -23,15 +17,23 @@ interface ActionVisual {
   label: string
 }
 
-const ACTION_VISUALS: Record<SyncResultAction, ActionVisual> = {
+const ACTION_VISUALS: Record<ActivityEventType, ActionVisual> = {
   created: { icon: Plus, accentClass: 'text-primary', label: 'created' },
-  replaced: { icon: Replace, accentClass: 'text-amber-400', label: 'replaced' },
-  skipped: {
+  removed: {
     icon: MinusCircle,
-    accentClass: 'text-muted-foreground',
-    label: 'skipped',
+    accentClass: 'text-destructive',
+    label: 'removed',
   },
-  error: { icon: AlertCircle, accentClass: 'text-destructive', label: 'error' },
+  // `synced` is a routine success event, NOT a needs-review/broken state, so it
+  // must NOT borrow `text-amber-400` (the app-wide broken/inaccessible hue).
+  // DESIGN.md caps amber at exactly two meanings (broken + bookmark) and names
+  // `text-foreground` as the safe default for a semantic with no dedicated hue.
+  synced: { icon: RefreshCw, accentClass: 'text-foreground', label: 'synced' },
+  renamed: {
+    icon: Replace,
+    accentClass: 'text-muted-foreground',
+    label: 'renamed',
+  },
 }
 
 // ----------------------------------------------------------------------------
@@ -39,20 +41,14 @@ const ACTION_VISUALS: Record<SyncResultAction, ActionVisual> = {
 // ----------------------------------------------------------------------------
 
 interface TimelineRowProps {
-  item: SyncResultItem
+  event: ActivityEvent
 }
 
 const TimelineRow = React.memo(function TimelineRow({
-  item,
+  event,
 }: TimelineRowProps): React.ReactElement {
-  const visual = ACTION_VISUALS[item.action]
+  const visual = ACTION_VISUALS[event.type]
   const Icon = visual.icon
-
-  // Error rows carry a message; non-error rows don't, so match on the
-  // discriminated union to pull the detail text safely.
-  const detailText = match(item)
-    .with({ action: 'error' }, (errorItem) => errorItem.error)
-    .otherwise(() => null)
 
   return (
     <li className="flex items-start gap-2 px-2 py-1 rounded-md hover:bg-muted/50">
@@ -62,17 +58,21 @@ const TimelineRow = React.memo(function TimelineRow({
       />
       <div className="flex-1 min-w-0 flex flex-col">
         <span className="text-[11px] text-foreground truncate">
-          <span className="font-medium">{item.skillName}</span>
-          <span className="text-muted-foreground"> · {item.agentName}</span>
+          <span className="font-medium">{event.skillName}</span>
+          {/* Agent is only present for per-agent events (add/remove); a sync
+              summary touches many agents, so the separator is omitted there. */}
+          {event.agentName && (
+            <span className="text-muted-foreground"> · {event.agentName}</span>
+          )}
         </span>
         <span
           className={`text-[10px] ${visual.accentClass} uppercase tracking-wide`}
         >
           {visual.label}
-          {detailText && (
+          {event.detail && (
             <span className="normal-case tracking-normal text-muted-foreground">
               {' — '}
-              {detailText}
+              {event.detail}
             </span>
           )}
         </span>
@@ -82,19 +82,18 @@ const TimelineRow = React.memo(function TimelineRow({
 })
 
 /**
- * Activity Timeline widget body (experimental).
- *
- * Today this surface only has one data source: the last sync execution
- * (`uiSlice.syncResult.details`). A proper timeline would need main-process
- * event tracking for add/remove/sync/rename. For now the widget shows the
- * most recent sync's per-item actions so the ecosystem hook exists and the
- * widget isn't empty when `ENABLE_DASHBOARD_EXPERIMENTAL` is on.
+ * Activity Timeline widget body. Renders the persisted activity log
+ * (newest-first) — add / remove / sync events surfaced from the main-process
+ * store via `useActivitySync`. Replaces the earlier last-sync-only placeholder
+ * with a real cross-session feed. Gated behind `ENABLE_DASHBOARD_EXPERIMENTAL`
+ * in the widget registry, so it stays hidden from the picker until that flag
+ * flips. See `docs/activity-log.md`.
  */
 export const ActivityTimelineWidget = React.memo(
   function ActivityTimelineWidget(): React.ReactElement {
-    const syncResult = useAppSelector(selectSyncResult)
+    const events = useAppSelector(selectActivityEvents)
 
-    if (!syncResult || syncResult.details.length === 0) {
+    if (events.length === 0) {
       return (
         <div className="h-full w-full flex flex-col items-center justify-center gap-1 px-4 text-center">
           <FileClock
@@ -103,7 +102,7 @@ export const ActivityTimelineWidget = React.memo(
           />
           <p className="text-xs text-muted-foreground">No recent activity</p>
           <p className="text-[10px] text-muted-foreground/70">
-            Run Sync to see per-item results here.
+            Add, remove, or sync skills to see activity here.
           </p>
         </div>
       )
@@ -112,14 +111,10 @@ export const ActivityTimelineWidget = React.memo(
     return (
       <div className="h-full w-full overflow-y-auto py-1">
         <ul className="flex flex-col gap-0.5 px-1">
-          {syncResult.details.map((item, index) => (
-            <TimelineRow
-              // Sync results aren't guaranteed to have unique (skill,agent)
-              // pairs across actions (e.g., replaced then errored in edge cases),
-              // so the array index is the reliable stable key.
-              key={`${item.skillName}-${item.agentName}-${index}`}
-              item={item}
-            />
+          {events.map((event) => (
+            // event.id is a stable uuid stamped by the main process — a proper
+            // key, unlike the index-based fallback the sync-only version needed.
+            <TimelineRow key={event.id} event={event} />
           ))}
         </ul>
       </div>

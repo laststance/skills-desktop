@@ -7,6 +7,7 @@ import { MainContent } from './components/layout/MainContent'
 import { Sidebar } from './components/layout/Sidebar'
 import { TooltipProvider } from './components/ui/tooltip'
 import { UpdateToast } from './components/UpdateToast'
+import { useActivitySync } from './hooks/useActivitySync'
 import { useReleaseNotesToast } from './hooks/useReleaseNotesToast'
 import { useSettingsSync } from './hooks/useSettingsSync'
 import { useUpdateNotification } from './hooks/useUpdateNotification'
@@ -108,6 +109,10 @@ const App = React.memo(function App(): React.ReactElement {
   // Hydrate the settings slice from the main-process JSON store and
   // subscribe to cross-window changes broadcast by `settings:set`.
   useSettingsSync()
+
+  // Hydrate + live-update the Activity Timeline from the main-process event
+  // log. No-op while the experimental dashboard flag is off (fully dark).
+  useActivitySync()
 
   // After auto-update + restart, fire a one-shot "What's new" toast on the
   // first launch of the new version with a link to the GitHub release notes.

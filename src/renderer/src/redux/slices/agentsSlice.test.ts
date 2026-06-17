@@ -23,6 +23,7 @@ vi.stubGlobal('window', {
 })
 
 async function createTestStore() {
+  const { default: activityReducer } = await import('./activitySlice')
   const { default: agentsReducer } = await import('./agentsSlice')
   const { default: bookmarkReducer } = await import('./bookmarkSlice')
   const { default: dashboardReducer } = await import('./dashboardSlice')
@@ -47,6 +48,11 @@ async function createTestStore() {
       dashboard: dashboardReducer,
       widgetPicker: widgetPickerReducer,
       settings: settingsReducer,
+      // Mirror the production store (store.ts) so a `{ state: RootState }`
+      // thunk like removeAllSymlinksFromAgent type-checks against this store's
+      // dispatch — a missing slice here makes TestState ⊉ RootState and the
+      // thunk overload silently drops out (TS2769).
+      activity: activityReducer,
     },
   })
 }

@@ -1,5 +1,6 @@
 import { contextBridge } from 'electron'
 
+import type { ActivityEvent, ActivityListOptions } from '@/shared/activityLog'
 import { IPC_CHANNELS } from '@/shared/ipc-channels'
 import type { Settings, SettingsPatch } from '@/shared/settings'
 import type {
@@ -145,6 +146,16 @@ contextBridge.exposeInMainWorld('electron', {
     get: async () => typedInvoke('settings:get'),
     set: async (partial: SettingsPatch) => typedInvoke('settings:set', partial),
     onChanged: createIpcListener<Settings>(IPC_CHANNELS.SETTINGS_CHANGED),
+  },
+  // Activity timeline — append-only event log owned by main (userData/
+  // activity-log.json). Renderer hydrates via `activity:list` and converges
+  // via the `activity:changed` broadcast, mirroring the settings sync above.
+  activity: {
+    list: async (options?: ActivityListOptions) =>
+      typedInvoke('activity:list', options),
+    onChanged: createIpcListener<ActivityEvent[]>(
+      IPC_CHANNELS.ACTIVITY_CHANGED,
+    ),
   },
   // Folder actions — main-process-only because both `shell.openPath` and
   // `child_process.spawn('open', …)` are unavailable in sandboxed preload.

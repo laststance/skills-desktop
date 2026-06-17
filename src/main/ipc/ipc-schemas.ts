@@ -333,6 +333,17 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
     }),
   ]),
 
+  // Activity timeline — optional paging options. Mirrors `sync:preview`'s
+  // 1-arg-possibly-undefined shape so typedInvoke can always forward the arg.
+  'activity:list': z.tuple([
+    z
+      .object({
+        limit: z.number().int().positive().optional(),
+        offset: z.number().int().nonnegative().optional(),
+      })
+      .optional(),
+  ]),
+
   // Shell — restrict to http/https to prevent opening arbitrary URI schemes
   'shell:openExternal': z.tuple([
     z.url().refine((u) => /^https?:\/\//i.test(u), {

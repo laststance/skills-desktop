@@ -1,3 +1,4 @@
+import type { ActivityEvent, ActivityListOptions } from './activityLog'
 import type { Settings, SettingsPatch } from './settings'
 import type {
   AbsolutePath,
@@ -136,6 +137,13 @@ export interface IpcInvokeContract {
   'settings:open': { args: []; result: void }
   'settings:get': { args: []; result: Settings }
   'settings:set': { args: [SettingsPatch]; result: Settings }
+  'activity:list': {
+    // Always 1-arg (possibly `undefined`) to match the Zod tuple schema, like
+    // `sync:preview`: preload forwards the options arg even when it is
+    // `undefined`, so this contract reflects reality.
+    args: [ActivityListOptions | undefined]
+    result: ActivityEvent[]
+  }
   // Folder actions are intentionally typed as `Promise<FolderActionResult>`
   // (never throws) so the renderer can render a toast without try/catch.
   // Main-process exceptions get caught at the typedHandle boundary and
@@ -170,6 +178,7 @@ export interface IpcEventContract {
   'update:downloaded': UpdateInfo
   'update:error': UpdateErrorPayload
   'settings:changed': Settings
+  'activity:changed': ActivityEvent[]
 }
 
 /** Union of every request/response IPC invoke channel name in {@link IpcInvokeContract}. */
