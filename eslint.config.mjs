@@ -111,6 +111,8 @@ export default defineConfig([
       'website/**',
       // Agent tooling (Claude Code skills), not app source — keep out of linting.
       '.claude/**',
+      // Local agent skills are ignored by git but may exist while running skills.
+      '.agents/**',
     ],
   },
   // React "You Might Not Need an Effect" rules (explicit instead of configs.recommended)

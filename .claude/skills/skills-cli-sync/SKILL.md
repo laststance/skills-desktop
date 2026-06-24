@@ -149,6 +149,26 @@ Do not bump `package.json` `version` — releases are owned solely by
 
 ## Latest run (example — point-in-time, NOT part of the procedure)
 
+**2026-06-24 · v1.5.11 → v1.5.13** (version pin + excluded upstream agent)
+
+- **No app agent-list change:** upstream `name:` set is 72 and app `cliId` set
+  stays 68. The only upstream addition since v1.5.11 that is not already
+  mirrored is `eve`, which has `globalSkillsDir: undefined`, so Phase 4 excludes
+  it. App orphans remained zero.
+- **Unchanged derived sets:** `AGENT_DEFINITIONS` stayed 68,
+  `UNIVERSAL_AGENT_IDS` stayed 16, with no `id`/`cliId` migrations and no
+  display-name rebrands.
+- **Excluded at this version:** `eve` and `promptscript`
+  (`globalSkillsDir: undefined`), `universal` (`showInUniversalList: false`),
+  `zenflow` (dir collides with zencoder's `~/.zencoder/skills`).
+- **Edits:** bumped `SKILLS_CLI_VERSION` 1.5.11 → 1.5.13; bumped the e2e pin
+  (`marketplace-install-regression.e2e.ts` literal `skills@1.5.13 add …` +
+  comment); bumped the CLAUDE.md/AGENTS.md Domain-Concepts pinned-version cell;
+  ignored local `.agents/**` in ESLint so repo-local skill copies do not break
+  `pnpm validate`.
+- Gates: `reconcile-agents.mjs` clean, prettier clean, `pnpm validate` green,
+  `pnpm test:e2e` green (60 tests).
+
 **2026-06-14 · v1.5.10 → v1.5.11** (version-only bump)
 
 - **No agent-list change:** `src/agents.ts` is byte-identical between v1.5.10

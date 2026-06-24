@@ -978,7 +978,7 @@ export const TERMINAL_APP_UI_LABELS: Record<
  * @example
  * spawn('npx', [`skills@${SKILLS_CLI_VERSION}`, 'find', 'react'])
  */
-export const SKILLS_CLI_VERSION = '1.5.11'
+export const SKILLS_CLI_VERSION = '1.5.13'
 
 /**
  * Canonical hostname for skills marketplace pages used by renderer/main
