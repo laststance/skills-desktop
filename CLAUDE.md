@@ -49,7 +49,7 @@ Before opening or merging a PR, run the fast gates first:
 pnpm validate
 ```
 
-Runs `lint`, `test`, `typecheck`, and `fallow:dead-code` in parallel via `run-p`.
+Runs `lint`, `test`, `typecheck`, `fallow:dead-code`, `fallow:dupes`, `fallow:health`, and `storybook:build` in parallel via `run-p`.
 
 Only after it passes, run the Electron e2e suite:
 
@@ -79,7 +79,10 @@ PRs are ready to ship only when `validate` and e2e both pass in that order.
 
 `AGENT_DEFINITIONS` in `src/shared/constants.ts` mirrors the CLI's agent
 list. Each entry: `id` (app state), `cliId` (`--agent` flag), `name`
-(display), `dir` (home subpath like `.claude`).
+(display), `installDir` (home subpath where the CLI installs skills
+globally, like `.claude`), `scanDir` (home subpath this app scans for the
+agent's own symlinks; equals `installDir` except for universal-source agents
+where it diverges, e.g. Cline's `.cline`).
 
 ## UI Verification
 

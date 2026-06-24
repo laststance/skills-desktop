@@ -52,7 +52,7 @@ Download the latest release from [GitHub Releases](https://github.com/laststance
 ### Prerequisites
 
 - Node.js 20+
-- pnpm 10+
+- pnpm 11+
 
 ### Setup
 
@@ -91,7 +91,7 @@ E2E specs live in `e2e/spec/*.e2e.ts`. The suite uses `cp -al` hardlink snapshot
 > across every working HOME, so in-place edits (`writeFileSync` over an
 > existing `SKILL.md`, `appendFileSync`, etc.) corrupt the snapshot for
 > every subsequent test. Safe ops only: `unlink`, `rmdir`, `mkdir` +
-> `writeFile` of NEW paths. See `e2e/fixtures/isolated-home.ts:44-50`
+> `writeFile` of NEW paths. See `e2e/fixtures/isolated-home.ts:82-85`
 > for the canonical safe-ops list.
 
 ### Build

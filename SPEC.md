@@ -468,7 +468,7 @@ const initialState: ThemeState = {
 Theme switching is implemented via Redux Toolkit's `listenerMiddleware`:
 
 ```typescript
-// src/redux/listener.ts
+// src/renderer/src/redux/listener.ts
 listenerMiddleware.startListening({
   matcher: isAnyOf(setTheme, setColorTheme, setNeutralTheme, toggleMode),
   effect: async (_action, listenerApi) => {
@@ -928,7 +928,7 @@ APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 **Sections:**
 
 - Hero with app screenshot
-- Feature grid (68 agents, symlink status, 27 theme presets)
+- Feature grid (68 agents, symlink status, 37 theme presets)
 - Download CTA linking to GitHub Release
 - OG image for social sharing
 
@@ -979,5 +979,4 @@ Internal IDs map to CLI identifiers via `AGENT_DEFINITIONS`:
 - **Design**: `design/skills-desktop.pen` (Pencil MCP)
 - **Skills Spec**: https://agentskills.io
 - **Skills CLI**: https://github.com/vercel-labs/skills
-- **Skills CLI Source**: `/Users/ryotamurakami/clone/skills` (local clone)
 - **Skills Registry**: https://skills.sh
