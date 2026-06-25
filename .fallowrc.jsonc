@@ -13,7 +13,9 @@
     "src/renderer/index.html",
     "src/renderer/settings/index.html",
     // Build-time scripts referenced from package.json scripts but not imported
-    "scripts/generate-icons.js"
+    "scripts/generate-icons.js",
+    // Preloaded by lint/storybook scripts to bridge TS7 native preview tooling gaps
+    "scripts/use-legacy-typescript-js-api.cjs"
   ],
   "ignoreDependencies": [
     // postcss-load-config is a transitive of @tailwindcss/postcss / postcss in the
