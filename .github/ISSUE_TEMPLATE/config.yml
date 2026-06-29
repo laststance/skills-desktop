@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/laststance/skills-desktop/security/policy
+    about: Please do not report vulnerabilities through public GitHub issues.
