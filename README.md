@@ -5,6 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Platform: macOS](https://img.shields.io/badge/Platform-macOS-lightgrey.svg)](https://www.apple.com/macos/)
 [![codecov](https://codecov.io/gh/laststance/skills-desktop/branch/main/graph/badge.svg)](https://codecov.io/gh/laststance/skills-desktop)
+[![Security Policy](https://img.shields.io/badge/Security-Policy-green.svg)](SECURITY.md)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/laststance/skills-desktop)
 
 <p align="center">
@@ -46,6 +47,24 @@ Download the latest release from [GitHub Releases](https://github.com/laststance
 | ------------------------ | -------------------------------- |
 | Apple Silicon (M1/M2/M3) | `skills-desktop-x.x.x-arm64.dmg` |
 | Intel Mac                | `skills-desktop-x.x.x-x64.dmg`   |
+
+## Security
+
+Please report vulnerabilities through the process described in
+[SECURITY.md](SECURITY.md), not through public issues.
+
+Skills Desktop keeps local filesystem access behind Electron preload IPC. The
+main and settings windows use sandboxed, context-isolated renderers with Node.js
+integration disabled. Main-process handlers validate IPC arguments, restrict
+file reads to known skills directories, restrict external links to http(s), and
+allow marketplace webviews only from the expected skills.sh origin.
+
+macOS releases are built with Developer ID signing, notarization, and the
+hardened runtime enabled. The security posture tracked for
+[issue #241](https://github.com/laststance/skills-desktop/issues/241) includes
+CodeQL, dependency review, production dependency audit, GitHub secret scanning,
+Dependabot security updates, least-privilege Actions permissions, and branch
+protection.
 
 ## Development
 
