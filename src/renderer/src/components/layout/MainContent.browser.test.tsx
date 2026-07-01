@@ -3265,6 +3265,11 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
   })
 
   it('keeps a newer undo toast when an older notification is dismissed late', async () => {
+    vi.mocked(toast).mockClear()
+    vi.mocked(toast.success).mockClear()
+    vi.mocked(toast.info).mockClear()
+    vi.mocked(toast.error).mockClear()
+
     // Arrange — run a delete to capture the first toast's dismiss handler,
     // then simulate a second bulk operation replacing the persisted undo state.
     const { screen, store } = await renderMainContent()
