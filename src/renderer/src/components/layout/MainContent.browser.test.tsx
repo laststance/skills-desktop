@@ -822,6 +822,35 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
     expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
     expect(store.getState().ui.bulkSelectMode).toBe(true)
   })
+
+  it('does not clear the selection or exit bulk mode when Escape closes an open dropdown menu', async () => {
+    // Arrange — Radix DropdownMenu.Content owns Escape while it is open. The
+    // document bulk shortcut must not also consume that same keydown.
+    const { screen, store } = await renderMainContent()
+    const { enterBulkSelectMode } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(enterBulkSelectMode())
+    store.dispatch(toggleSelection('task' as SkillName))
+    await waitForBulkSelectReady(screen)
+
+    const openMenu = document.createElement('div')
+    openMenu.setAttribute('role', 'menu')
+    openMenu.setAttribute('data-state', 'open')
+    document.body.appendChild(openMenu)
+
+    try {
+      // Act
+      dispatchKey({ key: 'Escape' })
+
+      // Assert
+      expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+      expect(store.getState().ui.bulkSelectMode).toBe(true)
+    } finally {
+      document.body.removeChild(openMenu)
+    }
+  })
 })
 
 describe('MainContent bulk delete — uniform delete pipeline', () => {
@@ -3233,6 +3262,68 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
 
     // Assert
     expect(store.getState().ui.undoToast).toBeNull()
+  })
+
+  it('keeps a newer undo toast when an older notification is dismissed late', async () => {
+    // Arrange — run a delete to capture the first toast's dismiss handler,
+    // then simulate a second bulk operation replacing the persisted undo state.
+    const { screen, store } = await renderMainContent()
+    const { setBulkConfirm, setUndoToast } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const sourceSkillName = 'stale-dismiss-me' as SkillName
+    const sourceSkill: Skill = {
+      name: sourceSkillName,
+      description: '',
+      path: '/Users/me/.agents/skills/stale-dismiss-me' as never,
+      filesystemIdentity: directoryIdentity,
+      symlinkCount: 0,
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
+    mockSkillsDeleteSkills.mockResolvedValue({
+      items: [
+        {
+          skillName: sourceSkillName,
+          outcome: 'deleted',
+          tombstoneId: tombstoneId('1729180800000-stale-dismiss-a1b2c3d4'),
+          symlinksRemoved: 0,
+          cascadeAgents: [],
+        },
+      ],
+    } satisfies BulkDeleteResult)
+    store.dispatch(fetchSkills.fulfilled([sourceSkill], 'req-id'))
+    store.dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [sourceSkillName],
+        agentId: null,
+        agentName: null,
+        sourceSummary: null,
+        ...partitionGlobalDeleteTargets([sourceSkill], [sourceSkillName]),
+      }),
+    )
+    await screen.getByRole('button', { name: /^Delete$/ }).click()
+    await expect.poll(() => store.getState().ui.undoToast).not.toBeNull()
+    const oldToastCall = vi.mocked(toast).mock.calls.find(isUndoToastCall)
+    const newerToast = {
+      id: 'bulk-delete-newer',
+      kind: 'delete' as const,
+      skillNames: ['newer-delete'] as SkillName[],
+      tombstoneIds: [tombstoneId('1729180800000-newer-delete-a1b2c3d4')],
+      expiresAt: '2026-04-17T12:00:15.000Z',
+      summary: 'Deleted 1 skill. 0 symlinks removed.',
+    }
+    store.dispatch(setUndoToast(newerToast))
+
+    // Act — sonner types onDismiss as (toast: ToastT) => void; the handler
+    // ignores its argument, so a single cast is required to call it bare.
+    oldToastCall![1].onDismiss?.(undefined as never)
+
+    // Assert
+    expect(store.getState().ui.undoToast).toEqual(newerToast)
   })
 })
 

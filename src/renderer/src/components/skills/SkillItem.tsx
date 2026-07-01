@@ -876,6 +876,18 @@ interface BulkSelectionCheckboxProps {
 }
 
 /**
+ * Prevents checkbox label clicks from opening the row while preserving the checkbox's own toggle.
+ * @param event - Label click from the bulk selection hit area.
+ * @returns void
+ * @example <label onClick={handleBulkSelectionLabelClick}>
+ */
+function handleBulkSelectionLabelClick(
+  event: React.MouseEvent<HTMLLabelElement>,
+): void {
+  event.stopPropagation()
+}
+
+/**
  * Shows the row checkbox only while Installed bulk-select mode is active.
  * @param props - Selection state, eligibility, and handlers prepared by SkillItem.
  * @returns Checkbox label with stable hit area, or null outside bulk-select mode.
@@ -890,17 +902,13 @@ const BulkSelectionCheckbox = React.memo(function BulkSelectionCheckbox({
   onCheckedChange,
   onPointerDown,
 }: BulkSelectionCheckboxProps): React.ReactElement | null {
-  function handleLabelClick(event: React.MouseEvent<HTMLLabelElement>): void {
-    event.stopPropagation()
-  }
-
   if (!bulkSelectMode) return null
 
   return (
     // react-doctor-disable-next-line react-doctor/label-has-associated-control, react-doctor/no-noninteractive-element-interactions -- the label wraps a Radix <Checkbox> (renders a real <input>) that react-doctor can't see as the control; the onClick is a stopPropagation guard, not an interactive handler.
     <label
       className="shrink-0 min-h-11 min-w-11 flex items-center justify-center -mt-1 -ml-1 cursor-pointer"
-      onClick={handleLabelClick}
+      onClick={handleBulkSelectionLabelClick}
     >
       <Checkbox
         checked={isTicked}

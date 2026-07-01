@@ -96,6 +96,7 @@ import {
   clearExcludedSkillTypeFilters,
   clearSelectedSources,
   clearUndoToast,
+  clearUndoToastIfCurrent,
   enterBulkSelectMode,
   exitBulkSelectMode,
   getAvailableExcludeTypes,
@@ -245,10 +246,10 @@ function useInstalledBulkKeyboardShortcuts({
     const handleKey = (event: KeyboardEvent): void => {
       if (!bulkSelectModeRef.current) return
 
-      // Open dialogs own Escape and Cmd/Ctrl+A, so bulk selection stands down.
+      // Open dialogs and menus own Escape/Cmd+A, so bulk selection stands down.
       if (
         document.querySelector(
-          '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+          '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [role="menu"][data-state="open"]',
         )
       )
         return
@@ -720,10 +721,10 @@ function useConfirmBulkDelete({
       const expiresAt: IsoTimestamp = new Date(
         Date.now() + UNDO_WINDOW_MS,
       ).toISOString()
-      const handleToastDismissed = (): void => {
-        dispatch(clearUndoToast())
-      }
       const toastId: ToastId = `bulk-delete-${Date.now()}`
+      const handleToastDismissed = (): void => {
+        dispatch(clearUndoToastIfCurrent(toastId))
+      }
       toast(
         <UndoToast
           skillNames={deletedNames}
