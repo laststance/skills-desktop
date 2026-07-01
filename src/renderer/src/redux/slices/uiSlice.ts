@@ -47,12 +47,7 @@ export type SortOrder = 'asc' | 'desc'
  * slot is a real folder vs a symlink. See `matchesSkillTypeFilter`.
  */
 export type SkillTypeFilter =
-  | 'all'
-  | 'symlinked'
-  | 'local'
-  | 'gstack'
-  | 'orphan'
-  | 'unique'
+  'all' | 'symlinked' | 'local' | 'gstack' | 'orphan' | 'unique'
 /** SkillTypeFilter minus `'all'` — the type modes that can be subtracted as excludes. */
 export type ExcludableSkillTypeFilter = Exclude<SkillTypeFilter, 'all'>
 /**
@@ -461,6 +456,17 @@ const uiSlice = createSlice({
       state.undoToast = null
     },
     /**
+     * Clear only the toast that fired its own dismiss callback so stale sonner timers cannot erase a newer undo state.
+     * @param state - UI slice draft that stores the currently visible undo toast.
+     * @param action - Toast id captured when MainContent created the dismiss handler.
+     * @returns void
+     * @example dispatch(clearUndoToastIfCurrent('bulk-delete-1'))
+     */
+    clearUndoToastIfCurrent: (state, action: PayloadAction<ToastId>) => {
+      if (state.undoToast?.id !== action.payload) return
+      state.undoToast = null
+    },
+    /**
      * Open the bulk confirm dialog with the pending-action payload. The actual
      * thunk dispatch (deleteSelectedSkills / unlinkSelectedFromAgent) happens
      * in MainContent's onConfirm handler after the user approves the prompt.
@@ -644,6 +650,7 @@ export const {
   clearSelectedBookmarkForDetail,
   setUndoToast,
   clearUndoToast,
+  clearUndoToastIfCurrent,
   setBulkConfirm,
   clearBulkConfirm,
   enterBulkSelectMode,

@@ -448,16 +448,25 @@ export const SkillItem = React.memo(function SkillItem({
   // `/* v8 ignore */` here does not cleanly recover the hit (the transform remaps
   // FNDA attribution off this const-arrow onto a different node), so the function
   // threshold is floored just below 100 rather than chased. See vitest.config.ts.
-  const handleUnlinkClick = (e: React.MouseEvent): void => {
-    e.stopPropagation()
-    // Protection is enforced here too so future UI refactors cannot stage a
-    // locked skill for removal by accidentally showing the button.
-    if (isProtected) return
-    const targetSymlink = selectedAgentSymlink ?? selectedLocalSkillInfo
-    if (targetSymlink) {
-      dispatch(setSkillToUnlink({ skill, symlink: targetSymlink }))
-    }
-  }
+  const handleUnlinkClick = useCallback(
+    (e: React.MouseEvent): void => {
+      e.stopPropagation()
+      // Protection is enforced here too so future UI refactors cannot stage a
+      // locked skill for removal by accidentally showing the button.
+      if (isProtected) return
+      const targetSymlink = selectedAgentSymlink ?? selectedLocalSkillInfo
+      if (targetSymlink) {
+        dispatch(setSkillToUnlink({ skill, symlink: targetSymlink }))
+      }
+    },
+    [
+      dispatch,
+      isProtected,
+      selectedAgentSymlink,
+      selectedLocalSkillInfo,
+      skill,
+    ],
+  )
 
   const handleAddClick = useCallback(
     (e: React.MouseEvent): void => {
@@ -478,47 +487,53 @@ export const SkillItem = React.memo(function SkillItem({
    * become stale by design: simple file deletion is preferred over the
    * unreliable `npx skills remove` spawn the CLI used to perform.
    */
-  const handleDeleteClick = (e: React.MouseEvent): void => {
-    e.stopPropagation()
-    const {
-      deleteTargets,
-      orphanRecords,
-      staleDeleteErrors,
-      orphanErrors,
-      protectedErrors,
-    } = partitionGlobalDeleteTargets(
-      [skill],
-      [skill.name],
-      // Pass the real protection state so business logic enforces the guard
-      // even if the UI gate (showDeleteButton) is weakened in future refactors.
-      new Set<SkillName>(isProtected ? [skill.name] : []),
-    )
-    dispatch(
-      setBulkConfirm({
-        kind: 'delete',
-        skillNames: [skill.name],
-        agentId: null,
-        agentName: null,
-        // A single-row delete carries no repo-filter scope to report.
-        sourceSummary: null,
+  const handleDeleteClick = useCallback(
+    (e: React.MouseEvent): void => {
+      e.stopPropagation()
+      const {
         deleteTargets,
         orphanRecords,
         staleDeleteErrors,
         orphanErrors,
         protectedErrors,
-      }),
-    )
-  }
+      } = partitionGlobalDeleteTargets(
+        [skill],
+        [skill.name],
+        // Pass the real protection state so business logic enforces the guard
+        // even if the UI gate (showDeleteButton) is weakened in future refactors.
+        new Set<SkillName>(isProtected ? [skill.name] : []),
+      )
+      dispatch(
+        setBulkConfirm({
+          kind: 'delete',
+          skillNames: [skill.name],
+          agentId: null,
+          agentName: null,
+          // A single-row delete carries no repo-filter scope to report.
+          sourceSummary: null,
+          deleteTargets,
+          orphanRecords,
+          staleDeleteErrors,
+          orphanErrors,
+          protectedErrors,
+        }),
+      )
+    },
+    [dispatch, isProtected, skill],
+  )
 
-  const handleToggleBookmark = (e: React.MouseEvent): void => {
-    e.stopPropagation()
-    if (isBookmarked) {
-      dispatch(removeBookmark(skill.name))
-    } else {
-      const { repo, url } = skillToBookmarkData(skill)
-      dispatch(addBookmark({ name: skill.name, repo, url }))
-    }
-  }
+  const handleToggleBookmark = useCallback(
+    (e: React.MouseEvent): void => {
+      e.stopPropagation()
+      if (isBookmarked) {
+        dispatch(removeBookmark(skill.name))
+      } else {
+        const { repo, url } = skillToBookmarkData(skill)
+        dispatch(addBookmark({ name: skill.name, repo, url }))
+      }
+    },
+    [dispatch, isBookmarked, skill],
+  )
 
   /**
    * Checkbox click handler — `onPointerDown` captures the shift modifier
@@ -657,99 +672,19 @@ export const SkillItem = React.memo(function SkillItem({
           onClick={handleCardClick}
           onContextMenu={handleContextMenu}
         >
-          {/* X button — agent-view only (unlink or delete a local skill from
-              the selected agent). Apple HIG 44×44 hit area via min-h/min-w. */}
-          {showUnlinkButton && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={handleUnlinkClick}
-                  aria-label={
-                    isLocalSkill
-                      ? `Delete ${skill.name} from ${selectedAgentName}`
-                      : `Unlink ${skill.name} from ${selectedAgentName}`
-                  }
-                  className="absolute top-1.5 right-0 min-h-11 min-w-11 flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="left">
-                {isLocalSkill
-                  ? `Delete from ${selectedAgentName}`
-                  : `Remove from ${selectedAgentName}`}
-              </TooltipContent>
-            </Tooltip>
-          )}
-
-          {/* X button — global-view only (delete entire skill). Routes to the
-              shared bulk-confirm dialog which cascades to trash + undo toast.
-              Same visual corner as showUnlinkButton; they're mutually
-              exclusive because `!selectedAgentId` gates showDeleteButton. */}
-          {showDeleteButton && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={handleDeleteClick}
-                  aria-label={`Delete ${skill.name}`}
-                  data-testid={`skill-delete-${skill.name}`}
-                  className="absolute top-1.5 right-0 min-h-11 min-w-11 flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="left">Delete</TooltipContent>
-            </Tooltip>
-          )}
-
-          {/* Lock toggle — always shown (protection is not source-gated).
-              Position adjusts based on which other overlay buttons are present. */}
-          <ProtectButton
-            skillName={skill.name}
+          <SkillItemOverlayActions
+            skill={skill}
+            selectedAgentName={selectedAgentName}
+            isLocalSkill={isLocalSkill}
+            isBookmarked={isBookmarked}
             showBookmark={showBookmark}
+            showUnlinkButton={showUnlinkButton}
+            showDeleteButton={showDeleteButton}
             hasXButton={showUnlinkButtonBase || showDeleteButtonBase}
+            onUnlinkClick={handleUnlinkClick}
+            onDeleteClick={handleDeleteClick}
+            onToggleBookmark={handleToggleBookmark}
           />
-
-          {/* Bookmark toggle — only for skills with repo source.
-              Positioned to the left of the X button with a 44×44 hit area. */}
-          {showBookmark && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={handleToggleBookmark}
-                  aria-label={
-                    isBookmarked
-                      ? `Remove bookmark from ${skill.name}`
-                      : `Bookmark ${skill.name}`
-                  }
-                  className={cn(
-                    'absolute top-1.5 min-h-11 min-w-11 flex items-center justify-center rounded-md z-10 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                    // Right-align: slide the bookmark left of the X when an
-                    // X button (unlink in agent view, delete in global view)
-                    // shares the top-right corner.
-                    showUnlinkButton || showDeleteButton
-                      ? 'right-11'
-                      : 'right-0',
-                    isBookmarked
-                      ? 'text-primary'
-                      : 'text-muted-foreground hover:text-foreground opacity-40 group-hover:opacity-100 focus-visible:opacity-100',
-                  )}
-                >
-                  {isBookmarked ? (
-                    <BookmarkCheck className="h-3.5 w-3.5" />
-                  ) : (
-                    <BookmarkPlus className="h-3.5 w-3.5" />
-                  )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="left">
-                {isBookmarked ? 'Remove bookmark' : 'Bookmark'}
-              </TooltipContent>
-            </Tooltip>
-          )}
 
           <CardContent
             className={cn(
@@ -769,36 +704,14 @@ export const SkillItem = React.memo(function SkillItem({
             )}
           >
             <div className="flex items-start gap-3">
-              {/* 44×44 hit area via the wrapper; the visual Checkbox stays
-                  16×16 per shadcn default. The focusable Checkbox below owns
-                  the accessible name — duplicating `aria-label` on the wrapper
-                  caused some screen readers to announce the skill twice.
-                  Rendered only when the user has entered bulk-select mode via
-                  the filter-row toggle; the default view stays clean. */}
-              {bulkSelectMode && (
-                // react-doctor-disable-next-line react-doctor/label-has-associated-control, react-doctor/no-noninteractive-element-interactions -- the label wraps a Radix <Checkbox> (renders a real <input>) that react-doctor can't see as the control; the onClick is a stopPropagation guard, not an interactive handler.
-                <label
-                  className="shrink-0 min-h-11 min-w-11 flex items-center justify-center -mt-1 -ml-1 cursor-pointer"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Checkbox
-                    checked={isTicked}
-                    onCheckedChange={handleCheckedChange}
-                    onPointerDown={handleCheckboxPointerDown}
-                    // Keep the slot rendered for every row in bulk mode so titles
-                    // stay aligned, but block selecting an ineligible row (still
-                    // allow deselecting one that is already ticked).
-                    disabled={!isBulkSelectable && !isTicked}
-                    aria-label={
-                      isTicked
-                        ? `Deselect ${skill.name}`
-                        : isBulkSelectable
-                          ? `Select ${skill.name}`
-                          : `${skill.name} is not eligible for bulk selection`
-                    }
-                  />
-                </label>
-              )}
+              <BulkSelectionCheckbox
+                bulkSelectMode={bulkSelectMode}
+                isTicked={isTicked}
+                isBulkSelectable={isBulkSelectable}
+                skillName={skill.name}
+                onCheckedChange={handleCheckedChange}
+                onPointerDown={handleCheckboxPointerDown}
+              />
               <div className="flex-1 min-w-0">
                 <SkillTitleRow
                   skill={skill}
@@ -832,5 +745,184 @@ export const SkillItem = React.memo(function SkillItem({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+})
+
+interface SkillItemOverlayActionsProps {
+  skill: Skill
+  selectedAgentName: string
+  isLocalSkill: boolean
+  isBookmarked: boolean
+  showBookmark: boolean
+  showUnlinkButton: boolean
+  showDeleteButton: boolean
+  hasXButton: boolean
+  onUnlinkClick: (event: React.MouseEvent) => void
+  onDeleteClick: (event: React.MouseEvent) => void
+  onToggleBookmark: (event: React.MouseEvent) => void
+}
+
+/**
+ * Renders the row overlay buttons after SkillItem decides which actions are legal.
+ * @param props - Skill row action visibility plus handlers wired by SkillItem.
+ * @returns Top-right unlink/delete, protect, and bookmark controls for one row.
+ * @example
+ * <SkillItemOverlayActions skill={skill} selectedAgentName="Claude" showBookmark={true} />
+ */
+const SkillItemOverlayActions = React.memo(function SkillItemOverlayActions({
+  skill,
+  selectedAgentName,
+  isLocalSkill,
+  isBookmarked,
+  showBookmark,
+  showUnlinkButton,
+  showDeleteButton,
+  hasXButton,
+  onUnlinkClick,
+  onDeleteClick,
+  onToggleBookmark,
+}: SkillItemOverlayActionsProps): React.ReactElement {
+  return (
+    <>
+      {showUnlinkButton ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={onUnlinkClick}
+              aria-label={
+                isLocalSkill
+                  ? `Delete ${skill.name} from ${selectedAgentName}`
+                  : `Unlink ${skill.name} from ${selectedAgentName}`
+              }
+              className="absolute top-1.5 right-0 min-h-11 min-w-11 flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            {isLocalSkill
+              ? `Delete from ${selectedAgentName}`
+              : `Remove from ${selectedAgentName}`}
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
+
+      {showDeleteButton ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={onDeleteClick}
+              aria-label={`Delete ${skill.name}`}
+              data-testid={`skill-delete-${skill.name}`}
+              className="absolute top-1.5 right-0 min-h-11 min-w-11 flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left">Delete</TooltipContent>
+        </Tooltip>
+      ) : null}
+
+      <ProtectButton
+        skillName={skill.name}
+        showBookmark={showBookmark}
+        hasXButton={hasXButton}
+      />
+
+      {showBookmark ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={onToggleBookmark}
+              aria-label={
+                isBookmarked
+                  ? `Remove bookmark from ${skill.name}`
+                  : `Bookmark ${skill.name}`
+              }
+              className={cn(
+                'absolute top-1.5 min-h-11 min-w-11 flex items-center justify-center rounded-md z-10 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                showUnlinkButton || showDeleteButton ? 'right-11' : 'right-0',
+                isBookmarked
+                  ? 'text-primary'
+                  : 'text-muted-foreground hover:text-foreground opacity-40 group-hover:opacity-100 focus-visible:opacity-100',
+              )}
+            >
+              {isBookmarked ? (
+                <BookmarkCheck className="h-3.5 w-3.5" />
+              ) : (
+                <BookmarkPlus className="h-3.5 w-3.5" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            {isBookmarked ? 'Remove bookmark' : 'Bookmark'}
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
+    </>
+  )
+})
+
+interface BulkSelectionCheckboxProps {
+  bulkSelectMode: boolean
+  isTicked: boolean
+  isBulkSelectable: boolean
+  skillName: SkillName
+  onCheckedChange: (checked: boolean | 'indeterminate') => void
+  onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => void
+}
+
+/**
+ * Prevents checkbox label clicks from opening the row while preserving the checkbox's own toggle.
+ * @param event - Label click from the bulk selection hit area.
+ * @returns void
+ * @example <label onClick={handleBulkSelectionLabelClick}>
+ */
+function handleBulkSelectionLabelClick(
+  event: React.MouseEvent<HTMLLabelElement>,
+): void {
+  event.stopPropagation()
+}
+
+/**
+ * Shows the row checkbox only while Installed bulk-select mode is active.
+ * @param props - Selection state, eligibility, and handlers prepared by SkillItem.
+ * @returns Checkbox label with stable hit area, or null outside bulk-select mode.
+ * @example
+ * <BulkSelectionCheckbox bulkSelectMode={true} isTicked={false} skillName="task" />
+ */
+const BulkSelectionCheckbox = React.memo(function BulkSelectionCheckbox({
+  bulkSelectMode,
+  isTicked,
+  isBulkSelectable,
+  skillName,
+  onCheckedChange,
+  onPointerDown,
+}: BulkSelectionCheckboxProps): React.ReactElement | null {
+  if (!bulkSelectMode) return null
+
+  return (
+    // react-doctor-disable-next-line react-doctor/label-has-associated-control, react-doctor/no-noninteractive-element-interactions -- the label wraps a Radix <Checkbox> (renders a real <input>) that react-doctor can't see as the control; the onClick is a stopPropagation guard, not an interactive handler.
+    <label
+      className="shrink-0 min-h-11 min-w-11 flex items-center justify-center -mt-1 -ml-1 cursor-pointer"
+      onClick={handleBulkSelectionLabelClick}
+    >
+      <Checkbox
+        checked={isTicked}
+        onCheckedChange={onCheckedChange}
+        onPointerDown={onPointerDown}
+        disabled={!isBulkSelectable && !isTicked}
+        aria-label={
+          isTicked
+            ? `Deselect ${skillName}`
+            : isBulkSelectable
+              ? `Select ${skillName}`
+              : `${skillName} is not eligible for bulk selection`
+        }
+      />
+    </label>
   )
 })

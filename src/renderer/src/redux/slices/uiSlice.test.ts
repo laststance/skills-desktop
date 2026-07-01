@@ -11,6 +11,7 @@ import type {
   ClearOrphanSymlinksResult,
   FilesystemEntryIdentity,
   Skill,
+  SkillName,
   SourceStats,
   SyncExecuteResult,
   SyncPreviewResult,
@@ -601,6 +602,27 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
 
     // Assert
     expect(store.getState().ui.undoToast).toBeNull()
+  })
+
+  it('keeps the newer undo toast when an older toast dismissal arrives late', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { setUndoToast, clearUndoToastIfCurrent } = await import('./uiSlice')
+    const olderToast = makeToast()
+    const newerToast = {
+      ...makeToast(),
+      id: 'toast-2',
+      skillNames: ['newer-task'] as SkillName[],
+      summary: 'Deleted 1 skill. 0 symlinks removed.',
+    }
+    store.dispatch(setUndoToast(olderToast))
+    store.dispatch(setUndoToast(newerToast))
+
+    // Act
+    store.dispatch(clearUndoToastIfCurrent(olderToast.id))
+
+    // Assert
+    expect(store.getState().ui.undoToast).toEqual(newerToast)
   })
 
   it('dismisses an active undo toast when the user switches agents (context switch invalidates it)', async () => {
