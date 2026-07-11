@@ -13,6 +13,7 @@ import {
 import React, { useCallback, useMemo, useRef, useState } from 'react'
 
 import { StatusBadge } from '@/renderer/src/components/status/StatusBadge'
+import { badgeVariants } from '@/renderer/src/components/ui/badge'
 import { Button } from '@/renderer/src/components/ui/button'
 import { Card, CardContent } from '@/renderer/src/components/ui/card'
 import { Checkbox } from '@/renderer/src/components/ui/checkbox'
@@ -97,7 +98,7 @@ interface ProtectButtonProps {
 
 /**
  * Lock / unlock toggle shown on every skill row. Manages its own Redux state
- * so the parent SkillItem only needs `isProtected` for the delete-button gate.
+ * so the parent SkillItem only needs `isProtected` for status and action guards.
  * @param props - Skill name, bookmark visibility, and X-button visibility for positioning.
  * @returns Tooltip-wrapped lock icon button that dispatches protect actions.
  * @example
@@ -284,6 +285,7 @@ interface SkillTitleRowProps {
   isLinked: boolean
   isLocalSkill: boolean
   isInaccessibleSkill: boolean
+  isProtected: boolean
   showAddButton: boolean
   showGStackBadge: boolean
   onAddClick: React.MouseEventHandler<HTMLButtonElement>
@@ -294,13 +296,14 @@ interface SkillTitleRowProps {
  * @param props - Skill state flags and Add click handler for one list row.
  * @returns Header row with a clean skill heading plus adjacent actions.
  * @example
- * <SkillTitleRow skill={skill} isLinked={false} isLocalSkill={false} isInaccessibleSkill={false} showAddButton showGStackBadge={false} onAddClick={handleAddClick} />
+ * <SkillTitleRow skill={skill} isLinked={false} isLocalSkill={false} isInaccessibleSkill={false} isProtected={false} showAddButton showGStackBadge={false} onAddClick={handleAddClick} />
  */
 const SkillTitleRow = React.memo(function SkillTitleRow({
   skill,
   isLinked,
   isLocalSkill,
   isInaccessibleSkill,
+  isProtected,
   showAddButton,
   showGStackBadge,
   onAddClick,
@@ -321,6 +324,18 @@ const SkillTitleRow = React.memo(function SkillTitleRow({
           />
         )}
         <span className="truncate">{skill.name}</span>
+        {isProtected && (
+          <span
+            data-testid={`skill-protected-badge-${skill.name}`}
+            className={cn(
+              badgeVariants({ variant: 'outline' }),
+              'h-5 shrink-0 gap-1 border-border bg-muted px-1.5 py-0 text-[10px] font-semibold leading-none text-foreground',
+            )}
+          >
+            <Lock className="h-3 w-3" aria-hidden="true" />
+            <span>Protected</span>
+          </span>
+        )}
         {isInaccessibleSkill && (
           <span
             // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- composed "inaccessible" text status badge collapsed to one labelled graphic via role="img"+aria-label. <img> needs a src and cannot contain the badge text.
@@ -427,9 +442,8 @@ export const SkillItem = React.memo(function SkillItem({
     selectedLocalSkillInfo,
     showGStackBadge,
   } = getSkillItemVisibility(selectedAgentId, skill)
-  // Protected skills hide every destructive X action, including agent-view
-  // unlink/delete, so the lock copy matches the actual behavior.
-  const showDeleteButton = showDeleteButtonBase && !isProtected
+  // Global Delete keeps its slot while protected so the disabled action explains why it cannot run.
+  const showDeleteButton = showDeleteButtonBase
   const showUnlinkButton = showUnlinkButtonBase && !isProtected
   const isBulkSelectable = canBulkSelectRenderedSkill(
     selectedAgentId,
@@ -676,6 +690,7 @@ export const SkillItem = React.memo(function SkillItem({
             skill={skill}
             selectedAgentName={selectedAgentName}
             isLocalSkill={isLocalSkill}
+            isProtected={isProtected}
             isBookmarked={isBookmarked}
             showBookmark={showBookmark}
             showUnlinkButton={showUnlinkButton}
@@ -718,6 +733,7 @@ export const SkillItem = React.memo(function SkillItem({
                   isLinked={isLinked}
                   isLocalSkill={isLocalSkill}
                   isInaccessibleSkill={isInaccessibleSkill}
+                  isProtected={isProtected}
                   showAddButton={showAddButton}
                   showGStackBadge={showGStackBadge}
                   onAddClick={handleAddClick}
@@ -752,6 +768,7 @@ interface SkillItemOverlayActionsProps {
   skill: Skill
   selectedAgentName: string
   isLocalSkill: boolean
+  isProtected: boolean
   isBookmarked: boolean
   showBookmark: boolean
   showUnlinkButton: boolean
@@ -763,8 +780,8 @@ interface SkillItemOverlayActionsProps {
 }
 
 /**
- * Renders the row overlay buttons after SkillItem decides which actions are legal.
- * @param props - Skill row action visibility plus handlers wired by SkillItem.
+ * Renders row overlay buttons after SkillItem decides action visibility and availability.
+ * @param props - Skill row action visibility, protection state, and handlers wired by SkillItem.
  * @returns Top-right unlink/delete, protect, and bookmark controls for one row.
  * @example
  * <SkillItemOverlayActions skill={skill} selectedAgentName="Claude" showBookmark={true} />
@@ -773,6 +790,7 @@ const SkillItemOverlayActions = React.memo(function SkillItemOverlayActions({
   skill,
   selectedAgentName,
   isLocalSkill,
+  isProtected,
   isBookmarked,
   showBookmark,
   showUnlinkButton,
@@ -782,6 +800,35 @@ const SkillItemOverlayActions = React.memo(function SkillItemOverlayActions({
   onDeleteClick,
   onToggleBookmark,
 }: SkillItemOverlayActionsProps): React.ReactElement {
+  const globalDeleteButton = showDeleteButton ? (
+    <button
+      type="button"
+      onClick={(event) => {
+        // aria-disabled keeps the recovery tooltip keyboard-accessible without activating the card.
+        if (isProtected) {
+          event.stopPropagation()
+          return
+        }
+        onDeleteClick(event)
+      }}
+      aria-disabled={isProtected}
+      aria-label={
+        isProtected
+          ? `Delete ${skill.name} unavailable while protected`
+          : `Delete ${skill.name}`
+      }
+      data-testid={`skill-delete-${skill.name}`}
+      className={cn(
+        'absolute top-1.5 right-0 min-h-11 min-w-11 flex items-center justify-center rounded-md z-10 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        isProtected
+          ? 'cursor-not-allowed text-muted-foreground opacity-40'
+          : 'text-muted-foreground opacity-0 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100',
+      )}
+    >
+      <X className="h-3.5 w-3.5" />
+    </button>
+  ) : null
+
   return (
     <>
       {showUnlinkButton ? (
@@ -808,20 +855,16 @@ const SkillItemOverlayActions = React.memo(function SkillItemOverlayActions({
         </Tooltip>
       ) : null}
 
-      {showDeleteButton ? (
+      {globalDeleteButton ? (
         <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={onDeleteClick}
-              aria-label={`Delete ${skill.name}`}
-              data-testid={`skill-delete-${skill.name}`}
-              className="absolute top-1.5 right-0 min-h-11 min-w-11 flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="left">Delete</TooltipContent>
+          <TooltipTrigger asChild>{globalDeleteButton}</TooltipTrigger>
+          {/* Keep the recovery hint clear of the adjacent Unlock control. */}
+          <TooltipContent
+            side={isProtected ? 'bottom' : 'left'}
+            align={isProtected ? 'end' : 'center'}
+          >
+            {isProtected ? 'Unlock to delete' : 'Delete'}
+          </TooltipContent>
         </Tooltip>
       ) : null}
 

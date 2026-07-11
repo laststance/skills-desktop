@@ -1120,7 +1120,7 @@ describe('SkillItem protection', () => {
       .toBeInTheDocument()
   })
 
-  it('shows an "Unlock {name}" button when the skill is protected', async () => {
+  it('labels a protected skill and offers an Unlock action', async () => {
     // Arrange — dispatch addProtection before rendering so ProtectButton
     // receives isProtected=true and renders the Lock icon.
     const { screen, store } = await renderSkillItem(
@@ -1132,13 +1132,16 @@ describe('SkillItem protection', () => {
     // Act
     store.dispatch(addProtection('task' as SkillName))
 
-    // Assert — Lock icon + "Unlock task" label confirms the protected visual state.
+    // Assert — text makes protection scannable while the lock remains actionable.
     await expect
       .element(screen.getByRole('button', { name: /^Unlock task$/i }))
       .toBeInTheDocument()
+    await expect
+      .element(screen.getByText('Protected', { exact: true }))
+      .toBeVisible()
   })
 
-  it('hides the delete button when the skill is locked', async () => {
+  it('explains that delete is unavailable while the skill is protected', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: 'task' as SkillName }),
@@ -1146,18 +1149,19 @@ describe('SkillItem protection', () => {
     const { addProtection } =
       await import('@/renderer/src/redux/slices/protectSlice')
 
-    // Act — lock the skill; protection gates showDeleteButton to false.
+    // Act — protect the skill so the destructive action becomes unavailable.
     store.dispatch(addProtection('task' as SkillName))
 
-    // Assert — delete button must be absent; clicking it with protection on
-    // would mean the fat-finger guard is broken. Use async assertion so React
-    // has time to re-render after the store dispatch.
-    await expect
-      .element(screen.getByRole('button', { name: /^Delete task$/i }))
-      .not.toBeInTheDocument()
+    // Assert — keep the stable action slot visible, but disable it and name why.
+    const deleteButton = screen.getByRole('button', {
+      name: /^Delete task unavailable while protected$/i,
+    })
+    await expect.element(deleteButton).toBeVisible()
+    await expect.element(deleteButton).toBeDisabled()
+    await expect.element(deleteButton).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('restores the delete button when the skill is unlocked', async () => {
+  it('removes the Protected label and enables delete after unlocking', async () => {
     // Arrange — start locked, then unlock.
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: 'task' as SkillName }),
@@ -1169,10 +1173,13 @@ describe('SkillItem protection', () => {
     // Act
     store.dispatch(removeProtection('task' as SkillName))
 
-    // Assert — delete button reappears after unlocking.
+    // Assert — the visible status clears and the same destructive slot is usable.
+    const deleteButton = screen.getByRole('button', { name: /^Delete task$/i })
+    await expect.element(deleteButton).toBeInTheDocument()
+    await expect.element(deleteButton).not.toBeDisabled()
     await expect
-      .element(screen.getByRole('button', { name: /^Delete task$/i }))
-      .toBeInTheDocument()
+      .element(screen.getByText('Protected', { exact: true }))
+      .not.toBeInTheDocument()
   })
 
   it('hides the agent-view unlink button when the skill is locked', async () => {
