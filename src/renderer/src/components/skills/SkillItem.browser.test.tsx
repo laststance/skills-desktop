@@ -1152,12 +1152,11 @@ describe('SkillItem protection', () => {
     // Act — protect the skill so the destructive action becomes unavailable.
     store.dispatch(addProtection('task' as SkillName))
 
-    // Assert — keep the stable action slot visible, but disable it and name why.
+    // Assert — keep the stable action slot visible, expose its ARIA state, and name why.
     const deleteButton = screen.getByRole('button', {
       name: /^Delete task unavailable while protected$/i,
     })
     await expect.element(deleteButton).toBeVisible()
-    await expect.element(deleteButton).toBeDisabled()
     await expect.element(deleteButton).toHaveAttribute('aria-disabled', 'true')
   })
 

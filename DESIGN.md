@@ -481,9 +481,9 @@ Row-level toggleable controls (lock/protection, bookmark) that exist to guard or
 - **Hover (off):** `opacity-70` — mid-state gives the interaction hint before commit.
 - **Active (on):** `opacity-100` + semantic color (`text-foreground` for protection, `text-amber-500` for bookmark) — the engaged state must be unambiguous. Protection also adds a compact, always-visible `Protected` badge beside the item name; a closed lock alone is too easy to misread as a passive icon.
 
-Always pair with a tooltip: `"Protected — cannot be deleted"` (on) / `"Click to protect"` (off). Lock semantics are not self-evident in operational UI.
+Always pair with a tooltip: `"Protected — cannot be deleted or removed"` (on) / `"Click to protect"` (off). Lock semantics are not self-evident in operational UI.
 
-In the global Skills view, a protected row keeps its destructive action slot visible as a muted, focusable `aria-disabled` control labelled `Unlock to delete`. Its styled tooltip must open on pointer hover and keyboard focus. Do not remove the control from the layout: disappearance makes users diagnose a missing action, while a stable disabled slot plus the `Protected` badge makes the cause and recovery path explicit. The active protection still blocks the handler and bulk-delete path; this treatment changes explanation, not safety.
+In the global Skills view, a protected row keeps its destructive action slot visible as a muted, focusable `aria-disabled` control with the accessible label `Delete ${skill.name} unavailable while protected` and the tooltip `Unlock to delete`. Its styled tooltip must open on pointer hover and keyboard focus. Do not remove the control from the layout: disappearance makes users diagnose a missing action, while a stable disabled slot plus the `Protected` badge makes the cause and recovery path explicit. The active protection still blocks the handler and bulk-delete path; this treatment changes explanation, not safety.
 
 ### Dialogs, Popovers, and Toasts
 
