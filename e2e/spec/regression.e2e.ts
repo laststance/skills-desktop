@@ -1029,3 +1029,104 @@ test('skills list scroll position survives a background refetch (regression 5619
       ?.removeAttribute('data-e2e-scroll-target')
   })
 })
+
+test('protected cards explain why Delete is unavailable while unlocked cards remain deletable', async ({
+  appWindow,
+  isolatedHome,
+}) => {
+  // Arrange — use the reported skill names in a fresh HOME and rescan them into Redux.
+  await waitForInitialScan(appWindow)
+  stageSourceSkill(isolatedHome, 'analyze-app')
+  stageSourceSkill(isolatedHome, 'brainstorm-plan')
+  await refreshSkillsState(appWindow)
+  await dispatchAction(appWindow, {
+    type: 'protect/addProtection',
+    payload: 'analyze-app',
+  })
+
+  // Act — isolate the protected row just as a user narrows a long skill list.
+  await dispatchAction(appWindow, {
+    type: 'ui/setSearchQuery',
+    payload: 'analyze-app',
+  })
+  const protectedCard = appWindow.locator('[data-skill-name="analyze-app"]')
+
+  // Assert — protection is visible without hover and Delete explains its disabled state.
+  await expect(
+    protectedCard.getByText('Protected', { exact: true }),
+  ).toBeVisible()
+  const protectedDeleteButton = protectedCard.getByRole('button', {
+    name: 'Delete analyze-app unavailable while protected',
+  })
+  await expect(protectedDeleteButton).toBeVisible()
+  await expect(protectedDeleteButton).toBeDisabled()
+  await protectedDeleteButton.focus()
+  await expect(
+    appWindow
+      .getByRole('tooltip')
+      .getByText('Unlock to delete', { exact: true }),
+  ).toBeVisible()
+  const recoveryTooltip = appWindow.getByRole('tooltip')
+  const recoveryTooltipId = (await recoveryTooltip.getAttribute('id')) ?? ''
+  expect(recoveryTooltipId).not.toBe('')
+  await expect(protectedDeleteButton).toHaveAttribute(
+    'aria-describedby',
+    recoveryTooltipId,
+  )
+
+  // Act — activate the focusable aria-disabled control from the keyboard.
+  await appWindow.keyboard.press('Enter')
+  const blockedActivationState = await getStoreState(appWindow, (state) => {
+    const root = state as {
+      ui: { bulkConfirm: unknown }
+      skills: { selectedSkill: unknown }
+    }
+    return {
+      bulkConfirm: root.ui.bulkConfirm,
+      selectedSkill: root.skills.selectedSkill,
+    }
+  })
+
+  // Assert — the guard opens no delete flow and does not select the card.
+  expect(blockedActivationState).toEqual({
+    bulkConfirm: null,
+    selectedSkill: null,
+  })
+
+  // Act — show the otherwise-identical unlocked row and reveal its destructive action.
+  await dispatchAction(appWindow, {
+    type: 'ui/setSearchQuery',
+    payload: 'brainstorm-plan',
+  })
+  const unlockedCard = appWindow.locator('[data-skill-name="brainstorm-plan"]')
+  await expect(unlockedCard).toBeVisible()
+  await unlockedCard.hover()
+
+  // Assert — no protection label leaks to the unlocked row and Delete stays enabled.
+  await expect(
+    unlockedCard.getByText('Protected', { exact: true }),
+  ).toHaveCount(0)
+  const unlockedDeleteButton = unlockedCard.getByRole('button', {
+    name: 'Delete brainstorm-plan',
+  })
+  await expect(unlockedDeleteButton).toBeVisible()
+  await expect(unlockedDeleteButton).toBeEnabled()
+
+  // Act — unlock the original row through the same control available to users.
+  await dispatchAction(appWindow, {
+    type: 'ui/setSearchQuery',
+    payload: 'analyze-app',
+  })
+  await protectedCard
+    .getByRole('button', { name: 'Unlock analyze-app' })
+    .click()
+
+  // Assert — the explanation clears and Delete becomes the normal enabled action.
+  await expect(
+    protectedCard.getByText('Protected', { exact: true }),
+  ).toHaveCount(0)
+  await protectedCard.hover()
+  await expect(
+    protectedCard.getByRole('button', { name: 'Delete analyze-app' }),
+  ).toBeEnabled()
+})

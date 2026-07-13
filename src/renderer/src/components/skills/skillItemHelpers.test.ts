@@ -845,8 +845,8 @@ describe('getCardContentPaddingClass', () => {
   })
 
   it('reserves a single-button gutter when only the lock button shows', () => {
-    // Arrange — locked skill whose delete button is hidden (protected) and has
-    // no bookmark: lock sits alone at right-0.
+    // Arrange — an agent-view row with no unlink action or bookmark keeps only
+    // the lock control at right-0.
     const flags = {
       showProtect: true,
       showBookmark: false,
