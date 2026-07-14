@@ -274,7 +274,9 @@ func waitForRenderedWindow(
       // LaunchServices can report the process before WindowServer publishes its first window.
     }
 
-    Thread.sleep(forTimeInterval: 0.4)
+    let sleepSeconds = min(0.4, deadline.timeIntervalSinceNow)
+    guard sleepSeconds > 0 else { break }
+    Thread.sleep(forTimeInterval: sleepSeconds)
   } while Date() < deadline
 
   if let lastBlankResult {
@@ -297,6 +299,7 @@ do {
     let timeoutSeconds = CommandLine.arguments.count == 4
       ? TimeInterval(CommandLine.arguments[3])
       : 20,
+    timeoutSeconds.isFinite,
     timeoutSeconds > 0
   else {
     throw RenderingProbeError.usage
