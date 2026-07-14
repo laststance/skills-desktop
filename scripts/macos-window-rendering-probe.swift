@@ -1,5 +1,7 @@
 import AppKit
 import CoreGraphics
+import Darwin
+import Dispatch
 import Foundation
 import ImageIO
 
@@ -25,6 +27,7 @@ enum RenderingProbeError: Error, CustomStringConvertible {
   case noWindow(pid_t)
   case screenRecordingPermissionMissing
   case captureFailed(Int32)
+  case captureTimedOut(TimeInterval)
   case imageLoadFailed(String)
   case bitmapFailed
 
@@ -39,6 +42,8 @@ enum RenderingProbeError: Error, CustomStringConvertible {
       return "Screen Recording permission is required to inspect the packaged app window"
     case .captureFailed(let status):
       return "screencapture failed with exit status \(status)"
+    case .captureTimedOut(let timeoutSeconds):
+      return "screencapture exceeded its \(timeoutSeconds)-second deadline"
     case .imageLoadFailed(let path):
       return "could not load PNG at \(path)"
     case .bitmapFailed:
@@ -88,14 +93,30 @@ func largestWindowID(for pid: pid_t) throws -> CGWindowID {
 /// Captures one native window without sound or shadow so only app pixels are classified.
 /// @param windowID Core Graphics window number returned by `largestWindowID`.
 /// @param outputURL Destination PNG URL.
+/// @param timeoutSeconds Maximum time allowed for the system capture child process.
 /// @returns Nothing; throws when the system capture command fails.
-/// @example `try capture(windowID: 42, to: URL(fileURLWithPath: "/tmp/app.png"))`
-func capture(windowID: CGWindowID, to outputURL: URL) throws {
+/// @example `try capture(windowID: 42, to: imageURL, timeoutSeconds: 5)`
+func capture(
+  windowID: CGWindowID,
+  to outputURL: URL,
+  timeoutSeconds: TimeInterval
+) throws {
   let process = Process()
+  let completion = DispatchSemaphore(value: 0)
   process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
   process.arguments = ["-x", "-o", "-l", String(windowID), outputURL.path]
+  process.terminationHandler = { _ in completion.signal() }
   try process.run()
-  process.waitUntilExit()
+  let waitResult = completion.wait(timeout: .now() + timeoutSeconds)
+  if waitResult == .timedOut {
+    // Give the child a graceful exit first, then force-stop it so one OS hang cannot stall a release.
+    process.terminate()
+    if completion.wait(timeout: .now() + 1) == .timedOut && process.isRunning {
+      kill(process.processIdentifier, SIGKILL)
+      _ = completion.wait(timeout: .now() + 1)
+    }
+    throw RenderingProbeError.captureTimedOut(timeoutSeconds)
+  }
   guard process.terminationStatus == 0 else {
     throw RenderingProbeError.captureFailed(process.terminationStatus)
   }
@@ -230,7 +251,12 @@ func waitForRenderedWindow(
   repeat {
     do {
       let windowID = try largestWindowID(for: pid)
-      try capture(windowID: windowID, to: outputURL)
+      let remainingSeconds = max(0.1, deadline.timeIntervalSinceNow)
+      try capture(
+        windowID: windowID,
+        to: outputURL,
+        timeoutSeconds: remainingSeconds
+      )
       let result = RenderingProbeResult(windowID: windowID, metrics: try analyze(outputURL))
       if !isEffectivelyBlank(result.metrics) {
         return result
