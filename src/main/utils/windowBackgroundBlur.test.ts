@@ -33,21 +33,16 @@ function expectMacVibrancy(
 }
 
 /**
- * Build the minimal BrowserWindow/contentView surface the blur mutator uses.
- * @param supportsBlur - Whether the mocked contentView exposes Electron 42 blur.
- * @param supportsViewBackgroundColor - Whether contentView background updates exist.
+ * Build a BrowserWindow mock with spies proving Electron 43 contentView stays untouched.
  * @returns Mock window plus spies for assertions.
  * @example
- * const { window } = makeWindowMock(true)
+ * const { window } = makeWindowMock()
  * applyWindowBackgroundBlur(window, 12)
  */
-function makeWindowMock(
-  supportsBlur: boolean,
-  supportsViewBackgroundColor = true,
-) {
+function makeWindowMock() {
   const contentView = {
-    ...(supportsViewBackgroundColor ? { setBackgroundColor: vi.fn() } : {}),
-    ...(supportsBlur ? { setBackgroundBlur: vi.fn() } : {}),
+    setBackgroundColor: vi.fn(),
+    setBackgroundBlur: vi.fn(),
   }
   const window = {
     setBackgroundColor: vi.fn(),
@@ -59,9 +54,7 @@ function makeWindowMock(
 }
 
 /**
- * Pure helpers around Electron 42 background blur. The BrowserWindow mutator
- * itself is covered by integration/e2e; these tests pin the clamping and alpha
- * color contract before values reach Electron.
+ * Pin native BrowserWindow blur behavior without creating Electron 43 overlay layers.
  */
 describe('windowBackgroundBlur helpers', () => {
   it('floors negative, truncates fractional, and caps over-max persisted blur radii to the supported range', () => {
@@ -131,9 +124,9 @@ describe('windowBackgroundBlur helpers', () => {
     expect(blurOnUsesNative).toBe(true)
   })
 
-  it('renders a solid opaque window with vibrancy off when the user disables blur', () => {
+  it('keeps renderer content visible when the user disables blur on Electron 43', () => {
     // Arrange
-    const { window, contentView } = makeWindowMock(true)
+    const { window, contentView } = makeWindowMock()
     const blurDisabledRadius = 0
 
     // Act
@@ -145,15 +138,13 @@ describe('windowBackgroundBlur helpers', () => {
       MAIN_WINDOW_OPAQUE_BACKGROUND,
     )
     expectMacVibrancy(window, null)
-    expect(contentView.setBackgroundColor).toHaveBeenCalledWith(
-      MAIN_WINDOW_OPAQUE_BACKGROUND,
-    )
-    expect(contentView.setBackgroundBlur).toHaveBeenCalledWith(0)
+    expect(contentView.setBackgroundColor).not.toHaveBeenCalled()
+    expect(contentView.setBackgroundBlur).not.toHaveBeenCalled()
   })
 
-  it('renders a translucent blurred window clamped to max radius when Electron 42 blur is available', () => {
+  it('keeps renderer content visible when the user enables maximum native blur on Electron 43', () => {
     // Arrange
-    const { window, contentView } = makeWindowMock(true)
+    const { window, contentView } = makeWindowMock()
     const overMaxRadius = WINDOW_BACKGROUND_BLUR_MAX_RADIUS + 1
 
     // Act
@@ -165,47 +156,7 @@ describe('windowBackgroundBlur helpers', () => {
       MAIN_WINDOW_TRANSPARENT_BACKGROUND,
     )
     expectMacVibrancy(window, 'under-window')
-    expect(contentView.setBackgroundColor).toHaveBeenCalledWith(
-      MAIN_WINDOW_TRANSPARENT_BACKGROUND,
-    )
-    expect(contentView.setBackgroundBlur).toHaveBeenCalledWith(
-      WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
-    )
-  })
-
-  it('falls back to translucency without crashing when Electron lacks setBackgroundBlur', () => {
-    // Arrange
-    const { window, contentView } = makeWindowMock(false)
-    const blurEnabledRadius = 12
-
-    // Act + Assert
-    expect(() =>
-      applyWindowBackgroundBlur(window, blurEnabledRadius),
-    ).not.toThrow()
-    expect(window.setOpacity).toHaveBeenCalledWith(0.86)
-    expect(window.setBackgroundColor).toHaveBeenCalledWith(
-      MAIN_WINDOW_TRANSPARENT_BACKGROUND,
-    )
-    expect(contentView.setBackgroundColor).toHaveBeenCalledWith(
-      MAIN_WINDOW_TRANSPARENT_BACKGROUND,
-    )
-    expect('setBackgroundBlur' in contentView).toBe(false)
-  })
-
-  it('still applies window-level blur without crashing when contentView lacks setBackgroundColor', () => {
-    // Arrange
-    const { window, contentView } = makeWindowMock(true, false)
-    const blurEnabledRadius = 12
-
-    // Act + Assert
-    expect(() =>
-      applyWindowBackgroundBlur(window, blurEnabledRadius),
-    ).not.toThrow()
-    expect(window.setOpacity).toHaveBeenCalledWith(0.86)
-    expect(window.setBackgroundColor).toHaveBeenCalledWith(
-      MAIN_WINDOW_TRANSPARENT_BACKGROUND,
-    )
-    expect('setBackgroundColor' in contentView).toBe(false)
-    expect(contentView.setBackgroundBlur).toHaveBeenCalledWith(12)
+    expect(contentView.setBackgroundColor).not.toHaveBeenCalled()
+    expect(contentView.setBackgroundBlur).not.toHaveBeenCalled()
   })
 })

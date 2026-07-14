@@ -1,4 +1,4 @@
-import type { BrowserWindow, View } from 'electron'
+import type { BrowserWindow } from 'electron'
 
 import {
   getWindowBackgroundOpacity,
@@ -16,10 +16,6 @@ export const MAIN_WINDOW_OPAQUE_BACKGROUND = 'rgb(10, 15, 28)'
  * Fully transparent BrowserWindow backplate used when real window opacity is on.
  */
 export const MAIN_WINDOW_TRANSPARENT_BACKGROUND = '#00000000'
-
-type BackgroundBlurCapableView = View & {
-  setBackgroundBlur?: (blurRadius: number) => void
-}
 
 const MACOS_VIBRANCY_MATERIAL = 'under-window'
 
@@ -65,9 +61,10 @@ export function getMainWindowBackgroundColor(blurRadius: number): string {
 }
 
 /**
- * Apply the persisted Appearance blur setting to the live main window.
+ * Apply Appearance blur behind renderer content using BrowserWindow-native effects.
  * @param window - Main BrowserWindow instance.
- * @param blurRadius - Requested Electron 42 blur radius in CSS pixels.
+ * @param blurRadius - Legacy-named Appearance transparency intensity.
+ * @returns Nothing; updates the live BrowserWindow in place.
  * @example
  * applyWindowBackgroundBlur(mainWindow, settings.windowBackgroundBlurRadius)
  */
@@ -82,21 +79,13 @@ export function applyWindowBackgroundBlur(
 
   window.setOpacity(windowOpacity)
   window.setBackgroundColor(backgroundColor)
-  /* v8 ignore next -- false arm (Windows/Linux) is unreachable: the node test lane runs on macOS where process.platform is always 'darwin', and setVibrancy is a macOS-only API that must not be called off-platform */
+  /* v8 ignore next -- one OS run cannot cover both platform arms, and setVibrancy must never run off macOS */
   if (process.platform === 'darwin') {
     // macOS vibrancy supplies the system material seen through the transparent
     // Chromium surface. Turning it off at radius 0 restores the solid app.
     window.setVibrancy(shouldEnableNativeBlur ? MACOS_VIBRANCY_MATERIAL : null)
   }
 
-  const contentView = window.contentView as BackgroundBlurCapableView
-  if (typeof contentView.setBackgroundColor === 'function') {
-    contentView.setBackgroundColor(backgroundColor)
-  }
-
-  // Electron 42 exposes this at runtime, but its TypeScript declarations may
-  // lag behind. Guarding keeps older local Electron builds from crashing.
-  if (typeof contentView.setBackgroundBlur !== 'function') return
-
-  contentView.setBackgroundBlur(normalizedRadius)
+  // Do not mutate `contentView`: Electron 43 composites it above WebContents,
+  // so its background or blur layer hides the already-rendered application.
 }

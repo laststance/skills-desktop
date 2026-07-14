@@ -22,10 +22,9 @@ import type { AgentId } from './types'
 export const WINDOW_SIZE_MIN_DIMENSION = 400
 
 /**
- * Bounds for the main window's Electron 42 background blur radius.
- * Radius is persisted in whole CSS pixels because `view.setBackgroundBlur`
- * accepts an integer pixel value, and a bounded range keeps a hand-edited
- * settings file from requesting a visually unusable blur.
+ * Bounds for the legacy-named main-window transparency intensity setting.
+ * Whole-number steps preserve existing settings and slider behavior, while
+ * the bounded range prevents a hand-edited file from making the app unusable.
  */
 export const WINDOW_BACKGROUND_BLUR_MIN_RADIUS = 0
 export const WINDOW_BACKGROUND_BLUR_MAX_RADIUS = 48
@@ -64,9 +63,9 @@ export const CODE_FONT_SIZE_DEFAULT_PX = 13
 export const INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS = ['tab', 'inline'] as const
 
 /**
- * Clamp a persisted blur radius before it touches Electron or CSS surfaces.
- * @param blurRadius - User setting from `settings.json` or IPC.
- * @returns Whole-pixel radius inside the app-supported range.
+ * Clamp the persisted transparency intensity before it touches Electron.
+ * @param blurRadius - Legacy-named slider setting from `settings.json` or IPC.
+ * @returns Whole-number intensity inside the app-supported range.
  * @example
  * normalizeWindowBackgroundBlurRadius(99) // => 48
  */
@@ -206,9 +205,9 @@ const HIDDEN_AGENT_IDS_SCHEMA = z
  *   the saved size — clamped to the current display work area so a
  *   saved size from a wider monitor never opens off-screen on a smaller
  *   one.
- * - `windowBackgroundBlurRadius`: Electron 42 `View#setBackgroundBlur`
- *   radius for the main window. `0` disables the translucent surface and
- *   restores the opaque app background.
+ * - `windowBackgroundBlurRadius`: main-window transparency intensity backed
+ *   by BrowserWindow opacity and macOS vibrancy. `0` disables the translucent
+ *   surface and restores the opaque app background.
  * - `markdownFontSizePx`: body font size (CSS px) for the file preview's
  *   Markdown reading mode. Heading/code sizes scale proportionally (em).
  * - `codeFontSizePx`: font size (CSS px) for the Shiki syntax-highlighted
