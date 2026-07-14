@@ -251,13 +251,21 @@ func waitForRenderedWindow(
   repeat {
     do {
       let windowID = try largestWindowID(for: pid)
-      let remainingSeconds = max(0.1, deadline.timeIntervalSinceNow)
+      let remainingSeconds = deadline.timeIntervalSinceNow
+      guard remainingSeconds > 0 else { break }
       try capture(
         windowID: windowID,
         to: outputURL,
         timeoutSeconds: remainingSeconds
       )
       let result = RenderingProbeResult(windowID: windowID, metrics: try analyze(outputURL))
+      guard Date() < deadline else {
+        // Keep final blank metrics for diagnostics, but never accept UI observed after the deadline.
+        if isEffectivelyBlank(result.metrics) {
+          lastBlankResult = result
+        }
+        break
+      }
       if !isEffectivelyBlank(result.metrics) {
         return result
       }
