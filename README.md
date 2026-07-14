@@ -118,13 +118,16 @@ E2E specs live in `e2e/spec/*.e2e.ts`. The suite uses `cp -al` hardlink snapshot
 ```bash
 # Build for macOS (requires code signing)
 APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
+
+# Verify that the packaged window reaches the native compositor (requires Screen Recording)
+pnpm test:release:macos-window
 ```
 
 ## Tech Stack
 
 | Component | Technology                                           |
 | --------- | ---------------------------------------------------- |
-| Framework | Electron 42                                          |
+| Framework | Electron 43                                          |
 | Frontend  | React 19 + TypeScript                                |
 | State     | Redux Toolkit + @laststance/redux-storage-middleware |
 | Styling   | Tailwind CSS + shadcn/ui                             |
