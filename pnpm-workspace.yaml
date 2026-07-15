@@ -1,8 +1,12 @@
 allowBuilds:
+  # Click-to-source does not use Code Inspector's optional terminal probe.
+  '@code-inspector/core': false
   electron: true
   electron-winstaller: false
   esbuild: true
   fallow: false
+  # Keep the unused native PTY compiler blocked from install-time execution.
+  node-pty: false
   sharp: true
   unrs-resolver: true
 
