@@ -1,5 +1,5 @@
 import { BookOpenText, Code2, FileQuestion } from 'lucide-react'
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { match } from 'ts-pattern'
@@ -126,6 +126,10 @@ const TextPreview = React.memo(function TextPreview({
     setMode('code')
   }, [fileIdentity])
 
+  const handleModeChange = useCallback((nextMode: TextPreviewMode): void => {
+    setMode(nextMode)
+  }, [])
+
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-muted">
       {isMarkdown && (
@@ -134,7 +138,7 @@ const TextPreview = React.memo(function TextPreview({
             aria-label="Markdown preview mode"
             size="sm"
             value={mode}
-            onValueChange={setMode}
+            onValueChange={handleModeChange}
             options={TEXT_PREVIEW_MODE_OPTIONS}
           />
         </div>
