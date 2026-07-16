@@ -81,6 +81,38 @@ const ToggleGroupItem = function ToggleGroupItem({
   )
 }
 
+type ToggleGroupStyleProps = VariantProps<typeof toggleVariants>
+
+/**
+ * Apply group styles only to direct ToggleGroupItem children so wrappers and text remain untouched.
+ * @param children - Root children supplied to ToggleGroup.
+ * @param variant - Group variant used when an item has no override.
+ * @param size - Group size used when an item has no override.
+ * @returns Children with missing direct-item styles filled from the group.
+ * @example
+ * injectToggleGroupDefaults(<ToggleGroupItem value="name" />, 'outline', 'sm')
+ */
+export const injectToggleGroupDefaults = function injectToggleGroupDefaults(
+  children: React.ReactNode,
+  variant: ToggleGroupStyleProps['variant'],
+  size: ToggleGroupStyleProps['size'],
+): React.ReactNode {
+  return React.Children.map(children, (child): React.ReactNode => {
+    // Only direct ToggleGroupItem children receive defaults; text and wrappers pass through unchanged.
+    if (
+      !React.isValidElement<ToggleGroupStyleProps>(child) ||
+      child.type !== ToggleGroupItem
+    ) {
+      return child
+    }
+
+    return React.cloneElement(child, {
+      variant: child.props.variant ?? variant,
+      size: child.props.size ?? size,
+    })
+  })
+}
+
 /**
  * Composes a Radix group and injects shared styles into its direct ToggleGroupItem children.
  * @param props - Radix root props plus group-level variant, size, children, and ref.
@@ -100,23 +132,7 @@ const ToggleGroup = function ToggleGroup({
   ...props
 }: React.ComponentProps<typeof ToggleGroupPrimitive.Root> &
   VariantProps<typeof toggleVariants> & { ref?: React.Ref<HTMLDivElement> }) {
-  const styledChildren = React.Children.map(
-    children,
-    (child): React.ReactNode => {
-      // Only direct ToggleGroupItem children receive group defaults; text and wrappers pass through unchanged.
-      if (
-        !React.isValidElement<VariantProps<typeof toggleVariants>>(child) ||
-        child.type !== ToggleGroupItem
-      ) {
-        return child
-      }
-
-      return React.cloneElement(child, {
-        variant: child.props.variant ?? variant,
-        size: child.props.size ?? size,
-      })
-    },
-  )
+  const styledChildren = injectToggleGroupDefaults(children, variant, size)
 
   return (
     <ToggleGroupPrimitive.Root

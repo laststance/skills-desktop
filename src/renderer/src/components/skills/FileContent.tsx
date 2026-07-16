@@ -169,6 +169,40 @@ interface SyntaxHighlightedCodeProps {
 }
 
 /**
+ * Build the deterministic plain-text table shown while Shiki loads or cannot parse a file.
+ * @param lines - Source lines in their original order.
+ * @param fontSizePx - Code font size applied to the fallback table.
+ * @returns A numbered table that preserves blank lines and source ordering.
+ * @example
+ * renderPlainTextCode(['const value = 1', ''], 13)
+ */
+export const renderPlainTextCode = function renderPlainTextCode(
+  lines: ReadonlyArray<string>,
+  fontSizePx: number,
+): React.ReactElement {
+  return (
+    <table
+      style={{ fontSize: `${fontSizePx}px` }}
+      className="w-full min-w-max font-mono leading-[1.5]"
+    >
+      <tbody>
+        {/* Keep source line order and stable row numbers while Shiki loads. */}
+        {lines.map((line, index) => (
+          <tr key={index} className="hover:bg-foreground/5">
+            <td className="sticky left-0 z-10 w-12 bg-muted px-2 py-0 text-right text-muted-foreground select-none border-r border-border/50 align-top">
+              {index + 1}
+            </td>
+            <td className="px-3 py-0 whitespace-pre text-foreground">
+              {line || ' '}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+/**
  * Highlight code asynchronously with Shiki.
  * @param content - Raw file text.
  * @param language - Shiki language identifier.
@@ -269,24 +303,7 @@ const SyntaxHighlightedCode = function SyntaxHighlightedCode({
           dangerouslySetInnerHTML={{ __html: highlightedHtml }}
         />
       ) : (
-        <table
-          style={{ fontSize: `${fontSizePx}px` }}
-          className="w-full min-w-max font-mono leading-[1.5]"
-        >
-          <tbody>
-            {/* Keep source line order and stable row numbers while Shiki loads. */}
-            {plainTextLines.map((line, index) => (
-              <tr key={index} className="hover:bg-foreground/5">
-                <td className="sticky left-0 z-10 w-12 bg-muted px-2 py-0 text-right text-muted-foreground select-none border-r border-border/50 align-top">
-                  {index + 1}
-                </td>
-                <td className="px-3 py-0 whitespace-pre text-foreground">
-                  {line || ' '}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        renderPlainTextCode(plainTextLines, fontSizePx)
       )}
       <div className="h-8" data-file-preview-bottom-spacer aria-hidden />
     </div>
