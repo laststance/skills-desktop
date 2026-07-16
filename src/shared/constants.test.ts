@@ -135,6 +135,15 @@ describe('AGENT_DEFINITIONS', () => {
     expect(ids).toContain('zed')
   })
 
+  it('exposes the ZCode community agent added in CLI v1.5.16', () => {
+    // Act
+    const zcode = AGENT_DEFINITIONS.find((a) => a.id === 'zcode')
+    // Assert — own home dir (~/.zcode/skills), so no universal-source scanDir divergence
+    expect(zcode?.cliId).toBe('zcode')
+    expect(zcode?.installDir).toBe('.zcode')
+    expect(zcode?.scanDir).toBe('.zcode')
+  })
+
   it('maps Kimi internal id to the renamed kimi-code-cli CLI flag (1.5.10 rename)', () => {
     // The CLI renamed the --agent value to 'kimi-code-cli' and moved it to the
     // universal source. Internal id stays 'kimi-cli' so persisted Redux state

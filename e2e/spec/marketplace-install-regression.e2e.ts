@@ -162,14 +162,14 @@ test('Marketplace Install works when Electron starts with sparse macOS GUI PATH'
     await dialog.getByRole('button', { name: 'Install', exact: true }).click()
 
     // Assert — the fake npx ran with the pinned CLI version (SKILLS_CLI_VERSION
-    // is '1.5.13' in src/shared/constants.ts; hardcoded here so this test pins
+    // is '1.5.18' in src/shared/constants.ts; hardcoded here so this test pins
     // the literal command rather than computing the expectation from the same
     // constant the production command builds from) and the installed badge shows.
     await expect
       .poll(() => existsSync(markerPath), { timeout: 10_000 })
       .toBe(true)
     expect(readFileSync(markerPath, 'utf-8')).toContain(
-      'skills@1.5.13 add vercel-labs/skills',
+      'skills@1.5.18 add vercel-labs/skills',
     )
     await expect(
       appWindow.getByRole('img', { name: /find-skills is installed/i }),
