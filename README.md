@@ -37,7 +37,7 @@ Skills Desktop provides a GUI to manage and monitor skills installed via [`npx s
 | Devin Desktop    | `~/.codeium/windsurf/skills/` |
 | OpenCode         | `~/.config/opencode/skills/`  |
 | Continue         | `~/.continue/skills/`         |
-| _...and 57 more_ |                               |
+| _...and 58 more_ |                               |
 
 ## Installation
 
