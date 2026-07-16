@@ -150,10 +150,7 @@ export default defineConfig([
     rules: {
       ...laststanceReactNextRules,
       // Keep the stricter prop-drilling depth while still enforcing the rule at error severity.
-      '@laststance/react-next/no-set-state-prop-drilling': [
-        'error',
-        { depth: 1 },
-      ],
+      '@laststance/react-next/no-set-state-prop-drilling': ['error'],
     },
   },
 ])

@@ -31,9 +31,3 @@ minimumReleaseAgeExclude:
   - eslint-config-ts-prefixer
   - '@laststance/redux-storage-middleware'
   - '@laststance/react-next-eslint-plugin'
-
-# TypeScript 7 RC ships the native compiler preview without the legacy JS API.
-# Lint/docgen scripts preload scripts/use-legacy-typescript-js-api.cjs until upstream tools support TS7.
-peerDependencyRules:
-  allowedVersions:
-    typescript: 7.0.1-rc
