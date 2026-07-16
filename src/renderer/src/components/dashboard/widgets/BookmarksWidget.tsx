@@ -1,5 +1,5 @@
 import { Bookmark, ExternalLink, X } from 'lucide-react'
-import React, { useCallback } from 'react'
+import React from 'react'
 
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
@@ -18,7 +18,7 @@ interface BookmarkRowProps {
   onRemove: (name: SkillName) => void
 }
 
-const BookmarkRow = React.memo(function BookmarkRow({
+const BookmarkRow = function BookmarkRow({
   bookmark,
   onRemove,
 }: BookmarkRowProps): React.ReactElement {
@@ -66,7 +66,7 @@ const BookmarkRow = React.memo(function BookmarkRow({
       </button>
     </li>
   )
-})
+}
 
 /**
  * Bookmarks widget body.
@@ -80,44 +80,40 @@ const BookmarkRow = React.memo(function BookmarkRow({
  * keeps the dashboard layout stable — the user's grid position is preserved
  * even before they've saved anything.
  */
-export const BookmarksWidget = React.memo(
-  function BookmarksWidget(): React.ReactElement {
-    const dispatch = useAppDispatch()
-    const bookmarks = useAppSelector(selectBookmarkItems)
+export const BookmarksWidget = function BookmarksWidget(): React.ReactElement {
+  const dispatch = useAppDispatch()
+  const bookmarks = useAppSelector(selectBookmarkItems)
 
-    const handleRemove = useCallback(
-      (name: SkillName): void => {
-        dispatch(removeBookmark(name))
-      },
-      [dispatch],
-    )
+  const handleRemove = (name: SkillName): void => {
+    dispatch(removeBookmark(name))
+  }
 
-    if (bookmarks.length === 0) {
-      return (
-        <div className="h-full w-full flex flex-col items-center justify-center gap-1 px-4 text-center">
-          <Bookmark
-            className="h-5 w-5 text-muted-foreground/60"
-            aria-hidden="true"
-          />
-          <p className="text-xs text-muted-foreground">
-            Saved marketplace skills land here.
-          </p>
-        </div>
-      )
-    }
-
+  if (bookmarks.length === 0) {
     return (
-      <div className="h-full w-full overflow-y-auto py-1">
-        <ul className="flex flex-col gap-0.5 px-1">
-          {bookmarks.map((bookmark) => (
-            <BookmarkRow
-              key={bookmark.name}
-              bookmark={bookmark}
-              onRemove={handleRemove}
-            />
-          ))}
-        </ul>
+      <div className="h-full w-full flex flex-col items-center justify-center gap-1 px-4 text-center">
+        <Bookmark
+          className="h-5 w-5 text-muted-foreground/60"
+          aria-hidden="true"
+        />
+
+        <p className="text-xs text-muted-foreground">
+          Saved marketplace skills land here.
+        </p>
       </div>
     )
-  },
-)
+  }
+
+  return (
+    <div className="h-full w-full overflow-y-auto py-1">
+      <ul className="flex flex-col gap-0.5 px-1">
+        {bookmarks.map((bookmark) => (
+          <BookmarkRow
+            key={bookmark.name}
+            bookmark={bookmark}
+            onRemove={handleRemove}
+          />
+        ))}
+      </ul>
+    </div>
+  )
+}

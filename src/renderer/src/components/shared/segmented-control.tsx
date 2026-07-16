@@ -68,10 +68,8 @@ export interface SegmentedControlProps<TValue extends string> {
  *     ]}
  *   />
  */
-// Generic over TValue, so React.memo can't wrap it without erasing the generic
-// call signature (it widens TValue to string). This is a thin wrapper whose
-// expensive children (ToggleGroup / ToggleGroupItem) are already memoized.
-// eslint-disable-next-line @laststance/react-next/all-memo -- memo erases the generic signature
+// Generic over TValue — kept as a plain function so the generic call signature
+// is preserved. React Compiler memoizes the body automatically.
 export function SegmentedControl<TValue extends string>({
   options,
   value,
@@ -86,13 +84,10 @@ export function SegmentedControl<TValue extends string>({
   // Radix emits "" when the active segment is re-clicked. Matching the emitted
   // value back to an option swallows that deselect (one option always stays
   // active) and narrows `next` to TValue without an `as` cast.
-  const handleValueChange = React.useCallback(
-    (next: string): void => {
-      const selected = options.find((option) => option.value === next)
-      if (selected) onValueChange(selected.value)
-    },
-    [options, onValueChange],
-  )
+  const handleValueChange = (next: string): void => {
+    const selected = options.find((option) => option.value === next)
+    if (selected) onValueChange(selected.value)
+  }
 
   return (
     <ToggleGroup

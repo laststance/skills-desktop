@@ -36,7 +36,7 @@ interface SkillDetailProps {
  * synchronised with the Settings window — both surfaces edit the exact
  * same field. This means "last used tab is the default tab" by design.
  */
-export const SkillDetail = React.memo(function SkillDetail({
+export const SkillDetail = function SkillDetail({
   skill,
 }: SkillDetailProps): React.ReactElement {
   const settings = useAppSelector((state) => state.settings)
@@ -110,14 +110,13 @@ export const SkillDetail = React.memo(function SkillDetail({
       </div>
 
       {/* Tab content: both branches stay mounted so their state — scroll
-          position, selected file tab — survives toggling between Files
-          and Info. See react-rules.md "<Activity> - State Preservation".
-
-          Orphan note: when `skill.isOrphan` is true the source path is a
-          dead symlink. CodePreview would `lstat(skill.path)` and surface
-          a confusing error, so we swap in OrphanNotice for the Files tab.
-          InfoView still works — it shows the broken symlinks per agent,
-          which is exactly what the user needs to decide on cleanup. */}
+           position, selected file tab — survives toggling between Files
+           and Info. See react-rules.md "<Activity> - State Preservation".
+            Orphan note: when `skill.isOrphan` is true the source path is a
+           dead symlink. CodePreview would `lstat(skill.path)` and surface
+           a confusing error, so we swap in OrphanNotice for the Files tab.
+           InfoView still works — it shows the broken symlinks per agent,
+           which is exactly what the user needs to decide on cleanup. */}
       <div className="flex-1 min-h-0 relative">
         <Activity mode={activeTab === 'files' ? 'visible' : 'hidden'}>
           {skill.isOrphan ? (
@@ -129,7 +128,7 @@ export const SkillDetail = React.memo(function SkillDetail({
         <Activity mode={activeTab === 'info' ? 'visible' : 'hidden'}>
           <InfoView
             skill={skill}
-            // react-doctor-disable-next-line react-doctor/jsx-no-new-array-as-prop -- InfoView lives in a hidden <Activity>; memoizing this derived array is a render micro-opt deferred to /simplify (P8). No React Compiler here, so a manual useMemo risks the repo's no-deopt-use-memo rule.
+            // react-doctor-disable-next-line react-doctor/jsx-no-new-array-as-prop -- InfoView lives in a hidden <Activity>; deriving this array inline is a render micro-opt deferred to /simplify (P8).
             filteredSymlinks={filteredSymlinks}
             validCount={validCount}
             brokenCount={brokenCount}
@@ -140,7 +139,7 @@ export const SkillDetail = React.memo(function SkillDetail({
       </div>
     </div>
   )
-})
+}
 
 /**
  * Files-tab placeholder shown when `skill.isOrphan` is true. The original
@@ -148,7 +147,7 @@ export const SkillDetail = React.memo(function SkillDetail({
  * in agent dirs. There is nothing to preview, so we explain the state and
  * point the user at the Info tab where the per-agent broken list lives.
  */
-const OrphanNotice = React.memo(function OrphanNotice(): React.ReactElement {
+const OrphanNotice = function OrphanNotice(): React.ReactElement {
   return (
     <div className="flex flex-col items-center justify-center h-full p-6 text-center">
       <Unlink2 className="size-10 text-amber-400 mb-3" aria-hidden />
@@ -161,7 +160,7 @@ const OrphanNotice = React.memo(function OrphanNotice(): React.ReactElement {
       </p>
     </div>
   )
-})
+}
 
 interface InfoViewProps {
   skill: Skill
@@ -196,36 +195,33 @@ function useLocationPathClipboard(): LocationPathClipboardState {
     }
   }, [])
 
-  const copyPath = React.useCallback(
-    async (path: AbsolutePath, label: string): Promise<void> => {
-      try {
-        if (!navigator.clipboard?.writeText) {
-          throw new Error('Clipboard API unavailable')
-        }
-        await navigator.clipboard.writeText(path)
-        setCopiedPath(path)
-
-        // Reset feedback after a short confirmation window.
-        if (resetCopiedPathTimeoutRef.current !== null) {
-          window.clearTimeout(resetCopiedPathTimeoutRef.current)
-        }
-        resetCopiedPathTimeoutRef.current = window.setTimeout(() => {
-          setCopiedPath((currentPath) =>
-            currentPath === path ? null : currentPath,
-          )
-          resetCopiedPathTimeoutRef.current = null
-        }, COPIED_FEEDBACK_DURATION_MS)
-      } catch {
-        toast.error(`Failed to copy ${getLocationPathCopyName(label)}`)
+  const copyPath = async (path: AbsolutePath, label: string): Promise<void> => {
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('Clipboard API unavailable')
       }
-    },
-    [],
-  )
+      await navigator.clipboard.writeText(path)
+      setCopiedPath(path)
+
+      // Reset feedback after a short confirmation window.
+      if (resetCopiedPathTimeoutRef.current !== null) {
+        window.clearTimeout(resetCopiedPathTimeoutRef.current)
+      }
+      resetCopiedPathTimeoutRef.current = window.setTimeout(() => {
+        setCopiedPath((currentPath) =>
+          currentPath === path ? null : currentPath,
+        )
+        resetCopiedPathTimeoutRef.current = null
+      }, COPIED_FEEDBACK_DURATION_MS)
+    } catch {
+      toast.error(`Failed to copy ${getLocationPathCopyName(label)}`)
+    }
+  }
 
   return { copiedPath, copyPath }
 }
 
-const InfoView = React.memo(function InfoView({
+const InfoView = function InfoView({
   skill,
   filteredSymlinks,
   validCount,
@@ -291,6 +287,7 @@ const InfoView = React.memo(function InfoView({
               isCopied={copiedPath === location.sourcePath}
               onCopy={copyPath}
             />
+
             <LocationPathRow
               label="Symlink"
               path={location.symlinkPath}
@@ -322,7 +319,7 @@ const InfoView = React.memo(function InfoView({
       </div>
     </div>
   )
-})
+}
 
 interface LocationPathRowProps {
   label: string
@@ -341,16 +338,16 @@ interface LocationPathRowProps {
  * @example
  * <LocationPathRow label="Path" path="/Users/me/.agents/skills/foo" isCopied={false} onCopy={copyPath} />
  */
-const LocationPathRow = React.memo(function LocationPathRow({
+const LocationPathRow = function LocationPathRow({
   label,
   path,
   isCopied,
   onCopy,
 }: LocationPathRowProps): React.ReactElement {
   const copyName = getLocationPathCopyName(label)
-  const handleCopyClick = React.useCallback((): void => {
+  const handleCopyClick = (): void => {
     void onCopy(path, label)
-  }, [label, onCopy, path])
+  }
 
   return (
     <div>
@@ -382,7 +379,7 @@ const LocationPathRow = React.memo(function LocationPathRow({
       </div>
     </div>
   )
-})
+}
 
 /**
  * Build human copy for Location path actions without producing "path path".

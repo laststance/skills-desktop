@@ -18,7 +18,7 @@ interface MarketplaceSkillRowProps {
  * `setWindowOpenHandler` routes new-window requests through
  * `shell.openExternal`, so no IPC call is needed.
  */
-export const MarketplaceSkillRow = React.memo(function MarketplaceSkillRow({
+export const MarketplaceSkillRow = function MarketplaceSkillRow({
   skill,
 }: MarketplaceSkillRowProps): React.ReactElement {
   return (
@@ -40,6 +40,7 @@ export const MarketplaceSkillRow = React.memo(function MarketplaceSkillRow({
           font-semibold text-primary group-hover:bg-background
           tabular-nums
         "
+
         aria-hidden="true"
       >
         {skill.rank}
@@ -58,4 +59,4 @@ export const MarketplaceSkillRow = React.memo(function MarketplaceSkillRow({
       </span>
     </a>
   )
-})
+}

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { useUnmountEffect } from '@/renderer/src/hooks/useUnmountEffect'
@@ -36,30 +36,27 @@ export function useCopyToClipboard(): CopyToClipboardState {
     }
   })
 
-  const copy = useCallback(
-    async (value: string, failureLabel: string): Promise<void> => {
-      try {
-        if (!navigator.clipboard?.writeText) {
-          throw new Error('Clipboard API unavailable')
-        }
-        await navigator.clipboard.writeText(value)
-        setCopied(true)
-
-        // Reset the flash after a short confirmation window, replacing any
-        // in-flight timer so rapid re-copies extend rather than stack.
-        if (resetCopiedTimeoutRef.current !== null) {
-          window.clearTimeout(resetCopiedTimeoutRef.current)
-        }
-        resetCopiedTimeoutRef.current = window.setTimeout(() => {
-          setCopied(false)
-          resetCopiedTimeoutRef.current = null
-        }, COPIED_FEEDBACK_DURATION_MS)
-      } catch {
-        toast.error(`Failed to copy ${failureLabel}`)
+  const copy = async (value: string, failureLabel: string): Promise<void> => {
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('Clipboard API unavailable')
       }
-    },
-    [],
-  )
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+
+      // Reset the flash after a short confirmation window, replacing any
+      // in-flight timer so rapid re-copies extend rather than stack.
+      if (resetCopiedTimeoutRef.current !== null) {
+        window.clearTimeout(resetCopiedTimeoutRef.current)
+      }
+      resetCopiedTimeoutRef.current = window.setTimeout(() => {
+        setCopied(false)
+        resetCopiedTimeoutRef.current = null
+      }, COPIED_FEEDBACK_DURATION_MS)
+    } catch {
+      toast.error(`Failed to copy ${failureLabel}`)
+    }
+  }
 
   return { copied, copy }
 }

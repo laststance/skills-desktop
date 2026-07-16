@@ -1,5 +1,5 @@
 import { AlertCircle, CheckCircle, Search } from 'lucide-react'
-import React, { useCallback, useMemo } from 'react'
+import React from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
@@ -71,7 +71,7 @@ interface HealthBarProps {
   manualReview: SymlinkCount
 }
 
-const HealthBar = React.memo(function HealthBar({
+const HealthBar = function HealthBar({
   valid,
   cleanupIssues,
   manualReview,
@@ -92,10 +92,12 @@ const HealthBar = React.memo(function HealthBar({
         className="bg-success transition-[width] duration-300"
         style={{ width: `${validPct}%` }}
       />
+
       <div
         className="bg-amber-400 transition-[width] duration-300"
         style={{ width: `${cleanupPct}%` }}
       />
+
       {/* Manual-review shares cleanup's amber-400 (broken + inaccessible = one needs-review hue app-wide; see SymlinkStatus). */}
       <div
         className="bg-amber-400 transition-[width] duration-300"
@@ -103,7 +105,7 @@ const HealthBar = React.memo(function HealthBar({
       />
     </div>
   )
-})
+}
 
 /**
  * Symlink Health widget body.
@@ -112,79 +114,78 @@ const HealthBar = React.memo(function HealthBar({
  * Broken links demand attention — amber signals "something's off, look here"
  * without being alarmist like destructive red.
  */
-export const HealthWidget = React.memo(
-  function HealthWidget(): React.ReactElement {
-    const dispatch = useAppDispatch()
-    const skills = useAppSelector(selectSkillsItems)
-    const totals = useMemo(() => tallySymlinks(skills), [skills])
-    const percentLabel = healthPercentLabel(totals)
-    const hasBrokenLinks = totals.broken > 0
-    const hasManualReviewOnly = !hasBrokenLinks && totals.inaccessible > 0
+export const HealthWidget = function HealthWidget(): React.ReactElement {
+  const dispatch = useAppDispatch()
+  const skills = useAppSelector(selectSkillsItems)
+  const totals = tallySymlinks(skills)
+  const percentLabel = healthPercentLabel(totals)
+  const hasBrokenLinks = totals.broken > 0
+  const hasManualReviewOnly = !hasBrokenLinks && totals.inaccessible > 0
 
-    const handleScanIssues = useCallback((): void => {
-      dispatch(openSymlinkCleanupDialog())
-    }, [dispatch])
+  const handleScanIssues = (): void => {
+    dispatch(openSymlinkCleanupDialog())
+  }
 
-    return (
-      <div className="h-full w-full flex flex-col gap-2 px-4 py-3">
-        <span className="text-2xl font-semibold tabular-nums text-foreground">
-          {percentLabel === null ? '—' : percentLabel}
+  return (
+    <div className="h-full w-full flex flex-col gap-2 px-4 py-3">
+      <span className="text-2xl font-semibold tabular-nums text-foreground">
+        {percentLabel === null ? '—' : percentLabel}
+      </span>
+      <HealthBar
+        valid={totals.valid}
+        cleanupIssues={totals.broken}
+        manualReview={totals.inaccessible}
+      />
+
+      <div className="flex items-center justify-between text-xs">
+        <span className="inline-flex items-center gap-1 text-success">
+          <CheckCircle className="h-3 w-3" aria-hidden="true" />
+          <span className="tabular-nums">{totals.valid}</span>
+          <span className="text-muted-foreground">valid</span>
         </span>
-        <HealthBar
-          valid={totals.valid}
-          cleanupIssues={totals.broken}
-          manualReview={totals.inaccessible}
-        />
-        <div className="flex items-center justify-between text-xs">
-          <span className="inline-flex items-center gap-1 text-success">
-            <CheckCircle className="h-3 w-3" aria-hidden="true" />
-            <span className="tabular-nums">{totals.valid}</span>
-            <span className="text-muted-foreground">valid</span>
-          </span>
-          <div className="flex items-center gap-2">
-            {totals.broken > 0 ? (
-              <span className="inline-flex items-center gap-1 text-amber-400">
-                <AlertCircle className="h-3 w-3" aria-hidden="true" />
-                <span className="tabular-nums">{totals.broken}</span>
-                <span className="text-muted-foreground">cleanup</span>
-              </span>
-            ) : null}
-            {totals.inaccessible > 0 ? (
-              <span className="inline-flex items-center gap-1 text-amber-400">
-                <AlertCircle className="h-3 w-3" aria-hidden="true" />
-                <span className="tabular-nums">{totals.inaccessible}</span>
-                <span className="text-muted-foreground">manual</span>
-              </span>
-            ) : null}
-            {totals.broken === 0 && totals.inaccessible === 0 ? (
-              <span className="inline-flex items-center gap-1 text-muted-foreground">
-                <AlertCircle className="h-3 w-3" aria-hidden="true" />
-                <span className="tabular-nums">0</span>
-                <span>needs review</span>
-              </span>
-            ) : null}
-          </div>
-        </div>
-        <div className="min-h-8 mt-auto flex items-center justify-end">
-          {hasBrokenLinks ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={handleScanIssues}
-              className="h-8 min-h-8 px-2 text-[11px]"
-              data-symlink-cleanup-trigger="true"
-            >
-              <Search className="h-3.5 w-3.5" aria-hidden="true" />
-              Scan issues
-            </Button>
-          ) : hasManualReviewOnly ? (
-            <span className="text-[11px] text-amber-400">Manual review</span>
-          ) : (
-            <span className="text-[11px] text-muted-foreground">Healthy</span>
-          )}
+        <div className="flex items-center gap-2">
+          {totals.broken > 0 ? (
+            <span className="inline-flex items-center gap-1 text-amber-400">
+              <AlertCircle className="h-3 w-3" aria-hidden="true" />
+              <span className="tabular-nums">{totals.broken}</span>
+              <span className="text-muted-foreground">cleanup</span>
+            </span>
+          ) : null}
+          {totals.inaccessible > 0 ? (
+            <span className="inline-flex items-center gap-1 text-amber-400">
+              <AlertCircle className="h-3 w-3" aria-hidden="true" />
+              <span className="tabular-nums">{totals.inaccessible}</span>
+              <span className="text-muted-foreground">manual</span>
+            </span>
+          ) : null}
+          {totals.broken === 0 && totals.inaccessible === 0 ? (
+            <span className="inline-flex items-center gap-1 text-muted-foreground">
+              <AlertCircle className="h-3 w-3" aria-hidden="true" />
+              <span className="tabular-nums">0</span>
+              <span>needs review</span>
+            </span>
+          ) : null}
         </div>
       </div>
-    )
-  },
-)
+      <div className="min-h-8 mt-auto flex items-center justify-end">
+        {hasBrokenLinks ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={handleScanIssues}
+            className="h-8 min-h-8 px-2 text-[11px]"
+            data-symlink-cleanup-trigger="true"
+          >
+            <Search className="h-3.5 w-3.5" aria-hidden="true" />
+            Scan issues
+          </Button>
+        ) : hasManualReviewOnly ? (
+          <span className="text-[11px] text-amber-400">Manual review</span>
+        ) : (
+          <span className="text-[11px] text-muted-foreground">Healthy</span>
+        )}
+      </div>
+    </div>
+  )
+}

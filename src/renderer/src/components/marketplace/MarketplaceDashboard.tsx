@@ -20,7 +20,7 @@ const TRENDING_PREVIEW_LIMIT = 5
  * and no skill is selected for preview.
  * Data sources: installed skills count, bookmarks count, trending leaderboard cache.
  */
-export const MarketplaceDashboard = React.memo(
+export const MarketplaceDashboard =
   function MarketplaceDashboard(): React.ReactElement {
     const dispatch = useAppDispatch()
     const installedCount = useAppSelector((state) => state.skills.items.length)
@@ -30,10 +30,8 @@ export const MarketplaceDashboard = React.memo(
     const trendingData = useAppSelector(
       (state) => state.marketplace.leaderboard.trending,
     )
-    const trendingSkills = React.useMemo(
-      () => trendingData?.skills?.slice(0, TRENDING_PREVIEW_LIMIT) ?? [],
-      [trendingData],
-    )
+    const trendingSkills =
+      trendingData?.skills?.slice(0, TRENDING_PREVIEW_LIMIT) ?? []
     const trendingView = resolveTrendingView(
       trendingSkills.length,
       trendingData?.status,
@@ -131,8 +129,7 @@ export const MarketplaceDashboard = React.memo(
         </div>
       </div>
     )
-  },
-)
+  }
 
 /**
  * Fixed five-row placeholder shown while the first Trending fetch is in flight.
@@ -141,34 +138,32 @@ export const MarketplaceDashboard = React.memo(
  * text line would collapse to one row and make the list jump. Row count is
  * fixed to `TRENDING_PREVIEW_LIMIT` to match the eventual populated height.
  */
-const TrendingSkeleton = React.memo(
-  function TrendingSkeleton(): React.ReactElement {
-    return (
-      // role="status" + aria-label keeps the loading state announced to screen
-      // readers now that the visible "Loading…" text has become silent pulse bars.
-      <div
-        className="flex flex-col gap-2"
-        role="status"
-        aria-label="Loading trending skills"
-      >
-        {Array.from({ length: TRENDING_PREVIEW_LIMIT }, (_, index) => (
-          <div
-            key={`trending-skeleton-${index}`}
-            aria-hidden
-            className="flex items-center gap-3 p-3 rounded-lg bg-background border border-border"
-          >
-            <div className="w-7 h-7 rounded-md bg-muted animate-pulse shrink-0" />
-            <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-              <div className="h-4 w-[40%] rounded bg-muted animate-pulse" />
-              <div className="h-3 w-[30%] rounded bg-muted animate-pulse" />
-            </div>
-            <div className="h-3 w-10 rounded bg-muted animate-pulse shrink-0" />
+const TrendingSkeleton = function TrendingSkeleton(): React.ReactElement {
+  return (
+    // role="status" + aria-label keeps the loading state announced to screen
+    // readers now that the visible "Loading…" text has become silent pulse bars.
+    <div
+      className="flex flex-col gap-2"
+      role="status"
+      aria-label="Loading trending skills"
+    >
+      {Array.from({ length: TRENDING_PREVIEW_LIMIT }, (_, index) => (
+        <div
+          key={`trending-skeleton-${index}`}
+          aria-hidden
+          className="flex items-center gap-3 p-3 rounded-lg bg-background border border-border"
+        >
+          <div className="w-7 h-7 rounded-md bg-muted animate-pulse shrink-0" />
+          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <div className="h-4 w-[40%] rounded bg-muted animate-pulse" />
+            <div className="h-3 w-[30%] rounded bg-muted animate-pulse" />
           </div>
-        ))}
-      </div>
-    )
-  },
-)
+          <div className="h-3 w-10 rounded bg-muted animate-pulse shrink-0" />
+        </div>
+      ))}
+    </div>
+  )
+}
 
 /**
  * Offline notice shown when the Trending fetch failed and no cached data exists
@@ -176,7 +171,7 @@ const TrendingSkeleton = React.memo(
  * fuller icon+heading+hint treatment — vs. the single quiet line used for a
  * genuinely empty leaderboard — per DESIGN.md's empty-state severity scale.
  */
-const TrendingError = React.memo(function TrendingError(): React.ReactElement {
+const TrendingError = function TrendingError(): React.ReactElement {
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center gap-1">
       <WifiOff className="h-6 w-6 text-muted-foreground mb-1" />
@@ -186,4 +181,4 @@ const TrendingError = React.memo(function TrendingError(): React.ReactElement {
       <p className="text-xs text-muted-foreground">Check your connection</p>
     </div>
   )
-})
+}

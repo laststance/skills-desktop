@@ -12,28 +12,26 @@ import { selectSkill } from '@/renderer/src/redux/slices/skillsSlice'
  * - Installed tab + no skill       → DashboardCanvas (widgets)
  * - Marketplace tab                → MarketplaceDetailPanel
  */
-export const DetailPanel = React.memo(
-  function DetailPanel(): React.ReactElement {
-    const dispatch = useAppDispatch()
-    const activeTab = useAppSelector((state) => state.ui.activeTab)
-    const selectedSkill = useAppSelector((state) => state.skills.selectedSkill)
+export const DetailPanel = function DetailPanel(): React.ReactElement {
+  const dispatch = useAppDispatch()
+  const activeTab = useAppSelector((state) => state.ui.activeTab)
+  const selectedSkill = useAppSelector((state) => state.skills.selectedSkill)
 
-    return (
-      <aside className="h-full border-l border-border bg-card flex flex-col overflow-hidden">
-        <div className="h-8 drag-region shrink-0 flex items-center justify-end pr-2">
-          {activeTab !== 'marketplace' && selectedSkill && (
-            <button
-              type="button"
-              onClick={() => dispatch(selectSkill(null))}
-              className="no-drag min-h-7 min-w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              aria-label="Close detail panel"
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
-        {resolveDetailPanelContent(activeTab, selectedSkill)}
-      </aside>
-    )
-  },
-)
+  return (
+    <aside className="h-full border-l border-border bg-card flex flex-col overflow-hidden">
+      <div className="h-8 drag-region shrink-0 flex items-center justify-end pr-2">
+        {activeTab !== 'marketplace' && selectedSkill && (
+          <button
+            type="button"
+            onClick={() => dispatch(selectSkill(null))}
+            className="no-drag min-h-7 min-w-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            aria-label="Close detail panel"
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
+      {resolveDetailPanelContent(activeTab, selectedSkill)}
+    </aside>
+  )
+}

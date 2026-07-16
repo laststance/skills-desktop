@@ -1,5 +1,5 @@
 import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
-import React, { useCallback, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { match } from 'ts-pattern'
 
 import { DestructiveConfirmDialog } from '@/renderer/src/components/shared/DestructiveConfirmDialog'
@@ -36,7 +36,7 @@ import type { DashboardPage, DashboardPageId } from './types'
  *
  * Uses `role="tablist"` / `role="tab"` for screen readers (Apple HIG a11y).
  */
-export const DashboardPageTabs = React.memo(
+export const DashboardPageTabs =
   function DashboardPageTabs(): React.ReactElement | null {
     const dispatch = useAppDispatch()
     const pages = useAppSelector(selectDashboardPages)
@@ -53,20 +53,17 @@ export const DashboardPageTabs = React.memo(
       dispatch(addPage())
     }
 
-    const handleSelectPage = useCallback(
-      (pageId: DashboardPageId): void => {
-        dispatch(setCurrentPage(pageId))
-      },
-      [dispatch],
-    )
+    const handleSelectPage = (pageId: DashboardPageId): void => {
+      dispatch(setCurrentPage(pageId))
+    }
 
-    const handleStartRename = useCallback((pageId: DashboardPageId): void => {
+    const handleStartRename = (pageId: DashboardPageId): void => {
       setRenamingPageId(pageId)
-    }, [])
+    }
 
-    const handleFinishRename = useCallback((): void => {
+    const handleFinishRename = (): void => {
       setRenamingPageId(null)
-    }, [])
+    }
 
     // WAI-ARIA Authoring Practices — tablist keyboard navigation.
     // ArrowLeft/Right cycle (wrap at ends); Home/End jump to first/last.
@@ -148,8 +145,7 @@ export const DashboardPageTabs = React.memo(
         )}
       </div>
     )
-  },
-)
+  }
 
 // ----------------------------------------------------------------------------
 // PageTab — a single tab. Three visual states:
@@ -171,7 +167,7 @@ interface PageTabProps {
   onFinishRename: () => void
 }
 
-const PageTab = React.memo(function PageTab({
+const PageTab = function PageTab({
   page,
   isActive,
   isEditMode,
@@ -201,9 +197,9 @@ const PageTab = React.memo(function PageTab({
     onSelect(page.id)
   }
 
-  const handleStartRename = useCallback((): void => {
+  const handleStartRename = (): void => {
     onStartRename(page.id)
-  }, [onStartRename, page.id])
+  }
 
   const commitRename = (): void => {
     const trimmedName = draftName.trim()
@@ -221,19 +217,19 @@ const PageTab = React.memo(function PageTab({
   // destructive flow matches the app's design system. The reducer already
   // protects the last page, but the trigger is hidden in that case anyway —
   // keep the guard for defensive symmetry.
-  const handleRequestDelete = useCallback((): void => {
+  const handleRequestDelete = (): void => {
     if (!canDelete) return
     setIsDeleteDialogOpen(true)
-  }, [canDelete])
+  }
 
-  const handleConfirmDelete = useCallback((): void => {
+  const handleConfirmDelete = (): void => {
     dispatch(removePage(page.id))
     setIsDeleteDialogOpen(false)
-  }, [dispatch, page.id])
+  }
 
-  const handleCancelDelete = useCallback((): void => {
+  const handleCancelDelete = (): void => {
     setIsDeleteDialogOpen(false)
-  }, [])
+  }
 
   if (isRenaming) {
     return (
@@ -331,4 +327,4 @@ const PageTab = React.memo(function PageTab({
       />
     </div>
   )
-})
+}

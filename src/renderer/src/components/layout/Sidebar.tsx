@@ -15,7 +15,7 @@ import { selectBookmarkItems } from '@/renderer/src/redux/slices/bookmarkSlice'
  * Left sidebar component (272px / w-68)
  * Contains app header, source card, and agents list
  */
-export const Sidebar = React.memo(function Sidebar(): React.ReactElement {
+export const Sidebar = function Sidebar(): React.ReactElement {
   const bookmarks = useAppSelector(selectBookmarkItems)
 
   return (
@@ -42,4 +42,4 @@ export const Sidebar = React.memo(function Sidebar(): React.ReactElement {
       <AgentDeleteDialog />
     </aside>
   )
-})
+}

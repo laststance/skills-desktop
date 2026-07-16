@@ -1,5 +1,5 @@
 import { Eraser, EyeOff, FolderOpen, Terminal, Trash2 } from 'lucide-react'
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useState } from 'react'
 
 import {
   DropdownMenu,
@@ -79,7 +79,7 @@ function getAgentTooltipPath(agentId: AgentId): string | undefined {
  * Shows "N linked, M local" skill counts.
  * Hover tooltip displays the agent's skills folder path.
  */
-export const AgentItem = React.memo(function AgentItem({
+export const AgentItem = function AgentItem({
   agent,
 }: AgentItemProps): React.ReactElement {
   const dispatch = useAppDispatch()
@@ -105,32 +105,32 @@ export const AgentItem = React.memo(function AgentItem({
     setContextOpen(true)
   }
 
-  const handleContextOpenChange = useCallback((open: boolean): void => {
+  const handleContextOpenChange = (open: boolean): void => {
     if (!open) setContextOpen(false)
-  }, [])
+  }
 
-  const handleRevealInFinder = useCallback((): void => {
+  const handleRevealInFinder = (): void => {
     void revealInFinder(agent.path)
-  }, [agent.path, revealInFinder])
+  }
 
-  const handleOpenInTerminal = useCallback((): void => {
+  const handleOpenInTerminal = (): void => {
     void openInTerminal(agent.path)
-  }, [agent.path, openInTerminal])
+  }
 
-  const handleDelete = useCallback((): void => {
+  const handleDelete = (): void => {
     dispatch(setAgentToDelete(agent))
     setContextOpen(false)
-  }, [agent, dispatch])
+  }
 
-  const handleCleanupMissing = useCallback((): void => {
+  const handleCleanupMissing = (): void => {
     // Opens `CleanupAgentDialog`. The dialog itself dispatches the scoped
     // `fetchSyncPreview({ agentId })` once it mounts, so we don't need
     // to chain it here — keeps the menu handler synchronous.
     dispatch(setCleanupAgentTarget(agent.id))
     setContextOpen(false)
-  }, [agent.id, dispatch])
+  }
 
-  const handleToggleHidden = useCallback((): void => {
+  const handleToggleHidden = (): void => {
     // Pure visibility toggle — skills, symlinks, and marketplace presence
     // are untouched. Matching unhide affordances live in Settings → Agents
     // and inside the "N hidden" sidebar disclosure.
@@ -138,17 +138,13 @@ export const AgentItem = React.memo(function AgentItem({
       hiddenAgentIds: toggleArrayMember(hiddenAgentIds, agent.id),
     })
     setContextOpen(false)
-  }, [agent.id, hiddenAgentIds, updateSettings])
+  }
 
-  const skillCountText = useMemo(
-    () =>
-      agent.exists
-        ? buildSkillCountText(agent.skillCount, agent.localSkillCount)
-        : null,
-    [agent.exists, agent.skillCount, agent.localSkillCount],
-  )
+  const skillCountText = agent.exists
+    ? buildSkillCountText(agent.skillCount, agent.localSkillCount)
+    : null
 
-  const tooltipPath = useMemo(() => getAgentTooltipPath(agent.id), [agent.id])
+  const tooltipPath = getAgentTooltipPath(agent.id)
 
   return (
     <Tooltip>
@@ -222,4 +218,4 @@ export const AgentItem = React.memo(function AgentItem({
       )}
     </Tooltip>
   )
-})
+}

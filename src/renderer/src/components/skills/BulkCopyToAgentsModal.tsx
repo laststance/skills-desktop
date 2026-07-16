@@ -1,5 +1,5 @@
 import { Copy, Loader2 } from 'lucide-react'
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useState } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/renderer/src/components/ui/button'
@@ -41,7 +41,7 @@ import { AgentSelectionOption } from './AgentSelectionOption'
  * @example
  * <BulkCopyToAgentsModal />
  */
-export const BulkCopyToAgentsModal = React.memo(
+export const BulkCopyToAgentsModal =
   function BulkCopyToAgentsModal(): React.ReactElement {
     const dispatch = useAppDispatch()
     const open = useAppSelector(selectBulkCopyModalOpen)
@@ -53,35 +53,31 @@ export const BulkCopyToAgentsModal = React.memo(
     const [checkedAgentIds, setCheckedAgentIds] = useState<AgentId[]>([])
 
     // Global view copies to any agent; the source skill has no "self" to exclude.
-    const targetAgents = useMemo(
-      () => getTargetAgentsForSelection(agents, { excludeAgentId: null }),
-      [agents],
-    )
+    const targetAgents = getTargetAgentsForSelection(agents, {
+      excludeAgentId: null,
+    })
 
-    const handleAgentToggle = useCallback((agentId: AgentId): void => {
+    const handleAgentToggle = (agentId: AgentId): void => {
       setCheckedAgentIds((current) =>
         current.includes(agentId)
           ? current.filter((id) => id !== agentId)
           : [...current, agentId],
       )
-    }, [])
+    }
 
     // Dismiss path (Cancel / Esc / overlay). Blocked mid-copy so a half-finished
     // batch is never abandoned; resets checks so the next open starts clean.
-    const handleDismiss = useCallback((): void => {
+    const handleDismiss = (): void => {
       if (bulkCopying) return
       setCheckedAgentIds([])
       dispatch(setBulkCopyModalOpen(false))
-    }, [bulkCopying, dispatch])
+    }
 
-    const handleDialogOpenChange = useCallback(
-      (next: boolean): void => {
-        if (!next) handleDismiss()
-      },
-      [handleDismiss],
-    )
+    const handleDialogOpenChange = (next: boolean): void => {
+      if (!next) handleDismiss()
+    }
 
-    const handleCopy = useCallback(async (): Promise<void> => {
+    const handleCopy = async (): Promise<void> => {
       // Re-entrancy guard: the button is disabled while `bulkCopying`, but a
       // fast double-click can fire two handlers before React re-renders the
       // disabled state. Bail here so a single click never dispatches twice and
@@ -112,7 +108,7 @@ export const BulkCopyToAgentsModal = React.memo(
       // Selection is preserved (non-destructive); only the local checks reset.
       setCheckedAgentIds([])
       dispatch(setBulkCopyModalOpen(false))
-    }, [dispatch, selectedSkills, checkedAgentIds, bulkCopying])
+    }
 
     const skillCount = selectedSkills.length
     const skillWord = skillCount === 1 ? 'skill' : 'skills'
@@ -168,5 +164,4 @@ export const BulkCopyToAgentsModal = React.memo(
         </DialogContent>
       </Dialog>
     )
-  },
-)
+  }

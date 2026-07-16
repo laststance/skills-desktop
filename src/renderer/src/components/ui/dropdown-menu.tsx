@@ -11,7 +11,7 @@ const DropdownMenuPortal = DropdownMenuPrimitive.Portal
 const DropdownMenuSub = DropdownMenuPrimitive.Sub
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup
 
-const DropdownMenuSubTrigger = React.memo(function DropdownMenuSubTrigger({
+const DropdownMenuSubTrigger = function DropdownMenuSubTrigger({
   className,
   inset,
   children,
@@ -34,9 +34,9 @@ const DropdownMenuSubTrigger = React.memo(function DropdownMenuSubTrigger({
       <ChevronRight className="ml-auto" />
     </DropdownMenuPrimitive.SubTrigger>
   )
-})
+}
 
-const DropdownMenuSubContent = React.memo(function DropdownMenuSubContent({
+const DropdownMenuSubContent = function DropdownMenuSubContent({
   className,
   ref,
   ...props
@@ -51,9 +51,9 @@ const DropdownMenuSubContent = React.memo(function DropdownMenuSubContent({
       {...props}
     />
   )
-})
+}
 
-const DropdownMenuContent = React.memo(function DropdownMenuContent({
+const DropdownMenuContent = function DropdownMenuContent({
   className,
   sideOffset = 4,
   ref,
@@ -73,9 +73,9 @@ const DropdownMenuContent = React.memo(function DropdownMenuContent({
       />
     </DropdownMenuPrimitive.Portal>
   )
-})
+}
 
-const DropdownMenuItem = React.memo(function DropdownMenuItem({
+const DropdownMenuItem = function DropdownMenuItem({
   className,
   inset,
   ref,
@@ -94,9 +94,9 @@ const DropdownMenuItem = React.memo(function DropdownMenuItem({
       {...props}
     />
   )
-})
+}
 
-const DropdownMenuCheckboxItem = React.memo(function DropdownMenuCheckboxItem({
+const DropdownMenuCheckboxItem = function DropdownMenuCheckboxItem({
   className,
   children,
   checked,
@@ -121,9 +121,9 @@ const DropdownMenuCheckboxItem = React.memo(function DropdownMenuCheckboxItem({
       {children}
     </DropdownMenuPrimitive.CheckboxItem>
   )
-})
+}
 
-const DropdownMenuRadioItem = React.memo(function DropdownMenuRadioItem({
+const DropdownMenuRadioItem = function DropdownMenuRadioItem({
   className,
   children,
   ref,
@@ -146,9 +146,9 @@ const DropdownMenuRadioItem = React.memo(function DropdownMenuRadioItem({
       {children}
     </DropdownMenuPrimitive.RadioItem>
   )
-})
+}
 
-const DropdownMenuLabel = React.memo(function DropdownMenuLabel({
+const DropdownMenuLabel = function DropdownMenuLabel({
   className,
   inset,
   ref,
@@ -167,9 +167,9 @@ const DropdownMenuLabel = React.memo(function DropdownMenuLabel({
       {...props}
     />
   )
-})
+}
 
-const DropdownMenuSeparator = React.memo(function DropdownMenuSeparator({
+const DropdownMenuSeparator = function DropdownMenuSeparator({
   className,
   ref,
   ...props
@@ -181,9 +181,9 @@ const DropdownMenuSeparator = React.memo(function DropdownMenuSeparator({
       {...props}
     />
   )
-})
+}
 
-const DropdownMenuShortcut = React.memo(function DropdownMenuShortcut({
+const DropdownMenuShortcut = function DropdownMenuShortcut({
   className,
   ...props
 }: React.HTMLAttributes<HTMLSpanElement>) {
@@ -193,7 +193,7 @@ const DropdownMenuShortcut = React.memo(function DropdownMenuShortcut({
       {...props}
     />
   )
-})
+}
 
 export {
   DropdownMenu,

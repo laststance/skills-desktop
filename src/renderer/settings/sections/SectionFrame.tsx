@@ -18,7 +18,7 @@ interface SectionFrameProps {
  * pane content — exposing it from `components/ui` would invite reuse in
  * places where the sizing is wrong.
  */
-export const SectionFrame = React.memo(function SectionFrame({
+export const SectionFrame = function SectionFrame({
   title,
   description,
   children,
@@ -35,7 +35,7 @@ export const SectionFrame = React.memo(function SectionFrame({
       <div className="flex flex-col gap-6">{children}</div>
     </section>
   )
-})
+}
 
 interface SectionRowProps {
   label: string
@@ -52,7 +52,7 @@ interface SectionRowProps {
  * 800px-wide window. Vertical rhythm reads like Inkdrop / Linear / VS
  * Code's Settings UI.
  */
-export const SectionRow = React.memo(function SectionRow({
+export const SectionRow = function SectionRow({
   label,
   description,
   children,
@@ -68,4 +68,4 @@ export const SectionRow = React.memo(function SectionRow({
       <div>{children}</div>
     </div>
   )
-})
+}

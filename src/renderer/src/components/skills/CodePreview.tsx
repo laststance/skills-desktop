@@ -1,5 +1,5 @@
 import * as TabsPrimitive from '@radix-ui/react-tabs'
-import React, { useCallback } from 'react'
+import React from 'react'
 
 import { useCodePreview } from '@/renderer/src/hooks/useCodePreview'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
@@ -28,7 +28,7 @@ interface CodePreviewProps {
  * FileContent owns the actual rendering mode: source-like files get Shiki
  * syntax highlighting, and Markdown can switch into a rendered reading view.
  */
-export const CodePreview = React.memo(function CodePreview({
+export const CodePreview = function CodePreview({
   skillPath,
 }: CodePreviewProps): React.ReactElement {
   const { files, activeFile, setActiveFile, content, loading } =
@@ -43,14 +43,11 @@ export const CodePreview = React.memo(function CodePreview({
   )
   const codeThemeId = useAppSelector((state) => state.settings.codeThemeId)
 
-  const handleValueChange = useCallback(
-    (next: string) => {
-      /* v8 ignore next -- next is always a non-empty file.path: Radix emits a Trigger's own value and every FileTabs Trigger has value={file.path} (non-empty AbsolutePath); Root has no collapsible/deselect prop, so next === '' never occurs */
-      if (!next) return
-      setActiveFile(next)
-    },
-    [setActiveFile],
-  )
+  const handleValueChange = (next: string) => {
+    /* v8 ignore next -- next is always a non-empty file.path: Radix emits a Trigger's own value and every FileTabs Trigger has value={file.path} (non-empty AbsolutePath); Root has no collapsible/deselect prop, so next === '' never occurs */
+    if (!next) return
+    setActiveFile(next)
+  }
 
   if (loading) {
     return (
@@ -90,4 +87,4 @@ export const CodePreview = React.memo(function CodePreview({
       </TabsPrimitive.Content>
     </TabsPrimitive.Root>
   )
-})
+}

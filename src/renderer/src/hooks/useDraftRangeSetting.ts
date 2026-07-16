@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { useDebouncedCallback } from './useDebouncedCallback'
 import { useUpdateEffect } from './useUpdateEffect'
@@ -46,24 +46,21 @@ export function useDraftRangeSetting(
   // when the consumer passes an inline closure (keeps the memo slider stable).
   const commitRef = useRef(commit)
   commitRef.current = commit
-  const persist = useCallback((next: number): void => {
+  const persist = (next: number): void => {
     commitRef.current(next)
-  }, [])
+  }
   const debouncedPersist = useDebouncedCallback(persist, delayMs)
 
-  const change = useCallback(
-    (next: number): void => {
-      setDraft(next)
-      debouncedPersist.run(next)
-    },
-    [debouncedPersist],
-  )
+  const change = (next: number): void => {
+    setDraft(next)
+    debouncedPersist.run(next)
+  }
 
-  const reset = useCallback((): void => {
+  const reset = (): void => {
     debouncedPersist.cancel()
     setDraft(defaultValue)
     persist(defaultValue)
-  }, [debouncedPersist, defaultValue, persist])
+  }
 
   // A broadcast (or any value change) wins over a pending local drag: drop the
   // scheduled persist and mirror the new source-of-truth value.

@@ -43,7 +43,7 @@ interface DialogIconHeaderProps {
  * @example
  * <DialogIconHeader icon={AlertTriangle} title="Sync Conflicts" tone="amber" />
  */
-export const DialogIconHeader = React.memo(function DialogIconHeader({
+export const DialogIconHeader = function DialogIconHeader({
   icon: Icon,
   title,
   tone = 'primary',
@@ -54,4 +54,4 @@ export const DialogIconHeader = React.memo(function DialogIconHeader({
       <DialogTitle>{title}</DialogTitle>
     </div>
   )
-})
+}

@@ -47,55 +47,49 @@ interface DestructiveConfirmDialogProps {
  *   loadingLabel="Deleting..."
  * />
  */
-export const DestructiveConfirmDialog = React.memo(
-  function DestructiveConfirmDialog({
-    open,
-    onClose,
-    onConfirm,
-    loading,
-    title,
-    description,
-    confirmLabel = 'Remove',
-    loadingLabel = 'Removing...',
-    iconVariant = 'destructive',
-  }: DestructiveConfirmDialogProps): React.ReactElement {
-    const iconColor =
-      iconVariant === 'warning' ? 'text-amber-500' : 'text-destructive'
+export const DestructiveConfirmDialog = function DestructiveConfirmDialog({
+  open,
+  onClose,
+  onConfirm,
+  loading,
+  title,
+  description,
+  confirmLabel = 'Remove',
+  loadingLabel = 'Removing...',
+  iconVariant = 'destructive',
+}: DestructiveConfirmDialogProps): React.ReactElement {
+  const iconColor =
+    iconVariant === 'warning' ? 'text-amber-500' : 'text-destructive'
 
-    return (
-      <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-100">
-          <DialogHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className={`h-5 w-5 ${iconColor}`} />
-              <DialogTitle>{title}</DialogTitle>
-            </div>
-            <DialogDescription asChild>
-              <div>{description}</div>
-            </DialogDescription>
-          </DialogHeader>
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-100">
+        <DialogHeader>
+          <div className="flex items-center gap-2">
+            <AlertTriangle className={`h-5 w-5 ${iconColor}`} />
+            <DialogTitle>{title}</DialogTitle>
+          </div>
+          <DialogDescription asChild>
+            <div>{description}</div>
+          </DialogDescription>
+        </DialogHeader>
 
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={onClose} disabled={loading}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={onConfirm}
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  {loadingLabel}
-                </>
-              ) : (
-                confirmLabel
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    )
-  },
-)
+        <DialogFooter className="mt-4">
+          <Button variant="outline" onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={onConfirm} disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                {loadingLabel}
+              </>
+            ) : (
+              confirmLabel
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

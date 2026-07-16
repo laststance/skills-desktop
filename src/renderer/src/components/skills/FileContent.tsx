@@ -1,5 +1,5 @@
 import { BookOpenText, Code2, FileQuestion } from 'lucide-react'
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { match } from 'ts-pattern'
@@ -64,7 +64,7 @@ const TEXT_PREVIEW_MODE_OPTIONS: ReadonlyArray<
  * Shiki provides TextMate-grade highlighting while `react-markdown` keeps
  * Markdown rendering safe by default: raw HTML is not enabled here.
  */
-export const FileContent = React.memo(function FileContent({
+export const FileContent = function FileContent({
   content,
   markdownFontSizePx = MARKDOWN_FONT_SIZE_DEFAULT_PX,
   codeFontSizePx = CODE_FONT_SIZE_DEFAULT_PX,
@@ -96,7 +96,7 @@ export const FileContent = React.memo(function FileContent({
       />
     ))
     .exhaustive()
-})
+}
 
 interface TextPreviewProps {
   file: SkillFileContent
@@ -112,7 +112,7 @@ interface TextPreviewProps {
  * @example
  * <TextPreview file={{ name: 'SKILL.md', extension: '.md', content: '# Hi', lineCount: 1 }} />
  */
-const TextPreview = React.memo(function TextPreview({
+const TextPreview = function TextPreview({
   file,
   markdownFontSizePx,
   codeFontSizePx,
@@ -126,9 +126,9 @@ const TextPreview = React.memo(function TextPreview({
     setMode('code')
   }, [fileIdentity])
 
-  const handleModeChange = useCallback((nextMode: TextPreviewMode): void => {
+  const handleModeChange = (nextMode: TextPreviewMode): void => {
     setMode(nextMode)
-  }, [])
+  }
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-muted">
@@ -159,7 +159,7 @@ const TextPreview = React.memo(function TextPreview({
       )}
     </div>
   )
-})
+}
 
 interface SyntaxHighlightedCodeProps {
   content: string
@@ -179,14 +179,14 @@ interface SyntaxHighlightedCodeProps {
  * @example
  * <SyntaxHighlightedCode content="const x = 1" language="typescript" fontSizePx={13} codeThemeId="github" />
  */
-const SyntaxHighlightedCode = React.memo(function SyntaxHighlightedCode({
+const SyntaxHighlightedCode = function SyntaxHighlightedCode({
   content,
   language,
   fontSizePx,
   codeThemeId,
 }: SyntaxHighlightedCodeProps): React.ReactElement {
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null)
-  const plainTextLines = useMemo(() => content.split('\n'), [content])
+  const plainTextLines = content.split('\n')
   // Identifies which (content + language) the live `highlightedHtml` belongs to.
   // A theme-only re-highlight leaves this unchanged, so the existing colored
   // output stays mounted and is swapped only when the new theme resolves —
@@ -275,7 +275,7 @@ const SyntaxHighlightedCode = React.memo(function SyntaxHighlightedCode({
       <div className="h-8" data-file-preview-bottom-spacer aria-hidden />
     </div>
   )
-})
+}
 
 interface PlainTextCodeProps {
   lines: string[]
@@ -291,7 +291,7 @@ interface PlainTextCodeProps {
  * @example
  * <PlainTextCode lines={['first', 'second']} fontSizePx={13} />
  */
-const PlainTextCode = React.memo(function PlainTextCode({
+const PlainTextCode = function PlainTextCode({
   lines,
   fontSizePx,
 }: PlainTextCodeProps): React.ReactElement {
@@ -314,7 +314,7 @@ const PlainTextCode = React.memo(function PlainTextCode({
       </tbody>
     </table>
   )
-})
+}
 
 interface MarkdownReadingPreviewProps {
   content: string
@@ -329,15 +329,13 @@ interface MarkdownReadingPreviewProps {
  * @example
  * <MarkdownReadingPreview content="# Title\n\n- [x] done" fontSizePx={14} />
  */
-const MarkdownReadingPreview = React.memo(function MarkdownReadingPreview({
+const MarkdownReadingPreview = function MarkdownReadingPreview({
   content,
   fontSizePx,
 }: MarkdownReadingPreviewProps): React.ReactElement {
-  const readableContent = useMemo(
-    () => stripMarkdownFrontmatter(content),
-    [content],
-  )
-  const remarkPlugins = useMemo(() => [remarkGfm], [])
+  const readableContent = stripMarkdownFrontmatter(content)
+
+  const remarkPlugins = [remarkGfm]
 
   return (
     <div
@@ -345,8 +343,8 @@ const MarkdownReadingPreview = React.memo(function MarkdownReadingPreview({
       data-markdown-reading-scroll
     >
       {/* Inline font size is the scale anchor: child sizes are em (heading,
-          code, table), so the whole document scales from this one value.
-          `leading-loose` (2.0) matches the prior `leading-7` (28px ÷ 14px). */}
+           code, table), so the whole document scales from this one value.
+           `leading-loose` (2.0) matches the prior `leading-7` (28px ÷ 14px). */}
       <article
         style={{ fontSize: `${fontSizePx}px` }}
         className="markdown-reading-prose min-w-0 max-w-full overflow-x-hidden break-words px-7 py-6 pb-10 leading-loose text-foreground"
@@ -360,7 +358,7 @@ const MarkdownReadingPreview = React.memo(function MarkdownReadingPreview({
       </article>
     </div>
   )
-})
+}
 
 /**
  * Remove leading YAML frontmatter from the Reading Mode body.
@@ -647,20 +645,20 @@ const markdownComponents: Components = {
   },
 }
 
-const EmptyState = React.memo(function EmptyState(): React.ReactElement {
+const EmptyState = function EmptyState(): React.ReactElement {
   return (
     <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground">
       Select a file to preview
     </div>
   )
-})
+}
 
 interface BinaryPlaceholderProps {
   fileName: FileName
   size: FileSizeBytes
 }
 
-const BinaryPlaceholder = React.memo(function BinaryPlaceholder({
+const BinaryPlaceholder = function BinaryPlaceholder({
   fileName,
   size,
 }: BinaryPlaceholderProps): React.ReactElement {
@@ -673,4 +671,4 @@ const BinaryPlaceholder = React.memo(function BinaryPlaceholder({
       </p>
     </div>
   )
-})
+}

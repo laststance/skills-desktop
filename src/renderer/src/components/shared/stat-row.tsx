@@ -41,7 +41,7 @@ interface StatRowProps {
  * @example
  * <StatRow label="Conflicts (skipped)" value={conflictCount} tone="amber" />
  */
-export const StatRow = React.memo(function StatRow({
+export const StatRow = function StatRow({
   label,
   value,
   tone = 'default',
@@ -52,4 +52,4 @@ export const StatRow = React.memo(function StatRow({
       <span className={VALUE_CLASS_BY_TONE[tone]}>{value}</span>
     </div>
   )
-})
+}

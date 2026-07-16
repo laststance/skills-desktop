@@ -24,7 +24,7 @@ import { cn } from '@/renderer/src/lib/utils'
  * (Sidebar lists, SyncResultDialog item rows), so giving up horizontal
  * scroll is intentional, not a regression.
  */
-const ScrollArea = React.memo(function ScrollArea({
+const ScrollArea = function ScrollArea({
   className,
   children,
   ref,
@@ -43,9 +43,9 @@ const ScrollArea = React.memo(function ScrollArea({
       <ScrollAreaPrimitive.Corner />
     </ScrollAreaPrimitive.Root>
   )
-})
+}
 
-const ScrollBar = React.memo(function ScrollBar({
+const ScrollBar = function ScrollBar({
   className,
   orientation = 'vertical',
   ref,
@@ -70,6 +70,6 @@ const ScrollBar = React.memo(function ScrollBar({
       <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-full bg-border" />
     </ScrollAreaPrimitive.ScrollAreaScrollbar>
   )
-})
+}
 
 export { ScrollArea, ScrollBar }

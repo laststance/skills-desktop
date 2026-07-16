@@ -12,7 +12,7 @@ const TooltipTrigger = TooltipPrimitive.Trigger
  * Matches Pencil design: bg-elevated (#334155), border-subtle, shadow.
  * @param sideOffset - Distance from trigger element (default: 6px)
  */
-const TooltipContent = React.memo(function TooltipContent({
+const TooltipContent = function TooltipContent({
   className,
   sideOffset = 6,
   ref,
@@ -38,6 +38,6 @@ const TooltipContent = React.memo(function TooltipContent({
       />
     </TooltipPrimitive.Portal>
   )
-})
+}
 
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }

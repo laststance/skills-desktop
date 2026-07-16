@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useRef } from 'react'
 import { toast } from 'sonner'
 
 import type { AbsolutePath } from '@/shared/types'
@@ -17,9 +17,9 @@ import type { AbsolutePath } from '@/shared/types'
  * 5× just brings Finder forward 5×, which is harmless. Adding a guard would
  * cost UX clarity (greyed-out menu items mid-launch) for no real protection.
  *
- * Returned methods are wrapped in `useCallback` with empty deps so they are
- * referentially stable across re-renders — safe to pass to `<DropdownMenuItem>`
- * `onSelect` props that compare on identity.
+ * Returned methods are referentially stable for the hook's lifetime (created
+ * once via a ref) — safe to pass to `<DropdownMenuItem>` `onSelect` props that
+ * compare on identity.
  *
  * @returns
  * - `revealInFinder(folderPath)`: opens the folder in macOS Finder
@@ -34,29 +34,32 @@ export function useOpenFolder(): {
   revealInFinder: (folderPath: AbsolutePath) => Promise<void>
   openInTerminal: (folderPath: AbsolutePath) => Promise<void>
 } {
-  const revealInFinder = useCallback(
-    async (folderPath: AbsolutePath): Promise<void> => {
-      try {
-        const result = await window.electron.folder.revealInFinder(folderPath)
-        if (!result.ok) toast.error(result.message)
-      } catch {
-        toast.error('Failed to reveal folder in Finder')
-      }
-    },
-    [],
-  )
+  // Stable API object — created once so consumers can put methods in effect deps.
+  const apiRef = useRef<{
+    revealInFinder: (folderPath: AbsolutePath) => Promise<void>
+    openInTerminal: (folderPath: AbsolutePath) => Promise<void>
+  } | null>(null)
 
-  const openInTerminal = useCallback(
-    async (folderPath: AbsolutePath): Promise<void> => {
-      try {
-        const result = await window.electron.folder.openInTerminal(folderPath)
-        if (!result.ok) toast.error(result.message)
-      } catch {
-        toast.error('Failed to open folder in terminal')
-      }
-    },
-    [],
-  )
+  if (apiRef.current === null) {
+    apiRef.current = {
+      revealInFinder: async (folderPath: AbsolutePath): Promise<void> => {
+        try {
+          const result = await window.electron.folder.revealInFinder(folderPath)
+          if (!result.ok) toast.error(result.message)
+        } catch {
+          toast.error('Failed to reveal folder in Finder')
+        }
+      },
+      openInTerminal: async (folderPath: AbsolutePath): Promise<void> => {
+        try {
+          const result = await window.electron.folder.openInTerminal(folderPath)
+          if (!result.ok) toast.error(result.message)
+        } catch {
+          toast.error('Failed to open folder in terminal')
+        }
+      },
+    }
+  }
 
-  return { revealInFinder, openInTerminal }
+  return apiRef.current
 }

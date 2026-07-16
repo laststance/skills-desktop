@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef } from 'react'
+import React, { useRef } from 'react'
 
 import {
   Dialog,
@@ -20,7 +20,7 @@ import {
 } from '@/renderer/src/redux/slices/widgetPickerSlice'
 import { FEATURE_FLAGS } from '@/shared/featureFlags'
 
-import type { WidgetInstance, WidgetType } from './types'
+import type { WidgetType } from './types'
 import { newWidgetInstanceId } from './utils/ids'
 import { resolveSeedPreviewType } from './utils/resolveSeedPreviewType'
 import { widgetPreviewSize } from './utils/widgetPreviewSize'
@@ -53,7 +53,7 @@ interface WidgetPickerProps {
  * const [open, setOpen] = useState(false)
  * <WidgetPicker open={open} onOpenChange={setOpen} />
  */
-export const WidgetPicker = React.memo(function WidgetPicker({
+export const WidgetPicker = function WidgetPicker({
   open,
   onOpenChange,
 }: WidgetPickerProps): React.ReactElement {
@@ -95,45 +95,39 @@ export const WidgetPicker = React.memo(function WidgetPicker({
   // re-render on every keystroke-driven parent update. Fires once per open
   // cycle when Radix mounts focus on DialogContent, so it doubles as our
   // open-edge event for resetting the one-click-add guard.
-  const handleOpenAutoFocus = useCallback((event: Event): void => {
+  const handleOpenAutoFocus = (event: Event): void => {
     hasAddedRef.current = false
     if (!seedRowRef.current) return
     event.preventDefault()
     seedRowRef.current.focus()
-  }, [])
+  }
 
   // Wrap `onOpenChange` so the close transition (Esc, overlay click, X button,
   // or our own `handleAddWidget`) drops the hover override before forwarding.
   // The parent only opens via `setIsPickerOpen(true)` and routes every close
   // through this callback, so this covers every close path.
-  const handleOpenChange = useCallback(
-    (nextOpen: boolean): void => {
-      if (!nextOpen) dispatch(resetActivePreview())
-      onOpenChange(nextOpen)
-    },
-    [dispatch, onOpenChange],
-  )
+  const handleOpenChange = (nextOpen: boolean): void => {
+    if (!nextOpen) dispatch(resetActivePreview())
+    onOpenChange(nextOpen)
+  }
+
   const previewBox = previewDefinition
     ? widgetPreviewSize(previewDefinition.defaultSize)
     : null
 
   // Synthetic instance so the real widget body can render. The id is the
   // constant PREVIEW_INSTANCE_ID (see above), reused because nothing keys off it.
-  const previewInstance = useMemo<WidgetInstance>(
-    () => ({
-      id: PREVIEW_INSTANCE_ID,
-      type: previewType,
-      x: 0,
-      y: 0,
-      w: previewDefinition?.defaultSize.w ?? 1,
-      h: previewDefinition?.defaultSize.h ?? 1,
-    }),
-    [previewType, previewDefinition],
-  )
+  const previewInstance = {
+    id: PREVIEW_INSTANCE_ID,
+    type: previewType,
+    x: 0,
+    y: 0,
+    w: previewDefinition?.defaultSize.w ?? 1,
+    h: previewDefinition?.defaultSize.h ?? 1,
+  }
 
-  // Not wrapped in useCallback: each row already creates a new arrow in
-  // `.map()`, so memoizing this helper offers zero stability benefit and
-  // the lint rule `no-deopt-use-callback` correctly flags that pattern.
+  // Plain handler: each row already creates a new arrow in `.map()`, so
+  // extracting this helper would not improve referential stability.
   // Routes through `handleOpenChange` so the close-edge cleanup runs.
   const handleAddWidget = (widgetType: WidgetType): void => {
     if (hasAddedRef.current) return
@@ -159,7 +153,7 @@ export const WidgetPicker = React.memo(function WidgetPicker({
 
         <div className="flex gap-4 mt-2">
           {/* Left: compact widget list. Hover/focus drives the preview;
-              clicking a row adds it immediately (one-click-add). */}
+               clicking a row adds it immediately (one-click-add). */}
           <ul className="w-56 shrink-0 flex flex-col gap-1 max-h-[60vh] overflow-y-auto pr-1">
             {availableWidgets.map((widgetDefinition) => {
               const WidgetIcon = widgetDefinition.icon
@@ -212,8 +206,8 @@ export const WidgetPicker = React.memo(function WidgetPicker({
           </ul>
 
           {/* Right: live preview. The REAL widget body renders on a neutral
-              `--background` stage (the widget is `--card`, so the stage must
-              not be a card — no card-in-card per DESIGN.md). */}
+               `--background` stage (the widget is `--card`, so the stage must
+               not be a card — no card-in-card per DESIGN.md). */}
           <div className="flex-1 min-w-0 flex flex-col gap-3">
             <div className="flex-1 min-h-[20rem] flex items-center justify-center rounded-lg border border-border bg-background p-4 overflow-hidden">
               {previewDefinition && previewBox ? (
@@ -257,4 +251,4 @@ export const WidgetPicker = React.memo(function WidgetPicker({
       </DialogContent>
     </Dialog>
   )
-})
+}

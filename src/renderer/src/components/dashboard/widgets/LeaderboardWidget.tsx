@@ -36,7 +36,7 @@ interface LeaderboardWidgetProps {
  *
  * Rows open the skills.sh URL in the system browser via `<a target="_blank">`.
  */
-export const LeaderboardWidget = React.memo(function LeaderboardWidget({
+export const LeaderboardWidget = function LeaderboardWidget({
   filter,
   rowLimit,
   emptyIcon: EmptyIcon,
@@ -67,6 +67,7 @@ export const LeaderboardWidget = React.memo(function LeaderboardWidget({
           className="h-5 w-5 text-muted-foreground/60"
           aria-hidden="true"
         />
+
         <p className="text-xs text-muted-foreground">{errorMessage}</p>
       </div>
     )
@@ -81,6 +82,7 @@ export const LeaderboardWidget = React.memo(function LeaderboardWidget({
           className="h-5 w-5 text-muted-foreground/60"
           aria-hidden="true"
         />
+
         <p className="text-xs text-muted-foreground">{emptyMessage}</p>
       </div>
     )
@@ -97,4 +99,4 @@ export const LeaderboardWidget = React.memo(function LeaderboardWidget({
       </ul>
     </div>
   )
-})
+}

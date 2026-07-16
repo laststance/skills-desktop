@@ -46,7 +46,7 @@ export interface ButtonProps
   asChild?: boolean
 }
 
-const Button = React.memo(function Button({
+const Button = function Button({
   className,
   variant,
   size,
@@ -62,6 +62,6 @@ const Button = React.memo(function Button({
       {...props}
     />
   )
-})
+}
 
 export { Button, buttonVariants }

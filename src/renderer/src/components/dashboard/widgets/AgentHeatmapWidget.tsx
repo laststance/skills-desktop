@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React from 'react'
 
 import { useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectAgentItems } from '@/renderer/src/redux/slices/agentsSlice'
@@ -87,7 +87,7 @@ interface HeatmapCellProps {
   link: SymlinkInfo | undefined
 }
 
-const HeatmapCell = React.memo(function HeatmapCell({
+const HeatmapCell = function HeatmapCell({
   skillName,
   agentName,
   link,
@@ -108,7 +108,7 @@ const HeatmapCell = React.memo(function HeatmapCell({
       className={`h-3.5 w-3.5 rounded-sm ${fillClass}`}
     />
   )
-})
+}
 
 // ----------------------------------------------------------------------------
 // HeatmapRow — one skill row: truncated name + cells across all installed
@@ -121,7 +121,7 @@ interface HeatmapRowProps {
   symlinkIndex: Map<string, SymlinkInfo>
 }
 
-const HeatmapRow = React.memo(function HeatmapRow({
+const HeatmapRow = function HeatmapRow({
   skillName,
   agents,
   symlinkIndex,
@@ -143,7 +143,7 @@ const HeatmapRow = React.memo(function HeatmapRow({
       </div>
     </div>
   )
-})
+}
 
 // ----------------------------------------------------------------------------
 // Widget body
@@ -160,31 +160,25 @@ const HeatmapRow = React.memo(function HeatmapRow({
  *
  * Gated behind `FEATURE_FLAGS.ENABLE_DASHBOARD_EXPERIMENTAL` via the registry.
  */
-export const AgentHeatmapWidget = React.memo(
+export const AgentHeatmapWidget =
   function AgentHeatmapWidget(): React.ReactElement {
     const skills = useAppSelector(selectSkillsItems)
     const agents = useAppSelector(selectAgentItems)
 
     // Only agents with an on-disk skills dir contribute meaningful columns.
     // Not-installed agents would always be "missing" — pure noise.
-    const installedAgents = useMemo(
-      () => agents.filter((agent) => agent.exists),
-      [agents],
-    )
+    const installedAgents = agents.filter((agent) => agent.exists)
 
     // Highest-linked skills first — this is the "hot zone" users care about.
     // Capped at MAX_SKILL_ROWS so the matrix stays compact.
-    const topSkills = useMemo(() => {
+    const topSkills = (() => {
       const byCoverage = [...skills].sort(
         (skillA, skillB) => skillB.symlinkCount - skillA.symlinkCount,
       )
       return byCoverage.slice(0, MAX_SKILL_ROWS)
-    }, [skills])
+    })()
 
-    const symlinkIndex = useMemo(
-      () => buildSymlinkIndex(topSkills),
-      [topSkills],
-    )
+    const symlinkIndex = buildSymlinkIndex(topSkills)
 
     if (installedAgents.length === 0 || topSkills.length === 0) {
       return (
@@ -230,5 +224,4 @@ export const AgentHeatmapWidget = React.memo(
         </div>
       </div>
     )
-  },
-)
+  }

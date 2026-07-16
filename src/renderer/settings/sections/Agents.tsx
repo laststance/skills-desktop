@@ -1,5 +1,5 @@
 import { Eye, EyeOff } from 'lucide-react'
-import React, { useCallback } from 'react'
+import React from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { Checkbox } from '@/renderer/src/components/ui/checkbox'
@@ -38,7 +38,7 @@ import { SectionFrame } from './SectionFrame'
  * we re-fire `fetchAgents` on mount when the slice is empty. Idempotent
  * with the main window's mount-time fetch.
  */
-export const Agents = React.memo(function Agents(): React.ReactElement {
+export const Agents = function Agents(): React.ReactElement {
   const dispatch = useAppDispatch()
   const { items: agents, loading } = useAppSelector((state) => state.agents)
   const hiddenAgentIds = useAppSelector(selectHiddenAgentIds)
@@ -68,23 +68,20 @@ export const Agents = React.memo(function Agents(): React.ReactElement {
   ).length
   const hiddenCount = installed.length - visibleCount
 
-  const handleToggle = useCallback(
-    (agentId: AgentId): void => {
-      // Inversion: "Show in sidebar" checkbox flip ⇄ membership in
-      // hiddenAgentIds. We treat every click as a toggle relative to the
-      // latest known state instead of trusting the next-state from the
-      // checkbox event — the schema upstream already pins membership, so
-      // either side of the flip lands on the correct array.
-      updateSettings({
-        hiddenAgentIds: toggleArrayMember(hiddenAgentIds, agentId),
-      })
-    },
-    [hiddenAgentIds, updateSettings],
-  )
+  const handleToggle = (agentId: AgentId): void => {
+    // Inversion: "Show in sidebar" checkbox flip ⇄ membership in
+    // hiddenAgentIds. We treat every click as a toggle relative to the
+    // latest known state instead of trusting the next-state from the
+    // checkbox event — the schema upstream already pins membership, so
+    // either side of the flip lands on the correct array.
+    updateSettings({
+      hiddenAgentIds: toggleArrayMember(hiddenAgentIds, agentId),
+    })
+  }
 
-  const handleShowAll = useCallback((): void => {
+  const handleShowAll = (): void => {
     updateSettings({ hiddenAgentIds: [] })
-  }, [updateSettings])
+  }
 
   return (
     <SectionFrame
@@ -150,6 +147,7 @@ export const Agents = React.memo(function Agents(): React.ReactElement {
                       disabled
                       aria-label={`${agent.name} (not installed)`}
                     />
+
                     <span className="text-sm text-muted-foreground">
                       {agent.name}
                     </span>
@@ -162,7 +160,7 @@ export const Agents = React.memo(function Agents(): React.ReactElement {
       )}
     </SectionFrame>
   )
-})
+}
 
 interface AgentToggleRowProps {
   agent: Agent
@@ -170,21 +168,18 @@ interface AgentToggleRowProps {
   onToggle: (agentId: AgentId) => void
 }
 
-const AgentToggleRow = React.memo(function AgentToggleRow({
+const AgentToggleRow = function AgentToggleRow({
   agent,
   isVisible,
   onToggle,
 }: AgentToggleRowProps): React.ReactElement {
   const checkboxId = `agent-visibility-${agent.id}`
-  const handleCheckedChange = useCallback(
-    (next: boolean | 'indeterminate'): void => {
-      // Radix passes `boolean | "indeterminate"`. Ignore the indeterminate
-      // case — we never set it, but treating it like a flip would dispatch
-      // a phantom hide/show.
-      if (typeof next === 'boolean') onToggle(agent.id)
-    },
-    [agent.id, onToggle],
-  )
+  const handleCheckedChange = (next: boolean | 'indeterminate'): void => {
+    // Radix passes `boolean | "indeterminate"`. Ignore the indeterminate
+    // case — we never set it, but treating it like a flip would dispatch
+    // a phantom hide/show.
+    if (typeof next === 'boolean') onToggle(agent.id)
+  }
 
   return (
     <li className="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-muted/30">
@@ -194,6 +189,7 @@ const AgentToggleRow = React.memo(function AgentToggleRow({
         onCheckedChange={handleCheckedChange}
         aria-label={`Show ${agent.name} in sidebar`}
       />
+
       <label
         htmlFor={checkboxId}
         className="flex-1 flex items-center justify-between cursor-pointer text-sm"
@@ -210,4 +206,4 @@ const AgentToggleRow = React.memo(function AgentToggleRow({
       </label>
     </li>
   )
-})
+}

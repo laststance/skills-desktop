@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect } from 'react'
 import { Provider } from 'react-redux'
 import type { Decorator } from '@storybook/react-vite'
 import { combineReducers, configureStore } from '@reduxjs/toolkit'
@@ -577,48 +577,46 @@ interface StoryProviderProps {
  * @example
  * <SkillsDesktopStoryProvider state={{ ui: { activeTab: 'marketplace' } }} />
  */
-const SkillsDesktopStoryProvider = React.memo(
-  function SkillsDesktopStoryProvider({
-    children,
-    state,
-    centered = false,
-    width,
-  }: StoryProviderProps): React.ReactElement {
-    const store = useMemo(() => createStoryStore(state), [state])
+const SkillsDesktopStoryProvider = function SkillsDesktopStoryProvider({
+  children,
+  state,
+  centered = false,
+  width,
+}: StoryProviderProps): React.ReactElement {
+  const store = createStoryStore(state)
 
-    useEffect(() => {
-      const syncThemeToDom = (): void => {
-        applyStoryTheme(store.getState().theme)
-      }
+  useEffect(() => {
+    const syncThemeToDom = (): void => {
+      applyStoryTheme(store.getState().theme)
+    }
 
-      syncThemeToDom()
-      return store.subscribe(syncThemeToDom)
-    }, [store])
+    syncThemeToDom()
+    return store.subscribe(syncThemeToDom)
+  }, [store])
 
-    const frameStyle =
-      width === undefined
-        ? undefined
-        : ({ maxWidth: width, width: '100%', margin: '0 auto' } as const)
+  const frameStyle =
+    width === undefined
+      ? undefined
+      : ({ maxWidth: width, width: '100%', margin: '0 auto' } as const)
 
-    return (
-      <Provider store={store}>
-        <TooltipProvider delayDuration={120}>
-          <div className="skills-story-surface">
-            <div
-              className={
-                centered
-                  ? 'skills-story-frame skills-story-frame--center'
-                  : 'skills-story-frame'
-              }
-            >
-              <div style={frameStyle}>{children}</div>
-            </div>
+  return (
+    <Provider store={store}>
+      <TooltipProvider delayDuration={120}>
+        <div className="skills-story-surface">
+          <div
+            className={
+              centered
+                ? 'skills-story-frame skills-story-frame--center'
+                : 'skills-story-frame'
+            }
+          >
+            <div style={frameStyle}>{children}</div>
           </div>
-        </TooltipProvider>
-      </Provider>
-    )
-  },
-)
+        </div>
+      </TooltipProvider>
+    </Provider>
+  )
+}
 
 /**
  * Global Storybook decorator that supplies app state and Electron mocks.
@@ -661,7 +659,7 @@ interface StoryCardProps {
  * @example
  * <StoryCard label="Primary button"><Button>Save</Button></StoryCard>
  */
-export const StoryCard = React.memo(function StoryCard({
+export const StoryCard = function StoryCard({
   label,
   children,
   className = '',
@@ -672,7 +670,7 @@ export const StoryCard = React.memo(function StoryCard({
       {children}
     </section>
   )
-})
+}
 
 interface StoryGridProps {
   children: React.ReactNode
@@ -687,7 +685,7 @@ interface StoryGridProps {
  * @example
  * <StoryGrid columns={2}><StoryCard ... /></StoryGrid>
  */
-export const StoryGrid = React.memo(function StoryGrid({
+export const StoryGrid = function StoryGrid({
   children,
   columns = 2,
 }: StoryGridProps): React.ReactElement {
@@ -700,4 +698,4 @@ export const StoryGrid = React.memo(function StoryGrid({
   return (
     <div className={`grid grid-cols-1 gap-4 ${columnClass}`}>{children}</div>
   )
-})
+}

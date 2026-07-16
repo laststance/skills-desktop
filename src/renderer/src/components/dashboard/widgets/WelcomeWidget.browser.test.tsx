@@ -36,8 +36,8 @@ function makeWelcomePage(widgetId: WidgetInstanceId): DashboardPage {
 
 /**
  * Build the welcome WidgetInstance for the rendered widget. A factory call
- * (vs an inline object literal) gives the `instance` prop a call-expression
- * initializer that the `prefer-usememo` lint rule accepts.
+ * (vs an inline object literal) keeps object construction out of the render
+ * expression so each test gets a fresh instance without inline-literal churn.
  * @param widgetId - Instance id matching the seeded dashboard placement.
  * @returns A welcome-type WidgetInstance at the default 6x2 grid placement.
  * @example

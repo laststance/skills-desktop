@@ -1,5 +1,5 @@
 import { FolderDot, Link2 } from 'lucide-react'
-import React, { useCallback, useMemo } from 'react'
+import React from 'react'
 
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectAgentItems } from '@/renderer/src/redux/slices/agentsSlice'
@@ -65,7 +65,7 @@ interface CoverageRowViewProps {
   onSelect: (agentId: AgentId) => void
 }
 
-const CoverageRowView = React.memo(function CoverageRowView({
+const CoverageRowView = function CoverageRowView({
   row,
   onSelect,
 }: CoverageRowViewProps): React.ReactElement {
@@ -83,6 +83,7 @@ const CoverageRowView = React.memo(function CoverageRowView({
         hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
       "
+
       aria-label={`${agent.name}: ${linked} linked, ${local} local`}
     >
       <div className="min-w-0 flex flex-col gap-1">
@@ -125,7 +126,7 @@ const CoverageRowView = React.memo(function CoverageRowView({
       </div>
     </button>
   )
-})
+}
 
 /**
  * Agent Coverage widget body.
@@ -134,44 +135,36 @@ const CoverageRowView = React.memo(function CoverageRowView({
  * source skills they've linked. Clicking a row filters the main skill list
  * to that agent (reuses the same selection state as the sidebar).
  */
-export const CoverageWidget = React.memo(
-  function CoverageWidget(): React.ReactElement {
-    const dispatch = useAppDispatch()
-    const agents = useAppSelector(selectAgentItems)
-    const skills = useAppSelector(selectSkillsItems)
+export const CoverageWidget = function CoverageWidget(): React.ReactElement {
+  const dispatch = useAppDispatch()
+  const agents = useAppSelector(selectAgentItems)
+  const skills = useAppSelector(selectSkillsItems)
 
-    const rows = useMemo(
-      () => buildCoverageRows(agents, skills.length),
-      [agents, skills.length],
-    )
+  const rows = buildCoverageRows(agents, skills.length)
 
-    const handleSelect = useCallback(
-      (agentId: AgentId): void => {
-        dispatch(selectAgent(agentId))
-      },
-      [dispatch],
-    )
+  const handleSelect = (agentId: AgentId): void => {
+    dispatch(selectAgent(agentId))
+  }
 
-    if (agents.length === 0) {
-      return (
-        <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">
-          No agents discovered yet
-        </div>
-      )
-    }
-
+  if (agents.length === 0) {
     return (
-      <div className="h-full w-full overflow-y-auto py-2">
-        <div className="flex flex-col gap-0.5">
-          {rows.map((row) => (
-            <CoverageRowView
-              key={row.agent.id}
-              row={row}
-              onSelect={handleSelect}
-            />
-          ))}
-        </div>
+      <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">
+        No agents discovered yet
       </div>
     )
-  },
-)
+  }
+
+  return (
+    <div className="h-full w-full overflow-y-auto py-2">
+      <div className="flex flex-col gap-0.5">
+        {rows.map((row) => (
+          <CoverageRowView
+            key={row.agent.id}
+            row={row}
+            onSelect={handleSelect}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}

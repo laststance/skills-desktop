@@ -1,7 +1,27 @@
-import react from '@vitejs/plugin-react'
+import react, { reactCompilerPreset } from '@vitejs/plugin-react'
+import babel from '@rolldown/plugin-babel'
 import { resolve } from 'path'
 import { playwright } from '@vitest/browser-playwright'
 import { defineConfig } from 'vitest/config'
+
+/**
+ * React Compiler preset for the vitest browser lane. Overrides the stock
+ * `consumer === 'client'` gate so Chromium tests actually compile (vitest does
+ * not set that consumer flag).
+ *
+ * Intentionally NOT applied to the node project: several renderer hook tests
+ * call hooks as plain functions with a mocked `react.useEffect` and no
+ * dispatcher — `useMemoCache` would throw. Browser + production builds own
+ * the compiled behavior.
+ */
+const browserReactCompilerPreset = reactCompilerPreset()
+browserReactCompilerPreset.rolldown.applyToEnvironmentHook = () => true
+
+const reactOnlyPlugins = [react()]
+const reactWithCompilerPlugins = [
+  react(),
+  babel({ presets: [browserReactCompilerPreset] }),
+]
 
 /**
  * Shiki modules used by the skill file preview. Vitest browser mode reloads
@@ -58,7 +78,8 @@ const shikiPreviewDeps = [
 ] as const
 
 export default defineConfig({
-  plugins: [react()],
+  // Root plugins stay compiler-free; each project opts in below.
+  plugins: reactOnlyPlugins,
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
@@ -141,7 +162,7 @@ export default defineConfig({
     },
     projects: [
       {
-        plugins: [react()],
+        plugins: reactOnlyPlugins,
         resolve: {
           alias: {
             '@': resolve(__dirname, './src'),
@@ -156,7 +177,7 @@ export default defineConfig({
         },
       },
       {
-        plugins: [react()],
+        plugins: reactWithCompilerPlugins,
         resolve: {
           alias: {
             '@': resolve(__dirname, './src'),

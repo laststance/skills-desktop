@@ -68,7 +68,7 @@ const ToggleGroupContext = React.createContext<
  *     <ToggleGroupItem value="repo">Repo</ToggleGroupItem>
  *   </ToggleGroup>
  */
-const ToggleGroup = React.memo(function ToggleGroup({
+const ToggleGroup = function ToggleGroup({
   className,
   variant,
   size,
@@ -76,13 +76,11 @@ const ToggleGroup = React.memo(function ToggleGroup({
   ref,
   ...props
 }: React.ComponentProps<typeof ToggleGroupPrimitive.Root> &
-  VariantProps<typeof toggleVariants> & {
-    ref?: React.Ref<HTMLDivElement>
-  }) {
-  // Stable identity for the context value so consumers don't re-render every
-  // time the parent re-renders with the same variant/size pair. React 19's
+  VariantProps<typeof toggleVariants> & { ref?: React.Ref<HTMLDivElement> }) {
+  // Context value for descendant ToggleGroupItems. React Compiler preserves
+  // referential stability when variant/size are unchanged. React 19's
   // `<Context>` (no `.Provider`) is the new shorthand.
-  const contextValue = React.useMemo(() => ({ variant, size }), [variant, size])
+  const contextValue = { variant, size }
   return (
     <ToggleGroupPrimitive.Root
       ref={ref}
@@ -92,13 +90,13 @@ const ToggleGroup = React.memo(function ToggleGroup({
       <ToggleGroupContext value={contextValue}>{children}</ToggleGroupContext>
     </ToggleGroupPrimitive.Root>
   )
-})
+}
 
 /**
  * One option button inside a `ToggleGroup`. Inherits `variant` / `size` from
  * the surrounding group's context unless explicitly overridden.
  */
-const ToggleGroupItem = React.memo(function ToggleGroupItem({
+const ToggleGroupItem = function ToggleGroupItem({
   className,
   children,
   variant,
@@ -125,6 +123,6 @@ const ToggleGroupItem = React.memo(function ToggleGroupItem({
       {children}
     </ToggleGroupPrimitive.Item>
   )
-})
+}
 
 export { ToggleGroup, ToggleGroupItem, toggleVariants }

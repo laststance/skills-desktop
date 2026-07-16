@@ -1,5 +1,5 @@
 import { BarChart3, Link2, Users } from 'lucide-react'
-import React, { useMemo } from 'react'
+import React from 'react'
 
 import { useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectAgentItems } from '@/renderer/src/redux/slices/agentsSlice'
@@ -49,7 +49,7 @@ interface StatTileProps {
   accentClass: string
 }
 
-const StatTile = React.memo(function StatTile({
+const StatTile = function StatTile({
   icon: Icon,
   label,
   value,
@@ -66,7 +66,7 @@ const StatTile = React.memo(function StatTile({
       </span>
     </div>
   )
-})
+}
 
 /**
  * Skill Stats widget body.
@@ -76,38 +76,38 @@ const StatTile = React.memo(function StatTile({
  * only when these derived numbers change because `useAppSelector` uses ===
  * equality on primitive returns.
  */
-export const StatsWidget = React.memo(
-  function StatsWidget(): React.ReactElement {
-    const skills = useAppSelector(selectSkillsItems)
-    const agents = useAppSelector(selectAgentItems)
+export const StatsWidget = function StatsWidget(): React.ReactElement {
+  const skills = useAppSelector(selectSkillsItems)
+  const agents = useAppSelector(selectAgentItems)
 
-    const totalSkills = skills.length
-    const linkedSkills = useMemo(() => countLinkedSkills(skills), [skills])
-    const activeAgents = useMemo(() => countActiveAgents(agents), [agents])
+  const totalSkills = skills.length
+  const linkedSkills = countLinkedSkills(skills)
+  const activeAgents = countActiveAgents(agents)
 
-    return (
-      <div className="h-full w-full flex items-stretch">
-        <StatTile
-          icon={BarChart3}
-          label="Skills"
-          value={totalSkills}
-          accentClass="text-foreground"
-        />
-        <div className="w-px bg-border" aria-hidden="true" />
-        <StatTile
-          icon={Link2}
-          label="Linked"
-          value={linkedSkills}
-          accentClass="text-success"
-        />
-        <div className="w-px bg-border" aria-hidden="true" />
-        <StatTile
-          icon={Users}
-          label="Agents"
-          value={activeAgents}
-          accentClass="text-emerald-400"
-        />
-      </div>
-    )
-  },
-)
+  return (
+    <div className="h-full w-full flex items-stretch">
+      <StatTile
+        icon={BarChart3}
+        label="Skills"
+        value={totalSkills}
+        accentClass="text-foreground"
+      />
+
+      <div className="w-px bg-border" aria-hidden="true" />
+      <StatTile
+        icon={Link2}
+        label="Linked"
+        value={linkedSkills}
+        accentClass="text-success"
+      />
+
+      <div className="w-px bg-border" aria-hidden="true" />
+      <StatTile
+        icon={Users}
+        label="Agents"
+        value={activeAgents}
+        accentClass="text-emerald-400"
+      />
+    </div>
+  )
+}

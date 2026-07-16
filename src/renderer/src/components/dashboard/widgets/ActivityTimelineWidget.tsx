@@ -44,7 +44,7 @@ interface TimelineRowProps {
   event: ActivityEvent
 }
 
-const TimelineRow = React.memo(function TimelineRow({
+const TimelineRow = function TimelineRow({
   event,
 }: TimelineRowProps): React.ReactElement {
   const visual = ACTION_VISUALS[event.type]
@@ -56,11 +56,12 @@ const TimelineRow = React.memo(function TimelineRow({
         className={`h-3 w-3 mt-0.5 shrink-0 ${visual.accentClass}`}
         aria-hidden="true"
       />
+
       <div className="flex-1 min-w-0 flex flex-col">
         <span className="text-[11px] text-foreground truncate">
           <span className="font-medium">{event.skillName}</span>
           {/* Agent is only present for per-agent events (add/remove); a sync
-              summary touches many agents, so the separator is omitted there. */}
+               summary touches many agents, so the separator is omitted there. */}
           {event.agentName && (
             <span className="text-muted-foreground"> · {event.agentName}</span>
           )}
@@ -79,7 +80,7 @@ const TimelineRow = React.memo(function TimelineRow({
       </div>
     </li>
   )
-})
+}
 
 /**
  * Activity Timeline widget body. Renders the persisted activity log
@@ -89,7 +90,7 @@ const TimelineRow = React.memo(function TimelineRow({
  * in the widget registry, so it stays hidden from the picker until that flag
  * flips. See `docs/activity-log.md`.
  */
-export const ActivityTimelineWidget = React.memo(
+export const ActivityTimelineWidget =
   function ActivityTimelineWidget(): React.ReactElement {
     const events = useAppSelector(selectActivityEvents)
 
@@ -100,6 +101,7 @@ export const ActivityTimelineWidget = React.memo(
             className="h-5 w-5 text-muted-foreground/60"
             aria-hidden="true"
           />
+
           <p className="text-xs text-muted-foreground">No recent activity</p>
           <p className="text-[10px] text-muted-foreground/70">
             Add, remove, or sync skills to see activity here.
@@ -119,5 +121,4 @@ export const ActivityTimelineWidget = React.memo(
         </ul>
       </div>
     )
-  },
-)
+  }

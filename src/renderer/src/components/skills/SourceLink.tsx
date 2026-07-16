@@ -41,7 +41,7 @@ interface SourceLinkProps {
  * <SourceLink />
  * // => "Local" label
  */
-export const SourceLink = React.memo(function SourceLink({
+export const SourceLink = function SourceLink({
   source,
   sourceUrl,
 }: SourceLinkProps): React.ReactElement {
@@ -100,4 +100,4 @@ export const SourceLink = React.memo(function SourceLink({
       )
     })
     .exhaustive()
-})
+}

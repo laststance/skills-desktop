@@ -38,14 +38,14 @@ const ACTION_COLUMN_WIDTH_PX = 128
  * instead of truncating — break-words keeps the line-clamp ellipsis working for
  * rare unbroken names; short names keep the 76px baseline, badge stays centered.
  */
-export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
+export const SkillRowMarketplace = function SkillRowMarketplace({
   skill,
   isInstalled = false,
 }: SkillRowMarketplaceProps): React.ReactElement {
   const dispatch = useAppDispatch()
   // Narrow selector: only `status` is consumed here, so subscribing to the full
-  // marketplace slice would re-render every memoized row whenever search results,
-  // leaderboard, or previewSkill changed. Keep this surgical to preserve `React.memo`.
+  // marketplace slice would re-render every row whenever search results,
+  // leaderboard, or previewSkill changed. Keep this selector surgical.
   const status = useAppSelector((state) => state.marketplace.status)
   const isOperating = status === 'installing'
   const isBookmarked = useAppSelector((state) =>
@@ -162,4 +162,4 @@ export const SkillRowMarketplace = React.memo(function SkillRowMarketplace({
       </div>
     </div>
   )
-})
+}

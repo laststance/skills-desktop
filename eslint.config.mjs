@@ -10,13 +10,14 @@ import { defineConfig } from 'eslint/config'
  * Rules intentionally enabled for @laststance/react-next-eslint-plugin v2.2.0.
  * Keeping the list explicit means dependency upgrades cannot silently turn on a
  * new rule without a focused lint-fix pass in the same PR.
+ *
+ * Memoization-enforcing rules (all-memo, prefer-usecallback-*, prefer-usememo-*,
+ * prefer-stable-context-value, no-deopt-use-callback/memo) are intentionally
+ * omitted — React Compiler handles memoization automatically.
  */
 const laststanceReactNextRuleNames = [
-  'all-memo',
   'jsx-no-useless-fragment',
   'no-context-provider',
-  'no-deopt-use-callback',
-  'no-deopt-use-memo',
   'no-direct-use-effect',
   'no-duplicate-key',
   'no-forward-ref',
@@ -27,11 +28,6 @@ const laststanceReactNextRuleNames = [
   'no-nested-component-definitions',
   'no-set-state-prop-drilling',
   'no-use-reducer',
-  'prefer-stable-context-value',
-  'prefer-usecallback-for-memoized-component',
-  'prefer-usecallback-might-work',
-  'prefer-usememo-for-memoized-component',
-  'prefer-usememo-might-work',
 ]
 
 const laststanceReactNextRules = Object.fromEntries(

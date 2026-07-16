@@ -23,7 +23,7 @@ const tabs: { id: RankingFilter; label: string }[] = [
  * @param onChange - Callback when filter changes
  * @param disabled - Dims and disables tabs (during active search)
  */
-export const RankingTabs = React.memo(function RankingTabs({
+export const RankingTabs = function RankingTabs({
   value,
   onChange,
   disabled = false,
@@ -72,4 +72,4 @@ export const RankingTabs = React.memo(function RankingTabs({
       ))}
     </div>
   )
-})
+}

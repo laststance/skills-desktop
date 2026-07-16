@@ -24,7 +24,7 @@ interface BookmarkItemProps {
  * the app's canonical remove vocabulary with BookmarksWidget — destructive-tint
  * hover, not a gray box — so the title keeps full width with no permanent slot.
  */
-export const BookmarkItem = React.memo(function BookmarkItem({
+export const BookmarkItem = function BookmarkItem({
   bookmark,
 }: BookmarkItemProps): React.ReactElement {
   const dispatch = useAppDispatch()
@@ -126,4 +126,4 @@ export const BookmarkItem = React.memo(function BookmarkItem({
       </button>
     </div>
   )
-})
+}

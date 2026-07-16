@@ -27,7 +27,7 @@ interface WelcomeWidgetProps {
  * surface — most first-time users want to grab a skill, and this is the
  * fastest path.
  */
-export const WelcomeWidget = React.memo(function WelcomeWidget({
+export const WelcomeWidget = function WelcomeWidget({
   instance,
 }: WelcomeWidgetProps): React.ReactElement {
   const dispatch = useAppDispatch()
@@ -123,4 +123,4 @@ export const WelcomeWidget = React.memo(function WelcomeWidget({
       </div>
     </div>
   )
-})
+}

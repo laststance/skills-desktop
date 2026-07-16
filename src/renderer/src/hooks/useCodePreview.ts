@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import type {
   AbsolutePath,
@@ -88,31 +88,28 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
     }
   }, [skillPath])
 
-  const setActiveFile = useCallback(
-    async (path: AbsolutePath | null) => {
-      if (path === activeFile) return
-      userSelectedFileRef.current = path
-      setUserSelectedFile(path)
-      if (!path) {
-        setContent({ kind: 'empty' })
-        return
-      }
-      const file = files.find((f) => f.path === path)
-      if (!file) return
-      // react-doctor-disable-next-line react-doctor/async-defer-await -- the post-await guards (below) deliberately re-read refs AFTER the async gap to drop a stale click or a skill switch that happened DURING the load; they cannot move before the await.
-      const next = await loadContentForFile(file)
-      // After the await, two things may have happened out of order:
-      // (a) the user picked a different file (stale click loses)
-      // (b) the skill itself switched (whole state already reset)
-      // Both guards read refs so they see the *current* value, not the
-      // closure snapshot from when this fetch started.
-      if (userSelectedFileRef.current !== path) return
-      /* v8 ignore next -- redundant double-guard: a skill switch runs the render-phase reset that nulls userSelectedFileRef.current, so any stale load after a switch already returns at the line-above guard (null !== path); reaching here with the skill changed would need the same absolute path re-selected on a different skill, which is impossible since paths are skill-specific */
-      if (prevSkillPathRef.current !== skillPath) return
-      setContent(next)
-    },
-    [activeFile, files, skillPath],
-  )
+  const setActiveFile = async (path: AbsolutePath | null) => {
+    if (path === activeFile) return
+    userSelectedFileRef.current = path
+    setUserSelectedFile(path)
+    if (!path) {
+      setContent({ kind: 'empty' })
+      return
+    }
+    const file = files.find((f) => f.path === path)
+    if (!file) return
+    // react-doctor-disable-next-line react-doctor/async-defer-await -- the post-await guards (below) deliberately re-read refs AFTER the async gap to drop a stale click or a skill switch that happened DURING the load; they cannot move before the await.
+    const next = await loadContentForFile(file)
+    // After the await, two things may have happened out of order:
+    // (a) the user picked a different file (stale click loses)
+    // (b) the skill itself switched (whole state already reset)
+    // Both guards read refs so they see the *current* value, not the
+    // closure snapshot from when this fetch started.
+    if (userSelectedFileRef.current !== path) return
+    /* v8 ignore next -- redundant double-guard: a skill switch runs the render-phase reset that nulls userSelectedFileRef.current, so any stale load after a switch already returns at the line-above guard (null !== path); reaching here with the skill changed would need the same absolute path re-selected on a different skill, which is impossible since paths are skill-specific */
+    if (prevSkillPathRef.current !== skillPath) return
+    setContent(next)
+  }
 
   return { files, activeFile, setActiveFile, content, loading }
 }

@@ -35,7 +35,7 @@ interface WidgetShellProps {
  * Intentionally dumb — the shell doesn't know what the widget is for, only
  * how to frame it. This keeps per-widget files small and uniform.
  */
-export const WidgetShell = React.memo(function WidgetShell({
+export const WidgetShell = function WidgetShell({
   instance,
   definition,
   isPreview = false,
@@ -56,7 +56,7 @@ export const WidgetShell = React.memo(function WidgetShell({
   return (
     <div className="h-full w-full flex flex-col rounded-lg border border-border bg-card overflow-hidden">
       {/* Header: also serves as drag handle when in edit mode.
-          The WIDGET_DRAG_HANDLE_CLASS is what react-grid-layout listens on. */}
+           The WIDGET_DRAG_HANDLE_CLASS is what react-grid-layout listens on. */}
       <div
         className={cn(
           'flex items-center gap-2 px-3 h-9 border-b border-border shrink-0 bg-card/50',
@@ -75,10 +75,11 @@ export const WidgetShell = React.memo(function WidgetShell({
           className="h-3.5 w-3.5 text-muted-foreground shrink-0"
           aria-hidden="true"
         />
+
         <span className="text-xs font-medium truncate">{definition.label}</span>
 
         {/* Remove button: only in edit mode.
-            `onMouseDown` stops RGL from starting a drag when the user clicks it. */}
+             `onMouseDown` stops RGL from starting a drag when the user clicks it. */}
         {showEditChrome && (
           <button
             type="button"
@@ -98,4 +99,4 @@ export const WidgetShell = React.memo(function WidgetShell({
       </div>
     </div>
   )
-})
+}

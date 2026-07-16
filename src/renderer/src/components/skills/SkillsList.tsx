@@ -1,5 +1,5 @@
 import { SearchX } from 'lucide-react'
-import React, { useCallback, useMemo } from 'react'
+import React from 'react'
 import { List, type RowComponentProps } from 'react-window'
 
 import { Button } from '@/renderer/src/components/ui/button'
@@ -45,7 +45,6 @@ interface SkillRowProps {
  * @example
  * <List rowComponent={SkillRow} rowProps={{ data: skills }} ... />
  */
-// eslint-disable-next-line @laststance/react-next/all-memo -- react-window virtualizes rows; React.memo return type is incompatible with rowComponent prop
 function SkillRow({
   index,
   style,
@@ -64,7 +63,7 @@ function SkillRow({
  * List of all skills with search, agent filtering, and virtual scrolling.
  * Uses react-window v2 for O(visible) DOM nodes instead of O(n).
  */
-export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
+export const SkillsList = function SkillsList(): React.ReactElement {
   const dispatch = useAppDispatch()
   const skills = useAppSelector(selectSkillsItems)
   const loading = useAppSelector(selectSkillsLoading)
@@ -83,34 +82,29 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
   })
 
   /** Resets the search query to empty; fired by the "Clear search" CTA in the search-miss empty state. */
-  const handleClearSearch = useCallback((): void => {
+  const handleClearSearch = (): void => {
     dispatch(setSearchQuery(''))
-  }, [dispatch])
+  }
 
   /**
    * Compute row height from skill data without DOM measurement.
    * @param index - Row index in filteredSkills
    * @returns Height in px, accounting for description and status badges
    */
-  const getRowHeight = useCallback(
-    (index: number): number => {
-      const skill = filteredSkills[index]
-      let height = ROW_HEIGHT_BASE
-      if (skill?.description) height += ROW_HEIGHT_DESCRIPTION
-      if (!selectedAgentId) height += ROW_HEIGHT_BADGES
-      return height
-    },
-    [filteredSkills, selectedAgentId],
-  )
-  const rowProps = useMemo(() => ({ data: filteredSkills }), [filteredSkills])
-  const listStyle = useMemo<React.CSSProperties>(
-    () => ({
-      width: '100%',
-      height: '100%',
-      scrollbarGutter: 'stable',
-    }),
-    [],
-  )
+  const getRowHeight = (index: number): number => {
+    const skill = filteredSkills[index]
+    let height = ROW_HEIGHT_BASE
+    if (skill?.description) height += ROW_HEIGHT_DESCRIPTION
+    if (!selectedAgentId) height += ROW_HEIGHT_BADGES
+    return height
+  }
+
+  const rowProps = { data: filteredSkills }
+  const listStyle = {
+    width: '100%',
+    height: '100%',
+    scrollbarGutter: 'stable',
+  }
 
   if (loading && skills.length === 0) {
     return (
@@ -149,6 +143,7 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
           className="h-8 w-8 text-muted-foreground/40"
           aria-hidden="true"
         />
+
         <p className="text-sm text-muted-foreground">
           No skills match &ldquo;{searchQuery}&rdquo;
         </p>
@@ -185,4 +180,4 @@ export const SkillsList = React.memo(function SkillsList(): React.ReactElement {
       style={listStyle}
     />
   )
-})
+}

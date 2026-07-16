@@ -1,5 +1,5 @@
 import { Eraser, Loader2 } from 'lucide-react'
-import React, { useCallback } from 'react'
+import React from 'react'
 import { toast } from 'sonner'
 
 import { DialogIconHeader } from '@/renderer/src/components/shared/dialog-icon-header'
@@ -51,7 +51,7 @@ import type { AgentName } from '@/shared/types'
  * 5. `clearCleanupAgentTarget()` resets the slice (also nulls
  *    `syncPreview` so the global confirm can't latch onto it)
  */
-export const CleanupAgentDialog = React.memo(
+export const CleanupAgentDialog =
   function CleanupAgentDialog(): React.ReactElement | null {
     const dispatch = useAppDispatch()
     const cleanupAgentTarget = useAppSelector(selectCleanupAgentTarget)
@@ -82,13 +82,13 @@ export const CleanupAgentDialog = React.memo(
       )
     }, [cleanupAgentTarget, dispatch])
 
-    const handleClose = useCallback((): void => {
+    const handleClose = (): void => {
       if (!isExecuting) {
         dispatch(clearCleanupAgentTarget())
       }
-    }, [dispatch, isExecuting])
+    }
 
-    const handleCleanup = useCallback(async (): Promise<void> => {
+    const handleCleanup = async (): Promise<void> => {
       // When the dialog is closed this handler can still exist from the
       // stable hook order; only execute once a concrete agent owns the flow.
       if (!cleanupAgentTarget) return
@@ -103,7 +103,7 @@ export const CleanupAgentDialog = React.memo(
         // surface — otherwise the per-agent dialog stays mounted underneath.
         dispatch(clearCleanupAgentTarget())
       }
-    }, [cleanupAgentTarget, dispatch, executeCleanup])
+    }
 
     if (!cleanupAgentTarget) return null
 
@@ -131,6 +131,7 @@ export const CleanupAgentDialog = React.memo(
               icon={Eraser}
               title={`Cleanup missing skills${agentName ? ` — ${agentName}` : ''}`}
             />
+
             <DialogDescription>
               Recreate symlinks for skills that exist in your source directory
               but are missing from {agentName ?? 'this agent'}.
@@ -148,11 +149,13 @@ export const CleanupAgentDialog = React.memo(
                 label="Skills considered"
                 value={previewMatchesTarget.totalSkills}
               />
+
               <StatRow
                 label="Symlinks to create"
                 value={missingCount}
                 tone={hasWork ? 'primary' : 'default'}
               />
+
               {alreadySyncedCount > 0 && (
                 <StatRow label="Already linked" value={alreadySyncedCount} />
               )}
@@ -204,5 +207,4 @@ export const CleanupAgentDialog = React.memo(
         </DialogContent>
       </Dialog>
     )
-  },
-)
+  }

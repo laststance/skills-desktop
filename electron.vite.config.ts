@@ -1,7 +1,8 @@
 import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
 import { codeInspectorPlugin } from 'code-inspector-plugin'
-import react from '@vitejs/plugin-react'
+import react, { reactCompilerPreset } from '@vitejs/plugin-react'
+import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
 import pkg from './package.json'
 
@@ -61,6 +62,9 @@ export default defineConfig({
       }),
       tailwindcss(),
       react(),
+      // React Compiler (stable): auto-memoizes components/hooks so manual
+      // useMemo / useCallback / memo can be removed from renderer source.
+      babel({ presets: [reactCompilerPreset()] }),
     ],
   },
 })

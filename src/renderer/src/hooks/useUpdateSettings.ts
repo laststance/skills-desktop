@@ -1,5 +1,3 @@
-import { useCallback } from 'react'
-
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { setSettings } from '@/renderer/src/redux/slices/settingsSlice'
 import type { SettingsPatch } from '@/shared/settings'
@@ -33,11 +31,8 @@ export function useUpdateSettings(): (partial: SettingsPatch) => void {
   const dispatch = useAppDispatch()
   const settings = useAppSelector((state) => state.settings)
 
-  return useCallback(
-    (partial: SettingsPatch): void => {
-      dispatch(setSettings({ ...settings, ...partial }))
-      void window.electron.settings.set(partial)
-    },
-    [dispatch, settings],
-  )
+  return (partial: SettingsPatch): void => {
+    dispatch(setSettings({ ...settings, ...partial }))
+    void window.electron.settings.set(partial)
+  }
 }

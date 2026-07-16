@@ -1,4 +1,3 @@
-import { memo } from 'react'
 import type { ReactElement } from 'react'
 
 /**
@@ -31,7 +30,7 @@ import type { ReactElement } from 'react'
  * <SkipToMainContentLink />
  * <main id="main-content">...</main>
  */
-export const SkipToMainContentLink = memo(
+export const SkipToMainContentLink =
   function SkipToMainContentLink(): ReactElement {
     return (
       <a
@@ -41,6 +40,4 @@ export const SkipToMainContentLink = memo(
         Skip to main content
       </a>
     )
-  },
-  () => true,
-)
+  }

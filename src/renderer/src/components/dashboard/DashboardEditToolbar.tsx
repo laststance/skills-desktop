@@ -1,5 +1,5 @@
 import { LayoutGrid, Pencil, PencilOff, Plus, RotateCcw } from 'lucide-react'
-import React, { useCallback, useState } from 'react'
+import React, { useState } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
@@ -31,25 +31,25 @@ import { WidgetPicker } from './WidgetPicker'
  * native macOS apps hide customization until the user opts in — clean
  * default, full control once requested.
  */
-export const DashboardEditToolbar = React.memo(
+export const DashboardEditToolbar =
   function DashboardEditToolbar(): React.ReactElement {
     const dispatch = useAppDispatch()
     const isEditMode = useAppSelector(selectIsEditMode)
     const [isPickerOpen, setIsPickerOpen] = useState(false)
 
-    const handleOpenPicker = useCallback((): void => {
+    const handleOpenPicker = (): void => {
       setIsPickerOpen(true)
-    }, [])
+    }
 
-    const handlePickerOpenChange = useCallback((open: boolean): void => {
+    const handlePickerOpenChange = (open: boolean): void => {
       setIsPickerOpen(open)
-    }, [])
+    }
 
-    const handleAddPage = useCallback((): void => {
+    const handleAddPage = (): void => {
       dispatch(addPage())
-    }, [dispatch])
+    }
 
-    const handleResetLayout = useCallback((): void => {
+    const handleResetLayout = (): void => {
       // Destructive: user's custom arrangement is replaced by the preset.
       // Confirm before throwing away work — `window.confirm` is adequate here
       // since this is a rare, deliberate action.
@@ -60,12 +60,12 @@ export const DashboardEditToolbar = React.memo(
         dispatch(closeSymlinkCleanupDialog())
         dispatch(resetToDefaults())
       }
-    }, [dispatch])
+    }
 
-    const handleToggleEditMode = useCallback((): void => {
+    const handleToggleEditMode = (): void => {
       dispatch(closeSymlinkCleanupDialog())
       dispatch(toggleEditMode())
-    }, [dispatch])
+    }
 
     return (
       <>
@@ -127,5 +127,4 @@ export const DashboardEditToolbar = React.memo(
         />
       </>
     )
-  },
-)
+  }

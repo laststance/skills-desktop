@@ -49,60 +49,59 @@ type Section = (typeof NAV_ITEMS)[number]['id']
  * the main window propagates here without polling. Same hook the main
  * window uses — single source of truth for sync logic.
  */
-export const SettingsApp = React.memo(
-  function SettingsApp(): React.ReactElement {
-    useSettingsSync()
+export const SettingsApp = function SettingsApp(): React.ReactElement {
+  useSettingsSync()
 
-    const [activeSection, setActiveSection] = useState<Section>('general')
+  const [activeSection, setActiveSection] = useState<Section>('general')
 
-    return (
-      <div className="relative flex h-screen bg-background text-foreground window-glow">
-        {/* Hidden titlebar leaves full-size content; this keeps a native drag target without drawing a header. */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-0 top-0 h-12 drag-region"
-        />
-        <nav
-          aria-label="Settings sections"
-          className="w-50 shrink-0 border-r border-border bg-sidebar/30 pt-14 pb-4"
-        >
-          <ul className="flex flex-col gap-0.5 px-2">
-            {NAV_ITEMS.map((item) => {
-              const Icon = item.icon
-              const isActive = activeSection === item.id
-              return (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    aria-current={isActive ? 'page' : undefined}
-                    onClick={() => setActiveSection(item.id)}
-                    className={cn(
-                      'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                      isActive
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        </nav>
-        <ScrollArea className="flex-1">
-          <div className="px-8 pt-14 pb-6">
-            {match(activeSection)
-              .with('general', () => <General />)
-              .with('appearance', () => <Appearance />)
-              .with('agents', () => <Agents />)
-              .with('keybindings', () => <Keybindings />)
-              .with('about', () => <About />)
-              .exhaustive()}
-          </div>
-        </ScrollArea>
-      </div>
-    )
-  },
-)
+  return (
+    <div className="relative flex h-screen bg-background text-foreground window-glow">
+      {/* Hidden titlebar leaves full-size content; this keeps a native drag target without drawing a header. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-0 top-0 h-12 drag-region"
+      />
+
+      <nav
+        aria-label="Settings sections"
+        className="w-50 shrink-0 border-r border-border bg-sidebar/30 pt-14 pb-4"
+      >
+        <ul className="flex flex-col gap-0.5 px-2">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon
+            const isActive = activeSection === item.id
+            return (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  aria-current={isActive ? 'page' : undefined}
+                  onClick={() => setActiveSection(item.id)}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{item.label}</span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      </nav>
+      <ScrollArea className="flex-1">
+        <div className="px-8 pt-14 pb-6">
+          {match(activeSection)
+            .with('general', () => <General />)
+            .with('appearance', () => <Appearance />)
+            .with('agents', () => <Agents />)
+            .with('keybindings', () => <Keybindings />)
+            .with('about', () => <About />)
+            .exhaustive()}
+        </div>
+      </ScrollArea>
+    </div>
+  )
+}

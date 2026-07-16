@@ -8,7 +8,7 @@ import {
   GitBranch,
   X,
 } from 'lucide-react'
-import React, { useCallback, useMemo, useRef } from 'react'
+import React, { useRef } from 'react'
 import { toast } from 'sonner'
 
 import { SymlinkCleanupDialog } from '@/renderer/src/components/dashboard/SymlinkCleanupDialog'
@@ -396,7 +396,7 @@ function usePrimaryBulkAction({
 }: CreatePrimaryBulkActionOptions): () => void {
   const dispatch = useAppDispatch()
 
-  return useCallback((): void => {
+  return (): void => {
     const result = createPrimaryBulkAction({
       selectedVisibleNames,
       selectedAgentId,
@@ -415,15 +415,7 @@ function usePrimaryBulkAction({
       return
     }
     dispatch(setBulkConfirm(result.confirm))
-  }, [
-    dispatch,
-    protectedNamesSet,
-    selectedAgentId,
-    selectedAgentName,
-    selectedVisibleNames,
-    skills,
-    sourceFilter,
-  ])
+  }
 }
 
 type BulkUnlinkConfirm = Extract<BulkConfirmState, { kind: 'unlink' }>
@@ -454,33 +446,30 @@ interface MixedDeleteSelectionHandlers {
 function useUndoDeleteHandler(): UndoDeleteHandler {
   const dispatch = useAppDispatch()
 
-  return useCallback(
-    async (tombstoneIds: TombstoneId[]): Promise<void> => {
-      const action = await dispatch(undoLastBulkDelete(tombstoneIds))
-      if (undoLastBulkDelete.fulfilled.match(action)) {
-        const restoredCount = action.payload.filter(
-          (outcome) => outcome.result.outcome === 'restored',
-        ).length
-        const totalCount = action.payload.length
-        if (restoredCount === totalCount) {
-          toast.success(
-            `Restored ${restoredCount} ${pluralize(restoredCount, 'skill')}.`,
-          )
-        } else {
-          toast.info(
-            `Restored ${restoredCount} of ${totalCount} ${pluralize(totalCount, 'skill')}.`,
-          )
-        }
+  return async (tombstoneIds: TombstoneId[]): Promise<void> => {
+    const action = await dispatch(undoLastBulkDelete(tombstoneIds))
+    if (undoLastBulkDelete.fulfilled.match(action)) {
+      const restoredCount = action.payload.filter(
+        (outcome) => outcome.result.outcome === 'restored',
+      ).length
+      const totalCount = action.payload.length
+      if (restoredCount === totalCount) {
+        toast.success(
+          `Restored ${restoredCount} ${pluralize(restoredCount, 'skill')}.`,
+        )
       } else {
-        toast.error('Restore failed', {
-          description: errorToastDescription(action),
-        })
+        toast.info(
+          `Restored ${restoredCount} of ${totalCount} ${pluralize(totalCount, 'skill')}.`,
+        )
       }
-      refreshAllData(dispatch)
-      dispatch(clearUndoToast())
-    },
-    [dispatch],
-  )
+    } else {
+      toast.error('Restore failed', {
+        description: errorToastDescription(action),
+      })
+    }
+    refreshAllData(dispatch)
+    dispatch(clearUndoToast())
+  }
 }
 
 /**
@@ -493,60 +482,54 @@ function useUndoDeleteHandler(): UndoDeleteHandler {
 function useMixedDeleteSelectionHandlers(): MixedDeleteSelectionHandlers {
   const dispatch = useAppDispatch()
 
-  const restoreUnresolvedMixedDeleteSelection = useCallback(
-    (
-      deleteNames: readonly Skill['name'][],
-      cleanupReadyOrphanNames: readonly Skill['name'][],
-    ): void => {
-      const unresolvedNames = Array.from(
-        new Set([...deleteNames, ...cleanupReadyOrphanNames]),
-      )
-      flashFailedRows(unresolvedNames)
-      /* v8 ignore next -- callers pass non-empty source or orphan sets. */
-      if (unresolvedNames.length === 0) return
+  const restoreUnresolvedMixedDeleteSelection = (
+    deleteNames: readonly Skill['name'][],
+    cleanupReadyOrphanNames: readonly Skill['name'][],
+  ): void => {
+    const unresolvedNames = Array.from(
+      new Set([...deleteNames, ...cleanupReadyOrphanNames]),
+    )
+    flashFailedRows(unresolvedNames)
+    /* v8 ignore next -- callers pass non-empty source or orphan sets. */
+    if (unresolvedNames.length === 0) return
+    dispatch(enterBulkSelectMode())
+    dispatch(selectAll(unresolvedNames))
+  }
+
+  const reconcileMixedDeleteSelection = (
+    deleteItems: readonly BulkDeleteItemResult[],
+    hasOrphanCleanupRows: boolean,
+    orphanCleanupNames: ReadonlySet<Skill['name']>,
+  ): { rescanRequiredNames: Skill['name'][] } => {
+    const failedNames = deleteItems
+      .filter((item) => item.outcome === 'error')
+      .map((item) => item.skillName)
+    const uniqueFailedNames = Array.from(new Set(failedNames))
+    const rescanRequiredNames = Array.from(
+      new Set(
+        deleteItems
+          .filter((item) =>
+            isRescanRequiredDeleteError(item, orphanCleanupNames),
+          )
+          .map((item) => item.skillName),
+      ),
+    )
+    const retryableFailedNames = uniqueFailedNames.filter(
+      (name) => !rescanRequiredNames.includes(name),
+    )
+
+    flashFailedRows(uniqueFailedNames)
+    if (!hasOrphanCleanupRows) return { rescanRequiredNames }
+    // Mixed source+orphan cleanup keeps retryable rows selected for one retry.
+    if (retryableFailedNames.length > 0) {
       dispatch(enterBulkSelectMode())
-      dispatch(selectAll(unresolvedNames))
-    },
-    [dispatch],
-  )
-
-  const reconcileMixedDeleteSelection = useCallback(
-    (
-      deleteItems: readonly BulkDeleteItemResult[],
-      hasOrphanCleanupRows: boolean,
-      orphanCleanupNames: ReadonlySet<Skill['name']>,
-    ): { rescanRequiredNames: Skill['name'][] } => {
-      const failedNames = deleteItems
-        .filter((item) => item.outcome === 'error')
-        .map((item) => item.skillName)
-      const uniqueFailedNames = Array.from(new Set(failedNames))
-      const rescanRequiredNames = Array.from(
-        new Set(
-          deleteItems
-            .filter((item) =>
-              isRescanRequiredDeleteError(item, orphanCleanupNames),
-            )
-            .map((item) => item.skillName),
-        ),
-      )
-      const retryableFailedNames = uniqueFailedNames.filter(
-        (name) => !rescanRequiredNames.includes(name),
-      )
-
-      flashFailedRows(uniqueFailedNames)
-      if (!hasOrphanCleanupRows) return { rescanRequiredNames }
-      // Mixed source+orphan cleanup keeps retryable rows selected for one retry.
-      if (retryableFailedNames.length > 0) {
-        dispatch(enterBulkSelectMode())
-        dispatch(selectAll(retryableFailedNames))
-      } else {
-        dispatch(clearSelection())
-        dispatch(exitBulkSelectMode())
-      }
-      return { rescanRequiredNames }
-    },
-    [dispatch],
-  )
+      dispatch(selectAll(retryableFailedNames))
+    } else {
+      dispatch(clearSelection())
+      dispatch(exitBulkSelectMode())
+    }
+    return { rescanRequiredNames }
+  }
 
   return {
     restoreUnresolvedMixedDeleteSelection,
@@ -564,42 +547,37 @@ function useMixedDeleteSelectionHandlers(): MixedDeleteSelectionHandlers {
 function useConfirmBulkUnlink(): (confirm: BulkUnlinkConfirm) => Promise<void> {
   const dispatch = useAppDispatch()
 
-  return useCallback(
-    async (confirm: BulkUnlinkConfirm): Promise<void> => {
-      const { agentId, agentName } = confirm
-      const action = await dispatch(
-        unlinkSelectedFromAgent({
-          agentId,
-          selectedNames: confirm.unlinkTargets,
-        }),
-      )
-      if (unlinkSelectedFromAgent.fulfilled.match(action)) {
-        const failedNames = action.payload.items
-          .filter((item) => item.outcome === 'error')
-          .map((item) => item.skillName)
-        const unlinkedCount = action.payload.items.length - failedNames.length
-        flashFailedRows(failedNames)
-        if (unlinkedCount === 0) {
-          toast.error('Bulk unlink failed', {
-            description: formatUnlinkSummary(
-              action.payload,
-              agentName ?? 'agent',
-            ),
-          })
-        } else {
-          toast.success(
-            formatUnlinkSummary(action.payload, agentName ?? 'agent'),
-          )
-        }
-      } else {
+  return async (confirm: BulkUnlinkConfirm): Promise<void> => {
+    const { agentId, agentName } = confirm
+    const action = await dispatch(
+      unlinkSelectedFromAgent({
+        agentId,
+        selectedNames: confirm.unlinkTargets,
+      }),
+    )
+    if (unlinkSelectedFromAgent.fulfilled.match(action)) {
+      const failedNames = action.payload.items
+        .filter((item) => item.outcome === 'error')
+        .map((item) => item.skillName)
+      const unlinkedCount = action.payload.items.length - failedNames.length
+      flashFailedRows(failedNames)
+      if (unlinkedCount === 0) {
         toast.error('Bulk unlink failed', {
-          description: errorToastDescription(action),
+          description: formatUnlinkSummary(
+            action.payload,
+            agentName ?? 'agent',
+          ),
         })
+      } else {
+        toast.success(formatUnlinkSummary(action.payload, agentName ?? 'agent'))
       }
-      refreshAllData(dispatch)
-    },
-    [dispatch],
-  )
+    } else {
+      toast.error('Bulk unlink failed', {
+        description: errorToastDescription(action),
+      })
+    }
+    refreshAllData(dispatch)
+  }
 }
 
 interface ConfirmBulkDeleteOptions {
@@ -622,144 +600,134 @@ function useConfirmBulkDelete({
 }: ConfirmBulkDeleteOptions): (confirm: BulkDeleteConfirm) => Promise<void> {
   const dispatch = useAppDispatch()
 
-  return useCallback(
-    async (confirm: BulkDeleteConfirm): Promise<void> => {
-      const { deleteTargets, orphanRecords, staleDeleteErrors, orphanErrors } =
-        confirm
-      // Protected entries are skips, so deleteItems only tracks attempted work.
-      const deleteItems: BulkDeleteItemResult[] = [
-        ...staleDeleteErrors,
-        ...orphanErrors,
-      ]
-      const hasOrphanCleanupRows =
-        orphanRecords.length > 0 || orphanErrors.length > 0
-      const cleanupReadyOrphanNames = orphanRecords.map(
-        (record) => record.skillName,
-      )
-      const orphanCleanupNames = new Set([
-        ...cleanupReadyOrphanNames,
-        ...orphanErrors.map((item) => item.skillName),
-      ])
+  return async (confirm: BulkDeleteConfirm): Promise<void> => {
+    const { deleteTargets, orphanRecords, staleDeleteErrors, orphanErrors } =
+      confirm
+    // Protected entries are skips, so deleteItems only tracks attempted work.
+    const deleteItems: BulkDeleteItemResult[] = [
+      ...staleDeleteErrors,
+      ...orphanErrors,
+    ]
 
-      if (deleteTargets.length > 0) {
-        const action = await dispatch(deleteSelectedSkills(deleteTargets))
-        if (deleteSelectedSkills.fulfilled.match(action)) {
-          deleteItems.push(...action.payload.items)
-        } else {
-          if (hasOrphanCleanupRows) {
-            restoreUnresolvedMixedDeleteSelection(
-              deleteTargets.map((target) => target.skillName),
-              cleanupReadyOrphanNames,
-            )
-          }
-          toast.error('Bulk delete failed', {
-            description: errorToastDescription(action),
-          })
+    const hasOrphanCleanupRows =
+      orphanRecords.length > 0 || orphanErrors.length > 0
+    const cleanupReadyOrphanNames = orphanRecords.map(
+      (record) => record.skillName,
+    )
+    const orphanCleanupNames = new Set([
+      ...cleanupReadyOrphanNames,
+      ...orphanErrors.map((item) => item.skillName),
+    ])
+
+    if (deleteTargets.length > 0) {
+      const action = await dispatch(deleteSelectedSkills(deleteTargets))
+      if (deleteSelectedSkills.fulfilled.match(action)) {
+        deleteItems.push(...action.payload.items)
+      } else {
+        if (hasOrphanCleanupRows) {
+          restoreUnresolvedMixedDeleteSelection(
+            deleteTargets.map((target) => target.skillName),
+            cleanupReadyOrphanNames,
+          )
+        }
+        toast.error('Bulk delete failed', {
+          description: errorToastDescription(action),
+        })
+        refreshAllData(dispatch)
+        return
+      }
+    }
+
+    if (orphanRecords.length > 0) {
+      const action = await dispatch(clearSelectedOrphanSymlinks(orphanRecords))
+      if (clearSelectedOrphanSymlinks.fulfilled.match(action)) {
+        deleteItems.push(...action.payload.items)
+      } else {
+        const message = errorToastDescription(action)
+        if (deleteItems.length === 0) {
+          restoreUnresolvedMixedDeleteSelection([], cleanupReadyOrphanNames)
+          toast.error('Bulk delete failed', { description: message })
           refreshAllData(dispatch)
           return
         }
-      }
-
-      if (orphanRecords.length > 0) {
-        const action = await dispatch(
-          clearSelectedOrphanSymlinks(orphanRecords),
+        deleteItems.push(
+          ...orphanRecords.map((record): BulkDeleteItemResult => ({
+            skillName: record.skillName,
+            outcome: 'error',
+            error: { message },
+          })),
         )
-        if (clearSelectedOrphanSymlinks.fulfilled.match(action)) {
-          deleteItems.push(...action.payload.items)
-        } else {
-          const message = errorToastDescription(action)
-          if (deleteItems.length === 0) {
-            restoreUnresolvedMixedDeleteSelection([], cleanupReadyOrphanNames)
-            toast.error('Bulk delete failed', { description: message })
-            refreshAllData(dispatch)
-            return
-          }
-          deleteItems.push(
-            ...orphanRecords.map((record): BulkDeleteItemResult => ({
-              skillName: record.skillName,
-              outcome: 'error',
-              error: { message },
-            })),
-          )
-        }
       }
+    }
 
-      if (deleteItems.length === 0) return
-      const tombstoneIds = deleteItems
-        .filter(
-          (
-            item,
-          ): item is Extract<BulkDeleteItemResult, { outcome: 'deleted' }> =>
-            item.outcome === 'deleted',
-        )
-        .map((item) => item.tombstoneId)
-      const { rescanRequiredNames } = reconcileMixedDeleteSelection(
-        deleteItems,
-        hasOrphanCleanupRows,
-        orphanCleanupNames,
+    if (deleteItems.length === 0) return
+    const tombstoneIds = deleteItems
+      .filter(
+        (item): item is Extract<BulkDeleteItemResult, { outcome: 'deleted' }> =>
+          item.outcome === 'deleted',
       )
-      refreshAllData(dispatch)
-      const summary = appendDeleteRescanSummary(
-        formatCascadeSummary({ items: deleteItems }),
-        staleDeleteErrors.length,
-        rescanRequiredNames.length,
-      )
+      .map((item) => item.tombstoneId)
+    const { rescanRequiredNames } = reconcileMixedDeleteSelection(
+      deleteItems,
+      hasOrphanCleanupRows,
+      orphanCleanupNames,
+    )
+    refreshAllData(dispatch)
+    const summary = appendDeleteRescanSummary(
+      formatCascadeSummary({ items: deleteItems }),
+      staleDeleteErrors.length,
+      rescanRequiredNames.length,
+    )
 
-      if (tombstoneIds.length === 0) {
-        const anySuccess = deleteItems.some(
-          (item) =>
-            item.outcome === 'deleted' || item.outcome === 'orphan-cleared',
-        )
-        if (anySuccess) toast.success(summary)
-        else toast.error('Bulk delete failed', { description: summary })
-        return
-      }
+    if (tombstoneIds.length === 0) {
+      const anySuccess = deleteItems.some(
+        (item) =>
+          item.outcome === 'deleted' || item.outcome === 'orphan-cleared',
+      )
+      if (anySuccess) toast.success(summary)
+      else toast.error('Bulk delete failed', { description: summary })
+      return
+    }
 
-      const deletedNames = deleteItems
-        .filter((item) => item.outcome === 'deleted')
-        .map((item) => item.skillName)
-      const expiresAt: IsoTimestamp = new Date(
-        Date.now() + UNDO_WINDOW_MS,
-      ).toISOString()
-      const toastId: ToastId = `bulk-delete-${Date.now()}`
-      const handleToastDismissed = (): void => {
-        dispatch(clearUndoToastIfCurrent(toastId))
-      }
-      toast(
-        <UndoToast
-          skillNames={deletedNames}
-          tombstoneIds={tombstoneIds}
-          expiresAt={expiresAt}
-          summary={summary}
-          onUndo={handleUndoDelete}
-          toastId={toastId}
-        />,
-        {
-          id: toastId,
-          duration: UNDO_WINDOW_MS,
-          closeButton: true,
-          onDismiss: handleToastDismissed,
-          onAutoClose: handleToastDismissed,
-        },
-      )
-      dispatch(
-        setUndoToast({
-          id: toastId,
-          kind: 'delete',
-          skillNames: deletedNames,
-          tombstoneIds,
-          expiresAt,
-          summary,
-        }),
-      )
-    },
-    [
-      dispatch,
-      handleUndoDelete,
-      reconcileMixedDeleteSelection,
-      restoreUnresolvedMixedDeleteSelection,
-    ],
-  )
+    const deletedNames = deleteItems
+      .filter((item) => item.outcome === 'deleted')
+      .map((item) => item.skillName)
+    const expiresAt: IsoTimestamp = new Date(
+      Date.now() + UNDO_WINDOW_MS,
+    ).toISOString()
+    const toastId: ToastId = `bulk-delete-${Date.now()}`
+    const handleToastDismissed = (): void => {
+      dispatch(clearUndoToastIfCurrent(toastId))
+    }
+    toast(
+      <UndoToast
+        skillNames={deletedNames}
+        tombstoneIds={tombstoneIds}
+        expiresAt={expiresAt}
+        summary={summary}
+        onUndo={handleUndoDelete}
+        toastId={toastId}
+      />,
+
+      {
+        id: toastId,
+        duration: UNDO_WINDOW_MS,
+        closeButton: true,
+        onDismiss: handleToastDismissed,
+        onAutoClose: handleToastDismissed,
+      },
+    )
+    dispatch(
+      setUndoToast({
+        id: toastId,
+        kind: 'delete',
+        skillNames: deletedNames,
+        tombstoneIds,
+        expiresAt,
+        summary,
+      }),
+    )
+  }
 }
 
 interface BulkConfirmActions {
@@ -790,7 +758,7 @@ function useBulkConfirmActions(
     restoreUnresolvedMixedDeleteSelection,
   })
 
-  const handleConfirmBulk = useCallback(async (): Promise<void> => {
+  const handleConfirmBulk = async (): Promise<void> => {
     /* v8 ignore next -- the Confirm button only mounts while bulkConfirm is set. */
     if (!bulkConfirm) return
     const confirm = bulkConfirm
@@ -800,11 +768,11 @@ function useBulkConfirmActions(
       return
     }
     await confirmBulkDelete(confirm)
-  }, [bulkConfirm, confirmBulkDelete, confirmBulkUnlink, dispatch])
+  }
 
-  const handleCancelBulkConfirm = useCallback((): void => {
+  const handleCancelBulkConfirm = (): void => {
     dispatch(clearBulkConfirm())
-  }, [dispatch])
+  }
 
   return { handleConfirmBulk, handleCancelBulkConfirm }
 }
@@ -843,27 +811,24 @@ function useMainContentEventHandlers({
 }: MainContentEventHandlerOptions): MainContentEventHandlers {
   const dispatch = useAppDispatch()
 
-  const handleClearFilter = useCallback((): void => {
+  const handleClearFilter = (): void => {
     dispatch(selectAgent(null))
-  }, [dispatch])
+  }
 
-  const handleClearSourceFilter = useCallback((): void => {
+  const handleClearSourceFilter = (): void => {
     dispatch(clearSelectedSources())
-  }, [dispatch])
+  }
 
-  const handleTabChange = useCallback(
-    (value: string): void => {
-      dispatch(setActiveTab(value as ActiveTab))
-      dispatch(setPreviewSkill(null))
-    },
-    [dispatch],
-  )
+  const handleTabChange = (value: string): void => {
+    dispatch(setActiveTab(value as ActiveTab))
+    dispatch(setPreviewSkill(null))
+  }
 
-  const handleToggleSortOrder = useCallback((): void => {
+  const handleToggleSortOrder = (): void => {
     dispatch(toggleSortOrder())
-  }, [dispatch])
+  }
 
-  const handleToggleBulkSelectMode = useCallback((): void => {
+  const handleToggleBulkSelectMode = (): void => {
     if (bulkSelectMode) {
       // Clear first so subscribers never observe mode=false with stale names.
       dispatch(clearSelection())
@@ -871,87 +836,68 @@ function useMainContentEventHandlers({
       return
     }
     dispatch(enterBulkSelectMode())
-  }, [bulkSelectMode, dispatch])
+  }
 
-  const handleSkillTypeFilterChange = useCallback(
-    (value: string): void => {
-      dispatch(setSkillTypeFilter(value as SkillTypeFilter))
-    },
-    [dispatch],
-  )
+  const handleSkillTypeFilterChange = (value: string): void => {
+    dispatch(setSkillTypeFilter(value as SkillTypeFilter))
+  }
 
-  const handleToggleSource = useCallback(
-    (source: RepositoryId): void => {
-      dispatch(toggleSource(source))
-    },
-    [dispatch],
-  )
+  const handleToggleSource = (source: RepositoryId): void => {
+    dispatch(toggleSource(source))
+  }
 
-  const handleSelectShowAllRepos = useCallback(
-    (event: Event): void => {
-      event.preventDefault()
-      dispatch(clearSelectedSources())
-    },
-    [dispatch],
-  )
-
-  const handleSelectAllRepos = useCallback(
-    (event: Event): void => {
-      event.preventDefault()
-      dispatch(
-        setSelectedSources(repoFacetOptions.map((option) => option.source)),
-      )
-    },
-    [dispatch, repoFacetOptions],
-  )
-
-  const handleToggleExcludedSkillTypeFilter = useCallback(
-    (value: ExcludableSkillTypeFilter): void => {
-      dispatch(toggleExcludedSkillTypeFilter(value))
-    },
-    [dispatch],
-  )
-
-  const excludedSkillTypeToggleHandlers = useMemo(
-    () => ({
-      symlinked: () => {
-        handleToggleExcludedSkillTypeFilter('symlinked')
-      },
-      local: () => {
-        handleToggleExcludedSkillTypeFilter('local')
-      },
-      gstack: () => {
-        handleToggleExcludedSkillTypeFilter('gstack')
-      },
-      orphan: () => {
-        handleToggleExcludedSkillTypeFilter('orphan')
-      },
-      unique: () => {
-        handleToggleExcludedSkillTypeFilter('unique')
-      },
-    }),
-    [handleToggleExcludedSkillTypeFilter],
-  )
-
-  const handleClearExcludedSkillTypeFilters = useCallback((): void => {
-    dispatch(clearExcludedSkillTypeFilters())
-  }, [dispatch])
-
-  const handleKeepDropdownOpen = useCallback((event: Event): void => {
+  const handleSelectShowAllRepos = (event: Event): void => {
     event.preventDefault()
-  }, [])
+    dispatch(clearSelectedSources())
+  }
 
-  const handleSelectClearExcludedSkillTypeFilters = useCallback(
-    (event: Event): void => {
-      event.preventDefault()
-      handleClearExcludedSkillTypeFilters()
+  const handleSelectAllRepos = (event: Event): void => {
+    event.preventDefault()
+    dispatch(
+      setSelectedSources(repoFacetOptions.map((option) => option.source)),
+    )
+  }
+
+  const handleToggleExcludedSkillTypeFilter = (
+    value: ExcludableSkillTypeFilter,
+  ): void => {
+    dispatch(toggleExcludedSkillTypeFilter(value))
+  }
+
+  const excludedSkillTypeToggleHandlers = {
+    symlinked: () => {
+      handleToggleExcludedSkillTypeFilter('symlinked')
     },
-    [handleClearExcludedSkillTypeFilters],
-  )
+    local: () => {
+      handleToggleExcludedSkillTypeFilter('local')
+    },
+    gstack: () => {
+      handleToggleExcludedSkillTypeFilter('gstack')
+    },
+    orphan: () => {
+      handleToggleExcludedSkillTypeFilter('orphan')
+    },
+    unique: () => {
+      handleToggleExcludedSkillTypeFilter('unique')
+    },
+  }
 
-  const handleCopyAction = useCallback((): void => {
+  const handleClearExcludedSkillTypeFilters = (): void => {
+    dispatch(clearExcludedSkillTypeFilters())
+  }
+
+  const handleKeepDropdownOpen = (event: Event): void => {
+    event.preventDefault()
+  }
+
+  const handleSelectClearExcludedSkillTypeFilters = (event: Event): void => {
+    event.preventDefault()
+    handleClearExcludedSkillTypeFilters()
+  }
+
+  const handleCopyAction = (): void => {
     dispatch(setBulkCopyModalOpen(true))
-  }, [dispatch])
+  }
 
   return {
     handleClearFilter,
@@ -995,7 +941,7 @@ interface InstalledTabLabelProps {
  * @example
  * <InstalledTabLabel count={24} countText="24 skills" display="tab" />
  */
-const InstalledTabLabel = React.memo(function InstalledTabLabel({
+const InstalledTabLabel = function InstalledTabLabel({
   count,
   countText,
   display,
@@ -1021,7 +967,7 @@ const InstalledTabLabel = React.memo(function InstalledTabLabel({
       )}
     </TabsTrigger>
   )
-})
+}
 
 interface InstalledInlineCountProps {
   countText: string
@@ -1035,7 +981,7 @@ interface InstalledInlineCountProps {
  * @example
  * <InstalledInlineCount countText="24 skills" display="inline" />
  */
-const InstalledInlineCount = React.memo(function InstalledInlineCount({
+const InstalledInlineCount = function InstalledInlineCount({
   countText,
   display,
 }: InstalledInlineCountProps): React.ReactElement | null {
@@ -1050,7 +996,7 @@ const InstalledInlineCount = React.memo(function InstalledInlineCount({
       {countText}
     </p>
   )
-})
+}
 
 /**
  * Build bulk-delete targets only for delete confirms so MainContent stays branch-light.
@@ -1177,231 +1123,228 @@ function appendDeleteRescanSummary(
  * Owns the Installed / Marketplace tabs, the bulk selection toolbar, and the
  * global keyboard shortcuts that back the bulk-delete flow (Cmd/Ctrl+A, Esc).
  */
-export const MainContent = React.memo(
-  function MainContent(): React.ReactElement {
-    const dispatch = useAppDispatch()
-    // Subscribe to install progress here (always-mounted host) rather than in
-    // SkillsMarketplace — the marketplace tab unmounts when "installed" is
-    // active, but bookmark installs fire from the always-visible sidebar.
-    useMarketplaceProgress()
-    const selectedAgentId = useAppSelector((state) => state.ui.selectedAgentId)
-    const sortOrder = useAppSelector((state) => state.ui.sortOrder)
-    const skillTypeFilter = useAppSelector((state) => state.ui.skillTypeFilter)
-    const { items: agents } = useAppSelector((state) => state.agents)
-    const activeTab = useAppSelector((state) => state.ui.activeTab)
-    const visibleNames = useAppSelector(selectBulkSelectableVisibleSkillNames)
-    const selectedVisibleNames = useAppSelector(selectSelectedVisibleNames)
-    const selectedAllNames = useAppSelector(selectSelectedSkillNames)
-    const skills = useAppSelector(selectSkillsItems)
-    const bulkConfirm = useAppSelector(selectBulkConfirm)
-    const bulkSelectMode = useAppSelector(selectBulkSelectMode)
-    const sourceFilter = useAppSelector(selectSourceFilterViewModel)
-    const repoFacetOptions = useAppSelector(selectRepoFacetOptions)
-    const filteredSkillCount = useAppSelector(selectFilteredSkillCount)
-    const installedSearchCountDisplay = useAppSelector(
-      (state) => state.settings.installedSearchCountDisplay,
-    )
-    const excludedSkillTypeFilters = useAppSelector(
-      selectExcludedSkillTypeFilters,
-    )
-    const protectedNamesSet = useAppSelector(selectProtectedNamesSet)
+export const MainContent = function MainContent(): React.ReactElement {
+  const dispatch = useAppDispatch()
+  // Subscribe to install progress here (always-mounted host) rather than in
+  // SkillsMarketplace — the marketplace tab unmounts when "installed" is
+  // active, but bookmark installs fire from the always-visible sidebar.
+  useMarketplaceProgress()
+  const selectedAgentId = useAppSelector((state) => state.ui.selectedAgentId)
+  const sortOrder = useAppSelector((state) => state.ui.sortOrder)
+  const skillTypeFilter = useAppSelector((state) => state.ui.skillTypeFilter)
+  const { items: agents } = useAppSelector((state) => state.agents)
+  const activeTab = useAppSelector((state) => state.ui.activeTab)
+  const visibleNames = useAppSelector(selectBulkSelectableVisibleSkillNames)
+  const selectedVisibleNames = useAppSelector(selectSelectedVisibleNames)
+  const selectedAllNames = useAppSelector(selectSelectedSkillNames)
+  const skills = useAppSelector(selectSkillsItems)
+  const bulkConfirm = useAppSelector(selectBulkConfirm)
+  const bulkSelectMode = useAppSelector(selectBulkSelectMode)
+  const sourceFilter = useAppSelector(selectSourceFilterViewModel)
+  const repoFacetOptions = useAppSelector(selectRepoFacetOptions)
+  const filteredSkillCount = useAppSelector(selectFilteredSkillCount)
+  const installedSearchCountDisplay = useAppSelector(
+    (state) => state.settings.installedSearchCountDisplay,
+  )
+  const excludedSkillTypeFilters = useAppSelector(
+    selectExcludedSkillTypeFilters,
+  )
+  const protectedNamesSet = useAppSelector(selectProtectedNamesSet)
 
-    const installedSearchCountText =
-      formatInstalledSearchCount(filteredSkillCount)
+  const installedSearchCountText =
+    formatInstalledSearchCount(filteredSkillCount)
 
-    const selectedAgent = agents.find((a) => a.id === selectedAgentId)
-    const bulkDeleteTargetSummary = useMemo(() => {
-      return getBulkDeleteTargetSummary(bulkConfirm)
-    }, [bulkConfirm])
-    const isBulkConfirmPrimaryDisabled = isBulkDeleteConfirmPrimaryDisabled(
-      bulkConfirm,
-      bulkDeleteTargetSummary,
-    )
-    const selectedSkillTypeLabel =
-      SKILL_TYPE_FILTER_OPTIONS.find(
-        (option) => option.value === skillTypeFilter,
-      )?.label ?? 'All'
-    const availableExcludeTypes = getAvailableExcludeTypes(skillTypeFilter)
-    const skillTypeTriggerLabel =
-      excludedSkillTypeFilters.length === 0
-        ? selectedSkillTypeLabel
-        : `${selectedSkillTypeLabel} · ${excludedSkillTypeFilters.length} excluded`
-    useInstalledBulkKeyboardShortcuts({
-      activeTab,
-      bulkSelectMode,
-      selectedCount: selectedAllNames.length,
-      visibleNames,
+  const selectedAgent = agents.find((a) => a.id === selectedAgentId)
+  const bulkDeleteTargetSummary = getBulkDeleteTargetSummary(bulkConfirm)
+
+  const isBulkConfirmPrimaryDisabled = isBulkDeleteConfirmPrimaryDisabled(
+    bulkConfirm,
+    bulkDeleteTargetSummary,
+  )
+  const selectedSkillTypeLabel =
+    SKILL_TYPE_FILTER_OPTIONS.find((option) => option.value === skillTypeFilter)
+      ?.label ?? 'All'
+  const availableExcludeTypes = getAvailableExcludeTypes(skillTypeFilter)
+  const skillTypeTriggerLabel =
+    excludedSkillTypeFilters.length === 0
+      ? selectedSkillTypeLabel
+      : `${selectedSkillTypeLabel} · ${excludedSkillTypeFilters.length} excluded`
+  useInstalledBulkKeyboardShortcuts({
+    activeTab,
+    bulkSelectMode,
+    selectedCount: selectedAllNames.length,
+    visibleNames,
+  })
+  const {
+    handleClearFilter,
+    handleClearSourceFilter,
+    handleTabChange,
+    handleToggleSortOrder,
+    handleToggleBulkSelectMode,
+    handleSkillTypeFilterChange,
+    handleToggleSource,
+    handleSelectShowAllRepos,
+    handleSelectAllRepos,
+    excludedSkillTypeToggleHandlers,
+    handleKeepDropdownOpen,
+    handleSelectClearExcludedSkillTypeFilters,
+    handleCopyAction,
+  } = useMainContentEventHandlers({ bulkSelectMode, repoFacetOptions })
+
+  /* v8 ignore start -- FEATURE_FLAGS.ENABLE_MARKETPLACE_UI is a constant true,
+     so the Marketplace surfaces as a tab; the link button that calls this
+     handler only renders in the `else` (flag-off) branch and is never mounted,
+     making this handler unreachable in production and untestable without
+     mutating the constant (which would break every Marketplace-tab sibling). */
+  // react-doctor-disable-next-line react-doctor/prefer-module-scope-pure-function -- deliberately-dead handler (the calling button only renders in the flag-off branch that never mounts; see v8-ignore above). Hoisting an unreachable function adds churn for zero runtime benefit.
+  const handleOpenMarketplace = (): void => {
+    window.electron.shell.openExternal(SKILLS_SH_URL)
+  }
+  /* v8 ignore stop */
+
+  // Wire the main-process `skills:deleteProgress` event into Redux. Fires
+  // only for batches large enough to warrant a counter (see main handler).
+  useInitialEffect(() => {
+    const unsubscribe = window.electron.skills.onDeleteProgress((payload) => {
+      dispatch(setBulkProgress(payload))
     })
-    const {
-      handleClearFilter,
-      handleClearSourceFilter,
-      handleTabChange,
-      handleToggleSortOrder,
-      handleToggleBulkSelectMode,
-      handleSkillTypeFilterChange,
-      handleToggleSource,
-      handleSelectShowAllRepos,
-      handleSelectAllRepos,
-      excludedSkillTypeToggleHandlers,
-      handleKeepDropdownOpen,
-      handleSelectClearExcludedSkillTypeFilters,
-      handleCopyAction,
-    } = useMainContentEventHandlers({ bulkSelectMode, repoFacetOptions })
+    return unsubscribe
+  })
 
-    /* v8 ignore start -- FEATURE_FLAGS.ENABLE_MARKETPLACE_UI is a constant true,
-       so the Marketplace surfaces as a tab; the link button that calls this
-       handler only renders in the `else` (flag-off) branch and is never mounted,
-       making this handler unreachable in production and untestable without
-       mutating the constant (which would break every Marketplace-tab sibling). */
-    // react-doctor-disable-next-line react-doctor/prefer-module-scope-pure-function -- deliberately-dead handler (the calling button only renders in the flag-off branch that never mounts; see v8-ignore above). Hoisting an unreachable function adds churn for zero runtime benefit.
-    const handleOpenMarketplace = (): void => {
-      window.electron.shell.openExternal(SKILLS_SH_URL)
-    }
-    /* v8 ignore stop */
+  const handlePrimaryAction = usePrimaryBulkAction({
+    selectedVisibleNames,
+    selectedAgentId,
+    selectedAgentName: selectedAgent?.name ?? null,
+    sourceFilter,
+    skills,
+    protectedNamesSet,
+  })
+  const { handleConfirmBulk, handleCancelBulkConfirm } =
+    useBulkConfirmActions(bulkConfirm)
 
-    // Wire the main-process `skills:deleteProgress` event into Redux. Fires
-    // only for batches large enough to warrant a counter (see main handler).
-    useInitialEffect(() => {
-      const unsubscribe = window.electron.skills.onDeleteProgress((payload) => {
-        dispatch(setBulkProgress(payload))
-      })
-      return unsubscribe
-    })
-
-    const handlePrimaryAction = usePrimaryBulkAction({
-      selectedVisibleNames,
-      selectedAgentId,
-      selectedAgentName: selectedAgent?.name ?? null,
-      sourceFilter,
-      skills,
-      protectedNamesSet,
-    })
-    const { handleConfirmBulk, handleCancelBulkConfirm } =
-      useBulkConfirmActions(bulkConfirm)
-
-    return (
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="h-full flex flex-col overflow-hidden outline-none"
+  return (
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="h-full flex flex-col overflow-hidden outline-none"
+    >
+      <Tabs
+        value={activeTab}
+        onValueChange={handleTabChange}
+        className="h-full flex flex-col"
       >
-        <Tabs
-          value={activeTab}
-          onValueChange={handleTabChange}
-          className="h-full flex flex-col"
-        >
-          <div className="p-4 border-b border-border">
-            <TabsList className="w-full">
-              <InstalledTabLabel
-                count={filteredSkillCount}
-                countText={installedSearchCountText}
-                display={installedSearchCountDisplay}
-              />
-              {FEATURE_FLAGS.ENABLE_MARKETPLACE_UI ? (
-                <TabsTrigger value="marketplace" className="flex-1">
-                  Marketplace
-                </TabsTrigger>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleOpenMarketplace}
-                  className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 flex-1 gap-1.5 text-muted-foreground hover:text-foreground"
-                >
-                  Marketplace
-                  <ExternalLink className="h-3 w-3" />
-                </button>
-              )}
-            </TabsList>
-          </div>
-
-          <TabsContent
-            value="installed"
-            className="flex-1 m-0 data-[state=active]:flex data-[state=active]:flex-col min-h-0 overflow-hidden"
-          >
-            <InstalledToolbar
+        <div className="p-4 border-b border-border">
+          <TabsList className="w-full">
+            <InstalledTabLabel
+              count={filteredSkillCount}
               countText={installedSearchCountText}
-              countDisplay={installedSearchCountDisplay}
-              sortOrder={sortOrder}
-              sourceFilter={sourceFilter}
-              bulkSelectMode={bulkSelectMode}
-              selectedAgentId={selectedAgentId}
-              selectedSkillTypeLabel={selectedSkillTypeLabel}
-              skillTypeFilter={skillTypeFilter}
-              excludedSkillTypeFilters={excludedSkillTypeFilters}
-              availableExcludeTypes={availableExcludeTypes}
-              skillTypeTriggerLabel={skillTypeTriggerLabel}
-              excludedSkillTypeToggleHandlers={excludedSkillTypeToggleHandlers}
-              onToggleSortOrder={handleToggleSortOrder}
-              onSelectShowAllRepos={handleSelectShowAllRepos}
-              onSelectAllRepos={handleSelectAllRepos}
-              onToggleSource={handleToggleSource}
-              onKeepDropdownOpen={handleKeepDropdownOpen}
-              onToggleBulkSelectMode={handleToggleBulkSelectMode}
-              onSkillTypeFilterChange={handleSkillTypeFilterChange}
-              onSelectClearExcludedSkillTypeFilters={
-                handleSelectClearExcludedSkillTypeFilters
-              }
+              display={installedSearchCountDisplay}
             />
 
-            <InstalledFilterPills
-              selectedAgent={selectedAgent}
-              sourceFilter={sourceFilter}
-              onClearAgent={handleClearFilter}
-              onClearSourceFilter={handleClearSourceFilter}
-              onToggleSource={handleToggleSource}
-            />
+            {FEATURE_FLAGS.ENABLE_MARKETPLACE_UI ? (
+              <TabsTrigger value="marketplace" className="flex-1">
+                Marketplace
+              </TabsTrigger>
+            ) : (
+              <button
+                type="button"
+                onClick={handleOpenMarketplace}
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 flex-1 gap-1.5 text-muted-foreground hover:text-foreground"
+              >
+                Marketplace
+                <ExternalLink className="h-3 w-3" />
+              </button>
+            )}
+          </TabsList>
+        </div>
 
-            {/* Renders only when at least one skill is ticked. */}
-            <SelectionToolbar
-              onPrimaryAction={handlePrimaryAction}
-              onCopyAction={handleCopyAction}
-              agentDisplayName={selectedAgent?.name}
-            />
+        <TabsContent
+          value="installed"
+          className="flex-1 m-0 data-[state=active]:flex data-[state=active]:flex-col min-h-0 overflow-hidden"
+        >
+          <InstalledToolbar
+            countText={installedSearchCountText}
+            countDisplay={installedSearchCountDisplay}
+            sortOrder={sortOrder}
+            sourceFilter={sourceFilter}
+            bulkSelectMode={bulkSelectMode}
+            selectedAgentId={selectedAgentId}
+            selectedSkillTypeLabel={selectedSkillTypeLabel}
+            skillTypeFilter={skillTypeFilter}
+            excludedSkillTypeFilters={excludedSkillTypeFilters}
+            availableExcludeTypes={availableExcludeTypes}
+            skillTypeTriggerLabel={skillTypeTriggerLabel}
+            excludedSkillTypeToggleHandlers={excludedSkillTypeToggleHandlers}
+            onToggleSortOrder={handleToggleSortOrder}
+            onSelectShowAllRepos={handleSelectShowAllRepos}
+            onSelectAllRepos={handleSelectAllRepos}
+            onToggleSource={handleToggleSource}
+            onKeepDropdownOpen={handleKeepDropdownOpen}
+            onToggleBulkSelectMode={handleToggleBulkSelectMode}
+            onSkillTypeFilterChange={handleSkillTypeFilterChange}
+            onSelectClearExcludedSkillTypeFilters={
+              handleSelectClearExcludedSkillTypeFilters
+            }
+          />
 
-            <div className="flex-1 min-h-0 overflow-hidden py-4 pl-4 pr-[5px]">
-              <SkillsList />
-            </div>
-          </TabsContent>
+          <InstalledFilterPills
+            selectedAgent={selectedAgent}
+            sourceFilter={sourceFilter}
+            onClearAgent={handleClearFilter}
+            onClearSourceFilter={handleClearSourceFilter}
+            onToggleSource={handleToggleSource}
+          />
 
-          <TabsContent
-            value="marketplace"
-            className="flex-1 m-0 data-[state=active]:flex data-[state=active]:flex-col min-h-0 overflow-hidden"
-          >
-            <SkillsMarketplace />
-          </TabsContent>
-        </Tabs>
+          {/* Renders only when at least one skill is ticked. */}
+          <SelectionToolbar
+            onPrimaryAction={handlePrimaryAction}
+            onCopyAction={handleCopyAction}
+            agentDisplayName={selectedAgent?.name}
+          />
 
-        {/*
-          Shared install dialog — mounted here (always-rendered sibling of the
-          tabs) so BOTH marketplace rows and sidebar bookmarks open the exact
-          same agent-target picker. Redux-driven via marketplace.selectedSkill.
+          <div className="flex-1 min-h-0 overflow-hidden py-4 pl-4 pr-[5px]">
+            <SkillsList />
+          </div>
+        </TabsContent>
+
+        <TabsContent
+          value="marketplace"
+          className="flex-1 m-0 data-[state=active]:flex data-[state=active]:flex-col min-h-0 overflow-hidden"
+        >
+          <SkillsMarketplace />
+        </TabsContent>
+      </Tabs>
+
+      {/*
+         Shared install dialog — mounted here (always-rendered sibling of the
+         tabs) so BOTH marketplace rows and sidebar bookmarks open the exact
+         same agent-target picker. Redux-driven via marketplace.selectedSkill.
         */}
-        <InstallModal />
-        <UnlinkDialog />
-        <AddSymlinkModal />
-        <CopyToAgentsModal />
-        <BulkCopyToAgentsModal />
-        <SyncConfirmDialog />
-        <SyncConflictDialog />
-        <SyncResultDialog />
-        <CleanupAgentDialog />
-        <SymlinkCleanupDialog />
+      <InstallModal />
+      <UnlinkDialog />
+      <AddSymlinkModal />
+      <CopyToAgentsModal />
+      <BulkCopyToAgentsModal />
+      <SyncConfirmDialog />
+      <SyncConflictDialog />
+      <SyncResultDialog />
+      <CleanupAgentDialog />
+      <SymlinkCleanupDialog />
 
-        {/*
-          Bulk delete / unlink confirmation. Copy is driven by
-          the kind flag so the dispatch site stays a single handler.
+      {/*
+         Bulk delete / unlink confirmation. Copy is driven by
+         the kind flag so the dispatch site stays a single handler.
         */}
-        <BulkConfirmDialog
-          bulkConfirm={bulkConfirm}
-          bulkDeleteTargetSummary={bulkDeleteTargetSummary}
-          isPrimaryDisabled={isBulkConfirmPrimaryDisabled}
-          onCancel={handleCancelBulkConfirm}
-          onConfirm={handleConfirmBulk}
-        />
-      </main>
-    )
-  },
-)
+      <BulkConfirmDialog
+        bulkConfirm={bulkConfirm}
+        bulkDeleteTargetSummary={bulkDeleteTargetSummary}
+        isPrimaryDisabled={isBulkConfirmPrimaryDisabled}
+        onCancel={handleCancelBulkConfirm}
+        onConfirm={handleConfirmBulk}
+      />
+    </main>
+  )
+}
 
 interface InstalledToolbarProps {
   countText: string
@@ -1433,7 +1376,7 @@ interface InstalledToolbarProps {
  * @example
  * <InstalledToolbar countText="3 skills" countDisplay="inline" sortOrder="asc" {...handlers} />
  */
-const InstalledToolbar = React.memo(function InstalledToolbar({
+const InstalledToolbar = function InstalledToolbar({
   countText,
   countDisplay,
   sortOrder,
@@ -1498,7 +1441,7 @@ const InstalledToolbar = React.memo(function InstalledToolbar({
       ) : null}
     </div>
   )
-})
+}
 
 interface SortOrderButtonProps {
   sortOrder: SortOrder
@@ -1512,7 +1455,7 @@ interface SortOrderButtonProps {
  * @example
  * <SortOrderButton sortOrder="asc" onToggleSortOrder={toggle} />
  */
-const SortOrderButton = React.memo(function SortOrderButton({
+const SortOrderButton = function SortOrderButton({
   sortOrder,
   onToggleSortOrder,
 }: SortOrderButtonProps): React.ReactElement {
@@ -1535,7 +1478,7 @@ const SortOrderButton = React.memo(function SortOrderButton({
       )}
     </Button>
   )
-})
+}
 
 interface SourceRepositoryFilterMenuProps {
   sourceFilter: SourceFilterViewModel
@@ -1552,69 +1495,65 @@ interface SourceRepositoryFilterMenuProps {
  * @example
  * <SourceRepositoryFilterMenu sourceFilter={sourceFilter} onToggleSource={toggleSource} />
  */
-const SourceRepositoryFilterMenu = React.memo(
-  function SourceRepositoryFilterMenu({
-    sourceFilter,
-    onSelectShowAllRepos,
-    onSelectAllRepos,
-    onToggleSource,
-    onKeepDropdownOpen,
-  }: SourceRepositoryFilterMenuProps): React.ReactElement {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label={sourceFilter.triggerAriaLabel}
-            className={cn(
-              'shrink-0 gap-1.5 max-w-44',
-              sourceFilter.selectedSources.length > 0
-                ? 'text-primary'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <GitBranch className="h-4 w-4" />
-            <span className="max-w-32 truncate">
-              {sourceFilter.triggerLabel}
-            </span>
-            <ChevronDown className="h-3 w-3" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-72">
-          <DropdownMenuLabel>Source repository</DropdownMenuLabel>
-          {sourceFilter.hasNoRepositories ? (
-            <DropdownMenuItem disabled>No source repositories</DropdownMenuItem>
-          ) : (
-            <>
-              <DropdownMenuItem
-                disabled={sourceFilter.selectedSources.length === 0}
-                onSelect={onSelectShowAllRepos}
-              >
-                Show all repos
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={sourceFilter.isSelectAllDisabled}
-                onSelect={onSelectAllRepos}
-              >
-                Select all repos
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {sourceFilter.dropdownRows.map((row) => (
-                <SourceFacetCheckboxRow
-                  key={row.source}
-                  row={row}
-                  onToggle={onToggleSource}
-                  onKeepOpen={onKeepDropdownOpen}
-                />
-              ))}
-            </>
+const SourceRepositoryFilterMenu = function SourceRepositoryFilterMenu({
+  sourceFilter,
+  onSelectShowAllRepos,
+  onSelectAllRepos,
+  onToggleSource,
+  onKeepDropdownOpen,
+}: SourceRepositoryFilterMenuProps): React.ReactElement {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label={sourceFilter.triggerAriaLabel}
+          className={cn(
+            'shrink-0 gap-1.5 max-w-44',
+            sourceFilter.selectedSources.length > 0
+              ? 'text-primary'
+              : 'text-muted-foreground hover:text-foreground',
           )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    )
-  },
-)
+        >
+          <GitBranch className="h-4 w-4" />
+          <span className="max-w-32 truncate">{sourceFilter.triggerLabel}</span>
+          <ChevronDown className="h-3 w-3" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72">
+        <DropdownMenuLabel>Source repository</DropdownMenuLabel>
+        {sourceFilter.hasNoRepositories ? (
+          <DropdownMenuItem disabled>No source repositories</DropdownMenuItem>
+        ) : (
+          <>
+            <DropdownMenuItem
+              disabled={sourceFilter.selectedSources.length === 0}
+              onSelect={onSelectShowAllRepos}
+            >
+              Show all repos
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={sourceFilter.isSelectAllDisabled}
+              onSelect={onSelectAllRepos}
+            >
+              Select all repos
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {sourceFilter.dropdownRows.map((row) => (
+              <SourceFacetCheckboxRow
+                key={row.source}
+                row={row}
+                onToggle={onToggleSource}
+                onKeepOpen={onKeepDropdownOpen}
+              />
+            ))}
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 interface BulkSelectModeButtonProps {
   bulkSelectMode: boolean
@@ -1628,7 +1567,7 @@ interface BulkSelectModeButtonProps {
  * @example
  * <BulkSelectModeButton bulkSelectMode={false} onToggleBulkSelectMode={toggle} />
  */
-const BulkSelectModeButton = React.memo(function BulkSelectModeButton({
+const BulkSelectModeButton = function BulkSelectModeButton({
   bulkSelectMode,
   onToggleBulkSelectMode,
 }: BulkSelectModeButtonProps): React.ReactElement {
@@ -1656,7 +1595,7 @@ const BulkSelectModeButton = React.memo(function BulkSelectModeButton({
       {bulkSelectMode ? 'Cancel' : 'Select'}
     </Button>
   )
-})
+}
 
 interface SkillTypeFilterMenuProps {
   selectedSkillTypeLabel: string
@@ -1677,7 +1616,7 @@ interface SkillTypeFilterMenuProps {
  * @example
  * <SkillTypeFilterMenu skillTypeFilter="all" excludedSkillTypeFilters={[]} />
  */
-const SkillTypeFilterMenu = React.memo(function SkillTypeFilterMenu({
+const SkillTypeFilterMenu = function SkillTypeFilterMenu({
   selectedSkillTypeLabel,
   skillTypeFilter,
   excludedSkillTypeFilters,
@@ -1776,7 +1715,7 @@ const SkillTypeFilterMenu = React.memo(function SkillTypeFilterMenu({
       </DropdownMenuContent>
     </DropdownMenu>
   )
-})
+}
 
 interface InstalledFilterPillsProps {
   selectedAgent: Agent | undefined
@@ -1793,7 +1732,7 @@ interface InstalledFilterPillsProps {
  * @example
  * <InstalledFilterPills selectedAgent={agent} sourceFilter={sourceFilter} />
  */
-const InstalledFilterPills = React.memo(function InstalledFilterPills({
+const InstalledFilterPills = function InstalledFilterPills({
   selectedAgent,
   sourceFilter,
   onClearAgent,
@@ -1845,7 +1784,7 @@ const InstalledFilterPills = React.memo(function InstalledFilterPills({
       ) : null}
     </>
   )
-})
+}
 
 interface BulkConfirmDialogProps {
   bulkConfirm: BulkConfirmState | null
@@ -1862,7 +1801,7 @@ interface BulkConfirmDialogProps {
  * @example
  * <BulkConfirmDialog bulkConfirm={confirm} bulkDeleteTargetSummary={summary} />
  */
-const BulkConfirmDialog = React.memo(function BulkConfirmDialog({
+const BulkConfirmDialog = function BulkConfirmDialog({
   bulkConfirm,
   bulkDeleteTargetSummary,
   isPrimaryDisabled,
@@ -1879,6 +1818,7 @@ const BulkConfirmDialog = React.memo(function BulkConfirmDialog({
             <AlertTriangle
               className={`h-5 w-5 ${bulkConfirmIconColorClass(bulkConfirm)}`}
             />
+
             <DialogTitle>
               {bulkConfirm?.kind === 'delete'
                 ? `Delete ${skillCount} ${pluralize(skillCount, 'skill')}?`
@@ -1920,12 +1860,12 @@ const BulkConfirmDialog = React.memo(function BulkConfirmDialog({
       </DialogContent>
     </Dialog>
   )
-})
+}
 
 /**
- * One repo row in the source-filter dropdown — wraps `DropdownMenuCheckboxItem`
- * with a `useCallback` toggle so the memoized item isn't defeated by an inline
- * arrow (which also trips `prefer-usecallback-might-work`). Mapped by MainContent.
+ * One repo row in the source-filter dropdown — hoists the toggle handler so
+ * `DropdownMenuCheckboxItem` doesn't receive a fresh inline arrow each render.
+ * Mapped by MainContent.
  * @param row - Facet row: repo id, visible-skill count, and ticked state.
  * @param onToggle - Adds/removes this repo from the include filter.
  * @param onKeepOpen - `onSelect` handler that keeps the menu open on activation.
@@ -1933,7 +1873,7 @@ const BulkConfirmDialog = React.memo(function BulkConfirmDialog({
  * @example
  * <SourceFacetCheckboxRow row={row} onToggle={handleToggleSource} onKeepOpen={handleKeepDropdownOpen} />
  */
-const SourceFacetCheckboxRow = React.memo(function SourceFacetCheckboxRow({
+const SourceFacetCheckboxRow = function SourceFacetCheckboxRow({
   row,
   onToggle,
   onKeepOpen,
@@ -1943,9 +1883,9 @@ const SourceFacetCheckboxRow = React.memo(function SourceFacetCheckboxRow({
   onKeepOpen: (event: Event) => void
 }): React.ReactElement {
   // Stable per-row toggle — re-created only when the row id or handler changes.
-  const handleCheckedChange = useCallback((): void => {
+  const handleCheckedChange = (): void => {
     onToggle(row.source)
-  }, [onToggle, row.source])
+  }
 
   return (
     <DropdownMenuCheckboxItem
@@ -1959,19 +1899,19 @@ const SourceFacetCheckboxRow = React.memo(function SourceFacetCheckboxRow({
       <span className="ml-auto text-xs text-muted-foreground">{row.count}</span>
     </DropdownMenuCheckboxItem>
   )
-})
+}
 
 /**
  * One clearable "from <repo>" pill (shown when ≤ SOURCE_FILTER_MAX_VISIBLE_REPOS
- * repos selected) — wraps the memoized `FilterPill` with a `useCallback` clear so
- * an inline arrow doesn't re-render it / trip `prefer-usecallback-might-work`.
+ * repos selected) — hoists the clear handler so `FilterPill` doesn't receive a
+ * fresh inline arrow each render.
  * @param source - The repository id this pill represents and clears.
  * @param onClear - Removes `source` from the include filter (toggle off).
  * @returns A FilterPill labelled `from <source>` wired to single-repo clear.
  * @example
  * <SourceFilterPill source={source} onClear={handleToggleSource} />
  */
-const SourceFilterPill = React.memo(function SourceFilterPill({
+const SourceFilterPill = function SourceFilterPill({
   source,
   onClear,
 }: {
@@ -1979,9 +1919,9 @@ const SourceFilterPill = React.memo(function SourceFilterPill({
   onClear: (source: RepositoryId) => void
 }): React.ReactElement {
   // Stable clear — toggles this exact repo off the include filter.
-  const handleClear = useCallback((): void => {
+  const handleClear = (): void => {
     onClear(source)
-  }, [onClear, source])
+  }
 
   return (
     <FilterPill
@@ -1994,4 +1934,4 @@ const SourceFilterPill = React.memo(function SourceFilterPill({
       testId="source-filter-pill"
     />
   )
-})
+}

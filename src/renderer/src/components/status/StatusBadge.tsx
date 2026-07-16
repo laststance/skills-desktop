@@ -55,7 +55,7 @@ const STATUS_CONFIG = {
  * <StatusBadge status="valid" count={3} agentNames={["Claude", "Cursor", "Devin Desktop"]} />
  * // Shows: ✓ 3 with tooltip listing "Claude, Cursor, Devin Desktop"
  */
-export const StatusBadge = React.memo(function StatusBadge({
+export const StatusBadge = function StatusBadge({
   status,
   count,
   agentNames,
@@ -90,4 +90,4 @@ export const StatusBadge = React.memo(function StatusBadge({
       </TooltipContent>
     </Tooltip>
   )
-})
+}

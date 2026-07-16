@@ -19,7 +19,7 @@ type DialogContentProps = React.ComponentPropsWithRef<
   hideCloseButton?: boolean
 }
 
-const DialogOverlay = React.memo(function DialogOverlay({
+const DialogOverlay = function DialogOverlay({
   className,
   ref,
   ...props
@@ -34,9 +34,9 @@ const DialogOverlay = React.memo(function DialogOverlay({
       {...props}
     />
   )
-})
+}
 
-const DialogContent = React.memo(function DialogContent({
+const DialogContent = function DialogContent({
   className,
   children,
   hideCloseButton = false,
@@ -64,9 +64,9 @@ const DialogContent = React.memo(function DialogContent({
       </DialogPrimitive.Content>
     </DialogPortal>
   )
-})
+}
 
-const DialogHeader = React.memo(function DialogHeader({
+const DialogHeader = function DialogHeader({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
@@ -79,9 +79,9 @@ const DialogHeader = React.memo(function DialogHeader({
       {...props}
     />
   )
-})
+}
 
-const DialogFooter = React.memo(function DialogFooter({
+const DialogFooter = function DialogFooter({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
@@ -94,9 +94,9 @@ const DialogFooter = React.memo(function DialogFooter({
       {...props}
     />
   )
-})
+}
 
-const DialogTitle = React.memo(function DialogTitle({
+const DialogTitle = function DialogTitle({
   className,
   ref,
   ...props
@@ -111,9 +111,9 @@ const DialogTitle = React.memo(function DialogTitle({
       {...props}
     />
   )
-})
+}
 
-const DialogDescription = React.memo(function DialogDescription({
+const DialogDescription = function DialogDescription({
   className,
   ref,
   ...props
@@ -125,7 +125,7 @@ const DialogDescription = React.memo(function DialogDescription({
       {...props}
     />
   )
-})
+}
 
 export {
   Dialog,

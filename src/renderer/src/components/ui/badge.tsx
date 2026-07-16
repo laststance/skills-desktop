@@ -31,7 +31,7 @@ export interface BadgeProps
     React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof badgeVariants> {}
 
-const Badge = React.memo(function Badge({
+const Badge = function Badge({
   className,
   variant,
   ...props
@@ -39,6 +39,6 @@ const Badge = React.memo(function Badge({
   return (
     <div className={cn(badgeVariants({ variant }), className)} {...props} />
   )
-})
+}
 
 export { Badge, badgeVariants }

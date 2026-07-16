@@ -29,32 +29,30 @@ function handleSettingsClick(): void {
  * the link still reads as the primary footer affordance and the gear
  * stays out of the way until the user reaches for it.
  */
-export const SidebarFooter = React.memo(
-  function SidebarFooter(): React.ReactElement {
-    return (
-      <div className="border-t border-border px-6 py-3 flex items-center">
-        <button
-          type="button"
-          onClick={handleSkillsLinkClick}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-sm text-xs font-medium font-mono text-muted-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-        >
-          <span>skills.sh</span>
-          <ExternalLink className="h-3 w-3" />
-        </button>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label="Open settings"
-              onClick={handleSettingsClick}
-              className="no-drag inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <Settings className="h-3.5 w-3.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top">Settings (⌘,)</TooltipContent>
-        </Tooltip>
-      </div>
-    )
-  },
-)
+export const SidebarFooter = function SidebarFooter(): React.ReactElement {
+  return (
+    <div className="border-t border-border px-6 py-3 flex items-center">
+      <button
+        type="button"
+        onClick={handleSkillsLinkClick}
+        className="flex flex-1 items-center justify-center gap-1.5 rounded-sm text-xs font-medium font-mono text-muted-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+      >
+        <span>skills.sh</span>
+        <ExternalLink className="h-3 w-3" />
+      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label="Open settings"
+            onClick={handleSettingsClick}
+            className="no-drag inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Settings className="h-3.5 w-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Settings (⌘,)</TooltipContent>
+      </Tooltip>
+    </div>
+  )
+}

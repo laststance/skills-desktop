@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react'
-import React, { useCallback, useState } from 'react'
+import React, { useState } from 'react'
 import { match } from 'ts-pattern'
 
 import { Button } from '@/renderer/src/components/ui/button'
@@ -64,7 +64,7 @@ function statusLabel(status: CheckStatus): string {
  * `app.isPackaged` through a Vite `define` or extra IPC, which costs
  * more in dev/prod branching than it saves.
  */
-export const About = React.memo(function About(): React.ReactElement {
+export const About = function About(): React.ReactElement {
   const updateApi = window.electron.update
   const isUpdaterAvailable = Boolean(updateApi)
   const [checkStatus, setCheckStatus] = useState<CheckStatus>({ kind: 'idle' })
@@ -81,16 +81,17 @@ export const About = React.memo(function About(): React.ReactElement {
         setCheckStatus({ kind: 'error', message: error.message }),
       ),
     ]
+
     return () => {
       cleanups.forEach((cleanup) => cleanup())
     }
   }, [updateApi])
 
-  const handleCheckForUpdates = useCallback((): void => {
+  const handleCheckForUpdates = (): void => {
     if (!updateApi) return
     setCheckStatus({ kind: 'checking' })
     void updateApi.check()
-  }, [updateApi])
+  }
 
   const status = statusLabel(checkStatus)
 
@@ -168,4 +169,4 @@ export const About = React.memo(function About(): React.ReactElement {
       </ul>
     </SectionFrame>
   )
-})
+}

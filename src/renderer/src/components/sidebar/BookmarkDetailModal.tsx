@@ -1,5 +1,5 @@
 import { Check, ExternalLink } from 'lucide-react'
-import React, { useCallback } from 'react'
+import React from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import {
@@ -24,39 +24,36 @@ import {
  * @example
  * <BookmarkDetailModal /> // Renders when a bookmark is selected in sidebar
  */
-export const BookmarkDetailModal = React.memo(
+export const BookmarkDetailModal =
   function BookmarkDetailModal(): React.ReactElement | null {
     const dispatch = useAppDispatch()
     const bookmark = useAppSelector(selectSelectedBookmarkForDetail)
 
-    const handleClose = useCallback((): void => {
+    const handleClose = (): void => {
       dispatch(clearSelectedBookmarkForDetail())
-    }, [dispatch])
+    }
 
     // Hand off to the shared InstallModal (the exact marketplace install path):
     // close this detail dialog, then open the agent-target picker seeded with
     // this bookmark. No local install state — InstallModal owns progress/errors
     // and refreshes the skill list, so the sidebar's Installed badge updates.
-    const handleInstall = useCallback((): void => {
+    const handleInstall = (): void => {
       if (!bookmark || !bookmark.repo) return
       dispatch(
         selectSkillForInstall({ name: bookmark.name, repo: bookmark.repo }),
       )
       dispatch(clearSelectedBookmarkForDetail())
-    }, [bookmark, dispatch])
+    }
 
-    const handleRemoveBookmark = useCallback((): void => {
+    const handleRemoveBookmark = (): void => {
       if (!bookmark) return
       dispatch(removeBookmark(bookmark.name))
       handleClose()
-    }, [bookmark, dispatch, handleClose])
+    }
 
-    const handleOpenChange = useCallback(
-      (open: boolean): void => {
-        if (!open) handleClose()
-      },
-      [handleClose],
-    )
+    const handleOpenChange = (open: boolean): void => {
+      if (!open) handleClose()
+    }
 
     const isInstalled = bookmark?.isInstalled ?? false
 
@@ -121,5 +118,4 @@ export const BookmarkDetailModal = React.memo(
         </DialogContent>
       </Dialog>
     )
-  },
-)
+  }

@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React from 'react'
 
 import { Badge } from '@/renderer/src/components/ui/badge'
 import { Button } from '@/renderer/src/components/ui/button'
@@ -44,13 +44,13 @@ const ACTION_LABEL: Record<SyncResultAction, string> = {
  * Auto-opens when syncResult is populated by executeSyncAction.fulfilled.
  * Displays a scrollable list of each skill x agent action with color-coded badges.
  */
-export const SyncResultDialog = React.memo(
+export const SyncResultDialog =
   function SyncResultDialog(): React.ReactElement | null {
     const dispatch = useAppDispatch()
     const syncResult = useAppSelector((state) => state.ui.syncResult)
     const isOpen = shouldShowSyncResult(syncResult)
 
-    const handleClose = useCallback((): void => {
+    const handleClose = (): void => {
       const hadChanges =
         syncResult !== null &&
         (syncResult.created > 0 ||
@@ -60,7 +60,7 @@ export const SyncResultDialog = React.memo(
       if (hadChanges) {
         refreshAllData(dispatch)
       }
-    }, [dispatch, syncResult])
+    }
 
     // Skip all derivations when dialog is closed
     if (!isOpen || !syncResult) return null
@@ -143,5 +143,4 @@ export const SyncResultDialog = React.memo(
         </DialogContent>
       </Dialog>
     )
-  },
-)
+  }

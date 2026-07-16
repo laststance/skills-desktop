@@ -9,16 +9,14 @@ import { LeaderboardWidget } from './LeaderboardWidget'
  * climbing"). See `LeaderboardWidget` for the shared cache / loading /
  * error behaviour.
  */
-export const WhatsNewWidget = React.memo(
-  function WhatsNewWidget(): React.ReactElement {
-    return (
-      <LeaderboardWidget
-        filter="hot"
-        rowLimit={8}
-        emptyIcon={Sparkles}
-        emptyMessage="Nothing new yet"
-        errorMessage="Couldn't load new skills"
-      />
-    )
-  },
-)
+export const WhatsNewWidget = function WhatsNewWidget(): React.ReactElement {
+  return (
+    <LeaderboardWidget
+      filter="hot"
+      rowLimit={8}
+      emptyIcon={Sparkles}
+      emptyMessage="Nothing new yet"
+      errorMessage="Couldn't load new skills"
+    />
+  )
+}

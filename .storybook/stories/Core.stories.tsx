@@ -20,11 +20,9 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-const ThrowingPreview = React.memo(
-  function ThrowingPreview(): React.ReactElement {
-    throw new Error('Storybook forced render failure')
-  },
-)
+const ThrowingPreview = function ThrowingPreview(): React.ReactElement {
+  throw new Error('Storybook forced render failure')
+}
 
 export const ErrorBoundaryFallback: Story = {
   render: () => (
@@ -62,6 +60,7 @@ export const UpdateToasts: Story = {
       </StoryCard>
     </StoryGrid>
   ),
+
   parameters: {
     skillsDesktop: {
       state: {

@@ -1,5 +1,5 @@
 import { LayoutGrid, RefreshCw, RotateCw, Store } from 'lucide-react'
-import React, { useCallback } from 'react'
+import React from 'react'
 
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { resetToDefaults } from '@/renderer/src/redux/slices/dashboardSlice'
@@ -25,7 +25,7 @@ interface ActionTileProps {
   accentClass?: string
 }
 
-const ActionTile = React.memo(function ActionTile({
+const ActionTile = function ActionTile({
   icon: Icon,
   label,
   description,
@@ -52,6 +52,7 @@ const ActionTile = React.memo(function ActionTile({
         className={`h-4 w-4 shrink-0 ${accentClass} ${isBusy ? 'animate-spin' : ''}`}
         aria-hidden="true"
       />
+
       <div className="flex-1 min-w-0 flex flex-col">
         <span className="text-xs font-medium text-foreground truncate">
           {label}
@@ -62,7 +63,7 @@ const ActionTile = React.memo(function ActionTile({
       </div>
     </button>
   )
-})
+}
 
 /**
  * Quick Actions widget body.
@@ -80,29 +81,29 @@ const ActionTile = React.memo(function ActionTile({
  * Spinning icons on Sync and Refresh mirror the status bar indicators so
  * the user sees activity without having to look elsewhere.
  */
-export const QuickActionsWidget = React.memo(
+export const QuickActionsWidget =
   function QuickActionsWidget(): React.ReactElement {
     const dispatch = useAppDispatch()
     const isSyncing = useAppSelector(selectIsSyncing)
     const isRefreshing = useAppSelector(selectIsRefreshing)
 
-    const handleSync = useCallback((): void => {
+    const handleSync = (): void => {
       dispatch(fetchSyncPreview())
-    }, [dispatch])
+    }
 
-    const handleRefresh = useCallback((): void => {
+    const handleRefresh = (): void => {
       refreshAllData(dispatch)
-    }, [dispatch])
+    }
 
-    const handleOpenMarketplace = useCallback((): void => {
+    const handleOpenMarketplace = (): void => {
       dispatch(setActiveTab('marketplace'))
-    }, [dispatch])
+    }
 
-    const handleResetLayout = useCallback((): void => {
+    const handleResetLayout = (): void => {
       // No confirm dialog here by design — `welcomeDismissed` is preserved,
       // so reset is reversible (re-arrange manually) and data-safe.
       dispatch(resetToDefaults())
-    }, [dispatch])
+    }
 
     return (
       <div className="h-full w-full flex flex-col justify-center p-3">
@@ -115,6 +116,7 @@ export const QuickActionsWidget = React.memo(
             isBusy={isSyncing}
             accentClass="text-primary"
           />
+
           <ActionTile
             icon={RefreshCw}
             label="Refresh"
@@ -123,12 +125,14 @@ export const QuickActionsWidget = React.memo(
             isBusy={isRefreshing}
             accentClass="text-emerald-400"
           />
+
           <ActionTile
             icon={Store}
             label="Marketplace"
             description="Browse skills.sh"
             onClick={handleOpenMarketplace}
           />
+
           <ActionTile
             icon={LayoutGrid}
             label="Reset Layout"
@@ -138,5 +142,4 @@ export const QuickActionsWidget = React.memo(
         </div>
       </div>
     )
-  },
-)
+  }

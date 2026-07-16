@@ -7,7 +7,7 @@ import {
   ShieldCheck,
   Trash2,
 } from 'lucide-react'
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { match } from 'ts-pattern'
 
 import {
@@ -514,6 +514,7 @@ function buildCleanupSummary(params: {
       ...unlinkPhrases,
       ...(params.refreshMessage ? [params.refreshMessage] : []),
     ],
+
     cleanedIssues: params.attemptedCount - failedCount,
     orphanSymlinksRemoved,
     brokenLinksUnlinked,
@@ -527,7 +528,7 @@ function buildCleanupSummary(params: {
  * @example
  * <SymlinkCleanupDialog />
  */
-export const SymlinkCleanupDialog = React.memo(
+export const SymlinkCleanupDialog =
   function SymlinkCleanupDialog(): React.ReactElement | null {
     const dispatch = useAppDispatch()
     const isOpen = useAppSelector(selectSymlinkCleanupDialogOpen)
@@ -535,96 +536,84 @@ export const SymlinkCleanupDialog = React.memo(
     const titleRef = useRef<HTMLHeadingElement>(null)
     const scanRequestIdRef = useRef(0)
 
-    const selectedItemIdSet = useMemo(
-      () => new Set(state.selectedItemIds),
-      [state.selectedItemIds],
+    const selectedItemIdSet = new Set(state.selectedItemIds)
+
+    const planItems = state.plan ? getSymlinkCleanupPlanItems(state.plan) : []
+
+    const selectedItems = getSelectedPlanItems(
+      state.plan,
+      state.selectedItemIds,
     )
-    const planItems = useMemo(
-      () => (state.plan ? getSymlinkCleanupPlanItems(state.plan) : []),
-      [state.plan],
-    )
-    const selectedItems = useMemo(
-      () => getSelectedPlanItems(state.plan, state.selectedItemIds),
-      [state.plan, state.selectedItemIds],
-    )
+
     const selectedCount = state.selectedItemIds.length
     const hasSelectedOrphan = selectedItems.some(
       (item) => item.kind === 'orphan-record',
     )
 
-    const dispatchLocal = useCallback(
-      (action: SymlinkCleanupDialogAction): void => {
-        setState((currentState) =>
-          symlinkCleanupDialogReducer(currentState, action),
-        )
-      },
-      [],
-    )
+    const dispatchLocal = (action: SymlinkCleanupDialogAction): void => {
+      setState((currentState) =>
+        symlinkCleanupDialogReducer(currentState, action),
+      )
+    }
 
-    const runScan = useCallback(
-      async (options: { refreshDashboard?: boolean } = {}): Promise<void> => {
-        const { refreshDashboard = false } = options
-        const requestId = scanRequestIdRef.current + 1
-        scanRequestIdRef.current = requestId
-        dispatchLocal({ type: 'scanning' })
-        try {
-          let auxiliaryRefreshMessage: string | null = null
-          // react-doctor-disable-next-line react-doctor/async-defer-await -- the awaited skills fetch is immediately followed by the post-await race guard `if (scanRequestIdRef.current !== requestId) return`, so the await cannot be deferred past that guard.
-          const skills = refreshDashboard
-            ? await (async () => {
-                const [skillsResult, ...refreshResults] =
-                  await Promise.allSettled([
-                    dispatch(fetchSkills()).unwrap(),
-                    dispatch(fetchAgents()).unwrap(),
-                    dispatch(fetchSourceStats()).unwrap(),
-                  ] as const)
-                if (skillsResult.status === 'rejected') {
-                  throw skillsResult.reason
-                }
-                auxiliaryRefreshMessage =
-                  getRefreshFailureMessage(refreshResults)
-                // Dashboard side panels can stay stale; the dialog only needs
-                // fresh skills to decide whether cleanup remains available.
-                return skillsResult.value
-              })()
-            : await dispatch(fetchSkills()).unwrap()
-          if (scanRequestIdRef.current !== requestId) return
-          const plan = buildSymlinkCleanupPlan(skills)
-          if (getSymlinkCleanupPlanItems(plan).length === 0) {
-            dispatchLocal({
-              type: 'no-safe-cleanup',
-              plan,
-              message: auxiliaryRefreshMessage,
-            })
-            return
-          }
+    const runScan = async (
+      options: { refreshDashboard?: boolean } = {},
+    ): Promise<void> => {
+      const { refreshDashboard = false } = options
+      const requestId = scanRequestIdRef.current + 1
+      scanRequestIdRef.current = requestId
+      dispatchLocal({ type: 'scanning' })
+      try {
+        let auxiliaryRefreshMessage: string | null = null
+        // react-doctor-disable-next-line react-doctor/async-defer-await -- the awaited skills fetch is immediately followed by the post-await race guard `if (scanRequestIdRef.current !== requestId) return`, so the await cannot be deferred past that guard.
+        const skills = refreshDashboard
+          ? await (async () => {
+              const [skillsResult, ...refreshResults] =
+                await Promise.allSettled([
+                  dispatch(fetchSkills()).unwrap(),
+                  dispatch(fetchAgents()).unwrap(),
+                  dispatch(fetchSourceStats()).unwrap(),
+                ] as const)
+              if (skillsResult.status === 'rejected') {
+                throw skillsResult.reason
+              }
+              auxiliaryRefreshMessage = getRefreshFailureMessage(refreshResults)
+              // Dashboard side panels can stay stale; the dialog only needs
+              // fresh skills to decide whether cleanup remains available.
+              return skillsResult.value
+            })()
+          : await dispatch(fetchSkills()).unwrap()
+        if (scanRequestIdRef.current !== requestId) return
+        const plan = buildSymlinkCleanupPlan(skills)
+        if (getSymlinkCleanupPlanItems(plan).length === 0) {
           dispatchLocal({
-            type: 'ready',
+            type: 'no-safe-cleanup',
             plan,
             message: auxiliaryRefreshMessage,
           })
-        } catch (error) {
-          if (scanRequestIdRef.current !== requestId) return
-          dispatchLocal({
-            type: 'error',
-            message: `Scan failed: ${getErrorMessage(error)}`,
-          })
+          return
         }
-      },
-      // react-doctor-disable-next-line react-doctor/exhaustive-deps -- the only flagged dep is dispatchLocal, a useCallback(fn, []) (L555-562) wrapping stable setState, so its identity never changes; runScan's changing dep dispatch is already listed.
-      [dispatch],
-    )
+        dispatchLocal({
+          type: 'ready',
+          plan,
+          message: auxiliaryRefreshMessage,
+        })
+      } catch (error) {
+        if (scanRequestIdRef.current !== requestId) return
+        dispatchLocal({
+          type: 'error',
+          message: `Scan failed: ${getErrorMessage(error)}`,
+        })
+      }
+    }
 
-    const handleOpenAutoFocus = useCallback(
-      (event: Event): void => {
-        event.preventDefault()
-        titleRef.current?.focus()
-        void runScan()
-      },
-      [runScan],
-    )
+    const handleOpenAutoFocus = (event: Event): void => {
+      event.preventDefault()
+      titleRef.current?.focus()
+      void runScan()
+    }
 
-    const handleCloseAutoFocus = useCallback((event: Event): void => {
+    const handleCloseAutoFocus = (event: Event): void => {
       event.preventDefault()
       const trigger = document.querySelector<HTMLButtonElement>(
         SYMLINK_CLEANUP_TRIGGER_SELECTOR,
@@ -632,24 +621,20 @@ export const SymlinkCleanupDialog = React.memo(
       const fallback = document.querySelector<HTMLElement>('#main-content')
       const focusTarget = trigger ?? fallback
       focusTarget?.focus()
-    }, [])
+    }
 
-    const handleClose = useCallback(
-      (nextOpen: boolean): void => {
-        if (nextOpen || state.phase === 'cleaning') return
-        scanRequestIdRef.current += 1
-        dispatch(closeSymlinkCleanupDialog())
-        dispatchLocal({ type: 'reset' })
-      },
-      // react-doctor-disable-next-line react-doctor/exhaustive-deps -- dispatchLocal (L555-562, useCallback over stable setState) has stable identity; handleClose's changing dep state.phase is already listed, so no stale closure exists.
-      [dispatch, state.phase],
-    )
+    const handleClose = (nextOpen: boolean): void => {
+      if (nextOpen || state.phase === 'cleaning') return
+      scanRequestIdRef.current += 1
+      dispatch(closeSymlinkCleanupDialog())
+      dispatchLocal({ type: 'reset' })
+    }
 
-    const handleDismissClick = useCallback((): void => {
+    const handleDismissClick = (): void => {
       handleClose(false)
-    }, [handleClose])
+    }
 
-    const handleRescanClick = useCallback((): void => {
+    const handleRescanClick = (): void => {
       // A rescan refreshes every dashboard source (not just the dialog's skill
       // scan) whenever the cleanup mutation already ran and may have left the
       // dashboard side data stale: a 'complete' or 'error' phase whose
@@ -667,38 +652,24 @@ export const SymlinkCleanupDialog = React.memo(
             state.message !== null) ||
           (state.phase === 'stale' && state.staleAfterMutation),
       })
-    }, [
-      runScan,
-      state.message,
-      state.phase,
-      state.staleAfterMutation,
-      state.summary,
-    ])
+    }
 
-    const handlePreventDismissDuringCleaning = useCallback(
-      (event: Event): void => {
-        if (state.phase === 'cleaning') event.preventDefault()
-      },
-      [state.phase],
-    )
+    const handlePreventDismissDuringCleaning = (event: Event): void => {
+      if (state.phase === 'cleaning') event.preventDefault()
+    }
 
-    const handleToggleItem = useCallback(
-      (itemId: SymlinkCleanupItemId): void => {
-        dispatchLocal({ type: 'toggle-item', itemId })
-      },
-      // react-doctor-disable-next-line react-doctor/exhaustive-deps -- handleToggleItem only references dispatchLocal, a stable useCallback(fn, []) (L555-562) over setState, so the empty dep array is correct.
-      [],
-    )
+    const handleToggleItem = (itemId: SymlinkCleanupItemId): void => {
+      dispatchLocal({ type: 'toggle-item', itemId })
+    }
 
-    const handleSetSection = useCallback(
-      (itemIds: SymlinkCleanupItemId[], checked: boolean): void => {
-        dispatchLocal({ type: 'set-section', itemIds, checked })
-      },
-      // react-doctor-disable-next-line react-doctor/exhaustive-deps -- handleSetSection only references the stable dispatchLocal (L555-562, useCallback(fn, []) over setState), so the empty dep array is correct.
-      [],
-    )
+    const handleSetSection = (
+      itemIds: SymlinkCleanupItemId[],
+      checked: boolean,
+    ): void => {
+      dispatchLocal({ type: 'set-section', itemIds, checked })
+    }
 
-    const handleCleanSelected = useCallback(async (): Promise<void> => {
+    const handleCleanSelected = async (): Promise<void> => {
       if (!state.plan || state.selectedItemIds.length === 0) return
       const itemsToClean = getSelectedPlanItems(
         state.plan,
@@ -891,12 +862,12 @@ export const SymlinkCleanupDialog = React.memo(
           message: `Cleanup failed: ${getErrorMessage(error)}`,
         })
       }
-      // react-doctor-disable-next-line react-doctor/exhaustive-deps -- the flagged missing dep is dispatchLocal, a stable useCallback(fn, []) (L555-562); handleCleanSelected's changing deps (dispatch, state.plan, state.selectedItemIds) are already listed.
-    }, [dispatch, state.plan, state.selectedItemIds])
+      // react-doctor-disable-next-line react-doctor/exhaustive-deps -- the flagged missing dep is dispatchLocal, a stable reducer dispatch (L555-562); handleCleanSelected's changing deps (dispatch, state.plan, state.selectedItemIds) are already listed.
+    }
 
-    const handleCleanSelectedClick = useCallback((): void => {
+    const handleCleanSelectedClick = (): void => {
       void handleCleanSelected()
-    }, [handleCleanSelected])
+    }
 
     if (!isOpen) return null
 
@@ -1046,8 +1017,7 @@ export const SymlinkCleanupDialog = React.memo(
         </DialogContent>
       </Dialog>
     )
-  },
-)
+  }
 
 interface StatusBlockProps {
   icon: typeof Loader2
@@ -1063,7 +1033,7 @@ interface StatusBlockProps {
  * @example
  * <StatusBlock icon={Loader2} title="Scanning" description="Checking links" />
  */
-const StatusBlock = React.memo(function StatusBlock({
+const StatusBlock = function StatusBlock({
   icon: Icon,
   title,
   description,
@@ -1083,13 +1053,14 @@ const StatusBlock = React.memo(function StatusBlock({
         )}
         aria-hidden="true"
       />
+
       <div className="space-y-1">
         <p className="font-medium text-foreground">{title}</p>
         <p className="text-muted-foreground">{description}</p>
       </div>
     </div>
   )
-})
+}
 
 interface CompleteSummaryProps {
   summary: CleanupSummary | null
@@ -1102,7 +1073,7 @@ interface CompleteSummaryProps {
  * @example
  * <CompleteSummary summary={summary} />
  */
-const CompleteSummary = React.memo(function CompleteSummary({
+const CompleteSummary = function CompleteSummary({
   summary,
 }: CompleteSummaryProps): React.ReactElement {
   const didRefreshFail = didCleanupRefreshFail(summary)
@@ -1130,7 +1101,7 @@ const CompleteSummary = React.memo(function CompleteSummary({
       <SummaryLines summary={summary} />
     </div>
   )
-})
+}
 
 interface ReviewContentProps {
   plan: SymlinkCleanupPlan | null
@@ -1151,7 +1122,7 @@ interface ReviewContentProps {
  * @example
  * <ReviewContent plan={plan} selectedItemIdSet={ids} rowErrors={{}} ... />
  */
-const ReviewContent = React.memo(function ReviewContent({
+const ReviewContent = function ReviewContent({
   plan,
   selectedItemIdSet,
   rowErrors,
@@ -1210,7 +1181,7 @@ const ReviewContent = React.memo(function ReviewContent({
       </CleanupSection>
     </div>
   )
-})
+}
 
 interface CleanupSectionProps {
   title: string
@@ -1228,7 +1199,7 @@ interface CleanupSectionProps {
  * @example
  * <CleanupSection title="Orphans" itemIds={ids}>...</CleanupSection>
  */
-const CleanupSection = React.memo(function CleanupSection({
+const CleanupSection = function CleanupSection({
   title,
   description,
   itemIds,
@@ -1241,12 +1212,9 @@ const CleanupSection = React.memo(function CleanupSection({
   ).length
   const checked = checkedCount === itemIds.length
   const isIndeterminate = checkedCount > 0 && checkedCount < itemIds.length
-  const handleCheckedChange = useCallback(
-    (value: boolean | 'indeterminate'): void => {
-      onSetSection(itemIds, value === true)
-    },
-    [itemIds, onSetSection],
-  )
+  const handleCheckedChange = (value: boolean | 'indeterminate'): void => {
+    onSetSection(itemIds, value === true)
+  }
 
   if (itemIds.length === 0) return null
 
@@ -1269,7 +1237,7 @@ const CleanupSection = React.memo(function CleanupSection({
       <div className="divide-y divide-border">{children}</div>
     </section>
   )
-})
+}
 
 interface CleanupRowProps {
   item: SymlinkCleanupPlanItem
@@ -1285,7 +1253,7 @@ interface CleanupRowProps {
  * @example
  * <CleanupRow item={item} checked={true} onToggleItem={toggle} />
  */
-const CleanupRow = React.memo(function CleanupRow({
+const CleanupRow = function CleanupRow({
   item,
   checked,
   error,
@@ -1309,9 +1277,9 @@ const CleanupRow = React.memo(function CleanupRow({
           `${agent.agentName}: ${agent.linkPath} -> ${agent.targetPath}`,
       )
     : [`${item.linkPath} -> ${item.targetPath}`]
-  const handleCheckedChange = useCallback((): void => {
+  const handleCheckedChange = (): void => {
     onToggleItem(item.id)
-  }, [item.id, onToggleItem])
+  }
 
   return (
     <div className="py-2">
@@ -1326,6 +1294,7 @@ const CleanupRow = React.memo(function CleanupRow({
           }
           aria-describedby={pathDetailsId}
         />
+
         <Icon
           className={cn(
             'h-4 w-4',
@@ -1333,6 +1302,7 @@ const CleanupRow = React.memo(function CleanupRow({
           )}
           aria-hidden="true"
         />
+
         <span className="min-w-0 truncate font-medium">{label}</span>
         <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
           {agentLabel}
@@ -1363,7 +1333,7 @@ const CleanupRow = React.memo(function CleanupRow({
       ) : null}
     </div>
   )
-})
+}
 
 interface SummaryLinesProps {
   summary: CleanupSummary | null
@@ -1376,7 +1346,7 @@ interface SummaryLinesProps {
  * @example
  * <SummaryLines summary={summary} />
  */
-const SummaryLines = React.memo(function SummaryLines({
+const SummaryLines = function SummaryLines({
   summary,
 }: SummaryLinesProps): React.ReactElement | null {
   if (!summary) return null
@@ -1400,4 +1370,4 @@ const SummaryLines = React.memo(function SummaryLines({
       ) : null}
     </div>
   )
-})
+}

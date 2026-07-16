@@ -1,5 +1,5 @@
 import { Monitor, Moon, Palette, Sun } from 'lucide-react'
-import React, { useCallback, type ReactElement } from 'react'
+import React, { type ReactElement } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import {
@@ -164,39 +164,30 @@ export function resolveNeutralFamilySelection(
  *     `${family}-${currentMode}` so users don't have to pick a Dark/Light
  *     variant twice.
  *
- * Wrapped in `React.memo` to match the project-wide memoization convention
- * (enforced by `@laststance/react-next/all-memo`). The component takes no
- * props, so the referential stability is trivial — memo is for consistency
- * with every other component in the tree.
+ * Takes no props; React Compiler skips redundant re-renders when parent
+ * re-renders without new theme state.
  */
-export const ThemeSelector = React.memo(function ThemeSelector(): ReactElement {
+export const ThemeSelector = function ThemeSelector(): ReactElement {
   const dispatch = useAppDispatch()
   const { mode, modePreference, preset } = useAppSelector(
     (state) => state.theme,
   )
 
-  // `useCallback` is intentionally avoided for `handleSelectPreset` and
-  // `handleSelectFamily`: the swatch grid renders an inline arrow per item
-  // (`() => dispatch(setTheme(name))`) to capture the per-item `name` /
-  // `family`. Wrapping a stable `handleSelectPreset` and then re-wrapping
-  // it in the inline arrow would defeat the memoization (enforced by the
-  // `@laststance/react-next/no-deopt-use-callback` lint rule). The inline
-  // arrow is the simplest correct form — each render creates 17 new
-  // closures, which is fine at this scale.
+  // Per-item handlers use inline arrows (`() => dispatch(setTheme(name))`) to
+  // capture each swatch's `name` / `family`. A shared handler plus per-item
+  // wrappers would still allocate new closures each render, so inline arrows
+  // are the simplest correct form — 17 closures per render is fine at this scale.
   //
-  // `handleSelectMode` is different: it is passed directly to Radix's
-  // `onValueChange` (no per-item wrapper), so memoization sticks and pays
-  // off when ToggleGroup memoizes against the prop identity.
-  const handleSelectMode = useCallback(
-    (value: string): void => {
-      // Radix's `onValueChange` can fire with an empty string when the
-      // user tries to deselect the active item — guard so we always have a
-      // value; the segmented control should never enter an "unset" state.
-      if (!value) return
-      dispatch(setModePreference(value as ModePreference))
-    },
-    [dispatch],
-  )
+  // `handleSelectMode` is passed directly to Radix's `onValueChange` (no
+  // per-item wrapper); React Compiler keeps its identity stable when deps are
+  // unchanged.
+  const handleSelectMode = (value: string): void => {
+    // Radix's `onValueChange` can fire with an empty string when the
+    // user tries to deselect the active item — guard so we always have a
+    // value; the segmented control should never enter an "unset" state.
+    if (!value) return
+    dispatch(setModePreference(value as ModePreference))
+  }
 
   return (
     <DropdownMenu>
@@ -340,6 +331,7 @@ export const ThemeSelector = React.memo(function ThemeSelector(): ReactElement {
                     backgroundColor: `oklch(${SWATCH_LIGHTNESS} ${family.chroma} ${family.hue})`,
                   }}
                 />
+
                 <span className="text-[10px] text-muted-foreground leading-none">
                   {family.label}
                 </span>
@@ -358,4 +350,4 @@ export const ThemeSelector = React.memo(function ThemeSelector(): ReactElement {
       </DropdownMenuContent>
     </DropdownMenu>
   )
-})
+}

@@ -14,7 +14,7 @@ import {
  * a no-op), it scales past two options, and it can disable a single segment.
  *
  * Option arrays live at module scope (not inline in JSX) so their identity stays
- * stable across renders — the same shape the `prefer-usememo` lint rule expects.
+ * stable across renders without manual memoization.
  */
 const SCOPE_OPTIONS: ReadonlyArray<SegmentedControlOption<'name' | 'repo'>> = [
   { value: 'name', label: 'Name' },

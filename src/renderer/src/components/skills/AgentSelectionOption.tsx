@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React from 'react'
 
 import { Checkbox } from '@/renderer/src/components/ui/checkbox'
 import { cn } from '@/renderer/src/lib/utils'
@@ -29,7 +29,7 @@ interface AgentSelectionOptionProps {
  * @example
  * <AgentSelectionOption agentId="codex" checkboxId="copy-codex" name="Codex" checked={false} disabled={false} hoverClassName="hover:bg-muted" onToggle={toggle} />
  */
-export const AgentSelectionOption = React.memo(function AgentSelectionOption({
+export const AgentSelectionOption = function AgentSelectionOption({
   agentId,
   checkboxId,
   name,
@@ -39,22 +39,19 @@ export const AgentSelectionOption = React.memo(function AgentSelectionOption({
   hoverClassName,
   onToggle,
 }: AgentSelectionOptionProps): React.ReactElement {
-  const handleToggle = useCallback(
-    (_checked?: CheckboxCheckedState): void => {
-      if (!disabled) onToggle(agentId)
-    },
-    [agentId, disabled, onToggle],
-  )
+  const handleToggle = (_checked?: CheckboxCheckedState): void => {
+    if (!disabled) onToggle(agentId)
+  }
 
-  // Native row clicks use a plain wrapper; passing handleToggle directly would
-  // trip no-deopt-use-callback on the intrinsic <div>.
+  // Native row clicks use a named handler wrapper instead of passing
+  // handleToggle directly to the intrinsic <div>.
   const handleRowClick = (): void => {
     handleToggle()
   }
 
-  const handleCheckboxClick = useCallback((event: React.MouseEvent): void => {
+  const handleCheckboxClick = (event: React.MouseEvent): void => {
     event.stopPropagation()
-  }, [])
+  }
 
   return (
     // react-doctor-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions -- the row onClick is a mouse-only convenience that delegates to the keyboard-accessible <Checkbox> inside (it owns onCheckedChange); the real control is focusable and operable, so no separate row keyboard handler/role is needed.
@@ -75,6 +72,7 @@ export const AgentSelectionOption = React.memo(function AgentSelectionOption({
         onCheckedChange={handleToggle}
         disabled={disabled}
       />
+
       <div
         className={cn(
           'text-sm',
@@ -90,4 +88,4 @@ export const AgentSelectionOption = React.memo(function AgentSelectionOption({
       </div>
     </div>
   )
-})
+}

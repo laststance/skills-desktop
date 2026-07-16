@@ -1,5 +1,5 @@
 import { FolderSync, Loader2 } from 'lucide-react'
-import React, { useCallback } from 'react'
+import React from 'react'
 
 import { DialogIconHeader } from '@/renderer/src/components/shared/dialog-icon-header'
 import { StatRow } from '@/renderer/src/components/shared/stat-row'
@@ -22,7 +22,7 @@ import { setSyncPreview } from '@/renderer/src/redux/slices/uiSlice'
  * across how many agents, and how many are already linked.
  * Opens when syncPreview has toCreate > 0 and no conflicts.
  */
-export const SyncConfirmDialog = React.memo(
+export const SyncConfirmDialog =
   function SyncConfirmDialog(): React.ReactElement {
     const dispatch = useAppDispatch()
     const syncPreview = useAppSelector((state) => state.ui.syncPreview)
@@ -31,16 +31,16 @@ export const SyncConfirmDialog = React.memo(
 
     const { run: executeSync, isExecuting } = useExecuteSync('Sync failed')
 
-    const handleClose = useCallback((): void => {
+    const handleClose = (): void => {
       if (!isExecuting) {
         dispatch(setSyncPreview(null))
       }
-    }, [dispatch, isExecuting])
+    }
 
     // Success feedback + refreshAllData handled by SyncResultDialog
-    const handleSync = useCallback(async (): Promise<void> => {
+    const handleSync = async (): Promise<void> => {
       await executeSync({ replaceConflicts: [] })
-    }, [executeSync])
+    }
 
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -58,11 +58,13 @@ export const SyncConfirmDialog = React.memo(
                 label="Skills → Agents"
                 value={`${syncPreview.totalSkills} skills → ${syncPreview.totalAgents} agents`}
               />
+
               <StatRow
                 label="New symlinks to create"
                 value={syncPreview.toCreate}
                 tone="primary"
               />
+
               {syncPreview.alreadySynced > 0 && (
                 <StatRow
                   label="Already synced"
@@ -94,5 +96,4 @@ export const SyncConfirmDialog = React.memo(
         </DialogContent>
       </Dialog>
     )
-  },
-)
+  }

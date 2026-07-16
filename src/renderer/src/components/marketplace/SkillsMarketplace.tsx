@@ -1,5 +1,5 @@
 import { Package, WifiOff } from 'lucide-react'
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useState } from 'react'
 
 import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
@@ -41,7 +41,7 @@ function formatUpdatedAgo(timestamp: number): string {
  * Shows leaderboard data when no search is active.
  * Auto-loads "all-time" leaderboard on mount.
  */
-export const SkillsMarketplace = React.memo(
+export const SkillsMarketplace =
   function SkillsMarketplace(): React.ReactElement {
     const dispatch = useAppDispatch()
     const [rankingFilter, setRankingFilter] =
@@ -52,10 +52,7 @@ export const SkillsMarketplace = React.memo(
     const { items: installedSkills } = useAppSelector((state) => state.skills)
 
     // Check if a skill is already installed
-    const installedSkillNames = useMemo(
-      () => new Set(installedSkills.map((s) => s.name)),
-      [installedSkills],
-    )
+    const installedSkillNames = new Set(installedSkills.map((s) => s.name))
 
     const hasSearched = searchQuery.length > 0
     const isSearching = status === 'searching'
@@ -75,9 +72,9 @@ export const SkillsMarketplace = React.memo(
       dispatch(loadLeaderboard(rankingFilter))
     }, [dispatch, rankingFilter])
 
-    const handleFilterChange = useCallback((filter: RankingFilter): void => {
+    const handleFilterChange = (filter: RankingFilter): void => {
       setRankingFilter(filter)
-    }, [])
+    }
 
     return (
       <div className="h-full flex flex-col">
@@ -110,9 +107,9 @@ export const SkillsMarketplace = React.memo(
             {hasSearched && (
               <>
                 {/* First-search spinner only. While re-searching with results
-                    already on screen, keep them visible (the search box icon
-                    spins instead) so incremental typing never blanks the list —
-                    same "keep stale during refresh" intent as the leaderboard. */}
+                 already on screen, keep them visible (the search box icon
+                 spins instead) so incremental typing never blanks the list —
+                 same "keep stale during refresh" intent as the leaderboard. */}
                 {isSearching && searchResults.length === 0 && (
                   <div className="flex items-center justify-center py-16">
                     <div className="text-muted-foreground">Searching...</div>
@@ -211,5 +208,4 @@ export const SkillsMarketplace = React.memo(
         </div>
       </div>
     )
-  },
-)
+  }

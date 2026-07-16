@@ -1,4 +1,4 @@
-import { memo, useState, type ReactElement } from 'react'
+import { useState, type ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
 
@@ -21,23 +21,21 @@ import { LeaderboardSkeleton } from './LeaderboardSkeleton'
 
 // Harness whose own state changes force a parent re-render so React invokes the
 // memo comparator on the child even though the child's props never change.
-const MemoComparatorHarness = memo(
-  function MemoComparatorHarness(): ReactElement {
-    const [parentRenderCount, setParentRenderCount] = useState(0)
-    return (
-      <div>
-        <LeaderboardSkeleton />
-        <button
-          type="button"
-          onClick={() => setParentRenderCount((current) => current + 1)}
-        >
-          re-render parent
-        </button>
-        <span>parent rendered {parentRenderCount} times</span>
-      </div>
-    )
-  },
-)
+const MemoComparatorHarness = function MemoComparatorHarness(): ReactElement {
+  const [parentRenderCount, setParentRenderCount] = useState(0)
+  return (
+    <div>
+      <LeaderboardSkeleton />
+      <button
+        type="button"
+        onClick={() => setParentRenderCount((current) => current + 1)}
+      >
+        re-render parent
+      </button>
+      <span>parent rendered {parentRenderCount} times</span>
+    </div>
+  )
+}
 
 describe('LeaderboardSkeleton', () => {
   it('holds layout steady with three pulsing placeholder rows while the first fetch loads', async () => {

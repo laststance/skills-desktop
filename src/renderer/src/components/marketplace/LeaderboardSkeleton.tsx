@@ -4,7 +4,7 @@ import React from 'react'
  * Skeleton loading state for the leaderboard.
  * 6 pulsing rows matching the 76px height of SkillRowMarketplace.
  */
-export const LeaderboardSkeleton = React.memo(
+export const LeaderboardSkeleton =
   function LeaderboardSkeleton(): React.ReactElement {
     return (
       <div className="flex flex-col gap-2">
@@ -19,6 +19,7 @@ export const LeaderboardSkeleton = React.memo(
                 className="h-4 bg-muted animate-pulse rounded"
                 style={{ width: '40%' }}
               />
+
               <div
                 className="h-3 bg-muted animate-pulse rounded"
                 style={{ width: '30%' }}
@@ -30,5 +31,4 @@ export const LeaderboardSkeleton = React.memo(
         ))}
       </div>
     )
-  },
-)
+  }

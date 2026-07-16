@@ -31,7 +31,7 @@ interface FileTabsProps {
  * via `aria-labelledby`. Selection is reported to the parent through Root's
  * `onValueChange`; this component only renders the list.
  */
-export const FileTabs = React.memo(function FileTabs({
+export const FileTabs = function FileTabs({
   files,
   activeFilePath,
 }: FileTabsProps): React.ReactElement {
@@ -46,14 +46,14 @@ export const FileTabs = React.memo(function FileTabs({
       ))}
     </TabsPrimitive.List>
   )
-})
+}
 
 interface FileTabProps {
   file: SkillFile
   isActive: boolean
 }
 
-const FileTab = React.memo(function FileTab({
+const FileTab = function FileTab({
   file,
   isActive,
 }: FileTabProps): React.ReactElement {
@@ -80,7 +80,7 @@ const FileTab = React.memo(function FileTab({
       )}
     </TabsPrimitive.Trigger>
   )
-})
+}
 
 function iconForFile(file: SkillFile): typeof FileText {
   if (file.previewable === 'image') return FileImage

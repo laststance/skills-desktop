@@ -12,7 +12,7 @@ import { BookmarkItem } from './BookmarkItem'
  * Shows bookmarked skills with install/remove actions.
  * Only renders when bookmarks exist.
  */
-export const BookmarksSection = React.memo(
+export const BookmarksSection =
   function BookmarksSection(): React.ReactElement {
     const bookmarks = useAppSelector(selectBookmarksWithInstallStatus)
 
@@ -37,5 +37,4 @@ export const BookmarksSection = React.memo(
         <BookmarkDetailModal />
       </div>
     )
-  },
-)
+  }

@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React from 'react'
 
 import { SegmentedControl } from '@/renderer/src/components/shared/segmented-control'
 import { Button } from '@/renderer/src/components/ui/button'
@@ -95,7 +95,7 @@ interface SettingRangeInputProps {
  * @example
  * <SettingRangeInput value={14} min={12} max={22} label="Reading font size" valueText="14px" onValueChange={setSize} />
  */
-const SettingRangeInput = React.memo(function SettingRangeInput({
+const SettingRangeInput = function SettingRangeInput({
   value,
   min,
   max,
@@ -126,7 +126,7 @@ const SettingRangeInput = React.memo(function SettingRangeInput({
       className="h-2 min-w-0 flex-1 accent-primary rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     />
   )
-})
+}
 
 interface RangeSettingControlProps {
   label: string
@@ -154,7 +154,7 @@ interface RangeSettingControlProps {
  * @example
  * <RangeSettingControl label="Code font size" min={11} max={20} draft={13} isDefault formatValue={formatPxValue} onValueChange={fn} onReset={fn} />
  */
-const RangeSettingControl = React.memo(function RangeSettingControl({
+const RangeSettingControl = function RangeSettingControl({
   label,
   min,
   max,
@@ -175,6 +175,7 @@ const RangeSettingControl = React.memo(function RangeSettingControl({
           valueText={formatValue(draft)}
           onValueChange={onValueChange}
         />
+
         <span className="w-20 whitespace-nowrap text-right text-sm tabular-nums text-muted-foreground">
           {formatValue(draft)}
         </span>
@@ -192,7 +193,7 @@ const RangeSettingControl = React.memo(function RangeSettingControl({
       </Button>
     </div>
   )
-})
+}
 
 interface CodeThemeSelectProps {
   value: CodeThemeId
@@ -209,7 +210,7 @@ interface CodeThemeSelectProps {
  * @example
  * <CodeThemeSelect value="github" onValueChange={setTheme} />
  */
-const CodeThemeSelect = React.memo(function CodeThemeSelect({
+const CodeThemeSelect = function CodeThemeSelect({
   value,
   onValueChange,
 }: CodeThemeSelectProps): React.ReactElement {
@@ -236,7 +237,7 @@ const CodeThemeSelect = React.memo(function CodeThemeSelect({
       ))}
     </select>
   )
-})
+}
 
 /**
  * Appearance pane for visual controls backed by persisted Settings: the
@@ -244,7 +245,7 @@ const CodeThemeSelect = React.memo(function CodeThemeSelect({
  * preview typography (Markdown reading size, code size, code theme), and where
  * the Installed result count is shown.
  */
-export const Appearance = React.memo(function Appearance(): React.ReactElement {
+export const Appearance = function Appearance(): React.ReactElement {
   const windowBackgroundBlurRadius = useAppSelector(
     (state) => state.settings.windowBackgroundBlurRadius,
   )
@@ -279,19 +280,15 @@ export const Appearance = React.memo(function Appearance(): React.ReactElement {
     SETTINGS_RANGE_DEBOUNCE_MS,
   )
 
-  const handleSearchCountDisplayChange = useCallback(
-    (nextValue: Settings['installedSearchCountDisplay']): void => {
-      updateSettings({ installedSearchCountDisplay: nextValue })
-    },
-    [updateSettings],
-  )
+  const handleSearchCountDisplayChange = (
+    nextValue: Settings['installedSearchCountDisplay'],
+  ): void => {
+    updateSettings({ installedSearchCountDisplay: nextValue })
+  }
 
-  const handleCodeThemeChange = useCallback(
-    (nextThemeId: CodeThemeId): void => {
-      updateSettings({ codeThemeId: nextThemeId })
-    },
-    [updateSettings],
-  )
+  const handleCodeThemeChange = (nextThemeId: CodeThemeId): void => {
+    updateSettings({ codeThemeId: nextThemeId })
+  }
 
   return (
     <SectionFrame
@@ -370,4 +367,4 @@ export const Appearance = React.memo(function Appearance(): React.ReactElement {
       </SectionRow>
     </SectionFrame>
   )
-})
+}

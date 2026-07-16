@@ -1,5 +1,5 @@
 import { Copy, Loader2 } from 'lucide-react'
-import React, { useCallback, useMemo } from 'react'
+import React from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import {
@@ -35,7 +35,7 @@ import { copyToAgentsWithToast } from './copyToAgentsWithToast'
  * @example
  * <CopyToAgentsModal />
  */
-export const CopyToAgentsModal = React.memo(
+export const CopyToAgentsModal =
   function CopyToAgentsModal(): React.ReactElement {
     const dispatch = useAppDispatch()
     const { skillToCopy, copying } = useAppSelector((state) => state.skills)
@@ -51,21 +51,21 @@ export const CopyToAgentsModal = React.memo(
       dispatch(clearCopyAgentSelection())
     }, [dispatch, skillToCopyName])
 
-    const targetAgents = useMemo(() => {
+    const targetAgents = (() => {
       if (!selectedAgentId) return []
       return getTargetAgentsForSelection(agents, {
         excludeAgentId: selectedAgentId,
       })
-    }, [agents, selectedAgentId])
+    })()
 
     /** Agent IDs where this skill already occupies the destination path. */
-    const occupiedAgentReasonById = useMemo(() => {
+    const occupiedAgentReasonById = (() => {
       if (!skillToCopy) return new Map<AgentId, OccupiedAgentReason>()
       return getOccupiedAgentReasonById(skillToCopy.symlinks)
-    }, [skillToCopy])
+    })()
 
     /** The on-disk source entry for the selected agent's copy operation. */
-    const sourcePath = useMemo(() => {
+    const sourcePath = (() => {
       if (!skillToCopy || !selectedAgentId) return null
       const symlink = skillToCopy.symlinks.find(
         (s) => s.agentId === selectedAgentId,
@@ -73,55 +73,41 @@ export const CopyToAgentsModal = React.memo(
       if (!symlink) return null
       if (!symlink.isLocal && symlink.status !== 'valid') return null
       return symlink.linkPath
-    }, [skillToCopy, selectedAgentId])
+    })()
     const isSourceUnavailable = sourcePath === null
 
-    const copyAgentOptionViewModels = useMemo(() => {
-      return targetAgents.map((agent) =>
-        buildCopyAgentOptionViewModel(agent, {
-          occupiedAgentReasonById,
-          selectedAgentIds: selectedAgents,
-          copying,
-          isSourceUnavailable,
-        }),
-      )
-    }, [
-      copying,
-      isSourceUnavailable,
-      occupiedAgentReasonById,
-      selectedAgents,
-      targetAgents,
-    ])
+    const copyAgentOptionViewModels = targetAgents.map((agent) =>
+      buildCopyAgentOptionViewModel(agent, {
+        occupiedAgentReasonById,
+        selectedAgentIds: selectedAgents,
+        copying,
+        isSourceUnavailable,
+      }),
+    )
 
-    const handleClose = useCallback((): void => {
+    const handleClose = (): void => {
       if (!copying) {
         dispatch(setSkillToCopy(null))
       }
-    }, [copying, dispatch])
+    }
 
-    const handleAgentToggle = useCallback(
-      (agentId: AgentId): void => {
-        if (occupiedAgentReasonById.has(agentId)) return
-        dispatch(toggleCopyAgentSelection(agentId))
-      },
-      [dispatch, occupiedAgentReasonById],
-    )
+    const handleAgentToggle = (agentId: AgentId): void => {
+      if (occupiedAgentReasonById.has(agentId)) return
+      dispatch(toggleCopyAgentSelection(agentId))
+    }
 
-    const handleCopy = useCallback(async (): Promise<void> => {
+    const handleCopy = async (): Promise<void> => {
       if (!skillToCopy || !sourcePath || selectedAgents.length === 0) return
       await copyToAgentsWithToast(dispatch, {
         skill: skillToCopy,
         sourcePath,
         agentIds: selectedAgents,
       })
-    }, [dispatch, selectedAgents, skillToCopy, sourcePath])
+    }
 
-    const handleOpenChange = useCallback(
-      (open: boolean): void => {
-        if (!open) handleClose()
-      },
-      [handleClose],
-    )
+    const handleOpenChange = (open: boolean): void => {
+      if (!open) handleClose()
+    }
 
     const hasNewSelections = selectedAgents.length > 0
 
@@ -177,8 +163,7 @@ export const CopyToAgentsModal = React.memo(
         </DialogContent>
       </Dialog>
     )
-  },
-)
+  }
 
 interface CopyToAgentOptionProps {
   agentId: AgentId
@@ -189,7 +174,7 @@ interface CopyToAgentOptionProps {
   onToggle: (agentId: AgentId) => void
 }
 
-const CopyToAgentOption = React.memo(function CopyToAgentOption({
+const CopyToAgentOption = function CopyToAgentOption({
   agentId,
   name,
   checked,
@@ -209,4 +194,4 @@ const CopyToAgentOption = React.memo(function CopyToAgentOption({
       onToggle={onToggle}
     />
   )
-})
+}

@@ -1,5 +1,5 @@
 import { Files, Info, Terminal, Trash2 } from 'lucide-react'
-import React, { useCallback, useState } from 'react'
+import React, { useState } from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { Input } from '@/renderer/src/components/ui/input'
@@ -77,7 +77,7 @@ function useCliCommandControl(): CliCommandControlState {
     }
   })
 
-  const install = useCallback((): void => {
+  const install = (): void => {
     setIsBusy(true)
     setMessage(null)
     void window.electron.cliCommand
@@ -92,9 +92,9 @@ function useCliCommandControl(): CliCommandControlState {
       .finally(() => {
         setIsBusy(false)
       })
-  }, [])
+  }
 
-  const remove = useCallback((): void => {
+  const remove = (): void => {
     setIsBusy(true)
     setMessage(null)
     void window.electron.cliCommand
@@ -109,7 +109,7 @@ function useCliCommandControl(): CliCommandControlState {
       .finally(() => {
         setIsBusy(false)
       })
-  }, [])
+  }
 
   return { status, message, isBusy, install, remove }
 }
@@ -134,7 +134,7 @@ function useCliCommandControl(): CliCommandControlState {
  * for users typing slowly and would also fan out a `settings:changed`
  * broadcast to every open window per character.
  */
-export const General = React.memo(function General(): React.ReactElement {
+export const General = function General(): React.ReactElement {
   const settings = useAppSelector((state) => state.settings)
   const updateSettings = useUpdateSettings()
   const {
@@ -154,13 +154,10 @@ export const General = React.memo(function General(): React.ReactElement {
     settings.customTerminalAppName ?? '',
   )
 
-  const handleDefaultTabChange = useCallback(
-    (nextValue: string): void => {
-      if (nextValue !== 'files' && nextValue !== 'info') return
-      updateSettings({ defaultSkillTab: nextValue })
-    },
-    [updateSettings],
-  )
+  const handleDefaultTabChange = (nextValue: string): void => {
+    if (nextValue !== 'files' && nextValue !== 'info') return
+    updateSettings({ defaultSkillTab: nextValue })
+  }
 
   const handlePreferredTerminalChange = (
     e: React.ChangeEvent<HTMLSelectElement>,
@@ -181,19 +178,18 @@ export const General = React.memo(function General(): React.ReactElement {
    * schema so the renderer never asks main to write a value that the
    * schema would reject.
    */
-  const handleCustomNameChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>): void => {
-      setCustomNameDraft(e.target.value)
-    },
-    [],
-  )
+  const handleCustomNameChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ): void => {
+    setCustomNameDraft(e.target.value)
+  }
 
-  const handleCustomNameBlur = useCallback((): void => {
+  const handleCustomNameBlur = (): void => {
     const trimmed = customNameDraft.trim()
     if (trimmed === '') return
     if (trimmed === settings.customTerminalAppName) return
     updateSettings({ customTerminalAppName: trimmed })
-  }, [customNameDraft, settings.customTerminalAppName, updateSettings])
+  }
 
   const isCustom = settings.preferredTerminal === 'custom'
   const isDraftBlank = customNameDraft.trim() === ''
@@ -241,7 +237,7 @@ export const General = React.memo(function General(): React.ReactElement {
    * flag so the button's disabled state + inline message kick in instead
    * of failing silently. Disk write only happens on a real bounds value.
    */
-  const handleSaveCurrentSize = useCallback(async (): Promise<void> => {
+  const handleSaveCurrentSize = async (): Promise<void> => {
     try {
       const bounds = await window.electron.window.getMainBounds()
       if (bounds === null) {
@@ -252,17 +248,17 @@ export const General = React.memo(function General(): React.ReactElement {
     } catch {
       setIsMainWindowAvailable(false)
     }
-  }, [updateSettings])
+  }
 
-  const handleSaveCurrentSizeClick = useCallback((): void => {
+  const handleSaveCurrentSizeClick = (): void => {
     void handleSaveCurrentSize()
-  }, [handleSaveCurrentSize])
+  }
 
-  const handleResetWindowSize = useCallback((): void => {
+  const handleResetWindowSize = (): void => {
     // `undefined` removes the persisted size; on next launch the main
     // window falls back to the default 1200×800 + maximize() behavior.
     updateSettings({ windowSize: undefined })
-  }, [updateSettings])
+  }
 
   const persistedWindowSize = settings.windowSize
   const hasCustomWindowSize = persistedWindowSize !== undefined
@@ -278,7 +274,7 @@ export const General = React.memo(function General(): React.ReactElement {
     cliCommandStatus?.message ??
     'Checking command status...'
 
-  const handleCliCommandClick = useCallback((): void => {
+  const handleCliCommandClick = (): void => {
     // Installed state maps the same row to removal; every other actionable
     // state installs the managed shim.
     if (isCliCommandInstalled) {
@@ -286,7 +282,7 @@ export const General = React.memo(function General(): React.ReactElement {
       return
     }
     installCliCommand()
-  }, [installCliCommand, isCliCommandInstalled, removeCliCommand])
+  }
 
   return (
     <SectionFrame
@@ -355,6 +351,7 @@ export const General = React.memo(function General(): React.ReactElement {
                 aria-label="Custom terminal app name"
                 className="min-w-56"
               />
+
               {isDraftBlank ? (
                 <p className="text-xs text-muted-foreground">
                   Enter the macOS app name (e.g. <code>Hyper</code>). The app
@@ -464,4 +461,4 @@ export const General = React.memo(function General(): React.ReactElement {
       </SectionRow>
     </SectionFrame>
   )
-})
+}

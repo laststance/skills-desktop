@@ -10,7 +10,7 @@ import {
   Plus,
   X,
 } from 'lucide-react'
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 
 import { StatusBadge } from '@/renderer/src/components/status/StatusBadge'
 import { badgeVariants } from '@/renderer/src/components/ui/badge'
@@ -104,7 +104,7 @@ interface ProtectButtonProps {
  * @example
  * <ProtectButton skillName="task" showBookmark={true} hasXButton={false} />
  */
-const ProtectButton = React.memo(function ProtectButton({
+const ProtectButton = function ProtectButton({
   skillName,
   showBookmark,
   hasXButton,
@@ -158,7 +158,7 @@ const ProtectButton = React.memo(function ProtectButton({
       </TooltipContent>
     </Tooltip>
   )
-})
+}
 
 interface SkillItemProps {
   skill: Skill
@@ -240,7 +240,7 @@ interface GlobalStatusBadgesProps {
  * @example
  * <GlobalStatusBadges buckets={buckets} />
  */
-const GlobalStatusBadges = React.memo(function GlobalStatusBadges({
+const GlobalStatusBadges = function GlobalStatusBadges({
   buckets,
 }: GlobalStatusBadgesProps): React.ReactElement {
   const hasNoLinks =
@@ -278,7 +278,7 @@ const GlobalStatusBadges = React.memo(function GlobalStatusBadges({
       )}
     </div>
   )
-})
+}
 
 interface SkillTitleRowProps {
   skill: Skill
@@ -298,7 +298,7 @@ interface SkillTitleRowProps {
  * @example
  * <SkillTitleRow skill={skill} isLinked={false} isLocalSkill={false} isInaccessibleSkill={false} isProtected={false} showAddButton showGStackBadge={false} onAddClick={handleAddClick} />
  */
-const SkillTitleRow = React.memo(function SkillTitleRow({
+const SkillTitleRow = function SkillTitleRow({
   skill,
   isLinked,
   isLocalSkill,
@@ -390,7 +390,7 @@ const SkillTitleRow = React.memo(function SkillTitleRow({
       )}
     </div>
   )
-})
+}
 
 /**
  * Single skill card in the skills list.
@@ -401,7 +401,7 @@ const SkillTitleRow = React.memo(function SkillTitleRow({
  * flash a red left edge for {@link PARTIAL_FAIL_FLASH_MS} via the
  * `skills:bulkItemFailed` custom event so the survivors are easy to spot.
  */
-export const SkillItem = React.memo(function SkillItem({
+export const SkillItem = function SkillItem({
   skill,
 }: SkillItemProps): React.ReactElement {
   const dispatch = useAppDispatch()
@@ -425,10 +425,7 @@ export const SkillItem = React.memo(function SkillItem({
   const isTicked = selectedNamesSet.has(skill.name)
   const isInFlight = inFlightRemovalSet.has(skill.name)
 
-  const symlinkStatusBuckets = useMemo(
-    () => getSymlinkStatusBuckets(skill.symlinks),
-    [skill.symlinks],
-  )
+  const symlinkStatusBuckets = getSymlinkStatusBuckets(skill.symlinks)
 
   const {
     showAddButton,
@@ -462,37 +459,25 @@ export const SkillItem = React.memo(function SkillItem({
   // `/* v8 ignore */` here does not cleanly recover the hit (the transform remaps
   // FNDA attribution off this const-arrow onto a different node), so the function
   // threshold is floored just below 100 rather than chased. See vitest.config.ts.
-  const handleUnlinkClick = useCallback(
-    (e: React.MouseEvent): void => {
-      e.stopPropagation()
-      // Protection is enforced here too so future UI refactors cannot stage a
-      // locked skill for removal by accidentally showing the button.
-      if (isProtected) return
-      const targetSymlink = selectedAgentSymlink ?? selectedLocalSkillInfo
-      if (targetSymlink) {
-        dispatch(setSkillToUnlink({ skill, symlink: targetSymlink }))
-      }
-    },
-    [
-      dispatch,
-      isProtected,
-      selectedAgentSymlink,
-      selectedLocalSkillInfo,
-      skill,
-    ],
-  )
+  const handleUnlinkClick = (e: React.MouseEvent): void => {
+    e.stopPropagation()
+    // Protection is enforced here too so future UI refactors cannot stage a
+    // locked skill for removal by accidentally showing the button.
+    if (isProtected) return
+    const targetSymlink = selectedAgentSymlink ?? selectedLocalSkillInfo
+    if (targetSymlink) {
+      dispatch(setSkillToUnlink({ skill, symlink: targetSymlink }))
+    }
+  }
 
-  const handleAddClick = useCallback(
-    (e: React.MouseEvent): void => {
-      e.stopPropagation()
-      if (selectedAgentId) {
-        dispatch(setSkillToCopy(skill))
-        return
-      }
-      dispatch(setSkillToAddSymlinks(skill))
-    },
-    [dispatch, selectedAgentId, skill],
-  )
+  const handleAddClick = (e: React.MouseEvent): void => {
+    e.stopPropagation()
+    if (selectedAgentId) {
+      dispatch(setSkillToCopy(skill))
+      return
+    }
+    dispatch(setSkillToAddSymlinks(skill))
+  }
 
   /**
    * Global-view per-row delete. Routes every skill — including ones tracked in
@@ -501,53 +486,47 @@ export const SkillItem = React.memo(function SkillItem({
    * become stale by design: simple file deletion is preferred over the
    * unreliable `npx skills remove` spawn the CLI used to perform.
    */
-  const handleDeleteClick = useCallback(
-    (e: React.MouseEvent): void => {
-      e.stopPropagation()
-      const {
+  const handleDeleteClick = (e: React.MouseEvent): void => {
+    e.stopPropagation()
+    const {
+      deleteTargets,
+      orphanRecords,
+      staleDeleteErrors,
+      orphanErrors,
+      protectedErrors,
+    } = partitionGlobalDeleteTargets(
+      [skill],
+      [skill.name],
+      // Pass the real protection state so business logic enforces the guard
+      // even if the UI gate (showDeleteButton) is weakened in future refactors.
+      new Set<SkillName>(isProtected ? [skill.name] : []),
+    )
+    dispatch(
+      setBulkConfirm({
+        kind: 'delete',
+        skillNames: [skill.name],
+        agentId: null,
+        agentName: null,
+        // A single-row delete carries no repo-filter scope to report.
+        sourceSummary: null,
         deleteTargets,
         orphanRecords,
         staleDeleteErrors,
         orphanErrors,
         protectedErrors,
-      } = partitionGlobalDeleteTargets(
-        [skill],
-        [skill.name],
-        // Pass the real protection state so business logic enforces the guard
-        // even if the UI gate (showDeleteButton) is weakened in future refactors.
-        new Set<SkillName>(isProtected ? [skill.name] : []),
-      )
-      dispatch(
-        setBulkConfirm({
-          kind: 'delete',
-          skillNames: [skill.name],
-          agentId: null,
-          agentName: null,
-          // A single-row delete carries no repo-filter scope to report.
-          sourceSummary: null,
-          deleteTargets,
-          orphanRecords,
-          staleDeleteErrors,
-          orphanErrors,
-          protectedErrors,
-        }),
-      )
-    },
-    [dispatch, isProtected, skill],
-  )
+      }),
+    )
+  }
 
-  const handleToggleBookmark = useCallback(
-    (e: React.MouseEvent): void => {
-      e.stopPropagation()
-      if (isBookmarked) {
-        dispatch(removeBookmark(skill.name))
-      } else {
-        const { repo, url } = skillToBookmarkData(skill)
-        dispatch(addBookmark({ name: skill.name, repo, url }))
-      }
-    },
-    [dispatch, isBookmarked, skill],
-  )
+  const handleToggleBookmark = (e: React.MouseEvent): void => {
+    e.stopPropagation()
+    if (isBookmarked) {
+      dispatch(removeBookmark(skill.name))
+    } else {
+      const { repo, url } = skillToBookmarkData(skill)
+      dispatch(addBookmark({ name: skill.name, repo, url }))
+    }
+  }
 
   /**
    * Checkbox click handler — `onPointerDown` captures the shift modifier
@@ -560,65 +539,58 @@ export const SkillItem = React.memo(function SkillItem({
    * and the reducer promotes this click to the new anchor. Behaves like macOS
    * Finder — a first shift-click with no anchor is a plain toggle, not a range.
    */
-  const handleCheckboxPointerDown = useCallback(
-    (event: React.PointerEvent<HTMLButtonElement>): void => {
-      // Stop propagation so the Card's onClick (inspector selection) does not fire.
-      event.stopPropagation()
-      if (event.shiftKey && selectionAnchor) {
-        event.preventDefault()
-        const namesInRange = computeRangeSelection(
-          selectionAnchor,
-          skill.name,
-          visibleNames,
-        )
-        dispatch(selectRange(namesInRange))
-        return
-      }
-      // Non-shift path (and shift-without-anchor): let the checkbox settle to
-      // its new `checked` state; Radix emits `onCheckedChange` and we dispatch
-      // the toggle there. The reducer records the new anchor on toggle.
-    },
-    [dispatch, selectionAnchor, skill.name, visibleNames],
-  )
+  const handleCheckboxPointerDown = (
+    event: React.PointerEvent<HTMLButtonElement>,
+  ): void => {
+    // Stop propagation so the Card's onClick (inspector selection) does not fire.
+    event.stopPropagation()
+    if (event.shiftKey && selectionAnchor) {
+      event.preventDefault()
+      const namesInRange = computeRangeSelection(
+        selectionAnchor,
+        skill.name,
+        visibleNames,
+      )
+      dispatch(selectRange(namesInRange))
+      return
+    }
+    // Non-shift path (and shift-without-anchor): let the checkbox settle to
+    // its new `checked` state; Radix emits `onCheckedChange` and we dispatch
+    // the toggle there. The reducer records the new anchor on toggle.
+  }
 
-  const handleCheckedChange = useCallback(
-    (checked: boolean | 'indeterminate'): void => {
-      // Only fire when the user actually toggled — ignore the initial sync from props.
-      if (checked === 'indeterminate') return
-      // If we just handled a range via shift+click, the state is already correct.
-      // Reconcile via presence in the selection set: only toggle when the slice
-      // state disagrees with the checkbox's new visual state. Avoids double-toggle.
-      const isCurrentlyTicked = selectedNamesSet.has(skill.name)
-      if (isCurrentlyTicked !== checked) {
-        dispatch(toggleSelection(skill.name))
-      }
-    },
-    [dispatch, selectedNamesSet, skill.name],
-  )
+  const handleCheckedChange = (checked: boolean | 'indeterminate'): void => {
+    // Only fire when the user actually toggled — ignore the initial sync from props.
+    if (checked === 'indeterminate') return
+    // If we just handled a range via shift+click, the state is already correct.
+    // Reconcile via presence in the selection set: only toggle when the slice
+    // state disagrees with the checkbox's new visual state. Avoids double-toggle.
+    const isCurrentlyTicked = selectedNamesSet.has(skill.name)
+    if (isCurrentlyTicked !== checked) {
+      dispatch(toggleSelection(skill.name))
+    }
+  }
 
   const [contextOpen, setContextOpen] = useState(false)
 
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent): void => {
-      e.preventDefault()
-      if (!showCopyButton) return
-      setContextOpen(true)
-    },
-    [showCopyButton],
-  )
+  const handleContextMenu = (e: React.MouseEvent): void => {
+    e.preventDefault()
+    if (!showCopyButton) return
+    setContextOpen(true)
+  }
 
-  const handleCopyClick = useCallback((): void => {
+  const handleCopyClick = (): void => {
     dispatch(setSkillToCopy(skill))
     setContextOpen(false)
-  }, [dispatch, skill])
+  }
 
-  const handleContextOpenChange = useCallback((open: boolean): void => {
+  const handleContextOpenChange = (open: boolean): void => {
     if (!open) setContextOpen(false)
-  }, [])
+  }
 
-  const handleCardClick = useCallback((): void => {
+  const handleCardClick = (): void => {
     dispatch(selectSkill(isSelected ? null : skill))
-  }, [dispatch, isSelected, skill])
+  }
 
   const [didPartialFail, setDidPartialFail] = useState(false)
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -727,6 +699,7 @@ export const SkillItem = React.memo(function SkillItem({
                 onCheckedChange={handleCheckedChange}
                 onPointerDown={handleCheckboxPointerDown}
               />
+
               <div className="flex-1 min-w-0">
                 <SkillTitleRow
                   skill={skill}
@@ -738,6 +711,7 @@ export const SkillItem = React.memo(function SkillItem({
                   showGStackBadge={showGStackBadge}
                   onAddClick={handleAddClick}
                 />
+
                 {skill.description && (
                   <p className="text-sm text-muted-foreground line-clamp-2 mt-1 min-h-10">
                     {skill.description}
@@ -762,7 +736,7 @@ export const SkillItem = React.memo(function SkillItem({
       </DropdownMenuContent>
     </DropdownMenu>
   )
-})
+}
 
 interface SkillItemOverlayActionsProps {
   skill: Skill
@@ -786,7 +760,7 @@ interface SkillItemOverlayActionsProps {
  * @example
  * <SkillItemOverlayActions skill={skill} selectedAgentName="Claude" showBookmark={true} />
  */
-const SkillItemOverlayActions = React.memo(function SkillItemOverlayActions({
+const SkillItemOverlayActions = function SkillItemOverlayActions({
   skill,
   selectedAgentName,
   isLocalSkill,
@@ -907,7 +881,7 @@ const SkillItemOverlayActions = React.memo(function SkillItemOverlayActions({
       ) : null}
     </>
   )
-})
+}
 
 interface BulkSelectionCheckboxProps {
   bulkSelectMode: boolean
@@ -937,7 +911,7 @@ function handleBulkSelectionLabelClick(
  * @example
  * <BulkSelectionCheckbox bulkSelectMode={true} isTicked={false} skillName="task" />
  */
-const BulkSelectionCheckbox = React.memo(function BulkSelectionCheckbox({
+const BulkSelectionCheckbox = function BulkSelectionCheckbox({
   bulkSelectMode,
   isTicked,
   isBulkSelectable,
@@ -968,4 +942,4 @@ const BulkSelectionCheckbox = React.memo(function BulkSelectionCheckbox({
       />
     </label>
   )
-})
+}

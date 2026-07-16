@@ -8,7 +8,7 @@ import React from 'react'
  * Keeps layout stable while the first fetch is in flight so the widget
  * doesn't pop in and jostle neighboring widgets.
  */
-export const LeaderboardSkeleton = React.memo(
+export const LeaderboardSkeleton =
   function LeaderboardSkeleton(): React.ReactElement {
     return (
       <div className="h-full w-full py-1 px-1" aria-hidden="true">
@@ -29,5 +29,4 @@ export const LeaderboardSkeleton = React.memo(
         </div>
       </div>
     )
-  },
-)
+  }

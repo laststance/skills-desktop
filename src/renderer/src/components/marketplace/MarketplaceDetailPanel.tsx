@@ -10,7 +10,7 @@ import { MarketplaceSkillPreview } from './MarketplaceSkillPreview'
  * previewSkill === null → Dashboard (stats overview)
  * previewSkill !== null → Webview preview of the selected skill
  */
-export const MarketplaceDetailPanel = React.memo(
+export const MarketplaceDetailPanel =
   function MarketplaceDetailPanel(): React.ReactElement {
     const previewSkill = useAppSelector(
       (state) => state.marketplace.previewSkill,
@@ -21,5 +21,4 @@ export const MarketplaceDetailPanel = React.memo(
     }
 
     return <MarketplaceDashboard />
-  },
-)
+  }

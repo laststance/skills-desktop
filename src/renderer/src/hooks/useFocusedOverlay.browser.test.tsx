@@ -1,4 +1,4 @@
-import { memo, type ReactElement } from 'react'
+import { type ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
 
@@ -9,7 +9,7 @@ import { useFocusedOverlay } from './useFocusedOverlay'
  * suite drives it the way a user would (click to open/close, press Escape)
  * and asserts observable behavior rather than internal state.
  */
-const OverlayHarness = memo(function OverlayHarness({
+const OverlayHarness = function OverlayHarness({
   resetKey,
 }: {
   resetKey: string
@@ -29,7 +29,7 @@ const OverlayHarness = memo(function OverlayHarness({
       </button>
     </div>
   )
-})
+}
 
 beforeEach(() => {
   document.body.style.overflow = ''

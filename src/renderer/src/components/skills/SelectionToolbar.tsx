@@ -1,5 +1,5 @@
 import { Copy, Loader2, Trash2, Unlink, X } from 'lucide-react'
-import React, { useCallback } from 'react'
+import React from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { cn } from '@/renderer/src/lib/utils'
@@ -66,7 +66,7 @@ interface SelectionToolbarProps {
  * @param agentDisplayName - For the "Unlink from {agent}" label
  * @returns Rendered toolbar or null when not in bulk select mode
  */
-export const SelectionToolbar = React.memo(function SelectionToolbar({
+export const SelectionToolbar = function SelectionToolbar({
   onPrimaryAction,
   agentDisplayName,
   onCopyAction,
@@ -87,13 +87,13 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
   const bulkCopying = useAppSelector(selectBulkCopying)
   const bulkProgress = useAppSelector(selectBulkProgress)
 
-  const handleSelectAllVisible = useCallback((): void => {
+  const handleSelectAllVisible = (): void => {
     dispatch(selectAll(visibleNames))
-  }, [dispatch, visibleNames])
+  }
 
-  const handleClear = useCallback((): void => {
+  const handleClear = (): void => {
     dispatch(clearSelection())
-  }, [dispatch])
+  }
 
   // Belt-and-suspenders: the listener middleware already clears selection on
   // any context switch that exits bulkSelectMode, but gating here enforces the
@@ -145,7 +145,7 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
       )}
 
       {/* Hidden-by-filter indicator — warns the user that not all ticked rows
-          will be affected when the filter hides some of them. */}
+           will be affected when the filter hides some of them. */}
       {selectedCount > 0 && hiddenSelectedCount > 0 && (
         <span
           className="text-xs text-muted-foreground shrink-0"
@@ -156,7 +156,7 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
       )}
 
       {/* Visible-but-ineligible indicator — separates on-screen manual-review
-          rows from genuinely hidden filtered selections. */}
+           rows from genuinely hidden filtered selections. */}
       {selectedCount > 0 && visibleIneligibleSelectedCount > 0 && (
         <span
           className="text-xs text-muted-foreground shrink-0"
@@ -177,11 +177,11 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
       )}
 
       {/* Action cluster — kept as one `ml-auto` right-aligned group so that
-          when the count + buttons exceed the panel width the whole cluster
-          wraps to a second row as a cohesive, right-aligned block, rather than
-          the toolbar's own flex-wrap orphaning the trailing primary button on a
-          lone left-aligned row. Also absorbs agent-view's long "Unlink from
-          {agent}" label without disturbing the count on the left. */}
+           when the count + buttons exceed the panel width the whole cluster
+           wraps to a second row as a cohesive, right-aligned block, rather than
+           the toolbar's own flex-wrap orphaning the trailing primary button on a
+           lone left-aligned row. Also absorbs agent-view's long "Unlink from
+           {agent}" label without disturbing the count on the left. */}
       <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
         {/* Always visible — the zero-selection entry point (Fixes #227 / #230). */}
         <Button
@@ -257,4 +257,4 @@ export const SelectionToolbar = React.memo(function SelectionToolbar({
       </div>
     </div>
   )
-})
+}

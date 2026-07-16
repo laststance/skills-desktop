@@ -1,5 +1,5 @@
 import { Loader2, Undo2 } from 'lucide-react'
-import React, { useCallback, useState } from 'react'
+import React, { useState } from 'react'
 import { toast } from 'sonner'
 import { match } from 'ts-pattern'
 
@@ -66,7 +66,7 @@ interface UndoToastProps {
  *   onAutoClose,
  * })
  */
-export const UndoToast = React.memo(function UndoToast({
+export const UndoToast = function UndoToast({
   skillNames,
   tombstoneIds,
   expiresAt,
@@ -100,7 +100,7 @@ export const UndoToast = React.memo(function UndoToast({
   const isUndoableOperation = tombstoneIds.length > 0
   const canUndo = isUndoableOperation && !isRestoring && remainingMs > 0
 
-  const handleUndoClick = useCallback(async (): Promise<void> => {
+  const handleUndoClick = async (): Promise<void> => {
     if (!canUndo) return
     setIsRestoring(true)
     try {
@@ -111,7 +111,7 @@ export const UndoToast = React.memo(function UndoToast({
       // the component will unmount immediately.
       toast.dismiss(toastId)
     }
-  }, [canUndo, onUndo, toastId, tombstoneIds])
+  }
 
   return (
     <div
@@ -120,10 +120,10 @@ export const UndoToast = React.memo(function UndoToast({
       aria-live="polite"
     >
       {/*
-        `pl-7` reserves space for sonner's built-in × at top-left (8px from
-        the edge + 20px wide). Without this, the close button would overlap
-        the first character of the summary line.
-      */}
+         `pl-7` reserves space for sonner's built-in × at top-left (8px from
+         the edge + 20px wide). Without this, the close button would overlap
+         the first character of the summary line.
+        */}
       <div className="text-sm font-medium truncate pl-7" title={summary}>
         {summary}
       </div>
@@ -169,4 +169,4 @@ export const UndoToast = React.memo(function UndoToast({
       </div>
     </div>
   )
-})
+}

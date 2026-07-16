@@ -10,9 +10,9 @@ import { MarketplaceSkillRow } from './MarketplaceSkillRow'
 /**
  * Build a `SkillSearchResult` fixture, overriding only the fields a spec
  * asserts so each test stays a self-contained Arrange block. Routing through a
- * factory also gives the prop a call-expression initializer, which the
- * `prefer-usememo` lint rule accepts (an inline object literal would be flagged
- * as a re-render hazard).
+ * factory also gives the prop a call-expression initializer, keeping fixture
+ * construction out of the render expression (inline object literals would
+ * allocate anew on every render).
  * @param overrides - Partial overrides for the fixture under test.
  * @returns A valid `SkillSearchResult`.
  * @example

@@ -34,7 +34,7 @@ const STATUS_STYLES = {
 /**
  * Single symlink status row for an agent
  */
-export const SymlinkStatus = React.memo(function SymlinkStatus({
+export const SymlinkStatus = function SymlinkStatus({
   symlink,
 }: SymlinkStatusProps): React.ReactElement {
   const style = STATUS_STYLES[symlink.status]
@@ -54,4 +54,4 @@ export const SymlinkStatus = React.memo(function SymlinkStatus({
       </span>
     </div>
   )
-})
+}

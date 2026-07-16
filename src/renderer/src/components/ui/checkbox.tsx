@@ -4,7 +4,7 @@ import * as React from 'react'
 
 import { cn } from '@/renderer/src/lib/utils'
 
-const Checkbox = React.memo(function Checkbox({
+const Checkbox = function Checkbox({
   className,
   checked,
   ref,
@@ -35,6 +35,6 @@ const Checkbox = React.memo(function Checkbox({
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   )
-})
+}
 
 export { Checkbox }

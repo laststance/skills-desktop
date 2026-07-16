@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react'
-import React, { useCallback } from 'react'
+import React from 'react'
 
 import {
   SegmentedControl,
@@ -46,25 +46,19 @@ const SEARCH_SCOPE_OPTIONS: ReadonlyArray<SegmentedControlOption<SearchScope>> =
  * text input. The scope decides which `Skill` field the query matches against
  * — see `selectFilteredSkills` for the actual filter logic.
  */
-export const SearchBox = React.memo(function SearchBox(): React.ReactElement {
+export const SearchBox = function SearchBox(): React.ReactElement {
   const dispatch = useAppDispatch()
   const searchQuery = useAppSelector(selectSearchQuery)
   const searchScope = useAppSelector(selectSearchScope)
   const copy = SCOPE_COPY[searchScope]
 
-  const handleScopeChange = useCallback(
-    (scope: SearchScope): void => {
-      dispatch(setSearchScope(scope))
-    },
-    [dispatch],
-  )
+  const handleScopeChange = (scope: SearchScope): void => {
+    dispatch(setSearchScope(scope))
+  }
 
-  const handleQueryChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>): void => {
-      dispatch(setSearchQuery(e.target.value))
-    },
-    [dispatch],
-  )
+  const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    dispatch(setSearchQuery(e.target.value))
+  }
 
   return (
     <div className="flex items-center gap-2">
@@ -76,6 +70,7 @@ export const SearchBox = React.memo(function SearchBox(): React.ReactElement {
         className="shrink-0"
         itemClassName="h-9 min-w-0"
       />
+
       <div className="relative flex-1 min-w-0">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -89,4 +84,4 @@ export const SearchBox = React.memo(function SearchBox(): React.ReactElement {
       </div>
     </div>
   )
-})
+}

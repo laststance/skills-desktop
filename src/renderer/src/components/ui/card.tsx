@@ -2,7 +2,7 @@ import * as React from 'react'
 
 import { cn } from '@/renderer/src/lib/utils'
 
-const Card = React.memo(function Card({
+const Card = function Card({
   className,
   ref,
   ...props
@@ -17,9 +17,9 @@ const Card = React.memo(function Card({
       {...props}
     />
   )
-})
+}
 
-const CardHeader = React.memo(function CardHeader({
+const CardHeader = function CardHeader({
   className,
   ref,
   ...props
@@ -31,9 +31,9 @@ const CardHeader = React.memo(function CardHeader({
       {...props}
     />
   )
-})
+}
 
-const CardTitle = React.memo(function CardTitle({
+const CardTitle = function CardTitle({
   className,
   ref,
   ...props
@@ -46,9 +46,9 @@ const CardTitle = React.memo(function CardTitle({
       {...props}
     />
   )
-})
+}
 
-const CardDescription = React.memo(function CardDescription({
+const CardDescription = function CardDescription({
   className,
   ref,
   ...props
@@ -60,17 +60,17 @@ const CardDescription = React.memo(function CardDescription({
       {...props}
     />
   )
-})
+}
 
-const CardContent = React.memo(function CardContent({
+const CardContent = function CardContent({
   className,
   ref,
   ...props
 }: React.ComponentPropsWithRef<'div'>) {
   return <div ref={ref} className={cn('p-4 pt-0', className)} {...props} />
-})
+}
 
-const CardFooter = React.memo(function CardFooter({
+const CardFooter = function CardFooter({
   className,
   ref,
   ...props
@@ -82,6 +82,6 @@ const CardFooter = React.memo(function CardFooter({
       {...props}
     />
   )
-})
+}
 
 export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }

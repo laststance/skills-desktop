@@ -102,7 +102,7 @@ const toasterStyle = {
  * Layout: Sidebar (240px) | Main | Detail
  * Theme application is handled by Redux listener middleware
  */
-const App = React.memo(function App(): React.ReactElement {
+const App = function App(): React.ReactElement {
   // Subscribe to auto-update IPC events
   useUpdateNotification()
 
@@ -153,6 +153,6 @@ const App = React.memo(function App(): React.ReactElement {
       />
     </TooltipProvider>
   )
-})
+}
 
 export default App

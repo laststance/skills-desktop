@@ -1,4 +1,4 @@
-import { memo, type ReactElement } from 'react'
+import { type ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
@@ -17,7 +17,7 @@ let originalClipboardDescriptor: PropertyDescriptor | undefined
  * button to `copy`, so the suite drives a real click and asserts observable
  * feedback the way the marketplace footer renders it.
  */
-const CopyHarness = memo(function CopyHarness(): ReactElement {
+const CopyHarness = function CopyHarness(): ReactElement {
   const { copied, copy } = useCopyToClipboard()
   return (
     <div>
@@ -32,7 +32,7 @@ const CopyHarness = memo(function CopyHarness(): ReactElement {
       </button>
     </div>
   )
-})
+}
 
 beforeEach(() => {
   mockToastError.mockReset()

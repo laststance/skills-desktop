@@ -2,7 +2,7 @@ import * as React from 'react'
 
 import { cn } from '@/renderer/src/lib/utils'
 
-const Input = React.memo(function Input({
+const Input = function Input({
   className,
   type,
   ref,
@@ -19,6 +19,6 @@ const Input = React.memo(function Input({
       {...props}
     />
   )
-})
+}
 
 export { Input }

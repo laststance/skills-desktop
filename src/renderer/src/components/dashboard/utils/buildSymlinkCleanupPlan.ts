@@ -44,8 +44,7 @@ export interface BrokenSlotCleanupPlanItem {
 }
 
 export type SymlinkCleanupPlanItem =
-  | OrphanCleanupPlanItem
-  | BrokenSlotCleanupPlanItem
+  OrphanCleanupPlanItem | BrokenSlotCleanupPlanItem
 
 /**
  * @description Broken cleanup rows grouped by owning agent for sectioned dashboard rendering.

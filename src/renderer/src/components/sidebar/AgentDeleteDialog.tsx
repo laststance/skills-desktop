@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React from 'react'
 import { toast } from 'sonner'
 
 import { DestructiveConfirmDialog } from '@/renderer/src/components/shared/DestructiveConfirmDialog'
@@ -13,18 +13,18 @@ import { refreshAllData } from '@/renderer/src/redux/thunks'
  * Confirmation dialog for deleting an agent's entire skills folder
  * Removes everything: symlinks, local skills, and the directory itself
  */
-export const AgentDeleteDialog = React.memo(
+export const AgentDeleteDialog =
   function AgentDeleteDialog(): React.ReactElement {
     const dispatch = useAppDispatch()
     const { agentToDelete, deleting } = useAppSelector((state) => state.agents)
 
-    const handleClose = useCallback((): void => {
+    const handleClose = (): void => {
       if (!deleting) {
         dispatch(setAgentToDelete(null))
       }
-    }, [deleting, dispatch])
+    }
 
-    const handleDelete = useCallback(async (): Promise<void> => {
+    const handleDelete = async (): Promise<void> => {
       if (!agentToDelete) return
 
       const result = await dispatch(removeAllSymlinksFromAgent(agentToDelete))
@@ -51,7 +51,7 @@ export const AgentDeleteDialog = React.memo(
           description: result.error?.message || 'An unexpected error occurred',
         })
       }
-    }, [agentToDelete, dispatch])
+    }
 
     return (
       <DestructiveConfirmDialog
@@ -75,5 +75,4 @@ export const AgentDeleteDialog = React.memo(
         loadingLabel="Deleting..."
       />
     )
-  },
-)
+  }

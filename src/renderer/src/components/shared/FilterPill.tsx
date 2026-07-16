@@ -36,7 +36,7 @@ interface FilterPillProps {
  *     testId="agent-filter-pill"
  *   />
  */
-export const FilterPill = React.memo(function FilterPill({
+export const FilterPill = function FilterPill({
   label,
   onClear,
   testId,
@@ -61,4 +61,4 @@ export const FilterPill = React.memo(function FilterPill({
       </Button>
     </div>
   )
-})
+}

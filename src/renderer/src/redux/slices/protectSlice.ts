@@ -62,7 +62,8 @@ const selectProtectedItems = (state: ProtectSelectorState): SkillName[] =>
  * Memoized Set of protected skill names. Built once per `items` reference
  * and shared across all callers — O(items) build cost amortized across the
  * full list render, not paid per row. Use this in components that need the
- * whole set (e.g. MainContent bulk-delete partition) to avoid a useMemo.
+ * whole set (e.g. MainContent bulk-delete partition) without rebuilding a Set
+ * on every render.
  */
 export const selectProtectedNamesSet = createSelector(
   [selectProtectedItems],

@@ -2,6 +2,8 @@ import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
 
 import tailwindcss from '@tailwindcss/vite'
+import { reactCompilerPreset } from '@vitejs/plugin-react'
+import babel from '@rolldown/plugin-babel'
 import { defineMain } from '@storybook/react-vite/node'
 import { mergeConfig } from 'vite'
 
@@ -54,7 +56,12 @@ export default defineMain({
         __APP_VERSION__: JSON.stringify(pkg.version),
         __E2E_BUILD__: JSON.stringify(false),
       },
-      plugins: [tailwindcss()],
+      plugins: [
+        tailwindcss(),
+        // Storybook's react-vite framework already registers @vitejs/plugin-react;
+        // only the React Compiler babel preset is added here.
+        babel({ presets: [reactCompilerPreset()] }),
+      ],
       resolve: {
         alias: {
           '@': resolve(import.meta.dirname, '../src'),

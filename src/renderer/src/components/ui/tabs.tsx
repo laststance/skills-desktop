@@ -5,7 +5,7 @@ import { cn } from '@/renderer/src/lib/utils'
 
 const Tabs = TabsPrimitive.Root
 
-const TabsList = React.memo(function TabsList({
+const TabsList = function TabsList({
   className,
   ref,
   ...props
@@ -20,9 +20,9 @@ const TabsList = React.memo(function TabsList({
       {...props}
     />
   )
-})
+}
 
-const TabsTrigger = React.memo(function TabsTrigger({
+const TabsTrigger = function TabsTrigger({
   className,
   ref,
   ...props
@@ -37,9 +37,9 @@ const TabsTrigger = React.memo(function TabsTrigger({
       {...props}
     />
   )
-})
+}
 
-const TabsContent = React.memo(function TabsContent({
+const TabsContent = function TabsContent({
   className,
   ref,
   ...props
@@ -54,6 +54,6 @@ const TabsContent = React.memo(function TabsContent({
       {...props}
     />
   )
-})
+}
 
 export { Tabs, TabsList, TabsTrigger, TabsContent }

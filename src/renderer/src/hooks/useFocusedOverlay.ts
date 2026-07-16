@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { useUpdateEffect } from '@/renderer/src/hooks/useUpdateEffect'
@@ -32,15 +32,15 @@ export function useFocusedOverlay(resetKey: string): FocusedOverlayState {
   // The element focused immediately before expanding, restored on collapse.
   const triggerElementRef = useRef<HTMLElement | null>(null)
 
-  const expand = useCallback((): void => {
+  const expand = (): void => {
     triggerElementRef.current =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null
     setIsExpanded(true)
-  }, [])
+  }
 
-  const collapse = useCallback((): void => setIsExpanded(false), [])
+  const collapse = (): void => setIsExpanded(false)
 
   // A new subject (e.g. switching previewed skill) must never open expanded.
   useUpdateEffect(() => {

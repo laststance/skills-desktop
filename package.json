@@ -64,9 +64,11 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@babel/core": "^8.0.1",
     "@electron/notarize": "^3.1.1",
     "@laststance/react-next-eslint-plugin": "^2.2.0",
     "@playwright/test": "^1.61.1",
+    "@rolldown/plugin-babel": "^0.2.3",
     "@storybook/addon-a11y": "10.5.0",
     "@storybook/addon-docs": "10.5.0",
     "@storybook/react-vite": "10.5.0",
@@ -78,6 +80,7 @@
     "@vitejs/plugin-react": "^6.0.3",
     "@vitest/browser-playwright": "^4.1.10",
     "@vitest/coverage-v8": "^4.1.10",
+    "babel-plugin-react-compiler": "^1.0.0",
     "code-inspector-plugin": "~2.0.1",
     "culori": "^4.0.2",
     "electron": "^43.1.1",

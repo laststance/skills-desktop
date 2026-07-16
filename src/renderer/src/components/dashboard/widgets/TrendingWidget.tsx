@@ -8,16 +8,14 @@ import { LeaderboardWidget } from './LeaderboardWidget'
  * for skills.sh's `trending` feed. See `LeaderboardWidget` for the shared
  * cache / loading / error behaviour.
  */
-export const TrendingWidget = React.memo(
-  function TrendingWidget(): React.ReactElement {
-    return (
-      <LeaderboardWidget
-        filter="trending"
-        rowLimit={8}
-        emptyIcon={Flame}
-        emptyMessage="No trending skills yet"
-        errorMessage="Couldn't load trending skills"
-      />
-    )
-  },
-)
+export const TrendingWidget = function TrendingWidget(): React.ReactElement {
+  return (
+    <LeaderboardWidget
+      filter="trending"
+      rowLimit={8}
+      emptyIcon={Flame}
+      emptyMessage="No trending skills yet"
+      errorMessage="Couldn't load trending skills"
+    />
+  )
+}

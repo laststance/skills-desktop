@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 /**
  * Returns a stable debounced wrapper around `callback`. Calling `run(...)`
@@ -7,8 +7,12 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
  * e.g. a remote search — directly as the user types, without one call per
  * keystroke and without a value-watching effect. `cancel()` drops any pending
  * call (e.g. when the search box is cleared); the timer is also cleared on
- * unmount. Pass a stable `callback` (wrap in `useCallback`) so a scheduled run
- * never fires a stale closure. Used by `MarketplaceSearch` for incremental search.
+ * unmount.
+ *
+ * The returned `{ run, cancel }` object and both methods are referentially
+ * stable for the lifetime of the hook (created once via refs). Callers may
+ * pass an inline `callback` — the latest closure is always read through a
+ * ref. Used by `MarketplaceSearch` and `useDraftRangeSetting`.
  *
  * @param callback - The function to debounce; receives `run`'s arguments.
  * @param delayMs - Quiet period, in ms, before a scheduled call fires.
@@ -24,29 +28,48 @@ export function useDebouncedCallback<TArgs extends readonly unknown[]>(
   delayMs: number,
 ): { run: (...args: TArgs) => void; cancel: () => void } {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Keep the latest callback and delay without putting them in run/cancel identity.
+  const callbackRef = useRef(callback)
+  callbackRef.current = callback
+  const delayMsRef = useRef(delayMs)
+  delayMsRef.current = delayMs
 
-  const cancel = useCallback((): void => {
-    if (timeoutRef.current !== null) {
-      clearTimeout(timeoutRef.current)
-      timeoutRef.current = null
+  // Create the public API once so consumers can put it in effect deps safely.
+  const apiRef = useRef<{
+    run: (...args: TArgs) => void
+    cancel: () => void
+  } | null>(null)
+
+  if (apiRef.current === null) {
+    const cancel = (): void => {
+      if (timeoutRef.current !== null) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
     }
-  }, [])
 
-  const run = useCallback(
-    (...args: TArgs): void => {
+    const run = (...args: TArgs): void => {
       // Restart the quiet window on every call, so only the last one in a burst
       // survives to fire.
       cancel()
       timeoutRef.current = setTimeout(() => {
         timeoutRef.current = null
-        callback(...args)
-      }, delayMs)
-    },
-    [callback, delayMs, cancel],
-  )
+        callbackRef.current(...args)
+      }, delayMsRef.current)
+    }
+
+    apiRef.current = { run, cancel }
+  }
 
   // Drop any pending call when the consumer unmounts.
-  useEffect(() => cancel, [cancel])
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
+    }
+  }, [])
 
-  return useMemo(() => ({ run, cancel }), [run, cancel])
+  return apiRef.current
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react'
+import React from 'react'
 import ReactGridLayout, {
   useContainerWidth,
   type Layout,
@@ -41,41 +41,39 @@ import 'react-grid-layout/css/styles.css'
  * Seeds default pages on first mount (idempotent), then reads everything
  * from Redux so react-grid-layout stays pure-view.
  */
-export const DashboardCanvas = React.memo(
-  function DashboardCanvas(): React.ReactElement {
-    const dispatch = useAppDispatch()
-    const currentPage = useAppSelector(selectCurrentPage)
-    const isInitialized = useAppSelector(selectIsInitialized)
-    const isEditMode = useAppSelector(selectIsEditMode)
+export const DashboardCanvas = function DashboardCanvas(): React.ReactElement {
+  const dispatch = useAppDispatch()
+  const currentPage = useAppSelector(selectCurrentPage)
+  const isInitialized = useAppSelector(selectIsInitialized)
+  const isEditMode = useAppSelector(selectIsEditMode)
 
-    // Seed the default 4 pages on first render. The reducer guards against
-    // re-seeding (`initialized` flag), so calling this repeatedly is free.
-    useCycleEffect(() => {
-      if (!isInitialized) dispatch(seedDefaultsIfEmpty())
-    }, [dispatch, isInitialized])
+  // Seed the default 4 pages on first render. The reducer guards against
+  // re-seeding (`initialized` flag), so calling this repeatedly is free.
+  useCycleEffect(() => {
+    if (!isInitialized) dispatch(seedDefaultsIfEmpty())
+  }, [dispatch, isInitialized])
 
-    // ⌘E toggle + ⌘1-9 page switch. Registered as long as the canvas is
-    // mounted so the shortcuts work even when the user's focus is elsewhere
-    // on the right pane.
-    useDashboardKeyboardShortcuts()
+  // ⌘E toggle + ⌘1-9 page switch. Registered as long as the canvas is
+  // mounted so the shortcuts work even when the user's focus is elsewhere
+  // on the right pane.
+  useDashboardKeyboardShortcuts()
 
-    return (
-      <div className="flex-1 min-h-0 flex flex-col">
-        <DashboardPageTabs />
-        <DashboardEditToolbar />
-        <div className="flex-1 min-h-0 overflow-auto">
-          {currentPage ? (
-            <DashboardGrid
-              pageId={currentPage.id}
-              widgets={currentPage.widgets}
-              isEditMode={isEditMode}
-            />
-          ) : null}
-        </div>
+  return (
+    <div className="flex-1 min-h-0 flex flex-col">
+      <DashboardPageTabs />
+      <DashboardEditToolbar />
+      <div className="flex-1 min-h-0 overflow-auto">
+        {currentPage ? (
+          <DashboardGrid
+            pageId={currentPage.id}
+            widgets={currentPage.widgets}
+            isEditMode={isEditMode}
+          />
+        ) : null}
       </div>
-    )
-  },
-)
+    </div>
+  )
+}
 
 // ----------------------------------------------------------------------------
 // Grid — inner component so the useContainerWidth hook can observe the scroll
@@ -88,7 +86,7 @@ interface DashboardGridProps {
   isEditMode: boolean
 }
 
-const DashboardGrid = React.memo(function DashboardGrid({
+const DashboardGrid = function DashboardGrid({
   pageId,
   widgets,
   isEditMode,
@@ -98,64 +96,50 @@ const DashboardGrid = React.memo(function DashboardGrid({
 
   // Shape widgets → RGL layout. `i` must equal the child's `key`, and we
   // carry over min sizes from the registry so RGL enforces them on resize.
-  const layout = useMemo<Layout>(
-    () =>
-      widgets.map((widget) => {
-        const def = getWidgetDefinition(widget.type)
-        return {
-          i: widget.id,
-          x: widget.x,
-          y: widget.y,
-          w: widget.w,
-          h: widget.h,
-          minW: def?.minSize.w ?? 1,
-          minH: def?.minSize.h ?? 1,
-        }
+  const layout = widgets.map((widget) => {
+    const def = getWidgetDefinition(widget.type)
+    return {
+      i: widget.id,
+      x: widget.x,
+      y: widget.y,
+      w: widget.w,
+      h: widget.h,
+      minW: def?.minSize.w ?? 1,
+      minH: def?.minSize.h ?? 1,
+    }
+  })
+
+  const handleLayoutChange = (next: Layout) => {
+    dispatch(
+      updateLayout({
+        pageId,
+        layout: next.map((item) => ({
+          i: item.i,
+          x: item.x,
+          y: item.y,
+          w: item.w,
+          h: item.h,
+        })),
       }),
-    [widgets],
-  )
+    )
+  }
 
-  const handleLayoutChange = useCallback(
-    (next: Layout) => {
-      dispatch(
-        updateLayout({
-          pageId,
-          layout: next.map((item) => ({
-            i: item.i,
-            x: item.x,
-            y: item.y,
-            w: item.w,
-            h: item.h,
-          })),
-        }),
-      )
-    },
-    [dispatch, pageId],
-  )
+  const gridConfig = {
+    cols: GRID_COLS,
+    rowHeight: GRID_ROW_HEIGHT_PX,
+    margin: GRID_MARGIN_PX,
+    containerPadding: GRID_CONTAINER_PADDING_PX,
+  }
 
-  const gridConfig = useMemo(
-    () => ({
-      cols: GRID_COLS,
-      rowHeight: GRID_ROW_HEIGHT_PX,
-      margin: GRID_MARGIN_PX,
-      containerPadding: GRID_CONTAINER_PADDING_PX,
-    }),
-    [],
-  )
-  const dragConfig = useMemo(
-    () => ({
-      enabled: isEditMode,
-      handle: `.${WIDGET_DRAG_HANDLE_CLASS}`,
-    }),
-    [isEditMode],
-  )
-  const resizeConfig = useMemo(
-    () => ({
-      enabled: isEditMode,
-      handles: ['se'] as const,
-    }),
-    [isEditMode],
-  )
+  const dragConfig = {
+    enabled: isEditMode,
+    handle: `.${WIDGET_DRAG_HANDLE_CLASS}`,
+  }
+
+  const resizeConfig = {
+    enabled: isEditMode,
+    handles: ['se'] as const,
+  }
 
   return (
     <div ref={containerRef} className="h-full w-full">
@@ -181,4 +165,4 @@ const DashboardGrid = React.memo(function DashboardGrid({
       )}
     </div>
   )
-})
+}
