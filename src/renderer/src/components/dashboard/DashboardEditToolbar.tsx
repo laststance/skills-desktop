@@ -41,6 +41,10 @@ export const DashboardEditToolbar = React.memo(
       setIsPickerOpen(true)
     }, [])
 
+    const handlePickerOpenChange = useCallback((open: boolean): void => {
+      setIsPickerOpen(open)
+    }, [])
+
     const handleAddPage = useCallback((): void => {
       dispatch(addPage())
     }, [dispatch])
@@ -117,7 +121,10 @@ export const DashboardEditToolbar = React.memo(
             )}
           </Button>
         </div>
-        <WidgetPicker open={isPickerOpen} onOpenChange={setIsPickerOpen} />
+        <WidgetPicker
+          open={isPickerOpen}
+          onOpenChange={handlePickerOpenChange}
+        />
       </>
     )
   },
