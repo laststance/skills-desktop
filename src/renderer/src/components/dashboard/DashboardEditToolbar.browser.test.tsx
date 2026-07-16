@@ -124,6 +124,25 @@ describe('DashboardEditToolbar', () => {
     await expect.element(screen.getByRole('dialog')).toBeVisible()
   })
 
+  it('closes the Add Widget picker when Escape is pressed', async () => {
+    // Arrange: open the picker so onOpenChange(false) can fire through the
+    // semantic handlePickerOpenChange wrapper (not the raw setState).
+    const { screen } = await renderToolbar({ isEditMode: true })
+    await screen.getByRole('button', { name: /widget/i }).click()
+    await expect.element(screen.getByRole('dialog')).toBeVisible()
+
+    // Act: dismiss via Escape — Radix Dialog routes this through onOpenChange.
+    await screen
+      .getByRole('dialog')
+      .element()
+      .dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      )
+
+    // Assert: the dialog is gone (picker closed).
+    await expect.poll(() => screen.getByRole('dialog').query()).toBeNull()
+  })
+
   it('appends a new blank page when the Page button is clicked', async () => {
     // Arrange: a single starting page.
     const { screen, store } = await renderToolbar({
