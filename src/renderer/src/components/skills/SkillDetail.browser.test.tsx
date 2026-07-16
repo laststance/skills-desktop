@@ -316,7 +316,7 @@ describe('SkillDetail Info path copy', () => {
       .toHaveTextContent(/Inaccessible:\s*1/)
   })
 
-  it('keeps Location paths visible inside detail chrome when Info tab overflows', async () => {
+  it('keeps Location above Symlink Status and visible at scrollTop 0 when Info overflows', async () => {
     // Arrange — Location sits above Symlink Status; a long status list still
     // overflows the fixed-height shell so chrome clipping stays regression-covered.
     const layoutStyleElement = installLayoutStyles()
@@ -332,29 +332,40 @@ describe('SkillDetail Info path copy', () => {
       const infoScroller = screen.container.querySelector(
         '[data-skill-info-scroll]',
       )
-      const symlinkPath = screen.getByText(CURSOR_PATH).element()
+      const locationHeading = screen.getByText('Location').element()
+      const symlinkStatusHeading = screen.getByText('Symlink Status').element()
 
       expect(detailShell).toBeInstanceOf(HTMLElement)
       expect(infoScroller).toBeInstanceOf(HTMLElement)
 
-      // Act — bring Location into view without scrolling past it into Status rows
+      // Assert — DOM order: Location must precede Symlink Status (layout contract)
+      expect(
+        locationHeading.compareDocumentPosition(symlinkStatusHeading) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+
+      // Act — fixed known scroll position (never scrollIntoView: that would also
+      // pull a bottom-placed Location into view and hide the regression)
       const scrollPane = infoScroller as HTMLElement
-      symlinkPath.scrollIntoView({ block: 'nearest' })
+      scrollPane.scrollTop = 0
       await new Promise<void>((resolve) => {
         requestAnimationFrame(() => resolve())
       })
 
-      // Assert
+      // Assert — at scrollTop 0, Location heading stays inside detail chrome.
+      // Path rows may sit just below the fold; the heading is the order-sensitive
+      // signal that would fall below the shell if Location were under Status.
+      expect(scrollPane.scrollTop).toBe(0)
       expect(scrollPane.scrollHeight).toBeGreaterThan(scrollPane.clientHeight)
       expect(
         Math.round((detailShell as HTMLElement).getBoundingClientRect().height),
       ).toBe(DETAIL_PANEL_TEST_HEIGHT_PX)
       const shellBounds = (detailShell as HTMLElement).getBoundingClientRect()
-      const pathBounds = symlinkPath.getBoundingClientRect()
-      expect(pathBounds.top).toBeGreaterThanOrEqual(
+      const locationBounds = locationHeading.getBoundingClientRect()
+      expect(locationBounds.top).toBeGreaterThanOrEqual(
         shellBounds.top - VISIBLE_BOUNDS_TOLERANCE_PX,
       )
-      expect(pathBounds.bottom).toBeLessThanOrEqual(
+      expect(locationBounds.top).toBeLessThanOrEqual(
         shellBounds.bottom + VISIBLE_BOUNDS_TOLERANCE_PX,
       )
     } finally {
