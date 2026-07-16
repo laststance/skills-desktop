@@ -132,7 +132,7 @@ describe('DashboardEditToolbar', () => {
     await expect.element(screen.getByRole('dialog')).toBeVisible()
 
     // Act: dismiss via Escape — Radix Dialog routes this through onOpenChange.
-    await screen
+    screen
       .getByRole('dialog')
       .element()
       .dispatchEvent(
