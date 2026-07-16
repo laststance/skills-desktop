@@ -280,19 +280,6 @@ const InfoView = React.memo(function InfoView({
       <Separator className="my-4" />
 
       <div>
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
-          Symlink Status
-        </h3>
-        <div className="space-y-2">
-          {filteredSymlinks.map((symlink) => (
-            <SymlinkStatus key={symlink.agentId} symlink={symlink} />
-          ))}
-        </div>
-      </div>
-
-      <Separator className="my-4" />
-
-      <div>
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
           Location
         </h3>
@@ -319,6 +306,19 @@ const InfoView = React.memo(function InfoView({
             onCopy={copyPath}
           />
         )}
+      </div>
+
+      <Separator className="my-4" />
+
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
+          Symlink Status
+        </h3>
+        <div className="space-y-2">
+          {filteredSymlinks.map((symlink) => (
+            <SymlinkStatus key={symlink.agentId} symlink={symlink} />
+          ))}
+        </div>
       </div>
     </div>
   )

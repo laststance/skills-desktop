@@ -316,8 +316,9 @@ describe('SkillDetail Info path copy', () => {
       .toHaveTextContent(/Inaccessible:\s*1/)
   })
 
-  it('keeps Location paths visible after scrolling the Info tab inside detail chrome', async () => {
-    // Arrange
+  it('keeps Location paths visible inside detail chrome when Info tab overflows', async () => {
+    // Arrange — Location sits above Symlink Status; a long status list still
+    // overflows the fixed-height shell so chrome clipping stays regression-covered.
     const layoutStyleElement = installLayoutStyles()
     const { agents, skill } = makeOverflowSkillFixture()
     try {
@@ -336,9 +337,9 @@ describe('SkillDetail Info path copy', () => {
       expect(detailShell).toBeInstanceOf(HTMLElement)
       expect(infoScroller).toBeInstanceOf(HTMLElement)
 
-      // Act
+      // Act — bring Location into view without scrolling past it into Status rows
       const scrollPane = infoScroller as HTMLElement
-      scrollPane.scrollTop = scrollPane.scrollHeight
+      symlinkPath.scrollIntoView({ block: 'nearest' })
       await new Promise<void>((resolve) => {
         requestAnimationFrame(() => resolve())
       })
@@ -348,9 +349,13 @@ describe('SkillDetail Info path copy', () => {
       expect(
         Math.round((detailShell as HTMLElement).getBoundingClientRect().height),
       ).toBe(DETAIL_PANEL_TEST_HEIGHT_PX)
-      expect(symlinkPath.getBoundingClientRect().bottom).toBeLessThanOrEqual(
-        (detailShell as HTMLElement).getBoundingClientRect().bottom +
-          VISIBLE_BOUNDS_TOLERANCE_PX,
+      const shellBounds = (detailShell as HTMLElement).getBoundingClientRect()
+      const pathBounds = symlinkPath.getBoundingClientRect()
+      expect(pathBounds.top).toBeGreaterThanOrEqual(
+        shellBounds.top - VISIBLE_BOUNDS_TOLERANCE_PX,
+      )
+      expect(pathBounds.bottom).toBeLessThanOrEqual(
+        shellBounds.bottom + VISIBLE_BOUNDS_TOLERANCE_PX,
       )
     } finally {
       layoutStyleElement.remove()
