@@ -1,6 +1,6 @@
 # Skills Desktop
 
-> Skills Desktop is a free, open-source macOS Electron app that visualizes AI agent skill symlinks. It helps developers manage and monitor skills installed via `npx skills add` across 54 AI agents including Claude Code, Cursor, Gemini CLI, and more.
+> Skills Desktop is a free, open-source macOS Electron app that visualizes AI agent skill symlinks. It helps developers manage and monitor skills installed via `npx skills add` across 69 AI agents including Claude Code, Cursor, Gemini CLI, and more.
 
 Skills Desktop scans your `~/.agents/skills/` directory and displays the symlink status (valid, broken, inaccessible, or missing) for each skill across all supported AI agents. Built with Electron, React 19, Redux Toolkit, and TypeScript.
 
@@ -13,7 +13,7 @@ Skills Desktop scans your `~/.agents/skills/` directory and displays the symlink
 ## Core Features
 
 - **Skill Visualization**: Real-time symlink status monitoring with valid/broken/inaccessible/missing indicators.
-- **54 AI Agents Support**: Claude Code, Cursor, Gemini CLI, OpenAI Codex, GitHub Copilot, Cline, Roo Code, Amp, Goose, Aider, Windsurf, Zed, Continue, PearAI, Void, Melty, Trae, Junie, Kilo Code, Blackbox AI, OpenCode, and more.
+- **69 AI Agents Support**: Claude Code, Cursor, Codex, Gemini CLI, GitHub Copilot, Cline, Roo Code, Amp, Goose, Devin Desktop, Continue, Trae, Junie, Kilo Code, OpenCode, Warp, Zed, ZCode, and more.
 - **Centralized Skills Hub**: All skills stored in `~/.agents/skills/` and symlinked to each agent directory.
 - **Native macOS Experience**: Electron-based desktop app with system integration.
 - **37 Theme Presets**: 54 visual themes across OKLCH color hues, pure neutrals, and shadcn/ui tinted neutrals.

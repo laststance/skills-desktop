@@ -121,6 +121,7 @@ Agent definitions are synced with [vercel-labs/skills CLI](https://github.com/ve
 | Terramind          | `terramind`       | `~/.terramind/skills/`              |
 | Tinycloud          | `tinycloud`       | `~/.tinycloud/skills/`              |
 | Zed                | `zed`             | `~/.zed/skills/`                    |
+| ZCode              | `zcode`           | `~/.zcode/skills/`                  |
 
 **Detection Logic:**
 
@@ -134,7 +135,7 @@ Agent definitions are synced with [vercel-labs/skills CLI](https://github.com/ve
 ### Core Features
 
 - [x] Display source directory (`~/.agents/skills/`)
-- [x] Auto-detect installed AI agents (68 agents)
+- [x] Auto-detect installed AI agents (69 agents)
 - [x] List all installed skills with metadata
 - [x] Show symlink status per skill per agent
 - [x] Validate symlink integrity (valid/broken/inaccessible/missing)
@@ -928,7 +929,7 @@ APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 **Sections:**
 
 - Hero with app screenshot
-- Feature grid (68 agents, symlink status, 37 theme presets)
+- Feature grid (69 agents, symlink status, 37 theme presets)
 - Download CTA linking to GitHub Release
 - OG image for social sharing
 

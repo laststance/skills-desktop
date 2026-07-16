@@ -149,6 +149,25 @@ Do not bump `package.json` `version` — releases are owned solely by
 
 ## Latest run (example — point-in-time, NOT part of the procedure)
 
+**2026-07-16 · v1.5.13 → v1.5.18** (+1 community agent)
+
+- **+1 agent:** `zcode` (ZCode, added upstream in v1.5.16) — own home dir
+  `~/.zcode/skills`, so `installDir = scanDir = '.zcode'` (no universal-source
+  divergence). `AGENT_DEFINITIONS` 68 → 69; `UNIVERSAL_AGENT_IDS` stays 16
+  (zcode's `skillsDir` is `.zcode/skills`, not `.agents/skills`).
+- **No migrations/rebrands:** zero app orphans; no id/cliId or display-name
+  changes. Upstream `types.ts` only widened its own AgentName union.
+- **Excluded at this version:** `eve` and `promptscript`
+  (`globalSkillsDir: undefined`), `universal` (`showInUniversalList: false`),
+  `zenflow` (dir collides with zencoder's `~/.zencoder/skills`).
+- **Edits:** bumped `SKILLS_CLI_VERSION` 1.5.13 → 1.5.18; bumped the e2e pin
+  (`marketplace-install-regression.e2e.ts` literal `skills@1.5.18 add …` +
+  comment); bumped the CLAUDE.md Domain-Concepts pinned-version cell; agent
+  count 68 → 69 in README/SPEC + website copy (Hero, Features, layout,
+  llms.txt — llms.txt was still at a stale 54).
+- Gates: `reconcile-agents.mjs` clean (69/69), prettier clean, `pnpm validate`
+  green, `pnpm test:e2e` green.
+
 **2026-06-24 · v1.5.11 → v1.5.13** (version pin + excluded upstream agent)
 
 - **No app agent-list change:** upstream `name:` set is 72 and app `cliId` set

@@ -5,7 +5,7 @@ import { Monitor, Link2, Palette, Bot, FolderSync, Eye } from 'lucide-react'
 const features = [
   {
     icon: Bot,
-    title: '68 AI Agents Supported',
+    title: '69 AI Agents Supported',
     description:
       'Claude Code, Cursor, Gemini CLI, OpenAI Codex, GitHub Copilot, and dozens more agents auto-detected.',
   },

@@ -20,7 +20,7 @@ export function Hero() {
           </h1>
 
           <p className="mb-10 max-w-2xl text-lg text-muted-foreground lg:text-xl">
-            Visualize installed Skills, check symlink status across 68 AI
+            Visualize installed Skills, check symlink status across 69 AI
             agents, and keep your development tools perfectly synchronized.
           </p>
 

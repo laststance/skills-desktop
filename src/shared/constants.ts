@@ -776,6 +776,14 @@ export const AGENT_DEFINITIONS = [
     installDir: '.agents',
     scanDir: '.zed',
   },
+  // Community agent added in skills CLI v1.5.16 (synced 2026-07-16).
+  {
+    id: 'zcode',
+    cliId: 'zcode',
+    name: 'ZCode',
+    installDir: '.zcode',
+    scanDir: '.zcode',
+  },
 ] as const
 
 /**
@@ -978,7 +986,7 @@ export const TERMINAL_APP_UI_LABELS: Record<
  * @example
  * spawn('npx', [`skills@${SKILLS_CLI_VERSION}`, 'find', 'react'])
  */
-export const SKILLS_CLI_VERSION = '1.5.13'
+export const SKILLS_CLI_VERSION = '1.5.18'
 
 /**
  * Canonical hostname for skills marketplace pages used by renderer/main
