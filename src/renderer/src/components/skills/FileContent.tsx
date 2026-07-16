@@ -260,8 +260,7 @@ const SyntaxHighlightedCode = function SyntaxHighlightedCode({
     >
       {highlightedHtml ? (
         <div
-          // Font size is inline so the slider scales it; `.line` line-height in
-          // globals.css is unitless, so rows scale with the font.
+          // Font size stays on this node because preview tests and slider behavior share this DOM contract.
           style={{ fontSize: `${fontSizePx}px` }}
           className="skill-code-preview min-w-max font-mono"
           // Shiki escapes the source text before returning HTML; this injects
@@ -270,49 +269,27 @@ const SyntaxHighlightedCode = function SyntaxHighlightedCode({
           dangerouslySetInnerHTML={{ __html: highlightedHtml }}
         />
       ) : (
-        <PlainTextCode lines={plainTextLines} fontSizePx={fontSizePx} />
+        <table
+          style={{ fontSize: `${fontSizePx}px` }}
+          className="w-full min-w-max font-mono leading-[1.5]"
+        >
+          <tbody>
+            {/* Keep source line order and stable row numbers while Shiki loads. */}
+            {plainTextLines.map((line, index) => (
+              <tr key={index} className="hover:bg-foreground/5">
+                <td className="sticky left-0 z-10 w-12 bg-muted px-2 py-0 text-right text-muted-foreground select-none border-r border-border/50 align-top">
+                  {index + 1}
+                </td>
+                <td className="px-3 py-0 whitespace-pre text-foreground">
+                  {line || ' '}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
       <div className="h-8" data-file-preview-bottom-spacer aria-hidden />
     </div>
-  )
-}
-
-interface PlainTextCodeProps {
-  lines: string[]
-  fontSizePx: number
-}
-
-/**
- * Immediate plain-text fallback shown while Shiki loads or when highlighting
- * fails for an unknown grammar.
- * @param lines - Raw content split on newline boundaries.
- * @param fontSizePx - Code font size; unitless line-height keeps rows scaling.
- * @returns Line-numbered plain text table.
- * @example
- * <PlainTextCode lines={['first', 'second']} fontSizePx={13} />
- */
-const PlainTextCode = function PlainTextCode({
-  lines,
-  fontSizePx,
-}: PlainTextCodeProps): React.ReactElement {
-  return (
-    <table
-      style={{ fontSize: `${fontSizePx}px` }}
-      className="w-full min-w-max font-mono leading-[1.5]"
-    >
-      <tbody>
-        {lines.map((line, idx) => (
-          <tr key={idx} className="hover:bg-foreground/5">
-            <td className="sticky left-0 z-10 w-12 bg-muted px-2 py-0 text-right text-muted-foreground select-none border-r border-border/50 align-top">
-              {idx + 1}
-            </td>
-            <td className="px-3 py-0 whitespace-pre text-foreground">
-              {line || ' '}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
   )
 }
 

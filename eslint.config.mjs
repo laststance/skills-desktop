@@ -7,7 +7,7 @@ import reactYouMightNotNeedAnEffect from 'eslint-plugin-react-you-might-not-need
 import { defineConfig } from 'eslint/config'
 
 /**
- * Rules intentionally enabled for @laststance/react-next-eslint-plugin v2.2.0.
+ * Rules intentionally enabled for @laststance/react-next-eslint-plugin v2.3.0.
  * Keeping the list explicit means dependency upgrades cannot silently turn on a
  * new rule without a focused lint-fix pass in the same PR.
  *
@@ -26,6 +26,8 @@ const laststanceReactNextRuleNames = [
   'no-missing-component-display-name',
   'no-missing-key',
   'no-nested-component-definitions',
+  'no-prop-drilling',
+  'no-react-context',
   'no-set-state-prop-drilling',
   'no-use-reducer',
 ]

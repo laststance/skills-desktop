@@ -660,6 +660,13 @@ export const SkillItem = function SkillItem({
         >
           <SkillItemOverlayActions
             skill={skill}
+            protectButton={
+              <ProtectButton
+                skillName={skill.name}
+                showBookmark={showBookmark}
+                hasXButton={showUnlinkButtonBase || showDeleteButtonBase}
+              />
+            }
             selectedAgentName={selectedAgentName}
             isLocalSkill={isLocalSkill}
             isProtected={isProtected}
@@ -667,7 +674,6 @@ export const SkillItem = function SkillItem({
             showBookmark={showBookmark}
             showUnlinkButton={showUnlinkButton}
             showDeleteButton={showDeleteButton}
-            hasXButton={showUnlinkButtonBase || showDeleteButtonBase}
             onUnlinkClick={handleUnlinkClick}
             onDeleteClick={handleDeleteClick}
             onToggleBookmark={handleToggleBookmark}
@@ -740,6 +746,7 @@ export const SkillItem = function SkillItem({
 
 interface SkillItemOverlayActionsProps {
   skill: Skill
+  protectButton: React.ReactNode
   selectedAgentName: string
   isLocalSkill: boolean
   isProtected: boolean
@@ -747,7 +754,6 @@ interface SkillItemOverlayActionsProps {
   showBookmark: boolean
   showUnlinkButton: boolean
   showDeleteButton: boolean
-  hasXButton: boolean
   onUnlinkClick: (event: React.MouseEvent) => void
   onDeleteClick: (event: React.MouseEvent) => void
   onToggleBookmark: (event: React.MouseEvent) => void
@@ -762,6 +768,7 @@ interface SkillItemOverlayActionsProps {
  */
 const SkillItemOverlayActions = function SkillItemOverlayActions({
   skill,
+  protectButton,
   selectedAgentName,
   isLocalSkill,
   isProtected,
@@ -769,7 +776,6 @@ const SkillItemOverlayActions = function SkillItemOverlayActions({
   showBookmark,
   showUnlinkButton,
   showDeleteButton,
-  hasXButton,
   onUnlinkClick,
   onDeleteClick,
   onToggleBookmark,
@@ -842,11 +848,7 @@ const SkillItemOverlayActions = function SkillItemOverlayActions({
         </Tooltip>
       ) : null}
 
-      <ProtectButton
-        skillName={skill.name}
-        showBookmark={showBookmark}
-        hasXButton={hasXButton}
-      />
+      {protectButton}
 
       {showBookmark ? (
         <Tooltip>

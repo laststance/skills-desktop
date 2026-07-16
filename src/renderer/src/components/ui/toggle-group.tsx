@@ -47,54 +47,11 @@ const toggleVariants = cva(
 )
 
 /**
- * Context that lets `ToggleGroup` push its `variant` / `size` down to every
- * `ToggleGroupItem` without callers having to repeat the props on each item.
- */
-const ToggleGroupContext = React.createContext<
-  VariantProps<typeof toggleVariants>
->({
-  size: 'default',
-  variant: 'default',
-})
-
-/**
- * Radix `ToggleGroup.Root` styled to match the shadcn default look.
- * Single-select (`type="single"`) is the common usage; pass `type="multiple"`
- * for checkbox-style toggle sets.
- *
+ * Renders one styled Radix option after ToggleGroup injects any missing group-level styles.
+ * @param props - Radix item props plus optional per-item variant, size, and ref.
+ * @returns One accessible toggle option button.
  * @example
- *   <ToggleGroup type="single" value={scope} onValueChange={(v) => v && setScope(v)}>
- *     <ToggleGroupItem value="name">Name</ToggleGroupItem>
- *     <ToggleGroupItem value="repo">Repo</ToggleGroupItem>
- *   </ToggleGroup>
- */
-const ToggleGroup = function ToggleGroup({
-  className,
-  variant,
-  size,
-  children,
-  ref,
-  ...props
-}: React.ComponentProps<typeof ToggleGroupPrimitive.Root> &
-  VariantProps<typeof toggleVariants> & { ref?: React.Ref<HTMLDivElement> }) {
-  // Context value for descendant ToggleGroupItems. React Compiler preserves
-  // referential stability when variant/size are unchanged. React 19's
-  // `<Context>` (no `.Provider`) is the new shorthand.
-  const contextValue = { variant, size }
-  return (
-    <ToggleGroupPrimitive.Root
-      ref={ref}
-      className={cn('flex items-center justify-center gap-1', className)}
-      {...props}
-    >
-      <ToggleGroupContext value={contextValue}>{children}</ToggleGroupContext>
-    </ToggleGroupPrimitive.Root>
-  )
-}
-
-/**
- * One option button inside a `ToggleGroup`. Inherits `variant` / `size` from
- * the surrounding group's context unless explicitly overridden.
+ * <ToggleGroupItem value="name">Name</ToggleGroupItem>
  */
 const ToggleGroupItem = function ToggleGroupItem({
   className,
@@ -107,14 +64,13 @@ const ToggleGroupItem = function ToggleGroupItem({
   VariantProps<typeof toggleVariants> & {
     ref?: React.Ref<HTMLButtonElement>
   }) {
-  const context = React.use(ToggleGroupContext)
   return (
     <ToggleGroupPrimitive.Item
       ref={ref}
       className={cn(
         toggleVariants({
-          variant: variant ?? context.variant,
-          size: size ?? context.size,
+          variant,
+          size,
         }),
         className,
       )}
@@ -122,6 +78,54 @@ const ToggleGroupItem = function ToggleGroupItem({
     >
       {children}
     </ToggleGroupPrimitive.Item>
+  )
+}
+
+/**
+ * Composes a Radix group and injects shared styles into its direct ToggleGroupItem children.
+ * @param props - Radix root props plus group-level variant, size, children, and ref.
+ * @returns One toggle group whose item-level overrides take precedence.
+ * @example
+ * <ToggleGroup type="single" value={scope} onValueChange={(value) => value && setScope(value)}>
+ *   <ToggleGroupItem value="name">Name</ToggleGroupItem>
+ *   <ToggleGroupItem value="repo">Repo</ToggleGroupItem>
+ * </ToggleGroup>
+ */
+const ToggleGroup = function ToggleGroup({
+  className,
+  variant,
+  size,
+  children,
+  ref,
+  ...props
+}: React.ComponentProps<typeof ToggleGroupPrimitive.Root> &
+  VariantProps<typeof toggleVariants> & { ref?: React.Ref<HTMLDivElement> }) {
+  const styledChildren = React.Children.map(
+    children,
+    (child): React.ReactNode => {
+      // Only direct ToggleGroupItem children receive group defaults; text and wrappers pass through unchanged.
+      if (
+        !React.isValidElement<VariantProps<typeof toggleVariants>>(child) ||
+        child.type !== ToggleGroupItem
+      ) {
+        return child
+      }
+
+      return React.cloneElement(child, {
+        variant: child.props.variant ?? variant,
+        size: child.props.size ?? size,
+      })
+    },
+  )
+
+  return (
+    <ToggleGroupPrimitive.Root
+      ref={ref}
+      className={cn('flex items-center justify-center gap-1', className)}
+      {...props}
+    >
+      {styledChildren}
+    </ToggleGroupPrimitive.Root>
   )
 }
 
