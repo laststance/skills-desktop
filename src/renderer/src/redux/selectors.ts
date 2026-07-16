@@ -299,7 +299,7 @@ export const selectRepoFacetOptions = createSelector(
   },
 )
 
-export interface SourceFilterRow {
+interface SourceFilterRow {
   source: RepositoryId
   count: SkillCount
   /** True when this repo is in `selectedSources` (drives the checkbox tick). */

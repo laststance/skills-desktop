@@ -76,7 +76,6 @@ import {
   selectSelectedVisibleNames,
   selectSourceFilterViewModel,
 } from '@/renderer/src/redux/selectors'
-import type { SourceFilterRow } from '@/renderer/src/redux/selectors'
 import { setPreviewSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
 import { selectProtectedNamesSet } from '@/renderer/src/redux/slices/protectSlice'
 import {
@@ -1540,13 +1539,21 @@ const SourceRepositoryFilterMenu = function SourceRepositoryFilterMenu({
               Select all repos
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            {/* Each repository row consumes the menu handlers here, avoiding a relay-only component. */}
             {sourceFilter.dropdownRows.map((row) => (
-              <SourceFacetCheckboxRow
+              <DropdownMenuCheckboxItem
                 key={row.source}
-                row={row}
-                onToggle={onToggleSource}
-                onKeepOpen={onKeepDropdownOpen}
-              />
+                checked={row.checked}
+                onCheckedChange={() => onToggleSource(row.source)}
+                onSelect={onKeepDropdownOpen}
+                aria-label={`${row.source}, ${row.count} ${pluralize(row.count, 'skill')}`}
+                className="gap-2"
+              >
+                <span className="min-w-0 flex-1 truncate">{row.source}</span>
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {row.count}
+                </span>
+              </DropdownMenuCheckboxItem>
             ))}
           </>
         )}
@@ -1859,45 +1866,6 @@ const BulkConfirmDialog = function BulkConfirmDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
-}
-
-/**
- * One repo row in the source-filter dropdown — hoists the toggle handler so
- * `DropdownMenuCheckboxItem` doesn't receive a fresh inline arrow each render.
- * Mapped by MainContent.
- * @param row - Facet row: repo id, visible-skill count, and ticked state.
- * @param onToggle - Adds/removes this repo from the include filter.
- * @param onKeepOpen - `onSelect` handler that keeps the menu open on activation.
- * @returns A checkbox menu item labelling the repo id and its skill count.
- * @example
- * <SourceFacetCheckboxRow row={row} onToggle={handleToggleSource} onKeepOpen={handleKeepDropdownOpen} />
- */
-const SourceFacetCheckboxRow = function SourceFacetCheckboxRow({
-  row,
-  onToggle,
-  onKeepOpen,
-}: {
-  row: SourceFilterRow
-  onToggle: (source: RepositoryId) => void
-  onKeepOpen: (event: Event) => void
-}): React.ReactElement {
-  // Stable per-row toggle — re-created only when the row id or handler changes.
-  const handleCheckedChange = (): void => {
-    onToggle(row.source)
-  }
-
-  return (
-    <DropdownMenuCheckboxItem
-      checked={row.checked}
-      onCheckedChange={handleCheckedChange}
-      onSelect={onKeepOpen}
-      aria-label={`${row.source}, ${row.count} ${pluralize(row.count, 'skill')}`}
-      className="gap-2"
-    >
-      <span className="min-w-0 flex-1 truncate">{row.source}</span>
-      <span className="ml-auto text-xs text-muted-foreground">{row.count}</span>
-    </DropdownMenuCheckboxItem>
   )
 }
 
