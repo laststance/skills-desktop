@@ -1,18 +1,5 @@
 version: 2
 updates:
-  - package-ecosystem: npm
-    directory: /
-    schedule:
-      interval: weekly
-      day: monday
-      time: '08:00'
-      timezone: Asia/Tokyo
-    groups:
-      production-dependencies:
-        dependency-type: production
-      development-dependencies:
-        dependency-type: development
-
   - package-ecosystem: github-actions
     directory: /
     schedule:
