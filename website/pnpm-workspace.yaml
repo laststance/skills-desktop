@@ -1,2 +1,8 @@
 allowBuilds:
   sharp: true
+
+# Next.js still pins vulnerable transitive versions that Dependabot cannot lift automatically.
+overrides:
+  'minimatch@10>brace-expansion': 5.0.9
+  postcss: 8.5.23
+  sharp: 0.35.3
