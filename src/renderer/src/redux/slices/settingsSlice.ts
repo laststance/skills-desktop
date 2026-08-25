@@ -50,13 +50,20 @@ export const selectHiddenAgentIds = (state: RootState): AgentId[] =>
 
 /**
  * Selects the preview typography and theme when Appearance or CodePreview renders so both consumers share one stable projection.
+ * @param state - Root Redux state containing the persisted preview settings.
  * @returns Persisted font sizes and curated code-theme id used by preview controls and content.
  * @example
  * const { codeThemeId } = useAppSelector(selectPreviewAppearanceSettings)
  */
 export const selectPreviewAppearanceSettings = createSelector(
-  [(state: RootState): Settings => state.settings],
-  ({ markdownFontSizePx, codeFontSizePx, codeThemeId }) => ({
+  [
+    (state: RootState): Settings['markdownFontSizePx'] =>
+      state.settings.markdownFontSizePx,
+    (state: RootState): Settings['codeFontSizePx'] =>
+      state.settings.codeFontSizePx,
+    (state: RootState): Settings['codeThemeId'] => state.settings.codeThemeId,
+  ],
+  (markdownFontSizePx, codeFontSizePx, codeThemeId) => ({
     markdownFontSizePx,
     codeFontSizePx,
     codeThemeId,
