@@ -3,6 +3,7 @@ import React from 'react'
 
 import { useCodePreview } from '@/renderer/src/hooks/useCodePreview'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
+import { selectPreviewAppearanceSettings } from '@/renderer/src/redux/slices/settingsSlice'
 import type { AbsolutePath } from '@/shared/types'
 
 import { FileContent } from './FileContent'
@@ -35,13 +36,9 @@ export const CodePreview = function CodePreview({
     useCodePreview(skillPath)
   // Preview typography is user-configurable in Settings → Appearance; this is
   // the single Redux read that feeds the otherwise-presentational FileContent.
-  const markdownFontSizePx = useAppSelector(
-    (state) => state.settings.markdownFontSizePx,
+  const { markdownFontSizePx, codeFontSizePx, codeThemeId } = useAppSelector(
+    selectPreviewAppearanceSettings,
   )
-  const codeFontSizePx = useAppSelector(
-    (state) => state.settings.codeFontSizePx,
-  )
-  const codeThemeId = useAppSelector((state) => state.settings.codeThemeId)
 
   const handleValueChange = (next: string) => {
     /* v8 ignore next -- next is always a non-empty file.path: Radix emits a Trigger's own value and every FileTabs Trigger has value={file.path} (non-empty AbsolutePath); Root has no collapsible/deselect prop, so next === '' never occurs */

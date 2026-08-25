@@ -91,7 +91,7 @@ function createMissingSymlinkSlots(name: SkillName): SymlinkInfo[] {
     agentId: agent.id,
     agentName: agent.name,
     status: 'missing',
-    linkPath: join(agent.path, name) as AbsolutePath,
+    linkPath: join(agent.path, name),
     isLocal: false,
   }))
 }
@@ -141,7 +141,7 @@ async function scanAgentSymlinkStatusHits(
         )
         return Promise.all(
           candidates.map(async (link) => {
-            const linkPath = join(agent.path, link.name) as AbsolutePath
+            const linkPath = join(agent.path, link.name)
             const [status, targetPath] = await Promise.all([
               checkSymlinkTargetFromKnownLink(linkPath),
               readSymlinkTargetIfPresent(linkPath),
@@ -482,7 +482,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
           )
           const validated = await Promise.all(
             candidates.map(async (dir) => {
-              const skillPath = join(agent.path, dir.name) as AbsolutePath
+              const skillPath = join(agent.path, dir.name)
               if (!(await isValidSkillDir(skillPath))) return null
               // Parse metadata and probe SKILL.md for a symlink target in
               // parallel — gstack-managed sibling skills (e.g. ~/.claude/skills/ship)
@@ -493,9 +493,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
               const [metadata, skillMdSymlinkTarget, stats] = await Promise.all(
                 [
                   parseSkillMetadata(skillPath),
-                  readSymlinkTargetIfPresent(
-                    join(skillPath, 'SKILL.md') as AbsolutePath,
-                  ),
+                  readSymlinkTargetIfPresent(join(skillPath, 'SKILL.md')),
                   lstat(skillPath),
                 ],
               )
@@ -550,7 +548,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
     }
     updateAgentSymlinkSlot(skill, agent.id, {
       status: 'valid',
-      linkPath: join(agent.path, dirName) as AbsolutePath,
+      linkPath: join(agent.path, dirName),
       isLocal: true,
       filesystemIdentity,
       skillMdSymlinkTarget,

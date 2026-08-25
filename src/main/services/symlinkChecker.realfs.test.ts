@@ -12,8 +12,6 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import type { AbsolutePath } from '@/shared/types'
-
 import {
   checkSymlinkStatus,
   checkSymlinkTargetFromKnownLink,
@@ -35,12 +33,7 @@ describe('symlinkChecker real filesystem behavior', () => {
       const physicalAgentSkillsDir = join(physicalConfigDir, 'devin', 'skills')
       const sourceSkillDir = join(homeDir, '.agents', 'skills', 'qa-skill')
       const relativeTarget = '../../../../.agents/skills/qa-skill'
-      const linkPath = join(
-        logicalConfigDir,
-        'devin',
-        'skills',
-        'qa-skill',
-      ) as AbsolutePath
+      const linkPath = join(logicalConfigDir, 'devin', 'skills', 'qa-skill')
 
       await mkdir(physicalAgentSkillsDir, { recursive: true })
       await mkdir(sourceSkillDir, { recursive: true })

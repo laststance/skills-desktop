@@ -339,7 +339,7 @@ describe('SettingsSchema', () => {
 
   it('keeps a hidden agent id that matches an installed agent', () => {
     // Arrange
-    const firstAgentId = AGENT_DEFINITIONS[0]!.id
+    const firstAgentId = AGENT_DEFINITIONS[0].id
     // Act
     const parsed = SettingsSchema.parse({ hiddenAgentIds: [firstAgentId] })
     // Assert
@@ -363,7 +363,7 @@ describe('SettingsSchema', () => {
     // strict z.enum the whole array (and everything else in settings.json)
     // would reject. The transform must filter, not throw.
     // Arrange
-    const firstAgentId = AGENT_DEFINITIONS[0]!.id
+    const firstAgentId = AGENT_DEFINITIONS[0].id
     // Act
     const parsed = SettingsSchema.parse({
       hiddenAgentIds: [firstAgentId, 'removed-agent'],
@@ -403,7 +403,7 @@ describe('SettingsSchema', () => {
     // `z.unknown()` so the typeof-string filter inside transform can
     // do its job — same forgiving contract as the stale-id case.
     // Arrange
-    const firstAgentId = AGENT_DEFINITIONS[0]!.id
+    const firstAgentId = AGENT_DEFINITIONS[0].id
     // Act
     const parsed = SettingsSchema.parse({
       defaultSkillTab: 'info',
@@ -421,7 +421,7 @@ describe('SettingsSchema', () => {
     // would compare equal and silently drop the legitimate write). The
     // disk schema deduplicates so the equality contract stays honest.
     // Arrange
-    const firstAgentId = AGENT_DEFINITIONS[0]!.id
+    const firstAgentId = AGENT_DEFINITIONS[0].id
     // Act
     const parsed = SettingsSchema.parse({
       hiddenAgentIds: [firstAgentId, firstAgentId],

@@ -198,9 +198,9 @@ describe('trashService (integration)', () => {
     ) => Promise<MoveToTrashResult>,
     skillName: string,
   ): Promise<MoveToTrashResult> {
-    const reviewedSkillPath = join(sharedSourceDir, skillName) as AbsolutePath
+    const reviewedSkillPath = join(sharedSourceDir, skillName)
     return moveToTrash(
-      skillName as SkillName,
+      skillName,
       reviewedSkillPath,
       filesystemIdentityFromStats(await lstat(reviewedSkillPath)),
     )
@@ -223,9 +223,9 @@ describe('trashService (integration)', () => {
     skillName: string,
     agentBaseDir: string,
   ): Promise<MoveToTrashResult> {
-    const reviewedSkillPath = join(agentBaseDir, skillName) as AbsolutePath
+    const reviewedSkillPath = join(agentBaseDir, skillName)
     return moveToTrash(
-      skillName as SkillName,
+      skillName,
       reviewedSkillPath,
       filesystemIdentityFromStats(await lstat(reviewedSkillPath)),
     )
@@ -306,7 +306,7 @@ describe('trashService (integration)', () => {
     // Act
     const deleteResult = await moveToTrash(
       metadataName,
-      sourcePath as AbsolutePath,
+      sourcePath,
       filesystemIdentityFromStats(await lstat(sourcePath)),
     )
     assertTombstoned(deleteResult)
@@ -369,7 +369,7 @@ describe('trashService (integration)', () => {
 
     // Arrange
     const skillName = 'source-same-path-replacement'
-    const sourcePath = (await makeSourceSkill(skillName)) as AbsolutePath
+    const sourcePath = await makeSourceSkill(skillName)
     const reviewedIdentity = filesystemIdentityFromStats(
       await lstat(sourcePath),
     )
@@ -392,10 +392,7 @@ describe('trashService (integration)', () => {
 
     // Arrange
     const skillName = 'local-same-path-replacement'
-    const localPath = (await makeLocalSkill(
-      skillName,
-      sharedAgentClaude,
-    )) as AbsolutePath
+    const localPath = await makeLocalSkill(skillName, sharedAgentClaude)
     const reviewedIdentity = filesystemIdentityFromStats(await lstat(localPath))
     await rm(localPath, { recursive: true, force: true })
     await mkdir(localPath, { recursive: true })
@@ -514,7 +511,7 @@ describe('trashService (integration)', () => {
     await expect(
       moveToTrash(
         skillName,
-        join(sharedSourceDir, skillName) as AbsolutePath,
+        join(sharedSourceDir, skillName),
         missingDirectoryIdentity,
       ),
     ).rejects.toThrow(/already changed/i)

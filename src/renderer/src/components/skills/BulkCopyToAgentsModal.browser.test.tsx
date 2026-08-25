@@ -59,7 +59,7 @@ function makeAgent(
  */
 function makeSkill(name: string): Skill {
   return {
-    name: name as SkillName,
+    name: name,
     description: `${name} skill`,
     path: `/home/user/.agents/skills/${name}`,
     symlinkCount: 0,
@@ -183,7 +183,7 @@ describe('BulkCopyToAgentsModal target selection', () => {
     const { screen } = await renderModal({
       skills: [makeSkill('task')],
       agents: [makeAgent({ id: 'cursor', name: 'Cursor' })],
-      selectedNames: ['task' as SkillName],
+      selectedNames: ['task'],
     })
     const cursorCheckbox = screen.getByRole('checkbox', { name: /Cursor/i })
     await expect.element(cursorCheckbox).not.toBeChecked()
@@ -205,7 +205,7 @@ describe('BulkCopyToAgentsModal target selection', () => {
         makeAgent({ id: 'cursor', name: 'Cursor' }),
         makeAgent({ id: 'codex', name: 'Codex' }),
       ],
-      selectedNames: ['task' as SkillName],
+      selectedNames: ['task'],
     })
     const cursorCheckbox = screen.getByRole('checkbox', { name: /Cursor/i })
     const codexCheckbox = screen.getByRole('checkbox', { name: /Codex/i })
@@ -225,7 +225,7 @@ describe('BulkCopyToAgentsModal dismissal', () => {
     const { screen, store } = await renderModal({
       skills: [makeSkill('task')],
       agents: [makeAgent({ id: 'cursor', name: 'Cursor' })],
-      selectedNames: ['task' as SkillName],
+      selectedNames: ['task'],
     })
     await screen.getByRole('checkbox', { name: /Cursor/i }).click()
 
@@ -241,7 +241,7 @@ describe('BulkCopyToAgentsModal dismissal', () => {
     const { store } = await renderModal({
       skills: [makeSkill('task')],
       agents: [makeAgent({ id: 'cursor', name: 'Cursor' })],
-      selectedNames: ['task' as SkillName],
+      selectedNames: ['task'],
     })
 
     // Act — Escape drives Radix onOpenChange(false) -> handleDialogOpenChange
@@ -261,7 +261,7 @@ describe('BulkCopyToAgentsModal dismissal', () => {
     const { screen, store } = await renderModal({
       skills: [makeSkill('task')],
       agents: [makeAgent({ id: 'cursor', name: 'Cursor' })],
-      selectedNames: ['task' as SkillName],
+      selectedNames: ['task'],
     })
     await screen.getByRole('checkbox', { name: /Cursor/i }).click()
     await screen.getByRole('button', { name: /Copy/i }).click()
@@ -289,7 +289,7 @@ describe('BulkCopyToAgentsModal copy outcome', () => {
     const { screen, store } = await renderModal({
       skills: [makeSkill('task')],
       agents: [makeAgent({ id: 'cursor', name: 'Cursor' })],
-      selectedNames: ['task' as SkillName],
+      selectedNames: ['task'],
     })
     await screen.getByRole('checkbox', { name: /Cursor/i }).click()
 
@@ -324,7 +324,7 @@ describe('BulkCopyToAgentsModal copy outcome', () => {
     const { screen } = await renderModal({
       skills: [makeSkill('task')],
       agents: [makeAgent({ id: 'cursor', name: 'Cursor' })],
-      selectedNames: ['task' as SkillName],
+      selectedNames: ['task'],
     })
     await screen.getByRole('checkbox', { name: /Cursor/i }).click()
 
@@ -345,7 +345,7 @@ describe('BulkCopyToAgentsModal copy outcome', () => {
     const { screen, store } = await renderModal({
       skills: [makeSkill('task')],
       agents: [makeAgent({ id: 'cursor', name: 'Cursor' })],
-      selectedNames: ['task' as SkillName],
+      selectedNames: ['task'],
     })
     await screen.getByRole('checkbox', { name: /Cursor/i }).click()
     const { bulkCopyToAgents } =
@@ -361,7 +361,7 @@ describe('BulkCopyToAgentsModal copy outcome', () => {
     // copying), driving the modal's fulfilled.match else branch.
     store.dispatch(
       bulkCopyToAgents({
-        items: [{ skillName: 'task' as SkillName, sourcePath: '/x' }],
+        items: [{ skillName: 'task', sourcePath: '/x' }],
         agentIds: ['cursor'],
       }),
     )

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import type {
-  AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
   SkillName,
@@ -53,7 +52,7 @@ describe('getToolbarState', () => {
     // Arrange / Act
     const result = getToolbarState({
       view: 'agent',
-      agentId: 'cursor' as AgentId,
+      agentId: 'cursor',
       count: 1,
       visibleCount: 1,
     })
@@ -68,7 +67,7 @@ describe('getToolbarState', () => {
     // Arrange / Act
     const result = getToolbarState({
       view: 'agent',
-      agentId: 'cursor' as AgentId,
+      agentId: 'cursor',
       count: 1,
       visibleCount: 1,
       agentDisplayName: 'Cursor',
@@ -83,7 +82,7 @@ describe('getToolbarState', () => {
     // Arrange / Act
     const result = getToolbarState({
       view: 'agent',
-      agentId: 'cursor' as AgentId,
+      agentId: 'cursor',
       count: 4,
       visibleCount: 4,
     })
@@ -98,7 +97,7 @@ describe('getToolbarState', () => {
     // Arrange / Act
     const result = getToolbarState({
       view: 'agent',
-      agentId: 'cursor' as AgentId,
+      agentId: 'cursor',
       count: 4,
       visibleCount: 4,
       agentDisplayName: 'Cursor',
@@ -129,7 +128,7 @@ describe('getToolbarState', () => {
     // Arrange / Act
     const result = getToolbarState({
       view: 'agent',
-      agentId: 'cursor' as AgentId,
+      agentId: 'cursor',
       count: 3,
       visibleCount: 0,
       agentDisplayName: 'Cursor',
@@ -172,13 +171,13 @@ describe('countOrphanSymlinksRemoved', () => {
           skillName: 'abandoned',
           outcome: 'orphan-cleared',
           symlinksRemoved: 2,
-          cascadeAgents: ['cursor' as AgentId],
+          cascadeAgents: ['cursor'],
         },
         {
           skillName: 'half-cleared',
           outcome: 'error',
           symlinksRemoved: 1,
-          cascadeAgents: ['claude-code' as AgentId],
+          cascadeAgents: ['claude-code'],
           error: { message: 'EACCES', code: 'EACCES' },
         },
       ],
@@ -201,7 +200,7 @@ describe('countOrphanSymlinksRemoved', () => {
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaa'),
           symlinksRemoved: 5,
-          cascadeAgents: ['cursor' as AgentId],
+          cascadeAgents: ['cursor'],
         },
         {
           skillName: 'locked',
@@ -229,14 +228,14 @@ describe('formatCascadeSummary', () => {
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaa'),
           symlinksRemoved: 2,
-          cascadeAgents: ['cursor' as AgentId, 'claude-code' as AgentId],
+          cascadeAgents: ['cursor', 'claude-code'],
         },
         {
           skillName: 'theme-generator',
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-theme-generator-bbbb'),
           symlinksRemoved: 1,
-          cascadeAgents: ['cursor' as AgentId],
+          cascadeAgents: ['cursor'],
         },
       ],
     }
@@ -328,13 +327,13 @@ describe('formatCascadeSummary', () => {
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaa'),
           symlinksRemoved: 1,
-          cascadeAgents: ['cursor' as AgentId],
+          cascadeAgents: ['cursor'],
         },
         {
           skillName: 'abandoned',
           outcome: 'orphan-cleared',
           symlinksRemoved: 2,
-          cascadeAgents: ['cursor' as AgentId, 'codex' as AgentId],
+          cascadeAgents: ['cursor', 'codex'],
         },
       ],
     }
@@ -361,17 +360,13 @@ describe('formatCascadeSummary', () => {
           skillName: 'abandoned-a',
           outcome: 'orphan-cleared',
           symlinksRemoved: 1,
-          cascadeAgents: ['cursor' as AgentId],
+          cascadeAgents: ['cursor'],
         },
         {
           skillName: 'abandoned-b',
           outcome: 'orphan-cleared',
           symlinksRemoved: 3,
-          cascadeAgents: [
-            'cursor' as AgentId,
-            'codex' as AgentId,
-            'claude-code' as AgentId,
-          ],
+          cascadeAgents: ['cursor', 'codex', 'claude-code'],
         },
       ],
     }
@@ -393,7 +388,7 @@ describe('formatCascadeSummary', () => {
           skillName: 'abandoned',
           outcome: 'orphan-cleared',
           symlinksRemoved: 2,
-          cascadeAgents: ['cursor' as AgentId, 'codex' as AgentId],
+          cascadeAgents: ['cursor', 'codex'],
         },
         {
           skillName: 'locked',
@@ -421,7 +416,7 @@ describe('formatCascadeSummary', () => {
           outcome: 'error',
           error: { message: 'Source skill exists', code: 'ESTALE' },
           symlinksRemoved: 2,
-          cascadeAgents: ['codex' as AgentId, 'cursor' as AgentId],
+          cascadeAgents: ['codex', 'cursor'],
         },
       ],
     }

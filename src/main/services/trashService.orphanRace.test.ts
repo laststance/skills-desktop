@@ -222,7 +222,7 @@ describe('trashService orphan cleanup guarded commit', () => {
       entry.startsWith(`${skillName}.cleanup-`),
     )
     expect(cleanupEntries).toHaveLength(1)
-    const cleanupPath = join(cursorSkillsDir, cleanupEntries[0]!)
+    const cleanupPath = join(cursorSkillsDir, cleanupEntries[0])
     expect((await lstat(cleanupPath)).isSymbolicLink()).toBe(true)
     expect(await readlink(cleanupPath)).toBe(sourcePath)
     expect(await readdir(__getTrashDirForTests())).toEqual([])
@@ -295,7 +295,7 @@ describe('trashService orphan cleanup guarded commit', () => {
       entry.startsWith(`${skillName}.cleanup-`),
     )
     expect(cleanupEntries).toHaveLength(1)
-    const cleanupPath = join(cursorSkillsDir, cleanupEntries[0]!)
+    const cleanupPath = join(cursorSkillsDir, cleanupEntries[0])
     expect((await lstat(cleanupPath)).isSymbolicLink()).toBe(true)
     expect(await readlink(cleanupPath)).toBe(sourcePath)
     expect(await readdir(__getTrashDirForTests())).toEqual([])
@@ -520,7 +520,7 @@ describe('trashService orphan cleanup guarded commit', () => {
       entry.startsWith(`${skillName}.cleanup-`),
     )
     expect(cleanupEntries).toHaveLength(1)
-    const cleanupPath = join(cursorSkillsDir, cleanupEntries[0]!)
+    const cleanupPath = join(cursorSkillsDir, cleanupEntries[0])
     expect((await lstat(cleanupPath)).isSymbolicLink()).toBe(true)
     expect(await readlink(cleanupPath)).toBe(sourcePath)
     expect(await readdir(__getTrashDirForTests())).toEqual([])
@@ -596,11 +596,11 @@ describe('trashService orphan cleanup guarded commit', () => {
     expect(trashEntries).toHaveLength(1)
     expect(
       (
-        await lstat(join(__getTrashDirForTests(), trashEntries[0]!, 'source'))
+        await lstat(join(__getTrashDirForTests(), trashEntries[0], 'source'))
       ).isDirectory(),
     ).toBe(true)
     await expect(
-      lstat(join(__getTrashDirForTests(), trashEntries[0]!, 'manifest.json')),
+      lstat(join(__getTrashDirForTests(), trashEntries[0], 'manifest.json')),
     ).rejects.toThrow()
   })
 
@@ -695,7 +695,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
     const trashEntries = await readdir(__getTrashDirForTests())
     expect(trashEntries).toHaveLength(1)
-    const entryDir = join(__getTrashDirForTests(), trashEntries[0]!)
+    const entryDir = join(__getTrashDirForTests(), trashEntries[0])
     expect((await lstat(join(entryDir, 'source'))).isDirectory()).toBe(true)
     await expect(
       lstat(join(entryDir, '.manual-recovery')),
@@ -778,7 +778,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     expect(await readlink(linkPath)).toBe(sourcePath)
     const trashEntries = await readdir(__getTrashDirForTests())
     expect(trashEntries).toHaveLength(1)
-    const entryDir = join(__getTrashDirForTests(), trashEntries[0]!)
+    const entryDir = join(__getTrashDirForTests(), trashEntries[0])
     expect(await readFile(join(entryDir, 'source', 'SKILL.md'), 'utf-8')).toBe(
       `# original ${skillName}\n`,
     )
@@ -850,7 +850,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     expect((await lstat(localPath)).isDirectory()).toBe(true)
     const trashEntries = await readdir(__getTrashDirForTests())
     expect(trashEntries).toHaveLength(1)
-    const entryDir = join(__getTrashDirForTests(), trashEntries[0]!)
+    const entryDir = join(__getTrashDirForTests(), trashEntries[0])
     expect(
       (
         await lstat(join(entryDir, 'local-copies', 'claude-code'))
@@ -875,7 +875,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        'null-byte-skill' as never,
+        'null-byte-skill',
         nullBytePath as never,
         missingDirectoryIdentityForOrphanTests,
       ),
@@ -895,7 +895,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        'stray-skill' as never,
+        'stray-skill',
         strayPath as never,
         await reviewedIdentityForPath(strayPath),
       ),
@@ -919,7 +919,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        'symlinked-source' as never,
+        'symlinked-source',
         realSourcePath as never,
         reviewedIdentity,
       ),
@@ -945,7 +945,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        'no-skill-md' as never,
+        'no-skill-md',
         invalidSkillPath as never,
         await reviewedIdentityForPath(invalidSkillPath),
       ),
@@ -1078,7 +1078,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     expect(trashEntries).toHaveLength(1)
     const stagedSource = join(
       __getTrashDirForTests(),
-      trashEntries[0]!,
+      trashEntries[0],
       'source',
       'SKILL.md',
     )
@@ -1251,7 +1251,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     ).rejects.toMatchObject({ code: 'ESTALE' })
     const trashEntries = await readdir(__getTrashDirForTests())
     expect(trashEntries).toHaveLength(1)
-    const entryDir = join(__getTrashDirForTests(), trashEntries[0]!)
+    const entryDir = join(__getTrashDirForTests(), trashEntries[0])
     await expect(
       lstat(join(entryDir, '.manual-recovery')),
     ).resolves.toBeDefined()
@@ -1460,8 +1460,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       commitReviewedDanglingSymlink({
-        linkPath: slotPath as never,
-        targetPath: targetPath as never,
+        linkPath: slotPath,
+        targetPath: targetPath,
         targetChangedMessage: 'target changed',
         targetExistsMessage: 'target exists',
         targetProbePrefix: 'cannot probe target',
@@ -1514,8 +1514,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       commitReviewedDanglingSymlink({
-        linkPath: slotPath as never,
-        targetPath: targetPath as never,
+        linkPath: slotPath,
+        targetPath: targetPath,
         targetChangedMessage: 'target changed',
         targetExistsMessage: 'target exists',
         targetProbePrefix: 'cannot probe target',
@@ -1639,7 +1639,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     ).toBe(true)
     const trashEntries = await readdir(__getTrashDirForTests())
     expect(trashEntries).toHaveLength(1)
-    const entryDir = join(__getTrashDirForTests(), trashEntries[0]!)
+    const entryDir = join(__getTrashDirForTests(), trashEntries[0])
     await expect(
       lstat(join(entryDir, '.manual-recovery')),
     ).resolves.toBeDefined()
@@ -1662,8 +1662,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       readReviewedDanglingSymlink({
-        linkPath: slotPath as never,
-        targetPath: targetPath as never,
+        linkPath: slotPath,
+        targetPath: targetPath,
         targetChangedMessage: 'target changed',
       }),
     ).rejects.toMatchObject({
@@ -1706,8 +1706,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       readReviewedDanglingSymlink({
-        linkPath: slotPath as never,
-        targetPath: targetPath as never,
+        linkPath: slotPath,
+        targetPath: targetPath,
         targetChangedMessage: 'target changed',
       }),
     ).rejects.toMatchObject({ message: 'permission denied', code: 'EACCES' })
@@ -1750,8 +1750,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       readReviewedDanglingSymlink({
-        linkPath: slotPath as never,
-        targetPath: targetPath as never,
+        linkPath: slotPath,
+        targetPath: targetPath,
         targetChangedMessage: 'target changed',
       }),
     ).rejects.toMatchObject({
@@ -1799,8 +1799,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       readReviewedDanglingSymlink({
-        linkPath: slotPath as never,
-        targetPath: targetPath as never,
+        linkPath: slotPath,
+        targetPath: targetPath,
         targetChangedMessage: 'target changed',
       }),
     ).rejects.toMatchObject({
@@ -1872,8 +1872,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       commitReviewedDanglingSymlink({
-        linkPath: slotPath as never,
-        targetPath: targetPath as never,
+        linkPath: slotPath,
+        targetPath: targetPath,
         targetChangedMessage: 'target changed',
         targetExistsMessage: 'target exists',
         targetProbePrefix: 'cannot probe target',
@@ -1917,8 +1917,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       commitReviewedDanglingSymlink({
-        linkPath: slotPath as never,
-        targetPath: targetPath as never,
+        linkPath: slotPath,
+        targetPath: targetPath,
         targetChangedMessage: 'target changed',
         targetExistsMessage: 'target exists',
         targetProbePrefix: 'cannot probe target',
@@ -1943,8 +1943,8 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act
     const outcome = await unlinkReviewedDanglingSymlink({
-      linkPath: slotPath as never,
-      targetPath: targetPath as never,
+      linkPath: slotPath,
+      targetPath: targetPath,
       targetChangedMessage: 'target changed',
       targetExistsMessage: 'target exists',
       targetProbePrefix: 'cannot probe target',
@@ -1993,8 +1993,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       unlinkReviewedDanglingSymlink({
-        linkPath: slotPath as never,
-        targetPath: targetPath as never,
+        linkPath: slotPath,
+        targetPath: targetPath,
         targetChangedMessage: 'target changed',
         targetExistsMessage: 'target exists',
         targetProbePrefix: 'cannot probe target',
@@ -2044,8 +2044,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       unlinkReviewedDanglingSymlink({
-        linkPath: slotPath as never,
-        targetPath: targetPath as never,
+        linkPath: slotPath,
+        targetPath: targetPath,
         targetChangedMessage: 'target changed',
         targetExistsMessage: 'target exists',
         targetProbePrefix: 'cannot probe target',
@@ -2098,8 +2098,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       commitReviewedDanglingSymlink({
-        linkPath: slotPath as never,
-        targetPath: expectedTargetPath as never,
+        linkPath: slotPath,
+        targetPath: expectedTargetPath,
         targetChangedMessage: 'target changed',
         targetExistsMessage: 'target exists',
         targetProbePrefix: 'cannot probe target',
@@ -2149,7 +2149,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       skillName,
-      sourcePath as never,
+      sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -2259,7 +2259,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       skillName,
-      sourcePath as never,
+      sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -2308,7 +2308,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       skillName,
-      sourcePath as never,
+      sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -2359,7 +2359,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       skillName,
-      sourcePath as never,
+      sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -2405,7 +2405,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       skillName,
-      sourcePath as never,
+      sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -2508,7 +2508,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       skillName,
-      sourcePath as never,
+      sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -2562,7 +2562,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       skillName,
-      sourcePath as never,
+      sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -2602,7 +2602,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       skillName,
-      sourcePath as never,
+      sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -2730,7 +2730,7 @@ describe('trashService orphan cleanup guarded commit', () => {
       const reviewedIdentity = await reviewedIdentityForPath(sourcePath)
       const { __getTrashDirForTests, moveToTrash } =
         await import('./trashService')
-      await moveToTrash(skillName, sourcePath as never, reviewedIdentity)
+      await moveToTrash(skillName, sourcePath, reviewedIdentity)
       expect(await readdir(__getTrashDirForTests())).toHaveLength(1)
 
       // Act
@@ -2762,7 +2762,7 @@ describe('trashService orphan cleanup guarded commit', () => {
       const reviewedIdentity = await reviewedIdentityForPath(localPath)
       const { __getTrashDirForTests, moveToTrash } =
         await import('./trashService')
-      await moveToTrash(skillName, localPath as never, reviewedIdentity)
+      await moveToTrash(skillName, localPath, reviewedIdentity)
       expect(await readdir(__getTrashDirForTests())).toHaveLength(1)
 
       // Act
@@ -3175,7 +3175,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       skillName,
-      localPath as never,
+      localPath,
       await reviewedIdentityForPath(localPath),
     )
 
@@ -3188,7 +3188,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(lstat(localPath)).rejects.toThrow()
     const trashEntries = await readdir(__getTrashDirForTests())
     expect(trashEntries).toHaveLength(1)
-    const entryDir = join(__getTrashDirForTests(), trashEntries[0]!)
+    const entryDir = join(__getTrashDirForTests(), trashEntries[0])
     await expect(
       lstat(join(entryDir, 'local-copies', 'claude-code')),
     ).resolves.toBeDefined()
@@ -3359,7 +3359,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // The staged copy is preserved under a manual-recovery entry.
     const trashEntries = await readdir(__getTrashDirForTests())
     expect(trashEntries).toHaveLength(1)
-    const entryDir = join(__getTrashDirForTests(), trashEntries[0]!)
+    const entryDir = join(__getTrashDirForTests(), trashEntries[0])
     await expect(
       lstat(join(entryDir, '.manual-recovery')),
     ).resolves.toBeDefined()

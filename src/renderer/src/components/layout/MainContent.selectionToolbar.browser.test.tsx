@@ -189,11 +189,8 @@ describe('MainContent SelectionToolbar integration', () => {
       fetchSkills.fulfilled(
         [
           makeCursorSkill(metadataName, 'valid', slotName),
-          makeCursorSkill('broken-toolbar-task' as SkillName, 'broken'),
-          makeCursorSkill(
-            'inaccessible-toolbar-task' as SkillName,
-            'inaccessible',
-          ),
+          makeCursorSkill('broken-toolbar-task', 'broken'),
+          makeCursorSkill('inaccessible-toolbar-task', 'inaccessible'),
         ],
         'skills-req',
       ),
@@ -201,7 +198,7 @@ describe('MainContent SelectionToolbar integration', () => {
     store.dispatch(selectAgent('cursor'))
     store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(metadataName))
-    store.dispatch(toggleSelection('broken-toolbar-task' as SkillName))
+    store.dispatch(toggleSelection('broken-toolbar-task'))
 
     // Act
     await expect

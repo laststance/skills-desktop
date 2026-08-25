@@ -122,7 +122,7 @@ describe('migrateState (v0 → v3 theme chain)', () => {
     const state = { theme: 'garbage' }
 
     // Act
-    const result = await migrate(state as never, 0)
+    const result = await migrate(state, 0)
 
     // Assert
     expect(result.theme).toBeUndefined()
@@ -173,7 +173,7 @@ describe('migrateState (v0 → v3 theme chain)', () => {
     }
 
     // Act
-    const result = await migrate(state as never, 0)
+    const result = await migrate(state, 0)
 
     // Assert
     expect(result.theme?.hue).toBe(0)
@@ -191,7 +191,7 @@ describe('migrateState (v0 → v3 theme chain)', () => {
     }
 
     // Act
-    const result = await migrate(state as never, 0)
+    const result = await migrate(state, 0)
 
     // Assert
     expect(result.theme?.mode).toBe('dark')

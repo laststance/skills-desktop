@@ -51,8 +51,7 @@ import { typedHandle } from './typedHandle'
 import { typedSend } from './typedSend'
 
 type AgentPathRemovalResult =
-  | { success: true }
-  | { success: false; error: string; code?: string }
+  { success: true } | { success: false; error: string; code?: string }
 
 /**
  * Normalize a caught error into the IPC error shape, preferring TrashError's own message/code over generic extraction, so TrashError-aware normalization lives in one place across the skills delete/clear catch blocks.
@@ -106,7 +105,7 @@ function assertAgentSlotPath(
       'Renderer link path does not match the selected agent slot.',
     )
   }
-  return normalizedPath as AbsolutePath
+  return normalizedPath
 }
 
 /**
@@ -123,7 +122,7 @@ function buildQuarantinePath(
   return join(
     dirname(reviewedPath),
     `${basename(reviewedPath)}.${label}-${randomUUID()}`,
-  ) as AbsolutePath
+  )
 }
 
 /**
@@ -923,7 +922,7 @@ export function registerSkillsHandlers(): void {
             derivedAgentPath,
             options.filesystemIdentity,
           )
-          const entryPath = join(derivedAgentPath, entryName) as AbsolutePath
+          const entryPath = join(derivedAgentPath, entryName)
           // Protected entries stay in place so the folder remains usable.
           if (protectedExistingPaths.has(resolve(entryPath))) continue
 

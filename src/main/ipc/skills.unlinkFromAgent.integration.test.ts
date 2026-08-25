@@ -222,7 +222,7 @@ describe('skills:unlinkFromAgent handler', () => {
     const slotName = 'folder-basename-bulk'
     const sourcePath = join(tempHome, '.agents', 'skills', slotName)
     const cursorSkillsDir = join(tempHome, '.cursor', 'skills')
-    const cursorLinkPath = join(cursorSkillsDir, slotName) as AbsolutePath
+    const cursorLinkPath = join(cursorSkillsDir, slotName)
     const decoyLinkPath = join(cursorSkillsDir, metadataName)
     await mkdir(sourcePath, { recursive: true })
     await mkdir(cursorSkillsDir, { recursive: true })
@@ -248,12 +248,12 @@ describe('skills:unlinkFromAgent handler', () => {
     const result = await handler(
       {},
       {
-        agentId: 'cursor' as AgentId,
+        agentId: 'cursor',
         items: [
           {
             skillName: metadataName,
             linkPath: cursorLinkPath,
-            targetPath: sourcePath as AbsolutePath,
+            targetPath: sourcePath,
           },
         ],
       },

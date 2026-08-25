@@ -203,7 +203,7 @@ function migrateV2ToV3(state: MigratableState): void {
   const resolved: 'light' | 'dark' =
     legacy.mode === 'light' || legacy.mode === 'dark' ? legacy.mode : 'dark'
   state.theme = {
-    ...(state.theme as ThemeState),
+    ...state.theme,
     mode: resolved,
     modePreference: resolved,
   }

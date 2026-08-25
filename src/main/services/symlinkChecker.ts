@@ -71,12 +71,10 @@ async function checkLinkOrLocal(
           isLocal: true,
         }),
       )
-      .otherwise(
-        async (): Promise<LinkOrLocalResult> => ({
-          status: 'missing',
-          isLocal: false,
-        }),
-      )
+      .otherwise(async (): Promise<LinkOrLocalResult> => ({
+        status: 'missing',
+        isLocal: false,
+      }))
   } catch {
     return { status: 'missing', isLocal: false }
   }
@@ -95,7 +93,7 @@ export async function checkSkillSymlinks(
 ): Promise<SymlinkInfo[]> {
   const results = await Promise.all(
     AGENTS.map(async (agent) => {
-      const linkPath = join(agent.path, skillName) as AbsolutePath
+      const linkPath = join(agent.path, skillName)
       const { status, isLocal } = await checkLinkOrLocal(linkPath)
 
       // Only symlinks (not local folders, not missing entries) have a target
@@ -120,9 +118,7 @@ export async function checkSkillSymlinks(
         // symlink. Per-agent so the renderer's badge attribution is bound to
         // THIS slot, not to a sibling agent that happens to share the name.
         const [skillMdTarget, localStats] = await Promise.all([
-          readSymlinkTargetIfPresent(
-            join(linkPath, 'SKILL.md') as AbsolutePath,
-          ),
+          readSymlinkTargetIfPresent(join(linkPath, 'SKILL.md')),
           lstat(linkPath).catch(() => undefined),
         ])
         skillMdSymlinkTarget = skillMdTarget
@@ -246,10 +242,10 @@ export async function resolveRawSymlinkTarget(
   target: string,
 ): Promise<AbsolutePath> {
   if (isAbsolute(target)) {
-    return resolve(target) as AbsolutePath
+    return resolve(target)
   }
   const physicalParent = await realpath(dirname(linkPath))
-  return resolve(physicalParent, target) as AbsolutePath
+  return resolve(physicalParent, target)
 }
 
 /**

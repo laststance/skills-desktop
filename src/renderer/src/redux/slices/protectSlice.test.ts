@@ -1,9 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 
-import type { RootState } from '@/renderer/src/redux/store'
-import type { SkillName } from '@/shared/types'
-
 async function createTestStore() {
   const { default: protectReducer } = await import('./protectSlice')
   return configureStore({ reducer: { protect: protectReducer } })
@@ -27,7 +24,7 @@ describe('protectSlice', () => {
     const store = await createTestStore()
 
     // Act
-    store.dispatch(addProtection('task' as SkillName))
+    store.dispatch(addProtection('task'))
 
     // Assert
     expect(store.getState().protect.items).toEqual(['task'])
@@ -39,8 +36,8 @@ describe('protectSlice', () => {
     const store = await createTestStore()
 
     // Act
-    store.dispatch(addProtection('task' as SkillName))
-    store.dispatch(addProtection('task' as SkillName))
+    store.dispatch(addProtection('task'))
+    store.dispatch(addProtection('task'))
 
     // Assert
     expect(store.getState().protect.items).toHaveLength(1)
@@ -52,8 +49,8 @@ describe('protectSlice', () => {
     const store = await createTestStore()
 
     // Act
-    store.dispatch(addProtection('task' as SkillName))
-    store.dispatch(addProtection('browse' as SkillName))
+    store.dispatch(addProtection('task'))
+    store.dispatch(addProtection('browse'))
 
     // Assert
     expect(store.getState().protect.items).toHaveLength(2)
@@ -63,11 +60,11 @@ describe('protectSlice', () => {
     // Arrange
     const { addProtection, removeProtection } = await import('./protectSlice')
     const store = await createTestStore()
-    store.dispatch(addProtection('task' as SkillName))
-    store.dispatch(addProtection('browse' as SkillName))
+    store.dispatch(addProtection('task'))
+    store.dispatch(addProtection('browse'))
 
     // Act
-    store.dispatch(removeProtection('task' as SkillName))
+    store.dispatch(removeProtection('task'))
 
     // Assert
     const items = store.getState().protect.items
@@ -79,10 +76,10 @@ describe('protectSlice', () => {
     // Arrange
     const { addProtection, removeProtection } = await import('./protectSlice')
     const store = await createTestStore()
-    store.dispatch(addProtection('task' as SkillName))
+    store.dispatch(addProtection('task'))
 
     // Act
-    store.dispatch(removeProtection('nonexistent' as SkillName))
+    store.dispatch(removeProtection('nonexistent'))
 
     // Assert
     expect(store.getState().protect.items).toHaveLength(1)
@@ -92,17 +89,11 @@ describe('protectSlice', () => {
     // Arrange
     const { addProtection, selectIsProtected } = await import('./protectSlice')
     const store = await createTestStore()
-    store.dispatch(addProtection('task' as SkillName))
+    store.dispatch(addProtection('task'))
 
     // Act
-    const isTaskProtected = selectIsProtected(
-      store.getState() as unknown as RootState,
-      'task' as SkillName,
-    )
-    const isOtherProtected = selectIsProtected(
-      store.getState() as unknown as RootState,
-      'other' as SkillName,
-    )
+    const isTaskProtected = selectIsProtected(store.getState(), 'task')
+    const isOtherProtected = selectIsProtected(store.getState(), 'other')
 
     // Assert
     expect(isTaskProtected).toBe(true)
@@ -114,17 +105,15 @@ describe('protectSlice', () => {
     const { addProtection, selectProtectedNamesSet } =
       await import('./protectSlice')
     const store = await createTestStore()
-    store.dispatch(addProtection('task' as SkillName))
-    store.dispatch(addProtection('browse' as SkillName))
+    store.dispatch(addProtection('task'))
+    store.dispatch(addProtection('browse'))
 
     // Act
-    const set = selectProtectedNamesSet(
-      store.getState() as unknown as RootState,
-    )
+    const set = selectProtectedNamesSet(store.getState())
 
     // Assert
-    expect(set.has('task' as SkillName)).toBe(true)
-    expect(set.has('browse' as SkillName)).toBe(true)
-    expect(set.has('other' as SkillName)).toBe(false)
+    expect(set.has('task')).toBe(true)
+    expect(set.has('browse')).toBe(true)
+    expect(set.has('other')).toBe(false)
   })
 })

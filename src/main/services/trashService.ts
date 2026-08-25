@@ -196,7 +196,7 @@ function skillNameFromPathBasename(absolutePath: AbsolutePath): SkillName {
   ) {
     throw new TrashError('Reviewed skill path has an invalid basename')
   }
-  return name as SkillName
+  return name
 }
 
 /**
@@ -208,7 +208,7 @@ function skillNameFromPathBasename(absolutePath: AbsolutePath): SkillName {
 function resolveDeleteIdentity(
   reviewedSkillPath: AbsolutePath,
 ): DeleteIdentity {
-  const normalizedPath = resolve(reviewedSkillPath) as AbsolutePath
+  const normalizedPath = resolve(reviewedSkillPath)
   const sourceDir = resolve(SOURCE_DIR)
   if (dirname(normalizedPath) === sourceDir) {
     validatePath(normalizedPath, [SOURCE_DIR])
@@ -793,8 +793,7 @@ async function unlinkReviewedSourceSymlink(
     throw error
   }
 
-  const movedPath =
-    `${linkPath}.cleanup-${randomBytes(4).toString('hex')}` as AbsolutePath
+  const movedPath = `${linkPath}.cleanup-${randomBytes(4).toString('hex')}`
 
   try {
     await fs.rename(linkPath, movedPath)
@@ -862,8 +861,7 @@ export async function commitReviewedDanglingSymlink(options: {
   targetExistsMessage: string
   targetProbePrefix: string
 }): Promise<void> {
-  const movedPath =
-    `${options.linkPath}.cleanup-${randomBytes(4).toString('hex')}` as AbsolutePath
+  const movedPath = `${options.linkPath}.cleanup-${randomBytes(4).toString('hex')}`
 
   try {
     await fs.rename(options.linkPath, movedPath)
@@ -1061,10 +1059,7 @@ async function removeSourceBackedAgentSymlinks(
 
       let removal: 'missing' | { outcome: 'unlinked'; target: string }
       try {
-        removal = await unlinkReviewedSourceSymlink(
-          linkPath as AbsolutePath,
-          sourcePath,
-        )
+        removal = await unlinkReviewedSourceSymlink(linkPath, sourcePath)
       } catch (error) {
         const code = errorCode(error)
         if (code === 'ENOENT' || code === 'ESTALE') {

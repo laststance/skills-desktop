@@ -14,6 +14,8 @@ allowBuilds:
 overrides:
   '@electron/get@5>undici': 7.29.0
   'ajv@8>fast-uri': 3.1.5
+  # Fallow's optional type-aware sidecar pins TypeScript 7; this repo uses its Rust-native gates and keeps TypeScript 6.
+  'fallow>fallow-type-aware': '-'
   js-yaml: 4.3.1
   'minimatch@10>brace-expansion': 5.0.9
   'minimatch@3>brace-expansion': 1.1.18

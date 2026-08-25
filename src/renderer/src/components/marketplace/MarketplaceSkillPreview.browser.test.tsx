@@ -4,7 +4,7 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
-import type { SkillName, SkillSearchResult } from '@/shared/types'
+import type { SkillSearchResult } from '@/shared/types'
 import { repositoryId } from '@/shared/types'
 
 /**
@@ -20,7 +20,7 @@ function makeSkill(
 ): SkillSearchResult {
   return {
     rank: 1,
-    name: 'task' as SkillName,
+    name: 'task',
     repo: repositoryId('vercel-labs/skills'),
     url: 'https://skills.sh/task',
     installCount: 123,
@@ -125,7 +125,7 @@ describe('MarketplaceSkillPreview', () => {
       await import('@/renderer/src/redux/slices/marketplaceSlice')
     const { MarketplaceSkillPreview } =
       await import('./MarketplaceSkillPreview')
-    const skill = makeSkill({ name: 'lint' as SkillName })
+    const skill = makeSkill({ name: 'lint' })
     store.dispatch(setPreviewSkill(skill))
     const screen = await renderWithStore(
       <MarketplaceSkillPreview skill={skill} />,

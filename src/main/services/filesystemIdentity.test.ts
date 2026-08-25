@@ -249,6 +249,10 @@ describe('filesystem identity guards for destructive deletes', () => {
       mtime: new Date(0),
       ctime: new Date(0),
       birthtime: new Date(0),
+      atimeInstant: undefined,
+      mtimeInstant: undefined,
+      ctimeInstant: undefined,
+      birthtimeInstant: undefined,
     } satisfies Stats
 
     it('labels an entry as a symlink so destructive UI treats it as a link, not its target', () => {

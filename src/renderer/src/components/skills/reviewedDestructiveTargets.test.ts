@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import type {
-  AbsolutePath,
-  AgentId,
   FilesystemEntryIdentity,
   Skill,
   SymlinkInfo,
@@ -24,7 +22,7 @@ function makeSkill(name: string, symlinks: SymlinkInfo[]): Skill {
   return {
     name,
     description: 'desc',
-    path: '/Users/me/.agents/skills/task' as AbsolutePath,
+    path: '/Users/me/.agents/skills/task',
     symlinkCount: 0,
     symlinks,
     isSource: true,
@@ -38,22 +36,18 @@ describe('buildAgentUnlinkTargets', () => {
     const skills: Skill[] = [
       makeSkill('task', [
         {
-          agentId: 'cursor' as AgentId,
+          agentId: 'cursor',
           agentName: 'Cursor',
           status: 'valid',
-          linkPath: '/Users/me/.cursor/skills/task' as AbsolutePath,
-          targetPath: '/Users/me/.agents/skills/task' as AbsolutePath,
+          linkPath: '/Users/me/.cursor/skills/task',
+          targetPath: '/Users/me/.agents/skills/task',
           isLocal: false,
         },
       ]),
     ]
 
     // Act
-    const result = buildAgentUnlinkTargets(
-      skills,
-      ['task'],
-      'cursor' as AgentId,
-    )
+    const result = buildAgentUnlinkTargets(skills, ['task'], 'cursor')
 
     // Assert
     expect(result.targets).toEqual([
@@ -72,21 +66,17 @@ describe('buildAgentUnlinkTargets', () => {
     const skills: Skill[] = [
       makeSkill('task', [
         {
-          agentId: 'cursor' as AgentId,
+          agentId: 'cursor',
           agentName: 'Cursor',
           status: 'missing',
-          linkPath: '/Users/me/.cursor/skills/task' as AbsolutePath,
+          linkPath: '/Users/me/.cursor/skills/task',
           isLocal: false,
         },
       ]),
     ]
 
     // Act
-    const result = buildAgentUnlinkTargets(
-      skills,
-      ['task'],
-      'cursor' as AgentId,
-    )
+    const result = buildAgentUnlinkTargets(skills, ['task'], 'cursor')
 
     // Assert — no unlink target produced; the name is flagged for a rescan
     expect(result.targets).toEqual([])
@@ -98,22 +88,18 @@ describe('buildAgentUnlinkTargets', () => {
     const skills: Skill[] = [
       makeSkill('task', [
         {
-          agentId: 'codex' as AgentId,
+          agentId: 'codex',
           agentName: 'Codex',
           status: 'valid',
-          linkPath: '/Users/me/.codex/skills/task' as AbsolutePath,
-          targetPath: '/Users/me/.agents/skills/task' as AbsolutePath,
+          linkPath: '/Users/me/.codex/skills/task',
+          targetPath: '/Users/me/.agents/skills/task',
           isLocal: false,
         },
       ]),
     ]
 
     // Act
-    const result = buildAgentUnlinkTargets(
-      skills,
-      ['task'],
-      'cursor' as AgentId,
-    )
+    const result = buildAgentUnlinkTargets(skills, ['task'], 'cursor')
 
     // Assert
     expect(result.targets).toEqual([])
@@ -125,11 +111,7 @@ describe('buildAgentUnlinkTargets', () => {
     const skills: Skill[] = []
 
     // Act
-    const result = buildAgentUnlinkTargets(
-      skills,
-      ['vanished'],
-      'cursor' as AgentId,
-    )
+    const result = buildAgentUnlinkTargets(skills, ['vanished'], 'cursor')
 
     // Assert
     expect(result.targets).toEqual([])
@@ -143,7 +125,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
     const sourceSkill: Skill = {
       name: 'task',
       description: 'desc',
-      path: '/Users/me/.agents/skills/task' as AbsolutePath,
+      path: '/Users/me/.agents/skills/task',
       symlinkCount: 0,
       symlinks: [],
       isSource: true,
@@ -181,15 +163,15 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
     const orphanSkill: Skill = {
       name: 'abandoned',
       description: 'desc',
-      path: '/Users/me/.agents/skills/abandoned' as AbsolutePath,
+      path: '/Users/me/.agents/skills/abandoned',
       symlinkCount: 0,
       symlinks: [
         {
-          agentId: 'codex' as AgentId,
+          agentId: 'codex',
           agentName: 'Codex',
           status: 'broken',
-          linkPath: '/Users/me/.codex/skills/abandoned' as AbsolutePath,
-          targetPath: '/Users/me/.agents/skills/abandoned' as AbsolutePath,
+          linkPath: '/Users/me/.codex/skills/abandoned',
+          targetPath: '/Users/me/.agents/skills/abandoned',
           isLocal: false,
         },
       ],
@@ -227,7 +209,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
       {
         name: 'locked',
         description: 'desc',
-        path: '/Users/me/.agents/skills/locked' as AbsolutePath,
+        path: '/Users/me/.agents/skills/locked',
         symlinkCount: 0,
         symlinks: [],
         isSource: true,
@@ -236,7 +218,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
       {
         name: 'unlocked',
         description: 'desc',
-        path: '/Users/me/.agents/skills/unlocked' as AbsolutePath,
+        path: '/Users/me/.agents/skills/unlocked',
         filesystemIdentity: identity,
         symlinkCount: 0,
         symlinks: [],
@@ -270,30 +252,30 @@ describe('partitionGlobalDeleteTargets', () => {
     const orphanSkill: Skill = {
       name: 'abandoned',
       description: 'desc',
-      path: '/Users/me/.agents/skills/abandoned' as AbsolutePath,
+      path: '/Users/me/.agents/skills/abandoned',
       symlinkCount: 0,
       symlinks: [
         {
-          agentId: 'codex' as AgentId,
+          agentId: 'codex',
           agentName: 'Codex',
           status: 'broken',
-          linkPath: '/Users/me/.codex/skills/abandoned' as AbsolutePath,
-          targetPath: '/Users/me/.agents/skills/abandoned' as AbsolutePath,
+          linkPath: '/Users/me/.codex/skills/abandoned',
+          targetPath: '/Users/me/.agents/skills/abandoned',
           isLocal: false,
         },
         {
-          agentId: 'cursor' as AgentId,
+          agentId: 'cursor',
           agentName: 'Cursor',
           status: 'broken',
-          linkPath: '/Users/me/.cursor/skills/abandoned' as AbsolutePath,
-          targetPath: '/Users/me/.agents/skills/abandoned' as AbsolutePath,
+          linkPath: '/Users/me/.cursor/skills/abandoned',
+          targetPath: '/Users/me/.agents/skills/abandoned',
           isLocal: true,
         },
         {
-          agentId: 'claude-code' as AgentId,
+          agentId: 'claude-code',
           agentName: 'Claude Code',
           status: 'broken',
-          linkPath: '/Users/me/.claude/skills/abandoned' as AbsolutePath,
+          linkPath: '/Users/me/.claude/skills/abandoned',
           isLocal: false,
         },
       ],

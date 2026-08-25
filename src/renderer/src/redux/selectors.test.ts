@@ -6,7 +6,6 @@ import type {
 } from '@/renderer/src/redux/slices/uiSlice'
 import { repositoryId } from '@/shared/types'
 import type {
-  AbsolutePath,
   AgentId,
   BookmarkedSkill,
   RepositoryId,
@@ -156,7 +155,7 @@ const makeSkill = (
   symlinkCount: isLocal || status === 'missing' ? 0 : 1,
   symlinks: [
     {
-      agentId: agentId as SymlinkInfo['agentId'],
+      agentId: agentId,
       agentName: agentId as SymlinkInfo['agentName'],
       linkPath: `/home/user/.${agentId}/skills/${name}`,
       targetPath: isLocal
@@ -199,7 +198,7 @@ const makeMultiSlotSkill = (
   const symlinks: SymlinkInfo[] = slots.map((slot) => {
     const isLocal = slot.isLocal ?? false
     return {
-      agentId: slot.agentId as SymlinkInfo['agentId'],
+      agentId: slot.agentId,
       agentName: slot.agentId as SymlinkInfo['agentName'],
       linkPath: `/home/user/.${slot.agentId}/skills/${name}`,
       targetPath: isLocal
@@ -381,8 +380,8 @@ describe('selectFilteredSkills', () => {
       symlinkCount: 1,
       symlinks: [
         {
-          agentId: 'cursor' as SymlinkInfo['agentId'],
-          agentName: 'Cursor' as SymlinkInfo['agentName'],
+          agentId: 'cursor',
+          agentName: 'Cursor',
           linkPath: '/home/user/.cursor/skills/broken-skill',
           targetPath: '/home/user/.agents/skills/broken-skill',
           status: 'broken',
@@ -415,8 +414,8 @@ describe('selectFilteredSkills', () => {
       symlinkCount: 0,
       symlinks: [
         {
-          agentId: 'cursor' as SymlinkInfo['agentId'],
-          agentName: 'Cursor' as SymlinkInfo['agentName'],
+          agentId: 'cursor',
+          agentName: 'Cursor',
           linkPath: '/home/user/.cursor/skills/unlinked-skill',
           targetPath: '/home/user/.agents/skills/unlinked-skill',
           status: 'missing',
@@ -539,18 +538,17 @@ describe('selectFilteredSkills', () => {
     const linkedGStack = makeSkill('linked-gstack', 'cursor')
     linkedGStack.symlinks = [
       {
-        ...linkedGStack.symlinks[0]!,
-        targetPath:
-          '/Users/me/.cursor/skills/gstack/linked-gstack' as AbsolutePath,
+        ...linkedGStack.symlinks[0],
+        targetPath: '/Users/me/.cursor/skills/gstack/linked-gstack',
       },
     ]
 
     const localGStack = makeSkill('local-gstack', 'cursor', true)
     localGStack.symlinks = [
       {
-        ...localGStack.symlinks[0]!,
+        ...localGStack.symlinks[0],
         skillMdSymlinkTarget:
-          '/Users/me/.cursor/skills/gstack/local-gstack/SKILL.md' as AbsolutePath,
+          '/Users/me/.cursor/skills/gstack/local-gstack/SKILL.md',
       },
     ]
 
@@ -581,18 +579,17 @@ describe('selectFilteredSkills', () => {
     const linkedGStack = makeSkill('linked-gstack', 'cursor')
     linkedGStack.symlinks = [
       {
-        ...linkedGStack.symlinks[0]!,
-        targetPath:
-          '/Users/me/.cursor/skills/gstack/linked-gstack' as AbsolutePath,
+        ...linkedGStack.symlinks[0],
+        targetPath: '/Users/me/.cursor/skills/gstack/linked-gstack',
       },
     ]
 
     const localGStack = makeSkill('local-gstack', 'cursor', true)
     localGStack.symlinks = [
       {
-        ...localGStack.symlinks[0]!,
+        ...localGStack.symlinks[0],
         skillMdSymlinkTarget:
-          '/Users/me/.cursor/skills/gstack/local-gstack/SKILL.md' as AbsolutePath,
+          '/Users/me/.cursor/skills/gstack/local-gstack/SKILL.md',
       },
     ]
 
@@ -616,13 +613,12 @@ describe('selectFilteredSkills', () => {
     // the answer.
     const mixedSkill = makeSkill('mixed-skill', 'cursor')
     mixedSkill.symlinks = [
-      mixedSkill.symlinks[0]!,
+      mixedSkill.symlinks[0],
       {
-        agentId: 'claude-code' as SymlinkInfo['agentId'],
-        agentName: 'Claude Code' as SymlinkInfo['agentName'],
-        linkPath: '/Users/me/.claude/skills/mixed-skill' as AbsolutePath,
-        targetPath:
-          '/Users/me/.claude/skills/gstack/mixed-skill' as AbsolutePath,
+        agentId: 'claude-code',
+        agentName: 'Claude Code',
+        linkPath: '/Users/me/.claude/skills/mixed-skill',
+        targetPath: '/Users/me/.claude/skills/gstack/mixed-skill',
         status: 'valid',
         isLocal: false,
       },
@@ -650,8 +646,8 @@ describe('selectFilteredSkills', () => {
       symlinkCount: 1,
       symlinks: [
         {
-          agentId: 'cursor' as SymlinkInfo['agentId'],
-          agentName: 'Cursor' as SymlinkInfo['agentName'],
+          agentId: 'cursor',
+          agentName: 'Cursor',
           linkPath: '/home/user/.cursor/skills/orphan-one',
           targetPath: '/home/user/.agents/skills/orphan-one',
           status: 'broken',
@@ -691,8 +687,8 @@ describe('selectFilteredSkills', () => {
       symlinkCount: 1,
       symlinks: [
         {
-          agentId: 'claude-code' as SymlinkInfo['agentId'],
-          agentName: 'Claude Code' as SymlinkInfo['agentName'],
+          agentId: 'claude-code',
+          agentName: 'Claude Code',
           linkPath: '/home/user/.claude/skills/orphan-agent-a',
           targetPath: '/home/user/.agents/skills/orphan-agent-a',
           status: 'broken',
@@ -1242,8 +1238,8 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
       isOrphan: true,
       symlinks: [
         {
-          agentId: 'cursor' as AgentId,
-          agentName: 'Cursor' as SymlinkInfo['agentName'],
+          agentId: 'cursor',
+          agentName: 'Cursor',
           linkPath: '/home/user/.cursor/skills/broken-skill',
           targetPath: '/home/user/.agents/skills/broken-skill',
           status: 'broken',
@@ -1274,8 +1270,8 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
       ...makeSkill('manual-review', 'cursor'),
       symlinks: [
         {
-          agentId: 'cursor' as AgentId,
-          agentName: 'Cursor' as SymlinkInfo['agentName'],
+          agentId: 'cursor',
+          agentName: 'Cursor',
           linkPath: '/home/user/.cursor/skills/manual-review',
           targetPath: '/home/user/.agents/skills/manual-review',
           status: 'inaccessible',
@@ -1300,8 +1296,8 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
       ...makeSkill('local-only', 'cursor'),
       symlinks: [
         {
-          agentId: 'cursor' as AgentId,
-          agentName: 'Cursor' as SymlinkInfo['agentName'],
+          agentId: 'cursor',
+          agentName: 'Cursor',
           linkPath: '/home/user/.cursor/skills/local-only',
           status: 'valid',
           isLocal: true,
@@ -1332,7 +1328,7 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
     const state = buildState({
       skills: [protectedSkill, availableSkill],
       selectedAgentId: 'cursor',
-      protectedSkillNames: ['protected-skill' as SkillName],
+      protectedSkillNames: ['protected-skill'],
     })
 
     // Act
@@ -1352,7 +1348,7 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
     const state = buildState({
       skills: [protectedSkill],
       selectedAgentId: null,
-      protectedSkillNames: ['protected-skill' as SkillName],
+      protectedSkillNames: ['protected-skill'],
     })
 
     // Act

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { AbsolutePath, AgentId, Skill, SymlinkInfo } from '@/shared/types'
+import type { AgentId, Skill, SymlinkInfo } from '@/shared/types'
 
 import {
   getCardContentPaddingClass,
@@ -17,8 +17,8 @@ function makeSymlink(
   return {
     agentName: 'Test Agent' as SymlinkInfo['agentName'],
     status: 'valid',
-    targetPath: '/target' as AbsolutePath,
-    linkPath: '/link' as AbsolutePath,
+    targetPath: '/target',
+    linkPath: '/link',
     isLocal: false,
     ...overrides,
   }
@@ -467,12 +467,11 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({
           agentId: 'claude-code',
-          linkPath: '/Users/me/.claude/skills/ship' as AbsolutePath,
+          linkPath: '/Users/me/.claude/skills/ship',
           isLocal: true,
           status: 'valid',
           targetPath: undefined,
-          skillMdSymlinkTarget:
-            '/Users/me/.claude/skills/gstack/ship/SKILL.md' as AbsolutePath,
+          skillMdSymlinkTarget: '/Users/me/.claude/skills/gstack/ship/SKILL.md',
         }),
       ]
 
@@ -490,12 +489,11 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({
           agentId: 'claude-code',
-          linkPath: '/Users/me/.claude/skills/custom' as AbsolutePath,
+          linkPath: '/Users/me/.claude/skills/custom',
           isLocal: true,
           status: 'valid',
           targetPath: undefined,
-          skillMdSymlinkTarget:
-            '/Users/me/projects/my-skills/custom/SKILL.md' as AbsolutePath,
+          skillMdSymlinkTarget: '/Users/me/projects/my-skills/custom/SKILL.md',
         }),
       ]
 
@@ -515,8 +513,8 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({
           agentId: 'claude-code',
-          targetPath: '/Users/me/.claude/skills/gstack/task' as AbsolutePath,
-          linkPath: '/Users/me/.claude/skills/task' as AbsolutePath,
+          targetPath: '/Users/me/.claude/skills/gstack/task',
+          linkPath: '/Users/me/.claude/skills/task',
           isLocal: false,
           status: 'valid',
         }),

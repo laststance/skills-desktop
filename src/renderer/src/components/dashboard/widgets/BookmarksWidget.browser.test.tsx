@@ -4,16 +4,14 @@ import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
-import type { HttpUrl, RepositoryId, SkillName } from '@/shared/types'
+import type { RepositoryId, SkillName } from '@/shared/types'
 
 /**
  * Render the real BookmarksWidget reducer with one bookmark.
  * @param name - Skill name shown in the widget row.
  * @returns Render screen plus the backing Redux store.
  */
-async function renderBookmarksWidget(
-  name: SkillName = 'very-long-skill-name' as SkillName,
-) {
+async function renderBookmarksWidget(name: SkillName = 'very-long-skill-name') {
   const [{ default: bookmarkReducer, addBookmark }, { BookmarksWidget }] =
     await Promise.all([
       import('@/renderer/src/redux/slices/bookmarkSlice'),
@@ -29,7 +27,7 @@ async function renderBookmarksWidget(
     addBookmark({
       name,
       repo: 'laststance/skills' as RepositoryId,
-      url: 'https://skills.sh/very-long-skill-name' as HttpUrl,
+      url: 'https://skills.sh/very-long-skill-name',
     }),
   )
 
@@ -62,7 +60,7 @@ describe('BookmarksWidget', () => {
 
   it('still removes the bookmark through the compact control', async () => {
     // Arrange
-    const { screen, store } = await renderBookmarksWidget('task' as SkillName)
+    const { screen, store } = await renderBookmarksWidget('task')
     const removeButton = screen
       .getByRole('button', { name: /Remove bookmark task/i })
       .element() as HTMLButtonElement
@@ -88,9 +86,9 @@ describe('BookmarksWidget', () => {
     })
     store.dispatch(
       addBookmark({
-        name: 'task' as SkillName,
+        name: 'task',
         repo: 'vercel-labs/skills' as RepositoryId,
-        url: 'https://skills.sh/task' as HttpUrl,
+        url: 'https://skills.sh/task',
       }),
     )
 
@@ -119,9 +117,9 @@ describe('BookmarksWidget', () => {
     })
     store.dispatch(
       addBookmark({
-        name: 'repo-less-skill' as SkillName,
+        name: 'repo-less-skill',
         repo: '',
-        url: 'https://skills.sh/repo-less-skill' as HttpUrl,
+        url: 'https://skills.sh/repo-less-skill',
       }),
     )
 

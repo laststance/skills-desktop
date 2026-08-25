@@ -6,13 +6,10 @@ import { render } from 'vitest-browser-react'
 import type { RootState } from '@/renderer/src/redux/store'
 import type {
   BookmarkedSkill,
-  HttpUrl,
   LeaderboardData,
   RankingFilter,
   RepositoryId,
   Skill,
-  SkillName,
-  SkillRank,
   SkillSearchResult,
 } from '@/shared/types'
 
@@ -54,10 +51,10 @@ function makeSearchResult(
   overrides: Partial<SkillSearchResult> = {},
 ): SkillSearchResult {
   return {
-    rank: 1 as SkillRank,
-    name: 'task' as SkillName,
+    rank: 1,
+    name: 'task',
     repo: 'vercel-labs/skills' as RepositoryId,
-    url: 'https://skills.sh/task' as HttpUrl,
+    url: 'https://skills.sh/task',
     installCount: undefined,
     ...overrides,
   }
@@ -163,10 +160,10 @@ describe('MarketplaceDashboard — trending preview selection', () => {
   it('selects a trending skill for preview when its row is clicked', async () => {
     // Arrange — one settled trending skill renders exactly one clickable row.
     const trendingSkill = makeSearchResult({
-      rank: 1 as SkillRank,
-      name: 'task' as SkillName,
+      rank: 1,
+      name: 'task',
       repo: 'vercel-labs/skills' as RepositoryId,
-      url: 'https://skills.sh/task' as HttpUrl,
+      url: 'https://skills.sh/task',
     })
     const { screen, store } = await renderDashboard({
       marketplace: {

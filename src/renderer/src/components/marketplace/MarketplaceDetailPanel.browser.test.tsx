@@ -4,7 +4,7 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
-import type { SkillName, SkillSearchResult } from '@/shared/types'
+import type { SkillSearchResult } from '@/shared/types'
 import { repositoryId } from '@/shared/types'
 
 // MarketplaceDashboard (rendered by MarketplaceDetailPanel when nothing is
@@ -43,7 +43,7 @@ function makeSkill(
 ): SkillSearchResult {
   return {
     rank: 1,
-    name: 'task' as SkillName,
+    name: 'task',
     repo: repositoryId('vercel-labs/skills'),
     url: 'https://skills.sh/task',
     installCount: 123,
@@ -132,7 +132,7 @@ describe('MarketplaceDetailPanel routing', () => {
     const { setPreviewSkill } =
       await import('@/renderer/src/redux/slices/marketplaceSlice')
     const { MarketplaceDetailPanel } = await import('./MarketplaceDetailPanel')
-    store.dispatch(setPreviewSkill(makeSkill({ name: 'lint' as SkillName })))
+    store.dispatch(setPreviewSkill(makeSkill({ name: 'lint' })))
 
     // Act
     const screen = await renderWithStore(<MarketplaceDetailPanel />, store)

@@ -5,12 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import { GSTACK_REPOSITORY_URL } from '@/shared/constants'
-import type {
-  FilesystemEntryIdentity,
-  Skill,
-  SkillName,
-  SymlinkInfo,
-} from '@/shared/types'
+import type { FilesystemEntryIdentity, Skill } from '@/shared/types'
 import { repositoryId } from '@/shared/types'
 
 const mockGetAll = vi.fn()
@@ -48,9 +43,9 @@ const directoryIdentity: FilesystemEntryIdentity = {
  */
 function makeSkill(overrides: Partial<Skill> = {}): Skill {
   return {
-    name: 'task' as SkillName,
+    name: 'task',
     description: 'Task management skill',
-    path: '/home/user/.agents/skills/task' as Skill['path'],
+    path: '/home/user/.agents/skills/task',
     filesystemIdentity: directoryIdentity,
     symlinkCount: 0,
     symlinks: [],
@@ -138,9 +133,7 @@ describe('SkillItem bulk-select checkbox visibility', () => {
 
   it('labels the unticked bulk checkbox "Select {name}" for screen readers', async () => {
     // Arrange
-    const { screen, store } = await renderSkillItem(
-      makeSkill({ name: 'task' as SkillName }),
-    )
+    const { screen, store } = await renderSkillItem(makeSkill({ name: 'task' }))
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
 
@@ -155,9 +148,7 @@ describe('SkillItem bulk-select checkbox visibility', () => {
 
   it('flips the checkbox label to "Deselect {name}" once the skill is ticked', async () => {
     // Arrange
-    const { screen, store } = await renderSkillItem(
-      makeSkill({ name: 'task' as SkillName }),
-    )
+    const { screen, store } = await renderSkillItem(makeSkill({ name: 'task' }))
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
     const { toggleSelection } =
@@ -165,7 +156,7 @@ describe('SkillItem bulk-select checkbox visibility', () => {
 
     // Act
     store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection('task' as SkillName))
+    store.dispatch(toggleSelection('task'))
 
     // Assert
     await expect
@@ -200,9 +191,8 @@ describe('SkillItem symlink status badges', () => {
           agentId: 'cursor',
           agentName: 'Cursor',
           status: 'inaccessible',
-          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
-          targetPath:
-            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          linkPath: '/home/user/.cursor/skills/task',
+          targetPath: '/home/user/.agents/skills/task',
           isLocal: false,
         },
       ],
@@ -226,9 +216,8 @@ describe('SkillItem symlink status badges', () => {
           agentId: 'cursor',
           agentName: 'Cursor',
           status: 'inaccessible',
-          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
-          targetPath:
-            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          linkPath: '/home/user/.cursor/skills/task',
+          targetPath: '/home/user/.agents/skills/task',
           isLocal: false,
         },
       ],
@@ -258,18 +247,16 @@ describe('SkillItem symlink status badges', () => {
           agentId: 'cursor',
           agentName: 'Cursor',
           status: 'broken',
-          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
-          targetPath:
-            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          linkPath: '/home/user/.cursor/skills/task',
+          targetPath: '/home/user/.agents/skills/task',
           isLocal: false,
         },
         {
           agentId: 'codex',
           agentName: 'Codex',
           status: 'valid',
-          linkPath: '/home/user/.codex/skills/task' as SymlinkInfo['linkPath'],
-          targetPath:
-            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          linkPath: '/home/user/.codex/skills/task',
+          targetPath: '/home/user/.agents/skills/task',
           isLocal: false,
         },
       ],
@@ -304,9 +291,8 @@ describe('SkillItem symlink status badges', () => {
           agentId: 'cursor',
           agentName: 'Cursor',
           status: 'inaccessible',
-          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
-          targetPath:
-            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          linkPath: '/home/user/.cursor/skills/task',
+          targetPath: '/home/user/.agents/skills/task',
           isLocal: false,
         },
       ],
@@ -336,9 +322,8 @@ describe('SkillItem symlink status badges', () => {
           agentId: 'cursor',
           agentName: 'Cursor',
           status: 'broken',
-          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
-          targetPath:
-            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          linkPath: '/home/user/.cursor/skills/task',
+          targetPath: '/home/user/.agents/skills/task',
           isLocal: false,
         },
       ],
@@ -374,7 +359,7 @@ describe('SkillItem delete button', () => {
     // Arrange
     const { screen } = await renderSkillItem(
       makeSkill({
-        name: 'brainstorming' as SkillName,
+        name: 'brainstorming',
         source: repositoryId('vercel-labs/agent-skills'),
       }),
     )
@@ -390,9 +375,7 @@ describe('SkillItem delete button', () => {
 
   it('offers a "Delete {name}" button for a plain skill', async () => {
     // Arrange
-    const { screen } = await renderSkillItem(
-      makeSkill({ name: 'local-skill' as SkillName }),
-    )
+    const { screen } = await renderSkillItem(makeSkill({ name: 'local-skill' }))
 
     // Act
     // (no interaction — assert the delete affordance is present)
@@ -407,7 +390,7 @@ describe('SkillItem delete button', () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({
-        name: 'brainstorming' as SkillName,
+        name: 'brainstorming',
         source: repositoryId('vercel-labs/agent-skills'),
       }),
     )
@@ -445,7 +428,7 @@ describe('SkillItem delete button', () => {
   it('opens the trash confirm dialog when deleting a plain skill', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
-      makeSkill({ name: 'local-skill' as SkillName }),
+      makeSkill({ name: 'local-skill' }),
     )
 
     // Act
@@ -476,7 +459,7 @@ describe('SkillItem delete button', () => {
   it('does not open the inspector pane when the delete button is clicked', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
-      makeSkill({ name: 'brainstorming' as SkillName }),
+      makeSkill({ name: 'brainstorming' }),
     )
 
     // Act
@@ -648,8 +631,8 @@ describe('SkillItem G-Stack badge', () => {
     // hidden on every gstack sibling, which is the whole bug being fixed.
     const { screen, store } = await renderSkillItem(
       makeSkill({
-        name: 'ship' as SkillName,
-        path: '/Users/me/.claude/skills/ship' as Skill['path'],
+        name: 'ship',
+        path: '/Users/me/.claude/skills/ship',
         isSource: false,
         symlinks: [
           {
@@ -659,7 +642,7 @@ describe('SkillItem G-Stack badge', () => {
             linkPath: '/Users/me/.claude/skills/ship',
             isLocal: true,
             skillMdSymlinkTarget:
-              '/Users/me/.claude/skills/gstack/ship/SKILL.md' as SymlinkInfo['skillMdSymlinkTarget'],
+              '/Users/me/.claude/skills/gstack/ship/SKILL.md',
           },
         ],
       }),
@@ -687,8 +670,8 @@ describe('SkillItem G-Stack badge', () => {
     // would only surface here.
     const { screen, store } = await renderSkillItem(
       makeSkill({
-        name: 'custom' as SkillName,
-        path: '/Users/me/.claude/skills/custom' as Skill['path'],
+        name: 'custom',
+        path: '/Users/me/.claude/skills/custom',
         isSource: false,
         symlinks: [
           {
@@ -698,7 +681,7 @@ describe('SkillItem G-Stack badge', () => {
             linkPath: '/Users/me/.claude/skills/custom',
             isLocal: true,
             skillMdSymlinkTarget:
-              '/Users/me/projects/my-skills/custom/SKILL.md' as SymlinkInfo['skillMdSymlinkTarget'],
+              '/Users/me/projects/my-skills/custom/SKILL.md',
           },
         ],
       }),
@@ -721,9 +704,7 @@ describe('SkillItem bulk-select checkbox stopPropagation', () => {
 
   it('ticks the row for bulk select without opening the inspector pane', async () => {
     // Arrange
-    const { screen, store } = await renderSkillItem(
-      makeSkill({ name: 'task' as SkillName }),
-    )
+    const { screen, store } = await renderSkillItem(makeSkill({ name: 'task' }))
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
 
@@ -743,9 +724,7 @@ describe('SkillItem bulk-select checkbox stopPropagation', () => {
     // Seed three visible rows so the range slice is meaningful, then plant an
     // anchor on 'alpha' (toggleSelection records the anchor). The rendered row
     // is the middle one ('task'); a shift-click on it should sweep alpha→task.
-    const { screen, store } = await renderSkillItem(
-      makeSkill({ name: 'task' as SkillName }),
-    )
+    const { screen, store } = await renderSkillItem(makeSkill({ name: 'task' }))
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
@@ -753,15 +732,15 @@ describe('SkillItem bulk-select checkbox stopPropagation', () => {
     store.dispatch(
       fetchSkills.fulfilled(
         [
-          makeSkill({ name: 'alpha' as SkillName }),
-          makeSkill({ name: 'task' as SkillName }),
-          makeSkill({ name: 'zeta' as SkillName }),
+          makeSkill({ name: 'alpha' }),
+          makeSkill({ name: 'task' }),
+          makeSkill({ name: 'zeta' }),
         ],
         'req-id',
       ),
     )
     store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection('alpha' as SkillName))
+    store.dispatch(toggleSelection('alpha'))
     // Precondition: anchor planted, so the shift branch will actually run.
     expect(store.getState().skills.selectionAnchor).toBe('alpha')
 
@@ -791,15 +770,14 @@ describe('SkillItem unlink button', () => {
   it('stages the symlink for removal when unlinking a valid skill in agent view', async () => {
     // Arrange
     const validSkill = makeSkill({
-      name: 'task' as SkillName,
+      name: 'task',
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
           status: 'valid',
-          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
-          targetPath:
-            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          linkPath: '/home/user/.cursor/skills/task',
+          targetPath: '/home/user/.agents/skills/task',
           isLocal: false,
         },
       ],
@@ -832,13 +810,13 @@ describe('SkillItem unlink button', () => {
     // has no source symlink, so handleUnlinkClick must fall back to
     // selectedLocalSkillInfo. The X button reads "Delete ... from ...".
     const localSkill = makeSkill({
-      name: 'task' as SkillName,
+      name: 'task',
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
           status: 'valid',
-          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          linkPath: '/home/user/.cursor/skills/task',
           isLocal: true,
         },
       ],
@@ -872,7 +850,7 @@ describe('SkillItem bookmark toggle', () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({
-        name: 'task' as SkillName,
+        name: 'task',
         source: repositoryId('vercel-labs/agent-skills'),
         sourceUrl: 'https://github.com/vercel-labs/agent-skills.git',
       }),
@@ -896,7 +874,7 @@ describe('SkillItem bookmark toggle', () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({
-        name: 'task' as SkillName,
+        name: 'task',
         source: repositoryId('vercel-labs/agent-skills'),
       }),
     )
@@ -904,7 +882,7 @@ describe('SkillItem bookmark toggle', () => {
       await import('@/renderer/src/redux/slices/bookmarkSlice')
     store.dispatch(
       addBookmark({
-        name: 'task' as SkillName,
+        name: 'task',
         repo: repositoryId('vercel-labs/agent-skills'),
         url: 'https://github.com/vercel-labs/agent-skills',
       }),
@@ -925,7 +903,7 @@ describe('SkillItem card click', () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({
-        name: 'task' as SkillName,
+        name: 'task',
         description: 'Task management skill',
       }),
     )
@@ -952,7 +930,7 @@ describe('SkillItem G-Stack badge click', () => {
     try {
       const { screen, store } = await renderSkillItem(
         makeSkill({
-          name: 'task' as SkillName,
+          name: 'task',
           symlinks: [
             {
               agentId: 'claude-code',
@@ -993,15 +971,14 @@ describe('SkillItem copy context menu', () => {
     // Arrange
     // Copy is only offered in agent view for a usable (valid, non-local) skill.
     const validSkill = makeSkill({
-      name: 'task' as SkillName,
+      name: 'task',
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
           status: 'valid',
-          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
-          targetPath:
-            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          linkPath: '/home/user/.cursor/skills/task',
+          targetPath: '/home/user/.agents/skills/task',
           isLocal: false,
         },
       ],
@@ -1035,9 +1012,7 @@ describe('SkillItem copy context menu', () => {
     // Arrange
     // Global view: showCopyButton is false, so onContextMenu returns early and
     // no menu item is ever rendered.
-    const { screen } = await renderSkillItem(
-      makeSkill({ name: 'task' as SkillName }),
-    )
+    const { screen } = await renderSkillItem(makeSkill({ name: 'task' }))
     const card = screen.getByText('Task management skill').element()
 
     // Act
@@ -1055,9 +1030,7 @@ describe('SkillItem copy context menu', () => {
 describe('SkillItem partial-failure flash', () => {
   it('flashes a red left edge for the matching row then clears it after the timeout', async () => {
     // Arrange
-    const { screen } = await renderSkillItem(
-      makeSkill({ name: 'task' as SkillName }),
-    )
+    const { screen } = await renderSkillItem(makeSkill({ name: 'task' }))
     const { flashFailedRows } =
       await import('@/renderer/src/utils/bulkOpVisuals')
     const card = screen.getByText('Task management skill').element()
@@ -1067,7 +1040,7 @@ describe('SkillItem partial-failure flash', () => {
 
     // Act
     // Fire the per-row failure event MainContent uses after a partial bulk op.
-    flashFailedRows(['task' as SkillName])
+    flashFailedRows(['task'])
 
     // Assert
     // The red edge appears immediately for this row's name...
@@ -1084,9 +1057,7 @@ describe('SkillItem partial-failure flash', () => {
 
   it('ignores a failure event addressed to a different row', async () => {
     // Arrange
-    const { screen } = await renderSkillItem(
-      makeSkill({ name: 'task' as SkillName }),
-    )
+    const { screen } = await renderSkillItem(makeSkill({ name: 'task' }))
     const { flashFailedRows } =
       await import('@/renderer/src/utils/bulkOpVisuals')
     const card = screen.getByText('Task management skill').element()
@@ -1095,7 +1066,7 @@ describe('SkillItem partial-failure flash', () => {
     // Act
     // A different skill's failure must not paint this row red (early return on
     // the skillName guard).
-    flashFailedRows(['other-skill' as SkillName])
+    flashFailedRows(['other-skill'])
 
     // Assert
     await expect
@@ -1107,9 +1078,7 @@ describe('SkillItem partial-failure flash', () => {
 describe('SkillItem protection', () => {
   it('shows a "Lock {name}" button when the skill is not protected', async () => {
     // Arrange — default store has protect.items=[], so the skill is unlocked.
-    const { screen } = await renderSkillItem(
-      makeSkill({ name: 'task' as SkillName }),
-    )
+    const { screen } = await renderSkillItem(makeSkill({ name: 'task' }))
 
     // Act
     // (no interaction — assert the lock affordance label matches the unlocked state)
@@ -1123,14 +1092,12 @@ describe('SkillItem protection', () => {
   it('labels a protected skill and offers an Unlock action', async () => {
     // Arrange — dispatch addProtection before rendering so ProtectButton
     // receives isProtected=true and renders the Lock icon.
-    const { screen, store } = await renderSkillItem(
-      makeSkill({ name: 'task' as SkillName }),
-    )
+    const { screen, store } = await renderSkillItem(makeSkill({ name: 'task' }))
     const { addProtection } =
       await import('@/renderer/src/redux/slices/protectSlice')
 
     // Act
-    store.dispatch(addProtection('task' as SkillName))
+    store.dispatch(addProtection('task'))
 
     // Assert — text makes protection scannable while the lock remains actionable.
     await expect
@@ -1143,14 +1110,12 @@ describe('SkillItem protection', () => {
 
   it('explains that delete is unavailable while the skill is protected', async () => {
     // Arrange
-    const { screen, store } = await renderSkillItem(
-      makeSkill({ name: 'task' as SkillName }),
-    )
+    const { screen, store } = await renderSkillItem(makeSkill({ name: 'task' }))
     const { addProtection } =
       await import('@/renderer/src/redux/slices/protectSlice')
 
     // Act — protect the skill so the destructive action becomes unavailable.
-    store.dispatch(addProtection('task' as SkillName))
+    store.dispatch(addProtection('task'))
 
     // Assert — keep the stable action slot visible, expose its ARIA state, and name why.
     const deleteButton = screen.getByRole('button', {
@@ -1162,15 +1127,13 @@ describe('SkillItem protection', () => {
 
   it('removes the Protected label and enables delete after unlocking', async () => {
     // Arrange — start locked, then unlock.
-    const { screen, store } = await renderSkillItem(
-      makeSkill({ name: 'task' as SkillName }),
-    )
+    const { screen, store } = await renderSkillItem(makeSkill({ name: 'task' }))
     const { addProtection, removeProtection } =
       await import('@/renderer/src/redux/slices/protectSlice')
-    store.dispatch(addProtection('task' as SkillName))
+    store.dispatch(addProtection('task'))
 
     // Act
-    store.dispatch(removeProtection('task' as SkillName))
+    store.dispatch(removeProtection('task'))
 
     // Assert — the visible status clears and the same destructive slot is usable.
     const deleteButton = screen.getByRole('button', { name: /^Delete task$/i })
@@ -1184,15 +1147,14 @@ describe('SkillItem protection', () => {
   it('hides the agent-view unlink button when the skill is locked', async () => {
     // Arrange
     const linkedSkill = makeSkill({
-      name: 'task' as SkillName,
+      name: 'task',
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
           status: 'valid',
-          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
-          targetPath:
-            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          linkPath: '/home/user/.cursor/skills/task',
+          targetPath: '/home/user/.agents/skills/task',
           isLocal: false,
         },
       ],
@@ -1204,7 +1166,7 @@ describe('SkillItem protection', () => {
 
     // Act
     store.dispatch(selectAgent('cursor'))
-    store.dispatch(addProtection('task' as SkillName))
+    store.dispatch(addProtection('task'))
 
     // Assert
     await expect
@@ -1222,13 +1184,13 @@ describe('SkillItem protection', () => {
   it('hides the agent-view local delete button when the skill is locked', async () => {
     // Arrange
     const localSkill = makeSkill({
-      name: 'task' as SkillName,
+      name: 'task',
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
           status: 'valid',
-          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
+          linkPath: '/home/user/.cursor/skills/task',
           isLocal: true,
         },
       ],
@@ -1240,7 +1202,7 @@ describe('SkillItem protection', () => {
 
     // Act
     store.dispatch(selectAgent('cursor'))
-    store.dispatch(addProtection('task' as SkillName))
+    store.dispatch(addProtection('task'))
 
     // Assert
     await expect
@@ -1258,15 +1220,14 @@ describe('SkillItem protection', () => {
   it('restores the agent-view unlink button when the skill is unlocked', async () => {
     // Arrange
     const linkedSkill = makeSkill({
-      name: 'task' as SkillName,
+      name: 'task',
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
           status: 'valid',
-          linkPath: '/home/user/.cursor/skills/task' as SymlinkInfo['linkPath'],
-          targetPath:
-            '/home/user/.agents/skills/task' as SymlinkInfo['targetPath'],
+          linkPath: '/home/user/.cursor/skills/task',
+          targetPath: '/home/user/.agents/skills/task',
           isLocal: false,
         },
       ],
@@ -1276,10 +1237,10 @@ describe('SkillItem protection', () => {
     const { addProtection, removeProtection } =
       await import('@/renderer/src/redux/slices/protectSlice')
     store.dispatch(selectAgent('cursor'))
-    store.dispatch(addProtection('task' as SkillName))
+    store.dispatch(addProtection('task'))
 
     // Act
-    store.dispatch(removeProtection('task' as SkillName))
+    store.dispatch(removeProtection('task'))
 
     // Assert
     await expect
