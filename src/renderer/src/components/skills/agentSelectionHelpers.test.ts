@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Agent, AgentId, SymlinkInfo } from '@/shared/types'
+import type { Agent, SymlinkInfo } from '@/shared/types'
 
 import {
   buildCopyAgentOptionViewModel,
@@ -18,7 +18,7 @@ function makeAgent(overrides: Partial<Agent> & Pick<Agent, 'id'>): Agent {
   return {
     id: overrides.id,
     name: overrides.name ?? ('Agent' as Agent['name']),
-    path: overrides.path ?? ('/tmp/skills' as Agent['path']),
+    path: overrides.path ?? '/tmp/skills',
     exists: overrides.exists ?? true,
     skillCount: overrides.skillCount ?? 0,
     localSkillCount: overrides.localSkillCount ?? 0,
@@ -92,7 +92,7 @@ describe('buildCopyAgentOptionViewModel', () => {
     // Act
     const result = buildCopyAgentOptionViewModel(agent, {
       occupiedAgentReasonById: new Map(),
-      selectedAgentIds: ['codex' as AgentId],
+      selectedAgentIds: ['codex'],
       copying: false,
       isSourceUnavailable: false,
     })
@@ -113,7 +113,7 @@ describe('buildCopyAgentOptionViewModel', () => {
 
     // Act
     const result = buildCopyAgentOptionViewModel(agent, {
-      occupiedAgentReasonById: new Map([['cursor' as AgentId, 'broken']]),
+      occupiedAgentReasonById: new Map([['cursor', 'broken']]),
       selectedAgentIds: [],
       copying: false,
       isSourceUnavailable: false,
@@ -133,7 +133,7 @@ describe('buildCopyAgentOptionViewModel', () => {
 
     // Act
     const result = buildCopyAgentOptionViewModel(agent, {
-      occupiedAgentReasonById: new Map([['cursor' as AgentId, 'inaccessible']]),
+      occupiedAgentReasonById: new Map([['cursor', 'inaccessible']]),
       selectedAgentIds: [],
       copying: false,
       isSourceUnavailable: false,
@@ -226,9 +226,7 @@ function makeSymlink(
     agentId: overrides.agentId,
     agentName: overrides.agentName ?? ('Agent' as SymlinkInfo['agentName']),
     status: overrides.status,
-    linkPath:
-      overrides.linkPath ??
-      ('/tmp/.agent/skills/demo' as SymlinkInfo['linkPath']),
+    linkPath: overrides.linkPath ?? '/tmp/.agent/skills/demo',
     isLocal: overrides.isLocal ?? false,
     targetPath: overrides.targetPath,
   }

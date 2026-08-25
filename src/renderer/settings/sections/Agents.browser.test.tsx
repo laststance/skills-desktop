@@ -229,7 +229,7 @@ describe('Settings → Agents', () => {
     // count and a disabled checkbox so a future refactor cannot accidentally
     // make these toggleable.
     const NOT_INSTALLED_AGENT: Agent = {
-      id: 'codex' as AgentId,
+      id: 'codex',
       name: 'Codex',
       path: '/Users/test/.codex/skills',
       exists: false,

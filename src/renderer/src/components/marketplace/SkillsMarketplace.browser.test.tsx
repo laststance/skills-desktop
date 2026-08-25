@@ -5,14 +5,11 @@ import { render } from 'vitest-browser-react'
 
 import type { RootState } from '@/renderer/src/redux/store'
 import type {
-  HttpUrl,
   LeaderboardData,
   MarketplaceStatus,
   RankingFilter,
   RepositoryId,
   Skill,
-  SkillName,
-  SkillRank,
   SkillSearchResult,
 } from '@/shared/types'
 
@@ -52,10 +49,10 @@ function makeSearchResult(
   overrides: Partial<SkillSearchResult> = {},
 ): SkillSearchResult {
   return {
-    rank: 1 as SkillRank,
-    name: 'task' as SkillName,
+    rank: 1,
+    name: 'task',
     repo: 'vercel-labs/skills' as RepositoryId,
-    url: 'https://skills.sh/task' as HttpUrl,
+    url: 'https://skills.sh/task',
     installCount: undefined,
     ...overrides,
   }
@@ -240,7 +237,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
     // UI does not show (it gates on an empty list).
     const oneSkillLeaderboard = {
       'all-time': makeLeaderboardData({
-        skills: [makeSearchResult({ name: 'solo' as SkillName })],
+        skills: [makeSearchResult({ name: 'solo' })],
         lastFetched: Date.now(),
         status: 'loading',
       }),
@@ -261,7 +258,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
     // Arrange — the skill name matches an installed skill, so the row shows the
     // Installed badge instead of an Install button.
     const installedSkill = {
-      name: 'installed-one' as SkillName,
+      name: 'installed-one',
       description: 'desc',
       path: '/Users/me/.agents/skills/installed-one',
       symlinkCount: 0,
@@ -272,7 +269,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
     // `status: 'loading'` aborts the mount refetch so the seeded skill survives.
     const leaderboardWithInstalled = {
       'all-time': makeLeaderboardData({
-        skills: [makeSearchResult({ name: 'installed-one' as SkillName })],
+        skills: [makeSearchResult({ name: 'installed-one' })],
         lastFetched: Date.now(),
         status: 'loading',
       }),
@@ -395,10 +392,10 @@ describe('SkillsMarketplace — search results view', () => {
     // Arrange — two results exercise the plural "skills" count label and the
     // search-results SkillRowMarketplace map.
     const results = [
-      makeSearchResult({ rank: 1 as SkillRank, name: 'react' as SkillName }),
+      makeSearchResult({ rank: 1, name: 'react' }),
       makeSearchResult({
-        rank: 2 as SkillRank,
-        name: 'react-query' as SkillName,
+        rank: 2,
+        name: 'react-query',
       }),
     ]
 
@@ -422,7 +419,7 @@ describe('SkillsMarketplace — search results view', () => {
   it('marks a search-result row as installed when its name is in the installed set', async () => {
     // Arrange — the result name matches an installed skill.
     const installedSkill = {
-      name: 'react' as SkillName,
+      name: 'react',
       description: 'desc',
       path: '/Users/me/.agents/skills/react',
       symlinkCount: 0,
@@ -436,7 +433,7 @@ describe('SkillsMarketplace — search results view', () => {
       marketplace: {
         status: 'idle',
         searchQuery: 'react',
-        searchResults: [makeSearchResult({ name: 'react' as SkillName })],
+        searchResults: [makeSearchResult({ name: 'react' })],
       },
       skills: { items: [installedSkill] },
     })
@@ -456,13 +453,13 @@ describe('SkillsMarketplace — ranking tab switch', () => {
     // the assertion proves the view actually swapped.
     const bothTabsLeaderboard = {
       'all-time': makeLeaderboardData({
-        skills: [makeSearchResult({ name: 'alltime-skill' as SkillName })],
+        skills: [makeSearchResult({ name: 'alltime-skill' })],
         lastFetched: Date.now(),
         status: 'loading',
         filter: 'all-time',
       }),
       trending: makeLeaderboardData({
-        skills: [makeSearchResult({ name: 'trending-skill' as SkillName })],
+        skills: [makeSearchResult({ name: 'trending-skill' })],
         lastFetched: Date.now(),
         status: 'loading',
         filter: 'trending',

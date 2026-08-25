@@ -1,7 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 
-import type { RootState } from '@/renderer/src/redux/store'
 import { repositoryId } from '@/shared/types'
 
 async function createTestStore() {
@@ -186,14 +185,8 @@ describe('bookmarkSlice', () => {
     )
 
     // Act
-    const isTaskBookmarked = selectIsBookmarked(
-      store.getState() as unknown as RootState,
-      'task',
-    )
-    const isOtherBookmarked = selectIsBookmarked(
-      store.getState() as unknown as RootState,
-      'other',
-    )
+    const isTaskBookmarked = selectIsBookmarked(store.getState(), 'task')
+    const isOtherBookmarked = selectIsBookmarked(store.getState(), 'other')
 
     // Assert
     expect(isTaskBookmarked).toBe(true)

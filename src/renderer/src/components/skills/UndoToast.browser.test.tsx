@@ -30,9 +30,7 @@ const SUMMARY = 'Deleted 2 skills. 5 symlinks removed.'
  * @example futureIso(30) // 30s undo window
  */
 function futureIso(secondsFromNow: number): IsoTimestamp {
-  return new Date(
-    Date.now() + secondsFromNow * 1_000,
-  ).toISOString() as IsoTimestamp
+  return new Date(Date.now() + secondsFromNow * 1_000).toISOString()
 }
 
 interface RenderOptions {
@@ -223,7 +221,7 @@ describe('UndoToast', () => {
     // An already-past expiry makes remainingMs 0, so canUndo is false: the
     // button renders disabled and no restore can be triggered.
     const onUndo = vi.fn(async () => {})
-    const expiredAt = new Date(Date.now() - 1_000).toISOString() as IsoTimestamp
+    const expiredAt = new Date(Date.now() - 1_000).toISOString()
     const { screen } = await renderUndoToast({ expiresAt: expiredAt, onUndo })
     const undoButton = screen.getByRole('button', {
       name: 'Undo delete of 2 skills',

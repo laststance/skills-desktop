@@ -95,3 +95,58 @@ describe('selectHiddenAgentIds', () => {
     expect(firstRead).toBe(secondRead)
   })
 })
+
+describe('selectPreviewAppearanceSettings', () => {
+  it('keeps the preview settings reference stable when only Installed count placement changes', async () => {
+    // Arrange
+    const { selectPreviewAppearanceSettings, setSettings } =
+      await import('./settingsSlice')
+    const store = await createTestStore()
+    const initialPreviewSettings = selectPreviewAppearanceSettings(
+      store.getState() as RootState,
+    )
+
+    // Act
+    store.dispatch(
+      setSettings({
+        ...DEFAULT_SETTINGS,
+        installedSearchCountDisplay: 'inline',
+      }),
+    )
+    const previewSettingsAfterUnrelatedChange = selectPreviewAppearanceSettings(
+      store.getState() as RootState,
+    )
+
+    // Assert
+    expect(previewSettingsAfterUnrelatedChange).toBe(initialPreviewSettings)
+  })
+
+  it('returns a new preview settings projection when Markdown typography changes', async () => {
+    // Arrange
+    const { selectPreviewAppearanceSettings, setSettings } =
+      await import('./settingsSlice')
+    const store = await createTestStore()
+    const initialPreviewSettings = selectPreviewAppearanceSettings(
+      store.getState() as RootState,
+    )
+
+    // Act
+    store.dispatch(
+      setSettings({
+        ...DEFAULT_SETTINGS,
+        markdownFontSizePx: 15,
+      }),
+    )
+    const updatedPreviewSettings = selectPreviewAppearanceSettings(
+      store.getState() as RootState,
+    )
+
+    // Assert
+    expect(updatedPreviewSettings).not.toBe(initialPreviewSettings)
+    expect(updatedPreviewSettings).toEqual({
+      markdownFontSizePx: 15,
+      codeFontSizePx: 13,
+      codeThemeId: 'github',
+    })
+  })
+})

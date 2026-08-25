@@ -38,7 +38,7 @@ describe('useOpenFolder', () => {
     const { result } = await renderHook(() => useOpenFolder())
 
     // Act
-    await result.current.revealInFinder('/x' as never)
+    await result.current.revealInFinder('/x')
 
     // Assert
     expect(revealMock).toHaveBeenCalledWith('/x')
@@ -56,7 +56,7 @@ describe('useOpenFolder', () => {
     const { result } = await renderHook(() => useOpenFolder())
 
     // Act
-    await result.current.revealInFinder('/x' as never)
+    await result.current.revealInFinder('/x')
 
     // Assert
     expect(toastErrorMock).toHaveBeenCalledTimes(1)
@@ -70,7 +70,7 @@ describe('useOpenFolder', () => {
     const { result } = await renderHook(() => useOpenFolder())
 
     // Act
-    await result.current.openInTerminal('/x' as never)
+    await result.current.openInTerminal('/x')
 
     // Assert
     expect(openTerminalMock).toHaveBeenCalledWith('/x')
@@ -88,7 +88,7 @@ describe('useOpenFolder', () => {
     const { result } = await renderHook(() => useOpenFolder())
 
     // Act
-    await result.current.openInTerminal('/missing' as never)
+    await result.current.openInTerminal('/missing')
 
     // Assert
     expect(toastErrorMock).toHaveBeenCalledWith('Folder not found: /missing')
@@ -104,7 +104,7 @@ describe('useOpenFolder', () => {
     const { result } = await renderHook(() => useOpenFolder())
 
     // Act
-    await result.current.revealInFinder('/locked' as never)
+    await result.current.revealInFinder('/locked')
 
     // Assert
     expect(toastErrorMock).toHaveBeenCalledTimes(1)
@@ -120,7 +120,7 @@ describe('useOpenFolder', () => {
     const { result } = await renderHook(() => useOpenFolder())
 
     // Act
-    await result.current.openInTerminal('/locked' as never)
+    await result.current.openInTerminal('/locked')
 
     // Assert
     expect(toastErrorMock).toHaveBeenCalledWith(

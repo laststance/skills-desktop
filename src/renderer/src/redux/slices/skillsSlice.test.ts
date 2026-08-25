@@ -73,8 +73,8 @@ const sampleSkill: Skill = {
   symlinkCount: 1,
   symlinks: [
     {
-      agentId: 'claude-code' as SymlinkInfo['agentId'],
-      agentName: 'Claude Code' as SymlinkInfo['agentName'],
+      agentId: 'claude-code',
+      agentName: 'Claude Code',
       linkPath: '/home/user/.claude/skills/task',
       targetPath: '/home/user/.agents/skills/task',
       status: 'valid',
@@ -113,7 +113,7 @@ function deleteTarget(
 ) {
   return {
     skillName,
-    skillPath: skillPath as AbsolutePath,
+    skillPath: skillPath,
     filesystemIdentity: directoryIdentity,
   }
 }
@@ -131,8 +131,8 @@ function unlinkTarget(
 ) {
   return {
     skillName,
-    linkPath: linkPath as AbsolutePath,
-    targetPath: `/home/user/.agents/skills/${skillName}` as AbsolutePath,
+    linkPath: linkPath,
+    targetPath: `/home/user/.agents/skills/${skillName}`,
   }
 }
 
@@ -211,7 +211,7 @@ describe('skillsSlice', () => {
     const { setSkillToAddSymlinks, toggleAddAgentSelection } =
       await import('./skillsSlice')
     const store = await createTestStore()
-    store.dispatch(toggleAddAgentSelection('codex' as AgentId))
+    store.dispatch(toggleAddAgentSelection('codex'))
 
     // Act + Assert — opening the Add modal resets the checklist to empty
     store.dispatch(setSkillToAddSymlinks(sampleSkill))
@@ -219,7 +219,7 @@ describe('skillsSlice', () => {
     expect(store.getState().skills.selectedAddAgentIds).toEqual([])
 
     // Act + Assert — closing the modal clears the checklist again
-    store.dispatch(toggleAddAgentSelection('cursor' as AgentId))
+    store.dispatch(toggleAddAgentSelection('cursor'))
     store.dispatch(setSkillToAddSymlinks(null))
     expect(store.getState().skills.skillToAddSymlinks).toBeNull()
     expect(store.getState().skills.selectedAddAgentIds).toEqual([])
@@ -231,11 +231,11 @@ describe('skillsSlice', () => {
     const store = await createTestStore()
 
     // Act + Assert — first toggle ticks the agent
-    store.dispatch(toggleAddAgentSelection('codex' as AgentId))
+    store.dispatch(toggleAddAgentSelection('codex'))
     expect(store.getState().skills.selectedAddAgentIds).toEqual(['codex'])
 
     // Act + Assert — second toggle un-ticks it
-    store.dispatch(toggleAddAgentSelection('codex' as AgentId))
+    store.dispatch(toggleAddAgentSelection('codex'))
     expect(store.getState().skills.selectedAddAgentIds).toEqual([])
   })
 
@@ -250,7 +250,7 @@ describe('skillsSlice', () => {
     expect(store.getState().skills.skillToCopy).toEqual(sampleSkill)
 
     // Act + Assert — closing clears both the target and the checklist
-    store.dispatch(toggleCopyAgentSelection('cursor' as AgentId))
+    store.dispatch(toggleCopyAgentSelection('cursor'))
     store.dispatch(setSkillToCopy(null))
     expect(store.getState().skills.skillToCopy).toBeNull()
     expect(store.getState().skills.selectedCopyAgentIds).toEqual([])
@@ -263,15 +263,15 @@ describe('skillsSlice', () => {
     const store = await createTestStore()
 
     // Act + Assert — first toggle ticks the agent
-    store.dispatch(toggleCopyAgentSelection('codex' as AgentId))
+    store.dispatch(toggleCopyAgentSelection('codex'))
     expect(store.getState().skills.selectedCopyAgentIds).toEqual(['codex'])
 
     // Act + Assert — second toggle un-ticks it
-    store.dispatch(toggleCopyAgentSelection('codex' as AgentId))
+    store.dispatch(toggleCopyAgentSelection('codex'))
     expect(store.getState().skills.selectedCopyAgentIds).toEqual([])
 
     // Act + Assert — clearing wipes the whole checklist at once
-    store.dispatch(toggleCopyAgentSelection('cursor' as AgentId))
+    store.dispatch(toggleCopyAgentSelection('cursor'))
     store.dispatch(clearCopyAgentSelection())
     expect(store.getState().skills.selectedCopyAgentIds).toEqual([])
   })
@@ -483,13 +483,13 @@ describe('skillsSlice', () => {
     const { setSkillToAddSymlinks, toggleAddAgentSelection, createSymlinks } =
       await import('./skillsSlice')
     store.dispatch(setSkillToAddSymlinks(sampleSkill))
-    store.dispatch(toggleAddAgentSelection('cursor' as AgentId))
+    store.dispatch(toggleAddAgentSelection('cursor'))
 
     // Act
     await store.dispatch(
       createSymlinks({
         skill: sampleSkill,
-        agentIds: ['cursor' as AgentId, 'codex' as AgentId],
+        agentIds: ['cursor', 'codex'],
       }),
     )
 
@@ -511,7 +511,7 @@ describe('skillsSlice', () => {
 
     // Act
     await store.dispatch(
-      createSymlinks({ skill: sampleSkill, agentIds: ['cursor' as AgentId] }),
+      createSymlinks({ skill: sampleSkill, agentIds: ['cursor'] }),
     )
 
     // Assert
@@ -536,15 +536,15 @@ describe('skillsSlice', () => {
     } = await import('./skillsSlice')
     store.dispatch(setSkillToCopy(sampleSkill))
     store.dispatch(setSkillToAddSymlinks(sampleSkill))
-    store.dispatch(toggleAddAgentSelection('cursor' as AgentId))
-    store.dispatch(toggleCopyAgentSelection('codex' as AgentId))
+    store.dispatch(toggleAddAgentSelection('cursor'))
+    store.dispatch(toggleCopyAgentSelection('codex'))
 
     // Act
     await store.dispatch(
       copyToAgents({
         skill: sampleSkill,
         sourcePath: sampleSymlink.linkPath,
-        agentIds: ['codex' as AgentId],
+        agentIds: ['codex'],
       }),
     )
 
@@ -571,7 +571,7 @@ describe('skillsSlice', () => {
       copyToAgents({
         skill: sampleSkill,
         sourcePath: sampleSymlink.linkPath,
-        agentIds: ['codex' as AgentId],
+        agentIds: ['codex'],
       }),
     )
 
@@ -588,8 +588,8 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
   const item = (
     name: string,
   ): { skillName: SkillName; sourcePath: AbsolutePath } => ({
-    skillName: name as SkillName,
-    sourcePath: `/Users/me/.agents/skills/${name}` as AbsolutePath,
+    skillName: name,
+    sourcePath: `/Users/me/.agents/skills/${name}`,
   })
 
   it('copies every selected skill to the chosen agents and returns one outcome per skill', async () => {
@@ -606,7 +606,7 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
     const result = await store.dispatch(
       bulkCopyToAgents({
         items: [item('alpha'), item('beta')],
-        agentIds: ['codex' as AgentId, 'cursor' as AgentId],
+        agentIds: ['codex', 'cursor'],
       }),
     )
 
@@ -638,7 +638,7 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
     const result = await store.dispatch(
       bulkCopyToAgents({
         items: [item('alpha'), item('beta')],
-        agentIds: ['codex' as AgentId],
+        agentIds: ['codex'],
       }),
     )
 
@@ -670,7 +670,7 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
     const result = await store.dispatch(
       bulkCopyToAgents({
         items: [item('alpha'), item('beta')],
-        agentIds: ['codex' as AgentId],
+        agentIds: ['codex'],
       }),
     )
 
@@ -704,7 +704,7 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
     const pending = store.dispatch(
       bulkCopyToAgents({
         items: [item('alpha')],
-        agentIds: ['codex' as AgentId],
+        agentIds: ['codex'],
       }),
     )
     const inFlight = store.getState().skills.bulkCopying
@@ -724,13 +724,13 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
     })
     const store = await createTestStore()
     const { bulkCopyToAgents, selectAll } = await import('./skillsSlice')
-    store.dispatch(selectAll(['alpha' as SkillName, 'beta' as SkillName]))
+    store.dispatch(selectAll(['alpha', 'beta']))
 
     // Act
     await store.dispatch(
       bulkCopyToAgents({
         items: [item('alpha'), item('beta')],
-        agentIds: ['codex' as AgentId],
+        agentIds: ['codex'],
       }),
     )
 
@@ -749,7 +749,7 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
     store.dispatch(
       bulkCopyToAgents.pending('inflight-request-id', {
         items: [item('alpha')],
-        agentIds: ['codex' as AgentId],
+        agentIds: ['codex'],
       }),
     )
     expect(store.getState().skills.bulkCopying).toBe(true)
@@ -759,7 +759,7 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
     const result = await store.dispatch(
       bulkCopyToAgents({
         items: [item('beta')],
-        agentIds: ['codex' as AgentId],
+        agentIds: ['codex'],
       }),
     )
 
@@ -1045,8 +1045,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
       deleteSelectedSkills([
         {
           skillName: 'metadata-title',
-          skillPath:
-            '/home/user/.agents/skills/folder-basename' as AbsolutePath,
+          skillPath: '/home/user/.agents/skills/folder-basename',
           filesystemIdentity: directoryIdentity,
         },
       ]),
@@ -1106,7 +1105,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
           skillName: 'task',
           outcome: 'orphan-cleared',
           symlinksRemoved: 1,
-          cascadeAgents: ['claude-code' as AgentId],
+          cascadeAgents: ['claude-code'],
         },
       ],
     } satisfies BulkDeleteResult)
@@ -1169,7 +1168,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
           skillName: 'task',
           agents: [
             {
-              agentId: 'codex' as AgentId,
+              agentId: 'codex',
               linkPath: '/home/user/.codex/skills/task',
               targetPath: '/home/user/.agents/skills/task',
             },
@@ -1179,7 +1178,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
           skillName: 'ghost',
           agents: [
             {
-              agentId: 'cursor' as AgentId,
+              agentId: 'cursor',
               linkPath: '/home/user/.cursor/skills/ghost',
               targetPath: '/home/user/.agents/skills/ghost',
             },
@@ -1198,7 +1197,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
           skillName: 'task',
           outcome: 'orphan-cleared',
           symlinksRemoved: 1,
-          cascadeAgents: ['codex' as AgentId],
+          cascadeAgents: ['codex'],
         },
       ],
     })
@@ -1215,7 +1214,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
           skillName: 'task',
           outcome: 'orphan-cleared',
           symlinksRemoved: 1,
-          cascadeAgents: ['codex' as AgentId],
+          cascadeAgents: ['codex'],
         },
       ],
     } satisfies ClearOrphanSymlinksResult)
@@ -1231,7 +1230,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
           skillName: 'task',
           agents: [
             {
-              agentId: 'codex' as AgentId,
+              agentId: 'codex',
               linkPath: '/home/user/.codex/skills/task',
               targetPath: '/home/user/.agents/skills/task',
             },
@@ -1273,7 +1272,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
           skillName: 'task',
           agents: [
             {
-              agentId: 'codex' as AgentId,
+              agentId: 'codex',
               linkPath: '/home/user/.codex/skills/task',
               targetPath: '/home/user/.agents/skills/task',
             },
@@ -1304,7 +1303,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
           skillName: 'task',
           agents: [
             {
-              agentId: 'codex' as AgentId,
+              agentId: 'codex',
               linkPath: '/home/user/.codex/skills/task',
               targetPath: '/home/user/.agents/skills/task',
             },
@@ -1343,7 +1342,7 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
       clearSelectedBrokenSymlinkSlots({
         items: [
           {
-            agentId: 'codex' as AgentId,
+            agentId: 'codex',
             // linkName (on-disk basename) intentionally differs from
             // displaySkillName to prove reconciliation matches the live
             // skill.name ('task'), not the symlink basename.
@@ -1353,7 +1352,7 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
             targetPath: '/home/user/.agents/skills/task',
           },
           {
-            agentId: 'cursor' as AgentId,
+            agentId: 'cursor',
             linkName: 'ghost',
             displaySkillName: 'ghost',
             linkPath: '/home/user/.cursor/skills/ghost',
@@ -1401,7 +1400,7 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
       clearSelectedBrokenSymlinkSlots({
         items: [
           {
-            agentId: 'codex' as AgentId,
+            agentId: 'codex',
             linkName: 'task',
             displaySkillName: 'task',
             linkPath: '/home/user/.codex/skills/task',
@@ -1431,7 +1430,7 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
       clearSelectedBrokenSymlinkSlots({
         items: [
           {
-            agentId: 'codex' as AgentId,
+            agentId: 'codex',
             linkName: 'task',
             displaySkillName: 'task',
             linkPath: '/home/user/.codex/skills/task',
@@ -1469,7 +1468,7 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     // Act — 'ghost' is not in state.items so reconciliation should drop it
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
-        agentId: 'cursor' as AgentId,
+        agentId: 'cursor',
         selectedNames: [
           unlinkTarget('task'),
           unlinkTarget('browser'),
@@ -1505,14 +1504,12 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     // Act
     await store.dispatch(
       unlinkSelectedFromAgent({
-        agentId: 'cursor' as AgentId,
+        agentId: 'cursor',
         selectedNames: [
           {
             skillName: 'metadata-title',
-            linkPath:
-              '/home/user/.cursor/skills/folder-basename' as AbsolutePath,
-            targetPath:
-              '/home/user/.agents/skills/folder-basename' as AbsolutePath,
+            linkPath: '/home/user/.cursor/skills/folder-basename',
+            targetPath: '/home/user/.agents/skills/folder-basename',
           },
         ],
       }),
@@ -1545,7 +1542,7 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     // Act
     await store.dispatch(
       unlinkSelectedFromAgent({
-        agentId: 'cursor' as AgentId,
+        agentId: 'cursor',
         selectedNames: [unlinkTarget('task')],
       }),
     )
@@ -1568,7 +1565,7 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     // Act
     await store.dispatch(
       unlinkSelectedFromAgent({
-        agentId: 'cursor' as AgentId,
+        agentId: 'cursor',
         selectedNames: [unlinkTarget('task')],
       }),
     )
@@ -1727,8 +1724,8 @@ describe('skillsSlice named selectors', () => {
       selectSelectedCopyAgentIds,
       selectSelectionAnchor,
     } = await import('./skillsSlice')
-    store.dispatch(toggleSelection('task' as SkillName))
-    store.dispatch(toggleCopyAgentSelection('codex' as AgentId))
+    store.dispatch(toggleSelection('task'))
+    store.dispatch(toggleCopyAgentSelection('codex'))
 
     // Act
     const selectedSkillNames = selectSelectedSkillNames(
@@ -1763,7 +1760,7 @@ describe('skillsSlice named selectors', () => {
     )
     store.dispatch(
       unlinkSelectedFromAgent.pending('unlink-1', {
-        agentId: 'cursor' as AgentId,
+        agentId: 'cursor',
         selectedNames: [unlinkTarget('task')],
       }),
     )

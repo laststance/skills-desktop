@@ -269,7 +269,7 @@ async function waitForBulkSelectReady(
  */
 function makeSourceSkill(name: string, source: string): Skill {
   return {
-    name: name as SkillName,
+    name: name,
     description: '',
     path: `/skills/${name}` as never,
     filesystemIdentity: directoryIdentity,
@@ -291,7 +291,7 @@ function makeSourceSkill(name: string, source: string): Skill {
  */
 function makeAgentLocalSkill(name: string, agentId: AgentId): Skill {
   return {
-    name: name as SkillName,
+    name: name,
     description: '',
     path: `/home/user/.${agentId}/skills/${name}` as never,
     symlinkCount: 0,
@@ -516,8 +516,8 @@ describe('MainContent bulk-select toggle button', () => {
       await import('@/renderer/src/redux/slices/skillsSlice')
 
     store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection('task' as SkillName))
-    store.dispatch(toggleSelection('tdd' as SkillName))
+    store.dispatch(toggleSelection('task'))
+    store.dispatch(toggleSelection('tdd'))
     expect(store.getState().skills.selectedSkillNames.length).toBe(2)
 
     // Act
@@ -711,7 +711,7 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
       await import('@/renderer/src/redux/slices/skillsSlice')
 
     store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection('task' as SkillName))
+    store.dispatch(toggleSelection('task'))
     expect(store.getState().skills.selectedSkillNames.length).toBe(1)
 
     await waitForBulkSelectReady(screen)
@@ -762,7 +762,7 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
       await import('@/renderer/src/redux/slices/skillsSlice')
 
     store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection('task' as SkillName))
+    store.dispatch(toggleSelection('task'))
     // Same race as the Cmd+A editable-target test: wait for bulk-mode commit
     // so the Escape guard is exercised via the editable-target branch.
     await waitForBulkSelectReady(screen)
@@ -800,7 +800,7 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
       await import('@/renderer/src/redux/slices/marketplaceSlice')
 
     store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection('task' as SkillName))
+    store.dispatch(toggleSelection('task'))
     await waitForBulkSelectReady(screen)
 
     // Open the shared InstallModal (exactly the sidebar bookmark install path),
@@ -832,7 +832,7 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
     const { toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
     store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection('task' as SkillName))
+    store.dispatch(toggleSelection('task'))
     await waitForBulkSelectReady(screen)
 
     const openMenu = document.createElement('div')
@@ -872,7 +872,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     return {
       name,
       description: '',
-      path: `/home/user/.agents/skills/${folderName}` as Skill['path'],
+      path: `/home/user/.agents/skills/${folderName}`,
       filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],
@@ -895,14 +895,14 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const result: BulkDeleteResult = {
       items: [
         {
-          skillName: 'brainstorming' as SkillName,
+          skillName: 'brainstorming',
           outcome: 'deleted',
           tombstoneId: tombstoneId('1729180800000-brainstorming-a1b2c3d4'),
           symlinksRemoved: 0,
           cascadeAgents: [],
         },
         {
-          skillName: 'local-skill' as SkillName,
+          skillName: 'local-skill',
           outcome: 'deleted',
           tombstoneId: tombstoneId('1729180800000-local-skill-e5f6a7b8'),
           symlinksRemoved: 0,
@@ -913,21 +913,21 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     mockSkillsDeleteSkills.mockResolvedValue(result)
 
     const selectedSkills = [
-      makeSkill('brainstorming' as SkillName, true),
-      makeSkill('local-skill' as SkillName, false),
+      makeSkill('brainstorming', true),
+      makeSkill('local-skill', false),
     ]
     store.dispatch(fetchSkills.fulfilled(selectedSkills, 'req-id'))
     store.dispatch(enterBulkSelectMode())
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
-        skillNames: ['brainstorming' as SkillName, 'local-skill' as SkillName],
+        skillNames: ['brainstorming', 'local-skill'],
         agentId: null,
         agentName: null,
         sourceSummary: null,
         ...partitionGlobalDeleteTargets(selectedSkills, [
-          'brainstorming' as SkillName,
-          'local-skill' as SkillName,
+          'brainstorming',
+          'local-skill',
         ]),
       }),
     )
@@ -1018,14 +1018,10 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
     const skillName = 'snapshot-delete' as SkillName
-    const originalSkill = makeSkill(
-      skillName,
-      false,
-      'reviewed-folder' as SkillName,
-    )
+    const originalSkill = makeSkill(skillName, false, 'reviewed-folder')
     const replacementSkill: Skill = {
       ...originalSkill,
-      path: '/home/user/.agents/skills/replacement-folder' as never,
+      path: '/home/user/.agents/skills/replacement-folder',
       filesystemIdentity: {
         ...directoryIdentity,
         ino: 999,
@@ -1080,15 +1076,15 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const originalSkill: Skill = {
       name: skillName,
       description: '',
-      path: '/home/user/.agents/skills/snapshot-unlink' as never,
+      path: '/home/user/.agents/skills/snapshot-unlink',
       filesystemIdentity: directoryIdentity,
       symlinkCount: 1,
       symlinks: [
         {
-          agentId: 'cursor' as AgentId,
-          agentName: 'Cursor' as never,
-          linkPath: '/home/user/.cursor/skills/reviewed-link' as never,
-          targetPath: '/home/user/.agents/skills/reviewed-target' as never,
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          linkPath: '/home/user/.cursor/skills/reviewed-link',
+          targetPath: '/home/user/.agents/skills/reviewed-target',
           status: 'valid',
           isLocal: false,
         },
@@ -1101,9 +1097,9 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       symlinks: [
         {
           ...originalSkill.symlinks[0],
-          linkPath: '/home/user/.cursor/skills/replacement-link' as never,
-          targetPath: '/home/user/.agents/skills/replacement-target' as never,
-        } as SymlinkInfo,
+          linkPath: '/home/user/.cursor/skills/replacement-link',
+          targetPath: '/home/user/.agents/skills/replacement-target',
+        },
       ],
     }
     mockUnlinkManyFromAgent.mockResolvedValue({
@@ -1115,9 +1111,9 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       fetchAgents.fulfilled(
         [
           {
-            id: 'cursor' as AgentId,
-            name: 'Cursor' as never,
-            path: '/home/user/.cursor/skills' as never,
+            id: 'cursor',
+            name: 'Cursor',
+            path: '/home/user/.cursor/skills',
             exists: true,
             skillCount: 1,
             localSkillCount: 0,
@@ -1126,7 +1122,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
         'req-agent',
       ),
     )
-    store.dispatch(selectAgent('cursor' as AgentId))
+    store.dispatch(selectAgent('cursor'))
     store.dispatch(fetchSkills.fulfilled([originalSkill], 'req-original'))
     store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(skillName))
@@ -1160,14 +1156,14 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const orphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/abandoned' as never,
+      path: '/Users/me/.agents/skills/abandoned',
       symlinkCount: 0,
       symlinks: [
         {
-          agentId: 'devin' as AgentId,
+          agentId: 'devin',
           agentName: 'Devin' as never,
-          linkPath: '/Users/me/.config/devin/skills/abandoned' as never,
-          targetPath: '/Users/me/.agents/skills/abandoned' as never,
+          linkPath: '/Users/me/.config/devin/skills/abandoned',
+          targetPath: '/Users/me/.agents/skills/abandoned',
           status: 'broken',
           isLocal: false,
         },
@@ -1241,7 +1237,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/source-task' as never,
+      path: '/Users/me/.agents/skills/source-task',
       filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],
@@ -1251,14 +1247,14 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const orphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/abandoned' as never,
+      path: '/Users/me/.agents/skills/abandoned',
       symlinkCount: 0,
       symlinks: [
         {
-          agentId: 'devin' as AgentId,
+          agentId: 'devin',
           agentName: 'Devin' as never,
-          linkPath: '/Users/me/.config/devin/skills/abandoned' as never,
-          targetPath: '/Users/me/.agents/skills/abandoned' as never,
+          linkPath: '/Users/me/.config/devin/skills/abandoned',
+          targetPath: '/Users/me/.agents/skills/abandoned',
           status: 'broken',
           isLocal: false,
         },
@@ -1328,7 +1324,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/source-stale-task' as never,
+      path: '/Users/me/.agents/skills/source-stale-task',
       filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],
@@ -1338,14 +1334,14 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const orphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/abandoned' as never,
+      path: '/Users/me/.agents/skills/abandoned',
       symlinkCount: 0,
       symlinks: [
         {
-          agentId: 'devin' as AgentId,
+          agentId: 'devin',
           agentName: 'Devin' as never,
-          linkPath: '/Users/me/.config/devin/skills/abandoned' as never,
-          targetPath: '/Users/me/.agents/skills/abandoned' as never,
+          linkPath: '/Users/me/.config/devin/skills/abandoned',
+          targetPath: '/Users/me/.agents/skills/abandoned',
           status: 'broken',
           isLocal: false,
         },
@@ -1418,7 +1414,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/source-task' as never,
+      path: '/Users/me/.agents/skills/source-task',
       filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],
@@ -1428,13 +1424,13 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const staleOrphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/stale-abandoned' as never,
+      path: '/Users/me/.agents/skills/stale-abandoned',
       symlinkCount: 0,
       symlinks: [
         {
-          agentId: 'devin' as AgentId,
+          agentId: 'devin',
           agentName: 'Devin' as never,
-          linkPath: '/Users/me/.config/devin/skills/stale-abandoned' as never,
+          linkPath: '/Users/me/.config/devin/skills/stale-abandoned',
           status: 'broken',
           isLocal: false,
         },
@@ -1499,7 +1495,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/source-task' as never,
+      path: '/Users/me/.agents/skills/source-task',
       filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],
@@ -1509,14 +1505,14 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const orphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/abandoned' as never,
+      path: '/Users/me/.agents/skills/abandoned',
       symlinkCount: 0,
       symlinks: [
         {
-          agentId: 'devin' as AgentId,
+          agentId: 'devin',
           agentName: 'Devin' as never,
-          linkPath: '/Users/me/.config/devin/skills/abandoned' as never,
-          targetPath: '/Users/me/.agents/skills/abandoned' as never,
+          linkPath: '/Users/me/.config/devin/skills/abandoned',
+          targetPath: '/Users/me/.agents/skills/abandoned',
           status: 'broken',
           isLocal: false,
         },
@@ -1570,14 +1566,14 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const orphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/abandoned' as never,
+      path: '/Users/me/.agents/skills/abandoned',
       symlinkCount: 0,
       symlinks: [
         {
-          agentId: 'devin' as AgentId,
+          agentId: 'devin',
           agentName: 'Devin' as never,
-          linkPath: '/Users/me/.config/devin/skills/abandoned' as never,
-          targetPath: '/Users/me/.agents/skills/abandoned' as never,
+          linkPath: '/Users/me/.config/devin/skills/abandoned',
+          targetPath: '/Users/me/.agents/skills/abandoned',
           status: 'broken',
           isLocal: false,
         },
@@ -1624,13 +1620,13 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const staleOrphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/stale-abandoned' as never,
+      path: '/Users/me/.agents/skills/stale-abandoned',
       symlinkCount: 0,
       symlinks: [
         {
-          agentId: 'devin' as AgentId,
+          agentId: 'devin',
           agentName: 'Devin' as never,
-          linkPath: '/Users/me/.config/devin/skills/stale-abandoned' as never,
+          linkPath: '/Users/me/.config/devin/skills/stale-abandoned',
           status: 'broken',
           isLocal: false,
         },
@@ -1680,7 +1676,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const staleSourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/source-missing-identity' as never,
+      path: '/Users/me/.agents/skills/source-missing-identity',
       symlinkCount: 0,
       symlinks: [],
       isSource: true,
@@ -1733,7 +1729,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/Users/me/.cursor/skills' as never,
+            path: '/Users/me/.cursor/skills',
             exists: true,
             skillCount: 0,
             localSkillCount: 0,
@@ -1777,7 +1773,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/Users/me/.cursor/skills' as never,
+            path: '/Users/me/.cursor/skills',
             exists: true,
             skillCount: 0,
             localSkillCount: 0,
@@ -1817,7 +1813,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/Users/me/.cursor/skills' as never,
+            path: '/Users/me/.cursor/skills',
             exists: true,
             skillCount: 0,
             localSkillCount: 0,
@@ -1860,16 +1856,16 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
 
     // A skill available to exactly one agent (a lone valid slot in cursor).
     const uniqueSkill: Skill = {
-      name: 'cursor-unique' as SkillName,
+      name: 'cursor-unique',
       description: '',
-      path: '/skills/cursor-unique' as never,
+      path: '/skills/cursor-unique',
       symlinkCount: 1,
       symlinks: [
         {
-          agentId: 'cursor' as never,
-          agentName: 'Cursor' as never,
-          linkPath: '/cursor/skills/cursor-unique' as never,
-          targetPath: '/skills/cursor-unique' as never,
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          linkPath: '/cursor/skills/cursor-unique',
+          targetPath: '/skills/cursor-unique',
           status: 'valid',
           isLocal: false,
         },
@@ -1879,24 +1875,24 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     }
     // A skill shared by two agents — visible in the cursor view, but NOT unique.
     const sharedSkill: Skill = {
-      name: 'shared-two' as SkillName,
+      name: 'shared-two',
       description: '',
-      path: '/skills/shared-two' as never,
+      path: '/skills/shared-two',
       symlinkCount: 2,
       symlinks: [
         {
-          agentId: 'cursor' as never,
-          agentName: 'Cursor' as never,
-          linkPath: '/cursor/skills/shared-two' as never,
-          targetPath: '/skills/shared-two' as never,
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          linkPath: '/cursor/skills/shared-two',
+          targetPath: '/skills/shared-two',
           status: 'valid',
           isLocal: false,
         },
         {
-          agentId: 'codex' as never,
-          agentName: 'Codex' as never,
-          linkPath: '/codex/skills/shared-two' as never,
-          targetPath: '/skills/shared-two' as never,
+          agentId: 'codex',
+          agentName: 'Codex',
+          linkPath: '/codex/skills/shared-two',
+          targetPath: '/skills/shared-two',
           status: 'valid',
           isLocal: false,
         },
@@ -1911,7 +1907,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/Users/me/.cursor/skills' as never,
+            path: '/Users/me/.cursor/skills',
             exists: true,
             skillCount: 0,
             localSkillCount: 0,
@@ -1950,16 +1946,16 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
       await import('@/renderer/src/redux/slices/skillsSlice')
 
     const orphanSkill: Skill = {
-      name: 'orphan-one' as SkillName,
+      name: 'orphan-one',
       description: '',
-      path: '/skills/orphan-one' as never,
+      path: '/skills/orphan-one',
       symlinkCount: 1,
       symlinks: [
         {
-          agentId: 'cursor' as never,
-          agentName: 'Cursor' as never,
-          linkPath: '/cursor/skills/orphan-one' as never,
-          targetPath: '/skills/orphan-one' as never,
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          linkPath: '/cursor/skills/orphan-one',
+          targetPath: '/skills/orphan-one',
           status: 'broken',
           isLocal: false,
         },
@@ -1968,17 +1964,17 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
       isOrphan: true,
     }
     const linkedSkill: Skill = {
-      name: 'linked-one' as SkillName,
+      name: 'linked-one',
       description: '',
-      path: '/skills/linked-one' as never,
+      path: '/skills/linked-one',
       filesystemIdentity: directoryIdentity,
       symlinkCount: 1,
       symlinks: [
         {
-          agentId: 'cursor' as never,
-          agentName: 'Cursor' as never,
-          linkPath: '/cursor/skills/linked-one' as never,
-          targetPath: '/skills/linked-one' as never,
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          linkPath: '/cursor/skills/linked-one',
+          targetPath: '/skills/linked-one',
           status: 'valid',
           isLocal: false,
         },
@@ -1993,7 +1989,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/Users/me/.cursor/skills' as never,
+            path: '/Users/me/.cursor/skills',
             exists: true,
             skillCount: 0,
             localSkillCount: 0,
@@ -2035,7 +2031,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/Users/me/.cursor/skills' as never,
+            path: '/Users/me/.cursor/skills',
             exists: true,
             skillCount: 0,
             localSkillCount: 0,
@@ -2143,7 +2139,7 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
           {
             id: 'claude-code',
             name: 'Claude Code',
-            path: '/Users/me/.claude/skills' as never,
+            path: '/Users/me/.claude/skills',
             exists: true,
             skillCount: 0,
             localSkillCount: 0,
@@ -2180,7 +2176,7 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
           {
             id: 'claude-code',
             name: 'Claude Code',
-            path: '/Users/me/.claude/skills' as never,
+            path: '/Users/me/.claude/skills',
             exists: true,
             skillCount: 0,
             localSkillCount: 0,
@@ -2294,10 +2290,10 @@ describe('MainContent toolbar quick actions', () => {
       await import('@/renderer/src/redux/slices/marketplaceSlice')
     store.dispatch(
       setPreviewSkill({
-        rank: 1 as never,
-        name: 'task' as SkillName,
+        rank: 1,
+        name: 'task',
         repo: repositoryId('vercel-labs/skills'),
-        url: 'https://skills.sh/task' as never,
+        url: 'https://skills.sh/task',
       }),
     )
 
@@ -2323,7 +2319,7 @@ describe('MainContent filter pill clear actions', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/Users/me/.cursor/skills' as never,
+            path: '/Users/me/.cursor/skills',
             exists: true,
             skillCount: 0,
             localSkillCount: 0,
@@ -2454,7 +2450,7 @@ describe('MainContent skill-type exclude toggles', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/Users/me/.cursor/skills' as never,
+            path: '/Users/me/.cursor/skills',
             exists: true,
             skillCount: 0,
             localSkillCount: 0,
@@ -2543,7 +2539,7 @@ describe('MainContent bulk copy action', () => {
       fetchSkills.fulfilled([makeSourceSkill('alpha', 'org/repo')], 'req-id'),
     )
     store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection('alpha' as SkillName))
+    store.dispatch(toggleSelection('alpha'))
 
     // Act
     await screen.getByRole('button', { name: 'Open bulk copy' }).click()
@@ -2585,7 +2581,7 @@ describe('MainContent stale-source delete summary', () => {
     const deletableSkill: Skill = {
       name: deletableName,
       description: '',
-      path: '/Users/me/.agents/skills/fresh-source' as never,
+      path: '/Users/me/.agents/skills/fresh-source',
       filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],
@@ -2595,7 +2591,7 @@ describe('MainContent stale-source delete summary', () => {
     const staleSkill: Skill = {
       name: staleName,
       description: '',
-      path: '/Users/me/.agents/skills/stale-source' as never,
+      path: '/Users/me/.agents/skills/stale-source',
       symlinkCount: 0,
       symlinks: [],
       isSource: true,
@@ -2663,7 +2659,7 @@ describe('MainContent undo bulk delete', () => {
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
     const skills: Skill[] = tombstoneIds.map((_, index) => ({
-      name: `undo-skill-${index}` as SkillName,
+      name: `undo-skill-${index}`,
       description: '',
       path: `/Users/me/.agents/skills/undo-skill-${index}` as never,
       filesystemIdentity: directoryIdentity,
@@ -2802,15 +2798,15 @@ describe('MainContent toolbar primary action guards', () => {
     const protectedSkill: Skill = {
       name: skillName,
       description: '',
-      path: '/home/user/.agents/skills/protected-link' as never,
+      path: '/home/user/.agents/skills/protected-link',
       filesystemIdentity: directoryIdentity,
       symlinkCount: 1,
       symlinks: [
         {
-          agentId: 'cursor' as AgentId,
-          agentName: 'Cursor' as never,
-          linkPath: '/home/user/.cursor/skills/protected-link' as never,
-          targetPath: '/home/user/.agents/skills/protected-link' as never,
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          linkPath: '/home/user/.cursor/skills/protected-link',
+          targetPath: '/home/user/.agents/skills/protected-link',
           status: 'valid',
           isLocal: false,
         },
@@ -2822,9 +2818,9 @@ describe('MainContent toolbar primary action guards', () => {
       fetchAgents.fulfilled(
         [
           {
-            id: 'cursor' as AgentId,
-            name: 'Cursor' as never,
-            path: '/home/user/.cursor/skills' as never,
+            id: 'cursor',
+            name: 'Cursor',
+            path: '/home/user/.cursor/skills',
             exists: true,
             skillCount: 1,
             localSkillCount: 0,
@@ -2833,7 +2829,7 @@ describe('MainContent toolbar primary action guards', () => {
         'req-agent',
       ),
     )
-    store.dispatch(selectAgent('cursor' as AgentId))
+    store.dispatch(selectAgent('cursor'))
     store.dispatch(fetchSkills.fulfilled([protectedSkill], 'req-protected'))
     store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(skillName))
@@ -2861,16 +2857,16 @@ describe('MainContent toolbar primary action guards', () => {
     const staleSkill: Skill = {
       name: skillName,
       description: '',
-      path: '/home/user/.agents/skills/stale-unlink' as never,
+      path: '/home/user/.agents/skills/stale-unlink',
       filesystemIdentity: directoryIdentity,
       symlinkCount: 1,
       symlinks: [
         {
-          agentId: 'cursor' as AgentId,
-          agentName: 'Cursor' as never,
-          linkPath: '/home/user/.cursor/skills/stale-link' as never,
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          linkPath: '/home/user/.cursor/skills/stale-link',
           // Missing targetPath → buildAgentUnlinkTargets pushes it to staleNames.
-          targetPath: undefined as never,
+          targetPath: undefined,
           status: 'valid',
           isLocal: false,
         },
@@ -2882,9 +2878,9 @@ describe('MainContent toolbar primary action guards', () => {
       fetchAgents.fulfilled(
         [
           {
-            id: 'cursor' as AgentId,
-            name: 'Cursor' as never,
-            path: '/home/user/.cursor/skills' as never,
+            id: 'cursor',
+            name: 'Cursor',
+            path: '/home/user/.cursor/skills',
             exists: true,
             skillCount: 1,
             localSkillCount: 0,
@@ -2893,7 +2889,7 @@ describe('MainContent toolbar primary action guards', () => {
         'req-agent',
       ),
     )
-    store.dispatch(selectAgent('cursor' as AgentId))
+    store.dispatch(selectAgent('cursor'))
     store.dispatch(fetchSkills.fulfilled([staleSkill], 'req-stale'))
     store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(skillName))
@@ -2932,15 +2928,15 @@ describe('MainContent bulk unlink result toasts', () => {
     const linkedSkill: Skill = {
       name: skillName,
       description: '',
-      path: '/home/user/.agents/skills/linked-skill' as never,
+      path: '/home/user/.agents/skills/linked-skill',
       filesystemIdentity: directoryIdentity,
       symlinkCount: 1,
       symlinks: [
         {
-          agentId: 'cursor' as AgentId,
-          agentName: 'Cursor' as never,
-          linkPath: '/home/user/.cursor/skills/linked-link' as never,
-          targetPath: '/home/user/.agents/skills/linked-target' as never,
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          linkPath: '/home/user/.cursor/skills/linked-link',
+          targetPath: '/home/user/.agents/skills/linked-target',
           status: 'valid',
           isLocal: false,
         },
@@ -2952,9 +2948,9 @@ describe('MainContent bulk unlink result toasts', () => {
       fetchAgents.fulfilled(
         [
           {
-            id: 'cursor' as AgentId,
-            name: 'Cursor' as never,
-            path: '/home/user/.cursor/skills' as never,
+            id: 'cursor',
+            name: 'Cursor',
+            path: '/home/user/.cursor/skills',
             exists: true,
             skillCount: 1,
             localSkillCount: 0,
@@ -2963,7 +2959,7 @@ describe('MainContent bulk unlink result toasts', () => {
         'req-agent',
       ),
     )
-    store.dispatch(selectAgent('cursor' as AgentId))
+    store.dispatch(selectAgent('cursor'))
     store.dispatch(fetchSkills.fulfilled([linkedSkill], 'req-linked'))
     store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(skillName))
@@ -3050,7 +3046,7 @@ describe('MainContent bulk delete failure toasts', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/kept-source' as never,
+      path: '/Users/me/.agents/skills/kept-source',
       filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],
@@ -3060,14 +3056,14 @@ describe('MainContent bulk delete failure toasts', () => {
     const orphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/dropped-orphan' as never,
+      path: '/Users/me/.agents/skills/dropped-orphan',
       symlinkCount: 0,
       symlinks: [
         {
-          agentId: 'devin' as AgentId,
+          agentId: 'devin',
           agentName: 'Devin' as never,
-          linkPath: '/Users/me/.config/devin/skills/dropped-orphan' as never,
-          targetPath: '/Users/me/.agents/skills/dropped-orphan' as never,
+          linkPath: '/Users/me/.config/devin/skills/dropped-orphan',
+          targetPath: '/Users/me/.agents/skills/dropped-orphan',
           status: 'broken',
           isLocal: false,
         },
@@ -3123,7 +3119,7 @@ describe('MainContent bulk delete failure toasts', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/empty-result' as never,
+      path: '/Users/me/.agents/skills/empty-result',
       filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],
@@ -3166,7 +3162,7 @@ describe('MainContent bulk delete failure toasts', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/all-error' as never,
+      path: '/Users/me/.agents/skills/all-error',
       filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],
@@ -3220,7 +3216,7 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/dismiss-me' as never,
+      path: '/Users/me/.agents/skills/dismiss-me',
       filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],
@@ -3281,7 +3277,7 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/stale-dismiss-me' as never,
+      path: '/Users/me/.agents/skills/stale-dismiss-me',
       filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],
@@ -3344,7 +3340,7 @@ describe('MainContent bulk confirm cancellation', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/cancel-me' as never,
+      path: '/Users/me/.agents/skills/cancel-me',
       filesystemIdentity: directoryIdentity,
       symlinkCount: 0,
       symlinks: [],

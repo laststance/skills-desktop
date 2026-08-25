@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { RootState } from '@/renderer/src/redux/store'
 import type {
-  AgentId,
   BulkDeleteResult,
   BulkUnlinkResult,
   ClearBrokenSymlinkSlotsResult,
@@ -118,8 +117,8 @@ const previewWithConflicts: SyncPreviewResult = {
   conflicts: [
     {
       skillName: 'agent-browser',
-      agentId: 'cursor' as SyncPreviewResult['conflicts'][0]['agentId'],
-      agentName: 'Cursor' as SyncPreviewResult['conflicts'][0]['agentName'],
+      agentId: 'cursor',
+      agentName: 'Cursor',
       agentSkillPath: '/home/user/.cursor/skills/agent-browser',
     },
   ],
@@ -293,7 +292,7 @@ describe('uiSlice skill type excludes', () => {
     store.dispatch(toggleExcludedSkillTypeFilter('local'))
 
     // Act
-    store.dispatch(selectAgent('cursor' as AgentId))
+    store.dispatch(selectAgent('cursor'))
 
     // Assert
     expect(store.getState().ui.skillTypeFilter).toBe('all')
@@ -633,7 +632,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     expect(store.getState().ui.undoToast).not.toBeNull()
 
     // Act
-    store.dispatch(selectAgent('cursor' as AgentId))
+    store.dispatch(selectAgent('cursor'))
 
     // Assert
     expect(store.getState().ui.undoToast).toBeNull()
@@ -721,7 +720,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
           skillName: 'task',
           agents: [
             {
-              agentId: 'codex' as AgentId,
+              agentId: 'codex',
               linkPath: '/home/user/.codex/skills/task',
               targetPath: '/home/user/.agents/skills/task',
             },
@@ -756,7 +755,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
       clearSelectedBrokenSymlinkSlots({
         items: [
           {
-            agentId: 'codex' as AgentId,
+            agentId: 'codex',
             linkName: 'task',
             displaySkillName: 'task',
             linkPath: '/home/user/.codex/skills/task',
@@ -790,7 +789,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     // Act
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
-        agentId: 'cursor' as AgentId,
+        agentId: 'cursor',
         selectedNames: [unlinkTarget('task')],
       }),
     )
@@ -866,7 +865,7 @@ describe('uiSlice bulkSelectMode', () => {
     store.dispatch(enterBulkSelectMode())
 
     // Act
-    store.dispatch(selectAgent('cursor' as AgentId))
+    store.dispatch(selectAgent('cursor'))
 
     // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
@@ -937,7 +936,7 @@ describe('uiSlice bulkSelectMode', () => {
           skillName: 'task',
           agents: [
             {
-              agentId: 'codex' as AgentId,
+              agentId: 'codex',
               linkPath: '/home/user/.codex/skills/task',
               targetPath: '/home/user/.agents/skills/task',
             },
@@ -971,7 +970,7 @@ describe('uiSlice bulkSelectMode', () => {
       clearSelectedBrokenSymlinkSlots({
         items: [
           {
-            agentId: 'codex' as AgentId,
+            agentId: 'codex',
             linkName: 'task',
             displaySkillName: 'task',
             linkPath: '/home/user/.codex/skills/task',
@@ -1004,7 +1003,7 @@ describe('uiSlice bulkSelectMode', () => {
     // Act
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
-        agentId: 'cursor' as AgentId,
+        agentId: 'cursor',
         selectedNames: [unlinkTarget('task')],
       }),
     )
@@ -1088,7 +1087,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
         agentId: null,
         agentName: null,
         sourceSummary: null,
-        deleteTargets: [deleteTarget('a' as Skill['name'])],
+        deleteTargets: [deleteTarget('a')],
         orphanRecords: [],
         staleDeleteErrors: [],
         orphanErrors: [],
@@ -1121,7 +1120,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     const { selectAgent } = await import('./uiSlice')
 
     // Act
-    store.dispatch(selectAgent('cursor' as AgentId))
+    store.dispatch(selectAgent('cursor'))
 
     // Assert
     expect(store.getState().ui).toMatchObject({
@@ -1221,7 +1220,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     // Act
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
-        agentId: 'cursor' as AgentId,
+        agentId: 'cursor',
         selectedNames: [unlinkTarget('a')],
       }),
     )
@@ -1253,7 +1252,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     // Act
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
-        agentId: 'cursor' as AgentId,
+        agentId: 'cursor',
         selectedNames: [unlinkTarget('a')],
       }),
     )
@@ -1318,7 +1317,7 @@ describe('uiSlice bulkSelectMode on rejection', () => {
     // Act
     await store.dispatch(
       unlinkSelectedFromAgent({
-        agentId: 'cursor' as AgentId,
+        agentId: 'cursor',
         selectedNames: [unlinkTarget('task')],
       }),
     )
@@ -1683,7 +1682,7 @@ describe('uiSlice bulk confirm dialog', () => {
         agentId: null,
         agentName: null,
         sourceSummary: null,
-        deleteTargets: [deleteTarget('task' as Skill['name'])],
+        deleteTargets: [deleteTarget('task')],
         orphanRecords: [],
         staleDeleteErrors: [],
         orphanErrors: [],
@@ -1707,7 +1706,7 @@ describe('uiSlice per-agent cleanup dialog', () => {
     const { setCleanupAgentTarget } = await import('./uiSlice')
 
     // Act
-    store.dispatch(setCleanupAgentTarget('cursor' as AgentId))
+    store.dispatch(setCleanupAgentTarget('cursor'))
 
     // Assert
     expect(store.getState().ui.cleanupAgentTarget).toBe('cursor')
@@ -1718,7 +1717,7 @@ describe('uiSlice per-agent cleanup dialog', () => {
     const store = await createTestStore()
     const { setCleanupAgentTarget, setSyncPreview, clearCleanupAgentTarget } =
       await import('./uiSlice')
-    store.dispatch(setCleanupAgentTarget('cursor' as AgentId))
+    store.dispatch(setCleanupAgentTarget('cursor'))
     store.dispatch(setSyncPreview(previewWithConflicts))
     expect(store.getState().ui.cleanupAgentTarget).toBe('cursor')
     expect(store.getState().ui.syncPreview).not.toBeNull()
@@ -1820,7 +1819,7 @@ describe('uiSlice selectors read the live ui state', () => {
       selectExcludedSkillTypeFilters,
     } = await import('./uiSlice')
     // selectAgent resets skill-type filters, so set the type filters afterwards.
-    store.dispatch(selectAgent('claude-code' as AgentId))
+    store.dispatch(selectAgent('claude-code'))
     store.dispatch(setSearchQuery('browser'))
     store.dispatch(setSearchScope('repo'))
     store.dispatch(setSelectedSources([repositoryId('vercel-labs/skills')]))
@@ -1917,7 +1916,7 @@ describe('uiSlice selectors read the live ui state', () => {
         agentId: null,
         agentName: null,
         sourceSummary: null,
-        deleteTargets: [deleteTarget('task' as Skill['name'])],
+        deleteTargets: [deleteTarget('task')],
         orphanRecords: [],
         staleDeleteErrors: [],
         orphanErrors: [],
@@ -1927,7 +1926,7 @@ describe('uiSlice selectors read the live ui state', () => {
     store.dispatch(enterBulkSelectMode())
     // openSymlinkCleanupDialog clears cleanupAgentTarget, so set the target last.
     store.dispatch(openSymlinkCleanupDialog())
-    store.dispatch(setCleanupAgentTarget('cursor' as AgentId))
+    store.dispatch(setCleanupAgentTarget('cursor'))
 
     // Cast the ui-only test store to RootState; selectors only read state.ui.
     const rootState = store.getState() as RootState

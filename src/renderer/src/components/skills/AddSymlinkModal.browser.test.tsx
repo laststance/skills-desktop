@@ -3,7 +3,7 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
-import type { Agent, AgentId, Skill, SkillName } from '@/shared/types'
+import type { Agent, Skill } from '@/shared/types'
 
 const mockCreateSymlinks = vi.fn()
 const mockCopyToAgents = vi.fn()
@@ -55,7 +55,7 @@ function makeAgent(
  */
 function makeSkill(overrides: Partial<Skill> = {}): Skill {
   return {
-    name: 'task' as SkillName,
+    name: 'task',
     description: 'Task management skill',
     path: '/home/user/.agents/skills/task',
     symlinkCount: 0,
@@ -285,9 +285,9 @@ describe('AddSymlinkModal actions', () => {
 
   it('clears selected agents when the modal closes externally and reopens', async () => {
     // Arrange
-    const firstSkill = makeSkill({ name: 'task' as SkillName })
+    const firstSkill = makeSkill({ name: 'task' })
     const secondSkill = makeSkill({
-      name: 'review' as SkillName,
+      name: 'review',
       path: '/home/user/.agents/skills/review',
     })
     const { screen, store } = await renderModal({
@@ -398,7 +398,7 @@ describe('AddSymlinkModal busy state', () => {
     store.dispatch(
       createSymlinks.pending('adding-request', {
         skill,
-        agentIds: ['codex' as AgentId],
+        agentIds: ['codex'],
       }),
     )
 
@@ -435,7 +435,7 @@ describe('AddSymlinkModal busy state', () => {
       copyToAgents.pending('copying-request', {
         skill,
         sourcePath: skill.path,
-        agentIds: ['codex' as AgentId],
+        agentIds: ['codex'],
       }),
     )
 

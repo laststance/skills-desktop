@@ -52,9 +52,9 @@ describe('migrateState — v0 → v1 correctness', () => {
 
     // Assert
     expect(result.theme).toBeDefined()
-    expect(result.theme!.preset).toBe('cyan')
-    expect(result.theme!.chroma).toBe(0.16)
-    expect(result.theme!.hue).toBe(195)
+    expect(result.theme.preset).toBe('cyan')
+    expect(result.theme.chroma).toBe(0.16)
+    expect(result.theme.hue).toBe(195)
   })
 
   it('rescues an unknown preset name to neutral-dark while honoring its legacy color presetType', () => {
@@ -73,10 +73,10 @@ describe('migrateState — v0 → v1 correctness', () => {
 
     // Assert
     expect(result.theme).toBeDefined()
-    expect(result.theme!.preset).toBe('neutral-dark')
+    expect(result.theme.preset).toBe('neutral-dark')
     // unknown preset ⇒ THEME_PRESETS['neutral-dark'].chroma === 0, so
     // the `||` short-circuits to the presetType branch (0.16 for color).
-    expect(result.theme!.chroma).toBe(0.16)
+    expect(result.theme.chroma).toBe(0.16)
   })
 
   it('drops a malformed theme slot so reducer defaults take over', () => {
@@ -426,10 +426,10 @@ describe('migrateState — v2 → v3 theme modePreference seeding', () => {
     const result = migrateState(state, 2)
 
     // Assert
-    expect(result.theme!.mode).toBe('dark')
-    expect(result.theme!.modePreference).toBe('dark')
-    expect(result.theme!.preset).toBe('cyan')
-    expect(result.theme!.hue).toBe(195)
+    expect(result.theme.mode).toBe('dark')
+    expect(result.theme.modePreference).toBe('dark')
+    expect(result.theme.preset).toBe('cyan')
+    expect(result.theme.hue).toBe(195)
   })
 
   it('seeds modePreference from light mode and keeps mode intact', () => {
@@ -447,9 +447,9 @@ describe('migrateState — v2 → v3 theme modePreference seeding', () => {
     const result = migrateState(state, 2)
 
     // Assert
-    expect(result.theme!.mode).toBe('light')
-    expect(result.theme!.modePreference).toBe('light')
-    expect(result.theme!.preset).toBe('neutral-light')
+    expect(result.theme.mode).toBe('light')
+    expect(result.theme.modePreference).toBe('light')
+    expect(result.theme.preset).toBe('neutral-light')
   })
 
   it('drops a null theme so reducer defaults take over', () => {
@@ -480,8 +480,8 @@ describe('migrateState — v2 → v3 theme modePreference seeding', () => {
     const result = migrateState(state, 2)
 
     // Assert
-    expect(result.theme!.mode).toBe('dark')
-    expect(result.theme!.modePreference).toBe('dark')
+    expect(result.theme.mode).toBe('dark')
+    expect(result.theme.modePreference).toBe('dark')
   })
 
   it('does not introduce system preference for legacy users', () => {
@@ -501,7 +501,7 @@ describe('migrateState — v2 → v3 theme modePreference seeding', () => {
     const result = migrateState(state, 2)
 
     // Assert
-    expect(result.theme!.modePreference).not.toBe('system')
+    expect(result.theme.modePreference).not.toBe('system')
   })
 
   it('chains v0 → v1 → v2 → v3 in one call, producing a v3 shape', () => {
@@ -522,10 +522,10 @@ describe('migrateState — v2 → v3 theme modePreference seeding', () => {
     const result = migrateState(state, 0)
 
     // Assert
-    expect(result.theme!.preset).toBe('cyan')
-    expect(result.theme!.chroma).toBe(0.16)
-    expect(result.theme!.mode).toBe('dark')
-    expect(result.theme!.modePreference).toBe('dark')
+    expect(result.theme.preset).toBe('cyan')
+    expect(result.theme.chroma).toBe(0.16)
+    expect(result.theme.mode).toBe('dark')
+    expect(result.theme.modePreference).toBe('dark')
   })
 })
 

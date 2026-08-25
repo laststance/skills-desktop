@@ -60,7 +60,7 @@ vi.mock('./CodePreview', () => ({
  */
 function makeAgent(overrides: Partial<Agent> = {}): Agent {
   return {
-    id: 'cursor' as AgentId,
+    id: 'cursor',
     name: 'Cursor',
     path: '/home/user/.cursor/skills',
     exists: true,
@@ -79,7 +79,7 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
 function makeSkill(): Skill {
   const symlinks: SymlinkInfo[] = [
     {
-      agentId: 'cursor' as AgentId,
+      agentId: 'cursor',
       agentName: 'Cursor',
       status: 'valid',
       targetPath: SOURCE_PATH,
@@ -255,7 +255,7 @@ describe('SkillDetail Info path copy', () => {
 
   it('copies source and symlink paths independently in agent view', async () => {
     // Arrange
-    const { screen } = await renderSkillDetail('cursor' as AgentId)
+    const { screen } = await renderSkillDetail('cursor')
 
     // Act
     await screen
@@ -288,7 +288,7 @@ describe('SkillDetail Info path copy', () => {
     const skill = makeSkill()
     skill.symlinks = [
       {
-        agentId: 'cursor' as AgentId,
+        agentId: 'cursor',
         agentName: 'Cursor',
         status: 'inaccessible',
         targetPath: SOURCE_PATH,
@@ -322,7 +322,7 @@ describe('SkillDetail Info path copy', () => {
     const layoutStyleElement = installLayoutStyles()
     const { agents, skill } = makeOverflowSkillFixture()
     try {
-      const { screen } = await renderSkillDetail('cursor' as AgentId, skill, {
+      const { screen } = await renderSkillDetail('cursor', skill, {
         agents,
         withDetailShell: true,
       })

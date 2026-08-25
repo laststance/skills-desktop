@@ -5,6 +5,7 @@ import { Button } from '@/renderer/src/components/ui/button'
 import { useDraftRangeSetting } from '@/renderer/src/hooks/useDraftRangeSetting'
 import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
+import { selectPreviewAppearanceSettings } from '@/renderer/src/redux/slices/settingsSlice'
 import {
   CODE_THEME_DEFINITIONS,
   CODE_THEME_IDS,
@@ -249,13 +250,9 @@ export const Appearance = function Appearance(): React.ReactElement {
   const windowBackgroundBlurRadius = useAppSelector(
     (state) => state.settings.windowBackgroundBlurRadius,
   )
-  const markdownFontSizePx = useAppSelector(
-    (state) => state.settings.markdownFontSizePx,
+  const { markdownFontSizePx, codeFontSizePx, codeThemeId } = useAppSelector(
+    selectPreviewAppearanceSettings,
   )
-  const codeFontSizePx = useAppSelector(
-    (state) => state.settings.codeFontSizePx,
-  )
-  const codeThemeId = useAppSelector((state) => state.settings.codeThemeId)
   const installedSearchCountDisplay = useAppSelector(
     (state) => state.settings.installedSearchCountDisplay,
   )

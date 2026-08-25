@@ -41,7 +41,7 @@ function makeDirent(
 function mockTree(tree: Record<string, DirentLike[]>): void {
   ;(mockFs.readdir as ReturnType<typeof vi.fn>).mockImplementation(
     async (path: string) => {
-      const entries = tree[path as keyof typeof tree]
+      const entries = tree[path]
       if (!entries) throw new Error(`ENOENT: ${path}`)
       return entries
     },

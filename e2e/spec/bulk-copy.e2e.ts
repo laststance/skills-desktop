@@ -78,10 +78,7 @@ async function pickDistinctTargetAgents(
       const root = state as {
         agents: { items: Array<{ id: string; name: string; path: string }> }
       }
-      const { sourceDirLiteral, countLiteral } = params as {
-        sourceDirLiteral: string
-        countLiteral: number
-      }
+      const { sourceDirLiteral, countLiteral } = params
       const seenPaths = new Set<string>()
       const picked: Array<{ id: string; name: string; path: string }> = []
       for (const agent of root.agents.items) {
@@ -118,7 +115,7 @@ async function getPresentSkillNames(
     (state, expectedNames) => {
       const root = state as { skills: { items: Array<{ name: string }> } }
       const present = new Set(root.skills.items.map((skill) => skill.name))
-      return (expectedNames as string[]).filter((name) => present.has(name))
+      return expectedNames.filter((name) => present.has(name))
     },
     names,
   )

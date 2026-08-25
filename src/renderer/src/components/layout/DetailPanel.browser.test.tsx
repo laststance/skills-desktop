@@ -6,7 +6,7 @@ import { render } from 'vitest-browser-react'
 import { selectSkill } from '@/renderer/src/redux/slices/skillsSlice'
 import { setActiveTab } from '@/renderer/src/redux/slices/uiSlice'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
-import type { Skill, SkillName } from '@/shared/types'
+import type { Skill } from '@/shared/types'
 import { repositoryId } from '@/shared/types'
 
 // Replace the three routed panels with marker stubs so DetailPanel renders in
@@ -69,9 +69,9 @@ async function renderDetailPanel() {
  */
 function makeSelectableSkill(): Skill {
   return {
-    name: 'demo-skill' as SkillName,
+    name: 'demo-skill',
     description: '',
-    path: '/skills/demo-skill' as never,
+    path: '/skills/demo-skill',
     symlinkCount: 0,
     symlinks: [],
     isSource: true,

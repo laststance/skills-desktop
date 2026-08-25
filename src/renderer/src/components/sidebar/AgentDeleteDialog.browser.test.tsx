@@ -40,7 +40,7 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
   return {
     id: 'claude-code',
     name: 'Claude Code',
-    path: '/Users/test/.claude/skills' as Agent['path'],
+    path: '/Users/test/.claude/skills',
     exists: true,
     skillCount: 3,
     localSkillCount: 1,

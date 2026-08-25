@@ -58,8 +58,8 @@ async function createTestStore() {
 }
 
 const sampleAgent: Agent = {
-  id: 'claude-code' as Agent['id'],
-  name: 'Claude Code' as Agent['name'],
+  id: 'claude-code',
+  name: 'Claude Code',
   path: '/home/user/.claude/skills',
   exists: true,
   skillCount: 3,

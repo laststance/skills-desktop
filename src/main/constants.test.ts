@@ -166,10 +166,10 @@ describe('isSharedAgentPath', () => {
 
   it('allows a delete on an agent that owns its own private directory', () => {
     // Arrange
-    const claude = AGENTS.find((a) => a.id === 'claude-code')!
+    const codex = AGENTS.find((agent) => agent.id === 'codex')!
 
     // Act
-    const isShared = isSharedAgentPath(claude.path)
+    const isShared = isSharedAgentPath(codex.path)
 
     // Assert
     expect(isShared).toBe(false)

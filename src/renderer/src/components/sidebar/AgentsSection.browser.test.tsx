@@ -36,7 +36,7 @@ const FIXTURE_AGENTS: Agent[] = [
 ]
 
 const NOT_INSTALLED_AGENT: Agent = {
-  id: 'codex' as AgentId,
+  id: 'codex',
   name: 'Codex',
   path: '/Users/test/.codex/skills',
   exists: false,
