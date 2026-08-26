@@ -149,6 +149,26 @@ Do not bump `package.json` `version` — releases are owned solely by
 
 ## Latest run (example — point-in-time, NOT part of the procedure)
 
+**2026-08-26 JST · v1.5.18 → v1.5.23** (+4 community agents)
+
+- **+4 agents:** `grok` (Grok Build) and `kimchi` (Kimchi) from v1.5.20,
+  `minimax-code` (MiniMax Code) from v1.5.22, and `posit-assistant` (Posit
+  Assistant) from v1.5.23. Each keeps its own global skills directory, so
+  `installDir = scanDir`; `AGENT_DEFINITIONS` 69 → 73.
+- **No migrations/rebrands:** zero app orphans; no id/cliId, path, or
+  display-name changes to existing agents. `UNIVERSAL_AGENT_IDS` stays 16
+  because all four additions use their own `skillsDir`.
+- **Excluded at this version:** `eve` and `promptscript`
+  (`globalSkillsDir: undefined`), `universal` (`showInUniversalList: false`),
+  `zenflow` (dir collides with zencoder's `~/.zencoder/skills`).
+- **Edits:** bumped `SKILLS_CLI_VERSION` 1.5.18 → 1.5.23; updated the e2e pin,
+  CLAUDE.md pinned-version cell, README/SPEC agent counts and table, website
+  metadata/copy, `llms.txt`, and the website's download links to the current
+  v0.27.3 release assets.
+- Gates: `reconcile-agents.mjs` clean (73/73), prettier clean, `pnpm validate`
+  green (180 files / 2313 tests), `pnpm test:e2e` green (61 tests), website
+  lint/build green.
+
 **2026-07-16 · v1.5.13 → v1.5.18** (+1 community agent)
 
 - **+1 agent:** `zcode` (ZCode, added upstream in v1.5.16) — own home dir

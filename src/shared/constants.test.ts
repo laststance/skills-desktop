@@ -144,6 +144,48 @@ describe('AGENT_DEFINITIONS', () => {
     expect(zcode?.scanDir).toBe('.zcode')
   })
 
+  it('exposes the four community agents added through CLI v1.5.23 with their upstream paths', () => {
+    // Arrange / Act
+    const addedAgents = [
+      'grok',
+      'kimchi',
+      'minimax-code',
+      'posit-assistant',
+    ].map((id) => AGENT_DEFINITIONS.find((agent) => agent.id === id))
+
+    // Assert
+    expect(addedAgents).toEqual([
+      {
+        id: 'grok',
+        cliId: 'grok',
+        name: 'Grok Build',
+        installDir: '.grok',
+        scanDir: '.grok',
+      },
+      {
+        id: 'kimchi',
+        cliId: 'kimchi',
+        name: 'Kimchi',
+        installDir: '.config/kimchi/harness',
+        scanDir: '.config/kimchi/harness',
+      },
+      {
+        id: 'minimax-code',
+        cliId: 'minimax-code',
+        name: 'MiniMax Code',
+        installDir: '.minimax',
+        scanDir: '.minimax',
+      },
+      {
+        id: 'posit-assistant',
+        cliId: 'posit-assistant',
+        name: 'Posit Assistant',
+        installDir: '.posit/assistant',
+        scanDir: '.posit/assistant',
+      },
+    ])
+  })
+
   it('maps Kimi internal id to the renamed kimi-code-cli CLI flag (1.5.10 rename)', () => {
     // The CLI renamed the --agent value to 'kimi-code-cli' and moved it to the
     // universal source. Internal id stays 'kimi-cli' so persisted Redux state

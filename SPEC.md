@@ -122,6 +122,10 @@ Agent definitions are synced with [vercel-labs/skills CLI](https://github.com/ve
 | Tinycloud          | `tinycloud`       | `~/.tinycloud/skills/`              |
 | Zed                | `zed`             | `~/.zed/skills/`                    |
 | ZCode              | `zcode`           | `~/.zcode/skills/`                  |
+| Grok Build         | `grok`            | `~/.grok/skills/`                   |
+| Kimchi             | `kimchi`          | `~/.config/kimchi/harness/skills/`  |
+| MiniMax Code       | `minimax-code`    | `~/.minimax/skills/`                |
+| Posit Assistant    | `posit-assistant` | `~/.posit/assistant/skills/`        |
 
 **Detection Logic:**
 
@@ -135,7 +139,7 @@ Agent definitions are synced with [vercel-labs/skills CLI](https://github.com/ve
 ### Core Features
 
 - [x] Display source directory (`~/.agents/skills/`)
-- [x] Auto-detect installed AI agents (69 agents)
+- [x] Auto-detect installed AI agents (73 agents)
 - [x] List all installed skills with metadata
 - [x] Show symlink status per skill per agent
 - [x] Validate symlink integrity (valid/broken/inaccessible/missing)
@@ -929,7 +933,7 @@ APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 **Sections:**
 
 - Hero with app screenshot
-- Feature grid (69 agents, symlink status, 37 theme presets)
+- Feature grid (73 agents, symlink status, 37 theme presets)
 - Download CTA linking to GitHub Release
 - OG image for social sharing
 

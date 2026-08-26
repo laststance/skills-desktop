@@ -20,13 +20,13 @@ export function Hero() {
           </h1>
 
           <p className="mb-10 max-w-2xl text-lg text-muted-foreground lg:text-xl">
-            Visualize installed Skills, check symlink status across 69 AI
+            Visualize installed Skills, check symlink status across 73 AI
             agents, and keep your development tools perfectly synchronized.
           </p>
 
           <div className="flex flex-col gap-4 sm:flex-row">
             <a
-              href="https://github.com/laststance/skills-desktop/releases/download/v0.27.2/skills-desktop-0.27.2-arm64.dmg"
+              href="https://github.com/laststance/skills-desktop/releases/download/v0.27.3/skills-desktop-0.27.3-arm64.dmg"
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-8 py-3 text-lg font-semibold text-primary-foreground transition-all hover:bg-primary/90 hover:scale-105"
             >
               <Apple className="size-5" />
@@ -38,7 +38,7 @@ export function Hero() {
               </div>
             </a>
             <a
-              href="https://github.com/laststance/skills-desktop/releases/download/v0.27.2/skills-desktop-0.27.2-x64.dmg"
+              href="https://github.com/laststance/skills-desktop/releases/download/v0.27.3/skills-desktop-0.27.3-x64.dmg"
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card/50 px-8 py-3 text-lg font-semibold transition-all hover:bg-card hover:scale-105"
             >
               <Cpu className="size-5" />
