@@ -784,6 +784,37 @@ export const AGENT_DEFINITIONS = [
     installDir: '.zcode',
     scanDir: '.zcode',
   },
+  // Community agents added in skills CLI v1.5.20 (synced 2026-08-26).
+  {
+    id: 'grok',
+    cliId: 'grok',
+    name: 'Grok Build',
+    installDir: '.grok',
+    scanDir: '.grok',
+  },
+  {
+    id: 'kimchi',
+    cliId: 'kimchi',
+    name: 'Kimchi',
+    installDir: '.config/kimchi/harness',
+    scanDir: '.config/kimchi/harness',
+  },
+  // Community agent added in skills CLI v1.5.22 (synced 2026-08-26).
+  {
+    id: 'minimax-code',
+    cliId: 'minimax-code',
+    name: 'MiniMax Code',
+    installDir: '.minimax',
+    scanDir: '.minimax',
+  },
+  // Community agent added in skills CLI v1.5.23 (synced 2026-08-26).
+  {
+    id: 'posit-assistant',
+    cliId: 'posit-assistant',
+    name: 'Posit Assistant',
+    installDir: '.posit/assistant',
+    scanDir: '.posit/assistant',
+  },
 ] as const
 
 /**
@@ -986,7 +1017,7 @@ export const TERMINAL_APP_UI_LABELS: Record<
  * @example
  * spawn('npx', [`skills@${SKILLS_CLI_VERSION}`, 'find', 'react'])
  */
-export const SKILLS_CLI_VERSION = '1.5.18'
+export const SKILLS_CLI_VERSION = '1.5.23'
 
 /**
  * Canonical hostname for skills marketplace pages used by renderer/main
