@@ -149,7 +149,7 @@ Do not bump `package.json` `version` — releases are owned solely by
 
 ## Latest run (example — point-in-time, NOT part of the procedure)
 
-**2026-08-26 · v1.5.18 → v1.5.23** (+4 community agents)
+**2026-08-26 JST · v1.5.18 → v1.5.23** (+4 community agents)
 
 - **+4 agents:** `grok` (Grok Build) and `kimchi` (Kimchi) from v1.5.20,
   `minimax-code` (MiniMax Code) from v1.5.22, and `posit-assistant` (Posit
@@ -163,7 +163,8 @@ Do not bump `package.json` `version` — releases are owned solely by
   `zenflow` (dir collides with zencoder's `~/.zencoder/skills`).
 - **Edits:** bumped `SKILLS_CLI_VERSION` 1.5.18 → 1.5.23; updated the e2e pin,
   CLAUDE.md pinned-version cell, README/SPEC agent counts and table, website
-  metadata/copy, and `llms.txt`.
+  metadata/copy, `llms.txt`, and the website's download links to the current
+  v0.27.3 release assets.
 - Gates: `reconcile-agents.mjs` clean (73/73), prettier clean, `pnpm validate`
   green (180 files / 2313 tests), `pnpm test:e2e` green (61 tests), website
   lint/build green.

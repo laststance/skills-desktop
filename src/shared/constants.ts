@@ -784,7 +784,7 @@ export const AGENT_DEFINITIONS = [
     installDir: '.zcode',
     scanDir: '.zcode',
   },
-  // Community agents added in skills CLI v1.5.20 (synced 2026-08-26).
+  // Community agents added in skills CLI v1.5.20 (synced 2026-08-26 JST).
   {
     id: 'grok',
     cliId: 'grok',
@@ -799,7 +799,7 @@ export const AGENT_DEFINITIONS = [
     installDir: '.config/kimchi/harness',
     scanDir: '.config/kimchi/harness',
   },
-  // Community agent added in skills CLI v1.5.22 (synced 2026-08-26).
+  // Community agent added in skills CLI v1.5.22 (synced 2026-08-26 JST).
   {
     id: 'minimax-code',
     cliId: 'minimax-code',
@@ -807,7 +807,7 @@ export const AGENT_DEFINITIONS = [
     installDir: '.minimax',
     scanDir: '.minimax',
   },
-  // Community agent added in skills CLI v1.5.23 (synced 2026-08-26).
+  // Community agent added in skills CLI v1.5.23 (synced 2026-08-26 JST).
   {
     id: 'posit-assistant',
     cliId: 'posit-assistant',
