@@ -22,6 +22,7 @@ import {
   selectFilteredSkillCount,
   selectHiddenSelectedCount,
   selectRepoFacetOptions,
+  selectRepoSearchSuggestions,
   selectSelectedCount,
   selectSelectedSkillNamesSet,
   selectSelectedVisibleSkillObjects,
@@ -944,6 +945,48 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual([])
   })
 
+  it('surfaces source-less skills when the repo-scope query is the Local label', () => {
+    // Arrange — the SearchBox offers "Local" as a pseudo-repo suggestion;
+    // picking it must narrow to skills without a source, and typing it by
+    // hand is case-insensitive like every other repo query.
+    const skills = [
+      makeSkill('handmade', 'cursor'), // no source — displayed as "Local"
+      makeSkill('task', 'cursor', false, 'vercel-labs/skills'),
+    ]
+    const state = buildState({
+      skills,
+      searchQuery: 'local',
+      searchScope: 'repo',
+    })
+
+    // Act
+    const result = selectFilteredSkills(state as never)
+
+    // Assert
+    expect(result.map((s) => s.name)).toEqual(['handmade'])
+  })
+
+  it('keeps Local skills out of repo-scope results while a partial query is being typed', () => {
+    // Arrange — "Local" is an exact keyword, not a substring target: typing
+    // "lo" on the way to a repo name must not flood the list with every
+    // source-less skill (the pre-suggestion behaviour users relied on).
+    const skills = [
+      makeSkill('handmade', 'cursor'), // no source — displayed as "Local"
+      makeSkill('task', 'cursor', false, 'vercel-labs/skills'),
+    ]
+    const state = buildState({
+      skills,
+      searchQuery: 'lo',
+      searchScope: 'repo',
+    })
+
+    // Act
+    const result = selectFilteredSkills(state as never)
+
+    // Assert — no repo contains "lo" and Local needs the full keyword
+    expect(result.map((s) => s.name)).toEqual([])
+  })
+
   it('narrows to a single repo when only the source pill is set and no query is typed', () => {
     // Arrange
     const skills = [
@@ -1833,5 +1876,91 @@ describe('selectSourceFilterViewModel', () => {
 
     // Assert — there is still a repo left to add, so the action stays live
     expect(viewModel.isSelectAllDisabled).toBe(false)
+  })
+})
+
+describe('selectRepoSearchSuggestions', () => {
+  it('lists every repo in view A→Z with Local last when a source-less skill is present', () => {
+    // Arrange
+    const skills = [
+      makeSkill('z-task', 'cursor', false, 'vercel-labs/skills'),
+      makeSkill('a-task', 'cursor', false, 'microsoft/azure-skills'),
+      makeSkill('handmade', 'cursor'), // no source → "Local"
+    ]
+    const state = buildState({ skills })
+
+    // Act
+    const suggestions = selectRepoSearchSuggestions(state as never)
+
+    // Assert
+    expect(suggestions).toEqual([
+      'microsoft/azure-skills',
+      'vercel-labs/skills',
+      'Local',
+    ])
+  })
+
+  it('omits Local when every skill in view has a source repo', () => {
+    // Arrange
+    const skills = [makeSkill('task', 'cursor', false, 'vercel-labs/skills')]
+    const state = buildState({ skills })
+
+    // Act
+    const suggestions = selectRepoSearchSuggestions(state as never)
+
+    // Assert
+    expect(suggestions).toEqual(['vercel-labs/skills'])
+  })
+
+  it('narrows suggestions to entries containing the typed query, case-insensitively', () => {
+    // Arrange
+    const skills = [
+      makeSkill('task', 'cursor', false, 'vercel-labs/skills'),
+      makeSkill('azure', 'cursor', false, 'microsoft/azure-skills'),
+      makeSkill('handmade', 'cursor'),
+    ]
+    const state = buildState({ skills, searchQuery: 'MICRO' })
+
+    // Act
+    const suggestions = selectRepoSearchSuggestions(state as never)
+
+    // Assert — Local drops out too: "Local" does not contain "micro"
+    expect(suggestions).toEqual(['microsoft/azure-skills'])
+  })
+
+  it('keeps offering Local for a partial query like "loc" so the keyword stays discoverable', () => {
+    // Arrange — rows only match the full "Local" keyword, so the suggestion
+    // list is how a user completes it.
+    const skills = [
+      makeSkill('task', 'cursor', false, 'vercel-labs/skills'),
+      makeSkill('handmade', 'cursor'),
+    ]
+    const state = buildState({ skills, searchQuery: 'loc' })
+
+    // Act
+    const suggestions = selectRepoSearchSuggestions(state as never)
+
+    // Assert
+    expect(suggestions).toEqual(['Local'])
+  })
+
+  it('offers only the ticked repos while the repo include filter is active', () => {
+    // Arrange — the include filter hides the other repos and every Local row,
+    // so suggesting them would guarantee an empty result.
+    const skills = [
+      makeSkill('a', 'cursor', false, 'vercel-labs/skills'),
+      makeSkill('b', 'cursor', false, 'pbakaus/impeccable'),
+      makeSkill('handmade', 'cursor'),
+    ]
+    const state = buildState({
+      skills,
+      selectedSources: [repositoryId('pbakaus/impeccable')],
+    })
+
+    // Act
+    const suggestions = selectRepoSearchSuggestions(state as never)
+
+    // Assert
+    expect(suggestions).toEqual(['pbakaus/impeccable'])
   })
 })

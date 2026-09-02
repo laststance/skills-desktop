@@ -4,6 +4,7 @@ import { match } from 'ts-pattern'
 
 import { useAppDispatch } from '@/renderer/src/redux/hooks'
 import { setSelectedSources } from '@/renderer/src/redux/slices/uiSlice'
+import { LOCAL_SOURCE_LABEL } from '@/shared/constants'
 import type { HttpUrl, RepositoryId } from '@/shared/types'
 
 import { getSourceLinkModel } from './sourceLinkHelpers'
@@ -51,7 +52,9 @@ export const SourceLink = function SourceLink({
   // SourceLinkModel has three render modes; new modes must add explicit JSX here.
   return match(model)
     .with({ kind: 'local' }, () => (
-      <span className="text-sm text-muted-foreground/70 mb-2 block">Local</span>
+      <span className="text-sm text-muted-foreground/70 mb-2 block">
+        {LOCAL_SOURCE_LABEL}
+      </span>
     ))
     .with({ kind: 'text' }, ({ source }) => (
       <span className="text-sm text-muted-foreground inline-flex items-center gap-1 mb-2">

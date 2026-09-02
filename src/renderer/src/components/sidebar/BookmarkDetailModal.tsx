@@ -17,6 +17,7 @@ import {
   clearSelectedBookmarkForDetail,
   selectSelectedBookmarkForDetail,
 } from '@/renderer/src/redux/slices/uiSlice'
+import { LOCAL_SOURCE_LABEL } from '@/shared/constants'
 
 /**
  * Modal dialog showing bookmark details with install/remove actions.
@@ -91,7 +92,9 @@ export const BookmarkDetailModal =
                   <ExternalLink className="h-3 w-3" />
                 </button>
               ) : (
-                <span className="text-sm text-muted-foreground/70">Local</span>
+                <span className="text-sm text-muted-foreground/70">
+                  {LOCAL_SOURCE_LABEL}
+                </span>
               )}
 
               <Separator />

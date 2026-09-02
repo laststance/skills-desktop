@@ -59,7 +59,8 @@ export type ActiveTab = 'installed' | 'marketplace'
  * Which field the search box matches against.
  * - `'name'` — matches `Skill.name` (default; previous behavior).
  * - `'repo'` — matches `Skill.source` (e.g. `"vercel-labs/skills"`).
- *   Local skills with no `source` are excluded from results in this mode.
+ *   Skills with no `source` match only the exact "Local" keyword offered by
+ *   the search box's suggestion list — never a partial query.
  */
 export type SearchScope = 'name' | 'repo'
 
