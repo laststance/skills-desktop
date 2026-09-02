@@ -347,6 +347,15 @@ Rules:
 - Placeholder text must stay lower contrast than real values.
 - Search should feel command-palette-adjacent: compact, keyboard-first,
   immediately scannable.
+- Inline suggestion lists (the Repo-scope search combobox) reuse the menu
+  surface — `rounded-md border bg-popover p-1 shadow-md`, `max-h-60` with
+  vertical scroll — anchored directly under the field with `mt-1`. Follow the
+  ARIA combobox pattern: `role="combobox"` + `aria-expanded` on the input,
+  `role="listbox"` / `role="option"` on the list, keyboard cursor via
+  `aria-activedescendant` (ArrowUp/Down wrap, Enter picks, Escape closes the
+  list before it clears the field). Highlight the active option with
+  `bg-accent`, never a second focus ring; options stay unfocusable so focus
+  never leaves the field.
 - Reset native form chrome to the token palette. macOS Chromium renders the
   `type="search"` clear control (`::-webkit-search-cancel-button`) in the system
   accent (blue), which breaks the muted OKLCH surface. Prefer a palette-matched

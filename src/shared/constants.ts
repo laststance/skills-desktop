@@ -1116,6 +1116,15 @@ export const SOURCE_FILTER_MAX_VISIBLE_REPOS = 3
 export const REPOSITORY_FACET_LABEL_MAX_CHARS = 28
 
 /**
+ * Label for a skill with no `source` repository, shared by the row/bookmark
+ * "Local" labels, repo-scope search matching, and the search suggestion list
+ * so picking the Local suggestion returns exactly the rows that display it.
+ * @example
+ * <span>{LOCAL_SOURCE_LABEL}</span> // => "Local"
+ */
+export const LOCAL_SOURCE_LABEL = 'Local'
+
+/**
  * Minimum tap-target size (px) for interactive elements. Floor set by both
  * Apple HIG (44×44 pt) and WCAG 2.2 AA (target size 24 CSS px minimum, 44
  * recommended) — keeping a single source of truth here means adding a new

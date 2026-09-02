@@ -3,7 +3,10 @@ import { match } from 'ts-pattern'
 
 import { formatRepositoryFacetLabel } from '@/renderer/src/utils/formatRepositoryFacetLabel'
 import { isGStackManagedForAgent } from '@/renderer/src/utils/gstackSkill'
-import { SOURCE_FILTER_MAX_VISIBLE_REPOS } from '@/shared/constants'
+import {
+  LOCAL_SOURCE_LABEL,
+  SOURCE_FILTER_MAX_VISIBLE_REPOS,
+} from '@/shared/constants'
 import type {
   AgentId,
   RepositoryId,
@@ -38,6 +41,9 @@ interface RepoFacetOption {
   source: RepositoryId
   count: SkillCount
 }
+
+/** One Repo-scope search suggestion: a real repo id or the "Local" pseudo-repo. */
+export type RepoSearchSuggestion = RepositoryId | typeof LOCAL_SOURCE_LABEL
 
 /**
  * Detect whether one scanner slot belongs to the active agent list.
@@ -161,6 +167,24 @@ function applyAgentAndTypeFilters(
 }
 
 /**
+ * Memoized agent/type-filtered population that the Installed row list, repo
+ * facet, search suggestions, and hidden-Local count all start from, so they
+ * share one pass instead of each re-running {@link applyAgentAndTypeFilters}.
+ * @returns Skills surviving the agent view + skill-type include/exclude filters
+ * @example
+ * selectVisibleByAgentAndType(state) // => Skill[] before repo filter, search, and sort
+ */
+const selectVisibleByAgentAndType = createSelector(
+  [
+    selectSkillsItems,
+    selectSelectedAgentId,
+    selectSkillTypeFilter,
+    selectExcludedSkillTypeFilters,
+  ],
+  applyAgentAndTypeFilters,
+)
+
+/**
  * Memoized selector for filtered and sorted skills list.
  * Applies (in order): agent/type include, type excludes, source-repo include
  * filter, scope-aware search query, and name sort.
@@ -169,8 +193,8 @@ function applyAgentAndTypeFilters(
  * - `'name'` — case-insensitive substring match against `skill.name` (the
  *   original behavior; preserved when no toggle is wired).
  * - `'repo'` — case-insensitive substring match against `skill.source`. Skills
- *   with no `source` (Local-only skills) are excluded in this mode because
- *   they have no repo string to match.
+ *   with no `source` match only the exact keyword "Local" (the suggestion
+ *   list's pseudo-repo, {@link LOCAL_SOURCE_LABEL}), never a partial query.
  *
  * The source-repo include filter (`selectedSources`) keeps only skills whose
  * `source` is in the ticked set; an empty set is a no-op (all repos shown).
@@ -184,31 +208,14 @@ function applyAgentAndTypeFilters(
  */
 export const selectFilteredSkills = createSelector(
   [
-    selectSkillsItems,
+    selectVisibleByAgentAndType,
     selectSearchQuery,
     selectSearchScope,
-    selectSelectedAgentId,
     selectSelectedSources,
     selectSortOrder,
-    selectSkillTypeFilter,
-    selectExcludedSkillTypeFilters,
   ],
-  (
-    skills,
-    searchQuery,
-    searchScope,
-    selectedAgentId,
-    selectedSources,
-    sortOrder,
-    skillTypeFilter,
-    excludedSkillTypeFilters,
-  ) => {
-    let result = applyAgentAndTypeFilters(
-      skills,
-      selectedAgentId,
-      skillTypeFilter,
-      excludedSkillTypeFilters,
-    )
+  (visibleSkills, searchQuery, searchScope, selectedSources, sortOrder) => {
+    let result = visibleSkills
 
     // Source-repo include filter — keep only ticked repos. An empty set is a
     // no-op. Local skills (source undefined) can never be in the set, so they
@@ -228,9 +235,14 @@ export const selectFilteredSkills = createSelector(
       const query = searchQuery.toLowerCase()
       result = match(searchScope)
         .with('repo', () =>
-          // Local skills have no `source`; in repo mode they cannot match.
+          // Source-less skills are reachable only through the exact "Local"
+          // keyword (the suggestion list's pseudo-repo). A partial query such
+          // as "lo" keeps matching repos alone, so Local rows never flood the
+          // results mid-typing and a skill name never leaks into repo results.
           result.filter((skill) =>
-            skill.source ? skill.source.toLowerCase().includes(query) : false,
+            skill.source
+              ? skill.source.toLowerCase().includes(query)
+              : query === LOCAL_SOURCE_LABEL.toLowerCase(),
           ),
         )
         .with('name', () =>
@@ -270,25 +282,9 @@ export const selectFilteredSkillCount = createSelector(
  * const repoOptions = useAppSelector(selectRepoFacetOptions)
  */
 export const selectRepoFacetOptions = createSelector(
-  [
-    selectSkillsItems,
-    selectSelectedAgentId,
-    selectSkillTypeFilter,
-    selectExcludedSkillTypeFilters,
-  ],
-  (
-    skills,
-    selectedAgentId,
-    skillTypeFilter,
-    excludedSkillTypeFilters,
-  ): RepoFacetOption[] => {
+  [selectVisibleByAgentAndType],
+  (visibleByAgentAndType): RepoFacetOption[] => {
     const sourceCounts = new Map<RepositoryId, number>()
-    const visibleByAgentAndType = applyAgentAndTypeFilters(
-      skills,
-      selectedAgentId,
-      skillTypeFilter,
-      excludedSkillTypeFilters,
-    )
     for (const skill of visibleByAgentAndType) {
       if (!skill.source) continue
       sourceCounts.set(skill.source, (sourceCounts.get(skill.source) ?? 0) + 1)
@@ -296,6 +292,52 @@ export const selectRepoFacetOptions = createSelector(
     return [...sourceCounts.entries()]
       .sort(([sourceA], [sourceB]) => sourceA.localeCompare(sourceB))
       .map(([source, count]) => ({ source, count }))
+  },
+)
+
+/**
+ * Repo-scope suggestions for the SearchBox listbox: repos in view (plus "Local"
+ * when a source-less skill is in view) that contain the typed query. Shares
+ * {@link selectFilteredSkills}'s population, so a picked entry never yields 0 rows.
+ * @returns Case-insensitive matches, repos A→Z with {@link LOCAL_SOURCE_LABEL} last
+ * @example
+ * useAppSelector(selectRepoSearchSuggestions) // query "micro" => ['microsoft/azure-skills', 'microsoft/webwright']
+ */
+export const selectRepoSearchSuggestions = createSelector(
+  [
+    selectRepoFacetOptions,
+    selectVisibleByAgentAndType,
+    selectSelectedSources,
+    selectSearchQuery,
+  ],
+  (
+    facetOptions,
+    visibleSkills,
+    selectedSources,
+    searchQuery,
+  ): RepoSearchSuggestion[] => {
+    // Same normalization as the row filter so a suggestion and its rows agree.
+    const query = searchQuery.toLowerCase()
+    const matchesQuery = (candidate: string): boolean =>
+      candidate.toLowerCase().includes(query)
+    const repos = facetOptions.map((option) => option.source)
+
+    // An active repo include filter hides every other repo AND all Local rows
+    // (see selectFilteredSkills), so only the ticked repos can still match.
+    if (selectedSources.length > 0) {
+      const includedSources = new Set(selectedSources)
+      return repos.filter(
+        (repo) => includedSources.has(repo) && matchesQuery(repo),
+      )
+    }
+
+    const suggestions: RepoSearchSuggestion[] = repos.filter(matchesQuery)
+    // Offer "Local" only when a source-less skill is actually in view.
+    const hasLocalSkill = visibleSkills.some((skill) => !skill.source)
+    if (hasLocalSkill && matchesQuery(LOCAL_SOURCE_LABEL)) {
+      suggestions.push(LOCAL_SOURCE_LABEL)
+    }
+    return suggestions
   },
 )
 
@@ -365,31 +407,17 @@ function formatSourceFilterAriaLabel(selectedSources: RepositoryId[]): string {
  * Consolidated view-model for the Installed toolbar's source-repo include
  * filter. Folds the active selection, the (agent/type-gated) facet options,
  * and the hidden-local count into one memoized shape — see
- * `SourceFilterViewModel` for field semantics. Recomputes the agent/type
- * population internally for `localHiddenCount` rather than coupling
- * `selectRepoFacetOptions` to that concern.
+ * `SourceFilterViewModel` for field semantics. Reads the shared agent/type
+ * population ({@link selectVisibleByAgentAndType}) for `localHiddenCount`
+ * rather than coupling {@link selectRepoFacetOptions} to that concern.
  * @returns SourceFilterViewModel
  * @example
  * const sourceFilter = useAppSelector(selectSourceFilterViewModel)
  * // sourceFilter.triggerLabel === '2 repos'
  */
 export const selectSourceFilterViewModel = createSelector(
-  [
-    selectSkillsItems,
-    selectSelectedAgentId,
-    selectSkillTypeFilter,
-    selectExcludedSkillTypeFilters,
-    selectSelectedSources,
-    selectRepoFacetOptions,
-  ],
-  (
-    skills,
-    selectedAgentId,
-    skillTypeFilter,
-    excludedSkillTypeFilters,
-    selectedSources,
-    facetOptions,
-  ): SourceFilterViewModel => {
+  [selectVisibleByAgentAndType, selectSelectedSources, selectRepoFacetOptions],
+  (visibleSkills, selectedSources, facetOptions): SourceFilterViewModel => {
     const facetSourceSet = new Set(facetOptions.map((option) => option.source))
     const countBySource = new Map<RepositoryId, number>(
       facetOptions.map((option): [RepositoryId, number] => [
@@ -423,13 +451,7 @@ export const selectSourceFilterViewModel = createSelector(
     // it answers "how many local skills did the repo filter hide?".
     let localHiddenCount = 0
     if (selectedSources.length > 0) {
-      const population = applyAgentAndTypeFilters(
-        skills,
-        selectedAgentId,
-        skillTypeFilter,
-        excludedSkillTypeFilters,
-      )
-      for (const skill of population) {
+      for (const skill of visibleSkills) {
         if (!skill.source) localHiddenCount += 1
       }
     }
