@@ -186,7 +186,7 @@ export const SearchBox = function SearchBox(): React.ReactElement {
             // preventDefault on the whole list (options, padding, scrollbar)
             // keeps focus in the input so onBlur cannot close it mid-click.
             onMouseDown={(e) => e.preventDefault()}
-            className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 duration-150"
+            className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 duration-150 motion-reduce:animate-none"
           >
             {visibleSuggestions.map((suggestion, index) => (
               <li

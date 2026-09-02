@@ -221,15 +221,16 @@ describe('SearchBox repository suggestions', () => {
     // Arrange — a pick closes the list but leaves focus in the field, so a
     // second click fires no focus event; the click itself must reopen it.
     const { screen } = await renderRepoScopeSearchBox()
-    const input = screen.getByRole('combobox', {
-      name: 'Search skills by repository',
-    })
-    await input.click()
+    await screen
+      .getByRole('combobox', { name: 'Search skills by repository' })
+      .click()
     await screen.getByRole('option', { name: 'microsoft/azure-skills' }).click()
     await expect.poll(() => screen.getByRole('listbox').query()).toBeNull()
 
-    // Act
-    await input.click()
+    // Act — re-query the combobox from the post-pick DOM before clicking
+    await screen
+      .getByRole('combobox', { name: 'Search skills by repository' })
+      .click()
 
     // Assert — the picked repo is the only entry that still matches the query
     await expect
