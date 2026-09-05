@@ -120,8 +120,7 @@ async function renderAgentFolderMenu(
     await import('@/renderer/src/redux/slices/uiSlice')
   const { default: settingsReducer } =
     await import('@/renderer/src/redux/slices/settingsSlice')
-  const { AgentFoldersMenu: AgentFoldersMenu } =
-    await import('./AgentFoldersMenu')
+  const { AgentFoldersMenu } = await import('./AgentFoldersMenu')
   const store = configureStore({
     reducer: {
       agents: agentsReducer,
@@ -444,6 +443,32 @@ describe('Hidden agent folder deletion', () => {
 })
 
 describe('Not-installed agent empty folder deletion', () => {
+  it.each([
+    {
+      group: 'unused' as const,
+      agent: unusedCline,
+      description:
+        'Move 1 empty agent folder to Trash. Folders containing files, settings, history, or skills will be kept.',
+    },
+    {
+      group: 'hidden' as const,
+      agent: cline,
+      description:
+        'Move 1 skills folder to Trash, including all contents. Folders containing protected skills will remain.',
+    },
+  ])(
+    'uses singular folder wording for one $group agent',
+    async ({ group, agent, description }) => {
+      // Arrange
+      const { screen } = await renderAgentFolderMenu([agent], group)
+
+      // Assert
+      await expect
+        .element(screen.getByText(description, { exact: true }))
+        .toBeVisible()
+    },
+  )
+
   it('reviews empty parent paths in one dialog and restores focus after cancellation', async () => {
     // Arrange
     const { screen } = await renderAgentFolderMenu(
@@ -606,7 +631,7 @@ describe('Not-installed agent empty folder deletion', () => {
     // Assert
     await expect.poll(() => mockToastSuccess.mock.calls.length).toBe(1)
     expect(mockToastSuccess).toHaveBeenCalledWith(
-      'Deleted 0 empty agent folders',
+      'Empty agent folders were already gone',
       {
         description:
           'Folders containing files, settings, history, or skills were kept.',

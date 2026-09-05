@@ -12,6 +12,7 @@ import {
 import { useDeleteAgentFolders } from '@/renderer/src/hooks/useDeleteAgentFolders'
 import type { AgentFolderGroup } from '@/renderer/src/redux/slices/uiSlice'
 import { getAgentFolderDeleteNotices } from '@/renderer/src/utils/getAgentFolderDeleteNotices'
+import { pluralize } from '@/renderer/src/utils/pluralize'
 import type { Agent } from '@/shared/types'
 
 /**
@@ -33,6 +34,7 @@ export function AgentFoldersMenu({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const confirmedRef = useRef(false)
   const isUnused = group === 'unused'
+  const folderCount = deletion.review?.agents.length ?? 0
   const notices = getAgentFolderDeleteNotices(
     deletion.review?.skippedCount ?? 0,
     deletion.protectedCount,
@@ -117,15 +119,15 @@ export function AgentFoldersMenu({
             ))}
             {isUnused ? (
               <p>
-                Move these {deletion.review?.agents.length} empty agent folders
-                to Trash. Folders containing files, settings, history, or skills
-                will be kept.
+                Move {folderCount} empty agent{' '}
+                {pluralize(folderCount, 'folder')} to Trash. Folders containing
+                files, settings, history, or skills will be kept.
               </p>
             ) : (
               <p>
-                Move these {deletion.review?.agents.length} skills folders and
-                their contents to Trash. Folders containing protected skills
-                will remain.
+                Move {folderCount} skills {pluralize(folderCount, 'folder')} to
+                Trash, including all contents. Folders containing protected
+                skills will remain.
               </p>
             )}
             <ul

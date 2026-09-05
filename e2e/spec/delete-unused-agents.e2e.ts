@@ -47,15 +47,17 @@ async function stageUnusedFolders(isolatedHome: string, appWindow: Page) {
 }
 
 /**
- * Matches only this test's empty folders in OS Trash after the confirmation runs.
+ * Matches only this test's folders and known fixture files in OS Trash after confirmation, including failed assertions.
  * @param before - All pre-existing Trash names, including hidden entries.
  * @param identities - Exact device/inode pairs of the disposable reviewed folders.
+ * @param expectedFiles - Allowed fixture filenames and contents; an empty map permits only empty folders.
  * @returns Newly trashed fixture folders safe for assertions and cleanup.
  * @example findTrashedFixtures(before, identities) // ['/Users/me/.Trash/.cline.cleanup-...']
  */
 function findTrashedFixtures(
   before: Set<string>,
   identities: Array<{ dev: number; ino: number }>,
+  expectedFiles: Readonly<Record<string, string>> = {},
 ): string[] {
   return readdirSync(USER_TRASH_DIR)
     .filter(
@@ -65,13 +67,18 @@ function findTrashedFixtures(
       const path = join(USER_TRASH_DIR, name)
       try {
         const stats = lstatSync(path)
-        // Matching inode, device, name, and empty contents excludes unrelated user Trash entries.
+        // Match identity and known file contents so failed negative tests also clean up only their fixtures.
         return stats.isDirectory() &&
           identities.some(
             (identity) =>
               identity.dev === stats.dev && identity.ino === stats.ino,
           ) &&
-          readdirSync(path).length === 0
+          readdirSync(path).every(
+            (entry) =>
+              Object.hasOwn(expectedFiles, entry) &&
+              lstatSync(join(path, entry)).isFile() &&
+              readFileSync(join(path, entry), 'utf8') === expectedFiles[entry],
+          )
           ? [path]
           : []
       } catch {
@@ -185,7 +192,17 @@ test('not-installed cleanup preserves folders that receive settings after confir
   isolatedHome,
 }) => {
   // Arrange
+  test.skip(
+    !canReadUserTrash(),
+    'OS Trash inspection is unavailable for safe fixture cleanup',
+  )
+  test.skip(
+    !isSameVolumeAsUserTrash(isolatedHome),
+    'Fixture identity checks require the OS Trash volume',
+  )
   const folders = await stageUnusedFolders(isolatedHome, appWindow)
+  const identities = [lstatSync(folders.clinePath), lstatSync(folders.warpPath)]
+  const before = new Set(readdirSync(USER_TRASH_DIR))
   await appWindow
     .getByRole('button', { name: 'Not installed agent actions' })
     .click()
@@ -195,22 +212,31 @@ test('not-installed cleanup preserves folders that receive settings after confir
   writeFileSync(join(folders.clinePath, 'settings.json'), 'new settings')
   writeFileSync(join(folders.warpPath, 'history.json'), 'new history')
 
-  // Act
-  await appWindow
-    .getByRole('button', { name: 'Delete folders', exact: true })
-    .click()
+  try {
+    // Act
+    await appWindow
+      .getByRole('button', { name: 'Delete folders', exact: true })
+      .click()
 
-  // Assert
-  await expect(
-    appWindow.getByText('Some empty agent folders could not be deleted', {
-      exact: true,
-    }),
-  ).toBeVisible()
-  expect(readFileSync(join(folders.clinePath, 'settings.json'), 'utf8')).toBe(
-    'new settings',
-  )
-  expect(readFileSync(join(folders.warpPath, 'history.json'), 'utf8')).toBe(
-    'new history',
-  )
-  await expect(appWindow.getByRole('dialog')).toHaveCount(0)
+    // Assert
+    await expect(
+      appWindow.getByText('Some empty agent folders could not be deleted', {
+        exact: true,
+      }),
+    ).toBeVisible()
+    expect(readFileSync(join(folders.clinePath, 'settings.json'), 'utf8')).toBe(
+      'new settings',
+    )
+    expect(readFileSync(join(folders.warpPath, 'history.json'), 'utf8')).toBe(
+      'new history',
+    )
+    await expect(appWindow.getByRole('dialog')).toHaveCount(0)
+  } finally {
+    cleanupTrashEntries(
+      findTrashedFixtures(before, identities, {
+        'settings.json': 'new settings',
+        'history.json': 'new history',
+      }),
+    )
+  }
 })

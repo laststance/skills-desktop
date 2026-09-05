@@ -25,18 +25,25 @@ function createDirent(
   }
 }
 
-const readdirMock = vi.fn()
-const accessMock = vi.fn()
-const lstatMock = vi.fn()
+const {
+  readdirMock,
+  accessMock,
+  lstatMock,
+  checkSymlinkStatusMock,
+  getEmptyAgentFolderMock,
+} = vi.hoisted(() => ({
+  readdirMock: vi.fn(),
+  accessMock: vi.fn(),
+  lstatMock: vi.fn(),
+  checkSymlinkStatusMock: vi.fn(),
+  getEmptyAgentFolderMock: vi.fn(),
+}))
 
 vi.mock('fs/promises', () => ({
   readdir: readdirMock,
   access: accessMock,
   lstat: lstatMock,
 }))
-
-const checkSymlinkStatusMock = vi.fn()
-const getEmptyAgentFolderMock = vi.fn()
 
 vi.mock('./emptyAgentFolderService', () => ({
   getEmptyAgentFolder: getEmptyAgentFolderMock,

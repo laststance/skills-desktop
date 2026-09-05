@@ -18,8 +18,8 @@ import {
   type AgentFolderGroup,
 } from '@/renderer/src/redux/slices/uiSlice'
 import { refreshAllData } from '@/renderer/src/redux/thunks'
+import { getAgentFolderDeleteSuccessTitle } from '@/renderer/src/utils/getAgentFolderDeleteSuccessTitle'
 import { getDeletableAgentFolders } from '@/renderer/src/utils/getDeletableAgentFolders'
-import { pluralize } from '@/renderer/src/utils/pluralize'
 import type { Agent } from '@/shared/types'
 
 /**
@@ -109,7 +109,7 @@ export function useDeleteAgentFolders(
               })
               if (result.success) {
                 completedCount += 1
-                removedCount += Number(result.deleted)
+                removedCount += result.deleted ? 1 : 0
               } else {
                 failures.push(`${agent.name}: ${result.error}`)
               }
@@ -139,11 +139,10 @@ export function useDeleteAgentFolders(
 
         if (completedCount > 0) {
           toast.success(
-            group === 'unused'
-              ? `Deleted ${removedCount} empty agent ${pluralize(removedCount, 'folder')}`
-              : deletedFromAgentCount > 0
-                ? `Deleted skills from ${deletedFromAgentCount} hidden ${pluralize(deletedFromAgentCount, 'agent')}`
-                : 'Hidden agent cleanup complete',
+            getAgentFolderDeleteSuccessTitle(
+              group,
+              group === 'unused' ? removedCount : deletedFromAgentCount,
+            ),
             {
               description:
                 group === 'unused'

@@ -184,6 +184,12 @@ test('UI: clicking Undo on the bulk-delete toast restores staged source files an
     name: /^Undo delete of \d+ skills?$/,
   })
   await undoButton.waitFor({ state: 'visible', timeout: 5_000 })
+  // Prove the later empty-trash assertion observes removal of an actual staged entry.
+  expect(
+    readdirSync(trashDir).filter((entry) =>
+      entry.includes(`-${UNDO_TOAST_FIXTURE_NAME}-`),
+    ),
+  ).toHaveLength(1)
   await undoButton.click()
 
   // Assert

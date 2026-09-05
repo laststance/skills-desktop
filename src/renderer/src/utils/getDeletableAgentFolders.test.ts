@@ -93,3 +93,75 @@ describe('hidden-agent bulk-delete eligibility', () => {
     expect(agents).toEqual([])
   })
 })
+
+describe('not-installed agent empty-parent eligibility', () => {
+  const emptyParentFolder: NonNullable<Agent['emptyParentFolder']> = {
+    path: '/Users/test/.cline',
+    filesystemIdentity: {
+      kind: 'directory',
+      dev: 1,
+      ino: 2,
+      size: 96,
+      ctimeMs: 3,
+      mtimeMs: 4,
+    },
+  }
+  const unusedAgent: Agent = {
+    ...hiddenAgent,
+    id: 'cline',
+    name: 'Cline',
+    path: '/Users/test/.cline/skills',
+    exists: false,
+    filesystemIdentity: undefined,
+    emptyParentFolder,
+  }
+
+  it('includes only a reviewed empty parent whose skills folder is absent', () => {
+    // Arrange
+    const candidates = [
+      unusedAgent,
+      { ...unusedAgent, id: 'cursor' as const, exists: true },
+      { ...unusedAgent, id: 'codex' as const, emptyParentFolder: undefined },
+    ]
+
+    // Act
+    const agents = getDeletableAgentFolders(candidates, 'unused')
+
+    // Assert
+    expect(agents.map((agent) => agent.id)).toEqual(['cline'])
+  })
+
+  it.each(['symlink', 'file'] as const)(
+    'keeps a reviewed %s out of empty-parent deletion',
+    (kind) => {
+      // Arrange
+      const candidate: Agent = {
+        ...unusedAgent,
+        emptyParentFolder: {
+          ...emptyParentFolder,
+          filesystemIdentity: { ...emptyParentFolder.filesystemIdentity, kind },
+        },
+      }
+
+      // Act
+      const agents = getDeletableAgentFolders([candidate], 'unused')
+
+      // Assert
+      expect(agents).toEqual([])
+    },
+  )
+
+  it('keeps shared Amp and Replit parents out of empty-parent deletion', () => {
+    // Arrange
+    const candidates: Agent[] = [
+      { ...unusedAgent, id: 'amp' },
+      { ...unusedAgent, id: 'replit' },
+    ]
+
+    // Act
+    const agents = getDeletableAgentFolders(candidates, 'unused')
+
+    // Assert
+    expect(agents).toEqual([])
+  })
+})

@@ -48,3 +48,27 @@ describe('Hidden agents deletion exclusions', () => {
     ])
   })
 })
+
+describe('Not-installed agent deletion exclusions', () => {
+  it.each([
+    [1, '1 agent without an empty, separate folder will be skipped.'],
+    [2, '2 agents without an empty, separate folder will be skipped.'],
+  ])(
+    'explains %i skipped not-installed agents',
+    (skippedCount, expectedNotice) => {
+      // Act
+      const notices = getAgentFolderDeleteNotices(skippedCount, 0, 'unused')
+
+      // Assert
+      expect(notices).toEqual([expectedNotice])
+    },
+  )
+
+  it('keeps protected-skill notices out of empty-parent cleanup', () => {
+    // Act
+    const notices = getAgentFolderDeleteNotices(0, 3, 'unused')
+
+    // Assert
+    expect(notices).toEqual([])
+  })
+})

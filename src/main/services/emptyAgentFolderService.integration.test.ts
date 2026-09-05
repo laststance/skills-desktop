@@ -36,6 +36,10 @@ beforeEach(async () => {
     ...(await vi.importActual<typeof NodeOs>('os')),
     homedir: () => tempHome,
   }))
+  vi.doMock('node:os', async () => ({
+    ...(await vi.importActual<typeof NodeOs>('node:os')),
+    homedir: () => tempHome,
+  }))
   vi.doMock('node:fs/promises', async () => ({
     ...(await vi.importActual<typeof NodeFs>('node:fs/promises')),
     rename: async (from: string, to: string) => {
@@ -48,6 +52,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   vi.doUnmock('os')
+  vi.doUnmock('node:os')
   vi.doUnmock('node:fs/promises')
   await rm(tempHome, { recursive: true, force: true })
 })
@@ -263,6 +268,39 @@ describe('not-installed agent empty folder cleanup', () => {
     expect(
       agents.find((agent) => agent.id === 'cline')?.emptyParentFolder,
     ).toBeUndefined()
+    expect(trashItemMock).not.toHaveBeenCalled()
+  })
+
+  it('keeps an empty agent folder beneath a symlinked config ancestor', async () => {
+    // Arrange
+    const externalConfig = join(tempHome, 'external-config')
+    const externalAgentFolder = join(externalConfig, 'opencode')
+    await mkdir(externalAgentFolder, { recursive: true })
+    await symlink(externalConfig, join(tempHome, '.config'))
+    const { scanAgents } = await import('./agentScanner')
+    const { removeEmptyAgentFolder } = await import('./emptyAgentFolderService')
+
+    // Act
+    const agents = await scanAgents()
+    const result = await removeEmptyAgentFolder({
+      agentId: 'opencode',
+      path: join(tempHome, '.config', 'opencode'),
+      filesystemIdentity: filesystemIdentityFromStats(
+        await lstat(externalAgentFolder),
+      ),
+    })
+
+    // Assert
+    expect(agents.find((agent) => agent.id === 'opencode')).toMatchObject({
+      exists: false,
+      emptyParentFolder: undefined,
+    })
+    expect(result).toEqual({
+      success: false,
+      error:
+        'Agent folder is no longer empty or changed since review. Rescan before deleting.',
+    })
+    expect(await readdir(externalAgentFolder)).toEqual([])
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 })

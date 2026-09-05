@@ -24,7 +24,7 @@ export function getAgentFolderDeleteNotices(
         : `${skippedCount} ${pluralize(skippedCount, 'agent')} without an empty, separate folder will be skipped.`,
     )
   }
-  if (protectedCount > 0) {
+  if (group === 'hidden' && protectedCount > 0) {
     notices.push(
       `${protectedCount} protected skill ${pluralize(protectedCount, 'entry', 'entries')} will be kept.`,
     )
