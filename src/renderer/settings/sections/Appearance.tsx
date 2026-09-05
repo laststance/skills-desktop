@@ -145,7 +145,7 @@ const SettingRangeInput = function SettingRangeInput({
       onChange={handleInputChange}
       aria-label={label}
       aria-valuetext={valueText}
-      className="h-2 min-w-0 flex-1 accent-primary rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="h-6 min-w-0 flex-1 accent-primary rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     />
   )
 }
