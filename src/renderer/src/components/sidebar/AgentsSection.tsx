@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef } from 'react'
 
 import { useInitialEffect } from '@/renderer/src/hooks/useInitialEffect'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
@@ -6,6 +6,7 @@ import { fetchAgents } from '@/renderer/src/redux/slices/agentsSlice'
 import { selectHiddenAgentIds } from '@/renderer/src/redux/slices/settingsSlice'
 
 import { AgentItem } from './AgentItem'
+import { HiddenAgentsMenu } from './HiddenAgentsMenu'
 
 /**
  * Sidebar section listing detected AI agents.
@@ -24,6 +25,7 @@ import { AgentItem } from './AgentItem'
  */
 export const AgentsSection = function AgentsSection(): React.ReactElement {
   const dispatch = useAppDispatch()
+  const headingRef = useRef<HTMLSpanElement>(null)
   const { items: agents, loading } = useAppSelector((state) => state.agents)
   const hiddenAgentIds = useAppSelector(selectHiddenAgentIds)
 
@@ -40,7 +42,7 @@ export const AgentsSection = function AgentsSection(): React.ReactElement {
   const missingAgents = agents.filter((a) => !a.exists)
   const totalInstalled = visibleInstalled.length + hiddenInstalled.length
 
-  if (loading) {
+  if (loading && agents.length === 0) {
     return (
       <div className="space-y-2">
         <div className="flex items-center gap-2 mb-3">
@@ -56,7 +58,11 @@ export const AgentsSection = function AgentsSection(): React.ReactElement {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <span
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-xs font-medium uppercase tracking-wider text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
           Agents
         </span>
         <span className="text-xs text-muted-foreground">
@@ -85,18 +91,25 @@ export const AgentsSection = function AgentsSection(): React.ReactElement {
         </div>
       )}
 
-      {hiddenInstalled.length > 0 && (
-        <details className="mt-4">
-          <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-            {hiddenInstalled.length} hidden
-          </summary>
-          <div className="mt-2 space-y-1">
-            {hiddenInstalled.map((agent) => (
-              <AgentItem key={agent.id} agent={agent} />
-            ))}
-          </div>
-        </details>
-      )}
+      <div className="relative">
+        {hiddenInstalled.length > 0 && (
+          <details className="mt-4">
+            <summary className="min-h-6 mr-7 content-center rounded-md text-xs text-muted-foreground cursor-pointer hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+              {hiddenInstalled.length} hidden
+            </summary>
+            <div className="mt-2 space-y-1">
+              {hiddenInstalled.map((agent) => (
+                <AgentItem key={agent.id} agent={agent} />
+              ))}
+            </div>
+          </details>
+        )}
+        {/* A sibling trigger keeps menu clicks independent of the disclosure. */}
+        <HiddenAgentsMenu
+          agents={hiddenInstalled}
+          focusFallbackRef={headingRef}
+        />
+      </div>
 
       {missingAgents.length > 0 && (
         <details className="mt-4">
