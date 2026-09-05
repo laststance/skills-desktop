@@ -4,7 +4,10 @@ import {
   AGENT_IDS,
   CODE_THEME_IDS,
   DEFAULT_CODE_THEME_ID,
+  SECTION_OPACITY_MAX_PERCENT,
+  SECTION_OPACITY_MIN_PERCENT,
   TERMINAL_APP_IDS,
+  WINDOW_OPACITY_MODE_OPTIONS,
 } from './constants'
 import type { AgentId } from './types'
 
@@ -112,6 +115,14 @@ export const WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA = z
   .min(WINDOW_BACKGROUND_BLUR_MIN_RADIUS)
   .max(WINDOW_BACKGROUND_BLUR_MAX_RADIUS)
 
+/** Non-defaulting opacity schemas keep unrelated IPC patches from resetting saved modes or sections. */
+export const WINDOW_OPACITY_MODE_SCHEMA = z.enum(WINDOW_OPACITY_MODE_OPTIONS)
+export const SECTION_OPACITY_PERCENT_SCHEMA = z
+  .number()
+  .int()
+  .min(SECTION_OPACITY_MIN_PERCENT)
+  .max(SECTION_OPACITY_MAX_PERCENT)
+
 /**
  * Non-defaulting preview font-size schemas shared by disk and IPC boundaries.
  * `SettingsSchema` adds the persisted default; the IPC schema keeps them
@@ -208,6 +219,10 @@ const HIDDEN_AGENT_IDS_SCHEMA = z
  * - `windowBackgroundBlurRadius`: main-window transparency intensity backed
  *   by BrowserWindow opacity and macOS vibrancy. `0` disables the translucent
  *   surface and restores the opaque app background.
+ * - `windowOpacityMode`: applies the existing whole-window effect (`entire`)
+ *   or independent renderer section opacity (`section`). Switching preserves both sets of values.
+ * - `leftSectionOpacityPercent`, `centerSectionOpacityPercent`, `rightSectionOpacityPercent`:
+ *   bounded opacity percentages for the sidebar, main content, and detail inspector.
  * - `markdownFontSizePx`: body font size (CSS px) for the file preview's
  *   Markdown reading mode. Heading/code sizes scale proportionally (em).
  * - `codeFontSizePx`: font size (CSS px) for the Shiki syntax-highlighted
@@ -234,7 +249,7 @@ const HIDDEN_AGENT_IDS_SCHEMA = z
  * so unknown keys are rejected at the IPC boundary (defense in depth).
  *
  * @example
- * SettingsSchema.parse({}) // { defaultSkillTab: 'files', preferredTerminal: 'terminal', windowBackgroundBlurRadius: 0, markdownFontSizePx: 14, codeFontSizePx: 13, codeThemeId: 'github', installedSearchCountDisplay: 'tab', hiddenAgentIds: [], autoDownloadUpdates: false }
+ * SettingsSchema.parse({}).windowOpacityMode // 'entire'; legacy settings keep their existing appearance
  */
 export const SettingsSchema = z.object({
   defaultSkillTab: z.enum(['files', 'info']).default('files'),
@@ -243,6 +258,16 @@ export const SettingsSchema = z.object({
   windowSize: windowSizeSchema,
   windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA.default(
     WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
+  ),
+  windowOpacityMode: WINDOW_OPACITY_MODE_SCHEMA.default('entire'),
+  leftSectionOpacityPercent: SECTION_OPACITY_PERCENT_SCHEMA.default(
+    SECTION_OPACITY_MAX_PERCENT,
+  ),
+  centerSectionOpacityPercent: SECTION_OPACITY_PERCENT_SCHEMA.default(
+    SECTION_OPACITY_MAX_PERCENT,
+  ),
+  rightSectionOpacityPercent: SECTION_OPACITY_PERCENT_SCHEMA.default(
+    SECTION_OPACITY_MAX_PERCENT,
   ),
   markdownFontSizePx: MARKDOWN_FONT_SIZE_SCHEMA.default(
     MARKDOWN_FONT_SIZE_DEFAULT_PX,
@@ -270,6 +295,10 @@ export const SettingsSchema = z.object({
  *   preferredTerminal: 'iterm',
  *   windowSize: { width: 1280, height: 800 },
  *   windowBackgroundBlurRadius: 24,
+ *   windowOpacityMode: 'section',
+ *   leftSectionOpacityPercent: 65,
+ *   centerSectionOpacityPercent: 80,
+ *   rightSectionOpacityPercent: 95,
  *   markdownFontSizePx: 14,
  *   codeFontSizePx: 13,
  *   codeThemeId: 'github',
@@ -296,6 +325,10 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultSkillTab: 'files',
   preferredTerminal: 'terminal',
   windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
+  windowOpacityMode: 'entire',
+  leftSectionOpacityPercent: SECTION_OPACITY_MAX_PERCENT,
+  centerSectionOpacityPercent: SECTION_OPACITY_MAX_PERCENT,
+  rightSectionOpacityPercent: SECTION_OPACITY_MAX_PERCENT,
   markdownFontSizePx: MARKDOWN_FONT_SIZE_DEFAULT_PX,
   codeFontSizePx: CODE_FONT_SIZE_DEFAULT_PX,
   codeThemeId: DEFAULT_CODE_THEME_ID,

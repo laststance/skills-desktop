@@ -9,7 +9,10 @@ import { selectPreviewAppearanceSettings } from '@/renderer/src/redux/slices/set
 import {
   CODE_THEME_DEFINITIONS,
   CODE_THEME_IDS,
+  SECTION_OPACITY_MAX_PERCENT,
+  SECTION_OPACITY_MIN_PERCENT,
   SETTINGS_RANGE_DEBOUNCE_MS,
+  WINDOW_OPACITY_MODE_OPTIONS,
 } from '@/shared/constants'
 import type { CodeThemeId } from '@/shared/constants'
 import {
@@ -30,6 +33,24 @@ import type { Settings } from '@/shared/settings'
 import { SectionFrame, SectionRow } from './SectionFrame'
 
 const BACKGROUND_BLUR_LABEL = 'Opacity / Blur'
+const OPACITY_MODE_LABELS: Record<Settings['windowOpacityMode'], string> = {
+  entire: 'Entire',
+  section: 'Section',
+}
+const OPACITY_MODE_DESCRIPTIONS: Record<Settings['windowOpacityMode'], string> =
+  {
+    entire: 'Adjust opacity and background blur for the entire main window.',
+    section: 'Adjust the sidebar, main content, and details independently.',
+  }
+const OPACITY_MODE_CHOICES = WINDOW_OPACITY_MODE_OPTIONS.map((value) => ({
+  value,
+  label: OPACITY_MODE_LABELS[value],
+}))
+const SECTION_OPACITY_CONTROLS = [
+  { key: 'leftSectionOpacityPercent', label: 'Left' },
+  { key: 'centerSectionOpacityPercent', label: 'Center' },
+  { key: 'rightSectionOpacityPercent', label: 'Right' },
+] as const
 const MARKDOWN_FONT_SIZE_LABEL = 'Reading font size'
 const CODE_FONT_SIZE_LABEL = 'Code font size'
 const CODE_THEME_LABEL = 'Code theme'
@@ -250,6 +271,9 @@ export const Appearance = function Appearance(): React.ReactElement {
   const windowBackgroundBlurRadius = useAppSelector(
     (state) => state.settings.windowBackgroundBlurRadius,
   )
+  const windowOpacityMode = useAppSelector(
+    (state) => state.settings.windowOpacityMode,
+  )
   const { markdownFontSizePx, codeFontSizePx, codeThemeId } = useAppSelector(
     selectPreviewAppearanceSettings,
   )
@@ -306,19 +330,42 @@ export const Appearance = function Appearance(): React.ReactElement {
       </SectionRow>
 
       <SectionRow
-        label={BACKGROUND_BLUR_LABEL}
-        description="Surface opacity and background blur for the main window."
+        label="Opacity"
+        description="Choose how to control the main window’s transparency."
       >
-        <RangeSettingControl
-          label={BACKGROUND_BLUR_LABEL}
-          min={WINDOW_BACKGROUND_BLUR_MIN_RADIUS}
-          max={WINDOW_BACKGROUND_BLUR_MAX_RADIUS}
-          draft={blur.draft}
-          isDefault={blur.isDefault}
-          formatValue={formatBlurValue}
-          onValueChange={blur.change}
-          onReset={blur.reset}
+        <SegmentedControl
+          aria-label="Opacity mode"
+          size="sm"
+          value={windowOpacityMode}
+          onValueChange={(nextMode) =>
+            updateSettings({ windowOpacityMode: nextMode })
+          }
+          options={OPACITY_MODE_CHOICES}
         />
+        <p className="mt-2 text-xs text-muted-foreground">
+          {OPACITY_MODE_DESCRIPTIONS[windowOpacityMode]}
+        </p>
+        {/* Keep both modes mounted so switching retains drafts and pending saves. */}
+        <div hidden={windowOpacityMode !== 'entire'} className="mt-4">
+          <RangeSettingControl
+            label={BACKGROUND_BLUR_LABEL}
+            min={WINDOW_BACKGROUND_BLUR_MIN_RADIUS}
+            max={WINDOW_BACKGROUND_BLUR_MAX_RADIUS}
+            draft={blur.draft}
+            isDefault={blur.isDefault}
+            formatValue={formatBlurValue}
+            onValueChange={blur.change}
+            onReset={blur.reset}
+          />
+        </div>
+        <div
+          hidden={windowOpacityMode !== 'section'}
+          className="mt-4 space-y-4"
+        >
+          {SECTION_OPACITY_CONTROLS.map((control) => (
+            <SectionOpacityControl key={control.key} control={control} />
+          ))}
+        </div>
       </SectionRow>
 
       <SectionRow
@@ -364,4 +411,51 @@ export const Appearance = function Appearance(): React.ReactElement {
       </SectionRow>
     </SectionFrame>
   )
+}
+
+/**
+ * Persists one independently resettable section slider when Appearance renders its Section controls.
+ * @param control - Saved numeric field and its visible section label.
+ * @returns Labeled opacity slider with a percentage and reset action.
+ * @example <SectionOpacityControl control={{ key: 'leftSectionOpacityPercent', label: 'Left' }} />
+ */
+function SectionOpacityControl({
+  control,
+}: {
+  control: (typeof SECTION_OPACITY_CONTROLS)[number]
+}): React.ReactElement {
+  const opacityPercent = useAppSelector((state) => state.settings[control.key])
+  const updateSettings = useUpdateSettings()
+  const opacity = useDraftRangeSetting(
+    opacityPercent,
+    SECTION_OPACITY_MAX_PERCENT,
+    (nextPercent) => updateSettings({ [control.key]: nextPercent }),
+    SETTINGS_RANGE_DEBOUNCE_MS,
+  )
+
+  return (
+    <div className="space-y-2">
+      <div className="text-sm font-medium">{control.label}</div>
+      <RangeSettingControl
+        label={`${control.label} opacity`}
+        min={SECTION_OPACITY_MIN_PERCENT}
+        max={SECTION_OPACITY_MAX_PERCENT}
+        draft={opacity.draft}
+        isDefault={opacity.isDefault}
+        formatValue={formatOpacityPercent}
+        onValueChange={opacity.change}
+        onReset={opacity.reset}
+      />
+    </div>
+  )
+}
+
+/**
+ * Labels section slider values when Appearance updates a draft or announces it to assistive technology.
+ * @param opacityPercent - Current section opacity percentage.
+ * @returns Percentage shown beside the slider.
+ * @example formatOpacityPercent(65) // '65%'
+ */
+function formatOpacityPercent(opacityPercent: number): string {
+  return `${opacityPercent}%`
 }

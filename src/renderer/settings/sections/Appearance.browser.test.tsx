@@ -43,6 +43,86 @@ async function createStore(
 }
 
 describe('Settings → Appearance', () => {
+  it('preserves the Entire intensity and independent percentages when switching opacity modes', async () => {
+    // Arrange
+    const store = await createStore({
+      windowBackgroundBlurRadius: 24,
+      leftSectionOpacityPercent: 65,
+      centerSectionOpacityPercent: 80,
+      rightSectionOpacityPercent: 95,
+    })
+    const { Appearance } = await import('./Appearance')
+    const screen = await render(
+      <Provider store={store}>
+        <Appearance />
+      </Provider>,
+    )
+
+    // Act
+    await screen.getByRole('radio', { name: 'Section', exact: true }).click()
+    const leftSlider = screen.getByRole('slider', { name: 'Left opacity' })
+    await expect.element(leftSlider).toBeVisible()
+    await expect.element(leftSlider).toHaveValue('65')
+    await leftSlider.fill('70')
+    await expect
+      .poll(() => mockSettingsSet.mock.calls)
+      .toContainEqual([{ leftSectionOpacityPercent: 70 }])
+    await screen.getByRole('radio', { name: 'Entire', exact: true }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByRole('slider', { name: 'Opacity / Blur' }))
+      .toHaveValue('24')
+    await screen.getByRole('radio', { name: 'Section', exact: true }).click()
+    await expect.element(leftSlider).toHaveValue('70')
+    await expect
+      .element(screen.getByRole('slider', { name: 'Center opacity' }))
+      .toHaveValue('80')
+    await expect
+      .element(screen.getByRole('slider', { name: 'Right opacity' }))
+      .toHaveValue('95')
+    expect(mockSettingsSet).toHaveBeenCalledWith({
+      windowOpacityMode: 'section',
+    })
+    expect(mockSettingsSet).toHaveBeenCalledWith({
+      windowOpacityMode: 'entire',
+    })
+  })
+
+  it('resets only the chosen section to full opacity', async () => {
+    // Arrange
+    const store = await createStore({
+      windowOpacityMode: 'section',
+      leftSectionOpacityPercent: 65,
+      centerSectionOpacityPercent: 80,
+      rightSectionOpacityPercent: 95,
+    })
+    const { Appearance } = await import('./Appearance')
+    const screen = await render(
+      <Provider store={store}>
+        <Appearance />
+      </Provider>,
+    )
+
+    // Act
+    await screen
+      .getByRole('button', { name: 'Reset to default: Right opacity' })
+      .click()
+
+    // Assert
+    await expect
+      .element(screen.getByRole('slider', { name: 'Right opacity' }))
+      .toHaveValue('100')
+    await expect
+      .element(screen.getByRole('slider', { name: 'Left opacity' }))
+      .toHaveValue('65')
+    await expect
+      .element(screen.getByRole('slider', { name: 'Center opacity' }))
+      .toHaveValue('80')
+    expect(mockSettingsSet).toHaveBeenCalledExactlyOnceWith({
+      rightSectionOpacityPercent: 100,
+    })
+  })
   it('persists Toolbar text when the Installed search count display is changed', async () => {
     // Arrange
     const store = await createStore()

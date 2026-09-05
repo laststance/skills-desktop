@@ -525,6 +525,44 @@ describe('folder:* channels', () => {
 describe('settings:set lockstep with SettingsSchema', () => {
   const schema = IPC_ARG_SCHEMAS['settings:set']!
 
+  it('accepts independent opacity settings while preserving the absence of unrelated fields', () => {
+    // Arrange
+    const patch = {
+      windowOpacityMode: 'section',
+      leftSectionOpacityPercent: 65,
+    }
+    // Act
+    const parsed = schema.parse([patch])
+    // Assert
+    expect(parsed).toEqual([
+      { windowOpacityMode: 'section', leftSectionOpacityPercent: 65 },
+    ])
+  })
+
+  it('does not reset opacity preferences during an unrelated settings write', () => {
+    // Arrange
+    const patch = { codeFontSizePx: 16 }
+    // Act
+    const parsed = schema.parse([patch])
+    // Assert
+    expect(parsed).toEqual([{ codeFontSizePx: 16 }])
+  })
+
+  it.each([
+    { leftSectionOpacityPercent: 44 },
+    { centerSectionOpacityPercent: 101 },
+    { rightSectionOpacityPercent: 65.5 },
+    { windowOpacityMode: 'invalid' },
+  ])(
+    'refuses unsupported opacity values before writing settings: %j',
+    (patch) => {
+      // Arrange / Act
+      const result = schema.safeParse([patch])
+      // Assert
+      expect(result.success).toBe(false)
+    },
+  )
+
   it('lets the user persist a preferredTerminal choice', () => {
     // Arrange / Act / Assert
     expect(schema.safeParse([{ preferredTerminal: 'iterm' }]).success).toBe(

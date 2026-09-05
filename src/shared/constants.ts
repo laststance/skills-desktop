@@ -1074,6 +1074,12 @@ export const SEARCH_DEBOUNCE_MS = 300
  */
 export const SETTINGS_RANGE_DEBOUNCE_MS = 120
 
+/** Appearance modes keep the legacy whole-window effect separate from independent section opacity. */
+export const WINDOW_OPACITY_MODE_OPTIONS = ['entire', 'section'] as const
+/** Section opacity bounds preserve the existing window opacity floor and an opaque default. */
+export const SECTION_OPACITY_MIN_PERCENT = 45
+export const SECTION_OPACITY_MAX_PERCENT = 100
+
 /**
  * Batch size at which bulk ops surface a live per-item progress counter in the
  * toolbar. Below this, the final `.fulfilled` toast is a better UX than a

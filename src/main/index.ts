@@ -89,8 +89,12 @@ function createWindow(): void {
     show: false,
     backgroundColor: getMainWindowBackgroundColor(
       settings.windowBackgroundBlurRadius,
+      settings.windowOpacityMode,
     ),
-    opacity: getMainWindowOpacity(settings.windowBackgroundBlurRadius),
+    opacity: getMainWindowOpacity(
+      settings.windowBackgroundBlurRadius,
+      settings.windowOpacityMode,
+    ),
     // Required for the clear BrowserWindow backplate and real window opacity
     // to reveal the desktop behind the app when the Appearance slider is on.
     transparent: true,
@@ -103,7 +107,11 @@ function createWindow(): void {
       webviewTag: true,
     },
   })
-  applyWindowBackgroundBlur(window, settings.windowBackgroundBlurRadius)
+  applyWindowBackgroundBlur(
+    window,
+    settings.windowBackgroundBlurRadius,
+    settings.windowOpacityMode,
+  )
   setMainWindow(window)
 
   window.on('closed', () => {

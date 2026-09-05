@@ -297,12 +297,16 @@ describe('settings persistence', () => {
       // Act
       const loaded = await loadSettings()
 
-      // Assert — the three preview-typography fields are absent from this
+      // Assert — the newer appearance fields are absent from this
       // legacy on-disk file, so the schema backfills their defaults.
       expect(loaded).toEqual({
         defaultSkillTab: 'info',
         preferredTerminal: 'terminal',
         windowBackgroundBlurRadius: 0,
+        windowOpacityMode: 'entire',
+        leftSectionOpacityPercent: 100,
+        centerSectionOpacityPercent: 100,
+        rightSectionOpacityPercent: 100,
         markdownFontSizePx: 14,
         codeFontSizePx: 13,
         codeThemeId: 'github',

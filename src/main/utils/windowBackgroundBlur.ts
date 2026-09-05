@@ -4,6 +4,7 @@ import {
   getWindowBackgroundOpacity,
   normalizeWindowBackgroundBlurRadius,
 } from '@/shared/settings'
+import type { Settings } from '@/shared/settings'
 
 /**
  * Opaque launch color matching the app's dark background token.
@@ -13,7 +14,7 @@ import {
 export const MAIN_WINDOW_OPAQUE_BACKGROUND = 'rgb(10, 15, 28)'
 
 /**
- * Fully transparent BrowserWindow backplate used when real window opacity is on.
+ * Clear BrowserWindow backplate that lets window or section opacity reveal the desktop.
  */
 export const MAIN_WINDOW_TRANSPARENT_BACKGROUND = '#00000000'
 
@@ -24,35 +25,50 @@ export { normalizeWindowBackgroundBlurRadius } from '@/shared/settings'
 /**
  * Decide whether the native macOS material blur should be enabled.
  * @param blurRadius - Normalized or raw blur radius.
+ * @param opacityMode - Section mode uses renderer transparency without a whole-window material.
  * @returns true when the Appearance setting asks for a non-opaque window.
  * @example
  * shouldUseNativeWindowBlur(48) // => true
  */
-export function shouldUseNativeWindowBlur(blurRadius: number): boolean {
-  return normalizeWindowBackgroundBlurRadius(blurRadius) > 0
+export function shouldUseNativeWindowBlur(
+  blurRadius: number,
+  opacityMode: Settings['windowOpacityMode'] = 'entire',
+): boolean {
+  return (
+    opacityMode === 'entire' &&
+    normalizeWindowBackgroundBlurRadius(blurRadius) > 0
+  )
 }
 
 /**
  * Convert the blur slider into the real Electron window opacity.
  * @param blurRadius - Normalized or raw blur radius.
- * @returns Whole-window opacity from opaque to transparent.
+ * @param opacityMode - Section mode keeps native opacity at one to avoid multiplying section values.
+ * @returns Saved whole-window opacity in Entire mode, or 1 in Section mode.
  * @example
  * getMainWindowOpacity(48) // => 0.45
  */
-export function getMainWindowOpacity(blurRadius: number): number {
-  return getWindowBackgroundOpacity(blurRadius)
+export function getMainWindowOpacity(
+  blurRadius: number,
+  opacityMode: Settings['windowOpacityMode'] = 'entire',
+): number {
+  return opacityMode === 'section' ? 1 : getWindowBackgroundOpacity(blurRadius)
 }
 
 /**
  * Pick the BrowserWindow backplate color for the current transparency mode.
  * @param blurRadius - Normalized or raw blur radius.
- * @returns Opaque color when blur is off; clear backplate when blur is on.
+ * @param opacityMode - Section mode always requires a clear native backplate.
+ * @returns Opaque color for unblurred Entire mode; a clear backplate for Section mode or blur.
  * @example
  * getMainWindowBackgroundColor(48) // => '#00000000'
  */
-export function getMainWindowBackgroundColor(blurRadius: number): string {
+export function getMainWindowBackgroundColor(
+  blurRadius: number,
+  opacityMode: Settings['windowOpacityMode'] = 'entire',
+): string {
   const normalizedRadius = normalizeWindowBackgroundBlurRadius(blurRadius)
-  if (normalizedRadius > 0) {
+  if (opacityMode === 'section' || normalizedRadius > 0) {
     // The renderer paints the app chrome; Electron's native backplate must stay
     // clear so BrowserWindow.setOpacity can reveal the desktop underneath.
     return MAIN_WINDOW_TRANSPARENT_BACKGROUND
@@ -64,6 +80,7 @@ export function getMainWindowBackgroundColor(blurRadius: number): string {
  * Apply Appearance blur behind renderer content using BrowserWindow-native effects.
  * @param window - Main BrowserWindow instance.
  * @param blurRadius - Legacy-named Appearance transparency intensity.
+ * @param opacityMode - Selected scope from Appearance; the saved Entire intensity remains untouched.
  * @returns Nothing; updates the live BrowserWindow in place.
  * @example
  * applyWindowBackgroundBlur(mainWindow, settings.windowBackgroundBlurRadius)
@@ -71,18 +88,24 @@ export function getMainWindowBackgroundColor(blurRadius: number): string {
 export function applyWindowBackgroundBlur(
   window: BrowserWindow,
   blurRadius: number,
+  opacityMode: Settings['windowOpacityMode'] = 'entire',
 ): void {
   const normalizedRadius = normalizeWindowBackgroundBlurRadius(blurRadius)
-  const backgroundColor = getMainWindowBackgroundColor(normalizedRadius)
-  const windowOpacity = getMainWindowOpacity(normalizedRadius)
-  const shouldEnableNativeBlur = shouldUseNativeWindowBlur(normalizedRadius)
+  const backgroundColor = getMainWindowBackgroundColor(
+    normalizedRadius,
+    opacityMode,
+  )
+  const windowOpacity = getMainWindowOpacity(normalizedRadius, opacityMode)
+  const shouldEnableNativeBlur = shouldUseNativeWindowBlur(
+    normalizedRadius,
+    opacityMode,
+  )
 
   window.setOpacity(windowOpacity)
   window.setBackgroundColor(backgroundColor)
   /* v8 ignore next -- one OS run cannot cover both platform arms, and setVibrancy must never run off macOS */
   if (process.platform === 'darwin') {
-    // macOS vibrancy supplies the system material seen through the transparent
-    // Chromium surface. Turning it off at radius 0 restores the solid app.
+    // Section mode disables the whole-window material so each region can reveal the desktop independently.
     window.setVibrancy(shouldEnableNativeBlur ? MACOS_VIBRANCY_MATERIAL : null)
   }
 
