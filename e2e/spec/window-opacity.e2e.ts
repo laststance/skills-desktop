@@ -90,9 +90,11 @@ opacityTest(
       name: 'Right opacity',
     })
 
-    // Act — keyboard input exercises the same native controls used by the desktop UI.
+    // Act — fill the native ranges, with one arrow step preserving keyboard coverage.
     await settingsWindow.getByRole('radio', { name: 'Section' }).click()
-    await changeSectionOpacity(leftSlider, 65)
+    await changeSectionOpacity(leftSlider, 64)
+    await leftSlider.press('ArrowRight')
+    await expect(leftSlider).toHaveValue('65')
     await changeSectionOpacity(centerSlider, 80)
     await changeSectionOpacity(rightSlider, 95)
 
@@ -131,6 +133,11 @@ opacityTest(
         })),
       )
       .toEqual({ opacity: 1, background: '#000000' })
+    // The separate Settings window stays fully readable while main sections fade.
+    const preferencesWindow = await electronApp.browserWindow(settingsWindow)
+    expect(
+      await preferencesWindow.evaluate((window) => window.getOpacity()),
+    ).toBe(1)
 
     // Act — reset only Right, then switch to the saved Entire mode and back.
     await settingsWindow
@@ -274,7 +281,7 @@ opacityTest.describe('saved Section mode', () => {
 })
 
 /**
- * Drive a Section slider through keyboard events when opacity E2Es change its saved percentage.
+ * Set a native Section range when opacity E2Es exercise its change and persistence flow.
  * @param slider - Native Section range input from the real Settings window.
  * @param percent - Requested integer percentage between 45 and 100.
  * @returns Resolves after the visible control reaches the requested percentage.
@@ -286,14 +293,6 @@ async function changeSectionOpacity(
   percent: number,
 ): Promise<void> {
   await expect(slider).toBeVisible()
-  await slider.press('End')
-  // Start at the known maximum and use native one-percent keyboard steps.
-  for (
-    let currentPercent = 100;
-    currentPercent > percent;
-    currentPercent -= 1
-  ) {
-    await slider.press('ArrowLeft')
-  }
+  await slider.fill(String(percent))
   await expect(slider).toHaveValue(String(percent))
 }

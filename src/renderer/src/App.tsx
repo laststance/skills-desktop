@@ -147,6 +147,7 @@ const App = function App(): React.ReactElement {
             opacityMode === 'section' ? 'transparent' : 'var(--background)',
         }}
       >
+        {/* Fade the complete region, matching Entire mode; floating portals stay outside. */}
         <div
           data-window-section="left"
           className="flex h-full shrink-0 transition-opacity duration-150 motion-reduce:transition-none"

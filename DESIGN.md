@@ -277,8 +277,10 @@ Rules:
   24px hit area even when their visible track is thin.
 - In Section mode, each section paints its own background on a clear window
   canvas. Native window opacity stays at 1 so it does not multiply section
-  percentages. Settings, menus and dialogs remain fully legible outside those
-  section opacity layers.
+  percentages. Opacity applies to the complete section, including its content,
+  matching Entire mode's whole-window behavior within the selected region.
+  Settings, menus and dialogs remain fully legible outside those section
+  opacity layers.
 - Use existing theme surfaces and tabular percentages. Respect reduced motion
   and keep opacity transitions short and interruptible.
 
