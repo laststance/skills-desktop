@@ -343,10 +343,7 @@ export const Appearance = function Appearance(): React.ReactElement {
         />
       </SectionRow>
 
-      <SectionRow
-        label="Opacity"
-        description="Choose how to control the main window’s transparency."
-      >
+      <SectionRow label="Opacity">
         <SegmentedControl
           aria-label="Opacity mode"
           size="sm"
