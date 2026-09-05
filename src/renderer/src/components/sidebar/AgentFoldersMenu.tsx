@@ -11,8 +11,8 @@ import {
 } from '@/renderer/src/components/ui/dropdown-menu'
 import { useDeleteAgentFolders } from '@/renderer/src/hooks/useDeleteAgentFolders'
 import type { AgentFolderGroup } from '@/renderer/src/redux/slices/uiSlice'
+import { getAgentFolderDeleteDescription } from '@/renderer/src/utils/getAgentFolderDeleteDescription'
 import { getAgentFolderDeleteNotices } from '@/renderer/src/utils/getAgentFolderDeleteNotices'
-import { pluralize } from '@/renderer/src/utils/pluralize'
 import type { Agent } from '@/shared/types'
 
 /**
@@ -117,19 +117,7 @@ export function AgentFoldersMenu({
             {notices.map((notice) => (
               <p key={notice}>{notice}</p>
             ))}
-            {isUnused ? (
-              <p>
-                Move {folderCount} empty agent{' '}
-                {pluralize(folderCount, 'folder')} to Trash. Folders containing
-                files, settings, history, or skills will be kept.
-              </p>
-            ) : (
-              <p>
-                Move {folderCount} skills {pluralize(folderCount, 'folder')} to
-                Trash, including all contents. Folders containing protected
-                skills will remain.
-              </p>
-            )}
+            <p>{getAgentFolderDeleteDescription(group, folderCount)}</p>
             <ul
               aria-label={
                 isUnused
