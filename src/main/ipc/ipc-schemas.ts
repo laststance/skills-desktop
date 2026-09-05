@@ -193,6 +193,13 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
   ]),
 
   // Skills operations
+  'agents:removeEmptyFolder': z.tuple([
+    z.object({
+      agentId: z.enum(AGENT_IDS),
+      path: absolutePathArg,
+      filesystemIdentity: filesystemEntryIdentitySchema,
+    }),
+  ]),
   'skills:unlinkFromAgent': z.tuple([
     z.union([
       z.object({

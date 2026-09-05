@@ -36,6 +36,11 @@ vi.mock('fs/promises', () => ({
 }))
 
 const checkSymlinkStatusMock = vi.fn()
+const getEmptyAgentFolderMock = vi.fn()
+
+vi.mock('./emptyAgentFolderService', () => ({
+  getEmptyAgentFolder: getEmptyAgentFolderMock,
+}))
 
 vi.mock('./symlinkChecker', () => ({
   checkSymlinkStatus: checkSymlinkStatusMock,

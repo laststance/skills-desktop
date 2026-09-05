@@ -39,6 +39,9 @@ import {
 /** Bookmark with install status, used for the detail modal */
 export type BookmarkForDetail = BookmarkedSkill & { isInstalled: boolean }
 
+/** Sidebar group whose folders are being reviewed for bulk deletion. */
+export type AgentFolderGroup = 'hidden' | 'unused'
+
 /** Sort direction for the skill-name sort (A→Z vs Z→A). */
 export type SortOrder = 'asc' | 'desc'
 /**
@@ -222,8 +225,12 @@ interface UiState {
    * surface coordination with tabs, sync, and bulk operations.
    */
   symlinkCleanupDialogOpen: boolean
-  /** Reviewed hidden-agent folder identities; null closes the bulk deletion dialog. */
-  hiddenAgentsDeleteReview: { agents: Agent[]; skippedCount: number } | null
+  /** Reviewed folder identities and owning group; null closes the bulk deletion dialog. */
+  agentFoldersDeleteReview: {
+    group: AgentFolderGroup
+    agents: Agent[]
+    skippedCount: number
+  } | null
 }
 
 const initialState: UiState = {
@@ -247,7 +254,7 @@ const initialState: UiState = {
   bulkSelectMode: false,
   cleanupAgentTarget: null,
   symlinkCleanupDialogOpen: false,
-  hiddenAgentsDeleteReview: null,
+  agentFoldersDeleteReview: null,
 }
 
 /**
@@ -488,26 +495,26 @@ const uiSlice = createSlice({
       state.bulkConfirm = null
     },
     /**
-     * Captures reviewed folders when useDeleteHiddenAgents opens its confirmation.
+     * Captures reviewed folders when useDeleteAgentFolders opens its confirmation.
      * @param state - Mutable UI draft.
      * @param action - Reviewed folder identities and skipped count.
      * @returns Nothing; stores the review snapshot.
-     * @example dispatch(setHiddenAgentsDeleteReview({ agents: [], skippedCount: 1 }))
+     * @example dispatch(setAgentFoldersDeleteReview({ group: 'hidden', agents: [], skippedCount: 1 }))
      */
-    setHiddenAgentsDeleteReview: (
+    setAgentFoldersDeleteReview: (
       state,
-      action: PayloadAction<NonNullable<UiState['hiddenAgentsDeleteReview']>>,
+      action: PayloadAction<NonNullable<UiState['agentFoldersDeleteReview']>>,
     ) => {
-      state.hiddenAgentsDeleteReview = action.payload
+      state.agentFoldersDeleteReview = action.payload
     },
     /**
-     * Clears reviewed folders when useDeleteHiddenAgents cancels or completes deletion.
+     * Clears reviewed folders when useDeleteAgentFolders cancels or completes deletion.
      * @param state - Mutable UI draft.
      * @returns Nothing; closes the confirmation and releases its targets.
-     * @example dispatch(clearHiddenAgentsDeleteReview())
+     * @example dispatch(clearAgentFoldersDeleteReview())
      */
-    clearHiddenAgentsDeleteReview: (state) => {
-      state.hiddenAgentsDeleteReview = null
+    clearAgentFoldersDeleteReview: (state) => {
+      state.agentFoldersDeleteReview = null
     },
     /**
      * Enter bulk-select mode. Reveals checkboxes on skill cards and activates
@@ -680,8 +687,8 @@ export const {
   clearUndoToastIfCurrent,
   setBulkConfirm,
   clearBulkConfirm,
-  setHiddenAgentsDeleteReview,
-  clearHiddenAgentsDeleteReview,
+  setAgentFoldersDeleteReview,
+  clearAgentFoldersDeleteReview,
   enterBulkSelectMode,
   exitBulkSelectMode,
   setCleanupAgentTarget,
@@ -720,14 +727,14 @@ export const selectSelectedBookmarkForDetail = (
 export const selectBulkConfirm = (state: RootState): BulkConfirmState | null =>
   state.ui.bulkConfirm
 /**
- * Supplies the stable deletion snapshot when the hidden-agent hook renders its confirmation.
+ * Supplies the stable deletion snapshot when a sidebar group's hook renders its confirmation.
  * @param state - Redux state containing the UI slice.
  * @returns Reviewed folders and skipped count, or null while closed.
- * @example selectHiddenAgentsDeleteReview(store.getState()) // null before review
+ * @example selectAgentFoldersDeleteReview(store.getState()) // null before review
  */
-export const selectHiddenAgentsDeleteReview = (
+export const selectAgentFoldersDeleteReview = (
   state: Pick<RootState, 'ui'>,
-): UiState['hiddenAgentsDeleteReview'] => state.ui.hiddenAgentsDeleteReview
+): UiState['agentFoldersDeleteReview'] => state.ui.agentFoldersDeleteReview
 export const selectBulkSelectMode = (state: RootState): boolean =>
   state.ui.bulkSelectMode
 /**

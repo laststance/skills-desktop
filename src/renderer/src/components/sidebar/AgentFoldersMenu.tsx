@@ -9,36 +9,39 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/renderer/src/components/ui/dropdown-menu'
-import { useDeleteHiddenAgents } from '@/renderer/src/hooks/useDeleteHiddenAgents'
-import { getHiddenAgentsDeleteNotices } from '@/renderer/src/utils/getHiddenAgentsDeleteNotices'
-import { getHiddenAgentsLabel } from '@/renderer/src/utils/getHiddenAgentsLabel'
+import { useDeleteAgentFolders } from '@/renderer/src/hooks/useDeleteAgentFolders'
+import type { AgentFolderGroup } from '@/renderer/src/redux/slices/uiSlice'
+import { getAgentFolderDeleteNotices } from '@/renderer/src/utils/getAgentFolderDeleteNotices'
 import type { Agent } from '@/shared/types'
 
 /**
- * Adds the hidden-section overflow menu and a reviewed bulk folder-deletion dialog for AgentsSection.
- * @param props - Installed agents hidden by the user's sidebar settings.
+ * Adds a sidebar group's overflow menu and reviewed bulk folder-deletion dialog for AgentsSection.
+ * @param props - Group, scanned agents, and stable focus target after cleanup.
  * @returns The menu trigger and confirmation dialog, kept mounted across rescans.
- * @example <HiddenAgentsMenu agents={hiddenInstalled} />
+ * @example <AgentFoldersMenu agents={hiddenInstalled} />
  */
-export function HiddenAgentsMenu({
+export function AgentFoldersMenu({
   agents,
+  group = 'hidden',
   focusFallbackRef,
 }: {
   agents: Agent[]
+  group?: AgentFolderGroup
   focusFallbackRef?: React.RefObject<HTMLElement | null>
 }): React.ReactElement {
-  const deletion = useDeleteHiddenAgents(agents)
+  const deletion = useDeleteAgentFolders(agents, group)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const confirmedRef = useRef(false)
-  const hiddenAgentsLabel = getHiddenAgentsLabel(agents.length)
-  const notices = getHiddenAgentsDeleteNotices(
+  const isUnused = group === 'unused'
+  const notices = getAgentFolderDeleteNotices(
     deletion.review?.skippedCount ?? 0,
     deletion.protectedCount,
+    group,
   )
 
   return (
     <>
-      {hiddenAgentsLabel && (
+      {agents.length > 0 && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -46,7 +49,11 @@ export function HiddenAgentsMenu({
               variant="ghost"
               size="icon"
               className="absolute right-0 top-0 size-6 text-muted-foreground hover:text-foreground"
-              aria-label="Hidden agent actions"
+              aria-label={
+                isUnused
+                  ? 'Not installed agent actions'
+                  : 'Hidden agent actions'
+              }
               disabled={deletion.isDeleting}
             >
               <MoreVertical aria-hidden="true" />
@@ -69,11 +76,15 @@ export function HiddenAgentsMenu({
               title={
                 deletion.canDelete
                   ? undefined
-                  : 'No separate skills folders can be deleted'
+                  : isUnused
+                    ? 'No empty agent folders can be deleted'
+                    : 'No separate skills folders can be deleted'
               }
             >
               <Trash2 aria-hidden="true" />
-              Delete skills folders...
+              {isUnused
+                ? 'Delete empty agent folders...'
+                : 'Delete skills folders...'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -94,33 +105,50 @@ export function HiddenAgentsMenu({
           focusTarget?.focus()
         }}
         loading={deletion.isDeleting}
-        title="Delete hidden agents’ skills folders?"
+        title={
+          isUnused
+            ? 'Delete empty agent folders?'
+            : 'Delete hidden agents’ skills folders?'
+        }
         description={
           <div className="space-y-3">
             {notices.map((notice) => (
               <p key={notice}>{notice}</p>
             ))}
-            <p>
-              Move these {deletion.review?.agents.length} skills folders and
-              their contents to Trash. Folders containing protected skills will
-              remain.
-            </p>
+            {isUnused ? (
+              <p>
+                Move these {deletion.review?.agents.length} empty agent folders
+                to Trash. Folders containing files, settings, history, or skills
+                will be kept.
+              </p>
+            ) : (
+              <p>
+                Move these {deletion.review?.agents.length} skills folders and
+                their contents to Trash. Folders containing protected skills
+                will remain.
+              </p>
+            )}
             <ul
-              aria-label="Skills folders to delete"
+              aria-label={
+                isUnused
+                  ? 'Empty agent folders to delete'
+                  : 'Skills folders to delete'
+              }
               className="max-h-48 overflow-y-auto space-y-2 rounded-md border p-3"
             >
               {deletion.review?.agents.map((agent) => (
                 <li key={agent.id}>
                   <span className="block text-foreground">{agent.name}</span>
                   <span className="block break-all font-mono text-xs">
-                    {agent.path}
+                    {isUnused ? agent.emptyParentFolder?.path : agent.path}
                   </span>
                 </li>
               ))}
             </ul>
             <p>
-              Shared source skills and visible agents are kept. You can restore
-              deleted folders from Trash.
+              {isUnused
+                ? 'Only empty, separate parent folders are removed. You can restore deleted folders from Trash.'
+                : 'Shared source skills and visible agents are kept. You can restore deleted folders from Trash.'}
             </p>
           </div>
         }

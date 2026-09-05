@@ -4,6 +4,7 @@ import { join } from 'path'
 import { AGENTS } from '@/main/constants'
 import type { AbsolutePath, Agent, SkillCount } from '@/shared/types'
 
+import { getEmptyAgentFolder } from './emptyAgentFolderService'
 import { filesystemIdentityFromStats } from './filesystemIdentity'
 import { checkSymlinkStatus } from './symlinkChecker'
 
@@ -57,6 +58,9 @@ export async function scanAgents(): Promise<Agent[]> {
         skillCount,
         localSkillCount,
         filesystemIdentity,
+        emptyParentFolder: exists
+          ? undefined
+          : await getEmptyAgentFolder(agent),
       }
     }),
   )

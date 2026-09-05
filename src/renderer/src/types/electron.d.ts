@@ -29,6 +29,8 @@ import type {
   UnlinkResult,
   RemoveAllFromAgentOptions,
   RemoveAllFromAgentResult,
+  RemoveEmptyAgentFolderOptions,
+  RemoveEmptyAgentFolderResult,
   DeleteSkillOptions,
   DeleteSkillResult,
   DeleteSkillsOptions,
@@ -101,6 +103,9 @@ declare global {
       }
       agents: {
         getAll: () => Promise<Agent[]>
+        removeEmptyFolder: (
+          options: RemoveEmptyAgentFolderOptions,
+        ) => Promise<RemoveEmptyAgentFolderResult>
       }
       source: {
         getStats: () => Promise<SourceStats>

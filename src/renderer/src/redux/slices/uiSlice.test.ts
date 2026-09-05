@@ -137,12 +137,13 @@ describe('uiSlice hidden agents deletion review', () => {
   it('keeps the reviewed folder identities available until the confirmation closes', async () => {
     // Arrange
     const store = await createTestStore()
-    const { setHiddenAgentsDeleteReview, selectHiddenAgentsDeleteReview } =
+    const { setAgentFoldersDeleteReview, selectAgentFoldersDeleteReview } =
       await import('./uiSlice')
 
     // Act
     store.dispatch(
-      setHiddenAgentsDeleteReview({
+      setAgentFoldersDeleteReview({
+        group: 'hidden',
         agents: [
           {
             id: 'cline',
@@ -159,7 +160,7 @@ describe('uiSlice hidden agents deletion review', () => {
     )
 
     // Assert
-    expect(selectHiddenAgentsDeleteReview(store.getState())).toMatchObject({
+    expect(selectAgentFoldersDeleteReview(store.getState())).toMatchObject({
       agents: [{ id: 'cline', filesystemIdentity: { ino: 2 } }],
       skippedCount: 2,
     })
@@ -169,17 +170,23 @@ describe('uiSlice hidden agents deletion review', () => {
     // Arrange
     const store = await createTestStore()
     const {
-      setHiddenAgentsDeleteReview,
-      clearHiddenAgentsDeleteReview,
-      selectHiddenAgentsDeleteReview,
+      setAgentFoldersDeleteReview,
+      clearAgentFoldersDeleteReview,
+      selectAgentFoldersDeleteReview,
     } = await import('./uiSlice')
-    store.dispatch(setHiddenAgentsDeleteReview({ agents: [], skippedCount: 2 }))
+    store.dispatch(
+      setAgentFoldersDeleteReview({
+        group: 'hidden',
+        agents: [],
+        skippedCount: 2,
+      }),
+    )
 
     // Act
-    store.dispatch(clearHiddenAgentsDeleteReview())
+    store.dispatch(clearAgentFoldersDeleteReview())
 
     // Assert
-    expect(selectHiddenAgentsDeleteReview(store.getState())).toBeNull()
+    expect(selectAgentFoldersDeleteReview(store.getState())).toBeNull()
   })
 })
 

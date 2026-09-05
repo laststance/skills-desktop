@@ -5,10 +5,12 @@ import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
+import type { AgentFolderGroup } from '@/renderer/src/redux/slices/uiSlice'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type { Agent, FilesystemEntryIdentity, Skill } from '@/shared/types'
 
 const mockRemoveAllFromAgent = vi.fn()
+const mockRemoveEmptyFolder = vi.fn()
 const mockSkillsGetAll = vi.fn()
 const mockAgentsGetAll = vi.fn()
 const mockSourceGetStats = vi.fn()
@@ -48,9 +50,32 @@ const warp: Agent = {
   path: '/Users/test/.warp/skills',
 }
 
+const unusedCline: Agent = {
+  ...cline,
+  exists: false,
+  skillCount: 0,
+  filesystemIdentity: undefined,
+  emptyParentFolder: {
+    path: '/Users/test/.cline',
+    filesystemIdentity: directoryIdentity,
+  },
+}
+
+const unusedWarp: Agent = {
+  ...warp,
+  exists: false,
+  skillCount: 0,
+  filesystemIdentity: undefined,
+  emptyParentFolder: {
+    path: '/Users/test/.warp',
+    filesystemIdentity: directoryIdentity,
+  },
+}
+
 beforeEach(() => {
   vi.resetAllMocks()
   mockRemoveAllFromAgent.mockResolvedValue({ success: true, removedCount: 2 })
+  mockRemoveEmptyFolder.mockResolvedValue({ success: true, deleted: true })
   mockSkillsGetAll.mockResolvedValue([])
   mockAgentsGetAll.mockResolvedValue([])
   mockSourceGetStats.mockResolvedValue({})
@@ -60,7 +85,10 @@ beforeEach(() => {
       removeAllFromAgent: mockRemoveAllFromAgent,
       getAll: mockSkillsGetAll,
     },
-    agents: { getAll: mockAgentsGetAll },
+    agents: {
+      getAll: mockAgentsGetAll,
+      removeEmptyFolder: mockRemoveEmptyFolder,
+    },
     source: { getStats: mockSourceGetStats },
   })
 })
@@ -70,13 +98,19 @@ afterEach(() => {
 })
 
 /**
- * Mount the hidden-agent action against real reducers for browser interaction tests.
- * @param agents - Hidden installed agents offered by the sidebar.
+ * Mount both sidebar menu instances against real reducers for browser interaction tests.
+ * @param agents - Agents offered by the selected sidebar group.
+ * @param group - Menu under test; the sibling stays mounted to catch duplicate dialogs.
+ * @param openReview - Whether to select the deletion item after opening the menu.
  * @returns Rendered menu and store for protection or visibility changes.
- * @example await renderHiddenMenu([cline, warp])
+ * @example await renderAgentFolderMenu([cline, warp])
  */
-async function renderHiddenMenu(agents: Agent[] = [cline, warp]) {
-  const { default: agentsReducer } =
+async function renderAgentFolderMenu(
+  agents: Agent[] = [cline, warp],
+  group: AgentFolderGroup = 'hidden',
+  openReview = true,
+) {
+  const { default: agentsReducer, fetchAgents } =
     await import('@/renderer/src/redux/slices/agentsSlice')
   const { default: skillsReducer } =
     await import('@/renderer/src/redux/slices/skillsSlice')
@@ -86,7 +120,8 @@ async function renderHiddenMenu(agents: Agent[] = [cline, warp]) {
     await import('@/renderer/src/redux/slices/uiSlice')
   const { default: settingsReducer } =
     await import('@/renderer/src/redux/slices/settingsSlice')
-  const { HiddenAgentsMenu } = await import('./HiddenAgentsMenu')
+  const { AgentFoldersMenu: AgentFoldersMenu } =
+    await import('./AgentFoldersMenu')
   const store = configureStore({
     reducer: {
       agents: agentsReducer,
@@ -98,28 +133,48 @@ async function renderHiddenMenu(agents: Agent[] = [cline, warp]) {
     preloadedState: {
       settings: {
         ...DEFAULT_SETTINGS,
-        hiddenAgentIds: agents.map((agent) => agent.id),
+        hiddenAgentIds:
+          group === 'hidden' ? agents.map((agent) => agent.id) : [],
       },
     },
   })
+  store.dispatch(fetchAgents.fulfilled(agents, 'initial-scan'))
   const screen = await render(
     <Provider store={store}>
       <TooltipProvider>
-        <HiddenAgentsMenu agents={agents} />
+        <AgentFoldersMenu agents={agents} group={group} />
+        <AgentFoldersMenu
+          agents={[]}
+          group={group === 'hidden' ? 'unused' : 'hidden'}
+        />
       </TooltipProvider>
     </Provider>,
   )
-  await screen.getByRole('button', { name: 'Hidden agent actions' }).click()
   await screen
-    .getByRole('menuitem', { name: 'Delete skills folders...' })
+    .getByRole('button', {
+      name:
+        group === 'hidden'
+          ? 'Hidden agent actions'
+          : 'Not installed agent actions',
+    })
     .click()
+  if (openReview) {
+    await screen
+      .getByRole('menuitem', {
+        name:
+          group === 'hidden'
+            ? 'Delete skills folders...'
+            : 'Delete empty agent folders...',
+      })
+      .click()
+  }
   return { screen, store }
 }
 
 describe('Hidden agent folder deletion', () => {
   it('reviews the hidden folder paths and cancels without deleting anything', async () => {
     // Arrange
-    const { screen } = await renderHiddenMenu()
+    const { screen } = await renderAgentFolderMenu()
     const dialog = screen.getByRole('dialog', {
       name: 'Delete hidden agents’ skills folders?',
     })
@@ -177,7 +232,7 @@ describe('Hidden agent folder deletion', () => {
       ...warp,
       filesystemIdentity: { ...directoryIdentity, kind: 'symlink' },
     }
-    const { screen } = await renderHiddenMenu([
+    const { screen } = await renderAgentFolderMenu([
       cline,
       sharedAgent,
       aliasedAgent,
@@ -207,7 +262,7 @@ describe('Hidden agent folder deletion', () => {
 
   it('keeps protected skill slots when deleting the remaining hidden-agent skills', async () => {
     // Arrange
-    const { screen, store } = await renderHiddenMenu([cline])
+    const { screen, store } = await renderAgentFolderMenu([cline])
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
     const { addProtection } =
@@ -277,7 +332,7 @@ describe('Hidden agent folder deletion', () => {
         removedCount: 0,
         preservedCount,
       })
-      const { screen } = await renderHiddenMenu([cline])
+      const { screen } = await renderAgentFolderMenu([cline])
 
       // Act
       await screen
@@ -300,7 +355,7 @@ describe('Hidden agent folder deletion', () => {
     mockRemoveAllFromAgent
       .mockResolvedValueOnce({ success: false, error: 'Permission denied' })
       .mockResolvedValueOnce({ success: true, removedCount: 2 })
-    const { screen } = await renderHiddenMenu()
+    const { screen } = await renderAgentFolderMenu()
 
     // Act
     await screen
@@ -324,7 +379,7 @@ describe('Hidden agent folder deletion', () => {
 
   it('preserves an agent made visible after the deletion review was opened', async () => {
     // Arrange
-    const { screen, store } = await renderHiddenMenu()
+    const { screen, store } = await renderAgentFolderMenu()
     const { setSettings } =
       await import('@/renderer/src/redux/slices/settingsSlice')
     store.dispatch(
@@ -356,7 +411,7 @@ describe('Hidden agent folder deletion', () => {
             resolve({ success: true, removedCount: 2 })
         }),
     )
-    const { screen, store } = await renderHiddenMenu()
+    const { screen, store } = await renderAgentFolderMenu()
     const { setSettings } =
       await import('@/renderer/src/redux/slices/settingsSlice')
 
@@ -385,5 +440,177 @@ describe('Hidden agent folder deletion', () => {
       { description: 'Warp: no longer hidden; skipped' },
     )
     expect(mockAgentsGetAll).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('Not-installed agent empty folder deletion', () => {
+  it('reviews empty parent paths in one dialog and restores focus after cancellation', async () => {
+    // Arrange
+    const { screen } = await renderAgentFolderMenu(
+      [unusedCline, unusedWarp],
+      'unused',
+    )
+    const dialog = screen.getByRole('dialog', {
+      name: 'Delete empty agent folders?',
+    })
+
+    // Act
+    await expect.element(dialog).toBeVisible()
+    await expect
+      .element(dialog.getByText('/Users/test/.cline', { exact: true }))
+      .toBeVisible()
+    await expect
+      .element(dialog.getByText('/Users/test/.warp', { exact: true }))
+      .toBeVisible()
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+
+    // Assert
+    await expect.element(dialog).not.toBeInTheDocument()
+    expect(mockRemoveEmptyFolder).not.toHaveBeenCalled()
+    expect(mockRemoveAllFromAgent).not.toHaveBeenCalled()
+    await expect
+      .element(
+        screen.getByRole('button', { name: 'Not installed agent actions' }),
+      )
+      .toHaveFocus()
+  })
+
+  it('deletes only reviewed empty parents and explains skipped nonempty folders', async () => {
+    // Arrange
+    const { screen } = await renderAgentFolderMenu(
+      [unusedCline, { ...unusedWarp, emptyParentFolder: undefined }],
+      'unused',
+    )
+    await expect
+      .element(
+        screen.getByText(
+          '1 agent without an empty, separate folder will be skipped.',
+        ),
+      )
+      .toBeVisible()
+
+    // Act
+    await screen
+      .getByRole('button', { name: 'Delete folders', exact: true })
+      .click()
+
+    // Assert
+    await expect.poll(() => mockToastSuccess.mock.calls.length).toBe(1)
+    expect(mockRemoveEmptyFolder).toHaveBeenCalledExactlyOnceWith({
+      agentId: 'cline',
+      path: '/Users/test/.cline',
+      filesystemIdentity: directoryIdentity,
+    })
+    expect(mockRemoveAllFromAgent).not.toHaveBeenCalled()
+    expect(mockToastSuccess).toHaveBeenCalledWith(
+      'Deleted 1 empty agent folder',
+      {
+        description:
+          'Folders containing files, settings, history, or skills were kept.',
+      },
+    )
+    expect(mockAgentsGetAll).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables empty-folder cleanup when no not-installed agent has an empty parent', async () => {
+    // Arrange
+    const { screen } = await renderAgentFolderMenu(
+      [{ ...unusedCline, emptyParentFolder: undefined }],
+      'unused',
+      false,
+    )
+
+    // Assert
+    await expect
+      .element(
+        screen.getByRole('menuitem', { name: 'Delete empty agent folders...' }),
+      )
+      .toHaveAttribute('aria-disabled', 'true')
+    expect(mockRemoveEmptyFolder).not.toHaveBeenCalled()
+  })
+
+  it('skips an agent whose skills are installed after the empty-folder review', async () => {
+    // Arrange
+    const { screen, store } = await renderAgentFolderMenu(
+      [unusedCline, unusedWarp],
+      'unused',
+    )
+    const { fetchAgents } =
+      await import('@/renderer/src/redux/slices/agentsSlice')
+    store.dispatch(fetchAgents.fulfilled([cline, unusedWarp], 'new-scan'))
+
+    // Act
+    await screen
+      .getByRole('button', { name: 'Delete folders', exact: true })
+      .click()
+
+    // Assert
+    await expect.poll(() => mockToastError.mock.calls.length).toBe(1)
+    expect(mockRemoveEmptyFolder).toHaveBeenCalledExactlyOnceWith({
+      agentId: 'warp',
+      path: '/Users/test/.warp',
+      filesystemIdentity: directoryIdentity,
+    })
+    expect(mockToastError).toHaveBeenCalledWith(
+      'Some empty agent folders could not be deleted',
+      {
+        description: 'Cline: no longer eligible; skipped',
+      },
+    )
+  })
+
+  it('continues after an IPC rejection and reports only the folders actually deleted', async () => {
+    // Arrange
+    mockRemoveEmptyFolder.mockRejectedValueOnce(new Error('Permission denied'))
+    const { screen } = await renderAgentFolderMenu(
+      [unusedCline, unusedWarp],
+      'unused',
+    )
+
+    // Act
+    await screen
+      .getByRole('button', { name: 'Delete folders', exact: true })
+      .click()
+
+    // Assert
+    await expect.poll(() => mockToastError.mock.calls.length).toBe(1)
+    expect(mockRemoveEmptyFolder).toHaveBeenCalledTimes(2)
+    expect(mockToastSuccess).toHaveBeenCalledWith(
+      'Deleted 1 empty agent folder',
+      {
+        description:
+          'Folders containing files, settings, history, or skills were kept.',
+      },
+    )
+    expect(mockToastError).toHaveBeenCalledWith(
+      'Some empty agent folders could not be deleted',
+      {
+        description: 'Cline: Permission denied',
+      },
+    )
+  })
+
+  it('does not claim deletion when the reviewed empty folder has already disappeared', async () => {
+    // Arrange
+    mockRemoveEmptyFolder.mockResolvedValueOnce({
+      success: true,
+      deleted: false,
+    })
+    const { screen } = await renderAgentFolderMenu([unusedCline], 'unused')
+
+    // Act
+    await screen
+      .getByRole('button', { name: 'Delete folders', exact: true })
+      .click()
+
+    // Assert
+    await expect.poll(() => mockToastSuccess.mock.calls.length).toBe(1)
+    expect(mockToastSuccess).toHaveBeenCalledWith(
+      'Deleted 0 empty agent folders',
+      {
+        description:
+          'Folders containing files, settings, history, or skills were kept.',
+      },
+    )
   })
 })

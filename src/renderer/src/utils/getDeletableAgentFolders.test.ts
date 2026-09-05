@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Agent } from '@/shared/types'
 
-import { getDeletableHiddenAgents } from './getDeletableHiddenAgents'
+import { getDeletableAgentFolders } from './getDeletableAgentFolders'
 
 const hiddenAgent: Agent = {
   id: 'cursor',
@@ -30,7 +30,7 @@ describe('hidden-agent bulk-delete eligibility', () => {
     ]
 
     // Act
-    const agents = getDeletableHiddenAgents(hiddenAgents)
+    const agents = getDeletableAgentFolders(hiddenAgents)
 
     // Assert
     expect(agents.map((agent) => agent.id)).toEqual(['cursor'])
@@ -48,11 +48,11 @@ describe('hidden-agent bulk-delete eligibility', () => {
     ]
 
     // Act
-    const agents = getDeletableHiddenAgents(hiddenAgents)
+    const agents = getDeletableAgentFolders(hiddenAgents)
 
     // Assert
     expect(agents).toEqual([])
-    expect(getDeletableHiddenAgents([hiddenAgents[0]])).toEqual([])
+    expect(getDeletableAgentFolders([hiddenAgents[0]])).toEqual([])
   })
 
   it('includes Cline and Warp own folders despite their universal install destination', () => {
@@ -63,7 +63,7 @@ describe('hidden-agent bulk-delete eligibility', () => {
     ]
 
     // Act
-    const agents = getDeletableHiddenAgents(hiddenAgents)
+    const agents = getDeletableAgentFolders(hiddenAgents)
 
     // Assert
     expect(agents.map((agent) => agent.id)).toEqual(['cline', 'warp'])
@@ -87,7 +87,7 @@ describe('hidden-agent bulk-delete eligibility', () => {
     ]
 
     // Act
-    const agents = getDeletableHiddenAgents(hiddenAgents)
+    const agents = getDeletableAgentFolders(hiddenAgents)
 
     // Assert
     expect(agents).toEqual([])
