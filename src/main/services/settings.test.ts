@@ -394,6 +394,78 @@ describe('settings persistence', () => {
   })
 
   describe('saveSettings', () => {
+    it('keeps every section opacity when multiple sliders save concurrently', async () => {
+      // Arrange
+      const { saveSettings, getSettings } = await importFreshSettings()
+
+      // Act — overlap the independent slider commits before any file write finishes.
+      const results = await Promise.allSettled([
+        saveSettings({ leftSectionOpacityPercent: 65 }),
+        saveSettings({ centerSectionOpacityPercent: 80 }),
+        saveSettings({ rightSectionOpacityPercent: 95 }),
+      ])
+
+      // Assert — both the cache and the persisted file retain all three changes.
+      expect(results.map((result) => result.status)).toEqual([
+        'fulfilled',
+        'fulfilled',
+        'fulfilled',
+      ])
+      expect(getSettings()).toMatchObject({
+        leftSectionOpacityPercent: 65,
+        centerSectionOpacityPercent: 80,
+        rightSectionOpacityPercent: 95,
+      })
+      expect(
+        JSON.parse(await readFile(join(userDataDir, 'settings.json'), 'utf8')),
+      ).toMatchObject({
+        leftSectionOpacityPercent: 65,
+        centerSectionOpacityPercent: 80,
+        rightSectionOpacityPercent: 95,
+      })
+    })
+
+    it('keeps a reset made while the previous opacity change is still being saved', async () => {
+      // Arrange
+      const { saveSettings, getSettings } = await importFreshSettings()
+
+      // Act — the reset matches the old cache but must follow the pending change.
+      await Promise.all([
+        saveSettings({ leftSectionOpacityPercent: 45 }),
+        saveSettings({ leftSectionOpacityPercent: 100 }),
+      ])
+
+      // Assert
+      expect(getSettings().leftSectionOpacityPercent).toBe(100)
+      expect(
+        JSON.parse(await readFile(join(userDataDir, 'settings.json'), 'utf8'))
+          .leftSectionOpacityPercent,
+      ).toBe(100)
+    })
+
+    it('continues saving valid settings after a queued update fails validation', async () => {
+      // Arrange
+      const { saveSettings, getSettings } = await importFreshSettings()
+
+      // Act
+      const results = await Promise.allSettled([
+        saveSettings({ leftSectionOpacityPercent: 20 }),
+        saveSettings({ rightSectionOpacityPercent: 90 }),
+      ])
+
+      // Assert — one rejected patch cannot prevent later preferences from saving.
+      expect(results[0]?.status).toBe('rejected')
+      expect(results[1]?.status).toBe('fulfilled')
+      expect(getSettings()).toMatchObject({
+        leftSectionOpacityPercent: 100,
+        rightSectionOpacityPercent: 90,
+      })
+      expect(
+        JSON.parse(await readFile(join(userDataDir, 'settings.json'), 'utf8'))
+          .rightSectionOpacityPercent,
+      ).toBe(90)
+    })
+
     it('writes the merged settings to disk and returns the new full settings object', async () => {
       // Arrange
       const { saveSettings } = await importFreshSettings()

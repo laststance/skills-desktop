@@ -19,6 +19,9 @@ import {
  */
 let cache: Settings | null = null
 
+/** Serializes preference writes so overlapping IPC patches cannot share a stale cache or temp file. */
+let settingsSaveQueue: Promise<void> = Promise.resolve()
+
 /**
  * Resolves the on-disk path for `settings.json`. Lazy because
  * `app.getPath('userData')` is only valid after `app.whenReady()`; calling
@@ -129,10 +132,7 @@ export function areSettingsEqual(a: Settings, b: Settings): boolean {
 }
 
 /**
- * Merges `partial` over the current settings and writes the result
- * atomically (temp file + rename) so a crash mid-write cannot corrupt
- * the file. The merged value is validated with Zod before disk write —
- * an invalid `partial` rejects the whole call.
+ * Queue IPC preference patches to merge and write atomically after earlier saves finish.
  * @param partial - Subset of fields to overwrite
  * @returns
  * - On success: the new full Settings object (also updates the cache)
@@ -142,6 +142,24 @@ export function areSettingsEqual(a: Settings, b: Settings): boolean {
  * // => { defaultSkillTab: 'info' }
  */
 export async function saveSettings(partial: SettingsPatch): Promise<Settings> {
+  const pendingSave = settingsSaveQueue.then(async () =>
+    persistSettingsPatch(partial),
+  )
+  // Preserve this caller's rejection while allowing the next queued save to proceed.
+  settingsSaveQueue = pendingSave.then(
+    () => undefined,
+    () => undefined,
+  )
+  return pendingSave
+}
+
+/**
+ * Merge and persist one patch when saveSettings reaches it in the serialized write queue.
+ * @param partial - Preference fields to merge into the latest successfully saved snapshot.
+ * @returns Updated cached settings, or the same snapshot for a no-op; rejects on validation or disk failure.
+ * @example await persistSettingsPatch({ leftSectionOpacityPercent: 65 }) // Saved Left opacity is 65%.
+ */
+async function persistSettingsPatch(partial: SettingsPatch): Promise<Settings> {
   const current = getSettings()
   const merged = SettingsSchema.parse({ ...current, ...partial })
   // No-op guard: when nothing actually changed (e.g. tapping the
