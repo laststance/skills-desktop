@@ -10,7 +10,8 @@ import {
   DropdownMenuTrigger,
 } from '@/renderer/src/components/ui/dropdown-menu'
 import { useDeleteHiddenAgents } from '@/renderer/src/hooks/useDeleteHiddenAgents'
-import { pluralize } from '@/renderer/src/utils/pluralize'
+import { getHiddenAgentsDeleteNotices } from '@/renderer/src/utils/getHiddenAgentsDeleteNotices'
+import { getHiddenAgentsLabel } from '@/renderer/src/utils/getHiddenAgentsLabel'
 import type { Agent } from '@/shared/types'
 
 /**
@@ -29,10 +30,15 @@ export function HiddenAgentsMenu({
   const deletion = useDeleteHiddenAgents(agents)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const confirmedRef = useRef(false)
+  const hiddenAgentsLabel = getHiddenAgentsLabel(agents.length)
+  const notices = getHiddenAgentsDeleteNotices(
+    deletion.review?.skippedCount ?? 0,
+    deletion.protectedCount,
+  )
 
   return (
     <>
-      {agents.length > 0 && (
+      {hiddenAgentsLabel && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -91,20 +97,9 @@ export function HiddenAgentsMenu({
         title="Delete hidden agents’ skills folders?"
         description={
           <div className="space-y-3">
-            {Boolean(deletion.review?.skippedCount) && (
-              <p>
-                {deletion.review?.skippedCount} hidden{' '}
-                {pluralize(deletion.review?.skippedCount ?? 0, 'agent')} with
-                shared or unavailable folders will be skipped.
-              </p>
-            )}
-            {deletion.protectedCount > 0 && (
-              <p>
-                {deletion.protectedCount} protected skill{' '}
-                {pluralize(deletion.protectedCount, 'entry', 'entries')} will be
-                kept.
-              </p>
-            )}
+            {notices.map((notice) => (
+              <p key={notice}>{notice}</p>
+            ))}
             <p>
               Move these {deletion.review?.agents.length} skills folders and
               their contents to Trash. Folders containing protected skills will

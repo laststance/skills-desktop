@@ -1,4 +1,4 @@
-import { useRef, useState, useTransition } from 'react'
+import { useRef, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import {
@@ -11,6 +11,11 @@ import {
   removeAllSymlinksFromAgent,
 } from '@/renderer/src/redux/slices/agentsSlice'
 import { selectHiddenAgentIds } from '@/renderer/src/redux/slices/settingsSlice'
+import {
+  clearHiddenAgentsDeleteReview,
+  selectHiddenAgentsDeleteReview,
+  setHiddenAgentsDeleteReview,
+} from '@/renderer/src/redux/slices/uiSlice'
 import { refreshAllData } from '@/renderer/src/redux/thunks'
 import { getDeletableHiddenAgents } from '@/renderer/src/utils/getDeletableHiddenAgents'
 import { pluralize } from '@/renderer/src/utils/pluralize'
@@ -25,10 +30,7 @@ import type { Agent } from '@/shared/types'
 export function useDeleteHiddenAgents(agents: Agent[]) {
   const dispatch = useAppDispatch()
   const store = useAppStore()
-  const [review, setReview] = useState<{
-    agents: Agent[]
-    skippedCount: number
-  } | null>(null)
+  const review = useAppSelector(selectHiddenAgentsDeleteReview)
   const [isDeleting, startDeletion] = useTransition()
   const deletingRef = useRef(false)
   const eligibleAgents = getDeletableHiddenAgents(agents)
@@ -48,10 +50,12 @@ export function useDeleteHiddenAgents(agents: Agent[]) {
   const openReview = (): void => {
     // Keep the reviewed filesystem identities stable until confirmation.
     if (eligibleAgents.length === 0 || deletingRef.current) return
-    setReview({
-      agents: eligibleAgents,
-      skippedCount: agents.length - eligibleAgents.length,
-    })
+    dispatch(
+      setHiddenAgentsDeleteReview({
+        agents: eligibleAgents,
+        skippedCount: agents.length - eligibleAgents.length,
+      }),
+    )
   }
 
   /**
@@ -60,7 +64,7 @@ export function useDeleteHiddenAgents(agents: Agent[]) {
    * @example deletion.closeReview()
    */
   const closeReview = (): void => {
-    if (!deletingRef.current) setReview(null)
+    if (!deletingRef.current) dispatch(clearHiddenAgentsDeleteReview())
   }
 
   /**
@@ -111,7 +115,7 @@ export function useDeleteHiddenAgents(agents: Agent[]) {
         }
       } finally {
         deletingRef.current = false
-        setReview(null)
+        dispatch(clearHiddenAgentsDeleteReview())
         // Even a rejected folder operation can have removed some unprotected children.
         refreshAllData(dispatch)
       }

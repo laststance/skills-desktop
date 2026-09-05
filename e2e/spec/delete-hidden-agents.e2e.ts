@@ -213,11 +213,12 @@ test('hidden folder deletion keeps protected slots, visible agents, and shared s
     await expect(appWindow.getByText('2 hidden', { exact: true })).toBeVisible()
   } finally {
     // Match exact unique children so concurrent user Trash activity is never a cleanup target.
-    const ourTrashEntry = findMatchingTrashedAgentDir(
-      diffUserTrash(trashBefore).newPaths,
-      [folders.removableName],
-    )
-    if (ourTrashEntry) cleanupTrashEntries([ourTrashEntry])
+    const { newPaths } = diffUserTrash(trashBefore)
+    // Include the protected fixture so a protection regression cannot leave test data behind.
+    for (const childName of [folders.removableName, folders.protectedName]) {
+      const ourTrashEntry = findMatchingTrashedAgentDir(newPaths, [childName])
+      if (ourTrashEntry) cleanupTrashEntries([ourTrashEntry])
+    }
   }
 })
 

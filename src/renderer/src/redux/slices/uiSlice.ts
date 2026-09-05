@@ -4,6 +4,7 @@ import { match } from 'ts-pattern'
 
 import type { RootState } from '@/renderer/src/redux/store'
 import type {
+  Agent,
   AgentId,
   AgentName,
   BookmarkedSkill,
@@ -221,6 +222,8 @@ interface UiState {
    * surface coordination with tabs, sync, and bulk operations.
    */
   symlinkCleanupDialogOpen: boolean
+  /** Reviewed hidden-agent folder identities; null closes the bulk deletion dialog. */
+  hiddenAgentsDeleteReview: { agents: Agent[]; skippedCount: number } | null
 }
 
 const initialState: UiState = {
@@ -244,6 +247,7 @@ const initialState: UiState = {
   bulkSelectMode: false,
   cleanupAgentTarget: null,
   symlinkCleanupDialogOpen: false,
+  hiddenAgentsDeleteReview: null,
 }
 
 /**
@@ -484,6 +488,28 @@ const uiSlice = createSlice({
       state.bulkConfirm = null
     },
     /**
+     * Captures reviewed folders when useDeleteHiddenAgents opens its confirmation.
+     * @param state - Mutable UI draft.
+     * @param action - Reviewed folder identities and skipped count.
+     * @returns Nothing; stores the review snapshot.
+     * @example dispatch(setHiddenAgentsDeleteReview({ agents: [], skippedCount: 1 }))
+     */
+    setHiddenAgentsDeleteReview: (
+      state,
+      action: PayloadAction<NonNullable<UiState['hiddenAgentsDeleteReview']>>,
+    ) => {
+      state.hiddenAgentsDeleteReview = action.payload
+    },
+    /**
+     * Clears reviewed folders when useDeleteHiddenAgents cancels or completes deletion.
+     * @param state - Mutable UI draft.
+     * @returns Nothing; closes the confirmation and releases its targets.
+     * @example dispatch(clearHiddenAgentsDeleteReview())
+     */
+    clearHiddenAgentsDeleteReview: (state) => {
+      state.hiddenAgentsDeleteReview = null
+    },
+    /**
      * Enter bulk-select mode. Reveals checkboxes on skill cards and activates
      * Cmd/Ctrl+A and Esc keyboard shortcuts. Does not touch selection state —
      * the user starts with an empty tick set and explicitly builds it up.
@@ -654,6 +680,8 @@ export const {
   clearUndoToastIfCurrent,
   setBulkConfirm,
   clearBulkConfirm,
+  setHiddenAgentsDeleteReview,
+  clearHiddenAgentsDeleteReview,
   enterBulkSelectMode,
   exitBulkSelectMode,
   setCleanupAgentTarget,
@@ -691,6 +719,15 @@ export const selectSelectedBookmarkForDetail = (
 ): BookmarkForDetail | null => state.ui.selectedBookmarkForDetail
 export const selectBulkConfirm = (state: RootState): BulkConfirmState | null =>
   state.ui.bulkConfirm
+/**
+ * Supplies the stable deletion snapshot when the hidden-agent hook renders its confirmation.
+ * @param state - Redux state containing the UI slice.
+ * @returns Reviewed folders and skipped count, or null while closed.
+ * @example selectHiddenAgentsDeleteReview(store.getState()) // null before review
+ */
+export const selectHiddenAgentsDeleteReview = (
+  state: Pick<RootState, 'ui'>,
+): UiState['hiddenAgentsDeleteReview'] => state.ui.hiddenAgentsDeleteReview
 export const selectBulkSelectMode = (state: RootState): boolean =>
   state.ui.bulkSelectMode
 /**

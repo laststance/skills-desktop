@@ -4,6 +4,7 @@ import { useInitialEffect } from '@/renderer/src/hooks/useInitialEffect'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { fetchAgents } from '@/renderer/src/redux/slices/agentsSlice'
 import { selectHiddenAgentIds } from '@/renderer/src/redux/slices/settingsSlice'
+import { getHiddenAgentsLabel } from '@/renderer/src/utils/getHiddenAgentsLabel'
 
 import { AgentItem } from './AgentItem'
 import { HiddenAgentsMenu } from './HiddenAgentsMenu'
@@ -41,6 +42,7 @@ export const AgentsSection = function AgentsSection(): React.ReactElement {
   )
   const missingAgents = agents.filter((a) => !a.exists)
   const totalInstalled = visibleInstalled.length + hiddenInstalled.length
+  const hiddenAgentsLabel = getHiddenAgentsLabel(hiddenInstalled.length)
 
   if (loading && agents.length === 0) {
     return (
@@ -92,10 +94,10 @@ export const AgentsSection = function AgentsSection(): React.ReactElement {
       )}
 
       <div className="relative">
-        {hiddenInstalled.length > 0 && (
+        {hiddenAgentsLabel && (
           <details className="mt-4">
             <summary className="min-h-6 mr-7 content-center rounded-md text-xs text-muted-foreground cursor-pointer hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-              {hiddenInstalled.length} hidden
+              {hiddenAgentsLabel}
             </summary>
             <div className="mt-2 space-y-1">
               {hiddenInstalled.map((agent) => (
