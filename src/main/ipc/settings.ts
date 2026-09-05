@@ -39,13 +39,18 @@ export function registerSettingsHandlers(): void {
     // and trigger a redundant Redux replace in every open window.
     if (next !== before) {
       if (
-        next.windowBackgroundBlurRadius !== before.windowBackgroundBlurRadius
+        next.windowBackgroundBlurRadius !== before.windowBackgroundBlurRadius ||
+        next.windowOpacityMode !== before.windowOpacityMode
       ) {
         const mainWindow = getMainWindow()
         // Settings can outlive the main window on macOS; a closed main window
         // simply receives the persisted blur the next time it is created.
         if (mainWindow !== null) {
-          applyWindowBackgroundBlur(mainWindow, next.windowBackgroundBlurRadius)
+          applyWindowBackgroundBlur(
+            mainWindow,
+            next.windowBackgroundBlurRadius,
+            next.windowOpacityMode,
+          )
         }
       }
       // Push the auto-download preference onto the live updater so a

@@ -263,6 +263,27 @@ Rules:
 - If introducing shadow tokens, keep them app-wide and named by elevation.
 - Use inset highlights sparingly for macOS-style window polish.
 
+### Window opacity
+
+- Settings → Appearance uses an **Entire / Section** segmented control. Entire
+  retains the existing window opacity and blur; Section independently adjusts
+  **Left** (agent sidebar), **Center** (Installed / Marketplace), and **Right**
+  (details / dashboard).
+- Preserve each mode's values when switching. Section values range from 45–100%
+  and start at 100%; each Reset changes only its own section.
+- Keep the three Section controls comparable: one aligned row per label, slider,
+  percentage, and Reset. All three rows and their resets must fit the standard
+  800 × 600 Settings window without scrolling. Range inputs need at least a
+  24px hit area even when their visible track is thin.
+- In Section mode, each section paints its own background on a clear window
+  canvas. Native window opacity stays at 1 so it does not multiply section
+  percentages. Opacity applies to the complete section, including its content,
+  matching Entire mode's whole-window behavior within the selected region.
+  Settings, menus and dialogs remain fully legible outside those section
+  opacity layers.
+- Use existing theme surfaces and tabular percentages. Respect reduced motion
+  and keep opacity transitions short and interruptible.
+
 ## Motion
 
 Motion should clarify cause and effect without making the app feel animated.

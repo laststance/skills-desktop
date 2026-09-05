@@ -24,6 +24,56 @@ import {
  * settings.json on disk.
  */
 describe('SettingsSchema', () => {
+  it('keeps legacy window transparency in Entire mode and starts each section opaque', () => {
+    // Arrange
+    const legacySettings = { windowBackgroundBlurRadius: 24 }
+    // Act
+    const settings = SettingsSchema.parse(legacySettings)
+    // Assert
+    expect(settings).toMatchObject({
+      windowBackgroundBlurRadius: 24,
+      windowOpacityMode: 'entire',
+      leftSectionOpacityPercent: 100,
+      centerSectionOpacityPercent: 100,
+      rightSectionOpacityPercent: 100,
+    })
+  })
+
+  it('restores independent section percentages without changing the saved Entire intensity', () => {
+    // Arrange
+    const persistedSettings = {
+      windowBackgroundBlurRadius: 24,
+      windowOpacityMode: 'section',
+      leftSectionOpacityPercent: 45,
+      centerSectionOpacityPercent: 75,
+      rightSectionOpacityPercent: 100,
+    }
+    // Act
+    const settings = SettingsSchema.parse(persistedSettings)
+    // Assert
+    expect(settings).toMatchObject({
+      windowBackgroundBlurRadius: 24,
+      windowOpacityMode: 'section',
+      leftSectionOpacityPercent: 45,
+      centerSectionOpacityPercent: 75,
+      rightSectionOpacityPercent: 100,
+    })
+  })
+
+  it.each([
+    { leftSectionOpacityPercent: 44 },
+    { centerSectionOpacityPercent: 101 },
+    { rightSectionOpacityPercent: 65.5 },
+    { windowOpacityMode: 'invalid' },
+  ])(
+    'rejects an unsupported saved opacity setting: %j',
+    (persistedSettings) => {
+      // Arrange / Act
+      const result = SettingsSchema.safeParse(persistedSettings)
+      // Assert
+      expect(result.success).toBe(false)
+    },
+  )
   it('fills in every default field when parsing an empty settings object', () => {
     // Arrange / Act
     const parsed = SettingsSchema.parse({})

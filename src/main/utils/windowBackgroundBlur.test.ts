@@ -57,6 +57,52 @@ function makeWindowMock() {
  * Pin native BrowserWindow blur behavior without creating Electron 43 overlay layers.
  */
 describe('windowBackgroundBlur helpers', () => {
+  it('removes the Entire effect before applying independent section transparency', () => {
+    // Arrange
+    const { window, contentView } = makeWindowMock()
+
+    // Act
+    applyWindowBackgroundBlur(window, 24, 'section')
+
+    // Assert
+    expect(window.setOpacity).toHaveBeenCalledWith(1)
+    expect(window.setBackgroundColor).toHaveBeenCalledWith('#00000000')
+    expectMacVibrancy(window, null)
+    expect(contentView.setBackgroundColor).not.toHaveBeenCalled()
+    expect(contentView.setBackgroundBlur).not.toHaveBeenCalled()
+  })
+
+  it('starts Section mode with a clear native backplate even when Entire blur is disabled', () => {
+    // Arrange
+    const savedEntireRadius = 0
+
+    // Act
+    const background = getMainWindowBackgroundColor(
+      savedEntireRadius,
+      'section',
+    )
+    const opacity = getMainWindowOpacity(savedEntireRadius, 'section')
+
+    // Assert
+    expect(background).toBe('#00000000')
+    expect(opacity).toBe(1)
+    expect(shouldUseNativeWindowBlur(24, 'section')).toBe(false)
+  })
+
+  it('restores the saved Entire intensity when switching back from Section mode', () => {
+    // Arrange
+    const { window } = makeWindowMock()
+    applyWindowBackgroundBlur(window, 24, 'section')
+    vi.clearAllMocks()
+
+    // Act
+    applyWindowBackgroundBlur(window, 24, 'entire')
+
+    // Assert
+    expect(window.setOpacity).toHaveBeenCalledWith(0.72)
+    expect(window.setBackgroundColor).toHaveBeenCalledWith('#00000000')
+    expectMacVibrancy(window, 'under-window')
+  })
   it('floors negative, truncates fractional, and caps over-max persisted blur radii to the supported range', () => {
     // Arrange
     const negativeRadius = -12

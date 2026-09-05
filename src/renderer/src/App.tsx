@@ -12,6 +12,7 @@ import { useReleaseNotesToast } from './hooks/useReleaseNotesToast'
 import { useSettingsSync } from './hooks/useSettingsSync'
 import { useUpdateNotification } from './hooks/useUpdateNotification'
 import { useAppSelector } from './redux/hooks'
+import { getWindowSectionOpacity } from './utils/getWindowSectionOpacity'
 
 const separatorClass =
   'bg-border hover:bg-primary/50 active:bg-primary transition-colors cursor-col-resize'
@@ -99,7 +100,7 @@ const toasterStyle = {
 
 /**
  * Skills Desktop main application component
- * Layout: Sidebar (240px) | Main | Detail
+ * Layout: Sidebar (272px) | Main | Detail, with independently controlled section opacity.
  * Theme application is handled by Redux listener middleware
  */
 const App = function App(): React.ReactElement {
@@ -121,23 +122,62 @@ const App = function App(): React.ReactElement {
   // Drive sonner's theme prop from the persisted redux mode so toasts honor
   // the user's light/dark choice. Pre-fix this was hardcoded `theme="dark"`.
   const mode = useAppSelector((state) => state.theme.mode)
+  const opacityMode = useAppSelector(
+    (state) => state.settings.windowOpacityMode,
+  )
+  const leftOpacity = useAppSelector(
+    (state) => state.settings.leftSectionOpacityPercent,
+  )
+  const centerOpacity = useAppSelector(
+    (state) => state.settings.centerSectionOpacityPercent,
+  )
+  const rightOpacity = useAppSelector(
+    (state) => state.settings.rightSectionOpacityPercent,
+  )
 
   return (
     <TooltipProvider delayDuration={200}>
       <div
         data-testid="window-background-surface"
+        data-opacity-mode={opacityMode}
         className="window-background-surface flex h-screen text-foreground window-glow transition-[background-color]"
-        // Renderer paints a solid surface while BrowserWindow.setOpacity controls real desktop transparency.
-        style={{ backgroundColor: 'var(--background)' }}
+        // Section backgrounds must composite onto a clear surface to reveal the desktop independently.
+        style={{
+          backgroundColor:
+            opacityMode === 'section' ? 'transparent' : 'var(--background)',
+        }}
       >
-        <Sidebar />
+        {/* Fade the complete region, matching Entire mode; floating portals stay outside. */}
+        <div
+          data-window-section="left"
+          className="flex h-full shrink-0 transition-opacity duration-150 motion-reduce:transition-none"
+          style={{ opacity: getWindowSectionOpacity(opacityMode, leftOpacity) }}
+        >
+          <Sidebar />
+        </div>
         <Group orientation="horizontal" className="flex-1 h-full">
           <Panel defaultSize="50%" minSize="20%">
-            <MainContent />
+            <div
+              data-window-section="center"
+              className="h-full bg-background transition-opacity duration-150 motion-reduce:transition-none"
+              style={{
+                opacity: getWindowSectionOpacity(opacityMode, centerOpacity),
+              }}
+            >
+              <MainContent />
+            </div>
           </Panel>
           <Separator className={separatorClass} />
           <Panel defaultSize="50%" minSize="20%">
-            <DetailPanel />
+            <div
+              data-window-section="right"
+              className="h-full bg-background transition-opacity duration-150 motion-reduce:transition-none"
+              style={{
+                opacity: getWindowSectionOpacity(opacityMode, rightOpacity),
+              }}
+            >
+              <DetailPanel />
+            </div>
           </Panel>
         </Group>
       </div>

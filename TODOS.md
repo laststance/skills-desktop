@@ -2,6 +2,24 @@
 
 Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
+## Opacity design review follow-ups (2026-09-05)
+
+### P2. Open Settings should follow theme changes in the main window
+
+**Status:** Deferred; the theme synchronization code is unchanged by the opacity feature.
+
+**Finding:** Switching the main window from Dark to Light leaves an already-open Settings window in Dark until reload. This makes two windows from the same app look inconsistent.
+
+**Fix direction:** Synchronize theme changes to open Settings windows and cover the two-window interaction in Electron E2E.
+
+### P2. Main-window cards should fit the minimum desktop width
+
+**Status:** Deferred; the card and dashboard layouts are unchanged by the opacity feature.
+
+**Finding:** At 800 × 600, skill titles and dashboard metrics crowd within the 264px center/right panels even though the window itself does not overflow.
+
+**Fix direction:** Adapt card content and metrics to narrow panels while preserving the existing sidebar and three-column layout.
+
 ## Symlink Health cleanup subagent review follow-ups (2026-05-28)
 
 ### P0. Orphan cleanup must not reuse source skill deletion

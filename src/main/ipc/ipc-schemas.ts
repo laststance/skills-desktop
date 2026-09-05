@@ -6,8 +6,10 @@ import {
   CODE_FONT_SIZE_SCHEMA,
   INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS,
   MARKDOWN_FONT_SIZE_SCHEMA,
+  SECTION_OPACITY_PERCENT_SCHEMA,
   SettingsSchema,
   WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA,
+  WINDOW_OPACITY_MODE_SCHEMA,
 } from '@/shared/settings'
 
 /**
@@ -371,6 +373,10 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       // unrelated partial settings writes do not reset blur to zero.
       windowBackgroundBlurRadius:
         WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA.optional(),
+      windowOpacityMode: WINDOW_OPACITY_MODE_SCHEMA.optional(),
+      leftSectionOpacityPercent: SECTION_OPACITY_PERCENT_SCHEMA.optional(),
+      centerSectionOpacityPercent: SECTION_OPACITY_PERCENT_SCHEMA.optional(),
+      rightSectionOpacityPercent: SECTION_OPACITY_PERCENT_SCHEMA.optional(),
       // Preview font sizes + code theme. Shared non-defaulting schemas, kept
       // `.optional()` (not chained off a defaulted SettingsSchema field) so an
       // unrelated partial settings:set never materializes a default and
