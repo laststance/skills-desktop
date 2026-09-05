@@ -18,6 +18,10 @@ interface DestructiveConfirmDialogProps {
   onClose: () => void
   /** Called when the user confirms the destructive action */
   onConfirm: () => void
+  /** Restores focus to a non-dialog trigger such as a closed overflow menu. */
+  onCloseAutoFocus?: React.ComponentProps<
+    typeof DialogContent
+  >['onCloseAutoFocus']
   /** Disables buttons and shows spinner while true */
   loading: boolean
   /** Dialog title text */
@@ -51,6 +55,7 @@ export const DestructiveConfirmDialog = function DestructiveConfirmDialog({
   open,
   onClose,
   onConfirm,
+  onCloseAutoFocus,
   loading,
   title,
   description,
@@ -63,7 +68,10 @@ export const DestructiveConfirmDialog = function DestructiveConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-100">
+      <DialogContent
+        className="sm:max-w-100"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <DialogHeader>
           <div className="flex items-center gap-2">
             <AlertTriangle className={`h-5 w-5 ${iconColor}`} />

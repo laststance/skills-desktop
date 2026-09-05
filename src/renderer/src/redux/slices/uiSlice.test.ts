@@ -133,6 +133,56 @@ const previewNoConflicts: SyncPreviewResult = {
   conflicts: [],
 }
 
+describe('uiSlice hidden agents deletion review', () => {
+  it('keeps the reviewed folder identities available until the confirmation closes', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const { setHiddenAgentsDeleteReview, selectHiddenAgentsDeleteReview } =
+      await import('./uiSlice')
+
+    // Act
+    store.dispatch(
+      setHiddenAgentsDeleteReview({
+        agents: [
+          {
+            id: 'cline',
+            name: 'Cline',
+            path: '/home/user/.cline/skills',
+            exists: true,
+            skillCount: 1,
+            localSkillCount: 0,
+            filesystemIdentity: directoryIdentity,
+          },
+        ],
+        skippedCount: 2,
+      }),
+    )
+
+    // Assert
+    expect(selectHiddenAgentsDeleteReview(store.getState())).toMatchObject({
+      agents: [{ id: 'cline', filesystemIdentity: { ino: 2 } }],
+      skippedCount: 2,
+    })
+  })
+
+  it('clears the reviewed targets when deletion is canceled or completed', async () => {
+    // Arrange
+    const store = await createTestStore()
+    const {
+      setHiddenAgentsDeleteReview,
+      clearHiddenAgentsDeleteReview,
+      selectHiddenAgentsDeleteReview,
+    } = await import('./uiSlice')
+    store.dispatch(setHiddenAgentsDeleteReview({ agents: [], skippedCount: 2 }))
+
+    // Act
+    store.dispatch(clearHiddenAgentsDeleteReview())
+
+    // Assert
+    expect(selectHiddenAgentsDeleteReview(store.getState())).toBeNull()
+  })
+})
+
 describe('uiSlice activeTab', () => {
   it('opens on the Installed tab by default', async () => {
     // Arrange

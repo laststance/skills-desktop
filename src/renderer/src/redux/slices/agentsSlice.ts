@@ -44,7 +44,7 @@ export const fetchAgents = createAsyncThunk('agents/fetchAll', async () => {
  * @returns Absolute agent slot paths that should survive folder deletion.
  * @example collectProtectedAgentSlotPaths(state, cursorAgent)
  */
-function collectProtectedAgentSlotPaths(
+export function collectProtectedAgentSlotPaths(
   state: RootState,
   agent: Agent,
 ): AbsolutePath[] {
