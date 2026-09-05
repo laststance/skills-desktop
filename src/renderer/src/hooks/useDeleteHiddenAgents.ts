@@ -78,6 +78,7 @@ export function useDeleteHiddenAgents(agents: Agent[]) {
     deletingRef.current = true
     startDeletion(async () => {
       let completedCount = 0
+      let deletedFromAgentCount = 0
       let removedCount = 0
       let preservedCount = 0
       const failures: string[] = []
@@ -93,6 +94,8 @@ export function useDeleteHiddenAgents(agents: Agent[]) {
           const result = await dispatch(removeAllSymlinksFromAgent(agent))
           if (removeAllSymlinksFromAgent.fulfilled.match(result)) {
             completedCount += 1
+            // A successful protected-only review must not claim that any skills were deleted.
+            if (result.payload.removedCount > 0) deletedFromAgentCount += 1
             removedCount += result.payload.removedCount
             preservedCount += result.payload.preservedCount
           } else {
@@ -102,7 +105,9 @@ export function useDeleteHiddenAgents(agents: Agent[]) {
 
         if (completedCount > 0) {
           toast.success(
-            `Deleted skills from ${completedCount} hidden ${pluralize(completedCount, 'agent')}`,
+            deletedFromAgentCount > 0
+              ? `Deleted skills from ${deletedFromAgentCount} hidden ${pluralize(deletedFromAgentCount, 'agent')}`
+              : 'Hidden agent cleanup complete',
             {
               description: `Removed ${removedCount} items; kept ${preservedCount} protected`,
             },

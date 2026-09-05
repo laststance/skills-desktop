@@ -257,6 +257,44 @@ describe('Hidden agent folder deletion', () => {
     )
   })
 
+  it.each([
+    {
+      scenario: 'only protected skills remain',
+      preservedCount: 1,
+      expectedDescription: 'Removed 0 items; kept 1 protected',
+    },
+    {
+      scenario: 'an empty skills folder is removed',
+      preservedCount: 0,
+      expectedDescription: 'Removed 0 items; kept 0 protected',
+    },
+  ])(
+    'confirms completion without claiming skill deletion when $scenario',
+    async ({ preservedCount, expectedDescription }) => {
+      // Arrange
+      mockRemoveAllFromAgent.mockResolvedValue({
+        success: true,
+        removedCount: 0,
+        preservedCount,
+      })
+      const { screen } = await renderHiddenMenu([cline])
+
+      // Act
+      await screen
+        .getByRole('button', { name: 'Delete folders', exact: true })
+        .click()
+
+      // Assert
+      await expect.poll(() => mockToastSuccess.mock.calls.length).toBe(1)
+      expect(mockToastSuccess).toHaveBeenCalledWith(
+        'Hidden agent cleanup complete',
+        {
+          description: expectedDescription,
+        },
+      )
+    },
+  )
+
   it('continues after one hidden folder fails and reports the failed agent', async () => {
     // Arrange
     mockRemoveAllFromAgent

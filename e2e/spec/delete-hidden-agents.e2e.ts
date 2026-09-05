@@ -180,7 +180,7 @@ test('hidden folder deletion keeps protected slots, visible agents, and shared s
 
     // Assert
     await expect(
-      appWindow.getByText('Deleted skills from 2 hidden agents'),
+      appWindow.getByText('Deleted skills from 1 hidden agent'),
     ).toBeVisible()
     await expect(dialog).toHaveCount(0)
     expect(() => lstatSync(folders.warpPath)).toThrow(/ENOENT/)
