@@ -11,27 +11,14 @@ import type { Page } from '@playwright/test'
 const SKILLS_FETCH_ALL_FULFILLED_TYPE = 'skills/fetchAll/fulfilled'
 
 /**
- * Read a slice of the renderer's Redux store via `page.evaluate`.
- * Throws on the test side (not the renderer) when the store isn't exposed,
- * which usually means the bundle was built without `E2E_BUILD=1`.
- *
- * Selector errors are wrapped with the source string + the failing message
- * so a TypeError like `Cannot read properties of undefined (reading 'items')`
- * surfaces alongside the actual selector body in the test failure output.
- * Without this wrapping the error lands as a generic Playwright eval failure
- * and the spec author has to re-derive which selector blew up.
- *
- * Closure capture caveat: the selector is serialized via `Function.toString`
- * and re-evaluated in the renderer, so it CANNOT reference variables from
- * the surrounding test scope (those become `ReferenceError: x is not
- * defined` at runtime). Pass dynamic values through the third `args`
- * parameter — they're sent over the wire and arrive as the selector's
- * second positional argument.
- *
+ * E2E specs read renderer state snapshots and run selectors in Node without dynamic code evaluation.
+ * @param page - The Electron renderer page built with E2E store access.
+ * @param selector - The pure selector applied to the serialized Redux snapshot.
+ * @param args - Optional input passed to the selector.
+ * @returns The selected value; throws with selector context on failure.
  * @example
  * const tab = await getStoreState(page, (state: any) => state.ui.activeTab)
  * @example
- * // Closure-safe: pass dynamic values via `args`
  * const present = await getStoreState(
  *   page,
  *   (state, name) => {
@@ -46,36 +33,29 @@ export async function getStoreState<T, A = undefined>(
   selector: (state: unknown, args: A) => T,
   args?: A,
 ): Promise<T> {
-  return page.evaluate(
-    ({ selectorSrc, selectorArgs }) => {
-      const store = window.__store__ ?? window.__store
-      if (!store) {
-        throw new Error(
-          'window.__store__ is not exposed. Did you build with E2E_BUILD=1?',
-        )
-      }
-      // Test selectors are trusted code passed by specs; dynamic rebuild is
-      // what preserves helpful selector-source errors across the browser wall.
-      // react-doctor-disable-next-line react-doctor/no-eval
-      const fn = new Function(
-        'state',
-        'args',
-        `return (${selectorSrc})(state, args)`,
-      ) as (state: unknown, args: unknown) => unknown
-      try {
-        return fn(store.getState(), selectorArgs)
-      } catch (selectorError) {
-        const errorMessage =
-          selectorError instanceof Error
-            ? selectorError.message
-            : String(selectorError)
-        throw new Error(
-          `getStoreState selector threw: ${errorMessage}\nselector source:\n${selectorSrc}`,
-        )
-      }
-    },
-    { selectorSrc: selector.toString(), selectorArgs: args },
-  ) as Promise<T>
+  const state: unknown = await page.evaluate(() => {
+    const store = window.__store__ ?? window.__store
+    // A missing store means the app was built without the E2E harness.
+    if (!store) {
+      throw new Error(
+        'window.__store__ is not exposed. Did you build with E2E_BUILD=1?',
+      )
+    }
+    return store.getState()
+  })
+
+  try {
+    return selector(state, args as A)
+  } catch (selectorError) {
+    // Keep selector context in assertion failures after crossing the browser boundary.
+    const errorMessage =
+      selectorError instanceof Error
+        ? selectorError.message
+        : String(selectorError)
+    throw new Error(
+      `getStoreState selector threw: ${errorMessage}\nselector source:\n${selector.toString()}`,
+    )
+  }
 }
 
 /**
@@ -88,9 +68,8 @@ export async function getStoreState<T, A = undefined>(
  * setup, so the caller should compare against the expected literal
  * (`'valid' | 'broken' | 'missing' | undefined`) rather than `?.toBe('valid')`.
  *
- * Closure-capture rules apply (see `getStoreState` doc): both `skillName` and
- * `agentId` are passed via the second `evaluate` argument — module-level
- * constants in the caller would be erased by `Function.toString`.
+ * Pass `skillName` and `agentId` as explicit `evaluate` arguments because
+ * this callback runs in the renderer and cannot capture Node variables.
  *
  * @example
  * const status = await getRefreshedSymlinkStatus(appWindow, 'azure-ai', 'cursor')

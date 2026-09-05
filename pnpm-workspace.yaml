@@ -46,3 +46,12 @@ minimumReleaseAgeExclude:
   - eslint-config-ts-prefixer
   - '@laststance/redux-storage-middleware'
   - '@laststance/react-next-eslint-plugin'
+  # Allow only the exact versions validated in the 2026-09-05 dependency refresh.
+  - '@playwright/test@1.63.0'
+  - browserslist@4.28.9
+  - eslint-plugin-browser-security@2.1.5
+  - lint-staged@17.5.0
+  - lucide-react@1.41.0
+  - playwright-core@1.63.0
+  - playwright@1.63.0
+  - tinyspy@4.0.6

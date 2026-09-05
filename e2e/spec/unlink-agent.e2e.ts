@@ -192,9 +192,6 @@ test('unlinking one agent removes only that agent link and leaves the source ski
 
   await waitForInitialScan(appWindow)
 
-  // Selector source is re-evaluated in renderer context (see redux.ts:23) so
-  // closures over module-level constants are NOT preserved — `'azure-ai'`
-  // must be inlined as a literal inside the selector body.
   const initialSymlinks = await getStoreState(
     appWindow,
     (state): SymlinkSnapshot[] => {

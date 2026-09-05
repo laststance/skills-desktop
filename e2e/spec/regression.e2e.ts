@@ -723,9 +723,6 @@ test('broken symlinks show up as orphan skill rows in the list (regression #127)
   // pass the orphan-row assertions above but flip every source skill into
   // `isOrphan: true`, hiding their delete/unlink buttons across the UI.
   // This spec stages the control source itself so it remains active offline.
-  // `getStoreState` re-evaluates the selector inside the renderer via
-  // `Function.toString`, so closure-scope identifiers would resolve to
-  // `undefined` at runtime. Inline the literal string.
   const sourceRecord = await getStoreState(
     appWindow,
     (state): { isOrphan: boolean; isSource: boolean } | null => {

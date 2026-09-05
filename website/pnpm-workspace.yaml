@@ -1,2 +1,9 @@
 allowBuilds:
   sharp: true
+
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  # Allow only the exact versions validated in the 2026-09-05 dependency refresh.
+  - browserslist@4.28.9
+  - eslint@10.10.0
+  - lucide-react@1.41.0

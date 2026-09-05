@@ -60,11 +60,10 @@ function stageUndoToastSkillFixture(isolatedHome: string): {
 }
 
 /**
- * Snapshot selector for the self-staged undo fixture. Inlined here (rather than
- * imported from a shared helper)
- * because `getStoreState` serializes the function via `Function.prototype.toString`
- * — the body must NOT close over outer-scope identifiers, so the literal
- * `'undo-toast-fixture'` is hard-coded inside.
+ * Selects undo fixture facts in Node from a renderer snapshot for the toast specs' `getStoreState` calls.
+ * @param state - Serialized renderer Redux state.
+ * @returns Whether the fixture exists, its source path, and its valid symlinks.
+ * @example undoToastFixtureSelector({ skills: { items: [] } }) // => { hasFixture: false, sourcePath: null, validSymlinks: [] }
  */
 const undoToastFixtureSelector = (state: unknown): UndoFixtureSnapshot => {
   const root = state as {

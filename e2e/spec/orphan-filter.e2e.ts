@@ -31,10 +31,11 @@ test.beforeEach(() => {
 })
 
 /**
- * Replicates `selectFilteredSkills`'s agent-slot-gated orphan predicate
- * inside the renderer via `Function.toString`. Hoisted so the windsurf
- * positive case and the cursor negative case share one body — the e2e
- * bundle does not surface individual selector modules to `page.evaluate`.
+ * Checks agent-slot-gated orphan filtering in Node for both agents' `getStoreState` assertions.
+ * @param state - Serialized renderer Redux state.
+ * @param args - Agent whose valid or broken orphan slots are included.
+ * @returns Names of orphan skills linked to the selected agent.
+ * @example filterOrphanNamesByAgent({ skills: { items: [] } }, { agentId: 'cursor' }) // => []
  */
 const filterOrphanNamesByAgent = (
   state: unknown,

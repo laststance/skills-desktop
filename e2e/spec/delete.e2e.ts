@@ -125,16 +125,10 @@ function deleteSkillPayload(
 }
 
 /**
- * Single snapshot selector for azure-ai used by every test in this file.
- *
- * `getStoreState` serializes this function via `Function.prototype.toString`
- * and re-evaluates it inside the renderer (`new Function('state', ...)`),
- * so the body must NOT close over outer-scope identifiers — `'azure-ai'`
- * is inlined as a string literal even though `AZURE_AI_NAME` is in scope
- * at the call site.
- *
- * Promoting this from three inline copies removes the easy mistake of
- * tweaking one filter and missing the other two when the schema evolves.
+ * Selects azure-ai facts in Node from a renderer snapshot for the deletion specs' `getStoreState` calls.
+ * @param state - Serialized renderer Redux state.
+ * @returns Whether azure-ai exists, its source path, and its valid symlinks.
+ * @example azureSnapshotSelector({ skills: { items: [] } }) // => { hasAzure: false, sourcePath: null, validSymlinks: [] }
  */
 const azureSnapshotSelector = (state: unknown): AzureSnapshot => {
   const root = state as {
@@ -547,9 +541,6 @@ test('cleaning up a broken orphan symlink removes the dangling link without crea
   ).toEqual([])
 
   // Redux — the orphan row disappears from skills.items after rescan.
-  // `skillName` MUST be passed via the third arg: the selector is serialized
-  // and re-evaluated in the renderer, so closure capture would surface as
-  // `ReferenceError: skillName is not defined`.
   await refreshSkillsState(appWindow)
   const stillPresent = await getStoreState(
     appWindow,

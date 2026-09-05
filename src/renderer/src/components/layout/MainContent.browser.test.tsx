@@ -473,7 +473,7 @@ describe('MainContent bulk-select toggle button', () => {
     })
 
     // Assert
-    await expect.element(toggle).toHaveTextContent(/Select/)
+    await expect.element(toggle).toMatchTextContent(/Select/)
     await expect.element(toggle).toHaveAttribute('aria-pressed', 'false')
   })
 
@@ -503,7 +503,7 @@ describe('MainContent bulk-select toggle button', () => {
     const toggle = screen.getByRole('button', {
       name: /Exit bulk select mode/i,
     })
-    await expect.element(toggle).toHaveTextContent(/Cancel/)
+    await expect.element(toggle).toMatchTextContent(/Cancel/)
     await expect.element(toggle).toHaveAttribute('aria-pressed', 'true')
   })
 
@@ -2112,8 +2112,8 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
     // Assert — the pill appears, naming the repo
     const pill = screen.getByTestId('source-filter-pill')
     await expect.element(pill).toBeInTheDocument()
-    await expect.element(pill).toHaveTextContent(/from/)
-    await expect.element(pill).toHaveTextContent('vercel-labs/skills')
+    await expect.element(pill).toMatchTextContent(/from/)
+    await expect.element(pill).toMatchTextContent('vercel-labs/skills')
 
     // Act — clear the filter via the pill's Clear button
     // Clear button inside the pill resets the slice field.
@@ -2156,10 +2156,10 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
     // Assert
     await expect
       .element(screen.getByTestId('agent-filter-pill'))
-      .toHaveTextContent('Claude Code')
+      .toMatchTextContent('Claude Code')
     await expect
       .element(screen.getByTestId('source-filter-pill'))
-      .toHaveTextContent('vercel-labs/skills')
+      .toMatchTextContent('vercel-labs/skills')
   })
 
   it('keeps the Agent pill and agent filter when only the Source pill is cleared', async () => {
@@ -2203,7 +2203,7 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
     expect(store.getState().ui.selectedAgentId).toBe('claude-code')
     await expect
       .element(screen.getByTestId('agent-filter-pill'))
-      .toHaveTextContent('Claude Code')
+      .toMatchTextContent('Claude Code')
   })
 })
 
@@ -2358,7 +2358,7 @@ describe('MainContent filter pill clear actions', () => {
     )
     await expect
       .element(screen.getByTestId('source-filter-pill'))
-      .toHaveTextContent('4 repos')
+      .toMatchTextContent('4 repos')
 
     // Act
     await screen
