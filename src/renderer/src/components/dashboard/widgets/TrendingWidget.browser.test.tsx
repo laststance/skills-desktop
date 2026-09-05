@@ -141,8 +141,8 @@ describe('TrendingWidget', () => {
 
     // Assert: each ranked trending skill shows as its own list row.
     const rows = screen.getByRole('listitem')
-    await expect.element(rows.nth(0)).toHaveTextContent('alpha-skill')
-    await expect.element(rows.nth(1)).toHaveTextContent('beta-skill')
+    await expect.element(rows.nth(0)).toMatchTextContent('alpha-skill')
+    await expect.element(rows.nth(1)).toMatchTextContent('beta-skill')
   })
 
   it('caps trending rows at eight even when more skills loaded', async () => {

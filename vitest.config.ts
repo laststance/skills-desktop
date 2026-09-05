@@ -150,6 +150,8 @@ export default defineConfig({
     },
     projects: [
       {
+        // Preserve separate plugin pipelines after Vitest 5 enabled inheritance by default.
+        extends: false,
         plugins: reactOnlyPlugins,
         resolve: {
           alias: {
@@ -165,6 +167,8 @@ export default defineConfig({
         },
       },
       {
+        // Avoid applying the root React plugin twice in the compiled browser project.
+        extends: false,
         plugins: reactWithCompilerPlugins,
         resolve: {
           alias: {
@@ -204,6 +208,8 @@ export default defineConfig({
             enabled: true,
             provider: playwright(),
             headless: true,
+            // Preserve Vitest 4's partial text matching for existing browser locators.
+            locators: { exact: false },
             instances: [{ browser: 'chromium' }],
           },
         },

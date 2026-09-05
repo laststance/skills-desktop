@@ -188,8 +188,8 @@ describe('LeaderboardWidget', () => {
 
     // Assert: each ranked skill shows as its own list row.
     const rows = screen.getByRole('listitem')
-    await expect.element(rows.nth(0)).toHaveTextContent('alpha-skill')
-    await expect.element(rows.nth(1)).toHaveTextContent('beta-skill')
+    await expect.element(rows.nth(0)).toMatchTextContent('alpha-skill')
+    await expect.element(rows.nth(1)).toMatchTextContent('beta-skill')
   })
 
   it('caps the rendered rows at rowLimit even when more skills loaded', async () => {

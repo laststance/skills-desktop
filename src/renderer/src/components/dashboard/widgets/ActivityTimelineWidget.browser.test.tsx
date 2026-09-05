@@ -84,14 +84,14 @@ describe('ActivityTimelineWidget', () => {
     // or label renders next to which skill would fail here, whereas a global
     // text search would still pass. Rows render in the seeded (newest-first) order.
     const rows = screen.getByRole('listitem')
-    await expect.element(rows.nth(0)).toHaveTextContent('alpha-skill')
-    await expect.element(rows.nth(0)).toHaveTextContent('Claude Code')
-    await expect.element(rows.nth(0)).toHaveTextContent('created')
-    await expect.element(rows.nth(1)).toHaveTextContent('beta-skill')
-    await expect.element(rows.nth(1)).toHaveTextContent('Cursor')
-    await expect.element(rows.nth(1)).toHaveTextContent('removed')
-    await expect.element(rows.nth(2)).toHaveTextContent('Sync')
-    await expect.element(rows.nth(2)).toHaveTextContent('synced')
+    await expect.element(rows.nth(0)).toMatchTextContent('alpha-skill')
+    await expect.element(rows.nth(0)).toMatchTextContent('Claude Code')
+    await expect.element(rows.nth(0)).toMatchTextContent('created')
+    await expect.element(rows.nth(1)).toMatchTextContent('beta-skill')
+    await expect.element(rows.nth(1)).toMatchTextContent('Cursor')
+    await expect.element(rows.nth(1)).toMatchTextContent('removed')
+    await expect.element(rows.nth(2)).toMatchTextContent('Sync')
+    await expect.element(rows.nth(2)).toMatchTextContent('synced')
   })
 
   it('shows the detail text on a sync summary event that carries one', async () => {
@@ -113,11 +113,11 @@ describe('ActivityTimelineWidget', () => {
     // overlap (Playwright getByText is case-insensitive substring). The row
     // carries the skill label, the action label, and the detail counts.
     const row = screen.getByRole('listitem')
-    await expect.element(row).toHaveTextContent('Sync')
-    await expect.element(row).toHaveTextContent('synced')
+    await expect.element(row).toMatchTextContent('Sync')
+    await expect.element(row).toMatchTextContent('synced')
     await expect
       .element(row)
-      .toHaveTextContent('10 created · 1 replaced · 5 skipped')
+      .toMatchTextContent('10 created · 1 replaced · 5 skipped')
   })
 
   it('omits the appended detail separator for an event with no detail', async () => {

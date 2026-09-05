@@ -250,7 +250,7 @@ describe('SkillDetail Info path copy', () => {
     expect(mockWriteText).toHaveBeenCalledWith(SOURCE_PATH)
     await expect
       .element(screen.getByRole('button', { name: /^Copy path$/i }))
-      .toHaveTextContent(/Copied/)
+      .toMatchTextContent(/Copied/)
   })
 
   it('copies source and symlink paths independently in agent view', async () => {
@@ -313,7 +313,7 @@ describe('SkillDetail Info path copy', () => {
     expect(inaccessibleRow).toBeInstanceOf(HTMLElement)
     await expect
       .element(inaccessibleRow as HTMLElement)
-      .toHaveTextContent(/Inaccessible:\s*1/)
+      .toMatchTextContent(/Inaccessible:\s*1/)
   })
 
   it('keeps Location above Symlink Status and visible at scrollTop 0 when Info overflows', async () => {
@@ -442,7 +442,7 @@ describe('SkillDetail copied feedback timeout', () => {
     await screen.getByRole('button', { name: /^Copy path$/i }).click()
     await expect
       .element(screen.getByRole('button', { name: /^Copy path$/i }))
-      .toHaveTextContent(/Copied/)
+      .toMatchTextContent(/Copied/)
 
     // Assert
     await expect

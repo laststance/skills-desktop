@@ -95,9 +95,6 @@ test('copying azure-ai to an unlinked agent makes that agent show it as installe
     AZURE_AI_NAME,
   )
 
-  // NOTE: `getStoreState` re-evaluates the selector via `new Function` in the
-  // renderer context, so closures over module-level constants are *not*
-  // preserved. Skill names must be inlined as string literals inside selectors.
   const initialSnapshot = await getStoreState(appWindow, (state) => {
     const root = state as RootState
     const azure = root.skills.items.find((skill) => skill.name === 'azure-ai')
@@ -226,8 +223,7 @@ test('copying from an agent that has azure-ai linked re-links it without duplica
   )
 
   // Pick the first valid-and-non-local symlink as the source linkPath, and
-  // the first missing-and-non-local symlink as the target. Both lookups
-  // re-evaluate inside the renderer, so 'azure-ai' must stay a string literal.
+  // the first missing-and-non-local symlink as the target.
   const linkSelection = await getStoreState(appWindow, (state) => {
     const root = state as {
       skills: {

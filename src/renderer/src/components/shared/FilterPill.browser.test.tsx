@@ -31,7 +31,7 @@ describe('FilterPill', () => {
     await expect.element(pill).toBeInTheDocument()
     await expect
       .element(pill)
-      .toHaveTextContent('Showing skills for Claude Code')
+      .toMatchTextContent('Showing skills for Claude Code')
 
     // Act
     await pill.getByRole('button', { name: /Clear/i }).click()
