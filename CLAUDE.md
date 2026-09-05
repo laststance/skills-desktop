@@ -35,6 +35,20 @@ procedure. Execute the skill's required phases unless the user explicitly limits
 scope, a step is impossible, or continuing would be unsafe. If stopping early,
 state which skill step is being skipped and why.
 
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `laststance/skills-desktop` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical roles, default label strings. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
 ## Gotchas
 
 - **`*.browser.test.tsx`** runs in the Chromium lane via vitest browser mode. Vitest 4 projects need `dedupe + optimizeDeps` duplicated inline or React context breaks across files
