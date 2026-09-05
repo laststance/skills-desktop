@@ -20,6 +20,7 @@ import type {
   InstallProgress,
   RankingFilter,
   RemoveAllFromAgentOptions,
+  RemoveEmptyAgentFolderOptions,
   RestoreDeletedSkillOptions,
   SearchQuery,
   SyncExecuteOptions,
@@ -84,6 +85,8 @@ contextBridge.exposeInMainWorld('electron', {
   // Agents API
   agents: {
     getAll: async () => typedInvoke('agents:getAll'),
+    removeEmptyFolder: async (options: RemoveEmptyAgentFolderOptions) =>
+      typedInvoke('agents:removeEmptyFolder', options),
   },
   // Source API
   source: {

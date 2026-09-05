@@ -12,30 +12,36 @@ import {
 } from '@/renderer/src/redux/slices/agentsSlice'
 import { selectHiddenAgentIds } from '@/renderer/src/redux/slices/settingsSlice'
 import {
-  clearHiddenAgentsDeleteReview,
-  selectHiddenAgentsDeleteReview,
-  setHiddenAgentsDeleteReview,
+  clearAgentFoldersDeleteReview,
+  selectAgentFoldersDeleteReview,
+  setAgentFoldersDeleteReview,
+  type AgentFolderGroup,
 } from '@/renderer/src/redux/slices/uiSlice'
 import { refreshAllData } from '@/renderer/src/redux/thunks'
-import { getDeletableHiddenAgents } from '@/renderer/src/utils/getDeletableHiddenAgents'
-import { pluralize } from '@/renderer/src/utils/pluralize'
+import { getAgentFolderDeleteSuccessTitle } from '@/renderer/src/utils/getAgentFolderDeleteSuccessTitle'
+import { getDeletableAgentFolders } from '@/renderer/src/utils/getDeletableAgentFolders'
 import type { Agent } from '@/shared/types'
 
 /**
- * Owns the reviewed folder snapshot and serial deletion when HiddenAgentsMenu opens or confirms its dialog.
- * @param agents - Currently installed hidden agents shown by the sidebar.
+ * Owns the reviewed folder snapshot and serial deletion when AgentFoldersMenu opens or confirms its dialog.
+ * @param agents - Current agents in the sidebar group.
+ * @param group - Hidden skills folders or not-installed agents' empty parent folders.
  * @returns Review state, protected count, pending status, and review/close/delete actions.
- * @example const deletion = useDeleteHiddenAgents(hiddenInstalled)
+ * @example const deletion = useDeleteAgentFolders(hiddenInstalled, 'hidden')
  */
-export function useDeleteHiddenAgents(agents: Agent[]) {
+export function useDeleteAgentFolders(
+  agents: Agent[],
+  group: AgentFolderGroup,
+) {
   const dispatch = useAppDispatch()
   const store = useAppStore()
-  const review = useAppSelector(selectHiddenAgentsDeleteReview)
+  const activeReview = useAppSelector(selectAgentFoldersDeleteReview)
+  const review = activeReview?.group === group ? activeReview : null
   const [isDeleting, startDeletion] = useTransition()
   const deletingRef = useRef(false)
-  const eligibleAgents = getDeletableHiddenAgents(agents)
+  const eligibleAgents = getDeletableAgentFolders(agents, group)
   const protectedCount = useAppSelector((state) =>
-    (review?.agents ?? []).reduce(
+    (group === 'hidden' ? (review?.agents ?? []) : []).reduce(
       (count, agent) =>
         count + collectProtectedAgentSlotPaths(state, agent).length,
       0,
@@ -51,7 +57,8 @@ export function useDeleteHiddenAgents(agents: Agent[]) {
     // Keep the reviewed filesystem identities stable until confirmation.
     if (eligibleAgents.length === 0 || deletingRef.current) return
     dispatch(
-      setHiddenAgentsDeleteReview({
+      setAgentFoldersDeleteReview({
+        group,
         agents: eligibleAgents,
         skippedCount: agents.length - eligibleAgents.length,
       }),
@@ -64,7 +71,7 @@ export function useDeleteHiddenAgents(agents: Agent[]) {
    * @example deletion.closeReview()
    */
   const closeReview = (): void => {
-    if (!deletingRef.current) dispatch(clearHiddenAgentsDeleteReview())
+    if (!deletingRef.current) dispatch(clearAgentFoldersDeleteReview())
   }
 
   /**
@@ -86,6 +93,33 @@ export function useDeleteHiddenAgents(agents: Agent[]) {
       try {
         // Preserve review order and continue so one inaccessible folder cannot block the rest.
         for (const agent of review.agents) {
+          // Empty-parent cleanup has its own IPC guard; installing skills makes the folder ineligible.
+          if (group === 'unused') {
+            try {
+              const currentAgent = store
+                .getState()
+                .agents.items.find((candidate) => candidate.id === agent.id)
+              if (currentAgent?.exists || !agent.emptyParentFolder) {
+                failures.push(`${agent.name}: no longer eligible; skipped`)
+                continue
+              }
+              const result = await window.electron.agents.removeEmptyFolder({
+                agentId: agent.id,
+                ...agent.emptyParentFolder,
+              })
+              if (result.success) {
+                completedCount += 1
+                removedCount += result.deleted ? 1 : 0
+              } else {
+                failures.push(`${agent.name}: ${result.error}`)
+              }
+            } catch (error) {
+              failures.push(
+                `${agent.name}: ${error instanceof Error ? error.message : 'Folder deletion failed'}`,
+              )
+            }
+            continue
+          }
           // Settings can change visibility while the previous folder is awaiting IPC.
           if (!selectHiddenAgentIds(store.getState()).includes(agent.id)) {
             failures.push(`${agent.name}: no longer hidden; skipped`)
@@ -105,22 +139,31 @@ export function useDeleteHiddenAgents(agents: Agent[]) {
 
         if (completedCount > 0) {
           toast.success(
-            deletedFromAgentCount > 0
-              ? `Deleted skills from ${deletedFromAgentCount} hidden ${pluralize(deletedFromAgentCount, 'agent')}`
-              : 'Hidden agent cleanup complete',
+            getAgentFolderDeleteSuccessTitle(
+              group,
+              group === 'unused' ? removedCount : deletedFromAgentCount,
+            ),
             {
-              description: `Removed ${removedCount} items; kept ${preservedCount} protected`,
+              description:
+                group === 'unused'
+                  ? 'Folders containing files, settings, history, or skills were kept.'
+                  : `Removed ${removedCount} items; kept ${preservedCount} protected`,
             },
           )
         }
         if (failures.length > 0) {
-          toast.error('Some skills folders could not be deleted', {
-            description: failures.join('; '),
-          })
+          toast.error(
+            group === 'unused'
+              ? 'Some empty agent folders could not be deleted'
+              : 'Some skills folders could not be deleted',
+            {
+              description: failures.join('; '),
+            },
+          )
         }
       } finally {
         deletingRef.current = false
-        dispatch(clearHiddenAgentsDeleteReview())
+        dispatch(clearAgentFoldersDeleteReview())
         // Even a rejected folder operation can have removed some unprotected children.
         refreshAllData(dispatch)
       }

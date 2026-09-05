@@ -490,6 +490,7 @@ export function installStorybookElectronMock(): void {
     },
     agents: {
       getAll: async () => storyAgents,
+      removeEmptyFolder: async () => ({ success: true, deleted: true }),
     },
     source: {
       getStats: async () => storySourceStats,

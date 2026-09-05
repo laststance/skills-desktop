@@ -7,6 +7,7 @@ export const IPC_CHANNELS = {
 
   // Agents
   AGENTS_GET_ALL: 'agents:getAll',
+  AGENTS_REMOVE_EMPTY_FOLDER: 'agents:removeEmptyFolder',
 
   // Source
   SOURCE_GET_STATS: 'source:getStats',

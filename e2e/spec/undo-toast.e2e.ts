@@ -184,6 +184,12 @@ test('UI: clicking Undo on the bulk-delete toast restores staged source files an
     name: /^Undo delete of \d+ skills?$/,
   })
   await undoButton.waitFor({ state: 'visible', timeout: 5_000 })
+  // Prove the later empty-trash assertion observes removal of an actual staged entry.
+  expect(
+    readdirSync(trashDir).filter((entry) =>
+      entry.includes(`-${UNDO_TOAST_FIXTURE_NAME}-`),
+    ),
+  ).toHaveLength(1)
   await undoButton.click()
 
   // Assert
@@ -233,17 +239,22 @@ test('UI: clicking Undo on the bulk-delete toast restores staged source files an
     )
   }
 
-  // Trash entry cleaned up by `finalizeRestore` (rm + cancel TTL timer).
-  // A residual entry would leave a phantom undo target around indefinitely.
-  const residualTrashEntries = existsSync(trashDir)
-    ? readdirSync(trashDir).filter((entry) =>
-        entry.includes(`-${UNDO_TOAST_FIXTURE_NAME}-`),
-      )
-    : []
-  expect(
-    residualTrashEntries,
-    'restore must remove the trash entry — leftover would leak undo targets',
-  ).toEqual([])
+  // finalizeRestore runs after the symlinks land; wait for its async cleanup too.
+  await expect
+    .poll(
+      () =>
+        existsSync(trashDir)
+          ? readdirSync(trashDir).filter((entry) =>
+              entry.includes(`-${UNDO_TOAST_FIXTURE_NAME}-`),
+            )
+          : [],
+      {
+        message:
+          'restore must remove the trash entry — leftover would leak undo targets',
+        timeout: 10_000,
+      },
+    )
+    .toEqual([])
 
   // Redux — the staged skill is back with the same set of valid symlinks. Comparing
   // the agentId set (not the snapshot identity) is enough: status booleans

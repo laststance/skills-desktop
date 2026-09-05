@@ -329,6 +329,8 @@ export interface Agent {
   path: AbsolutePath
   /** Whether the agent's skills directory exists on disk */
   exists: boolean
+  /** Empty, independently owned parent folder offered for not-installed agent cleanup. */
+  emptyParentFolder?: EmptyAgentFolder
   /** Number of valid symlinked skills. @example 12 */
   skillCount: SkillCount
   /** Number of local skills (real folders, not symlinks). @example 2 */
@@ -336,6 +338,23 @@ export interface Agent {
   /** Directory identity for destructive "remove all" confirmation guards. */
   filesystemIdentity?: FilesystemEntryIdentity
 }
+
+/** Reviewed empty parent directory that can be moved to Trash without removing agent data. */
+export interface EmptyAgentFolder {
+  /** Absolute parent folder path, such as /Users/me/.cline. */
+  path: AbsolutePath
+  /** Identity captured while the parent folder was empty. */
+  filesystemIdentity: FilesystemEntryIdentity
+}
+
+/** Confirmed empty-folder review sent from the sidebar to the main process. */
+export type RemoveEmptyAgentFolderOptions = EmptyAgentFolder & {
+  agentId: AgentId
+}
+
+/** Distinguishes an actual folder removal from an already-missing folder or a rejected review. */
+export type RemoveEmptyAgentFolderResult =
+  { success: true; deleted: boolean } | { success: false; error: string }
 
 /**
  * Symlink status between a skill source and an agent's skills directory.
@@ -435,9 +454,7 @@ export type TerminalAppId = (typeof TERMINAL_APP_IDS)[number]
  * const reason: FolderActionErrorReason = 'not-found'
  */
 export type FolderActionErrorReason =
-  | 'not-found'
-  | 'launch-failed'
-  | 'invalid-path'
+  'not-found' | 'launch-failed' | 'invalid-path'
 
 /**
  * Discriminated result of a folder-launch IPC call (Reveal in Finder /
@@ -633,12 +650,7 @@ export interface DownloadProgress {
  * @example 'downloading'
  */
 export type UpdateStatus =
-  | 'idle'
-  | 'checking'
-  | 'available'
-  | 'downloading'
-  | 'ready'
-  | 'error'
+  'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error'
 
 /**
  * A skill surfaced by the marketplace — either from a `skills find` CLI search

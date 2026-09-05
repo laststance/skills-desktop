@@ -435,6 +435,14 @@ Rules:
 
 ### Empty States
 
+- The **not installed** agent disclosure has a sibling overflow menu matching
+  the hidden-agent section. Its cleanup reviews and trashes only empty,
+  independently owned parent folders (for example `~/.cline`), with exact paths
+  and skipped counts. Preserve folders containing files, settings, history, or
+  a skills directory; disable the action when none qualify. Recheck emptiness
+  at execution. Cancel returns focus to the menu; cleanup returns it to the
+  Agents heading. The not-installed list remains a catalog of supported agents.
+
 - Empty-state prominence scales with severity. Match the treatment to whether
   the empty is expected or a failure:
   - Expected / transient empties (a search with no matches, a freshly filtered

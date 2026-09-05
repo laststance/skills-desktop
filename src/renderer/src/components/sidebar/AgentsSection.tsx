@@ -6,8 +6,8 @@ import { fetchAgents } from '@/renderer/src/redux/slices/agentsSlice'
 import { selectHiddenAgentIds } from '@/renderer/src/redux/slices/settingsSlice'
 import { getHiddenAgentsLabel } from '@/renderer/src/utils/getHiddenAgentsLabel'
 
+import { AgentFoldersMenu } from './AgentFoldersMenu'
 import { AgentItem } from './AgentItem'
-import { HiddenAgentsMenu } from './HiddenAgentsMenu'
 
 /**
  * Sidebar section listing detected AI agents.
@@ -107,24 +107,31 @@ export const AgentsSection = function AgentsSection(): React.ReactElement {
           </details>
         )}
         {/* A sibling trigger keeps menu clicks independent of the disclosure. */}
-        <HiddenAgentsMenu
+        <AgentFoldersMenu
           agents={hiddenInstalled}
           focusFallbackRef={headingRef}
         />
       </div>
 
-      {missingAgents.length > 0 && (
-        <details className="mt-4">
-          <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-            {missingAgents.length} not installed
-          </summary>
-          <div className="mt-2 space-y-1 opacity-50">
-            {missingAgents.map((agent) => (
-              <AgentItem key={agent.id} agent={agent} />
-            ))}
-          </div>
-        </details>
-      )}
+      <div className="relative">
+        {missingAgents.length > 0 && (
+          <details className="mt-4">
+            <summary className="min-h-6 mr-7 content-center rounded-md text-xs text-muted-foreground cursor-pointer hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+              {missingAgents.length} not installed
+            </summary>
+            <div className="mt-2 space-y-1 opacity-50">
+              {missingAgents.map((agent) => (
+                <AgentItem key={agent.id} agent={agent} />
+              ))}
+            </div>
+          </details>
+        )}
+        <AgentFoldersMenu
+          agents={missingAgents}
+          group="unused"
+          focusFallbackRef={headingRef}
+        />
+      </div>
     </div>
   )
 }

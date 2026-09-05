@@ -30,6 +30,8 @@ import type {
   RankingFilter,
   RemoveAllFromAgentOptions,
   RemoveAllFromAgentResult,
+  RemoveEmptyAgentFolderOptions,
+  RemoveEmptyAgentFolderResult,
   RestoreDeletedSkillOptions,
   RestoreDeletedSkillResult,
   SearchQuery,
@@ -103,6 +105,10 @@ export interface IpcInvokeContract {
     result: RestoreDeletedSkillResult
   }
   'agents:getAll': { args: []; result: Agent[] }
+  'agents:removeEmptyFolder': {
+    args: [RemoveEmptyAgentFolderOptions]
+    result: RemoveEmptyAgentFolderResult
+  }
   'source:getStats': { args: []; result: SourceStats }
   'files:list': { args: [AbsolutePath]; result: SkillFile[] }
   'files:read': { args: [AbsolutePath]; result: SkillFileContent | null }
