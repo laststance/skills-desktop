@@ -4,6 +4,7 @@ import { SegmentedControl } from '@/renderer/src/components/shared/segmented-con
 import { Button } from '@/renderer/src/components/ui/button'
 import { useDraftRangeSetting } from '@/renderer/src/hooks/useDraftRangeSetting'
 import { useUpdateSettings } from '@/renderer/src/hooks/useUpdateSettings'
+import { cn } from '@/renderer/src/lib/utils'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectPreviewAppearanceSettings } from '@/renderer/src/redux/slices/settingsSlice'
 import {
@@ -156,6 +157,7 @@ interface RangeSettingControlProps {
   max: number
   draft: number
   isDefault: boolean
+  isCompact?: boolean
   formatValue: (value: number) => string
   onValueChange: (value: number) => void
   onReset: () => void
@@ -169,6 +171,7 @@ interface RangeSettingControlProps {
  * @param max - Slider upper bound.
  * @param draft - Current draft value driving slider + badge.
  * @param isDefault - Disables Reset when the draft already equals the default.
+ * @param isCompact - Keeps the value and reset inline for the three comparable Section sliders.
  * @param formatValue - Renders the value badge text.
  * @param onValueChange - Slider change handler.
  * @param onReset - Reset-to-default handler.
@@ -182,13 +185,19 @@ const RangeSettingControl = function RangeSettingControl({
   max,
   draft,
   isDefault,
+  isCompact = false,
   formatValue,
   onValueChange,
   onReset,
 }: RangeSettingControlProps): React.ReactElement {
   return (
-    <div className="flex max-w-md flex-col gap-2">
-      <div className="flex items-center gap-3">
+    <div
+      className={cn(
+        'flex max-w-md gap-2',
+        isCompact ? 'items-center' : 'flex-col',
+      )}
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <SettingRangeInput
           value={draft}
           min={min}
@@ -198,7 +207,12 @@ const RangeSettingControl = function RangeSettingControl({
           onValueChange={onValueChange}
         />
 
-        <span className="w-20 whitespace-nowrap text-right text-sm tabular-nums text-muted-foreground">
+        <span
+          className={cn(
+            'shrink-0 whitespace-nowrap text-right text-sm tabular-nums text-muted-foreground',
+            isCompact ? 'w-10' : 'w-20',
+          )}
+        >
           {formatValue(draft)}
         </span>
       </div>
@@ -208,10 +222,10 @@ const RangeSettingControl = function RangeSettingControl({
         size="sm"
         onClick={onReset}
         disabled={isDefault}
-        className="w-fit"
+        className="w-fit shrink-0"
         aria-label={`Reset to default: ${label}`}
       >
-        Reset to default
+        {isCompact ? 'Reset' : 'Reset to default'}
       </Button>
     </div>
   )
@@ -434,9 +448,10 @@ function SectionOpacityControl({
   )
 
   return (
-    <div className="space-y-2">
+    <div className="grid max-w-md grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-3">
       <div className="text-sm font-medium">{control.label}</div>
       <RangeSettingControl
+        isCompact
         label={`${control.label} opacity`}
         min={SECTION_OPACITY_MIN_PERCENT}
         max={SECTION_OPACITY_MAX_PERCENT}
