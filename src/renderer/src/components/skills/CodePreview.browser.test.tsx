@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
@@ -51,6 +51,7 @@ function makeHookReturn(overrides: {
   activeFile?: AbsolutePath | null
   content?: PreviewContent
   loading?: boolean
+  loadFailed?: boolean
   setActiveFile?: (path: AbsolutePath | null) => Promise<void>
 }) {
   return {
@@ -59,6 +60,7 @@ function makeHookReturn(overrides: {
     setActiveFile: overrides.setActiveFile ?? vi.fn(),
     content: overrides.content ?? { kind: 'empty' },
     loading: overrides.loading ?? false,
+    loadFailed: overrides.loadFailed ?? false,
   }
 }
 
@@ -117,6 +119,25 @@ describe('CodePreview', () => {
     await expect
       .element(screen.getByText('No preview files found'))
       .toBeInTheDocument()
+  })
+
+  test('explains an unreadable folder instead of claiming the skill has no files', async () => {
+    // Arrange -- a failed list leaves `files` empty, so this must not be
+    // mistaken for the ordinary "no previewable files" empty state.
+    mockUseCodePreview.mockReturnValue(
+      makeHookReturn({ loading: false, files: [], loadFailed: true }),
+    )
+
+    // Act
+    const screen = await renderCodePreview()
+
+    // Assert
+    await expect
+      .element(screen.getByText("Cannot read this skill's files"))
+      .toBeInTheDocument()
+    expect(
+      screen.container.textContent?.includes('No preview files found'),
+    ).toBe(false)
   })
 
   it('renders a tab for every previewable file once the list has loaded', async () => {

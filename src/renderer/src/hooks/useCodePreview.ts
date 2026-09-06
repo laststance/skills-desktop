@@ -25,6 +25,7 @@ interface UseCodePreviewReturn {
   setActiveFile: (path: AbsolutePath | null) => Promise<void>
   content: PreviewContent
   loading: boolean
+  loadFailed: boolean
 }
 
 /**
@@ -39,6 +40,7 @@ interface UseCodePreviewReturn {
  * - setActiveFile: change the active file and load its content
  * - content: discriminated union describing how the renderer should display the file
  * - loading: true until the initial file list has been fetched for the current skill
+ * - loadFailed: true when that fetch rejected, so the pane can explain instead of spinning
  * @example
  * const { files, content, setActiveFile } = useCodePreview('/skills/tdd')
  * // content.kind === 'text' | 'image' | 'binary' | 'empty'
@@ -50,6 +52,7 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
     null,
   )
   const [content, setContent] = useState<PreviewContent>({ kind: 'empty' })
+  const [loadFailed, setLoadFailed] = useState(false)
   const prevSkillPathRef = useRef(skillPath)
   // Mirror of userSelectedFile readable synchronously from the initial-load
   // effect. The effect must check the *current* selection when its async IPC
@@ -61,6 +64,14 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
     userSelectedFileRef.current = null
     setUserSelectedFile(null)
     setContent({ kind: 'empty' })
+    // Without this, `loading` is a lie on the way BACK to a skill: A -> B -> A
+    // leaves `loadedPath` at A across the detour, so the return switch computes
+    // `loading === false` while A is still re-listing -- and the reset above has
+    // just blanked `content`, so a file that has text renders as having none for
+    // one IPC round-trip. Nulling it keeps the spinner up until the new list
+    // lands, which is what `loading` claims to mean.
+    setLoadedPath(null)
+    setLoadFailed(false)
   }
 
   const loading = loadedPath !== skillPath
@@ -68,9 +79,26 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
 
   useEffect(() => {
     let cancelled = false
+    // Distinguishes the two failures the catch below can see. A rejected list
+    // leaves the pane with nothing to show; a rejected content read leaves a
+    // perfectly good tab bar that must stay on screen.
+    let listSucceeded = false
+    // Stronger than `cancelled`, and needed because it closes a window
+    // `cancelled` cannot: the ref is reassigned during the RENDER of the next
+    // skill, while `cancelled` is only set at commit, when React runs this
+    // effect's cleanup. A rejection landing between those two points would see
+    // `cancelled === false` and write this skill's failure over the next one's
+    // state. That matters for `loadFailed` specifically: every other value here
+    // is overwritten by the next skill's own load, but `loadFailed` is cleared
+    // only by the render-phase reset, which has already run by then -- so a
+    // stale `true` would strand a readable skill on the unavailable pane.
+    const isStaleSkill = (): boolean => prevSkillPathRef.current !== skillPath
     async function loadFiles(): Promise<void> {
       const fileList = await window.electron.files.list(skillPath)
       if (cancelled) return
+      /* v8 ignore next -- unreachable under test for the same reason it exists: the window it closes opens between React's render phase (where prevSkillPathRef is reassigned) and its commit phase (where this effect's cleanup sets `cancelled`), and `rerender` runs both synchronously, so `cancelled` always wins in the harness */
+      if (isStaleSkill()) return
+      listSucceeded = true
       setFiles(fileList)
       setLoadedPath(skillPath)
       const first = fileList[0]
@@ -80,9 +108,43 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
       }
       const initial = await loadContentForFile(first)
       if (cancelled || userSelectedFileRef.current !== null) return
+      // The sibling guard above cannot stand in for this one: the render-phase
+      // reset nulls `userSelectedFileRef`, so it catches a stale CLICK but never
+      // a stale SKILL. Without this, the previous skill's file text lands under
+      // the next skill's tab bar -- misattributed content, which is worse than
+      // the blank pane the reset would otherwise leave.
+      /* v8 ignore next -- unreachable under test for the same reason it exists: the window it closes opens between React's render phase (where prevSkillPathRef is reassigned) and its commit phase (where this effect's cleanup sets `cancelled`), and `rerender` runs both synchronously, so `cancelled` always wins in the harness */
+      if (isStaleSkill()) return
       setContent(initial)
     }
-    loadFiles()
+    // `files.list` rejects when the main process refuses the path: `validatePath`
+    // runs OUTSIDE `listSkillFiles`' own swallow, and a skill reached through an
+    // agent symlink that points off-tree resolves outside `getAllowedBases()`.
+    // Without this catch the rejection floats, `loadedPath` never advances, and
+    // `loading` stays true forever -- a spinner with no error and no retry.
+    // The catch stays broad rather than wrapping only the list await: narrowing
+    // it would leave every later rejection floating again, which is the bug.
+    loadFiles().catch((error: unknown) => {
+      // The UI states the cause in plain language; DevTools gets the real one.
+      console.warn('[preview] failed to load skill files:', error)
+      if (cancelled) return
+      /* v8 ignore next -- unreachable under test for the same reason it exists: the window it closes opens between React's render phase (where prevSkillPathRef is reassigned) and its commit phase (where this effect's cleanup sets `cancelled`), and `rerender` runs both synchronously, so `cancelled` always wins in the harness */
+      if (isStaleSkill()) return
+      setLoadedPath(skillPath)
+      if (!listSucceeded) {
+        setLoadFailed(true)
+        return
+      }
+      // The list landed, so `files` is valid and its tabs must keep rendering;
+      // only this one file's content is missing. Same stale-click guard the
+      // success path uses: a click during the initial read already committed
+      // `userSelectedFile` and painted that file, so blanking here would wipe
+      // the tab the user is looking at. (The `!listSucceeded` arm above needs
+      // no guard -- `files` is empty there, so `setActiveFile` rejects every
+      // path and the ref is provably still null.)
+      if (userSelectedFileRef.current !== null) return
+      setContent({ kind: 'empty' })
+    })
     return () => {
       cancelled = true
     }
@@ -104,7 +166,18 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
       return
     }
     // react-doctor-disable-next-line react-doctor/async-defer-await -- the post-await guards (below) deliberately re-read refs AFTER the async gap to drop a stale click or a skill switch that happened DURING the load; they cannot move before the await.
-    const next = await loadContentForFile(file)
+    const next = await loadContentForFile(file).catch(
+      (error: unknown): PreviewContent => {
+        // The UI falls back to the empty pane; DevTools gets the real cause.
+        console.warn('[preview] failed to read selected file:', error)
+        // Degrade to empty, don't rethrow. The selection committed above, so
+        // this tab is already highlighted: leaving `content` alone would
+        // caption the PREVIOUS file's text with THIS file's tab. An empty pane
+        // is honest, misattributed text is not. Rethrowing is not an option
+        // either -- `handleValueChange` drops the promise, so it would float.
+        return { kind: 'empty' }
+      },
+    )
     // After the await, two things may have happened out of order:
     // (a) the user picked a different file (stale click loses)
     // (b) the skill itself switched (whole state already reset)
@@ -116,7 +189,7 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
     setContent(next)
   }
 
-  return { files, activeFile, setActiveFile, content, loading }
+  return { files, activeFile, setActiveFile, content, loading, loadFailed }
 }
 
 /**
