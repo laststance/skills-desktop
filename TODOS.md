@@ -1368,7 +1368,10 @@ FIXED: the source-backed path now assembles the entry under
 `fs.rename`. Until that rename lands nothing parses the directory as a
 tombstone — `tombstoneIdSchema` and `startupCleanup`'s name parse both require
 a leading `\d+`, which the prefix breaks — so a kill in the window leaves the
-source parked in the trash instead of swept away. No reader changed.
+source parked in the trash instead of swept away. One reader changed:
+`startupCleanup` now also refuses to sweep a published entry that still holds a
+`source/` or `local-copies/` payload but whose manifest will not parse (see the
+fsync entry below for why that state is still reachable).
 
 Writing the manifest first was considered and rejected: it swaps this window
 for a worse one, an entry claiming a skill is trashed while the source is still
@@ -1402,6 +1405,27 @@ with one rename. Kept out of that PR because four of its failure arms embed
 `${entryDir}` in user-facing "stranded in ..." messages, so staging means
 rewriting every message against a maybe-published path — a second state machine
 a reviewer would have to hold at the same time.
+
+**Depends on / blocked by:** Nothing.
+
+### P3. Trash writes are not fsynced, so a power cut can still tear a manifest
+
+`fs.writeFile` returns once the bytes are in the page cache. The publish rename
+is a journalled metadata op, so a power cut (not a process kill — a kill leaves
+the page cache intact) can land the renamed directory while losing the
+`manifest.json` contents inside it, producing a tombstone-named entry the app
+cannot restore.
+
+MITIGATED, not fixed: `startupCleanup` now keeps such an entry instead of
+sweeping it, so the consequence is a stray directory rather than a deleted
+skill. The likelihood is untouched.
+
+**Fix direction:** fsync the manifest before the publish rename and fsync
+`TRASH_DIR` after it. Deliberately not done in PR #311: durability ordering is
+a policy for every write in the trash and lock paths, not one call site, and
+doing it here alone would imply a guarantee the neighbouring writes do not
+make. It also means writing the manifest through a `FileHandle`, which moves
+the write off the module-level `fs.writeFile` the durability suite observes.
 
 **Depends on / blocked by:** Nothing.
 

@@ -439,9 +439,22 @@ function coerceTrashError(error: unknown, messagePrefix: string): TrashError {
       )
 }
 
+/**
+ * Where a failed source move left the user's only copy, and why it is stuck there.
+ * Carries the location rather than a flag: the caller turns this into a
+ * "preserved in <path>" hint, and a hint naming the wrong directory sends the
+ * user hunting an empty path during a data-loss incident.
+ */
+type ManualRecoveryLocation =
+  /** Inside `<stagingDir>/source`, so publishing the entry keeps it findable. */
+  | { reason: string; inEntry: true }
+  /** Beside the original path, so the staged entry holds nothing worth publishing. */
+  | { reason: string; strandedAt: AbsolutePath }
+
 interface SourceMoveFailure {
   error: TrashError
-  preserveEntryDirForManualRecovery: boolean
+  /** Absent when the original is back where it started — nothing to preserve. */
+  manualRecovery?: ManualRecoveryLocation
 }
 
 /**
@@ -450,10 +463,9 @@ interface SourceMoveFailure {
  * @param entrySourceDir - Destination `<stagingDir>/source` directory.
  * @returns
  * - `null` once the source sits inside the entry
- * - a failure object otherwise; its `preserveEntryDirForManualRecovery` tells
- *   the caller the entry now holds the user's only copy. The caller, not this
- *   function, appends the "preserved in <path>" hint — only it knows where the
- *   publish rename left the data.
+ * - a failure object otherwise; its {@link ManualRecoveryLocation} names where
+ *   the user's only copy ended up. The caller, not this function, appends the
+ *   "preserved in <path>" hint — only it knows where the publish rename landed.
  * @example await moveSourceIntoTrashEntry('/Users/me/.agents/skills/x', '/Users/me/.agents/.trash/.staging-id/source')
  */
 async function moveSourceIntoTrashEntry(
@@ -474,7 +486,11 @@ async function moveSourceIntoTrashEntry(
         await moveDirectoryNoOverwrite(entrySourceDir, sourcePath)
       } catch {
         return {
-          preserveEntryDirForManualRecovery: true,
+          manualRecovery: {
+            reason:
+              'staged source validation failed and restoring the original path failed',
+            inEntry: true,
+          },
           error: coerceTrashError(
             identityError,
             'Failed to validate staged source',
@@ -482,7 +498,6 @@ async function moveSourceIntoTrashEntry(
         }
       }
       return {
-        preserveEntryDirForManualRecovery: false,
         error: coerceTrashError(
           identityError,
           'Failed to validate staged source',
@@ -494,7 +509,7 @@ async function moveSourceIntoTrashEntry(
     const code = errorCode(error)
 
     if (code === 'EXDEV') {
-      let preserveEntryDirForManualRecovery = false
+      let manualRecovery: ManualRecoveryLocation | undefined
       const siblingStagePath = buildSiblingStagePath(sourcePath, 'trash-source')
       try {
         // Cross-device fallback still starts with a same-directory rename, so
@@ -509,7 +524,6 @@ async function moveSourceIntoTrashEntry(
         } catch (identityError) {
           await moveDirectoryNoOverwrite(siblingStagePath, sourcePath)
           return {
-            preserveEntryDirForManualRecovery: false,
             error: coerceTrashError(
               identityError,
               'Failed to validate staged source',
@@ -517,7 +531,11 @@ async function moveSourceIntoTrashEntry(
           }
         }
         await copyDirectoryNoOverwrite(siblingStagePath, entrySourceDir)
-        preserveEntryDirForManualRecovery = true
+        manualRecovery = {
+          reason:
+            'source EXDEV fallback copied to trash but removing original failed',
+          inEntry: true,
+        }
         await fs.rm(siblingStagePath, { recursive: true, force: true })
         return null
       } catch (fallbackError) {
@@ -526,11 +544,18 @@ async function moveSourceIntoTrashEntry(
           await moveDirectoryNoOverwrite(siblingStagePath, sourcePath)
         } catch (restoreError) {
           if (errorCode(restoreError) !== 'ENOENT') {
-            preserveEntryDirForManualRecovery = true
+            // The sibling stage is the sole copy only when the copy into the
+            // entry never ran, so `??=` leaves a completed entry copy in
+            // place — that one is published, and the better thing to name.
+            manualRecovery ??= {
+              reason:
+                'reviewed source staged beside its original path and could not be restored',
+              strandedAt: siblingStagePath,
+            }
           }
         }
         return {
-          preserveEntryDirForManualRecovery,
+          manualRecovery,
           error: new TrashError(
             `Failed to move source to trash (cross-device): ${extractErrorMessage(fallbackError)}`,
             errorCode(fallbackError),
@@ -541,13 +566,11 @@ async function moveSourceIntoTrashEntry(
 
     if (code === 'ENOENT') {
       return {
-        preserveEntryDirForManualRecovery: false,
         error: new TrashError('Skill not found (already deleted?)', code),
       }
     }
 
     return {
-      preserveEntryDirForManualRecovery: false,
       error: new TrashError(
         `Failed to move source to trash: ${extractErrorMessage(error)}`,
         code,
@@ -1160,19 +1183,20 @@ async function moveSourceBackedToTrash(
     reviewedIdentity,
   )
   if (sourceMoveFailure !== null) {
-    // Rollback symlinks, but never delete an entry that now holds the recovery
-    // copy created by the EXDEV fallback — publish that one instead, since the
-    // marker readers only ever scan published entry names.
+    // Rollback symlinks, but never delete an entry that now holds the only
+    // surviving copy. Which path the hint names is decided here, not inside the
+    // move: only this side knows where the publish rename landed, and a
+    // data-loss message pointing at an empty path is worse than no path at all.
     await rollbackRemovedSymlinks(recordedSymlinks)
-    if (sourceMoveFailure.preserveEntryDirForManualRecovery) {
+    const { manualRecovery } = sourceMoveFailure
+    if (manualRecovery !== undefined && 'inEntry' in manualRecovery) {
+      // The copy sits in the staged entry, so publish it — marker readers only
+      // ever scan published entry names.
       const recoveryDir = await publishManualRecoveryEntry(
         stagingDir,
         entryDir,
-        'source EXDEV fallback copied to trash but removing original failed',
+        manualRecovery.reason,
       )
-      // Built here, not inside the move: the publish lands under either name,
-      // and a data-loss message pointing at a path that does not exist is
-      // worse than one with no path at all.
       throw new TrashError(
         `${sourceMoveFailure.error.message}; source copy preserved in ${join(recoveryDir, 'source')}`,
         sourceMoveFailure.error.code,
@@ -1182,6 +1206,14 @@ async function moveSourceBackedToTrash(
     await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => {
       // Staged cleanup is best-effort — caller already has the real error.
     })
+    if (manualRecovery !== undefined) {
+      // Nothing publishable was ever built: the reviewed source is parked
+      // beside its original path, so that is the path the user needs.
+      throw new TrashError(
+        `${sourceMoveFailure.error.message}; source preserved in ${manualRecovery.strandedAt}`,
+        sourceMoveFailure.error.code,
+      )
+    }
     throw sourceMoveFailure.error
   }
 
@@ -1250,10 +1282,7 @@ async function moveSourceBackedToTrash(
     const prefix = restoreSourceFailed
       ? `Failed to finalize trash entry; source is stranded in ${strandedSourceDir}`
       : 'Failed to finalize trash entry'
-    throw new TrashError(
-      `${prefix}: ${entryPublishMessage}`,
-      entryPublishCode,
-    )
+    throw new TrashError(`${prefix}: ${entryPublishMessage}`, entryPublishCode)
   }
 
   const id = tombstoneId(entryName)
@@ -1909,6 +1938,60 @@ async function finalizeRestore(
 }
 
 /**
+ * The only names inside a trash entry that are not user data. Listed this way
+ * round on purpose: a payload directory added later (`source`, `local-copies`,
+ * whatever comes next) is protected without anyone remembering to widen a list.
+ */
+const TRASH_ENTRY_BOOKKEEPING_NAMES = ['manifest.json', MANUAL_RECOVERY_MARKER]
+
+/**
+ * Check whether a trash entry still holds skill data, for {@link classifyEntryForSweep}.
+ * @param entryDir - Trash entry directory under TRASH_DIR.
+ * @returns true when anything but bookkeeping is inside, or it cannot be listed.
+ * @example await hasTrashEntryPayload('/Users/me/.agents/.trash/1729-task-abc12345')
+ */
+async function hasTrashEntryPayload(entryDir: AbsolutePath): Promise<boolean> {
+  try {
+    const names = await fs.readdir(entryDir)
+    return names.some((name) => !TRASH_ENTRY_BOOKKEEPING_NAMES.includes(name))
+  } catch {
+    // Cannot list it, so cannot prove it is empty — same posture as
+    // {@link hasManualRecoveryMarker}: an unreadable check keeps the entry.
+    return true
+  }
+}
+
+/**
+ * Decide whether {@link startupCleanup} may sweep one orphan trash entry.
+ * Both skips guard the same thing — a directory that may hold the user's only
+ * copy — so they share one pass and keep the plan loop to a single await.
+ * @param entryDir - Trash entry directory under TRASH_DIR.
+ * @returns `'sweep'`, or the reason the entry has to stay.
+ * @example await classifyEntryForSweep('/Users/me/.agents/.trash/1729-task-abc12345') // 'sweep'
+ */
+async function classifyEntryForSweep(
+  entryDir: AbsolutePath,
+): Promise<'sweep' | 'manual-recovery' | 'unreadable-manifest'> {
+  if (await hasManualRecoveryMarker(entryDir)) return 'manual-recovery'
+  try {
+    const parsedJson: unknown = JSON.parse(
+      await fs.readFile(join(entryDir, 'manifest.json'), 'utf-8'),
+    )
+    manifestSchema.parse(parsedJson)
+    return 'sweep'
+  } catch {
+    // Without a readable manifest {@link restore} can never bring the entry
+    // back, so sweeping it is a permanent delete rather than an expiry. A
+    // manifest written just before the publish rename is not guaranteed to
+    // have reached stable storage, so treat the payload as the user's only
+    // copy and keep it for manual recovery.
+    return (await hasTrashEntryPayload(entryDir))
+      ? 'unreadable-manifest'
+      : 'sweep'
+  }
+}
+
+/**
  * Sweep every orphan trash entry on `app.whenReady`.
  *
  * The undo window is a session concept: the Redux undoToast that paired with a
@@ -1917,7 +2000,8 @@ async function finalizeRestore(
  * here its lock record is treated as still-wanted, so a skill the user deleted
  * yesterday keeps coming back on `skills -g update`.
  *
- * Entries flagged for manual recovery are skipped — those hold the only
+ * Entries flagged for manual recovery are skipped, as are entries still
+ * holding content behind an unreadable manifest — both may be the only
  * surviving copy of user data. Removal goes through {@link evict} so the
  * lock-prune hook covers both deletion exits, not just the in-session timer.
  * Runs with concurrency bound 4 so a storm of orphans doesn't stall startup.
@@ -1942,15 +2026,21 @@ export async function startupCleanup(): Promise<void> {
 
   const toSweep: TombstoneId[] = []
   let manualRecoverySkippedCount = 0
+  let unreadableManifestSkippedCount = 0
   for (const entryName of entries) {
     if (parseDeletedAtFromEntryName(entryName) === null) {
       // Unparseable name = foreign file; do not touch.
       continue
     }
     const entryDir = join(TRASH_DIR, entryName)
-    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- marker reads only build the toSweep plan and mutate manualRecoverySkippedCount; the actual eviction runs via a concurrency-4 pool below.
-    if (await hasManualRecoveryMarker(entryDir)) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- the classify reads only build the toSweep plan and mutate the skip counters; the actual eviction runs via a concurrency-4 pool below.
+    const disposition = await classifyEntryForSweep(entryDir)
+    if (disposition === 'manual-recovery') {
       manualRecoverySkippedCount++
+      continue
+    }
+    if (disposition === 'unreadable-manifest') {
+      unreadableManifestSkippedCount++
       continue
     }
     toSweep.push(tombstoneId(entryName))
@@ -1975,6 +2065,7 @@ export async function startupCleanup(): Promise<void> {
   console.info('trashService: startupCleanup', {
     sweptCount: toSweep.length,
     manualRecoverySkippedCount,
+    unreadableManifestSkippedCount,
     totalEntries: entries.length,
     durationMs: Date.now() - startTime,
   })

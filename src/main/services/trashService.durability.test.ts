@@ -3,10 +3,22 @@ import { lstat, mkdir, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 
-import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from 'vitest'
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  test,
+  vi,
+} from 'vitest'
 
 import { tombstoneIdSchema } from '@/main/ipc/ipc-schemas'
-import type { AbsolutePath, FilesystemEntryIdentity, SkillName } from '@/shared/types'
+import type {
+  AbsolutePath,
+  FilesystemEntryIdentity,
+  SkillName,
+} from '@/shared/types'
 
 import { filesystemIdentityFromStats } from './filesystemIdentity'
 
@@ -15,7 +27,9 @@ import { filesystemIdentityFromStats } from './filesystemIdentity'
 // home before `trashService`'s top-level `TRASH_DIR` is computed, and
 // `validatePath` resolves through `realpathSync`, so an uncanonicalized
 // `/var/folders/...` would read as an escape from its own declared base.
-const sharedHome = realpathSync(mkdtempSync(join(tmpdir(), 'skills-trash-dur-')))
+const sharedHome = realpathSync(
+  mkdtempSync(join(tmpdir(), 'skills-trash-dur-')),
+)
 const sharedSourceDir = join(sharedHome, '.agents', 'skills')
 const sharedTrashDir = join(sharedHome, '.agents', '.trash')
 const sharedAgentCursor = join(sharedHome, '.cursor', 'skills')
@@ -30,10 +44,14 @@ const fsHooks = vi.hoisted(() => ({
   onManifestWrite: null as null | (() => Promise<void>),
   /** Rejects that write when set, to drive the publish-rollback arm. */
   failManifestWrite: false,
-  /** Absolute destination whose `fs.cp` must fail, to strand the source. */
-  failCopyToDestination: null as null | string,
+  /** Decides which `fs.cp` destinations must fail, to strand the source. */
+  failCopyWhen: null as null | ((destination: string) => boolean),
   /** Rejects the publish rename when set, to drive its fallback arm. */
   failPublishRename: false,
+  /** Forces the source move into the trash to report a cross-device rename. */
+  failCrossDeviceMove: false,
+  /** Absolute entry directory whose `fs.readdir` must fail, to blind the sweep. */
+  failReaddirFor: null as null | string,
 }))
 
 vi.mock('node:os', async () => {
@@ -70,10 +88,20 @@ vi.mock('node:fs/promises', async () => {
     return actual.writeFile(path, ...rest)
   }
   const copySpy: typeof actual.cp = async (source, destination, ...rest) => {
-    if (destination === fsHooks.failCopyToDestination) {
+    if (fsHooks.failCopyWhen?.(String(destination)) === true) {
       throw Object.assign(new Error('copy refused'), { code: 'EACCES' })
     }
     return actual.cp(source, destination, ...rest)
+  }
+  // Single-arg on purpose: `trashService` only ever lists TRASH_DIR and one
+  // entry directory, both without options, so the overload set adds nothing.
+  const readdirSpy = async (
+    path: Parameters<typeof actual.readdir>[0],
+  ): Promise<string[]> => {
+    if (String(path) === fsHooks.failReaddirFor) {
+      throw Object.assign(new Error('listing refused'), { code: 'EACCES' })
+    }
+    return actual.readdir(path)
   }
   // Scoped to the publish rename by its destination shape: the same `rename`
   // moves the source into the staged entry, and failing that would abort long
@@ -85,6 +113,16 @@ vi.mock('node:fs/promises', async () => {
     ) {
       throw Object.assign(new Error('publish refused'), { code: 'EACCES' })
     }
+    // Only the move into the trash goes cross-device; the sibling stage rename
+    // stays in the source dir, which is what the EXDEV fallback relies on.
+    if (
+      fsHooks.failCrossDeviceMove &&
+      String(destination).startsWith(sharedTrashDir)
+    ) {
+      throw Object.assign(new Error('cross-device move refused'), {
+        code: 'EXDEV',
+      })
+    }
     return actual.rename(source, destination)
   }
   return {
@@ -92,6 +130,7 @@ vi.mock('node:fs/promises', async () => {
     default: actual,
     writeFile: writeFileSpy,
     cp: copySpy,
+    readdir: readdirSpy,
     rename: renameSpy,
   }
 })
@@ -139,8 +178,10 @@ describe('moveToTrash durability across a kill', () => {
     __clearEvictTimersForTests()
     fsHooks.onManifestWrite = null
     fsHooks.failManifestWrite = false
-    fsHooks.failCopyToDestination = null
+    fsHooks.failCopyWhen = null
     fsHooks.failPublishRename = false
+    fsHooks.failCrossDeviceMove = false
+    fsHooks.failReaddirFor = null
     await rm(sharedTrashDir, { recursive: true, force: true })
     await rm(sharedSourceDir, { recursive: true, force: true })
     await rm(sharedAgentCursor, { recursive: true, force: true })
@@ -170,11 +211,7 @@ describe('moveToTrash durability across a kill', () => {
     }
 
     // Act
-    const result = await moveToTrash(
-      skillName,
-      sourcePath,
-      reviewedIdentity,
-    )
+    const result = await moveToTrash(skillName, sourcePath, reviewedIdentity)
 
     // Assert
     expect(
@@ -222,7 +259,7 @@ describe('moveToTrash durability across a kill', () => {
     const reviewedIdentity = await reviewedIdentityFor(sourcePath)
     fsHooks.onManifestWrite = async () => {}
     fsHooks.failManifestWrite = true
-    fsHooks.failCopyToDestination = sourcePath
+    fsHooks.failCopyWhen = (destination) => destination === sourcePath
 
     // Act
     const moveError = await moveToTrash(
@@ -249,6 +286,88 @@ describe('moveToTrash durability across a kill', () => {
     })
   })
 
+  test('names the folder beside the original path when nothing ever reached the trash entry', async () => {
+    // Arrange
+    // Cross-device delete whose copy into the entry fails and whose restore
+    // fails too. The reviewed folder is parked next to where it used to live,
+    // and the trash entry holds nothing — so pointing the user at the entry
+    // would send them to an empty path during a data-loss incident.
+    const { moveToTrash } = await trashServicePromise
+    const skillName: SkillName = 'stranded-beside-original'
+    const sourcePath = await makeSourceSkill(skillName)
+    const reviewedIdentity = await reviewedIdentityFor(sourcePath)
+    fsHooks.failCrossDeviceMove = true
+    fsHooks.failCopyWhen = (destination) =>
+      destination === sourcePath || destination.endsWith('/source')
+
+    // Act
+    const moveError = await moveToTrash(
+      skillName,
+      sourcePath,
+      reviewedIdentity,
+    ).catch((error: unknown) => error)
+
+    // Assert
+    expect(existsSync(sourcePath)).toBe(false)
+    const siblingStageNames = (await readdir(sharedSourceDir)).filter((name) =>
+      name.startsWith(`.${skillName}.trash-source-`),
+    )
+    expect(siblingStageNames).toHaveLength(1)
+    const siblingStageDir = join(sharedSourceDir, siblingStageNames[0])
+    expect(existsSync(join(siblingStageDir, 'SKILL.md'))).toBe(true)
+    // Nothing publishable was built, so the staged entry is dropped rather
+    // than left behind as an empty tombstone the sweep must then protect.
+    expect(await readdir(sharedTrashDir)).toEqual([])
+    expect(moveError).toMatchObject({
+      message: expect.stringContaining(
+        `source preserved in ${siblingStageDir}`,
+      ),
+    })
+  })
+
+  test('keeps a published entry whose manifest did not survive the crash, because its source is the only copy', async () => {
+    // Arrange
+    // The publish rename is atomic, but the manifest bytes it publishes are
+    // not: a power cut can land the directory entry and lose the file
+    // contents. `restore` cannot read this entry, so sweeping it would be a
+    // permanent delete rather than an expiry.
+    const { startupCleanup } = await trashServicePromise
+    const entryDir = join(
+      sharedTrashDir,
+      '1700000000000-torn-manifest-aaaaaaaa',
+    )
+    const strandedSkillFile = join(entryDir, 'source', 'SKILL.md')
+    await mkdir(join(entryDir, 'source'), { recursive: true })
+    await writeFile(strandedSkillFile, '# torn-manifest\n', 'utf-8')
+    await writeFile(
+      join(entryDir, 'manifest.json'),
+      '{"schemaVersion":2,"kind":"source-',
+      'utf-8',
+    )
+
+    // Act
+    await startupCleanup()
+
+    // Assert
+    expect(existsSync(strandedSkillFile)).toBe(true)
+  })
+
+  test('keeps an entry it cannot even list, because a failed check is not proof the entry is empty', async () => {
+    // Arrange
+    // No manifest and no listing. Guessing "empty" here costs the user their
+    // skill; guessing "occupied" costs a stray directory under ~/.agents.
+    const { startupCleanup } = await trashServicePromise
+    const entryDir = join(sharedTrashDir, '1700000000000-unlistable-bbbbbbbb')
+    await mkdir(entryDir, { recursive: true })
+    fsHooks.failReaddirFor = entryDir
+
+    // Act
+    await startupCleanup()
+
+    // Assert
+    expect(existsSync(entryDir)).toBe(true)
+  })
+
   test('still points the user at the stranded copy when even publishing it fails', async () => {
     // Arrange
     // Last resort: the source could not go back and the entry could not be
@@ -264,7 +383,7 @@ describe('moveToTrash durability across a kill', () => {
       .mockImplementation(() => {})
     fsHooks.onManifestWrite = async () => {}
     fsHooks.failManifestWrite = true
-    fsHooks.failCopyToDestination = sourcePath
+    fsHooks.failCopyWhen = (destination) => destination === sourcePath
     fsHooks.failPublishRename = true
 
     // Act
