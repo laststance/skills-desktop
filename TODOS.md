@@ -1435,6 +1435,33 @@ the write off the module-level `fs.writeFile` the durability suite observes.
 
 **Depends on / blocked by:** Nothing.
 
+### P3. A bookkeeping name that is a directory reads as empty to the sweep guard
+
+`hasTrashEntryPayload` decides "this entry still holds user data" by name:
+anything that is not `manifest.json` or `.manual-recovery` counts as payload.
+That direction is deliberate (a payload directory added later is protected
+without anyone widening a list), but it leaves the inverse corner open. An
+entry whose only content is a _directory_ named `manifest.json` lists as all
+bookkeeping, so `classifyEntryForSweep` returns `'sweep'` and `evict` removes
+it recursively.
+
+NOT REACHED BY THE APP, and deliberately left open in PR #311. Every write to
+that path is `fs.writeFile`, so no code path and no torn write can produce a
+directory there — a truncated write yields a short file, never a directory
+inode. Reaching it needs a user hand-creating the directory, and in that case
+the swept content is something the app never wrote and `restore` could never
+restore, because restore needs a parseable manifest at exactly that path. Any
+entry that also holds real payload (`source`, `local-copies`) is already kept.
+
+**Fix direction:** `fs.readdir(entryDir, { withFileTypes: true })` and treat a
+bookkeeping name as bookkeeping only when `isFile()`. Blocked on the shared
+`readdirSpy` in `trashService.durability.test.ts`, which narrows `readdir` to
+one argument on purpose ("Single-arg on purpose") and is routed through by
+seven tests — widening it means working around the `typeof actual.readdir`
+overload set.
+
+**Depends on / blocked by:** Nothing.
+
 ### P2. A kill landing mid-write can still truncate the lock
 
 Upstream writes `.skill-lock.json` with a plain `writeFile` (no temp+rename)
