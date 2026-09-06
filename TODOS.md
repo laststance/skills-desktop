@@ -1269,6 +1269,9 @@ state either way. See `docs/adr/0001-prune-the-skill-lock-at-trash-eviction.md`
 
 ### P1. `startupCleanup` evicts live undo windows, with no single-instance lock
 
+**Status:** Fixed (second-instance half). The grace re-arm was investigated and
+deliberately not implemented — see below.
+
 The 24h age floor is gone, so every orphan tombstone is evicted on launch. Two
 consequences review flagged: a crash or force-quit inside the 15s undo window
 now destroys staged data on next launch (where 24h of manual Finder recovery
@@ -1276,12 +1279,33 @@ used to exist), and with no `requestSingleInstanceLock` anywhere in `src/main/`
 a second instance evicts the first instance's live tombstones out from under
 its on-screen Undo toast.
 
-**Fix direction:** re-derive each orphan's remaining grace from
-`manifest.deletedAt` and re-arm the existing evict timer for the remainder,
-evicting immediately only when the window has genuinely elapsed. Add a
-single-instance lock. Stale comments to fix at the same time:
-`src/main/index.ts:328-329` and `src/main/ipc/ipc-schemas.ts:95` both still
-describe the removed 24h TTL.
+**Fixed:** `src/main/index.ts` now takes `app.requestSingleInstanceLock()`
+immediately after the `E2E_USERDATA_DIR` override (Chromium keys the singleton
+on `userData`, so asking earlier would lock the developer's real profile and
+make every isolated e2e launch contend with a running dev app). A losing
+instance calls `app.quit()` AND returns at the top of the `whenReady` callback,
+because `app.quit()` does not cancel an already-registered `ready`. Covered by
+`e2e/spec/single-instance-lock.e2e.ts`, which asserts both that the second
+process exits on its own and that the first instance's staged tombstone
+survives; with the lock removed that second assertion fails. The two stale 24h
+comments (`src/main/index.ts`, `src/main/ipc/ipc-schemas.ts`) are corrected.
+
+**Not implemented — re-deriving grace from `manifest.deletedAt`:** the review
+proposed re-arming the evict timer for each orphan's remaining window. Checked
+against the code: restore is driven only by the Redux `UndoToast`, there is no
+trash-browsing UI and no `listTrash` IPC channel, and the bulk-delete copy
+promises restore "from the notification". So after a restart nothing in the app
+can restore a tombstone, and re-arming would keep an unrestorable directory
+alive for at most 15 more seconds without enabling any recovery. It also
+contradicts `trashService.lockPrune.test.ts:196`, whose rationale (a held
+tombstone keeps its lock record alive, so `skills -g update` reinstalls the
+deleted skill) still stands. The second-instance exposure this was co-filed
+with is closed by the lock above.
+
+**Reopen when:** a persistent restore affordance exists — a trash view, or an
+undo window rehydrated from disk on launch. At that point grace re-arming
+becomes meaningful, because there would finally be something to restore with.
+That is a feature, not a follow-up to this entry.
 
 **Depends on / blocked by:** Nothing.
 
