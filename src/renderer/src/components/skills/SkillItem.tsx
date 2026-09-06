@@ -359,6 +359,18 @@ const SkillTitleRow = function SkillTitleRow({
             orphan
           </span>
         )}
+        {skill.isUnreadable && (
+          <span
+            // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- composed "unreadable" text status badge collapsed to one labelled graphic via role="img"+aria-label. <img> needs a src and cannot contain the badge text.
+            role="img"
+            data-testid={`skill-unreadable-badge-${skill.name}`}
+            className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0"
+            aria-label="Unreadable skill — SKILL.md could not be read"
+            title="SKILL.md could not be read, so this folder cannot be confirmed as a skill — check its permissions"
+          >
+            unreadable
+          </span>
+        )}
       </h3>
       {(showAddButton || showGStackBadge) && (
         <div className="flex shrink-0 items-center gap-1">
@@ -649,6 +661,11 @@ export const SkillItem = function SkillItem({
             // definition, so the order below is purely for the partial-fail override.
             !didPartialFail &&
               skill.isOrphan &&
+              'border-l-2 border-l-amber-400/60',
+            // Unreadable accent — same amber "needs a look" treatment as orphan,
+            // so the row that kept its place still reads as unresolved.
+            !didPartialFail &&
+              skill.isUnreadable &&
               'border-l-2 border-l-amber-400/60',
             // In-flight fade while the row is part of an active bulk op.
             isInFlight && 'opacity-50 duration-150',

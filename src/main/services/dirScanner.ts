@@ -2,48 +2,72 @@ import { readdir } from 'fs/promises'
 import { join } from 'path'
 
 import { SOURCE_DIR } from '@/main/constants'
+import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
 import type { AbsolutePath, SkillName } from '@/shared/types'
 
-import { isValidSkillDir } from './skillValidation'
+import { probeSkillDir } from './skillValidation'
 
 /**
- * Entry representing a valid skill directory on disk.
- * @example { name: 'tdd-workflow', path: '/Users/me/.agents/skills/tdd-workflow' }
+ * Entry representing a skill directory on disk that the scan is keeping.
+ * @example { name: 'tdd-workflow', path: '/Users/me/.agents/skills/tdd-workflow', isUnreadable: false }
  */
 export interface SkillDirEntry {
   /** Directory name, matches the skill's identifier. @example "tdd-workflow" */
   name: SkillName
   /** Absolute path to the skill directory on disk. */
   path: AbsolutePath
+  /**
+   * `true` when `SKILL.md` could not be probed, so the app cannot confirm this
+   * is a real skill. The entry is still listed — dropping it would make a
+   * permissions problem look like the user deleting the skill.
+   */
+  isUnreadable: boolean
 }
 
 /**
- * List all valid skill directories under ~/.agents/skills/.
- * Filters out hidden entries (e.g. .git, .DS_Store) and directories
- * without a SKILL.md file. Used by skillScanner and syncService
- * to avoid duplicating the readdir + filter + validate pattern.
- * @returns Array of { name, path } for each valid skill directory
- * @example
- * listValidSourceSkillDirs()
- * // => [{ name: 'theme-generator', path: '/Users/x/.agents/skills/theme-generator' }]
+ * Outcome of listing `~/.agents/skills/`, separating an empty folder from one we could not open.
+ * `unreadable` exists because the previous `catch { return [] }` reported an
+ * `EACCES` on the source directory as "no skills installed".
+ * @example { status: 'unreadable', code: 'EACCES' }
  */
-export async function listValidSourceSkillDirs(): Promise<SkillDirEntry[]> {
-  try {
-    const entries = await readdir(SOURCE_DIR, { withFileTypes: true })
-    const dirs = entries.filter(
-      (e) => e.isDirectory() && !e.name.startsWith('.'),
-    )
+export type SourceSkillDirListing =
+  | { status: 'listed'; entries: SkillDirEntry[] }
+  | { status: 'unreadable'; code: string | undefined }
 
-    const results: SkillDirEntry[] = []
-    for (const dir of dirs) {
-      const skillPath = join(SOURCE_DIR, dir.name)
-      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- isValidSkillDir probe per entry building the valid-dirs list; bounded local-fs reads kept sequential to stay fd-bounded.
-      if (await isValidSkillDir(skillPath)) {
-        results.push({ name: dir.name, path: skillPath })
-      }
-    }
-    return results
-  } catch {
-    return []
+/**
+ * List the skill directories under ~/.agents/skills/, keeping unprovable entries instead of dropping them.
+ * Filters out hidden entries (e.g. .git, .DS_Store) and directories the probe
+ * proved are not skills. Used by skillScanner and syncService to avoid
+ * duplicating the readdir + filter + probe pattern.
+ * @returns `listed` with one entry per kept directory, or `unreadable` when the source directory itself could not be read
+ * @example
+ * await listSourceSkillDirs()
+ * // => { status: 'listed', entries: [{ name: 'theme-generator', path: '/Users/x/.agents/skills/theme-generator', isUnreadable: false }] }
+ */
+export async function listSourceSkillDirs(): Promise<SourceSkillDirListing> {
+  let entries
+  try {
+    entries = await readdir(SOURCE_DIR, { withFileTypes: true })
+  } catch (error) {
+    // A source directory that does not exist yet is a real empty state — a
+    // fresh install before the first `skills add`. Anything else is a failed look.
+    if (isMissingPathError(error)) return { status: 'listed', entries: [] }
+    return { status: 'unreadable', code: errorCode(error) }
   }
+
+  const dirs = entries.filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+
+  const results: SkillDirEntry[] = []
+  for (const dir of dirs) {
+    const skillPath = join(SOURCE_DIR, dir.name)
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- probeSkillDir per entry building the kept-dirs list; bounded local-fs reads kept sequential to stay fd-bounded.
+    const probe = await probeSkillDir(skillPath)
+    if (probe === 'not-a-skill') continue
+    results.push({
+      name: dir.name,
+      path: skillPath,
+      isUnreadable: probe === 'unreadable',
+    })
+  }
+  return { status: 'listed', entries: results }
 }

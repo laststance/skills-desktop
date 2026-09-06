@@ -17,7 +17,7 @@ import type {
   SymlinkStatus,
 } from '@/shared/types'
 
-import { listValidSourceSkillDirs } from './dirScanner'
+import { listSourceSkillDirs } from './dirScanner'
 import { filesystemIdentityFromStats } from './filesystemIdentity'
 import { parseSkillMetadata } from './metadataParser'
 import { getSkillLockPath } from './skillLockService'
@@ -281,10 +281,14 @@ export async function scanSkills(): Promise<Skill[]> {
  * @returns Array of source skills
  */
 async function scanSourceSkills(): Promise<Skill[]> {
-  const validDirs = await listValidSourceSkillDirs()
+  const listing = await listSourceSkillDirs()
+  // Degrade to an empty source list when the directory itself could not be
+  // read, exactly as the old swallow did — but the emptiness is now stated
+  // here, and `SourceStats.isUnreadable` is what tells the user about it.
+  const sourceDirs = listing.status === 'listed' ? listing.entries : []
 
   const skills = await Promise.all(
-    validDirs.map(async (dir): Promise<Skill | null> => {
+    sourceDirs.map(async (dir): Promise<Skill | null> => {
       try {
         const [metadata, symlinks, stats] = await Promise.all([
           parseSkillMetadata(dir.path),
@@ -301,6 +305,9 @@ async function scanSourceSkills(): Promise<Skill[]> {
           symlinks,
           isSource: true,
           isOrphan: false,
+          // Kept in the list on purpose: `SKILL.md` could not be probed, so the
+          // row carries the doubt instead of disappearing like a deleted skill.
+          isUnreadable: dir.isUnreadable,
         }
       } catch (error) {
         // Race: another process deleted the source dir after readdir/stat but
@@ -602,17 +609,21 @@ export async function getSourceStats(): Promise<SourceStats> {
     // Independent reads of SOURCE_DIR (dir list + stat + recursive size). Only
     // stat() can reject; the other two are total, so Promise.all surfaces the
     // exact same error to the outer catch as the sequential version did.
-    const [validDirs, stats, totalBytes] = await Promise.all([
-      listValidSourceSkillDirs(),
+    const [listing, stats, totalBytes] = await Promise.all([
+      listSourceSkillDirs(),
       stat(SOURCE_DIR),
       calculateDirectorySize(SOURCE_DIR),
     ])
 
     return {
       path: SOURCE_DIR,
-      skillCount: validDirs.length,
+      // Counts what the list renders, unreadable rows included, so the sidebar
+      // count and the list cannot disagree.
+      skillCount: listing.status === 'listed' ? listing.entries.length : 0,
       totalSize: formatBytes(totalBytes),
       lastModified: stats.mtime.toISOString(),
+      // The one place a "0 skills" reading is a lie gets to say so.
+      isUnreadable: listing.status === 'unreadable',
     }
   } catch {
     return {

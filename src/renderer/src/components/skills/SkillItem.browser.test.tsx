@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -1248,5 +1248,37 @@ describe('SkillItem protection', () => {
         screen.getByRole('button', { name: /^Unlink task from agent$/i }),
       )
       .toBeInTheDocument()
+  })
+})
+
+describe('SkillItem unreadable badge', () => {
+  test('marks a source skill whose SKILL.md could not be read instead of hiding the row', async () => {
+    // Arrange: the scan kept the row and flagged it, rather than dropping it.
+    const unreadableSkill = makeSkill({ isUnreadable: true })
+
+    // Act
+    const { screen } = await renderSkillItem(unreadableSkill)
+
+    // Assert: the row is present AND says why it could not be confirmed, so a
+    // permissions problem never reads as the skill having been deleted.
+    await expect
+      .element(screen.getByTestId('skill-unreadable-badge-task'))
+      .toBeInTheDocument()
+    await expect
+      .element(
+        screen.getByLabelText('Unreadable skill — SKILL.md could not be read'),
+      )
+      .toBeInTheDocument()
+  })
+
+  test('leaves a skill with a readable SKILL.md unbadged', async () => {
+    // Arrange
+    const readableSkill = makeSkill()
+
+    // Act
+    const { screen } = await renderSkillItem(readableSkill)
+
+    // Assert: the amber warning must not appear on every healthy row.
+    expect(screen.getByTestId('skill-unreadable-badge-task').query()).toBeNull()
   })
 })

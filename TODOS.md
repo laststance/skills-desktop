@@ -1230,9 +1230,9 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 ## skill-lock prune eng-review follow-ups (2026-09-06)
 
-### P2. Inaccessible source skills must not vanish silently from the list
+### ~~P2. Inaccessible source skills must not vanish silently from the list~~
 
-**Status:** Deferred; the prune feature guards its own destructive path separately (it uses a dedicated ENOENT/ENOTDIR existence check per lock key, not the shared validator), so this is an independent pre-existing bug.
+**Status:** FIXED (PR E). Was: deferred; the prune feature guards its own destructive path separately (it uses a dedicated ENOENT/ENOTDIR existence check per lock key, not the shared validator), so this was an independent pre-existing bug.
 
 **Finding:** `isValidSkillDir` (`src/main/services/skillValidation.ts:15-22`) ends in `catch { return false }`, so `EACCES`, `EIO`, and `ELOOP` on a skill's `SKILL.md` are all reported as "not a valid skill directory". `listValidSourceSkillDirs` then drops the entry, and the skill disappears from the list with nothing shown to explain why. The same swallow exists one level up in `dirScanner.ts:45-47`, where any `readdir` failure returns `[]` — indistinguishable from "no skills installed".
 
@@ -1241,6 +1241,36 @@ This is the source-directory counterpart of the already-fixed P1 "Inaccessible s
 **Fix direction:** Make both `isValidSkillDir` and `listValidSourceSkillDirs` distinguish "succeeded and absent" from "could not determine". Keep today's degrade-to-empty behavior at the four production call sites (`skillScanner.ts:284`, `skillScanner.ts:606`, `syncService.ts:78`, `syncService.ts:145`) but write it explicitly, and surface an indeterminate result in the UI rather than rendering it as absence. `dirScanner.ts` has no test file today, so the change needs one.
 
 **Depends on / blocked by:** Nothing. Fully independent of the prune work.
+
+**What shipped:** `probeSkillDir` in `skillValidation.ts` returns
+`valid | not-a-skill | unreadable`, applying the repo's settled rule that only
+`ENOENT`/`ENOTDIR` prove absence. `listValidSourceSkillDirs` became
+`listSourceSkillDirs`, returning `{ status: 'listed', entries } | { status:
+'unreadable', code }`; kept entries carry `isUnreadable`. The three surfaces:
+
+- A source skill whose `SKILL.md` cannot be probed **stays in the list** with an
+  amber `unreadable` badge, mirroring the existing `orphan` badge.
+- A source directory that cannot be read shows "Folder could not be read" in
+  `SourceCard` instead of "0 skills", which was the actual lie.
+- `getSourceStats.skillCount` counts what the list renders (unreadable rows
+  included) so the sidebar and the list cannot disagree.
+
+`isValidSkillDir` kept its exact boolean behaviour and became a one-line wrapper.
+That was deliberate: its other four callers (`ipc/skills.ts:167`, `:716`,
+`skillScanner.ts:486`, `trashService.ts:275`) are all guards in front of a
+destructive or fanning-out action, and for them an unreadable probe must stay
+fail-closed. Widening the shared function would have forced "fail-closed" to be
+re-stated at each of those sites instead of inherited.
+
+Sync deliberately does NOT fan out an unreadable skill (`syncableSourceSkills`
+in `syncService.ts`): creating agent symlinks for a directory we cannot confirm
+is a skill is an action on a guess. That is a behaviour statement now, not the
+side effect of a swallowed error.
+
+**NOT covered:** the outer `catch` in `getSourceStats` still returns zeros with
+no flag. It fires only when `stat(SOURCE_DIR)` or the recursive size walk
+rejects, which an `EACCES` on the directory does not cause (`readdir` fails
+first and is now classified). Left alone as a separate pre-existing swallow.
 
 ## skill-lock prune /review follow-ups (2026-09-06)
 

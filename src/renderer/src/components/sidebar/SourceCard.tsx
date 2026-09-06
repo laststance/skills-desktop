@@ -215,12 +215,19 @@ export const SourceCard = function SourceCard(): React.ReactElement {
           </div>
           <div className="hover:text-primary transition-colors">
             <p className="text-sm font-medium truncate">~/.agents/skills</p>
-            {sourceStats && (
-              <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                <span>{sourceStats.skillCount} skills</span>
-                <span>{sourceStats.totalSize}</span>
-              </div>
-            )}
+            {sourceStats &&
+              (sourceStats.isUnreadable ? (
+                // A folder we could not open must never be reported as "0 skills" —
+                // that reads as "you have no skills" and sends users reinstalling.
+                <div className="mt-2 text-xs text-amber-300">
+                  Folder could not be read — check its permissions
+                </div>
+              ) : (
+                <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                  <span>{sourceStats.skillCount} skills</span>
+                  <span>{sourceStats.totalSize}</span>
+                </div>
+              ))}
           </div>
         </CardContent>
       </Card>

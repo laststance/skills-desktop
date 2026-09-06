@@ -301,6 +301,14 @@ export interface Skill {
    * to gate delete/unlink buttons (see issue #127, cleanup flow #71).
    */
   isOrphan: boolean
+  /**
+   * `true` when the skill's `SKILL.md` could not be probed (`EACCES`, `EIO`,
+   * `ELOOP` — anything but `ENOENT`/`ENOTDIR`), so the app cannot confirm the
+   * directory is a real skill. The row is rendered anyway: dropping it made a
+   * permissions problem look exactly like the user deleting the skill.
+   * Set by `scanSourceSkills()` in `src/main/services/skillScanner.ts`.
+   */
+  isUnreadable?: boolean
   /** Short source identifier in owner/repo format. @example "vercel-labs/skills" */
   source?: RepositoryId
   /** Full URL to the source repository. @example "https://github.com/vercel-labs/skills.git" */
@@ -492,6 +500,13 @@ export interface SourceStats {
   totalSize: HumanFileSize
   /** ISO 8601 last-modified timestamp. @example "2026-04-10T08:00:00.000Z" */
   lastModified: IsoTimestamp
+  /**
+   * `true` when `~/.agents/skills/` itself could not be read, which makes the
+   * `skillCount: 0` above a placeholder rather than a fact. The sidebar shows
+   * the failure instead of the count so an unreadable folder is never
+   * presented as an empty one.
+   */
+  isUnreadable?: boolean
 }
 
 /**
