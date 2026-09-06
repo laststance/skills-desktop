@@ -91,6 +91,21 @@ describe('LockPruneBanner', () => {
     ).toBeNull()
   })
 
+  test('counts only the records it can actually prune, not every stale one', async () => {
+    // Arrange / Act — one prunable record alongside one the scan blocked. The
+    // all-blocked case above passes under any gate that hides the banner when
+    // something is blocked; only a mix proves the sentence counts the prunable
+    // subset rather than every record needing attention.
+    const { screen } = await renderBanner(['plain-stale'], false, [
+      { name: 'agent-copy-skill', reason: 'agent-copy' },
+    ])
+
+    // Assert
+    await expect
+      .element(screen.getByText(/still tracks 1 deleted skill,/))
+      .toBeVisible()
+  })
+
   test('opens the prune dialog from the announcement CTA', async () => {
     // Arrange
     const { screen, store } = await renderBanner(['old-skill'])
