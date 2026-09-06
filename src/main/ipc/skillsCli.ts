@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron'
 
+import { runLockWrite } from '@/main/services/skillLockService'
 import { skillsCliService } from '@/main/services/skillsCliService'
 import { IPC_CHANNELS } from '@/shared/ipc-channels'
 import type { InstallProgress } from '@/shared/types'
@@ -26,7 +27,10 @@ export function registerSkillsCliHandlers(): void {
     skillsCliService.on('progress', progressHandler)
 
     try {
-      return await skillsCliService.install(options)
+      // Serialized against prune: both make the CLI rewrite .skill-lock.json,
+      // and `writeSkillLock` has no temp+rename — an interleaved write parses
+      // as an EMPTY lock, dropping every skill the user installed.
+      return await runLockWrite(async () => skillsCliService.install(options))
     } finally {
       skillsCliService.removeListener('progress', progressHandler)
     }

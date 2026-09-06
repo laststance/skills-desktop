@@ -628,3 +628,59 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     expect(fake.kill).toHaveBeenCalledWith('SIGTERM')
   })
 })
+
+describe('skillsCliService.removeSkills', () => {
+  beforeEach(() => {
+    vi.useRealTimers()
+    vi.resetModules()
+    spawnMock.mockReset()
+  })
+
+  afterEach(() => {
+    process.env.PATH = ORIGINAL_PATH
+  })
+
+  it('removes several skills in one global, non-interactive invocation', async () => {
+    // Arrange — one spawn per bulk delete instead of one per skill: each child
+    // read-modify-writes the same .skill-lock.json with no temp+rename.
+    simulateCli({ stdout: 'Done!\n', exitCode: 0 })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    await skillsCliService.removeSkills(['alpha', 'beta'])
+
+    // Assert
+    expect(spawnMock).toHaveBeenCalledTimes(1)
+    expect(spawnMock).toHaveBeenCalledWith(
+      'npx',
+      [
+        `skills@${SKILLS_CLI_VERSION}`,
+        'remove',
+        'alpha',
+        'beta',
+        '--global',
+        '-y',
+      ],
+      expect.objectContaining({
+        env: expect.objectContaining({ FORCE_COLOR: '0' }),
+      }),
+    )
+  })
+
+  it('emits no install progress while pruning in the background', async () => {
+    // Arrange — a prune runs from trash eviction, which the user never started.
+    // Forwarding "Installing skill files..." would light up the Marketplace UI.
+    simulateCli({ stdout: 'Removing skill files...\n', exitCode: 0 })
+    const { skillsCliService } = await import('./skillsCliService')
+    const progressEvents: InstallProgress[] = []
+    skillsCliService.on('progress', (progress: InstallProgress) => {
+      progressEvents.push(progress)
+    })
+
+    // Act
+    await skillsCliService.removeSkills(['alpha'])
+
+    // Assert
+    expect(progressEvents).toEqual([])
+  })
+})

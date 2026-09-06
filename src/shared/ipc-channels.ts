@@ -40,6 +40,10 @@ export const IPC_CHANNELS = {
   SKILLS_RESTORE_DELETED: 'skills:restoreDeletedSkill',
   SKILLS_DELETE_PROGRESS: 'skills:deleteProgress',
 
+  // Skill lock (skills CLI .skill-lock.json) — stale-record detection + prune
+  SKILLS_LOCK_SCAN_STALE: 'skills:lock:scanStale',
+  SKILLS_LOCK_PRUNE: 'skills:lock:prune',
+
   // Sync
   SYNC_PREVIEW: 'sync:preview',
   SYNC_EXECUTE: 'sync:execute',

@@ -192,6 +192,10 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
     }),
   ]),
 
+  // Skill lock prune — names are raw lock keys, never joined into a path here,
+  // but the traversal guard stays as defense in depth for the CLI child args.
+  'skills:lock:prune': z.tuple([z.object({ names: z.array(skillNameString) })]),
+
   // Skills operations
   'agents:removeEmptyFolder': z.tuple([
     z.object({

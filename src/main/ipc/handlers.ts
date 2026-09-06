@@ -6,6 +6,7 @@ import { registerFolderHandlers } from './folder'
 import { registerLeaderboardHandlers } from './leaderboard'
 import { registerSettingsHandlers } from './settings'
 import { registerShellHandlers } from './shell'
+import { registerSkillLockHandlers } from './skillLock'
 import { registerSkillsHandlers } from './skills'
 import { registerSkillsCliHandlers } from './skillsCli'
 import { registerSourceHandlers } from './source'
@@ -19,6 +20,7 @@ import { registerWindowHandlers } from './window'
  */
 export function registerAllHandlers(): void {
   registerSkillsHandlers()
+  registerSkillLockHandlers()
   registerSkillsCliHandlers()
   registerCliCommandHandlers()
   registerLeaderboardHandlers()

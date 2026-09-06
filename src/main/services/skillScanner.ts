@@ -1,5 +1,4 @@
 import { lstat, readdir, readFile, stat } from 'fs/promises'
-import { homedir } from 'os'
 import { join } from 'path'
 
 import { AGENTS, SOURCE_DIR } from '@/main/constants'
@@ -21,6 +20,7 @@ import type {
 import { listValidSourceSkillDirs } from './dirScanner'
 import { filesystemIdentityFromStats } from './filesystemIdentity'
 import { parseSkillMetadata } from './metadataParser'
+import { getSkillLockPath } from './skillLockService'
 import { isValidSkillDir } from './skillValidation'
 import {
   checkSkillSymlinks,
@@ -167,8 +167,9 @@ async function scanAgentSymlinkStatusHits(
  */
 async function readSkillLock(): Promise<Map<SkillName, SkillLockEntry>> {
   try {
-    const lockPath = join(homedir(), '.agents', '.skill-lock.json')
-    const content = await readFile(lockPath, 'utf-8')
+    // Shared resolver, not a hardcoded path: `XDG_STATE_HOME` moves the lock,
+    // and display attribution has to read the same file prune writes to.
+    const content = await readFile(getSkillLockPath(), 'utf-8')
     const parsed = JSON.parse(content) as SkillLockContent
     return new Map(Object.entries(parsed.skills ?? {}))
   } catch {

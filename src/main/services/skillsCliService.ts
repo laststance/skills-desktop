@@ -16,6 +16,7 @@ import type {
   InstallProgress,
   ProgressPercent,
   SearchQuery,
+  SkillName,
 } from '@/shared/types'
 
 /**
@@ -176,6 +177,26 @@ class SkillsCliService extends EventEmitter {
     }
 
     return result
+  }
+
+  /**
+   * Remove skills from the global lock using `npx skills remove <names...>`.
+   * Called by {@link skillLockService} to prune records whose skill is already
+   * gone from disk; the CLI owns the lock format, so the app never writes it.
+   *
+   * Deliberately passes no `onOutput` callback: `parseProgressFromOutput`
+   * would emit install-phase progress into the Marketplace UI from a
+   * background prune the user never started.
+   * @param names - Raw lock keys, as they appear in `.skill-lock.json`.
+   * @returns CLI result. Note the exit code is NOT authoritative — `remove.ts`
+   *   logs per-item failures and still exits 0, so callers verify by
+   *   re-reading the lock.
+   * @example
+   * removeSkills(['old-skill'])
+   * // spawns: npx skills@x.y.z remove old-skill --global -y
+   */
+  async removeSkills(names: readonly SkillName[]): Promise<CliCommandResult> {
+    return this.execCli(['remove', ...names, CLI_FLAGS.GLOBAL, CLI_FLAGS.YES])
   }
 
   /**

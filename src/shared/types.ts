@@ -1420,3 +1420,38 @@ export interface SyncExecuteResult {
   /** Per-item action details for displaying a sync diff in the UI. */
   details: SyncResultItem[]
 }
+
+/**
+ * Result of scanning the skills CLI lock for records whose skill is gone.
+ * `unavailable` means one side of the comparison could not be read (the lock,
+ * or `~/.agents/skills` itself). It is deliberately NOT "0 stale": with half
+ * the picture missing, every surviving record would look deletable.
+ * @example { status: 'ok', names: ['old-skill'] }
+ * @example { status: 'unavailable' }
+ */
+export type StaleLockScanResult =
+  { status: 'ok'; names: SkillName[] } | { status: 'unavailable' }
+
+/**
+ * IPC argument for `skills:lock:prune` — the exact stale lock records the user
+ * confirmed in the dialog. Main revalidates every name before acting on it.
+ * @example { names: ['old-skill', 'another-gone-skill'] }
+ */
+export interface PruneLockEntriesOptions {
+  /** Raw lock keys to remove (never sanitized — the CLI looks them up by raw name). */
+  names: SkillName[]
+}
+
+/**
+ * Outcome of a prune, decided by re-reading the lock rather than by the CLI's
+ * exit code (`skills remove` logs per-item failures and still exits 0).
+ * @example { pruned: ['old-skill'], skipped: [], failed: [] }
+ */
+export interface PruneLockEntriesResult {
+  /** Records that are gone from the lock after the run. */
+  pruned: SkillName[]
+  /** Names dropped before the call: already untracked, or the skill came back. */
+  skipped: SkillName[]
+  /** Records that survived the removal, or that could not be verified. */
+  failed: SkillName[]
+}

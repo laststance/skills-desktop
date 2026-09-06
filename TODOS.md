@@ -1227,3 +1227,17 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 **Fix direction:** Detect localStorage write failure in `redux-persist`'s storage adapter and show a one-time warning: "Skill lock list could not be saved — it will be lost when the app closes."
 
 **Why deferred:** Electron with a real user profile almost always has a working localStorage. Private mode is not a primary Electron use case.
+
+## skill-lock prune eng-review follow-ups (2026-09-06)
+
+### P2. Inaccessible source skills must not vanish silently from the list
+
+**Status:** Deferred; the prune feature guards its own destructive path separately (it uses a dedicated ENOENT/ENOTDIR existence check per lock key, not the shared validator), so this is an independent pre-existing bug.
+
+**Finding:** `isValidSkillDir` (`src/main/services/skillValidation.ts:15-22`) ends in `catch { return false }`, so `EACCES`, `EIO`, and `ELOOP` on a skill's `SKILL.md` are all reported as "not a valid skill directory". `listValidSourceSkillDirs` then drops the entry, and the skill disappears from the list with nothing shown to explain why. The same swallow exists one level up in `dirScanner.ts:45-47`, where any `readdir` failure returns `[]` — indistinguishable from "no skills installed".
+
+This is the source-directory counterpart of the already-fixed P1 "Inaccessible symlink targets must not be treated as cleanup-ready broken links": the repo decided there that only `ENOENT` and `ENOTDIR` mean "genuinely absent", and the same rule belongs here.
+
+**Fix direction:** Make both `isValidSkillDir` and `listValidSourceSkillDirs` distinguish "succeeded and absent" from "could not determine". Keep today's degrade-to-empty behavior at the four production call sites (`skillScanner.ts:284`, `skillScanner.ts:606`, `syncService.ts:78`, `syncService.ts:145`) but write it explicitly, and surface an indeterminate result in the UI rather than rendering it as absence. `dirScanner.ts` has no test file today, so the change needs one.
+
+**Depends on / blocked by:** Nothing. Fully independent of the prune work.

@@ -18,6 +18,7 @@ import type {
   HttpUrl,
   InstallOptions,
   InstallProgress,
+  PruneLockEntriesOptions,
   RankingFilter,
   RemoveAllFromAgentOptions,
   RemoveEmptyAgentFolderOptions,
@@ -81,6 +82,10 @@ contextBridge.exposeInMainWorld('electron', {
     onDeleteProgress: createIpcListener<DeleteProgressPayload>(
       IPC_CHANNELS.SKILLS_DELETE_PROGRESS,
     ),
+    // Skills CLI lock file: find records whose skill is gone, then remove them.
+    scanStaleLockEntries: async () => typedInvoke('skills:lock:scanStale'),
+    pruneLockEntries: async (options: PruneLockEntriesOptions) =>
+      typedInvoke('skills:lock:prune', options),
   },
   // Agents API
   agents: {
