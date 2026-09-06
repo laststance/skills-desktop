@@ -17,7 +17,7 @@ import type {
   SymlinkStatus,
 } from '@/shared/types'
 
-import { listValidSourceSkillDirs } from './dirScanner'
+import { listSourceSkillDirs } from './dirScanner'
 import { filesystemIdentityFromStats } from './filesystemIdentity'
 import { parseSkillMetadata } from './metadataParser'
 import { getSkillLockPath } from './skillLockService'
@@ -281,10 +281,14 @@ export async function scanSkills(): Promise<Skill[]> {
  * @returns Array of source skills
  */
 async function scanSourceSkills(): Promise<Skill[]> {
-  const validDirs = await listValidSourceSkillDirs()
+  const listing = await listSourceSkillDirs()
+  // Degrade to an empty source list when the directory itself could not be
+  // read, exactly as the old swallow did — but the emptiness is now stated
+  // here, and `SourceStats.isUnreadable` is what tells the user about it.
+  const sourceDirs = listing.status === 'listed' ? listing.entries : []
 
   const skills = await Promise.all(
-    validDirs.map(async (dir): Promise<Skill | null> => {
+    sourceDirs.map(async (dir): Promise<Skill | null> => {
       try {
         const [metadata, symlinks, stats] = await Promise.all([
           parseSkillMetadata(dir.path),
@@ -301,6 +305,9 @@ async function scanSourceSkills(): Promise<Skill[]> {
           symlinks,
           isSource: true,
           isOrphan: false,
+          // Kept in the list on purpose: `SKILL.md` could not be probed, so the
+          // row carries the doubt instead of disappearing like a deleted skill.
+          isUnreadable: dir.isUnreadable,
         }
       } catch (error) {
         // Race: another process deleted the source dir after readdir/stat but
@@ -598,29 +605,30 @@ export async function getSkill(skillName: SkillName): Promise<Skill | null> {
  * // => { path: '~/.agents/skills', skillCount: 5, totalSize: '2.3 MB' }
  */
 export async function getSourceStats(): Promise<SourceStats> {
-  try {
-    // Independent reads of SOURCE_DIR (dir list + stat + recursive size). Only
-    // stat() can reject; the other two are total, so Promise.all surfaces the
-    // exact same error to the outer catch as the sequential version did.
-    const [validDirs, stats, totalBytes] = await Promise.all([
-      listValidSourceSkillDirs(),
-      stat(SOURCE_DIR),
-      calculateDirectorySize(SOURCE_DIR),
-    ])
+  // Three independent reads of SOURCE_DIR. `listSourceSkillDirs` and
+  // `calculateDirectorySize` both swallow their own failures, and `stat` is
+  // settled here rather than allowed to reject the whole batch: when
+  // SOURCE_DIR's parent is not traversable BOTH the listing and the stat fail,
+  // and a shared catch would have thrown away the `unreadable` fact and
+  // rendered the folder as an honest-looking "0 skills" — the exact lie this
+  // function exists to stop telling.
+  const [listing, stats, totalBytes] = await Promise.all([
+    listSourceSkillDirs(),
+    stat(SOURCE_DIR).catch(() => null),
+    calculateDirectorySize(SOURCE_DIR),
+  ])
 
-    return {
-      path: SOURCE_DIR,
-      skillCount: validDirs.length,
-      totalSize: formatBytes(totalBytes),
-      lastModified: stats.mtime.toISOString(),
-    }
-  } catch {
-    return {
-      path: SOURCE_DIR,
-      skillCount: 0,
-      totalSize: '0 B',
-      lastModified: new Date().toISOString(),
-    }
+  return {
+    path: SOURCE_DIR,
+    // Counts what the list renders, unreadable rows included, so the sidebar
+    // count and the list cannot disagree.
+    skillCount: listing.status === 'listed' ? listing.entries.length : 0,
+    totalSize: formatBytes(totalBytes),
+    // No consumer renders this today; "now" keeps the field a valid
+    // `IsoTimestamp` without widening the type for an unread value.
+    lastModified: (stats?.mtime ?? new Date()).toISOString(),
+    // The one place a "0 skills" reading is a lie gets to say so.
+    isUnreadable: listing.status === 'unreadable',
   }
 }
 

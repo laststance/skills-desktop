@@ -215,12 +215,22 @@ export const SourceCard = function SourceCard(): React.ReactElement {
           </div>
           <div className="hover:text-primary transition-colors">
             <p className="text-sm font-medium truncate">~/.agents/skills</p>
-            {sourceStats && (
-              <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                <span>{sourceStats.skillCount} skills</span>
-                <span>{sourceStats.totalSize}</span>
-              </div>
-            )}
+            {sourceStats &&
+              (sourceStats.isUnreadable ? (
+                // A folder we could not open must never be reported as "0 skills" —
+                // that reads as "you have no skills" and sends users reinstalling.
+                // `text-amber-400` is DESIGN.md's needs-review status-text hue;
+                // the `text-amber-300` exception is only for badge text sitting
+                // on an amber tint, and this notice has no background.
+                <div className="mt-2 text-xs text-amber-400">
+                  Folder could not be read — check its permissions
+                </div>
+              ) : (
+                <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                  <span>{sourceStats.skillCount} skills</span>
+                  <span>{sourceStats.totalSize}</span>
+                </div>
+              ))}
           </div>
         </CardContent>
       </Card>

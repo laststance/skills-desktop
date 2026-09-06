@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { SyncPreviewResult } from '@/shared/types'
@@ -340,5 +340,43 @@ describe('Sidebar → SourceCard sync', () => {
     await vi.waitFor(() => {
       expect(toastError).toHaveBeenCalledWith('Failed to preview sync')
     })
+  })
+})
+
+describe('Sidebar → SourceCard unreadable source folder', () => {
+  test('explains a source folder it could not open instead of reporting zero skills', async () => {
+    // Arrange: the main process could not readdir ~/.agents/skills.
+    mockSourceGetStats.mockResolvedValue({
+      path: '/Users/test/.agents/skills',
+      skillCount: 0,
+      totalSize: '0 B',
+      isUnreadable: true,
+    })
+
+    // Act
+    const { screen } = await renderSourceCard()
+
+    // Assert: "0 skills" would send the user reinstalling skills they still have.
+    await expect
+      .element(
+        screen.getByText('Folder could not be read — check its permissions'),
+      )
+      .toBeInTheDocument()
+    expect(screen.getByText('0 skills').query()).toBeNull()
+  })
+
+  test('shows the skill count for a source folder it could read', async () => {
+    // Arrange: the default stats stub reports a readable folder.
+
+    // Act
+    const { screen } = await renderSourceCard()
+
+    // Assert: the warning must not replace the count on a healthy folder.
+    await expect.element(screen.getByText('2 skills')).toBeInTheDocument()
+    expect(
+      screen
+        .getByText('Folder could not be read — check its permissions')
+        .query(),
+    ).toBeNull()
   })
 })

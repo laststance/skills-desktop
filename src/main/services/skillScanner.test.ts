@@ -319,34 +319,6 @@ describe('scanSkills local skill aggregation', () => {
     // Assert: the SKILL.md-less directory is excluded from the inventory.
     expect(skills).toHaveLength(0)
   })
-
-  it('skips directories without SKILL.md when listing valid source skills', async () => {
-    // Arrange: SOURCE_DIR holds one real folder "no-skill-md" that contains no
-    // SKILL.md file, so isValidSkillDir returns false for it. The source-dir
-    // lister must drop such a directory — a folder without SKILL.md is not a
-    // skill and must never be reported as an installable source.
-    readdirMock.mockImplementation(async (path: string) => {
-      if (path === '/mock/source/skills') {
-        return [
-          createDirent('no-skill-md', {
-            isDirectory: true,
-            isSymbolicLink: false,
-          }),
-        ]
-      }
-      return []
-    })
-    // No SKILL.md exists, so the stat probe for "no-skill-md/SKILL.md" throws
-    // ENOENT and isValidSkillDir resolves false for the candidate directory.
-    statMock.mockRejectedValue(new Error('ENOENT'))
-    const { listValidSourceSkillDirs } = await import('./dirScanner')
-
-    // Act
-    const sourceSkillDirs = await listValidSourceSkillDirs()
-
-    // Assert: the SKILL.md-less directory yields an empty source-skill list.
-    expect(sourceSkillDirs).toEqual([])
-  })
 })
 
 describe('scanSkills agent-only linked symlink surfacing', () => {
@@ -756,6 +728,188 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
       path: '/mock/source/skills/live-source',
       isSource: true,
     })
+  })
+
+  test('keeps a source skill whose SKILL.md could not be read and flags it for the list', async () => {
+    // Arrange: one readable source skill, one whose SKILL.md probe is refused.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        return [
+          createDirent('readable-source', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+          createDirent('locked-source', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills/readable-source/SKILL.md') {
+        return { isFile: () => true }
+      }
+      if (path === '/mock/source/skills/locked-source/SKILL.md') {
+        throw createFsError(`EACCES: ${path}`, 'EACCES')
+      }
+      throw createFsError(`ENOENT: ${path}`, 'ENOENT')
+    })
+    lstatMock.mockImplementation(async (path: string) => {
+      if (
+        path === '/mock/source/skills/readable-source' ||
+        path === '/mock/source/skills/locked-source'
+      ) {
+        return createDirectoryStats(path.length)
+      }
+      throw createFsError(`ENOENT: ${path}`, 'ENOENT')
+    })
+
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert: the locked skill stays in the inventory carrying the doubt, so a
+    // permissions problem cannot look like the user having deleted it.
+    expect(skills).toHaveLength(2)
+    expect(skills).toContainEqual(
+      expect.objectContaining({
+        name: 'locked-source',
+        isSource: true,
+        isUnreadable: true,
+      }),
+    )
+    expect(skills).toContainEqual(
+      expect.objectContaining({
+        name: 'readable-source',
+        isSource: true,
+        isUnreadable: false,
+      }),
+    )
+  })
+
+  test('reports an unreadable source directory in the stats instead of a zero skill count', async () => {
+    // Arrange: ~/.agents/skills exists but cannot be opened.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        throw createFsError(`EACCES: ${path}`, 'EACCES')
+      }
+      return []
+    })
+    statMock.mockResolvedValue({
+      isFile: () => false,
+      mtime: new Date('2026-04-10T08:00:00.000Z'),
+    })
+
+    const { getSourceStats } = await import('./skillScanner')
+
+    // Act
+    const stats = await getSourceStats()
+
+    // Assert: the sidebar needs to know the count is a placeholder, not a fact.
+    expect(stats.isUnreadable).toBe(true)
+    expect(stats.skillCount).toBe(0)
+  })
+
+  test('keeps the unreadable flag when the source directory cannot be stat-ed either', async () => {
+    // Arrange: SOURCE_DIR's parent is not traversable, so BOTH readdir and
+    // stat fail with EACCES — the case where a shared catch would have dropped
+    // the unreadable fact and rendered an honest-looking "0 skills".
+    readdirMock.mockImplementation(async (path: string) => {
+      throw createFsError(`EACCES: ${path}`, 'EACCES')
+    })
+    statMock.mockImplementation(async (path: string) => {
+      throw createFsError(`EACCES: ${path}`, 'EACCES')
+    })
+
+    const { getSourceStats } = await import('./skillScanner')
+
+    // Act
+    const stats = await getSourceStats()
+
+    // Assert: the warning survives, and the placeholder fields stay valid.
+    expect(stats.isUnreadable).toBe(true)
+    expect(stats.skillCount).toBe(0)
+    expect(stats.totalSize).toBe('0 B')
+    expect(typeof stats.lastModified).toBe('string')
+  })
+  test('leaves the unreadable flag off the stats for a source directory it could read', async () => {
+    // Arrange: one real source skill.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        return [
+          createDirent('readable-source', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills/readable-source/SKILL.md') {
+        return { isFile: () => true }
+      }
+      return {
+        isFile: () => false,
+        mtime: new Date('2026-04-10T08:00:00.000Z'),
+      }
+    })
+
+    const { getSourceStats } = await import('./skillScanner')
+
+    // Act
+    const stats = await getSourceStats()
+
+    // Assert: a healthy folder must never render the permissions warning.
+    expect(stats.isUnreadable).toBe(false)
+    expect(stats.skillCount).toBe(1)
+  })
+
+  test('lists no source skills when the source directory itself cannot be opened', async () => {
+    // Arrange: ~/.agents/skills exists but EACCES on open, and one agent still
+    // has a real local skill folder so an empty result cannot be a false pass.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        throw createFsError(`EACCES: ${path}`, 'EACCES')
+      }
+      if (path === '/mock/agents/codex/skills') {
+        return [
+          createDirent('local-only', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/agents/codex/skills/local-only/SKILL.md') {
+        return { isFile: () => true }
+      }
+      throw createFsError(`ENOENT: ${path}`, 'ENOENT')
+    })
+    lstatMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/agents/codex/skills/local-only') {
+        return createDirectoryStats(path.length)
+      }
+      throw createFsError(`ENOENT: ${path}`, 'ENOENT')
+    })
+
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert: the scan degrades to zero source skills rather than throwing —
+    // `SourceStats.isUnreadable` is what tells the user the list is a placeholder.
+    expect(skills.filter((skill) => skill.isSource)).toHaveLength(0)
+    expect(skills).toHaveLength(1)
+    expect(skills[0]).toEqual(
+      expect.objectContaining({ name: 'local-only', isSource: false }),
+    )
   })
 
   it('merges orphan broken slots into a same-named local skill (regression for #127 follow-up)', async () => {

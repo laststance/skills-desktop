@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, test, vi } from 'vitest'
 
 /**
  * Create a mock Stats-like object for lstat results.
@@ -71,6 +71,54 @@ describe('syncPreview', () => {
     expect(result.toCreate).toBe(0)
     expect(result.alreadySynced).toBe(0)
     expect(result.conflicts).toHaveLength(0)
+  })
+
+  test('refuses to fan out a source skill whose SKILL.md could not be read', async () => {
+    // Arrange: one readable skill, one whose SKILL.md probe is refused by the OS.
+    readdirMock.mockImplementation(async (dir: string) => {
+      if (dir === '/mock/source/skills') {
+        return [
+          { name: 'readable-skill', isDirectory: () => true },
+          { name: 'locked-skill', isDirectory: () => true },
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (path === join('/mock/source/skills', 'locked-skill', 'SKILL.md')) {
+        throw Object.assign(new Error('EACCES: denied'), { code: 'EACCES' })
+      }
+      return { isFile: () => true }
+    })
+    lstatMock.mockRejectedValue(new Error('ENOENT'))
+    const { syncPreview } = await import('./syncService')
+
+    // Act
+    const result = await syncPreview()
+
+    // Assert: creating symlinks for a directory we cannot confirm is a skill is
+    // a fan-out on a guess, so sync stays on the one skill it could verify.
+    expect(result.totalSkills).toBe(1)
+    expect(result.toCreate).toBe(2) // 1 verifiable skill x 2 agents
+  })
+
+  test('syncs nothing when the source directory itself could not be read', async () => {
+    // Arrange: ~/.agents/skills exists but cannot be opened.
+    readdirMock.mockImplementation(async (dir: string) => {
+      if (dir === '/mock/source/skills') {
+        throw Object.assign(new Error('EACCES: denied'), { code: 'EACCES' })
+      }
+      return []
+    })
+    lstatMock.mockRejectedValue(new Error('ENOENT'))
+    const { syncPreview } = await import('./syncService')
+
+    // Act
+    const result = await syncPreview()
+
+    // Assert: same degrade-to-empty the old swallow produced, now on purpose.
+    expect(result.totalSkills).toBe(0)
+    expect(result.toCreate).toBe(0)
   })
 
   it('reports an existing symlink in every agent as already synced', async () => {

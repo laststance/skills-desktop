@@ -17,7 +17,11 @@ import type {
   SyncResultItem,
 } from '@/shared/types'
 
-import { listValidSourceSkillDirs } from './dirScanner'
+import {
+  listSourceSkillDirs,
+  type SkillDirEntry,
+  type SourceSkillDirListing,
+} from './dirScanner'
 
 /** Agent-on-disk row used internally by syncPreview/syncExecute. */
 type ExistingAgent = { id: AgentId; name: AgentName; path: AbsolutePath }
@@ -58,6 +62,23 @@ function filterAgentsByOption<TAgent extends { id: AgentId }>(
 }
 
 /**
+ * Pick the source skills sync is allowed to fan out, written explicitly rather than inherited from a swallowed error.
+ * An unreadable source directory degrades to "sync nothing" exactly as the old
+ * `catch { return [] }` did; an individual skill whose `SKILL.md` could not be
+ * `stat`ed is skipped because fanning symlinks out to a directory we could not
+ * even look at is a guess. A `SKILL.md` that stats fine but whose contents are
+ * unreadable is still linked on purpose: the probe never reads it, and a
+ * symlink stays correct once the permission bit is fixed.
+ * @param listing - What {@link listSourceSkillDirs} saw under `~/.agents/skills/`.
+ * @returns The entries sync may link, possibly empty.
+ * @example syncableSourceSkills({ status: 'unreadable' }) // => []
+ */
+function syncableSourceSkills(listing: SourceSkillDirListing): SkillDirEntry[] {
+  if (listing.status === 'unreadable') return []
+  return listing.entries.filter((entry) => !entry.isUnreadable)
+}
+
+/**
  * Preview sync: detect what would happen without making changes.
  * Optionally scoped to a single agent for the per-agent Cleanup flow.
  * @param options - When `agentId` is set, restricts preview to that one agent.
@@ -74,10 +95,11 @@ export async function syncPreview(
 ): Promise<SyncPreviewResult> {
   // Independent reads (source skills + on-disk agents); both helpers are total
   // (never reject), so parallelizing is behavior-identical aside from speed.
-  const [skills, allAgents] = await Promise.all([
-    listValidSourceSkillDirs(),
+  const [listing, allAgents] = await Promise.all([
+    listSourceSkillDirs(),
     getExistingAgents(),
   ])
+  const skills = syncableSourceSkills(listing)
   const agents = filterAgentsByOption(allAgents, options?.agentId)
 
   let toCreate = 0
@@ -141,10 +163,11 @@ export async function syncExecute(
 
   // Independent reads (source skills + on-disk agents); both helpers are total
   // (never reject), so parallelizing is behavior-identical aside from speed.
-  const [skills, allAgents] = await Promise.all([
-    listValidSourceSkillDirs(),
+  const [listing, allAgents] = await Promise.all([
+    listSourceSkillDirs(),
     getExistingAgents(),
   ])
+  const skills = syncableSourceSkills(listing)
   const agents = filterAgentsByOption(allAgents, agentId)
 
   let created = 0
