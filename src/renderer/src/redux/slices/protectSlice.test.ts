@@ -208,9 +208,39 @@ describe('protectSlice rename reconciliation', () => {
     ])
   })
 
-  test('does not collapse two locks into one when a rename lands on an already-locked name', async () => {
+  test('follows a chain of renames that swap names within one scan', async () => {
+    // Arrange — both locked; while closed the user renamed "task" to "browse"
+    // and the old "browse" to "write", so one scan carries the whole chain.
+    const { addProtection } = await import('./protectSlice')
+    const { fetchSkills } = await import('./skillsSlice')
+    const store = await createTestStore()
+    store.dispatch(
+      addProtection({ name: 'task', identity: { dev: 1, ino: 10 } }),
+    )
+    store.dispatch(
+      addProtection({ name: 'browse', identity: { dev: 1, ino: 20 } }),
+    )
+
+    // Act
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [makeScannedSkill('browse', 10), makeScannedSkill('write', 20)],
+        'scan-1',
+      ),
+    )
+
+    // Assert — treating "browse" as taken because a lock started there would
+    // strand inode 10 on "task" and leave the real "browse" deletable.
+    expect(store.getState().protect.items).toEqual([
+      { name: 'browse', identity: { dev: 1, ino: 10 } },
+      { name: 'write', identity: { dev: 1, ino: 20 } },
+    ])
+  })
+
+  test('does not point two locks at the same name when a rename lands on a locked one', async () => {
     // Arrange — both locked; while closed, "browse" was deleted and "task"
-    // renamed into its place, so one inode now answers to a locked name.
+    // renamed into its place, so one inode now answers to a locked name and
+    // inode 20 is gone from the scan entirely.
     const { addProtection } = await import('./protectSlice')
     const { fetchSkills } = await import('./skillsSlice')
     const store = await createTestStore()
@@ -226,10 +256,11 @@ describe('protectSlice rename reconciliation', () => {
       fetchSkills.fulfilled([makeScannedSkill('browse', 10)], 'scan-1'),
     )
 
-    // Assert — "browse" stays protected exactly once; unlocking it must not
-    // take a second, invisible entry with it.
+    // Assert — inode 10 follows its rename onto "browse"; the lock on the
+    // vanished inode 20 keeps its stale name rather than being dropped, since
+    // the skill may only have been moved away temporarily.
     expect(store.getState().protect.items).toEqual([
-      { name: 'task', identity: { dev: 1, ino: 10 } },
+      { name: 'browse', identity: { dev: 1, ino: 10 } },
       { name: 'browse', identity: { dev: 1, ino: 20 } },
     ])
   })

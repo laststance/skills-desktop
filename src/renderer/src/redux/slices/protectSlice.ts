@@ -98,22 +98,24 @@ const protectSlice = createSlice({
         nameByInode.set(inodeKey(skill.filesystemIdentity), skill.name)
         identityByName.set(skill.name, skill.filesystemIdentity)
       }
-      // Names already locked, read before any rewrite: a rename whose target
-      // is locked too needs no rewrite (the target is already protected), and
-      // rewriting anyway would leave two entries the user can only unlock as
-      // a pair.
-      const lockedNames = new Set(state.items.map((item) => item.name))
+      // Names this pass has already handed out. Filled as each lock settles,
+      // never snapshotted up front: one scan can carry a chain (`task`→`browse`
+      // while `browse`→`write`), and against a snapshot every link after the
+      // first reads as taken, so the chain stalls and the name that really is
+      // on disk ends up unprotected. Against the running set a name only
+      // counts as taken once some lock actually keeps it.
+      const claimed = new Set<SkillName>()
 
       for (const item of state.items) {
         if (item.identity) {
           const currentName = nameByInode.get(inodeKey(item.identity))
-          // `lockedNames` holds this item's own name too, so an unchanged name
-          // short-circuits here as well: nothing is written, `items` keeps its
-          // reference, and the memoized selectors below do not rebuild on a
-          // scan that renamed nothing.
-          if (currentName && !lockedNames.has(currentName)) {
+          // Assigning the name it already has is not a change — Immer skips
+          // identical writes — so `items` keeps its reference and the memoized
+          // selector below does not rebuild on a scan that renamed nothing.
+          if (currentName && !claimed.has(currentName)) {
             item.name = currentName
           }
+          claimed.add(item.name)
           continue
         }
         // Pre-v5 lock, or one taken on a row the scan had no identity for.
@@ -122,6 +124,7 @@ const protectSlice = createSlice({
         // user may only have temporarily moved away.
         const scanned = identityByName.get(item.name)
         if (scanned) item.identity = { dev: scanned.dev, ino: scanned.ino }
+        claimed.add(item.name)
       }
     })
   },
