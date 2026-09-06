@@ -1356,3 +1356,10 @@ and re-check the collision index inside the prune mutex.
   `StaleLockEntry` naming. Pick one.
 - `PruneLockEntriesResult.skipped` has no reader in the renderer.
 - Dead JSDoc link `{@link skillLockService}` at `skillsCliService.ts:184`.
+- No E2E reaches the npx-unavailable prune path. `e2e/spec/skill-lock-prune.e2e.ts`
+  (added by /qa on `feat/prune-stale-skill-lock-entries`, 2026-09-06) covers
+  every guard plus one real `npx skills remove`, but the branch where the CLI
+  itself cannot be spawned needs a fixture-level PATH/env override the
+  `electron-app` fixture does not expose. The renderer side of that failure is
+  covered by `LockPruneDialog`'s toast test; only the main-process
+  classification is untested.
