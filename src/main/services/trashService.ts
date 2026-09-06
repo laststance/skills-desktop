@@ -1440,28 +1440,41 @@ async function moveLocalOnlyToTrash(
             await fs.rm(siblingStagePath, { recursive: true, force: true })
             return { kind: 'moved' as const }
           } catch (fallbackError) {
+            // Set only when the restore back to the agent dir failed, which
+            // parks the user's whole folder beside its old slot under a
+            // bookkeeping name nothing else in this flow reports.
+            let strandedOriginalPath: AbsolutePath | null = null
             try {
               await fs.lstat(siblingStagePath)
               await moveDirectoryNoOverwrite(siblingStagePath, copy.linkPath)
             } catch (restoreError) {
               if (errorCode(restoreError) !== 'ENOENT') {
-                stagedCopyCreated = true
+                strandedOriginalPath = siblingStagePath
               }
             }
-            // No path here on purpose. A non-empty hint implies
-            // preserveStagedEntry, which routes every caller through the publish
-            // rename below -- so naming stagedPath would name a directory that
-            // no longer exists by the time the caller wraps this message with
-            // the one it does still live in.
-            const recoveryHint = stagedCopyCreated
+            // Two survivors, tracked apart on purpose: folding the failed
+            // restore back into `stagedCopyCreated` would claim a copy reached
+            // the staged entry when the copy step is exactly what failed, and
+            // send the user to an empty trash entry while their folder sat at
+            // siblingStagePath unnamed.
+            //
+            // The staged hint carries no path -- only the caller knows where
+            // the publish rename landed, and it appends that. The stranded
+            // original is publish-independent, so its path is named here, the
+            // same split {@link ManualRecoveryLocation} draws for the
+            // source-backed twin.
+            const stagedCopyHint = stagedCopyCreated
               ? '; staged copy preserved in trash for manual recovery'
+              : ''
+            const strandedOriginalHint = strandedOriginalPath
+              ? `; original folder left at ${strandedOriginalPath}`
               : ''
             return {
               kind: 'fatal' as const,
               preserveStagedEntry: stagedCopyCreated,
               strandedAgentId: copy.agentId,
               error: new TrashError(
-                `Failed to move local copy (cross-device, agent=${copy.agentId}): ${extractErrorMessage(fallbackError)}${recoveryHint}`,
+                `Failed to move local copy (cross-device, agent=${copy.agentId}): ${extractErrorMessage(fallbackError)}${stagedCopyHint}${strandedOriginalHint}`,
                 errorCode(fallbackError),
               ),
             }

@@ -874,6 +874,87 @@ describe('trashService orphan cleanup guarded commit', () => {
     ).resolves.toBeDefined()
   })
 
+  test("names the folder's real location when an EXDEV copy fails and the restore fails too", async () => {
+    // Arrange
+    // The cross-device copy INTO the trash fails, and putting the original back
+    // fails too -- so the user's whole folder is parked beside its old slot
+    // under a bookkeeping name. Nothing else in this flow reports that path, so
+    // the thrown error is the only thing standing between them and a folder
+    // they cannot find.
+    const skillName = 'local-exdev-restore-fails'
+    const claudeSkillsDir = join(tempHome, '.claude', 'skills')
+    const localPath = join(claudeSkillsDir, skillName)
+    await mkdir(localPath, { recursive: true })
+    await writeFile(join(localPath, 'SKILL.md'), `# ${skillName}\n`, 'utf-8')
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        rename: async (oldPath: string, newPath: string): Promise<void> => {
+          // Only the move into the trash is cross-device; the sibling-stage
+          // rename inside the agent dir still works.
+          if (oldPath === localPath && newPath.includes('/.agents/.trash/')) {
+            const error = new Error(
+              'forced cross-device local move',
+            ) as NodeJS.ErrnoException
+            error.code = 'EXDEV'
+            throw error
+          }
+          return actual.rename(oldPath, newPath)
+        },
+        cp: async (
+          source: string,
+          destination: string,
+          options?: Parameters<typeof actual.cp>[2],
+        ): Promise<void> => {
+          // Fail the copy into the trash entry, then fail the restore back to
+          // the agent slot -- both legs of the EXDEV fallback.
+          if (destination.includes('/.agents/.trash/')) {
+            const error = new Error(
+              'forced cross-device copy failure',
+            ) as NodeJS.ErrnoException
+            error.code = 'ENOSPC'
+            throw error
+          }
+          if (destination === localPath) {
+            const error = new Error(
+              'forced restore failure',
+            ) as NodeJS.ErrnoException
+            error.code = 'EACCES'
+            throw error
+          }
+          return actual.cp(source, destination, options)
+        },
+      }
+    })
+    const { __getTrashDirForTests, moveToTrash } =
+      await import('./trashService')
+
+    // Act
+    const moveError = await moveToTrash(
+      skillName,
+      localPath,
+      await reviewedIdentityForPath(localPath),
+    ).catch((error: unknown) => error)
+
+    // Assert
+    const moveErrorMessage = moveError instanceof Error ? moveError.message : ''
+    // The copy never reached the trash, so claiming a staged copy would send
+    // the user to an entry that holds nothing.
+    expect(moveErrorMessage).not.toMatch(/staged copy preserved/i)
+    const strandedPathMatch = /original folder left at (\S+)/.exec(
+      moveErrorMessage,
+    )
+    const strandedOriginalPath = strandedPathMatch?.[1] ?? ''
+    expect(
+      await readFile(join(strandedOriginalPath, 'SKILL.md'), 'utf-8'),
+    ).toContain(skillName)
+    // Nothing was published: the staged entry held no copy, so a tombstone
+    // would be an empty promise of recovery.
+    expect(await readdir(__getTrashDirForTests())).toEqual([])
+  })
+
   it('rejects deleting a reviewed path that contains a null byte in its basename', async () => {
     // Arrange
     // A reviewed source path whose basename carries a NUL byte passes the
