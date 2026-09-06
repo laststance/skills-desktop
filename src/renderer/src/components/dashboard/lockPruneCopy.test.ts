@@ -10,7 +10,7 @@ import {
 } from './lockPruneCopy'
 
 describe('describeLockPruneTarget', () => {
-  test('reads as one skill throughout when a single record is up for deletion', () => {
+  test('keeps every word singular when exactly one record is up for deletion', () => {
     // Arrange
     const count = 1
 
@@ -44,7 +44,7 @@ describe('describeLockPruneTarget', () => {
     })
   })
 
-  test('stays plural at zero so an empty dialog never reads as one skill', () => {
+  test('stays plural at zero so an empty dialog never reads as a single record', () => {
     // Arrange
     // The dialog opens on whatever the scan found; a race can leave it empty,
     // and "1 record for a skill" would then be a lie.
