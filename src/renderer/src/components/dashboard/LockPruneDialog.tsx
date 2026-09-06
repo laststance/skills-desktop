@@ -29,6 +29,7 @@ import type { PruneLockEntriesResult } from '@/shared/types'
 
 import {
   describeLockPruneTarget,
+  selectRemovableNames,
   describeUnprunableReason,
   describeUnprunableSection,
 } from './lockPruneCopy'
@@ -60,13 +61,9 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
   // A scan landing while the dialog is open can move a consented name into the
   // blocked list — an agent copy appearing mid-dialog does exactly that. Left
   // alone, the same record would sit in the delete list AND in the section
-  // explaining it cannot be deleted. Filtering only ever removes names from
-  // what the button sends, so the consent snapshot still holds: the user can
-  // never have more deleted than they read.
-  const blockedNames = new Set(unprunableEntries.map((entry) => entry.name))
-  const removableNames = consentedNames.filter(
-    (name) => !blockedNames.has(name),
-  )
+  // explaining it cannot be deleted. Extracted so the invariant is tested on
+  // its own in `lockPruneCopy.test.ts`, without rendering the dialog.
+  const removableNames = selectRemovableNames(consentedNames, unprunableEntries)
   // Every count-dependent phrase comes from one call, so the sentence, the
   // pronoun and the button label cannot disagree about how many records there
   // are. Tested directly in `lockPruneCopy.test.ts`, without rendering.

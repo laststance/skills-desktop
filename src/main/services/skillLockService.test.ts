@@ -3,7 +3,15 @@ import { mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from 'vitest'
 
 import type { SkillName } from '@/shared/types'
 
@@ -139,6 +147,10 @@ async function readLockKeys(): Promise<string[]> {
 
 beforeEach(async () => {
   await rm(join(sharedHome, '.agents'), { recursive: true, force: true })
+  // `.claude` too: the agent-copy tests stage a real directory there, and one
+  // surviving into a later test would refuse every prune that followed it.
+  // Clearing both trees here is what lets those tests skip their own cleanup.
+  await rm(join(sharedHome, '.claude'), { recursive: true, force: true })
   await mkdir(sourceDir, { recursive: true })
   removeSkillsMock.mockReset()
   // Default fake CLI: removes every requested key from the lock.
@@ -158,6 +170,13 @@ beforeEach(async () => {
 
 afterEach(() => {
   delete process.env.XDG_STATE_HOME
+})
+
+// `sharedHome` is created once at module load and every test writes inside it,
+// so nothing may remove it until the file is done. Without this each run leaves
+// another `skills-lock-it-*` directory behind in the system temp dir.
+afterAll(async () => {
+  await rm(sharedHome, { recursive: true, force: true })
 })
 
 describe('scanStaleLockEntries', () => {
@@ -643,23 +662,17 @@ describe('pruneLockEntries', () => {
     await mkdir(agentOwnedDir, { recursive: true })
     await writeFile(join(agentOwnedDir, 'SKILL.md'), '# local\n', 'utf-8')
 
-    try {
-      // Act
-      const result = await pruneLockEntries(['agent-owned'] as SkillName[])
+    // Act
+    const result = await pruneLockEntries(['agent-owned'] as SkillName[])
 
-      // Assert
-      expect(removeSkillsMock).not.toHaveBeenCalled()
-      expect(result).toEqual({
-        pruned: [],
-        skipped: [],
-        failed: ['agent-owned'],
-      })
-      expect(await readLockKeys()).toEqual(['agent-owned'])
-    } finally {
-      // Cleanup has to run even on a failed assertion: beforeEach only clears
-      // `.agents`, so a leftover agent dir would refuse every later prune.
-      await rm(join(sharedHome, '.claude'), { recursive: true, force: true })
-    }
+    // Assert
+    expect(removeSkillsMock).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      pruned: [],
+      skipped: [],
+      failed: ['agent-owned'],
+    })
+    expect(await readLockKeys()).toEqual(['agent-owned'])
   })
 
   test('still prunes when the agent-side path is only a symlink to the deleted source', async () => {
@@ -675,20 +688,16 @@ describe('pruneLockEntries', () => {
       join(agentSkillsDir, 'linked-only'),
     )
 
-    try {
-      // Act
-      const result = await pruneLockEntries(['linked-only'] as SkillName[])
+    // Act
+    const result = await pruneLockEntries(['linked-only'] as SkillName[])
 
-      // Assert
-      expect(removeSkillsMock).toHaveBeenCalledWith(['linked-only'])
-      expect(result).toEqual({
-        pruned: ['linked-only'],
-        skipped: [],
-        failed: [],
-      })
-    } finally {
-      await rm(join(sharedHome, '.claude'), { recursive: true, force: true })
-    }
+    // Assert
+    expect(removeSkillsMock).toHaveBeenCalledWith(['linked-only'])
+    expect(result).toEqual({
+      pruned: ['linked-only'],
+      skipped: [],
+      failed: [],
+    })
   })
 
   test('refuses to prune every record when the source root itself is gone', async () => {

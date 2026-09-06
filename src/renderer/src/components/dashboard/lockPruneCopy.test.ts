@@ -1,9 +1,12 @@
 import { describe, expect, test } from 'vitest'
 
+import type { SkillName, UnprunableLockEntry } from '@/shared/types'
+
 import {
   describeLockPruneTarget,
   describeUnprunableReason,
   describeUnprunableSection,
+  selectRemovableNames,
 } from './lockPruneCopy'
 
 describe('describeLockPruneTarget', () => {
@@ -112,5 +115,63 @@ describe('describeUnprunableSection', () => {
 
     // Assert
     expect(heading).toBe('4 records need attention first')
+  })
+})
+
+describe('selectRemovableNames', () => {
+  test('drops a consented name the scan blocked while the dialog was open', () => {
+    // Arrange — the record the user read is still in the snapshot, but a scan
+    // has since found an agent copy behind it.
+    const consentedNames = ['plain-stale', 'agent-copy-skill'] as SkillName[]
+    const unprunableEntries: UnprunableLockEntry[] = [
+      { name: 'agent-copy-skill', reason: 'agent-copy' },
+    ]
+
+    // Act
+    const removable = selectRemovableNames(consentedNames, unprunableEntries)
+
+    // Assert
+    expect(removable).toEqual(['plain-stale'])
+  })
+
+  test('sends every consented name when the scan blocked none of them', () => {
+    // Arrange
+    const consentedNames = ['one', 'two'] as SkillName[]
+
+    // Act
+    const removable = selectRemovableNames(consentedNames, [])
+
+    // Assert
+    expect(removable).toEqual(['one', 'two'])
+  })
+
+  test('sends nothing when every consented name turned out to be blocked', () => {
+    // Arrange — the dialog still has to render, as pure explanation.
+    const consentedNames = ['collided', 'agent-copy-skill'] as SkillName[]
+    const unprunableEntries: UnprunableLockEntry[] = [
+      { name: 'collided', reason: 'name-collision' },
+      { name: 'agent-copy-skill', reason: 'agent-copy' },
+    ]
+
+    // Act
+    const removable = selectRemovableNames(consentedNames, unprunableEntries)
+
+    // Assert
+    expect(removable).toEqual([])
+  })
+
+  test('ignores a blocked record that was never in the consent snapshot', () => {
+    // Arrange — the scan reports the whole lock; the dialog only ever deletes
+    // what the user actually read.
+    const consentedNames = ['plain-stale'] as SkillName[]
+    const unprunableEntries: UnprunableLockEntry[] = [
+      { name: 'never-shown', reason: 'agent-copy' },
+    ]
+
+    // Act
+    const removable = selectRemovableNames(consentedNames, unprunableEntries)
+
+    // Assert
+    expect(removable).toEqual(['plain-stale'])
   })
 })

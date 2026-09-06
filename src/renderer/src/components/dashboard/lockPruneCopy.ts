@@ -1,5 +1,9 @@
 import { pluralize } from '@/renderer/src/utils/pluralize'
-import type { UnprunableReason } from '@/shared/types'
+import type {
+  SkillName,
+  UnprunableLockEntry,
+  UnprunableReason,
+} from '@/shared/types'
 
 /**
  * The count-dependent wording the prune dialog renders, resolved once so the
@@ -37,6 +41,26 @@ export function describeLockPruneTarget(count: number): LockPruneCopy {
     pronoun: isSingular ? 'it' : 'them',
     confirmLabel: `Remove ${count} ${pluralize(count, 'record')}`,
   }
+}
+
+/**
+ * Drop the names a scan has since blocked from the list the user consented to,
+ * so the prune request can never contain a record the dialog is simultaneously
+ * explaining it cannot touch; called on each render of {@link LockPruneDialog}.
+ *
+ * Filtering only ever removes names, so the consent snapshot still holds: the
+ * user can never have more deleted than they read.
+ * @param consentedNames - The snapshot taken when the dialog opened.
+ * @param unprunableEntries - What the newest scan reports as blocked.
+ * @returns The subset still safe to send to the prune.
+ * @example selectRemovableNames(['a', 'b'], [{ name: 'b', reason: 'agent-copy' }]) // => ['a']
+ */
+export function selectRemovableNames(
+  consentedNames: readonly SkillName[],
+  unprunableEntries: readonly UnprunableLockEntry[],
+): SkillName[] {
+  const blockedNames = new Set(unprunableEntries.map((entry) => entry.name))
+  return consentedNames.filter((name) => !blockedNames.has(name))
 }
 
 /**
