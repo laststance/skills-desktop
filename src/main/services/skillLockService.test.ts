@@ -651,6 +651,30 @@ describe('pruneLockEntries', () => {
     })
     expect(removeSkillsMock).not.toHaveBeenCalled()
   })
+
+  test('prunes the names it could verify and still reports the unverifiable one as failed', async () => {
+    // Arrange: the shape "Remove all" produces — one batch, mixed outcomes. An
+    // unverifiable name must not veto the rest, and must not vanish from the
+    // report once the CLI call succeeds for the others.
+    const { pruneLockEntries } = await serviceModule
+    await writeLock(['unreadable', 'gone-from-disk'])
+    await symlink('unreadable', join(sourceDir, 'unreadable'))
+
+    // Act
+    const result = await pruneLockEntries([
+      'unreadable',
+      'gone-from-disk',
+    ] as SkillName[])
+
+    // Assert
+    expect(result).toEqual({
+      pruned: ['gone-from-disk'],
+      skipped: [],
+      failed: ['unreadable'],
+    })
+    expect(removeSkillsMock).toHaveBeenCalledWith(['gone-from-disk'])
+    expect(await readLockKeys()).toEqual(['unreadable'])
+  })
 })
 
 describe('queuePrune', () => {
