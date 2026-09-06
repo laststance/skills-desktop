@@ -13,6 +13,7 @@ import dashboardReducer from './slices/dashboardSlice'
 import marketplaceReducer from './slices/marketplaceSlice'
 import protectReducer from './slices/protectSlice'
 import settingsReducer from './slices/settingsSlice'
+import skillLockReducer from './slices/skillLockSlice'
 import skillsReducer from './slices/skillsSlice'
 import themeReducer from './slices/themeSlice'
 import uiReducer from './slices/uiSlice'
@@ -29,6 +30,9 @@ const rootReducer = combineReducers({
   update: updateReducer,
   marketplace: marketplaceReducer,
   dashboard: dashboardReducer,
+  // Mirrors the skills CLI lock file on disk. Intentionally NOT persisted —
+  // a cached stale count is wrong the moment a skill is deleted outside the app.
+  skillLock: skillLockReducer,
   // Picker hover/focus preview state. Intentionally NOT persisted — last-hovered
   // widget shouldn't survive an app restart.
   widgetPicker: widgetPickerReducer,

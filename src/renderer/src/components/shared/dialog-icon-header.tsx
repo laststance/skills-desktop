@@ -4,12 +4,15 @@ import React from 'react'
 import { DialogTitle } from '@/renderer/src/components/ui/dialog'
 
 /**
- * Tone variants for the leading icon. Matches the two distinct accents
- * the sync dialogs use today:
+ * Tone variants for the leading icon. Matches the distinct accents
+ * the dialogs use today:
  * - `primary`: routine/positive flows (Sync, Cleanup).
  * - `amber`: warning flows (conflict resolution).
+ * - `neutral`: everything else. DESIGN.md caps amber at two meanings
+ *   (broken/inaccessible status, bookmark accent), so a third semantic like
+ *   the lock-prune flow takes `text-foreground` instead of a new hue.
  */
-type DialogIconHeaderTone = 'primary' | 'amber'
+type DialogIconHeaderTone = 'primary' | 'amber' | 'neutral'
 
 /**
  * Map of tone → text colour utility for the icon. Kept here so dialogs
@@ -18,6 +21,7 @@ type DialogIconHeaderTone = 'primary' | 'amber'
 const ICON_CLASS_BY_TONE: Record<DialogIconHeaderTone, string> = {
   primary: 'text-primary',
   amber: 'text-amber-500',
+  neutral: 'text-foreground',
 }
 
 interface DialogIconHeaderProps {

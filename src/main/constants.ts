@@ -10,6 +10,15 @@ import { AGENT_DEFINITIONS } from '@/shared/constants'
 export const SOURCE_DIR = join(homedir(), '.agents', 'skills')
 
 /**
+ * Root of the on-disk trash used by the staged-delete/undo flow.
+ * Created lazily on first delete. Lives here rather than inside
+ * `trashService` so `skillLockService` can read pending tombstone manifests
+ * without importing the trash service back (that direction is already taken:
+ * `trashService` imports the lock service for its prune hook).
+ */
+export const TRASH_DIR = join(homedir(), '.agents', '.trash')
+
+/**
  * Supported AI agents with their full skills directory paths.
  *
  * Built from `scanDir` (always required on AGENT_DEFINITIONS). For most

@@ -27,6 +27,8 @@ import type {
   InstallProgress,
   PixelHeight,
   PixelWidth,
+  PruneLockEntriesOptions,
+  PruneLockEntriesResult,
   RankingFilter,
   RemoveAllFromAgentOptions,
   RemoveAllFromAgentResult,
@@ -41,6 +43,7 @@ import type {
   SkillFileContent,
   SkillSearchResult,
   SourceStats,
+  StaleLockScanResult,
   SyncExecuteOptions,
   SyncExecuteResult,
   SyncPreviewOptions,
@@ -64,6 +67,11 @@ import type {
  */
 export interface IpcInvokeContract {
   'skills:getAll': { args: []; result: Skill[] }
+  'skills:lock:scanStale': { args: []; result: StaleLockScanResult }
+  'skills:lock:prune': {
+    args: [PruneLockEntriesOptions]
+    result: PruneLockEntriesResult
+  }
   'skills:unlinkFromAgent': {
     args: [UnlinkFromAgentOptions]
     result: UnlinkResult

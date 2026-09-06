@@ -539,17 +539,19 @@ describe('trashService (integration)', () => {
     expect(a.tombstoneId).not.toBe(b.tombstoneId)
   })
 
-  it('sweeps stale trash entries on startup while keeping recently deleted ones', async () => {
+  it('sweeps every trash entry on startup regardless of age, so no lock record is held open by an unrestorable tombstone', async () => {
     // Arrange
+    // The undo toast that paired with a tombstone is gone after a restart, so
+    // a "recent" entry is no more restorable than an ancient one — and while
+    // it sits here its lock record still counts as wanted.
     const { moveToTrash, startupCleanup } = await trashServicePromise
 
-    // Fresh entry: should survive the sweep.
     const skillName = 'sweep-recent'
     await makeSourceSkill(skillName)
     const recent = await moveReviewedSource(moveToTrash, skillName)
     assertTombstoned(recent)
 
-    // Planted ancient entry: must be swept.
+    // Planted ancient entry.
     // Its basename must still match the trash naming regex (digits-skill-hex8).
     const oldEntryName = '1-old-sweep-aaaaaaaa'
     const oldEntryDir = join(sharedTrashDir, oldEntryName)
@@ -560,10 +562,10 @@ describe('trashService (integration)', () => {
     await startupCleanup()
 
     // Assert
-    // Old entry gone, recent entry preserved.
     await expect(stat(oldEntryDir)).rejects.toThrow()
-    const recentDir = join(sharedTrashDir, recent.tombstoneId)
-    await stat(recentDir) // still there
+    await expect(
+      stat(join(sharedTrashDir, recent.tombstoneId)),
+    ).rejects.toThrow()
   })
 
   it('fails undo with a not-found error once the tombstone has been permanently evicted', async () => {

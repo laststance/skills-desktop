@@ -5,6 +5,7 @@ import ReactGridLayout, {
 } from 'react-grid-layout'
 
 import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
+import { useInitialEffect } from '@/renderer/src/hooks/useInitialEffect'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   seedDefaultsIfEmpty,
@@ -13,9 +14,11 @@ import {
   selectIsInitialized,
   updateLayout,
 } from '@/renderer/src/redux/slices/dashboardSlice'
+import { fetchStaleLockEntries } from '@/renderer/src/redux/slices/skillLockSlice'
 
 import { DashboardEditToolbar } from './DashboardEditToolbar'
 import { DashboardPageTabs } from './DashboardPageTabs'
+import { LockPruneBanner } from './LockPruneBanner'
 import type { DashboardPageId, WidgetInstance } from './types'
 import { useDashboardKeyboardShortcuts } from './useDashboardKeyboardShortcuts'
 import {
@@ -58,11 +61,20 @@ export const DashboardCanvas = function DashboardCanvas(): React.ReactElement {
   // on the right pane.
   useDashboardKeyboardShortcuts()
 
+  // First stale-lock scan. Subsequent refreshes ride along with every mutation
+  // via `refreshAllData`, so the count never drifts from what is on disk.
+  useInitialEffect(() => {
+    dispatch(fetchStaleLockEntries())
+  })
+
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       <DashboardPageTabs />
       <DashboardEditToolbar />
       <div className="flex-1 min-h-0 overflow-auto">
+        <div className="px-4 pt-1 empty:hidden">
+          <LockPruneBanner />
+        </div>
         {currentPage ? (
           <DashboardGrid
             pageId={currentPage.id}

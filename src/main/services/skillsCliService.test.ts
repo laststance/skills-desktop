@@ -98,6 +98,45 @@ describe('skillsCliService.cancel', () => {
     second.emit('close', 0)
     await Promise.all([searchA, searchB])
   })
+
+  it('never SIGTERMs a lock-writing prune, so cancel() cannot truncate the lock', async () => {
+    // Arrange — a prune runs in the background from trash eviction. The CLI
+    // rewrites .skill-lock.json with a plain writeFile (no temp+rename), so a
+    // SIGTERM meant for the install the user just closed would leave the lock
+    // half-written, which parses as an empty lock and loses every record.
+    const search = simulateCli({ autoClose: false })
+    const prune = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+    const searching = skillsCliService.search('a')
+    const pruning = skillsCliService.removeSkills(['old-skill'])
+
+    // Act
+    skillsCliService.cancel()
+
+    // Assert
+    expect(search.kill).toHaveBeenCalledWith('SIGTERM')
+    expect(prune.kill).not.toHaveBeenCalled()
+
+    // Drain both children so the pending promises settle.
+    search.emit('close', 0)
+    prune.emit('close', 0)
+    await Promise.all([searching, pruning])
+  })
+
+  it('advertises a new cancel generation so work still queued can see the cancel', async () => {
+    // Arrange — an install waiting behind a background prune has not spawned
+    // yet, so `cancel()` finds nothing to SIGTERM. The caller compares this
+    // counter across the wait instead; without it the queue drains and installs
+    // exactly what the user just backed out of.
+    const { skillsCliService } = await import('./skillsCliService')
+    const generationBeforeCancel = skillsCliService.cancelGeneration
+
+    // Act
+    skillsCliService.cancel()
+
+    // Assert
+    expect(skillsCliService.cancelGeneration).not.toBe(generationBeforeCancel)
+  })
 })
 
 describe('skillsCliService.execCli environment', () => {
@@ -620,11 +659,194 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     // Act
     const searchPromise = skillsCliService.search('react')
     await vi.advanceTimersByTimeAsync(PAST_SPAWN_TIMEOUT_MS)
+    // The kill only asks; the result waits for the child to actually go.
+    fake.emit('close', null)
     const results = await searchPromise
 
     // Assert — search swallows the failure into an empty list, and the child
     // was sent the kill signal by the timeout handler.
     expect(results).toEqual([])
     expect(fake.kill).toHaveBeenCalledWith('SIGTERM')
+  })
+})
+
+describe('skillsCliService.removeSkills', () => {
+  beforeEach(() => {
+    vi.useRealTimers()
+    vi.resetModules()
+    spawnMock.mockReset()
+  })
+
+  afterEach(() => {
+    process.env.PATH = ORIGINAL_PATH
+  })
+
+  it('removes several skills in one global, non-interactive invocation', async () => {
+    // Arrange — one spawn per bulk delete instead of one per skill: each child
+    // read-modify-writes the same .skill-lock.json with no temp+rename.
+    simulateCli({ stdout: 'Done!\n', exitCode: 0 })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    await skillsCliService.removeSkills(['alpha', 'beta'])
+
+    // Assert
+    expect(spawnMock).toHaveBeenCalledTimes(1)
+    expect(spawnMock).toHaveBeenCalledWith(
+      'npx',
+      [
+        `skills@${SKILLS_CLI_VERSION}`,
+        'remove',
+        'alpha',
+        'beta',
+        '--global',
+        '-y',
+      ],
+      expect.objectContaining({
+        env: expect.objectContaining({ FORCE_COLOR: '0' }),
+      }),
+    )
+  })
+
+  it('never hands the CLI an option-shaped lock key that would select every skill', async () => {
+    // Arrange — `--all` is a SELECTOR in the CLI's own parser, so forwarding it
+    // would turn this unattended prune into a global uninstall across every
+    // agent. Lock keys come from third-party metadata, and the CLI has no `--`
+    // terminator to hide behind, so the name has to be refused outright.
+    simulateCli({ stdout: 'Done!\n', exitCode: 0 })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    const result = await skillsCliService.removeSkills(['--all'])
+
+    // Assert
+    expect(spawnMock).not.toHaveBeenCalled()
+    expect(result.success).toBe(false)
+  })
+
+  it('still removes the safe names when one key in the batch is option-shaped', async () => {
+    // Arrange — one hostile key must not block every legitimate prune.
+    simulateCli({ stdout: 'Done!\n', exitCode: 0 })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    await skillsCliService.removeSkills(['--all', 'real-skill'])
+
+    // Assert
+    expect(spawnMock).toHaveBeenCalledWith(
+      'npx',
+      [
+        `skills@${SKILLS_CLI_VERSION}`,
+        'remove',
+        'real-skill',
+        '--global',
+        '-y',
+      ],
+      expect.objectContaining({
+        env: expect.objectContaining({ FORCE_COLOR: '0' }),
+      }),
+    )
+  })
+
+  it('keeps a lock-writing prune alive past the ceiling that applies to a search', async () => {
+    // Arrange — the CLI's `writeSkillLock` is a plain writeFile with no
+    // temp+rename, so a SIGTERM landing mid-write truncates the lock and a
+    // truncated lock parses as an EMPTY one. The 60s search ceiling is spent
+    // on `npx` resolving the package, so a prune gets a longer leash before
+    // the kill. Mirrors the module-private timeout constants; keep in step.
+    const SEARCH_CEILING_MS = 60_000
+    const LOCK_WRITE_CEILING_MS = 180_000
+    vi.useFakeTimers()
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    const pruning = skillsCliService.removeSkills(['old-skill'])
+    await vi.advanceTimersByTimeAsync(SEARCH_CEILING_MS)
+
+    // Assert — still running where a search would already have been killed.
+    expect(fake.kill).not.toHaveBeenCalled()
+
+    // Act — the prune still has a hard ceiling; an unkillable child would hang.
+    await vi.advanceTimersByTimeAsync(LOCK_WRITE_CEILING_MS - SEARCH_CEILING_MS)
+    fake.emit('close', null)
+    const result = await pruning
+
+    // Assert
+    expect(fake.kill).toHaveBeenCalledWith('SIGTERM')
+    expect(result.stderr).toBe('CLI command timed out after 180s')
+    vi.useRealTimers()
+  })
+
+  it('keeps the caller waiting after the kill until the killed child is really gone', async () => {
+    // Arrange — resolving on the kill releases the runLockWrite mutex while the
+    // dying child may still be mid-writeFile on .skill-lock.json, so the next
+    // queued command interleaves with that write and truncates the lock.
+    const LOCK_WRITE_CEILING_MS = 180_000
+    vi.useFakeTimers()
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+    let hasResolved = false
+
+    // Act
+    const pruning = skillsCliService
+      .removeSkills(['old-skill'])
+      .then((value) => {
+        hasResolved = true
+        return value
+      })
+    await vi.advanceTimersByTimeAsync(LOCK_WRITE_CEILING_MS)
+
+    // Assert — SIGTERM was sent, but the promise is still pending.
+    expect(fake.kill).toHaveBeenCalledWith('SIGTERM')
+    expect(hasResolved).toBe(false)
+
+    // Act — the child finally exits.
+    fake.emit('close', null)
+    const result = await pruning
+
+    // Assert
+    expect(hasResolved).toBe(true)
+    expect(result.stderr).toBe('CLI command timed out after 180s')
+    vi.useRealTimers()
+  })
+
+  it('force-kills and stops waiting when the child ignores the first kill signal', async () => {
+    // Arrange — waiting forever on an unkillable child would hang every queued
+    // lock write behind it, which is worse than releasing with SIGKILL sent.
+    const LOCK_WRITE_CEILING_MS = 180_000
+    const KILL_GRACE_MS = 5_000
+    vi.useFakeTimers()
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act — no close event ever arrives.
+    const pruning = skillsCliService.removeSkills(['old-skill'])
+    await vi.advanceTimersByTimeAsync(LOCK_WRITE_CEILING_MS + KILL_GRACE_MS)
+    const result = await pruning
+
+    // Assert
+    expect(fake.kill).toHaveBeenCalledWith('SIGKILL')
+    expect(result.stderr).toBe('CLI command timed out after 180s')
+    vi.useRealTimers()
+  })
+
+  it('emits no install progress while pruning in the background', async () => {
+    // Arrange — a prune runs from trash eviction, which the user never started.
+    // Forwarding "Installing skill files..." would light up the Marketplace UI.
+    // The stdout has to be a line the parser DOES recognise, or the assertion
+    // holds even when `removeSkills` passes the callback through.
+    simulateCli({ stdout: 'Installing skill files...\n', exitCode: 0 })
+    const { skillsCliService } = await import('./skillsCliService')
+    const progressEvents: InstallProgress[] = []
+    skillsCliService.on('progress', (progress: InstallProgress) => {
+      progressEvents.push(progress)
+    })
+
+    // Act
+    await skillsCliService.removeSkills(['alpha'])
+
+    // Assert
+    expect(progressEvents).toEqual([])
   })
 })

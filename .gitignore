@@ -57,6 +57,9 @@ CLAUDE.md
 qa-reports/
 
 # Vitest browser mode artifacts
+# Vitest 4 writes failure screenshots to `.vitest/attachments/`; the older
+# `.vitest-attachments/` layout is still produced by some runs, so ignore both.
+.vitest/
 .vitest-attachments/
 **/__screenshots__/
 

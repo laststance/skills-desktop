@@ -45,26 +45,49 @@ function makeSkill(symlinks: SymlinkInfo[]): Skill {
 }
 
 /**
- * Renders HealthWidget with real skills/ui reducers so button clicks update Redux normally.
+ * Renders HealthWidget with real skills/skillLock/ui reducers so button clicks update Redux normally.
  * @param skills - Skill inventory to seed through the fetchSkills.fulfilled reducer.
+ * @param staleLockNames - Stale skill-lock records to seed; empty means a clean lock.
  * @returns Browser screen and store.
  * @example
  * const { screen } = await renderHealthWidget([makeSkill([makeSymlink('broken')])])
  */
-async function renderHealthWidget(skills: Skill[]) {
+async function renderHealthWidget(
+  skills: Skill[],
+  staleLockNames: string[] = [],
+  scanStatus: 'ok' | 'unavailable' = 'ok',
+) {
   const [
     { default: skillsReducer, fetchSkills },
+    { default: skillLockReducer, fetchStaleLockEntries },
     { default: uiReducer },
     { HealthWidget },
   ] = await Promise.all([
     import('@/renderer/src/redux/slices/skillsSlice'),
+    import('@/renderer/src/redux/slices/skillLockSlice'),
     import('@/renderer/src/redux/slices/uiSlice'),
     import('./HealthWidget'),
   ])
   const store = configureStore({
-    reducer: { skills: skillsReducer, ui: uiReducer },
+    reducer: {
+      skills: skillsReducer,
+      skillLock: skillLockReducer,
+      ui: uiReducer,
+    },
   })
   store.dispatch(fetchSkills.fulfilled(skills, 'req-skills'))
+  // `pending` first: the reducer only applies a scan result whose requestId is
+  // the newest one it issued, so a bare `fulfilled` would be ignored.
+  store.dispatch(fetchStaleLockEntries.pending('req-lock', undefined))
+  store.dispatch(
+    fetchStaleLockEntries.fulfilled(
+      scanStatus === 'ok'
+        ? { status: 'ok', names: staleLockNames }
+        : { status: 'unavailable' },
+      'req-lock',
+      undefined,
+    ),
+  )
 
   const screen = await render(
     <Provider store={store}>
@@ -174,5 +197,82 @@ describe('HealthWidget', () => {
     await expect
       .element(screen.getByRole('button', { name: 'Scan issues' }))
       .toBeVisible()
+  })
+})
+
+describe('HealthWidget stale skill-lock records', () => {
+  it('offers Prune lock when the skills CLI still tracks a deleted skill', async () => {
+    // Arrange
+    const skills = [makeSkill([makeSymlink('valid')])]
+    const { screen, store } = await renderHealthWidget(skills, ['old-skill'])
+
+    // Act
+    await screen.getByRole('button', { name: 'Prune lock' }).click()
+
+    // Assert
+    expect(store.getState().ui.lockPruneDialogOpen).toBe(true)
+  })
+
+  it('shows both actions at once when links are broken AND lock records are stale', async () => {
+    // Arrange — the two problems are independent, so one must not hide the other.
+    const skills = [makeSkill([makeSymlink('valid'), makeSymlink('broken')])]
+
+    // Act
+    const { screen } = await renderHealthWidget(skills, ['old-skill'])
+
+    // Assert
+    await expect
+      .element(screen.getByRole('button', { name: 'Scan issues' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Prune lock' }))
+      .toBeVisible()
+  })
+
+  it('counts stale lock records separately from symlinks', async () => {
+    // Arrange — a lock record has no agent and no link, so it cannot be folded
+    // into the broken/inaccessible symlink tallies.
+    const skills = [makeSkill([makeSymlink('valid')])]
+
+    // Act
+    const { screen } = await renderHealthWidget(skills, ['a', 'b'])
+
+    // Assert
+    await expect
+      .element(screen.getByText('lock', { exact: true }))
+      .toBeVisible()
+    await expect
+      .element(
+        screen.getByRole('img', {
+          name: '1 valid, 0 cleanup issues, 0 manual review',
+        }),
+      )
+      .toBeInTheDocument()
+  })
+
+  it('does not report Healthy while lock records are still stale', async () => {
+    // Arrange
+    const skills = [makeSkill([makeSymlink('valid')])]
+
+    // Act
+    const { screen } = await renderHealthWidget(skills, ['old-skill'])
+
+    // Assert
+    expect(screen.getByText('Healthy').query()).toBeNull()
+  })
+
+  it('stays on Healthy when the lock scan came back unavailable', async () => {
+    // Arrange — main could not compare the lock against disk. Offering a
+    // cleanup action there would promise something main would refuse to do.
+    const skills = [makeSkill([makeSymlink('valid')])]
+
+    // Act
+    const { screen } = await renderHealthWidget(skills, [], 'unavailable')
+
+    // Assert
+    await expect.element(screen.getByText('Healthy')).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Prune lock' }).query(),
+    ).toBeNull()
   })
 })

@@ -1,15 +1,25 @@
 import { ACTION_HYDRATE_COMPLETE } from '@laststance/redux-storage-middleware'
 import { createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit'
 
-import { COLOR_PRESET_CHROMA } from '@/shared/constants'
+import {
+  COLOR_PRESET_CHROMA,
+  LOCK_RESCAN_GRACE_MS,
+  UNDO_WINDOW_MS,
+} from '@/shared/constants'
 import type { Settings } from '@/shared/settings'
 import type { AgentId } from '@/shared/types'
 
 import { setSettings } from './slices/settingsSlice'
+import { fetchStaleLockEntries } from './slices/skillLockSlice'
 import { clearSelection } from './slices/skillsSlice'
 import { setModePreference, setTheme } from './slices/themeSlice'
 import type { ThemeState } from './slices/themeSlice'
-import { fetchSyncPreview, selectAgent, setActiveTab } from './slices/uiSlice'
+import {
+  fetchSyncPreview,
+  selectAgent,
+  setActiveTab,
+  setUndoToast,
+} from './slices/uiSlice'
 
 export const listenerMiddleware = createListenerMiddleware()
 
@@ -169,5 +179,30 @@ listenerMiddleware.startListening({
     ) {
       listenerApi.dispatch(selectAgent(null))
     }
+  },
+})
+
+/**
+ * Re-check the skills CLI lock once a delete's undo window has closed.
+ *
+ * Deleting a skill only moves it to the trash, so the record is still
+ * restorable and deliberately not counted as stale. Main prunes it when the
+ * tombstone is evicted, but that prune is best effort — if it fails (no `npx`
+ * on PATH, CLI error) the record really is stale and nothing else would tell
+ * the dashboard. Mount and `refreshAllData` are the only other scan triggers,
+ * so without this the user would have to navigate away and back to see it.
+ *
+ * `cancelActiveListeners` collapses a burst of deletes into one trailing scan.
+ * The scan drains any queued prune on the main side before reading, so it
+ * reports the settled lock rather than racing the eviction it is waiting on.
+ */
+listenerMiddleware.startListening({
+  actionCreator: setUndoToast,
+  effect: async (action, listenerApi) => {
+    // Unlink toasts tombstone nothing, so no eviction and no prune follows.
+    if (action.payload.kind !== 'delete') return
+    listenerApi.cancelActiveListeners()
+    await listenerApi.delay(UNDO_WINDOW_MS + LOCK_RESCAN_GRACE_MS)
+    void listenerApi.dispatch(fetchStaleLockEntries())
   },
 })

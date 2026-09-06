@@ -30,6 +30,7 @@ async function createTestStore() {
   const { default: marketplaceReducer } = await import('./marketplaceSlice')
   const { default: protectReducer } = await import('./protectSlice')
   const { default: settingsReducer } = await import('./settingsSlice')
+  const { default: skillLockReducer } = await import('./skillLockSlice')
   const { default: skillsReducer } = await import('./skillsSlice')
   const { default: themeReducer } = await import('./themeSlice')
   const { default: uiReducer } = await import('./uiSlice')
@@ -39,6 +40,7 @@ async function createTestStore() {
     reducer: {
       theme: themeReducer,
       skills: skillsReducer,
+      skillLock: skillLockReducer,
       agents: agentsReducer,
       bookmarks: bookmarkReducer,
       protect: protectReducer,

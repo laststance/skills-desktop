@@ -1,13 +1,12 @@
 import { randomBytes } from 'node:crypto'
 import { constants, type Stats } from 'node:fs'
 import * as fs from 'node:fs/promises'
-import { homedir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 
 import { match } from 'ts-pattern'
 import type { z } from 'zod'
 
-import { AGENTS, SOURCE_DIR } from '@/main/constants'
+import { AGENTS, SOURCE_DIR, TRASH_DIR } from '@/main/constants'
 import { manifestSchema } from '@/main/ipc/ipc-schemas'
 import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
 import { extractErrorMessage } from '@/main/utils/errors'
@@ -29,11 +28,9 @@ import {
   isSameFilesystemIdentity,
 } from './filesystemIdentity'
 import { getAllowedBases, validatePath } from './pathValidation'
+import { queuePrune, resolveLockKeyForDirectory } from './skillLockService'
 import { isValidSkillDir } from './skillValidation'
 import { resolveRawSymlinkTarget } from './symlinkChecker'
-
-/** Root of the on-disk trash. Created lazily on first delete. */
-const TRASH_DIR = join(homedir(), '.agents', '.trash')
 
 /**
  * Stable error code for a manifest that cannot be parsed (bad JSON or fails
@@ -46,9 +43,6 @@ const ERR_CLEANUP_RESTORE_FAILED = 'ECLEANUP_RESTORE_FAILED'
 
 /** How long a tombstone lives before being evicted in-session (ms). Matches E1 undo window. */
 const TRASH_TTL_MS = UNDO_WINDOW_MS
-
-/** Max age for startup-cleanup to preserve orphaned entries across restarts (ms). */
-const STARTUP_CLEANUP_MAX_AGE_MS = 24 * 60 * 60 * 1000
 
 /** Concurrency bound for the startup cleanup sweep. */
 const STARTUP_CLEANUP_CONCURRENCY = 4
@@ -1483,6 +1477,11 @@ async function moveLocalOnlyToTrash(
 export async function evict(id: TombstoneId): Promise<void> {
   const entryDir = join(TRASH_DIR, id)
   cancelEvictTimer(id)
+
+  // Read the manifest BEFORE the removal: it is the only record of which
+  // source directory this tombstone owned, and fs.rm takes it with it.
+  const lockKey = await readEvictedLockKey(entryDir)
+
   try {
     await fs.rm(entryDir, { recursive: true, force: true })
   } catch (error) {
@@ -1491,7 +1490,41 @@ export async function evict(id: TombstoneId): Promise<void> {
       code: errorCode(error),
       message: extractErrorMessage(error),
     })
+    // The entry survives, so restore is still possible. Pruning its lock
+    // record now would strand a skill the user can still bring back.
+    return
   }
+
+  // Deletion is final here, which is the first moment the lock record is
+  // provably wrong. Queued, not awaited — nothing is listening to this timer.
+  if (lockKey) queuePrune(lockKey)
+}
+
+/**
+ * Read the lock key a tombstone owns, for the prune hook in {@link evict}.
+ * Local-only tombstones return null: the skill never lived in the universal
+ * source dir, so the CLI never tracked it.
+ * @param entryDir - Trash entry directory about to be removed.
+ * @returns Raw lock key, or null when there is nothing to prune.
+ * @example await readEvictedLockKey('/Users/me/.agents/.trash/1729-task-abc12345')
+ */
+async function readEvictedLockKey(
+  entryDir: AbsolutePath,
+): Promise<SkillName | null> {
+  let manifest: z.infer<typeof manifestSchema>
+  try {
+    const raw = await fs.readFile(join(entryDir, 'manifest.json'), 'utf-8')
+    manifest = manifestSchema.parse(JSON.parse(raw))
+  } catch {
+    // Missing or corrupt manifest: the entry is still removed, just not pruned.
+    return null
+  }
+  if (manifest.kind !== 'source-backed') return null
+
+  // The manifest's `skillName` is the DISPLAY name from SKILL.md frontmatter,
+  // which need not match either the directory or the lock key. The source
+  // path's basename is the directory, which maps back to one lock key.
+  return resolveLockKeyForDirectory(basename(manifest.sourcePath))
 }
 
 /**
@@ -1816,11 +1849,18 @@ async function finalizeRestore(
 }
 
 /**
- * Sweep orphan trash entries older than 24h on `app.whenReady`.
- * Entries younger than 24h are left alone (the Redux undoToast that paired with
- * them is gone on restart — we can't reconstruct the countdown, so no re-schedule).
+ * Sweep every orphan trash entry on `app.whenReady`.
+ *
+ * The undo window is a session concept: the Redux undoToast that paired with a
+ * tombstone is gone on restart, so nothing can ever restore these entries and
+ * holding them for 24h only delayed the inevitable. Worse, while an entry sits
+ * here its lock record is treated as still-wanted, so a skill the user deleted
+ * yesterday keeps coming back on `skills -g update`.
+ *
+ * Entries flagged for manual recovery are skipped — those hold the only
+ * surviving copy of user data. Removal goes through {@link evict} so the
+ * lock-prune hook covers both deletion exits, not just the in-session timer.
  * Runs with concurrency bound 4 so a storm of orphans doesn't stall startup.
- * Errors per entry are caught + logged; sweep continues.
  * @example
  * // In src/main/index.ts on app.whenReady:
  * void startupCleanup()
@@ -1840,25 +1880,20 @@ export async function startupCleanup(): Promise<void> {
     return
   }
 
-  const cutoff = Date.now() - STARTUP_CLEANUP_MAX_AGE_MS
-  // Parse entry name → unix_ms prefix; only sweep old ones.
-  const toSweep: string[] = []
+  const toSweep: TombstoneId[] = []
   let manualRecoverySkippedCount = 0
   for (const entryName of entries) {
-    const ms = parseDeletedAtFromEntryName(entryName)
-    if (ms === null) {
+    if (parseDeletedAtFromEntryName(entryName) === null) {
       // Unparseable name = foreign file; do not touch.
       continue
     }
-    if (ms < cutoff) {
-      const entryDir = join(TRASH_DIR, entryName)
-      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- marker reads only build the toSweep plan and mutate manualRecoverySkippedCount; the actual fs.rm deletion runs via a concurrency-4 pool below.
-      if (await hasManualRecoveryMarker(entryDir)) {
-        manualRecoverySkippedCount++
-        continue
-      }
-      toSweep.push(entryName)
+    const entryDir = join(TRASH_DIR, entryName)
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- marker reads only build the toSweep plan and mutate manualRecoverySkippedCount; the actual eviction runs via a concurrency-4 pool below.
+    if (await hasManualRecoveryMarker(entryDir)) {
+      manualRecoverySkippedCount++
+      continue
     }
+    toSweep.push(tombstoneId(entryName))
   }
 
   // Manual semaphore at concurrency 4.
@@ -1869,20 +1904,9 @@ export async function startupCleanup(): Promise<void> {
       while (true) {
         const current = index++
         if (current >= toSweep.length) return
-        const entryName = toSweep[current]
-        try {
-          await fs.rm(join(TRASH_DIR, entryName), {
-            recursive: true,
-            force: true,
-          })
-        } catch (error) {
-          console.warn('trashService: startupCleanup entry skipped', {
-            entryName,
-            reason: 'rm failed',
-            code: errorCode(error),
-            message: extractErrorMessage(error),
-          })
-        }
+        // evict() removes the entry AND queues its lock record for pruning;
+        // it logs and swallows its own failures, so the sweep always continues.
+        await evict(toSweep[current])
       }
     },
   )

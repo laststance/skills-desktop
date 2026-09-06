@@ -19,6 +19,9 @@ import type {
   CliCommandOperationResult,
   PixelHeight,
   PixelWidth,
+  PruneLockEntriesOptions,
+  PruneLockEntriesResult,
+  StaleLockScanResult,
   RankingFilter,
   SkillSearchResult,
   InstallOptions,
@@ -100,6 +103,11 @@ declare global {
         onDeleteProgress: (
           callback: (payload: DeleteProgressPayload) => void,
         ) => () => void
+        // Skills CLI lock: records whose skill is gone, and their removal.
+        scanStaleLockEntries: () => Promise<StaleLockScanResult>
+        pruneLockEntries: (
+          options: PruneLockEntriesOptions,
+        ) => Promise<PruneLockEntriesResult>
       }
       agents: {
         getAll: () => Promise<Agent[]>

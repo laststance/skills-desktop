@@ -16,6 +16,7 @@ import type {
   InstallProgress,
   ProgressPercent,
   SearchQuery,
+  SkillName,
 } from '@/shared/types'
 
 /**
@@ -40,8 +41,28 @@ const CLI_FLAGS = {
 
 /** Hard timeout per spawned `npx skills ...` child process (60 seconds). */
 const SPAWN_TIMEOUT_MS = 60_000
+/**
+ * Ceiling for non-cancellable commands, which are the ones that rewrite
+ * `.skill-lock.json` (3 minutes). The CLI's `writeSkillLock` is a plain
+ * `writeFile` with no temp+rename, so a SIGTERM landing mid-write truncates
+ * the lock — and a truncated lock parses as an EMPTY one, silently dropping
+ * every skill the user installed. The write itself is sub-millisecond; what
+ * actually eats the 60s is `npx` resolving the package over the network. This
+ * moves the expiry well clear of that fetch instead of removing the kill: an
+ * unkillable child would hang the caller forever, which is the worse failure.
+ */
+const LOCK_WRITE_SPAWN_TIMEOUT_MS = 180_000
 /** Signal used for user cancel and timeout kill paths. */
 const PROCESS_KILL_SIGNAL: NodeJS.Signals = 'SIGTERM'
+/** Uncatchable follow-up for a child that ignores {@link PROCESS_KILL_SIGNAL}. */
+const PROCESS_FORCE_KILL_SIGNAL: NodeJS.Signals = 'SIGKILL'
+/**
+ * How long a timed-out child gets to die on SIGTERM before it is SIGKILLed and
+ * the caller stops waiting (5 seconds). The wait exists so `runLockWrite` keeps
+ * its mutex until the child can no longer touch `.skill-lock.json`; the ceiling
+ * exists because an unkillable child must not hold the queue forever.
+ */
+const KILL_GRACE_MS = 5_000
 /**
  * Matches both legacy `owner/repo@skill` output and current CLI lines with
  * trailing telemetry, for example `owner/repo@skill 402.7K installs`.
@@ -120,6 +141,12 @@ function buildCliEnv(): NodeJS.ProcessEnv {
  */
 class SkillsCliService extends EventEmitter {
   private runningProcesses = new Set<ChildProcess>()
+  /**
+   * Bumped by every {@link cancel}. Callers that queue work behind an async
+   * gate capture this before waiting and re-check it before spawning, because
+   * `cancel()` can only sweep children that already exist.
+   */
+  private cancelCount = 0
 
   /**
    * Search for skills using `npx skills find <query>`
@@ -179,14 +206,75 @@ class SkillsCliService extends EventEmitter {
   }
 
   /**
+   * Remove skills from the global lock using `npx skills remove <names...>`.
+   * Called by {@link skillLockService} to prune records whose skill is already
+   * gone from disk; the CLI owns the lock format, so the app never writes it.
+   *
+   * Deliberately passes no `onOutput` callback: `parseProgressFromOutput`
+   * would emit install-phase progress into the Marketplace UI from a
+   * background prune the user never started.
+   * @param names - Raw lock keys, as they appear in `.skill-lock.json`.
+   * @returns CLI result. Note the exit code is NOT authoritative — `remove.ts`
+   *   logs per-item failures and still exits 0, so callers verify by
+   *   re-reading the lock.
+   * @example
+   * removeSkills(['old-skill'])
+   * // spawns: npx skills@x.y.z remove old-skill --global -y
+   */
+  async removeSkills(names: readonly SkillName[]): Promise<CliCommandResult> {
+    // Lock keys are written by the upstream CLI from third-party skill
+    // metadata; this app never validated them. `--all` and `*` are SELECTORS in
+    // the CLI's own argument parser, so either one turns this unattended prune
+    // into a global uninstall across every agent. The CLI implements no `--`
+    // terminator, so argument position alone cannot make them inert — the names
+    // have to be refused here. Refused keys survive in the lock and the caller
+    // reports them as `failed` when it re-reads it.
+    const removable = names.filter((name) => SKILL_NAME_PATTERN.test(name))
+    const refused = names.filter((name) => !SKILL_NAME_PATTERN.test(name))
+    if (refused.length > 0) {
+      console.error('skillsCliService: refusing option-shaped lock keys', {
+        refused,
+      })
+    }
+    if (removable.length === 0) {
+      return {
+        success: false,
+        stdout: '',
+        stderr: `Refused ${refused.length} lock key(s) that the skills CLI would read as options, not skill names.`,
+        code: null,
+      }
+    }
+    return this.execCli(
+      ['remove', ...removable, CLI_FLAGS.GLOBAL, CLI_FLAGS.YES],
+      undefined,
+      { cancellable: false },
+    )
+  }
+
+  /**
    * Cancel all currently-running CLI operations by sending `SIGTERM` to each
    * spawned child process. Used by the renderer to abort an in-progress
    * install when the user closes the install dialog.
+   *
+   * Lock-writing commands (see `removeSkills`) never join the sweep: closing
+   * the install dialog must not kill a background prune mid-write.
    */
   cancel(): void {
+    this.cancelCount += 1
     for (const proc of this.runningProcesses) {
       proc.kill(PROCESS_KILL_SIGNAL)
     }
+  }
+
+  /**
+   * Monotonic count of {@link cancel} calls, so work that waited in a queue can
+   * tell whether a cancel landed during the wait. Read before queueing and
+   * again before spawning; a changed value means "the user already backed out".
+   * @returns Number of cancels issued since app start.
+   * @example const before = skillsCliService.cancelGeneration
+   */
+  get cancelGeneration(): number {
+    return this.cancelCount
   }
 
   /**
@@ -198,6 +286,7 @@ class SkillsCliService extends EventEmitter {
   private async execCli(
     args: string[],
     onOutput?: (data: string) => void,
+    { cancellable = true }: { cancellable?: boolean } = {},
   ): Promise<CliExecutionResult> {
     return new Promise((resolve) => {
       let stdout = ''
@@ -210,7 +299,20 @@ class SkillsCliService extends EventEmitter {
         env: buildCliEnv(),
       })
 
-      this.runningProcesses.add(proc)
+      // Only cancellable commands join the set `cancel()` sweeps. A prune
+      // rewrites .skill-lock.json with a plain writeFile (no temp+rename), so
+      // a SIGTERM aimed at an unrelated install would truncate the lock.
+      if (cancellable) this.runningProcesses.add(proc)
+
+      // Non-cancellable == lock-rewriting. See LOCK_WRITE_SPAWN_TIMEOUT_MS.
+      const timeoutMs = cancellable
+        ? SPAWN_TIMEOUT_MS
+        : LOCK_WRITE_SPAWN_TIMEOUT_MS
+
+      // Set the moment the ceiling expires, so whichever path resolves reports
+      // the timeout rather than whatever exit code the kill produced.
+      let timedOut = false
+      let killGraceHandle: NodeJS.Timeout | undefined
 
       const finalize = (result: CliExecutionResult): void => {
         if (settled) {
@@ -218,20 +320,36 @@ class SkillsCliService extends EventEmitter {
         }
         settled = true
         clearTimeout(timeoutHandle)
+        clearTimeout(killGraceHandle)
         this.runningProcesses.delete(proc)
         resolve(result)
       }
 
-      const timeoutHandle = setTimeout(() => {
-        proc.kill(PROCESS_KILL_SIGNAL)
+      const finalizeTimedOut = (): void =>
         finalize({
           success: false,
           stdout,
-          stderr: this.buildTimeoutMessage(),
+          stderr: this.buildTimeoutMessage(timeoutMs),
           code: null,
           timedOut: true,
         })
-      }, SPAWN_TIMEOUT_MS)
+
+      const timeoutHandle = setTimeout(() => {
+        timedOut = true
+        proc.kill(PROCESS_KILL_SIGNAL)
+        // Deliberately NOT resolving here. Resolving on the kill releases the
+        // `runLockWrite` mutex while the child may still be mid-writeFile on
+        // .skill-lock.json — the CLI writes it with no temp+rename, so the next
+        // queued command interleaving with that write truncates the lock, and a
+        // truncated lock parses as an empty one. The `close` handler resolves
+        // once the child is actually gone.
+        killGraceHandle = setTimeout(() => {
+          // SIGTERM ignored. Force it, then stop waiting: holding the queue on
+          // an unkillable child is the worse failure.
+          proc.kill(PROCESS_FORCE_KILL_SIGNAL)
+          finalizeTimedOut()
+        }, KILL_GRACE_MS)
+      }, timeoutMs)
 
       proc.stdout?.on('data', (data: Buffer) => {
         const text = data.toString()
@@ -244,6 +362,11 @@ class SkillsCliService extends EventEmitter {
       })
 
       proc.on('close', (code) => {
+        // The kill landed and the child is gone — only now is releasing safe.
+        if (timedOut) {
+          finalizeTimedOut()
+          return
+        }
         finalize({
           success: code === 0,
           stdout,
@@ -266,10 +389,13 @@ class SkillsCliService extends EventEmitter {
   }
 
   /**
-   * Build the user-facing timeout message using the shared timeout constant.
+   * Build the user-facing timeout message for whichever ceiling actually fired.
+   * @param timeoutMs - The ceiling that expired, in milliseconds.
+   * @returns Message naming the elapsed limit in whole seconds.
+   * @example buildTimeoutMessage(60_000) // => 'CLI command timed out after 60s'
    */
-  private buildTimeoutMessage(): string {
-    const timeoutSeconds = Math.floor(SPAWN_TIMEOUT_MS / 1000)
+  private buildTimeoutMessage(timeoutMs: number): string {
+    const timeoutSeconds = Math.floor(timeoutMs / 1000)
     return `CLI command timed out after ${timeoutSeconds}s`
   }
 

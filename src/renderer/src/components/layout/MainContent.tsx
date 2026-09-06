@@ -11,6 +11,7 @@ import {
 import React, { useRef } from 'react'
 import { toast } from 'sonner'
 
+import { LockPruneDialog } from '@/renderer/src/components/dashboard/LockPruneDialog'
 import { SymlinkCleanupDialog } from '@/renderer/src/components/dashboard/SymlinkCleanupDialog'
 import { SkillsMarketplace } from '@/renderer/src/components/marketplace'
 import { InstallModal } from '@/renderer/src/components/marketplace/InstallModal'
@@ -1329,6 +1330,7 @@ export const MainContent = function MainContent(): React.ReactElement {
       <SyncResultDialog />
       <CleanupAgentDialog />
       <SymlinkCleanupDialog />
+      <LockPruneDialog />
 
       {/*
          Bulk delete / unlink confirmation. Copy is driven by

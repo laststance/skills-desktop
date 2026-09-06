@@ -104,6 +104,7 @@ async function renderMainContentWithToolbar() {
   const [
     { default: uiReducer },
     { default: skillsReducer },
+    { default: skillLockReducer },
     { default: agentsReducer },
     { default: bookmarksReducer },
     { default: marketplaceReducer },
@@ -113,6 +114,7 @@ async function renderMainContentWithToolbar() {
   ] = await Promise.all([
     import('@/renderer/src/redux/slices/uiSlice'),
     import('@/renderer/src/redux/slices/skillsSlice'),
+    import('@/renderer/src/redux/slices/skillLockSlice'),
     import('@/renderer/src/redux/slices/agentsSlice'),
     import('@/renderer/src/redux/slices/bookmarkSlice'),
     import('@/renderer/src/redux/slices/marketplaceSlice'),
@@ -124,6 +126,7 @@ async function renderMainContentWithToolbar() {
     reducer: {
       ui: uiReducer,
       skills: skillsReducer,
+      skillLock: skillLockReducer,
       agents: agentsReducer,
       bookmarks: bookmarksReducer,
       marketplace: marketplaceReducer,

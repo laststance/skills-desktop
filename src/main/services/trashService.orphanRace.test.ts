@@ -3482,11 +3482,11 @@ describe('trashService orphan cleanup guarded commit', () => {
     errorSpy.mockRestore()
   })
 
-  it('logs and continues on startup when an old entry cannot be removed', async () => {
+  it('logs and continues on startup when an entry cannot be removed', async () => {
     // Arrange
-    // The per-entry rm of an aged entry fails; startupCleanup must log a warning
-    // and not throw, leaving the entry behind.
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    // The per-entry removal fails; startupCleanup delegates to evict(), which
+    // must log and swallow so the rest of the sweep still runs.
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const oldEntryName = '1-old-unremovable-deadbeef'
     vi.doMock('node:fs/promises', async () => {
       const actual =
@@ -3518,11 +3518,11 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Assert
     expect(
-      warnSpy.mock.calls.some(
-        ([message]) => message === 'trashService: startupCleanup entry skipped',
+      errorSpy.mock.calls.some(
+        ([message]) => message === 'trashService: evict failed',
       ),
     ).toBe(true)
-    warnSpy.mockRestore()
+    errorSpy.mockRestore()
   })
 
   it('reports an inspect failure when revalidating the reviewed folder hits a non-ENOENT error', async () => {

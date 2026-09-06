@@ -208,6 +208,21 @@ declare global {
           removedCount: number
           error?: string
         }>
+        /**
+         * `unavailable` is a distinct outcome from `{ names: [] }`: it means
+         * one side of the comparison could not be read, so no record can be
+         * called stale. Modelled as a union here for the same reason main
+         * models it that way — a spec must not be able to read a failed scan
+         * as "nothing to prune".
+         */
+        scanStaleLockEntries: () => Promise<
+          { status: 'ok'; names: string[] } | { status: 'unavailable' }
+        >
+        pruneLockEntries: (options: { names: string[] }) => Promise<{
+          pruned: string[]
+          skipped: string[]
+          failed: string[]
+        }>
       }
       agents: {
         getAll: () => Promise<unknown[]>
