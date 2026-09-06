@@ -10,6 +10,7 @@ import {
   AGENTS,
   MANUAL_RECOVERY_MARKER,
   SOURCE_DIR,
+  STAGED_ENTRY_PREFIX,
   TRASH_DIR,
 } from '@/main/constants'
 import { manifestSchema } from '@/main/ipc/ipc-schemas'
@@ -347,6 +348,41 @@ async function markManualRecoveryEntry(
 }
 
 /**
+ * Publish a staged entry that holds the user's only remaining copy: mark it
+ * terminal, then rename it under its real tombstone name. Runs on the two
+ * source-backed failure arms, because {@link hasManualRecoveryMarker} and
+ * {@link isManualRecoveryEntry} only ever look at published entry names.
+ * @param stagingDir - Half-built entry under {@link STAGED_ENTRY_PREFIX}.
+ * @param entryDir - Tombstone-named path to publish it as.
+ * @param reason - Human-readable recovery reason for operators and tests.
+ * @returns
+ * - `entryDir` once the entry is published
+ * - `stagingDir` when the rename failed — the data is still there, just not
+ *   under a name the marker readers scan, and nothing sweeps staged names
+ * @example await publishManualRecoveryEntry(stagingDir, entryDir, 'source rollback failed')
+ */
+async function publishManualRecoveryEntry(
+  stagingDir: AbsolutePath,
+  entryDir: AbsolutePath,
+  reason: string,
+): Promise<AbsolutePath> {
+  await markManualRecoveryEntry(stagingDir, reason)
+  try {
+    await fs.rename(stagingDir, entryDir)
+    return entryDir
+  } catch (publishError) {
+    // Recoverable either way: the caller reports whichever path we return.
+    console.error('trashService: failed to publish manual recovery entry', {
+      stagingDir,
+      entryDir,
+      code: errorCode(publishError),
+      message: extractErrorMessage(publishError),
+    })
+    return stagingDir
+  }
+}
+
+/**
  * Check whether startup cleanup must leave a trash entry for manual recovery.
  * @param entryDir - Trash entry directory under TRASH_DIR.
  * @returns true when the marker exists or cannot be checked safely.
@@ -412,7 +448,12 @@ interface SourceMoveFailure {
  * Move a source folder into a trash entry while preserving staged EXDEV recovery copies.
  * @param sourcePath - Reviewed skill source directory to move.
  * @param entrySourceDir - Destination `<entryDir>/source` directory.
- * @returns null on success, otherwise a failure object describing cleanup safety.
+ * @returns
+ * - `null` once the source sits inside the entry
+ * - a failure object otherwise; its `preserveEntryDirForManualRecovery` tells
+ *   the caller the entry now holds the user's only copy. The caller, not this
+ *   function, appends the "preserved in <path>" hint — only it knows where the
+ *   publish rename left the data.
  * @example await moveSourceIntoTrashEntry('/Users/me/.agents/skills/x', '/Users/me/.agents/.trash/id/source')
  */
 async function moveSourceIntoTrashEntry(
@@ -488,13 +529,10 @@ async function moveSourceIntoTrashEntry(
             preserveEntryDirForManualRecovery = true
           }
         }
-        const recoveryHint = preserveEntryDirForManualRecovery
-          ? `; source copy preserved in ${entrySourceDir}`
-          : ''
         return {
           preserveEntryDirForManualRecovery,
           error: new TrashError(
-            `Failed to move source to trash (cross-device): ${extractErrorMessage(fallbackError)}${recoveryHint}`,
+            `Failed to move source to trash (cross-device): ${extractErrorMessage(fallbackError)}`,
             errorCode(fallbackError),
           ),
         }
@@ -1100,18 +1138,22 @@ async function moveSourceBackedToTrash(
 
   const entryName = buildEntryName(skillName)
   const entryDir = join(TRASH_DIR, entryName)
-  const entrySourceDir = join(entryDir, 'source')
-  const manifestPath = join(entryDir, 'manifest.json')
+  // Everything below is assembled under a staged name and published with one
+  // rename at the end. A kill before that rename leaves a directory no reader
+  // parses as a tombstone, so the source waits there instead of being swept.
+  const stagingDir = join(TRASH_DIR, `${STAGED_ENTRY_PREFIX}${entryName}`)
+  const entrySourceDir = join(stagingDir, 'source')
+  const manifestPath = join(stagingDir, 'manifest.json')
 
   // Walk agents, collect + remove symlinks. Abort on non-ENOENT unlink failure.
   const { recordedSymlinks, cascadeAgentIds } =
     await removeSourceBackedAgentSymlinks(skillName, sourcePath)
 
-  // Atomically move source → trash entry. On EXDEV, copy + remove.
+  // Atomically move source → staged entry. On EXDEV, copy + remove.
   // If the move fails, the symlinks we already unlinked would otherwise be
   // lost. Best-effort re-create them before re-throwing so the user is not
   // left with a half-deleted skill (source still on disk but agents unlinked).
-  await fs.mkdir(entryDir, { recursive: true })
+  await fs.mkdir(stagingDir, { recursive: true })
   const sourceMoveFailure = await moveSourceIntoTrashEntry(
     sourcePath,
     entrySourceDir,
@@ -1119,26 +1161,35 @@ async function moveSourceBackedToTrash(
   )
   if (sourceMoveFailure !== null) {
     // Rollback symlinks, but never delete an entry that now holds the recovery
-    // copy created by the EXDEV fallback.
+    // copy created by the EXDEV fallback — publish that one instead, since the
+    // marker readers only ever scan published entry names.
     await rollbackRemovedSymlinks(recordedSymlinks)
     if (sourceMoveFailure.preserveEntryDirForManualRecovery) {
-      await markManualRecoveryEntry(
+      const recoveryDir = await publishManualRecoveryEntry(
+        stagingDir,
         entryDir,
         'source EXDEV fallback copied to trash but removing original failed',
       )
-    } else {
-      /* v8 ignore next 3 -- best-effort cleanup: any fs.rm rejection (EPERM/EBUSY/EACCES — force only suppresses ENOENT) is intentionally swallowed by .catch, and no suite stages a writable-but-unremovable dir, so this recovery arm is unreachable under test */
-      await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
-        // entryDir cleanup is best-effort — caller already has the real error.
-      })
+      // Built here, not inside the move: the publish lands under either name,
+      // and a data-loss message pointing at a path that does not exist is
+      // worse than one with no path at all.
+      throw new TrashError(
+        `${sourceMoveFailure.error.message}; source copy preserved in ${join(recoveryDir, 'source')}`,
+        sourceMoveFailure.error.code,
+      )
     }
+    /* v8 ignore next 3 -- best-effort cleanup: any fs.rm rejection (EPERM/EBUSY/EACCES — force only suppresses ENOENT) is intentionally swallowed by .catch, and no suite stages a writable-but-unremovable dir, so this recovery arm is unreachable under test */
+    await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => {
+      // Staged cleanup is best-effort — caller already has the real error.
+    })
     throw sourceMoveFailure.error
   }
 
-  // Write manifest. If this fails after the source was already moved in, we
-  // are in a state with no manifest, no evict timer, and removed symlinks —
-  // restore would be impossible. Roll back (source → original path, re-create
-  // symlinks, drop trash entry) before surfacing the error to the caller.
+  // Write the manifest, then publish. Both run against the staged entry, so a
+  // kill at any point up to the rename leaves the source parked under a name
+  // startupCleanup skips and `restore` never sees — recoverable, never swept.
+  // A *failure* still rolls back (source → original path, re-create symlinks,
+  // drop the staged entry) rather than leaving the user half-deleted.
   const manifest = {
     schemaVersion: 2 as const,
     kind: 'source-backed' as const,
@@ -1149,9 +1200,12 @@ async function moveSourceBackedToTrash(
   }
   try {
     await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8')
-  } catch (manifestWriteError) {
-    const manifestWriteCode = errorCode(manifestWriteError)
-    const manifestWriteMessage = extractErrorMessage(manifestWriteError)
+    // The publish. Rename is atomic, so on failure the staged entry is still
+    // whole and the rollback below applies to it unchanged.
+    await fs.rename(stagingDir, entryDir)
+  } catch (entryPublishError) {
+    const entryPublishCode = errorCode(entryPublishError)
+    const entryPublishMessage = extractErrorMessage(entryPublishError)
 
     // Step 1: restore the source back without clobbering a recreated slot.
     let restoreSourceFailed = false
@@ -1160,7 +1214,7 @@ async function moveSourceBackedToTrash(
     } catch (restoreError) {
       restoreSourceFailed = true
       console.error(
-        'trashService: manifest write rollback — failed to restore source',
+        'trashService: entry publish rollback — failed to restore source',
         {
           skillName,
           entryName,
@@ -1174,27 +1228,31 @@ async function moveSourceBackedToTrash(
     await rollbackRemovedSymlinks(recordedSymlinks)
 
     // Step 3: drop only fully rolled-back entries. If source restore failed,
-    // entrySourceDir is the manual recovery path and must survive this error.
+    // entrySourceDir is the manual recovery path and must survive this error —
+    // publish it so the marker readers can find it under a tombstone name.
+    let strandedSourceDir = entrySourceDir
     if (!restoreSourceFailed) {
       /* v8 ignore next 3 -- best-effort cleanup: any fs.rm rejection (EPERM/EBUSY/EACCES — force only suppresses ENOENT) is intentionally swallowed by .catch, and no suite stages a writable-but-unremovable dir, so this recovery arm is unreachable under test */
-      await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
-        // entry cleanup is best-effort — caller already has the real error.
+      await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => {
+        // Staged cleanup is best-effort — caller already has the real error.
       })
     } else {
-      await markManualRecoveryEntry(
+      const recoveryDir = await publishManualRecoveryEntry(
+        stagingDir,
         entryDir,
         'source manifest rollback failed to restore original path',
       )
+      strandedSourceDir = join(recoveryDir, 'source')
     }
 
     // If we couldn't put the source back the user is in a broken state. Flag
     // it in the thrown error so the caller surfaces "manual recovery" to the UI.
     const prefix = restoreSourceFailed
-      ? `Failed to write trash manifest; source is stranded in ${entrySourceDir}`
-      : 'Failed to write trash manifest'
+      ? `Failed to finalize trash entry; source is stranded in ${strandedSourceDir}`
+      : 'Failed to finalize trash entry'
     throw new TrashError(
-      `${prefix}: ${manifestWriteMessage}`,
-      manifestWriteCode,
+      `${prefix}: ${entryPublishMessage}`,
+      entryPublishCode,
     )
   }
 

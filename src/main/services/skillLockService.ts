@@ -194,8 +194,9 @@ type TrashReadResult =
 
 /**
  * True when a trash entry carries the terminal manual-recovery marker.
- * Read by {@link readTrashedSourceDirNames} before the manifest, because both
- * source-backed writers of the marker run BEFORE the manifest exists.
+ * Read by {@link readTrashedSourceDirNames} before the manifest, because a
+ * marked entry can legitimately have none — both source-backed writers of the
+ * marker fire on paths where the manifest was never written.
  * @param entryDir - Trash entry directory under `TRASH_DIR`.
  * @returns true only on proof the marker is there.
  * @example await isManualRecoveryEntry('/Users/me/.agents/.trash/2026-...') // => false
@@ -247,10 +248,11 @@ async function readTrashedSourceDirNames(): Promise<TrashReadResult> {
       const entryDir = join(TRASH_DIR, entryName)
       // Checked BEFORE the manifest, and it is load-bearing. Both source-backed
       // writers of this marker (`trashService` at the source-move failure and
-      // at the manifest-write rollback) run while no manifest exists yet, so
-      // without this the ENOENT below reads as "one of our entries caught
-      // mid-write" and takes the whole scan to `unavailable` — permanently,
-      // since `startupCleanup` deliberately never sweeps a marked entry.
+      // at the entry-publish rollback) fire on paths where the manifest was
+      // never written, so without this the ENOENT below reads as "one of our
+      // own entries with a lost manifest" and takes the whole scan to
+      // `unavailable` — permanently, since `startupCleanup` deliberately never
+      // sweeps a marked entry.
       //
       // Returning null also stops the entry counting as "still restorable":
       // its automatic restore already failed for good, so holding the lock
@@ -267,10 +269,15 @@ async function readTrashedSourceDirNames(): Promise<TrashReadResult> {
         // the lock record for a skill still inside its undo window.
         //
         // A MISSING manifest is only benign when the entry is not ours.
-        // `moveToTrash` renames the source in BEFORE writing the manifest, so
-        // one of our own entries caught in that window reads as ENOENT here —
-        // and treating it as foreign would drop a skill whose undo is live.
-        // Only our entries carry a parseable tombstone id as their name.
+        // `moveToTrash` now builds each entry under a staged name and publishes
+        // it with one rename, so a published entry always carries its manifest.
+        // Two cases still reach here: an entry written by the pre-staging build
+        // that was killed mid-move, and one whose manifest was deleted or
+        // truncated after the fact. Both may still hold a skill whose undo is
+        // live, and treating them as foreign would drop it.
+        // Only our entries carry a parseable tombstone id as their name; a
+        // half-built `.staging-` entry deliberately does not, because a leaked
+        // one would otherwise take this scan to `unavailable` for good.
         if (
           isMissingPathError(error) &&
           tombstoneIdSchema.safeParse(entryName).success

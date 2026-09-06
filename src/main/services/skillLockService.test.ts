@@ -108,7 +108,7 @@ async function makeTombstone(dirName: string): Promise<void> {
 /**
  * Stage a trash entry that failed its automatic restore, exactly as
  * `trashService` leaves one: the marker is written while no manifest exists,
- * because both source-backed writers run before the manifest is created.
+ * because both source-backed writers fire on paths that never wrote one.
  * @param dirName - Basename of the source directory the entry was staged from.
  * @param withManifest - Also write a valid manifest (a shape today's writers never produce).
  * @example await makeManualRecoveryEntry('stuck-skill')
@@ -410,11 +410,11 @@ describe('scanStaleLockEntries', () => {
 
   test('keeps scanning when a trash entry was left for manual recovery with no manifest', async () => {
     // Arrange
-    // Both source-backed writers of the marker run BEFORE the manifest exists,
-    // so the entry reads as ENOENT. Without the marker check that looks like one
-    // of our own entries caught mid-write and takes the whole scan to
-    // `unavailable` — permanently, because startup cleanup never sweeps a marked
-    // entry. The feature would be dead for that user with no way back.
+    // Both source-backed writers of the marker fire on paths that never wrote a
+    // manifest, so the entry reads as ENOENT. Without the marker check that looks
+    // like one of our own entries with a lost manifest and takes the whole scan
+    // to `unavailable` — permanently, because startup cleanup never sweeps a
+    // marked entry. The feature would be dead for that user with no way back.
     const { scanStaleLockEntries } = await serviceModule
     await writeLock(['stuck-skill'])
     await makeManualRecoveryEntry('stuck-skill')
@@ -505,11 +505,12 @@ describe('scanStaleLockEntries', () => {
     })
   })
 
-  test('treats a trash entry still being staged as unreadable rather than foreign', async () => {
+  test('treats a manifest-less tombstone as unreadable rather than foreign', async () => {
     // Arrange
-    // `moveToTrash` renames the source in BEFORE writing manifest.json, so one
-    // of our own entries caught in that window has no manifest. Reading that as
-    // a foreign file would report a skill whose undo is still live as stale.
+    // A published entry normally always carries its manifest, but one written by
+    // the pre-staging build — or one whose manifest was deleted after the fact —
+    // does not. Reading that as a foreign file would report a skill whose undo is
+    // still live as stale.
     const { scanStaleLockEntries } = await serviceModule
     await writeLock(['mid-staging'])
     await mkdir(join(trashDir, '1700000000000-mid-staging-bbbbbbbb'), {

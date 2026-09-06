@@ -683,14 +683,19 @@ describe('trashService orphan cleanup guarded commit', () => {
     const { __getTrashDirForTests, moveToTrash } =
       await import('./trashService')
 
-    // Act / Assert
-    await expect(
-      moveToTrash(
+    // Act
+    let surfacedError: unknown
+    try {
+      await moveToTrash(
         skillName,
         sourcePath,
         await reviewedIdentityForPath(sourcePath),
-      ),
-    ).rejects.toThrow(/source copy preserved/i)
+      )
+    } catch (error) {
+      surfacedError = error
+    }
+
+    // Assert
     expect((await lstat(sourcePath)).isDirectory()).toBe(true)
     expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
     const trashEntries = await readdir(__getTrashDirForTests())
@@ -700,6 +705,14 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       lstat(join(entryDir, '.manual-recovery')),
     ).resolves.toBeDefined()
+    // The hint has to name where the copy actually landed. The entry is built
+    // under a staged name and published with a rename, so a message built
+    // before the publish would send the user to a path that no longer exists.
+    expect(surfacedError).toMatchObject({
+      message: expect.stringContaining(
+        `source copy preserved in ${join(entryDir, 'source')}`,
+      ),
+    })
   })
 
   it('does not overwrite a replacement during manifest rollback restore', async () => {
@@ -2708,7 +2721,7 @@ describe('trashService orphan cleanup guarded commit', () => {
         sourcePath as never,
         await reviewedIdentityForPath(sourcePath),
       ),
-    ).rejects.toThrow(/Failed to write trash manifest/i)
+    ).rejects.toThrow(/Failed to finalize trash entry/i)
     // Source restored to its original location.
     expect(await readFile(join(sourcePath, 'SKILL.md'), 'utf-8')).toContain(
       skillName,

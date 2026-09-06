@@ -1361,18 +1361,47 @@ That is a feature, not a follow-up to this entry.
 
 **Depends on / blocked by:** Nothing.
 
-### P2. `moveToTrash` writes `manifest.json` after moving the source in
+### ~~P2. `moveToTrash` writes `manifest.json` after moving the source in~~
 
-`trashService.ts:1112-1150` renames the source into the entry and only then
-writes the manifest, so an entry can briefly exist that nothing can describe.
-The scan side is now defended (an entry whose name parses as a tombstone id but
-has no manifest is treated as unreadable, not foreign), but the underlying
-ordering still means a crash in that window leaves an entry no code can
-interpret and `startupCleanup` will sweep.
+FIXED: the source-backed path now assembles the entry under
+`.staging-<entryName>` (`STAGED_ENTRY_PREFIX`) and publishes it with one
+`fs.rename`. Until that rename lands nothing parses the directory as a
+tombstone — `tombstoneIdSchema` and `startupCleanup`'s name parse both require
+a leading `\d+`, which the prefix breaks — so a kill in the window leaves the
+source parked in the trash instead of swept away. No reader changed.
 
-**Fix direction:** write the manifest before moving the source in, or stage it
-under a temp name. The existing rollback arms depend on today's order, so this
-needs care — that is why review did not touch it.
+Writing the manifest first was considered and rejected: it swaps this window
+for a worse one, an entry claiming a skill is trashed while the source is still
+live, and `evict` would prune that skill's lock key.
+
+Two consequences worth knowing:
+
+- **Nothing may ever sweep a `.staging-` entry.** It can hold the user's only
+  copy of a skill. A leaked one is a bounded disk leak in a crash-only path;
+  that is the deliberate trade.
+- **`readTrashedSourceDirNames` was left alone on purpose.** A staged entry now
+  falls through to "foreign" instead of `unavailable`, but a staged window is
+  not a live undo window: no tombstone id has reached the renderer yet.
+  Teaching the scan to recognise `.staging-` would make one leaked directory
+  brick stale-lock detection permanently, which is strictly worse. Its
+  ENOENT-on-parseable-tombstone branch stays live for entries written by the
+  pre-staging build and for manifests deleted after the fact; the comment there
+  was retargeted to say so.
+
+**Depends on / blocked by:** Nothing.
+
+### P2. `moveLocalOnlyToTrash` has the same manifest-after-move ordering
+
+`trashService.ts:1241-1470` moves each agent's real folder into
+`<entryDir>/local-copies/<agentId>` and only then writes the manifest, so a
+kill in that window leaves a tombstone-named entry with no manifest — the same
+sweep-the-only-copy exposure the source-backed path just closed.
+
+**Fix direction:** same as above, build under `STAGED_ENTRY_PREFIX` and publish
+with one rename. Kept out of that PR because four of its failure arms embed
+`${entryDir}` in user-facing "stranded in ..." messages, so staging means
+rewriting every message against a maybe-published path — a second state machine
+a reviewer would have to hold at the same time.
 
 **Depends on / blocked by:** Nothing.
 
@@ -1445,8 +1474,9 @@ scan false-negative, not an unprunable state — see there.
 - ~~Manual-recovery trash entries keep their lock record alive forever:
   `readTrashedSourceDirNames` counts them as "still restorable" although their
   restore already failed permanently.~~ FIXED, and it was worse than filed. Both
-  source-backed writers of the `.manual-recovery` marker run BEFORE the manifest
-  exists (`trashService.ts` source-move failure, and manifest-write rollback), so
+  source-backed writers of the `.manual-recovery` marker fire on paths that never
+  wrote a manifest (`trashService.ts` source-move failure, and the publish
+  rollback), so
   the entry read as ENOENT on a parseable tombstone id — which
   `readTrashedSourceDirNames` treats as "one of our entries caught mid-write" and
   answers `unavailable` for the whole scan. `startupCleanup` deliberately never
