@@ -505,6 +505,76 @@ describe('useCodePreview', () => {
     expect(result.current.loadFailed).toBe(false)
   })
 
+  test('empties the pane instead of showing the previous file when a click fails', async () => {
+    // Arrange -- first file reads fine, the clicked one rejects. The tab bar
+    // has already moved (selection commits before the read), so keeping the
+    // old content would caption `first`'s text with `second`'s tab.
+    const first = makeFile()
+    const second = makeFile({
+      name: 'notes.md',
+      path: '/skills/tdd/notes.md',
+      relativePath: 'notes.md',
+    })
+    const firstBody = makeTextContent()
+    listMock.mockResolvedValue([first, second])
+    readMock.mockImplementation(async (p) => {
+      if (p === first.path) return firstBody
+      throw new Error('EIO')
+    })
+
+    const { useCodePreview } = await import('./useCodePreview')
+    const { result, act } = await renderHook(() =>
+      useCodePreview('/skills/tdd'),
+    )
+    await expect.poll(() => result.current.loading).toBe(false)
+    expect(result.current.content).toEqual({ kind: 'text', data: firstBody })
+
+    // Act
+    await act(async () => {
+      await result.current.setActiveFile(second.path)
+    })
+
+    // Assert
+    expect(result.current.activeFile).toBe(second.path)
+    expect(result.current.content).toEqual({ kind: 'empty' })
+    // A failed read of one file is not a failed folder -- the tabs stay usable.
+    expect(result.current.loadFailed).toBe(false)
+    expect(result.current.files).toEqual([first, second])
+  })
+
+  test('empties the pane instead of showing the previous file when an image click fails', async () => {
+    // Arrange -- same contract on the binary branch of loadContentForFile.
+    const first = makeFile()
+    const image = makeFile({
+      name: 'logo.png',
+      path: '/skills/tdd/logo.png',
+      relativePath: 'logo.png',
+      extension: '.png',
+      previewable: 'image',
+    })
+    const firstBody = makeTextContent()
+    listMock.mockResolvedValue([first, image])
+    readMock.mockResolvedValue(firstBody)
+    readBinaryMock.mockRejectedValue(new Error('EIO'))
+
+    const { useCodePreview } = await import('./useCodePreview')
+    const { result, act } = await renderHook(() =>
+      useCodePreview('/skills/tdd'),
+    )
+    await expect.poll(() => result.current.loading).toBe(false)
+    expect(result.current.content).toEqual({ kind: 'text', data: firstBody })
+
+    // Act
+    await act(async () => {
+      await result.current.setActiveFile(image.path)
+    })
+
+    // Assert
+    expect(result.current.activeFile).toBe(image.path)
+    expect(result.current.content).toEqual({ kind: 'empty' })
+    expect(result.current.loadFailed).toBe(false)
+  })
+
   test('ends the loading state and reports failure when the file list cannot be read', async () => {
     // Arrange -- the main process rejects any path outside its allowed bases,
     // which is how a skill symlinked from off-tree reaches this hook.

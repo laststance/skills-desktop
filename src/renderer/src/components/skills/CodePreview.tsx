@@ -46,7 +46,11 @@ export const CodePreview = function CodePreview({
   const handleValueChange = (next: string) => {
     /* v8 ignore next -- next is always a non-empty file.path: Radix emits a Trigger's own value and every FileTabs Trigger has value={file.path} (non-empty AbsolutePath); Root has no collapsible/deselect prop, so next === '' never occurs */
     if (!next) return
-    setActiveFile(next)
+    // Fire-and-forget by design: {@link useCodePreview} owns the loading and
+    // failure states, and its `setActiveFile` degrades a failed read to the
+    // empty pane rather than rejecting. `void` pins that at the call site so a
+    // future rejection is a visible change here, not a silently dropped one.
+    void setActiveFile(next)
   }
 
   // Exhaustive over PreviewPaneState: the priority order between these four

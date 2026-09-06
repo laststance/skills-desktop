@@ -138,7 +138,18 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
       return
     }
     // react-doctor-disable-next-line react-doctor/async-defer-await -- the post-await guards (below) deliberately re-read refs AFTER the async gap to drop a stale click or a skill switch that happened DURING the load; they cannot move before the await.
-    const next = await loadContentForFile(file)
+    const next = await loadContentForFile(file).catch(
+      (error: unknown): PreviewContent => {
+        // The UI falls back to the empty pane; DevTools gets the real cause.
+        console.warn('[preview] failed to read selected file:', error)
+        // Degrade to empty, don't rethrow. The selection committed above, so
+        // this tab is already highlighted: leaving `content` alone would
+        // caption the PREVIOUS file's text with THIS file's tab. An empty pane
+        // is honest, misattributed text is not. Rethrowing is not an option
+        // either -- `handleValueChange` drops the promise, so it would float.
+        return { kind: 'empty' }
+      },
+    )
     // After the await, two things may have happened out of order:
     // (a) the user picked a different file (stale click loses)
     // (b) the skill itself switched (whole state already reset)
