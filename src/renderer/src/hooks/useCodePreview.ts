@@ -108,7 +108,13 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
         return
       }
       // The list landed, so `files` is valid and its tabs must keep rendering;
-      // only this one file's content is missing.
+      // only this one file's content is missing. Same stale-click guard the
+      // success path uses: a click during the initial read already committed
+      // `userSelectedFile` and painted that file, so blanking here would wipe
+      // the tab the user is looking at. (The `!listSucceeded` arm above needs
+      // no guard -- `files` is empty there, so `setActiveFile` rejects every
+      // path and the ref is provably still null.)
+      if (userSelectedFileRef.current !== null) return
       setContent({ kind: 'empty' })
     })
     return () => {

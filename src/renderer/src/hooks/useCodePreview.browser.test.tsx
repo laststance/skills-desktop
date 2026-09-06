@@ -445,6 +445,66 @@ describe('useCodePreview', () => {
     expect(result.current.content).toEqual({ kind: 'empty' })
   })
 
+  test('keeps the user-selected file showing when a slow initial-load read finally rejects', async () => {
+    // Arrange -- reject-side twin of the resolve-side stale-click test above.
+    // read(first) hangs then fails; read(second) wins immediately, so the
+    // failure lands after the user is already looking at `second`.
+    const first = makeFile()
+    const second = makeFile({
+      name: 'notes.md',
+      path: '/skills/tdd/notes.md',
+      relativePath: 'notes.md',
+    })
+    const secondBody = makeTextContent({ name: 'notes.md', content: 'notes' })
+
+    listMock.mockResolvedValue([first, second])
+
+    let rejectFirst: ((reason: Error) => void) | null = null
+    readMock.mockImplementation(async (p) => {
+      if (p === first.path) {
+        return new Promise<SkillFileContent | null>((_res, rej) => {
+          rejectFirst = rej
+        })
+      }
+      return secondBody
+    })
+
+    const { useCodePreview } = await import('./useCodePreview')
+    const { result, act } = await renderHook(() =>
+      useCodePreview('/skills/tdd'),
+    )
+
+    await expect.poll(() => result.current.files.length).toBe(2)
+    // Same gate as the resolve-side test: prove read(first) is pending, or
+    // `rejectFirst?.(…)` no-ops and the guard never gets exercised.
+    await expect
+      .poll(() => readMock.mock.calls.some((c) => c[0] === first.path))
+      .toBe(true)
+
+    // Act
+    await act(async () => {
+      await result.current.setActiveFile(second.path)
+    })
+
+    // Assert
+    expect(result.current.activeFile).toBe(second.path)
+    expect(result.current.content).toEqual({ kind: 'text', data: secondBody })
+
+    // Act
+    // The slow initial read now fails. The catch must not blank the pane the
+    // user is reading -- only `first`'s content is missing, and nobody is
+    // looking at it.
+    await act(async () => {
+      rejectFirst?.(new Error('EIO'))
+      await Promise.resolve()
+    })
+
+    // Assert
+    expect(result.current.activeFile).toBe(second.path)
+    expect(result.current.content).toEqual({ kind: 'text', data: secondBody })
+    expect(result.current.loadFailed).toBe(false)
+  })
+
   test('ends the loading state and reports failure when the file list cannot be read', async () => {
     // Arrange -- the main process rejects any path outside its allowed bases,
     // which is how a skill symlinked from off-tree reaches this hook.

@@ -76,9 +76,12 @@ describe('resolvePreviewPaneState', () => {
     expect(state).toEqual({ kind: 'loading' })
   })
 
-  test('hides a stale active file behind the unavailable pane when the list failed', () => {
-    // Arrange — a content read can reject after the list landed, leaving an
-    // activeFile alongside a failure. The failure still wins.
+  test('never routes a failed list to the file pane, even with a file selected', () => {
+    // Arrange — defensive, not a state {@link useCodePreview} can currently
+    // produce: `loadFailed` is set only when the list itself rejected, which
+    // leaves `files` empty and `activeFile` null. Pinned anyway because this
+    // is the one ordering a future caller could get wrong -- routing a failure
+    // to the file pane would render a tab with no readable content behind it.
     const input = { loading: false, loadFailed: true, activeFile: ACTIVE_FILE }
 
     // Act
