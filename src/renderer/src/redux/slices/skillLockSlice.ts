@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 
+import { openLockPruneDialog } from '@/renderer/src/redux/slices/uiSlice'
 import type { RootState } from '@/renderer/src/redux/store'
 import type { SkillName } from '@/shared/types'
 
@@ -22,8 +23,6 @@ interface SkillLockState {
   staleNames: SkillName[]
   /** `idle` before the first scan; `unavailable` when main could not compare. */
   status: 'idle' | 'ok' | 'unavailable'
-  /** True while a prune is in flight, so the confirm button can disable. */
-  pruning: boolean
   /**
    * `requestId` of the newest scan whose result may still be applied. Four
    * call sites dispatch scans independently (mount, refresh thunk, listener,
@@ -32,13 +31,41 @@ interface SkillLockState {
    * was rewritten is describing a lock that no longer exists.
    */
   scanRequestId: string | null
+  /**
+   * `requestId` of the prune in flight, or null when none is. Doubles as the
+   * busy flag behind {@link selectIsPruningLockEntries} rather than sitting
+   * beside a separate boolean, so "a prune is running" and "which prune" cannot
+   * drift apart: only the prune that set this may clear it, and an older one
+   * settling can never re-enable the confirm button mid-delete.
+   */
+  pruneRequestId: string | null
+  /**
+   * Set when a scan lands while a prune is in flight. That scan read the lock
+   * after the prune began writing, so its list is the newer truth and the
+   * prune's `failed` must not put the pre-prune names back over it. Kept apart
+   * from {@link SkillLockState.pruneRequestId} because that one still has to
+   * let its own prune release the busy state — clearing it here would leave the
+   * dialog stuck on "Pruning..." with every control disabled.
+   */
+  staleNamesSupersededByScan: boolean
+  /**
+   * The exact list the prune dialog was opened on. The dialog is the consent
+   * gate for a delegated recursive delete, so what it acts on has to be what
+   * the user read — a scan landing while it is open would otherwise swap the
+   * list out from under the confirm button. Deliberately NOT cleared on close:
+   * the dialog stays mounted through its 200ms exit animation, so emptying it
+   * there blanks the description, the list, and the button label mid-fade.
+   */
+  consentedNames: SkillName[]
 }
 
 const initialState: SkillLockState = {
   staleNames: [],
   status: 'idle',
-  pruning: false,
   scanRequestId: null,
+  pruneRequestId: null,
+  staleNamesSupersededByScan: false,
+  consentedNames: [],
 }
 
 /**
@@ -81,6 +108,10 @@ const skillLockSlice = createSlice({
       .addCase(fetchStaleLockEntries.fulfilled, (state, action) => {
         // Superseded by a newer scan, or invalidated by a prune.
         if (action.meta.requestId !== state.scanRequestId) return
+        // This scan read the lock after the prune started writing it, so its
+        // answer outranks whatever that prune is about to report. It does not
+        // touch `pruneRequestId`: that prune still has to be able to end itself.
+        state.staleNamesSupersededByScan = true
         if (action.payload.status === 'ok') {
           state.status = 'ok'
           state.staleNames = action.payload.names
@@ -93,21 +124,43 @@ const skillLockSlice = createSlice({
       })
       .addCase(fetchStaleLockEntries.rejected, (state, action) => {
         if (action.meta.requestId !== state.scanRequestId) return
+        // Same reason as the fulfilled case, and it matters more here: `failed`
+        // landing afterwards would list records behind an `unavailable` status
+        // that says we cannot stand behind any count.
+        state.staleNamesSupersededByScan = true
         state.status = 'unavailable'
         state.staleNames = []
       })
-      .addCase(pruneStaleLockEntries.pending, (state) => {
-        state.pruning = true
+      .addCase(pruneStaleLockEntries.pending, (state, action) => {
         state.scanRequestId = null
+        state.pruneRequestId = action.meta.requestId
+        state.staleNamesSupersededByScan = false
       })
       .addCase(pruneStaleLockEntries.fulfilled, (state, action) => {
-        state.pruning = false
+        // Only the prune that owns the busy state may release it. An older one
+        // settling here would report "not pruning" while a newer delete is
+        // still running, re-enabling the confirm button mid-delegation.
+        if (action.meta.requestId !== state.pruneRequestId) return
+        state.pruneRequestId = null
+        // A scan already answered from a newer read of the lock. `failed` is
+        // the pre-scan view, so applying it would drop records that scan added.
+        if (state.staleNamesSupersededByScan) return
         // Anything that survived is still stale; a follow-up scan would find
         // it again, so keep it visible instead of flashing "all clear".
         state.staleNames = action.payload.failed
       })
-      .addCase(pruneStaleLockEntries.rejected, (state) => {
-        state.pruning = false
+      .addCase(pruneStaleLockEntries.rejected, (state, action) => {
+        // Same ownership check as the fulfilled case: releasing the busy state
+        // is the newest prune's to do, never an older one's.
+        if (action.meta.requestId !== state.pruneRequestId) return
+        state.pruneRequestId = null
+      })
+      // Snapshot for the dialog. Lives here rather than in `uiSlice` because
+      // only this slice can see `staleNames` at the moment the dialog opens.
+      // Unconditional, so reopening can never inherit the previous list — which
+      // is also why nothing clears this on close.
+      .addCase(openLockPruneDialog, (state) => {
+        state.consentedNames = [...state.staleNames]
       })
   },
 })
@@ -132,5 +185,24 @@ export const selectStaleLockEntryNames = (state: RootState): SkillName[] =>
 export const selectStaleLockEntryCount = (state: RootState): number =>
   state.skillLock.status === 'ok' ? state.skillLock.staleNames.length : 0
 
+/**
+ * Whether a prune is in flight, derived from the in-flight request id so a
+ * separate boolean can never contradict it; read by {@link LockPruneDialog} to
+ * disable both footer buttons during a delegated delete.
+ * @param state - Root Redux state.
+ * @returns True while a prune has been dispatched and has not settled.
+ * @example useAppSelector(selectIsPruningLockEntries) // => false
+ */
 export const selectIsPruningLockEntries = (state: RootState): boolean =>
-  state.skillLock.pruning
+  state.skillLock.pruneRequestId !== null
+
+/**
+ * The records the open prune dialog is asking about, frozen when it opened.
+ * Every surface inside that dialog reads this instead of the live list, so the
+ * names, the count, and the delete request can never disagree with each other.
+ * @param state - Root Redux state.
+ * @returns Lock keys the user is being asked to confirm.
+ * @example useAppSelector(selectConsentedLockEntryNames) // => ['old-skill']
+ */
+export const selectConsentedLockEntryNames = (state: RootState): SkillName[] =>
+  state.skillLock.consentedNames

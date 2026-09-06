@@ -145,6 +145,13 @@ async function readSkillLockKeys(): Promise<LockReadResult> {
     if (parsed.data.version < SUPPORTED_LOCK_VERSION) {
       return { status: 'ok', keys: [] }
     }
+    // A newer CLI wrote a format this build has never seen. Its keys may not
+    // map onto directories the way `sanitizeName` assumes here, so this is the
+    // same "one side of the comparison is missing" case as an unreadable file:
+    // report nothing rather than prune against a guess.
+    if (parsed.data.version > SUPPORTED_LOCK_VERSION) {
+      return { status: 'unavailable' }
+    }
     return { status: 'ok', keys: Object.keys(parsed.data.skills) }
   } catch (error) {
     console.error('skillLockService: lock is not valid JSON', {
@@ -300,6 +307,14 @@ function buildUniqueDirNameIndex(
  * The eviction hook only knows the directory it just deleted; the CLI needs
  * the raw key back (`removeSkillFromLock` looks up `lock.skills[name]` by raw
  * name), so the mapping has to be inverted through `sanitizeName`.
+ *
+ * Reads inside {@link runLockWrite}: the CLI's own `writeSkillLock` is a plain
+ * `writeFile`, so a read racing an install can land on a half-written file and
+ * return null. Here that is unrecoverable rather than merely wrong — the trash
+ * entry that would re-queue the prune is already evicted, so the record is
+ * stranded until the user notices it in the dashboard. Nesting is safe: every
+ * `evict` caller is a detached timer or the startup sweep, none of them holding
+ * the mutex.
  * @param dirName - Basename of the source directory that was removed.
  * @returns The raw lock key, or null when nothing tracks that directory.
  * @example await resolveLockKeyForDirectory('ce-review') // => 'CE:Review'
@@ -307,9 +322,11 @@ function buildUniqueDirNameIndex(
 export async function resolveLockKeyForDirectory(
   dirName: string,
 ): Promise<SkillName | null> {
-  const lock = await readSkillLockKeys()
-  if (lock.status !== 'ok') return null
-  return buildUniqueDirNameIndex(lock.keys).get(dirName) ?? null
+  return runLockWrite(async () => {
+    const lock = await readSkillLockKeys()
+    if (lock.status !== 'ok') return null
+    return buildUniqueDirNameIndex(lock.keys).get(dirName) ?? null
+  })
 }
 
 /**
@@ -435,7 +452,8 @@ export async function scanStaleLockEntries(): Promise<StaleLockScanResult> {
  * Remove lock records by delegating to `skills remove --global -y`.
  *
  * Runs inside {@link runLockWrite}, and revalidates INSIDE that lock: a name is
- * dropped when its record already went away, and when its directory came back
+ * dropped when its record already went away, when another key has come to share
+ * its directory name, and when its directory came back
  * (a reinstall during the undo window would otherwise be destroyed by a delete
  * request that is no longer true). Success is decided by re-reading the lock
  * afterwards, never by the child's exit code — `skills remove` logs per-item
@@ -468,6 +486,11 @@ export async function pruneLockEntries(
     }
 
     const tracked = new Set(before.keys)
+    // Rebuilt from the lock as it is NOW, not as the scan saw it. Between scan
+    // and confirm another key can appear that sanitizes to the same directory,
+    // and upstream `removeSkillFromLock` is last-write-wins over sanitized
+    // names — delegating then would delete the OTHER record.
+    const unambiguousOwners = buildUniqueDirNameIndex(before.keys)
     const targets: SkillName[] = []
     const skipped: SkillName[] = []
     // Records we could neither confirm stale nor clear. They belong in
@@ -475,10 +498,22 @@ export async function pruneLockEntries(
     // `skipped` is a benign no-op the UI reports as "the skill came back",
     // while these are still stale and the user has to see that.
     const unverifiable: SkillName[] = []
+    // Kept apart from `unverifiable` even though both end in `failed`: this is
+    // "two records claim one directory", a state the user can act on by
+    // renaming, not an I/O error that might clear itself. The split is also the
+    // seam the scan-side half lands on — see TODOS.md P2, which needs this
+    // distinction to reach the dashboard as its own status.
+    const collided: SkillName[] = []
     for (const name of requested) {
       // Already gone from the lock — nothing to remove, and nothing is wrong.
       if (!tracked.has(name)) {
         skipped.push(name)
+        continue
+      }
+      // Another key now owns this directory name too, so "does its source
+      // exist" no longer answers anything about THIS record.
+      if (unambiguousOwners.get(sanitizeName(name)) !== name) {
+        collided.push(name)
         continue
       }
       // react-doctor-disable-next-line react-doctor/async-await-in-loop -- revalidation must stay inside the lock-write mutex; a Promise.all here would still be serialized by it and the batch is at most a screenful of names.
@@ -491,7 +526,8 @@ export async function pruneLockEntries(
       else unverifiable.push(name)
     }
 
-    if (targets.length === 0) return { ...empty, skipped, failed: unverifiable }
+    if (targets.length === 0)
+      return { ...empty, skipped, failed: [...unverifiable, ...collided] }
 
     // Absence was probed above; read the trash AFTER it. Same load-bearing
     // order as {@link scanStaleLockEntries} and it must not be swapped: a
@@ -509,7 +545,11 @@ export async function pruneLockEntries(
     // back) and the UI reports it as a benign no-op, while these records are
     // still stale and unverifiable — the user has to see that.
     if (trashed.status !== 'ok')
-      return { ...empty, skipped, failed: [...unverifiable, ...targets] }
+      return {
+        ...empty,
+        skipped,
+        failed: [...unverifiable, ...collided, ...targets],
+      }
 
     const removable: SkillName[] = []
     for (const name of targets) {
@@ -520,7 +560,7 @@ export async function pruneLockEntries(
     }
 
     if (removable.length === 0)
-      return { ...empty, skipped, failed: unverifiable }
+      return { ...empty, skipped, failed: [...unverifiable, ...collided] }
 
     // Last line before an irreversible delegation. See
     // {@link holdsRealAgentDirectory}: the CLI would recursively delete this
@@ -534,7 +574,11 @@ export async function pruneLockEntries(
     }
 
     if (delegable.length === 0)
-      return { ...empty, skipped, failed: [...unverifiable, ...refused] }
+      return {
+        ...empty,
+        skipped,
+        failed: [...unverifiable, ...collided, ...refused],
+      }
 
     // Raw keys, not sanitized — the CLI looks the record up by raw name and
     // sanitizes internally when it resolves paths.
@@ -545,7 +589,7 @@ export async function pruneLockEntries(
       return {
         pruned: [],
         skipped,
-        failed: [...unverifiable, ...delegable, ...refused],
+        failed: [...unverifiable, ...collided, ...delegable, ...refused],
       }
     }
     const survivors = new Set(after.keys)
@@ -554,6 +598,7 @@ export async function pruneLockEntries(
       skipped,
       failed: [
         ...unverifiable,
+        ...collided,
         ...delegable.filter((name) => survivors.has(name)),
         ...refused,
       ],

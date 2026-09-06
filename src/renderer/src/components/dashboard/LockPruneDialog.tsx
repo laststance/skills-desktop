@@ -16,8 +16,8 @@ import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   fetchStaleLockEntries,
   pruneStaleLockEntries,
+  selectConsentedLockEntryNames,
   selectIsPruningLockEntries,
-  selectStaleLockEntryNames,
 } from '@/renderer/src/redux/slices/skillLockSlice'
 import {
   closeLockPruneDialog,
@@ -25,6 +25,8 @@ import {
 } from '@/renderer/src/redux/slices/uiSlice'
 import { pluralize } from '@/renderer/src/utils/pluralize'
 import type { PruneLockEntriesResult } from '@/shared/types'
+
+import { describeLockPruneTarget } from './lockPruneCopy'
 
 /**
  * Confirmation for removing skill-lock records whose skill is gone.
@@ -40,8 +42,15 @@ import type { PruneLockEntriesResult } from '@/shared/types'
 export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
   const dispatch = useAppDispatch()
   const isOpen = useAppSelector(selectLockPruneDialogOpen)
-  const staleNames = useAppSelector(selectStaleLockEntryNames)
+  // The list as it was when the dialog opened, not as it is now. A scan
+  // landing mid-dialog would otherwise change what this button deletes after
+  // the user already read the names.
+  const consentedNames = useAppSelector(selectConsentedLockEntryNames)
   const isPruning = useAppSelector(selectIsPruningLockEntries)
+  // Every count-dependent phrase comes from one call, so the sentence, the
+  // pronoun and the button label cannot disagree about how many records there
+  // are. Tested directly in `lockPruneCopy.test.ts`, without rendering.
+  const copy = describeLockPruneTarget(consentedNames.length)
 
   const handleClose = (): void => {
     if (!isPruning) dispatch(closeLockPruneDialog())
@@ -50,7 +59,7 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
   const handlePrune = async (): Promise<void> => {
     let result: PruneLockEntriesResult
     try {
-      result = await dispatch(pruneStaleLockEntries(staleNames)).unwrap()
+      result = await dispatch(pruneStaleLockEntries(consentedNames)).unwrap()
     } catch (error) {
       // A rejected thunk (IPC down, zod refusing an arg, main-process throw)
       // used to escape this handler unhandled: the dialog stayed open with no
@@ -67,7 +76,7 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
     // that survived will show up in the widget again on the next scan.
     if (result.failed.length > 0) {
       toast.error(
-        `Could not remove ${result.failed.length} of ${staleNames.length} ${pluralize(staleNames.length, 'record')}.`,
+        `Could not remove ${result.failed.length} of ${consentedNames.length} ${pluralize(consentedNames.length, 'record')}.`,
       )
     } else if (result.pruned.length === 0) {
       // Nothing failed, but nothing went either — main revalidated every name
@@ -99,21 +108,16 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
             title="Prune skill lock"
           />
           <DialogDescription>
-            The skills CLI still tracks{' '}
-            {staleNames.length === 1
-              ? 'a skill that is'
-              : `${staleNames.length} skills that are`}{' '}
-            no longer installed. Until the{' '}
-            {pluralize(staleNames.length, 'record')}{' '}
-            {staleNames.length === 1 ? 'is' : 'are'} removed,{' '}
+            The skills CLI still tracks {copy.subject} no longer installed.
+            Until the {copy.recordNoun} {copy.recordVerb} removed,{' '}
             <code className="text-xs">skills -g update</code> reinstalls{' '}
-            {staleNames.length === 1 ? 'it' : 'them'}.
+            {copy.pronoun}.
           </DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="max-h-48 rounded-md border border-border">
           <ul className="p-3 space-y-1 text-sm">
-            {staleNames.map((name) => (
+            {consentedNames.map((name) => (
               <li
                 key={name}
                 className="font-mono text-xs text-muted-foreground"
@@ -135,7 +139,7 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
                 Pruning...
               </>
             ) : (
-              `Remove ${staleNames.length} ${pluralize(staleNames.length, 'record')}`
+              copy.confirmLabel
             )}
           </Button>
         </DialogFooter>
