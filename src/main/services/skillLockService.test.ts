@@ -338,8 +338,8 @@ describe('scanStaleLockEntries', () => {
       status: 'ok',
       names: [],
       unprunable: [
-        { name: 'ambiguous', reason: 'name-collision' },
         { name: 'Ambiguous', reason: 'name-collision' },
+        { name: 'ambiguous', reason: 'name-collision' },
       ],
     })
   })

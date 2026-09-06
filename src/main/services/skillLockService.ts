@@ -506,7 +506,12 @@ export async function scanStaleLockEntries(): Promise<StaleLockScanResult> {
   return {
     status: 'ok',
     names: names.sort(),
-    unprunable: unprunable.sort((a, b) => a.name.localeCompare(b.name)),
+    // Code-unit order, matching `names.sort()` above. `localeCompare` would
+    // order these differently under the renderer's ICU than under the node
+    // test lane, which is not something a result shape should depend on.
+    unprunable: unprunable.sort((a, b) =>
+      a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+    ),
   }
 }
 
