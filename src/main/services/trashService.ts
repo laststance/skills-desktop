@@ -1413,10 +1413,15 @@ async function moveLocalOnlyToTrash(
             `trash-local-${copy.agentId}`,
           )
           let stagedCopyCreated = false
+          // Whether the folder ever left its agent slot. The catch below needs
+          // this to tell "still exactly where the user left it" apart from
+          // "parked under a bookkeeping name", and only the forward path knows.
+          let siblingStageCreated = false
           try {
             // Rename inside the original agent dir first; this binds the copy
             // to the reviewed identity before non-atomic cross-device copy.
             await fs.rename(copy.linkPath, siblingStagePath)
+            siblingStageCreated = true
             try {
               await assertStagedReviewedDirectory(
                 siblingStagePath,
@@ -1440,16 +1445,27 @@ async function moveLocalOnlyToTrash(
             await fs.rm(siblingStagePath, { recursive: true, force: true })
             return { kind: 'moved' as const }
           } catch (fallbackError) {
-            // Set only when the restore back to the agent dir failed, which
-            // parks the user's whole folder beside its old slot under a
-            // bookkeeping name nothing else in this flow reports.
+            // Set only when the folder actually left its slot AND could not be
+            // put back -- that is the one case where it sits beside its old
+            // home under a bookkeeping name nothing else in this flow reports.
+            // Reading it off the forward flag rather than off lstat's errno
+            // matters: when the sibling rename is what failed, the folder never
+            // moved, and lstat on a nonexistent child of an unsearchable agent
+            // dir answers EACCES, not ENOENT -- which would name a path that
+            // was never created while the folder sat untouched at linkPath.
             let strandedOriginalPath: AbsolutePath | null = null
-            try {
-              await fs.lstat(siblingStagePath)
-              await moveDirectoryNoOverwrite(siblingStagePath, copy.linkPath)
-            } catch (restoreError) {
-              if (errorCode(restoreError) !== 'ENOENT') {
-                strandedOriginalPath = siblingStagePath
+            if (siblingStageCreated) {
+              try {
+                await moveDirectoryNoOverwrite(siblingStagePath, copy.linkPath)
+              } catch (restoreError) {
+                // ENOENT means the staged folder is gone too, so there is
+                // nothing parked to send anyone to. Any other failure means it
+                // is still sitting there under the bookkeeping name. Reading
+                // this off the restore itself rather than a separate lstat
+                // probe closes the window where the answer changes in between.
+                if (errorCode(restoreError) !== 'ENOENT') {
+                  strandedOriginalPath = siblingStagePath
+                }
               }
             }
             // Two survivors, tracked apart on purpose: folding the failed

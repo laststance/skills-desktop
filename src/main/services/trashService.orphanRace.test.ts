@@ -955,6 +955,75 @@ describe('trashService orphan cleanup guarded commit', () => {
     expect(await readdir(__getTrashDirForTests())).toEqual([])
   })
 
+  test('claims no recovery location when the folder never left its agent slot', async () => {
+    // Arrange
+    // The move into the trash reports EXDEV, and the sibling-stage rename that
+    // the fallback opens with fails too -- so the folder never moved and is
+    // still exactly where the user left it. Naming a recovery path here would
+    // send them hunting a directory that was never created.
+    const skillName = 'local-exdev-never-staged'
+    const claudeSkillsDir = join(tempHome, '.claude', 'skills')
+    const localPath = join(claudeSkillsDir, skillName)
+    await mkdir(localPath, { recursive: true })
+    await writeFile(join(localPath, 'SKILL.md'), `# ${skillName}\n`, 'utf-8')
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        rename: async (oldPath: string, newPath: string): Promise<void> => {
+          if (oldPath !== localPath) return actual.rename(oldPath, newPath)
+          if (newPath.includes('/.agents/.trash/')) {
+            const error = new Error(
+              'forced cross-device local move',
+            ) as NodeJS.ErrnoException
+            error.code = 'EXDEV'
+            throw error
+          }
+          // The sibling-stage rename inside the agent dir fails as well.
+          const error = new Error(
+            'forced sibling stage failure',
+          ) as NodeJS.ErrnoException
+          error.code = 'EACCES'
+          throw error
+        },
+        lstat: async (path: string): Promise<Stats> => {
+          // An agent dir the process cannot search answers EACCES for a missing
+          // child instead of ENOENT -- so "does the sibling stage exist?"
+          // cannot be read off this errno, which is the point of the test.
+          if (path.includes(`.${skillName}.trash-local-`)) {
+            const error = new Error(
+              'forced sibling stage lstat failure',
+            ) as NodeJS.ErrnoException
+            error.code = 'EACCES'
+            throw error
+          }
+          return actual.lstat(path)
+        },
+      }
+    })
+    const { __getTrashDirForTests, moveToTrash } =
+      await import('./trashService')
+
+    // Act
+    const moveError = await moveToTrash(
+      skillName,
+      localPath,
+      await reviewedIdentityForPath(localPath),
+    ).catch((error: unknown) => error)
+
+    // Assert
+    const moveErrorMessage = moveError instanceof Error ? moveError.message : ''
+    expect(moveErrorMessage).toMatch(/failed to move local copy/i)
+    expect(moveErrorMessage).not.toMatch(/original folder left at/i)
+    expect(moveErrorMessage).not.toMatch(/staged copy preserved/i)
+    // The folder is untouched in the slot the user already knows about.
+    expect(await readFile(join(localPath, 'SKILL.md'), 'utf-8')).toContain(
+      skillName,
+    )
+    expect(await readdir(__getTrashDirForTests())).toEqual([])
+  })
+
   it('rejects deleting a reviewed path that contains a null byte in its basename', async () => {
     // Arrange
     // A reviewed source path whose basename carries a NUL byte passes the
@@ -3892,15 +3961,15 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Arrange
     // Local-only mirror of the source case: EXDEV forces the sibling-stage + copy
     // fallback for an agent-local copy. The copy fails (no staged copy created) and
-    // the sibling restore probe finds it already gone (ENOENT). The surfaced fatal
-    // error must NOT claim a staged copy was preserved.
+    // the restore back to the agent slot finds it already gone (ENOENT). The
+    // surfaced fatal error must NOT claim a staged copy was preserved, and must
+    // not name a recovery path either -- nothing is parked at the sibling.
     const skillName = 'local-exdev-sibling-gone'
     const claudeSkillsDir = join(tempHome, '.claude', 'skills')
     const localPath = join(claudeSkillsDir, skillName)
     await mkdir(localPath, { recursive: true })
     await writeFile(join(localPath, 'SKILL.md'), `# ${skillName}\n`, 'utf-8')
     const siblingStageMarker = `.${skillName}.trash-local-claude-code-`
-    let siblingLstatCalls = 0
     vi.doMock('node:fs/promises', async () => {
       const actual =
         await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
@@ -3916,36 +3985,26 @@ describe('trashService orphan cleanup guarded commit', () => {
           }
           return actual.rename(oldPath, newPath)
         },
-        lstat: async (
-          path: string,
-          options?: Parameters<typeof actual.lstat>[1],
-        ): Promise<Awaited<ReturnType<typeof actual.lstat>>> => {
-          if (path.includes(siblingStageMarker)) {
-            siblingLstatCalls += 1
-            // 1st lstat = identity recheck (must pass); 2nd = restore probe → ENOENT.
-            if (siblingLstatCalls >= 2) {
-              const error = new Error(
-                'sibling already gone',
-              ) as NodeJS.ErrnoException
-              error.code = 'ENOENT'
-              throw error
-            }
-          }
-          return actual.lstat(path, options)
-        },
         cp: async (
           source: string,
           destination: string,
           options?: Parameters<typeof actual.cp>[2],
         ): Promise<void> => {
-          if (
-            source.includes(siblingStageMarker) &&
-            destination.includes('/.agents/.trash/')
-          ) {
+          if (source.includes(siblingStageMarker)) {
+            // Copy into the trash entry fails outright...
+            if (destination.includes('/.agents/.trash/')) {
+              const error = new Error(
+                'forced cross-device copy failure',
+              ) as NodeJS.ErrnoException
+              error.code = 'EACCES'
+              throw error
+            }
+            // ...and the restore back to the agent slot finds the staged folder
+            // already gone, which is what ENOENT from the copy means.
             const error = new Error(
-              'forced cross-device copy failure',
+              'sibling already gone',
             ) as NodeJS.ErrnoException
-            error.code = 'EACCES'
+            error.code = 'ENOENT'
             throw error
           }
           return actual.cp(source, destination, options)
@@ -3973,9 +4032,12 @@ describe('trashService orphan cleanup guarded commit', () => {
     expect((surfacedError as Error).message).not.toMatch(
       /staged copy preserved/,
     )
+    expect((surfacedError as Error).message).not.toMatch(
+      /original folder left at/,
+    )
     // Unrecoverable branch: the local copy was staged out and the ENOENT restore
-    // probe leaves nothing to bring back, so it is gone from its original path —
-    // exactly why the error honestly omits a staged-copy hint.
+    // leaves nothing to bring back, so it is gone from its original path —
+    // exactly why the error honestly omits both hints.
     expect(existsSync(localPath)).toBe(false)
   })
 })
