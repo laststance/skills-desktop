@@ -397,6 +397,54 @@ describe('useCodePreview', () => {
     expect(result.current.loading).toBe(false)
   })
 
+  test('keeps the tab list usable when a file read rejects after the list loaded', async () => {
+    // Arrange -- list succeeds, so the tabs are valid; only the first file's
+    // content fails. Treating this as an unreadable folder would hide a tab
+    // bar the user can still click through.
+    const first = makeFile()
+    const second = makeFile({
+      name: 'notes.md',
+      path: '/skills/tdd/notes.md',
+      relativePath: 'notes.md',
+    })
+    listMock.mockResolvedValue([first, second])
+    readMock.mockRejectedValue(new Error('EIO'))
+
+    // Act
+    const { useCodePreview } = await import('./useCodePreview')
+    const { result } = await renderHook(() => useCodePreview('/skills/tdd'))
+
+    // Assert
+    await expect.poll(() => result.current.loading).toBe(false)
+    expect(result.current.loadFailed).toBe(false)
+    expect(result.current.files).toEqual([first, second])
+    expect(result.current.activeFile).toBe(first.path)
+    expect(result.current.content).toEqual({ kind: 'empty' })
+  })
+
+  test('keeps the tab list usable when an image read rejects after the list loaded', async () => {
+    // Arrange -- same contract on the binary branch of loadContentForFile.
+    const image = makeFile({
+      name: 'logo.png',
+      path: '/skills/tdd/logo.png',
+      relativePath: 'logo.png',
+      extension: '.png',
+      previewable: 'image',
+    })
+    listMock.mockResolvedValue([image])
+    readBinaryMock.mockRejectedValue(new Error('EIO'))
+
+    // Act
+    const { useCodePreview } = await import('./useCodePreview')
+    const { result } = await renderHook(() => useCodePreview('/skills/tdd'))
+
+    // Assert
+    await expect.poll(() => result.current.loading).toBe(false)
+    expect(result.current.loadFailed).toBe(false)
+    expect(result.current.files).toEqual([image])
+    expect(result.current.content).toEqual({ kind: 'empty' })
+  })
+
   test('ends the loading state and reports failure when the file list cannot be read', async () => {
     // Arrange -- the main process rejects any path outside its allowed bases,
     // which is how a skill symlinked from off-tree reaches this hook.

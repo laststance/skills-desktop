@@ -72,9 +72,14 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
 
   useEffect(() => {
     let cancelled = false
+    // Distinguishes the two failures the catch below can see. A rejected list
+    // leaves the pane with nothing to show; a rejected content read leaves a
+    // perfectly good tab bar that must stay on screen.
+    let listSucceeded = false
     async function loadFiles(): Promise<void> {
       const fileList = await window.electron.files.list(skillPath)
       if (cancelled) return
+      listSucceeded = true
       setFiles(fileList)
       setLoadedPath(skillPath)
       const first = fileList[0]
@@ -91,12 +96,20 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
     // agent symlink that points off-tree resolves outside `getAllowedBases()`.
     // Without this catch the rejection floats, `loadedPath` never advances, and
     // `loading` stays true forever -- a spinner with no error and no retry.
+    // The catch stays broad rather than wrapping only the list await: narrowing
+    // it would leave every later rejection floating again, which is the bug.
     loadFiles().catch((error: unknown) => {
       // The UI states the cause in plain language; DevTools gets the real one.
-      console.warn('[preview] failed to list skill files:', error)
+      console.warn('[preview] failed to load skill files:', error)
       if (cancelled) return
       setLoadedPath(skillPath)
-      setLoadFailed(true)
+      if (!listSucceeded) {
+        setLoadFailed(true)
+        return
+      }
+      // The list landed, so `files` is valid and its tabs must keep rendering;
+      // only this one file's content is missing.
+      setContent({ kind: 'empty' })
     })
     return () => {
       cancelled = true

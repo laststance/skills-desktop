@@ -1,12 +1,14 @@
 import * as TabsPrimitive from '@radix-ui/react-tabs'
 import { FolderX } from 'lucide-react'
 import React from 'react'
+import { match } from 'ts-pattern'
 
 import { useCodePreview } from '@/renderer/src/hooks/useCodePreview'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectPreviewAppearanceSettings } from '@/renderer/src/redux/slices/settingsSlice'
 import type { AbsolutePath } from '@/shared/types'
 
+import { resolvePreviewPaneState } from './codePreviewHelpers'
 import { FileContent } from './FileContent'
 import { FileTabs } from './FileTabs'
 
@@ -47,56 +49,43 @@ export const CodePreview = function CodePreview({
     setActiveFile(next)
   }
 
-  if (loading) {
-    return (
+  // Exhaustive over PreviewPaneState: the priority order between these four
+  // panes lives in {@link resolvePreviewPaneState} and is asserted there
+  // without React, and a future pane added to the union fails compilation here
+  // instead of silently never rendering.
+  return match(resolvePreviewPaneState({ loading, loadFailed, activeFile }))
+    .with({ kind: 'loading' }, () => (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
         Loading files...
       </div>
-    )
-  }
-
-  // Ordered before the empty state on purpose: a failed list leaves `files`
-  // empty, so without this the pane would claim the skill simply has no
-  // previewable files instead of admitting it could not read them.
-  if (loadFailed) {
-    return <FilesUnavailableNotice />
-  }
-
-  // Guards the value the tabs actually read, and it is equivalent to guarding
-  // on `files.length === 0` in both directions. Forward: {@link useCodePreview}
-  // computes `activeFile` as `userSelectedFile ?? files[0]?.path ?? null`, so
-  // `!activeFile` needs an empty list. Reverse: `setActiveFile` drops any path
-  // absent from `files` before it commits, and the render-phase reset nulls
-  // `userSelectedFile` on every `skillPath` change -- so a selection can never
-  // outlive the list it came from.
-  if (!activeFile) {
-    return (
+    ))
+    .with({ kind: 'unavailable' }, () => <FilesUnavailableNotice />)
+    .with({ kind: 'empty' }, () => (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
         No preview files found
       </div>
-    )
-  }
-
-  return (
-    <TabsPrimitive.Root
-      value={activeFile}
-      onValueChange={handleValueChange}
-      className="flex flex-col h-full"
-    >
-      <FileTabs files={files} activeFilePath={activeFile} />
-      <TabsPrimitive.Content
-        value={activeFile}
-        className="flex-1 flex flex-col min-h-0 focus-visible:outline-none"
+    ))
+    .with({ kind: 'ready' }, ({ activeFile: activeFilePath }) => (
+      <TabsPrimitive.Root
+        value={activeFilePath}
+        onValueChange={handleValueChange}
+        className="flex flex-col h-full"
       >
-        <FileContent
-          content={content}
-          markdownFontSizePx={markdownFontSizePx}
-          codeFontSizePx={codeFontSizePx}
-          codeThemeId={codeThemeId}
-        />
-      </TabsPrimitive.Content>
-    </TabsPrimitive.Root>
-  )
+        <FileTabs files={files} activeFilePath={activeFilePath} />
+        <TabsPrimitive.Content
+          value={activeFilePath}
+          className="flex-1 flex flex-col min-h-0 focus-visible:outline-none"
+        >
+          <FileContent
+            content={content}
+            markdownFontSizePx={markdownFontSizePx}
+            codeFontSizePx={codeFontSizePx}
+            codeThemeId={codeThemeId}
+          />
+        </TabsPrimitive.Content>
+      </TabsPrimitive.Root>
+    ))
+    .exhaustive()
 }
 
 /**
