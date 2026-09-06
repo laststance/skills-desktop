@@ -17,8 +17,11 @@ import type {
   SyncResultItem,
 } from '@/shared/types'
 
-import { listSourceSkillDirs } from './dirScanner'
-import type { SkillDirEntry, SourceSkillDirListing } from './dirScanner'
+import {
+  listSourceSkillDirs,
+  type SkillDirEntry,
+  type SourceSkillDirListing,
+} from './dirScanner'
 
 /** Agent-on-disk row used internally by syncPreview/syncExecute. */
 type ExistingAgent = { id: AgentId; name: AgentName; path: AbsolutePath }
@@ -50,6 +53,14 @@ async function getExistingAgents(): Promise<ExistingAgent[]> {
  * short-circuit with empty results rather than silently no-op'ing across all
  * agents (defends against typos in the agentId arg).
  */
+function filterAgentsByOption<TAgent extends { id: AgentId }>(
+  agents: TAgent[],
+  agentId: AgentId | undefined,
+): TAgent[] {
+  if (!agentId) return agents
+  return agents.filter((a) => a.id === agentId)
+}
+
 /**
  * Pick the source skills sync is allowed to fan out, written explicitly rather than inherited from a swallowed error.
  * An unreadable source directory degrades to "sync nothing" exactly as the old
@@ -58,19 +69,11 @@ async function getExistingAgents(): Promise<ExistingAgent[]> {
  * confirm is a skill is a fan-out we should not perform on a guess.
  * @param listing - What {@link listSourceSkillDirs} saw under `~/.agents/skills/`.
  * @returns The entries sync may link, possibly empty.
- * @example syncableSourceSkills({ status: 'unreadable', code: 'EACCES' }) // => []
+ * @example syncableSourceSkills({ status: 'unreadable' }) // => []
  */
 function syncableSourceSkills(listing: SourceSkillDirListing): SkillDirEntry[] {
   if (listing.status === 'unreadable') return []
   return listing.entries.filter((entry) => !entry.isUnreadable)
-}
-
-function filterAgentsByOption<TAgent extends { id: AgentId }>(
-  agents: TAgent[],
-  agentId: AgentId | undefined,
-): TAgent[] {
-  if (!agentId) return agents
-  return agents.filter((a) => a.id === agentId)
 }
 
 /**

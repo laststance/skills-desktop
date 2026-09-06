@@ -129,25 +129,36 @@ describe('listSourceSkillDirs', () => {
   test('reports an unreadable source directory instead of reporting no skills installed', async () => {
     // Arrange: ~/.agents/skills exists but the process may not open it.
     readdirMock.mockRejectedValue(createFsError('EACCES'))
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { listSourceSkillDirs } = await import('./dirScanner')
 
     // Act
     const listing = await listSourceSkillDirs()
 
-    // Assert: the caller can tell "could not look" from "nothing there".
-    expect(listing).toEqual({ status: 'unreadable', code: 'EACCES' })
+    // Assert: the caller can tell "could not look" from "nothing there", and
+    // the reason reaches the log rather than being swallowed as it was before.
+    expect(listing).toEqual({ status: 'unreadable' })
+    expect(warnSpy).toHaveBeenCalledWith(
+      'dirScanner: source skills directory could not be read',
+      expect.objectContaining({ code: 'EACCES' }),
+    )
+    warnSpy.mockRestore()
   })
 
   test('reports an empty list when the source directory does not exist yet', async () => {
     // Arrange: a fresh install before the first `skills add`.
     readdirMock.mockRejectedValue(createFsError('ENOENT'))
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { listSourceSkillDirs } = await import('./dirScanner')
 
     // Act
     const listing = await listSourceSkillDirs()
 
-    // Assert: a missing source directory is a real empty state, not a failure.
+    // Assert: a missing source directory is a real empty state, not a failure,
+    // so it must not spend a warning on the normal first-run path either.
     expect(listing).toEqual({ status: 'listed', entries: [] })
+    expect(warnSpy).not.toHaveBeenCalled()
+    warnSpy.mockRestore()
   })
 
   test('skips hidden entries and files so .git and .DS_Store never become skills', async () => {

@@ -280,6 +280,14 @@ const GlobalStatusBadges = function GlobalStatusBadges({
   )
 }
 
+/**
+ * Shared amber pill styling for the three "this row needs a look" markers
+ * (inaccessible link, orphan, unreadable). One string so the badges cannot
+ * drift apart visually when one of them is restyled.
+ */
+const AMBER_STATUS_BADGE_CLASS =
+  'inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0'
+
 interface SkillTitleRowProps {
   skill: Skill
   isLinked: boolean
@@ -340,7 +348,7 @@ const SkillTitleRow = function SkillTitleRow({
           <span
             // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- composed "inaccessible" text status badge collapsed to one labelled graphic via role="img"+aria-label. <img> needs a src and cannot contain the badge text.
             role="img"
-            className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0"
+            className={AMBER_STATUS_BADGE_CLASS}
             aria-label="Inaccessible link - manual review required"
             title="Target cannot be verified - review this link before removing it"
           >
@@ -352,7 +360,7 @@ const SkillTitleRow = function SkillTitleRow({
             // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- composed "orphan" text status badge collapsed to one labelled graphic via role="img"+aria-label. <img> needs a src and cannot contain the badge text.
             role="img"
             data-testid={`skill-orphan-badge-${skill.name}`}
-            className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0"
+            className={AMBER_STATUS_BADGE_CLASS}
             aria-label="Orphan skill — source directory is missing"
             title="Source directory is missing — use Cleanup to remove the dangling symlinks"
           >
@@ -364,7 +372,7 @@ const SkillTitleRow = function SkillTitleRow({
             // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- composed "unreadable" text status badge collapsed to one labelled graphic via role="img"+aria-label. <img> needs a src and cannot contain the badge text.
             role="img"
             data-testid={`skill-unreadable-badge-${skill.name}`}
-            className="inline-flex items-center rounded-md border border-amber-400/50 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 shrink-0"
+            className={AMBER_STATUS_BADGE_CLASS}
             aria-label="Unreadable skill — SKILL.md could not be read"
             title="SKILL.md could not be read, so this folder cannot be confirmed as a skill — check its permissions"
           >
@@ -657,15 +665,11 @@ export const SkillItem = function SkillItem({
             !didPartialFail &&
               isInaccessibleSkill &&
               'border-l-2 border-l-amber-400/60',
-            // Orphan accent — mutually exclusive with linked/local rows by
-            // definition, so the order below is purely for the partial-fail override.
+            // Orphan and unreadable share one amber "needs a look" accent. Orphan
+            // is mutually exclusive with linked/local rows by definition, so the
+            // order here is purely for the partial-fail override.
             !didPartialFail &&
-              skill.isOrphan &&
-              'border-l-2 border-l-amber-400/60',
-            // Unreadable accent — same amber "needs a look" treatment as orphan,
-            // so the row that kept its place still reads as unresolved.
-            !didPartialFail &&
-              skill.isUnreadable &&
+              (skill.isOrphan || skill.isUnreadable) &&
               'border-l-2 border-l-amber-400/60',
             // In-flight fade while the row is part of an active bulk op.
             isInFlight && 'opacity-50 duration-150',

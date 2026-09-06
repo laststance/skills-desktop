@@ -1,8 +1,10 @@
+import type { Dirent } from 'fs'
 import { readdir } from 'fs/promises'
 import { join } from 'path'
 
 import { SOURCE_DIR } from '@/main/constants'
 import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
+import { extractErrorMessage } from '@/main/utils/errors'
 import type { AbsolutePath, SkillName } from '@/shared/types'
 
 import { probeSkillDir } from './skillValidation'
@@ -28,11 +30,10 @@ export interface SkillDirEntry {
  * Outcome of listing `~/.agents/skills/`, separating an empty folder from one we could not open.
  * `unreadable` exists because the previous `catch { return [] }` reported an
  * `EACCES` on the source directory as "no skills installed".
- * @example { status: 'unreadable', code: 'EACCES' }
+ * @example { status: 'unreadable' }
  */
 export type SourceSkillDirListing =
-  | { status: 'listed'; entries: SkillDirEntry[] }
-  | { status: 'unreadable'; code: string | undefined }
+  { status: 'listed'; entries: SkillDirEntry[] } | { status: 'unreadable' }
 
 /**
  * List the skill directories under ~/.agents/skills/, keeping unprovable entries instead of dropping them.
@@ -45,14 +46,20 @@ export type SourceSkillDirListing =
  * // => { status: 'listed', entries: [{ name: 'theme-generator', path: '/Users/x/.agents/skills/theme-generator', isUnreadable: false }] }
  */
 export async function listSourceSkillDirs(): Promise<SourceSkillDirListing> {
-  let entries
+  let entries: Dirent[]
   try {
     entries = await readdir(SOURCE_DIR, { withFileTypes: true })
   } catch (error) {
     // A source directory that does not exist yet is a real empty state — a
     // fresh install before the first `skills add`. Anything else is a failed look.
     if (isMissingPathError(error)) return { status: 'listed', entries: [] }
-    return { status: 'unreadable', code: errorCode(error) }
+    // The whole point of this TODO is that the failure stopped being silent,
+    // so it is logged here as well as surfaced through `SourceStats`.
+    console.warn('dirScanner: source skills directory could not be read', {
+      code: errorCode(error),
+      message: extractErrorMessage(error),
+    })
+    return { status: 'unreadable' }
   }
 
   const dirs = entries.filter((e) => e.isDirectory() && !e.name.startsWith('.'))
