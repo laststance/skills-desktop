@@ -1103,6 +1103,21 @@ describe('SkillItem protection', () => {
     ])
   })
 
+  test('locks a row the scan captured no identity for without inventing one', async () => {
+    // Arrange — agent-linked symlinks and orphans reach the list with no
+    // `filesystemIdentity`; only `scanSourceSkills` records one.
+    const { screen, store } = await renderSkillItem(
+      makeSkill({ name: 'task', filesystemIdentity: undefined }),
+    )
+
+    // Act
+    await screen.getByRole('button', { name: /^Lock task$/i }).click()
+
+    // Assert — a name-only lock, exactly as before v5. Writing a placeholder
+    // inode here would bind the lock to a directory that was never scanned.
+    expect(store.getState().protect.items).toEqual([{ name: 'task' }])
+  })
+
   it('labels a protected skill and offers an Unlock action', async () => {
     // Arrange — dispatch addProtection before rendering so ProtectButton
     // receives isProtected=true and renders the Lock icon.
