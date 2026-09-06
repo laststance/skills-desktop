@@ -74,7 +74,7 @@ function warnPersistedStateNotSaved(): boolean {
 
   toast.error('Settings could not be saved', {
     description:
-      'Locked skills, bookmarks and theme will reset when the app closes — local storage rejected the write.',
+      'Locked skills, bookmarks, theme and dashboard layout will reset when the app closes — local storage rejected the write.',
     // Non-expiring with an explicit close button: this is the one warning the
     // user gets, and a 4-second auto-dismiss can be missed entirely.
     duration: Infinity,

@@ -1226,7 +1226,7 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 **Finding:** `createStorageMiddleware` defaults to `createSafeLocalStorage()`, whose `setItem` catches its own throw and only `console.error`s (`dist/index.mjs:147-155`), and which returns `createNoopStorage()` outright when `localStorage` is unavailable (`:132-135`). The middleware's `onError(error, 'save')` hook is therefore unreachable for a failed write — `saveToStorage`'s try/catch never fires because the adapter never rethrows. Locked skills, bookmarks, theme and dashboard layout all stop persisting with nothing on screen to say so.
 
-**Fix:** `createReportingLocalStorage` (`src/renderer/src/redux/reportingLocalStorage.ts`) is passed as the middleware's `storage` option and reports the first rejected write through a non-expiring `toast.error`, latched in memory so the debounced repeat does not spam. Reads and removes keep the lenient behavior of the default adapter.
+**Fix:** `createReportingLocalStorage` (`src/renderer/src/redux/reportingLocalStorage.ts`) is passed as the middleware's `storage` option. It retries on every rejected write until the warning is actually delivered, then latches on that one — a non-expiring `toast.error` naming every persisted slice — so the debounced repeat does not spam. The retry exists because `rehydrate` performs one undebounced write (the persist-version migration) before React has rendered a toast surface; latching on that would swallow the only warning the user gets. Reads and removes keep the lenient behavior of the default adapter.
 
 ## skill-lock prune eng-review follow-ups (2026-09-06)
 
