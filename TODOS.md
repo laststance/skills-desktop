@@ -1363,26 +1363,46 @@ index, and upstream `removeSkillFromLock` is last-write-wins over sanitized
 names, so a collision appearing between scan and confirm removes the _other_
 record while the requested one is reported failed.
 
-**Fix direction:** surface collisions as a distinct "cannot determine" state,
-and re-check the collision index inside the prune mutex.
+**Status:** Half fixed. The prune mutex now re-checks the collision index
+(`skillLockService.ts` `pruneLockEntries`): a name whose sanitized form is no
+longer uniquely its own is routed to `failed` and never delegated, so a
+collision appearing between scan and confirm can no longer delete the other
+record. Covered by `skillLockService.test.ts` "refuses a name another lock key
+started sharing a directory with after the scan".
+
+REMAINING: the scan still drops collided keys silently, so the pair stays
+unprunable with nothing in the UI explaining why. That half needs a new state
+on `StaleLockScanResult` plus the renderer copy to render it, which is the same
+"an unprunable state needs a UI explanation" shape as the manual-recovery entry
+below — do them together.
+
+**Fix direction:** surface collisions as a distinct "cannot determine" state.
 
 **Depends on / blocked by:** Nothing.
 
 ### P3. Smaller items from the same review
 
-- `resolveLockKeyForDirectory` (`skillLockService.ts:285`) reads the lock
-  outside `runLockWrite`; a concurrent non-atomic CLI write makes it return
-  null and the prune is then skipped forever, since the trash entry is already
-  gone. Wrapping it is safe — no `evict` caller holds the lock.
+- ~~`resolveLockKeyForDirectory` reads the lock outside `runLockWrite`.~~
+  FIXED: it now runs inside the mutex. Nesting was verified safe against
+  source first — all three `evict` call sites are detached timers or the
+  startup sweep, none holding the lock.
 - Manual-recovery trash entries keep their lock record alive forever:
   `readTrashedSourceDirNames` counts them as "still restorable" although their
   restore already failed permanently.
-- `LockPruneDialog` reads `staleNames` live rather than snapshotting at open,
-  so the acted-on set can differ from the consented set.
-- `pruneStaleLockEntries.fulfilled` replaces `staleNames` wholesale with
-  `failed`, dropping names a concurrent scan added.
-- `SUPPORTED_LOCK_VERSION` guards `version < 3` with no upper bound, so a
-  future v4 lock is parsed and pruned against.
+- ~~`LockPruneDialog` reads `staleNames` live rather than snapshotting at
+  open.~~ FIXED: `openLockPruneDialog` snapshots into `consentedNames` and the
+  dialog reads only that, so the list, the count, the button label and the
+  delete request cannot disagree. Nothing clears it on close, deliberately:
+  the dialog stays mounted through its 200ms exit animation, so clearing there
+  blanked the whole body mid-fade on Cancel. The unconditional re-snapshot at
+  open is what keeps a reopen from inheriting the previous list.
+- ~~`pruneStaleLockEntries.fulfilled` replaces `staleNames` wholesale with
+  `failed`.~~ FIXED: a `pruneRequestId` guard mirroring the existing
+  `scanRequestId` idiom — a scan landing mid-prune clears it and its newer
+  list wins.
+- ~~`SUPPORTED_LOCK_VERSION` guards `version < 3` with no upper bound.~~
+  FIXED: a higher version now reports `unavailable`, reusing the existing
+  three-valued status channel.
 - `HealthWidget`'s `hasManualReviewOnly` now requires `!hasStaleLockEntries`,
   so the "Manual review" affordance disappears whenever a stale lock coexists
   with inaccessible links; and the two CTAs can co-occur in a widget footer

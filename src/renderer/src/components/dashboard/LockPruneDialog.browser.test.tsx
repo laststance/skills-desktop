@@ -158,6 +158,36 @@ describe('LockPruneDialog', () => {
     expect(store.getState().skillLock.staleNames).toEqual(['old-skill'])
   })
 
+  test('removes the records it listed, not ones a scan added while it was open', async () => {
+    // Arrange — the confirm button is the consent gate for a delegated
+    // recursive delete. A scan landing mid-dialog must not widen what it acts
+    // on: the user never read the extra name.
+    mockPruneLockEntries.mockResolvedValue({
+      pruned: ['old-skill'],
+      skipped: [],
+      failed: [],
+    })
+    const { screen, store } = await renderDialog(['old-skill'])
+    const { fetchStaleLockEntries } =
+      await import('@/renderer/src/redux/slices/skillLockSlice')
+
+    // Act
+    store.dispatch(fetchStaleLockEntries.pending('req-late', undefined))
+    store.dispatch(
+      fetchStaleLockEntries.fulfilled(
+        { status: 'ok', names: ['old-skill', 'just-appeared'] },
+        'req-late',
+        undefined,
+      ),
+    )
+    // The label itself is the assertion: a live read would say "Remove 2
+    // records" here and this query would find nothing.
+    await screen.getByRole('button', { name: 'Remove 1 record' }).click()
+
+    // Assert
+    expect(mockPruneLockEntries).toHaveBeenCalledWith({ names: ['old-skill'] })
+  })
+
   test('closes without touching the lock when the user cancels', async () => {
     // Arrange
     const { screen, store } = await renderDialog(['old-skill'])

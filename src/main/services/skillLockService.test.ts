@@ -225,6 +225,26 @@ describe('scanStaleLockEntries', () => {
     expect(result).toEqual({ status: 'ok', names: [] })
   })
 
+  test('reports unavailable when the lock was written by a CLI newer than this build', async () => {
+    // Arrange
+    // A version we have never seen may key its records differently, so
+    // `sanitizeName` can no longer say which directory answers for a record.
+    // Reporting `ok` would offer every entry in it for deletion.
+    const { scanStaleLockEntries } = await serviceModule
+    await mkdir(join(sharedHome, '.agents'), { recursive: true })
+    await writeFile(
+      lockPath,
+      JSON.stringify({ version: 4, skills: { 'future-skill': {} } }),
+      'utf-8',
+    )
+
+    // Act
+    const result = await scanStaleLockEntries()
+
+    // Assert
+    expect(result).toEqual({ status: 'unavailable' })
+  })
+
   test('reports unavailable rather than zero when the lock file is corrupt', async () => {
     // Arrange
     const { scanStaleLockEntries } = await serviceModule
@@ -652,6 +672,30 @@ describe('pruneLockEntries', () => {
     expect(removeSkillsMock).not.toHaveBeenCalled()
   })
 
+  test('refuses a name another lock key started sharing a directory with after the scan', async () => {
+    // Arrange
+    // The scan offered `Ambiguous` while it was the only key sanitizing to
+    // `ambiguous`. A second key arriving before the user confirms makes the
+    // directory ambiguous, and upstream `removeSkillFromLock` is last-write-wins
+    // over sanitized names — delegating now would delete the OTHER record.
+    const { pruneLockEntries } = await serviceModule
+    await writeLock(['Ambiguous', 'ambiguous'])
+
+    // Act
+    const result = await pruneLockEntries(['Ambiguous'] as SkillName[])
+
+    // Assert
+    expect(removeSkillsMock).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      pruned: [],
+      skipped: [],
+      // Still stale and still unresolved, so it belongs in `failed`, which the
+      // UI surfaces, and never in `skipped`, which reads as a benign no-op.
+      failed: ['Ambiguous'],
+    })
+    expect(await readLockKeys()).toEqual(['Ambiguous', 'ambiguous'])
+  })
+
   test('prunes the names it could verify and still reports the unverifiable one as failed', async () => {
     // Arrange: the shape "Remove all" produces — one batch, mixed outcomes. An
     // unverifiable name must not veto the rest, and must not vanish from the
@@ -674,6 +718,45 @@ describe('pruneLockEntries', () => {
     })
     expect(removeSkillsMock).toHaveBeenCalledWith(['gone-from-disk'])
     expect(await readLockKeys()).toEqual(['unreadable'])
+  })
+})
+
+describe('resolveLockKeyForDirectory', () => {
+  test('waits out an in-flight lock rewrite instead of reading a half-written file', async () => {
+    // Arrange
+    // The CLI's `writeSkillLock` is a plain `writeFile`, so a reader that does
+    // not join the write mutex can land on the truncated middle of it. Here a
+    // null is unrecoverable rather than merely wrong: this runs from trash
+    // eviction, and the tombstone that would re-queue the prune is already gone.
+    const { pruneLockEntries, resolveLockKeyForDirectory } = await serviceModule
+    await writeLock(['CE:Review', 'gone-from-disk'])
+    await makeSourceSkill('ce-review')
+    let announceTruncated: () => void
+    const lockIsTruncated = new Promise<void>((resolve) => {
+      announceTruncated = resolve
+    })
+    removeSkillsMock.mockImplementation(async (names) => {
+      const raw = await readFile(lockPath, 'utf-8')
+      const lock = JSON.parse(raw)
+      for (const name of names) delete lock.skills[name]
+      const finalContent = JSON.stringify(lock)
+      // Reproduce the window a non-atomic write leaves open on disk.
+      await writeFile(lockPath, finalContent.slice(0, 12), 'utf-8')
+      announceTruncated()
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      await writeFile(lockPath, finalContent, 'utf-8')
+      return { success: true }
+    })
+
+    // Act
+    const pruning = pruneLockEntries(['gone-from-disk'] as SkillName[])
+    await lockIsTruncated
+    const resolved = await resolveLockKeyForDirectory('ce-review')
+    await pruning
+
+    // Assert — the truncated bytes were on disk when this call was made; only
+    // serializing behind the write turns them back into the raw key.
+    expect(resolved).toBe('CE:Review')
   })
 })
 

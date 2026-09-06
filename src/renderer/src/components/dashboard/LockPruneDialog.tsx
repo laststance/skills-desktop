@@ -16,8 +16,8 @@ import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
   fetchStaleLockEntries,
   pruneStaleLockEntries,
+  selectConsentedLockEntryNames,
   selectIsPruningLockEntries,
-  selectStaleLockEntryNames,
 } from '@/renderer/src/redux/slices/skillLockSlice'
 import {
   closeLockPruneDialog,
@@ -40,7 +40,10 @@ import type { PruneLockEntriesResult } from '@/shared/types'
 export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
   const dispatch = useAppDispatch()
   const isOpen = useAppSelector(selectLockPruneDialogOpen)
-  const staleNames = useAppSelector(selectStaleLockEntryNames)
+  // The list as it was when the dialog opened, not as it is now. A scan
+  // landing mid-dialog would otherwise change what this button deletes after
+  // the user already read the names.
+  const consentedNames = useAppSelector(selectConsentedLockEntryNames)
   const isPruning = useAppSelector(selectIsPruningLockEntries)
 
   const handleClose = (): void => {
@@ -50,7 +53,7 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
   const handlePrune = async (): Promise<void> => {
     let result: PruneLockEntriesResult
     try {
-      result = await dispatch(pruneStaleLockEntries(staleNames)).unwrap()
+      result = await dispatch(pruneStaleLockEntries(consentedNames)).unwrap()
     } catch (error) {
       // A rejected thunk (IPC down, zod refusing an arg, main-process throw)
       // used to escape this handler unhandled: the dialog stayed open with no
@@ -67,7 +70,7 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
     // that survived will show up in the widget again on the next scan.
     if (result.failed.length > 0) {
       toast.error(
-        `Could not remove ${result.failed.length} of ${staleNames.length} ${pluralize(staleNames.length, 'record')}.`,
+        `Could not remove ${result.failed.length} of ${consentedNames.length} ${pluralize(consentedNames.length, 'record')}.`,
       )
     } else if (result.pruned.length === 0) {
       // Nothing failed, but nothing went either — main revalidated every name
@@ -100,20 +103,20 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
           />
           <DialogDescription>
             The skills CLI still tracks{' '}
-            {staleNames.length === 1
+            {consentedNames.length === 1
               ? 'a skill that is'
-              : `${staleNames.length} skills that are`}{' '}
+              : `${consentedNames.length} skills that are`}{' '}
             no longer installed. Until the{' '}
-            {pluralize(staleNames.length, 'record')}{' '}
-            {staleNames.length === 1 ? 'is' : 'are'} removed,{' '}
+            {pluralize(consentedNames.length, 'record')}{' '}
+            {consentedNames.length === 1 ? 'is' : 'are'} removed,{' '}
             <code className="text-xs">skills -g update</code> reinstalls{' '}
-            {staleNames.length === 1 ? 'it' : 'them'}.
+            {consentedNames.length === 1 ? 'it' : 'them'}.
           </DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="max-h-48 rounded-md border border-border">
           <ul className="p-3 space-y-1 text-sm">
-            {staleNames.map((name) => (
+            {consentedNames.map((name) => (
               <li
                 key={name}
                 className="font-mono text-xs text-muted-foreground"
@@ -135,7 +138,7 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
                 Pruning...
               </>
             ) : (
-              `Remove ${staleNames.length} ${pluralize(staleNames.length, 'record')}`
+              `Remove ${consentedNames.length} ${pluralize(consentedNames.length, 'record')}`
             )}
           </Button>
         </DialogFooter>
