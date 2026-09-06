@@ -846,6 +846,50 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     expect(stats.skillCount).toBe(1)
   })
 
+  test('lists no source skills when the source directory itself cannot be opened', async () => {
+    // Arrange: ~/.agents/skills exists but EACCES on open, and one agent still
+    // has a real local skill folder so an empty result cannot be a false pass.
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        throw createFsError(`EACCES: ${path}`, 'EACCES')
+      }
+      if (path === '/mock/agents/codex/skills') {
+        return [
+          createDirent('local-only', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/agents/codex/skills/local-only/SKILL.md') {
+        return { isFile: () => true }
+      }
+      throw createFsError(`ENOENT: ${path}`, 'ENOENT')
+    })
+    lstatMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/agents/codex/skills/local-only') {
+        return createDirectoryStats(path.length)
+      }
+      throw createFsError(`ENOENT: ${path}`, 'ENOENT')
+    })
+
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert: the scan degrades to zero source skills rather than throwing —
+    // `SourceStats.isUnreadable` is what tells the user the list is a placeholder.
+    expect(skills.filter((skill) => skill.isSource)).toHaveLength(0)
+    expect(skills).toHaveLength(1)
+    expect(skills[0]).toEqual(
+      expect.objectContaining({ name: 'local-only', isSource: false }),
+    )
+  })
+
   it('merges orphan broken slots into a same-named local skill (regression for #127 follow-up)', async () => {
     // Arrange: Cursor has a real folder named "frontend-design" → local skill.
     // Codex has a broken symlink with the same name → source missing, orphan.
