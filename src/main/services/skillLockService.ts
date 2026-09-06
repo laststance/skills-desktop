@@ -193,19 +193,6 @@ type TrashReadResult =
   { status: 'ok'; dirNames: Set<string> } | { status: 'unavailable' }
 
 /**
- * Directory names currently staged in the trash, from each entry's manifest.
- * A skill waiting out its undo window still has a lock record doing its job, so
- * it must be excluded from detection. Local-only tombstones never had a source
- * directory and so never had a lock record.
- * @returns
- * - `ok` with the staged source-directory basenames when the trash was readable
- * - `ok` with an empty set when there is no trash directory at all (fresh install)
- * - `unavailable` when the trash exists but cannot be read — reporting an empty
- *   set there would flag every skill mid-undo as stale, and Undo would then
- *   restore it with its lock record already pruned
- * @example await readTrashedSourceDirNames() // => { status: 'ok', dirNames: Set { 'theme-generator' } }
- */
-/**
  * True when a trash entry carries the terminal manual-recovery marker.
  * Read by {@link readTrashedSourceDirNames} before the manifest, because both
  * source-backed writers of the marker run BEFORE the manifest exists.
@@ -219,11 +206,24 @@ async function isManualRecoveryEntry(entryDir: string): Promise<boolean> {
     return true
   } catch {
     // Absent, or unreadable. Neither is proof of a terminal entry, so fall
-    // through to the manifest read below — that path already fails closed.
+    // through to the caller's manifest read — that path already fails closed.
     return false
   }
 }
 
+/**
+ * Directory names currently staged in the trash, from each entry's manifest.
+ * A skill waiting out its undo window still has a lock record doing its job, so
+ * it must be excluded from detection. Local-only tombstones never had a source
+ * directory and so never had a lock record.
+ * @returns
+ * - `ok` with the staged source-directory basenames when the trash was readable
+ * - `ok` with an empty set when there is no trash directory at all (fresh install)
+ * - `unavailable` when the trash exists but cannot be read — reporting an empty
+ *   set there would flag every skill mid-undo as stale, and Undo would then
+ *   restore it with its lock record already pruned
+ * @example await readTrashedSourceDirNames() // => { status: 'ok', dirNames: Set { 'theme-generator' } }
+ */
 async function readTrashedSourceDirNames(): Promise<TrashReadResult> {
   const dirNames = new Set<string>()
   let entries: string[]

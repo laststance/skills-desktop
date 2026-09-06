@@ -57,9 +57,6 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
   // freezing it would only let the dialog keep showing a reason a later scan
   // already cleared.
   const unprunableEntries = useAppSelector(selectUnprunableLockEntries)
-  // Every count-dependent phrase comes from one call, so the sentence, the
-  // pronoun and the button label cannot disagree about how many records there
-  // are. Tested directly in `lockPruneCopy.test.ts`, without rendering.
   // A scan landing while the dialog is open can move a consented name into the
   // blocked list — an agent copy appearing mid-dialog does exactly that. Left
   // alone, the same record would sit in the delete list AND in the section
@@ -70,6 +67,9 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
   const removableNames = consentedNames.filter(
     (name) => !blockedNames.has(name),
   )
+  // Every count-dependent phrase comes from one call, so the sentence, the
+  // pronoun and the button label cannot disagree about how many records there
+  // are. Tested directly in `lockPruneCopy.test.ts`, without rendering.
   const copy = describeLockPruneTarget(removableNames.length)
   // The dialog is reachable with nothing to remove: a user whose stale records
   // are ALL blocked still needs to reach the explanation. Without this the
