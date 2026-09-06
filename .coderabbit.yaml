@@ -79,7 +79,12 @@ reviews:
     - path: '**/*.test.ts'
       instructions: |
         Tests use Vitest. Review for:
-        - Main process tests: mock `fs/promises` with `vi.mock('fs/promises')`.
+        - Main process tests: mock the fs module with the SAME specifier the module
+          under test imports — `vi.mock('node:fs/promises')` for a module importing
+          `node:fs/promises`, `vi.mock('fs/promises')` for one importing `fs/promises`.
+          Vitest normalises the two, so a mismatch still intercepts today, but the
+          test's interception then rides on resolver aliasing instead of on the
+          specifier it names.
         - Renderer tests: stub `window.electron` via `vi.stubGlobal`.
         - Pure helper tests: no mocking needed — test input/output directly.
         - Prefer testing extracted pure functions over React component rendering (no RTL in this project).
@@ -112,7 +117,8 @@ code_generation:
     path_instructions:
       - path: 'src/main/**/*.ts'
         instructions: |
-          Use Vitest. Mock `fs/promises` and `path` modules.
+          Use Vitest. Mock the fs and `path` modules, matching the specifier the
+          module under test imports (`node:fs/promises` vs `fs/promises`).
           For symlink-related tests, mock both `lstat` and `readlink`.
           Use `vi.mock()` at module level, `vi.mocked()` for type-safe assertions.
       - path: 'src/renderer/**/*.ts'

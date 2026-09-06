@@ -1414,24 +1414,47 @@ a reviewer would have to hold at the same time.
 
 **Depends on / blocked by:** Nothing.
 
-### P3. Trash writes are not fsynced, so a power cut can still tear a manifest
+### ~~P3. Trash writes are not fsynced, so a power cut can still tear a manifest~~
 
-`fs.writeFile` returns once the bytes are in the page cache. The publish rename
-is a journalled metadata op, so a power cut (not a process kill — a kill leaves
-the page cache intact) can land the renamed directory while losing the
-`manifest.json` contents inside it, producing a tombstone-named entry the app
-cannot restore.
+FIXED. `fs.writeFile` and `fs.rename` return once the change is in the page
+cache, so a power cut (not a process kill -- a kill leaves the page cache
+intact) could land a renamed tombstone while losing the `manifest.json`
+contents inside it. Both trash write sites now flush.
 
-MITIGATED, not fixed: `startupCleanup` now keeps such an entry instead of
-sweeping it, so the consequence is a stray directory rather than a deleted
-skill. The likelihood is untouched.
+`writeManifestThenPublish` does three flushes, none redundant: the manifest's
+bytes, `stagingDir` (the directory entry that _names_ the manifest), then
+`TRASH_DIR` after the publish rename. Dropping the middle one leaves a power
+cut able to land the tombstone with the manifest dirent missing from inside
+it -- the entry the rename promises, holding nothing that says what it holds.
 
-**Fix direction:** fsync the manifest before the publish rename and fsync
-`TRASH_DIR` after it. Deliberately not done in PR #311: durability ordering is
-a policy for every write in the trash and lock paths, not one call site, and
-doing it here alone would imply a guarantee the neighbouring writes do not
-make. It also means writing the manifest through a `FileHandle`, which moves
-the write off the module-level `fs.writeFile` the durability suite observes.
+`markManualRecoveryEntry` flushes too, and its loss mode is the worse of the
+two: if the marker bytes vanish while the rename lands, the entry is a
+tombstone-named directory with a manifest that still parses, so
+`classifyEntryForSweep` answers `'sweep'` and `startupCleanup` evicts the only
+copy the marker existed to protect. A torn manifest merely downgrades the
+entry to `'unreadable-manifest'`, which is kept.
+
+**The deferral reason was empirically wrong, not merely outgrown.** This was
+held back from PR #311 because "durability ordering is a policy for every write
+in the trash and lock paths, not one call site." Checked: `skillLockService`
+performs **zero** writes -- the skills CLI owns `.skill-lock.json`, this app
+only reads it (and says so at `skillLockService.ts:49,68`). So the policy
+surface is two `fs.writeFile` calls, both covered here, and there is no
+neighbouring write left to imply a weaker guarantee than.
+
+`fsyncPath` (`src/main/utils/fsyncPath.ts`) opens read-only, which POSIX
+allows for `fsync` and is what lets one helper cover files and directories.
+It never throws: a failed flush means the bytes are still cached and the
+caller's operation genuinely succeeded, so propagating it would roll back a
+delete that worked.
+
+The manifest write stays on the module-level `fs.writeFile` on purpose.
+Rewriting it through a `FileHandle` would stop
+`trashService.durability.test.ts`'s `writeFileSpy` matching
+`path.endsWith('manifest.json')`, silently defanging `onManifestWrite` and
+`failManifestWrite` into vacuous passes rather than failing loudly. Verified by
+breaking the spy's match: two tests fail. One extra `open` is the cheaper side
+of that trade.
 
 **Depends on / blocked by:** Nothing.
 
