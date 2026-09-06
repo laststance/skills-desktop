@@ -711,11 +711,13 @@ describe('queuePrune', () => {
     // Act
     queuePrune('debounced-skill')
 
-    // Assert
-    await vi.waitFor(() => {
-      expect(removeSkillsMock).toHaveBeenCalledWith(['debounced-skill'])
+    // Assert: wait on the effect, not the call. `removeSkillsMock` is async and
+    // rewrites the lock in its body, so waiting for the invocation alone lets
+    // the read below race its `writeFile` — which is what it did on CI.
+    await vi.waitFor(async () => {
+      expect(await readLockKeys()).toEqual([])
     })
-    expect(await readLockKeys()).toEqual([])
+    expect(removeSkillsMock).toHaveBeenCalledWith(['debounced-skill'])
   })
 
   test('logs the surviving names when a queued prune does not remove them', async () => {
