@@ -54,11 +54,13 @@ export const CodePreview = function CodePreview({
     )
   }
 
-  // Guards the value the tabs actually read. `!activeFile` implies an empty
-  // file list because {@link useCodePreview} computes it as
-  // `userSelectedFile ?? files[0]?.path ?? null` and nulls `userSelectedFile`
-  // in its render-phase reset whenever `skillPath` changes -- so a selection
-  // never outlives the list it came from.
+  // Guards the value the tabs actually read, and it is equivalent to guarding
+  // on `files.length === 0` in both directions. Forward: {@link useCodePreview}
+  // computes `activeFile` as `userSelectedFile ?? files[0]?.path ?? null`, so
+  // `!activeFile` needs an empty list. Reverse: `setActiveFile` drops any path
+  // absent from `files` before it commits, and the render-phase reset nulls
+  // `userSelectedFile` on every `skillPath` change -- so a selection can never
+  // outlive the list it came from.
   if (!activeFile) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">

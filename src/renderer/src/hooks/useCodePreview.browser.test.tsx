@@ -541,10 +541,12 @@ describe('useCodePreview', () => {
     })
 
     // Assert
-    // The unknown path is ignored: no extra read fires and the preview is
-    // unchanged from the original auto-selected file.
+    // The unknown path is ignored whole: no extra read fires, the preview is
+    // unchanged, and -- the part that keeps CodePreview's empty-state guard
+    // honest -- the ghost path never becomes the active selection.
     expect(readMock).toHaveBeenCalledTimes(1)
     expect(result.current.content).toEqual({ kind: 'text', data: body })
+    expect(result.current.activeFile).toBe(file.path)
   })
 
   it('shows an empty preview when a text file read returns null because the file vanished mid-load', async () => {
