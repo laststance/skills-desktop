@@ -43,6 +43,12 @@ interface DashboardState {
   currentPageId: DashboardPageId | null
   isEditMode: boolean
   welcomeDismissed: boolean
+  /**
+   * True once the user has dismissed the stale-lock announcement. Persisted
+   * alongside `welcomeDismissed`: the banner only has to introduce the feature
+   * once, and the HealthWidget row is the recurring surface after that.
+   */
+  lockPruneBannerDismissed: boolean
   /** True once defaults have been populated. Prevents re-seeding on every load. */
   initialized: boolean
 }
@@ -64,6 +70,7 @@ const initialState: DashboardState = {
   currentPageId: null,
   isEditMode: false,
   welcomeDismissed: false,
+  lockPruneBannerDismissed: false,
   initialized: false,
 }
 
@@ -262,6 +269,11 @@ const dashboardSlice = createSlice({
       state.welcomeDismissed = true
     },
 
+    /** Hide the stale-lock announcement permanently (user clicked Dismiss). */
+    dismissLockPruneBanner: (state) => {
+      state.lockPruneBannerDismissed = true
+    },
+
     /** Reset every arrangement back to the default preset. */
     resetToDefaults: (state) => {
       const pages = buildDefaultDashboardPages()
@@ -270,7 +282,7 @@ const dashboardSlice = createSlice({
       state.currentPageId = pages[0]?.id ?? null
       state.isEditMode = false
       state.initialized = true
-      // welcomeDismissed intentionally preserved — reset layout, not user settings.
+      // Dismissal flags intentionally preserved — reset layout, not user settings.
     },
   },
 })
@@ -286,6 +298,7 @@ export const {
   renamePage,
   removePage,
   dismissWelcome,
+  dismissLockPruneBanner,
   resetToDefaults,
 } = dashboardSlice.actions
 
@@ -325,3 +338,7 @@ export const selectWelcomeDismissed = (
 
 export const selectIsInitialized = (state: DashboardSelectorState): boolean =>
   state.dashboard.initialized
+
+export const selectLockPruneBannerDismissed = (
+  state: DashboardSelectorState,
+): boolean => state.dashboard.lockPruneBannerDismissed

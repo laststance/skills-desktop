@@ -1,10 +1,14 @@
-import { AlertCircle, CheckCircle, Search } from 'lucide-react'
+import { AlertCircle, CheckCircle, FileWarning, Search } from 'lucide-react'
 import React from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { selectStaleLockEntryCount } from '@/renderer/src/redux/slices/skillLockSlice'
 import { selectSkillsItems } from '@/renderer/src/redux/slices/skillsSlice'
-import { openSymlinkCleanupDialog } from '@/renderer/src/redux/slices/uiSlice'
+import {
+  openLockPruneDialog,
+  openSymlinkCleanupDialog,
+} from '@/renderer/src/redux/slices/uiSlice'
 import { pluralize } from '@/renderer/src/utils/pluralize'
 import type { Skill, SymlinkCount } from '@/shared/types'
 
@@ -113,17 +117,31 @@ const HealthBar = function HealthBar({
  * Displays the valid/broken ratio across all agents with a color-coded bar.
  * Broken links demand attention — amber signals "something's off, look here"
  * without being alarmist like destructive red.
+ *
+ * Stale skill-lock records share this widget because they are the same kind of
+ * problem: a record disagreeing with what is actually on disk. They are counted
+ * separately from symlinks (a lock record has no agent and no link) and get
+ * their own action, so both can be present at once.
  */
 export const HealthWidget = function HealthWidget(): React.ReactElement {
   const dispatch = useAppDispatch()
   const skills = useAppSelector(selectSkillsItems)
   const totals = tallySymlinks(skills)
   const percentLabel = healthPercentLabel(totals)
+  const staleLockCount = useAppSelector(selectStaleLockEntryCount)
   const hasBrokenLinks = totals.broken > 0
-  const hasManualReviewOnly = !hasBrokenLinks && totals.inaccessible > 0
+  const hasStaleLockEntries = staleLockCount > 0
+  const hasManualReviewOnly =
+    !hasBrokenLinks && !hasStaleLockEntries && totals.inaccessible > 0
+  const isHealthy =
+    !hasBrokenLinks && !hasStaleLockEntries && totals.inaccessible === 0
 
   const handleScanIssues = (): void => {
     dispatch(openSymlinkCleanupDialog())
+  }
+
+  const handleCleanLock = (): void => {
+    dispatch(openLockPruneDialog())
   }
 
   return (
@@ -158,7 +176,16 @@ export const HealthWidget = function HealthWidget(): React.ReactElement {
               <span className="text-muted-foreground">manual</span>
             </span>
           ) : null}
-          {totals.broken === 0 && totals.inaccessible === 0 ? (
+          {staleLockCount > 0 ? (
+            <span className="inline-flex items-center gap-1 text-amber-400">
+              <FileWarning className="h-3 w-3" aria-hidden="true" />
+              <span className="tabular-nums">{staleLockCount}</span>
+              <span className="text-muted-foreground">lock</span>
+            </span>
+          ) : null}
+          {totals.broken === 0 &&
+          totals.inaccessible === 0 &&
+          staleLockCount === 0 ? (
             <span className="inline-flex items-center gap-1 text-muted-foreground">
               <AlertCircle className="h-3 w-3" aria-hidden="true" />
               <span className="tabular-nums">0</span>
@@ -167,7 +194,7 @@ export const HealthWidget = function HealthWidget(): React.ReactElement {
           ) : null}
         </div>
       </div>
-      <div className="min-h-8 mt-auto flex items-center justify-end">
+      <div className="min-h-8 mt-auto flex items-center justify-end gap-1.5">
         {hasBrokenLinks ? (
           <Button
             type="button"
@@ -180,11 +207,26 @@ export const HealthWidget = function HealthWidget(): React.ReactElement {
             <Search className="h-3.5 w-3.5" aria-hidden="true" />
             Scan issues
           </Button>
-        ) : hasManualReviewOnly ? (
+        ) : null}
+        {hasStaleLockEntries ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={handleCleanLock}
+            className="h-8 min-h-8 px-2 text-[11px]"
+            data-lock-prune-trigger="true"
+          >
+            <FileWarning className="h-3.5 w-3.5" aria-hidden="true" />
+            Clean lock
+          </Button>
+        ) : null}
+        {hasManualReviewOnly ? (
           <span className="text-[11px] text-amber-400">Manual review</span>
-        ) : (
+        ) : null}
+        {isHealthy ? (
           <span className="text-[11px] text-muted-foreground">Healthy</span>
-        )}
+        ) : null}
       </div>
     </div>
   )

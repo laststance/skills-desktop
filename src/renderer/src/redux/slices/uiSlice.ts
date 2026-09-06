@@ -225,6 +225,7 @@ interface UiState {
    * surface coordination with tabs, sync, and bulk operations.
    */
   symlinkCleanupDialogOpen: boolean
+  lockPruneDialogOpen: boolean
   /** Reviewed folder identities and owning group; null closes the bulk deletion dialog. */
   agentFoldersDeleteReview: {
     group: AgentFolderGroup
@@ -254,6 +255,7 @@ const initialState: UiState = {
   bulkSelectMode: false,
   cleanupAgentTarget: null,
   symlinkCleanupDialogOpen: false,
+  lockPruneDialogOpen: false,
   agentFoldersDeleteReview: null,
 }
 
@@ -575,6 +577,18 @@ const uiSlice = createSlice({
     closeSymlinkCleanupDialog: (state) => {
       state.symlinkCleanupDialogOpen = false
     },
+    /**
+     * Open the stale skill-lock prune confirmation. Separate from the symlink
+     * cleanup dialog on purpose: that one validates filesystem paths, and a
+     * stale lock record has no path to validate.
+     */
+    openLockPruneDialog: (state) => {
+      state.lockPruneDialogOpen = true
+    },
+    /** Close the stale skill-lock prune confirmation. */
+    closeLockPruneDialog: (state) => {
+      state.lockPruneDialogOpen = false
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -695,6 +709,8 @@ export const {
   clearCleanupAgentTarget,
   openSymlinkCleanupDialog,
   closeSymlinkCleanupDialog,
+  openLockPruneDialog,
+  closeLockPruneDialog,
 } = uiSlice.actions
 export default uiSlice.reducer
 
@@ -756,3 +772,12 @@ export const selectCleanupAgentTarget = (state: RootState): AgentId | null =>
  */
 export const selectSymlinkCleanupDialogOpen = (state: RootState): boolean =>
   state.ui.symlinkCleanupDialogOpen
+
+/**
+ * Whether the stale skill-lock prune confirmation is showing.
+ * @param state - Root Redux state.
+ * @returns True while the dialog is open.
+ * @example const open = useAppSelector(selectLockPruneDialogOpen)
+ */
+export const selectLockPruneDialogOpen = (state: RootState): boolean =>
+  state.ui.lockPruneDialogOpen

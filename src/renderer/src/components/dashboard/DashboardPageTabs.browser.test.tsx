@@ -54,6 +54,7 @@ async function renderTabs(options: {
             : options.currentPageId,
         isEditMode: options.isEditMode ?? false,
         welcomeDismissed: false,
+        lockPruneBannerDismissed: false,
         initialized: true,
       },
     },

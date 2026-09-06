@@ -29,6 +29,7 @@ async function createTestStoreWithDashboard(dashboard: {
   currentPageId: DashboardPageId | null
   isEditMode: boolean
   welcomeDismissed: boolean
+  lockPruneBannerDismissed: boolean
   initialized: boolean
 }) {
   const { default: dashboardReducer } = await import('./dashboardSlice')
@@ -207,6 +208,7 @@ describe('dashboardSlice', () => {
         currentPageId: 'p_gone' as DashboardPageId,
         isEditMode: false,
         welcomeDismissed: false,
+        lockPruneBannerDismissed: false,
         initialized: true,
       })
 
@@ -535,6 +537,21 @@ describe('dashboardSlice', () => {
       // Assert
       expect(store.getState().dashboard.welcomeDismissed).toBe(true)
     })
+
+    it('keeps the stale-lock announcement dismissed across a layout reset', async () => {
+      // Arrange — resetToDefaults restores the widget arrangement, not the
+      // user's one-time dismissals.
+      const store = await createTestStore()
+      const { dismissLockPruneBanner, resetToDefaults } =
+        await import('./dashboardSlice')
+      store.dispatch(dismissLockPruneBanner())
+
+      // Act
+      store.dispatch(resetToDefaults())
+
+      // Assert
+      expect(store.getState().dashboard.lockPruneBannerDismissed).toBe(true)
+    })
   })
 
   describe('resetToDefaults', () => {
@@ -642,6 +659,7 @@ describe('dashboardSlice', () => {
           currentPageId: 'p_gone' as DashboardPageId,
           isEditMode: false,
           welcomeDismissed: false,
+          lockPruneBannerDismissed: false,
           initialized: true,
         },
       }

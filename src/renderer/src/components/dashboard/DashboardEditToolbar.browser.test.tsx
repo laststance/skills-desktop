@@ -61,6 +61,7 @@ async function renderToolbar(
         currentPageId: pages[0]?.id ?? null,
         isEditMode: options.isEditMode ?? false,
         welcomeDismissed: false,
+        lockPruneBannerDismissed: false,
         initialized: true,
       },
     },

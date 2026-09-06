@@ -73,6 +73,7 @@ async function renderCanvas(
     { default: uiReducer },
     { default: widgetPickerReducer },
     { default: skillsReducer },
+    { default: skillLockReducer },
     { default: agentsReducer },
     { DashboardCanvas },
   ] = await Promise.all([
@@ -80,6 +81,7 @@ async function renderCanvas(
     import('@/renderer/src/redux/slices/uiSlice'),
     import('@/renderer/src/redux/slices/widgetPickerSlice'),
     import('@/renderer/src/redux/slices/skillsSlice'),
+    import('@/renderer/src/redux/slices/skillLockSlice'),
     import('@/renderer/src/redux/slices/agentsSlice'),
     import('./DashboardCanvas'),
   ])
@@ -90,6 +92,7 @@ async function renderCanvas(
       ui: uiReducer,
       widgetPicker: widgetPickerReducer,
       skills: skillsReducer,
+      skillLock: skillLockReducer,
       agents: agentsReducer,
     },
     preloadedState: options.pages
@@ -102,6 +105,7 @@ async function renderCanvas(
                 : options.currentPageId,
             isEditMode: options.isEditMode ?? false,
             welcomeDismissed: false,
+            lockPruneBannerDismissed: false,
             initialized: options.initialized ?? true,
           },
         }

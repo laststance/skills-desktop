@@ -273,6 +273,7 @@ describe('store wiring (singleton assembly)', () => {
       'marketplace',
       'protect',
       'settings',
+      'skillLock',
       'skills',
       'theme',
       'ui',

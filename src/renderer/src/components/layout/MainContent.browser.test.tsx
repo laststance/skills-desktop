@@ -188,6 +188,8 @@ async function createStore() {
     await import('@/renderer/src/redux/slices/uiSlice')
   const { default: skillsReducer } =
     await import('@/renderer/src/redux/slices/skillsSlice')
+  const { default: skillLockReducer } =
+    await import('@/renderer/src/redux/slices/skillLockSlice')
   const { default: agentsReducer } =
     await import('@/renderer/src/redux/slices/agentsSlice')
   const { default: bookmarksReducer } =
@@ -202,6 +204,7 @@ async function createStore() {
     reducer: {
       ui: uiReducer,
       skills: skillsReducer,
+      skillLock: skillLockReducer,
       agents: agentsReducer,
       bookmarks: bookmarksReducer,
       marketplace: marketplaceReducer,

@@ -487,6 +487,10 @@ export function installStorybookElectronMock(): void {
       unlinkManyFromAgent: async () => unlinkResult,
       restoreDeletedSkill: async () => restoreResult,
       onDeleteProgress: () => cleanup,
+      // Stories never touch the real lock file; a clean scan keeps the
+      // stale-lock row and its CTA out of every dashboard snapshot.
+      scanStaleLockEntries: async () => ({ status: 'ok' as const, names: [] }),
+      pruneLockEntries: async () => ({ pruned: [], skipped: [], failed: [] }),
     },
     agents: {
       getAll: async () => storyAgents,

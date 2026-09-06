@@ -57,7 +57,9 @@ CLAUDE.md
 qa-reports/
 
 # Vitest browser mode artifacts
-.vitest-attachments/
+# Vitest 4 writes failure screenshots to `.vitest/attachments/`; the older
+# `.vitest-attachments/` name never matched anything.
+.vitest/
 **/__screenshots__/
 
 # Playwright E2E

@@ -86,6 +86,7 @@ async function renderWelcomeWidget(welcomeDismissed: boolean) {
         currentPageId: 'p_welcome' as DashboardPageId,
         isEditMode: false,
         welcomeDismissed: false,
+        lockPruneBannerDismissed: false,
         initialized: true,
       },
     },
