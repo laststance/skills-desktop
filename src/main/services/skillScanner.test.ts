@@ -1,6 +1,6 @@
 import { basename, join } from 'node:path'
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, test, vi } from 'vitest'
 
 /**
  * Create a minimal Dirent-like object for readdir mocks.
@@ -893,6 +893,13 @@ describe('scanSkills source attribution from lock file', () => {
     checkSymlinkTargetFromKnownLinkMock.mockResolvedValue('missing')
     readSymlinkTargetIfPresentMock.mockReset()
     readSymlinkTargetIfPresentMock.mockResolvedValue(undefined)
+    // Restore the default metadata parser so the two name-vs-directory tests
+    // below cannot leak their overrides into the rest of this describe.
+    parseSkillMetadataMock.mockReset()
+    parseSkillMetadataMock.mockImplementation(async (path: string) => ({
+      name: basename(path),
+      description: 'mock description',
+    }))
     countValidSymlinksMock.mockClear()
   })
 
@@ -1017,6 +1024,106 @@ describe('scanSkills source attribution from lock file', () => {
     // Assert
     expect(skills).toHaveLength(1)
     expect(skills[0].source).toBeUndefined()
+  })
+
+  test('shows the repo source on a skill whose SKILL.md name differs from its install directory', async () => {
+    // Arrange: the directory is "impeccable-frontend-design" but SKILL.md
+    // declares `name: frontend-design`, and the lock file is keyed by the
+    // INSTALL DIRECTORY. Only the directory-name lookup can find this entry,
+    // so this test fails if that lookup stops deriving the directory name.
+    parseSkillMetadataMock.mockImplementation(async () => ({
+      name: 'frontend-design',
+      description: 'mock description',
+    }))
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        return [
+          createDirent('impeccable-frontend-design', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills/impeccable-frontend-design/SKILL.md') {
+        return { isFile: () => true }
+      }
+      throw new Error(`ENOENT: ${path}`)
+    })
+    mockLstatDirectories(['/mock/source/skills/impeccable-frontend-design'])
+    readFileMock.mockResolvedValue(
+      JSON.stringify({
+        skills: {
+          'impeccable-frontend-design': {
+            source: 'pbakaus/impeccable',
+            sourceType: 'github',
+            sourceUrl: 'https://github.com/pbakaus/impeccable.git',
+          },
+        },
+      }),
+    )
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert
+    expect(skills[0].name).toBe('frontend-design')
+    expect(skills[0].source).toBe('pbakaus/impeccable')
+    expect(skills[0].sourceUrl).toBe(
+      'https://github.com/pbakaus/impeccable.git',
+    )
+  })
+
+  test('shows the repo source when the lock file is keyed by skill name rather than directory', async () => {
+    // Arrange: same name/directory split, but the lock entry is keyed by the
+    // SKILL.md name. Only the `?? lockEntries.get(skill.name)` fallback finds
+    // it, so this test fails if that fallback is dropped.
+    parseSkillMetadataMock.mockImplementation(async () => ({
+      name: 'frontend-design',
+      description: 'mock description',
+    }))
+    readdirMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills') {
+        return [
+          createDirent('impeccable-frontend-design', {
+            isDirectory: true,
+            isSymbolicLink: false,
+          }),
+        ]
+      }
+      return []
+    })
+    statMock.mockImplementation(async (path: string) => {
+      if (path === '/mock/source/skills/impeccable-frontend-design/SKILL.md') {
+        return { isFile: () => true }
+      }
+      throw new Error(`ENOENT: ${path}`)
+    })
+    mockLstatDirectories(['/mock/source/skills/impeccable-frontend-design'])
+    readFileMock.mockResolvedValue(
+      JSON.stringify({
+        skills: {
+          'frontend-design': {
+            source: 'pbakaus/impeccable',
+            sourceType: 'github',
+            sourceUrl: 'https://github.com/pbakaus/impeccable.git',
+          },
+        },
+      }),
+    )
+    const { scanSkills } = await import('./skillScanner')
+
+    // Act
+    const skills = await scanSkills()
+
+    // Assert
+    expect(skills[0].source).toBe('pbakaus/impeccable')
+    expect(skills[0].sourceUrl).toBe(
+      'https://github.com/pbakaus/impeccable.git',
+    )
   })
 })
 

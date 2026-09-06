@@ -1,5 +1,5 @@
 import { lstat, readdir, readFile, stat } from 'fs/promises'
-import { join } from 'path'
+import { basename, join } from 'path'
 
 import { AGENTS, SOURCE_DIR } from '@/main/constants'
 import { isMissingPathError } from '@/main/utils/errorCode'
@@ -264,8 +264,7 @@ export async function scanSkills(): Promise<Skill[]> {
 
   // Attach source info from lock file
   for (const skill of allSkills) {
-    /* v8 ignore next -- skill.path is always a non-empty AbsolutePath from join(), so split('/').pop() is always non-empty; the || '' only satisfies the type checker */
-    const dirName = skill.path.split('/').pop() || ''
+    const dirName = basename(skill.path)
     const lock = lockEntries.get(dirName) ?? lockEntries.get(skill.name)
     if (lock) {
       skill.source = repositoryId(lock.source)

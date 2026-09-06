@@ -90,14 +90,19 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
 
   const setActiveFile = async (path: AbsolutePath | null) => {
     if (path === activeFile) return
+    // Resolve before committing. A path absent from `files` must never reach
+    // `userSelectedFile`: `activeFile` would then name a tab that has no
+    // Trigger, so the bar shows nothing highlighted over stale content, and
+    // `files.length === 0` would stop implying `!activeFile` -- the
+    // equivalence {@link CodePreview} guards its empty state on.
+    const file = path ? files.find((f) => f.path === path) : undefined
+    if (path && !file) return
     userSelectedFileRef.current = path
     setUserSelectedFile(path)
-    if (!path) {
+    if (!file) {
       setContent({ kind: 'empty' })
       return
     }
-    const file = files.find((f) => f.path === path)
-    if (!file) return
     // react-doctor-disable-next-line react-doctor/async-defer-await -- the post-await guards (below) deliberately re-read refs AFTER the async gap to drop a stale click or a skill switch that happened DURING the load; they cannot move before the await.
     const next = await loadContentForFile(file)
     // After the await, two things may have happened out of order:
