@@ -1,4 +1,5 @@
 import * as TabsPrimitive from '@radix-ui/react-tabs'
+import { FolderX } from 'lucide-react'
 import React from 'react'
 
 import { useCodePreview } from '@/renderer/src/hooks/useCodePreview'
@@ -32,7 +33,7 @@ interface CodePreviewProps {
 export const CodePreview = function CodePreview({
   skillPath,
 }: CodePreviewProps): React.ReactElement {
-  const { files, activeFile, setActiveFile, content, loading } =
+  const { files, activeFile, setActiveFile, content, loading, loadFailed } =
     useCodePreview(skillPath)
   // Preview typography is user-configurable in Settings → Appearance; this is
   // the single Redux read that feeds the otherwise-presentational FileContent.
@@ -52,6 +53,13 @@ export const CodePreview = function CodePreview({
         Loading files...
       </div>
     )
+  }
+
+  // Ordered before the empty state on purpose: a failed list leaves `files`
+  // empty, so without this the pane would claim the skill simply has no
+  // previewable files instead of admitting it could not read them.
+  if (loadFailed) {
+    return <FilesUnavailableNotice />
   }
 
   // Guards the value the tabs actually read, and it is equivalent to guarding
@@ -90,3 +98,26 @@ export const CodePreview = function CodePreview({
     </TabsPrimitive.Root>
   )
 }
+
+/**
+ * Terminal-failure state for the Files tab when the file list could not be read.
+ * Takes the fuller icon + heading + description treatment DESIGN.md reserves for
+ * real failures, unlike the quiet one-liner used for the expected "skill has no
+ * previewable files" empty. Amber is the app-wide inaccessible-status hue, so
+ * this adds no new colour semantic. @see DESIGN.md "Empty States"
+ */
+const FilesUnavailableNotice =
+  function FilesUnavailableNotice(): React.ReactElement {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+        <FolderX className="size-10 text-amber-400 mb-3" aria-hidden />
+        <h3 className="text-sm font-medium text-foreground mb-1">
+          Cannot read this skill&apos;s files
+        </h3>
+        <p className="text-xs text-muted-foreground max-w-xs">
+          Its folder sits outside the skill directories this app is allowed to
+          read. The Info tab shows where each agent links this skill from.
+        </p>
+      </div>
+    )
+  }

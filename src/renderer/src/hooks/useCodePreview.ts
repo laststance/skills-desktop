@@ -25,6 +25,7 @@ interface UseCodePreviewReturn {
   setActiveFile: (path: AbsolutePath | null) => Promise<void>
   content: PreviewContent
   loading: boolean
+  loadFailed: boolean
 }
 
 /**
@@ -39,6 +40,7 @@ interface UseCodePreviewReturn {
  * - setActiveFile: change the active file and load its content
  * - content: discriminated union describing how the renderer should display the file
  * - loading: true until the initial file list has been fetched for the current skill
+ * - loadFailed: true when that fetch rejected, so the pane can explain instead of spinning
  * @example
  * const { files, content, setActiveFile } = useCodePreview('/skills/tdd')
  * // content.kind === 'text' | 'image' | 'binary' | 'empty'
@@ -50,6 +52,7 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
     null,
   )
   const [content, setContent] = useState<PreviewContent>({ kind: 'empty' })
+  const [loadFailed, setLoadFailed] = useState(false)
   const prevSkillPathRef = useRef(skillPath)
   // Mirror of userSelectedFile readable synchronously from the initial-load
   // effect. The effect must check the *current* selection when its async IPC
@@ -61,6 +64,7 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
     userSelectedFileRef.current = null
     setUserSelectedFile(null)
     setContent({ kind: 'empty' })
+    setLoadFailed(false)
   }
 
   const loading = loadedPath !== skillPath
@@ -82,7 +86,18 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
       if (cancelled || userSelectedFileRef.current !== null) return
       setContent(initial)
     }
-    loadFiles()
+    // `files.list` rejects when the main process refuses the path: `validatePath`
+    // runs OUTSIDE `listSkillFiles`' own swallow, and a skill reached through an
+    // agent symlink that points off-tree resolves outside `getAllowedBases()`.
+    // Without this catch the rejection floats, `loadedPath` never advances, and
+    // `loading` stays true forever -- a spinner with no error and no retry.
+    loadFiles().catch((error: unknown) => {
+      // The UI states the cause in plain language; DevTools gets the real one.
+      console.warn('[preview] failed to list skill files:', error)
+      if (cancelled) return
+      setLoadedPath(skillPath)
+      setLoadFailed(true)
+    })
     return () => {
       cancelled = true
     }
@@ -116,7 +131,7 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
     setContent(next)
   }
 
-  return { files, activeFile, setActiveFile, content, loading }
+  return { files, activeFile, setActiveFile, content, loading, loadFailed }
 }
 
 /**

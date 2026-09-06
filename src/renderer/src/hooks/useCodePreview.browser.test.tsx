@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
 
 import type {
@@ -395,6 +395,57 @@ describe('useCodePreview', () => {
       .toEqual({ kind: 'text', data: bodyB })
     expect(result.current.activeFile).toBe(fileB.path)
     expect(result.current.loading).toBe(false)
+  })
+
+  test('ends the loading state and reports failure when the file list cannot be read', async () => {
+    // Arrange -- the main process rejects any path outside its allowed bases,
+    // which is how a skill symlinked from off-tree reaches this hook.
+    listMock.mockRejectedValue(new Error('Path traversal attempt detected'))
+
+    // Act
+    const { useCodePreview } = await import('./useCodePreview')
+    const { result } = await renderHook(() =>
+      useCodePreview('/outside/skills/tdd'),
+    )
+
+    // Assert
+    // `loading` must settle to false: leaving it true is the infinite-spinner
+    // bug this catch exists to prevent.
+    await expect.poll(() => result.current.loadFailed).toBe(true)
+    expect(result.current.loading).toBe(false)
+    expect(result.current.files).toEqual([])
+    expect(result.current.activeFile).toBeNull()
+  })
+
+  test("drops a previous skill's load failure when a readable skill is opened", async () => {
+    // Arrange -- skill A is unreadable, skill B lists fine.
+    const fileB = makeFile({ path: '/skills/b/SKILL.md' })
+    const bodyB = makeTextContent({ content: 'B' })
+    listMock.mockImplementation(async (p) => {
+      if (p === '/outside/skills/a')
+        throw new Error('Path traversal attempt detected')
+      return [fileB]
+    })
+    readMock.mockResolvedValue(bodyB)
+
+    const { useCodePreview } = await import('./useCodePreview')
+    const { result, rerender } = await renderHook(
+      (props?: { path: string }) =>
+        useCodePreview(props?.path ?? '/outside/skills/a'),
+      { initialProps: { path: '/outside/skills/a' } },
+    )
+    await expect.poll(() => result.current.loadFailed).toBe(true)
+
+    // Act
+    rerender({ path: '/skills/b' })
+
+    // Assert
+    // A sticky flag would blame skill B for skill A's unreadable folder.
+    await expect
+      .poll(() => result.current.content)
+      .toEqual({ kind: 'text', data: bodyB })
+    expect(result.current.loadFailed).toBe(false)
+    expect(result.current.activeFile).toBe(fileB.path)
   })
 
   it('previews an image file through the binary reader without calling the text reader', async () => {
