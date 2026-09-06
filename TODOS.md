@@ -1397,8 +1397,14 @@ Two consequences worth knowing:
 
 `trashService.ts:1241-1470` moves each agent's real folder into
 `<entryDir>/local-copies/<agentId>` and only then writes the manifest, so a
-kill in that window leaves a tombstone-named entry with no manifest — the same
-sweep-the-only-copy exposure the source-backed path just closed.
+kill in that window leaves a tombstone-named entry with no manifest.
+
+NARROWED by PR #311: the data-loss half is already closed. `local-copies` is
+not a bookkeeping name, so `classifyEntryForSweep` sees a payload, returns
+`'unreadable-manifest'`, and `startupCleanup` keeps the entry. What remains is
+that the entry is unrestorable through the app — the user has to find
+`<entryDir>/local-copies/<agentId>` and move it back by hand, with no UI
+telling them it is there.
 
 **Fix direction:** same as above, build under `STAGED_ENTRY_PREFIX` and publish
 with one rename. Kept out of that PR because four of its failure arms embed

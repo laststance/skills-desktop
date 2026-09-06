@@ -446,10 +446,10 @@ function coerceTrashError(error: unknown, messagePrefix: string): TrashError {
  * user hunting an empty path during a data-loss incident.
  */
 type ManualRecoveryLocation =
-  /** Inside `<stagingDir>/source`, so publishing the entry keeps it findable. */
-  | { reason: string; inEntry: true }
-  /** Beside the original path, so the staged entry holds nothing worth publishing. */
-  | { reason: string; strandedAt: AbsolutePath }
+  /** Inside `<stagingDir>/source`; `reason` becomes the published marker's text. */
+  | { inEntry: true; reason: string }
+  /** Beside the original path — nothing is published, so no marker to write. */
+  | { strandedAt: AbsolutePath }
 
 interface SourceMoveFailure {
   error: TrashError
@@ -547,11 +547,7 @@ async function moveSourceIntoTrashEntry(
             // The sibling stage is the sole copy only when the copy into the
             // entry never ran, so `??=` leaves a completed entry copy in
             // place — that one is published, and the better thing to name.
-            manualRecovery ??= {
-              reason:
-                'reviewed source staged beside its original path and could not be restored',
-              strandedAt: siblingStagePath,
-            }
+            manualRecovery ??= { strandedAt: siblingStagePath }
           }
         }
         return {
