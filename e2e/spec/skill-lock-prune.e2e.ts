@@ -291,6 +291,14 @@ test('refuses to prune a lock key that still owns a real directory inside an age
 }) => {
   // Arrange: source gone, but a real (non-symlink) directory of the same name
   // sits in an agent install dir. `skills remove --global` would `rm -rf` it.
+  //
+  // Paired with the broken-symlink spec at the bottom of this file: both stage
+  // the identical source-absent state and differ only in what sits under
+  // `.claude/skills`, so the opposite outcomes pin the refusal to the agent
+  // probe. That pairing matters because `.agents` is itself an `installDir`
+  // (the 16 universal-source agents), meaning the guard also probes SOURCE_DIR
+  // — if that probe were what refused, this spec and that one could not
+  // disagree.
   writeLockKeys(isolatedHome, ['lock-prune-agent-owned'])
   const agentSkillPath = join(
     isolatedHome,
