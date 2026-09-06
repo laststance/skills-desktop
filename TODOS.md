@@ -1361,20 +1361,109 @@ That is a feature, not a follow-up to this entry.
 
 **Depends on / blocked by:** Nothing.
 
-### P2. `moveToTrash` writes `manifest.json` after moving the source in
+### ~~P2. `moveToTrash` writes `manifest.json` after moving the source in~~
 
-`trashService.ts:1112-1150` renames the source into the entry and only then
-writes the manifest, so an entry can briefly exist that nothing can describe.
-The scan side is now defended (an entry whose name parses as a tombstone id but
-has no manifest is treated as unreadable, not foreign), but the underlying
-ordering still means a crash in that window leaves an entry no code can
-interpret and `startupCleanup` will sweep.
+FIXED: the source-backed path now assembles the entry under
+`.staging-<entryName>` (`STAGED_ENTRY_PREFIX`) and publishes it with one
+`fs.rename`. Until that rename lands nothing parses the directory as a
+tombstone — `tombstoneIdSchema` and `startupCleanup`'s name parse both require
+a leading `\d+`, which the prefix breaks — so a kill in the window leaves the
+source parked in the trash instead of swept away. One reader changed:
+`startupCleanup` now also refuses to sweep a published entry that still holds a
+`source/` or `local-copies/` payload but whose manifest will not parse (see the
+fsync entry below for why that state is still reachable).
 
-**Fix direction:** write the manifest before moving the source in, or stage it
-under a temp name. The existing rollback arms depend on today's order, so this
-needs care — that is why review did not touch it.
+Writing the manifest first was considered and rejected: it swaps this window
+for a worse one, an entry claiming a skill is trashed while the source is still
+live, and `evict` would prune that skill's lock key.
+
+Two consequences worth knowing:
+
+- **Nothing may ever sweep a `.staging-` entry.** It can hold the user's only
+  copy of a skill. A leaked one is a bounded disk leak in a crash-only path;
+  that is the deliberate trade.
+- **`readTrashedSourceDirNames` was left alone on purpose.** A staged entry now
+  falls through to "foreign" instead of `unavailable`, but a staged window is
+  not a live undo window: no tombstone id has reached the renderer yet.
+  Teaching the scan to recognise `.staging-` would make one leaked directory
+  brick stale-lock detection permanently, which is strictly worse. Its
+  ENOENT-on-parseable-tombstone branch stays live for entries written by the
+  pre-staging build and for manifests deleted after the fact; the comment there
+  was retargeted to say so.
 
 **Depends on / blocked by:** Nothing.
+
+### P2. `moveLocalOnlyToTrash` has the same manifest-after-move ordering
+
+`trashService.ts:1241-1470` moves each agent's real folder into
+`<entryDir>/local-copies/<agentId>` and only then writes the manifest, so a
+kill in that window leaves a tombstone-named entry with no manifest.
+
+NARROWED by PR #311: the data-loss half is already closed. `local-copies` is
+not a bookkeeping name, so `classifyEntryForSweep` sees a payload, returns
+`'unreadable-manifest'`, and `startupCleanup` keeps the entry. What remains is
+that the entry is unrestorable through the app — the user has to find
+`<entryDir>/local-copies/<agentId>` and move it back by hand, with no UI
+telling them it is there.
+
+**Fix direction:** same as above, build under `STAGED_ENTRY_PREFIX` and publish
+with one rename. Kept out of that PR because four of its failure arms embed
+`${entryDir}` in user-facing "stranded in ..." messages, so staging means
+rewriting every message against a maybe-published path — a second state machine
+a reviewer would have to hold at the same time.
+
+**Depends on / blocked by:** Nothing.
+
+### P3. Trash writes are not fsynced, so a power cut can still tear a manifest
+
+`fs.writeFile` returns once the bytes are in the page cache. The publish rename
+is a journalled metadata op, so a power cut (not a process kill — a kill leaves
+the page cache intact) can land the renamed directory while losing the
+`manifest.json` contents inside it, producing a tombstone-named entry the app
+cannot restore.
+
+MITIGATED, not fixed: `startupCleanup` now keeps such an entry instead of
+sweeping it, so the consequence is a stray directory rather than a deleted
+skill. The likelihood is untouched.
+
+**Fix direction:** fsync the manifest before the publish rename and fsync
+`TRASH_DIR` after it. Deliberately not done in PR #311: durability ordering is
+a policy for every write in the trash and lock paths, not one call site, and
+doing it here alone would imply a guarantee the neighbouring writes do not
+make. It also means writing the manifest through a `FileHandle`, which moves
+the write off the module-level `fs.writeFile` the durability suite observes.
+
+**Depends on / blocked by:** Nothing.
+
+### P3. A bookkeeping name that is a directory reads as empty to the sweep guard
+
+`hasTrashEntryPayload` decides "this entry still holds user data" by name:
+anything that is not `manifest.json` or `.manual-recovery` counts as payload.
+That direction is deliberate (a payload directory added later is protected
+without anyone widening a list), but it leaves the inverse corner open. An
+entry whose only content is a _directory_ named `manifest.json` lists as all
+bookkeeping, so `classifyEntryForSweep` returns `'sweep'` and `evict` removes
+it recursively.
+
+NOT REACHED BY THE APP, and deliberately left open in PR #311. Every write to
+that path is `fs.writeFile`, so no code path and no torn write can produce a
+directory there — a truncated write yields a short file, never a directory
+inode. Reaching it needs a user hand-creating the directory, and in that case
+the swept content is something the app never wrote and `restore` could never
+restore, because restore needs a parseable manifest at exactly that path. Any
+entry that also holds real payload (`source`, `local-copies`) is already kept.
+
+**Fix direction:** `fs.readdir(entryDir, { withFileTypes: true })` and treat a
+bookkeeping name as bookkeeping only when `isFile()`. The production change is
+two lines; the cost is all in the test harness.
+
+**Depends on / blocked by:** No other TODO, but it cannot land without first
+widening the shared `readdirSpy` in `trashService.durability.test.ts`. That spy
+narrows `readdir` to one argument on purpose ("Single-arg on purpose") and is
+routed through by seven tests, so forwarding an options argument means working
+around the `typeof actual.readdir` overload set — the spy cannot be annotated
+with it, because `readdir` is an overload set and `Promise<string[]>` is not
+assignable to `Promise<NonSharedBuffer[]>`.
 
 ### P2. A kill landing mid-write can still truncate the lock
 
@@ -1445,8 +1534,9 @@ scan false-negative, not an unprunable state — see there.
 - ~~Manual-recovery trash entries keep their lock record alive forever:
   `readTrashedSourceDirNames` counts them as "still restorable" although their
   restore already failed permanently.~~ FIXED, and it was worse than filed. Both
-  source-backed writers of the `.manual-recovery` marker run BEFORE the manifest
-  exists (`trashService.ts` source-move failure, and manifest-write rollback), so
+  source-backed writers of the `.manual-recovery` marker fire on paths that never
+  wrote a manifest (`trashService.ts` source-move failure, and the publish
+  rollback), so
   the entry read as ENOENT on a parseable tombstone id — which
   `readTrashedSourceDirNames` treats as "one of our entries caught mid-write" and
   answers `unavailable` for the whole scan. `startupCleanup` deliberately never

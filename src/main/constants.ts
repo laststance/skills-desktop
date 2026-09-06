@@ -28,6 +28,16 @@ export const TRASH_DIR = join(homedir(), '.agents', '.trash')
 export const MANUAL_RECOVERY_MARKER = '.manual-recovery'
 
 /**
+ * Basename prefix a trash entry wears while it is still being assembled.
+ * `moveToTrash` builds the entry under this name and publishes it with one
+ * atomic rename, so a kill mid-move leaves a directory that no reader treats
+ * as a tombstone: {@link tombstoneIdSchema} and startup cleanup's name parse
+ * both require a leading `\d+`, which this prefix breaks. Nothing sweeps a
+ * staged name — it can hold the user's only copy of a skill.
+ */
+export const STAGED_ENTRY_PREFIX = '.staging-'
+
+/**
  * Supported AI agents with their full skills directory paths.
  *
  * Built from `scanDir` (always required on AGENT_DEFINITIONS). For most
