@@ -1,6 +1,6 @@
 import * as fs from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 
 import { z } from 'zod'
 
@@ -8,6 +8,7 @@ import { MANUAL_RECOVERY_MARKER, SOURCE_DIR, TRASH_DIR } from '@/main/constants'
 import { manifestSchema, tombstoneIdSchema } from '@/main/ipc/ipc-schemas'
 import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
 import { extractErrorMessage } from '@/main/utils/errors'
+import { fsyncPath } from '@/main/utils/fsyncPath'
 import { AGENT_DEFINITIONS } from '@/shared/constants'
 import type {
   AbsolutePath,
@@ -64,16 +65,30 @@ let pruneFlushTimer: NodeJS.Timeout | null = null
 let lockWriteChain: Promise<unknown> = Promise.resolve()
 
 /**
- * Serialize anything that causes the skills CLI to rewrite the global lock.
+ * Serialize anything that causes the skills CLI to rewrite the global lock, and
+ * undo the write when it leaves the file torn.
  * `writeSkillLock` in the CLI is a plain `writeFile` with no temp+rename, and
  * a half-written lock parses as an EMPTY lock, silently dropping every skill
- * the user installed. One chain is cheaper than making the CLI atomic.
+ * the user installed. One chain is cheaper than making the CLI atomic; the
+ * chain alone cannot help when {@link SkillsCliService.cancel} SIGTERMs the only writer there
+ * is, which is what {@link restoreLockIfTorn} is for.
  * @param operation - Work to run once no other lock write is in flight.
  * @returns Whatever `operation` resolves to.
  * @example await runLockWrite(() => skillsCliService.install(options))
  */
 export async function runLockWrite<T>(operation: () => Promise<T>): Promise<T> {
-  const run = lockWriteChain.then(operation, operation)
+  /** Snapshots INSIDE the chain: at queue time it would predate the write ahead of us. */
+  const guarded = async (): Promise<T> => {
+    const snapshot = await snapshotLock()
+    try {
+      return await operation()
+    } finally {
+      // `finally`, not the success path: a killed CLI is as likely to reject as
+      // to resolve with `success: false`, and both leave the same torn file.
+      await restoreLockIfTorn(snapshot)
+    }
+  }
+  const run = lockWriteChain.then(guarded, guarded)
   // Swallow rejections on the CHAIN only; `run` still rejects for the caller.
   lockWriteChain = run.catch(() => undefined)
   return run
@@ -92,6 +107,104 @@ export function getSkillLockPath(): AbsolutePath {
     return join(xdgStateHome, 'skills', LOCK_FILE)
   }
   return join(homedir(), '.agents', LOCK_FILE)
+}
+
+/**
+ * Pre-operation state of the lock, held so a killed CLI cannot leave it torn.
+ * `untrusted` covers both "already unparseable" and "could not be read at all":
+ * in neither case do we hold bytes worth putting back.
+ */
+type LockSnapshot =
+  | { status: 'intact'; bytes: string }
+  | { status: 'absent' }
+  | { status: 'untrusted' }
+
+/**
+ * Capture the lock exactly as it stands before an operation that may be killed.
+ * Never throws: a snapshot we cannot take only costs the restore, and blocking
+ * an install on a permissions quirk trades a rare corruption for a common outage.
+ * @returns The bytes to put back, `absent` when no lock exists yet, or `untrusted`.
+ * @example await snapshotLock() // => { status: 'absent' }
+ */
+async function snapshotLock(): Promise<LockSnapshot> {
+  let bytes: string
+  try {
+    bytes = await fs.readFile(getSkillLockPath(), 'utf-8')
+  } catch (error) {
+    // No lock yet is the normal state of a fresh install, not a failed read.
+    if (isMissingPathError(error)) return { status: 'absent' }
+    console.warn('skillLockService: lock snapshot failed', {
+      code: errorCode(error),
+      message: extractErrorMessage(error),
+    })
+    return { status: 'untrusted' }
+  }
+  try {
+    // Raw parse, deliberately NOT {@link readSkillLockKeys}: that reports a lock
+    // written by a NEWER CLI as unavailable, and treating that as damage here
+    // would clobber a legitimate write with our stale copy.
+    JSON.parse(bytes)
+  } catch {
+    return { status: 'untrusted' }
+  }
+  return { status: 'intact', bytes }
+}
+
+/**
+ * Put the pre-operation lock back when the operation left the file unparseable.
+ * {@link SkillsCliService.cancel} SIGTERMs an already-spawned install at a moment the user picks,
+ * and the CLI writes the lock with no temp+rename, so a signal landing between
+ * the `O_TRUNC` open and the write loses every install record — a truncated
+ * lock reads as an EMPTY one. Repairs damage only: a legitimately emptied lock
+ * is still valid JSON (`{version, skills:{}}`), so this can never undo a real write.
+ * @param snapshot - What {@link snapshotLock} saw before the operation ran.
+ * @returns Promise that resolves once the lock is repaired, or left alone.
+ * @example await restoreLockIfTorn({ status: 'absent' })
+ */
+async function restoreLockIfTorn(snapshot: LockSnapshot): Promise<void> {
+  if (snapshot.status === 'untrusted') return
+  const lockPath = getSkillLockPath()
+  let current: string
+  try {
+    current = await fs.readFile(lockPath, 'utf-8')
+  } catch {
+    // Missing is the state a fresh install starts from, and a lock we cannot
+    // read is not something a blind overwrite can improve.
+    return
+  }
+  try {
+    JSON.parse(current)
+    return
+  } catch {
+    // Unparseable is exactly the truncated-write signature. Fall through.
+  }
+
+  if (snapshot.status === 'absent') {
+    // A killed FIRST install leaves a 0-byte file, which is WORSE than no file:
+    // {@link readSkillLockKeys} maps missing to an empty lock but unparseable to
+    // `unavailable`, so the leftover permanently degrades every prune scan.
+    await fs.rm(lockPath, { force: true }).catch(() => {
+      // best-effort: the warning below still names the file
+    })
+    console.warn('skillLockService: removed a torn lock left by a killed write')
+    return
+  }
+
+  try {
+    // Temp+rename, the atomicity the CLI's own writer lacks: a second kill
+    // during THIS write would otherwise re-tear the file we came to repair.
+    const recoveryPath = `${lockPath}.recovering`
+    await fs.writeFile(recoveryPath, snapshot.bytes, 'utf-8')
+    await fsyncPath(recoveryPath)
+    await fs.rename(recoveryPath, lockPath)
+    await fsyncPath(dirname(lockPath))
+    console.warn('skillLockService: restored a torn lock from its snapshot')
+  } catch (error) {
+    console.error('skillLockService: torn lock could not be restored', {
+      code: errorCode(error),
+      message: extractErrorMessage(error),
+    })
+  }
 }
 
 /**

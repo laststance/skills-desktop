@@ -1488,7 +1488,9 @@ around the `typeof actual.readdir` overload set — the spy cannot be annotated
 with it, because `readdir` is an overload set and `Promise<string[]>` is not
 assignable to `Promise<NonSharedBuffer[]>`.
 
-### P2. A kill landing mid-write can still truncate the lock
+### ~~P2. A kill landing mid-write can still truncate the lock~~
+
+FIXED. All three exposures are closed.
 
 Upstream writes `.skill-lock.json` with a plain `writeFile` (no temp+rename)
 and reads a truncated file as an EMPTY lock, so any signal landing between the
@@ -1511,9 +1513,41 @@ involved. `cancel()` SIGTERMs an already-spawned install at a moment the user
 picks, and `install` keeps the 60s ceiling by design. The mutex cannot help
 here — the damage is a single interrupted write.
 
-**Fix direction:** snapshot the lock bytes before any lock-writing spawn and
-restore them when the child is killed rather than exiting cleanly. Fix at
-`execCli`, not in the prune path.
+FIXED at `runLockWrite` (`skillLockService.ts:75`), NOT at `execCli` as the
+fix direction said. Two reasons, both discovered while implementing it:
+
+- `skillLockService.ts:21` already imports `skillsCliService`, so importing
+  `getSkillLockPath` back into `skillsCliService` would be a circular import.
+- The signal is not needed. `execCli` was the privileged place only because it
+  is where a kill is observable (`proc.on('close')` does not even capture
+  `signal` today). A cause-independent predicate is strictly safer: restore
+  only when the lock **parsed before and does not parse now**. That covers a
+  kill, a crash, and a power cut alike, and it can never undo a legitimate
+  write, because a legitimately emptied lock is still valid JSON
+  (`{version, skills:{}}`).
+
+`runLockWrite` is also the one chokepoint every lock writer already routes
+through -- install via `ipc/skillsCli.ts:37`, prune via
+`skillLockService.ts:542` -- so nothing can write the lock outside the repair.
+
+Three details worth keeping:
+
+- The predicate is a raw `JSON.parse`, deliberately **not**
+  `readSkillLockKeys`. That helper reports `version > SUPPORTED_LOCK_VERSION`
+  as `unavailable` (`skillLockService.ts:152`), so a lock a newer CLI wrote
+  would be classified as damage and clobbered with our stale snapshot -- new
+  data loss introduced by the repair.
+- Snapshot-absent means `unlink`, not "do nothing". A killed FIRST install
+  leaves a 0-byte file, which is worse than no file: `readSkillLockKeys` maps
+  missing to `{ok, keys:[]}` but unparseable to `unavailable`, so the leftover
+  would permanently degrade every prune scan.
+- The repair writes through temp+rename+`fsyncPath`, the atomicity the CLI's
+  own writer lacks. Recovering from a torn write with another torn-able write
+  would leave the same hole one level down.
+
+A snapshot that cannot be read (EACCES) logs and lets the install proceed:
+blocking it on a permissions quirk trades a rare corruption for a common
+outage.
 
 **Depends on / blocked by:** Nothing.
 
