@@ -489,7 +489,11 @@ export function installStorybookElectronMock(): void {
       onDeleteProgress: () => cleanup,
       // Stories never touch the real lock file; a clean scan keeps the
       // stale-lock row and its CTA out of every dashboard snapshot.
-      scanStaleLockEntries: async () => ({ status: 'ok' as const, names: [] }),
+      scanStaleLockEntries: async () => ({
+        status: 'ok' as const,
+        names: [],
+        unprunable: [],
+      }),
       pruneLockEntries: async () => ({ pruned: [], skipped: [], failed: [] }),
     },
     agents: {

@@ -22,6 +22,11 @@ import { pluralize } from '@/renderer/src/utils/pluralize'
 export const LockPruneBanner =
   function LockPruneBanner(): React.ReactElement | null {
     const dispatch = useAppDispatch()
+    // Prunable records only, deliberately narrower than the widget's
+    // `selectLockRecordsNeedingAttention`. Every sentence below promises a
+    // prune, and blocked records cannot be pruned — announcing them here would
+    // hand the user a button that can only tell them no. The widget is the
+    // surface that reports those, and it says "Review lock" instead.
     const staleCount = useAppSelector(selectStaleLockEntryCount)
     const isDismissed = useAppSelector(selectLockPruneBannerDismissed)
 

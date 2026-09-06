@@ -186,7 +186,11 @@ test('reports only the lock record whose skill directory was deleted outside the
 
   // Assert: only the tracked-and-missing record is stale. A skill that is
   // present stays out, and a skill the lock never knew about is never invented.
-  expect(result).toEqual({ status: 'ok', names: [CONTROL_STALE_KEY] })
+  expect(result).toEqual({
+    status: 'ok',
+    names: [CONTROL_STALE_KEY],
+    unprunable: [],
+  })
 })
 
 test('refuses to call the whole lock stale when the skills source root is missing', async ({
@@ -220,10 +224,14 @@ test('keeps a lock key out of the stale list when only its sanitized form is on 
   const result = await scanStaleLockEntries(appWindow)
 
   // Assert: the control proves the scan ran; the divergent key is not stale.
-  expect(result).toEqual({ status: 'ok', names: [CONTROL_STALE_KEY] })
+  expect(result).toEqual({
+    status: 'ok',
+    names: [CONTROL_STALE_KEY],
+    unprunable: [],
+  })
 })
 
-test('excludes both lock keys when two of them sanitize to the same directory name', async ({
+test('reports both lock keys that sanitize to one directory name as blocked, never as deletable', async ({
   appWindow,
   isolatedHome,
 }) => {
@@ -238,8 +246,17 @@ test('excludes both lock keys when two of them sanitize to the same directory na
   // Act
   const result = await scanStaleLockEntries(appWindow)
 
-  // Assert: pruning a collided key could strand the twin that still exists.
-  expect(result).toEqual({ status: 'ok', names: [CONTROL_STALE_KEY] })
+  // Assert: pruning a collided key could strand the twin that still exists, so
+  // neither is offered — but the pair is named, not dropped, or the user has no
+  // way to learn why `skills -g update` keeps bringing them back.
+  expect(result).toEqual({
+    status: 'ok',
+    names: [CONTROL_STALE_KEY],
+    unprunable: [
+      { name: 'lock-prune/dup', reason: 'name-collision' },
+      { name: 'lock-prune:dup', reason: 'name-collision' },
+    ],
+  })
 })
 
 test('keeps a skill inside its undo window out of the stale list', async ({
@@ -254,7 +271,11 @@ test('keeps a skill inside its undo window out of the stale list', async ({
   const result = await scanStaleLockEntries(appWindow)
 
   // Assert: offering to prune it would strand the skill Undo brings back.
-  expect(result).toEqual({ status: 'ok', names: [CONTROL_STALE_KEY] })
+  expect(result).toEqual({
+    status: 'ok',
+    names: [CONTROL_STALE_KEY],
+    unprunable: [],
+  })
 })
 
 test('refuses to report a corrupt lock as zero stale records', async ({
@@ -282,7 +303,7 @@ test('reports no stale records when the lock tracks nothing', async ({
   const result = await scanStaleLockEntries(appWindow)
 
   // Assert
-  expect(result).toEqual({ status: 'ok', names: [] })
+  expect(result).toEqual({ status: 'ok', names: [], unprunable: [] })
 })
 
 test('refuses to prune a lock key that still owns a real directory inside an agent', async ({

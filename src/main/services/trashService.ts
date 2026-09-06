@@ -6,7 +6,12 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { match } from 'ts-pattern'
 import type { z } from 'zod'
 
-import { AGENTS, SOURCE_DIR, TRASH_DIR } from '@/main/constants'
+import {
+  AGENTS,
+  MANUAL_RECOVERY_MARKER,
+  SOURCE_DIR,
+  TRASH_DIR,
+} from '@/main/constants'
 import { manifestSchema } from '@/main/ipc/ipc-schemas'
 import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
 import { extractErrorMessage } from '@/main/utils/errors'
@@ -49,9 +54,6 @@ const STARTUP_CLEANUP_CONCURRENCY = 4
 
 /** Number of random bytes in the `rand8hex` suffix (4 bytes = 8 hex chars). */
 const RAND_SUFFIX_BYTES = 4
-
-/** Marker file for trash entries that contain data the user must recover by hand. */
-const MANUAL_RECOVERY_MARKER = '.manual-recovery'
 
 /**
  * In-process map of scheduled evict timers. Keys are tombstone ids; values are

@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -48,6 +48,8 @@ function makeSkill(symlinks: SymlinkInfo[]): Skill {
  * Renders HealthWidget with real skills/skillLock/ui reducers so button clicks update Redux normally.
  * @param skills - Skill inventory to seed through the fetchSkills.fulfilled reducer.
  * @param staleLockNames - Stale skill-lock records to seed; empty means a clean lock.
+ * @param scanStatus - `unavailable` seeds a scan that could not read the lock.
+ * @param unprunable - Stale records the scan refused to offer for deletion.
  * @returns Browser screen and store.
  * @example
  * const { screen } = await renderHealthWidget([makeSkill([makeSymlink('broken')])])
@@ -56,6 +58,7 @@ async function renderHealthWidget(
   skills: Skill[],
   staleLockNames: string[] = [],
   scanStatus: 'ok' | 'unavailable' = 'ok',
+  unprunable: { name: string; reason: 'name-collision' | 'agent-copy' }[] = [],
 ) {
   const [
     { default: skillsReducer, fetchSkills },
@@ -82,7 +85,7 @@ async function renderHealthWidget(
   store.dispatch(
     fetchStaleLockEntries.fulfilled(
       scanStatus === 'ok'
-        ? { status: 'ok', names: staleLockNames }
+        ? { status: 'ok', names: staleLockNames, unprunable }
         : { status: 'unavailable' },
       'req-lock',
       undefined,
@@ -274,5 +277,59 @@ describe('HealthWidget stale skill-lock records', () => {
     expect(
       screen.getByRole('button', { name: 'Prune lock' }).query(),
     ).toBeNull()
+  })
+
+  test('counts blocked lock records so an all-blocked lock never reports Healthy', async () => {
+    // Arrange
+    // These records disagree with disk exactly as much as prunable ones do.
+    // Leaving them out of the count showed "Healthy" while `skills -g update`
+    // kept resurrecting the skills behind them.
+    const skills = [makeSkill([makeSymlink('valid')])]
+
+    // Act
+    const { screen } = await renderHealthWidget(skills, [], 'ok', [
+      { name: 'ambiguous', reason: 'name-collision' },
+      { name: 'Ambiguous', reason: 'name-collision' },
+    ])
+
+    // Assert
+    await expect
+      .element(screen.getByText('lock', { exact: true }))
+      .toBeVisible()
+    await expect.element(screen.getByText('2', { exact: true })).toBeVisible()
+    expect(screen.getByText('Healthy').query()).toBeNull()
+  })
+
+  test('offers Review lock rather than Prune lock when nothing can be removed', async () => {
+    // Arrange
+    // The dialog behind this button has no delete to offer, so promising a
+    // prune would misdescribe what clicking it does.
+    const skills = [makeSkill([makeSymlink('valid')])]
+
+    // Act
+    const { screen, store } = await renderHealthWidget(skills, [], 'ok', [
+      { name: 'agent-owned', reason: 'agent-copy' },
+    ])
+    await screen.getByRole('button', { name: 'Review lock' }).click()
+
+    // Assert
+    expect(store.getState().ui.lockPruneDialogOpen).toBe(true)
+  })
+
+  test('still says Prune lock while at least one record can be removed', async () => {
+    // Arrange
+    // The discriminating case for the label: a mixed lock keeps the
+    // destructive verb, because the button really does open a delete.
+    const skills = [makeSkill([makeSymlink('valid')])]
+
+    // Act
+    const { screen } = await renderHealthWidget(skills, ['removable'], 'ok', [
+      { name: 'agent-owned', reason: 'agent-copy' },
+    ])
+
+    // Assert
+    await expect
+      .element(screen.getByRole('button', { name: 'Prune lock' }))
+      .toBeVisible()
   })
 })

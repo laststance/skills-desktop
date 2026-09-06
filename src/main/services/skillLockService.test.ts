@@ -3,7 +3,15 @@ import { mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from 'vitest'
 
 import type { SkillName } from '@/shared/types'
 
@@ -97,6 +105,40 @@ async function makeTombstone(dirName: string): Promise<void> {
   )
 }
 
+/**
+ * Stage a trash entry that failed its automatic restore, exactly as
+ * `trashService` leaves one: the marker is written while no manifest exists,
+ * because both source-backed writers run before the manifest is created.
+ * @param dirName - Basename of the source directory the entry was staged from.
+ * @param withManifest - Also write a valid manifest (a shape today's writers never produce).
+ * @example await makeManualRecoveryEntry('stuck-skill')
+ */
+async function makeManualRecoveryEntry(
+  dirName: string,
+  withManifest = false,
+): Promise<void> {
+  if (withManifest) await makeTombstone(dirName)
+  const entryDir = join(trashDir, `1700000000000-${dirName}-aaaaaaaa`)
+  await mkdir(entryDir, { recursive: true })
+  await writeFile(
+    join(entryDir, '.manual-recovery'),
+    'manual recovery required\nreason: test\n',
+    'utf-8',
+  )
+}
+
+/**
+ * Give an agent a REAL directory (not a symlink) under a skill name, the state
+ * that makes `skills remove --global` destructive.
+ * @param dirName - Sanitized skill directory name.
+ * @example await makeAgentOwnedDir('agent-owned')
+ */
+async function makeAgentOwnedDir(dirName: string): Promise<void> {
+  const dir = join(sharedHome, '.claude', 'skills', dirName)
+  await mkdir(dir, { recursive: true })
+  await writeFile(join(dir, 'SKILL.md'), '# local\n', 'utf-8')
+}
+
 /** Read the lock keys straight off disk, bypassing the service under test. */
 async function readLockKeys(): Promise<string[]> {
   const raw = await readFile(lockPath, 'utf-8')
@@ -105,6 +147,10 @@ async function readLockKeys(): Promise<string[]> {
 
 beforeEach(async () => {
   await rm(join(sharedHome, '.agents'), { recursive: true, force: true })
+  // `.claude` too: the agent-copy tests stage a real directory there, and one
+  // surviving into a later test would refuse every prune that followed it.
+  // Clearing both trees here is what lets those tests skip their own cleanup.
+  await rm(join(sharedHome, '.claude'), { recursive: true, force: true })
   await mkdir(sourceDir, { recursive: true })
   removeSkillsMock.mockReset()
   // Default fake CLI: removes every requested key from the lock.
@@ -126,6 +172,13 @@ afterEach(() => {
   delete process.env.XDG_STATE_HOME
 })
 
+// `sharedHome` is created once at module load and every test writes inside it,
+// so nothing may remove it until the file is done. Without this each run leaves
+// another `skills-lock-it-*` directory behind in the system temp dir.
+afterAll(async () => {
+  await rm(sharedHome, { recursive: true, force: true })
+})
+
 describe('scanStaleLockEntries', () => {
   test('reports a lock record whose skill was deleted outside the app', async () => {
     // Arrange
@@ -137,7 +190,11 @@ describe('scanStaleLockEntries', () => {
     const result = await scanStaleLockEntries()
 
     // Assert
-    expect(result).toEqual({ status: 'ok', names: ['deleted-in-finder'] })
+    expect(result).toEqual({
+      status: 'ok',
+      names: ['deleted-in-finder'],
+      unprunable: [],
+    })
   })
 
   test('settles a queued prune before counting, so it never offers work already in flight', async () => {
@@ -152,7 +209,7 @@ describe('scanStaleLockEntries', () => {
     const result = await scanStaleLockEntries()
 
     // Assert
-    expect(result).toEqual({ status: 'ok', names: [] })
+    expect(result).toEqual({ status: 'ok', names: [], unprunable: [] })
     expect(await readLockKeys()).toEqual([])
   })
 
@@ -168,7 +225,7 @@ describe('scanStaleLockEntries', () => {
     const result = await scanStaleLockEntries()
 
     // Assert
-    expect(result).toEqual({ status: 'ok', names: [] })
+    expect(result).toEqual({ status: 'ok', names: [], unprunable: [] })
   })
 
   test('reports unavailable rather than flagging every record when the source dir cannot be read', async () => {
@@ -222,7 +279,7 @@ describe('scanStaleLockEntries', () => {
     const result = await scanStaleLockEntries()
 
     // Assert
-    expect(result).toEqual({ status: 'ok', names: [] })
+    expect(result).toEqual({ status: 'ok', names: [], unprunable: [] })
   })
 
   test('reports unavailable when the lock was written by a CLI newer than this build', async () => {
@@ -266,7 +323,7 @@ describe('scanStaleLockEntries', () => {
     const result = await scanStaleLockEntries()
 
     // Assert
-    expect(result).toEqual({ status: 'ok', names: [] })
+    expect(result).toEqual({ status: 'ok', names: [], unprunable: [] })
   })
 
   test('matches a lock key against its sanitized directory name', async () => {
@@ -281,13 +338,14 @@ describe('scanStaleLockEntries', () => {
     const result = await scanStaleLockEntries()
 
     // Assert
-    expect(result).toEqual({ status: 'ok', names: [] })
+    expect(result).toEqual({ status: 'ok', names: [], unprunable: [] })
   })
 
-  test('excludes both lock keys that normalize onto the same directory name', async () => {
+  test('reports both lock keys that normalize onto the same directory name as blocked rather than dropping them', async () => {
     // Arrange
     // One directory cannot answer "is this record's skill gone" for two keys,
-    // and prune is not allowed to guess about deletion.
+    // so neither may be offered for deletion. Dropping them silently is what
+    // left the pair unprunable forever with nothing in the UI saying why.
     const { scanStaleLockEntries } = await serviceModule
     await writeLock(['Ambiguous', 'ambiguous'])
 
@@ -295,7 +353,116 @@ describe('scanStaleLockEntries', () => {
     const result = await scanStaleLockEntries()
 
     // Assert
-    expect(result).toEqual({ status: 'ok', names: [] })
+    expect(result).toEqual({
+      status: 'ok',
+      names: [],
+      unprunable: [
+        { name: 'Ambiguous', reason: 'name-collision' },
+        { name: 'ambiguous', reason: 'name-collision' },
+      ],
+    })
+  })
+
+  test('blocks a record an agent still holds a real folder for instead of offering it for deletion', async () => {
+    // Arrange
+    // `skills remove --global` rm -rf's <agent>/skills/<name> with no symlink
+    // check, so delegating here would delete the user's own files. Offering the
+    // record anyway meant the only way to learn that was to click Remove and
+    // read a failure, forever.
+    const { scanStaleLockEntries } = await serviceModule
+    await writeLock(['agent-owned'])
+    await makeAgentOwnedDir('agent-owned')
+
+    // Act
+    const result = await scanStaleLockEntries()
+
+    // Assert
+    expect(result).toEqual({
+      status: 'ok',
+      names: [],
+      unprunable: [{ name: 'agent-owned', reason: 'agent-copy' }],
+    })
+  })
+
+  test('still offers a record whose only agent copy is a symlink', async () => {
+    // Arrange
+    // The guard is about REAL directories. A symlink is what a normal install
+    // leaves behind, so treating it as blocking would make every stale record
+    // unprunable and the feature would do nothing at all.
+    const { scanStaleLockEntries } = await serviceModule
+    await writeLock(['linked-only'])
+    await mkdir(join(sharedHome, '.claude', 'skills'), { recursive: true })
+    await symlink(
+      join(sourceDir, 'linked-only'),
+      join(sharedHome, '.claude', 'skills', 'linked-only'),
+    )
+
+    // Act
+    const result = await scanStaleLockEntries()
+
+    // Assert
+    expect(result).toEqual({
+      status: 'ok',
+      names: ['linked-only'],
+      unprunable: [],
+    })
+  })
+
+  test('keeps scanning when a trash entry was left for manual recovery with no manifest', async () => {
+    // Arrange
+    // Both source-backed writers of the marker run BEFORE the manifest exists,
+    // so the entry reads as ENOENT. Without the marker check that looks like one
+    // of our own entries caught mid-write and takes the whole scan to
+    // `unavailable` — permanently, because startup cleanup never sweeps a marked
+    // entry. The feature would be dead for that user with no way back.
+    const { scanStaleLockEntries } = await serviceModule
+    await writeLock(['stuck-skill'])
+    await makeManualRecoveryEntry('stuck-skill')
+
+    // Act
+    const result = await scanStaleLockEntries()
+
+    // Assert
+    expect(result).toEqual({
+      status: 'ok',
+      names: ['stuck-skill'],
+      unprunable: [],
+    })
+  })
+
+  test('stops treating a manual-recovery entry as a live undo window', async () => {
+    // Arrange
+    // Its automatic restore already failed for good, so counting it as "still
+    // restorable" only kept the lock record alive for `skills -g update` to
+    // reinstall a skill the user deleted.
+    const { scanStaleLockEntries } = await serviceModule
+    await writeLock(['stuck-skill'])
+    await makeManualRecoveryEntry('stuck-skill', true)
+
+    // Act
+    const result = await scanStaleLockEntries()
+
+    // Assert
+    expect(result).toEqual({
+      status: 'ok',
+      names: ['stuck-skill'],
+      unprunable: [],
+    })
+  })
+
+  test('still holds a record back for an ordinary tombstone inside its undo window', async () => {
+    // Arrange
+    // The discriminating case for the two tests above: without the marker, a
+    // staged delete is restorable and its record must NOT be reported stale.
+    const { scanStaleLockEntries } = await serviceModule
+    await writeLock(['undoable'])
+    await makeTombstone('undoable')
+
+    // Act
+    const result = await scanStaleLockEntries()
+
+    // Assert
+    expect(result).toEqual({ status: 'ok', names: [], unprunable: [] })
   })
 
   test('does not report a skill whose folder exists but has no readable SKILL.md', async () => {
@@ -310,7 +477,7 @@ describe('scanStaleLockEntries', () => {
     const result = await scanStaleLockEntries()
 
     // Assert
-    expect(result).toEqual({ status: 'ok', names: [] })
+    expect(result).toEqual({ status: 'ok', names: [], unprunable: [] })
   })
 
   test('reads the lock from XDG_STATE_HOME when the CLI would', async () => {
@@ -331,7 +498,11 @@ describe('scanStaleLockEntries', () => {
     const result = await scanStaleLockEntries()
 
     // Assert
-    expect(result).toEqual({ status: 'ok', names: ['xdg-only-skill'] })
+    expect(result).toEqual({
+      status: 'ok',
+      names: ['xdg-only-skill'],
+      unprunable: [],
+    })
   })
 
   test('treats a trash entry still being staged as unreadable rather than foreign', async () => {
@@ -392,7 +563,11 @@ describe('scanStaleLockEntries', () => {
     const result = await scanStaleLockEntries()
 
     // Assert
-    expect(result).toEqual({ status: 'ok', names: ['deleted-in-finder'] })
+    expect(result).toEqual({
+      status: 'ok',
+      names: ['deleted-in-finder'],
+      unprunable: [],
+    })
   })
 })
 
@@ -487,23 +662,17 @@ describe('pruneLockEntries', () => {
     await mkdir(agentOwnedDir, { recursive: true })
     await writeFile(join(agentOwnedDir, 'SKILL.md'), '# local\n', 'utf-8')
 
-    try {
-      // Act
-      const result = await pruneLockEntries(['agent-owned'] as SkillName[])
+    // Act
+    const result = await pruneLockEntries(['agent-owned'] as SkillName[])
 
-      // Assert
-      expect(removeSkillsMock).not.toHaveBeenCalled()
-      expect(result).toEqual({
-        pruned: [],
-        skipped: [],
-        failed: ['agent-owned'],
-      })
-      expect(await readLockKeys()).toEqual(['agent-owned'])
-    } finally {
-      // Cleanup has to run even on a failed assertion: beforeEach only clears
-      // `.agents`, so a leftover agent dir would refuse every later prune.
-      await rm(join(sharedHome, '.claude'), { recursive: true, force: true })
-    }
+    // Assert
+    expect(removeSkillsMock).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      pruned: [],
+      skipped: [],
+      failed: ['agent-owned'],
+    })
+    expect(await readLockKeys()).toEqual(['agent-owned'])
   })
 
   test('still prunes when the agent-side path is only a symlink to the deleted source', async () => {
@@ -519,20 +688,16 @@ describe('pruneLockEntries', () => {
       join(agentSkillsDir, 'linked-only'),
     )
 
-    try {
-      // Act
-      const result = await pruneLockEntries(['linked-only'] as SkillName[])
+    // Act
+    const result = await pruneLockEntries(['linked-only'] as SkillName[])
 
-      // Assert
-      expect(removeSkillsMock).toHaveBeenCalledWith(['linked-only'])
-      expect(result).toEqual({
-        pruned: ['linked-only'],
-        skipped: [],
-        failed: [],
-      })
-    } finally {
-      await rm(join(sharedHome, '.claude'), { recursive: true, force: true })
-    }
+    // Assert
+    expect(removeSkillsMock).toHaveBeenCalledWith(['linked-only'])
+    expect(result).toEqual({
+      pruned: ['linked-only'],
+      skipped: [],
+      failed: [],
+    })
   })
 
   test('refuses to prune every record when the source root itself is gone', async () => {

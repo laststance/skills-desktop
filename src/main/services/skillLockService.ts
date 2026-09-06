@@ -4,7 +4,7 @@ import { basename, join } from 'node:path'
 
 import { z } from 'zod'
 
-import { SOURCE_DIR, TRASH_DIR } from '@/main/constants'
+import { MANUAL_RECOVERY_MARKER, SOURCE_DIR, TRASH_DIR } from '@/main/constants'
 import { manifestSchema, tombstoneIdSchema } from '@/main/ipc/ipc-schemas'
 import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
 import { extractErrorMessage } from '@/main/utils/errors'
@@ -14,6 +14,7 @@ import type {
   PruneLockEntriesResult,
   SkillName,
   StaleLockScanResult,
+  UnprunableLockEntry,
 } from '@/shared/types'
 
 import { skillsCliService } from './skillsCliService'
@@ -192,6 +193,25 @@ type TrashReadResult =
   { status: 'ok'; dirNames: Set<string> } | { status: 'unavailable' }
 
 /**
+ * True when a trash entry carries the terminal manual-recovery marker.
+ * Read by {@link readTrashedSourceDirNames} before the manifest, because both
+ * source-backed writers of the marker run BEFORE the manifest exists.
+ * @param entryDir - Trash entry directory under `TRASH_DIR`.
+ * @returns true only on proof the marker is there.
+ * @example await isManualRecoveryEntry('/Users/me/.agents/.trash/2026-...') // => false
+ */
+async function isManualRecoveryEntry(entryDir: string): Promise<boolean> {
+  try {
+    await fs.access(join(entryDir, MANUAL_RECOVERY_MARKER))
+    return true
+  } catch {
+    // Absent, or unreadable. Neither is proof of a terminal entry, so fall
+    // through to the caller's manifest read — that path already fails closed.
+    return false
+  }
+}
+
+/**
  * Directory names currently staged in the trash, from each entry's manifest.
  * A skill waiting out its undo window still has a lock record doing its job, so
  * it must be excluded from detection. Local-only tombstones never had a source
@@ -224,12 +244,23 @@ async function readTrashedSourceDirNames(): Promise<TrashReadResult> {
   let hasUnreadableEntry = false
   const manifests = await Promise.all(
     entries.map(async (entryName) => {
+      const entryDir = join(TRASH_DIR, entryName)
+      // Checked BEFORE the manifest, and it is load-bearing. Both source-backed
+      // writers of this marker (`trashService` at the source-move failure and
+      // at the manifest-write rollback) run while no manifest exists yet, so
+      // without this the ENOENT below reads as "one of our entries caught
+      // mid-write" and takes the whole scan to `unavailable` — permanently,
+      // since `startupCleanup` deliberately never sweeps a marked entry.
+      //
+      // Returning null also stops the entry counting as "still restorable":
+      // its automatic restore already failed for good, so holding the lock
+      // record alive just lets `skills -g update` reinstall a deleted skill.
+      // Where the source is still at its original path (the EXDEV arm), the
+      // per-key presence probe already keeps that record out of the stale list.
+      if (await isManualRecoveryEntry(entryDir)) return null
       let raw: string
       try {
-        raw = await fs.readFile(
-          join(TRASH_DIR, entryName, 'manifest.json'),
-          'utf-8',
-        )
+        raw = await fs.readFile(join(entryDir, 'manifest.json'), 'utf-8')
       } catch (error) {
         // A foreign file in the trash simply has no manifest. Any other read
         // failure is an entry we cannot see into, and it may be the one holding
@@ -410,13 +441,22 @@ export async function scanStaleLockEntries(): Promise<StaleLockScanResult> {
   // is never observed half-written.
   const lock = await runLockWrite(readSkillLockKeys)
   if (lock.status !== 'ok') return { status: 'unavailable' }
-  if (lock.keys.length === 0) return { status: 'ok', names: [] }
+  if (lock.keys.length === 0) return { status: 'ok', names: [], unprunable: [] }
 
   // Probe the source root first. If it is missing or unreadable, every lookup
   // below would report ENOENT and the whole lock would present as stale.
   if (!(await isSourceRootReadable())) return { status: 'unavailable' }
 
   const byDirName = buildUniqueDirNameIndex(lock.keys)
+
+  // `buildUniqueDirNameIndex` deletes every directory name two keys claim, so
+  // a key with no entry there is exactly a collided one. Reported rather than
+  // dropped: silently omitting them is what left a colliding pair unprunable
+  // with nothing in the UI saying why, while `skills -g update` kept
+  // resurrecting both. No extra I/O — the index is already built.
+  const collided: UnprunableLockEntry[] = lock.keys
+    .filter((key) => !byDirName.has(sanitizeName(key)))
+    .map((name) => ({ name, reason: 'name-collision' }))
 
   // Probe absence FIRST, read the trash SECOND. The order is load-bearing and
   // must not be swapped back: a delete landing mid-scan moves the source dir
@@ -438,14 +478,41 @@ export async function scanStaleLockEntries(): Promise<StaleLockScanResult> {
   const trashed = await readTrashedSourceDirNames()
   if (trashed.status !== 'ok') return { status: 'unavailable' }
 
-  const names: SkillName[] = []
+  const stale: SkillName[] = []
   for (const [dirName, key] of byDirName) {
     // Still restorable from the trash: the record is not stale yet.
     if (!absentDirNames.has(dirName) || trashed.dirNames.has(dirName)) continue
-    names.push(key)
+    stale.push(key)
   }
 
-  return { status: 'ok', names: names.sort() }
+  // Runs over the already-proven-stale list ONLY, never the whole lock. Each
+  // call is one `lstat` per agent, and this scan fires on a timer and on every
+  // refresh — over every key it would be a filesystem storm, over a stale list
+  // that is normally empty it costs nothing. The prune keeps its own copy of
+  // this check as the TOCTOU backstop; this one exists so the user is told
+  // BEFORE clicking a button that would only ever report a failure.
+  const holdsAgentCopy = await Promise.all(
+    stale.map(async (key) => holdsRealAgentDirectory(sanitizeName(key))),
+  )
+
+  const names = stale.filter((_, index) => !holdsAgentCopy[index])
+  const unprunable: UnprunableLockEntry[] = [
+    ...collided,
+    ...stale
+      .filter((_, index) => holdsAgentCopy[index])
+      .map((name): UnprunableLockEntry => ({ name, reason: 'agent-copy' })),
+  ]
+
+  return {
+    status: 'ok',
+    names: names.sort(),
+    // Code-unit order, matching `names.sort()` above. `localeCompare` would
+    // order these differently under the renderer's ICU than under the node
+    // test lane, which is not something a result shape should depend on.
+    unprunable: unprunable.sort((a, b) =>
+      a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+    ),
+  }
 }
 
 /**

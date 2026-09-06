@@ -2,7 +2,7 @@ import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 
 import { openLockPruneDialog } from '@/renderer/src/redux/slices/uiSlice'
 import type { RootState } from '@/renderer/src/redux/store'
-import type { SkillName } from '@/shared/types'
+import type { SkillName, UnprunableLockEntry } from '@/shared/types'
 
 // ============================================================================
 // State shape
@@ -21,6 +21,14 @@ import type { SkillName } from '@/shared/types'
 interface SkillLockState {
   /** Raw lock keys reported stale by the last scan. */
   staleNames: SkillName[]
+  /**
+   * Stale records the last scan refused to offer for deletion, each with why.
+   * Held apart from {@link SkillLockState.staleNames} because the difference is
+   * what the user can do next: those are behind a button, these are behind an
+   * explanation. A prune never touches this list, so it is replaced only by a
+   * scan — the one thing that re-derives both reasons from disk.
+   */
+  unprunableEntries: UnprunableLockEntry[]
   /** `idle` before the first scan; `unavailable` when main could not compare. */
   status: 'idle' | 'ok' | 'unavailable'
   /**
@@ -61,6 +69,7 @@ interface SkillLockState {
 
 const initialState: SkillLockState = {
   staleNames: [],
+  unprunableEntries: [],
   status: 'idle',
   scanRequestId: null,
   pruneRequestId: null,
@@ -115,12 +124,14 @@ const skillLockSlice = createSlice({
         if (action.payload.status === 'ok') {
           state.status = 'ok'
           state.staleNames = action.payload.names
+          state.unprunableEntries = action.payload.unprunable
           return
         }
         // Main could not compare the two sides. Drop the count rather than
         // showing a stale one next to a "prune" button.
         state.status = 'unavailable'
         state.staleNames = []
+        state.unprunableEntries = []
       })
       .addCase(fetchStaleLockEntries.rejected, (state, action) => {
         if (action.meta.requestId !== state.scanRequestId) return
@@ -130,6 +141,7 @@ const skillLockSlice = createSlice({
         state.staleNamesSupersededByScan = true
         state.status = 'unavailable'
         state.staleNames = []
+        state.unprunableEntries = []
       })
       .addCase(pruneStaleLockEntries.pending, (state, action) => {
         state.scanRequestId = null
@@ -206,3 +218,32 @@ export const selectIsPruningLockEntries = (state: RootState): boolean =>
  */
 export const selectConsentedLockEntryNames = (state: RootState): SkillName[] =>
   state.skillLock.consentedNames
+
+/**
+ * Stale records the scan refused to offer for deletion, with the reason each
+ * one is blocked. Empty while the scan is unavailable, for the same reason
+ * {@link selectStaleLockEntryCount} reports zero there: a scan that read
+ * nothing cannot name a blocked record any more than it can name a stale one.
+ * @param state - Root Redux state.
+ * @returns Blocked lock records and why.
+ * @example useAppSelector(selectUnprunableLockEntries) // => [{ name: 'a', reason: 'agent-copy' }]
+ */
+export const selectUnprunableLockEntries = (
+  state: RootState,
+): UnprunableLockEntry[] =>
+  state.skillLock.status === 'ok' ? state.skillLock.unprunableEntries : []
+
+/**
+ * Every lock record that disagrees with disk, prunable or not. Drives the
+ * widget's count and its CTA: a user whose records are ALL blocked still has to
+ * be able to reach the explanation, and a count that omitted them would report
+ * a healthy lock while `skills -g update` kept resurrecting deleted skills.
+ * @param state - Root Redux state.
+ * @returns Total stale record count.
+ * @example useAppSelector(selectLockRecordsNeedingAttention) // => 3
+ */
+export const selectLockRecordsNeedingAttention = (state: RootState): number =>
+  state.skillLock.status === 'ok'
+    ? state.skillLock.staleNames.length +
+      state.skillLock.unprunableEntries.length
+    : 0

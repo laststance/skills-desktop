@@ -4,16 +4,22 @@ import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
+import type { UnprunableLockEntry } from '@/shared/types'
 
 /**
  * Render the announcement with real reducers so dismissal and the CTA go
  * through the same Redux path the app uses.
  * @param staleLockNames - Stale records to seed; empty means nothing to announce.
  * @param dismissed - Whether the user already dismissed the announcement.
+ * @param unprunable - Blocked records to seed alongside the prunable ones.
  * @returns Browser screen and store.
  * @example const { screen } = await renderBanner(['old-skill'])
  */
-async function renderBanner(staleLockNames: string[], dismissed = false) {
+async function renderBanner(
+  staleLockNames: string[],
+  dismissed = false,
+  unprunable: UnprunableLockEntry[] = [],
+) {
   const [
     { default: dashboardReducer, dismissLockPruneBanner },
     { default: skillLockReducer, fetchStaleLockEntries },
@@ -37,7 +43,7 @@ async function renderBanner(staleLockNames: string[], dismissed = false) {
   store.dispatch(fetchStaleLockEntries.pending('req-lock', undefined))
   store.dispatch(
     fetchStaleLockEntries.fulfilled(
-      { status: 'ok', names: staleLockNames },
+      { status: 'ok', names: staleLockNames, unprunable },
       'req-lock',
       undefined,
     ),
@@ -71,6 +77,33 @@ describe('LockPruneBanner', () => {
     expect(
       screen.getByRole('button', { name: 'Prune lock' }).query(),
     ).toBeNull()
+  })
+
+  test('stays hidden when every stale record is blocked from being pruned', async () => {
+    // Arrange / Act
+    const { screen } = await renderBanner([], false, [
+      { name: 'agent-copy-skill', reason: 'agent-copy' },
+    ])
+
+    // Assert
+    expect(
+      screen.getByRole('button', { name: 'Prune lock' }).query(),
+    ).toBeNull()
+  })
+
+  test('counts only the records it can actually prune, not every stale one', async () => {
+    // Arrange / Act — one prunable record alongside one the scan blocked. The
+    // all-blocked case above passes under any gate that hides the banner when
+    // something is blocked; only a mix proves the sentence counts the prunable
+    // subset rather than every record needing attention.
+    const { screen } = await renderBanner(['plain-stale'], false, [
+      { name: 'agent-copy-skill', reason: 'agent-copy' },
+    ])
+
+    // Assert
+    await expect
+      .element(screen.getByText(/still tracks 1 deleted skill,/))
+      .toBeVisible()
   })
 
   test('opens the prune dialog from the announcement CTA', async () => {

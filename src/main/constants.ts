@@ -19,6 +19,15 @@ export const SOURCE_DIR = join(homedir(), '.agents', 'skills')
 export const TRASH_DIR = join(homedir(), '.agents', '.trash')
 
 /**
+ * Filename that marks a trash entry as terminal: its automatic restore already
+ * failed for good, so `startupCleanup` must never sweep it and the lock scan
+ * must never count it as "still restorable". Lives here for the same reason as
+ * {@link TRASH_DIR} — both services read it and the import direction between
+ * them is already spent (`trashService` imports `skillLockService`).
+ */
+export const MANUAL_RECOVERY_MARKER = '.manual-recovery'
+
+/**
  * Supported AI agents with their full skills directory paths.
  *
  * Built from `scanDir` (always required on AGENT_DEFINITIONS). For most

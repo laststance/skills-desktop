@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
+import type { StaleLockScanResult } from '@/shared/types'
 
 const mockToastSuccess = vi.fn()
 const mockToastError = vi.fn()
@@ -18,7 +19,10 @@ vi.mock('sonner', () => ({
 }))
 
 const mockPruneLockEntries = vi.fn()
-const mockScanStaleLockEntries = vi.fn()
+// Typed against the real channel: an untyped `vi.fn()` let these fixtures drop
+// a field the reducer then wrote as `undefined`, and the failure surfaced as a
+// render crash in an unrelated test rather than here.
+const mockScanStaleLockEntries = vi.fn<() => Promise<StaleLockScanResult>>()
 const mockGetSkills = vi.fn()
 const mockGetAgents = vi.fn()
 const mockGetSourceStats = vi.fn()
@@ -40,7 +44,13 @@ vi.stubGlobal('electron', {
  * @returns Browser screen and store.
  * @example const { screen } = await renderDialog(['old-skill'])
  */
-async function renderDialog(staleLockNames: string[]) {
+async function renderDialog(
+  staleLockNames: string[],
+  unprunable: {
+    name: string
+    reason: 'name-collision' | 'agent-copy'
+  }[] = [],
+) {
   const [
     { default: skillLockReducer, fetchStaleLockEntries },
     { default: uiReducer, openLockPruneDialog },
@@ -58,7 +68,7 @@ async function renderDialog(staleLockNames: string[]) {
   store.dispatch(fetchStaleLockEntries.pending('req-lock', undefined))
   store.dispatch(
     fetchStaleLockEntries.fulfilled(
-      { status: 'ok', names: staleLockNames },
+      { status: 'ok', names: staleLockNames, unprunable },
       'req-lock',
       undefined,
     ),
@@ -76,7 +86,11 @@ async function renderDialog(staleLockNames: string[]) {
 beforeEach(() => {
   mockPruneLockEntries.mockReset()
   mockScanStaleLockEntries.mockReset()
-  mockScanStaleLockEntries.mockResolvedValue({ status: 'ok', names: [] })
+  mockScanStaleLockEntries.mockResolvedValue({
+    status: 'ok',
+    names: [],
+    unprunable: [],
+  })
   mockToastSuccess.mockReset()
   mockToastError.mockReset()
   mockToastInfo.mockReset()
@@ -126,6 +140,7 @@ describe('LockPruneDialog', () => {
     mockScanStaleLockEntries.mockResolvedValue({
       status: 'ok',
       names: ['stubborn'],
+      unprunable: [],
     })
     const { screen, store } = await renderDialog(['stubborn'])
 
@@ -145,6 +160,7 @@ describe('LockPruneDialog', () => {
     mockScanStaleLockEntries.mockResolvedValue({
       status: 'ok',
       names: ['old-skill'],
+      unprunable: [],
     })
     const { screen, store } = await renderDialog(['old-skill'])
 
@@ -175,7 +191,7 @@ describe('LockPruneDialog', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-late', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill', 'just-appeared'] },
+        { status: 'ok', names: ['old-skill', 'just-appeared'], unprunable: [] },
         'req-late',
         undefined,
       ),
@@ -209,7 +225,11 @@ describe('LockPruneDialog', () => {
       skipped: ['came-back'],
       failed: [],
     })
-    mockScanStaleLockEntries.mockResolvedValue({ status: 'ok', names: [] })
+    mockScanStaleLockEntries.mockResolvedValue({
+      status: 'ok',
+      names: [],
+      unprunable: [],
+    })
     const { screen } = await renderDialog(['came-back'])
 
     // Act
@@ -231,7 +251,11 @@ describe('LockPruneDialog', () => {
       skipped: [],
       failed: [],
     })
-    mockScanStaleLockEntries.mockResolvedValue({ status: 'ok', names: [] })
+    mockScanStaleLockEntries.mockResolvedValue({
+      status: 'ok',
+      names: [],
+      unprunable: [],
+    })
     const { screen } = await renderDialog(['old-skill'])
 
     // Act
@@ -244,5 +268,117 @@ describe('LockPruneDialog', () => {
       )
     })
     expect(mockToastInfo).not.toHaveBeenCalled()
+  })
+  test('explains why a blocked record cannot be removed instead of listing it as deletable', async () => {
+    // Arrange
+    // The scan refused this one because an agent holds a real folder under the
+    // name. Offering it beside the removable records would send it to main, and
+    // main would only refuse it again.
+    const { screen } = await renderDialog(
+      ['removable'],
+      [{ name: 'agent-owned', reason: 'agent-copy' }],
+    )
+
+    // Assert
+    await expect.element(screen.getByText('agent-owned')).toBeVisible()
+    await expect
+      .element(screen.getByText('1 record needs attention first'))
+      .toBeVisible()
+    await expect
+      .element(
+        screen.getByText(
+          'An agent holds a real folder under this name, not a link — removing the record would delete that folder with it.',
+        ),
+      )
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Remove 1 record' }))
+      .toBeVisible()
+  })
+
+  test('stops offering a record the scan blocked while the dialog was open', async () => {
+    // Arrange
+    const { screen, store } = await renderDialog([
+      'plain-stale',
+      'agent-copy-skill',
+    ])
+    const { fetchStaleLockEntries } =
+      await import('@/renderer/src/redux/slices/skillLockSlice')
+
+    // Act - an agent copy appears under one of the consented names mid-dialog.
+    store.dispatch(fetchStaleLockEntries.pending('req-lock-2', undefined))
+    store.dispatch(
+      fetchStaleLockEntries.fulfilled(
+        {
+          status: 'ok',
+          names: ['plain-stale'],
+          unprunable: [{ name: 'agent-copy-skill', reason: 'agent-copy' }],
+        },
+        'req-lock-2',
+        undefined,
+      ),
+    )
+
+    // Assert - the button drops it rather than promising a delete the blocked
+    // section on the same screen says is impossible.
+    await expect
+      .element(screen.getByRole('button', { name: 'Remove 1 record' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByText('1 record needs attention first'))
+      .toBeVisible()
+  })
+
+  test('offers no delete button at all when every stale record is blocked', async () => {
+    // Arrange
+    // This is the dead end the feature used to have: nothing prunable meant no
+    // CTA, no dialog, and no explanation anywhere. A "Remove 0 records" button
+    // would be just as wrong.
+    const { screen } = await renderDialog(
+      [],
+      [
+        { name: 'ambiguous', reason: 'name-collision' },
+        { name: 'Ambiguous', reason: 'name-collision' },
+      ],
+    )
+
+    // Assert
+    await expect
+      .element(screen.getByText('2 records need attention first'))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Got it' }))
+      .toBeVisible()
+    expect(
+      screen.getByRole('button', { name: /^Remove/ }).elements(),
+    ).toHaveLength(0)
+  })
+
+  test('hides the corner close button while a prune is running', async () => {
+    // Arrange
+    // `handleClose` already refuses to close mid-prune, so leaving the X on
+    // screen rendered a control that silently did nothing when clicked.
+    let releasePrune: (result: unknown) => void = () => {}
+    mockPruneLockEntries.mockReturnValue(
+      new Promise((resolve) => {
+        releasePrune = resolve
+      }),
+    )
+    const { screen } = await renderDialog(['old-skill'])
+    await expect
+      .element(screen.getByRole('button', { name: 'Close' }))
+      .toBeVisible()
+
+    // Act
+    await screen.getByRole('button', { name: 'Remove 1 record' }).click()
+
+    // Assert
+    await expect
+      .element(screen.getByRole('button', { name: 'Pruning...' }))
+      .toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Close' }).elements(),
+    ).toHaveLength(0)
+    releasePrune({ pruned: ['old-skill'], skipped: [], failed: [] })
   })
 })

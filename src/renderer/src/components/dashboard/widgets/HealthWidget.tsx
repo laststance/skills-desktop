@@ -3,7 +3,10 @@ import React from 'react'
 
 import { Button } from '@/renderer/src/components/ui/button'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
-import { selectStaleLockEntryCount } from '@/renderer/src/redux/slices/skillLockSlice'
+import {
+  selectLockRecordsNeedingAttention,
+  selectStaleLockEntryCount,
+} from '@/renderer/src/redux/slices/skillLockSlice'
 import { selectSkillsItems } from '@/renderer/src/redux/slices/skillsSlice'
 import {
   openLockPruneDialog,
@@ -128,9 +131,13 @@ export const HealthWidget = function HealthWidget(): React.ReactElement {
   const skills = useAppSelector(selectSkillsItems)
   const totals = tallySymlinks(skills)
   const percentLabel = healthPercentLabel(totals)
-  const staleLockCount = useAppSelector(selectStaleLockEntryCount)
+  const prunableLockCount = useAppSelector(selectStaleLockEntryCount)
+  // Counts blocked records too. They disagree with disk exactly as much as the
+  // prunable ones do, and leaving them out reported a healthy lock while
+  // `skills -g update` kept resurrecting the skills behind them.
+  const lockCount = useAppSelector(selectLockRecordsNeedingAttention)
   const hasBrokenLinks = totals.broken > 0
-  const hasStaleLockEntries = staleLockCount > 0
+  const hasStaleLockEntries = lockCount > 0
   const hasManualReviewOnly =
     !hasBrokenLinks && !hasStaleLockEntries && totals.inaccessible > 0
   const isHealthy =
@@ -176,16 +183,16 @@ export const HealthWidget = function HealthWidget(): React.ReactElement {
               <span className="text-muted-foreground">manual</span>
             </span>
           ) : null}
-          {staleLockCount > 0 ? (
+          {lockCount > 0 ? (
             <span className="inline-flex items-center gap-1 text-foreground">
               <FileWarning className="h-3 w-3" aria-hidden="true" />
-              <span className="tabular-nums">{staleLockCount}</span>
+              <span className="tabular-nums">{lockCount}</span>
               <span className="text-muted-foreground">lock</span>
             </span>
           ) : null}
           {totals.broken === 0 &&
           totals.inaccessible === 0 &&
-          staleLockCount === 0 ? (
+          lockCount === 0 ? (
             <span className="inline-flex items-center gap-1 text-muted-foreground">
               <AlertCircle className="h-3 w-3" aria-hidden="true" />
               <span className="tabular-nums">0</span>
@@ -217,7 +224,9 @@ export const HealthWidget = function HealthWidget(): React.ReactElement {
             className="h-8 min-h-8 px-2 text-[11px]"
           >
             <FileWarning className="h-3.5 w-3.5" aria-hidden="true" />
-            Prune lock
+            {/* Nothing to prune means the dialog is pure explanation, and a
+                button promising a delete would be lying about what it opens. */}
+            {prunableLockCount > 0 ? 'Prune lock' : 'Review lock'}
           </Button>
         ) : null}
         {hasManualReviewOnly ? (
