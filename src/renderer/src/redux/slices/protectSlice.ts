@@ -107,8 +107,10 @@ const protectSlice = createSlice({
       for (const item of state.items) {
         if (item.identity) {
           const currentName = nameByInode.get(inodeKey(item.identity))
-          // Assign only on a real change so `items` keeps its reference and
-          // the memoized selectors below do not rebuild on every scan.
+          // `lockedNames` holds this item's own name too, so an unchanged name
+          // short-circuits here as well: nothing is written, `items` keeps its
+          // reference, and the memoized selectors below do not rebuild on a
+          // scan that renamed nothing.
           if (currentName && !lockedNames.has(currentName)) {
             item.name = currentName
           }

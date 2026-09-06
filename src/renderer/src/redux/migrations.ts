@@ -256,9 +256,7 @@ function migrateV4ToV5(state: MigratableState): void {
     // than wrapped — a `{ name: 42 }` lock would never match a scanned row and
     // would sit in the list forever.
     items: legacy.items
-      .filter(
-        (name): name is ProtectedSkill['name'] => typeof name === 'string',
-      )
+      .filter((name) => typeof name === 'string')
       .map((name): ProtectedSkill => ({ name })),
   }
 }
