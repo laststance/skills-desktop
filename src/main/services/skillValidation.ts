@@ -14,13 +14,13 @@ import type { AbsolutePath } from '@/shared/types'
 export type SkillDirProbe = 'valid' | 'not-a-skill' | 'unreadable'
 
 /**
- * Probe a directory for a readable `SKILL.md`, keeping "could not determine" apart from "definitely not a skill".
+ * Probe a directory for a `SKILL.md` entry, keeping "could not determine" apart from "definitely not a skill".
  * Exists because {@link isValidSkillDir} collapses both into `false`, which made
  * a permissions problem on one skill look exactly like the user deleting it.
  * Called per candidate directory by {@link listSourceSkillDirs}.
  * @param dirPath - Absolute path to the candidate skill directory.
  * @returns
- * - `valid`: `SKILL.md` exists and is a regular file
+ * - `valid`: `SKILL.md` exists and is a regular file (its contents are NOT read)
  * - `not-a-skill`: the probe succeeded and `SKILL.md` is absent or not a file
  * - `unreadable`: the probe itself failed, so validity is unknown
  * @example

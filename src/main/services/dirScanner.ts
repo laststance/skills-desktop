@@ -19,9 +19,10 @@ export interface SkillDirEntry {
   /** Absolute path to the skill directory on disk. */
   path: AbsolutePath
   /**
-   * `true` when `SKILL.md` could not be probed, so the app cannot confirm this
-   * is a real skill. The entry is still listed — dropping it would make a
-   * permissions problem look like the user deleting the skill.
+   * `true` when `SKILL.md` could not be `stat`ed, so the app could not look at
+   * it at all. The entry is still listed — dropping it would make a permissions
+   * problem look like the user deleting the skill. A `SKILL.md` that stats fine
+   * reads as readable here even if its contents are not; the probe never opens it.
    */
   isUnreadable: boolean
 }

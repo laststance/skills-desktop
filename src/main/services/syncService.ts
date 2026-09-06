@@ -65,8 +65,10 @@ function filterAgentsByOption<TAgent extends { id: AgentId }>(
  * Pick the source skills sync is allowed to fan out, written explicitly rather than inherited from a swallowed error.
  * An unreadable source directory degrades to "sync nothing" exactly as the old
  * `catch { return [] }` did; an individual skill whose `SKILL.md` could not be
- * probed is skipped because creating agent symlinks for a directory we cannot
- * confirm is a skill is a fan-out we should not perform on a guess.
+ * `stat`ed is skipped because fanning symlinks out to a directory we could not
+ * even look at is a guess. A `SKILL.md` that stats fine but whose contents are
+ * unreadable is still linked on purpose: the probe never reads it, and a
+ * symlink stays correct once the permission bit is fixed.
  * @param listing - What {@link listSourceSkillDirs} saw under `~/.agents/skills/`.
  * @returns The entries sync may link, possibly empty.
  * @example syncableSourceSkills({ status: 'unreadable' }) // => []
