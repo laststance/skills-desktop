@@ -54,14 +54,24 @@ type RootReducerState = ReturnType<typeof rootReducer>
 
 /**
  * Tell the user their persisted state is not reaching disk, once per app run.
- * Fires from {@link createReportingLocalStorage} the first time a debounced
- * save is rejected — private mode, a disabled storage partition, or a full
- * quota — because until then the failure is a console line nobody reads.
- * The copy names every persisted slice, not just locks: `slices` below covers
- * theme and bookmarks too, and all of them reset together.
- * @example warnPersistedStateNotSaved() // => a non-expiring error toast
+ * Fires from {@link createReportingLocalStorage} when a save is rejected —
+ * private mode, a disabled storage partition, or a full quota — because until
+ * then the failure is a console line nobody reads. The copy names every
+ * persisted slice, not just locks: `slices` below covers theme, bookmarks and
+ * dashboard too, and all of them reset together.
+ * @returns `true` once the toast has been published, so the adapter can latch; `false` while hydration is still running and nothing would be shown
+ * @example warnPersistedStateNotSaved() // => true, and a non-expiring error toast
  */
-function warnPersistedStateNotSaved(): void {
+function warnPersistedStateNotSaved(): boolean {
+  // The one undebounced write is the persist-version migration inside
+  // `rehydrate`, a microtask after this module evaluates — before React has
+  // rendered the Toaster, where a published toast is dropped on the floor.
+  // Reporting "not delivered" leaves the warning unspent for the next save,
+  // which is debounced by 300ms and therefore always lands after mount.
+  // Hydration that fails outright never flips this, but it also stops every
+  // save (`saveHandler` is gated on the hydrated state), so nothing goes unreported.
+  if (!storageApi.hasHydrated()) return false
+
   toast.error('Settings could not be saved', {
     description:
       'Locked skills, bookmarks and theme will reset when the app closes — local storage rejected the write.',
@@ -70,19 +80,23 @@ function warnPersistedStateNotSaved(): void {
     duration: Infinity,
     closeButton: true,
   })
+  return true
 }
 
-const { middleware: storageMiddleware, reducer } =
-  createStorageMiddleware<RootReducerState>({
-    rootReducer,
-    key: PERSIST_STORAGE_KEY,
-    slices: ['theme', 'bookmarks', 'protect', 'dashboard'],
-    version: PERSIST_STATE_VERSION,
-    migrate: migrateState,
-    // Replaces the library default, which console.errors a rejected write and
-    // returns a silent no-op store when localStorage is unavailable.
-    storage: createReportingLocalStorage(warnPersistedStateNotSaved),
-  })
+const {
+  middleware: storageMiddleware,
+  reducer,
+  api: storageApi,
+} = createStorageMiddleware<RootReducerState>({
+  rootReducer,
+  key: PERSIST_STORAGE_KEY,
+  slices: ['theme', 'bookmarks', 'protect', 'dashboard'],
+  version: PERSIST_STATE_VERSION,
+  migrate: migrateState,
+  // Replaces the library default, which console.errors a rejected write and
+  // returns a silent no-op store when localStorage is unavailable.
+  storage: createReportingLocalStorage(warnPersistedStateNotSaved),
+})
 
 export const store = configureStore({
   reducer,

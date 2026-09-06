@@ -29,7 +29,7 @@ describe('createReportingLocalStorage', () => {
       },
       removeItem: () => {},
     })
-    const onWriteFailure = vi.fn()
+    const onWriteFailure = vi.fn(() => true)
     const storage = createReportingLocalStorage(onWriteFailure)
 
     // Act
@@ -51,7 +51,7 @@ describe('createReportingLocalStorage', () => {
       },
       removeItem: () => {},
     })
-    const onWriteFailure = vi.fn()
+    const onWriteFailure = vi.fn(() => true)
     const storage = createReportingLocalStorage(onWriteFailure)
 
     // Act
@@ -71,7 +71,7 @@ describe('createReportingLocalStorage', () => {
       setItem: () => {},
       removeItem: () => {},
     })
-    const onWriteFailure = vi.fn()
+    const onWriteFailure = vi.fn(() => true)
     const storage = createReportingLocalStorage(onWriteFailure)
 
     // Act
@@ -91,7 +91,7 @@ describe('createReportingLocalStorage', () => {
         throw new Error('SecurityError: storage is disabled')
       },
     })
-    const onWriteFailure = vi.fn()
+    const onWriteFailure = vi.fn(() => true)
     const storage = createReportingLocalStorage(onWriteFailure)
 
     // Act
@@ -99,6 +99,31 @@ describe('createReportingLocalStorage', () => {
 
     // Assert
     expect(onWriteFailure).toHaveBeenCalledTimes(0)
+  })
+
+  test('keeps the warning unspent when the hydration write fails before any toast surface exists', () => {
+    // Arrange — the middleware writes once, undebounced, during hydration; a
+    // warning published then reaches nobody, so the adapter must try again.
+    vi.stubGlobal('localStorage', {
+      getItem: () => null,
+      setItem: () => {
+        throw new DOMException('quota', 'QuotaExceededError')
+      },
+      removeItem: () => {},
+    })
+    const onWriteFailure = vi
+      .fn<(error: unknown) => boolean>()
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true)
+    const storage = createReportingLocalStorage(onWriteFailure)
+
+    // Act — the hydration migration write, then the first debounced save.
+    storage.setItem('skills-desktop-state', '{"theme":{"mode":"dark"}}')
+    storage.setItem('skills-desktop-state', '{"protect":{"items":["a"]}}')
+    storage.setItem('skills-desktop-state', '{"protect":{"items":["a","b"]}}')
+
+    // Assert — retried after the undelivered attempt, then latched.
+    expect(onWriteFailure).toHaveBeenCalledTimes(2)
   })
 
   test('warns again in a fresh app run after the previous run already warned', () => {
@@ -110,8 +135,8 @@ describe('createReportingLocalStorage', () => {
       },
       removeItem: () => {},
     })
-    const firstRun = vi.fn()
-    const secondRun = vi.fn()
+    const firstRun = vi.fn(() => true)
+    const secondRun = vi.fn(() => true)
 
     // Act
     createReportingLocalStorage(firstRun).setItem('skills-desktop-state', '{}')
