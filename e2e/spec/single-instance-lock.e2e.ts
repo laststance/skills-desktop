@@ -28,6 +28,15 @@ const electronExecutable = require('electron') as unknown as string
 /** Directory name of the tombstone the second instance must not touch. */
 const LIVE_TOMBSTONE_ENTRY = '1900000000000-still-undoable-abcdef12'
 
+/**
+ * Ceiling for the second instance, deliberately well under Playwright's 30s
+ * per-test timeout. At parity the two race, and an instance that refuses to
+ * quit would surface as a generic "Test timeout exceeded" instead of the
+ * assertions below, which name the actual defect. A locked-out instance exits
+ * in well under a second.
+ */
+const SECOND_INSTANCE_TIMEOUT_MS = 10_000
+
 test('a second launch quits without sweeping the running instance live trash', async ({
   isolatedHome,
   appWindow,
@@ -72,15 +81,18 @@ test('a second launch quits without sweeping the running instance live trash', a
         E2E_DISABLE_UPDATE: '1',
         E2E_BACKGROUND_LAUNCH: '1',
       },
-      timeout: 30_000,
+      timeout: SECOND_INSTANCE_TIMEOUT_MS,
       encoding: 'utf-8',
     },
   )
 
-  // Assert — a null signal means the process ended on its own rather than
-  // being killed at the timeout, which is what an unlocked second instance
-  // would do: boot a window and keep running.
-  expect(secondInstance.signal).toBeNull()
+  // Assert — `error` is set by spawnSync both when the binary never launched
+  // and when the timeout above had to kill the child, so checking it first
+  // closes a false green: a wrong binary path leaves the tombstone untouched
+  // for the trivial reason that no second instance ever ran. Status 0 is what
+  // a locked-out instance exits with after `app.quit()`.
+  expect(secondInstance.error).toBeUndefined()
+  expect(secondInstance.status).toBe(0)
   // The whole point. Without the lock the second instance reaches
   // `app.whenReady`, runs startupCleanup, and this directory is gone.
   expect(existsSync(liveTombstoneDir)).toBe(true)
