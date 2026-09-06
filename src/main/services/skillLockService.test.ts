@@ -1,5 +1,13 @@
 import { mkdtempSync, realpathSync } from 'node:fs'
-import { mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import {
+  access,
+  chmod,
+  mkdir,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -168,8 +176,12 @@ beforeEach(async () => {
   delete process.env.XDG_STATE_HOME
 })
 
-afterEach(() => {
+afterEach(async () => {
   delete process.env.XDG_STATE_HOME
+  // One test drops write permission on `.agents` to make the lock repair fail.
+  // Restoring it here rather than in that test keeps a failure there from
+  // poisoning every test after it: `rm -rf` cannot empty a 0o500 directory.
+  await chmod(join(sharedHome, '.agents'), 0o700).catch(() => {})
 })
 
 // `sharedHome` is created once at module load and every test writes inside it,
@@ -1034,5 +1046,143 @@ describe('runLockWrite', () => {
     // Assert
     await expect(failed).rejects.toThrow('install exploded')
     await expect(afterFailure).resolves.toBe('still running')
+  })
+
+  test('restores the install records a cancelled install truncated out of the lock', async () => {
+    // Arrange
+    // `cancel()` SIGTERMs the CLI between its `O_TRUNC` open and its write, and
+    // a zero-length lock reads as an empty one: every install record gone.
+    const { runLockWrite } = await serviceModule
+    await writeLock(['tdd-workflow', 'code-review'])
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    // Act
+    await runLockWrite(async () => {
+      await writeFile(lockPath, '', 'utf-8')
+    })
+
+    // Assert
+    expect(await readLockKeys()).toEqual(['tdd-workflow', 'code-review'])
+    // The repair itself is temp+rename, so it must leave nothing behind.
+    await expect(access(`${lockPath}.recovering`)).rejects.toThrow()
+    consoleWarn.mockRestore()
+  })
+
+  test('leaves a lock the user legitimately emptied alone', async () => {
+    // Arrange
+    // Removing the last skill is a real write, and its result is valid JSON.
+    const { runLockWrite } = await serviceModule
+    await writeLock(['tdd-workflow'])
+
+    // Act
+    await runLockWrite(async () => {
+      await writeFile(lockPath, '{"version":3,"skills":{}}', 'utf-8')
+    })
+
+    // Assert
+    expect(await readLockKeys()).toEqual([])
+  })
+
+  test('keeps a lock a newer CLI wrote instead of reverting it to the snapshot', async () => {
+    // Arrange
+    // A lock at a version this app does not support still parses, so it is a
+    // successful write and not damage — judging it by `readSkillLockKeys`
+    // would classify it as unavailable and clobber it with our stale copy.
+    const { runLockWrite } = await serviceModule
+    await writeLock(['old-skill'])
+
+    // Act
+    await runLockWrite(async () => {
+      await writeFile(
+        lockPath,
+        '{"version":99,"skills":{"installed-by-newer-cli":{}}}',
+        'utf-8',
+      )
+    })
+
+    // Assert
+    expect(await readLockKeys()).toEqual(['installed-by-newer-cli'])
+  })
+
+  test('deletes the zero-byte lock a cancelled first install leaves behind', async () => {
+    // Arrange
+    // No lock exists yet, so there are no bytes to put back — and a leftover
+    // unparseable file is worse than none: a missing lock reads as empty, an
+    // unparseable one reads as unavailable and blocks every prune scan.
+    const { runLockWrite } = await serviceModule
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    // Act
+    await runLockWrite(async () => {
+      await writeFile(lockPath, '', 'utf-8')
+    })
+
+    // Assert
+    await expect(access(lockPath)).rejects.toThrow()
+    consoleWarn.mockRestore()
+  })
+
+  test('leaves an already-corrupt lock exactly as it found it', async () => {
+    // Arrange
+    // Nothing here knows what the good bytes were, so writing anything back
+    // would be inventing them.
+    const { runLockWrite } = await serviceModule
+    await mkdir(join(sharedHome, '.agents'), { recursive: true })
+    await writeFile(lockPath, 'corrupt before we ever ran', 'utf-8')
+
+    // Act
+    await runLockWrite(async () => undefined)
+
+    // Assert
+    expect(await readFile(lockPath, 'utf-8')).toBe('corrupt before we ever ran')
+  })
+
+  test('reports a repair it could not perform instead of failing the install', async () => {
+    // Arrange
+    // The repair writes a temp file next to the lock, so a directory the app
+    // cannot write to is where it runs out of options.
+    const { runLockWrite } = await serviceModule
+    const agentsDir = join(sharedHome, '.agents')
+    await writeLock(['tdd-workflow'])
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    // Act
+    const ran = await runLockWrite(async () => {
+      await writeFile(lockPath, '', 'utf-8')
+      await chmod(agentsDir, 0o500)
+      return 'install ran'
+    })
+
+    // Assert
+    expect(ran).toBe('install ran')
+    expect(consoleError).toHaveBeenCalledWith(
+      'skillLockService: torn lock could not be repaired',
+      expect.objectContaining({ code: 'EACCES' }),
+    )
+    consoleError.mockRestore()
+  })
+
+  test('still runs the install when the lock cannot be snapshotted', async () => {
+    // Arrange
+    // Blocking an install on a permissions quirk trades a rare corruption for
+    // a common outage.
+    const { runLockWrite } = await serviceModule
+    await writeLock(['tdd-workflow'])
+    await chmod(lockPath, 0o000)
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    // Act
+    const ran = await runLockWrite(async () => 'install ran')
+
+    // Assert
+    expect(ran).toBe('install ran')
+    // Also pins that the snapshot really failed: `chmod` does not deny for
+    // root, and without this the test would pass having proven nothing.
+    expect(consoleWarn).toHaveBeenCalledWith(
+      'skillLockService: lock snapshot failed',
+      expect.objectContaining({ code: 'EACCES' }),
+    )
+    await chmod(lockPath, 0o644)
+    consoleWarn.mockRestore()
   })
 })
