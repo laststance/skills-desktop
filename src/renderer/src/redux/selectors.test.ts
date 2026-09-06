@@ -126,7 +126,9 @@ function buildState(overrides: {
       items: overrides.bookmarks ?? [],
     },
     protect: {
-      items: overrides.protectedSkillNames ?? [],
+      // `protect.items` holds ProtectedSkill records; these fixtures only care
+      // about the name, so the identity the rename reconciler uses is omitted.
+      items: (overrides.protectedSkillNames ?? []).map((name) => ({ name })),
     },
   }
 }

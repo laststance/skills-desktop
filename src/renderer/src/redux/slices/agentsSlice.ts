@@ -4,6 +4,8 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import type { RootState } from '@/renderer/src/redux/store'
 import type { AbsolutePath, Agent } from '@/shared/types'
 
+import { selectProtectedNamesSet } from './protectSlice'
+
 /**
  * Redux state for the Agents feature area.
  * Tracks the list of discovered agents and the agent currently queued
@@ -48,7 +50,7 @@ export function collectProtectedAgentSlotPaths(
   state: RootState,
   agent: Agent,
 ): AbsolutePath[] {
-  const protectedNames = new Set(state.protect.items)
+  const protectedNames = selectProtectedNamesSet(state)
 
   return state.skills.items
     .filter((skill) => protectedNames.has(skill.name))

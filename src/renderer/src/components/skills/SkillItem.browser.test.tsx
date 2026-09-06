@@ -1089,6 +1089,20 @@ describe('SkillItem protection', () => {
       .toBeInTheDocument()
   })
 
+  test('records the skill directory behind the lock so a later rename keeps it locked', async () => {
+    // Arrange — the row carries the identity `scanSourceSkills` captured.
+    const { screen, store } = await renderSkillItem(makeSkill({ name: 'task' }))
+
+    // Act
+    await screen.getByRole('button', { name: /^Lock task$/i }).click()
+
+    // Assert — locking by name alone is what stranded the lock on rename;
+    // the inode is captured now, not left to the next scan.
+    expect(store.getState().protect.items).toEqual([
+      { name: 'task', identity: { dev: 1, ino: 2 } },
+    ])
+  })
+
   it('labels a protected skill and offers an Unlock action', async () => {
     // Arrange — dispatch addProtection before rendering so ProtectButton
     // receives isProtected=true and renders the Lock icon.
@@ -1097,7 +1111,7 @@ describe('SkillItem protection', () => {
       await import('@/renderer/src/redux/slices/protectSlice')
 
     // Act
-    store.dispatch(addProtection('task'))
+    store.dispatch(addProtection({ name: 'task' }))
 
     // Assert — text makes protection scannable while the lock remains actionable.
     await expect
@@ -1115,7 +1129,7 @@ describe('SkillItem protection', () => {
       await import('@/renderer/src/redux/slices/protectSlice')
 
     // Act — protect the skill so the destructive action becomes unavailable.
-    store.dispatch(addProtection('task'))
+    store.dispatch(addProtection({ name: 'task' }))
 
     // Assert — keep the stable action slot visible, expose its ARIA state, and name why.
     const deleteButton = screen.getByRole('button', {
@@ -1130,7 +1144,7 @@ describe('SkillItem protection', () => {
     const { screen, store } = await renderSkillItem(makeSkill({ name: 'task' }))
     const { addProtection, removeProtection } =
       await import('@/renderer/src/redux/slices/protectSlice')
-    store.dispatch(addProtection('task'))
+    store.dispatch(addProtection({ name: 'task' }))
 
     // Act
     store.dispatch(removeProtection('task'))
@@ -1166,7 +1180,7 @@ describe('SkillItem protection', () => {
 
     // Act
     store.dispatch(selectAgent('cursor'))
-    store.dispatch(addProtection('task'))
+    store.dispatch(addProtection({ name: 'task' }))
 
     // Assert
     await expect
@@ -1202,7 +1216,7 @@ describe('SkillItem protection', () => {
 
     // Act
     store.dispatch(selectAgent('cursor'))
-    store.dispatch(addProtection('task'))
+    store.dispatch(addProtection({ name: 'task' }))
 
     // Assert
     await expect
@@ -1237,7 +1251,7 @@ describe('SkillItem protection', () => {
     const { addProtection, removeProtection } =
       await import('@/renderer/src/redux/slices/protectSlice')
     store.dispatch(selectAgent('cursor'))
-    store.dispatch(addProtection('task'))
+    store.dispatch(addProtection({ name: 'task' }))
 
     // Act
     store.dispatch(removeProtection('task'))

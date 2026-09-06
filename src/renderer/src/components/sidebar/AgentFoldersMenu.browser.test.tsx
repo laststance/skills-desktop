@@ -285,7 +285,7 @@ describe('Hidden agent folder deletion', () => {
       isOrphan: false,
     }
     store.dispatch(fetchSkills.fulfilled([protectedSkill], 'protected-skills'))
-    store.dispatch(addProtection('protected-task'))
+    store.dispatch(addProtection({ name: 'protected-task' }))
     mockRemoveAllFromAgent.mockResolvedValue({
       success: true,
       removedCount: 1,

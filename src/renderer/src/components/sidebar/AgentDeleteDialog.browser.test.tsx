@@ -185,7 +185,7 @@ describe('AgentDeleteDialog confirm action', () => {
     const { addProtection } =
       await import('@/renderer/src/redux/slices/protectSlice')
     store.dispatch(fetchSkills.fulfilled([protectedSkill], 'skills-request'))
-    store.dispatch(addProtection('protected-task'))
+    store.dispatch(addProtection({ name: 'protected-task' }))
 
     // Act
     await screen.getByRole('button', { name: /^Delete$/i }).click()

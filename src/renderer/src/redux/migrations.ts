@@ -8,6 +8,7 @@ import {
   THEME_PRESETS,
 } from '@/shared/constants'
 
+import type { ProtectedSkill } from './slices/protectSlice'
 import type { ThemeState } from './slices/themeSlice'
 
 /**
@@ -24,7 +25,11 @@ import type { ThemeState } from './slices/themeSlice'
 export interface MigratableState {
   theme?: ThemeState
   dashboard?: unknown
-  /** New in v4+: protect slice starts from initialState on first load, no migration needed. */
+  /**
+   * Locked skill names in v4 and earlier, {@link ProtectedSkill} records from
+   * v5. Typed `unknown` because {@link migrateV4ToV5} reads the legacy array
+   * shape before writing the current one.
+   */
   protect?: unknown
 }
 
@@ -223,6 +228,42 @@ function migrateV3ToV4(state: MigratableState): void {
 }
 
 /**
+ * v4 → v5 migration for the protect slice. v4 persisted bare skill names, so a
+ * rename left the lock pointing at a name nothing resolves to and the renamed
+ * skill came back unlocked. v5 stores {@link ProtectedSkill} records that also
+ * carry the directory inode. No inode can be invented for an existing payload
+ * — `lstat` results are not persisted — so every upgraded lock ships without
+ * one and `protectSlice` backfills it on the first scan.
+ *
+ * Never throws on a malformed payload: `migrate()` rejecting makes
+ * `@laststance/redux-storage-middleware` `removeItem` the whole key, which
+ * would cost the user their theme, bookmarks and dashboard as well. A `protect`
+ * slot that is not an array of names is dropped so the reducer's initialState
+ * takes over — same defensive style as {@link migrateV0ToV1}.
+ */
+function migrateV4ToV5(state: MigratableState): void {
+  if (!state.protect || typeof state.protect !== 'object') {
+    delete state.protect
+    return
+  }
+  const legacy = state.protect as { items?: unknown }
+  if (!Array.isArray(legacy.items)) {
+    delete state.protect
+    return
+  }
+  state.protect = {
+    // Non-string entries (tampered or half-written storage) are dropped rather
+    // than wrapped — a `{ name: 42 }` lock would never match a scanned row and
+    // would sit in the list forever.
+    items: legacy.items
+      .filter(
+        (name): name is ProtectedSkill['name'] => typeof name === 'string',
+      )
+      .map((name): ProtectedSkill => ({ name })),
+  }
+}
+
+/**
  * Chain migrations up to `PERSIST_STATE_VERSION`. Each `case` must advance
  * `current` to the next schema version; unknown sources throw so bumping
  * `PERSIST_STATE_VERSION` without adding a migration fails loudly in tests
@@ -254,6 +295,10 @@ export function migrateState<T extends MigratableState>(
       case 3:
         migrateV3ToV4(state)
         current = 4
+        break
+      case 4:
+        migrateV4ToV5(state)
+        current = 5
         break
       default:
         throw new Error(
