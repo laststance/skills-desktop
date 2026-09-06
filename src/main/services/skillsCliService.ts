@@ -54,6 +54,15 @@ const SPAWN_TIMEOUT_MS = 60_000
 const LOCK_WRITE_SPAWN_TIMEOUT_MS = 180_000
 /** Signal used for user cancel and timeout kill paths. */
 const PROCESS_KILL_SIGNAL: NodeJS.Signals = 'SIGTERM'
+/** Uncatchable follow-up for a child that ignores {@link PROCESS_KILL_SIGNAL}. */
+const PROCESS_FORCE_KILL_SIGNAL: NodeJS.Signals = 'SIGKILL'
+/**
+ * How long a timed-out child gets to die on SIGTERM before it is SIGKILLed and
+ * the caller stops waiting (5 seconds). The wait exists so `runLockWrite` keeps
+ * its mutex until the child can no longer touch `.skill-lock.json`; the ceiling
+ * exists because an unkillable child must not hold the queue forever.
+ */
+const KILL_GRACE_MS = 5_000
 /**
  * Matches both legacy `owner/repo@skill` output and current CLI lines with
  * trailing telemetry, for example `owner/repo@skill 402.7K installs`.
@@ -300,18 +309,23 @@ class SkillsCliService extends EventEmitter {
         ? SPAWN_TIMEOUT_MS
         : LOCK_WRITE_SPAWN_TIMEOUT_MS
 
+      // Set the moment the ceiling expires, so whichever path resolves reports
+      // the timeout rather than whatever exit code the kill produced.
+      let timedOut = false
+      let killGraceHandle: NodeJS.Timeout | undefined
+
       const finalize = (result: CliExecutionResult): void => {
         if (settled) {
           return
         }
         settled = true
         clearTimeout(timeoutHandle)
+        clearTimeout(killGraceHandle)
         this.runningProcesses.delete(proc)
         resolve(result)
       }
 
-      const timeoutHandle = setTimeout(() => {
-        proc.kill(PROCESS_KILL_SIGNAL)
+      const finalizeTimedOut = (): void =>
         finalize({
           success: false,
           stdout,
@@ -319,6 +333,22 @@ class SkillsCliService extends EventEmitter {
           code: null,
           timedOut: true,
         })
+
+      const timeoutHandle = setTimeout(() => {
+        timedOut = true
+        proc.kill(PROCESS_KILL_SIGNAL)
+        // Deliberately NOT resolving here. Resolving on the kill releases the
+        // `runLockWrite` mutex while the child may still be mid-writeFile on
+        // .skill-lock.json — the CLI writes it with no temp+rename, so the next
+        // queued command interleaving with that write truncates the lock, and a
+        // truncated lock parses as an empty one. The `close` handler resolves
+        // once the child is actually gone.
+        killGraceHandle = setTimeout(() => {
+          // SIGTERM ignored. Force it, then stop waiting: holding the queue on
+          // an unkillable child is the worse failure.
+          proc.kill(PROCESS_FORCE_KILL_SIGNAL)
+          finalizeTimedOut()
+        }, KILL_GRACE_MS)
       }, timeoutMs)
 
       proc.stdout?.on('data', (data: Buffer) => {
@@ -332,6 +362,11 @@ class SkillsCliService extends EventEmitter {
       })
 
       proc.on('close', (code) => {
+        // The kill landed and the child is gone — only now is releasing safe.
+        if (timedOut) {
+          finalizeTimedOut()
+          return
+        }
         finalize({
           success: code === 0,
           stdout,

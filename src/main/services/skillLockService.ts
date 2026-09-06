@@ -154,21 +154,29 @@ async function readSkillLockKeys(): Promise<LockReadResult> {
   }
 }
 
+/** Whether a skill's source directory is gone, still there, or unknowable. */
+type SourcePresence = 'absent' | 'present' | 'unknown'
+
 /**
- * True when a path is provably absent, false when it exists OR when we could
- * not find out. A permission or I/O failure must never read as "deleted" —
- * that is the difference between pruning one record and offering to prune all
- * of them.
+ * Probes a skill's source directory; both the scan and the prune revalidation
+ * call it before treating a lock record as stale. Three-valued on purpose — a
+ * permission or I/O failure must never read as "deleted", and must not read as
+ * "still installed" either, because that is a benign no-op the UI hides.
  * @param path - Absolute path to probe.
- * @returns True only on ENOENT/ENOTDIR.
- * @example await isProvablyAbsent('/Users/me/.agents/skills/gone') // => true
+ * @returns
+ * - `'absent'`: ENOENT/ENOTDIR, the path provably cannot exist
+ * - `'present'`: the stat succeeded
+ * - `'unknown'`: any other error (EACCES, EIO, ELOOP) — we could not find out
+ * @example await probeSourcePresence('/Users/me/.agents/skills/gone') // => 'absent'
  */
-async function isProvablyAbsent(path: AbsolutePath): Promise<boolean> {
+async function probeSourcePresence(
+  path: AbsolutePath,
+): Promise<SourcePresence> {
   try {
     await fs.stat(path)
-    return false
+    return 'present'
   } catch (error) {
-    return isMissingPathError(error)
+    return isMissingPathError(error) ? 'absent' : 'unknown'
   }
 }
 
@@ -402,7 +410,9 @@ export async function scanStaleLockEntries(): Promise<StaleLockScanResult> {
   const absentDirNames = new Set<string>()
   await Promise.all(
     Array.from(byDirName.keys(), async (dirName) => {
-      if (await isProvablyAbsent(join(SOURCE_DIR, dirName))) {
+      // Only provable absence counts. `unknown` stays out of the stale list for
+      // the same reason it blocks a prune: doubt is not evidence of deletion.
+      if ((await probeSourcePresence(join(SOURCE_DIR, dirName))) === 'absent') {
         absentDirNames.add(dirName)
       }
     }),
@@ -457,21 +467,31 @@ export async function pruneLockEntries(
       return { ...empty, failed: [...requested] }
     }
 
-    const present = new Set(before.keys)
+    const tracked = new Set(before.keys)
     const targets: SkillName[] = []
     const skipped: SkillName[] = []
+    // Records we could neither confirm stale nor clear. They belong in
+    // `failed`, never in `skipped`: per {@link PruneLockEntriesResult}
+    // `skipped` is a benign no-op the UI reports as "the skill came back",
+    // while these are still stale and the user has to see that.
+    const unverifiable: SkillName[] = []
     for (const name of requested) {
-      // Already gone from the lock, or the skill is back on disk.
-      const stillTracked = present.has(name)
+      // Already gone from the lock — nothing to remove, and nothing is wrong.
+      if (!tracked.has(name)) {
+        skipped.push(name)
+        continue
+      }
       // react-doctor-disable-next-line react-doctor/async-await-in-loop -- revalidation must stay inside the lock-write mutex; a Promise.all here would still be serialized by it and the batch is at most a screenful of names.
-      const gone =
-        stillTracked &&
-        (await isProvablyAbsent(join(SOURCE_DIR, sanitizeName(name))))
-      if (gone) targets.push(name)
-      else skipped.push(name)
+      const presence = await probeSourcePresence(
+        join(SOURCE_DIR, sanitizeName(name)),
+      )
+      // The skill came back on disk, so the record is live again.
+      if (presence === 'present') skipped.push(name)
+      else if (presence === 'absent') targets.push(name)
+      else unverifiable.push(name)
     }
 
-    if (targets.length === 0) return { ...empty, skipped }
+    if (targets.length === 0) return { ...empty, skipped, failed: unverifiable }
 
     // Absence was probed above; read the trash AFTER it. Same load-bearing
     // order as {@link scanStaleLockEntries} and it must not be swapped: a
@@ -489,7 +509,7 @@ export async function pruneLockEntries(
     // back) and the UI reports it as a benign no-op, while these records are
     // still stale and unverifiable — the user has to see that.
     if (trashed.status !== 'ok')
-      return { ...empty, skipped, failed: [...targets] }
+      return { ...empty, skipped, failed: [...unverifiable, ...targets] }
 
     const removable: SkillName[] = []
     for (const name of targets) {
@@ -499,7 +519,8 @@ export async function pruneLockEntries(
       else removable.push(name)
     }
 
-    if (removable.length === 0) return { ...empty, skipped }
+    if (removable.length === 0)
+      return { ...empty, skipped, failed: unverifiable }
 
     // Last line before an irreversible delegation. See
     // {@link holdsRealAgentDirectory}: the CLI would recursively delete this
@@ -512,7 +533,8 @@ export async function pruneLockEntries(
       else delegable.push(name)
     }
 
-    if (delegable.length === 0) return { ...empty, skipped, failed: refused }
+    if (delegable.length === 0)
+      return { ...empty, skipped, failed: [...unverifiable, ...refused] }
 
     // Raw keys, not sanitized — the CLI looks the record up by raw name and
     // sanitizes internally when it resolves paths.
@@ -520,13 +542,21 @@ export async function pruneLockEntries(
 
     const after = await readSkillLockKeys()
     if (after.status !== 'ok') {
-      return { pruned: [], skipped, failed: [...delegable, ...refused] }
+      return {
+        pruned: [],
+        skipped,
+        failed: [...unverifiable, ...delegable, ...refused],
+      }
     }
     const survivors = new Set(after.keys)
     return {
       pruned: delegable.filter((name) => !survivors.has(name)),
       skipped,
-      failed: [...delegable.filter((name) => survivors.has(name)), ...refused],
+      failed: [
+        ...unverifiable,
+        ...delegable.filter((name) => survivors.has(name)),
+        ...refused,
+      ],
     }
   })
 }

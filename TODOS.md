@@ -1300,30 +1300,32 @@ needs care — that is why review did not touch it.
 
 **Depends on / blocked by:** Nothing.
 
-### P2. CLI timeout can still truncate the lock on the install path
+### P2. A kill landing mid-write can still truncate the lock
 
-`execCli` sends SIGTERM on timeout and resolves immediately without awaiting
-the child's `close`, so `runLockWrite` releases the mutex while the killed CLI
-may still be mid-`writeFile` of `.skill-lock.json`. Upstream writes it with a
-plain `writeFile` (no temp+rename) and reads a truncated file as an EMPTY lock,
-so this is a path to losing every install record.
+Upstream writes `.skill-lock.json` with a plain `writeFile` (no temp+rename)
+and reads a truncated file as an EMPTY lock, so any signal landing between the
+`O_TRUNC` open and the write loses every install record.
 
-PARTIALLY ADDRESSED (PR #306): non-cancellable commands — the prune path — now
-get `LOCK_WRITE_SPAWN_TIMEOUT_MS` (180s) instead of the 60s
-`SPAWN_TIMEOUT_MS`. The lock write itself is sub-millisecond; the 60s was being
-spent on `npx` resolving the package, so the kill was landing during the fetch,
-not the write. The longer ceiling moves the expiry clear of that fetch while
-keeping the kill (an unkillable child would hang the caller).
+ADDRESSED (PR #306), two of the three exposures:
 
-REMAINING: `install` is deliberately cancellable, so it keeps the 60s ceiling
-and can still be killed mid-write — and a prune that genuinely runs past 180s
-has the same exposure. The structural gap (resolving without awaiting `close`)
-is untouched.
+- The concurrency race is gone. `execCli` no longer resolves on the kill; it
+  keeps the promise pending until the child's `close`, so `runLockWrite` holds
+  its mutex until the dying CLI can no longer touch the file. A SIGTERM the
+  child ignores escalates to SIGKILL after `KILL_GRACE_MS` and then releases —
+  bounded on purpose, since hanging the queue on an unkillable child is worse.
+- The timeout no longer fires during the write. Non-cancellable commands (the
+  prune path) get `LOCK_WRITE_SPAWN_TIMEOUT_MS` (180s) instead of the 60s
+  `SPAWN_TIMEOUT_MS`. The write is sub-millisecond; the 60s was being spent on
+  `npx` resolving the package, so the kill was landing during the fetch.
 
-**Fix direction:** await `close` (with SIGKILL escalation and a second timeout)
-before releasing the mutex, or snapshot the lock bytes before any lock-writing
-spawn and restore them on a killed child. Fix at `execCli`, not in the prune
-path.
+REMAINING: a kill can still truncate the lock on its own, with no second writer
+involved. `cancel()` SIGTERMs an already-spawned install at a moment the user
+picks, and `install` keeps the 60s ceiling by design. The mutex cannot help
+here — the damage is a single interrupted write.
+
+**Fix direction:** snapshot the lock bytes before any lock-writing spawn and
+restore them when the child is killed rather than exiting cleanly. Fix at
+`execCli`, not in the prune path.
 
 **Depends on / blocked by:** Nothing.
 

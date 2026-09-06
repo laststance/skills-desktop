@@ -659,6 +659,8 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     // Act
     const searchPromise = skillsCliService.search('react')
     await vi.advanceTimersByTimeAsync(PAST_SPAWN_TIMEOUT_MS)
+    // The kill only asks; the result waits for the child to actually go.
+    fake.emit('close', null)
     const results = await searchPromise
 
     // Assert — search swallows the failure into an empty list, and the child
@@ -767,10 +769,64 @@ describe('skillsCliService.removeSkills', () => {
 
     // Act — the prune still has a hard ceiling; an unkillable child would hang.
     await vi.advanceTimersByTimeAsync(LOCK_WRITE_CEILING_MS - SEARCH_CEILING_MS)
+    fake.emit('close', null)
     const result = await pruning
 
     // Assert
     expect(fake.kill).toHaveBeenCalledWith('SIGTERM')
+    expect(result.stderr).toBe('CLI command timed out after 180s')
+    vi.useRealTimers()
+  })
+
+  it('keeps the caller waiting after the kill until the killed child is really gone', async () => {
+    // Arrange — resolving on the kill releases the runLockWrite mutex while the
+    // dying child may still be mid-writeFile on .skill-lock.json, so the next
+    // queued command interleaves with that write and truncates the lock.
+    const LOCK_WRITE_CEILING_MS = 180_000
+    vi.useFakeTimers()
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+    let hasResolved = false
+
+    // Act
+    const pruning = skillsCliService
+      .removeSkills(['old-skill'])
+      .then((value) => {
+        hasResolved = true
+        return value
+      })
+    await vi.advanceTimersByTimeAsync(LOCK_WRITE_CEILING_MS)
+
+    // Assert — SIGTERM was sent, but the promise is still pending.
+    expect(fake.kill).toHaveBeenCalledWith('SIGTERM')
+    expect(hasResolved).toBe(false)
+
+    // Act — the child finally exits.
+    fake.emit('close', null)
+    const result = await pruning
+
+    // Assert
+    expect(hasResolved).toBe(true)
+    expect(result.stderr).toBe('CLI command timed out after 180s')
+    vi.useRealTimers()
+  })
+
+  it('force-kills and stops waiting when the child ignores the first kill signal', async () => {
+    // Arrange — waiting forever on an unkillable child would hang every queued
+    // lock write behind it, which is worse than releasing with SIGKILL sent.
+    const LOCK_WRITE_CEILING_MS = 180_000
+    const KILL_GRACE_MS = 5_000
+    vi.useFakeTimers()
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act — no close event ever arrives.
+    const pruning = skillsCliService.removeSkills(['old-skill'])
+    await vi.advanceTimersByTimeAsync(LOCK_WRITE_CEILING_MS + KILL_GRACE_MS)
+    const result = await pruning
+
+    // Assert
+    expect(fake.kill).toHaveBeenCalledWith('SIGKILL')
     expect(result.stderr).toBe('CLI command timed out after 180s')
     vi.useRealTimers()
   })

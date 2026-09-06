@@ -188,7 +188,7 @@ describe('LockPruneDialog', () => {
     // Assert
     await vi.waitFor(() => {
       expect(mockToastInfo).toHaveBeenCalledWith(
-        'Kept 1 record: the skill still exists on disk.',
+        'Kept 1 record: nothing stale left to remove.',
       )
     })
     expect(mockToastSuccess).not.toHaveBeenCalled()

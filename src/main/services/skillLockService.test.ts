@@ -630,6 +630,27 @@ describe('pruneLockEntries', () => {
     })
     expect(removeSkillsMock).not.toHaveBeenCalled()
   })
+
+  test('reports a name as failed, not skipped, when its source dir cannot be stat-ed', async () => {
+    // Arrange: a self-referential symlink makes stat throw ELOOP, so absence
+    // can be neither proven nor ruled out. ENOTDIR would be read as "provably
+    // absent" by design, which is why it cannot stand in here.
+    const { pruneLockEntries } = await serviceModule
+    await writeLock(['unreadable'])
+    await symlink('unreadable', join(sourceDir, 'unreadable'))
+
+    // Act
+    const result = await pruneLockEntries(['unreadable'] as SkillName[])
+
+    // Assert: `skipped` would tell the user the skill came back and hide the
+    // record. It is still stale and still unverifiable, so it goes to `failed`.
+    expect(result).toEqual({
+      pruned: [],
+      skipped: [],
+      failed: ['unreadable'],
+    })
+    expect(removeSkillsMock).not.toHaveBeenCalled()
+  })
 })
 
 describe('queuePrune', () => {

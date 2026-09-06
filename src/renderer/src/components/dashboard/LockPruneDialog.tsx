@@ -71,10 +71,13 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
       )
     } else if (result.pruned.length === 0) {
       // Nothing failed, but nothing went either — main revalidated every name
-      // and found the skill back on disk or inside its undo window. A success
-      // toast reading "Removed 0 records" would claim work that never happened.
+      // and dropped it as a no-op. A success toast reading "Removed 0 records"
+      // would claim work that never happened. The wording stays neutral because
+      // `skipped` covers three different no-ops (already untracked, the skill
+      // came back, still inside its undo window) and naming only one of them
+      // would state something about disk we did not check.
       toast.info(
-        `Kept ${result.skipped.length} ${pluralize(result.skipped.length, 'record')}: the ${pluralize(result.skipped.length, 'skill')} still ${result.skipped.length === 1 ? 'exists' : 'exist'} on disk.`,
+        `Kept ${result.skipped.length} ${pluralize(result.skipped.length, 'record')}: nothing stale left to remove.`,
       )
     } else {
       toast.success(
