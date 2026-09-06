@@ -778,7 +778,9 @@ describe('skillsCliService.removeSkills', () => {
   it('emits no install progress while pruning in the background', async () => {
     // Arrange — a prune runs from trash eviction, which the user never started.
     // Forwarding "Installing skill files..." would light up the Marketplace UI.
-    simulateCli({ stdout: 'Removing skill files...\n', exitCode: 0 })
+    // The stdout has to be a line the parser DOES recognise, or the assertion
+    // holds even when `removeSkills` passes the callback through.
+    simulateCli({ stdout: 'Installing skill files...\n', exitCode: 0 })
     const { skillsCliService } = await import('./skillsCliService')
     const progressEvents: InstallProgress[] = []
     skillsCliService.on('progress', (progress: InstallProgress) => {
