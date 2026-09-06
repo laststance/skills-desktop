@@ -64,6 +64,13 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
     userSelectedFileRef.current = null
     setUserSelectedFile(null)
     setContent({ kind: 'empty' })
+    // Without this, `loading` is a lie on the way BACK to a skill: A -> B -> A
+    // leaves `loadedPath` at A across the detour, so the return switch computes
+    // `loading === false` while A is still re-listing -- and the reset above has
+    // just blanked `content`, so a file that has text renders as having none for
+    // one IPC round-trip. Nulling it keeps the spinner up until the new list
+    // lands, which is what `loading` claims to mean.
+    setLoadedPath(null)
     setLoadFailed(false)
   }
 

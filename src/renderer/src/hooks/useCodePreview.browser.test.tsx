@@ -865,4 +865,67 @@ describe('useCodePreview', () => {
     await expect.poll(() => result.current.content).toEqual({ kind: 'empty' })
     expect(readBinaryMock).toHaveBeenCalledTimes(1)
   })
+
+  test('shows the spinner again when switching back to a skill mid-reload', async () => {
+    // Arrange -- A lists once, then hangs on its second visit; B never settles,
+    // so the trip back to A happens while nothing else can repaint the pane.
+    const fileA = makeFile({ path: '/skills/a/SKILL.md' })
+    const bodyA = makeTextContent({ content: 'A' })
+    let resolveSecondListOfA: ((files: SkillFile[]) => void) | null = null
+    let listCallsForA = 0
+    listMock.mockImplementation(async (p) => {
+      if (p === '/skills/a') {
+        listCallsForA += 1
+        if (listCallsForA === 1) return [fileA]
+        return new Promise<SkillFile[]>((res) => {
+          resolveSecondListOfA = res
+        })
+      }
+      // Skill B's list never resolves, so its effect writes nothing.
+      return new Promise<SkillFile[]>(() => {})
+    })
+    readMock.mockResolvedValue(bodyA)
+
+    const { useCodePreview } = await import('./useCodePreview')
+    const { result, rerender, act } = await renderHook(
+      (props?: { path: string }) => useCodePreview(props?.path ?? '/skills/a'),
+      { initialProps: { path: '/skills/a' } },
+    )
+    await expect
+      .poll(() => result.current.content)
+      .toEqual({ kind: 'text', data: bodyA })
+
+    // Act
+    rerender({ path: '/skills/b' })
+    // Gate on B's effect: without it React batches both rerenders into a single
+    // render at '/skills/a', the B render never commits, and the switch this
+    // test is about never happens.
+    await expect
+      .poll(() => listMock.mock.calls.some((c) => c[0] === '/skills/b'))
+      .toBe(true)
+    rerender({ path: '/skills/a' })
+    // Gate on A's SECOND list call, which only happens once the return render
+    // has committed. Assert before this and `result.current` still reports the
+    // B render, where `loading` was true for an unrelated reason.
+    await expect.poll(() => listCallsForA).toBe(2)
+
+    // Assert
+    // `loadedPath` still held '/skills/a' across the detour, so `loading` read
+    // false while A was re-listing -- and the switch reset had already blanked
+    // `content`. That painted a file with text as a file with none.
+    expect(result.current.loading).toBe(true)
+
+    // And the spinner is transient, not a new way to get stuck: A's second list
+    // lands and the pane comes back.
+    // Same `act()` wrapper the sibling tests use: it keeps effect flushing under
+    // React's control and sidesteps TS narrowing the resolver to `null`.
+    await act(async () => {
+      resolveSecondListOfA?.([fileA])
+      await Promise.resolve()
+    })
+    await expect
+      .poll(() => result.current.content)
+      .toEqual({ kind: 'text', data: bodyA })
+    expect(result.current.loading).toBe(false)
+  })
 })
