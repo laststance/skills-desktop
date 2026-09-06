@@ -122,6 +122,21 @@ describe('skillsCliService.cancel', () => {
     prune.emit('close', 0)
     await Promise.all([searching, pruning])
   })
+
+  it('advertises a new cancel generation so work still queued can see the cancel', async () => {
+    // Arrange — an install waiting behind a background prune has not spawned
+    // yet, so `cancel()` finds nothing to SIGTERM. The caller compares this
+    // counter across the wait instead; without it the queue drains and installs
+    // exactly what the user just backed out of.
+    const { skillsCliService } = await import('./skillsCliService')
+    const generationBeforeCancel = skillsCliService.cancelGeneration
+
+    // Act
+    skillsCliService.cancel()
+
+    // Assert
+    expect(skillsCliService.cancelGeneration).not.toBe(generationBeforeCancel)
+  })
 })
 
 describe('skillsCliService.execCli environment', () => {
@@ -729,6 +744,35 @@ describe('skillsCliService.removeSkills', () => {
         env: expect.objectContaining({ FORCE_COLOR: '0' }),
       }),
     )
+  })
+
+  it('keeps a lock-writing prune alive past the ceiling that applies to a search', async () => {
+    // Arrange — the CLI's `writeSkillLock` is a plain writeFile with no
+    // temp+rename, so a SIGTERM landing mid-write truncates the lock and a
+    // truncated lock parses as an EMPTY one. The 60s search ceiling is spent
+    // on `npx` resolving the package, so a prune gets a longer leash before
+    // the kill. Mirrors the module-private timeout constants; keep in step.
+    const SEARCH_CEILING_MS = 60_000
+    const LOCK_WRITE_CEILING_MS = 180_000
+    vi.useFakeTimers()
+    const fake = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    const pruning = skillsCliService.removeSkills(['old-skill'])
+    await vi.advanceTimersByTimeAsync(SEARCH_CEILING_MS)
+
+    // Assert — still running where a search would already have been killed.
+    expect(fake.kill).not.toHaveBeenCalled()
+
+    // Act — the prune still has a hard ceiling; an unkillable child would hang.
+    await vi.advanceTimersByTimeAsync(LOCK_WRITE_CEILING_MS - SEARCH_CEILING_MS)
+    const result = await pruning
+
+    // Assert
+    expect(fake.kill).toHaveBeenCalledWith('SIGTERM')
+    expect(result.stderr).toBe('CLI command timed out after 180s')
+    vi.useRealTimers()
   })
 
   it('emits no install progress while pruning in the background', async () => {

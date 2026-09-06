@@ -69,6 +69,13 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
       toast.error(
         `Could not remove ${result.failed.length} of ${staleNames.length} ${pluralize(staleNames.length, 'record')}.`,
       )
+    } else if (result.pruned.length === 0) {
+      // Nothing failed, but nothing went either — main revalidated every name
+      // and found the skill back on disk or inside its undo window. A success
+      // toast reading "Removed 0 records" would claim work that never happened.
+      toast.info(
+        `Kept ${result.skipped.length} ${pluralize(result.skipped.length, 'record')}: the ${pluralize(result.skipped.length, 'skill')} still ${result.skipped.length === 1 ? 'exists' : 'exist'} on disk.`,
+      )
     } else {
       toast.success(
         `Removed ${result.pruned.length} stale ${pluralize(result.pruned.length, 'record')} from the skill lock.`,
@@ -85,7 +92,7 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
         <DialogHeader>
           <DialogIconHeader
             icon={FileWarning}
-            tone="amber"
+            tone="neutral"
             title="Prune skill lock"
           />
           <DialogDescription>

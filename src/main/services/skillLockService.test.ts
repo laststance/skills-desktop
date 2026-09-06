@@ -117,6 +117,9 @@ beforeEach(async () => {
   })
   const { __resetPruneQueueForTests } = await serviceModule
   __resetPruneQueueForTests()
+  // Clear on the way in as well as out: the afterEach only protects tests that
+  // run after one of ours, not against a value already in the dev's shell.
+  delete process.env.XDG_STATE_HOME
 })
 
 afterEach(() => {
@@ -328,6 +331,49 @@ describe('scanStaleLockEntries', () => {
     // Assert
     expect(result).toEqual({ status: 'unavailable' })
   })
+  test('reports the lock as unavailable when the file exists but cannot be read', async () => {
+    // Arrange: a directory where the lock file belongs makes readFile throw
+    // EISDIR — a real error, not the benign "no lock yet" ENOENT.
+    const { scanStaleLockEntries } = await serviceModule
+    await mkdir(lockPath, { recursive: true })
+
+    // Act
+    const result = await scanStaleLockEntries()
+
+    // Assert
+    expect(result).toEqual({ status: 'unavailable' })
+  })
+
+  test('reports the scan as unavailable when the trash directory cannot be listed', async () => {
+    // Arrange: a self-referential symlink makes readdir throw ELOOP. ENOTDIR
+    // would NOT work here — `isMissingPathError` counts it as proof of
+    // absence, so it takes the benign "no trash yet" branch by design.
+    const { scanStaleLockEntries } = await serviceModule
+    await writeLock(['deleted-in-finder'])
+    await symlink('.trash', trashDir)
+
+    // Act
+    const result = await scanStaleLockEntries()
+
+    // Assert: no record can be called stale while half the picture is missing.
+    expect(result).toEqual({ status: 'unavailable' })
+  })
+
+  test('treats a trash entry with an unparseable manifest as holding nothing back', async () => {
+    // Arrange: Undo reads the same manifest, so an entry it cannot parse
+    // cannot restore this skill either.
+    const { scanStaleLockEntries } = await serviceModule
+    await writeLock(['deleted-in-finder'])
+    const entryDir = join(trashDir, '1700000000000-deleted-in-finder-aaaaaaaa')
+    await mkdir(entryDir, { recursive: true })
+    await writeFile(join(entryDir, 'manifest.json'), '{ truncated', 'utf-8')
+
+    // Act
+    const result = await scanStaleLockEntries()
+
+    // Assert
+    expect(result).toEqual({ status: 'ok', names: ['deleted-in-finder'] })
+  })
 })
 
 describe('pruneLockEntries', () => {
@@ -525,6 +571,65 @@ describe('pruneLockEntries', () => {
     expect(removeSkillsMock).not.toHaveBeenCalled()
     expect(result.skipped).toEqual(['already-pruned'])
   })
+  test('fails every requested name when the lock itself cannot be read', async () => {
+    // Arrange
+    const { pruneLockEntries } = await serviceModule
+    await mkdir(lockPath, { recursive: true })
+
+    // Act
+    const result = await pruneLockEntries(['whatever'])
+
+    // Assert: without the lock there is no way to prove a removal is safe.
+    expect(result).toEqual({
+      pruned: [],
+      skipped: [],
+      failed: ['whatever'],
+    })
+    expect(removeSkillsMock).not.toHaveBeenCalled()
+  })
+
+  test('reports a delegated name as failed when the lock is unreadable after the CLI runs', async () => {
+    // Arrange: the real CLI rewrites the lock with a plain writeFile, so a
+    // kill mid-write leaves bytes that no longer parse.
+    const { pruneLockEntries } = await serviceModule
+    await writeLock(['half-written'])
+    removeSkillsMock.mockImplementation(async () => {
+      await writeFile(lockPath, '{ "version": 3, "skills": { ', 'utf-8')
+      return { success: true }
+    })
+
+    // Act
+    const result = await pruneLockEntries(['half-written'])
+
+    // Assert: unverifiable is reported as failed, never as pruned.
+    expect(result).toEqual({
+      pruned: [],
+      skipped: [],
+      failed: ['half-written'],
+    })
+  })
+
+  test('reports a name as failed, not skipped, when the trash cannot be read', async () => {
+    // Arrange: an unreadable trash means we cannot tell whether this record is
+    // still restorable, so the delete is refused. A self-referential symlink
+    // gives ELOOP; ENOTDIR would be read as "no trash yet" by design.
+    const { pruneLockEntries } = await serviceModule
+    await writeLock(['gone-from-disk'])
+    await symlink('.trash', trashDir)
+
+    // Act
+    const result = await pruneLockEntries(['gone-from-disk'] as SkillName[])
+
+    // Assert: `skipped` means "nothing to do here" and the UI reports it as a
+    // benign no-op. This record is still stale and still needs the user's
+    // attention, so it belongs in `failed`.
+    expect(result).toEqual({
+      pruned: [],
+      skipped: [],
+      failed: ['gone-from-disk'],
+    })
+    expect(removeSkillsMock).not.toHaveBeenCalled()
+  })
 })
 
 describe('queuePrune', () => {
@@ -549,6 +654,44 @@ describe('queuePrune', () => {
       'bulk-c',
     ])
     expect(await readLockKeys()).toEqual([])
+  })
+  test('flushes the queued batch once the debounce window elapses', async () => {
+    // Arrange: nothing else drives the timer, so this is the only coverage of
+    // the debounce actually firing rather than a direct flush call. Real
+    // timers, not fake ones: the callback is `void flushPruneQueue()`, so
+    // advancing fake timers returns before the fs work it starts has run.
+    const { queuePrune } = await serviceModule
+    await writeLock(['debounced-skill'])
+
+    // Act
+    queuePrune('debounced-skill')
+
+    // Assert
+    await vi.waitFor(() => {
+      expect(removeSkillsMock).toHaveBeenCalledWith(['debounced-skill'])
+    })
+    expect(await readLockKeys()).toEqual([])
+  })
+
+  test('logs the surviving names when a queued prune does not remove them', async () => {
+    // Arrange: `skills remove` exits 0 even when a removal failed, so the
+    // service verifies by re-reading and must say so when the key survives.
+    const { queuePrune, flushPruneQueue } = await serviceModule
+    await writeLock(['stubborn-skill'])
+    removeSkillsMock.mockImplementation(async () => ({ success: true }))
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    // Act
+    queuePrune('stubborn-skill')
+    await flushPruneQueue()
+
+    // Assert
+    expect(consoleError).toHaveBeenCalledWith(
+      'skillLockService: prune failed',
+      expect.objectContaining({ failed: ['stubborn-skill'] }),
+    )
+    expect(await readLockKeys()).toEqual(['stubborn-skill'])
+    consoleError.mockRestore()
   })
 })
 

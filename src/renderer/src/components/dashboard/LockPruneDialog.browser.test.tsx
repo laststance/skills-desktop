@@ -5,6 +5,18 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 
+const mockToastSuccess = vi.fn()
+const mockToastError = vi.fn()
+const mockToastInfo = vi.fn()
+
+vi.mock('sonner', () => ({
+  toast: {
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    error: (...args: unknown[]) => mockToastError(...args),
+    info: (...args: unknown[]) => mockToastInfo(...args),
+  },
+}))
+
 const mockPruneLockEntries = vi.fn()
 const mockScanStaleLockEntries = vi.fn()
 const mockGetSkills = vi.fn()
@@ -41,6 +53,9 @@ async function renderDialog(staleLockNames: string[]) {
   const store = configureStore({
     reducer: { skillLock: skillLockReducer, ui: uiReducer },
   })
+  // `pending` first: the reducer only applies a scan result whose requestId is
+  // the newest one it issued, so a bare `fulfilled` would be ignored.
+  store.dispatch(fetchStaleLockEntries.pending('req-lock', undefined))
   store.dispatch(
     fetchStaleLockEntries.fulfilled(
       { status: 'ok', names: staleLockNames },
@@ -62,6 +77,9 @@ beforeEach(() => {
   mockPruneLockEntries.mockReset()
   mockScanStaleLockEntries.mockReset()
   mockScanStaleLockEntries.mockResolvedValue({ status: 'ok', names: [] })
+  mockToastSuccess.mockReset()
+  mockToastError.mockReset()
+  mockToastInfo.mockReset()
 })
 
 describe('LockPruneDialog', () => {
@@ -120,6 +138,26 @@ describe('LockPruneDialog', () => {
     })
   })
 
+  test('closes the dialog instead of hanging open when the prune IPC itself fails', async () => {
+    // Arrange — a rejected thunk (IPC down, zod refusing an arg, a main-process
+    // throw) is a different path from a resolved result carrying `failed`.
+    mockPruneLockEntries.mockRejectedValue(new Error('IPC channel closed'))
+    mockScanStaleLockEntries.mockResolvedValue({
+      status: 'ok',
+      names: ['old-skill'],
+    })
+    const { screen, store } = await renderDialog(['old-skill'])
+
+    // Act
+    await screen.getByRole('button', { name: 'Remove 1 record' }).click()
+
+    // Assert — the user gets a closed dialog, not silence behind a dead button.
+    await vi.waitFor(() => {
+      expect(store.getState().ui.lockPruneDialogOpen).toBe(false)
+    })
+    expect(store.getState().skillLock.staleNames).toEqual(['old-skill'])
+  })
+
   test('closes without touching the lock when the user cancels', async () => {
     // Arrange
     const { screen, store } = await renderDialog(['old-skill'])
@@ -130,5 +168,51 @@ describe('LockPruneDialog', () => {
     // Assert
     expect(mockPruneLockEntries).not.toHaveBeenCalled()
     expect(store.getState().ui.lockPruneDialogOpen).toBe(false)
+  })
+
+  test('does not claim success when main pruned nothing and kept every record', async () => {
+    // Arrange — main revalidates each name before deleting. If the skill came
+    // back on disk or is still inside its undo window, nothing is removed and
+    // nothing failed. "Removed 0 stale records" would claim work never done.
+    mockPruneLockEntries.mockResolvedValue({
+      pruned: [],
+      skipped: ['came-back'],
+      failed: [],
+    })
+    mockScanStaleLockEntries.mockResolvedValue({ status: 'ok', names: [] })
+    const { screen } = await renderDialog(['came-back'])
+
+    // Act
+    await screen.getByRole('button', { name: 'Remove 1 record' }).click()
+
+    // Assert
+    await vi.waitFor(() => {
+      expect(mockToastInfo).toHaveBeenCalledWith(
+        'Kept 1 record: the skill still exists on disk.',
+      )
+    })
+    expect(mockToastSuccess).not.toHaveBeenCalled()
+  })
+
+  test('reports a success toast naming how many records actually went', async () => {
+    // Arrange
+    mockPruneLockEntries.mockResolvedValue({
+      pruned: ['old-skill'],
+      skipped: [],
+      failed: [],
+    })
+    mockScanStaleLockEntries.mockResolvedValue({ status: 'ok', names: [] })
+    const { screen } = await renderDialog(['old-skill'])
+
+    // Act
+    await screen.getByRole('button', { name: 'Remove 1 record' }).click()
+
+    // Assert
+    await vi.waitFor(() => {
+      expect(mockToastSuccess).toHaveBeenCalledWith(
+        'Removed 1 stale record from the skill lock.',
+      )
+    })
+    expect(mockToastInfo).not.toHaveBeenCalled()
   })
 })

@@ -55,6 +55,7 @@ function makeSkill(symlinks: SymlinkInfo[]): Skill {
 async function renderHealthWidget(
   skills: Skill[],
   staleLockNames: string[] = [],
+  scanStatus: 'ok' | 'unavailable' = 'ok',
 ) {
   const [
     { default: skillsReducer, fetchSkills },
@@ -75,9 +76,14 @@ async function renderHealthWidget(
     },
   })
   store.dispatch(fetchSkills.fulfilled(skills, 'req-skills'))
+  // `pending` first: the reducer only applies a scan result whose requestId is
+  // the newest one it issued, so a bare `fulfilled` would be ignored.
+  store.dispatch(fetchStaleLockEntries.pending('req-lock', undefined))
   store.dispatch(
     fetchStaleLockEntries.fulfilled(
-      { status: 'ok', names: staleLockNames },
+      scanStatus === 'ok'
+        ? { status: 'ok', names: staleLockNames }
+        : { status: 'unavailable' },
       'req-lock',
       undefined,
     ),
@@ -261,7 +267,7 @@ describe('HealthWidget stale skill-lock records', () => {
     const skills = [makeSkill([makeSymlink('valid')])]
 
     // Act
-    const { screen } = await renderHealthWidget(skills, [])
+    const { screen } = await renderHealthWidget(skills, [], 'unavailable')
 
     // Assert
     await expect.element(screen.getByText('Healthy')).toBeVisible()

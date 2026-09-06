@@ -483,8 +483,13 @@ export async function pruneLockEntries(
     // restore.
     const trashed = await readTrashedSourceDirNames()
     // Fail closed. The scan reports nothing when the trash is unreadable; here
-    // the same doubt must block a delete, never authorize one.
-    if (trashed.status !== 'ok') return { ...empty, skipped: [...requested] }
+    // the same doubt must block a delete, never authorize one. The blocked
+    // names go to `failed`, not `skipped`: per {@link PruneLockEntriesResult}
+    // `skipped` means "dropped before the call" (untracked, or the skill came
+    // back) and the UI reports it as a benign no-op, while these records are
+    // still stale and unverifiable — the user has to see that.
+    if (trashed.status !== 'ok')
+      return { ...empty, skipped, failed: [...targets] }
 
     const removable: SkillName[] = []
     for (const name of targets) {

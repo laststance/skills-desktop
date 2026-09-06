@@ -24,12 +24,21 @@ interface SkillLockState {
   status: 'idle' | 'ok' | 'unavailable'
   /** True while a prune is in flight, so the confirm button can disable. */
   pruning: boolean
+  /**
+   * `requestId` of the newest scan whose result may still be applied. Four
+   * call sites dispatch scans independently (mount, refresh thunk, listener,
+   * post-prune), so a slow one can resolve after a newer one and put the old
+   * list back. Cleared when a prune starts: any scan launched before the lock
+   * was rewritten is describing a lock that no longer exists.
+   */
+  scanRequestId: string | null
 }
 
 const initialState: SkillLockState = {
   staleNames: [],
   status: 'idle',
   pruning: false,
+  scanRequestId: null,
 }
 
 /**
@@ -66,7 +75,12 @@ const skillLockSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
+      .addCase(fetchStaleLockEntries.pending, (state, action) => {
+        state.scanRequestId = action.meta.requestId
+      })
       .addCase(fetchStaleLockEntries.fulfilled, (state, action) => {
+        // Superseded by a newer scan, or invalidated by a prune.
+        if (action.meta.requestId !== state.scanRequestId) return
         if (action.payload.status === 'ok') {
           state.status = 'ok'
           state.staleNames = action.payload.names
@@ -77,12 +91,14 @@ const skillLockSlice = createSlice({
         state.status = 'unavailable'
         state.staleNames = []
       })
-      .addCase(fetchStaleLockEntries.rejected, (state) => {
+      .addCase(fetchStaleLockEntries.rejected, (state, action) => {
+        if (action.meta.requestId !== state.scanRequestId) return
         state.status = 'unavailable'
         state.staleNames = []
       })
       .addCase(pruneStaleLockEntries.pending, (state) => {
         state.pruning = true
+        state.scanRequestId = null
       })
       .addCase(pruneStaleLockEntries.fulfilled, (state, action) => {
         state.pruning = false

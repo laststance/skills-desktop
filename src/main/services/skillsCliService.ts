@@ -41,6 +41,17 @@ const CLI_FLAGS = {
 
 /** Hard timeout per spawned `npx skills ...` child process (60 seconds). */
 const SPAWN_TIMEOUT_MS = 60_000
+/**
+ * Ceiling for non-cancellable commands, which are the ones that rewrite
+ * `.skill-lock.json` (3 minutes). The CLI's `writeSkillLock` is a plain
+ * `writeFile` with no temp+rename, so a SIGTERM landing mid-write truncates
+ * the lock — and a truncated lock parses as an EMPTY one, silently dropping
+ * every skill the user installed. The write itself is sub-millisecond; what
+ * actually eats the 60s is `npx` resolving the package over the network. This
+ * moves the expiry well clear of that fetch instead of removing the kill: an
+ * unkillable child would hang the caller forever, which is the worse failure.
+ */
+const LOCK_WRITE_SPAWN_TIMEOUT_MS = 180_000
 /** Signal used for user cancel and timeout kill paths. */
 const PROCESS_KILL_SIGNAL: NodeJS.Signals = 'SIGTERM'
 /**
@@ -121,6 +132,12 @@ function buildCliEnv(): NodeJS.ProcessEnv {
  */
 class SkillsCliService extends EventEmitter {
   private runningProcesses = new Set<ChildProcess>()
+  /**
+   * Bumped by every {@link cancel}. Callers that queue work behind an async
+   * gate capture this before waiting and re-check it before spawning, because
+   * `cancel()` can only sweep children that already exist.
+   */
+  private cancelCount = 0
 
   /**
    * Search for skills using `npx skills find <query>`
@@ -234,9 +251,21 @@ class SkillsCliService extends EventEmitter {
    * the install dialog must not kill a background prune mid-write.
    */
   cancel(): void {
+    this.cancelCount += 1
     for (const proc of this.runningProcesses) {
       proc.kill(PROCESS_KILL_SIGNAL)
     }
+  }
+
+  /**
+   * Monotonic count of {@link cancel} calls, so work that waited in a queue can
+   * tell whether a cancel landed during the wait. Read before queueing and
+   * again before spawning; a changed value means "the user already backed out".
+   * @returns Number of cancels issued since app start.
+   * @example const before = skillsCliService.cancelGeneration
+   */
+  get cancelGeneration(): number {
+    return this.cancelCount
   }
 
   /**
@@ -266,6 +295,11 @@ class SkillsCliService extends EventEmitter {
       // a SIGTERM aimed at an unrelated install would truncate the lock.
       if (cancellable) this.runningProcesses.add(proc)
 
+      // Non-cancellable == lock-rewriting. See LOCK_WRITE_SPAWN_TIMEOUT_MS.
+      const timeoutMs = cancellable
+        ? SPAWN_TIMEOUT_MS
+        : LOCK_WRITE_SPAWN_TIMEOUT_MS
+
       const finalize = (result: CliExecutionResult): void => {
         if (settled) {
           return
@@ -281,11 +315,11 @@ class SkillsCliService extends EventEmitter {
         finalize({
           success: false,
           stdout,
-          stderr: this.buildTimeoutMessage(),
+          stderr: this.buildTimeoutMessage(timeoutMs),
           code: null,
           timedOut: true,
         })
-      }, SPAWN_TIMEOUT_MS)
+      }, timeoutMs)
 
       proc.stdout?.on('data', (data: Buffer) => {
         const text = data.toString()
@@ -320,10 +354,13 @@ class SkillsCliService extends EventEmitter {
   }
 
   /**
-   * Build the user-facing timeout message using the shared timeout constant.
+   * Build the user-facing timeout message for whichever ceiling actually fired.
+   * @param timeoutMs - The ceiling that expired, in milliseconds.
+   * @returns Message naming the elapsed limit in whole seconds.
+   * @example buildTimeoutMessage(60_000) // => 'CLI command timed out after 60s'
    */
-  private buildTimeoutMessage(): string {
-    const timeoutSeconds = Math.floor(SPAWN_TIMEOUT_MS / 1000)
+  private buildTimeoutMessage(timeoutMs: number): string {
+    const timeoutSeconds = Math.floor(timeoutMs / 1000)
     return `CLI command timed out after ${timeoutSeconds}s`
   }
 

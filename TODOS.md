@@ -1300,20 +1300,30 @@ needs care — that is why review did not touch it.
 
 **Depends on / blocked by:** Nothing.
 
-### P2. Prune-time CLI timeout can truncate the lock
+### P2. CLI timeout can still truncate the lock on the install path
 
-`execCli`'s 60s `SPAWN_TIMEOUT_MS` sends SIGTERM and resolves immediately
-without awaiting the child's `close`, so `runLockWrite` releases the mutex
-while the killed CLI may still be mid-`writeFile` of `.skill-lock.json`.
-Upstream writes it with a plain `writeFile` (no temp+rename) and reads a
-truncated file as an EMPTY lock, so this is a path to losing every install
-record. `cancellable: false` does not help: it only excludes the child from the
-`cancel()` sweep, not from the timeout.
+`execCli` sends SIGTERM on timeout and resolves immediately without awaiting
+the child's `close`, so `runLockWrite` releases the mutex while the killed CLI
+may still be mid-`writeFile` of `.skill-lock.json`. Upstream writes it with a
+plain `writeFile` (no temp+rename) and reads a truncated file as an EMPTY lock,
+so this is a path to losing every install record.
+
+PARTIALLY ADDRESSED (PR #306): non-cancellable commands — the prune path — now
+get `LOCK_WRITE_SPAWN_TIMEOUT_MS` (180s) instead of the 60s
+`SPAWN_TIMEOUT_MS`. The lock write itself is sub-millisecond; the 60s was being
+spent on `npx` resolving the package, so the kill was landing during the fetch,
+not the write. The longer ceiling moves the expiry clear of that fetch while
+keeping the kill (an unkillable child would hang the caller).
+
+REMAINING: `install` is deliberately cancellable, so it keeps the 60s ceiling
+and can still be killed mid-write — and a prune that genuinely runs past 180s
+has the same exposure. The structural gap (resolving without awaiting `close`)
+is untouched.
 
 **Fix direction:** await `close` (with SIGKILL escalation and a second timeout)
 before releasing the mutex, or snapshot the lock bytes before any lock-writing
-spawn and restore them on a killed child. Affects `install` too, not just
-prune — fix at `execCli`, not in the prune path.
+spawn and restore them on a killed child. Fix at `execCli`, not in the prune
+path.
 
 **Depends on / blocked by:** Nothing.
 

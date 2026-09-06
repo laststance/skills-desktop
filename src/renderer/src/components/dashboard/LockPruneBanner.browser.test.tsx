@@ -32,6 +32,9 @@ async function renderBanner(staleLockNames: string[], dismissed = false) {
       ui: uiReducer,
     },
   })
+  // `pending` first: the reducer only applies a scan result whose requestId is
+  // the newest one it issued, so a bare `fulfilled` would be ignored.
+  store.dispatch(fetchStaleLockEntries.pending('req-lock', undefined))
   store.dispatch(
     fetchStaleLockEntries.fulfilled(
       { status: 'ok', names: staleLockNames },

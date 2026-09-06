@@ -180,10 +180,15 @@ describe('evict lock-prune hook', () => {
     await evict(tombstoneId(entryName))
 
     // Assert
-    expect(queuePruneMock).not.toHaveBeenCalled()
-    vi.doUnmock('node:fs/promises')
-    vi.resetModules()
-    errorSpy.mockRestore()
+    try {
+      expect(queuePruneMock).not.toHaveBeenCalled()
+    } finally {
+      // Unconditional: a failed assertion used to skip these, leaking the
+      // node:fs/promises mock into every test that ran after this one.
+      vi.doUnmock('node:fs/promises')
+      vi.resetModules()
+      errorSpy.mockRestore()
+    }
   })
 })
 

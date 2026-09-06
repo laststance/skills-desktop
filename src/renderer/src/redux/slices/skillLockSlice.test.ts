@@ -30,6 +30,7 @@ describe('skillLockSlice', () => {
     const store = createTestStore()
 
     // Act
+    store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
         { status: 'ok', names: ['old-skill', 'another-skill'] },
@@ -51,6 +52,7 @@ describe('skillLockSlice', () => {
     // `unavailable` is not "0 stale". With one side of the diff unreadable, a
     // count here would sit next to a button that deletes lock records.
     const store = createTestStore()
+    store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
         { status: 'ok', names: ['old-skill'] },
@@ -60,6 +62,7 @@ describe('skillLockSlice', () => {
     )
 
     // Act
+    store.dispatch(fetchStaleLockEntries.pending('req-2', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
         { status: 'unavailable' },
@@ -78,6 +81,7 @@ describe('skillLockSlice', () => {
     const store = createTestStore()
 
     // Act
+    store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
     store.dispatch(
       fetchStaleLockEntries.rejected(new Error('IPC exploded'), 'req-1'),
     )
@@ -91,6 +95,7 @@ describe('skillLockSlice', () => {
     // `skills remove` exits 0 even when a removal failed, so main reports
     // survivors explicitly. They are still stale and still actionable.
     const store = createTestStore()
+    store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
         { status: 'ok', names: ['pruned-ok', 'stubborn'] },
@@ -138,5 +143,92 @@ describe('skillLockSlice', () => {
 
     // Assert
     expect(selectIsPruningLockEntries(readState(store))).toBe(false)
+  })
+
+  test('ignores a slow scan that lands after a newer scan already answered', async () => {
+    // Arrange
+    // Four call sites dispatch scans independently (mount, refresh thunk,
+    // listener, post-prune), so two can overlap. Applying whichever finishes
+    // last would show a list the filesystem has already moved past.
+    const store = createTestStore()
+    store.dispatch(fetchStaleLockEntries.pending('req-slow', undefined))
+    store.dispatch(fetchStaleLockEntries.pending('req-fresh', undefined))
+    store.dispatch(
+      fetchStaleLockEntries.fulfilled(
+        { status: 'ok', names: ['current-truth'] },
+        'req-fresh',
+        undefined,
+      ),
+    )
+
+    // Act
+    store.dispatch(
+      fetchStaleLockEntries.fulfilled(
+        { status: 'ok', names: ['long-gone', 'also-gone'] },
+        'req-slow',
+        undefined,
+      ),
+    )
+
+    // Assert
+    expect(selectStaleLockEntryNames(readState(store))).toEqual([
+      'current-truth',
+    ])
+  })
+
+  test('keeps the current list when a superseded scan is the one that fails', async () => {
+    // Arrange — the stale scan that lost the race is the one that errored. Its
+    // failure says nothing about the lock, so blanking the list on it would
+    // hide records the newer scan just confirmed are still there.
+    const store = createTestStore()
+    store.dispatch(fetchStaleLockEntries.pending('req-slow', undefined))
+    store.dispatch(fetchStaleLockEntries.pending('req-fresh', undefined))
+    store.dispatch(
+      fetchStaleLockEntries.fulfilled(
+        { status: 'ok', names: ['current-truth'] },
+        'req-fresh',
+        undefined,
+      ),
+    )
+
+    // Act
+    store.dispatch(
+      fetchStaleLockEntries.rejected(new Error('IPC exploded'), 'req-slow'),
+    )
+
+    // Assert
+    expect(selectStaleLockEntryNames(readState(store))).toEqual([
+      'current-truth',
+    ])
+    expect(selectStaleLockEntryCount(readState(store))).toBe(1)
+  })
+
+  test('does not let a scan started before a prune put the pruned records back', async () => {
+    // Arrange
+    // The dialog re-scans after pruning, but a scan already in flight when the
+    // user confirmed describes the lock as it was BEFORE the rewrite. Letting
+    // it land would repopulate the widget with records that are now gone.
+    const store = createTestStore()
+    store.dispatch(fetchStaleLockEntries.pending('req-before-prune', undefined))
+    store.dispatch(pruneStaleLockEntries.pending('req-prune', ['old-skill']))
+    store.dispatch(
+      pruneStaleLockEntries.fulfilled(
+        { pruned: ['old-skill'], skipped: [], failed: [] },
+        'req-prune',
+        ['old-skill'],
+      ),
+    )
+
+    // Act
+    store.dispatch(
+      fetchStaleLockEntries.fulfilled(
+        { status: 'ok', names: ['old-skill'] },
+        'req-before-prune',
+        undefined,
+      ),
+    )
+
+    // Assert
+    expect(selectStaleLockEntryNames(readState(store))).toEqual([])
   })
 })

@@ -177,7 +177,7 @@ export const HealthWidget = function HealthWidget(): React.ReactElement {
             </span>
           ) : null}
           {staleLockCount > 0 ? (
-            <span className="inline-flex items-center gap-1 text-amber-400">
+            <span className="inline-flex items-center gap-1 text-foreground">
               <FileWarning className="h-3 w-3" aria-hidden="true" />
               <span className="tabular-nums">{staleLockCount}</span>
               <span className="text-muted-foreground">lock</span>

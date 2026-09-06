@@ -28,9 +28,9 @@ export const LockPruneBanner =
     if (isDismissed || staleCount === 0) return null
 
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5">
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 px-4 py-2.5">
         <FileWarning
-          className="h-4 w-4 shrink-0 text-amber-400"
+          className="h-4 w-4 shrink-0 text-foreground"
           aria-hidden="true"
         />
         <p className="flex-1 text-xs text-foreground">
