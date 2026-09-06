@@ -1273,11 +1273,49 @@ its own copy of the check as the TOCTOU backstop.
 REMAINING: the record still cannot be pruned at all. That needs the delegation
 decision below, which is an architecture call, not a UI one.
 
-**Fix direction:** either narrow the delegation (pass `--agent` restricted to
-universal-source agents), or stop delegating and edit the lock directly,
+**Fix direction:** ~~either narrow the delegation (pass `--agent` restricted to
+universal-source agents), or~~ stop delegating and edit the lock directly,
 accepting ownership of the lock format. See
 `docs/adr/0001-prune-the-skill-lock-at-trash-eviction.md`
 (corrected 2026-09-06).
+
+**The `--agent` branch is closed — it provably cannot work.** Read from the
+pinned bundle (`skills@1.5.23`, `dist/cli.mjs`, `removeCommand`), not inferred:
+
+```js
+let targetAgents
+if (options.agent && options.agent.length > 0) targetAgents = options.agent
+else targetAgents = Object.keys(agents)
+// ...
+const remainingAgents = (await detectInstalledAgents()).filter(
+  (a) => !targetAgents.includes(a),
+)
+let isStillUsed = false
+for (const agentKey of remainingAgents)
+  if (
+    await lstat(
+      getInstallPath(skillName, agentKey, { global: isGlobal, cwd }),
+    ).catch(() => null)
+  ) {
+    isStillUsed = true
+    break
+  }
+// ...
+if (!isStillUsed) await removeSkillFromLock(skillName)
+```
+
+Narrowing `--agent` to universal-source agents puts the agent holding the real
+copy into `remainingAgents`. Its install path exists, so `isStillUsed` is true,
+so `removeSkillFromLock` is never called and the lock record survives — exactly
+the state the fix was meant to clear. Narrowing the flag changes which
+directories get deleted; it cannot change whether the lock entry goes.
+
+**So the only branch left is owning the lock format**, which ADR 0001 rejected
+because the lock carries a `"version"` field and a parser means tracking the CLI
+forever. Nothing found here overturns that reasoning — this evidence only
+removes the alternative to it. That leaves a genuine architecture decision with
+no good option, which is a call for a human to make, not one to settle quietly
+inside a cleanup pass. **Still open, now with one branch eliminated.**
 
 **Depends on / blocked by:** Nothing.
 
@@ -1436,18 +1474,35 @@ scan false-negative, not an unprunable state — see there.
 - ~~`SUPPORTED_LOCK_VERSION` guards `version < 3` with no upper bound.~~
   FIXED: a higher version now reports `unavailable`, reusing the existing
   three-valued status channel.
-- `HealthWidget`'s `hasManualReviewOnly` now requires `!hasStaleLockEntries`,
+- ~~`HealthWidget`'s `hasManualReviewOnly` now requires `!hasStaleLockEntries`,
   so the "Manual review" affordance disappears whenever a stale lock coexists
   with inaccessible links; and the two CTAs can co-occur in a widget footer
-  with no wrap at minimum widget size.
-- Feature copy uses four nouns for one concept ("deleted skills", "records",
+  with no wrap at minimum widget size.~~ FIXED, and wider than filed. The flag
+  also required `!hasBrokenLinks`, which hid the label for the same reason in a
+  second state — neither CTA resolves an inaccessible link ("Scan issues" opens
+  the broken-link cleanup, "Prune lock" touches lock records), so suppressing
+  the label whenever one of them rendered left those links with nothing pointing
+  at them. It is now `hasManualReview = totals.inaccessible > 0`, which cannot
+  collide with `isHealthy` (that requires `inaccessible === 0`). The footer got
+  `flex-wrap`. One existing test asserted `getByText('manual')` non-exact and
+  began matching the footer label too; it is now `{ exact: true }`, matching the
+  sibling assertion that already was.
+- ~~Feature copy uses four nouns for one concept ("deleted skills", "records",
   "stale records", "skills that are no longer installed") against the internal
-  `StaleLockEntry` naming. Pick one.
+  `StaleLockEntry` naming. Pick one.~~ FIXED. The rule picked: **"record" is the
+  only countable noun**, and "skill" appears solely to say what a record points
+  at, never with a number. So the banner reads "still tracks 3 records for
+  skills you deleted" and the dialog "still tracks 3 records for skills that are
+  no longer installed"; the "stale" qualifier left the success toast, which the
+  button label already established. Both counts now agree with `recordNoun`
+  because they come from the same `describeLockPruneTarget` call.
 - ~~`PruneLockEntriesResult.skipped` has no reader in the renderer.~~ Not true
   as filed: `LockPruneDialog.tsx` reads it for the "Kept N records" toast on the
   nothing-pruned branch.
-- Dead JSDoc link `{@link skillLockService}` at `skillsCliService.ts:210`
-  (the line number in the original filing has drifted; the link itself is real).
+- ~~Dead JSDoc link `{@link skillLockService}` at `skillsCliService.ts:210`
+  (the line number in the original filing has drifted; the link itself is real).~~
+  FIXED: it now links `{@link pruneLockEntries}`, which is the actual caller and
+  a symbol a reader can reach.
 - No E2E reaches the npx-unavailable prune path. `e2e/spec/skill-lock-prune.e2e.ts`
   (added by /qa on `feat/prune-stale-skill-lock-entries`, 2026-09-06) covers
   every guard plus one real `npx skills remove`, but the branch where the CLI

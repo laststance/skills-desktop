@@ -138,8 +138,12 @@ export const HealthWidget = function HealthWidget(): React.ReactElement {
   const lockCount = useAppSelector(selectLockRecordsNeedingAttention)
   const hasBrokenLinks = totals.broken > 0
   const hasStaleLockEntries = lockCount > 0
-  const hasManualReviewOnly =
-    !hasBrokenLinks && !hasStaleLockEntries && totals.inaccessible > 0
+  // Inaccessible links are what "manual review" means, and nothing else in this
+  // footer resolves them: "Scan issues" opens the broken-link cleanup and
+  // "Prune lock" touches lock records. Gating this on the absence of those two
+  // hid the label exactly when the widget was busiest, so a user with a broken
+  // link AND an unreadable one was never told about the second.
+  const hasManualReview = totals.inaccessible > 0
   const isHealthy =
     !hasBrokenLinks && !hasStaleLockEntries && totals.inaccessible === 0
 
@@ -201,7 +205,7 @@ export const HealthWidget = function HealthWidget(): React.ReactElement {
           ) : null}
         </div>
       </div>
-      <div className="min-h-8 mt-auto flex items-center justify-end gap-1.5">
+      <div className="min-h-8 mt-auto flex flex-wrap items-center justify-end gap-1.5">
         {hasBrokenLinks ? (
           <Button
             type="button"
@@ -229,7 +233,7 @@ export const HealthWidget = function HealthWidget(): React.ReactElement {
             {prunableLockCount > 0 ? 'Prune lock' : 'Review lock'}
           </Button>
         ) : null}
-        {hasManualReviewOnly ? (
+        {hasManualReview ? (
           <span className="text-[11px] text-amber-400">Manual review</span>
         ) : null}
         {isHealthy ? (

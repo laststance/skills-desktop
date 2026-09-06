@@ -111,7 +111,7 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
       )
     } else {
       toast.success(
-        `Removed ${result.pruned.length} stale ${pluralize(result.pruned.length, 'record')} from the skill lock.`,
+        `Removed ${result.pruned.length} ${pluralize(result.pruned.length, 'record')} from the skill lock.`,
       )
     }
 
@@ -134,8 +134,9 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
           <DialogDescription>
             {hasRemovableRecords ? (
               <>
-                The skills CLI still tracks {copy.subject} no longer installed.
-                Until the {copy.recordNoun} {copy.recordVerb} removed,{' '}
+                The skills CLI still tracks {copy.subject} that{' '}
+                {copy.recordVerb} no longer installed. Until the{' '}
+                {copy.recordNoun} {copy.recordVerb} removed,{' '}
                 <code className="text-xs">skills -g update</code> reinstalls{' '}
                 {copy.pronoun}.
               </>

@@ -102,7 +102,9 @@ describe('LockPruneBanner', () => {
 
     // Assert
     await expect
-      .element(screen.getByText(/still tracks 1 deleted skill,/))
+      .element(
+        screen.getByText(/still tracks 1 record for a skill you deleted,/),
+      )
       .toBeVisible()
   })
 

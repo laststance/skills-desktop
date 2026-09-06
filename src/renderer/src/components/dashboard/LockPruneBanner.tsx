@@ -39,11 +39,12 @@ export const LockPruneBanner =
           aria-hidden="true"
         />
         <p className="flex-1 text-xs text-foreground">
-          The skills CLI still tracks {staleCount} deleted{' '}
-          {pluralize(staleCount, 'skill')}, so{' '}
+          The skills CLI still tracks {staleCount}{' '}
+          {pluralize(staleCount, 'record')} for{' '}
+          {staleCount === 1 ? 'a skill' : 'skills'} you deleted, so{' '}
           <code className="text-[11px]">skills -g update</code> brings{' '}
-          {staleCount === 1 ? 'it' : 'them'} back. You can prune those records
-          here now.
+          {staleCount === 1 ? 'it' : 'them'} back. You can prune{' '}
+          {staleCount === 1 ? 'it' : 'them'} here now.
         </p>
         <Button
           type="button"

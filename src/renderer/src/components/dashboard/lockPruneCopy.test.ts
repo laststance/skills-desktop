@@ -19,7 +19,7 @@ describe('describeLockPruneTarget', () => {
 
     // Assert
     expect(copy).toEqual({
-      subject: 'a skill that is',
+      subject: '1 record for a skill',
       recordNoun: 'record',
       recordVerb: 'is',
       pronoun: 'it',
@@ -36,7 +36,7 @@ describe('describeLockPruneTarget', () => {
 
     // Assert
     expect(copy).toEqual({
-      subject: '3 skills that are',
+      subject: '3 records for skills',
       recordNoun: 'records',
       recordVerb: 'are',
       pronoun: 'them',
@@ -47,7 +47,7 @@ describe('describeLockPruneTarget', () => {
   test('stays plural at zero so an empty dialog never reads as one skill', () => {
     // Arrange
     // The dialog opens on whatever the scan found; a race can leave it empty,
-    // and "a skill that is no longer installed" would then be a lie.
+    // and "1 record for a skill" would then be a lie.
     const count = 0
 
     // Act
@@ -55,7 +55,7 @@ describe('describeLockPruneTarget', () => {
 
     // Assert
     expect(copy).toEqual({
-      subject: '0 skills that are',
+      subject: '0 records for skills',
       recordNoun: 'records',
       recordVerb: 'are',
       pronoun: 'them',

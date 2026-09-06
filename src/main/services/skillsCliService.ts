@@ -207,7 +207,7 @@ class SkillsCliService extends EventEmitter {
 
   /**
    * Remove skills from the global lock using `npx skills remove <names...>`.
-   * Called by {@link skillLockService} to prune records whose skill is already
+   * Called by {@link pruneLockEntries} to prune records whose skill is already
    * gone from disk; the CLI owns the lock format, so the app never writes it.
    *
    * Deliberately passes no `onOutput` callback: `parseProgressFromOutput`
