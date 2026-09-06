@@ -447,14 +447,14 @@ interface SourceMoveFailure {
 /**
  * Move a source folder into a trash entry while preserving staged EXDEV recovery copies.
  * @param sourcePath - Reviewed skill source directory to move.
- * @param entrySourceDir - Destination `<entryDir>/source` directory.
+ * @param entrySourceDir - Destination `<stagingDir>/source` directory.
  * @returns
  * - `null` once the source sits inside the entry
  * - a failure object otherwise; its `preserveEntryDirForManualRecovery` tells
  *   the caller the entry now holds the user's only copy. The caller, not this
  *   function, appends the "preserved in <path>" hint — only it knows where the
  *   publish rename left the data.
- * @example await moveSourceIntoTrashEntry('/Users/me/.agents/skills/x', '/Users/me/.agents/.trash/id/source')
+ * @example await moveSourceIntoTrashEntry('/Users/me/.agents/skills/x', '/Users/me/.agents/.trash/.staging-id/source')
  */
 async function moveSourceIntoTrashEntry(
   sourcePath: AbsolutePath,
@@ -1240,7 +1240,7 @@ async function moveSourceBackedToTrash(
       const recoveryDir = await publishManualRecoveryEntry(
         stagingDir,
         entryDir,
-        'source manifest rollback failed to restore original path',
+        'source entry publish rollback failed to restore original path',
       )
       strandedSourceDir = join(recoveryDir, 'source')
     }
