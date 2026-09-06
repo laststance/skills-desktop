@@ -4,16 +4,22 @@ import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
+import type { UnprunableLockEntry } from '@/shared/types'
 
 /**
  * Render the announcement with real reducers so dismissal and the CTA go
  * through the same Redux path the app uses.
  * @param staleLockNames - Stale records to seed; empty means nothing to announce.
  * @param dismissed - Whether the user already dismissed the announcement.
+ * @param unprunable - Blocked records to seed alongside the prunable ones.
  * @returns Browser screen and store.
  * @example const { screen } = await renderBanner(['old-skill'])
  */
-async function renderBanner(staleLockNames: string[], dismissed = false) {
+async function renderBanner(
+  staleLockNames: string[],
+  dismissed = false,
+  unprunable: UnprunableLockEntry[] = [],
+) {
   const [
     { default: dashboardReducer, dismissLockPruneBanner },
     { default: skillLockReducer, fetchStaleLockEntries },
@@ -37,7 +43,7 @@ async function renderBanner(staleLockNames: string[], dismissed = false) {
   store.dispatch(fetchStaleLockEntries.pending('req-lock', undefined))
   store.dispatch(
     fetchStaleLockEntries.fulfilled(
-      { status: 'ok', names: staleLockNames, unprunable: [] },
+      { status: 'ok', names: staleLockNames, unprunable },
       'req-lock',
       undefined,
     ),
@@ -66,6 +72,18 @@ describe('LockPruneBanner', () => {
   test('stays hidden when the lock and the installed skills already agree', async () => {
     // Arrange / Act
     const { screen } = await renderBanner([])
+
+    // Assert
+    expect(
+      screen.getByRole('button', { name: 'Prune lock' }).query(),
+    ).toBeNull()
+  })
+
+  test('stays hidden when every stale record is blocked from being pruned', async () => {
+    // Arrange / Act
+    const { screen } = await renderBanner([], false, [
+      { name: 'agent-copy-skill', reason: 'agent-copy' },
+    ])
 
     // Assert
     expect(

@@ -60,11 +60,21 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
   // Every count-dependent phrase comes from one call, so the sentence, the
   // pronoun and the button label cannot disagree about how many records there
   // are. Tested directly in `lockPruneCopy.test.ts`, without rendering.
-  const copy = describeLockPruneTarget(consentedNames.length)
+  // A scan landing while the dialog is open can move a consented name into the
+  // blocked list — an agent copy appearing mid-dialog does exactly that. Left
+  // alone, the same record would sit in the delete list AND in the section
+  // explaining it cannot be deleted. Filtering only ever removes names from
+  // what the button sends, so the consent snapshot still holds: the user can
+  // never have more deleted than they read.
+  const blockedNames = new Set(unprunableEntries.map((entry) => entry.name))
+  const removableNames = consentedNames.filter(
+    (name) => !blockedNames.has(name),
+  )
+  const copy = describeLockPruneTarget(removableNames.length)
   // The dialog is reachable with nothing to remove: a user whose stale records
   // are ALL blocked still needs to reach the explanation. Without this the
   // whole body would read "0 skills" behind a "Remove 0 records" button.
-  const hasRemovableRecords = consentedNames.length > 0
+  const hasRemovableRecords = removableNames.length > 0
 
   const handleClose = (): void => {
     if (!isPruning) dispatch(closeLockPruneDialog())
@@ -73,7 +83,7 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
   const handlePrune = async (): Promise<void> => {
     let result: PruneLockEntriesResult
     try {
-      result = await dispatch(pruneStaleLockEntries(consentedNames)).unwrap()
+      result = await dispatch(pruneStaleLockEntries(removableNames)).unwrap()
     } catch (error) {
       // A rejected thunk (IPC down, zod refusing an arg, main-process throw)
       // used to escape this handler unhandled: the dialog stayed open with no
@@ -90,7 +100,7 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
     // that survived will show up in the widget again on the next scan.
     if (result.failed.length > 0) {
       toast.error(
-        `Could not remove ${result.failed.length} of ${consentedNames.length} ${pluralize(consentedNames.length, 'record')}.`,
+        `Could not remove ${result.failed.length} of ${removableNames.length} ${pluralize(removableNames.length, 'record')}.`,
       )
     } else if (result.pruned.length === 0) {
       // Nothing failed, but nothing went either — main revalidated every name
@@ -146,7 +156,7 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
         {hasRemovableRecords ? (
           <ScrollArea className="max-h-48 rounded-md border border-border">
             <ul className="p-3 space-y-1 text-sm">
-              {consentedNames.map((name) => (
+              {removableNames.map((name) => (
                 <li
                   key={name}
                   className="font-mono text-xs text-muted-foreground"

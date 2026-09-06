@@ -296,6 +296,39 @@ describe('LockPruneDialog', () => {
       .toBeVisible()
   })
 
+  test('stops offering a record the scan blocked while the dialog was open', async () => {
+    // Arrange
+    const { screen, store } = await renderDialog([
+      'plain-stale',
+      'agent-copy-skill',
+    ])
+    const { fetchStaleLockEntries } =
+      await import('@/renderer/src/redux/slices/skillLockSlice')
+
+    // Act - an agent copy appears under one of the consented names mid-dialog.
+    store.dispatch(fetchStaleLockEntries.pending('req-lock-2', undefined))
+    store.dispatch(
+      fetchStaleLockEntries.fulfilled(
+        {
+          status: 'ok',
+          names: ['plain-stale'],
+          unprunable: [{ name: 'agent-copy-skill', reason: 'agent-copy' }],
+        },
+        'req-lock-2',
+        undefined,
+      ),
+    )
+
+    // Assert - the button drops it rather than promising a delete the blocked
+    // section on the same screen says is impossible.
+    await expect
+      .element(screen.getByRole('button', { name: 'Remove 1 record' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByText('1 record needs attention first'))
+      .toBeVisible()
+  })
+
   test('offers no delete button at all when every stale record is blocked', async () => {
     // Arrange
     // This is the dead end the feature used to have: nothing prunable meant no
