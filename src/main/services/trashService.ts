@@ -387,19 +387,21 @@ async function publishManualRecoveryEntry(
  * rename. Both trash paths call it as their last forward step; a rejection
  * means the entry never became a tombstone, so the caller's catch owns the
  * rollback and the staged dir is still whole when it runs.
- * @param manifestPath - `manifest.json` inside {@link stagingDir}.
  * @param manifest - v2 manifest for either trash kind.
  * @param stagingDir - Half-built entry under {@link STAGED_ENTRY_PREFIX}.
  * @param entryDir - Tombstone-named path to publish it as.
  * @returns Nothing. Throws the underlying fs error from either step.
- * @example await writeManifestThenPublish(manifestPath, manifest, stagingDir, entryDir)
+ * @example await writeManifestThenPublish(manifest, stagingDir, entryDir)
  */
 async function writeManifestThenPublish(
-  manifestPath: AbsolutePath,
   manifest: z.infer<typeof manifestSchema>,
   stagingDir: AbsolutePath,
   entryDir: AbsolutePath,
 ): Promise<void> {
+  // Derived, never passed in: the manifest has to land inside the very dir the
+  // next line renames away, and a caller free to pass its own path is a caller
+  // free to write it where the publish leaves it behind.
+  const manifestPath = join(stagingDir, 'manifest.json')
   await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8')
   // Rename is atomic, so a failure here leaves the staged entry intact rather
   // than a half-published tombstone.
@@ -1187,7 +1189,6 @@ async function moveSourceBackedToTrash(
   // parses as a tombstone, so the source waits there instead of being swept.
   const stagingDir = join(TRASH_DIR, `${STAGED_ENTRY_PREFIX}${entryName}`)
   const entrySourceDir = join(stagingDir, 'source')
-  const manifestPath = join(stagingDir, 'manifest.json')
 
   // Walk agents, collect + remove symlinks. Abort on non-ENOENT unlink failure.
   const { recordedSymlinks, cascadeAgentIds } =
@@ -1252,7 +1253,7 @@ async function moveSourceBackedToTrash(
     symlinks: recordedSymlinks,
   }
   try {
-    await writeManifestThenPublish(manifestPath, manifest, stagingDir, entryDir)
+    await writeManifestThenPublish(manifest, stagingDir, entryDir)
   } catch (entryPublishError) {
     const entryPublishCode = errorCode(entryPublishError)
     const entryPublishMessage = extractErrorMessage(entryPublishError)
@@ -1361,7 +1362,6 @@ async function moveLocalOnlyToTrash(
   // instead of half an entry the sweep would act on.
   const stagingDir = join(TRASH_DIR, `${STAGED_ENTRY_PREFIX}${entryName}`)
   const localCopiesRoot = join(stagingDir, 'local-copies')
-  const manifestPath = join(stagingDir, 'manifest.json')
 
   await fs.mkdir(localCopiesRoot, { recursive: true })
 
@@ -1427,7 +1427,7 @@ async function moveLocalOnlyToTrash(
               await moveDirectoryNoOverwrite(siblingStagePath, copy.linkPath)
               return {
                 kind: 'fatal' as const,
-                preserveEntryDir: false,
+                preserveStagedEntry: false,
                 strandedAgentId: copy.agentId,
                 error: coerceTrashError(
                   identityError,
@@ -1448,12 +1448,17 @@ async function moveLocalOnlyToTrash(
                 stagedCopyCreated = true
               }
             }
+            // No path here on purpose. A non-empty hint implies
+            // preserveStagedEntry, which routes every caller through the publish
+            // rename below -- so naming stagedPath would name a directory that
+            // no longer exists by the time the caller wraps this message with
+            // the one it does still live in.
             const recoveryHint = stagedCopyCreated
-              ? `; staged copy preserved in ${stagedPath}`
+              ? '; staged copy preserved in trash for manual recovery'
               : ''
             return {
               kind: 'fatal' as const,
-              preserveEntryDir: stagedCopyCreated,
+              preserveStagedEntry: stagedCopyCreated,
               strandedAgentId: copy.agentId,
               error: new TrashError(
                 `Failed to move local copy (cross-device, agent=${copy.agentId}): ${extractErrorMessage(fallbackError)}${recoveryHint}`,
@@ -1465,7 +1470,7 @@ async function moveLocalOnlyToTrash(
         .with('ENOENT', async () => ({ kind: 'race-skip' as const }))
         .otherwise(async () => ({
           kind: 'fatal' as const,
-          preserveEntryDir: false,
+          preserveStagedEntry: false,
           strandedAgentId: copy.agentId,
           error: new TrashError(
             `Failed to move local copy (agent=${copy.agentId}): ${extractErrorMessage(error)}`,
@@ -1480,7 +1485,7 @@ async function moveLocalOnlyToTrash(
         )
         if (
           unrestoredCopies.length === 0 &&
-          !recoveryOutcome.preserveEntryDir
+          !recoveryOutcome.preserveStagedEntry
         ) {
           // All copies restored — safe to drop the staged entry dir.
           /* v8 ignore next 3 -- best-effort cleanup: any fs.rm rejection (EPERM/EBUSY/EACCES — force only suppresses ENOENT) is intentionally swallowed by .catch, and no suite stages a writable-but-unremovable dir, so this recovery arm is unreachable under test */
@@ -1503,7 +1508,7 @@ async function moveLocalOnlyToTrash(
         const strandedAgents = Array.from(
           new Set([
             ...unrestoredCopies.map((copy) => copy.agentId),
-            ...(recoveryOutcome.preserveEntryDir
+            ...(recoveryOutcome.preserveStagedEntry
               ? [recoveryOutcome.strandedAgentId]
               : []),
           ]),
@@ -1537,7 +1542,7 @@ async function moveLocalOnlyToTrash(
     localCopies: moved.map(({ agentId, linkPath }) => ({ agentId, linkPath })),
   }
   try {
-    await writeManifestThenPublish(manifestPath, manifest, stagingDir, entryDir)
+    await writeManifestThenPublish(manifest, stagingDir, entryDir)
   } catch (entryPublishError) {
     const entryPublishCode = errorCode(entryPublishError)
     const entryPublishMessage = extractErrorMessage(entryPublishError)
