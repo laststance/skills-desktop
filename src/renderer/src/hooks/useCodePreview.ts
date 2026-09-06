@@ -76,9 +76,21 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
     // leaves the pane with nothing to show; a rejected content read leaves a
     // perfectly good tab bar that must stay on screen.
     let listSucceeded = false
+    // Stronger than `cancelled`, and needed because it closes a window
+    // `cancelled` cannot: the ref is reassigned during the RENDER of the next
+    // skill, while `cancelled` is only set at commit, when React runs this
+    // effect's cleanup. A rejection landing between those two points would see
+    // `cancelled === false` and write this skill's failure over the next one's
+    // state. That matters for `loadFailed` specifically: every other value here
+    // is overwritten by the next skill's own load, but `loadFailed` is cleared
+    // only by the render-phase reset, which has already run by then -- so a
+    // stale `true` would strand a readable skill on the unavailable pane.
+    const isStaleSkill = (): boolean => prevSkillPathRef.current !== skillPath
     async function loadFiles(): Promise<void> {
       const fileList = await window.electron.files.list(skillPath)
       if (cancelled) return
+      /* v8 ignore next -- unreachable under test for the same reason it exists: the window it closes opens between React's render phase (where prevSkillPathRef is reassigned) and its commit phase (where this effect's cleanup sets `cancelled`), and `rerender` runs both synchronously, so `cancelled` always wins in the harness */
+      if (isStaleSkill()) return
       listSucceeded = true
       setFiles(fileList)
       setLoadedPath(skillPath)
@@ -102,6 +114,8 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
       // The UI states the cause in plain language; DevTools gets the real one.
       console.warn('[preview] failed to load skill files:', error)
       if (cancelled) return
+      /* v8 ignore next -- unreachable under test for the same reason it exists: the window it closes opens between React's render phase (where prevSkillPathRef is reassigned) and its commit phase (where this effect's cleanup sets `cancelled`), and `rerender` runs both synchronously, so `cancelled` always wins in the harness */
+      if (isStaleSkill()) return
       setLoadedPath(skillPath)
       if (!listSucceeded) {
         setLoadFailed(true)

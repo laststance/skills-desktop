@@ -595,6 +595,54 @@ describe('useCodePreview', () => {
     expect(result.current.activeFile).toBeNull()
   })
 
+  test("ignores a previous skill's list rejection that lands after the next skill loaded", async () => {
+    // Arrange -- ordering twin of the test below: there the rejection settles
+    // BEFORE the switch, here it settles after, so the stale catch runs while
+    // skill B already owns the pane.
+    const fileB = makeFile({ path: '/skills/b/SKILL.md' })
+    const bodyB = makeTextContent({ content: 'B' })
+    let rejectA: ((reason: Error) => void) | null = null
+    listMock.mockImplementation(async (p) => {
+      if (p === '/outside/skills/a') {
+        return new Promise<SkillFile[]>((_res, rej) => {
+          rejectA = rej
+        })
+      }
+      return [fileB]
+    })
+    readMock.mockResolvedValue(bodyB)
+
+    const { useCodePreview } = await import('./useCodePreview')
+    const { result, rerender, act } = await renderHook(
+      (props?: { path: string }) =>
+        useCodePreview(props?.path ?? '/outside/skills/a'),
+      { initialProps: { path: '/outside/skills/a' } },
+    )
+    // Gate on the pending call: without it `rejectA?.(…)` could no-op.
+    await expect
+      .poll(() => listMock.mock.calls.some((c) => c[0] === '/outside/skills/a'))
+      .toBe(true)
+
+    // Act
+    rerender({ path: '/skills/b' })
+    await expect
+      .poll(() => result.current.content)
+      .toEqual({ kind: 'text', data: bodyB })
+    // Only now does skill A's list fail.
+    await act(async () => {
+      rejectA?.(new Error('Path traversal attempt detected'))
+      await Promise.resolve()
+    })
+
+    // Assert
+    // Skill B is readable; A's failure must not strand it on the unavailable
+    // pane, and must not roll `loadedPath` back to A and re-show the spinner.
+    expect(result.current.loadFailed).toBe(false)
+    expect(result.current.loading).toBe(false)
+    expect(result.current.content).toEqual({ kind: 'text', data: bodyB })
+    expect(result.current.activeFile).toBe(fileB.path)
+  })
+
   test("drops a previous skill's load failure when a readable skill is opened", async () => {
     // Arrange -- skill A is unreadable, skill B lists fine.
     const fileB = makeFile({ path: '/skills/b/SKILL.md' })
