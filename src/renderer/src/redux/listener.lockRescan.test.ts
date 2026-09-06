@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { LOCK_RESCAN_GRACE_MS, UNDO_WINDOW_MS } from '@/shared/constants'
 import type { ToastId, TombstoneId } from '@/shared/types'
@@ -75,7 +75,7 @@ afterEach(() => {
 })
 
 describe('skill-lock rescan after the undo window', () => {
-  it('surfaces a lock record whose background prune failed, without leaving the dashboard', async () => {
+  test('surfaces a lock record whose background prune failed, without leaving the dashboard', async () => {
     // Arrange
     const store = await createStore()
     const { setUndoToast } = await import('./slices/uiSlice')
@@ -93,7 +93,7 @@ describe('skill-lock rescan after the undo window', () => {
     expect(store.getState().skillLock.staleNames).toEqual(['old-skill'])
   })
 
-  it('holds the rescan until the undo window has actually closed', async () => {
+  test('holds the rescan until the undo window has actually closed', async () => {
     // Arrange — scanning while the tombstone is still restorable would report
     // nothing (the trash entry excludes it) and waste the one trailing scan.
     const store = await createStore()
@@ -107,7 +107,7 @@ describe('skill-lock rescan after the undo window', () => {
     expect(mockScanStaleLockEntries).not.toHaveBeenCalled()
   })
 
-  it('never rescans for an unlink, which moves nothing to the trash', async () => {
+  test('never rescans for an unlink, which moves nothing to the trash', async () => {
     // Arrange
     const store = await createStore()
     const { setUndoToast } = await import('./slices/uiSlice')
@@ -120,7 +120,7 @@ describe('skill-lock rescan after the undo window', () => {
     expect(mockScanStaleLockEntries).not.toHaveBeenCalled()
   })
 
-  it('collapses back-to-back deletes into one trailing rescan', async () => {
+  test('collapses back-to-back deletes into one trailing rescan', async () => {
     // Arrange — each delete restarts the wait, so a user clearing several
     // skills in a row triggers one scan after the last window, not one each.
     const store = await createStore()

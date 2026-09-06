@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -50,38 +50,38 @@ async function renderBanner(staleLockNames: string[], dismissed = false) {
 }
 
 describe('LockPruneBanner', () => {
-  it('announces the capability the first time stale lock records are found', async () => {
+  test('announces the capability the first time stale lock records are found', async () => {
     // Arrange / Act
     const { screen } = await renderBanner(['old-skill'])
 
     // Assert
     await expect
-      .element(screen.getByRole('button', { name: 'Clean lock' }))
+      .element(screen.getByRole('button', { name: 'Prune lock' }))
       .toBeVisible()
   })
 
-  it('stays hidden when the lock and the installed skills already agree', async () => {
+  test('stays hidden when the lock and the installed skills already agree', async () => {
     // Arrange / Act
     const { screen } = await renderBanner([])
 
     // Assert
     expect(
-      screen.getByRole('button', { name: 'Clean lock' }).query(),
+      screen.getByRole('button', { name: 'Prune lock' }).query(),
     ).toBeNull()
   })
 
-  it('opens the prune dialog from the announcement CTA', async () => {
+  test('opens the prune dialog from the announcement CTA', async () => {
     // Arrange
     const { screen, store } = await renderBanner(['old-skill'])
 
     // Act
-    await screen.getByRole('button', { name: 'Clean lock' }).click()
+    await screen.getByRole('button', { name: 'Prune lock' }).click()
 
     // Assert
     expect(store.getState().ui.lockPruneDialogOpen).toBe(true)
   })
 
-  it('never comes back once dismissed, even while records are still stale', async () => {
+  test('never comes back once dismissed, even while records are still stale', async () => {
     // Arrange — the HealthWidget row is the recurring surface; the banner
     // exists to introduce the feature once, not to nag.
     const { screen, store } = await renderBanner(['old-skill'])
@@ -94,17 +94,17 @@ describe('LockPruneBanner', () => {
     // Assert
     expect(store.getState().dashboard.lockPruneBannerDismissed).toBe(true)
     expect(
-      screen.getByRole('button', { name: 'Clean lock' }).query(),
+      screen.getByRole('button', { name: 'Prune lock' }).query(),
     ).toBeNull()
   })
 
-  it('stays hidden on a later launch after a previous dismissal', async () => {
+  test('stays hidden on a later launch after a previous dismissal', async () => {
     // Arrange / Act
     const { screen } = await renderBanner(['old-skill'], true)
 
     // Assert
     expect(
-      screen.getByRole('button', { name: 'Clean lock' }).query(),
+      screen.getByRole('button', { name: 'Prune lock' }).query(),
     ).toBeNull()
   })
 })

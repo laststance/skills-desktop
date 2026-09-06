@@ -139,7 +139,7 @@ describe('scanStaleLockEntries', () => {
 
   test('settles a queued prune before counting, so it never offers work already in flight', async () => {
     // Arrange — evict() queues the prune behind a 500ms debounce. A scan fired
-    // the moment the undo window closes would otherwise show a "Clean lock"
+    // the moment the undo window closes would otherwise show a "Prune lock"
     // CTA for a record the trash is in the middle of removing.
     const { scanStaleLockEntries, queuePrune } = await serviceModule
     await writeLock(['evicted-skill'])
@@ -181,6 +181,45 @@ describe('scanStaleLockEntries', () => {
 
     // Assert
     expect(result).toEqual({ status: 'unavailable' })
+  })
+
+  test('reports unavailable rather than flagging a mid-undo skill when a trash entry cannot be read', async () => {
+    // Arrange
+    // The trash is the only proof a deleted skill is still restorable. Reading
+    // an unreadable trash as "nothing staged" reports the record stale, and
+    // Undo then puts the skill back with its lock record already pruned.
+    const { scanStaleLockEntries } = await serviceModule
+    await writeLock(['pending-undo'])
+    // A directory where manifest.json belongs makes readFile fail with EISDIR:
+    // an error that is emphatically not "absent", which is the distinction here.
+    await mkdir(join(trashDir, '1700000000000-x-aaaaaaaa', 'manifest.json'), {
+      recursive: true,
+    })
+
+    // Act
+    const result = await scanStaleLockEntries()
+
+    // Assert
+    expect(result).toEqual({ status: 'unavailable' })
+  })
+
+  test('reports no stale entries when the lock predates the version the CLI reads', async () => {
+    // Arrange
+    // The CLI wipes any lock below version 3 on its next read, so these records
+    // can never trigger a reinstall. Offering to prune them would be busywork.
+    const { scanStaleLockEntries } = await serviceModule
+    await mkdir(join(sharedHome, '.agents'), { recursive: true })
+    await writeFile(
+      lockPath,
+      JSON.stringify({ version: 2, skills: { 'ancient-skill': {} } }),
+      'utf-8',
+    )
+
+    // Act
+    const result = await scanStaleLockEntries()
+
+    // Assert
+    expect(result).toEqual({ status: 'ok', names: [] })
   })
 
   test('reports unavailable rather than zero when the lock file is corrupt', async () => {

@@ -195,13 +195,13 @@ describe('HealthWidget', () => {
 })
 
 describe('HealthWidget stale skill-lock records', () => {
-  it('offers Clean lock when the skills CLI still tracks a deleted skill', async () => {
+  it('offers Prune lock when the skills CLI still tracks a deleted skill', async () => {
     // Arrange
     const skills = [makeSkill([makeSymlink('valid')])]
     const { screen, store } = await renderHealthWidget(skills, ['old-skill'])
 
     // Act
-    await screen.getByRole('button', { name: 'Clean lock' }).click()
+    await screen.getByRole('button', { name: 'Prune lock' }).click()
 
     // Assert
     expect(store.getState().ui.lockPruneDialogOpen).toBe(true)
@@ -219,7 +219,7 @@ describe('HealthWidget stale skill-lock records', () => {
       .element(screen.getByRole('button', { name: 'Scan issues' }))
       .toBeVisible()
     await expect
-      .element(screen.getByRole('button', { name: 'Clean lock' }))
+      .element(screen.getByRole('button', { name: 'Prune lock' }))
       .toBeVisible()
   })
 
@@ -266,7 +266,7 @@ describe('HealthWidget stale skill-lock records', () => {
     // Assert
     await expect.element(screen.getByText('Healthy')).toBeVisible()
     expect(
-      screen.getByRole('button', { name: 'Clean lock' }).query(),
+      screen.getByRole('button', { name: 'Prune lock' }).query(),
     ).toBeNull()
   })
 })

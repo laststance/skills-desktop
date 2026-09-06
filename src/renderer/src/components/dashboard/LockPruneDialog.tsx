@@ -70,7 +70,7 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogIconHeader icon={FileWarning} title="Clean skill lock" />
+          <DialogIconHeader icon={FileWarning} title="Prune skill lock" />
           <DialogDescription>
             The skills CLI still tracks{' '}
             {staleNames.length === 1
@@ -105,7 +105,7 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
             {isPruning ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Cleaning...
+                Pruning...
               </>
             ) : (
               `Remove ${staleNames.length} ${pluralize(staleNames.length, 'record')}`

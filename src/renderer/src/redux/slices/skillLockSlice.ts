@@ -73,7 +73,7 @@ const skillLockSlice = createSlice({
           return
         }
         // Main could not compare the two sides. Drop the count rather than
-        // showing a stale one next to a "clean up" button.
+        // showing a stale one next to a "prune" button.
         state.status = 'unavailable'
         state.staleNames = []
       })
@@ -106,7 +106,7 @@ export const selectStaleLockEntryNames = (state: RootState): SkillName[] =>
   state.skillLock.staleNames
 
 /**
- * How many lock records the user could clean up right now.
+ * How many lock records the user could prune right now.
  * Zero while the scan is unavailable, so no surface offers an action that main
  * would refuse to perform.
  * @param state - Root Redux state.

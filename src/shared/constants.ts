@@ -1043,7 +1043,7 @@ export const UNDO_WINDOW_MS = 15_000
 
 /**
  * Extra wait before the post-delete skill-lock rescan (ms), on top of
- * `UNDO_WINDOW_MS`. Covers the gap between the toast expiring in the renderer
+ * {@link UNDO_WINDOW_MS}. Covers the gap between the toast expiring in the renderer
  * and the main-process evict timer firing for the same tombstone; the scan
  * itself then drains any queued prune, so this only has to absorb clock jitter
  * between two timers, not the CLI call.

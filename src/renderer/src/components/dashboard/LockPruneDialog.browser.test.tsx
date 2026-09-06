@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -65,7 +65,7 @@ beforeEach(() => {
 })
 
 describe('LockPruneDialog', () => {
-  it('names every record it is about to remove, with no per-item choice', async () => {
+  test('names every record it is about to remove, with no per-item choice', async () => {
     // Arrange — each listed record points at a skill that is already gone, so
     // there is nothing meaningful to select between.
     const { screen } = await renderDialog(['old-skill', 'another-skill'])
@@ -78,7 +78,7 @@ describe('LockPruneDialog', () => {
       .toBeVisible()
   })
 
-  it('sends the confirmed records to main and closes on success', async () => {
+  test('sends the confirmed records to main and closes on success', async () => {
     // Arrange
     mockPruneLockEntries.mockResolvedValue({
       pruned: ['old-skill'],
@@ -97,7 +97,7 @@ describe('LockPruneDialog', () => {
     })
   })
 
-  it('keeps a record that survived removal in the stale list', async () => {
+  test('keeps a record that survived removal in the stale list', async () => {
     // Arrange — `skills remove` exits 0 even when a removal failed, so main
     // reports survivors and the widget has to keep offering them.
     mockPruneLockEntries.mockResolvedValue({
@@ -120,7 +120,7 @@ describe('LockPruneDialog', () => {
     })
   })
 
-  it('closes without touching the lock when the user cancels', async () => {
+  test('closes without touching the lock when the user cancels', async () => {
     // Arrange
     const { screen, store } = await renderDialog(['old-skill'])
 

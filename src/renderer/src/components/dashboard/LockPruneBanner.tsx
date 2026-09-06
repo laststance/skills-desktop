@@ -12,7 +12,7 @@ import { openLockPruneDialog } from '@/renderer/src/redux/slices/uiSlice'
 import { pluralize } from '@/renderer/src/utils/pluralize'
 
 /**
- * One-time announcement that the app can now clean the skills CLI lock.
+ * One-time announcement that the app can now prune the skills CLI lock.
  *
  * Renders only when there is something to act on and the user has not
  * dismissed it. Dismissal is permanent (persisted in `dashboard`) because the
@@ -28,7 +28,7 @@ export const LockPruneBanner =
     if (isDismissed || staleCount === 0) return null
 
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-amber-400/40 bg-amber-400/10 px-4 py-2.5">
+      <div className="flex items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5">
         <FileWarning
           className="h-4 w-4 shrink-0 text-amber-400"
           aria-hidden="true"
@@ -37,8 +37,8 @@ export const LockPruneBanner =
           The skills CLI still tracks {staleCount} deleted{' '}
           {pluralize(staleCount, 'skill')}, so{' '}
           <code className="text-[11px]">skills -g update</code> brings{' '}
-          {staleCount === 1 ? 'it' : 'them'} back. You can clean that up here
-          now.
+          {staleCount === 1 ? 'it' : 'them'} back. You can prune those records
+          here now.
         </p>
         <Button
           type="button"
@@ -47,13 +47,13 @@ export const LockPruneBanner =
           onClick={() => dispatch(openLockPruneDialog())}
           className="h-7 min-h-7 shrink-0 px-2 text-[11px]"
         >
-          Clean lock
+          Prune lock
         </Button>
         <button
           type="button"
           onClick={() => dispatch(dismissLockPruneBanner())}
           aria-label="Dismiss skill lock announcement"
-          className="min-h-6 min-w-6 shrink-0 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          className="min-h-7 min-w-7 shrink-0 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
           <X className="h-3.5 w-3.5" aria-hidden="true" />
         </button>

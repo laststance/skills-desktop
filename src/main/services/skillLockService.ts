@@ -2,6 +2,8 @@ import * as fs from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join } from 'node:path'
 
+import { z } from 'zod'
+
 import { SOURCE_DIR, TRASH_DIR } from '@/main/constants'
 import { manifestSchema } from '@/main/ipc/ipc-schemas'
 import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
@@ -22,8 +24,21 @@ import { skillsCliService } from './skillsCliService'
  */
 const SUPPORTED_LOCK_VERSION = 3
 
+/**
+ * The slice of the CLI's global lock this app depends on. Values are unknown on
+ * purpose: only the keys matter here, and pinning the record's value shape would
+ * make us reject locks the CLI itself is happy to read.
+ */
+const skillLockSchema = z.object({
+  version: z.number(),
+  skills: z.record(z.string(), z.unknown()),
+})
+
 /** Filename the CLI uses for the global lock, under both path layouts. */
 const LOCK_FILE = '.skill-lock.json'
+
+/** Directory-name cap the CLI's `sanitizeName` applies (`installer.ts`). */
+const MAX_DIR_NAME_LENGTH = 255
 
 /**
  * How long evicted names sit in the queue before one batched CLI call.
@@ -90,7 +105,7 @@ export function sanitizeName(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9._]+/g, '-')
     .replace(/^[.\-]+|[.\-]+$/g, '')
-  return sanitized.substring(0, 255) || 'unnamed-skill'
+  return sanitized.substring(0, MAX_DIR_NAME_LENGTH) || 'unnamed-skill'
 }
 
 /** Outcome of reading the lock: keys, or an honest "we could not tell". */
@@ -122,19 +137,14 @@ async function readSkillLockKeys(): Promise<LockReadResult> {
   }
 
   try {
-    const parsed: unknown = JSON.parse(content)
-    if (!parsed || typeof parsed !== 'object') return { status: 'unavailable' }
-    const { version, skills } = parsed as {
-      version?: unknown
-      skills?: unknown
-    }
-    if (typeof version !== 'number' || !skills || typeof skills !== 'object') {
-      return { status: 'unavailable' }
-    }
+    const parsed = skillLockSchema.safeParse(JSON.parse(content))
+    if (!parsed.success) return { status: 'unavailable' }
     // The CLI wipes any lock below its current version, so those entries can
     // never be reinstalled — nothing to prune, and nothing is wrong.
-    if (version < SUPPORTED_LOCK_VERSION) return { status: 'ok', keys: [] }
-    return { status: 'ok', keys: Object.keys(skills) }
+    if (parsed.data.version < SUPPORTED_LOCK_VERSION) {
+      return { status: 'ok', keys: [] }
+    }
+    return { status: 'ok', keys: Object.keys(parsed.data.skills) }
   } catch (error) {
     console.error('skillLockService: lock is not valid JSON', {
       message: extractErrorMessage(error),
@@ -161,45 +171,80 @@ async function isProvablyAbsent(path: AbsolutePath): Promise<boolean> {
   }
 }
 
+/** Outcome of reading the trash: staged directory names, or "we could not tell". */
+type TrashReadResult =
+  { status: 'ok'; dirNames: Set<string> } | { status: 'unavailable' }
+
 /**
  * Directory names currently staged in the trash, from each entry's manifest.
- * A skill waiting out its undo window still has a lock record doing its job,
- * so it must be excluded from both detection and the prune batch. Local-only
- * tombstones never had a source directory and so never had a lock record.
- * @returns Set of source directory basenames sitting in the trash.
- * @example await readTrashedSourceDirNames() // => Set { 'theme-generator' }
+ * A skill waiting out its undo window still has a lock record doing its job, so
+ * it must be excluded from detection. Local-only tombstones never had a source
+ * directory and so never had a lock record.
+ * @returns
+ * - `ok` with the staged source-directory basenames when the trash was readable
+ * - `ok` with an empty set when there is no trash directory at all (fresh install)
+ * - `unavailable` when the trash exists but cannot be read — reporting an empty
+ *   set there would flag every skill mid-undo as stale, and Undo would then
+ *   restore it with its lock record already pruned
+ * @example await readTrashedSourceDirNames() // => { status: 'ok', dirNames: Set { 'theme-generator' } }
  */
-async function readTrashedSourceDirNames(): Promise<Set<string>> {
-  const names = new Set<string>()
+async function readTrashedSourceDirNames(): Promise<TrashReadResult> {
+  const dirNames = new Set<string>()
   let entries: string[]
   try {
     entries = await fs.readdir(TRASH_DIR)
-  } catch {
-    // No trash dir (or unreadable) means nothing is staged for undo.
-    return names
+  } catch (error) {
+    // No trash directory is the normal state: nothing is staged for undo.
+    if (isMissingPathError(error)) return { status: 'ok', dirNames }
+    console.error('skillLockService: trash unreadable', {
+      code: errorCode(error),
+      message: extractErrorMessage(error),
+    })
+    return { status: 'unavailable' }
   }
 
+  // Set by the reads below rather than returned, because one blind entry
+  // invalidates the whole set, not just its own name.
+  let hasUnreadableEntry = false
   const manifests = await Promise.all(
     entries.map(async (entryName) => {
+      let raw: string
       try {
-        const raw = await fs.readFile(
+        raw = await fs.readFile(
           join(TRASH_DIR, entryName, 'manifest.json'),
           'utf-8',
         )
+      } catch (error) {
+        // A foreign file in the trash simply has no manifest. Any other read
+        // failure is an entry we cannot see into, and it may be the one holding
+        // the lock record for a skill still inside its undo window.
+        if (!isMissingPathError(error)) {
+          console.error('skillLockService: trash entry unreadable', {
+            entryName,
+            code: errorCode(error),
+            message: extractErrorMessage(error),
+          })
+          hasUnreadableEntry = true
+        }
+        return null
+      }
+      try {
         return manifestSchema.parse(JSON.parse(raw))
       } catch {
-        // Foreign file or half-written entry — nothing to exclude from it.
+        // Unparseable manifest: Undo reads the same file, so it could not
+        // restore this entry either. It is holding nothing back.
         return null
       }
     }),
   )
+  if (hasUnreadableEntry) return { status: 'unavailable' }
 
   for (const manifest of manifests) {
     if (manifest?.kind === 'source-backed') {
-      names.add(basename(manifest.sourcePath))
+      dirNames.add(basename(manifest.sourcePath))
     }
   }
-  return names
+  return { status: 'ok', dirNames }
 }
 
 /**
@@ -249,10 +294,10 @@ export async function resolveLockKeyForDirectory(
  * Find every lock record whose skill is gone from disk for good.
  * Runs when the dashboard asks for a health count. It adds no deletions of its
  * own, but it does drain the prune the trash already queued (see
- * `flushPruneQueue`) so the count describes the lock as it will settle rather
+ * {@link flushPruneQueue}) so the count describes the lock as it will settle rather
  * than mid-eviction. Returns `unavailable` rather than a count whenever the
- * source directory or the lock itself cannot be read: with one side of the
- * diff missing, every record on the other side looks stale.
+ * source directory, the trash, or the lock itself cannot be read: with one side
+ * of the diff missing, every record on the other side looks stale.
  * @returns Raw lock keys safe to prune, or `unavailable`.
  * @example await scanStaleLockEntries() // => { status: 'ok', names: ['old-skill'] }
  */
@@ -284,12 +329,13 @@ export async function scanStaleLockEntries(): Promise<StaleLockScanResult> {
 
   const byDirName = buildUniqueDirNameIndex(lock.keys)
   const trashed = await readTrashedSourceDirNames()
+  if (trashed.status !== 'ok') return { status: 'unavailable' }
 
   const names: SkillName[] = []
   await Promise.all(
     Array.from(byDirName, async ([dirName, key]) => {
       // Still restorable from the trash: the record is not stale yet.
-      if (trashed.has(dirName)) return
+      if (trashed.dirNames.has(dirName)) return
       if (await isProvablyAbsent(join(SOURCE_DIR, dirName))) names.push(key)
     }),
   )
@@ -300,7 +346,7 @@ export async function scanStaleLockEntries(): Promise<StaleLockScanResult> {
 /**
  * Remove lock records by delegating to `skills remove --global -y`.
  *
- * Runs inside `runLockWrite`, and revalidates INSIDE that lock: a name is
+ * Runs inside {@link runLockWrite}, and revalidates INSIDE that lock: a name is
  * dropped when its record already went away, and when its directory came back
  * (a reinstall during the undo window would otherwise be destroyed by a delete
  * request that is no longer true). Success is decided by re-reading the lock
@@ -378,7 +424,7 @@ export function queuePrune(name: SkillName): void {
 }
 
 /**
- * Drain the queue into one CLI call. Split out from `queuePrune` so tests can
+ * Drain the queue into one CLI call. Split out from {@link queuePrune} so tests can
  * flush without waiting on the debounce.
  * @returns Promise that resolves once the batch has been attempted.
  * @example await flushPruneQueue()

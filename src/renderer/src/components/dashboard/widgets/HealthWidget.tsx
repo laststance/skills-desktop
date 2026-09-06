@@ -140,7 +140,7 @@ export const HealthWidget = function HealthWidget(): React.ReactElement {
     dispatch(openSymlinkCleanupDialog())
   }
 
-  const handleCleanLock = (): void => {
+  const handlePruneLock = (): void => {
     dispatch(openLockPruneDialog())
   }
 
@@ -213,12 +213,11 @@ export const HealthWidget = function HealthWidget(): React.ReactElement {
             type="button"
             size="sm"
             variant="secondary"
-            onClick={handleCleanLock}
+            onClick={handlePruneLock}
             className="h-8 min-h-8 px-2 text-[11px]"
-            data-lock-prune-trigger="true"
           >
             <FileWarning className="h-3.5 w-3.5" aria-hidden="true" />
-            Clean lock
+            Prune lock
           </Button>
         ) : null}
         {hasManualReviewOnly ? (

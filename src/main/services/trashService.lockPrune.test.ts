@@ -209,6 +209,23 @@ describe('startupCleanup lock-prune hook', () => {
     expect(queuePruneMock).toHaveBeenCalledWith('fresh')
   })
 
+  test('restoring inside the undo window leaves the lock record alone', async () => {
+    // Arrange
+    // Undo is the whole reason eviction (not deletion) owns the prune. If
+    // restore queued one too, the skill would come back untracked and
+    // `skills -g update` would stop maintaining it.
+    const { restore } = await trashServiceModule
+    const entryName = '1700000000000-restore-cccccccc'
+    await stageTombstone(entryName, sourceBackedManifest('theme-generator'))
+    resolveLockKeyMock.mockResolvedValue('theme-generator')
+
+    // Act
+    await restore(tombstoneId(entryName))
+
+    // Assert
+    expect(queuePruneMock).not.toHaveBeenCalled()
+  })
+
   test('leaves an entry flagged for manual recovery alone', async () => {
     // Arrange
     // Those entries hold the only surviving copy of the user's data.
