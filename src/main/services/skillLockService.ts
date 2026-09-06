@@ -70,8 +70,8 @@ let lockWriteChain: Promise<unknown> = Promise.resolve()
  * `writeSkillLock` in the CLI is a plain `writeFile` with no temp+rename, and
  * a half-written lock parses as an EMPTY lock, silently dropping every skill
  * the user installed. One chain is cheaper than making the CLI atomic; the
- * chain alone cannot help when {@link SkillsCliService.cancel} SIGTERMs the only writer there
- * is, which is what {@link restoreLockIfTorn} is for.
+ * chain alone cannot help when {@link SkillsCliService.cancel} SIGTERMs the
+ * only writer there is, which is what {@link restoreLockIfTorn} is for.
  * @param operation - Work to run once no other lock write is in flight.
  * @returns Whatever `operation` resolves to.
  * @example await runLockWrite(() => skillsCliService.install(options))
@@ -152,11 +152,13 @@ async function snapshotLock(): Promise<LockSnapshot> {
 
 /**
  * Put the pre-operation lock back when the operation left the file unparseable.
- * {@link SkillsCliService.cancel} SIGTERMs an already-spawned install at a moment the user picks,
- * and the CLI writes the lock with no temp+rename, so a signal landing between
- * the `O_TRUNC` open and the write loses every install record — a truncated
- * lock reads as an EMPTY one. Repairs damage only: a legitimately emptied lock
- * is still valid JSON (`{version, skills:{}}`), so this can never undo a real write.
+ * {@link SkillsCliService.cancel} SIGTERMs an already-spawned install at a
+ * moment the user picks, and the CLI writes the lock with no temp+rename, so a
+ * signal landing between the `O_TRUNC` open and the write loses every install
+ * record — a truncated lock reads as an EMPTY one. Repairs damage only: a
+ * legitimately emptied lock is still valid JSON (`{version, skills:{}}`), so
+ * this can never undo a real write. Never throws, because it is awaited from a
+ * `finally` where a rejection would mask the operation's own error.
  * @param snapshot - What {@link snapshotLock} saw before the operation ran.
  * @returns Promise that resolves once the lock is repaired, or left alone.
  * @example await restoreLockIfTorn({ status: 'absent' })
@@ -179,18 +181,16 @@ async function restoreLockIfTorn(snapshot: LockSnapshot): Promise<void> {
     // Unparseable is exactly the truncated-write signature. Fall through.
   }
 
-  if (snapshot.status === 'absent') {
-    // A killed FIRST install leaves a 0-byte file, which is WORSE than no file:
-    // {@link readSkillLockKeys} maps missing to an empty lock but unparseable to
-    // `unavailable`, so the leftover permanently degrades every prune scan.
-    await fs.rm(lockPath, { force: true }).catch(() => {
-      // best-effort: the warning below still names the file
-    })
-    console.warn('skillLockService: removed a torn lock left by a killed write')
-    return
-  }
-
   try {
+    if (snapshot.status === 'absent') {
+      // A killed FIRST install leaves a 0-byte file, which is WORSE than no
+      // file: {@link readSkillLockKeys} maps missing to an empty lock but
+      // unparseable to `unavailable`, so the leftover would permanently
+      // degrade every prune scan.
+      await fs.rm(lockPath, { force: true })
+      console.warn('skillLockService: removed a torn lock a killed write left')
+      return
+    }
     // Temp+rename, the atomicity the CLI's own writer lacks: a second kill
     // during THIS write would otherwise re-tear the file we came to repair.
     const recoveryPath = `${lockPath}.recovering`
@@ -200,7 +200,7 @@ async function restoreLockIfTorn(snapshot: LockSnapshot): Promise<void> {
     await fsyncPath(dirname(lockPath))
     console.warn('skillLockService: restored a torn lock from its snapshot')
   } catch (error) {
-    console.error('skillLockService: torn lock could not be restored', {
+    console.error('skillLockService: torn lock could not be repaired', {
       code: errorCode(error),
       message: extractErrorMessage(error),
     })

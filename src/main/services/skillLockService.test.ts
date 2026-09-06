@@ -1156,7 +1156,7 @@ describe('runLockWrite', () => {
     // Assert
     expect(ran).toBe('install ran')
     expect(consoleError).toHaveBeenCalledWith(
-      'skillLockService: torn lock could not be restored',
+      'skillLockService: torn lock could not be repaired',
       expect.objectContaining({ code: 'EACCES' }),
     )
     consoleError.mockRestore()
