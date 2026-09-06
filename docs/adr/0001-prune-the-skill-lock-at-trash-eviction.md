@@ -43,11 +43,28 @@ example, `~/.warp/skills/<name>`.
 
 `skills remove` does more than edit the lock: it walks every target agent's
 directory and calls `rm(path, { recursive: true, force: true })` on each match,
-then removes the canonical path the same way. That is acceptable here only
-because of what we prune. A target is always a skill the CLI installed whose
-`~/.agents/skills/<name>` is already gone, so every agent-side match is a
-symlink into a directory that no longer exists. Nothing with contents is at
-risk. Widening the target set past that would change this conclusion.
+then removes the canonical path the same way.
+
+**Corrected 2026-09-06.** This ADR previously argued that was acceptable
+because "every agent-side match is a symlink into a directory that no longer
+exists. Nothing with contents is at risk." That is false, and it was reasoned
+from the one agent it happens to hold for. Upstream `remove.ts:267-269`
+(v1.5.23) calls `lstat` and then `rm` with **no** `isSymbolicLink` check, over
+`join(agent.globalSkillsDir, sanitizedName)` for every agent. Only the
+universal-source agents point `globalSkillsDir` at `~/.agents/skills`;
+`agents.ts:156` resolves `claude` to `~/.claude/skills` and `:268` resolves
+`cursor` to `~/.cursor/skills`. A real directory under that name — a local
+skill, or a `skills add --copy` install, both states this app models and
+`moveToTrash` deliberately preserves when it skips non-symlinks — is
+recursively deleted, with no tombstone and no undo.
+
+`pruneLockEntries` therefore proves the property instead of assuming it: it
+`lstat`s every agent-side path for the name and refuses to delegate unless each
+one is a symlink or absent (`holdsRealAgentDirectory`). Refused names are
+reported as failures rather than silently skipped. The consequence is that a
+user holding a real agent-directory copy under a pruned name gets a permanent
+"cannot prune" state; narrowing the delegation or writing the lock directly is
+the open follow-up.
 
 The CLI exits 0 even when every removal failed: `remove.ts` logs the failures
 and falls through to its normal outro without calling `process.exit(1)`. Success

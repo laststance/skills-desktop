@@ -53,7 +53,7 @@ export const LockPruneBanner =
           type="button"
           onClick={() => dispatch(dismissLockPruneBanner())}
           aria-label="Dismiss skill lock announcement"
-          className="min-h-7 min-w-7 shrink-0 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          className="min-h-7 min-w-7 shrink-0 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X className="h-3.5 w-3.5" aria-hidden="true" />
         </button>

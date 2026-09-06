@@ -196,8 +196,30 @@ class SkillsCliService extends EventEmitter {
    * // spawns: npx skills@x.y.z remove old-skill --global -y
    */
   async removeSkills(names: readonly SkillName[]): Promise<CliCommandResult> {
+    // Lock keys are written by the upstream CLI from third-party skill
+    // metadata; this app never validated them. `--all` and `*` are SELECTORS in
+    // the CLI's own argument parser, so either one turns this unattended prune
+    // into a global uninstall across every agent. The CLI implements no `--`
+    // terminator, so argument position alone cannot make them inert — the names
+    // have to be refused here. Refused keys survive in the lock and the caller
+    // reports them as `failed` when it re-reads it.
+    const removable = names.filter((name) => SKILL_NAME_PATTERN.test(name))
+    const refused = names.filter((name) => !SKILL_NAME_PATTERN.test(name))
+    if (refused.length > 0) {
+      console.error('skillsCliService: refusing option-shaped lock keys', {
+        refused,
+      })
+    }
+    if (removable.length === 0) {
+      return {
+        success: false,
+        stdout: '',
+        stderr: `Refused ${refused.length} lock key(s) that the skills CLI would read as options, not skill names.`,
+        code: null,
+      }
+    }
     return this.execCli(
-      ['remove', ...names, CLI_FLAGS.GLOBAL, CLI_FLAGS.YES],
+      ['remove', ...removable, CLI_FLAGS.GLOBAL, CLI_FLAGS.YES],
       undefined,
       { cancellable: false },
     )

@@ -1241,3 +1241,118 @@ This is the source-directory counterpart of the already-fixed P1 "Inaccessible s
 **Fix direction:** Make both `isValidSkillDir` and `listValidSourceSkillDirs` distinguish "succeeded and absent" from "could not determine". Keep today's degrade-to-empty behavior at the four production call sites (`skillScanner.ts:284`, `skillScanner.ts:606`, `syncService.ts:78`, `syncService.ts:145`) but write it explicitly, and surface an indeterminate result in the UI rather than rendering it as absence. `dirScanner.ts` has no test file today, so the change needs one.
 
 **Depends on / blocked by:** Nothing. Fully independent of the prune work.
+
+## skill-lock prune /review follow-ups (2026-09-06)
+
+Filed by `/review` on `feat/prune-stale-skill-lock-entries`. The five CRITICALs
+that review found were fixed on the branch; everything below is what it found
+and deliberately did NOT fix.
+
+### P1. Decide how prune should treat skills with real agent-directory copies
+
+`pruneLockEntries` now refuses to delegate any name that still owns a real
+(non-symlink) directory under an agent, because `skills remove --global`
+`rm -rf`s `<agent globalSkillsDir>/<name>` with no symlink check and
+`~/.claude/skills` / `~/.cursor/skills` are among the targets. That guard is
+correct but leaves a dead end: a user holding such a copy — including anyone
+who ran `skills add --copy`, which creates no universal source at all and so
+reads as permanently stale — gets a lock record that can never be pruned and
+no explanation in the UI.
+
+**Fix direction:** either narrow the delegation (pass `--agent` restricted to
+universal-source agents), or stop delegating and edit the lock directly,
+accepting ownership of the lock format. Surface a distinct "cannot prune"
+state either way. See `docs/adr/0001-prune-the-skill-lock-at-trash-eviction.md`
+(corrected 2026-09-06).
+
+**Depends on / blocked by:** Nothing.
+
+### P1. `startupCleanup` evicts live undo windows, with no single-instance lock
+
+The 24h age floor is gone, so every orphan tombstone is evicted on launch. Two
+consequences review flagged: a crash or force-quit inside the 15s undo window
+now destroys staged data on next launch (where 24h of manual Finder recovery
+used to exist), and with no `requestSingleInstanceLock` anywhere in `src/main/`
+a second instance evicts the first instance's live tombstones out from under
+its on-screen Undo toast.
+
+**Fix direction:** re-derive each orphan's remaining grace from
+`manifest.deletedAt` and re-arm the existing evict timer for the remainder,
+evicting immediately only when the window has genuinely elapsed. Add a
+single-instance lock. Stale comments to fix at the same time:
+`src/main/index.ts:328-329` and `src/main/ipc/ipc-schemas.ts:95` both still
+describe the removed 24h TTL.
+
+**Depends on / blocked by:** Nothing.
+
+### P2. `moveToTrash` writes `manifest.json` after moving the source in
+
+`trashService.ts:1112-1150` renames the source into the entry and only then
+writes the manifest, so an entry can briefly exist that nothing can describe.
+The scan side is now defended (an entry whose name parses as a tombstone id but
+has no manifest is treated as unreadable, not foreign), but the underlying
+ordering still means a crash in that window leaves an entry no code can
+interpret and `startupCleanup` will sweep.
+
+**Fix direction:** write the manifest before moving the source in, or stage it
+under a temp name. The existing rollback arms depend on today's order, so this
+needs care — that is why review did not touch it.
+
+**Depends on / blocked by:** Nothing.
+
+### P2. Prune-time CLI timeout can truncate the lock
+
+`execCli`'s 60s `SPAWN_TIMEOUT_MS` sends SIGTERM and resolves immediately
+without awaiting the child's `close`, so `runLockWrite` releases the mutex
+while the killed CLI may still be mid-`writeFile` of `.skill-lock.json`.
+Upstream writes it with a plain `writeFile` (no temp+rename) and reads a
+truncated file as an EMPTY lock, so this is a path to losing every install
+record. `cancellable: false` does not help: it only excludes the child from the
+`cancel()` sweep, not from the timeout.
+
+**Fix direction:** await `close` (with SIGKILL escalation and a second timeout)
+before releasing the mutex, or snapshot the lock bytes before any lock-writing
+spawn and restore them on a killed child. Affects `install` too, not just
+prune — fix at `execCli`, not in the prune path.
+
+**Depends on / blocked by:** Nothing.
+
+### P2. Collided lock keys are unprunable and never explained
+
+`buildUniqueDirNameIndex` drops keys that sanitize to the same directory name,
+which is the safe direction but means a colliding pair can never be reported
+stale nor pruned; `skills -g update` resurrects them forever with nothing in
+the UI saying why. Separately, `pruneLockEntries` does not re-run the collision
+index, and upstream `removeSkillFromLock` is last-write-wins over sanitized
+names, so a collision appearing between scan and confirm removes the _other_
+record while the requested one is reported failed.
+
+**Fix direction:** surface collisions as a distinct "cannot determine" state,
+and re-check the collision index inside the prune mutex.
+
+**Depends on / blocked by:** Nothing.
+
+### P3. Smaller items from the same review
+
+- `resolveLockKeyForDirectory` (`skillLockService.ts:285`) reads the lock
+  outside `runLockWrite`; a concurrent non-atomic CLI write makes it return
+  null and the prune is then skipped forever, since the trash entry is already
+  gone. Wrapping it is safe — no `evict` caller holds the lock.
+- Manual-recovery trash entries keep their lock record alive forever:
+  `readTrashedSourceDirNames` counts them as "still restorable" although their
+  restore already failed permanently.
+- `LockPruneDialog` reads `staleNames` live rather than snapshotting at open,
+  so the acted-on set can differ from the consented set.
+- `pruneStaleLockEntries.fulfilled` replaces `staleNames` wholesale with
+  `failed`, dropping names a concurrent scan added.
+- `SUPPORTED_LOCK_VERSION` guards `version < 3` with no upper bound, so a
+  future v4 lock is parsed and pruned against.
+- `HealthWidget`'s `hasManualReviewOnly` now requires `!hasStaleLockEntries`,
+  so the "Manual review" affordance disappears whenever a stale lock coexists
+  with inaccessible links; and the two CTAs can co-occur in a widget footer
+  with no wrap at minimum widget size.
+- Feature copy uses four nouns for one concept ("deleted skills", "records",
+  "stale records", "skills that are no longer installed") against the internal
+  `StaleLockEntry` naming. Pick one.
+- `PruneLockEntriesResult.skipped` has no reader in the renderer.
+- Dead JSDoc link `{@link skillLockService}` at `skillsCliService.ts:184`.

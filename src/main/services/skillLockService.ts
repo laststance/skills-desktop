@@ -5,9 +5,10 @@ import { basename, join } from 'node:path'
 import { z } from 'zod'
 
 import { SOURCE_DIR, TRASH_DIR } from '@/main/constants'
-import { manifestSchema } from '@/main/ipc/ipc-schemas'
+import { manifestSchema, tombstoneIdSchema } from '@/main/ipc/ipc-schemas'
 import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
 import { extractErrorMessage } from '@/main/utils/errors'
+import { AGENT_DEFINITIONS } from '@/shared/constants'
 import type {
   AbsolutePath,
   PruneLockEntriesResult,
@@ -218,6 +219,19 @@ async function readTrashedSourceDirNames(): Promise<TrashReadResult> {
         // A foreign file in the trash simply has no manifest. Any other read
         // failure is an entry we cannot see into, and it may be the one holding
         // the lock record for a skill still inside its undo window.
+        //
+        // A MISSING manifest is only benign when the entry is not ours.
+        // `moveToTrash` renames the source in BEFORE writing the manifest, so
+        // one of our own entries caught in that window reads as ENOENT here —
+        // and treating it as foreign would drop a skill whose undo is live.
+        // Only our entries carry a parseable tombstone id as their name.
+        if (
+          isMissingPathError(error) &&
+          tombstoneIdSchema.safeParse(entryName).success
+        ) {
+          hasUnreadableEntry = true
+          return null
+        }
         if (!isMissingPathError(error)) {
           console.error('skillLockService: trash entry unreadable', {
             entryName,
@@ -291,6 +305,65 @@ export async function resolveLockKeyForDirectory(
 }
 
 /**
+ * True when any agent still holds a REAL directory under this skill name.
+ *
+ * `skills remove --global` deletes `<agent globalSkillsDir>/<name>` for EVERY
+ * agent with `rm(recursive, force)` and no symlink check (upstream
+ * `remove.ts:267-269` at v1.5.23), and only the universal-source agents point
+ * that at `~/.agents/skills` — `claude` resolves to `~/.claude/skills`,
+ * `cursor` to `~/.cursor/skills`. A real directory there is the user's own
+ * content, which {@link moveToTrash} deliberately preserves when it skips
+ * non-symlinks. Delegating anyway would destroy it with no tombstone and no
+ * undo, so a name is only ever handed to the CLI once every agent-side path
+ * is proven to be a symlink or absent.
+ *
+ * `lstat`, never `stat`: `stat` follows the link and reports a healthy symlink
+ * as a directory, which would refuse every legitimate prune instead.
+ * @param dirName - Sanitized directory name, matching what the CLI resolves.
+ * @returns true when at least one agent holds real content under this name.
+ * @example await holdsRealAgentDirectory('tdd-workflow') // => false
+ */
+async function holdsRealAgentDirectory(dirName: string): Promise<boolean> {
+  const perAgent = await Promise.all(
+    AGENT_DEFINITIONS.map(async (agent) => {
+      try {
+        const stats = await fs.lstat(
+          join(homedir(), agent.installDir, 'skills', dirName),
+        )
+        return !stats.isSymbolicLink()
+      } catch (error) {
+        // Absent is safe — nothing there to destroy. Anything else is doubt,
+        // and doubt must block a delete rather than wave it through.
+        return !isMissingPathError(error)
+      }
+    }),
+  )
+  return perAgent.includes(true)
+}
+
+/**
+ * Probe the source root so a missing or unreadable root is never mistaken for
+ * "every skill was deleted". Shared by {@link scanStaleLockEntries} and
+ * {@link pruneLockEntries} deliberately: when only the scan checked it, the two
+ * disagreed — the scan refused to report anything while the prune treated the
+ * whole lock as stale and deleted it.
+ * @returns true when the root exists and is a directory.
+ * @example await isSourceRootReadable() // => true
+ */
+async function isSourceRootReadable(): Promise<boolean> {
+  try {
+    const stats = await fs.stat(SOURCE_DIR)
+    return stats.isDirectory()
+  } catch (error) {
+    console.error('skillLockService: source dir unreadable', {
+      code: errorCode(error),
+      message: extractErrorMessage(error),
+    })
+    return false
+  }
+}
+
+/**
  * Find every lock record whose skill is gone from disk for good.
  * Runs when the dashboard asks for a health count. It adds no deletions of its
  * own, but it does drain the prune the trash already queued (see
@@ -316,29 +389,34 @@ export async function scanStaleLockEntries(): Promise<StaleLockScanResult> {
 
   // Probe the source root first. If it is missing or unreadable, every lookup
   // below would report ENOENT and the whole lock would present as stale.
-  try {
-    const stats = await fs.stat(SOURCE_DIR)
-    if (!stats.isDirectory()) return { status: 'unavailable' }
-  } catch (error) {
-    console.error('skillLockService: source dir unreadable', {
-      code: errorCode(error),
-      message: extractErrorMessage(error),
-    })
-    return { status: 'unavailable' }
-  }
+  if (!(await isSourceRootReadable())) return { status: 'unavailable' }
 
   const byDirName = buildUniqueDirNameIndex(lock.keys)
+
+  // Probe absence FIRST, read the trash SECOND. The order is load-bearing and
+  // must not be swapped back: a delete landing mid-scan moves the source dir
+  // away and stages a tombstone, so reading the trash first would miss the new
+  // entry and then see the directory gone — reporting a skill the user can
+  // still Undo as stale. With the trash as the later observation, anything that
+  // entered it during the scan is still caught.
+  const absentDirNames = new Set<string>()
+  await Promise.all(
+    Array.from(byDirName.keys(), async (dirName) => {
+      if (await isProvablyAbsent(join(SOURCE_DIR, dirName))) {
+        absentDirNames.add(dirName)
+      }
+    }),
+  )
+
   const trashed = await readTrashedSourceDirNames()
   if (trashed.status !== 'ok') return { status: 'unavailable' }
 
   const names: SkillName[] = []
-  await Promise.all(
-    Array.from(byDirName, async ([dirName, key]) => {
-      // Still restorable from the trash: the record is not stale yet.
-      if (trashed.dirNames.has(dirName)) return
-      if (await isProvablyAbsent(join(SOURCE_DIR, dirName))) names.push(key)
-    }),
-  )
+  for (const [dirName, key] of byDirName) {
+    // Still restorable from the trash: the record is not stale yet.
+    if (!absentDirNames.has(dirName) || trashed.dirNames.has(dirName)) continue
+    names.push(key)
+  }
 
   return { status: 'ok', names: names.sort() }
 }
@@ -372,6 +450,13 @@ export async function pruneLockEntries(
       return { ...empty, failed: [...requested] }
     }
 
+    // The same root probe the scan performs, for the same reason. Without it an
+    // unmounted volume or a renamed root makes every per-skill stat ENOENT, so
+    // every requested key looks provably absent and the entire lock is pruned.
+    if (!(await isSourceRootReadable())) {
+      return { ...empty, failed: [...requested] }
+    }
+
     const present = new Set(before.keys)
     const targets: SkillName[] = []
     const skipped: SkillName[] = []
@@ -388,19 +473,55 @@ export async function pruneLockEntries(
 
     if (targets.length === 0) return { ...empty, skipped }
 
+    // Absence was probed above; read the trash AFTER it. Same load-bearing
+    // order as {@link scanStaleLockEntries} and it must not be swapped: a
+    // delete landing mid-revalidation stages a tombstone, and only with the
+    // trash as the later observation is that new entry still seen.
+    // `moveToTrash` does not join this mutex, so such a delete really can land
+    // here — "delete X, reinstall X, delete X again" leaves the first
+    // eviction's queued prune pointing at a record the second delete can still
+    // restore.
+    const trashed = await readTrashedSourceDirNames()
+    // Fail closed. The scan reports nothing when the trash is unreadable; here
+    // the same doubt must block a delete, never authorize one.
+    if (trashed.status !== 'ok') return { ...empty, skipped: [...requested] }
+
+    const removable: SkillName[] = []
+    for (const name of targets) {
+      // Still restorable: a newer delete of this name is inside its undo
+      // window, so pruning now would strand the skill it brings back.
+      if (trashed.dirNames.has(sanitizeName(name))) skipped.push(name)
+      else removable.push(name)
+    }
+
+    if (removable.length === 0) return { ...empty, skipped }
+
+    // Last line before an irreversible delegation. See
+    // {@link holdsRealAgentDirectory}: the CLI would recursively delete this
+    // name out of every agent directory, symlink or not.
+    const delegable: SkillName[] = []
+    const refused: SkillName[] = []
+    for (const name of removable) {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- the check must stay inside the lock-write mutex, and the batch is at most a screenful of names.
+      if (await holdsRealAgentDirectory(sanitizeName(name))) refused.push(name)
+      else delegable.push(name)
+    }
+
+    if (delegable.length === 0) return { ...empty, skipped, failed: refused }
+
     // Raw keys, not sanitized — the CLI looks the record up by raw name and
     // sanitizes internally when it resolves paths.
-    await skillsCliService.removeSkills(targets)
+    await skillsCliService.removeSkills(delegable)
 
     const after = await readSkillLockKeys()
     if (after.status !== 'ok') {
-      return { pruned: [], skipped, failed: targets }
+      return { pruned: [], skipped, failed: [...delegable, ...refused] }
     }
     const survivors = new Set(after.keys)
     return {
-      pruned: targets.filter((name) => !survivors.has(name)),
+      pruned: delegable.filter((name) => !survivors.has(name)),
       skipped,
-      failed: targets.filter((name) => survivors.has(name)),
+      failed: [...delegable.filter((name) => survivors.has(name)), ...refused],
     }
   })
 }

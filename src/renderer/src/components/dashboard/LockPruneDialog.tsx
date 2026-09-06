@@ -24,6 +24,7 @@ import {
   selectLockPruneDialogOpen,
 } from '@/renderer/src/redux/slices/uiSlice'
 import { pluralize } from '@/renderer/src/utils/pluralize'
+import type { PruneLockEntriesResult } from '@/shared/types'
 
 /**
  * Confirmation for removing skill-lock records whose skill is gone.
@@ -47,7 +48,19 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
   }
 
   const handlePrune = async (): Promise<void> => {
-    const result = await dispatch(pruneStaleLockEntries(staleNames)).unwrap()
+    let result: PruneLockEntriesResult
+    try {
+      result = await dispatch(pruneStaleLockEntries(staleNames)).unwrap()
+    } catch (error) {
+      // A rejected thunk (IPC down, zod refusing an arg, main-process throw)
+      // used to escape this handler unhandled: the dialog stayed open with no
+      // toast and no re-scan, so the user got silence instead of a failure.
+      dispatch(closeLockPruneDialog())
+      toast.error(
+        `Could not reach the skill lock: ${error instanceof Error ? error.message : String(error)}`,
+      )
+      return
+    }
     dispatch(closeLockPruneDialog())
 
     // Partial failure is expected to be rare but has to be visible: the records
@@ -70,7 +83,11 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogIconHeader icon={FileWarning} title="Prune skill lock" />
+          <DialogIconHeader
+            icon={FileWarning}
+            tone="amber"
+            title="Prune skill lock"
+          />
           <DialogDescription>
             The skills CLI still tracks{' '}
             {staleNames.length === 1

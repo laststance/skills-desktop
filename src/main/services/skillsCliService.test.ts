@@ -691,6 +691,46 @@ describe('skillsCliService.removeSkills', () => {
     )
   })
 
+  it('never hands the CLI an option-shaped lock key that would select every skill', async () => {
+    // Arrange — `--all` is a SELECTOR in the CLI's own parser, so forwarding it
+    // would turn this unattended prune into a global uninstall across every
+    // agent. Lock keys come from third-party metadata, and the CLI has no `--`
+    // terminator to hide behind, so the name has to be refused outright.
+    simulateCli({ stdout: 'Done!\n', exitCode: 0 })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    const result = await skillsCliService.removeSkills(['--all'])
+
+    // Assert
+    expect(spawnMock).not.toHaveBeenCalled()
+    expect(result.success).toBe(false)
+  })
+
+  it('still removes the safe names when one key in the batch is option-shaped', async () => {
+    // Arrange — one hostile key must not block every legitimate prune.
+    simulateCli({ stdout: 'Done!\n', exitCode: 0 })
+    const { skillsCliService } = await import('./skillsCliService')
+
+    // Act
+    await skillsCliService.removeSkills(['--all', 'real-skill'])
+
+    // Assert
+    expect(spawnMock).toHaveBeenCalledWith(
+      'npx',
+      [
+        `skills@${SKILLS_CLI_VERSION}`,
+        'remove',
+        'real-skill',
+        '--global',
+        '-y',
+      ],
+      expect.objectContaining({
+        env: expect.objectContaining({ FORCE_COLOR: '0' }),
+      }),
+    )
+  })
+
   it('emits no install progress while pruning in the background', async () => {
     // Arrange — a prune runs from trash eviction, which the user never started.
     // Forwarding "Installing skill files..." would light up the Marketplace UI.

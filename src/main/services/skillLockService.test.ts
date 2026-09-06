@@ -1,5 +1,5 @@
 import { mkdtempSync, realpathSync } from 'node:fs'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -310,6 +310,24 @@ describe('scanStaleLockEntries', () => {
     // Assert
     expect(result).toEqual({ status: 'ok', names: ['xdg-only-skill'] })
   })
+
+  test('treats a trash entry still being staged as unreadable rather than foreign', async () => {
+    // Arrange
+    // `moveToTrash` renames the source in BEFORE writing manifest.json, so one
+    // of our own entries caught in that window has no manifest. Reading that as
+    // a foreign file would report a skill whose undo is still live as stale.
+    const { scanStaleLockEntries } = await serviceModule
+    await writeLock(['mid-staging'])
+    await mkdir(join(trashDir, '1700000000000-mid-staging-bbbbbbbb'), {
+      recursive: true,
+    })
+
+    // Act
+    const result = await scanStaleLockEntries()
+
+    // Assert
+    expect(result).toEqual({ status: 'unavailable' })
+  })
 })
 
 describe('pruneLockEntries', () => {
@@ -366,6 +384,114 @@ describe('pruneLockEntries', () => {
       failed: [],
     })
     expect(await readLockKeys()).toEqual(['reinstalled'])
+  })
+
+  test('keeps the lock of a newer, still-undoable deletion when an older eviction prunes the same name', async () => {
+    // Arrange
+    // Delete X, reinstall X, delete X again. The first eviction already queued
+    // a prune for X; by the time it runs, the second delete owns a tombstone
+    // the user can still Undo. Pruning on "source is absent" alone strands
+    // that restore with no lock record.
+    const { pruneLockEntries } = await serviceModule
+    await writeLock(['same-name'])
+    await makeTombstone('same-name')
+
+    // Act
+    const result = await pruneLockEntries(['same-name'] as SkillName[])
+
+    // Assert
+    expect(removeSkillsMock).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      pruned: [],
+      skipped: ['same-name'],
+      failed: [],
+    })
+    expect(await readLockKeys()).toEqual(['same-name'])
+  })
+
+  test('refuses to delegate a name that still owns a real directory inside an agent', async () => {
+    // Arrange
+    // `skills remove --global` rm -rf's <agent globalSkillsDir>/<name> for every
+    // agent with no symlink check, and only universal-source agents point that
+    // at ~/.agents/skills. A real directory under ~/.claude/skills is the
+    // user's own content, which the app's delete deliberately preserves.
+    const { pruneLockEntries } = await serviceModule
+    const agentOwnedDir = join(sharedHome, '.claude', 'skills', 'agent-owned')
+    await writeLock(['agent-owned'])
+    await mkdir(agentOwnedDir, { recursive: true })
+    await writeFile(join(agentOwnedDir, 'SKILL.md'), '# local\n', 'utf-8')
+
+    try {
+      // Act
+      const result = await pruneLockEntries(['agent-owned'] as SkillName[])
+
+      // Assert
+      expect(removeSkillsMock).not.toHaveBeenCalled()
+      expect(result).toEqual({
+        pruned: [],
+        skipped: [],
+        failed: ['agent-owned'],
+      })
+      expect(await readLockKeys()).toEqual(['agent-owned'])
+    } finally {
+      // Cleanup has to run even on a failed assertion: beforeEach only clears
+      // `.agents`, so a leftover agent dir would refuse every later prune.
+      await rm(join(sharedHome, '.claude'), { recursive: true, force: true })
+    }
+  })
+
+  test('still prunes when the agent-side path is only a symlink to the deleted source', async () => {
+    // Arrange
+    // The guard must use lstat, not stat: stat follows the link and would
+    // report this healthy symlink as a directory, refusing every real prune.
+    const { pruneLockEntries } = await serviceModule
+    const agentSkillsDir = join(sharedHome, '.claude', 'skills')
+    await writeLock(['linked-only'])
+    await mkdir(agentSkillsDir, { recursive: true })
+    await symlink(
+      join(sourceDir, 'linked-only'),
+      join(agentSkillsDir, 'linked-only'),
+    )
+
+    try {
+      // Act
+      const result = await pruneLockEntries(['linked-only'] as SkillName[])
+
+      // Assert
+      expect(removeSkillsMock).toHaveBeenCalledWith(['linked-only'])
+      expect(result).toEqual({
+        pruned: ['linked-only'],
+        skipped: [],
+        failed: [],
+      })
+    } finally {
+      await rm(join(sharedHome, '.claude'), { recursive: true, force: true })
+    }
+  })
+
+  test('refuses to prune every record when the source root itself is gone', async () => {
+    // Arrange
+    // An unmounted volume or a renamed root makes every per-skill stat ENOENT.
+    // Without a root probe that reads as "the user deleted everything" and
+    // wipes the whole lock.
+    const { pruneLockEntries } = await serviceModule
+    await writeLock(['first-skill', 'second-skill'])
+    await rm(sourceDir, { recursive: true, force: true })
+
+    // Act
+    const result = await pruneLockEntries([
+      'first-skill',
+      'second-skill',
+    ] as SkillName[])
+
+    // Assert
+    expect(removeSkillsMock).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      pruned: [],
+      skipped: [],
+      failed: ['first-skill', 'second-skill'],
+    })
+    expect(await readLockKeys()).toEqual(['first-skill', 'second-skill'])
   })
 
   test('reports failure when a record survives the CLI call despite a zero exit code', async () => {
