@@ -383,6 +383,30 @@ async function publishManualRecoveryEntry(
 }
 
 /**
+ * Persist a trash manifest, then publish the staged entry with one atomic
+ * rename. Both trash paths call it as their last forward step; a rejection
+ * means the entry never became a tombstone, so the caller's catch owns the
+ * rollback and the staged dir is still whole when it runs.
+ * @param manifestPath - `manifest.json` inside {@link stagingDir}.
+ * @param manifest - v2 manifest for either trash kind.
+ * @param stagingDir - Half-built entry under {@link STAGED_ENTRY_PREFIX}.
+ * @param entryDir - Tombstone-named path to publish it as.
+ * @returns Nothing. Throws the underlying fs error from either step.
+ * @example await writeManifestThenPublish(manifestPath, manifest, stagingDir, entryDir)
+ */
+async function writeManifestThenPublish(
+  manifestPath: AbsolutePath,
+  manifest: z.infer<typeof manifestSchema>,
+  stagingDir: AbsolutePath,
+  entryDir: AbsolutePath,
+): Promise<void> {
+  await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8')
+  // Rename is atomic, so a failure here leaves the staged entry intact rather
+  // than a half-published tombstone.
+  await fs.rename(stagingDir, entryDir)
+}
+
+/**
  * Check whether startup cleanup must leave a trash entry for manual recovery.
  * @param entryDir - Trash entry directory under TRASH_DIR.
  * @returns true when the marker exists or cannot be checked safely.
@@ -613,19 +637,20 @@ async function rollbackRemovedSymlinks(
  * Returns the subset of copies that could NOT be restored. The caller MUST
  * use this list to decide whether the staged trash entry is still the only
  * surviving copy of the data: if any restore failed, the staged folder under
- * `<entryDir>/local-copies/<agentId>/` is the user's only remaining copy and
- * the entryDir MUST NOT be deleted.
- * @param entryDir - Trash entry root (contains `local-copies/<agentId>/`)
+ * `<entryRoot>/local-copies/<agentId>/` is the user's only remaining copy and
+ * `entryRoot` MUST NOT be deleted — publish it for manual recovery instead.
+ * @param entryRoot - Entry root holding `local-copies/<agentId>/`. Always the
+ * pre-publish staging dir today; the callers all run before the publish rename.
  * @param copies - Local copies that were moved during the failing forward pass
  * @returns The copies whose restore failed (empty array means full success)
  */
 async function rollbackMovedLocalCopies(
-  entryDir: AbsolutePath,
+  entryRoot: AbsolutePath,
   copies: RecordedLocalCopy[],
 ): Promise<RecordedLocalCopy[]> {
   const unrestoredCopies: RecordedLocalCopy[] = []
   for (const copy of copies) {
-    const stagedPath = join(entryDir, 'local-copies', copy.agentId)
+    const stagedPath = join(entryRoot, 'local-copies', copy.agentId)
     try {
       // react-doctor-disable-next-line react-doctor/async-await-in-loop -- intra-iteration dependent (mkdir parent then move into it); best-effort rollback accumulating unrestoredCopies, order- and fd-sensitive.
       await fs.mkdir(dirname(copy.linkPath), { recursive: true })
@@ -1227,10 +1252,7 @@ async function moveSourceBackedToTrash(
     symlinks: recordedSymlinks,
   }
   try {
-    await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8')
-    // The publish. Rename is atomic, so on failure the staged entry is still
-    // whole and the rollback below applies to it unchanged.
-    await fs.rename(stagingDir, entryDir)
+    await writeManifestThenPublish(manifestPath, manifest, stagingDir, entryDir)
   } catch (entryPublishError) {
     const entryPublishCode = errorCode(entryPublishError)
     const entryPublishMessage = extractErrorMessage(entryPublishError)
@@ -1308,13 +1330,15 @@ async function moveSourceBackedToTrash(
  * Local-only path of `moveToTrash`. The skill exists only as real folders
  * inside one or more agent dirs (no `~/.agents/skills/<name>` source).
  *
- * Lifecycle:
- * 1. `mkdir(<entryDir>/local-copies)` to host the staged folders.
- * 2. For each `RecordedLocalCopy`, `fs.rename(linkPath → <entryDir>/local-copies/<agentId>)`.
+ * Lifecycle (staged then published, mirroring {@link moveSourceBackedToTrash}):
+ * 1. `mkdir(<stagingDir>/local-copies)` to host the staged folders.
+ * 2. For each `RecordedLocalCopy`, `fs.rename(linkPath → <stagingDir>/local-copies/<agentId>)`.
  *    On EXDEV: cp + rm fallback. On per-copy failure: rollback (rename already-moved
  *    copies back to their linkPaths) before throwing.
- * 3. Write v2 local-only manifest. On manifest-write failure: rollback all moved
- *    copies and drop the entry dir.
+ * 3. Write v2 local-only manifest, then `fs.rename(stagingDir → entryDir)` in the
+ *    SAME try. Either the entry publishes whole or nothing parses as a tombstone.
+ *    On failure: rollback all moved copies and drop the staged dir; if rollback
+ *    could not restore them all, publish the staged dir for manual recovery.
  * 4. Schedule TTL evict timer.
  *
  * `cascadeAgents` is the list of agents whose local copies were moved;
@@ -1331,12 +1355,17 @@ async function moveLocalOnlyToTrash(
 
   const entryName = buildEntryName(skillName)
   const entryDir = join(TRASH_DIR, entryName)
-  const localCopiesRoot = join(entryDir, 'local-copies')
-  const manifestPath = join(entryDir, 'manifest.json')
+  // Same staged-then-published shape as the source-backed twin: everything is
+  // assembled under a name no reader parses as a tombstone, then one rename
+  // publishes it. A kill before that rename leaves the copies waiting there
+  // instead of half an entry the sweep would act on.
+  const stagingDir = join(TRASH_DIR, `${STAGED_ENTRY_PREFIX}${entryName}`)
+  const localCopiesRoot = join(stagingDir, 'local-copies')
+  const manifestPath = join(stagingDir, 'manifest.json')
 
   await fs.mkdir(localCopiesRoot, { recursive: true })
 
-  // Move each agent's real folder into <entryDir>/local-copies/<agentId>/.
+  // Move each agent's real folder into <stagingDir>/local-copies/<agentId>/.
   // Track successfully-moved copies so a mid-loop failure can be rolled back.
   const moved: RecordedLocalCopy[] = []
   for (const copy of localCopies) {
@@ -1344,13 +1373,16 @@ async function moveLocalOnlyToTrash(
     /* v8 ignore start -- defense-in-depth: the sole caller moveToTrash always supplies a non-null filesystemIdentity, so this optional-field guard is unreachable via any public entry point */
     if (!copy.filesystemIdentity) {
       // react-doctor-disable-next-line react-doctor/async-await-in-loop -- sequential move loop accumulates the moved array and must rename already-moved copies back in order on failure (also an unreachable v8-ignored guard).
-      const unrestoredCopies = await rollbackMovedLocalCopies(entryDir, moved)
+      const unrestoredCopies = await rollbackMovedLocalCopies(stagingDir, moved)
       if (unrestoredCopies.length === 0) {
-        await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
+        await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => {
           // best-effort cleanup
         })
       } else {
-        await markManualRecoveryEntry(
+        // Return discarded on purpose: this arm's throw names no path, so the
+        // published location has no reader to hand it to.
+        await publishManualRecoveryEntry(
+          stagingDir,
           entryDir,
           'local-only rollback left staged copies in trash',
         )
@@ -1442,23 +1474,29 @@ async function moveLocalOnlyToTrash(
         }))
 
       if (recoveryOutcome.kind === 'fatal') {
-        const unrestoredCopies = await rollbackMovedLocalCopies(entryDir, moved)
+        const unrestoredCopies = await rollbackMovedLocalCopies(
+          stagingDir,
+          moved,
+        )
         if (
           unrestoredCopies.length === 0 &&
           !recoveryOutcome.preserveEntryDir
         ) {
           // All copies restored — safe to drop the staged entry dir.
           /* v8 ignore next 3 -- best-effort cleanup: any fs.rm rejection (EPERM/EBUSY/EACCES — force only suppresses ENOENT) is intentionally swallowed by .catch, and no suite stages a writable-but-unremovable dir, so this recovery arm is unreachable under test */
-          await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
-            // best-effort cleanup
-          })
+          await fs
+            .rm(stagingDir, { recursive: true, force: true })
+            .catch(() => {
+              // best-effort cleanup
+            })
           throw recoveryOutcome.error
         }
         // One or more copies could not be restored. The staged folder under
-        // <entryDir>/local-copies/<agentId>/ is the ONLY remaining copy of
-        // the user's data. Preserve entryDir and surface a recovery hint so
-        // the caller (and ultimately the UI) can guide the user to it.
-        await markManualRecoveryEntry(
+        // local-copies/<agentId>/ is the ONLY remaining copy of the user's
+        // data, so publish it under the tombstone name the marker readers scan
+        // and report whichever path it actually landed at.
+        const recoveryDir = await publishManualRecoveryEntry(
+          stagingDir,
           entryDir,
           'local-only EXDEV fallback or rollback left staged copies in trash',
         )
@@ -1471,7 +1509,7 @@ async function moveLocalOnlyToTrash(
           ]),
         ).join(', ')
         throw new TrashError(
-          `${recoveryOutcome.error.message}; local copy/copies stranded in ${entryDir}/local-copies (agents: ${strandedAgents})`,
+          `${recoveryOutcome.error.message}; local copy/copies stranded in ${join(recoveryDir, 'local-copies')} (agents: ${strandedAgents})`,
           recoveryOutcome.error.code,
         )
       }
@@ -1485,7 +1523,7 @@ async function moveLocalOnlyToTrash(
   if (moved.length === 0) {
     // Every copy raced away — nothing to tombstone.
     /* v8 ignore next 3 -- best-effort cleanup: any fs.rm rejection (EPERM/EBUSY/EACCES — force only suppresses ENOENT) is intentionally swallowed by .catch, and no suite stages a writable-but-unremovable dir, so this recovery arm is unreachable under test */
-    await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
+    await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => {
       // best-effort cleanup
     })
     throw new TrashError('Skill not found (already deleted?)', 'ENOENT')
@@ -1499,27 +1537,28 @@ async function moveLocalOnlyToTrash(
     localCopies: moved.map(({ agentId, linkPath }) => ({ agentId, linkPath })),
   }
   try {
-    await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8')
-  } catch (manifestWriteError) {
-    const manifestWriteCode = errorCode(manifestWriteError)
-    const manifestWriteMessage = extractErrorMessage(manifestWriteError)
+    await writeManifestThenPublish(manifestPath, manifest, stagingDir, entryDir)
+  } catch (entryPublishError) {
+    const entryPublishCode = errorCode(entryPublishError)
+    const entryPublishMessage = extractErrorMessage(entryPublishError)
 
-    const unrestoredCopies = await rollbackMovedLocalCopies(entryDir, moved)
+    const unrestoredCopies = await rollbackMovedLocalCopies(stagingDir, moved)
     if (unrestoredCopies.length === 0) {
       // All copies restored — safe to drop the staged entry dir.
       /* v8 ignore next 3 -- best-effort cleanup: any fs.rm rejection (EPERM/EBUSY/EACCES — force only suppresses ENOENT) is intentionally swallowed by .catch, and no suite stages a writable-but-unremovable dir, so this recovery arm is unreachable under test */
-      await fs.rm(entryDir, { recursive: true, force: true }).catch(() => {
+      await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => {
         // best-effort cleanup
       })
       throw new TrashError(
-        `Failed to write trash manifest: ${manifestWriteMessage}`,
-        manifestWriteCode,
+        `Failed to finalize trash entry: ${entryPublishMessage}`,
+        entryPublishCode,
       )
     }
-    // Manifest write failed AND rollback could not restore every copy. The
-    // staged folder is the ONLY remaining copy of the user's data — keep
-    // entryDir intact so they can recover manually from local-copies/.
-    await markManualRecoveryEntry(
+    // Publish failed AND rollback could not restore every copy. The staged
+    // folder is the ONLY remaining copy of the user's data, so publish it under
+    // the tombstone name the marker readers scan and report where it landed.
+    const recoveryDir = await publishManualRecoveryEntry(
+      stagingDir,
       entryDir,
       'local-only manifest rollback left staged copies in trash',
     )
@@ -1527,8 +1566,8 @@ async function moveLocalOnlyToTrash(
       .map((copy) => copy.agentId)
       .join(', ')
     throw new TrashError(
-      `Failed to write trash manifest: ${manifestWriteMessage}; ${unrestoredCopies.length} local copy/copies stranded in ${entryDir}/local-copies (agents: ${strandedAgents})`,
-      manifestWriteCode,
+      `Failed to finalize trash entry: ${entryPublishMessage}; ${unrestoredCopies.length} local copy/copies stranded in ${join(recoveryDir, 'local-copies')} (agents: ${strandedAgents})`,
+      entryPublishCode,
     )
   }
 

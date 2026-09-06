@@ -15,9 +15,9 @@ import {
 import type * as NodeFsPromises from 'node:fs/promises'
 import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
 
 import type { FilesystemEntryIdentity } from '@/shared/types'
 
@@ -1577,13 +1577,79 @@ describe('trashService orphan cleanup guarded commit', () => {
         localPath,
         await reviewedIdentityForPath(localPath),
       ),
-    ).rejects.toThrow(/Failed to write trash manifest/i)
+    ).rejects.toThrow(/Failed to finalize trash entry/i)
     // The staged folder was restored to its original agent slot.
     expect(await readFile(join(localPath, 'SKILL.md'), 'utf-8')).toContain(
       skillName,
     )
     // All copies restored → trash entry removed.
     await expect(readdir(__getTrashDirForTests())).resolves.toEqual([])
+  })
+
+  test('assembles local copies under a staged name and publishes them with one rename', async () => {
+    // Arrange
+    // Snapshot TRASH_DIR at the instant the manifest is written -- the last
+    // moment before the entry is published. Nothing tombstone-shaped may exist
+    // yet, or a crash right here would leave readers a half-built entry.
+    const skillName = 'local-staged-publish'
+    const claudeSkillsDir = join(tempHome, '.claude', 'skills')
+    const localPath = join(claudeSkillsDir, skillName)
+    await mkdir(localPath, { recursive: true })
+    await writeFile(join(localPath, 'SKILL.md'), `# ${skillName}\n`, 'utf-8')
+    let entryNameDuringWrite = ''
+    let trashDirDuringWrite: string[] = []
+    vi.doMock('node:fs/promises', async () => {
+      const actual =
+        await vi.importActual<typeof NodeFsPromises>('node:fs/promises')
+      return {
+        ...actual,
+        writeFile: async (
+          path: string,
+          data: Parameters<typeof actual.writeFile>[1],
+          options?: Parameters<typeof actual.writeFile>[2],
+        ): Promise<void> => {
+          if (path.endsWith('/manifest.json')) {
+            // <TRASH_DIR>/<entry>/manifest.json — one dirname to the entry,
+            // a second to TRASH_DIR itself.
+            entryNameDuringWrite = basename(dirname(path))
+            trashDirDuringWrite = await actual.readdir(dirname(dirname(path)))
+          }
+          return actual.writeFile(path, data, options)
+        },
+      }
+    })
+    const { __getTrashDirForTests, moveToTrash } =
+      await import('./trashService')
+
+    // Act
+    const result = await moveToTrash(
+      skillName,
+      localPath,
+      await reviewedIdentityForPath(localPath),
+    )
+
+    // Assert
+    // Mid-flight the copies sit under a name no tombstone reader parses, and
+    // it is the ONLY thing in the trash dir — no tombstone-named sibling.
+    expect(entryNameDuringWrite).toMatch(/^\.staging-/)
+    expect(trashDirDuringWrite).toEqual([entryNameDuringWrite])
+    // One rename then makes the whole entry visible under its tombstone name.
+    const publishedEntries = await readdir(__getTrashDirForTests())
+    expect(publishedEntries).toHaveLength(1)
+    expect(publishedEntries[0]).not.toMatch(/^\.staging-/)
+    expect(result.kind).toBe('tombstoned')
+    expect(
+      await readFile(
+        join(
+          __getTrashDirForTests(),
+          publishedEntries[0],
+          'local-copies',
+          'claude-code',
+          'SKILL.md',
+        ),
+        'utf-8',
+      ),
+    ).toContain(skillName)
   })
 
   it('strands a local copy for manual recovery when manifest rollback cannot restore it', async () => {
@@ -1637,14 +1703,17 @@ describe('trashService orphan cleanup guarded commit', () => {
     const { __getTrashDirForTests, moveToTrash } =
       await import('./trashService')
 
-    // Act / Assert
-    await expect(
-      moveToTrash(
-        skillName,
-        localPath,
-        await reviewedIdentityForPath(localPath),
-      ),
-    ).rejects.toThrow(/stranded in/i)
+    // Act
+    const strandError = await moveToTrash(
+      skillName,
+      localPath,
+      await reviewedIdentityForPath(localPath),
+    ).catch((error: unknown) => error)
+
+    // Assert
+    const strandedMessage =
+      strandError instanceof Error ? strandError.message : ''
+    expect(strandedMessage).toMatch(/stranded in/i)
     expect(
       warnSpy.mock.calls.some(
         ([message]) => message === 'trashService: rollback local copy failed',
@@ -1652,6 +1721,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     ).toBe(true)
     const trashEntries = await readdir(__getTrashDirForTests())
     expect(trashEntries).toHaveLength(1)
+    expect(trashEntries[0]).not.toMatch(/^\.staging-/)
     const entryDir = join(__getTrashDirForTests(), trashEntries[0])
     await expect(
       lstat(join(entryDir, '.manual-recovery')),
@@ -1659,6 +1729,20 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       lstat(join(entryDir, 'local-copies', 'claude-code')),
     ).resolves.toBeDefined()
+    // The path in the message is the one the user has to open to get their only
+    // surviving copy back, so it must name where the data LANDED -- not the
+    // pre-publish staging dir it was assembled under, which no longer exists.
+    const strandedPathMatch = /stranded in (.+) \(agents: /.exec(
+      strandedMessage,
+    )
+    const strandedLocalCopiesDir = strandedPathMatch?.[1] ?? ''
+    expect(strandedLocalCopiesDir).toBe(join(entryDir, 'local-copies'))
+    expect(
+      await readFile(
+        join(strandedLocalCopiesDir, 'claude-code', 'SKILL.md'),
+        'utf-8',
+      ),
+    ).toContain(skillName)
     warnSpy.mockRestore()
   })
 
