@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 language: 'ja-JP'
-early_access: false
+early_access: true
 
 tone_instructions: >
   Be concise and technical. Focus on correctness, type safety, and Electron security boundaries.
@@ -94,6 +94,7 @@ reviews:
 
 chat:
   auto_reply: true
+  art: false
 
 code_generation:
   docstrings:
