@@ -16,6 +16,7 @@ import {
 import { manifestSchema } from '@/main/ipc/ipc-schemas'
 import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
 import { extractErrorMessage } from '@/main/utils/errors'
+import { fsyncPath } from '@/main/utils/fsyncPath'
 import { UNDO_WINDOW_MS } from '@/shared/constants'
 import { tombstoneId } from '@/shared/types'
 import type {
@@ -338,6 +339,14 @@ async function markManualRecoveryEntry(
   const body = `manual recovery required\nreason: ${reason}\nmarkedAt: ${new Date().toISOString()}\n`
   try {
     await fs.writeFile(markerPath, body, 'utf-8')
+    // Flushed before the caller's publish rename, and the marker matters more
+    // than the manifest does: losing these bytes while the rename lands leaves
+    // a tombstone-named dir whose manifest still parses, so
+    // {@link classifyEntryForSweep} answers 'sweep' and startup cleanup evicts
+    // the only copy the marker existed to protect. A torn manifest only
+    // downgrades the entry to 'unreadable-manifest', which is kept.
+    await fsyncPath(markerPath)
+    await fsyncPath(entryDir)
   } catch (error) {
     console.warn('trashService: failed to mark manual recovery entry', {
       entryDir,
@@ -369,6 +378,9 @@ async function publishManualRecoveryEntry(
   await markManualRecoveryEntry(stagingDir, reason)
   try {
     await fs.rename(stagingDir, entryDir)
+    // The rename is a metadata change in TRASH_DIR, so TRASH_DIR is what has
+    // to be flushed for the published name to survive a power cut.
+    await fsyncPath(TRASH_DIR)
     return entryDir
   } catch (publishError) {
     // Recoverable either way: the caller reports whichever path we return.
@@ -383,10 +395,12 @@ async function publishManualRecoveryEntry(
 }
 
 /**
- * Persist a trash manifest, then publish the staged entry with one atomic
- * rename. Both trash paths call it as their last forward step; a rejection
- * means the entry never became a tombstone, so the caller's catch owns the
- * rollback and the staged dir is still whole when it runs.
+ * Persist a trash manifest durably, then publish the staged entry with one
+ * atomic rename. Both trash paths call it as their last forward step; a
+ * rejection means the entry never became a tombstone, so the caller's catch
+ * owns the rollback and the staged dir is still whole when it runs. The
+ * flushes make the tombstone survive a power cut, not just a process kill:
+ * a kill leaves the page cache intact, a power cut does not.
  * @param manifest - v2 manifest for either trash kind.
  * @param stagingDir - Half-built entry under {@link STAGED_ENTRY_PREFIX}.
  * @param entryDir - Tombstone-named path to publish it as.
@@ -403,9 +417,17 @@ async function writeManifestThenPublish(
   // free to write it where the publish leaves it behind.
   const manifestPath = join(stagingDir, 'manifest.json')
   await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8')
+  // Three flushes, none of them redundant: the file's bytes, the directory
+  // entry that names it, and the parent that names the published entry. Skip
+  // the middle one and a power cut can land the tombstone with the manifest
+  // dirent missing from inside it -- the entry the rename promises, holding
+  // nothing that says what it holds.
+  await fsyncPath(manifestPath)
+  await fsyncPath(stagingDir)
   // Rename is atomic, so a failure here leaves the staged entry intact rather
   // than a half-published tombstone.
   await fs.rename(stagingDir, entryDir)
+  await fsyncPath(TRASH_DIR)
 }
 
 /**
