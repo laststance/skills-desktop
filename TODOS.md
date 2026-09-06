@@ -1454,13 +1454,16 @@ restore, because restore needs a parseable manifest at exactly that path. Any
 entry that also holds real payload (`source`, `local-copies`) is already kept.
 
 **Fix direction:** `fs.readdir(entryDir, { withFileTypes: true })` and treat a
-bookkeeping name as bookkeeping only when `isFile()`. Blocked on the shared
-`readdirSpy` in `trashService.durability.test.ts`, which narrows `readdir` to
-one argument on purpose ("Single-arg on purpose") and is routed through by
-seven tests — widening it means working around the `typeof actual.readdir`
-overload set.
+bookkeeping name as bookkeeping only when `isFile()`. The production change is
+two lines; the cost is all in the test harness.
 
-**Depends on / blocked by:** Nothing.
+**Depends on / blocked by:** No other TODO, but it cannot land without first
+widening the shared `readdirSpy` in `trashService.durability.test.ts`. That spy
+narrows `readdir` to one argument on purpose ("Single-arg on purpose") and is
+routed through by seven tests, so forwarding an options argument means working
+around the `typeof actual.readdir` overload set — the spy cannot be annotated
+with it, because `readdir` is an overload set and `Promise<string[]>` is not
+assignable to `Promise<NonSharedBuffer[]>`.
 
 ### P2. A kill landing mid-write can still truncate the lock
 
