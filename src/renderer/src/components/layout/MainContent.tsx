@@ -4,7 +4,6 @@ import {
   ArrowUpAZ,
   CheckSquare,
   ChevronDown,
-  ExternalLink,
   GitBranch,
   X,
 } from 'lucide-react'
@@ -130,7 +129,6 @@ import {
   SOURCE_FILTER_MAX_VISIBLE_REPOS,
   UNDO_WINDOW_MS,
 } from '@/shared/constants'
-import { FEATURE_FLAGS } from '@/shared/featureFlags'
 import type { Settings } from '@/shared/settings'
 import type {
   Agent,
@@ -195,8 +193,6 @@ function getUnavailableExcludeReason(
   }
   return includeFilter === excludeFilter ? 'Already included' : 'Not in view'
 }
-
-const SKILLS_SH_URL = 'https://skills.sh'
 
 type SourceFilterViewModel = ReturnType<typeof selectSourceFilterViewModel>
 type RepoFacetOptions = ReturnType<typeof selectRepoFacetOptions>
@@ -1191,17 +1187,6 @@ export const MainContent = function MainContent(): React.ReactElement {
     handleCopyAction,
   } = useMainContentEventHandlers({ bulkSelectMode, repoFacetOptions })
 
-  /* v8 ignore start -- FEATURE_FLAGS.ENABLE_MARKETPLACE_UI is a constant true,
-     so the Marketplace surfaces as a tab; the link button that calls this
-     handler only renders in the `else` (flag-off) branch and is never mounted,
-     making this handler unreachable in production and untestable without
-     mutating the constant (which would break every Marketplace-tab sibling). */
-  // react-doctor-disable-next-line react-doctor/prefer-module-scope-pure-function -- deliberately-dead handler (the calling button only renders in the flag-off branch that never mounts; see v8-ignore above). Hoisting an unreachable function adds churn for zero runtime benefit.
-  const handleOpenMarketplace = (): void => {
-    window.electron.shell.openExternal(SKILLS_SH_URL)
-  }
-  /* v8 ignore stop */
-
   // Wire the main-process `skills:deleteProgress` event into Redux. Fires
   // only for batches large enough to warrant a counter (see main handler).
   useInitialEffect(() => {
@@ -1241,20 +1226,9 @@ export const MainContent = function MainContent(): React.ReactElement {
               display={installedSearchCountDisplay}
             />
 
-            {FEATURE_FLAGS.ENABLE_MARKETPLACE_UI ? (
-              <TabsTrigger value="marketplace" className="flex-1">
-                Marketplace
-              </TabsTrigger>
-            ) : (
-              <button
-                type="button"
-                onClick={handleOpenMarketplace}
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 flex-1 gap-1.5 text-muted-foreground hover:text-foreground"
-              >
-                Marketplace
-                <ExternalLink className="h-3 w-3" />
-              </button>
-            )}
+            <TabsTrigger value="marketplace" className="flex-1">
+              Marketplace
+            </TabsTrigger>
           </TabsList>
         </div>
 

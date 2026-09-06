@@ -54,7 +54,9 @@ export const CodePreview = function CodePreview({
     )
   }
 
-  if (files.length === 0) {
+  // Guards the value the tabs actually read: `activeFile` is null exactly when
+  // `files` is empty, and narrowing here removes two `?? ''` dead fallbacks.
+  if (!activeFile) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
         No preview files found
@@ -64,15 +66,13 @@ export const CodePreview = function CodePreview({
 
   return (
     <TabsPrimitive.Root
-      /* v8 ignore next -- the `?? ''` empty-string arm is unreachable: the files.length===0 guard above returns first, so here files.length>0 and activeFile (userSelectedFile ?? files[0]?.path) is always a non-null path */
-      value={activeFile ?? ''}
+      value={activeFile}
       onValueChange={handleValueChange}
       className="flex flex-col h-full"
     >
       <FileTabs files={files} activeFilePath={activeFile} />
       <TabsPrimitive.Content
-        /* v8 ignore next -- the `?? ''` empty-string arm is unreachable: the files.length===0 guard above returns first, so here files.length>0 and activeFile (userSelectedFile ?? files[0]?.path) is always a non-null path */
-        value={activeFile ?? ''}
+        value={activeFile}
         className="flex-1 flex flex-col min-h-0 focus-visible:outline-none"
       >
         <FileContent
