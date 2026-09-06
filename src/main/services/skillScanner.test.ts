@@ -813,6 +813,28 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     expect(stats.skillCount).toBe(0)
   })
 
+  test('keeps the unreadable flag when the source directory cannot be stat-ed either', async () => {
+    // Arrange: SOURCE_DIR's parent is not traversable, so BOTH readdir and
+    // stat fail with EACCES — the case where a shared catch would have dropped
+    // the unreadable fact and rendered an honest-looking "0 skills".
+    readdirMock.mockImplementation(async (path: string) => {
+      throw createFsError(`EACCES: ${path}`, 'EACCES')
+    })
+    statMock.mockImplementation(async (path: string) => {
+      throw createFsError(`EACCES: ${path}`, 'EACCES')
+    })
+
+    const { getSourceStats } = await import('./skillScanner')
+
+    // Act
+    const stats = await getSourceStats()
+
+    // Assert: the warning survives, and the placeholder fields stay valid.
+    expect(stats.isUnreadable).toBe(true)
+    expect(stats.skillCount).toBe(0)
+    expect(stats.totalSize).toBe('0 B')
+    expect(typeof stats.lastModified).toBe('string')
+  })
   test('leaves the unreadable flag off the stats for a source directory it could read', async () => {
     // Arrange: one real source skill.
     readdirMock.mockImplementation(async (path: string) => {

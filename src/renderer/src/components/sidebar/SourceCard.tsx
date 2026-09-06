@@ -219,7 +219,10 @@ export const SourceCard = function SourceCard(): React.ReactElement {
               (sourceStats.isUnreadable ? (
                 // A folder we could not open must never be reported as "0 skills" —
                 // that reads as "you have no skills" and sends users reinstalling.
-                <div className="mt-2 text-xs text-amber-300">
+                // `text-amber-400` is DESIGN.md's needs-review status-text hue;
+                // the `text-amber-300` exception is only for badge text sitting
+                // on an amber tint, and this notice has no background.
+                <div className="mt-2 text-xs text-amber-400">
                   Folder could not be read — check its permissions
                 </div>
               ) : (

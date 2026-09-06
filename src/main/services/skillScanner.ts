@@ -605,33 +605,30 @@ export async function getSkill(skillName: SkillName): Promise<Skill | null> {
  * // => { path: '~/.agents/skills', skillCount: 5, totalSize: '2.3 MB' }
  */
 export async function getSourceStats(): Promise<SourceStats> {
-  try {
-    // Independent reads of SOURCE_DIR (dir list + stat + recursive size). Only
-    // stat() can reject; the other two are total, so Promise.all surfaces the
-    // exact same error to the outer catch as the sequential version did.
-    const [listing, stats, totalBytes] = await Promise.all([
-      listSourceSkillDirs(),
-      stat(SOURCE_DIR),
-      calculateDirectorySize(SOURCE_DIR),
-    ])
+  // Three independent reads of SOURCE_DIR. `listSourceSkillDirs` and
+  // `calculateDirectorySize` both swallow their own failures, and `stat` is
+  // settled here rather than allowed to reject the whole batch: when
+  // SOURCE_DIR's parent is not traversable BOTH the listing and the stat fail,
+  // and a shared catch would have thrown away the `unreadable` fact and
+  // rendered the folder as an honest-looking "0 skills" — the exact lie this
+  // function exists to stop telling.
+  const [listing, stats, totalBytes] = await Promise.all([
+    listSourceSkillDirs(),
+    stat(SOURCE_DIR).catch(() => null),
+    calculateDirectorySize(SOURCE_DIR),
+  ])
 
-    return {
-      path: SOURCE_DIR,
-      // Counts what the list renders, unreadable rows included, so the sidebar
-      // count and the list cannot disagree.
-      skillCount: listing.status === 'listed' ? listing.entries.length : 0,
-      totalSize: formatBytes(totalBytes),
-      lastModified: stats.mtime.toISOString(),
-      // The one place a "0 skills" reading is a lie gets to say so.
-      isUnreadable: listing.status === 'unreadable',
-    }
-  } catch {
-    return {
-      path: SOURCE_DIR,
-      skillCount: 0,
-      totalSize: '0 B',
-      lastModified: new Date().toISOString(),
-    }
+  return {
+    path: SOURCE_DIR,
+    // Counts what the list renders, unreadable rows included, so the sidebar
+    // count and the list cannot disagree.
+    skillCount: listing.status === 'listed' ? listing.entries.length : 0,
+    totalSize: formatBytes(totalBytes),
+    // No consumer renders this today; "now" keeps the field a valid
+    // `IsoTimestamp` without widening the type for an unread value.
+    lastModified: (stats?.mtime ?? new Date()).toISOString(),
+    // The one place a "0 skills" reading is a lie gets to say so.
+    isUnreadable: listing.status === 'unreadable',
   }
 }
 

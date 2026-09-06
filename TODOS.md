@@ -1246,7 +1246,8 @@ This is the source-directory counterpart of the already-fixed P1 "Inaccessible s
 `valid | not-a-skill | unreadable`, applying the repo's settled rule that only
 `ENOENT`/`ENOTDIR` prove absence. `listValidSourceSkillDirs` became
 `listSourceSkillDirs`, returning `{ status: 'listed', entries } | { status:
-'unreadable', code }`; kept entries carry `isUnreadable`. The three surfaces:
+'unreadable' }` and logging the failing code once at the catch site; kept
+entries carry `isUnreadable`. The three surfaces:
 
 - A source skill whose `SKILL.md` cannot be probed **stays in the list** with an
   amber `unreadable` badge, mirroring the existing `orphan` badge.
@@ -1267,10 +1268,13 @@ in `syncService.ts`): creating agent symlinks for a directory we cannot confirm
 is a skill is an action on a guess. That is a behaviour statement now, not the
 side effect of a swallowed error.
 
-**NOT covered:** the outer `catch` in `getSourceStats` still returns zeros with
-no flag. It fires only when `stat(SOURCE_DIR)` or the recursive size walk
-rejects, which an `EACCES` on the directory does not cause (`readdir` fails
-first and is now classified). Left alone as a separate pre-existing swallow.
+The outer `catch` in `getSourceStats` is **gone**, not deferred. It was first
+written off as unreachable on the reasoning that `readdir` fails before `stat`
+does — true when only the source directory itself is unreadable, false when its
+**parent** is not traversable, where `stat(SOURCE_DIR)` rejects too and the
+shared catch threw away the `unreadable` fact to return an honest-looking
+"0 skills". `stat` is now settled with `.catch(() => null)`, which leaves all
+three reads total and makes `getSourceStats` unable to throw.
 
 ## skill-lock prune /review follow-ups (2026-09-06)
 
