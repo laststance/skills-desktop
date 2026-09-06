@@ -1521,10 +1521,17 @@ fix direction said. Two reasons, both discovered while implementing it:
 - The signal is not needed. `execCli` was the privileged place only because it
   is where a kill is observable (`proc.on('close')` does not even capture
   `signal` today). A cause-independent predicate is strictly safer: restore
-  only when the lock **parsed before and does not parse now**. That covers a
-  kill, a crash, and a power cut alike, and it can never undo a legitimate
-  write, because a legitimately emptied lock is still valid JSON
-  (`{version, skills:{}}`).
+  only when the lock **parsed before and does not parse now**. That covers the
+  CLI child dying by any cause -- SIGTERM from `cancel()`, SIGKILL after the
+  grace window, or a crash -- and it can never undo a legitimate write, because
+  a legitimately emptied lock is still valid JSON (`{version, skills:{}}`).
+
+  NOT covered: a power cut or a crash of the Electron process itself. The
+  snapshot is in memory and the repair runs from a `finally`, so if the parent
+  dies there is nothing left to repair with; on the next launch the torn lock
+  reads as `untrusted` and is left alone. Surviving that would need the
+  snapshot on disk, which is a bigger change than the exposure warrants -- the
+  CLI is the only thing this app kills on purpose.
 
 `runLockWrite` is also the one chokepoint every lock writer already routes
 through -- install via `ipc/skillsCli.ts:37`, prune via

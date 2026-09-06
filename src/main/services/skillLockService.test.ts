@@ -1176,6 +1176,12 @@ describe('runLockWrite', () => {
 
     // Assert
     expect(ran).toBe('install ran')
+    // Also pins that the snapshot really failed: `chmod` does not deny for
+    // root, and without this the test would pass having proven nothing.
+    expect(consoleWarn).toHaveBeenCalledWith(
+      'skillLockService: lock snapshot failed',
+      expect.objectContaining({ code: 'EACCES' }),
+    )
     await chmod(lockPath, 0o644)
     consoleWarn.mockRestore()
   })
