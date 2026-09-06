@@ -26,6 +26,8 @@ import {
 import { pluralize } from '@/renderer/src/utils/pluralize'
 import type { PruneLockEntriesResult } from '@/shared/types'
 
+import { describeLockPruneTarget } from './lockPruneCopy'
+
 /**
  * Confirmation for removing skill-lock records whose skill is gone.
  *
@@ -45,6 +47,10 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
   // the user already read the names.
   const consentedNames = useAppSelector(selectConsentedLockEntryNames)
   const isPruning = useAppSelector(selectIsPruningLockEntries)
+  // Every count-dependent phrase comes from one call, so the sentence, the
+  // pronoun and the button label cannot disagree about how many records there
+  // are. Tested directly in `lockPruneCopy.test.ts`, without rendering.
+  const copy = describeLockPruneTarget(consentedNames.length)
 
   const handleClose = (): void => {
     if (!isPruning) dispatch(closeLockPruneDialog())
@@ -102,15 +108,10 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
             title="Prune skill lock"
           />
           <DialogDescription>
-            The skills CLI still tracks{' '}
-            {consentedNames.length === 1
-              ? 'a skill that is'
-              : `${consentedNames.length} skills that are`}{' '}
-            no longer installed. Until the{' '}
-            {pluralize(consentedNames.length, 'record')}{' '}
-            {consentedNames.length === 1 ? 'is' : 'are'} removed,{' '}
+            The skills CLI still tracks {copy.subject} no longer installed.
+            Until the {copy.recordNoun} {copy.recordVerb} removed,{' '}
             <code className="text-xs">skills -g update</code> reinstalls{' '}
-            {consentedNames.length === 1 ? 'it' : 'them'}.
+            {copy.pronoun}.
           </DialogDescription>
         </DialogHeader>
 
@@ -138,7 +139,7 @@ export const LockPruneDialog = function LockPruneDialog(): React.ReactElement {
                 Pruning...
               </>
             ) : (
-              `Remove ${consentedNames.length} ${pluralize(consentedNames.length, 'record')}`
+              copy.confirmLabel
             )}
           </Button>
         </DialogFooter>

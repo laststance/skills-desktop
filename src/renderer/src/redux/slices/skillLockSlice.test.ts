@@ -304,6 +304,100 @@ describe('skillLockSlice', () => {
     expect(selectStaleLockEntryCount(readState(store))).toBe(2)
   })
 
+  test('still reports the delete as running when a background scan lands mid-prune', async () => {
+    // Arrange
+    // Scans fire on a timer from the undo-toast listener and from every
+    // `refreshAllData`, so one landing mid-prune is routine and has nothing to
+    // do with the user. It may take over the record list, but it must not
+    // report the delegated delete as finished — that re-enables the confirm
+    // button while the CLI is still recursively removing directories.
+    const store = createTestStore()
+    store.dispatch(pruneStaleLockEntries.pending('req-prune', ['old-skill']))
+
+    // Act
+    store.dispatch(fetchStaleLockEntries.pending('req-scan', undefined))
+    store.dispatch(
+      fetchStaleLockEntries.fulfilled(
+        { status: 'ok', names: ['old-skill', 'newly-found'] },
+        'req-scan',
+        undefined,
+      ),
+    )
+
+    // Assert
+    expect(selectIsPruningLockEntries(readState(store))).toBe(true)
+  })
+
+  test('ends the prune normally after a scan took over the record list', async () => {
+    // Arrange
+    const store = createTestStore()
+    store.dispatch(pruneStaleLockEntries.pending('req-prune', ['old-skill']))
+    store.dispatch(fetchStaleLockEntries.pending('req-scan', undefined))
+    store.dispatch(
+      fetchStaleLockEntries.fulfilled(
+        { status: 'ok', names: ['old-skill', 'newly-found'] },
+        'req-scan',
+        undefined,
+      ),
+    )
+
+    // Act
+    store.dispatch(
+      pruneStaleLockEntries.fulfilled(
+        { pruned: ['old-skill'], skipped: [], failed: [] },
+        'req-prune',
+        ['old-skill'],
+      ),
+    )
+
+    // Assert
+    expect(selectIsPruningLockEntries(readState(store))).toBe(false)
+    expect(selectStaleLockEntryNames(readState(store))).toEqual([
+      'old-skill',
+      'newly-found',
+    ])
+  })
+
+  test('keeps the confirm button disabled when an older prune settles mid-delete', async () => {
+    // Arrange
+    // The dialog is dismissable with Esc and the corner X even while pruning,
+    // so a second prune can be started behind the first. Letting the first one
+    // report "done" would re-enable a destructive button while the CLI is
+    // still recursively deleting.
+    const store = createTestStore()
+    store.dispatch(pruneStaleLockEntries.pending('req-first', ['old-skill']))
+    store.dispatch(pruneStaleLockEntries.pending('req-second', ['old-skill']))
+
+    // Act
+    store.dispatch(
+      pruneStaleLockEntries.fulfilled(
+        { pruned: ['old-skill'], skipped: [], failed: [] },
+        'req-first',
+        ['old-skill'],
+      ),
+    )
+
+    // Assert
+    expect(selectIsPruningLockEntries(readState(store))).toBe(true)
+  })
+
+  test('leaves the newer prune running when an older one fails first', async () => {
+    // Arrange
+    const store = createTestStore()
+    store.dispatch(pruneStaleLockEntries.pending('req-first', ['old-skill']))
+    store.dispatch(pruneStaleLockEntries.pending('req-second', ['old-skill']))
+
+    // Act
+    store.dispatch(
+      pruneStaleLockEntries.rejected(new Error('IPC down'), 'req-first', [
+        'old-skill',
+      ]),
+    )
+
+    // Assert
+    expect(selectIsPruningLockEntries(readState(store))).toBe(true)
+  })
+
   test('asks about the records found now, not the ones the last open asked about', async () => {
     // Arrange
     // Nothing clears the snapshot on close — that would blank the dialog during
