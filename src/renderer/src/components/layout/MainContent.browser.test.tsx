@@ -20,7 +20,6 @@ import type {
 import { repositoryId, tombstoneId } from '@/shared/types'
 
 const mockGetAll = vi.fn()
-const mockShellOpenExternal = vi.fn()
 const mockOnDeleteProgress = vi.fn(
   (_callback: (payload: DeleteProgressPayload) => void) => () => {},
 )
@@ -133,7 +132,6 @@ vi.mock('sonner', () => ({
 
 beforeEach(() => {
   mockGetAll.mockReset()
-  mockShellOpenExternal.mockReset()
   mockOnDeleteProgress.mockReset()
   mockOnDeleteProgress.mockImplementation(() => () => {})
   mockSkillsDeleteSkills.mockReset()
@@ -166,9 +164,6 @@ beforeEach(() => {
     // subscribes to install progress — stub it so the effect's cleanup is valid.
     skillsCli: {
       onProgress: vi.fn(() => () => {}),
-    },
-    shell: {
-      openExternal: mockShellOpenExternal,
     },
   })
 })

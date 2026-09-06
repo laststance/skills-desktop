@@ -23,13 +23,19 @@ const SKILL_TYPE_FILTER_LABELS = {
   unique: 'unique',
 } as const satisfies Record<SkillTypeFilter, string>
 
-const EXCLUDED_SKILL_TYPE_FILTER_LABELS = {
-  symlinked: 'symlinked',
-  local: 'local',
-  gstack: 'G-Stack',
-  orphan: 'orphan',
-  unique: 'unique',
-} as const satisfies Record<ExcludableSkillTypeFilter, string>
+/**
+ * Oxford-comma list joiner for empty-state copy, built once.
+ * Module scope because constructing an {@link Intl.ListFormat} does an ICU
+ * locale lookup; the formatter is stateless, so one instance serves every call.
+ * `'en'` is pinned rather than left to the system locale on purpose: the labels
+ * in {@link SKILL_TYPE_FILTER_LABELS} are English literals, so a ja-JP
+ * machine would otherwise join them with CLDR's `、` separator.
+ * @example EXCLUDED_LABEL_JOINER.format(['local', 'G-Stack']) // => "local and G-Stack"
+ */
+const EXCLUDED_LABEL_JOINER = new Intl.ListFormat('en', {
+  style: 'long',
+  type: 'conjunction',
+})
 
 /**
  * Join active exclude labels in compact English for empty-state copy.
@@ -42,15 +48,13 @@ const EXCLUDED_SKILL_TYPE_FILTER_LABELS = {
 function formatExcludedSkillTypeFilters(
   excludedSkillTypeFilters: ExcludableSkillTypeFilter[],
 ): string {
+  // The wider map covers every excludable key by construction:
+  // `ExcludableSkillTypeFilter = Exclude<SkillTypeFilter, 'all'>` and the map
+  // above `satisfies Record<SkillTypeFilter, string>`.
   const labels = excludedSkillTypeFilters.map(
-    (filter) => EXCLUDED_SKILL_TYPE_FILTER_LABELS[filter],
+    (filter) => SKILL_TYPE_FILTER_LABELS[filter],
   )
-  // Platform handles the 1/2/N join and the Oxford comma; byte-identical to the
-  // hand-rolled chain this replaced, including `""` for an empty list.
-  return new Intl.ListFormat('en', {
-    style: 'long',
-    type: 'conjunction',
-  }).format(labels)
+  return EXCLUDED_LABEL_JOINER.format(labels)
 }
 
 /**
