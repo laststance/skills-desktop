@@ -51,6 +51,30 @@ if (e2eUserDataDir) {
 }
 
 /**
+ * Whether this process won the single-instance lock. Requested here, after the
+ * `userData` override above, because Chromium keys the singleton on that
+ * directory — asking first would lock the developer's real profile and make
+ * every isolated e2e launch contend with a running dev app.
+ *
+ * A second instance must never reach `app.whenReady`: its `startupCleanup`
+ * would sweep the first instance's live tombstones out from under an on-screen
+ * Undo toast, deleting staged skill data the user can still see a button for.
+ */
+const isPrimaryInstance = app.requestSingleInstanceLock()
+if (!isPrimaryInstance) {
+  app.quit()
+}
+
+// Someone launched the app again while this instance owns the lock — surface
+// the window we already have instead of leaving them with a dead click.
+app.on('second-instance', () => {
+  const existingWindow = getMainWindow()
+  if (existingWindow === null) return
+  if (existingWindow.isMinimized()) existingWindow.restore()
+  existingWindow.focus()
+})
+
+/**
  * Default launch size used when the user has no persisted `windowSize`
  * preference. Mirrors the previous hard-coded constructor values; with no
  * preference the app maximizes on `ready-to-show` so users keep the original
@@ -299,6 +323,10 @@ function createMenu(): void {
 }
 
 app.whenReady().then(async () => {
+  // Lost the single-instance race. `app.quit()` above does not stop a pending
+  // `ready`, so bail before any init runs — startupCleanup especially.
+  if (!isPrimaryInstance) return
+
   // E2E: hide from Dock / Cmd-Tab BEFORE any other init runs. Done first
   // because `configureAboutPanel()` below calls `app.dock.setIcon()`,
   // which would briefly flash the Dock icon if the policy is still
@@ -325,8 +353,8 @@ app.whenReady().then(async () => {
   // swallows its own errors and falls back to defaults internally.
   await loadSettings()
 
-  // Sweep orphan trash entries older than 24h. Fire-and-forget: errors per
-  // entry are caught + logged inside trashService; we never block startup.
+  // Sweep every orphan trash entry. Fire-and-forget: errors per entry are
+  // caught + logged inside trashService; we never block startup.
   void runTrashStartupCleanup()
 
   // Configure the About panel before the menu wires up `role: 'about'`

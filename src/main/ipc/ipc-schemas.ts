@@ -92,8 +92,9 @@ const localCopyRecordSchema = z.object({
  * Legacy v1 manifest (no kind discriminator — always source-backed).
  * Read-only path: never written by current code. Normalized to v2 source-backed
  * via Zod transform so consumers see one shape regardless of on-disk version.
- * Removable in a future major once the 24h startupCleanup TTL has flushed all
- * pre-upgrade tombstones.
+ * Removable in a future major once startupCleanup has swept all pre-upgrade
+ * tombstones — it evicts every orphan on launch, so one run of the new build
+ * is enough.
  */
 const manifestV1Schema = z
   .object({
