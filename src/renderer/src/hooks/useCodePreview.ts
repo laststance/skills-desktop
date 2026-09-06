@@ -101,6 +101,13 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
       }
       const initial = await loadContentForFile(first)
       if (cancelled || userSelectedFileRef.current !== null) return
+      // The sibling guard above cannot stand in for this one: the render-phase
+      // reset nulls `userSelectedFileRef`, so it catches a stale CLICK but never
+      // a stale SKILL. Without this, the previous skill's file text lands under
+      // the next skill's tab bar -- misattributed content, which is worse than
+      // the blank pane the reset would otherwise leave.
+      /* v8 ignore next -- unreachable under test for the same reason it exists: the window it closes opens between React's render phase (where prevSkillPathRef is reassigned) and its commit phase (where this effect's cleanup sets `cancelled`), and `rerender` runs both synchronously, so `cancelled` always wins in the harness */
+      if (isStaleSkill()) return
       setContent(initial)
     }
     // `files.list` rejects when the main process refuses the path: `validatePath`
