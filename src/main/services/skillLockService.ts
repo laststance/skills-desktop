@@ -247,15 +247,25 @@ export async function resolveLockKeyForDirectory(
 
 /**
  * Find every lock record whose skill is gone from disk for good.
- * Runs when the dashboard asks for a health count, so it never mutates
- * anything. Returns `unavailable` rather than a count whenever the source
- * directory or the lock itself cannot be read: with one side of the diff
- * missing, every record on the other side looks stale.
+ * Runs when the dashboard asks for a health count. It adds no deletions of its
+ * own, but it does drain the prune the trash already queued (see
+ * `flushPruneQueue`) so the count describes the lock as it will settle rather
+ * than mid-eviction. Returns `unavailable` rather than a count whenever the
+ * source directory or the lock itself cannot be read: with one side of the
+ * diff missing, every record on the other side looks stale.
  * @returns Raw lock keys safe to prune, or `unavailable`.
  * @example await scanStaleLockEntries() // => { status: 'ok', names: ['old-skill'] }
  */
 export async function scanStaleLockEntries(): Promise<StaleLockScanResult> {
-  const lock = await readSkillLockKeys()
+  // Settle the queue before reading. A scan fired just after the undo window
+  // expires would otherwise report records that are milliseconds away from
+  // removal, offering the user a CTA for work already in flight. Only names
+  // whose trash entry is already gone can be queued, so this can never cut an
+  // undo short. Draining is exact where a timed delay would only be a guess.
+  await flushPruneQueue()
+  // Read through the same queue every lock write uses, so a concurrent install
+  // is never observed half-written.
+  const lock = await runLockWrite(readSkillLockKeys)
   if (lock.status !== 'ok') return { status: 'unavailable' }
   if (lock.keys.length === 0) return { status: 'ok', names: [] }
 

@@ -22,8 +22,18 @@ at most a few times a day.
 ## Consequences
 
 Pruning is best-effort. If the CLI is missing or fails, the skill stays deleted
-and the lock keeps the entry — the periodic scan finds it again, so nothing is
-lost permanently.
+and the lock keeps the entry. There is no periodic scan to fall back on, so the
+recovery surface is explicit: a listener rescans `UNDO_WINDOW_MS +
+LOCK_RESCAN_GRACE_MS` after each delete, and the survivor shows up in Symlink
+Health with a "Clean lock" CTA. Without that listener the failure would stay
+invisible until the user navigated away from the dashboard and back.
+
+The scan drains any queued prune before reading, so it reports the lock as it
+settles rather than racing the eviction it is waiting on. Prune children are
+also kept out of `skillsCliService.cancel()`: closing the install dialog sends
+SIGTERM to every tracked child, and the CLI rewrites `.skill-lock.json` with a
+plain `writeFile`, so a kill landing mid-write would truncate the lock into
+what parses as an empty one.
 
 Scope is the lock only. Symlinks left pointing at a deleted skill are a broken
 slot and belong to Symlink Health. Delegation cannot cover them anyway: for

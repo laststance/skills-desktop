@@ -137,6 +137,22 @@ describe('scanStaleLockEntries', () => {
     expect(result).toEqual({ status: 'ok', names: ['deleted-in-finder'] })
   })
 
+  test('settles a queued prune before counting, so it never offers work already in flight', async () => {
+    // Arrange — evict() queues the prune behind a 500ms debounce. A scan fired
+    // the moment the undo window closes would otherwise show a "Clean lock"
+    // CTA for a record the trash is in the middle of removing.
+    const { scanStaleLockEntries, queuePrune } = await serviceModule
+    await writeLock(['evicted-skill'])
+    queuePrune('evicted-skill')
+
+    // Act
+    const result = await scanStaleLockEntries()
+
+    // Assert
+    expect(result).toEqual({ status: 'ok', names: [] })
+    expect(await readLockKeys()).toEqual([])
+  })
+
   test('does not report a skill still waiting out its undo window in the trash', async () => {
     // Arrange
     // The source folder is already gone (moveToTrash renamed it away), but the

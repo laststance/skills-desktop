@@ -1042,6 +1042,15 @@ export const MACOS_TRAFFIC_LIGHT_POSITION_PX = { x: 16, y: 16 } as const
 export const UNDO_WINDOW_MS = 15_000
 
 /**
+ * Extra wait before the post-delete skill-lock rescan (ms), on top of
+ * `UNDO_WINDOW_MS`. Covers the gap between the toast expiring in the renderer
+ * and the main-process evict timer firing for the same tombstone; the scan
+ * itself then drains any queued prune, so this only has to absorb clock jitter
+ * between two timers, not the CLI call.
+ */
+export const LOCK_RESCAN_GRACE_MS = 1_000
+
+/**
  * How long a "Copied" affordance stays lit after a successful clipboard write
  * (ms). Shared by every copy-to-clipboard surface (skill Location-path rows,
  * marketplace preview URL) so the confirmation flash has one duration and a new

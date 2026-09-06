@@ -196,13 +196,20 @@ class SkillsCliService extends EventEmitter {
    * // spawns: npx skills@x.y.z remove old-skill --global -y
    */
   async removeSkills(names: readonly SkillName[]): Promise<CliCommandResult> {
-    return this.execCli(['remove', ...names, CLI_FLAGS.GLOBAL, CLI_FLAGS.YES])
+    return this.execCli(
+      ['remove', ...names, CLI_FLAGS.GLOBAL, CLI_FLAGS.YES],
+      undefined,
+      { cancellable: false },
+    )
   }
 
   /**
    * Cancel all currently-running CLI operations by sending `SIGTERM` to each
    * spawned child process. Used by the renderer to abort an in-progress
    * install when the user closes the install dialog.
+   *
+   * Lock-writing commands (see `removeSkills`) never join the sweep: closing
+   * the install dialog must not kill a background prune mid-write.
    */
   cancel(): void {
     for (const proc of this.runningProcesses) {
@@ -219,6 +226,7 @@ class SkillsCliService extends EventEmitter {
   private async execCli(
     args: string[],
     onOutput?: (data: string) => void,
+    { cancellable = true }: { cancellable?: boolean } = {},
   ): Promise<CliExecutionResult> {
     return new Promise((resolve) => {
       let stdout = ''
@@ -231,7 +239,10 @@ class SkillsCliService extends EventEmitter {
         env: buildCliEnv(),
       })
 
-      this.runningProcesses.add(proc)
+      // Only cancellable commands join the set `cancel()` sweeps. A prune
+      // rewrites .skill-lock.json with a plain writeFile (no temp+rename), so
+      // a SIGTERM aimed at an unrelated install would truncate the lock.
+      if (cancellable) this.runningProcesses.add(proc)
 
       const finalize = (result: CliExecutionResult): void => {
         if (settled) {

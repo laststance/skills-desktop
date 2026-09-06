@@ -98,6 +98,30 @@ describe('skillsCliService.cancel', () => {
     second.emit('close', 0)
     await Promise.all([searchA, searchB])
   })
+
+  it('never SIGTERMs a lock-writing prune, so cancel() cannot truncate the lock', async () => {
+    // Arrange — a prune runs in the background from trash eviction. The CLI
+    // rewrites .skill-lock.json with a plain writeFile (no temp+rename), so a
+    // SIGTERM meant for the install the user just closed would leave the lock
+    // half-written, which parses as an empty lock and loses every record.
+    const search = simulateCli({ autoClose: false })
+    const prune = simulateCli({ autoClose: false })
+    const { skillsCliService } = await import('./skillsCliService')
+    const searching = skillsCliService.search('a')
+    const pruning = skillsCliService.removeSkills(['old-skill'])
+
+    // Act
+    skillsCliService.cancel()
+
+    // Assert
+    expect(search.kill).toHaveBeenCalledWith('SIGTERM')
+    expect(prune.kill).not.toHaveBeenCalled()
+
+    // Drain both children so the pending promises settle.
+    search.emit('close', 0)
+    prune.emit('close', 0)
+    await Promise.all([searching, pruning])
+  })
 })
 
 describe('skillsCliService.execCli environment', () => {
