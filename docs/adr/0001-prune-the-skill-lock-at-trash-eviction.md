@@ -63,8 +63,23 @@ recursively deleted, with no tombstone and no undo.
 one is a symlink or absent (`holdsRealAgentDirectory`). Refused names are
 reported as failures rather than silently skipped. The consequence is that a
 user holding a real agent-directory copy under a pruned name gets a permanent
-"cannot prune" state; narrowing the delegation or writing the lock directly is
-the open follow-up.
+"cannot prune" state; writing the lock directly is the open follow-up.
+
+**Narrowing the delegation was the other candidate. It is ruled out
+(2026-09-06).** Passing `--agent` restricted to the universal-source agents
+would keep `rm` away from `~/.claude/skills`, but it cannot clear the lock
+record, which is the whole point of the prune. In `removeCommand`, `--agent`
+sets `targetAgents`, and everything installed but not targeted becomes
+`remainingAgents`; if any of those still holds an install path for the name,
+`isStillUsed` is set and both the canonical-path delete **and**
+`removeSkillFromLock(skillName)` are skipped. The real agent directory that
+forced the narrowing is exactly what makes `isStillUsed` true. So the narrowed
+call would delete less and still leave the record behind.
+
+That leaves owning the lock format as the only remaining option, which this ADR
+rejects above for reasons that still hold. The decision is therefore open by
+design rather than by omission: both branches have a real cost, and choosing
+between them is a product call.
 
 The CLI exits 0 even when every removal failed: `remove.ts` logs the failures
 and falls through to its normal outro without calling `process.exit(1)`. Success

@@ -170,7 +170,11 @@ describe('HealthWidget', () => {
 
     // Assert
     await expect.element(screen.getByText('cleanup')).toBeVisible()
-    await expect.element(screen.getByText('manual')).toBeVisible()
+    // Exact: the footer's "Manual review" label now also renders in this state,
+    // and a substring match would resolve to both.
+    await expect
+      .element(screen.getByText('manual', { exact: true }))
+      .toBeVisible()
     await expect
       .element(
         screen.getByRole('img', {
@@ -178,6 +182,39 @@ describe('HealthWidget', () => {
         }),
       )
       .toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('button', { name: 'Scan issues' }))
+      .toBeVisible()
+  })
+
+  test('still flags manual review when a stale lock record coexists with it', async () => {
+    // Arrange — the case that hid the label: an unreadable link plus a lock
+    // record. Neither CTA in the footer resolves an inaccessible link, so
+    // dropping the label left that link with nothing pointing at it.
+    const skills = [makeSkill([makeSymlink('inaccessible')])]
+
+    // Act
+    const { screen } = await renderHealthWidget(skills, ['old-skill'])
+
+    // Assert
+    await expect.element(screen.getByText('Manual review')).toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Prune lock' }))
+      .toBeVisible()
+  })
+
+  test('still flags manual review when broken links coexist with it', async () => {
+    // Arrange — same bug on the other flag: "Scan issues" opens the broken-link
+    // cleanup, which never touches an inaccessible link.
+    const skills = [
+      makeSkill([makeSymlink('broken'), makeSymlink('inaccessible')]),
+    ]
+
+    // Act
+    const { screen } = await renderHealthWidget(skills)
+
+    // Assert
+    await expect.element(screen.getByText('Manual review')).toBeVisible()
     await expect
       .element(screen.getByRole('button', { name: 'Scan issues' }))
       .toBeVisible()

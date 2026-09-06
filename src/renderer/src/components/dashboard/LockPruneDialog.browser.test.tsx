@@ -219,7 +219,7 @@ describe('LockPruneDialog', () => {
   test('does not claim success when main pruned nothing and kept every record', async () => {
     // Arrange — main revalidates each name before deleting. If the skill came
     // back on disk or is still inside its undo window, nothing is removed and
-    // nothing failed. "Removed 0 stale records" would claim work never done.
+    // nothing failed. "Removed 0 records" would claim work never done.
     mockPruneLockEntries.mockResolvedValue({
       pruned: [],
       skipped: ['came-back'],
@@ -264,7 +264,7 @@ describe('LockPruneDialog', () => {
     // Assert
     await vi.waitFor(() => {
       expect(mockToastSuccess).toHaveBeenCalledWith(
-        'Removed 1 stale record from the skill lock.',
+        'Removed 1 record from the skill lock.',
       )
     })
     expect(mockToastInfo).not.toHaveBeenCalled()

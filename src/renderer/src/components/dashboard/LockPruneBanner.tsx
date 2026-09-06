@@ -9,7 +9,8 @@ import {
 } from '@/renderer/src/redux/slices/dashboardSlice'
 import { selectStaleLockEntryCount } from '@/renderer/src/redux/slices/skillLockSlice'
 import { openLockPruneDialog } from '@/renderer/src/redux/slices/uiSlice'
-import { pluralize } from '@/renderer/src/utils/pluralize'
+
+import { describeLockPruneTarget } from './lockPruneCopy'
 
 /**
  * One-time announcement that the app can now prune the skills CLI lock.
@@ -28,6 +29,9 @@ export const LockPruneBanner =
     // hand the user a button that can only tell them no. The widget is the
     // surface that reports those, and it says "Review lock" instead.
     const staleCount = useAppSelector(selectStaleLockEntryCount)
+    // Same call the dialog makes, so the banner's subject clause and pronouns
+    // cannot drift from the ones behind the button it opens.
+    const copy = describeLockPruneTarget(staleCount)
     const isDismissed = useAppSelector(selectLockPruneBannerDismissed)
 
     if (isDismissed || staleCount === 0) return null
@@ -39,11 +43,9 @@ export const LockPruneBanner =
           aria-hidden="true"
         />
         <p className="flex-1 text-xs text-foreground">
-          The skills CLI still tracks {staleCount} deleted{' '}
-          {pluralize(staleCount, 'skill')}, so{' '}
+          The skills CLI still tracks {copy.subject} you deleted, so{' '}
           <code className="text-[11px]">skills -g update</code> brings{' '}
-          {staleCount === 1 ? 'it' : 'them'} back. You can prune those records
-          here now.
+          {copy.pronoun} back. You can prune {copy.pronoun} here now.
         </p>
         <Button
           type="button"

@@ -11,7 +11,11 @@ import type {
  * records are in play.
  */
 export interface LockPruneCopy {
-  /** Subject clause: what the CLI still tracks. */
+  /**
+   * Subject clause: what the CLI still tracks. Counts RECORDS, never skills —
+   * one noun is countable across this feature so the dialog, the banner and the
+   * widget cannot appear to disagree about how many things are wrong.
+   */
   subject: string
   /** Singular or plural noun for a lock record. */
   recordNoun: string
@@ -30,12 +34,14 @@ export interface LockPruneCopy {
  * @param count - How many lock records the dialog is asking about.
  * @returns The wording for that count.
  * @example describeLockPruneTarget(1).confirmLabel // => 'Remove 1 record'
- * @example describeLockPruneTarget(3).subject // => '3 skills that are'
+ * @example describeLockPruneTarget(3).subject // => '3 records for skills'
  */
 export function describeLockPruneTarget(count: number): LockPruneCopy {
   const isSingular = count === 1
   return {
-    subject: isSingular ? 'a skill that is' : `${count} skills that are`,
+    subject: isSingular
+      ? '1 record for a skill'
+      : `${count} records for skills`,
     recordNoun: pluralize(count, 'record'),
     recordVerb: isSingular ? 'is' : 'are',
     pronoun: isSingular ? 'it' : 'them',
