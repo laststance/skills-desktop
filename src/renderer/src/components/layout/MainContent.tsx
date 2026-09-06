@@ -70,11 +70,13 @@ import { useRenderEffect } from '@/renderer/src/hooks/useRenderEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
+  type RepoFacetOption,
   selectBulkSelectableVisibleSkillNames,
   selectFilteredSkillCount,
   selectRepoFacetOptions,
   selectSelectedVisibleNames,
   selectSourceFilterViewModel,
+  type SourceFilterViewModel,
 } from '@/renderer/src/redux/selectors'
 import { setPreviewSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
 import { selectProtectedNamesSet } from '@/renderer/src/redux/slices/protectSlice'
@@ -140,7 +142,8 @@ import type {
   TombstoneId,
 } from '@/shared/types'
 
-const SKILL_TYPE_FILTER_OPTIONS: {
+/** One row of the skill-type include menu: the filter it selects plus its presentation. */
+interface SkillTypeFilterOption {
   value: SkillTypeFilter
   label: string
   /** Colored dot class to match skill type visual indicators */
@@ -151,7 +154,9 @@ const SKILL_TYPE_FILTER_OPTIONS: {
    * filter is discoverable without docs. @see issue #203
    */
   hint?: string
-}[] = [
+}
+
+const SKILL_TYPE_FILTER_OPTIONS: SkillTypeFilterOption[] = [
   { value: 'all', label: 'All' },
   { value: 'symlinked', label: 'Symlinked', dotClass: 'bg-success' },
   { value: 'local', label: 'Local', dotClass: 'bg-emerald-400' },
@@ -168,12 +173,8 @@ const SKILL_TYPE_FILTER_OPTIONS: {
 const EXCLUDABLE_SKILL_TYPE_FILTER_OPTIONS = SKILL_TYPE_FILTER_OPTIONS.filter(
   (
     option,
-  ): option is {
-    value: ExcludableSkillTypeFilter
-    label: string
-    dotClass?: string
-    hint?: string
-  } => option.value !== 'all',
+  ): option is SkillTypeFilterOption & { value: ExcludableSkillTypeFilter } =>
+    option.value !== 'all',
 )
 
 /**
@@ -194,9 +195,6 @@ function getUnavailableExcludeReason(
   return includeFilter === excludeFilter ? 'Already included' : 'Not in view'
 }
 
-type SourceFilterViewModel = ReturnType<typeof selectSourceFilterViewModel>
-type RepoFacetOptions = ReturnType<typeof selectRepoFacetOptions>
-type BulkDeleteTargetSummary = ReturnType<typeof getBulkDeleteTargetSummary>
 type ExcludedSkillTypeToggleHandlers = Record<
   ExcludableSkillTypeFilter,
   () => void
@@ -775,16 +773,16 @@ function useBulkConfirmActions(
 
 interface MainContentEventHandlerOptions {
   bulkSelectMode: boolean
-  repoFacetOptions: RepoFacetOptions
+  repoFacetOptions: RepoFacetOption[]
 }
 
 interface MainContentEventHandlers {
   handleClearFilter: () => void
   handleClearSourceFilter: () => void
-  handleTabChange: (value: string) => void
+  handleTabChange: (value: ActiveTab) => void
   handleToggleSortOrder: () => void
   handleToggleBulkSelectMode: () => void
-  handleSkillTypeFilterChange: (value: string) => void
+  handleSkillTypeFilterChange: (value: SkillTypeFilter) => void
   handleToggleSource: (source: RepositoryId) => void
   handleSelectShowAllRepos: (event: Event) => void
   handleSelectAllRepos: (event: Event) => void
@@ -815,8 +813,8 @@ function useMainContentEventHandlers({
     dispatch(clearSelectedSources())
   }
 
-  const handleTabChange = (value: string): void => {
-    dispatch(setActiveTab(value as ActiveTab))
+  const handleTabChange = (value: ActiveTab): void => {
+    dispatch(setActiveTab(value))
     dispatch(setPreviewSkill(null))
   }
 
@@ -834,8 +832,8 @@ function useMainContentEventHandlers({
     dispatch(enterBulkSelectMode())
   }
 
-  const handleSkillTypeFilterChange = (value: string): void => {
-    dispatch(setSkillTypeFilter(value as SkillTypeFilter))
+  const handleSkillTypeFilterChange = (value: SkillTypeFilter): void => {
+    dispatch(setSkillTypeFilter(value))
   }
 
   const handleToggleSource = (source: RepositoryId): void => {
@@ -1215,7 +1213,12 @@ export const MainContent = function MainContent(): React.ReactElement {
     >
       <Tabs
         value={activeTab}
-        onValueChange={handleTabChange}
+        // Radix types `onValueChange` as `(value: string) => void`, so under
+        // `strictFunctionTypes` the narrower handler cannot be passed directly.
+        // The assertion holds by construction rather than by luck: `Tabs` is
+        // controlled, and its only Triggers are `installed` (InstalledTabLabel)
+        // and `marketplace` below, so Radix has no other value to echo back.
+        onValueChange={(value) => handleTabChange(value as ActiveTab)}
         className="h-full flex flex-col"
       >
         <div className="p-4 border-b border-border">
@@ -1340,7 +1343,7 @@ interface InstalledToolbarProps {
   onToggleSource: (source: RepositoryId) => void
   onKeepDropdownOpen: (event: Event) => void
   onToggleBulkSelectMode: () => void
-  onSkillTypeFilterChange: (value: string) => void
+  onSkillTypeFilterChange: (value: SkillTypeFilter) => void
   onSelectClearExcludedSkillTypeFilters: (event: Event) => void
 }
 
@@ -1587,7 +1590,7 @@ interface SkillTypeFilterMenuProps {
   availableExcludeTypes: ExcludableSkillTypeFilter[]
   skillTypeTriggerLabel: string
   excludedSkillTypeToggleHandlers: ExcludedSkillTypeToggleHandlers
-  onSkillTypeFilterChange: (value: string) => void
+  onSkillTypeFilterChange: (value: SkillTypeFilter) => void
   onKeepDropdownOpen: (event: Event) => void
   onSelectClearExcludedSkillTypeFilters: (event: Event) => void
 }
@@ -1636,7 +1639,14 @@ const SkillTypeFilterMenu = function SkillTypeFilterMenu({
         <DropdownMenuLabel>Include</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={skillTypeFilter}
-          onValueChange={onSkillTypeFilterChange}
+          // Same Radix `(value: string) => void` seam as the tab bar. Sound
+          // because every RadioItem below draws its value from
+          // {@link SKILL_TYPE_FILTER_OPTIONS}, typed
+          // {@link SkillTypeFilterOption}[] -- Radix only echoes an item's own
+          // value, so nothing outside the union can arrive here.
+          onValueChange={(value) =>
+            onSkillTypeFilterChange(value as SkillTypeFilter)
+          }
         >
           {SKILL_TYPE_FILTER_OPTIONS.map((option) => (
             <DropdownMenuRadioItem
@@ -1771,7 +1781,7 @@ const InstalledFilterPills = function InstalledFilterPills({
 
 interface BulkConfirmDialogProps {
   bulkConfirm: BulkConfirmState | null
-  bulkDeleteTargetSummary: BulkDeleteTargetSummary
+  bulkDeleteTargetSummary: PartitionedGlobalDeleteTargets | null
   isPrimaryDisabled: boolean
   onCancel: () => void
   onConfirm: () => void

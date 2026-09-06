@@ -37,7 +37,7 @@ import type {
   SkillTypeFilter,
 } from './slices/uiSlice'
 
-interface RepoFacetOption {
+export interface RepoFacetOption {
   source: RepositoryId
   count: SkillCount
 }
@@ -366,7 +366,7 @@ interface SourceFilterRow {
  *   include filter (drives the "N local skills hidden" hint); 0 when inactive.
  *   Ignores the search query.
  */
-interface SourceFilterViewModel {
+export interface SourceFilterViewModel {
   selectedSources: RepositoryId[]
   validRepoIds: RepositoryId[]
   dropdownRows: SourceFilterRow[]
