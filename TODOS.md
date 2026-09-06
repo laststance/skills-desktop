@@ -1259,10 +1259,24 @@ who ran `skills add --copy`, which creates no universal source at all and so
 reads as permanently stale — gets a lock record that can never be pruned and
 no explanation in the UI.
 
+**Status:** Half fixed — the dead end is explained, the delegation decision is
+still open.
+
+The scan now runs `holdsRealAgentDirectory` over the names it already proved
+stale and reports them as `unprunable` with `reason: 'agent-copy'`, so the user
+is told before clicking a button that would only ever report a failure. Cost is
+bounded by the stale list (normally empty), not the lock size: running it per
+lock key on a timer-fired scan would have been a filesystem storm, which is why
+the check lives after the absence probe rather than beside it. The prune keeps
+its own copy of the check as the TOCTOU backstop.
+
+REMAINING: the record still cannot be pruned at all. That needs the delegation
+decision below, which is an architecture call, not a UI one.
+
 **Fix direction:** either narrow the delegation (pass `--agent` restricted to
 universal-source agents), or stop delegating and edit the lock directly,
-accepting ownership of the lock format. Surface a distinct "cannot prune"
-state either way. See `docs/adr/0001-prune-the-skill-lock-at-trash-eviction.md`
+accepting ownership of the lock format. See
+`docs/adr/0001-prune-the-skill-lock-at-trash-eviction.md`
 (corrected 2026-09-06).
 
 **Depends on / blocked by:** Nothing.
@@ -1363,22 +1377,26 @@ index, and upstream `removeSkillFromLock` is last-write-wins over sanitized
 names, so a collision appearing between scan and confirm removes the _other_
 record while the requested one is reported failed.
 
-**Status:** Half fixed. The prune mutex now re-checks the collision index
+**Status:** Fixed.
+
+Prune half: the prune mutex re-checks the collision index
 (`skillLockService.ts` `pruneLockEntries`): a name whose sanitized form is no
 longer uniquely its own is routed to `failed` and never delegated, so a
 collision appearing between scan and confirm can no longer delete the other
 record. Covered by `skillLockService.test.ts` "refuses a name another lock key
 started sharing a directory with after the scan".
 
-REMAINING: the scan still drops collided keys silently, so the pair stays
-unprunable with nothing in the UI explaining why. That half needs a new state
-on `StaleLockScanResult` plus the renderer copy to render it, which is the same
-"an unprunable state needs a UI explanation" shape as the manual-recovery entry
-below — do them together.
+Scan half: `StaleLockScanResult` now carries
+`unprunable: { name, reason }[]`, and a collided key is reported there with
+`reason: 'name-collision'` instead of being dropped. `LockPruneDialog` renders
+the pair with one sentence saying why removing either could remove the wrong
+record, and the Symlink Health count includes blocked records so an all-blocked
+lock cannot report "Healthy". No extra I/O: the collision set falls straight out
+of the index the scan already builds.
 
-**Fix direction:** surface collisions as a distinct "cannot determine" state.
-
-**Depends on / blocked by:** Nothing.
+Note the grouping in the old text was wrong. Only the agent-copy entry (P1
+above) shares this shape; the manual-recovery entry below turned out to be a
+scan false-negative, not an unprunable state — see there.
 
 ### P3. Smaller items from the same review
 
@@ -1386,9 +1404,24 @@ below — do them together.
   FIXED: it now runs inside the mutex. Nesting was verified safe against
   source first — all three `evict` call sites are detached timers or the
   startup sweep, none holding the lock.
-- Manual-recovery trash entries keep their lock record alive forever:
+- ~~Manual-recovery trash entries keep their lock record alive forever:
   `readTrashedSourceDirNames` counts them as "still restorable" although their
-  restore already failed permanently.
+  restore already failed permanently.~~ FIXED, and it was worse than filed. Both
+  source-backed writers of the `.manual-recovery` marker run BEFORE the manifest
+  exists (`trashService.ts` source-move failure, and manifest-write rollback), so
+  the entry read as ENOENT on a parseable tombstone id — which
+  `readTrashedSourceDirNames` treats as "one of our entries caught mid-write" and
+  answers `unavailable` for the whole scan. `startupCleanup` deliberately never
+  sweeps a marked entry, so that was permanent: one stuck entry killed the
+  stale-lock feature outright and failed every prune closed, with no way back.
+  `readTrashedSourceDirNames` now checks the marker first, which both keeps the
+  scan alive and stops a terminally-stuck entry counting as a live undo window.
+  The marker filename moved to `@/main/constants` so both services read one
+  source (the import direction between them is already spent).
+- ~~The prune dialog's corner X stayed clickable mid-prune.~~ FIXED:
+  `hideCloseButton={isPruning}`. `handleClose` already refused to close during a
+  prune, so Esc and outside-click were never a gap — the X was simply a visible
+  control that silently did nothing.
 - ~~`LockPruneDialog` reads `staleNames` live rather than snapshotting at
   open.~~ FIXED: `openLockPruneDialog` snapshots into `consentedNames` and the
   dialog reads only that, so the list, the count, the button label and the
@@ -1410,8 +1443,11 @@ below — do them together.
 - Feature copy uses four nouns for one concept ("deleted skills", "records",
   "stale records", "skills that are no longer installed") against the internal
   `StaleLockEntry` naming. Pick one.
-- `PruneLockEntriesResult.skipped` has no reader in the renderer.
-- Dead JSDoc link `{@link skillLockService}` at `skillsCliService.ts:184`.
+- ~~`PruneLockEntriesResult.skipped` has no reader in the renderer.~~ Not true
+  as filed: `LockPruneDialog.tsx` reads it for the "Kept N records" toast on the
+  nothing-pruned branch.
+- Dead JSDoc link `{@link skillLockService}` at `skillsCliService.ts:210`
+  (the line number in the original filing has drifted; the link itself is real).
 - No E2E reaches the npx-unavailable prune path. `e2e/spec/skill-lock-prune.e2e.ts`
   (added by /qa on `feat/prune-stale-skill-lock-entries`, 2026-09-06) covers
   every guard plus one real `npx skills remove`, but the branch where the CLI

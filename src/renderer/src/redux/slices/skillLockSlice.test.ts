@@ -6,8 +6,10 @@ import skillLockReducer, {
   pruneStaleLockEntries,
   selectConsentedLockEntryNames,
   selectIsPruningLockEntries,
+  selectLockRecordsNeedingAttention,
   selectStaleLockEntryCount,
   selectStaleLockEntryNames,
+  selectUnprunableLockEntries,
 } from './skillLockSlice'
 import { closeLockPruneDialog, openLockPruneDialog } from './uiSlice'
 
@@ -35,7 +37,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill', 'another-skill'] },
+        { status: 'ok', names: ['old-skill', 'another-skill'], unprunable: [] },
         'req-1',
         undefined,
       ),
@@ -57,7 +59,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill'] },
+        { status: 'ok', names: ['old-skill'], unprunable: [] },
         'req-1',
         undefined,
       ),
@@ -100,7 +102,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['pruned-ok', 'stubborn'] },
+        { status: 'ok', names: ['pruned-ok', 'stubborn'], unprunable: [] },
         'req-1',
         undefined,
       ),
@@ -162,7 +164,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-fresh', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['current-truth'] },
+        { status: 'ok', names: ['current-truth'], unprunable: [] },
         'req-fresh',
         undefined,
       ),
@@ -171,7 +173,7 @@ describe('skillLockSlice', () => {
     // Act
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['long-gone', 'also-gone'] },
+        { status: 'ok', names: ['long-gone', 'also-gone'], unprunable: [] },
         'req-slow',
         undefined,
       ),
@@ -192,7 +194,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-fresh', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['current-truth'] },
+        { status: 'ok', names: ['current-truth'], unprunable: [] },
         'req-fresh',
         undefined,
       ),
@@ -220,7 +222,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-mid-prune', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill', 'newly-stale'] },
+        { status: 'ok', names: ['old-skill', 'newly-stale'], unprunable: [] },
         'req-mid-prune',
         undefined,
       ),
@@ -280,7 +282,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill'] },
+        { status: 'ok', names: ['old-skill'], unprunable: [] },
         'req-1',
         undefined,
       ),
@@ -291,7 +293,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-2', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill', 'just-appeared'] },
+        { status: 'ok', names: ['old-skill', 'just-appeared'], unprunable: [] },
         'req-2',
         undefined,
       ),
@@ -318,7 +320,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-scan', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill', 'newly-found'] },
+        { status: 'ok', names: ['old-skill', 'newly-found'], unprunable: [] },
         'req-scan',
         undefined,
       ),
@@ -335,7 +337,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-scan', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill', 'newly-found'] },
+        { status: 'ok', names: ['old-skill', 'newly-found'], unprunable: [] },
         'req-scan',
         undefined,
       ),
@@ -407,7 +409,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill'] },
+        { status: 'ok', names: ['old-skill'], unprunable: [] },
         'req-1',
         undefined,
       ),
@@ -417,7 +419,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-2', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['different-skill'] },
+        { status: 'ok', names: ['different-skill'], unprunable: [] },
         'req-2',
         undefined,
       ),
@@ -451,7 +453,7 @@ describe('skillLockSlice', () => {
     // Act
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill'] },
+        { status: 'ok', names: ['old-skill'], unprunable: [] },
         'req-before-prune',
         undefined,
       ),
@@ -459,5 +461,131 @@ describe('skillLockSlice', () => {
 
     // Assert
     expect(selectStaleLockEntryNames(readState(store))).toEqual([])
+  })
+  test('keeps a blocked record out of the list the confirm button would delete', async () => {
+    // Arrange
+    // `staleNames` is what the dialog snapshots and sends to main. A record the
+    // scan already refused belongs in the explanation, never in that request.
+    const store = createTestStore()
+
+    // Act
+    store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
+    store.dispatch(
+      fetchStaleLockEntries.fulfilled(
+        {
+          status: 'ok',
+          names: ['removable'],
+          unprunable: [{ name: 'agent-owned', reason: 'agent-copy' }],
+        },
+        'req-1',
+        undefined,
+      ),
+    )
+    store.dispatch(openLockPruneDialog())
+
+    // Assert
+    expect(selectConsentedLockEntryNames(readState(store))).toEqual([
+      'removable',
+    ])
+    expect(selectUnprunableLockEntries(readState(store))).toEqual([
+      { name: 'agent-owned', reason: 'agent-copy' },
+    ])
+  })
+
+  test('counts blocked records as needing attention so an all-blocked lock never reads as healthy', async () => {
+    // Arrange
+    // With nothing prunable the old count was 0, the widget said "Healthy", and
+    // `skills -g update` went on resurrecting both skills every run.
+    const store = createTestStore()
+
+    // Act
+    store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
+    store.dispatch(
+      fetchStaleLockEntries.fulfilled(
+        {
+          status: 'ok',
+          names: [],
+          unprunable: [
+            { name: 'ambiguous', reason: 'name-collision' },
+            { name: 'Ambiguous', reason: 'name-collision' },
+          ],
+        },
+        'req-1',
+        undefined,
+      ),
+    )
+
+    // Assert
+    expect(selectStaleLockEntryCount(readState(store))).toBe(0)
+    expect(selectLockRecordsNeedingAttention(readState(store))).toBe(2)
+  })
+
+  test('drops the blocked list when a later scan cannot read the lock', async () => {
+    // Arrange
+    // An unavailable scan read nothing, so it has no more standing to name a
+    // blocked record than a stale one. Leaving the reasons up would explain a
+    // state we can no longer see.
+    const store = createTestStore()
+    store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
+    store.dispatch(
+      fetchStaleLockEntries.fulfilled(
+        {
+          status: 'ok',
+          names: [],
+          unprunable: [{ name: 'agent-owned', reason: 'agent-copy' }],
+        },
+        'req-1',
+        undefined,
+      ),
+    )
+
+    // Act
+    store.dispatch(fetchStaleLockEntries.pending('req-2', undefined))
+    store.dispatch(
+      fetchStaleLockEntries.fulfilled(
+        { status: 'unavailable' },
+        'req-2',
+        undefined,
+      ),
+    )
+
+    // Assert
+    expect(selectUnprunableLockEntries(readState(store))).toEqual([])
+    expect(selectLockRecordsNeedingAttention(readState(store))).toBe(0)
+  })
+
+  test('leaves the blocked list alone when a prune reports failures', async () => {
+    // Arrange
+    // Only a scan re-derives these reasons from disk. A prune result overwriting
+    // them would erase the explanation the moment the user tried anything else.
+    const store = createTestStore()
+    store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
+    store.dispatch(
+      fetchStaleLockEntries.fulfilled(
+        {
+          status: 'ok',
+          names: ['removable'],
+          unprunable: [{ name: 'agent-owned', reason: 'agent-copy' }],
+        },
+        'req-1',
+        undefined,
+      ),
+    )
+
+    // Act
+    store.dispatch(pruneStaleLockEntries.pending('prune-1', ['removable']))
+    store.dispatch(
+      pruneStaleLockEntries.fulfilled(
+        { pruned: [], skipped: [], failed: ['removable'] },
+        'prune-1',
+        ['removable'],
+      ),
+    )
+
+    // Assert
+    expect(selectUnprunableLockEntries(readState(store))).toEqual([
+      { name: 'agent-owned', reason: 'agent-copy' },
+    ])
+    expect(selectLockRecordsNeedingAttention(readState(store))).toBe(2)
   })
 })

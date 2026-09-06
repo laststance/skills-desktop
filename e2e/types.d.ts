@@ -216,7 +216,15 @@ declare global {
          * as "nothing to prune".
          */
         scanStaleLockEntries: () => Promise<
-          { status: 'ok'; names: string[] } | { status: 'unavailable' }
+          | {
+              status: 'ok'
+              names: string[]
+              unprunable: {
+                name: string
+                reason: 'name-collision' | 'agent-copy'
+              }[]
+            }
+          | { status: 'unavailable' }
         >
         pruneLockEntries: (options: { names: string[] }) => Promise<{
           pruned: string[]

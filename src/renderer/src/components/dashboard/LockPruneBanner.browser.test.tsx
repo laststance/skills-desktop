@@ -37,7 +37,7 @@ async function renderBanner(staleLockNames: string[], dismissed = false) {
   store.dispatch(fetchStaleLockEntries.pending('req-lock', undefined))
   store.dispatch(
     fetchStaleLockEntries.fulfilled(
-      { status: 'ok', names: staleLockNames },
+      { status: 'ok', names: staleLockNames, unprunable: [] },
       'req-lock',
       undefined,
     ),

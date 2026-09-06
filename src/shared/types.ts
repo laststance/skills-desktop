@@ -1422,15 +1422,53 @@ export interface SyncExecuteResult {
 }
 
 /**
+ * Why a stale lock record cannot be pruned, even though its skill is gone.
+ *
+ * Both values name a state the user can act on themselves, which is the whole
+ * point of separating them from a plain failure: a record that merely `failed`
+ * is worth retrying, one that is `unprunable` is not.
+ * - `name-collision`: another lock key sanitizes to the same source directory,
+ *   so "does this skill still exist" no longer answers anything about either
+ *   record, and upstream `removeSkillFromLock` is last-write-wins over the
+ *   sanitized name — delegating would delete the wrong one.
+ * - `agent-copy`: some agent holds a REAL directory (not a symlink) under this
+ *   name, and `skills remove --global` would recursively delete it out of every
+ *   agent directory, including `~/.claude/skills` and `~/.cursor/skills`.
+ */
+export type UnprunableReason = 'name-collision' | 'agent-copy'
+
+/**
+ * A lock record that is stale but blocked from pruning, with the reason.
+ * @example { name: 'old-skill', reason: 'agent-copy' }
+ */
+export interface UnprunableLockEntry {
+  /** Raw lock key, exactly as the CLI stores it. */
+  name: SkillName
+  /** What blocks the prune. */
+  reason: UnprunableReason
+}
+
+/**
  * Result of scanning the skills CLI lock for records whose skill is gone.
  * `unavailable` means one side of the comparison could not be read (the lock,
  * or `~/.agents/skills` itself). It is deliberately NOT "0 stale": with half
  * the picture missing, every surviving record would look deletable.
- * @example { status: 'ok', names: ['old-skill'] }
+ *
+ * `unprunable` deliberately exists only on the `ok` arm. An unavailable scan
+ * read nothing, so it has no more standing to name a blocked record than it has
+ * to name a stale one — do NOT add the field to the failure arm.
+ * @example { status: 'ok', names: ['old-skill'], unprunable: [] }
  * @example { status: 'unavailable' }
  */
 export type StaleLockScanResult =
-  { status: 'ok'; names: SkillName[] } | { status: 'unavailable' }
+  | {
+      status: 'ok'
+      /** Records safe to delegate to `skills remove` right now. */
+      names: SkillName[]
+      /** Records that are stale but blocked, each with why. */
+      unprunable: UnprunableLockEntry[]
+    }
+  | { status: 'unavailable' }
 
 /**
  * IPC argument for `skills:lock:prune` — the exact stale lock records the user
