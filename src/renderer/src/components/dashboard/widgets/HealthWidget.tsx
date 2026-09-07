@@ -166,13 +166,17 @@ export const HealthWidget = function HealthWidget(): React.ReactElement {
         manualReview={totals.inaccessible}
       />
 
-      <div className="flex items-center justify-between text-xs">
+      {/* Wraps rather than clipping: at the 6-col grid's `w: 2`-`w: 3` sizes in
+          a narrow panel this row is ~111px wide, and a non-wrapping legend put
+          "cleanup" and "manual" outside the shell's `overflow-hidden`, hiding
+          two of the three counts with no scrollbar or affordance to find them. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs">
         <span className="inline-flex items-center gap-1 text-success">
           <CheckCircle className="h-3 w-3" aria-hidden="true" />
           <span className="tabular-nums">{totals.valid}</span>
           <span className="text-muted-foreground">valid</span>
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {totals.broken > 0 ? (
             <span className="inline-flex items-center gap-1 text-amber-400">
               <AlertCircle className="h-3 w-3" aria-hidden="true" />

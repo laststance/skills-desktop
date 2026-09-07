@@ -624,11 +624,16 @@ web breakpoints.
 Rules:
 
 - Keep the main three-region model: sidebar, content, Inspector.
-- Panels must remain usable at narrow widths through truncation, scrolling, or
-  progressive disclosure.
+- Panels must remain usable at narrow widths through truncation, wrapping,
+  scrolling, or progressive disclosure.
 - Text must not overlap icons, counters, badges, or adjacent actions.
 - Use stable dimensions for toolbar buttons, counters, tabs, and widgets.
 - Avoid viewport-scaled fonts.
+- Reflow _inside_ a dashboard widget with a container query (`@container` plus
+  `@min-[<rem>]:`), never a viewport breakpoint. The user resizes widgets in the
+  grid and again with the panel splitter, so widget width is decoupled from
+  window width: one 800px window can hand the same widget 112px or 238px. A
+  `md:` rule reads a number the widget never sees.
 
 ## Do and Don't
 
