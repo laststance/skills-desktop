@@ -14,7 +14,7 @@ import {
 } from './constants'
 
 /** Public photo IDs stay path-safe before either client requests a provider action. */
-export const UnsplashPhotoIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/)
+const UnsplashPhotoIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/)
 
 /** CDN URLs preserve Unsplash attribution tracking and cannot become arbitrary fetch targets. */
 export const UnsplashImageUrlSchema = z
@@ -152,5 +152,4 @@ export const unsplashContract = {
 export type UnsplashPhoto = z.infer<typeof UnsplashPhotoSchema>
 export type UnsplashSearchInput = z.infer<typeof UnsplashSearchInputSchema>
 export type UnsplashSearchResult = z.infer<typeof UnsplashSearchResultSchema>
-export type UnsplashDownloadInput = z.infer<typeof UnsplashDownloadInputSchema>
 export type UnsplashClient = ContractRouterClient<typeof unsplashContract>
