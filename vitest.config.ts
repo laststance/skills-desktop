@@ -1,3 +1,4 @@
+import tailwind from '@tailwindcss/vite'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
 import { resolve } from 'path'
@@ -19,6 +20,8 @@ browserReactCompilerPreset.rolldown.applyToEnvironmentHook = () => true
 
 const reactOnlyPlugins = [react()]
 const reactWithCompilerPlugins = [
+  // Browser crop and virtualization checks need the same generated utility CSS as production.
+  tailwind(),
   react(),
   babel({ presets: [browserReactCompilerPreset] }),
 ]
