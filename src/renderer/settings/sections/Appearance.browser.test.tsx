@@ -13,6 +13,15 @@ beforeEach(() => {
   // Browser mode has no preload bridge; Appearance only needs settings.set.
   vi.stubGlobal('electron', {
     settings: { set: mockSettingsSet },
+    backgrounds: {
+      onChanged: () => () => undefined,
+      getSnapshot: async () => ({
+        revision: 0,
+        operation: null,
+        display: null,
+      }),
+      list: async () => ({ builtins: [], uploads: [] }),
+    },
   })
 })
 
