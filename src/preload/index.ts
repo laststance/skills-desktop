@@ -193,6 +193,7 @@ contextBridge.exposeInMainWorld('electron', {
     setLayout: async (layout: BackgroundLayout) =>
       typedInvoke('backgrounds:setLayout', layout),
     getSnapshot: async () => typedInvoke('backgrounds:getSnapshot'),
+    retryDisplay: async () => typedInvoke('backgrounds:retryDisplay'),
     onChanged: createIpcListener<BackgroundSnapshot>(
       IPC_CHANNELS.BACKGROUNDS_CHANGED,
     ),

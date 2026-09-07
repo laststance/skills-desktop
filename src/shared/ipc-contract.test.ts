@@ -52,6 +52,7 @@ describe('IPC contract alignment', () => {
       [IPC_CHANNELS.BACKGROUNDS_REMOVE_UPLOAD]: true,
       [IPC_CHANNELS.BACKGROUNDS_SET_LAYOUT]: true,
       [IPC_CHANNELS.BACKGROUNDS_GET_SNAPSHOT]: true,
+      [IPC_CHANNELS.BACKGROUNDS_RETRY_DISPLAY]: true,
       [IPC_CHANNELS.THEME_BROADCAST]: true,
       [IPC_CHANNELS.ACTIVITY_LIST]: true,
       [IPC_CHANNELS.FOLDER_REVEAL_IN_FINDER]: true,
@@ -68,7 +69,7 @@ describe('IPC contract alignment', () => {
     // The `satisfies` clause above is a structural guard; this length check is
     // the trip-wire that forces a human PR diff when a channel is added.
     // Assert
-    expect(invokeChannelKeys).toHaveLength(49)
+    expect(invokeChannelKeys).toHaveLength(50)
   })
 
   it('forces a review by tripping when a push-event channel is added or removed', () => {
