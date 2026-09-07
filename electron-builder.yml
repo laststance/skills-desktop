@@ -14,6 +14,9 @@ files:
 
 asarUnpack:
   - resources/**
+  # Sharp and its platform libraries must be real files for native loading.
+  - '**/node_modules/sharp/**/*'
+  - '**/node_modules/@img/**/*'
 
 mac:
   icon: resources/icon.icns

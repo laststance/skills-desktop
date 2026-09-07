@@ -145,3 +145,17 @@ export function findAgentById(
 ): (typeof AGENTS)[number] | undefined {
   return AGENTS.find((a) => a.id === agentId)
 }
+
+/** Background files stay private and every read remains bounded while an external file changes. */
+export const BACKGROUND_READ_CHUNK_BYTES = 64 * 1024
+export const BACKGROUND_DIRECTORY_MODE = 0o700
+export const BACKGROUND_FILE_MODE = 0o600
+export const BACKGROUND_WEBP_QUALITY = 88
+export const BACKGROUND_THUMBNAIL_WEBP_QUALITY = 78
+export const BACKGROUND_WEBP_EFFORT = 4
+export const BACKGROUND_PNG_SIGNATURE = Buffer.from('89504e470d0a1a0a', 'hex')
+export const BACKGROUND_JPEG_SIGNATURE = Buffer.from('ffd8ff', 'hex')
+export const BACKGROUND_CHUNK_HEADER_BYTES = 8
+export const BACKGROUND_PNG_CRC_BYTES = 4
+export const BACKGROUND_WEBP_HEADER_BYTES = 12
+export const BACKGROUND_WEBP_ANIMATION_FLAG = 0x02

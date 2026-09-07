@@ -10,6 +10,16 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
 
+# Install both macOS native image backends while preserving the current CI platform.
+supportedArchitectures:
+  os:
+    - current
+    - darwin
+  cpu:
+    - current
+    - arm64
+    - x64
+
 # Dependabot cannot lift these vulnerable build-tool transitives until their parent packages update.
 overrides:
   '@electron/get@5>undici': 7.29.0
