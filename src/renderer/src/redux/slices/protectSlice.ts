@@ -98,34 +98,51 @@ const protectSlice = createSlice({
         nameByInode.set(inodeKey(skill.filesystemIdentity), skill.name)
         identityByName.set(skill.name, skill.filesystemIdentity)
       }
-      // Names this pass has already handed out. Filled as each lock settles,
-      // never snapshotted up front: one scan can carry a chain (`task`→`browse`
-      // while `browse`→`write`), and against a snapshot every link after the
-      // first reads as taken, so the chain stalls and the name that really is
-      // on disk ends up unprotected. Against the running set a name only
-      // counts as taken once some lock actually keeps it.
+      // Pass 1 — locks whose directory this scan actually found. The scan is
+      // authoritative about the name a surviving inode answers to, so these
+      // names are taken first. One scan maps each inode to one name and skill
+      // names are unique, so they never collide with each other, and settling
+      // them up front is what makes the result independent of the order locks
+      // happen to sit in. Doing it in one running pass instead let a chain
+      // (`task`→`browse` while `browse`→`write`) resolve or stall purely on
+      // that order.
       const claimed = new Set<SkillName>()
-
       for (const item of state.items) {
-        if (item.identity) {
-          const currentName = nameByInode.get(inodeKey(item.identity))
-          // Assigning the name it already has is not a change — Immer skips
-          // identical writes — so `items` keeps its reference and the memoized
-          // selector below does not rebuild on a scan that renamed nothing.
-          if (currentName && !claimed.has(currentName)) {
-            item.name = currentName
-          }
-          claimed.add(item.name)
-          continue
+        const currentName =
+          item.identity && nameByInode.get(inodeKey(item.identity))
+        if (!currentName) continue
+        // Assigning the name it already has is not a change — Immer skips
+        // identical writes — so `items` keeps its reference and the memoized
+        // selector below does not rebuild on a scan that renamed nothing.
+        item.name = currentName
+        claimed.add(currentName)
+      }
+
+      // Pass 2 — the rest: locks the scan has no directory for, and pre-v5
+      // locks that never had one.
+      const kept = state.items.filter((item) => {
+        if (item.identity && nameByInode.has(inodeKey(item.identity))) {
+          return true
         }
         // Pre-v5 lock, or one taken on a row the scan had no identity for.
-        // Bind it now so the NEXT rename is followed; a name that matches
-        // nothing is left alone, because dropping it would unlock a skill the
-        // user may only have temporarily moved away.
-        const scanned = identityByName.get(item.name)
-        if (scanned) item.identity = { dev: scanned.dev, ino: scanned.ino }
+        // Bind it now so the NEXT rename is followed.
+        if (!item.identity) {
+          const scanned = identityByName.get(item.name)
+          if (scanned) item.identity = { dev: scanned.dev, ino: scanned.ino }
+        }
+        // A name that matches nothing is kept, because dropping it would
+        // unlock a skill the user may only have temporarily moved away. It is
+        // dropped only when pass 1 handed that name to a live directory: the
+        // shadow entry is unreachable from the UI, `removeProtection` would
+        // silently take it along with the real lock, and leaving it would
+        // re-lock the skill on the next scan after the user unlocked it.
+        if (claimed.has(item.name)) return false
         claimed.add(item.name)
-      }
+        return true
+      })
+      // Reassign only when something was dropped, so a scan that changed
+      // nothing leaves `items` referentially stable for the memoized selector.
+      if (kept.length !== state.items.length) state.items = kept
     })
   },
 })

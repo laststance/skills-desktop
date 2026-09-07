@@ -256,12 +256,59 @@ describe('protectSlice rename reconciliation', () => {
       fetchSkills.fulfilled([makeScannedSkill('browse', 10)], 'scan-1'),
     )
 
-    // Assert — inode 10 follows its rename onto "browse"; the lock on the
-    // vanished inode 20 keeps its stale name rather than being dropped, since
-    // the skill may only have been moved away temporarily.
+    // Assert — inode 10 follows its rename onto "browse" and the lock on the
+    // vanished inode 20 is dropped rather than shadowing it. Keeping both
+    // would let Unlock silently take an entry the list can never show, and
+    // keeping the stale one un-renamed would re-lock "browse" on the next scan.
     expect(store.getState().protect.items).toEqual([
       { name: 'browse', identity: { dev: 1, ino: 10 } },
-      { name: 'browse', identity: { dev: 1, ino: 20 } },
+    ])
+  })
+
+  test('resolves a rename onto a locked name the same way whichever lock was added first', async () => {
+    // Arrange — the same collision as above, locks added in the other order.
+    const { addProtection } = await import('./protectSlice')
+    const { fetchSkills } = await import('./skillsSlice')
+    const store = await createTestStore()
+    store.dispatch(
+      addProtection({ name: 'browse', identity: { dev: 1, ino: 20 } }),
+    )
+    store.dispatch(
+      addProtection({ name: 'task', identity: { dev: 1, ino: 10 } }),
+    )
+
+    // Act
+    store.dispatch(
+      fetchSkills.fulfilled([makeScannedSkill('browse', 10)], 'scan-1'),
+    )
+
+    // Assert — insertion order is an accident of when the user clicked Lock;
+    // settling the scanned inode first keeps the outcome the same either way.
+    expect(store.getState().protect.items).toEqual([
+      { name: 'browse', identity: { dev: 1, ino: 10 } },
+    ])
+  })
+
+  test('collapses a pre-scan lock onto the renamed skill it turned out to name', async () => {
+    // Arrange — "foo" locked with its inode, plus a name-only lock on "bar";
+    // while closed, "foo" was renamed to "bar", so both now mean one skill.
+    const { addProtection } = await import('./protectSlice')
+    const { fetchSkills } = await import('./skillsSlice')
+    const store = await createTestStore()
+    store.dispatch(
+      addProtection({ name: 'foo', identity: { dev: 1, ino: 10 } }),
+    )
+    store.dispatch(addProtection({ name: 'bar' }))
+
+    // Act
+    store.dispatch(
+      fetchSkills.fulfilled([makeScannedSkill('bar', 10)], 'scan-1'),
+    )
+
+    // Assert — one skill, one lock. Two entries sharing an inode would both
+    // chase the same name on every later rename.
+    expect(store.getState().protect.items).toEqual([
+      { name: 'bar', identity: { dev: 1, ino: 10 } },
     ])
   })
 
