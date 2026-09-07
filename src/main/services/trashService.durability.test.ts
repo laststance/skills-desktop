@@ -272,12 +272,11 @@ describe('moveToTrash durability across a kill', () => {
     // Assert
     expect(moveError).toBeInstanceOf(TrashError)
     const publishedEntryNames = await readdir(sharedTrashDir)
-    expect(
-      publishedEntryNames.filter(
-        (entryName) => tombstoneIdSchema.safeParse(entryName).success,
-      ),
-    ).toHaveLength(1)
-    const publishedEntryDir = join(sharedTrashDir, publishedEntryNames[0])
+    const tombstoneNames = publishedEntryNames.filter(
+      (entryName) => tombstoneIdSchema.safeParse(entryName).success,
+    )
+    expect(tombstoneNames).toHaveLength(1)
+    const publishedEntryDir = join(sharedTrashDir, tombstoneNames[0])
     expect(existsSync(join(publishedEntryDir, 'source', 'SKILL.md'))).toBe(true)
     expect(existsSync(join(publishedEntryDir, '.manual-recovery'))).toBe(true)
     expect(moveError).toMatchObject({

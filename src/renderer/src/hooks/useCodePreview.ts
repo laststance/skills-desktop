@@ -132,6 +132,13 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
       if (isStaleSkill()) return
       setLoadedPath(skillPath)
       if (!listSucceeded) {
+        // Drop the PREVIOUS skill's list: `files` survives a skill switch, so
+        // without this the hook keeps returning tabs -- and an `activeFile`
+        // derived from `files[0]` -- belonging to a different skill than the
+        // one it just failed to read. The unavailable pane hides that today,
+        // but the returned state has to be honest on its own, and the arm
+        // below reasons about `files` being empty here.
+        setFiles([])
         setLoadFailed(true)
         return
       }

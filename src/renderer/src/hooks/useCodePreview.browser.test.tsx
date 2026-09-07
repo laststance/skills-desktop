@@ -676,6 +676,35 @@ describe('useCodePreview', () => {
     expect(result.current.activeFile).toBe(fileB.path)
   })
 
+  test("clears the previous skill's tabs when the next skill's list fails", async () => {
+    // Arrange -- the reverse order of the test below: skill B lists fine, then
+    // skill A is unreadable. `files` survives a skill switch, so a failure that
+    // left it alone would hand the caller skill B's tabs under skill A's path.
+    const fileB = makeFile({ path: toAbsolutePath('/skills/b/SKILL.md') })
+    listMock.mockImplementation(async (p) => {
+      if (p === '/outside/skills/a')
+        throw new Error('Path traversal attempt detected')
+      return [fileB]
+    })
+    readMock.mockResolvedValue(makeTextContent({ content: 'B' }))
+
+    const { useCodePreview } = await import('./useCodePreview')
+    const { result, rerender } = await renderHook(
+      (props?: { path: string }) =>
+        useCodePreview(toAbsolutePath(props?.path ?? '/skills/b')),
+      { initialProps: { path: '/skills/b' } },
+    )
+    await expect.poll(() => result.current.files).toEqual([fileB])
+
+    // Act
+    rerender({ path: '/outside/skills/a' })
+
+    // Assert
+    await expect.poll(() => result.current.loadFailed).toBe(true)
+    expect(result.current.files).toEqual([])
+    expect(result.current.activeFile).toBeNull()
+  })
+
   test("drops a previous skill's load failure when a readable skill is opened", async () => {
     // Arrange -- skill A is unreadable, skill B lists fine.
     const fileB = makeFile({ path: toAbsolutePath('/skills/b/SKILL.md') })
