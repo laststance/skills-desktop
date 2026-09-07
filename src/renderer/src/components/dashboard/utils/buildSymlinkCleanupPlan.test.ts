@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import type {
-  AbsolutePath,
   AgentId,
   AgentName,
   Skill,
@@ -9,7 +8,7 @@ import type {
   SymlinkInfo,
   SymlinkStatus,
 } from '@/shared/types'
-import { toSkillName, toSymlinkCount } from '@/shared/types'
+import { toAbsolutePath, toSkillName, toSymlinkCount } from '@/shared/types'
 
 import {
   buildSymlinkCleanupPlan,
@@ -36,9 +35,12 @@ function makeSymlink(overrides: Partial<SymlinkInfo> = {}): SymlinkInfo {
     agentId,
     agentName,
     status,
-    targetPath:
+    targetPath: toAbsolutePath(
       overrides.targetPath ?? `/Users/test/.agents/skills/${linkName}`,
-    linkPath: overrides.linkPath ?? `/Users/test/.cursor/skills/${linkName}`,
+    ),
+    linkPath: toAbsolutePath(
+      overrides.linkPath ?? `/Users/test/.cursor/skills/${linkName}`,
+    ),
     isLocal: overrides.isLocal ?? false,
   }
 }
@@ -57,7 +59,9 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
   return {
     name,
     description: `${name} description`,
-    path: overrides.path ?? `/Users/test/.agents/skills/${name}`,
+    path: toAbsolutePath(
+      overrides.path ?? `/Users/test/.agents/skills/${name}`,
+    ),
     symlinkCount: toSymlinkCount(
       symlinks.filter((symlink) => symlink.status === 'valid').length,
     ),
@@ -97,7 +101,7 @@ describe('buildSymlinkCleanupPlan', () => {
     const skills = [
       makeSkill({
         name: toSkillName('abandoned'),
-        path: '/Users/test/.cursor/skills/abandoned',
+        path: toAbsolutePath('/Users/test/.cursor/skills/abandoned'),
         isSource: false,
         isOrphan: true,
         symlinks: [
@@ -105,13 +109,13 @@ describe('buildSymlinkCleanupPlan', () => {
             agentId: 'cursor',
             agentName: 'Cursor',
             status: 'broken',
-            linkPath: '/Users/test/.cursor/skills/abandoned',
+            linkPath: toAbsolutePath('/Users/test/.cursor/skills/abandoned'),
           }),
           makeSymlink({
             agentId: 'codex',
             agentName: 'Codex',
             status: 'broken',
-            linkPath: '/Users/test/.codex/skills/abandoned',
+            linkPath: toAbsolutePath('/Users/test/.codex/skills/abandoned'),
           }),
         ],
       }),
@@ -156,13 +160,17 @@ describe('buildSymlinkCleanupPlan', () => {
     const skills = [
       makeSkill({
         name: toSkillName('metadata-title'),
-        path: '/Users/test/.agents/skills/metadata-title',
+        path: toAbsolutePath('/Users/test/.agents/skills/metadata-title'),
         isOrphan: false,
         symlinks: [
           makeSymlink({
             status: 'broken',
-            linkPath: '/Users/test/.cursor/skills/link-folder-name',
-            targetPath: '/Users/test/.agents/skills/missing-target',
+            linkPath: toAbsolutePath(
+              '/Users/test/.cursor/skills/link-folder-name',
+            ),
+            targetPath: toAbsolutePath(
+              '/Users/test/.agents/skills/missing-target',
+            ),
           }),
         ],
       }),
@@ -203,20 +211,20 @@ describe('buildSymlinkCleanupPlan', () => {
             agentId: 'cursor',
             agentName: 'Cursor',
             status: 'missing',
-            linkPath: '/Users/test/.cursor/skills/mixed',
+            linkPath: toAbsolutePath('/Users/test/.cursor/skills/mixed'),
           }),
           makeSymlink({
             agentId: 'codex',
             agentName: 'Codex',
             status: 'broken',
             isLocal: true,
-            linkPath: '/Users/test/.codex/skills/mixed',
+            linkPath: toAbsolutePath('/Users/test/.codex/skills/mixed'),
           }),
           makeSymlink({
             agentId: 'devin',
             agentName: 'Devin for Terminal',
             status: 'inaccessible',
-            linkPath: '/Users/test/.config/devin/skills/mixed',
+            linkPath: toAbsolutePath('/Users/test/.config/devin/skills/mixed'),
           }),
         ],
       }),
@@ -239,13 +247,13 @@ describe('buildSymlinkCleanupPlan', () => {
             agentId: 'cursor',
             agentName: 'Cursor',
             status: 'broken',
-            linkPath: '/Users/test/.cursor/skills/task',
+            linkPath: toAbsolutePath('/Users/test/.cursor/skills/task'),
           }),
           makeSymlink({
             agentId: 'codex',
             agentName: 'Codex',
             status: 'broken',
-            linkPath: '/Users/test/.codex/skills/task',
+            linkPath: toAbsolutePath('/Users/test/.codex/skills/task'),
           }),
         ],
       }),
@@ -291,7 +299,7 @@ describe('getLinkNameFromPath', () => {
     const linkPath = '/Users/test/.cursor/skills/link-folder-name'
 
     // Act
-    const linkName = getLinkNameFromPath(linkPath)
+    const linkName = getLinkNameFromPath(toAbsolutePath(linkPath))
 
     // Assert
     expect(linkName).toBe('link-folder-name')
@@ -299,7 +307,7 @@ describe('getLinkNameFromPath', () => {
 
   it('returns the raw path when it has no nameable final segment', () => {
     // Arrange
-    const linkPath = '/' as AbsolutePath
+    const linkPath = toAbsolutePath('/')
 
     // Act
     const linkName = getLinkNameFromPath(linkPath)

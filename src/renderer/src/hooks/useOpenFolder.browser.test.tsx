@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
 
 import type { FolderActionResult } from '@/shared/types'
+import { toAbsolutePath } from '@/shared/types'
 
 const revealMock = vi.fn<(folderPath: string) => Promise<FolderActionResult>>()
 const openTerminalMock =
@@ -38,7 +39,7 @@ describe('useOpenFolder', () => {
     const { result } = await renderHook(() => useOpenFolder())
 
     // Act
-    await result.current.revealInFinder('/x')
+    await result.current.revealInFinder(toAbsolutePath('/x'))
 
     // Assert
     expect(revealMock).toHaveBeenCalledWith('/x')
@@ -56,7 +57,7 @@ describe('useOpenFolder', () => {
     const { result } = await renderHook(() => useOpenFolder())
 
     // Act
-    await result.current.revealInFinder('/x')
+    await result.current.revealInFinder(toAbsolutePath('/x'))
 
     // Assert
     expect(toastErrorMock).toHaveBeenCalledTimes(1)
@@ -70,7 +71,7 @@ describe('useOpenFolder', () => {
     const { result } = await renderHook(() => useOpenFolder())
 
     // Act
-    await result.current.openInTerminal('/x')
+    await result.current.openInTerminal(toAbsolutePath('/x'))
 
     // Assert
     expect(openTerminalMock).toHaveBeenCalledWith('/x')
@@ -88,7 +89,7 @@ describe('useOpenFolder', () => {
     const { result } = await renderHook(() => useOpenFolder())
 
     // Act
-    await result.current.openInTerminal('/missing')
+    await result.current.openInTerminal(toAbsolutePath('/missing'))
 
     // Assert
     expect(toastErrorMock).toHaveBeenCalledWith('Folder not found: /missing')
@@ -104,7 +105,7 @@ describe('useOpenFolder', () => {
     const { result } = await renderHook(() => useOpenFolder())
 
     // Act
-    await result.current.revealInFinder('/locked')
+    await result.current.revealInFinder(toAbsolutePath('/locked'))
 
     // Assert
     expect(toastErrorMock).toHaveBeenCalledTimes(1)
@@ -120,7 +121,7 @@ describe('useOpenFolder', () => {
     const { result } = await renderHook(() => useOpenFolder())
 
     // Act
-    await result.current.openInTerminal('/locked')
+    await result.current.openInTerminal(toAbsolutePath('/locked'))
 
     // Assert
     expect(toastErrorMock).toHaveBeenCalledWith(

@@ -2,7 +2,7 @@ import { dirname, join, resolve } from 'node:path'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { toSkillName } from '@/shared/types'
+import { toAbsolutePath, toSkillName } from '@/shared/types'
 
 /**
  * Create a mock Stats-like object for lstat results.
@@ -88,7 +88,7 @@ describe('checkSymlinkStatus', () => {
     // Act
     const { checkSymlinkStatus } = await import('./symlinkChecker')
     const result = await checkSymlinkStatus(
-      '/mock/agents/claude/skills/my-skill',
+      toAbsolutePath('/mock/agents/claude/skills/my-skill'),
     )
 
     // Assert
@@ -112,7 +112,7 @@ describe('checkSymlinkStatus', () => {
     // Act
     const { checkSymlinkStatus } = await import('./symlinkChecker')
     const result = await checkSymlinkStatus(
-      '/mock/agents/claude/skills/deleted-skill',
+      toAbsolutePath('/mock/agents/claude/skills/deleted-skill'),
     )
 
     // Assert
@@ -132,7 +132,7 @@ describe('checkSymlinkStatus', () => {
     // Act
     const { checkSymlinkStatus } = await import('./symlinkChecker')
     const result = await checkSymlinkStatus(
-      '/mock/agents/claude/skills/locked-skill',
+      toAbsolutePath('/mock/agents/claude/skills/locked-skill'),
     )
 
     // Assert
@@ -146,7 +146,7 @@ describe('checkSymlinkStatus', () => {
     // Act
     const { checkSymlinkStatus } = await import('./symlinkChecker')
     const result = await checkSymlinkStatus(
-      '/mock/agents/claude/skills/nonexistent',
+      toAbsolutePath('/mock/agents/claude/skills/nonexistent'),
     )
 
     // Assert
@@ -162,7 +162,7 @@ describe('checkSymlinkStatus', () => {
     // Act
     const { checkSymlinkStatus } = await import('./symlinkChecker')
     const result = await checkSymlinkStatus(
-      '/mock/agents/claude/skills/local-folder',
+      toAbsolutePath('/mock/agents/claude/skills/local-folder'),
     )
 
     // Assert
@@ -184,7 +184,7 @@ describe('checkSymlinkStatus', () => {
 
     // Act
     const { checkSymlinkStatus } = await import('./symlinkChecker')
-    const result = await checkSymlinkStatus(linkPath)
+    const result = await checkSymlinkStatus(toAbsolutePath(linkPath))
 
     // Assert
     expect(result).toBe('valid')
@@ -207,7 +207,7 @@ describe('checkSymlinkStatus', () => {
 
     // Act
     const { checkSymlinkStatus } = await import('./symlinkChecker')
-    const result = await checkSymlinkStatus(linkPath)
+    const result = await checkSymlinkStatus(toAbsolutePath(linkPath))
 
     // Assert
     expect(result).toBe('valid')
@@ -561,7 +561,7 @@ describe('checkSymlinkTargetFromKnownLink', () => {
     // Act
     const { checkSymlinkTargetFromKnownLink } = await import('./symlinkChecker')
     const result = await checkSymlinkTargetFromKnownLink(
-      '/mock/agents/claude/skills/orphan-skill',
+      toAbsolutePath('/mock/agents/claude/skills/orphan-skill'),
     )
 
     // Assert
@@ -578,7 +578,7 @@ describe('checkSymlinkTargetFromKnownLink', () => {
     // Act
     const { checkSymlinkTargetFromKnownLink } = await import('./symlinkChecker')
     const result = await checkSymlinkTargetFromKnownLink(
-      '/mock/agents/claude/skills/vanished-link',
+      toAbsolutePath('/mock/agents/claude/skills/vanished-link'),
     )
 
     // Assert
@@ -604,7 +604,7 @@ describe('readSymlinkTargetIfPresent', () => {
     // Act
     const { readSymlinkTargetIfPresent } = await import('./symlinkChecker')
     const result = await readSymlinkTargetIfPresent(
-      '/mock/.claude/skills/ship/SKILL.md',
+      toAbsolutePath('/mock/.claude/skills/ship/SKILL.md'),
     )
 
     // Assert
@@ -627,7 +627,7 @@ describe('readSymlinkTargetIfPresent', () => {
 
     // Act
     const { readSymlinkTargetIfPresent } = await import('./symlinkChecker')
-    const result = await readSymlinkTargetIfPresent(linkPath)
+    const result = await readSymlinkTargetIfPresent(toAbsolutePath(linkPath))
 
     // Assert
     expect(result).toBe(expectedResolved)
@@ -648,7 +648,7 @@ describe('readSymlinkTargetIfPresent', () => {
     // Act
     const { readSymlinkTargetIfPresent } = await import('./symlinkChecker')
     const result = await readSymlinkTargetIfPresent(
-      '/mock/.claude/skills/dangling/SKILL.md',
+      toAbsolutePath('/mock/.claude/skills/dangling/SKILL.md'),
     )
 
     // Assert
@@ -665,7 +665,7 @@ describe('readSymlinkTargetIfPresent', () => {
     // Act
     const { readSymlinkTargetIfPresent } = await import('./symlinkChecker')
     const result = await readSymlinkTargetIfPresent(
-      '/mock/.agents/skills/foo/SKILL.md',
+      toAbsolutePath('/mock/.agents/skills/foo/SKILL.md'),
     )
 
     // Assert
@@ -682,7 +682,9 @@ describe('readSymlinkTargetIfPresent', () => {
 
     // Act
     const { readSymlinkTargetIfPresent } = await import('./symlinkChecker')
-    const result = await readSymlinkTargetIfPresent('/mock/some/dir')
+    const result = await readSymlinkTargetIfPresent(
+      toAbsolutePath('/mock/some/dir'),
+    )
 
     // Assert
     expect(result).toBeUndefined()
@@ -696,7 +698,9 @@ describe('readSymlinkTargetIfPresent', () => {
 
     // Act
     const { readSymlinkTargetIfPresent } = await import('./symlinkChecker')
-    const result = await readSymlinkTargetIfPresent('/mock/missing/SKILL.md')
+    const result = await readSymlinkTargetIfPresent(
+      toAbsolutePath('/mock/missing/SKILL.md'),
+    )
 
     // Assert
     expect(result).toBeUndefined()
@@ -712,7 +716,7 @@ describe('readSymlinkTargetIfPresent', () => {
     // Act
     const { readSymlinkTargetIfPresent } = await import('./symlinkChecker')
     const result = await readSymlinkTargetIfPresent(
-      '/mock/race-condition/SKILL.md',
+      toAbsolutePath('/mock/race-condition/SKILL.md'),
     )
 
     // Assert

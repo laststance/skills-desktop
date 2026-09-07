@@ -9,6 +9,7 @@ import type { AgentFolderGroup } from '@/renderer/src/redux/slices/uiSlice'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type { Agent, FilesystemEntryIdentity, Skill } from '@/shared/types'
 import {
+  toAbsolutePath,
   toFileSizeBytes,
   toSkillCount,
   toSkillName,
@@ -42,7 +43,7 @@ const directoryIdentity: FilesystemEntryIdentity = {
 const cline: Agent = {
   id: 'cline',
   name: 'Cline',
-  path: '/Users/test/.cline/skills',
+  path: toAbsolutePath('/Users/test/.cline/skills'),
   exists: true,
   skillCount: toSkillCount(2),
   localSkillCount: toSkillCount(0),
@@ -53,7 +54,7 @@ const warp: Agent = {
   ...cline,
   id: 'warp',
   name: 'Warp',
-  path: '/Users/test/.warp/skills',
+  path: toAbsolutePath('/Users/test/.warp/skills'),
 }
 
 const unusedCline: Agent = {
@@ -62,7 +63,7 @@ const unusedCline: Agent = {
   skillCount: toSkillCount(0),
   filesystemIdentity: undefined,
   emptyParentFolder: {
-    path: '/Users/test/.cline',
+    path: toAbsolutePath('/Users/test/.cline'),
     filesystemIdentity: directoryIdentity,
   },
 }
@@ -73,7 +74,7 @@ const unusedWarp: Agent = {
   skillCount: toSkillCount(0),
   filesystemIdentity: undefined,
   emptyParentFolder: {
-    path: '/Users/test/.warp',
+    path: toAbsolutePath('/Users/test/.warp'),
     filesystemIdentity: directoryIdentity,
   },
 }
@@ -231,7 +232,7 @@ describe('Hidden agent folder deletion', () => {
       ...cline,
       id: 'amp',
       name: 'Amp',
-      path: '/Users/test/.config/agents/skills',
+      path: toAbsolutePath('/Users/test/.config/agents/skills'),
     }
     const aliasedAgent: Agent = {
       ...warp,
@@ -275,15 +276,17 @@ describe('Hidden agent folder deletion', () => {
     const protectedSkill: Skill = {
       name: toSkillName('protected-task'),
       description: 'Protected source skill',
-      path: '/Users/test/.agents/skills/protected-task',
+      path: toAbsolutePath('/Users/test/.agents/skills/protected-task'),
       symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cline',
           agentName: 'Cline',
           status: 'valid',
-          targetPath: '/Users/test/.agents/skills/protected-task',
-          linkPath: '/Users/test/.cline/skills/protected-slot',
+          targetPath: toAbsolutePath(
+            '/Users/test/.agents/skills/protected-task',
+          ),
+          linkPath: toAbsolutePath('/Users/test/.cline/skills/protected-slot'),
           isLocal: false,
         },
       ],

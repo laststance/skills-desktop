@@ -14,7 +14,9 @@ import type {
   EmptyAgentFolder,
   RemoveEmptyAgentFolderOptions,
   RemoveEmptyAgentFolderResult,
+  AbsolutePath,
 } from '@/shared/types'
+import { toAbsolutePath } from '@/shared/types'
 
 import {
   filesystemIdentityFromStats,
@@ -31,7 +33,7 @@ import {
 export async function getEmptyAgentFolder(
   agent: Pick<Agent, 'id' | 'path'>,
 ): Promise<EmptyAgentFolder | undefined> {
-  const folderPath = dirname(agent.path)
+  const folderPath = toAbsolutePath(dirname(agent.path))
   const otherFolders = [
     dirname(SOURCE_DIR),
     ...AGENTS.filter((candidate) => candidate.id !== agent.id).map(
@@ -79,7 +81,7 @@ export async function getEmptyAgentFolder(
 export async function removeEmptyAgentFolder(
   options: RemoveEmptyAgentFolderOptions,
 ): Promise<RemoveEmptyAgentFolderResult> {
-  let stagedPath: string | undefined
+  let stagedPath: AbsolutePath | undefined
   try {
     const agent = findAgentById(options.agentId)
     if (!agent || dirname(agent.path) !== options.path) {
@@ -107,7 +109,9 @@ export async function removeEmptyAgentFolder(
     }
 
     // Quarantine the reviewed object so a replacement at the original path cannot be trashed.
-    const quarantinePath = `${options.path}.cleanup-${randomUUID()}`
+    const quarantinePath = toAbsolutePath(
+      `${options.path}.cleanup-${randomUUID()}`,
+    )
     await rename(options.path, quarantinePath)
     stagedPath = quarantinePath
     const stagedStats = await lstat(quarantinePath)

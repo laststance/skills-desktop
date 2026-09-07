@@ -6,7 +6,12 @@ import { render } from 'vitest-browser-react'
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type { Agent, Skill, SkillName, SymlinkInfo } from '@/shared/types'
-import { toSkillCount, toSkillName, toSymlinkCount } from '@/shared/types'
+import {
+  toAbsolutePath,
+  toSkillCount,
+  toSkillName,
+  toSymlinkCount,
+} from '@/shared/types'
 
 const mockUnlinkManyFromAgent = vi.fn()
 const mockOnDeleteProgress = vi.fn(() => () => {})
@@ -58,7 +63,7 @@ vi.mock('sonner', () => ({
 const CURSOR_AGENT: Agent = {
   id: 'cursor',
   name: 'Cursor',
-  path: '/Users/test/.cursor/skills',
+  path: toAbsolutePath('/Users/test/.cursor/skills'),
   exists: true,
   skillCount: toSkillCount(3),
   localSkillCount: toSkillCount(0),
@@ -79,15 +84,15 @@ function makeCursorSkill(
   return {
     name,
     description: '',
-    path: `/Users/test/.agents/skills/${slotName}`,
+    path: toAbsolutePath(`/Users/test/.agents/skills/${slotName}`),
     symlinkCount: toSymlinkCount(status === 'missing' ? 0 : 1),
     symlinks: [
       {
         agentId: 'cursor',
         agentName: 'Cursor',
         status,
-        linkPath: `/Users/test/.cursor/skills/${slotName}`,
-        targetPath: `/Users/test/.agents/skills/${slotName}`,
+        linkPath: toAbsolutePath(`/Users/test/.cursor/skills/${slotName}`),
+        targetPath: toAbsolutePath(`/Users/test/.agents/skills/${slotName}`),
         isLocal: false,
       },
     ],

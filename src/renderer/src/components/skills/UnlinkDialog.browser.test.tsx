@@ -8,7 +8,12 @@ import type {
   Skill,
   SymlinkInfo,
 } from '@/shared/types'
-import { toFileSizeBytes, toSkillName, toSymlinkCount } from '@/shared/types'
+import {
+  toAbsolutePath,
+  toFileSizeBytes,
+  toSkillName,
+  toSymlinkCount,
+} from '@/shared/types'
 
 const mockUnlinkFromAgent = vi.fn()
 const mockSkillsGetAll = vi.fn()
@@ -45,7 +50,7 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
   return {
     name: toSkillName('task'),
     description: 'Task management skill',
-    path: '/home/user/.agents/skills/task',
+    path: toAbsolutePath('/home/user/.agents/skills/task'),
     symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,
@@ -65,8 +70,8 @@ function makeSymlink(overrides: Partial<SymlinkInfo> = {}): SymlinkInfo {
     agentId: 'cursor',
     agentName: 'Cursor',
     status: 'valid',
-    targetPath: '/home/user/.agents/skills/task',
-    linkPath: '/home/user/.cursor/skills/task',
+    targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+    linkPath: toAbsolutePath('/home/user/.cursor/skills/task'),
     isLocal: false,
     ...overrides,
   }

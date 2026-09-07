@@ -3,6 +3,7 @@ import * as fs from 'fs/promises'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 import { MAX_IMAGE_FILE_BYTES, MAX_TEXT_FILE_BYTES } from '@/shared/fileTypes'
+import { toAbsolutePath } from '@/shared/types'
 
 vi.mock('fs/promises')
 
@@ -76,7 +77,7 @@ describe('listSkillFiles', () => {
     mockStat()
 
     // Act
-    const result = await listSkillFiles('/skills/my-skill')
+    const result = await listSkillFiles(toAbsolutePath('/skills/my-skill'))
 
     // Assert
     expect(result.map((f) => f.name)).toEqual([
@@ -99,7 +100,7 @@ describe('listSkillFiles', () => {
     mockStat()
 
     // Act
-    const result = await listSkillFiles('/skills/my-skill')
+    const result = await listSkillFiles(toAbsolutePath('/skills/my-skill'))
 
     // Assert
     const names = result.map((f) => f.name)
@@ -121,7 +122,7 @@ describe('listSkillFiles', () => {
     mockStat()
 
     // Act
-    const result = await listSkillFiles('/skills/my-skill')
+    const result = await listSkillFiles(toAbsolutePath('/skills/my-skill'))
 
     // Assert
     const byName = Object.fromEntries(result.map((f) => [f.name, f]))
@@ -143,7 +144,9 @@ describe('listSkillFiles', () => {
     mockStat()
 
     // Act
-    const names = (await listSkillFiles('/skills/my-skill')).map((f) => f.name)
+    const names = (
+      await listSkillFiles(toAbsolutePath('/skills/my-skill'))
+    ).map((f) => f.name)
 
     // Assert
     expect(names).toContain('helper.py')
@@ -163,7 +166,7 @@ describe('listSkillFiles', () => {
     mockStat()
 
     // Act
-    const result = await listSkillFiles('/skills/my-skill')
+    const result = await listSkillFiles(toAbsolutePath('/skills/my-skill'))
 
     // Assert
     const byName = Object.fromEntries(result.map((f) => [f.name, f]))
@@ -187,7 +190,9 @@ describe('listSkillFiles', () => {
     mockStat()
 
     // Act
-    const names = (await listSkillFiles('/skills/my-skill')).map((f) => f.name)
+    const names = (
+      await listSkillFiles(toAbsolutePath('/skills/my-skill'))
+    ).map((f) => f.name)
 
     // Assert
     expect(names).toEqual(['SKILL.md'])
@@ -205,7 +210,9 @@ describe('listSkillFiles', () => {
     mockStat()
 
     // Act
-    const names = (await listSkillFiles('/skills/my-skill')).map((f) => f.name)
+    const names = (
+      await listSkillFiles(toAbsolutePath('/skills/my-skill'))
+    ).map((f) => f.name)
 
     // Assert
     expect(names).not.toContain('secret.md')
@@ -222,7 +229,9 @@ describe('listSkillFiles', () => {
     mockStat()
 
     // Act
-    const names = (await listSkillFiles('/skills/my-skill')).map((f) => f.name)
+    const names = (
+      await listSkillFiles(toAbsolutePath('/skills/my-skill'))
+    ).map((f) => f.name)
 
     // Assert
     expect(names).toEqual(['SKILL.md'])
@@ -246,7 +255,9 @@ describe('listSkillFiles', () => {
     mockStat()
 
     // Act
-    const names = (await listSkillFiles('/skills/my-skill')).map((f) => f.name)
+    const names = (
+      await listSkillFiles(toAbsolutePath('/skills/my-skill'))
+    ).map((f) => f.name)
 
     // Assert
     expect(names).toEqual(['SKILL.md'])
@@ -265,7 +276,9 @@ describe('listSkillFiles', () => {
     mockStat()
 
     // Act
-    const names = (await listSkillFiles('/r')).map((f) => f.name)
+    const names = (await listSkillFiles(toAbsolutePath('/r'))).map(
+      (f) => f.name,
+    )
 
     // Assert
     expect(names).not.toContain('too-deep.md')
@@ -283,7 +296,9 @@ describe('listSkillFiles', () => {
     mockStat()
 
     // Act
-    const names = (await listSkillFiles('/r')).map((f) => f.name)
+    const names = (await listSkillFiles(toAbsolutePath('/r'))).map(
+      (f) => f.name,
+    )
 
     // Assert
     expect(names).toContain('ok.md')
@@ -297,7 +312,7 @@ describe('listSkillFiles', () => {
     mockStat({ '/skills/my-skill/huge.md': MAX_TEXT_FILE_BYTES + 1 })
 
     // Act
-    const result = await listSkillFiles('/skills/my-skill')
+    const result = await listSkillFiles(toAbsolutePath('/skills/my-skill'))
 
     // Assert
     expect(result[0].previewable).toBe('binary')
@@ -311,7 +326,7 @@ describe('listSkillFiles', () => {
     mockStat({ '/skills/my-skill/big.png': MAX_IMAGE_FILE_BYTES + 1 })
 
     // Act
-    const result = await listSkillFiles('/skills/my-skill')
+    const result = await listSkillFiles(toAbsolutePath('/skills/my-skill'))
 
     // Assert
     expect(result[0].previewable).toBe('binary')
@@ -322,7 +337,7 @@ describe('listSkillFiles', () => {
     mockFs.readdir.mockRejectedValue(new Error('ENOENT'))
 
     // Act
-    const result = await listSkillFiles('/non/existent/path')
+    const result = await listSkillFiles(toAbsolutePath('/non/existent/path'))
 
     // Assert
     expect(result).toEqual([])
@@ -347,7 +362,7 @@ describe('listSkillFiles', () => {
     mockStat()
 
     // Act
-    const result = await listSkillFiles('/skills/my-skill')
+    const result = await listSkillFiles(toAbsolutePath('/skills/my-skill'))
 
     // Assert
     expect(result).toEqual([])
@@ -369,7 +384,9 @@ describe('listSkillFiles', () => {
     )
 
     // Act
-    const names = (await listSkillFiles('/skills/my-skill')).map((f) => f.name)
+    const names = (
+      await listSkillFiles(toAbsolutePath('/skills/my-skill'))
+    ).map((f) => f.name)
 
     // Assert
     expect(names).toEqual(['SKILL.md'])
@@ -387,7 +404,9 @@ describe('readSkillFile', () => {
     mockFs.readFile.mockResolvedValue('line one\nline two\nline three')
 
     // Act
-    const result = await readSkillFile('/skills/my-skill/SKILL.md')
+    const result = await readSkillFile(
+      toAbsolutePath('/skills/my-skill/SKILL.md'),
+    )
 
     // Assert
     expect(result).not.toBeNull()
@@ -403,7 +422,9 @@ describe('readSkillFile', () => {
     mockFs.readFile.mockRejectedValue(new Error('ENOENT'))
 
     // Act
-    const result = await readSkillFile('/skills/my-skill/missing.md')
+    const result = await readSkillFile(
+      toAbsolutePath('/skills/my-skill/missing.md'),
+    )
 
     // Assert
     expect(result).toBeNull()
@@ -414,7 +435,9 @@ describe('readSkillFile', () => {
     mockStat({}, MAX_TEXT_FILE_BYTES + 1)
 
     // Act
-    const result = await readSkillFile('/skills/my-skill/huge.md')
+    const result = await readSkillFile(
+      toAbsolutePath('/skills/my-skill/huge.md'),
+    )
 
     // Assert
     expect(result).toBeNull()
@@ -426,7 +449,9 @@ describe('readSkillFile', () => {
     mockFs.readFile.mockResolvedValue('# uppercase')
 
     // Act
-    const result = await readSkillFile('/skills/my-skill/README.MD')
+    const result = await readSkillFile(
+      toAbsolutePath('/skills/my-skill/README.MD'),
+    )
 
     // Assert
     expect(result!.extension).toBe('.md')
@@ -444,7 +469,9 @@ describe('readBinaryFile', () => {
     mockFs.readFile.mockResolvedValue(Buffer.from([0x89, 0x50, 0x4e, 0x47]))
 
     // Act
-    const result = await readBinaryFile('/skills/my-skill/preview.png')
+    const result = await readBinaryFile(
+      toAbsolutePath('/skills/my-skill/preview.png'),
+    )
 
     // Assert
     expect(result).not.toBeNull()
@@ -459,8 +486,10 @@ describe('readBinaryFile', () => {
     mockFs.readFile.mockResolvedValue(Buffer.from([0xff, 0xd8]))
 
     // Act
-    const a = await readBinaryFile('/skills/my-skill/photo.jpg')
-    const b = await readBinaryFile('/skills/my-skill/photo.jpeg')
+    const a = await readBinaryFile(toAbsolutePath('/skills/my-skill/photo.jpg'))
+    const b = await readBinaryFile(
+      toAbsolutePath('/skills/my-skill/photo.jpeg'),
+    )
 
     // Assert
     expect(a!.mimeType).toBe('image/jpeg')
@@ -473,7 +502,9 @@ describe('readBinaryFile', () => {
     mockFs.readFile.mockResolvedValue(Buffer.from([0, 0]))
 
     // Act
-    const result = await readBinaryFile('/skills/my-skill/data.bin')
+    const result = await readBinaryFile(
+      toAbsolutePath('/skills/my-skill/data.bin'),
+    )
 
     // Assert
     expect(result).toBeNull()
@@ -484,7 +515,9 @@ describe('readBinaryFile', () => {
     mockStat({}, MAX_IMAGE_FILE_BYTES + 1)
 
     // Act
-    const result = await readBinaryFile('/skills/my-skill/big.png')
+    const result = await readBinaryFile(
+      toAbsolutePath('/skills/my-skill/big.png'),
+    )
 
     // Assert
     expect(result).toBeNull()
@@ -496,7 +529,9 @@ describe('readBinaryFile', () => {
     mockFs.readFile.mockRejectedValue(new Error('EACCES'))
 
     // Act
-    const result = await readBinaryFile('/skills/my-skill/locked.png')
+    const result = await readBinaryFile(
+      toAbsolutePath('/skills/my-skill/locked.png'),
+    )
 
     // Assert
     expect(result).toBeNull()
@@ -508,7 +543,9 @@ describe('readBinaryFile', () => {
     mockFs.readFile.mockResolvedValue(Buffer.from([1, 2, 3]))
 
     // Act
-    const result = await readBinaryFile('/skills/my-skill/tiny.png')
+    const result = await readBinaryFile(
+      toAbsolutePath('/skills/my-skill/tiny.png'),
+    )
 
     // Assert
     // 3 bytes -> 4 base64 chars

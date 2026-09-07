@@ -2,7 +2,12 @@ import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, test } from 'vitest'
 
 import type { Skill } from '@/shared/types'
-import { toFileSizeBytes, toSkillName, toSymlinkCount } from '@/shared/types'
+import {
+  toAbsolutePath,
+  toFileSizeBytes,
+  toSkillName,
+  toSymlinkCount,
+} from '@/shared/types'
 
 /**
  * Build a source-skill row the way `scanSourceSkills` does: named, and carrying
@@ -16,7 +21,7 @@ function makeScannedSkill(name: Skill['name'], ino: number): Skill {
   return {
     name,
     description: 'scanned',
-    path: `/home/user/.agents/skills/${name}`,
+    path: toAbsolutePath(`/home/user/.agents/skills/${name}`),
     filesystemIdentity: {
       kind: 'directory',
       dev: 1,

@@ -6,6 +6,7 @@ import type {
 } from '@/renderer/src/redux/slices/uiSlice'
 import {
   repositoryId,
+  toAbsolutePath,
   toHttpUrl,
   toIsoTimestamp,
   toSkillName,
@@ -158,18 +159,22 @@ const makeSkill = (
 ): Skill => ({
   name: toSkillName(name),
   description: `${name} skill`,
-  path: isLocal
-    ? `/home/user/.${agentId}/skills/${name}`
-    : `/home/user/.agents/skills/${name}`,
+  path: toAbsolutePath(
+    isLocal
+      ? `/home/user/.${agentId}/skills/${name}`
+      : `/home/user/.agents/skills/${name}`,
+  ),
   symlinkCount: toSymlinkCount(isLocal || status === 'missing' ? 0 : 1),
   symlinks: [
     {
       agentId: agentId,
       agentName: agentId as SymlinkInfo['agentName'],
-      linkPath: `/home/user/.${agentId}/skills/${name}`,
-      targetPath: isLocal
-        ? `/home/user/.${agentId}/skills/${name}`
-        : `/home/user/.agents/skills/${name}`,
+      linkPath: toAbsolutePath(`/home/user/.${agentId}/skills/${name}`),
+      targetPath: toAbsolutePath(
+        isLocal
+          ? `/home/user/.${agentId}/skills/${name}`
+          : `/home/user/.agents/skills/${name}`,
+      ),
       status,
       isLocal,
     },
@@ -209,10 +214,12 @@ const makeMultiSlotSkill = (
     return {
       agentId: slot.agentId,
       agentName: slot.agentId as SymlinkInfo['agentName'],
-      linkPath: `/home/user/.${slot.agentId}/skills/${name}`,
-      targetPath: isLocal
-        ? `/home/user/.${slot.agentId}/skills/${name}`
-        : `/home/user/.agents/skills/${name}`,
+      linkPath: toAbsolutePath(`/home/user/.${slot.agentId}/skills/${name}`),
+      targetPath: toAbsolutePath(
+        isLocal
+          ? `/home/user/.${slot.agentId}/skills/${name}`
+          : `/home/user/.agents/skills/${name}`,
+      ),
       status: slot.status ?? 'valid',
       isLocal,
     }
@@ -220,7 +227,7 @@ const makeMultiSlotSkill = (
   return {
     name: toSkillName(name),
     description: `${name} skill`,
-    path: `/home/user/.agents/skills/${name}`,
+    path: toAbsolutePath(`/home/user/.agents/skills/${name}`),
     symlinkCount: toSymlinkCount(
       symlinks.filter((s) => s.status === 'valid' && !s.isLocal).length,
     ),
@@ -386,14 +393,14 @@ describe('selectFilteredSkills', () => {
     const skill: Skill = {
       name: toSkillName('broken-skill'),
       description: 'broken',
-      path: '/home/user/.agents/skills/broken-skill',
+      path: toAbsolutePath('/home/user/.agents/skills/broken-skill'),
       symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
-          linkPath: '/home/user/.cursor/skills/broken-skill',
-          targetPath: '/home/user/.agents/skills/broken-skill',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/broken-skill'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/broken-skill'),
           status: 'broken',
           isLocal: false,
         },
@@ -420,14 +427,16 @@ describe('selectFilteredSkills', () => {
     const skill: Skill = {
       name: toSkillName('unlinked-skill'),
       description: 'unlinked',
-      path: '/home/user/.agents/skills/unlinked-skill',
+      path: toAbsolutePath('/home/user/.agents/skills/unlinked-skill'),
       symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
-          linkPath: '/home/user/.cursor/skills/unlinked-skill',
-          targetPath: '/home/user/.agents/skills/unlinked-skill',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/unlinked-skill'),
+          targetPath: toAbsolutePath(
+            '/home/user/.agents/skills/unlinked-skill',
+          ),
           status: 'missing',
           isLocal: false,
         },
@@ -549,7 +558,9 @@ describe('selectFilteredSkills', () => {
     linkedGStack.symlinks = [
       {
         ...linkedGStack.symlinks[0],
-        targetPath: '/Users/me/.cursor/skills/gstack/linked-gstack',
+        targetPath: toAbsolutePath(
+          '/Users/me/.cursor/skills/gstack/linked-gstack',
+        ),
       },
     ]
 
@@ -557,8 +568,9 @@ describe('selectFilteredSkills', () => {
     localGStack.symlinks = [
       {
         ...localGStack.symlinks[0],
-        skillMdSymlinkTarget:
+        skillMdSymlinkTarget: toAbsolutePath(
           '/Users/me/.cursor/skills/gstack/local-gstack/SKILL.md',
+        ),
       },
     ]
 
@@ -590,7 +602,9 @@ describe('selectFilteredSkills', () => {
     linkedGStack.symlinks = [
       {
         ...linkedGStack.symlinks[0],
-        targetPath: '/Users/me/.cursor/skills/gstack/linked-gstack',
+        targetPath: toAbsolutePath(
+          '/Users/me/.cursor/skills/gstack/linked-gstack',
+        ),
       },
     ]
 
@@ -598,8 +612,9 @@ describe('selectFilteredSkills', () => {
     localGStack.symlinks = [
       {
         ...localGStack.symlinks[0],
-        skillMdSymlinkTarget:
+        skillMdSymlinkTarget: toAbsolutePath(
           '/Users/me/.cursor/skills/gstack/local-gstack/SKILL.md',
+        ),
       },
     ]
 
@@ -627,8 +642,10 @@ describe('selectFilteredSkills', () => {
       {
         agentId: 'claude-code',
         agentName: 'Claude Code',
-        linkPath: '/Users/me/.claude/skills/mixed-skill',
-        targetPath: '/Users/me/.claude/skills/gstack/mixed-skill',
+        linkPath: toAbsolutePath('/Users/me/.claude/skills/mixed-skill'),
+        targetPath: toAbsolutePath(
+          '/Users/me/.claude/skills/gstack/mixed-skill',
+        ),
         status: 'valid',
         isLocal: false,
       },
@@ -652,14 +669,14 @@ describe('selectFilteredSkills', () => {
     const orphanSkill: Skill = {
       name: toSkillName('orphan-one'),
       description: 'orphan',
-      path: '/home/user/.agents/skills/orphan-one',
+      path: toAbsolutePath('/home/user/.agents/skills/orphan-one'),
       symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
-          linkPath: '/home/user/.cursor/skills/orphan-one',
-          targetPath: '/home/user/.agents/skills/orphan-one',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/orphan-one'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/orphan-one'),
           status: 'broken',
           isLocal: false,
         },
@@ -693,14 +710,16 @@ describe('selectFilteredSkills', () => {
     const orphanForAgentA: Skill = {
       name: toSkillName('orphan-agent-a'),
       description: 'orphan stranded in agent A',
-      path: '/home/user/.agents/skills/orphan-agent-a',
+      path: toAbsolutePath('/home/user/.agents/skills/orphan-agent-a'),
       symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'claude-code',
           agentName: 'Claude Code',
-          linkPath: '/home/user/.claude/skills/orphan-agent-a',
-          targetPath: '/home/user/.agents/skills/orphan-agent-a',
+          linkPath: toAbsolutePath('/home/user/.claude/skills/orphan-agent-a'),
+          targetPath: toAbsolutePath(
+            '/home/user/.agents/skills/orphan-agent-a',
+          ),
           status: 'broken',
           isLocal: false,
         },
@@ -1292,8 +1311,8 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
         {
           agentId: 'cursor',
           agentName: 'Cursor',
-          linkPath: '/home/user/.cursor/skills/broken-skill',
-          targetPath: '/home/user/.agents/skills/broken-skill',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/broken-skill'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/broken-skill'),
           status: 'broken',
           isLocal: false,
         },
@@ -1324,8 +1343,8 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
         {
           agentId: 'cursor',
           agentName: 'Cursor',
-          linkPath: '/home/user/.cursor/skills/manual-review',
-          targetPath: '/home/user/.agents/skills/manual-review',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/manual-review'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/manual-review'),
           status: 'inaccessible',
           isLocal: false,
         },
@@ -1350,7 +1369,7 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
         {
           agentId: 'cursor',
           agentName: 'Cursor',
-          linkPath: '/home/user/.cursor/skills/local-only',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/local-only'),
           status: 'valid',
           isLocal: true,
         },

@@ -1,13 +1,18 @@
 import { EventEmitter } from 'node:events'
 import type * as NodeFsPromises from 'node:fs/promises'
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
+
+import { toAbsolutePath } from '@/shared/types'
+
+import type * as PathValidation from '../services/pathValidation'
 
 const handleMock = vi.fn()
 const realpathMock = vi.fn()
 const spawnMock = vi.fn()
 const openPathMock = vi.fn()
 const getSettingsMock = vi.fn()
+const allowedBasesMock = vi.fn()
 
 /**
  * Mock surfaces:
@@ -44,6 +49,18 @@ vi.mock('node:child_process', () => ({
 
 vi.mock('../services/settings', () => ({
   getSettings: () => getSettingsMock(),
+}))
+
+/**
+ * Only `getAllowedBases` is faked — {@link validatePath} stays REAL so every
+ * test below still executes the authorization gate rather than stepping over
+ * it. The launcher-behavior tests widen the allowlist to `/` because their
+ * fixtures are synthetic paths (`/x`, `/cycle`); the authorization tests
+ * narrow it to prove a path outside the bases is refused.
+ */
+vi.mock('../services/pathValidation', async (importOriginal) => ({
+  ...(await importOriginal<typeof PathValidation>()),
+  getAllowedBases: () => allowedBasesMock(),
 }))
 
 /**
@@ -107,11 +124,16 @@ describe('folder IPC handlers (integration)', () => {
     spawnMock.mockReset()
     openPathMock.mockReset()
     getSettingsMock.mockReset()
+    allowedBasesMock.mockReset()
     // Default: the most common happy-path settings.
     getSettingsMock.mockReturnValue({
       defaultSkillTab: 'files',
       preferredTerminal: 'terminal',
     })
+    // Default: authorize the whole filesystem so the launcher-behavior tests
+    // below can keep using synthetic fixture paths. Authorization itself is
+    // asserted by the dedicated describe block at the end of this file.
+    allowedBasesMock.mockReturnValue([toAbsolutePath('/')])
     // Re-import after resetModules so the mocks above take effect.
     const { registerFolderHandlers } = await import('./folder')
     registerFolderHandlers()
@@ -344,4 +366,129 @@ describe('folder IPC handlers (integration)', () => {
       )
     })
   })
+
+  describe('Folder actions: refusing folders outside the managed directories', () => {
+    beforeEach(() => {
+      // Narrow the allowlist to the source dir only.
+      allowedBasesMock.mockReturnValue([
+        toAbsolutePath('/Users/me/.agents/skills'),
+      ])
+    })
+
+    test('refuses to reveal a folder outside the allowed bases', async () => {
+      // Arrange
+      const handler = getRegisteredHandler('folder:revealInFinder')
+
+      // Act
+      const result = await handler({}, '/etc')
+
+      // Assert
+      expect(result).toEqual({
+        ok: false,
+        reason: 'invalid-path',
+        message:
+          'That folder is outside the Skills directories this app manages.',
+      })
+    })
+
+    test('does not launch Finder for a folder outside the allowed bases', async () => {
+      // Arrange
+      const handler = getRegisteredHandler('folder:revealInFinder')
+
+      // Act
+      await handler({}, '/etc')
+
+      // Assert
+      expect(openPathMock).not.toHaveBeenCalled()
+    })
+
+    test('does not spawn a terminal for a folder outside the allowed bases', async () => {
+      // Arrange
+      const handler = getRegisteredHandler('folder:openInTerminal')
+
+      // Act
+      const result = await handler({}, '/Applications')
+
+      // Assert
+      expect(spawnMock).not.toHaveBeenCalled()
+      expect(result).toEqual({
+        ok: false,
+        reason: 'invalid-path',
+        message:
+          'That folder is outside the Skills directories this app manages.',
+      })
+    })
+
+    test('refuses a path that resolves outside the allowed bases after realpath', async () => {
+      // Arrange — the request looks authorized, but realpath lands elsewhere:
+      // this is the symlink-swap (TOCTOU) shape. Gate 1 passes, gate 3 must not.
+      const handler = getRegisteredHandler('folder:revealInFinder')
+      realpathMock.mockResolvedValue('/etc/evil')
+
+      // Act
+      const result = await handler({}, '/Users/me/.agents/skills/innocent')
+
+      // Assert
+      expect(result).toEqual({
+        ok: false,
+        reason: 'invalid-path',
+        message:
+          'That folder is outside the Skills directories this app manages.',
+      })
+    })
+
+    test('never launches a target that resolved outside the allowed bases', async () => {
+      // Arrange
+      const handler = getRegisteredHandler('folder:revealInFinder')
+      realpathMock.mockResolvedValue('/etc/evil')
+
+      // Act
+      await handler({}, '/Users/me/.agents/skills/innocent')
+
+      // Assert — the whole point: the launcher must never see the escaped path.
+      expect(openPathMock).not.toHaveBeenCalled()
+    })
+
+    test('hands the launcher the canonical resolved path, not the requested one', async () => {
+      // Arrange — a symlink inside the bases pointing elsewhere inside them.
+      const handler = getRegisteredHandler('folder:revealInFinder')
+      realpathMock.mockResolvedValue('/Users/me/.agents/skills/real-target')
+      openPathMock.mockResolvedValue('')
+
+      // Act
+      await handler({}, '/Users/me/.agents/skills/link')
+
+      // Assert — proves the authorized value and the launched value are one
+      // and the same string.
+      expect(openPathMock).toHaveBeenCalledWith(
+        '/Users/me/.agents/skills/real-target',
+      )
+    })
+
+    test('reports a deleted folder inside the allowed bases as missing, not unauthorized', async () => {
+      // Arrange — authorized path, but realpath says it is gone.
+      const handler = getRegisteredHandler('folder:revealInFinder')
+      realpathMock.mockRejectedValue(
+        Object.assign(new Error('ENOENT'), { code: 'ENOENT' }),
+      )
+
+      // Act
+      const result = await handler({}, '/Users/me/.agents/skills/removed')
+
+      // Assert — proves the two gates run in the right order.
+      expect(result).toEqual({
+        ok: false,
+        reason: 'not-found',
+        message: 'Folder not found: /Users/me/.agents/skills/removed',
+      })
+    })
+  })
 })
+/**
+ * The authorization gate. Every other path-taking IPC channel is allowlisted
+ * against {@link getAllowedBases}; these tests exist so `folder:*` cannot
+ * silently drift back into accepting any absolute path, which would let a
+ * renderer running injected script launch an arbitrary app via `shell.openPath`.
+ *
+ * {@link validatePath} is NOT mocked here — only the base list is narrowed.
+ */

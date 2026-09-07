@@ -6,6 +6,7 @@ import { render } from 'vitest-browser-react'
 
 import {
   repositoryId,
+  toAbsolutePath,
   toHttpUrl,
   toSkillName,
   toSymlinkCount,
@@ -50,7 +51,7 @@ function makeSkill(name: string, source?: string): Skill {
   return {
     name: toSkillName(name),
     description: '',
-    path: `/skills/${name}`,
+    path: toAbsolutePath(`/skills/${name}`),
     symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,

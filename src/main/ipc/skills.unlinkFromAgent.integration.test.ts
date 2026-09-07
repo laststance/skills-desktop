@@ -24,7 +24,7 @@ import type {
   FilesystemEntryIdentity,
   SkillName,
 } from '@/shared/types'
-import { toSkillName } from '@/shared/types'
+import { toAbsolutePath, toSkillName } from '@/shared/types'
 
 const handleMock = vi.fn()
 const trashItemMock = vi.fn()
@@ -253,8 +253,8 @@ describe('skills:unlinkFromAgent handler', () => {
         items: [
           {
             skillName: metadataName,
-            linkPath: cursorLinkPath,
-            targetPath: sourcePath,
+            linkPath: toAbsolutePath(cursorLinkPath),
+            targetPath: toAbsolutePath(sourcePath),
           },
         ],
       },

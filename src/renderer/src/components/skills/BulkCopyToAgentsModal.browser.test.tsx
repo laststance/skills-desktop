@@ -10,6 +10,7 @@ import type {
   SkillName,
 } from '@/shared/types'
 import {
+  toAbsolutePath,
   toAgentCount,
   toSkillCount,
   toSkillName,
@@ -48,7 +49,7 @@ function makeAgent(
   return {
     id,
     name,
-    path: `/home/user/.${id}/skills`,
+    path: toAbsolutePath(`/home/user/.${id}/skills`),
     exists: true,
     skillCount: toSkillCount(0),
     localSkillCount: toSkillCount(0),
@@ -67,7 +68,7 @@ function makeSkill(name: string): Skill {
   return {
     name: toSkillName(name),
     description: `${name} skill`,
-    path: `/home/user/.agents/skills/${name}`,
+    path: toAbsolutePath(`/home/user/.agents/skills/${name}`),
     symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,
@@ -369,7 +370,9 @@ describe('BulkCopyToAgentsModal copy outcome', () => {
     // copying), driving the modal's fulfilled.match else branch.
     store.dispatch(
       bulkCopyToAgents({
-        items: [{ skillName: toSkillName('task'), sourcePath: '/x' }],
+        items: [
+          { skillName: toSkillName('task'), sourcePath: toAbsolutePath('/x') },
+        ],
         agentIds: ['cursor'],
       }),
     )

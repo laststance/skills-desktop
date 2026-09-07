@@ -17,7 +17,7 @@ import type {
   StaleLockScanResult,
   UnprunableLockEntry,
 } from '@/shared/types'
-import { toSkillName } from '@/shared/types'
+import { toAbsolutePath, toSkillName } from '@/shared/types'
 
 import { skillsCliService } from './skillsCliService'
 
@@ -105,9 +105,9 @@ export async function runLockWrite<T>(operation: () => Promise<T>): Promise<T> {
 export function getSkillLockPath(): AbsolutePath {
   const xdgStateHome = process.env.XDG_STATE_HOME
   if (xdgStateHome) {
-    return join(xdgStateHome, 'skills', LOCK_FILE)
+    return toAbsolutePath(join(xdgStateHome, 'skills', LOCK_FILE))
   }
-  return join(homedir(), '.agents', LOCK_FILE)
+  return toAbsolutePath(join(homedir(), '.agents', LOCK_FILE))
 }
 
 /**
@@ -593,7 +593,11 @@ export async function scanStaleLockEntries(): Promise<StaleLockScanResult> {
     Array.from(byDirName.keys(), async (dirName) => {
       // Only provable absence counts. `unknown` stays out of the stale list for
       // the same reason it blocks a prune: doubt is not evidence of deletion.
-      if ((await probeSourcePresence(join(SOURCE_DIR, dirName))) === 'absent') {
+      if (
+        (await probeSourcePresence(
+          toAbsolutePath(join(SOURCE_DIR, dirName)),
+        )) === 'absent'
+      ) {
         absentDirNames.add(dirName)
       }
     }),
@@ -709,7 +713,7 @@ export async function pruneLockEntries(
       }
       // react-doctor-disable-next-line react-doctor/async-await-in-loop -- revalidation must stay inside the lock-write mutex; a Promise.all here would still be serialized by it and the batch is at most a screenful of names.
       const presence = await probeSourcePresence(
-        join(SOURCE_DIR, sanitizeName(name)),
+        toAbsolutePath(join(SOURCE_DIR, sanitizeName(name))),
       )
       // The skill came back on disk, so the record is live again.
       if (presence === 'present') skipped.push(name)

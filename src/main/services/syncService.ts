@@ -16,7 +16,12 @@ import type {
   SyncPreviewResult,
   SyncResultItem,
 } from '@/shared/types'
-import { toAgentCount, toSkillCount, toSymlinkCount } from '@/shared/types'
+import {
+  toAbsolutePath,
+  toAgentCount,
+  toSkillCount,
+  toSymlinkCount,
+} from '@/shared/types'
 
 import {
   listSourceSkillDirs,
@@ -109,7 +114,7 @@ export async function syncPreview(
 
   for (const skill of skills) {
     for (const agent of agents) {
-      const linkPath = join(agent.path, skill.name)
+      const linkPath = toAbsolutePath(join(agent.path, skill.name))
 
       try {
         // react-doctor-disable-next-line react-doctor/async-await-in-loop -- lstat per (skill x agent) symlink path classifying synced/conflict/missing; a bounded local-fs probe kept sequential to keep result accounting simple.
@@ -182,7 +187,7 @@ export async function syncExecute(
 
   for (const skill of skills) {
     for (const agent of agents) {
-      const linkPath = join(agent.path, skill.name)
+      const linkPath = toAbsolutePath(join(agent.path, skill.name))
 
       try {
         let exists = false

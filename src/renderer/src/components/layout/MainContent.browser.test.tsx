@@ -19,6 +19,7 @@ import type {
 } from '@/shared/types'
 import {
   repositoryId,
+  toAbsolutePath,
   toBatchItemCount,
   toBatchItemIndex,
   toFileSizeBytes,
@@ -883,7 +884,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     return {
       name,
       description: '',
-      path: `/home/user/.agents/skills/${folderName}`,
+      path: toAbsolutePath(`/home/user/.agents/skills/${folderName}`),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
@@ -1036,7 +1037,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     )
     const replacementSkill: Skill = {
       ...originalSkill,
-      path: '/home/user/.agents/skills/replacement-folder',
+      path: toAbsolutePath('/home/user/.agents/skills/replacement-folder'),
       filesystemIdentity: {
         ...directoryIdentity,
         ino: 999,
@@ -1091,15 +1092,17 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const originalSkill: Skill = {
       name: skillName,
       description: '',
-      path: '/home/user/.agents/skills/snapshot-unlink',
+      path: toAbsolutePath('/home/user/.agents/skills/snapshot-unlink'),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
-          linkPath: '/home/user/.cursor/skills/reviewed-link',
-          targetPath: '/home/user/.agents/skills/reviewed-target',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/reviewed-link'),
+          targetPath: toAbsolutePath(
+            '/home/user/.agents/skills/reviewed-target',
+          ),
           status: 'valid',
           isLocal: false,
         },
@@ -1112,8 +1115,12 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       symlinks: [
         {
           ...originalSkill.symlinks[0],
-          linkPath: '/home/user/.cursor/skills/replacement-link',
-          targetPath: '/home/user/.agents/skills/replacement-target',
+          linkPath: toAbsolutePath(
+            '/home/user/.cursor/skills/replacement-link',
+          ),
+          targetPath: toAbsolutePath(
+            '/home/user/.agents/skills/replacement-target',
+          ),
         },
       ],
     }
@@ -1128,7 +1135,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/home/user/.cursor/skills',
+            path: toAbsolutePath('/home/user/.cursor/skills'),
             exists: true,
             skillCount: toSkillCount(1),
             localSkillCount: toSkillCount(0),
@@ -1171,14 +1178,14 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const orphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/abandoned',
+      path: toAbsolutePath('/Users/me/.agents/skills/abandoned'),
       symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'devin',
           agentName: 'Devin' as never,
-          linkPath: '/Users/me/.config/devin/skills/abandoned',
-          targetPath: '/Users/me/.agents/skills/abandoned',
+          linkPath: toAbsolutePath('/Users/me/.config/devin/skills/abandoned'),
+          targetPath: toAbsolutePath('/Users/me/.agents/skills/abandoned'),
           status: 'broken',
           isLocal: false,
         },
@@ -1252,7 +1259,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/source-task',
+      path: toAbsolutePath('/Users/me/.agents/skills/source-task'),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
@@ -1262,14 +1269,14 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const orphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/abandoned',
+      path: toAbsolutePath('/Users/me/.agents/skills/abandoned'),
       symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'devin',
           agentName: 'Devin' as never,
-          linkPath: '/Users/me/.config/devin/skills/abandoned',
-          targetPath: '/Users/me/.agents/skills/abandoned',
+          linkPath: toAbsolutePath('/Users/me/.config/devin/skills/abandoned'),
+          targetPath: toAbsolutePath('/Users/me/.agents/skills/abandoned'),
           status: 'broken',
           isLocal: false,
         },
@@ -1339,7 +1346,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/source-stale-task',
+      path: toAbsolutePath('/Users/me/.agents/skills/source-stale-task'),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
@@ -1349,14 +1356,14 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const orphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/abandoned',
+      path: toAbsolutePath('/Users/me/.agents/skills/abandoned'),
       symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'devin',
           agentName: 'Devin' as never,
-          linkPath: '/Users/me/.config/devin/skills/abandoned',
-          targetPath: '/Users/me/.agents/skills/abandoned',
+          linkPath: toAbsolutePath('/Users/me/.config/devin/skills/abandoned'),
+          targetPath: toAbsolutePath('/Users/me/.agents/skills/abandoned'),
           status: 'broken',
           isLocal: false,
         },
@@ -1429,7 +1436,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/source-task',
+      path: toAbsolutePath('/Users/me/.agents/skills/source-task'),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
@@ -1439,13 +1446,15 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const staleOrphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/stale-abandoned',
+      path: toAbsolutePath('/Users/me/.agents/skills/stale-abandoned'),
       symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'devin',
           agentName: 'Devin' as never,
-          linkPath: '/Users/me/.config/devin/skills/stale-abandoned',
+          linkPath: toAbsolutePath(
+            '/Users/me/.config/devin/skills/stale-abandoned',
+          ),
           status: 'broken',
           isLocal: false,
         },
@@ -1510,7 +1519,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/source-task',
+      path: toAbsolutePath('/Users/me/.agents/skills/source-task'),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
@@ -1520,14 +1529,14 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const orphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/abandoned',
+      path: toAbsolutePath('/Users/me/.agents/skills/abandoned'),
       symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'devin',
           agentName: 'Devin' as never,
-          linkPath: '/Users/me/.config/devin/skills/abandoned',
-          targetPath: '/Users/me/.agents/skills/abandoned',
+          linkPath: toAbsolutePath('/Users/me/.config/devin/skills/abandoned'),
+          targetPath: toAbsolutePath('/Users/me/.agents/skills/abandoned'),
           status: 'broken',
           isLocal: false,
         },
@@ -1581,14 +1590,14 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const orphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/abandoned',
+      path: toAbsolutePath('/Users/me/.agents/skills/abandoned'),
       symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'devin',
           agentName: 'Devin' as never,
-          linkPath: '/Users/me/.config/devin/skills/abandoned',
-          targetPath: '/Users/me/.agents/skills/abandoned',
+          linkPath: toAbsolutePath('/Users/me/.config/devin/skills/abandoned'),
+          targetPath: toAbsolutePath('/Users/me/.agents/skills/abandoned'),
           status: 'broken',
           isLocal: false,
         },
@@ -1635,13 +1644,15 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const staleOrphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/stale-abandoned',
+      path: toAbsolutePath('/Users/me/.agents/skills/stale-abandoned'),
       symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'devin',
           agentName: 'Devin' as never,
-          linkPath: '/Users/me/.config/devin/skills/stale-abandoned',
+          linkPath: toAbsolutePath(
+            '/Users/me/.config/devin/skills/stale-abandoned',
+          ),
           status: 'broken',
           isLocal: false,
         },
@@ -1691,7 +1702,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const staleSourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/source-missing-identity',
+      path: toAbsolutePath('/Users/me/.agents/skills/source-missing-identity'),
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
@@ -1744,7 +1755,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/Users/me/.cursor/skills',
+            path: toAbsolutePath('/Users/me/.cursor/skills'),
             exists: true,
             skillCount: toSkillCount(0),
             localSkillCount: toSkillCount(0),
@@ -1788,7 +1799,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/Users/me/.cursor/skills',
+            path: toAbsolutePath('/Users/me/.cursor/skills'),
             exists: true,
             skillCount: toSkillCount(0),
             localSkillCount: toSkillCount(0),
@@ -1828,7 +1839,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/Users/me/.cursor/skills',
+            path: toAbsolutePath('/Users/me/.cursor/skills'),
             exists: true,
             skillCount: toSkillCount(0),
             localSkillCount: toSkillCount(0),
@@ -1873,14 +1884,14 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     const uniqueSkill: Skill = {
       name: toSkillName('cursor-unique'),
       description: '',
-      path: '/skills/cursor-unique',
+      path: toAbsolutePath('/skills/cursor-unique'),
       symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
-          linkPath: '/cursor/skills/cursor-unique',
-          targetPath: '/skills/cursor-unique',
+          linkPath: toAbsolutePath('/cursor/skills/cursor-unique'),
+          targetPath: toAbsolutePath('/skills/cursor-unique'),
           status: 'valid',
           isLocal: false,
         },
@@ -1892,22 +1903,22 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     const sharedSkill: Skill = {
       name: toSkillName('shared-two'),
       description: '',
-      path: '/skills/shared-two',
+      path: toAbsolutePath('/skills/shared-two'),
       symlinkCount: toSymlinkCount(2),
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
-          linkPath: '/cursor/skills/shared-two',
-          targetPath: '/skills/shared-two',
+          linkPath: toAbsolutePath('/cursor/skills/shared-two'),
+          targetPath: toAbsolutePath('/skills/shared-two'),
           status: 'valid',
           isLocal: false,
         },
         {
           agentId: 'codex',
           agentName: 'Codex',
-          linkPath: '/codex/skills/shared-two',
-          targetPath: '/skills/shared-two',
+          linkPath: toAbsolutePath('/codex/skills/shared-two'),
+          targetPath: toAbsolutePath('/skills/shared-two'),
           status: 'valid',
           isLocal: false,
         },
@@ -1922,7 +1933,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/Users/me/.cursor/skills',
+            path: toAbsolutePath('/Users/me/.cursor/skills'),
             exists: true,
             skillCount: toSkillCount(0),
             localSkillCount: toSkillCount(0),
@@ -1963,14 +1974,14 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     const orphanSkill: Skill = {
       name: toSkillName('orphan-one'),
       description: '',
-      path: '/skills/orphan-one',
+      path: toAbsolutePath('/skills/orphan-one'),
       symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
-          linkPath: '/cursor/skills/orphan-one',
-          targetPath: '/skills/orphan-one',
+          linkPath: toAbsolutePath('/cursor/skills/orphan-one'),
+          targetPath: toAbsolutePath('/skills/orphan-one'),
           status: 'broken',
           isLocal: false,
         },
@@ -1981,15 +1992,15 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     const linkedSkill: Skill = {
       name: toSkillName('linked-one'),
       description: '',
-      path: '/skills/linked-one',
+      path: toAbsolutePath('/skills/linked-one'),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
-          linkPath: '/cursor/skills/linked-one',
-          targetPath: '/skills/linked-one',
+          linkPath: toAbsolutePath('/cursor/skills/linked-one'),
+          targetPath: toAbsolutePath('/skills/linked-one'),
           status: 'valid',
           isLocal: false,
         },
@@ -2004,7 +2015,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/Users/me/.cursor/skills',
+            path: toAbsolutePath('/Users/me/.cursor/skills'),
             exists: true,
             skillCount: toSkillCount(0),
             localSkillCount: toSkillCount(0),
@@ -2046,7 +2057,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/Users/me/.cursor/skills',
+            path: toAbsolutePath('/Users/me/.cursor/skills'),
             exists: true,
             skillCount: toSkillCount(0),
             localSkillCount: toSkillCount(0),
@@ -2154,7 +2165,7 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
           {
             id: 'claude-code',
             name: 'Claude Code',
-            path: '/Users/me/.claude/skills',
+            path: toAbsolutePath('/Users/me/.claude/skills'),
             exists: true,
             skillCount: toSkillCount(0),
             localSkillCount: toSkillCount(0),
@@ -2191,7 +2202,7 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
           {
             id: 'claude-code',
             name: 'Claude Code',
-            path: '/Users/me/.claude/skills',
+            path: toAbsolutePath('/Users/me/.claude/skills'),
             exists: true,
             skillCount: toSkillCount(0),
             localSkillCount: toSkillCount(0),
@@ -2334,7 +2345,7 @@ describe('MainContent filter pill clear actions', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/Users/me/.cursor/skills',
+            path: toAbsolutePath('/Users/me/.cursor/skills'),
             exists: true,
             skillCount: toSkillCount(0),
             localSkillCount: toSkillCount(0),
@@ -2465,7 +2476,7 @@ describe('MainContent skill-type exclude toggles', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/Users/me/.cursor/skills',
+            path: toAbsolutePath('/Users/me/.cursor/skills'),
             exists: true,
             skillCount: toSkillCount(0),
             localSkillCount: toSkillCount(0),
@@ -2599,7 +2610,7 @@ describe('MainContent stale-source delete summary', () => {
     const deletableSkill: Skill = {
       name: deletableName,
       description: '',
-      path: '/Users/me/.agents/skills/fresh-source',
+      path: toAbsolutePath('/Users/me/.agents/skills/fresh-source'),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
@@ -2609,7 +2620,7 @@ describe('MainContent stale-source delete summary', () => {
     const staleSkill: Skill = {
       name: staleName,
       description: '',
-      path: '/Users/me/.agents/skills/stale-source',
+      path: toAbsolutePath('/Users/me/.agents/skills/stale-source'),
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
@@ -2816,15 +2827,17 @@ describe('MainContent toolbar primary action guards', () => {
     const protectedSkill: Skill = {
       name: skillName,
       description: '',
-      path: '/home/user/.agents/skills/protected-link',
+      path: toAbsolutePath('/home/user/.agents/skills/protected-link'),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
-          linkPath: '/home/user/.cursor/skills/protected-link',
-          targetPath: '/home/user/.agents/skills/protected-link',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/protected-link'),
+          targetPath: toAbsolutePath(
+            '/home/user/.agents/skills/protected-link',
+          ),
           status: 'valid',
           isLocal: false,
         },
@@ -2838,7 +2851,7 @@ describe('MainContent toolbar primary action guards', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/home/user/.cursor/skills',
+            path: toAbsolutePath('/home/user/.cursor/skills'),
             exists: true,
             skillCount: toSkillCount(1),
             localSkillCount: toSkillCount(0),
@@ -2875,14 +2888,14 @@ describe('MainContent toolbar primary action guards', () => {
     const staleSkill: Skill = {
       name: skillName,
       description: '',
-      path: '/home/user/.agents/skills/stale-unlink',
+      path: toAbsolutePath('/home/user/.agents/skills/stale-unlink'),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
-          linkPath: '/home/user/.cursor/skills/stale-link',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/stale-link'),
           // Missing targetPath → buildAgentUnlinkTargets pushes it to staleNames.
           targetPath: undefined,
           status: 'valid',
@@ -2898,7 +2911,7 @@ describe('MainContent toolbar primary action guards', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/home/user/.cursor/skills',
+            path: toAbsolutePath('/home/user/.cursor/skills'),
             exists: true,
             skillCount: toSkillCount(1),
             localSkillCount: toSkillCount(0),
@@ -2946,15 +2959,15 @@ describe('MainContent bulk unlink result toasts', () => {
     const linkedSkill: Skill = {
       name: skillName,
       description: '',
-      path: '/home/user/.agents/skills/linked-skill',
+      path: toAbsolutePath('/home/user/.agents/skills/linked-skill'),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
           agentName: 'Cursor',
-          linkPath: '/home/user/.cursor/skills/linked-link',
-          targetPath: '/home/user/.agents/skills/linked-target',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/linked-link'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/linked-target'),
           status: 'valid',
           isLocal: false,
         },
@@ -2968,7 +2981,7 @@ describe('MainContent bulk unlink result toasts', () => {
           {
             id: 'cursor',
             name: 'Cursor',
-            path: '/home/user/.cursor/skills',
+            path: toAbsolutePath('/home/user/.cursor/skills'),
             exists: true,
             skillCount: toSkillCount(1),
             localSkillCount: toSkillCount(0),
@@ -3064,7 +3077,7 @@ describe('MainContent bulk delete failure toasts', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/kept-source',
+      path: toAbsolutePath('/Users/me/.agents/skills/kept-source'),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
@@ -3074,14 +3087,16 @@ describe('MainContent bulk delete failure toasts', () => {
     const orphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/dropped-orphan',
+      path: toAbsolutePath('/Users/me/.agents/skills/dropped-orphan'),
       symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'devin',
           agentName: 'Devin' as never,
-          linkPath: '/Users/me/.config/devin/skills/dropped-orphan',
-          targetPath: '/Users/me/.agents/skills/dropped-orphan',
+          linkPath: toAbsolutePath(
+            '/Users/me/.config/devin/skills/dropped-orphan',
+          ),
+          targetPath: toAbsolutePath('/Users/me/.agents/skills/dropped-orphan'),
           status: 'broken',
           isLocal: false,
         },
@@ -3137,7 +3152,7 @@ describe('MainContent bulk delete failure toasts', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/empty-result',
+      path: toAbsolutePath('/Users/me/.agents/skills/empty-result'),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
@@ -3180,7 +3195,7 @@ describe('MainContent bulk delete failure toasts', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/all-error',
+      path: toAbsolutePath('/Users/me/.agents/skills/all-error'),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
@@ -3234,7 +3249,7 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/dismiss-me',
+      path: toAbsolutePath('/Users/me/.agents/skills/dismiss-me'),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
@@ -3295,7 +3310,7 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/stale-dismiss-me',
+      path: toAbsolutePath('/Users/me/.agents/skills/stale-dismiss-me'),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
@@ -3358,7 +3373,7 @@ describe('MainContent bulk confirm cancellation', () => {
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
-      path: '/Users/me/.agents/skills/cancel-me',
+      path: toAbsolutePath('/Users/me/.agents/skills/cancel-me'),
       filesystemIdentity: directoryIdentity,
       symlinkCount: toSymlinkCount(0),
       symlinks: [],

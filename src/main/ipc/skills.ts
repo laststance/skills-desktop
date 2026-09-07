@@ -47,6 +47,7 @@ import type {
   SkillName,
 } from '@/shared/types'
 import {
+  toAbsolutePath,
   toAgentCount,
   toBatchItemCount,
   toBatchItemIndex,
@@ -107,7 +108,7 @@ function assertAgentSlotPath(
   rendererPath: AbsolutePath,
   agentPath: AbsolutePath,
 ): AbsolutePath {
-  const normalizedPath = resolve(rendererPath)
+  const normalizedPath = toAbsolutePath(resolve(rendererPath))
   if (dirname(normalizedPath) !== resolve(agentPath)) {
     throw new Error(
       'Renderer link path does not match the selected agent slot.',
@@ -127,9 +128,11 @@ function buildQuarantinePath(
   reviewedPath: AbsolutePath,
   label: string,
 ): AbsolutePath {
-  return join(
-    dirname(reviewedPath),
-    `${basename(reviewedPath)}.${label}-${randomUUID()}`,
+  return toAbsolutePath(
+    join(
+      dirname(reviewedPath),
+      `${basename(reviewedPath)}.${label}-${randomUUID()}`,
+    ),
   )
 }
 
@@ -865,7 +868,7 @@ export function registerSkillsHandlers(): void {
             derivedAgentPath,
             options.filesystemIdentity,
           )
-          const entryPath = join(derivedAgentPath, entryName)
+          const entryPath = toAbsolutePath(join(derivedAgentPath, entryName))
           // Protected entries stay in place so the folder remains usable.
           if (protectedExistingPaths.has(resolve(entryPath))) continue
 

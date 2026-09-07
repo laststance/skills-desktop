@@ -5,6 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import type { Agent, FilesystemEntryIdentity, Skill } from '@/shared/types'
 import {
+  toAbsolutePath,
   toFileSizeBytes,
   toSkillCount,
   toSkillName,
@@ -46,7 +47,7 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
   return {
     id: 'claude-code',
     name: 'Claude Code',
-    path: '/Users/test/.claude/skills',
+    path: toAbsolutePath('/Users/test/.claude/skills'),
     exists: true,
     skillCount: toSkillCount(3),
     localSkillCount: toSkillCount(1),
@@ -170,15 +171,19 @@ describe('AgentDeleteDialog confirm action', () => {
     const protectedSkill: Skill = {
       name: toSkillName('protected-task'),
       description: 'Protected task',
-      path: '/Users/test/.agents/skills/protected-task',
+      path: toAbsolutePath('/Users/test/.agents/skills/protected-task'),
       symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'claude-code',
           agentName: 'Claude Code',
           status: 'valid',
-          targetPath: '/Users/test/.agents/skills/protected-task',
-          linkPath: '/Users/test/.claude/skills/folder-basename',
+          targetPath: toAbsolutePath(
+            '/Users/test/.agents/skills/protected-task',
+          ),
+          linkPath: toAbsolutePath(
+            '/Users/test/.claude/skills/folder-basename',
+          ),
           isLocal: false,
         },
       ],

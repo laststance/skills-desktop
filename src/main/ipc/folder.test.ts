@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 
+import { toAbsolutePath } from '@/shared/types'
+
 import { buildOpenArgs } from './folder'
 
 /**
@@ -13,7 +15,11 @@ describe('Open in Terminal: choosing which app launches', () => {
     const preferredTerminal = 'terminal'
 
     // Act
-    const openArgs = buildOpenArgs(preferredTerminal, undefined, '/x')
+    const openArgs = buildOpenArgs(
+      preferredTerminal,
+      undefined,
+      toAbsolutePath('/x'),
+    )
 
     // Assert
     expect(openArgs).toEqual(['-a', 'Terminal', '/x'])
@@ -24,7 +30,11 @@ describe('Open in Terminal: choosing which app launches', () => {
     const preferredTerminal = 'iterm'
 
     // Act
-    const openArgs = buildOpenArgs(preferredTerminal, undefined, '/x')
+    const openArgs = buildOpenArgs(
+      preferredTerminal,
+      undefined,
+      toAbsolutePath('/x'),
+    )
 
     // Assert
     expect(openArgs).toEqual(['-a', 'iTerm', '/x'])
@@ -35,7 +45,11 @@ describe('Open in Terminal: choosing which app launches', () => {
     const preferredTerminal = 'warp'
 
     // Act
-    const openArgs = buildOpenArgs(preferredTerminal, undefined, '/x')
+    const openArgs = buildOpenArgs(
+      preferredTerminal,
+      undefined,
+      toAbsolutePath('/x'),
+    )
 
     // Assert
     expect(openArgs).toEqual(['-a', 'Warp', '/x'])
@@ -46,7 +60,11 @@ describe('Open in Terminal: choosing which app launches', () => {
     const preferredTerminal = 'ghostty'
 
     // Act
-    const openArgs = buildOpenArgs(preferredTerminal, undefined, '/x')
+    const openArgs = buildOpenArgs(
+      preferredTerminal,
+      undefined,
+      toAbsolutePath('/x'),
+    )
 
     // Assert
     expect(openArgs).toEqual(['-a', 'Ghostty', '/x'])
@@ -57,7 +75,11 @@ describe('Open in Terminal: choosing which app launches', () => {
     const preferredTerminal = 'alacritty'
 
     // Act
-    const openArgs = buildOpenArgs(preferredTerminal, undefined, '/x')
+    const openArgs = buildOpenArgs(
+      preferredTerminal,
+      undefined,
+      toAbsolutePath('/x'),
+    )
 
     // Assert
     expect(openArgs).toEqual(['-a', 'Alacritty', '/x'])
@@ -68,7 +90,11 @@ describe('Open in Terminal: choosing which app launches', () => {
     const preferredTerminal = 'kitty'
 
     // Act
-    const openArgs = buildOpenArgs(preferredTerminal, undefined, '/x')
+    const openArgs = buildOpenArgs(
+      preferredTerminal,
+      undefined,
+      toAbsolutePath('/x'),
+    )
 
     // Assert
     expect(openArgs).toEqual(['-a', 'kitty', '/x'])
@@ -79,7 +105,11 @@ describe('Open in Terminal: choosing which app launches', () => {
     const preferredTerminal = 'wezterm'
 
     // Act
-    const openArgs = buildOpenArgs(preferredTerminal, undefined, '/x')
+    const openArgs = buildOpenArgs(
+      preferredTerminal,
+      undefined,
+      toAbsolutePath('/x'),
+    )
 
     // Assert
     expect(openArgs).toEqual(['-a', 'WezTerm', '/x'])
@@ -90,7 +120,11 @@ describe('Open in Terminal: choosing which app launches', () => {
     const customTerminalAppName = 'Hyper'
 
     // Act
-    const openArgs = buildOpenArgs('custom', customTerminalAppName, '/x')
+    const openArgs = buildOpenArgs(
+      'custom',
+      customTerminalAppName,
+      toAbsolutePath('/x'),
+    )
 
     // Assert
     expect(openArgs).toEqual(['-a', 'Hyper', '/x'])
@@ -101,7 +135,11 @@ describe('Open in Terminal: choosing which app launches', () => {
     const customTerminalAppName = undefined
 
     // Act
-    const openArgs = buildOpenArgs('custom', customTerminalAppName, '/x')
+    const openArgs = buildOpenArgs(
+      'custom',
+      customTerminalAppName,
+      toAbsolutePath('/x'),
+    )
 
     // Assert
     expect(openArgs).toBeNull()
@@ -112,7 +150,11 @@ describe('Open in Terminal: choosing which app launches', () => {
     const customTerminalAppName = ''
 
     // Act
-    const openArgs = buildOpenArgs('custom', customTerminalAppName, '/x')
+    const openArgs = buildOpenArgs(
+      'custom',
+      customTerminalAppName,
+      toAbsolutePath('/x'),
+    )
 
     // Assert
     expect(openArgs).toBeNull()
@@ -125,7 +167,11 @@ describe('Open in Terminal: choosing which app launches', () => {
     const customTerminalAppName = '   '
 
     // Act
-    const openArgs = buildOpenArgs('custom', customTerminalAppName, '/x')
+    const openArgs = buildOpenArgs(
+      'custom',
+      customTerminalAppName,
+      toAbsolutePath('/x'),
+    )
 
     // Assert
     expect(openArgs).toBeNull()
@@ -136,7 +182,11 @@ describe('Open in Terminal: choosing which app launches', () => {
     const customTerminalAppName = '  Hyper  '
 
     // Act
-    const openArgs = buildOpenArgs('custom', customTerminalAppName, '/x')
+    const openArgs = buildOpenArgs(
+      'custom',
+      customTerminalAppName,
+      toAbsolutePath('/x'),
+    )
 
     // Assert
     expect(openArgs).toEqual(['-a', 'Hyper', '/x'])

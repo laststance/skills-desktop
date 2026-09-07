@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
+import { toAbsolutePath } from '@/shared/types'
+
 import { getAllowedBases, validatePath } from './pathValidation'
 
 describe('validatePath', () => {
-  const bases = ['/home/user/.agents/skills', '/home/user/.claude/skills']
+  const bases = ['/home/user/.agents/skills', '/home/user/.claude/skills'].map(
+    toAbsolutePath,
+  )
 
   it('admits a file under the first allowed base', () => {
     // Arrange

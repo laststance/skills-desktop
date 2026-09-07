@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   repositoryId,
+  toAbsolutePath,
   toHttpUrl,
   toSkillName,
   toSymlinkCount,
@@ -21,7 +22,7 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
   return {
     name: toSkillName('test-skill'),
     description: 'A test skill',
-    path: '/home/user/.agents/skills/test-skill',
+    path: toAbsolutePath('/home/user/.agents/skills/test-skill'),
     symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,

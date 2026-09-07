@@ -8,6 +8,7 @@ import type {
   CliCommandOperationResult,
   CliCommandStatus,
 } from '@/shared/types'
+import { toAbsolutePath } from '@/shared/types'
 
 import { errorCode } from '../utils/errorCode'
 import { extractErrorMessage } from '../utils/errors'
@@ -19,7 +20,9 @@ const MANAGED_SHIM_END = '# <<< Skills Desktop CLI shim <<<'
 const EXECUTABLE_FILE_MODE = 0o755
 
 const CLI_COMMAND_DIR = join(homedir(), '.local', 'bin')
-const CLI_COMMAND_PATH: AbsolutePath = join(CLI_COMMAND_DIR, CLI_COMMAND_NAME)
+const CLI_COMMAND_PATH: AbsolutePath = toAbsolutePath(
+  join(CLI_COMMAND_DIR, CLI_COMMAND_NAME),
+)
 
 const SHIM_CONTENT = `#!/bin/sh
 ${MANAGED_SHIM_START}

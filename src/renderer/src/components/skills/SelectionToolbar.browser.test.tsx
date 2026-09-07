@@ -6,6 +6,7 @@ import { render } from 'vitest-browser-react'
 import type { AgentId } from '@/shared/constants'
 import type { Skill, SkillName, SymlinkInfo } from '@/shared/types'
 import {
+  toAbsolutePath,
   toBatchItemCount,
   toBatchItemIndex,
   toSearchQuery,
@@ -27,15 +28,15 @@ function makeCursorSkill(
   return {
     name,
     description: '',
-    path: `/Users/test/.agents/skills/${name}`,
+    path: toAbsolutePath(`/Users/test/.agents/skills/${name}`),
     symlinkCount: toSymlinkCount(status === 'missing' ? 0 : 1),
     symlinks: [
       {
         agentId: 'cursor',
         agentName: 'Cursor',
         status,
-        linkPath: `/Users/test/.cursor/skills/${name}`,
-        targetPath: `/Users/test/.agents/skills/${name}`,
+        linkPath: toAbsolutePath(`/Users/test/.cursor/skills/${name}`),
+        targetPath: toAbsolutePath(`/Users/test/.agents/skills/${name}`),
         isLocal: false,
       },
     ],

@@ -37,6 +37,7 @@ import {
   storyTombstoneIds,
 } from './fixtures'
 import {
+  toAbsolutePath,
   toAgentCount,
   toDataUrl,
   toFileName,
@@ -440,7 +441,7 @@ export function installStorybookElectronMock(): void {
       getStatus: async () => ({
         status: 'not-installed',
         commandName: 'skills-desktop',
-        commandPath: '/Users/story/.local/bin/skills-desktop',
+        commandPath: toAbsolutePath('/Users/story/.local/bin/skills-desktop'),
         message: 'Command is not installed.',
       }),
       install: async () => ({
@@ -448,7 +449,7 @@ export function installStorybookElectronMock(): void {
         status: {
           status: 'installed',
           commandName: 'skills-desktop',
-          commandPath: '/Users/story/.local/bin/skills-desktop',
+          commandPath: toAbsolutePath('/Users/story/.local/bin/skills-desktop'),
           message: 'Command is installed.',
         },
         message: 'Command installed at /Users/story/.local/bin/skills-desktop.',
@@ -458,7 +459,7 @@ export function installStorybookElectronMock(): void {
         status: {
           status: 'not-installed',
           commandName: 'skills-desktop',
-          commandPath: '/Users/story/.local/bin/skills-desktop',
+          commandPath: toAbsolutePath('/Users/story/.local/bin/skills-desktop'),
           message: 'Command is not installed.',
         },
         message: 'Command removed.',

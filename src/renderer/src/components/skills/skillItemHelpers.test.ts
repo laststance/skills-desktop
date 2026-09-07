@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { AgentId, Skill, SymlinkInfo } from '@/shared/types'
+import { toAbsolutePath } from '@/shared/types'
 
 import {
   getCardContentPaddingClass,
@@ -17,8 +18,8 @@ function makeSymlink(
   return {
     agentName: 'Test Agent' as SymlinkInfo['agentName'],
     status: 'valid',
-    targetPath: '/target',
-    linkPath: '/link',
+    targetPath: toAbsolutePath('/target'),
+    linkPath: toAbsolutePath('/link'),
     isLocal: false,
     ...overrides,
   }
@@ -382,8 +383,8 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({
           agentId: 'claude-code',
-          targetPath: '/Users/me/.claude/skills/gstack/task',
-          linkPath: '/Users/me/.claude/skills/task',
+          targetPath: toAbsolutePath('/Users/me/.claude/skills/gstack/task'),
+          linkPath: toAbsolutePath('/Users/me/.claude/skills/task'),
           isLocal: false,
           status: 'valid',
         }),
@@ -406,8 +407,8 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({
           agentId: 'codex',
-          targetPath: '/Users/me/.codex/skills/gstack/task',
-          linkPath: '/Users/me/.codex/skills/task',
+          targetPath: toAbsolutePath('/Users/me/.codex/skills/gstack/task'),
+          linkPath: toAbsolutePath('/Users/me/.codex/skills/task'),
           isLocal: false,
           status: 'valid',
         }),
@@ -425,7 +426,7 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({
           agentId: 'claude-code',
-          targetPath: '/Users/me/.claude/skills/gstack/task',
+          targetPath: toAbsolutePath('/Users/me/.claude/skills/gstack/task'),
           isLocal: false,
           status: 'valid',
         }),
@@ -443,8 +444,8 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({
           agentId: 'gemini-cli',
-          targetPath: '/Users/me/.gemini/skills/gstack/task',
-          linkPath: '/Users/me/.gemini/skills/task',
+          targetPath: toAbsolutePath('/Users/me/.gemini/skills/gstack/task'),
+          linkPath: toAbsolutePath('/Users/me/.gemini/skills/task'),
           isLocal: false,
           status: 'valid',
         }),
@@ -467,11 +468,13 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({
           agentId: 'claude-code',
-          linkPath: '/Users/me/.claude/skills/ship',
+          linkPath: toAbsolutePath('/Users/me/.claude/skills/ship'),
           isLocal: true,
           status: 'valid',
           targetPath: undefined,
-          skillMdSymlinkTarget: '/Users/me/.claude/skills/gstack/ship/SKILL.md',
+          skillMdSymlinkTarget: toAbsolutePath(
+            '/Users/me/.claude/skills/gstack/ship/SKILL.md',
+          ),
         }),
       ]
 
@@ -489,11 +492,13 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({
           agentId: 'claude-code',
-          linkPath: '/Users/me/.claude/skills/custom',
+          linkPath: toAbsolutePath('/Users/me/.claude/skills/custom'),
           isLocal: true,
           status: 'valid',
           targetPath: undefined,
-          skillMdSymlinkTarget: '/Users/me/projects/my-skills/custom/SKILL.md',
+          skillMdSymlinkTarget: toAbsolutePath(
+            '/Users/me/projects/my-skills/custom/SKILL.md',
+          ),
         }),
       ]
 
@@ -513,8 +518,8 @@ describe('getSkillItemVisibility', () => {
       const symlinks = [
         makeSymlink({
           agentId: 'claude-code',
-          targetPath: '/Users/me/.claude/skills/gstack/task',
-          linkPath: '/Users/me/.claude/skills/task',
+          targetPath: toAbsolutePath('/Users/me/.claude/skills/gstack/task'),
+          linkPath: toAbsolutePath('/Users/me/.claude/skills/task'),
           isLocal: false,
           status: 'valid',
         }),

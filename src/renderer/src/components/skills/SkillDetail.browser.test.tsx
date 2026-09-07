@@ -12,10 +12,15 @@ import type {
   Skill,
   SymlinkInfo,
 } from '@/shared/types'
-import { toSkillCount, toSkillName, toSymlinkCount } from '@/shared/types'
+import {
+  toAbsolutePath,
+  toSkillCount,
+  toSkillName,
+  toSymlinkCount,
+} from '@/shared/types'
 
-const SOURCE_PATH = '/home/user/.agents/skills/task'
-const CURSOR_PATH = '/home/user/.cursor/skills/task'
+const SOURCE_PATH = toAbsolutePath('/home/user/.agents/skills/task')
+const CURSOR_PATH = toAbsolutePath('/home/user/.cursor/skills/task')
 const DETAIL_PANEL_TEST_HEIGHT_PX = 280
 const DETAIL_DRAG_REGION_HEIGHT_PX = 32
 const VISIBLE_BOUNDS_TOLERANCE_PX = 1
@@ -63,7 +68,7 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
   return {
     id: 'cursor',
     name: 'Cursor',
-    path: '/home/user/.cursor/skills',
+    path: toAbsolutePath('/home/user/.cursor/skills'),
     exists: true,
     skillCount: toSkillCount(1),
     localSkillCount: toSkillCount(0),
@@ -111,7 +116,7 @@ function makeOverflowSkillFixture(): { agents: Agent[]; skill: Skill } {
     makeAgent({
       id,
       name,
-      path: `/home/user/.${id}/skills`,
+      path: toAbsolutePath(`/home/user/.${id}/skills`),
       skillCount: toSkillCount(1),
     }),
   )
@@ -120,7 +125,10 @@ function makeOverflowSkillFixture(): { agents: Agent[]; skill: Skill } {
     agentName: name,
     status: 'valid',
     targetPath: SOURCE_PATH,
-    linkPath: id === 'cursor' ? CURSOR_PATH : `/home/user/.${id}/skills/task`,
+    linkPath:
+      id === 'cursor'
+        ? CURSOR_PATH
+        : toAbsolutePath(`/home/user/.${id}/skills/task`),
     isLocal: false,
   }))
 

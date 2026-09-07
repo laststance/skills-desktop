@@ -5,7 +5,12 @@ import type {
   Skill,
   SymlinkInfo,
 } from '@/shared/types'
-import { toFileSizeBytes, toSkillName, toSymlinkCount } from '@/shared/types'
+import {
+  toAbsolutePath,
+  toFileSizeBytes,
+  toSkillName,
+  toSymlinkCount,
+} from '@/shared/types'
 
 import {
   buildAgentUnlinkTargets,
@@ -23,7 +28,7 @@ function makeSkill(name: string, symlinks: SymlinkInfo[]): Skill {
   return {
     name: toSkillName(name),
     description: 'desc',
-    path: '/Users/me/.agents/skills/task',
+    path: toAbsolutePath('/Users/me/.agents/skills/task'),
     symlinkCount: toSymlinkCount(0),
     symlinks,
     isSource: true,
@@ -40,8 +45,8 @@ describe('buildAgentUnlinkTargets', () => {
           agentId: 'cursor',
           agentName: 'Cursor',
           status: 'valid',
-          linkPath: '/Users/me/.cursor/skills/task',
-          targetPath: '/Users/me/.agents/skills/task',
+          linkPath: toAbsolutePath('/Users/me/.cursor/skills/task'),
+          targetPath: toAbsolutePath('/Users/me/.agents/skills/task'),
           isLocal: false,
         },
       ]),
@@ -74,7 +79,7 @@ describe('buildAgentUnlinkTargets', () => {
           agentId: 'cursor',
           agentName: 'Cursor',
           status: 'missing',
-          linkPath: '/Users/me/.cursor/skills/task',
+          linkPath: toAbsolutePath('/Users/me/.cursor/skills/task'),
           isLocal: false,
         },
       ]),
@@ -100,8 +105,8 @@ describe('buildAgentUnlinkTargets', () => {
           agentId: 'codex',
           agentName: 'Codex',
           status: 'valid',
-          linkPath: '/Users/me/.codex/skills/task',
-          targetPath: '/Users/me/.agents/skills/task',
+          linkPath: toAbsolutePath('/Users/me/.codex/skills/task'),
+          targetPath: toAbsolutePath('/Users/me/.agents/skills/task'),
           isLocal: false,
         },
       ]),
@@ -142,7 +147,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
     const sourceSkill: Skill = {
       name: toSkillName('task'),
       description: 'desc',
-      path: '/Users/me/.agents/skills/task',
+      path: toAbsolutePath('/Users/me/.agents/skills/task'),
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
@@ -180,15 +185,15 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
     const orphanSkill: Skill = {
       name: toSkillName('abandoned'),
       description: 'desc',
-      path: '/Users/me/.agents/skills/abandoned',
+      path: toAbsolutePath('/Users/me/.agents/skills/abandoned'),
       symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'codex',
           agentName: 'Codex',
           status: 'broken',
-          linkPath: '/Users/me/.codex/skills/abandoned',
-          targetPath: '/Users/me/.agents/skills/abandoned',
+          linkPath: toAbsolutePath('/Users/me/.codex/skills/abandoned'),
+          targetPath: toAbsolutePath('/Users/me/.agents/skills/abandoned'),
           isLocal: false,
         },
       ],
@@ -226,7 +231,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
       {
         name: toSkillName('locked'),
         description: 'desc',
-        path: '/Users/me/.agents/skills/locked',
+        path: toAbsolutePath('/Users/me/.agents/skills/locked'),
         symlinkCount: toSymlinkCount(0),
         symlinks: [],
         isSource: true,
@@ -235,7 +240,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
       {
         name: toSkillName('unlocked'),
         description: 'desc',
-        path: '/Users/me/.agents/skills/unlocked',
+        path: toAbsolutePath('/Users/me/.agents/skills/unlocked'),
         filesystemIdentity: identity,
         symlinkCount: toSymlinkCount(0),
         symlinks: [],
@@ -269,30 +274,30 @@ describe('partitionGlobalDeleteTargets', () => {
     const orphanSkill: Skill = {
       name: toSkillName('abandoned'),
       description: 'desc',
-      path: '/Users/me/.agents/skills/abandoned',
+      path: toAbsolutePath('/Users/me/.agents/skills/abandoned'),
       symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'codex',
           agentName: 'Codex',
           status: 'broken',
-          linkPath: '/Users/me/.codex/skills/abandoned',
-          targetPath: '/Users/me/.agents/skills/abandoned',
+          linkPath: toAbsolutePath('/Users/me/.codex/skills/abandoned'),
+          targetPath: toAbsolutePath('/Users/me/.agents/skills/abandoned'),
           isLocal: false,
         },
         {
           agentId: 'cursor',
           agentName: 'Cursor',
           status: 'broken',
-          linkPath: '/Users/me/.cursor/skills/abandoned',
-          targetPath: '/Users/me/.agents/skills/abandoned',
+          linkPath: toAbsolutePath('/Users/me/.cursor/skills/abandoned'),
+          targetPath: toAbsolutePath('/Users/me/.agents/skills/abandoned'),
           isLocal: true,
         },
         {
           agentId: 'claude-code',
           agentName: 'Claude Code',
           status: 'broken',
-          linkPath: '/Users/me/.claude/skills/abandoned',
+          linkPath: toAbsolutePath('/Users/me/.claude/skills/abandoned'),
           isLocal: false,
         },
       ],

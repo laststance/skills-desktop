@@ -19,7 +19,7 @@ import type {
   FilesystemEntryIdentity,
   SkillName,
 } from '@/shared/types'
-import { toSkillName } from '@/shared/types'
+import { toAbsolutePath, toSkillName } from '@/shared/types'
 
 import { filesystemIdentityFromStats } from './filesystemIdentity'
 
@@ -149,7 +149,7 @@ async function makeSourceSkill(skillName: string): Promise<AbsolutePath> {
   const skillPath = join(sharedSourceDir, skillName)
   await mkdir(skillPath, { recursive: true })
   await writeFile(join(skillPath, 'SKILL.md'), `# ${skillName}\n`, 'utf-8')
-  return skillPath
+  return toAbsolutePath(skillPath)
 }
 
 /**

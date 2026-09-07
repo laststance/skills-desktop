@@ -20,6 +20,7 @@ import type {
   SkillFileContent,
 } from '@/shared/types'
 import {
+  toAbsolutePath,
   toDataUrl,
   toFileExtension,
   toFileName,
@@ -95,7 +96,7 @@ async function walk(
     // allowed-bases check (realpath happens only at the handler layer).
     if (entry.isSymbolicLink()) continue
 
-    const fullPath = join(dirPath, entry.name)
+    const fullPath = toAbsolutePath(join(dirPath, entry.name))
 
     if (entry.isDirectory()) {
       if (shouldExcludeDir(entry.name)) continue
@@ -107,7 +108,7 @@ async function walk(
 
     const kind = classifyFile(entry.name)
     if (kind === 'binary') continue
-    previewableFiles.push({ entry, fullPath, kind })
+    previewableFiles.push({ entry, fullPath: fullPath, kind })
   }
 
   // Stat files in this dir + descend into sibling subdirs in parallel.

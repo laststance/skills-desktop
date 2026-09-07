@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Agent } from '@/shared/types'
-import { toFileSizeBytes, toSkillCount } from '@/shared/types'
+import { toAbsolutePath, toFileSizeBytes, toSkillCount } from '@/shared/types'
 
 const mockGetAll = vi.fn()
 const mockRemoveAllFromAgent = vi.fn()
@@ -63,7 +63,7 @@ async function createTestStore() {
 const sampleAgent: Agent = {
   id: 'claude-code',
   name: 'Claude Code',
-  path: '/home/user/.claude/skills',
+  path: toAbsolutePath('/home/user/.claude/skills'),
   exists: true,
   skillCount: toSkillCount(3),
   localSkillCount: toSkillCount(0),

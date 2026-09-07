@@ -3,6 +3,7 @@ import { isAbsolute, relative, resolve } from 'node:path'
 
 import { AGENTS, SOURCE_DIR } from '@/main/constants'
 import type { AbsolutePath } from '@/shared/types'
+import { toAbsolutePath } from '@/shared/types'
 
 /**
  * Validate that a file path is within an allowed base directory.
@@ -14,8 +15,14 @@ import type { AbsolutePath } from '@/shared/types'
  * (e.g. validating a path we're about to create), we skip realpath on both
  * sides so the comparison stays in a single coordinate system.
  *
- * @param requestedPath - The path to validate
- * @param allowedBases - Array of allowed base directories
+ * Takes a raw `string` and returns an {@link AbsolutePath}: this function IS
+ * the brand's construction site for any path that crosses the IPC boundary.
+ * Callers must not assert the brand before validation — that would claim the
+ * path is trusted on the way *in*, which is exactly what this guards against.
+ *
+ * @param requestedPath - The untrusted path to validate
+ * @param allowedBases - Array of allowed base directories (trusted; built from
+ *   {@link SOURCE_DIR} and the agent scan dirs)
  * @returns The normalized absolute path (with symlinks resolved if path exists)
  * @throws Error if path is outside all allowed bases
  * @example
@@ -25,7 +32,7 @@ import type { AbsolutePath } from '@/shared/types'
  * // => throws Error('Path traversal attempt detected')
  */
 export function validatePath(
-  requestedPath: AbsolutePath,
+  requestedPath: string,
   allowedBases: AbsolutePath[],
 ): AbsolutePath {
   const normalized = resolve(requestedPath)
@@ -55,7 +62,7 @@ export function validatePath(
     }
     const rel = relative(baseForCompare, realPath)
     if (!rel.startsWith('..') && !isAbsolute(rel)) {
-      return realPath
+      return toAbsolutePath(realPath)
     }
   }
 

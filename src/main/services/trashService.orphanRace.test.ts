@@ -20,7 +20,7 @@ import { basename, dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
 
 import type { FilesystemEntryIdentity } from '@/shared/types'
-import { toFileSizeBytes, toSkillName } from '@/shared/types'
+import { toAbsolutePath, toFileSizeBytes, toSkillName } from '@/shared/types'
 
 import { filesystemIdentityFromStats } from './filesystemIdentity'
 
@@ -209,7 +209,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       moveToTrash(
         toSkillName(skillName),
-        sourcePath,
+        toAbsolutePath(sourcePath),
         await reviewedIdentityForPath(sourcePath),
       ),
     ).rejects.toThrow(
@@ -284,7 +284,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       moveToTrash(
         toSkillName(skillName),
-        sourcePath,
+        toAbsolutePath(sourcePath),
         await reviewedIdentityForPath(sourcePath),
       ),
     ).rejects.toThrow(/could not be restored/i)
@@ -507,7 +507,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       moveToTrash(
         toSkillName(skillName),
-        sourcePath,
+        toAbsolutePath(sourcePath),
         await reviewedIdentityForPath(sourcePath),
       ),
     ).rejects.toThrow(/Failed to remove symlinks|could not be restored/i)
@@ -586,7 +586,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       moveToTrash(
         toSkillName(skillName),
-        sourcePath,
+        toAbsolutePath(sourcePath),
         await reviewedIdentityForPath(sourcePath),
       ),
     ).rejects.toThrow(/source is stranded/i)
@@ -689,7 +689,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     try {
       await moveToTrash(
         toSkillName(skillName),
-        sourcePath,
+        toAbsolutePath(sourcePath),
         await reviewedIdentityForPath(sourcePath),
       )
     } catch (error) {
@@ -781,7 +781,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       moveToTrash(
         toSkillName(skillName),
-        sourcePath,
+        toAbsolutePath(sourcePath),
         await reviewedIdentityForPath(sourcePath),
       ),
     ).rejects.toThrow(/source is stranded/i)
@@ -857,7 +857,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       moveToTrash(
         toSkillName(skillName),
-        localPath,
+        toAbsolutePath(localPath),
         await reviewedIdentityForPath(localPath),
       ),
     ).rejects.toThrow(/staged copy preserved/i)
@@ -935,7 +935,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const moveError = await moveToTrash(
       toSkillName(skillName),
-      localPath,
+      toAbsolutePath(localPath),
       await reviewedIdentityForPath(localPath),
     ).catch((error: unknown) => error)
 
@@ -1009,7 +1009,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const moveError = await moveToTrash(
       toSkillName(skillName),
-      localPath,
+      toAbsolutePath(localPath),
       await reviewedIdentityForPath(localPath),
     ).catch((error: unknown) => error)
 
@@ -1149,7 +1149,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       moveToTrash(
         toSkillName(skillName),
-        sourcePath,
+        toAbsolutePath(sourcePath),
         await reviewedIdentityForPath(sourcePath),
       ),
     ).rejects.toThrow(/already deleted/i)
@@ -1189,7 +1189,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       moveToTrash(
         toSkillName(skillName),
-        sourcePath,
+        toAbsolutePath(sourcePath),
         await reviewedIdentityForPath(sourcePath),
       ),
     ).rejects.toThrow(/Failed to move source to trash/i)
@@ -1231,7 +1231,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       toSkillName(skillName),
-      sourcePath,
+      toAbsolutePath(sourcePath),
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -1303,7 +1303,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       moveToTrash(
         toSkillName(skillName),
-        sourcePath,
+        toAbsolutePath(sourcePath),
         await reviewedIdentityForPath(sourcePath),
       ),
     ).rejects.toThrow(/already deleted/i)
@@ -1350,7 +1350,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       moveToTrash(
         toSkillName(skillName),
-        sourcePath,
+        toAbsolutePath(sourcePath),
         await reviewedIdentityForPath(sourcePath),
       ),
     ).rejects.toMatchObject({ code: 'ESTALE' })
@@ -1409,7 +1409,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       moveToTrash(
         toSkillName(skillName),
-        sourcePath,
+        toAbsolutePath(sourcePath),
         await reviewedIdentityForPath(sourcePath),
       ),
     ).rejects.toMatchObject({ code: 'ESTALE' })
@@ -1465,7 +1465,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       moveToTrash(
         toSkillName(skillName),
-        sourcePath,
+        toAbsolutePath(sourcePath),
         await reviewedIdentityForPath(sourcePath),
       ),
     ).rejects.toMatchObject({ code: 'ESTALE' })
@@ -1540,7 +1540,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       moveToTrash(
         toSkillName(skillName),
-        sourcePath,
+        toAbsolutePath(sourcePath),
         await reviewedIdentityForPath(sourcePath),
       ),
     ).rejects.toThrow(/source copy preserved/i)
@@ -1624,8 +1624,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       commitReviewedDanglingSymlink({
-        linkPath: slotPath,
-        targetPath: targetPath,
+        linkPath: toAbsolutePath(slotPath),
+        targetPath: toAbsolutePath(targetPath),
         targetChangedMessage: 'target changed',
         targetExistsMessage: 'target exists',
         targetProbePrefix: 'cannot probe target',
@@ -1678,8 +1678,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       commitReviewedDanglingSymlink({
-        linkPath: slotPath,
-        targetPath: targetPath,
+        linkPath: toAbsolutePath(slotPath),
+        targetPath: toAbsolutePath(targetPath),
         targetChangedMessage: 'target changed',
         targetExistsMessage: 'target exists',
         targetProbePrefix: 'cannot probe target',
@@ -1725,7 +1725,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       moveToTrash(
         toSkillName(skillName),
-        localPath,
+        toAbsolutePath(localPath),
         await reviewedIdentityForPath(localPath),
       ),
     ).rejects.toThrow(/Failed to finalize trash entry/i)
@@ -1775,7 +1775,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       toSkillName(skillName),
-      localPath,
+      toAbsolutePath(localPath),
       await reviewedIdentityForPath(localPath),
     )
 
@@ -1857,7 +1857,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const strandError = await moveToTrash(
       toSkillName(skillName),
-      localPath,
+      toAbsolutePath(localPath),
       await reviewedIdentityForPath(localPath),
     ).catch((error: unknown) => error)
 
@@ -1910,8 +1910,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       readReviewedDanglingSymlink({
-        linkPath: slotPath,
-        targetPath: targetPath,
+        linkPath: toAbsolutePath(slotPath),
+        targetPath: toAbsolutePath(targetPath),
         targetChangedMessage: 'target changed',
       }),
     ).rejects.toMatchObject({
@@ -1954,8 +1954,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       readReviewedDanglingSymlink({
-        linkPath: slotPath,
-        targetPath: targetPath,
+        linkPath: toAbsolutePath(slotPath),
+        targetPath: toAbsolutePath(targetPath),
         targetChangedMessage: 'target changed',
       }),
     ).rejects.toMatchObject({ message: 'permission denied', code: 'EACCES' })
@@ -1998,8 +1998,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       readReviewedDanglingSymlink({
-        linkPath: slotPath,
-        targetPath: targetPath,
+        linkPath: toAbsolutePath(slotPath),
+        targetPath: toAbsolutePath(targetPath),
         targetChangedMessage: 'target changed',
       }),
     ).rejects.toMatchObject({
@@ -2047,8 +2047,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       readReviewedDanglingSymlink({
-        linkPath: slotPath,
-        targetPath: targetPath,
+        linkPath: toAbsolutePath(slotPath),
+        targetPath: toAbsolutePath(targetPath),
         targetChangedMessage: 'target changed',
       }),
     ).rejects.toMatchObject({
@@ -2120,8 +2120,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       commitReviewedDanglingSymlink({
-        linkPath: slotPath,
-        targetPath: targetPath,
+        linkPath: toAbsolutePath(slotPath),
+        targetPath: toAbsolutePath(targetPath),
         targetChangedMessage: 'target changed',
         targetExistsMessage: 'target exists',
         targetProbePrefix: 'cannot probe target',
@@ -2165,8 +2165,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       commitReviewedDanglingSymlink({
-        linkPath: slotPath,
-        targetPath: targetPath,
+        linkPath: toAbsolutePath(slotPath),
+        targetPath: toAbsolutePath(targetPath),
         targetChangedMessage: 'target changed',
         targetExistsMessage: 'target exists',
         targetProbePrefix: 'cannot probe target',
@@ -2191,8 +2191,8 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act
     const outcome = await unlinkReviewedDanglingSymlink({
-      linkPath: slotPath,
-      targetPath: targetPath,
+      linkPath: toAbsolutePath(slotPath),
+      targetPath: toAbsolutePath(targetPath),
       targetChangedMessage: 'target changed',
       targetExistsMessage: 'target exists',
       targetProbePrefix: 'cannot probe target',
@@ -2241,8 +2241,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       unlinkReviewedDanglingSymlink({
-        linkPath: slotPath,
-        targetPath: targetPath,
+        linkPath: toAbsolutePath(slotPath),
+        targetPath: toAbsolutePath(targetPath),
         targetChangedMessage: 'target changed',
         targetExistsMessage: 'target exists',
         targetProbePrefix: 'cannot probe target',
@@ -2292,8 +2292,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       unlinkReviewedDanglingSymlink({
-        linkPath: slotPath,
-        targetPath: targetPath,
+        linkPath: toAbsolutePath(slotPath),
+        targetPath: toAbsolutePath(targetPath),
         targetChangedMessage: 'target changed',
         targetExistsMessage: 'target exists',
         targetProbePrefix: 'cannot probe target',
@@ -2346,8 +2346,8 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       commitReviewedDanglingSymlink({
-        linkPath: slotPath,
-        targetPath: expectedTargetPath,
+        linkPath: toAbsolutePath(slotPath),
+        targetPath: toAbsolutePath(expectedTargetPath),
         targetChangedMessage: 'target changed',
         targetExistsMessage: 'target exists',
         targetProbePrefix: 'cannot probe target',
@@ -2397,7 +2397,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       toSkillName(skillName),
-      sourcePath,
+      toAbsolutePath(sourcePath),
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -2507,7 +2507,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       toSkillName(skillName),
-      sourcePath,
+      toAbsolutePath(sourcePath),
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -2556,7 +2556,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       toSkillName(skillName),
-      sourcePath,
+      toAbsolutePath(sourcePath),
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -2607,7 +2607,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       toSkillName(skillName),
-      sourcePath,
+      toAbsolutePath(sourcePath),
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -2653,7 +2653,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       toSkillName(skillName),
-      sourcePath,
+      toAbsolutePath(sourcePath),
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -2756,7 +2756,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       toSkillName(skillName),
-      sourcePath,
+      toAbsolutePath(sourcePath),
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -2810,7 +2810,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       toSkillName(skillName),
-      sourcePath,
+      toAbsolutePath(sourcePath),
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -2850,7 +2850,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       toSkillName(skillName),
-      sourcePath,
+      toAbsolutePath(sourcePath),
       await reviewedIdentityForPath(sourcePath),
     )
 
@@ -2978,7 +2978,11 @@ describe('trashService orphan cleanup guarded commit', () => {
       const reviewedIdentity = await reviewedIdentityForPath(sourcePath)
       const { __getTrashDirForTests, moveToTrash } =
         await import('./trashService')
-      await moveToTrash(toSkillName(skillName), sourcePath, reviewedIdentity)
+      await moveToTrash(
+        toSkillName(skillName),
+        toAbsolutePath(sourcePath),
+        reviewedIdentity,
+      )
       expect(await readdir(__getTrashDirForTests())).toHaveLength(1)
 
       // Act
@@ -3010,7 +3014,11 @@ describe('trashService orphan cleanup guarded commit', () => {
       const reviewedIdentity = await reviewedIdentityForPath(localPath)
       const { __getTrashDirForTests, moveToTrash } =
         await import('./trashService')
-      await moveToTrash(toSkillName(skillName), localPath, reviewedIdentity)
+      await moveToTrash(
+        toSkillName(skillName),
+        toAbsolutePath(localPath),
+        reviewedIdentity,
+      )
       expect(await readdir(__getTrashDirForTests())).toHaveLength(1)
 
       // Act
@@ -3423,7 +3431,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act
     const result = await moveToTrash(
       toSkillName(skillName),
-      localPath,
+      toAbsolutePath(localPath),
       await reviewedIdentityForPath(localPath),
     )
 
@@ -3808,7 +3816,11 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act / Assert
     await expect(
-      moveToTrash(toSkillName(skillName), sourcePath, reviewedIdentity),
+      moveToTrash(
+        toSkillName(skillName),
+        toAbsolutePath(sourcePath),
+        reviewedIdentity,
+      ),
     ).rejects.toMatchObject({
       message: expect.stringMatching(/Failed to inspect reviewed skill folder/),
       code: 'EACCES',
@@ -3854,7 +3866,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     await expect(
       moveToTrash(
         toSkillName(skillName),
-        sourcePath,
+        toAbsolutePath(sourcePath),
         await reviewedIdentityForPath(sourcePath),
       ),
     ).rejects.toMatchObject({
@@ -3936,7 +3948,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     try {
       await moveToTrash(
         toSkillName(skillName),
-        sourcePath,
+        toAbsolutePath(sourcePath),
         await reviewedIdentityForPath(sourcePath),
       )
     } catch (error) {
@@ -4019,7 +4031,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     try {
       await moveToTrash(
         toSkillName(skillName),
-        localPath,
+        toAbsolutePath(localPath),
         await reviewedIdentityForPath(localPath),
       )
     } catch (error) {

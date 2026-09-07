@@ -17,6 +17,7 @@ import type {
 } from '@/shared/types'
 import {
   repositoryId,
+  toAbsolutePath,
   toAgentCount,
   toFileSizeBytes,
   toHttpUrl,
@@ -76,7 +77,7 @@ vi.stubGlobal('window', {
 function deleteTarget(skillName: Skill['name']) {
   return {
     skillName,
-    skillPath: `/home/user/.agents/skills/${skillName}`,
+    skillPath: toAbsolutePath(`/home/user/.agents/skills/${skillName}`),
     filesystemIdentity: directoryIdentity,
   }
 }
@@ -90,8 +91,8 @@ function deleteTarget(skillName: Skill['name']) {
 function unlinkTarget(skillName: Skill['name']) {
   return {
     skillName,
-    linkPath: `/home/user/.cursor/skills/${skillName}`,
-    targetPath: `/home/user/.agents/skills/${skillName}`,
+    linkPath: toAbsolutePath(`/home/user/.cursor/skills/${skillName}`),
+    targetPath: toAbsolutePath(`/home/user/.agents/skills/${skillName}`),
   }
 }
 
@@ -130,7 +131,7 @@ const previewWithConflicts: SyncPreviewResult = {
       skillName: toSkillName('agent-browser'),
       agentId: 'cursor',
       agentName: 'Cursor',
-      agentSkillPath: '/home/user/.cursor/skills/agent-browser',
+      agentSkillPath: toAbsolutePath('/home/user/.cursor/skills/agent-browser'),
     },
   ],
 }
@@ -159,7 +160,7 @@ describe('uiSlice hidden agents deletion review', () => {
           {
             id: 'cline',
             name: 'Cline',
-            path: '/home/user/.cline/skills',
+            path: toAbsolutePath('/home/user/.cline/skills'),
             exists: true,
             skillCount: toSkillCount(1),
             localSkillCount: toSkillCount(0),
@@ -465,7 +466,9 @@ describe('uiSlice sync thunks', () => {
     // Act — execute the sync
     await store.dispatch(
       executeSyncAction({
-        replaceConflicts: ['/home/user/.cursor/skills/agent-browser'],
+        replaceConflicts: [
+          toAbsolutePath('/home/user/.cursor/skills/agent-browser'),
+        ],
       }),
     )
 
@@ -803,8 +806,8 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
           agents: [
             {
               agentId: 'codex',
-              linkPath: '/home/user/.codex/skills/task',
-              targetPath: '/home/user/.agents/skills/task',
+              linkPath: toAbsolutePath('/home/user/.codex/skills/task'),
+              targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
             },
           ],
         },
@@ -840,8 +843,8 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
             agentId: 'codex',
             linkName: toSkillName('task'),
             displaySkillName: toSkillName('task'),
-            linkPath: '/home/user/.codex/skills/task',
-            targetPath: '/home/user/.agents/skills/task',
+            linkPath: toAbsolutePath('/home/user/.codex/skills/task'),
+            targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
           },
         ],
       }),
@@ -1021,8 +1024,8 @@ describe('uiSlice bulkSelectMode', () => {
           agents: [
             {
               agentId: 'codex',
-              linkPath: '/home/user/.codex/skills/task',
-              targetPath: '/home/user/.agents/skills/task',
+              linkPath: toAbsolutePath('/home/user/.codex/skills/task'),
+              targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
             },
           ],
         },
@@ -1057,8 +1060,8 @@ describe('uiSlice bulkSelectMode', () => {
             agentId: 'codex',
             linkName: toSkillName('task'),
             displaySkillName: toSkillName('task'),
-            linkPath: '/home/user/.codex/skills/task',
-            targetPath: '/home/user/.agents/skills/task',
+            linkPath: toAbsolutePath('/home/user/.codex/skills/task'),
+            targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
           },
         ],
       }),
@@ -1429,7 +1432,7 @@ describe('uiSlice source filter (selectedSources)', () => {
     return {
       name: toSkillName(name),
       description: `${name} skill`,
-      path: `/home/user/.agents/skills/${name}`,
+      path: toAbsolutePath(`/home/user/.agents/skills/${name}`),
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
@@ -1828,7 +1831,7 @@ describe('uiSlice source stats refresh', () => {
 
   /** Sample source-directory stats for the refresh thunk */
   const sampleStats = {
-    path: '/Users/me/.agents/skills',
+    path: toAbsolutePath('/Users/me/.agents/skills'),
     skillCount: toSkillCount(15),
     totalSize: toHumanFileSize('2.4 MB'),
     lastModified: toIsoTimestamp('2026-04-10T08:00:00.000Z'),

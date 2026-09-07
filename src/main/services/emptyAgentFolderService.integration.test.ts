@@ -17,6 +17,8 @@ import { join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { toAbsolutePath } from '@/shared/types'
+
 import { filesystemIdentityFromStats } from './filesystemIdentity'
 
 const trashItemMock = vi.fn()
@@ -63,7 +65,7 @@ afterEach(async () => {
  * @example const options = await reviewEmptyClineFolder()
  */
 async function reviewEmptyClineFolder() {
-  const path = join(tempHome, '.cline')
+  const path = toAbsolutePath(join(tempHome, '.cline'))
   await mkdir(path)
   return {
     agentId: 'cline' as const,
@@ -237,7 +239,10 @@ describe('not-installed agent empty folder cleanup', () => {
     const { removeEmptyAgentFolder } = await import('./emptyAgentFolderService')
 
     // Act
-    const result = await removeEmptyAgentFolder({ ...options, path: tempHome })
+    const result = await removeEmptyAgentFolder({
+      ...options,
+      path: toAbsolutePath(tempHome),
+    })
 
     // Assert
     expect(result).toEqual({
@@ -284,7 +289,7 @@ describe('not-installed agent empty folder cleanup', () => {
     const agents = await scanAgents()
     const result = await removeEmptyAgentFolder({
       agentId: 'opencode',
-      path: join(tempHome, '.config', 'opencode'),
+      path: toAbsolutePath(join(tempHome, '.config', 'opencode')),
       filesystemIdentity: filesystemIdentityFromStats(
         await lstat(externalAgentFolder),
       ),

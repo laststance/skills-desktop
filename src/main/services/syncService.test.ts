@@ -2,6 +2,8 @@ import { join } from 'node:path'
 
 import { beforeEach, describe, expect, it, test, vi } from 'vitest'
 
+import { toAbsolutePath } from '@/shared/types'
+
 /**
  * Create a mock Stats-like object for lstat results.
  * @param options - Whether the entry is a symbolic link
@@ -344,7 +346,9 @@ describe('syncExecute', () => {
     const { syncExecute } = await import('./syncService')
 
     // Act
-    const result = await syncExecute({ replaceConflicts: [conflictPath] })
+    const result = await syncExecute({
+      replaceConflicts: [toAbsolutePath(conflictPath)],
+    })
 
     // Assert
     expect(result.replaced).toBe(1)

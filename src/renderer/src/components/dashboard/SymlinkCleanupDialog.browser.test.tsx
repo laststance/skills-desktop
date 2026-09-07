@@ -5,7 +5,12 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { Agent, Skill, SkillName, SymlinkInfo } from '@/shared/types'
-import { toSkillCount, toSkillName, toSymlinkCount } from '@/shared/types'
+import {
+  toAbsolutePath,
+  toSkillCount,
+  toSkillName,
+  toSymlinkCount,
+} from '@/shared/types'
 
 const mockGetSkills = vi.fn()
 const mockGetAgents = vi.fn()
@@ -31,7 +36,7 @@ const TEST_AGENTS: Agent[] = [
   {
     id: 'cursor',
     name: 'Cursor',
-    path: '/Users/test/.cursor/skills',
+    path: toAbsolutePath('/Users/test/.cursor/skills'),
     exists: true,
     skillCount: toSkillCount(0),
     localSkillCount: toSkillCount(0),
@@ -39,7 +44,7 @@ const TEST_AGENTS: Agent[] = [
   {
     id: 'codex',
     name: 'Codex',
-    path: '/Users/test/.codex/skills',
+    path: toAbsolutePath('/Users/test/.codex/skills'),
     exists: true,
     skillCount: toSkillCount(0),
     localSkillCount: toSkillCount(0),
@@ -65,10 +70,12 @@ function makeBrokenSlot(
     agentId,
     agentName: agent.name,
     status: 'broken',
-    linkPath:
+    linkPath: toAbsolutePath(
       overrides.linkPath ?? `/Users/test/.${agentId}/skills/${skillName}`,
-    targetPath:
+    ),
+    targetPath: toAbsolutePath(
       overrides.targetPath ?? `/Users/test/.agents/skills/${skillName}`,
+    ),
     isLocal: false,
     ...overrides,
   }
@@ -90,7 +97,7 @@ function makeSkillWithBrokenSlot(
   return {
     name: skillName,
     description: `${skillName} description`,
-    path: `/Users/test/.agents/skills/${skillName}`,
+    path: toAbsolutePath(`/Users/test/.agents/skills/${skillName}`),
     symlinkCount: toSymlinkCount(0),
     symlinks: [makeBrokenSlot(skillName, agentId, symlinkOverrides)],
     isSource: true,
@@ -131,7 +138,7 @@ function makeOrphanSkill(
 ): Skill {
   return {
     ...makeSkillWithBrokenSlot(skillName, agentId),
-    path: `/Users/test/.${agentId}/skills/${skillName}`,
+    path: toAbsolutePath(`/Users/test/.${agentId}/skills/${skillName}`),
     isSource: false,
     isOrphan: true,
   }
@@ -297,7 +304,7 @@ describe('SymlinkCleanupDialog', () => {
       ])
       .mockResolvedValueOnce([
         makeSkillWithBrokenSlot(toSkillName('stale-task'), 'cursor', {
-          targetPath: '/Users/test/.agents/skills/other-target',
+          targetPath: toAbsolutePath('/Users/test/.agents/skills/other-target'),
         }),
       ])
     const screen = await renderOpenedDialog()
@@ -498,7 +505,9 @@ describe('SymlinkCleanupDialog', () => {
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce([
         makeSkillWithBrokenSlot(toSkillName('failed-task'), 'codex', {
-          targetPath: '/Users/test/.agents/skills/other-failed-target',
+          targetPath: toAbsolutePath(
+            '/Users/test/.agents/skills/other-failed-target',
+          ),
         }),
       ])
     mockClearBrokenSymlinkSlots.mockResolvedValue({
@@ -952,8 +961,8 @@ describe('SymlinkCleanupDialog', () => {
     // Arrange
     const mismatchPlan = [
       makeSkillWithBrokenSlot(toSkillName('metadata-title'), 'cursor', {
-        linkPath: '/Users/test/.cursor/skills/link-folder-name',
-        targetPath: '/Users/test/.agents/skills/missing-target',
+        linkPath: toAbsolutePath('/Users/test/.cursor/skills/link-folder-name'),
+        targetPath: toAbsolutePath('/Users/test/.agents/skills/missing-target'),
       }),
     ]
     mockGetSkills

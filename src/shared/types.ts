@@ -20,7 +20,9 @@ export type { FilePreviewKind } from './fileTypes'
 // `searchQuery` in 16. {@link repositoryId} and {@link semanticVersion} predate
 // this rule and keep their names; every new brand uses the prefix.
 //
-// `AbsolutePath` is still a plain alias and is branded in a follow-up pass.
+// Every domain primitive here is now branded. A new one must ship its `to`
+// constructor in the same commit — a plain alias silently accepts any string
+// or number and hides exactly the contract bugs this section exists to catch.
 // ============================================================================
 
 /**
@@ -50,7 +52,23 @@ export const toSkillName = (value: string): SkillName => value as SkillName
  * Absolute filesystem path (platform-native, not POSIX-normalized).
  * @example "/Users/me/.agents/skills/tdd-workflow"
  */
-export type AbsolutePath = string
+export type AbsolutePath = Brand<string, 'AbsolutePath'>
+
+/**
+ * Construct an {@link AbsolutePath} from a path this process produced itself —
+ * a `path.join` / `realpath` result, a root constant, or a value read back
+ * from state we already persisted.
+ *
+ * Brands, does NOT authorize: it asserts a contract, it never checks one. A
+ * path arriving from the renderer over IPC must be built by
+ * {@link validatePath} instead, which resolves it against the allowed bases
+ * and IS the construction site for untrusted input. Branding such a path here
+ * would claim it is trusted on the way *in*, which is the inversion
+ * {@link validatePath} exists to prevent.
+ * @example toAbsolutePath('/Users/me/.agents/skills/tdd-workflow')
+ */
+export const toAbsolutePath = (value: string): AbsolutePath =>
+  value as AbsolutePath
 
 /**
  * Filesystem object identity captured at scan/review time for destructive guards.
@@ -649,8 +667,10 @@ export type TerminalAppId = (typeof TERMINAL_APP_IDS)[number]
  *   scan and click, or stat raised ENOENT/ELOOP/ENOTDIR).
  * - `launch-failed`: `open -a` exited non-zero or `shell.openPath`
  *   returned an error string (most often: chosen terminal app missing).
- * - `invalid-path`: settings are in `'custom'` mode but the custom app
- *   name is blank/missing — caller must surface a Settings hint.
+ * - `invalid-path`: the request was refused before any launcher ran. Either
+ *   the renderer asked for a folder outside the allowed base directories
+ *   (see {@link validatePath}), or settings are in `'custom'` mode with a
+ *   blank/missing custom app name — the latter must surface a Settings hint.
  *
  * @example
  * const reason: FolderActionErrorReason = 'not-found'

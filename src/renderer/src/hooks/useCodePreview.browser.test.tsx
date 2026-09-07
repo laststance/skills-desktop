@@ -7,6 +7,7 @@ import type {
   SkillFileContent,
 } from '@/shared/types'
 import {
+  toAbsolutePath,
   toDataUrl,
   toFileExtension,
   toFileName,
@@ -30,7 +31,7 @@ const readBinaryMock =
 function makeFile(overrides: Partial<SkillFile> = {}): SkillFile {
   return {
     name: toFileName('SKILL.md'),
-    path: '/skills/tdd/SKILL.md',
+    path: toAbsolutePath('/skills/tdd/SKILL.md'),
     relativePath: toPosixRelativePath('SKILL.md'),
     extension: toFileExtension('.md'),
     size: toFileSizeBytes(100),
@@ -86,7 +87,9 @@ describe('useCodePreview', () => {
 
     // Act
     const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() => useCodePreview('/skills/tdd'))
+    const { result } = await renderHook(() =>
+      useCodePreview(toAbsolutePath('/skills/tdd')),
+    )
 
     // Assert
     // Poll the loaded content instead of `loading === false`. `loading` starts
@@ -106,7 +109,9 @@ describe('useCodePreview', () => {
 
     // Act
     const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() => useCodePreview('/skills/empty'))
+    const { result } = await renderHook(() =>
+      useCodePreview(toAbsolutePath('/skills/empty')),
+    )
 
     // Assert
     // `content` is `{kind:'empty'}` before AND after the effect for this case,
@@ -123,7 +128,7 @@ describe('useCodePreview', () => {
     const first = makeFile()
     const second = makeFile({
       name: toFileName('notes.md'),
-      path: '/skills/tdd/notes.md',
+      path: toAbsolutePath('/skills/tdd/notes.md'),
       relativePath: toPosixRelativePath('notes.md'),
     })
     const firstBody = makeTextContent()
@@ -138,7 +143,7 @@ describe('useCodePreview', () => {
 
     const { useCodePreview } = await import('./useCodePreview')
     const { result, act } = await renderHook(() =>
-      useCodePreview('/skills/tdd'),
+      useCodePreview(toAbsolutePath('/skills/tdd')),
     )
 
     await expect
@@ -163,7 +168,7 @@ describe('useCodePreview', () => {
 
     const { useCodePreview } = await import('./useCodePreview')
     const { result, act } = await renderHook(() =>
-      useCodePreview('/skills/tdd'),
+      useCodePreview(toAbsolutePath('/skills/tdd')),
     )
 
     await expect.poll(() => result.current.activeFile).toBe(file.path)
@@ -188,7 +193,7 @@ describe('useCodePreview', () => {
 
     const { useCodePreview } = await import('./useCodePreview')
     const { result, act } = await renderHook(() =>
-      useCodePreview('/skills/tdd'),
+      useCodePreview(toAbsolutePath('/skills/tdd')),
     )
 
     await expect
@@ -212,7 +217,7 @@ describe('useCodePreview', () => {
     const first = makeFile()
     const second = makeFile({
       name: toFileName('notes.md'),
-      path: '/skills/tdd/notes.md',
+      path: toAbsolutePath('/skills/tdd/notes.md'),
       relativePath: toPosixRelativePath('notes.md'),
     })
     const secondBody = makeTextContent({
@@ -236,7 +241,7 @@ describe('useCodePreview', () => {
 
     const { useCodePreview } = await import('./useCodePreview')
     const { result, act } = await renderHook(() =>
-      useCodePreview('/skills/tdd'),
+      useCodePreview(toAbsolutePath('/skills/tdd')),
     )
 
     await expect.poll(() => result.current.files.length).toBe(2)
@@ -275,12 +280,12 @@ describe('useCodePreview', () => {
     const first = makeFile()
     const second = makeFile({
       name: toFileName('notes.md'),
-      path: '/skills/tdd/notes.md',
+      path: toAbsolutePath('/skills/tdd/notes.md'),
       relativePath: toPosixRelativePath('notes.md'),
     })
     const third = makeFile({
       name: toFileName('other.md'),
-      path: '/skills/tdd/other.md',
+      path: toAbsolutePath('/skills/tdd/other.md'),
       relativePath: toPosixRelativePath('other.md'),
     })
     const firstBody = makeTextContent()
@@ -306,7 +311,7 @@ describe('useCodePreview', () => {
 
     const { useCodePreview } = await import('./useCodePreview')
     const { result, act } = await renderHook(() =>
-      useCodePreview('/skills/tdd'),
+      useCodePreview(toAbsolutePath('/skills/tdd')),
     )
 
     await expect
@@ -353,12 +358,12 @@ describe('useCodePreview', () => {
   it('clears the previous file preview immediately when the user switches to another skill', async () => {
     // Arrange
     const fileA = makeFile({
-      path: '/skills/a/SKILL.md',
+      path: toAbsolutePath('/skills/a/SKILL.md'),
       relativePath: toPosixRelativePath('SKILL.md'),
     })
     const fileB = makeFile({
       name: toFileName('b.md'),
-      path: '/skills/b/SKILL.md',
+      path: toAbsolutePath('/skills/b/SKILL.md'),
       relativePath: toPosixRelativePath('SKILL.md'),
     })
     const bodyA = makeTextContent({ content: 'A' })
@@ -379,7 +384,8 @@ describe('useCodePreview', () => {
 
     const { useCodePreview } = await import('./useCodePreview')
     const { result, rerender, act } = await renderHook(
-      (props?: { path: string }) => useCodePreview(props?.path ?? '/skills/a'),
+      (props?: { path: string }) =>
+        useCodePreview(toAbsolutePath(props?.path ?? '/skills/a')),
       { initialProps: { path: '/skills/a' } },
     )
 
@@ -424,7 +430,7 @@ describe('useCodePreview', () => {
     const first = makeFile()
     const second = makeFile({
       name: toFileName('notes.md'),
-      path: '/skills/tdd/notes.md',
+      path: toAbsolutePath('/skills/tdd/notes.md'),
       relativePath: toPosixRelativePath('notes.md'),
     })
     listMock.mockResolvedValue([first, second])
@@ -432,7 +438,9 @@ describe('useCodePreview', () => {
 
     // Act
     const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() => useCodePreview('/skills/tdd'))
+    const { result } = await renderHook(() =>
+      useCodePreview(toAbsolutePath('/skills/tdd')),
+    )
 
     // Assert
     await expect.poll(() => result.current.loading).toBe(false)
@@ -446,7 +454,7 @@ describe('useCodePreview', () => {
     // Arrange -- same contract on the binary branch of loadContentForFile.
     const image = makeFile({
       name: toFileName('logo.png'),
-      path: '/skills/tdd/logo.png',
+      path: toAbsolutePath('/skills/tdd/logo.png'),
       relativePath: toPosixRelativePath('logo.png'),
       extension: toFileExtension('.png'),
       previewable: 'image',
@@ -456,7 +464,9 @@ describe('useCodePreview', () => {
 
     // Act
     const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() => useCodePreview('/skills/tdd'))
+    const { result } = await renderHook(() =>
+      useCodePreview(toAbsolutePath('/skills/tdd')),
+    )
 
     // Assert
     await expect.poll(() => result.current.loading).toBe(false)
@@ -472,7 +482,7 @@ describe('useCodePreview', () => {
     const first = makeFile()
     const second = makeFile({
       name: toFileName('notes.md'),
-      path: '/skills/tdd/notes.md',
+      path: toAbsolutePath('/skills/tdd/notes.md'),
       relativePath: toPosixRelativePath('notes.md'),
     })
     const secondBody = makeTextContent({
@@ -494,7 +504,7 @@ describe('useCodePreview', () => {
 
     const { useCodePreview } = await import('./useCodePreview')
     const { result, act } = await renderHook(() =>
-      useCodePreview('/skills/tdd'),
+      useCodePreview(toAbsolutePath('/skills/tdd')),
     )
 
     await expect.poll(() => result.current.files.length).toBe(2)
@@ -535,7 +545,7 @@ describe('useCodePreview', () => {
     const first = makeFile()
     const second = makeFile({
       name: toFileName('notes.md'),
-      path: '/skills/tdd/notes.md',
+      path: toAbsolutePath('/skills/tdd/notes.md'),
       relativePath: toPosixRelativePath('notes.md'),
     })
     const firstBody = makeTextContent()
@@ -547,7 +557,7 @@ describe('useCodePreview', () => {
 
     const { useCodePreview } = await import('./useCodePreview')
     const { result, act } = await renderHook(() =>
-      useCodePreview('/skills/tdd'),
+      useCodePreview(toAbsolutePath('/skills/tdd')),
     )
     await expect.poll(() => result.current.loading).toBe(false)
     expect(result.current.content).toEqual({ kind: 'text', data: firstBody })
@@ -570,7 +580,7 @@ describe('useCodePreview', () => {
     const first = makeFile()
     const image = makeFile({
       name: toFileName('logo.png'),
-      path: '/skills/tdd/logo.png',
+      path: toAbsolutePath('/skills/tdd/logo.png'),
       relativePath: toPosixRelativePath('logo.png'),
       extension: toFileExtension('.png'),
       previewable: 'image',
@@ -582,7 +592,7 @@ describe('useCodePreview', () => {
 
     const { useCodePreview } = await import('./useCodePreview')
     const { result, act } = await renderHook(() =>
-      useCodePreview('/skills/tdd'),
+      useCodePreview(toAbsolutePath('/skills/tdd')),
     )
     await expect.poll(() => result.current.loading).toBe(false)
     expect(result.current.content).toEqual({ kind: 'text', data: firstBody })
@@ -606,7 +616,7 @@ describe('useCodePreview', () => {
     // Act
     const { useCodePreview } = await import('./useCodePreview')
     const { result } = await renderHook(() =>
-      useCodePreview('/outside/skills/tdd'),
+      useCodePreview(toAbsolutePath('/outside/skills/tdd')),
     )
 
     // Assert
@@ -622,7 +632,7 @@ describe('useCodePreview', () => {
     // Arrange -- ordering twin of the test below: there the rejection settles
     // BEFORE the switch, here it settles after, so the stale catch runs while
     // skill B already owns the pane.
-    const fileB = makeFile({ path: '/skills/b/SKILL.md' })
+    const fileB = makeFile({ path: toAbsolutePath('/skills/b/SKILL.md') })
     const bodyB = makeTextContent({ content: 'B' })
     let rejectA: ((reason: Error) => void) | null = null
     listMock.mockImplementation(async (p) => {
@@ -638,7 +648,7 @@ describe('useCodePreview', () => {
     const { useCodePreview } = await import('./useCodePreview')
     const { result, rerender, act } = await renderHook(
       (props?: { path: string }) =>
-        useCodePreview(props?.path ?? '/outside/skills/a'),
+        useCodePreview(toAbsolutePath(props?.path ?? '/outside/skills/a')),
       { initialProps: { path: '/outside/skills/a' } },
     )
     // Gate on the pending call: without it `rejectA?.(…)` could no-op.
@@ -668,7 +678,7 @@ describe('useCodePreview', () => {
 
   test("drops a previous skill's load failure when a readable skill is opened", async () => {
     // Arrange -- skill A is unreadable, skill B lists fine.
-    const fileB = makeFile({ path: '/skills/b/SKILL.md' })
+    const fileB = makeFile({ path: toAbsolutePath('/skills/b/SKILL.md') })
     const bodyB = makeTextContent({ content: 'B' })
     listMock.mockImplementation(async (p) => {
       if (p === '/outside/skills/a')
@@ -680,7 +690,7 @@ describe('useCodePreview', () => {
     const { useCodePreview } = await import('./useCodePreview')
     const { result, rerender } = await renderHook(
       (props?: { path: string }) =>
-        useCodePreview(props?.path ?? '/outside/skills/a'),
+        useCodePreview(toAbsolutePath(props?.path ?? '/outside/skills/a')),
       { initialProps: { path: '/outside/skills/a' } },
     )
     await expect.poll(() => result.current.loadFailed).toBe(true)
@@ -701,7 +711,7 @@ describe('useCodePreview', () => {
     // Arrange
     const image = makeFile({
       name: toFileName('logo.png'),
-      path: '/skills/tdd/logo.png',
+      path: toAbsolutePath('/skills/tdd/logo.png'),
       relativePath: toPosixRelativePath('logo.png'),
       extension: toFileExtension('.png'),
       previewable: 'image',
@@ -717,7 +727,9 @@ describe('useCodePreview', () => {
 
     // Act
     const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() => useCodePreview('/skills/tdd'))
+    const { result } = await renderHook(() =>
+      useCodePreview(toAbsolutePath('/skills/tdd')),
+    )
 
     // Assert
     await expect
@@ -730,7 +742,7 @@ describe('useCodePreview', () => {
     // Arrange
     const big = makeFile({
       name: toFileName('dump.bin'),
-      path: '/skills/tdd/dump.bin',
+      path: toAbsolutePath('/skills/tdd/dump.bin'),
       relativePath: toPosixRelativePath('dump.bin'),
       extension: toFileExtension('.bin'),
       size: toFileSizeBytes(999_999),
@@ -740,7 +752,9 @@ describe('useCodePreview', () => {
 
     // Act
     const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() => useCodePreview('/skills/tdd'))
+    const { result } = await renderHook(() =>
+      useCodePreview(toAbsolutePath('/skills/tdd')),
+    )
 
     // Assert
     await expect
@@ -758,12 +772,12 @@ describe('useCodePreview', () => {
     // Arrange
     const fileA = makeFile({
       name: toFileName('a.md'),
-      path: '/skills/a/a.md',
+      path: toAbsolutePath('/skills/a/a.md'),
       relativePath: toPosixRelativePath('a.md'),
     })
     const fileB = makeFile({
       name: toFileName('b.md'),
-      path: '/skills/b/b.md',
+      path: toAbsolutePath('/skills/b/b.md'),
       relativePath: toPosixRelativePath('b.md'),
     })
     const bodyB = makeTextContent({ name: toFileName('b.md'), content: 'B' })
@@ -783,7 +797,8 @@ describe('useCodePreview', () => {
 
     const { useCodePreview } = await import('./useCodePreview')
     const { result, rerender, act } = await renderHook(
-      (props?: { path: string }) => useCodePreview(props?.path ?? '/skills/a'),
+      (props?: { path: string }) =>
+        useCodePreview(toAbsolutePath(props?.path ?? '/skills/a')),
       { initialProps: { path: '/skills/a' } },
     )
 
@@ -824,7 +839,7 @@ describe('useCodePreview', () => {
 
     const { useCodePreview } = await import('./useCodePreview')
     const { result, act } = await renderHook(() =>
-      useCodePreview('/skills/tdd'),
+      useCodePreview(toAbsolutePath('/skills/tdd')),
     )
 
     await expect
@@ -837,7 +852,7 @@ describe('useCodePreview', () => {
     // from disk between list and click). It differs from activeFile so the
     // early `path === activeFile` guard does not short-circuit first.
     await act(async () => {
-      await result.current.setActiveFile('/skills/tdd/ghost.md')
+      await result.current.setActiveFile(toAbsolutePath('/skills/tdd/ghost.md'))
     })
 
     // Assert
@@ -859,7 +874,9 @@ describe('useCodePreview', () => {
 
     // Act
     const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() => useCodePreview('/skills/tdd'))
+    const { result } = await renderHook(() =>
+      useCodePreview(toAbsolutePath('/skills/tdd')),
+    )
 
     // Assert
     await expect.poll(() => result.current.content).toEqual({ kind: 'empty' })
@@ -870,7 +887,7 @@ describe('useCodePreview', () => {
     // Arrange
     const image = makeFile({
       name: toFileName('logo.png'),
-      path: '/skills/tdd/logo.png',
+      path: toAbsolutePath('/skills/tdd/logo.png'),
       relativePath: toPosixRelativePath('logo.png'),
       extension: toFileExtension('.png'),
       previewable: 'image',
@@ -882,7 +899,9 @@ describe('useCodePreview', () => {
 
     // Act
     const { useCodePreview } = await import('./useCodePreview')
-    const { result } = await renderHook(() => useCodePreview('/skills/tdd'))
+    const { result } = await renderHook(() =>
+      useCodePreview(toAbsolutePath('/skills/tdd')),
+    )
 
     // Assert
     await expect.poll(() => result.current.content).toEqual({ kind: 'empty' })
@@ -892,7 +911,7 @@ describe('useCodePreview', () => {
   test('shows the spinner again when switching back to a skill mid-reload', async () => {
     // Arrange -- A lists once, then hangs on its second visit; B never settles,
     // so the trip back to A happens while nothing else can repaint the pane.
-    const fileA = makeFile({ path: '/skills/a/SKILL.md' })
+    const fileA = makeFile({ path: toAbsolutePath('/skills/a/SKILL.md') })
     const bodyA = makeTextContent({ content: 'A' })
     let resolveSecondListOfA: ((files: SkillFile[]) => void) | null = null
     let listCallsForA = 0
@@ -911,7 +930,8 @@ describe('useCodePreview', () => {
 
     const { useCodePreview } = await import('./useCodePreview')
     const { result, rerender, act } = await renderHook(
-      (props?: { path: string }) => useCodePreview(props?.path ?? '/skills/a'),
+      (props?: { path: string }) =>
+        useCodePreview(toAbsolutePath(props?.path ?? '/skills/a')),
       { initialProps: { path: '/skills/a' } },
     )
     await expect
