@@ -530,7 +530,7 @@ listenerMiddleware.startListening({
 'settings:open'       → void
 'settings:get'        → Promise<Settings>
 'settings:set'        → (patch: Partial<Settings>) => Promise<Settings>
-'settings:changed'    → (Main → Renderer event, fanned out to every window)
+'settings:changed'    → (Main → Renderer event, canonical snapshots with superseded self-notifications filtered)
 ```
 
 ### Type Definitions
@@ -647,14 +647,7 @@ interface RootState {
   ui: UIState
   update: UpdateState
   marketplace: MarketplaceState
-  settings: SettingsState
-}
-
-interface SettingsState {
-  /** Cached `Settings` object — main process owns the file, renderer mirrors via `settings:changed` events. */
-  values: Settings
-  /** Loading state for the initial `settings:get` round-trip on app launch. */
-  loaded: boolean
+  settings: Settings // Main-owned snapshot; renderer applies local edits optimistically.
 }
 
 interface SkillsState {
@@ -773,12 +766,18 @@ skills-desktop/
 
 ## Window Configuration
 
-| Property         | Value                 |
-| ---------------- | --------------------- |
-| Default Size     | 1200×800              |
-| Minimum Size     | 800×600               |
-| Title Bar Style  | `hiddenInset` (macOS) |
-| Background Color | `#0A0F1C`             |
+| Property         | Value                                  |
+| ---------------- | -------------------------------------- |
+| Default Size     | 1200×800                               |
+| Minimum Size     | 800×600                                |
+| Title Bar Style  | `hiddenInset` (macOS)                  |
+| Background Color | `#00000000` (clear native canvas)      |
+| Native Opacity   | `1`, including live preference changes |
+| Transparency     | Enabled; no macOS vibrancy             |
+
+Pane backgrounds supply the selected alpha through CSS; text, icons, and solid
+action fills retain their opacity. See [Window opacity](DESIGN.md#window-opacity)
+for opaque boundaries, color correction, and motion requirements.
 
 ## Settings Window
 
@@ -791,50 +790,76 @@ Both routes converge on the same `BrowserWindow` instance owned by `src/main/ser
 
 **Sections:**
 
-| Section     | Purpose                                                                   |
-| ----------- | ------------------------------------------------------------------------- |
-| About       | App version, updater status, links                                        |
-| Agents      | Hide/show installed agents from the sidebar (visibility-only toggle)      |
-| Appearance  | Theme presets, light/dark mode, window background blur                    |
-| AutoUpdates | Update channel and check cadence                                          |
-| General     | Default skill detail tab, preferred terminal, startup window size         |
-| Keybindings | Read-only display sourced from `KEYBINDINGS` in `src/shared/constants.ts` |
+| Section     | Purpose                                                                       |
+| ----------- | ----------------------------------------------------------------------------- |
+| About       | App version, updater status, links                                            |
+| Agents      | Hide/show installed agents from the sidebar (visibility-only toggle)          |
+| Appearance  | Theme presets, light/dark mode, 0–100% background opacity, preview typography |
+| AutoUpdates | Update channel and check cadence                                              |
+| General     | Default skill detail tab, preferred terminal, startup window size             |
+| Keybindings | Read-only display sourced from `KEYBINDINGS` in `src/shared/constants.ts`     |
 
 **Persistence:**
 
-User-editable values are stored in `app.getPath('userData')/settings.json` via atomic-write (write-temp + rename) by `src/main/services/settings.ts`. The schema is defined in `src/shared/settings.ts` using Zod, with `DEFAULT_SETTINGS` as the fallback when the file is missing or fails validation.
+User-editable values are stored in `app.getPath('userData')/settings.json` by
+`src/main/services/settings.ts`. Startup {@link loadSettings} and subsequent
+{@link saveSettings} calls share one queue. Each edit reads the latest cache,
+merges and validates the patch, writes a temporary file, renames it, then replaces the cache.
+An individual write failure leaves the previous file and cache available and
+does not block later queued saves. {@link DEFAULT_SETTINGS} is the fallback
+when the source cannot be read or validated.
+
+Legacy files without `windowBackgroundOpacityPercent` are validated before
+migration. Old `windowBackgroundBlurRadius` values 0 / 24 / 48 become 100% /
+72% / 45%; existing Section percentages, mode, and other preferences survive.
+A present modern opacity field takes precedence. The legacy field is migration
+input only and is removed from saved JSON and rejected by the current IPC schema.
+Migration writes even when the result equals the defaults. If that write fails,
+the original file and validated session values are retained, the failure is
+logged, and the next save or launch retries; a migrated file is not rewritten
+on every launch.
 
 **Cross-window sync:**
 
-Renderers cache settings in Redux (`settingsSlice`) but never write directly. The flow:
+Renderers cache the complete {@link Settings} object in Redux and never write
+the file directly. This slice is excluded from localStorage persistence.
 
-1. Renderer reads via `window.electron.settings.get()` → `settings:get` IPC → `loadSettings()` returns the parsed object
-2. Renderer writes via `window.electron.settings.set(patch)` → `settings:set` IPC → main writes the updated file
-3. Main fans out a `settings:changed` event to every renderer (main window + Settings window) via `broadcastTypedEvent` so all caches stay in lockstep
-4. The Settings window opener is exposed as `window.electron.settings.open()` → `settings:open` IPC
+1. {@link useSettingsSync} reads `settings:get`, which returns the validated
+   cache from {@link getSettings}, and subscribes to `settings:changed`.
+2. {@link useUpdateSettings} merges each patch into the latest store snapshot
+   immediately, then sends `settings:set` through the preload bridge.
+3. {@link registerSettingsHandlers} marks the latest request per sender before
+   awaiting the save. Successful changes reach every live window, except the
+   sender of a superseded request. The sender still receives its latest saved
+   snapshot, so overlapping edits from different windows converge.
+4. If the latest request fails, main sends the current canonical cache to its
+   live sender before rejecting. A superseded failure sends no self-notification.
+5. The renderer adopts a direct save reply only while that request's optimistic
+   snapshot is still current. Failures display a themed toast through
+   {@link AppToaster}, mounted in both windows. Fallback `settings:get` recovery
+   checks snapshot identity before starting and after completion; if recovery
+   also fails while still current, the toast offers Reload.
+6. The Settings opener remains `window.electron.settings.open()` → `settings:open`.
+
+Appearance ranges keep a local draft and save after 120ms without another
+change, or immediately on pointerup, keyup, and blur. Reset saves immediately.
+An external source-value update cancels an obsolete pending draft; later blur
+cannot revive it. Superseded self-notifications must not cancel a newer draft.
+Switching Entire / Section preserves the hidden mode's values.
 
 **Schema:**
 
-```typescript
-// src/shared/settings.ts
-export const SettingsSchema = z.object({
-  defaultSkillTab: z.enum(['files', 'info']).default('files'),
-  preferredTerminal: z.enum(TERMINAL_APP_IDS).default('terminal'),
-  customTerminalAppName: z.string().trim().min(1).max(64).optional(),
-  windowSize: windowSizeSchema, // { width, height } | undefined
-  windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA.default(
-    WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
-  ),
-  hiddenAgentIds: HIDDEN_AGENT_IDS_SCHEMA, // AgentId[] (deduped, validated against AGENT_IDS)
-})
-export type Settings = z.infer<typeof SettingsSchema>
-export const DEFAULT_SETTINGS: Settings = {
-  defaultSkillTab: 'files',
-  preferredTerminal: 'terminal',
-  windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
-  hiddenAgentIds: [],
-}
-```
+{@link SettingsSchema} in `src/shared/settings.ts` defines the complete contract.
+The opacity fields below also share validation with the strict `settings:set`
+IPC schema; unrelated patches do not inject defaults for absent fields.
+
+| Field                            | Allowed values      | Default / Reset          | Applies to                             |
+| -------------------------------- | ------------------- | ------------------------ | -------------------------------------- |
+| `windowOpacityMode`              | `entire`, `section` | `entire` on first launch | Selects which stored values are active |
+| `windowBackgroundOpacityPercent` | Integer 0–100       | 100                      | All three panes in Entire mode         |
+| `leftSectionOpacityPercent`      | Integer 0–100       | 100                      | Sidebar in Section mode                |
+| `centerSectionOpacityPercent`    | Integer 0–100       | 100                      | Main content in Section mode           |
+| `rightSectionOpacityPercent`     | Integer 0–100       | 100                      | Inspector in Section mode              |
 
 The `KEYBINDINGS` constant is the single source of truth for the read-only Keybindings section, ensuring the Settings UI never drifts from the actual menu accelerators.
 
