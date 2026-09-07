@@ -20,12 +20,14 @@ export async function holdBackgroundApplyReply(
       throw new Error('Production background Apply IPC is not registered')
     let hasAccepted = false
     let release: (() => void) | undefined
+    // Create the gate first so early cleanup remains released when the original handler finishes later.
+    const released = new Promise<void>((resolve) => {
+      release = resolve
+    })
     const heldHandler = async (...args: unknown[]) => {
       const accepted: unknown = await originalHandler(...args)
       hasAccepted = true
-      await new Promise<void>((resolve) => {
-        release = resolve
-      })
+      await released
       return accepted
     }
     handlers.set('backgrounds:apply', heldHandler)
@@ -33,7 +35,6 @@ export async function holdBackgroundApplyReply(
       hasAccepted: () => hasAccepted,
       release: () => {
         release?.()
-        release = undefined
       },
       restore: () => {
         if (handlers.get('backgrounds:apply') === heldHandler)

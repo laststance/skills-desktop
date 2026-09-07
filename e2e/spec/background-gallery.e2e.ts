@@ -313,6 +313,33 @@ galleryTest(
 )
 
 galleryTest(
+  'releasing the Apply reply gate before invocation cannot stall a later accepted background',
+  async ({ electronApp, settingsWindow, isolatedHome }) => {
+    // Arrange
+    const reply = await holdBackgroundApplyReply(electronApp)
+    try {
+      // Act: cleanup may run before the wrapped asynchronous handler has completed.
+      await reply.evaluate((held) => held.release())
+      const selected = await applyFixture(settingsWindow, {
+        kind: 'builtin',
+        builtinId: 'alpine-lake',
+      })
+      // Assert
+      expect(selected.source).toEqual({
+        kind: 'builtin',
+        builtinId: 'alpine-lake',
+      })
+      expect(persistedSettings(isolatedHome).background.selected).toEqual(
+        selected,
+      )
+      expect(await reply.evaluate((held) => held.hasAccepted())).toBe(true)
+    } finally {
+      await reply.evaluate((held) => held.restore())
+    }
+  },
+)
+
+galleryTest(
   'accepted upload survives both windows closing before the Apply reply and replays its result after recreation',
   async ({
     electronApp,

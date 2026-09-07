@@ -148,85 +148,89 @@ function PhotoRow({
         className="grid gap-3"
         style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
       >
-        {items.slice(index * columns, (index + 1) * columns).map((item) => {
-          const key = backgroundSourceKey(item.source)
-          return (
-            <div key={key} className="min-w-0">
-              <button
-                ref={(node) => {
-                  if (!node) return
-                  buttons.set(key, node)
-                  return () => {
-                    // A manually scrolled-away focused row hands focus to a stable owner before unmount.
-                    if (document.activeElement === node)
-                      container.current?.focus({ preventScroll: true })
-                    buttons.delete(key)
-                  }
-                }}
-                type="button"
-                role="radio"
-                aria-checked={selectedKey === key}
-                aria-label={`${item.title}${appliedKey === key ? ', Applied' : ''}`}
-                tabIndex={focusKey === key ? 0 : -1}
-                onFocus={() => onFocusKey(key)}
-                onClick={() => onSelect(item)}
-                className={cn(
-                  'relative block h-28 w-full overflow-hidden rounded-md border bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-                  selectedKey === key
-                    ? 'border-primary ring-1 ring-primary'
-                    : 'border-border',
-                )}
-              >
-                {item.thumbnail ? (
-                  <img
-                    className="relative h-full w-full bg-muted object-cover"
-                    src={item.thumbnail.url}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    onError={(event) => {
-                      event.currentTarget.style.visibility = 'hidden'
-                    }}
-                  />
-                ) : (
-                  <ImageOff
-                    aria-hidden
-                    className="mx-auto h-5 w-5 text-muted-foreground"
-                  />
-                )}
-                {selectedKey === key ? (
-                  <span className="absolute right-2 top-2 rounded-full bg-primary p-1 text-primary-foreground">
-                    <Check className="h-3 w-3" aria-hidden />
-                  </span>
-                ) : null}
-                {appliedKey === key ? (
-                  <span className="opaque-surface absolute bottom-2 left-2 rounded bg-background px-2 py-0.5 text-[11px] text-foreground">
-                    Applied
-                  </span>
-                ) : null}
-              </button>
-              <div className="opaque-surface mt-1 flex items-center gap-1 bg-background">
-                <p
-                  className="min-w-0 flex-1 truncate text-xs font-medium"
-                  title={item.title}
+        {items
+          .slice(index * columns, (index + 1) * columns)
+          .map((item, column) => {
+            const key = backgroundSourceKey(item.source)
+            return (
+              <div key={key} className="min-w-0">
+                <button
+                  ref={(node) => {
+                    if (!node) return
+                    buttons.set(key, node)
+                    return () => {
+                      // A manually scrolled-away focused row hands focus to a stable owner before unmount.
+                      if (document.activeElement === node)
+                        container.current?.focus({ preventScroll: true })
+                      buttons.delete(key)
+                    }
+                  }}
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedKey === key}
+                  aria-setsize={items.length}
+                  aria-posinset={index * columns + column + 1}
+                  aria-label={`${item.title}${appliedKey === key ? ', Applied' : ''}`}
+                  tabIndex={focusKey === key ? 0 : -1}
+                  onFocus={() => onFocusKey(key)}
+                  onClick={() => onSelect(item)}
+                  className={cn(
+                    'relative block h-28 w-full overflow-hidden rounded-md border bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                    selectedKey === key
+                      ? 'border-primary ring-1 ring-primary'
+                      : 'border-border',
+                  )}
                 >
-                  {item.title}
-                </p>
-                {item.source.kind === 'upload' ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Remove ${item.title}`}
-                    onClick={() => onRemove(item)}
+                  {item.thumbnail ? (
+                    <img
+                      className="relative h-full w-full bg-muted object-cover"
+                      src={item.thumbnail.url}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      onError={(event) => {
+                        event.currentTarget.style.visibility = 'hidden'
+                      }}
+                    />
+                  ) : (
+                    <ImageOff
+                      aria-hidden
+                      className="mx-auto h-5 w-5 text-muted-foreground"
+                    />
+                  )}
+                  {selectedKey === key ? (
+                    <span className="absolute right-2 top-2 rounded-full bg-primary p-1 text-primary-foreground">
+                      <Check className="h-3 w-3" aria-hidden />
+                    </span>
+                  ) : null}
+                  {appliedKey === key ? (
+                    <span className="opaque-surface absolute bottom-2 left-2 rounded bg-background px-2 py-0.5 text-[11px] text-foreground">
+                      Applied
+                    </span>
+                  ) : null}
+                </button>
+                <div className="opaque-surface mt-1 flex items-center gap-1 bg-background">
+                  <p
+                    className="min-w-0 flex-1 truncate text-xs font-medium"
+                    title={item.title}
                   >
-                    <Trash2 />
-                  </Button>
-                ) : null}
+                    {item.title}
+                  </p>
+                  {item.source.kind === 'upload' ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Remove ${item.title}`}
+                      onClick={() => onRemove(item)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  ) : null}
+                </div>
+                <BackgroundCredit credit={item.credit} />
               </div>
-              <BackgroundCredit credit={item.credit} />
-            </div>
-          )
-        })}
+            )
+          })}
       </div>
     </div>
   )

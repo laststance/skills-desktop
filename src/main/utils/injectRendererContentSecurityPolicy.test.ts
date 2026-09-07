@@ -107,6 +107,43 @@ describe('renderer file-protocol content security policy', () => {
     }
   })
 
+  test.each([
+    { closing: '</script\t\n bar>', prefix: '' },
+    { closing: '</script/>', prefix: '' },
+    { closing: '</SCRIPT data-build=trusted>', prefix: '' },
+    { closing: '</script>', prefix: '// </script-not-a-tag>\n' },
+  ])(
+    'file:// hashes the browser script body through closing delimiter $closing',
+    async ({ closing, prefix }) => {
+      // Arrange
+      const context = await browser!.newContext({ bypassCSP: false })
+      try {
+        const page = await context.newPage()
+        const path = join(directory!, 'closing-tag.html')
+        await fs.writeFile(
+          path,
+          injectRendererContentSecurityPolicy(
+            `<html><head><script>${prefix}document.documentElement.dataset.trusted = "yes";${closing}</head><body></body></html>`,
+          ),
+        )
+        // Act
+        await page.goto(pathToFileURL(path).href)
+        // Assert: the browser and hash collector must agree on the entire script body.
+        expect(await page.locator('html').getAttribute('data-trusted')).toBe(
+          'yes',
+        )
+        const policy = await page
+          .locator('meta[http-equiv="Content-Security-Policy"]')
+          .getAttribute('content')
+        expect(policy?.match(/script-src[^;]+/)?.[0]).not.toContain(
+          "'unsafe-inline'",
+        )
+      } finally {
+        await context.close()
+      }
+    },
+  )
+
   test('missing document head or a competing CSP fails generation instead of silently shipping an unprotected entry', () => {
     // Arrange / Act / Assert
     expect(() => injectRendererContentSecurityPolicy('<body></body>')).toThrow(
@@ -126,7 +163,10 @@ describe('renderer file-protocol content security policy', () => {
       const context = await browser!.newContext({ bypassCSP: false })
       const page = await context.newPage()
       const html = injectRendererContentSecurityPolicy(
-        await fs.readFile(entry, 'utf8'),
+        await fs.readFile(
+          new URL(`../../../${entry}`, import.meta.url),
+          'utf8',
+        ),
       )
       const path = join(
         directory!,

@@ -1,3 +1,5 @@
+import type { BackgroundCropAspect } from '@/shared/backgrounds'
+
 /** Desktop gallery geometry and crop interaction limits from DESIGN.md. */
 export const GALLERY_THREE_COLUMN_MIN_WIDTH_PX = 520
 export const GALLERY_ROW_HEIGHT_PX = 180
@@ -12,4 +14,3 @@ export const CROP_FIXED_ASPECTS = {
 } satisfies Record<Exclude<BackgroundCropAspect, 'original'>, number>
 /** Gives the provider's bounded server request time to finish while keeping unreachable RPC calls recoverable. */
 export const UNSPLASH_SEARCH_TIMEOUT_MS = 15_000
-import type { BackgroundCropAspect } from '@/shared/backgrounds'

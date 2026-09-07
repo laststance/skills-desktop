@@ -28,7 +28,7 @@ Scope choice retained full coverage; the other choices differ in implementation 
 
 ## Sources and bundled photos
 
-Download the four free photos manually under the Unsplash License, separately from API integration. Package a WebP with long edge 3840 px, a small thumbnail and attribution metadata for each; never upscale. Store in `resources/backgrounds/`, covered by the existing resource packaging rule.
+Download the four free photos manually under the Unsplash License, separately from API integration. Package a WebP with long edge 3840 px, a small thumbnail and attribution metadata for each; never upscale. Store in `resources/backgrounds/`; explicitly copy it to packaged `backgrounds/` with `extraResources` and resolve that directory through `process.resourcesPath` in packaged builds.
 
 | Photo                                                                                                            | Photographer     | Original dimensions |
 | ---------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------- |

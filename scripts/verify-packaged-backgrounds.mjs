@@ -115,7 +115,7 @@ async function verifyRendererCsp(rendererPage, fixturePng) {
   }
 }
 
-/** Runs actual packaged Sharp and upload IPC against one isolated architecture; {@link main} records both results.
+/** Runs packaged Sharp, bundled-gallery and upload IPC against one isolated architecture; {@link main} records both results.
  * @param {'arm64' | 'x64'} expectedArchitecture - Required runtime architecture, including Rosetta for x64.
  * @param {string} requestedBundle - Explicit app path; never falls back to a workspace Electron installation.
  * @returns {Promise<object>} Verified package identity, decoding and durable application evidence.
@@ -256,6 +256,69 @@ async function verifyBundle(expectedArchitecture, requestedBundle) {
       catalog.builtins.map((item) => item.source.builtinId).sort(),
       ['alpine-lake', 'misty-forest', 'pacific-coast', 'quiet-dunes'],
     )
+    // Decode all bundled thumbnails in the real renderer so missing packaged files cannot pass a manifest-only check.
+    const builtinThumbnails = await window.evaluate(async (builtins) => {
+      return Promise.all(
+        builtins.map(async (item) => {
+          if (!item.thumbnail)
+            throw new Error(`Bundled thumbnail missing: ${item.title}`)
+          const image = new Image()
+          image.src = item.thumbnail.url
+          await image.decode()
+          return {
+            id: item.source.builtinId,
+            width: image.naturalWidth,
+            height: image.naturalHeight,
+          }
+        }),
+      )
+    }, catalog.builtins)
+    assert.deepEqual(builtinThumbnails, [
+      { id: 'alpine-lake', width: 480, height: 270 },
+      { id: 'misty-forest', width: 480, height: 270 },
+      { id: 'pacific-coast', width: 480, height: 270 },
+      { id: 'quiet-dunes', width: 480, height: 270 },
+    ])
+    const builtinAccepted = await window.evaluate(
+      (input) => window.electron.backgrounds.apply(input),
+      {
+        requestId: randomUUID(),
+        source: { kind: 'builtin', builtinId: 'alpine-lake' },
+        crop: { x: 0, y: 0, width: 100, height: 100 },
+        aspect: 'original',
+      },
+    )
+    await window.waitForFunction(
+      async (operationId) => {
+        const snapshot = await window.electron.backgrounds.getSnapshot()
+        return (
+          snapshot.operation?.operationId === operationId &&
+          snapshot.operation.status !== 'applying'
+        )
+      },
+      builtinAccepted.operationId,
+      { timeout: APPLY_TIMEOUT_MS },
+    )
+    const builtinApplied = await window.evaluate(async () => {
+      const snapshot = await window.electron.backgrounds.getSnapshot()
+      if (!snapshot.display)
+        throw new Error('The packaged built-in did not produce a display')
+      const image = new Image()
+      image.src = snapshot.display.image.url
+      await image.decode()
+      return {
+        status: snapshot.operation?.status,
+        source: snapshot.display.selection.source,
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      }
+    })
+    assert.deepEqual(builtinApplied, {
+      status: 'succeeded',
+      source: { kind: 'builtin', builtinId: 'alpine-lake' },
+      width: 3840,
+      height: 2160,
+    })
     // Substitute only the native chooser; validation, staging, processing, IPC and settings remain real.
     picker = await application.evaluateHandle(({ dialog }, source) => {
       const originalPicker = dialog.showOpenDialog
@@ -396,6 +459,8 @@ async function verifyBundle(expectedArchitecture, requestedBundle) {
       ...identity,
       csp,
       displayPixels,
+      builtinThumbnails,
+      builtinApplied,
       uploadApplied: true,
       movedOriginalPreserved: true,
       rejectedImages,

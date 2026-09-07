@@ -154,6 +154,37 @@ describe('gallery IPC and native picker ownership', () => {
     ])
     expect(settings.getSettings().background.uploads).toEqual([])
   })
+  test('synchronous Apply rejection keeps an expired draft readable and hides unexpected native details', async () => {
+    // Arrange
+    const diagnostic = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined)
+    const input = {
+      requestId: randomUUID(),
+      source: { kind: 'upload-draft', draftId: randomUUID() },
+      crop: { x: 0, y: 0, width: 100, height: 100 },
+      aspect: 'original',
+    }
+    // Act / Assert
+    await expect(invoke('backgrounds:apply', input)).rejects.toThrow(
+      'This upload draft has expired. Choose the image again.',
+    )
+    expect(diagnostic).not.toHaveBeenCalled()
+    vi.spyOn(images, 'claimBackgroundDraft').mockImplementationOnce(() => {
+      throw new TypeError(`Private failure at ${fixture}`)
+    })
+    await expect(
+      invoke('backgrounds:apply', { ...input, requestId: randomUUID() }),
+    ).rejects.toThrow(
+      'The background could not be updated. Check available disk space and permissions, then try again.',
+    )
+    expect(diagnostic.mock.calls).toEqual([
+      ['[backgrounds] unexpected IPC failure', 'TypeError'],
+    ])
+    expect(settings.getSettings().background.uploads).toEqual([])
+    expect(backgrounds.getBackgroundSnapshot().operation).toBeNull()
+  })
+
   test('picker cancellation returns no draft and never creates an owned image directory', async () => {
     // Arrange
     native.picker.mockResolvedValue({ canceled: true, filePaths: [] })

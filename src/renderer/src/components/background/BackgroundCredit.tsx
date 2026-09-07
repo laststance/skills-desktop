@@ -1,4 +1,5 @@
 import type React from 'react'
+import { toast } from 'sonner'
 
 import type { BackgroundCredit as Credit } from '@/shared/backgrounds'
 
@@ -25,6 +26,7 @@ export function BackgroundCredit({
           title={credit.photographerName}
           href={photographerUrl}
           onClick={openCredit}
+          onAuxClick={openCredit}
         >
           {credit.photographerName}
         </a>
@@ -42,6 +44,7 @@ export function BackgroundCredit({
           className="min-h-6 shrink-0 leading-6 underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-ring"
           href={photoUrl}
           onClick={openCredit}
+          onAuxClick={openCredit}
         >
           Unsplash
         </a>
@@ -75,6 +78,13 @@ function referralUrl(value: string): string | null {
  * @example <a onClick={openCredit} href="https://unsplash.com/..." />
  */
 function openCredit(event: React.MouseEvent<HTMLAnchorElement>): void {
+  if (event.type === 'auxclick' && event.button !== 1) return
   event.preventDefault()
-  void window.electron.shell.openExternal(event.currentTarget.href)
+  void window.electron.shell
+    .openExternal(event.currentTarget.href)
+    .catch(() => {
+      toast.error('Link could not be opened', {
+        description: 'Try again in a moment.',
+      })
+    })
 }
