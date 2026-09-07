@@ -555,6 +555,10 @@ export function installStorybookElectronMock(): void {
       },
       onChanged: () => cleanup,
     },
+    theme: {
+      broadcast: async () => undefined,
+      onChanged: () => cleanup,
+    },
     activity: {
       list: async () => [],
       onChanged: () => cleanup,

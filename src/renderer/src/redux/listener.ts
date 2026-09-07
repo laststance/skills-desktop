@@ -12,7 +12,7 @@ import type { AgentId } from '@/shared/types'
 import { setSettings } from './slices/settingsSlice'
 import { fetchStaleLockEntries } from './slices/skillLockSlice'
 import { clearSelection } from './slices/skillsSlice'
-import { setModePreference, setTheme } from './slices/themeSlice'
+import { setModePreference, setTheme, syncTheme } from './slices/themeSlice'
 import type { ThemeState } from './slices/themeSlice'
 import {
   fetchSyncPreview,
@@ -26,6 +26,17 @@ export const listenerMiddleware = createListenerMiddleware()
 type ListenerEffectApi = Parameters<
   Parameters<typeof listenerMiddleware.startListening>[0]['effect']
 >[1]
+
+/**
+ * The narrowest api the window-level theme subscriptions need: dispatch, and
+ * a read of the one slice they consult. Typed structurally rather than as
+ * `RootState` so `listener.ts` does not close an import cycle back through
+ * `store.ts`, and narrowly enough that no `as` cast is needed at the read.
+ */
+interface ThemeSubscriptionApi {
+  dispatch: ListenerEffectApi['dispatch']
+  getState: () => { theme: ThemeState }
+}
 
 // Type for state accessed in listeners (avoids circular RootState import)
 interface ListenerState {
@@ -65,9 +76,9 @@ function applyThemeToDOM(state: ThemeState): void {
 
 /**
  * Tracks whether the `prefers-color-scheme` listener has been installed.
- * `ACTION_HYDRATE_COMPLETE` should only fire once per session, but a
- * conservative guard keeps the subscription idempotent if a future
- * code path replays the action (e.g. during hot module reload).
+ * {@link installThemeSubscriptions} runs once per store, but a conservative
+ * guard keeps the subscription idempotent if the module is re-evaluated
+ * (e.g. during hot module reload).
  */
 let systemThemeListenerInstalled = false
 
@@ -83,7 +94,7 @@ let systemThemeListenerInstalled = false
  * doesn't always implement matchMedia) so the listener stays safe to
  * import everywhere.
  */
-function installSystemThemeListener(listenerApi: ListenerEffectApi): void {
+function installSystemThemeListener(api: ThemeSubscriptionApi): void {
   if (systemThemeListenerInstalled) return
   if (
     typeof window === 'undefined' ||
@@ -94,39 +105,105 @@ function installSystemThemeListener(listenerApi: ListenerEffectApi): void {
   const systemQuery = window.matchMedia('(prefers-color-scheme: dark)')
   systemQuery.addEventListener('change', () => {
     // Explicit light/dark must stay sticky; only the "Auto" path reacts.
-    const { theme } = listenerApi.getState() as ListenerState
+    const { theme } = api.getState()
     if (theme.modePreference === 'system') {
-      listenerApi.dispatch(setModePreference('system'))
+      api.dispatch(setModePreference('system'))
     }
   })
   systemThemeListenerInstalled = true
 }
 
 /**
+ * Tracks whether the cross-window `theme:changed` subscription is installed.
+ * Same idempotence guard as {@link systemThemeListenerInstalled}, and for the
+ * same reason: one install per store, and a module re-evaluation must not
+ * stack duplicate subscriptions.
+ */
+let themeBroadcastListenerInstalled = false
+
+/**
+ * Adopt theme changes made in the app's other window.
+ *
+ * Installed from `store.ts` so BOTH renderer entry points get it for free —
+ * the main window and the Settings window load different HTML but the same
+ * store module. Without this, switching the main window Dark -> Light left an
+ * already open Settings window in the old palette until it was closed and
+ * reopened: two windows of one app, visibly disagreeing.
+ *
+ * `window.electron` is absent in the vitest node lane, so the guard keeps
+ * `listener.ts` safe to import headlessly, exactly like the matchMedia guard
+ * above.
+ */
+function installThemeBroadcastListener(api: ThemeSubscriptionApi): void {
+  if (themeBroadcastListenerInstalled) return
+  if (typeof window === 'undefined' || !window.electron?.theme) return
+  window.electron.theme.onChanged((nextTheme) => {
+    api.dispatch(syncTheme(nextTheme))
+  })
+  themeBroadcastListenerInstalled = true
+}
+
+/**
+ * Install the two window-level theme subscriptions: OS appearance changes and
+ * the other window's `theme:changed` broadcast.
+ *
+ * Called once from `store.ts` at store creation rather than from the
+ * `ACTION_HYDRATE_COMPLETE` handler, because that action is NOT dispatched
+ * when localStorage holds nothing yet — the storage middleware short-circuits
+ * on `persisted === null`. Hanging these off hydration meant a first launch
+ * (or any launch after the user cleared storage) got neither subscription:
+ * "Auto" silently stopped following macOS Appearance, and an open Settings
+ * window would not follow the main window's palette.
+ *
+ * Both installers are individually idempotent, so a hot-module-reload replay
+ * of this call cannot stack duplicate subscriptions.
+ *
+ * @param api - The Redux store, or any `{ dispatch, getState }` pair.
+ * @example
+ * export const store = configureStore({ ... })
+ * installThemeSubscriptions(store)
+ */
+export function installThemeSubscriptions(api: ThemeSubscriptionApi): void {
+  installSystemThemeListener(api)
+  installThemeBroadcastListener(api)
+}
+
+/**
  * Theme initialization listener
  * Applies persisted theme from localStorage after hydration completes.
  * This ensures the correct theme is shown after storage-middleware loads
- * state, and installs the system-theme subscription so future OS flips
- * propagate when the user is on "Auto".
+ * state. The window-level subscriptions are NOT installed here — see
+ * {@link installThemeSubscriptions} for why hydration is the wrong trigger.
  */
 listenerMiddleware.startListening({
   type: ACTION_HYDRATE_COMPLETE,
   effect: (_action, listenerApi) => {
     const state = listenerApi.getState() as ListenerState
     applyThemeToDOM(state.theme)
-    installSystemThemeListener(listenerApi)
   },
 })
 
 /**
  * Theme switching side effect
- * Listens to all theme-related actions and applies CSS changes
+ * Listens to all theme-related actions and applies CSS changes, then tells
+ * the app's other window to adopt the same palette.
+ *
+ * `syncTheme` is matched for the DOM write but NOT for the broadcast: it is
+ * how a window ADOPTS someone else's theme, so re-publishing it would bounce
+ * the same state between windows forever. Keeping the two concerns in one
+ * listener (rather than two overlapping matchers) makes that asymmetry the
+ * single visible line it is.
  */
 listenerMiddleware.startListening({
-  matcher: isAnyOf(setTheme, setModePreference),
-  effect: (_action, listenerApi) => {
+  matcher: isAnyOf(setTheme, setModePreference, syncTheme),
+  effect: (action, listenerApi) => {
     const state = listenerApi.getState() as ListenerState
     applyThemeToDOM(state.theme)
+    if (syncTheme.match(action)) return
+    // Fire-and-forget: a failed relay costs the other window one stale
+    // palette until its next theme change, which is strictly better than
+    // an unhandled rejection tearing through the middleware.
+    void window.electron?.theme?.broadcast(state.theme).catch(() => {})
   },
 })
 

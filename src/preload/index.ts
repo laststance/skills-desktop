@@ -3,6 +3,7 @@ import { contextBridge } from 'electron'
 import type { ActivityEvent, ActivityListOptions } from '@/shared/activityLog'
 import { IPC_CHANNELS } from '@/shared/ipc-channels'
 import type { Settings, SettingsPatch } from '@/shared/settings'
+import type { ThemeState } from '@/shared/theme'
 import type {
   AbsolutePath,
   ClearOrphanSymlinksOptions,
@@ -154,6 +155,16 @@ contextBridge.exposeInMainWorld('electron', {
     get: async () => typedInvoke('settings:get'),
     set: async (partial: SettingsPatch) => typedInvoke('settings:set', partial),
     onChanged: createIpcListener<Settings>(IPC_CHANNELS.SETTINGS_CHANGED),
+  },
+  // Theme — unlike settings, the source of truth is renderer Redux (persisted
+  // to localStorage), so main only relays. `broadcast` publishes the window's
+  // resolved theme; `onChanged` lets every other window adopt it, which is
+  // what keeps an open Settings window from being stranded in the old palette
+  // when the main window switches Dark <-> Light.
+  theme: {
+    broadcast: async (state: ThemeState) =>
+      typedInvoke('theme:broadcast', state),
+    onChanged: createIpcListener<ThemeState>(IPC_CHANNELS.THEME_CHANGED),
   },
   // Activity timeline — append-only event log owned by main (userData/
   // activity-log.json). Renderer hydrates via `activity:list` and converges

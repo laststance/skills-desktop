@@ -8,9 +8,10 @@
       // Theme pre-hydration bootstrap. Mirrors src/renderer/index.html so the
       // Settings window picks up the user's persisted theme (mode + preset)
       // before React mounts, avoiding a neutral-dark flash. Settings does NOT
-      // expose theme controls, so we only READ from localStorage; live updates
-      // from the main window are not propagated here (theme changes require
-      // closing and reopening Settings).
+      // expose theme controls, so we only READ from localStorage here; once
+      // React mounts, live changes from the main window arrive over the
+      // `theme:changed` broadcast (see installThemeBroadcastListener in
+      // src/renderer/src/redux/listener.ts).
       //
       // Magic literals duplicated from constants.ts; bootstrap.test.ts
       // guards against drift:

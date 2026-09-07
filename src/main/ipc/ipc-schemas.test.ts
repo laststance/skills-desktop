@@ -822,3 +822,76 @@ describe('settings:set lockstep with SettingsSchema', () => {
     )
   })
 })
+
+describe('theme:broadcast', () => {
+  const validTheme = {
+    hue: 195,
+    chroma: 0.16,
+    mode: 'dark' as const,
+    modePreference: 'system' as const,
+    preset: 'cyan',
+  }
+
+  it('relays a resolved theme that names a real preset', () => {
+    // Arrange
+    const schema = IPC_ARG_SCHEMAS['theme:broadcast']
+
+    // Act
+    const result = schema!.safeParse([validTheme])
+
+    // Assert
+    expect(result.success).toBe(true)
+  })
+
+  it('blocks a preset name that is not in THEME_PRESETS', () => {
+    // Every window dispatches this payload straight into its theme reducer.
+    // An unknown key would land on the reducer's stale-preset fallback and
+    // silently reset the palette in a window the user never touched.
+    // Arrange
+    const schema = IPC_ARG_SCHEMAS['theme:broadcast']
+
+    // Act
+    const result = schema!.safeParse([{ ...validTheme, preset: 'mono-dark' }])
+
+    // Assert
+    expect(result.success).toBe(false)
+  })
+
+  it('blocks an out-of-range hue before it is written to a style property', () => {
+    // `applyThemeToDOM` writes `hue` verbatim into `--theme-hue`, so the
+    // OKLCH range is the only thing constraining it.
+    // Arrange
+    const schema = IPC_ARG_SCHEMAS['theme:broadcast']
+
+    // Act
+    const result = schema!.safeParse([{ ...validTheme, hue: 9999 }])
+
+    // Assert
+    expect(result.success).toBe(false)
+  })
+
+  it('blocks a mode outside light and dark', () => {
+    // Arrange
+    const schema = IPC_ARG_SCHEMAS['theme:broadcast']
+
+    // Act
+    const result = schema!.safeParse([{ ...validTheme, mode: 'sepia' }])
+
+    // Assert
+    expect(result.success).toBe(false)
+  })
+
+  it('blocks a key the theme contract does not declare', () => {
+    // Strict rather than stripping: an extra key means the broadcasting
+    // renderer and this schema have drifted, and a relay that fails loudly
+    // beats one that quietly drops a field the receiving reducer expects.
+    // Arrange
+    const schema = IPC_ARG_SCHEMAS['theme:broadcast']
+
+    // Act
+    const result = schema!.safeParse([{ ...validTheme, accent: 'neon' }])
+
+    // Assert
+    expect(result.success).toBe(false)
+  })
+})

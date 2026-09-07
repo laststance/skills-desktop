@@ -1,6 +1,6 @@
 import { ACTION_HYDRATE_COMPLETE } from '@laststance/redux-storage-middleware'
 import { configureStore } from '@reduxjs/toolkit'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, test, vi } from 'vitest'
 
 /**
  * Integration tests for the theme DOM side effect in listener.ts. The listener
@@ -9,9 +9,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  * reacting to Redux state. Tests run in happy-dom so we can assert against a
  * real `document.documentElement`.
  *
- * Matcher coverage: setTheme, setModePreference, ACTION_HYDRATE_COMPLETE. If
- * a future reducer is added that mutates theme state, extending the matcher
- * in listener.ts requires a new test here.
+ * Matcher coverage: setTheme, setModePreference, syncTheme,
+ * ACTION_HYDRATE_COMPLETE. If a future reducer is added that mutates theme
+ * state, extending the matcher in listener.ts requires a new test here.
  *
  * @vitest-environment happy-dom
  */
@@ -25,13 +25,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  * a no-op.
  */
 async function createThemedStore() {
-  const { listenerMiddleware } = await import('./listener')
+  const { installThemeSubscriptions, listenerMiddleware } =
+    await import('./listener')
   const { default: themeReducer } = await import('./slices/themeSlice')
-  return configureStore({
+  const store = configureStore({
     reducer: { theme: themeReducer },
     middleware: (getDefault) =>
       getDefault().prepend(listenerMiddleware.middleware),
   })
+  // Mirrors store.ts: the window-level subscriptions are installed at store
+  // creation, NOT from the hydration handler — the storage middleware skips
+  // ACTION_HYDRATE_COMPLETE entirely when localStorage is still empty.
+  installThemeSubscriptions(store)
+  return store
 }
 
 beforeEach(() => {
@@ -47,6 +53,11 @@ beforeEach(() => {
   root.style.removeProperty('--theme-hue')
   root.style.removeProperty('--theme-chroma')
   root.classList.remove('dark', 'light', 'tone-tinted')
+
+  // Drop any preload bridge a cross-window test installed — happy-dom keeps
+  // one `window` for the whole file, so a leftover stub would make the
+  // "no bridge" test pass for the wrong reason.
+  Reflect.deleteProperty(window, 'electron')
 })
 
 describe('theme listener — applyThemeToDOM', () => {
@@ -302,15 +313,14 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(store.getState().theme.modePreference).toBe('system')
   })
 
-  it('subscribes to OS appearance only once even if hydration completes twice', async () => {
-    // Idempotency guard for the OS-appearance subscription: ACTION_HYDRATE_COMPLETE
-    // should fire once per session, but a hot-module-reload replay (or any future
-    // code path that re-dispatches it) must NOT stack a second
+  it('subscribes to OS appearance only once even if the installer runs twice', async () => {
+    // Idempotency guard for the OS-appearance subscription: `store.ts` installs
+    // once, but a hot-module-reload replay must NOT stack a second
     // `prefers-color-scheme` change listener. Without the
-    // `systemThemeListenerInstalled` short-circuit, every replayed hydrate would
-    // add another subscription, so one OS flip would re-resolve the theme N times
-    // and leak listeners. The guard makes the second hydrate a no-op for
-    // subscription setup, which we observe by counting matchMedia calls.
+    // `systemThemeListenerInstalled` short-circuit, every replay would add
+    // another subscription, so one OS flip would re-resolve the theme N times
+    // and leak listeners. The guard makes the second install a no-op, which we
+    // observe by counting matchMedia calls.
 
     // Arrange — a matchMedia spy installed before importing the listener so the
     // first hydrate wires its change handler against our stub.
@@ -333,13 +343,13 @@ describe('theme listener — applyThemeToDOM', () => {
     })
 
     const store = await createThemedStore()
+    const { installThemeSubscriptions } = await import('./listener')
 
-    // Act — hydrate twice on the SAME store (same module instance, so the
-    // module-level installed flag persists between the two dispatches).
-    store.dispatch({ type: ACTION_HYDRATE_COMPLETE })
-    store.dispatch({ type: ACTION_HYDRATE_COMPLETE })
+    // Act — install a second time on the SAME module instance, so the
+    // module-level installed flag persists between the two calls.
+    installThemeSubscriptions(store)
 
-    // Assert — only the first hydrate subscribed; the second hit the guard.
+    // Assert — only the first install subscribed; the second hit the guard.
     expect(osAppearanceSubscriptions).toBe(1)
     expect(matchMediaStub).toHaveBeenCalledTimes(1)
   })
@@ -409,6 +419,8 @@ describe('theme listener — applyThemeToDOM', () => {
     })
 
     try {
+      // Act (part 1) — creating the store runs the installer, which must
+      // early-return on the missing matchMedia rather than calling it.
       const store = await createThemedStore()
       const { setTheme } = await import('./slices/themeSlice')
       store.dispatch(setTheme('blue'))
@@ -417,8 +429,7 @@ describe('theme listener — applyThemeToDOM', () => {
       root.style.removeProperty('--theme-chroma')
       root.classList.remove('dark', 'light')
 
-      // Act — hydration completes; installSystemThemeListener must early-return
-      // on the missing matchMedia rather than calling window.matchMedia(...).
+      // Act (part 2) — hydration still repaints without throwing.
       expect(() =>
         store.dispatch({ type: ACTION_HYDRATE_COMPLETE }),
       ).not.toThrow()
@@ -473,5 +484,168 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(store.getState().theme.preset).toBe('neutral-light')
 
     setPropertySpy.mockRestore()
+  })
+})
+
+describe('theme listener — cross-window sync', () => {
+  /**
+   * Install a stub preload bridge and hand back the pieces the tests drive:
+   * `broadcast` records what this window published, and `emitChanged` plays
+   * the other window's broadcast back in.
+   */
+  function stubThemeBridge() {
+    const broadcast = vi.fn().mockResolvedValue(undefined)
+    let received: ((state: unknown) => void) | null = null
+    Object.defineProperty(window, 'electron', {
+      configurable: true,
+      writable: true,
+      value: {
+        theme: {
+          broadcast,
+          onChanged: (callback: (state: unknown) => void) => {
+            received = callback
+            return () => {}
+          },
+        },
+      },
+    })
+    return {
+      broadcast,
+      emitChanged: (state: unknown) => received?.(state),
+    }
+  }
+
+  test('publishes the resolved theme so the Settings window can follow a mode switch', async () => {
+    // Arrange
+    const { broadcast } = stubThemeBridge()
+    const store = await createThemedStore()
+    const { setModePreference } = await import('./slices/themeSlice')
+
+    // Act
+    store.dispatch(setModePreference('light'))
+
+    // Assert — the whole resolved state travels, not just the preset name:
+    // the receiving window must not re-resolve `mode` against its own
+    // matchMedia.
+    expect(broadcast).toHaveBeenCalledWith({
+      hue: 0,
+      chroma: 0,
+      mode: 'light',
+      modePreference: 'light',
+      preset: 'neutral-light',
+    })
+  })
+
+  test('adopts a theme published by the other window without echoing it back', async () => {
+    // Regression guard for an infinite cross-window bounce: if adopting a
+    // broadcast re-published it, the two windows would relay the same state
+    // to each other forever.
+
+    // Arrange
+    const { broadcast, emitChanged } = stubThemeBridge()
+    const store = await createThemedStore()
+
+    // Act — the other window switched to Cyan.
+    emitChanged({
+      hue: 195,
+      chroma: 0.16,
+      mode: 'dark',
+      modePreference: 'dark',
+      preset: 'cyan',
+    })
+
+    // Assert
+    expect(store.getState().theme.preset).toBe('cyan')
+    expect(broadcast).not.toHaveBeenCalled()
+  })
+
+  test('repaints <html> when the other window switches from Dark to Light', async () => {
+    // The bug this whole path exists for: an open Settings window used to
+    // stay Dark until it was closed and reopened.
+
+    // Arrange
+    const { emitChanged } = stubThemeBridge()
+    const store = await createThemedStore()
+    // A returning user: hydration repaints the persisted dark palette first.
+    store.dispatch({ type: ACTION_HYDRATE_COMPLETE })
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+
+    // Act
+    emitChanged({
+      hue: 0,
+      chroma: 0,
+      mode: 'light',
+      modePreference: 'light',
+      preset: 'neutral-light',
+    })
+
+    // Assert
+    expect(document.documentElement.classList.contains('light')).toBe(true)
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+  })
+
+  test('subscribes to the other window only once even if the installer runs twice', async () => {
+    // Arrange
+    let subscriptions = 0
+    Object.defineProperty(window, 'electron', {
+      configurable: true,
+      writable: true,
+      value: {
+        theme: {
+          broadcast: vi.fn().mockResolvedValue(undefined),
+          onChanged: () => {
+            subscriptions += 1
+            return () => {}
+          },
+        },
+      },
+    })
+    const store = await createThemedStore()
+    const { installThemeSubscriptions } = await import('./listener')
+
+    // Act
+    installThemeSubscriptions(store)
+
+    // Assert
+    expect(subscriptions).toBe(1)
+  })
+
+  test('still paints the theme when no preload bridge is present', async () => {
+    // The node test lane and Storybook both render this store without
+    // `window.electron`; theme must keep working rather than throw.
+
+    // Arrange — `beforeEach` already removed any stub bridge.
+    const store = await createThemedStore()
+    const { setTheme } = await import('./slices/themeSlice')
+
+    // Act
+    store.dispatch(setTheme('neutral-light'))
+
+    // Assert
+    expect(document.documentElement.classList.contains('light')).toBe(true)
+  })
+
+  test('still follows the other window on a first launch, before anything is persisted', async () => {
+    // Regression guard for the trigger these subscriptions used to hang off:
+    // the storage middleware short-circuits without dispatching
+    // ACTION_HYDRATE_COMPLETE when localStorage holds nothing, so installing
+    // on hydration left a fresh profile with no cross-window sync at all.
+
+    // Arrange — a store that never sees a hydrate action.
+    const { emitChanged } = stubThemeBridge()
+    const store = await createThemedStore()
+
+    // Act
+    emitChanged({
+      hue: 0,
+      chroma: 0,
+      mode: 'light',
+      modePreference: 'light',
+      preset: 'neutral-light',
+    })
+
+    // Assert
+    expect(store.getState().theme.mode).toBe('light')
+    expect(document.documentElement.classList.contains('light')).toBe(true)
   })
 })

@@ -6,11 +6,33 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 ### P2. Open Settings should follow theme changes in the main window
 
-**Status:** Deferred; the theme synchronization code is unchanged by the opacity feature.
+**Status:** FIXED.
 
 **Finding:** Switching the main window from Dark to Light leaves an already-open Settings window in Dark until reload. This makes two windows from the same app look inconsistent.
 
-**Fix direction:** Synchronize theme changes to open Settings windows and cover the two-window interaction in Electron E2E.
+**Fix:** Theme lives in renderer Redux (persisted to localStorage), not in
+`settings.json`, so it had no main-process owner to broadcast from. The window
+that changes the theme now publishes its resolved `ThemeState` over
+`theme:broadcast`; main relays it as `theme:changed` and every window adopts it
+with a `syncTheme` action. `syncTheme` is deliberately excluded from the
+listener that publishes, so adopting a broadcast never re-publishes and the two
+windows cannot bounce state at each other. Covered by
+`e2e/spec/settings-window-theme-sync.e2e.ts` (mode switch and accent preset,
+both across the two real windows).
+
+**Fixed alongside it:** the OS-appearance ("Auto") subscription and the new
+cross-window subscription were both installed from the
+`ACTION_HYDRATE_COMPLETE` handler, and the storage middleware does not dispatch
+that action when localStorage is still empty. On a first launch neither
+subscription existed, so "Auto" silently stopped following macOS Appearance
+until the app had been restarted once. Both now install from `store.ts` at
+store creation.
+
+**Known ceiling:** a broadcast is a one-shot event, so a window that is mid-load
+when another window changes the theme misses it and keeps the palette it read
+from localStorage at boot. The window that changed the theme has already
+persisted the new state by then, so this only bites if the two overlap within
+the few hundred ms before the second window's store evaluates.
 
 ### P2. Main-window cards should fit the minimum desktop width
 
