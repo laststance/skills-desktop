@@ -118,7 +118,7 @@ export const UnlinkDialog = function UnlinkDialog(): React.ReactElement {
     : 'valid'
   const copy = getUnlinkCopy(
     variant,
-    toSkillName(skillToUnlink?.skill.name ?? ''),
+    skillToUnlink?.skill.name ?? toSkillName(''),
     skillToUnlink?.symlink.agentName ?? '',
   )
 
