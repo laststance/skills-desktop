@@ -1,4 +1,14 @@
 import type { ActivityEvent, ActivityListOptions } from './activityLog'
+import type {
+  BackgroundApplyAcceptance,
+  BackgroundApplyInput,
+  BackgroundApplySource,
+  BackgroundCatalog,
+  BackgroundLayout,
+  BackgroundPreview,
+  BackgroundSnapshot,
+  BackgroundUploadDraft,
+} from './backgrounds'
 import type { Settings, SettingsPatch } from './settings'
 import type { ThemeState } from './theme'
 import type {
@@ -155,6 +165,21 @@ export interface IpcInvokeContract {
     args: [SettingsPatch, requestId?: string]
     result: Settings
   }
+  'backgrounds:list': { args: []; result: BackgroundCatalog }
+  'backgrounds:importImage': { args: []; result: BackgroundUploadDraft | null }
+  'backgrounds:discardDraft': { args: [{ draftId: string }]; result: void }
+  'backgrounds:preview': {
+    args: [BackgroundApplySource]
+    result: BackgroundPreview
+  }
+  'backgrounds:apply': {
+    args: [BackgroundApplyInput]
+    result: BackgroundApplyAcceptance
+  }
+  'backgrounds:clear': { args: []; result: Settings }
+  'backgrounds:removeUpload': { args: [{ uploadId: string }]; result: Settings }
+  'backgrounds:setLayout': { args: [BackgroundLayout]; result: Settings }
+  'backgrounds:getSnapshot': { args: []; result: BackgroundSnapshot }
   'theme:broadcast': { args: [ThemeState]; result: void }
   'activity:list': {
     // Always 1-arg (possibly `undefined`) to match the Zod tuple schema, like
@@ -197,6 +222,7 @@ export interface IpcEventContract {
   'update:downloaded': UpdateInfo
   'update:error': UpdateErrorPayload
   'settings:changed': { settings: Settings; requestId?: string }
+  'backgrounds:changed': BackgroundSnapshot
   'theme:changed': ThemeState
   'activity:changed': ActivityEvent[]
 }
@@ -205,3 +231,17 @@ export interface IpcEventContract {
 export type IpcInvokeChannel = keyof IpcInvokeContract
 /** Union of every one-way (main → renderer) IPC event channel name in {@link IpcEventContract}. */
 export type IpcEventChannel = keyof IpcEventContract
+
+/** Preload, renderer and E2E derive the background bridge from the invoke/event contract together. */
+export type BackgroundsApi = {
+  [
+    Channel in Extract<
+      IpcInvokeChannel,
+      `backgrounds:${string}`
+    > as Channel extends `backgrounds:${infer Method}` ? Method : never
+  ]: (
+    ...args: IpcInvokeContract[Channel]['args']
+  ) => Promise<IpcInvokeContract[Channel]['result']>
+} & {
+  onChanged: (callback: (snapshot: BackgroundSnapshot) => void) => () => void
+}
