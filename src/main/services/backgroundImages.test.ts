@@ -14,11 +14,15 @@ import type * as BackgroundImagesModule from './backgroundImages'
 const electronPaths = vi.hoisted(() => ({
   userData: '',
   appPath: process.cwd(),
+  isPackaged: false,
 }))
 vi.mock('electron', () => ({
   app: {
     getPath: () => electronPaths.userData,
     getAppPath: () => electronPaths.appPath,
+    get isPackaged() {
+      return electronPaths.isPackaged
+    },
   },
 }))
 
@@ -88,6 +92,8 @@ beforeEach(async () => {
   vi.resetModules()
   directory = await fs.mkdtemp(join(tmpdir(), 'skills-background-images-'))
   electronPaths.userData = join(directory, 'profile')
+  electronPaths.appPath = join(process.cwd(), 'out', 'main')
+  electronPaths.isPackaged = false
   images = await import('./backgroundImages')
 })
 
@@ -198,18 +204,23 @@ describe('background image ingestion', () => {
     expect((await fs.stat(original.path)).size).toBe(20_971_521)
   })
 
-  test('fully decodes an 80 megapixel source while keeping the editor preview bounded', async () => {
-    // Arrange
-    const original = await writeImage(10000, 8000, 'jpeg')
+  // Real 80 MP fixture creation, full decode and two derivatives exceed the 5s default under parallel Linux coverage.
+  test(
+    'fully decodes an 80 megapixel source while keeping the editor preview bounded',
+    { timeout: 30_000 },
+    async () => {
+      // Arrange
+      const original = await writeImage(10000, 8000, 'jpeg')
 
-    // Act
-    const draft = await images.importBackgroundImage(original.path, 1)
+      // Act
+      const draft = await images.importBackgroundImage(original.path, 1)
 
-    // Assert
-    expect([draft.width, draft.height]).toEqual([10000, 8000])
-    expect([draft.image.width, draft.image.height]).toEqual([1920, 1536])
-    expect(descriptorBytes(draft.image.url).length).toBeLessThan(20_971_521)
-  })
+      // Assert
+      expect([draft.width, draft.height]).toEqual([10000, 8000])
+      expect([draft.image.width, draft.image.height]).toEqual([1920, 1536])
+      expect(descriptorBytes(draft.image.url).length).toBeLessThan(20_971_521)
+    },
+  )
 
   test('rejects a file that grows past 20 MiB after its size was checked', async () => {
     // Arrange
@@ -815,59 +826,69 @@ describe('background draft ownership and crop publication', () => {
     expect(await fs.readFile(original.path)).toEqual(original.bytes)
   })
 
-  test('lists exactly four verified built-ins and keeps a missing upload visible without sweeping owned files', async () => {
-    // Arrange
-    const original = await writeImage(1920, 1080)
-    const draft = await images.importBackgroundImage(original.path, 1)
-    const upload = images.claimBackgroundDraft(draft.source.draftId)
-    await images.publishBackgroundDraft(draft.source.draftId)
-    await fs.rm(
-      join(
-        electronPaths.userData,
-        'backgrounds',
-        'uploads',
-        upload.id,
-        'thumbnail.webp',
-      ),
-    )
-
-    // Act
-    const catalog = await images.getBackgroundCatalog([upload])
-    const preview = await images.getBackgroundPreview(
-      { kind: 'builtin', builtinId: 'quiet-dunes' },
-      [],
-    )
-
-    // Assert
-    expect(catalog.builtins.map((item) => item.title)).toEqual([
-      'Alpine lake',
-      'Misty forest',
-      'Pacific coast',
-      'Quiet dunes',
-    ])
-    expect(
-      catalog.builtins.map((item) => item.credit?.photographerName),
-    ).toEqual(['Mike Petrucci', 'T', 'Kellen Riggin', 'Marc Wieland'])
-    expect(catalog.builtins.map((item) => item.thumbnail?.width)).toEqual([
-      480, 480, 480, 480,
-    ])
-    expect(catalog.uploads[0].thumbnail).toBeNull()
-    expect([preview.width, preview.height]).toEqual([3840, 2160])
-    expect([preview.image.width, preview.image.height]).toEqual([1920, 1080])
-    expect(
-      await fs.readFile(
+  test.each([
+    { runtime: 'development and E2E', isPackaged: false },
+    { runtime: 'packaged application', isPackaged: true },
+  ])(
+    'loads all four built-ins from the $runtime resource root and keeps missing uploads visible',
+    async ({ isPackaged }) => {
+      // Arrange
+      electronPaths.isPackaged = isPackaged
+      electronPaths.appPath = isPackaged
+        ? process.cwd()
+        : join(process.cwd(), 'out', 'main')
+      const original = await writeImage(1920, 1080)
+      const draft = await images.importBackgroundImage(original.path, 1)
+      const upload = images.claimBackgroundDraft(draft.source.draftId)
+      await images.publishBackgroundDraft(draft.source.draftId)
+      await fs.rm(
         join(
           electronPaths.userData,
           'backgrounds',
           'uploads',
           upload.id,
-          'original',
+          'thumbnail.webp',
         ),
-      ),
-    ).toEqual(original.bytes)
-    await images.removeBackgroundUpload(upload.id)
-    expect(await fs.readFile(original.path)).toEqual(original.bytes)
-  })
+      )
+
+      // Act
+      const catalog = await images.getBackgroundCatalog([upload])
+      const preview = await images.getBackgroundPreview(
+        { kind: 'builtin', builtinId: 'quiet-dunes' },
+        [],
+      )
+
+      // Assert
+      expect(catalog.builtins.map((item) => item.title)).toEqual([
+        'Alpine lake',
+        'Misty forest',
+        'Pacific coast',
+        'Quiet dunes',
+      ])
+      expect(
+        catalog.builtins.map((item) => item.credit?.photographerName),
+      ).toEqual(['Mike Petrucci', 'T', 'Kellen Riggin', 'Marc Wieland'])
+      expect(catalog.builtins.map((item) => item.thumbnail?.width)).toEqual([
+        480, 480, 480, 480,
+      ])
+      expect(catalog.uploads[0].thumbnail).toBeNull()
+      expect([preview.width, preview.height]).toEqual([3840, 2160])
+      expect([preview.image.width, preview.image.height]).toEqual([1920, 1080])
+      expect(
+        await fs.readFile(
+          join(
+            electronPaths.userData,
+            'backgrounds',
+            'uploads',
+            upload.id,
+            'original',
+          ),
+        ),
+      ).toEqual(original.bytes)
+      await images.removeBackgroundUpload(upload.id)
+      expect(await fs.readFile(original.path)).toEqual(original.bytes)
+    },
+  )
 
   test('rejects unknown tokens, missing library sources and path-like IDs before accessing arbitrary files', async () => {
     // Arrange

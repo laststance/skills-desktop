@@ -34,7 +34,11 @@ const native = vi.hoisted(() => ({
   >(),
 }))
 vi.mock('electron', () => ({
-  app: { getPath: () => native.userData, getAppPath: () => process.cwd() },
+  app: {
+    getPath: () => native.userData,
+    getAppPath: () => join(process.cwd(), 'out', 'main'),
+    isPackaged: false,
+  },
   ipcMain: {
     handle: (
       channel: string,

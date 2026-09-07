@@ -19,6 +19,7 @@ import {
   BACKGROUND_WEBP_HEADER_BYTES,
   BACKGROUND_WEBP_QUALITY,
 } from '@/main/constants'
+import { bundledBackgroundPath } from '@/main/utils/bundledBackgroundPath'
 import {
   BackgroundOwnedIdSchema,
   type BackgroundApplySource,
@@ -623,7 +624,7 @@ function localImageInput(
         'This built-in background is unavailable.',
       )
     return {
-      path: join(app.getAppPath(), 'resources', 'backgrounds', photo.filename),
+      path: bundledBackgroundPath(photo.filename),
       title: photo.name,
       width: photo.width,
       height: photo.height,
@@ -679,12 +680,7 @@ export async function getBackgroundCatalog(
         )
         const thumbnail = photo
           ? await imageDescriptor(
-              join(
-                app.getAppPath(),
-                'resources',
-                'backgrounds',
-                photo.thumbnailFilename,
-              ),
+              bundledBackgroundPath(photo.thumbnailFilename),
               BACKGROUND_THUMBNAIL_LONG_EDGE_PX,
             )
           : null
