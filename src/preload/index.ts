@@ -1,8 +1,14 @@
 import { contextBridge } from 'electron'
 
 import type { ActivityEvent, ActivityListOptions } from '@/shared/activityLog'
+import type {
+  BackgroundApplyInput,
+  BackgroundApplySource,
+  BackgroundLayout,
+  BackgroundSnapshot,
+} from '@/shared/backgrounds'
 import { IPC_CHANNELS } from '@/shared/ipc-channels'
-import type { IpcEventContract } from '@/shared/ipc-contract'
+import type { BackgroundsApi, IpcEventContract } from '@/shared/ipc-contract'
 import type { Settings, SettingsPatch } from '@/shared/settings'
 import type { ThemeState } from '@/shared/theme'
 import type {
@@ -171,6 +177,26 @@ contextBridge.exposeInMainWorld('electron', {
         }
       }),
   },
+  // Subscribe before fetching a snapshot; Main revisions order delayed replies and accepted work survives closure.
+  backgrounds: {
+    list: async () => typedInvoke('backgrounds:list'),
+    importImage: async () => typedInvoke('backgrounds:importImage'),
+    discardDraft: async (options: { draftId: string }) =>
+      typedInvoke('backgrounds:discardDraft', options),
+    preview: async (source: BackgroundApplySource) =>
+      typedInvoke('backgrounds:preview', source),
+    apply: async (input: BackgroundApplyInput) =>
+      typedInvoke('backgrounds:apply', input),
+    clear: async () => typedInvoke('backgrounds:clear'),
+    removeUpload: async (options: { uploadId: string }) =>
+      typedInvoke('backgrounds:removeUpload', options),
+    setLayout: async (layout: BackgroundLayout) =>
+      typedInvoke('backgrounds:setLayout', layout),
+    getSnapshot: async () => typedInvoke('backgrounds:getSnapshot'),
+    onChanged: createIpcListener<BackgroundSnapshot>(
+      IPC_CHANNELS.BACKGROUNDS_CHANGED,
+    ),
+  } satisfies BackgroundsApi,
   // Theme — unlike settings, the source of truth is renderer Redux (persisted
   // to localStorage), so main only relays. `broadcast` publishes the window's
   // resolved theme; `onChanged` lets every other window adopt it, which is

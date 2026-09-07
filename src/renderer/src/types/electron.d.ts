@@ -2,6 +2,7 @@ import type {
   ActivityEvent,
   ActivityListOptions,
 } from '../../../shared/activityLog'
+import type { BackgroundsApi } from '../../../shared/ipc-contract'
 import type { Settings, SettingsPatch } from '../../../shared/settings'
 import type { ThemeState } from '../../../shared/theme'
 import type {
@@ -60,6 +61,7 @@ import type {
 declare global {
   interface Window {
     electron: {
+      backgrounds: BackgroundsApi
       shell: {
         openExternal: (url: string) => Promise<void>
       }

@@ -1,6 +1,10 @@
 import { z } from 'zod'
 
 import {
+  BackgroundSettingsSchema,
+  DEFAULT_BACKGROUND_SETTINGS,
+} from './backgrounds'
+import {
   AGENT_IDS,
   CODE_THEME_IDS,
   DEFAULT_CODE_THEME_ID,
@@ -225,6 +229,11 @@ export const SettingsSchema = z.object({
   // confirm-via-UI download flow is preserved unless a persisted opt-in
   // already exists from an older version.
   autoDownloadUpdates: z.boolean().default(false),
+  // Old installations start without an image; each parse receives a fresh owned-library array.
+  background: BackgroundSettingsSchema.default(() => ({
+    ...DEFAULT_BACKGROUND_SETTINGS,
+    uploads: [],
+  })),
 })
 
 /**
@@ -253,10 +262,10 @@ export const SettingsSchema = z.object({
 export type Settings = z.infer<typeof SettingsSchema>
 
 /**
- * @description Partial settings payload accepted by the `settings:set` IPC write boundary.
+ * @description Generic preferences accepted by `settings:set`; Main-owned background mutations use dedicated IPC.
  * @example { defaultSkillTab: 'info' }
  */
-export type SettingsPatch = Partial<Settings>
+export type SettingsPatch = Partial<Omit<Settings, 'background'>>
 
 /**
  * Default settings used when `settings.json` is missing or fails
@@ -278,4 +287,5 @@ export const DEFAULT_SETTINGS: Settings = {
   installedSearchCountDisplay: 'tab',
   hiddenAgentIds: [],
   autoDownloadUpdates: false,
+  background: DEFAULT_BACKGROUND_SETTINGS,
 }

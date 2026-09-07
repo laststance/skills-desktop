@@ -434,6 +434,32 @@ export function installStorybookElectronMock(): void {
   }
 
   window.electron = {
+    backgrounds: {
+      list: async () => ({ builtins: [], uploads: [] }),
+      importImage: async () => null,
+      discardDraft: async () => undefined,
+      preview: async () => {
+        throw new Error('Choose a background in the desktop app to preview it.')
+      },
+      apply: async () => {
+        throw new Error('Background application requires the desktop app.')
+      },
+      clear: async () => currentSettings,
+      removeUpload: async () => currentSettings,
+      setLayout: async (layout) => {
+        currentSettings = {
+          ...currentSettings,
+          background: { ...currentSettings.background, layout },
+        }
+        return currentSettings
+      },
+      getSnapshot: async () => ({
+        revision: 0,
+        operation: null,
+        display: null,
+      }),
+      onChanged: () => cleanup,
+    },
     shell: {
       openExternal: async () => undefined,
     },
