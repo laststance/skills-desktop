@@ -4,6 +4,8 @@
  * type-check inside Playwright tests.
  */
 
+import type { BackgroundsApi } from '../src/shared/ipc-contract'
+
 interface RecordedIpcEvent {
   channel: string
   data: unknown
@@ -58,6 +60,7 @@ declare global {
      * read properties of undefined" message that names the channel.
      */
     electron: {
+      backgrounds: BackgroundsApi
       skills: {
         getAll: () => Promise<unknown[]>
         copyToAgents: (options: {
