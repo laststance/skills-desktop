@@ -338,7 +338,6 @@ describe('AddSymlinkModal occupied-agent states', () => {
           agentId: 'cursor',
           agentName: 'Cursor',
           status: 'valid',
-          targetPath: toAbsolutePath(''),
           linkPath: toAbsolutePath('/home/user/.cursor/skills/task'),
           isLocal: true,
         },

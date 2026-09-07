@@ -55,8 +55,16 @@ export const toSkillName = (value: string): SkillName => value as SkillName
 export type AbsolutePath = Brand<string, 'AbsolutePath'>
 
 /**
- * Construct an {@link AbsolutePath} from a raw string at a trust boundary
- * (a `path.join` result, a dialog selection, or an IPC payload).
+ * Construct an {@link AbsolutePath} from a path this process produced itself —
+ * a `path.join` / `realpath` result, a root constant, or a value read back
+ * from state we already persisted.
+ *
+ * Brands, does NOT authorize: it asserts a contract, it never checks one. A
+ * path arriving from the renderer over IPC must be built by
+ * {@link validatePath} instead, which resolves it against the allowed bases
+ * and IS the construction site for untrusted input. Branding such a path here
+ * would claim it is trusted on the way *in*, which is the inversion
+ * {@link validatePath} exists to prevent.
  * @example toAbsolutePath('/Users/me/.agents/skills/tdd-workflow')
  */
 export const toAbsolutePath = (value: string): AbsolutePath =>
@@ -659,8 +667,10 @@ export type TerminalAppId = (typeof TERMINAL_APP_IDS)[number]
  *   scan and click, or stat raised ENOENT/ELOOP/ENOTDIR).
  * - `launch-failed`: `open -a` exited non-zero or `shell.openPath`
  *   returned an error string (most often: chosen terminal app missing).
- * - `invalid-path`: settings are in `'custom'` mode but the custom app
- *   name is blank/missing — caller must surface a Settings hint.
+ * - `invalid-path`: the request was refused before any launcher ran. Either
+ *   the renderer asked for a folder outside the allowed base directories
+ *   (see {@link validatePath}), or settings are in `'custom'` mode with a
+ *   blank/missing custom app name — the latter must surface a Settings hint.
  *
  * @example
  * const reason: FolderActionErrorReason = 'not-found'

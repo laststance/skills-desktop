@@ -3,6 +3,7 @@ import { realpath } from 'node:fs/promises'
 
 import { shell } from 'electron'
 
+import { getAllowedBases, validatePath } from '@/main/services/pathValidation'
 import { getSettings } from '@/main/services/settings'
 import { errorCode } from '@/main/utils/errorCode'
 import { TERMINAL_APP_DISPLAY_NAMES } from '@/shared/constants'
@@ -58,25 +59,51 @@ export function buildOpenArgs(
 }
 
 /**
- * Verify a path exists on disk before handing it to a launcher. Catches the
- * "user deleted the folder externally between scan and click" race AND
- * symlink loops (ELOOP) that would otherwise hang `realpath` indefinitely.
+ * Authorize a renderer-supplied folder path, then verify it exists, before it
+ * reaches a launcher. Two gates, in order:
  *
- * Returns the canonical (symlink-resolved) path on success — pass that
- * to `open` / `shell.openPath` so the launcher sees a real directory rather
- * than a broken symlink.
+ * 1. {@link validatePath} against {@link getAllowedBases} — the renderer may
+ *    only ask for the source dir or an agent scan dir. Every other path-taking
+ *    IPC channel is allowlisted this way; without it `shell.openPath` and
+ *    `open -a` would happily launch ANY absolute path, so a renderer running
+ *    injected script could start an arbitrary app. The Zod schema on the
+ *    channel only proves the string starts with `/`, and {@link toAbsolutePath}
+ *    only brands — neither one authorizes.
+ * 2. `realpath` existence — catches the "user deleted the folder between scan
+ *    and click" race AND symlink loops (ELOOP) that would otherwise hang the
+ *    launcher indefinitely.
  *
- * @param requestedPath - Absolute path supplied by the renderer (already
- *   Zod-validated as starting with `/`).
+ * Returns the canonical (symlink-resolved) path on success — pass that to
+ * `open` / `shell.openPath` so the launcher sees a real directory rather than
+ * a broken symlink.
+ *
+ * @param requestedPath - Absolute path supplied by the renderer (Zod-validated
+ *   as starting with `/`, but NOT yet authorized).
  * @returns
  * - `{ ok: true, resolved }` on success
+ * - `{ ok: false, reason: 'invalid-path' }` when outside every allowed base
  * - `{ ok: false, reason: 'not-found' }` for ENOENT / ELOOP / ENOTDIR
+ * @example
+ * await resolveExistingPath(toAbsolutePath('/etc'))
+ * // => { ok: false, reason: 'invalid-path' }
  */
 async function resolveExistingPath(
   requestedPath: AbsolutePath,
 ): Promise<
-  { ok: true; resolved: AbsolutePath } | { ok: false; reason: 'not-found' }
+  | { ok: true; resolved: AbsolutePath }
+  | { ok: false; reason: 'not-found' | 'invalid-path' }
 > {
+  // Gate 1 — authorization. Throws on traversal; the channel contract says we
+  // never throw, so it maps to a result the renderer can toast.
+  try {
+    validatePath(requestedPath, getAllowedBases())
+  } catch {
+    return { ok: false, reason: 'invalid-path' }
+  }
+
+  // Gate 2 — existence. validatePath already realpath'd when the target
+  // exists, but it swallows ENOENT into a literal comparison, so the
+  // not-found mapping still has to happen here.
   try {
     const resolved = toAbsolutePath(await realpath(requestedPath))
     return { ok: true, resolved: resolved }
@@ -95,12 +122,26 @@ async function resolveExistingPath(
 }
 
 /**
- * Format a user-safe error message for `not-found` toasts. The path is
- * included so the user knows *which* folder vanished — useful when several
- * agent rows are shown side-by-side.
+ * Map a {@link resolveExistingPath} rejection onto a user-safe
+ * {@link FolderActionResult}.
+ *
+ * `not-found` names the path so the user knows *which* folder vanished —
+ * useful when several agent rows look alike. `invalid-path` deliberately does
+ * NOT echo it: a path outside the allowed bases did not come from the UI, so
+ * reflecting it into a toast would just render an attacker-chosen string.
  */
-function notFoundMessage(folderPath: AbsolutePath): string {
-  return `Folder not found: ${folderPath}`
+function pathFailure(
+  reason: 'not-found' | 'invalid-path',
+  folderPath: AbsolutePath,
+): FolderActionResult {
+  if (reason === 'not-found') {
+    return { ok: false, reason, message: `Folder not found: ${folderPath}` }
+  }
+  return {
+    ok: false,
+    reason,
+    message: 'That folder is outside the Skills directories this app manages.',
+  }
 }
 
 /**
@@ -116,13 +157,7 @@ async function revealInFinder(
   folderPath: AbsolutePath,
 ): Promise<FolderActionResult> {
   const existence = await resolveExistingPath(folderPath)
-  if (!existence.ok) {
-    return {
-      ok: false,
-      reason: 'not-found',
-      message: notFoundMessage(folderPath),
-    }
-  }
+  if (!existence.ok) return pathFailure(existence.reason, folderPath)
   const errMessage = await shell.openPath(existence.resolved)
   if (errMessage !== '') {
     return {
@@ -154,13 +189,7 @@ async function openInTerminal(
   folderPath: AbsolutePath,
 ): Promise<FolderActionResult> {
   const existence = await resolveExistingPath(folderPath)
-  if (!existence.ok) {
-    return {
-      ok: false,
-      reason: 'not-found',
-      message: notFoundMessage(folderPath),
-    }
-  }
+  if (!existence.ok) return pathFailure(existence.reason, folderPath)
 
   // Read settings on EVERY call (not at module load) so a Settings change in
   // another window takes effect immediately on the next click — no app restart.
