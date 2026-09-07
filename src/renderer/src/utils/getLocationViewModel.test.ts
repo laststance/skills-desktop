@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { AgentId, Skill, SymlinkInfo } from '@/shared/types'
-import { toSymlinkCount } from '@/shared/types'
+import { toSkillName, toSymlinkCount } from '@/shared/types'
 
 import { getLocationViewModel } from './getLocationViewModel'
 
@@ -24,7 +24,7 @@ const makeSkill = (
   symlinks: SymlinkInfo[],
   isSource = true,
 ): Skill => ({
-  name: 'foo',
+  name: toSkillName('foo'),
   description: 'foo skill',
   path,
   symlinkCount: toSymlinkCount(

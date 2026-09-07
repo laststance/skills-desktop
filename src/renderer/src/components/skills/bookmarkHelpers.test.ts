@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { repositoryId, toHttpUrl, toSymlinkCount } from '@/shared/types'
+import {
+  repositoryId,
+  toHttpUrl,
+  toSkillName,
+  toSymlinkCount,
+} from '@/shared/types'
 import type { Skill } from '@/shared/types'
 
 import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
@@ -14,7 +19,7 @@ import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
  */
 function makeSkill(overrides: Partial<Skill> = {}): Skill {
   return {
-    name: 'test-skill',
+    name: toSkillName('test-skill'),
     description: 'A test skill',
     path: '/home/user/.agents/skills/test-skill',
     symlinkCount: toSymlinkCount(0),

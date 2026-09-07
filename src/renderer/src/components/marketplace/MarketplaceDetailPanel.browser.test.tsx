@@ -9,6 +9,7 @@ import {
   repositoryId,
   toHttpUrl,
   toInstallCount,
+  toSkillName,
   toSkillRank,
 } from '@/shared/types'
 
@@ -41,14 +42,14 @@ afterEach(() => {
  * @param overrides - Partial overrides for the fixture.
  * @returns A valid `SkillSearchResult`.
  * @example
- * makeSkill({ name: 'lint' as SkillName })
+ * makeSkill({ name: toSkillName('lint') })
  */
 function makeSkill(
   overrides: Partial<SkillSearchResult> = {},
 ): SkillSearchResult {
   return {
     rank: toSkillRank(1),
-    name: 'task',
+    name: toSkillName('task'),
     repo: repositoryId('vercel-labs/skills'),
     url: toHttpUrl('https://skills.sh/task'),
     installCount: toInstallCount(123),
@@ -137,7 +138,7 @@ describe('MarketplaceDetailPanel routing', () => {
     const { setPreviewSkill } =
       await import('@/renderer/src/redux/slices/marketplaceSlice')
     const { MarketplaceDetailPanel } = await import('./MarketplaceDetailPanel')
-    store.dispatch(setPreviewSkill(makeSkill({ name: 'lint' })))
+    store.dispatch(setPreviewSkill(makeSkill({ name: toSkillName('lint') })))
 
     // Act
     const screen = await renderWithStore(<MarketplaceDetailPanel />, store)

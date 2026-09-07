@@ -9,7 +9,7 @@ import type {
   SymlinkInfo,
   SymlinkStatus,
 } from '@/shared/types'
-import { toSymlinkCount } from '@/shared/types'
+import { toSkillName, toSymlinkCount } from '@/shared/types'
 
 import {
   buildSymlinkCleanupPlan,
@@ -51,7 +51,7 @@ function makeSymlink(overrides: Partial<SymlinkInfo> = {}): SymlinkInfo {
  * makeSkill({ name: 'browser' }).name // => 'browser'
  */
 function makeSkill(overrides: Partial<Skill> = {}): Skill {
-  const name: SkillName = overrides.name ?? 'task'
+  const name: SkillName = toSkillName(overrides.name ?? 'task')
   const symlinks = overrides.symlinks ?? [makeSymlink()]
 
   return {
@@ -74,7 +74,7 @@ describe('buildSymlinkCleanupPlan', () => {
     // Arrange
     const skills = [
       makeSkill({
-        name: 'healthy',
+        name: toSkillName('healthy'),
         symlinks: [makeSymlink({ status: 'valid' })],
       }),
     ]
@@ -96,7 +96,7 @@ describe('buildSymlinkCleanupPlan', () => {
     // Arrange
     const skills = [
       makeSkill({
-        name: 'abandoned',
+        name: toSkillName('abandoned'),
         path: '/Users/test/.cursor/skills/abandoned',
         isSource: false,
         isOrphan: true,
@@ -155,7 +155,7 @@ describe('buildSymlinkCleanupPlan', () => {
     // Arrange
     const skills = [
       makeSkill({
-        name: 'metadata-title',
+        name: toSkillName('metadata-title'),
         path: '/Users/test/.agents/skills/metadata-title',
         isOrphan: false,
         symlinks: [
@@ -197,7 +197,7 @@ describe('buildSymlinkCleanupPlan', () => {
     // Arrange
     const skills = [
       makeSkill({
-        name: 'mixed',
+        name: toSkillName('mixed'),
         symlinks: [
           makeSymlink({
             agentId: 'cursor',
@@ -233,7 +233,7 @@ describe('buildSymlinkCleanupPlan', () => {
     // Arrange
     const skills = [
       makeSkill({
-        name: 'task',
+        name: toSkillName('task'),
         symlinks: [
           makeSymlink({
             agentId: 'cursor',
@@ -264,7 +264,7 @@ describe('buildSymlinkCleanupPlan', () => {
   it('escapes cleanup id segments so separators cannot collide', () => {
     // Arrange
     const agentId = 'cursor' as AgentId
-    const linkName = 'name:with/slash' as SkillName
+    const linkName = toSkillName('name:with/slash')
 
     // Act
     const itemId = createBrokenSlotCleanupItemId(agentId, linkName)
@@ -275,7 +275,7 @@ describe('buildSymlinkCleanupPlan', () => {
 
   it('keeps orphan cleanup id literals stable for persisted row state', () => {
     // Arrange
-    const skillName = 'name:with/slash' as SkillName
+    const skillName = toSkillName('name:with/slash')
 
     // Act
     const itemId = createOrphanCleanupItemId(skillName)

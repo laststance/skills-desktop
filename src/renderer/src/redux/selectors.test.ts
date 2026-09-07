@@ -8,6 +8,7 @@ import {
   repositoryId,
   toHttpUrl,
   toIsoTimestamp,
+  toSkillName,
   toSymlinkCount,
 } from '@/shared/types'
 import type {
@@ -155,7 +156,7 @@ const makeSkill = (
   source?: string,
   status: SymlinkInfo['status'] = 'valid',
 ): Skill => ({
-  name,
+  name: toSkillName(name),
   description: `${name} skill`,
   path: isLocal
     ? `/home/user/.${agentId}/skills/${name}`
@@ -217,7 +218,7 @@ const makeMultiSlotSkill = (
     }
   })
   return {
-    name,
+    name: toSkillName(name),
     description: `${name} skill`,
     path: `/home/user/.agents/skills/${name}`,
     symlinkCount: toSymlinkCount(
@@ -383,7 +384,7 @@ describe('selectFilteredSkills', () => {
     // symlink in the agent dir.
     // Arrange
     const skill: Skill = {
-      name: 'broken-skill',
+      name: toSkillName('broken-skill'),
       description: 'broken',
       path: '/home/user/.agents/skills/broken-skill',
       symlinkCount: toSymlinkCount(1),
@@ -417,7 +418,7 @@ describe('selectFilteredSkills', () => {
     // up, so it must not pollute the per-agent list.
     // Arrange
     const skill: Skill = {
-      name: 'unlinked-skill',
+      name: toSkillName('unlinked-skill'),
       description: 'unlinked',
       path: '/home/user/.agents/skills/unlinked-skill',
       symlinkCount: toSymlinkCount(0),
@@ -649,7 +650,7 @@ describe('selectFilteredSkills', () => {
     // a broken symlink under cursor. The Orphan filter must surface only the
     // orphan.
     const orphanSkill: Skill = {
-      name: 'orphan-one',
+      name: toSkillName('orphan-one'),
       description: 'orphan',
       path: '/home/user/.agents/skills/orphan-one',
       symlinkCount: toSymlinkCount(1),
@@ -690,7 +691,7 @@ describe('selectFilteredSkills', () => {
     // agent B. Pass 1 (agent-slot gate) drops the row before Pass 2
     // (skill.isOrphan check) ever runs.
     const orphanForAgentA: Skill = {
-      name: 'orphan-agent-a',
+      name: toSkillName('orphan-agent-a'),
       description: 'orphan stranded in agent A',
       path: '/home/user/.agents/skills/orphan-agent-a',
       symlinkCount: toSymlinkCount(1),
@@ -1193,7 +1194,7 @@ describe('selectFilteredSkills', () => {
 })
 
 const makeBookmark = (name: string, repo: string): BookmarkedSkill => ({
-  name,
+  name: toSkillName(name),
   repo: repositoryId(repo),
   url: toHttpUrl(`https://skills.sh/${name}`),
   bookmarkedAt: toIsoTimestamp('2026-04-01T00:00:00.000Z'),
@@ -1379,7 +1380,7 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
     const state = buildState({
       skills: [protectedSkill, availableSkill],
       selectedAgentId: 'cursor',
-      protectedSkillNames: ['protected-skill'],
+      protectedSkillNames: [toSkillName('protected-skill')],
     })
 
     // Act
@@ -1399,7 +1400,7 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
     const state = buildState({
       skills: [protectedSkill],
       selectedAgentId: null,
-      protectedSkillNames: ['protected-skill'],
+      protectedSkillNames: [toSkillName('protected-skill')],
     })
 
     // Act
@@ -1424,7 +1425,11 @@ describe('selectSelectedCount', () => {
   it('counts every ticked skill even when some are scrolled out of the visible list', () => {
     // Arrange
     const state = buildState({
-      selectedSkillNames: ['a', 'b', 'c'],
+      selectedSkillNames: [
+        toSkillName('a'),
+        toSkillName('b'),
+        toSkillName('c'),
+      ],
     })
 
     // Act & Assert
@@ -1442,7 +1447,11 @@ describe('selectSelectedVisibleNames', () => {
     ]
     const state = buildState({
       skills,
-      selectedSkillNames: ['task', 'alpha', 'ghost'],
+      selectedSkillNames: [
+        toSkillName('task'),
+        toSkillName('alpha'),
+        toSkillName('ghost'),
+      ],
     })
 
     // Act & Assert — visible order is alphabetical (alpha, browser, task);
@@ -1459,7 +1468,7 @@ describe('selectSelectedVisibleNames', () => {
     const state = buildState({
       skills,
       searchQuery: 'task',
-      selectedSkillNames: ['something-else'],
+      selectedSkillNames: [toSkillName('something-else')],
     })
 
     // Act & Assert
@@ -1477,7 +1486,11 @@ describe('selectSelectedVisibleCount', () => {
     ]
     const state = buildState({
       skills,
-      selectedSkillNames: ['alpha', 'task', 'hidden'],
+      selectedSkillNames: [
+        toSkillName('alpha'),
+        toSkillName('task'),
+        toSkillName('hidden'),
+      ],
     })
 
     // Act & Assert
@@ -1494,7 +1507,11 @@ describe('selectHiddenSelectedCount', () => {
     ]
     const state = buildState({
       skills,
-      selectedSkillNames: ['alpha', 'hidden-1', 'hidden-2'],
+      selectedSkillNames: [
+        toSkillName('alpha'),
+        toSkillName('hidden-1'),
+        toSkillName('hidden-2'),
+      ],
     })
 
     // Act & Assert
@@ -1509,7 +1526,7 @@ describe('selectHiddenSelectedCount', () => {
     ]
     const state = buildState({
       skills,
-      selectedSkillNames: ['alpha', 'browser'],
+      selectedSkillNames: [toSkillName('alpha'), toSkillName('browser')],
     })
 
     // Act & Assert
@@ -1525,7 +1542,10 @@ describe('selectHiddenSelectedCount', () => {
     const state = buildState({
       skills,
       selectedAgentId: 'cursor',
-      selectedSkillNames: ['valid-task', 'broken-task'],
+      selectedSkillNames: [
+        toSkillName('valid-task'),
+        toSkillName('broken-task'),
+      ],
     })
 
     // Act & Assert
@@ -1543,7 +1563,11 @@ describe('selectVisibleIneligibleSelectedCount', () => {
     const state = buildState({
       skills,
       selectedAgentId: 'cursor',
-      selectedSkillNames: ['valid-task', 'broken-task', 'hidden-task'],
+      selectedSkillNames: [
+        toSkillName('valid-task'),
+        toSkillName('broken-task'),
+        toSkillName('hidden-task'),
+      ],
     })
 
     // Act & Assert
@@ -1555,16 +1579,16 @@ describe('selectAnyInFlightRemovalSet', () => {
   it('marks the rows of an active bulk delete as fading via Set membership', () => {
     // Arrange
     const state = buildState({
-      inFlightDeleteNames: ['skill-a', 'skill-b'],
+      inFlightDeleteNames: [toSkillName('skill-a'), toSkillName('skill-b')],
     })
 
     // Act
     const inFlightSet = selectAnyInFlightRemovalSet(state as never)
 
     // Assert
-    expect(inFlightSet.has('skill-a')).toBe(true)
-    expect(inFlightSet.has('skill-b')).toBe(true)
-    expect(inFlightSet.has('skill-c')).toBe(false)
+    expect(inFlightSet.has(toSkillName('skill-a'))).toBe(true)
+    expect(inFlightSet.has(toSkillName('skill-b'))).toBe(true)
+    expect(inFlightSet.has(toSkillName('skill-c'))).toBe(false)
     expect(inFlightSet.size).toBe(2)
   })
 
@@ -1575,7 +1599,7 @@ describe('selectAnyInFlightRemovalSet', () => {
     })
     const otherIdleState = buildState({
       inFlightDeleteNames: [],
-      selectedSkillNames: ['unrelated'],
+      selectedSkillNames: [toSkillName('unrelated')],
     })
 
     // Act
@@ -1594,21 +1618,21 @@ describe('selectSelectedSkillNamesSet', () => {
   it('exposes the ticked skill names as a Set for fast membership checks', () => {
     // Arrange
     const state = buildState({
-      selectedSkillNames: ['x', 'y'],
+      selectedSkillNames: [toSkillName('x'), toSkillName('y')],
     })
 
     // Act
     const result = selectSelectedSkillNamesSet(state as never)
 
     // Assert
-    expect(result.has('x')).toBe(true)
+    expect(result.has(toSkillName('x'))).toBe(true)
     expect(result.size).toBe(2)
   })
 
   it('returns the same Set reference on repeat reads so consumers do not re-render needlessly', () => {
     // Arrange
     const state = buildState({
-      selectedSkillNames: ['x'],
+      selectedSkillNames: [toSkillName('x')],
     })
 
     // Act
@@ -1630,7 +1654,7 @@ describe('selectSelectedVisibleSkillObjects', () => {
     ]
     const state = buildState({
       skills,
-      selectedSkillNames: ['gamma', 'alpha'],
+      selectedSkillNames: [toSkillName('gamma'), toSkillName('alpha')],
     })
 
     // Act
@@ -1646,7 +1670,7 @@ describe('selectSelectedVisibleSkillObjects', () => {
     const skills = [makeSkill('alpha', 'claude-code')]
     const state = buildState({
       skills,
-      selectedSkillNames: ['alpha', 'ghost'],
+      selectedSkillNames: [toSkillName('alpha'), toSkillName('ghost')],
     })
 
     // Act
@@ -1664,7 +1688,7 @@ describe('selectSelectedVisibleSkillObjects', () => {
     ]
     const state = buildState({
       skills,
-      selectedSkillNames: ['alpha', 'beta'],
+      selectedSkillNames: [toSkillName('alpha'), toSkillName('beta')],
       searchQuery: 'alpha',
     })
 

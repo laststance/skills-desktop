@@ -5,14 +5,16 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { RepositoryId, SkillName } from '@/shared/types'
-import { toHttpUrl } from '@/shared/types'
+import { toHttpUrl, toSkillName } from '@/shared/types'
 
 /**
  * Render the real BookmarksWidget reducer with one bookmark.
  * @param name - Skill name shown in the widget row.
  * @returns Render screen plus the backing Redux store.
  */
-async function renderBookmarksWidget(name: SkillName = 'very-long-skill-name') {
+async function renderBookmarksWidget(
+  name: SkillName = toSkillName('very-long-skill-name'),
+) {
   const [{ default: bookmarkReducer, addBookmark }, { BookmarksWidget }] =
     await Promise.all([
       import('@/renderer/src/redux/slices/bookmarkSlice'),
@@ -61,7 +63,7 @@ describe('BookmarksWidget', () => {
 
   it('still removes the bookmark through the compact control', async () => {
     // Arrange
-    const { screen, store } = await renderBookmarksWidget('task')
+    const { screen, store } = await renderBookmarksWidget(toSkillName('task'))
     const removeButton = screen
       .getByRole('button', { name: /Remove bookmark task/i })
       .element() as HTMLButtonElement
@@ -87,7 +89,7 @@ describe('BookmarksWidget', () => {
     })
     store.dispatch(
       addBookmark({
-        name: 'task',
+        name: toSkillName('task'),
         repo: 'vercel-labs/skills' as RepositoryId,
         url: toHttpUrl('https://skills.sh/task'),
       }),
@@ -118,7 +120,7 @@ describe('BookmarksWidget', () => {
     })
     store.dispatch(
       addBookmark({
-        name: 'repo-less-skill',
+        name: toSkillName('repo-less-skill'),
         repo: '',
         url: toHttpUrl('https://skills.sh/repo-less-skill'),
       }),

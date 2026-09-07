@@ -12,7 +12,7 @@ import type {
   SymlinkInfo,
   SymlinkStatus,
 } from '@/shared/types'
-import { toSkillCount, toSymlinkCount } from '@/shared/types'
+import { toSkillCount, toSkillName, toSymlinkCount } from '@/shared/types'
 
 /**
  * Build a minimal Agent fixture. Only `id`/`name`/`exists` matter to the
@@ -62,7 +62,7 @@ function makeSymlink(
  */
 function makeSkill(name: string, symlinks: SymlinkInfo[]): Skill {
   return {
-    name,
+    name: toSkillName(name),
     description: `${name} description`,
     path: `/Users/test/.agents/skills/${name}`,
     symlinkCount: toSymlinkCount(

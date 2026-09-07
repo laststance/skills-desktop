@@ -9,6 +9,7 @@ import {
   toBatchItemCount,
   toBatchItemIndex,
   toSearchQuery,
+  toSkillName,
   toSymlinkCount,
 } from '@/shared/types'
 
@@ -107,7 +108,7 @@ describe('SelectionToolbar', () => {
   it('shows "Select all visible ⌘A" in zero-selection state when bulk mode is entered', async () => {
     // Arrange — bulk mode active, nothing selected yet (zero-selection state)
     const options = {
-      skills: [makeCursorSkill('alpha', 'valid')],
+      skills: [makeCursorSkill(toSkillName('alpha'), 'valid')],
       selectedNames: [],
       agentId: null,
     }
@@ -132,8 +133,8 @@ describe('SelectionToolbar', () => {
   it('Clear empties the selection and transitions toolbar to zero-selection state', async () => {
     // Arrange — global view with one ticked skill so the toolbar is shown
     const { screen, store } = await renderToolbar({
-      skills: [makeCursorSkill('alpha', 'valid')],
-      selectedNames: ['alpha'],
+      skills: [makeCursorSkill(toSkillName('alpha'), 'valid')],
+      selectedNames: [toSkillName('alpha')],
       agentId: null,
     })
     await expect
@@ -158,10 +159,10 @@ describe('SelectionToolbar', () => {
     // Arrange — global view, two rows, only one currently ticked
     const { screen, store } = await renderToolbar({
       skills: [
-        makeCursorSkill('alpha', 'valid'),
-        makeCursorSkill('beta', 'valid'),
+        makeCursorSkill(toSkillName('alpha'), 'valid'),
+        makeCursorSkill(toSkillName('beta'), 'valid'),
       ],
-      selectedNames: ['alpha'],
+      selectedNames: [toSkillName('alpha')],
       agentId: null,
     })
 
@@ -180,11 +181,15 @@ describe('SelectionToolbar', () => {
     // ineligible) on screen, plus one hidden by the search filter.
     const { screen, store, setSearchQuery } = await renderToolbar({
       skills: [
-        makeCursorSkill('alpha-valid', 'valid'),
-        makeCursorSkill('alpha-broken', 'broken'),
-        makeCursorSkill('zeta-hidden', 'valid'),
+        makeCursorSkill(toSkillName('alpha-valid'), 'valid'),
+        makeCursorSkill(toSkillName('alpha-broken'), 'broken'),
+        makeCursorSkill(toSkillName('zeta-hidden'), 'valid'),
       ],
-      selectedNames: ['alpha-valid', 'alpha-broken', 'zeta-hidden'],
+      selectedNames: [
+        toSkillName('alpha-valid'),
+        toSkillName('alpha-broken'),
+        toSkillName('zeta-hidden'),
+      ],
       agentId: 'cursor',
     })
 
@@ -199,8 +204,8 @@ describe('SelectionToolbar', () => {
   it('shows the bulk progress counter for large batches', async () => {
     // Arrange — global view with one ticked skill
     const { screen, store } = await renderToolbar({
-      skills: [makeCursorSkill('alpha', 'valid')],
-      selectedNames: ['alpha'],
+      skills: [makeCursorSkill(toSkillName('alpha'), 'valid')],
+      selectedNames: [toSkillName('alpha')],
       agentId: null,
     })
     const { setBulkProgress } =
@@ -222,8 +227,8 @@ describe('SelectionToolbar', () => {
     // Arrange — global view with a copy callback supplied
     const onCopyAction = vi.fn()
     const { screen } = await renderToolbar({
-      skills: [makeCursorSkill('alpha', 'valid')],
-      selectedNames: ['alpha'],
+      skills: [makeCursorSkill(toSkillName('alpha'), 'valid')],
+      selectedNames: [toSkillName('alpha')],
       agentId: null,
       onCopyAction,
     })
@@ -241,8 +246,8 @@ describe('SelectionToolbar', () => {
   it('shows a destructive Delete action in global view', async () => {
     // Arrange — global view renders the destructive Delete primary action
     const { screen, onPrimaryAction } = await renderToolbar({
-      skills: [makeCursorSkill('alpha', 'valid')],
-      selectedNames: ['alpha'],
+      skills: [makeCursorSkill(toSkillName('alpha'), 'valid')],
+      selectedNames: [toSkillName('alpha')],
       agentId: null,
     })
     const deleteButton = screen.getByRole('button', {
@@ -259,8 +264,8 @@ describe('SelectionToolbar', () => {
   it('shows a non-destructive Unlink action in agent view', async () => {
     // Arrange — agent view with a single eligible valid row
     const { screen, onPrimaryAction } = await renderToolbar({
-      skills: [makeCursorSkill('alpha', 'valid')],
-      selectedNames: ['alpha'],
+      skills: [makeCursorSkill(toSkillName('alpha'), 'valid')],
+      selectedNames: [toSkillName('alpha')],
       agentId: 'cursor',
       agentDisplayName: 'Cursor',
     })
@@ -279,8 +284,8 @@ describe('SelectionToolbar', () => {
     // Arrange — global view with one ticked skill (bulk copy keeps the toolbar
     // mounted: unlike delete/unlink, its pending state does NOT exit bulk mode)
     const { screen, store } = await renderToolbar({
-      skills: [makeCursorSkill('alpha', 'valid')],
-      selectedNames: ['alpha'],
+      skills: [makeCursorSkill(toSkillName('alpha'), 'valid')],
+      selectedNames: [toSkillName('alpha')],
       agentId: null,
     })
     const { bulkCopyToAgents } =

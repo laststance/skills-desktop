@@ -9,6 +9,7 @@ import {
   repositoryId,
   toHttpUrl,
   toInstallCount,
+  toSkillName,
   toSkillRank,
 } from '@/shared/types'
 
@@ -25,7 +26,7 @@ function makeSkill(
 ): SkillSearchResult {
   return {
     rank: toSkillRank(1),
-    name: 'task',
+    name: toSkillName('task'),
     repo: repositoryId('vercel-labs/skills'),
     url: toHttpUrl('https://skills.sh/task'),
     installCount: toInstallCount(123),
@@ -130,7 +131,7 @@ describe('MarketplaceSkillPreview', () => {
       await import('@/renderer/src/redux/slices/marketplaceSlice')
     const { MarketplaceSkillPreview } =
       await import('./MarketplaceSkillPreview')
-    const skill = makeSkill({ name: 'lint' })
+    const skill = makeSkill({ name: toSkillName('lint') })
     store.dispatch(setPreviewSkill(skill))
     const screen = await renderWithStore(
       <MarketplaceSkillPreview skill={skill} />,

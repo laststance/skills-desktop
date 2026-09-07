@@ -2,6 +2,8 @@ import { basename, join } from 'node:path'
 
 import { beforeEach, describe, expect, it, test, vi } from 'vitest'
 
+import { toSkillName } from '@/shared/types'
+
 /**
  * Create a minimal Dirent-like object for readdir mocks.
  * @param name - Entry name
@@ -1553,7 +1555,7 @@ describe('getSkill single-skill lookup', () => {
     const { getSkill } = await import('./skillScanner')
 
     // Act
-    const skill = await getSkill('theme-generator')
+    const skill = await getSkill(toSkillName('theme-generator'))
 
     // Assert
     expect(skill).not.toBeNull()
@@ -1575,7 +1577,7 @@ describe('getSkill single-skill lookup', () => {
     const { getSkill } = await import('./skillScanner')
 
     // Act
-    const skill = await getSkill('not-a-dir')
+    const skill = await getSkill(toSkillName('not-a-dir'))
 
     // Assert
     expect(skill).toBeNull()
@@ -1587,7 +1589,7 @@ describe('getSkill single-skill lookup', () => {
     const { getSkill } = await import('./skillScanner')
 
     // Act
-    const skill = await getSkill('missing-skill')
+    const skill = await getSkill(toSkillName('missing-skill'))
 
     // Assert
     expect(skill).toBeNull()

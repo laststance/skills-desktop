@@ -6,7 +6,12 @@ import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import type { BookmarkForDetail } from '@/renderer/src/redux/slices/uiSlice'
-import { repositoryId, toHttpUrl, toIsoTimestamp } from '@/shared/types'
+import {
+  repositoryId,
+  toHttpUrl,
+  toIsoTimestamp,
+  toSkillName,
+} from '@/shared/types'
 
 /**
  * Build a not-yet-installed sidebar bookmark fixture (so the Install affordance
@@ -19,7 +24,7 @@ function makeBookmark(
   overrides: Partial<BookmarkForDetail> = {},
 ): BookmarkForDetail {
   return {
-    name: 'task',
+    name: toSkillName('task'),
     repo: repositoryId('vercel-labs/skills'),
     url: toHttpUrl('https://skills.sh/task'),
     bookmarkedAt: toIsoTimestamp('2026-04-01T08:00:00.000Z'),

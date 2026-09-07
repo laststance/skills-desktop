@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { Agent, Skill, SymlinkInfo } from '@/shared/types'
-import { toSkillCount, toSymlinkCount } from '@/shared/types'
+import { toSkillCount, toSkillName, toSymlinkCount } from '@/shared/types'
 
 const mockCopyToAgents = vi.fn()
 const mockGetAll = vi.fn()
@@ -50,7 +50,7 @@ function makeAgent(
  */
 function makeSkill(symlinks: SymlinkInfo[]): Skill {
   return {
-    name: 'task',
+    name: toSkillName('task'),
     description: 'Task management skill',
     path: '/home/user/.agents/skills/task',
     symlinkCount: toSymlinkCount(symlinks.length),

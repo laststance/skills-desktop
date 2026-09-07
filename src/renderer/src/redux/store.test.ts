@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { THEME_PRESETS } from '@/shared/constants'
+import { toSkillName } from '@/shared/types'
 
 import type { MigratableState } from './migrations'
 import { toggleSelection } from './slices/skillsSlice'
@@ -285,7 +286,7 @@ describe('store wiring (singleton assembly)', () => {
   it('clears the skill selection when the active tab changes (listener middleware is prepended)', async () => {
     // Arrange — tick a skill so the selection is non-empty before the context switch
     const { store } = await import('./store')
-    store.dispatch(toggleSelection('alpha-skill'))
+    store.dispatch(toggleSelection(toSkillName('alpha-skill')))
     expect(store.getState().skills.selectedSkillNames).toEqual(['alpha-skill'])
 
     // Act — switching tabs is a hard context change the cross-slice listener reacts to

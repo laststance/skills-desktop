@@ -24,6 +24,7 @@ import type {
   FilesystemEntryIdentity,
   SkillName,
 } from '@/shared/types'
+import { toSkillName } from '@/shared/types'
 
 const handleMock = vi.fn()
 const trashItemMock = vi.fn()
@@ -218,7 +219,7 @@ describe('skills:unlinkFromAgent handler', () => {
 
   it('bulk unlink removes reviewed slot when metadata name differs from folder basename', async () => {
     // Arrange
-    const metadataName = 'metadata-title-bulk' as SkillName
+    const metadataName = toSkillName('metadata-title-bulk')
     const slotName = 'folder-basename-bulk'
     const sourcePath = join(tempHome, '.agents', 'skills', slotName)
     const cursorSkillsDir = join(tempHome, '.cursor', 'skills')

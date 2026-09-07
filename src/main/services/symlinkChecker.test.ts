@@ -2,6 +2,8 @@ import { dirname, join, resolve } from 'node:path'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { toSkillName } from '@/shared/types'
+
 /**
  * Create a mock Stats-like object for lstat results.
  * @param options - Whether the entry is a symbolic link or directory
@@ -245,7 +247,7 @@ describe('checkSkillSymlinks', () => {
 
     // Act
     const { checkSkillSymlinks } = await import('./symlinkChecker')
-    const results = await checkSkillSymlinks('my-skill')
+    const results = await checkSkillSymlinks(toSkillName('my-skill'))
 
     // Assert
     expect(results).toHaveLength(2)
@@ -270,7 +272,7 @@ describe('checkSkillSymlinks', () => {
 
     // Act
     const { checkSkillSymlinks } = await import('./symlinkChecker')
-    const results = await checkSkillSymlinks('locked-skill')
+    const results = await checkSkillSymlinks(toSkillName('locked-skill'))
 
     // Assert
     const claude = results.find((r) => r.agentId === 'claude-code')!
@@ -297,7 +299,7 @@ describe('checkSkillSymlinks', () => {
 
     // Act
     const { checkSkillSymlinks } = await import('./symlinkChecker')
-    const results = await checkSkillSymlinks('partial-skill')
+    const results = await checkSkillSymlinks(toSkillName('partial-skill'))
 
     // Assert
     const claude = results.find((r) => r.agentId === 'claude-code')!
@@ -319,7 +321,7 @@ describe('checkSkillSymlinks', () => {
 
     // Act
     const { checkSkillSymlinks } = await import('./symlinkChecker')
-    const results = await checkSkillSymlinks('good-skill')
+    const results = await checkSkillSymlinks(toSkillName('good-skill'))
 
     // Assert
     const claude = results.find((r) => r.agentId === 'claude-code')!
@@ -341,7 +343,7 @@ describe('checkSkillSymlinks', () => {
 
     // Act
     const { checkSkillSymlinks } = await import('./symlinkChecker')
-    const results = await checkSkillSymlinks('local-skill')
+    const results = await checkSkillSymlinks(toSkillName('local-skill'))
 
     // Assert
     const claude = results.find((r) => r.agentId === 'claude-code')!
@@ -377,7 +379,7 @@ describe('checkSkillSymlinks', () => {
 
     // Act
     const { checkSkillSymlinks } = await import('./symlinkChecker')
-    const results = await checkSkillSymlinks('nonexistent-skill')
+    const results = await checkSkillSymlinks(toSkillName('nonexistent-skill'))
 
     // Assert
     const claude = results.find((r) => r.agentId === 'claude-code')!
@@ -403,7 +405,7 @@ describe('checkSkillSymlinks', () => {
 
     // Act
     const { checkSkillSymlinks } = await import('./symlinkChecker')
-    const results = await checkSkillSymlinks('good-skill')
+    const results = await checkSkillSymlinks(toSkillName('good-skill'))
 
     // Assert
     expect(results).toHaveLength(2)
@@ -440,7 +442,7 @@ describe('checkSkillSymlinks', () => {
 
     // Act
     const { checkSkillSymlinks } = await import('./symlinkChecker')
-    const results = await checkSkillSymlinks('good-skill')
+    const results = await checkSkillSymlinks(toSkillName('good-skill'))
 
     // Assert
     expect(results).toHaveLength(2)
@@ -460,7 +462,7 @@ describe('checkSkillSymlinks', () => {
 
     // Act
     const { checkSkillSymlinks } = await import('./symlinkChecker')
-    const results = await checkSkillSymlinks('any-skill')
+    const results = await checkSkillSymlinks(toSkillName('any-skill'))
 
     // Assert
     const claude = results.find((r) => r.agentId === 'claude-code')!
@@ -485,7 +487,7 @@ describe('checkSkillSymlinks', () => {
 
     // Act
     const { checkSkillSymlinks } = await import('./symlinkChecker')
-    const results = await checkSkillSymlinks('stray-file-skill')
+    const results = await checkSkillSymlinks(toSkillName('stray-file-skill'))
 
     // Assert
     const claude = results.find((r) => r.agentId === 'claude-code')!
@@ -526,7 +528,9 @@ describe('checkSkillSymlinks', () => {
 
     // Act
     const { checkSkillSymlinks } = await import('./symlinkChecker')
-    const results = await checkSkillSymlinks('vanishing-local-skill')
+    const results = await checkSkillSymlinks(
+      toSkillName('vanishing-local-skill'),
+    )
 
     // Assert
     const claude = results.find((r) => r.agentId === 'claude-code')!

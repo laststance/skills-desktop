@@ -19,6 +19,7 @@ import type {
   FilesystemEntryIdentity,
   SkillName,
 } from '@/shared/types'
+import { toSkillName } from '@/shared/types'
 
 import { filesystemIdentityFromStats } from './filesystemIdentity'
 
@@ -196,7 +197,7 @@ describe('moveToTrash durability across a kill', () => {
     // tombstone at this instant, a kill here hands startupCleanup a manifestless
     // entry to sweep and the skill is gone for good.
     const { moveToTrash } = await trashServicePromise
-    const skillName: SkillName = 'killed-mid-move'
+    const skillName: SkillName = toSkillName('killed-mid-move')
     const sourcePath = await makeSourceSkill(skillName)
     await symlink(sourcePath, join(sharedAgentCursor, skillName))
     const reviewedIdentity = await reviewedIdentityFor(sourcePath)
@@ -254,7 +255,7 @@ describe('moveToTrash durability across a kill', () => {
     // in the trash is all that is left. It has to end up under a name the
     // marker readers scan, not under the staged name they ignore.
     const { moveToTrash, TrashError } = await trashServicePromise
-    const skillName: SkillName = 'stranded-skill'
+    const skillName: SkillName = toSkillName('stranded-skill')
     const sourcePath = await makeSourceSkill(skillName)
     const reviewedIdentity = await reviewedIdentityFor(sourcePath)
     fsHooks.onManifestWrite = async () => {}
@@ -293,7 +294,7 @@ describe('moveToTrash durability across a kill', () => {
     // and the trash entry holds nothing — so pointing the user at the entry
     // would send them to an empty path during a data-loss incident.
     const { moveToTrash } = await trashServicePromise
-    const skillName: SkillName = 'stranded-beside-original'
+    const skillName: SkillName = toSkillName('stranded-beside-original')
     const sourcePath = await makeSourceSkill(skillName)
     const reviewedIdentity = await reviewedIdentityFor(sourcePath)
     fsHooks.failCrossDeviceMove = true
@@ -375,7 +376,7 @@ describe('moveToTrash durability across a kill', () => {
     // nothing sweeps — so the error has to name that path rather than a
     // tombstone path that was never created.
     const { moveToTrash } = await trashServicePromise
-    const skillName: SkillName = 'unpublishable-skill'
+    const skillName: SkillName = toSkillName('unpublishable-skill')
     const sourcePath = await makeSourceSkill(skillName)
     const reviewedIdentity = await reviewedIdentityFor(sourcePath)
     const consoleErrorSpy = vi

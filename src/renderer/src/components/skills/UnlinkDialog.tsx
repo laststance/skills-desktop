@@ -10,6 +10,7 @@ import {
 } from '@/renderer/src/redux/slices/skillsSlice'
 import { refreshAllData } from '@/renderer/src/redux/thunks'
 import type { SkillName, SymlinkInfo } from '@/shared/types'
+import { toSkillName } from '@/shared/types'
 
 /**
  * Three exhaustive states the dialog has to cover:
@@ -117,7 +118,7 @@ export const UnlinkDialog = function UnlinkDialog(): React.ReactElement {
     : 'valid'
   const copy = getUnlinkCopy(
     variant,
-    skillToUnlink?.skill.name ?? '',
+    skillToUnlink?.skill.name ?? toSkillName(''),
     skillToUnlink?.symlink.agentName ?? '',
   )
 

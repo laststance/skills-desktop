@@ -5,7 +5,7 @@ import type {
   Skill,
   SymlinkInfo,
 } from '@/shared/types'
-import { toFileSizeBytes, toSymlinkCount } from '@/shared/types'
+import { toFileSizeBytes, toSkillName, toSymlinkCount } from '@/shared/types'
 
 import {
   buildAgentUnlinkTargets,
@@ -21,7 +21,7 @@ import {
  */
 function makeSkill(name: string, symlinks: SymlinkInfo[]): Skill {
   return {
-    name,
+    name: toSkillName(name),
     description: 'desc',
     path: '/Users/me/.agents/skills/task',
     symlinkCount: toSymlinkCount(0),
@@ -48,7 +48,11 @@ describe('buildAgentUnlinkTargets', () => {
     ]
 
     // Act
-    const result = buildAgentUnlinkTargets(skills, ['task'], 'cursor')
+    const result = buildAgentUnlinkTargets(
+      skills,
+      [toSkillName('task')],
+      'cursor',
+    )
 
     // Assert
     expect(result.targets).toEqual([
@@ -77,7 +81,11 @@ describe('buildAgentUnlinkTargets', () => {
     ]
 
     // Act
-    const result = buildAgentUnlinkTargets(skills, ['task'], 'cursor')
+    const result = buildAgentUnlinkTargets(
+      skills,
+      [toSkillName('task')],
+      'cursor',
+    )
 
     // Assert — no unlink target produced; the name is flagged for a rescan
     expect(result.targets).toEqual([])
@@ -100,7 +108,11 @@ describe('buildAgentUnlinkTargets', () => {
     ]
 
     // Act
-    const result = buildAgentUnlinkTargets(skills, ['task'], 'cursor')
+    const result = buildAgentUnlinkTargets(
+      skills,
+      [toSkillName('task')],
+      'cursor',
+    )
 
     // Assert
     expect(result.targets).toEqual([])
@@ -112,7 +124,11 @@ describe('buildAgentUnlinkTargets', () => {
     const skills: Skill[] = []
 
     // Act
-    const result = buildAgentUnlinkTargets(skills, ['vanished'], 'cursor')
+    const result = buildAgentUnlinkTargets(
+      skills,
+      [toSkillName('vanished')],
+      'cursor',
+    )
 
     // Assert
     expect(result.targets).toEqual([])
@@ -124,7 +140,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
   it('routes a protected skill to protectedErrors and excludes it from delete targets', () => {
     // Arrange — a normal source skill selected for deletion, but locked by the user.
     const sourceSkill: Skill = {
-      name: 'task',
+      name: toSkillName('task'),
       description: 'desc',
       path: '/Users/me/.agents/skills/task',
       symlinkCount: toSymlinkCount(0),
@@ -136,8 +152,8 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
     // Act
     const result = partitionGlobalDeleteTargets(
       [sourceSkill],
-      ['task'],
-      new Set(['task']),
+      [toSkillName('task')],
+      new Set([toSkillName('task')]),
     )
 
     // Assert — protected skill is in protectedErrors, not deleteTargets
@@ -162,7 +178,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
     // The orphan check runs after the protected check, so a locked orphan
     // must never reach orphan-cleanup records.
     const orphanSkill: Skill = {
-      name: 'abandoned',
+      name: toSkillName('abandoned'),
       description: 'desc',
       path: '/Users/me/.agents/skills/abandoned',
       symlinkCount: toSymlinkCount(0),
@@ -183,8 +199,8 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
     // Act
     const result = partitionGlobalDeleteTargets(
       [orphanSkill],
-      ['abandoned'],
-      new Set(['abandoned']),
+      [toSkillName('abandoned')],
+      new Set([toSkillName('abandoned')]),
     )
 
     // Assert — protection intercepts before orphan path
@@ -208,7 +224,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
     }
     const skills: Skill[] = [
       {
-        name: 'locked',
+        name: toSkillName('locked'),
         description: 'desc',
         path: '/Users/me/.agents/skills/locked',
         symlinkCount: toSymlinkCount(0),
@@ -217,7 +233,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
         isOrphan: false,
       },
       {
-        name: 'unlocked',
+        name: toSkillName('unlocked'),
         description: 'desc',
         path: '/Users/me/.agents/skills/unlocked',
         filesystemIdentity: identity,
@@ -231,8 +247,8 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
     // Act
     const result = partitionGlobalDeleteTargets(
       skills,
-      ['locked', 'unlocked'],
-      new Set(['locked']),
+      [toSkillName('locked'), toSkillName('unlocked')],
+      new Set([toSkillName('locked')]),
     )
 
     // Assert — only the locked skill is skipped; unlocked proceeds to deleteTargets
@@ -251,7 +267,7 @@ describe('partitionGlobalDeleteTargets', () => {
     // the same skill name (isLocal true), and a broken slot whose target
     // vanished (targetPath undefined). Only the first should be cleaned up.
     const orphanSkill: Skill = {
-      name: 'abandoned',
+      name: toSkillName('abandoned'),
       description: 'desc',
       path: '/Users/me/.agents/skills/abandoned',
       symlinkCount: toSymlinkCount(0),
@@ -286,7 +302,9 @@ describe('partitionGlobalDeleteTargets', () => {
     const skills: Skill[] = [orphanSkill]
 
     // Act
-    const result = partitionGlobalDeleteTargets(skills, ['abandoned'])
+    const result = partitionGlobalDeleteTargets(skills, [
+      toSkillName('abandoned'),
+    ])
 
     // Assert — exactly one reviewed orphan record holding only the codex slot;
     // the local-folder slot and the targetless slot are filtered out, and no

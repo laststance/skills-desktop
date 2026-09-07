@@ -2,6 +2,7 @@ import { readFile } from 'fs/promises'
 import { join, basename } from 'path'
 
 import type { AbsolutePath, SkillMetadata } from '@/shared/types'
+import { toSkillName } from '@/shared/types'
 
 /**
  * Parse SKILL.md frontmatter to extract metadata
@@ -22,13 +23,13 @@ export async function parseSkillMetadata(
     const frontmatter = extractFrontmatter(content)
 
     return {
-      name: frontmatter.name || dirName,
+      name: toSkillName(frontmatter.name || dirName),
       description: frontmatter.description || '',
     }
   } catch {
     // SKILL.md not found or unreadable
     return {
-      name: dirName,
+      name: toSkillName(dirName),
       description: '',
     }
   }

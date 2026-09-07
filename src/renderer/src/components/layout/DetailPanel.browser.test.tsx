@@ -7,7 +7,12 @@ import { selectSkill } from '@/renderer/src/redux/slices/skillsSlice'
 import { setActiveTab } from '@/renderer/src/redux/slices/uiSlice'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type { Skill } from '@/shared/types'
-import { repositoryId, toHttpUrl, toSymlinkCount } from '@/shared/types'
+import {
+  repositoryId,
+  toHttpUrl,
+  toSkillName,
+  toSymlinkCount,
+} from '@/shared/types'
 
 // Replace the three routed panels with marker stubs so DetailPanel renders in
 // isolation — the real children fetch via IPC on mount, which is irrelevant to
@@ -69,7 +74,7 @@ async function renderDetailPanel() {
  */
 function makeSelectableSkill(): Skill {
   return {
-    name: 'demo-skill',
+    name: toSkillName('demo-skill'),
     description: '',
     path: '/skills/demo-skill',
     symlinkCount: toSymlinkCount(0),

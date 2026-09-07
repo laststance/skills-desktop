@@ -6,7 +6,7 @@ import { render } from 'vitest-browser-react'
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type { Agent, Skill, SkillName, SymlinkInfo } from '@/shared/types'
-import { toSkillCount, toSymlinkCount } from '@/shared/types'
+import { toSkillCount, toSkillName, toSymlinkCount } from '@/shared/types'
 
 const mockUnlinkManyFromAgent = vi.fn()
 const mockOnDeleteProgress = vi.fn(() => () => {})
@@ -184,8 +184,8 @@ describe('MainContent SelectionToolbar integration', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const metadataName = 'valid-toolbar-task' as SkillName
-    const slotName = 'valid-toolbar-folder' as SkillName
+    const metadataName = toSkillName('valid-toolbar-task')
+    const slotName = toSkillName('valid-toolbar-folder')
 
     // Arrange
     store.dispatch(fetchAgents.fulfilled([CURSOR_AGENT], 'agents-req'))
@@ -193,8 +193,11 @@ describe('MainContent SelectionToolbar integration', () => {
       fetchSkills.fulfilled(
         [
           makeCursorSkill(metadataName, 'valid', slotName),
-          makeCursorSkill('broken-toolbar-task', 'broken'),
-          makeCursorSkill('inaccessible-toolbar-task', 'inaccessible'),
+          makeCursorSkill(toSkillName('broken-toolbar-task'), 'broken'),
+          makeCursorSkill(
+            toSkillName('inaccessible-toolbar-task'),
+            'inaccessible',
+          ),
         ],
         'skills-req',
       ),
@@ -202,7 +205,7 @@ describe('MainContent SelectionToolbar integration', () => {
     store.dispatch(selectAgent('cursor'))
     store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(metadataName))
-    store.dispatch(toggleSelection('broken-toolbar-task'))
+    store.dispatch(toggleSelection(toSkillName('broken-toolbar-task')))
 
     // Act
     await expect

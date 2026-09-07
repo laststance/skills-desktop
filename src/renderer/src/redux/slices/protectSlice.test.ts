@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, test } from 'vitest'
 
 import type { Skill } from '@/shared/types'
-import { toFileSizeBytes, toSymlinkCount } from '@/shared/types'
+import { toFileSizeBytes, toSkillName, toSymlinkCount } from '@/shared/types'
 
 /**
  * Build a source-skill row the way `scanSourceSkills` does: named, and carrying
@@ -55,7 +55,7 @@ describe('protectSlice', () => {
     const store = await createTestStore()
 
     // Act
-    store.dispatch(addProtection({ name: 'task' }))
+    store.dispatch(addProtection({ name: toSkillName('task') }))
 
     // Assert
     expect(store.getState().protect.items).toEqual([{ name: 'task' }])
@@ -67,8 +67,8 @@ describe('protectSlice', () => {
     const store = await createTestStore()
 
     // Act
-    store.dispatch(addProtection({ name: 'task' }))
-    store.dispatch(addProtection({ name: 'task' }))
+    store.dispatch(addProtection({ name: toSkillName('task') }))
+    store.dispatch(addProtection({ name: toSkillName('task') }))
 
     // Assert
     expect(store.getState().protect.items).toHaveLength(1)
@@ -80,8 +80,8 @@ describe('protectSlice', () => {
     const store = await createTestStore()
 
     // Act
-    store.dispatch(addProtection({ name: 'task' }))
-    store.dispatch(addProtection({ name: 'browse' }))
+    store.dispatch(addProtection({ name: toSkillName('task') }))
+    store.dispatch(addProtection({ name: toSkillName('browse') }))
 
     // Assert
     expect(store.getState().protect.items).toHaveLength(2)
@@ -91,11 +91,11 @@ describe('protectSlice', () => {
     // Arrange
     const { addProtection, removeProtection } = await import('./protectSlice')
     const store = await createTestStore()
-    store.dispatch(addProtection({ name: 'task' }))
-    store.dispatch(addProtection({ name: 'browse' }))
+    store.dispatch(addProtection({ name: toSkillName('task') }))
+    store.dispatch(addProtection({ name: toSkillName('browse') }))
 
     // Act
-    store.dispatch(removeProtection('task'))
+    store.dispatch(removeProtection(toSkillName('task')))
 
     // Assert
     const items = store.getState().protect.items
@@ -107,10 +107,10 @@ describe('protectSlice', () => {
     // Arrange
     const { addProtection, removeProtection } = await import('./protectSlice')
     const store = await createTestStore()
-    store.dispatch(addProtection({ name: 'task' }))
+    store.dispatch(addProtection({ name: toSkillName('task') }))
 
     // Act
-    store.dispatch(removeProtection('nonexistent'))
+    store.dispatch(removeProtection(toSkillName('nonexistent')))
 
     // Assert
     expect(store.getState().protect.items).toHaveLength(1)
@@ -120,11 +120,17 @@ describe('protectSlice', () => {
     // Arrange
     const { addProtection, selectIsProtected } = await import('./protectSlice')
     const store = await createTestStore()
-    store.dispatch(addProtection({ name: 'task' }))
+    store.dispatch(addProtection({ name: toSkillName('task') }))
 
     // Act
-    const isTaskProtected = selectIsProtected(store.getState(), 'task')
-    const isOtherProtected = selectIsProtected(store.getState(), 'other')
+    const isTaskProtected = selectIsProtected(
+      store.getState(),
+      toSkillName('task'),
+    )
+    const isOtherProtected = selectIsProtected(
+      store.getState(),
+      toSkillName('other'),
+    )
 
     // Assert
     expect(isTaskProtected).toBe(true)
@@ -136,16 +142,16 @@ describe('protectSlice', () => {
     const { addProtection, selectProtectedNamesSet } =
       await import('./protectSlice')
     const store = await createTestStore()
-    store.dispatch(addProtection({ name: 'task' }))
-    store.dispatch(addProtection({ name: 'browse' }))
+    store.dispatch(addProtection({ name: toSkillName('task') }))
+    store.dispatch(addProtection({ name: toSkillName('browse') }))
 
     // Act
     const set = selectProtectedNamesSet(store.getState())
 
     // Assert
-    expect(set.has('task')).toBe(true)
-    expect(set.has('browse')).toBe(true)
-    expect(set.has('other')).toBe(false)
+    expect(set.has(toSkillName('task'))).toBe(true)
+    expect(set.has(toSkillName('browse'))).toBe(true)
+    expect(set.has(toSkillName('other'))).toBe(false)
   })
 })
 
@@ -156,12 +162,18 @@ describe('protectSlice rename reconciliation', () => {
     const { fetchSkills } = await import('./skillsSlice')
     const store = await createTestStore()
     store.dispatch(
-      addProtection({ name: 'task', identity: { dev: 1, ino: 10 } }),
+      addProtection({
+        name: toSkillName('task'),
+        identity: { dev: 1, ino: 10 },
+      }),
     )
 
     // Act — next scan finds the same inode under a new name.
     store.dispatch(
-      fetchSkills.fulfilled([makeScannedSkill('todo', 10)], 'scan-1'),
+      fetchSkills.fulfilled(
+        [makeScannedSkill(toSkillName('todo'), 10)],
+        'scan-1',
+      ),
     )
 
     // Assert — the lock followed the rename instead of stranding on "task".
@@ -175,11 +187,14 @@ describe('protectSlice rename reconciliation', () => {
     const { addProtection } = await import('./protectSlice')
     const { fetchSkills } = await import('./skillsSlice')
     const store = await createTestStore()
-    store.dispatch(addProtection({ name: 'task' }))
+    store.dispatch(addProtection({ name: toSkillName('task') }))
 
     // Act
     store.dispatch(
-      fetchSkills.fulfilled([makeScannedSkill('task', 10)], 'scan-1'),
+      fetchSkills.fulfilled(
+        [makeScannedSkill(toSkillName('task'), 10)],
+        'scan-1',
+      ),
     )
 
     // Assert
@@ -194,12 +209,18 @@ describe('protectSlice rename reconciliation', () => {
     const { fetchSkills } = await import('./skillsSlice')
     const store = await createTestStore()
     store.dispatch(
-      addProtection({ name: 'task', identity: { dev: 1, ino: 10 } }),
+      addProtection({
+        name: toSkillName('task'),
+        identity: { dev: 1, ino: 10 },
+      }),
     )
 
     // Act
     store.dispatch(
-      fetchSkills.fulfilled([makeScannedSkill('browse', 20)], 'scan-1'),
+      fetchSkills.fulfilled(
+        [makeScannedSkill(toSkillName('browse'), 20)],
+        'scan-1',
+      ),
     )
 
     // Assert — silently unlocking on a transient empty scan is the bug this
@@ -216,16 +237,25 @@ describe('protectSlice rename reconciliation', () => {
     const { fetchSkills } = await import('./skillsSlice')
     const store = await createTestStore()
     store.dispatch(
-      addProtection({ name: 'task', identity: { dev: 1, ino: 10 } }),
+      addProtection({
+        name: toSkillName('task'),
+        identity: { dev: 1, ino: 10 },
+      }),
     )
     store.dispatch(
-      addProtection({ name: 'browse', identity: { dev: 1, ino: 20 } }),
+      addProtection({
+        name: toSkillName('browse'),
+        identity: { dev: 1, ino: 20 },
+      }),
     )
 
     // Act
     store.dispatch(
       fetchSkills.fulfilled(
-        [makeScannedSkill('browse', 10), makeScannedSkill('write', 20)],
+        [
+          makeScannedSkill(toSkillName('browse'), 10),
+          makeScannedSkill(toSkillName('write'), 20),
+        ],
         'scan-1',
       ),
     )
@@ -246,15 +276,24 @@ describe('protectSlice rename reconciliation', () => {
     const { fetchSkills } = await import('./skillsSlice')
     const store = await createTestStore()
     store.dispatch(
-      addProtection({ name: 'task', identity: { dev: 1, ino: 10 } }),
+      addProtection({
+        name: toSkillName('task'),
+        identity: { dev: 1, ino: 10 },
+      }),
     )
     store.dispatch(
-      addProtection({ name: 'browse', identity: { dev: 1, ino: 20 } }),
+      addProtection({
+        name: toSkillName('browse'),
+        identity: { dev: 1, ino: 20 },
+      }),
     )
 
     // Act
     store.dispatch(
-      fetchSkills.fulfilled([makeScannedSkill('browse', 10)], 'scan-1'),
+      fetchSkills.fulfilled(
+        [makeScannedSkill(toSkillName('browse'), 10)],
+        'scan-1',
+      ),
     )
 
     // Assert — inode 10 follows its rename onto "browse" and the lock on the
@@ -272,15 +311,24 @@ describe('protectSlice rename reconciliation', () => {
     const { fetchSkills } = await import('./skillsSlice')
     const store = await createTestStore()
     store.dispatch(
-      addProtection({ name: 'browse', identity: { dev: 1, ino: 20 } }),
+      addProtection({
+        name: toSkillName('browse'),
+        identity: { dev: 1, ino: 20 },
+      }),
     )
     store.dispatch(
-      addProtection({ name: 'task', identity: { dev: 1, ino: 10 } }),
+      addProtection({
+        name: toSkillName('task'),
+        identity: { dev: 1, ino: 10 },
+      }),
     )
 
     // Act
     store.dispatch(
-      fetchSkills.fulfilled([makeScannedSkill('browse', 10)], 'scan-1'),
+      fetchSkills.fulfilled(
+        [makeScannedSkill(toSkillName('browse'), 10)],
+        'scan-1',
+      ),
     )
 
     // Assert — insertion order is an accident of when the user clicked Lock;
@@ -297,13 +345,19 @@ describe('protectSlice rename reconciliation', () => {
     const { fetchSkills } = await import('./skillsSlice')
     const store = await createTestStore()
     store.dispatch(
-      addProtection({ name: 'foo', identity: { dev: 1, ino: 10 } }),
+      addProtection({
+        name: toSkillName('foo'),
+        identity: { dev: 1, ino: 10 },
+      }),
     )
-    store.dispatch(addProtection({ name: 'bar' }))
+    store.dispatch(addProtection({ name: toSkillName('bar') }))
 
     // Act
     store.dispatch(
-      fetchSkills.fulfilled([makeScannedSkill('bar', 10)], 'scan-1'),
+      fetchSkills.fulfilled(
+        [makeScannedSkill(toSkillName('bar'), 10)],
+        'scan-1',
+      ),
     )
 
     // Assert — one skill, one lock. Two entries sharing an inode would both
@@ -320,13 +374,19 @@ describe('protectSlice rename reconciliation', () => {
     const { fetchSkills } = await import('./skillsSlice')
     const store = await createTestStore()
     store.dispatch(
-      addProtection({ name: 'task', identity: { dev: 1, ino: 10 } }),
+      addProtection({
+        name: toSkillName('task'),
+        identity: { dev: 1, ino: 10 },
+      }),
     )
     const before = selectProtectedNamesSet(store.getState())
 
     // Act
     store.dispatch(
-      fetchSkills.fulfilled([makeScannedSkill('task', 10)], 'scan-1'),
+      fetchSkills.fulfilled(
+        [makeScannedSkill(toSkillName('task'), 10)],
+        'scan-1',
+      ),
     )
 
     // Assert — a rebuilt Set on every scan would re-render the whole list.

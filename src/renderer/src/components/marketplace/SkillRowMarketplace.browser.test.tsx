@@ -4,7 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { RepositoryId, SkillSearchResult } from '@/shared/types'
-import { toHttpUrl, toInstallCount, toSkillRank } from '@/shared/types'
+import {
+  toHttpUrl,
+  toInstallCount,
+  toSkillName,
+  toSkillRank,
+} from '@/shared/types'
 
 beforeEach(() => {
   // SkillRowMarketplace doesn't call IPC directly, but SkillsMarketplace and
@@ -41,7 +46,7 @@ function makeSkill(
 ): SkillSearchResult {
   return {
     rank: toSkillRank(1),
-    name: 'task',
+    name: toSkillName('task'),
     repo: 'vercel-labs/skills' as RepositoryId,
     url: toHttpUrl('https://skills.sh/task'),
     installCount: toInstallCount(100),
@@ -128,7 +133,7 @@ describe('SkillRowMarketplace — installed row has no destructive action', () =
 
   it('shows an Installed badge whose hint spells out the npx remove --global command', async () => {
     // Arrange
-    const skill = makeSkill({ name: 'lint' })
+    const skill = makeSkill({ name: toSkillName('lint') })
 
     // Act
     const { screen } = await renderRow(skill, true)
@@ -222,7 +227,7 @@ describe('SkillRowMarketplace — open preview from row body', () => {
     // Arrange
     const skill = makeSkill({
       rank: toSkillRank(1),
-      name: 'task',
+      name: toSkillName('task'),
       repo: 'vercel-labs/skills' as RepositoryId,
     })
     const { screen, store } = await renderRow(skill, false)
@@ -246,7 +251,7 @@ describe('SkillRowMarketplace — open preview from row body', () => {
 describe('SkillRowMarketplace — stage install from row', () => {
   it('stages the skill for installation when Install is clicked', async () => {
     // Arrange
-    const skill = makeSkill({ name: 'lint' })
+    const skill = makeSkill({ name: toSkillName('lint') })
     const { screen, store } = await renderRow(skill, false)
 
     // Act

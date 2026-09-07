@@ -15,6 +15,7 @@ import type {
 import {
   toHttpUrl,
   toSearchQuery,
+  toSkillName,
   toSkillRank,
   toUnixTimestampMs,
 } from '@/shared/types'
@@ -58,7 +59,7 @@ function makeSearchResult(
 ): SkillSearchResult {
   return {
     rank: toSkillRank(1),
-    name: 'task',
+    name: toSkillName('task'),
     repo: 'vercel-labs/skills' as RepositoryId,
     url: toHttpUrl('https://skills.sh/task'),
     installCount: undefined,
@@ -167,7 +168,7 @@ describe('MarketplaceDashboard — trending preview selection', () => {
     // Arrange — one settled trending skill renders exactly one clickable row.
     const trendingSkill = makeSearchResult({
       rank: toSkillRank(1),
-      name: 'task',
+      name: toSkillName('task'),
       repo: 'vercel-labs/skills' as RepositoryId,
       url: toHttpUrl('https://skills.sh/task'),
     })

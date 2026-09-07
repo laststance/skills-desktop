@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 
-import type { SkillName, UnprunableLockEntry } from '@/shared/types'
+import type { UnprunableLockEntry } from '@/shared/types'
+import { toSkillName } from '@/shared/types'
 
 import {
   describeLockPruneTarget,
@@ -122,9 +123,12 @@ describe('selectRemovableNames', () => {
   test('drops a consented name the scan blocked while the dialog was open', () => {
     // Arrange — the record the user read is still in the snapshot, but a scan
     // has since found an agent copy behind it.
-    const consentedNames = ['plain-stale', 'agent-copy-skill'] as SkillName[]
+    const consentedNames = [
+      toSkillName('plain-stale'),
+      toSkillName('agent-copy-skill'),
+    ]
     const unprunableEntries: UnprunableLockEntry[] = [
-      { name: 'agent-copy-skill', reason: 'agent-copy' },
+      { name: toSkillName('agent-copy-skill'), reason: 'agent-copy' },
     ]
 
     // Act
@@ -136,7 +140,7 @@ describe('selectRemovableNames', () => {
 
   test('sends every consented name when the scan blocked none of them', () => {
     // Arrange
-    const consentedNames = ['one', 'two'] as SkillName[]
+    const consentedNames = [toSkillName('one'), toSkillName('two')]
 
     // Act
     const removable = selectRemovableNames(consentedNames, [])
@@ -147,10 +151,13 @@ describe('selectRemovableNames', () => {
 
   test('sends nothing when every consented name turned out to be blocked', () => {
     // Arrange — the dialog still has to render, as pure explanation.
-    const consentedNames = ['collided', 'agent-copy-skill'] as SkillName[]
+    const consentedNames = [
+      toSkillName('collided'),
+      toSkillName('agent-copy-skill'),
+    ]
     const unprunableEntries: UnprunableLockEntry[] = [
-      { name: 'collided', reason: 'name-collision' },
-      { name: 'agent-copy-skill', reason: 'agent-copy' },
+      { name: toSkillName('collided'), reason: 'name-collision' },
+      { name: toSkillName('agent-copy-skill'), reason: 'agent-copy' },
     ]
 
     // Act
@@ -163,9 +170,9 @@ describe('selectRemovableNames', () => {
   test('ignores a blocked record that was never in the consent snapshot', () => {
     // Arrange — the scan reports the whole lock; the dialog only ever deletes
     // what the user actually read.
-    const consentedNames = ['plain-stale'] as SkillName[]
+    const consentedNames = [toSkillName('plain-stale')]
     const unprunableEntries: UnprunableLockEntry[] = [
-      { name: 'never-shown', reason: 'agent-copy' },
+      { name: toSkillName('never-shown'), reason: 'agent-copy' },
     ]
 
     // Act

@@ -5,7 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { Skill, SymlinkInfo } from '@/shared/types'
-import { toSymlinkCount } from '@/shared/types'
+import { toSkillName, toSymlinkCount } from '@/shared/types'
 
 /**
  * Builds a SymlinkInfo fixture for HealthWidget display-state tests.
@@ -34,7 +34,7 @@ function makeSymlink(status: SymlinkInfo['status']): SymlinkInfo {
  */
 function makeSkill(symlinks: SymlinkInfo[]): Skill {
   return {
-    name: 'task',
+    name: toSkillName('task'),
     description: 'Task skill',
     path: '/Users/test/.agents/skills/task',
     symlinkCount: toSymlinkCount(
@@ -87,7 +87,14 @@ async function renderHealthWidget(
   store.dispatch(
     fetchStaleLockEntries.fulfilled(
       scanStatus === 'ok'
-        ? { status: 'ok', names: staleLockNames, unprunable }
+        ? {
+            status: 'ok',
+            names: staleLockNames.map(toSkillName),
+            unprunable: unprunable.map((entry) => ({
+              ...entry,
+              name: toSkillName(entry.name),
+            })),
+          }
         : { status: 'unavailable' },
       'req-lock',
       undefined,

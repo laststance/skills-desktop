@@ -6,7 +6,7 @@ import { render } from 'vitest-browser-react'
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import { installLayoutStyles } from '@/renderer/src/test/installLayoutStyles'
 import type { Skill } from '@/shared/types'
-import { toSearchQuery, toSymlinkCount } from '@/shared/types'
+import { toSearchQuery, toSkillName, toSymlinkCount } from '@/shared/types'
 
 const mockGetAll = vi.fn()
 
@@ -31,11 +31,11 @@ afterEach(() => {
  * branch (no agent selected → keeps `isSource: true` items).
  * @param overrides - Partial Skill overrides
  * @returns Complete Skill object
- * @example makeSkill({ name: 'task' as SkillName })
+ * @example makeSkill({ name: toSkillName('task') })
  */
 function makeSkill(overrides: Partial<Skill> = {}): Skill {
   return {
-    name: 'task',
+    name: toSkillName('task'),
     description: 'Task management skill',
     path: '/home/user/.agents/skills/task',
     symlinkCount: toSymlinkCount(0),
@@ -254,7 +254,7 @@ describe('SkillsList loading branch — scroll-preservation regression', () => {
     // Act
     const screen = await renderSkillsList({
       loading: true,
-      items: [makeSkill({ name: 'task' })],
+      items: [makeSkill({ name: toSkillName('task') })],
     })
 
     // Assert
@@ -269,7 +269,7 @@ describe('SkillsList scrollbar gutter layout', () => {
     mockGetAll.mockReturnValue(new Promise(() => {}))
     const visibleSkills = Array.from({ length: 8 }, (_value, index) =>
       makeSkill({
-        name: `skill-${index}`,
+        name: toSkillName(`skill-${index}`),
         description: `Skill ${index} with enough body copy to use the normal installed card height.`,
       }),
     )
@@ -301,7 +301,7 @@ describe('SkillsList scrollbar gutter layout', () => {
     mockGetAll.mockReturnValue(new Promise(() => {}))
     const visibleSkills = [
       makeSkill({
-        name: 'single-skill',
+        name: toSkillName('single-skill'),
         description: 'A short list should not need vertical scrolling.',
       }),
     ]
@@ -376,7 +376,7 @@ describe('SkillsList search-empty branch', () => {
     // items intact so we stay out of the "No skills installed" branch.
     mockGetAll.mockReturnValue(new Promise(() => {}))
     const store = await createStore({
-      items: [makeSkill({ name: 'git-workflow' })],
+      items: [makeSkill({ name: toSkillName('git-workflow') })],
     })
     const { setSearchQuery: dispatchSearchQuery } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -407,7 +407,7 @@ describe('SkillsList search-empty branch', () => {
     // Arrange — one installed skill with an active search that matches nothing
     mockGetAll.mockReturnValue(new Promise(() => {}))
     const store = await createStore({
-      items: [makeSkill({ name: 'git-workflow' })],
+      items: [makeSkill({ name: toSkillName('git-workflow') })],
     })
     const { setSearchQuery: dispatchSearchQuery } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -445,7 +445,7 @@ describe('SkillsList filtered-empty branch', () => {
     // empty-installed and the rendered list. Default UI filters (no search, no
     // source, no agent, type=all) make getEmptyListMessage fall to its catch-all.
     mockGetAll.mockResolvedValue([
-      makeSkill({ name: 'hidden-skill', isSource: false }),
+      makeSkill({ name: toSkillName('hidden-skill'), isSource: false }),
     ])
 
     // Act

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { LOCK_RESCAN_GRACE_MS, UNDO_WINDOW_MS } from '@/shared/constants'
 import type { ToastId, TombstoneId } from '@/shared/types'
-import { toIsoTimestamp, tombstoneId } from '@/shared/types'
+import { toIsoTimestamp, toSkillName, tombstoneId } from '@/shared/types'
 
 /**
  * Integration tests for the post-delete lock rescan in listener.ts.
@@ -53,7 +53,7 @@ function undoToastPayload(kind: 'delete' | 'unlink', id: string) {
   return {
     id: id as ToastId,
     kind,
-    skillNames: ['old-skill'],
+    skillNames: [toSkillName('old-skill')],
     tombstoneIds:
       kind === 'delete'
         ? [tombstoneId('1700000000000-old-skill-aaaaaaaa')]

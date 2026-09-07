@@ -8,7 +8,12 @@ import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import type { AgentFolderGroup } from '@/renderer/src/redux/slices/uiSlice'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type { Agent, FilesystemEntryIdentity, Skill } from '@/shared/types'
-import { toFileSizeBytes, toSkillCount, toSymlinkCount } from '@/shared/types'
+import {
+  toFileSizeBytes,
+  toSkillCount,
+  toSkillName,
+  toSymlinkCount,
+} from '@/shared/types'
 
 const mockRemoveAllFromAgent = vi.fn()
 const mockRemoveEmptyFolder = vi.fn()
@@ -268,7 +273,7 @@ describe('Hidden agent folder deletion', () => {
     const { addProtection } =
       await import('@/renderer/src/redux/slices/protectSlice')
     const protectedSkill: Skill = {
-      name: 'protected-task',
+      name: toSkillName('protected-task'),
       description: 'Protected source skill',
       path: '/Users/test/.agents/skills/protected-task',
       symlinkCount: toSymlinkCount(1),
@@ -286,7 +291,7 @@ describe('Hidden agent folder deletion', () => {
       isOrphan: false,
     }
     store.dispatch(fetchSkills.fulfilled([protectedSkill], 'protected-skills'))
-    store.dispatch(addProtection({ name: 'protected-task' }))
+    store.dispatch(addProtection({ name: toSkillName('protected-task') }))
     mockRemoveAllFromAgent.mockResolvedValue({
       success: true,
       removedCount: 1,

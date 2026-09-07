@@ -5,7 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { Agent, Skill, SkillName, SymlinkInfo } from '@/shared/types'
-import { toSkillCount, toSymlinkCount } from '@/shared/types'
+import { toSkillCount, toSkillName, toSymlinkCount } from '@/shared/types'
 
 const mockGetSkills = vi.fn()
 const mockGetAgents = vi.fn()
@@ -216,7 +216,7 @@ describe('SymlinkCleanupDialog', () => {
     const destructivePath =
       '/Users/test/.cursor/skills/readable-task -> /Users/test/.agents/skills/readable-task'
     mockGetSkills.mockResolvedValueOnce([
-      makeSkillWithBrokenSlot('readable-task', 'cursor'),
+      makeSkillWithBrokenSlot(toSkillName('readable-task'), 'cursor'),
     ])
 
     // Act
@@ -238,7 +238,9 @@ describe('SymlinkCleanupDialog', () => {
     // Arrange
     mockGetSkills
       .mockRejectedValueOnce(new Error('Transient scanner failure'))
-      .mockResolvedValueOnce([makeSkillWithBrokenSlot('retry-task', 'cursor')])
+      .mockResolvedValueOnce([
+        makeSkillWithBrokenSlot(toSkillName('retry-task'), 'cursor'),
+      ])
     const screen = await renderOpenedDialog()
 
     // Act
@@ -259,9 +261,11 @@ describe('SymlinkCleanupDialog', () => {
   it('stops cleanup when the fresh scan no longer matches the reviewed plan', async () => {
     // Arrange
     mockGetSkills
-      .mockResolvedValueOnce([makeSkillWithBrokenSlot('stale-task', 'cursor')])
+      .mockResolvedValueOnce([
+        makeSkillWithBrokenSlot(toSkillName('stale-task'), 'cursor'),
+      ])
       .mockResolvedValueOnce([])
-    const selectedSkillName = 'stale-list-row' as SkillName
+    const selectedSkillName = toSkillName('stale-list-row')
     const { screen, store } = await renderOpenedDialogWithStore()
     const { toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
@@ -288,9 +292,11 @@ describe('SymlinkCleanupDialog', () => {
   it('stops cleanup when a same-id broken slot points at a new target', async () => {
     // Arrange
     mockGetSkills
-      .mockResolvedValueOnce([makeSkillWithBrokenSlot('stale-task', 'cursor')])
       .mockResolvedValueOnce([
-        makeSkillWithBrokenSlot('stale-task', 'cursor', {
+        makeSkillWithBrokenSlot(toSkillName('stale-task'), 'cursor'),
+      ])
+      .mockResolvedValueOnce([
+        makeSkillWithBrokenSlot(toSkillName('stale-task'), 'cursor', {
           targetPath: '/Users/test/.agents/skills/other-target',
         }),
       ])
@@ -313,13 +319,15 @@ describe('SymlinkCleanupDialog', () => {
   it('keeps only failed rows selected after partial unlink failure refreshes the plan', async () => {
     // Arrange
     const firstPlan = [
-      makeSkillWithBrokenSlot('fixed-task', 'cursor'),
-      makeSkillWithBrokenSlot('failed-task', 'codex'),
+      makeSkillWithBrokenSlot(toSkillName('fixed-task'), 'cursor'),
+      makeSkillWithBrokenSlot(toSkillName('failed-task'), 'codex'),
     ]
     mockGetSkills
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce(firstPlan)
-      .mockResolvedValueOnce([makeSkillWithBrokenSlot('failed-task', 'codex')])
+      .mockResolvedValueOnce([
+        makeSkillWithBrokenSlot(toSkillName('failed-task'), 'codex'),
+      ])
     mockClearBrokenSymlinkSlots.mockImplementation(
       async (options: {
         items: Array<{ agentId: string; linkName: string; linkPath: string }>
@@ -366,7 +374,9 @@ describe('SymlinkCleanupDialog', () => {
 
   it('keeps cleanup success when post-cleanup refresh fails', async () => {
     // Arrange
-    const firstPlan = [makeSkillWithBrokenSlot('refresh-failed-task', 'cursor')]
+    const firstPlan = [
+      makeSkillWithBrokenSlot(toSkillName('refresh-failed-task'), 'cursor'),
+    ]
     mockGetSkills
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce(firstPlan)
@@ -427,8 +437,12 @@ describe('SymlinkCleanupDialog', () => {
 
   it('keeps dashboard refresh warnings when rescan finds more cleanup items', async () => {
     // Arrange
-    const firstPlan = [makeSkillWithBrokenSlot('refresh-ready-task', 'cursor')]
-    const nextPlan = [makeSkillWithBrokenSlot('next-refresh-task', 'codex')]
+    const firstPlan = [
+      makeSkillWithBrokenSlot(toSkillName('refresh-ready-task'), 'cursor'),
+    ]
+    const nextPlan = [
+      makeSkillWithBrokenSlot(toSkillName('next-refresh-task'), 'codex'),
+    ]
     mockGetSkills
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce(firstPlan)
@@ -476,12 +490,14 @@ describe('SymlinkCleanupDialog', () => {
 
   it('requires rescan when a failed row keeps its id but changes target after cleanup', async () => {
     // Arrange
-    const firstPlan = [makeSkillWithBrokenSlot('failed-task', 'codex')]
+    const firstPlan = [
+      makeSkillWithBrokenSlot(toSkillName('failed-task'), 'codex'),
+    ]
     mockGetSkills
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce([
-        makeSkillWithBrokenSlot('failed-task', 'codex', {
+        makeSkillWithBrokenSlot(toSkillName('failed-task'), 'codex', {
           targetPath: '/Users/test/.agents/skills/other-failed-target',
         }),
       ])
@@ -517,7 +533,9 @@ describe('SymlinkCleanupDialog', () => {
   it('requires rescan when a row fails and the post-cleanup skills refresh rejects', async () => {
     // Arrange — open scan + pre-clean fetch succeed; the post-cleanup
     // fetchSkills (the plan source) rejects so no post-cleanup plan exists.
-    const firstPlan = [makeSkillWithBrokenSlot('refresh-reject-task', 'codex')]
+    const firstPlan = [
+      makeSkillWithBrokenSlot(toSkillName('refresh-reject-task'), 'codex'),
+    ]
     mockGetSkills
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce(firstPlan)
@@ -562,7 +580,9 @@ describe('SymlinkCleanupDialog', () => {
     // fetchSkills then resolves a fresh plan, but the agent registry is offline
     // only on that rescan: its warning surfaces solely if the rescan refreshes
     // every dashboard source, which a pre-mutation stale rescan never does.
-    const firstPlan = [makeSkillWithBrokenSlot('stale-refresh-task', 'codex')]
+    const firstPlan = [
+      makeSkillWithBrokenSlot(toSkillName('stale-refresh-task'), 'codex'),
+    ]
     mockGetSkills
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce(firstPlan)
@@ -617,7 +637,9 @@ describe('SymlinkCleanupDialog', () => {
     // surfaces solely if the rescan refreshes every dashboard source, which the
     // error phase does only because its summary records the post-cleanup
     // refresh failure.
-    const firstPlan = [makeSkillWithBrokenSlot('error-refresh-task', 'codex')]
+    const firstPlan = [
+      makeSkillWithBrokenSlot(toSkillName('error-refresh-task'), 'codex'),
+    ]
     mockGetSkills
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce(firstPlan)
@@ -662,7 +684,9 @@ describe('SymlinkCleanupDialog', () => {
   it('keeps cleanup success when only the post-cleanup skills refresh rejects', async () => {
     // Arrange — same fetchSkills rejection, but the cleanup row succeeds, so
     // the happy path must still report completion (not a stale rescan prompt).
-    const firstPlan = [makeSkillWithBrokenSlot('refresh-reject-ok', 'codex')]
+    const firstPlan = [
+      makeSkillWithBrokenSlot(toSkillName('refresh-reject-ok'), 'codex'),
+    ]
     mockGetSkills
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce(firstPlan)
@@ -711,12 +735,14 @@ describe('SymlinkCleanupDialog', () => {
   it('keeps same-name broken slot failures attached to the failed agent row', async () => {
     // Arrange
     const firstPlan = [
-      makeSkillWithBrokenSlots('shared-task', ['cursor', 'codex']),
+      makeSkillWithBrokenSlots(toSkillName('shared-task'), ['cursor', 'codex']),
     ]
     mockGetSkills
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce(firstPlan)
-      .mockResolvedValueOnce([makeSkillWithBrokenSlot('shared-task', 'codex')])
+      .mockResolvedValueOnce([
+        makeSkillWithBrokenSlot(toSkillName('shared-task'), 'codex'),
+      ])
     mockClearBrokenSymlinkSlots.mockImplementation(
       async (options: {
         items: Array<{ agentId: string; linkName: string; linkPath: string }>
@@ -770,7 +796,9 @@ describe('SymlinkCleanupDialog', () => {
         outcome: 'unlinked'
       }>
     }) => void = () => undefined
-    const firstPlan = [makeSkillWithBrokenSlot('pending-task', 'cursor')]
+    const firstPlan = [
+      makeSkillWithBrokenSlot(toSkillName('pending-task'), 'cursor'),
+    ]
     mockGetSkills
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce(firstPlan)
@@ -824,9 +852,9 @@ describe('SymlinkCleanupDialog', () => {
 
   it('clears stale Installed-list selection when dashboard cleanup starts', async () => {
     // Arrange
-    const selectedSkillName = 'stale-list-row' as SkillName
+    const selectedSkillName = toSkillName('stale-list-row')
     const cleanupPlan = [
-      makeSkillWithBrokenSlot('dialog-cleanup-task', 'cursor'),
+      makeSkillWithBrokenSlot(toSkillName('dialog-cleanup-task'), 'cursor'),
     ]
     mockGetSkills
       .mockResolvedValueOnce(cleanupPlan)
@@ -865,7 +893,7 @@ describe('SymlinkCleanupDialog', () => {
 
   it('surfaces orphan-only IPC failures without calling source delete', async () => {
     // Arrange
-    const orphanPlan = [makeOrphanSkill('abandoned-task', 'codex')]
+    const orphanPlan = [makeOrphanSkill(toSkillName('abandoned-task'), 'codex')]
     mockGetSkills
       .mockResolvedValueOnce(orphanPlan)
       .mockResolvedValueOnce(orphanPlan)
@@ -923,7 +951,7 @@ describe('SymlinkCleanupDialog', () => {
   it('shows link-folder identity before metadata name for broken cleanup rows', async () => {
     // Arrange
     const mismatchPlan = [
-      makeSkillWithBrokenSlot('metadata-title', 'cursor', {
+      makeSkillWithBrokenSlot(toSkillName('metadata-title'), 'cursor', {
         linkPath: '/Users/test/.cursor/skills/link-folder-name',
         targetPath: '/Users/test/.agents/skills/missing-target',
       }),
@@ -1004,7 +1032,7 @@ describe('SymlinkCleanupDialog', () => {
   it('closes the dialog and discards the reviewed plan when cancelled', async () => {
     // Arrange
     mockGetSkills.mockResolvedValueOnce([
-      makeSkillWithBrokenSlot('cancel-task', 'cursor'),
+      makeSkillWithBrokenSlot(toSkillName('cancel-task'), 'cursor'),
     ])
     const { screen, store } = await renderOpenedDialogWithStore()
     await expect
@@ -1024,7 +1052,7 @@ describe('SymlinkCleanupDialog', () => {
   it('deselects then reselects a single row from its row checkbox', async () => {
     // Arrange
     mockGetSkills.mockResolvedValueOnce([
-      makeSkillWithBrokenSlot('toggle-task', 'cursor'),
+      makeSkillWithBrokenSlot(toSkillName('toggle-task'), 'cursor'),
     ])
     const screen = await renderOpenedDialog()
     const rowCheckbox = screen.getByRole('checkbox', {
@@ -1054,8 +1082,8 @@ describe('SymlinkCleanupDialog', () => {
   it('clears then restores every row in a section from the section checkbox', async () => {
     // Arrange — two broken rows share one "Broken agent links" section.
     mockGetSkills.mockResolvedValueOnce([
-      makeSkillWithBrokenSlot('section-a', 'cursor'),
-      makeSkillWithBrokenSlot('section-b', 'codex'),
+      makeSkillWithBrokenSlot(toSkillName('section-a'), 'cursor'),
+      makeSkillWithBrokenSlot(toSkillName('section-b'), 'codex'),
     ])
     const screen = await renderOpenedDialog()
     const rowA = screen.getByRole('checkbox', {
@@ -1096,7 +1124,9 @@ describe('SymlinkCleanupDialog', () => {
     // complete-with-rescan state. The rescan then refreshes every source, and
     // its fetchSkills rejection must surface as a scan error (not a silent
     // swallow) because the full-refresh scan re-throws the skills rejection.
-    const firstPlan = [makeSkillWithBrokenSlot('rescan-reject-task', 'cursor')]
+    const firstPlan = [
+      makeSkillWithBrokenSlot(toSkillName('rescan-reject-task'), 'cursor'),
+    ]
     mockGetSkills
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce(firstPlan)
@@ -1134,8 +1164,8 @@ describe('SymlinkCleanupDialog', () => {
     // Arrange — two skills both have a broken slot on Cursor, so the unlink IPC
     // returns two Cursor results that must collapse into a single agent group.
     const firstPlan = [
-      makeSkillWithBrokenSlot('grouped-a', 'cursor'),
-      makeSkillWithBrokenSlot('grouped-b', 'cursor'),
+      makeSkillWithBrokenSlot(toSkillName('grouped-a'), 'cursor'),
+      makeSkillWithBrokenSlot(toSkillName('grouped-b'), 'cursor'),
     ]
     mockGetSkills
       .mockResolvedValueOnce(firstPlan)
@@ -1174,7 +1204,9 @@ describe('SymlinkCleanupDialog', () => {
     // Arrange — the unlink IPC throws instead of returning per-row outcomes, so
     // the executor's catch path must still refresh the dashboard and surface a
     // generic cleanup error.
-    const firstPlan = [makeSkillWithBrokenSlot('throwing-task', 'cursor')]
+    const firstPlan = [
+      makeSkillWithBrokenSlot(toSkillName('throwing-task'), 'cursor'),
+    ]
     mockGetSkills
       .mockResolvedValueOnce(firstPlan)
       .mockResolvedValueOnce(firstPlan)

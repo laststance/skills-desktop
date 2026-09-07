@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { copyToAgents } from '@/renderer/src/redux/slices/skillsSlice'
 import type { AbsolutePath, Skill, SkillName } from '@/shared/types'
-import { toSymlinkCount } from '@/shared/types'
+import { toSkillName, toSymlinkCount } from '@/shared/types'
 
 // `copyToAgentsWithToast` is the shared "dispatch → match-fulfilled →
 // 3-branch toast → refreshAllData" helper used by AddSymlinkModal and
@@ -41,7 +41,7 @@ const dispatchMock = vi.fn()
  * @returns Skill fixture sufficient for copyToAgentsWithToast unit tests.
  * @example makeSkill('tdd-workflow').name // => 'tdd-workflow'
  */
-function makeSkill(name: SkillName = 'tdd-workflow'): Skill {
+function makeSkill(name: SkillName = toSkillName('tdd-workflow')): Skill {
   return {
     name,
     description: `${name} description`,
@@ -78,7 +78,7 @@ describe('copyToAgentsWithToast', () => {
 
     // Act
     await copyToAgentsWithToast(dispatchMock, {
-      skill: makeSkill('tdd-workflow'),
+      skill: makeSkill(toSkillName('tdd-workflow')),
       sourcePath: sampleSourcePath,
       agentIds: ['claude-code', 'codex'],
     })
@@ -109,7 +109,7 @@ describe('copyToAgentsWithToast', () => {
 
     // Act
     await copyToAgentsWithToast(dispatchMock, {
-      skill: makeSkill('tdd-workflow'),
+      skill: makeSkill(toSkillName('tdd-workflow')),
       sourcePath: sampleSourcePath,
       agentIds: ['claude-code', 'cursor', 'codex'],
     })
@@ -136,7 +136,7 @@ describe('copyToAgentsWithToast', () => {
 
     // Act
     await copyToAgentsWithToast(dispatchMock, {
-      skill: makeSkill('tdd-workflow'),
+      skill: makeSkill(toSkillName('tdd-workflow')),
       sourcePath: sampleSourcePath,
       agentIds: ['claude-code'],
     })
@@ -159,7 +159,7 @@ describe('copyToAgentsWithToast', () => {
 
     // Act
     await copyToAgentsWithToast(dispatchMock, {
-      skill: makeSkill('tdd-workflow'),
+      skill: makeSkill(toSkillName('tdd-workflow')),
       sourcePath: sampleSourcePath,
       agentIds: ['claude-code'],
     })
@@ -181,7 +181,7 @@ describe('copyToAgentsWithToast', () => {
 
     // Act
     await copyToAgentsWithToast(dispatchMock, {
-      skill: makeSkill('tdd-workflow'),
+      skill: makeSkill(toSkillName('tdd-workflow')),
       sourcePath: sampleSourcePath,
       agentIds: ['claude-code'],
     })

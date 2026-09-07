@@ -20,6 +20,7 @@ import {
   toBatchItemCount,
   toBatchItemIndex,
   toFileSizeBytes,
+  toSkillName,
   toSymlinkCount,
   tombstoneId,
 } from '@/shared/types'
@@ -72,7 +73,7 @@ async function createTestStore() {
 
 /** Sample skill for testing */
 const sampleSkill: Skill = {
-  name: 'task',
+  name: toSkillName('task'),
   description: 'Task management skill',
   path: '/home/user/.agents/skills/task',
   filesystemIdentity: directoryIdentity,
@@ -93,13 +94,13 @@ const sampleSkill: Skill = {
 
 const secondSkill: Skill = {
   ...sampleSkill,
-  name: 'theme-generator',
+  name: toSkillName('theme-generator'),
   path: '/home/user/.agents/skills/theme-generator',
 }
 
 const thirdSkill: Skill = {
   ...sampleSkill,
-  name: 'browser',
+  name: toSkillName('browser'),
   path: '/home/user/.agents/skills/browser',
 }
 
@@ -594,7 +595,7 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
   const item = (
     name: string,
   ): { skillName: SkillName; sourcePath: AbsolutePath } => ({
-    skillName: name,
+    skillName: toSkillName(name),
     sourcePath: `/Users/me/.agents/skills/${name}`,
   })
 
@@ -730,7 +731,7 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
     })
     const store = await createTestStore()
     const { bulkCopyToAgents, selectAll } = await import('./skillsSlice')
-    store.dispatch(selectAll(['alpha', 'beta']))
+    store.dispatch(selectAll([toSkillName('alpha'), toSkillName('beta')]))
 
     // Act
     await store.dispatch(
@@ -812,7 +813,7 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     const store = await createTestStore()
 
     // Act
-    store.dispatch(toggleSelection('task'))
+    store.dispatch(toggleSelection(toSkillName('task')))
 
     // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
@@ -825,8 +826,8 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     const store = await createTestStore()
 
     // Act
-    store.dispatch(toggleSelection('task'))
-    store.dispatch(toggleSelection('task'))
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('task')))
 
     // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual([])
@@ -840,8 +841,14 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     const store = await createTestStore()
 
     // Act
-    store.dispatch(toggleSelection('task'))
-    store.dispatch(selectRange(['task', 'theme', 'browser']))
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(
+      selectRange([
+        toSkillName('task'),
+        toSkillName('theme'),
+        toSkillName('browser'),
+      ]),
+    )
 
     // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual([
@@ -859,9 +866,15 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     const store = await createTestStore()
 
     // Act
-    store.dispatch(toggleSelection('task'))
-    store.dispatch(toggleSelection('browser'))
-    store.dispatch(selectRange(['task', 'theme', 'browser']))
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('browser')))
+    store.dispatch(
+      selectRange([
+        toSkillName('task'),
+        toSkillName('theme'),
+        toSkillName('browser'),
+      ]),
+    )
 
     // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual([
@@ -877,8 +890,14 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     const store = await createTestStore()
 
     // Act
-    store.dispatch(toggleSelection('zebra'))
-    store.dispatch(selectAll(['task', 'theme', 'browser']))
+    store.dispatch(toggleSelection(toSkillName('zebra')))
+    store.dispatch(
+      selectAll([
+        toSkillName('task'),
+        toSkillName('theme'),
+        toSkillName('browser'),
+      ]),
+    )
 
     // Assert
     expect(store.getState().skills.selectedSkillNames).toEqual([
@@ -893,7 +912,7 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     // Arrange — a prior single click pinned 'task' as the range anchor
     const { toggleSelection, selectRange } = await import('./skillsSlice')
     const store = await createTestStore()
-    store.dispatch(toggleSelection('task'))
+    store.dispatch(toggleSelection(toSkillName('task')))
 
     // Act — an empty range payload (no spanned rows) must not move the anchor
     store.dispatch(selectRange([]))
@@ -910,7 +929,7 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     const store = await createTestStore()
 
     // Act
-    store.dispatch(toggleSelection('task'))
+    store.dispatch(toggleSelection(toSkillName('task')))
     store.dispatch(selectAll([]))
 
     // Assert
@@ -924,8 +943,8 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     const store = await createTestStore()
 
     // Act
-    store.dispatch(toggleSelection('task'))
-    store.dispatch(toggleSelection('theme'))
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('theme')))
     store.dispatch(clearSelection())
 
     // Assert
@@ -995,9 +1014,9 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     // Act — include a ghost name that is NOT in state.items; reconciliation should drop it
     const promise = store.dispatch(
       deleteSelectedSkills([
-        deleteTarget('task'),
-        deleteTarget('theme-generator'),
-        deleteTarget('already-gone'),
+        deleteTarget(toSkillName('task')),
+        deleteTarget(toSkillName('theme-generator')),
+        deleteTarget(toSkillName('already-gone')),
       ]),
     )
 
@@ -1012,21 +1031,21 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     resolve({
       items: [
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaaaaaa'),
           symlinksRemoved: toSymlinkCount(2),
           cascadeAgents: [],
         },
         {
-          skillName: 'theme-generator',
+          skillName: toSkillName('theme-generator'),
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-theme-generator-bbbbbbbb'),
           symlinksRemoved: toSymlinkCount(0),
           cascadeAgents: [],
         },
         {
-          skillName: 'already-gone',
+          skillName: toSkillName('already-gone'),
           outcome: 'error',
           error: { message: 'Not present' },
         },
@@ -1041,7 +1060,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     mockDeleteSkills.mockResolvedValue({
       items: [
         {
-          skillName: 'metadata-title',
+          skillName: toSkillName('metadata-title'),
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-metadata-title-aaaaaaaa'),
           symlinksRemoved: toSymlinkCount(1),
@@ -1055,7 +1074,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     await store.dispatch(
       deleteSelectedSkills([
         {
-          skillName: 'metadata-title',
+          skillName: toSkillName('metadata-title'),
           skillPath: '/home/user/.agents/skills/folder-basename',
           filesystemIdentity: directoryIdentity,
         },
@@ -1081,7 +1100,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     mockDeleteSkills.mockResolvedValue({
       items: [
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaaaaaa'),
           symlinksRemoved: toSymlinkCount(1),
@@ -1091,7 +1110,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     } satisfies BulkDeleteResult)
     const { deleteSelectedSkills, toggleSelection, setBulkProgress } =
       await import('./skillsSlice')
-    store.dispatch(toggleSelection('task'))
+    store.dispatch(toggleSelection(toSkillName('task')))
     store.dispatch(
       setBulkProgress({
         current: toBatchItemIndex(1),
@@ -1100,7 +1119,9 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     )
 
     // Act
-    await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
+    await store.dispatch(
+      deleteSelectedSkills([deleteTarget(toSkillName('task'))]),
+    )
 
     // Assert
     const state = store.getState().skills
@@ -1118,7 +1139,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     mockDeleteSkills.mockResolvedValue({
       items: [
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           outcome: 'orphan-cleared',
           symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['claude-code'],
@@ -1127,7 +1148,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     } satisfies BulkDeleteResult)
     const { deleteSelectedSkills, toggleSelection, setBulkProgress } =
       await import('./skillsSlice')
-    store.dispatch(toggleSelection('task'))
+    store.dispatch(toggleSelection(toSkillName('task')))
     store.dispatch(
       setBulkProgress({
         current: toBatchItemIndex(1),
@@ -1136,7 +1157,9 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     )
 
     // Act
-    await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
+    await store.dispatch(
+      deleteSelectedSkills([deleteTarget(toSkillName('task'))]),
+    )
 
     // Assert
     const state = store.getState().skills
@@ -1155,7 +1178,9 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     const { deleteSelectedSkills } = await import('./skillsSlice')
 
     // Act
-    await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
+    await store.dispatch(
+      deleteSelectedSkills([deleteTarget(toSkillName('task'))]),
+    )
 
     // Assert
     const state = store.getState().skills
@@ -1186,7 +1211,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
     const promise = store.dispatch(
       clearSelectedOrphanSymlinks([
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           agents: [
             {
               agentId: 'codex',
@@ -1196,7 +1221,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
           ],
         },
         {
-          skillName: 'ghost',
+          skillName: toSkillName('ghost'),
           agents: [
             {
               agentId: 'cursor',
@@ -1215,7 +1240,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
     resolve({
       items: [
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           outcome: 'orphan-cleared',
           symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['codex'],
@@ -1232,7 +1257,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
     mockClearOrphanSymlinks.mockResolvedValue({
       items: [
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           outcome: 'orphan-cleared',
           symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['codex'],
@@ -1241,7 +1266,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
     } satisfies ClearOrphanSymlinksResult)
     const { clearSelectedOrphanSymlinks, setBulkProgress, toggleSelection } =
       await import('./skillsSlice')
-    store.dispatch(toggleSelection('task'))
+    store.dispatch(toggleSelection(toSkillName('task')))
     store.dispatch(
       setBulkProgress({
         current: toBatchItemIndex(1),
@@ -1253,7 +1278,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
     await store.dispatch(
       clearSelectedOrphanSymlinks([
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           agents: [
             {
               agentId: 'codex',
@@ -1281,7 +1306,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
     mockClearOrphanSymlinks.mockResolvedValue({
       items: [
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           outcome: 'error',
           error: { message: 'Rescan before cleanup.' },
         },
@@ -1289,13 +1314,13 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
     } satisfies ClearOrphanSymlinksResult)
     const { clearSelectedOrphanSymlinks, toggleSelection } =
       await import('./skillsSlice')
-    store.dispatch(toggleSelection('task'))
+    store.dispatch(toggleSelection(toSkillName('task')))
 
     // Act
     await store.dispatch(
       clearSelectedOrphanSymlinks([
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           agents: [
             {
               agentId: 'codex',
@@ -1326,7 +1351,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
     await store.dispatch(
       clearSelectedOrphanSymlinks([
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           agents: [
             {
               agentId: 'codex',
@@ -1372,15 +1397,15 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
             // linkName (on-disk basename) intentionally differs from
             // displaySkillName to prove reconciliation matches the live
             // skill.name ('task'), not the symlink basename.
-            linkName: 'task-symlink',
-            displaySkillName: 'task',
+            linkName: toSkillName('task-symlink'),
+            displaySkillName: toSkillName('task'),
             linkPath: '/home/user/.codex/skills/task-symlink',
             targetPath: '/home/user/.agents/skills/task',
           },
           {
             agentId: 'cursor',
-            linkName: 'ghost',
-            displaySkillName: 'ghost',
+            linkName: toSkillName('ghost'),
+            displaySkillName: toSkillName('ghost'),
             linkPath: '/home/user/.cursor/skills/ghost',
             targetPath: '/home/user/.agents/skills/ghost',
           },
@@ -1396,7 +1421,7 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
       items: [
         {
           agentId: 'codex' as AgentId,
-          skillName: 'task',
+          skillName: toSkillName('task'),
           linkPath: '/home/user/.codex/skills/task',
           outcome: 'unlinked',
         },
@@ -1413,7 +1438,7 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
       items: [
         {
           agentId: 'codex' as AgentId,
-          skillName: 'task',
+          skillName: toSkillName('task'),
           linkPath: '/home/user/.codex/skills/task',
           outcome: 'unlinked',
         },
@@ -1427,8 +1452,8 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
         items: [
           {
             agentId: 'codex',
-            linkName: 'task',
-            displaySkillName: 'task',
+            linkName: toSkillName('task'),
+            displaySkillName: toSkillName('task'),
             linkPath: '/home/user/.codex/skills/task',
             targetPath: '/home/user/.agents/skills/task',
           },
@@ -1457,8 +1482,8 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
         items: [
           {
             agentId: 'codex',
-            linkName: 'task',
-            displaySkillName: 'task',
+            linkName: toSkillName('task'),
+            displaySkillName: toSkillName('task'),
             linkPath: '/home/user/.codex/skills/task',
             targetPath: '/home/user/.agents/skills/task',
           },
@@ -1496,9 +1521,9 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
       unlinkSelectedFromAgent({
         agentId: 'cursor',
         selectedNames: [
-          unlinkTarget('task'),
-          unlinkTarget('browser'),
-          unlinkTarget('ghost'),
+          unlinkTarget(toSkillName('task')),
+          unlinkTarget(toSkillName('browser')),
+          unlinkTarget(toSkillName('ghost')),
         ],
       }),
     )
@@ -1512,8 +1537,8 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
 
     resolve({
       items: [
-        { skillName: 'task', outcome: 'unlinked' },
-        { skillName: 'browser', outcome: 'unlinked' },
+        { skillName: toSkillName('task'), outcome: 'unlinked' },
+        { skillName: toSkillName('browser'), outcome: 'unlinked' },
       ],
     })
     await promise
@@ -1523,7 +1548,9 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     // Arrange
     const store = await createTestStore()
     mockUnlinkManyFromAgent.mockResolvedValue({
-      items: [{ skillName: 'metadata-title', outcome: 'unlinked' }],
+      items: [
+        { skillName: toSkillName('metadata-title'), outcome: 'unlinked' },
+      ],
     } satisfies BulkUnlinkResult)
     const { unlinkSelectedFromAgent } = await import('./skillsSlice')
 
@@ -1533,7 +1560,7 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
         agentId: 'cursor',
         selectedNames: [
           {
-            skillName: 'metadata-title',
+            skillName: toSkillName('metadata-title'),
             linkPath: '/home/user/.cursor/skills/folder-basename',
             targetPath: '/home/user/.agents/skills/folder-basename',
           },
@@ -1559,17 +1586,17 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     const store = await createTestStore()
     await seedItems(store, [sampleSkill])
     mockUnlinkManyFromAgent.mockResolvedValue({
-      items: [{ skillName: 'task', outcome: 'unlinked' }],
+      items: [{ skillName: toSkillName('task'), outcome: 'unlinked' }],
     } satisfies BulkUnlinkResult)
     const { unlinkSelectedFromAgent, toggleSelection } =
       await import('./skillsSlice')
-    store.dispatch(toggleSelection('task'))
+    store.dispatch(toggleSelection(toSkillName('task')))
 
     // Act
     await store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor',
-        selectedNames: [unlinkTarget('task')],
+        selectedNames: [unlinkTarget(toSkillName('task'))],
       }),
     )
 
@@ -1592,7 +1619,7 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
     await store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor',
-        selectedNames: [unlinkTarget('task')],
+        selectedNames: [unlinkTarget(toSkillName('task'))],
       }),
     )
 
@@ -1750,7 +1777,7 @@ describe('skillsSlice named selectors', () => {
       selectSelectedCopyAgentIds,
       selectSelectionAnchor,
     } = await import('./skillsSlice')
-    store.dispatch(toggleSelection('task'))
+    store.dispatch(toggleSelection(toSkillName('task')))
     store.dispatch(toggleCopyAgentSelection('codex'))
 
     // Act
@@ -1782,12 +1809,14 @@ describe('skillsSlice named selectors', () => {
       selectBulkCopying,
     } = await import('./skillsSlice')
     store.dispatch(
-      deleteSelectedSkills.pending('del-1', [deleteTarget('task')]),
+      deleteSelectedSkills.pending('del-1', [
+        deleteTarget(toSkillName('task')),
+      ]),
     )
     store.dispatch(
       unlinkSelectedFromAgent.pending('unlink-1', {
         agentId: 'cursor',
-        selectedNames: [unlinkTarget('task')],
+        selectedNames: [unlinkTarget(toSkillName('task'))],
       }),
     )
     store.dispatch(

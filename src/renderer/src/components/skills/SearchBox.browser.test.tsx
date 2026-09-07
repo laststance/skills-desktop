@@ -7,6 +7,7 @@ import { render } from 'vitest-browser-react'
 import {
   repositoryId,
   toHttpUrl,
+  toSkillName,
   toSymlinkCount,
   type Skill,
 } from '@/shared/types'
@@ -47,7 +48,7 @@ async function renderSearchBox() {
  */
 function makeSkill(name: string, source?: string): Skill {
   return {
-    name,
+    name: toSkillName(name),
     description: '',
     path: `/skills/${name}`,
     symlinkCount: toSymlinkCount(0),

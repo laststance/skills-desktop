@@ -5,6 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { StaleLockScanResult } from '@/shared/types'
+import { toSkillName } from '@/shared/types'
 
 const mockToastSuccess = vi.fn()
 const mockToastError = vi.fn()
@@ -68,7 +69,14 @@ async function renderDialog(
   store.dispatch(fetchStaleLockEntries.pending('req-lock', undefined))
   store.dispatch(
     fetchStaleLockEntries.fulfilled(
-      { status: 'ok', names: staleLockNames, unprunable },
+      {
+        status: 'ok',
+        names: staleLockNames.map(toSkillName),
+        unprunable: unprunable.map((entry) => ({
+          ...entry,
+          name: toSkillName(entry.name),
+        })),
+      },
       'req-lock',
       undefined,
     ),
@@ -139,7 +147,7 @@ describe('LockPruneDialog', () => {
     })
     mockScanStaleLockEntries.mockResolvedValue({
       status: 'ok',
-      names: ['stubborn'],
+      names: [toSkillName('stubborn')],
       unprunable: [],
     })
     const { screen, store } = await renderDialog(['stubborn'])
@@ -159,7 +167,7 @@ describe('LockPruneDialog', () => {
     mockPruneLockEntries.mockRejectedValue(new Error('IPC channel closed'))
     mockScanStaleLockEntries.mockResolvedValue({
       status: 'ok',
-      names: ['old-skill'],
+      names: [toSkillName('old-skill')],
       unprunable: [],
     })
     const { screen, store } = await renderDialog(['old-skill'])
@@ -191,7 +199,11 @@ describe('LockPruneDialog', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-late', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill', 'just-appeared'], unprunable: [] },
+        {
+          status: 'ok',
+          names: [toSkillName('old-skill'), toSkillName('just-appeared')],
+          unprunable: [],
+        },
         'req-late',
         undefined,
       ),
@@ -311,8 +323,10 @@ describe('LockPruneDialog', () => {
       fetchStaleLockEntries.fulfilled(
         {
           status: 'ok',
-          names: ['plain-stale'],
-          unprunable: [{ name: 'agent-copy-skill', reason: 'agent-copy' }],
+          names: [toSkillName('plain-stale')],
+          unprunable: [
+            { name: toSkillName('agent-copy-skill'), reason: 'agent-copy' },
+          ],
         },
         'req-lock-2',
         undefined,

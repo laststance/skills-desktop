@@ -26,6 +26,7 @@ import {
   toIsoTimestamp,
   toSearchQuery,
   toSkillCount,
+  toSkillName,
   toSkillRank,
   toSymlinkCount,
   tombstoneId,
@@ -279,7 +280,7 @@ async function waitForBulkSelectReady(
  */
 function makeSourceSkill(name: string, source: string): Skill {
   return {
-    name: name,
+    name: toSkillName(name),
     description: '',
     path: `/skills/${name}` as never,
     filesystemIdentity: directoryIdentity,
@@ -301,7 +302,7 @@ function makeSourceSkill(name: string, source: string): Skill {
  */
 function makeAgentLocalSkill(name: string, agentId: AgentId): Skill {
   return {
-    name: name,
+    name: toSkillName(name),
     description: '',
     path: `/home/user/.${agentId}/skills/${name}` as never,
     symlinkCount: toSymlinkCount(0),
@@ -460,7 +461,7 @@ describe('MainContent hosts the shared InstallModal', () => {
     // Exactly the payload BookmarkItem/BookmarkDetailModal dispatch from the sidebar.
     store.dispatch(
       selectSkillForInstall({
-        name: 'task',
+        name: toSkillName('task'),
         repo: repositoryId('vercel-labs/skills'),
       }),
     )
@@ -526,8 +527,8 @@ describe('MainContent bulk-select toggle button', () => {
       await import('@/renderer/src/redux/slices/skillsSlice')
 
     store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection('task'))
-    store.dispatch(toggleSelection('tdd'))
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('tdd')))
     expect(store.getState().skills.selectedSkillNames.length).toBe(2)
 
     // Act
@@ -570,7 +571,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
       await import('@/renderer/src/redux/slices/skillsSlice')
     const skillFixtures = [
       {
-        name: 'task' as SkillName,
+        name: toSkillName('task'),
         description: '',
         path: '/skills/task' as never,
         filesystemIdentity: directoryIdentity,
@@ -580,7 +581,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
         isOrphan: false,
       },
       {
-        name: 'tdd' as SkillName,
+        name: toSkillName('tdd'),
         description: '',
         path: '/skills/tdd' as never,
         filesystemIdentity: directoryIdentity,
@@ -652,7 +653,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
       await import('@/renderer/src/redux/slices/skillsSlice')
     const skillFixtures = [
       {
-        name: 'task' as SkillName,
+        name: toSkillName('task'),
         description: '',
         path: '/skills/task' as never,
         filesystemIdentity: directoryIdentity,
@@ -662,7 +663,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
         isOrphan: false,
       },
       {
-        name: 'tdd' as SkillName,
+        name: toSkillName('tdd'),
         description: '',
         path: '/skills/tdd' as never,
         filesystemIdentity: directoryIdentity,
@@ -721,7 +722,7 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
       await import('@/renderer/src/redux/slices/skillsSlice')
 
     store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection('task'))
+    store.dispatch(toggleSelection(toSkillName('task')))
     expect(store.getState().skills.selectedSkillNames.length).toBe(1)
 
     await waitForBulkSelectReady(screen)
@@ -772,7 +773,7 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
       await import('@/renderer/src/redux/slices/skillsSlice')
 
     store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection('task'))
+    store.dispatch(toggleSelection(toSkillName('task')))
     // Same race as the Cmd+A editable-target test: wait for bulk-mode commit
     // so the Escape guard is exercised via the editable-target branch.
     await waitForBulkSelectReady(screen)
@@ -810,14 +811,14 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
       await import('@/renderer/src/redux/slices/marketplaceSlice')
 
     store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection('task'))
+    store.dispatch(toggleSelection(toSkillName('task')))
     await waitForBulkSelectReady(screen)
 
     // Open the shared InstallModal (exactly the sidebar bookmark install path),
     // then wait for the Radix dialog to mount with data-state="open".
     store.dispatch(
       selectSkillForInstall({
-        name: 'task',
+        name: toSkillName('task'),
         repo: repositoryId('vercel-labs/skills'),
       }),
     )
@@ -842,7 +843,7 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
     const { toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
     store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection('task'))
+    store.dispatch(toggleSelection(toSkillName('task')))
     await waitForBulkSelectReady(screen)
 
     const openMenu = document.createElement('div')
@@ -905,14 +906,14 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     const result: BulkDeleteResult = {
       items: [
         {
-          skillName: 'brainstorming',
+          skillName: toSkillName('brainstorming'),
           outcome: 'deleted',
           tombstoneId: tombstoneId('1729180800000-brainstorming-a1b2c3d4'),
           symlinksRemoved: toSymlinkCount(0),
           cascadeAgents: [],
         },
         {
-          skillName: 'local-skill',
+          skillName: toSkillName('local-skill'),
           outcome: 'deleted',
           tombstoneId: tombstoneId('1729180800000-local-skill-e5f6a7b8'),
           symlinksRemoved: toSymlinkCount(0),
@@ -923,21 +924,21 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     mockSkillsDeleteSkills.mockResolvedValue(result)
 
     const selectedSkills = [
-      makeSkill('brainstorming', true),
-      makeSkill('local-skill', false),
+      makeSkill(toSkillName('brainstorming'), true),
+      makeSkill(toSkillName('local-skill'), false),
     ]
     store.dispatch(fetchSkills.fulfilled(selectedSkills, 'req-id'))
     store.dispatch(enterBulkSelectMode())
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
-        skillNames: ['brainstorming', 'local-skill'],
+        skillNames: [toSkillName('brainstorming'), toSkillName('local-skill')],
         agentId: null,
         agentName: null,
         sourceSummary: null,
         ...partitionGlobalDeleteTargets(selectedSkills, [
-          'brainstorming',
-          'local-skill',
+          toSkillName('brainstorming'),
+          toSkillName('local-skill'),
         ]),
       }),
     )
@@ -976,8 +977,8 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const metadataName = 'metadata-title' as SkillName
-    const folderName = 'folder-basename' as SkillName
+    const metadataName = toSkillName('metadata-title')
+    const folderName = toSkillName('folder-basename')
     mockSkillsDeleteSkills.mockResolvedValue({
       items: [
         {
@@ -1027,8 +1028,12 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const skillName = 'snapshot-delete' as SkillName
-    const originalSkill = makeSkill(skillName, false, 'reviewed-folder')
+    const skillName = toSkillName('snapshot-delete')
+    const originalSkill = makeSkill(
+      skillName,
+      false,
+      toSkillName('reviewed-folder'),
+    )
     const replacementSkill: Skill = {
       ...originalSkill,
       path: '/home/user/.agents/skills/replacement-folder',
@@ -1082,7 +1087,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const skillName = 'snapshot-unlink' as SkillName
+    const skillName = toSkillName('snapshot-unlink')
     const originalSkill: Skill = {
       name: skillName,
       description: '',
@@ -1162,7 +1167,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const orphanSkillName = 'abandoned' as SkillName
+    const orphanSkillName = toSkillName('abandoned')
     const orphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
@@ -1242,8 +1247,8 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const sourceSkillName = 'source-task' as SkillName
-    const orphanSkillName = 'abandoned' as SkillName
+    const sourceSkillName = toSkillName('source-task')
+    const orphanSkillName = toSkillName('abandoned')
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
@@ -1329,8 +1334,8 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const sourceSkillName = 'source-stale-task' as SkillName
-    const orphanSkillName = 'abandoned' as SkillName
+    const sourceSkillName = toSkillName('source-stale-task')
+    const orphanSkillName = toSkillName('abandoned')
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
@@ -1419,8 +1424,8 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const sourceSkillName = 'source-task' as SkillName
-    const orphanSkillName = 'stale-abandoned' as SkillName
+    const sourceSkillName = toSkillName('source-task')
+    const orphanSkillName = toSkillName('stale-abandoned')
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
@@ -1500,8 +1505,8 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const sourceSkillName = 'source-task' as SkillName
-    const orphanSkillName = 'abandoned' as SkillName
+    const sourceSkillName = toSkillName('source-task')
+    const orphanSkillName = toSkillName('abandoned')
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
@@ -1572,7 +1577,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const orphanSkillName = 'abandoned' as SkillName
+    const orphanSkillName = toSkillName('abandoned')
     const orphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
@@ -1626,7 +1631,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const orphanSkillName = 'stale-abandoned' as SkillName
+    const orphanSkillName = toSkillName('stale-abandoned')
     const staleOrphanSkill: Skill = {
       name: orphanSkillName,
       description: '',
@@ -1682,7 +1687,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const sourceSkillName = 'source-missing-identity' as SkillName
+    const sourceSkillName = toSkillName('source-missing-identity')
     const staleSourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
@@ -1866,7 +1871,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
 
     // A skill available to exactly one agent (a lone valid slot in cursor).
     const uniqueSkill: Skill = {
-      name: 'cursor-unique',
+      name: toSkillName('cursor-unique'),
       description: '',
       path: '/skills/cursor-unique',
       symlinkCount: toSymlinkCount(1),
@@ -1885,7 +1890,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     }
     // A skill shared by two agents — visible in the cursor view, but NOT unique.
     const sharedSkill: Skill = {
-      name: 'shared-two',
+      name: toSkillName('shared-two'),
       description: '',
       path: '/skills/shared-two',
       symlinkCount: toSymlinkCount(2),
@@ -1956,7 +1961,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
       await import('@/renderer/src/redux/slices/skillsSlice')
 
     const orphanSkill: Skill = {
-      name: 'orphan-one',
+      name: toSkillName('orphan-one'),
       description: '',
       path: '/skills/orphan-one',
       symlinkCount: toSymlinkCount(1),
@@ -1974,7 +1979,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
       isOrphan: true,
     }
     const linkedSkill: Skill = {
-      name: 'linked-one',
+      name: toSkillName('linked-one'),
       description: '',
       path: '/skills/linked-one',
       filesystemIdentity: directoryIdentity,
@@ -2301,7 +2306,7 @@ describe('MainContent toolbar quick actions', () => {
     store.dispatch(
       setPreviewSkill({
         rank: toSkillRank(1),
-        name: 'task',
+        name: toSkillName('task'),
         repo: repositoryId('vercel-labs/skills'),
         url: toHttpUrl('https://skills.sh/task'),
       }),
@@ -2549,7 +2554,7 @@ describe('MainContent bulk copy action', () => {
       fetchSkills.fulfilled([makeSourceSkill('alpha', 'org/repo')], 'req-id'),
     )
     store.dispatch(enterBulkSelectMode())
-    store.dispatch(toggleSelection('alpha'))
+    store.dispatch(toggleSelection(toSkillName('alpha')))
 
     // Act
     await screen.getByRole('button', { name: 'Open bulk copy' }).click()
@@ -2589,8 +2594,8 @@ describe('MainContent stale-source delete summary', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const deletableName = 'fresh-source' as SkillName
-    const staleName = 'stale-source' as SkillName
+    const deletableName = toSkillName('fresh-source')
+    const staleName = toSkillName('stale-source')
     const deletableSkill: Skill = {
       name: deletableName,
       description: '',
@@ -2672,7 +2677,7 @@ describe('MainContent undo bulk delete', () => {
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
     const skills: Skill[] = tombstoneIds.map((_, index) => ({
-      name: `undo-skill-${index}`,
+      name: toSkillName(`undo-skill-${index}`),
       description: '',
       path: `/Users/me/.agents/skills/undo-skill-${index}` as never,
       filesystemIdentity: directoryIdentity,
@@ -2807,7 +2812,7 @@ describe('MainContent toolbar primary action guards', () => {
       await import('@/renderer/src/redux/slices/skillsSlice')
     const { addProtection } =
       await import('@/renderer/src/redux/slices/protectSlice')
-    const skillName = 'protected-link' as SkillName
+    const skillName = toSkillName('protected-link')
     const protectedSkill: Skill = {
       name: skillName,
       description: '',
@@ -2866,7 +2871,7 @@ describe('MainContent toolbar primary action guards', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const skillName = 'stale-unlink' as SkillName
+    const skillName = toSkillName('stale-unlink')
     const staleSkill: Skill = {
       name: skillName,
       description: '',
@@ -2937,7 +2942,7 @@ describe('MainContent bulk unlink result toasts', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const skillName = 'linked-skill' as SkillName
+    const skillName = toSkillName('linked-skill')
     const linkedSkill: Skill = {
       name: skillName,
       description: '',
@@ -3054,8 +3059,8 @@ describe('MainContent bulk delete failure toasts', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const sourceSkillName = 'kept-source' as SkillName
-    const orphanSkillName = 'dropped-orphan' as SkillName
+    const sourceSkillName = toSkillName('kept-source')
+    const orphanSkillName = toSkillName('dropped-orphan')
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
@@ -3128,7 +3133,7 @@ describe('MainContent bulk delete failure toasts', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const sourceSkillName = 'empty-result' as SkillName
+    const sourceSkillName = toSkillName('empty-result')
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
@@ -3171,7 +3176,7 @@ describe('MainContent bulk delete failure toasts', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const sourceSkillName = 'all-error' as SkillName
+    const sourceSkillName = toSkillName('all-error')
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
@@ -3225,7 +3230,7 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const sourceSkillName = 'dismiss-me' as SkillName
+    const sourceSkillName = toSkillName('dismiss-me')
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
@@ -3286,7 +3291,7 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const sourceSkillName = 'stale-dismiss-me' as SkillName
+    const sourceSkillName = toSkillName('stale-dismiss-me')
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',
@@ -3325,7 +3330,7 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
     const newerToast = {
       id: 'bulk-delete-newer',
       kind: 'delete' as const,
-      skillNames: ['newer-delete'] as SkillName[],
+      skillNames: [toSkillName('newer-delete')],
       tombstoneIds: [tombstoneId('1729180800000-newer-delete-a1b2c3d4')],
       expiresAt: toIsoTimestamp('2026-04-17T12:00:15.000Z'),
       summary: 'Deleted 1 skill. 0 symlinks removed.',
@@ -3349,7 +3354,7 @@ describe('MainContent bulk confirm cancellation', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const sourceSkillName = 'cancel-me' as SkillName
+    const sourceSkillName = toSkillName('cancel-me')
     const sourceSkill: Skill = {
       name: sourceSkillName,
       description: '',

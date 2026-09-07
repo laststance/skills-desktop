@@ -5,7 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { SyncExecuteResult } from '@/shared/types'
-import { toSymlinkCount } from '@/shared/types'
+import { toSkillName, toSymlinkCount } from '@/shared/types'
 
 const mockSkillsGetAll = vi.fn()
 const mockAgentsGetAll = vi.fn()
@@ -20,15 +20,23 @@ const RESULT_WITH_CHANGES: SyncExecuteResult = {
   // One row per action so each badge label appears exactly once. The summary
   // counts above are independent of these rows (they drive the header + chips).
   details: [
-    { skillName: 'tdd-workflow', agentName: 'Claude Code', action: 'created' },
-    { skillName: 'commit-helper', agentName: 'Codex', action: 'replaced' },
     {
-      skillName: 'already-there',
+      skillName: toSkillName('tdd-workflow'),
+      agentName: 'Claude Code',
+      action: 'created',
+    },
+    {
+      skillName: toSkillName('commit-helper'),
+      agentName: 'Codex',
+      action: 'replaced',
+    },
+    {
+      skillName: toSkillName('already-there'),
       agentName: 'Devin Desktop',
       action: 'skipped',
     },
     {
-      skillName: 'broken',
+      skillName: toSkillName('broken'),
       agentName: 'Codex',
       action: 'error',
       error: 'EACCES',
@@ -43,9 +51,21 @@ const RESULT_NO_CHANGES: SyncExecuteResult = {
   skipped: toSymlinkCount(3),
   errors: [],
   details: [
-    { skillName: 'already-a', agentName: 'Claude Code', action: 'skipped' },
-    { skillName: 'already-b', agentName: 'Cursor', action: 'skipped' },
-    { skillName: 'already-c', agentName: 'Codex', action: 'skipped' },
+    {
+      skillName: toSkillName('already-a'),
+      agentName: 'Claude Code',
+      action: 'skipped',
+    },
+    {
+      skillName: toSkillName('already-b'),
+      agentName: 'Cursor',
+      action: 'skipped',
+    },
+    {
+      skillName: toSkillName('already-c'),
+      agentName: 'Codex',
+      action: 'skipped',
+    },
   ],
 }
 

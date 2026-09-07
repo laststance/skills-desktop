@@ -20,7 +20,7 @@ import { basename, dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
 
 import type { FilesystemEntryIdentity } from '@/shared/types'
-import { toFileSizeBytes } from '@/shared/types'
+import { toFileSizeBytes, toSkillName } from '@/shared/types'
 
 import { filesystemIdentityFromStats } from './filesystemIdentity'
 
@@ -208,7 +208,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -283,7 +283,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -506,7 +506,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -585,7 +585,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -688,7 +688,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     let surfacedError: unknown
     try {
       await moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath,
         await reviewedIdentityForPath(sourcePath),
       )
@@ -780,7 +780,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -856,7 +856,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         localPath,
         await reviewedIdentityForPath(localPath),
       ),
@@ -934,7 +934,7 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act
     const moveError = await moveToTrash(
-      skillName,
+      toSkillName(skillName),
       localPath,
       await reviewedIdentityForPath(localPath),
     ).catch((error: unknown) => error)
@@ -1008,7 +1008,7 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act
     const moveError = await moveToTrash(
-      skillName,
+      toSkillName(skillName),
       localPath,
       await reviewedIdentityForPath(localPath),
     ).catch((error: unknown) => error)
@@ -1039,7 +1039,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        'null-byte-skill',
+        toSkillName('null-byte-skill'),
         nullBytePath as never,
         missingDirectoryIdentityForOrphanTests,
       ),
@@ -1059,7 +1059,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        'stray-skill',
+        toSkillName('stray-skill'),
         strayPath as never,
         await reviewedIdentityForPath(strayPath),
       ),
@@ -1083,7 +1083,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        'symlinked-source',
+        toSkillName('symlinked-source'),
         realSourcePath as never,
         reviewedIdentity,
       ),
@@ -1109,7 +1109,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        'no-skill-md',
+        toSkillName('no-skill-md'),
         invalidSkillPath as never,
         await reviewedIdentityForPath(invalidSkillPath),
       ),
@@ -1148,7 +1148,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -1188,7 +1188,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -1230,7 +1230,7 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act
     const result = await moveToTrash(
-      skillName,
+      toSkillName(skillName),
       sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
@@ -1302,7 +1302,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -1349,7 +1349,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -1408,7 +1408,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -1464,7 +1464,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -1539,7 +1539,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -1724,7 +1724,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         localPath,
         await reviewedIdentityForPath(localPath),
       ),
@@ -1774,7 +1774,7 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act
     const result = await moveToTrash(
-      skillName,
+      toSkillName(skillName),
       localPath,
       await reviewedIdentityForPath(localPath),
     )
@@ -1856,7 +1856,7 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act
     const strandError = await moveToTrash(
-      skillName,
+      toSkillName(skillName),
       localPath,
       await reviewedIdentityForPath(localPath),
     ).catch((error: unknown) => error)
@@ -2396,7 +2396,7 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act
     const result = await moveToTrash(
-      skillName,
+      toSkillName(skillName),
       sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
@@ -2455,7 +2455,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath as never,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -2506,7 +2506,7 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act
     const result = await moveToTrash(
-      skillName,
+      toSkillName(skillName),
       sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
@@ -2555,7 +2555,7 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act
     const result = await moveToTrash(
-      skillName,
+      toSkillName(skillName),
       sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
@@ -2606,7 +2606,7 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act
     const result = await moveToTrash(
-      skillName,
+      toSkillName(skillName),
       sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
@@ -2652,7 +2652,7 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act
     const result = await moveToTrash(
-      skillName,
+      toSkillName(skillName),
       sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
@@ -2701,7 +2701,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath as never,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -2755,7 +2755,7 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act
     const result = await moveToTrash(
-      skillName,
+      toSkillName(skillName),
       sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
@@ -2809,7 +2809,7 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act
     const result = await moveToTrash(
-      skillName,
+      toSkillName(skillName),
       sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
@@ -2849,7 +2849,7 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act
     const result = await moveToTrash(
-      skillName,
+      toSkillName(skillName),
       sourcePath,
       await reviewedIdentityForPath(sourcePath),
     )
@@ -2905,7 +2905,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath as never,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -2952,7 +2952,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath as never,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -2978,7 +2978,7 @@ describe('trashService orphan cleanup guarded commit', () => {
       const reviewedIdentity = await reviewedIdentityForPath(sourcePath)
       const { __getTrashDirForTests, moveToTrash } =
         await import('./trashService')
-      await moveToTrash(skillName, sourcePath, reviewedIdentity)
+      await moveToTrash(toSkillName(skillName), sourcePath, reviewedIdentity)
       expect(await readdir(__getTrashDirForTests())).toHaveLength(1)
 
       // Act
@@ -3010,7 +3010,7 @@ describe('trashService orphan cleanup guarded commit', () => {
       const reviewedIdentity = await reviewedIdentityForPath(localPath)
       const { __getTrashDirForTests, moveToTrash } =
         await import('./trashService')
-      await moveToTrash(skillName, localPath, reviewedIdentity)
+      await moveToTrash(toSkillName(skillName), localPath, reviewedIdentity)
       expect(await readdir(__getTrashDirForTests())).toHaveLength(1)
 
       // Act
@@ -3422,7 +3422,7 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act
     const result = await moveToTrash(
-      skillName,
+      toSkillName(skillName),
       localPath,
       await reviewedIdentityForPath(localPath),
     )
@@ -3486,7 +3486,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         localPath as never,
         await reviewedIdentityForPath(localPath),
       ),
@@ -3532,7 +3532,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         localPath as never,
         await reviewedIdentityForPath(localPath),
       ),
@@ -3596,7 +3596,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         localPath as never,
         await reviewedIdentityForPath(localPath),
       ),
@@ -3649,7 +3649,7 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act / Assert
     await expect(
-      moveToTrash(skillName, localPath as never, reviewedIdentity),
+      moveToTrash(toSkillName(skillName), localPath as never, reviewedIdentity),
     ).rejects.toMatchObject({
       message: expect.stringMatching(/already deleted/i),
       code: 'ENOENT',
@@ -3808,7 +3808,7 @@ describe('trashService orphan cleanup guarded commit', () => {
 
     // Act / Assert
     await expect(
-      moveToTrash(skillName, sourcePath, reviewedIdentity),
+      moveToTrash(toSkillName(skillName), sourcePath, reviewedIdentity),
     ).rejects.toMatchObject({
       message: expect.stringMatching(/Failed to inspect reviewed skill folder/),
       code: 'EACCES',
@@ -3853,7 +3853,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     // Act / Assert
     await expect(
       moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath,
         await reviewedIdentityForPath(sourcePath),
       ),
@@ -3935,7 +3935,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     let surfacedError: unknown
     try {
       await moveToTrash(
-        skillName,
+        toSkillName(skillName),
         sourcePath,
         await reviewedIdentityForPath(sourcePath),
       )
@@ -4018,7 +4018,7 @@ describe('trashService orphan cleanup guarded commit', () => {
     let surfacedError: unknown
     try {
       await moveToTrash(
-        skillName,
+        toSkillName(skillName),
         localPath,
         await reviewedIdentityForPath(localPath),
       )

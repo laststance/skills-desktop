@@ -15,6 +15,7 @@ import {
   toHttpUrl,
   toInstallCount,
   toSearchQuery,
+  toSkillName,
   toSkillRank,
   toUnixTimestampMs,
 } from '@/shared/types'
@@ -49,7 +50,7 @@ afterEach(() => {
 function makeSkill(rank: number, name: string): SkillSearchResult {
   return {
     rank: toSkillRank(rank),
-    name,
+    name: toSkillName(name),
     repo: repositoryId(`owner/${name}`),
     url: toHttpUrl(`https://skills.sh/${name}`),
     installCount: toInstallCount(100),

@@ -1,6 +1,8 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, test } from 'vitest'
 
+import { toSkillName } from '@/shared/types'
+
 import skillLockReducer, {
   fetchStaleLockEntries,
   pruneStaleLockEntries,
@@ -37,7 +39,11 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill', 'another-skill'], unprunable: [] },
+        {
+          status: 'ok',
+          names: [toSkillName('old-skill'), toSkillName('another-skill')],
+          unprunable: [],
+        },
         'req-1',
         undefined,
       ),
@@ -59,7 +65,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill'], unprunable: [] },
+        { status: 'ok', names: [toSkillName('old-skill')], unprunable: [] },
         'req-1',
         undefined,
       ),
@@ -102,7 +108,11 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['pruned-ok', 'stubborn'], unprunable: [] },
+        {
+          status: 'ok',
+          names: [toSkillName('pruned-ok'), toSkillName('stubborn')],
+          unprunable: [],
+        },
         'req-1',
         undefined,
       ),
@@ -112,13 +122,20 @@ describe('skillLockSlice', () => {
     // `pending` first: the reducer only applies a prune result whose requestId
     // is the one still in flight, so a bare `fulfilled` would be ignored.
     store.dispatch(
-      pruneStaleLockEntries.pending('req-2', ['pruned-ok', 'stubborn']),
+      pruneStaleLockEntries.pending('req-2', [
+        toSkillName('pruned-ok'),
+        toSkillName('stubborn'),
+      ]),
     )
     store.dispatch(
       pruneStaleLockEntries.fulfilled(
-        { pruned: ['pruned-ok'], skipped: [], failed: ['stubborn'] },
+        {
+          pruned: [toSkillName('pruned-ok')],
+          skipped: [],
+          failed: [toSkillName('stubborn')],
+        },
         'req-2',
-        ['pruned-ok', 'stubborn'],
+        [toSkillName('pruned-ok'), toSkillName('stubborn')],
       ),
     )
 
@@ -132,7 +149,9 @@ describe('skillLockSlice', () => {
     const store = createTestStore()
 
     // Act
-    store.dispatch(pruneStaleLockEntries.pending('req-1', ['old-skill']))
+    store.dispatch(
+      pruneStaleLockEntries.pending('req-1', [toSkillName('old-skill')]),
+    )
 
     // Assert
     expect(selectIsPruningLockEntries(readState(store))).toBe(true)
@@ -141,12 +160,14 @@ describe('skillLockSlice', () => {
   test('clears the in-flight flag when the prune request fails outright', async () => {
     // Arrange
     const store = createTestStore()
-    store.dispatch(pruneStaleLockEntries.pending('req-1', ['old-skill']))
+    store.dispatch(
+      pruneStaleLockEntries.pending('req-1', [toSkillName('old-skill')]),
+    )
 
     // Act
     store.dispatch(
       pruneStaleLockEntries.rejected(new Error('IPC exploded'), 'req-1', [
-        'old-skill',
+        toSkillName('old-skill'),
       ]),
     )
 
@@ -164,7 +185,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-fresh', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['current-truth'], unprunable: [] },
+        { status: 'ok', names: [toSkillName('current-truth')], unprunable: [] },
         'req-fresh',
         undefined,
       ),
@@ -173,7 +194,11 @@ describe('skillLockSlice', () => {
     // Act
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['long-gone', 'also-gone'], unprunable: [] },
+        {
+          status: 'ok',
+          names: [toSkillName('long-gone'), toSkillName('also-gone')],
+          unprunable: [],
+        },
         'req-slow',
         undefined,
       ),
@@ -194,7 +219,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-fresh', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['current-truth'], unprunable: [] },
+        { status: 'ok', names: [toSkillName('current-truth')], unprunable: [] },
         'req-fresh',
         undefined,
       ),
@@ -218,11 +243,17 @@ describe('skillLockSlice', () => {
     // after the rewrite began, so it is the newer truth; the prune's `failed`
     // is the pre-prune view and would drop the record the scan just found.
     const store = createTestStore()
-    store.dispatch(pruneStaleLockEntries.pending('req-prune', ['old-skill']))
+    store.dispatch(
+      pruneStaleLockEntries.pending('req-prune', [toSkillName('old-skill')]),
+    )
     store.dispatch(fetchStaleLockEntries.pending('req-mid-prune', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill', 'newly-stale'], unprunable: [] },
+        {
+          status: 'ok',
+          names: [toSkillName('old-skill'), toSkillName('newly-stale')],
+          unprunable: [],
+        },
         'req-mid-prune',
         undefined,
       ),
@@ -231,9 +262,9 @@ describe('skillLockSlice', () => {
     // Act
     store.dispatch(
       pruneStaleLockEntries.fulfilled(
-        { pruned: [], skipped: [], failed: ['old-skill'] },
+        { pruned: [], skipped: [], failed: [toSkillName('old-skill')] },
         'req-prune',
-        ['old-skill'],
+        [toSkillName('old-skill')],
       ),
     )
 
@@ -251,7 +282,9 @@ describe('skillLockSlice', () => {
     // reporting survivors afterwards would list names behind a status that says
     // we cannot stand behind any count — the list is what the dialog renders.
     const store = createTestStore()
-    store.dispatch(pruneStaleLockEntries.pending('req-prune', ['old-skill']))
+    store.dispatch(
+      pruneStaleLockEntries.pending('req-prune', [toSkillName('old-skill')]),
+    )
     store.dispatch(fetchStaleLockEntries.pending('req-mid-prune', undefined))
     store.dispatch(
       fetchStaleLockEntries.rejected(
@@ -263,9 +296,9 @@ describe('skillLockSlice', () => {
     // Act
     store.dispatch(
       pruneStaleLockEntries.fulfilled(
-        { pruned: [], skipped: [], failed: ['old-skill'] },
+        { pruned: [], skipped: [], failed: [toSkillName('old-skill')] },
         'req-prune',
-        ['old-skill'],
+        [toSkillName('old-skill')],
       ),
     )
 
@@ -282,7 +315,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill'], unprunable: [] },
+        { status: 'ok', names: [toSkillName('old-skill')], unprunable: [] },
         'req-1',
         undefined,
       ),
@@ -293,7 +326,11 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-2', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill', 'just-appeared'], unprunable: [] },
+        {
+          status: 'ok',
+          names: [toSkillName('old-skill'), toSkillName('just-appeared')],
+          unprunable: [],
+        },
         'req-2',
         undefined,
       ),
@@ -314,13 +351,19 @@ describe('skillLockSlice', () => {
     // report the delegated delete as finished — that re-enables the confirm
     // button while the CLI is still recursively removing directories.
     const store = createTestStore()
-    store.dispatch(pruneStaleLockEntries.pending('req-prune', ['old-skill']))
+    store.dispatch(
+      pruneStaleLockEntries.pending('req-prune', [toSkillName('old-skill')]),
+    )
 
     // Act
     store.dispatch(fetchStaleLockEntries.pending('req-scan', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill', 'newly-found'], unprunable: [] },
+        {
+          status: 'ok',
+          names: [toSkillName('old-skill'), toSkillName('newly-found')],
+          unprunable: [],
+        },
         'req-scan',
         undefined,
       ),
@@ -333,11 +376,17 @@ describe('skillLockSlice', () => {
   test('ends the prune normally after a scan took over the record list', async () => {
     // Arrange
     const store = createTestStore()
-    store.dispatch(pruneStaleLockEntries.pending('req-prune', ['old-skill']))
+    store.dispatch(
+      pruneStaleLockEntries.pending('req-prune', [toSkillName('old-skill')]),
+    )
     store.dispatch(fetchStaleLockEntries.pending('req-scan', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill', 'newly-found'], unprunable: [] },
+        {
+          status: 'ok',
+          names: [toSkillName('old-skill'), toSkillName('newly-found')],
+          unprunable: [],
+        },
         'req-scan',
         undefined,
       ),
@@ -346,9 +395,9 @@ describe('skillLockSlice', () => {
     // Act
     store.dispatch(
       pruneStaleLockEntries.fulfilled(
-        { pruned: ['old-skill'], skipped: [], failed: [] },
+        { pruned: [toSkillName('old-skill')], skipped: [], failed: [] },
         'req-prune',
-        ['old-skill'],
+        [toSkillName('old-skill')],
       ),
     )
 
@@ -367,15 +416,19 @@ describe('skillLockSlice', () => {
     // report "done" would re-enable a destructive button while the CLI is
     // still recursively deleting.
     const store = createTestStore()
-    store.dispatch(pruneStaleLockEntries.pending('req-first', ['old-skill']))
-    store.dispatch(pruneStaleLockEntries.pending('req-second', ['old-skill']))
+    store.dispatch(
+      pruneStaleLockEntries.pending('req-first', [toSkillName('old-skill')]),
+    )
+    store.dispatch(
+      pruneStaleLockEntries.pending('req-second', [toSkillName('old-skill')]),
+    )
 
     // Act
     store.dispatch(
       pruneStaleLockEntries.fulfilled(
-        { pruned: ['old-skill'], skipped: [], failed: [] },
+        { pruned: [toSkillName('old-skill')], skipped: [], failed: [] },
         'req-first',
-        ['old-skill'],
+        [toSkillName('old-skill')],
       ),
     )
 
@@ -386,13 +439,17 @@ describe('skillLockSlice', () => {
   test('leaves the newer prune running when an older one fails first', async () => {
     // Arrange
     const store = createTestStore()
-    store.dispatch(pruneStaleLockEntries.pending('req-first', ['old-skill']))
-    store.dispatch(pruneStaleLockEntries.pending('req-second', ['old-skill']))
+    store.dispatch(
+      pruneStaleLockEntries.pending('req-first', [toSkillName('old-skill')]),
+    )
+    store.dispatch(
+      pruneStaleLockEntries.pending('req-second', [toSkillName('old-skill')]),
+    )
 
     // Act
     store.dispatch(
       pruneStaleLockEntries.rejected(new Error('IPC down'), 'req-first', [
-        'old-skill',
+        toSkillName('old-skill'),
       ]),
     )
 
@@ -409,7 +466,7 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-1', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill'], unprunable: [] },
+        { status: 'ok', names: [toSkillName('old-skill')], unprunable: [] },
         'req-1',
         undefined,
       ),
@@ -419,7 +476,11 @@ describe('skillLockSlice', () => {
     store.dispatch(fetchStaleLockEntries.pending('req-2', undefined))
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['different-skill'], unprunable: [] },
+        {
+          status: 'ok',
+          names: [toSkillName('different-skill')],
+          unprunable: [],
+        },
         'req-2',
         undefined,
       ),
@@ -441,19 +502,21 @@ describe('skillLockSlice', () => {
     // it land would repopulate the widget with records that are now gone.
     const store = createTestStore()
     store.dispatch(fetchStaleLockEntries.pending('req-before-prune', undefined))
-    store.dispatch(pruneStaleLockEntries.pending('req-prune', ['old-skill']))
+    store.dispatch(
+      pruneStaleLockEntries.pending('req-prune', [toSkillName('old-skill')]),
+    )
     store.dispatch(
       pruneStaleLockEntries.fulfilled(
-        { pruned: ['old-skill'], skipped: [], failed: [] },
+        { pruned: [toSkillName('old-skill')], skipped: [], failed: [] },
         'req-prune',
-        ['old-skill'],
+        [toSkillName('old-skill')],
       ),
     )
 
     // Act
     store.dispatch(
       fetchStaleLockEntries.fulfilled(
-        { status: 'ok', names: ['old-skill'], unprunable: [] },
+        { status: 'ok', names: [toSkillName('old-skill')], unprunable: [] },
         'req-before-prune',
         undefined,
       ),
@@ -474,8 +537,10 @@ describe('skillLockSlice', () => {
       fetchStaleLockEntries.fulfilled(
         {
           status: 'ok',
-          names: ['removable'],
-          unprunable: [{ name: 'agent-owned', reason: 'agent-copy' }],
+          names: [toSkillName('removable')],
+          unprunable: [
+            { name: toSkillName('agent-owned'), reason: 'agent-copy' },
+          ],
         },
         'req-1',
         undefined,
@@ -506,8 +571,8 @@ describe('skillLockSlice', () => {
           status: 'ok',
           names: [],
           unprunable: [
-            { name: 'ambiguous', reason: 'name-collision' },
-            { name: 'Ambiguous', reason: 'name-collision' },
+            { name: toSkillName('ambiguous'), reason: 'name-collision' },
+            { name: toSkillName('Ambiguous'), reason: 'name-collision' },
           ],
         },
         'req-1',
@@ -532,7 +597,9 @@ describe('skillLockSlice', () => {
         {
           status: 'ok',
           names: [],
-          unprunable: [{ name: 'agent-owned', reason: 'agent-copy' }],
+          unprunable: [
+            { name: toSkillName('agent-owned'), reason: 'agent-copy' },
+          ],
         },
         'req-1',
         undefined,
@@ -564,8 +631,10 @@ describe('skillLockSlice', () => {
       fetchStaleLockEntries.fulfilled(
         {
           status: 'ok',
-          names: ['removable'],
-          unprunable: [{ name: 'agent-owned', reason: 'agent-copy' }],
+          names: [toSkillName('removable')],
+          unprunable: [
+            { name: toSkillName('agent-owned'), reason: 'agent-copy' },
+          ],
         },
         'req-1',
         undefined,
@@ -573,12 +642,14 @@ describe('skillLockSlice', () => {
     )
 
     // Act
-    store.dispatch(pruneStaleLockEntries.pending('prune-1', ['removable']))
+    store.dispatch(
+      pruneStaleLockEntries.pending('prune-1', [toSkillName('removable')]),
+    )
     store.dispatch(
       pruneStaleLockEntries.fulfilled(
-        { pruned: [], skipped: [], failed: ['removable'] },
+        { pruned: [], skipped: [], failed: [toSkillName('removable')] },
         'prune-1',
-        ['removable'],
+        [toSkillName('removable')],
       ),
     )
 
