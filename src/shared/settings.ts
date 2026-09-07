@@ -10,6 +10,7 @@ import {
   WINDOW_OPACITY_MODE_OPTIONS,
 } from './constants'
 import type { AgentId } from './types'
+import { toPixelHeight, toPixelWidth } from './types'
 
 /**
  * Defense-in-depth floor for a persisted startup window size. Set well
@@ -150,8 +151,16 @@ export const CODE_FONT_SIZE_SCHEMA = z
  */
 const windowSizeSchema = z
   .object({
-    width: z.number().int().min(WINDOW_SIZE_MIN_DIMENSION),
-    height: z.number().int().min(WINDOW_SIZE_MIN_DIMENSION),
+    width: z
+      .number()
+      .int()
+      .min(WINDOW_SIZE_MIN_DIMENSION)
+      .transform(toPixelWidth),
+    height: z
+      .number()
+      .int()
+      .min(WINDOW_SIZE_MIN_DIMENSION)
+      .transform(toPixelHeight),
   })
   .optional()
 

@@ -23,6 +23,7 @@ import {
   storyTombstoneIds,
 } from '../fixtures'
 import { StoryCard, StoryGrid } from '../storybook-utils'
+import { toFileName, toFileSizeBytes, toIsoTimestamp } from '@/shared/types'
 
 const meta = {
   title: 'Skills/Components',
@@ -43,8 +44,8 @@ const textPreview: PreviewContent = {
 
 const binaryPreview: PreviewContent = {
   kind: 'binary',
-  fileName: 'archive.zip',
-  size: 420_000,
+  fileName: toFileName('archive.zip'),
+  size: toFileSizeBytes(420_000),
 }
 
 export const SkillRowsAndSearch: Story = {
@@ -135,7 +136,9 @@ export const FilePreviewStates: Story = {
           skillNames={[storySkills[0]!.name, storySkills[1]!.name]}
           tombstoneIds={storyTombstoneIds}
           // react-doctor-disable-next-line react-doctor/rendering-hydration-mismatch-time -- Storybook story renders client-only with no SSR hydration boundary; Date.now() here is intentional fixture data (15s expiry) and cannot mismatch.
-          expiresAt={new Date(Date.now() + 15_000).toISOString()}
+          expiresAt={toIsoTimestamp(
+            new Date(Date.now() + 15_000).toISOString(),
+          )}
           summary="Deleted 2 skills. 5 symlinks removed."
           onUndo={() => undefined}
           toastId="storybook-undo-toast"

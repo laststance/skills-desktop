@@ -5,7 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { SkillSearchResult } from '@/shared/types'
-import { repositoryId } from '@/shared/types'
+import {
+  repositoryId,
+  toHttpUrl,
+  toInstallCount,
+  toSkillRank,
+} from '@/shared/types'
 
 // MarketplaceDashboard (rendered by MarketplaceDetailPanel when nothing is
 // previewed) dispatches `loadLeaderboard('trending')` on mount, whose thunk
@@ -42,11 +47,11 @@ function makeSkill(
   overrides: Partial<SkillSearchResult> = {},
 ): SkillSearchResult {
   return {
-    rank: 1,
+    rank: toSkillRank(1),
     name: 'task',
     repo: repositoryId('vercel-labs/skills'),
-    url: 'https://skills.sh/task',
-    installCount: 123,
+    url: toHttpUrl('https://skills.sh/task'),
+    installCount: toInstallCount(123),
     ...overrides,
   }
 }

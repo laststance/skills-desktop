@@ -12,6 +12,7 @@ import type {
   SymlinkInfo,
   SymlinkStatus,
 } from '@/shared/types'
+import { toSkillCount, toSymlinkCount } from '@/shared/types'
 
 /**
  * Build a minimal Agent fixture. Only `id`/`name`/`exists` matter to the
@@ -26,8 +27,8 @@ function makeAgent(id: AgentId, name: AgentName, exists: boolean): Agent {
     name,
     path: `/Users/test/.${id}/skills`,
     exists,
-    skillCount: 0,
-    localSkillCount: 0,
+    skillCount: toSkillCount(0),
+    localSkillCount: toSkillCount(0),
   }
 }
 
@@ -64,7 +65,9 @@ function makeSkill(name: string, symlinks: SymlinkInfo[]): Skill {
     name,
     description: `${name} description`,
     path: `/Users/test/.agents/skills/${name}`,
-    symlinkCount: symlinks.filter((link) => link.status === 'valid').length,
+    symlinkCount: toSymlinkCount(
+      symlinks.filter((link) => link.status === 'valid').length,
+    ),
     symlinks,
     isSource: true,
     isOrphan: false,

@@ -5,6 +5,12 @@ import type {
   WidgetInstanceId,
   WidgetType,
 } from '@/renderer/src/components/dashboard/types'
+import {
+  toGridColumnSpan,
+  toGridColumnStart,
+  toGridRowSpan,
+  toGridRowStart,
+} from '@/renderer/src/components/dashboard/types'
 
 import { findEmptySpot } from './findEmptySpot'
 
@@ -21,7 +27,10 @@ function buildWidget(
   return {
     id: `w_test_${position.x}_${position.y}` as WidgetInstanceId,
     type,
-    ...position,
+    x: toGridColumnStart(position.x),
+    y: toGridRowStart(position.y),
+    w: toGridColumnSpan(position.w),
+    h: toGridRowSpan(position.h),
   }
 }
 
@@ -31,7 +40,10 @@ describe('findEmptySpot', () => {
     const noWidgets: WidgetInstance[] = []
 
     // Act
-    const spot = findEmptySpot(noWidgets, { w: 6, h: 2 })
+    const spot = findEmptySpot(noWidgets, {
+      w: toGridColumnSpan(6),
+      h: toGridRowSpan(2),
+    })
 
     // Assert
     expect(spot).toEqual({ x: 0, y: 0 })
@@ -42,7 +54,10 @@ describe('findEmptySpot', () => {
     const widgets = [buildWidget({ x: 0, y: 0, w: 6, h: 2 })]
 
     // Act
-    const spot = findEmptySpot(widgets, { w: 6, h: 2 })
+    const spot = findEmptySpot(widgets, {
+      w: toGridColumnSpan(6),
+      h: toGridRowSpan(2),
+    })
 
     // Assert
     expect(spot).toEqual({ x: 0, y: 2 })
@@ -53,7 +68,10 @@ describe('findEmptySpot', () => {
     const widgets = [buildWidget({ x: 0, y: 0, w: 3, h: 2 })]
 
     // Act
-    const spot = findEmptySpot(widgets, { w: 3, h: 2 })
+    const spot = findEmptySpot(widgets, {
+      w: toGridColumnSpan(3),
+      h: toGridRowSpan(2),
+    })
 
     // Assert
     expect(spot).toEqual({ x: 3, y: 0 })
@@ -69,7 +87,10 @@ describe('findEmptySpot', () => {
     ]
 
     // Act
-    const spot = findEmptySpot(widgets, { w: 3, h: 1 })
+    const spot = findEmptySpot(widgets, {
+      w: toGridColumnSpan(3),
+      h: toGridRowSpan(1),
+    })
 
     // Assert
     expect(spot).toBeNull()
@@ -80,7 +101,10 @@ describe('findEmptySpot', () => {
     const noWidgets: WidgetInstance[] = []
 
     // Act
-    const spot = findEmptySpot(noWidgets, { w: 7, h: 1 })
+    const spot = findEmptySpot(noWidgets, {
+      w: toGridColumnSpan(7),
+      h: toGridRowSpan(1),
+    })
 
     // Assert
     expect(spot).toBeNull()
@@ -93,7 +117,10 @@ describe('findEmptySpot', () => {
     const widgets = [buildWidget({ x: 0, y: 0, w: 6, h: 40 })]
 
     // Act
-    const spot = findEmptySpot(widgets, { w: 6, h: 1 })
+    const spot = findEmptySpot(widgets, {
+      w: toGridColumnSpan(6),
+      h: toGridRowSpan(1),
+    })
 
     // Assert
     expect(spot).toBeNull()

@@ -5,6 +5,7 @@ import { useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectAgentItems } from '@/renderer/src/redux/slices/agentsSlice'
 import { selectSkillsItems } from '@/renderer/src/redux/slices/skillsSlice'
 import type { AgentCount, SkillCount } from '@/shared/types'
+import { toAgentCount, toSkillCount } from '@/shared/types'
 
 // ----------------------------------------------------------------------------
 // Pure helpers — derived outside the component so they're trivially testable
@@ -20,7 +21,7 @@ import type { AgentCount, SkillCount } from '@/shared/types'
 function countLinkedSkills(
   items: ReadonlyArray<{ symlinkCount: number }>,
 ): SkillCount {
-  return items.filter((skill) => skill.symlinkCount > 0).length
+  return toSkillCount(items.filter((skill) => skill.symlinkCount > 0).length)
 }
 
 /**
@@ -33,7 +34,7 @@ function countLinkedSkills(
 function countActiveAgents(
   items: ReadonlyArray<{ exists: boolean }>,
 ): AgentCount {
-  return items.filter((agent) => agent.exists).length
+  return toAgentCount(items.filter((agent) => agent.exists).length)
 }
 
 // ----------------------------------------------------------------------------

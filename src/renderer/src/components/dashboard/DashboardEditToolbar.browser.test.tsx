@@ -5,6 +5,8 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 
+import { toDashboardPageName } from '@/renderer/src/components/dashboard/types'
+
 import type { DashboardPage } from './types'
 import { newDashboardPageId } from './utils/ids'
 
@@ -44,7 +46,11 @@ async function renderToolbar(
   ])
 
   const pages = options.pages ?? [
-    { id: newDashboardPageId(), name: 'My Layout', widgets: [] },
+    {
+      id: newDashboardPageId(),
+      name: toDashboardPageName('My Layout'),
+      widgets: [],
+    },
   ]
 
   const store = configureStore({
@@ -147,7 +153,13 @@ describe('DashboardEditToolbar', () => {
   it('appends a new blank page when the Page button is clicked', async () => {
     // Arrange: a single starting page.
     const { screen, store } = await renderToolbar({
-      pages: [{ id: newDashboardPageId(), name: 'Overview', widgets: [] }],
+      pages: [
+        {
+          id: newDashboardPageId(),
+          name: toDashboardPageName('Overview'),
+          widgets: [],
+        },
+      ],
       isEditMode: true,
     })
 
@@ -163,7 +175,11 @@ describe('DashboardEditToolbar', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const { screen, store } = await renderToolbar({
       pages: [
-        { id: newDashboardPageId(), name: 'My Custom Page', widgets: [] },
+        {
+          id: newDashboardPageId(),
+          name: toDashboardPageName('My Custom Page'),
+          widgets: [],
+        },
       ],
       isEditMode: true,
     })
@@ -185,7 +201,11 @@ describe('DashboardEditToolbar', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false)
     const { screen, store } = await renderToolbar({
       pages: [
-        { id: newDashboardPageId(), name: 'My Custom Page', widgets: [] },
+        {
+          id: newDashboardPageId(),
+          name: toDashboardPageName('My Custom Page'),
+          widgets: [],
+        },
       ],
       isEditMode: true,
     })

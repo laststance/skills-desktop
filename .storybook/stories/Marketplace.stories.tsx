@@ -13,6 +13,7 @@ import { SkillsMarketplace } from '@/renderer/src/components/marketplace/SkillsM
 
 import { storyMarketplaceSkills } from '../fixtures'
 import { StoryCard, StoryGrid } from '../storybook-utils'
+import { toProgressPercent } from '@/shared/types'
 
 const meta = {
   title: 'Marketplace/Components',
@@ -105,7 +106,7 @@ export const LoadingAndInstallStates: Story = {
           installProgress: {
             phase: 'installing',
             message: 'Linking skill into selected agents',
-            percent: 72,
+            percent: toProgressPercent(72),
           },
         },
       },

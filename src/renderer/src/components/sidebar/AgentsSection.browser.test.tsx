@@ -6,6 +6,7 @@ import { render } from 'vitest-browser-react'
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type { Agent, AgentId } from '@/shared/types'
+import { toSkillCount } from '@/shared/types'
 
 const mockSettingsSet = vi.fn()
 const mockAgentsGetAll = vi.fn()
@@ -22,16 +23,16 @@ const FIXTURE_AGENTS: Agent[] = [
     name: 'Claude Code',
     path: '/Users/test/.claude/skills',
     exists: true,
-    skillCount: 3,
-    localSkillCount: 0,
+    skillCount: toSkillCount(3),
+    localSkillCount: toSkillCount(0),
   },
   {
     id: 'cursor',
     name: 'Cursor',
     path: '/Users/test/.cursor/skills',
     exists: true,
-    skillCount: 1,
-    localSkillCount: 0,
+    skillCount: toSkillCount(1),
+    localSkillCount: toSkillCount(0),
   },
 ]
 
@@ -40,8 +41,8 @@ const NOT_INSTALLED_AGENT: Agent = {
   name: 'Codex',
   path: '/Users/test/.codex/skills',
   exists: false,
-  skillCount: 0,
-  localSkillCount: 0,
+  skillCount: toSkillCount(0),
+  localSkillCount: toSkillCount(0),
 }
 
 beforeEach(() => {

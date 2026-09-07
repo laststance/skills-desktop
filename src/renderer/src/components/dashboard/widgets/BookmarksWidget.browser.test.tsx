@@ -5,6 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { RepositoryId, SkillName } from '@/shared/types'
+import { toHttpUrl } from '@/shared/types'
 
 /**
  * Render the real BookmarksWidget reducer with one bookmark.
@@ -27,7 +28,7 @@ async function renderBookmarksWidget(name: SkillName = 'very-long-skill-name') {
     addBookmark({
       name,
       repo: 'laststance/skills' as RepositoryId,
-      url: 'https://skills.sh/very-long-skill-name',
+      url: toHttpUrl('https://skills.sh/very-long-skill-name'),
     }),
   )
 
@@ -88,7 +89,7 @@ describe('BookmarksWidget', () => {
       addBookmark({
         name: 'task',
         repo: 'vercel-labs/skills' as RepositoryId,
-        url: 'https://skills.sh/task',
+        url: toHttpUrl('https://skills.sh/task'),
       }),
     )
 
@@ -119,7 +120,7 @@ describe('BookmarksWidget', () => {
       addBookmark({
         name: 'repo-less-skill',
         repo: '',
-        url: 'https://skills.sh/repo-less-skill',
+        url: toHttpUrl('https://skills.sh/repo-less-skill'),
       }),
     )
 

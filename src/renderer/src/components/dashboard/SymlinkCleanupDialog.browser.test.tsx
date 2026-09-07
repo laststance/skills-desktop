@@ -5,6 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { Agent, Skill, SkillName, SymlinkInfo } from '@/shared/types'
+import { toSkillCount, toSymlinkCount } from '@/shared/types'
 
 const mockGetSkills = vi.fn()
 const mockGetAgents = vi.fn()
@@ -32,16 +33,16 @@ const TEST_AGENTS: Agent[] = [
     name: 'Cursor',
     path: '/Users/test/.cursor/skills',
     exists: true,
-    skillCount: 0,
-    localSkillCount: 0,
+    skillCount: toSkillCount(0),
+    localSkillCount: toSkillCount(0),
   },
   {
     id: 'codex',
     name: 'Codex',
     path: '/Users/test/.codex/skills',
     exists: true,
-    skillCount: 0,
-    localSkillCount: 0,
+    skillCount: toSkillCount(0),
+    localSkillCount: toSkillCount(0),
   },
 ]
 
@@ -90,7 +91,7 @@ function makeSkillWithBrokenSlot(
     name: skillName,
     description: `${skillName} description`,
     path: `/Users/test/.agents/skills/${skillName}`,
-    symlinkCount: 0,
+    symlinkCount: toSymlinkCount(0),
     symlinks: [makeBrokenSlot(skillName, agentId, symlinkOverrides)],
     isSource: true,
     isOrphan: false,
@@ -112,7 +113,7 @@ function makeSkillWithBrokenSlots(
   return {
     ...makeSkillWithBrokenSlot(skillName, agentIds[0] ?? 'cursor'),
     symlinks: agentIds.map((agentId) => makeBrokenSlot(skillName, agentId)),
-    symlinkCount: agentIds.length,
+    symlinkCount: toSymlinkCount(agentIds.length),
   }
 }
 

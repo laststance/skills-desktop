@@ -141,6 +141,7 @@ import type {
   ToastId,
   TombstoneId,
 } from '@/shared/types'
+import { toIsoTimestamp } from '@/shared/types'
 
 /** One row of the skill-type include menu: the filter it selects plus its presentation. */
 interface SkillTypeFilterOption {
@@ -686,9 +687,9 @@ function useConfirmBulkDelete({
     const deletedNames = deleteItems
       .filter((item) => item.outcome === 'deleted')
       .map((item) => item.skillName)
-    const expiresAt: IsoTimestamp = new Date(
-      Date.now() + UNDO_WINDOW_MS,
-    ).toISOString()
+    const expiresAt: IsoTimestamp = toIsoTimestamp(
+      new Date(Date.now() + UNDO_WINDOW_MS).toISOString(),
+    )
     const toastId: ToastId = `bulk-delete-${Date.now()}`
     const handleToastDismissed = (): void => {
       dispatch(clearUndoToastIfCurrent(toastId))

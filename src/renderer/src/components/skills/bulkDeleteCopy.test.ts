@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { repositoryId } from '@/shared/types'
+import { repositoryId, toSkillCount } from '@/shared/types'
 
 import { renderBulkDeleteDescription } from './bulkDeleteCopy'
 
@@ -147,7 +147,7 @@ describe('renderBulkDeleteDescription', () => {
       totalCount: 2,
       sourceSummary: {
         repositoryIds: [repositoryId('vercel-labs/skills')],
-        localHiddenCount: 0,
+        localHiddenCount: toSkillCount(0),
       },
     })
 
@@ -168,7 +168,7 @@ describe('renderBulkDeleteDescription', () => {
       totalCount: 2,
       sourceSummary: {
         repositoryIds: [longRepo],
-        localHiddenCount: 0,
+        localHiddenCount: toSkillCount(0),
       },
     })
 
@@ -187,7 +187,7 @@ describe('renderBulkDeleteDescription', () => {
           repositoryId('vercel-labs/skills'),
           repositoryId('pbakaus/impeccable'),
         ],
-        localHiddenCount: 0,
+        localHiddenCount: toSkillCount(0),
       },
     })
 
@@ -203,7 +203,7 @@ describe('renderBulkDeleteDescription', () => {
       totalCount: 2,
       sourceSummary: {
         repositoryIds: [],
-        localHiddenCount: 2,
+        localHiddenCount: toSkillCount(2),
       },
     })
 
@@ -219,7 +219,7 @@ describe('renderBulkDeleteDescription', () => {
       totalCount: 2,
       sourceSummary: {
         repositoryIds: [],
-        localHiddenCount: 1,
+        localHiddenCount: toSkillCount(1),
       },
     })
 
@@ -235,7 +235,7 @@ describe('renderBulkDeleteDescription', () => {
       totalCount: 2,
       sourceSummary: {
         repositoryIds: [repositoryId('vercel-labs/skills')],
-        localHiddenCount: 1,
+        localHiddenCount: toSkillCount(1),
       },
     })
 
@@ -253,7 +253,7 @@ describe('renderBulkDeleteDescription', () => {
       totalCount: 2,
       sourceSummary: {
         repositoryIds: [],
-        localHiddenCount: 0,
+        localHiddenCount: toSkillCount(0),
       },
     })
 

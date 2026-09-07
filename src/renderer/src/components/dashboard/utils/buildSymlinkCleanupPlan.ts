@@ -11,6 +11,12 @@ import type {
   SymlinkCount,
   SymlinkInfo,
 } from '@/shared/types'
+import {
+  toAgentCount,
+  toIsoTimestamp,
+  toSkillCount,
+  toSymlinkCount,
+} from '@/shared/types'
 
 /**
  * @description Stable review-row identifier generated for Symlink Health cleanup selection.
@@ -187,7 +193,7 @@ export function buildSymlinkCleanupPlan(
           linkPath: symlink.linkPath,
           targetPath: symlink.targetPath,
         })),
-        symlinkCount: cleanupEligibleBrokenSlots.length,
+        symlinkCount: toSymlinkCount(cleanupEligibleBrokenSlots.length),
       })
       for (const symlink of cleanupEligibleBrokenSlots) {
         affectedAgentIds.add(symlink.agentId)
@@ -223,17 +229,16 @@ export function buildSymlinkCleanupPlan(
   )
 
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: toIsoTimestamp(new Date().toISOString()),
     orphanRecords,
     brokenSlotsByAgent,
     totals: {
-      orphanRecords: orphanRecords.length,
-      orphanSymlinks: orphanRecords.reduce(
-        (total, item) => total + item.symlinkCount,
-        0,
+      orphanRecords: toSkillCount(orphanRecords.length),
+      orphanSymlinks: toSymlinkCount(
+        orphanRecords.reduce((total, item) => total + item.symlinkCount, 0),
       ),
-      brokenSlots,
-      affectedAgents: affectedAgentIds.size,
+      brokenSlots: toSymlinkCount(brokenSlots),
+      affectedAgents: toAgentCount(affectedAgentIds.size),
     },
   }
 }

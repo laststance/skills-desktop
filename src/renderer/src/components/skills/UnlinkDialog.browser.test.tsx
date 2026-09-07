@@ -8,6 +8,7 @@ import type {
   Skill,
   SymlinkInfo,
 } from '@/shared/types'
+import { toFileSizeBytes, toSymlinkCount } from '@/shared/types'
 
 const mockUnlinkFromAgent = vi.fn()
 const mockSkillsGetAll = vi.fn()
@@ -29,7 +30,7 @@ const directoryIdentity: FilesystemEntryIdentity = {
   kind: 'directory',
   dev: 1,
   ino: 2,
-  size: 96,
+  size: toFileSizeBytes(96),
   ctimeMs: 3,
   mtimeMs: 4,
 }
@@ -45,7 +46,7 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
     name: 'task',
     description: 'Task management skill',
     path: '/home/user/.agents/skills/task',
-    symlinkCount: 0,
+    symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,
     isOrphan: false,

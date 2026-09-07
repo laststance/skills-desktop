@@ -3,6 +3,14 @@ import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
 import '@/renderer/src/styles/globals.css'
+import {
+  toDataUrl,
+  toFileExtension,
+  toFileName,
+  toFileSizeBytes,
+  toLineCount,
+  toMimeType,
+} from '@/shared/types'
 
 import * as shikiPreview from './shikiPreview'
 
@@ -29,10 +37,10 @@ function makeTextContent(
   return {
     kind: 'text',
     data: {
-      name: overrides.name ?? 'SKILL.md',
+      name: toFileName(overrides.name ?? 'SKILL.md'),
       content: content ?? '# Skill\n',
-      extension: overrides.extension ?? '.md',
-      lineCount: content?.split('\n').length ?? 1,
+      extension: toFileExtension(overrides.extension ?? '.md'),
+      lineCount: toLineCount(content?.split('\n').length ?? 1),
     },
   }
 }
@@ -56,7 +64,11 @@ function makeEmptyContent(): PreviewContent {
  * @returns PreviewContent for FileContent's `binary` branch.
  */
 function makeBinaryContent(fileName: string, size: number): PreviewContent {
-  return { kind: 'binary', fileName, size }
+  return {
+    kind: 'binary',
+    fileName: toFileName(fileName),
+    size: toFileSizeBytes(size),
+  }
 }
 
 /**
@@ -68,7 +80,12 @@ function makeBinaryContent(fileName: string, size: number): PreviewContent {
 function makeImageContent(name: string, dataUrl: string): PreviewContent {
   return {
     kind: 'image',
-    data: { name, dataUrl, mimeType: 'image/png', size: 70 },
+    data: {
+      name: toFileName(name),
+      dataUrl: toDataUrl(dataUrl),
+      mimeType: toMimeType('image/png'),
+      size: toFileSizeBytes(70),
+    },
   }
 }
 

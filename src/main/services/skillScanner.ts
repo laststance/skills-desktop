@@ -4,7 +4,14 @@ import { basename, join } from 'path'
 import { AGENTS, SOURCE_DIR } from '@/main/constants'
 import { isMissingPathError } from '@/main/utils/errorCode'
 import { formatBytes } from '@/shared/fileTypes'
-import { repositoryId } from '@/shared/types'
+import {
+  repositoryId,
+  toFileSizeBytes,
+  toHumanFileSize,
+  toIsoTimestamp,
+  toSkillCount,
+  toSymlinkCount,
+} from '@/shared/types'
 import type {
   AbsolutePath,
   FileSizeBytes,
@@ -384,7 +391,7 @@ async function scanAgentLinkedSymlinks(
           metadata?.description ??
           'Inaccessible symlink — target cannot be verified',
         path: targetPath ?? linkPath,
-        symlinkCount: 0,
+        symlinkCount: toSymlinkCount(0),
         symlinks: createMissingSymlinkSlots(name),
         isSource: false,
         isOrphan: false,
@@ -446,7 +453,7 @@ async function scanOrphanSymlinks(
         name,
         description: 'Orphan symlink — source skill no longer exists',
         path: linkPath,
-        symlinkCount: 0,
+        symlinkCount: toSymlinkCount(0),
         symlinks: createMissingSymlinkSlots(name),
         isSource: false,
         isOrphan: true,
@@ -546,7 +553,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
         description: metadata.description,
         path: skillPath,
         filesystemIdentity,
-        symlinkCount: 0, // Local skills have 0 symlinks
+        symlinkCount: toSymlinkCount(0), // Local skills have 0 symlinks
         symlinks: createMissingSymlinkSlots(dirName),
         isSource: false,
         isOrphan: false,
@@ -622,11 +629,13 @@ export async function getSourceStats(): Promise<SourceStats> {
     path: SOURCE_DIR,
     // Counts what the list renders, unreadable rows included, so the sidebar
     // count and the list cannot disagree.
-    skillCount: listing.status === 'listed' ? listing.entries.length : 0,
-    totalSize: formatBytes(totalBytes),
+    skillCount: toSkillCount(
+      listing.status === 'listed' ? listing.entries.length : 0,
+    ),
+    totalSize: toHumanFileSize(formatBytes(totalBytes)),
     // No consumer renders this today; "now" keeps the field a valid
     // `IsoTimestamp` without widening the type for an unread value.
-    lastModified: (stats?.mtime ?? new Date()).toISOString(),
+    lastModified: toIsoTimestamp((stats?.mtime ?? new Date()).toISOString()),
     // The one place a "0 skills" reading is a lie gets to say so.
     isUnreadable: listing.status === 'unreadable',
   }
@@ -659,5 +668,5 @@ async function calculateDirectorySize(
     // Ignore errors
   }
 
-  return total
+  return toFileSizeBytes(total)
 }

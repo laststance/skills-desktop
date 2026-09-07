@@ -13,6 +13,10 @@ import type {
   WidgetInstanceId,
   WidgetType,
 } from '@/renderer/src/components/dashboard/types'
+import {
+  toGridColumnStart,
+  toGridRowStart,
+} from '@/renderer/src/components/dashboard/types'
 import { findEmptySpot } from '@/renderer/src/components/dashboard/utils/findEmptySpot'
 import {
   newDashboardPageId,
@@ -167,8 +171,8 @@ const dashboardSlice = createSlice({
       const newWidget: WidgetInstance = {
         id: newWidgetInstanceId(),
         type: action.payload.type,
-        x: spot?.x ?? 0,
-        y: spot?.y ?? 0,
+        x: toGridColumnStart(spot?.x ?? 0),
+        y: toGridRowStart(spot?.y ?? 0),
         w: sizes.defaultSize.w,
         h: sizes.defaultSize.h,
       }

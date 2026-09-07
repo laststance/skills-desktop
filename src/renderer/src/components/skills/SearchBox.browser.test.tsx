@@ -4,7 +4,12 @@ import { describe, expect, it } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 
-import { repositoryId, type Skill } from '@/shared/types'
+import {
+  repositoryId,
+  toHttpUrl,
+  toSymlinkCount,
+  type Skill,
+} from '@/shared/types'
 
 /**
  * Build a store with only the slices SearchBox subscribes to: `ui` for the
@@ -45,14 +50,14 @@ function makeSkill(name: string, source?: string): Skill {
     name,
     description: '',
     path: `/skills/${name}`,
-    symlinkCount: 0,
+    symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,
     isOrphan: false,
     ...(source
       ? {
           source: repositoryId(source),
-          sourceUrl: `https://github.com/${source}.git`,
+          sourceUrl: toHttpUrl(`https://github.com/${source}.git`),
         }
       : {}),
   }

@@ -4,6 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { SyncPreviewResult } from '@/shared/types'
+import {
+  toAgentCount,
+  toSearchQuery,
+  toSkillCount,
+  toSymlinkCount,
+} from '@/shared/types'
 
 const mockSourceGetStats = vi.fn()
 const mockSkillsGetAll = vi.fn()
@@ -28,10 +34,10 @@ vi.mock('sonner', () => ({
 
 /** Minimal sync preview with a single create — opens the confirm dialog path. */
 const PREVIEW_WITH_WORK: SyncPreviewResult = {
-  totalSkills: 2,
-  totalAgents: 3,
-  toCreate: 4,
-  alreadySynced: 0,
+  totalSkills: toSkillCount(2),
+  totalAgents: toAgentCount(3),
+  toCreate: toSymlinkCount(4),
+  alreadySynced: toSymlinkCount(0),
   conflicts: [],
 }
 
@@ -120,7 +126,7 @@ describe('Sidebar → SourceCard navigation', () => {
       await import('@/renderer/src/redux/slices/uiSlice')
     store.dispatch(setActiveTab('marketplace'))
     store.dispatch(selectAgent('claude-code'))
-    store.dispatch(setSearchQuery('task'))
+    store.dispatch(setSearchQuery(toSearchQuery('task')))
 
     // Act
     await screen.getByText('~/.agents/skills').click()

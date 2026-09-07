@@ -2,6 +2,10 @@ import type {
   WidgetSize,
   WidgetType,
 } from '@/renderer/src/components/dashboard/types'
+import {
+  toGridColumnSpan,
+  toGridRowSpan,
+} from '@/renderer/src/components/dashboard/types'
 
 // ============================================================================
 // Widget size metadata
@@ -32,43 +36,43 @@ export const WIDGET_SIZES: Readonly<
   Record<WidgetType, { defaultSize: WidgetSize; minSize: WidgetSize }>
 > = {
   welcome: {
-    defaultSize: { w: 6, h: 3 },
-    minSize: { w: 4, h: 2 },
+    defaultSize: { w: toGridColumnSpan(6), h: toGridRowSpan(3) },
+    minSize: { w: toGridColumnSpan(4), h: toGridRowSpan(2) },
   },
   stats: {
-    defaultSize: { w: 3, h: 2 },
-    minSize: { w: 2, h: 2 },
+    defaultSize: { w: toGridColumnSpan(3), h: toGridRowSpan(2) },
+    minSize: { w: toGridColumnSpan(2), h: toGridRowSpan(2) },
   },
   health: {
-    defaultSize: { w: 3, h: 3 },
-    minSize: { w: 2, h: 3 },
+    defaultSize: { w: toGridColumnSpan(3), h: toGridRowSpan(3) },
+    minSize: { w: toGridColumnSpan(2), h: toGridRowSpan(3) },
   },
   coverage: {
-    defaultSize: { w: 6, h: 3 },
-    minSize: { w: 4, h: 2 },
+    defaultSize: { w: toGridColumnSpan(6), h: toGridRowSpan(3) },
+    minSize: { w: toGridColumnSpan(4), h: toGridRowSpan(2) },
   },
   bookmarks: {
-    defaultSize: { w: 3, h: 3 },
-    minSize: { w: 2, h: 2 },
+    defaultSize: { w: toGridColumnSpan(3), h: toGridRowSpan(3) },
+    minSize: { w: toGridColumnSpan(2), h: toGridRowSpan(2) },
   },
   trending: {
-    defaultSize: { w: 6, h: 4 },
-    minSize: { w: 3, h: 3 },
+    defaultSize: { w: toGridColumnSpan(6), h: toGridRowSpan(4) },
+    minSize: { w: toGridColumnSpan(3), h: toGridRowSpan(3) },
   },
   'whats-new': {
-    defaultSize: { w: 3, h: 3 },
-    minSize: { w: 2, h: 2 },
+    defaultSize: { w: toGridColumnSpan(3), h: toGridRowSpan(3) },
+    minSize: { w: toGridColumnSpan(2), h: toGridRowSpan(2) },
   },
   'quick-actions': {
-    defaultSize: { w: 6, h: 3 },
-    minSize: { w: 3, h: 3 },
+    defaultSize: { w: toGridColumnSpan(6), h: toGridRowSpan(3) },
+    minSize: { w: toGridColumnSpan(3), h: toGridRowSpan(3) },
   },
   'agent-heatmap': {
-    defaultSize: { w: 6, h: 4 },
-    minSize: { w: 4, h: 3 },
+    defaultSize: { w: toGridColumnSpan(6), h: toGridRowSpan(4) },
+    minSize: { w: toGridColumnSpan(4), h: toGridRowSpan(3) },
   },
   'activity-timeline': {
-    defaultSize: { w: 6, h: 4 },
-    minSize: { w: 3, h: 3 },
+    defaultSize: { w: toGridColumnSpan(6), h: toGridRowSpan(4) },
+    minSize: { w: toGridColumnSpan(3), h: toGridRowSpan(3) },
   },
 } as const

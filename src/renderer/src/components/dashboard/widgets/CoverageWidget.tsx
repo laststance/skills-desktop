@@ -6,6 +6,7 @@ import { selectAgentItems } from '@/renderer/src/redux/slices/agentsSlice'
 import { selectSkillsItems } from '@/renderer/src/redux/slices/skillsSlice'
 import { selectAgent } from '@/renderer/src/redux/slices/uiSlice'
 import type { Agent, AgentId, SkillCount } from '@/shared/types'
+import { toSkillCount } from '@/shared/types'
 
 // ----------------------------------------------------------------------------
 // Pure helpers
@@ -40,7 +41,7 @@ function buildCoverageRows(
   totalSourceSkills: SkillCount,
 ): CoverageRow[] {
   return agents.map((agent) => {
-    const total = agent.skillCount + agent.localSkillCount
+    const total = toSkillCount(agent.skillCount + agent.localSkillCount)
     const ratio =
       totalSourceSkills > 0
         ? Math.min(1, agent.skillCount / totalSourceSkills)
@@ -140,7 +141,7 @@ export const CoverageWidget = function CoverageWidget(): React.ReactElement {
   const agents = useAppSelector(selectAgentItems)
   const skills = useAppSelector(selectSkillsItems)
 
-  const rows = buildCoverageRows(agents, skills.length)
+  const rows = buildCoverageRows(agents, toSkillCount(skills.length))
 
   const handleSelect = (agentId: AgentId): void => {
     dispatch(selectAgent(agentId))

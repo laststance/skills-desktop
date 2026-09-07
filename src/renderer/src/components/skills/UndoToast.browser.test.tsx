@@ -7,7 +7,7 @@ import type {
   ToastId,
   TombstoneId,
 } from '@/shared/types'
-import { tombstoneId } from '@/shared/types'
+import { toIsoTimestamp, tombstoneId } from '@/shared/types'
 
 // `vi.hoisted` exposes the dismiss spy so the hoisted `vi.mock('sonner')`
 // factory can reference it. UndoToast's only external dependency is
@@ -30,7 +30,9 @@ const SUMMARY = 'Deleted 2 skills. 5 symlinks removed.'
  * @example futureIso(30) // 30s undo window
  */
 function futureIso(secondsFromNow: number): IsoTimestamp {
-  return new Date(Date.now() + secondsFromNow * 1_000).toISOString()
+  return toIsoTimestamp(
+    new Date(Date.now() + secondsFromNow * 1_000).toISOString(),
+  )
 }
 
 interface RenderOptions {
@@ -222,7 +224,10 @@ describe('UndoToast', () => {
     // button renders disabled and no restore can be triggered.
     const onUndo = vi.fn(async () => {})
     const expiredAt = new Date(Date.now() - 1_000).toISOString()
-    const { screen } = await renderUndoToast({ expiresAt: expiredAt, onUndo })
+    const { screen } = await renderUndoToast({
+      expiresAt: toIsoTimestamp(expiredAt),
+      onUndo,
+    })
     const undoButton = screen.getByRole('button', {
       name: 'Undo delete of 2 skills',
     })

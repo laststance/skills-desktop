@@ -9,6 +9,7 @@ import type {
   Skill,
   SkillName,
 } from '@/shared/types'
+import { toAgentCount, toSkillCount, toSymlinkCount } from '@/shared/types'
 
 const mockCopyToAgents = vi.fn()
 const mockSkillsGetAll = vi.fn()
@@ -44,8 +45,8 @@ function makeAgent(
     name,
     path: `/home/user/.${id}/skills`,
     exists: true,
-    skillCount: 0,
-    localSkillCount: 0,
+    skillCount: toSkillCount(0),
+    localSkillCount: toSkillCount(0),
     ...rest,
   }
 }
@@ -62,7 +63,7 @@ function makeSkill(name: string): Skill {
     name: name,
     description: `${name} skill`,
     path: `/home/user/.agents/skills/${name}`,
-    symlinkCount: 0,
+    symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,
     isOrphan: false,
@@ -81,7 +82,7 @@ function makeCopyResult(
 ): CopyToAgentsResult {
   return {
     success: true,
-    copied: 2,
+    copied: toAgentCount(2),
     failures: [],
     ...overrides,
   }
@@ -285,7 +286,9 @@ describe('BulkCopyToAgentsModal dismissal', () => {
 describe('BulkCopyToAgentsModal copy outcome', () => {
   it('shows a success toast and closes when every selected skill copies to every agent', async () => {
     // Arrange
-    mockCopyToAgents.mockResolvedValue(makeCopyResult({ copied: 1 }))
+    mockCopyToAgents.mockResolvedValue(
+      makeCopyResult({ copied: toAgentCount(1) }),
+    )
     const { screen, store } = await renderModal({
       skills: [makeSkill('task')],
       agents: [makeAgent({ id: 'cursor', name: 'Cursor' })],
@@ -317,7 +320,7 @@ describe('BulkCopyToAgentsModal copy outcome', () => {
     mockCopyToAgents.mockResolvedValue(
       makeCopyResult({
         success: false,
-        copied: 0,
+        copied: toAgentCount(0),
         failures: [{ agentId: 'cursor', error: 'Already exists' }],
       }),
     )

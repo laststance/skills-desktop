@@ -14,6 +14,7 @@ import {
 } from 'vitest'
 
 import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
+import { toPixelHeight, toPixelWidth } from '@/shared/types'
 
 import type * as SettingsModule from './settings'
 import { areSettingsEqual } from './settings'
@@ -96,10 +97,13 @@ describe('areSettingsEqual', () => {
   it('treats matching window dimensions as unchanged even when Zod produced a fresh object reference', () => {
     // Arrange: Zod parse produces a fresh object on every call, so the
     // references differ even when the width/height values match.
-    const saved = { ...baseSettings, windowSize: { width: 1200, height: 800 } }
+    const saved = {
+      ...baseSettings,
+      windowSize: { width: toPixelWidth(1200), height: toPixelHeight(800) },
+    }
     const incoming = {
       ...baseSettings,
-      windowSize: { width: 1200, height: 800 },
+      windowSize: { width: toPixelWidth(1200), height: toPixelHeight(800) },
     }
 
     // Act
@@ -111,10 +115,13 @@ describe('areSettingsEqual', () => {
 
   it('detects a changed window width so the resized dimensions get persisted', () => {
     // Arrange
-    const saved = { ...baseSettings, windowSize: { width: 1200, height: 800 } }
+    const saved = {
+      ...baseSettings,
+      windowSize: { width: toPixelWidth(1200), height: toPixelHeight(800) },
+    }
     const incoming = {
       ...baseSettings,
-      windowSize: { width: 1201, height: 800 },
+      windowSize: { width: toPixelWidth(1201), height: toPixelHeight(800) },
     }
 
     // Act
@@ -126,10 +133,13 @@ describe('areSettingsEqual', () => {
 
   it('detects a changed window height so the resized dimensions get persisted', () => {
     // Arrange
-    const saved = { ...baseSettings, windowSize: { width: 1200, height: 800 } }
+    const saved = {
+      ...baseSettings,
+      windowSize: { width: toPixelWidth(1200), height: toPixelHeight(800) },
+    }
     const incoming = {
       ...baseSettings,
-      windowSize: { width: 1200, height: 801 },
+      windowSize: { width: toPixelWidth(1200), height: toPixelHeight(801) },
     }
 
     // Act
@@ -143,7 +153,7 @@ describe('areSettingsEqual', () => {
     // Arrange
     const withSize = {
       ...baseSettings,
-      windowSize: { width: 1200, height: 800 },
+      windowSize: { width: toPixelWidth(1200), height: toPixelHeight(800) },
     }
     const withoutSize = { ...baseSettings, windowSize: undefined }
 
@@ -163,7 +173,7 @@ describe('areSettingsEqual', () => {
     const withoutKey = { ...baseSettings }
     const withKey = {
       ...baseSettings,
-      windowSize: { width: 1200, height: 800 },
+      windowSize: { width: toPixelWidth(1200), height: toPixelHeight(800) },
     }
 
     // Act
@@ -520,7 +530,9 @@ describe('settings persistence', () => {
 
       // Act / Assert
       await expect(
-        saveSettings({ windowSize: { width: 10, height: 800 } }),
+        saveSettings({
+          windowSize: { width: toPixelWidth(10), height: toPixelHeight(800) },
+        }),
       ).rejects.toThrow()
     })
   })

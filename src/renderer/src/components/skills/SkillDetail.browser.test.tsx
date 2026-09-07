@@ -12,6 +12,7 @@ import type {
   Skill,
   SymlinkInfo,
 } from '@/shared/types'
+import { toSkillCount, toSymlinkCount } from '@/shared/types'
 
 const SOURCE_PATH = '/home/user/.agents/skills/task'
 const CURSOR_PATH = '/home/user/.cursor/skills/task'
@@ -64,8 +65,8 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
     name: 'Cursor',
     path: '/home/user/.cursor/skills',
     exists: true,
-    skillCount: 1,
-    localSkillCount: 0,
+    skillCount: toSkillCount(1),
+    localSkillCount: toSkillCount(0),
     ...overrides,
   }
 }
@@ -92,7 +93,7 @@ function makeSkill(): Skill {
     name: 'task',
     description: 'Task workflow',
     path: SOURCE_PATH,
-    symlinkCount: symlinks.length,
+    symlinkCount: toSymlinkCount(symlinks.length),
     symlinks,
     isSource: true,
     isOrphan: false,
@@ -111,7 +112,7 @@ function makeOverflowSkillFixture(): { agents: Agent[]; skill: Skill } {
       id,
       name,
       path: `/home/user/.${id}/skills`,
-      skillCount: 1,
+      skillCount: toSkillCount(1),
     }),
   )
   const symlinks: SymlinkInfo[] = OVERFLOW_AGENT_ROWS.map(({ id, name }) => ({
@@ -127,7 +128,7 @@ function makeOverflowSkillFixture(): { agents: Agent[]; skill: Skill } {
     agents,
     skill: {
       ...makeSkill(),
-      symlinkCount: symlinks.length,
+      symlinkCount: toSymlinkCount(symlinks.length),
       symlinks,
     },
   }

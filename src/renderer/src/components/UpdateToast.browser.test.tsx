@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { RootState } from '@/renderer/src/redux/store'
-import { semanticVersion } from '@/shared/types'
+import { semanticVersion, toProgressPercent } from '@/shared/types'
 
 /**
  * Browser-mode tests for the auto-update toast. Runs in Chromium so the
@@ -68,7 +68,7 @@ async function renderToast(
               ? null
               : semanticVersion(overrides.version),
         releaseNotes: null,
-        progress: overrides.progress ?? 0,
+        progress: toProgressPercent(overrides.progress ?? 0),
         error: overrides.error ?? null,
         dismissed: overrides.dismissed ?? false,
       } satisfies RootState['update'],

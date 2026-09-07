@@ -1,5 +1,10 @@
 import { REPO_PATTERN, SKILL_NAME_PATTERN } from '@/main/utils/skillIdentifiers'
-import { repositoryId } from '@/shared/types'
+import {
+  repositoryId,
+  toHttpUrl,
+  toInstallCount,
+  toSkillRank,
+} from '@/shared/types'
 import type {
   InstallCount,
   RankingFilter,
@@ -35,15 +40,15 @@ const MAX_RESULTS = 50
 export function parseFormattedCount(text: string): InstallCount {
   const trimmed = text.trim().replace(/,/g, '')
   const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*([KMB])?$/i)
-  if (!match) return 0
+  if (!match) return toInstallCount(0)
 
   const num = parseFloat(match[1])
   const suffix = match[2]?.toUpperCase()
 
-  if (suffix === 'K') return Math.round(num * 1_000)
-  if (suffix === 'M') return Math.round(num * 1_000_000)
-  if (suffix === 'B') return Math.round(num * 1_000_000_000)
-  return Math.round(num)
+  if (suffix === 'K') return toInstallCount(Math.round(num * 1_000))
+  if (suffix === 'M') return toInstallCount(Math.round(num * 1_000_000))
+  if (suffix === 'B') return toInstallCount(Math.round(num * 1_000_000_000))
+  return toInstallCount(Math.round(num))
 }
 
 /**
@@ -114,11 +119,11 @@ export function parseLeaderboardHtml(html: string): SkillSearchResult[] {
     }
 
     results.push({
-      rank: rank++,
+      rank: toSkillRank(rank++),
       name,
       repo: repositoryId(repo),
-      url: `https://skills.sh/${repo}/${skillSlug}`,
-      installCount,
+      url: toHttpUrl(`https://skills.sh/${repo}/${skillSlug}`),
+      installCount: toInstallCount(installCount),
     })
   }
 

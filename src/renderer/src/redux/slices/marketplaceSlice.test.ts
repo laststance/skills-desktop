@@ -1,7 +1,13 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { repositoryId } from '@/shared/types'
+import {
+  repositoryId,
+  toHttpUrl,
+  toProgressPercent,
+  toSearchQuery,
+  toSkillRank,
+} from '@/shared/types'
 import type { InstallProgress, SkillSearchResult } from '@/shared/types'
 
 const mockSearch = vi.fn()
@@ -28,10 +34,10 @@ async function createTestStore() {
 }
 
 const sampleResult: SkillSearchResult = {
-  rank: 1,
+  rank: toSkillRank(1),
   name: 'task',
   repo: repositoryId('vercel-labs/skill-task'),
-  url: 'https://skills.sh/vercel-labs/skill-task',
+  url: toHttpUrl('https://skills.sh/vercel-labs/skill-task'),
 }
 
 describe('marketplaceSlice', () => {
@@ -62,7 +68,7 @@ describe('marketplaceSlice', () => {
     const store = await createTestStore()
 
     // Act
-    store.dispatch(setMarketplaceSearchQuery('react'))
+    store.dispatch(setMarketplaceSearchQuery(toSearchQuery('react')))
 
     // Assert
     expect(store.getState().marketplace.searchQuery).toBe('react')
@@ -115,8 +121,8 @@ describe('marketplaceSlice', () => {
       await import('./marketplaceSlice')
     const store = await createTestStore()
     mockSearch.mockRejectedValue(new Error('fail'))
-    store.dispatch(setMarketplaceSearchQuery('test'))
-    await store.dispatch(searchSkills('test'))
+    store.dispatch(setMarketplaceSearchQuery(toSearchQuery('test')))
+    await store.dispatch(searchSkills(toSearchQuery('test')))
     expect(store.getState().marketplace.status).toBe('error')
 
     // Act
@@ -132,7 +138,7 @@ describe('marketplaceSlice', () => {
     const { setMarketplaceSearchQuery, clearSearchResults } =
       await import('./marketplaceSlice')
     const store = await createTestStore()
-    store.dispatch(setMarketplaceSearchQuery('react'))
+    store.dispatch(setMarketplaceSearchQuery(toSearchQuery('react')))
 
     // Act
     store.dispatch(clearSearchResults())
@@ -149,7 +155,7 @@ describe('marketplaceSlice', () => {
     const progress: InstallProgress = {
       phase: 'cloning',
       message: 'Cloning vercel-labs/skill-task',
-      percent: 40,
+      percent: toProgressPercent(40),
     }
 
     // Act + Assert — a progress update from the CLI surfaces in the panel
@@ -175,8 +181,8 @@ describe('marketplaceSlice', () => {
       await import('./marketplaceSlice')
 
     // Act
-    store.dispatch(setMarketplaceSearchQuery('react'))
-    const promise = store.dispatch(searchSkills('react'))
+    store.dispatch(setMarketplaceSearchQuery(toSearchQuery('react')))
+    const promise = store.dispatch(searchSkills(toSearchQuery('react')))
 
     // Assert
     expect(store.getState().marketplace.status).toBe('searching')
@@ -194,8 +200,8 @@ describe('marketplaceSlice', () => {
 
     // Act — the box holds the query before its results land (the real flow:
     // MarketplaceSearch commits the query, then dispatches the search).
-    store.dispatch(setMarketplaceSearchQuery('task'))
-    await store.dispatch(searchSkills('task'))
+    store.dispatch(setMarketplaceSearchQuery(toSearchQuery('task')))
+    await store.dispatch(searchSkills(toSearchQuery('task')))
 
     // Assert
     const state = store.getState().marketplace
@@ -212,8 +218,8 @@ describe('marketplaceSlice', () => {
       await import('./marketplaceSlice')
 
     // Act
-    store.dispatch(setMarketplaceSearchQuery('test'))
-    await store.dispatch(searchSkills('test'))
+    store.dispatch(setMarketplaceSearchQuery(toSearchQuery('test')))
+    await store.dispatch(searchSkills(toSearchQuery('test')))
 
     // Assert
     expect(store.getState().marketplace.status).toBe('error')
@@ -229,8 +235,8 @@ describe('marketplaceSlice', () => {
       await import('./marketplaceSlice')
 
     // Act
-    store.dispatch(setMarketplaceSearchQuery('test'))
-    await store.dispatch(searchSkills('test'))
+    store.dispatch(setMarketplaceSearchQuery(toSearchQuery('test')))
+    await store.dispatch(searchSkills(toSearchQuery('test')))
 
     // Assert
     expect(store.getState().marketplace.status).toBe('error')
@@ -265,10 +271,10 @@ describe('marketplaceSlice', () => {
 
     // Act — fire "rea", then "react" (the box now holds "react"). Resolve
     // "react" first, then let the stale "rea" response arrive afterwards.
-    store.dispatch(setMarketplaceSearchQuery('rea'))
-    const reaSearch = store.dispatch(searchSkills('rea'))
-    store.dispatch(setMarketplaceSearchQuery('react'))
-    const reactSearch = store.dispatch(searchSkills('react'))
+    store.dispatch(setMarketplaceSearchQuery(toSearchQuery('rea')))
+    const reaSearch = store.dispatch(searchSkills(toSearchQuery('rea')))
+    store.dispatch(setMarketplaceSearchQuery(toSearchQuery('react')))
+    const reactSearch = store.dispatch(searchSkills(toSearchQuery('react')))
     resolveReact([reactResult])
     await reactSearch
     resolveRea([reaResult])
@@ -302,10 +308,10 @@ describe('marketplaceSlice', () => {
       await import('./marketplaceSlice')
 
     // Act
-    store.dispatch(setMarketplaceSearchQuery('rea'))
-    const reaSearch = store.dispatch(searchSkills('rea'))
-    store.dispatch(setMarketplaceSearchQuery('react'))
-    const reactSearch = store.dispatch(searchSkills('react'))
+    store.dispatch(setMarketplaceSearchQuery(toSearchQuery('rea')))
+    const reaSearch = store.dispatch(searchSkills(toSearchQuery('rea')))
+    store.dispatch(setMarketplaceSearchQuery(toSearchQuery('react')))
+    const reactSearch = store.dispatch(searchSkills(toSearchQuery('react')))
     resolveReact([sampleResult])
     await reactSearch
     rejectRea(new Error('rea timed out'))
@@ -332,8 +338,8 @@ describe('marketplaceSlice', () => {
       await import('./marketplaceSlice')
 
     // Act — fire "react", clear the box, then let the response arrive.
-    store.dispatch(setMarketplaceSearchQuery('react'))
-    const search = store.dispatch(searchSkills('react'))
+    store.dispatch(setMarketplaceSearchQuery(toSearchQuery('react')))
+    const search = store.dispatch(searchSkills(toSearchQuery('react')))
     store.dispatch(clearSearchResults())
     resolveSearch([sampleResult])
     await search
@@ -352,8 +358,8 @@ describe('marketplaceSlice', () => {
     const store = await createTestStore()
     const { searchSkills, setMarketplaceSearchQuery, clearSearchResults } =
       await import('./marketplaceSlice')
-    store.dispatch(setMarketplaceSearchQuery('react'))
-    store.dispatch(searchSkills('react'))
+    store.dispatch(setMarketplaceSearchQuery(toSearchQuery('react')))
+    store.dispatch(searchSkills(toSearchQuery('react')))
     expect(store.getState().marketplace.status).toBe('searching')
 
     // Act
@@ -371,8 +377,8 @@ describe('marketplaceSlice', () => {
     const store = await createTestStore()
     const { searchSkills, setMarketplaceSearchQuery, clearSearchResults } =
       await import('./marketplaceSlice')
-    store.dispatch(setMarketplaceSearchQuery('react'))
-    await store.dispatch(searchSkills('react'))
+    store.dispatch(setMarketplaceSearchQuery(toSearchQuery('react')))
+    await store.dispatch(searchSkills(toSearchQuery('react')))
     expect(store.getState().marketplace.error).toBe('skills CLI offline')
 
     // Act — empty the box.

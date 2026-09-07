@@ -5,6 +5,14 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 
+import {
+  toDashboardPageName,
+  toGridColumnSpan,
+  toGridColumnStart,
+  toGridRowSpan,
+  toGridRowStart,
+} from '@/renderer/src/components/dashboard/types'
+
 import type { DashboardPage, WidgetDefinition, WidgetInstance } from './types'
 import { newDashboardPageId, newWidgetInstanceId } from './utils/ids'
 
@@ -15,7 +23,14 @@ import { newDashboardPageId, newWidgetInstanceId } from './utils/ids'
  * @returns A WidgetInstance for preloaded dashboard state.
  */
 function makeWidget(id: WidgetInstance['id']): WidgetInstance {
-  return { id, type: 'welcome', x: 0, y: 0, w: 6, h: 3 }
+  return {
+    id,
+    type: 'welcome',
+    x: toGridColumnStart(0),
+    y: toGridRowStart(0),
+    w: toGridColumnSpan(6),
+    h: toGridRowSpan(3),
+  }
 }
 
 /**
@@ -29,8 +44,8 @@ const fakeDefinition: WidgetDefinition = {
   icon: ({ className }: { className?: string }) => (
     <span data-testid="fake-icon" className={className} />
   ),
-  defaultSize: { w: 6, h: 3 },
-  minSize: { w: 2, h: 2 },
+  defaultSize: { w: toGridColumnSpan(6), h: toGridRowSpan(3) },
+  minSize: { w: toGridColumnSpan(2), h: toGridRowSpan(2) },
   Component: ({ instance }: { instance: WidgetInstance }) => (
     <div data-testid="fake-body">{instance.type}</div>
   ),
@@ -60,7 +75,7 @@ async function renderShell(
   const extraWidgets = (options.extraWidgetIds ?? []).map(makeWidget)
   const page: DashboardPage = {
     id: newDashboardPageId(),
-    name: 'Test Page',
+    name: toDashboardPageName('Test Page'),
     widgets: [shellWidget, ...extraWidgets],
   }
 
@@ -128,7 +143,7 @@ describe('WidgetShell', () => {
     const shellWidget = makeWidget(newWidgetInstanceId())
     const page: DashboardPage = {
       id: newDashboardPageId(),
-      name: 'Test Page',
+      name: toDashboardPageName('Test Page'),
       widgets: [shellWidget, makeWidget(newWidgetInstanceId())],
     }
     const store = configureStore({

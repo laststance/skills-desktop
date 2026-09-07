@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { copyToAgents } from '@/renderer/src/redux/slices/skillsSlice'
 import type { AbsolutePath, Skill, SkillName } from '@/shared/types'
+import { toSymlinkCount } from '@/shared/types'
 
 // `copyToAgentsWithToast` is the shared "dispatch → match-fulfilled →
 // 3-branch toast → refreshAllData" helper used by AddSymlinkModal and
@@ -45,7 +46,7 @@ function makeSkill(name: SkillName = 'tdd-workflow'): Skill {
     name,
     description: `${name} description`,
     path: `/Users/test/.agents/skills/${name}`,
-    symlinkCount: 0,
+    symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,
     isOrphan: false,

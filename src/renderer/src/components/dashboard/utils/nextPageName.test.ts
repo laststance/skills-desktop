@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DashboardPage } from '@/renderer/src/components/dashboard/types'
+import { toDashboardPageName } from '@/renderer/src/components/dashboard/types'
 
 import { newDashboardPageId } from './ids'
 import { nextPageName } from './nextPageName'
@@ -15,7 +16,7 @@ import { nextPageName } from './nextPageName'
 function makePage(name: string): DashboardPage {
   return {
     id: newDashboardPageId(),
-    name,
+    name: toDashboardPageName(name),
     widgets: [],
   }
 }

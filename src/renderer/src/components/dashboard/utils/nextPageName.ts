@@ -2,6 +2,7 @@ import type {
   DashboardPage,
   DashboardPageName,
 } from '@/renderer/src/components/dashboard/types'
+import { toDashboardPageName } from '@/renderer/src/components/dashboard/types'
 
 /**
  * Compute a collision-free default page name of the form `Page N`. Exists
@@ -26,8 +27,8 @@ export function nextPageName(
   // Preserve the familiar "next number" starting point, then step past any
   // suffix that a surviving page already occupies so the result is unique.
   let suffix = pages.length + 1
-  while (existingNames.has(`Page ${suffix}`)) {
+  while (existingNames.has(toDashboardPageName(`Page ${suffix}`))) {
     suffix += 1
   }
-  return `Page ${suffix}`
+  return toDashboardPageName(`Page ${suffix}`)
 }

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { InstallProgress } from '@/shared/types'
+import { toProgressPercent } from '@/shared/types'
 
 // The hook drives Redux through `useAppDispatch`; capturing dispatch lets us
 // assert the exact action emitted for each forwarded install-progress IPC event.
@@ -78,7 +79,7 @@ describe('useMarketplaceProgress', () => {
     const progress: InstallProgress = {
       phase: 'cloning',
       message: 'Cloning skill repository…',
-      percent: 42,
+      percent: toProgressPercent(42),
     }
 
     // Act — mount registers the listener, then a progress event arrives
@@ -107,7 +108,7 @@ describe('useMarketplaceProgress', () => {
     const complete: InstallProgress = {
       phase: 'complete',
       message: 'Installed',
-      percent: 100,
+      percent: toProgressPercent(100),
     }
 
     // Act — two sequential progress events arrive over the same subscription

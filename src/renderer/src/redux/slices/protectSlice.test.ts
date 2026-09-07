@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, test } from 'vitest'
 
 import type { Skill } from '@/shared/types'
+import { toFileSizeBytes, toSymlinkCount } from '@/shared/types'
 
 /**
  * Build a source-skill row the way `scanSourceSkills` does: named, and carrying
@@ -20,11 +21,11 @@ function makeScannedSkill(name: Skill['name'], ino: number): Skill {
       kind: 'directory',
       dev: 1,
       ino,
-      size: 96,
+      size: toFileSizeBytes(96),
       ctimeMs: 100,
       mtimeMs: 100,
     },
-    symlinkCount: 0,
+    symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,
     isOrphan: false,

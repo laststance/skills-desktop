@@ -7,7 +7,7 @@ import { selectSkill } from '@/renderer/src/redux/slices/skillsSlice'
 import { setActiveTab } from '@/renderer/src/redux/slices/uiSlice'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type { Skill } from '@/shared/types'
-import { repositoryId } from '@/shared/types'
+import { repositoryId, toHttpUrl, toSymlinkCount } from '@/shared/types'
 
 // Replace the three routed panels with marker stubs so DetailPanel renders in
 // isolation — the real children fetch via IPC on mount, which is irrelevant to
@@ -72,12 +72,12 @@ function makeSelectableSkill(): Skill {
     name: 'demo-skill',
     description: '',
     path: '/skills/demo-skill',
-    symlinkCount: 0,
+    symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,
     isOrphan: false,
     source: repositoryId('owner/repo'),
-    sourceUrl: 'https://github.com/owner/repo.git',
+    sourceUrl: toHttpUrl('https://github.com/owner/repo.git'),
   }
 }
 

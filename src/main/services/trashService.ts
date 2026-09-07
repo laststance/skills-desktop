@@ -18,7 +18,7 @@ import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
 import { extractErrorMessage } from '@/main/utils/errors'
 import { fsyncPath } from '@/main/utils/fsyncPath'
 import { UNDO_WINDOW_MS } from '@/shared/constants'
-import { tombstoneId } from '@/shared/types'
+import { toSymlinkCount, toUnixTimestampMs, tombstoneId } from '@/shared/types'
 import type {
   AbsolutePath,
   AgentId,
@@ -1345,7 +1345,7 @@ async function moveSourceBackedToTrash(
     kind: 'tombstoned',
     tombstoneId: id,
     cascadeAgents: cascadeAgentIds,
-    symlinksRemoved: recordedSymlinks.length,
+    symlinksRemoved: toSymlinkCount(recordedSymlinks.length),
   }
 }
 
@@ -1644,7 +1644,7 @@ async function moveLocalOnlyToTrash(
     kind: 'tombstoned',
     tombstoneId: id,
     cascadeAgents: moved.map((c) => c.agentId),
-    symlinksRemoved: moved.length,
+    symlinksRemoved: toSymlinkCount(moved.length),
   }
 }
 
@@ -1913,8 +1913,8 @@ async function restoreSourceBacked(
 
   return {
     outcome: 'restored',
-    symlinksRestored,
-    symlinksSkipped,
+    symlinksRestored: toSymlinkCount(symlinksRestored),
+    symlinksSkipped: toSymlinkCount(symlinksSkipped),
   }
 }
 
@@ -1984,8 +1984,8 @@ async function restoreLocalOnly(
     )
     return {
       outcome: 'restored',
-      symlinksRestored,
-      symlinksSkipped,
+      symlinksRestored: toSymlinkCount(symlinksRestored),
+      symlinksSkipped: toSymlinkCount(symlinksSkipped),
     }
   }
 
@@ -1993,8 +1993,8 @@ async function restoreLocalOnly(
 
   return {
     outcome: 'restored',
-    symlinksRestored,
-    symlinksSkipped,
+    symlinksRestored: toSymlinkCount(symlinksRestored),
+    symlinksSkipped: toSymlinkCount(symlinksSkipped),
   }
 }
 
@@ -2178,7 +2178,7 @@ function parseDeletedAtFromEntryName(
   if (!/^\d+$/.test(prefix)) return null
   const parsed = Number.parseInt(prefix, 10)
   /* v8 ignore next -- the `: null` arm needs Number.parseInt(prefix) to be non-finite, which requires a 309+ digit prefix; such a name exceeds the 255-byte filesystem NAME_MAX, so fs.readdir in startupCleanup (the sole caller) can never surface it. parseInt of any \d+ name short enough to exist on disk is always finite. */
-  return Number.isFinite(parsed) ? parsed : null
+  return Number.isFinite(parsed) ? toUnixTimestampMs(parsed) : null
 }
 
 /**

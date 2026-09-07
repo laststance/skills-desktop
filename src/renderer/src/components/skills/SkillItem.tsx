@@ -69,6 +69,7 @@ import type {
   SymlinkCount,
   SymlinkInfo,
 } from '@/shared/types'
+import { toSymlinkCount } from '@/shared/types'
 
 import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
 import { computeRangeSelection } from './bulkDeleteHelpers'
@@ -202,9 +203,9 @@ function getSymlinkStatusBuckets(
   symlinks: readonly SymlinkInfo[],
 ): SymlinkStatusBuckets {
   const buckets: SymlinkStatusBuckets = {
-    validCount: 0,
-    brokenCount: 0,
-    inaccessibleCount: 0,
+    validCount: toSymlinkCount(0),
+    brokenCount: toSymlinkCount(0),
+    inaccessibleCount: toSymlinkCount(0),
     validAgentNames: [],
     brokenAgentNames: [],
     inaccessibleAgentNames: [],
@@ -212,13 +213,13 @@ function getSymlinkStatusBuckets(
 
   for (const symlink of symlinks) {
     if (symlink.status === 'valid') {
-      buckets.validCount += 1
+      buckets.validCount = toSymlinkCount(buckets.validCount + 1)
       buckets.validAgentNames.push(symlink.agentName)
     } else if (symlink.status === 'broken') {
-      buckets.brokenCount += 1
+      buckets.brokenCount = toSymlinkCount(buckets.brokenCount + 1)
       buckets.brokenAgentNames.push(symlink.agentName)
     } else if (symlink.status === 'inaccessible') {
-      buckets.inaccessibleCount += 1
+      buckets.inaccessibleCount = toSymlinkCount(buckets.inaccessibleCount + 1)
       buckets.inaccessibleAgentNames.push(symlink.agentName)
     }
   }

@@ -3,6 +3,7 @@ import { join } from 'path'
 
 import { AGENTS } from '@/main/constants'
 import type { AbsolutePath, Agent, SkillCount } from '@/shared/types'
+import { toSkillCount } from '@/shared/types'
 
 import { getEmptyAgentFolder } from './emptyAgentFolderService'
 import { filesystemIdentityFromStats } from './filesystemIdentity'
@@ -43,7 +44,7 @@ export async function scanAgents(): Promise<Agent[]> {
             countAgentSkills(agent.path),
             countLocalSkills(agent.path),
           ])
-        : [0, 0]
+        : [toSkillCount(0), toSkillCount(0)]
       const filesystemIdentity = exists
         ? await lstat(agent.path)
             .then((stats) => filesystemIdentityFromStats(stats))
@@ -108,9 +109,9 @@ async function countAgentSkills(agentPath: AbsolutePath): Promise<SkillCount> {
       }),
     )
 
-    return validityChecks.filter(Boolean).length
+    return toSkillCount(validityChecks.filter(Boolean).length)
   } catch {
-    return 0
+    return toSkillCount(0)
   }
 }
 
@@ -143,8 +144,8 @@ async function countLocalSkills(agentPath: AbsolutePath): Promise<SkillCount> {
       }),
     )
 
-    return validChecks.filter(Boolean).length
+    return toSkillCount(validChecks.filter(Boolean).length)
   } catch {
-    return 0
+    return toSkillCount(0)
   }
 }

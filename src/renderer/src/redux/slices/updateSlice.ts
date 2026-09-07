@@ -8,6 +8,7 @@ import type {
   UpdateInfo,
   UpdateStatus,
 } from '@/shared/types'
+import { toProgressPercent } from '@/shared/types'
 
 /**
  * Redux state tracking the auto-update lifecycle.
@@ -32,7 +33,7 @@ const initialState: UpdateState = {
   status: 'idle',
   version: null,
   releaseNotes: null,
-  progress: 0,
+  progress: toProgressPercent(0),
   error: null,
   dismissed: false,
 }
@@ -65,7 +66,7 @@ const updateSlice = createSlice({
       state.status = 'ready'
       state.version = action.payload.version
       state.releaseNotes = action.payload.releaseNotes ?? null
-      state.progress = 100
+      state.progress = toProgressPercent(100)
     },
     setError: (state, action: PayloadAction<string>) => {
       state.status = 'error'

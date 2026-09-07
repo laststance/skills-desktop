@@ -8,6 +8,7 @@ import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import type { AgentFolderGroup } from '@/renderer/src/redux/slices/uiSlice'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type { Agent, FilesystemEntryIdentity, Skill } from '@/shared/types'
+import { toFileSizeBytes, toSkillCount, toSymlinkCount } from '@/shared/types'
 
 const mockRemoveAllFromAgent = vi.fn()
 const mockRemoveEmptyFolder = vi.fn()
@@ -28,7 +29,7 @@ const directoryIdentity: FilesystemEntryIdentity = {
   kind: 'directory',
   dev: 1,
   ino: 2,
-  size: 96,
+  size: toFileSizeBytes(96),
   ctimeMs: 3,
   mtimeMs: 4,
 }
@@ -38,8 +39,8 @@ const cline: Agent = {
   name: 'Cline',
   path: '/Users/test/.cline/skills',
   exists: true,
-  skillCount: 2,
-  localSkillCount: 0,
+  skillCount: toSkillCount(2),
+  localSkillCount: toSkillCount(0),
   filesystemIdentity: directoryIdentity,
 }
 
@@ -53,7 +54,7 @@ const warp: Agent = {
 const unusedCline: Agent = {
   ...cline,
   exists: false,
-  skillCount: 0,
+  skillCount: toSkillCount(0),
   filesystemIdentity: undefined,
   emptyParentFolder: {
     path: '/Users/test/.cline',
@@ -64,7 +65,7 @@ const unusedCline: Agent = {
 const unusedWarp: Agent = {
   ...warp,
   exists: false,
-  skillCount: 0,
+  skillCount: toSkillCount(0),
   filesystemIdentity: undefined,
   emptyParentFolder: {
     path: '/Users/test/.warp',
@@ -270,7 +271,7 @@ describe('Hidden agent folder deletion', () => {
       name: 'protected-task',
       description: 'Protected source skill',
       path: '/Users/test/.agents/skills/protected-task',
-      symlinkCount: 1,
+      symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cline',

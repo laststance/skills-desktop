@@ -6,6 +6,7 @@ import { render } from 'vitest-browser-react'
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import { installLayoutStyles } from '@/renderer/src/test/installLayoutStyles'
 import type { Skill } from '@/shared/types'
+import { toSearchQuery, toSymlinkCount } from '@/shared/types'
 
 const mockGetAll = vi.fn()
 
@@ -37,7 +38,7 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
     name: 'task',
     description: 'Task management skill',
     path: '/home/user/.agents/skills/task',
-    symlinkCount: 0,
+    symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,
     isOrphan: false,
@@ -380,7 +381,7 @@ describe('SkillsList search-empty branch', () => {
     const { setSearchQuery: dispatchSearchQuery } =
       await import('@/renderer/src/redux/slices/uiSlice')
     // Dispatch before render so the component mounts with the query already set
-    store.dispatch(dispatchSearchQuery('zzznomatch'))
+    store.dispatch(dispatchSearchQuery(toSearchQuery('zzznomatch')))
     const { SkillsList } = await import('./SkillsList')
     const screen = await render(
       <Provider store={store}>
@@ -410,7 +411,7 @@ describe('SkillsList search-empty branch', () => {
     })
     const { setSearchQuery: dispatchSearchQuery } =
       await import('@/renderer/src/redux/slices/uiSlice')
-    store.dispatch(dispatchSearchQuery('zzznomatch'))
+    store.dispatch(dispatchSearchQuery(toSearchQuery('zzznomatch')))
     const { SkillsList } = await import('./SkillsList')
     const screen = await render(
       <Provider store={store}>

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { SyncExecuteResult, SyncPreviewResult } from '@/shared/types'
+import { toAgentCount, toSkillCount, toSymlinkCount } from '@/shared/types'
 
 const mockSyncExecute = vi.fn()
 
@@ -11,29 +12,29 @@ const mockSyncExecute = vi.fn()
 // shape that makes shouldShowSyncConfirm return true (toCreate > 0, no
 // conflicts, no forAgent), so the confirm dialog opens.
 const PREVIEW_READY_TO_SYNC: SyncPreviewResult = {
-  totalSkills: 5,
-  totalAgents: 3,
-  toCreate: 8,
-  alreadySynced: 2,
+  totalSkills: toSkillCount(5),
+  totalAgents: toAgentCount(3),
+  toCreate: toSymlinkCount(8),
+  alreadySynced: toSymlinkCount(2),
   conflicts: [],
 }
 
 // A scoped (forAgent) preview belongs to CleanupAgentDialog, not the global
 // confirm dialog — used to prove this dialog stays closed for it.
 const SCOPED_PREVIEW: SyncPreviewResult = {
-  totalSkills: 5,
-  totalAgents: 1,
-  toCreate: 4,
-  alreadySynced: 1,
+  totalSkills: toSkillCount(5),
+  totalAgents: toAgentCount(1),
+  toCreate: toSymlinkCount(4),
+  alreadySynced: toSymlinkCount(1),
   conflicts: [],
   forAgent: 'cursor',
 }
 
 const EXECUTE_RESULT: SyncExecuteResult = {
   success: true,
-  created: 8,
-  replaced: 0,
-  skipped: 2,
+  created: toSymlinkCount(8),
+  replaced: toSymlinkCount(0),
+  skipped: toSymlinkCount(2),
   errors: [],
   details: [],
 }

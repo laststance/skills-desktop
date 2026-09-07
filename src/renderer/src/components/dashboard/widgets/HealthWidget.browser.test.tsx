@@ -5,6 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { Skill, SymlinkInfo } from '@/shared/types'
+import { toSymlinkCount } from '@/shared/types'
 
 /**
  * Builds a SymlinkInfo fixture for HealthWidget display-state tests.
@@ -36,8 +37,9 @@ function makeSkill(symlinks: SymlinkInfo[]): Skill {
     name: 'task',
     description: 'Task skill',
     path: '/Users/test/.agents/skills/task',
-    symlinkCount: symlinks.filter((symlink) => symlink.status === 'valid')
-      .length,
+    symlinkCount: toSymlinkCount(
+      symlinks.filter((symlink) => symlink.status === 'valid').length,
+    ),
     symlinks,
     isSource: true,
     isOrphan: false,

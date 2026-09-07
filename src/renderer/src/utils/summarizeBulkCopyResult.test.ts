@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { PerSkillCopyOutcome } from '@/shared/types'
+import { toAgentCount } from '@/shared/types'
 
 import { summarizeBulkCopyResult } from './summarizeBulkCopyResult'
 
@@ -8,8 +9,8 @@ describe('summarizeBulkCopyResult', () => {
   it('reports success and lists the copied skills when every target succeeds', () => {
     // Arrange — two skills, each copied to both ticked agents
     const perSkill: PerSkillCopyOutcome[] = [
-      { skillName: 'alpha', copied: 2, failures: [] },
-      { skillName: 'beta', copied: 2, failures: [] },
+      { skillName: 'alpha', copied: toAgentCount(2), failures: [] },
+      { skillName: 'beta', copied: toAgentCount(2), failures: [] },
     ]
 
     // Act
@@ -26,7 +27,7 @@ describe('summarizeBulkCopyResult', () => {
   it('uses singular wording for one skill copied to one agent', () => {
     // Arrange — one skill, one ticked agent
     const perSkill: PerSkillCopyOutcome[] = [
-      { skillName: 'alpha', copied: 1, failures: [] },
+      { skillName: 'alpha', copied: toAgentCount(1), failures: [] },
     ]
 
     // Act
@@ -43,10 +44,10 @@ describe('summarizeBulkCopyResult', () => {
   it('warns and lists the per-target failures when some copies fail', () => {
     // Arrange — alpha lands on the one agent, beta collides on it
     const perSkill: PerSkillCopyOutcome[] = [
-      { skillName: 'alpha', copied: 1, failures: [] },
+      { skillName: 'alpha', copied: toAgentCount(1), failures: [] },
       {
         skillName: 'beta',
-        copied: 0,
+        copied: toAgentCount(0),
         failures: [{ agentId: 'codex', error: 'Already exists' }],
       },
     ]
@@ -65,10 +66,10 @@ describe('summarizeBulkCopyResult', () => {
   it('uses plural "copies" wording when several targets fail but some still copy', () => {
     // Arrange — alpha fully copies to both agents, beta collides on both
     const perSkill: PerSkillCopyOutcome[] = [
-      { skillName: 'alpha', copied: 2, failures: [] },
+      { skillName: 'alpha', copied: toAgentCount(2), failures: [] },
       {
         skillName: 'beta',
-        copied: 0,
+        copied: toAgentCount(0),
         failures: [
           { agentId: 'codex', error: 'Already exists' },
           { agentId: 'cursor', error: 'Already exists' },
@@ -93,7 +94,7 @@ describe('summarizeBulkCopyResult', () => {
     const perSkill: PerSkillCopyOutcome[] = [
       {
         skillName: 'alpha',
-        copied: 0,
+        copied: toAgentCount(0),
         failures: [{ agentId: 'codex', error: 'Already exists' }],
       },
     ]
@@ -114,12 +115,12 @@ describe('summarizeBulkCopyResult', () => {
     const perSkill: PerSkillCopyOutcome[] = [
       {
         skillName: 'alpha',
-        copied: 0,
+        copied: toAgentCount(0),
         failures: [{ agentId: 'codex', error: 'Already exists' }],
       },
       {
         skillName: 'beta',
-        copied: 0,
+        copied: toAgentCount(0),
         failures: [{ agentId: 'codex', error: 'Already exists' }],
       },
     ]
@@ -139,7 +140,7 @@ describe('summarizeBulkCopyResult', () => {
   it('falls back to a generic error when nothing copied and no failures were reported', () => {
     // Arrange — defensive path: a skill came back copied:0 with no failure rows
     const perSkill: PerSkillCopyOutcome[] = [
-      { skillName: 'alpha', copied: 0, failures: [] },
+      { skillName: 'alpha', copied: toAgentCount(0), failures: [] },
     ]
 
     // Act

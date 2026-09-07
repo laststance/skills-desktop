@@ -6,6 +6,13 @@ import { render } from 'vitest-browser-react'
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
 import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
 import type { AbsolutePath, SkillFile } from '@/shared/types'
+import {
+  toFileExtension,
+  toFileName,
+  toFileSizeBytes,
+  toLineCount,
+  toPosixRelativePath,
+} from '@/shared/types'
 import '@/renderer/src/styles/globals.css'
 
 // Mock the data hook so each render deterministically drives loading / empty /
@@ -31,11 +38,11 @@ const SKILL_PATH = '/home/user/.agents/skills/tdd'
  */
 function makeFile(overrides: Partial<SkillFile> = {}): SkillFile {
   return {
-    name: 'SKILL.md',
+    name: toFileName('SKILL.md'),
     path: `${SKILL_PATH}/SKILL.md`,
-    relativePath: 'SKILL.md',
-    extension: '.md',
-    size: 1024,
+    relativePath: toPosixRelativePath('SKILL.md'),
+    extension: toFileExtension('.md'),
+    size: toFileSizeBytes(1024),
     previewable: 'text',
     ...overrides,
   }
@@ -144,9 +151,9 @@ describe('CodePreview', () => {
     // Arrange
     const skillFile = makeFile()
     const readmeFile = makeFile({
-      name: 'README.md',
+      name: toFileName('README.md'),
       path: `${SKILL_PATH}/README.md`,
-      relativePath: 'README.md',
+      relativePath: toPosixRelativePath('README.md'),
     })
     mockUseCodePreview.mockReturnValue(
       makeHookReturn({
@@ -173,9 +180,9 @@ describe('CodePreview', () => {
     const setActiveFileSpy = vi.fn(async () => {})
     const skillFile = makeFile()
     const readmeFile = makeFile({
-      name: 'README.md',
+      name: toFileName('README.md'),
       path: `${SKILL_PATH}/README.md`,
-      relativePath: 'README.md',
+      relativePath: toPosixRelativePath('README.md'),
     })
     mockUseCodePreview.mockReturnValue(
       makeHookReturn({
@@ -205,10 +212,10 @@ describe('CodePreview', () => {
         content: {
           kind: 'text',
           data: {
-            name: 'SKILL.md',
+            name: toFileName('SKILL.md'),
             content: 'const answer = 42\n',
-            extension: '.md',
-            lineCount: 1,
+            extension: toFileExtension('.md'),
+            lineCount: toLineCount(1),
           },
         },
       }),

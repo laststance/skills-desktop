@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
+import { toFileExtension, toFileName, toLineCount } from '@/shared/types'
 import '@/renderer/src/styles/globals.css'
 
 // Force Shiki to fail so the preview must fall back to the plain-text renderer
@@ -22,10 +23,10 @@ function makeTextContent(content: string): PreviewContent {
   return {
     kind: 'text',
     data: {
-      name: 'mystery.unknownext',
+      name: toFileName('mystery.unknownext'),
       content,
-      extension: '.unknownext',
-      lineCount: 1,
+      extension: toFileExtension('.unknownext'),
+      lineCount: toLineCount(1),
     },
   }
 }

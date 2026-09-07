@@ -11,6 +11,7 @@ import type {
   SkillName,
   SymlinkCount,
 } from '@/shared/types'
+import { toSymlinkCount } from '@/shared/types'
 
 /**
  * Which toolbar variant is rendering:
@@ -86,7 +87,9 @@ export const getToolbarState = ({
   // filter, while the adjacent selection summary owns the total hidden count.
   const actionCount = visibleCount
   // ToolbarCountKind exhaustively buckets every visible count into zero, single, or multi copy.
-  const countKind: ToolbarCountKind = match(actionCount)
+  // Matched as `number`, not SkillCount: ts-pattern narrows a branded operand to
+  // `never` after the first `.with`, which kills the 0 / 1 literal arms.
+  const countKind: ToolbarCountKind = match<number>(actionCount)
     .with(0, () => 'zero' as const)
     .with(1, () => 'single' as const)
     .with(P.number, () => 'multi' as const)
@@ -162,14 +165,16 @@ export const getToolbarState = ({
 export const countOrphanSymlinksRemoved = (
   result: BulkDeleteResult,
 ): SymlinkCount =>
-  result.items.reduce((total, item) => {
-    if (item.outcome === 'orphan-cleared') return total + item.symlinksRemoved
-    if (item.outcome === 'error' && item.cascadeAgents) {
-      /* v8 ignore next -- error rows always include symlinksRemoved when cascadeAgents is set; the main-process spread couples them (`cascadeAgents.length > 0 ? { symlinksRemoved, cascadeAgents } : {}`), so no normal app flow leaves symlinksRemoved undefined here and this `?? 0` fallback never executes */
-      return total + (item.symlinksRemoved ?? 0)
-    }
-    return total
-  }, 0)
+  toSymlinkCount(
+    result.items.reduce((total, item) => {
+      if (item.outcome === 'orphan-cleared') return total + item.symlinksRemoved
+      if (item.outcome === 'error' && item.cascadeAgents) {
+        /* v8 ignore next -- error rows always include symlinksRemoved when cascadeAgents is set; the main-process spread couples them (`cascadeAgents.length > 0 ? { symlinksRemoved, cascadeAgents } : {}`), so no normal app flow leaves symlinksRemoved undefined here and this `?? 0` fallback never executes */
+        return total + (item.symlinksRemoved ?? 0)
+      }
+      return total
+    }, 0),
+  )
 
 /**
  * Build the summary string shown in the toast body after a bulk DELETE.

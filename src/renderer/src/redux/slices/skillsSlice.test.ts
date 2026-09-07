@@ -16,7 +16,13 @@ import type {
   SymlinkInfo,
   TombstoneId,
 } from '@/shared/types'
-import { tombstoneId } from '@/shared/types'
+import {
+  toBatchItemCount,
+  toBatchItemIndex,
+  toFileSizeBytes,
+  toSymlinkCount,
+  tombstoneId,
+} from '@/shared/types'
 
 const mockGetAll = vi.fn()
 const mockUnlinkFromAgent = vi.fn()
@@ -33,7 +39,7 @@ const directoryIdentity: FilesystemEntryIdentity = {
   kind: 'directory',
   dev: 1,
   ino: 2,
-  size: 96,
+  size: toFileSizeBytes(96),
   ctimeMs: 3,
   mtimeMs: 4,
 }
@@ -70,7 +76,7 @@ const sampleSkill: Skill = {
   description: 'Task management skill',
   path: '/home/user/.agents/skills/task',
   filesystemIdentity: directoryIdentity,
-  symlinkCount: 1,
+  symlinkCount: toSymlinkCount(1),
   symlinks: [
     {
       agentId: 'claude-code',
@@ -933,7 +939,12 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     const store = await createTestStore()
 
     // Act + Assert — setting a counter shows progress
-    store.dispatch(setBulkProgress({ current: 3, total: 10 }))
+    store.dispatch(
+      setBulkProgress({
+        current: toBatchItemIndex(3),
+        total: toBatchItemCount(10),
+      }),
+    )
     expect(store.getState().skills.bulkProgress).toEqual({
       current: 3,
       total: 10,
@@ -1004,14 +1015,14 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
           skillName: 'task',
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaaaaaa'),
-          symlinksRemoved: 2,
+          symlinksRemoved: toSymlinkCount(2),
           cascadeAgents: [],
         },
         {
           skillName: 'theme-generator',
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-theme-generator-bbbbbbbb'),
-          symlinksRemoved: 0,
+          symlinksRemoved: toSymlinkCount(0),
           cascadeAgents: [],
         },
         {
@@ -1033,7 +1044,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
           skillName: 'metadata-title',
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-metadata-title-aaaaaaaa'),
-          symlinksRemoved: 1,
+          symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: [],
         },
       ],
@@ -1073,7 +1084,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
           skillName: 'task',
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaaaaaa'),
-          symlinksRemoved: 1,
+          symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: [],
         },
       ],
@@ -1081,7 +1092,12 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     const { deleteSelectedSkills, toggleSelection, setBulkProgress } =
       await import('./skillsSlice')
     store.dispatch(toggleSelection('task'))
-    store.dispatch(setBulkProgress({ current: 1, total: 1 }))
+    store.dispatch(
+      setBulkProgress({
+        current: toBatchItemIndex(1),
+        total: toBatchItemCount(1),
+      }),
+    )
 
     // Act
     await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
@@ -1104,7 +1120,7 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
         {
           skillName: 'task',
           outcome: 'orphan-cleared',
-          symlinksRemoved: 1,
+          symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['claude-code'],
         },
       ],
@@ -1112,7 +1128,12 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
     const { deleteSelectedSkills, toggleSelection, setBulkProgress } =
       await import('./skillsSlice')
     store.dispatch(toggleSelection('task'))
-    store.dispatch(setBulkProgress({ current: 1, total: 1 }))
+    store.dispatch(
+      setBulkProgress({
+        current: toBatchItemIndex(1),
+        total: toBatchItemCount(1),
+      }),
+    )
 
     // Act
     await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
@@ -1196,7 +1217,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
         {
           skillName: 'task',
           outcome: 'orphan-cleared',
-          symlinksRemoved: 1,
+          symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['codex'],
         },
       ],
@@ -1213,7 +1234,7 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
         {
           skillName: 'task',
           outcome: 'orphan-cleared',
-          symlinksRemoved: 1,
+          symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['codex'],
         },
       ],
@@ -1221,7 +1242,12 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
     const { clearSelectedOrphanSymlinks, setBulkProgress, toggleSelection } =
       await import('./skillsSlice')
     store.dispatch(toggleSelection('task'))
-    store.dispatch(setBulkProgress({ current: 1, total: 1 }))
+    store.dispatch(
+      setBulkProgress({
+        current: toBatchItemIndex(1),
+        total: toBatchItemCount(1),
+      }),
+    )
 
     // Act
     await store.dispatch(
@@ -1591,8 +1617,8 @@ describe('skillsSlice undoLastBulkDelete thunk', () => {
         calls.push(id)
         return {
           outcome: 'restored',
-          symlinksRestored: 1,
-          symlinksSkipped: 0,
+          symlinksRestored: toSymlinkCount(1),
+          symlinksSkipped: toSymlinkCount(0),
         } satisfies RestoreDeletedSkillResult
       },
     )
@@ -1616,8 +1642,8 @@ describe('skillsSlice undoLastBulkDelete thunk', () => {
     mockRestoreDeletedSkill
       .mockResolvedValueOnce({
         outcome: 'restored',
-        symlinksRestored: 1,
-        symlinksSkipped: 0,
+        symlinksRestored: toSymlinkCount(1),
+        symlinksSkipped: toSymlinkCount(0),
       } satisfies RestoreDeletedSkillResult)
       .mockResolvedValueOnce({
         outcome: 'error',
@@ -1793,7 +1819,12 @@ describe('skillsSlice named selectors', () => {
       selectBulkProgress,
     } = await import('./skillsSlice')
     store.dispatch(setBulkCopyModalOpen(true))
-    store.dispatch(setBulkProgress({ current: 2, total: 5 }))
+    store.dispatch(
+      setBulkProgress({
+        current: toBatchItemIndex(2),
+        total: toBatchItemCount(5),
+      }),
+    )
 
     // Act
     const bulkCopyModalOpen = selectBulkCopyModalOpen(

@@ -18,6 +18,7 @@ import type {
   SymlinkCount,
   SymlinkInfo,
 } from '@/shared/types'
+import { toSymlinkCount } from '@/shared/types'
 
 import { CodePreview } from './CodePreview'
 import { SourceLink } from './SourceLink'
@@ -130,9 +131,9 @@ export const SkillDetail = function SkillDetail({
             skill={skill}
             // react-doctor-disable-next-line react-doctor/jsx-no-new-array-as-prop -- InfoView lives in a hidden <Activity>; deriving this array inline is a render micro-opt deferred to /simplify (P8).
             filteredSymlinks={filteredSymlinks}
-            validCount={validCount}
-            brokenCount={brokenCount}
-            inaccessibleCount={inaccessibleCount}
+            validCount={toSymlinkCount(validCount)}
+            brokenCount={toSymlinkCount(brokenCount)}
+            inaccessibleCount={toSymlinkCount(inaccessibleCount)}
             location={locationView}
           />
         </Activity>

@@ -4,6 +4,10 @@ import type {
   WidgetInstance,
   WidgetSize,
 } from '@/renderer/src/components/dashboard/types'
+import {
+  toGridColumnStart,
+  toGridRowStart,
+} from '@/renderer/src/components/dashboard/types'
 
 import {
   GRID_COLS,
@@ -49,8 +53,15 @@ export function findEmptySpot(
 
   for (let originY = 0; originY < MAX_GRID_ROWS_SEARCH; originY++) {
     for (let originX = 0; originX <= GRID_COLS - size.w; originX++) {
-      if (fitsAt(occupied, originX, originY, size)) {
-        return { x: originX, y: originY }
+      if (
+        fitsAt(
+          occupied,
+          toGridColumnStart(originX),
+          toGridRowStart(originY),
+          size,
+        )
+      ) {
+        return { x: toGridColumnStart(originX), y: toGridRowStart(originY) }
       }
     }
   }

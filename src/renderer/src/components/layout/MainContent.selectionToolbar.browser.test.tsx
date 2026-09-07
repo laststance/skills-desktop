@@ -6,6 +6,7 @@ import { render } from 'vitest-browser-react'
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type { Agent, Skill, SkillName, SymlinkInfo } from '@/shared/types'
+import { toSkillCount, toSymlinkCount } from '@/shared/types'
 
 const mockUnlinkManyFromAgent = vi.fn()
 const mockOnDeleteProgress = vi.fn(() => () => {})
@@ -59,8 +60,8 @@ const CURSOR_AGENT: Agent = {
   name: 'Cursor',
   path: '/Users/test/.cursor/skills',
   exists: true,
-  skillCount: 3,
-  localSkillCount: 0,
+  skillCount: toSkillCount(3),
+  localSkillCount: toSkillCount(0),
 }
 
 /**
@@ -79,7 +80,7 @@ function makeCursorSkill(
     name,
     description: '',
     path: `/Users/test/.agents/skills/${slotName}`,
-    symlinkCount: status === 'missing' ? 0 : 1,
+    symlinkCount: toSymlinkCount(status === 'missing' ? 0 : 1),
     symlinks: [
       {
         agentId: 'cursor',

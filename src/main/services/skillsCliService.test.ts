@@ -3,7 +3,7 @@ import { EventEmitter } from 'events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { SKILLS_CLI_VERSION } from '@/shared/constants'
-import { repositoryId } from '@/shared/types'
+import { repositoryId, toSearchQuery } from '@/shared/types'
 import type { InstallProgress } from '@/shared/types'
 
 /**
@@ -83,8 +83,8 @@ describe('skillsCliService.cancel', () => {
     const first = simulateCli({ autoClose: false })
     const second = simulateCli({ autoClose: false })
     const { skillsCliService } = await import('./skillsCliService')
-    const searchA = skillsCliService.search('a')
-    const searchB = skillsCliService.search('b')
+    const searchA = skillsCliService.search(toSearchQuery('a'))
+    const searchB = skillsCliService.search(toSearchQuery('b'))
 
     // Act
     skillsCliService.cancel()
@@ -107,7 +107,7 @@ describe('skillsCliService.cancel', () => {
     const search = simulateCli({ autoClose: false })
     const prune = simulateCli({ autoClose: false })
     const { skillsCliService } = await import('./skillsCliService')
-    const searching = skillsCliService.search('a')
+    const searching = skillsCliService.search(toSearchQuery('a'))
     const pruning = skillsCliService.removeSkills(['old-skill'])
 
     // Act
@@ -160,7 +160,7 @@ describe('skillsCliService.execCli environment', () => {
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act
-    await skillsCliService.search('find-skills')
+    await skillsCliService.search(toSearchQuery('find-skills'))
 
     // Assert
     expect(spawnMock).toHaveBeenCalledWith(
@@ -187,7 +187,7 @@ describe('skillsCliService.execCli environment', () => {
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act — search must not crash on the missing PATH and still resolve.
-    const results = await skillsCliService.search('find-skills')
+    const results = await skillsCliService.search(toSearchQuery('find-skills'))
 
     // Assert — the spawned env PATH contains the toolchain fallbacks and never
     // leaks the literal string 'undefined' from a missing inherited PATH.
@@ -225,7 +225,7 @@ describe('skillsCliService.search', () => {
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act
-    const results = await skillsCliService.search('react')
+    const results = await skillsCliService.search(toSearchQuery('react'))
 
     // Assert
     expect(results).toEqual([
@@ -257,7 +257,7 @@ describe('skillsCliService.search', () => {
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act
-    const results = await skillsCliService.search('react')
+    const results = await skillsCliService.search(toSearchQuery('react'))
 
     // Assert
     expect(results).toEqual([
@@ -286,7 +286,7 @@ describe('skillsCliService.search', () => {
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act
-    const results = await skillsCliService.search('skills')
+    const results = await skillsCliService.search(toSearchQuery('skills'))
 
     // Assert — the URL-less row falls back to the constructed skills.sh link.
     expect(results).toEqual([
@@ -458,7 +458,7 @@ describe('skillsCliService.search failure handling', () => {
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act
-    const results = await skillsCliService.search('react')
+    const results = await skillsCliService.search(toSearchQuery('react'))
 
     // Assert
     expect(results).toEqual([])
@@ -478,7 +478,7 @@ describe('skillsCliService.search failure handling', () => {
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act
-    const results = await skillsCliService.search('skill')
+    const results = await skillsCliService.search(toSearchQuery('skill'))
 
     // Assert — only the well-formed row survives, ranked first.
     expect(results).toEqual([
@@ -621,7 +621,7 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act
-    const searchPromise = skillsCliService.search('react')
+    const searchPromise = skillsCliService.search(toSearchQuery('react'))
     fake.emit('error', new Error('spawn npx ENOENT'))
     const results = await searchPromise
 
@@ -637,7 +637,7 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act
-    const searchPromise = skillsCliService.search('react')
+    const searchPromise = skillsCliService.search(toSearchQuery('react'))
     fake.emit('error', new Error('spawn npx ENOENT'))
     fake.emit('close', 0)
     const results = await searchPromise
@@ -657,7 +657,7 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act
-    const searchPromise = skillsCliService.search('react')
+    const searchPromise = skillsCliService.search(toSearchQuery('react'))
     await vi.advanceTimersByTimeAsync(PAST_SPAWN_TIMEOUT_MS)
     // The kill only asks; the result waits for the child to actually go.
     fake.emit('close', null)

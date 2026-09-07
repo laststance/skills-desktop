@@ -8,6 +8,13 @@ import type {
   WidgetInstance,
   WidgetType,
 } from '@/renderer/src/components/dashboard/types'
+import {
+  toDashboardPageName,
+  toGridColumnSpan,
+  toGridColumnStart,
+  toGridRowSpan,
+  toGridRowStart,
+} from '@/renderer/src/components/dashboard/types'
 import { WIDGET_SIZES } from '@/renderer/src/components/dashboard/widgets/sizes'
 
 import { newDashboardPageId, newWidgetInstanceId } from './ids'
@@ -40,32 +47,72 @@ interface PageSpec {
 
 const PAGE_SPECS: readonly PageSpec[] = [
   {
-    name: 'Overview',
+    name: toDashboardPageName('Overview'),
     widgets: [
-      { type: 'welcome', x: 0, y: 0, w: 6, h: 3 },
-      { type: 'stats', x: 0, y: 3 },
+      {
+        type: 'welcome',
+        x: toGridColumnStart(0),
+        y: toGridRowStart(0),
+        w: toGridColumnSpan(6),
+        h: toGridRowSpan(3),
+      },
+      { type: 'stats', x: toGridColumnStart(0), y: toGridRowStart(3) },
       // health inherits its h=3 default (sizes.ts), occupying rows 3-5 at
       // x3-5, so coverage starts at row 6 to clear it. (At y=5 the vertical
       // compactor would push coverage to 6 on mount anyway; hand-author the
       // honest value rather than rely on runtime collision-resolution.)
-      { type: 'health', x: 3, y: 3 },
-      { type: 'coverage', x: 0, y: 6, w: 6, h: 3 },
+      { type: 'health', x: toGridColumnStart(3), y: toGridRowStart(3) },
+      {
+        type: 'coverage',
+        x: toGridColumnStart(0),
+        y: toGridRowStart(6),
+        w: toGridColumnSpan(6),
+        h: toGridRowSpan(3),
+      },
     ],
   },
   {
-    name: 'Discovery',
+    name: toDashboardPageName('Discovery'),
     widgets: [
-      { type: 'trending', x: 0, y: 0, w: 6, h: 4 },
-      { type: 'whats-new', x: 0, y: 4, w: 6, h: 3 },
+      {
+        type: 'trending',
+        x: toGridColumnStart(0),
+        y: toGridRowStart(0),
+        w: toGridColumnSpan(6),
+        h: toGridRowSpan(4),
+      },
+      {
+        type: 'whats-new',
+        x: toGridColumnStart(0),
+        y: toGridRowStart(4),
+        w: toGridColumnSpan(6),
+        h: toGridRowSpan(3),
+      },
     ],
   },
   {
-    name: 'Actions',
-    widgets: [{ type: 'quick-actions', x: 0, y: 0, w: 6, h: 3 }],
+    name: toDashboardPageName('Actions'),
+    widgets: [
+      {
+        type: 'quick-actions',
+        x: toGridColumnStart(0),
+        y: toGridRowStart(0),
+        w: toGridColumnSpan(6),
+        h: toGridRowSpan(3),
+      },
+    ],
   },
   {
-    name: 'Personal',
-    widgets: [{ type: 'bookmarks', x: 0, y: 0, w: 6, h: 4 }],
+    name: toDashboardPageName('Personal'),
+    widgets: [
+      {
+        type: 'bookmarks',
+        x: toGridColumnStart(0),
+        y: toGridRowStart(0),
+        w: toGridColumnSpan(6),
+        h: toGridRowSpan(4),
+      },
+    ],
   },
 ]
 

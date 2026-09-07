@@ -8,7 +8,7 @@ import { match, P } from 'ts-pattern'
 import { parseFormattedCount } from '@/main/services/leaderboardService'
 import { REPO_PATTERN, SKILL_NAME_PATTERN } from '@/main/utils/skillIdentifiers'
 import { AGENT_DEFINITIONS, SKILLS_CLI_VERSION } from '@/shared/constants'
-import { repositoryId } from '@/shared/types'
+import { repositoryId, toHttpUrl, toSkillRank } from '@/shared/types'
 import type {
   SkillSearchResult,
   InstallOptions,
@@ -434,10 +434,10 @@ class SkillsCliService extends EventEmitter {
         const urlMatch = urlLine?.match(/^[└├]\s*(https?:\/\/[^\s]+)$/)
 
         const searchResult: SkillSearchResult = {
-          rank: rank++,
+          rank: toSkillRank(rank++),
           name,
           repo: repositoryId(repo),
-          url: urlMatch?.[1] || `https://skills.sh/${repo}/${name}`,
+          url: toHttpUrl(urlMatch?.[1] || `https://skills.sh/${repo}/${name}`),
         }
         // Older CLI output omits telemetry, so only attach the field when seen.
         if (installCountText) {

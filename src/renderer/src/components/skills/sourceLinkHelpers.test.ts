@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { repositoryId } from '@/shared/types'
+import { repositoryId, toHttpUrl } from '@/shared/types'
 
 import { getSourceLinkModel } from './sourceLinkHelpers'
 
@@ -18,7 +18,10 @@ describe('getSourceLinkModel', () => {
     it('still marks a skill as local when a sourceUrl exists but the source repo is missing', () => {
       // Arrange — a stray sourceUrl with no owning source repo.
       // Act
-      const model = getSourceLinkModel(undefined, 'https://github.com/x/y')
+      const model = getSourceLinkModel(
+        undefined,
+        toHttpUrl('https://github.com/x/y'),
+      )
 
       // Assert
       expect(model).toEqual({ kind: 'local' })
@@ -50,7 +53,10 @@ describe('getSourceLinkModel', () => {
     it('shows the source repo as plain text when the URL is an empty string', () => {
       // Arrange — a source repo id with an empty URL.
       // Act
-      const model = getSourceLinkModel(repositoryId('pbakaus/impeccable'), '')
+      const model = getSourceLinkModel(
+        repositoryId('pbakaus/impeccable'),
+        toHttpUrl(''),
+      )
 
       // Assert
       expect(model).toEqual({
@@ -66,7 +72,7 @@ describe('getSourceLinkModel', () => {
       // Act
       const model = getSourceLinkModel(
         repositoryId('pbakaus/impeccable'),
-        'https://github.com/pbakaus/impeccable.git',
+        toHttpUrl('https://github.com/pbakaus/impeccable.git'),
       )
 
       // Assert
@@ -82,7 +88,7 @@ describe('getSourceLinkModel', () => {
       // Act
       const model = getSourceLinkModel(
         repositoryId('pbakaus/impeccable'),
-        'https://github.com/pbakaus/impeccable',
+        toHttpUrl('https://github.com/pbakaus/impeccable'),
       )
 
       // Assert
@@ -98,7 +104,7 @@ describe('getSourceLinkModel', () => {
       // Act
       const model = getSourceLinkModel(
         repositoryId('foo/bar.git-assets'),
-        'https://github.com/foo/bar.git-assets',
+        toHttpUrl('https://github.com/foo/bar.git-assets'),
       )
 
       // Assert

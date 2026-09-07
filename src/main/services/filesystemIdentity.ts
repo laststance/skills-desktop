@@ -1,6 +1,7 @@
 import type { Stats } from 'node:fs'
 
 import type { FilesystemEntryIdentity } from '@/shared/types'
+import { toFileSizeBytes } from '@/shared/types'
 
 /**
  * Convert Node fs.Stats into the small identity payload reviewed by destructive UI.
@@ -21,7 +22,7 @@ export function filesystemIdentityFromStats(
           : 'other',
     dev: stats.dev,
     ino: stats.ino,
-    size: stats.size,
+    size: toFileSizeBytes(stats.size),
     ctimeMs: stats.ctimeMs,
     mtimeMs: stats.mtimeMs,
   }

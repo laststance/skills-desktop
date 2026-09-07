@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { AgentId, SyncPreviewResult } from '@/shared/types'
+import { toAgentCount, toSkillCount, toSymlinkCount } from '@/shared/types'
 
 const mockSyncPreview = vi.fn()
 const mockSyncExecute = vi.fn()
@@ -18,10 +19,10 @@ vi.mock('sonner', () => ({
 }))
 
 const SCOPED_PREVIEW: SyncPreviewResult = {
-  totalSkills: 4,
-  totalAgents: 1,
-  toCreate: 2,
-  alreadySynced: 2,
+  totalSkills: toSkillCount(4),
+  totalAgents: toAgentCount(1),
+  toCreate: toSymlinkCount(2),
+  alreadySynced: toSymlinkCount(2),
   conflicts: [],
   forAgent: 'claude-code',
 }

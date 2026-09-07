@@ -5,6 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { Agent, AgentId, AgentName, Skill } from '@/shared/types'
+import { toSkillCount, toSymlinkCount } from '@/shared/types'
 
 /**
  * Build an Agent fixture letting each test vary the `exists` flag that gates the
@@ -19,8 +20,8 @@ function makeAgent(id: AgentId, name: AgentName, exists: boolean): Agent {
     name,
     path: `/Users/test/.${id}/skills`,
     exists,
-    skillCount: 0,
-    localSkillCount: 0,
+    skillCount: toSkillCount(0),
+    localSkillCount: toSkillCount(0),
   }
 }
 
@@ -35,7 +36,7 @@ function makeSkill(name: string, symlinkCount: number): Skill {
     name,
     description: `${name} description`,
     path: `/Users/test/.agents/skills/${name}`,
-    symlinkCount,
+    symlinkCount: toSymlinkCount(symlinkCount),
     symlinks: [],
     isSource: true,
     isOrphan: false,

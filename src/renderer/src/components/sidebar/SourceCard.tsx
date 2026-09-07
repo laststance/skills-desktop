@@ -33,6 +33,7 @@ import {
   setSearchQuery,
   setSyncPreview,
 } from '@/renderer/src/redux/slices/uiSlice'
+import { toSearchQuery } from '@/shared/types'
 
 /**
  * Source directory card showing stats, refresh, and sync buttons
@@ -70,7 +71,7 @@ export const SourceCard = function SourceCard(): React.ReactElement {
     // so it leaves Marketplace before clearing filters.
     dispatch(setActiveTab('installed'))
     dispatch(selectAgent(null))
-    dispatch(setSearchQuery(''))
+    dispatch(setSearchQuery(toSearchQuery('')))
     // Drop the source-repo include filter too — the card's contract ("clear
     // all filters and show all skills") was previously half-kept, leaving a
     // repo narrow active after the click.

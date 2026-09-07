@@ -6,6 +6,15 @@ import type {
   SkillFile,
   SkillFileContent,
 } from '@/shared/types'
+import {
+  toDataUrl,
+  toFileExtension,
+  toFileName,
+  toFileSizeBytes,
+  toLineCount,
+  toMimeType,
+  toPosixRelativePath,
+} from '@/shared/types'
 
 const listMock = vi.fn<(skillPath: string) => Promise<SkillFile[]>>()
 const readMock = vi.fn<(filePath: string) => Promise<SkillFileContent | null>>()
@@ -20,11 +29,11 @@ const readBinaryMock =
  */
 function makeFile(overrides: Partial<SkillFile> = {}): SkillFile {
   return {
-    name: 'SKILL.md',
+    name: toFileName('SKILL.md'),
     path: '/skills/tdd/SKILL.md',
-    relativePath: 'SKILL.md',
-    extension: '.md',
-    size: 100,
+    relativePath: toPosixRelativePath('SKILL.md'),
+    extension: toFileExtension('.md'),
+    size: toFileSizeBytes(100),
     previewable: 'text',
     ...overrides,
   }
@@ -39,10 +48,10 @@ function makeTextContent(
   overrides: Partial<SkillFileContent> = {},
 ): SkillFileContent {
   return {
-    name: 'SKILL.md',
+    name: toFileName('SKILL.md'),
     content: 'hello',
-    extension: '.md',
-    lineCount: 1,
+    extension: toFileExtension('.md'),
+    lineCount: toLineCount(1),
     ...overrides,
   }
 }
@@ -113,12 +122,15 @@ describe('useCodePreview', () => {
     // Arrange
     const first = makeFile()
     const second = makeFile({
-      name: 'notes.md',
+      name: toFileName('notes.md'),
       path: '/skills/tdd/notes.md',
-      relativePath: 'notes.md',
+      relativePath: toPosixRelativePath('notes.md'),
     })
     const firstBody = makeTextContent()
-    const secondBody = makeTextContent({ name: 'notes.md', content: 'notes' })
+    const secondBody = makeTextContent({
+      name: toFileName('notes.md'),
+      content: 'notes',
+    })
     listMock.mockResolvedValue([first, second])
     readMock.mockImplementation(async (p) =>
       p === first.path ? firstBody : secondBody,
@@ -199,11 +211,14 @@ describe('useCodePreview', () => {
     // Arrange
     const first = makeFile()
     const second = makeFile({
-      name: 'notes.md',
+      name: toFileName('notes.md'),
       path: '/skills/tdd/notes.md',
-      relativePath: 'notes.md',
+      relativePath: toPosixRelativePath('notes.md'),
     })
-    const secondBody = makeTextContent({ name: 'notes.md', content: 'notes' })
+    const secondBody = makeTextContent({
+      name: toFileName('notes.md'),
+      content: 'notes',
+    })
 
     listMock.mockResolvedValue([first, second])
 
@@ -259,17 +274,20 @@ describe('useCodePreview', () => {
     // Arrange
     const first = makeFile()
     const second = makeFile({
-      name: 'notes.md',
+      name: toFileName('notes.md'),
       path: '/skills/tdd/notes.md',
-      relativePath: 'notes.md',
+      relativePath: toPosixRelativePath('notes.md'),
     })
     const third = makeFile({
-      name: 'other.md',
+      name: toFileName('other.md'),
       path: '/skills/tdd/other.md',
-      relativePath: 'other.md',
+      relativePath: toPosixRelativePath('other.md'),
     })
     const firstBody = makeTextContent()
-    const thirdBody = makeTextContent({ name: 'other.md', content: 'third' })
+    const thirdBody = makeTextContent({
+      name: toFileName('other.md'),
+      content: 'third',
+    })
     listMock.mockResolvedValue([first, second, third])
 
     // read(first) resolves normally for the initial auto-select.
@@ -321,7 +339,9 @@ describe('useCodePreview', () => {
     // Act
     // Now resolve the hanging read(second). Guard must drop its result.
     await act(async () => {
-      resolveSecond?.(makeTextContent({ name: 'notes.md', content: 'stale' }))
+      resolveSecond?.(
+        makeTextContent({ name: toFileName('notes.md'), content: 'stale' }),
+      )
       await slowPromise
     })
 
@@ -334,12 +354,12 @@ describe('useCodePreview', () => {
     // Arrange
     const fileA = makeFile({
       path: '/skills/a/SKILL.md',
-      relativePath: 'SKILL.md',
+      relativePath: toPosixRelativePath('SKILL.md'),
     })
     const fileB = makeFile({
-      name: 'b.md',
+      name: toFileName('b.md'),
       path: '/skills/b/SKILL.md',
-      relativePath: 'SKILL.md',
+      relativePath: toPosixRelativePath('SKILL.md'),
     })
     const bodyA = makeTextContent({ content: 'A' })
     const bodyB = makeTextContent({ content: 'B' })
@@ -403,9 +423,9 @@ describe('useCodePreview', () => {
     // bar the user can still click through.
     const first = makeFile()
     const second = makeFile({
-      name: 'notes.md',
+      name: toFileName('notes.md'),
       path: '/skills/tdd/notes.md',
-      relativePath: 'notes.md',
+      relativePath: toPosixRelativePath('notes.md'),
     })
     listMock.mockResolvedValue([first, second])
     readMock.mockRejectedValue(new Error('EIO'))
@@ -425,10 +445,10 @@ describe('useCodePreview', () => {
   test('keeps the tab list usable when an image read rejects after the list loaded', async () => {
     // Arrange -- same contract on the binary branch of loadContentForFile.
     const image = makeFile({
-      name: 'logo.png',
+      name: toFileName('logo.png'),
       path: '/skills/tdd/logo.png',
-      relativePath: 'logo.png',
-      extension: '.png',
+      relativePath: toPosixRelativePath('logo.png'),
+      extension: toFileExtension('.png'),
       previewable: 'image',
     })
     listMock.mockResolvedValue([image])
@@ -451,11 +471,14 @@ describe('useCodePreview', () => {
     // failure lands after the user is already looking at `second`.
     const first = makeFile()
     const second = makeFile({
-      name: 'notes.md',
+      name: toFileName('notes.md'),
       path: '/skills/tdd/notes.md',
-      relativePath: 'notes.md',
+      relativePath: toPosixRelativePath('notes.md'),
     })
-    const secondBody = makeTextContent({ name: 'notes.md', content: 'notes' })
+    const secondBody = makeTextContent({
+      name: toFileName('notes.md'),
+      content: 'notes',
+    })
 
     listMock.mockResolvedValue([first, second])
 
@@ -511,9 +534,9 @@ describe('useCodePreview', () => {
     // old content would caption `first`'s text with `second`'s tab.
     const first = makeFile()
     const second = makeFile({
-      name: 'notes.md',
+      name: toFileName('notes.md'),
       path: '/skills/tdd/notes.md',
-      relativePath: 'notes.md',
+      relativePath: toPosixRelativePath('notes.md'),
     })
     const firstBody = makeTextContent()
     listMock.mockResolvedValue([first, second])
@@ -546,10 +569,10 @@ describe('useCodePreview', () => {
     // Arrange -- same contract on the binary branch of loadContentForFile.
     const first = makeFile()
     const image = makeFile({
-      name: 'logo.png',
+      name: toFileName('logo.png'),
       path: '/skills/tdd/logo.png',
-      relativePath: 'logo.png',
-      extension: '.png',
+      relativePath: toPosixRelativePath('logo.png'),
+      extension: toFileExtension('.png'),
       previewable: 'image',
     })
     const firstBody = makeTextContent()
@@ -677,17 +700,17 @@ describe('useCodePreview', () => {
   it('previews an image file through the binary reader without calling the text reader', async () => {
     // Arrange
     const image = makeFile({
-      name: 'logo.png',
+      name: toFileName('logo.png'),
       path: '/skills/tdd/logo.png',
-      relativePath: 'logo.png',
-      extension: '.png',
+      relativePath: toPosixRelativePath('logo.png'),
+      extension: toFileExtension('.png'),
       previewable: 'image',
     })
     const binary: SkillBinaryContent = {
-      name: 'logo.png',
-      dataUrl: 'data:image/png;base64,AAA',
-      mimeType: 'image/png',
-      size: 10,
+      name: toFileName('logo.png'),
+      dataUrl: toDataUrl('data:image/png;base64,AAA'),
+      mimeType: toMimeType('image/png'),
+      size: toFileSizeBytes(10),
     }
     listMock.mockResolvedValue([image])
     readBinaryMock.mockResolvedValue(binary)
@@ -706,11 +729,11 @@ describe('useCodePreview', () => {
   it('shows a placeholder instead of reading content for an oversized file', async () => {
     // Arrange
     const big = makeFile({
-      name: 'dump.bin',
+      name: toFileName('dump.bin'),
       path: '/skills/tdd/dump.bin',
-      relativePath: 'dump.bin',
-      extension: '.bin',
-      size: 999_999,
+      relativePath: toPosixRelativePath('dump.bin'),
+      extension: toFileExtension('.bin'),
+      size: toFileSizeBytes(999_999),
       previewable: 'binary',
     })
     listMock.mockResolvedValue([big])
@@ -734,16 +757,16 @@ describe('useCodePreview', () => {
   it('drops the abandoned skill files when the user switches skills before the first list resolves', async () => {
     // Arrange
     const fileA = makeFile({
-      name: 'a.md',
+      name: toFileName('a.md'),
       path: '/skills/a/a.md',
-      relativePath: 'a.md',
+      relativePath: toPosixRelativePath('a.md'),
     })
     const fileB = makeFile({
-      name: 'b.md',
+      name: toFileName('b.md'),
       path: '/skills/b/b.md',
-      relativePath: 'b.md',
+      relativePath: toPosixRelativePath('b.md'),
     })
-    const bodyB = makeTextContent({ name: 'b.md', content: 'B' })
+    const bodyB = makeTextContent({ name: toFileName('b.md'), content: 'B' })
 
     // Skill A's list() hangs on an external promise so its effect is still
     // mid-`await` when the user switches to skill B. Skill B resolves normally.
@@ -846,10 +869,10 @@ describe('useCodePreview', () => {
   it('shows an empty preview when an image file read returns null because the image vanished mid-load', async () => {
     // Arrange
     const image = makeFile({
-      name: 'logo.png',
+      name: toFileName('logo.png'),
       path: '/skills/tdd/logo.png',
-      relativePath: 'logo.png',
-      extension: '.png',
+      relativePath: toPosixRelativePath('logo.png'),
+      extension: toFileExtension('.png'),
       previewable: 'image',
     })
     listMock.mockResolvedValue([image])

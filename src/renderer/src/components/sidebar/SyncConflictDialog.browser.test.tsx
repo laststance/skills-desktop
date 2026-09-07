@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { SyncExecuteResult, SyncPreviewResult } from '@/shared/types'
+import { toAgentCount, toSkillCount, toSymlinkCount } from '@/shared/types'
 
 const mockSyncExecute = vi.fn()
 
@@ -22,27 +23,27 @@ const CONFLICT_CURSOR = {
 } as const
 
 const GLOBAL_PREVIEW_WITH_CONFLICTS: SyncPreviewResult = {
-  totalSkills: 5,
-  totalAgents: 3,
-  toCreate: 8,
-  alreadySynced: 2,
+  totalSkills: toSkillCount(5),
+  totalAgents: toAgentCount(3),
+  toCreate: toSymlinkCount(8),
+  alreadySynced: toSymlinkCount(2),
   conflicts: [CONFLICT_CLAUDE, CONFLICT_CURSOR],
 }
 
 const SCOPED_PREVIEW_WITH_CONFLICTS: SyncPreviewResult = {
-  totalSkills: 5,
-  totalAgents: 1,
-  toCreate: 4,
-  alreadySynced: 1,
+  totalSkills: toSkillCount(5),
+  totalAgents: toAgentCount(1),
+  toCreate: toSymlinkCount(4),
+  alreadySynced: toSymlinkCount(1),
   conflicts: [CONFLICT_CLAUDE],
   forAgent: 'claude-code',
 }
 
 const EXECUTE_RESULT: SyncExecuteResult = {
   success: true,
-  created: 8,
-  replaced: 2,
-  skipped: 0,
+  created: toSymlinkCount(8),
+  replaced: toSymlinkCount(2),
+  skipped: toSymlinkCount(0),
   errors: [],
   details: [],
 }

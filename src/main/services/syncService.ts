@@ -16,6 +16,7 @@ import type {
   SyncPreviewResult,
   SyncResultItem,
 } from '@/shared/types'
+import { toAgentCount, toSkillCount, toSymlinkCount } from '@/shared/types'
 
 import {
   listSourceSkillDirs,
@@ -133,10 +134,10 @@ export async function syncPreview(
   }
 
   return {
-    totalSkills: skills.length,
-    totalAgents: agents.length,
-    toCreate,
-    alreadySynced,
+    totalSkills: toSkillCount(skills.length),
+    totalAgents: toAgentCount(agents.length),
+    toCreate: toSymlinkCount(toCreate),
+    alreadySynced: toSymlinkCount(alreadySynced),
     conflicts,
     ...(options?.agentId ? { forAgent: options.agentId } : {}),
   }
@@ -248,9 +249,9 @@ export async function syncExecute(
 
   return {
     success: errors.length === 0,
-    created,
-    replaced,
-    skipped,
+    created: toSymlinkCount(created),
+    replaced: toSymlinkCount(replaced),
+    skipped: toSymlinkCount(skipped),
     errors,
     details,
   }

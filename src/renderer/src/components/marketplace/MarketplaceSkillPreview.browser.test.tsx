@@ -5,7 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { SkillSearchResult } from '@/shared/types'
-import { repositoryId } from '@/shared/types'
+import {
+  repositoryId,
+  toHttpUrl,
+  toInstallCount,
+  toSkillRank,
+} from '@/shared/types'
 
 /**
  * Build a minimal `SkillSearchResult` fixture and let callers override only the
@@ -19,11 +24,11 @@ function makeSkill(
   overrides: Partial<SkillSearchResult> = {},
 ): SkillSearchResult {
   return {
-    rank: 1,
+    rank: toSkillRank(1),
     name: 'task',
     repo: repositoryId('vercel-labs/skills'),
-    url: 'https://skills.sh/task',
-    installCount: 123,
+    url: toHttpUrl('https://skills.sh/task'),
+    installCount: toInstallCount(123),
     ...overrides,
   }
 }
@@ -340,7 +345,9 @@ describe('MarketplaceSkillPreview', () => {
       await import('@/renderer/src/redux/slices/marketplaceSlice')
     const { MarketplaceSkillPreview } =
       await import('./MarketplaceSkillPreview')
-    const externalSkill = makeSkill({ url: 'https://example.com/skill' })
+    const externalSkill = makeSkill({
+      url: toHttpUrl('https://example.com/skill'),
+    })
     store.dispatch(setPreviewSkill(externalSkill))
     const screen = await renderWithStore(
       <MarketplaceSkillPreview skill={externalSkill} />,

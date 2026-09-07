@@ -16,13 +16,24 @@ import type {
   SyncPreviewResult,
   TombstoneId,
 } from '@/shared/types'
-import { repositoryId, tombstoneId } from '@/shared/types'
+import {
+  repositoryId,
+  toAgentCount,
+  toFileSizeBytes,
+  toHttpUrl,
+  toHumanFileSize,
+  toIsoTimestamp,
+  toSearchQuery,
+  toSkillCount,
+  toSymlinkCount,
+  tombstoneId,
+} from '@/shared/types'
 
 const directoryIdentity: FilesystemEntryIdentity = {
   kind: 'directory',
   dev: 1,
   ino: 2,
-  size: 96,
+  size: toFileSizeBytes(96),
   ctimeMs: 3,
   mtimeMs: 4,
 }
@@ -110,10 +121,10 @@ async function createCombinedStore() {
 
 /** Sample preview result with conflicts for testing */
 const previewWithConflicts: SyncPreviewResult = {
-  totalSkills: 5,
-  totalAgents: 2,
-  toCreate: 3,
-  alreadySynced: 4,
+  totalSkills: toSkillCount(5),
+  totalAgents: toAgentCount(2),
+  toCreate: toSymlinkCount(3),
+  alreadySynced: toSymlinkCount(4),
   conflicts: [
     {
       skillName: 'agent-browser',
@@ -126,10 +137,10 @@ const previewWithConflicts: SyncPreviewResult = {
 
 /** Sample preview result without conflicts */
 const previewNoConflicts: SyncPreviewResult = {
-  totalSkills: 3,
-  totalAgents: 2,
-  toCreate: 6,
-  alreadySynced: 0,
+  totalSkills: toSkillCount(3),
+  totalAgents: toAgentCount(2),
+  toCreate: toSymlinkCount(6),
+  alreadySynced: toSymlinkCount(0),
   conflicts: [],
 }
 
@@ -150,8 +161,8 @@ describe('uiSlice hidden agents deletion review', () => {
             name: 'Cline',
             path: '/home/user/.cline/skills',
             exists: true,
-            skillCount: 1,
-            localSkillCount: 0,
+            skillCount: toSkillCount(1),
+            localSkillCount: toSkillCount(0),
             filesystemIdentity: directoryIdentity,
           },
         ],
@@ -434,9 +445,9 @@ describe('uiSlice sync thunks', () => {
     mockSyncPreview.mockResolvedValue(previewWithConflicts)
     mockSyncExecute.mockResolvedValue({
       success: true,
-      created: 3,
-      replaced: 1,
-      skipped: 4,
+      created: toSymlinkCount(3),
+      replaced: toSymlinkCount(1),
+      skipped: toSymlinkCount(4),
       errors: [],
       details: [
         { skillName: 'skill-a', agentName: 'Claude Code', action: 'created' },
@@ -482,9 +493,9 @@ describe('uiSlice sync thunks', () => {
     // Arrange
     mockSyncExecute.mockResolvedValue({
       success: true,
-      created: 1,
-      replaced: 0,
-      skipped: 0,
+      created: toSymlinkCount(1),
+      replaced: toSymlinkCount(0),
+      skipped: toSymlinkCount(0),
       errors: [],
       details: [
         { skillName: 's', agentName: 'Claude Code', action: 'created' },
@@ -506,9 +517,9 @@ describe('uiSlice sync thunks', () => {
     // Arrange — populate syncResult via a completed sync
     mockSyncExecute.mockResolvedValue({
       success: true,
-      created: 1,
-      replaced: 0,
-      skipped: 0,
+      created: toSymlinkCount(1),
+      replaced: toSymlinkCount(0),
+      skipped: toSymlinkCount(0),
       errors: [],
       details: [
         { skillName: 's', agentName: 'Claude Code', action: 'created' },
@@ -555,8 +566,8 @@ describe('uiSlice bookmark detail modal', () => {
   const sampleBookmark = {
     name: 'task',
     repo: repositoryId('vercel-labs/skills'),
-    url: 'https://github.com/vercel-labs/skills',
-    bookmarkedAt: '2026-04-01T08:00:00.000Z',
+    url: toHttpUrl('https://github.com/vercel-labs/skills'),
+    bookmarkedAt: toIsoTimestamp('2026-04-01T08:00:00.000Z'),
     isInstalled: false,
   }
 
@@ -615,7 +626,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
       kind === 'delete'
         ? [tombstoneId('1-task-aaaaaaaa'), tombstoneId('1-browser-bbbbbbbb')]
         : ([] as TombstoneId[]),
-    expiresAt: '2026-04-17T12:00:15.000Z',
+    expiresAt: toIsoTimestamp('2026-04-17T12:00:15.000Z'),
     summary:
       kind === 'delete'
         ? 'Deleted 2 skills. 4 symlinks removed.'
@@ -1133,7 +1144,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
         kind: 'delete',
         skillNames: ['a'],
         tombstoneIds: [tombstoneId('1-a-aaaaaaaa')],
-        expiresAt: '2026-04-17T12:00:15.000Z',
+        expiresAt: toIsoTimestamp('2026-04-17T12:00:15.000Z'),
         summary: 'Deleted 1 skill.',
       }),
     )
@@ -1397,14 +1408,14 @@ describe('uiSlice source filter (selectedSources)', () => {
       name,
       description: `${name} skill`,
       path: `/home/user/.agents/skills/${name}`,
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
       ...(source
         ? {
             source: repositoryId(source),
-            sourceUrl: `https://github.com/${source}.git`,
+            sourceUrl: toHttpUrl(`https://github.com/${source}.git`),
           }
         : {}),
     }
@@ -1649,7 +1660,7 @@ describe('uiSlice search box', () => {
     const { setSearchQuery } = await import('./uiSlice')
 
     // Act
-    store.dispatch(setSearchQuery('browser'))
+    store.dispatch(setSearchQuery(toSearchQuery('browser')))
 
     // Assert
     expect(store.getState().ui.searchQuery).toBe('browser')
@@ -1796,9 +1807,9 @@ describe('uiSlice source stats refresh', () => {
   /** Sample source-directory stats for the refresh thunk */
   const sampleStats = {
     path: '/Users/me/.agents/skills',
-    skillCount: 15,
-    totalSize: '2.4 MB',
-    lastModified: '2026-04-10T08:00:00.000Z',
+    skillCount: toSkillCount(15),
+    totalSize: toHumanFileSize('2.4 MB'),
+    lastModified: toIsoTimestamp('2026-04-10T08:00:00.000Z'),
   } satisfies SourceStats
 
   it('spins the Refresh button while the source-stats request is in flight', async () => {
@@ -1877,7 +1888,7 @@ describe('uiSlice selectors read the live ui state', () => {
     } = await import('./uiSlice')
     // selectAgent resets skill-type filters, so set the type filters afterwards.
     store.dispatch(selectAgent('claude-code'))
-    store.dispatch(setSearchQuery('browser'))
+    store.dispatch(setSearchQuery(toSearchQuery('browser')))
     store.dispatch(setSearchScope('repo'))
     store.dispatch(setSelectedSources([repositoryId('vercel-labs/skills')]))
     store.dispatch(toggleSortOrder())
@@ -1916,9 +1927,9 @@ describe('uiSlice selectors read the live ui state', () => {
     // Arrange — execute a sync so isSyncing settles false and syncResult fills
     mockSyncExecute.mockResolvedValue({
       success: true,
-      created: 2,
-      replaced: 0,
-      skipped: 0,
+      created: toSymlinkCount(2),
+      replaced: toSymlinkCount(0),
+      skipped: toSymlinkCount(0),
       errors: [],
       details: [
         { skillName: 's', agentName: 'Claude Code', action: 'created' },
@@ -1961,8 +1972,8 @@ describe('uiSlice selectors read the live ui state', () => {
       setSelectedBookmarkForDetail({
         name: 'task',
         repo: repositoryId('vercel-labs/skills'),
-        url: 'https://github.com/vercel-labs/skills',
-        bookmarkedAt: '2026-04-01T08:00:00.000Z',
+        url: toHttpUrl('https://github.com/vercel-labs/skills'),
+        bookmarkedAt: toIsoTimestamp('2026-04-01T08:00:00.000Z'),
         isInstalled: false,
       }),
     )
