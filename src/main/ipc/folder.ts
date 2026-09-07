@@ -59,7 +59,7 @@ export function buildOpenArgs(
 
 /**
  * Authorize a renderer-supplied folder path, then verify it exists, before it
- * reaches a launcher. Two gates, in order:
+ * reaches a launcher. Three gates, in order:
  *
  * 1. {@link validatePath} against {@link getAllowedBases} — the renderer may
  *    only ask for the source dir or an agent scan dir. Every other path-taking
@@ -71,6 +71,11 @@ export function buildOpenArgs(
  * 2. `realpath` existence — catches the "user deleted the folder between scan
  *    and click" race AND symlink loops (ELOOP) that would otherwise hang the
  *    launcher indefinitely.
+ * 3. {@link validatePath} again, on the *canonical* path from gate 2. This is
+ *    the gate that actually protects the launcher: gate 1 only vouches for the
+ *    string the renderer sent, and a symlink swapped between the two resolves
+ *    somewhere never authorized (TOCTOU, CWE-367). The returned path is the
+ *    one that was authorized, so the two can no longer disagree.
  *
  * Returns the canonical (symlink-resolved) path on success — pass that to
  * `open` / `shell.openPath` so the launcher sees a real directory rather than
