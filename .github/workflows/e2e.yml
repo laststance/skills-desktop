@@ -49,10 +49,21 @@ jobs:
 
       # Use the same ordered gate as local development; Website contracts also affect Electron.
       - name: Run fast validation
-        # Leave capacity for simultaneous lint, Website and Storybook builds on macOS runners.
+        # Each Vitest project gets one worker while lint, Website and Storybook share the hosted runner.
         env:
-          VITEST_MAX_WORKERS: '4'
-        run: pnpm validate
+          VITEST_MAX_WORKERS: '1'
+        run: |
+          node --input-type=module -e '
+            import os from "node:os";
+            console.log(JSON.stringify({
+              node: process.version,
+              architecture: process.arch,
+              availableParallelism: os.availableParallelism(),
+              totalMemoryMiB: Math.round(os.totalmem() / 1024 / 1024),
+              vitestMaxWorkers: process.env.VITEST_MAX_WORKERS,
+            }));
+          '
+          pnpm validate
 
       - name: Run E2E tests after fast validation
         run: pnpm test:e2e
