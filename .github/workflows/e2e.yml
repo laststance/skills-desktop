@@ -49,7 +49,7 @@ jobs:
 
       # Use the same ordered gate as local development; Website contracts also affect Electron.
       - name: Run fast validation
-        # Each Vitest project gets one worker while lint, Website and Storybook share the hosted runner.
+        # Run one validation gate at a time; each Vitest project also gets one worker.
         env:
           VITEST_MAX_WORKERS: '1'
         run: |
@@ -63,7 +63,7 @@ jobs:
               vitestMaxWorkers: process.env.VITEST_MAX_WORKERS,
             }));
           '
-          pnpm validate
+          pnpm validate --max-parallel 1
 
       - name: Run E2E tests after fast validation
         run: pnpm test:e2e
