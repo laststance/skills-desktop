@@ -8,7 +8,7 @@ import type {
   Skill,
   SymlinkInfo,
 } from '@/shared/types'
-import { toFileSizeBytes, toSymlinkCount } from '@/shared/types'
+import { toFileSizeBytes, toSkillName, toSymlinkCount } from '@/shared/types'
 
 const mockUnlinkFromAgent = vi.fn()
 const mockSkillsGetAll = vi.fn()
@@ -39,11 +39,11 @@ const directoryIdentity: FilesystemEntryIdentity = {
  * Build a minimal Skill fixture for unlink-dialog tests.
  * @param overrides - Partial Skill overrides.
  * @returns Complete Skill object.
- * @example makeSkill({ name: 'task' as SkillName })
+ * @example makeSkill({ name: toSkillName('task') })
  */
 function makeSkill(overrides: Partial<Skill> = {}): Skill {
   return {
-    name: 'task',
+    name: toSkillName('task'),
     description: 'Task management skill',
     path: '/home/user/.agents/skills/task',
     symlinkCount: toSymlinkCount(0),
@@ -153,7 +153,7 @@ async function renderUnlinkDialog(
 describe('UnlinkDialog variant copy', () => {
   it('shows "Remove from Agent" copy for a live valid link', async () => {
     // Arrange
-    const skill = makeSkill({ name: 'task' })
+    const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({ status: 'valid', agentName: 'Cursor' })
 
     // Act
@@ -170,7 +170,7 @@ describe('UnlinkDialog variant copy', () => {
 
   it('shows "Delete from Agent" trash copy for a local skill folder', async () => {
     // Arrange
-    const skill = makeSkill({ name: 'task' })
+    const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({
       isLocal: true,
       status: 'valid',
@@ -193,7 +193,7 @@ describe('UnlinkDialog variant copy', () => {
 
   it('shows "Remove Broken Link" copy for a dangling broken symlink', async () => {
     // Arrange
-    const skill = makeSkill({ name: 'task' })
+    const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({ status: 'broken', isLocal: false })
 
     // Act
@@ -212,7 +212,7 @@ describe('UnlinkDialog variant copy', () => {
     // Arrange
     // 'missing' is defensively mapped to the broken variant so it can never
     // fall through to the live-link "remove" copy.
-    const skill = makeSkill({ name: 'task' })
+    const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({
       status: 'missing',
       isLocal: false,
@@ -230,7 +230,7 @@ describe('UnlinkDialog variant copy', () => {
 
   it('shows "Manual Review Required" copy for an inaccessible target', async () => {
     // Arrange
-    const skill = makeSkill({ name: 'task' })
+    const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({ status: 'inaccessible', isLocal: false })
 
     // Act
@@ -250,7 +250,7 @@ describe('UnlinkDialog confirm action', () => {
   it('shows a success toast and clears the target after removing a valid link', async () => {
     // Arrange
     mockUnlinkFromAgent.mockResolvedValue({ success: true })
-    const skill = makeSkill({ name: 'task' })
+    const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({ status: 'valid', agentName: 'Cursor' })
     const { screen, store } = await renderUnlinkDialog({ skill, symlink })
     await expect
@@ -276,7 +276,7 @@ describe('UnlinkDialog confirm action', () => {
       success: false,
       error: 'EPERM: operation not permitted',
     })
-    const skill = makeSkill({ name: 'task' })
+    const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({ status: 'valid', agentName: 'Cursor' })
     const { screen } = await renderUnlinkDialog({ skill, symlink })
     await expect
@@ -298,7 +298,7 @@ describe('UnlinkDialog confirm action', () => {
     // A rejected thunk with no error message must still surface a toast so the
     // user is never left without feedback after a failed unlink.
     mockUnlinkFromAgent.mockRejectedValue(new Error())
-    const skill = makeSkill({ name: 'task' })
+    const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({ status: 'valid', agentName: 'Cursor' })
     const { screen } = await renderUnlinkDialog({ skill, symlink })
     await expect
@@ -317,7 +317,7 @@ describe('UnlinkDialog confirm action', () => {
 
   it('warns and never calls the IPC bridge for an inaccessible target on confirm', async () => {
     // Arrange
-    const skill = makeSkill({ name: 'task' })
+    const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({ status: 'inaccessible', isLocal: false })
     const { screen, store } = await renderUnlinkDialog({ skill, symlink })
     await expect
@@ -349,7 +349,7 @@ describe('UnlinkDialog confirm action', () => {
 describe('UnlinkDialog cancel behavior', () => {
   it('clears the unlink target when cancelled while idle', async () => {
     // Arrange
-    const skill = makeSkill({ name: 'task' })
+    const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({ status: 'valid' })
     const { screen, store } = await renderUnlinkDialog({ skill, symlink })
     await expect
@@ -367,7 +367,7 @@ describe('UnlinkDialog cancel behavior', () => {
     // Arrange
     // While unlinking is true the dialog must refuse to close so the user
     // cannot abandon an in-progress destructive operation.
-    const skill = makeSkill({ name: 'task' })
+    const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({ status: 'valid' })
     const { screen, store } = await renderUnlinkDialog({ skill, symlink })
     const { unlinkSkillFromAgent } =

@@ -12,7 +12,7 @@ import type {
   Skill,
   SymlinkInfo,
 } from '@/shared/types'
-import { toSkillCount, toSymlinkCount } from '@/shared/types'
+import { toSkillCount, toSkillName, toSymlinkCount } from '@/shared/types'
 
 const SOURCE_PATH = '/home/user/.agents/skills/task'
 const CURSOR_PATH = '/home/user/.cursor/skills/task'
@@ -90,7 +90,7 @@ function makeSkill(): Skill {
   ]
 
   return {
-    name: 'task',
+    name: toSkillName('task'),
     description: 'Task workflow',
     path: SOURCE_PATH,
     symlinkCount: toSymlinkCount(symlinks.length),

@@ -8,7 +8,12 @@ import { match, P } from 'ts-pattern'
 import { parseFormattedCount } from '@/main/services/leaderboardService'
 import { REPO_PATTERN, SKILL_NAME_PATTERN } from '@/main/utils/skillIdentifiers'
 import { AGENT_DEFINITIONS, SKILLS_CLI_VERSION } from '@/shared/constants'
-import { repositoryId, toHttpUrl, toSkillRank } from '@/shared/types'
+import {
+  repositoryId,
+  toHttpUrl,
+  toSkillName,
+  toSkillRank,
+} from '@/shared/types'
 import type {
   SkillSearchResult,
   InstallOptions,
@@ -435,7 +440,7 @@ class SkillsCliService extends EventEmitter {
 
         const searchResult: SkillSearchResult = {
           rank: toSkillRank(rank++),
-          name,
+          name: toSkillName(name),
           repo: repositoryId(repo),
           url: toHttpUrl(urlMatch?.[1] || `https://skills.sh/${repo}/${name}`),
         }

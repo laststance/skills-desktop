@@ -10,6 +10,7 @@ import {
   toHumanFileSize,
   toIsoTimestamp,
   toSkillCount,
+  toSkillName,
   toSymlinkCount,
 } from '@/shared/types'
 import type {
@@ -144,7 +145,8 @@ async function scanAgentSymlinkStatusHits(
       try {
         const entries = await readdir(agent.path, { withFileTypes: true })
         const candidates = entries.filter(
-          (entry) => entry.isSymbolicLink() && !sourceNames.has(entry.name),
+          (entry) =>
+            entry.isSymbolicLink() && !sourceNames.has(toSkillName(entry.name)),
         )
         return Promise.all(
           candidates.map(async (link) => {
@@ -153,7 +155,13 @@ async function scanAgentSymlinkStatusHits(
               checkSymlinkTargetFromKnownLink(linkPath),
               readSymlinkTargetIfPresent(linkPath),
             ])
-            return { agent, name: link.name, linkPath, status, targetPath }
+            return {
+              agent,
+              name: toSkillName(link.name),
+              linkPath,
+              status,
+              targetPath,
+            }
           }),
         )
       } catch {
@@ -178,7 +186,12 @@ async function readSkillLock(): Promise<Map<SkillName, SkillLockEntry>> {
     // and display attribution has to read the same file prune writes to.
     const content = await readFile(getSkillLockPath(), 'utf-8')
     const parsed = JSON.parse(content) as SkillLockContent
-    return new Map(Object.entries(parsed.skills ?? {}))
+    return new Map(
+      Object.entries(parsed.skills ?? {}).map(([name, entry]) => [
+        toSkillName(name),
+        entry,
+      ]),
+    )
   } catch {
     return new Map()
   }
@@ -272,7 +285,8 @@ export async function scanSkills(): Promise<Skill[]> {
   // Attach source info from lock file
   for (const skill of allSkills) {
     const dirName = basename(skill.path)
-    const lock = lockEntries.get(dirName) ?? lockEntries.get(skill.name)
+    const lock =
+      lockEntries.get(toSkillName(dirName)) ?? lockEntries.get(skill.name)
     if (lock) {
       skill.source = repositoryId(lock.source)
       skill.sourceUrl = lock.sourceUrl
@@ -554,7 +568,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
         path: skillPath,
         filesystemIdentity,
         symlinkCount: toSymlinkCount(0), // Local skills have 0 symlinks
-        symlinks: createMissingSymlinkSlots(dirName),
+        symlinks: createMissingSymlinkSlots(toSkillName(dirName)),
         isSource: false,
         isOrphan: false,
       }

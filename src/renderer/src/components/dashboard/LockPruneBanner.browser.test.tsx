@@ -5,6 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { UnprunableLockEntry } from '@/shared/types'
+import { toSkillName } from '@/shared/types'
 
 /**
  * Render the announcement with real reducers so dismissal and the CTA go
@@ -43,7 +44,7 @@ async function renderBanner(
   store.dispatch(fetchStaleLockEntries.pending('req-lock', undefined))
   store.dispatch(
     fetchStaleLockEntries.fulfilled(
-      { status: 'ok', names: staleLockNames, unprunable },
+      { status: 'ok', names: staleLockNames.map(toSkillName), unprunable },
       'req-lock',
       undefined,
     ),
@@ -82,7 +83,7 @@ describe('LockPruneBanner', () => {
   test('stays hidden when every stale record is blocked from being pruned', async () => {
     // Arrange / Act
     const { screen } = await renderBanner([], false, [
-      { name: 'agent-copy-skill', reason: 'agent-copy' },
+      { name: toSkillName('agent-copy-skill'), reason: 'agent-copy' },
     ])
 
     // Assert
@@ -97,7 +98,7 @@ describe('LockPruneBanner', () => {
     // something is blocked; only a mix proves the sentence counts the prunable
     // subset rather than every record needing attention.
     const { screen } = await renderBanner(['plain-stale'], false, [
-      { name: 'agent-copy-skill', reason: 'agent-copy' },
+      { name: toSkillName('agent-copy-skill'), reason: 'agent-copy' },
     ])
 
     // Assert

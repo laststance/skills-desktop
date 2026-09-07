@@ -21,7 +21,7 @@ import {
   vi,
 } from 'vitest'
 
-import type { SkillName } from '@/shared/types'
+import { toSkillName } from '@/shared/types'
 
 // Stamped synchronously at module load: `main/constants` computes SOURCE_DIR
 // and TRASH_DIR from homedir() at import time, so the value has to exist
@@ -215,7 +215,7 @@ describe('scanStaleLockEntries', () => {
     // CTA for a record the trash is in the middle of removing.
     const { scanStaleLockEntries, queuePrune } = await serviceModule
     await writeLock(['evicted-skill'])
-    queuePrune('evicted-skill')
+    queuePrune(toSkillName('evicted-skill'))
 
     // Act
     const result = await scanStaleLockEntries()
@@ -592,7 +592,7 @@ describe('pruneLockEntries', () => {
     await makeSourceSkill('kept-skill')
 
     // Act
-    const result = await pruneLockEntries(['gone-skill'] as SkillName[])
+    const result = await pruneLockEntries([toSkillName('gone-skill')])
 
     // Assert
     expect(result).toEqual({
@@ -612,7 +612,7 @@ describe('pruneLockEntries', () => {
     await writeLock(['CE:Review'])
 
     // Act
-    await pruneLockEntries(['CE:Review'] as SkillName[])
+    await pruneLockEntries([toSkillName('CE:Review')])
 
     // Assert
     expect(removeSkillsMock).toHaveBeenCalledWith(['CE:Review'])
@@ -628,7 +628,7 @@ describe('pruneLockEntries', () => {
     await makeSourceSkill('reinstalled')
 
     // Act
-    const result = await pruneLockEntries(['reinstalled'] as SkillName[])
+    const result = await pruneLockEntries([toSkillName('reinstalled')])
 
     // Assert
     expect(removeSkillsMock).not.toHaveBeenCalled()
@@ -651,7 +651,7 @@ describe('pruneLockEntries', () => {
     await makeTombstone('same-name')
 
     // Act
-    const result = await pruneLockEntries(['same-name'] as SkillName[])
+    const result = await pruneLockEntries([toSkillName('same-name')])
 
     // Assert
     expect(removeSkillsMock).not.toHaveBeenCalled()
@@ -676,7 +676,7 @@ describe('pruneLockEntries', () => {
     await writeFile(join(agentOwnedDir, 'SKILL.md'), '# local\n', 'utf-8')
 
     // Act
-    const result = await pruneLockEntries(['agent-owned'] as SkillName[])
+    const result = await pruneLockEntries([toSkillName('agent-owned')])
 
     // Assert
     expect(removeSkillsMock).not.toHaveBeenCalled()
@@ -702,7 +702,7 @@ describe('pruneLockEntries', () => {
     )
 
     // Act
-    const result = await pruneLockEntries(['linked-only'] as SkillName[])
+    const result = await pruneLockEntries([toSkillName('linked-only')])
 
     // Assert
     expect(removeSkillsMock).toHaveBeenCalledWith(['linked-only'])
@@ -724,9 +724,9 @@ describe('pruneLockEntries', () => {
 
     // Act
     const result = await pruneLockEntries([
-      'first-skill',
-      'second-skill',
-    ] as SkillName[])
+      toSkillName('first-skill'),
+      toSkillName('second-skill'),
+    ])
 
     // Assert
     expect(removeSkillsMock).not.toHaveBeenCalled()
@@ -747,7 +747,7 @@ describe('pruneLockEntries', () => {
     removeSkillsMock.mockResolvedValue({ success: true })
 
     // Act
-    const result = await pruneLockEntries(['stubborn-record'] as SkillName[])
+    const result = await pruneLockEntries([toSkillName('stubborn-record')])
 
     // Assert
     expect(result).toEqual({
@@ -763,7 +763,7 @@ describe('pruneLockEntries', () => {
     await writeLock(['unrelated'])
 
     // Act
-    const result = await pruneLockEntries(['already-pruned'] as SkillName[])
+    const result = await pruneLockEntries([toSkillName('already-pruned')])
 
     // Assert
     expect(removeSkillsMock).not.toHaveBeenCalled()
@@ -775,7 +775,7 @@ describe('pruneLockEntries', () => {
     await mkdir(lockPath, { recursive: true })
 
     // Act
-    const result = await pruneLockEntries(['whatever'])
+    const result = await pruneLockEntries([toSkillName('whatever')])
 
     // Assert: without the lock there is no way to prove a removal is safe.
     expect(result).toEqual({
@@ -797,7 +797,7 @@ describe('pruneLockEntries', () => {
     })
 
     // Act
-    const result = await pruneLockEntries(['half-written'])
+    const result = await pruneLockEntries([toSkillName('half-written')])
 
     // Assert: unverifiable is reported as failed, never as pruned.
     expect(result).toEqual({
@@ -816,7 +816,7 @@ describe('pruneLockEntries', () => {
     await symlink('.trash', trashDir)
 
     // Act
-    const result = await pruneLockEntries(['gone-from-disk'] as SkillName[])
+    const result = await pruneLockEntries([toSkillName('gone-from-disk')])
 
     // Assert: `skipped` means "nothing to do here" and the UI reports it as a
     // benign no-op. This record is still stale and still needs the user's
@@ -838,7 +838,7 @@ describe('pruneLockEntries', () => {
     await symlink('unreadable', join(sourceDir, 'unreadable'))
 
     // Act
-    const result = await pruneLockEntries(['unreadable'] as SkillName[])
+    const result = await pruneLockEntries([toSkillName('unreadable')])
 
     // Assert: `skipped` would tell the user the skill came back and hide the
     // record. It is still stale and still unverifiable, so it goes to `failed`.
@@ -860,7 +860,7 @@ describe('pruneLockEntries', () => {
     await writeLock(['Ambiguous', 'ambiguous'])
 
     // Act
-    const result = await pruneLockEntries(['Ambiguous'] as SkillName[])
+    const result = await pruneLockEntries([toSkillName('Ambiguous')])
 
     // Assert
     expect(removeSkillsMock).not.toHaveBeenCalled()
@@ -884,9 +884,9 @@ describe('pruneLockEntries', () => {
 
     // Act
     const result = await pruneLockEntries([
-      'unreadable',
-      'gone-from-disk',
-    ] as SkillName[])
+      toSkillName('unreadable'),
+      toSkillName('gone-from-disk'),
+    ])
 
     // Assert
     expect(result).toEqual({
@@ -927,7 +927,7 @@ describe('resolveLockKeyForDirectory', () => {
     })
 
     // Act
-    const pruning = pruneLockEntries(['gone-from-disk'] as SkillName[])
+    const pruning = pruneLockEntries([toSkillName('gone-from-disk')])
     await lockIsTruncated
     const resolved = await resolveLockKeyForDirectory('ce-review')
     await pruning
@@ -947,9 +947,9 @@ describe('queuePrune', () => {
     await writeLock(['bulk-a', 'bulk-b', 'bulk-c'])
 
     // Act
-    queuePrune('bulk-a')
-    queuePrune('bulk-b')
-    queuePrune('bulk-c')
+    queuePrune(toSkillName('bulk-a'))
+    queuePrune(toSkillName('bulk-b'))
+    queuePrune(toSkillName('bulk-c'))
     await flushPruneQueue()
 
     // Assert
@@ -970,7 +970,7 @@ describe('queuePrune', () => {
     await writeLock(['debounced-skill'])
 
     // Act
-    queuePrune('debounced-skill')
+    queuePrune(toSkillName('debounced-skill'))
 
     // Assert: wait on the effect, not the call. `removeSkillsMock` is async and
     // rewrites the lock in its body, so waiting for the invocation alone lets
@@ -990,7 +990,7 @@ describe('queuePrune', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     // Act
-    queuePrune('stubborn-skill')
+    queuePrune(toSkillName('stubborn-skill'))
     await flushPruneQueue()
 
     // Assert

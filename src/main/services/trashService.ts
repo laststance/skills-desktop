@@ -18,7 +18,12 @@ import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
 import { extractErrorMessage } from '@/main/utils/errors'
 import { fsyncPath } from '@/main/utils/fsyncPath'
 import { UNDO_WINDOW_MS } from '@/shared/constants'
-import { toSymlinkCount, toUnixTimestampMs, tombstoneId } from '@/shared/types'
+import {
+  toSkillName,
+  toSymlinkCount,
+  toUnixTimestampMs,
+  tombstoneId,
+} from '@/shared/types'
 import type {
   AbsolutePath,
   AgentId,
@@ -194,7 +199,7 @@ function skillNameFromPathBasename(absolutePath: AbsolutePath): SkillName {
   ) {
     throw new TrashError('Reviewed skill path has an invalid basename')
   }
-  return name
+  return toSkillName(name)
 }
 
 /**

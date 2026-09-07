@@ -7,7 +7,7 @@ import type {
   ToastId,
   TombstoneId,
 } from '@/shared/types'
-import { toIsoTimestamp, tombstoneId } from '@/shared/types'
+import { toIsoTimestamp, toSkillName, tombstoneId } from '@/shared/types'
 
 // `vi.hoisted` exposes the dismiss spy so the hoisted `vi.mock('sonner')`
 // factory can reference it. UndoToast's only external dependency is
@@ -48,7 +48,9 @@ async function renderUndoToast(options: RenderOptions = {}) {
   const { UndoToast } = await import('./UndoToast')
   const screen = await render(
     <UndoToast
-      skillNames={options.skillNames ?? (['task', 'theme'] as SkillName[])}
+      skillNames={
+        options.skillNames ?? [toSkillName('task'), toSkillName('theme')]
+      }
       tombstoneIds={options.tombstoneIds ?? [TOMBSTONE_A, TOMBSTONE_B]}
       expiresAt={options.expiresAt ?? futureIso(30)}
       summary={options.summary ?? SUMMARY}
@@ -81,7 +83,7 @@ describe('UndoToast', () => {
   it('offers an Undo button labelled with the count of skills being restored', async () => {
     // Arrange
     const { screen } = await renderUndoToast({
-      skillNames: ['task', 'theme'] as SkillName[],
+      skillNames: [toSkillName('task'), toSkillName('theme')],
     })
 
     // Act
@@ -148,7 +150,7 @@ describe('UndoToast', () => {
         }),
     )
     const { screen } = await renderUndoToast({
-      skillNames: ['task', 'theme'] as SkillName[],
+      skillNames: [toSkillName('task'), toSkillName('theme')],
       onUndo: pendingUndo,
     })
 
@@ -186,7 +188,7 @@ describe('UndoToast', () => {
   it('uses singular grammar when exactly one skill is being restored', async () => {
     // Arrange
     const { screen } = await renderUndoToast({
-      skillNames: ['task'] as SkillName[],
+      skillNames: [toSkillName('task')],
       tombstoneIds: [TOMBSTONE_A],
     })
 

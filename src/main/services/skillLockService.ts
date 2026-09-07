@@ -17,6 +17,7 @@ import type {
   StaleLockScanResult,
   UnprunableLockEntry,
 } from '@/shared/types'
+import { toSkillName } from '@/shared/types'
 
 import { skillsCliService } from './skillsCliService'
 
@@ -266,7 +267,10 @@ async function readSkillLockKeys(): Promise<LockReadResult> {
     if (parsed.data.version > SUPPORTED_LOCK_VERSION) {
       return { status: 'unavailable' }
     }
-    return { status: 'ok', keys: Object.keys(parsed.data.skills) }
+    return {
+      status: 'ok',
+      keys: Object.keys(parsed.data.skills).map(toSkillName),
+    }
   } catch (error) {
     console.error('skillLockService: lock is not valid JSON', {
       message: extractErrorMessage(error),

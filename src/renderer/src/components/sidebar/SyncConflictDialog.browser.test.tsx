@@ -4,19 +4,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { SyncExecuteResult, SyncPreviewResult } from '@/shared/types'
-import { toAgentCount, toSkillCount, toSymlinkCount } from '@/shared/types'
+import {
+  toAgentCount,
+  toSkillCount,
+  toSkillName,
+  toSymlinkCount,
+} from '@/shared/types'
 
 const mockSyncExecute = vi.fn()
 
 const CONFLICT_CLAUDE = {
-  skillName: 'tdd-workflow',
+  skillName: toSkillName('tdd-workflow'),
   agentId: 'claude-code',
   agentName: 'Claude Code',
   agentSkillPath: '/Users/me/.claude/skills/tdd-workflow',
 } as const
 
 const CONFLICT_CURSOR = {
-  skillName: 'theme-generator',
+  skillName: toSkillName('theme-generator'),
   agentId: 'cursor',
   agentName: 'Cursor',
   agentSkillPath: '/Users/me/.cursor/skills/theme-generator',

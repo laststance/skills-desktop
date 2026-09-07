@@ -8,6 +8,7 @@ import {
   toHttpUrl,
   toInstallCount,
   toSkillCount,
+  toSkillName,
   toSkillRank,
 } from '@/shared/types'
 import type { Agent, SkillSearchResult } from '@/shared/types'
@@ -32,7 +33,7 @@ function makeSkill(
 ): SkillSearchResult {
   return {
     rank: toSkillRank(1),
-    name: 'task',
+    name: toSkillName('task'),
     repo: repositoryId('vercel-labs/skills'),
     url: toHttpUrl('https://skills.sh/vercel-labs/skills/task'),
     installCount: toInstallCount(100),

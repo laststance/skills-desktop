@@ -3,6 +3,7 @@ import {
   repositoryId,
   toHttpUrl,
   toInstallCount,
+  toSkillName,
   toSkillRank,
 } from '@/shared/types'
 import type {
@@ -120,7 +121,7 @@ export function parseLeaderboardHtml(html: string): SkillSearchResult[] {
 
     results.push({
       rank: toSkillRank(rank++),
-      name,
+      name: toSkillName(name),
       repo: repositoryId(repo),
       url: toHttpUrl(`https://skills.sh/${repo}/${skillSlug}`),
       installCount: toInstallCount(installCount),

@@ -11,6 +11,7 @@ import {
   PERSIST_STATE_VERSION,
   THEME_PRESETS,
 } from '@/shared/constants'
+import { toSkillName } from '@/shared/types'
 
 import type { ProtectedSkill } from './slices/protectSlice'
 import type { ThemeState } from './slices/themeSlice'
@@ -261,7 +262,7 @@ function migrateV4ToV5(state: MigratableState): void {
     // would sit in the list forever.
     items: legacy.items
       .filter((name) => typeof name === 'string')
-      .map((name): ProtectedSkill => ({ name })),
+      .map((name): ProtectedSkill => ({ name: toSkillName(name) })),
   }
 }
 

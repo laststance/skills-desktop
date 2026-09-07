@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 
-import { repositoryId, toHttpUrl } from '@/shared/types'
+import { repositoryId, toHttpUrl, toSkillName } from '@/shared/types'
 
 async function createTestStore() {
   const { default: bookmarkReducer } = await import('./bookmarkSlice')
@@ -28,7 +28,7 @@ describe('bookmarkSlice', () => {
     // Act
     store.dispatch(
       addBookmark({
-        name: 'task',
+        name: toSkillName('task'),
         repo: repositoryId('vercel-labs/skills'),
         url: toHttpUrl('https://skills.sh/task'),
       }),
@@ -51,7 +51,7 @@ describe('bookmarkSlice', () => {
     // Act
     store.dispatch(
       addBookmark({
-        name: 'task',
+        name: toSkillName('task'),
         repo: repositoryId('vercel-labs/skills'),
         url: toHttpUrl('https://skills.sh/task'),
       }),
@@ -67,7 +67,7 @@ describe('bookmarkSlice', () => {
     const { addBookmark } = await import('./bookmarkSlice')
     const store = await createTestStore()
     const payload = {
-      name: 'task',
+      name: toSkillName('task'),
       repo: repositoryId('vercel-labs/skills'),
       url: toHttpUrl('https://skills.sh/task'),
     }
@@ -88,14 +88,14 @@ describe('bookmarkSlice', () => {
     // Act
     store.dispatch(
       addBookmark({
-        name: 'task',
+        name: toSkillName('task'),
         repo: repositoryId('vercel-labs/skills'),
         url: toHttpUrl('https://skills.sh/task'),
       }),
     )
     store.dispatch(
       addBookmark({
-        name: 'tdd',
+        name: toSkillName('tdd'),
         repo: repositoryId('pbakaus/impeccable'),
         url: toHttpUrl('https://skills.sh/tdd'),
       }),
@@ -111,21 +111,21 @@ describe('bookmarkSlice', () => {
     const store = await createTestStore()
     store.dispatch(
       addBookmark({
-        name: 'task',
+        name: toSkillName('task'),
         repo: repositoryId('vercel-labs/skills'),
         url: toHttpUrl('https://skills.sh/task'),
       }),
     )
     store.dispatch(
       addBookmark({
-        name: 'tdd',
+        name: toSkillName('tdd'),
         repo: repositoryId('pbakaus/impeccable'),
         url: toHttpUrl('https://skills.sh/tdd'),
       }),
     )
 
     // Act
-    store.dispatch(removeBookmark('task'))
+    store.dispatch(removeBookmark(toSkillName('task')))
 
     // Assert
     const items = store.getState().bookmarks.items
@@ -139,14 +139,14 @@ describe('bookmarkSlice', () => {
     const store = await createTestStore()
     store.dispatch(
       addBookmark({
-        name: 'task',
+        name: toSkillName('task'),
         repo: repositoryId('vercel-labs/skills'),
         url: toHttpUrl('https://skills.sh/task'),
       }),
     )
 
     // Act
-    store.dispatch(removeBookmark('nonexistent'))
+    store.dispatch(removeBookmark(toSkillName('nonexistent')))
 
     // Assert
     expect(store.getState().bookmarks.items).toHaveLength(1)
@@ -160,7 +160,7 @@ describe('bookmarkSlice', () => {
     // Act
     store.dispatch(
       addBookmark({
-        name: 'task',
+        name: toSkillName('task'),
         repo: repositoryId('vercel-labs/skills'),
         url: toHttpUrl('https://skills.sh/task'),
       }),
@@ -178,15 +178,21 @@ describe('bookmarkSlice', () => {
     const store = await createTestStore()
     store.dispatch(
       addBookmark({
-        name: 'task',
+        name: toSkillName('task'),
         repo: repositoryId('vercel-labs/skills'),
         url: toHttpUrl('https://skills.sh/task'),
       }),
     )
 
     // Act
-    const isTaskBookmarked = selectIsBookmarked(store.getState(), 'task')
-    const isOtherBookmarked = selectIsBookmarked(store.getState(), 'other')
+    const isTaskBookmarked = selectIsBookmarked(
+      store.getState(),
+      toSkillName('task'),
+    )
+    const isOtherBookmarked = selectIsBookmarked(
+      store.getState(),
+      toSkillName('other'),
+    )
 
     // Assert
     expect(isTaskBookmarked).toBe(true)

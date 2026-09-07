@@ -6,6 +6,7 @@ import { SOURCE_DIR } from '@/main/constants'
 import { errorCode, isMissingPathError } from '@/main/utils/errorCode'
 import { extractErrorMessage } from '@/main/utils/errors'
 import type { AbsolutePath, SkillName } from '@/shared/types'
+import { toSkillName } from '@/shared/types'
 
 import { probeSkillDir } from './skillValidation'
 
@@ -72,7 +73,7 @@ export async function listSourceSkillDirs(): Promise<SourceSkillDirListing> {
     const probe = await probeSkillDir(skillPath)
     if (probe === 'not-a-skill') continue
     results.push({
-      name: dir.name,
+      name: toSkillName(dir.name),
       path: skillPath,
       isUnreadable: probe === 'unreadable',
     })

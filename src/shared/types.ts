@@ -20,8 +20,7 @@ export type { FilePreviewKind } from './fileTypes'
 // `searchQuery` in 16. {@link repositoryId} and {@link semanticVersion} predate
 // this rule and keep their names; every new brand uses the prefix.
 //
-// `SkillName` and `AbsolutePath` are still plain aliases. They carry ~560 call
-// sites between them and are branded in follow-up passes.
+// `AbsolutePath` is still a plain alias and is branded in a follow-up pass.
 // ============================================================================
 
 /**
@@ -38,7 +37,14 @@ export type Brand<T, B extends string> = T & { readonly __brand: B }
  * Human-readable skill identifier matching the directory name.
  * @example "tdd-workflow"
  */
-export type SkillName = string
+export type SkillName = Brand<string, 'SkillName'>
+
+/**
+ * Construct a {@link SkillName} from a raw string at a trust boundary
+ * (a directory read, a scan result, or an IPC payload).
+ * @example toSkillName('tdd-workflow')
+ */
+export const toSkillName = (value: string): SkillName => value as SkillName
 
 /**
  * Absolute filesystem path (platform-native, not POSIX-normalized).

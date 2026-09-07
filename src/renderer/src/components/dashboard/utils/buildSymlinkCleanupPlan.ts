@@ -15,6 +15,7 @@ import {
   toAgentCount,
   toIsoTimestamp,
   toSkillCount,
+  toSkillName,
   toSymlinkCount,
 } from '@/shared/types'
 
@@ -121,7 +122,7 @@ export function createBrokenSlotCleanupItemId(
 export function getLinkNameFromPath(linkPath: AbsolutePath): SkillName {
   const normalizedPath = linkPath.replaceAll('\\', '/')
   const pathSegments = normalizedPath.split('/').filter(Boolean)
-  return pathSegments[pathSegments.length - 1] ?? normalizedPath
+  return toSkillName(pathSegments[pathSegments.length - 1] ?? normalizedPath)
 }
 
 /**

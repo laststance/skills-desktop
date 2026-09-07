@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
-import { repositoryId, toHttpUrl } from '@/shared/types'
+import { repositoryId, toHttpUrl, toSkillName } from '@/shared/types'
 
 beforeEach(() => {
   // BookmarksSection mounts BookmarkItem + BookmarkDetailModal, which can reach
@@ -71,14 +71,14 @@ describe('BookmarksSection', () => {
       await import('@/renderer/src/redux/slices/bookmarkSlice')
     store.dispatch(
       addBookmark({
-        name: 'task',
+        name: toSkillName('task'),
         repo: repositoryId('vercel-labs/skills'),
         url: toHttpUrl('https://skills.sh/task'),
       }),
     )
     store.dispatch(
       addBookmark({
-        name: 'lint',
+        name: toSkillName('lint'),
         repo: repositoryId('vercel-labs/skills'),
         url: toHttpUrl('https://skills.sh/lint'),
       }),

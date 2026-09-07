@@ -5,7 +5,12 @@ import type {
   BulkUnlinkResult,
   SkillName,
 } from '@/shared/types'
-import { toSkillCount, toSymlinkCount, tombstoneId } from '@/shared/types'
+import {
+  toSkillCount,
+  toSkillName,
+  toSymlinkCount,
+  tombstoneId,
+} from '@/shared/types'
 
 import {
   computeRangeSelection,
@@ -168,13 +173,13 @@ describe('countOrphanSymlinksRemoved', () => {
     const result: BulkDeleteResult = {
       items: [
         {
-          skillName: 'abandoned',
+          skillName: toSkillName('abandoned'),
           outcome: 'orphan-cleared',
           symlinksRemoved: toSymlinkCount(2),
           cascadeAgents: ['cursor'],
         },
         {
-          skillName: 'half-cleared',
+          skillName: toSkillName('half-cleared'),
           outcome: 'error',
           symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['claude-code'],
@@ -196,14 +201,14 @@ describe('countOrphanSymlinksRemoved', () => {
     const result: BulkDeleteResult = {
       items: [
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaa'),
           symlinksRemoved: toSymlinkCount(5),
           cascadeAgents: ['cursor'],
         },
         {
-          skillName: 'locked',
+          skillName: toSkillName('locked'),
           outcome: 'error',
           error: { message: 'EACCES', code: 'EACCES' },
         },
@@ -224,14 +229,14 @@ describe('formatCascadeSummary', () => {
     const result: BulkDeleteResult = {
       items: [
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaa'),
           symlinksRemoved: toSymlinkCount(2),
           cascadeAgents: ['cursor', 'claude-code'],
         },
         {
-          skillName: 'theme-generator',
+          skillName: toSkillName('theme-generator'),
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-theme-generator-bbbb'),
           symlinksRemoved: toSymlinkCount(1),
@@ -252,14 +257,14 @@ describe('formatCascadeSummary', () => {
     const result: BulkDeleteResult = {
       items: [
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaa'),
           symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: [],
         },
         {
-          skillName: 'locked',
+          skillName: toSkillName('locked'),
           outcome: 'error',
           error: { message: 'EACCES', code: 'EACCES' },
         },
@@ -278,7 +283,7 @@ describe('formatCascadeSummary', () => {
     const result: BulkDeleteResult = {
       items: [
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaa'),
           symlinksRemoved: toSymlinkCount(0),
@@ -299,7 +304,7 @@ describe('formatCascadeSummary', () => {
     const result: BulkDeleteResult = {
       items: [
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaa'),
           symlinksRemoved: toSymlinkCount(1),
@@ -323,14 +328,14 @@ describe('formatCascadeSummary', () => {
     const result: BulkDeleteResult = {
       items: [
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaa'),
           symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['cursor'],
         },
         {
-          skillName: 'abandoned',
+          skillName: toSkillName('abandoned'),
           outcome: 'orphan-cleared',
           symlinksRemoved: toSymlinkCount(2),
           cascadeAgents: ['cursor', 'codex'],
@@ -357,13 +362,13 @@ describe('formatCascadeSummary', () => {
     const result: BulkDeleteResult = {
       items: [
         {
-          skillName: 'abandoned-a',
+          skillName: toSkillName('abandoned-a'),
           outcome: 'orphan-cleared',
           symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['cursor'],
         },
         {
-          skillName: 'abandoned-b',
+          skillName: toSkillName('abandoned-b'),
           outcome: 'orphan-cleared',
           symlinksRemoved: toSymlinkCount(3),
           cascadeAgents: ['cursor', 'codex', 'claude-code'],
@@ -385,13 +390,13 @@ describe('formatCascadeSummary', () => {
     const result: BulkDeleteResult = {
       items: [
         {
-          skillName: 'abandoned',
+          skillName: toSkillName('abandoned'),
           outcome: 'orphan-cleared',
           symlinksRemoved: toSymlinkCount(2),
           cascadeAgents: ['cursor', 'codex'],
         },
         {
-          skillName: 'locked',
+          skillName: toSkillName('locked'),
           outcome: 'error',
           error: { message: 'EACCES', code: 'EACCES' },
         },
@@ -412,7 +417,7 @@ describe('formatCascadeSummary', () => {
     const result: BulkDeleteResult = {
       items: [
         {
-          skillName: 'abandoned',
+          skillName: toSkillName('abandoned'),
           outcome: 'error',
           error: { message: 'Source skill exists', code: 'ESTALE' },
           symlinksRemoved: toSymlinkCount(2),
@@ -434,8 +439,8 @@ describe('formatUnlinkSummary', () => {
     // Arrange
     const result: BulkUnlinkResult = {
       items: [
-        { skillName: 'task', outcome: 'unlinked' },
-        { skillName: 'theme', outcome: 'unlinked' },
+        { skillName: toSkillName('task'), outcome: 'unlinked' },
+        { skillName: toSkillName('theme'), outcome: 'unlinked' },
       ],
     }
 
@@ -450,8 +455,12 @@ describe('formatUnlinkSummary', () => {
     // Arrange
     const result: BulkUnlinkResult = {
       items: [
-        { skillName: 'task', outcome: 'unlinked' },
-        { skillName: 'locked', outcome: 'error', error: { message: 'EACCES' } },
+        { skillName: toSkillName('task'), outcome: 'unlinked' },
+        {
+          skillName: toSkillName('locked'),
+          outcome: 'error',
+          error: { message: 'EACCES' },
+        },
       ],
     }
 
@@ -465,7 +474,7 @@ describe('formatUnlinkSummary', () => {
   it('uses singular "skill" wording when only one skill is unlinked', () => {
     // Arrange
     const result: BulkUnlinkResult = {
-      items: [{ skillName: 'task', outcome: 'unlinked' }],
+      items: [{ skillName: toSkillName('task'), outcome: 'unlinked' }],
     }
 
     // Act
@@ -477,11 +486,21 @@ describe('formatUnlinkSummary', () => {
 })
 
 describe('computeRangeSelection', () => {
-  const visible: SkillName[] = ['alpha', 'browser', 'task', 'theme', 'zebra']
+  const visible: SkillName[] = [
+    toSkillName('alpha'),
+    toSkillName('browser'),
+    toSkillName('task'),
+    toSkillName('theme'),
+    toSkillName('zebra'),
+  ]
 
   it('shift-selects every row between an earlier anchor and a later click, inclusive', () => {
     // Arrange / Act
-    const range = computeRangeSelection('task', 'zebra', visible)
+    const range = computeRangeSelection(
+      toSkillName('task'),
+      toSkillName('zebra'),
+      visible,
+    )
 
     // Assert
     expect(range).toEqual(['task', 'theme', 'zebra'])
@@ -489,7 +508,11 @@ describe('computeRangeSelection', () => {
 
   it('shift-selects the same inclusive range when the anchor sits below the clicked row', () => {
     // Arrange / Act
-    const range = computeRangeSelection('zebra', 'task', visible)
+    const range = computeRangeSelection(
+      toSkillName('zebra'),
+      toSkillName('task'),
+      visible,
+    )
 
     // Assert
     expect(range).toEqual(['task', 'theme', 'zebra'])
@@ -497,7 +520,11 @@ describe('computeRangeSelection', () => {
 
   it('selects just the clicked row when the anchor and target are the same row', () => {
     // Arrange / Act
-    const range = computeRangeSelection('task', 'task', visible)
+    const range = computeRangeSelection(
+      toSkillName('task'),
+      toSkillName('task'),
+      visible,
+    )
 
     // Assert
     expect(range).toEqual(['task'])
@@ -505,7 +532,7 @@ describe('computeRangeSelection', () => {
 
   it('selects just the clicked row when there is no prior anchor', () => {
     // Arrange / Act
-    const range = computeRangeSelection(null, 'task', visible)
+    const range = computeRangeSelection(null, toSkillName('task'), visible)
 
     // Assert
     expect(range).toEqual(['task'])
@@ -513,7 +540,11 @@ describe('computeRangeSelection', () => {
 
   it('selects just the clicked row when the anchor was filtered out by search', () => {
     // Arrange / Act
-    const range = computeRangeSelection('removed-by-search', 'zebra', visible)
+    const range = computeRangeSelection(
+      toSkillName('removed-by-search'),
+      toSkillName('zebra'),
+      visible,
+    )
 
     // Assert
     expect(range).toEqual(['zebra'])
@@ -521,7 +552,11 @@ describe('computeRangeSelection', () => {
 
   it('selects just the clicked row when the clicked target is not in the visible list', () => {
     // Arrange / Act
-    const range = computeRangeSelection('task', 'missing', visible)
+    const range = computeRangeSelection(
+      toSkillName('task'),
+      toSkillName('missing'),
+      visible,
+    )
 
     // Assert
     expect(range).toEqual(['missing'])
@@ -529,7 +564,11 @@ describe('computeRangeSelection', () => {
 
   it('shift-selects the whole visible list when spanning from the first row to the last', () => {
     // Arrange / Act
-    const range = computeRangeSelection('alpha', 'zebra', visible)
+    const range = computeRangeSelection(
+      toSkillName('alpha'),
+      toSkillName('zebra'),
+      visible,
+    )
 
     // Assert
     expect(range).toEqual(visible)

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { Agent, Skill } from '@/shared/types'
-import { toSkillCount, toSymlinkCount } from '@/shared/types'
+import { toSkillCount, toSkillName, toSymlinkCount } from '@/shared/types'
 
 const mockCreateSymlinks = vi.fn()
 const mockCopyToAgents = vi.fn()
@@ -52,11 +52,11 @@ function makeAgent(
  * @param overrides - Partial skill overrides.
  * @returns Complete Skill object.
  * @example
- * makeSkill({ name: 'task' as SkillName })
+ * makeSkill({ name: toSkillName('task') })
  */
 function makeSkill(overrides: Partial<Skill> = {}): Skill {
   return {
-    name: 'task',
+    name: toSkillName('task'),
     description: 'Task management skill',
     path: '/home/user/.agents/skills/task',
     symlinkCount: toSymlinkCount(0),
@@ -286,9 +286,9 @@ describe('AddSymlinkModal actions', () => {
 
   it('clears selected agents when the modal closes externally and reopens', async () => {
     // Arrange
-    const firstSkill = makeSkill({ name: 'task' })
+    const firstSkill = makeSkill({ name: toSkillName('task') })
     const secondSkill = makeSkill({
-      name: 'review',
+      name: toSkillName('review'),
       path: '/home/user/.agents/skills/review',
     })
     const { screen, store } = await renderModal({

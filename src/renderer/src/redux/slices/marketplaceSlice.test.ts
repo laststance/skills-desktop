@@ -6,6 +6,7 @@ import {
   toHttpUrl,
   toProgressPercent,
   toSearchQuery,
+  toSkillName,
   toSkillRank,
 } from '@/shared/types'
 import type { InstallProgress, SkillSearchResult } from '@/shared/types'
@@ -35,7 +36,7 @@ async function createTestStore() {
 
 const sampleResult: SkillSearchResult = {
   rank: toSkillRank(1),
-  name: 'task',
+  name: toSkillName('task'),
   repo: repositoryId('vercel-labs/skill-task'),
   url: toHttpUrl('https://skills.sh/vercel-labs/skill-task'),
 }
@@ -249,10 +250,13 @@ describe('marketplaceSlice', () => {
     // out-of-order IPC reply (the CLI runs searches concurrently).
     let resolveRea!: (value: SkillSearchResult[]) => void
     let resolveReact!: (value: SkillSearchResult[]) => void
-    const reaResult: SkillSearchResult = { ...sampleResult, name: 'rea-hit' }
+    const reaResult: SkillSearchResult = {
+      ...sampleResult,
+      name: toSkillName('rea-hit'),
+    }
     const reactResult: SkillSearchResult = {
       ...sampleResult,
-      name: 'react-hit',
+      name: toSkillName('react-hit'),
     }
     mockSearch
       .mockReturnValueOnce(
@@ -568,7 +572,7 @@ describe('marketplaceSlice', () => {
     // Arrange
     const trendingResult: SkillSearchResult = {
       ...sampleResult,
-      name: 'trending-skill',
+      name: toSkillName('trending-skill'),
     }
     mockLeaderboard
       .mockResolvedValueOnce([sampleResult])

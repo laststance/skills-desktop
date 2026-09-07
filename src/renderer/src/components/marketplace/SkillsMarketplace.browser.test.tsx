@@ -16,6 +16,7 @@ import type {
 import {
   toHttpUrl,
   toSearchQuery,
+  toSkillName,
   toSkillRank,
   toSymlinkCount,
   toUnixTimestampMs,
@@ -58,7 +59,7 @@ function makeSearchResult(
 ): SkillSearchResult {
   return {
     rank: toSkillRank(1),
-    name: 'task',
+    name: toSkillName('task'),
     repo: 'vercel-labs/skills' as RepositoryId,
     url: toHttpUrl('https://skills.sh/task'),
     installCount: undefined,
@@ -245,7 +246,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
     // UI does not show (it gates on an empty list).
     const oneSkillLeaderboard = {
       'all-time': makeLeaderboardData({
-        skills: [makeSearchResult({ name: 'solo' })],
+        skills: [makeSearchResult({ name: toSkillName('solo') })],
         lastFetched: toUnixTimestampMs(Date.now()),
         status: 'loading',
       }),
@@ -266,7 +267,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
     // Arrange — the skill name matches an installed skill, so the row shows the
     // Installed badge instead of an Install button.
     const installedSkill = {
-      name: 'installed-one',
+      name: toSkillName('installed-one'),
       description: 'desc',
       path: '/Users/me/.agents/skills/installed-one',
       symlinkCount: toSymlinkCount(0),
@@ -277,7 +278,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
     // `status: 'loading'` aborts the mount refetch so the seeded skill survives.
     const leaderboardWithInstalled = {
       'all-time': makeLeaderboardData({
-        skills: [makeSearchResult({ name: 'installed-one' })],
+        skills: [makeSearchResult({ name: toSkillName('installed-one') })],
         lastFetched: toUnixTimestampMs(Date.now()),
         status: 'loading',
       }),
@@ -400,10 +401,10 @@ describe('SkillsMarketplace — search results view', () => {
     // Arrange — two results exercise the plural "skills" count label and the
     // search-results SkillRowMarketplace map.
     const results = [
-      makeSearchResult({ rank: toSkillRank(1), name: 'react' }),
+      makeSearchResult({ rank: toSkillRank(1), name: toSkillName('react') }),
       makeSearchResult({
         rank: toSkillRank(2),
-        name: 'react-query',
+        name: toSkillName('react-query'),
       }),
     ]
 
@@ -427,7 +428,7 @@ describe('SkillsMarketplace — search results view', () => {
   it('marks a search-result row as installed when its name is in the installed set', async () => {
     // Arrange — the result name matches an installed skill.
     const installedSkill = {
-      name: 'react',
+      name: toSkillName('react'),
       description: 'desc',
       path: '/Users/me/.agents/skills/react',
       symlinkCount: toSymlinkCount(0),
@@ -441,7 +442,7 @@ describe('SkillsMarketplace — search results view', () => {
       marketplace: {
         status: 'idle',
         searchQuery: toSearchQuery('react'),
-        searchResults: [makeSearchResult({ name: 'react' })],
+        searchResults: [makeSearchResult({ name: toSkillName('react') })],
       },
       skills: { items: [installedSkill] },
     })
@@ -461,13 +462,13 @@ describe('SkillsMarketplace — ranking tab switch', () => {
     // the assertion proves the view actually swapped.
     const bothTabsLeaderboard = {
       'all-time': makeLeaderboardData({
-        skills: [makeSearchResult({ name: 'alltime-skill' })],
+        skills: [makeSearchResult({ name: toSkillName('alltime-skill') })],
         lastFetched: toUnixTimestampMs(Date.now()),
         status: 'loading',
         filter: 'all-time',
       }),
       trending: makeLeaderboardData({
-        skills: [makeSearchResult({ name: 'trending-skill' })],
+        skills: [makeSearchResult({ name: toSkillName('trending-skill') })],
         lastFetched: toUnixTimestampMs(Date.now()),
         status: 'loading',
         filter: 'trending',

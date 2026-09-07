@@ -4,7 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { Agent, FilesystemEntryIdentity, Skill } from '@/shared/types'
-import { toFileSizeBytes, toSkillCount, toSymlinkCount } from '@/shared/types'
+import {
+  toFileSizeBytes,
+  toSkillCount,
+  toSkillName,
+  toSymlinkCount,
+} from '@/shared/types'
 
 const mockRemoveAllFromAgent = vi.fn()
 const mockSkillsGetAll = vi.fn()
@@ -163,7 +168,7 @@ describe('AgentDeleteDialog confirm action', () => {
     })
     const agent = makeAgent({ name: 'Claude Code' as Agent['name'] })
     const protectedSkill: Skill = {
-      name: 'protected-task',
+      name: toSkillName('protected-task'),
       description: 'Protected task',
       path: '/Users/test/.agents/skills/protected-task',
       symlinkCount: toSymlinkCount(1),
@@ -186,7 +191,7 @@ describe('AgentDeleteDialog confirm action', () => {
     const { addProtection } =
       await import('@/renderer/src/redux/slices/protectSlice')
     store.dispatch(fetchSkills.fulfilled([protectedSkill], 'skills-request'))
-    store.dispatch(addProtection({ name: 'protected-task' }))
+    store.dispatch(addProtection({ name: toSkillName('protected-task') }))
 
     // Act
     await screen.getByRole('button', { name: /^Delete$/i }).click()

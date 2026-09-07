@@ -7,6 +7,7 @@ import {
   repositoryId,
   toHttpUrl,
   toInstallCount,
+  toSkillName,
   toSkillRank,
 } from '@/shared/types'
 
@@ -28,7 +29,7 @@ function makeSkill(
 ): SkillSearchResult {
   return {
     rank: toSkillRank(1),
-    name: 'task',
+    name: toSkillName('task'),
     repo: repositoryId('vercel-labs/skills'),
     url: toHttpUrl('https://skills.sh/task'),
     ...overrides,
@@ -40,7 +41,7 @@ describe('MarketplaceSkillRow', () => {
     // Arrange: a fully-populated trending skill row.
     const skill = makeSkill({
       rank: toSkillRank(1),
-      name: 'task',
+      name: toSkillName('task'),
       repo: repositoryId('vercel-labs/skills'),
       url: toHttpUrl('https://skills.sh/task'),
       installCount: toInstallCount(2480),
@@ -76,7 +77,7 @@ describe('MarketplaceSkillRow', () => {
     // Arrange: a CLI-search-style result with no installCount field.
     const skill = makeSkill({
       rank: toSkillRank(7),
-      name: 'review',
+      name: toSkillName('review'),
       repo: repositoryId('anthropics/skills'),
       url: toHttpUrl('https://skills.sh/review'),
     })

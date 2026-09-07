@@ -5,7 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
-import { repositoryId, toHttpUrl } from '@/shared/types'
+import { repositoryId, toHttpUrl, toSkillName } from '@/shared/types'
 
 beforeEach(() => {
   // SidebarHeader reads the build-time `__APP_VERSION__` define; browser mode has
@@ -124,7 +124,7 @@ describe('Sidebar', () => {
     // Act
     store.dispatch(
       addBookmark({
-        name: 'task',
+        name: toSkillName('task'),
         repo: repositoryId('vercel-labs/skills'),
         url: toHttpUrl('https://skills.sh/task'),
       }),

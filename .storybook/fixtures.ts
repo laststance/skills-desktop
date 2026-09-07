@@ -13,6 +13,7 @@ import {
   toLineCount,
   toPosixRelativePath,
   toSkillCount,
+  toSkillName,
   toSkillRank,
   toSymlinkCount,
   tombstoneId,
@@ -81,7 +82,7 @@ export const storyAgents: Agent[] = [
  */
 export const storySkills: Skill[] = [
   {
-    name: 'design-review',
+    name: toSkillName('design-review'),
     description:
       'Designer-eye QA for spacing, hierarchy, interaction polish, and screenshots.',
     path: '/Users/raphtalia/.agents/skills/design-review',
@@ -118,7 +119,7 @@ export const storySkills: Skill[] = [
     ],
   },
   {
-    name: 'qa-electron',
+    name: toSkillName('qa-electron'),
     description:
       'Runs Electron UI verification through Playwright and the debug port.',
     path: '/Users/raphtalia/.agents/skills/qa-electron',
@@ -154,7 +155,7 @@ export const storySkills: Skill[] = [
     ],
   },
   {
-    name: 'open-to-dia',
+    name: toSkillName('open-to-dia'),
     description: 'Local macOS launcher skill for opening current URLs in Dia.',
     path: '/Users/raphtalia/.codex/skills/open-to-dia',
     symlinkCount: toSymlinkCount(0),
@@ -171,7 +172,7 @@ export const storySkills: Skill[] = [
     ],
   },
   {
-    name: 'retired-skill',
+    name: toSkillName('retired-skill'),
     description: 'Source folder removed; remaining links need cleanup.',
     path: '/Users/raphtalia/.agents/skills/retired-skill',
     symlinkCount: toSymlinkCount(0),
@@ -208,28 +209,28 @@ export const storySkills: Skill[] = [
 export const storyMarketplaceSkills: SkillSearchResult[] = [
   {
     rank: toSkillRank(1),
-    name: 'task',
+    name: toSkillName('task'),
     repo: repositoryId('vercel-labs/skills'),
     url: toHttpUrl('https://skills.sh/task'),
     installCount: toInstallCount(2480),
   },
   {
     rank: toSkillRank(2),
-    name: 'browser-use',
+    name: toSkillName('browser-use'),
     repo: repositoryId('browser-use/skills'),
     url: toHttpUrl('https://skills.sh/browser-use'),
     installCount: toInstallCount(1630),
   },
   {
     rank: toSkillRank(3),
-    name: 'code-review',
+    name: toSkillName('code-review'),
     repo: repositoryId('laststance/gstack'),
     url: toHttpUrl('https://skills.sh/code-review'),
     installCount: toInstallCount(820),
   },
   {
     rank: toSkillRank(4),
-    name: 'azure-ai',
+    name: toSkillName('azure-ai'),
     repo: repositoryId('microsoft/azure-skills'),
     url: toHttpUrl('https://skills.sh/azure-ai'),
     installCount: toInstallCount(312),
@@ -238,13 +239,13 @@ export const storyMarketplaceSkills: SkillSearchResult[] = [
 
 export const storyBookmarks: BookmarkedSkill[] = [
   {
-    name: 'task',
+    name: toSkillName('task'),
     repo: repositoryId('vercel-labs/skills'),
     url: toHttpUrl('https://skills.sh/task'),
     bookmarkedAt: toIsoTimestamp(now),
   },
   {
-    name: 'browser-use',
+    name: toSkillName('browser-use'),
     repo: repositoryId('browser-use/skills'),
     url: toHttpUrl('https://skills.sh/browser-use'),
     bookmarkedAt: toIsoTimestamp(now),
@@ -310,7 +311,7 @@ export const storySyncPreview: SyncPreviewResult = {
   alreadySynced: toSymlinkCount(8),
   conflicts: [
     {
-      skillName: 'qa-electron',
+      skillName: toSkillName('qa-electron'),
       agentId: 'cursor',
       agentName: 'Cursor',
       agentSkillPath: '/Users/raphtalia/.cursor/skills/qa-electron',
@@ -330,11 +331,23 @@ export const storySyncResult: SyncExecuteResult = {
     },
   ],
   details: [
-    { skillName: 'design-review', agentName: 'Codex', action: 'created' },
-    { skillName: 'qa-electron', agentName: 'Cursor', action: 'replaced' },
-    { skillName: 'task', agentName: 'Claude Code', action: 'skipped' },
     {
-      skillName: 'retired-skill',
+      skillName: toSkillName('design-review'),
+      agentName: 'Codex',
+      action: 'created',
+    },
+    {
+      skillName: toSkillName('qa-electron'),
+      agentName: 'Cursor',
+      action: 'replaced',
+    },
+    {
+      skillName: toSkillName('task'),
+      agentName: 'Claude Code',
+      action: 'skipped',
+    },
+    {
+      skillName: toSkillName('retired-skill'),
       agentName: 'Cursor',
       action: 'error',
       error: 'Broken symlink already removed',

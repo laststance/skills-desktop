@@ -2,7 +2,12 @@ import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import { describe, expect, it } from 'vitest'
 
 import type { SyncExecuteResult, SyncPreviewResult } from '@/shared/types'
-import { toAgentCount, toSkillCount, toSymlinkCount } from '@/shared/types'
+import {
+  toAgentCount,
+  toSkillCount,
+  toSkillName,
+  toSymlinkCount,
+} from '@/shared/types'
 
 import {
   getSyncResultPresentation,
@@ -76,7 +81,7 @@ describe('shouldShowSyncConfirm', () => {
       toCreate: toSymlinkCount(3),
       conflicts: [
         {
-          skillName: 'test-skill',
+          skillName: toSkillName('test-skill'),
           agentId: 'claude' as never,
           agentName: 'Claude' as never,
           agentSkillPath: '/home/user/.claude/skills/test-skill',
@@ -118,7 +123,11 @@ describe('shouldShowSyncResult', () => {
       skipped: toSymlinkCount(2),
       errors: [],
       details: [
-        { skillName: 'my-skill', agentName: 'Claude Code', action: 'created' },
+        {
+          skillName: toSkillName('my-skill'),
+          agentName: 'Claude Code',
+          action: 'created',
+        },
       ],
     }
     // Act
@@ -137,7 +146,7 @@ describe('shouldShowSyncResult', () => {
       errors: [{ path: '/test', error: 'fail' }],
       details: [
         {
-          skillName: 'fail-skill',
+          skillName: toSkillName('fail-skill'),
           agentName: 'Cursor',
           action: 'error',
           error: 'fail',

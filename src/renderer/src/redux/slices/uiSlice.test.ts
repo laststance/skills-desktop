@@ -10,7 +10,6 @@ import type {
   ClearOrphanSymlinksResult,
   FilesystemEntryIdentity,
   Skill,
-  SkillName,
   SourceStats,
   SyncExecuteResult,
   SyncPreviewResult,
@@ -25,6 +24,7 @@ import {
   toIsoTimestamp,
   toSearchQuery,
   toSkillCount,
+  toSkillName,
   toSymlinkCount,
   tombstoneId,
 } from '@/shared/types'
@@ -127,7 +127,7 @@ const previewWithConflicts: SyncPreviewResult = {
   alreadySynced: toSymlinkCount(4),
   conflicts: [
     {
-      skillName: 'agent-browser',
+      skillName: toSkillName('agent-browser'),
       agentId: 'cursor',
       agentName: 'Cursor',
       agentSkillPath: '/home/user/.cursor/skills/agent-browser',
@@ -450,7 +450,11 @@ describe('uiSlice sync thunks', () => {
       skipped: toSymlinkCount(4),
       errors: [],
       details: [
-        { skillName: 'skill-a', agentName: 'Claude Code', action: 'created' },
+        {
+          skillName: toSkillName('skill-a'),
+          agentName: 'Claude Code',
+          action: 'created',
+        },
       ],
     } satisfies SyncExecuteResult)
     const store = await createTestStore()
@@ -498,7 +502,11 @@ describe('uiSlice sync thunks', () => {
       skipped: toSymlinkCount(0),
       errors: [],
       details: [
-        { skillName: 's', agentName: 'Claude Code', action: 'created' },
+        {
+          skillName: toSkillName('s'),
+          agentName: 'Claude Code',
+          action: 'created',
+        },
       ],
     } satisfies SyncExecuteResult)
     const store = await createTestStore()
@@ -522,7 +530,11 @@ describe('uiSlice sync thunks', () => {
       skipped: toSymlinkCount(0),
       errors: [],
       details: [
-        { skillName: 's', agentName: 'Claude Code', action: 'created' },
+        {
+          skillName: toSkillName('s'),
+          agentName: 'Claude Code',
+          action: 'created',
+        },
       ],
     } satisfies SyncExecuteResult)
     const store = await createTestStore()
@@ -564,7 +576,7 @@ describe('uiSlice sync thunks', () => {
 
 describe('uiSlice bookmark detail modal', () => {
   const sampleBookmark = {
-    name: 'task',
+    name: toSkillName('task'),
     repo: repositoryId('vercel-labs/skills'),
     url: toHttpUrl('https://github.com/vercel-labs/skills'),
     bookmarkedAt: toIsoTimestamp('2026-04-01T08:00:00.000Z'),
@@ -621,7 +633,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
   const makeToast = (kind: 'delete' | 'unlink' = 'delete') => ({
     id: 'toast-1',
     kind,
-    skillNames: ['task', 'browser'],
+    skillNames: [toSkillName('task'), toSkillName('browser')],
     tombstoneIds:
       kind === 'delete'
         ? [tombstoneId('1-task-aaaaaaaa'), tombstoneId('1-browser-bbbbbbbb')]
@@ -679,7 +691,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     const newerToast = {
       ...makeToast(),
       id: 'toast-2',
-      skillNames: ['newer-task'] as SkillName[],
+      skillNames: [toSkillName('newer-task')],
       summary: 'Deleted 1 skill. 0 symlinks removed.',
     }
     store.dispatch(setUndoToast(olderToast))
@@ -758,7 +770,9 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     )
 
     // Act
-    const promise = store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
+    const promise = store.dispatch(
+      deleteSelectedSkills([deleteTarget(toSkillName('task'))]),
+    )
 
     // Assert
     expect(store.getState().ui.undoToast).toBeNull()
@@ -785,7 +799,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     const promise = store.dispatch(
       clearSelectedOrphanSymlinks([
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           agents: [
             {
               agentId: 'codex',
@@ -824,8 +838,8 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
         items: [
           {
             agentId: 'codex',
-            linkName: 'task',
-            displaySkillName: 'task',
+            linkName: toSkillName('task'),
+            displaySkillName: toSkillName('task'),
             linkPath: '/home/user/.codex/skills/task',
             targetPath: '/home/user/.agents/skills/task',
           },
@@ -858,7 +872,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor',
-        selectedNames: [unlinkTarget('task')],
+        selectedNames: [unlinkTarget(toSkillName('task'))],
       }),
     )
 
@@ -975,7 +989,9 @@ describe('uiSlice bulkSelectMode', () => {
     )
 
     // Act
-    const promise = store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
+    const promise = store.dispatch(
+      deleteSelectedSkills([deleteTarget(toSkillName('task'))]),
+    )
 
     // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
@@ -1001,7 +1017,7 @@ describe('uiSlice bulkSelectMode', () => {
     const promise = store.dispatch(
       clearSelectedOrphanSymlinks([
         {
-          skillName: 'task',
+          skillName: toSkillName('task'),
           agents: [
             {
               agentId: 'codex',
@@ -1039,8 +1055,8 @@ describe('uiSlice bulkSelectMode', () => {
         items: [
           {
             agentId: 'codex',
-            linkName: 'task',
-            displaySkillName: 'task',
+            linkName: toSkillName('task'),
+            displaySkillName: toSkillName('task'),
             linkPath: '/home/user/.codex/skills/task',
             targetPath: '/home/user/.agents/skills/task',
           },
@@ -1072,7 +1088,7 @@ describe('uiSlice bulkSelectMode', () => {
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor',
-        selectedNames: [unlinkTarget('task')],
+        selectedNames: [unlinkTarget(toSkillName('task'))],
       }),
     )
 
@@ -1142,7 +1158,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
       setUndoToast({
         id: 'toast-seed',
         kind: 'delete',
-        skillNames: ['a'],
+        skillNames: [toSkillName('a')],
         tombstoneIds: [tombstoneId('1-a-aaaaaaaa')],
         expiresAt: toIsoTimestamp('2026-04-17T12:00:15.000Z'),
         summary: 'Deleted 1 skill.',
@@ -1151,11 +1167,11 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
-        skillNames: ['a'],
+        skillNames: [toSkillName('a')],
         agentId: null,
         agentName: null,
         sourceSummary: null,
-        deleteTargets: [deleteTarget('a')],
+        deleteTargets: [deleteTarget(toSkillName('a'))],
         orphanRecords: [],
         staleDeleteErrors: [],
         orphanErrors: [],
@@ -1237,7 +1253,9 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     )
 
     // Act
-    const promise = store.dispatch(deleteSelectedSkills([deleteTarget('a')]))
+    const promise = store.dispatch(
+      deleteSelectedSkills([deleteTarget(toSkillName('a'))]),
+    )
 
     // Assert
     expect(store.getState().ui).toMatchObject({
@@ -1264,7 +1282,9 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     )
 
     // Act
-    const promise = store.dispatch(deleteSelectedSkills([deleteTarget('a')]))
+    const promise = store.dispatch(
+      deleteSelectedSkills([deleteTarget(toSkillName('a'))]),
+    )
 
     // Assert
     expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(true)
@@ -1289,7 +1309,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor',
-        selectedNames: [unlinkTarget('a')],
+        selectedNames: [unlinkTarget(toSkillName('a'))],
       }),
     )
 
@@ -1321,7 +1341,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     const promise = store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor',
-        selectedNames: [unlinkTarget('a')],
+        selectedNames: [unlinkTarget(toSkillName('a'))],
       }),
     )
 
@@ -1368,7 +1388,9 @@ describe('uiSlice bulkSelectMode on rejection', () => {
     mockDeleteSkills.mockRejectedValue(new Error('FS error'))
 
     // Act
-    await store.dispatch(deleteSelectedSkills([deleteTarget('task')]))
+    await store.dispatch(
+      deleteSelectedSkills([deleteTarget(toSkillName('task'))]),
+    )
 
     // Assert
     expect(store.getState().ui.bulkSelectMode).toBe(false)
@@ -1386,7 +1408,7 @@ describe('uiSlice bulkSelectMode on rejection', () => {
     await store.dispatch(
       unlinkSelectedFromAgent({
         agentId: 'cursor',
-        selectedNames: [unlinkTarget('task')],
+        selectedNames: [unlinkTarget(toSkillName('task'))],
       }),
     )
 
@@ -1405,7 +1427,7 @@ describe('uiSlice source filter (selectedSources)', () => {
    */
   function skillWithSource(name: string, source?: string): Skill {
     return {
-      name,
+      name: toSkillName(name),
       description: `${name} skill`,
       path: `/home/user/.agents/skills/${name}`,
       symlinkCount: toSymlinkCount(0),
@@ -1746,11 +1768,11 @@ describe('uiSlice bulk confirm dialog', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
-        skillNames: ['task'],
+        skillNames: [toSkillName('task')],
         agentId: null,
         agentName: null,
         sourceSummary: null,
-        deleteTargets: [deleteTarget('task')],
+        deleteTargets: [deleteTarget(toSkillName('task'))],
         orphanRecords: [],
         staleDeleteErrors: [],
         orphanErrors: [],
@@ -1932,7 +1954,11 @@ describe('uiSlice selectors read the live ui state', () => {
       skipped: toSymlinkCount(0),
       errors: [],
       details: [
-        { skillName: 's', agentName: 'Claude Code', action: 'created' },
+        {
+          skillName: toSkillName('s'),
+          agentName: 'Claude Code',
+          action: 'created',
+        },
       ],
     } satisfies SyncExecuteResult)
     const store = await createTestStore()
@@ -1970,7 +1996,7 @@ describe('uiSlice selectors read the live ui state', () => {
     } = await import('./uiSlice')
     store.dispatch(
       setSelectedBookmarkForDetail({
-        name: 'task',
+        name: toSkillName('task'),
         repo: repositoryId('vercel-labs/skills'),
         url: toHttpUrl('https://github.com/vercel-labs/skills'),
         bookmarkedAt: toIsoTimestamp('2026-04-01T08:00:00.000Z'),
@@ -1980,11 +2006,11 @@ describe('uiSlice selectors read the live ui state', () => {
     store.dispatch(
       setBulkConfirm({
         kind: 'delete',
-        skillNames: ['task'],
+        skillNames: [toSkillName('task')],
         agentId: null,
         agentName: null,
         sourceSummary: null,
-        deleteTargets: [deleteTarget('task')],
+        deleteTargets: [deleteTarget(toSkillName('task'))],
         orphanRecords: [],
         staleDeleteErrors: [],
         orphanErrors: [],

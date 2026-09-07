@@ -3,7 +3,7 @@ import { EventEmitter } from 'events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { SKILLS_CLI_VERSION } from '@/shared/constants'
-import { repositoryId, toSearchQuery } from '@/shared/types'
+import { repositoryId, toSearchQuery, toSkillName } from '@/shared/types'
 import type { InstallProgress } from '@/shared/types'
 
 /**
@@ -108,7 +108,7 @@ describe('skillsCliService.cancel', () => {
     const prune = simulateCli({ autoClose: false })
     const { skillsCliService } = await import('./skillsCliService')
     const searching = skillsCliService.search(toSearchQuery('a'))
-    const pruning = skillsCliService.removeSkills(['old-skill'])
+    const pruning = skillsCliService.removeSkills([toSkillName('old-skill')])
 
     // Act
     skillsCliService.cancel()
@@ -329,7 +329,7 @@ describe('skillsCliService.install', () => {
       repo: repositoryId('vercel-labs/skills'),
       global: true,
       agents: [],
-      skills: ['task'],
+      skills: [toSkillName('task')],
     })
 
     // Assert
@@ -358,7 +358,7 @@ describe('skillsCliService.install', () => {
       repo: repositoryId('vercel-labs/skills'),
       global: true,
       agents: ['claude-code', 'cursor'],
-      skills: ['task'],
+      skills: [toSkillName('task')],
     })
 
     // Assert
@@ -391,7 +391,7 @@ describe('skillsCliService.install', () => {
       repo: repositoryId('vercel-labs/skills'),
       global: false,
       agents: [],
-      skills: ['task'],
+      skills: [toSkillName('task')],
     })
 
     // Assert — local scope means the CLI is invoked without `--global`.
@@ -518,7 +518,7 @@ describe('skillsCliService.install failure and progress', () => {
       repo: repositoryId('vercel-labs/skills'),
       global: true,
       agents: [],
-      skills: ['task'],
+      skills: [toSkillName('task')],
     })
     fake.stderr.emit('data', Buffer.from('permission denied'))
     fake.emit('close', 1)
@@ -546,7 +546,7 @@ describe('skillsCliService.install failure and progress', () => {
       repo: repositoryId('vercel-labs/skills'),
       global: true,
       agents: [],
-      skills: ['task'],
+      skills: [toSkillName('task')],
     })
     fake.emit('close', 1)
     await installPromise
@@ -575,7 +575,7 @@ describe('skillsCliService.install failure and progress', () => {
       repo: repositoryId('vercel-labs/skills'),
       global: true,
       agents: [],
-      skills: ['task'],
+      skills: [toSkillName('task')],
     })
     fake.stdout.emit('data', Buffer.from('Downloading repository archive'))
     fake.stdout.emit('data', Buffer.from('Installing skill files now'))
@@ -688,7 +688,10 @@ describe('skillsCliService.removeSkills', () => {
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act
-    await skillsCliService.removeSkills(['alpha', 'beta'])
+    await skillsCliService.removeSkills([
+      toSkillName('alpha'),
+      toSkillName('beta'),
+    ])
 
     // Assert
     expect(spawnMock).toHaveBeenCalledTimes(1)
@@ -717,7 +720,7 @@ describe('skillsCliService.removeSkills', () => {
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act
-    const result = await skillsCliService.removeSkills(['--all'])
+    const result = await skillsCliService.removeSkills([toSkillName('--all')])
 
     // Assert
     expect(spawnMock).not.toHaveBeenCalled()
@@ -730,7 +733,10 @@ describe('skillsCliService.removeSkills', () => {
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act
-    await skillsCliService.removeSkills(['--all', 'real-skill'])
+    await skillsCliService.removeSkills([
+      toSkillName('--all'),
+      toSkillName('real-skill'),
+    ])
 
     // Assert
     expect(spawnMock).toHaveBeenCalledWith(
@@ -761,7 +767,7 @@ describe('skillsCliService.removeSkills', () => {
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act
-    const pruning = skillsCliService.removeSkills(['old-skill'])
+    const pruning = skillsCliService.removeSkills([toSkillName('old-skill')])
     await vi.advanceTimersByTimeAsync(SEARCH_CEILING_MS)
 
     // Assert — still running where a search would already have been killed.
@@ -790,7 +796,7 @@ describe('skillsCliService.removeSkills', () => {
 
     // Act
     const pruning = skillsCliService
-      .removeSkills(['old-skill'])
+      .removeSkills([toSkillName('old-skill')])
       .then((value) => {
         hasResolved = true
         return value
@@ -821,7 +827,7 @@ describe('skillsCliService.removeSkills', () => {
     const { skillsCliService } = await import('./skillsCliService')
 
     // Act — no close event ever arrives.
-    const pruning = skillsCliService.removeSkills(['old-skill'])
+    const pruning = skillsCliService.removeSkills([toSkillName('old-skill')])
     await vi.advanceTimersByTimeAsync(LOCK_WRITE_CEILING_MS + KILL_GRACE_MS)
     const result = await pruning
 
@@ -844,7 +850,7 @@ describe('skillsCliService.removeSkills', () => {
     })
 
     // Act
-    await skillsCliService.removeSkills(['alpha'])
+    await skillsCliService.removeSkills([toSkillName('alpha')])
 
     // Assert
     expect(progressEvents).toEqual([])
