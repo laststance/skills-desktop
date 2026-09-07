@@ -1,7 +1,7 @@
 # Background gallery — implementation plan
 
 Reviewed: 2026-09-08 JST. Branch: `codex/background-image-trials`. Code baseline: `23f68f2`.
-Status: engineering plan reviewed; design review in progress. Feature implementation, quality gates, packaging and native QA have not run.
+Status: engineering and design plan reviews completed; design additions await a focused engineering follow-up. Feature implementation, quality gates, packaging and native QA have not run.
 
 ## Product contract
 
@@ -160,10 +160,10 @@ Use a fixed crop frame with guides; remove the mockup's resize handles. Original
 
 ## Approved Mockups
 
-| Screen  | Mockup path                                                                                                              | Direction                                                | Constraints                                                                                                 |
-| ------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Gallery | `/Users/ryotamurakami/.gstack/projects/laststance-skills-desktop/designs/background-gallery-20260908/gallery-A.png`      | Dedicated gallery dialog; fixed selection/action footer. | Opacity and layout stay in Appearance; preserve existing navigation and verified photo credits.             |
-| Crop    | `/Users/ryotamurakami/.gstack/projects/laststance-skills-desktop/designs/background-gallery-20260908/crop/variant-A.png` | Image above aspect, zoom, quality and reset controls.    | Use existing desktop tokens; crop behavior must match the chosen cropper, not decorative generated handles. |
+| Screen  | Mockup path                                                                                                                    | Direction                                                | Constraints                                                                                                 |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Gallery | `/Users/ryotamurakami/.gstack/projects/laststance-skills-desktop/designs/background-gallery-20260908/gallery-A-reviewed.png`   | Dedicated gallery dialog; fixed selection/action footer. | Opacity and layout stay in Appearance; preserve existing navigation and verified photo credits.             |
+| Crop    | `/Users/ryotamurakami/.gstack/projects/laststance-skills-desktop/designs/background-gallery-20260908/crop/crop-A-reviewed.png` | Image above aspect, zoom, quality and reset controls.    | Use existing desktop tokens; crop behavior must match the chosen cropper, not decorative generated handles. |
 
 ## What already exists
 
@@ -237,6 +237,18 @@ Effort is approximate and includes matching tests. New paths below are proposed;
 
 Add short flow comments at the image publication boundary and queued latest-intent/first-use transaction. Follow existing JSDoc, AAA, observable test names and visible UI assertions.
 
+### Design additions to Implementation Tasks
+
+These extend T3/T5/T7; they do not create another implementation lane. Estimates include matching regression checks.
+
+- [ ] **DT1 · P2 · human ~1h / AI ~15m — Implement A's gallery hierarchy.** From D1. Extend Appearance and gallery components; keep one modal scroll area and opacity/layout in Appearance. Verify all source tabs, draft vs Applied and crop return position.
+- [ ] **DT2 · P1 · human ~1.5h / AI ~20m — Expose accepted-operation states.** From D2/D6. Extend Main background operations, IPC results and gallery status UI. Verify pre-acceptance cancellation, post-acceptance Close, retained draft/Retry, replay and deletion races with real files/IPC.
+- [ ] **DT3 · P1 · human ~1.5h / AI ~20m — Align crop controls with the actual cropper.** From D4. Use a fixed frame, labelled move/zoom, source dimensions and Reset; locally override dialog scale/slide. Verify keyboard, invalid crop, restoration and recorded geometry.
+- [ ] **DT4 · P1 · human ~1h / AI ~15m — Preserve compact-window and virtual-list access.** From D5. Extend gallery/editor layouts and focus handling. Verify 600×400 / 800×600, long content, supported zoom, visible actions, credit links, virtual focus and reduced motion.
+- [ ] **DT5 · P2 · human ~30m / AI ~10m — Explain applied-but-hidden backgrounds.** From D3. Extend Appearance and success status. Verify active-mode 100%, mixed Section values, first-use-only notice and Adjust opacity focus.
+
+No new tasks from the generic-UI-risk pass; existing tokens and the approved functional photo grid cover it. No deferred design TODOs. Detailed planned checks: `/Users/ryotamurakami/.gstack/projects/laststance-skills-desktop/background-gallery-design-review-20260908-010813.md`.
+
 ## Execution order and completion gates
 
 | Step / lane                            | Modules                                             | Depends on                     |
@@ -262,23 +274,41 @@ A and B can run in separate worktrees after contracts are fixed. Keep renderer w
 - Whole-app IPC migration, separate settings database or durable background-job framework: existing typed IPC and serialized settings persistence cover this feature.
 - Version bump, release or distribution upload: owned by a later `/electron-release` request.
 - Unrelated dashboard/layout cleanup: preserve this branch's background-gallery focus.
+- Freeform resize-handle crop editor, new Settings navigation, mobile layouts, custom worker/cache/focus-retention frameworks and a new upload-trash system: existing cropper, desktop primitives and confirmation cover the approved behavior.
 
 No new deferred TODOs. Provider registration, deployment configuration and verification are explicit implementation gates, not completed work.
 
 ## GSTACK REVIEW REPORT
 
-| Review        | Trigger            | Why                                            | Runs | Status       | Findings                                                                          |
-| ------------- | ------------------ | ---------------------------------------------- | ---- | ------------ | --------------------------------------------------------------------------------- |
-| Eng Review    | `/plan-eng-review` | Architecture, code quality, tests, performance | 1    | CLEAR (PLAN) | Architecture 2; code quality 1; performance 1; eight test groups strengthened.    |
-| CEO Review    | Not requested      | Scope/strategy                                 | 0    | Not run      | Full gallery scope retained by the user.                                          |
-| Design Review | Not requested      | Visual/interaction review                      | 0    | Not run      | Engineering interaction/QA requirements recorded; visual review remains optional. |
-| Outside Voice | Skill preflight    | Independent plan challenge                     | 0    | Skipped      | Running under Codex; nested Codex passes skipped by skill rule.                   |
+| Review        | Trigger                 | Why                                            | Runs | Status                | Findings                                                                                                  |
+| ------------- | ----------------------- | ---------------------------------------------- | ---- | --------------------- | --------------------------------------------------------------------------------------------------------- |
+| Eng Review    | `/plan-eng-review`      | Architecture, code quality, tests, performance | 1    | CLEAR (original plan) | Architecture 2; code quality 1; performance 1; eight test groups strengthened.                            |
+| Design Review | User-selected follow-up | Visual/interaction completeness                | 1    | CLEAR (PLAN)          | 7/10 → 9/10; five user-selected design decisions; one explicit working default.                           |
+| CEO Review    | Not requested           | Scope/strategy                                 | 0    | Not run               | Full gallery scope retained.                                                                              |
+| Outside Voice | Optional review step    | Independent plan challenge                     | 0    | Not run               | Eng skipped nested Codex by its preflight; design optional question unanswered, primary review continued. |
 
-Scope retained. All four substantive findings accepted; all eight test groups included. Planned critical gaps: 0. Deferred TODOs: 0.
-Lake Score: 1/1 coverage choice retained the complete scope; architecture/update choices differ in kind and are not scored.
-Existing review-driven opacity/settings fixes in the baseline were traced and retained; their regression tests are extended.
-This verdict covers the plan. Implementation, automated gates, production API setup and native QA remain unperformed.
+| Design pass                   | Before              | After                                             |
+| ----------------------------- | ------------------- | ------------------------------------------------- |
+| Information architecture      | 8/10                | 10/10                                             |
+| Interaction states            | 7/10                | 10/10                                             |
+| User journey                  | 7/10                | 10/10                                             |
+| Specificity / generic UI risk | 8/10                | 9/10                                              |
+| Design system alignment       | 8/10                | 10/10                                             |
+| Compact-window accessibility  | 6/10                | 10/10                                             |
+| Unresolved decisions          | Six items clarified | 0 deferred; upload timing uses the stated default |
 
-**VERDICT:** ENG CLEARED — ready to implement the reviewed plan.
+Gallery A and Crop A were selected at 5/5 and jointly confirmed. Reviewed derivatives preserve that direction; generated imagery/credits are illustrative. DESIGN.md, visible states, journey, accessibility, five design task extensions and the design QA handoff are recorded. No new deferred TODOs. Written design completeness is not runtime or pixel-level proof.
+
+Engineering's recorded hash covers the plan before this design addendum. A focused follow-up should verify cancellation/cleanup, removed-source validation and virtual focus implications; do not claim that prior hash covers this exact revised plan.
+
+Artifacts:
+
+- Design QA: `/Users/ryotamurakami/.gstack/projects/laststance-skills-desktop/background-gallery-design-review-20260908-010813.md`.
+- Design tasks: `/Users/ryotamurakami/.gstack/projects/laststance-skills-desktop/tasks-design-review-20260908-010813.jsonl` (five tasks; proposed component paths remain subject to reuse).
+- Engineering QA/tasks: the existing engineering artifacts remain authoritative for G1–G8.
+
+Checks performed during planning: documentation formatting, diff whitespace, structured task records and static mockup review. Feature implementation, runtime tests, native motion/compositing, provider deployment and packaging verification remain unperformed.
+
+**VERDICT:** DESIGN PLAN CLEAR; original ENG review clear, focused engineering follow-up recommended for the design additions. All required behavior remains in the implementation tasks.
 
 NO UNRESOLVED DECISIONS
