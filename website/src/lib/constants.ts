@@ -13,3 +13,5 @@ export const UNSPLASH_SEARCH_DEBOUNCE_MS = 300
 export const UNSPLASH_API_ORIGIN = 'https://api.unsplash.com'
 export const UNSPLASH_IMAGE_ORIGIN = 'https://images.unsplash.com'
 export const UNSPLASH_REFERRAL_SOURCE = 'skills-desktop'
+/** Production desktop clients share Laststance's proxy; provider credentials never enter the app. */
+export const UNSPLASH_RPC_URL = 'https://skills-desktop.vercel.app/api/rpc'
