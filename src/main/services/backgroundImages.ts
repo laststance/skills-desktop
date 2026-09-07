@@ -69,13 +69,13 @@ interface BackgroundImageInput {
   credit: BackgroundCredit | null
 }
 
-/** Published local crops are ready before {@link backgrounds} commits their opaque display ID. */
+/** Published local crops are ready before {@link applyBackground} commits their opaque display ID. */
 export interface PreparedBackgroundDisplay {
   displayId: string
   image: BackgroundImageDescriptor
 }
 
-/** Gives {@link backgrounds} safe user-facing failures without leaking source paths through IPC.
+/** Gives {@link applyBackground} safe user-facing failures without leaking source paths through IPC.
  * @returns An error whose code and message can be shown in the existing notification UI.
  * @example throw new BackgroundImageError('invalid-image', 'Choose a static image.')
  */
@@ -187,68 +187,93 @@ function staticImageFormat(bytes: Buffer): BackgroundUpload['format'] {
       .equals(BACKGROUND_JPEG_SIGNATURE)
   )
     return 'jpeg'
-  const isPng = bytes
-    .subarray(0, BACKGROUND_PNG_SIGNATURE.length)
-    .equals(BACKGROUND_PNG_SIGNATURE)
-  const isWebp =
+  if (
+    bytes
+      .subarray(0, BACKGROUND_PNG_SIGNATURE.length)
+      .equals(BACKGROUND_PNG_SIGNATURE)
+  ) {
+    assertStaticPng(bytes)
+    return 'png'
+  }
+  if (
     bytes.toString('ascii', 0, 4) === 'RIFF' &&
     bytes.toString('ascii', 8, BACKGROUND_WEBP_HEADER_BYTES) === 'WEBP'
-  if (!isPng && !isWebp) {
-    throw new BackgroundImageError(
-      'invalid-image',
-      'Choose a static JPEG, PNG or WebP image.',
-    )
+  ) {
+    assertStaticWebp(bytes)
+    return 'webp'
   }
-  let offset = isPng
-    ? BACKGROUND_PNG_SIGNATURE.length
-    : BACKGROUND_WEBP_HEADER_BYTES
-  const containerEnd = isPng
-    ? bytes.length
-    : bytes.readUInt32LE(4) + BACKGROUND_CHUNK_HEADER_BYTES
-  if (containerEnd > bytes.length)
+  throw new BackgroundImageError(
+    'invalid-image',
+    'Choose a static JPEG, PNG or WebP image.',
+  )
+}
+
+/** Rejects truncated chunks for container validation before any decoder sees their payload.
+ * @returns Nothing for a complete chunk; damaged images fail safely.
+ * @example assertCompleteChunk(12, pngBytes.length)
+ */
+function assertCompleteChunk(end: number, containerEnd: number): void {
+  if (end > containerEnd)
     throw new BackgroundImageError(
       'invalid-image',
       'This image is incomplete or damaged.',
     )
-  // PNG acTL is authoritative even when Sharp reports only one page; WebP animation can also use ANIM/ANMF.
-  while (offset < containerEnd) {
-    if (offset + BACKGROUND_CHUNK_HEADER_BYTES > containerEnd)
-      throw new BackgroundImageError(
-        'invalid-image',
-        'This image is incomplete or damaged.',
-      )
-    const length = isPng
-      ? bytes.readUInt32BE(offset)
-      : bytes.readUInt32LE(offset + 4)
+}
+
+/** Rejects animation independently of Sharp page counts for both static-image container readers.
+ * @returns Nothing for static chunks; animation produces a user-facing validation error.
+ * @example assertStaticChunk(kind === 'acTL')
+ */
+function assertStaticChunk(animated: boolean): void {
+  if (animated)
+    throw new BackgroundImageError(
+      'invalid-image',
+      'Animated PNG and WebP images are not supported. Choose a static image.',
+    )
+}
+
+/** Walks PNG chunks for {@link staticImageFormat}; acTL is authoritative even when Sharp reports one page.
+ * @returns Nothing after every complete chunk has been checked for animation.
+ * @example assertStaticPng(pngBytes)
+ */
+function assertStaticPng(bytes: Buffer): void {
+  for (let offset = BACKGROUND_PNG_SIGNATURE.length; offset < bytes.length;) {
+    assertCompleteChunk(offset + BACKGROUND_CHUNK_HEADER_BYTES, bytes.length)
+    const length = bytes.readUInt32BE(offset)
     const kind = bytes.toString(
       'ascii',
-      offset + (isPng ? 4 : 0),
-      offset + (isPng ? 8 : 4),
+      offset + 4,
+      offset + BACKGROUND_CHUNK_HEADER_BYTES,
     )
-    const payload = offset + BACKGROUND_CHUNK_HEADER_BYTES
     const end =
-      payload + length + (isPng ? BACKGROUND_PNG_CRC_BYTES : length % 2)
-    if (end > containerEnd)
-      throw new BackgroundImageError(
-        'invalid-image',
-        'This image is incomplete or damaged.',
-      )
-    if (
-      kind === 'acTL' ||
-      kind === 'ANIM' ||
-      kind === 'ANMF' ||
-      (kind === 'VP8X' &&
-        length > 0 &&
-        (bytes[payload] & BACKGROUND_WEBP_ANIMATION_FLAG) !== 0)
-    ) {
-      throw new BackgroundImageError(
-        'invalid-image',
-        'Animated PNG and WebP images are not supported. Choose a static image.',
-      )
-    }
+      offset + BACKGROUND_CHUNK_HEADER_BYTES + length + BACKGROUND_PNG_CRC_BYTES
+    assertCompleteChunk(end, bytes.length)
+    assertStaticChunk(kind === 'acTL')
     offset = end
   }
-  return isPng ? 'png' : 'webp'
+}
+
+/** Walks WebP RIFF chunks for {@link staticImageFormat}, including animation flags and frame chunks.
+ * @returns Nothing after the declared complete container is proven static.
+ * @example assertStaticWebp(webpBytes)
+ */
+function assertStaticWebp(bytes: Buffer): void {
+  const containerEnd = bytes.readUInt32LE(4) + BACKGROUND_CHUNK_HEADER_BYTES
+  assertCompleteChunk(containerEnd, bytes.length)
+  for (let offset = BACKGROUND_WEBP_HEADER_BYTES; offset < containerEnd;) {
+    assertCompleteChunk(offset + BACKGROUND_CHUNK_HEADER_BYTES, containerEnd)
+    const length = bytes.readUInt32LE(offset + 4)
+    const kind = bytes.toString('ascii', offset, offset + 4)
+    const payload = offset + BACKGROUND_CHUNK_HEADER_BYTES
+    const end = payload + length + (length % 2)
+    assertCompleteChunk(end, containerEnd)
+    const animationFlag =
+      kind === 'VP8X' &&
+      length > 0 &&
+      (bytes[payload] & BACKGROUND_WEBP_ANIMATION_FLAG) !== 0
+    assertStaticChunk(kind === 'ANIM' || kind === 'ANMF' || animationFlag)
+    offset = end
+  }
 }
 
 /** Validates real source pixels and full decoding for imports and recrops, independent of file extensions.
@@ -257,6 +282,7 @@ function staticImageFormat(bytes: Buffer): BackgroundUpload['format'] {
  */
 async function validateBackgroundImage(
   bytes: Buffer,
+  requireMinimumSize = true,
 ): Promise<Pick<BackgroundUpload, 'width' | 'height' | 'format'>> {
   const format = staticImageFormat(bytes)
   try {
@@ -277,8 +303,9 @@ async function validateBackgroundImage(
         'Choose an image no larger than 80 megapixels.',
       )
     if (
-      Math.max(width, height) < BACKGROUND_MIN_LONG_EDGE_PX ||
-      Math.min(width, height) < BACKGROUND_MIN_SHORT_EDGE_PX
+      requireMinimumSize &&
+      (Math.max(width, height) < BACKGROUND_MIN_LONG_EDGE_PX ||
+        Math.min(width, height) < BACKGROUND_MIN_SHORT_EDGE_PX)
     ) {
       throw new BackgroundImageError(
         'invalid-image',
@@ -301,6 +328,30 @@ async function validateBackgroundImage(
       'This image could not be decoded. Choose an undamaged image.',
     )
   }
+}
+
+/** Validates bounded CDN bytes for {@link applyBackground} in the same single-decoder queue as local imports.
+ * @returns Actual oriented dimensions and format; small editor previews may omit the source minimum.
+ * @example await inspectBackgroundImage(downloadedBytes, true)
+ */
+export async function inspectBackgroundImage(
+  bytes: Buffer,
+  requireMinimumSize: boolean,
+  isCurrent?: () => boolean,
+): Promise<Pick<BackgroundUpload, 'width' | 'height' | 'format'>> {
+  if (bytes.length > BACKGROUND_MAX_UPLOAD_BYTES)
+    throw new BackgroundImageError(
+      'invalid-image',
+      'Choose an image no larger than 20 MiB.',
+    )
+  return queueImageProcessing(async () => {
+    if (isCurrent && !isCurrent())
+      throw new BackgroundImageError(
+        'source-missing',
+        'This background request was superseded.',
+      )
+    return validateBackgroundImage(bytes, requireMinimumSize)
+  })
 }
 
 /** Returns only converted, bounded WebP data to gallery and display callers.
@@ -465,7 +516,7 @@ export async function importBackgroundImage(
   })
 }
 
-/** Transfers a validated token to {@link backgrounds} before its first await or IPC acknowledgement.
+/** Transfers a validated token to {@link applyBackground} before its first await or IPC acknowledgement.
  * @returns The stable upload metadata reserved for this application.
  * @example const upload = claimBackgroundDraft(input.source.draftId)
  */
@@ -509,7 +560,7 @@ export async function discardBackgroundDraftsForOwner(
   await Promise.all(pendingCleanup)
 }
 
-/** Publishes a claimed original/preview directory before {@link backgrounds} references its stable upload ID.
+/** Publishes a claimed original/preview directory before {@link applyBackground} references its stable upload ID.
  * @returns The same upload metadata on a safe disk-save retry.
  * @example const upload = await publishBackgroundDraft(draftId)
  */
@@ -538,7 +589,7 @@ export async function publishBackgroundDraft(
   })
 }
 
-/** Releases the transient token after {@link backgrounds} commits or abandons its accepted application.
+/** Releases the transient token after {@link applyBackground} commits or abandons its accepted application.
  * @returns Completion; committed upload files stay owned by the saved library.
  * @example await finishBackgroundDraft(draftId, true)
  */
@@ -608,7 +659,7 @@ function localImageInput(
   }
 }
 
-/** Supplies catalog metadata to {@link backgrounds}, without exposing original files to either renderer.
+/** Supplies catalog metadata to {@link applyBackground}, without exposing original files to either renderer.
  * @returns Four credited built-ins and the current upload library with bounded thumbnails.
  * @example await getBackgroundCatalog(settings.background.uploads)
  */
@@ -666,6 +717,18 @@ export async function getBackgroundCatalog(
     }),
   )
   return { builtins, uploads: uploadItems }
+}
+
+/** Supplies local source metadata to {@link applyBackground} without decoding an editor preview during Apply or restoration.
+ * @returns Title, original dimensions and credit for a validated owned source.
+ * @example getBackgroundSourceInfo(source, settings.background.uploads)
+ */
+export function getBackgroundSourceInfo(
+  source: LocalBackgroundSource,
+  uploads: readonly BackgroundUpload[],
+): Omit<BackgroundPreview, 'source' | 'image'> {
+  const { title, width, height, credit } = localImageInput(source, uploads)
+  return { title, width, height, credit }
 }
 
 /** Supplies a bounded crop-editor preview while keeping its coordinate space tied to the actual original.
@@ -736,7 +799,7 @@ export async function getBackgroundPreview(
   })
 }
 
-/** Extracts real original pixels for {@link backgrounds}, publishing a bounded local crop before its settings reference.
+/** Extracts real original pixels for {@link applyBackground}, publishing a bounded local crop before its settings reference.
  * @returns A published display ID and descriptor, or null when queued work became obsolete.
  * @example await prepareBackgroundDisplay(source, crop, uploads, isCurrent)
  */
@@ -810,7 +873,7 @@ export async function prepareBackgroundDisplay(
   })
 }
 
-/** Loads a previously committed bounded display for {@link backgrounds} after restart.
+/** Loads a previously committed bounded display for {@link applyBackground} after restart.
  * @returns Its actual descriptor; malformed IDs never become paths.
  * @example await readBackgroundDisplay(selection.displayId)
  */
@@ -827,7 +890,7 @@ export async function readBackgroundDisplay(
   )
 }
 
-/** Deletes a known owned display only after {@link backgrounds} drops its reference or abandons preparation.
+/** Deletes a known owned display only after {@link applyBackground} drops its reference or abandons preparation.
  * @returns Completion; failures leave the caller's committed settings untouched.
  * @example await removeBackgroundDisplay(previousDisplayId)
  */
@@ -844,7 +907,7 @@ export async function removeBackgroundDisplay(
   )
 }
 
-/** Deletes a known app-owned upload only after {@link backgrounds} commits its removal.
+/** Deletes a known app-owned upload only after {@link applyBackground} commits its removal.
  * @returns Completion without touching the user-selected external original.
  * @example await removeBackgroundUpload(uploadId)
  */

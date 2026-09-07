@@ -1,19 +1,13 @@
 import { join } from 'path'
 
-import {
-  app,
-  BrowserWindow,
-  Menu,
-  nativeImage,
-  screen,
-  session,
-} from 'electron'
+import { app, BrowserWindow, Menu, nativeImage, screen } from 'electron'
 
 import { MACOS_TRAFFIC_LIGHT_POSITION_PX } from '@/shared/constants'
 import { isAllowedSkillsUrl } from '@/shared/marketplaceUrlPolicy'
 import { toPixelHeight, toPixelWidth } from '@/shared/types'
 
 import { registerAllHandlers } from './ipc/handlers'
+import { initializeBackgrounds } from './services/backgrounds'
 import { getMainWindow, setMainWindow } from './services/mainWindowState'
 import { getSettings, loadSettings } from './services/settings'
 import { createOrFocusSettingsWindow } from './services/settingsWindow'
@@ -169,20 +163,7 @@ function createWindow(): void {
 
   attachExternalLinkHandler(window)
 
-  // Enforce Content Security Policy in production builds.
-  // Use file: and app: schemes explicitly since 'self' may not reliably match file:// origins.
-  if (app.isPackaged) {
-    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-      callback({
-        responseHeaders: {
-          ...details.responseHeaders,
-          'Content-Security-Policy': [
-            "default-src 'self' file: app:; script-src 'self' file: app:; style-src 'self' 'unsafe-inline' file: app:; font-src 'self' data: file: app:; img-src 'self' data: file: app:; connect-src 'self'",
-          ],
-        },
-      })
-    })
-  }
+  // Vite injects a hashed CSP meta into both entry documents; HTTP response headers do not protect file:// pages.
 
   // HMR for renderer based on electron-vite cli
   if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
@@ -342,6 +323,7 @@ app.whenReady().then(async () => {
   // in defaults until the user manually flips a setting. loadSettings
   // swallows its own errors and falls back to defaults internally.
   await loadSettings()
+  await initializeBackgrounds()
 
   // Sweep every orphan trash entry. Fire-and-forget: errors per entry are
   // caught + logged inside trashService; we never block startup.

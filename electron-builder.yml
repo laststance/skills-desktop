@@ -5,6 +5,9 @@ directories:
   output: dist
 
 files:
+  - '!website/**'
+  - '!**/.vercel/**'
+  - '!**/.env{,.*}'
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.ts'
