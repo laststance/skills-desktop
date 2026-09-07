@@ -880,4 +880,18 @@ describe('theme:broadcast', () => {
     // Assert
     expect(result.success).toBe(false)
   })
+
+  it('blocks a key the theme contract does not declare', () => {
+    // Strict rather than stripping: an extra key means the broadcasting
+    // renderer and this schema have drifted, and a relay that fails loudly
+    // beats one that quietly drops a field the receiving reducer expects.
+    // Arrange
+    const schema = IPC_ARG_SCHEMAS['theme:broadcast']
+
+    // Act
+    const result = schema!.safeParse([{ ...validTheme, accent: 'neon' }])
+
+    // Assert
+    expect(result.success).toBe(false)
+  })
 })

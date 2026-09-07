@@ -584,7 +584,7 @@ describe('theme listener — cross-window sync', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 
-  test('subscribes to the other window only once even if hydration completes twice', async () => {
+  test('subscribes to the other window only once even if the installer runs twice', async () => {
     // Arrange
     let subscriptions = 0
     Object.defineProperty(window, 'electron', {

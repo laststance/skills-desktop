@@ -1,6 +1,23 @@
 import type { ThemePresetName } from './constants'
 
 /**
+ * Every palette `<html>` can actually wear. Declared as a value, not just a
+ * union, so `src/main/ipc/ipc-schemas.ts` can build the `theme:broadcast`
+ * `z.enum` from it — adding a mode then updates the IPC validator with it
+ * instead of leaving the two lists to drift apart silently.
+ */
+export const THEME_MODES = ['light', 'dark'] as const
+
+/** Resolved palette selector. @example 'dark' */
+export type ThemeMode = (typeof THEME_MODES)[number]
+
+/**
+ * Every value {@link ModePreference} accepts. Same single-source-of-truth
+ * reason as {@link THEME_MODES}: the IPC schema derives its enum from here.
+ */
+export const MODE_PREFERENCES = ['light', 'dark', 'system'] as const
+
+/**
  * User-facing palette mode choice.
  * - 'light' / 'dark' are sticky: the user pinned the palette and we never
  *   auto-flip it regardless of OS appearance changes.
@@ -12,7 +29,7 @@ import type { ThemePresetName } from './constants'
  * (read by the pre-hydration bootstrap script) while the preference
  * survives OS theme changes.
  */
-export type ModePreference = 'light' | 'dark' | 'system'
+export type ModePreference = (typeof MODE_PREFERENCES)[number]
 
 /**
  * Shape persisted in localStorage via `@laststance/redux-storage-middleware`,
@@ -48,7 +65,7 @@ export interface ThemeState {
    */
   chroma: number
   /** Light vs dark palette selector. Applied as `.light` / `.dark` on `<html>`. */
-  mode: 'light' | 'dark'
+  mode: ThemeMode
   /**
    * User's explicit mode choice. Persisted so the "Auto" affordance survives
    * reloads and the resolver can re-apply OS appearance after hydration.
