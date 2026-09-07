@@ -784,11 +784,11 @@ galleryTest(
         .getByRole('button', { name: 'Upload image', exact: true })
         .click()
       // Assert
-      await expect(
-        settingsWindow
-          .locator('[data-sonner-toast]')
-          .filter({ hasText: '1920' }),
-      ).toBeVisible()
+      const rejection = settingsWindow
+        .getByRole('status')
+        .filter({ hasText: 'long edge of at least 1920 px' })
+      await expect(rejection).toBeVisible()
+      await expect(rejection).toContainText('short edge of at least 1080 px')
       expect(persistedSettings(isolatedHome).background).toMatchObject({
         selected,
         uploads: [],
@@ -902,7 +902,7 @@ galleryTest(
   'keeps intentional search focus when a virtual photo target arrives after keyboard navigation and compact resize',
   async ({ electronApp, settingsWindow }) => {
     // Arrange — mock only the public HTTP/CDN boundary; the real query client, virtualizer, IPC and CSP stay active.
-    const requests: Array<{ origin: string | undefined; page: number }> = []
+    const requestedPages: number[] = []
     const pageErrors: string[] = []
     settingsWindow.on('pageerror', (error) => pageErrors.push(error.message))
     const thumbnail = await sharp({
@@ -938,10 +938,7 @@ galleryTest(
           const input = UnsplashSearchInputSchema.parse(
             route.request().postDataJSON().json,
           )
-          requests.push({
-            origin: route.request().headers().origin,
-            page: input.page,
-          })
+          requestedPages.push(input.page)
           const result = UnsplashSearchResultSchema.parse({
             items: Array.from({ length: 30 }, (_, index) => {
               const id = `fixture-${input.page}-${index}`
@@ -1045,7 +1042,9 @@ galleryTest(
         .getByRole('button', { name: 'Cancel', exact: true })
         .last(),
     ).toBeInViewport()
-    expect(requests[0]).toEqual({ origin: 'null', page: 1 })
+    // Deployed CORS is checked separately; this fixture verifies app traffic and rendering.
+    expect(new URL(settingsWindow.url()).protocol).toBe('file:')
+    expect(requestedPages[0]).toBe(1)
     expect(
       pageErrors.filter((message) =>
         /range|out.of.bounds|scrollToRow/i.test(message),
