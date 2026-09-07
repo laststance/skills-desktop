@@ -155,23 +155,33 @@ export function getSkillItemVisibility(
  * Exists because the action buttons (lock + bookmark + X) are `absolute`-positioned
  * overlays out of the content flow, so the body needs a manual right gutter to
  * keep its always-visible title-row controls (the "+ Add" button) from sliding
- * under those overlays on hover.
+ * under those overlays.
  *
- * Button positions (each 44px wide):
+ * The gutter reserves for the X even though it rests at `opacity-0`: hiding a
+ * button that way does not set `pointer-events: none`, so it keeps eating
+ * clicks at rest (DESIGN.md, Target sizing). Its box therefore does carry a
+ * layout cost, which is why it is on the same 28px scale as the other two
+ * rather than taking the 44px invisible-hit-area exception.
+ *
+ * Button positions (each 28px wide — the DESIGN.md `icon` token; the previous
+ * 44px boxes reserved 144px around three 14px glyphs, squeezing the card
+ * description to 70px at an 800px window):
  * - X (delete/unlink): right-0
- * - bookmark: right-11 when X shows, else right-0
- * - lock: right-22 when both X and bookmark show, else adjusts left
+ * - bookmark: right-7 when X shows, else right-0
+ * - lock: right-14 when both X and bookmark show, else adjusts left
+ *
+ * Each returned value is the occupied stack (28px per slot) plus 4px of gap.
  *
  * @param flags - Which overlay buttons render (from `getSkillItemVisibility` + `canBookmarkSkill`)
  * @returns
- * - `'pr-36'` (144px): lock AND bookmark AND an X button all show → clear the 132px stack
- * - `'pr-24'` (96px): two of the three overlay slots occupied
- * - `'pr-14'` (56px): exactly one overlay slot occupied
+ * - `'pr-22'` (88px): lock AND bookmark AND an X button all show → clear the 84px stack
+ * - `'pr-15'` (60px): two of the three overlay slots occupied → clear 56px
+ * - `'pr-8'` (32px): exactly one overlay slot occupied → clear 28px
  * - `'pr-4'` (16px): no overlay buttons → normal card padding
  * @example
- * getCardContentPaddingClass({ showProtect: true, showBookmark: true, showUnlinkButton: false, showDeleteButton: true }) // => 'pr-36'
- * getCardContentPaddingClass({ showProtect: false, showBookmark: true, showUnlinkButton: false, showDeleteButton: true }) // => 'pr-24'
- * getCardContentPaddingClass({ showProtect: false, showBookmark: true, showUnlinkButton: false, showDeleteButton: false }) // => 'pr-14'
+ * getCardContentPaddingClass({ showProtect: true, showBookmark: true, showUnlinkButton: false, showDeleteButton: true }) // => 'pr-22'
+ * getCardContentPaddingClass({ showProtect: false, showBookmark: true, showUnlinkButton: false, showDeleteButton: true }) // => 'pr-15'
+ * getCardContentPaddingClass({ showProtect: false, showBookmark: true, showUnlinkButton: false, showDeleteButton: false }) // => 'pr-8'
  * getCardContentPaddingClass({ showProtect: false, showBookmark: false, showUnlinkButton: false, showDeleteButton: false }) // => 'pr-4'
  */
 export function getCardContentPaddingClass(flags: {
@@ -179,7 +189,7 @@ export function getCardContentPaddingClass(flags: {
   showBookmark: boolean
   showUnlinkButton: boolean
   showDeleteButton: boolean
-}): 'pr-36' | 'pr-24' | 'pr-14' | 'pr-4' {
+}): 'pr-22' | 'pr-15' | 'pr-8' | 'pr-4' {
   const { showProtect, showBookmark, showUnlinkButton, showDeleteButton } =
     flags
   const hasXButton = showUnlinkButton || showDeleteButton
@@ -187,8 +197,8 @@ export function getCardContentPaddingClass(flags: {
   const overlayCount = [showProtect, showBookmark, hasXButton].filter(
     Boolean,
   ).length
-  if (overlayCount >= 3) return 'pr-36'
-  if (overlayCount === 2) return 'pr-24'
-  if (overlayCount === 1) return 'pr-14'
+  if (overlayCount >= 3) return 'pr-22'
+  if (overlayCount === 2) return 'pr-15'
+  if (overlayCount === 1) return 'pr-8'
   return 'pr-4'
 }
