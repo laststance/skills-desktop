@@ -198,18 +198,23 @@ describe('background image ingestion', () => {
     expect((await fs.stat(original.path)).size).toBe(20_971_521)
   })
 
-  test('fully decodes an 80 megapixel source while keeping the editor preview bounded', async () => {
-    // Arrange
-    const original = await writeImage(10000, 8000, 'jpeg')
+  // Real 80 MP fixture creation, full decode and two derivatives exceed the 5s default under parallel Linux coverage.
+  test(
+    'fully decodes an 80 megapixel source while keeping the editor preview bounded',
+    { timeout: 30_000 },
+    async () => {
+      // Arrange
+      const original = await writeImage(10000, 8000, 'jpeg')
 
-    // Act
-    const draft = await images.importBackgroundImage(original.path, 1)
+      // Act
+      const draft = await images.importBackgroundImage(original.path, 1)
 
-    // Assert
-    expect([draft.width, draft.height]).toEqual([10000, 8000])
-    expect([draft.image.width, draft.image.height]).toEqual([1920, 1536])
-    expect(descriptorBytes(draft.image.url).length).toBeLessThan(20_971_521)
-  })
+      // Assert
+      expect([draft.width, draft.height]).toEqual([10000, 8000])
+      expect([draft.image.width, draft.image.height]).toEqual([1920, 1536])
+      expect(descriptorBytes(draft.image.url).length).toBeLessThan(20_971_521)
+    },
+  )
 
   test('rejects a file that grows past 20 MiB after its size was checked', async () => {
     // Arrange
