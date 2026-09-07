@@ -65,7 +65,12 @@ let cleanupScreen: (() => void | Promise<void>) | undefined
 beforeEach(async () => {
   await page.viewport(800, 600)
   backgroundQueryClient.clear()
-  currentSnapshot = { revision: 0, operation: null, display: null }
+  currentSnapshot = {
+    revision: 0,
+    displayRetryRevision: 0,
+    operation: null,
+    display: null,
+  }
   apply.mockReset().mockImplementation(async (input) => ({
     operationId: 1,
     requestId: input.requestId,
@@ -179,6 +184,72 @@ function photo(id: string): UnsplashPhoto {
 }
 
 describe('Background gallery selection and operation lifecycle', () => {
+  test('disables Crop Apply with a visible explanation when another window removes the uploaded source', async () => {
+    // Arrange
+    const uploadId = '00000000-0000-4000-8000-000000000001'
+    const uploaded: BackgroundCatalogItem = {
+      ...lake,
+      source: { kind: 'upload', uploadId },
+    }
+    vi.spyOn(window.electron.backgrounds, 'list').mockResolvedValue({
+      builtins: [lake],
+      uploads: [uploaded],
+    })
+    const { screen, store } = await renderGallery({
+      background: {
+        ...DEFAULT_SETTINGS.background,
+        uploads: [
+          {
+            id: uploadId,
+            title: 'Alpine lake',
+            width: 3840,
+            height: 2160,
+            format: 'webp',
+            bytes: 1024,
+            importedAt: '2026-09-08T00:00:00.000Z',
+          },
+        ],
+      },
+    })
+    await screen.getByRole('tab', { name: 'Your images' }).click()
+    await screen.getByRole('radio', { name: 'Alpine lake' }).click()
+    await screen
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Crop', exact: true })
+      .click()
+    await expect
+      .element(
+        screen
+          .getByRole('dialog', { name: 'Crop background' })
+          .getByRole('button', { name: 'Apply background' }),
+      )
+      .toBeEnabled()
+    // Act
+    store.dispatch(
+      setSettings({
+        ...store.getState().settings,
+        background: { ...store.getState().settings.background, uploads: [] },
+      }),
+    )
+    // Assert
+    const crop = screen.getByRole('dialog', { name: 'Crop background' })
+    await expect
+      .element(
+        crop
+          .getByText('This uploaded image was removed. Select another image.')
+          .last(),
+      )
+      .toBeVisible()
+    await expect
+      .element(crop.getByRole('button', { name: 'Apply background' }))
+      .toBeDisabled()
+    await crop.getByRole('button', { name: 'Reset crop' }).click()
+    await expect
+      .element(crop.getByRole('button', { name: 'Apply background' }))
+      .toBeDisabled()
+    expect(apply).not.toHaveBeenCalled()
+  })
+
   test('selects a draft without applying and keeps photographer credits outside the radio', async () => {
     // Arrange
     const { screen } = await renderGallery()
@@ -347,6 +418,7 @@ describe('Background gallery selection and operation lifecycle', () => {
     // Act
     broadcast({
       revision: 3,
+      displayRetryRevision: 0,
       display: null,
       operation: {
         ...input,
@@ -356,6 +428,7 @@ describe('Background gallery selection and operation lifecycle', () => {
     })
     broadcast({
       revision: 2,
+      displayRetryRevision: 0,
       display: null,
       operation: { ...input, status: 'applying' },
     })
@@ -464,6 +537,7 @@ describe('Compact gallery and replay boundaries', () => {
     // Arrange
     currentSnapshot = {
       revision: 4,
+      displayRetryRevision: 0,
       display: null,
       operation: {
         status: 'failed',
@@ -499,6 +573,7 @@ describe('Compact gallery and replay boundaries', () => {
     const { screen } = await renderGallery()
     broadcast({
       revision: 1,
+      displayRetryRevision: 0,
       display: null,
       operation: {
         status: 'applying',

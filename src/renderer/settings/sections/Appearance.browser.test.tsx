@@ -17,6 +17,7 @@ beforeEach(() => {
       onChanged: () => () => undefined,
       getSnapshot: async () => ({
         revision: 0,
+        displayRetryRevision: 0,
         operation: null,
         display: null,
       }),

@@ -5,6 +5,7 @@ import type { BackgroundSnapshot } from '@/shared/backgrounds'
 
 let snapshot: BackgroundSnapshot = {
   revision: -1,
+  displayRetryRevision: 0,
   operation: null,
   display: null,
 }
@@ -17,22 +18,27 @@ let stopListening: (() => void) | undefined
  */
 function receiveSnapshot(next: BackgroundSnapshot): void {
   if (next.revision <= snapshot.revision) return
+  const previousOperation = snapshot.operation
   snapshot = next
   const operation = next.operation
+  // Display Retry changes its own revision; it must not replay the retained Apply outcome.
+  const operationChanged =
+    operation?.operationId !== previousOperation?.operationId ||
+    operation?.status !== previousOperation?.status
   // A single toast ID replaces old outcomes; superseded work must never leave a failure visible.
-  if (operation?.status === 'succeeded')
+  if (operationChanged && operation?.status === 'succeeded')
     toast.success('Background applied', {
       id: 'background-operation',
       description: operation.opacityAdjusted
         ? 'Background opacity was set to 60% for your first image.'
         : undefined,
     })
-  else if (operation?.status === 'failed')
+  else if (operationChanged && operation?.status === 'failed')
     toast.error('Background could not be applied', {
       id: 'background-operation',
       description: operation.error.message,
     })
-  else toast.dismiss('background-operation')
+  else if (operationChanged) toast.dismiss('background-operation')
   listeners.forEach((listener) => listener())
 }
 
@@ -59,7 +65,12 @@ function subscribeBackground(listener: () => void): () => void {
       stopListening?.()
       stopListening = undefined
       // A new renderer test or recreated bridge starts a fresh Main revision stream.
-      snapshot = { revision: -1, operation: null, display: null }
+      snapshot = {
+        revision: -1,
+        displayRetryRevision: 0,
+        operation: null,
+        display: null,
+      }
     }
   }
 }
@@ -70,4 +81,12 @@ function subscribeBackground(listener: () => void): () => void {
  */
 export function useBackgroundSnapshot(): BackgroundSnapshot {
   return useSyncExternalStore(subscribeBackground, () => snapshot)
+}
+
+/** Refreshes the selected display through Main so Retry reaches both windows without a new Apply/provider call.
+ * @returns Nothing after adopting the returned snapshot; later broadcasts still win by revision.
+ * @example await retryBackgroundDisplay()
+ */
+export async function retryBackgroundDisplay(): Promise<void> {
+  receiveSnapshot(await window.electron.backgrounds.retryDisplay())
 }

@@ -2,7 +2,7 @@ import type React from 'react'
 
 import type { BackgroundCredit as Credit } from '@/shared/backgrounds'
 
-import { UNSPLASH_REFERRAL_SOURCE } from '../../../../website/src/lib/constants'
+import { UNSPLASH_REFERRAL_SOURCE } from '../../../../../website/src/lib/constants'
 
 /** Renders separate verified attribution links for gallery captions and the main background.
  * @returns Opaque, keyboard-accessible photographer and Unsplash credits, or nothing for uploads.

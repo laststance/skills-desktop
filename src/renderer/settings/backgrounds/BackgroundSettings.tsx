@@ -2,6 +2,9 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { Crop, Image, Trash2 } from 'lucide-react'
 import { useState, type ReactElement } from 'react'
 
+import { BackgroundCredit } from '@/renderer/src/components/background/BackgroundCredit'
+import { BackgroundImage } from '@/renderer/src/components/background/BackgroundImage'
+import { BackgroundImageRetry } from '@/renderer/src/components/background/BackgroundImageRetry'
 import { SegmentedControl } from '@/renderer/src/components/shared/segmented-control'
 import { Button } from '@/renderer/src/components/ui/button'
 import { useBackgroundSnapshot } from '@/renderer/src/hooks/useBackgroundSnapshot'
@@ -11,7 +14,6 @@ import { WINDOW_OPACITY_MAX_PERCENT } from '@/shared/constants'
 
 import { SectionRow } from '../sections/SectionFrame'
 
-import { BackgroundCredit } from './BackgroundCredit'
 import { BackgroundGallery } from './BackgroundGallery'
 import { backgroundQueryClient } from './query'
 import { useBackgroundGallery } from './useBackgroundGallery'
@@ -44,7 +46,6 @@ function BackgroundSettingsContent(): ReactElement {
   const gallery = useBackgroundGallery(snapshot)
   const [previewState, setPreviewState] = useState({
     failedUrl: '',
-    retry: 0,
     saving: false,
   })
   const display = snapshot.display
@@ -56,7 +57,9 @@ function BackgroundSettingsContent(): ReactElement {
           settings.centerSectionOpacityPercent,
           settings.rightSectionOpacityPercent,
         ].every((value) => value === WINDOW_OPACITY_MAX_PERCENT)
-  const unavailable = display && previewState.failedUrl === display.image.url
+  const unavailable = display
+    ? previewState.failedUrl === display.image.url
+    : settings.background.selected && snapshot.revision >= 0
   const changeLayout = (layout: BackgroundLayout): void => {
     void gallery
       .saveMutation(async () => window.electron.backgrounds.setLayout(layout))
@@ -71,11 +74,10 @@ function BackgroundSettingsContent(): ReactElement {
       <div className="flex items-center gap-3">
         <div className="flex h-20 w-32 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted">
           {display ? (
-            <img
-              key={`${display.image.url}:${previewState.retry}`}
-              className="h-full w-full object-cover"
-              src={display.image.url}
-              alt={display.title}
+            <BackgroundImage
+              display={display}
+              layout={settings.background.layout}
+              retryRevision={snapshot.displayRetryRevision}
               onError={() =>
                 setPreviewState((current) => ({
                   ...current,
@@ -92,7 +94,10 @@ function BackgroundSettingsContent(): ReactElement {
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm" title={display?.title}>
-            {display?.title ?? 'No background image'}
+            {display?.title ??
+              (settings.background.selected
+                ? 'Background unavailable'
+                : 'No background image')}
           </p>
           <BackgroundCredit credit={display?.credit ?? null} />
           <div className="mt-2 flex gap-2">
@@ -141,20 +146,7 @@ function BackgroundSettingsContent(): ReactElement {
       </Button>
       {unavailable ? (
         <p role="status" className="mt-2 text-xs">
-          Background unavailable.{' '}
-          <Button
-            variant="link"
-            size="xs"
-            onClick={() =>
-              setPreviewState((current) => ({
-                ...current,
-                failedUrl: '',
-                retry: current.retry + 1,
-              }))
-            }
-          >
-            Retry image
-          </Button>
+          Background unavailable. <BackgroundImageRetry />
         </p>
       ) : null}
       {settings.background.selected && hidden ? (
