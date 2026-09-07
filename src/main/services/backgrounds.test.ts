@@ -762,6 +762,118 @@ describe('Main-owned background application transactions', () => {
     ).toEqual(fixtureBytes)
   })
 
+  test('a failed old-display cleanup preserves the newly committed crop and does not block later settings writes', async () => {
+    // Arrange
+    const uploadId = await addUpload()
+    const previousSelection = settings.getSettings().background.selected
+    if (!previousSelection?.displayId)
+      throw new Error('Expected the previously committed local display')
+    const previousDisplayPath = join(
+      native.userData,
+      'backgrounds/displays',
+      `${previousSelection.displayId}.webp`,
+    )
+    const previousDisplayBytes = await fs.readFile(previousDisplayPath)
+    const removeFile = fs.rm
+    const deletionFailure = vi
+      .spyOn(fs, 'rm')
+      .mockImplementation(async (path, options) => {
+        if (path === previousDisplayPath)
+          throw new Error('private local path: old display deletion denied')
+        return removeFile(path, options)
+      })
+    const warnings = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    // Act
+    backgrounds.applyBackground({
+      ...applicationInput({ kind: 'upload', uploadId }),
+      crop: { x: 0, y: 0, width: 80, height: 80 },
+    })
+    await waitForApplication('succeeded')
+    await vi.waitFor(() =>
+      expect(warnings).toHaveBeenCalledWith(
+        '[backgrounds] unused display cleanup failed',
+      ),
+    )
+    await backgrounds.setBackgroundLayout('fit')
+    // Assert
+    const selection = settings.getSettings().background.selected
+    expect(selection?.displayId).not.toBe(previousSelection.displayId)
+    expect((await diskSettings()).background).toMatchObject({
+      selected: selection,
+      layout: 'fit',
+    })
+    expect(backgrounds.getBackgroundSnapshot().display?.selection).toEqual(
+      selection,
+    )
+    expect(await fs.readFile(previousDisplayPath)).toEqual(previousDisplayBytes)
+    expect(await fs.readFile(fixture)).toEqual(fixtureBytes)
+    const crop = await sharp(
+      join(
+        native.userData,
+        'backgrounds/displays',
+        `${selection?.displayId}.webp`,
+      ),
+    ).metadata()
+    expect([crop.width, crop.height]).toEqual([1920, 1280])
+    deletionFailure.mockRestore()
+    await backgrounds.clearBackground()
+    expect((await diskSettings()).background.selected).toBeNull()
+  })
+
+  test('failed abandoned-upload cleanup cannot resurrect a cleared draft or poison the next real import', async () => {
+    // Arrange
+    const draft = await images.importBackgroundImage(fixture, 1)
+    const abandonedDirectory = join(
+      native.userData,
+      'backgrounds/staging',
+      draft.source.draftId,
+    )
+    const pause = pausePreparation()
+    const removeFile = fs.rm
+    const deletionFailure = vi
+      .spyOn(fs, 'rm')
+      .mockImplementation(async (path, options) => {
+        if (path === abandonedDirectory)
+          throw new Error(
+            'private local path: abandoned upload deletion denied',
+          )
+        return removeFile(path, options)
+      })
+    const warnings = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    backgrounds.applyBackground(applicationInput(draft.source))
+    await pause.entered.promise
+    // Act
+    await backgrounds.clearBackground()
+    pause.release.resolve()
+    await vi.waitFor(() =>
+      expect(warnings).toHaveBeenCalledWith(
+        '[backgrounds] abandoned upload cleanup failed',
+      ),
+    )
+    // Assert
+    expect(settings.getSettings().background).toEqual({
+      selected: null,
+      layout: 'fill',
+      uploads: [],
+      hasAppliedImage: false,
+    })
+    expect(settings.getSettings().windowBackgroundOpacityPercent).toBe(100)
+    expect(backgrounds.getBackgroundSnapshot().operation?.status).toBe(
+      'superseded',
+    )
+    expect(await fs.readFile(join(abandonedDirectory, 'original'))).toEqual(
+      fixtureBytes,
+    )
+    expect(await fs.readFile(fixture)).toEqual(fixtureBytes)
+    deletionFailure.mockRestore()
+    const nextUploadId = await addUpload()
+    expect((await diskSettings()).background).toMatchObject({
+      selected: { source: { kind: 'upload', uploadId: nextUploadId } },
+      uploads: [{ id: nextUploadId }],
+      hasAppliedImage: true,
+    })
+  })
+
   test('unchanged nested background settings, layout and unknown removal perform no write or broadcast', async () => {
     // Arrange
     await addUpload()
