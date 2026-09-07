@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -76,7 +76,7 @@ async function renderStats(skills: Skill[], agents: Agent[]) {
 }
 
 describe('StatsWidget', () => {
-  it('counts only symlinked skills as Linked and only on-disk agents as active', async () => {
+  test('counts only symlinked skills as Linked and only on-disk agents as active', async () => {
     // Arrange: 3 skills where 2 carry valid symlinks and 1 is unlinked (count 0),
     // plus 4 agents where exactly 1 has its skills dir on disk and 3 do not. The
     // resulting numbers (Skills 3, Linked 2, Agents 1) are deliberately distinct
