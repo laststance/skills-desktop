@@ -138,9 +138,9 @@ const ProtectButton = function ProtectButton({
 
   const rightClass =
     showBookmark && hasXButton
-      ? 'right-22'
+      ? 'right-14'
       : hasXButton || showBookmark
-        ? 'right-11'
+        ? 'right-7'
         : 'right-0'
 
   return (
@@ -152,7 +152,7 @@ const ProtectButton = function ProtectButton({
           aria-label={isProtected ? `Unlock ${skillName}` : `Lock ${skillName}`}
           data-testid={`skill-protect-${skillName}`}
           className={cn(
-            'absolute top-1.5 min-h-11 min-w-11 flex items-center justify-center rounded-md z-10 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            'absolute top-3.5 size-7 flex items-center justify-center rounded-md z-10 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             rightClass,
             isProtected
               ? 'text-foreground'
@@ -721,8 +721,8 @@ export const SkillItem = function SkillItem({
               'p-4',
               // Reserve right space for the absolute-positioned X/bookmark
               // overlays so the always-visible "+ Add" control never slides
-              // under them on hover. Bookmark + X stack to 88px, so that case
-              // needs pr-24 (96px), not the single-button pr-14 (56px).
+              // under them. Bookmark + X stack to 56px, so that case needs
+              // pr-15 (60px), not the single-button pr-8 (32px).
               getCardContentPaddingClass({
                 showProtect: true,
                 showBookmark,
@@ -836,7 +836,7 @@ const SkillItemOverlayActions = function SkillItemOverlayActions({
       }
       data-testid={`skill-delete-${skill.name}`}
       className={cn(
-        'absolute top-1.5 right-0 min-h-11 min-w-11 flex items-center justify-center rounded-md z-10 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        'absolute top-3.5 right-0 size-7 flex items-center justify-center rounded-md z-10 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
         isProtected
           ? 'cursor-not-allowed text-muted-foreground opacity-40'
           : 'text-muted-foreground opacity-0 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100',
@@ -859,7 +859,7 @@ const SkillItemOverlayActions = function SkillItemOverlayActions({
                   ? `Delete ${skill.name} from ${selectedAgentName}`
                   : `Unlink ${skill.name} from ${selectedAgentName}`
               }
-              className="absolute top-1.5 right-0 min-h-11 min-w-11 flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="absolute top-3.5 right-0 size-7 flex items-center justify-center rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -899,8 +899,8 @@ const SkillItemOverlayActions = function SkillItemOverlayActions({
                   : `Bookmark ${skill.name}`
               }
               className={cn(
-                'absolute top-1.5 min-h-11 min-w-11 flex items-center justify-center rounded-md z-10 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                showUnlinkButton || showDeleteButton ? 'right-11' : 'right-0',
+                'absolute top-3.5 size-7 flex items-center justify-center rounded-md z-10 transition-opacity focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                showUnlinkButton || showDeleteButton ? 'right-7' : 'right-0',
                 isBookmarked
                   ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground opacity-40 group-hover:opacity-100 focus-visible:opacity-100',

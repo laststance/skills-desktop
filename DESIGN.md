@@ -598,6 +598,10 @@ finger-target minimum does not apply. The floor is WCAG 2.5.8 AA: 24x24 CSS px
   a bulk-select checkbox wrapper can keep a 44px (`min-h-11 min-w-11`) target:
   the glyph stays small, nothing reads as chunky, and the larger target is pure
   ergonomics. This is the ONLY sanctioned use of 44px on a control.
+- **A reservation voids that exception.** `opacity-0` does not set
+  `pointer-events: none`, so a gutter that keeps a neighbouring control
+  clickable must clear the hidden box — and that reservation is a layout cost.
+  Such a control returns to the scale above (see `getCardContentPaddingClass`).
 - Dense row controls may show a smaller glyph inside a 24px-or-larger target. An
   invisible `after:-inset-*` halo can extend the comfortable click area, but
   never over a row that is itself clickable: `opacity-0` controls stay

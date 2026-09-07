@@ -707,8 +707,8 @@ describe('getCardContentPaddingClass', () => {
     // Act
     const paddingClass = getCardContentPaddingClass(flags)
 
-    // Assert — pr-24 (96px) clears the 88px stack with an 8px gap.
-    expect(paddingClass).toBe('pr-24')
+    // Assert — pr-15 (60px) clears the 56px stack with a 4px gap.
+    expect(paddingClass).toBe('pr-15')
   })
 
   it('reserves the wide gutter when a bookmark stacks with the unlink button in agent view', () => {
@@ -724,7 +724,7 @@ describe('getCardContentPaddingClass', () => {
     const paddingClass = getCardContentPaddingClass(flags)
 
     // Assert
-    expect(paddingClass).toBe('pr-24')
+    expect(paddingClass).toBe('pr-15')
   })
 
   it('reserves a single-button gutter when only the bookmark shows', () => {
@@ -740,8 +740,8 @@ describe('getCardContentPaddingClass', () => {
     // Act
     const paddingClass = getCardContentPaddingClass(flags)
 
-    // Assert — pr-14 (56px) clears one 44px button.
-    expect(paddingClass).toBe('pr-14')
+    // Assert — pr-8 (32px) clears one 28px button with a 4px gap.
+    expect(paddingClass).toBe('pr-8')
   })
 
   it('reserves a single-button gutter when only an X button shows (non-bookmarkable skill)', () => {
@@ -757,7 +757,7 @@ describe('getCardContentPaddingClass', () => {
     const paddingClass = getCardContentPaddingClass(flags)
 
     // Assert
-    expect(paddingClass).toBe('pr-14')
+    expect(paddingClass).toBe('pr-8')
   })
 
   it('uses normal padding when no overlay buttons render', () => {
@@ -789,8 +789,8 @@ describe('getCardContentPaddingClass', () => {
     // Act
     const paddingClass = getCardContentPaddingClass(flags)
 
-    // Assert — pr-36 (144px) clears the full three-button 132px stack.
-    expect(paddingClass).toBe('pr-36')
+    // Assert — pr-22 (88px) clears the full three-button 84px stack.
+    expect(paddingClass).toBe('pr-22')
   })
 
   it('reserves the widest gutter when lock, bookmark, and unlink all show', () => {
@@ -806,7 +806,7 @@ describe('getCardContentPaddingClass', () => {
     const paddingClass = getCardContentPaddingClass(flags)
 
     // Assert
-    expect(paddingClass).toBe('pr-36')
+    expect(paddingClass).toBe('pr-22')
   })
 
   it('reserves the two-button gutter when lock and bookmark show without an X', () => {
@@ -822,8 +822,8 @@ describe('getCardContentPaddingClass', () => {
     // Act
     const paddingClass = getCardContentPaddingClass(flags)
 
-    // Assert — pr-24 (96px) clears the 88px two-button stack.
-    expect(paddingClass).toBe('pr-24')
+    // Assert — pr-15 (60px) clears the 56px two-button stack.
+    expect(paddingClass).toBe('pr-15')
   })
 
   it('reserves the two-button gutter when lock and an X show without a bookmark', () => {
@@ -839,7 +839,7 @@ describe('getCardContentPaddingClass', () => {
     const paddingClass = getCardContentPaddingClass(flags)
 
     // Assert
-    expect(paddingClass).toBe('pr-24')
+    expect(paddingClass).toBe('pr-15')
   })
 
   it('reserves a single-button gutter when only the lock button shows', () => {
@@ -855,7 +855,7 @@ describe('getCardContentPaddingClass', () => {
     // Act
     const paddingClass = getCardContentPaddingClass(flags)
 
-    // Assert — pr-14 (56px) clears a single 44px button.
-    expect(paddingClass).toBe('pr-14')
+    // Assert — pr-8 (32px) clears a single 28px button.
+    expect(paddingClass).toBe('pr-8')
   })
 })
