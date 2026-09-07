@@ -1,12 +1,12 @@
 # Background gallery — implementation plan
 
 Reviewed: 2026-09-08 JST. Branch: `codex/background-image-trials`. Code baseline: `23f68f2`.
-Status: engineering plan reviewed; feature implementation, quality gates, packaging and native QA have not run.
+Status: engineering plan reviewed; design review in progress. Feature implementation, quality gates, packaging and native QA have not run.
 
 ## Product contract
 
 - Keep the complete gallery: four bundled Unsplash photos, live Unsplash search with infinite scrolling, local uploads and cropping for every source.
-- Settings → Appearance: Built-in / Unsplash / Your images tabs, selected preview, Upload, Crop, Clear and nearby opacity controls. Use the existing settings layout and a bounded 2–3-column gallery.
+- Settings → Appearance: current background, Choose background, Crop, Clear, Fill / Fit / Tile and nearby opacity controls. Choose background opens the approved A dialog with Built-in / Unsplash / Your images tabs and a bounded 2–3-column gallery.
 - Keep Fill / Fit / Tile, default Fill. Crop aspects: Original / 16:9 / 16:10; default full image. Drag, zoom, keyboard, Reset and Cancel supported.
 - Source and accepted crop: long edge ≥1920 px AND short edge ≥1080 px, after orientation. No upscaling to pass validation. Uploads: static JPEG / PNG / WebP, ≤20 MiB and ≤80,000,000 pixels.
 - Start with no background. Preserve existing opacity range 0–100%, default/reset 100%. On the first successful image application only, change the active mode to 60% if all its current values are 100%; preserve hidden-mode values. Commit this flag, opacity and selection together.
@@ -85,7 +85,7 @@ Sharp behavior: [metadata](https://sharp.pixelplumbing.com/api-input/), [input l
 - Use one background layer behind all three panes. Foreground/native opacity remains 1; existing background-alpha tokens and text correction remain authoritative.
 - Settings, menus, dialogs, notifications, syntax-colored code and external webviews retain opaque surfaces. Background changes never move/remount the preview webview.
 - Render the accepted crop in Fill, Fit and Tile using native clipping/scaling/pattern primitives. Fit must not reveal pixels outside the crop in its letterbox area; Tile repeats the cropped region. Unsplash rendering continues to reference the direct CDN URL. Request sufficient source resolution for the crop, not just its preview.
-- Reuse the chosen gallery mock's layout, existing controls and `react-window`; use `react-easy-crop` for editing. Persist percentages for restoration, display real crop dimensions, disable invalid Apply and avoid scale animations on the crop container.
+- Reuse the approved A gallery and crop layouts, existing controls and `react-window`; use `react-easy-crop` for editing. Persist percentages for restoration, display real crop dimensions, disable invalid Apply and avoid scale animations on the crop container.
 - Search debounce 300 ms, 30 items/page, initial nature/landscape query. Key cached data by normalized query; consume abort signals, deduplicate photo IDs and fetch the next page only when there is a next page and no fetch is active.
 - Stale time 5 minutes; explicitly disable focus, mount and reconnect refetch. Disable retry-on-remount for errors; never automatically retry quota errors or download notifications. Explicit Refresh cancels the old request and resets to the first page.
 - Retain loaded metadata and scroll position during the current browsing session. Virtualize image rows; release image/blob resources when no longer used. Let inactive query caches expire; do not add a second cache or drop active pages merely to cap the list.
@@ -93,6 +93,77 @@ Sharp behavior: [metadata](https://sharp.pixelplumbing.com/api-input/), [input l
 - Bundled/uploaded images work offline. For an unavailable online image, show the theme fallback while retaining the selected source and offering retry; do not silently replace it.
 
 References: [oRPC v1 TanStack integration](https://v1.orpc.dev/docs/integrations/tanstack-query), [Next adapter](https://v1.orpc.dev/docs/adapters/next), [TanStack infinite queries](https://tanstack.com/query/v5/docs/framework/react/guides/infinite-queries), [react-easy-crop](https://github.com/ValentinH/react-easy-crop).
+
+## Approved design direction
+
+Gallery A and Crop A selected on their comparison boards (5/5 each), then jointly confirmed. Preserve the existing Settings navigation and DESIGN.md; generated photo credits, dimensions and extra controls are illustrative, not production data. The gallery A machine check flagged layout deviations; its duplicate opacity control is explicitly excluded by the user's confirmed choice.
+
+```text
+Settings → Appearance
+  Current background + Crop / Clear
+  Choose background
+  Fill / Fit / Tile → existing Entire / Section opacity
+          ↓
+Choose background [opaque dialog]
+  Built-in | Unsplash | Your images                  Upload
+  Search + Refresh [Unsplash only]
+  Photo gallery [one bounded scroll region]
+  Preview: selected title + Crop        Cancel | Apply background
+          ↓ Crop
+Crop background [opaque editor]
+  Image + crop guides
+  Original | 16:9 | 16:10     Zoom     Selected area
+  Reset crop                           Cancel | Apply background
+```
+
+Three priorities: find an image, inspect the draft, apply it. Tile activation selects a draft only; it never changes the main background or sends a provider notification. Distinguish keyboard focus, draft selection (border + check + accessible name) and the current image (`Applied` label). Keep image credits on opaque caption surfaces, outside the image-selection button.
+
+Before Main accepts Apply, Cancel/Escape discards that view's changes and restores its opener. After acceptance, show `Applying background…` and `Close`; explain once, `You can close Settings. Applying will continue.` Guard duplicate Apply, keep the committed image visible, and replay the latest outcome on reopening. Failure keeps the draft for Retry and the previous background; superseded operations never display stale failure toasts.
+
+Working default: upload import remains staged until Apply commits the library and selection together. The optional timing question received no answer; this follows the existing planned transaction rather than recording user approval. Cancelling a new import removes only its draft files. Cancelling an existing image's crop restores its previous crop. Main releases unaccepted drafts on Settings closure; accepted work retains its inputs. Opening Crop from the gallery preserves its query, scroll and draft when returning; its `Apply background` uses the same single application path.
+
+### Visible states and recovery
+
+| Feature              | Loading                                      | Empty                                    | Error                                                                                | Success                                                  | Partial                                                                     |
+| -------------------- | -------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Online gallery       | Labelled thumbnail skeletons.                | `No photos found` + change search.       | Retry / Refresh; quota reset time when known.                                        | Photos + linked credits.                                 | Keep loaded photos; footer Retry for next-page failure; explicit end label. |
+| Your images / Upload | `Checking image…`; current background stays. | `No uploaded images yet` + Upload image. | Explain format, size, resolution or decode failure; choose another.                  | Valid draft opens Crop.                                  | Missing thumbnail gets a labelled fallback; no automatic library deletion.  |
+| Crop                 | Bounded preview + loading status.            | No source: return to selection.          | Actual dimensions + minimum requirement; Apply disabled.                             | Preview + real selected pixel dimensions.                | Invalid draft stays editable; Reset restores Original/full image.           |
+| Apply                | `Applying background…` + Close.              | No valid draft: Apply disabled.          | Draft and current background retained + Retry; uncertain provider timeout explained. | `Background applied`; update Applied marker.             | Close/reopen shows latest operation result; newer intent wins.              |
+| Active online image  | Theme fallback while fetching.               | No image: existing theme.                | `Background unavailable` + Retry in Appearance; retain reference.                    | Chosen image behind panes.                               | At active-mode 100%: `Hidden at 100% opacity` + Adjust opacity.             |
+| Remove upload        | Pending action; prevent duplicate removal.   | No selection: action unavailable.        | Keep library/background + visible error.                                             | Remove owned copy; active background cleared atomically. | A removed draft becomes unavailable, never resurrected by delayed Apply.    |
+
+Use existing status/skeleton/Toaster patterns. Status announcements are polite and occur at stage changes, not every crop frame. No fake percent progress. The first application toast mentions 60% only when that transaction actually changed opacity. `Adjust opacity` focuses the active-mode slider; show the hidden hint only when every active-mode value is 100%. For mixed Section values, retain the visible panes normally.
+
+Remove is a separate, labelled action outside the selection button. Reuse the existing confirmation dialog: identify the app-owned copy, state that the external original is untouched, and disclose clearing the current background when relevant. Clear remains distinct: remove the selection, retain the library and layout. After an external removal, reject pending Apply against the latest library snapshot.
+
+### Journey and input contract
+
+| Step            | User experience                                        | Support                                                                 |
+| --------------- | ------------------------------------------------------ | ----------------------------------------------------------------------- |
+| First 5 seconds | Understand current background and entry point.         | Current preview + one Choose background action; no empty hero.          |
+| Browse          | Explore without changing the workspace.                | Draft vs Applied; stable tabs, search, results and scroll.              |
+| Crop            | Know what will be kept and whether it is large enough. | Fixed ratio frame; move/zoom image; real source-pixel dimensions.       |
+| Apply           | Know whether the change completed.                     | Applying/Close, retained previous image, recoverable Retry.             |
+| Later use       | Re-edit safely, including offline local images.        | Owned originals, preserved crop/layout/opacity, explicit removal scope. |
+
+Use a fixed crop frame with guides; remove the mockup's resize handles. Original uses the oriented source ratio; 16:9 and 16:10 constrain it. Drag/arrow keys move the image; the labelled zoom range and +/- buttons resize it. Reset restores the full source, Original and initial zoom. Never infer an unrestricted rectangle editor from the mockup. Reuse `react-easy-crop` keyboard support; no custom crop engine. Source: [cropper props and keyboard behavior](https://github.com/ValentinH/react-easy-crop#props).
+
+### Window size, focus and tokens
+
+- Preserve Settings 800×600 default / 600×400 minimum. Gallery max 720×520; crop max 720×540; both clamp to the available window with 16px outer margins. Keep header/footer fixed and the central area scrollable. No nested gallery/page scroll while the modal is open.
+- Gallery uses three columns when its content is at least 520px wide, otherwise two. Thumbnails reserve their aspect ratio; long names/credits truncate with accessible full text. At reduced height or increased zoom, central content may scroll; actions remain reachable without horizontal scrolling.
+- Reuse the existing Dialog, Tabs, Button, SegmentedControl, ranges and Toaster. Override the crop dialog's inherited scale/slide animation and footer's mobile stacking locally; do not change every dialog. Keep controls outside the native drag region. Use fade only (150–200ms); reduced motion removes it.
+- Source tabs use existing tab keyboard behavior. Use one radio-group selection stop with arrow navigation through photos, independent visible focus, and explicit draft/Applied labels. Render a keyboard destination before focusing it. If manual scrolling removes a focused row, move focus to the stable gallery container; the next arrow continues among visible rows. Do not inflate the rendered range merely to pin a distant row. Credits and selected-image actions remain separate links/buttons, not nested interactive elements. Provide Load more / Retry for keyboard users.
+- Crop has a named, focusable editing surface with instructions; arrows move only while that surface is focused. Zoom has a visible label/value. Invalid Apply is associated with its reason. Escape returns to the opener before acceptance, and behaves as Close after acceptance. Crop-to-gallery restores the source tile; if removed, focus the gallery heading. Dialog dismissal restores Choose background or the originating Crop button.
+- Follow DESIGN.md: Inter 12–14px body, 11–12px metadata, 16–20px dialog title, 32px text buttons, 28px icon buttons, ≥24px targets, 4px spacing grid, 6–8px control/tile radii. Use theme tokens and opaque captions; no decorative gradients, extra navigation, heavy card shadows or opacity on text. Verify light/dark themes, visible focus and 4.5:1 text contrast on opaque controls.
+
+## Approved Mockups
+
+| Screen  | Mockup path                                                                                                              | Direction                                                | Constraints                                                                                                 |
+| ------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Gallery | `/Users/ryotamurakami/.gstack/projects/laststance-skills-desktop/designs/background-gallery-20260908/gallery-A.png`      | Dedicated gallery dialog; fixed selection/action footer. | Opacity and layout stay in Appearance; preserve existing navigation and verified photo credits.             |
+| Crop    | `/Users/ryotamurakami/.gstack/projects/laststance-skills-desktop/designs/background-gallery-20260908/crop/variant-A.png` | Image above aspect, zoom, quality and reset controls.    | Use existing desktop tokens; crop behavior must match the chosen cropper, not decorative generated handles. |
 
 ## What already exists
 

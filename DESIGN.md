@@ -313,6 +313,38 @@ Rules:
   a minimum 24px range hit area. Verify CSS color math separately from visible
   macOS compositing, and inspect recorded transition frames.
 
+### Background Gallery (planned)
+
+This section specifies the reviewed gallery feature; implementation and visual QA
+are still pending. Keep the existing opacity contract above.
+
+- Appearance owns the current preview, Choose background, Crop, Clear, layout and
+  opacity. Browse in a dedicated opaque dialog with Built-in / Unsplash / Your
+  images tabs. Do not duplicate opacity or layout controls inside the gallery.
+- Separate focus, draft selection and Applied. Selecting a photo previews it;
+  only Apply changes the workspace. Keep credits outside the selection button
+  on opaque captions, with accessible photographer/Unsplash links.
+- Before acceptance, Cancel discards the draft. During application, show progress
+  and Close; state that closing Settings does not stop accepted work. Retain the
+  previous image on failure and offer Retry. Do not show invented percentage
+  progress or stale outcomes from superseded actions.
+- At active-mode 100%, explain that the selected image is hidden and link to the
+  opacity control. Preserve the existing first-application-only adjustment;
+  subsequent selections and Clear never silently change opacity.
+- Crop uses a fixed ratio frame, image movement and zoom; show real source-pixel
+  dimensions and an inline reason for invalid Apply. No nonfunctional resize
+  handles. Reset restores the full image. Keep editor controls outside the image.
+- Preserve the 600×400 Settings minimum. Clamp dialogs to the window, keep their
+  header/footer reachable, and scroll central content. Avoid nested page/gallery
+  scrolling. Restore focus and scroll when returning from Crop. Before a focused
+  row leaves the virtual range, hand focus to the stable gallery container;
+  keyboard navigation renders its destination first. Expose Load more / Retry.
+- Reuse existing desktop tokens and components. Override scale/slide motion only
+  for the crop surface to keep geometry stable; reduced motion removes the fade.
+- Name removal scope before confirmation: app-owned copy, external original
+  untouched, current background cleared if active. Clear and Remove remain
+  distinct actions; no silent upload-library deletion.
+
 ## Motion
 
 Motion should clarify cause and effect without making the app feel animated.
