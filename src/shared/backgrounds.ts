@@ -17,7 +17,7 @@ import {
 /** Opaque IDs select app-owned records, never caller-supplied filesystem paths. */
 export const BackgroundOwnedIdSchema = z.uuid()
 export const BackgroundLayoutSchema = z.enum(BACKGROUND_LAYOUTS)
-export const BackgroundCropAspectSchema = z.enum(BACKGROUND_CROP_ASPECTS)
+const BackgroundCropAspectSchema = z.enum(BACKGROUND_CROP_ASPECTS)
 
 /** Oriented-source percentages survive preview resizing; Main validates real crop pixels again. */
 export const BackgroundCropSchema = z
@@ -35,7 +35,7 @@ export const BackgroundCropSchema = z
   )
 
 /** Stable references may be persisted; transient draft tokens are deliberately excluded. */
-export const BackgroundSourceSchema = z.discriminatedUnion('kind', [
+const BackgroundSourceSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('builtin'),
     builtinId: z.enum(BUILTIN_BACKGROUND_IDS),
@@ -76,7 +76,7 @@ export const BackgroundUploadSchema = z
   )
 
 /** Local display IDs refer to prepared crops; online images stay hotlinked with a percentage crop. */
-export const BackgroundSelectionSchema = z
+const BackgroundSelectionSchema = z
   .strictObject({
     source: BackgroundSourceSchema,
     crop: BackgroundCropSchema,
