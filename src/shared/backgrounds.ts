@@ -230,9 +230,9 @@ export interface BackgroundOperationError {
 }
 
 /** Only Apply has long-running state; Clear and Remove remain ordinary serialized settings mutations. */
-export type BackgroundOperation = BackgroundApplyAcceptance & {
-  source: BackgroundApplySource
-} & (
+export type BackgroundOperation = BackgroundApplyAcceptance &
+  Pick<BackgroundApplyInput, 'source' | 'crop' | 'aspect'> &
+  (
     | { status: 'applying' }
     | { status: 'succeeded'; opacityAdjusted: boolean }
     | { status: 'failed'; error: BackgroundOperationError }
