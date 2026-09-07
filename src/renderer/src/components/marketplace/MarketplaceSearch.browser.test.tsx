@@ -120,12 +120,17 @@ describe('MarketplaceSearch — incremental search', () => {
     // Arrange — search never gets to run; the clear should pre-empt it.
     const { input } = await renderSearch()
 
-    // Act — type, then clear within the same quiet window.
-    await input.fill('react')
-    await input.fill('')
-
-    // Assert — well past the debounce window, no remote call ever happened.
-    await new Promise((resolve) => setTimeout(resolve, SEARCH_DEBOUNCE_MS * 2))
-    expect(mockSearch).not.toHaveBeenCalled()
+    // Freeze the debounce clock so parallel builds cannot turn this into a completed-search test.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      // Act — type, then clear within the same quiet window.
+      await input.fill('react')
+      await input.fill('')
+      await vi.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS * 2)
+      // Assert
+      expect(mockSearch).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
 
 import { useDebouncedCallback } from './useDebouncedCallback'
@@ -10,7 +10,7 @@ import { useDebouncedCallback } from './useDebouncedCallback'
 const DELAY_MS = 50
 
 describe('useDebouncedCallback', () => {
-  it('runs only the final call in a burst, and only after the quiet period', async () => {
+  test('runs only the final call in a burst, and only after the quiet period', async () => {
     // Arrange
     const callback = vi.fn()
     const { result } = await renderHook(() =>
@@ -30,7 +30,7 @@ describe('useDebouncedCallback', () => {
     expect(callback).toHaveBeenCalledWith('react')
   })
 
-  it('cancel() drops a scheduled call so it never runs', async () => {
+  test('cancel() drops a scheduled call so it never runs', async () => {
     // Arrange
     const callback = vi.fn()
     const { result } = await renderHook(() =>
@@ -40,9 +40,46 @@ describe('useDebouncedCallback', () => {
     // Act — schedule, then immediately cancel before the quiet period elapses.
     result.current.run('react')
     result.current.cancel()
+    result.current.flush()
 
     // Assert — well past the delay, the callback still never fired.
     await new Promise((resolve) => setTimeout(resolve, DELAY_MS * 3))
+    expect(callback).not.toHaveBeenCalled()
+  })
+
+  test('commits the last value once when interaction ends before the debounce delay', async () => {
+    // Arrange
+    const callback = vi.fn()
+    const { result, unmount } = await renderHook(() =>
+      useDebouncedCallback(callback, DELAY_MS),
+    )
+
+    // Act
+    result.current.run(90)
+    result.current.run(85)
+    result.current.flush()
+    result.current.flush()
+    await unmount()
+
+    // Assert
+    expect(callback).toHaveBeenCalledExactlyOnceWith(85)
+    await new Promise((resolve) => setTimeout(resolve, DELAY_MS * 2))
+    expect(callback).toHaveBeenCalledTimes(1)
+  })
+
+  test('cancels unfinished search work when its owner unmounts', async () => {
+    // Arrange
+    const callback = vi.fn()
+    const { result, unmount } = await renderHook(() =>
+      useDebouncedCallback(callback, DELAY_MS),
+    )
+
+    // Act
+    result.current.run('react')
+    await unmount()
+
+    // Assert
+    await new Promise((resolve) => setTimeout(resolve, DELAY_MS * 2))
     expect(callback).not.toHaveBeenCalled()
   })
 })

@@ -1,33 +1,16 @@
 import { useEffect, useRef } from 'react'
 
 /**
- * Returns a stable debounced wrapper around `callback`. Calling `run(...)`
- * (re)starts a timer; only the final `run` within a `delayMs` quiet window
- * actually fires. Exists so an event handler can trigger an expensive action —
- * e.g. a remote search — directly as the user types, without one call per
- * keystroke and without a value-watching effect. `cancel()` drops any pending
- * call (e.g. when the search box is cleared); the timer is also cleared on
- * unmount.
- *
- * The returned `{ run, cancel }` object and both methods are referentially
- * stable for the lifetime of the hook (created once via refs). Callers may
- * pass an inline `callback` — the latest closure is always read through a
- * ref. Used by `MarketplaceSearch` and `useDraftRangeSetting`.
- *
- * @param callback - The function to debounce; receives `run`'s arguments.
- * @param delayMs - Quiet period, in ms, before a scheduled call fires.
- * @returns
- * - `run(...args)`: schedule `callback(...args)` after the quiet period
- * - `cancel()`: drop any scheduled-but-unfired call
- * @example
- * const search = useDebouncedCallback((q: string) => dispatch(searchSkills(q)), 300)
- * onChange={(e) => search.run(e.target.value)}
+ * Collapses input bursts for search and {@link useDraftRangeSetting}; sliders can flush completed gestures without changing search cancellation.
+ * @returns Stable run, cancel and flush functions; unmount cancels pending work.
+ * @example const save = useDebouncedCallback(persist, 120); save.run(85); save.flush()
  */
 export function useDebouncedCallback<TArgs extends readonly unknown[]>(
   callback: (...args: TArgs) => void,
   delayMs: number,
-): { run: (...args: TArgs) => void; cancel: () => void } {
+): { run: (...args: TArgs) => void; cancel: () => void; flush: () => void } {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingArgsRef = useRef<TArgs | null>(null)
   // Keep the latest callback and delay without putting them in run/cancel identity.
   const callbackRef = useRef(callback)
   callbackRef.current = callback
@@ -38,32 +21,40 @@ export function useDebouncedCallback<TArgs extends readonly unknown[]>(
   const apiRef = useRef<{
     run: (...args: TArgs) => void
     cancel: () => void
+    flush: () => void
   } | null>(null)
 
   if (apiRef.current === null) {
     const cancel = (): void => {
+      pendingArgsRef.current = null
       if (timeoutRef.current !== null) {
         clearTimeout(timeoutRef.current)
         timeoutRef.current = null
       }
     }
 
+    const flush = (): void => {
+      const args = pendingArgsRef.current
+      cancel()
+      // Cancelled or already-saved gestures must not write again on blur or keyup.
+      if (args !== null) callbackRef.current(...args)
+    }
+
     const run = (...args: TArgs): void => {
       // Restart the quiet window on every call, so only the last one in a burst
       // survives to fire.
       cancel()
-      timeoutRef.current = setTimeout(() => {
-        timeoutRef.current = null
-        callbackRef.current(...args)
-      }, delayMsRef.current)
+      pendingArgsRef.current = args
+      timeoutRef.current = setTimeout(flush, delayMsRef.current)
     }
 
-    apiRef.current = { run, cancel }
+    apiRef.current = { run, cancel, flush }
   }
 
   // Drop any pending call when the consumer unmounts.
   useEffect(() => {
     return () => {
+      pendingArgsRef.current = null
       if (timeoutRef.current !== null) {
         clearTimeout(timeoutRef.current)
         timeoutRef.current = null
