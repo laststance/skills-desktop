@@ -26,6 +26,11 @@ vi.mock('electron', () => ({
   },
 }))
 
+const originalResourcesPath = Object.getOwnPropertyDescriptor(
+  process,
+  'resourcesPath',
+)
+
 let images: typeof BackgroundImagesModule
 let directory: string
 
@@ -98,6 +103,10 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  // Restore the native runtime boundary even when a packaged resource assertion fails.
+  if (originalResourcesPath)
+    Object.defineProperty(process, 'resourcesPath', originalResourcesPath)
+  else Reflect.deleteProperty(process, 'resourcesPath')
   vi.restoreAllMocks()
   await fs.rm(directory, { recursive: true, force: true })
 })
@@ -969,9 +978,27 @@ describe('background draft ownership and crop publication', () => {
     async ({ isPackaged }) => {
       // Arrange
       electronPaths.isPackaged = isPackaged
+      const packagedResources = join(
+        directory,
+        'Skills Desktop.app',
+        'Contents',
+        'Resources',
+      )
       electronPaths.appPath = isPackaged
-        ? process.cwd()
+        ? join(packagedResources, 'app.asar')
         : join(process.cwd(), 'out', 'main')
+      if (isPackaged) {
+        // Model the builder's extraResources destination, not the source checkout masquerading as app.asar.
+        Object.defineProperty(process, 'resourcesPath', {
+          value: packagedResources,
+          configurable: true,
+        })
+        await fs.cp(
+          join(process.cwd(), 'resources', 'backgrounds'),
+          join(packagedResources, 'backgrounds'),
+          { recursive: true },
+        )
+      }
       const original = await writeImage(1920, 1080)
       const draft = await images.importBackgroundImage(original.path, 1)
       const upload = images.claimBackgroundDraft(draft.source.draftId)

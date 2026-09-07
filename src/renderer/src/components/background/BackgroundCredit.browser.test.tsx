@@ -5,28 +5,37 @@ import '@/renderer/src/styles/globals.css'
 
 import { BackgroundCredit } from './BackgroundCredit'
 
-test('invalid attribution metadata remains readable without crashing the gallery or exposing unsafe links', async () => {
-  // Arrange / Act
-  const screen = await render(
-    <BackgroundCredit
-      credit={{
-        photographerName: 'Saved photographer',
-        photographerUrl: 'not a URL',
-        photoUrl: 'javascript:alert(1)',
-      }}
-    />,
-  )
-  try {
-    // Assert
-    await expect.element(screen.getByText('Saved photographer')).toBeVisible()
-    await expect
-      .element(screen.getByText('Unsplash', { exact: true }))
-      .toBeVisible()
-    expect(screen.getByRole('link').elements()).toHaveLength(0)
-  } finally {
-    await screen.unmount()
-  }
-})
+test.each([
+  { photographerUrl: 'not a URL', photoUrl: 'javascript:alert(1)' },
+  {
+    photographerUrl: 'https://name:secret@unsplash.com/@saved',
+    photoUrl: 'https://example.com/photos/lake',
+  },
+])(
+  'invalid attribution metadata $photographerUrl remains readable without unsafe links',
+  async ({ photographerUrl, photoUrl }) => {
+    // Arrange / Act
+    const screen = await render(
+      <BackgroundCredit
+        credit={{
+          photographerName: 'Saved photographer',
+          photographerUrl,
+          photoUrl,
+        }}
+      />,
+    )
+    try {
+      // Assert
+      await expect.element(screen.getByText('Saved photographer')).toBeVisible()
+      await expect
+        .element(screen.getByText('Unsplash', { exact: true }))
+        .toBeVisible()
+      expect(screen.getByRole('link').elements()).toHaveLength(0)
+    } finally {
+      await screen.unmount()
+    }
+  },
+)
 
 test('valid credit links retain existing tracking and add the required provider referral parameters', async () => {
   // Arrange / Act

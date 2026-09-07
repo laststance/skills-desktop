@@ -199,6 +199,16 @@ test('removing the remembered photo retains a visible Tab stop and arrows contin
         screen.getByRole('radio', { name: 'Library photo 30', exact: true }),
       )
       .toBeVisible()
+    await expect
+      .element(
+        screen.getByRole('radio', { name: 'Library photo 30', exact: true }),
+      )
+      .toHaveAttribute('aria-posinset', '31')
+    await expect
+      .element(
+        screen.getByRole('radio', { name: 'Library photo 30', exact: true }),
+      )
+      .toHaveAttribute('aria-setsize', '60')
     // Keep keyboard focus in a stable row action while another window removes the remembered radio.
     screen
       .getByRole('button', { name: 'Remove Library photo 32', exact: true })
@@ -214,6 +224,16 @@ test('removing the remembered photo retains a visible Tab stop and arrows contin
     await expect
       .poll(() => document.activeElement?.getAttribute('aria-label'))
       .toBe('Library photo 32')
+    await expect
+      .element(
+        screen.getByRole('radio', { name: 'Library photo 32', exact: true }),
+      )
+      .toHaveAttribute('aria-posinset', '32')
+    await expect
+      .element(
+        screen.getByRole('radio', { name: 'Library photo 32', exact: true }),
+      )
+      .toHaveAttribute('aria-setsize', '59')
     expect(select.mock.calls.at(-1)?.[0].title).toBe('Library photo 32')
     expect(scroller.scrollTop).toBe(1800)
   } finally {

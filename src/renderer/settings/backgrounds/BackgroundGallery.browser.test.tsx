@@ -79,7 +79,9 @@ beforeEach(async () => {
   importImage.mockReset().mockResolvedValue(null)
   fetchBoundary
     .mockReset()
-    .mockResolvedValue(Response.json({ json: { items: [], nextPage: null } }))
+    .mockImplementation(async () =>
+      Response.json({ json: { items: [], nextPage: null } }),
+    )
   vi.stubGlobal(
     'fetch',
     async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -226,6 +228,7 @@ describe('Background gallery selection and operation lifecycle', () => {
       builtinId: 'alpine-lake',
     })
     expect(apply.mock.calls[0]?.[0].aspect).toBe('16:10')
+    // Tolerate floating arithmetic only; 0.05% would hide almost two source pixels.
     expect(apply.mock.calls[0]?.[0].crop.width).toBeCloseTo(90, 10)
   })
 
@@ -540,6 +543,32 @@ describe('Background gallery selection and operation lifecycle', () => {
     await expect
       .element(screen.getByText('No photos found.', { exact: false }))
       .toBeVisible()
+  })
+
+  test('refreshing an empty Unsplash result decodes a fresh response and keeps the empty state recoverable', async () => {
+    // Arrange
+    const { screen } = await renderGallery()
+    await screen.getByRole('tab', { name: 'Unsplash', exact: true }).click()
+    await expect
+      .element(screen.getByText('No photos found.', { exact: false }))
+      .toBeVisible()
+    // Act
+    await screen
+      .getByRole('button', { name: 'Refresh Unsplash', exact: true })
+      .click()
+    // Assert
+    await expect.poll(() => fetchBoundary.mock.calls.length).toBe(2)
+    await expect
+      .element(
+        screen.getByRole('button', { name: 'Refresh Unsplash', exact: true }),
+      )
+      .not.toBeDisabled()
+    await expect
+      .element(screen.getByText('No photos found.', { exact: false }))
+      .toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Retry', exact: true }).elements(),
+    ).toHaveLength(0)
   })
 
   test('Cancel discards only the replacement upload and the restored failed draft remains applicable', async () => {

@@ -124,23 +124,26 @@ describe('accepted background crop pixels', () => {
         viewport: { width: 160, height: 100 },
         deviceScaleFactor,
       })
-      await densePage.route('https://images.unsplash.com/**', async (route) =>
-        route.fulfill({ contentType: 'image/png', body: fixtureBytes }),
-      )
-      // Act
-      await densePage.setContent(
-        `<body style="margin:0;background:black"><div style="width:160px;height:100px">${renderToStaticMarkup(<BackgroundImage display={display} layout="tile" retryRevision={0} />)}</div></body>`,
-      )
-      const pixels = await sharp(await densePage.screenshot())
-        .ensureAlpha()
-        .raw()
-        .toBuffer()
-      // Assert — magenta excluded pixels have red; neither green nor blue accepted pixels do.
-      expect(Array.from(pixels.subarray(0, 4))).toEqual([0, 255, 0, 255])
-      expect(
-        pixels.filter((value, index) => index % 4 === 0 && value > 0),
-      ).toHaveLength(0)
-      await densePage.close()
+      try {
+        await densePage.route('https://images.unsplash.com/**', async (route) =>
+          route.fulfill({ contentType: 'image/png', body: fixtureBytes }),
+        )
+        // Act
+        await densePage.setContent(
+          `<body style="margin:0;background:black"><div style="width:160px;height:100px">${renderToStaticMarkup(<BackgroundImage display={display} layout="tile" retryRevision={0} />)}</div></body>`,
+        )
+        const pixels = await sharp(await densePage.screenshot())
+          .ensureAlpha()
+          .raw()
+          .toBuffer()
+        // Assert — magenta excluded pixels have red; neither green nor blue accepted pixels do.
+        expect(Array.from(pixels.subarray(0, 4))).toEqual([0, 255, 0, 255])
+        expect(
+          pixels.filter((value, index) => index % 4 === 0 && value > 0),
+        ).toHaveLength(0)
+      } finally {
+        await densePage.close()
+      }
     },
   )
 

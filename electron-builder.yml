@@ -15,6 +15,11 @@ files:
   - '!{README.md,CHANGELOG.md,CONTRIBUTING.md}'
   - '!{.github,.idea,.vscode,dev-app-update.yml,CONTRIBUTING.md}'
 
+extraResources:
+  # Build resources are excluded from app files; copy offline gallery assets explicitly.
+  - from: resources/backgrounds
+    to: backgrounds
+
 asarUnpack:
   - resources/**
   # Sharp and its platform libraries must be real files for native loading.

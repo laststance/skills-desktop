@@ -345,6 +345,34 @@ describe('main background integration', () => {
     ).toBe('1')
   })
 
+  test('middle-clicking a credit opens the external browser and a failed link shows recovery without navigating the app', async () => {
+    // Arrange
+    const { screen } = await renderBackgrounds()
+    const workspace = screen.getByTestId('workspace')
+    const photographer = workspace.getByRole('link', { name: 'Mike Petrucci' })
+    const originalLocation = location.href
+    // Act
+    await photographer.click({ button: 'middle' })
+    // Assert
+    expect(openExternal).toHaveBeenCalledWith(
+      'https://unsplash.com/@mikepetrucci?utm_source=skills-desktop&utm_medium=referral',
+    )
+    expect(location.href).toBe(originalLocation)
+    // Act
+    openExternal.mockRejectedValueOnce(
+      new Error('External browser unavailable'),
+    )
+    await workspace.getByRole('link', { name: 'Unsplash' }).click()
+    // Assert
+    await expect
+      .element(screen.getByText('Link could not be opened'))
+      .toBeVisible()
+    await expect
+      .element(screen.getByText('Try again in a moment.'))
+      .toBeVisible()
+    expect(location.href).toBe(originalLocation)
+  })
+
   test('keeps the current resource loaded through Apply progress, failure, layout and opacity changes', async () => {
     // Arrange
     const { screen, store } = await renderBackgrounds()
@@ -427,7 +455,9 @@ describe('main background integration', () => {
       .element(screen.getByText('Background unavailable.').first())
       .toBeVisible()
     expect(store.getState().settings).toBe(originalSettings)
-    expect(currentSnapshot.display?.selection).toBe(display.selection)
+    expect(store.getState().settings.background.selected).toBe(
+      display.selection,
+    )
     expect(retryDisplay).toHaveBeenCalledTimes(1)
     expect(apply).not.toHaveBeenCalled()
     expect(

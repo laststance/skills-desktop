@@ -32,20 +32,28 @@ async function backgroundAction<Result>(
   try {
     return await action()
   } catch (error) {
-    if (
-      error instanceof BackgroundImageError ||
-      error instanceof BackgroundRemoteError
-    )
-      throw new Error(error.message)
-    // Keep diagnostics in Main; source paths and raw provider details never reach renderer messages.
-    console.error(
-      '[backgrounds] unexpected IPC failure',
-      error instanceof Error ? error.name : 'Unknown error',
-    )
-    throw new Error(
-      'The background could not be updated. Check available disk space and permissions, then try again.',
-    )
+    throw safeBackgroundError(error)
   }
+}
+
+/** Keeps async gallery failures and synchronous Apply rejection on the same safe IPC boundary.
+ * @returns Readable known errors or fixed recovery guidance after a private Main diagnostic.
+ * @example throw safeBackgroundError(error)
+ */
+function safeBackgroundError(error: unknown): Error {
+  if (
+    error instanceof BackgroundImageError ||
+    error instanceof BackgroundRemoteError
+  )
+    return new Error(error.message)
+  // Keep diagnostics in Main; source paths and raw provider details never reach renderer messages.
+  console.error(
+    '[backgrounds] unexpected IPC failure',
+    error instanceof Error ? error.name : 'Unknown error',
+  )
+  return new Error(
+    'The background could not be updated. Check available disk space and permissions, then try again.',
+  )
 }
 
 /** Registers the path-free gallery API; ownership transfers inside synchronous Apply before an IPC reply can be delayed.
@@ -95,9 +103,13 @@ export function registerBackgroundHandlers(): void {
     backgroundAction(async () => previewBackground(source)),
   )
   // Deliberately no async wrapper here: claim occurs before the accepted ID is returned to IPC.
-  typedHandle(IPC_CHANNELS.BACKGROUNDS_APPLY, (_event, input) =>
-    applyBackground(input),
-  )
+  typedHandle(IPC_CHANNELS.BACKGROUNDS_APPLY, (_event, input) => {
+    try {
+      return applyBackground(input)
+    } catch (error) {
+      throw safeBackgroundError(error)
+    }
+  })
   typedHandle(IPC_CHANNELS.BACKGROUNDS_CLEAR, async () =>
     backgroundAction(clearBackground),
   )

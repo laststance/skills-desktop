@@ -20,7 +20,9 @@ export function injectRendererContentSecurityPolicy(
   if (/http-equiv\s*=\s*["']Content-Security-Policy["']/i.test(html))
     throw new Error('Renderer Content Security Policy is already defined')
   const scriptHashes = [
-    ...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi),
+    ...html.matchAll(
+      /<script(?=[\t\n\f\r />])([^>]*)>([\s\S]*?)<\/script(?=[\t\n\f\r />])[^>]*>/gi,
+    ),
   ]
     .filter((match) => {
       if (/(?:^|\s)src\s*=/i.test(match[1])) return false

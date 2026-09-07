@@ -179,9 +179,12 @@ describe('App window surface', () => {
     expect(
       screen.getByTestId('background-canvas').element().parentElement,
     ).toBe(surface)
-    expect(
-      Array.from(surface.querySelectorAll('[data-window-section]')),
-    ).toEqual(sections)
+    const nextSections = Array.from(
+      surface.querySelectorAll('[data-window-section]'),
+    )
+    expect(nextSections).toHaveLength(3)
+    for (const [index, section] of sections.entries())
+      expect(nextSections[index]).toBe(section)
     expect(screen.getByTestId('detail-panel').element()).toBe(detailContent)
     await expect.element(draft).toHaveValue('This mounted content must survive')
     expect(getComputedStyle(detailContent).opacity).toBe('1')
