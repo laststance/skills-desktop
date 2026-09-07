@@ -179,21 +179,22 @@ contextBridge.exposeInMainWorld('electron', {
   },
   // Subscribe before fetching a snapshot; Main revisions order delayed replies and accepted work survives closure.
   backgrounds: {
-    list: async () => typedInvoke('backgrounds:list'),
-    importImage: async () => typedInvoke('backgrounds:importImage'),
+    list: async () => typedInvoke(IPC_CHANNELS.BACKGROUNDS_LIST),
+    importImage: async () => typedInvoke(IPC_CHANNELS.BACKGROUNDS_IMPORT_IMAGE),
     discardDraft: async (options: { draftId: string }) =>
-      typedInvoke('backgrounds:discardDraft', options),
+      typedInvoke(IPC_CHANNELS.BACKGROUNDS_DISCARD_DRAFT, options),
     preview: async (source: BackgroundApplySource) =>
-      typedInvoke('backgrounds:preview', source),
+      typedInvoke(IPC_CHANNELS.BACKGROUNDS_PREVIEW, source),
     apply: async (input: BackgroundApplyInput) =>
-      typedInvoke('backgrounds:apply', input),
-    clear: async () => typedInvoke('backgrounds:clear'),
+      typedInvoke(IPC_CHANNELS.BACKGROUNDS_APPLY, input),
+    clear: async () => typedInvoke(IPC_CHANNELS.BACKGROUNDS_CLEAR),
     removeUpload: async (options: { uploadId: string }) =>
-      typedInvoke('backgrounds:removeUpload', options),
+      typedInvoke(IPC_CHANNELS.BACKGROUNDS_REMOVE_UPLOAD, options),
     setLayout: async (layout: BackgroundLayout) =>
-      typedInvoke('backgrounds:setLayout', layout),
-    getSnapshot: async () => typedInvoke('backgrounds:getSnapshot'),
-    retryDisplay: async () => typedInvoke('backgrounds:retryDisplay'),
+      typedInvoke(IPC_CHANNELS.BACKGROUNDS_SET_LAYOUT, layout),
+    getSnapshot: async () => typedInvoke(IPC_CHANNELS.BACKGROUNDS_GET_SNAPSHOT),
+    retryDisplay: async () =>
+      typedInvoke(IPC_CHANNELS.BACKGROUNDS_RETRY_DISPLAY),
     onChanged: createIpcListener<BackgroundSnapshot>(
       IPC_CHANNELS.BACKGROUNDS_CHANGED,
     ),

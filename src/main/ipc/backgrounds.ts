@@ -37,6 +37,11 @@ async function backgroundAction<Result>(
       error instanceof BackgroundRemoteError
     )
       throw new Error(error.message)
+    // Keep diagnostics in Main; source paths and raw provider details never reach renderer messages.
+    console.error(
+      '[backgrounds] unexpected IPC failure',
+      error instanceof Error ? error.name : 'Unknown error',
+    )
     throw new Error(
       'The background could not be updated. Check available disk space and permissions, then try again.',
     )

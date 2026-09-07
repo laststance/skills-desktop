@@ -679,9 +679,11 @@ export async function getBackgroundCatalog(
           (candidate) => candidate.id === builtinId,
         )
         const thumbnail = photo
-          ? await imageDescriptor(
-              bundledBackgroundPath(photo.thumbnailFilename),
-              BACKGROUND_THUMBNAIL_LONG_EDGE_PX,
+          ? await queueImageProcessing(async () =>
+              imageDescriptor(
+                bundledBackgroundPath(photo.thumbnailFilename),
+                BACKGROUND_THUMBNAIL_LONG_EDGE_PX,
+              ),
             )
           : null
         return {
@@ -698,9 +700,12 @@ export async function getBackgroundCatalog(
   const uploadItems = await Promise.all(
     uploads.map(async (upload): Promise<BackgroundCatalogItem> => {
       // Missing local thumbnails keep the library item visible so removal/recovery remains available.
-      const thumbnail = await imageDescriptor(
-        join(uploadDirectory(upload.id), 'thumbnail.webp'),
-        BACKGROUND_THUMBNAIL_LONG_EDGE_PX,
+      // Catalog reads join the existing image queue so a large library cannot decode alongside an import/crop.
+      const thumbnail = await queueImageProcessing(async () =>
+        imageDescriptor(
+          join(uploadDirectory(upload.id), 'thumbnail.webp'),
+          BACKGROUND_THUMBNAIL_LONG_EDGE_PX,
+        ),
       ).catch(() => null)
       return {
         source: { kind: 'upload', uploadId: upload.id },
@@ -751,9 +756,11 @@ export async function getBackgroundPreview(
       title: input.title,
       width: input.width,
       height: input.height,
-      image: await imageDescriptor(
-        join(uploadDirectory(source.uploadId), 'preview.webp'),
-        BACKGROUND_PREVIEW_LONG_EDGE_PX,
+      image: await queueImageProcessing(async () =>
+        imageDescriptor(
+          join(uploadDirectory(source.uploadId), 'preview.webp'),
+          BACKGROUND_PREVIEW_LONG_EDGE_PX,
+        ),
       ),
       credit: null,
     }

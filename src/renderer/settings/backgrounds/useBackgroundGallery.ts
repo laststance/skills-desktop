@@ -16,6 +16,7 @@ import {
 import type { Settings } from '@/shared/settings'
 
 import { areBackgroundCropsEqual } from './utils/areBackgroundCropsEqual'
+import { backgroundErrorMessage } from './utils/backgroundErrorMessage'
 
 export interface BackgroundDraft {
   preview: BackgroundPreview
@@ -50,32 +51,33 @@ const initialState: GalleryState = {
 export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
   const [state, setState] = useState(initialState)
   const requestGeneration = useRef(0)
-  const draftToken = useRef<string | null>(null)
+  const draftTokens = useRef(new Set<string>())
   const startingRequest = useRef<string | null>(null)
   const opener = useRef<HTMLElement | null>(null)
   const store = useAppStore()
 
-  const discard = (): void => {
-    const draftId = draftToken.current
-    draftToken.current = null
-    if (draftId)
+  const discard = (retainedDraftId?: string): void => {
+    // A replacement and its Cancel destination both remain owned until the user chooses which to keep.
+    for (const draftId of draftTokens.current) {
+      if (draftId === retainedDraftId) continue
+      draftTokens.current.delete(draftId)
       void window.electron.backgrounds.discardDraft({ draftId }).catch(() =>
         toast.error('Image draft could not be removed', {
           description: 'Reopen Settings to retry cleanup.',
         }),
       )
+    }
   }
 
   useEffect(() => {
     const cleanup = (): void => {
       requestGeneration.current += 1
-      const draftId = draftToken.current
-      draftToken.current = null
       // Main ignores cleanup for accepted tokens, including when the acknowledgement is still in transit.
-      if (draftId)
+      for (const draftId of draftTokens.current)
         void window.electron.backgrounds
           .discardDraft({ draftId })
           .catch(() => undefined)
+      draftTokens.current.clear()
     }
     window.addEventListener('beforeunload', cleanup)
     return () => {
@@ -95,11 +97,9 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
     try {
       const preview = await window.electron.backgrounds.preview(source)
       if (generation !== requestGeneration.current) return
-      if (
-        source.kind !== 'upload-draft' ||
-        draftToken.current !== source.draftId
-      )
-        discard()
+      discard(source.kind === 'upload-draft' ? source.draftId : undefined)
+      if (source.kind === 'upload-draft')
+        draftTokens.current.add(source.draftId)
       const draft = {
         preview,
         crop: crop ?? DEFAULT_BACKGROUND_CROP,
@@ -118,10 +118,10 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
       setState((current) => ({
         ...current,
         checking: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Image preview unavailable. Try another image.',
+        error: backgroundErrorMessage(
+          error,
+          'Image preview unavailable. Try another image.',
+        ),
       }))
     }
   }
@@ -172,8 +172,7 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
         setState((current) => ({ ...current, checking: false }))
         return
       }
-      discard()
-      draftToken.current = preview.source.draftId
+      draftTokens.current.add(preview.source.draftId)
       // Save the entire prior draft before opening the new-upload editor; Cancel restores its crop too.
       setState((current) => ({
         ...current,
@@ -188,16 +187,21 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
       setState((current) => ({
         ...current,
         checking: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Image could not be checked. Choose another file.',
+        error: backgroundErrorMessage(
+          error,
+          'Image could not be checked. Choose another file.',
+        ),
       }))
     }
   }
 
   const cancelCrop = (): void => {
-    if (state.draft?.preview.source.kind === 'upload-draft') discard()
+    const previousSource = state.beforeCrop?.preview.source
+    discard(
+      previousSource?.kind === 'upload-draft'
+        ? previousSource.draftId
+        : undefined,
+    )
     setState((current) => ({
       ...current,
       draft: current.beforeCrop,
@@ -232,10 +236,10 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
       if (generation === requestGeneration.current)
         setState((current) => ({
           ...current,
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Background could not be started. Try again.',
+          error: backgroundErrorMessage(
+            error,
+            'Background could not be started. Try again.',
+          ),
         }))
     } finally {
       startingRequest.current = null
@@ -255,7 +259,7 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
         store.dispatch(setSettings(saved))
     } catch (error: unknown) {
       toast.error('Background change could not be saved', {
-        description: error instanceof Error ? error.message : 'Try again.',
+        description: backgroundErrorMessage(error, 'Try again.'),
       })
       throw error
     }

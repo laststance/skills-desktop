@@ -74,7 +74,8 @@ export default defineConfig({
           handler: (html, context) =>
             injectRendererContentSecurityPolicy(
               html,
-              context.server?.resolvedUrls?.local[0],
+              context.server?.resolvedUrls?.local[0] ??
+                context.server?.resolvedUrls?.network[0],
             ),
         },
       },

@@ -25,7 +25,6 @@ export function useUnsplashGallery(enabled: boolean) {
   )
   const client = useQueryClient()
   const fetchingMore = useRef(false)
-  const hasOpened = useRef(enabled)
   const options = backgroundRpc.unsplash.search.infiniteOptions({
     input: (page: number) => ({ query, page }),
     initialPageParam: 1,
@@ -37,13 +36,23 @@ export function useUnsplashGallery(enabled: boolean) {
     refetchOnReconnect: false,
     refetchOnWindowFocus: false,
   })
-  // Toggling enabled off/on can refetch stale/error pages even with refetchOnMount=false.
-  // Once opened, keep the observer active through tab/Crop changes; cached remounts start active too.
-  if (enabled || client.getQueryState(options.queryKey))
-    hasOpened.current = true
+  const [hasOpened, setHasOpened] = useState(() => {
+    const cached = client.getQueryState(options.queryKey)
+    // A disabled observer creates an empty query too; only previous requests count as an opened gallery.
+    return (
+      enabled ||
+      Boolean(
+        cached &&
+        (cached.data !== undefined ||
+          cached.status === 'error' ||
+          cached.fetchStatus === 'fetching'),
+      )
+    )
+  })
+  // Keep an opened observer active through tab/Crop changes, without refetching cached remounts.
   const result = useInfiniteQuery({
     ...options,
-    enabled: hasOpened.current && Boolean(query),
+    enabled: (hasOpened || enabled) && Boolean(query),
   })
   const seen = new Set<string>()
   const items: BackgroundCatalogItem[] = []
@@ -93,6 +102,7 @@ export function useUnsplashGallery(enabled: boolean) {
     query,
     loadMore,
     refresh,
+    open: (): void => setHasOpened(true),
     changeSearch: (value: string): void => {
       setSearch(value)
       debounce.run(value)

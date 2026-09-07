@@ -435,6 +435,37 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(cancelBody).toHaveBeenCalledOnce()
   })
 
+  it.each([[0xff], [0xe2, 0x82]])(
+    'classifies malformed or truncated UTF-8 %j as unsupported provider data',
+    async (...bytes) => {
+      // Arrange
+      fetchProvider.mockResolvedValue(new Response(new Uint8Array(bytes)))
+      // Act / Assert
+      await expect(
+        client.unsplash.search({ query: 'invalid encoding', page: 1 }),
+      ).rejects.toMatchObject({ code: 'INVALID_RESPONSE', status: 502 })
+      expect(fetchProvider).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  it('keeps a failed response stream distinct from malformed provider bytes', async () => {
+    // Arrange
+    fetchProvider.mockResolvedValue(
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.error(new TypeError('Connection reset'))
+          },
+        }),
+      ),
+    )
+    // Act / Assert
+    await expect(
+      client.unsplash.search({ query: 'stream failed', page: 1 }),
+    ).rejects.toMatchObject({ code: 'UNAVAILABLE', status: 503 })
+    expect(fetchProvider).toHaveBeenCalledTimes(1)
+  })
+
   it.each([
     'null',
     'http://localhost:5173',
@@ -512,6 +543,49 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store')
     expect(fetchProvider).not.toHaveBeenCalled()
   })
+
+  it('rejects an oversized RPC URL before provider work while retaining safe CORS headers', async () => {
+    // Arrange
+    const request = new Request(
+      `https://skills-desktop.vercel.app/api/rpc/unsplash/search?${'x'.repeat(8193)}`,
+      { method: 'POST', headers: { Origin: 'null' } },
+    )
+    // Act
+    const response = await POST(request)
+    // Assert
+    expect(response.status).toBe(414)
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('null')
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
+    expect(fetchProvider).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { method: 'GET', headers: 'content-type' },
+    { method: 'POST', headers: 'authorization' },
+  ])(
+    'rejects unsupported preflight $method / $headers before provider work',
+    async ({ method, headers }) => {
+      // Arrange
+      const request = new Request(
+        'https://skills-desktop.vercel.app/api/rpc/unsplash/search',
+        {
+          method: 'OPTIONS',
+          headers: {
+            Origin: 'null',
+            'Access-Control-Request-Method': method,
+            'Access-Control-Request-Headers': headers,
+          },
+        },
+      )
+      // Act
+      const response = await OPTIONS(request)
+      // Assert
+      expect(response.status).toBe(405)
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe('null')
+      expect(response.headers.get('Cache-Control')).toBe('no-store')
+      expect(fetchProvider).not.toHaveBeenCalled()
+    },
+  )
 
   it('accepts the proxied Next request without breaking native Request private fields', async () => {
     // Arrange

@@ -137,6 +137,23 @@ afterEach(async () => {
 })
 
 describe('gallery IPC and native picker ownership', () => {
+  test('unexpected native failures retain a safe diagnostic in Main and expose only actionable recovery guidance', async () => {
+    // Arrange
+    const diagnostic = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined)
+    native.picker.mockRejectedValue(
+      new TypeError(`Native failure at ${fixture}`),
+    )
+    // Act / Assert
+    await expect(invoke('backgrounds:importImage')).rejects.toThrow(
+      'The background could not be updated. Check available disk space and permissions, then try again.',
+    )
+    expect(diagnostic.mock.calls).toEqual([
+      ['[backgrounds] unexpected IPC failure', 'TypeError'],
+    ])
+    expect(settings.getSettings().background.uploads).toEqual([])
+  })
   test('picker cancellation returns no draft and never creates an owned image directory', async () => {
     // Arrange
     native.picker.mockResolvedValue({ canceled: true, filePaths: [] })

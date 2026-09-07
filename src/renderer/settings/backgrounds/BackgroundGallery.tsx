@@ -18,6 +18,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/renderer/src/components/ui/tabs'
+import { useOnlineStatus } from '@/renderer/src/hooks/useOnlineStatus'
 import { backgroundSourceKey } from '@/renderer/src/utils/backgroundSourceKey'
 import type {
   BackgroundCatalogItem,
@@ -33,6 +34,7 @@ import type { useBackgroundGallery } from './useBackgroundGallery'
 import { useUnsplashGallery } from './useUnsplashGallery'
 import { areBackgroundCropsEqual } from './utils/areBackgroundCropsEqual'
 import { backgroundCropQuality } from './utils/backgroundCropQuality'
+import { backgroundErrorMessage } from './utils/backgroundErrorMessage'
 
 const SOURCE_TABS = [
   { value: 'builtin', label: 'Built-in' },
@@ -141,7 +143,6 @@ export function BackgroundGallery(props: GalleryProps): ReactElement {
           </p>
         ) : null}
         <div
-          hidden={gallery.view !== 'gallery'}
           className="min-h-0 flex-1 flex-col"
           style={{ display: gallery.view === 'gallery' ? 'flex' : 'none' }}
         >
@@ -235,7 +236,10 @@ function BackgroundGalleryBrowser({
         value={tab}
         onValueChange={(value) => {
           const next = SOURCE_TABS.find((source) => source.value === value)
-          if (next) setTab(next.value)
+          if (next) {
+            if (next.value === 'unsplash') online.open()
+            setTab(next.value)
+          }
         }}
         className="flex min-h-0 flex-1 flex-col"
       >
@@ -350,6 +354,7 @@ function BackgroundGalleryResults({
   error: Error | null
   retry: () => void
 }): ReactElement {
+  const connected = useOnlineStatus()
   const quota =
     remote &&
     isDefinedError(online.error) &&
@@ -364,8 +369,8 @@ function BackgroundGalleryResults({
           className="flex shrink-0 items-center justify-between gap-2 py-2 text-xs"
         >
           <span>
-            {navigator.onLine
-              ? error.message || 'Photos unavailable. Try again.'
+            {connected
+              ? backgroundErrorMessage(error, 'Photos unavailable. Try again.')
               : 'You are offline. Loaded photos are still available.'}
             {quota !== null ? ` Try again in ${quota} seconds.` : ''}
           </span>

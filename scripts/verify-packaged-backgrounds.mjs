@@ -55,7 +55,7 @@ async function verifyRendererCsp(rendererPage, fixturePng) {
     })
   })
   await rendererPage.route(CSP_RPC_PROBE_URL, async (route) => {
-    // Keep the null-origin CORS contract active even though this test owns the response bytes.
+    // Fixture responses exercise allowed CSP requests; intercepted headers do not prove wire CORS.
     if (route.request().method() === 'OPTIONS') {
       await route.fulfill({
         status: 204,
@@ -67,10 +67,7 @@ async function verifyRendererCsp(rendererPage, fixturePng) {
       })
       return
     }
-    requests.push({
-      kind: 'rpc',
-      origin: route.request().headers().origin,
-    })
+    requests.push({ kind: 'rpc' })
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -103,16 +100,14 @@ async function verifyRendererCsp(rendererPage, fixturePng) {
       imageHeight: 1080,
       rpcPayload: { json: { items: [], nextPage: null } },
     })
-    assert.deepEqual(requests, [
-      { kind: 'image' },
-      { kind: 'rpc', origin: 'null' },
-    ])
+    assert.deepEqual(requests, [{ kind: 'image' }, { kind: 'rpc' }])
     return {
       inlineScriptBlocked: true,
       imageDecoded: true,
       proxyRequestAllowed: true,
-      origin: 'null',
-      network: 'fixture responses; provider availability checked separately',
+      documentOrigin: await rendererPage.evaluate(() => location.origin),
+      network:
+        'fixture responses; wire CORS and provider availability checked separately',
     }
   } finally {
     await rendererPage.unroute(CSP_IMAGE_PROBE_URL)
@@ -408,13 +403,16 @@ async function verifyBundle(expectedArchitecture, requestedBundle) {
     }
   } finally {
     // These handles and directories belong only to this run; never discover or stop unrelated Electron processes.
-    await picker
-      ?.evaluate((nativePicker) => nativePicker.restore())
-      .catch(() => undefined)
-    await application
-      ?.close()
-      .catch(() => application?.process().kill('SIGTERM'))
-    await rm(isolatedHome, { recursive: true, force: true })
+    try {
+      await picker
+        ?.evaluate((nativePicker) => nativePicker.restore())
+        .catch(() => undefined)
+      await application
+        ?.close()
+        .catch(() => application?.process().kill('SIGTERM'))
+    } finally {
+      await rm(isolatedHome, { recursive: true, force: true })
+    }
   }
 }
 

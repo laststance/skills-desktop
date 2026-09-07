@@ -8,8 +8,8 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
 import { injectRendererContentSecurityPolicy } from './injectRendererContentSecurityPolicy'
 
-let browser: Browser
-let directory: string
+let browser: Browser | undefined
+let directory: string | undefined
 
 beforeAll(async () => {
   directory = await fs.mkdtemp(join(tmpdir(), 'skills-background-csp-'))
@@ -17,8 +17,11 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await browser.close()
-  await fs.rm(directory, { recursive: true, force: true })
+  try {
+    await browser?.close()
+  } finally {
+    if (directory) await fs.rm(directory, { recursive: true, force: true })
+  }
 })
 
 describe('renderer file-protocol content security policy', () => {
@@ -39,6 +42,11 @@ describe('renderer file-protocol content security policy', () => {
       "connect-src 'self' https://skills-desktop.vercel.app",
     )
     expect(secured).not.toContain("'unsafe-eval'")
+    expect(secured.match(/script-src[^;"]+/)?.[0]).not.toContain(
+      "'unsafe-inline'",
+    )
+    expect(secured).toContain("base-uri 'self'")
+    expect(secured).toContain("object-src 'none'")
     expect(secured).not.toContain('localhost')
     expect(secured.indexOf('Content-Security-Policy')).toBeLessThan(
       secured.indexOf('<script>'),
@@ -55,15 +63,48 @@ describe('renderer file-protocol content security policy', () => {
     expect(secured).toContain(
       "connect-src 'self' https://skills-desktop.vercel.app http://localhost:5173 ws://localhost:5173",
     )
-    expect(secured).not.toContain(
-      "script-src 'self' file: app: 'unsafe-inline'",
+    expect(secured.match(/script-src[^;"]+/)?.[0]).not.toContain(
+      "'unsafe-inline'",
     )
+    expect(secured).toContain("style-src 'self' 'unsafe-inline'")
     expect(() =>
       injectRendererContentSecurityPolicy(
         '<html><head></head></html>',
         'file:///app',
       ),
     ).toThrow('HTTP or HTTPS')
+  })
+
+  test('data scripts cannot authorize executable inline code while all supported bootstrap types retain hashes', () => {
+    // Arrange
+    const body = 'document.documentElement.dataset.trusted = "yes";'
+    // Act / Assert
+    for (const type of [
+      'application/json',
+      'application/ld+json',
+      'importmap',
+      'speculationrules',
+    ]) {
+      const secured = injectRendererContentSecurityPolicy(
+        `<head><script type="${type}">${body}</script></head>`,
+      )
+      expect(secured).not.toContain("'sha256-")
+    }
+    for (const attributes of [
+      '',
+      'type=""',
+      'type="module"',
+      'type="text/javascript"',
+      'type=application/javascript',
+      "type='text/ecmascript'",
+    ]) {
+      const secured = injectRendererContentSecurityPolicy(
+        `<head><script ${attributes}>${body}</script></head>`,
+      )
+      expect(secured).toContain(
+        "'sha256-culqsd1OOlrrcjTBC88zI0LdOYq9oCxiIzn0AAOVtfI='",
+      )
+    }
   })
 
   test('missing document head or a competing CSP fails generation instead of silently shipping an unprotected entry', () => {
@@ -82,13 +123,13 @@ describe('renderer file-protocol content security policy', () => {
     'file:// %s runs its hashed theme bootstrap and blocks an injected untrusted inline script',
     async (entry) => {
       // Arrange
-      const context = await browser.newContext({ bypassCSP: false })
+      const context = await browser!.newContext({ bypassCSP: false })
       const page = await context.newPage()
       const html = injectRendererContentSecurityPolicy(
         await fs.readFile(entry, 'utf8'),
       )
       const path = join(
-        directory,
+        directory!,
         entry.includes('settings') ? 'settings.html' : 'main.html',
       )
       await fs.writeFile(path, html)
@@ -129,7 +170,7 @@ describe('renderer file-protocol content security policy', () => {
 
   test('file:// policy permits the direct background and proxy while blocking unrelated network access and JavaScript eval', async () => {
     // Arrange
-    const context = await browser.newContext({ bypassCSP: false })
+    const context = await browser!.newContext({ bypassCSP: false })
     const page = await context.newPage()
     const image = Buffer.from(
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l1sAAAAASUVORK5CYII=',
@@ -151,7 +192,7 @@ describe('renderer file-protocol content security policy', () => {
       document.documentElement.dataset.wasm = 'ready';
       try { new Function('return 1')(); } catch { document.documentElement.dataset.eval = 'blocked'; }
     `
-    const path = join(directory, 'network.html')
+    const path = join(directory!, 'network.html')
     await fs.writeFile(
       path,
       injectRendererContentSecurityPolicy(

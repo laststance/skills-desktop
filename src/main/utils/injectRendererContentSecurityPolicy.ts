@@ -20,13 +20,30 @@ export function injectRendererContentSecurityPolicy(
   if (/http-equiv\s*=\s*["']Content-Security-Policy["']/i.test(html))
     throw new Error('Renderer Content Security Policy is already defined')
   const scriptHashes = [
-    ...html.matchAll(
-      /<script\b(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script\s*>/gi,
-    ),
-  ].map(
-    (match) =>
-      `'sha256-${createHash('sha256').update(match[1]).digest('base64')}'`,
-  )
+    ...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi),
+  ]
+    .filter((match) => {
+      if (/(?:^|\s)src\s*=/i.test(match[1])) return false
+      const type = match[1].match(
+        /(?:^|\s)type\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i,
+      )
+      const value = (type?.[1] ?? type?.[2] ?? type?.[3] ?? '')
+        .trim()
+        .toLowerCase()
+      // JSON/import maps are data, so their bytes must never authorize an executable script.
+      return (
+        value === '' ||
+        value === 'module' ||
+        /^(?:text|application)\/(?:javascript|ecmascript|x-javascript|x-ecmascript)$/.test(
+          value,
+        ) ||
+        /^text\/(?:javascript1\.[0-5]|jscript|livescript)$/.test(value)
+      )
+    })
+    .map(
+      (match) =>
+        `'sha256-${createHash('sha256').update(match[2]).digest('base64')}'`,
+    )
   const connections = ["'self'", new URL(UNSPLASH_RPC_URL).origin]
   if (developmentUrl) {
     const renderer = new URL(developmentUrl)
@@ -38,6 +55,8 @@ export function injectRendererContentSecurityPolicy(
   }
   const policy = [
     "default-src 'self' file: app:",
+    "base-uri 'self'",
+    "object-src 'none'",
     // Shiki may compile WebAssembly; this does not permit JavaScript eval or arbitrary inline scripts.
     `script-src 'self' file: app: 'wasm-unsafe-eval' ${scriptHashes.join(' ')}`.trimEnd(),
     "style-src 'self' 'unsafe-inline' file: app:",

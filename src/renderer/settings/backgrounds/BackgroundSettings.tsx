@@ -9,6 +9,7 @@ import { SegmentedControl } from '@/renderer/src/components/shared/segmented-con
 import { Button } from '@/renderer/src/components/ui/button'
 import { useBackgroundSnapshot } from '@/renderer/src/hooks/useBackgroundSnapshot'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
+import { isBackgroundUnavailable } from '@/renderer/src/utils/isBackgroundUnavailable'
 import type { BackgroundLayout } from '@/shared/backgrounds'
 import { WINDOW_OPACITY_MAX_PERCENT } from '@/shared/constants'
 
@@ -57,9 +58,11 @@ function BackgroundSettingsContent(): ReactElement {
           settings.centerSectionOpacityPercent,
           settings.rightSectionOpacityPercent,
         ].every((value) => value === WINDOW_OPACITY_MAX_PERCENT)
-  const unavailable = display
-    ? previewState.failedUrl === display.image.url
-    : settings.background.selected && snapshot.revision >= 0
+  const unavailable = isBackgroundUnavailable(
+    snapshot,
+    settings.background.selected,
+    previewState.failedUrl,
+  )
   const changeLayout = (layout: BackgroundLayout): void => {
     void gallery
       .saveMutation(async () => window.electron.backgrounds.setLayout(layout))
@@ -96,7 +99,9 @@ function BackgroundSettingsContent(): ReactElement {
           <p className="truncate text-sm" title={display?.title}>
             {display?.title ??
               (settings.background.selected
-                ? 'Background unavailable'
+                ? unavailable
+                  ? 'Background unavailable'
+                  : 'Loading background…'
                 : 'No background image')}
           </p>
           <BackgroundCredit credit={display?.credit ?? null} />

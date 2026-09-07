@@ -103,6 +103,141 @@ afterEach(async () => {
 })
 
 describe('background image ingestion', () => {
+  test('an upload queued behind another window is cancelled before creating its owned files when its owner closes', async () => {
+    // Arrange
+    const original = await writeImage(1920, 1080)
+    const first = images.importBackgroundImage(original.path, 1)
+    const cancelled = images.importBackgroundImage(original.path, 2)
+    const cancelledOutcome = expect(cancelled).rejects.toThrow(
+      'The upload was cancelled.',
+    )
+    // Act
+    await images.discardBackgroundDraftsForOwner(2)
+    const completed = await first
+    await cancelledOutcome
+    // Assert
+    expect(
+      await fs.readdir(join(electronPaths.userData, 'backgrounds', 'staging')),
+    ).toEqual([completed.source.draftId])
+    expect(await fs.readFile(original.path)).toEqual(original.bytes)
+  })
+
+  test('closing an upload owner after derivative creation cancels publication and removes staging files', async () => {
+    // Arrange
+    const original = await writeImage(1920, 1080)
+    const chmod = fs.chmod.bind(fs)
+    vi.spyOn(fs, 'chmod').mockImplementation(async (path, mode) => {
+      await chmod(path, mode)
+      if (String(path).endsWith('thumbnail.webp'))
+        await images.discardBackgroundDraftsForOwner(9)
+    })
+    // Act / Assert
+    await expect(
+      images.importBackgroundImage(original.path, 9),
+    ).rejects.toThrow('The upload was cancelled.')
+    expect(
+      await fs.readdir(join(electronPaths.userData, 'backgrounds', 'staging')),
+    ).toEqual([])
+    expect(await fs.readFile(original.path)).toEqual(original.bytes)
+  })
+
+  test('an unaccepted draft cannot be published but remains previewable for the user to finish editing', async () => {
+    // Arrange
+    const original = await writeImage(1920, 1080)
+    const draft = await images.importBackgroundImage(original.path, 1)
+    // Act / Assert
+    await expect(
+      images.publishBackgroundDraft(draft.source.draftId),
+    ).rejects.toThrow('The upload has not been accepted.')
+    const preview = await images.getBackgroundPreview(draft.source, [])
+    expect(
+      await sharp(descriptorBytes(preview.image.url)).metadata(),
+    ).toMatchObject({ width: 1920, height: 1080, format: 'webp' })
+    expect(await fs.readFile(original.path)).toEqual(original.bytes)
+  })
+
+  test('remote image inspection rejects one byte above the size bound before attempting to decode', async () => {
+    // Arrange / Act / Assert
+    await expect(
+      images.inspectBackgroundImage(Buffer.alloc(20_971_521), true),
+    ).rejects.toThrow('Choose an image no larger than 20 MiB.')
+  })
+
+  test('a saved derivative replaced by a different real image format is rejected without changing the owned original', async () => {
+    // Arrange
+    const original = await writeImage(1920, 1080)
+    const draft = await images.importBackgroundImage(original.path, 1)
+    const upload = images.claimBackgroundDraft(draft.source.draftId)
+    await images.publishBackgroundDraft(draft.source.draftId)
+    await fs.writeFile(
+      join(
+        electronPaths.userData,
+        'backgrounds',
+        'uploads',
+        upload.id,
+        'preview.webp',
+      ),
+      original.bytes,
+    )
+    // Act / Assert
+    await expect(
+      images.getBackgroundPreview({ kind: 'upload', uploadId: upload.id }, [
+        upload,
+      ]),
+    ).rejects.toThrow(
+      'The prepared background image is unavailable. Apply the image again.',
+    )
+    expect(
+      await fs.readFile(
+        join(
+          electronPaths.userData,
+          'backgrounds',
+          'uploads',
+          upload.id,
+          'original',
+        ),
+      ),
+    ).toEqual(original.bytes)
+  })
+
+  test('catalog thumbnails and saved-upload previews share one bounded image read even across concurrent windows', async () => {
+    // Arrange
+    const original = await writeImage(1920, 1080)
+    const draft = await images.importBackgroundImage(original.path, 1)
+    const upload = images.claimBackgroundDraft(draft.source.draftId)
+    await images.publishBackgroundDraft(draft.source.draftId)
+    const open = fs.open.bind(fs)
+    let activeReads = 0
+    let peakReads = 0
+    vi.spyOn(fs, 'open').mockImplementation(async (...args) => {
+      activeReads += 1
+      peakReads = Math.max(peakReads, activeReads)
+      const handle = await open(...args)
+      const close = handle.close.bind(handle)
+      vi.spyOn(handle, 'close').mockImplementation(async () => {
+        await close()
+        activeReads -= 1
+      })
+      return handle
+    })
+    // Act
+    const [catalog, preview, secondCatalog] = await Promise.all([
+      images.getBackgroundCatalog([upload]),
+      images.getBackgroundPreview({ kind: 'upload', uploadId: upload.id }, [
+        upload,
+      ]),
+      images.getBackgroundCatalog([]),
+    ])
+    // Assert
+    expect(peakReads).toBe(1)
+    expect(activeReads).toBe(0)
+    expect(catalog.uploads[0].thumbnail?.width).toBe(480)
+    expect(secondCatalog.builtins).toHaveLength(4)
+    expect(
+      await sharp(descriptorBytes(preview.image.url)).metadata(),
+    ).toMatchObject({ format: 'webp', width: 1920, height: 1080 })
+  })
+
   test.each([
     [1920, 1080],
     [1080, 1920],

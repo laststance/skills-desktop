@@ -1,6 +1,7 @@
 import { Check, ImageOff, Trash2 } from 'lucide-react'
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
@@ -43,7 +44,6 @@ interface GridProps {
 export function BackgroundPhotoGrid(props: GridProps): ReactElement {
   const {
     columns,
-    focusKey,
     list,
     container,
     buttons,
@@ -56,6 +56,8 @@ export function BackgroundPhotoGrid(props: GridProps): ReactElement {
     focusPending,
     onFocusKey,
     onResize,
+    onVisibleRows,
+    tabStopKey,
   } = useBackgroundGridNavigation(props)
 
   return (
@@ -85,13 +87,7 @@ export function BackgroundPhotoGrid(props: GridProps): ReactElement {
         rowProps={{
           ...props,
           columns,
-          focusKey: buttons.current.has(focusKey)
-            ? focusKey
-            : props.items[visibleStart.current * columns]
-              ? backgroundSourceKey(
-                  props.items[visibleStart.current * columns].source,
-                )
-              : '',
+          focusKey: tabStopKey,
           buttons: buttons.current,
           container,
           onFocusKey,
@@ -102,6 +98,7 @@ export function BackgroundPhotoGrid(props: GridProps): ReactElement {
         }}
         onRowsRendered={(visible) => {
           visibleStart.current = visible.startIndex
+          onVisibleRows(visible)
           if (visible.stopIndex >= rowCount - 1 && props.active)
             props.onEndReached()
           if (pending.current) {
@@ -242,6 +239,10 @@ function PhotoRow({
 function useBackgroundGridNavigation(props: GridProps) {
   const [columns, setColumns] = useState(3)
   const [focusKey, setFocusKey] = useState(props.selectedKey)
+  const [visibleRows, setVisibleRows] = useState({
+    startIndex: 0,
+    stopIndex: 0,
+  })
   const list = useRef<ListImperativeAPI | null>(null)
   const container = useRef<HTMLDivElement | null>(null)
   const buttons = useRef(new Map<string, HTMLButtonElement>())
@@ -258,9 +259,30 @@ function useBackgroundGridNavigation(props: GridProps) {
     items: props.items,
     selectedKey: props.selectedKey,
   })
-  latest.current = { scope, items: props.items, selectedKey: props.selectedKey }
+  useLayoutEffect(() => {
+    // Pending animation frames may only use committed photos, never a render React abandoned.
+    latest.current = {
+      scope,
+      items: props.items,
+      selectedKey: props.selectedKey,
+    }
+  }, [scope, props.items, props.selectedKey])
   const rowCount = Math.ceil(props.items.length / columns)
   const wasActive = useRef(props.active)
+  const focusedIndex = props.items.findIndex(
+    (item) => backgroundSourceKey(item.source) === focusKey,
+  )
+  const focusedRow = Math.floor(focusedIndex / columns)
+  const fallback = props.items[visibleRows.startIndex * columns]
+  // Deletion and virtualization both need one visible Tab stop without consulting DOM refs during render.
+  const tabStopKey =
+    focusedIndex >= 0 &&
+    focusedRow >= visibleRows.startIndex &&
+    focusedRow <= visibleRows.stopIndex
+      ? focusKey
+      : fallback
+        ? backgroundSourceKey(fallback.source)
+        : ''
 
   const cancelFocus = (): void => {
     pending.current = null
@@ -339,9 +361,9 @@ function useBackgroundGridNavigation(props: GridProps) {
       (item) => backgroundSourceKey(item.source) === focusKey,
     )
     const start =
-      document.activeElement === container.current
+      document.activeElement === container.current || current < 0
         ? visibleStart.current * columns
-        : Math.max(0, current)
+        : current
     const nextIndex =
       event.key === 'Home'
         ? 0
@@ -369,6 +391,7 @@ function useBackgroundGridNavigation(props: GridProps) {
   return {
     columns,
     focusKey,
+    tabStopKey,
     list,
     container,
     buttons,
@@ -379,6 +402,14 @@ function useBackgroundGridNavigation(props: GridProps) {
     navigate,
     cancelFocus,
     focusPending,
+    onVisibleRows: (next: { startIndex: number; stopIndex: number }): void => {
+      setVisibleRows((previous) =>
+        previous.startIndex === next.startIndex &&
+        previous.stopIndex === next.stopIndex
+          ? previous
+          : next,
+      )
+    },
     onFocusKey: (key: string): void => setFocusKey(key),
     onResize: ({ width }: { width: number }): void => {
       if (!props.active || width <= 0) return

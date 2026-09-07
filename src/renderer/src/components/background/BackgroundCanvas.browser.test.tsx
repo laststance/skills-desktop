@@ -145,10 +145,77 @@ function images(): Element[] {
 }
 
 describe('main background integration', () => {
-  test('offers Retry for a saved selection whose prepared display is missing without clearing the reference', async () => {
+  test('first Apply keeps the settings-before-display interval in loading state without briefly offering missing-image Retry', async () => {
     // Arrange
     currentSnapshot = {
       revision: 1,
+      displayRetryRevision: 0,
+      display: null,
+      operation: {
+        operationId: 1,
+        requestId: '00000000-0000-4000-8000-000000000009',
+        source: display.selection.source,
+        crop: display.crop,
+        aspect: 'original',
+        status: 'applying',
+      },
+    }
+    const { screen, store } = await renderBackgrounds(null)
+    // Act: reproduce Main's actual separate settings and display messages.
+    store.dispatch(
+      setSettings({
+        ...store.getState().settings,
+        background: {
+          ...store.getState().settings.background,
+          selected: display.selection,
+          hasAppliedImage: true,
+        },
+      }),
+    )
+    // Assert
+    await expect
+      .element(screen.getByText('Loading background…', { exact: true }))
+      .toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Retry image' }).elements(),
+    ).toHaveLength(0)
+    expect(
+      screen.getByText('Background unavailable', { exact: false }).elements(),
+    ).toHaveLength(0)
+    // Act
+    currentSnapshot = {
+      ...currentSnapshot,
+      revision: 2,
+      display,
+      operation: {
+        ...currentSnapshot.operation!,
+        status: 'succeeded',
+        opacityAdjusted: true,
+      },
+    }
+    broadcast(currentSnapshot)
+    // Assert
+    await expect
+      .poll(() =>
+        document
+          .querySelector('[data-background-image]')
+          ?.getAttribute('data-background-state'),
+      )
+      .toBe('ready')
+    await expect
+      .element(screen.getByText('Alpine lake', { exact: true }))
+      .toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Retry image' }).elements(),
+    ).toHaveLength(0)
+    expect(store.getState().settings.background.selected).toEqual(
+      display.selection,
+    )
+  })
+  test('offers Retry at authoritative revision zero for a saved selection whose prepared display is missing', async () => {
+    // Arrange
+    currentSnapshot = {
+      revision: 0,
       displayRetryRevision: 0,
       operation: null,
       display: null,
