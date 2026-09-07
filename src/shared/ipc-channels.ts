@@ -83,6 +83,7 @@ export const IPC_CHANNELS = {
   BACKGROUNDS_REMOVE_UPLOAD: 'backgrounds:removeUpload',
   BACKGROUNDS_SET_LAYOUT: 'backgrounds:setLayout',
   BACKGROUNDS_GET_SNAPSHOT: 'backgrounds:getSnapshot',
+  BACKGROUNDS_RETRY_DISPLAY: 'backgrounds:retryDisplay',
   BACKGROUNDS_CHANGED: 'backgrounds:changed',
 
   // Theme (cross-window). Theme lives in renderer Redux + localStorage, not

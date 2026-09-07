@@ -266,4 +266,14 @@ describe('background settings and IPC boundaries', () => {
       IPC_ARG_SCHEMAS['backgrounds:clear']?.safeParse(['/tmp/file']).success,
     ).toBe(false)
   })
+
+  it('allows explicit display Retry without accepting renderer-supplied paths or revision state', () => {
+    // Arrange
+    const schema = IPC_ARG_SCHEMAS['backgrounds:retryDisplay']
+    // Act / Assert
+    expect(schema?.safeParse([]).success).toBe(true)
+    expect(schema?.safeParse(['/tmp/background.png']).success).toBe(false)
+    expect(schema?.safeParse([{ displayRetryRevision: 1 }]).success).toBe(false)
+    expect(schema?.safeParse([undefined]).success).toBe(false)
+  })
 })

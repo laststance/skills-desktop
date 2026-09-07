@@ -242,6 +242,8 @@ export type BackgroundOperation = BackgroundApplyAcceptance &
 /** Revisions also order same-operation progress, so a delayed snapshot cannot overwrite a newer result. */
 export interface BackgroundSnapshot {
   revision: number
+  /** Nonnegative integer, initially 0; Main increments only explicit display Retry, never ordinary operation updates. */
+  displayRetryRevision: number
   operation: BackgroundOperation | null
   display: BackgroundDisplay | null
 }

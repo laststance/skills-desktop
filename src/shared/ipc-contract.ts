@@ -180,6 +180,7 @@ export interface IpcInvokeContract {
   'backgrounds:removeUpload': { args: [{ uploadId: string }]; result: Settings }
   'backgrounds:setLayout': { args: [BackgroundLayout]; result: Settings }
   'backgrounds:getSnapshot': { args: []; result: BackgroundSnapshot }
+  'backgrounds:retryDisplay': { args: []; result: BackgroundSnapshot }
   'theme:broadcast': { args: [ThemeState]; result: void }
   'activity:list': {
     // Always 1-arg (possibly `undefined`) to match the Zod tuple schema, like

@@ -391,6 +391,8 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
   ]),
   'backgrounds:setLayout': z.tuple([BackgroundLayoutSchema]),
   'backgrounds:getSnapshot': z.tuple([]),
+  // Retry addresses Main's current display only; renderer cannot supply a path, URL or revision.
+  'backgrounds:retryDisplay': z.tuple([]),
 
   // Settings — partial<Settings> with explicit allowed keys/values.
   // Matches src/shared/settings.ts; widening that schema must widen
