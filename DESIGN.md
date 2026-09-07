@@ -305,8 +305,8 @@ Rules:
   and the sender's latest save synchronized.
   Save failures show a themed toast in either window. Main sends its current
   canonical values to the sender of the latest failed request; superseded failures
-  stay silent. Renderer fallback recovery applies only if no newer local edit or
-  broadcast has arrived.
+  send no self-notification. Renderer fallback recovery applies only if no newer
+  local edit or broadcast has arrived.
 - Keep Section controls aligned in the standard 800 × 600 Settings window with
   a minimum 24px range hit area. Verify CSS color math separately from visible
   macOS compositing, and inspect recorded transition frames.
