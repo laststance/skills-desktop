@@ -48,7 +48,7 @@ export type DashboardPageName = Brand<string, 'DashboardPageName'>
 /**
  * Construct a {@link DashboardPageName} from a raw string at a trust boundary
  * (a page-rename input or the preset builder).
- * @example toDashboardPageName('x')
+ * @example toDashboardPageName('Overview')
  */
 export const toDashboardPageName = (value: string): DashboardPageName =>
   value as DashboardPageName
@@ -69,7 +69,7 @@ export type GridColumnStart = Brand<number, 'GridColumnStart'>
 /**
  * Construct a {@link GridColumnStart} from a raw number at a trust boundary
  * (a react-grid-layout callback or persisted state).
- * @example toGridColumnStart(1)
+ * @example toGridColumnStart(3)
  */
 export const toGridColumnStart = (value: number): GridColumnStart =>
   value as GridColumnStart
@@ -83,7 +83,7 @@ export type GridRowStart = Brand<number, 'GridRowStart'>
 /**
  * Construct a {@link GridRowStart} from a raw number at a trust boundary
  * (a react-grid-layout callback or persisted state).
- * @example toGridRowStart(1)
+ * @example toGridRowStart(6)
  */
 export const toGridRowStart = (value: number): GridRowStart =>
   value as GridRowStart
@@ -97,7 +97,7 @@ export type GridColumnSpan = Brand<number, 'GridColumnSpan'>
 /**
  * Construct a {@link GridColumnSpan} from a raw number at a trust boundary
  * (a react-grid-layout callback or the size table).
- * @example toGridColumnSpan(1)
+ * @example toGridColumnSpan(6)
  */
 export const toGridColumnSpan = (value: number): GridColumnSpan =>
   value as GridColumnSpan
@@ -111,7 +111,7 @@ export type GridRowSpan = Brand<number, 'GridRowSpan'>
 /**
  * Construct a {@link GridRowSpan} from a raw number at a trust boundary
  * (a react-grid-layout callback or the size table).
- * @example toGridRowSpan(1)
+ * @example toGridRowSpan(3)
  */
 export const toGridRowSpan = (value: number): GridRowSpan =>
   value as GridRowSpan

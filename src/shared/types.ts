@@ -75,7 +75,7 @@ export type PosixRelativePath = Brand<string, 'PosixRelativePath'>
 /**
  * Construct a {@link PosixRelativePath} from a raw string at a trust boundary
  * (a preview file-tree walk or IPC payload).
- * @example toPosixRelativePath('x')
+ * @example toPosixRelativePath('lib/helper.py')
  */
 export const toPosixRelativePath = (value: string): PosixRelativePath =>
   value as PosixRelativePath
@@ -89,7 +89,7 @@ export type FileExtension = Brand<string, 'FileExtension'>
 /**
  * Construct a {@link FileExtension} from a raw string at a trust boundary
  * (a path parse or IPC payload).
- * @example toFileExtension('x')
+ * @example toFileExtension('.md')
  */
 export const toFileExtension = (value: string): FileExtension =>
   value as FileExtension
@@ -103,7 +103,7 @@ export type MimeType = Brand<string, 'MimeType'>
 /**
  * Construct a {@link MimeType} from a raw string at a trust boundary
  * (a file sniff or IPC payload).
- * @example toMimeType('x')
+ * @example toMimeType('image/png')
  */
 export const toMimeType = (value: string): MimeType => value as MimeType
 
@@ -116,7 +116,7 @@ export type HttpUrl = Brand<string, 'HttpUrl'>
 /**
  * Construct a {@link HttpUrl} from a raw string at a trust boundary
  * (registry JSON, CLI output, or a fixture).
- * @example toHttpUrl('x')
+ * @example toHttpUrl('https://github.com/vercel-labs/skills.git')
  */
 export const toHttpUrl = (value: string): HttpUrl => value as HttpUrl
 
@@ -129,7 +129,7 @@ export type IsoTimestamp = Brand<string, 'IsoTimestamp'>
 /**
  * Construct a {@link IsoTimestamp} from a raw string at a trust boundary
  * (`Date#toISOString`, stored state, or IPC).
- * @example toIsoTimestamp('x')
+ * @example toIsoTimestamp('2026-04-01T08:00:00.000Z')
  */
 export const toIsoTimestamp = (value: string): IsoTimestamp =>
   value as IsoTimestamp
@@ -143,7 +143,7 @@ export type UnixTimestampMs = Brand<number, 'UnixTimestampMs'>
 /**
  * Construct a {@link UnixTimestampMs} from a raw number at a trust boundary
  * (`Date#getTime`, `fs.Stats`, or IPC).
- * @example toUnixTimestampMs(1)
+ * @example toUnixTimestampMs(1713045600000)
  */
 export const toUnixTimestampMs = (value: number): UnixTimestampMs =>
   value as UnixTimestampMs
@@ -157,7 +157,7 @@ export type HumanFileSize = Brand<string, 'HumanFileSize'>
 /**
  * Construct a {@link HumanFileSize} from a raw string at a trust boundary
  * (a byte formatter).
- * @example toHumanFileSize('x')
+ * @example toHumanFileSize('2.4 MB')
  */
 export const toHumanFileSize = (value: string): HumanFileSize =>
   value as HumanFileSize
@@ -173,7 +173,7 @@ export type PixelWidth = Brand<number, 'PixelWidth'>
 /**
  * Construct a {@link PixelWidth} from a raw number at a trust boundary
  * (an image decode or a layout measurement).
- * @example toPixelWidth(1)
+ * @example toPixelWidth(1280)
  */
 export const toPixelWidth = (value: number): PixelWidth => value as PixelWidth
 
@@ -188,7 +188,7 @@ export type PixelHeight = Brand<number, 'PixelHeight'>
 /**
  * Construct a {@link PixelHeight} from a raw number at a trust boundary
  * (an image decode or a layout measurement).
- * @example toPixelHeight(1)
+ * @example toPixelHeight(800)
  */
 export const toPixelHeight = (value: number): PixelHeight =>
   value as PixelHeight
@@ -202,7 +202,7 @@ export type FileName = Brand<string, 'FileName'>
 /**
  * Construct a {@link FileName} from a raw string at a trust boundary
  * (`path.basename` or a directory read).
- * @example toFileName('x')
+ * @example toFileName('SKILL.md')
  */
 export const toFileName = (value: string): FileName => value as FileName
 
@@ -215,7 +215,7 @@ export type DataUrl = Brand<string, 'DataUrl'>
 /**
  * Construct a {@link DataUrl} from a raw string at a trust boundary
  * (a base64 encode of file bytes).
- * @example toDataUrl('x')
+ * @example toDataUrl('data:image/png;base64,iVBORw0KGgo...')
  */
 export const toDataUrl = (value: string): DataUrl => value as DataUrl
 
@@ -228,7 +228,7 @@ export type FileSizeBytes = Brand<number, 'FileSizeBytes'>
 /**
  * Construct a {@link FileSizeBytes} from a raw number at a trust boundary
  * (`fs.Stats#size` or IPC).
- * @example toFileSizeBytes(1)
+ * @example toFileSizeBytes(48201)
  */
 export const toFileSizeBytes = (value: number): FileSizeBytes =>
   value as FileSizeBytes
@@ -242,7 +242,7 @@ export type LineCount = Brand<number, 'LineCount'>
 /**
  * Construct a {@link LineCount} from a raw number at a trust boundary
  * (a newline split of file contents).
- * @example toLineCount(1)
+ * @example toLineCount(42)
  */
 export const toLineCount = (value: number): LineCount => value as LineCount
 
@@ -255,7 +255,7 @@ export type SkillCount = Brand<number, 'SkillCount'>
 /**
  * Construct a {@link SkillCount} from a raw number at a trust boundary
  * (a scan result or IPC payload).
- * @example toSkillCount(1)
+ * @example toSkillCount(15)
  */
 export const toSkillCount = (value: number): SkillCount => value as SkillCount
 
@@ -268,7 +268,7 @@ export type AgentCount = Brand<number, 'AgentCount'>
 /**
  * Construct a {@link AgentCount} from a raw number at a trust boundary
  * (a scan result or IPC payload).
- * @example toAgentCount(1)
+ * @example toAgentCount(3)
  */
 export const toAgentCount = (value: number): AgentCount => value as AgentCount
 
@@ -281,7 +281,7 @@ export type ByteCount = Brand<number, 'ByteCount'>
 /**
  * Construct a {@link ByteCount} from a raw number at a trust boundary
  * (a download progress event).
- * @example toByteCount(1)
+ * @example toByteCount(10485760)
  */
 export const toByteCount = (value: number): ByteCount => value as ByteCount
 
@@ -294,7 +294,7 @@ export type BytesPerSecond = Brand<number, 'BytesPerSecond'>
 /**
  * Construct a {@link BytesPerSecond} from a raw number at a trust boundary
  * (a download progress event).
- * @example toBytesPerSecond(1)
+ * @example toBytesPerSecond(524288)
  */
 export const toBytesPerSecond = (value: number): BytesPerSecond =>
   value as BytesPerSecond
@@ -308,7 +308,7 @@ export type ProgressPercent = Brand<number, 'ProgressPercent'>
 /**
  * Construct a {@link ProgressPercent} from a raw number at a trust boundary
  * (a download progress event).
- * @example toProgressPercent(1)
+ * @example toProgressPercent(45.2)
  */
 export const toProgressPercent = (value: number): ProgressPercent =>
   value as ProgressPercent
@@ -322,7 +322,7 @@ export type BatchItemIndex = Brand<number, 'BatchItemIndex'>
 /**
  * Construct a {@link BatchItemIndex} from a raw number at a trust boundary
  * (a bulk-operation loop counter).
- * @example toBatchItemIndex(1)
+ * @example toBatchItemIndex(3)
  */
 export const toBatchItemIndex = (value: number): BatchItemIndex =>
   value as BatchItemIndex
@@ -336,7 +336,7 @@ export type BatchItemCount = Brand<number, 'BatchItemCount'>
 /**
  * Construct a {@link BatchItemCount} from a raw number at a trust boundary
  * (a bulk-operation input length).
- * @example toBatchItemCount(1)
+ * @example toBatchItemCount(12)
  */
 export const toBatchItemCount = (value: number): BatchItemCount =>
   value as BatchItemCount
@@ -359,7 +359,7 @@ export type SymlinkCount = Brand<number, 'SymlinkCount'>
 /**
  * Construct a {@link SymlinkCount} from a raw number at a trust boundary
  * (a symlink slot tally).
- * @example toSymlinkCount(1)
+ * @example toSymlinkCount(12)
  */
 export const toSymlinkCount = (value: number): SymlinkCount =>
   value as SymlinkCount
@@ -388,7 +388,7 @@ export type InstallCount = Brand<number, 'InstallCount'>
 /**
  * Construct a {@link InstallCount} from a raw number at a trust boundary
  * (marketplace registry JSON).
- * @example toInstallCount(1)
+ * @example toInstallCount(2480)
  */
 export const toInstallCount = (value: number): InstallCount =>
   value as InstallCount
@@ -404,7 +404,7 @@ export type SearchQuery = Brand<string, 'SearchQuery'>
 /**
  * Construct a {@link SearchQuery} from a raw string at a trust boundary
  * (a search input's onChange).
- * @example toSearchQuery('x')
+ * @example toSearchQuery('react hooks')
  */
 export const toSearchQuery = (value: string): SearchQuery =>
   value as SearchQuery
