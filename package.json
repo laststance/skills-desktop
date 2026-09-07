@@ -19,6 +19,7 @@
     "test:e2e": "pnpm build:e2e && playwright test --config=e2e/playwright.config.ts",
     "test:e2e:headed": "pnpm build:e2e && playwright test --config=e2e/playwright.config.ts --headed",
     "test:release:macos-window": "node scripts/verify-macos-window-rendering.mjs",
+    "test:packaged:backgrounds": "node scripts/verify-packaged-backgrounds.mjs",
     "gen:e2e-snapshot": "E2E_GEN_SNAPSHOT=1 pnpm test:e2e",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
