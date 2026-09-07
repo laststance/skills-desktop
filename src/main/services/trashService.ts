@@ -212,16 +212,14 @@ function skillNameFromPathBasename(absolutePath: AbsolutePath): SkillName {
 function resolveDeleteIdentity(
   reviewedSkillPath: AbsolutePath,
 ): DeleteIdentity {
-  const normalizedPath = resolve(reviewedSkillPath)
+  const normalizedPath = toAbsolutePath(resolve(reviewedSkillPath))
   const sourceDir = resolve(SOURCE_DIR)
   if (dirname(normalizedPath) === sourceDir) {
     validatePath(normalizedPath, [SOURCE_DIR])
     return {
       kind: 'source',
-      filesystemSkillName: skillNameFromPathBasename(
-        toAbsolutePath(normalizedPath),
-      ),
-      sourcePath: toAbsolutePath(normalizedPath),
+      filesystemSkillName: skillNameFromPathBasename(normalizedPath),
+      sourcePath: normalizedPath,
     }
   }
 
@@ -230,15 +228,13 @@ function resolveDeleteIdentity(
   )
   if (agent) {
     validatePath(normalizedPath, [agent.path])
-    const filesystemSkillName = skillNameFromPathBasename(
-      toAbsolutePath(normalizedPath),
-    )
+    const filesystemSkillName = skillNameFromPathBasename(normalizedPath)
     return {
       kind: 'agent-local',
       filesystemSkillName,
       reviewedLocalCopy: {
         agentId: agent.id,
-        linkPath: toAbsolutePath(normalizedPath),
+        linkPath: normalizedPath,
       },
     }
   }
@@ -686,11 +682,13 @@ async function rollbackMovedLocalCopies(
 ): Promise<RecordedLocalCopy[]> {
   const unrestoredCopies: RecordedLocalCopy[] = []
   for (const copy of copies) {
-    const stagedPath = join(entryRoot, 'local-copies', copy.agentId)
+    const stagedPath = toAbsolutePath(
+      join(entryRoot, 'local-copies', copy.agentId),
+    )
     try {
       // react-doctor-disable-next-line react-doctor/async-await-in-loop -- intra-iteration dependent (mkdir parent then move into it); best-effort rollback accumulating unrestoredCopies, order- and fd-sensitive.
       await fs.mkdir(dirname(copy.linkPath), { recursive: true })
-      await moveDirectoryNoOverwrite(toAbsolutePath(stagedPath), copy.linkPath)
+      await moveDirectoryNoOverwrite(stagedPath, copy.linkPath)
     } catch (error) {
       console.warn('trashService: rollback local copy failed', {
         agentId: copy.agentId,
@@ -907,7 +905,9 @@ async function unlinkReviewedSourceSymlink(
     throw error
   }
 
-  const movedPath = `${linkPath}.cleanup-${randomBytes(4).toString('hex')}`
+  const movedPath = toAbsolutePath(
+    `${linkPath}.cleanup-${randomBytes(4).toString('hex')}`,
+  )
 
   try {
     await fs.rename(linkPath, movedPath)
@@ -917,15 +917,12 @@ async function unlinkReviewedSourceSymlink(
   }
 
   try {
-    const movedReviewed = await readReviewedSourceSymlink(
-      toAbsolutePath(movedPath),
-      sourcePath,
-    )
+    const movedReviewed = await readReviewedSourceSymlink(movedPath, sourcePath)
     await fs.unlink(movedPath)
     return { outcome: 'unlinked', target: movedReviewed.rawTarget }
   } catch (error) {
     try {
-      await restoreMovedCleanupCandidate(linkPath, toAbsolutePath(movedPath))
+      await restoreMovedCleanupCandidate(linkPath, movedPath)
     } catch (restoreError) {
       throw new TrashError(
         extractErrorMessage(restoreError),
@@ -978,7 +975,9 @@ export async function commitReviewedDanglingSymlink(options: {
   targetExistsMessage: string
   targetProbePrefix: string
 }): Promise<void> {
-  const movedPath = `${options.linkPath}.cleanup-${randomBytes(4).toString('hex')}`
+  const movedPath = toAbsolutePath(
+    `${options.linkPath}.cleanup-${randomBytes(4).toString('hex')}`,
+  )
 
   try {
     await fs.rename(options.linkPath, movedPath)
@@ -989,7 +988,7 @@ export async function commitReviewedDanglingSymlink(options: {
 
   try {
     const movedReviewed = await readReviewedDanglingSymlink({
-      linkPath: toAbsolutePath(movedPath),
+      linkPath: movedPath,
       targetPath: options.targetPath,
       targetChangedMessage: options.targetChangedMessage,
     })
@@ -1000,10 +999,7 @@ export async function commitReviewedDanglingSymlink(options: {
     )
     await fs.unlink(movedPath)
   } catch (error) {
-    await restoreMovedCleanupCandidate(
-      options.linkPath,
-      toAbsolutePath(movedPath),
-    )
+    await restoreMovedCleanupCandidate(options.linkPath, movedPath)
     throw error
   }
 }
@@ -1145,7 +1141,7 @@ async function removeSourceBackedAgentSymlinks(
   for (const agent of AGENTS) {
     for (const slotName of candidateSlotNames) {
       // fallow-ignore-next-line code-duplication
-      const linkPath = join(agent.path, slotName)
+      const linkPath = toAbsolutePath(join(agent.path, slotName))
       if (processedLinkPaths.has(linkPath)) continue
       processedLinkPaths.add(linkPath)
       // Use getAllowedBases() — validatePath realpath-follows linkPath. A valid
@@ -1179,10 +1175,7 @@ async function removeSourceBackedAgentSymlinks(
 
       let removal: 'missing' | { outcome: 'unlinked'; target: string }
       try {
-        removal = await unlinkReviewedSourceSymlink(
-          toAbsolutePath(linkPath),
-          sourcePath,
-        )
+        removal = await unlinkReviewedSourceSymlink(linkPath, sourcePath)
       } catch (error) {
         const code = errorCode(error)
         if (code === 'ENOENT' || code === 'ESTALE') {
@@ -1199,7 +1192,7 @@ async function removeSourceBackedAgentSymlinks(
       if (removal === 'missing') continue
       recordedSymlinks.push({
         agentId: agent.id,
-        linkPath: toAbsolutePath(linkPath),
+        linkPath: linkPath,
         target: removal.target,
       })
       if (!cascadeAgentIdSet.has(agent.id)) {
@@ -1226,12 +1219,14 @@ async function moveSourceBackedToTrash(
   await fs.mkdir(TRASH_DIR, { recursive: true, mode: 0o755 })
 
   const entryName = buildEntryName(skillName)
-  const entryDir = join(TRASH_DIR, entryName)
+  const entryDir = toAbsolutePath(join(TRASH_DIR, entryName))
   // Everything below is assembled under a staged name and published with one
   // rename at the end. A kill before that rename leaves a directory no reader
   // parses as a tombstone, so the source waits there instead of being swept.
-  const stagingDir = join(TRASH_DIR, `${STAGED_ENTRY_PREFIX}${entryName}`)
-  const entrySourceDir = join(stagingDir, 'source')
+  const stagingDir = toAbsolutePath(
+    join(TRASH_DIR, `${STAGED_ENTRY_PREFIX}${entryName}`),
+  )
+  const entrySourceDir = toAbsolutePath(join(stagingDir, 'source'))
 
   // Walk agents, collect + remove symlinks. Abort on non-ENOENT unlink failure.
   const { recordedSymlinks, cascadeAgentIds } =
@@ -1244,7 +1239,7 @@ async function moveSourceBackedToTrash(
   await fs.mkdir(stagingDir, { recursive: true })
   const sourceMoveFailure = await moveSourceIntoTrashEntry(
     sourcePath,
-    toAbsolutePath(entrySourceDir),
+    entrySourceDir,
     reviewedIdentity,
   )
   if (sourceMoveFailure !== null) {
@@ -1258,8 +1253,8 @@ async function moveSourceBackedToTrash(
       // The copy sits in the staged entry, so publish it — marker readers only
       // ever scan published entry names.
       const recoveryDir = await publishManualRecoveryEntry(
-        toAbsolutePath(stagingDir),
-        toAbsolutePath(entryDir),
+        stagingDir,
+        entryDir,
         manualRecovery.reason,
       )
       throw new TrashError(
@@ -1296,11 +1291,7 @@ async function moveSourceBackedToTrash(
     symlinks: recordedSymlinks,
   }
   try {
-    await writeManifestThenPublish(
-      manifest,
-      toAbsolutePath(stagingDir),
-      toAbsolutePath(entryDir),
-    )
+    await writeManifestThenPublish(manifest, stagingDir, entryDir)
   } catch (entryPublishError) {
     const entryPublishCode = errorCode(entryPublishError)
     const entryPublishMessage = extractErrorMessage(entryPublishError)
@@ -1308,7 +1299,7 @@ async function moveSourceBackedToTrash(
     // Step 1: restore the source back without clobbering a recreated slot.
     let restoreSourceFailed = false
     try {
-      await moveDirectoryNoOverwrite(toAbsolutePath(entrySourceDir), sourcePath)
+      await moveDirectoryNoOverwrite(entrySourceDir, sourcePath)
     } catch (restoreError) {
       restoreSourceFailed = true
       console.error(
@@ -1336,11 +1327,11 @@ async function moveSourceBackedToTrash(
       })
     } else {
       const recoveryDir = await publishManualRecoveryEntry(
-        toAbsolutePath(stagingDir),
-        toAbsolutePath(entryDir),
+        stagingDir,
+        entryDir,
         'source entry publish rollback failed to restore original path',
       )
-      strandedSourceDir = join(recoveryDir, 'source')
+      strandedSourceDir = toAbsolutePath(join(recoveryDir, 'source'))
     }
 
     // If we couldn't put the source back the user is in a broken state. Flag
@@ -1402,13 +1393,15 @@ async function moveLocalOnlyToTrash(
   await fs.mkdir(TRASH_DIR, { recursive: true, mode: 0o755 })
 
   const entryName = buildEntryName(skillName)
-  const entryDir = join(TRASH_DIR, entryName)
+  const entryDir = toAbsolutePath(join(TRASH_DIR, entryName))
   // Same staged-then-published shape as the source-backed twin: everything is
   // assembled under a name no reader parses as a tombstone, then one rename
   // publishes it. A kill before that rename leaves the copies waiting there
   // instead of half an entry the sweep would act on.
-  const stagingDir = join(TRASH_DIR, `${STAGED_ENTRY_PREFIX}${entryName}`)
-  const localCopiesRoot = join(stagingDir, 'local-copies')
+  const stagingDir = toAbsolutePath(
+    join(TRASH_DIR, `${STAGED_ENTRY_PREFIX}${entryName}`),
+  )
+  const localCopiesRoot = toAbsolutePath(join(stagingDir, 'local-copies'))
 
   await fs.mkdir(localCopiesRoot, { recursive: true })
 
@@ -1416,14 +1409,11 @@ async function moveLocalOnlyToTrash(
   // Track successfully-moved copies so a mid-loop failure can be rolled back.
   const moved: RecordedLocalCopy[] = []
   for (const copy of localCopies) {
-    const stagedPath = join(localCopiesRoot, copy.agentId)
+    const stagedPath = toAbsolutePath(join(localCopiesRoot, copy.agentId))
     /* v8 ignore start -- defense-in-depth: the sole caller moveToTrash always supplies a non-null filesystemIdentity, so this optional-field guard is unreachable via any public entry point */
     if (!copy.filesystemIdentity) {
       // react-doctor-disable-next-line react-doctor/async-await-in-loop -- sequential move loop accumulates the moved array and must rename already-moved copies back in order on failure (also an unreachable v8-ignored guard).
-      const unrestoredCopies = await rollbackMovedLocalCopies(
-        toAbsolutePath(stagingDir),
-        moved,
-      )
+      const unrestoredCopies = await rollbackMovedLocalCopies(stagingDir, moved)
       if (unrestoredCopies.length === 0) {
         await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => {
           // best-effort cleanup
@@ -1432,8 +1422,8 @@ async function moveLocalOnlyToTrash(
         // Return discarded on purpose: this arm's throw names no path, so the
         // published location has no reader to hand it to.
         await publishManualRecoveryEntry(
-          toAbsolutePath(stagingDir),
-          toAbsolutePath(entryDir),
+          stagingDir,
+          entryDir,
           'local-only rollback left staged copies in trash',
         )
       }
@@ -1490,10 +1480,7 @@ async function moveLocalOnlyToTrash(
                 ),
               }
             }
-            await copyDirectoryNoOverwrite(
-              siblingStagePath,
-              toAbsolutePath(stagedPath),
-            )
+            await copyDirectoryNoOverwrite(siblingStagePath, stagedPath)
             stagedCopyCreated = true
             await fs.rm(siblingStagePath, { recursive: true, force: true })
             return { kind: 'moved' as const }
@@ -1562,7 +1549,7 @@ async function moveLocalOnlyToTrash(
 
       if (recoveryOutcome.kind === 'fatal') {
         const unrestoredCopies = await rollbackMovedLocalCopies(
-          toAbsolutePath(stagingDir),
+          stagingDir,
           moved,
         )
         if (
@@ -1583,8 +1570,8 @@ async function moveLocalOnlyToTrash(
         // data, so publish it under the tombstone name the marker readers scan
         // and report whichever path it actually landed at.
         const recoveryDir = await publishManualRecoveryEntry(
-          toAbsolutePath(stagingDir),
-          toAbsolutePath(entryDir),
+          stagingDir,
+          entryDir,
           'local-only EXDEV fallback or rollback left staged copies in trash',
         )
         const strandedAgents = Array.from(
@@ -1624,19 +1611,12 @@ async function moveLocalOnlyToTrash(
     localCopies: moved.map(({ agentId, linkPath }) => ({ agentId, linkPath })),
   }
   try {
-    await writeManifestThenPublish(
-      manifest,
-      toAbsolutePath(stagingDir),
-      toAbsolutePath(entryDir),
-    )
+    await writeManifestThenPublish(manifest, stagingDir, entryDir)
   } catch (entryPublishError) {
     const entryPublishCode = errorCode(entryPublishError)
     const entryPublishMessage = extractErrorMessage(entryPublishError)
 
-    const unrestoredCopies = await rollbackMovedLocalCopies(
-      toAbsolutePath(stagingDir),
-      moved,
-    )
+    const unrestoredCopies = await rollbackMovedLocalCopies(stagingDir, moved)
     if (unrestoredCopies.length === 0) {
       // All copies restored — safe to drop the staged entry dir.
       /* v8 ignore next 3 -- best-effort cleanup: any fs.rm rejection (EPERM/EBUSY/EACCES — force only suppresses ENOENT) is intentionally swallowed by .catch, and no suite stages a writable-but-unremovable dir, so this recovery arm is unreachable under test */
@@ -1652,8 +1632,8 @@ async function moveLocalOnlyToTrash(
     // folder is the ONLY remaining copy of the user's data, so publish it under
     // the tombstone name the marker readers scan and report where it landed.
     const recoveryDir = await publishManualRecoveryEntry(
-      toAbsolutePath(stagingDir),
-      toAbsolutePath(entryDir),
+      stagingDir,
+      entryDir,
       'local-only manifest rollback left staged copies in trash',
     )
     const strandedAgents = unrestoredCopies
@@ -1693,12 +1673,12 @@ async function moveLocalOnlyToTrash(
  * @example evict(tombstoneId('1729180800000-task-a1b2c3d4'))
  */
 export async function evict(id: TombstoneId): Promise<void> {
-  const entryDir = join(TRASH_DIR, id)
+  const entryDir = toAbsolutePath(join(TRASH_DIR, id))
   cancelEvictTimer(id)
 
   // Read the manifest BEFORE the removal: it is the only record of which
   // source directory this tombstone owned, and fs.rm takes it with it.
-  const lockKey = await readEvictedLockKey(toAbsolutePath(entryDir))
+  const lockKey = await readEvictedLockKey(entryDir)
 
   try {
     await fs.rm(entryDir, { recursive: true, force: true })
@@ -1767,7 +1747,7 @@ export async function restore(
   id: TombstoneId,
 ): Promise<RestoreDeletedSkillResult> {
   const startTime = Date.now()
-  const entryDir = join(TRASH_DIR, id)
+  const entryDir = toAbsolutePath(join(TRASH_DIR, id))
   const manifestPath = join(entryDir, 'manifest.json')
 
   // (a) Entry exists.
@@ -1809,10 +1789,10 @@ export async function restore(
   // cancellation so the wrapper stays a thin router.
   const result = await match(manifest)
     .with({ kind: 'source-backed' }, async (m) =>
-      restoreSourceBacked(id, toAbsolutePath(entryDir), m),
+      restoreSourceBacked(id, entryDir, m),
     )
     .with({ kind: 'local-only' }, async (m) =>
-      restoreLocalOnly(id, toAbsolutePath(entryDir), m),
+      restoreLocalOnly(id, entryDir, m),
     )
     .exhaustive()
 
@@ -1836,7 +1816,7 @@ async function restoreSourceBacked(
   entryDir: AbsolutePath,
   manifest: Extract<z.infer<typeof manifestSchema>, { kind: 'source-backed' }>,
 ): Promise<RestoreDeletedSkillResult> {
-  const entrySourceDir = join(entryDir, 'source')
+  const entrySourceDir = toAbsolutePath(join(entryDir, 'source'))
 
   // Validate sourcePath is within SOURCE_DIR specifically — skill sources
   // always live there. A tampered manifest could otherwise claim sourcePath
@@ -1876,7 +1856,7 @@ async function restoreSourceBacked(
   // Restore source back through the same no-overwrite helper as local-only.
   try {
     await moveDirectoryNoOverwrite(
-      toAbsolutePath(entrySourceDir),
+      entrySourceDir,
       toAbsolutePath(manifest.sourcePath),
     )
   } catch (error) {
@@ -1979,7 +1959,7 @@ async function restoreLocalOnly(
 ): Promise<RestoreDeletedSkillResult> {
   let symlinksRestored = 0
   let symlinksSkipped = 0
-  const localCopiesRoot = join(entryDir, 'local-copies')
+  const localCopiesRoot = toAbsolutePath(join(entryDir, 'local-copies'))
 
   for (const copy of manifest.localCopies) {
     const agent = AGENTS.find((a) => a.id === copy.agentId)
@@ -2009,13 +1989,10 @@ async function restoreLocalOnly(
       }
       // ENOENT = free, proceed.
     }
-    const stagedPath = join(localCopiesRoot, copy.agentId)
+    const stagedPath = toAbsolutePath(join(localCopiesRoot, copy.agentId))
     try {
       await fs.mkdir(agent.path, { recursive: true })
-      await moveDirectoryNoOverwrite(
-        toAbsolutePath(stagedPath),
-        toAbsolutePath(copy.linkPath),
-      )
+      await moveDirectoryNoOverwrite(stagedPath, toAbsolutePath(copy.linkPath))
       symlinksRestored++
     } catch {
       symlinksSkipped++
@@ -2170,9 +2147,9 @@ export async function startupCleanup(): Promise<void> {
       // Unparseable name = foreign file; do not touch.
       continue
     }
-    const entryDir = join(TRASH_DIR, entryName)
+    const entryDir = toAbsolutePath(join(TRASH_DIR, entryName))
     // react-doctor-disable-next-line react-doctor/async-await-in-loop -- the classify reads only build the toSweep plan and mutate the skip counters; the actual eviction runs via a concurrency-4 pool below.
-    const disposition = await classifyEntryForSweep(toAbsolutePath(entryDir))
+    const disposition = await classifyEntryForSweep(entryDir)
     if (disposition === 'manual-recovery') {
       manualRecoverySkippedCount++
       continue

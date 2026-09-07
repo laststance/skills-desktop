@@ -114,7 +114,7 @@ export async function syncPreview(
 
   for (const skill of skills) {
     for (const agent of agents) {
-      const linkPath = join(agent.path, skill.name)
+      const linkPath = toAbsolutePath(join(agent.path, skill.name))
 
       try {
         // react-doctor-disable-next-line react-doctor/async-await-in-loop -- lstat per (skill x agent) symlink path classifying synced/conflict/missing; a bounded local-fs probe kept sequential to keep result accounting simple.
@@ -128,7 +128,7 @@ export async function syncPreview(
             skillName: skill.name,
             agentId: agent.id,
             agentName: agent.name,
-            agentSkillPath: toAbsolutePath(linkPath),
+            agentSkillPath: linkPath,
           })
         }
       } catch {
@@ -187,7 +187,7 @@ export async function syncExecute(
 
   for (const skill of skills) {
     for (const agent of agents) {
-      const linkPath = join(agent.path, skill.name)
+      const linkPath = toAbsolutePath(join(agent.path, skill.name))
 
       try {
         let exists = false
@@ -204,7 +204,7 @@ export async function syncExecute(
         const action = await match({
           exists,
           isSymlink,
-          shouldReplace: replaceSet.has(toAbsolutePath(linkPath)),
+          shouldReplace: replaceSet.has(linkPath),
         })
           .returnType<Promise<'created' | 'skipped' | 'replaced'>>()
           .with({ exists: false }, async () => {
@@ -241,7 +241,7 @@ export async function syncExecute(
         })
       } catch (error) {
         const msg = extractErrorMessage(error)
-        errors.push({ path: toAbsolutePath(linkPath), error: msg })
+        errors.push({ path: linkPath, error: msg })
         details.push({
           skillName: skill.name,
           agentName: agent.name,
