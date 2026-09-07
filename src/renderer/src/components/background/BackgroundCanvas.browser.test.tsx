@@ -145,6 +145,66 @@ function images(): Element[] {
 }
 
 describe('main background integration', () => {
+  test('announces image failure through existing empty status regions and clears them after recovery', async () => {
+    // Arrange
+    currentSnapshot = { ...currentSnapshot, display: null }
+    const { screen, store } = await renderBackgrounds(null)
+    const statusRegions = screen.getByRole('status').elements()
+    expect(statusRegions).toHaveLength(2)
+    expect(statusRegions.map((region) => region.textContent)).toEqual(['', ''])
+
+    // Act: first selection fails to load after both live regions already exist.
+    store.dispatch(
+      setSettings({
+        ...store.getState().settings,
+        background: {
+          ...store.getState().settings.background,
+          selected: display.selection,
+          hasAppliedImage: true,
+        },
+      }),
+    )
+    currentSnapshot = {
+      ...currentSnapshot,
+      revision: 1,
+      display: {
+        ...display,
+        image: { ...display.image, url: 'data:image/png;base64,AAAA' },
+      },
+    }
+    broadcast(currentSnapshot)
+
+    // Assert: native image errors update the mounted announcement targets.
+    await expect
+      .poll(
+        () =>
+          screen.getByRole('button', { name: 'Retry image' }).elements().length,
+      )
+      .toBe(2)
+    await expect
+      .poll(() => statusRegions.map((region) => region.textContent))
+      .toEqual([
+        'Background unavailable.Retry image',
+        'Background unavailable. Retry image',
+      ])
+    expect(screen.getByRole('status').elements()[0]).toBe(statusRegions[0])
+    expect(screen.getByRole('status').elements()[1]).toBe(statusRegions[1])
+
+    // Act: a valid resource recovers without replacing either live region.
+    currentSnapshot = { ...currentSnapshot, revision: 2, display }
+    broadcast(currentSnapshot)
+
+    // Assert
+    await expect
+      .poll(() => statusRegions.map((region) => region.textContent))
+      .toEqual(['', ''])
+    expect(screen.getByRole('status').elements()[0]).toBe(statusRegions[0])
+    expect(screen.getByRole('status').elements()[1]).toBe(statusRegions[1])
+    expect(
+      screen.getByRole('button', { name: 'Retry image' }).elements(),
+    ).toHaveLength(0)
+  })
+
   test('first Apply keeps the settings-before-display interval in loading state without briefly offering missing-image Retry', async () => {
     // Arrange
     currentSnapshot = {

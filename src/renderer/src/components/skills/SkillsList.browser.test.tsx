@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
-import { installLayoutStyles } from '@/renderer/src/test/installLayoutStyles'
+import '@/renderer/src/styles/globals.css'
 import type { Skill } from '@/shared/types'
 import {
   toAbsolutePath,
@@ -270,7 +270,6 @@ describe('SkillsList loading branch — scroll-preservation regression', () => {
 describe('SkillsList scrollbar gutter layout', () => {
   it('keeps installed skill cards and scrollbar spacing balanced when the vertical scrollbar is visible', async () => {
     // Arrange
-    const layoutStyleElement = installLayoutStyles()
     mockGetAll.mockReturnValue(new Promise(() => {}))
     const visibleSkills = Array.from({ length: 8 }, (_value, index) =>
       makeSkill({
@@ -279,30 +278,25 @@ describe('SkillsList scrollbar gutter layout', () => {
       }),
     )
 
-    try {
-      // Act
-      const screen = await renderInstalledListShell({ items: visibleSkills })
-      await expect.element(screen.getByText('skill-0')).toBeInTheDocument()
+    // Act
+    const screen = await renderInstalledListShell({ items: visibleSkills })
+    await expect.element(screen.getByText('skill-0')).toBeVisible()
 
-      // Assert
-      const metrics = measureInstalledListLayout(
-        'Delete skill-0',
-        'first skill card',
-      )
+    // Assert
+    const metrics = measureInstalledListLayout(
+      'Delete skill-0',
+      'first skill card',
+    )
 
-      expect(metrics.reservedGutterWidthPx).toBe(6)
-      expect(metrics.leftGutterPx).toBe(16)
-      expect(metrics.rightGutterPx).toBe(16)
-      expect(metrics.reservedGutterLeftSpacingPx).toBe(5)
-      expect(metrics.reservedGutterRightSpacingPx).toBe(5)
-    } finally {
-      layoutStyleElement.remove()
-    }
+    expect(metrics.reservedGutterWidthPx).toBe(6)
+    expect(metrics.leftGutterPx).toBe(16)
+    expect(metrics.rightGutterPx).toBe(16)
+    expect(metrics.reservedGutterLeftSpacingPx).toBe(5)
+    expect(metrics.reservedGutterRightSpacingPx).toBe(5)
   })
 
   it('keeps installed skill cards and reserved scrollbar gutter balanced when vertical scrolling is unnecessary', async () => {
     // Arrange
-    const layoutStyleElement = installLayoutStyles()
     mockGetAll.mockReturnValue(new Promise(() => {}))
     const visibleSkills = [
       makeSkill({
@@ -311,28 +305,24 @@ describe('SkillsList scrollbar gutter layout', () => {
       }),
     ]
 
-    try {
-      // Act
-      const screen = await renderInstalledListShell({ items: visibleSkills })
-      await expect.element(screen.getByText('single-skill')).toBeInTheDocument()
+    // Act
+    const screen = await renderInstalledListShell({ items: visibleSkills })
+    await expect.element(screen.getByText('single-skill')).toBeVisible()
 
-      // Assert
-      const metrics = measureInstalledListLayout(
-        'Delete single-skill',
-        'single skill card',
-      )
+    // Assert
+    const metrics = measureInstalledListLayout(
+      'Delete single-skill',
+      'single skill card',
+    )
 
-      expect(metrics.list.scrollHeight).toBeLessThanOrEqual(
-        metrics.list.clientHeight,
-      )
-      expect(metrics.reservedGutterWidthPx).toBe(6)
-      expect(metrics.leftGutterPx).toBe(16)
-      expect(metrics.rightGutterPx).toBe(16)
-      expect(metrics.reservedGutterLeftSpacingPx).toBe(5)
-      expect(metrics.reservedGutterRightSpacingPx).toBe(5)
-    } finally {
-      layoutStyleElement.remove()
-    }
+    expect(metrics.list.scrollHeight).toBeLessThanOrEqual(
+      metrics.list.clientHeight,
+    )
+    expect(metrics.reservedGutterWidthPx).toBe(6)
+    expect(metrics.leftGutterPx).toBe(16)
+    expect(metrics.rightGutterPx).toBe(16)
+    expect(metrics.reservedGutterLeftSpacingPx).toBe(5)
+    expect(metrics.reservedGutterRightSpacingPx).toBe(5)
   })
 })
 

@@ -1,5 +1,13 @@
 import type { BackgroundCropAspect } from '@/shared/backgrounds'
 
+/** Appearance renders these labels; the hidden-image hint uses the same source to focus the active range. */
+export const WINDOW_OPACITY_LABELS = {
+  windowBackgroundOpacityPercent: 'Background opacity',
+  leftSectionOpacityPercent: 'Left opacity',
+  centerSectionOpacityPercent: 'Center opacity',
+  rightSectionOpacityPercent: 'Right opacity',
+}
+
 /** Desktop gallery geometry and crop interaction limits from DESIGN.md. */
 export const GALLERY_THREE_COLUMN_MIN_WIDTH_PX = 520
 export const GALLERY_ROW_HEIGHT_PX = 180

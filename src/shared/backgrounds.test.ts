@@ -50,6 +50,31 @@ describe('background settings and IPC boundaries', () => {
     { kind: 'upload-draft', draftId: uploadId },
     { kind: 'upload', uploadId },
     { kind: 'builtin', builtinId: 'alpine-lake' },
+    {
+      kind: 'unsplash',
+      photo: {
+        id: 'alpine-lake',
+        width: 2400,
+        height: 1600,
+        description: null,
+        altDescription: 'Alpine lake',
+        urls: {
+          raw: 'https://images.unsplash.com/photo-alpine-lake?ixid=fixture',
+          small:
+            'https://images.unsplash.com/photo-alpine-lake?ixid=fixture&w=400',
+        },
+        links: {
+          html: 'https://unsplash.com/photos/alpine-lake',
+          downloadLocation:
+            'https://api.unsplash.com/photos/alpine-lake/download?ixid=fixture',
+        },
+        photographer: {
+          name: 'Fixture Photographer',
+          username: 'fixture',
+          profileUrl: 'https://unsplash.com/@fixture',
+        },
+      },
+    },
   ])('accepts the explicit application source %j', (source) => {
     // Arrange
     const input = { requestId, source, crop: fullCrop, aspect: 'original' }

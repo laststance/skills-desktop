@@ -438,6 +438,34 @@ describe('Main-owned background application transactions', () => {
     expect((await diskSettings()).background.uploads).toHaveLength(1)
   })
 
+  test('replaying a completed saved-image Apply preserves the newer completed selection without another operation or save', async () => {
+    // Arrange
+    const firstUploadId = await addUpload()
+    const firstInput = applicationInput({
+      kind: 'upload',
+      uploadId: firstUploadId,
+    })
+    backgrounds.applyBackground(firstInput)
+    await waitForApplication('succeeded')
+    const secondUploadId = await addUpload()
+    const latestSnapshot = backgrounds.getBackgroundSnapshot()
+    const latestSettings = await diskSettings()
+    const rename = vi.spyOn(fs, 'rename')
+
+    // Act
+    const replay = backgrounds.applyBackground(firstInput)
+
+    // Assert
+    expect(replay).toEqual({ operationId: 2, requestId: firstInput.requestId })
+    expect(backgrounds.getBackgroundSnapshot()).toBe(latestSnapshot)
+    expect(settings.getSettings().background.selected?.source).toEqual({
+      kind: 'upload',
+      uploadId: secondUploadId,
+    })
+    expect(await diskSettings()).toEqual(latestSettings)
+    expect(rename).not.toHaveBeenCalled()
+  })
+
   test('rejects an unknown draft before accepting any operation or touching persisted preferences', async () => {
     // Arrange
     const input = applicationInput({

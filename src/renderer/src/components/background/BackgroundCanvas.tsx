@@ -11,7 +11,7 @@ import { BackgroundImageRetry } from './BackgroundImageRetry'
  * @returns An independent decorative layer and an accessible retry only when the committed image fails.
  * @example <BackgroundCanvas />
  */
-export function BackgroundCanvas(): ReactElement | null {
+export function BackgroundCanvas(): ReactElement {
   const snapshot = useBackgroundSnapshot()
   const background = useAppSelector((state) => state.settings.background)
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
@@ -21,31 +21,31 @@ export function BackgroundCanvas(): ReactElement | null {
     background.selected,
     failedUrl,
   )
-  if (!display && !background.selected) return null
-
   return (
     <>
-      <div data-testid="background-canvas" className="background-canvas">
-        {display ? (
-          <BackgroundImage
-            display={display}
-            layout={background.layout}
-            retryRevision={snapshot.displayRetryRevision}
-            decorative
-            onLoad={() => setFailedUrl(null)}
-            onError={() => setFailedUrl(display.image.url)}
-          />
-        ) : null}
-      </div>
-      {unavailable ? (
-        <div
-          role="status"
-          className="opaque-surface no-drag absolute bottom-2 right-2 z-10 flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs"
-        >
-          Background unavailable.
-          <BackgroundImageRetry />
+      {display || background.selected ? (
+        <div data-testid="background-canvas" className="background-canvas">
+          {display ? (
+            <BackgroundImage
+              display={display}
+              layout={background.layout}
+              retryRevision={snapshot.displayRetryRevision}
+              decorative
+              onLoad={() => setFailedUrl(null)}
+              onError={() => setFailedUrl(display.image.url)}
+            />
+          ) : null}
         </div>
       ) : null}
+      {/* Mount the empty live region before a failure so assistive technology announces its update. */}
+      <div role="status">
+        {unavailable ? (
+          <div className="opaque-surface no-drag absolute bottom-2 right-2 z-10 flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs">
+            Background unavailable.
+            <BackgroundImageRetry />
+          </div>
+        ) : null}
+      </div>
     </>
   )
 }

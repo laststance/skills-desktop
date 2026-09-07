@@ -16,6 +16,7 @@ import { WINDOW_OPACITY_MAX_PERCENT } from '@/shared/constants'
 import { SectionRow } from '../sections/SectionFrame'
 
 import { BackgroundGallery } from './BackgroundGallery'
+import { WINDOW_OPACITY_LABELS } from './constants'
 import { backgroundQueryClient } from './query'
 import { useBackgroundGallery } from './useBackgroundGallery'
 
@@ -149,11 +150,13 @@ function BackgroundSettingsContent(): ReactElement {
       >
         Choose background
       </Button>
-      {unavailable ? (
-        <p role="status" className="mt-2 text-xs">
-          Background unavailable. <BackgroundImageRetry />
-        </p>
-      ) : null}
+      <div role="status">
+        {unavailable ? (
+          <p className="mt-2 text-xs">
+            Background unavailable. <BackgroundImageRetry />
+          </p>
+        ) : null}
+      </div>
       {settings.background.selected && hidden ? (
         <p className="mt-2 text-xs text-muted-foreground">
           Hidden at 100% opacity.{' '}
@@ -163,9 +166,13 @@ function BackgroundSettingsContent(): ReactElement {
             onClick={() =>
               document
                 .querySelector<HTMLInputElement>(
-                  settings.windowOpacityMode === 'entire'
-                    ? 'input[aria-label="Background opacity"]'
-                    : 'input[aria-label="Left opacity"]',
+                  `input[aria-label="${
+                    WINDOW_OPACITY_LABELS[
+                      settings.windowOpacityMode === 'entire'
+                        ? 'windowBackgroundOpacityPercent'
+                        : 'leftSectionOpacityPercent'
+                    ]
+                  }"]`,
                 )
                 ?.focus()
             }

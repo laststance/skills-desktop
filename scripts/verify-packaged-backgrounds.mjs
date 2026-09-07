@@ -381,6 +381,7 @@ async function verifyBundle(expectedArchitecture, requestedBundle) {
     const committed = JSON.parse(await readFile(settingsPath, 'utf8'))
     assert.equal(committed.background.uploads.length, 1)
     assert.equal(committed.background.hasAppliedImage, true)
+    // Mirrors {@link BACKGROUND_FIRST_APPLY_OPACITY_PERCENT} in src/shared/constants.ts: the first Apply's automatic opacity adjustment.
     assert.equal(committed.windowBackgroundOpacityPercent, 60)
     assert.equal(committed.background.selected.source.kind, 'upload')
     const displayPixels = await application.evaluate(

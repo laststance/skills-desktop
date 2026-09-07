@@ -61,6 +61,7 @@ interface BackgroundApplication {
 
 let currentApplication: BackgroundApplication | null = null
 // Keep only scalar acceptances for duplicate IPC delivery; full source/result state remains current-operation-only.
+// ponytail: retain one scalar entry per Apply for process-lifetime deduplication; use owner-scoped monotonic tokens only if measured growth warrants a protocol change.
 const acceptedRequests = new Map<string, BackgroundApplyAcceptance>()
 let nextOperationId = 0
 let snapshot: BackgroundSnapshot = {

@@ -1,3 +1,4 @@
 .vercel/
+.env.production
 .env*.local
 *.tsbuildinfo
