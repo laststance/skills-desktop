@@ -323,6 +323,12 @@ describe('settings persistence', () => {
         installedSearchCountDisplay: 'tab',
         hiddenAgentIds: ['cursor'],
         autoDownloadUpdates: true,
+        background: {
+          selected: null,
+          layout: 'fill',
+          uploads: [],
+          hasAppliedImage: false,
+        },
       })
     })
 

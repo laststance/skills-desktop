@@ -1,4 +1,5 @@
 import { promises as fs } from 'fs'
+import { isDeepStrictEqual } from 'node:util'
 import { join } from 'path'
 
 import { app } from 'electron'
@@ -154,7 +155,7 @@ export function getSettings(): Settings {
 
 /**
  * Structural equality for `Settings`. Primitives compare by value;
- * `windowSize` (the only nested field) compares by `width` + `height`
+ * `windowSize` compares by `width` + `height`; background records compare structurally
  * because Zod's `.parse()` always materializes a fresh object reference.
  *
  * Iterates the **union** of keys from both inputs so an asymmetric
@@ -162,8 +163,7 @@ export function getSettings(): Settings {
  * defined) is detected rather than swallowed — `Object.keys(a)` alone
  * would skip keys that exist only on `b`.
  *
- * Adding another nested field requires a parallel branch here — there's
- * no recursive deep-equal because the schema is intentionally narrow.
+ * Background parsing materializes fresh nested records even for unchanged patches.
  * @param a - First settings snapshot
  * @param b - Second settings snapshot
  * @returns
@@ -178,6 +178,10 @@ export function areSettingsEqual(a: Settings, b: Settings): boolean {
     ...(Object.keys(b) as Array<keyof Settings>),
   ])
   for (const key of allKeys) {
+    if (key === 'background') {
+      if (!isDeepStrictEqual(a.background, b.background)) return false
+      continue
+    }
     if (key === 'windowSize') {
       const aw = a.windowSize
       const bw = b.windowSize
@@ -218,7 +222,25 @@ export function areSettingsEqual(a: Settings, b: Settings): boolean {
  * // => { defaultSkillTab: 'info' }
  */
 export async function saveSettings(partial: SettingsPatch): Promise<Settings> {
-  return queueSettingsUpdate(async () => persistSettingsPatch(partial))
+  return updateSettings((current) => ({ ...current, ...partial }))
+}
+
+/** Runs Main-owned mutations against the latest saved snapshot in the same queue as ordinary preferences.
+ * @returns The durable snapshot; a rejected write leaves the old cache and file intact.
+ * @example await updateSettings(current => ({ ...current, background: nextBackground }))
+ */
+export async function updateSettings(
+  update: (current: Settings) => Settings,
+  onSaved?: (next: Settings, previous: Settings) => void,
+): Promise<Settings> {
+  return queueSettingsUpdate(async () => {
+    // Read → final intent check/update → validate → write → rename → cache is one indivisible queued transaction.
+    const current = getSettings()
+    const next = await persistSettingsSnapshot(update(current), current)
+    // Publish durable background state before a later queued intent can overtake its broadcast.
+    onSaved?.(next, current)
+    return next
+  })
 }
 
 /**
@@ -239,14 +261,15 @@ async function queueSettingsUpdate(
 }
 
 /**
- * Merge and persist one patch when saveSettings reaches it in the serialized write queue.
- * @param partial - Preference fields to merge into the latest successfully saved snapshot.
+ * Validates and saves {@link updateSettings}'s final snapshot before publishing its cache.
  * @returns Updated cached settings, or the same snapshot for a no-op; rejects on validation or disk failure.
- * @example await persistSettingsPatch({ leftSectionOpacityPercent: 85 }) // Saved Left opacity is 85%.
+ * @example await persistSettingsSnapshot(next, current) // No-op updates preserve the current object.
  */
-async function persistSettingsPatch(partial: SettingsPatch): Promise<Settings> {
-  const current = getSettings()
-  const merged = SettingsSchema.parse({ ...current, ...partial })
+async function persistSettingsSnapshot(
+  next: Settings,
+  current: Settings,
+): Promise<Settings> {
+  const merged = SettingsSchema.parse(next)
   // No-op guard: when nothing actually changed (e.g. tapping the
   // already-active radio, or clicking "Use current window size" twice
   // at the same dimensions), short-circuit before disk write so
@@ -256,8 +279,7 @@ async function persistSettingsPatch(partial: SettingsPatch): Promise<Settings> {
   // `windowSize` needs structural equality because Zod's `.parse()`
   // always returns a fresh object, so `merged.windowSize === current.windowSize`
   // would always be `false` for any defined value — even when both
-  // sides describe identical dimensions. Other fields are primitives
-  // and compare by value via `===`.
+  // sides describe identical dimensions. Background records need the same structural protection.
   if (areSettingsEqual(merged, current) && !needsMigrationWrite) return current
   await writeSettingsSnapshot(merged)
   // eslint-disable-next-line require-atomic-updates -- the complete read/merge/write/cache transaction is serialized by settingsSaveQueue.
@@ -267,7 +289,7 @@ async function persistSettingsPatch(partial: SettingsPatch): Promise<Settings> {
 }
 
 /**
- * Atomically replaces disk preferences for startup migration and {@link persistSettingsPatch} inside their shared queue.
+ * Atomically replaces disk preferences for startup migration and {@link persistSettingsSnapshot} inside their shared queue.
  * @returns Resolves after rename; rejects without replacing the original file on write failure.
  * @example await writeSettingsSnapshot(settings) // A partial temporary file never becomes settings.json.
  */

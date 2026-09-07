@@ -159,3 +159,8 @@ export const BACKGROUND_CHUNK_HEADER_BYTES = 8
 export const BACKGROUND_PNG_CRC_BYTES = 4
 export const BACKGROUND_WEBP_HEADER_BYTES = 12
 export const BACKGROUND_WEBP_ANIMATION_FLAG = 0x02
+
+/** Online preparation and notification are bounded independently and never retried automatically. */
+export const BACKGROUND_HTTP_TIMEOUT_MS = 15_000
+export const BACKGROUND_NOTIFICATION_RESPONSE_BYTES = 64 * 1024
+export const BACKGROUND_REMOTE_JPEG_QUALITY = 88
