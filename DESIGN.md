@@ -324,8 +324,10 @@ are still pending. Keep the existing opacity contract above.
 - Separate focus, draft selection and Applied. Selecting a photo previews it;
   only Apply changes the workspace. Keep credits outside the selection button
   on opaque captions, with accessible photographer/Unsplash links.
-- Before acceptance, Cancel discards the draft. During application, show progress
-  and Close; state that closing Settings does not stop accepted work. Retain the
+- Before Apply is dispatched, Cancel discards the draft; cancelling a new upload
+  restores the previous image/crop. During the acceptance handshake show Starting
+  and Close, then application progress; closing Settings does not stop accepted
+  work. Retain the
   previous image on failure and offer Retry. Do not show invented percentage
   progress or stale outcomes from superseded actions.
 - At active-mode 100%, explain that the selected image is hidden and link to the
@@ -338,7 +340,8 @@ are still pending. Keep the existing opacity contract above.
   header/footer reachable, and scroll central content. Avoid nested page/gallery
   scrolling. Restore focus and scroll when returning from Crop. Before a focused
   row leaves the virtual range, hand focus to the stable gallery container;
-  keyboard navigation renders its destination first. Expose Load more / Retry.
+  keyboard navigation renders its destination first. Query, tab, view, resize or
+  focus-owner changes cancel obsolete focus requests. Expose Load more / Retry.
 - Reuse existing desktop tokens and components. Override scale/slide motion only
   for the crop surface to keep geometry stable; reduced motion removes the fade.
 - Name removal scope before confirmation: app-owned copy, external original
