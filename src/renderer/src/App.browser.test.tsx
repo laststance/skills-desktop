@@ -163,7 +163,7 @@ describe('App window surface', () => {
         windowOpacityMode: 'section',
         leftSectionOpacityPercent: 30,
         centerSectionOpacityPercent: 60,
-        rightSectionOpacityPercent: 100,
+        rightSectionOpacityPercent: 85,
         background: { ...store.getState().settings.background, layout: 'tile' },
       }),
     )
@@ -185,6 +185,13 @@ describe('App window surface', () => {
     expect(screen.getByTestId('detail-panel').element()).toBe(detailContent)
     await expect.element(draft).toHaveValue('This mounted content must survive')
     expect(getComputedStyle(detailContent).opacity).toBe('1')
+    for (const section of sections) {
+      expect(getComputedStyle(section).opacity).toBe('1')
+      const foreground = section.firstElementChild
+      if (!foreground)
+        throw new Error('Every pane must retain its foreground content')
+      expect(getComputedStyle(foreground).opacity).toBe('1')
+    }
   })
 
   test('leaves the native backplate visible while the Entire percentage is shared by all backgrounds', async () => {

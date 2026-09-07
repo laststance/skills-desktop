@@ -222,6 +222,7 @@ async function searchProvider(
 }
 
 // Next's shared Data Cache stores only fulfilled, fully validated results; failures and notifications never enter it.
+// This route uses the existing Data Cache without enabling Cache Components across the website.
 const cachedSearch = unstable_cache(
   searchProvider,
   ['unsplash-gallery-search-v1'],

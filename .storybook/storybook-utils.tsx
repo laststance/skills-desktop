@@ -444,7 +444,13 @@ export function installStorybookElectronMock(): void {
       apply: async () => {
         throw new Error('Background application requires the desktop app.')
       },
-      clear: async () => currentSettings,
+      clear: async () => {
+        currentSettings = {
+          ...currentSettings,
+          background: { ...currentSettings.background, selected: null },
+        }
+        return currentSettings
+      },
       removeUpload: async () => currentSettings,
       setLayout: async (layout) => {
         currentSettings = {

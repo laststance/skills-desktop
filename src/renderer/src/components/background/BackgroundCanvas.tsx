@@ -2,6 +2,7 @@ import { useState, type ReactElement } from 'react'
 
 import { useBackgroundSnapshot } from '@/renderer/src/hooks/useBackgroundSnapshot'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
+import { isBackgroundUnavailable } from '@/renderer/src/utils/isBackgroundUnavailable'
 
 import { BackgroundImage } from './BackgroundImage'
 import { BackgroundImageRetry } from './BackgroundImageRetry'
@@ -15,9 +16,11 @@ export function BackgroundCanvas(): ReactElement | null {
   const background = useAppSelector((state) => state.settings.background)
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
   const display = snapshot.display
-  const unavailable = display
-    ? failedUrl === display.image.url
-    : background.selected && snapshot.revision >= 0
+  const unavailable = isBackgroundUnavailable(
+    snapshot,
+    background.selected,
+    failedUrl,
+  )
   if (!display && !background.selected) return null
 
   return (

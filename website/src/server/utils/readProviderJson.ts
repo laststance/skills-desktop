@@ -16,6 +16,14 @@ export async function readProviderJson(response: Response): Promise<unknown> {
   }
   const reader = response.body.getReader()
   const decoder = new TextDecoder('utf-8', { fatal: true })
+  const decode = (chunk?: Uint8Array<ArrayBuffer>, stream = false): string => {
+    try {
+      return decoder.decode(chunk, { stream })
+    } catch {
+      // Invalid bytes are malformed provider data; stream/network failures retain their separate classification.
+      throw new SyntaxError('Provider response is not valid UTF-8')
+    }
+  }
   let bytes = 0
   let body = ''
   try {
@@ -26,9 +34,9 @@ export async function readProviderJson(response: Response): Promise<unknown> {
       bytes += chunk.value.byteLength
       if (bytes > UNSPLASH_MAX_RESPONSE_BYTES)
         throw new RangeError('Provider response limit exceeded')
-      body += decoder.decode(chunk.value, { stream: true })
+      body += decode(chunk.value, true)
     }
-    return JSON.parse(body + decoder.decode())
+    return JSON.parse(body + decode())
   } finally {
     await reader.cancel().catch(() => undefined)
   }

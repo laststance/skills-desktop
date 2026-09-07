@@ -14,6 +14,7 @@ import { BACKGROUND_MIN_SHORT_EDGE_PX } from '@/shared/constants'
 import {
   CROP_KEYBOARD_STEP_PX,
   CROP_DEFAULT_MAX_ZOOM,
+  CROP_FIXED_ASPECTS,
   CROP_MIN_ZOOM,
   CROP_ZOOM_STEP,
 } from './constants'
@@ -60,9 +61,7 @@ export function BackgroundCropEditor({
   const aspect =
     editor.aspect === 'original'
       ? draft.preview.width / draft.preview.height
-      : editor.aspect === '16:9'
-        ? 16 / 9
-        : 16 / 10
+      : CROP_FIXED_ASPECTS[editor.aspect]
   const initialCrop = editor.reset === 0 ? draft.crop : DEFAULT_BACKGROUND_CROP
   const error = sourceUnavailable
     ? 'This uploaded image was removed. Select another image.'
