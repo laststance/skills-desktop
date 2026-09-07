@@ -455,6 +455,13 @@ export function installStorybookElectronMock(): void {
       },
       getSnapshot: async () => ({
         revision: 0,
+        displayRetryRevision: 0,
+        operation: null,
+        display: null,
+      }),
+      retryDisplay: async () => ({
+        revision: 0,
+        displayRetryRevision: 0,
         operation: null,
         display: null,
       }),

@@ -163,12 +163,36 @@ describe('background preload bridge', () => {
     ])
   })
 
+  it('asks Main to retry the current display and preserves its explicit retry revision', async () => {
+    // Arrange
+    const snapshot: BackgroundSnapshot = {
+      revision: 5,
+      displayRetryRevision: 1,
+      operation: null,
+      display: null,
+    }
+    electronMock.invoke.mockResolvedValue(snapshot)
+    // Act
+    const retriedSnapshot = await getBackgroundsApi().retryDisplay()
+    // Assert
+    expect(electronMock.invoke).toHaveBeenCalledExactlyOnceWith(
+      'backgrounds:retryDisplay',
+    )
+    expect(retriedSnapshot).toEqual({
+      revision: 5,
+      displayRetryRevision: 1,
+      operation: null,
+      display: null,
+    })
+  })
+
   it('subscribes before snapshot retrieval and removes the exact listener on closure', async () => {
     // Arrange
     const api = getBackgroundsApi()
     const receiveSnapshot = vi.fn()
     const snapshot: BackgroundSnapshot = {
       revision: 4,
+      displayRetryRevision: 0,
       operation: null,
       display: null,
     }
@@ -182,6 +206,7 @@ describe('background preload bridge', () => {
     // Assert
     expect(restoredSnapshot).toEqual({
       revision: 4,
+      displayRetryRevision: 0,
       operation: null,
       display: null,
     })
