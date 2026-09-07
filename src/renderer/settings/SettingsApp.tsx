@@ -4,6 +4,7 @@ import { match } from 'ts-pattern'
 
 import { AppToaster } from '@/renderer/src/components/AppToaster'
 import { ScrollArea } from '@/renderer/src/components/ui/scroll-area'
+import { useBackgroundSnapshot } from '@/renderer/src/hooks/useBackgroundSnapshot'
 import { useSettingsSync } from '@/renderer/src/hooks/useSettingsSync'
 import { cn } from '@/renderer/src/lib/utils'
 
@@ -52,6 +53,7 @@ type Section = (typeof NAV_ITEMS)[number]['id']
  */
 export const SettingsApp = function SettingsApp(): React.ReactElement {
   useSettingsSync()
+  useBackgroundSnapshot()
 
   const [activeSection, setActiveSection] = useState<Section>('general')
 

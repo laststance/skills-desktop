@@ -28,6 +28,8 @@ import {
 } from '@/shared/settings'
 import type { Settings } from '@/shared/settings'
 
+import { BackgroundSettings } from '../backgrounds/BackgroundSettings'
+
 import { SectionFrame, SectionRow } from './SectionFrame'
 
 const BACKGROUND_OPACITY_LABEL = 'Background opacity'
@@ -332,6 +334,8 @@ export const Appearance = function Appearance(): React.ReactElement {
           options={INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS}
         />
       </SectionRow>
+
+      <BackgroundSettings />
 
       <SectionRow label="Opacity">
         <SegmentedControl

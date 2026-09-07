@@ -63,6 +63,15 @@ beforeEach(() => {
       set: mockSettingsSet,
       onChanged: mockSettingsOnChanged,
     },
+    backgrounds: {
+      onChanged: () => () => undefined,
+      getSnapshot: async () => ({
+        revision: 0,
+        operation: null,
+        display: null,
+      }),
+      list: async () => ({ builtins: [], uploads: [] }),
+    },
     cliCommand: { getStatus: mockCliCommandGetStatus },
     window: { getMainBounds: mockWindowGetMainBounds },
     agents: { getAll: mockAgentsGetAll },
