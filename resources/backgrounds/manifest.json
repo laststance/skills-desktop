@@ -1,0 +1,153 @@
+{
+  "version": 1,
+  "photos": [
+    {
+      "id": "alpine-lake",
+      "name": "Alpine lake",
+      "alt": "Sunlit mountain peaks above a forest and calm lake.",
+      "filename": "alpine-lake.webp",
+      "thumbnailFilename": "alpine-lake.thumbnail.webp",
+      "width": 3840,
+      "height": 2560,
+      "thumbnailWidth": 480,
+      "thumbnailHeight": 320,
+      "bytes": 1411998,
+      "sha256": "ffa678e128ab7f44285bacef78beacf801f0e25095e8b5b6a9b4b6e6088801c7",
+      "thumbnailBytes": 16650,
+      "thumbnailSha256": "e976e6aac75d7064639ce0d114a5c988781c72e44b913eee3d15f2e99e230ba5",
+      "photographer": {
+        "name": "Mike Petrucci",
+        "username": "mikepetrucci",
+        "url": "https://unsplash.com/@mikepetrucci"
+      },
+      "source": {
+        "photoId": "5oRIcisKaxU",
+        "url": "https://unsplash.com/photos/lake-forest-and-mountains-during-day-5oRIcisKaxU",
+        "downloadUrl": "https://unsplash.com/photos/5oRIcisKaxU/download?force=true",
+        "downloadedUrl": "https://images.unsplash.com/photo-1542205460-49dfa822e22a?ixlib=rb-4.1.0&q=85&fm=jpg&crop=entropy&cs=srgb&dl=mike-petrucci-5oRIcisKaxU-unsplash.jpg",
+        "originalWidth": 4608,
+        "originalHeight": 3072,
+        "originalBytes": 1627098,
+        "sha256": "508bf6fd6c2a660cfb4622e055375101b937e6ce2ce26b7cb6bf8f97ab43e8b7",
+        "acquisition": "curated-website-download",
+        "downloadedAt": "2026-09-07T16:54:34Z"
+      },
+      "license": {
+        "name": "Unsplash License",
+        "url": "https://unsplash.com/license",
+        "verifiedAt": "2026-09-07T16:54:34Z"
+      }
+    },
+    {
+      "id": "misty-forest",
+      "name": "Misty forest",
+      "alt": "Pine trees and ferns beneath a pale, misty sky.",
+      "filename": "misty-forest.webp",
+      "thumbnailFilename": "misty-forest.thumbnail.webp",
+      "width": 3840,
+      "height": 2560,
+      "thumbnailWidth": 480,
+      "thumbnailHeight": 320,
+      "bytes": 1339688,
+      "sha256": "ac574850a538fdeb3725010bf3728dfb11220b5d2a122ae7b6b711c7ed422d54",
+      "thumbnailBytes": 16018,
+      "thumbnailSha256": "d46e17f65244ceb852cb931642e5e6e8e99567e7e82da8e3d1c14647c4723e1d",
+      "photographer": {
+        "name": "T",
+        "username": "tanyabarrow",
+        "url": "https://unsplash.com/@tanyabarrow"
+      },
+      "source": {
+        "photoId": "c7f6RvusKDA",
+        "url": "https://unsplash.com/photos/misty-pine-forest-with-dense-undergrowth-c7f6RvusKDA",
+        "downloadUrl": "https://unsplash.com/photos/c7f6RvusKDA/download?force=true",
+        "downloadedUrl": "https://images.unsplash.com/photo-1763202365124-90deb3884f02?ixlib=rb-4.1.0&q=85&fm=jpg&crop=entropy&cs=srgb&dl=t-c7f6RvusKDA-unsplash.jpg",
+        "originalWidth": 6000,
+        "originalHeight": 4000,
+        "originalBytes": 3963175,
+        "sha256": "6c96e3d0ee9a1eb17d2ea0db2ce8afb5ef0312544eae8f55d2cbfd3d465d4208",
+        "acquisition": "curated-website-download",
+        "downloadedAt": "2026-09-07T16:54:34Z"
+      },
+      "license": {
+        "name": "Unsplash License",
+        "url": "https://unsplash.com/license",
+        "verifiedAt": "2026-09-07T16:54:34Z"
+      }
+    },
+    {
+      "id": "pacific-coast",
+      "name": "Pacific coast",
+      "alt": "Rocky green coastline beside a blue ocean.",
+      "filename": "pacific-coast.webp",
+      "thumbnailFilename": "pacific-coast.thumbnail.webp",
+      "width": 3840,
+      "height": 2560,
+      "thumbnailWidth": 480,
+      "thumbnailHeight": 320,
+      "bytes": 2058472,
+      "sha256": "2460dc2f366f931840c11a7a7f29a874ebe09f06696a2d72ac9c926427516d44",
+      "thumbnailBytes": 21174,
+      "thumbnailSha256": "bf608033bb3a3f51f8b96c97af8eff2b2ac8099f8f77fde6c5532cdff1bc882e",
+      "photographer": {
+        "name": "Kellen Riggin",
+        "username": "kalaniparker",
+        "url": "https://unsplash.com/@kalaniparker"
+      },
+      "source": {
+        "photoId": "5XWwlkEnscA",
+        "url": "https://unsplash.com/photos/coastal-landscape-with-ocean-and-rocky-cliffs-5XWwlkEnscA",
+        "downloadUrl": "https://unsplash.com/photos/5XWwlkEnscA/download?force=true",
+        "downloadedUrl": "https://images.unsplash.com/photo-1775755288625-c5fae11142f1?ixlib=rb-4.1.0&q=85&fm=jpg&crop=entropy&cs=srgb&dl=kellen-riggin-5XWwlkEnscA-unsplash.jpg",
+        "originalWidth": 7728,
+        "originalHeight": 5152,
+        "originalBytes": 9001494,
+        "sha256": "733d38964b41694b1218594b22187d46bc65e21cda6d21edab4ba8c61270de7e",
+        "acquisition": "curated-website-download",
+        "downloadedAt": "2026-09-07T16:54:34Z"
+      },
+      "license": {
+        "name": "Unsplash License",
+        "url": "https://unsplash.com/license",
+        "verifiedAt": "2026-09-07T16:54:34Z"
+      }
+    },
+    {
+      "id": "quiet-dunes",
+      "name": "Quiet dunes",
+      "alt": "Soft pink desert dunes under a pale sky.",
+      "filename": "quiet-dunes.webp",
+      "thumbnailFilename": "quiet-dunes.thumbnail.webp",
+      "width": 3840,
+      "height": 2160,
+      "thumbnailWidth": 480,
+      "thumbnailHeight": 270,
+      "bytes": 899980,
+      "sha256": "654cea503943370a7ed05847ff6137bd26f9dd9f8ce3d90a5cee466bb3983f76",
+      "thumbnailBytes": 7402,
+      "thumbnailSha256": "d73d363d57a440b33cfeebdfc2ddedbcc5beab0d7026580453182daeb4aa3004",
+      "photographer": {
+        "name": "Marc Wieland",
+        "username": "mawiswiss",
+        "url": "https://unsplash.com/@mawiswiss"
+      },
+      "source": {
+        "photoId": "v--MQrXgC90",
+        "url": "https://unsplash.com/photos/desert-landscape-with-rolling-sand-dunes-under-a-pale-sky-v--MQrXgC90",
+        "downloadUrl": "https://unsplash.com/photos/v--MQrXgC90/download?force=true",
+        "downloadedUrl": "https://images.unsplash.com/photo-1774284566223-b41035829caf?ixlib=rb-4.1.0&q=85&fm=jpg&crop=entropy&cs=srgb&dl=marc-wieland-v--MQrXgC90-unsplash.jpg",
+        "originalWidth": 3990,
+        "originalHeight": 2244,
+        "originalBytes": 1401841,
+        "sha256": "e43ff6467e8dc52a0356b44517244df9da770ac5811b1738b7e869a1699bc82f",
+        "acquisition": "curated-website-download",
+        "downloadedAt": "2026-09-07T16:54:34Z"
+      },
+      "license": {
+        "name": "Unsplash License",
+        "url": "https://unsplash.com/license",
+        "verifiedAt": "2026-09-07T16:54:34Z"
+      }
+    }
+  ]
+}
