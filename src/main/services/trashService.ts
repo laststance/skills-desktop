@@ -435,6 +435,13 @@ async function writeManifestThenPublish(
   // Rename is atomic, so a failure here leaves the staged entry intact rather
   // than a half-published tombstone.
   await fs.rename(stagingDir, entryDir)
+  // Last step, and it must stay unable to reject: past the rename the tombstone
+  // exists, so a throw here would run a rollback that assumes `stagingDir` is
+  // still whole and would report a recovery path that no longer exists.
+  // {@link fsyncPath} swallows its own failures for exactly this reason -- a
+  // flush error only weakens the power-cut guarantee, it does not undo a delete
+  // that worked. Do not make it propagate without moving this call out of the
+  // caller's try.
   await fsyncPath(TRASH_DIR)
 }
 

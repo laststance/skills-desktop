@@ -117,9 +117,12 @@ const skillLockSlice = createSlice({
       .addCase(fetchStaleLockEntries.fulfilled, (state, action) => {
         // Superseded by a newer scan, or invalidated by a prune.
         if (action.meta.requestId !== state.scanRequestId) return
-        // This scan read the lock after the prune started writing it, so its
-        // answer outranks whatever that prune is about to report. It does not
-        // touch `pruneRequestId`: that prune still has to be able to end itself.
+        // Set unconditionally rather than only when a prune is in flight:
+        // `pruneStaleLockEntries.pending` clears the flag, so the only scans
+        // still carrying `true` are the ones that finished AFTER a prune began
+        // -- exactly the scans whose answer outranks what that prune is about
+        // to report. It does not touch `pruneRequestId`: that prune still has
+        // to be able to end itself.
         state.staleNamesSupersededByScan = true
         if (action.payload.status === 'ok') {
           state.status = 'ok'

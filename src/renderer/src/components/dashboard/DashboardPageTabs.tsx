@@ -180,8 +180,11 @@ const PageTab = function PageTab({
 }: PageTabProps): React.ReactElement {
   const dispatch = useAppDispatch()
   const renameInputRef = useRef<HTMLInputElement>(null)
+  // Plain `string`, not {@link DashboardPageName}: a half-typed keystroke is
+  // raw input, and branding it here would assert the contract on the way IN.
+  // {@link commitRename} is the construction site, once the value is final.
   // react-doctor-disable-next-line react-doctor/no-derived-useState -- intentional edit buffer: draftName starts from page.name then diverges during inline rename, and is re-synced when rename mode opens (useCycleEffect below).
-  const [draftName, setDraftName] = useState(page.name)
+  const [draftName, setDraftName] = useState<string>(page.name)
   // Controls the styled destructive-confirm dialog for page deletion.
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
@@ -240,9 +243,7 @@ const PageTab = function PageTab({
         ref={renameInputRef}
         type="text"
         value={draftName}
-        onChange={(event) =>
-          setDraftName(toDashboardPageName(event.target.value))
-        }
+        onChange={(event) => setDraftName(event.target.value)}
         onBlur={commitRename}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {
