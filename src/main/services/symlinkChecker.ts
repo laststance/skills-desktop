@@ -95,9 +95,7 @@ export async function checkSkillSymlinks(
   const results = await Promise.all(
     AGENTS.map(async (agent) => {
       const linkPath = toAbsolutePath(join(agent.path, skillName))
-      const { status, isLocal } = await checkLinkOrLocal(
-        toAbsolutePath(linkPath),
-      )
+      const { status, isLocal } = await checkLinkOrLocal(linkPath)
 
       // Only symlinks (not local folders, not missing entries) have a target
       // worth recording. Read it lazily and tolerate failures so a flaky
@@ -112,10 +110,7 @@ export async function checkSkillSymlinks(
       if (status !== 'missing' && !isLocal) {
         try {
           const target = await readlink(linkPath)
-          targetPath = await resolveRawSymlinkTarget(
-            toAbsolutePath(linkPath),
-            target,
-          )
+          targetPath = await resolveRawSymlinkTarget(linkPath, target)
         } catch {
           // Leave undefined — the link disappeared between lstat and readlink
         }

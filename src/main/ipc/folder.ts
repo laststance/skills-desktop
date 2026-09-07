@@ -78,8 +78,8 @@ async function resolveExistingPath(
   { ok: true; resolved: AbsolutePath } | { ok: false; reason: 'not-found' }
 > {
   try {
-    const resolved = await realpath(requestedPath)
-    return { ok: true, resolved: toAbsolutePath(resolved) }
+    const resolved = toAbsolutePath(await realpath(requestedPath))
+    return { ok: true, resolved: resolved }
   } catch (err) {
     const code = errorCode(err)
     // ENOENT: folder deleted externally. ELOOP: symlink cycle. ENOTDIR:

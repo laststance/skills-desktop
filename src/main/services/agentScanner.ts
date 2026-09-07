@@ -103,8 +103,8 @@ async function countAgentSkills(agentPath: AbsolutePath): Promise<SkillCount> {
     // Check each symlink's validity
     const validityChecks = await Promise.all(
       symlinks.map(async (entry) => {
-        const linkPath = join(agentPath, entry.name)
-        const status = await checkSymlinkStatus(toAbsolutePath(linkPath))
+        const linkPath = toAbsolutePath(join(agentPath, entry.name))
+        const status = await checkSymlinkStatus(linkPath)
         return status === 'valid'
       }),
     )

@@ -108,13 +108,13 @@ function assertAgentSlotPath(
   rendererPath: AbsolutePath,
   agentPath: AbsolutePath,
 ): AbsolutePath {
-  const normalizedPath = resolve(rendererPath)
+  const normalizedPath = toAbsolutePath(resolve(rendererPath))
   if (dirname(normalizedPath) !== resolve(agentPath)) {
     throw new Error(
       'Renderer link path does not match the selected agent slot.',
     )
   }
-  return toAbsolutePath(normalizedPath)
+  return normalizedPath
 }
 
 /**
@@ -868,14 +868,12 @@ export function registerSkillsHandlers(): void {
             derivedAgentPath,
             options.filesystemIdentity,
           )
-          const entryPath = join(derivedAgentPath, entryName)
+          const entryPath = toAbsolutePath(join(derivedAgentPath, entryName))
           // Protected entries stay in place so the folder remains usable.
           if (protectedExistingPaths.has(resolve(entryPath))) continue
 
           // react-doctor-disable-next-line react-doctor/async-await-in-loop -- serial filesystem mutations preserve predictable Trash ordering and stop on the first protected-folder delete failure.
-          const removed = await trashUnprotectedAgentEntry(
-            toAbsolutePath(entryPath),
-          )
+          const removed = await trashUnprotectedAgentEntry(entryPath)
           if (removed) removedCount++
         }
 

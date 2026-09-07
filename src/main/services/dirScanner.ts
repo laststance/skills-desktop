@@ -68,13 +68,13 @@ export async function listSourceSkillDirs(): Promise<SourceSkillDirListing> {
 
   const results: SkillDirEntry[] = []
   for (const dir of dirs) {
-    const skillPath = join(SOURCE_DIR, dir.name)
+    const skillPath = toAbsolutePath(join(SOURCE_DIR, dir.name))
     // react-doctor-disable-next-line react-doctor/async-await-in-loop -- probeSkillDir per entry building the kept-dirs list; bounded local-fs reads kept sequential to stay fd-bounded.
-    const probe = await probeSkillDir(toAbsolutePath(skillPath))
+    const probe = await probeSkillDir(skillPath)
     if (probe === 'not-a-skill') continue
     results.push({
       name: toSkillName(dir.name),
-      path: toAbsolutePath(skillPath),
+      path: skillPath,
       isUnreadable: probe === 'unreadable',
     })
   }

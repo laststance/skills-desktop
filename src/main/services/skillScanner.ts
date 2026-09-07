@@ -511,9 +511,8 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
           )
           const validated = await Promise.all(
             candidates.map(async (dir) => {
-              const skillPath = join(agent.path, dir.name)
-              if (!(await isValidSkillDir(toAbsolutePath(skillPath))))
-                return null
+              const skillPath = toAbsolutePath(join(agent.path, dir.name))
+              if (!(await isValidSkillDir(skillPath))) return null
               // Parse metadata and probe SKILL.md for a symlink target in
               // parallel — gstack-managed sibling skills (e.g. ~/.claude/skills/ship)
               // are real directories whose SKILL.md is a symlink into the
@@ -522,7 +521,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
               // badge on every gstack-managed skill, not just the parent.
               const [metadata, skillMdSymlinkTarget, stats] = await Promise.all(
                 [
-                  parseSkillMetadata(toAbsolutePath(skillPath)),
+                  parseSkillMetadata(skillPath),
                   readSymlinkTargetIfPresent(
                     toAbsolutePath(join(skillPath, 'SKILL.md')),
                   ),
@@ -569,7 +568,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
       skill = {
         name: metadata.name,
         description: metadata.description,
-        path: toAbsolutePath(skillPath),
+        path: skillPath,
         filesystemIdentity,
         symlinkCount: toSymlinkCount(0), // Local skills have 0 symlinks
         symlinks: createMissingSymlinkSlots(toSkillName(dirName)),
@@ -599,19 +598,19 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
  * // => { name: 'theme-generator', ... } or null
  */
 export async function getSkill(skillName: SkillName): Promise<Skill | null> {
-  const skillPath = join(SOURCE_DIR, skillName)
+  const skillPath = toAbsolutePath(join(SOURCE_DIR, skillName))
 
   try {
     const stats = await stat(skillPath)
     if (!stats.isDirectory()) return null
 
-    const metadata = await parseSkillMetadata(toAbsolutePath(skillPath))
+    const metadata = await parseSkillMetadata(skillPath)
     const symlinks = await checkSkillSymlinks(skillName)
 
     return {
       name: metadata.name,
       description: metadata.description,
-      path: toAbsolutePath(skillPath),
+      path: skillPath,
       symlinkCount: countValidSymlinks(symlinks),
       symlinks,
       isSource: true,
@@ -673,10 +672,10 @@ async function calculateDirectorySize(
     const entries = await readdir(dirPath, { withFileTypes: true })
 
     for (const entry of entries) {
-      const fullPath = join(dirPath, entry.name)
+      const fullPath = toAbsolutePath(join(dirPath, entry.name))
       if (entry.isDirectory()) {
         // react-doctor-disable-next-line react-doctor/async-await-in-loop -- recursive directory-size walk; parallelizing the recursion would fan out stat fds (EMFILE) on deep trees for no perceptible benefit.
-        total += await calculateDirectorySize(toAbsolutePath(fullPath))
+        total += await calculateDirectorySize(fullPath)
       } else if (entry.isFile()) {
         const stats = await stat(fullPath)
         total += stats.size
