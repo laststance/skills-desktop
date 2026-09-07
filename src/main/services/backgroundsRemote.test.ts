@@ -335,6 +335,59 @@ describe('online background preparation and provider acknowledgement', () => {
     expect(settings.getSettings().background.selected).toBeNull()
   })
 
+  test('an oversized decoded editor preview is rejected without a notification or changing the selected photo', async () => {
+    // Arrange
+    backgrounds.applyBackground(onlineInput())
+    await resultStatus('succeeded')
+    const previous = await fs.readFile(join(native.userData, 'settings.json'))
+    const selected = settings.getSettings().background.selected
+    fetchResponse.mockClear()
+    // Act / Assert
+    await expect(remote.previewOnlineBackground(photo)).rejects.toMatchObject({
+      code: 'invalid-image',
+      message: 'The background preview exceeded its size limit.',
+    })
+    expect(fetchResponse).toHaveBeenCalledTimes(1)
+    expect(await fs.readFile(join(native.userData, 'settings.json'))).toEqual(
+      previous,
+    )
+    expect(settings.getSettings().background.selected).toEqual(selected)
+    expect(backgrounds.getBackgroundSnapshot().display?.selection).toEqual(
+      selected,
+    )
+  })
+
+  test('an undersized online crop is rejected before downloading and retains the committed photo and opacity', async () => {
+    // Arrange
+    backgrounds.applyBackground(onlineInput())
+    await resultStatus('succeeded')
+    const previous = await fs.readFile(join(native.userData, 'settings.json'))
+    const selected = settings.getSettings().background.selected
+    fetchResponse.mockClear()
+    // Act
+    backgrounds.applyBackground({
+      ...onlineInput(),
+      crop: { x: 0, y: 0, width: 50, height: 50 },
+    })
+    await resultStatus('failed')
+    // Assert
+    expect(fetchResponse).not.toHaveBeenCalled()
+    expect(backgrounds.getBackgroundSnapshot().operation).toMatchObject({
+      error: {
+        code: 'invalid-crop',
+        message:
+          'The crop needs a long edge of at least 1920 px and a short edge of at least 1080 px.',
+      },
+    })
+    expect(await fs.readFile(join(native.userData, 'settings.json'))).toEqual(
+      previous,
+    )
+    expect(backgrounds.getBackgroundSnapshot().display?.selection).toEqual(
+      selected,
+    )
+    expect(settings.getSettings().windowBackgroundOpacityPercent).toBe(60)
+  })
+
   test.each(['declared', 'streamed'])(
     'rejects an oversized %s image response before decode and leaves the first-use settings intact',
     async (boundary) => {
@@ -358,6 +411,55 @@ describe('online background preparation and provider acknowledgement', () => {
       expect(backgrounds.getBackgroundSnapshot().operation).toMatchObject({
         error: { code: 'provider-unavailable' },
       })
+    },
+  )
+
+  test.each(['declared', 'streamed'])(
+    'a failing stream cancellation cannot hide an oversized %s response or trigger a provider side effect',
+    async (boundary) => {
+      // Arrange
+      let cancellations = 0
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          // Keep the response open so rejection must release its real reader.
+          controller.enqueue(
+            boundary === 'declared'
+              ? new Uint8Array(imageBytes)
+              : new Uint8Array(20 * 1024 * 1024 + 1),
+          )
+        },
+        cancel() {
+          cancellations += 1
+          throw new Error('private transport cleanup failure')
+        },
+      })
+      fetchResponse.mockResolvedValue(
+        new Response(stream, {
+          headers: {
+            'content-length': boundary === 'declared' ? '20971521' : '1',
+          },
+        }),
+      )
+      // Act
+      backgrounds.applyBackground(onlineInput())
+      await resultStatus('failed')
+      // Assert
+      expect(cancellations).toBe(1)
+      expect(fetchResponse).toHaveBeenCalledTimes(1)
+      expect(backgrounds.getBackgroundSnapshot().operation).toMatchObject({
+        error: {
+          code: 'provider-unavailable',
+          message:
+            'The background image could not be downloaded. Check your connection and try again.',
+        },
+      })
+      expect(settings.getSettings().background).toEqual({
+        selected: null,
+        layout: 'fill',
+        uploads: [],
+        hasAppliedImage: false,
+      })
+      expect(settings.getSettings().windowBackgroundOpacityPercent).toBe(100)
     },
   )
 
