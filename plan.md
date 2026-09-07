@@ -1,7 +1,7 @@
-# Background gallery — implementation plan
+# Background gallery — implementation plan and status
 
-Reviewed: 2026-09-08 JST. Branch: `codex/background-image-trials`. Code baseline: `23f68f2`.
-Status: engineering review, design review and focused engineering follow-up completed. Feature implementation, quality gates, packaging and native QA have not run.
+Reviewed: 2026-09-08 JST. Original planning branch: `codex/background-image-trials`; planning baseline: `23f68f2`. Implemented on `codex/background-gallery`; verified runtime: `6817d28`.
+Status: implementation, ordered local quality gates, signed/notarized arm64/x64 builds and both packaged smoke runs completed. Recorded renderer motion/geometry checks pass; visible desktop compositing and live Unsplash prerequisites remain acceptance gates. See [current QA evidence](docs/qa/background-gallery.md); the approved requirements below remain unchanged.
 
 ## Product contract
 
@@ -23,7 +23,7 @@ Status: engineering review, design review and focused engineering follow-up comp
 | Q1 · P1 · 9/10 | `src/main/services/settings.ts:248` shallow-merges snapshots; `:204` compares other fields by reference/value                                                                      | Main applies add/remove/apply intents to the latest queued snapshot. Extend structural equality for nested background values.  |
 | P1 · P2 · 8/10 | TanStack Query refetches cached infinite-query pages when stale; disabling focus refetch does not disable mount/reconnect refetch                                                  | Fetch on search, pagination or explicit Refresh. Preserve loaded pages on remount/reconnect; Refresh starts at page one.       |
 
-These are gaps in the proposed integration, not claims that the unimplemented gallery already has runtime bugs.
+These review-time integration gaps are addressed by the implemented Main-owned flow and its regression tests.
 Scope choice retained full coverage; the other choices differ in implementation or behavior, not feature coverage.
 
 ## Sources and bundled photos
@@ -182,32 +182,32 @@ Use a fixed crop frame with guides; remove the mockup's resize handles. Original
 
 ## Test coverage and failure handling
 
-Existing tests are available for settings write/rename failures, concurrent primitive updates, visible recovery toasts, opacity mode/reset, actual CSS colors and Electron window lifecycle. They were inspected, not rerun. Gallery paths are new and currently untested. The groups below are implementation requirements, not a claimed coverage percentage.
+Shared, Main, preload, Chromium, Website and actual Electron tests now cover the gallery alongside the existing settings/opacity regressions. At `6817d28`, `pnpm validate` passed 2,924 root and 73 Website tests, followed by all 106 Electron E2Es. Separate signed arm64/x64 smoke runs also passed. The groups below retain the required acceptance coverage; these results do not certify successful provider access or visible native compositing. See the [QA record](docs/qa/background-gallery.md) for those separate results.
 
 ```text
 CODE PATH / BRANCH                                   USER FLOW / REQUIRED TEST
-settings.ts load/save [existing tests]
+settings.ts load/save [Node + Electron]
   ├ missing/new/malformed background → G1            boot / upgrade / restart
-  ├ queued add/remove/first-use/no-op → G1 [GAP]       rapid edits [→E2E]
-  └ write/rename/recovery failure → G1 [extend]        visible failure, later retry
+  ├ queued add/remove/first-use/no-op → G1             rapid edits [Electron]
+  └ write/rename/recovery failure → G1                visible failure, later retry
 
-backgroundImages.ts [new: GAP]
+backgroundImages.ts [real image/file fixtures]
   ├ picker cancel / copy failure → G3                 upload / cancel
   ├ bytes / format / animation / dimensions → G3     clear rejection, current retained
   └ decode / preview / publish / cleanup → G3,G7      original moved / packaged app
 
-backgrounds.ts + IPC [new: GAP]
+backgrounds.ts + IPC [Node + actual Electron]
   ├ source kind / crop validity → G2,G4              apply each source [→E2E]
   ├ newer intent / closed window / quit → G2         close / reopen / retry [→E2E]
   ├ notification success/failure/uncertainty → G6    Unsplash apply [→E2E]
   └ commit/remove/result replay → G1,G2              both windows / restart [→E2E]
 
-gallery query + proxy [new: GAP]
+gallery query + proxy [Chromium + Website; live provider gate separate]
   ├ new query / pagination / duplicate / end → G5    search / long scroll / back
   ├ abort / quota / offline / refresh → G5,G6        recover without losing results
   └ validation / CORS / credentials / limits → G6   packaged and development clients
 
-crop + background rendering [new: GAP]
+crop + background rendering [Chromium pixels + Electron; native motion gate separate]
   ├ orientation / percent↔pixels / minimum → G4     edit / reset / cancel / restore
   ├ Fill / Fit / Tile / resize → G4,G8               crop remains honored [→E2E]
   └ opaque / transparent / unavailable → G8          readable UI / fallback [→native]
@@ -224,7 +224,7 @@ crop + background rendering [new: GAP]
 | G7 · distribution        | Exactly four bundled assets with credits/dimensions; originals moved/deleted externally do not affect uploads. Packaged arm64 and x64 load Sharp and process valid/invalid fixtures. Website tests/lint/typecheck/build run from a clean install. Shared contract builds from both package roots; E2E bridge declarations compile.                                                                                      | Extend build/typecheck workflows and root fast gate; `e2e/types.d.ts`, `e2e/tsconfig.json`; packaged smoke checks.                       |
 | G8 · CRITICAL regression | All shipped themes/modes and opacity values preserve foreground opacity; retain current AA guarantee at 85–100% rather than inventing an AA guarantee over arbitrary images at 0%. At 100% the image is hidden. Check bright/dark images, mixed Section values, menus/code/webview boundaries and no webview reload. Record crop/opacity/resize motion; inspect intermediate frames and reduced motion.                 | Extend `src/renderer/src/styles/windowSurface.test.ts`, `e2e/spec/window-opacity.e2e.ts`; Playwright CLI visible macOS QA.               |
 
-For each new failure above: add the test with implementation, retain the last committed state, and show a recoverable error; stale/cancelled work exits without a misleading failure toast. No planned silent critical failure remains. Tests for the new paths do not exist yet.
+Implemented failure paths retain the last committed state and expose recoverable errors; stale/cancelled work exits without a misleading failure toast. Regression tests exercise actual files, decoding, store updates and IPC at lifecycle boundaries. The remaining external and native checks are recorded as incomplete, not inferred from these test results.
 
 ### Focused engineering follow-up: boundary coverage
 
@@ -241,19 +241,19 @@ no committed image → pending Apply→Clear  prior no-image state retained [que
 virtual row focus → search/tab/resize      discard stale target; focus stays intentional [browser]
 ```
 
-These gallery paths are not implemented or tested yet. Existing settings/window tests cover the foundation only. Use real files/store/IPC at lifecycle boundaries; callback mocks alone cannot prove ownership or persistence. Use stable photo IDs and current row counts/columns before scrolling; query, view, resize or focus-owner changes invalidate obsolete focus work. No new job, queue, cache or virtualizer framework. The combined QA handoff retains G1–G8 plus this addendum: the local project review archive (combined baseline and engineering follow-up QA).
+These six boundaries are implemented and covered by Node/Chromium/Electron regressions, including actual accepted-input ownership across both window closures and both Clear orderings around atomic rename. Virtual focus uses stable photo IDs and current rows/columns; query, view, resize and focus-owner changes invalidate obsolete work. No additional job, queue, cache or virtualizer framework was introduced. The original combined QA archive and [current results](docs/qa/background-gallery.md) retain G1–G8 plus this addendum.
 
 ## Implementation Tasks
 
-Effort is approximate and includes matching tests. New paths below are proposed; reuse any equivalent discovered during implementation.
+Original effort estimates and task requirements are retained. Checked items completed their implementation and listed automated verification. Open items identify the original packaged, provider or recorded-native acceptance checks still awaiting final evidence; they are not deferred scope.
 
-- [ ] **T1 · P1 · human ~2h / AI ~30m — Define shared contracts and settings shape.** From Q1/G1/G6/G7. Extend `src/shared/settings.ts`, `src/shared/constants.ts`, `src/shared/ipc-contract.ts`, `src/shared/ipc-channels.ts`, `src/main/ipc/ipc-schemas.ts`, `src/preload/index.ts`; add the server-free Website contract. Verify schema boundaries, legacy defaults, both builds and bridge typecheck.
-- [ ] **T2 · P1 · human ~3h / AI ~45m — Add safe background ingestion and four bundled assets.** From A2/G3/G7. Add `src/main/services/backgroundImages.ts` and `resources/backgrounds/`; update `package.json`, lockfile and packaging only as needed. Verify actual fixtures, cleanup/ownership and both packaged architectures.
-- [ ] **T3 · P1 · human ~3h / AI ~45m — Own apply/library transactions and results in Main.** From A1/Q1/G1/G2. Add `src/main/services/backgrounds.ts`, `src/main/ipc/backgrounds.ts`; extend settings service, IPC registration and window synchronization. Verify race, no-op, first-use opacity, save failures and close/reopen with real files/IPC.
-- [ ] **T4 · P1 · human ~3h / AI ~45m — Implement the oRPC Unsplash proxy.** From A1/G6/G7. Add Website contract/server/route tests; update `website/next.config.ts`, Website package/lockfile and server configuration. Verify input/URL/security boundaries, rate behavior, build and live API prerequisites.
-- [ ] **T5 · P2 · human ~4h / AI ~60m — Integrate gallery and crop controls.** From A1/A2/P1/G4/G5. Extend `src/renderer/settings/sections/Appearance.tsx` and `src/renderer/settings/SettingsApp.tsx`; add gallery/crop components and their focused hooks. Verify all sources, keyboard flow, query races, explicit refresh and operation results.
-- [ ] **T6 · P1 · human ~2h / AI ~30m — Render the accepted crop behind all panes.** From G4/G8. Extend `src/renderer/src/App.tsx`, styles and a single background component. Verify Fill/Fit/Tile pixel fixtures, existing text/opaque boundaries, resize and webview lifetime.
-- [ ] **T7 · P1 · human ~3h / AI ~45m — Complete gates, native QA and design documentation.** From G1–G8. Extend `.github/workflows/`, fast validation, E2E types/specs and `DESIGN.md`; preserve exact execution evidence. Promote the selected trial only after integration works; update `_trials/.manifest.json` and archive rejected trials at that stage. No deferred P3 tasks.
+- [x] **T1 · P1 · human ~2h / AI ~30m — Define shared contracts and settings shape.** From Q1/G1/G6/G7. Extend `src/shared/settings.ts`, `src/shared/constants.ts`, `src/shared/ipc-contract.ts`, `src/shared/ipc-channels.ts`, `src/main/ipc/ipc-schemas.ts`, `src/preload/index.ts`; add the server-free Website contract. Verify schema boundaries, legacy defaults, both builds and bridge typecheck.
+- [x] **T2 · P1 · human ~3h / AI ~45m — Add safe background ingestion and four bundled assets.** From A2/G3/G7. Add `src/main/services/backgroundImages.ts` and `resources/backgrounds/`; update `package.json`, lockfile and packaging only as needed. Verify actual fixtures, cleanup/ownership and both packaged architectures. Signed arm64/x64 smoke verifies all four thumbnails, built-in Apply, Sharp/upload ownership, invalid files, restart and both renderer CSP boundaries.
+- [x] **T3 · P1 · human ~3h / AI ~45m — Own apply/library transactions and results in Main.** From A1/Q1/G1/G2. Add `src/main/services/backgrounds.ts`, `src/main/ipc/backgrounds.ts`; extend settings service, IPC registration and window synchronization. Verify race, no-op, first-use opacity, save failures and close/reopen with real files/IPC.
+- [ ] **T4 · P1 · human ~3h / AI ~45m — Implement the oRPC Unsplash proxy.** From A1/G6/G7. Add Website contract/server/route tests; update `website/next.config.ts`, Website package/lockfile and server configuration. Verify input/URL/security boundaries, rate behavior, build and live API prerequisites. Implementation, deployment and bounded-route/rate checks complete; provider key, production approval and successful search/notification remain open (G6).
+- [x] **T5 · P2 · human ~4h / AI ~60m — Integrate gallery and crop controls.** From A1/A2/P1/G4/G5. Extend `src/renderer/settings/sections/Appearance.tsx` and `src/renderer/settings/SettingsApp.tsx`; add gallery/crop components and their focused hooks. Verify all sources, keyboard flow, query races, explicit refresh and operation results.
+- [x] **T6 · P1 · human ~2h / AI ~30m — Render the accepted crop behind all panes.** From G4/G8. Extend `src/renderer/src/App.tsx`, styles and a single background component. Verify Fill/Fit/Tile pixel fixtures, existing text/opaque boundaries, resize and webview lifetime.
+- [ ] **T7 · P1 · human ~3h / AI ~45m — Complete gates, native QA and design documentation.** From G1–G8. Extend `.github/workflows/`, fast validation, E2E types/specs and `DESIGN.md`; preserve exact execution evidence. Promote the selected trial only after integration works; update `_trials/.manifest.json` and archive rejected trials at that stage. Ordered local gates, signed builds, packaged smoke and recorded renderer motion pass; visible desktop/provider acceptance remains open in the [QA record](docs/qa/background-gallery.md). No deferred P3 tasks.
 
 Add short flow comments at the image publication boundary and queued latest-intent/first-use transaction. Follow existing JSDoc, AAA, observable test names and visible UI assertions.
 
@@ -261,19 +261,19 @@ Add short flow comments at the image publication boundary and queued latest-inte
 
 These extend T3/T5/T7; they do not create another implementation lane. Estimates include matching regression checks.
 
-- [ ] **DT1 · P2 · human ~1h / AI ~15m — Implement A's gallery hierarchy.** From D1. Extend Appearance and gallery components; keep one modal scroll area and opacity/layout in Appearance. Verify all source tabs, draft vs Applied and crop return position.
-- [ ] **DT2 · P1 · human ~1.5h / AI ~20m — Expose accepted-operation states.** From D2/D6. Extend Main background operations, IPC results and gallery status UI. Verify pre-acceptance cancellation, post-acceptance Close, retained draft/Retry, replay and deletion races with real files/IPC.
-- [ ] **DT3 · P1 · human ~1.5h / AI ~20m — Align crop controls with the actual cropper.** From D4. Use a fixed frame, labelled move/zoom, source dimensions and Reset; locally override dialog scale/slide. Verify keyboard, invalid crop, restoration and recorded geometry.
-- [ ] **DT4 · P1 · human ~1h / AI ~15m — Preserve compact-window and virtual-list access.** From D5. Extend gallery/editor layouts and focus handling. Verify 600×400 / 800×600, long content, supported zoom, visible actions, credit links, virtual focus and reduced motion.
-- [ ] **DT5 · P2 · human ~30m / AI ~10m — Explain applied-but-hidden backgrounds.** From D3. Extend Appearance and success status. Verify active-mode 100%, mixed Section values, first-use-only notice and Adjust opacity focus.
+- [x] **DT1 · P2 · human ~1h / AI ~15m — Implement A's gallery hierarchy.** From D1. Extend Appearance and gallery components; keep one modal scroll area and opacity/layout in Appearance. Verify all source tabs, draft vs Applied and crop return position.
+- [x] **DT2 · P1 · human ~1.5h / AI ~20m — Expose accepted-operation states.** From D2/D6. Extend Main background operations, IPC results and gallery status UI. Verify pre-acceptance cancellation, post-acceptance Close, retained draft/Retry, replay and deletion races with real files/IPC.
+- [x] **DT3 · P1 · human ~1.5h / AI ~20m — Align crop controls with the actual cropper.** From D4. Use a fixed frame, labelled move/zoom, source dimensions and Reset; locally override dialog scale/slide. Verify keyboard, invalid crop, restoration and recorded geometry. CLI recordings and extracted frames inspected; desktop compositing remains part of T7/G8.
+- [x] **DT4 · P1 · human ~1h / AI ~15m — Preserve compact-window and virtual-list access.** From D5. Extend gallery/editor layouts and focus handling. Verify 600×400 / 800×600, long content, supported zoom, visible actions, credit links, virtual focus and reduced motion. Compact-window captures and reduced-motion recordings inspected; desktop compositing remains part of T7/G8.
+- [x] **DT5 · P2 · human ~30m / AI ~10m — Explain applied-but-hidden backgrounds.** From D3. Extend Appearance and success status. Verify active-mode 100%, mixed Section values, first-use-only notice and Adjust opacity focus.
 
 No new tasks from the generic-UI-risk pass; existing tokens and the approved functional photo grid cover it. No deferred design TODOs. Detailed planned checks: the local project review archive (design QA).
 
 ### Engineering follow-up task extensions
 
-- [ ] **ET1 · P1 · human ~1h / AI ~15m — Make upload draft ownership explicit.** E1; extends T1/T3/DT2. Update Apply IPC input, Main acceptance/cleanup and gallery restore state. Verify cancelled new vs existing crop, invalid tokens and closure before acknowledgement with real files.
-- [ ] **ET2 · P2 · human ~30m / AI ~10m — Scope removal supersession to the affected image.** E2; extends T3/DT2. Keep long-running status specific to Apply; merge unrelated library operations through the existing queue. Verify same-source removal, other-source removal and Clear before first commit.
-- [ ] **ET3 · P1 · human ~1h / AI ~15m — Pin the six new boundary cases.** E3; extends T7/DT4. Add Node/Chromium/Electron cases above, including query/column/focus changes before a virtual row is ready. Verify actual state/files/focus; keep existing gate order.
+- [x] **ET1 · P1 · human ~1h / AI ~15m — Make upload draft ownership explicit.** E1; extends T1/T3/DT2. Update Apply IPC input, Main acceptance/cleanup and gallery restore state. Verify cancelled new vs existing crop, invalid tokens and closure before acknowledgement with real files.
+- [x] **ET2 · P2 · human ~30m / AI ~10m — Scope removal supersession to the affected image.** E2; extends T3/DT2. Keep long-running status specific to Apply; merge unrelated library operations through the existing queue. Verify same-source removal, other-source removal and Clear before first commit.
+- [x] **ET3 · P1 · human ~1h / AI ~15m — Pin the six new boundary cases.** E3; extends T7/DT4. Add Node/Chromium/Electron cases above, including query/column/focus changes before a virtual row is ready. Verify actual state/files/focus; keep existing gate order.
 
 ## Execution order and completion gates
 
@@ -285,7 +285,7 @@ No new tasks from the generic-UI-risk pass; existing tokens and the approved fun
 | C: gallery/crop → background rendering | `src/renderer`                                      | Contracts; integrate after A/B |
 | Integration                            | E2E, CI, design docs, packaged/native QA            | A/B/C                          |
 
-A and B can run in separate worktrees after contracts are fixed. Keep renderer work sequential in one lane; dependency/lockfile and shared-contract changes belong to the contract step to avoid conflicts. No worktrees or delegated implementation have been started by this review.
+Implementation used separate contracts, Main, proxy, renderer and verification worktrees. Shared contracts preceded integration, renderer work remained in one lane, and one review-fix lane resolved CodeRabbit findings. Preserve those ownership boundaries for any remaining verification fixes.
 
 1. Fast gate: extend `pnpm validate` to include Website tests/lint/typecheck/build and `pnpm exec tsc -p e2e/tsconfig.json --noEmit`, then pass it.
 2. Only after the fast gate passes: `pnpm test:e2e`; verify actual tests executed.
@@ -302,7 +302,7 @@ A and B can run in separate worktrees after contracts are fixed. Keep renderer w
 - Unrelated dashboard/layout cleanup: preserve this branch's background-gallery focus.
 - Freeform resize-handle crop editor, new Settings navigation, mobile layouts, custom worker/cache/focus-retention frameworks and a new upload-trash system: existing cropper, desktop primitives and confirmation cover the approved behavior.
 
-No new deferred TODOs. Provider registration, deployment configuration and verification are explicit implementation gates, not completed work.
+No new deferred TODOs. The proxy deployment, hosting rate enforcement and both packaged architectures are verified; provider registration/key/production approval and successful live provider actions remain original acceptance gates. Visible desktop compositing is tracked separately in the QA record.
 
 ## GSTACK REVIEW REPORT
 
@@ -335,8 +335,8 @@ Artifacts:
 - Engineering follow-up tasks: the local project review archive (engineering follow-up task JSONL) (3).
 - Original engineering task artifact remains valid for T1–T7; extensions above refine those tasks rather than creating another implementation lane.
 
-Checks during planning: documentation formatting, diff whitespace, structured task records, retained requirements, source/API feasibility and static reference review. Feature implementation, runtime tests, native motion/compositing, provider deployment and packaging verification remain unperformed. No PR, release or version change.
+The tables above preserve the planning-review history and specification scores. Implementation review followed in three CodeRabbit runs: 42 findings, 31 findings, then zero findings on the round-two fix verification. Earlier findings have documented fixes or evidence-based rejections in the local review archive. Ordered local gates, signed/notarized arm64/x64 builds and actual packaged smoke pass at `6817d28`; the [QA record](docs/qa/background-gallery.md) distinguishes these results from remaining provider and visible-desktop acceptance. No release or version change.
 
-**VERDICT:** ENG + DESIGN PLAN CLEAR — ready to implement. Run the prescribed fast gates, Electron E2E and visible native QA with implementation.
+**VERDICT:** Implementation and local software gates complete; final external and native acceptance remains open. Do not infer release readiness from automated tests or signed builds alone.
 
 NO UNRESOLVED DECISIONS

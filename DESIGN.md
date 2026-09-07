@@ -313,14 +313,19 @@ Rules:
   a minimum 24px range hit area. Verify CSS color math separately from visible
   macOS compositing, and inspect recorded transition frames.
 
-### Background Gallery (planned)
+### Background Gallery
 
-This section specifies the reviewed gallery feature; implementation and visual QA
-are still pending. Keep the existing opacity contract above.
+This is the implemented gallery contract. Keep the existing opacity rules above;
+verification status and any remaining native/provider gates belong in
+[the background QA record](docs/qa/background-gallery.md).
 
 - Appearance owns the current preview, Choose background, Crop, Clear, layout and
   opacity. Browse in a dedicated opaque dialog with Built-in / Unsplash / Your
   images tabs. Do not duplicate opacity or layout controls inside the gallery.
+- Bundle four credited photos. Local uploads accept static JPEG, PNG and WebP,
+  at most 20 MiB and 80 megapixels. After orientation, both the source and accepted
+  crop need a long edge of at least 1920 px and a short edge of at least 1080 px;
+  never enlarge a small image merely to satisfy these limits.
 - Separate focus, draft selection and Applied. Selecting a photo previews it;
   only Apply changes the workspace. Keep credits outside the selection button
   on opaque captions, with accessible photographer/Unsplash links.
@@ -331,8 +336,14 @@ are still pending. Keep the existing opacity contract above.
   previous image on failure and offer Retry. Do not show invented percentage
   progress or stale outcomes from superseded actions.
 - At active-mode 100%, explain that the selected image is hidden and link to the
-  opacity control. Preserve the existing first-application-only adjustment;
+  opacity control. The first successful Apply changes Entire 100% to 60%, or all
+  three Section values to 60% only when all were 100%. Preserve custom values and
+  the hidden mode. Commit this one-time flag, opacity and image together;
   subsequent selections and Clear never silently change opacity.
+- One image layer sits behind all three panes. Fill, Fit and Tile use only the
+  accepted crop; Fit letterboxing and Tile repetition must not expose discarded
+  pixels. Foreground opacity and opaque menus, code, dialogs and webviews keep
+  the rules above. Do not move or recreate the preview webview.
 - Crop uses a fixed ratio frame, image movement and zoom; show real source-pixel
   dimensions and an inline reason for invalid Apply. No nonfunctional resize
   handles. Reset restores the full image. Keep editor controls outside the image.
@@ -342,6 +353,12 @@ are still pending. Keep the existing opacity contract above.
   row leaves the virtual range, hand focus to the stable gallery container;
   keyboard navigation renders its destination first. Query, tab, view, resize or
   focus-owner changes cancel obsolete focus requests. Expose Load more / Retry.
+- Online browsing starts when Unsplash is opened. Preserve loaded pages and
+  selected drafts through crop return; Refresh starts a new first page. Keep
+  existing photos after a later-page failure. Offline, quota and unconfigured
+  provider states offer useful recovery and keep Built-in / Your images usable.
+  An unavailable selected image retains its source and offers Retry image;
+  ordinary operation updates do not repeatedly reload the current image.
 - Reuse existing desktop tokens and components. Override scale/slide motion only
   for the crop surface to keep geometry stable; reduced motion removes the fade.
 - Name removal scope before confirmation: app-owned copy, external original
