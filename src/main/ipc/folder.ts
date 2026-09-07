@@ -14,7 +14,6 @@ import type {
   FolderActionResult,
   TerminalAppId,
 } from '@/shared/types'
-import { toAbsolutePath } from '@/shared/types'
 
 import { typedHandle } from './typedHandle'
 
@@ -84,7 +83,10 @@ export function buildOpenArgs(
  * - `{ ok: false, reason: 'invalid-path' }` when outside every allowed base
  * - `{ ok: false, reason: 'not-found' }` for ENOENT / ELOOP / ENOTDIR
  * @example
- * await resolveExistingPath(toAbsolutePath('/etc'))
+ * await resolveExistingPath(agentPath)  // '/Users/me/.claude/skills'
+ * // => { ok: true, resolved: '/Users/me/.claude/skills' }
+ * @example
+ * await resolveExistingPath(elsewhere)  // '/etc'
  * // => { ok: false, reason: 'invalid-path' }
  */
 async function resolveExistingPath(
@@ -93,20 +95,20 @@ async function resolveExistingPath(
   | { ok: true; resolved: AbsolutePath }
   | { ok: false; reason: 'not-found' | 'invalid-path' }
 > {
-  // Gate 1 — authorization. Throws on traversal; the channel contract says we
-  // never throw, so it maps to a result the renderer can toast.
+  // Gate 1 — reject an unauthorized request up front, before touching the
+  // filesystem, so the caller never has to echo the rejected path back into a
+  // toast. Not load-bearing on its own: gate 3 is what actually protects the
+  // launcher.
   try {
     validatePath(requestedPath, getAllowedBases())
   } catch {
     return { ok: false, reason: 'invalid-path' }
   }
 
-  // Gate 2 — existence. validatePath already realpath'd when the target
-  // exists, but it swallows ENOENT into a literal comparison, so the
-  // not-found mapping still has to happen here.
+  // Gate 2 — existence.
+  let realPath: string
   try {
-    const resolved = toAbsolutePath(await realpath(requestedPath))
-    return { ok: true, resolved: resolved }
+    realPath = await realpath(requestedPath)
   } catch (err) {
     const code = errorCode(err)
     // ENOENT: folder deleted externally. ELOOP: symlink cycle. ENOTDIR:
@@ -118,6 +120,22 @@ async function resolveExistingPath(
     // Re-throw unexpected errors so the typedHandle wrapper logs them
     // and the renderer sees a generic launch-failed toast.
     throw err
+  }
+
+  // Gate 3 — authorize the CANONICAL result, which is the value the launcher
+  // actually receives. Gate 1 only checked `requestedPath`; if a symlink
+  // component were swapped between that check and the `realpath` above, the
+  // resolved path could land outside the allowed bases (TOCTOU, CWE-367).
+  // Validating the post-`realpath` value closes that window: authorization and
+  // the returned value are now the same string.
+  //
+  // The residual race — replacing a real directory after this line — is not
+  // closable without holding an O_PATH descriptor across the launcher call,
+  // which `shell.openPath` / `open(1)` take a path for, not an fd.
+  try {
+    return { ok: true, resolved: validatePath(realPath, getAllowedBases()) }
+  } catch {
+    return { ok: false, reason: 'invalid-path' }
   }
 }
 

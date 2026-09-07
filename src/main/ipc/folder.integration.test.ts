@@ -419,6 +419,52 @@ describe('folder IPC handlers (integration)', () => {
       })
     })
 
+    test('refuses a path that resolves outside the allowed bases after realpath', async () => {
+      // Arrange — the request looks authorized, but realpath lands elsewhere:
+      // this is the symlink-swap (TOCTOU) shape. Gate 1 passes, gate 3 must not.
+      const handler = getRegisteredHandler('folder:revealInFinder')
+      realpathMock.mockResolvedValue('/etc/evil')
+
+      // Act
+      const result = await handler({}, '/Users/me/.agents/skills/innocent')
+
+      // Assert
+      expect(result).toEqual({
+        ok: false,
+        reason: 'invalid-path',
+        message:
+          'That folder is outside the Skills directories this app manages.',
+      })
+    })
+
+    test('never launches a target that resolved outside the allowed bases', async () => {
+      // Arrange
+      const handler = getRegisteredHandler('folder:revealInFinder')
+      realpathMock.mockResolvedValue('/etc/evil')
+
+      // Act
+      await handler({}, '/Users/me/.agents/skills/innocent')
+
+      // Assert — the whole point: the launcher must never see the escaped path.
+      expect(openPathMock).not.toHaveBeenCalled()
+    })
+
+    test('hands the launcher the canonical resolved path, not the requested one', async () => {
+      // Arrange — a symlink inside the bases pointing elsewhere inside them.
+      const handler = getRegisteredHandler('folder:revealInFinder')
+      realpathMock.mockResolvedValue('/Users/me/.agents/skills/real-target')
+      openPathMock.mockResolvedValue('')
+
+      // Act
+      await handler({}, '/Users/me/.agents/skills/link')
+
+      // Assert — proves the authorized value and the launched value are one
+      // and the same string.
+      expect(openPathMock).toHaveBeenCalledWith(
+        '/Users/me/.agents/skills/real-target',
+      )
+    })
+
     test('reports a deleted folder inside the allowed bases as missing, not unauthorized', async () => {
       // Arrange — authorized path, but realpath says it is gone.
       const handler = getRegisteredHandler('folder:revealInFinder')
