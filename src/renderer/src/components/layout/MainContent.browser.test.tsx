@@ -2831,7 +2831,7 @@ describe('MainContent toolbar primary action guards', () => {
     store.dispatch(fetchSkills.fulfilled([protectedSkill], 'req-protected'))
     store.dispatch(enterBulkSelectMode())
     store.dispatch(toggleSelection(skillName))
-    store.dispatch(addProtection(skillName))
+    store.dispatch(addProtection({ name: skillName }))
 
     // Act
     await screen.getByRole('button', { name: 'Open bulk confirm' }).click()

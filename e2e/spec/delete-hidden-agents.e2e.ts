@@ -154,7 +154,7 @@ test('hidden folder deletion keeps protected slots, visible agents, and shared s
   const folders = await stageHiddenFolders(isolatedHome, appWindow)
   await dispatchAction(appWindow, {
     type: 'protect/addProtection',
-    payload: folders.protectedName,
+    payload: { name: folders.protectedName },
   })
   await appWindow.getByRole('button', { name: 'Hidden agent actions' }).click()
   await appWindow

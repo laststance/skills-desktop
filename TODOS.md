@@ -1204,13 +1204,15 @@ Deferred items captured during planning. Pick up when scope and bandwidth allow.
 
 ## Skill deletion protection follow-ups (2026-06-16)
 
-### P2. Skill rename silently drops its lock
+### ~~P2. Skill rename silently drops its lock~~
 
-**Context:** `addProtection` / `removeProtection` store skill names. If a skill is renamed (source directory renamed on disk), the locked name is orphaned — the renamed skill appears unlocked. This is identical behavior to bookmarks, which have the same limitation.
+**Status:** FIXED (PR K). Two corrections to the original entry. First, "renamed on disk" understated the trigger: `Skill.name` is `SKILL.md` frontmatter `name:` falling back to the directory name (`metadataParser.ts:25`), so editing that one frontmatter line renames the skill just as effectively as `mv` does, and neither touches the directory's inode. Second, the deferral rested on "same accepted trade-off as bookmarks" — a false analogy. `BookmarkedSkill` (`shared/types.ts`) points at a remote `repo`/`url` and has no local path, so no stable local identity exists for it; `protect.items` names a local directory whose `Skill.filesystemIdentity` the scan already captures on every source row. Bookmarks genuinely cannot do this; locks always could.
 
-**Fix direction:** On skill rename, migrate the old name to the new name in `protect.items`. Requires a rename event in the scan result or a diffing pass after each fetch.
+**Finding:** locks were stored as bare names. A rename stranded the lock on a name nothing resolves to, and the renamed row came back unlocked — one unconfirmed bulk delete away from being gone, which is exactly what the lock exists to prevent.
 
-**Why deferred:** Skill rename is rare and the failure is silent-unlock (not silent-delete). The user discovers it naturally on their next interaction with the row. Same accepted trade-off as bookmarks.
+**Fix:** `protect.items` is now `ProtectedSkill[]` — `{ name, identity?: { dev, ino } }`. `ProtectButton` records the identity at lock time, and a `fetchSkills.fulfilled` handler in `protectSlice` follows any inode whose name changed and backfills identities for locks that have none (mirroring the same-action prune already in `uiSlice`). Reconciling against each scan rather than a rename event is deliberate: a rename made while the app is closed emits no event, and that is the common case. The `dev`+`ino` pair is narrower than the repo's `FilesystemEntryIdentity` on purpose — `ctimeMs`, which the destructive-delete guards compare to reject reused-inode replacements, is bumped by `rename(2)` itself. `PERSIST_STATE_VERSION` 4 → 5 wraps existing names; it cannot invent an inode, so upgraded locks stay identity-less until the first scan.
+
+**Known ceiling:** a recycled inode can move a lock onto a different skill. The failure direction is over-protection (an extra confirmation), never a silent unlock, and macOS/APFS does not reuse inode numbers in practice.
 
 ### P3. isLocal auto-protect
 

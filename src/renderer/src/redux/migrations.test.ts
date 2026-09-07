@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, test } from 'vitest'
 
 import { WIDGET_REGISTRY } from '@/renderer/src/components/dashboard/widgets/registry'
 import { COLOR_PRESET_CHROMA, PERSIST_STATE_VERSION } from '@/shared/constants'
@@ -33,6 +33,22 @@ type LegacyTheme = ThemeState & {
  *
  * @vitest-environment happy-dom
  */
+
+/**
+ * A theme slice already on the current schema — used by the v4 → v5 tests to
+ * prove the protect migration never touches its neighbours.
+ * @returns Current-schema ThemeState fixture
+ * @example makeCurrentTheme() // => { hue: 195, chroma: ..., mode: 'dark', ... }
+ */
+function makeCurrentTheme() {
+  return {
+    hue: 195,
+    chroma: COLOR_PRESET_CHROMA,
+    mode: 'dark' as const,
+    modePreference: 'dark' as const,
+    preset: 'cyan' as const,
+  }
+}
 
 describe('migrateState — v0 → v1 correctness', () => {
   it('keeps a known preset in full color when the legacy presetType is missing', () => {
@@ -714,6 +730,76 @@ describe('V4_WIDGET_MIN_SIZES drift guard', () => {
         `WIDGET_REGISTRY['${type}'].minSize is missing — bump migrations or registry`,
       ).toEqual(min)
     }
+  })
+})
+
+describe('migrateState — v4 → v5 protect lock records', () => {
+  /**
+   * v4 persisted bare skill names, so renaming a skill stranded its lock on a
+   * name nothing resolves to and the renamed row came back unlocked — one
+   * unconfirmed bulk delete away from being gone. v5 stores records that also
+   * carry the directory inode. The migration cannot invent one (`lstat` output
+   * was never persisted), so it only wraps the names and `protectSlice`
+   * backfills identities on the first scan.
+   */
+  test('carries every v4 lock forward so nothing is unlocked by the upgrade', () => {
+    // Arrange
+    const state = { protect: { items: ['task', 'browse'] } }
+
+    // Act
+    migrateState(state, 4)
+
+    // Assert
+    expect(state.protect).toEqual({
+      items: [{ name: 'task' }, { name: 'browse' }],
+    })
+  })
+
+  test('leaves an install that never locked anything alone', () => {
+    // Arrange
+    const state = { theme: makeCurrentTheme() }
+
+    // Act & Assert
+    expect(() => migrateState(state, 4)).not.toThrow()
+    expect(state.theme).toEqual(makeCurrentTheme())
+  })
+
+  test('drops a malformed protect slice instead of wiping the whole persisted store', () => {
+    // Arrange — a throwing migrate() makes the storage middleware removeItem
+    // the entire key, costing the user their theme, bookmarks and dashboard.
+    const state = {
+      protect: { items: 'not-a-list' },
+      theme: makeCurrentTheme(),
+    }
+
+    // Act
+    expect(() => migrateState(state, 4)).not.toThrow()
+
+    // Assert — only the unreadable slice is gone; everything else survives.
+    expect(state.protect).toBeUndefined()
+    expect(state.theme).toEqual(makeCurrentTheme())
+  })
+
+  test('drops a non-object protect slot rather than wrapping garbage into a lock', () => {
+    // Arrange
+    const state = { protect: null }
+
+    // Act
+    expect(() => migrateState(state, 4)).not.toThrow()
+
+    // Assert
+    expect(state.protect).toBeUndefined()
+  })
+
+  test('skips lock entries that are not names, since they could never match a skill', () => {
+    // Arrange — half-written or tampered storage.
+    const state = { protect: { items: ['task', 42, null, { name: 'browse' }] } }
+
+    // Act
+    migrateState(state, 4)
+
+    // Assert
+    expect(state.protect).toEqual({ items: [{ name: 'task' }] })
   })
 })
 

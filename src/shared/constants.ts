@@ -31,8 +31,12 @@ export const PERSIST_STORAGE_KEY = 'skills-desktop-state'
  *    Health widget's `minSize.h` grew 2 → 3 so its action row ("Scan issues")
  *    no longer clips against the card's bottom edge. Same mechanism and
  *    rationale as v1 → v2 (see `clampPersistedWidgetSizes`).
+ *  - v4 → v5: `protect.items` went from `SkillName[]` to `ProtectedSkill[]`,
+ *    so a lock can remember the inode behind the name and survive a rename.
+ *    The migration wraps each persisted name; it cannot invent an inode, so
+ *    upgraded locks carry no identity until the first scan backfills them.
  */
-export const PERSIST_STATE_VERSION = 4
+export const PERSIST_STATE_VERSION = 5
 
 /**
  * Chroma value applied to OKLCH tokens for fully-saturated (color) presets.

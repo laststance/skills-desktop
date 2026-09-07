@@ -90,6 +90,12 @@ declare global {
 
 interface ProtectButtonProps {
   skillName: SkillName
+  /**
+   * Scan-time identity of the skill directory, stored with the lock so a later
+   * rename can be followed. `undefined` for rows the scan had none for (agent-only
+   * links, orphans) — those locks stay name-only, exactly as before.
+   */
+  identity: Skill['filesystemIdentity']
   /** Whether the bookmark button is visible (affects horizontal positioning). */
   showBookmark: boolean
   /** Whether an X button (unlink or delete) is visible (affects positioning). */
@@ -99,13 +105,14 @@ interface ProtectButtonProps {
 /**
  * Lock / unlock toggle shown on every skill row. Manages its own Redux state
  * so the parent SkillItem only needs `isProtected` for status and action guards.
- * @param props - Skill name, bookmark visibility, and X-button visibility for positioning.
+ * @param props - Skill name, its filesystem identity, and the sibling-button flags used for positioning.
  * @returns Tooltip-wrapped lock icon button that dispatches protect actions.
  * @example
- * <ProtectButton skillName="task" showBookmark={true} hasXButton={false} />
+ * <ProtectButton skillName="task" identity={skill.filesystemIdentity} showBookmark={true} hasXButton={false} />
  */
 const ProtectButton = function ProtectButton({
   skillName,
+  identity,
   showBookmark,
   hasXButton,
 }: ProtectButtonProps): React.ReactElement {
@@ -117,7 +124,15 @@ const ProtectButton = function ProtectButton({
   const handleToggle = (e: React.MouseEvent): void => {
     e.stopPropagation()
     dispatch(
-      isProtected ? removeProtection(skillName) : addProtection(skillName),
+      isProtected
+        ? removeProtection(skillName)
+        : // Recorded at lock time, not left to the next scan: the identity the
+          // user is locking is the one on screen right now, and a rename before
+          // the next `fetchSkills` would otherwise slip through unfollowed.
+          addProtection({
+            name: skillName,
+            identity: identity && { dev: identity.dev, ino: identity.ino },
+          }),
     )
   }
 
@@ -684,6 +699,7 @@ export const SkillItem = function SkillItem({
             protectButton={
               <ProtectButton
                 skillName={skill.name}
+                identity={skill.filesystemIdentity}
                 showBookmark={showBookmark}
                 hasXButton={showUnlinkButtonBase || showDeleteButtonBase}
               />

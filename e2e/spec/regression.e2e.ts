@@ -1038,7 +1038,7 @@ test('protected cards explain why Delete is unavailable while unlocked cards rem
   await refreshSkillsState(appWindow)
   await dispatchAction(appWindow, {
     type: 'protect/addProtection',
-    payload: 'analyze-app',
+    payload: { name: 'analyze-app' },
   })
 
   // Act — isolate the protected row just as a user narrows a long skill list.
