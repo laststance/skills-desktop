@@ -366,6 +366,20 @@ galleryTest(
         .toBe(1)
       const committed = persistedSettings(isolatedHome).background.selected
       expect(committed?.source.kind).toBe('upload')
+      if (committed?.source.kind !== 'upload')
+        throw new Error('The accepted upload was not durably published')
+      expect(
+        existsSync(
+          join(
+            isolatedHome,
+            'userData',
+            'backgrounds',
+            'uploads',
+            committed.source.uploadId,
+            'original',
+          ),
+        ),
+      ).toBe(true)
       const recreated = electronApp.waitForEvent('window')
       await electronApp.evaluate(({ app }) => app.emit('activate'))
       const newMain = await recreated
@@ -391,6 +405,12 @@ galleryTest(
           )
         ).display?.selection,
       ).toEqual(committed)
+      expect(
+        await reopenedSettings.evaluate(
+          async (source) => window.electron.backgrounds.preview(source),
+          committed.source,
+        ),
+      ).toMatchObject({ width: 3840, height: 2160 })
       expect(existsSync(imagePath)).toBe(true)
     } finally {
       await reply.evaluate((held) => held.restore())
