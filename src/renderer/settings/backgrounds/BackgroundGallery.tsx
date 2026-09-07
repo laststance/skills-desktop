@@ -63,8 +63,11 @@ export function BackgroundGallery(props: GalleryProps): ReactElement {
   const matchesDraft = Boolean(
     operation &&
     gallery.draft &&
-    backgroundSourceKey(operation.source) ===
-      backgroundSourceKey(gallery.draft.preview.source) &&
+    backgroundSourceKey(
+      operation.status === 'succeeded'
+        ? (snapshot.display?.selection.source ?? operation.source)
+        : operation.source,
+    ) === backgroundSourceKey(gallery.draft.preview.source) &&
     operation.aspect === gallery.draft.aspect &&
     areBackgroundCropsEqual(operation.crop, gallery.draft.crop),
   )

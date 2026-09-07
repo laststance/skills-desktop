@@ -188,50 +188,309 @@ function photo(id: string): UnsplashPhoto {
 }
 
 describe('Background gallery selection and operation lifecycle', () => {
-  test('Appearance layout and Crop retain the selected image and apply the edited crop through the same operation boundary', async () => {
+  test('a successfully uploaded image can be recropped in the open editor after its draft token expires', async () => {
     // Arrange
-    const { screen, store } = await renderGallery({
-      background: {
-        ...DEFAULT_SETTINGS.background,
-        selected: {
-          source: lake.source,
-          crop: DEFAULT_BACKGROUND_CROP,
-          aspect: 'original',
-          displayId: '26000000-0000-4000-8000-000000000001',
-        },
-        hasAppliedImage: true,
-      },
+    const draftSource = {
+      kind: 'upload-draft',
+      draftId: '28000000-0000-4000-8000-000000000001',
+    } as const
+    const uploadedSource = {
+      kind: 'upload',
+      uploadId: '28000000-0000-4000-8000-000000000002',
+    } as const
+    importImage.mockResolvedValue({
+      source: draftSource,
+      title: 'Uploaded landscape',
+      width: 3840,
+      height: 2160,
+      image: { url: previewUrl, width: 3840, height: 2160 },
+      credit: null,
     })
+    const { screen, store } = await renderGallery()
+    await screen.getByRole('button', { name: 'Upload image' }).click()
     await screen
-      .getByRole('button', { name: 'Cancel', exact: true })
-      .last()
+      .getByRole('button', { name: 'Apply background', exact: true })
       .click()
-    vi.spyOn(window.electron.backgrounds, 'setLayout').mockImplementation(
-      async (layout) => ({
+    const accepted = apply.mock.calls[0][0]
+    const selection = {
+      source: uploadedSource,
+      crop: accepted.crop,
+      aspect: accepted.aspect,
+      displayId: '28000000-0000-4000-8000-000000000003',
+    }
+    store.dispatch(
+      setSettings({
         ...store.getState().settings,
-        background: { ...store.getState().settings.background, layout },
+        background: {
+          ...DEFAULT_SETTINGS.background,
+          selected: selection,
+          hasAppliedImage: true,
+          uploads: [
+            {
+              id: uploadedSource.uploadId,
+              title: 'Uploaded landscape',
+              width: 3840,
+              height: 2160,
+              format: 'png',
+              bytes: 1024,
+              importedAt: '2026-09-08T00:00:00.000Z',
+            },
+          ],
+        },
       }),
     )
+    apply.mockImplementation(async (input) => {
+      if (input.source.kind === 'upload-draft')
+        throw new Error('This upload draft has expired.')
+      return { operationId: 2, requestId: input.requestId }
+    })
     // Act
-    await screen.getByRole('radio', { name: 'Fit', exact: true }).click()
-    await screen.getByRole('button', { name: 'Crop', exact: true }).click()
+    broadcast({
+      revision: 2,
+      displayRetryRevision: 0,
+      operation: {
+        ...accepted,
+        operationId: 1,
+        status: 'succeeded',
+        opacityAdjusted: false,
+      },
+      display: {
+        selection,
+        image: { url: previewUrl, width: 3840, height: 2160 },
+        crop: DEFAULT_BACKGROUND_CROP,
+        title: 'Uploaded landscape',
+        credit: null,
+      },
+    })
     await expect
-      .element(screen.getByRole('heading', { name: 'Crop background' }))
+      .element(
+        screen.getByRole('button', { name: 'Close', exact: true }).last(),
+      )
       .toBeVisible()
     await screen.getByRole('radio', { name: '16:10', exact: true }).click()
     await screen
       .getByRole('button', { name: 'Apply background', exact: true })
       .click()
     // Assert
-    expect(store.getState().settings.background.layout).toBe('fit')
-    expect(store.getState().settings.background.selected?.source).toEqual({
-      kind: 'builtin',
-      builtinId: 'alpine-lake',
+    expect(apply.mock.calls[1]?.[0]).toMatchObject({
+      source: {
+        kind: 'upload',
+        uploadId: '28000000-0000-4000-8000-000000000002',
+      },
+      aspect: '16:10',
     })
-    expect(apply.mock.calls[0]?.[0].aspect).toBe('16:10')
-    // Tolerate floating arithmetic only; 0.05% would hide almost two source pixels.
-    expect(apply.mock.calls[0]?.[0].crop.width).toBeCloseTo(90, 10)
+    expect(
+      screen.getByText('This upload draft has expired.').elements(),
+    ).toHaveLength(0)
+    await expect
+      .element(screen.getByRole('heading', { name: 'Crop background' }))
+      .toBeVisible()
   })
+
+  test('a delayed upload success preserves the newer gallery choice', async () => {
+    // Arrange
+    const draftSource = {
+      kind: 'upload-draft',
+      draftId: '29000000-0000-4000-8000-000000000001',
+    } as const
+    importImage.mockResolvedValue({
+      source: draftSource,
+      title: 'Earlier upload',
+      width: 3840,
+      height: 2160,
+      image: { url: previewUrl, width: 3840, height: 2160 },
+      credit: null,
+    })
+    const { screen } = await renderGallery()
+    await screen.getByRole('button', { name: 'Upload image' }).click()
+    await screen
+      .getByRole('button', { name: 'Apply background', exact: true })
+      .click()
+    const accepted = apply.mock.calls[0][0]
+    currentSnapshot = {
+      revision: 1,
+      displayRetryRevision: 0,
+      operation: { ...accepted, operationId: 1, status: 'applying' },
+      display: null,
+    }
+    broadcast(currentSnapshot)
+    await screen
+      .getByRole('button', { name: 'Close', exact: true })
+      .last()
+      .click()
+    await screen
+      .getByRole('button', { name: 'Choose background', exact: true })
+      .click()
+    await screen
+      .getByRole('radio', { name: 'Misty forest', exact: true })
+      .click()
+    await expect
+      .element(screen.getByText('Preview: Misty forest'))
+      .toBeVisible()
+    // Act
+    broadcast({
+      revision: 2,
+      displayRetryRevision: 0,
+      operation: {
+        ...accepted,
+        operationId: 1,
+        status: 'succeeded',
+        opacityAdjusted: false,
+      },
+      display: {
+        selection: {
+          source: {
+            kind: 'upload',
+            uploadId: '29000000-0000-4000-8000-000000000002',
+          },
+          crop: accepted.crop,
+          aspect: accepted.aspect,
+          displayId: '29000000-0000-4000-8000-000000000003',
+        },
+        image: { url: previewUrl, width: 3840, height: 2160 },
+        crop: DEFAULT_BACKGROUND_CROP,
+        title: 'Earlier upload',
+        credit: null,
+      },
+    })
+    await screen
+      .getByRole('button', { name: 'Apply background', exact: true })
+      .click()
+    // Assert
+    await expect
+      .element(screen.getByText('Preview: Misty forest'))
+      .toBeVisible()
+    expect(apply.mock.calls[1]?.[0].source).toEqual({
+      kind: 'builtin',
+      builtinId: 'misty-forest',
+    })
+  })
+
+  test.each(
+    (
+      [
+        { source: lake.source },
+        {
+          source: {
+            kind: 'upload',
+            uploadId: '26000000-0000-4000-8000-000000000002',
+          },
+        },
+        {
+          source: {
+            kind: 'unsplash',
+            photo: { ...photo('ratio'), height: 2560 },
+          },
+        },
+      ] satisfies { source: BackgroundCatalogItem['source'] }[]
+    ).flatMap(({ source }) =>
+      [
+        { label: 'Original', aspect: 'original', top: 0, height: 100 },
+        { label: '16:9', aspect: '16:9', top: 7.8125, height: 84.375 },
+        { label: '16:10', aspect: '16:10', top: 3.125, height: 93.75 },
+      ].map((preset) => ({ source, ...preset })),
+    ),
+  )(
+    '$source.kind background keeps the $label crop through Fill, Fit and Tile',
+    async ({ source, label, aspect, top, height }) => {
+      // Arrange
+      const ratioPreviewUrl = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2560"><rect width="3840" height="2560" fill="#305b58"/></svg>')}`
+      vi.spyOn(window.electron.backgrounds, 'preview').mockImplementation(
+        async (selectedSource) => ({
+          source: selectedSource,
+          title: 'Ratio fixture',
+          width: 3840,
+          height: 2560,
+          image: { url: ratioPreviewUrl, width: 3840, height: 2560 },
+          credit: null,
+        }),
+      )
+      const { screen, store } = await renderGallery({
+        background: {
+          ...DEFAULT_SETTINGS.background,
+          selected: {
+            source,
+            crop: DEFAULT_BACKGROUND_CROP,
+            aspect: 'original',
+            ...(source.kind === 'unsplash'
+              ? {}
+              : { displayId: '26000000-0000-4000-8000-000000000001' }),
+          },
+          uploads:
+            source.kind === 'upload'
+              ? [
+                  {
+                    id: source.uploadId,
+                    title: 'Ratio fixture',
+                    width: 3840,
+                    height: 2560,
+                    format: 'png',
+                    bytes: 1024,
+                    importedAt: '2026-09-08T00:00:00.000Z',
+                  },
+                ]
+              : [],
+          hasAppliedImage: true,
+        },
+      })
+      await screen
+        .getByRole('button', { name: 'Cancel', exact: true })
+        .last()
+        .click()
+      vi.spyOn(window.electron.backgrounds, 'setLayout').mockImplementation(
+        async (layout) => ({
+          ...store.getState().settings,
+          background: { ...store.getState().settings.background, layout },
+        }),
+      )
+      // Each source/preset crosses all three Appearance layouts through the real cropper and Apply bridge.
+      for (const { layoutLabel, layoutValue } of [
+        { layoutLabel: 'Fill', layoutValue: 'fill' },
+        { layoutLabel: 'Fit', layoutValue: 'fit' },
+        { layoutLabel: 'Tile', layoutValue: 'tile' },
+      ]) {
+        // Act — change away first so Original and 16:9 cannot pass as untouched defaults.
+        await screen
+          .getByRole('radio', { name: layoutLabel, exact: true })
+          .click()
+        await screen.getByRole('button', { name: 'Crop', exact: true }).click()
+        await expect
+          .element(screen.getByRole('heading', { name: 'Crop background' }))
+          .toBeVisible()
+        await screen
+          .getByRole('radio', {
+            name: label === '16:9' ? '16:10' : '16:9',
+            exact: true,
+          })
+          .click()
+        await screen.getByRole('radio', { name: label, exact: true }).click()
+        await screen
+          .getByRole('button', { name: 'Apply background', exact: true })
+          .click()
+        // Assert — fixed source-pixel expectations catch wrong presets, preview dimensions and layout coupling.
+        const accepted = apply.mock.calls.at(-1)?.[0]
+        expect(store.getState().settings.background.layout).toBe(layoutValue)
+        expect(store.getState().settings.background.selected?.source).toEqual(
+          source,
+        )
+        expect(accepted?.source).toEqual(source)
+        expect(accepted?.aspect).toBe(aspect)
+        expect(accepted?.crop.x).toBeCloseTo(0, 10)
+        expect(accepted?.crop.y).toBeCloseTo(top, 10)
+        expect(accepted?.crop.width).toBeCloseTo(100, 10)
+        expect(accepted?.crop.height).toBeCloseTo(height, 10)
+        await screen
+          .getByRole('button', { name: 'Cancel', exact: true })
+          .last()
+          .click()
+        await screen
+          .getByRole('button', { name: 'Cancel', exact: true })
+          .last()
+          .click()
+      }
+      expect(apply).toHaveBeenCalledTimes(3)
+    },
+  )
 
   test('a failed initial snapshot shows a visible recovery notice while local gallery choices remain usable', async () => {
     // Arrange
@@ -929,6 +1188,99 @@ describe('Background gallery selection and operation lifecycle', () => {
       .toHaveLength(0)
   })
 
+  test.each([
+    { action: 'selecting another photo', reopen: false, lateFailure: false },
+    { action: 'reopening the gallery', reopen: true, lateFailure: true },
+  ])(
+    '$action keeps a new Apply usable while an older acceptance reply is delayed',
+    async ({ reopen, lateFailure }) => {
+      // Arrange
+      let acceptEarlier:
+        ((result: Awaited<ReturnType<typeof apply>>) => void) | undefined
+      let rejectEarlier: ((error: Error) => void) | undefined
+      let acceptCurrent:
+        ((result: Awaited<ReturnType<typeof apply>>) => void) | undefined
+      const earlierAcceptance = new Promise<Awaited<ReturnType<typeof apply>>>(
+        (resolve, reject) => {
+          acceptEarlier = resolve
+          rejectEarlier = reject
+        },
+      )
+      const currentAcceptance = new Promise<Awaited<ReturnType<typeof apply>>>(
+        (resolve) => {
+          acceptCurrent = resolve
+        },
+      )
+      apply
+        .mockImplementationOnce(async () => earlierAcceptance)
+        .mockImplementationOnce(async () => currentAcceptance)
+      const { screen } = await renderGallery()
+      await screen
+        .getByRole('radio', { name: 'Alpine lake', exact: true })
+        .click()
+      const applyButton = screen.getByRole('button', {
+        name: 'Apply background',
+        exact: true,
+      })
+      await applyButton.click()
+      await expect.element(screen.getByText('Starting…')).toBeVisible()
+
+      // Act: a newer editor choice must not wait for the previous Apply's IPC reply.
+      if (reopen) {
+        await screen
+          .getByRole('button', { name: 'Close', exact: true })
+          .last()
+          .click()
+        await screen
+          .getByRole('button', { name: 'Choose background', exact: true })
+          .click()
+      }
+      await screen
+        .getByRole('radio', { name: 'Misty forest', exact: true })
+        .click()
+
+      // Assert
+      await expect
+        .element(screen.getByText('Preview: Misty forest'))
+        .toBeVisible()
+      await expect.element(applyButton).toBeEnabled()
+      await applyButton.click()
+      expect(apply).toHaveBeenCalledTimes(2)
+      expect(apply.mock.calls[1][0].source).toEqual({
+        kind: 'builtin',
+        builtinId: 'misty-forest',
+      })
+
+      // Act: the obsolete reply must not clear the newer handshake or surface its old error.
+      if (lateFailure) rejectEarlier?.(new Error('Earlier Apply failed'))
+      else
+        acceptEarlier?.({
+          operationId: 1,
+          requestId: apply.mock.calls[0][0].requestId,
+        })
+      await earlierAcceptance.catch(() => undefined)
+
+      // Assert
+      await expect.element(screen.getByText('Starting…')).toBeVisible()
+      await expect.element(applyButton).toBeDisabled()
+      expect(screen.getByText('Earlier Apply failed').elements()).toHaveLength(
+        0,
+      )
+      await expect
+        .element(screen.getByText('Preview: Misty forest'))
+        .toBeVisible()
+      acceptCurrent?.({
+        operationId: 2,
+        requestId: apply.mock.calls[1][0].requestId,
+      })
+      await expect.element(applyButton).toBeEnabled()
+      await expect
+        .element(screen.getByRole('button', { name: 'Upload image' }))
+        .toBeEnabled()
+      expect(apply).toHaveBeenCalledTimes(2)
+    },
+  )
+
   test('ignores delayed operation snapshots and shows failure in the real Toaster', async () => {
     // Arrange
     const { screen } = await renderGallery()
@@ -1090,6 +1442,59 @@ describe('Compact gallery and replay boundaries', () => {
       height: 50,
     })
     expect(apply.mock.calls[0]?.[0].aspect).toBe('16:9')
+  })
+
+  test('reselecting refreshed Unsplash metadata starts a fresh Apply while an unchanged photo retains exact retry', async () => {
+    // Arrange
+    const originalPhoto = photo('reselected')
+    const refreshedPhoto = {
+      ...originalPhoto,
+      urls: {
+        ...originalPhoto.urls,
+        raw: 'https://images.unsplash.com/photo-reselected?ixid=refreshed',
+      },
+    }
+    currentSnapshot = {
+      revision: 4,
+      displayRetryRevision: 0,
+      display: null,
+      operation: {
+        status: 'failed',
+        operationId: 7,
+        requestId: '50000000-0000-4000-8000-000000000001',
+        source: { kind: 'unsplash', photo: originalPhoto },
+        crop: { x: 0, y: 0, width: 100, height: 100 },
+        aspect: 'original',
+        error: { code: 'save-failed', message: 'Disk full. Try again.' },
+      },
+    }
+    fetchBoundary.mockImplementation(async () =>
+      Response.json({ json: { items: [refreshedPhoto], nextPage: null } }),
+    )
+    const { screen } = await renderGallery()
+
+    // Act / Assert: an unchanged retained source may reuse its acknowledged operation.
+    await screen
+      .getByRole('button', { name: 'Retry Apply', exact: true })
+      .click()
+    expect(apply.mock.calls[0]?.[0].retryOperationId).toBe(7)
+
+    // Act
+    await screen.getByRole('tab', { name: 'Unsplash', exact: true }).click()
+    await screen
+      .getByRole('radio', { name: 'Photo by Photographer reselected' })
+      .click()
+    await screen
+      .getByRole('button', { name: 'Retry Apply', exact: true })
+      .click()
+
+    // Assert: the same ID does not let changed metadata borrow the previous acknowledgement.
+    expect(apply).toHaveBeenCalledTimes(2)
+    expect(apply.mock.calls[1]?.[0].retryOperationId).toBeUndefined()
+    expect(apply.mock.calls[1]?.[0].source).toEqual({
+      kind: 'unsplash',
+      photo: refreshedPhoto,
+    })
   })
 
   test('allows explicit Clear while the first background is still being applied', async () => {

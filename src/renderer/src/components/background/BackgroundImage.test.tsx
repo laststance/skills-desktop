@@ -4,6 +4,7 @@ import sharp from 'sharp'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
 import type { BackgroundDisplay, BackgroundLayout } from '@/shared/backgrounds'
+import { BACKGROUND_LAYOUTS } from '@/shared/constants'
 
 import { BackgroundImage } from './BackgroundImage'
 
@@ -76,6 +77,63 @@ function pixelAt(bytes: Buffer, width: number, x: number, y: number): number[] {
 }
 
 describe('accepted background crop pixels', () => {
+  test.each(
+    [
+      {
+        aspect: 'Original',
+        crop: { x: 25, y: 25, width: 50, height: 50 },
+        tileWidth: 60,
+        tileHeight: 40,
+        letterbox: [4, 100],
+      },
+      {
+        aspect: '16:9',
+        crop: { x: 30, y: 30, width: 40, height: 33.75 },
+        tileWidth: 48,
+        tileHeight: 27,
+        letterbox: [160, 4],
+      },
+      {
+        aspect: '16:10',
+        crop: { x: 30, y: 30, width: 40, height: 37.5 },
+        tileWidth: 48,
+        tileHeight: 30,
+        letterbox: null,
+      },
+    ].flatMap((fixture) =>
+      BACKGROUND_LAYOUTS.map((layout) => ({ ...fixture, layout })),
+    ),
+  )(
+    '$aspect crop keeps excluded pixels out of $layout and preserves its visible region',
+    async ({ crop, tileWidth, tileHeight, letterbox, layout }) => {
+      // Arrange — the three accepted rectangles have real 3:2, 16:9 and 16:10 source-pixel ratios.
+      const selected = { ...display, crop }
+      // Act
+      const pixels = await renderPixels(layout, 320, 200, selected)
+      // Assert — any red channel reveals excluded magenta, including sampling at crop and tile edges.
+      expect(
+        pixels.filter((value, index) => index % 4 === 0 && value > 0),
+      ).toHaveLength(0)
+      if (layout === 'tile') {
+        expect(pixelAt(pixels, 320, 5, 5)).toEqual([0, 255, 0, 255])
+        expect(pixelAt(pixels, 320, 35, 5)).toEqual([0, 0, 255, 255])
+        expect(pixelAt(pixels, 320, tileWidth + 5, tileHeight + 5)).toEqual([
+          0, 255, 0, 255,
+        ])
+        expect(pixelAt(pixels, 320, tileWidth + 35, tileHeight + 5)).toEqual([
+          0, 0, 255, 255,
+        ])
+      } else {
+        expect(pixelAt(pixels, 320, 80, 100)).toEqual([0, 255, 0, 255])
+        expect(pixelAt(pixels, 320, 240, 100)).toEqual([0, 0, 255, 255])
+        if (layout === 'fit' && letterbox)
+          expect(pixelAt(pixels, 320, letterbox[0], letterbox[1])).toEqual([
+            0, 0, 0, 255,
+          ])
+      }
+    },
+  )
+
   test('fills the viewport with the accepted region while excluding the outer magenta source', async () => {
     // Arrange / Act
     const pixels = await renderPixels('fill', 320, 200)

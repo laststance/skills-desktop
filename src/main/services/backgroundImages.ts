@@ -94,6 +94,7 @@ const drafts = new Map<string, BackgroundDraft>()
 const pendingImports = new Map<string, number>()
 const cancelledImports = new Set<string>()
 let imageProcessingQueue = Promise.resolve()
+let latestPreviewRequestId = 0
 
 /** Derives private paths for image operations without accepting renderer filesystem paths.
  * @returns The dedicated userData image directory.
@@ -732,14 +733,15 @@ export function getBackgroundSourceInfo(
   return { title, width, height, credit }
 }
 
-/** Supplies a bounded crop-editor preview while keeping its coordinate space tied to the actual original.
- * @returns Source metadata and a WebP preview; missing owned files fail without changing settings.
+/** Supplies the latest queued editor preview for {@link previewBackground} without delaying it behind superseded selections.
+ * @returns Source metadata and a WebP preview; missing files or superseded requests reject without changing ownership/settings.
  * @example await getBackgroundPreview(source, settings.background.uploads)
  */
 export async function getBackgroundPreview(
   source: LocalBackgroundSource,
   uploads: readonly BackgroundUpload[],
 ): Promise<BackgroundPreview> {
+  const previewRequestId = ++latestPreviewRequestId
   const input = localImageInput(source, uploads)
   if (source.kind === 'upload-draft')
     return {
@@ -750,21 +752,25 @@ export async function getBackgroundPreview(
       image: getDraft(source.draftId).preview,
       credit: null,
     }
-  if (source.kind === 'upload')
-    return {
-      source,
-      title: input.title,
-      width: input.width,
-      height: input.height,
-      image: await queueImageProcessing(async () =>
-        imageDescriptor(
+  return queueImageProcessing(async () => {
+    // Skip old editor selections before reading/decoding; accepted displays and imports own separate work.
+    if (previewRequestId !== latestPreviewRequestId)
+      throw new BackgroundImageError(
+        'source-missing',
+        'This image preview was superseded by a newer selection.',
+      )
+    if (source.kind === 'upload')
+      return {
+        source,
+        title: input.title,
+        width: input.width,
+        height: input.height,
+        image: await imageDescriptor(
           join(uploadDirectory(source.uploadId), 'preview.webp'),
           BACKGROUND_PREVIEW_LONG_EDGE_PX,
         ),
-      ),
-      credit: null,
-    }
-  return queueImageProcessing(async () => {
+        credit: null,
+      }
     const bytes = await readBoundedImage(input.path)
     const { data, info } = await sharp(bytes, {
       failOn: 'warning',

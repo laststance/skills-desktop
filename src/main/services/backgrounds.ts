@@ -296,10 +296,17 @@ export function applyBackground(
   const retry = retryApplication(input)
   const draftId =
     input.source.kind === 'upload-draft' ? input.source.draftId : null
+  const retainedInput =
+    retry ??
+    (draftId &&
+    currentApplication?.record.status === 'failed' &&
+    currentApplication.draftId === draftId
+      ? currentApplication
+      : null)
   const upload =
-    retry?.upload ?? (draftId ? claimBackgroundDraft(draftId) : null)
-  // Transfer retry ownership before abandoning the old result; late close/Cancel cannot take it back.
-  if (retry) retry.draftId = null
+    retainedInput?.upload ?? (draftId ? claimBackgroundDraft(draftId) : null)
+  // Edited failed uploads reuse their input too; only an exact retry inherits provider acknowledgement below.
+  if (retainedInput) retainedInput.draftId = null
   supersedeApplication()
   const record: BackgroundOperation = {
     operationId: ++nextOperationId,
@@ -483,6 +490,8 @@ async function commitApplication(
           opacityAdjusted,
         }
       publishBackgroundSettings(next, previous)
+      // An unchanged online selection still completes a newly accepted Apply in both windows.
+      if (next === previous) publishBackgroundSnapshot()
     },
   )
   await discardUnusedDisplay(previousDisplayId)

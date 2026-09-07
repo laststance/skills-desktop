@@ -189,6 +189,83 @@ afterEach(async () => {
 })
 
 describe('Main-owned background application transactions', () => {
+  test('identical Unsplash reapplication publishes success without rewriting settings or notifying the provider again', async () => {
+    // Arrange
+    const source: BackgroundApplySource = {
+      kind: 'unsplash',
+      photo: {
+        id: 'reapply-fixture',
+        width: 2400,
+        height: 1600,
+        description: null,
+        altDescription: 'Reapplication fixture',
+        urls: {
+          raw: 'https://images.unsplash.com/photo-reapply-fixture?ixid=fixture',
+          small:
+            'https://images.unsplash.com/photo-reapply-fixture?ixid=fixture&w=400',
+        },
+        links: {
+          html: 'https://unsplash.com/photos/reapply-fixture',
+          downloadLocation:
+            'https://api.unsplash.com/photos/reapply-fixture/download?ixid=fixture',
+        },
+        photographer: {
+          name: 'Fixture Photographer',
+          username: 'fixture',
+          profileUrl: 'https://unsplash.com/@fixture',
+        },
+      },
+    }
+    const requests = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (request) =>
+        request instanceof Request
+          ? Response.json({ json: { acknowledged: true } })
+          : new Response(new Uint8Array(fixtureBytes)),
+      )
+    backgrounds.applyBackground(applicationInput(source))
+    await waitForApplication('succeeded')
+    const saved = settings.getSettings()
+    const rename = vi.spyOn(fs, 'rename')
+    native.mainSend.mockClear()
+    native.settingsSend.mockClear()
+    // Act
+    backgrounds.applyBackground(applicationInput(source))
+    await vi.waitFor(
+      () =>
+        expect(backgrounds.getBackgroundSnapshot().operation?.status).toBe(
+          'succeeded',
+        ),
+      { timeout: 1000 },
+    )
+    // Assert
+    expect(backgrounds.getBackgroundSnapshot().operation).toMatchObject({
+      operationId: 2,
+      status: 'succeeded',
+      opacityAdjusted: false,
+    })
+    for (const send of [native.mainSend, native.settingsSend]) {
+      expect(send).toHaveBeenLastCalledWith(
+        'backgrounds:changed',
+        expect.objectContaining({
+          operation: expect.objectContaining({
+            operationId: 2,
+            status: 'succeeded',
+          }),
+        }),
+      )
+      expect(send.mock.calls.map(([channel]) => channel)).toEqual([
+        'backgrounds:changed',
+        'backgrounds:changed',
+      ])
+    }
+    expect(settings.getSettings()).toBe(saved)
+    expect(rename).not.toHaveBeenCalled()
+    expect(
+      requests.mock.calls.filter(([request]) => request instanceof Request),
+    ).toHaveLength(1)
+  })
+
   test('atomically publishes the uploaded source, crop and first Entire opacity while preserving hidden values', async () => {
     // Arrange
     await settings.saveSettings({
@@ -707,6 +784,72 @@ describe('Main-owned background application transactions', () => {
     },
   )
 
+  test('changed upload crops remain applicable after a save failure and a later crop rejection', async () => {
+    // Arrange
+    const draft = await images.importBackgroundImage(fixture, 1)
+    const rename = fs.rename
+    const failedRename = vi
+      .spyOn(fs, 'rename')
+      .mockImplementation(async (from, to) => {
+        if (to === join(native.userData, 'settings.json'))
+          throw new Error('disk denied')
+        return rename(from, to)
+      })
+    backgrounds.applyBackground(applicationInput(draft.source))
+    await waitForApplication('failed')
+    failedRename.mockRestore()
+    await fs.rm(fixture)
+
+    // Act: a fresh crop still uses the retained original and Main still rejects too few pixels.
+    backgrounds.applyBackground({
+      ...applicationInput(draft.source),
+      crop: { x: 0, y: 0, width: 50, height: 50 },
+      aspect: '16:10',
+    })
+    await waitForApplication('failed')
+
+    // Assert
+    expect(backgrounds.getBackgroundSnapshot().operation).toMatchObject({
+      operationId: 2,
+      error: { code: 'invalid-crop' },
+    })
+    expect(settings.getSettings().background.uploads).toEqual([])
+
+    // Act: correcting the crop needs neither the external original nor an exact retry token.
+    const corrected = {
+      ...applicationInput(draft.source),
+      crop: { x: 0, y: 0, width: 80, height: 75 },
+      aspect: '16:10' as const,
+    }
+    const accepted = backgrounds.applyBackground(corrected)
+    const duplicate = backgrounds.applyBackground(corrected)
+    await images.discardBackgroundDraftsForOwner(1)
+    await waitForApplication('succeeded')
+
+    // Assert
+    expect([accepted.operationId, duplicate.operationId]).toEqual([3, 3])
+    const saved = await diskSettings()
+    expect(saved.background.uploads).toHaveLength(1)
+    expect(saved.background.selected).toMatchObject({
+      source: { kind: 'upload' },
+      crop: { x: 0, y: 0, width: 80, height: 75 },
+      aspect: '16:10',
+    })
+    expect(
+      await fs.readFile(
+        join(
+          native.userData,
+          'backgrounds/uploads',
+          saved.background.uploads[0].id,
+          'original',
+        ),
+      ),
+    ).toEqual(fixtureBytes)
+    await expect(backgrounds.previewBackground(draft.source)).rejects.toThrow(
+      'expired',
+    )
+  })
+
   test('failed removal preserves the selected reference and owned files and later succeeds without queue poisoning', async () => {
     // Arrange
     const uploadId = await addUpload()
@@ -912,6 +1055,39 @@ describe('Main-owned background application transactions', () => {
       'backgrounds:changed',
       backgrounds.getBackgroundSnapshot(),
     )
+  })
+
+  test('Clear keeps the background removed when an earlier display Retry finishes reading the old image', async () => {
+    // Arrange — hold actual restored bytes so Clear can remove their reference before Retry publishes.
+    await addUpload()
+    const entered = deferred()
+    const release = deferred()
+    const readDisplay = images.readBackgroundDisplay
+    vi.spyOn(images, 'readBackgroundDisplay').mockImplementationOnce(
+      async (displayId) => {
+        const display = await readDisplay(displayId)
+        entered.resolve()
+        await release.promise
+        return display
+      },
+    )
+    const retry = backgrounds.retryBackgroundDisplay()
+    await entered.promise
+    try {
+      // Act
+      await backgrounds.clearBackground()
+      const cleared = backgrounds.getBackgroundSnapshot()
+      release.resolve()
+      await retry
+      // Assert — stale bytes cannot revive the image or produce another Main publication.
+      expect(backgrounds.getBackgroundSnapshot()).toBe(cleared)
+      expect(cleared.display).toBeNull()
+      expect((await diskSettings()).background.selected).toBeNull()
+      expect(settings.getSettings().background.selected).toBeNull()
+    } finally {
+      release.resolve()
+      await retry
+    }
   })
 
   test('a missing display falls back without forgetting its selected source, and Retry recovers the repaired file', async () => {

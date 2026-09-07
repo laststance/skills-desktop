@@ -3,15 +3,22 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   readdirSync,
   realpathSync,
   rmSync,
+  writeFileSync,
 } from 'node:fs'
 import { rename } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
-import type { ElectronApplication, Page } from '@playwright/test'
+import {
+  _electron,
+  type ElectronApplication,
+  type Page,
+} from '@playwright/test'
 import sharp from 'sharp'
 
 import type {
@@ -335,6 +342,163 @@ galleryTest(
       expect(await reply.evaluate((held) => held.hasAccepted())).toBe(true)
     } finally {
       await reply.evaluate((held) => held.restore())
+    }
+  },
+)
+
+galleryTest(
+  'restarting Electron during an accepted Apply preserves the prior background without replaying provider requests',
+  async ({ electronApp, settingsWindow, isolatedHome, imagePath }) => {
+    // Arrange — retain a real committed image before pausing the next atomic settings replacement.
+    const prior = await applyFixture(settingsWindow, {
+      kind: 'builtin',
+      builtinId: 'alpine-lake',
+    })
+    const previousSettings = persistedSettings(isolatedHome)
+    const displayPath = join(
+      isolatedHome,
+      'userData',
+      'backgrounds',
+      'displays',
+      `${prior.displayId}.webp`,
+    )
+    const previousImage = readFileSync(displayPath)
+    const requestsPath = join(isolatedHome, 'background-requests.log')
+    const observerPath = join(isolatedHome, 'observe-background-requests.cjs')
+    const mainEntry = resolve(__dirname, '../../out/main/index.mjs')
+    const restartEntry = join(isolatedHome, 'restart-background-main.cjs')
+    // Install before restarted Main loads, so an early replay cannot escape a late Playwright hook.
+    writeFileSync(
+      observerPath,
+      `if (process.type === 'browser') {
+        const { appendFileSync, readFileSync } = require('node:fs')
+        const originalFetch = globalThis.fetch
+        const record = (value) => appendFileSync(${JSON.stringify(requestsPath)}, value + '\\n')
+        record('observer-started')
+        globalThis.fetch = async (input, init) => {
+          const url = new URL(input instanceof Request ? input.url : String(input))
+          if (url.origin === 'https://images.unsplash.com') {
+            record('image')
+            return new Response(readFileSync(${JSON.stringify(imagePath)}), { headers: { 'content-type': 'image/png' } })
+          }
+          if (url.origin === 'https://skills-desktop.vercel.app' && url.pathname === '/api/rpc/unsplash/trackDownload') {
+            record('notification')
+            return Response.json({ json: { acknowledged: true } })
+          }
+          return originalFetch(input, init)
+        }
+      }`,
+    )
+    // Playwright strips NODE_OPTIONS; this entry observes boot while preserving production asset resolution.
+    writeFileSync(
+      restartEntry,
+      `require(${JSON.stringify(observerPath)})
+       require('electron').app.setAppPath(${JSON.stringify(dirname(mainEntry))})
+       import(${JSON.stringify(pathToFileURL(mainEntry).href)})`,
+    )
+    await electronApp.evaluate(
+      (_electron, path) =>
+        process.getBuiltinModule('module').createRequire(path)(path),
+      observerPath,
+    )
+    const commit = await holdBackgroundRename(
+      electronApp,
+      settingsFilePath(isolatedHome),
+      'file',
+    )
+    const originalProcess = electronApp.process()
+    let restarted: ElectronApplication | null = null
+    try {
+      const accepted = await settingsWindow.evaluate(
+        async (requestId) =>
+          window.electron.backgrounds.apply({
+            requestId,
+            source: {
+              kind: 'unsplash',
+              photo: {
+                id: 'restart-fixture',
+                width: 3840,
+                height: 2160,
+                description: null,
+                altDescription: 'Pending restart photo',
+                urls: {
+                  raw: 'https://images.unsplash.com/photo-restart-fixture?ixid=fixture',
+                  small:
+                    'https://images.unsplash.com/photo-restart-fixture?ixid=fixture&w=480',
+                },
+                links: {
+                  html: 'https://unsplash.com/photos/restart-fixture',
+                  downloadLocation:
+                    'https://api.unsplash.com/photos/restart-fixture/download',
+                },
+                photographer: {
+                  name: 'Fixture photographer',
+                  username: 'fixture',
+                  profileUrl: 'https://unsplash.com/@fixture',
+                },
+              },
+            },
+            crop: { x: 0, y: 0, width: 100, height: 100 },
+            aspect: 'original',
+          }),
+        randomUUID(),
+      )
+      await expect
+        .poll(async () => commit.evaluate((held) => held.isHeld()))
+        .toBe(true)
+      expect(
+        (
+          await settingsWindow.evaluate(async () =>
+            window.electron.backgrounds.getSnapshot(),
+          )
+        ).operation,
+      ).toMatchObject({ operationId: accepted.operationId, status: 'applying' })
+      expect(readFileSync(requestsPath, 'utf8')).toBe(
+        'observer-started\nimage\nnotification\n',
+      )
+      expect(persistedSettings(isolatedHome)).toEqual(previousSettings)
+      // Act — terminate the fixture's actual Main process without releasing the held commit.
+      const terminated = electronApp.waitForEvent('close')
+      expect(originalProcess.kill('SIGKILL')).toBe(true)
+      await terminated
+      expect(originalProcess.signalCode).toBe('SIGKILL')
+      restarted = await _electron.launch({
+        args: [restartEntry],
+        env: {
+          ...process.env,
+          HOME: isolatedHome,
+          E2E_USERDATA_DIR: join(isolatedHome, 'userData'),
+          E2E_DISABLE_UPDATE: '1',
+          E2E_BACKGROUND_LAUNCH: '1',
+        },
+      })
+      const mainWindow = await restarted.firstWindow()
+      await mainWindow.waitForLoadState('domcontentloaded')
+      // Assert — startup restores only committed data and issues no new provider preparation/notification.
+      expect(restarted.process().pid).not.toBe(originalProcess.pid)
+      await expect(
+        mainWindow
+          .getByTestId('background-canvas')
+          .locator('[data-background-image]'),
+      ).toHaveAttribute('data-background-state', 'ready')
+      expect(
+        await mainWindow.evaluate(async () =>
+          window.electron.backgrounds.getSnapshot(),
+        ),
+      ).toMatchObject({ operation: null, display: { selection: prior } })
+      expect(persistedSettings(isolatedHome)).toEqual(previousSettings)
+      expect(readFileSync(displayPath)).toEqual(previousImage)
+      expect(readFileSync(requestsPath, 'utf8')).toBe(
+        'observer-started\nimage\nnotification\nobserver-started\n',
+      )
+    } finally {
+      // Restore the gate only when an earlier assertion left the original process alive.
+      if (
+        originalProcess.exitCode === null &&
+        originalProcess.signalCode === null
+      )
+        await commit.evaluate((held) => held.restore())
+      await restarted?.close()
     }
   },
 )

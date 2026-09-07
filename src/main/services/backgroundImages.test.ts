@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { promises as fs } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { crc32 } from 'node:zlib'
 
 import sharp from 'sharp'
@@ -245,6 +245,106 @@ describe('background image ingestion', () => {
     expect(
       await sharp(descriptorBytes(preview.image.url)).metadata(),
     ).toMatchObject({ format: 'webp', width: 1920, height: 1080 })
+  })
+
+  test('rapid preview selections skip superseded files without cancelling an in-progress display', async () => {
+    // Arrange
+    const original = await writeImage(1920, 1080)
+    const draft = await images.importBackgroundImage(original.path, 1)
+    const upload = images.claimBackgroundDraft(draft.source.draftId)
+    await images.publishBackgroundDraft(draft.source.draftId)
+    let notifyDisplayStarted = (): void => undefined
+    let resumeDisplay = (): void => undefined
+    const displayStarted = new Promise<void>((resolve) => {
+      notifyDisplayStarted = resolve
+    })
+    const displayPaused = new Promise<void>((resolve) => {
+      resumeDisplay = resolve
+    })
+    const open = fs.open.bind(fs)
+    const reads = vi.spyOn(fs, 'open').mockImplementation(async (...args) => {
+      if (basename(String(args[0])) === 'original') {
+        notifyDisplayStarted()
+        await displayPaused
+      }
+      return open(...args)
+    })
+    const display = images.prepareBackgroundDisplay(
+      draft.source,
+      DEFAULT_BACKGROUND_CROP,
+      [],
+      () => true,
+    )
+    await displayStarted
+
+    // Act
+    const oldBuiltin = expect(
+      images.getBackgroundPreview(
+        { kind: 'builtin', builtinId: 'alpine-lake' },
+        [],
+      ),
+    ).rejects.toThrow('This image preview was superseded by a newer selection.')
+    const oldUpload = expect(
+      images.getBackgroundPreview({ kind: 'upload', uploadId: upload.id }, [
+        upload,
+      ]),
+    ).rejects.toThrow('This image preview was superseded by a newer selection.')
+    const latest = images.getBackgroundPreview(
+      { kind: 'builtin', builtinId: 'quiet-dunes' },
+      [],
+    )
+    resumeDisplay()
+    const [prepared, preview] = await Promise.all([
+      display,
+      latest,
+      oldBuiltin,
+      oldUpload,
+    ])
+
+    // Assert
+    const openedFiles = reads.mock.calls.map(([path]) => basename(String(path)))
+    expect(openedFiles).not.toContain('alpine-lake.webp')
+    expect(openedFiles).not.toContain('preview.webp')
+    expect(openedFiles).toContain('quiet-dunes.webp')
+    expect(preview.source).toEqual({
+      kind: 'builtin',
+      builtinId: 'quiet-dunes',
+    })
+    expect(
+      await sharp(descriptorBytes(preview.image.url)).metadata(),
+    ).toMatchObject({
+      format: 'webp',
+      width: 1920,
+      height: 1080,
+    })
+    expect(prepared?.image).toMatchObject({ width: 1920, height: 1080 })
+    expect(await fs.readFile(original.path)).toEqual(original.bytes)
+  })
+
+  test('returning to an uploaded draft skips older queued previews and keeps the draft available', async () => {
+    // Arrange
+    const original = await writeImage(1920, 1080)
+    const draft = await images.importBackgroundImage(original.path, 1)
+    const reads = vi.spyOn(fs, 'open')
+
+    // Act
+    const oldPreview = expect(
+      images.getBackgroundPreview(
+        { kind: 'builtin', builtinId: 'alpine-lake' },
+        [],
+      ),
+    ).rejects.toThrow('This image preview was superseded by a newer selection.')
+    const preview = await images.getBackgroundPreview(draft.source, [])
+    await oldPreview
+
+    // Assert
+    expect(reads).not.toHaveBeenCalled()
+    expect(preview.image).toEqual(draft.image)
+    expect(images.claimBackgroundDraft(draft.source.draftId)).toMatchObject({
+      width: 1920,
+      height: 1080,
+    })
+    expect(await fs.readFile(original.path)).toEqual(original.bytes)
   })
 
   test.each([

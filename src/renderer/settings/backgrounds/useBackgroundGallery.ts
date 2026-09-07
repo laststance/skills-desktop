@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { isMatching } from 'ts-pattern'
 
 import { useAppStore } from '@/renderer/src/redux/hooks'
 import { setSettings } from '@/renderer/src/redux/slices/settingsSlice'
-import { backgroundSourceKey } from '@/renderer/src/utils/backgroundSourceKey'
 import {
   DEFAULT_BACKGROUND_CROP,
   type BackgroundApplySource,
@@ -56,6 +56,29 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
   const opener = useRef<HTMLElement | null>(null)
   const store = useAppStore()
 
+  const operation = snapshot.operation
+  const uploadedSource = snapshot.display?.selection.source
+  if (
+    operation?.status === 'succeeded' &&
+    operation.source.kind === 'upload-draft' &&
+    uploadedSource?.kind === 'upload'
+  ) {
+    const draftId = operation.source.draftId
+    // Success consumes this token; update its draft/Cancel destination while preserving newer choices and crop edits.
+    const [draft, beforeCrop] = [state.draft, state.beforeCrop].map(
+      (candidate) =>
+        candidate?.preview.source.kind === 'upload-draft' &&
+        candidate.preview.source.draftId === draftId
+          ? {
+              ...candidate,
+              preview: { ...candidate.preview, source: uploadedSource },
+            }
+          : candidate,
+    )
+    if (draft !== state.draft || beforeCrop !== state.beforeCrop)
+      setState({ ...state, draft, beforeCrop })
+  }
+
   const discard = (retainedDraftId?: string): void => {
     // A replacement and its Cancel destination both remain owned until the user chooses which to keep.
     for (const draftId of draftTokens.current) {
@@ -72,6 +95,7 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
   useEffect(() => {
     const cleanup = (): void => {
       requestGeneration.current += 1
+      startingRequest.current = null
       // Main ignores cleanup for accepted tokens, including when the acknowledgement is still in transit.
       for (const draftId of draftTokens.current)
         void window.electron.backgrounds
@@ -93,7 +117,14 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
     view: GalleryState['view'] = 'gallery',
   ): Promise<void> => {
     const generation = ++requestGeneration.current
-    setState((current) => ({ ...current, checking: true, error: null }))
+    // A new editor choice releases its local wait; Main still owns any accepted Apply.
+    startingRequest.current = null
+    setState((current) => ({
+      ...current,
+      checking: true,
+      starting: false,
+      error: null,
+    }))
     try {
       const preview = await window.electron.backgrounds.preview(source)
       if (generation !== requestGeneration.current) return
@@ -152,13 +183,20 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
 
   const close = (): void => {
     requestGeneration.current += 1
+    startingRequest.current = null
     discard()
     setState((current) => ({ ...initialState, session: current.session + 1 }))
   }
 
   const importImage = async (): Promise<void> => {
     const generation = ++requestGeneration.current
-    setState((current) => ({ ...current, checking: true, error: null }))
+    startingRequest.current = null
+    setState((current) => ({
+      ...current,
+      checking: true,
+      starting: false,
+      error: null,
+    }))
     try {
       const preview = await window.electron.backgrounds.importImage()
       if (generation !== requestGeneration.current) {
@@ -218,8 +256,8 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
     setState((current) => ({ ...current, draft, starting: true, error: null }))
     const failed =
       snapshot.operation?.status === 'failed' &&
-      backgroundSourceKey(snapshot.operation.source) ===
-        backgroundSourceKey(draft.preview.source) &&
+      // Validated sources have fixed fields; changed photo metadata must start a fresh application.
+      isMatching(snapshot.operation.source, draft.preview.source) &&
       snapshot.operation.aspect === draft.aspect &&
       areBackgroundCropsEqual(snapshot.operation.crop, draft.crop)
         ? snapshot.operation
@@ -242,9 +280,14 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
           ),
         }))
     } finally {
-      startingRequest.current = null
-      if (generation === requestGeneration.current)
+      // An older reply cannot release a newer Apply's wait after selection or Close.
+      if (
+        generation === requestGeneration.current &&
+        startingRequest.current === requestId
+      ) {
+        startingRequest.current = null
         setState((current) => ({ ...current, starting: false }))
+      }
     }
   }
 
