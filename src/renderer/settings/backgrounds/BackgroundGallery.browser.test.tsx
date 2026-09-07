@@ -1,4 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
+import { onlineManager } from '@tanstack/react-query'
 import { Provider } from 'react-redux'
 import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -543,6 +544,45 @@ describe('Background gallery selection and operation lifecycle', () => {
     await expect
       .element(screen.getByText('No photos found.', { exact: false }))
       .toBeVisible()
+  })
+
+  test('Built-in and Your images load while offline without requesting Unsplash', async () => {
+    // Arrange
+    const upload: BackgroundCatalogItem = {
+      ...lake,
+      source: {
+        kind: 'upload',
+        uploadId: '00000000-0000-4000-8000-000000000001',
+      },
+      title: 'Offline upload',
+      credit: null,
+    }
+    vi.spyOn(window.electron.backgrounds, 'list').mockResolvedValue({
+      builtins: [lake],
+      uploads: [upload],
+    })
+    onlineManager.setOnline(false)
+    try {
+      // Act
+      const { screen } = await renderGallery()
+      // Assert
+      await expect
+        .element(
+          screen.getByRole('radio', { name: 'Alpine lake', exact: true }),
+        )
+        .toBeVisible()
+      // Act
+      await screen.getByRole('tab', { name: 'Your images' }).click()
+      // Assert
+      await expect
+        .element(
+          screen.getByRole('radio', { name: 'Offline upload', exact: true }),
+        )
+        .toBeVisible()
+      expect(fetchBoundary).not.toHaveBeenCalled()
+    } finally {
+      onlineManager.setOnline(true)
+    }
   })
 
   test('refreshing an empty Unsplash result decodes a fresh response and keeps the empty state recoverable', async () => {

@@ -189,6 +189,8 @@ function BackgroundGalleryBrowser({
   const catalog = useQuery({
     queryKey: ['background-catalog', settings.background.uploads],
     queryFn: async () => window.electron.backgrounds.list(),
+    // Local images remain available while the remote provider is offline.
+    networkMode: 'always',
     enabled: gallery.open,
     retry: false,
   })
