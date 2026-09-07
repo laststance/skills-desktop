@@ -23,7 +23,11 @@ const native = vi.hoisted(() => ({
   windowsClosed: false,
 }))
 vi.mock('electron', () => ({
-  app: { getPath: () => native.userData, getAppPath: () => process.cwd() },
+  app: {
+    getPath: () => native.userData,
+    getAppPath: () => join(process.cwd(), 'out', 'main'),
+    isPackaged: false,
+  },
   BrowserWindow: {
     getAllWindows: () =>
       native.windowsClosed
