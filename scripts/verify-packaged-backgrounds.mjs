@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { parseArgs, promisify } from 'node:util'
 
-import { _electron } from 'playwright'
+import { _electron, expect } from '@playwright/test'
 
 const execFileAsync = promisify(execFile)
 const APPLY_TIMEOUT_MS = 30_000
@@ -274,9 +274,9 @@ async function verifyBundle(expectedArchitecture, requestedBundle) {
       )
     }, catalog.builtins)
     assert.deepEqual(builtinThumbnails, [
-      { id: 'alpine-lake', width: 480, height: 270 },
-      { id: 'misty-forest', width: 480, height: 270 },
-      { id: 'pacific-coast', width: 480, height: 270 },
+      { id: 'alpine-lake', width: 480, height: 320 },
+      { id: 'misty-forest', width: 480, height: 320 },
+      { id: 'pacific-coast', width: 480, height: 320 },
       { id: 'quiet-dunes', width: 480, height: 270 },
     ])
     const builtinAccepted = await window.evaluate(
@@ -288,21 +288,27 @@ async function verifyBundle(expectedArchitecture, requestedBundle) {
         aspect: 'original',
       },
     )
-    await window.waitForFunction(
-      async (operationId) => {
-        const snapshot = await window.electron.backgrounds.getSnapshot()
-        return (
-          snapshot.operation?.operationId === operationId &&
-          snapshot.operation.status !== 'applying'
-        )
-      },
-      builtinAccepted.operationId,
-      { timeout: APPLY_TIMEOUT_MS },
-    )
+    // Poll from Node so each IPC response resolves before the completion condition is checked.
+    await expect
+      .poll(
+        async () => {
+          const snapshot = await window.evaluate(() =>
+            window.electron.backgrounds.getSnapshot(),
+          )
+          return (
+            snapshot.operation?.operationId === builtinAccepted.operationId &&
+            snapshot.operation.status !== 'applying'
+          )
+        },
+        { timeout: APPLY_TIMEOUT_MS },
+      )
+      .toBe(true)
     const builtinApplied = await window.evaluate(async () => {
       const snapshot = await window.electron.backgrounds.getSnapshot()
       if (!snapshot.display)
-        throw new Error('The packaged built-in did not produce a display')
+        throw new Error(
+          `The packaged built-in did not produce a display: ${JSON.stringify(snapshot.operation)}`,
+        )
       const image = new Image()
       image.src = snapshot.display.image.url
       await image.decode()
@@ -317,7 +323,7 @@ async function verifyBundle(expectedArchitecture, requestedBundle) {
       status: 'succeeded',
       source: { kind: 'builtin', builtinId: 'alpine-lake' },
       width: 3840,
-      height: 2160,
+      height: 2560,
     })
     // Substitute only the native chooser; validation, staging, processing, IPC and settings remain real.
     picker = await application.evaluateHandle(({ dialog }, source) => {
@@ -351,17 +357,21 @@ async function verifyBundle(expectedArchitecture, requestedBundle) {
         aspect: 'original',
       },
     )
-    await window.waitForFunction(
-      async (operationId) => {
-        const snapshot = await window.electron.backgrounds.getSnapshot()
-        return (
-          snapshot.operation?.operationId === operationId &&
-          snapshot.operation.status !== 'applying'
-        )
-      },
-      accepted.operationId,
-      { timeout: APPLY_TIMEOUT_MS },
-    )
+    // Poll from Node so each IPC response resolves before the completion condition is checked.
+    await expect
+      .poll(
+        async () => {
+          const snapshot = await window.evaluate(() =>
+            window.electron.backgrounds.getSnapshot(),
+          )
+          return (
+            snapshot.operation?.operationId === accepted.operationId &&
+            snapshot.operation.status !== 'applying'
+          )
+        },
+        { timeout: APPLY_TIMEOUT_MS },
+      )
+      .toBe(true)
     const applied = await window.evaluate(() =>
       window.electron.backgrounds.getSnapshot(),
     )
@@ -444,12 +454,17 @@ async function verifyBundle(expectedArchitecture, requestedBundle) {
     application = await _electron.launch(launchOptions)
     const reopenedWindow = await application.firstWindow()
     await reopenedWindow.waitForLoadState('domcontentloaded')
-    await reopenedWindow.waitForFunction(
-      async () =>
-        Boolean((await window.electron.backgrounds.getSnapshot()).display),
-      null,
-      { timeout: APPLY_TIMEOUT_MS },
-    )
+    await expect
+      .poll(
+        async () => {
+          const snapshot = await reopenedWindow.evaluate(() =>
+            window.electron.backgrounds.getSnapshot(),
+          )
+          return Boolean(snapshot.display)
+        },
+        { timeout: APPLY_TIMEOUT_MS },
+      )
+      .toBe(true)
     const restored = await reopenedWindow.evaluate(() =>
       window.electron.backgrounds.getSnapshot(),
     )
