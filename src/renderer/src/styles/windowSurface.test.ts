@@ -31,6 +31,13 @@ const roles = [
 ]
 
 beforeAll(async () => {
+  // Keep every theme mode covered when the matrix is split into bounded preset cases.
+  expect(
+    Object.values(THEME_PRESETS).reduce(
+      (count, preset) => count + ('mode' in preset ? 1 : 2),
+      0,
+    ),
+  ).toBe(54)
   // Compile the shipped stylesheet, including real Tailwind utility generation.
   const path = resolve('src/renderer/src/styles/globals.css')
   const compiler = await compile(await readFile(path, 'utf8'), {
@@ -72,122 +79,129 @@ afterAll(async () => {
   await browser?.close()
 })
 
-test('keeps text solid across all 54 theme modes and 101 background opacities, retaining AA at 85–100%', async () => {
-  // Arrange / Act — Chromium resolves the actual CSS; only sRGB backdrop compositing happens below.
-  const samples = await page.evaluate(
-    ({ presets, colorChroma, surfaces, roles }) => {
-      const root = document.documentElement
-      const pane = document.getElementById('pane')!
-      const surface = document.getElementById('surface')!
-      const text = document.getElementById('text')!
-      const canvas = document.createElement('canvas')
-      canvas.width = canvas.height = 1
-      const context = canvas.getContext('2d', { willReadFrequently: true })!
-      /** Resolve browser colors to the same sRGB bytes used by screenshots.
-       * @returns RGB channels and alpha in the 0–1 range.
-       * @example rgba(getComputedStyle(text).color)
-       */
-      function rgba(color: string) {
-        context.clearRect(0, 0, 1, 1)
-        context.fillStyle = color
-        context.fillRect(0, 0, 1, 1)
-        return Array.from(
-          context.getImageData(0, 0, 1, 1).data,
-          (value) => value / 255,
-        )
-      }
-      const samples: {
-        theme: string
-        percent: number
-        surface: string
-        role: string
-        fg: number[]
-        bg: number[]
-      }[] = []
-      for (const [name, preset] of Object.entries(presets)) {
-        const modes = 'mode' in preset ? [preset.mode] : ['dark', 'light']
-        for (const mode of modes) {
-          root.className = `${mode}${preset.chroma > 0 && preset.chroma < colorChroma ? ' tone-tinted' : ''}`
-          root.style.setProperty('--theme-hue', String(preset.hue))
-          root.style.setProperty('--theme-chroma', String(preset.chroma))
-          for (let percent = 100; percent >= 0; percent--) {
-            pane.style.setProperty(
-              '--window-surface-opacity',
-              String(percent / 100),
-            )
-            for (const background of surfaces) {
-              surface.className = `bg-${background}`
-              const bg = rgba(getComputedStyle(surface).backgroundColor)
-              for (const role of roles) {
-                text.className = `text-${role}`
-                samples.push({
-                  theme: `${name}/${mode}`,
-                  percent,
-                  surface: background,
-                  role,
-                  fg: rgba(getComputedStyle(text).color),
-                  bg,
-                })
+// A preset per case avoids one large browser reply exceeding CI's test deadline.
+test.each(Object.entries(THEME_PRESETS))(
+  'keeps %s text solid across 101 background opacities, retaining AA at 85–100%',
+  async (name, preset) => {
+    // Arrange / Act — Chromium resolves the actual CSS; only sRGB backdrop compositing happens below.
+    const samples = await page.evaluate(
+      ({ presets, colorChroma, surfaces, roles }) => {
+        const root = document.documentElement
+        const pane = document.getElementById('pane')!
+        const surface = document.getElementById('surface')!
+        const text = document.getElementById('text')!
+        const canvas = document.createElement('canvas')
+        canvas.width = canvas.height = 1
+        const context = canvas.getContext('2d', { willReadFrequently: true })!
+        /** Resolve browser colors to the same sRGB bytes used by screenshots.
+         * @returns RGB channels and alpha in the 0–1 range.
+         * @example rgba(getComputedStyle(text).color)
+         */
+        function rgba(color: string) {
+          context.clearRect(0, 0, 1, 1)
+          context.fillStyle = color
+          context.fillRect(0, 0, 1, 1)
+          return Array.from(
+            context.getImageData(0, 0, 1, 1).data,
+            (value) => value / 255,
+          )
+        }
+        const samples: {
+          theme: string
+          percent: number
+          surface: string
+          role: string
+          fg: number[]
+          bg: number[]
+        }[] = []
+        for (const [name, preset] of Object.entries(presets)) {
+          const modes = 'mode' in preset ? [preset.mode] : ['dark', 'light']
+          for (const mode of modes) {
+            root.className = `${mode}${preset.chroma > 0 && preset.chroma < colorChroma ? ' tone-tinted' : ''}`
+            root.style.setProperty('--theme-hue', String(preset.hue))
+            root.style.setProperty('--theme-chroma', String(preset.chroma))
+            for (let percent = 100; percent >= 0; percent--) {
+              pane.style.setProperty(
+                '--window-surface-opacity',
+                String(percent / 100),
+              )
+              for (const background of surfaces) {
+                surface.className = `bg-${background}`
+                const bg = rgba(getComputedStyle(surface).backgroundColor)
+                for (const role of roles) {
+                  text.className = `text-${role}`
+                  samples.push({
+                    theme: `${name}/${mode}`,
+                    percent,
+                    surface: background,
+                    role,
+                    fg: rgba(getComputedStyle(text).color),
+                    bg,
+                  })
+                }
               }
             }
           }
         }
-      }
-      return samples
-    },
-    {
-      presets: THEME_PRESETS,
-      colorChroma: COLOR_PRESET_CHROMA,
-      surfaces,
-      roles,
-    },
-  )
+        return samples
+      },
+      {
+        presets: { [name]: preset },
+        colorChroma: COLOR_PRESET_CHROMA,
+        surfaces,
+        roles,
+      },
+    )
 
-  // Assert — preserve AA for semantic colors; preserve the baseline when the opaque palette is already below AA.
-  expect(new Set(samples.map((sample) => sample.theme)).size).toBe(54)
-  const failures: string[] = []
-  const baselines = new Map<string, number>()
-  const correctedColors = new Map<string, number[]>()
-  for (const sample of samples) {
-    const { theme, percent, surface, role, fg, bg } = sample
-    expect(fg[3], `${theme}/${percent}/${role} text alpha`).toBe(1)
-    expect(
-      bg[3],
-      `${theme}/${percent}/${surface} background alpha`,
-    ).toBeCloseTo(percent / 100, 2)
-    // Below 85%, keep the corrected glyph color stable rather than extrapolating past black or white.
-    const colorKey = `${theme}/${surface}/${role}`
-    if (percent === 85) correctedColors.set(colorKey, fg)
-    if (percent < 85) {
-      expect(fg, `${colorKey}/${percent} corrected color`).toEqual(
-        correctedColors.get(colorKey),
-      )
-      continue
-    }
-    // Strong transparency deliberately exposes arbitrary desktop colors; AA applies to the 85–100% band.
-    for (const backdrop of [0, 1]) {
-      const ratio = wcagContrast(
-        { mode: 'rgb', r: fg[0], g: fg[1], b: fg[2] },
-        {
-          mode: 'rgb',
-          r: bg[0] * bg[3] + backdrop * (1 - bg[3]),
-          g: bg[1] * bg[3] + backdrop * (1 - bg[3]),
-          b: bg[2] * bg[3] + backdrop * (1 - bg[3]),
-        },
-      )
-      const key = `${theme}/${surface}/${role}/${backdrop}`
-      if (percent === 100) baselines.set(key, ratio)
-      const threshold = ['foreground', 'muted-foreground'].includes(role)
-        ? 4.5
-        : Math.min(4.5, baselines.get(key)!)
-      if (ratio < threshold)
-        failures.push(
-          `${key}/${percent}: ${ratio.toFixed(3)} < ${threshold.toFixed(3)}`,
+    // Assert — preserve AA for semantic colors; preserve the baseline when the opaque palette is already below AA.
+    expect(new Set(samples.map((sample) => sample.theme)).size).toBe(
+      'mode' in preset ? 1 : 2,
+    )
+    const failures: string[] = []
+    const baselines = new Map<string, number>()
+    const correctedColors = new Map<string, number[]>()
+    for (const sample of samples) {
+      const { theme, percent, surface, role, fg, bg } = sample
+      expect(fg[3], `${theme}/${percent}/${role} text alpha`).toBe(1)
+      expect(
+        bg[3],
+        `${theme}/${percent}/${surface} background alpha`,
+      ).toBeCloseTo(percent / 100, 2)
+      // Below 85%, keep the corrected glyph color stable rather than extrapolating past black or white.
+      const colorKey = `${theme}/${surface}/${role}`
+      if (percent === 85) correctedColors.set(colorKey, fg)
+      if (percent < 85) {
+        expect(fg, `${colorKey}/${percent} corrected color`).toEqual(
+          correctedColors.get(colorKey),
         )
+        continue
+      }
+      // Strong transparency deliberately exposes arbitrary desktop colors; AA applies to the 85–100% band.
+      for (const backdrop of [0, 1]) {
+        const ratio = wcagContrast(
+          { mode: 'rgb', r: fg[0], g: fg[1], b: fg[2] },
+          {
+            mode: 'rgb',
+            r: bg[0] * bg[3] + backdrop * (1 - bg[3]),
+            g: bg[1] * bg[3] + backdrop * (1 - bg[3]),
+            b: bg[2] * bg[3] + backdrop * (1 - bg[3]),
+          },
+        )
+        const key = `${theme}/${surface}/${role}/${backdrop}`
+        if (percent === 100) baselines.set(key, ratio)
+        const threshold = ['foreground', 'muted-foreground'].includes(role)
+          ? 4.5
+          : Math.min(4.5, baselines.get(key)!)
+        if (ratio < threshold)
+          failures.push(
+            `${key}/${percent}: ${ratio.toFixed(3)} < ${threshold.toFixed(3)}`,
+          )
+      }
     }
-  }
-  expect(failures.length, failures.slice(0, 15).join('\n')).toBe(0)
-}, 30_000)
+    expect(failures.length, failures.slice(0, 15).join('\n')).toBe(0)
+  },
+  30_000,
+)
 
 test('resets both colors and alpha at opaque boundaries without changing solid action fills or inverse labels', async () => {
   // Arrange

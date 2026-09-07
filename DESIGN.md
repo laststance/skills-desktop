@@ -293,7 +293,7 @@ Rules:
   white shows through, even with white text. Existing disabled / discovery
   opacity states retain their semantics and are not multiplied by this setting.
 - Settings, portals (menus, dialogs, notifications), external webviews, and
-  syntax-colored code own opaque surfaces. Reset both background alpha and text
+  code (including Markdown blocks and inline snippets) own opaque surfaces. Reset both background alpha and text
   correction at `.opaque-surface`. Keep sticky line-number backplates opaque.
   Expand preview by styling its existing host; do not move or recreate the webview.
 - Register the background property for a **150ms** interruptible CSS transition.
@@ -303,6 +303,8 @@ Rules:
   Delayed acknowledgements of this window's earlier saves must never cancel a
   newer draft; suppress superseded self-notifications while keeping other windows
   and the sender's latest save synchronized.
+  Preload tags each save before IPC dispatch and filters self-notifications again
+  on receipt, so an older notification already in transit cannot cancel a newer edit.
   Save failures show a themed toast in either window. Main sends its current
   canonical values to the sender of the latest failed request; superseded failures
   send no self-notification. Renderer fallback recovery applies only if no newer

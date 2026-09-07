@@ -2,6 +2,7 @@ import { contextBridge } from 'electron'
 
 import type { ActivityEvent, ActivityListOptions } from '@/shared/activityLog'
 import { IPC_CHANNELS } from '@/shared/ipc-channels'
+import type { IpcEventContract } from '@/shared/ipc-contract'
 import type { Settings, SettingsPatch } from '@/shared/settings'
 import type { ThemeState } from '@/shared/theme'
 import type {
@@ -35,6 +36,9 @@ import type {
 import { createIpcListener } from './ipcListener'
 import { recordedIpcEvents } from './ipcRecorder'
 import { typedInvoke } from './typedInvoke'
+
+// Generated before IPC dispatch, so even an already-sent older reply can be discarded on receipt.
+let latestSettingsRequestId: string | undefined
 
 // Expose protected methods to renderer process
 contextBridge.exposeInMainWorld('electron', {
@@ -153,8 +157,19 @@ contextBridge.exposeInMainWorld('electron', {
   settings: {
     open: async () => typedInvoke('settings:open'),
     get: async () => typedInvoke('settings:get'),
-    set: async (partial: SettingsPatch) => typedInvoke('settings:set', partial),
-    onChanged: createIpcListener<Settings>(IPC_CHANNELS.SETTINGS_CHANGED),
+    set: async (partial: SettingsPatch) => {
+      latestSettingsRequestId = crypto.randomUUID()
+      return typedInvoke('settings:set', partial, latestSettingsRequestId)
+    },
+    onChanged: (callback: (settings: Settings) => void) =>
+      createIpcListener<IpcEventContract['settings:changed']>(
+        IPC_CHANNELS.SETTINGS_CHANGED,
+      )(({ settings, requestId }) => {
+        // External updates always apply; only our latest save may reconcile this window.
+        if (requestId === undefined || requestId === latestSettingsRequestId) {
+          callback(settings)
+        }
+      }),
   },
   // Theme — unlike settings, the source of truth is renderer Redux (persisted
   // to localStorage), so main only relays. `broadcast` publishes the window's

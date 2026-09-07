@@ -34,7 +34,7 @@ const opacityTest = test.extend<{
       mkdirSync(source, { recursive: true })
       writeFileSync(
         join(source, 'SKILL.md'),
-        '---\nname: opacity-example\ndescription: Background transparency fixture\n---\n# Clear text\n\nReadable through a transparent inspector.\n',
+        '---\nname: opacity-example\ndescription: Background transparency fixture\n---\n# Clear text\n\nReadable through a transparent inspector.\n\nInline `code` stays solid.\n\n```sh\necho readable\n```\n',
       )
       symlinkSync(source, join(isolatedHome, '.claude/skills/opacity-example'))
       await use(isolatedHome)
@@ -115,6 +115,42 @@ opacityTest(
     await appWindow
       .getByRole('radio', { name: 'Show rendered Markdown' })
       .click()
+    const reading = appWindow.locator('[data-markdown-reading-scroll]')
+    const markdownCodePaints = []
+    // Reading code keeps its own opaque paint at both ends of the pane range.
+    for (const endpoint of [
+      { key: 'End', alpha: '1' },
+      { key: 'Home', alpha: '0' },
+    ]) {
+      await slider.press(endpoint.key)
+      await expectSurface(
+        appWindow.locator('[data-window-section="right"]'),
+        endpoint.alpha,
+      )
+      markdownCodePaints.push(
+        await reading.locator('code').evaluateAll((elements) => {
+          const canvas = document.createElement('canvas')
+          canvas.width = canvas.height = 1
+          const context = canvas.getContext('2d')!
+          return elements.map((element) => {
+            const style = getComputedStyle(element)
+            context.clearRect(0, 0, 1, 1)
+            context.fillStyle = style.backgroundColor
+            context.fillRect(0, 0, 1, 1)
+            return {
+              alpha: context.getImageData(0, 0, 1, 1).data[3] / 255,
+              color: style.color,
+              opacity: style.opacity,
+            }
+          })
+        }),
+      )
+    }
+    expect(markdownCodePaints[0]).toMatchObject([
+      { alpha: 1, opacity: '1' },
+      { alpha: 1, opacity: '1' },
+    ])
+    expect(markdownCodePaints[1]).toEqual(markdownCodePaints[0])
     // Act
     await slider.fill('45')
     await slider.dispatchEvent('pointerup')
@@ -122,7 +158,6 @@ opacityTest(
       appWindow.locator('[data-window-section="right"]'),
       '0.45',
     )
-    const reading = appWindow.locator('[data-markdown-reading-scroll]')
     const paints = await reading.evaluate((element) => {
       const canvas = document.createElement('canvas')
       canvas.width = canvas.height = 1
@@ -517,6 +552,38 @@ opacityTest(
         outcome === 'fail',
       )
     }
+    const settingsNativeWindow = await electronApp.browserWindow(settingsWindow)
+    const delayedSelfNotification = await settingsNativeWindow.evaluateHandle(
+      (window) => {
+        const originalSend = window.webContents.send.bind(window.webContents)
+        let pauseNext = false
+        let pending: (() => void) | undefined
+        window.webContents.send = (channel: string, ...args: unknown[]) => {
+          // Delay delivery after main already decided this was the sender's latest request.
+          if (channel === 'settings:changed' && pauseNext) {
+            pauseNext = false
+            pending = () => originalSend(channel, ...args)
+            return
+          }
+          originalSend(channel, ...args)
+        }
+        return {
+          pauseNext: () => {
+            pauseNext = true
+          },
+          hasPending: () => Boolean(pending),
+          release: () => {
+            const send = pending
+            pending = undefined
+            send?.()
+          },
+          restore: () => {
+            window.webContents.send = originalSend
+            pending?.()
+          },
+        }
+      },
+    )
 
     try {
       // Act — finish two gestures while disk is slow, then begin the newest draft.
@@ -562,6 +629,38 @@ opacityTest(
         appWindow.locator('[data-window-section="right"]'),
         '0.95',
       )
+
+      // Act — an already-sent acknowledgement arrives after a newer request and draft.
+      await delayedSelfNotification.evaluate((notification) =>
+        notification.pauseNext(),
+      )
+      await slider.fill('85')
+      await slider.dispatchEvent('pointerup')
+      await settleNextSave('save')
+      await expect
+        .poll(async () =>
+          delayedSelfNotification.evaluate((notification) =>
+            notification.hasPending(),
+          ),
+        )
+        .toBe(true)
+      await slider.fill('90')
+      await slider.dispatchEvent('pointerup')
+      await slider.fill('95')
+      await delayedSelfNotification.evaluate((notification) =>
+        notification.release(),
+      )
+      // A same-renderer round trip drains the delayed notification before asserting its draft.
+      await settingsWindow.evaluate(async () => window.electron.settings.get())
+      await expect(slider).toHaveValue('95')
+      await settleNextSave('save')
+      await slider.dispatchEvent('pointerup')
+      await settleNextSave('save')
+      await expect
+        .poll(() => readSettingsFile(isolatedHome))
+        .toMatchObject({
+          windowBackgroundOpacityPercent: 95,
+        })
 
       // Act — a genuinely external change still cancels an unfinished local draft.
       await slider.fill('96')
@@ -682,6 +781,10 @@ opacityTest(
         '0.96',
       )
     } finally {
+      await delayedSelfNotification.evaluate((notification) =>
+        notification.restore(),
+      )
+      await delayedSelfNotification.dispose()
       await delayedWrite.evaluate((write) => write.restore())
       await delayedWrite.dispose()
       await settingsWindow.clock.resume()

@@ -25,7 +25,8 @@ export function useUpdateSettings(): (partial: SettingsPatch) => void {
           store.dispatch(setSettings(persisted))
         }
       })
-      .catch(async () => {
+      .catch(async (error: unknown) => {
+        console.error('Settings save failed', error)
         toast.error('Settings could not be saved', {
           id: 'settings-save-error',
           description: 'Your change was not saved. Try again.',
@@ -37,7 +38,8 @@ export function useUpdateSettings(): (partial: SettingsPatch) => void {
           if (store.getState().settings === optimistic) {
             store.dispatch(setSettings(persisted))
           }
-        } catch {
+        } catch (error: unknown) {
+          console.error('Settings recovery failed', error)
           // A newer edit or broadcast also makes this recovery failure obsolete.
           if (store.getState().settings !== optimistic) return
           toast.error('Settings could not be reloaded', {

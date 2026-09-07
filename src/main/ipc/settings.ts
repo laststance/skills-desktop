@@ -31,7 +31,7 @@ export function registerSettingsHandlers(): void {
 
   typedHandle(IPC_CHANNELS.SETTINGS_GET, () => getSettings())
 
-  typedHandle(IPC_CHANNELS.SETTINGS_SET, async (event, partial) => {
+  typedHandle(IPC_CHANNELS.SETTINGS_SET, async (event, partial, requestId) => {
     const request = Symbol()
     latestSaveRequests.set(event.sender, request)
     const before = getSettings()
@@ -41,7 +41,10 @@ export function registerSettingsHandlers(): void {
         !event.sender.isDestroyed() &&
         latestSaveRequests.get(event.sender) === request
       ) {
-        typedSend(event.sender, IPC_CHANNELS.SETTINGS_CHANGED, getSettings())
+        typedSend(event.sender, IPC_CHANNELS.SETTINGS_CHANGED, {
+          settings: getSettings(),
+          requestId,
+        })
       }
       throw error
     })
@@ -66,7 +69,11 @@ export function registerSettingsHandlers(): void {
             latestSaveRequests.get(event.sender) !== request)
         )
           continue
-        typedSend(window.webContents, IPC_CHANNELS.SETTINGS_CHANGED, next)
+        typedSend(window.webContents, IPC_CHANNELS.SETTINGS_CHANGED, {
+          settings: next,
+          requestId:
+            window.webContents === event.sender ? requestId : undefined,
+        })
       }
     }
     return next

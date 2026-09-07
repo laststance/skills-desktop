@@ -35,6 +35,7 @@ beforeEach(() => {
 
 afterEach(() => {
   toast.dismiss()
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
@@ -183,6 +184,7 @@ test.each(['edit', 'broadcast'] as const)(
 
 test('offers a visible reload action when saving and resynchronizing both fail', async () => {
   // Arrange
+  const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
   save.mockRejectedValue(new Error('disk full'))
   reload.mockRejectedValue(new Error('IPC disconnected'))
   const { screen } = await setup()
@@ -198,7 +200,15 @@ test('offers a visible reload action when saving and resynchronizing both fail',
   await expect
     .element(screen.getByRole('button', { name: 'Reload', exact: true }))
     .toBeVisible()
-  expect(reload).toHaveBeenCalledTimes(2)
+  await expect.poll(() => reload.mock.calls.length).toBe(2)
+  expect(errorLog).toHaveBeenCalledWith(
+    'Settings save failed',
+    new Error('disk full'),
+  )
+  expect(errorLog).toHaveBeenCalledWith(
+    'Settings recovery failed',
+    new Error('IPC disconnected'),
+  )
 })
 
 test('restores a failed opacity edit after a later successful save changes nothing on disk', async () => {

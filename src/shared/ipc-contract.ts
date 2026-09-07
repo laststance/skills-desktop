@@ -151,7 +151,10 @@ export interface IpcInvokeContract {
   'cliCommand:remove': { args: []; result: CliCommandOperationResult }
   'settings:open': { args: []; result: void }
   'settings:get': { args: []; result: Settings }
-  'settings:set': { args: [SettingsPatch]; result: Settings }
+  'settings:set': {
+    args: [SettingsPatch, requestId?: string]
+    result: Settings
+  }
   'theme:broadcast': { args: [ThemeState]; result: void }
   'activity:list': {
     // Always 1-arg (possibly `undefined`) to match the Zod tuple schema, like
@@ -193,7 +196,7 @@ export interface IpcEventContract {
   'update:progress': DownloadProgress
   'update:downloaded': UpdateInfo
   'update:error': UpdateErrorPayload
-  'settings:changed': Settings
+  'settings:changed': { settings: Settings; requestId?: string }
   'theme:changed': ThemeState
   'activity:changed': ActivityEvent[]
 }

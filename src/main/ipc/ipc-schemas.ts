@@ -430,6 +430,8 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       // there's nothing to keep in lockstep beyond the type itself.
       autoDownloadUpdates: z.boolean().optional(),
     }),
+    // Preload correlates self-notifications; this transport token is never saved as a preference.
+    z.uuid().optional(),
   ]),
 
   // Cross-window theme relay. Main re-broadcasts this payload to every open

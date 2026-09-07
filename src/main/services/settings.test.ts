@@ -1,4 +1,4 @@
-import { mkdtempSync, realpathSync, promises as fs } from 'node:fs'
+import { mkdtempSync, realpathSync, promises as fs } from 'fs'
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'

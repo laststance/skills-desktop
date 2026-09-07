@@ -471,7 +471,7 @@ const markdownComponents: Components = {
           className={cn(
             // em sizes (text-xs≈0.857em, leading-6≈2) so block code scales
             // with the Markdown body font instead of staying a fixed 12px.
-            'block max-w-full overflow-x-hidden rounded-md border border-border bg-muted px-3 py-2 font-mono text-[0.857em] leading-[2] text-foreground',
+            'opaque-surface block max-w-full overflow-x-hidden rounded-md border border-border bg-muted px-3 py-2 font-mono text-[0.857em] leading-[2] text-foreground',
             className,
           )}
         >
@@ -484,7 +484,7 @@ const markdownComponents: Components = {
       <code
         {...domProps}
         className={cn(
-          'rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em] text-foreground',
+          'opaque-surface rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em] text-foreground',
           className,
         )}
       >

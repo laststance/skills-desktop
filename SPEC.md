@@ -832,6 +832,12 @@ the file directly. This slice is excluded from localStorage persistence.
    awaiting the save. Successful changes reach every live window, except the
    sender of a superseded request. The sender still receives its latest saved
    snapshot, so overlapping edits from different windows converge.
+   Preload generates a UUID before each `settings:set` call. The optional second
+   IPC argument is validated separately from the settings patch and never saved.
+   `settings:changed` transports `{ settings, requestId? }`; only the sender's
+   notification carries its request ID. Preload discards obsolete self-notifications
+   on receipt and passes the plain settings snapshot to renderer subscribers.
+   This also covers messages already in transit when a newer local save begins.
 4. If the latest request fails, main sends the current canonical cache to its
    live sender before rejecting. A superseded failure sends no self-notification.
 5. The renderer adopts a direct save reply only while that request's optimistic

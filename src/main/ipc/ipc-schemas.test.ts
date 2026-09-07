@@ -523,6 +523,28 @@ describe('folder:* channels', () => {
 describe('settings:set lockstep with SettingsSchema', () => {
   const schema = IPC_ARG_SCHEMAS['settings:set']!
 
+  it('carries a valid notification token without adding it to saved preferences', () => {
+    // Arrange
+    const args = [
+      { windowBackgroundOpacityPercent: 85 },
+      'bf6200f5-d5ce-42bb-8fcb-7e4dbd18bb73',
+    ]
+    // Act
+    const parsed = schema.parse(args)
+    // Assert
+    expect(parsed).toEqual([
+      { windowBackgroundOpacityPercent: 85 },
+      'bf6200f5-d5ce-42bb-8fcb-7e4dbd18bb73',
+    ])
+  })
+
+  it('rejects malformed notification tokens before saving settings', () => {
+    // Arrange / Act / Assert
+    for (const token of [null, 42, '', 'not-a-request-id']) {
+      expect(schema.safeParse([{}, token]).success).toBe(false)
+    }
+  })
+
   it('accepts independent opacity settings while preserving the absence of unrelated fields', () => {
     // Arrange
     const patch = {
