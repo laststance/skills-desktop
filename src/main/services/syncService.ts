@@ -16,7 +16,12 @@ import type {
   SyncPreviewResult,
   SyncResultItem,
 } from '@/shared/types'
-import { toAgentCount, toSkillCount, toSymlinkCount } from '@/shared/types'
+import {
+  toAbsolutePath,
+  toAgentCount,
+  toSkillCount,
+  toSymlinkCount,
+} from '@/shared/types'
 
 import {
   listSourceSkillDirs,
@@ -123,7 +128,7 @@ export async function syncPreview(
             skillName: skill.name,
             agentId: agent.id,
             agentName: agent.name,
-            agentSkillPath: linkPath,
+            agentSkillPath: toAbsolutePath(linkPath),
           })
         }
       } catch {
@@ -199,7 +204,7 @@ export async function syncExecute(
         const action = await match({
           exists,
           isSymlink,
-          shouldReplace: replaceSet.has(linkPath),
+          shouldReplace: replaceSet.has(toAbsolutePath(linkPath)),
         })
           .returnType<Promise<'created' | 'skipped' | 'replaced'>>()
           .with({ exists: false }, async () => {
@@ -236,7 +241,7 @@ export async function syncExecute(
         })
       } catch (error) {
         const msg = extractErrorMessage(error)
-        errors.push({ path: linkPath, error: msg })
+        errors.push({ path: toAbsolutePath(linkPath), error: msg })
         details.push({
           skillName: skill.name,
           agentName: agent.name,

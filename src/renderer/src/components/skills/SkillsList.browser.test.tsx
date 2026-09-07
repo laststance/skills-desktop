@@ -6,7 +6,12 @@ import { render } from 'vitest-browser-react'
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import { installLayoutStyles } from '@/renderer/src/test/installLayoutStyles'
 import type { Skill } from '@/shared/types'
-import { toSearchQuery, toSkillName, toSymlinkCount } from '@/shared/types'
+import {
+  toAbsolutePath,
+  toSearchQuery,
+  toSkillName,
+  toSymlinkCount,
+} from '@/shared/types'
 
 const mockGetAll = vi.fn()
 
@@ -37,7 +42,7 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
   return {
     name: toSkillName('task'),
     description: 'Task management skill',
-    path: '/home/user/.agents/skills/task',
+    path: toAbsolutePath('/home/user/.agents/skills/task'),
     symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,

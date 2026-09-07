@@ -13,6 +13,7 @@ import type {
   FolderActionResult,
   TerminalAppId,
 } from '@/shared/types'
+import { toAbsolutePath } from '@/shared/types'
 
 import { typedHandle } from './typedHandle'
 
@@ -78,7 +79,7 @@ async function resolveExistingPath(
 > {
   try {
     const resolved = await realpath(requestedPath)
-    return { ok: true, resolved }
+    return { ok: true, resolved: toAbsolutePath(resolved) }
   } catch (err) {
     const code = errorCode(err)
     // ENOENT: folder deleted externally. ELOOP: symlink cycle. ENOTDIR:

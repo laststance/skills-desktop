@@ -4,7 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { Agent, Skill } from '@/shared/types'
-import { toSkillCount, toSkillName, toSymlinkCount } from '@/shared/types'
+import {
+  toAbsolutePath,
+  toSkillCount,
+  toSkillName,
+  toSymlinkCount,
+} from '@/shared/types'
 
 const mockCreateSymlinks = vi.fn()
 const mockCopyToAgents = vi.fn()
@@ -39,7 +44,7 @@ function makeAgent(
   return {
     id,
     name,
-    path: `/home/user/.${id}/skills`,
+    path: toAbsolutePath(`/home/user/.${id}/skills`),
     exists: true,
     skillCount: toSkillCount(0),
     localSkillCount: toSkillCount(0),
@@ -58,7 +63,7 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
   return {
     name: toSkillName('task'),
     description: 'Task management skill',
-    path: '/home/user/.agents/skills/task',
+    path: toAbsolutePath('/home/user/.agents/skills/task'),
     symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,
@@ -289,7 +294,7 @@ describe('AddSymlinkModal actions', () => {
     const firstSkill = makeSkill({ name: toSkillName('task') })
     const secondSkill = makeSkill({
       name: toSkillName('review'),
-      path: '/home/user/.agents/skills/review',
+      path: toAbsolutePath('/home/user/.agents/skills/review'),
     })
     const { screen, store } = await renderModal({
       skill: firstSkill,
@@ -325,24 +330,24 @@ describe('AddSymlinkModal occupied-agent states', () => {
           agentId: 'claude-code',
           agentName: 'Claude Code',
           status: 'valid',
-          targetPath: '/home/user/.agents/skills/task',
-          linkPath: '/home/user/.claude/skills/task',
+          targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+          linkPath: toAbsolutePath('/home/user/.claude/skills/task'),
           isLocal: false,
         },
         {
           agentId: 'cursor',
           agentName: 'Cursor',
           status: 'valid',
-          targetPath: '',
-          linkPath: '/home/user/.cursor/skills/task',
+          targetPath: toAbsolutePath(''),
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/task'),
           isLocal: true,
         },
         {
           agentId: 'warp',
           agentName: 'Warp',
           status: 'broken',
-          targetPath: '/home/user/.agents/skills/task',
-          linkPath: '/home/user/.warp/skills/task',
+          targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+          linkPath: toAbsolutePath('/home/user/.warp/skills/task'),
           isLocal: false,
         },
       ],

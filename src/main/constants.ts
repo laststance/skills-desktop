@@ -3,11 +3,12 @@ import { homedir } from 'os'
 import { join, resolve } from 'path'
 
 import { AGENT_DEFINITIONS } from '@/shared/constants'
+import { toAbsolutePath } from '@/shared/types'
 
 /**
  * Source directory for all skills
  */
-export const SOURCE_DIR = join(homedir(), '.agents', 'skills')
+export const SOURCE_DIR = toAbsolutePath(join(homedir(), '.agents', 'skills'))
 
 /**
  * Root of the on-disk trash used by the staged-delete/undo flow.
@@ -16,7 +17,7 @@ export const SOURCE_DIR = join(homedir(), '.agents', 'skills')
  * without importing the trash service back (that direction is already taken:
  * `trashService` imports the lock service for its prune hook).
  */
-export const TRASH_DIR = join(homedir(), '.agents', '.trash')
+export const TRASH_DIR = toAbsolutePath(join(homedir(), '.agents', '.trash'))
 
 /**
  * Filename that marks a trash entry as terminal: its automatic restore already
@@ -49,7 +50,7 @@ export const STAGED_ENTRY_PREFIX = '.staging-'
 export const AGENTS = AGENT_DEFINITIONS.map((agent) => ({
   id: agent.id,
   name: agent.name,
-  path: join(homedir(), agent.scanDir, 'skills'),
+  path: toAbsolutePath(join(homedir(), agent.scanDir, 'skills')),
 }))
 
 /**

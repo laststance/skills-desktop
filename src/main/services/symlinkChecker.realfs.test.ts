@@ -12,6 +12,8 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import { toAbsolutePath } from '@/shared/types'
+
 import {
   checkSymlinkStatus,
   checkSymlinkTargetFromKnownLink,
@@ -43,9 +45,13 @@ describe('symlinkChecker real filesystem behavior', () => {
       const physicalSourceSkillDir = await realpathFs(sourceSkillDir)
 
       // Act
-      const slowStatus = await checkSymlinkStatus(linkPath)
-      const fastStatus = await checkSymlinkTargetFromKnownLink(linkPath)
-      const displayedTarget = await readSymlinkTargetIfPresent(linkPath)
+      const slowStatus = await checkSymlinkStatus(toAbsolutePath(linkPath))
+      const fastStatus = await checkSymlinkTargetFromKnownLink(
+        toAbsolutePath(linkPath),
+      )
+      const displayedTarget = await readSymlinkTargetIfPresent(
+        toAbsolutePath(linkPath),
+      )
 
       // Assert
       expect(await readlink(linkPath)).toBe(relativeTarget)
@@ -72,7 +78,10 @@ describe('symlinkChecker real filesystem behavior', () => {
       const target = join(temporaryRoot, '.agents', 'skills', 'qa-skill')
 
       // Act
-      const resolvedTarget = await resolveRawSymlinkTarget(linkPath, target)
+      const resolvedTarget = await resolveRawSymlinkTarget(
+        toAbsolutePath(linkPath),
+        target,
+      )
 
       // Assert
       expect(resolvedTarget).toBe(target)

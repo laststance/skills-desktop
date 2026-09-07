@@ -17,6 +17,7 @@ import type {
   TombstoneId,
 } from '@/shared/types'
 import {
+  toAbsolutePath,
   toBatchItemCount,
   toBatchItemIndex,
   toFileSizeBytes,
@@ -75,15 +76,15 @@ async function createTestStore() {
 const sampleSkill: Skill = {
   name: toSkillName('task'),
   description: 'Task management skill',
-  path: '/home/user/.agents/skills/task',
+  path: toAbsolutePath('/home/user/.agents/skills/task'),
   filesystemIdentity: directoryIdentity,
   symlinkCount: toSymlinkCount(1),
   symlinks: [
     {
       agentId: 'claude-code',
       agentName: 'Claude Code',
-      linkPath: '/home/user/.claude/skills/task',
-      targetPath: '/home/user/.agents/skills/task',
+      linkPath: toAbsolutePath('/home/user/.claude/skills/task'),
+      targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
       status: 'valid',
       isLocal: false,
     },
@@ -95,13 +96,13 @@ const sampleSkill: Skill = {
 const secondSkill: Skill = {
   ...sampleSkill,
   name: toSkillName('theme-generator'),
-  path: '/home/user/.agents/skills/theme-generator',
+  path: toAbsolutePath('/home/user/.agents/skills/theme-generator'),
 }
 
 const thirdSkill: Skill = {
   ...sampleSkill,
   name: toSkillName('browser'),
-  path: '/home/user/.agents/skills/browser',
+  path: toAbsolutePath('/home/user/.agents/skills/browser'),
 }
 
 /** Sample symlink info */
@@ -120,7 +121,7 @@ function deleteTarget(
 ) {
   return {
     skillName,
-    skillPath: skillPath,
+    skillPath: toAbsolutePath(skillPath),
     filesystemIdentity: directoryIdentity,
   }
 }
@@ -138,8 +139,8 @@ function unlinkTarget(
 ) {
   return {
     skillName,
-    linkPath: linkPath,
-    targetPath: `/home/user/.agents/skills/${skillName}`,
+    linkPath: toAbsolutePath(linkPath),
+    targetPath: toAbsolutePath(`/home/user/.agents/skills/${skillName}`),
   }
 }
 
@@ -596,7 +597,7 @@ describe('skillsSlice bulkCopyToAgents thunk', () => {
     name: string,
   ): { skillName: SkillName; sourcePath: AbsolutePath } => ({
     skillName: toSkillName(name),
-    sourcePath: `/Users/me/.agents/skills/${name}`,
+    sourcePath: toAbsolutePath(`/Users/me/.agents/skills/${name}`),
   })
 
   it('copies every selected skill to the chosen agents and returns one outcome per skill', async () => {
@@ -1075,7 +1076,9 @@ describe('skillsSlice deleteSelectedSkills thunk', () => {
       deleteSelectedSkills([
         {
           skillName: toSkillName('metadata-title'),
-          skillPath: '/home/user/.agents/skills/folder-basename',
+          skillPath: toAbsolutePath(
+            '/home/user/.agents/skills/folder-basename',
+          ),
           filesystemIdentity: directoryIdentity,
         },
       ]),
@@ -1215,8 +1218,8 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
           agents: [
             {
               agentId: 'codex',
-              linkPath: '/home/user/.codex/skills/task',
-              targetPath: '/home/user/.agents/skills/task',
+              linkPath: toAbsolutePath('/home/user/.codex/skills/task'),
+              targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
             },
           ],
         },
@@ -1225,8 +1228,8 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
           agents: [
             {
               agentId: 'cursor',
-              linkPath: '/home/user/.cursor/skills/ghost',
-              targetPath: '/home/user/.agents/skills/ghost',
+              linkPath: toAbsolutePath('/home/user/.cursor/skills/ghost'),
+              targetPath: toAbsolutePath('/home/user/.agents/skills/ghost'),
             },
           ],
         },
@@ -1282,8 +1285,8 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
           agents: [
             {
               agentId: 'codex',
-              linkPath: '/home/user/.codex/skills/task',
-              targetPath: '/home/user/.agents/skills/task',
+              linkPath: toAbsolutePath('/home/user/.codex/skills/task'),
+              targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
             },
           ],
         },
@@ -1324,8 +1327,8 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
           agents: [
             {
               agentId: 'codex',
-              linkPath: '/home/user/.codex/skills/task',
-              targetPath: '/home/user/.agents/skills/task',
+              linkPath: toAbsolutePath('/home/user/.codex/skills/task'),
+              targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
             },
           ],
         },
@@ -1355,8 +1358,8 @@ describe('skillsSlice clearSelectedOrphanSymlinks thunk', () => {
           agents: [
             {
               agentId: 'codex',
-              linkPath: '/home/user/.codex/skills/task',
-              targetPath: '/home/user/.agents/skills/task',
+              linkPath: toAbsolutePath('/home/user/.codex/skills/task'),
+              targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
             },
           ],
         },
@@ -1399,15 +1402,15 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
             // skill.name ('task'), not the symlink basename.
             linkName: toSkillName('task-symlink'),
             displaySkillName: toSkillName('task'),
-            linkPath: '/home/user/.codex/skills/task-symlink',
-            targetPath: '/home/user/.agents/skills/task',
+            linkPath: toAbsolutePath('/home/user/.codex/skills/task-symlink'),
+            targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
           },
           {
             agentId: 'cursor',
             linkName: toSkillName('ghost'),
             displaySkillName: toSkillName('ghost'),
-            linkPath: '/home/user/.cursor/skills/ghost',
-            targetPath: '/home/user/.agents/skills/ghost',
+            linkPath: toAbsolutePath('/home/user/.cursor/skills/ghost'),
+            targetPath: toAbsolutePath('/home/user/.agents/skills/ghost'),
           },
         ],
       }),
@@ -1422,7 +1425,7 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
         {
           agentId: 'codex' as AgentId,
           skillName: toSkillName('task'),
-          linkPath: '/home/user/.codex/skills/task',
+          linkPath: toAbsolutePath('/home/user/.codex/skills/task'),
           outcome: 'unlinked',
         },
       ],
@@ -1439,7 +1442,7 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
         {
           agentId: 'codex' as AgentId,
           skillName: toSkillName('task'),
-          linkPath: '/home/user/.codex/skills/task',
+          linkPath: toAbsolutePath('/home/user/.codex/skills/task'),
           outcome: 'unlinked',
         },
       ],
@@ -1454,8 +1457,8 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
             agentId: 'codex',
             linkName: toSkillName('task'),
             displaySkillName: toSkillName('task'),
-            linkPath: '/home/user/.codex/skills/task',
-            targetPath: '/home/user/.agents/skills/task',
+            linkPath: toAbsolutePath('/home/user/.codex/skills/task'),
+            targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
           },
         ],
       }),
@@ -1484,8 +1487,8 @@ describe('skillsSlice clearSelectedBrokenSymlinkSlots thunk', () => {
             agentId: 'codex',
             linkName: toSkillName('task'),
             displaySkillName: toSkillName('task'),
-            linkPath: '/home/user/.codex/skills/task',
-            targetPath: '/home/user/.agents/skills/task',
+            linkPath: toAbsolutePath('/home/user/.codex/skills/task'),
+            targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
           },
         ],
       }),
@@ -1561,8 +1564,12 @@ describe('skillsSlice unlinkSelectedFromAgent thunk', () => {
         selectedNames: [
           {
             skillName: toSkillName('metadata-title'),
-            linkPath: '/home/user/.cursor/skills/folder-basename',
-            targetPath: '/home/user/.agents/skills/folder-basename',
+            linkPath: toAbsolutePath(
+              '/home/user/.cursor/skills/folder-basename',
+            ),
+            targetPath: toAbsolutePath(
+              '/home/user/.agents/skills/folder-basename',
+            ),
           },
         ],
       }),

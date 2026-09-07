@@ -15,6 +15,7 @@ import type {
   RemoveEmptyAgentFolderOptions,
   RemoveEmptyAgentFolderResult,
 } from '@/shared/types'
+import { toAbsolutePath } from '@/shared/types'
 
 import {
   filesystemIdentityFromStats,
@@ -61,7 +62,7 @@ export async function getEmptyAgentFolder(
     }
     if ((await readdir(folderPath)).length > 0) return undefined
     return {
-      path: folderPath,
+      path: toAbsolutePath(folderPath),
       filesystemIdentity: filesystemIdentityFromStats(stats),
     }
   } catch {
@@ -125,7 +126,12 @@ export async function removeEmptyAgentFolder(
   } catch (error) {
     if (stagedPath) {
       // Share the existing restore guards so failures preserve replacements and report recovery paths.
-      if (!(await restoreQuarantinedPath(stagedPath, options.path))) {
+      if (
+        !(await restoreQuarantinedPath(
+          toAbsolutePath(stagedPath),
+          options.path,
+        ))
+      ) {
         return {
           success: false,
           error: `${extractErrorMessage(error)} Folder kept at ${stagedPath}.`,

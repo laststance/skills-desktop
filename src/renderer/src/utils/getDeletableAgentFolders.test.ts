@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Agent } from '@/shared/types'
-import { toFileSizeBytes, toSkillCount } from '@/shared/types'
+import { toAbsolutePath, toFileSizeBytes, toSkillCount } from '@/shared/types'
 
 import { getDeletableAgentFolders } from './getDeletableAgentFolders'
 
 const hiddenAgent: Agent = {
   id: 'cursor',
   name: 'Cursor',
-  path: '/Users/test/.cursor/skills',
+  path: toAbsolutePath('/Users/test/.cursor/skills'),
   exists: true,
   skillCount: toSkillCount(0),
   localSkillCount: toSkillCount(0),
@@ -40,11 +40,15 @@ describe('hidden-agent bulk-delete eligibility', () => {
   it('keeps the Amp and Replit shared skills directory out of bulk deletion', () => {
     // Arrange
     const hiddenAgents: Agent[] = [
-      { ...hiddenAgent, id: 'amp', path: '/Users/test/.config/agents/skills' },
+      {
+        ...hiddenAgent,
+        id: 'amp',
+        path: toAbsolutePath('/Users/test/.config/agents/skills'),
+      },
       {
         ...hiddenAgent,
         id: 'replit',
-        path: '/Users/test/.config/agents/skills',
+        path: toAbsolutePath('/Users/test/.config/agents/skills'),
       },
     ]
 
@@ -59,8 +63,16 @@ describe('hidden-agent bulk-delete eligibility', () => {
   it('includes Cline and Warp own folders despite their universal install destination', () => {
     // Arrange
     const hiddenAgents: Agent[] = [
-      { ...hiddenAgent, id: 'cline', path: '/Users/test/.cline/skills' },
-      { ...hiddenAgent, id: 'warp', path: '/Users/test/.warp/skills' },
+      {
+        ...hiddenAgent,
+        id: 'cline',
+        path: toAbsolutePath('/Users/test/.cline/skills'),
+      },
+      {
+        ...hiddenAgent,
+        id: 'warp',
+        path: toAbsolutePath('/Users/test/.warp/skills'),
+      },
     ]
 
     // Act
@@ -97,7 +109,7 @@ describe('hidden-agent bulk-delete eligibility', () => {
 
 describe('not-installed agent empty-parent eligibility', () => {
   const emptyParentFolder: NonNullable<Agent['emptyParentFolder']> = {
-    path: '/Users/test/.cline',
+    path: toAbsolutePath('/Users/test/.cline'),
     filesystemIdentity: {
       kind: 'directory',
       dev: 1,
@@ -111,7 +123,7 @@ describe('not-installed agent empty-parent eligibility', () => {
     ...hiddenAgent,
     id: 'cline',
     name: 'Cline',
-    path: '/Users/test/.cline/skills',
+    path: toAbsolutePath('/Users/test/.cline/skills'),
     exists: false,
     filesystemIdentity: undefined,
     emptyParentFolder,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { AgentId, Skill, SymlinkInfo } from '@/shared/types'
-import { toSkillName, toSymlinkCount } from '@/shared/types'
+import { toAbsolutePath, toSkillName, toSymlinkCount } from '@/shared/types'
 
 import { getLocationViewModel } from './getLocationViewModel'
 
@@ -38,11 +38,11 @@ const makeSkill = (
 describe('getLocationViewModel', () => {
   it('shows only the source path when no agent is selected', () => {
     // Arrange — a sourced skill linked into opencode, but nothing selected
-    const skill = makeSkill('/u/me/.agents/skills/foo', [
+    const skill = makeSkill(toAbsolutePath('/u/me/.agents/skills/foo'), [
       makeSymlink(
         'opencode',
-        '/u/me/.opencode/skills/foo',
-        '/u/me/.agents/skills/foo',
+        toAbsolutePath('/u/me/.opencode/skills/foo'),
+        toAbsolutePath('/u/me/.agents/skills/foo'),
       ),
     ])
 
@@ -58,11 +58,11 @@ describe('getLocationViewModel', () => {
 
   it('shows only the source path when the selected agent has no symlink for this skill', () => {
     // Arrange — skill is linked into opencode but the selected agent is cursor
-    const skill = makeSkill('/u/me/.agents/skills/foo', [
+    const skill = makeSkill(toAbsolutePath('/u/me/.agents/skills/foo'), [
       makeSymlink(
         'opencode',
-        '/u/me/.opencode/skills/foo',
-        '/u/me/.agents/skills/foo',
+        toAbsolutePath('/u/me/.opencode/skills/foo'),
+        toAbsolutePath('/u/me/.agents/skills/foo'),
       ),
     ])
 
@@ -79,12 +79,12 @@ describe('getLocationViewModel', () => {
   it('hides the symlink path for a local skill whose link path equals its own path', () => {
     // Arrange — a local (non-sourced) cursor skill that links to itself
     const skill = makeSkill(
-      '/u/me/.cursor/skills/foo',
+      toAbsolutePath('/u/me/.cursor/skills/foo'),
       [
         makeSymlink(
           'cursor',
-          '/u/me/.cursor/skills/foo',
-          '/u/me/.cursor/skills/foo',
+          toAbsolutePath('/u/me/.cursor/skills/foo'),
+          toAbsolutePath('/u/me/.cursor/skills/foo'),
           true,
         ),
       ],
@@ -103,16 +103,16 @@ describe('getLocationViewModel', () => {
 
   it('shows the symlink path when the selected agent links to a different path', () => {
     // Arrange — skill sourced in .agents and linked into both opencode and claude
-    const skill = makeSkill('/u/me/.agents/skills/foo', [
+    const skill = makeSkill(toAbsolutePath('/u/me/.agents/skills/foo'), [
       makeSymlink(
         'opencode',
-        '/u/me/.opencode/skills/foo',
-        '/u/me/.agents/skills/foo',
+        toAbsolutePath('/u/me/.opencode/skills/foo'),
+        toAbsolutePath('/u/me/.agents/skills/foo'),
       ),
       makeSymlink(
         'claude-code',
-        '/u/me/.claude/skills/foo',
-        '/u/me/.agents/skills/foo',
+        toAbsolutePath('/u/me/.claude/skills/foo'),
+        toAbsolutePath('/u/me/.agents/skills/foo'),
       ),
     ])
 

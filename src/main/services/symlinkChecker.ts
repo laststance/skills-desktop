@@ -13,7 +13,7 @@ import type {
   SymlinkInfo,
   SymlinkStatus,
 } from '@/shared/types'
-import { toSymlinkCount } from '@/shared/types'
+import { toAbsolutePath, toSymlinkCount } from '@/shared/types'
 
 import { filesystemIdentityFromStats } from './filesystemIdentity'
 
@@ -94,8 +94,10 @@ export async function checkSkillSymlinks(
 ): Promise<SymlinkInfo[]> {
   const results = await Promise.all(
     AGENTS.map(async (agent) => {
-      const linkPath = join(agent.path, skillName)
-      const { status, isLocal } = await checkLinkOrLocal(linkPath)
+      const linkPath = toAbsolutePath(join(agent.path, skillName))
+      const { status, isLocal } = await checkLinkOrLocal(
+        toAbsolutePath(linkPath),
+      )
 
       // Only symlinks (not local folders, not missing entries) have a target
       // worth recording. Read it lazily and tolerate failures so a flaky
@@ -110,7 +112,10 @@ export async function checkSkillSymlinks(
       if (status !== 'missing' && !isLocal) {
         try {
           const target = await readlink(linkPath)
-          targetPath = await resolveRawSymlinkTarget(linkPath, target)
+          targetPath = await resolveRawSymlinkTarget(
+            toAbsolutePath(linkPath),
+            target,
+          )
         } catch {
           // Leave undefined — the link disappeared between lstat and readlink
         }
@@ -119,7 +124,9 @@ export async function checkSkillSymlinks(
         // symlink. Per-agent so the renderer's badge attribution is bound to
         // THIS slot, not to a sibling agent that happens to share the name.
         const [skillMdTarget, localStats] = await Promise.all([
-          readSymlinkTargetIfPresent(join(linkPath, 'SKILL.md')),
+          readSymlinkTargetIfPresent(
+            toAbsolutePath(join(linkPath, 'SKILL.md')),
+          ),
           lstat(linkPath).catch(() => undefined),
         ])
         skillMdSymlinkTarget = skillMdTarget
@@ -243,10 +250,10 @@ export async function resolveRawSymlinkTarget(
   target: string,
 ): Promise<AbsolutePath> {
   if (isAbsolute(target)) {
-    return resolve(target)
+    return toAbsolutePath(resolve(target))
   }
   const physicalParent = await realpath(dirname(linkPath))
-  return resolve(physicalParent, target)
+  return toAbsolutePath(resolve(physicalParent, target))
 }
 
 /**

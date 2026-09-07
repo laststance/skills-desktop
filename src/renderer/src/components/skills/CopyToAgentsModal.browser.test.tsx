@@ -4,7 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { Agent, Skill, SymlinkInfo } from '@/shared/types'
-import { toSkillCount, toSkillName, toSymlinkCount } from '@/shared/types'
+import {
+  toAbsolutePath,
+  toSkillCount,
+  toSkillName,
+  toSymlinkCount,
+} from '@/shared/types'
 
 const mockCopyToAgents = vi.fn()
 const mockGetAll = vi.fn()
@@ -33,7 +38,7 @@ function makeAgent(
   return {
     id,
     name,
-    path: `/home/user/.${id}/skills`,
+    path: toAbsolutePath(`/home/user/.${id}/skills`),
     exists: true,
     skillCount: toSkillCount(0),
     localSkillCount: toSkillCount(0),
@@ -52,7 +57,7 @@ function makeSkill(symlinks: SymlinkInfo[]): Skill {
   return {
     name: toSkillName('task'),
     description: 'Task management skill',
-    path: '/home/user/.agents/skills/task',
+    path: toAbsolutePath('/home/user/.agents/skills/task'),
     symlinkCount: toSymlinkCount(symlinks.length),
     symlinks,
     isSource: true,
@@ -145,8 +150,8 @@ describe('CopyToAgentsModal source guards', () => {
         agentId: 'claude-code',
         agentName: 'Claude Code',
         status: 'broken',
-        targetPath: '/home/user/.agents/skills/task',
-        linkPath: '/home/user/.claude/skills/task',
+        targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+        linkPath: toAbsolutePath('/home/user/.claude/skills/task'),
         isLocal: false,
       },
     ])
@@ -182,8 +187,8 @@ describe('CopyToAgentsModal source guards', () => {
         agentId: 'claude-code',
         agentName: 'Claude Code',
         status: 'valid',
-        targetPath: '/home/user/.agents/skills/task',
-        linkPath: '/home/user/.claude/skills/task',
+        targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+        linkPath: toAbsolutePath('/home/user/.claude/skills/task'),
         isLocal: false,
       },
     ])
@@ -217,8 +222,8 @@ describe('CopyToAgentsModal destination selection', () => {
         agentId: 'claude-code',
         agentName: 'Claude Code',
         status: 'valid',
-        targetPath: '/home/user/.agents/skills/task',
-        linkPath: '/home/user/.claude/skills/task',
+        targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+        linkPath: toAbsolutePath('/home/user/.claude/skills/task'),
         isLocal: false,
       },
     ])
@@ -254,8 +259,8 @@ describe('CopyToAgentsModal copy outcome', () => {
         agentId: 'claude-code',
         agentName: 'Claude Code',
         status: 'valid',
-        targetPath: '/home/user/.agents/skills/task',
-        linkPath: '/home/user/.claude/skills/task',
+        targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+        linkPath: toAbsolutePath('/home/user/.claude/skills/task'),
         isLocal: false,
       },
     ])
@@ -291,8 +296,8 @@ describe('CopyToAgentsModal dismissal', () => {
         agentId: 'claude-code',
         agentName: 'Claude Code',
         status: 'valid',
-        targetPath: '/home/user/.agents/skills/task',
-        linkPath: '/home/user/.claude/skills/task',
+        targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+        linkPath: toAbsolutePath('/home/user/.claude/skills/task'),
         isLocal: false,
       },
     ])
@@ -321,8 +326,8 @@ describe('CopyToAgentsModal dismissal', () => {
         agentId: 'claude-code',
         agentName: 'Claude Code',
         status: 'valid',
-        targetPath: '/home/user/.agents/skills/task',
-        linkPath: '/home/user/.claude/skills/task',
+        targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+        linkPath: toAbsolutePath('/home/user/.claude/skills/task'),
         isLocal: false,
       },
     ])

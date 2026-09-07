@@ -8,7 +8,7 @@ import type {
   CliCommandOperationResult,
   CliCommandStatus,
 } from '@/shared/types'
-import { toPixelHeight, toPixelWidth } from '@/shared/types'
+import { toAbsolutePath, toPixelHeight, toPixelWidth } from '@/shared/types'
 
 const mockSettingsSet = vi.fn()
 const mockWindowGetMainBounds = vi.fn()
@@ -21,21 +21,21 @@ const commandPath = '/Users/test/.local/bin/skills-desktop'
 const notInstalledStatus: CliCommandStatus = {
   status: 'not-installed',
   commandName: 'skills-desktop',
-  commandPath,
+  commandPath: toAbsolutePath(commandPath),
   message: 'Command is not installed.',
 }
 
 const installedStatus: CliCommandStatus = {
   status: 'installed',
   commandName: 'skills-desktop',
-  commandPath,
+  commandPath: toAbsolutePath(commandPath),
   message: 'Command is installed.',
 }
 
 const blockedStatus: CliCommandStatus = {
   status: 'blocked',
   commandName: 'skills-desktop',
-  commandPath,
+  commandPath: toAbsolutePath(commandPath),
   message: `${commandPath} is already occupied by an unmanaged file.`,
 }
 

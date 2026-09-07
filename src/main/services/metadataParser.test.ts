@@ -6,6 +6,8 @@ vi.mock('fs/promises')
 
 const mockFs = vi.mocked(fs)
 
+import { toAbsolutePath } from '@/shared/types'
+
 import { parseSkillMetadata } from './metadataParser'
 
 describe('parseSkillMetadata', () => {
@@ -20,7 +22,7 @@ describe('parseSkillMetadata', () => {
     )
 
     // Act
-    const result = await parseSkillMetadata('/skills/my-skill')
+    const result = await parseSkillMetadata(toAbsolutePath('/skills/my-skill'))
 
     // Assert
     expect(result.name).toBe('My Skill')
@@ -32,7 +34,9 @@ describe('parseSkillMetadata', () => {
     mockFs.readFile.mockRejectedValue(new Error('ENOENT'))
 
     // Act
-    const result = await parseSkillMetadata('/skills/theme-generator')
+    const result = await parseSkillMetadata(
+      toAbsolutePath('/skills/theme-generator'),
+    )
 
     // Assert
     expect(result.name).toBe('theme-generator')
@@ -44,7 +48,7 @@ describe('parseSkillMetadata', () => {
     mockFs.readFile.mockResolvedValue('---\ndescription: A cool skill\n---\n')
 
     // Act
-    const result = await parseSkillMetadata('/skills/my-skill')
+    const result = await parseSkillMetadata(toAbsolutePath('/skills/my-skill'))
 
     // Assert
     expect(result.name).toBe('my-skill')
@@ -56,7 +60,7 @@ describe('parseSkillMetadata', () => {
     mockFs.readFile.mockResolvedValue('---\nname: My Skill\n---\n')
 
     // Act
-    const result = await parseSkillMetadata('/skills/my-skill')
+    const result = await parseSkillMetadata(toAbsolutePath('/skills/my-skill'))
 
     // Assert
     expect(result.name).toBe('My Skill')
@@ -68,7 +72,7 @@ describe('parseSkillMetadata', () => {
     mockFs.readFile.mockResolvedValue('# Just a heading\nSome content')
 
     // Act
-    const result = await parseSkillMetadata('/skills/my-skill')
+    const result = await parseSkillMetadata(toAbsolutePath('/skills/my-skill'))
 
     // Assert
     expect(result.name).toBe('my-skill')
@@ -80,7 +84,7 @@ describe('parseSkillMetadata', () => {
     mockFs.readFile.mockResolvedValue('---\nname: Test\n---\n')
 
     // Act
-    await parseSkillMetadata('/skills/test-skill')
+    await parseSkillMetadata(toAbsolutePath('/skills/test-skill'))
 
     // Assert
     expect(mockFs.readFile).toHaveBeenCalledWith(
@@ -96,7 +100,7 @@ describe('parseSkillMetadata', () => {
     )
 
     // Act
-    const result = await parseSkillMetadata('/skills/my-skill')
+    const result = await parseSkillMetadata(toAbsolutePath('/skills/my-skill'))
 
     // Assert
     expect(result.name).toBe('Quoted Name')
@@ -110,7 +114,7 @@ describe('parseSkillMetadata', () => {
     )
 
     // Act
-    const result = await parseSkillMetadata('/skills/my-skill')
+    const result = await parseSkillMetadata(toAbsolutePath('/skills/my-skill'))
 
     // Assert
     expect(result.description).toBe('This is the first line')
@@ -123,7 +127,7 @@ describe('parseSkillMetadata', () => {
     )
 
     // Act
-    const result = await parseSkillMetadata('/skills/my-skill')
+    const result = await parseSkillMetadata(toAbsolutePath('/skills/my-skill'))
 
     // Assert
     expect(result.description).toBe('Folded content')
@@ -134,7 +138,9 @@ describe('parseSkillMetadata', () => {
     mockFs.readFile.mockRejectedValue(new Error('ENOENT'))
 
     // Act
-    const result = await parseSkillMetadata('/skills/edge-case/')
+    const result = await parseSkillMetadata(
+      toAbsolutePath('/skills/edge-case/'),
+    )
 
     // Assert
     expect(result.name).toBe('edge-case')
@@ -145,7 +151,7 @@ describe('parseSkillMetadata', () => {
     mockFs.readFile.mockRejectedValue(new Error('ENOENT'))
 
     // Act
-    const result = await parseSkillMetadata('')
+    const result = await parseSkillMetadata(toAbsolutePath(''))
 
     // Assert
     expect(result.name).toBe('Unknown')
@@ -160,7 +166,7 @@ describe('parseSkillMetadata', () => {
     )
 
     // Act
-    const result = await parseSkillMetadata('/skills/my-skill')
+    const result = await parseSkillMetadata(toAbsolutePath('/skills/my-skill'))
 
     // Assert
     expect(result.name).toBe('My Skill')
@@ -177,7 +183,7 @@ describe('parseSkillMetadata', () => {
     )
 
     // Act
-    const result = await parseSkillMetadata('/skills/my-skill')
+    const result = await parseSkillMetadata(toAbsolutePath('/skills/my-skill'))
 
     // Assert
     expect(result.name).toBe('My Skill')

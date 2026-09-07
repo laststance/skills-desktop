@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { SyncExecuteResult, SyncPreviewResult } from '@/shared/types'
 import {
+  toAbsolutePath,
   toAgentCount,
   toSkillCount,
   toSkillName,
@@ -84,7 +85,9 @@ describe('shouldShowSyncConfirm', () => {
           skillName: toSkillName('test-skill'),
           agentId: 'claude' as never,
           agentName: 'Claude' as never,
-          agentSkillPath: '/home/user/.claude/skills/test-skill',
+          agentSkillPath: toAbsolutePath(
+            '/home/user/.claude/skills/test-skill',
+          ),
         },
       ],
     })
@@ -143,7 +146,7 @@ describe('shouldShowSyncResult', () => {
       created: toSymlinkCount(0),
       replaced: toSymlinkCount(0),
       skipped: toSymlinkCount(0),
-      errors: [{ path: '/test', error: 'fail' }],
+      errors: [{ path: toAbsolutePath('/test'), error: 'fail' }],
       details: [
         {
           skillName: toSkillName('fail-skill'),
@@ -208,7 +211,7 @@ describe('getSyncResultPresentation', () => {
     const mixedResult = buildResult({
       created: toSymlinkCount(2),
       replaced: toSymlinkCount(3),
-      errors: [{ path: '/a', error: 'x' }],
+      errors: [{ path: toAbsolutePath('/a'), error: 'x' }],
     })
     // Act
     const { description } = getSyncResultPresentation(mixedResult)
@@ -221,7 +224,7 @@ describe('getSyncResultPresentation', () => {
   it('shows a red error state when every change failed', () => {
     // Arrange
     const allFailedResult = buildResult({
-      errors: [{ path: '/a', error: 'boom' }],
+      errors: [{ path: toAbsolutePath('/a'), error: 'boom' }],
     })
     // Act
     const { HeaderIcon, iconColor, description } =
@@ -236,7 +239,7 @@ describe('getSyncResultPresentation', () => {
     // Arrange
     const partialFailureResult = buildResult({
       created: toSymlinkCount(2),
-      errors: [{ path: '/a', error: 'boom' }],
+      errors: [{ path: toAbsolutePath('/a'), error: 'boom' }],
     })
     // Act
     const { HeaderIcon, iconColor } =
@@ -250,7 +253,7 @@ describe('getSyncResultPresentation', () => {
     // Arrange
     const replacedWithErrorResult = buildResult({
       replaced: toSymlinkCount(1),
-      errors: [{ path: '/a', error: 'boom' }],
+      errors: [{ path: toAbsolutePath('/a'), error: 'boom' }],
     })
     // Act
     const { HeaderIcon, iconColor } = getSyncResultPresentation(

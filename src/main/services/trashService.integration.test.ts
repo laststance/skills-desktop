@@ -27,7 +27,7 @@ import type {
   FilesystemEntryIdentity,
   SkillName,
 } from '@/shared/types'
-import { toFileSizeBytes, toSkillName } from '@/shared/types'
+import { toAbsolutePath, toFileSizeBytes, toSkillName } from '@/shared/types'
 
 import { filesystemIdentityFromStats } from './filesystemIdentity'
 import type { MoveToTrashResult } from './trashService'
@@ -202,7 +202,7 @@ describe('trashService (integration)', () => {
     const reviewedSkillPath = join(sharedSourceDir, skillName)
     return moveToTrash(
       toSkillName(skillName),
-      reviewedSkillPath,
+      toAbsolutePath(reviewedSkillPath),
       filesystemIdentityFromStats(await lstat(reviewedSkillPath)),
     )
   }
@@ -227,7 +227,7 @@ describe('trashService (integration)', () => {
     const reviewedSkillPath = join(agentBaseDir, skillName)
     return moveToTrash(
       toSkillName(skillName),
-      reviewedSkillPath,
+      toAbsolutePath(reviewedSkillPath),
       filesystemIdentityFromStats(await lstat(reviewedSkillPath)),
     )
   }
@@ -307,7 +307,7 @@ describe('trashService (integration)', () => {
     // Act
     const deleteResult = await moveToTrash(
       metadataName,
-      sourcePath,
+      toAbsolutePath(sourcePath),
       filesystemIdentityFromStats(await lstat(sourcePath)),
     )
     assertTombstoned(deleteResult)
@@ -380,7 +380,11 @@ describe('trashService (integration)', () => {
 
     // Act + Assert
     await expect(
-      moveToTrash(toSkillName(skillName), sourcePath, reviewedIdentity),
+      moveToTrash(
+        toSkillName(skillName),
+        toAbsolutePath(sourcePath),
+        reviewedIdentity,
+      ),
     ).rejects.toMatchObject({ code: 'ESTALE' })
     await expect(readFile(join(sourcePath, 'SKILL.md'), 'utf-8')).resolves.toBe(
       '# replacement\n',
@@ -401,7 +405,11 @@ describe('trashService (integration)', () => {
 
     // Act + Assert
     await expect(
-      moveToTrash(toSkillName(skillName), localPath, reviewedIdentity),
+      moveToTrash(
+        toSkillName(skillName),
+        toAbsolutePath(localPath),
+        reviewedIdentity,
+      ),
     ).rejects.toMatchObject({ code: 'ESTALE' })
     await expect(readFile(join(localPath, 'SKILL.md'), 'utf-8')).resolves.toBe(
       '# replacement\n',
@@ -512,7 +520,7 @@ describe('trashService (integration)', () => {
     await expect(
       moveToTrash(
         toSkillName(skillName),
-        join(sharedSourceDir, skillName),
+        toAbsolutePath(join(sharedSourceDir, skillName)),
         missingDirectoryIdentity,
       ),
     ).rejects.toThrow(/already changed/i)

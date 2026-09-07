@@ -5,6 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import {
   repositoryId,
+  toAbsolutePath,
   toHttpUrl,
   toInstallCount,
   toSkillCount,
@@ -55,7 +56,7 @@ function makeAgent(
   return {
     id,
     name,
-    path: `/home/user/.${id}/skills`,
+    path: toAbsolutePath(`/home/user/.${id}/skills`),
     exists: true,
     skillCount: toSkillCount(0),
     localSkillCount: toSkillCount(0),

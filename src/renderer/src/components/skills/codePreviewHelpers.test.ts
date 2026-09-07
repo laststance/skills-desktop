@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'vitest'
 
-import type { AbsolutePath } from '@/shared/types'
+import { toAbsolutePath } from '@/shared/types'
 
 import { resolvePreviewPaneState } from './codePreviewHelpers'
 
-const ACTIVE_FILE = '/home/user/.agents/skills/tdd/SKILL.md' as AbsolutePath
+const ACTIVE_FILE = toAbsolutePath('/home/user/.agents/skills/tdd/SKILL.md')
 
 describe('resolvePreviewPaneState', () => {
   test('shows the loading pane while the file list is still in flight', () => {

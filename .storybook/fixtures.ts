@@ -2,6 +2,7 @@ import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
 import {
   repositoryId,
   semanticVersion,
+  toAbsolutePath,
   toAgentCount,
   toFileExtension,
   toFileName,
@@ -42,7 +43,7 @@ export const storyAgents: Agent[] = [
   {
     id: 'claude-code',
     name: 'Claude Code',
-    path: '/Users/raphtalia/.claude/skills',
+    path: toAbsolutePath('/Users/raphtalia/.claude/skills'),
     exists: true,
     skillCount: toSkillCount(8),
     localSkillCount: toSkillCount(1),
@@ -50,7 +51,7 @@ export const storyAgents: Agent[] = [
   {
     id: 'cursor',
     name: 'Cursor',
-    path: '/Users/raphtalia/.cursor/skills',
+    path: toAbsolutePath('/Users/raphtalia/.cursor/skills'),
     exists: true,
     skillCount: toSkillCount(6),
     localSkillCount: toSkillCount(0),
@@ -58,7 +59,7 @@ export const storyAgents: Agent[] = [
   {
     id: 'codex',
     name: 'Codex',
-    path: '/Users/raphtalia/.codex/skills',
+    path: toAbsolutePath('/Users/raphtalia/.codex/skills'),
     exists: true,
     skillCount: toSkillCount(5),
     localSkillCount: toSkillCount(2),
@@ -66,7 +67,7 @@ export const storyAgents: Agent[] = [
   {
     id: 'gemini-cli',
     name: 'Gemini CLI',
-    path: '/Users/raphtalia/.gemini/skills',
+    path: toAbsolutePath('/Users/raphtalia/.gemini/skills'),
     exists: false,
     skillCount: toSkillCount(0),
     localSkillCount: toSkillCount(0),
@@ -85,7 +86,7 @@ export const storySkills: Skill[] = [
     name: toSkillName('design-review'),
     description:
       'Designer-eye QA for spacing, hierarchy, interaction polish, and screenshots.',
-    path: '/Users/raphtalia/.agents/skills/design-review',
+    path: toAbsolutePath('/Users/raphtalia/.agents/skills/design-review'),
     symlinkCount: toSymlinkCount(3),
     isSource: true,
     isOrphan: false,
@@ -96,24 +97,36 @@ export const storySkills: Skill[] = [
         agentId: 'claude-code',
         agentName: 'Claude Code',
         status: 'valid',
-        targetPath: '/Users/raphtalia/.agents/skills/design-review',
-        linkPath: '/Users/raphtalia/.claude/skills/design-review',
+        targetPath: toAbsolutePath(
+          '/Users/raphtalia/.agents/skills/design-review',
+        ),
+        linkPath: toAbsolutePath(
+          '/Users/raphtalia/.claude/skills/design-review',
+        ),
         isLocal: false,
       },
       {
         agentId: 'cursor',
         agentName: 'Cursor',
         status: 'valid',
-        targetPath: '/Users/raphtalia/.agents/skills/design-review',
-        linkPath: '/Users/raphtalia/.cursor/skills/design-review',
+        targetPath: toAbsolutePath(
+          '/Users/raphtalia/.agents/skills/design-review',
+        ),
+        linkPath: toAbsolutePath(
+          '/Users/raphtalia/.cursor/skills/design-review',
+        ),
         isLocal: false,
       },
       {
         agentId: 'codex',
         agentName: 'Codex',
         status: 'valid',
-        targetPath: '/Users/raphtalia/.agents/skills/design-review',
-        linkPath: '/Users/raphtalia/.codex/skills/design-review',
+        targetPath: toAbsolutePath(
+          '/Users/raphtalia/.agents/skills/design-review',
+        ),
+        linkPath: toAbsolutePath(
+          '/Users/raphtalia/.codex/skills/design-review',
+        ),
         isLocal: false,
       },
     ],
@@ -122,7 +135,7 @@ export const storySkills: Skill[] = [
     name: toSkillName('qa-electron'),
     description:
       'Runs Electron UI verification through Playwright and the debug port.',
-    path: '/Users/raphtalia/.agents/skills/qa-electron',
+    path: toAbsolutePath('/Users/raphtalia/.agents/skills/qa-electron'),
     symlinkCount: toSymlinkCount(2),
     isSource: true,
     isOrphan: false,
@@ -133,23 +146,27 @@ export const storySkills: Skill[] = [
         agentId: 'claude-code',
         agentName: 'Claude Code',
         status: 'valid',
-        targetPath: '/Users/raphtalia/.agents/skills/qa-electron',
-        linkPath: '/Users/raphtalia/.claude/skills/qa-electron',
+        targetPath: toAbsolutePath(
+          '/Users/raphtalia/.agents/skills/qa-electron',
+        ),
+        linkPath: toAbsolutePath('/Users/raphtalia/.claude/skills/qa-electron'),
         isLocal: false,
       },
       {
         agentId: 'cursor',
         agentName: 'Cursor',
         status: 'broken',
-        targetPath: '/Users/raphtalia/.agents/skills/qa-electron',
-        linkPath: '/Users/raphtalia/.cursor/skills/qa-electron',
+        targetPath: toAbsolutePath(
+          '/Users/raphtalia/.agents/skills/qa-electron',
+        ),
+        linkPath: toAbsolutePath('/Users/raphtalia/.cursor/skills/qa-electron'),
         isLocal: false,
       },
       {
         agentId: 'codex',
         agentName: 'Codex',
         status: 'missing',
-        linkPath: '/Users/raphtalia/.codex/skills/qa-electron',
+        linkPath: toAbsolutePath('/Users/raphtalia/.codex/skills/qa-electron'),
         isLocal: false,
       },
     ],
@@ -157,7 +174,7 @@ export const storySkills: Skill[] = [
   {
     name: toSkillName('open-to-dia'),
     description: 'Local macOS launcher skill for opening current URLs in Dia.',
-    path: '/Users/raphtalia/.codex/skills/open-to-dia',
+    path: toAbsolutePath('/Users/raphtalia/.codex/skills/open-to-dia'),
     symlinkCount: toSymlinkCount(0),
     isSource: false,
     isOrphan: false,
@@ -166,7 +183,7 @@ export const storySkills: Skill[] = [
         agentId: 'codex',
         agentName: 'Codex',
         status: 'valid',
-        linkPath: '/Users/raphtalia/.codex/skills/open-to-dia',
+        linkPath: toAbsolutePath('/Users/raphtalia/.codex/skills/open-to-dia'),
         isLocal: true,
       },
     ],
@@ -174,7 +191,7 @@ export const storySkills: Skill[] = [
   {
     name: toSkillName('retired-skill'),
     description: 'Source folder removed; remaining links need cleanup.',
-    path: '/Users/raphtalia/.agents/skills/retired-skill',
+    path: toAbsolutePath('/Users/raphtalia/.agents/skills/retired-skill'),
     symlinkCount: toSymlinkCount(0),
     isSource: false,
     isOrphan: true,
@@ -183,16 +200,24 @@ export const storySkills: Skill[] = [
         agentId: 'claude-code',
         agentName: 'Claude Code',
         status: 'broken',
-        targetPath: '/Users/raphtalia/.agents/skills/retired-skill',
-        linkPath: '/Users/raphtalia/.claude/skills/retired-skill',
+        targetPath: toAbsolutePath(
+          '/Users/raphtalia/.agents/skills/retired-skill',
+        ),
+        linkPath: toAbsolutePath(
+          '/Users/raphtalia/.claude/skills/retired-skill',
+        ),
         isLocal: false,
       },
       {
         agentId: 'cursor',
         agentName: 'Cursor',
         status: 'broken',
-        targetPath: '/Users/raphtalia/.agents/skills/retired-skill',
-        linkPath: '/Users/raphtalia/.cursor/skills/retired-skill',
+        targetPath: toAbsolutePath(
+          '/Users/raphtalia/.agents/skills/retired-skill',
+        ),
+        linkPath: toAbsolutePath(
+          '/Users/raphtalia/.cursor/skills/retired-skill',
+        ),
         isLocal: false,
       },
     ],
@@ -253,7 +278,7 @@ export const storyBookmarks: BookmarkedSkill[] = [
 ]
 
 export const storySourceStats: SourceStats = {
-  path: '/Users/raphtalia/.agents/skills',
+  path: toAbsolutePath('/Users/raphtalia/.agents/skills'),
   skillCount: toSkillCount(storySkills.length),
   totalSize: toHumanFileSize('4.8 MB'),
   lastModified: toIsoTimestamp(now),
@@ -262,7 +287,9 @@ export const storySourceStats: SourceStats = {
 export const storySkillFiles: SkillFile[] = [
   {
     name: toFileName('SKILL.md'),
-    path: '/Users/raphtalia/.agents/skills/design-review/SKILL.md',
+    path: toAbsolutePath(
+      '/Users/raphtalia/.agents/skills/design-review/SKILL.md',
+    ),
     relativePath: toPosixRelativePath('SKILL.md'),
     extension: toFileExtension('.md'),
     size: toFileSizeBytes(2048),
@@ -270,7 +297,9 @@ export const storySkillFiles: SkillFile[] = [
   },
   {
     name: toFileName('qa.md'),
-    path: '/Users/raphtalia/.agents/skills/design-review/references/qa.md',
+    path: toAbsolutePath(
+      '/Users/raphtalia/.agents/skills/design-review/references/qa.md',
+    ),
     relativePath: toPosixRelativePath('references/qa.md'),
     extension: toFileExtension('.md'),
     size: toFileSizeBytes(1024),
@@ -278,7 +307,9 @@ export const storySkillFiles: SkillFile[] = [
   },
   {
     name: toFileName('diagram.png'),
-    path: '/Users/raphtalia/.agents/skills/design-review/assets/diagram.png',
+    path: toAbsolutePath(
+      '/Users/raphtalia/.agents/skills/design-review/assets/diagram.png',
+    ),
     relativePath: toPosixRelativePath('assets/diagram.png'),
     extension: toFileExtension('.png'),
     size: toFileSizeBytes(9280),
@@ -314,7 +345,9 @@ export const storySyncPreview: SyncPreviewResult = {
       skillName: toSkillName('qa-electron'),
       agentId: 'cursor',
       agentName: 'Cursor',
-      agentSkillPath: '/Users/raphtalia/.cursor/skills/qa-electron',
+      agentSkillPath: toAbsolutePath(
+        '/Users/raphtalia/.cursor/skills/qa-electron',
+      ),
     },
   ],
 }
@@ -326,7 +359,7 @@ export const storySyncResult: SyncExecuteResult = {
   skipped: toSymlinkCount(7),
   errors: [
     {
-      path: '/Users/raphtalia/.cursor/skills/retired-skill',
+      path: toAbsolutePath('/Users/raphtalia/.cursor/skills/retired-skill'),
       error: 'Broken symlink already removed',
     },
   ],

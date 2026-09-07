@@ -3,7 +3,7 @@ import { join } from 'path'
 
 import { AGENTS } from '@/main/constants'
 import type { AbsolutePath, Agent, SkillCount } from '@/shared/types'
-import { toSkillCount } from '@/shared/types'
+import { toAbsolutePath, toSkillCount } from '@/shared/types'
 
 import { getEmptyAgentFolder } from './emptyAgentFolderService'
 import { filesystemIdentityFromStats } from './filesystemIdentity'
@@ -104,7 +104,7 @@ async function countAgentSkills(agentPath: AbsolutePath): Promise<SkillCount> {
     const validityChecks = await Promise.all(
       symlinks.map(async (entry) => {
         const linkPath = join(agentPath, entry.name)
-        const status = await checkSymlinkStatus(linkPath)
+        const status = await checkSymlinkStatus(toAbsolutePath(linkPath))
         return status === 'valid'
       }),
     )

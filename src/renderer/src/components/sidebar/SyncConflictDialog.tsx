@@ -14,6 +14,7 @@ import {
 import { useExecuteSync } from '@/renderer/src/hooks/useExecuteSync'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { setSyncPreview } from '@/renderer/src/redux/slices/uiSlice'
+import type { AbsolutePath } from '@/shared/types'
 
 /**
  * Dialog for resolving sync conflicts (local folders that would be replaced by symlinks)
@@ -31,7 +32,9 @@ export const SyncConflictDialog =
     // preview with conflicts would open both dialogs simultaneously.
     const isOpen = hasConflicts && !!syncPreview && !syncPreview.forAgent
 
-    const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
+    const [selectedPaths, setSelectedPaths] = useState<Set<AbsolutePath>>(
+      new Set(),
+    )
     const { run: executeSync, isExecuting } = useExecuteSync('Sync failed')
 
     const handleClose = (): void => {
@@ -41,7 +44,7 @@ export const SyncConflictDialog =
       }
     }
 
-    const handleToggle = (path: string): void => {
+    const handleToggle = (path: AbsolutePath): void => {
       setSelectedPaths((prev) => {
         const next = new Set(prev)
         if (next.has(path)) {
@@ -133,12 +136,12 @@ export const SyncConflictDialog =
   }
 
 interface SyncConflictRowProps {
-  path: string
+  path: AbsolutePath
   skillName: string
   agentName: string
   checked: boolean
   disabled: boolean
-  onToggle: (path: string) => void
+  onToggle: (path: AbsolutePath) => void
 }
 
 const SyncConflictRow = function SyncConflictRow({

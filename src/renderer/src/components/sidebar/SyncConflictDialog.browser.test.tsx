@@ -5,6 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import type { SyncExecuteResult, SyncPreviewResult } from '@/shared/types'
 import {
+  toAbsolutePath,
   toAgentCount,
   toSkillCount,
   toSkillName,
@@ -17,14 +18,14 @@ const CONFLICT_CLAUDE = {
   skillName: toSkillName('tdd-workflow'),
   agentId: 'claude-code',
   agentName: 'Claude Code',
-  agentSkillPath: '/Users/me/.claude/skills/tdd-workflow',
+  agentSkillPath: toAbsolutePath('/Users/me/.claude/skills/tdd-workflow'),
 } as const
 
 const CONFLICT_CURSOR = {
   skillName: toSkillName('theme-generator'),
   agentId: 'cursor',
   agentName: 'Cursor',
-  agentSkillPath: '/Users/me/.cursor/skills/theme-generator',
+  agentSkillPath: toAbsolutePath('/Users/me/.cursor/skills/theme-generator'),
 } as const
 
 const GLOBAL_PREVIEW_WITH_CONFLICTS: SyncPreviewResult = {

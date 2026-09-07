@@ -47,6 +47,7 @@ import type {
   SkillName,
 } from '@/shared/types'
 import {
+  toAbsolutePath,
   toAgentCount,
   toBatchItemCount,
   toBatchItemIndex,
@@ -113,7 +114,7 @@ function assertAgentSlotPath(
       'Renderer link path does not match the selected agent slot.',
     )
   }
-  return normalizedPath
+  return toAbsolutePath(normalizedPath)
 }
 
 /**
@@ -127,9 +128,11 @@ function buildQuarantinePath(
   reviewedPath: AbsolutePath,
   label: string,
 ): AbsolutePath {
-  return join(
-    dirname(reviewedPath),
-    `${basename(reviewedPath)}.${label}-${randomUUID()}`,
+  return toAbsolutePath(
+    join(
+      dirname(reviewedPath),
+      `${basename(reviewedPath)}.${label}-${randomUUID()}`,
+    ),
   )
 }
 
@@ -870,7 +873,9 @@ export function registerSkillsHandlers(): void {
           if (protectedExistingPaths.has(resolve(entryPath))) continue
 
           // react-doctor-disable-next-line react-doctor/async-await-in-loop -- serial filesystem mutations preserve predictable Trash ordering and stop on the first protected-folder delete failure.
-          const removed = await trashUnprotectedAgentEntry(entryPath)
+          const removed = await trashUnprotectedAgentEntry(
+            toAbsolutePath(entryPath),
+          )
           if (removed) removedCount++
         }
 

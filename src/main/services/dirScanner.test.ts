@@ -2,6 +2,8 @@ import { join } from 'node:path'
 
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
+import { toAbsolutePath } from '@/shared/types'
+
 const SOURCE_DIR = '/mock/source/skills'
 
 const readdirMock = vi.fn()
@@ -199,7 +201,9 @@ describe('isValidSkillDir', () => {
     const { isValidSkillDir } = await import('./skillValidation')
 
     // Act
-    const isValid = await isValidSkillDir(join(SOURCE_DIR, 'locked-skill'))
+    const isValid = await isValidSkillDir(
+      toAbsolutePath(join(SOURCE_DIR, 'locked-skill')),
+    )
 
     // Assert: unknown must never read as "yes, delete/copy it".
     expect(isValid).toBe(false)
@@ -211,7 +215,9 @@ describe('isValidSkillDir', () => {
     const { isValidSkillDir } = await import('./skillValidation')
 
     // Act
-    const isValid = await isValidSkillDir(join(SOURCE_DIR, 'tdd-workflow'))
+    const isValid = await isValidSkillDir(
+      toAbsolutePath(join(SOURCE_DIR, 'tdd-workflow')),
+    )
 
     // Assert
     expect(isValid).toBe(true)

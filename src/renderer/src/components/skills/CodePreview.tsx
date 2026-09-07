@@ -7,6 +7,7 @@ import { useCodePreview } from '@/renderer/src/hooks/useCodePreview'
 import { useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectPreviewAppearanceSettings } from '@/renderer/src/redux/slices/settingsSlice'
 import type { AbsolutePath } from '@/shared/types'
+import { toAbsolutePath } from '@/shared/types'
 
 import { resolvePreviewPaneState } from './codePreviewHelpers'
 import { FileContent } from './FileContent'
@@ -50,7 +51,7 @@ export const CodePreview = function CodePreview({
     // failure states, and its `setActiveFile` degrades a failed read to the
     // empty pane rather than rejecting. `void` pins that at the call site so a
     // future rejection is a visible change here, not a silently dropped one.
-    void setActiveFile(next)
+    void setActiveFile(toAbsolutePath(next))
   }
 
   // Exhaustive over PreviewPaneState: the priority order between these four

@@ -14,6 +14,7 @@ import type {
   SkillSearchResult,
 } from '@/shared/types'
 import {
+  toAbsolutePath,
   toHttpUrl,
   toSearchQuery,
   toSkillName,
@@ -269,7 +270,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
     const installedSkill = {
       name: toSkillName('installed-one'),
       description: 'desc',
-      path: '/Users/me/.agents/skills/installed-one',
+      path: toAbsolutePath('/Users/me/.agents/skills/installed-one'),
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
@@ -430,7 +431,7 @@ describe('SkillsMarketplace — search results view', () => {
     const installedSkill = {
       name: toSkillName('react'),
       description: 'desc',
-      path: '/Users/me/.agents/skills/react',
+      path: toAbsolutePath('/Users/me/.agents/skills/react'),
       symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,

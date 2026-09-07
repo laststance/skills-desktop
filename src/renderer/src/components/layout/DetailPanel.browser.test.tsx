@@ -9,6 +9,7 @@ import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type { Skill } from '@/shared/types'
 import {
   repositoryId,
+  toAbsolutePath,
   toHttpUrl,
   toSkillName,
   toSymlinkCount,
@@ -76,7 +77,7 @@ function makeSelectableSkill(): Skill {
   return {
     name: toSkillName('demo-skill'),
     description: '',
-    path: '/skills/demo-skill',
+    path: toAbsolutePath('/skills/demo-skill'),
     symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,

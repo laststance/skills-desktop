@@ -20,7 +20,9 @@ export type { FilePreviewKind } from './fileTypes'
 // `searchQuery` in 16. {@link repositoryId} and {@link semanticVersion} predate
 // this rule and keep their names; every new brand uses the prefix.
 //
-// `AbsolutePath` is still a plain alias and is branded in a follow-up pass.
+// Every domain primitive here is now branded. A new one must ship its `to`
+// constructor in the same commit — a plain alias silently accepts any string
+// or number and hides exactly the contract bugs this section exists to catch.
 // ============================================================================
 
 /**
@@ -50,7 +52,15 @@ export const toSkillName = (value: string): SkillName => value as SkillName
  * Absolute filesystem path (platform-native, not POSIX-normalized).
  * @example "/Users/me/.agents/skills/tdd-workflow"
  */
-export type AbsolutePath = string
+export type AbsolutePath = Brand<string, 'AbsolutePath'>
+
+/**
+ * Construct an {@link AbsolutePath} from a raw string at a trust boundary
+ * (a `path.join` result, a dialog selection, or an IPC payload).
+ * @example toAbsolutePath('/Users/me/.agents/skills/tdd-workflow')
+ */
+export const toAbsolutePath = (value: string): AbsolutePath =>
+  value as AbsolutePath
 
 /**
  * Filesystem object identity captured at scan/review time for destructive guards.

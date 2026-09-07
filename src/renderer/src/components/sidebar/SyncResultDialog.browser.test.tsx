@@ -5,7 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { SyncExecuteResult } from '@/shared/types'
-import { toSkillName, toSymlinkCount } from '@/shared/types'
+import { toAbsolutePath, toSkillName, toSymlinkCount } from '@/shared/types'
 
 const mockSkillsGetAll = vi.fn()
 const mockAgentsGetAll = vi.fn()
@@ -16,7 +16,9 @@ const RESULT_WITH_CHANGES: SyncExecuteResult = {
   created: toSymlinkCount(2),
   replaced: toSymlinkCount(1),
   skipped: toSymlinkCount(1),
-  errors: [{ path: '/Users/me/.codex/skills/broken', error: 'EACCES' }],
+  errors: [
+    { path: toAbsolutePath('/Users/me/.codex/skills/broken'), error: 'EACCES' },
+  ],
   // One row per action so each badge label appears exactly once. The summary
   // counts above are independent of these rows (they drive the header + chips).
   details: [

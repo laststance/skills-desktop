@@ -6,6 +6,7 @@ import { isMissingPathError } from '@/main/utils/errorCode'
 import { formatBytes } from '@/shared/fileTypes'
 import {
   repositoryId,
+  toAbsolutePath,
   toFileSizeBytes,
   toHumanFileSize,
   toIsoTimestamp,
@@ -99,7 +100,7 @@ function createMissingSymlinkSlots(name: SkillName): SymlinkInfo[] {
     agentId: agent.id,
     agentName: agent.name,
     status: 'missing',
-    linkPath: join(agent.path, name),
+    linkPath: toAbsolutePath(join(agent.path, name)),
     isLocal: false,
   }))
 }
@@ -150,7 +151,7 @@ async function scanAgentSymlinkStatusHits(
         )
         return Promise.all(
           candidates.map(async (link) => {
-            const linkPath = join(agent.path, link.name)
+            const linkPath = toAbsolutePath(join(agent.path, link.name))
             const [status, targetPath] = await Promise.all([
               checkSymlinkTargetFromKnownLink(linkPath),
               readSymlinkTargetIfPresent(linkPath),
@@ -511,7 +512,8 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
           const validated = await Promise.all(
             candidates.map(async (dir) => {
               const skillPath = join(agent.path, dir.name)
-              if (!(await isValidSkillDir(skillPath))) return null
+              if (!(await isValidSkillDir(toAbsolutePath(skillPath))))
+                return null
               // Parse metadata and probe SKILL.md for a symlink target in
               // parallel — gstack-managed sibling skills (e.g. ~/.claude/skills/ship)
               // are real directories whose SKILL.md is a symlink into the
@@ -520,8 +522,10 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
               // badge on every gstack-managed skill, not just the parent.
               const [metadata, skillMdSymlinkTarget, stats] = await Promise.all(
                 [
-                  parseSkillMetadata(skillPath),
-                  readSymlinkTargetIfPresent(join(skillPath, 'SKILL.md')),
+                  parseSkillMetadata(toAbsolutePath(skillPath)),
+                  readSymlinkTargetIfPresent(
+                    toAbsolutePath(join(skillPath, 'SKILL.md')),
+                  ),
                   lstat(skillPath),
                 ],
               )
@@ -565,7 +569,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
       skill = {
         name: metadata.name,
         description: metadata.description,
-        path: skillPath,
+        path: toAbsolutePath(skillPath),
         filesystemIdentity,
         symlinkCount: toSymlinkCount(0), // Local skills have 0 symlinks
         symlinks: createMissingSymlinkSlots(toSkillName(dirName)),
@@ -576,7 +580,7 @@ async function scanAllLocalSkills(): Promise<Skill[]> {
     }
     updateAgentSymlinkSlot(skill, agent.id, {
       status: 'valid',
-      linkPath: join(agent.path, dirName),
+      linkPath: toAbsolutePath(join(agent.path, dirName)),
       isLocal: true,
       filesystemIdentity,
       skillMdSymlinkTarget,
@@ -601,13 +605,13 @@ export async function getSkill(skillName: SkillName): Promise<Skill | null> {
     const stats = await stat(skillPath)
     if (!stats.isDirectory()) return null
 
-    const metadata = await parseSkillMetadata(skillPath)
+    const metadata = await parseSkillMetadata(toAbsolutePath(skillPath))
     const symlinks = await checkSkillSymlinks(skillName)
 
     return {
       name: metadata.name,
       description: metadata.description,
-      path: skillPath,
+      path: toAbsolutePath(skillPath),
       symlinkCount: countValidSymlinks(symlinks),
       symlinks,
       isSource: true,
@@ -672,7 +676,7 @@ async function calculateDirectorySize(
       const fullPath = join(dirPath, entry.name)
       if (entry.isDirectory()) {
         // react-doctor-disable-next-line react-doctor/async-await-in-loop -- recursive directory-size walk; parallelizing the recursion would fan out stat fds (EMFILE) on deep trees for no perceptible benefit.
-        total += await calculateDirectorySize(fullPath)
+        total += await calculateDirectorySize(toAbsolutePath(fullPath))
       } else if (entry.isFile()) {
         const stats = await stat(fullPath)
         total += stats.size

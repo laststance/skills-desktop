@@ -7,6 +7,7 @@ import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
 import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
 import type { AbsolutePath, SkillFile } from '@/shared/types'
 import {
+  toAbsolutePath,
   toFileExtension,
   toFileName,
   toFileSizeBytes,
@@ -39,7 +40,7 @@ const SKILL_PATH = '/home/user/.agents/skills/tdd'
 function makeFile(overrides: Partial<SkillFile> = {}): SkillFile {
   return {
     name: toFileName('SKILL.md'),
-    path: `${SKILL_PATH}/SKILL.md`,
+    path: toAbsolutePath(`${SKILL_PATH}/SKILL.md`),
     relativePath: toPosixRelativePath('SKILL.md'),
     extension: toFileExtension('.md'),
     size: toFileSizeBytes(1024),
@@ -90,7 +91,7 @@ async function renderCodePreview(overrides: Partial<Settings> = {}) {
   const { CodePreview } = await import('./CodePreview')
   return render(
     <Provider store={store}>
-      <CodePreview skillPath={SKILL_PATH} />
+      <CodePreview skillPath={toAbsolutePath(SKILL_PATH)} />
     </Provider>,
   )
 }
@@ -152,7 +153,7 @@ describe('CodePreview', () => {
     const skillFile = makeFile()
     const readmeFile = makeFile({
       name: toFileName('README.md'),
-      path: `${SKILL_PATH}/README.md`,
+      path: toAbsolutePath(`${SKILL_PATH}/README.md`),
       relativePath: toPosixRelativePath('README.md'),
     })
     mockUseCodePreview.mockReturnValue(
@@ -181,7 +182,7 @@ describe('CodePreview', () => {
     const skillFile = makeFile()
     const readmeFile = makeFile({
       name: toFileName('README.md'),
-      path: `${SKILL_PATH}/README.md`,
+      path: toAbsolutePath(`${SKILL_PATH}/README.md`),
       relativePath: toPosixRelativePath('README.md'),
     })
     mockUseCodePreview.mockReturnValue(

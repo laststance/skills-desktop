@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Agent, SymlinkInfo } from '@/shared/types'
-import { toSkillCount } from '@/shared/types'
+import { toAbsolutePath, toSkillCount } from '@/shared/types'
 
 import {
   buildCopyAgentOptionViewModel,
@@ -19,7 +19,7 @@ function makeAgent(overrides: Partial<Agent> & Pick<Agent, 'id'>): Agent {
   return {
     id: overrides.id,
     name: overrides.name ?? ('Agent' as Agent['name']),
-    path: overrides.path ?? '/tmp/skills',
+    path: toAbsolutePath(overrides.path ?? '/tmp/skills'),
     exists: overrides.exists ?? true,
     skillCount: toSkillCount(overrides.skillCount ?? 0),
     localSkillCount: toSkillCount(overrides.localSkillCount ?? 0),
@@ -227,7 +227,7 @@ function makeSymlink(
     agentId: overrides.agentId,
     agentName: overrides.agentName ?? ('Agent' as SymlinkInfo['agentName']),
     status: overrides.status,
-    linkPath: overrides.linkPath ?? '/tmp/.agent/skills/demo',
+    linkPath: toAbsolutePath(overrides.linkPath ?? '/tmp/.agent/skills/demo'),
     isLocal: overrides.isLocal ?? false,
     targetPath: overrides.targetPath,
   }
