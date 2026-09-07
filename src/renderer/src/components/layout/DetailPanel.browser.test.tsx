@@ -28,6 +28,15 @@ vi.mock('@/renderer/src/components/marketplace/MarketplaceDetailPanel', () => ({
   MarketplaceDetailPanel: () => <div data-testid="marketplace-detail" />,
 }))
 
+vi.mock('@/renderer/src/hooks/useBackgroundSnapshot', () => ({
+  useBackgroundSnapshot: () => ({
+    revision: 0,
+    displayRetryRevision: 0,
+    operation: null,
+    display: null,
+  }),
+}))
+
 /**
  * Build a combined store from each slice's own initialState so DetailPanel reads
  * real defaults (`activeTab: 'installed'`, `selectedSkill: null`). Tests dispatch

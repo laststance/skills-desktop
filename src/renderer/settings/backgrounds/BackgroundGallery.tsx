@@ -18,6 +18,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/renderer/src/components/ui/tabs'
+import { backgroundSourceKey } from '@/renderer/src/utils/backgroundSourceKey'
 import type {
   BackgroundCatalogItem,
   BackgroundSnapshot,
@@ -32,7 +33,6 @@ import type { useBackgroundGallery } from './useBackgroundGallery'
 import { useUnsplashGallery } from './useUnsplashGallery'
 import { areBackgroundCropsEqual } from './utils/areBackgroundCropsEqual'
 import { backgroundCropQuality } from './utils/backgroundCropQuality'
-import { backgroundSourceKey } from './utils/backgroundSourceKey'
 
 const SOURCE_TABS = [
   { value: 'builtin', label: 'Built-in' },
@@ -51,6 +51,12 @@ interface GalleryProps {
  */
 export function BackgroundGallery(props: GalleryProps): ReactElement {
   const { gallery, snapshot } = props
+  const source = gallery.draft?.preview.source
+  const sourceUnavailable =
+    source?.kind === 'upload' &&
+    !props.settings.background.uploads.some(
+      (upload) => upload.id === source.uploadId,
+    )
   const operation = snapshot.operation
   const matchesDraft = Boolean(
     operation &&
@@ -145,6 +151,7 @@ export function BackgroundGallery(props: GalleryProps): ReactElement {
             busy={busy}
             accepted={accepted}
             failed={Boolean(failed)}
+            sourceUnavailable={sourceUnavailable}
           />
         </div>
         {gallery.view === 'crop' && gallery.draft ? (
@@ -153,6 +160,7 @@ export function BackgroundGallery(props: GalleryProps): ReactElement {
             draft={gallery.draft}
             busy={busy}
             accepted={accepted}
+            sourceUnavailable={sourceUnavailable}
             onApply={(draft) => void gallery.apply(draft)}
             onCancel={accepted ? gallery.close : gallery.cancelCrop}
           />
@@ -394,19 +402,16 @@ function BackgroundGalleryResults({
  */
 function BackgroundGalleryFooter({
   gallery,
-  settings,
   busy,
   accepted,
   failed,
+  sourceUnavailable,
 }: GalleryProps & {
   busy: boolean
   accepted: boolean
   failed: boolean
+  sourceUnavailable: boolean
 }): ReactElement {
-  const source = gallery.draft?.preview.source
-  const unavailable =
-    source?.kind === 'upload' &&
-    !settings.background.uploads.some((upload) => upload.id === source.uploadId)
   const quality = gallery.draft
     ? backgroundCropQuality(
         gallery.draft.preview.width,
@@ -414,7 +419,7 @@ function BackgroundGalleryFooter({
         gallery.draft.crop,
       )
     : null
-  const reason = unavailable
+  const reason = sourceUnavailable
     ? 'This uploaded image was removed. Select another image.'
     : quality?.error
   return (
@@ -430,7 +435,9 @@ function BackgroundGalleryFooter({
           <Button
             variant="outline"
             size="sm"
-            disabled={!gallery.draft || gallery.checking || busy || unavailable}
+            disabled={
+              !gallery.draft || gallery.checking || busy || sourceUnavailable
+            }
             onClick={gallery.editCrop}
           >
             <Crop />

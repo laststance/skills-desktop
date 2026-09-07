@@ -2,6 +2,7 @@ import React from 'react'
 import { Panel, Group, Separator } from 'react-resizable-panels'
 
 import { AppToaster } from './components/AppToaster'
+import { BackgroundCanvas } from './components/background/BackgroundCanvas'
 import { DetailPanel } from './components/layout/DetailPanel'
 import { MainContent } from './components/layout/MainContent'
 import { Sidebar } from './components/layout/Sidebar'
@@ -59,8 +60,9 @@ const App = function App(): React.ReactElement {
       <div
         data-testid="window-background-surface"
         data-opacity-mode={opacityMode}
-        className="window-background-surface flex h-screen bg-transparent text-foreground window-glow"
+        className="window-background-surface relative isolate flex h-screen bg-transparent text-foreground window-glow"
       >
+        <BackgroundCanvas />
         {/* Each pane inherits background alpha; foreground opacity and floating UI stay independent. */}
         <div
           data-window-section="left"

@@ -12,17 +12,17 @@ import {
   type RowComponentProps,
 } from 'react-window'
 
+import { BackgroundCredit } from '@/renderer/src/components/background/BackgroundCredit'
 import { Button } from '@/renderer/src/components/ui/button'
 import { cn } from '@/renderer/src/lib/utils'
+import { backgroundSourceKey } from '@/renderer/src/utils/backgroundSourceKey'
 import type { BackgroundCatalogItem } from '@/shared/backgrounds'
 
-import { BackgroundCredit } from './BackgroundCredit'
 import {
   GALLERY_OVERSCAN_ROWS,
   GALLERY_ROW_HEIGHT_PX,
   GALLERY_THREE_COLUMN_MIN_WIDTH_PX,
 } from './constants'
-import { backgroundSourceKey } from './utils/backgroundSourceKey'
 
 interface GridProps {
   items: BackgroundCatalogItem[]

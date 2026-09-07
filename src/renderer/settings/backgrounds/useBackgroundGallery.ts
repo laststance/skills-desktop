@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 
 import { useAppStore } from '@/renderer/src/redux/hooks'
 import { setSettings } from '@/renderer/src/redux/slices/settingsSlice'
+import { backgroundSourceKey } from '@/renderer/src/utils/backgroundSourceKey'
 import {
   DEFAULT_BACKGROUND_CROP,
   type BackgroundApplySource,
@@ -15,7 +16,6 @@ import {
 import type { Settings } from '@/shared/settings'
 
 import { areBackgroundCropsEqual } from './utils/areBackgroundCropsEqual'
-import { backgroundSourceKey } from './utils/backgroundSourceKey'
 
 export interface BackgroundDraft {
   preview: BackgroundPreview

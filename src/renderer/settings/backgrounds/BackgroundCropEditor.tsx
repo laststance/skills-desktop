@@ -28,12 +28,14 @@ export function BackgroundCropEditor({
   draft,
   busy,
   accepted,
+  sourceUnavailable,
   onApply,
   onCancel,
 }: {
   draft: BackgroundDraft
   busy: boolean
   accepted: boolean
+  sourceUnavailable: boolean
   onApply: (draft: BackgroundDraft) => void
   onCancel: () => void
 }): ReactElement {
@@ -62,6 +64,11 @@ export function BackgroundCropEditor({
         ? 16 / 9
         : 16 / 10
   const initialCrop = editor.reset === 0 ? draft.crop : DEFAULT_BACKGROUND_CROP
+  const error = sourceUnavailable
+    ? 'This uploaded image was removed. Select another image.'
+    : editor.error
+      ? 'Image preview unavailable. Cancel and choose another image, or retry.'
+      : quality.error
   const changeZoom = (zoom: number): void =>
     setEditor((current) => ({
       ...current,
@@ -174,15 +181,13 @@ export function BackgroundCropEditor({
         <p className="mt-3 text-xs tabular-nums">
           Selected area: {quality.width} × {quality.height} px
         </p>
-        {quality.error || editor.error ? (
+        {error ? (
           <p
             id="background-crop-error"
             role="status"
             className="mt-2 text-xs text-destructive"
           >
-            {editor.error
-              ? 'Image preview unavailable. Cancel and choose another image, or retry.'
-              : quality.error}
+            {error}
           </p>
         ) : null}
         <Button
@@ -212,10 +217,8 @@ export function BackgroundCropEditor({
           {accepted ? 'Close' : 'Cancel'}
         </Button>
         <Button
-          disabled={busy || Boolean(quality.error) || editor.error}
-          aria-describedby={
-            quality.error || editor.error ? 'background-crop-error' : undefined
-          }
+          disabled={busy || Boolean(error)}
+          aria-describedby={error ? 'background-crop-error' : undefined}
           onClick={() =>
             onApply({ ...draft, crop: editor.area, aspect: editor.aspect })
           }
