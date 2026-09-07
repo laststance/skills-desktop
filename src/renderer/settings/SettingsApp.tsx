@@ -2,6 +2,7 @@ import { Info, Keyboard, Palette, SlidersHorizontal, Users } from 'lucide-react'
 import React, { useState } from 'react'
 import { match } from 'ts-pattern'
 
+import { AppToaster } from '@/renderer/src/components/AppToaster'
 import { ScrollArea } from '@/renderer/src/components/ui/scroll-area'
 import { useSettingsSync } from '@/renderer/src/hooks/useSettingsSync'
 import { cn } from '@/renderer/src/lib/utils'
@@ -55,7 +56,7 @@ export const SettingsApp = function SettingsApp(): React.ReactElement {
   const [activeSection, setActiveSection] = useState<Section>('general')
 
   return (
-    <div className="relative flex h-screen bg-background text-foreground window-glow">
+    <div className="opaque-surface relative flex h-screen bg-background text-foreground window-glow">
       {/* Hidden titlebar leaves full-size content; this keeps a native drag target without drawing a header. */}
       <div
         aria-hidden="true"
@@ -102,6 +103,7 @@ export const SettingsApp = function SettingsApp(): React.ReactElement {
             .exhaustive()}
         </div>
       </ScrollArea>
+      <AppToaster />
     </div>
   )
 }

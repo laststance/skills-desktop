@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import type React from 'react'
 import { Provider } from 'react-redux'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -62,7 +62,7 @@ vi.mock('./hooks/useUpdateNotification', () => ({
  * @param settings - Appearance fields persisted in settings.
  * @returns Browser test screen for the rendered shell.
  * @example
- * renderAppWithSettings({ windowBackgroundBlurRadius: 24 })
+ * renderAppWithSettings({ windowBackgroundOpacityPercent: 92 })
  */
 async function renderAppWithSettings(settings: Partial<Settings>) {
   const { default: App } = await import('./App')
@@ -84,66 +84,55 @@ async function renderAppWithSettings(settings: Partial<Settings>) {
 }
 
 describe('App window surface', () => {
-  it('keeps the renderer surface solid while Electron owns opacity', async () => {
-    // Arrange — render the shell with a non-zero blur radius persisted
+  test('leaves the native backplate visible while the Entire percentage is shared by all backgrounds', async () => {
+    // Arrange
     const screen = await renderAppWithSettings({
-      windowBackgroundBlurRadius: 24,
+      windowBackgroundOpacityPercent: 92,
+      leftSectionOpacityPercent: 85,
     })
-
-    // Act — read the painted window-background surface element
-    const surface = screen
-      .getByTestId('window-background-surface')
-      .element() as HTMLElement
-
-    // Assert — the renderer surface stays opaque and never flags translucency
-    expect(surface.style.backgroundColor).toBe('var(--background)')
-    expect(surface.dataset['windowTranslucent']).toBeUndefined()
+    // Act
+    const surface = screen.getByTestId('window-background-surface').element()
+    const sections = surface.querySelectorAll('[data-window-section]')
+    // Assert
+    expect(getComputedStyle(surface).backgroundColor).toBe('rgba(0, 0, 0, 0)')
+    expect(sections).toHaveLength(3)
+    for (const section of sections) {
+      expect(getComputedStyle(section).opacity).toBe('1')
+      expect(
+        getComputedStyle(section)
+          .getPropertyValue('--window-surface-opacity')
+          .trim(),
+      ).toBe('0.92')
+    }
   })
 
-  it('reveals the desktop through independently transparent sections', async () => {
+  test('changes each section background without fading descendant content', async () => {
     // Arrange
     const screen = await renderAppWithSettings({
       windowOpacityMode: 'section',
-      windowBackgroundBlurRadius: 24,
-      leftSectionOpacityPercent: 65,
-      centerSectionOpacityPercent: 80,
+      windowBackgroundOpacityPercent: 92,
+      leftSectionOpacityPercent: 85,
+      centerSectionOpacityPercent: 90,
       rightSectionOpacityPercent: 95,
     })
     // Act
     const surface = screen.getByTestId('window-background-surface').element()
     // Assert
-    expect(surface).toHaveStyle({ backgroundColor: 'transparent' })
-    expect(surface.querySelector('[data-window-section="left"]')).toHaveStyle({
-      opacity: '0.65',
-    })
-    expect(surface.querySelector('[data-window-section="center"]')).toHaveStyle(
-      { opacity: '0.8' },
-    )
-    expect(surface.querySelector('[data-window-section="right"]')).toHaveStyle({
-      opacity: '0.95',
-    })
-  })
-
-  it('leaves every section opaque when Entire mode owns the window opacity', async () => {
-    // Arrange
-    const screen = await renderAppWithSettings({
-      windowOpacityMode: 'entire',
-      windowBackgroundBlurRadius: 24,
-      leftSectionOpacityPercent: 65,
-      centerSectionOpacityPercent: 80,
-      rightSectionOpacityPercent: 95,
-    })
-    // Act
-    const surface = screen.getByTestId('window-background-surface').element()
-    // Assert
-    expect(surface.querySelector('[data-window-section="left"]')).toHaveStyle({
-      opacity: '1',
-    })
-    expect(surface.querySelector('[data-window-section="center"]')).toHaveStyle(
-      { opacity: '1' },
-    )
-    expect(surface.querySelector('[data-window-section="right"]')).toHaveStyle({
-      opacity: '1',
-    })
+    for (const [name, expected] of [
+      ['left', '0.85'],
+      ['center', '0.9'],
+      ['right', '0.95'],
+    ]) {
+      const section = surface.querySelector(`[data-window-section="${name}"]`)
+      if (!section) throw new Error(`Missing ${name} pane`)
+      expect(getComputedStyle(section).opacity).toBe('1')
+      expect(
+        getComputedStyle(section)
+          .getPropertyValue('--window-surface-opacity')
+          .trim(),
+      ).toBe(expected)
+      for (const child of section.querySelectorAll('*'))
+        expect(getComputedStyle(child).opacity).toBe('1')
+    }
   })
 })

@@ -131,7 +131,7 @@ const TextPreview = function TextPreview({
   }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-muted">
+    <div className="flex-1 min-h-0 flex flex-col">
       {isMarkdown && (
         <div className="shrink-0 flex items-center justify-end border-b border-border/60 bg-background/60 px-2 py-1.5">
           <SegmentedControl
@@ -189,7 +189,7 @@ export const renderPlainTextCode = function renderPlainTextCode(
         {/* Keep source line order and stable row numbers while Shiki loads. */}
         {lines.map((line, index) => (
           <tr key={index} className="hover:bg-foreground/5">
-            <td className="sticky left-0 z-10 w-12 bg-muted px-2 py-0 text-right text-muted-foreground select-none border-r border-border/50 align-top">
+            <td className="opaque-surface sticky left-0 z-10 w-12 bg-muted px-2 py-0 text-right text-muted-foreground select-none border-r border-border/50 align-top">
               {index + 1}
             </td>
             <td className="px-3 py-0 whitespace-pre text-foreground">
@@ -289,7 +289,7 @@ const SyntaxHighlightedCode = function SyntaxHighlightedCode({
 
   return (
     <div
-      className="flex-1 min-h-0 overflow-auto bg-muted"
+      className="opaque-surface flex-1 min-h-0 overflow-auto bg-muted"
       data-file-preview-scroll
     >
       {highlightedHtml ? (
@@ -333,7 +333,8 @@ const MarkdownReadingPreview = function MarkdownReadingPreview({
 
   return (
     <div
-      className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background"
+      // The inspector owns the backplate; another full-size background would conceal the desktop.
+      className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
       data-markdown-reading-scroll
     >
       {/* Inline font size is the scale anchor: child sizes are em (heading,

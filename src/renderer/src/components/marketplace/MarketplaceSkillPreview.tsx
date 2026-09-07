@@ -165,9 +165,9 @@ export const MarketplaceSkillPreview = function MarketplaceSkillPreview({
            guest WebContents and reload the page (losing scroll/page state). */}
       <div
         className={cn(
-          'min-h-0',
+          'opaque-surface min-h-0 bg-background',
           isExpanded
-            ? 'fixed inset-4 z-50 rounded-lg overflow-hidden border border-border shadow-2xl bg-background'
+            ? 'fixed inset-4 z-50 rounded-lg overflow-hidden border border-border shadow-2xl'
             : 'relative flex-1',
         )}
         role={isExpanded ? 'dialog' : undefined}

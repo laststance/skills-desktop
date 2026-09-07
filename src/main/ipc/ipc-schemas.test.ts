@@ -1,12 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, test } from 'vitest'
 
 import {
   CODE_FONT_SIZE_MAX_PX,
   CODE_FONT_SIZE_MIN_PX,
   MARKDOWN_FONT_SIZE_MAX_PX,
   MARKDOWN_FONT_SIZE_MIN_PX,
-  WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
-  WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
 } from '@/shared/settings'
 
 import { IPC_ARG_SCHEMAS } from './ipc-schemas'
@@ -529,13 +527,13 @@ describe('settings:set lockstep with SettingsSchema', () => {
     // Arrange
     const patch = {
       windowOpacityMode: 'section',
-      leftSectionOpacityPercent: 65,
+      leftSectionOpacityPercent: 85,
     }
     // Act
     const parsed = schema.parse([patch])
     // Assert
     expect(parsed).toEqual([
-      { windowOpacityMode: 'section', leftSectionOpacityPercent: 65 },
+      { windowOpacityMode: 'section', leftSectionOpacityPercent: 85 },
     ])
   })
 
@@ -549,7 +547,7 @@ describe('settings:set lockstep with SettingsSchema', () => {
   })
 
   it.each([
-    { leftSectionOpacityPercent: 44 },
+    { leftSectionOpacityPercent: -1 },
     { centerSectionOpacityPercent: 101 },
     { rightSectionOpacityPercent: 65.5 },
     { windowOpacityMode: 'invalid' },
@@ -577,11 +575,11 @@ describe('settings:set lockstep with SettingsSchema', () => {
     )
   })
 
-  it('lets the user persist a window background blur radius within bounds', () => {
+  it('lets the user persist a background opacity percentage within bounds', () => {
     // Arrange / Act / Assert
-    expect(schema.safeParse([{ windowBackgroundBlurRadius: 24 }]).success).toBe(
-      true,
-    )
+    expect(
+      schema.safeParse([{ windowBackgroundOpacityPercent: 90 }]).success,
+    ).toBe(true)
   })
 
   it('lets the user persist a Markdown reading font size within bounds', () => {
@@ -646,24 +644,24 @@ describe('settings:set lockstep with SettingsSchema', () => {
     ).toBe(false)
   })
 
-  it('blocks an out-of-range or fractional window background blur radius', () => {
+  it('blocks an out-of-range or fractional background opacity percentage', () => {
     // Act / Assert — below the allowed minimum is rejected.
     expect(
       schema.safeParse([
         {
-          windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_MIN_RADIUS - 1,
+          windowBackgroundOpacityPercent: -1,
         },
       ]).success,
     ).toBe(false)
-    // Act / Assert — a fractional radius is rejected.
+    // Act / Assert — a fractional percentage is rejected.
     expect(
-      schema.safeParse([{ windowBackgroundBlurRadius: 24.5 }]).success,
+      schema.safeParse([{ windowBackgroundOpacityPercent: 85.5 }]).success,
     ).toBe(false)
     // Act / Assert — above the allowed maximum is rejected.
     expect(
       schema.safeParse([
         {
-          windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_MAX_RADIUS + 1,
+          windowBackgroundOpacityPercent: 101,
         },
       ]).success,
     ).toBe(false)
@@ -702,6 +700,13 @@ describe('settings:set lockstep with SettingsSchema', () => {
     expect(schema.safeParse([{ codeThemeId: 'dracula' }]).success).toBe(false)
   })
 
+  test('rejects the retired blur-radius setting at the IPC boundary', () => {
+    // Arrange / Act / Assert
+    expect(schema.safeParse([{ windowBackgroundBlurRadius: 24 }]).success).toBe(
+      false,
+    )
+  })
+
   it('blocks an unknown extra settings key (.strict()) from a compromised renderer', () => {
     // Arrange / Act / Assert
     expect(
@@ -727,12 +732,12 @@ describe('settings:set lockstep with SettingsSchema', () => {
     expect('hiddenAgentIds' in parsed[0]).toBe(false)
   })
 
-  it('does not wipe a persisted window blur radius when an unrelated setting is saved', () => {
+  it('does not wipe a persisted window background opacity percentage when an unrelated setting is saved', () => {
     // Arrange / Act
     const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
 
     // Assert
-    expect('windowBackgroundBlurRadius' in parsed[0]).toBe(false)
+    expect('windowBackgroundOpacityPercent' in parsed[0]).toBe(false)
   })
 
   it('does not wipe a persisted Markdown reading font size when an unrelated setting is saved', () => {

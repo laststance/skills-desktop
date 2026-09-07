@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
+import themeReducer from '@/renderer/src/redux/slices/themeSlice'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type { Agent } from '@/shared/types'
 import { toAbsolutePath, toSkillCount } from '@/shared/types'
@@ -86,6 +87,7 @@ async function renderSettings() {
   const store = configureStore({
     reducer: {
       settings: settingsReducer,
+      theme: themeReducer,
       agents: agentsReducer,
     },
     preloadedState: {

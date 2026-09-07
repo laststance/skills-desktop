@@ -1,16 +1,25 @@
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import type { Locator, Page } from '@playwright/test'
 
-import type { Settings } from '@/shared/settings'
-
 import { test, expect } from '../fixtures/electron-app'
-import { readSettingsFile, writeSettingsFile } from '../helpers/settings-file'
+import {
+  readSettingsFile,
+  settingsFilePath,
+  writeSettingsFile,
+} from '../helpers/settings-file'
 
 const opacityTest = test.extend<{
-  initialSettings: Partial<Settings>
+  initialSettings: Record<string, unknown>
   settingsWindow: Page
 }>({
   initialSettings: [{ windowBackgroundBlurRadius: 24 }, { option: true }],
@@ -19,17 +28,24 @@ const opacityTest = test.extend<{
       mkdtempSync(join(tmpdir(), 'skills-desktop-e2e-opacity-')),
     )
     try {
-      // Stage only this test's preferences before the shared fixture launches Electron.
       writeSettingsFile(isolatedHome, initialSettings)
+      mkdirSync(join(isolatedHome, '.claude/skills'), { recursive: true })
+      const source = join(isolatedHome, '.agents/skills/opacity-example')
+      mkdirSync(source, { recursive: true })
+      writeFileSync(
+        join(source, 'SKILL.md'),
+        '---\nname: opacity-example\ndescription: Background transparency fixture\n---\n# Clear text\n\nReadable through a transparent inspector.\n',
+      )
+      symlinkSync(source, join(isolatedHome, '.claude/skills/opacity-example'))
       await use(isolatedHome)
     } finally {
       rmSync(isolatedHome, { recursive: true, force: true })
     }
   },
   settingsWindow: async ({ electronApp, appWindow }, use) => {
-    const settingsWindowPromise = electronApp.waitForEvent('window')
+    const opened = electronApp.waitForEvent('window')
     await appWindow.getByRole('button', { name: 'Open settings' }).click()
-    const settingsWindow = await settingsWindowPromise
+    const settingsWindow = await opened
     await settingsWindow.waitForLoadState('domcontentloaded')
     await settingsWindow
       .getByRole('button', { name: 'Appearance', exact: true })
@@ -39,260 +55,664 @@ const opacityTest = test.extend<{
 })
 
 opacityTest(
-  'preserves the legacy Entire opacity when Section settings are first introduced',
-  async ({ appWindow, settingsWindow, electronApp, isolatedHome }) => {
-    // Arrange — the saved file has only the legacy blur radius, with no new fields.
-    const mainWindow = await electronApp.browserWindow(appWindow)
-
-    // Act — the Appearance window reads the migrated settings through preload IPC.
-    const entireSlider = settingsWindow.getByRole('slider', {
-      name: 'Opacity / Blur',
+  'keeps code opaque and reveals the desktop at 45% and 0% without fading Reading text',
+  async ({ appWindow, settingsWindow, electronApp }) => {
+    // Arrange
+    await appWindow
+      .getByRole('heading', { name: 'opacity-example', exact: true })
+      .click()
+    const slider = settingsWindow.getByRole('slider', {
+      name: 'Background opacity',
     })
-
-    // Assert — existing users keep their selected opacity and the Entire mode.
-    await expect(
-      settingsWindow.getByRole('radio', { name: 'Entire' }),
-    ).toBeChecked()
-    await expect(entireSlider).toBeVisible()
-    await expect(entireSlider).toHaveValue('24')
-    await expect(entireSlider).toHaveAttribute('aria-valuetext', '72% / 24px')
-    await expect(
-      settingsWindow.getByRole('slider', { name: 'Left opacity' }),
-    ).toBeHidden()
-    await expect(appWindow.locator('[data-window-section="left"]')).toHaveCSS(
-      'opacity',
-      '1',
-    )
-    // Electron implements whole-window opacity on macOS and Windows only.
-    if (process.platform !== 'linux') {
-      await expect
-        .poll(async () => mainWindow.evaluate((window) => window.getOpacity()))
-        .toBeCloseTo(0.72, 2)
+    const code = appWindow.locator('[data-file-preview-scroll]')
+    await expect(code.locator('.shiki')).toBeVisible()
+    const codePaints = []
+    // Compare compiled Electron CSS at both endpoints, including sticky gutters.
+    for (const endpoint of [
+      { key: 'End', alpha: '1' },
+      { key: 'Home', alpha: '0' },
+    ]) {
+      // Act
+      await slider.press(endpoint.key)
+      await expectSurface(
+        appWindow.locator('[data-window-section="right"]'),
+        endpoint.alpha,
+      )
+      codePaints.push(
+        await code.evaluate((element) => {
+          const lineNumber = element.querySelector('.line-number')
+          if (!lineNumber) throw new Error('Missing highlighted line number')
+          const canvas = document.createElement('canvas')
+          canvas.width = canvas.height = 1
+          const context = canvas.getContext('2d')!
+          // Resolve actual paint alpha; an inherited custom property alone is insufficient.
+          const backgrounds = [element, lineNumber].map((node) => {
+            const style = getComputedStyle(node)
+            context.clearRect(0, 0, 1, 1)
+            context.fillStyle = style.backgroundColor
+            context.fillRect(0, 0, 1, 1)
+            return {
+              color: style.backgroundColor,
+              alpha: context.getImageData(0, 0, 1, 1).data[3] / 255,
+              opacity: style.opacity,
+            }
+          })
+          const colors = Array.from(
+            element.querySelectorAll('.shiki span'),
+            (node) => getComputedStyle(node).color,
+          )
+          return { backgrounds, colors }
+        }),
+      )
     }
-    expect(readSettingsFile(isolatedHome)).toEqual({
-      windowBackgroundBlurRadius: 24,
+    // Assert: host/gutter remain solid and all syntax colors survive clear panes.
+    expect(codePaints[0].backgrounds).toMatchObject([
+      { alpha: 1, opacity: '1' },
+      { alpha: 1, opacity: '1' },
+    ])
+    expect(codePaints[0].colors.length).toBeGreaterThan(0)
+    expect(codePaints[1]).toEqual(codePaints[0])
+    await appWindow
+      .getByRole('radio', { name: 'Show rendered Markdown' })
+      .click()
+    // Act
+    await slider.fill('45')
+    await slider.dispatchEvent('pointerup')
+    await expectSurface(
+      appWindow.locator('[data-window-section="right"]'),
+      '0.45',
+    )
+    const reading = appWindow.locator('[data-markdown-reading-scroll]')
+    const paints = await reading.evaluate((element) => {
+      const canvas = document.createElement('canvas')
+      canvas.width = canvas.height = 1
+      const context = canvas.getContext('2d')!
+      const backgrounds: number[] = []
+      const opacities: string[] = []
+      // Walk the real ancestors: two 45% fills would conceal 70% of the desktop.
+      for (
+        let node: Element | null = element;
+        node;
+        node = node.parentElement
+      ) {
+        const style = getComputedStyle(node)
+        context.clearRect(0, 0, 1, 1)
+        context.fillStyle = style.backgroundColor
+        context.fillRect(0, 0, 1, 1)
+        const alpha = context.getImageData(0, 0, 1, 1).data[3] / 255
+        if (alpha > 0) backgrounds.push(alpha)
+        opacities.push(style.opacity)
+      }
+      return { backgrounds, opacities }
     })
+    // Assert
+    expect(paints.backgrounds).toHaveLength(1)
+    expect(paints.backgrounds[0]).toBeCloseTo(0.45, 2)
+    expect(new Set(paints.opacities)).toEqual(new Set(['1']))
+    const text = reading.getByText('Readable through a transparent inspector.')
+    const color = await text.evaluate((node) => getComputedStyle(node).color)
+    // Act — Home reaches a clear background, while every foreground stays visible.
+    await slider.press('Home')
+    // Assert
+    await expect(slider).toHaveValue('0')
+    await expect(slider).toHaveAttribute('aria-valuetext', '0%')
+    for (const side of ['left', 'center', 'right']) {
+      await expectSurface(
+        appWindow.locator(`[data-window-section="${side}"]`),
+        '0',
+      )
+    }
+    await expect(text).toHaveCSS('color', color)
+    await expect(text).toHaveCSS('opacity', '1')
+    const main = await electronApp.browserWindow(appWindow)
+    expect(await main.evaluate((window) => window.getOpacity())).toBe(1)
   },
 )
 
 opacityTest(
-  'saves independent section opacity and restores each mode without losing its values',
+  'migrates old settings on launch and paints only translucent backgrounds',
   async ({ appWindow, settingsWindow, electronApp, isolatedHome }) => {
-    // Arrange — open the real Settings window with a saved Entire radius of 24.
-    const mainWindow = await electronApp.browserWindow(appWindow)
-    const leftSlider = settingsWindow.getByRole('slider', {
-      name: 'Left opacity',
+    // Arrange / Act
+    const main = await electronApp.browserWindow(appWindow)
+    const entire = settingsWindow.getByRole('slider', {
+      name: 'Background opacity',
     })
-    const centerSlider = settingsWindow.getByRole('slider', {
-      name: 'Center opacity',
+    // Assert
+    await expect(entire).toHaveValue('72')
+    await expect(entire).toHaveAttribute('aria-valuetext', '72%')
+    await expect(entire).toHaveAttribute('min', '0')
+    await expect(entire).toHaveAttribute('max', '100')
+    expect(readSettingsFile(isolatedHome)).toMatchObject({
+      windowBackgroundOpacityPercent: 72,
+      windowOpacityMode: 'entire',
     })
-    const rightSlider = settingsWindow.getByRole('slider', {
-      name: 'Right opacity',
-    })
-
-    // Act — fill the native ranges, with one arrow step preserving keyboard coverage.
-    await settingsWindow.getByRole('radio', { name: 'Section' }).click()
-    await changeSectionOpacity(leftSlider, 64)
-    await leftSlider.press('ArrowRight')
-    await expect(leftSlider).toHaveValue('65')
-    await changeSectionOpacity(centerSlider, 80)
-    await changeSectionOpacity(rightSlider, 95)
-
-    // Assert — all three persisted values reach the main window independently.
+    expect(readSettingsFile(isolatedHome)).not.toHaveProperty(
+      'windowBackgroundBlurRadius',
+    )
     await expect
-      .poll(() => readSettingsFile(isolatedHome))
-      .toMatchObject({
-        windowOpacityMode: 'section',
-        windowBackgroundBlurRadius: 24,
-        leftSectionOpacityPercent: 65,
-        centerSectionOpacityPercent: 80,
-        rightSectionOpacityPercent: 95,
-      })
-    await expect(appWindow.locator('[data-window-section="left"]')).toHaveCSS(
-      'opacity',
-      '0.65',
-    )
-    await expect(appWindow.locator('[data-window-section="center"]')).toHaveCSS(
-      'opacity',
-      '0.8',
-    )
-    await expect(appWindow.locator('[data-window-section="right"]')).toHaveCSS(
-      'opacity',
-      '0.95',
-    )
-    await expect(appWindow.locator('[data-opacity-mode="section"]')).toHaveCSS(
-      'background-color',
-      'rgba(0, 0, 0, 0)',
-    )
-    // Electron reports RGB only here; capturePage below verifies the rendered alpha.
-    await expect
-      .poll(async () =>
-        mainWindow.evaluate((window) => ({
-          opacity: window.getOpacity(),
-          background: window.getBackgroundColor(),
-        })),
+      .poll(async () => main.evaluate((window) => window.getOpacity()))
+      .toBe(1)
+    for (const side of ['left', 'center', 'right']) {
+      await expectSurface(
+        appWindow.locator(`[data-window-section="${side}"]`),
+        '0.72',
       )
-      .toEqual({ opacity: 1, background: '#000000' })
-    // The separate Settings window stays fully readable while main sections fade.
-    const preferencesWindow = await electronApp.browserWindow(settingsWindow)
-    expect(
-      await preferencesWindow.evaluate((window) => window.getOpacity()),
-    ).toBe(1)
-
-    // Act — reset only Right, then switch to the saved Entire mode and back.
-    await settingsWindow
-      .getByRole('button', { name: 'Reset to default: Right opacity' })
-      .click()
-    await expect
-      .poll(() => readSettingsFile(isolatedHome))
-      .toMatchObject({
-        leftSectionOpacityPercent: 65,
-        centerSectionOpacityPercent: 80,
-        rightSectionOpacityPercent: 100,
-      })
-    await expect(appWindow.locator('[data-window-section="right"]')).toHaveCSS(
-      'opacity',
-      '1',
-    )
-    await settingsWindow.getByRole('radio', { name: 'Entire' }).click()
-    await expect(
-      settingsWindow.getByRole('slider', { name: 'Opacity / Blur' }),
-    ).toHaveValue('24')
-    await expect(appWindow.locator('[data-window-section="left"]')).toHaveCSS(
-      'opacity',
-      '1',
-    )
-    await expect(appWindow.locator('[data-window-section="center"]')).toHaveCSS(
-      'opacity',
-      '1',
-    )
-    if (process.platform !== 'linux') {
-      await expect
-        .poll(async () => mainWindow.evaluate((window) => window.getOpacity()))
-        .toBeCloseTo(0.72, 2)
     }
-    await settingsWindow.getByRole('radio', { name: 'Section' }).click()
-
-    // Assert — each mode retains its own values after the complete round trip.
-    await expect(leftSlider).toHaveValue('65')
-    await expect(centerSlider).toHaveValue('80')
-    await expect(rightSlider).toHaveValue('100')
-    await expect(rightSlider).toBeVisible()
-    await expect(
-      settingsWindow.getByRole('button', {
-        name: 'Reset to default: Right opacity',
-      }),
-    ).toBeDisabled()
-    await expect
-      .poll(() => readSettingsFile(isolatedHome))
-      .toMatchObject({
-        windowOpacityMode: 'section',
-        windowBackgroundBlurRadius: 24,
-        leftSectionOpacityPercent: 65,
-        centerSectionOpacityPercent: 80,
-        rightSectionOpacityPercent: 100,
-      })
-    await expect(appWindow.locator('[data-window-section="left"]')).toHaveCSS(
-      'opacity',
-      '0.65',
+    await expect(settingsWindow.locator('.opaque-surface').first()).toHaveCSS(
+      '--window-surface-opacity',
+      '1',
     )
-    await expect(appWindow.locator('[data-window-section="center"]')).toHaveCSS(
-      'opacity',
-      '0.8',
-    )
+    expect(
+      await (
+        await electronApp.browserWindow(settingsWindow)
+      ).evaluate((window) => window.getOpacity()),
+    ).toBe(1)
   },
 )
 
-opacityTest.describe('saved Section mode', () => {
+opacityTest(
+  'saves completed gestures immediately and retains mode values and individual resets',
+  async ({ appWindow, settingsWindow, electronApp, isolatedHome }) => {
+    // Arrange
+    const entire = settingsWindow.getByRole('slider', {
+      name: 'Background opacity',
+    })
+    await entire.fill('92')
+    await entire.press('ArrowRight')
+    await expect(entire).toHaveValue('93')
+    // Act
+    await settingsWindow
+      .getByRole('radio', { name: 'Section', exact: true })
+      .click()
+    const left = settingsWindow.getByRole('slider', { name: 'Left opacity' })
+    await left.fill('85')
+    await left.press('ArrowRight')
+    const center = settingsWindow.getByRole('slider', {
+      name: 'Center opacity',
+    })
+    await center.fill('90')
+    await center.dispatchEvent('pointerup')
+    const right = settingsWindow.getByRole('slider', { name: 'Right opacity' })
+    await right.fill('95')
+    await right.dispatchEvent('blur')
+    // Assert
+    await expect
+      .poll(() => readSettingsFile(isolatedHome))
+      .toMatchObject({
+        windowBackgroundOpacityPercent: 93,
+        leftSectionOpacityPercent: 86,
+        centerSectionOpacityPercent: 90,
+        rightSectionOpacityPercent: 95,
+      })
+    await expectSurface(
+      appWindow.locator('[data-window-section="left"]'),
+      '0.86',
+    )
+    await expectSurface(
+      appWindow.locator('[data-window-section="center"]'),
+      '0.9',
+    )
+    await expectSurface(
+      appWindow.locator('[data-window-section="right"]'),
+      '0.95',
+    )
+    // Act — a section reset must not discard other mode values.
+    await settingsWindow
+      .getByRole('button', { name: 'Reset to default: Right opacity' })
+      .click()
+    await settingsWindow
+      .getByRole('radio', { name: 'Entire', exact: true })
+      .click()
+    await expect(entire).toHaveValue('93')
+    await expectSurface(
+      appWindow.locator('[data-window-section="left"]'),
+      '0.93',
+    )
+    await settingsWindow
+      .getByRole('radio', { name: 'Section', exact: true })
+      .click()
+    // Assert
+    await expect(left).toHaveValue('86')
+    await expect(center).toHaveValue('90')
+    await expect(right).toHaveValue('100')
+    expect(
+      await (
+        await electronApp.browserWindow(appWindow)
+      ).evaluate((window) => window.getOpacity()),
+    ).toBe(1)
+  },
+)
+
+opacityTest(
+  'keeps completed keyboard edits through navigation, window closure and reopening',
+  async ({ settingsWindow, appWindow, electronApp, isolatedHome }) => {
+    // Arrange
+    const slider = settingsWindow.getByRole('slider', {
+      name: 'Background opacity',
+    })
+    // Act — no debounce wait between the completed key gesture and navigation/close.
+    await slider.press('End')
+    await slider.press('ArrowLeft')
+    await settingsWindow
+      .getByRole('button', { name: 'General', exact: true })
+      .click()
+    await settingsWindow.close()
+    // Assert
+    await expect
+      .poll(() => readSettingsFile(isolatedHome))
+      .toMatchObject({ windowBackgroundOpacityPercent: 99 })
+    const opened = electronApp.waitForEvent('window')
+    await appWindow.getByRole('button', { name: 'Open settings' }).click()
+    const reopened = await opened
+    await reopened
+      .getByRole('button', { name: 'Appearance', exact: true })
+      .click()
+    await expect(
+      reopened.getByRole('slider', { name: 'Background opacity' }),
+    ).toHaveValue('99')
+  },
+)
+
+opacityTest(
+  'saves without a main window and recreates it with native opacity one',
+  async ({ appWindow, settingsWindow, electronApp, isolatedHome }) => {
+    opacityTest.skip(
+      process.platform !== 'darwin',
+      'macOS keeps the app alive after closing its main window',
+    )
+    // Arrange
+    await appWindow.close()
+    // Act
+    const slider = settingsWindow.getByRole('slider', {
+      name: 'Background opacity',
+    })
+    await slider.press('End')
+    await expect
+      .poll(() => readSettingsFile(isolatedHome))
+      .toMatchObject({ windowBackgroundOpacityPercent: 100 })
+    const opened = electronApp.waitForEvent('window')
+    await electronApp.evaluate(({ app }) => app.emit('activate'))
+    const recreated = await opened
+    // Assert
+    await expectSurface(recreated.locator('[data-window-section="left"]'), '1')
+    expect(
+      await (
+        await electronApp.browserWindow(recreated)
+      ).evaluate((window) => window.getOpacity()),
+    ).toBe(1)
+  },
+)
+
+opacityTest(
+  'shows an actual Settings toast for disk failure and recovers on the next edit',
+  async ({ settingsWindow, isolatedHome }) => {
+    // Arrange — a directory at the temporary file path safely forces a real write failure.
+    const temporaryPath = `${settingsFilePath(isolatedHome)}.tmp`
+    mkdirSync(temporaryPath)
+    const slider = settingsWindow.getByRole('slider', {
+      name: 'Background opacity',
+    })
+    // Act
+    await slider.press('End')
+    // Assert
+    await expect(
+      settingsWindow.getByText('Settings could not be saved', { exact: true }),
+    ).toBeVisible()
+    await expect(slider).toHaveValue('72')
+    expect(readSettingsFile(isolatedHome)).toMatchObject({
+      windowBackgroundOpacityPercent: 72,
+    })
+    // Act
+    rmSync(temporaryPath, { recursive: true })
+    await slider.press('End')
+    // Assert
+    await expect
+      .poll(() => readSettingsFile(isolatedHome))
+      .toMatchObject({ windowBackgroundOpacityPercent: 100 })
+  },
+)
+
+opacityTest.describe('legacy Section settings', () => {
   opacityTest.use({
     initialSettings: {
       windowOpacityMode: 'section',
       windowBackgroundBlurRadius: 0,
       leftSectionOpacityPercent: 45,
-      centerSectionOpacityPercent: 70,
+      centerSectionOpacityPercent: 90,
       rightSectionOpacityPercent: 100,
     },
   })
-
   opacityTest(
-    'launches with transparent section surfaces even when the saved Entire setting is opaque',
+    'preserves old section strengths, mode and the opaque Entire setting',
     async ({ appWindow, settingsWindow, electronApp, isolatedHome }) => {
-      // Arrange — Section mode was saved before launch with an opaque legacy radius.
-      const mainWindow = await electronApp.browserWindow(appWindow)
-
-      // Act — let both native window creation and Settings hydration consume the file.
+      // Arrange / Act
+      const main = await electronApp.browserWindow(appWindow)
+      // Assert
       await expect(
         settingsWindow.getByRole('radio', { name: 'Section' }),
       ).toBeChecked()
-
-      // Assert — an opaque native backplate must not hide per-section transparency.
-      await expect
-        .poll(async () =>
-          mainWindow.evaluate((window) => ({
-            opacity: window.getOpacity(),
-            background: window.getBackgroundColor(),
-          })),
-        )
-        .toEqual({ opacity: 1, background: '#000000' })
-      await expect(appWindow.locator('[data-window-section="left"]')).toHaveCSS(
-        'opacity',
+      await expectSurface(
+        appWindow.locator('[data-window-section="left"]'),
         '0.45',
       )
-      await expect(
+      await expectSurface(
         appWindow.locator('[data-window-section="center"]'),
-      ).toHaveCSS('opacity', '0.7')
-      await expect(
+        '0.9',
+      )
+      await expectSurface(
         appWindow.locator('[data-window-section="right"]'),
-      ).toHaveCSS('opacity', '1')
-      await expect(
-        settingsWindow.getByRole('slider', { name: 'Left opacity' }),
-      ).toHaveValue('45')
-      await expect(
-        settingsWindow.getByRole('slider', { name: 'Right opacity' }),
-      ).toBeVisible()
-      // Capture an interior pixel so rounded window corners cannot fake transparency.
-      const leftSectionCenter = await appWindow
-        .locator('[data-window-section="left"]')
-        .evaluate((element) => {
-          const bounds = element.getBoundingClientRect()
-          return {
-            x: Math.floor(bounds.x + bounds.width / 2),
-            y: Math.floor(bounds.y + bounds.height / 2),
-          }
-        })
-      const pixelAlpha = await mainWindow.evaluate(async (window, position) => {
-        const capture = await window.capturePage(
-          { ...position, width: 1, height: 1 },
-          { stayHidden: true },
-        )
-        return capture.toBitmap()[3]
-      }, leftSectionCenter)
-      expect(pixelAlpha).toBeGreaterThan(0)
-      expect(pixelAlpha).toBeLessThan(255)
-      expect(readSettingsFile(isolatedHome)).toEqual({
-        windowOpacityMode: 'section',
-        windowBackgroundBlurRadius: 0,
+        '1',
+      )
+      expect(readSettingsFile(isolatedHome)).toMatchObject({
+        windowBackgroundOpacityPercent: 100,
         leftSectionOpacityPercent: 45,
-        centerSectionOpacityPercent: 70,
+        centerSectionOpacityPercent: 90,
         rightSectionOpacityPercent: 100,
       })
+      expect(
+        await main.evaluate((window) => ({
+          opacity: window.getOpacity(),
+          background: window.getBackgroundColor(),
+        })),
+      ).toEqual({ opacity: 1, background: '#000000' })
     },
   )
 })
 
-/**
- * Set a native Section range when opacity E2Es exercise its change and persistence flow.
- * @param slider - Native Section range input from the real Settings window.
- * @param percent - Requested integer percentage between 45 and 100.
- * @returns Resolves after the visible control reaches the requested percentage.
- * @example
- * await changeSectionOpacity(leftSlider, 65) // Left slider displays 65%.
+/** Checks pane-wide opacity independently from the registered background property after real IPC updates.
+ * @returns Resolves once the renderer has applied the expected alpha.
+ * @example await expectSurface(leftPane, '0.85')
  */
-async function changeSectionOpacity(
-  slider: Locator,
-  percent: number,
-): Promise<void> {
-  await expect(slider).toBeVisible()
-  await slider.fill(String(percent))
-  await expect(slider).toHaveValue(String(percent))
+async function expectSurface(section: Locator, alpha: string): Promise<void> {
+  await expect(section).toHaveCSS('opacity', '1')
+  await expect(section).toHaveCSS('--window-surface-opacity', alpha)
 }
+
+opacityTest(
+  'shows save failures in the main window and keeps its context menu opaque',
+  async ({ appWindow, isolatedHome }) => {
+    // Arrange
+    const temporaryPath = `${settingsFilePath(isolatedHome)}.tmp`
+    mkdirSync(temporaryPath)
+    const agent = appWindow.getByRole('button', {
+      name: /Filter skills by Claude Code/,
+    })
+    // Act
+    await agent.click({ button: 'right' })
+    // Assert
+    await expect(appWindow.getByRole('menu')).toHaveCSS(
+      '--window-surface-opacity',
+      '1',
+    )
+    // Act
+    await appWindow.getByRole('menuitem', { name: 'Hide from sidebar' }).click()
+    // Assert
+    await expect(
+      appWindow.getByText('Settings could not be saved', { exact: true }),
+    ).toBeVisible()
+    await expect(agent).toBeVisible()
+    expect(readSettingsFile(isolatedHome)).toMatchObject({ hiddenAgentIds: [] })
+    rmSync(temporaryPath, { recursive: true })
+  },
+)
+
+opacityTest(
+  'keeps rapid edits and both windows consistent through slow or failed saves',
+  async ({ appWindow, settingsWindow, electronApp, isolatedHome }) => {
+    // Arrange — hold the debounce clock and real disk renames independently.
+    const slider = settingsWindow.getByRole('slider', {
+      name: 'Background opacity',
+    })
+    await expect(slider).toHaveValue('72')
+    await settingsWindow.clock.install({
+      time: new Date('2026-09-07T00:00:00Z'),
+    })
+    await settingsWindow.clock.pauseAt(new Date('2026-09-07T00:00:01Z'))
+    const delayedWrite = await electronApp.evaluateHandle(
+      (_electron, filePath) => {
+        const fileSystem = process.getBuiltinModule('fs').promises
+        const originalRename = fileSystem.rename
+        const pendingWrites: Array<{
+          resolve: () => void
+          reject: (error: Error) => void
+        }> = []
+        fileSystem.rename = async (...args) => {
+          // Delay only this isolated profile, preserving every unrelated filesystem operation.
+          if (args[1] === filePath) {
+            await new Promise<void>((resolve, reject) =>
+              pendingWrites.push({ resolve, reject }),
+            )
+          }
+          await originalRename(...args)
+        }
+        return {
+          hasPending: () => pendingWrites.length > 0,
+          settleNext: (fail: boolean) => {
+            const pending = pendingWrites.shift()
+            // Reject before rename so the previously durable JSON stays intact.
+            if (fail) {
+              pending?.reject(new Error('Simulated settings rename failure'))
+            } else {
+              pending?.resolve()
+            }
+          },
+          restore: () => {
+            fileSystem.rename = originalRename
+            for (const pending of pendingWrites.splice(0)) pending.resolve()
+          },
+        }
+      },
+      settingsFilePath(isolatedHome),
+    )
+    /** Settles one real queued save when this regression chooses its acknowledgement or disk failure.
+     * @returns Resolves after releasing or rejecting the oldest paused rename.
+     * @example await settleNextSave('save') // The next queued preference becomes durable.
+     */
+    const settleNextSave = async (outcome: 'save' | 'fail'): Promise<void> => {
+      await expect
+        .poll(async () => delayedWrite.evaluate((write) => write.hasPending()))
+        .toBe(true)
+      await delayedWrite.evaluate(
+        (write, fail) => write.settleNext(fail),
+        outcome === 'fail',
+      )
+    }
+
+    try {
+      // Act — finish two gestures while disk is slow, then begin the newest draft.
+      await slider.fill('85')
+      await slider.dispatchEvent('pointerup')
+      await expect
+        .poll(async () => delayedWrite.evaluate((write) => write.hasPending()))
+        .toBe(true)
+      await slider.fill('90')
+      await slider.dispatchEvent('pointerup')
+      await slider.fill('95')
+      await settleNextSave('save')
+      await settleNextSave('save')
+      await expect
+        .poll(() => readSettingsFile(isolatedHome))
+        .toMatchObject({
+          windowBackgroundOpacityPercent: 90,
+        })
+      // Clock control is shared by both windows; read the target before advancing its transition.
+      await expect
+        .poll(async () =>
+          appWindow
+            .locator('[data-window-section="right"]')
+            .evaluate((element) =>
+              element.style.getPropertyValue('--window-surface-opacity'),
+            ),
+        )
+        .toBe('0.9')
+
+      // Assert — acknowledgements for 85 and 90 must not replace the unfinished 95 draft.
+      await expect(slider).toHaveValue('95')
+      // Act
+      await slider.dispatchEvent('pointerup')
+      await settleNextSave('save')
+      // Assert — the completed newest gesture reaches disk and the other window.
+      await expect
+        .poll(() => readSettingsFile(isolatedHome))
+        .toMatchObject({
+          windowBackgroundOpacityPercent: 95,
+        })
+      await settingsWindow.clock.runFor(200)
+      await expectSurface(
+        appWindow.locator('[data-window-section="right"]'),
+        '0.95',
+      )
+
+      // Act — a genuinely external change still cancels an unfinished local draft.
+      await slider.fill('96')
+      const externalSave = appWindow.evaluate(async () =>
+        window.electron.settings.set({ windowBackgroundOpacityPercent: 85 }),
+      )
+      await settleNextSave('save')
+      await externalSave
+      await expect(slider).toHaveValue('85')
+      await slider.dispatchEvent('pointerup')
+      await settingsWindow.clock.runFor(200)
+      // Assert
+      expect(readSettingsFile(isolatedHome)).toMatchObject({
+        windowBackgroundOpacityPercent: 85,
+      })
+
+      // Act — the other window starts first, then this window queues its own newer edit.
+      const earlierExternalSave = appWindow.evaluate(async () =>
+        window.electron.settings.set({ windowBackgroundOpacityPercent: 90 }),
+      )
+      await expect
+        .poll(async () => delayedWrite.evaluate((write) => write.hasPending()))
+        .toBe(true)
+      await slider.fill('95')
+      await slider.dispatchEvent('pointerup')
+      await settleNextSave('save')
+      await earlierExternalSave
+      await expect(slider).toHaveValue('90')
+      await settleNextSave('save')
+      // Assert — the latest own broadcast restores convergence after the other window's update.
+      await expect(slider).toHaveValue('95')
+      await expect
+        .poll(() => readSettingsFile(isolatedHome))
+        .toMatchObject({ windowBackgroundOpacityPercent: 95 })
+      await settingsWindow.clock.runFor(200)
+      await expectSurface(
+        appWindow.locator('[data-window-section="right"]'),
+        '0.95',
+      )
+
+      // Arrange — an unrelated external save can replace the optimistic snapshot before a failure.
+      await slider.fill('100')
+      await slider.dispatchEvent('pointerup')
+      await settleNextSave('save')
+      await expect
+        .poll(() => readSettingsFile(isolatedHome))
+        .toMatchObject({ windowBackgroundOpacityPercent: 100 })
+      const unrelatedExternalSave = appWindow.evaluate(async () =>
+        window.electron.settings.set({ defaultSkillTab: 'info' }),
+      )
+      await expect
+        .poll(async () => delayedWrite.evaluate((write) => write.hasPending()))
+        .toBe(true)
+      // Act — the external write succeeds, 85 succeeds silently, and the latest 90 save fails.
+      await slider.fill('85')
+      await slider.dispatchEvent('pointerup')
+      await slider.fill('90')
+      await slider.dispatchEvent('pointerup')
+      await settleNextSave('save')
+      await unrelatedExternalSave
+      await expect(slider).toHaveValue('100')
+      await settleNextSave('save')
+      await settleNextSave('fail')
+      // Assert — failure recovery adopts durable 85 even after the external snapshot displaced 90.
+      await expect(slider).toHaveValue('85')
+      // Sonner schedules its visible toast on a timer; advance it after canonical recovery.
+      await settingsWindow.clock.runFor(200)
+      await expect(
+        settingsWindow.getByText('Settings could not be saved', {
+          exact: true,
+        }),
+      ).toBeVisible()
+      expect(readSettingsFile(isolatedHome)).toMatchObject({
+        windowBackgroundOpacityPercent: 85,
+        defaultSkillTab: 'info',
+      })
+      await expectSurface(
+        appWindow.locator('[data-window-section="right"]'),
+        '0.85',
+      )
+
+      // Act — an older failed save must not reset an already newer local request or draft.
+      await slider.fill('90')
+      await slider.dispatchEvent('pointerup')
+      await expect
+        .poll(async () => delayedWrite.evaluate((write) => write.hasPending()))
+        .toBe(true)
+      await slider.fill('95')
+      await slider.dispatchEvent('pointerup')
+      await slider.fill('96')
+      await settleNextSave('fail')
+      await expect
+        .poll(async () => delayedWrite.evaluate((write) => write.hasPending()))
+        .toBe(true)
+      // A same-renderer IPC round trip observes the prior failure notification before checking its draft.
+      expect(
+        await settingsWindow.evaluate(async () =>
+          window.electron.settings.get(),
+        ),
+      ).toMatchObject({ windowBackgroundOpacityPercent: 85 })
+      // Assert
+      await expect(slider).toHaveValue('96')
+      // Act
+      await settleNextSave('save')
+      await expect
+        .poll(() => readSettingsFile(isolatedHome))
+        .toMatchObject({ windowBackgroundOpacityPercent: 95 })
+      await slider.dispatchEvent('pointerup')
+      await settleNextSave('save')
+      // Assert — the new draft remains saveable after the earlier failure.
+      await expect(slider).toHaveValue('96')
+      await expect
+        .poll(() => readSettingsFile(isolatedHome))
+        .toMatchObject({ windowBackgroundOpacityPercent: 96 })
+      await settingsWindow.clock.runFor(200)
+      await expectSurface(
+        appWindow.locator('[data-window-section="right"]'),
+        '0.96',
+      )
+    } finally {
+      await delayedWrite.evaluate((write) => write.restore())
+      await delayedWrite.dispose()
+      await settingsWindow.clock.resume()
+    }
+  },
+)
+
+opacityTest(
+  'keeps the native canvas clear when overlapping edits restore full background opacity',
+  async ({ appWindow, electronApp }) => {
+    // Arrange
+    await appWindow.evaluate(async () =>
+      window.electron.settings.set({ windowBackgroundOpacityPercent: 100 }),
+    )
+    // Act — both handlers can observe 100 before the serialized disk writes finish.
+    await appWindow.evaluate(async () =>
+      Promise.all([
+        window.electron.settings.set({ windowBackgroundOpacityPercent: 85 }),
+        window.electron.settings.set({ windowBackgroundOpacityPercent: 100 }),
+      ]),
+    )
+    // Assert
+    const main = await electronApp.browserWindow(appWindow)
+    await expect
+      .poll(async () =>
+        main.evaluate((window) => ({
+          opacity: window.getOpacity(),
+          background: window.getBackgroundColor(),
+        })),
+      )
+      .toEqual({ opacity: 1, background: '#000000' })
+    await expectSurface(appWindow.locator('[data-window-section="left"]'), '1')
+  },
+)

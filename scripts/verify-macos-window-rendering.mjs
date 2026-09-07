@@ -224,7 +224,7 @@ async function writeSmokeSettings(userDataDirectory) {
     JSON.stringify(
       {
         windowSize: { width: 1200, height: 800 },
-        windowBackgroundBlurRadius: 0,
+        windowBackgroundOpacityPercent: 100,
         autoDownloadUpdates: false,
       },
       null,

@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
@@ -25,7 +25,7 @@ afterEach(() => {
  * @param overrides - Settings fields that differ from DEFAULT_SETTINGS.
  * @returns Redux store with settings preloaded.
  * @example
- * await createStore({ windowBackgroundBlurRadius: 24, markdownFontSizePx: 18 })
+ * await createStore({ windowBackgroundOpacityPercent: 90, markdownFontSizePx: 18 })
  */
 async function createStore(
   overrides: Partial<Settings> = {},
@@ -43,12 +43,12 @@ async function createStore(
 }
 
 describe('Settings → Appearance', () => {
-  it('preserves the Entire intensity and independent percentages when switching opacity modes', async () => {
+  test('preserves the Entire percentage and independent percentages when switching opacity modes', async () => {
     // Arrange
     const store = await createStore({
-      windowBackgroundBlurRadius: 24,
-      leftSectionOpacityPercent: 65,
-      centerSectionOpacityPercent: 80,
+      windowBackgroundOpacityPercent: 90,
+      leftSectionOpacityPercent: 85,
+      centerSectionOpacityPercent: 90,
       rightSectionOpacityPercent: 95,
     })
     const { Appearance } = await import('./Appearance')
@@ -62,22 +62,22 @@ describe('Settings → Appearance', () => {
     await screen.getByRole('radio', { name: 'Section', exact: true }).click()
     const leftSlider = screen.getByRole('slider', { name: 'Left opacity' })
     await expect.element(leftSlider).toBeVisible()
-    await expect.element(leftSlider).toHaveValue('65')
-    await leftSlider.fill('70')
+    await expect.element(leftSlider).toHaveValue('85')
+    await leftSlider.fill('87')
     await expect
       .poll(() => mockSettingsSet.mock.calls)
-      .toContainEqual([{ leftSectionOpacityPercent: 70 }])
+      .toContainEqual([{ leftSectionOpacityPercent: 87 }])
     await screen.getByRole('radio', { name: 'Entire', exact: true }).click()
 
     // Assert
     await expect
-      .element(screen.getByRole('slider', { name: 'Opacity / Blur' }))
-      .toHaveValue('24')
+      .element(screen.getByRole('slider', { name: 'Background opacity' }))
+      .toHaveValue('90')
     await screen.getByRole('radio', { name: 'Section', exact: true }).click()
-    await expect.element(leftSlider).toHaveValue('70')
+    await expect.element(leftSlider).toHaveValue('87')
     await expect
       .element(screen.getByRole('slider', { name: 'Center opacity' }))
-      .toHaveValue('80')
+      .toHaveValue('90')
     await expect
       .element(screen.getByRole('slider', { name: 'Right opacity' }))
       .toHaveValue('95')
@@ -89,12 +89,12 @@ describe('Settings → Appearance', () => {
     })
   })
 
-  it('resets only the chosen section to full opacity', async () => {
+  test('resets only the chosen section to full opacity', async () => {
     // Arrange
     const store = await createStore({
       windowOpacityMode: 'section',
-      leftSectionOpacityPercent: 65,
-      centerSectionOpacityPercent: 80,
+      leftSectionOpacityPercent: 85,
+      centerSectionOpacityPercent: 90,
       rightSectionOpacityPercent: 95,
     })
     const { Appearance } = await import('./Appearance')
@@ -115,15 +115,15 @@ describe('Settings → Appearance', () => {
       .toHaveValue('100')
     await expect
       .element(screen.getByRole('slider', { name: 'Left opacity' }))
-      .toHaveValue('65')
+      .toHaveValue('85')
     await expect
       .element(screen.getByRole('slider', { name: 'Center opacity' }))
-      .toHaveValue('80')
+      .toHaveValue('90')
     expect(mockSettingsSet).toHaveBeenCalledExactlyOnceWith({
       rightSectionOpacityPercent: 100,
     })
   })
-  it('persists Toolbar text when the Installed search count display is changed', async () => {
+  test('persists Toolbar text when the Installed search count display is changed', async () => {
     // Arrange
     const store = await createStore()
     const { Appearance } = await import('./Appearance')
@@ -147,7 +147,7 @@ describe('Settings → Appearance', () => {
     expect(settingsState.settings.installedSearchCountDisplay).toBe('inline')
   })
 
-  it('persists the new window blur radius when the opacity slider moves', async () => {
+  test('persists the new background opacity percentage when the opacity slider moves', async () => {
     // Arrange
     const store = await createStore()
     const { Appearance } = await import('./Appearance')
@@ -159,17 +159,17 @@ describe('Settings → Appearance', () => {
 
     // Act
     const slider = screen.getByRole('slider', { name: /Opacity/i })
-    await slider.fill('24')
+    await slider.fill('90')
 
     // Assert
-    await expect.element(screen.getByText('72% / 24px')).toBeVisible()
+    await expect.element(screen.getByText('90%')).toBeVisible()
     await expect.poll(() => mockSettingsSet.mock.calls.length).toBe(1)
     expect(mockSettingsSet).toHaveBeenCalledWith({
-      windowBackgroundBlurRadius: 24,
+      windowBackgroundOpacityPercent: 90,
     })
   })
 
-  it('announces the opacity slider value to assistive tech as readable text, not the raw radius', async () => {
+  test('announces the opacity slider value to assistive tech as readable text, in the same units as the slider', async () => {
     // Arrange
     const store = await createStore()
     const { Appearance } = await import('./Appearance')
@@ -180,46 +180,48 @@ describe('Settings → Appearance', () => {
     )
     const slider = screen.getByRole('slider', { name: /Opacity/i })
 
-    // Assert — at the opaque default a screen reader hears 'Opaque', not '0'
-    await expect.element(slider).toHaveAttribute('aria-valuetext', 'Opaque')
+    // Assert — at the opaque default a screen reader hears '100%', matching its numeric value
+    await expect.element(slider).toHaveAttribute('aria-valuetext', '100%')
 
     // Act
-    await slider.fill('24')
+    await slider.fill('90')
 
-    // Assert — after the drag it hears the same badge the eye sees, not '24'
-    await expect.element(slider).toHaveAttribute('aria-valuetext', '72% / 24px')
+    // Assert — after the drag it hears the same badge the eye sees, in the same percentage units
+    await expect.element(slider).toHaveAttribute('aria-valuetext', '90%')
   })
 
-  it('restores the opaque default window when Reset to default is pressed', async () => {
+  test('restores the opaque default window when Reset to default is pressed', async () => {
     // Arrange
-    const store = await createStore({ windowBackgroundBlurRadius: 24 })
+    const store = await createStore({ windowBackgroundOpacityPercent: 90 })
     const { Appearance } = await import('./Appearance')
     const screen = await render(
       <Provider store={store}>
         <Appearance />
       </Provider>,
     )
-    await expect.element(screen.getByText('72% / 24px')).toBeVisible()
+    await expect.element(screen.getByText('90%')).toBeVisible()
 
     // Act — the per-row aria-label disambiguates the three reset buttons.
     await screen
-      .getByRole('button', { name: /Reset to default: Opacity/i })
+      .getByRole('button', { name: /Reset to default: Background opacity/i })
       .click()
 
     // Assert
-    await expect.element(screen.getByText('Opaque')).toBeVisible()
+    await expect
+      .element(screen.getByRole('slider', { name: 'Background opacity' }))
+      .toHaveAttribute('aria-valuetext', '100%')
     await expect.poll(() => mockSettingsSet.mock.calls.length).toBe(1)
     expect(mockSettingsSet).toHaveBeenCalledWith({
-      windowBackgroundBlurRadius: 0,
+      windowBackgroundOpacityPercent: 100,
     })
     expect(
       screen
-        .getByRole('button', { name: /Reset to default: Opacity/i })
+        .getByRole('button', { name: /Reset to default: Background opacity/i })
         .element(),
     ).toBeDisabled()
   })
 
-  it('persists the chosen reading font size when the Reading font size slider moves', async () => {
+  test('persists the chosen reading font size when the Reading font size slider moves', async () => {
     // Arrange
     const store = await createStore()
     const { Appearance } = await import('./Appearance')
@@ -239,7 +241,7 @@ describe('Settings → Appearance', () => {
     expect(mockSettingsSet).toHaveBeenCalledWith({ markdownFontSizePx: 18 })
   })
 
-  it('persists the chosen code font size when the Code font size slider moves', async () => {
+  test('persists the chosen code font size when the Code font size slider moves', async () => {
     // Arrange
     const store = await createStore()
     const { Appearance } = await import('./Appearance')
@@ -259,7 +261,7 @@ describe('Settings → Appearance', () => {
     expect(mockSettingsSet).toHaveBeenCalledWith({ codeFontSizePx: 16 })
   })
 
-  it('persists the chosen code theme when a new theme is selected', async () => {
+  test('persists the chosen code theme when a new theme is selected', async () => {
     // Arrange
     const store = await createStore()
     const { Appearance } = await import('./Appearance')
@@ -279,7 +281,7 @@ describe('Settings → Appearance', () => {
     expect(mockSettingsSet).toHaveBeenCalledWith({ codeThemeId: 'vitesse' })
   })
 
-  it('restores the default reading font size when its Reset to default is pressed', async () => {
+  test('restores the default reading font size when its Reset to default is pressed', async () => {
     // Arrange
     const store = await createStore({ markdownFontSizePx: 18 })
     const { Appearance } = await import('./Appearance')
@@ -306,7 +308,7 @@ describe('Settings → Appearance', () => {
     ).toBeDisabled()
   })
 
-  it('ignores deselecting the already-active Installed search count toggle', async () => {
+  test('ignores deselecting the already-active Installed search count toggle', async () => {
     // Arrange — default is the 'tab' display, so 'Tab badge' is the active toggle.
     const store = await createStore()
     const { Appearance } = await import('./Appearance')
@@ -331,9 +333,9 @@ describe('Settings → Appearance', () => {
     expect(settingsState.settings.installedSearchCountDisplay).toBe('tab')
   })
 
-  it('does not persist a slider drag that an incoming settings broadcast overrides', async () => {
+  test('does not persist a slider drag that an incoming settings broadcast overrides', async () => {
     // Arrange
-    const store = await createStore({ windowBackgroundBlurRadius: 12 })
+    const store = await createStore({ windowBackgroundOpacityPercent: 95 })
     const { setSettings } =
       await import('@/renderer/src/redux/slices/settingsSlice')
     const { Appearance } = await import('./Appearance')
@@ -345,15 +347,21 @@ describe('Settings → Appearance', () => {
 
     // Act
     const slider = screen.getByRole('slider', { name: /Opacity/i })
-    await slider.fill('24')
+    await slider.fill('90')
     store.dispatch(
       setSettings({
         ...DEFAULT_SETTINGS,
-        windowBackgroundBlurRadius: 0,
+        windowBackgroundOpacityPercent: 100,
       }),
     )
 
-    // Assert
+    // Assert — the cancelled draft must not return when the original gesture ends.
+    await expect.element(slider).toHaveValue('100')
+    slider
+      .element()
+      .dispatchEvent(
+        new KeyboardEvent('keyup', { bubbles: true, key: 'ArrowLeft' }),
+      )
     await new Promise((resolve) => window.setTimeout(resolve, 180))
     expect(mockSettingsSet).not.toHaveBeenCalled()
   })

@@ -3,6 +3,148 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Background alpha is inherited; text, borders and solid action fills keep their own opacity. */
+@property --window-surface-opacity {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
+
+/* Inline expressions resolve at each painted element, so opaque boundaries also reset text correction. */
+@theme inline {
+  --background-color-background: oklch(
+    from var(--background) l c h / var(--window-surface-opacity, 1)
+  );
+  --background-color-card: oklch(
+    from var(--card) l c h / var(--window-surface-opacity, 1)
+  );
+  --background-color-muted: oklch(
+    from var(--muted) l c h / var(--window-surface-opacity, 1)
+  );
+  --background-color-secondary: oklch(
+    from var(--secondary) l c h / var(--window-surface-opacity, 1)
+  );
+  --text-color-muted-foreground: oklch(
+    from var(--muted-foreground)
+      calc(
+        l +
+          (clamp(var(--window-text-floor), l, var(--window-text-ceiling)) - l) *
+          min(1, (1 - var(--window-surface-opacity, 1)) / 0.15)
+      )
+      c h
+  );
+  --text-color-primary: oklch(
+    from var(--primary)
+      calc(
+        l +
+          (clamp(var(--window-text-floor), l, var(--window-text-ceiling)) - l) *
+          min(1, (1 - var(--window-surface-opacity, 1)) / 0.15)
+      )
+      c h
+  );
+  --text-color-accent: oklch(
+    from var(--accent)
+      calc(
+        l +
+          (clamp(var(--window-text-floor), l, var(--window-text-ceiling)) - l) *
+          min(1, (1 - var(--window-surface-opacity, 1)) / 0.15)
+      )
+      c h
+  );
+  --text-color-success: oklch(
+    from var(--success)
+      calc(
+        l +
+          (clamp(var(--window-text-floor), l, var(--window-text-ceiling)) - l) *
+          min(1, (1 - var(--window-surface-opacity, 1)) / 0.15)
+      )
+      c h
+  );
+  --text-color-destructive: oklch(
+    from var(--destructive)
+      calc(
+        l +
+          (clamp(var(--window-text-floor), l, var(--window-text-ceiling)) - l) *
+          min(1, (1 - var(--window-surface-opacity, 1)) / 0.15)
+      )
+      c h
+  );
+  --text-color-gstack: oklch(
+    from var(--gstack)
+      calc(
+        l +
+          (clamp(var(--window-text-floor), l, var(--window-text-ceiling)) - l) *
+          min(1, (1 - var(--window-surface-opacity, 1)) / 0.15)
+      )
+      c h
+  );
+  --text-color-amber-300: oklch(
+    from var(--color-amber-300)
+      calc(
+        l +
+          (clamp(var(--window-text-floor), l, var(--window-text-ceiling)) - l) *
+          min(1, (1 - var(--window-surface-opacity, 1)) / 0.15)
+      )
+      c h
+  );
+  --text-color-amber-400: oklch(
+    from var(--color-amber-400)
+      calc(
+        l +
+          (clamp(var(--window-text-floor), l, var(--window-text-ceiling)) - l) *
+          min(1, (1 - var(--window-surface-opacity, 1)) / 0.15)
+      )
+      c h
+  );
+  --text-color-amber-500: oklch(
+    from var(--color-amber-500)
+      calc(
+        l +
+          (clamp(var(--window-text-floor), l, var(--window-text-ceiling)) - l) *
+          min(1, (1 - var(--window-surface-opacity, 1)) / 0.15)
+      )
+      c h
+  );
+  --text-color-emerald-400: oklch(
+    from var(--color-emerald-400)
+      calc(
+        l +
+          (clamp(var(--window-text-floor), l, var(--window-text-ceiling)) - l) *
+          min(1, (1 - var(--window-surface-opacity, 1)) / 0.15)
+      )
+      c h
+  );
+  --text-color-emerald-500: oklch(
+    from var(--color-emerald-500)
+      calc(
+        l +
+          (clamp(var(--window-text-floor), l, var(--window-text-ceiling)) - l) *
+          min(1, (1 - var(--window-surface-opacity, 1)) / 0.15)
+      )
+      c h
+  );
+  --text-color-sky-300: oklch(
+    from var(--color-sky-300)
+      calc(
+        l +
+          (clamp(var(--window-text-floor), l, var(--window-text-ceiling)) - l) *
+          min(1, (1 - var(--window-surface-opacity, 1)) / 0.15)
+      )
+      c h
+  );
+}
+
+@layer utilities {
+  .window-surface {
+    transition: --window-surface-opacity 150ms ease-out;
+  }
+
+  /* Floating or independently colored content always owns an opaque backdrop. */
+  .opaque-surface {
+    --window-surface-opacity: 1;
+  }
+}
+
 @layer base {
   :root {
     /* Theme axes — mutated by redux/listener.ts:applyThemeToDOM.
@@ -36,6 +178,8 @@
    * ============================================ */
 
   .dark {
+    --window-text-floor: 0.85;
+    --window-text-ceiling: 1;
     /* Surface lightness ramp — extracted to per-token --*-l variables so the
      * tinted-neutral "lighter gray base" (.dark.tone-tinted, below) can lift
      * every surface by a uniform offset by overriding only these L values,
@@ -102,6 +246,8 @@
   }
 
   .light {
+    --window-text-floor: 0;
+    --window-text-ceiling: 0.35;
     /* Surface lightness ramp — see the .dark note above. The tinted-neutral
      * "deeper gray base" (.light.tone-tinted, below) lowers these L values by
      * a uniform offset so light tinted themes read as soft gray instead of

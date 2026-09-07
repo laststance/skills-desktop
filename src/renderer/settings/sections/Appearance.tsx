@@ -10,8 +10,8 @@ import { selectPreviewAppearanceSettings } from '@/renderer/src/redux/slices/set
 import {
   CODE_THEME_DEFINITIONS,
   CODE_THEME_IDS,
-  SECTION_OPACITY_MAX_PERCENT,
-  SECTION_OPACITY_MIN_PERCENT,
+  WINDOW_OPACITY_MAX_PERCENT,
+  WINDOW_OPACITY_MIN_PERCENT,
   SETTINGS_RANGE_DEBOUNCE_MS,
   WINDOW_OPACITY_MODE_OPTIONS,
 } from '@/shared/constants'
@@ -21,27 +21,24 @@ import {
   CODE_FONT_SIZE_MAX_PX,
   CODE_FONT_SIZE_MIN_PX,
   DEFAULT_SETTINGS,
-  getWindowBackgroundOpacity,
   INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS as INSTALLED_SEARCH_COUNT_DISPLAY_VALUES,
   MARKDOWN_FONT_SIZE_DEFAULT_PX,
   MARKDOWN_FONT_SIZE_MAX_PX,
   MARKDOWN_FONT_SIZE_MIN_PX,
-  WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
-  WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
 } from '@/shared/settings'
 import type { Settings } from '@/shared/settings'
 
 import { SectionFrame, SectionRow } from './SectionFrame'
 
-const BACKGROUND_BLUR_LABEL = 'Opacity / Blur'
+const BACKGROUND_OPACITY_LABEL = 'Background opacity'
 const OPACITY_MODE_LABELS: Record<Settings['windowOpacityMode'], string> = {
   entire: 'Entire',
   section: 'Section',
 }
 const OPACITY_MODE_DESCRIPTIONS: Record<Settings['windowOpacityMode'], string> =
   {
-    entire: 'Adjust opacity and background blur for the entire main window.',
-    section: 'Adjust the sidebar, main content, and details independently.',
+    entire: 'Adjust the background across the main window. Text stays clear.',
+    section: 'Adjust each background independently. Text stays clear.',
   }
 const OPACITY_MODE_CHOICES = WINDOW_OPACITY_MODE_OPTIONS.map((value) => ({
   value,
@@ -70,23 +67,6 @@ const INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS =
   }))
 
 /**
- * Format the blur slider's value badge: fully opaque reads "Opaque", otherwise
- * the surface opacity percent plus the blur radius in px.
- * @param blurRadius - Current draft blur radius.
- * @returns Display string for the value badge.
- * @example
- * formatBlurValue(0)  // => 'Opaque'
- * formatBlurValue(24) // => '72% / 24px'
- */
-function formatBlurValue(blurRadius: number): string {
-  if (blurRadius === WINDOW_BACKGROUND_BLUR_MIN_RADIUS) return 'Opaque'
-  const opacityPercent = Math.round(
-    getWindowBackgroundOpacity(blurRadius) * 100,
-  )
-  return `${opacityPercent}% / ${blurRadius}px`
-}
-
-/**
  * Format a font-size slider's value badge.
  * @param fontSizePx - Current draft font size.
  * @returns Pixel-suffixed display string.
@@ -104,19 +84,21 @@ interface SettingRangeInputProps {
   label: string
   valueText: string
   onValueChange: (value: number) => void
+  onValueCommit: () => void
 }
 
 /**
- * Native range control shared by the appearance sliders (blur, font sizes).
+ * Native range control shared by the appearance sliders (opacity, font sizes).
  * @param value - Current draft value.
  * @param min - Slider lower bound.
  * @param max - Slider upper bound.
  * @param label - Accessible label matching the visible setting row.
- * @param valueText - Human-readable value announced to screen readers (e.g. 'Opaque', '14px') so AT speaks the visible badge instead of the raw integer.
+ * @param valueText - Visible value announced to screen readers (e.g. '100%', '14px').
  * @param onValueChange - Emits the parsed integer after each input change.
+ * @param onValueCommit - Flushes the pending value when the pointer, keyboard or focus interaction ends.
  * @returns Slider input sized to fit the Settings row.
  * @example
- * <SettingRangeInput value={14} min={12} max={22} label="Reading font size" valueText="14px" onValueChange={setSize} />
+ * <SettingRangeInput value={14} min={12} max={22} label="Reading font size" valueText="14px" onValueChange={setSize} onValueCommit={flushSize} />
  */
 const SettingRangeInput = function SettingRangeInput({
   value,
@@ -125,6 +107,7 @@ const SettingRangeInput = function SettingRangeInput({
   label,
   valueText,
   onValueChange,
+  onValueCommit,
 }: SettingRangeInputProps): React.ReactElement {
   const handleInputChange = (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -144,6 +127,9 @@ const SettingRangeInput = function SettingRangeInput({
       step={1}
       value={value}
       onChange={handleInputChange}
+      onPointerUp={onValueCommit}
+      onKeyUp={onValueCommit}
+      onBlur={onValueCommit}
       aria-label={label}
       aria-valuetext={valueText}
       className="h-6 min-w-0 flex-1 accent-primary rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -160,6 +146,7 @@ interface RangeSettingControlProps {
   isCompact?: boolean
   formatValue: (value: number) => string
   onValueChange: (value: number) => void
+  onValueCommit: () => void
   onReset: () => void
 }
 
@@ -174,10 +161,11 @@ interface RangeSettingControlProps {
  * @param isCompact - Keeps the value and reset inline for the three comparable Section sliders.
  * @param formatValue - Renders the value badge text.
  * @param onValueChange - Slider change handler.
+ * @param onValueCommit - Saves the final draft at the end of a slider interaction.
  * @param onReset - Reset-to-default handler.
  * @returns The composed control column.
  * @example
- * <RangeSettingControl label="Code font size" min={11} max={20} draft={13} isDefault formatValue={formatPxValue} onValueChange={fn} onReset={fn} />
+ * <RangeSettingControl label="Code font size" min={11} max={20} draft={13} isDefault formatValue={formatPxValue} onValueChange={fn} onValueCommit={flush} onReset={fn} />
  */
 const RangeSettingControl = function RangeSettingControl({
   label,
@@ -188,6 +176,7 @@ const RangeSettingControl = function RangeSettingControl({
   isCompact = false,
   formatValue,
   onValueChange,
+  onValueCommit,
   onReset,
 }: RangeSettingControlProps): React.ReactElement {
   return (
@@ -205,6 +194,7 @@ const RangeSettingControl = function RangeSettingControl({
           label={label}
           valueText={formatValue(draft)}
           onValueChange={onValueChange}
+          onValueCommit={onValueCommit}
         />
 
         <span
@@ -277,13 +267,13 @@ const CodeThemeSelect = function CodeThemeSelect({
 
 /**
  * Appearance pane for visual controls backed by persisted Settings: the
- * Electron background blur (which also drives app-surface opacity), the file
+ * Background-only transparency, the file
  * preview typography (Markdown reading size, code size, code theme), and where
  * the Installed result count is shown.
  */
 export const Appearance = function Appearance(): React.ReactElement {
-  const windowBackgroundBlurRadius = useAppSelector(
-    (state) => state.settings.windowBackgroundBlurRadius,
+  const windowBackgroundOpacityPercent = useAppSelector(
+    (state) => state.settings.windowBackgroundOpacityPercent,
   )
   const windowOpacityMode = useAppSelector(
     (state) => state.settings.windowOpacityMode,
@@ -296,10 +286,10 @@ export const Appearance = function Appearance(): React.ReactElement {
   )
   const updateSettings = useUpdateSettings()
 
-  const blur = useDraftRangeSetting(
-    windowBackgroundBlurRadius,
-    DEFAULT_SETTINGS.windowBackgroundBlurRadius,
-    (radius) => updateSettings({ windowBackgroundBlurRadius: radius }),
+  const opacity = useDraftRangeSetting(
+    windowBackgroundOpacityPercent,
+    DEFAULT_SETTINGS.windowBackgroundOpacityPercent,
+    (percent) => updateSettings({ windowBackgroundOpacityPercent: percent }),
     SETTINGS_RANGE_DEBOUNCE_MS,
   )
   const markdownFont = useDraftRangeSetting(
@@ -359,14 +349,15 @@ export const Appearance = function Appearance(): React.ReactElement {
         {/* Keep both modes mounted so switching retains drafts and pending saves. */}
         <div hidden={windowOpacityMode !== 'entire'} className="mt-4">
           <RangeSettingControl
-            label={BACKGROUND_BLUR_LABEL}
-            min={WINDOW_BACKGROUND_BLUR_MIN_RADIUS}
-            max={WINDOW_BACKGROUND_BLUR_MAX_RADIUS}
-            draft={blur.draft}
-            isDefault={blur.isDefault}
-            formatValue={formatBlurValue}
-            onValueChange={blur.change}
-            onReset={blur.reset}
+            label={BACKGROUND_OPACITY_LABEL}
+            min={WINDOW_OPACITY_MIN_PERCENT}
+            max={WINDOW_OPACITY_MAX_PERCENT}
+            draft={opacity.draft}
+            isDefault={opacity.isDefault}
+            formatValue={formatOpacityPercent}
+            onValueChange={opacity.change}
+            onValueCommit={opacity.flush}
+            onReset={opacity.reset}
           />
         </div>
         <div
@@ -391,6 +382,7 @@ export const Appearance = function Appearance(): React.ReactElement {
           isDefault={markdownFont.isDefault}
           formatValue={formatPxValue}
           onValueChange={markdownFont.change}
+          onValueCommit={markdownFont.flush}
           onReset={markdownFont.reset}
         />
       </SectionRow>
@@ -407,6 +399,7 @@ export const Appearance = function Appearance(): React.ReactElement {
           isDefault={codeFont.isDefault}
           formatValue={formatPxValue}
           onValueChange={codeFont.change}
+          onValueCommit={codeFont.flush}
           onReset={codeFont.reset}
         />
       </SectionRow>
@@ -439,7 +432,7 @@ function SectionOpacityControl({
   const updateSettings = useUpdateSettings()
   const opacity = useDraftRangeSetting(
     opacityPercent,
-    SECTION_OPACITY_MAX_PERCENT,
+    WINDOW_OPACITY_MAX_PERCENT,
     (nextPercent) => updateSettings({ [control.key]: nextPercent }),
     SETTINGS_RANGE_DEBOUNCE_MS,
   )
@@ -450,12 +443,13 @@ function SectionOpacityControl({
       <RangeSettingControl
         isCompact
         label={`${control.label} opacity`}
-        min={SECTION_OPACITY_MIN_PERCENT}
-        max={SECTION_OPACITY_MAX_PERCENT}
+        min={WINDOW_OPACITY_MIN_PERCENT}
+        max={WINDOW_OPACITY_MAX_PERCENT}
         draft={opacity.draft}
         isDefault={opacity.isDefault}
         formatValue={formatOpacityPercent}
         onValueChange={opacity.change}
+        onValueCommit={opacity.flush}
         onReset={opacity.reset}
       />
     </div>
@@ -466,7 +460,7 @@ function SectionOpacityControl({
  * Labels section slider values when Appearance updates a draft or announces it to assistive technology.
  * @param opacityPercent - Current section opacity percentage.
  * @returns Percentage shown beside the slider.
- * @example formatOpacityPercent(65) // '65%'
+ * @example formatOpacityPercent(85) // '85%'
  */
 function formatOpacityPercent(opacityPercent: number): string {
   return `${opacityPercent}%`
