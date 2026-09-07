@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 
 import { PERSIST_STATE_VERSION, PERSIST_STORAGE_KEY } from '@/shared/constants'
 
-import { listenerMiddleware } from './listener'
+import { installThemeSubscriptions, listenerMiddleware } from './listener'
 import { migrateState } from './migrations'
 import { createReportingLocalStorage } from './reportingLocalStorage'
 import activityReducer from './slices/activitySlice'
@@ -107,6 +107,12 @@ export const store = configureStore({
 })
 
 setupListeners(store.dispatch)
+
+// Window-level theme subscriptions (OS appearance + the other window's
+// broadcast). Installed here rather than from the hydration listener because
+// the storage middleware does not dispatch ACTION_HYDRATE_COMPLETE when
+// localStorage is still empty, so a first launch would get neither.
+installThemeSubscriptions(store)
 
 export type RootState = ReturnType<typeof store.getState>
 export type AppDispatch = typeof store.dispatch

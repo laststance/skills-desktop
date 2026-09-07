@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
 
 import { COLOR_PRESET_CHROMA, TINTED_NEUTRAL_CHROMA } from '@/shared/constants'
 
@@ -323,5 +323,37 @@ describe('themeSlice', () => {
     expect(state.preset).toBe('neutral-dark')
     expect(state.chroma).toBe(0)
     expect(state.mode).toBe('dark')
+  })
+  test("adopts the other window's theme wholesale rather than re-deriving it", async () => {
+    // The Settings window is a second renderer process with its own store, so
+    // it takes the sender's ALREADY-RESOLVED state. Re-deriving `mode` from
+    // the preset would run the receiver's own matchMedia, which is not what
+    // the user just picked in the main window.
+
+    // Arrange — this window is on a saturated cyan dark theme.
+    const { setTheme, syncTheme } = await import('./themeSlice')
+    const store = await createTestStore()
+    store.dispatch(setTheme('cyan'))
+
+    // Act — the other window switched to plain light.
+    store.dispatch(
+      syncTheme({
+        hue: 0,
+        chroma: 0,
+        mode: 'light',
+        modePreference: 'system',
+        preset: 'neutral-light',
+      }),
+    )
+
+    // Assert — every field crosses, including `modePreference: 'system'`,
+    // which no preset name could have implied.
+    expect(store.getState().theme).toEqual({
+      hue: 0,
+      chroma: 0,
+      mode: 'light',
+      modePreference: 'system',
+      preset: 'neutral-light',
+    })
   })
 })

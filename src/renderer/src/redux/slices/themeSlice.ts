@@ -3,53 +3,14 @@ import { createSlice } from '@reduxjs/toolkit'
 
 import type { ThemePresetName } from '@/shared/constants'
 import { THEME_PRESETS } from '@/shared/constants'
+import type { ModePreference, ThemeState } from '@/shared/theme'
 
 /**
- * User-facing palette mode choice.
- * - 'light' / 'dark' are sticky: the user pinned the palette and we never
- *   auto-flip it regardless of OS appearance changes.
- * - 'system' follows prefers-color-scheme: the listener middleware keeps
- *   state.mode in sync with the OS as long as this preference is active.
- *
- * Persisted alongside `mode` so the resolved value can survive cold starts
- * (read by the pre-hydration bootstrap script) while the preference
- * survives OS theme changes.
+ * {@link ThemeState} and {@link ModePreference} live in `shared/` because the
+ * `theme:changed` broadcast carries them across the IPC boundary. Re-exported
+ * here so existing slice consumers keep one import site.
  */
-export type ModePreference = 'light' | 'dark' | 'system'
-
-/**
- * Shape persisted in localStorage via `@laststance/redux-storage-middleware`.
- * `hue` x `chroma` together project to OKLCH coordinates on `<html>`:
- *   --theme-hue:    state.hue    (angle, ignored when chroma === 0)
- *   --theme-chroma: state.chroma (0 = grayscale ramp, 0.16 = saturated ramp)
- * Mode is tracked independently so users can flip dark/light without losing
- * their color preset. `preset` is the authoritative key; `hue`/`chroma`/`mode`
- * are derived snapshots kept in state so the DOM listener can apply them in
- * one pass without re-looking-up the preset table.
- *
- * `mode` is the resolved palette (what `<html>` actually wears) and
- * `modePreference` is the user's choice. They differ only when the user
- * picked "system" - in which case `mode` mirrors the OS while
- * `modePreference` stays `'system'` so the next OS flip can be honored.
- */
-export interface ThemeState {
-  /** OKLCH hue angle (0-360). No visual effect when `chroma === 0`. @example 195 */
-  hue: number
-  /**
-   * OKLCH chroma scalar driving the entire token ramp. Only two values are
-   * ever persisted: `0` (neutral / shadcn) and `COLOR_PRESET_CHROMA` (color preset).
-   */
-  chroma: number
-  /** Light vs dark palette selector. Applied as `.light` / `.dark` on `<html>`. */
-  mode: 'light' | 'dark'
-  /**
-   * User's explicit mode choice. Persisted so the "Auto" affordance survives
-   * reloads and the resolver can re-apply OS appearance after hydration.
-   */
-  modePreference: ModePreference
-  /** Authoritative preset key. Drives ThemeSelector's aria-pressed state. */
-  preset: ThemePresetName
-}
+export type { ModePreference, ThemeState } from '@/shared/theme'
 
 const initialState: ThemeState = {
   hue: 0,
@@ -173,8 +134,28 @@ const themeSlice = createSlice({
       const partner = partnerForMode(state.preset, resolved)
       if (partner) state.preset = partner
     },
+
+    /**
+     * Adopt a resolved {@link ThemeState} broadcast by another window.
+     *
+     * Exists because the Settings window is a second BrowserWindow with its
+     * own renderer process and its own store: it reads the persisted theme
+     * once at boot, so a Dark -> Light switch in the main window used to
+     * leave it stranded in the old palette until reopened.
+     *
+     * A whole-object replace, deliberately - the same idempotent shape as
+     * `setSettings`. Re-deriving from `preset` instead would re-run
+     * `resolveMode` against the RECEIVER's `matchMedia`, and a distinct
+     * action is what keeps the broadcast from echoing: the listener that
+     * emits `theme:broadcast` matches only the two user-driven actions, so
+     * adopting a broadcast never re-broadcasts.
+     *
+     * @example
+     * dispatch(syncTheme({ hue: 0, chroma: 0, mode: 'light', modePreference: 'light', preset: 'neutral-light' }))
+     */
+    syncTheme: (_state, action: PayloadAction<ThemeState>) => action.payload,
   },
 })
 
-export const { setTheme, setModePreference } = themeSlice.actions
+export const { setTheme, setModePreference, syncTheme } = themeSlice.actions
 export default themeSlice.reducer

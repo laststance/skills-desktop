@@ -1,5 +1,6 @@
 import type { ActivityEvent, ActivityListOptions } from './activityLog'
 import type { Settings, SettingsPatch } from './settings'
+import type { ThemeState } from './theme'
 import type {
   AbsolutePath,
   Agent,
@@ -151,6 +152,7 @@ export interface IpcInvokeContract {
   'settings:open': { args: []; result: void }
   'settings:get': { args: []; result: Settings }
   'settings:set': { args: [SettingsPatch]; result: Settings }
+  'theme:broadcast': { args: [ThemeState]; result: void }
   'activity:list': {
     // Always 1-arg (possibly `undefined`) to match the Zod tuple schema, like
     // `sync:preview`: preload forwards the options arg even when it is
@@ -192,6 +194,7 @@ export interface IpcEventContract {
   'update:downloaded': UpdateInfo
   'update:error': UpdateErrorPayload
   'settings:changed': Settings
+  'theme:changed': ThemeState
   'activity:changed': ActivityEvent[]
 }
 

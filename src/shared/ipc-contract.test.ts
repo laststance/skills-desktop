@@ -43,6 +43,7 @@ describe('IPC contract alignment', () => {
       [IPC_CHANNELS.SETTINGS_OPEN]: true,
       [IPC_CHANNELS.SETTINGS_GET]: true,
       [IPC_CHANNELS.SETTINGS_SET]: true,
+      [IPC_CHANNELS.THEME_BROADCAST]: true,
       [IPC_CHANNELS.ACTIVITY_LIST]: true,
       [IPC_CHANNELS.FOLDER_REVEAL_IN_FINDER]: true,
       [IPC_CHANNELS.FOLDER_OPEN_IN_TERMINAL]: true,
@@ -58,7 +59,7 @@ describe('IPC contract alignment', () => {
     // The `satisfies` clause above is a structural guard; this length check is
     // the trip-wire that forces a human PR diff when a channel is added.
     // Assert
-    expect(invokeChannelKeys).toHaveLength(39)
+    expect(invokeChannelKeys).toHaveLength(40)
   })
 
   it('forces a review by tripping when a push-event channel is added or removed', () => {
@@ -74,6 +75,7 @@ describe('IPC contract alignment', () => {
       [IPC_CHANNELS.UPDATE_DOWNLOADED]: true,
       [IPC_CHANNELS.UPDATE_ERROR]: true,
       [IPC_CHANNELS.SETTINGS_CHANGED]: true,
+      [IPC_CHANNELS.THEME_CHANGED]: true,
       [IPC_CHANNELS.ACTIVITY_CHANGED]: true,
     } as const satisfies Record<keyof IpcEventContract, true>
 
@@ -82,6 +84,6 @@ describe('IPC contract alignment', () => {
 
     // Runtime assertion: mapping covers exactly the contract keys
     // Assert
-    expect(eventChannelKeys).toHaveLength(10)
+    expect(eventChannelKeys).toHaveLength(11)
   })
 })

@@ -73,6 +73,12 @@ export const IPC_CHANNELS = {
   SETTINGS_SET: 'settings:set',
   SETTINGS_CHANGED: 'settings:changed',
 
+  // Theme (cross-window). Theme lives in renderer Redux + localStorage, not
+  // in settings.json, so it has no main-process owner to broadcast from —
+  // the window that changed it asks main to fan the resolved state out.
+  THEME_BROADCAST: 'theme:broadcast',
+  THEME_CHANGED: 'theme:changed',
+
   // Activity timeline (dashboard) — append-only event log persisted under
   // userData. `list` hydrates the widget on mount; `changed` broadcasts the
   // new log after each recorded add/remove/sync.

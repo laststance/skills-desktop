@@ -3,6 +3,7 @@ import type {
   ActivityListOptions,
 } from '../../../shared/activityLog'
 import type { Settings, SettingsPatch } from '../../../shared/settings'
+import type { ThemeState } from '../../../shared/theme'
 import type {
   AbsolutePath,
   Skill,
@@ -160,6 +161,10 @@ declare global {
         get: () => Promise<Settings>
         set: (partial: SettingsPatch) => Promise<Settings>
         onChanged: (callback: (settings: Settings) => void) => () => void
+      }
+      theme: {
+        broadcast: (state: ThemeState) => Promise<void>
+        onChanged: (callback: (state: ThemeState) => void) => () => void
       }
       activity: {
         list: (options?: ActivityListOptions) => Promise<ActivityEvent[]>

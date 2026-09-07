@@ -17,6 +17,8 @@ import { broadcastTypedEvent } from './typedSend'
  *                            and broadcasts `settings:changed` so every
  *                            open window converges (no stale state across
  *                            the main window and Settings window).
+ *  - `theme:broadcast`       re-emits a renderer's resolved theme as
+ *                            `theme:changed` to every window.
  *
  * The broadcast is what eliminates the dual-Redux race we'd see if
  * persistence lived in localStorage and both windows wrote to the same
@@ -63,5 +65,16 @@ export function registerSettingsHandlers(): void {
       broadcastTypedEvent(IPC_CHANNELS.SETTINGS_CHANGED, next)
     }
     return next
+  })
+
+  // Theme has no main-process owner: it lives in renderer Redux and is
+  // persisted to localStorage, so main is a pure relay here rather than the
+  // source of truth it is for settings. The sender is deliberately included
+  // in the fan-out — the receiving listener dispatches `syncTheme`, which the
+  // broadcasting listener does not match, so the echo dies in one hop and we
+  // reuse `broadcastTypedEvent` instead of re-implementing its
+  // destroyed-window guard just to skip one window.
+  typedHandle(IPC_CHANNELS.THEME_BROADCAST, (_event, theme) => {
+    broadcastTypedEvent(IPC_CHANNELS.THEME_CHANGED, theme)
   })
 }
