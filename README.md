@@ -20,6 +20,7 @@ Skills Desktop provides a GUI to manage and monitor skills installed via [`npx s
 - **Symlink Status Visualization** - Valid (✓), Broken (◐), Inaccessible (!), Missing (○) indicators
 - **Customizable Dashboard** - Widget-based home view with skill stats, symlink health, agent coverage, bookmarks, and quick actions — drag, resize, and arrange across multiple pages
 - **54 Themes** - 34 OKLCH color themes (17 hues × light/dark) + 2 pure neutral + 18 tinted neutral
+- **Background Opacity** - In Settings → Appearance, choose Entire or Section and adjust backgrounds from 0–100% while text and icons stay solid. Reset restores 100%; each mode keeps its own values. See the [opacity behavior](DESIGN.md#window-opacity) and [settings contract](SPEC.md#settings-window).
 - **Auto Update** - Automatic updates via GitHub Releases
 
 ## Supported Agents
@@ -145,6 +146,7 @@ src/
 
 ## Related
 
+- [Changelog](CHANGELOG.md) - Changes planned for the next release
 - [Skills CLI](https://github.com/vercel-labs/skills) - Install skills via CLI
 - [Skills Registry](https://skills.sh) - Browse available skills
 - [Skills宝](https://skilery.com) - Chinese search and install hub for skills

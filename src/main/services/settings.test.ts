@@ -1,4 +1,4 @@
-import { mkdtempSync, realpathSync } from 'node:fs'
+import { mkdtempSync, realpathSync, promises as fs } from 'fs'
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -9,7 +9,7 @@ import {
   beforeEach,
   describe,
   expect,
-  it,
+  test,
   vi,
 } from 'vitest'
 
@@ -58,7 +58,7 @@ async function importFreshSettings(): Promise<typeof SettingsModule> {
 describe('areSettingsEqual', () => {
   const baseSettings: Settings = DEFAULT_SETTINGS
 
-  it('treats two settings with identical primitive fields as unchanged so no redundant save fires', () => {
+  test('treats two settings with identical primitive fields as unchanged so no redundant save fires', () => {
     // Arrange
     const saved = baseSettings
     const incoming = { ...baseSettings }
@@ -70,7 +70,7 @@ describe('areSettingsEqual', () => {
     expect(result).toBe(true)
   })
 
-  it('detects a changed primitive field so the new value gets persisted', () => {
+  test('detects a changed primitive field so the new value gets persisted', () => {
     // Arrange
     const saved = baseSettings
     const incoming: Settings = { ...baseSettings, defaultSkillTab: 'info' }
@@ -82,7 +82,7 @@ describe('areSettingsEqual', () => {
     expect(result).toBe(false)
   })
 
-  it('treats two settings with no window size on either side as unchanged', () => {
+  test('treats two settings with no window size on either side as unchanged', () => {
     // Arrange
     const saved = { ...baseSettings, windowSize: undefined }
     const incoming = { ...baseSettings, windowSize: undefined }
@@ -94,7 +94,7 @@ describe('areSettingsEqual', () => {
     expect(result).toBe(true)
   })
 
-  it('treats matching window dimensions as unchanged even when Zod produced a fresh object reference', () => {
+  test('treats matching window dimensions as unchanged even when Zod produced a fresh object reference', () => {
     // Arrange: Zod parse produces a fresh object on every call, so the
     // references differ even when the width/height values match.
     const saved = {
@@ -113,7 +113,7 @@ describe('areSettingsEqual', () => {
     expect(result).toBe(true)
   })
 
-  it('detects a changed window width so the resized dimensions get persisted', () => {
+  test('detects a changed window width so the resized dimensions get persisted', () => {
     // Arrange
     const saved = {
       ...baseSettings,
@@ -131,7 +131,7 @@ describe('areSettingsEqual', () => {
     expect(result).toBe(false)
   })
 
-  it('detects a changed window height so the resized dimensions get persisted', () => {
+  test('detects a changed window height so the resized dimensions get persisted', () => {
     // Arrange
     const saved = {
       ...baseSettings,
@@ -149,7 +149,7 @@ describe('areSettingsEqual', () => {
     expect(result).toBe(false)
   })
 
-  it('detects a change when one side has a window size and the other has none, in either direction', () => {
+  test('detects a change when one side has a window size and the other has none, in either direction', () => {
     // Arrange
     const withSize = {
       ...baseSettings,
@@ -166,7 +166,7 @@ describe('areSettingsEqual', () => {
     expect(noneThenSize).toBe(false)
   })
 
-  it('detects a change when the windowSize key exists on only one side, not falsely matching', () => {
+  test('detects a change when the windowSize key exists on only one side, not falsely matching', () => {
     // Arrange: the asymmetric-shape bug — `Object.keys(a)` alone would skip
     // a key that lives only on `b`, so an absent-vs-defined comparison would
     // wrongly return `true`. Iterating the union of both keys surfaces it.
@@ -185,7 +185,7 @@ describe('areSettingsEqual', () => {
     expect(presentThenMissing).toBe(false)
   })
 
-  it('treats two settings that both omit window size as unchanged', () => {
+  test('treats two settings that both omit window size as unchanged', () => {
     // Arrange
     const saved = { ...baseSettings }
     const incoming = { ...baseSettings }
@@ -197,7 +197,7 @@ describe('areSettingsEqual', () => {
     expect(result).toBe(true)
   })
 
-  it('treats identical hidden-agent lists in the same order as unchanged', () => {
+  test('treats identical hidden-agent lists in the same order as unchanged', () => {
     // Arrange
     const saved: Settings = {
       ...baseSettings,
@@ -215,7 +215,7 @@ describe('areSettingsEqual', () => {
     expect(result).toBe(true)
   })
 
-  it('treats hidden-agent lists with the same members in different order as unchanged (set semantics)', () => {
+  test('treats hidden-agent lists with the same members in different order as unchanged (set semantics)', () => {
     // Arrange: renderer treats hiddenAgentIds as a set; equality must match
     // that semantic so an order-only drift between disk and renderer doesn't
     // trigger a redundant atomic write + settings:changed broadcast.
@@ -235,7 +235,7 @@ describe('areSettingsEqual', () => {
     expect(result).toBe(true)
   })
 
-  it('detects a change when the hidden-agent list gains or loses an entry', () => {
+  test('detects a change when the hidden-agent list gains or loses an entry', () => {
     // Arrange
     const saved: Settings = { ...baseSettings, hiddenAgentIds: ['claude-code'] }
     const incoming: Settings = {
@@ -250,7 +250,7 @@ describe('areSettingsEqual', () => {
     expect(result).toBe(false)
   })
 
-  it('detects a change when the hidden-agent list swaps a member for a different one', () => {
+  test('detects a change when the hidden-agent list swaps a member for a different one', () => {
     // Arrange
     const saved: Settings = { ...baseSettings, hiddenAgentIds: ['claude-code'] }
     const incoming: Settings = { ...baseSettings, hiddenAgentIds: ['cursor'] }
@@ -288,7 +288,7 @@ describe('settings persistence', () => {
   })
 
   describe('loadSettings', () => {
-    it('returns the validated on-disk settings when settings.json exists and is valid', async () => {
+    test('returns the validated on-disk settings when settings.json exists and is valid', async () => {
       // Arrange
       const { loadSettings } = await importFreshSettings()
       await writeFile(
@@ -296,7 +296,7 @@ describe('settings persistence', () => {
         JSON.stringify({
           defaultSkillTab: 'info',
           preferredTerminal: 'terminal',
-          windowBackgroundBlurRadius: 0,
+          windowBackgroundOpacityPercent: 100,
           installedSearchCountDisplay: 'tab',
           hiddenAgentIds: ['cursor'],
           autoDownloadUpdates: true,
@@ -312,7 +312,7 @@ describe('settings persistence', () => {
       expect(loaded).toEqual({
         defaultSkillTab: 'info',
         preferredTerminal: 'terminal',
-        windowBackgroundBlurRadius: 0,
+        windowBackgroundOpacityPercent: 100,
         windowOpacityMode: 'entire',
         leftSectionOpacityPercent: 100,
         centerSectionOpacityPercent: 100,
@@ -326,7 +326,7 @@ describe('settings persistence', () => {
       })
     })
 
-    it('caches the loaded settings so a later getSettings returns the disk values without re-reading', async () => {
+    test('caches the loaded settings so a later getSettings returns the disk values without re-reading', async () => {
       // Arrange
       const { loadSettings, getSettings } = await importFreshSettings()
       await writeFile(
@@ -343,7 +343,7 @@ describe('settings persistence', () => {
       expect(snapshot.defaultSkillTab).toBe('info')
     })
 
-    it('falls back to defaults silently on first launch when settings.json is absent', async () => {
+    test('falls back to defaults silently on first launch when settings.json is absent', async () => {
       // Arrange: a fresh userData dir with no settings.json — the ENOENT path
       // must NOT log a warning because a missing file is expected on boot.
       const { loadSettings } = await importFreshSettings()
@@ -358,7 +358,7 @@ describe('settings persistence', () => {
       warnSpy.mockRestore()
     })
 
-    it('falls back to defaults and warns when settings.json holds malformed JSON', async () => {
+    test('falls back to defaults and warns when settings.json holds malformed JSON', async () => {
       // Arrange: a syntactically broken file triggers a non-ENOENT error,
       // which must be logged so a corrupt file is visible in the dev console.
       const { loadSettings } = await importFreshSettings()
@@ -378,8 +378,224 @@ describe('settings persistence', () => {
     })
   })
 
+  describe('background opacity migration', () => {
+    test.each([
+      { radius: 0, percent: 100 },
+      { radius: 7, percent: 92 },
+      { radius: 24, percent: 72 },
+      { radius: 48, percent: 45 },
+    ])(
+      'migrates legacy radius $radius to $percent% without resetting other preferences',
+      async ({ radius, percent }) => {
+        // Arrange
+        const { loadSettings } = await importFreshSettings()
+        await writeFile(
+          join(userDataDir, 'settings.json'),
+          JSON.stringify({
+            windowBackgroundBlurRadius: radius,
+            windowOpacityMode: 'section',
+            leftSectionOpacityPercent: 45,
+            centerSectionOpacityPercent: 90,
+            rightSectionOpacityPercent: 100,
+            defaultSkillTab: 'info',
+            preferredTerminal: 'warp',
+            markdownFontSizePx: 18,
+            hiddenAgentIds: ['cursor'],
+          }),
+        )
+        // Act
+        const settings = await loadSettings()
+        // Assert
+        expect(settings).toMatchObject({
+          windowBackgroundOpacityPercent: percent,
+          windowOpacityMode: 'section',
+          leftSectionOpacityPercent: 45,
+          centerSectionOpacityPercent: 90,
+          rightSectionOpacityPercent: 100,
+          defaultSkillTab: 'info',
+          preferredTerminal: 'warp',
+          markdownFontSizePx: 18,
+          hiddenAgentIds: ['cursor'],
+        })
+        const saved = JSON.parse(
+          await readFile(join(userDataDir, 'settings.json'), 'utf8'),
+        )
+        expect(saved.windowBackgroundOpacityPercent).toBe(percent)
+        expect(saved.windowBackgroundBlurRadius).toBeUndefined()
+        expect(saved.leftSectionOpacityPercent).toBe(45)
+      },
+    )
+
+    test('writes the migration marker even when an old profile has only default values, then leaves it unchanged on restart', async () => {
+      // Arrange
+      const file = join(userDataDir, 'settings.json')
+      await writeFile(file, '{}')
+      const first = await importFreshSettings()
+      // Act
+      await first.loadSettings()
+      const migrated = await readFile(file, 'utf8')
+      const writeSpy = vi.spyOn(fs, 'writeFile')
+      const restarted = await importFreshSettings()
+      await restarted.loadSettings()
+      // Assert
+      expect(JSON.parse(migrated).windowBackgroundOpacityPercent).toBe(100)
+      expect(await readFile(file, 'utf8')).toBe(migrated)
+      expect(writeSpy).not.toHaveBeenCalled()
+      writeSpy.mockRestore()
+    })
+
+    test('prefers a modern percentage over a leftover legacy radius without rewriting the profile', async () => {
+      // Arrange
+      const file = join(userDataDir, 'settings.json')
+      const original = JSON.stringify({
+        windowBackgroundOpacityPercent: 97,
+        windowBackgroundBlurRadius: 48,
+        defaultSkillTab: 'info',
+      })
+      await writeFile(file, original)
+      const { loadSettings } = await importFreshSettings()
+      // Act
+      const settings = await loadSettings()
+      // Assert
+      expect(settings.windowBackgroundOpacityPercent).toBe(97)
+      expect(settings.defaultSkillTab).toBe('info')
+      expect(await readFile(file, 'utf8')).toBe(original)
+    })
+
+    test.each(['writeFile', 'rename'] as const)(
+      'preserves the original file and preferences after migration %s fails, then retries even an unchanged save',
+      async (operation) => {
+        // Arrange
+        const file = join(userDataDir, 'settings.json')
+        const original = JSON.stringify({
+          windowBackgroundBlurRadius: 48,
+          leftSectionOpacityPercent: 45,
+          preferredTerminal: 'warp',
+        })
+        await writeFile(file, original)
+        const { loadSettings, getSettings, saveSettings } =
+          await importFreshSettings()
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        const failure = vi
+          .spyOn(fs, operation)
+          .mockRejectedValueOnce(new Error('disk unavailable'))
+        // Act
+        const loaded = await loadSettings()
+        // Assert — valid preferences survive a failed write; the old file remains restart-safe.
+        expect(loaded).toMatchObject({
+          windowBackgroundOpacityPercent: 45,
+          leftSectionOpacityPercent: 45,
+          preferredTerminal: 'warp',
+        })
+        expect(getSettings()).toBe(loaded)
+        expect(await readFile(file, 'utf8')).toBe(original)
+        expect(warn).toHaveBeenCalledOnce()
+        // Act — an empty patch must still retry the unsaved migration.
+        await saveSettings({})
+        // Assert
+        expect(JSON.parse(await readFile(file, 'utf8'))).toMatchObject({
+          windowBackgroundOpacityPercent: 45,
+          preferredTerminal: 'warp',
+        })
+        failure.mockRestore()
+        warn.mockRestore()
+      },
+    )
+
+    test('merges a slider edit after the startup migration rather than overwriting it with an older snapshot', async () => {
+      // Arrange
+      const file = join(userDataDir, 'settings.json')
+      await writeFile(
+        file,
+        JSON.stringify({
+          windowBackgroundBlurRadius: 24,
+          leftSectionOpacityPercent: 45,
+          preferredTerminal: 'warp',
+        }),
+      )
+      const { loadSettings, saveSettings } = await importFreshSettings()
+      let markStarted!: () => void
+      let releaseRename!: () => void
+      const started = new Promise<void>((resolve) => {
+        markStarted = resolve
+      })
+      const release = new Promise<void>((resolve) => {
+        releaseRename = resolve
+      })
+      const rename = fs.rename
+      const delayedRename = vi
+        .spyOn(fs, 'rename')
+        .mockImplementationOnce(async (...args) => {
+          markStarted()
+          await release
+          return rename(...args)
+        })
+      // Act
+      const startup = loadSettings()
+      await started
+      const edit = saveSettings({ rightSectionOpacityPercent: 90 })
+      releaseRename()
+      await Promise.all([startup, edit])
+      // Assert
+      expect(JSON.parse(await readFile(file, 'utf8'))).toMatchObject({
+        windowBackgroundOpacityPercent: 72,
+        leftSectionOpacityPercent: 45,
+        rightSectionOpacityPercent: 90,
+        preferredTerminal: 'warp',
+      })
+      delayedRename.mockRestore()
+    })
+
+    test.each([
+      { windowBackgroundBlurRadius: -1 },
+      { windowBackgroundBlurRadius: 49 },
+      { windowBackgroundBlurRadius: 12.5 },
+      { windowBackgroundBlurRadius: '24' },
+      { leftSectionOpacityPercent: 44 },
+      { windowBackgroundOpacityPercent: -1 },
+      null,
+    ])(
+      'does not rewrite an invalid stored opacity value: %j',
+      async (invalid) => {
+        // Arrange
+        const file = join(userDataDir, 'settings.json')
+        const original = JSON.stringify(invalid)
+        await writeFile(file, original)
+        const { loadSettings } = await importFreshSettings()
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        // Act
+        const loaded = await loadSettings()
+        // Assert
+        expect(loaded.windowBackgroundOpacityPercent).toBe(100)
+        expect(await readFile(file, 'utf8')).toBe(original)
+        expect(warn).toHaveBeenCalledOnce()
+        warn.mockRestore()
+      },
+    )
+
+    test('retains the last saved cache after a normal write fails and accepts the next valid edit', async () => {
+      // Arrange
+      const { saveSettings, getSettings } = await importFreshSettings()
+      await saveSettings({ leftSectionOpacityPercent: 85 })
+      const failedWrite = vi
+        .spyOn(fs, 'writeFile')
+        .mockRejectedValueOnce(new Error('disk full'))
+      // Act / Assert
+      await expect(
+        saveSettings({ leftSectionOpacityPercent: 90 }),
+      ).rejects.toThrow('disk full')
+      expect(getSettings().leftSectionOpacityPercent).toBe(85)
+      await saveSettings({ rightSectionOpacityPercent: 95 })
+      expect(getSettings()).toMatchObject({
+        leftSectionOpacityPercent: 85,
+        rightSectionOpacityPercent: 95,
+      })
+      failedWrite.mockRestore()
+    })
+  })
+
   describe('getSettings', () => {
-    it('returns the defaults when loadSettings has never run so IPC handlers can read without awaiting', async () => {
+    test('returns the defaults when loadSettings has never run so IPC handlers can read without awaiting', async () => {
       // Arrange: a freshly imported module has a null cache.
       const { getSettings } = await importFreshSettings()
 
@@ -390,7 +606,7 @@ describe('settings persistence', () => {
       expect(snapshot).toEqual(DEFAULT_SETTINGS)
     })
 
-    it('returns the already-cached snapshot on repeated calls without re-seeding defaults', async () => {
+    test('returns the already-cached snapshot on repeated calls without re-seeding defaults', async () => {
       // Arrange
       const { getSettings } = await importFreshSettings()
       const first = getSettings()
@@ -404,14 +620,14 @@ describe('settings persistence', () => {
   })
 
   describe('saveSettings', () => {
-    it('keeps every section opacity when multiple sliders save concurrently', async () => {
+    test('keeps every section opacity when multiple sliders save concurrently', async () => {
       // Arrange
       const { saveSettings, getSettings } = await importFreshSettings()
 
       // Act — overlap the independent slider commits before any file write finishes.
       const results = await Promise.allSettled([
-        saveSettings({ leftSectionOpacityPercent: 65 }),
-        saveSettings({ centerSectionOpacityPercent: 80 }),
+        saveSettings({ leftSectionOpacityPercent: 85 }),
+        saveSettings({ centerSectionOpacityPercent: 90 }),
         saveSettings({ rightSectionOpacityPercent: 95 }),
       ])
 
@@ -422,26 +638,26 @@ describe('settings persistence', () => {
         'fulfilled',
       ])
       expect(getSettings()).toMatchObject({
-        leftSectionOpacityPercent: 65,
-        centerSectionOpacityPercent: 80,
+        leftSectionOpacityPercent: 85,
+        centerSectionOpacityPercent: 90,
         rightSectionOpacityPercent: 95,
       })
       expect(
         JSON.parse(await readFile(join(userDataDir, 'settings.json'), 'utf8')),
       ).toMatchObject({
-        leftSectionOpacityPercent: 65,
-        centerSectionOpacityPercent: 80,
+        leftSectionOpacityPercent: 85,
+        centerSectionOpacityPercent: 90,
         rightSectionOpacityPercent: 95,
       })
     })
 
-    it('keeps a reset made while the previous opacity change is still being saved', async () => {
+    test('keeps a reset made while the previous opacity change is still being saved', async () => {
       // Arrange
       const { saveSettings, getSettings } = await importFreshSettings()
 
       // Act — the reset matches the old cache but must follow the pending change.
       await Promise.all([
-        saveSettings({ leftSectionOpacityPercent: 45 }),
+        saveSettings({ leftSectionOpacityPercent: 85 }),
         saveSettings({ leftSectionOpacityPercent: 100 }),
       ])
 
@@ -453,13 +669,13 @@ describe('settings persistence', () => {
       ).toBe(100)
     })
 
-    it('continues saving valid settings after a queued update fails validation', async () => {
+    test('continues saving valid settings after a queued update fails validation', async () => {
       // Arrange
       const { saveSettings, getSettings } = await importFreshSettings()
 
       // Act
       const results = await Promise.allSettled([
-        saveSettings({ leftSectionOpacityPercent: 20 }),
+        saveSettings({ leftSectionOpacityPercent: -1 }),
         saveSettings({ rightSectionOpacityPercent: 90 }),
       ])
 
@@ -476,7 +692,7 @@ describe('settings persistence', () => {
       ).toBe(90)
     })
 
-    it('writes the merged settings to disk and returns the new full settings object', async () => {
+    test('writes the merged settings to disk and returns the new full settings object', async () => {
       // Arrange
       const { saveSettings } = await importFreshSettings()
 
@@ -491,7 +707,7 @@ describe('settings persistence', () => {
       expect(onDisk.defaultSkillTab).toBe('info')
     })
 
-    it('creates the userData directory on a fresh profile before writing settings.json', async () => {
+    test('creates the userData directory on a fresh profile before writing settings.json', async () => {
       // Arrange: point at a not-yet-created nested userData dir so the
       // mkdir(recursive) guard is the only thing that lets the write succeed.
       const nestedUserData = join(userDataDir, 'fresh', 'profile')
@@ -509,7 +725,7 @@ describe('settings persistence', () => {
       expect(onDisk.preferredTerminal).toBe('iterm')
     })
 
-    it('short-circuits without writing settings.json when the patch changes nothing', async () => {
+    test('short-circuits without writing settings.json when the patch changes nothing', async () => {
       // Arrange: an empty patch merges to the current defaults, so the no-op
       // guard must return the existing settings before any disk write.
       const { saveSettings } = await importFreshSettings()
@@ -524,7 +740,7 @@ describe('settings persistence', () => {
       ).rejects.toMatchObject({ code: 'ENOENT' })
     })
 
-    it('rejects the whole call when the merged settings fail Zod validation', async () => {
+    test('rejects the whole call when the merged settings fail Zod validation', async () => {
       // Arrange: a window width below the 400px floor is schema-invalid.
       const { saveSettings } = await importFreshSettings()
 

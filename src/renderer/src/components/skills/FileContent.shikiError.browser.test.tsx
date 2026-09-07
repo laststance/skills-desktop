@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
+import { getWindowSurfaceStyle } from '@/renderer/src/utils/getWindowSurfaceStyle'
 import { toFileExtension, toFileName, toLineCount } from '@/shared/types'
 import '@/renderer/src/styles/globals.css'
 
@@ -32,22 +33,49 @@ function makeTextContent(content: string): PreviewContent {
 }
 
 describe('FileContent Shiki failure fallback', () => {
-  it('shows plain-text source when syntax highlighting throws', async () => {
+  it('keeps plain-text source opaque under translucent panes when syntax highlighting throws', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
 
     // Act
     const screen = await render(
-      <FileContent content={makeTextContent('const unhighlightable = true')} />,
+      <div
+        data-testid="translucent-pane"
+        style={getWindowSurfaceStyle('section', 45, 100)}
+      >
+        <FileContent
+          content={makeTextContent('const unhighlightable = true')}
+        />
+      </div>,
     )
 
     // Assert: the source is still readable via the plain-text fallback table,
     // and Shiki's highlighted markup never appears.
     await expect
       .element(screen.getByText('const unhighlightable = true'))
-      .toBeInTheDocument()
+      .toBeVisible()
     await expect
       .poll(() => screen.container.querySelector('.skill-code-preview'))
       .toBeNull()
+    const preview = screen.container.querySelector('[data-file-preview-scroll]')
+    if (!preview) throw new Error('Missing plain-text preview')
+    // Raw Vitest CSS proves inheritance reset; Electron checks compiled background paint.
+    expect(
+      getComputedStyle(screen.getByTestId('translucent-pane').element())
+        .getPropertyValue('--window-surface-opacity')
+        .trim(),
+    ).toBe('0.45')
+    expect(
+      getComputedStyle(preview)
+        .getPropertyValue('--window-surface-opacity')
+        .trim(),
+    ).toBe('1')
+    expect(
+      getComputedStyle(
+        screen.getByRole('cell', { name: '1', exact: true }).element(),
+      )
+        .getPropertyValue('--window-surface-opacity')
+        .trim(),
+    ).toBe('1')
   })
 })

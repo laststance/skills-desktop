@@ -1080,18 +1080,21 @@ export const SEARCH_DEBOUNCE_MS = 300
  * Quiet period (ms) a Settings range slider waits after the last drag tick
  * before persisting via the `settings:set` IPC. Collapses a drag's burst of
  * input events into one disk write while the local draft updates instantly.
- * Consumed by `useDraftRangeSetting` for the appearance sliders (blur,
+ * Consumed by `useDraftRangeSetting` for the appearance sliders (opacity,
  * markdown/code font size).
  * @example
  * useDraftRangeSetting(value, def, commit, SETTINGS_RANGE_DEBOUNCE_MS)
  */
 export const SETTINGS_RANGE_DEBOUNCE_MS = 120
 
-/** Appearance modes keep the legacy whole-window effect separate from independent section opacity. */
+/** Appearance modes share background-only transparency, either across the window or per section. */
 export const WINDOW_OPACITY_MODE_OPTIONS = ['entire', 'section'] as const
-/** Section opacity bounds preserve the existing window opacity floor and an opaque default. */
-export const SECTION_OPACITY_MIN_PERCENT = 45
-export const SECTION_OPACITY_MAX_PERCENT = 100
+/** Background-only opacity spans clear to solid; foreground content never fades. */
+export const WINDOW_OPACITY_MIN_PERCENT = 0
+export const WINDOW_OPACITY_MAX_PERCENT = 100
+/** Frozen legacy bounds used only when {@link loadSettings} migrates old opacity preferences. */
+export const LEGACY_WINDOW_OPACITY_MIN_PERCENT = 45
+export const LEGACY_WINDOW_BLUR_MAX_RADIUS_PX = 48
 
 /**
  * Batch size at which bulk ops surface a live per-item progress counter in the

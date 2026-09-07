@@ -15,6 +15,8 @@ interface UseDraftRangeSettingResult {
   change: (next: number) => void
   /** Cancel any pending persist, snap the draft to the default, persist immediately. */
   reset: () => void
+  /** Persist the pending value immediately when a pointer, keyboard or focus interaction ends. */
+  flush: () => void
 }
 
 /**
@@ -22,14 +24,14 @@ interface UseDraftRangeSettingResult {
  * feels live, while `commit` is debounced so a drag's burst of ticks collapses
  * into a single persist. An external settings broadcast (or any `value` change)
  * cancels a pending persist and re-syncs the draft, so a drag that the main
- * process overrides never writes back. Backs the appearance sliders (blur,
+ * process overrides never writes back. Backs the appearance sliders (opacity,
  * markdown/code font size).
  *
  * @param value - The persisted value from Redux (source of truth).
  * @param defaultValue - The setting's default, used by `reset` and `isDefault`.
  * @param commit - Persists a value (e.g. `(px) => updateSettings({ codeFontSizePx: px })`). May be an inline closure; the latest is always used.
  * @param delayMs - Debounce quiet period before `commit` fires.
- * @returns `{ draft, isDefault, change, reset }`.
+ * @returns `{ draft, isDefault, change, reset, flush }`.
  * @example
  * const font = useDraftRangeSetting(codeFontSizePx, 13, (px) => updateSettings({ codeFontSizePx: px }), 120)
  * <input type="range" value={font.draft} onChange={(e) => font.change(Number(e.target.value))} />
@@ -69,5 +71,11 @@ export function useDraftRangeSetting(
     setDraft(value)
   }, [value, debouncedPersist])
 
-  return { draft, isDefault: draft === defaultValue, change, reset }
+  return {
+    draft,
+    isDefault: draft === defaultValue,
+    change,
+    reset,
+    flush: debouncedPersist.flush,
+  }
 }

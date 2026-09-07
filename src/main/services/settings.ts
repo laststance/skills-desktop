@@ -2,7 +2,14 @@ import { promises as fs } from 'fs'
 import { join } from 'path'
 
 import { app } from 'electron'
+import { z } from 'zod'
 
+import { errorCode } from '@/main/utils/errorCode'
+import {
+  LEGACY_WINDOW_BLUR_MAX_RADIUS_PX,
+  LEGACY_WINDOW_OPACITY_MIN_PERCENT,
+  WINDOW_OPACITY_MAX_PERCENT,
+} from '@/shared/constants'
 import {
   DEFAULT_SETTINGS,
   SettingsSchema,
@@ -22,6 +29,30 @@ let cache: Settings | null = null
 /** Serializes preference writes so overlapping IPC patches cannot share a stale cache or temp file. */
 let settingsSaveQueue: Promise<void> = Promise.resolve()
 
+/** Retry a failed migration even when the next patch matches the normalized cache. */
+let needsMigrationWrite = false
+
+// Accept only historically valid values; malformed data must not be silently coerced.
+const legacyOpacitySchema = z
+  .number()
+  .int()
+  .min(LEGACY_WINDOW_OPACITY_MIN_PERCENT)
+  .max(WINDOW_OPACITY_MAX_PERCENT)
+  .default(WINDOW_OPACITY_MAX_PERCENT)
+const legacySettingsSchema = SettingsSchema.omit({
+  windowBackgroundOpacityPercent: true,
+}).extend({
+  windowBackgroundBlurRadius: z
+    .number()
+    .int()
+    .min(0)
+    .max(LEGACY_WINDOW_BLUR_MAX_RADIUS_PX)
+    .default(0),
+  leftSectionOpacityPercent: legacyOpacitySchema,
+  centerSectionOpacityPercent: legacyOpacitySchema,
+  rightSectionOpacityPercent: legacyOpacitySchema,
+})
+
 /**
  * Resolves the on-disk path for `settings.json`. Lazy because
  * `app.getPath('userData')` is only valid after `app.whenReady()`; calling
@@ -35,31 +66,76 @@ function settingsFilePath(): string {
 }
 
 /**
- * Reads `settings.json` from disk and validates it with Zod. On any
- * failure (missing file, malformed JSON, schema mismatch) the defaults
- * are returned — settings are non-critical, never block startup, and
- * the next `saveSettings()` will write a clean file.
- * @returns Validated settings (or defaults on any error)
- * @example
- * await loadSettings() // => { defaultSkillTab: 'files' }
+ * Queues startup hydration before edits so {@link saveSettings} cannot overwrite an in-flight migration.
+ * @returns Validated, migrated settings; defaults only when the source cannot be read or validated.
+ * @example await loadSettings() // Loads preferences before creating any renderer window.
  */
 export async function loadSettings(): Promise<Settings> {
+  return queueSettingsUpdate(readPersistedSettings)
+}
+
+/**
+ * Reads and upgrades disk preferences when {@link loadSettings} reaches the front of the write queue.
+ * @returns The validated snapshot, preserving preferences even if its migration cannot be saved yet.
+ * @example await readPersistedSettings() // Legacy radius 48 becomes 45%; section values are preserved.
+ */
+async function readPersistedSettings(): Promise<Settings> {
+  let validated: Settings
+  needsMigrationWrite = false
   try {
     const raw = await fs.readFile(settingsFilePath(), 'utf8')
-    const parsed = JSON.parse(raw)
-    const validated = SettingsSchema.parse(parsed)
-    cache = validated
-    return validated
+    const parsed: unknown = JSON.parse(raw)
+    // The new field is the migration marker; a present modern value always wins.
+    if (
+      parsed !== null &&
+      typeof parsed === 'object' &&
+      'windowBackgroundOpacityPercent' in parsed
+    ) {
+      validated = SettingsSchema.parse(parsed)
+    } else {
+      const { windowBackgroundBlurRadius, ...legacy } =
+        legacySettingsSchema.parse(parsed)
+      // Preserve the old background strength, including its two-decimal rounding.
+      const oldOpacity = Number(
+        (
+          1 -
+          (windowBackgroundBlurRadius / LEGACY_WINDOW_BLUR_MAX_RADIUS_PX) *
+            (1 - LEGACY_WINDOW_OPACITY_MIN_PERCENT / WINDOW_OPACITY_MAX_PERCENT)
+        ).toFixed(2),
+      )
+      validated = SettingsSchema.parse({
+        ...legacy,
+        windowBackgroundOpacityPercent: Math.round(
+          oldOpacity * WINDOW_OPACITY_MAX_PERCENT,
+        ),
+      })
+      needsMigrationWrite = true
+    }
   } catch (err) {
     // ENOENT (first launch) is expected; other errors get logged so
     // a corrupt file is visible in the dev console without blocking.
-    const code = (err as NodeJS.ErrnoException).code
-    if (code !== 'ENOENT') {
+    if (errorCode(err) !== 'ENOENT') {
       console.warn('[settings] failed to load, using defaults:', err)
     }
     cache = { ...DEFAULT_SETTINGS }
     return cache
   }
+
+  // Read → validate/migrate → atomic write → cache; failed writes retain the valid session values.
+  if (needsMigrationWrite) {
+    try {
+      await writeSettingsSnapshot(validated)
+      // eslint-disable-next-line require-atomic-updates -- loadSettings and saveSettings run exclusively inside settingsSaveQueue.
+      needsMigrationWrite = false
+    } catch (err) {
+      console.warn(
+        '[settings] migration could not be saved; retrying on the next save or launch:',
+        err,
+      )
+    }
+  }
+  cache = validated
+  return validated
 }
 
 /**
@@ -142,9 +218,18 @@ export function areSettingsEqual(a: Settings, b: Settings): boolean {
  * // => { defaultSkillTab: 'info' }
  */
 export async function saveSettings(partial: SettingsPatch): Promise<Settings> {
-  const pendingSave = settingsSaveQueue.then(async () =>
-    persistSettingsPatch(partial),
-  )
+  return queueSettingsUpdate(async () => persistSettingsPatch(partial))
+}
+
+/**
+ * Serializes startup and edits for {@link loadSettings} and {@link saveSettings}, recovering after individual failures.
+ * @returns This operation's result or rejection, without poisoning later queued operations.
+ * @example queueSettingsUpdate(readPersistedSettings) // Later slider saves wait for migration.
+ */
+async function queueSettingsUpdate(
+  update: () => Promise<Settings>,
+): Promise<Settings> {
+  const pendingSave = settingsSaveQueue.then(update)
   // Preserve this caller's rejection while allowing the next queued save to proceed.
   settingsSaveQueue = pendingSave.then(
     () => undefined,
@@ -157,7 +242,7 @@ export async function saveSettings(partial: SettingsPatch): Promise<Settings> {
  * Merge and persist one patch when saveSettings reaches it in the serialized write queue.
  * @param partial - Preference fields to merge into the latest successfully saved snapshot.
  * @returns Updated cached settings, or the same snapshot for a no-op; rejects on validation or disk failure.
- * @example await persistSettingsPatch({ leftSectionOpacityPercent: 65 }) // Saved Left opacity is 65%.
+ * @example await persistSettingsPatch({ leftSectionOpacityPercent: 85 }) // Saved Left opacity is 85%.
  */
 async function persistSettingsPatch(partial: SettingsPatch): Promise<Settings> {
   const current = getSettings()
@@ -173,13 +258,24 @@ async function persistSettingsPatch(partial: SettingsPatch): Promise<Settings> {
   // would always be `false` for any defined value — even when both
   // sides describe identical dimensions. Other fields are primitives
   // and compare by value via `===`.
-  if (areSettingsEqual(merged, current)) return current
+  if (areSettingsEqual(merged, current) && !needsMigrationWrite) return current
+  await writeSettingsSnapshot(merged)
+  // eslint-disable-next-line require-atomic-updates -- the complete read/merge/write/cache transaction is serialized by settingsSaveQueue.
+  needsMigrationWrite = false
+  cache = merged
+  return merged
+}
+
+/**
+ * Atomically replaces disk preferences for startup migration and {@link persistSettingsPatch} inside their shared queue.
+ * @returns Resolves after rename; rejects without replacing the original file on write failure.
+ * @example await writeSettingsSnapshot(settings) // A partial temporary file never becomes settings.json.
+ */
+async function writeSettingsSnapshot(settings: Settings): Promise<void> {
   const target = settingsFilePath()
   const tempPath = `${target}.tmp`
   // Ensure userData dir exists — first run on a fresh profile may lack it.
   await fs.mkdir(app.getPath('userData'), { recursive: true })
-  await fs.writeFile(tempPath, JSON.stringify(merged, null, 2), 'utf8')
+  await fs.writeFile(tempPath, JSON.stringify(settings, null, 2), 'utf8')
   await fs.rename(tempPath, target)
-  cache = merged
-  return merged
 }

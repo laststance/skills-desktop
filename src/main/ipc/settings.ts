@@ -1,12 +1,12 @@
-import { getMainWindow } from '@/main/services/mainWindowState'
+import { BrowserWindow, type WebContents } from 'electron'
+
 import { getSettings, saveSettings } from '@/main/services/settings'
 import { createOrFocusSettingsWindow } from '@/main/services/settingsWindow'
 import { applyUpdaterPreferences } from '@/main/updater'
-import { applyWindowBackgroundBlur } from '@/main/utils/windowBackgroundBlur'
 import { IPC_CHANNELS } from '@/shared/ipc-channels'
 
 import { typedHandle } from './typedHandle'
-import { broadcastTypedEvent } from './typedSend'
+import { typedSend } from './typedSend'
 
 /**
  * Wires the IPC surface for the Settings window:
@@ -14,9 +14,8 @@ import { broadcastTypedEvent } from './typedSend'
  *  - `settings:get`          returns the in-memory cache so renderers can
  *                            hydrate their Redux slice on mount.
  *  - `settings:set`          merges a partial update, persists to JSON,
- *                            and broadcasts `settings:changed` so every
- *                            open window converges (no stale state across
- *                            the main window and Settings window).
+ *                            returns the saved snapshot to its sender, and
+ *                            broadcasts `settings:changed` without stale self-echoes.
  *
  * The broadcast is what eliminates the dual-Redux race we'd see if
  * persistence lived in localStorage and both windows wrote to the same
@@ -24,35 +23,36 @@ import { broadcastTypedEvent } from './typedSend'
  * are pure caches.
  */
 export function registerSettingsHandlers(): void {
+  const latestSaveRequests = new WeakMap<WebContents, symbol>()
+
   typedHandle(IPC_CHANNELS.SETTINGS_OPEN, () => {
     createOrFocusSettingsWindow()
   })
 
   typedHandle(IPC_CHANNELS.SETTINGS_GET, () => getSettings())
 
-  typedHandle(IPC_CHANNELS.SETTINGS_SET, async (_event, partial) => {
+  typedHandle(IPC_CHANNELS.SETTINGS_SET, async (event, partial, requestId) => {
+    const request = Symbol()
+    latestSaveRequests.set(event.sender, request)
     const before = getSettings()
-    const next = await saveSettings(partial)
+    const next = await saveSettings(partial).catch((error: unknown) => {
+      // A failed latest save restores durable preferences even if another window replaced its optimistic edit.
+      if (
+        !event.sender.isDestroyed() &&
+        latestSaveRequests.get(event.sender) === request
+      ) {
+        typedSend(event.sender, IPC_CHANNELS.SETTINGS_CHANGED, {
+          settings: getSettings(),
+          requestId,
+        })
+      }
+      throw error
+    })
     // `saveSettings` returns the same reference when nothing actually
     // changed (shallow-compare guard inside the service). Skip the
     // broadcast in that case so we don't fan out a no-op `settings:changed`
     // and trigger a redundant Redux replace in every open window.
     if (next !== before) {
-      if (
-        next.windowBackgroundBlurRadius !== before.windowBackgroundBlurRadius ||
-        next.windowOpacityMode !== before.windowOpacityMode
-      ) {
-        const mainWindow = getMainWindow()
-        // Settings can outlive the main window on macOS; a closed main window
-        // simply receives the persisted blur the next time it is created.
-        if (mainWindow !== null) {
-          applyWindowBackgroundBlur(
-            mainWindow,
-            next.windowBackgroundBlurRadius,
-            next.windowOpacityMode,
-          )
-        }
-      }
       // Push the auto-download preference onto the live updater so a
       // mid-session toggle takes effect on the next check without an app
       // restart. Harmless when the updater is inactive (dev / unpackaged):
@@ -60,7 +60,21 @@ export function registerSettingsHandlers(): void {
       if (next.autoDownloadUpdates !== before.autoDownloadUpdates) {
         applyUpdaterPreferences(next)
       }
-      broadcastTypedEvent(IPC_CHANNELS.SETTINGS_CHANGED, next)
+      // Only obsolete self-echoes are skipped; the latest save still reconciles overlapping windows.
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (
+          window.isDestroyed() ||
+          window.webContents.isDestroyed() ||
+          (window.webContents === event.sender &&
+            latestSaveRequests.get(event.sender) !== request)
+        )
+          continue
+        typedSend(window.webContents, IPC_CHANNELS.SETTINGS_CHANGED, {
+          settings: next,
+          requestId:
+            window.webContents === event.sender ? requestId : undefined,
+        })
+      }
     }
     return next
   })

@@ -24,7 +24,7 @@ const TooltipContent = function TooltipContent({
         ref={ref}
         sideOffset={sideOffset}
         className={cn(
-          'z-50 overflow-hidden rounded-md',
+          'opaque-surface z-50 overflow-hidden rounded-md',
           'bg-slate-700 border border-slate-600',
           'px-3 py-2 text-xs font-medium text-white',
           'shadow-lg shadow-black/25',

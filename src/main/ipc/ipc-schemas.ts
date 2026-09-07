@@ -12,9 +12,8 @@ import {
   CODE_FONT_SIZE_SCHEMA,
   INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS,
   MARKDOWN_FONT_SIZE_SCHEMA,
-  SECTION_OPACITY_PERCENT_SCHEMA,
+  WINDOW_OPACITY_PERCENT_SCHEMA,
   SettingsSchema,
-  WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA,
   WINDOW_OPACITY_MODE_SCHEMA,
 } from '@/shared/settings'
 import { MODE_PREFERENCES, THEME_MODES } from '@/shared/theme'
@@ -388,14 +387,12 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       // the {min,int} constraints can never drift. `undefined` is how
       // the Settings UI clears the persisted size back to "use default".
       windowSize: SettingsSchema.shape.windowSize,
-      // Electron 42 blur radius. Use the shared non-defaulting schema so
-      // unrelated partial settings writes do not reset blur to zero.
-      windowBackgroundBlurRadius:
-        WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA.optional(),
+      // Reuse the non-defaulting range so unrelated patches never reset opacity.
+      windowBackgroundOpacityPercent: WINDOW_OPACITY_PERCENT_SCHEMA.optional(),
       windowOpacityMode: WINDOW_OPACITY_MODE_SCHEMA.optional(),
-      leftSectionOpacityPercent: SECTION_OPACITY_PERCENT_SCHEMA.optional(),
-      centerSectionOpacityPercent: SECTION_OPACITY_PERCENT_SCHEMA.optional(),
-      rightSectionOpacityPercent: SECTION_OPACITY_PERCENT_SCHEMA.optional(),
+      leftSectionOpacityPercent: WINDOW_OPACITY_PERCENT_SCHEMA.optional(),
+      centerSectionOpacityPercent: WINDOW_OPACITY_PERCENT_SCHEMA.optional(),
+      rightSectionOpacityPercent: WINDOW_OPACITY_PERCENT_SCHEMA.optional(),
       // Preview font sizes + code theme. Shared non-defaulting schemas, kept
       // `.optional()` (not chained off a defaulted SettingsSchema field) so an
       // unrelated partial settings:set never materializes a default and
@@ -433,6 +430,8 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       // there's nothing to keep in lockstep beyond the type itself.
       autoDownloadUpdates: z.boolean().optional(),
     }),
+    // Preload correlates self-notifications; this transport token is never saved as a preference.
+    z.uuid().optional(),
   ]),
 
   // Cross-window theme relay. Main re-broadcasts this payload to every open

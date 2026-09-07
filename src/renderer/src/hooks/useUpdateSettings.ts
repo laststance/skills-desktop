@@ -1,38 +1,58 @@
-import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { toast } from 'sonner'
+
+import { useAppStore } from '@/renderer/src/redux/hooks'
 import { setSettings } from '@/renderer/src/redux/slices/settingsSlice'
 import type { SettingsPatch } from '@/shared/settings'
 
 /**
- * Encapsulates the optimistic-dispatch + IPC-write pair used whenever
- * the renderer mutates a settings field. Two separate components
- * (Settings → General, main-window → SkillDetail) edit the same
- * `defaultSkillTab` field and were carrying near-identical handlers;
- * this hook is the single home for the pattern so future settings
- * additions don't have to re-derive the merge order.
- *
- * Flow on call:
- *  1. Dispatch `setSettings(merged)` locally so the UI reflects the
- *     change without waiting on an IPC round-trip.
- *  2. Fire `settings:set` to the main process. Main writes the JSON
- *     atomically and then broadcasts `settings:changed` back to every
- *     window (including this one), where `useSettingsSync` dispatches
- *     `setSettings` a second time — idempotent replace.
- *
- * The optimistic dispatch is safe because in-process Electron IPC
- * doesn't fail in practice; if main throws on validation the cache
- * stays out of sync until the next broadcast or window reload, which
- * is acceptable for non-critical settings.
- * @returns A stable function that takes a partial Settings update and applies it locally + remotely.
- * @example
- * const updateSettings = useUpdateSettings()
- * updateSettings({ defaultSkillTab: 'info' })
+ * Saves edits from either window and reconciles canonical responses only while their optimistic snapshot is still current.
+ * @returns A partial-settings update callback with visible, race-safe failure recovery.
+ * @example const updateSettings = useUpdateSettings(); updateSettings({ windowBackgroundOpacityPercent: 85 })
  */
 export function useUpdateSettings(): (partial: SettingsPatch) => void {
-  const dispatch = useAppDispatch()
-  const settings = useAppSelector((state) => state.settings)
+  const store = useAppStore()
 
-  return (partial: SettingsPatch): void => {
-    dispatch(setSettings({ ...settings, ...partial }))
-    void window.electron.settings.set(partial)
+  return (partial): void => {
+    // Read the store now: two edits in one render must not merge against the same stale closure.
+    store.dispatch(setSettings({ ...store.getState().settings, ...partial }))
+    const optimistic = store.getState().settings
+
+    // Even a no-op save must reconcile failed fields: main sends no broadcast for unchanged settings.
+    void window.electron.settings
+      .set(partial)
+      .then((persisted) => {
+        if (store.getState().settings === optimistic) {
+          store.dispatch(setSettings(persisted))
+        }
+      })
+      .catch(async (error: unknown) => {
+        console.error('Settings save failed', error)
+        toast.error('Settings could not be saved', {
+          id: 'settings-save-error',
+          description: 'Your change was not saved. Try again.',
+        })
+        if (store.getState().settings !== optimistic) return
+
+        try {
+          const persisted = await window.electron.settings.get()
+          if (store.getState().settings === optimistic) {
+            store.dispatch(setSettings(persisted))
+          }
+        } catch (error: unknown) {
+          console.error('Settings recovery failed', error)
+          // A newer edit or broadcast also makes this recovery failure obsolete.
+          if (store.getState().settings !== optimistic) return
+          toast.error('Settings could not be reloaded', {
+            id: 'settings-save-error',
+            description: 'Reload this window to recover your saved settings.',
+            duration: Infinity,
+            closeButton: true,
+            action: {
+              label: 'Reload',
+              onClick: () => window.location.reload(),
+            },
+          })
+        }
+      })
   }
 }

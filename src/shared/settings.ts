@@ -4,8 +4,8 @@ import {
   AGENT_IDS,
   CODE_THEME_IDS,
   DEFAULT_CODE_THEME_ID,
-  SECTION_OPACITY_MAX_PERCENT,
-  SECTION_OPACITY_MIN_PERCENT,
+  WINDOW_OPACITY_MAX_PERCENT,
+  WINDOW_OPACITY_MIN_PERCENT,
   TERMINAL_APP_IDS,
   WINDOW_OPACITY_MODE_OPTIONS,
 } from './constants'
@@ -24,21 +24,6 @@ import { toPixelHeight, toPixelWidth } from './types'
  * duplicating the literal.
  */
 export const WINDOW_SIZE_MIN_DIMENSION = 400
-
-/**
- * Bounds for the legacy-named main-window transparency intensity setting.
- * Whole-number steps preserve existing settings and slider behavior, while
- * the bounded range prevents a hand-edited file from making the app unusable.
- */
-export const WINDOW_BACKGROUND_BLUR_MIN_RADIUS = 0
-export const WINDOW_BACKGROUND_BLUR_MAX_RADIUS = 48
-
-/**
- * Visual opacity range paired with the background blur slider.
- * `1` keeps the app surface fully opaque when blur is off; the minimum keeps the desktop visible.
- */
-export const WINDOW_BACKGROUND_OPACITY_MAX = 1
-export const WINDOW_BACKGROUND_OPACITY_MIN = 0.45
 
 /**
  * Bounds for the Markdown reading-mode body font size (CSS px). The default
@@ -66,63 +51,13 @@ export const CODE_FONT_SIZE_DEFAULT_PX = 13
  */
 export const INSTALLED_SEARCH_COUNT_DISPLAY_OPTIONS = ['tab', 'inline'] as const
 
-/**
- * Clamp the persisted transparency intensity before it touches Electron.
- * @param blurRadius - Legacy-named slider setting from `settings.json` or IPC.
- * @returns Whole-number intensity inside the app-supported range.
- * @example
- * normalizeWindowBackgroundBlurRadius(99) // => 48
- */
-export function normalizeWindowBackgroundBlurRadius(
-  blurRadius: number,
-): number {
-  return Math.min(
-    WINDOW_BACKGROUND_BLUR_MAX_RADIUS,
-    Math.max(WINDOW_BACKGROUND_BLUR_MIN_RADIUS, Math.trunc(blurRadius)),
-  )
-}
-
-/**
- * Convert the blur slider into the visible app-surface opacity.
- * @param blurRadius - User setting from `settings.json` or IPC.
- * @returns BrowserWindow opacity, where higher blur means more transparency.
- * @example
- * getWindowBackgroundOpacity(24) // => 0.72
- */
-export function getWindowBackgroundOpacity(blurRadius: number): number {
-  const normalizedRadius = normalizeWindowBackgroundBlurRadius(blurRadius)
-  if (normalizedRadius === WINDOW_BACKGROUND_BLUR_MIN_RADIUS) {
-    return WINDOW_BACKGROUND_OPACITY_MAX
-  }
-
-  const blurProgress = normalizedRadius / WINDOW_BACKGROUND_BLUR_MAX_RADIUS
-  const opacity =
-    WINDOW_BACKGROUND_OPACITY_MAX -
-    blurProgress *
-      (WINDOW_BACKGROUND_OPACITY_MAX - WINDOW_BACKGROUND_OPACITY_MIN)
-
-  // Two decimals are enough for CSS alpha and keep labels stable.
-  return Number(opacity.toFixed(2))
-}
-
-/**
- * Non-defaulting blur-radius schema shared by disk and IPC boundaries.
- * `SettingsSchema` adds the persisted default; IPC keeps it optional so
- * unrelated partial writes do not materialize a zero-radius reset.
- */
-export const WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA = z
-  .number()
-  .int()
-  .min(WINDOW_BACKGROUND_BLUR_MIN_RADIUS)
-  .max(WINDOW_BACKGROUND_BLUR_MAX_RADIUS)
-
 /** Non-defaulting opacity schemas keep unrelated IPC patches from resetting saved modes or sections. */
 export const WINDOW_OPACITY_MODE_SCHEMA = z.enum(WINDOW_OPACITY_MODE_OPTIONS)
-export const SECTION_OPACITY_PERCENT_SCHEMA = z
+export const WINDOW_OPACITY_PERCENT_SCHEMA = z
   .number()
   .int()
-  .min(SECTION_OPACITY_MIN_PERCENT)
-  .max(SECTION_OPACITY_MAX_PERCENT)
+  .min(WINDOW_OPACITY_MIN_PERCENT)
+  .max(WINDOW_OPACITY_MAX_PERCENT)
 
 /**
  * Non-defaulting preview font-size schemas shared by disk and IPC boundaries.
@@ -225,11 +160,10 @@ const HIDDEN_AGENT_IDS_SCHEMA = z
  *   the saved size — clamped to the current display work area so a
  *   saved size from a wider monitor never opens off-screen on a smaller
  *   one.
- * - `windowBackgroundBlurRadius`: main-window transparency intensity backed
- *   by BrowserWindow opacity and macOS vibrancy. `0` disables the translucent
- *   surface and restores the opaque app background.
- * - `windowOpacityMode`: applies the existing whole-window effect (`entire`)
- *   or independent renderer section opacity (`section`). Switching preserves both sets of values.
+ * - `windowBackgroundOpacityPercent`: shared background opacity in Entire mode;
+ *   0 reveals the desktop fully; 100 restores the opaque palette. Text never fades.
+ * - `windowOpacityMode`: shares background opacity across the window (`entire`)
+ *   or applies independent section values (`section`); both sets are preserved.
  * - `leftSectionOpacityPercent`, `centerSectionOpacityPercent`, `rightSectionOpacityPercent`:
  *   bounded opacity percentages for the sidebar, main content, and detail inspector.
  * - `markdownFontSizePx`: body font size (CSS px) for the file preview's
@@ -265,18 +199,18 @@ export const SettingsSchema = z.object({
   preferredTerminal: z.enum(TERMINAL_APP_IDS).default('terminal'),
   customTerminalAppName: z.string().trim().min(1).max(64).optional(),
   windowSize: windowSizeSchema,
-  windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_RADIUS_SCHEMA.default(
-    WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
+  windowBackgroundOpacityPercent: WINDOW_OPACITY_PERCENT_SCHEMA.default(
+    WINDOW_OPACITY_MAX_PERCENT,
   ),
   windowOpacityMode: WINDOW_OPACITY_MODE_SCHEMA.default('entire'),
-  leftSectionOpacityPercent: SECTION_OPACITY_PERCENT_SCHEMA.default(
-    SECTION_OPACITY_MAX_PERCENT,
+  leftSectionOpacityPercent: WINDOW_OPACITY_PERCENT_SCHEMA.default(
+    WINDOW_OPACITY_MAX_PERCENT,
   ),
-  centerSectionOpacityPercent: SECTION_OPACITY_PERCENT_SCHEMA.default(
-    SECTION_OPACITY_MAX_PERCENT,
+  centerSectionOpacityPercent: WINDOW_OPACITY_PERCENT_SCHEMA.default(
+    WINDOW_OPACITY_MAX_PERCENT,
   ),
-  rightSectionOpacityPercent: SECTION_OPACITY_PERCENT_SCHEMA.default(
-    SECTION_OPACITY_MAX_PERCENT,
+  rightSectionOpacityPercent: WINDOW_OPACITY_PERCENT_SCHEMA.default(
+    WINDOW_OPACITY_MAX_PERCENT,
   ),
   markdownFontSizePx: MARKDOWN_FONT_SIZE_SCHEMA.default(
     MARKDOWN_FONT_SIZE_DEFAULT_PX,
@@ -303,10 +237,10 @@ export const SettingsSchema = z.object({
  *   defaultSkillTab: 'files',
  *   preferredTerminal: 'iterm',
  *   windowSize: { width: 1280, height: 800 },
- *   windowBackgroundBlurRadius: 24,
+ *   windowBackgroundOpacityPercent: 90,
  *   windowOpacityMode: 'section',
- *   leftSectionOpacityPercent: 65,
- *   centerSectionOpacityPercent: 80,
+ *   leftSectionOpacityPercent: 85,
+ *   centerSectionOpacityPercent: 90,
  *   rightSectionOpacityPercent: 95,
  *   markdownFontSizePx: 14,
  *   codeFontSizePx: 13,
@@ -333,11 +267,11 @@ export type SettingsPatch = Partial<Settings>
 export const DEFAULT_SETTINGS: Settings = {
   defaultSkillTab: 'files',
   preferredTerminal: 'terminal',
-  windowBackgroundBlurRadius: WINDOW_BACKGROUND_BLUR_MIN_RADIUS,
+  windowBackgroundOpacityPercent: WINDOW_OPACITY_MAX_PERCENT,
   windowOpacityMode: 'entire',
-  leftSectionOpacityPercent: SECTION_OPACITY_MAX_PERCENT,
-  centerSectionOpacityPercent: SECTION_OPACITY_MAX_PERCENT,
-  rightSectionOpacityPercent: SECTION_OPACITY_MAX_PERCENT,
+  leftSectionOpacityPercent: WINDOW_OPACITY_MAX_PERCENT,
+  centerSectionOpacityPercent: WINDOW_OPACITY_MAX_PERCENT,
+  rightSectionOpacityPercent: WINDOW_OPACITY_MAX_PERCENT,
   markdownFontSizePx: MARKDOWN_FONT_SIZE_DEFAULT_PX,
   codeFontSizePx: CODE_FONT_SIZE_DEFAULT_PX,
   codeThemeId: DEFAULT_CODE_THEME_ID,

@@ -30,7 +30,7 @@ export function typedSend<C extends IpcEventChannel>(
  * @param channel - Event channel name (key of IpcEventContract)
  * @param args - Payload matching the contract (omit for void channels)
  * @example
- * broadcastTypedEvent('settings:changed', { defaultSkillTab: 'info' })
+ * broadcastTypedEvent('settings:changed', { settings: DEFAULT_SETTINGS })
  */
 export function broadcastTypedEvent<C extends IpcEventChannel>(
   channel: C,

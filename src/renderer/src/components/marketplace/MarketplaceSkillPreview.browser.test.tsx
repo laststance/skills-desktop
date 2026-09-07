@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import type { ReactElement } from 'react'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { SkillSearchResult } from '@/shared/types'
@@ -367,4 +367,33 @@ describe('MarketplaceSkillPreview', () => {
     // Assert
     expect(store.getState().marketplace.previewSkill).toBeNull()
   })
+})
+
+test('keeps the same opaque webview host when the preview expands and collapses', async () => {
+  // Arrange
+  const store = await createStore()
+  const { MarketplaceSkillPreview } = await import('./MarketplaceSkillPreview')
+  const screen = await renderWithStore(
+    <MarketplaceSkillPreview skill={makeSkill()} />,
+    store,
+  )
+  const webview = document.querySelector('webview')
+  const parent = webview?.parentElement
+  expect(webview).not.toBeNull()
+  expect(parent).toHaveClass('opaque-surface', 'bg-background')
+  // Act
+  await screen
+    .getByRole('button', { name: 'Expand preview', exact: true })
+    .click()
+  // Assert
+  expect(document.querySelector('webview')).toBe(webview)
+  expect(webview?.parentElement).toBe(parent)
+  await expect
+    .element(screen.getByRole('dialog'))
+    .toHaveClass('opaque-surface', 'bg-background')
+  // Act
+  await screen.getByRole('button', { name: 'Close expanded preview' }).click()
+  // Assert
+  expect(document.querySelector('webview')).toBe(webview)
+  expect(webview?.parentElement).toBe(parent)
 })

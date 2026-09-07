@@ -15,10 +15,9 @@ import type { AgentId } from '@/shared/types'
  * `window.electron.settings.get()` directly.
  *
  * The slice intentionally exposes only an idempotent `setSettings`
- * replacement (not per-field reducers). Local field updates dispatched
- * from a Settings section UI happen via the same action after the
- * `settings:set` IPC roundtrip resolves, keeping cache and disk in
- * lockstep.
+ * replacement (not per-field reducers). {@link useUpdateSettings} applies
+ * local edits optimistically and guards canonical save/recovery replies;
+ * {@link useSettingsSync} adopts canonical broadcasts from main.
  *
  * NOT included in `redux-storage-middleware` slices array — persistence
  * is owned by main, so layering localStorage on top would create a

@@ -131,7 +131,7 @@ const TextPreview = function TextPreview({
   }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-muted">
+    <div className="flex-1 min-h-0 flex flex-col">
       {isMarkdown && (
         <div className="shrink-0 flex items-center justify-end border-b border-border/60 bg-background/60 px-2 py-1.5">
           <SegmentedControl
@@ -189,7 +189,7 @@ export const renderPlainTextCode = function renderPlainTextCode(
         {/* Keep source line order and stable row numbers while Shiki loads. */}
         {lines.map((line, index) => (
           <tr key={index} className="hover:bg-foreground/5">
-            <td className="sticky left-0 z-10 w-12 bg-muted px-2 py-0 text-right text-muted-foreground select-none border-r border-border/50 align-top">
+            <td className="opaque-surface sticky left-0 z-10 w-12 bg-muted px-2 py-0 text-right text-muted-foreground select-none border-r border-border/50 align-top">
               {index + 1}
             </td>
             <td className="px-3 py-0 whitespace-pre text-foreground">
@@ -289,7 +289,7 @@ const SyntaxHighlightedCode = function SyntaxHighlightedCode({
 
   return (
     <div
-      className="flex-1 min-h-0 overflow-auto bg-muted"
+      className="opaque-surface flex-1 min-h-0 overflow-auto bg-muted"
       data-file-preview-scroll
     >
       {highlightedHtml ? (
@@ -333,7 +333,8 @@ const MarkdownReadingPreview = function MarkdownReadingPreview({
 
   return (
     <div
-      className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background"
+      // The inspector owns the backplate; another full-size background would conceal the desktop.
+      className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
       data-markdown-reading-scroll
     >
       {/* Inline font size is the scale anchor: child sizes are em (heading,
@@ -470,7 +471,7 @@ const markdownComponents: Components = {
           className={cn(
             // em sizes (text-xs≈0.857em, leading-6≈2) so block code scales
             // with the Markdown body font instead of staying a fixed 12px.
-            'block max-w-full overflow-x-hidden rounded-md border border-border bg-muted px-3 py-2 font-mono text-[0.857em] leading-[2] text-foreground',
+            'opaque-surface block max-w-full overflow-x-hidden rounded-md border border-border bg-muted px-3 py-2 font-mono text-[0.857em] leading-[2] text-foreground',
             className,
           )}
         >
@@ -483,7 +484,7 @@ const markdownComponents: Components = {
       <code
         {...domProps}
         className={cn(
-          'rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em] text-foreground',
+          'opaque-surface rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em] text-foreground',
           className,
         )}
       >

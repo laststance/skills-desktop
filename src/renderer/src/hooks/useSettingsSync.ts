@@ -4,22 +4,8 @@ import { useAppDispatch } from '@/renderer/src/redux/hooks'
 import { setSettings } from '@/renderer/src/redux/slices/settingsSlice'
 
 /**
- * Subscribes the Redux settings slice to the main-process JSON store.
- *
- * Two-step contract:
- *   1. On mount: pull a snapshot via `settings:get` and hydrate the
- *      slice. This races initial paint deliberately — components reading
- *      `defaultSkillTab` get the persisted value before they need it.
- *   2. While mounted: subscribe to `settings:changed` so a save in
- *      the Settings window propagates to the main window (and vice
- *      versa) without either side polling.
- *
- * The unsubscribe is returned from `onChanged` so React's cleanup runs it
- * automatically on unmount; nothing leaks when the component tears down.
- *
- * Reused by both renderer entry points — main window (mounted in
- * `App.tsx`) and Settings window (mounted in `SettingsApp.tsx`) — so
- * either route into the same source of truth without duplicate hooks.
+ * Hydrates both window entry points and adopts canonical broadcasts; main suppresses superseded self-echoes, while {@link useUpdateSettings} guards direct replies.
+ * @returns Nothing; unmount cancels hydration and removes the change subscription.
  * @example
  * function App() {
  *   useSettingsSync()

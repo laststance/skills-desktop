@@ -24,11 +24,6 @@ import { clampSizeToWorkArea } from './utils/clampSizeToWorkArea'
 import { isE2EBackgroundLaunch } from './utils/e2eEnv'
 import { installDevelopmentDevToolsExtensions } from './utils/installDevelopmentDevToolsExtensions'
 import { getSecureWebPreferences } from './utils/secureWebPreferences'
-import {
-  applyWindowBackgroundBlur,
-  getMainWindowBackgroundColor,
-  getMainWindowOpacity,
-} from './utils/windowBackgroundBlur'
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason)
@@ -117,16 +112,10 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 600,
     show: false,
-    backgroundColor: getMainWindowBackgroundColor(
-      settings.windowBackgroundBlurRadius,
-      settings.windowOpacityMode,
-    ),
-    opacity: getMainWindowOpacity(
-      settings.windowBackgroundBlurRadius,
-      settings.windowOpacityMode,
-    ),
-    // Required for the clear BrowserWindow backplate and real window opacity
-    // to reveal the desktop behind the app when the Appearance slider is on.
+    // Keep the canvas clear even at 100% so CSS can animate back to opaque without a native snap.
+    backgroundColor: '#00000000',
+    opacity: 1,
+    // CSS alone controls backgrounds; vibrancy would obscure the desktop and contentView can hide the renderer.
     transparent: true,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: MACOS_TRAFFIC_LIGHT_POSITION_PX,
@@ -137,11 +126,6 @@ function createWindow(): void {
       webviewTag: true,
     },
   })
-  applyWindowBackgroundBlur(
-    window,
-    settings.windowBackgroundBlurRadius,
-    settings.windowOpacityMode,
-  )
   setMainWindow(window)
 
   window.on('closed', () => {

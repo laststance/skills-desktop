@@ -265,24 +265,53 @@ Rules:
 
 ### Window opacity
 
-- Settings → Appearance uses an **Entire / Section** segmented control. Entire
-  retains the existing window opacity and blur; Section independently adjusts
-  **Left** (agent sidebar), **Center** (Installed / Marketplace), and **Right**
-  (details / dashboard).
-- Preserve each mode's values when switching. Section values range from 45–100%
-  and start at 100%; each Reset changes only its own section.
-- Keep the three Section controls comparable: one aligned row per label, slider,
-  percentage, and Reset. All three rows and their resets must fit the standard
-  800 × 600 Settings window without scrolling. Range inputs need at least a
-  24px hit area even when their visible track is thin.
-- In Section mode, each section paints its own background on a clear window
-  canvas. Native window opacity stays at 1 so it does not multiply section
-  percentages. Opacity applies to the complete section, including its content,
-  matching Entire mode's whole-window behavior within the selected region.
-  Settings, menus and dialogs remain fully legible outside those section
-  opacity layers.
-- Use existing theme surfaces and tabular percentages. Respect reduced motion
-  and keep opacity transitions short and interruptible.
+- Settings → Appearance offers **Entire / Section**. Entire applies one background
+  percentage to all three panes; Section controls **Left**, **Center**, **Right**.
+  Every range is **0–100%**, default / Reset **100%**. Preserve hidden mode values;
+  each Reset changes only its own value. Show and announce the same percentage.
+- Native window opacity is always **1**. Paint pane backgrounds on a clear root
+  using inherited `--window-surface-opacity`; never fade a pane or window ancestor.
+  Both modes use a transparent native canvas without vibrancy: desktop detail
+  must stay sharp, not disappear behind a frosted material. Never change Electron's `contentView` background.
+- Background, card, muted, secondary utilities apply the pane alpha to their
+  background colors. Paint structural pane backgrounds once; Reading Mode
+  inherits the inspector backplate rather than stacking full-size fills.
+  Text / icons, borders, solid action fills, and inverse labels keep their opacity.
+- Text-specific utilities strengthen muted, semantic, and fixed-color text as
+  transparency increases: strength `min(1, (100 - percent) / 15)`, dark target OKLCH
+  L ≥ 0.85, light target L ≤ 0.35. Never weaken an already stronger lightness.
+  At 100%, preserve the existing palette exactly. Route new colored text through
+  this common token path; do not add individual text correction components.
+- At **85–100%**, normal and supporting text must clear **4.5:1** on white and
+  black backdrops. Below 85%, foreground opacity and corrected colors stay fixed;
+  contrast depends on the actual desktop. Do not clamp the slider to 85% to
+  satisfy synthetic contrast checks. Verify 45–65% over a detailed wallpaper
+  in a visible macOS window so transparency remains a real, usable effect.
+  Semantic colors must retain AA where the opaque palette clears AA; where the
+  existing palette falls below AA, do not lower its contrast. An arbitrary
+  opaque ratio (e.g. bright yellow on black) cannot always be retained when
+  white shows through, even with white text. Existing disabled / discovery
+  opacity states retain their semantics and are not multiplied by this setting.
+- Settings, portals (menus, dialogs, notifications), external webviews, and
+  code (including Markdown blocks and inline snippets) own opaque surfaces. Reset both background alpha and text
+  correction at `.opaque-surface`. Keep sticky line-number backplates opaque.
+  Expand preview by styling its existing host; do not move or recreate the webview.
+- Register the background property for a **150ms** interruptible CSS transition.
+  Respect reduced motion; text never fades during intermediate frames.
+- Commit ranges on pointerup, keyup, and blur; debounce continuous changes only.
+  Reset saves immediately. An external update cancels an obsolete pending draft.
+  Delayed acknowledgements of this window's earlier saves must never cancel a
+  newer draft; suppress superseded self-notifications while keeping other windows
+  and the sender's latest save synchronized.
+  Preload tags each save before IPC dispatch and filters self-notifications again
+  on receipt, so an older notification already in transit cannot cancel a newer edit.
+  Save failures show a themed toast in either window. Main sends its current
+  canonical values to the sender of the latest failed request; superseded failures
+  send no self-notification. Renderer fallback recovery applies only if no newer
+  local edit or broadcast has arrived.
+- Keep Section controls aligned in the standard 800 × 600 Settings window with
+  a minimum 24px range hit area. Verify CSS color math separately from visible
+  macOS compositing, and inspect recorded transition frames.
 
 ## Motion
 
