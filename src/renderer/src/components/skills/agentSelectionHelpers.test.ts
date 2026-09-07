@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Agent, SymlinkInfo } from '@/shared/types'
+import { toSkillCount } from '@/shared/types'
 
 import {
   buildCopyAgentOptionViewModel,
@@ -20,8 +21,8 @@ function makeAgent(overrides: Partial<Agent> & Pick<Agent, 'id'>): Agent {
     name: overrides.name ?? ('Agent' as Agent['name']),
     path: overrides.path ?? '/tmp/skills',
     exists: overrides.exists ?? true,
-    skillCount: overrides.skillCount ?? 0,
-    localSkillCount: overrides.localSkillCount ?? 0,
+    skillCount: toSkillCount(overrides.skillCount ?? 0),
+    localSkillCount: toSkillCount(overrides.localSkillCount ?? 0),
   }
 }
 

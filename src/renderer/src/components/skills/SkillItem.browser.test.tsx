@@ -6,7 +6,12 @@ import { render } from 'vitest-browser-react'
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import { GSTACK_REPOSITORY_URL } from '@/shared/constants'
 import type { FilesystemEntryIdentity, Skill } from '@/shared/types'
-import { repositoryId } from '@/shared/types'
+import {
+  repositoryId,
+  toFileSizeBytes,
+  toHttpUrl,
+  toSymlinkCount,
+} from '@/shared/types'
 
 const mockGetAll = vi.fn()
 
@@ -30,7 +35,7 @@ const directoryIdentity: FilesystemEntryIdentity = {
   kind: 'directory',
   dev: 1,
   ino: 2,
-  size: 96,
+  size: toFileSizeBytes(96),
   ctimeMs: 3,
   mtimeMs: 4,
 }
@@ -47,7 +52,7 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
     description: 'Task management skill',
     path: '/home/user/.agents/skills/task',
     filesystemIdentity: directoryIdentity,
-    symlinkCount: 0,
+    symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,
     isOrphan: false,
@@ -852,7 +857,7 @@ describe('SkillItem bookmark toggle', () => {
       makeSkill({
         name: 'task',
         source: repositoryId('vercel-labs/agent-skills'),
-        sourceUrl: 'https://github.com/vercel-labs/agent-skills.git',
+        sourceUrl: toHttpUrl('https://github.com/vercel-labs/agent-skills.git'),
       }),
     )
 
@@ -884,7 +889,7 @@ describe('SkillItem bookmark toggle', () => {
       addBookmark({
         name: 'task',
         repo: repositoryId('vercel-labs/agent-skills'),
-        url: 'https://github.com/vercel-labs/agent-skills',
+        url: toHttpUrl('https://github.com/vercel-labs/agent-skills'),
       }),
     )
 

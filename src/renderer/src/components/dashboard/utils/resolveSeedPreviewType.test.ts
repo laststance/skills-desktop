@@ -2,6 +2,10 @@ import { Activity } from 'lucide-react'
 import { describe, expect, it } from 'vitest'
 
 import type { WidgetDefinition } from '@/renderer/src/components/dashboard/types'
+import {
+  toGridColumnSpan,
+  toGridRowSpan,
+} from '@/renderer/src/components/dashboard/types'
 
 import { resolveSeedPreviewType } from './resolveSeedPreviewType'
 
@@ -11,8 +15,8 @@ const PLACEHOLDER_DEFINITION = {
   label: '',
   description: '',
   icon: Activity,
-  defaultSize: { w: 1, h: 1 },
-  minSize: { w: 1, h: 1 },
+  defaultSize: { w: toGridColumnSpan(1), h: toGridRowSpan(1) },
+  minSize: { w: toGridColumnSpan(1), h: toGridRowSpan(1) },
   Component: () => null,
 } as const
 

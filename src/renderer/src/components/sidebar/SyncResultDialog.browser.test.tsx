@@ -5,6 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { SyncExecuteResult } from '@/shared/types'
+import { toSymlinkCount } from '@/shared/types'
 
 const mockSkillsGetAll = vi.fn()
 const mockAgentsGetAll = vi.fn()
@@ -12,9 +13,9 @@ const mockSourceGetStats = vi.fn()
 
 const RESULT_WITH_CHANGES: SyncExecuteResult = {
   success: true,
-  created: 2,
-  replaced: 1,
-  skipped: 1,
+  created: toSymlinkCount(2),
+  replaced: toSymlinkCount(1),
+  skipped: toSymlinkCount(1),
   errors: [{ path: '/Users/me/.codex/skills/broken', error: 'EACCES' }],
   // One row per action so each badge label appears exactly once. The summary
   // counts above are independent of these rows (they drive the header + chips).
@@ -37,9 +38,9 @@ const RESULT_WITH_CHANGES: SyncExecuteResult = {
 
 const RESULT_NO_CHANGES: SyncExecuteResult = {
   success: true,
-  created: 0,
-  replaced: 0,
-  skipped: 3,
+  created: toSymlinkCount(0),
+  replaced: toSymlinkCount(0),
+  skipped: toSymlinkCount(3),
   errors: [],
   details: [
     { skillName: 'already-a', agentName: 'Claude Code', action: 'skipped' },
@@ -50,9 +51,9 @@ const RESULT_NO_CHANGES: SyncExecuteResult = {
 
 const RESULT_EMPTY_DETAILS: SyncExecuteResult = {
   success: true,
-  created: 0,
-  replaced: 0,
-  skipped: 0,
+  created: toSymlinkCount(0),
+  replaced: toSymlinkCount(0),
+  skipped: toSymlinkCount(0),
   errors: [],
   details: [],
 }

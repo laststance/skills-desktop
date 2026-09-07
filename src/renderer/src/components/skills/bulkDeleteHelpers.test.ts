@@ -5,7 +5,7 @@ import type {
   BulkUnlinkResult,
   SkillName,
 } from '@/shared/types'
-import { tombstoneId } from '@/shared/types'
+import { toSkillCount, toSymlinkCount, tombstoneId } from '@/shared/types'
 
 import {
   computeRangeSelection,
@@ -21,8 +21,8 @@ describe('getToolbarState', () => {
     const result = getToolbarState({
       view: 'global',
       agentId: null,
-      count: 1,
-      visibleCount: 1,
+      count: toSkillCount(1),
+      visibleCount: toSkillCount(1),
     })
 
     // Assert
@@ -37,8 +37,8 @@ describe('getToolbarState', () => {
     const result = getToolbarState({
       view: 'global',
       agentId: null,
-      count: 7,
-      visibleCount: 7,
+      count: toSkillCount(7),
+      visibleCount: toSkillCount(7),
     })
 
     // Assert
@@ -53,8 +53,8 @@ describe('getToolbarState', () => {
     const result = getToolbarState({
       view: 'agent',
       agentId: 'cursor',
-      count: 1,
-      visibleCount: 1,
+      count: toSkillCount(1),
+      visibleCount: toSkillCount(1),
     })
 
     // Assert
@@ -68,8 +68,8 @@ describe('getToolbarState', () => {
     const result = getToolbarState({
       view: 'agent',
       agentId: 'cursor',
-      count: 1,
-      visibleCount: 1,
+      count: toSkillCount(1),
+      visibleCount: toSkillCount(1),
       agentDisplayName: 'Cursor',
     })
 
@@ -83,8 +83,8 @@ describe('getToolbarState', () => {
     const result = getToolbarState({
       view: 'agent',
       agentId: 'cursor',
-      count: 4,
-      visibleCount: 4,
+      count: toSkillCount(4),
+      visibleCount: toSkillCount(4),
     })
 
     // Assert
@@ -98,8 +98,8 @@ describe('getToolbarState', () => {
     const result = getToolbarState({
       view: 'agent',
       agentId: 'cursor',
-      count: 4,
-      visibleCount: 4,
+      count: toSkillCount(4),
+      visibleCount: toSkillCount(4),
       agentDisplayName: 'Cursor',
     })
 
@@ -113,8 +113,8 @@ describe('getToolbarState', () => {
     const result = getToolbarState({
       view: 'global',
       agentId: null,
-      count: 5, // user has 5 selected globally
-      visibleCount: 0, // but search filter leaves none visible
+      count: toSkillCount(5), // user has 5 selected globally
+      visibleCount: toSkillCount(0), // but search filter leaves none visible
     })
 
     // Assert
@@ -129,8 +129,8 @@ describe('getToolbarState', () => {
     const result = getToolbarState({
       view: 'agent',
       agentId: 'cursor',
-      count: 3,
-      visibleCount: 0,
+      count: toSkillCount(3),
+      visibleCount: toSkillCount(0),
       agentDisplayName: 'Cursor',
     })
 
@@ -148,8 +148,8 @@ describe('getToolbarState', () => {
     const result = getToolbarState({
       view: 'global',
       agentId: null,
-      count: 5,
-      visibleCount: 2,
+      count: toSkillCount(5),
+      visibleCount: toSkillCount(2),
     })
 
     // Assert
@@ -170,13 +170,13 @@ describe('countOrphanSymlinksRemoved', () => {
         {
           skillName: 'abandoned',
           outcome: 'orphan-cleared',
-          symlinksRemoved: 2,
+          symlinksRemoved: toSymlinkCount(2),
           cascadeAgents: ['cursor'],
         },
         {
           skillName: 'half-cleared',
           outcome: 'error',
-          symlinksRemoved: 1,
+          symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['claude-code'],
           error: { message: 'EACCES', code: 'EACCES' },
         },
@@ -199,7 +199,7 @@ describe('countOrphanSymlinksRemoved', () => {
           skillName: 'task',
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaa'),
-          symlinksRemoved: 5,
+          symlinksRemoved: toSymlinkCount(5),
           cascadeAgents: ['cursor'],
         },
         {
@@ -227,14 +227,14 @@ describe('formatCascadeSummary', () => {
           skillName: 'task',
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaa'),
-          symlinksRemoved: 2,
+          symlinksRemoved: toSymlinkCount(2),
           cascadeAgents: ['cursor', 'claude-code'],
         },
         {
           skillName: 'theme-generator',
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-theme-generator-bbbb'),
-          symlinksRemoved: 1,
+          symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['cursor'],
         },
       ],
@@ -255,7 +255,7 @@ describe('formatCascadeSummary', () => {
           skillName: 'task',
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaa'),
-          symlinksRemoved: 1,
+          symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: [],
         },
         {
@@ -281,7 +281,7 @@ describe('formatCascadeSummary', () => {
           skillName: 'task',
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaa'),
-          symlinksRemoved: 0,
+          symlinksRemoved: toSymlinkCount(0),
           cascadeAgents: [],
         },
       ],
@@ -302,7 +302,7 @@ describe('formatCascadeSummary', () => {
           skillName: 'task',
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaa'),
-          symlinksRemoved: 1,
+          symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: [],
         },
       ],
@@ -326,13 +326,13 @@ describe('formatCascadeSummary', () => {
           skillName: 'task',
           outcome: 'deleted',
           tombstoneId: tombstoneId('1-task-aaaa'),
-          symlinksRemoved: 1,
+          symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['cursor'],
         },
         {
           skillName: 'abandoned',
           outcome: 'orphan-cleared',
-          symlinksRemoved: 2,
+          symlinksRemoved: toSymlinkCount(2),
           cascadeAgents: ['cursor', 'codex'],
         },
       ],
@@ -359,13 +359,13 @@ describe('formatCascadeSummary', () => {
         {
           skillName: 'abandoned-a',
           outcome: 'orphan-cleared',
-          symlinksRemoved: 1,
+          symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['cursor'],
         },
         {
           skillName: 'abandoned-b',
           outcome: 'orphan-cleared',
-          symlinksRemoved: 3,
+          symlinksRemoved: toSymlinkCount(3),
           cascadeAgents: ['cursor', 'codex', 'claude-code'],
         },
       ],
@@ -387,7 +387,7 @@ describe('formatCascadeSummary', () => {
         {
           skillName: 'abandoned',
           outcome: 'orphan-cleared',
-          symlinksRemoved: 2,
+          symlinksRemoved: toSymlinkCount(2),
           cascadeAgents: ['cursor', 'codex'],
         },
         {
@@ -415,7 +415,7 @@ describe('formatCascadeSummary', () => {
           skillName: 'abandoned',
           outcome: 'error',
           error: { message: 'Source skill exists', code: 'ESTALE' },
-          symlinksRemoved: 2,
+          symlinksRemoved: toSymlinkCount(2),
           cascadeAgents: ['codex', 'cursor'],
         },
       ],

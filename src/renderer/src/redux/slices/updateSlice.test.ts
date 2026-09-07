@@ -1,7 +1,12 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 
-import { semanticVersion } from '@/shared/types'
+import {
+  semanticVersion,
+  toByteCount,
+  toBytesPerSecond,
+  toProgressPercent,
+} from '@/shared/types'
 
 async function createTestStore() {
   const { default: updateReducer } = await import('./updateSlice')
@@ -120,10 +125,10 @@ describe('updateSlice', () => {
     // Act
     store.dispatch(
       setProgress({
-        percent: 42,
-        bytesPerSecond: 1024,
-        total: 10000,
-        transferred: 4200,
+        percent: toProgressPercent(42),
+        bytesPerSecond: toBytesPerSecond(1024),
+        total: toByteCount(10000),
+        transferred: toByteCount(4200),
       }),
     )
 
@@ -206,10 +211,10 @@ describe('updateSlice', () => {
     store.dispatch(setDownloading())
     store.dispatch(
       setProgress({
-        percent: 50,
-        bytesPerSecond: 2048,
-        total: 10000,
-        transferred: 5000,
+        percent: toProgressPercent(50),
+        bytesPerSecond: toBytesPerSecond(2048),
+        total: toByteCount(10000),
+        transferred: toByteCount(5000),
       }),
     )
 

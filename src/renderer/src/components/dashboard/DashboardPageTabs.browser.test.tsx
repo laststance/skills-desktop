@@ -5,6 +5,8 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 
+import { toDashboardPageName } from '@/renderer/src/components/dashboard/types'
+
 import type { DashboardPage } from './types'
 import { newDashboardPageId } from './utils/ids'
 
@@ -18,7 +20,7 @@ import { newDashboardPageId } from './utils/ids'
 function makePage(name: string): DashboardPage {
   return {
     id: newDashboardPageId(),
-    name,
+    name: toDashboardPageName(name),
     widgets: [],
   }
 }

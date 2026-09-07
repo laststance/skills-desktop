@@ -5,6 +5,14 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 
+import {
+  toDashboardPageName,
+  toGridColumnSpan,
+  toGridColumnStart,
+  toGridRowSpan,
+  toGridRowStart,
+} from '@/renderer/src/components/dashboard/types'
+
 import type { DashboardPage, WidgetInstance, WidgetType } from './types'
 import { newDashboardPageId, newWidgetInstanceId } from './utils/ids'
 
@@ -20,7 +28,7 @@ import { newDashboardPageId, newWidgetInstanceId } from './utils/ids'
 function makePage(name: string, widgets: WidgetInstance[]): DashboardPage {
   return {
     id: newDashboardPageId(),
-    name,
+    name: toDashboardPageName(name),
     widgets,
   }
 }
@@ -42,10 +50,10 @@ function makeWidget(
   return {
     id: newWidgetInstanceId(),
     type,
-    x: placement.x ?? 0,
-    y: placement.y ?? 0,
-    w: placement.w ?? 6,
-    h: placement.h ?? 3,
+    x: toGridColumnStart(placement.x ?? 0),
+    y: toGridRowStart(placement.y ?? 0),
+    w: toGridColumnSpan(placement.w ?? 6),
+    h: toGridRowSpan(placement.h ?? 3),
   }
 }
 
@@ -177,7 +185,12 @@ describe('DashboardCanvas', () => {
     // Grid Layout's vertical compactor pulls it up to y=0 on mount, which fires
     // onLayoutChange and must be written back to the store.
     const page = makePage('Overview', [
-      makeWidget('welcome', { x: 0, y: 5, w: 6, h: 3 }),
+      makeWidget('welcome', {
+        x: toGridColumnStart(0),
+        y: toGridRowStart(5),
+        w: toGridColumnSpan(6),
+        h: toGridRowSpan(3),
+      }),
     ])
 
     // Act
@@ -195,7 +208,7 @@ describe('DashboardCanvas', () => {
     const removedType = 'legacy-removed-widget' as WidgetType
     const page = makePage('Overview', [
       makeWidget(removedType),
-      makeWidget('welcome', { y: 3 }),
+      makeWidget('welcome', { y: toGridRowStart(3) }),
     ])
 
     // Act

@@ -2,6 +2,7 @@ import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import { describe, expect, it } from 'vitest'
 
 import type { SyncExecuteResult, SyncPreviewResult } from '@/shared/types'
+import { toAgentCount, toSkillCount, toSymlinkCount } from '@/shared/types'
 
 import {
   getSyncResultPresentation,
@@ -15,9 +16,9 @@ function buildResult(
 ): SyncExecuteResult {
   return {
     success: true,
-    created: 0,
-    replaced: 0,
-    skipped: 0,
+    created: toSymlinkCount(0),
+    replaced: toSymlinkCount(0),
+    skipped: toSymlinkCount(0),
     errors: [],
     details: [],
     ...overrides,
@@ -29,10 +30,10 @@ function buildPreview(
   overrides: Partial<SyncPreviewResult> = {},
 ): SyncPreviewResult {
   return {
-    totalSkills: 5,
-    totalAgents: 10,
-    toCreate: 0,
-    alreadySynced: 0,
+    totalSkills: toSkillCount(5),
+    totalAgents: toAgentCount(10),
+    toCreate: toSymlinkCount(0),
+    alreadySynced: toSymlinkCount(0),
     conflicts: [],
     ...overrides,
   }
@@ -50,7 +51,7 @@ describe('shouldShowSyncConfirm', () => {
 
   it('opens the sync confirm dialog when there are new symlinks to create and no conflicts', () => {
     // Arrange
-    const preview = buildPreview({ toCreate: 8 })
+    const preview = buildPreview({ toCreate: toSymlinkCount(8) })
     // Act
     const shouldShow = shouldShowSyncConfirm(preview)
     // Assert
@@ -59,7 +60,10 @@ describe('shouldShowSyncConfirm', () => {
 
   it('keeps the sync confirm dialog hidden when everything is already synced', () => {
     // Arrange
-    const preview = buildPreview({ toCreate: 0, alreadySynced: 50 })
+    const preview = buildPreview({
+      toCreate: toSymlinkCount(0),
+      alreadySynced: toSymlinkCount(50),
+    })
     // Act
     const shouldShow = shouldShowSyncConfirm(preview)
     // Assert
@@ -69,7 +73,7 @@ describe('shouldShowSyncConfirm', () => {
   it('defers to the conflict dialog instead of the confirm dialog when conflicts exist', () => {
     // Arrange
     const preview = buildPreview({
-      toCreate: 3,
+      toCreate: toSymlinkCount(3),
       conflicts: [
         {
           skillName: 'test-skill',
@@ -87,7 +91,7 @@ describe('shouldShowSyncConfirm', () => {
 
   it('keeps the sync confirm dialog hidden when there is nothing to create and no conflicts', () => {
     // Arrange
-    const preview = buildPreview({ toCreate: 0, conflicts: [] })
+    const preview = buildPreview({ toCreate: toSymlinkCount(0), conflicts: [] })
     // Act
     const shouldShow = shouldShowSyncConfirm(preview)
     // Assert
@@ -109,9 +113,9 @@ describe('shouldShowSyncResult', () => {
     // Arrange
     const result: SyncExecuteResult = {
       success: true,
-      created: 3,
-      replaced: 0,
-      skipped: 2,
+      created: toSymlinkCount(3),
+      replaced: toSymlinkCount(0),
+      skipped: toSymlinkCount(2),
       errors: [],
       details: [
         { skillName: 'my-skill', agentName: 'Claude Code', action: 'created' },
@@ -127,9 +131,9 @@ describe('shouldShowSyncResult', () => {
     // Arrange
     const result: SyncExecuteResult = {
       success: false,
-      created: 0,
-      replaced: 0,
-      skipped: 0,
+      created: toSymlinkCount(0),
+      replaced: toSymlinkCount(0),
+      skipped: toSymlinkCount(0),
       errors: [{ path: '/test', error: 'fail' }],
       details: [
         {
@@ -162,7 +166,7 @@ describe('getSyncResultPresentation', () => {
 
   it('shows a green success state counting the symlinks created', () => {
     // Arrange
-    const createdOnlyResult = buildResult({ created: 3 })
+    const createdOnlyResult = buildResult({ created: toSymlinkCount(3) })
     // Act
     const { HeaderIcon, iconColor, description } =
       getSyncResultPresentation(createdOnlyResult)
@@ -174,7 +178,7 @@ describe('getSyncResultPresentation', () => {
 
   it('pluralizes "symlink" in the singular when exactly one was created', () => {
     // Arrange
-    const oneCreatedResult = buildResult({ created: 1 })
+    const oneCreatedResult = buildResult({ created: toSymlinkCount(1) })
     // Act
     const { description } = getSyncResultPresentation(oneCreatedResult)
     // Assert
@@ -183,7 +187,7 @@ describe('getSyncResultPresentation', () => {
 
   it('pluralizes "conflict" in the singular when exactly one was replaced', () => {
     // Arrange
-    const oneReplacedResult = buildResult({ replaced: 1 })
+    const oneReplacedResult = buildResult({ replaced: toSymlinkCount(1) })
     // Act
     const { description } = getSyncResultPresentation(oneReplacedResult)
     // Assert
@@ -193,8 +197,8 @@ describe('getSyncResultPresentation', () => {
   it('combines created, replaced, and failed counts into one comma-separated summary', () => {
     // Arrange
     const mixedResult = buildResult({
-      created: 2,
-      replaced: 3,
+      created: toSymlinkCount(2),
+      replaced: toSymlinkCount(3),
       errors: [{ path: '/a', error: 'x' }],
     })
     // Act
@@ -222,7 +226,7 @@ describe('getSyncResultPresentation', () => {
   it('shows an amber partial-failure state when some changes succeeded and some failed', () => {
     // Arrange
     const partialFailureResult = buildResult({
-      created: 2,
+      created: toSymlinkCount(2),
       errors: [{ path: '/a', error: 'boom' }],
     })
     // Act
@@ -236,7 +240,7 @@ describe('getSyncResultPresentation', () => {
   it('counts a replaced conflict as a success so it shows the amber partial state alongside errors', () => {
     // Arrange
     const replacedWithErrorResult = buildResult({
-      replaced: 1,
+      replaced: toSymlinkCount(1),
       errors: [{ path: '/a', error: 'boom' }],
     })
     // Act
@@ -250,7 +254,7 @@ describe('getSyncResultPresentation', () => {
 
   it('shows a green success state saying nothing changed when everything was already up to date', () => {
     // Arrange
-    const skippedOnlyResult = buildResult({ skipped: 5 })
+    const skippedOnlyResult = buildResult({ skipped: toSymlinkCount(5) })
     // Act
     const { HeaderIcon, iconColor, description } =
       getSyncResultPresentation(skippedOnlyResult)

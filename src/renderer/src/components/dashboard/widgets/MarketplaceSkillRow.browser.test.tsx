@@ -3,7 +3,12 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { SkillSearchResult } from '@/shared/types'
-import { repositoryId } from '@/shared/types'
+import {
+  repositoryId,
+  toHttpUrl,
+  toInstallCount,
+  toSkillRank,
+} from '@/shared/types'
 
 import { MarketplaceSkillRow } from './MarketplaceSkillRow'
 
@@ -22,10 +27,10 @@ function makeSkill(
   overrides: Partial<SkillSearchResult> = {},
 ): SkillSearchResult {
   return {
-    rank: 1,
+    rank: toSkillRank(1),
     name: 'task',
     repo: repositoryId('vercel-labs/skills'),
-    url: 'https://skills.sh/task',
+    url: toHttpUrl('https://skills.sh/task'),
     ...overrides,
   }
 }
@@ -34,11 +39,11 @@ describe('MarketplaceSkillRow', () => {
   it('opens the skill on skills.sh in a new browser tab when the row is clicked', async () => {
     // Arrange: a fully-populated trending skill row.
     const skill = makeSkill({
-      rank: 1,
+      rank: toSkillRank(1),
       name: 'task',
       repo: repositoryId('vercel-labs/skills'),
-      url: 'https://skills.sh/task',
-      installCount: 2480,
+      url: toHttpUrl('https://skills.sh/task'),
+      installCount: toInstallCount(2480),
     })
 
     // Act
@@ -70,10 +75,10 @@ describe('MarketplaceSkillRow', () => {
   it('shows a dash for the install count when the skill has no install data', async () => {
     // Arrange: a CLI-search-style result with no installCount field.
     const skill = makeSkill({
-      rank: 7,
+      rank: toSkillRank(7),
       name: 'review',
       repo: repositoryId('anthropics/skills'),
-      url: 'https://skills.sh/review',
+      url: toHttpUrl('https://skills.sh/review'),
     })
 
     // Act

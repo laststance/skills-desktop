@@ -19,6 +19,7 @@ import type {
   SymlinkInfo,
   TombstoneId,
 } from '@/shared/types'
+import { toAgentCount } from '@/shared/types'
 
 /**
  * Redux state for the Installed Skills feature area.
@@ -360,7 +361,7 @@ export const bulkCopyToAgents = createAsyncThunk<
         // and keep going; the aggregate surfaces it as a partial failure.
         perSkill.push({
           skillName: item.skillName,
-          copied: 0,
+          copied: toAgentCount(0),
           failures: agentIds.map((agentId) => ({
             agentId,
             /* v8 ignore next -- copyToAgents IPC rejects with Error objects in normal flow; the 'Copy failed' arm only runs for a non-Error throw */

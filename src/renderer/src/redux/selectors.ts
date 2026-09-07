@@ -15,6 +15,7 @@ import type {
   SkillName,
   SymlinkInfo,
 } from '@/shared/types'
+import { toSkillCount } from '@/shared/types'
 
 import { selectBookmarkItems } from './slices/bookmarkSlice'
 import { selectProtectedNamesSet } from './slices/protectSlice'
@@ -284,10 +285,13 @@ export const selectFilteredSkillCount = createSelector(
 export const selectRepoFacetOptions = createSelector(
   [selectVisibleByAgentAndType],
   (visibleByAgentAndType): RepoFacetOption[] => {
-    const sourceCounts = new Map<RepositoryId, number>()
+    const sourceCounts = new Map<RepositoryId, SkillCount>()
     for (const skill of visibleByAgentAndType) {
       if (!skill.source) continue
-      sourceCounts.set(skill.source, (sourceCounts.get(skill.source) ?? 0) + 1)
+      sourceCounts.set(
+        skill.source,
+        toSkillCount((sourceCounts.get(skill.source) ?? 0) + 1),
+      )
     }
     return [...sourceCounts.entries()]
       .sort(([sourceA], [sourceB]) => sourceA.localeCompare(sourceB))
@@ -419,8 +423,8 @@ export const selectSourceFilterViewModel = createSelector(
   [selectVisibleByAgentAndType, selectSelectedSources, selectRepoFacetOptions],
   (visibleSkills, selectedSources, facetOptions): SourceFilterViewModel => {
     const facetSourceSet = new Set(facetOptions.map((option) => option.source))
-    const countBySource = new Map<RepositoryId, number>(
-      facetOptions.map((option): [RepositoryId, number] => [
+    const countBySource = new Map<RepositoryId, SkillCount>(
+      facetOptions.map((option): [RepositoryId, SkillCount] => [
         option.source,
         option.count,
       ]),
@@ -438,7 +442,7 @@ export const selectSourceFilterViewModel = createSelector(
       .sort((a, b) => a.localeCompare(b))
       .map((source) => ({
         source,
-        count: countBySource.get(source) ?? 0,
+        count: countBySource.get(source) ?? toSkillCount(0),
         checked: selectedSet.has(source),
       }))
 
@@ -479,7 +483,7 @@ export const selectSourceFilterViewModel = createSelector(
         facetOptions.length > 0 &&
         facetOptions.every((option) => selectedSet.has(option.source)),
       hasNoRepositories: facetOptions.length === 0,
-      localHiddenCount,
+      localHiddenCount: toSkillCount(localHiddenCount),
     }
   },
 )

@@ -5,6 +5,12 @@ import { render } from 'vitest-browser-react'
 
 import type { AgentId } from '@/shared/constants'
 import type { Skill, SkillName, SymlinkInfo } from '@/shared/types'
+import {
+  toBatchItemCount,
+  toBatchItemIndex,
+  toSearchQuery,
+  toSymlinkCount,
+} from '@/shared/types'
 
 /**
  * Build a source skill fixture with one agent symlink slot for toolbar tests.
@@ -21,7 +27,7 @@ function makeCursorSkill(
     name,
     description: '',
     path: `/Users/test/.agents/skills/${name}`,
-    symlinkCount: status === 'missing' ? 0 : 1,
+    symlinkCount: toSymlinkCount(status === 'missing' ? 0 : 1),
     symlinks: [
       {
         agentId: 'cursor',
@@ -183,7 +189,7 @@ describe('SelectionToolbar', () => {
     })
 
     // Act — narrow the visible list so 'zeta-hidden' drops out of the filter
-    store.dispatch(setSearchQuery('alpha'))
+    store.dispatch(setSearchQuery(toSearchQuery('alpha')))
 
     // Assert — both advisory badges surface their counts
     await expect.element(screen.getByText('+1 hidden by filter')).toBeVisible()
@@ -201,7 +207,12 @@ describe('SelectionToolbar', () => {
       await import('@/renderer/src/redux/slices/skillsSlice')
 
     // Act — emit progress for a batch at the >= 10 threshold
-    store.dispatch(setBulkProgress({ current: 3, total: 12 }))
+    store.dispatch(
+      setBulkProgress({
+        current: toBatchItemIndex(3),
+        total: toBatchItemCount(12),
+      }),
+    )
 
     // Assert — the counter renders "current of total"
     await expect.element(screen.getByText('3 of 12')).toBeVisible()

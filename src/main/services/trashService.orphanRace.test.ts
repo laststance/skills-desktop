@@ -20,6 +20,7 @@ import { basename, dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
 
 import type { FilesystemEntryIdentity } from '@/shared/types'
+import { toFileSizeBytes } from '@/shared/types'
 
 import { filesystemIdentityFromStats } from './filesystemIdentity'
 
@@ -43,7 +44,7 @@ const missingDirectoryIdentityForOrphanTests: FilesystemEntryIdentity = {
   kind: 'directory',
   dev: 1,
   ino: 1,
-  size: 96,
+  size: toFileSizeBytes(96),
   ctimeMs: 1,
   mtimeMs: 1,
 }

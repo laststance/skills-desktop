@@ -1,4 +1,5 @@
 import type { HttpUrl, RepositoryId, Skill } from '@/shared/types'
+import { toHttpUrl } from '@/shared/types'
 
 /**
  * Whether a skill can be bookmarked from the Installed tab.
@@ -32,5 +33,5 @@ export function skillToBookmarkData(skill: Skill): {
   const url = skill.sourceUrl
     ? skill.sourceUrl.replace(/\.git$/, '')
     : `https://github.com/${repo}`
-  return { repo, url }
+  return { repo, url: toHttpUrl(url) }
 }

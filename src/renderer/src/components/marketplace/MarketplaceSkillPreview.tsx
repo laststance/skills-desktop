@@ -9,6 +9,7 @@ import { useAppDispatch } from '@/renderer/src/redux/hooks'
 import { setPreviewSkill } from '@/renderer/src/redux/slices/marketplaceSlice'
 import { isAllowedSkillsUrl } from '@/shared/marketplaceUrlPolicy'
 import type { SkillSearchResult } from '@/shared/types'
+import { toHttpUrl } from '@/shared/types'
 
 interface MarketplaceSkillPreviewProps {
   skill: SkillSearchResult
@@ -66,7 +67,7 @@ export const MarketplaceSkillPreview = function MarketplaceSkillPreview({
       e: Electron.DidNavigateEvent | Electron.DidNavigateInPageEvent,
     ): void => {
       if (isAllowedSkillsUrl(e.url)) {
-        setCurrentUrl(e.url)
+        setCurrentUrl(toHttpUrl(e.url))
       }
     }
 

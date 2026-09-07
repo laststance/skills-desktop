@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { AgentId, Skill, SymlinkInfo } from '@/shared/types'
+import { toSymlinkCount } from '@/shared/types'
 
 import { getLocationViewModel } from './getLocationViewModel'
 
@@ -26,7 +27,9 @@ const makeSkill = (
   name: 'foo',
   description: 'foo skill',
   path,
-  symlinkCount: symlinks.filter((s) => s.status === 'valid').length,
+  symlinkCount: toSymlinkCount(
+    symlinks.filter((s) => s.status === 'valid').length,
+  ),
   symlinks,
   isSource,
   isOrphan: false,

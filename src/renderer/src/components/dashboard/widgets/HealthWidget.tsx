@@ -14,6 +14,7 @@ import {
 } from '@/renderer/src/redux/slices/uiSlice'
 import { pluralize } from '@/renderer/src/utils/pluralize'
 import type { Skill, SymlinkCount } from '@/shared/types'
+import { toSymlinkCount } from '@/shared/types'
 
 // ----------------------------------------------------------------------------
 // Pure helpers
@@ -37,14 +38,14 @@ interface HealthTotals {
  */
 function tallySymlinks(skills: readonly Skill[]): HealthTotals {
   const totals: HealthTotals = {
-    valid: 0,
-    broken: 0,
-    inaccessible: 0,
-    missing: 0,
+    valid: toSymlinkCount(0),
+    broken: toSymlinkCount(0),
+    inaccessible: toSymlinkCount(0),
+    missing: toSymlinkCount(0),
   }
   for (const skill of skills) {
     for (const link of skill.symlinks) {
-      totals[link.status] += 1
+      totals[link.status] = toSymlinkCount(totals[link.status] + 1)
     }
   }
   return totals

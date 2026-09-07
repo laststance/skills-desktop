@@ -4,6 +4,12 @@ import { render } from 'vitest-browser-react'
 
 import type { AbsolutePath, SkillFile } from '@/shared/types'
 import '@/renderer/src/styles/globals.css'
+import {
+  toFileExtension,
+  toFileName,
+  toFileSizeBytes,
+  toPosixRelativePath,
+} from '@/shared/types'
 
 import { FileTabs } from './FileTabs'
 
@@ -14,11 +20,11 @@ import { FileTabs } from './FileTabs'
  */
 function makeSkillFile(overrides: Partial<SkillFile> = {}): SkillFile {
   return {
-    name: 'SKILL.md',
+    name: toFileName('SKILL.md'),
     path: '/Users/me/.agents/skills/tdd/SKILL.md',
-    relativePath: 'SKILL.md',
-    extension: '.md',
-    size: 1024,
+    relativePath: toPosixRelativePath('SKILL.md'),
+    extension: toFileExtension('.md'),
+    size: toFileSizeBytes(1024),
     previewable: 'text',
     ...overrides,
   }
@@ -48,12 +54,12 @@ describe('FileTabs tab bar', () => {
     const files = [
       makeSkillFile({
         path: '/Users/me/.agents/skills/tdd/SKILL.md',
-        relativePath: 'SKILL.md',
+        relativePath: toPosixRelativePath('SKILL.md'),
       }),
       makeSkillFile({
-        name: 'run.md',
+        name: toFileName('run.md'),
         path: '/Users/me/.agents/skills/tdd/workflows/run.md',
-        relativePath: 'workflows/run.md',
+        relativePath: toPosixRelativePath('workflows/run.md'),
       }),
     ]
 
@@ -74,13 +80,13 @@ describe('FileTabs tab bar', () => {
     const files = [
       makeSkillFile({
         path: '/Users/me/.agents/skills/tdd/SKILL.md',
-        relativePath: 'SKILL.md',
+        relativePath: toPosixRelativePath('SKILL.md'),
       }),
       makeSkillFile({
-        name: 'helper.py',
+        name: toFileName('helper.py'),
         path: '/Users/me/.agents/skills/tdd/lib/helper.py',
-        relativePath: 'lib/helper.py',
-        extension: '.py',
+        relativePath: toPosixRelativePath('lib/helper.py'),
+        extension: toFileExtension('.py'),
       }),
     ]
 
@@ -100,10 +106,10 @@ describe('FileTabs tab bar', () => {
     // Arrange
     const files = [
       makeSkillFile({
-        name: 'diagram.png',
+        name: toFileName('diagram.png'),
         path: '/Users/me/.agents/skills/tdd/diagram.png',
-        relativePath: 'diagram.png',
-        extension: '.png',
+        relativePath: toPosixRelativePath('diagram.png'),
+        extension: toFileExtension('.png'),
         previewable: 'image',
       }),
     ]
@@ -120,10 +126,10 @@ describe('FileTabs tab bar', () => {
     // Arrange
     const files = [
       makeSkillFile({
-        name: 'NOTES.mdx',
+        name: toFileName('NOTES.mdx'),
         path: '/Users/me/.agents/skills/tdd/NOTES.mdx',
-        relativePath: 'NOTES.mdx',
-        extension: '.mdx',
+        relativePath: toPosixRelativePath('NOTES.mdx'),
+        extension: toFileExtension('.mdx'),
         previewable: 'text',
       }),
     ]
@@ -140,10 +146,10 @@ describe('FileTabs tab bar', () => {
     // Arrange
     const files = [
       makeSkillFile({
-        name: 'helper.py',
+        name: toFileName('helper.py'),
         path: '/Users/me/.agents/skills/tdd/lib/helper.py',
-        relativePath: 'lib/helper.py',
-        extension: '.py',
+        relativePath: toPosixRelativePath('lib/helper.py'),
+        extension: toFileExtension('.py'),
         previewable: 'text',
       }),
     ]

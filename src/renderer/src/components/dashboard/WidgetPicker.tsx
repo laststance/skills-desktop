@@ -1,6 +1,12 @@
 import React, { useRef } from 'react'
 
 import {
+  toGridColumnSpan,
+  toGridColumnStart,
+  toGridRowSpan,
+  toGridRowStart,
+} from '@/renderer/src/components/dashboard/types'
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -120,10 +126,10 @@ export const WidgetPicker = function WidgetPicker({
   const previewInstance = {
     id: PREVIEW_INSTANCE_ID,
     type: previewType,
-    x: 0,
-    y: 0,
-    w: previewDefinition?.defaultSize.w ?? 1,
-    h: previewDefinition?.defaultSize.h ?? 1,
+    x: toGridColumnStart(0),
+    y: toGridRowStart(0),
+    w: previewDefinition?.defaultSize.w ?? toGridColumnSpan(1),
+    h: previewDefinition?.defaultSize.h ?? toGridRowSpan(1),
   }
 
   // Plain handler: each row already creates a new arrow in `.map()`, so

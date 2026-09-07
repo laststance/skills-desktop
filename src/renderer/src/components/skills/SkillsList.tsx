@@ -21,6 +21,7 @@ import {
   setSearchQuery,
 } from '@/renderer/src/redux/slices/uiSlice'
 import type { Skill } from '@/shared/types'
+import { toSearchQuery } from '@/shared/types'
 
 import { SkillItem } from './SkillItem'
 import { getEmptyListMessage } from './skillsListHelpers'
@@ -83,7 +84,7 @@ export const SkillsList = function SkillsList(): React.ReactElement {
 
   /** Resets the search query to empty; fired by the "Clear search" CTA in the search-miss empty state. */
   const handleClearSearch = (): void => {
-    dispatch(setSearchQuery(''))
+    dispatch(setSearchQuery(toSearchQuery('')))
   }
 
   /**

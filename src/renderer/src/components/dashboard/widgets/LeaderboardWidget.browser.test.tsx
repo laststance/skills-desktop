@@ -10,7 +10,14 @@ import type {
   SkillSearchResult,
   LeaderboardData,
 } from '@/shared/types'
-import { repositoryId } from '@/shared/types'
+import {
+  repositoryId,
+  toHttpUrl,
+  toInstallCount,
+  toSearchQuery,
+  toSkillRank,
+  toUnixTimestampMs,
+} from '@/shared/types'
 
 // The widget dispatches `loadLeaderboard(filter)` on mount, whose thunk reads
 // `window.electron.marketplace.leaderboard`. Browser-mode tests replace the
@@ -41,11 +48,11 @@ afterEach(() => {
  */
 function makeSkill(rank: number, name: string): SkillSearchResult {
   return {
-    rank,
+    rank: toSkillRank(rank),
     name,
     repo: repositoryId(`owner/${name}`),
-    url: `https://skills.sh/${name}`,
-    installCount: 100,
+    url: toHttpUrl(`https://skills.sh/${name}`),
+    installCount: toInstallCount(100),
   }
 }
 
@@ -71,7 +78,7 @@ async function renderLeaderboard(
       ? {
           marketplace: {
             status: 'idle' as const,
-            searchQuery: '',
+            searchQuery: toSearchQuery(''),
             searchResults: [],
             selectedSkill: null,
             previewSkill: null,
@@ -104,7 +111,7 @@ describe('LeaderboardWidget', () => {
     // Arrange: the filter has never resolved — status loading, no skills yet.
     const loadingEntry: LeaderboardData = {
       skills: [],
-      lastFetched: 0,
+      lastFetched: toUnixTimestampMs(0),
       filter: 'trending',
       status: 'loading',
     }
@@ -141,7 +148,7 @@ describe('LeaderboardWidget', () => {
     mockLeaderboard.mockRejectedValue(new Error('network down'))
     const erroredEntry: LeaderboardData = {
       skills: [],
-      lastFetched: 0,
+      lastFetched: toUnixTimestampMs(0),
       filter: 'trending',
       status: 'error',
       error: 'network down',
@@ -160,7 +167,7 @@ describe('LeaderboardWidget', () => {
     // Arrange: a successful load that returned no skills.
     const emptyEntry: LeaderboardData = {
       skills: [],
-      lastFetched: Date.now(),
+      lastFetched: toUnixTimestampMs(Date.now()),
       filter: 'trending',
       status: 'idle',
     }
@@ -178,7 +185,7 @@ describe('LeaderboardWidget', () => {
     // Arrange: a successful load with two ranked skills.
     const loadedEntry: LeaderboardData = {
       skills: [makeSkill(1, 'alpha-skill'), makeSkill(2, 'beta-skill')],
-      lastFetched: Date.now(),
+      lastFetched: toUnixTimestampMs(Date.now()),
       filter: 'trending',
       status: 'idle',
     }
@@ -202,7 +209,7 @@ describe('LeaderboardWidget', () => {
         makeSkill(4, 'four-skill'),
         makeSkill(5, 'five-skill'),
       ],
-      lastFetched: Date.now(),
+      lastFetched: toUnixTimestampMs(Date.now()),
       filter: 'trending',
       status: 'idle',
     }

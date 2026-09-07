@@ -10,6 +10,13 @@ import type {
   WidgetInstance,
   WidgetInstanceId,
 } from '@/renderer/src/components/dashboard/types'
+import {
+  toDashboardPageName,
+  toGridColumnSpan,
+  toGridColumnStart,
+  toGridRowSpan,
+  toGridRowStart,
+} from '@/renderer/src/components/dashboard/types'
 
 /**
  * Build a dashboard page that holds a single welcome widget so the real
@@ -20,15 +27,15 @@ import type {
 function makeWelcomePage(widgetId: WidgetInstanceId): DashboardPage {
   return {
     id: 'p_welcome' as DashboardPageId,
-    name: 'Overview',
+    name: toDashboardPageName('Overview'),
     widgets: [
       {
         id: widgetId,
         type: 'welcome',
-        x: 0,
-        y: 0,
-        w: 6,
-        h: 2,
+        x: toGridColumnStart(0),
+        y: toGridRowStart(0),
+        w: toGridColumnSpan(6),
+        h: toGridRowSpan(2),
       },
     ],
   }
@@ -47,10 +54,10 @@ function makeWelcomeInstance(widgetId: WidgetInstanceId): WidgetInstance {
   return {
     id: widgetId,
     type: 'welcome',
-    x: 0,
-    y: 0,
-    w: 6,
-    h: 2,
+    x: toGridColumnStart(0),
+    y: toGridRowStart(0),
+    w: toGridColumnSpan(6),
+    h: toGridRowSpan(2),
   }
 }
 

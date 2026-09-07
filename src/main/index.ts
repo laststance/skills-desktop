@@ -11,6 +11,7 @@ import {
 
 import { MACOS_TRAFFIC_LIGHT_POSITION_PX } from '@/shared/constants'
 import { isAllowedSkillsUrl } from '@/shared/marketplaceUrlPolicy'
+import { toPixelHeight, toPixelWidth } from '@/shared/types'
 
 import { registerAllHandlers } from './ipc/handlers'
 import { getMainWindow, setMainWindow } from './services/mainWindowState'
@@ -80,8 +81,8 @@ app.on('second-instance', () => {
  * preference the app maximizes on `ready-to-show` so users keep the original
  * "fills the screen" behavior on first launch.
  */
-const DEFAULT_LAUNCH_WIDTH = 1200
-const DEFAULT_LAUNCH_HEIGHT = 800
+const DEFAULT_LAUNCH_WIDTH = toPixelWidth(1200)
+const DEFAULT_LAUNCH_HEIGHT = toPixelHeight(800)
 
 function createWindow(): void {
   const settings = getSettings()
@@ -92,7 +93,12 @@ function createWindow(): void {
   // one (clamping happens *before* the BrowserWindow is constructed because
   // Electron applies `width`/`height` literally — there's no built-in clamp).
   const persistedWindowSize = settings.windowSize
-  const primaryWorkArea = screen.getPrimaryDisplay().workAreaSize
+  const { width: workAreaWidth, height: workAreaHeight } =
+    screen.getPrimaryDisplay().workAreaSize
+  const primaryWorkArea = {
+    width: toPixelWidth(workAreaWidth),
+    height: toPixelHeight(workAreaHeight),
+  }
   const hasCustomSize = persistedWindowSize !== undefined
   const launchSize = hasCustomSize
     ? clampSizeToWorkArea(persistedWindowSize, primaryWorkArea)

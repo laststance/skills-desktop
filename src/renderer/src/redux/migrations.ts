@@ -3,6 +3,10 @@ import type {
   WidgetType,
 } from '@/renderer/src/components/dashboard/types'
 import {
+  toGridColumnSpan,
+  toGridRowSpan,
+} from '@/renderer/src/components/dashboard/types'
+import {
   COLOR_PRESET_CHROMA,
   PERSIST_STATE_VERSION,
   THEME_PRESETS,
@@ -45,7 +49,7 @@ export interface MigratableState {
  * floor will silently violate the registry constraint after upgrade.
  */
 export const V2_WIDGET_MIN_SIZES = {
-  'quick-actions': { w: 3, h: 3 },
+  'quick-actions': { w: toGridColumnSpan(3), h: toGridRowSpan(3) },
 } as const satisfies Partial<Record<WidgetType, WidgetSize>>
 
 /**
@@ -57,7 +61,7 @@ export const V2_WIDGET_MIN_SIZES = {
  * here, AND ship a migration.
  */
 export const V4_WIDGET_MIN_SIZES = {
-  health: { w: 2, h: 3 },
+  health: { w: toGridColumnSpan(2), h: toGridRowSpan(3) },
 } as const satisfies Partial<Record<WidgetType, WidgetSize>>
 
 /**

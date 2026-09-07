@@ -13,6 +13,7 @@ import type {
   SymlinkInfo,
   SymlinkStatus,
 } from '@/shared/types'
+import { toSymlinkCount } from '@/shared/types'
 
 import { filesystemIdentityFromStats } from './filesystemIdentity'
 
@@ -279,5 +280,5 @@ async function resolveSymlinkTarget(
  * // => 1
  */
 export function countValidSymlinks(symlinks: SymlinkInfo[]): SymlinkCount {
-  return symlinks.filter((s) => s.status === 'valid').length
+  return toSymlinkCount(symlinks.filter((s) => s.status === 'valid').length)
 }

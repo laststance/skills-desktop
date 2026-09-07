@@ -10,7 +10,15 @@ import type {
   RankingFilter,
   RepositoryId,
   Skill,
+  SearchQuery,
   SkillSearchResult,
+} from '@/shared/types'
+import {
+  toHttpUrl,
+  toSearchQuery,
+  toSkillRank,
+  toSymlinkCount,
+  toUnixTimestampMs,
 } from '@/shared/types'
 
 // SkillsMarketplace is the only screen that composes RankingTabs + search +
@@ -49,10 +57,10 @@ function makeSearchResult(
   overrides: Partial<SkillSearchResult> = {},
 ): SkillSearchResult {
   return {
-    rank: 1,
+    rank: toSkillRank(1),
     name: 'task',
     repo: 'vercel-labs/skills' as RepositoryId,
-    url: 'https://skills.sh/task',
+    url: toHttpUrl('https://skills.sh/task'),
     installCount: undefined,
     ...overrides,
   }
@@ -67,7 +75,7 @@ function makeLeaderboardData(
 ): LeaderboardData {
   return {
     skills: [],
-    lastFetched: Date.now(),
+    lastFetched: toUnixTimestampMs(Date.now()),
     filter: 'all-time',
     status: 'idle',
     ...overrides,
@@ -85,7 +93,7 @@ function makeLeaderboardData(
 async function renderMarketplace(preloadedState: {
   marketplace?: {
     status?: MarketplaceStatus
-    searchQuery?: string
+    searchQuery?: SearchQuery
     searchResults?: SkillSearchResult[]
     error?: string | null
     leaderboard?: Partial<Record<RankingFilter, LeaderboardData>>
@@ -108,7 +116,7 @@ async function renderMarketplace(preloadedState: {
     preloadedState: {
       marketplace: {
         status: 'idle',
-        searchQuery: '',
+        searchQuery: toSearchQuery(''),
         searchResults: [],
         selectedSkill: null,
         previewSkill: null,
@@ -159,7 +167,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
     const loadingLeaderboard = {
       'all-time': makeLeaderboardData({
         skills: [],
-        lastFetched: 0,
+        lastFetched: toUnixTimestampMs(0),
         status: 'loading',
       }),
     }
@@ -192,7 +200,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
     const erroredLeaderboard = {
       'all-time': makeLeaderboardData({
         skills: [],
-        lastFetched: 0,
+        lastFetched: toUnixTimestampMs(0),
         status: 'error',
         error: 'network down',
       }),
@@ -214,7 +222,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
     const emptyLeaderboard = {
       'all-time': makeLeaderboardData({
         skills: [],
-        lastFetched: Date.now(),
+        lastFetched: toUnixTimestampMs(Date.now()),
         status: 'idle',
       }),
     }
@@ -238,7 +246,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
     const oneSkillLeaderboard = {
       'all-time': makeLeaderboardData({
         skills: [makeSearchResult({ name: 'solo' })],
-        lastFetched: Date.now(),
+        lastFetched: toUnixTimestampMs(Date.now()),
         status: 'loading',
       }),
     }
@@ -261,7 +269,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
       name: 'installed-one',
       description: 'desc',
       path: '/Users/me/.agents/skills/installed-one',
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -270,7 +278,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
     const leaderboardWithInstalled = {
       'all-time': makeLeaderboardData({
         skills: [makeSearchResult({ name: 'installed-one' })],
-        lastFetched: Date.now(),
+        lastFetched: toUnixTimestampMs(Date.now()),
         status: 'loading',
       }),
     }
@@ -295,7 +303,7 @@ describe('SkillsMarketplace — "Updated X ago" relative-time label', () => {
     const recentLeaderboard = {
       'all-time': makeLeaderboardData({
         skills: [makeSearchResult()],
-        lastFetched: Date.now() - 5_000,
+        lastFetched: toUnixTimestampMs(Date.now() - 5_000),
         status: 'loading',
       }),
     }
@@ -317,7 +325,7 @@ describe('SkillsMarketplace — "Updated X ago" relative-time label', () => {
     const fiveMinLeaderboard = {
       'all-time': makeLeaderboardData({
         skills: [makeSearchResult()],
-        lastFetched: Date.now() - 5 * 60 * 1_000,
+        lastFetched: toUnixTimestampMs(Date.now() - 5 * 60 * 1_000),
         status: 'loading',
       }),
     }
@@ -340,7 +348,7 @@ describe('SkillsMarketplace — "Updated X ago" relative-time label', () => {
     const threeHourLeaderboard = {
       'all-time': makeLeaderboardData({
         skills: [makeSearchResult()],
-        lastFetched: Date.now() - 3 * 60 * 60 * 1_000,
+        lastFetched: toUnixTimestampMs(Date.now() - 3 * 60 * 60 * 1_000),
         status: 'loading',
       }),
     }
@@ -362,7 +370,7 @@ describe('SkillsMarketplace — search results view', () => {
     const { screen } = await renderMarketplace({
       marketplace: {
         status: 'searching',
-        searchQuery: 'react',
+        searchQuery: toSearchQuery('react'),
         searchResults: [],
       },
     })
@@ -377,7 +385,7 @@ describe('SkillsMarketplace — search results view', () => {
     const { screen } = await renderMarketplace({
       marketplace: {
         status: 'idle',
-        searchQuery: 'nonexistent',
+        searchQuery: toSearchQuery('nonexistent'),
         searchResults: [],
       },
     })
@@ -392,9 +400,9 @@ describe('SkillsMarketplace — search results view', () => {
     // Arrange — two results exercise the plural "skills" count label and the
     // search-results SkillRowMarketplace map.
     const results = [
-      makeSearchResult({ rank: 1, name: 'react' }),
+      makeSearchResult({ rank: toSkillRank(1), name: 'react' }),
       makeSearchResult({
-        rank: 2,
+        rank: toSkillRank(2),
         name: 'react-query',
       }),
     ]
@@ -403,7 +411,7 @@ describe('SkillsMarketplace — search results view', () => {
     const { screen } = await renderMarketplace({
       marketplace: {
         status: 'idle',
-        searchQuery: 'react',
+        searchQuery: toSearchQuery('react'),
         searchResults: results,
       },
     })
@@ -422,7 +430,7 @@ describe('SkillsMarketplace — search results view', () => {
       name: 'react',
       description: 'desc',
       path: '/Users/me/.agents/skills/react',
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -432,7 +440,7 @@ describe('SkillsMarketplace — search results view', () => {
     const { screen } = await renderMarketplace({
       marketplace: {
         status: 'idle',
-        searchQuery: 'react',
+        searchQuery: toSearchQuery('react'),
         searchResults: [makeSearchResult({ name: 'react' })],
       },
       skills: { items: [installedSkill] },
@@ -454,13 +462,13 @@ describe('SkillsMarketplace — ranking tab switch', () => {
     const bothTabsLeaderboard = {
       'all-time': makeLeaderboardData({
         skills: [makeSearchResult({ name: 'alltime-skill' })],
-        lastFetched: Date.now(),
+        lastFetched: toUnixTimestampMs(Date.now()),
         status: 'loading',
         filter: 'all-time',
       }),
       trending: makeLeaderboardData({
         skills: [makeSearchResult({ name: 'trending-skill' })],
-        lastFetched: Date.now(),
+        lastFetched: toUnixTimestampMs(Date.now()),
         status: 'loading',
         filter: 'trending',
       }),

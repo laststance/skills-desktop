@@ -1,4 +1,5 @@
 import type { HttpUrl, RepositoryId } from '@/shared/types'
+import { toHttpUrl } from '@/shared/types'
 
 /**
  * Discriminated render model for `SourceLink`.
@@ -40,5 +41,5 @@ export function getSourceLinkModel(
   if (!source) return { kind: 'local' }
   const href = sourceUrl ? sourceUrl.replace(/\.git$/, '') : undefined
   if (!href) return { kind: 'text', source }
-  return { kind: 'link', source, href }
+  return { kind: 'link', source, href: toHttpUrl(href) }
 }

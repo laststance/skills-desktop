@@ -4,7 +4,12 @@ import type {
   ExcludableSkillTypeFilter,
   SkillTypeFilter,
 } from '@/renderer/src/redux/slices/uiSlice'
-import { repositoryId } from '@/shared/types'
+import {
+  repositoryId,
+  toHttpUrl,
+  toIsoTimestamp,
+  toSymlinkCount,
+} from '@/shared/types'
 import type {
   AgentId,
   BookmarkedSkill,
@@ -155,7 +160,7 @@ const makeSkill = (
   path: isLocal
     ? `/home/user/.${agentId}/skills/${name}`
     : `/home/user/.agents/skills/${name}`,
-  symlinkCount: isLocal || status === 'missing' ? 0 : 1,
+  symlinkCount: toSymlinkCount(isLocal || status === 'missing' ? 0 : 1),
   symlinks: [
     {
       agentId: agentId,
@@ -173,7 +178,7 @@ const makeSkill = (
   ...(source
     ? {
         source: repositoryId(source),
-        sourceUrl: `https://github.com/${source}.git`,
+        sourceUrl: toHttpUrl(`https://github.com/${source}.git`),
       }
     : {}),
 })
@@ -215,8 +220,9 @@ const makeMultiSlotSkill = (
     name,
     description: `${name} skill`,
     path: `/home/user/.agents/skills/${name}`,
-    symlinkCount: symlinks.filter((s) => s.status === 'valid' && !s.isLocal)
-      .length,
+    symlinkCount: toSymlinkCount(
+      symlinks.filter((s) => s.status === 'valid' && !s.isLocal).length,
+    ),
     symlinks,
     isSource: !options.isOrphan,
     isOrphan: options.isOrphan ?? false,
@@ -380,7 +386,7 @@ describe('selectFilteredSkills', () => {
       name: 'broken-skill',
       description: 'broken',
       path: '/home/user/.agents/skills/broken-skill',
-      symlinkCount: 1,
+      symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
@@ -414,7 +420,7 @@ describe('selectFilteredSkills', () => {
       name: 'unlinked-skill',
       description: 'unlinked',
       path: '/home/user/.agents/skills/unlinked-skill',
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'cursor',
@@ -646,7 +652,7 @@ describe('selectFilteredSkills', () => {
       name: 'orphan-one',
       description: 'orphan',
       path: '/home/user/.agents/skills/orphan-one',
-      symlinkCount: 1,
+      symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
@@ -687,7 +693,7 @@ describe('selectFilteredSkills', () => {
       name: 'orphan-agent-a',
       description: 'orphan stranded in agent A',
       path: '/home/user/.agents/skills/orphan-agent-a',
-      symlinkCount: 1,
+      symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'claude-code',
@@ -1189,8 +1195,8 @@ describe('selectFilteredSkills', () => {
 const makeBookmark = (name: string, repo: string): BookmarkedSkill => ({
   name,
   repo: repositoryId(repo),
-  url: `https://skills.sh/${name}`,
-  bookmarkedAt: '2026-04-01T00:00:00.000Z',
+  url: toHttpUrl(`https://skills.sh/${name}`),
+  bookmarkedAt: toIsoTimestamp('2026-04-01T00:00:00.000Z'),
 })
 
 describe('selectBookmarksWithInstallStatus', () => {

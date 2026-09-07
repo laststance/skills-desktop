@@ -2,7 +2,12 @@ import { autoUpdater } from 'electron-updater'
 
 import { IPC_CHANNELS } from '@/shared/ipc-channels'
 import type { Settings } from '@/shared/settings'
-import { semanticVersion } from '@/shared/types'
+import {
+  semanticVersion,
+  toByteCount,
+  toBytesPerSecond,
+  toProgressPercent,
+} from '@/shared/types'
 
 import { broadcastTypedEvent as broadcastEvent } from './ipc/typedSend'
 import { getSettings } from './services/settings'
@@ -77,10 +82,10 @@ function registerUpdaterEventHandlers(): void {
   autoUpdater.on('download-progress', (progress) => {
     console.log(`Download progress: ${progress.percent.toFixed(1)}%`)
     broadcastEvent(IPC_CHANNELS.UPDATE_PROGRESS, {
-      percent: progress.percent,
-      bytesPerSecond: progress.bytesPerSecond,
-      total: progress.total,
-      transferred: progress.transferred,
+      percent: toProgressPercent(progress.percent),
+      bytesPerSecond: toBytesPerSecond(progress.bytesPerSecond),
+      total: toByteCount(progress.total),
+      transferred: toByteCount(progress.transferred),
     })
   })
 

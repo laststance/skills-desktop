@@ -6,6 +6,13 @@ import type {
   DashboardPageId,
   WidgetInstanceId,
 } from '@/renderer/src/components/dashboard/types'
+import {
+  toDashboardPageName,
+  toGridColumnSpan,
+  toGridColumnStart,
+  toGridRowSpan,
+  toGridRowStart,
+} from '@/renderer/src/components/dashboard/types'
 
 // Dynamic import keeps the slice out of the module graph until each test
 // needs it — matches the pattern established by `bookmarkSlice.test.ts` and
@@ -200,7 +207,7 @@ describe('dashboardSlice', () => {
       const { addWidget } = await import('./dashboardSlice')
       const firstPage: DashboardPage = {
         id: 'p_first' as DashboardPageId,
-        name: 'First',
+        name: toDashboardPageName('First'),
         widgets: [],
       }
       const store = await createTestStoreWithDashboard({
@@ -241,8 +248,20 @@ describe('dashboardSlice', () => {
         updateLayout({
           pageId: overviewPage.id,
           layout: [
-            { i: draggedWidget.id, x: 3, y: 5, w: 4, h: 2 },
-            { i: 'ghost_layout_id', x: 0, y: 0, w: 1, h: 1 },
+            {
+              i: draggedWidget.id,
+              x: toGridColumnStart(3),
+              y: toGridRowStart(5),
+              w: toGridColumnSpan(4),
+              h: toGridRowSpan(2),
+            },
+            {
+              i: 'ghost_layout_id',
+              x: toGridColumnStart(0),
+              y: toGridRowStart(0),
+              w: toGridColumnSpan(1),
+              h: toGridRowSpan(1),
+            },
           ],
         }),
       )
@@ -268,7 +287,15 @@ describe('dashboardSlice', () => {
       store.dispatch(
         updateLayout({
           pageId: overviewPage.id,
-          layout: [{ i: overviewPage.widgets[0].id, x: 9, y: 9, w: 1, h: 1 }],
+          layout: [
+            {
+              i: overviewPage.widgets[0].id,
+              x: toGridColumnStart(9),
+              y: toGridRowStart(9),
+              w: toGridColumnSpan(1),
+              h: toGridRowSpan(1),
+            },
+          ],
         }),
       )
 
@@ -296,7 +323,15 @@ describe('dashboardSlice', () => {
       store.dispatch(
         updateLayout({
           pageId: 'p_deleted_page' as DashboardPageId,
-          layout: [{ i: overviewBefore.widgets[0].id, x: 2, y: 2, w: 2, h: 2 }],
+          layout: [
+            {
+              i: overviewBefore.widgets[0].id,
+              x: toGridColumnStart(2),
+              y: toGridRowStart(2),
+              w: toGridColumnSpan(2),
+              h: toGridRowSpan(2),
+            },
+          ],
         }),
       )
 
@@ -421,7 +456,10 @@ describe('dashboardSlice', () => {
 
       // Act
       store.dispatch(
-        renamePage({ pageId: discoveryPage.id, name: 'Exploration' }),
+        renamePage({
+          pageId: discoveryPage.id,
+          name: toDashboardPageName('Exploration'),
+        }),
       )
 
       // Assert
@@ -469,7 +507,7 @@ describe('dashboardSlice', () => {
       const { addPage, removePage } = await import('./dashboardSlice')
       const store = await createTestStore()
       // Create a single page manually (skipping seed) to isolate the guard.
-      store.dispatch(addPage({ name: 'Solo' }))
+      store.dispatch(addPage({ name: toDashboardPageName('Solo') }))
       const solePage = store.getState().dashboard.pages[0]
 
       // Act
@@ -490,7 +528,7 @@ describe('dashboardSlice', () => {
       store.dispatch(
         renamePage({
           pageId: 'p_not_a_real_id' as DashboardPageId,
-          name: 'Renamed',
+          name: toDashboardPageName('Renamed'),
         }),
       )
 
@@ -562,7 +600,7 @@ describe('dashboardSlice', () => {
       const store = await createTestStore()
       store.dispatch(seedDefaultsIfEmpty())
       store.dispatch(toggleEditMode())
-      store.dispatch(addPage({ name: 'Custom' }))
+      store.dispatch(addPage({ name: toDashboardPageName('Custom') }))
       expect(store.getState().dashboard.pages.length).toBe(5)
       expect(store.getState().dashboard.isEditMode).toBe(true)
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Agent } from '@/shared/types'
+import { toFileSizeBytes, toSkillCount } from '@/shared/types'
 
 import { getDeletableAgentFolders } from './getDeletableAgentFolders'
 
@@ -9,13 +10,13 @@ const hiddenAgent: Agent = {
   name: 'Cursor',
   path: '/Users/test/.cursor/skills',
   exists: true,
-  skillCount: 0,
-  localSkillCount: 0,
+  skillCount: toSkillCount(0),
+  localSkillCount: toSkillCount(0),
   filesystemIdentity: {
     kind: 'directory',
     dev: 1,
     ino: 2,
-    size: 96,
+    size: toFileSizeBytes(96),
     ctimeMs: 3,
     mtimeMs: 4,
   },
@@ -78,7 +79,7 @@ describe('hidden-agent bulk-delete eligibility', () => {
           kind: 'symlink',
           dev: 1,
           ino: 2,
-          size: 20,
+          size: toFileSizeBytes(20),
           ctimeMs: 3,
           mtimeMs: 4,
         },
@@ -101,7 +102,7 @@ describe('not-installed agent empty-parent eligibility', () => {
       kind: 'directory',
       dev: 1,
       ino: 2,
-      size: 96,
+      size: toFileSizeBytes(96),
       ctimeMs: 3,
       mtimeMs: 4,
     },

@@ -4,6 +4,12 @@ import ReactGridLayout, {
   type Layout,
 } from 'react-grid-layout'
 
+import {
+  toGridColumnSpan,
+  toGridColumnStart,
+  toGridRowSpan,
+  toGridRowStart,
+} from '@/renderer/src/components/dashboard/types'
 import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
 import { useInitialEffect } from '@/renderer/src/hooks/useInitialEffect'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
@@ -112,8 +118,8 @@ const DashboardGrid = function DashboardGrid({
     const def = getWidgetDefinition(widget.type)
     return {
       i: widget.id,
-      x: widget.x,
-      y: widget.y,
+      x: toGridColumnStart(widget.x),
+      y: toGridRowStart(widget.y),
       w: widget.w,
       h: widget.h,
       minW: def?.minSize.w ?? 1,
@@ -127,10 +133,10 @@ const DashboardGrid = function DashboardGrid({
         pageId,
         layout: next.map((item) => ({
           i: item.i,
-          x: item.x,
-          y: item.y,
-          w: item.w,
-          h: item.h,
+          x: toGridColumnStart(item.x),
+          y: toGridRowStart(item.y),
+          w: toGridColumnSpan(item.w),
+          h: toGridRowSpan(item.h),
         })),
       }),
     )

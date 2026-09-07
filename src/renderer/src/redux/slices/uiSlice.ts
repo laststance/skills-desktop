@@ -23,6 +23,7 @@ import type {
   ToastId,
   TombstoneId,
 } from '@/shared/types'
+import { toSearchQuery } from '@/shared/types'
 
 import type {
   DeleteSelectedSkillTarget,
@@ -236,7 +237,7 @@ interface UiState {
 
 const initialState: UiState = {
   activeTab: 'installed',
-  searchQuery: '',
+  searchQuery: toSearchQuery(''),
   searchScope: 'name',
   selectedSources: [],
   sourceStats: null,

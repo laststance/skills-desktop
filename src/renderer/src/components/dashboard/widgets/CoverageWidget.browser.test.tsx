@@ -5,6 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { Agent, AgentId, AgentName, Skill } from '@/shared/types'
+import { toSkillCount, toSymlinkCount } from '@/shared/types'
 
 /**
  * Build an Agent fixture letting each test vary the coverage-relevant fields.
@@ -26,8 +27,8 @@ function makeAgent(
     name,
     path: `/Users/test/.${id}/skills`,
     exists,
-    skillCount,
-    localSkillCount,
+    skillCount: toSkillCount(skillCount),
+    localSkillCount: toSkillCount(localSkillCount),
   }
 }
 
@@ -41,7 +42,7 @@ function makeSkill(name: string): Skill {
     name,
     description: `${name} description`,
     path: `/Users/test/.agents/skills/${name}`,
-    symlinkCount: 0,
+    symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,
     isOrphan: false,

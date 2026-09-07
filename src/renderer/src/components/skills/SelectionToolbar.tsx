@@ -24,6 +24,7 @@ import {
   selectSelectedAgentId,
 } from '@/renderer/src/redux/slices/uiSlice'
 import { BULK_PROGRESS_THRESHOLD } from '@/shared/constants'
+import { toSkillCount } from '@/shared/types'
 
 import { getToolbarState } from './bulkDeleteHelpers'
 
@@ -109,8 +110,8 @@ export const SelectionToolbar = function SelectionToolbar({
       ? getToolbarState({
           view: selectedAgentId ? 'agent' : 'global',
           agentId: selectedAgentId,
-          count: selectedCount,
-          visibleCount: visibleSelectedCount,
+          count: toSkillCount(selectedCount),
+          visibleCount: toSkillCount(visibleSelectedCount),
           agentDisplayName,
         })
       : null

@@ -9,13 +9,19 @@ export type { FilePreviewKind } from './fileTypes'
 // These types replace raw `string` / `number` at domain boundaries so signatures
 // communicate WHAT a value represents, not just its runtime shape.
 //
-// Plain aliases (`type X = string` / `type X = number`) are documentation-only:
-// TypeScript's structural typing makes them mutually assignable, so `PixelWidth`
-// and `PixelHeight` (or `SymlinkCount` and `InstallCount`) are exchange-safe at
-// the API surface. If nominal/compile-time exchange prevention is later needed,
-// migrate to the `Brand<T, B>` utility below (e.g., `Brand<number, 'PixelWidth'>`)
-// — branded types require an explicit construction site but reject accidental
-// swaps between structurally identical values.
+// Domain primitives are branded via the `Brand<T, B>` utility below, so
+// structurally identical values like `PixelWidth` and `PixelHeight` (or
+// `SymlinkCount` and `InstallCount`) cannot be swapped by mistake. Each brand
+// ships a constructor beside it: build the branded value once at the trust
+// boundary (an IPC payload, a scan result, a DOM measurement), then pass it down.
+//
+// Constructors are named `to<TypeName>` because the bare camelCase form collides
+// with local bindings — `skillName` is a local in 35 files, `skillCount` in 22,
+// `searchQuery` in 16. {@link repositoryId} and {@link semanticVersion} predate
+// this rule and keep their names; every new brand uses the prefix.
+//
+// `SkillName` and `AbsolutePath` are still plain aliases. They carry ~560 call
+// sites between them and are branded in follow-up passes.
 // ============================================================================
 
 /**
@@ -64,43 +70,97 @@ export interface FilesystemEntryIdentity {
  * regardless of the host OS. Always relative to some known root.
  * @example "lib/helper.py"
  */
-export type PosixRelativePath = string
+export type PosixRelativePath = Brand<string, 'PosixRelativePath'>
+
+/**
+ * Construct a {@link PosixRelativePath} from a raw string at a trust boundary
+ * (a preview file-tree walk or IPC payload).
+ * @example toPosixRelativePath('x')
+ */
+export const toPosixRelativePath = (value: string): PosixRelativePath =>
+  value as PosixRelativePath
 
 /**
  * File extension as surfaced by Node's `path.extname` (with leading dot, lowercase).
  * @example ".md"
  */
-export type FileExtension = string
+export type FileExtension = Brand<string, 'FileExtension'>
+
+/**
+ * Construct a {@link FileExtension} from a raw string at a trust boundary
+ * (a path parse or IPC payload).
+ * @example toFileExtension('x')
+ */
+export const toFileExtension = (value: string): FileExtension =>
+  value as FileExtension
 
 /**
  * IANA MIME type string.
  * @example "image/png"
  */
-export type MimeType = string
+export type MimeType = Brand<string, 'MimeType'>
+
+/**
+ * Construct a {@link MimeType} from a raw string at a trust boundary
+ * (a file sniff or IPC payload).
+ * @example toMimeType('x')
+ */
+export const toMimeType = (value: string): MimeType => value as MimeType
 
 /**
  * HTTP(S) URL string.
  * @example "https://github.com/vercel-labs/skills.git"
  */
-export type HttpUrl = string
+export type HttpUrl = Brand<string, 'HttpUrl'>
+
+/**
+ * Construct a {@link HttpUrl} from a raw string at a trust boundary
+ * (registry JSON, CLI output, or a fixture).
+ * @example toHttpUrl('x')
+ */
+export const toHttpUrl = (value: string): HttpUrl => value as HttpUrl
 
 /**
  * ISO 8601 timestamp string (UTC with milliseconds).
  * @example "2026-04-01T08:00:00.000Z"
  */
-export type IsoTimestamp = string
+export type IsoTimestamp = Brand<string, 'IsoTimestamp'>
+
+/**
+ * Construct a {@link IsoTimestamp} from a raw string at a trust boundary
+ * (`Date#toISOString`, stored state, or IPC).
+ * @example toIsoTimestamp('x')
+ */
+export const toIsoTimestamp = (value: string): IsoTimestamp =>
+  value as IsoTimestamp
 
 /**
  * Unix timestamp in milliseconds since epoch (Date.now() output).
  * @example 1713045600000
  */
-export type UnixTimestampMs = number
+export type UnixTimestampMs = Brand<number, 'UnixTimestampMs'>
+
+/**
+ * Construct a {@link UnixTimestampMs} from a raw number at a trust boundary
+ * (`Date#getTime`, `fs.Stats`, or IPC).
+ * @example toUnixTimestampMs(1)
+ */
+export const toUnixTimestampMs = (value: number): UnixTimestampMs =>
+  value as UnixTimestampMs
 
 /**
  * Human-readable byte-size string (from `humanFileSize()` in main).
  * @example "2.4 MB"
  */
-export type HumanFileSize = string
+export type HumanFileSize = Brand<string, 'HumanFileSize'>
+
+/**
+ * Construct a {@link HumanFileSize} from a raw string at a trust boundary
+ * (a byte formatter).
+ * @example toHumanFileSize('x')
+ */
+export const toHumanFileSize = (value: string): HumanFileSize =>
+  value as HumanFileSize
 
 /**
  * CSS-pixel width. Matches what `BrowserWindow.getContentBounds()` returns
@@ -108,7 +168,14 @@ export type HumanFileSize = string
  * callers do not multiply by `devicePixelRatio`.
  * @example 1280
  */
-export type PixelWidth = number
+export type PixelWidth = Brand<number, 'PixelWidth'>
+
+/**
+ * Construct a {@link PixelWidth} from a raw number at a trust boundary
+ * (an image decode or a layout measurement).
+ * @example toPixelWidth(1)
+ */
+export const toPixelWidth = (value: number): PixelWidth => value as PixelWidth
 
 /**
  * CSS-pixel height. Matches what `BrowserWindow.getContentBounds()` returns
@@ -116,73 +183,163 @@ export type PixelWidth = number
  * callers do not multiply by `devicePixelRatio`.
  * @example 800
  */
-export type PixelHeight = number
+export type PixelHeight = Brand<number, 'PixelHeight'>
+
+/**
+ * Construct a {@link PixelHeight} from a raw number at a trust boundary
+ * (an image decode or a layout measurement).
+ * @example toPixelHeight(1)
+ */
+export const toPixelHeight = (value: number): PixelHeight =>
+  value as PixelHeight
 
 /**
  * @description File basename or display name including its extension when one exists.
  * @example "SKILL.md"
  */
-export type FileName = string
+export type FileName = Brand<string, 'FileName'>
+
+/**
+ * Construct a {@link FileName} from a raw string at a trust boundary
+ * (`path.basename` or a directory read).
+ * @example toFileName('x')
+ */
+export const toFileName = (value: string): FileName => value as FileName
 
 /**
  * @description Base64 data URL that can be assigned directly to media `src` attributes.
  * @example "data:image/png;base64,iVBORw0KGgo..."
  */
-export type DataUrl = string
+export type DataUrl = Brand<string, 'DataUrl'>
+
+/**
+ * Construct a {@link DataUrl} from a raw string at a trust boundary
+ * (a base64 encode of file bytes).
+ * @example toDataUrl('x')
+ */
+export const toDataUrl = (value: string): DataUrl => value as DataUrl
 
 /**
  * @description Raw file size in bytes as reported by filesystem readers.
  * @example 48201
  */
-export type FileSizeBytes = number
+export type FileSizeBytes = Brand<number, 'FileSizeBytes'>
+
+/**
+ * Construct a {@link FileSizeBytes} from a raw number at a trust boundary
+ * (`fs.Stats#size` or IPC).
+ * @example toFileSizeBytes(1)
+ */
+export const toFileSizeBytes = (value: number): FileSizeBytes =>
+  value as FileSizeBytes
 
 /**
  * @description Number of text lines in a previewed file.
  * @example 42
  */
-export type LineCount = number
+export type LineCount = Brand<number, 'LineCount'>
+
+/**
+ * Construct a {@link LineCount} from a raw number at a trust boundary
+ * (a newline split of file contents).
+ * @example toLineCount(1)
+ */
+export const toLineCount = (value: number): LineCount => value as LineCount
 
 /**
  * @description Count of skill records, directories, or skill-like entries.
  * @example 15
  */
-export type SkillCount = number
+export type SkillCount = Brand<number, 'SkillCount'>
+
+/**
+ * Construct a {@link SkillCount} from a raw number at a trust boundary
+ * (a scan result or IPC payload).
+ * @example toSkillCount(1)
+ */
+export const toSkillCount = (value: number): SkillCount => value as SkillCount
 
 /**
  * @description Count of agents included in a scan, sync, or dashboard operation.
  * @example 3
  */
-export type AgentCount = number
+export type AgentCount = Brand<number, 'AgentCount'>
+
+/**
+ * Construct a {@link AgentCount} from a raw number at a trust boundary
+ * (a scan result or IPC payload).
+ * @example toAgentCount(1)
+ */
+export const toAgentCount = (value: number): AgentCount => value as AgentCount
 
 /**
  * @description Raw byte count transferred or expected by a download operation.
  * @example 10485760
  */
-export type ByteCount = number
+export type ByteCount = Brand<number, 'ByteCount'>
+
+/**
+ * Construct a {@link ByteCount} from a raw number at a trust boundary
+ * (a download progress event).
+ * @example toByteCount(1)
+ */
+export const toByteCount = (value: number): ByteCount => value as ByteCount
 
 /**
  * @description Download throughput measured in bytes per second.
  * @example 524288
  */
-export type BytesPerSecond = number
+export type BytesPerSecond = Brand<number, 'BytesPerSecond'>
+
+/**
+ * Construct a {@link BytesPerSecond} from a raw number at a trust boundary
+ * (a download progress event).
+ * @example toBytesPerSecond(1)
+ */
+export const toBytesPerSecond = (value: number): BytesPerSecond =>
+  value as BytesPerSecond
 
 /**
  * @description Completion percentage in the inclusive 0..100 range.
  * @example 45.2
  */
-export type ProgressPercent = number
+export type ProgressPercent = Brand<number, 'ProgressPercent'>
+
+/**
+ * Construct a {@link ProgressPercent} from a raw number at a trust boundary
+ * (a download progress event).
+ * @example toProgressPercent(1)
+ */
+export const toProgressPercent = (value: number): ProgressPercent =>
+  value as ProgressPercent
 
 /**
  * @description 1-based index of the item currently processed in a batch operation.
  * @example 3
  */
-export type BatchItemIndex = number
+export type BatchItemIndex = Brand<number, 'BatchItemIndex'>
+
+/**
+ * Construct a {@link BatchItemIndex} from a raw number at a trust boundary
+ * (a bulk-operation loop counter).
+ * @example toBatchItemIndex(1)
+ */
+export const toBatchItemIndex = (value: number): BatchItemIndex =>
+  value as BatchItemIndex
 
 /**
  * @description Total item count in a batch operation.
  * @example 12
  */
-export type BatchItemCount = number
+export type BatchItemCount = Brand<number, 'BatchItemCount'>
+
+/**
+ * Construct a {@link BatchItemCount} from a raw number at a trust boundary
+ * (a bulk-operation input length).
+ * @example toBatchItemCount(1)
+ */
+export const toBatchItemCount = (value: number): BatchItemCount =>
+  value as BatchItemCount
 
 /**
  * A non-negative count of agent symlink records. Used in three senses:
@@ -197,13 +354,28 @@ export type BatchItemCount = number
  * install counts) at sync IPC boundaries and skill-list rendering.
  * @example 12
  */
-export type SymlinkCount = number
+export type SymlinkCount = Brand<number, 'SymlinkCount'>
+
+/**
+ * Construct a {@link SymlinkCount} from a raw number at a trust boundary
+ * (a symlink slot tally).
+ * @example toSymlinkCount(1)
+ */
+export const toSymlinkCount = (value: number): SymlinkCount =>
+  value as SymlinkCount
 
 /**
  * 1-indexed rank of a skill in a leaderboard listing. `1` is the top result.
  * @example 1
  */
-export type SkillRank = number
+export type SkillRank = Brand<number, 'SkillRank'>
+
+/**
+ * Construct a {@link SkillRank} from a raw number at a trust boundary
+ * (marketplace registry ordering).
+ * @example toSkillRank(1)
+ */
+export const toSkillRank = (value: number): SkillRank => value as SkillRank
 
 /**
  * Total install count for a skill, scraped from skills.sh and surfaced in
@@ -211,7 +383,15 @@ export type SkillRank = number
  * lack telemetry data.
  * @example 2480
  */
-export type InstallCount = number
+export type InstallCount = Brand<number, 'InstallCount'>
+
+/**
+ * Construct a {@link InstallCount} from a raw number at a trust boundary
+ * (marketplace registry JSON).
+ * @example toInstallCount(1)
+ */
+export const toInstallCount = (value: number): InstallCount =>
+  value as InstallCount
 
 /**
  * Free-form marketplace search text typed by the user.
@@ -219,7 +399,15 @@ export type InstallCount = number
  * the alias exists so signatures read "search text" rather than "any string".
  * @example "react hooks"
  */
-export type SearchQuery = string
+export type SearchQuery = Brand<string, 'SearchQuery'>
+
+/**
+ * Construct a {@link SearchQuery} from a raw string at a trust boundary
+ * (a search input's onChange).
+ * @example toSearchQuery('x')
+ */
+export const toSearchQuery = (value: string): SearchQuery =>
+  value as SearchQuery
 
 /**
  * Sonner toast id returned by `toast.custom(...)` and passed to `toast.dismiss(...)`.

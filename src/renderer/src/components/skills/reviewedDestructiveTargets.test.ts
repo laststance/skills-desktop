@@ -5,6 +5,7 @@ import type {
   Skill,
   SymlinkInfo,
 } from '@/shared/types'
+import { toFileSizeBytes, toSymlinkCount } from '@/shared/types'
 
 import {
   buildAgentUnlinkTargets,
@@ -23,7 +24,7 @@ function makeSkill(name: string, symlinks: SymlinkInfo[]): Skill {
     name,
     description: 'desc',
     path: '/Users/me/.agents/skills/task',
-    symlinkCount: 0,
+    symlinkCount: toSymlinkCount(0),
     symlinks,
     isSource: true,
     isOrphan: false,
@@ -126,7 +127,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
       name: 'task',
       description: 'desc',
       path: '/Users/me/.agents/skills/task',
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -164,7 +165,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
       name: 'abandoned',
       description: 'desc',
       path: '/Users/me/.agents/skills/abandoned',
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'codex',
@@ -201,7 +202,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
       kind: 'directory',
       dev: 1,
       ino: 2,
-      size: 96,
+      size: toFileSizeBytes(96),
       ctimeMs: 3,
       mtimeMs: 4,
     }
@@ -210,7 +211,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
         name: 'locked',
         description: 'desc',
         path: '/Users/me/.agents/skills/locked',
-        symlinkCount: 0,
+        symlinkCount: toSymlinkCount(0),
         symlinks: [],
         isSource: true,
         isOrphan: false,
@@ -220,7 +221,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
         description: 'desc',
         path: '/Users/me/.agents/skills/unlocked',
         filesystemIdentity: identity,
-        symlinkCount: 0,
+        symlinkCount: toSymlinkCount(0),
         symlinks: [],
         isSource: true,
         isOrphan: false,
@@ -253,7 +254,7 @@ describe('partitionGlobalDeleteTargets', () => {
       name: 'abandoned',
       description: 'desc',
       path: '/Users/me/.agents/skills/abandoned',
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'codex',

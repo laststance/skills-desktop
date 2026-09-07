@@ -2,6 +2,7 @@ import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import React, { useRef, useState } from 'react'
 import { match } from 'ts-pattern'
 
+import { toDashboardPageName } from '@/renderer/src/components/dashboard/types'
 import { DestructiveConfirmDialog } from '@/renderer/src/components/shared/DestructiveConfirmDialog'
 import {
   DropdownMenu,
@@ -204,7 +205,9 @@ const PageTab = function PageTab({
   const commitRename = (): void => {
     const trimmedName = draftName.trim()
     if (trimmedName.length > 0 && trimmedName !== page.name) {
-      dispatch(renamePage({ pageId: page.id, name: trimmedName }))
+      dispatch(
+        renamePage({ pageId: page.id, name: toDashboardPageName(trimmedName) }),
+      )
     }
     onFinishRename()
   }
@@ -237,7 +240,9 @@ const PageTab = function PageTab({
         ref={renameInputRef}
         type="text"
         value={draftName}
-        onChange={(event) => setDraftName(event.target.value)}
+        onChange={(event) =>
+          setDraftName(toDashboardPageName(event.target.value))
+        }
         onBlur={commitRename}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {

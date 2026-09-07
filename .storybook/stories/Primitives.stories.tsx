@@ -52,6 +52,7 @@ import {
 
 import { storySkills } from '../fixtures'
 import { StoryCard, StoryGrid } from '../storybook-utils'
+import { toSymlinkCount } from '@/shared/types'
 
 const meta = {
   title: 'Primitives/Components',
@@ -210,10 +211,14 @@ export const FeedbackAndStatus: Story = {
         <div className="flex flex-wrap gap-2">
           <StatusBadge
             status="valid"
-            count={3}
+            count={toSymlinkCount(3)}
             agentNames={['Claude Code', 'Cursor', 'Codex']}
           />
-          <StatusBadge status="broken" count={1} agentNames={['Cursor']} />
+          <StatusBadge
+            status="broken"
+            count={toSymlinkCount(1)}
+            agentNames={['Cursor']}
+          />
           <StatusBadge status="missing" />
         </div>
       </StoryCard>

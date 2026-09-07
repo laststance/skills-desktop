@@ -6,6 +6,7 @@ import { render } from 'vitest-browser-react'
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
 import type { Agent } from '@/shared/types'
+import { toSkillCount } from '@/shared/types'
 
 const mockSettingsGet = vi.fn()
 const mockSettingsSet = vi.fn()
@@ -25,8 +26,8 @@ const FIXTURE_AGENTS: Agent[] = [
     name: 'Claude Code',
     path: '/Users/test/.claude/skills',
     exists: true,
-    skillCount: 3,
-    localSkillCount: 0,
+    skillCount: toSkillCount(3),
+    localSkillCount: toSkillCount(0),
   },
 ]
 

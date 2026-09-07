@@ -5,7 +5,14 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { SkillSearchResult, LeaderboardData } from '@/shared/types'
-import { repositoryId } from '@/shared/types'
+import {
+  repositoryId,
+  toHttpUrl,
+  toInstallCount,
+  toSearchQuery,
+  toSkillRank,
+  toUnixTimestampMs,
+} from '@/shared/types'
 
 // TrendingWidget mounts LeaderboardWidget, which dispatches
 // `loadLeaderboard('trending')` on mount; the thunk reads
@@ -36,11 +43,11 @@ afterEach(() => {
  */
 function makeSkill(rank: number, name: string): SkillSearchResult {
   return {
-    rank,
+    rank: toSkillRank(rank),
     name,
     repo: repositoryId(`owner/${name}`),
-    url: `https://skills.sh/${name}`,
-    installCount: 100,
+    url: toHttpUrl(`https://skills.sh/${name}`),
+    installCount: toInstallCount(100),
   }
 }
 
@@ -61,7 +68,7 @@ async function renderTrending(entry: LeaderboardData | null) {
       ? {
           marketplace: {
             status: 'idle' as const,
-            searchQuery: '',
+            searchQuery: toSearchQuery(''),
             searchResults: [],
             selectedSkill: null,
             previewSkill: null,
@@ -88,7 +95,7 @@ describe('TrendingWidget', () => {
     // Arrange: a successful trending load that returned no skills.
     const emptyEntry: LeaderboardData = {
       skills: [],
-      lastFetched: Date.now(),
+      lastFetched: toUnixTimestampMs(Date.now()),
       filter: 'trending',
       status: 'idle',
     }
@@ -111,7 +118,7 @@ describe('TrendingWidget', () => {
     mockLeaderboard.mockRejectedValue(new Error('network down'))
     const erroredEntry: LeaderboardData = {
       skills: [],
-      lastFetched: 0,
+      lastFetched: toUnixTimestampMs(0),
       filter: 'trending',
       status: 'error',
       error: 'network down',
@@ -131,7 +138,7 @@ describe('TrendingWidget', () => {
     // Arrange: a successful trending load with two ranked skills.
     const loadedEntry: LeaderboardData = {
       skills: [makeSkill(1, 'alpha-skill'), makeSkill(2, 'beta-skill')],
-      lastFetched: Date.now(),
+      lastFetched: toUnixTimestampMs(Date.now()),
       filter: 'trending',
       status: 'idle',
     }
@@ -159,7 +166,7 @@ describe('TrendingWidget', () => {
         makeSkill(8, 'eight-skill'),
         makeSkill(9, 'nine-skill'),
       ],
-      lastFetched: Date.now(),
+      lastFetched: toUnixTimestampMs(Date.now()),
       filter: 'trending',
       status: 'idle',
     }

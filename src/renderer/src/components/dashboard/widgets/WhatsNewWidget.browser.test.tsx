@@ -5,6 +5,7 @@ import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
 import type { SkillSearchResult, LeaderboardData } from '@/shared/types'
+import { toSearchQuery, toUnixTimestampMs } from '@/shared/types'
 
 // WhatsNewWidget wraps LeaderboardWidget pinned to the `hot` feed. On mount the
 // inner widget dispatches `loadLeaderboard('hot')`, whose thunk reads
@@ -46,7 +47,7 @@ async function renderWhatsNew(entry: LeaderboardData | null) {
       ? {
           marketplace: {
             status: 'idle' as const,
-            searchQuery: '',
+            searchQuery: toSearchQuery(''),
             searchResults: [],
             selectedSkill: null,
             previewSkill: null,
@@ -73,7 +74,7 @@ describe('WhatsNewWidget', () => {
     // Arrange: a successful `hot` load that returned no skills.
     const emptyHotEntry: LeaderboardData = {
       skills: [],
-      lastFetched: Date.now(),
+      lastFetched: toUnixTimestampMs(Date.now()),
       filter: 'hot',
       status: 'idle',
     }
@@ -95,7 +96,7 @@ describe('WhatsNewWidget', () => {
     mockLeaderboard.mockRejectedValue(new Error('network down'))
     const erroredHotEntry: LeaderboardData = {
       skills: [],
-      lastFetched: 0,
+      lastFetched: toUnixTimestampMs(0),
       filter: 'hot',
       status: 'error',
       error: 'network down',

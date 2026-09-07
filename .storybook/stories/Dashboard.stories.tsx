@@ -25,6 +25,12 @@ import { WhatsNewWidget } from '@/renderer/src/components/dashboard/widgets/What
 
 import { storyMarketplaceSkills } from '../fixtures'
 import { StoryCard, StoryGrid } from '../storybook-utils'
+import {
+  toGridColumnSpan,
+  toGridColumnStart,
+  toGridRowSpan,
+  toGridRowStart,
+} from '@/renderer/src/components/dashboard/types'
 
 const meta = {
   title: 'Dashboard/Components',
@@ -41,19 +47,19 @@ type Story = StoryObj<typeof meta>
 const welcomeInstance: WidgetInstance = {
   id: 'storybook-welcome' as never,
   type: 'welcome',
-  x: 0,
-  y: 0,
-  w: 6,
-  h: 3,
+  x: toGridColumnStart(0),
+  y: toGridRowStart(0),
+  w: toGridColumnSpan(6),
+  h: toGridRowSpan(3),
 }
 
 const statsInstance: WidgetInstance = {
   id: 'storybook-stats' as never,
   type: 'stats',
-  x: 0,
-  y: 0,
-  w: 3,
-  h: 2,
+  x: toGridColumnStart(0),
+  y: toGridRowStart(0),
+  w: toGridColumnSpan(3),
+  h: toGridRowSpan(2),
 }
 
 export const CanvasAndControls: Story = {

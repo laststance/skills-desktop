@@ -2,6 +2,19 @@ import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
 import {
   repositoryId,
   semanticVersion,
+  toAgentCount,
+  toFileExtension,
+  toFileName,
+  toFileSizeBytes,
+  toHttpUrl,
+  toHumanFileSize,
+  toInstallCount,
+  toIsoTimestamp,
+  toLineCount,
+  toPosixRelativePath,
+  toSkillCount,
+  toSkillRank,
+  toSymlinkCount,
   tombstoneId,
   type Agent,
   type BookmarkedSkill,
@@ -30,32 +43,32 @@ export const storyAgents: Agent[] = [
     name: 'Claude Code',
     path: '/Users/raphtalia/.claude/skills',
     exists: true,
-    skillCount: 8,
-    localSkillCount: 1,
+    skillCount: toSkillCount(8),
+    localSkillCount: toSkillCount(1),
   },
   {
     id: 'cursor',
     name: 'Cursor',
     path: '/Users/raphtalia/.cursor/skills',
     exists: true,
-    skillCount: 6,
-    localSkillCount: 0,
+    skillCount: toSkillCount(6),
+    localSkillCount: toSkillCount(0),
   },
   {
     id: 'codex',
     name: 'Codex',
     path: '/Users/raphtalia/.codex/skills',
     exists: true,
-    skillCount: 5,
-    localSkillCount: 2,
+    skillCount: toSkillCount(5),
+    localSkillCount: toSkillCount(2),
   },
   {
     id: 'gemini-cli',
     name: 'Gemini CLI',
     path: '/Users/raphtalia/.gemini/skills',
     exists: false,
-    skillCount: 0,
-    localSkillCount: 0,
+    skillCount: toSkillCount(0),
+    localSkillCount: toSkillCount(0),
   },
 ]
 
@@ -72,11 +85,11 @@ export const storySkills: Skill[] = [
     description:
       'Designer-eye QA for spacing, hierarchy, interaction polish, and screenshots.',
     path: '/Users/raphtalia/.agents/skills/design-review',
-    symlinkCount: 3,
+    symlinkCount: toSymlinkCount(3),
     isSource: true,
     isOrphan: false,
     source: repositoryId('laststance/gstack'),
-    sourceUrl: 'https://github.com/laststance/gstack',
+    sourceUrl: toHttpUrl('https://github.com/laststance/gstack'),
     symlinks: [
       {
         agentId: 'claude-code',
@@ -109,11 +122,11 @@ export const storySkills: Skill[] = [
     description:
       'Runs Electron UI verification through Playwright and the debug port.',
     path: '/Users/raphtalia/.agents/skills/qa-electron',
-    symlinkCount: 2,
+    symlinkCount: toSymlinkCount(2),
     isSource: true,
     isOrphan: false,
     source: repositoryId('laststance/gstack'),
-    sourceUrl: 'https://github.com/laststance/gstack',
+    sourceUrl: toHttpUrl('https://github.com/laststance/gstack'),
     symlinks: [
       {
         agentId: 'claude-code',
@@ -144,7 +157,7 @@ export const storySkills: Skill[] = [
     name: 'open-to-dia',
     description: 'Local macOS launcher skill for opening current URLs in Dia.',
     path: '/Users/raphtalia/.codex/skills/open-to-dia',
-    symlinkCount: 0,
+    symlinkCount: toSymlinkCount(0),
     isSource: false,
     isOrphan: false,
     symlinks: [
@@ -161,7 +174,7 @@ export const storySkills: Skill[] = [
     name: 'retired-skill',
     description: 'Source folder removed; remaining links need cleanup.',
     path: '/Users/raphtalia/.agents/skills/retired-skill',
-    symlinkCount: 0,
+    symlinkCount: toSymlinkCount(0),
     isSource: false,
     isOrphan: true,
     symlinks: [
@@ -194,32 +207,32 @@ export const storySkills: Skill[] = [
  */
 export const storyMarketplaceSkills: SkillSearchResult[] = [
   {
-    rank: 1,
+    rank: toSkillRank(1),
     name: 'task',
     repo: repositoryId('vercel-labs/skills'),
-    url: 'https://skills.sh/task',
-    installCount: 2480,
+    url: toHttpUrl('https://skills.sh/task'),
+    installCount: toInstallCount(2480),
   },
   {
-    rank: 2,
+    rank: toSkillRank(2),
     name: 'browser-use',
     repo: repositoryId('browser-use/skills'),
-    url: 'https://skills.sh/browser-use',
-    installCount: 1630,
+    url: toHttpUrl('https://skills.sh/browser-use'),
+    installCount: toInstallCount(1630),
   },
   {
-    rank: 3,
+    rank: toSkillRank(3),
     name: 'code-review',
     repo: repositoryId('laststance/gstack'),
-    url: 'https://skills.sh/code-review',
-    installCount: 820,
+    url: toHttpUrl('https://skills.sh/code-review'),
+    installCount: toInstallCount(820),
   },
   {
-    rank: 4,
+    rank: toSkillRank(4),
     name: 'azure-ai',
     repo: repositoryId('microsoft/azure-skills'),
-    url: 'https://skills.sh/azure-ai',
-    installCount: 312,
+    url: toHttpUrl('https://skills.sh/azure-ai'),
+    installCount: toInstallCount(312),
   },
 ]
 
@@ -227,53 +240,53 @@ export const storyBookmarks: BookmarkedSkill[] = [
   {
     name: 'task',
     repo: repositoryId('vercel-labs/skills'),
-    url: 'https://skills.sh/task',
-    bookmarkedAt: now,
+    url: toHttpUrl('https://skills.sh/task'),
+    bookmarkedAt: toIsoTimestamp(now),
   },
   {
     name: 'browser-use',
     repo: repositoryId('browser-use/skills'),
-    url: 'https://skills.sh/browser-use',
-    bookmarkedAt: now,
+    url: toHttpUrl('https://skills.sh/browser-use'),
+    bookmarkedAt: toIsoTimestamp(now),
   },
 ]
 
 export const storySourceStats: SourceStats = {
   path: '/Users/raphtalia/.agents/skills',
-  skillCount: storySkills.length,
-  totalSize: '4.8 MB',
-  lastModified: now,
+  skillCount: toSkillCount(storySkills.length),
+  totalSize: toHumanFileSize('4.8 MB'),
+  lastModified: toIsoTimestamp(now),
 }
 
 export const storySkillFiles: SkillFile[] = [
   {
-    name: 'SKILL.md',
+    name: toFileName('SKILL.md'),
     path: '/Users/raphtalia/.agents/skills/design-review/SKILL.md',
-    relativePath: 'SKILL.md',
-    extension: '.md',
-    size: 2048,
+    relativePath: toPosixRelativePath('SKILL.md'),
+    extension: toFileExtension('.md'),
+    size: toFileSizeBytes(2048),
     previewable: 'text',
   },
   {
-    name: 'qa.md',
+    name: toFileName('qa.md'),
     path: '/Users/raphtalia/.agents/skills/design-review/references/qa.md',
-    relativePath: 'references/qa.md',
-    extension: '.md',
-    size: 1024,
+    relativePath: toPosixRelativePath('references/qa.md'),
+    extension: toFileExtension('.md'),
+    size: toFileSizeBytes(1024),
     previewable: 'text',
   },
   {
-    name: 'diagram.png',
+    name: toFileName('diagram.png'),
     path: '/Users/raphtalia/.agents/skills/design-review/assets/diagram.png',
-    relativePath: 'assets/diagram.png',
-    extension: '.png',
-    size: 9280,
+    relativePath: toPosixRelativePath('assets/diagram.png'),
+    extension: toFileExtension('.png'),
+    size: toFileSizeBytes(9280),
     previewable: 'image',
   },
 ]
 
 export const storySkillFileContent: SkillFileContent = {
-  name: 'SKILL.md',
+  name: toFileName('SKILL.md'),
   content: [
     '---',
     'name: design-review',
@@ -286,15 +299,15 @@ export const storySkillFileContent: SkillFileContent = {
     '2. Mark hierarchy and spacing issues.',
     '3. Fix source and verify with screenshots.',
   ].join('\n'),
-  extension: '.md',
-  lineCount: 10,
+  extension: toFileExtension('.md'),
+  lineCount: toLineCount(10),
 }
 
 export const storySyncPreview: SyncPreviewResult = {
-  totalSkills: 4,
-  totalAgents: 3,
-  toCreate: 3,
-  alreadySynced: 8,
+  totalSkills: toSkillCount(4),
+  totalAgents: toAgentCount(3),
+  toCreate: toSymlinkCount(3),
+  alreadySynced: toSymlinkCount(8),
   conflicts: [
     {
       skillName: 'qa-electron',
@@ -307,9 +320,9 @@ export const storySyncPreview: SyncPreviewResult = {
 
 export const storySyncResult: SyncExecuteResult = {
   success: false,
-  created: 2,
-  replaced: 1,
-  skipped: 7,
+  created: toSymlinkCount(2),
+  replaced: toSymlinkCount(1),
+  skipped: toSymlinkCount(7),
   errors: [
     {
       path: '/Users/raphtalia/.cursor/skills/retired-skill',

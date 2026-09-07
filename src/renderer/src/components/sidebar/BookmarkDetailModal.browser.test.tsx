@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { BookmarkForDetail } from '@/renderer/src/redux/slices/uiSlice'
-import { repositoryId } from '@/shared/types'
+import { repositoryId, toHttpUrl, toIsoTimestamp } from '@/shared/types'
 
 /**
  * Build a not-yet-installed bookmark fixture so the detail modal shows its
@@ -19,8 +19,8 @@ function makeBookmark(
   return {
     name: 'task',
     repo: repositoryId('vercel-labs/skills'),
-    url: 'https://skills.sh/task',
-    bookmarkedAt: '2026-04-01T08:00:00.000Z',
+    url: toHttpUrl('https://skills.sh/task'),
+    bookmarkedAt: toIsoTimestamp('2026-04-01T08:00:00.000Z'),
     isInstalled: false,
     ...overrides,
   }
@@ -131,7 +131,7 @@ describe('BookmarkDetailModal remove', () => {
       addBookmark({
         name: 'task',
         repo: repositoryId('vercel-labs/skills'),
-        url: 'https://skills.sh/task',
+        url: toHttpUrl('https://skills.sh/task'),
       }),
     )
     const screen = await render(

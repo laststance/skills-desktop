@@ -19,6 +19,15 @@ import type {
   SkillFile,
   SkillFileContent,
 } from '@/shared/types'
+import {
+  toDataUrl,
+  toFileExtension,
+  toFileName,
+  toFileSizeBytes,
+  toLineCount,
+  toMimeType,
+  toPosixRelativePath,
+} from '@/shared/types'
 
 /**
  * Recursively list previewable files in a skill directory.
@@ -137,11 +146,11 @@ async function buildFileEntry(
   if (kind === 'image' && size > MAX_IMAGE_FILE_BYTES) previewable = 'binary'
 
   return {
-    name: entry.name,
+    name: toFileName(entry.name),
     path: fullPath,
     relativePath: toPosixRelative(rootPath, fullPath),
-    extension: getNormalizedExtension(entry.name),
-    size,
+    extension: toFileExtension(getNormalizedExtension(entry.name)),
+    size: toFileSizeBytes(size),
     previewable,
   }
 }
@@ -157,7 +166,7 @@ function toPosixRelative(
   full: AbsolutePath,
 ): PosixRelativePath {
   const rel = full.slice(root.length).replace(/^[/\\]+/, '')
-  return rel.split(/[/\\]+/).join('/')
+  return toPosixRelativePath(rel.split(/[/\\]+/).join('/'))
 }
 
 /**
@@ -181,10 +190,10 @@ export async function readSkillFile(
     const name = basename(filePath)
 
     return {
-      name,
+      name: toFileName(name),
       content,
-      extension: getNormalizedExtension(name),
-      lineCount: content.split('\n').length,
+      extension: toFileExtension(getNormalizedExtension(name)),
+      lineCount: toLineCount(content.split('\n').length),
     }
   } catch {
     return null
@@ -214,7 +223,12 @@ export async function readBinaryFile(
     const buffer = await readFile(filePath)
     const dataUrl = `data:${mimeType};base64,${buffer.toString('base64')}`
 
-    return { name, dataUrl, mimeType, size }
+    return {
+      name: toFileName(name),
+      dataUrl: toDataUrl(dataUrl),
+      mimeType: toMimeType(mimeType),
+      size: toFileSizeBytes(size),
+    }
   } catch {
     return null
   }

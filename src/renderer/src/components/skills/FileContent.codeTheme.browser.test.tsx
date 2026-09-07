@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
+import { toFileExtension, toFileName, toLineCount } from '@/shared/types'
 import '@/renderer/src/styles/globals.css'
 
 // Mock the Shiki shorthand so this file can assert which theme pair FileContent
@@ -26,10 +27,10 @@ function makeCodeContent(content: string): PreviewContent {
   return {
     kind: 'text',
     data: {
-      name: 'example.ts',
+      name: toFileName('example.ts'),
       content,
-      extension: '.ts',
-      lineCount: content.split('\n').length,
+      extension: toFileExtension('.ts'),
+      lineCount: toLineCount(content.split('\n').length),
     },
   }
 }

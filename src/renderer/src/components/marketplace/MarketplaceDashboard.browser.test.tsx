@@ -12,6 +12,12 @@ import type {
   Skill,
   SkillSearchResult,
 } from '@/shared/types'
+import {
+  toHttpUrl,
+  toSearchQuery,
+  toSkillRank,
+  toUnixTimestampMs,
+} from '@/shared/types'
 
 // MarketplaceDashboard is the right-pane summary shown when the Marketplace tab
 // is active with no skill previewed. It reads three slices (installed count,
@@ -51,10 +57,10 @@ function makeSearchResult(
   overrides: Partial<SkillSearchResult> = {},
 ): SkillSearchResult {
   return {
-    rank: 1,
+    rank: toSkillRank(1),
     name: 'task',
     repo: 'vercel-labs/skills' as RepositoryId,
-    url: 'https://skills.sh/task',
+    url: toHttpUrl('https://skills.sh/task'),
     installCount: undefined,
     ...overrides,
   }
@@ -69,7 +75,7 @@ function makeLeaderboardData(
 ): LeaderboardData {
   return {
     skills: [],
-    lastFetched: Date.now(),
+    lastFetched: toUnixTimestampMs(Date.now()),
     filter: 'trending',
     status: 'idle',
     ...overrides,
@@ -107,7 +113,7 @@ async function renderDashboard(preloadedState: {
     preloadedState: {
       marketplace: {
         status: 'idle',
-        searchQuery: '',
+        searchQuery: toSearchQuery(''),
         searchResults: [],
         selectedSkill: null,
         previewSkill: null,
@@ -160,10 +166,10 @@ describe('MarketplaceDashboard — trending preview selection', () => {
   it('selects a trending skill for preview when its row is clicked', async () => {
     // Arrange — one settled trending skill renders exactly one clickable row.
     const trendingSkill = makeSearchResult({
-      rank: 1,
+      rank: toSkillRank(1),
       name: 'task',
       repo: 'vercel-labs/skills' as RepositoryId,
-      url: 'https://skills.sh/task',
+      url: toHttpUrl('https://skills.sh/task'),
     })
     const { screen, store } = await renderDashboard({
       marketplace: {
@@ -171,7 +177,7 @@ describe('MarketplaceDashboard — trending preview selection', () => {
           trending: makeLeaderboardData({
             skills: [trendingSkill],
             status: 'idle',
-            lastFetched: Date.now(),
+            lastFetched: toUnixTimestampMs(Date.now()),
           }),
         },
       },
@@ -230,7 +236,7 @@ describe('MarketplaceDashboard — trending placeholders', () => {
           trending: makeLeaderboardData({
             skills: [],
             status: 'idle',
-            lastFetched: Date.now(),
+            lastFetched: toUnixTimestampMs(Date.now()),
           }),
         },
       },

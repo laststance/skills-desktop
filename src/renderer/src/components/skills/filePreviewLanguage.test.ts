@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { toFileExtension, toFileName } from '@/shared/types'
+
 import {
   isMarkdownPreview,
   languageForPreview,
@@ -38,15 +40,21 @@ describe('filePreviewLanguage', () => {
   it('highlights a preview file with the Shiki language that matches its extension', () => {
     // Arrange — known preview files spanning TS, TSX, JS, and JSON.
     // Act
-    const tsLanguage = languageForPreview({ name: 'file.ts', extension: '.ts' })
-    const tsxLanguage = languageForPreview({
-      name: 'file.tsx',
-      extension: '.tsx',
+    const tsLanguage = languageForPreview({
+      name: toFileName('file.ts'),
+      extension: toFileExtension('.ts'),
     })
-    const jsLanguage = languageForPreview({ name: 'file.js', extension: '.js' })
+    const tsxLanguage = languageForPreview({
+      name: toFileName('file.tsx'),
+      extension: toFileExtension('.tsx'),
+    })
+    const jsLanguage = languageForPreview({
+      name: toFileName('file.js'),
+      extension: toFileExtension('.js'),
+    })
     const jsonLanguage = languageForPreview({
-      name: 'file.json',
-      extension: '.json',
+      name: toFileName('file.json'),
+      extension: toFileExtension('.json'),
     })
 
     // Assert
@@ -60,8 +68,8 @@ describe('filePreviewLanguage', () => {
     // Arrange — a preview file with an extension Shiki does not recognize.
     // Act
     const language = languageForPreview({
-      name: 'notes.custom',
-      extension: '.custom',
+      name: toFileName('notes.custom'),
+      extension: toFileExtension('.custom'),
     })
 
     // Assert
@@ -71,7 +79,10 @@ describe('filePreviewLanguage', () => {
   it('highlights an extensionless Makefile with Make syntax', () => {
     // Arrange — a Makefile has no extension, so the language must come from its name.
     // Act
-    const language = languageForPreview({ name: 'Makefile', extension: '' })
+    const language = languageForPreview({
+      name: toFileName('Makefile'),
+      extension: toFileExtension(''),
+    })
 
     // Assert
     expect(language).toBe('make')
@@ -81,8 +92,8 @@ describe('filePreviewLanguage', () => {
     // Arrange — a Dockerfile has no extension, so the language must come from its name.
     // Act
     const language = languageForPreview({
-      name: 'Dockerfile',
-      extension: '',
+      name: toFileName('Dockerfile'),
+      extension: toFileExtension(''),
     })
 
     // Assert
@@ -95,40 +106,52 @@ describe('filePreviewLanguage', () => {
     // look-alikes (.tsx, a ".md.txt" name, and missing/null/undefined
     // extensions that should NOT be Markdown).
     // Act
-    const dotMd = isMarkdownPreview({ name: 'SKILL.md', extension: '.md' })
+    const dotMd = isMarkdownPreview({
+      name: toFileName('SKILL.md'),
+      extension: '.md',
+    })
     const dotMarkdown = isMarkdownPreview({
-      name: 'README.markdown',
+      name: toFileName('README.markdown'),
       extension: '.markdown',
     })
     const dotMdown = isMarkdownPreview({
-      name: 'README.mdown',
+      name: toFileName('README.mdown'),
       extension: '.mdown',
     })
-    const upperDotMd = isMarkdownPreview({ name: 'SKILL.MD', extension: '.MD' })
-    const mixedDotMd = isMarkdownPreview({ name: 'Skill.Md', extension: '.Md' })
-    const bareMd = isMarkdownPreview({ name: 'SKILL.md', extension: 'md' })
+    const upperDotMd = isMarkdownPreview({
+      name: toFileName('SKILL.MD'),
+      extension: '.MD',
+    })
+    const mixedDotMd = isMarkdownPreview({
+      name: toFileName('Skill.Md'),
+      extension: '.Md',
+    })
+    const bareMd = isMarkdownPreview({
+      name: toFileName('SKILL.md'),
+      extension: 'md',
+    })
     const extensionlessReadme = isMarkdownPreview({
-      name: 'README',
+      name: toFileName('README'),
       extension: '',
     })
     const tsxFile = isMarkdownPreview({
-      name: 'component.tsx',
+      name: toFileName('component.tsx'),
       extension: '.tsx',
     })
     const mdDotTxtFile = isMarkdownPreview({
-      name: 'readme.md.txt',
+      name: toFileName('readme.md.txt'),
       extension: '.txt',
     })
     const extensionlessNotes = isMarkdownPreview({
-      name: 'notes',
+      name: toFileName('notes'),
       extension: '',
     })
     const nullExtensionNotes = isMarkdownPreview({
-      name: 'notes',
+      name: toFileName('notes'),
       extension: null,
     })
     const undefinedExtensionNotes = isMarkdownPreview({
-      name: 'notes',
+      name: toFileName('notes'),
       extension: undefined,
     })
 

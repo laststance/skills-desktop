@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { RepositoryId, SkillSearchResult } from '@/shared/types'
+import { toHttpUrl, toInstallCount, toSkillRank } from '@/shared/types'
 
 beforeEach(() => {
   // SkillRowMarketplace doesn't call IPC directly, but SkillsMarketplace and
@@ -39,11 +40,11 @@ function makeSkill(
   overrides: Partial<SkillSearchResult> = {},
 ): SkillSearchResult {
   return {
-    rank: 1,
+    rank: toSkillRank(1),
     name: 'task',
     repo: 'vercel-labs/skills' as RepositoryId,
-    url: 'https://skills.sh/task',
-    installCount: 100,
+    url: toHttpUrl('https://skills.sh/task'),
+    installCount: toInstallCount(100),
     ...overrides,
   }
 }
@@ -220,7 +221,7 @@ describe('SkillRowMarketplace — open preview from row body', () => {
   it('opens the preview pane for the skill when its name row is clicked', async () => {
     // Arrange
     const skill = makeSkill({
-      rank: 1,
+      rank: toSkillRank(1),
       name: 'task',
       repo: 'vercel-labs/skills' as RepositoryId,
     })

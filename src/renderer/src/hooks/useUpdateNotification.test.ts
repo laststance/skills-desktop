@@ -5,7 +5,12 @@ import type {
   UpdateErrorPayload,
   UpdateInfo,
 } from '@/shared/types'
-import { semanticVersion } from '@/shared/types'
+import {
+  semanticVersion,
+  toByteCount,
+  toBytesPerSecond,
+  toProgressPercent,
+} from '@/shared/types'
 
 // The hook drives Redux through `useAppDispatch`; capturing dispatch lets us
 // assert the exact action emitted for each forwarded auto-update IPC event.
@@ -178,10 +183,10 @@ describe('useUpdateNotification', () => {
     const apiStub = createUpdateApiStub()
     vi.stubGlobal('window', { electron: { update: apiStub.update } })
     const progress: DownloadProgress = {
-      percent: 45.2,
-      bytesPerSecond: 524288,
-      total: 10485760,
-      transferred: 4739174,
+      percent: toProgressPercent(45.2),
+      bytesPerSecond: toBytesPerSecond(524288),
+      total: toByteCount(10485760),
+      transferred: toByteCount(4739174),
     }
     const { useUpdateNotification } = await import('./useUpdateNotification')
 

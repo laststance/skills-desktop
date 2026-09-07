@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { Agent, FilesystemEntryIdentity, Skill } from '@/shared/types'
+import { toFileSizeBytes, toSkillCount, toSymlinkCount } from '@/shared/types'
 
 const mockRemoveAllFromAgent = vi.fn()
 const mockSkillsGetAll = vi.fn()
@@ -23,7 +24,7 @@ const directoryIdentity: FilesystemEntryIdentity = {
   kind: 'directory',
   dev: 1,
   ino: 2,
-  size: 96,
+  size: toFileSizeBytes(96),
   ctimeMs: 3,
   mtimeMs: 4,
 }
@@ -42,8 +43,8 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
     name: 'Claude Code',
     path: '/Users/test/.claude/skills',
     exists: true,
-    skillCount: 3,
-    localSkillCount: 1,
+    skillCount: toSkillCount(3),
+    localSkillCount: toSkillCount(1),
     filesystemIdentity: directoryIdentity,
     ...overrides,
   }
@@ -165,7 +166,7 @@ describe('AgentDeleteDialog confirm action', () => {
       name: 'protected-task',
       description: 'Protected task',
       path: '/Users/test/.agents/skills/protected-task',
-      symlinkCount: 1,
+      symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'claude-code',

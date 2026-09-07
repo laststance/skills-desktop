@@ -9,6 +9,7 @@ import type {
   SymlinkInfo,
   SymlinkStatus,
 } from '@/shared/types'
+import { toSymlinkCount } from '@/shared/types'
 
 import {
   buildSymlinkCleanupPlan,
@@ -57,8 +58,9 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
     name,
     description: `${name} description`,
     path: overrides.path ?? `/Users/test/.agents/skills/${name}`,
-    symlinkCount: symlinks.filter((symlink) => symlink.status === 'valid')
-      .length,
+    symlinkCount: toSymlinkCount(
+      symlinks.filter((symlink) => symlink.status === 'valid').length,
+    ),
     symlinks,
     isSource: overrides.isSource ?? true,
     isOrphan: overrides.isOrphan ?? false,

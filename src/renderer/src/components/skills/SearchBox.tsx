@@ -19,6 +19,7 @@ import {
   setSearchScope,
   type SearchScope,
 } from '@/renderer/src/redux/slices/uiSlice'
+import { toSearchQuery } from '@/shared/types'
 
 /**
  * Map the active scope to the input's user-facing copy. Centralized so the
@@ -83,7 +84,7 @@ export const SearchBox = function SearchBox(): React.ReactElement {
   }
 
   const pickSuggestion = (suggestion: RepoSearchSuggestion): void => {
-    dispatch(setSearchQuery(suggestion))
+    dispatch(setSearchQuery(toSearchQuery(suggestion)))
     closeList()
   }
 
@@ -93,7 +94,7 @@ export const SearchBox = function SearchBox(): React.ReactElement {
   }
 
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    dispatch(setSearchQuery(e.target.value))
+    dispatch(setSearchQuery(toSearchQuery(e.target.value)))
     setIsListOpen(true)
     setActiveIndex(-1)
   }

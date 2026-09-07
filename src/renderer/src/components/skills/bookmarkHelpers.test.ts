@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { repositoryId } from '@/shared/types'
+import { repositoryId, toHttpUrl, toSymlinkCount } from '@/shared/types'
 import type { Skill } from '@/shared/types'
 
 import { canBookmarkSkill, skillToBookmarkData } from './bookmarkHelpers'
@@ -17,7 +17,7 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
     name: 'test-skill',
     description: 'A test skill',
     path: '/home/user/.agents/skills/test-skill',
-    symlinkCount: 0,
+    symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,
     isOrphan: false,
@@ -65,7 +65,7 @@ describe('skillToBookmarkData', () => {
     // Arrange
     const skill = makeSkill({
       source: repositoryId('pbakaus/impeccable'),
-      sourceUrl: 'https://github.com/pbakaus/impeccable.git',
+      sourceUrl: toHttpUrl('https://github.com/pbakaus/impeccable.git'),
     })
 
     // Act
@@ -82,7 +82,7 @@ describe('skillToBookmarkData', () => {
     // Arrange
     const skill = makeSkill({
       source: repositoryId('laststance/skills'),
-      sourceUrl: 'https://github.com/laststance/skills',
+      sourceUrl: toHttpUrl('https://github.com/laststance/skills'),
     })
 
     // Act

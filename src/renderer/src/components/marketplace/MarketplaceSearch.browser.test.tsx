@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { SEARCH_DEBOUNCE_MS } from '@/shared/constants'
-import { repositoryId } from '@/shared/types'
+import { repositoryId, toHttpUrl, toSkillRank } from '@/shared/types'
 import type { SkillSearchResult } from '@/shared/types'
 
 // The unit tests cover the debounce primitive and the reducer's latest-wins
@@ -41,10 +41,10 @@ afterEach(() => {
 })
 
 const sampleResult: SkillSearchResult = {
-  rank: 1,
+  rank: toSkillRank(1),
   name: 'task',
   repo: repositoryId('vercel-labs/skill-task'),
-  url: 'https://skills.sh/vercel-labs/skill-task',
+  url: toHttpUrl('https://skills.sh/vercel-labs/skill-task'),
 }
 
 /**

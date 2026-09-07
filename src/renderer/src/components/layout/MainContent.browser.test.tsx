@@ -17,7 +17,19 @@ import type {
   SkillName,
   SymlinkInfo,
 } from '@/shared/types'
-import { repositoryId, tombstoneId } from '@/shared/types'
+import {
+  repositoryId,
+  toBatchItemCount,
+  toBatchItemIndex,
+  toFileSizeBytes,
+  toHttpUrl,
+  toIsoTimestamp,
+  toSearchQuery,
+  toSkillCount,
+  toSkillRank,
+  toSymlinkCount,
+  tombstoneId,
+} from '@/shared/types'
 
 const mockGetAll = vi.fn()
 const mockOnDeleteProgress = vi.fn(
@@ -34,7 +46,7 @@ const directoryIdentity: FilesystemEntryIdentity = {
   kind: 'directory',
   dev: 1,
   ino: 2,
-  size: 96,
+  size: toFileSizeBytes(96),
   ctimeMs: 3,
   mtimeMs: 4,
 }
@@ -271,12 +283,12 @@ function makeSourceSkill(name: string, source: string): Skill {
     description: '',
     path: `/skills/${name}` as never,
     filesystemIdentity: directoryIdentity,
-    symlinkCount: 0,
+    symlinkCount: toSymlinkCount(0),
     symlinks: [],
     isSource: true,
     isOrphan: false,
     source: repositoryId(source),
-    sourceUrl: `https://github.com/${source}.git`,
+    sourceUrl: toHttpUrl(`https://github.com/${source}.git`),
   }
 }
 
@@ -292,7 +304,7 @@ function makeAgentLocalSkill(name: string, agentId: AgentId): Skill {
     name: name,
     description: '',
     path: `/home/user/.${agentId}/skills/${name}` as never,
-    symlinkCount: 0,
+    symlinkCount: toSymlinkCount(0),
     symlinks: [
       {
         agentId,
@@ -357,7 +369,7 @@ describe('MainContent Installed search count display', () => {
     )
 
     // Act
-    store.dispatch(setSearchQuery('alpha'))
+    store.dispatch(setSearchQuery(toSearchQuery('alpha')))
 
     // Assert
     await expect
@@ -369,7 +381,7 @@ describe('MainContent Installed search count display', () => {
       .toBeInTheDocument()
 
     // Act
-    store.dispatch(setSearchQuery(''))
+    store.dispatch(setSearchQuery(toSearchQuery('')))
     store.dispatch(setSelectedSources([repositoryId('pbakaus/impeccable')]))
 
     // Assert
@@ -382,7 +394,7 @@ describe('MainContent Installed search count display', () => {
       .toBeInTheDocument()
 
     // Act
-    store.dispatch(setSearchQuery('missing'))
+    store.dispatch(setSearchQuery(toSearchQuery('missing')))
 
     // Assert
     await expect
@@ -562,7 +574,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
         description: '',
         path: '/skills/task' as never,
         filesystemIdentity: directoryIdentity,
-        symlinkCount: 0,
+        symlinkCount: toSymlinkCount(0),
         symlinks: [],
         isSource: true,
         isOrphan: false,
@@ -572,7 +584,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
         description: '',
         path: '/skills/tdd' as never,
         filesystemIdentity: directoryIdentity,
-        symlinkCount: 0,
+        symlinkCount: toSymlinkCount(0),
         symlinks: [],
         isSource: true,
         isOrphan: false,
@@ -644,7 +656,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
         description: '',
         path: '/skills/task' as never,
         filesystemIdentity: directoryIdentity,
-        symlinkCount: 0,
+        symlinkCount: toSymlinkCount(0),
         symlinks: [],
         isSource: true,
         isOrphan: false,
@@ -654,7 +666,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
         description: '',
         path: '/skills/tdd' as never,
         filesystemIdentity: directoryIdentity,
-        symlinkCount: 0,
+        symlinkCount: toSymlinkCount(0),
         symlinks: [],
         isSource: true,
         isOrphan: false,
@@ -872,7 +884,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       description: '',
       path: `/home/user/.agents/skills/${folderName}`,
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -896,14 +908,14 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
           skillName: 'brainstorming',
           outcome: 'deleted',
           tombstoneId: tombstoneId('1729180800000-brainstorming-a1b2c3d4'),
-          symlinksRemoved: 0,
+          symlinksRemoved: toSymlinkCount(0),
           cascadeAgents: [],
         },
         {
           skillName: 'local-skill',
           outcome: 'deleted',
           tombstoneId: tombstoneId('1729180800000-local-skill-e5f6a7b8'),
-          symlinksRemoved: 0,
+          symlinksRemoved: toSymlinkCount(0),
           cascadeAgents: [],
         },
       ],
@@ -972,7 +984,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
           skillName: metadataName,
           outcome: 'deleted',
           tombstoneId: tombstoneId('1729180800000-metadata-title-a1b2c3d4'),
-          symlinksRemoved: 1,
+          symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['cursor'],
         },
       ],
@@ -1031,7 +1043,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
           skillName,
           outcome: 'deleted',
           tombstoneId: tombstoneId('1729180800000-snapshot-delete-a1b2c3d4'),
-          symlinksRemoved: 0,
+          symlinksRemoved: toSymlinkCount(0),
           cascadeAgents: [],
         },
       ],
@@ -1076,7 +1088,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       description: '',
       path: '/home/user/.agents/skills/snapshot-unlink',
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 1,
+      symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
@@ -1113,8 +1125,8 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
             name: 'Cursor',
             path: '/home/user/.cursor/skills',
             exists: true,
-            skillCount: 1,
-            localSkillCount: 0,
+            skillCount: toSkillCount(1),
+            localSkillCount: toSkillCount(0),
           },
         ],
         'req-agent',
@@ -1155,7 +1167,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       name: orphanSkillName,
       description: '',
       path: '/Users/me/.agents/skills/abandoned',
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'devin',
@@ -1174,7 +1186,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
         {
           skillName: orphanSkillName,
           outcome: 'orphan-cleared',
-          symlinksRemoved: 1,
+          symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['devin'],
         },
       ],
@@ -1237,7 +1249,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       description: '',
       path: '/Users/me/.agents/skills/source-task',
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -1246,7 +1258,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       name: orphanSkillName,
       description: '',
       path: '/Users/me/.agents/skills/abandoned',
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'devin',
@@ -1274,7 +1286,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
         {
           skillName: orphanSkillName,
           outcome: 'orphan-cleared',
-          symlinksRemoved: 1,
+          symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['devin'],
         },
       ],
@@ -1324,7 +1336,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       description: '',
       path: '/Users/me/.agents/skills/source-stale-task',
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -1333,7 +1345,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       name: orphanSkillName,
       description: '',
       path: '/Users/me/.agents/skills/abandoned',
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'devin',
@@ -1364,7 +1376,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
         {
           skillName: orphanSkillName,
           outcome: 'orphan-cleared',
-          symlinksRemoved: 1,
+          symlinksRemoved: toSymlinkCount(1),
           cascadeAgents: ['devin'],
         },
       ],
@@ -1414,7 +1426,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       description: '',
       path: '/Users/me/.agents/skills/source-task',
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -1423,7 +1435,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       name: orphanSkillName,
       description: '',
       path: '/Users/me/.agents/skills/stale-abandoned',
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'devin',
@@ -1442,7 +1454,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
           skillName: sourceSkillName,
           outcome: 'deleted',
           tombstoneId: tombstoneId('source-task-delete'),
-          symlinksRemoved: 0,
+          symlinksRemoved: toSymlinkCount(0),
           cascadeAgents: [],
         },
       ],
@@ -1495,7 +1507,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       description: '',
       path: '/Users/me/.agents/skills/source-task',
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -1504,7 +1516,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       name: orphanSkillName,
       description: '',
       path: '/Users/me/.agents/skills/abandoned',
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'devin',
@@ -1565,7 +1577,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       name: orphanSkillName,
       description: '',
       path: '/Users/me/.agents/skills/abandoned',
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'devin',
@@ -1619,7 +1631,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       name: orphanSkillName,
       description: '',
       path: '/Users/me/.agents/skills/stale-abandoned',
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'devin',
@@ -1675,7 +1687,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
       name: sourceSkillName,
       description: '',
       path: '/Users/me/.agents/skills/source-missing-identity',
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -1729,8 +1741,8 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
             name: 'Cursor',
             path: '/Users/me/.cursor/skills',
             exists: true,
-            skillCount: 0,
-            localSkillCount: 0,
+            skillCount: toSkillCount(0),
+            localSkillCount: toSkillCount(0),
           },
         ],
         'req-id',
@@ -1773,8 +1785,8 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
             name: 'Cursor',
             path: '/Users/me/.cursor/skills',
             exists: true,
-            skillCount: 0,
-            localSkillCount: 0,
+            skillCount: toSkillCount(0),
+            localSkillCount: toSkillCount(0),
           },
         ],
         'req-id',
@@ -1813,8 +1825,8 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
             name: 'Cursor',
             path: '/Users/me/.cursor/skills',
             exists: true,
-            skillCount: 0,
-            localSkillCount: 0,
+            skillCount: toSkillCount(0),
+            localSkillCount: toSkillCount(0),
           },
         ],
         'req-id',
@@ -1857,7 +1869,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
       name: 'cursor-unique',
       description: '',
       path: '/skills/cursor-unique',
-      symlinkCount: 1,
+      symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
@@ -1876,7 +1888,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
       name: 'shared-two',
       description: '',
       path: '/skills/shared-two',
-      symlinkCount: 2,
+      symlinkCount: toSymlinkCount(2),
       symlinks: [
         {
           agentId: 'cursor',
@@ -1907,8 +1919,8 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
             name: 'Cursor',
             path: '/Users/me/.cursor/skills',
             exists: true,
-            skillCount: 0,
-            localSkillCount: 0,
+            skillCount: toSkillCount(0),
+            localSkillCount: toSkillCount(0),
           },
         ],
         'req-id',
@@ -1947,7 +1959,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
       name: 'orphan-one',
       description: '',
       path: '/skills/orphan-one',
-      symlinkCount: 1,
+      symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
@@ -1966,7 +1978,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
       description: '',
       path: '/skills/linked-one',
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 1,
+      symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
@@ -1989,8 +2001,8 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
             name: 'Cursor',
             path: '/Users/me/.cursor/skills',
             exists: true,
-            skillCount: 0,
-            localSkillCount: 0,
+            skillCount: toSkillCount(0),
+            localSkillCount: toSkillCount(0),
           },
         ],
         'req-id',
@@ -2031,8 +2043,8 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
             name: 'Cursor',
             path: '/Users/me/.cursor/skills',
             exists: true,
-            skillCount: 0,
-            localSkillCount: 0,
+            skillCount: toSkillCount(0),
+            localSkillCount: toSkillCount(0),
           },
         ],
         'req-id',
@@ -2139,8 +2151,8 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
             name: 'Claude Code',
             path: '/Users/me/.claude/skills',
             exists: true,
-            skillCount: 0,
-            localSkillCount: 0,
+            skillCount: toSkillCount(0),
+            localSkillCount: toSkillCount(0),
           },
         ],
         'req-id',
@@ -2176,8 +2188,8 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
             name: 'Claude Code',
             path: '/Users/me/.claude/skills',
             exists: true,
-            skillCount: 0,
-            localSkillCount: 0,
+            skillCount: toSkillCount(0),
+            localSkillCount: toSkillCount(0),
           },
         ],
         'req-id',
@@ -2288,10 +2300,10 @@ describe('MainContent toolbar quick actions', () => {
       await import('@/renderer/src/redux/slices/marketplaceSlice')
     store.dispatch(
       setPreviewSkill({
-        rank: 1,
+        rank: toSkillRank(1),
         name: 'task',
         repo: repositoryId('vercel-labs/skills'),
-        url: 'https://skills.sh/task',
+        url: toHttpUrl('https://skills.sh/task'),
       }),
     )
 
@@ -2319,8 +2331,8 @@ describe('MainContent filter pill clear actions', () => {
             name: 'Cursor',
             path: '/Users/me/.cursor/skills',
             exists: true,
-            skillCount: 0,
-            localSkillCount: 0,
+            skillCount: toSkillCount(0),
+            localSkillCount: toSkillCount(0),
           },
         ],
         'req-id',
@@ -2450,8 +2462,8 @@ describe('MainContent skill-type exclude toggles', () => {
             name: 'Cursor',
             path: '/Users/me/.cursor/skills',
             exists: true,
-            skillCount: 0,
-            localSkillCount: 0,
+            skillCount: toSkillCount(0),
+            localSkillCount: toSkillCount(0),
           },
         ],
         'req-id',
@@ -2555,7 +2567,10 @@ describe('MainContent delete progress wiring', () => {
     expect(typeof progressCallback).toBe('function')
 
     // Act
-    progressCallback?.({ current: 3, total: 12 })
+    progressCallback?.({
+      current: toBatchItemIndex(3),
+      total: toBatchItemCount(12),
+    })
 
     // Assert
     expect(store.getState().skills.bulkProgress).toEqual({
@@ -2581,7 +2596,7 @@ describe('MainContent stale-source delete summary', () => {
       description: '',
       path: '/Users/me/.agents/skills/fresh-source',
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -2590,7 +2605,7 @@ describe('MainContent stale-source delete summary', () => {
       name: staleName,
       description: '',
       path: '/Users/me/.agents/skills/stale-source',
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -2601,7 +2616,7 @@ describe('MainContent stale-source delete summary', () => {
           skillName: deletableName,
           outcome: 'deleted',
           tombstoneId: tombstoneId('1729180800000-fresh-source-a1b2c3d4'),
-          symlinksRemoved: 0,
+          symlinksRemoved: toSymlinkCount(0),
           cascadeAgents: [],
         },
       ],
@@ -2661,7 +2676,7 @@ describe('MainContent undo bulk delete', () => {
       description: '',
       path: `/Users/me/.agents/skills/undo-skill-${index}` as never,
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -2672,7 +2687,7 @@ describe('MainContent undo bulk delete', () => {
         skillName: skill.name,
         outcome: 'deleted',
         tombstoneId: tombstoneIds[index],
-        symlinksRemoved: 0,
+        symlinksRemoved: toSymlinkCount(0),
         cascadeAgents: [],
       })),
     } satisfies BulkDeleteResult)
@@ -2798,7 +2813,7 @@ describe('MainContent toolbar primary action guards', () => {
       description: '',
       path: '/home/user/.agents/skills/protected-link',
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 1,
+      symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
@@ -2820,8 +2835,8 @@ describe('MainContent toolbar primary action guards', () => {
             name: 'Cursor',
             path: '/home/user/.cursor/skills',
             exists: true,
-            skillCount: 1,
-            localSkillCount: 0,
+            skillCount: toSkillCount(1),
+            localSkillCount: toSkillCount(0),
           },
         ],
         'req-agent',
@@ -2857,7 +2872,7 @@ describe('MainContent toolbar primary action guards', () => {
       description: '',
       path: '/home/user/.agents/skills/stale-unlink',
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 1,
+      symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
@@ -2880,8 +2895,8 @@ describe('MainContent toolbar primary action guards', () => {
             name: 'Cursor',
             path: '/home/user/.cursor/skills',
             exists: true,
-            skillCount: 1,
-            localSkillCount: 0,
+            skillCount: toSkillCount(1),
+            localSkillCount: toSkillCount(0),
           },
         ],
         'req-agent',
@@ -2928,7 +2943,7 @@ describe('MainContent bulk unlink result toasts', () => {
       description: '',
       path: '/home/user/.agents/skills/linked-skill',
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 1,
+      symlinkCount: toSymlinkCount(1),
       symlinks: [
         {
           agentId: 'cursor',
@@ -2950,8 +2965,8 @@ describe('MainContent bulk unlink result toasts', () => {
             name: 'Cursor',
             path: '/home/user/.cursor/skills',
             exists: true,
-            skillCount: 1,
-            localSkillCount: 0,
+            skillCount: toSkillCount(1),
+            localSkillCount: toSkillCount(0),
           },
         ],
         'req-agent',
@@ -3046,7 +3061,7 @@ describe('MainContent bulk delete failure toasts', () => {
       description: '',
       path: '/Users/me/.agents/skills/kept-source',
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -3055,7 +3070,7 @@ describe('MainContent bulk delete failure toasts', () => {
       name: orphanSkillName,
       description: '',
       path: '/Users/me/.agents/skills/dropped-orphan',
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [
         {
           agentId: 'devin',
@@ -3075,7 +3090,7 @@ describe('MainContent bulk delete failure toasts', () => {
           skillName: sourceSkillName,
           outcome: 'deleted',
           tombstoneId: tombstoneId('1729180800000-kept-source-a1b2c3d4'),
-          symlinksRemoved: 0,
+          symlinksRemoved: toSymlinkCount(0),
           cascadeAgents: [],
         },
       ],
@@ -3119,7 +3134,7 @@ describe('MainContent bulk delete failure toasts', () => {
       description: '',
       path: '/Users/me/.agents/skills/empty-result',
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -3162,7 +3177,7 @@ describe('MainContent bulk delete failure toasts', () => {
       description: '',
       path: '/Users/me/.agents/skills/all-error',
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -3216,7 +3231,7 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
       description: '',
       path: '/Users/me/.agents/skills/dismiss-me',
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -3227,7 +3242,7 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
           skillName: sourceSkillName,
           outcome: 'deleted',
           tombstoneId: tombstoneId('1729180800000-dismiss-me-a1b2c3d4'),
-          symlinksRemoved: 0,
+          symlinksRemoved: toSymlinkCount(0),
           cascadeAgents: [],
         },
       ],
@@ -3277,7 +3292,7 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
       description: '',
       path: '/Users/me/.agents/skills/stale-dismiss-me',
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,
@@ -3288,7 +3303,7 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
           skillName: sourceSkillName,
           outcome: 'deleted',
           tombstoneId: tombstoneId('1729180800000-stale-dismiss-a1b2c3d4'),
-          symlinksRemoved: 0,
+          symlinksRemoved: toSymlinkCount(0),
           cascadeAgents: [],
         },
       ],
@@ -3312,7 +3327,7 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
       kind: 'delete' as const,
       skillNames: ['newer-delete'] as SkillName[],
       tombstoneIds: [tombstoneId('1729180800000-newer-delete-a1b2c3d4')],
-      expiresAt: '2026-04-17T12:00:15.000Z',
+      expiresAt: toIsoTimestamp('2026-04-17T12:00:15.000Z'),
       summary: 'Deleted 1 skill. 0 symlinks removed.',
     }
     store.dispatch(setUndoToast(newerToast))
@@ -3340,7 +3355,7 @@ describe('MainContent bulk confirm cancellation', () => {
       description: '',
       path: '/Users/me/.agents/skills/cancel-me',
       filesystemIdentity: directoryIdentity,
-      symlinkCount: 0,
+      symlinkCount: toSymlinkCount(0),
       symlinks: [],
       isSource: true,
       isOrphan: false,

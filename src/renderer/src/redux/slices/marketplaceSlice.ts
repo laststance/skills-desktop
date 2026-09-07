@@ -11,6 +11,7 @@ import type {
   InstallProgress,
   MarketplaceStatus,
 } from '@/shared/types'
+import { toSearchQuery, toUnixTimestampMs } from '@/shared/types'
 
 /** Cache TTL: 30 minutes in milliseconds */
 const CACHE_TTL_MS = 30 * 60 * 1000
@@ -45,7 +46,7 @@ interface MarketplaceState {
 
 const initialState: MarketplaceState = {
   status: 'idle',
-  searchQuery: '',
+  searchQuery: toSearchQuery(''),
   searchResults: [],
   selectedSkill: null,
   previewSkill: null,
@@ -161,7 +162,7 @@ const marketplaceSlice = createSlice({
     },
     clearSearchResults: (state) => {
       state.searchResults = []
-      state.searchQuery = ''
+      state.searchQuery = toSearchQuery('')
       // Emptying the box returns to the leaderboard, so reset BOTH halves of the
       // status/error pair: the input spinner keys off `status`, but the error
       // banner renders on `error` itself — clearing only one leaves the last
@@ -224,7 +225,7 @@ const marketplaceSlice = createSlice({
         // background refresh of a populated tab doesn't flash an empty skeleton.
         state.leaderboard[filter] = {
           skills: existing?.skills ?? [],
-          lastFetched: existing?.lastFetched ?? 0,
+          lastFetched: toUnixTimestampMs(existing?.lastFetched ?? 0),
           filter,
           status: 'loading',
         }
@@ -233,7 +234,7 @@ const marketplaceSlice = createSlice({
         const { skills, filter } = action.payload
         state.leaderboard[filter] = {
           skills,
-          lastFetched: Date.now(),
+          lastFetched: toUnixTimestampMs(Date.now()),
           filter,
           status: 'idle',
         }
@@ -248,7 +249,7 @@ const marketplaceSlice = createSlice({
         } else {
           state.leaderboard[filter] = {
             skills: [],
-            lastFetched: 0,
+            lastFetched: toUnixTimestampMs(0),
             filter,
             status: 'error',
             error: action.error.message || 'Failed to load leaderboard',

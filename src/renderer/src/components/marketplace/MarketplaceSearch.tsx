@@ -10,6 +10,7 @@ import {
   clearSearchResults,
 } from '@/renderer/src/redux/slices/marketplaceSlice'
 import { SEARCH_DEBOUNCE_MS } from '@/shared/constants'
+import { toSearchQuery } from '@/shared/types'
 
 /**
  * Incremental search box for the marketplace. Searches as the user types: each
@@ -35,14 +36,14 @@ export const MarketplaceSearch =
     const runSearch = (query: string): void => {
       const trimmedQuery = query.trim()
       if (trimmedQuery === '') return
-      dispatch(setMarketplaceSearchQuery(trimmedQuery))
-      dispatch(searchSkills(trimmedQuery))
+      dispatch(setMarketplaceSearchQuery(toSearchQuery(trimmedQuery)))
+      dispatch(searchSkills(toSearchQuery(trimmedQuery)))
     }
 
     const debouncedSearch = useDebouncedCallback(runSearch, SEARCH_DEBOUNCE_MS)
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-      const value = e.target.value
+      const value = toSearchQuery(e.target.value)
       setLocalQuery(value)
       if (value.trim() === '') {
         // Clearing the box snaps back to the leaderboard immediately and

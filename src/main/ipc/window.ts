@@ -1,5 +1,6 @@
 import { getMainWindow } from '@/main/services/mainWindowState'
 import { IPC_CHANNELS } from '@/shared/ipc-channels'
+import { toPixelHeight, toPixelWidth } from '@/shared/types'
 
 import { typedHandle } from './typedHandle'
 
@@ -18,6 +19,9 @@ export function registerWindowHandlers(): void {
     const mainWindow = getMainWindow()
     if (mainWindow === null) return null
     const bounds = mainWindow.getContentBounds()
-    return { width: bounds.width, height: bounds.height }
+    return {
+      width: toPixelWidth(bounds.width),
+      height: toPixelHeight(bounds.height),
+    }
   })
 }

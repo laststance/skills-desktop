@@ -46,6 +46,13 @@ import type {
   FilesystemEntryIdentity,
   SkillName,
 } from '@/shared/types'
+import {
+  toAgentCount,
+  toBatchItemCount,
+  toBatchItemIndex,
+  toSkillCount,
+  toSymlinkCount,
+} from '@/shared/types'
 
 import { recordActivityEvents } from './activity'
 import { typedHandle } from './typedHandle'
@@ -637,7 +644,7 @@ async function clearReviewedOrphanRecord(item: {
     return {
       skillName: item.skillName,
       outcome: 'orphan-cleared',
-      symlinksRemoved: cascadeAgents.length,
+      symlinksRemoved: toSymlinkCount(cascadeAgents.length),
       cascadeAgents,
     }
   } catch (error) {
@@ -649,7 +656,10 @@ async function clearReviewedOrphanRecord(item: {
       outcome: 'error',
       error: code ? { message, code } : { message },
       ...(cascadeAgents.length > 0
-        ? { symlinksRemoved: cascadeAgents.length, cascadeAgents }
+        ? {
+            symlinksRemoved: toSymlinkCount(cascadeAgents.length),
+            cascadeAgents,
+          }
         : {}),
     }
   }
@@ -765,7 +775,7 @@ export function registerSkillsHandlers(): void {
       if (!agent) {
         return {
           success: false,
-          removedCount: 0,
+          removedCount: toSkillCount(0),
           error: 'Agent not found',
         }
       }
@@ -789,7 +799,7 @@ export function registerSkillsHandlers(): void {
       if (isSharedAgentPath(derivedAgentPath)) {
         return {
           success: false,
-          removedCount: 0,
+          removedCount: toSkillCount(0),
           error:
             'Refusing to delete a shared skills folder. This directory is used by the Universal source and/or multiple agents — deleting it would cascade beyond the selected agent.',
         }
@@ -802,14 +812,14 @@ export function registerSkillsHandlers(): void {
         stats = await fs.lstat(derivedAgentPath)
       } catch (error) {
         if (errorCode(error) === 'ENOENT') {
-          return { success: true, removedCount: 0 }
+          return { success: true, removedCount: toSkillCount(0) }
         }
         throw error
       }
       if (!stats.isDirectory() || stats.isSymbolicLink()) {
         return {
           success: false,
-          removedCount: 0,
+          removedCount: toSkillCount(0),
           error: 'Reviewed agent skills path is no longer a real directory.',
         }
       }
@@ -818,7 +828,7 @@ export function registerSkillsHandlers(): void {
       if (!isReviewedEntryUnchanged(stats, options.filesystemIdentity)) {
         return {
           success: false,
-          removedCount: 0,
+          removedCount: toSkillCount(0),
           error: 'Reviewed agent skills folder changed since review.',
         }
       }
@@ -866,8 +876,8 @@ export function registerSkillsHandlers(): void {
 
         return {
           success: true,
-          removedCount,
-          preservedCount: protectedExistingPaths.size,
+          removedCount: toSkillCount(removedCount),
+          preservedCount: toSkillCount(protectedExistingPaths.size),
         }
       }
 
@@ -882,11 +892,11 @@ export function registerSkillsHandlers(): void {
         },
       )
 
-      return { success: true, removedCount: entries.length }
+      return { success: true, removedCount: toSkillCount(entries.length) }
     } catch (error) {
       return {
         success: false,
-        removedCount: 0,
+        removedCount: toSkillCount(0),
         error: extractErrorMessage(error),
       }
     }
@@ -929,7 +939,7 @@ export function registerSkillsHandlers(): void {
     } catch (error) {
       return {
         success: false,
-        symlinksRemoved: 0,
+        symlinksRemoved: toSymlinkCount(0),
         cascadeAgents: [],
         error:
           error instanceof TrashError
@@ -972,7 +982,7 @@ export function registerSkillsHandlers(): void {
             skillName,
             outcome: 'deleted',
             tombstoneId: moveResult.tombstoneId,
-            symlinksRemoved: moveResult.symlinksRemoved,
+            symlinksRemoved: toSymlinkCount(moveResult.symlinksRemoved),
             cascadeAgents: moveResult.cascadeAgents,
           })
         } catch (error) {
@@ -986,8 +996,8 @@ export function registerSkillsHandlers(): void {
 
         if (emitProgress) {
           typedSend(event.sender, IPC_CHANNELS.SKILLS_DELETE_PROGRESS, {
-            current: itemIndex + 1,
-            total,
+            current: toBatchItemIndex(itemIndex + 1),
+            total: toBatchItemCount(total),
           })
         }
       }
@@ -1178,7 +1188,11 @@ export function registerSkillsHandlers(): void {
       })),
     )
 
-    return { success: failures.length === 0, created, failures }
+    return {
+      success: failures.length === 0,
+      created: toSymlinkCount(created),
+      failures,
+    }
   })
 
   /**
@@ -1239,7 +1253,7 @@ export function registerSkillsHandlers(): void {
       if (detectionOutcome.kind === 'invalid') {
         return {
           success: false,
-          copied: 0,
+          copied: toAgentCount(0),
           failures: targetAgentIds.map((id) => ({
             agentId: id,
             error: 'Source is neither a symlink nor a directory',
@@ -1253,7 +1267,7 @@ export function registerSkillsHandlers(): void {
     } catch (error) {
       return {
         success: false,
-        copied: 0,
+        copied: toAgentCount(0),
         failures: targetAgentIds.map((id) => ({
           agentId: id,
           error: extractErrorMessage(error, 'Cannot access source skill'),
@@ -1316,6 +1330,10 @@ export function registerSkillsHandlers(): void {
       })),
     )
 
-    return { success: failures.length === 0, copied, failures }
+    return {
+      success: failures.length === 0,
+      copied: toAgentCount(copied),
+      failures,
+    }
   })
 }

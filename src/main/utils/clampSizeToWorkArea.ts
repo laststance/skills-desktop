@@ -1,4 +1,5 @@
 import type { PixelHeight, PixelWidth } from '@/shared/types'
+import { toPixelHeight, toPixelWidth } from '@/shared/types'
 
 /**
  * Clamp a desired window size to a display's usable work area.
@@ -29,7 +30,7 @@ export function clampSizeToWorkArea(
   workArea: { width: PixelWidth; height: PixelHeight },
 ): { width: PixelWidth; height: PixelHeight } {
   return {
-    width: Math.min(desired.width, workArea.width),
-    height: Math.min(desired.height, workArea.height),
+    width: toPixelWidth(Math.min(desired.width, workArea.width)),
+    height: toPixelHeight(Math.min(desired.height, workArea.height)),
   }
 }

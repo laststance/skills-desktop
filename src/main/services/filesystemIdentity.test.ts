@@ -3,6 +3,7 @@ import type { Stats } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import type { FilesystemEntryIdentity } from '@/shared/types'
+import { toFileSizeBytes } from '@/shared/types'
 
 import {
   filesystemIdentityFromStats,
@@ -23,7 +24,7 @@ describe('filesystem identity guards for destructive deletes', () => {
     kind: 'directory',
     dev: 16777233,
     ino: 99,
-    size: 96,
+    size: toFileSizeBytes(96),
     ctimeMs: 1_000,
     mtimeMs: 2_000,
   }
@@ -36,7 +37,7 @@ describe('filesystem identity guards for destructive deletes', () => {
         kind: 'directory',
         dev: 16777233,
         ino: 99,
-        size: 96,
+        size: toFileSizeBytes(96),
         ctimeMs: 1_500,
         mtimeMs: 2_000,
       }
@@ -57,7 +58,7 @@ describe('filesystem identity guards for destructive deletes', () => {
         kind: 'directory',
         dev: 16777233,
         ino: 99,
-        size: 96,
+        size: toFileSizeBytes(96),
         ctimeMs: 1_000,
         mtimeMs: 2_000,
       }
@@ -78,7 +79,7 @@ describe('filesystem identity guards for destructive deletes', () => {
         kind: 'directory',
         dev: 16777233,
         ino: 100,
-        size: 96,
+        size: toFileSizeBytes(96),
         ctimeMs: 1_000,
         mtimeMs: 2_000,
       }
@@ -99,7 +100,7 @@ describe('filesystem identity guards for destructive deletes', () => {
         kind: 'symlink',
         dev: 16777233,
         ino: 99,
-        size: 96,
+        size: toFileSizeBytes(96),
         ctimeMs: 1_000,
         mtimeMs: 2_000,
       }
@@ -121,7 +122,7 @@ describe('filesystem identity guards for destructive deletes', () => {
         kind: 'directory',
         dev: 0,
         ino: 0,
-        size: 96,
+        size: toFileSizeBytes(96),
         ctimeMs: 1_000,
         mtimeMs: 2_000,
       }
@@ -129,7 +130,7 @@ describe('filesystem identity guards for destructive deletes', () => {
         kind: 'directory',
         dev: 0,
         ino: 0,
-        size: 96,
+        size: toFileSizeBytes(96),
         ctimeMs: 1_500,
         mtimeMs: 2_000,
       }
@@ -153,7 +154,7 @@ describe('filesystem identity guards for destructive deletes', () => {
         kind: 'directory',
         dev: 16777233,
         ino: 99,
-        size: 96,
+        size: toFileSizeBytes(96),
         ctimeMs: 1_500,
         mtimeMs: 2_000,
       }
@@ -174,7 +175,7 @@ describe('filesystem identity guards for destructive deletes', () => {
         kind: 'directory',
         dev: 16777233,
         ino: 100,
-        size: 96,
+        size: toFileSizeBytes(96),
         ctimeMs: 1_000,
         mtimeMs: 2_000,
       }
@@ -196,7 +197,7 @@ describe('filesystem identity guards for destructive deletes', () => {
         kind: 'directory',
         dev: 0,
         ino: 0,
-        size: 96,
+        size: toFileSizeBytes(96),
         ctimeMs: 1_000,
         mtimeMs: 2_000,
       }
@@ -204,7 +205,7 @@ describe('filesystem identity guards for destructive deletes', () => {
         kind: 'directory',
         dev: 0,
         ino: 0,
-        size: 96,
+        size: toFileSizeBytes(96),
         ctimeMs: 1_000,
         mtimeMs: 2_000,
       }

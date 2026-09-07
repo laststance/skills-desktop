@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Agent } from '@/shared/types'
+import { toFileSizeBytes, toSkillCount } from '@/shared/types'
 
 const mockGetAll = vi.fn()
 const mockRemoveAllFromAgent = vi.fn()
@@ -10,7 +11,7 @@ const directoryIdentity = {
   kind: 'directory' as const,
   dev: 1,
   ino: 2,
-  size: 96,
+  size: toFileSizeBytes(96),
   ctimeMs: 3,
   mtimeMs: 4,
 }
@@ -64,8 +65,8 @@ const sampleAgent: Agent = {
   name: 'Claude Code',
   path: '/home/user/.claude/skills',
   exists: true,
-  skillCount: 3,
-  localSkillCount: 0,
+  skillCount: toSkillCount(3),
+  localSkillCount: toSkillCount(0),
   filesystemIdentity: directoryIdentity,
 }
 

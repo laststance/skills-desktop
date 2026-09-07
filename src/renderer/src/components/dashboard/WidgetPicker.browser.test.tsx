@@ -3,6 +3,8 @@ import { Provider } from 'react-redux'
 import { describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
+import { toDashboardPageName } from '@/renderer/src/components/dashboard/types'
+
 import '@/renderer/src/styles/globals.css'
 
 /**
@@ -42,7 +44,7 @@ async function renderPicker(
     },
   })
   // One empty page so the clicked widget is placed via the common add path.
-  store.dispatch(addPage({ name: 'Test Page' }))
+  store.dispatch(addPage({ name: toDashboardPageName('Test Page') }))
   // Simulate a returning user who already dismissed the Welcome card.
   if (options.welcomeDismissed) store.dispatch(dismissWelcome())
 

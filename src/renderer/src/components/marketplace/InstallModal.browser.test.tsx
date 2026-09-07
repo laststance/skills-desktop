@@ -3,7 +3,13 @@ import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
-import { repositoryId } from '@/shared/types'
+import {
+  repositoryId,
+  toHttpUrl,
+  toInstallCount,
+  toSkillCount,
+  toSkillRank,
+} from '@/shared/types'
 import type { Agent, SkillSearchResult } from '@/shared/types'
 
 const mockInstall = vi.fn()
@@ -25,11 +31,11 @@ function makeSkill(
   overrides: Partial<SkillSearchResult> = {},
 ): SkillSearchResult {
   return {
-    rank: 1,
+    rank: toSkillRank(1),
     name: 'task',
     repo: repositoryId('vercel-labs/skills'),
-    url: 'https://skills.sh/vercel-labs/skills/task',
-    installCount: 100,
+    url: toHttpUrl('https://skills.sh/vercel-labs/skills/task'),
+    installCount: toInstallCount(100),
     ...overrides,
   }
 }
@@ -50,8 +56,8 @@ function makeAgent(
     name,
     path: `/home/user/.${id}/skills`,
     exists: true,
-    skillCount: 0,
-    localSkillCount: 0,
+    skillCount: toSkillCount(0),
+    localSkillCount: toSkillCount(0),
     ...rest,
   }
 }

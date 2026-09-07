@@ -36,6 +36,18 @@ import {
   storySyncResult,
   storyTombstoneIds,
 } from './fixtures'
+import {
+  toAgentCount,
+  toDataUrl,
+  toFileName,
+  toFileSizeBytes,
+  toMimeType,
+  toPixelHeight,
+  toPixelWidth,
+  toSkillCount,
+  toSymlinkCount,
+  toUnixTimestampMs,
+} from '@/shared/types'
 
 const rootReducer = combineReducers({
   theme: themeReducer,
@@ -313,19 +325,19 @@ function createDefaultStoryState(): StoryRootState {
       leaderboard: {
         'all-time': {
           skills: storyMarketplaceSkills,
-          lastFetched: Date.now(),
+          lastFetched: toUnixTimestampMs(Date.now()),
           filter: 'all-time',
           status: 'idle',
         },
         trending: {
           skills: storyMarketplaceSkills,
-          lastFetched: Date.now(),
+          lastFetched: toUnixTimestampMs(Date.now()),
           filter: 'trending',
           status: 'idle',
         },
         hot: {
           skills: storyMarketplaceSkills,
-          lastFetched: Date.now(),
+          lastFetched: toUnixTimestampMs(Date.now()),
           filter: 'hot',
           status: 'idle',
         },
@@ -396,7 +408,7 @@ export function installStorybookElectronMock(): void {
         skillName: storySkills[0]?.name ?? 'design-review',
         outcome: 'deleted',
         tombstoneId: storyTombstoneIds[0]!,
-        symlinksRemoved: 3,
+        symlinksRemoved: toSymlinkCount(3),
         cascadeAgents: ['claude-code', 'cursor'],
       },
     ],
@@ -411,13 +423,13 @@ export function installStorybookElectronMock(): void {
   }
   const createSymlinksResult: CreateSymlinksResult = {
     success: true,
-    created: 1,
+    created: toSymlinkCount(1),
     failures: [],
   }
   const restoreResult: RestoreDeletedSkillResult = {
     outcome: 'restored',
-    symlinksRestored: 3,
-    symlinksSkipped: 0,
+    symlinksRestored: toSymlinkCount(3),
+    symlinksSkipped: toSymlinkCount(0),
   }
 
   window.electron = {
@@ -455,14 +467,21 @@ export function installStorybookElectronMock(): void {
     skills: {
       getAll: async () => storySkills,
       unlinkFromAgent: async () => ({ success: true }),
-      removeAllFromAgent: async () => ({ success: true, removedCount: 4 }),
+      removeAllFromAgent: async () => ({
+        success: true,
+        removedCount: toSkillCount(4),
+      }),
       deleteSkill: async () => ({
         success: true,
-        symlinksRemoved: 3,
+        symlinksRemoved: toSymlinkCount(3),
         cascadeAgents: ['claude-code', 'cursor'],
       }),
       createSymlinks: async () => createSymlinksResult,
-      copyToAgents: async () => ({ success: true, copied: 1, failures: [] }),
+      copyToAgents: async () => ({
+        success: true,
+        copied: toAgentCount(1),
+        failures: [],
+      }),
       deleteSkills: async () => deleteResult,
       clearOrphanSymlinks: async (options) => ({
         // Echo the requested rows 1:1 so stories reflect exactly what was
@@ -470,7 +489,7 @@ export function installStorybookElectronMock(): void {
         items: options.items.map((item) => ({
           skillName: item.skillName,
           outcome: 'orphan-cleared' as const,
-          symlinksRemoved: item.agents.length,
+          symlinksRemoved: toSymlinkCount(item.agents.length),
           cascadeAgents: item.agents.map((agent) => agent.agentId),
         })),
       }),
@@ -507,11 +526,12 @@ export function installStorybookElectronMock(): void {
       list: async () => storySkillFiles,
       read: async () => storySkillFileContent,
       readBinary: async () => ({
-        name: 'diagram.png',
-        dataUrl:
+        name: toFileName('diagram.png'),
+        dataUrl: toDataUrl(
           'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180"><rect width="320" height="180" fill="%230b1118"/><path d="M40 120h240" stroke="%2322d3ee" stroke-width="10" stroke-linecap="round"/><circle cx="82" cy="90" r="28" fill="%2334d399"/><circle cx="160" cy="72" r="28" fill="%2322d3ee"/><circle cx="238" cy="90" r="28" fill="%23f59e0b"/></svg>',
-        mimeType: 'image/svg+xml',
-        size: 9280,
+        ),
+        mimeType: toMimeType('image/svg+xml'),
+        size: toFileSizeBytes(9280),
       }),
     },
     update: {
@@ -568,7 +588,10 @@ export function installStorybookElectronMock(): void {
       openInTerminal: async () => ({ ok: true }),
     },
     window: {
-      getMainBounds: async () => ({ width: 1200, height: 800 }),
+      getMainBounds: async () => ({
+        width: toPixelWidth(1200),
+        height: toPixelHeight(800),
+      }),
     },
   }
 

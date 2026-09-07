@@ -5,13 +5,14 @@ import { resolveDetailPanelContent } from '@/renderer/src/components/layout/deta
 import { MarketplaceDetailPanel } from '@/renderer/src/components/marketplace/MarketplaceDetailPanel'
 import { SkillDetail } from '@/renderer/src/components/skills/SkillDetail'
 import type { Skill } from '@/shared/types'
+import { toSymlinkCount } from '@/shared/types'
 
 // Minimal selected skill — only its identity is threaded through, never read here.
 const SELECTED_SKILL: Skill = {
   name: 'foo',
   description: 'foo skill',
   path: '/u/me/.agents/skills/foo',
-  symlinkCount: 0,
+  symlinkCount: toSymlinkCount(0),
   symlinks: [],
   isSource: true,
   isOrphan: false,

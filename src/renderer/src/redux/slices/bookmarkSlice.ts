@@ -3,6 +3,7 @@ import { createSelector, createSlice } from '@reduxjs/toolkit'
 
 import type { RootState } from '@/renderer/src/redux/store'
 import type { BookmarkedSkill, SkillName } from '@/shared/types'
+import { toIsoTimestamp } from '@/shared/types'
 
 /**
  * Payload for the `addBookmark` action — every BookmarkedSkill field
@@ -41,7 +42,7 @@ const bookmarkSlice = createSlice({
       if (!exists) {
         state.items.push({
           ...action.payload,
-          bookmarkedAt: new Date().toISOString(),
+          bookmarkedAt: toIsoTimestamp(new Date().toISOString()),
         })
       }
     },

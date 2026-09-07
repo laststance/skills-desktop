@@ -43,7 +43,15 @@ export type DashboardPageId = Brand<string, 'DashboardPageId'>
  * @description Human-readable tab name shown in the dashboard page strip.
  * @example "Overview"
  */
-export type DashboardPageName = string
+export type DashboardPageName = Brand<string, 'DashboardPageName'>
+
+/**
+ * Construct a {@link DashboardPageName} from a raw string at a trust boundary
+ * (a page-rename input or the preset builder).
+ * @example toDashboardPageName('x')
+ */
+export const toDashboardPageName = (value: string): DashboardPageName =>
+  value as DashboardPageName
 
 // ============================================================================
 // Placement
@@ -56,25 +64,57 @@ export type DashboardPageName = string
  * @description Zero-based grid column where a widget begins.
  * @example 3
  */
-export type GridColumnStart = number
+export type GridColumnStart = Brand<number, 'GridColumnStart'>
+
+/**
+ * Construct a {@link GridColumnStart} from a raw number at a trust boundary
+ * (a react-grid-layout callback or persisted state).
+ * @example toGridColumnStart(1)
+ */
+export const toGridColumnStart = (value: number): GridColumnStart =>
+  value as GridColumnStart
 
 /**
  * @description Zero-based grid row where a widget begins.
  * @example 6
  */
-export type GridRowStart = number
+export type GridRowStart = Brand<number, 'GridRowStart'>
+
+/**
+ * Construct a {@link GridRowStart} from a raw number at a trust boundary
+ * (a react-grid-layout callback or persisted state).
+ * @example toGridRowStart(1)
+ */
+export const toGridRowStart = (value: number): GridRowStart =>
+  value as GridRowStart
 
 /**
  * @description Width of a widget measured in dashboard grid columns.
  * @example 6
  */
-export type GridColumnSpan = number
+export type GridColumnSpan = Brand<number, 'GridColumnSpan'>
+
+/**
+ * Construct a {@link GridColumnSpan} from a raw number at a trust boundary
+ * (a react-grid-layout callback or the size table).
+ * @example toGridColumnSpan(1)
+ */
+export const toGridColumnSpan = (value: number): GridColumnSpan =>
+  value as GridColumnSpan
 
 /**
  * @description Height of a widget measured in dashboard grid rows.
  * @example 3
  */
-export type GridRowSpan = number
+export type GridRowSpan = Brand<number, 'GridRowSpan'>
+
+/**
+ * Construct a {@link GridRowSpan} from a raw number at a trust boundary
+ * (a react-grid-layout callback or the size table).
+ * @example toGridRowSpan(1)
+ */
+export const toGridRowSpan = (value: number): GridRowSpan =>
+  value as GridRowSpan
 
 /**
  * A single placed widget on a page.

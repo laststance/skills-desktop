@@ -8,6 +8,7 @@ import type {
   CliCommandOperationResult,
   CliCommandStatus,
 } from '@/shared/types'
+import { toPixelHeight, toPixelWidth } from '@/shared/types'
 
 const mockSettingsSet = vi.fn()
 const mockWindowGetMainBounds = vi.fn()
@@ -87,7 +88,7 @@ async function createStore(
  * untouched — callers control whether the mount probe resolves or rejects.
  * @param overrides - Settings fields to merge over `DEFAULT_SETTINGS`.
  * @returns The vitest-browser render screen.
- * @example await renderGeneralRaw({ windowSize: { width: 1000, height: 700 } })
+ * @example await renderGeneralRaw({ windowSize: { width: toPixelWidth(1000), height: toPixelHeight(700) } })
  */
 async function renderGeneralRaw(overrides?: Partial<Settings>) {
   const store = await createStore(overrides)
@@ -316,7 +317,7 @@ describe('Settings → General startup window size', () => {
       .poll(() => mockSettingsSet.mock.calls.length)
       .toBeGreaterThanOrEqual(1)
     expect(mockSettingsSet).toHaveBeenLastCalledWith({
-      windowSize: { width: 1200, height: 800 },
+      windowSize: { width: toPixelWidth(1200), height: toPixelHeight(800) },
     })
   })
 
@@ -399,7 +400,7 @@ describe('Settings → General startup window size', () => {
   it('clears the persisted size when "Reset to default" is clicked', async () => {
     // Arrange
     const screen = await renderGeneral(notInstalledStatus, {
-      windowSize: { width: 1000, height: 700 },
+      windowSize: { width: toPixelWidth(1000), height: toPixelHeight(700) },
     })
 
     // Act

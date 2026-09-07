@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { describe, expect, it } from 'vitest'
 
-import { repositoryId } from '@/shared/types'
+import { repositoryId, toHttpUrl } from '@/shared/types'
 
 async function createTestStore() {
   const { default: bookmarkReducer } = await import('./bookmarkSlice')
@@ -30,7 +30,7 @@ describe('bookmarkSlice', () => {
       addBookmark({
         name: 'task',
         repo: repositoryId('vercel-labs/skills'),
-        url: 'https://skills.sh/task',
+        url: toHttpUrl('https://skills.sh/task'),
       }),
     )
 
@@ -53,7 +53,7 @@ describe('bookmarkSlice', () => {
       addBookmark({
         name: 'task',
         repo: repositoryId('vercel-labs/skills'),
-        url: 'https://skills.sh/task',
+        url: toHttpUrl('https://skills.sh/task'),
       }),
     )
 
@@ -69,7 +69,7 @@ describe('bookmarkSlice', () => {
     const payload = {
       name: 'task',
       repo: repositoryId('vercel-labs/skills'),
-      url: 'https://skills.sh/task',
+      url: toHttpUrl('https://skills.sh/task'),
     }
 
     // Act
@@ -90,14 +90,14 @@ describe('bookmarkSlice', () => {
       addBookmark({
         name: 'task',
         repo: repositoryId('vercel-labs/skills'),
-        url: 'https://skills.sh/task',
+        url: toHttpUrl('https://skills.sh/task'),
       }),
     )
     store.dispatch(
       addBookmark({
         name: 'tdd',
         repo: repositoryId('pbakaus/impeccable'),
-        url: 'https://skills.sh/tdd',
+        url: toHttpUrl('https://skills.sh/tdd'),
       }),
     )
 
@@ -113,14 +113,14 @@ describe('bookmarkSlice', () => {
       addBookmark({
         name: 'task',
         repo: repositoryId('vercel-labs/skills'),
-        url: 'https://skills.sh/task',
+        url: toHttpUrl('https://skills.sh/task'),
       }),
     )
     store.dispatch(
       addBookmark({
         name: 'tdd',
         repo: repositoryId('pbakaus/impeccable'),
-        url: 'https://skills.sh/tdd',
+        url: toHttpUrl('https://skills.sh/tdd'),
       }),
     )
 
@@ -141,7 +141,7 @@ describe('bookmarkSlice', () => {
       addBookmark({
         name: 'task',
         repo: repositoryId('vercel-labs/skills'),
-        url: 'https://skills.sh/task',
+        url: toHttpUrl('https://skills.sh/task'),
       }),
     )
 
@@ -162,7 +162,7 @@ describe('bookmarkSlice', () => {
       addBookmark({
         name: 'task',
         repo: repositoryId('vercel-labs/skills'),
-        url: 'https://skills.sh/task',
+        url: toHttpUrl('https://skills.sh/task'),
       }),
     )
 
@@ -180,7 +180,7 @@ describe('bookmarkSlice', () => {
       addBookmark({
         name: 'task',
         repo: repositoryId('vercel-labs/skills'),
-        url: 'https://skills.sh/task',
+        url: toHttpUrl('https://skills.sh/task'),
       }),
     )
 
