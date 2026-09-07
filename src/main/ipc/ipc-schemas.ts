@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-import { AGENT_IDS, CODE_THEME_IDS, TERMINAL_APP_IDS } from '@/shared/constants'
+import {
+  AGENT_IDS,
+  CODE_THEME_IDS,
+  TERMINAL_APP_IDS,
+  THEME_PRESETS,
+} from '@/shared/constants'
 import type { IpcInvokeChannel } from '@/shared/ipc-contract'
 import {
   CODE_FONT_SIZE_SCHEMA,
@@ -425,6 +430,24 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       // settings:set. A bare boolean has no constraint that can drift, so
       // there's nothing to keep in lockstep beyond the type itself.
       autoDownloadUpdates: z.boolean().optional(),
+    }),
+  ]),
+
+  // Cross-window theme relay. Main re-broadcasts this payload to every open
+  // window, where it is dispatched straight into Redux and projected onto
+  // `<html>` as CSS custom properties — so it must be validated here rather
+  // than trusted because it came from "our own" renderer. `preset` is pinned
+  // to the THEME_PRESETS keys so an unknown name cannot reach the reducer's
+  // stale-key fallback, and hue/chroma are bounded to the OKLCH ranges
+  // globals.css actually consumes: an out-of-range number would otherwise be
+  // written verbatim into a style property.
+  'theme:broadcast': z.tuple([
+    z.object({
+      hue: z.number().min(0).max(360),
+      chroma: z.number().min(0).max(1),
+      mode: z.enum(['light', 'dark']),
+      modePreference: z.enum(['light', 'dark', 'system']),
+      preset: z.enum(Object.keys(THEME_PRESETS) as [string, ...string[]]),
     }),
   ]),
 

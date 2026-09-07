@@ -11,6 +11,7 @@ import { registerSkillsHandlers } from './skills'
 import { registerSkillsCliHandlers } from './skillsCli'
 import { registerSourceHandlers } from './source'
 import { registerSyncHandlers } from './sync'
+import { registerThemeHandlers } from './theme'
 import { registerUpdateHandlers } from './update'
 import { registerWindowHandlers } from './window'
 
@@ -32,6 +33,7 @@ export function registerAllHandlers(): void {
   registerActivityHandlers()
   registerShellHandlers()
   registerSettingsHandlers()
+  registerThemeHandlers()
   registerFolderHandlers()
   registerWindowHandlers()
 }

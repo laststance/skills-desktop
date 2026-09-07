@@ -28,14 +28,14 @@ type ListenerEffectApi = Parameters<
 >[1]
 
 /**
- * The two members the window-level theme subscriptions need. Satisfied by both
- * the Redux store and a listener effect's api, so {@link installThemeSubscriptions}
- * can be called from either without importing `RootState` (which would close a
- * cycle back through `store.ts`).
+ * The narrowest api the window-level theme subscriptions need: dispatch, and
+ * a read of the one slice they consult. Typed structurally rather than as
+ * `RootState` so `listener.ts` does not close an import cycle back through
+ * `store.ts`, and narrowly enough that no `as` cast is needed at the read.
  */
 interface ThemeSubscriptionApi {
   dispatch: ListenerEffectApi['dispatch']
-  getState: () => unknown
+  getState: () => { theme: ThemeState }
 }
 
 // Type for state accessed in listeners (avoids circular RootState import)
@@ -105,7 +105,7 @@ function installSystemThemeListener(api: ThemeSubscriptionApi): void {
   const systemQuery = window.matchMedia('(prefers-color-scheme: dark)')
   systemQuery.addEventListener('change', () => {
     // Explicit light/dark must stay sticky; only the "Auto" path reacts.
-    const { theme } = api.getState() as ListenerState
+    const { theme } = api.getState()
     if (theme.modePreference === 'system') {
       api.dispatch(setModePreference('system'))
     }
