@@ -27,7 +27,7 @@ Recorded 2026-09-08 JST. Runtime checkpoint: `6817d28eebb7e9ec27f03d21f0f23b6a5e
 | LaunchServices window smoke  | Pass: actual arm64 and x64 packaged windows classified `REAL_UI`.                                                                                                                                                                                           | `native-window-arm64-6817d28.log`, `native-window-x64-6817d28.log`                                                       |
 | Signed restart               | arm64 restart restored Alpine lake at 3840×2560 and settled Section backgrounds at 45/60/85%; native and pane opacity remained 1.                                                                                                                           | `native-qa/after-restart-6817d28.json`                                                                                   |
 | Visible desktop compositing  | Not certified. One briefly unlocked desktop capture succeeded; the Mac relocked before the full backdrop flow. The next video contained one black frame (0.067 seconds) and was rejected. The white/black backdrop and theme matrix remains open.           | `native-qa/visible-native-after-restart.png`; complete visible-desktop record pending                                    |
-| Remote CI at this checkpoint | Pending: the `f80bc1e` rerun uses serial outer validation after the earlier orchestration timeout. Local passes above do not certify that remote run.                                                                                                       | Parent-owned current CI verification                                                                                     |
+| Remote CI at this checkpoint | Pass at `f80bc1e`: ordered serial validation (212 root files / 2,924 tests; 2 Website files / 73 tests), then all 106 Electron E2Es in 4.7 minutes.                                                                                                         | [GitHub CI run](https://github.com/laststance/skills-desktop/actions/runs/34160507348), `ci-e2e-f80bc1e.log`             |
 
 Evidence filenames refer to the local implementation archive at `~/.gstack/projects/laststance-skills-desktop/implementation/`; logs and recordings are not committed to this repository. Review dispositions are in its sibling `implementation-review-fixes.md` and `implementation-review-fixes-round-2.md` handoffs.
 
@@ -48,10 +48,18 @@ pnpm test:e2e
 
 The separate signed build used `APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac`. These commands document completed runs; their outputs refer to the exact runtime checkpoint above.
 
+The separate macOS CI run at `f80bc1e` passed the same ordered gates using serial outer validation:
+
+```sh
+VITEST_MAX_WORKERS=1 pnpm validate --max-parallel 1
+pnpm test:e2e
+```
+
+That CI result applies to `f80bc1e`; later documentation-only commits were not part of the recorded run.
+
 ## Remaining acceptance gates
 
 1. Configure the Unsplash access key through Laststance's provider/Vercel configuration and obtain production approval/quota evidence. Then verify actual search, credits/hotlinks and a new-image download notification. Current production and signed UI return a deliberate unconfigured-key 503; no successful provider action is claimed.
 2. Complete the unlocked, visible desktop recording with bright/dark backdrops and verify compositing during the required image/opacity/motion flows. Inspect extracted frames; preserve the successful renderer-motion and native-window evidence above without treating it as this missing desktop pass.
-3. Finish the current remote CI run after its bounded orchestration correction. Preserve exact checked-commit results separately from the successful local runtime gates above.
 
 These are the original G6–G8 completion gates. The full gallery scope remains implemented; no new deferred feature tasks or release/version changes are introduced by this record.
