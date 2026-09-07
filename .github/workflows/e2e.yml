@@ -7,14 +7,12 @@ on:
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
-      - 'website/**'
       - '.github/ISSUE_TEMPLATE/**'
   pull_request:
     branches: [main]
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
-      - 'website/**'
       - '.github/ISSUE_TEMPLATE/**'
 
 concurrency:
@@ -49,7 +47,11 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install chromium
 
-      - name: Run E2E tests
+      # Use the same ordered gate as local development; Website contracts also affect Electron.
+      - name: Run fast validation
+        run: pnpm validate
+
+      - name: Run E2E tests after fast validation
         run: pnpm test:e2e
 
       - name: Upload Playwright report
