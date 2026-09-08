@@ -28,7 +28,8 @@ export const UnsplashImageUrlSchema = z
       !url.username &&
       !url.password &&
       !url.hash &&
-      /^\/photo-[A-Za-z0-9-]+$/.test(url.pathname) &&
+      // Provider paths are opaque: older photos use numbered directories and filenames.
+      url.pathname !== '/' &&
       Boolean(url.searchParams.get('ixid'))
     )
   }, 'Expected a direct Unsplash photo URL with ixid')

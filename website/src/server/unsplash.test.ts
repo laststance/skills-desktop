@@ -148,6 +148,52 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     })
   })
 
+  it('loads the complete search page when Unsplash includes a legacy image URL', async () => {
+    // Arrange
+    const legacyPhoto = {
+      ...upstreamPhoto,
+      id: '4M-5WBrG5-c',
+      urls: {
+        raw: 'https://images.unsplash.com/39/wdXqHcTwSTmLuKOGz92L_Landscape.jpg?ixid=public-tracking',
+        small:
+          'https://images.unsplash.com/39/wdXqHcTwSTmLuKOGz92L_Landscape.jpg?ixid=public-tracking&w=400',
+      },
+      links: {
+        html: 'https://unsplash.com/photos/4M-5WBrG5-c',
+        download_location:
+          'https://api.unsplash.com/photos/4M-5WBrG5-c/download?ixid=public-tracking',
+      },
+    }
+    fetchProvider.mockResolvedValue(
+      Response.json({ total_pages: 2, results: [upstreamPhoto, legacyPhoto] }),
+    )
+    // Act
+    const result = await client.unsplash.search({
+      query: 'nature landscape',
+      page: 1,
+    })
+    // Assert
+    expect(result.items.map(({ id, urls }) => ({ id, urls }))).toEqual([
+      {
+        id: '5oRIcisKaxU',
+        urls: {
+          raw: 'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?ixid=public-tracking&ixlib=rb-4.1.0',
+          small:
+            'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?ixid=public-tracking&w=400',
+        },
+      },
+      {
+        id: '4M-5WBrG5-c',
+        urls: {
+          raw: 'https://images.unsplash.com/39/wdXqHcTwSTmLuKOGz92L_Landscape.jpg?ixid=public-tracking',
+          small:
+            'https://images.unsplash.com/39/wdXqHcTwSTmLuKOGz92L_Landscape.jpg?ixid=public-tracking&w=400',
+        },
+      },
+    ])
+    expect(result.nextPage).toBe(2)
+  })
+
   it('shares validated searches for sixty seconds and then revalidates the real Next Data Cache', async () => {
     // Arrange
     const cacheWrite = vi.spyOn(incrementalCache, 'set')

@@ -55,6 +55,23 @@ describe('public Unsplash contract', () => {
     )
   })
 
+  it('keeps legacy Unsplash photos selectable without rewriting their URLs', () => {
+    // Arrange
+    const imageUrls = [
+      'https://images.unsplash.com/39/wdXqHcTwSTmLuKOGz92L_Landscape.jpg?ixid=public-tracking',
+      'https://images.unsplash.com/5/unsplash-kitsune-4.jpg?ixid=public-tracking',
+    ]
+    // Act
+    const result = imageUrls.map((imageUrl) =>
+      UnsplashImageUrlSchema.parse(imageUrl),
+    )
+    // Assert
+    expect(result).toEqual([
+      'https://images.unsplash.com/39/wdXqHcTwSTmLuKOGz92L_Landscape.jpg?ixid=public-tracking',
+      'https://images.unsplash.com/5/unsplash-kitsune-4.jpg?ixid=public-tracking',
+    ])
+  })
+
   it.each([
     'not a URL',
     'http://images.unsplash.com/photo-123?ixid=tracking',
@@ -64,7 +81,7 @@ describe('public Unsplash contract', () => {
     'https://images.unsplash.com:444/photo-123?ixid=tracking',
     'https://images.unsplash.com/photo-123',
     'https://images.unsplash.com/photo-123?ixid=',
-    'https://images.unsplash.com/other/file?ixid=tracking',
+    'https://images.unsplash.com/?ixid=tracking',
     'file:///Users/me/photo.jpg',
   ])(
     'rejects an invalid image location without throwing outside validation: %s',
