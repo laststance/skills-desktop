@@ -23,7 +23,7 @@ export function Download() {
 
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
                 <a
-                  href="https://github.com/laststance/skills-desktop/releases/download/v0.30.0/skills-desktop-0.30.0-arm64.dmg"
+                  href="https://github.com/laststance/skills-desktop/releases/download/v0.31.0/skills-desktop-0.31.0-arm64.dmg"
                   className="inline-flex w-full items-center justify-center gap-3 rounded-xl bg-primary px-8 py-4 text-lg font-semibold text-primary-foreground transition-all hover:bg-primary/90 hover:scale-105 sm:w-auto"
                 >
                   <Apple className="size-6" />
@@ -36,7 +36,7 @@ export function Download() {
                 </a>
 
                 <a
-                  href="https://github.com/laststance/skills-desktop/releases/download/v0.30.0/skills-desktop-0.30.0-x64.dmg"
+                  href="https://github.com/laststance/skills-desktop/releases/download/v0.31.0/skills-desktop-0.31.0-x64.dmg"
                   className="inline-flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-card/50 px-8 py-4 text-lg font-semibold transition-all hover:bg-card hover:scale-105 sm:w-auto"
                 >
                   <Cpu className="size-6" />
@@ -64,8 +64,8 @@ export function Download() {
                   System Requirements
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  macOS 12.0 (Monterey) or later • 50 MB disk space • Arm64 or
-                  x64 processor
+                  macOS 13.0 (Ventura) or later • 1 GB disk space • Arm64 or x64
+                  processor
                 </p>
               </div>
             </div>
