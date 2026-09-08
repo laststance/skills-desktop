@@ -95,6 +95,11 @@ const pendingImports = new Map<string, number>()
 const cancelledImports = new Set<string>()
 let imageProcessingQueue = Promise.resolve()
 let latestPreviewRequestId = 0
+// Four immutable built-ins retain only successful previews; failed/in-flight work remains retryable.
+const builtinPreviews = new Map<
+  (typeof BUILTIN_BACKGROUND_IDS)[number],
+  BackgroundPreview
+>()
 
 /** Derives private paths for image operations without accepting renderer filesystem paths.
  * @returns The dedicated userData image directory.
@@ -685,7 +690,7 @@ export async function getBackgroundCatalog(
                 bundledBackgroundPath(photo.thumbnailFilename),
                 BACKGROUND_THUMBNAIL_LONG_EDGE_PX,
               ),
-            )
+            ).catch(() => null)
           : null
         return {
           source,
@@ -771,6 +776,8 @@ export async function getBackgroundPreview(
         ),
         credit: null,
       }
+    const cached = builtinPreviews.get(source.builtinId)
+    if (cached) return cached
     const bytes = await readBoundedImage(input.path)
     const { data, info } = await sharp(bytes, {
       failOn: 'warning',
@@ -793,7 +800,7 @@ export async function getBackgroundPreview(
         'invalid-image',
         'The background preview is too large.',
       )
-    return {
+    const preview: BackgroundPreview = {
       source,
       title: input.title,
       width: input.width,
@@ -805,6 +812,8 @@ export async function getBackgroundPreview(
       },
       credit: input.credit,
     }
+    builtinPreviews.set(source.builtinId, preview)
+    return preview
   })
 }
 

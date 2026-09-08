@@ -13,6 +13,7 @@ import settingsReducer, {
   setSettings,
 } from '@/renderer/src/redux/slices/settingsSlice'
 import themeReducer from '@/renderer/src/redux/slices/themeSlice'
+import uiReducer from '@/renderer/src/redux/slices/uiSlice'
 import '@/renderer/src/styles/globals.css'
 import {
   DEFAULT_BACKGROUND_CROP,
@@ -142,7 +143,7 @@ afterEach(async () => {
  */
 async function renderGallery(overrides: Partial<Settings> = {}) {
   const store = configureStore({
-    reducer: { settings: settingsReducer, theme: themeReducer },
+    reducer: { settings: settingsReducer, theme: themeReducer, ui: uiReducer },
     preloadedState: { settings: { ...DEFAULT_SETTINGS, ...overrides } },
   })
   const screen = await render(
@@ -188,6 +189,87 @@ function photo(id: string): UnsplashPhoto {
 }
 
 describe('Background gallery selection and operation lifecycle', () => {
+  test('keeps a mounted empty status region for upload checking and its failure message', async () => {
+    // Arrange
+    let rejectUpload: (reason: Error) => void = () => undefined
+    importImage.mockImplementation(
+      async () =>
+        new Promise((_resolve, reject) => {
+          rejectUpload = reject
+        }),
+    )
+    const { screen } = await renderGallery()
+    await expect
+      .element(screen.getByRole('radio', { name: 'Alpine lake', exact: true }))
+      .toBeVisible()
+    const dialog = screen.getByRole('dialog', { name: 'Choose background' })
+    const idleRegions = dialog.getByRole('status').elements()
+    expect(idleRegions).toHaveLength(4)
+    // Header, loading, search error, and crop feedback reserve no space while empty.
+    expect(idleRegions.map((region) => region.textContent)).toEqual([
+      '',
+      '',
+      '',
+      '',
+    ])
+    expect(
+      idleRegions.map((region) => region.getBoundingClientRect().height),
+    ).toEqual([0, 0, 0, 0])
+    const statusRegion = dialog.getByRole('status').first().element()
+    expect(statusRegion.textContent).toBe('')
+
+    // Act
+    await dialog.getByRole('button', { name: 'Upload image' }).click()
+
+    // Assert
+    await expect.element(dialog.getByText('Checking image…')).toBeVisible()
+    expect(dialog.getByRole('status').first().element()).toBe(statusRegion)
+
+    // Act
+    rejectUpload(new Error('Image could not be checked. Choose another file.'))
+
+    // Assert
+    await expect
+      .element(
+        dialog.getByText('Image could not be checked. Choose another file.'),
+      )
+      .toBeVisible()
+    expect(dialog.getByRole('status').first().element()).toBe(statusRegion)
+  })
+
+  test('all gallery tabs retain their controlled panels while only the active panel is visible', async () => {
+    // Arrange
+    const { screen } = await renderGallery()
+    await expect
+      .element(screen.getByRole('radio', { name: 'Alpine lake', exact: true }))
+      .toBeVisible()
+    const tabs = ['Built-in', 'Unsplash', 'Your images'].map((name) =>
+      screen.getByRole('tab', { name }),
+    )
+    const panels = tabs.map((tab) =>
+      document.getElementById(
+        tab.element().getAttribute('aria-controls') ?? '',
+      ),
+    )
+    expect(
+      panels.every((panel) => panel?.getAttribute('role') === 'tabpanel'),
+    ).toBe(true)
+
+    // Act / Assert: each fixed ARIA target survives selecting every sibling tab.
+    for (const [index, tab] of tabs.entries()) {
+      await tab.click()
+      for (const [panelIndex, panel] of panels.entries()) {
+        expect(
+          document.getElementById(
+            tabs[panelIndex].element().getAttribute('aria-controls') ?? '',
+          ),
+        ).toBe(panel)
+        if (panelIndex === index) await expect.element(panel).toBeVisible()
+        else await expect.element(panel).not.toBeVisible()
+      }
+    }
+  })
+
   test('a successfully uploaded image can be recropped in the open editor after its draft token expires', async () => {
     // Arrange
     const draftSource = {
@@ -554,6 +636,169 @@ describe('Background gallery selection and operation lifecycle', () => {
     cleanupScreen = undefined
     await expect.poll(() => discard.mock.calls.length).toBe(2)
   })
+  test('leaving Appearance closes the crop and discards its draft before revisiting Settings', async () => {
+    // Arrange
+    importImage.mockResolvedValue({
+      source: {
+        kind: 'upload-draft',
+        draftId: '28000000-0000-4000-8000-000000000001',
+      },
+      title: 'Abandoned upload',
+      width: 3840,
+      height: 2160,
+      image: { url: previewUrl, width: 3840, height: 2160 },
+      credit: null,
+    })
+    const { screen, store } = await renderGallery()
+    await screen.getByRole('button', { name: 'Upload image' }).click()
+    await expect
+      .element(screen.getByRole('heading', { name: 'Crop background' }))
+      .toBeVisible()
+
+    // Act
+    await screen.unmount()
+    cleanupScreen = undefined
+    const revisited = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <Appearance />
+          <AppToaster />
+        </TooltipProvider>
+      </Provider>,
+    )
+    cleanupScreen = async () => revisited.unmount()
+
+    // Assert
+    expect(store.getState().ui.backgroundGallery).toEqual({
+      open: false,
+      view: 'gallery',
+      removing: null,
+    })
+    expect(revisited.getByRole('dialog').elements()).toHaveLength(0)
+    expect(discard).toHaveBeenCalledWith({
+      draftId: '28000000-0000-4000-8000-000000000001',
+    })
+    await revisited
+      .getByRole('button', { name: 'Choose background', exact: true })
+      .click()
+    await expect
+      .element(revisited.getByRole('heading', { name: 'Choose background' }))
+      .toBeVisible()
+    await expect
+      .element(
+        revisited.getByRole('button', {
+          name: 'Apply background',
+          exact: true,
+        }),
+      )
+      .toBeDisabled()
+  })
+
+  test.each(['success', 'failure'] as const)(
+    'a late removal %s cannot close or change a new confirmation after revisiting Appearance',
+    async (result) => {
+      // Arrange
+      const uploaded: BackgroundCatalogItem = {
+        ...lake,
+        source: {
+          kind: 'upload',
+          uploadId: '29000000-0000-4000-8000-000000000001',
+        },
+        credit: null,
+      }
+      const nextUpload: BackgroundCatalogItem = {
+        ...forest,
+        source: {
+          kind: 'upload',
+          uploadId: '29000000-0000-4000-8000-000000000002',
+        },
+        credit: null,
+      }
+      const catalog = vi
+        .spyOn(window.electron.backgrounds, 'list')
+        .mockResolvedValue({
+          builtins: [lake],
+          uploads: [uploaded, nextUpload],
+        })
+      let finish: ((settings: Settings) => void) | undefined
+      let fail: ((error: Error) => void) | undefined
+      vi.spyOn(
+        window.electron.backgrounds,
+        'removeUpload',
+      ).mockImplementationOnce(
+        async () =>
+          new Promise((resolve, reject) => {
+            finish = resolve
+            fail = reject
+          }),
+      )
+      const { screen, store } = await renderGallery()
+      await screen.getByRole('tab', { name: 'Your images' }).click()
+      await screen.getByRole('button', { name: 'Remove Alpine lake' }).click()
+      await screen
+        .getByRole('dialog', { name: 'Remove uploaded image?' })
+        .getByRole('button', { name: 'Remove', exact: true })
+        .click()
+      await screen.unmount()
+      cleanupScreen = undefined
+
+      // Act
+      const revisited = await render(
+        <Provider store={store}>
+          <TooltipProvider>
+            <Appearance />
+            <AppToaster />
+          </TooltipProvider>
+        </Provider>,
+      )
+      cleanupScreen = async () => revisited.unmount()
+      expect(revisited.getByRole('dialog').elements()).toHaveLength(0)
+      await revisited
+        .getByRole('button', { name: 'Choose background', exact: true })
+        .click()
+      await revisited.getByRole('tab', { name: 'Your images' }).click()
+      await revisited
+        .getByRole('button', { name: 'Remove Misty forest' })
+        .click()
+      const pendingCatalogCalls = catalog.mock.calls.length
+      if (result === 'success') {
+        finish?.(DEFAULT_SETTINGS)
+        await expect
+          .poll(() => catalog.mock.calls.length)
+          .toBe(pendingCatalogCalls + 1)
+      } else {
+        fail?.(new Error('Previous removal failed'))
+        await expect
+          .element(
+            revisited.getByText('Previous removal failed', { exact: true }),
+          )
+          .toBeVisible()
+      }
+
+      // Assert
+      const confirmation = revisited.getByRole('dialog', {
+        name: 'Remove uploaded image?',
+      })
+      await expect.element(confirmation).toBeVisible()
+      await expect
+        .element(
+          confirmation.getByText(
+            'Remove the app-owned copy of “Misty forest”. Your external original is untouched.',
+          ),
+        )
+        .toBeVisible()
+      await expect
+        .element(
+          confirmation.getByRole('button', { name: 'Remove', exact: true }),
+        )
+        .toBeEnabled()
+      expect(store.getState().ui.backgroundGallery.removing).toEqual({
+        item: nextUpload,
+        busy: false,
+      })
+    },
+  )
+
   test('a cancelled native picker preserves the preview and a late import after dialog dismissal is discarded', async () => {
     // Arrange
     const { screen } = await renderGallery()

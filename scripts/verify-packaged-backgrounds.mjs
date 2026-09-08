@@ -115,6 +115,30 @@ async function verifyRendererCsp(rendererPage, fixturePng) {
   }
 }
 
+/** Waits for a specific accepted Apply in {@link verifyBundle}; each IPC read finishes before checking completion.
+ * @param {import('playwright').Page} rendererPage - Packaged renderer owning the IPC bridge.
+ * @param {number} operationId - Accepted operation to await.
+ * @returns {Promise<void>} Resolves after that operation leaves applying.
+ * @example await waitForOperation(window, accepted.operationId)
+ */
+async function waitForOperation(rendererPage, operationId) {
+  // Poll from Node so each IPC response resolves before the completion condition is checked.
+  await expect
+    .poll(
+      async () => {
+        const snapshot = await rendererPage.evaluate(() =>
+          window.electron.backgrounds.getSnapshot(),
+        )
+        return (
+          snapshot.operation?.operationId === operationId &&
+          snapshot.operation.status !== 'applying'
+        )
+      },
+      { timeout: APPLY_TIMEOUT_MS },
+    )
+    .toBe(true)
+}
+
 /** Runs packaged Sharp, bundled-gallery and upload IPC against one isolated architecture; {@link main} records both results.
  * @param {'arm64' | 'x64'} expectedArchitecture - Required runtime architecture, including Rosetta for x64.
  * @param {string} requestedBundle - Explicit app path; never falls back to a workspace Electron installation.
@@ -288,21 +312,7 @@ async function verifyBundle(expectedArchitecture, requestedBundle) {
         aspect: 'original',
       },
     )
-    // Poll from Node so each IPC response resolves before the completion condition is checked.
-    await expect
-      .poll(
-        async () => {
-          const snapshot = await window.evaluate(() =>
-            window.electron.backgrounds.getSnapshot(),
-          )
-          return (
-            snapshot.operation?.operationId === builtinAccepted.operationId &&
-            snapshot.operation.status !== 'applying'
-          )
-        },
-        { timeout: APPLY_TIMEOUT_MS },
-      )
-      .toBe(true)
+    await waitForOperation(window, builtinAccepted.operationId)
     const builtinApplied = await window.evaluate(async () => {
       const snapshot = await window.electron.backgrounds.getSnapshot()
       if (!snapshot.display)
@@ -357,21 +367,7 @@ async function verifyBundle(expectedArchitecture, requestedBundle) {
         aspect: 'original',
       },
     )
-    // Poll from Node so each IPC response resolves before the completion condition is checked.
-    await expect
-      .poll(
-        async () => {
-          const snapshot = await window.evaluate(() =>
-            window.electron.backgrounds.getSnapshot(),
-          )
-          return (
-            snapshot.operation?.operationId === accepted.operationId &&
-            snapshot.operation.status !== 'applying'
-          )
-        },
-        { timeout: APPLY_TIMEOUT_MS },
-      )
-      .toBe(true)
+    await waitForOperation(window, accepted.operationId)
     const applied = await window.evaluate(() =>
       window.electron.backgrounds.getSnapshot(),
     )

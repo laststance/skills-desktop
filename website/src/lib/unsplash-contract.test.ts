@@ -33,6 +33,25 @@ const photo = {
 }
 
 describe('public Unsplash contract', () => {
+  it('validates provider metadata without requiring the newer URL.parse runtime method', () => {
+    // Arrange
+    const originalParse = Object.getOwnPropertyDescriptor(URL, 'parse')
+    Reflect.deleteProperty(URL, 'parse')
+    try {
+      // Act / Assert
+      expect(UnsplashPhotoSchema.parse(photo)).toEqual(photo)
+      expect(UnsplashImageUrlSchema.safeParse('not a URL').success).toBe(false)
+      expect(
+        UnsplashDownloadInputSchema.safeParse({
+          photoId: photo.id,
+          downloadLocation: 'not a URL',
+        }).success,
+      ).toBe(false)
+    } finally {
+      if (originalParse) Object.defineProperty(URL, 'parse', originalParse)
+    }
+  })
+
   it('preserves direct hotlinks, tracking and nullable descriptions for gallery photos', () => {
     // Arrange / Act
     const result = UnsplashPhotoSchema.parse(photo)
@@ -47,7 +66,9 @@ describe('public Unsplash contract', () => {
     'not a URL',
     'http://images.unsplash.com/photo-123?ixid=tracking',
     'https://images.unsplash.com.evil.test/photo-123?ixid=tracking',
-    'https://secret@images.unsplash.com/photo-123?ixid=tracking',
+    'https://secret@images.unsplash.com/photo-123?ixid=tracking', // gitleaks:allow -- intentional invalid credential-bearing URL fixture
+    'https://images.unsplash.com/photo-123?ixid=tracking#other',
+    'https://images.unsplash.com:444/photo-123?ixid=tracking',
     'https://images.unsplash.com/photo-123',
     'https://images.unsplash.com/photo-123?ixid=',
     'https://images.unsplash.com/other/file?ixid=tracking',
@@ -66,7 +87,7 @@ describe('public Unsplash contract', () => {
     'not a URL',
     'https://api.unsplash.com.evil.test/photos/5oRIcisKaxU/download',
     'https://api.unsplash.com:444/photos/5oRIcisKaxU/download',
-    'https://user:secret@api.unsplash.com/photos/5oRIcisKaxU/download',
+    'https://user:secret@api.unsplash.com/photos/5oRIcisKaxU/download', // gitleaks:allow -- intentional invalid credential-bearing URL fixture
     'https://api.unsplash.com/photos/other/download',
     'https://api.unsplash.com/photos/5oRIcisKaxU/download/extra',
     'https://api.unsplash.com/photos/5oRIcisKaxU/download?redirect=https://evil.test',

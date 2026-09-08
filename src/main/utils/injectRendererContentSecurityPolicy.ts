@@ -59,6 +59,7 @@ export function injectRendererContentSecurityPolicy(
     "default-src 'self' file: app:",
     "base-uri 'self'",
     "object-src 'none'",
+    "form-action 'none'",
     // Shiki may compile WebAssembly; this does not permit JavaScript eval or arbitrary inline scripts.
     `script-src 'self' file: app: 'wasm-unsafe-eval' ${scriptHashes.join(' ')}`.trimEnd(),
     "style-src 'self' 'unsafe-inline' file: app:",

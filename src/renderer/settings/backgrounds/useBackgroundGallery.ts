@@ -2,8 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { isMatching } from 'ts-pattern'
 
-import { useAppStore } from '@/renderer/src/redux/hooks'
+import { useAppSelector, useAppStore } from '@/renderer/src/redux/hooks'
 import { setSettings } from '@/renderer/src/redux/slices/settingsSlice'
+import {
+  openBackgroundGallery,
+  resetBackgroundGallery,
+  selectBackgroundGallery,
+  setBackgroundGalleryView,
+} from '@/renderer/src/redux/slices/uiSlice'
 import {
   DEFAULT_BACKGROUND_CROP,
   type BackgroundApplySource,
@@ -24,8 +30,6 @@ export interface BackgroundDraft {
   aspect: BackgroundCropAspect
 }
 interface GalleryState {
-  open: boolean
-  view: 'gallery' | 'crop'
   draft: BackgroundDraft | null
   beforeCrop: BackgroundDraft | null
   checking: boolean
@@ -34,8 +38,6 @@ interface GalleryState {
   session: number
 }
 const initialState: GalleryState = {
-  open: false,
-  view: 'gallery',
   draft: null,
   beforeCrop: null,
   checking: false,
@@ -55,6 +57,7 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
   const startingRequest = useRef<string | null>(null)
   const opener = useRef<HTMLElement | null>(null)
   const store = useAppStore()
+  const { open, view } = useAppSelector(selectBackgroundGallery)
 
   const operation = snapshot.operation
   const uploadedSource = snapshot.display?.selection.source
@@ -65,18 +68,26 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
   ) {
     const draftId = operation.source.draftId
     // Success consumes this token; update its draft/Cancel destination while preserving newer choices and crop edits.
-    const [draft, beforeCrop] = [state.draft, state.beforeCrop].map(
-      (candidate) =>
-        candidate?.preview.source.kind === 'upload-draft' &&
-        candidate.preview.source.draftId === draftId
-          ? {
-              ...candidate,
-              preview: { ...candidate.preview, source: uploadedSource },
-            }
-          : candidate,
+    if (
+      [state.draft, state.beforeCrop].some(
+        (candidate) =>
+          candidate?.preview.source.kind === 'upload-draft' &&
+          candidate.preview.source.draftId === draftId,
+      )
     )
-    if (draft !== state.draft || beforeCrop !== state.beforeCrop)
-      setState({ ...state, draft, beforeCrop })
+      setState((current) => {
+        const [draft, beforeCrop] = [current.draft, current.beforeCrop].map(
+          (candidate) =>
+            candidate?.preview.source.kind === 'upload-draft' &&
+            candidate.preview.source.draftId === draftId
+              ? {
+                  ...candidate,
+                  preview: { ...candidate.preview, source: uploadedSource },
+                }
+              : candidate,
+        )
+        return { ...current, draft, beforeCrop }
+      })
   }
 
   const discard = (retainedDraftId?: string): void => {
@@ -102,20 +113,20 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
           .discardDraft({ draftId })
           .catch(() => undefined)
       draftTokens.current.clear()
+      store.dispatch(resetBackgroundGallery())
     }
     window.addEventListener('beforeunload', cleanup)
     return () => {
       window.removeEventListener('beforeunload', cleanup)
       cleanup()
     }
-  }, [])
+  }, [store])
 
-  const loadPreview = async (
-    source: BackgroundApplySource,
-    crop?: BackgroundSelection['crop'],
-    aspect?: BackgroundCropAspect,
-    view: GalleryState['view'] = 'gallery',
-  ): Promise<void> => {
+  /** Starts an image check for {@link loadPreview} and {@link importImage}, releasing only the editor's prior wait.
+   * @returns Generation each caller must recheck after asynchronous work.
+   * @example const generation = beginImageCheck()
+   */
+  const beginImageCheck = (): number => {
     const generation = ++requestGeneration.current
     // A new editor choice releases its local wait; Main still owns any accepted Apply.
     startingRequest.current = null
@@ -125,6 +136,16 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
       starting: false,
       error: null,
     }))
+    return generation
+  }
+
+  const loadPreview = async (
+    source: BackgroundApplySource,
+    crop?: BackgroundSelection['crop'],
+    aspect?: BackgroundCropAspect,
+    view: ReturnType<typeof selectBackgroundGallery>['view'] = 'gallery',
+  ): Promise<void> => {
+    const generation = beginImageCheck()
     try {
       const preview = await window.electron.backgrounds.preview(source)
       if (generation !== requestGeneration.current) return
@@ -141,9 +162,9 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
         draft,
         beforeCrop: draft,
         checking: false,
-        view,
         session: current.session + 1,
       }))
+      store.dispatch(setBackgroundGalleryView(view))
     } catch (error: unknown) {
       if (generation !== requestGeneration.current) return
       setState((current) => ({
@@ -157,17 +178,18 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
     }
   }
 
-  const openGallery = (view: GalleryState['view'] = 'gallery'): void => {
+  const openGallery = (
+    view: ReturnType<typeof selectBackgroundGallery>['view'] = 'gallery',
+  ): void => {
     opener.current =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null
     setState((current) => ({
       ...current,
-      open: true,
-      view: 'gallery',
       error: null,
     }))
+    store.dispatch(openBackgroundGallery())
     const retainedOperation =
       view === 'gallery' &&
       snapshot.operation &&
@@ -186,17 +208,11 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
     startingRequest.current = null
     discard()
     setState((current) => ({ ...initialState, session: current.session + 1 }))
+    store.dispatch(resetBackgroundGallery())
   }
 
   const importImage = async (): Promise<void> => {
-    const generation = ++requestGeneration.current
-    startingRequest.current = null
-    setState((current) => ({
-      ...current,
-      checking: true,
-      starting: false,
-      error: null,
-    }))
+    const generation = beginImageCheck()
     try {
       const preview = await window.electron.backgrounds.importImage()
       if (generation !== requestGeneration.current) {
@@ -217,9 +233,9 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
         beforeCrop: current.draft,
         draft: { preview, crop: DEFAULT_BACKGROUND_CROP, aspect: 'original' },
         checking: false,
-        view: 'crop',
         session: current.session + 1,
       }))
+      store.dispatch(setBackgroundGalleryView('crop'))
     } catch (error: unknown) {
       if (generation !== requestGeneration.current) return
       setState((current) => ({
@@ -243,9 +259,9 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
     setState((current) => ({
       ...current,
       draft: current.beforeCrop,
-      view: 'gallery',
       error: null,
     }))
+    store.dispatch(setBackgroundGalleryView('gallery'))
   }
 
   const apply = async (draft = state.draft): Promise<void> => {
@@ -310,6 +326,8 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
 
   return {
     ...state,
+    open,
+    view,
     opener,
     openGallery,
     close,
@@ -318,12 +336,13 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
     cancelCrop,
     apply,
     saveMutation,
-    editCrop: (): void =>
+    editCrop: (): void => {
       setState((current) => ({
         ...current,
         beforeCrop: current.draft,
-        view: 'crop',
         session: current.session + 1,
-      })),
+      }))
+      store.dispatch(setBackgroundGalleryView('crop'))
+    },
   }
 }

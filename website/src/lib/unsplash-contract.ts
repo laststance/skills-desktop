@@ -21,8 +21,8 @@ export const UnsplashImageUrlSchema = z
   .url()
   .max(UNSPLASH_URL_MAX_LENGTH)
   .refine((value) => {
-    const url = URL.parse(value)
-    if (!url) return false
+    if (!URL.canParse(value)) return false
+    const url = new URL(value)
     return (
       url.origin === UNSPLASH_IMAGE_ORIGIN &&
       !url.username &&
@@ -38,8 +38,8 @@ const unsplashCreditUrlSchema = z
   .url()
   .max(UNSPLASH_URL_MAX_LENGTH)
   .refine((value) => {
-    const url = URL.parse(value)
-    if (!url) return false
+    if (!URL.canParse(value)) return false
+    const url = new URL(value)
     return (
       url.origin === 'https://unsplash.com' &&
       !url.username &&
@@ -54,8 +54,8 @@ const unsplashDownloadLocationSchema = z
   .url()
   .max(UNSPLASH_URL_MAX_LENGTH)
   .refine((value) => {
-    const url = URL.parse(value)
-    if (!url) return false
+    if (!URL.canParse(value)) return false
+    const url = new URL(value)
     const parameters = [...url.searchParams.keys()]
     return (
       url.origin === UNSPLASH_API_ORIGIN &&
@@ -77,7 +77,8 @@ export const UnsplashDownloadInputSchema = z
   })
   .refine(
     ({ photoId, downloadLocation }) =>
-      URL.parse(downloadLocation)?.pathname === `/photos/${photoId}/download`,
+      URL.canParse(downloadLocation) &&
+      new URL(downloadLocation).pathname === `/photos/${photoId}/download`,
     'Photo ID does not match the download location',
   )
 

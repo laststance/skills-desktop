@@ -94,11 +94,14 @@ async function renderSettings() {
     await import('@/renderer/src/redux/slices/settingsSlice')
   const { default: agentsReducer } =
     await import('@/renderer/src/redux/slices/agentsSlice')
+  const { default: uiReducer } =
+    await import('@/renderer/src/redux/slices/uiSlice')
   const store = configureStore({
     reducer: {
       settings: settingsReducer,
       theme: themeReducer,
       agents: agentsReducer,
+      ui: uiReducer,
     },
     preloadedState: {
       settings: { ...DEFAULT_SETTINGS },

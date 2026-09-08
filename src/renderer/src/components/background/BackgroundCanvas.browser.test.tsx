@@ -12,6 +12,7 @@ import settingsReducer, {
   setSettings,
 } from '@/renderer/src/redux/slices/settingsSlice'
 import themeReducer from '@/renderer/src/redux/slices/themeSlice'
+import uiReducer from '@/renderer/src/redux/slices/uiSlice'
 import '@/renderer/src/styles/globals.css'
 import {
   DEFAULT_BACKGROUND_CROP,
@@ -99,7 +100,7 @@ async function renderBackgrounds(
   selected: Settings['background']['selected'] = display.selection,
 ) {
   const store = configureStore({
-    reducer: { settings: settingsReducer, theme: themeReducer },
+    reducer: { settings: settingsReducer, theme: themeReducer, ui: uiReducer },
     preloadedState: {
       settings: {
         ...DEFAULT_SETTINGS,

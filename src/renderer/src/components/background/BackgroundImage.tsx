@@ -5,6 +5,7 @@ import {
   type ReactEventHandler,
 } from 'react'
 
+import { backgroundImageLayout } from '@/renderer/src/utils/backgroundImageLayout'
 import { backgroundSourceKey } from '@/renderer/src/utils/backgroundSourceKey'
 import type { BackgroundDisplay, BackgroundLayout } from '@/shared/backgrounds'
 import { backgroundCropPixels } from '@/shared/utils/backgroundCropPixels'
@@ -39,11 +40,11 @@ export function BackgroundImage({
     display.image.height,
   )
   if (!crop || crop.width === 0 || crop.height === 0) return null
-  const viewBox = `${crop.left} ${crop.top} ${crop.width} ${crop.height}`
+  const rendering = backgroundImageLayout(layout, crop)
   const imageId = `${id}-image`
   const clipId = `${id}-crop`
   const tileId = `${id}-tile`
-  const resourceKey = `${backgroundSourceKey(display.selection.source)}:${display.image.url}:${retryRevision}:${layout === 'tile' ? 'tile' : 'image'}`
+  const resourceKey = `${backgroundSourceKey(display.selection.source)}:${display.image.url}:${retryRevision}:${rendering.mode}`
   const status =
     imageState?.resourceKey === resourceKey ? imageState.status : 'loading'
   const handleLoad: typeof onLoad = (event) => {
@@ -56,7 +57,7 @@ export function BackgroundImage({
   }
 
   // Crop before image sampling: clipping an enlarged full image alone blends excluded edge pixels into the crop.
-  if (layout !== 'tile') {
+  if (rendering.mode === 'image') {
     return (
       <div
         data-background-image
@@ -78,18 +79,7 @@ export function BackgroundImage({
           alt={decorative ? '' : display.title}
           aria-hidden={decorative || undefined}
           style={{
-            display: 'block',
-            // Fit sizes the cropped image's own box; object-fit:contain alone can paint excluded pixels in its bars.
-            width:
-              layout === 'fill'
-                ? '100%'
-                : `min(100cqw, calc(100cqh * ${crop.width / crop.height}))`,
-            height:
-              layout === 'fill'
-                ? '100%'
-                : `min(100cqh, calc(100cqw * ${crop.height / crop.width}))`,
-            objectFit: 'cover',
-            objectViewBox: `xywh(${crop.left}px ${crop.top}px ${crop.width}px ${crop.height}px)`,
+            ...rendering.imageStyle,
             visibility: status === 'unavailable' ? 'hidden' : undefined,
           }}
           onLoad={handleLoad}
@@ -142,7 +132,7 @@ export function BackgroundImage({
           patternUnits="userSpaceOnUse"
           width={crop.width}
           height={crop.height}
-          viewBox={viewBox}
+          viewBox={rendering.viewBox}
         >
           <use href={`#${imageId}`} clipPath={`url(#${clipId})`} />
         </pattern>

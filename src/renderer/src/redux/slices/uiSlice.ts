@@ -3,6 +3,7 @@ import { createSlice, createAsyncThunk, isAnyOf } from '@reduxjs/toolkit'
 import { match } from 'ts-pattern'
 
 import type { RootState } from '@/renderer/src/redux/store'
+import type { BackgroundCatalogItem } from '@/shared/backgrounds'
 import type {
   Agent,
   AgentId,
@@ -233,6 +234,12 @@ interface UiState {
     agents: Agent[]
     skippedCount: number
   } | null
+  /** Transient gallery surfaces; image drafts and accepted work keep their existing owners. */
+  backgroundGallery: {
+    open: boolean
+    view: 'gallery' | 'crop'
+    removing: { item: BackgroundCatalogItem; busy: boolean } | null
+  }
 }
 
 const initialState: UiState = {
@@ -258,6 +265,7 @@ const initialState: UiState = {
   symlinkCleanupDialogOpen: false,
   lockPruneDialogOpen: false,
   agentFoldersDeleteReview: null,
+  backgroundGallery: { open: false, view: 'gallery', removing: null },
 }
 
 /**
@@ -519,6 +527,40 @@ const uiSlice = createSlice({
     clearAgentFoldersDeleteReview: (state) => {
       state.agentFoldersDeleteReview = null
     },
+    /** Opens the gallery when {@link useBackgroundGallery} starts a new editor visit.
+     * @returns Nothing; restores the gallery surface without retaining a removal dialog.
+     * @example dispatch(openBackgroundGallery())
+     */
+    openBackgroundGallery: (state) => {
+      state.backgroundGallery = { open: true, view: 'gallery', removing: null }
+    },
+    /** Switches the gallery surface after {@link useBackgroundGallery} prepares or cancels a crop.
+     * @returns Nothing; drafts remain owned by the editor hook.
+     * @example dispatch(setBackgroundGalleryView('crop'))
+     */
+    setBackgroundGalleryView: (
+      state,
+      action: PayloadAction<UiState['backgroundGallery']['view']>,
+    ) => {
+      state.backgroundGallery.view = action.payload
+    },
+    /** Clears gallery surfaces when {@link useBackgroundGallery} closes or Settings unmounts.
+     * @returns Nothing; prevents abandoned dialogs from reopening on the next visit.
+     * @example dispatch(resetBackgroundGallery())
+     */
+    resetBackgroundGallery: (state) => {
+      state.backgroundGallery = { open: false, view: 'gallery', removing: null }
+    },
+    /** Coordinates upload confirmation and its busy state for {@link BackgroundGalleryBrowser}.
+     * @returns Nothing; null closes the confirmation.
+     * @example dispatch(setBackgroundUploadRemoval(null))
+     */
+    setBackgroundUploadRemoval: (
+      state,
+      action: PayloadAction<UiState['backgroundGallery']['removing']>,
+    ) => {
+      state.backgroundGallery.removing = action.payload
+    },
     /**
      * Enter bulk-select mode. Reveals checkboxes on skill cards and activates
      * Cmd/Ctrl+A and Esc keyboard shortcuts. Does not touch selection state —
@@ -704,6 +746,10 @@ export const {
   clearBulkConfirm,
   setAgentFoldersDeleteReview,
   clearAgentFoldersDeleteReview,
+  openBackgroundGallery,
+  setBackgroundGalleryView,
+  resetBackgroundGallery,
+  setBackgroundUploadRemoval,
   enterBulkSelectMode,
   exitBulkSelectMode,
   setCleanupAgentTarget,
@@ -752,6 +798,13 @@ export const selectBulkConfirm = (state: RootState): BulkConfirmState | null =>
 export const selectAgentFoldersDeleteReview = (
   state: Pick<RootState, 'ui'>,
 ): UiState['agentFoldersDeleteReview'] => state.ui.agentFoldersDeleteReview
+/** Supplies nonpersistent gallery surfaces to {@link useBackgroundGallery} and its upload confirmation.
+ * @returns Current open/view/removal state without editor drafts or background operations.
+ * @example const gallery = useAppSelector(selectBackgroundGallery)
+ */
+export const selectBackgroundGallery = (
+  state: Pick<RootState, 'ui'>,
+): UiState['backgroundGallery'] => state.ui.backgroundGallery
 export const selectBulkSelectMode = (state: RootState): boolean =>
   state.ui.bulkSelectMode
 /**

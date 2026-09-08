@@ -112,6 +112,53 @@ afterEach(async () => {
 })
 
 describe('background image ingestion', () => {
+  test('a built-in preview retries a failed read and reuses only the successful decoded result', async () => {
+    // Arrange
+    const open = vi
+      .spyOn(fs, 'open')
+      .mockRejectedValueOnce(new Error('Temporary read failure'))
+    const source = { kind: 'builtin', builtinId: 'quiet-dunes' } as const
+
+    // Act
+    await expect(images.getBackgroundPreview(source, [])).rejects.toThrow()
+    const preview = await images.getBackgroundPreview(source, [])
+    const repeated = await images.getBackgroundPreview(source, [])
+
+    // Assert
+    expect([preview.image.width, preview.image.height]).toEqual([1920, 1080])
+    expect(repeated).toEqual(preview)
+    expect(open).toHaveBeenCalledTimes(2)
+  })
+
+  test('an unreadable built-in thumbnail keeps the four-image catalog and uploaded images available', async () => {
+    // Arrange
+    const original = await writeImage(1920, 1080)
+    const draft = await images.importBackgroundImage(original.path, 1)
+    const upload = images.claimBackgroundDraft(draft.source.draftId)
+    await images.publishBackgroundDraft(draft.source.draftId)
+    const open = fs.open.bind(fs)
+    vi.spyOn(fs, 'open').mockImplementation(async (...args) => {
+      if (String(args[0]).endsWith('alpine-lake.thumbnail.webp'))
+        throw new Error('Built-in thumbnail unavailable')
+      return open(...args)
+    })
+
+    // Act
+    const catalog = await images.getBackgroundCatalog([upload])
+
+    // Assert
+    expect(catalog.builtins).toHaveLength(4)
+    expect(
+      catalog.builtins.map((item) => item.thumbnail?.width ?? null),
+    ).toEqual([null, 480, 480, 480])
+    expect(catalog.uploads).toHaveLength(1)
+    expect(catalog.uploads[0].source).toEqual({
+      kind: 'upload',
+      uploadId: upload.id,
+    })
+    expect(catalog.uploads[0].thumbnail?.width).toBe(480)
+  })
+
   test('an upload queued behind another window is cancelled before creating its owned files when its owner closes', async () => {
     // Arrange
     const original = await writeImage(1920, 1080)

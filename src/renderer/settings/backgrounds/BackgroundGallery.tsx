@@ -19,11 +19,13 @@ import {
   TabsTrigger,
 } from '@/renderer/src/components/ui/tabs'
 import { useOnlineStatus } from '@/renderer/src/hooks/useOnlineStatus'
+import { useAppSelector, useAppStore } from '@/renderer/src/redux/hooks'
+import {
+  selectBackgroundGallery,
+  setBackgroundUploadRemoval,
+} from '@/renderer/src/redux/slices/uiSlice'
 import { backgroundSourceKey } from '@/renderer/src/utils/backgroundSourceKey'
-import type {
-  BackgroundCatalogItem,
-  BackgroundSnapshot,
-} from '@/shared/backgrounds'
+import type { BackgroundSnapshot } from '@/shared/backgrounds'
 import type { Settings } from '@/shared/settings'
 
 import { UNSPLASH_QUERY_MAX_LENGTH } from '../../../../website/src/lib/constants'
@@ -140,11 +142,13 @@ export function BackgroundGallery(props: GalleryProps): ReactElement {
             </Button>
           </div>
         </DialogHeader>
-        {status || gallery.checking ? (
-          <p role="status" className="shrink-0 border-b px-4 py-2 text-xs">
-            {gallery.checking ? 'Checking image…' : status}
-          </p>
-        ) : null}
+        <div role="status" className="shrink-0">
+          {status || gallery.checking ? (
+            <p className="border-b px-4 py-2 text-xs">
+              {gallery.checking ? 'Checking image…' : status}
+            </p>
+          ) : null}
+        </div>
         <div
           className="min-h-0 flex-1 flex-col"
           style={{ display: gallery.view === 'gallery' ? 'flex' : 'none' }}
@@ -184,10 +188,8 @@ function BackgroundGalleryBrowser({
 }: GalleryProps): ReactElement {
   const [tab, setTab] =
     useState<(typeof SOURCE_TABS)[number]['value']>('builtin')
-  const [removing, setRemoving] = useState<{
-    item: BackgroundCatalogItem
-    busy: boolean
-  } | null>(null)
+  const { removing } = useAppSelector(selectBackgroundGallery)
+  const store = useAppStore()
   const scrollPositions = useRef(new Map<string, number>())
   const catalog = useQuery({
     queryKey: ['background-catalog', settings.background.uploads],
@@ -219,20 +221,29 @@ function BackgroundGalleryBrowser({
     if (!removing || removing.busy || removing.item.source.kind !== 'upload')
       return
     const uploadId = removing.item.source.uploadId
-    setRemoving({ ...removing, busy: true })
+    store.dispatch(setBackgroundUploadRemoval({ ...removing, busy: true }))
+    const pendingRemoval = selectBackgroundGallery(store.getState()).removing
     void gallery
       .saveMutation(async () =>
         window.electron.backgrounds.removeUpload({ uploadId }),
       )
       .then(() => {
-        setRemoving(null)
+        // A closed gallery or newer confirmation owns newer state; this reply only finishes its own dialog.
+        if (
+          selectBackgroundGallery(store.getState()).removing === pendingRemoval
+        )
+          store.dispatch(setBackgroundUploadRemoval(null))
         void catalog.refetch()
       })
-      .catch(() =>
-        setRemoving((current) =>
-          current ? { ...current, busy: false } : null,
-        ),
-      )
+      .catch(() => {
+        if (
+          pendingRemoval &&
+          selectBackgroundGallery(store.getState()).removing === pendingRemoval
+        )
+          store.dispatch(
+            setBackgroundUploadRemoval({ ...pendingRemoval, busy: false }),
+          )
+      })
   }
 
   return (
@@ -291,53 +302,67 @@ function BackgroundGalleryBrowser({
             </Button>
           </div>
         ) : null}
-        <TabsContent
-          value={tab}
-          className="mt-0 flex min-h-0 flex-1 flex-col px-4 pb-2"
-        >
-          {loading ? (
-            <div
-              role="status"
-              className="flex min-h-20 items-center justify-center gap-2 text-sm text-muted-foreground"
-            >
-              <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
-              Loading photos…
+        {SOURCE_TABS.map((source) => (
+          <TabsContent
+            key={source.value}
+            value={source.value}
+            forceMount
+            hidden={tab !== source.value}
+            className="mt-0 flex min-h-0 flex-1 flex-col px-4 pb-2"
+          >
+            <div role="status" className="shrink-0">
+              {tab === source.value && loading ? (
+                <div className="flex min-h-20 items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+                  Loading photos…
+                </div>
+              ) : null}
             </div>
-          ) : null}
-          {items.length ? (
-            <BackgroundPhotoGrid
-              items={items}
-              selectedKey={backgroundSourceKey(gallery.draft?.preview.source)}
-              appliedKey={appliedKey}
-              scope={`${tab}:${online.search}`}
-              active={gallery.open && gallery.view === 'gallery'}
-              scrollPositions={scrollPositions.current}
-              onSelect={(item) => void gallery.loadPreview(item.source)}
-              onRemove={(item) => setRemoving({ item, busy: false })}
-              onEndReached={() => {
-                if (tab === 'unsplash' && !online.isError)
-                  void online.loadMore()
-              }}
+            {tab === source.value ? (
+              <>
+                {items.length ? (
+                  <BackgroundPhotoGrid
+                    items={items}
+                    selectedKey={backgroundSourceKey(
+                      gallery.draft?.preview.source,
+                    )}
+                    appliedKey={appliedKey}
+                    scope={`${tab}:${online.search}`}
+                    active={gallery.open && gallery.view === 'gallery'}
+                    scrollPositions={scrollPositions.current}
+                    onSelect={(item) => void gallery.loadPreview(item.source)}
+                    onRemove={(item) =>
+                      store.dispatch(
+                        setBackgroundUploadRemoval({ item, busy: false }),
+                      )
+                    }
+                    onEndReached={() => {
+                      if (tab === 'unsplash' && !online.isError)
+                        void online.loadMore()
+                    }}
+                  />
+                ) : !loading && !error ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    {tab === 'upload'
+                      ? 'No uploaded images yet. Choose Upload image to add one.'
+                      : 'No photos found. Enter another search.'}
+                  </p>
+                ) : null}
+              </>
+            ) : null}
+            <BackgroundGalleryResults
+              online={online}
+              remote={tab === source.value && tab === 'unsplash'}
+              error={tab === source.value ? error : null}
+              retry={retry}
             />
-          ) : !loading && !error ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              {tab === 'upload'
-                ? 'No uploaded images yet. Choose Upload image to add one.'
-                : 'No photos found. Enter another search.'}
-            </p>
-          ) : null}
-          <BackgroundGalleryResults
-            online={online}
-            remote={tab === 'unsplash'}
-            error={error}
-            retry={retry}
-          />
-        </TabsContent>
+          </TabsContent>
+        ))}
       </Tabs>
       <BackgroundUploadRemoval
         removing={removing}
         appliedKey={appliedKey}
-        onClose={() => setRemoving(null)}
+        onClose={() => store.dispatch(setBackgroundUploadRemoval(null))}
         onConfirm={remove}
       />
     </>
@@ -368,22 +393,24 @@ function BackgroundGalleryResults({
       : null
   return (
     <>
-      {error ? (
-        <div
-          role="status"
-          className="flex shrink-0 items-center justify-between gap-2 py-2 text-xs"
-        >
-          <span>
-            {connected
-              ? backgroundErrorMessage(error, 'Photos unavailable. Try again.')
-              : 'You are offline. Loaded photos are still available.'}
-            {quota !== null ? ` Try again in ${quota} seconds.` : ''}
-          </span>
-          <Button variant="outline" size="sm" onClick={retry}>
-            Retry
-          </Button>
-        </div>
-      ) : null}
+      <div role="status" className="shrink-0">
+        {error ? (
+          <div className="flex shrink-0 items-center justify-between gap-2 py-2 text-xs">
+            <span>
+              {connected
+                ? backgroundErrorMessage(
+                    error,
+                    'Photos unavailable. Try again.',
+                  )
+                : 'You are offline. Loaded photos are still available.'}
+              {quota !== null ? ` Try again in ${quota} seconds.` : ''}
+            </span>
+            <Button variant="outline" size="sm" onClick={retry}>
+              Retry
+            </Button>
+          </div>
+        ) : null}
+      </div>
       {remote && online.items.length ? (
         <div className="flex shrink-0 justify-center pt-2">
           {online.hasNextPage ? (
@@ -469,15 +496,13 @@ function BackgroundGalleryFooter({
           </Button>
         </div>
       </footer>
-      {reason ? (
-        <p
-          id="background-draft-error"
-          role="status"
-          className="shrink-0 px-4 pb-2 text-xs text-destructive"
-        >
-          {reason}
-        </p>
-      ) : null}
+      <div id="background-draft-error" role="status" className="shrink-0">
+        {reason ? (
+          <p className="shrink-0 px-4 pb-2 text-xs text-destructive">
+            {reason}
+          </p>
+        ) : null}
+      </div>
     </>
   )
 }
@@ -492,7 +517,7 @@ function BackgroundUploadRemoval({
   onClose,
   onConfirm,
 }: {
-  removing: { item: BackgroundCatalogItem; busy: boolean } | null
+  removing: ReturnType<typeof selectBackgroundGallery>['removing']
   appliedKey: string
   onClose: () => void
   onConfirm: () => void

@@ -25,6 +25,51 @@ afterAll(async () => {
 })
 
 describe('renderer file-protocol content security policy', () => {
+  test('file:// policy blocks form submissions before a renderer can navigate or send form data', async () => {
+    // Arrange
+    const context = await browser!.newContext({ bypassCSP: false })
+    const page = await context.newPage()
+    const path = join(directory!, 'form-submission.html')
+    let submittedRequests = 0
+    await page.route('https://example.com/rejected-form', async (route) => {
+      submittedRequests += 1
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: '<p>Unexpected submission</p>',
+      })
+    })
+    await fs.writeFile(
+      path,
+      injectRendererContentSecurityPolicy(
+        '<html><head></head><body><form action="https://example.com/rejected-form" method="post"><input name="note" value="fixture"></form></body></html>',
+      ),
+    )
+    try {
+      await page.goto(pathToFileURL(path).href)
+
+      // Act: a real form submission must cause a policy event, not an outgoing request.
+      const blockedDirective = await page.evaluate(
+        async () =>
+          new Promise<string>((resolve) => {
+            document.addEventListener(
+              'securitypolicyviolation',
+              (event) => resolve(event.effectiveDirective),
+              { once: true },
+            )
+            document.querySelector('form')?.requestSubmit()
+          }),
+      )
+
+      // Assert
+      expect(blockedDirective).toBe('form-action')
+      expect(page.url()).toBe(pathToFileURL(path).href)
+      expect(submittedRequests).toBe(0)
+    } finally {
+      await context.close()
+    }
+  })
+
   test('production policy hashes the exact trusted inline body and contains only the required image and RPC origins', () => {
     // Arrange
     const html =

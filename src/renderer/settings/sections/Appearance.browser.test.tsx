@@ -42,9 +42,12 @@ async function createStore(
 ): Promise<ReturnType<typeof configureStore>> {
   const { default: settingsReducer } =
     await import('@/renderer/src/redux/slices/settingsSlice')
+  const { default: uiReducer } =
+    await import('@/renderer/src/redux/slices/uiSlice')
   return configureStore({
     reducer: {
       settings: settingsReducer,
+      ui: uiReducer,
     },
     preloadedState: {
       settings: { ...DEFAULT_SETTINGS, ...overrides },

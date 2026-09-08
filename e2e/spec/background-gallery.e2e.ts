@@ -29,6 +29,7 @@ import type {
   BackgroundUploadDraft,
 } from '../../src/shared/backgrounds'
 import { SettingsSchema } from '../../src/shared/settings'
+import { UNSPLASH_RPC_URL } from '../../website/src/lib/constants'
 import {
   UnsplashSearchInputSchema,
   UnsplashSearchResultSchema,
@@ -381,7 +382,7 @@ galleryTest(
             record('image')
             return new Response(readFileSync(${JSON.stringify(imagePath)}), { headers: { 'content-type': 'image/png' } })
           }
-          if (url.origin === 'https://skills-desktop.vercel.app' && url.pathname === '/api/rpc/unsplash/trackDownload') {
+          if (url.origin === ${JSON.stringify(new URL(UNSPLASH_RPC_URL).origin)} && url.pathname === '/api/rpc/unsplash/trackDownload') {
             record('notification')
             return Response.json({ json: { acknowledged: true } })
           }
@@ -1112,59 +1113,56 @@ galleryTest(
       )
     await settingsWindow
       .context()
-      .route(
-        'https://skills-desktop.vercel.app/api/rpc/unsplash/search',
-        async (route) => {
-          if (route.request().method() === 'OPTIONS') {
-            await route.fulfill({
-              status: 204,
-              headers: {
-                'Access-Control-Allow-Origin': 'null',
-                'Access-Control-Allow-Methods': 'POST',
-                'Access-Control-Allow-Headers': 'content-type',
-              },
-            })
-            return
-          }
-          const input = UnsplashSearchInputSchema.parse(
-            route.request().postDataJSON().json,
-          )
-          requestedPages.push(input.page)
-          const result = UnsplashSearchResultSchema.parse({
-            items: Array.from({ length: 30 }, (_, index) => {
-              const id = `fixture-${input.page}-${index}`
-              return {
-                id,
-                width: 3840,
-                height: 2160,
-                description: null,
-                altDescription: `Fixture ${input.page}:${index}`,
-                urls: {
-                  raw: `https://images.unsplash.com/photo-${id}?ixid=fixture`,
-                  small: `https://images.unsplash.com/photo-${id}?ixid=fixture&w=400`,
-                },
-                links: {
-                  html: `https://unsplash.com/photos/${id}?utm_source=skills-desktop&utm_medium=referral`,
-                  downloadLocation: `https://api.unsplash.com/photos/${id}/download?ixid=fixture`,
-                },
-                photographer: {
-                  name: 'Fixture photographer',
-                  username: 'fixture',
-                  profileUrl:
-                    'https://unsplash.com/@fixture?utm_source=skills-desktop&utm_medium=referral',
-                },
-              }
-            }),
-            nextPage: input.page < 3 ? input.page + 1 : null,
-          })
+      .route(`${UNSPLASH_RPC_URL}/unsplash/search`, async (route) => {
+        if (route.request().method() === 'OPTIONS') {
           await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            headers: { 'Access-Control-Allow-Origin': 'null' },
-            body: JSON.stringify({ json: result }),
+            status: 204,
+            headers: {
+              'Access-Control-Allow-Origin': 'null',
+              'Access-Control-Allow-Methods': 'POST',
+              'Access-Control-Allow-Headers': 'content-type',
+            },
           })
-        },
-      )
+          return
+        }
+        const input = UnsplashSearchInputSchema.parse(
+          route.request().postDataJSON().json,
+        )
+        requestedPages.push(input.page)
+        const result = UnsplashSearchResultSchema.parse({
+          items: Array.from({ length: 30 }, (_, index) => {
+            const id = `fixture-${input.page}-${index}`
+            return {
+              id,
+              width: 3840,
+              height: 2160,
+              description: null,
+              altDescription: `Fixture ${input.page}:${index}`,
+              urls: {
+                raw: `https://images.unsplash.com/photo-${id}?ixid=fixture`,
+                small: `https://images.unsplash.com/photo-${id}?ixid=fixture&w=400`,
+              },
+              links: {
+                html: `https://unsplash.com/photos/${id}?utm_source=skills-desktop&utm_medium=referral`,
+                downloadLocation: `https://api.unsplash.com/photos/${id}/download?ixid=fixture`,
+              },
+              photographer: {
+                name: 'Fixture photographer',
+                username: 'fixture',
+                profileUrl:
+                  'https://unsplash.com/@fixture?utm_source=skills-desktop&utm_medium=referral',
+              },
+            }
+          }),
+          nextPage: input.page < 3 ? input.page + 1 : null,
+        })
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: { 'Access-Control-Allow-Origin': 'null' },
+          body: JSON.stringify({ json: result }),
+        })
+      })
     await settingsWindow
       .getByRole('button', { name: 'Choose background', exact: true })
       .click()
