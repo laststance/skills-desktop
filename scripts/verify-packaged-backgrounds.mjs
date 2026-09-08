@@ -232,6 +232,7 @@ async function verifyBundle(expectedArchitecture, requestedBundle) {
           packaged: app.isPackaged,
           architecture: process.arch,
           appPath: app.getAppPath(),
+          packageEntries: (await fileSystem.readdir(app.getAppPath())).sort(),
           executablePath: process.execPath,
           sharpPath,
           sharpVersion: sharp.versions.sharp,
@@ -254,6 +255,13 @@ async function verifyBundle(expectedArchitecture, requestedBundle) {
     )
     assert.equal(identity.packaged, true)
     assert.equal(identity.architecture, expectedArchitecture)
+    // A fresh QA run must never make recordings, caches or source files distributable.
+    assert.deepEqual(identity.packageEntries, [
+      'node_modules',
+      'out',
+      'package.json',
+      'resources',
+    ])
     assert.deepEqual(identity.decoded, {
       width: 1920,
       height: 1080,

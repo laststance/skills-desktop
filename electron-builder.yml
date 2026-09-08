@@ -5,15 +5,11 @@ directories:
   output: dist
 
 files:
-  - '!website/**'
+  # Ship runtime output and the Dock icon; builder adds production dependencies.
+  - 'out/**'
+  - 'resources/icon.icns'
   - '!**/.vercel/**'
   - '!**/.env{,.*}'
-  - '!**/.vscode/*'
-  - '!src/*'
-  - '!electron.vite.config.ts'
-  - '!{.eslintignore,.eslintrc.json,.prettierrc,.env,.env.*,tsconfig.json,tsconfig.node.json}'
-  - '!{README.md,CHANGELOG.md,CONTRIBUTING.md}'
-  - '!{.github,.idea,.vscode,dev-app-update.yml,CONTRIBUTING.md}'
 
 extraResources:
   # Build resources are excluded from app files; copy offline gallery assets explicitly.
