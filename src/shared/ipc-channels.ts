@@ -73,6 +73,19 @@ export const IPC_CHANNELS = {
   SETTINGS_SET: 'settings:set',
   SETTINGS_CHANGED: 'settings:changed',
 
+  // Background files and application are Main-owned; no renderer filesystem paths cross this API.
+  BACKGROUNDS_LIST: 'backgrounds:list',
+  BACKGROUNDS_IMPORT_IMAGE: 'backgrounds:importImage',
+  BACKGROUNDS_DISCARD_DRAFT: 'backgrounds:discardDraft',
+  BACKGROUNDS_PREVIEW: 'backgrounds:preview',
+  BACKGROUNDS_APPLY: 'backgrounds:apply',
+  BACKGROUNDS_CLEAR: 'backgrounds:clear',
+  BACKGROUNDS_REMOVE_UPLOAD: 'backgrounds:removeUpload',
+  BACKGROUNDS_SET_LAYOUT: 'backgrounds:setLayout',
+  BACKGROUNDS_GET_SNAPSHOT: 'backgrounds:getSnapshot',
+  BACKGROUNDS_RETRY_DISPLAY: 'backgrounds:retryDisplay',
+  BACKGROUNDS_CHANGED: 'backgrounds:changed',
+
   // Theme (cross-window). Theme lives in renderer Redux + localStorage, not
   // in settings.json, so it has no main-process owner to broadcast from —
   // the window that changed it asks main to fan the resolved state out.

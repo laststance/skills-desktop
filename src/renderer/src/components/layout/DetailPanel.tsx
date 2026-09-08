@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import React from 'react'
 
+import { BackgroundAttribution } from '@/renderer/src/components/background/BackgroundAttribution'
 import { resolveDetailPanelContent } from '@/renderer/src/components/layout/detailPanelHelpers'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import { selectSkill } from '@/renderer/src/redux/slices/skillsSlice'
@@ -20,6 +21,7 @@ export const DetailPanel = function DetailPanel(): React.ReactElement {
   return (
     <aside className="h-full border-l border-border bg-card flex flex-col overflow-hidden">
       <div className="h-8 drag-region shrink-0 flex items-center justify-end pr-2">
+        <BackgroundAttribution />
         {activeTab !== 'marketplace' && selectedSkill && (
           <button
             type="button"

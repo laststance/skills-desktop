@@ -63,7 +63,7 @@ Before opening or merging a PR, run the fast gates first:
 pnpm validate
 ```
 
-Runs `lint`, `test`, `typecheck`, `fallow:dead-code`, `fallow:dupes`, `fallow:health`, and `storybook:build` in parallel via `run-p`.
+Runs nine gates via `run-p`: `lint`, `test`, `typecheck`, `typecheck:e2e`, `validate:website`, `fallow:dead-code`, `fallow:dupes`, `fallow:health`, and `storybook:build`. Website validation includes its tests, lint, build and typecheck. Hosted macOS CI runs `VITEST_MAX_WORKERS=1 pnpm validate --max-parallel 1` to bound concurrency.
 
 Only after it passes, run the Electron e2e suite:
 

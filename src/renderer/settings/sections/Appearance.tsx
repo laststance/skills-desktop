@@ -28,9 +28,11 @@ import {
 } from '@/shared/settings'
 import type { Settings } from '@/shared/settings'
 
+import { BackgroundSettings } from '../backgrounds/BackgroundSettings'
+import { WINDOW_OPACITY_LABELS } from '../backgrounds/constants'
+
 import { SectionFrame, SectionRow } from './SectionFrame'
 
-const BACKGROUND_OPACITY_LABEL = 'Background opacity'
 const OPACITY_MODE_LABELS: Record<Settings['windowOpacityMode'], string> = {
   entire: 'Entire',
   section: 'Section',
@@ -333,6 +335,8 @@ export const Appearance = function Appearance(): React.ReactElement {
         />
       </SectionRow>
 
+      <BackgroundSettings />
+
       <SectionRow label="Opacity">
         <SegmentedControl
           aria-label="Opacity mode"
@@ -349,7 +353,7 @@ export const Appearance = function Appearance(): React.ReactElement {
         {/* Keep both modes mounted so switching retains drafts and pending saves. */}
         <div hidden={windowOpacityMode !== 'entire'} className="mt-4">
           <RangeSettingControl
-            label={BACKGROUND_OPACITY_LABEL}
+            label={WINDOW_OPACITY_LABELS.windowBackgroundOpacityPercent}
             min={WINDOW_OPACITY_MIN_PERCENT}
             max={WINDOW_OPACITY_MAX_PERCENT}
             draft={opacity.draft}
@@ -442,7 +446,7 @@ function SectionOpacityControl({
       <div className="text-sm font-medium">{control.label}</div>
       <RangeSettingControl
         isCompact
-        label={`${control.label} opacity`}
+        label={WINDOW_OPACITY_LABELS[control.key]}
         min={WINDOW_OPACITY_MIN_PERCENT}
         max={WINDOW_OPACITY_MAX_PERCENT}
         draft={opacity.draft}

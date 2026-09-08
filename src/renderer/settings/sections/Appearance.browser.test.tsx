@@ -13,6 +13,16 @@ beforeEach(() => {
   // Browser mode has no preload bridge; Appearance only needs settings.set.
   vi.stubGlobal('electron', {
     settings: { set: mockSettingsSet },
+    backgrounds: {
+      onChanged: () => () => undefined,
+      getSnapshot: async () => ({
+        revision: 0,
+        displayRetryRevision: 0,
+        operation: null,
+        display: null,
+      }),
+      list: async () => ({ builtins: [], uploads: [] }),
+    },
   })
 })
 
@@ -32,9 +42,12 @@ async function createStore(
 ): Promise<ReturnType<typeof configureStore>> {
   const { default: settingsReducer } =
     await import('@/renderer/src/redux/slices/settingsSlice')
+  const { default: uiReducer } =
+    await import('@/renderer/src/redux/slices/uiSlice')
   return configureStore({
     reducer: {
       settings: settingsReducer,
+      ui: uiReducer,
     },
     preloadedState: {
       settings: { ...DEFAULT_SETTINGS, ...overrides },

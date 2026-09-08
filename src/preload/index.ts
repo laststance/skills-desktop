@@ -1,8 +1,14 @@
 import { contextBridge } from 'electron'
 
 import type { ActivityEvent, ActivityListOptions } from '@/shared/activityLog'
+import type {
+  BackgroundApplyInput,
+  BackgroundApplySource,
+  BackgroundLayout,
+  BackgroundSnapshot,
+} from '@/shared/backgrounds'
 import { IPC_CHANNELS } from '@/shared/ipc-channels'
-import type { IpcEventContract } from '@/shared/ipc-contract'
+import type { BackgroundsApi, IpcEventContract } from '@/shared/ipc-contract'
 import type { Settings, SettingsPatch } from '@/shared/settings'
 import type { ThemeState } from '@/shared/theme'
 import type {
@@ -171,6 +177,28 @@ contextBridge.exposeInMainWorld('electron', {
         }
       }),
   },
+  // Subscribe before fetching a snapshot; Main revisions order delayed replies and accepted work survives closure.
+  backgrounds: {
+    list: async () => typedInvoke(IPC_CHANNELS.BACKGROUNDS_LIST),
+    importImage: async () => typedInvoke(IPC_CHANNELS.BACKGROUNDS_IMPORT_IMAGE),
+    discardDraft: async (options: { draftId: string }) =>
+      typedInvoke(IPC_CHANNELS.BACKGROUNDS_DISCARD_DRAFT, options),
+    preview: async (source: BackgroundApplySource) =>
+      typedInvoke(IPC_CHANNELS.BACKGROUNDS_PREVIEW, source),
+    apply: async (input: BackgroundApplyInput) =>
+      typedInvoke(IPC_CHANNELS.BACKGROUNDS_APPLY, input),
+    clear: async () => typedInvoke(IPC_CHANNELS.BACKGROUNDS_CLEAR),
+    removeUpload: async (options: { uploadId: string }) =>
+      typedInvoke(IPC_CHANNELS.BACKGROUNDS_REMOVE_UPLOAD, options),
+    setLayout: async (layout: BackgroundLayout) =>
+      typedInvoke(IPC_CHANNELS.BACKGROUNDS_SET_LAYOUT, layout),
+    getSnapshot: async () => typedInvoke(IPC_CHANNELS.BACKGROUNDS_GET_SNAPSHOT),
+    retryDisplay: async () =>
+      typedInvoke(IPC_CHANNELS.BACKGROUNDS_RETRY_DISPLAY),
+    onChanged: createIpcListener<BackgroundSnapshot>(
+      IPC_CHANNELS.BACKGROUNDS_CHANGED,
+    ),
+  } satisfies BackgroundsApi,
   // Theme — unlike settings, the source of truth is renderer Redux (persisted
   // to localStorage), so main only relays. `broadcast` publishes the window's
   // resolved theme; `onChanged` lets every other window adopt it, which is

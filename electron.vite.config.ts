@@ -5,6 +5,7 @@ import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
 import pkg from './package.json'
+import { injectRendererContentSecurityPolicy } from './src/main/utils/injectRendererContentSecurityPolicy'
 
 const srcAlias = {
   '@': resolve(__dirname, 'src'),
@@ -18,7 +19,8 @@ export default defineConfig({
         input: {
           index: resolve(__dirname, 'src/main/index.ts'),
         },
-        external: ['electron'],
+        // Sharp resolves native @img packages from its own installed directory; bundling moves that lookup into out/main.
+        external: ['electron', 'sharp'],
       },
     },
   },
@@ -65,6 +67,18 @@ export default defineConfig({
       // React Compiler (stable): auto-memoizes components/hooks so manual
       // useMemo / useCallback / memo can be removed from renderer source.
       babel({ presets: [reactCompilerPreset()] }),
+      {
+        name: 'renderer-content-security-policy',
+        transformIndexHtml: {
+          order: 'post',
+          handler: (html, context) =>
+            injectRendererContentSecurityPolicy(
+              html,
+              context.server?.resolvedUrls?.local[0] ??
+                context.server?.resolvedUrls?.network[0],
+            ),
+        },
+      },
     ],
   },
 })

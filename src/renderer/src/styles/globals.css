@@ -486,6 +486,16 @@
 /* Window glow effect - subtle inner shadow for depth. Rides the chroma
  * axis so neutral presets glow pure gray; color presets pick up the hue. */
 @layer components {
+  /* Keep one image behind the panes; their existing alpha controls still own every foreground surface. */
+  .background-canvas {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    background: var(--background);
+  }
+
   .window-glow {
     box-shadow:
       inset 0 0 0 1px oklch(0.5 var(--chroma-5) var(--theme-hue) / 0.15),
@@ -502,5 +512,23 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Keep crop geometry stable: background dialogs fade without scaling or sliding. */
+.background-gallery-dialog {
+  animation: background-dialog-enter 150ms ease-out;
+}
+@keyframes background-dialog-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .background-gallery-dialog {
+    animation: none;
   }
 }

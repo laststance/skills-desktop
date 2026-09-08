@@ -4,6 +4,8 @@
  * type-check inside Playwright tests.
  */
 
+import type { BackgroundsApi } from '../src/shared/ipc-contract'
+
 interface RecordedIpcEvent {
   channel: string
   data: unknown
@@ -45,8 +47,8 @@ declare global {
     /**
      * Subset of the renderer's contextBridge surface used by E2E specs.
      * Mirrors the relevant shape of `src/renderer/src/types/electron.d.ts`
-     * but avoids importing across tsconfig boundaries — only the channels
-     * the suite drives are typed here.
+     * with the shared {@link BackgroundsApi} contract for gallery channels;
+     * other driven channels retain their local E2E subset.
      *
      * **Non-optional by contract.** The Playwright fixture only launches
      * builds produced with `E2E_BUILD=1`, and the contextBridge expose
@@ -58,6 +60,7 @@ declare global {
      * read properties of undefined" message that names the channel.
      */
     electron: {
+      backgrounds: BackgroundsApi
       skills: {
         getAll: () => Promise<unknown[]>
         copyToAgents: (options: {

@@ -63,6 +63,16 @@ beforeEach(() => {
       set: mockSettingsSet,
       onChanged: mockSettingsOnChanged,
     },
+    backgrounds: {
+      onChanged: () => () => undefined,
+      getSnapshot: async () => ({
+        revision: 0,
+        displayRetryRevision: 0,
+        operation: null,
+        display: null,
+      }),
+      list: async () => ({ builtins: [], uploads: [] }),
+    },
     cliCommand: { getStatus: mockCliCommandGetStatus },
     window: { getMainBounds: mockWindowGetMainBounds },
     agents: { getAll: mockAgentsGetAll },
@@ -84,11 +94,14 @@ async function renderSettings() {
     await import('@/renderer/src/redux/slices/settingsSlice')
   const { default: agentsReducer } =
     await import('@/renderer/src/redux/slices/agentsSlice')
+  const { default: uiReducer } =
+    await import('@/renderer/src/redux/slices/uiSlice')
   const store = configureStore({
     reducer: {
       settings: settingsReducer,
       theme: themeReducer,
       agents: agentsReducer,
+      ui: uiReducer,
     },
     preloadedState: {
       settings: { ...DEFAULT_SETTINGS },

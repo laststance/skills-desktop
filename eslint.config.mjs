@@ -107,6 +107,8 @@ export default defineConfig([
       'storybook-static/**',
       'scripts/**',
       'website/**',
+      // Local design trials have a separate runtime and are never shipped.
+      '_trials/**',
       // Agent tooling (Claude Code skills), not app source — keep out of linting.
       '.claude/**',
       // Local agent skills are ignored by git but may exist while running skills.

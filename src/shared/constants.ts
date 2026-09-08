@@ -1096,6 +1096,26 @@ export const WINDOW_OPACITY_MAX_PERCENT = 100
 export const LEGACY_WINDOW_OPACITY_MIN_PERCENT = 45
 export const LEGACY_WINDOW_BLUR_MAX_RADIUS_PX = 48
 
+/** Background ingestion and crop boundaries are shared by Main validation and gallery feedback. */
+export const BACKGROUND_MIN_LONG_EDGE_PX = 1920
+export const BACKGROUND_MIN_SHORT_EDGE_PX = 1080
+export const BACKGROUND_MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+export const BACKGROUND_MAX_UPLOAD_PIXELS = 80_000_000
+export const BACKGROUND_PREVIEW_LONG_EDGE_PX = 1920
+export const BACKGROUND_THUMBNAIL_LONG_EDGE_PX = 480
+export const BACKGROUND_DISPLAY_LONG_EDGE_PX = 3840
+export const BACKGROUND_FULL_CROP_PERCENT = 100
+export const BACKGROUND_FIRST_APPLY_OPACITY_PERCENT = 60
+export const BACKGROUND_TITLE_MAX_LENGTH = 256
+export const BACKGROUND_LAYOUTS = ['fill', 'fit', 'tile'] as const
+export const BACKGROUND_CROP_ASPECTS = ['original', '16:9', '16:10'] as const
+export const BUILTIN_BACKGROUND_IDS = [
+  'alpine-lake',
+  'misty-forest',
+  'pacific-coast',
+  'quiet-dunes',
+] as const
+
 /**
  * Batch size at which bulk ops surface a live per-item progress counter in the
  * toolbar. Below this, the final `.fulfilled` toast is a better UX than a

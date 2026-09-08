@@ -1,5 +1,6 @@
 import { registerActivityHandlers } from './activity'
 import { registerAgentsHandlers } from './agents'
+import { registerBackgroundHandlers } from './backgrounds'
 import { registerCliCommandHandlers } from './cliCommand'
 import { registerFilesHandlers } from './files'
 import { registerFolderHandlers } from './folder'
@@ -33,6 +34,7 @@ export function registerAllHandlers(): void {
   registerActivityHandlers()
   registerShellHandlers()
   registerSettingsHandlers()
+  registerBackgroundHandlers()
   registerThemeHandlers()
   registerFolderHandlers()
   registerWindowHandlers()

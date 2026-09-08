@@ -1,6 +1,12 @@
 import { z } from 'zod'
 
 import {
+  BackgroundApplyInputSchema,
+  BackgroundApplySourceSchema,
+  BackgroundLayoutSchema,
+  BackgroundOwnedIdSchema,
+} from '@/shared/backgrounds'
+import {
   AGENT_IDS,
   CODE_THEME_IDS,
   TERMINAL_APP_IDS,
@@ -370,6 +376,23 @@ export const IPC_ARG_SCHEMAS: Partial<Record<IpcInvokeChannel, z.ZodTuple>> = {
       message: 'Only http(s) URLs are allowed',
     }),
   ]),
+
+  // Background mutations use opaque IDs and validated metadata; no arbitrary path or library write is accepted.
+  'backgrounds:list': z.tuple([]),
+  'backgrounds:importImage': z.tuple([]),
+  'backgrounds:discardDraft': z.tuple([
+    z.strictObject({ draftId: BackgroundOwnedIdSchema }),
+  ]),
+  'backgrounds:preview': z.tuple([BackgroundApplySourceSchema]),
+  'backgrounds:apply': z.tuple([BackgroundApplyInputSchema]),
+  'backgrounds:clear': z.tuple([]),
+  'backgrounds:removeUpload': z.tuple([
+    z.strictObject({ uploadId: BackgroundOwnedIdSchema }),
+  ]),
+  'backgrounds:setLayout': z.tuple([BackgroundLayoutSchema]),
+  'backgrounds:getSnapshot': z.tuple([]),
+  // Retry addresses Main's current display only; renderer cannot supply a path, URL or revision.
+  'backgrounds:retryDisplay': z.tuple([]),
 
   // Settings — partial<Settings> with explicit allowed keys/values.
   // Matches src/shared/settings.ts; widening that schema must widen
