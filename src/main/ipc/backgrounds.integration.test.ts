@@ -1,6 +1,6 @@
+import { promises as fs } from 'fs'
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:events'
-import { promises as fs } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 

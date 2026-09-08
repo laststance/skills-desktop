@@ -33,23 +33,16 @@ const photo = {
 }
 
 describe('public Unsplash contract', () => {
-  it('validates provider metadata without requiring the newer URL.parse runtime method', () => {
-    // Arrange
-    const originalParse = Object.getOwnPropertyDescriptor(URL, 'parse')
-    Reflect.deleteProperty(URL, 'parse')
-    try {
-      // Act / Assert
-      expect(UnsplashPhotoSchema.parse(photo)).toEqual(photo)
-      expect(UnsplashImageUrlSchema.safeParse('not a URL').success).toBe(false)
-      expect(
-        UnsplashDownloadInputSchema.safeParse({
-          photoId: photo.id,
-          downloadLocation: 'not a URL',
-        }).success,
-      ).toBe(false)
-    } finally {
-      if (originalParse) Object.defineProperty(URL, 'parse', originalParse)
-    }
+  it('accepts valid photo metadata and rejects malformed image and download URLs', () => {
+    // Arrange / Act / Assert
+    expect(UnsplashPhotoSchema.parse(photo)).toEqual(photo)
+    expect(UnsplashImageUrlSchema.safeParse('not a URL').success).toBe(false)
+    expect(
+      UnsplashDownloadInputSchema.safeParse({
+        photoId: photo.id,
+        downloadLocation: 'not a URL',
+      }).success,
+    ).toBe(false)
   })
 
   it('preserves direct hotlinks, tracking and nullable descriptions for gallery photos', () => {

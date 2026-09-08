@@ -14,7 +14,7 @@ export function backgroundImageLayout(
   crop: NonNullable<ReturnType<typeof backgroundCropPixels>>,
 ) {
   return {
-    mode: layout === 'tile' ? 'tile' : 'image',
+    mode: layout === 'tile' ? ('tile' as const) : ('image' as const),
     viewBox: `${crop.left} ${crop.top} ${crop.width} ${crop.height}`,
     imageStyle: {
       display: 'block',

@@ -95,8 +95,14 @@ export function useUnsplashGallery(enabled: boolean) {
     // Reset removes previously loaded pages before fetching page one; a stale remount never does this.
     await client.resetQueries({ queryKey: options.queryKey, exact: true })
   }
+  // Read only displayed status fields so unused query metadata does not subscribe the gallery to updates.
   return {
-    ...result,
+    isPending: result.isPending,
+    isFetching: result.isFetching,
+    isFetchingNextPage: result.isFetchingNextPage,
+    isError: result.isError,
+    error: result.error,
+    hasNextPage: result.hasNextPage,
     items,
     search,
     query,

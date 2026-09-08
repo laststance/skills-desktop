@@ -1357,7 +1357,7 @@ describe('Background gallery selection and operation lifecycle', () => {
     })
   })
 
-  test('Reset restores the full source and invalid crop disables Apply with an explanation', async () => {
+  test('invalid crop disables Apply and Reset clears its persistent feedback without replacing the live region', async () => {
     // Arrange
     const { screen } = await renderGallery()
     await screen
@@ -1368,12 +1368,23 @@ describe('Background gallery selection and operation lifecycle', () => {
       .last()
       .click()
     const zoom = screen.getByRole('slider', { name: 'Zoom' })
+    const errorRegion = document.getElementById('background-crop-error')
+    expect(errorRegion).not.toBeNull()
+    expect(errorRegion?.textContent).toBe('')
+    expect(errorRegion?.getBoundingClientRect().height).toBe(0)
     // Act
     await zoom.fill('3')
     // Assert
     await expect
       .element(screen.getByText('Select a larger area:', { exact: false }))
       .toBeVisible()
+    expect(document.getElementById('background-crop-error')).toBe(errorRegion)
+    expect(errorRegion?.getAttribute('role')).toBe('status')
+    await expect
+      .element(
+        screen.getByRole('button', { name: 'Apply background', exact: true }),
+      )
+      .toHaveAttribute('aria-describedby', 'background-crop-error')
     await expect
       .element(
         screen.getByRole('button', { name: 'Apply background', exact: true }),
@@ -1385,6 +1396,14 @@ describe('Background gallery selection and operation lifecycle', () => {
     await expect
       .element(screen.getByText('Selected area: 3840 × 2160 px'))
       .toBeVisible()
+    expect(document.getElementById('background-crop-error')).toBe(errorRegion)
+    await expect.poll(() => errorRegion?.textContent).toBe('')
+    expect(errorRegion?.getBoundingClientRect().height).toBe(0)
+    await expect
+      .element(
+        screen.getByRole('button', { name: 'Apply background', exact: true }),
+      )
+      .not.toHaveAttribute('aria-describedby')
     await expect
       .element(screen.getByRole('radio', { name: 'Original', exact: true }))
       .toHaveAttribute('aria-checked', 'true')

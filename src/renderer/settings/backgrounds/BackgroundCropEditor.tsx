@@ -180,15 +180,11 @@ export function BackgroundCropEditor({
         <p className="mt-3 text-xs tabular-nums">
           Selected area: {quality.width} × {quality.height} px
         </p>
-        {error ? (
-          <p
-            id="background-crop-error"
-            role="status"
-            className="mt-2 text-xs text-destructive"
-          >
-            {error}
-          </p>
-        ) : null}
+        <div id="background-crop-error" role="status">
+          {error ? (
+            <p className="mt-2 text-xs text-destructive">{error}</p>
+          ) : null}
+        </div>
         <Button
           className="mt-3"
           variant="outline"
