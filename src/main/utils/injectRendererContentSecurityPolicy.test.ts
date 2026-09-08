@@ -51,13 +51,31 @@ describe('renderer file-protocol content security policy', () => {
       // Act: a real form submission must cause a policy event, not an outgoing request.
       const blockedDirective = await page.evaluate(
         async () =>
-          new Promise<string>((resolve) => {
+          new Promise<string>((resolve, reject) => {
+            const form = document.querySelector('form')
+            if (!form) {
+              reject(new Error('Missing form fixture for CSP submission'))
+              return
+            }
+            // Fail before the test deadline so the outer finally can close Chromium even if no event arrives.
+            const timeout = window.setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    'Timed out waiting for a form-action CSP violation',
+                  ),
+                ),
+              2_000,
+            )
             document.addEventListener(
               'securitypolicyviolation',
-              (event) => resolve(event.effectiveDirective),
+              (event) => {
+                window.clearTimeout(timeout)
+                resolve(event.effectiveDirective)
+              },
               { once: true },
             )
-            document.querySelector('form')?.requestSubmit()
+            form.requestSubmit()
           }),
       )
 
