@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { getHiddenAgentsLabel } from './getHiddenAgentsLabel'
 
 describe('Hidden agents disclosure', () => {
-  it('hides the disclosure and overflow trigger when no installed agents are hidden', () => {
+  test('hides the disclosure and overflow trigger when no installed agents are hidden', () => {
     // Arrange
     const hiddenAgentCount = 0
     // Act
@@ -12,7 +12,7 @@ describe('Hidden agents disclosure', () => {
     expect(label).toBeNull()
   })
 
-  it('labels the disclosure with the number of hidden installed agents', () => {
+  test('labels the disclosure with the number of hidden installed agents', () => {
     // Arrange
     const hiddenAgentCount = 3
     // Act

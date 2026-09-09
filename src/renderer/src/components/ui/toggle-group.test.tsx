@@ -1,12 +1,12 @@
 import * as React from 'react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { injectToggleGroupDefaults, ToggleGroupItem } from './toggle-group'
 
 type ToggleGroupItemProps = React.ComponentProps<typeof ToggleGroupItem>
 
 describe('injectToggleGroupDefaults', () => {
-  it('applies group defaults to direct items while preserving item overrides', () => {
+  test('applies group defaults to direct items while preserving item overrides', () => {
     // Arrange
     const children = [
       <ToggleGroupItem key="defaulted" value="defaulted">
@@ -45,7 +45,7 @@ describe('injectToggleGroupDefaults', () => {
     expect(result[1].props.size).toBe('lg')
   })
 
-  it('leaves text, fragments, wrappers, and nested items unchanged', () => {
+  test('leaves text, fragments, wrappers, and nested items unchanged', () => {
     // Arrange
     const fragment = (
       <React.Fragment key="fragment">

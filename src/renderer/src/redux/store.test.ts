@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { THEME_PRESETS } from '@/shared/constants'
 import { toSkillName } from '@/shared/types'
@@ -26,7 +26,7 @@ async function migrate(
 }
 
 describe('migrateState (v0 → v3 theme chain)', () => {
-  it('upgrades a legacy color preset (cyan dark) into the full current theme shape', async () => {
+  test('upgrades a legacy color preset (cyan dark) into the full current theme shape', async () => {
     // Arrange
     const state = {
       theme: {
@@ -50,7 +50,7 @@ describe('migrateState (v0 → v3 theme chain)', () => {
     })
   })
 
-  it('upgrades a legacy neutral preset (neutral-light) into the full current theme shape', async () => {
+  test('upgrades a legacy neutral preset (neutral-light) into the full current theme shape', async () => {
     // Arrange
     const state = {
       theme: {
@@ -74,7 +74,7 @@ describe('migrateState (v0 → v3 theme chain)', () => {
     })
   })
 
-  it('rescues a preset name that was renamed away to neutral-dark', async () => {
+  test('rescues a preset name that was renamed away to neutral-dark', async () => {
     // Arrange — simulates a user whose persisted state has a preset name that
     // was later removed or renamed (plan proposed `mono-dark` which was never
     // shipped; this guards against that class of drift).
@@ -94,7 +94,7 @@ describe('migrateState (v0 → v3 theme chain)', () => {
     expect(result.theme?.preset).toBe('neutral-dark')
   })
 
-  it('rescues a missing preset field to neutral-dark', async () => {
+  test('rescues a missing preset field to neutral-dark', async () => {
     // Arrange
     const state = {
       theme: { hue: 0, mode: 'dark', presetType: 'neutral' },
@@ -107,7 +107,7 @@ describe('migrateState (v0 → v3 theme chain)', () => {
     expect(result.theme?.preset).toBe('neutral-dark')
   })
 
-  it('drops a null theme slot so the reducer initial state takes over', async () => {
+  test('drops a null theme slot so the reducer initial state takes over', async () => {
     // Arrange
     const state = { theme: null }
 
@@ -118,7 +118,7 @@ describe('migrateState (v0 → v3 theme chain)', () => {
     expect(result.theme).toBeUndefined()
   })
 
-  it('drops a non-object theme slot from tampered storage', async () => {
+  test('drops a non-object theme slot from tampered storage', async () => {
     // Arrange
     const state = { theme: 'garbage' }
 
@@ -129,7 +129,7 @@ describe('migrateState (v0 → v3 theme chain)', () => {
     expect(result.theme).toBeUndefined()
   })
 
-  it('leaves an undefined theme slot alone instead of fabricating one', async () => {
+  test('leaves an undefined theme slot alone instead of fabricating one', async () => {
     // Arrange
     const state = {}
 
@@ -140,7 +140,7 @@ describe('migrateState (v0 → v3 theme chain)', () => {
     expect(result.theme).toBeUndefined()
   })
 
-  it('preserves a tampered current-schema theme when the stored version already matches', async () => {
+  test('preserves a tampered current-schema theme when the stored version already matches', async () => {
     // Arrange — storage-middleware guarantees migrate is only called when
     // versions differ, but if someone tampered with the stored `version` field
     // we must not overwrite a valid current-schema state with legacy defaults.
@@ -162,7 +162,7 @@ describe('migrateState (v0 → v3 theme chain)', () => {
     expect(result.theme).toEqual(currentState.theme)
   })
 
-  it('repairs a non-numeric hue to a safe 0', async () => {
+  test('repairs a non-numeric hue to a safe 0', async () => {
     // Arrange
     const state = {
       theme: {
@@ -180,7 +180,7 @@ describe('migrateState (v0 → v3 theme chain)', () => {
     expect(result.theme?.hue).toBe(0)
   })
 
-  it('repairs an invalid mode to dark', async () => {
+  test('repairs an invalid mode to dark', async () => {
     // Arrange
     const state = {
       theme: {
@@ -198,7 +198,7 @@ describe('migrateState (v0 → v3 theme chain)', () => {
     expect(result.theme?.mode).toBe('dark')
   })
 
-  it('paints a legacy color preset with full chroma', async () => {
+  test('paints a legacy color preset with full chroma', async () => {
     // Arrange
     const state = {
       theme: {
@@ -216,7 +216,7 @@ describe('migrateState (v0 → v3 theme chain)', () => {
     expect(result.theme?.chroma).toBe(0.16)
   })
 
-  it('leaves a legacy neutral preset (or missing presetType) grayscale', async () => {
+  test('leaves a legacy neutral preset (or missing presetType) grayscale', async () => {
     // Arrange
     const state = {
       theme: { hue: 0, mode: 'dark', preset: 'neutral-dark' },
@@ -229,7 +229,7 @@ describe('migrateState (v0 → v3 theme chain)', () => {
     expect(result.theme?.chroma).toBe(0)
   })
 
-  it('keeps every shipped preset name selectable after migration', async () => {
+  test('keeps every shipped preset name selectable after migration', async () => {
     // Act & Assert — regression guard: if a future refactor removes a preset
     // key from THEME_PRESETS, this test catches it before shipping.
     for (const name of Object.keys(THEME_PRESETS)) {
@@ -258,7 +258,7 @@ describe('migrateState (v0 → v3 theme chain)', () => {
  * slice-level test can catch.
  */
 describe('store wiring (singleton assembly)', () => {
-  it('exposes every feature slice on the initial state so no view paints against undefined', async () => {
+  test('exposes every feature slice on the initial state so no view paints against undefined', async () => {
     // Arrange
     const { store } = await import('./store')
 
@@ -283,7 +283,7 @@ describe('store wiring (singleton assembly)', () => {
     ])
   })
 
-  it('clears the skill selection when the active tab changes (listener middleware is prepended)', async () => {
+  test('clears the skill selection when the active tab changes (listener middleware is prepended)', async () => {
     // Arrange — tick a skill so the selection is non-empty before the context switch
     const { store } = await import('./store')
     store.dispatch(toggleSelection(toSkillName('alpha-skill')))

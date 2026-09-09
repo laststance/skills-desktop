@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { beforeEach, describe, expect, it, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
@@ -101,7 +101,7 @@ describe('CodePreview', () => {
     mockUseCodePreview.mockReset()
   })
 
-  it('shows a loading placeholder while the file list is still being fetched', async () => {
+  test('shows a loading placeholder while the file list is still being fetched', async () => {
     // Arrange
     mockUseCodePreview.mockReturnValue(makeHookReturn({ loading: true }))
 
@@ -114,7 +114,7 @@ describe('CodePreview', () => {
       .toBeInTheDocument()
   })
 
-  it('tells the user no previewable files exist when the skill has none', async () => {
+  test('tells the user no previewable files exist when the skill has none', async () => {
     // Arrange
     mockUseCodePreview.mockReturnValue(
       makeHookReturn({ loading: false, files: [] }),
@@ -148,7 +148,7 @@ describe('CodePreview', () => {
     ).toBe(false)
   })
 
-  it('renders a tab for every previewable file once the list has loaded', async () => {
+  test('renders a tab for every previewable file once the list has loaded', async () => {
     // Arrange
     const skillFile = makeFile()
     const readmeFile = makeFile({
@@ -176,7 +176,7 @@ describe('CodePreview', () => {
       .toBeInTheDocument()
   })
 
-  it('requests the newly selected file when a different tab is clicked', async () => {
+  test('requests the newly selected file when a different tab is clicked', async () => {
     // Arrange
     const setActiveFileSpy = vi.fn(async () => {})
     const skillFile = makeFile()
@@ -202,7 +202,7 @@ describe('CodePreview', () => {
     expect(setActiveFileSpy).toHaveBeenCalledWith(readmeFile.path)
   })
 
-  it('renders the code preview at the user-configured code font size from settings', async () => {
+  test('renders the code preview at the user-configured code font size from settings', async () => {
     // Arrange — the Redux→props seam: a non-default codeFontSizePx persisted in
     // settings must flow through CodePreview into FileContent's code root.
     const skillFile = makeFile()

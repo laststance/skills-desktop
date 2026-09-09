@@ -18,7 +18,7 @@ import {
   beforeAll,
   describe,
   expect,
-  it,
+  test,
   vi,
 } from 'vitest'
 
@@ -232,7 +232,7 @@ describe('trashService (integration)', () => {
     )
   }
 
-  it('deletes a source skill with its agent symlink and brings both back on undo', async () => {
+  test('deletes a source skill with its agent symlink and brings both back on undo', async () => {
     // Arrange
     const { moveToTrash, restore } = await trashServicePromise
 
@@ -286,7 +286,7 @@ describe('trashService (integration)', () => {
     await stat(sourcePath)
   })
 
-  it('deletes the exact reviewed source folder even when the SKILL.md name differs from its basename', async () => {
+  test('deletes the exact reviewed source folder even when the SKILL.md name differs from its basename', async () => {
     const { moveToTrash } = await trashServicePromise
 
     // Arrange
@@ -330,7 +330,7 @@ describe('trashService (integration)', () => {
     expect(manifest.sourcePath).toBe(sourcePath)
   })
 
-  it('deletes a reviewed agent-local folder without touching a same-named source skill', async () => {
+  test('deletes a reviewed agent-local folder without touching a same-named source skill', async () => {
     const { moveToTrash } = await trashServicePromise
 
     // Arrange
@@ -365,7 +365,7 @@ describe('trashService (integration)', () => {
     ])
   })
 
-  it('refuses to delete a source folder that was replaced at the same path, keeping the replacement intact', async () => {
+  test('refuses to delete a source folder that was replaced at the same path, keeping the replacement intact', async () => {
     const { moveToTrash } = await trashServicePromise
 
     // Arrange
@@ -392,7 +392,7 @@ describe('trashService (integration)', () => {
     await expect(lstat(sharedTrashDir)).rejects.toThrow(/ENOENT/)
   })
 
-  it('refuses to delete a local folder that was replaced at the same path, keeping the replacement intact', async () => {
+  test('refuses to delete a local folder that was replaced at the same path, keeping the replacement intact', async () => {
     const { moveToTrash } = await trashServicePromise
 
     // Arrange
@@ -417,7 +417,7 @@ describe('trashService (integration)', () => {
     await expect(lstat(sharedTrashDir)).rejects.toThrow(/ENOENT/)
   })
 
-  it('deletes only the reviewed agent local folder when another agent holds a same-named one', async () => {
+  test('deletes only the reviewed agent local folder when another agent holds a same-named one', async () => {
     const { moveToTrash } = await trashServicePromise
 
     // Arrange
@@ -439,7 +439,7 @@ describe('trashService (integration)', () => {
     await expect(lstat(siblingLocalPath)).resolves.toBeDefined()
   })
 
-  it('silently no-ops when evicting a tombstone that was already gone', async () => {
+  test('silently no-ops when evicting a tombstone that was already gone', async () => {
     // Arrange
     const { evict, tombstoneId } = await (async () => {
       const mod = await trashServicePromise
@@ -454,7 +454,7 @@ describe('trashService (integration)', () => {
     ).resolves.toBeUndefined()
   })
 
-  it('fails undo with a corrupt-manifest error when the trash manifest is unreadable', async () => {
+  test('fails undo with a corrupt-manifest error when the trash manifest is unreadable', async () => {
     // Arrange
     const { moveToTrash, restore } = await trashServicePromise
 
@@ -483,7 +483,7 @@ describe('trashService (integration)', () => {
     }
   })
 
-  it('refuses undo with a collision error when a new skill already sits at the original path', async () => {
+  test('refuses undo with a collision error when a new skill already sits at the original path', async () => {
     // Arrange
     const { moveToTrash, restore } = await trashServicePromise
 
@@ -507,7 +507,7 @@ describe('trashService (integration)', () => {
     }
   })
 
-  it('reports the skill as already changed when it exists in neither the source nor any agent', async () => {
+  test('reports the skill as already changed when it exists in neither the source nor any agent', async () => {
     // Arrange
     const { moveToTrash } = await trashServicePromise
     // No source-skill, no agent copy: pure ghost — moveToTrash should reject
@@ -526,7 +526,7 @@ describe('trashService (integration)', () => {
     ).rejects.toThrow(/already changed/i)
   })
 
-  it('gives two skills deleted in the same millisecond distinct tombstone ids', async () => {
+  test('gives two skills deleted in the same millisecond distinct tombstone ids', async () => {
     // Arrange
     const { moveToTrash } = await trashServicePromise
 
@@ -548,7 +548,7 @@ describe('trashService (integration)', () => {
     expect(a.tombstoneId).not.toBe(b.tombstoneId)
   })
 
-  it('sweeps every trash entry on startup regardless of age, so no lock record is held open by an unrestorable tombstone', async () => {
+  test('sweeps every trash entry on startup regardless of age, so no lock record is held open by an unrestorable tombstone', async () => {
     // Arrange
     // The undo toast that paired with a tombstone is gone after a restart, so
     // a "recent" entry is no more restorable than an ancient one — and while
@@ -577,7 +577,7 @@ describe('trashService (integration)', () => {
     ).rejects.toThrow()
   })
 
-  it('fails undo with a not-found error once the tombstone has been permanently evicted', async () => {
+  test('fails undo with a not-found error once the tombstone has been permanently evicted', async () => {
     // Arrange
     const { moveToTrash, evict, restore } = await trashServicePromise
 
@@ -598,7 +598,7 @@ describe('trashService (integration)', () => {
     }
   })
 
-  it('records a well-formed source-backed manifest capturing the deleted skill identity', async () => {
+  test('records a well-formed source-backed manifest capturing the deleted skill identity', async () => {
     // Arrange
     // Limited check: we don't mock AGENTS, so the moveToTrash walk will iterate
     // the real AGENT_DEFINITIONS and compute linkPaths against ~/.agent/skills.
@@ -636,7 +636,7 @@ describe('trashService (integration)', () => {
     expect(manifest.deletedAt).toBeGreaterThan(0)
   })
 
-  it('stages the deleted source under a /source child of the trash entry, not at its root', async () => {
+  test('stages the deleted source under a /source child of the trash entry, not at its root', async () => {
     // Arrange
     const { moveToTrash } = await trashServicePromise
 
@@ -668,7 +668,7 @@ describe('trashService (integration)', () => {
   // that `restore()` can put back agent-by-agent.)
   // ---------------------------------------------------------------------
 
-  it('deletes a source-less skill that lives only inside one agent dir and stages a local-only manifest', async () => {
+  test('deletes a source-less skill that lives only inside one agent dir and stages a local-only manifest', async () => {
     // Arrange
     const { moveToTrash } = await trashServicePromise
 
@@ -726,7 +726,7 @@ describe('trashService (integration)', () => {
     expect(manifest.localCopies[0]?.linkPath).toBe(localPath)
   })
 
-  it('deletes a local-only skill and puts the folder back in its agent dir on undo', async () => {
+  test('deletes a local-only skill and puts the folder back in its agent dir on undo', async () => {
     // Arrange
     const { moveToTrash, restore } = await trashServicePromise
 
@@ -762,7 +762,7 @@ describe('trashService (integration)', () => {
     ).rejects.toThrow()
   })
 
-  it('takes the source-backed path and leaves a stray same-named agent folder untouched', async () => {
+  test('takes the source-backed path and leaves a stray same-named agent folder untouched', async () => {
     // Arrange
     // Disambiguates the dispatch in moveToTrash: if SOURCE_DIR/<name> exists,
     // we must NOT fall through to local-only even when an agent dir also has
@@ -807,7 +807,7 @@ describe('trashService (integration)', () => {
     await stat(orphanLocal)
   })
 
-  it('source-backed delete skips same-name symlinks that point to another source', async () => {
+  test('source-backed delete skips same-name symlinks that point to another source', async () => {
     const { moveToTrash } = await trashServicePromise
 
     // Arrange
@@ -830,7 +830,7 @@ describe('trashService (integration)', () => {
     expect(await readlink(cursorLinkPath)).toBe(otherSourcePath)
   })
 
-  it('regression: deletes an agent-only local folder instead of failing with "already deleted"', async () => {
+  test('regression: deletes an agent-only local folder instead of failing with "already deleted"', async () => {
     // Arrange
     // Direct repro of the user-reported bug. Pre-fix, the IPC handler called
     // moveToTrash with sourcePath = SOURCE_DIR/<name>, which didn't exist for

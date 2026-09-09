@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -37,7 +37,7 @@ async function renderTimeline(events: ActivityEvent[]) {
 }
 
 describe('ActivityTimelineWidget', () => {
-  it('shows the no-activity hint before any activity has been recorded', async () => {
+  test('shows the no-activity hint before any activity has been recorded', async () => {
     // Arrange + Act: no events seeded into the store.
     const { screen } = await renderTimeline([])
 
@@ -50,7 +50,7 @@ describe('ActivityTimelineWidget', () => {
       .toBeVisible()
   })
 
-  it('lists each event with its skill, agent, and action label in newest-first order', async () => {
+  test('lists each event with its skill, agent, and action label in newest-first order', async () => {
     // Arrange: three events of distinct types, already newest-first.
     const events: ActivityEvent[] = [
       {
@@ -94,7 +94,7 @@ describe('ActivityTimelineWidget', () => {
     await expect.element(rows.nth(2)).toMatchTextContent('synced')
   })
 
-  it('shows the detail text on a sync summary event that carries one', async () => {
+  test('shows the detail text on a sync summary event that carries one', async () => {
     // Arrange: a single sync summary event with a counts detail string.
     const events: ActivityEvent[] = [
       {
@@ -120,7 +120,7 @@ describe('ActivityTimelineWidget', () => {
       .toMatchTextContent('10 created · 1 replaced · 5 skipped')
   })
 
-  it('omits the appended detail separator for an event with no detail', async () => {
+  test('omits the appended detail separator for an event with no detail', async () => {
     // Arrange: a `created` event with no detail — the appended " — detail" span
     // must not render. Covers the falsy branch of `{event.detail && <span>…}`,
     // the complement of the sync-summary test above.

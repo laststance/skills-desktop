@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { AgentId } from '@/shared/constants'
@@ -106,7 +106,7 @@ async function renderToolbar(options: {
 }
 
 describe('SelectionToolbar', () => {
-  it('shows "Select all visible ⌘A" in zero-selection state when bulk mode is entered', async () => {
+  test('shows "Select all visible ⌘A" in zero-selection state when bulk mode is entered', async () => {
     // Arrange — bulk mode active, nothing selected yet (zero-selection state)
     const options = {
       skills: [makeCursorSkill(toSkillName('alpha'), 'valid')],
@@ -131,7 +131,7 @@ describe('SelectionToolbar', () => {
     ).toBeNull()
   })
 
-  it('Clear empties the selection and transitions toolbar to zero-selection state', async () => {
+  test('Clear empties the selection and transitions toolbar to zero-selection state', async () => {
     // Arrange — global view with one ticked skill so the toolbar is shown
     const { screen, store } = await renderToolbar({
       skills: [makeCursorSkill(toSkillName('alpha'), 'valid')],
@@ -156,7 +156,7 @@ describe('SelectionToolbar', () => {
     ).toBeNull()
   })
 
-  it('Select all visible ticks every eligible visible row', async () => {
+  test('Select all visible ticks every eligible visible row', async () => {
     // Arrange — global view, two rows, only one currently ticked
     const { screen, store } = await renderToolbar({
       skills: [
@@ -177,7 +177,7 @@ describe('SelectionToolbar', () => {
     ])
   })
 
-  it('warns when selected rows are hidden by the filter or visible-but-ineligible', async () => {
+  test('warns when selected rows are hidden by the filter or visible-but-ineligible', async () => {
     // Arrange — agent view: one valid (eligible) + one broken (visible,
     // ineligible) on screen, plus one hidden by the search filter.
     const { screen, store, setSearchQuery } = await renderToolbar({
@@ -202,7 +202,7 @@ describe('SelectionToolbar', () => {
     await expect.element(screen.getByText('+1 not eligible')).toBeVisible()
   })
 
-  it('shows the bulk progress counter for large batches', async () => {
+  test('shows the bulk progress counter for large batches', async () => {
     // Arrange — global view with one ticked skill
     const { screen, store } = await renderToolbar({
       skills: [makeCursorSkill(toSkillName('alpha'), 'valid')],
@@ -224,7 +224,7 @@ describe('SelectionToolbar', () => {
     await expect.element(screen.getByText('3 of 12')).toBeVisible()
   })
 
-  it('offers a Copy to... button in global view when a copy handler is wired', async () => {
+  test('offers a Copy to... button in global view when a copy handler is wired', async () => {
     // Arrange — global view with a copy callback supplied
     const onCopyAction = vi.fn()
     const { screen } = await renderToolbar({
@@ -244,7 +244,7 @@ describe('SelectionToolbar', () => {
     expect(onCopyAction).toHaveBeenCalledTimes(1)
   })
 
-  it('shows a destructive Delete action in global view', async () => {
+  test('shows a destructive Delete action in global view', async () => {
     // Arrange — global view renders the destructive Delete primary action
     const { screen, onPrimaryAction } = await renderToolbar({
       skills: [makeCursorSkill(toSkillName('alpha'), 'valid')],
@@ -262,7 +262,7 @@ describe('SelectionToolbar', () => {
     expect(onPrimaryAction).toHaveBeenCalledTimes(1)
   })
 
-  it('shows a non-destructive Unlink action in agent view', async () => {
+  test('shows a non-destructive Unlink action in agent view', async () => {
     // Arrange — agent view with a single eligible valid row
     const { screen, onPrimaryAction } = await renderToolbar({
       skills: [makeCursorSkill(toSkillName('alpha'), 'valid')],
@@ -281,7 +281,7 @@ describe('SelectionToolbar', () => {
     expect(onPrimaryAction).toHaveBeenCalledTimes(1)
   })
 
-  it('disables the primary action and shows a spinner while a bulk copy is in flight', async () => {
+  test('disables the primary action and shows a spinner while a bulk copy is in flight', async () => {
     // Arrange — global view with one ticked skill (bulk copy keeps the toolbar
     // mounted: unlike delete/unlink, its pending state does NOT exit bulk mode)
     const { screen, store } = await renderToolbar({

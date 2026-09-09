@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { RootState } from '@/renderer/src/redux/store'
@@ -84,7 +84,7 @@ async function renderToast(
 }
 
 describe('UpdateToast', () => {
-  it('shows the available-update prompt with version and a Download CTA', async () => {
+  test('shows the available-update prompt with version and a Download CTA', async () => {
     // Arrange + Act
     const { screen } = await renderToast({
       status: 'available',
@@ -106,7 +106,7 @@ describe('UpdateToast', () => {
       .toBeInTheDocument()
   })
 
-  it('starts the download and flips to the downloading phase when Download is clicked', async () => {
+  test('starts the download and flips to the downloading phase when Download is clicked', async () => {
     // Arrange
     const { screen, store } = await renderToast({
       status: 'available',
@@ -121,7 +121,7 @@ describe('UpdateToast', () => {
     expect(downloadMock).toHaveBeenCalledTimes(1)
   })
 
-  it('dismisses the toast when the available-phase Later button is clicked', async () => {
+  test('dismisses the toast when the available-phase Later button is clicked', async () => {
     // Arrange
     const { screen, store } = await renderToast({
       status: 'available',
@@ -135,7 +135,7 @@ describe('UpdateToast', () => {
     await expect.poll(() => store.getState().update.dismissed).toBe(true)
   })
 
-  it('renders the downloading phase with a progress percentage and no action buttons', async () => {
+  test('renders the downloading phase with a progress percentage and no action buttons', async () => {
     // Arrange + Act
     const { screen } = await renderToast({
       status: 'downloading',
@@ -157,7 +157,7 @@ describe('UpdateToast', () => {
     ).toBeNull()
   })
 
-  it('shows the ready-to-install prompt with a Restart Now CTA', async () => {
+  test('shows the ready-to-install prompt with a Restart Now CTA', async () => {
     // Arrange + Act
     const { screen } = await renderToast({
       status: 'ready',
@@ -178,7 +178,7 @@ describe('UpdateToast', () => {
       .toBeInTheDocument()
   })
 
-  it('installs the update when Restart Now is clicked in the ready phase', async () => {
+  test('installs the update when Restart Now is clicked in the ready phase', async () => {
     // Arrange
     const { screen } = await renderToast({
       status: 'ready',
@@ -192,7 +192,7 @@ describe('UpdateToast', () => {
     await expect.poll(() => installMock.mock.calls.length).toBe(1)
   })
 
-  it('dismisses the toast when the ready-phase Later button is clicked', async () => {
+  test('dismisses the toast when the ready-phase Later button is clicked', async () => {
     // Arrange
     const { screen, store } = await renderToast({
       status: 'ready',
@@ -206,7 +206,7 @@ describe('UpdateToast', () => {
     await expect.poll(() => store.getState().update.dismissed).toBe(true)
   })
 
-  it('surfaces the failure message with a single Dismiss action in the error phase', async () => {
+  test('surfaces the failure message with a single Dismiss action in the error phase', async () => {
     // Arrange + Act
     const { screen } = await renderToast({
       status: 'error',
@@ -223,7 +223,7 @@ describe('UpdateToast', () => {
     await expect.element(screen.getByText('Dismiss')).toBeInTheDocument()
   })
 
-  it('dismisses the toast when the error-phase Dismiss button is clicked', async () => {
+  test('dismisses the toast when the error-phase Dismiss button is clicked', async () => {
     // Arrange
     const { screen, store } = await renderToast({
       status: 'error',
@@ -238,7 +238,7 @@ describe('UpdateToast', () => {
     await expect.poll(() => store.getState().update.dismissed).toBe(true)
   })
 
-  it('closes the toast via the header X button', async () => {
+  test('closes the toast via the header X button', async () => {
     // Arrange — any visible phase exposes the header dismiss control.
     const { screen, store } = await renderToast({
       status: 'available',
@@ -253,7 +253,7 @@ describe('UpdateToast', () => {
     await expect.poll(() => store.getState().update.dismissed).toBe(true)
   })
 
-  it('renders nothing while idle so no toast appears before an update is found', async () => {
+  test('renders nothing while idle so no toast appears before an update is found', async () => {
     // Arrange + Act
     const { screen } = await renderToast({ status: 'idle' })
 
@@ -262,7 +262,7 @@ describe('UpdateToast', () => {
     expect(screen.getByText('Update Ready').query()).toBeNull()
   })
 
-  it('renders nothing while checking so the toast stays hidden during the version check', async () => {
+  test('renders nothing while checking so the toast stays hidden during the version check', async () => {
     // Arrange + Act
     const { screen } = await renderToast({ status: 'checking' })
 
@@ -271,7 +271,7 @@ describe('UpdateToast', () => {
     expect(screen.getByText('Update Error').query()).toBeNull()
   })
 
-  it('renders nothing once dismissed even when an update is available', async () => {
+  test('renders nothing once dismissed even when an update is available', async () => {
     // Arrange + Act — a visible phase that the user already dismissed.
     const { screen } = await renderToast({
       status: 'available',

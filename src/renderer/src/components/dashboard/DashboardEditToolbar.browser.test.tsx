@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -88,7 +88,7 @@ describe('DashboardEditToolbar', () => {
     vi.restoreAllMocks()
   })
 
-  it('reveals the Widget, Page and Reset customization controls once in edit mode', async () => {
+  test('reveals the Widget, Page and Reset customization controls once in edit mode', async () => {
     // Arrange + Act: mount already in edit mode.
     const { screen } = await renderToolbar({ isEditMode: true })
 
@@ -107,7 +107,7 @@ describe('DashboardEditToolbar', () => {
       .toBeVisible()
   })
 
-  it('keeps the customization controls hidden until edit mode is entered', async () => {
+  test('keeps the customization controls hidden until edit mode is entered', async () => {
     // Arrange + Act: mount in view mode (default).
     const { screen } = await renderToolbar()
 
@@ -120,7 +120,7 @@ describe('DashboardEditToolbar', () => {
     expect(screen.getByRole('button', { name: /reset/i }).query()).toBeNull()
   })
 
-  it('opens the Add Widget picker when the Widget button is clicked', async () => {
+  test('opens the Add Widget picker when the Widget button is clicked', async () => {
     // Arrange
     const { screen } = await renderToolbar({ isEditMode: true })
 
@@ -131,7 +131,7 @@ describe('DashboardEditToolbar', () => {
     await expect.element(screen.getByRole('dialog')).toBeVisible()
   })
 
-  it('closes the Add Widget picker when Escape is pressed', async () => {
+  test('closes the Add Widget picker when Escape is pressed', async () => {
     // Arrange: open the picker so onOpenChange(false) can fire through the
     // semantic handlePickerOpenChange wrapper (not the raw setState).
     const { screen } = await renderToolbar({ isEditMode: true })
@@ -150,7 +150,7 @@ describe('DashboardEditToolbar', () => {
     await expect.poll(() => screen.getByRole('dialog').query()).toBeNull()
   })
 
-  it('appends a new blank page when the Page button is clicked', async () => {
+  test('appends a new blank page when the Page button is clicked', async () => {
     // Arrange: a single starting page.
     const { screen, store } = await renderToolbar({
       pages: [
@@ -170,7 +170,7 @@ describe('DashboardEditToolbar', () => {
     expect(store.getState().dashboard.pages).toHaveLength(2)
   })
 
-  it('restores the default layout preset when Reset is confirmed', async () => {
+  test('restores the default layout preset when Reset is confirmed', async () => {
     // Arrange: a custom single-page layout, with confirm stubbed to accept.
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const { screen, store } = await renderToolbar({
@@ -196,7 +196,7 @@ describe('DashboardEditToolbar', () => {
     ])
   })
 
-  it('keeps the custom layout intact when the Reset prompt is dismissed', async () => {
+  test('keeps the custom layout intact when the Reset prompt is dismissed', async () => {
     // Arrange: a custom layout, with confirm stubbed to reject.
     vi.spyOn(window, 'confirm').mockReturnValue(false)
     const { screen, store } = await renderToolbar({
@@ -219,7 +219,7 @@ describe('DashboardEditToolbar', () => {
     ])
   })
 
-  it('enters edit mode when the Edit toggle is clicked from view mode', async () => {
+  test('enters edit mode when the Edit toggle is clicked from view mode', async () => {
     // Arrange: view mode, so the toggle reads "Edit".
     const { screen, store } = await renderToolbar()
 
@@ -230,7 +230,7 @@ describe('DashboardEditToolbar', () => {
     expect(store.getState().dashboard.isEditMode).toBe(true)
   })
 
-  it('leaves edit mode when the Done toggle is clicked', async () => {
+  test('leaves edit mode when the Done toggle is clicked', async () => {
     // Arrange: edit mode, so the toggle reads "Done".
     const { screen, store } = await renderToolbar({ isEditMode: true })
 

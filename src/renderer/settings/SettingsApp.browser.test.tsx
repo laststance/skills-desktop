@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -125,7 +125,7 @@ async function renderSettings() {
 }
 
 describe('Settings window navigation', () => {
-  it('opens on the General pane with the full section nav rail', async () => {
+  test('opens on the General pane with the full section nav rail', async () => {
     // Arrange / Act
     const screen = await renderSettings()
 
@@ -151,7 +151,7 @@ describe('Settings window navigation', () => {
       .toBeVisible()
   })
 
-  it('shows the Appearance pane when its nav item is selected', async () => {
+  test('shows the Appearance pane when its nav item is selected', async () => {
     // Arrange
     const screen = await renderSettings()
 
@@ -167,7 +167,7 @@ describe('Settings window navigation', () => {
       .toHaveAttribute('aria-current', 'page')
   })
 
-  it('shows the Agents pane when its nav item is selected', async () => {
+  test('shows the Agents pane when its nav item is selected', async () => {
     // Arrange
     const screen = await renderSettings()
 
@@ -180,7 +180,7 @@ describe('Settings window navigation', () => {
       .toBeVisible()
   })
 
-  it('shows the Keybindings pane when its nav item is selected', async () => {
+  test('shows the Keybindings pane when its nav item is selected', async () => {
     // Arrange
     const screen = await renderSettings()
 
@@ -193,7 +193,7 @@ describe('Settings window navigation', () => {
       .toBeVisible()
   })
 
-  it('shows the About pane when its nav item is selected', async () => {
+  test('shows the About pane when its nav item is selected', async () => {
     // Arrange
     const screen = await renderSettings()
 

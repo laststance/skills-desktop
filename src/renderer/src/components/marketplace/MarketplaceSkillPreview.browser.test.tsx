@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import type { ReactElement } from 'react'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { SkillSearchResult } from '@/shared/types'
@@ -124,7 +124,7 @@ afterEach(() => {
 })
 
 describe('MarketplaceSkillPreview', () => {
-  it('returns to the dashboard by clearing the previewed skill when Back is clicked', async () => {
+  test('returns to the dashboard by clearing the previewed skill when Back is clicked', async () => {
     // Arrange
     const store = await createStore()
     const { setPreviewSkill } =
@@ -145,7 +145,7 @@ describe('MarketplaceSkillPreview', () => {
     expect(store.getState().marketplace.previewSkill).toBeNull()
   })
 
-  it('updates the footer URL when the webview navigates within the skills.sh allowlist', async () => {
+  test('updates the footer URL when the webview navigates within the skills.sh allowlist', async () => {
     // Arrange
     const store = await createStore()
     const { MarketplaceSkillPreview } =
@@ -176,7 +176,7 @@ describe('MarketplaceSkillPreview', () => {
       .toHaveTextContent('https://skills.sh/trending')
   })
 
-  it('keeps the footer URL unchanged when the webview navigates outside the allowlist', async () => {
+  test('keeps the footer URL unchanged when the webview navigates outside the allowlist', async () => {
     // Arrange
     const store = await createStore()
     const { MarketplaceSkillPreview } =
@@ -206,7 +206,7 @@ describe('MarketplaceSkillPreview', () => {
       .toHaveTextContent('https://skills.sh/task')
   })
 
-  it('blocks window.open / target=_blank links from escaping the preview', async () => {
+  test('blocks window.open / target=_blank links from escaping the preview', async () => {
     // Arrange
     const store = await createStore()
     const { MarketplaceSkillPreview } =
@@ -236,7 +236,7 @@ describe('MarketplaceSkillPreview', () => {
     expect(newWindowEvent.defaultPrevented).toBe(true)
   })
 
-  it('blocks in-page navigation to a non-allowlisted origin', async () => {
+  test('blocks in-page navigation to a non-allowlisted origin', async () => {
     // Arrange
     const store = await createStore()
     const { MarketplaceSkillPreview } =
@@ -266,7 +266,7 @@ describe('MarketplaceSkillPreview', () => {
     expect(blockedEvent.defaultPrevented).toBe(true)
   })
 
-  it('copies the live preview URL to the clipboard when the copy button is clicked', async () => {
+  test('copies the live preview URL to the clipboard when the copy button is clicked', async () => {
     // Arrange
     const store = await createStore()
     const { MarketplaceSkillPreview } =
@@ -285,7 +285,7 @@ describe('MarketplaceSkillPreview', () => {
     })
   })
 
-  it('hides the loading skeleton once the webview finishes loading the page', async () => {
+  test('hides the loading skeleton once the webview finishes loading the page', async () => {
     // Arrange
     const store = await createStore()
     const { MarketplaceSkillPreview } =
@@ -312,7 +312,7 @@ describe('MarketplaceSkillPreview', () => {
     await expect.element(webview).toHaveClass('opacity-100')
   })
 
-  it('hides the loading skeleton when the webview fails to load the page', async () => {
+  test('hides the loading skeleton when the webview fails to load the page', async () => {
     // Arrange
     const store = await createStore()
     const { MarketplaceSkillPreview } =
@@ -339,7 +339,7 @@ describe('MarketplaceSkillPreview', () => {
     await expect.element(webview).toHaveClass('opacity-100')
   })
 
-  it('shows a back-to-dashboard escape hatch instead of a webview for external URLs', async () => {
+  test('shows a back-to-dashboard escape hatch instead of a webview for external URLs', async () => {
     // Arrange
     const store = await createStore()
     const { setPreviewSkill } =

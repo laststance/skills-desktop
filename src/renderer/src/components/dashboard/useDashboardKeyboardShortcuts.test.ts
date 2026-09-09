@@ -4,7 +4,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 
 import dashboardReducer, {
   addPage,
@@ -108,7 +108,7 @@ afterEach(() => {
 })
 
 describe('dashboard keyboard shortcuts', () => {
-  it('toggles edit mode when Cmd+E is pressed outside an input', () => {
+  test('toggles edit mode when Cmd+E is pressed outside an input', () => {
     // Arrange
     const { store } = makeSeededStore(1)
     mountHook(store)
@@ -120,7 +120,7 @@ describe('dashboard keyboard shortcuts', () => {
     expect(selectIsEditMode(store.getState())).toBe(true)
   })
 
-  it('toggles edit mode when Ctrl+E is pressed (non-mac modifier path)', () => {
+  test('toggles edit mode when Ctrl+E is pressed (non-mac modifier path)', () => {
     // Arrange
     const { store } = makeSeededStore(1)
     mountHook(store)
@@ -132,7 +132,7 @@ describe('dashboard keyboard shortcuts', () => {
     expect(selectIsEditMode(store.getState())).toBe(true)
   })
 
-  it('still toggles edit mode when Shift produces an uppercase E', () => {
+  test('still toggles edit mode when Shift produces an uppercase E', () => {
     // Arrange
     const { store } = makeSeededStore(1)
     mountHook(store)
@@ -144,7 +144,7 @@ describe('dashboard keyboard shortcuts', () => {
     expect(selectIsEditMode(store.getState())).toBe(true)
   })
 
-  it('switches to the matching page when Cmd+digit targets an existing page', () => {
+  test('switches to the matching page when Cmd+digit targets an existing page', () => {
     // Arrange
     const { store, pages } = makeSeededStore(3)
     mountHook(store)
@@ -156,7 +156,7 @@ describe('dashboard keyboard shortcuts', () => {
     expect(selectCurrentPageId(store.getState())).toBe(pages[1].id)
   })
 
-  it('ignores a Cmd+digit when no page exists at that index', () => {
+  test('ignores a Cmd+digit when no page exists at that index', () => {
     // Arrange
     const { store, pages } = makeSeededStore(2)
     mountHook(store)
@@ -168,7 +168,7 @@ describe('dashboard keyboard shortcuts', () => {
     expect(selectCurrentPageId(store.getState())).toBe(pages[0].id)
   })
 
-  it('does nothing for a plain keypress with no Cmd or Ctrl modifier', () => {
+  test('does nothing for a plain keypress with no Cmd or Ctrl modifier', () => {
     // Arrange
     const { store } = makeSeededStore(1)
     mountHook(store)
@@ -180,7 +180,7 @@ describe('dashboard keyboard shortcuts', () => {
     expect(selectIsEditMode(store.getState())).toBe(false)
   })
 
-  it('lets number keys type into inputs instead of switching pages', () => {
+  test('lets number keys type into inputs instead of switching pages', () => {
     // Arrange
     const { store, pages } = makeSeededStore(3)
     mountHook(store)
@@ -195,7 +195,7 @@ describe('dashboard keyboard shortcuts', () => {
     renameInput.remove()
   })
 
-  it('ignores a modified key that is neither E nor a 1-9 digit', () => {
+  test('ignores a modified key that is neither E nor a 1-9 digit', () => {
     // Arrange
     const { store, pages } = makeSeededStore(2)
     mountHook(store)
@@ -208,7 +208,7 @@ describe('dashboard keyboard shortcuts', () => {
     expect(selectCurrentPageId(store.getState())).toBe(pages[0].id)
   })
 
-  it('detaches the window listener on unmount so later keys are ignored', () => {
+  test('detaches the window listener on unmount so later keys are ignored', () => {
     // Arrange
     const { store } = makeSeededStore(1)
     mountHook(store)

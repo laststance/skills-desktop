@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 
@@ -89,7 +89,7 @@ async function renderRepoScopeSearchBox() {
 }
 
 describe('SearchBox scope toggle', () => {
-  it('switches search to repository scope when the Repo toggle is clicked', async () => {
+  test('switches search to repository scope when the Repo toggle is clicked', async () => {
     // Arrange
     const { screen, store } = await renderSearchBox()
 
@@ -100,7 +100,7 @@ describe('SearchBox scope toggle', () => {
     await expect.poll(() => store.getState().ui.searchScope).toBe('repo')
   })
 
-  it('filters skills by the text the user types into the search box', async () => {
+  test('filters skills by the text the user types into the search box', async () => {
     // Arrange
     const { screen, store } = await renderSearchBox()
     // The placeholder defaults to the name-mode copy.
@@ -113,7 +113,7 @@ describe('SearchBox scope toggle', () => {
     await expect.poll(() => store.getState().ui.searchQuery).toBe('react')
   })
 
-  it('relabels the search box for screen readers as repository search when scope flips to repo', async () => {
+  test('relabels the search box for screen readers as repository search when scope flips to repo', async () => {
     // Arrange
     const { screen, store } = await renderSearchBox()
     const { setSearchScope } =
@@ -137,7 +137,7 @@ describe('SearchBox scope toggle', () => {
       .toBeInTheDocument()
   })
 
-  it('shows the repository search hint in the input when scope flips to repo', async () => {
+  test('shows the repository search hint in the input when scope flips to repo', async () => {
     // Arrange
     const { screen, store } = await renderSearchBox()
     const { setSearchScope } =
@@ -159,7 +159,7 @@ describe('SearchBox scope toggle', () => {
 })
 
 describe('SearchBox repository suggestions', () => {
-  it('lists repository names and Local as suggestions when the repo search box is focused', async () => {
+  test('lists repository names and Local as suggestions when the repo search box is focused', async () => {
     // Arrange
     const { screen } = await renderRepoScopeSearchBox()
 
@@ -183,7 +183,7 @@ describe('SearchBox repository suggestions', () => {
       .toBeInTheDocument()
   })
 
-  it('narrows the suggestions to repositories containing the typed text', async () => {
+  test('narrows the suggestions to repositories containing the typed text', async () => {
     // Arrange
     const { screen } = await renderRepoScopeSearchBox()
     const input = screen.getByRole('combobox', {
@@ -207,7 +207,7 @@ describe('SearchBox repository suggestions', () => {
       .toBeNull()
   })
 
-  it('fills the search query with the clicked suggestion and closes the list', async () => {
+  test('fills the search query with the clicked suggestion and closes the list', async () => {
     // Arrange
     const { screen, store } = await renderRepoScopeSearchBox()
     await screen
@@ -224,7 +224,7 @@ describe('SearchBox repository suggestions', () => {
     await expect.poll(() => screen.getByRole('listbox').query()).toBeNull()
   })
 
-  it('reopens the list when the still-focused input is clicked again after a pick', async () => {
+  test('reopens the list when the still-focused input is clicked again after a pick', async () => {
     // Arrange — a pick closes the list but leaves focus in the field, so a
     // second click fires no focus event; the click itself must reopen it.
     const { screen } = await renderRepoScopeSearchBox()
@@ -245,7 +245,7 @@ describe('SearchBox repository suggestions', () => {
       .toBeInTheDocument()
   })
 
-  it('sets the query to Local when the Local suggestion is chosen', async () => {
+  test('sets the query to Local when the Local suggestion is chosen', async () => {
     // Arrange
     const { screen, store } = await renderRepoScopeSearchBox()
     await screen
@@ -259,7 +259,7 @@ describe('SearchBox repository suggestions', () => {
     await expect.poll(() => store.getState().ui.searchQuery).toBe('Local')
   })
 
-  it('picks the first suggestion with ArrowDown then Enter from the keyboard', async () => {
+  test('picks the first suggestion with ArrowDown then Enter from the keyboard', async () => {
     // Arrange
     const { screen, store } = await renderRepoScopeSearchBox()
     await screen
@@ -275,7 +275,7 @@ describe('SearchBox repository suggestions', () => {
       .toBe('microsoft/azure-skills')
   })
 
-  it('offers no suggestion list while searching by skill name', async () => {
+  test('offers no suggestion list while searching by skill name', async () => {
     // Arrange
     const { screen, store } = await renderRepoScopeSearchBox()
     const { setSearchScope } =

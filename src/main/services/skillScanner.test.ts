@@ -1,6 +1,6 @@
 import { basename, join } from 'node:path'
 
-import { beforeEach, describe, expect, it, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { toSkillName } from '@/shared/types'
 
@@ -199,7 +199,7 @@ describe('scanSkills local skill aggregation', () => {
     ])
   })
 
-  it('keeps same local skill as valid for multiple agents', async () => {
+  test('keeps same local skill as valid for multiple agents', async () => {
     // Arrange
     const { scanSkills } = await import('./skillScanner')
 
@@ -219,7 +219,7 @@ describe('scanSkills local skill aggregation', () => {
     expect(cursor).toMatchObject({ status: 'valid', isLocal: true })
   })
 
-  it('populates skillMdSymlinkTarget on the agent slot when SKILL.md is a symlink (gstack-managed sibling)', async () => {
+  test('populates skillMdSymlinkTarget on the agent slot when SKILL.md is a symlink (gstack-managed sibling)', async () => {
     // gstack creates real folders like ~/.claude/skills/ship/ whose only entry
     // is a SKILL.md symlink into the gstack source tree. The scanner must
     // surface that target ON THE PER-AGENT SLOT so the renderer can show the
@@ -248,7 +248,7 @@ describe('scanSkills local skill aggregation', () => {
     )
   })
 
-  it('leaves skillMdSymlinkTarget undefined on every slot when SKILL.md is a regular file', async () => {
+  test('leaves skillMdSymlinkTarget undefined on every slot when SKILL.md is a regular file', async () => {
     // Arrange: default mock returns undefined — explicit assertion guards
     // against someone later changing the default and silently flipping the
     // badge on.
@@ -264,7 +264,7 @@ describe('scanSkills local skill aggregation', () => {
     }
   })
 
-  it('binds skillMdSymlinkTarget to the slot that detected it without bleeding to sibling agents', async () => {
+  test('binds skillMdSymlinkTarget to the slot that detected it without bleeding to sibling agents', async () => {
     // Arrange: codex slot is a gstack-managed twin (SKILL.md symlinks into
     // gstack); cursor slot is a plain local folder. Per-agent attribution:
     // codex's slot must carry the target, cursor's slot must NOT — otherwise
@@ -293,7 +293,7 @@ describe('scanSkills local skill aggregation', () => {
     expect(cursor?.skillMdSymlinkTarget).toBeUndefined()
   })
 
-  it('ignores an agent directory that is not a valid skill', async () => {
+  test('ignores an agent directory that is not a valid skill', async () => {
     // Arrange: codex has a real folder "not-a-skill" with NO SKILL.md inside,
     // so isValidSkillDir rejects it. A directory without a SKILL.md is not a
     // skill and must never enter the inventory.
@@ -338,7 +338,7 @@ describe('scanSkills agent-only linked symlink surfacing', () => {
     countValidSymlinksMock.mockClear()
   })
 
-  it('surfaces valid agent symlinks whose names are not in the source directory', async () => {
+  test('surfaces valid agent symlinks whose names are not in the source directory', async () => {
     // Arrange: Codex has a valid gstack-managed symlink, but ~/.agents/skills
     // has no matching source directory. The sidebar count includes this link,
     // so the central agent view must include a linked card for the same
@@ -398,7 +398,7 @@ describe('scanSkills agent-only linked symlink surfacing', () => {
     expect(cursor).toMatchObject({ status: 'missing', isLocal: false })
   })
 
-  it('surfaces inaccessible agent-only symlinks for manual review instead of dropping them', async () => {
+  test('surfaces inaccessible agent-only symlinks for manual review instead of dropping them', async () => {
     // Arrange: Codex has a symlink whose target can be read but not safely
     // probed. It has no source skill, so it must still appear in the inventory.
     readdirMock.mockImplementation(async (path: string) => {
@@ -459,7 +459,7 @@ describe('scanSkills agent-only linked symlink surfacing', () => {
     expect(cursor).toMatchObject({ status: 'missing', isLocal: false })
   })
 
-  it('keeps the readable description when an inaccessible sibling is seen after a valid one', async () => {
+  test('keeps the readable description when an inaccessible sibling is seen after a valid one', async () => {
     // Arrange: two agents link the SAME skill name "shared-skill". Codex's link
     // is valid with parseable metadata (seen first → builds the record), cursor's
     // link is inaccessible (seen second → carries null metadata). The grouped
@@ -544,7 +544,7 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     countValidSymlinksMock.mockClear()
   })
 
-  it('surfaces broken symlinks whose source is missing as orphan Skill records', async () => {
+  test('surfaces broken symlinks whose source is missing as orphan Skill records', async () => {
     // Arrange: source dir empty; codex has 1 broken symlink "connect-chrome".
     readdirMock.mockImplementation(async (path: string) => {
       if (path === '/mock/source/skills') return []
@@ -599,7 +599,7 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     expect(cursor).toMatchObject({ status: 'missing', isLocal: false })
   })
 
-  it('collapses the same broken name across multiple agents into one orphan record', async () => {
+  test('collapses the same broken name across multiple agents into one orphan record', async () => {
     // Arrange
     readdirMock.mockImplementation(async (path: string) => {
       if (path === '/mock/source/skills') return []
@@ -633,7 +633,7 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     expect(cursor?.status).toBe('broken')
   })
 
-  it('does NOT create orphan record when name matches a live source skill', async () => {
+  test('does NOT create orphan record when name matches a live source skill', async () => {
     // Arrange: source has "theme-generator". Codex has a broken
     // "theme-generator" symlink — broken status belongs in the source skill's
     // symlinks[], not in a separate orphan record.
@@ -680,7 +680,7 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     expect(skills[0].isSource).toBe(true)
   })
 
-  it('skips a source skill directory that disappears after the directory listing', async () => {
+  test('skips a source skill directory that disappears after the directory listing', async () => {
     // Arrange: `listValidSourceSkillDirs()` sees two valid dirs because SKILL.md
     // stat succeeded, then the second dir vanishes before scanSourceSkills()
     // captures its reviewed filesystem identity.
@@ -914,7 +914,7 @@ describe('scanSkills orphan symlink surfacing (issue #127)', () => {
     )
   })
 
-  it('merges orphan broken slots into a same-named local skill (regression for #127 follow-up)', async () => {
+  test('merges orphan broken slots into a same-named local skill (regression for #127 follow-up)', async () => {
     // Arrange: Cursor has a real folder named "frontend-design" → local skill.
     // Codex has a broken symlink with the same name → source missing, orphan.
     // Naive first-wins (which the original merge used) would keep only the
@@ -992,7 +992,7 @@ describe('scanSkills result ordering', () => {
     countValidSymlinksMock.mockClear()
   })
 
-  it('lists skills alphabetically by name regardless of on-disk directory order', async () => {
+  test('lists skills alphabetically by name regardless of on-disk directory order', async () => {
     // Arrange: source dir returns two valid skills in reverse-alphabetical
     // order on disk ("zeta-skill" before "alpha-skill"). The sidebar and the
     // central inventory both render this array as-is, so a stable A→Z order is
@@ -1059,7 +1059,7 @@ describe('scanSkills source attribution from lock file', () => {
     countValidSymlinksMock.mockClear()
   })
 
-  it('shows the GitHub source and clone URL on a skill listed in the lock file', async () => {
+  test('shows the GitHub source and clone URL on a skill listed in the lock file', async () => {
     // Arrange: one live source skill "frontend-design", and a lock file that
     // records where that skill was installed from. The marketplace badge and
     // "open source repo" link depend on these fields being copied onto the row.
@@ -1105,7 +1105,7 @@ describe('scanSkills source attribution from lock file', () => {
     )
   })
 
-  it('leaves source fields unset for a skill absent from the lock file', async () => {
+  test('leaves source fields unset for a skill absent from the lock file', async () => {
     // Arrange: lock file has an unrelated entry, so the present skill must NOT
     // inherit a stale source/sourceUrl — guards against attaching the wrong
     // repo to a skill.
@@ -1149,7 +1149,7 @@ describe('scanSkills source attribution from lock file', () => {
     expect(skills[0].sourceUrl).toBeUndefined()
   })
 
-  it('treats a lock file with no skills key as having no source data', async () => {
+  test('treats a lock file with no skills key as having no source data', async () => {
     // Arrange: an older / partially-initialized lock file omits the `skills`
     // key entirely. Parsing must still succeed and yield an empty source map
     // rather than crashing the whole scan.
@@ -1305,7 +1305,7 @@ describe('scanSkills resilience to per-agent and source failures', () => {
     countValidSymlinksMock.mockClear()
   })
 
-  it('keeps scanning when one agent directory cannot be read', async () => {
+  test('keeps scanning when one agent directory cannot be read', async () => {
     // Arrange: codex's skills dir read fails outright (e.g. EACCES). Both the
     // local-folder scan and the symlink-status scan must swallow that agent's
     // failure and still return cursor's valid local skill instead of aborting.
@@ -1343,7 +1343,7 @@ describe('scanSkills resilience to per-agent and source failures', () => {
     expect(cursor).toMatchObject({ status: 'valid', isLocal: true })
   })
 
-  it('aborts the whole scan when a source skill fails with a non-missing error', async () => {
+  test('aborts the whole scan when a source skill fails with a non-missing error', async () => {
     // Arrange: the source dir lists a skill that passes SKILL.md validation,
     // but capturing its filesystem identity fails with EACCES (not ENOENT).
     // A permission fault is not a benign race, so the scan must surface it
@@ -1377,7 +1377,7 @@ describe('scanSkills resilience to per-agent and source failures', () => {
     await expect(scanSkills()).rejects.toThrow('EACCES: permission denied')
   })
 
-  it('drops a valid agent link whose target metadata cannot be parsed', async () => {
+  test('drops a valid agent link whose target metadata cannot be parsed', async () => {
     // Arrange: codex has a "valid" symlink whose target exists but whose
     // SKILL.md cannot be parsed (corrupt frontmatter). That link must be
     // dropped from the linked list rather than surfacing a half-built row.
@@ -1426,7 +1426,7 @@ describe('scanSkills resilience to per-agent and source failures', () => {
     expect(skills).toHaveLength(0)
   })
 
-  it('drops a valid agent link whose target path cannot be read', async () => {
+  test('drops a valid agent link whose target path cannot be read', async () => {
     // Arrange: codex has a "valid" symlink, but readSymlinkTargetIfPresent
     // returns undefined for it (the link resolves as valid yet its target path
     // cannot be read back). With no target path there is no SKILL.md to parse,
@@ -1463,7 +1463,7 @@ describe('scanSkills resilience to per-agent and source failures', () => {
     expect(skills).toHaveLength(0)
   })
 
-  it('upgrades an inaccessible link record to readable metadata when a valid sibling link is found', async () => {
+  test('upgrades an inaccessible link record to readable metadata when a valid sibling link is found', async () => {
     // Arrange: two agents link the SAME skill name "shared-skill". Codex's link
     // is inaccessible (seen first), cursor's link is valid with parseable
     // metadata. The grouped record must adopt cursor's real description and
@@ -1544,7 +1544,7 @@ describe('getSkill single-skill lookup', () => {
     countValidSymlinksMock.mockClear()
   })
 
-  it('returns the full skill record when the named directory exists in the source dir', async () => {
+  test('returns the full skill record when the named directory exists in the source dir', async () => {
     // Arrange: stat resolves to a directory for the requested skill path.
     statMock.mockImplementation(async (path: string) => {
       if (path === '/mock/source/skills/theme-generator') {
@@ -1566,7 +1566,7 @@ describe('getSkill single-skill lookup', () => {
     expect(skill?.symlinkCount).toBe(0)
   })
 
-  it('returns null when the named path exists but is a file, not a directory', async () => {
+  test('returns null when the named path exists but is a file, not a directory', async () => {
     // Arrange: stat resolves but the path is a regular file — not a skill dir.
     statMock.mockImplementation(async (path: string) => {
       if (path === '/mock/source/skills/not-a-dir') {
@@ -1583,7 +1583,7 @@ describe('getSkill single-skill lookup', () => {
     expect(skill).toBeNull()
   })
 
-  it('returns null when the named skill directory does not exist', async () => {
+  test('returns null when the named skill directory does not exist', async () => {
     // Arrange: stat rejects (ENOENT) for the requested path.
     statMock.mockRejectedValue(new Error('ENOENT'))
     const { getSkill } = await import('./skillScanner')
@@ -1607,7 +1607,7 @@ describe('getSourceStats source directory summary', () => {
     countValidSymlinksMock.mockClear()
   })
 
-  it('reports skill count, human-readable total size, and last-modified time', async () => {
+  test('reports skill count, human-readable total size, and last-modified time', async () => {
     // Arrange: source dir holds one valid skill folder containing a SKILL.md
     // (2048 bytes) plus a nested assets dir with one PNG (1024 bytes). The
     // summary must count the skill and sum the byte totals recursively.
@@ -1674,7 +1674,7 @@ describe('getSourceStats source directory summary', () => {
     expect(sourceStats.lastModified).toBe('2026-06-14T00:00:00.000Z')
   })
 
-  it('excludes symlink entries from the recursive size total', async () => {
+  test('excludes symlink entries from the recursive size total', async () => {
     // Arrange: source dir holds one valid skill folder with a SKILL.md (2048B)
     // and a nested assets dir containing a PNG (1024B) plus a symlink entry
     // (neither a directory nor a regular file). The size walk must count only
@@ -1743,7 +1743,7 @@ describe('getSourceStats source directory summary', () => {
     expect(sourceStats.totalSize).toBe('3.0 KB')
   })
 
-  it('falls back to a zero-byte placeholder when the source dir cannot be stat-ed', async () => {
+  test('falls back to a zero-byte placeholder when the source dir cannot be stat-ed', async () => {
     // Arrange: listValidSourceSkillDirs succeeds (empty), but stat(SOURCE_DIR)
     // throws — getSourceStats must degrade gracefully instead of rejecting.
     readdirMock.mockResolvedValue([])

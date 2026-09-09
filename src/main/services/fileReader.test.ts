@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises'
 
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, test, vi, beforeEach } from 'vitest'
 
 import { MAX_IMAGE_FILE_BYTES, MAX_TEXT_FILE_BYTES } from '@/shared/fileTypes'
 import { toAbsolutePath } from '@/shared/types'
@@ -65,7 +65,7 @@ describe('listSkillFiles', () => {
     vi.clearAllMocks()
   })
 
-  it('puts SKILL.md first and sorts the rest by relative path', async () => {
+  test('puts SKILL.md first and sorts the rest by relative path', async () => {
     // Arrange
     mockTree({
       '/skills/my-skill': [
@@ -87,7 +87,7 @@ describe('listSkillFiles', () => {
     ])
   })
 
-  it('drops files with unsupported extensions from the listing', async () => {
+  test('drops files with unsupported extensions from the listing', async () => {
     // Arrange
     mockTree({
       '/skills/my-skill': [
@@ -110,7 +110,7 @@ describe('listSkillFiles', () => {
     expect(names).not.toContain('data.bin')
   })
 
-  it('flags png and jpg as image-previewable and markdown as text-previewable', async () => {
+  test('flags png and jpg as image-previewable and markdown as text-previewable', async () => {
     // Arrange
     mockTree({
       '/skills/my-skill': [
@@ -131,7 +131,7 @@ describe('listSkillFiles', () => {
     expect(byName['photo.JPG'].previewable).toBe('image')
   })
 
-  it('lists python, shell, and toml files (Scope B extensions)', async () => {
+  test('lists python, shell, and toml files (Scope B extensions)', async () => {
     // Arrange
     mockTree({
       '/skills/my-skill': [
@@ -154,7 +154,7 @@ describe('listSkillFiles', () => {
     expect(names).toContain('Config.toml')
   })
 
-  it('walks into subdirectories and records each file relative path', async () => {
+  test('walks into subdirectories and records each file relative path', async () => {
     // Arrange
     mockTree({
       '/skills/my-skill': [
@@ -173,7 +173,7 @@ describe('listSkillFiles', () => {
     expect(byName['helper.py'].relativePath).toBe('lib/helper.py')
   })
 
-  it('never descends into node_modules, .git, or __pycache__', async () => {
+  test('never descends into node_modules, .git, or __pycache__', async () => {
     // Arrange
     mockTree({
       '/skills/my-skill': [
@@ -198,7 +198,7 @@ describe('listSkillFiles', () => {
     expect(names).toEqual(['SKILL.md'])
   })
 
-  it('refuses to traverse a symlinked subdirectory', async () => {
+  test('refuses to traverse a symlinked subdirectory', async () => {
     // Arrange
     mockTree({
       '/skills/my-skill': [
@@ -218,7 +218,7 @@ describe('listSkillFiles', () => {
     expect(names).not.toContain('secret.md')
   })
 
-  it('omits a symlinked file sitting at the top level', async () => {
+  test('omits a symlinked file sitting at the top level', async () => {
     // Arrange
     mockTree({
       '/skills/my-skill': [
@@ -237,7 +237,7 @@ describe('listSkillFiles', () => {
     expect(names).toEqual(['SKILL.md'])
   })
 
-  it('excludes a special filesystem entry that is neither file, directory, nor symlink', async () => {
+  test('excludes a special filesystem entry that is neither file, directory, nor symlink', async () => {
     // Arrange
     // A FIFO / socket / device node surfaces from readdir as a Dirent that is
     // not a file, not a directory, and not a symlink — it must be dropped so
@@ -263,7 +263,7 @@ describe('listSkillFiles', () => {
     expect(names).toEqual(['SKILL.md'])
   })
 
-  it('stops recursing past the depth cap, excluding a file one level too deep', async () => {
+  test('stops recursing past the depth cap, excluding a file one level too deep', async () => {
     // Arrange
     mockTree({
       '/r': [makeDirent('a', { isDirectory: true })],
@@ -284,7 +284,7 @@ describe('listSkillFiles', () => {
     expect(names).not.toContain('too-deep.md')
   })
 
-  it('still lists a file sitting exactly at the depth cap boundary', async () => {
+  test('still lists a file sitting exactly at the depth cap boundary', async () => {
     // Arrange
     mockTree({
       '/r': [makeDirent('a', { isDirectory: true })],
@@ -304,7 +304,7 @@ describe('listSkillFiles', () => {
     expect(names).toContain('ok.md')
   })
 
-  it('treats an over-sized text file as non-previewable binary', async () => {
+  test('treats an over-sized text file as non-previewable binary', async () => {
     // Arrange
     mockTree({
       '/skills/my-skill': [makeDirent('huge.md')],
@@ -318,7 +318,7 @@ describe('listSkillFiles', () => {
     expect(result[0].previewable).toBe('binary')
   })
 
-  it('treats an over-sized image as non-previewable binary', async () => {
+  test('treats an over-sized image as non-previewable binary', async () => {
     // Arrange
     mockTree({
       '/skills/my-skill': [makeDirent('big.png')],
@@ -332,7 +332,7 @@ describe('listSkillFiles', () => {
     expect(result[0].previewable).toBe('binary')
   })
 
-  it('yields an empty listing when the directory does not exist', async () => {
+  test('yields an empty listing when the directory does not exist', async () => {
     // Arrange
     mockFs.readdir.mockRejectedValue(new Error('ENOENT'))
 
@@ -343,7 +343,7 @@ describe('listSkillFiles', () => {
     expect(result).toEqual([])
   })
 
-  it('falls back to an empty listing when traversal throws on a malformed entry', async () => {
+  test('falls back to an empty listing when traversal throws on a malformed entry', async () => {
     // Arrange
     // readdir resolves, but the entry's own type-check throws mid-walk —
     // this escapes the readdir try/catch and must be swallowed by the
@@ -368,7 +368,7 @@ describe('listSkillFiles', () => {
     expect(result).toEqual([])
   })
 
-  it('drops a file from the listing when its stat call fails', async () => {
+  test('drops a file from the listing when its stat call fails', async () => {
     // Arrange
     mockTree({
       '/skills/my-skill': [makeDirent('SKILL.md'), makeDirent('vanished.md')],
@@ -398,7 +398,7 @@ describe('readSkillFile', () => {
     vi.clearAllMocks()
   })
 
-  it('reads a file back with its name, content, extension, and line count', async () => {
+  test('reads a file back with its name, content, extension, and line count', async () => {
     // Arrange
     mockStat({}, 100)
     mockFs.readFile.mockResolvedValue('line one\nline two\nline three')
@@ -416,7 +416,7 @@ describe('readSkillFile', () => {
     expect(result!.lineCount).toBe(3)
   })
 
-  it('skips a file it cannot read by returning null', async () => {
+  test('skips a file it cannot read by returning null', async () => {
     // Arrange
     mockStat({}, 100)
     mockFs.readFile.mockRejectedValue(new Error('ENOENT'))
@@ -430,7 +430,7 @@ describe('readSkillFile', () => {
     expect(result).toBeNull()
   })
 
-  it('refuses to read a file larger than the text size cap', async () => {
+  test('refuses to read a file larger than the text size cap', async () => {
     // Arrange
     mockStat({}, MAX_TEXT_FILE_BYTES + 1)
 
@@ -443,7 +443,7 @@ describe('readSkillFile', () => {
     expect(result).toBeNull()
   })
 
-  it('lowercases the extension of an upper-cased filename', async () => {
+  test('lowercases the extension of an upper-cased filename', async () => {
     // Arrange
     mockStat({}, 10)
     mockFs.readFile.mockResolvedValue('# uppercase')
@@ -463,7 +463,7 @@ describe('readBinaryFile', () => {
     vi.clearAllMocks()
   })
 
-  it('encodes a png file as a base64 image data URL with its byte size', async () => {
+  test('encodes a png file as a base64 image data URL with its byte size', async () => {
     // Arrange
     mockStat({}, 4)
     mockFs.readFile.mockResolvedValue(Buffer.from([0x89, 0x50, 0x4e, 0x47]))
@@ -480,7 +480,7 @@ describe('readBinaryFile', () => {
     expect(result!.size).toBe(4)
   })
 
-  it('reports both .jpg and .jpeg as image/jpeg', async () => {
+  test('reports both .jpg and .jpeg as image/jpeg', async () => {
     // Arrange
     mockStat({}, 2)
     mockFs.readFile.mockResolvedValue(Buffer.from([0xff, 0xd8]))
@@ -496,7 +496,7 @@ describe('readBinaryFile', () => {
     expect(b!.mimeType).toBe('image/jpeg')
   })
 
-  it('refuses to render a file with an unknown image extension', async () => {
+  test('refuses to render a file with an unknown image extension', async () => {
     // Arrange
     mockStat({}, 2)
     mockFs.readFile.mockResolvedValue(Buffer.from([0, 0]))
@@ -510,7 +510,7 @@ describe('readBinaryFile', () => {
     expect(result).toBeNull()
   })
 
-  it('refuses to render an image larger than the image size cap', async () => {
+  test('refuses to render an image larger than the image size cap', async () => {
     // Arrange
     mockStat({}, MAX_IMAGE_FILE_BYTES + 1)
 
@@ -523,7 +523,7 @@ describe('readBinaryFile', () => {
     expect(result).toBeNull()
   })
 
-  it('returns nothing when the image cannot be read', async () => {
+  test('returns nothing when the image cannot be read', async () => {
     // Arrange
     mockStat({}, 2)
     mockFs.readFile.mockRejectedValue(new Error('EACCES'))
@@ -537,7 +537,7 @@ describe('readBinaryFile', () => {
     expect(result).toBeNull()
   })
 
-  it('produces a base64 payload past the data-URL prefix for a tiny image', async () => {
+  test('produces a base64 payload past the data-URL prefix for a tiny image', async () => {
     // Arrange
     mockStat({}, 3)
     mockFs.readFile.mockResolvedValue(Buffer.from([1, 2, 3]))

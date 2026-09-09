@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { Agent, Skill, SymlinkInfo } from '@/shared/types'
@@ -143,7 +143,7 @@ async function renderModal(options: {
 }
 
 describe('CopyToAgentsModal source guards', () => {
-  it('disables copy actions when the selected source is a broken symlink', async () => {
+  test('disables copy actions when the selected source is a broken symlink', async () => {
     // Arrange
     const skill = makeSkill([
       {
@@ -180,7 +180,7 @@ describe('CopyToAgentsModal source guards', () => {
     expect(mockCopyToAgents).not.toHaveBeenCalled()
   })
 
-  it('keeps copy actions enabled when the selected source is a valid linked skill', async () => {
+  test('keeps copy actions enabled when the selected source is a valid linked skill', async () => {
     // Arrange
     const skill = makeSkill([
       {
@@ -215,7 +215,7 @@ describe('CopyToAgentsModal source guards', () => {
 })
 
 describe('CopyToAgentsModal destination selection', () => {
-  it('marks a destination agent as chosen when its row is clicked', async () => {
+  test('marks a destination agent as chosen when its row is clicked', async () => {
     // Arrange
     const skill = makeSkill([
       {
@@ -247,7 +247,7 @@ describe('CopyToAgentsModal destination selection', () => {
 })
 
 describe('CopyToAgentsModal copy outcome', () => {
-  it('copies the source skill to every ticked agent when Copy is pressed', async () => {
+  test('copies the source skill to every ticked agent when Copy is pressed', async () => {
     // Arrange
     mockCopyToAgents.mockResolvedValue({
       success: true,
@@ -289,7 +289,7 @@ describe('CopyToAgentsModal copy outcome', () => {
 })
 
 describe('CopyToAgentsModal dismissal', () => {
-  it('closes the modal when Cancel is pressed', async () => {
+  test('closes the modal when Cancel is pressed', async () => {
     // Arrange
     const skill = makeSkill([
       {
@@ -319,7 +319,7 @@ describe('CopyToAgentsModal dismissal', () => {
     })
   })
 
-  it('closes the modal when Escape requests the dialog to close', async () => {
+  test('closes the modal when Escape requests the dialog to close', async () => {
     // Arrange
     const skill = makeSkill([
       {

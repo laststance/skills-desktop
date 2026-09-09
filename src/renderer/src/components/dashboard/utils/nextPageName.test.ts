@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import type { DashboardPage } from '@/renderer/src/components/dashboard/types'
 import { toDashboardPageName } from '@/renderer/src/components/dashboard/types'
@@ -22,7 +22,7 @@ function makePage(name: string): DashboardPage {
 }
 
 describe('nextPageName', () => {
-  it('numbers the first overflow page after the four named preset pages', () => {
+  test('numbers the first overflow page after the four named preset pages', () => {
     // Arrange: the default preset — four pages, none named "Page N".
     const pages = [
       makePage('Overview'),
@@ -38,7 +38,7 @@ describe('nextPageName', () => {
     expect(name).toBe('Page 5')
   })
 
-  it('skips a still-present "Page N" so a deleted middle page cannot be duplicated', () => {
+  test('skips a still-present "Page N" so a deleted middle page cannot be duplicated', () => {
     // Arrange: "Page 5" was deleted earlier, leaving "Page 6" behind.
     const pages = [
       makePage('Overview'),
@@ -55,7 +55,7 @@ describe('nextPageName', () => {
     expect(name).toBe('Page 7')
   })
 
-  it('mints "Page 1" when there are no pages', () => {
+  test('mints "Page 1" when there are no pages', () => {
     // Arrange: an empty dashboard (defensive — the UI keeps at least one page).
     const pages: DashboardPage[] = []
 
@@ -66,7 +66,7 @@ describe('nextPageName', () => {
     expect(name).toBe('Page 1')
   })
 
-  it('bumps past several consecutive taken numbers', () => {
+  test('bumps past several consecutive taken numbers', () => {
     // Arrange: two pages occupy the slots that count+1 would otherwise land on.
     const pages = [makePage('Page 2'), makePage('Page 3')]
 

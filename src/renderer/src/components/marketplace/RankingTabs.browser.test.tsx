@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { RankingTabs } from './RankingTabs'
@@ -17,7 +17,7 @@ function pressKeyOn(key: string, fromElement: Element): void {
 }
 
 describe('RankingTabs — ranking filter selection', () => {
-  it('renders the three leaderboard ranking tabs with the current filter selected', async () => {
+  test('renders the three leaderboard ranking tabs with the current filter selected', async () => {
     // Arrange + Act
     const screen = await render(
       <RankingTabs value="trending" onChange={vi.fn()} />,
@@ -36,7 +36,7 @@ describe('RankingTabs — ranking filter selection', () => {
       .toHaveAttribute('aria-selected', 'false')
   })
 
-  it('reports the chosen filter when a tab is clicked', async () => {
+  test('reports the chosen filter when a tab is clicked', async () => {
     // Arrange
     const handleChange = vi.fn()
     const screen = await render(
@@ -50,7 +50,7 @@ describe('RankingTabs — ranking filter selection', () => {
     expect(handleChange).toHaveBeenCalledWith('hot')
   })
 
-  it('advances to the next tab when the right arrow key is pressed', async () => {
+  test('advances to the next tab when the right arrow key is pressed', async () => {
     // Arrange
     const handleChange = vi.fn()
     const screen = await render(
@@ -65,7 +65,7 @@ describe('RankingTabs — ranking filter selection', () => {
     expect(handleChange).toHaveBeenCalledWith('trending')
   })
 
-  it('wraps to the first tab when the right arrow is pressed on the last tab', async () => {
+  test('wraps to the first tab when the right arrow is pressed on the last tab', async () => {
     // Arrange
     const handleChange = vi.fn()
     const screen = await render(
@@ -80,7 +80,7 @@ describe('RankingTabs — ranking filter selection', () => {
     expect(handleChange).toHaveBeenCalledWith('all-time')
   })
 
-  it('wraps to the last tab when the left arrow is pressed on the first tab', async () => {
+  test('wraps to the last tab when the left arrow is pressed on the first tab', async () => {
     // Arrange
     const handleChange = vi.fn()
     const screen = await render(
@@ -95,7 +95,7 @@ describe('RankingTabs — ranking filter selection', () => {
     expect(handleChange).toHaveBeenCalledWith('hot')
   })
 
-  it('ignores non-arrow keys so unrelated typing never changes the filter', async () => {
+  test('ignores non-arrow keys so unrelated typing never changes the filter', async () => {
     // Arrange
     const handleChange = vi.fn()
     const screen = await render(
@@ -110,7 +110,7 @@ describe('RankingTabs — ranking filter selection', () => {
     expect(handleChange).not.toHaveBeenCalled()
   })
 
-  it('does not respond to arrow keys while disabled during search', async () => {
+  test('does not respond to arrow keys while disabled during search', async () => {
     // Arrange
     const handleChange = vi.fn()
     const screen = await render(

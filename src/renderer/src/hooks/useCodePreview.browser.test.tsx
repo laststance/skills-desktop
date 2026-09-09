@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
 
 import type {
@@ -78,7 +78,7 @@ afterEach(() => {
 })
 
 describe('useCodePreview', () => {
-  it('auto-selects and previews the first file when a skill is opened', async () => {
+  test('auto-selects and previews the first file when a skill is opened', async () => {
     // Arrange
     const file = makeFile()
     const body = makeTextContent()
@@ -103,7 +103,7 @@ describe('useCodePreview', () => {
     expect(result.current.loading).toBe(false)
   })
 
-  it('shows an empty preview and reads no file content when the skill has no files', async () => {
+  test('shows an empty preview and reads no file content when the skill has no files', async () => {
     // Arrange
     listMock.mockResolvedValue([])
 
@@ -123,7 +123,7 @@ describe('useCodePreview', () => {
     expect(readMock).not.toHaveBeenCalled()
   })
 
-  it('previews a different file when the user selects it', async () => {
+  test('previews a different file when the user selects it', async () => {
     // Arrange
     const first = makeFile()
     const second = makeFile({
@@ -160,7 +160,7 @@ describe('useCodePreview', () => {
     expect(result.current.content).toEqual({ kind: 'text', data: secondBody })
   })
 
-  it('does not re-fetch when the user re-selects the file already being previewed', async () => {
+  test('does not re-fetch when the user re-selects the file already being previewed', async () => {
     // Arrange
     const file = makeFile()
     listMock.mockResolvedValue([file])
@@ -184,7 +184,7 @@ describe('useCodePreview', () => {
     expect(readMock).toHaveBeenCalledTimes(1)
   })
 
-  it('clears the preview to empty when the active file is deselected', async () => {
+  test('clears the preview to empty when the active file is deselected', async () => {
     // Arrange
     const file = makeFile()
     const body = makeTextContent()
@@ -212,7 +212,7 @@ describe('useCodePreview', () => {
     expect(readMock).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps the user-selected file showing when a slow initial-load read finally resolves', async () => {
+  test('keeps the user-selected file showing when a slow initial-load read finally resolves', async () => {
     // Arrange
     const first = makeFile()
     const second = makeFile({
@@ -275,7 +275,7 @@ describe('useCodePreview', () => {
     expect(result.current.content).toEqual({ kind: 'text', data: secondBody })
   })
 
-  it('keeps the latest selection showing when a slow earlier selection finally resolves', async () => {
+  test('keeps the latest selection showing when a slow earlier selection finally resolves', async () => {
     // Arrange
     const first = makeFile()
     const second = makeFile({
@@ -355,7 +355,7 @@ describe('useCodePreview', () => {
     expect(result.current.content).toEqual({ kind: 'text', data: thirdBody })
   })
 
-  it('clears the previous file preview immediately when the user switches to another skill', async () => {
+  test('clears the previous file preview immediately when the user switches to another skill', async () => {
     // Arrange
     const fileA = makeFile({
       path: toAbsolutePath('/skills/a/SKILL.md'),
@@ -736,7 +736,7 @@ describe('useCodePreview', () => {
     expect(result.current.activeFile).toBe(fileB.path)
   })
 
-  it('previews an image file through the binary reader without calling the text reader', async () => {
+  test('previews an image file through the binary reader without calling the text reader', async () => {
     // Arrange
     const image = makeFile({
       name: toFileName('logo.png'),
@@ -767,7 +767,7 @@ describe('useCodePreview', () => {
     expect(readMock).not.toHaveBeenCalled()
   })
 
-  it('shows a placeholder instead of reading content for an oversized file', async () => {
+  test('shows a placeholder instead of reading content for an oversized file', async () => {
     // Arrange
     const big = makeFile({
       name: toFileName('dump.bin'),
@@ -797,7 +797,7 @@ describe('useCodePreview', () => {
     expect(readBinaryMock).not.toHaveBeenCalled()
   })
 
-  it('drops the abandoned skill files when the user switches skills before the first list resolves', async () => {
+  test('drops the abandoned skill files when the user switches skills before the first list resolves', async () => {
     // Arrange
     const fileA = makeFile({
       name: toFileName('a.md'),
@@ -859,7 +859,7 @@ describe('useCodePreview', () => {
     expect(result.current.content).toEqual({ kind: 'text', data: bodyB })
   })
 
-  it('ignores a request to preview a path that is not in the file list and reads nothing extra', async () => {
+  test('ignores a request to preview a path that is not in the file list and reads nothing extra', async () => {
     // Arrange
     const file = makeFile()
     const body = makeTextContent()
@@ -893,7 +893,7 @@ describe('useCodePreview', () => {
     expect(result.current.activeFile).toBe(file.path)
   })
 
-  it('shows an empty preview when a text file read returns null because the file vanished mid-load', async () => {
+  test('shows an empty preview when a text file read returns null because the file vanished mid-load', async () => {
     // Arrange
     const file = makeFile()
     listMock.mockResolvedValue([file])
@@ -912,7 +912,7 @@ describe('useCodePreview', () => {
     expect(readMock).toHaveBeenCalledTimes(1)
   })
 
-  it('shows an empty preview when an image file read returns null because the image vanished mid-load', async () => {
+  test('shows an empty preview when an image file read returns null because the image vanished mid-load', async () => {
     // Arrange
     const image = makeFile({
       name: toFileName('logo.png'),

@@ -1,5 +1,5 @@
 import * as TabsPrimitive from '@radix-ui/react-tabs'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { AbsolutePath, SkillFile } from '@/shared/types'
@@ -50,7 +50,7 @@ async function renderFileTabs(
 }
 
 describe('FileTabs tab bar', () => {
-  it('renders one tab per file labeled by its relative path', async () => {
+  test('renders one tab per file labeled by its relative path', async () => {
     // Arrange
     const files = [
       makeSkillFile({
@@ -76,7 +76,7 @@ describe('FileTabs tab bar', () => {
       .toBeInTheDocument()
   })
 
-  it('marks the active file as the selected tab', async () => {
+  test('marks the active file as the selected tab', async () => {
     // Arrange
     const files = [
       makeSkillFile({
@@ -103,7 +103,7 @@ describe('FileTabs tab bar', () => {
       .toHaveAttribute('aria-selected', 'false')
   })
 
-  it('shows an image icon on tabs for previewable image files', async () => {
+  test('shows an image icon on tabs for previewable image files', async () => {
     // Arrange
     const files = [
       makeSkillFile({
@@ -123,7 +123,7 @@ describe('FileTabs tab bar', () => {
     expect(tab.querySelector('.lucide-file-image')).toBeInstanceOf(SVGElement)
   })
 
-  it('shows a document icon on tabs for Markdown files', async () => {
+  test('shows a document icon on tabs for Markdown files', async () => {
     // Arrange
     const files = [
       makeSkillFile({
@@ -143,7 +143,7 @@ describe('FileTabs tab bar', () => {
     expect(tab.querySelector('.lucide-file-text')).toBeInstanceOf(SVGElement)
   })
 
-  it('shows a code icon on tabs for other source files', async () => {
+  test('shows a code icon on tabs for other source files', async () => {
     // Arrange
     const files = [
       makeSkillFile({

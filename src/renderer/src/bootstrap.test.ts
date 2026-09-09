@@ -22,7 +22,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { runInThisContext } from 'node:vm'
 
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, test } from 'vitest'
 
 import { COLOR_PRESET_CHROMA, PERSIST_STORAGE_KEY } from '@/shared/constants'
 
@@ -148,7 +148,7 @@ beforeEach(() => {
 describe.each(Object.entries(HTML_PATHS))(
   'bootstrap — pre-hydration theme IIFE (%s window)',
   (_windowName, htmlPath) => {
-    it('keeps the inline bootstrap reading the storage key so first paint stays in sync with persisted state', () => {
+    test('keeps the inline bootstrap reading the storage key so first paint stays in sync with persisted state', () => {
       // Arrange — read index.html as shipped
       const html = readFileSync(htmlPath, 'utf8')
 
@@ -158,7 +158,7 @@ describe.each(Object.entries(HTML_PATHS))(
       expect(html).toContain(`'${PERSIST_STORAGE_KEY}'`)
     })
 
-    it('keeps the inline bootstrap referencing the color-preset chroma so renamed constants fail loudly', () => {
+    test('keeps the inline bootstrap referencing the color-preset chroma so renamed constants fail loudly', () => {
       // Arrange — read index.html as shipped
       const html = readFileSync(htmlPath, 'utf8')
 
@@ -168,7 +168,7 @@ describe.each(Object.entries(HTML_PATHS))(
       expect(html).toContain(`'${COLOR_PRESET_CHROMA}'`)
     })
 
-    it('keeps the inline tinted-gate upper bound pinned to COLOR_PRESET_CHROMA so a constant bump cannot desync first paint', () => {
+    test('keeps the inline tinted-gate upper bound pinned to COLOR_PRESET_CHROMA so a constant bump cannot desync first paint', () => {
       // Arrange — read index.html as shipped. The .tone-tinted gate uses a
       // BARE `chromaVal < 0.16` comparison (not the quoted setProperty arg the
       // test above guards). If COLOR_PRESET_CHROMA is retuned but this bare
@@ -183,7 +183,7 @@ describe.each(Object.entries(HTML_PATHS))(
       expect(html).toContain(`chromaVal < ${COLOR_PRESET_CHROMA}`)
     })
 
-    it('paints the default dark theme with no CSS vars when storage is empty', () => {
+    test('paints the default dark theme with no CSS vars when storage is empty', () => {
       // Arrange — beforeEach already cleared storage and set the .dark baseline
 
       // Act
@@ -197,7 +197,7 @@ describe.each(Object.entries(HTML_PATHS))(
       expect(root.style.getPropertyValue('--theme-chroma')).toBe('')
     })
 
-    it('falls back to the default dark theme when persisted state is malformed JSON', () => {
+    test('falls back to the default dark theme when persisted state is malformed JSON', () => {
       // Arrange — corrupt the persisted blob so JSON.parse will throw
       localStorage.setItem(PERSIST_STORAGE_KEY, 'not-json{')
 
@@ -211,7 +211,7 @@ describe.each(Object.entries(HTML_PATHS))(
       ).toBe('')
     })
 
-    it('leaves the DOM untouched when the persisted theme slot is null', () => {
+    test('leaves the DOM untouched when the persisted theme slot is null', () => {
       // Arrange — valid envelope but an explicitly null theme
       localStorage.setItem(
         PERSIST_STORAGE_KEY,
@@ -228,7 +228,7 @@ describe.each(Object.entries(HTML_PATHS))(
       ).toBe('')
     })
 
-    it('applies hue and chroma and keeps dark mode for a v1 color preset', () => {
+    test('applies hue and chroma and keeps dark mode for a v1 color preset', () => {
       // Arrange — a v1 cyan color preset in dark mode
       localStorage.setItem(
         PERSIST_STORAGE_KEY,
@@ -258,7 +258,7 @@ describe.each(Object.entries(HTML_PATHS))(
       expect(root.classList.contains('light')).toBe(false)
     })
 
-    it('zeroes chroma and flips to light mode for a v1 neutral preset', () => {
+    test('zeroes chroma and flips to light mode for a v1 neutral preset', () => {
       // Arrange — a v1 neutral-light preset in light mode
       localStorage.setItem(
         PERSIST_STORAGE_KEY,
@@ -285,7 +285,7 @@ describe.each(Object.entries(HTML_PATHS))(
       expect(root.classList.contains('dark')).toBe(false)
     })
 
-    it('derives chroma from the legacy presetType so v0 color users skip the neutral-dark flash', () => {
+    test('derives chroma from the legacy presetType so v0 color users skip the neutral-dark flash', () => {
       // Regression guard for post-landing finding MAJOR-2: the v1 bootstrap
       // only read `t.chroma`, so any user still on v0 storage saw a
       // neutral-dark flash for ~100ms until ACTION_HYDRATE_COMPLETE fired.
@@ -317,7 +317,7 @@ describe.each(Object.entries(HTML_PATHS))(
       expect(root.classList.contains('dark')).toBe(true)
     })
 
-    it('zeroes chroma for a legacy v0 neutral preset', () => {
+    test('zeroes chroma for a legacy v0 neutral preset', () => {
       // Arrange — a v0 envelope with legacy presetType=neutral and no chroma field
       localStorage.setItem(
         PERSIST_STORAGE_KEY,
@@ -343,7 +343,7 @@ describe.each(Object.entries(HTML_PATHS))(
       expect(root.classList.contains('light')).toBe(true)
     })
 
-    it('adds the tone-tinted gray base for a tinted-neutral preset so it does not flash the crisp ramp', () => {
+    test('adds the tone-tinted gray base for a tinted-neutral preset so it does not flash the crisp ramp', () => {
       // Arrange — a persisted tinted-neutral preset (zinc-dark, chroma 0.05)
       localStorage.setItem(
         PERSIST_STORAGE_KEY,
@@ -369,7 +369,7 @@ describe.each(Object.entries(HTML_PATHS))(
       expect(root.classList.contains('dark')).toBe(true)
     })
 
-    it('omits the tone-tinted gray base for a full-color preset so its surfaces stay crisp', () => {
+    test('omits the tone-tinted gray base for a full-color preset so its surfaces stay crisp', () => {
       // Arrange — a persisted full-color preset (cyan, chroma 0.16)
       localStorage.setItem(
         PERSIST_STORAGE_KEY,
@@ -395,7 +395,7 @@ describe.each(Object.entries(HTML_PATHS))(
       )
     })
 
-    it('omits the tone-tinted gray base for the pure-neutral default so the default appearance is unchanged', () => {
+    test('omits the tone-tinted gray base for the pure-neutral default so the default appearance is unchanged', () => {
       // Arrange — a persisted pure-neutral preset (chroma 0)
       localStorage.setItem(
         PERSIST_STORAGE_KEY,
@@ -416,7 +416,7 @@ describe.each(Object.entries(HTML_PATHS))(
       )
     })
 
-    it('strips a stale tone-tinted class when the persisted theme has neither chroma nor a known presetType', () => {
+    test('strips a stale tone-tinted class when the persisted theme has neither chroma nor a known presetType', () => {
       // Arrange — a parseable theme carrying hue + mode but NO numeric chroma
       // and NO recognized presetType leaves the bootstrap's chromaVal null. Seed
       // tone-tinted on the root first so this proves the gate's null arm
@@ -463,7 +463,7 @@ function extractBootstrapIife(htmlPath: string): string {
  * Settings window flashing while the main window was already correct.
  */
 describe('bootstrap — main and settings windows stay in lockstep', () => {
-  it('keeps the main + settings bootstrap IIFEs identical so a fix lands in both windows', () => {
+  test('keeps the main + settings bootstrap IIFEs identical so a fix lands in both windows', () => {
     // Arrange — extract each window's executable IIFE (sans leading comment)
     const mainIife = extractBootstrapIife(HTML_PATHS.main)
     const settingsIife = extractBootstrapIife(HTML_PATHS.settings)

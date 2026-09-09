@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 /**
  * Create a minimal Dirent-like object for readdir mocks.
@@ -85,7 +85,7 @@ describe('scanAgents', () => {
     })
   })
 
-  it('counts a skill toward an agent only when its symlink resolves, ignoring broken links', async () => {
+  test('counts a skill toward an agent only when its symlink resolves, ignoring broken links', async () => {
     // Arrange
     // Both agent dirs exist
     accessMock.mockResolvedValue(undefined)
@@ -126,7 +126,7 @@ describe('scanAgents', () => {
     expect(claude.localSkillCount).toBe(0)
   })
 
-  it('counts zero skills when every symlink is broken', async () => {
+  test('counts zero skills when every symlink is broken', async () => {
     // Arrange
     accessMock.mockResolvedValue(undefined)
 
@@ -157,7 +157,7 @@ describe('scanAgents', () => {
     expect(claude.skillCount).toBe(0)
   })
 
-  it('tallies local folder skills separately from symlinked skills', async () => {
+  test('tallies local folder skills separately from symlinked skills', async () => {
     // Arrange
     accessMock.mockImplementation(async (path: string) => {
       // Agent dirs exist
@@ -199,7 +199,7 @@ describe('scanAgents', () => {
     expect(claude.localSkillCount).toBe(1)
   })
 
-  it('marks an agent as not existing with zero counts when its skills dir is absent', async () => {
+  test('marks an agent as not existing with zero counts when its skills dir is absent', async () => {
     // Arrange
     accessMock.mockImplementation(async (path: string) => {
       if (path === '/mock/agents/claude/skills') {
@@ -222,7 +222,7 @@ describe('scanAgents', () => {
     expect(claude.localSkillCount).toBe(0)
   })
 
-  it('lists existing agents ahead of missing ones, then alphabetically by name', async () => {
+  test('lists existing agents ahead of missing ones, then alphabetically by name', async () => {
     // Arrange
     accessMock.mockImplementation(async (path: string) => {
       // Claude doesn't exist; cursor + the universal-resolving rows (cline,
@@ -251,7 +251,7 @@ describe('scanAgents', () => {
     expect(agents[agents.length - 1].exists).toBe(false)
   })
 
-  it('keeps every agent visible even when its CLI dir resolves to the Universal source', async () => {
+  test('keeps every agent visible even when its CLI dir resolves to the Universal source', async () => {
     // Arrange
     accessMock.mockResolvedValue(undefined)
     readdirMock.mockResolvedValue([])
@@ -276,7 +276,7 @@ describe('scanAgents', () => {
     expect(agents.find((a) => a.id === 'cursor')).toBeDefined()
   })
 
-  it('skips dot-prefixed directories when counting local skills', async () => {
+  test('skips dot-prefixed directories when counting local skills', async () => {
     // Arrange
     accessMock.mockResolvedValue(undefined)
 
@@ -306,7 +306,7 @@ describe('scanAgents', () => {
     expect(claude.localSkillCount).toBe(1)
   })
 
-  it('ignores a local directory that has no SKILL.md when counting local skills', async () => {
+  test('ignores a local directory that has no SKILL.md when counting local skills', async () => {
     // Arrange
     accessMock.mockImplementation(async (path: string) => {
       // Agent dirs exist
@@ -337,7 +337,7 @@ describe('scanAgents', () => {
     expect(claude.localSkillCount).toBe(0)
   })
 
-  it('falls back to zero skill counts when an existing agent dir cannot be read', async () => {
+  test('falls back to zero skill counts when an existing agent dir cannot be read', async () => {
     // Arrange
     // Agent dir passes the existence probe (access resolves)...
     accessMock.mockResolvedValue(undefined)
@@ -362,7 +362,7 @@ describe('scanAgents', () => {
     expect(claude.localSkillCount).toBe(0)
   })
 
-  it('omits filesystem identity for an agent whose directory stats cannot be read', async () => {
+  test('omits filesystem identity for an agent whose directory stats cannot be read', async () => {
     // Arrange
     // Agent dir exists and is empty, but lstat fails after the existence probe
     // (e.g. the dir is unstattable), so filesystemIdentity must be left

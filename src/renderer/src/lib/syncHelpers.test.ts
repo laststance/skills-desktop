@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import type { SyncExecuteResult, SyncPreviewResult } from '@/shared/types'
 import {
@@ -46,7 +46,7 @@ function buildPreview(
 }
 
 describe('shouldShowSyncConfirm', () => {
-  it('keeps the sync confirm dialog hidden when there is no preview to confirm', () => {
+  test('keeps the sync confirm dialog hidden when there is no preview to confirm', () => {
     // Arrange
     const noPreview = null
     // Act
@@ -55,7 +55,7 @@ describe('shouldShowSyncConfirm', () => {
     expect(shouldShow).toBe(false)
   })
 
-  it('opens the sync confirm dialog when there are new symlinks to create and no conflicts', () => {
+  test('opens the sync confirm dialog when there are new symlinks to create and no conflicts', () => {
     // Arrange
     const preview = buildPreview({ toCreate: toSymlinkCount(8) })
     // Act
@@ -64,7 +64,7 @@ describe('shouldShowSyncConfirm', () => {
     expect(shouldShow).toBe(true)
   })
 
-  it('keeps the sync confirm dialog hidden when everything is already synced', () => {
+  test('keeps the sync confirm dialog hidden when everything is already synced', () => {
     // Arrange
     const preview = buildPreview({
       toCreate: toSymlinkCount(0),
@@ -76,7 +76,7 @@ describe('shouldShowSyncConfirm', () => {
     expect(shouldShow).toBe(false)
   })
 
-  it('defers to the conflict dialog instead of the confirm dialog when conflicts exist', () => {
+  test('defers to the conflict dialog instead of the confirm dialog when conflicts exist', () => {
     // Arrange
     const preview = buildPreview({
       toCreate: toSymlinkCount(3),
@@ -97,7 +97,7 @@ describe('shouldShowSyncConfirm', () => {
     expect(shouldShow).toBe(false)
   })
 
-  it('keeps the sync confirm dialog hidden when there is nothing to create and no conflicts', () => {
+  test('keeps the sync confirm dialog hidden when there is nothing to create and no conflicts', () => {
     // Arrange
     const preview = buildPreview({ toCreate: toSymlinkCount(0), conflicts: [] })
     // Act
@@ -108,7 +108,7 @@ describe('shouldShowSyncConfirm', () => {
 })
 
 describe('shouldShowSyncResult', () => {
-  it('keeps the sync result dialog hidden when no sync has run yet', () => {
+  test('keeps the sync result dialog hidden when no sync has run yet', () => {
     // Arrange
     const noResult = null
     // Act
@@ -117,7 +117,7 @@ describe('shouldShowSyncResult', () => {
     expect(shouldShow).toBe(false)
   })
 
-  it('opens the sync result dialog after a successful sync completes', () => {
+  test('opens the sync result dialog after a successful sync completes', () => {
     // Arrange
     const result: SyncExecuteResult = {
       success: true,
@@ -139,7 +139,7 @@ describe('shouldShowSyncResult', () => {
     expect(shouldShow).toBe(true)
   })
 
-  it('still opens the sync result dialog when the sync finished with errors', () => {
+  test('still opens the sync result dialog when the sync finished with errors', () => {
     // Arrange
     const result: SyncExecuteResult = {
       success: false,
@@ -164,7 +164,7 @@ describe('shouldShowSyncResult', () => {
 })
 
 describe('getSyncResultPresentation', () => {
-  it('shows a green success state saying nothing changed when no symlinks were touched', () => {
+  test('shows a green success state saying nothing changed when no symlinks were touched', () => {
     // Arrange
     const emptyResult = buildResult()
     // Act
@@ -176,7 +176,7 @@ describe('getSyncResultPresentation', () => {
     expect(description).toBe('No changes were made')
   })
 
-  it('shows a green success state counting the symlinks created', () => {
+  test('shows a green success state counting the symlinks created', () => {
     // Arrange
     const createdOnlyResult = buildResult({ created: toSymlinkCount(3) })
     // Act
@@ -188,7 +188,7 @@ describe('getSyncResultPresentation', () => {
     expect(description).toBe('Created 3 symlinks')
   })
 
-  it('pluralizes "symlink" in the singular when exactly one was created', () => {
+  test('pluralizes "symlink" in the singular when exactly one was created', () => {
     // Arrange
     const oneCreatedResult = buildResult({ created: toSymlinkCount(1) })
     // Act
@@ -197,7 +197,7 @@ describe('getSyncResultPresentation', () => {
     expect(description).toBe('Created 1 symlink')
   })
 
-  it('pluralizes "conflict" in the singular when exactly one was replaced', () => {
+  test('pluralizes "conflict" in the singular when exactly one was replaced', () => {
     // Arrange
     const oneReplacedResult = buildResult({ replaced: toSymlinkCount(1) })
     // Act
@@ -206,7 +206,7 @@ describe('getSyncResultPresentation', () => {
     expect(description).toBe('Replaced 1 conflict')
   })
 
-  it('combines created, replaced, and failed counts into one comma-separated summary', () => {
+  test('combines created, replaced, and failed counts into one comma-separated summary', () => {
     // Arrange
     const mixedResult = buildResult({
       created: toSymlinkCount(2),
@@ -221,7 +221,7 @@ describe('getSyncResultPresentation', () => {
     )
   })
 
-  it('shows a red error state when every change failed', () => {
+  test('shows a red error state when every change failed', () => {
     // Arrange
     const allFailedResult = buildResult({
       errors: [{ path: toAbsolutePath('/a'), error: 'boom' }],
@@ -235,7 +235,7 @@ describe('getSyncResultPresentation', () => {
     expect(description).toBe('1 failed')
   })
 
-  it('shows an amber partial-failure state when some changes succeeded and some failed', () => {
+  test('shows an amber partial-failure state when some changes succeeded and some failed', () => {
     // Arrange
     const partialFailureResult = buildResult({
       created: toSymlinkCount(2),
@@ -249,7 +249,7 @@ describe('getSyncResultPresentation', () => {
     expect(iconColor).toBe('text-amber-500')
   })
 
-  it('counts a replaced conflict as a success so it shows the amber partial state alongside errors', () => {
+  test('counts a replaced conflict as a success so it shows the amber partial state alongside errors', () => {
     // Arrange
     const replacedWithErrorResult = buildResult({
       replaced: toSymlinkCount(1),
@@ -264,7 +264,7 @@ describe('getSyncResultPresentation', () => {
     expect(iconColor).toBe('text-amber-500')
   })
 
-  it('shows a green success state saying nothing changed when everything was already up to date', () => {
+  test('shows a green success state saying nothing changed when everything was already up to date', () => {
     // Arrange
     const skippedOnlyResult = buildResult({ skipped: toSymlinkCount(5) })
     // Act

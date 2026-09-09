@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -132,7 +132,7 @@ async function renderCanvas(
 }
 
 describe('DashboardCanvas', () => {
-  it('seeds the four default dashboard pages on first mount', async () => {
+  test('seeds the four default dashboard pages on first mount', async () => {
     // Arrange + Act: mount with no preloaded pages so the seeding effect runs.
     const { store } = await renderCanvas()
 
@@ -146,7 +146,7 @@ describe('DashboardCanvas', () => {
     ])
   })
 
-  it('switches the active page when its ⌘-number shortcut is pressed', async () => {
+  test('switches the active page when its ⌘-number shortcut is pressed', async () => {
     // Arrange: two pages, starting on the first.
     const overview = makePage('Overview', [makeWidget('welcome')])
     const discovery = makePage('Discovery', [makeWidget('welcome')])
@@ -167,7 +167,7 @@ describe('DashboardCanvas', () => {
       .toBe(discovery.id)
   })
 
-  it('renders the current page widget inside the grid', async () => {
+  test('renders the current page widget inside the grid', async () => {
     // Arrange: a page whose only widget is the Welcome card.
     const page = makePage('Overview', [makeWidget('welcome')])
 
@@ -180,7 +180,7 @@ describe('DashboardCanvas', () => {
       .toBeVisible()
   })
 
-  it('persists the compacted layout to the store when the grid mounts', async () => {
+  test('persists the compacted layout to the store when the grid mounts', async () => {
     // Arrange: a single widget placed at y=5 with no widget above it. React
     // Grid Layout's vertical compactor pulls it up to y=0 on mount, which fires
     // onLayoutChange and must be written back to the store.
@@ -202,7 +202,7 @@ describe('DashboardCanvas', () => {
       .toBe(0)
   })
 
-  it('skips rendering widgets whose type is no longer in the registry', async () => {
+  test('skips rendering widgets whose type is no longer in the registry', async () => {
     // Arrange: persisted state references a removed widget type alongside a
     // valid one. The unknown type has no registry definition.
     const removedType = 'legacy-removed-widget' as WidgetType
@@ -222,7 +222,7 @@ describe('DashboardCanvas', () => {
     expect(screen.getByText('legacy-removed-widget').query()).toBeNull()
   })
 
-  it('shows the drag handle for widgets while the canvas is in edit mode', async () => {
+  test('shows the drag handle for widgets while the canvas is in edit mode', async () => {
     // Arrange: edit mode on so DashboardGrid receives isEditMode=true, which
     // flows into the drag/resize config and the widget shell's edit chrome.
     const page = makePage('Overview', [makeWidget('welcome')])
@@ -239,7 +239,7 @@ describe('DashboardCanvas', () => {
       .toBeVisible()
   })
 
-  it('renders nothing in the grid area when there is no current page', async () => {
+  test('renders nothing in the grid area when there is no current page', async () => {
     // Arrange: an empty dashboard (no pages) so selectCurrentPage returns null.
     // Act
     const { screen, store } = await renderCanvas({

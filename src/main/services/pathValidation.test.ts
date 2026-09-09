@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { toAbsolutePath } from '@/shared/types'
 
@@ -9,7 +9,7 @@ describe('validatePath', () => {
     toAbsolutePath,
   )
 
-  it('admits a file under the first allowed base', () => {
+  test('admits a file under the first allowed base', () => {
     // Arrange
     // bases declared above
 
@@ -23,7 +23,7 @@ describe('validatePath', () => {
     expect(result).toBe('/home/user/.agents/skills/task/SKILL.md')
   })
 
-  it('admits a file under the second allowed base', () => {
+  test('admits a file under the second allowed base', () => {
     // Arrange
     // bases declared above
 
@@ -37,7 +37,7 @@ describe('validatePath', () => {
     expect(result).toBe('/home/user/.claude/skills/task/SKILL.md')
   })
 
-  it('admits the base directory itself', () => {
+  test('admits the base directory itself', () => {
     // Act
     const result = validatePath('/home/user/.agents/skills', bases)
 
@@ -45,7 +45,7 @@ describe('validatePath', () => {
     expect(result).toBe('/home/user/.agents/skills')
   })
 
-  it('admits a deeply nested file inside a base', () => {
+  test('admits a deeply nested file inside a base', () => {
     // Act
     const result = validatePath(
       '/home/user/.agents/skills/task/src/utils/helper.ts',
@@ -56,42 +56,42 @@ describe('validatePath', () => {
     expect(result).toBe('/home/user/.agents/skills/task/src/utils/helper.ts')
   })
 
-  it('rejects a ../ traversal that escapes a base', () => {
+  test('rejects a ../ traversal that escapes a base', () => {
     // Act & Assert
     expect(() =>
       validatePath('/home/user/.agents/skills/../../../etc/passwd', bases),
     ).toThrow('Path traversal attempt detected')
   })
 
-  it('rejects an unrelated absolute path', () => {
+  test('rejects an unrelated absolute path', () => {
     // Act & Assert
     expect(() => validatePath('/etc/passwd', bases)).toThrow(
       'Path traversal attempt detected',
     )
   })
 
-  it('rejects a path that lies outside every base', () => {
+  test('rejects a path that lies outside every base', () => {
     // Act & Assert
     expect(() => validatePath('/home/user/.ssh/id_rsa', bases)).toThrow(
       'Path traversal attempt detected',
     )
   })
 
-  it('rejects a sibling directory of an allowed base', () => {
+  test('rejects a sibling directory of an allowed base', () => {
     // Act & Assert
     expect(() =>
       validatePath('/home/user/.agents/config/secrets.json', bases),
     ).toThrow('Path traversal attempt detected')
   })
 
-  it('rejects every path when the allowed-bases list is empty', () => {
+  test('rejects every path when the allowed-bases list is empty', () => {
     // Act & Assert
     expect(() => validatePath('/home/user/.agents/skills/task', [])).toThrow(
       'Path traversal attempt detected',
     )
   })
 
-  it('collapses redundant separators before admitting a valid path', () => {
+  test('collapses redundant separators before admitting a valid path', () => {
     // Act
     const result = validatePath(
       '/home/user/.agents/skills//task///SKILL.md',
@@ -105,7 +105,7 @@ describe('validatePath', () => {
   // Regression: right-pane expansion (subdirectory recursion) sends deeper
   // paths through validatePath. This guards against accidentally tightening
   // the check in a way that blocks legitimate subpaths like `lib/helper.py`.
-  it('allows a nested subpath inside an allowed base (subdirectory recursion regression)', () => {
+  test('allows a nested subpath inside an allowed base (subdirectory recursion regression)', () => {
     // Act
     const result = validatePath(
       '/home/user/.agents/skills/task/lib/sub/helper.py',
@@ -119,7 +119,7 @@ describe('validatePath', () => {
   // Regression: the renderer sends the skill root + a relativePath. If we
   // ever joined these client-side without revalidation, a crafted relativePath
   // could escape. validatePath must still reject the fully-joined path.
-  it('rejects a joined path that escapes via ..  (relativePath traversal regression)', () => {
+  test('rejects a joined path that escapes via ..  (relativePath traversal regression)', () => {
     // Act & Assert
     // Simulates join(skillPath, relativePath) where relativePath is malicious.
     expect(() =>
@@ -133,7 +133,7 @@ describe('validatePath', () => {
   // Regression: files:readBinary uses the same validatePath + getAllowedBases
   // as files:read. If someone introduces a parallel, looser validator for
   // binary files, this test must fail.
-  it('rejects a binary file path outside all bases (files:readBinary regression)', () => {
+  test('rejects a binary file path outside all bases (files:readBinary regression)', () => {
     // Act & Assert
     expect(() => validatePath('/private/etc/shadow', bases)).toThrow(
       'Path traversal attempt detected',
@@ -142,7 +142,7 @@ describe('validatePath', () => {
 })
 
 describe('getAllowedBases', () => {
-  it('exposes at least one allowed base directory', () => {
+  test('exposes at least one allowed base directory', () => {
     // Act
     const bases = getAllowedBases()
 
@@ -150,7 +150,7 @@ describe('getAllowedBases', () => {
     expect(bases.length).toBeGreaterThan(0)
   })
 
-  it('lists the Universal source dir as the first allowed base', () => {
+  test('lists the Universal source dir as the first allowed base', () => {
     // Act
     const bases = getAllowedBases()
 
@@ -158,7 +158,7 @@ describe('getAllowedBases', () => {
     expect(bases[0]).toContain('.agents/skills')
   })
 
-  it('includes agent skills directories alongside the source dir', () => {
+  test('includes agent skills directories alongside the source dir', () => {
     // Act
     const bases = getAllowedBases()
 
@@ -172,7 +172,7 @@ describe('getAllowedBases', () => {
   // "Path traversal attempt detected" because SKILLS_DELETE validated the path
   // against [SOURCE_DIR] only. Validating against getAllowedBases() must accept
   // every agent's skills directory so local skills can be deleted.
-  it('accepts a path inside any agent skills directory (local skill regression)', () => {
+  test('accepts a path inside any agent skills directory (local skill regression)', () => {
     // Arrange
     const bases = getAllowedBases()
     // The first base is SOURCE_DIR; any other base is an agent skills dir
@@ -186,7 +186,7 @@ describe('getAllowedBases', () => {
     expect(() => validatePath(localSkillPath, bases)).not.toThrow()
   })
 
-  it('rejects an agent-dir skill path when only SOURCE_DIR is allowed', () => {
+  test('rejects an agent-dir skill path when only SOURCE_DIR is allowed', () => {
     // Arrange
     // This is the pre-fix behavior of SKILLS_DELETE — kept as a guard so we
     // never reintroduce "validatePath(skillPath, [SOURCE_DIR])" for delete.
@@ -214,7 +214,7 @@ describe('getAllowedBases', () => {
   // so EVERY symlinked-skill unlink threw "Path traversal attempt detected"
   // and left state.skills.error stuck on the error view. The fix is to use
   // getAllowedBases() which includes SOURCE_DIR + every agent dir.
-  it('accepts a SOURCE_DIR path when validating against getAllowedBases (symlink unlink regression)', () => {
+  test('accepts a SOURCE_DIR path when validating against getAllowedBases (symlink unlink regression)', () => {
     // Arrange
     // Simulates what realpathSync returns for a symlinked agent skill: a path
     // inside SOURCE_DIR (the symlink target).
@@ -226,7 +226,7 @@ describe('getAllowedBases', () => {
     expect(() => validatePath(resolvedSymlinkTarget, bases)).not.toThrow()
   })
 
-  it('rejects a SOURCE_DIR path when validating against agent paths only', () => {
+  test('rejects a SOURCE_DIR path when validating against agent paths only', () => {
     // Arrange
     // Pre-fix behavior of SKILLS_UNLINK_FROM_AGENT — kept as a guard so we
     // never reintroduce "validatePath(linkPath, AGENTS.map(a => a.path))"

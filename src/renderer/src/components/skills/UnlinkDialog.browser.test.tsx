@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type {
@@ -156,7 +156,7 @@ async function renderUnlinkDialog(
 }
 
 describe('UnlinkDialog variant copy', () => {
-  it('shows "Remove from Agent" copy for a live valid link', async () => {
+  test('shows "Remove from Agent" copy for a live valid link', async () => {
     // Arrange
     const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({ status: 'valid', agentName: 'Cursor' })
@@ -173,7 +173,7 @@ describe('UnlinkDialog variant copy', () => {
       .toBeInTheDocument()
   })
 
-  it('shows "Delete from Agent" trash copy for a local skill folder', async () => {
+  test('shows "Delete from Agent" trash copy for a local skill folder', async () => {
     // Arrange
     const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({
@@ -196,7 +196,7 @@ describe('UnlinkDialog variant copy', () => {
       .toBeInTheDocument()
   })
 
-  it('shows "Remove Broken Link" copy for a dangling broken symlink', async () => {
+  test('shows "Remove Broken Link" copy for a dangling broken symlink', async () => {
     // Arrange
     const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({ status: 'broken', isLocal: false })
@@ -213,7 +213,7 @@ describe('UnlinkDialog variant copy', () => {
       .toBeInTheDocument()
   })
 
-  it('treats a missing symlink as broken-link cleanup copy', async () => {
+  test('treats a missing symlink as broken-link cleanup copy', async () => {
     // Arrange
     // 'missing' is defensively mapped to the broken variant so it can never
     // fall through to the live-link "remove" copy.
@@ -233,7 +233,7 @@ describe('UnlinkDialog variant copy', () => {
       .toBeInTheDocument()
   })
 
-  it('shows "Manual Review Required" copy for an inaccessible target', async () => {
+  test('shows "Manual Review Required" copy for an inaccessible target', async () => {
     // Arrange
     const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({ status: 'inaccessible', isLocal: false })
@@ -252,7 +252,7 @@ describe('UnlinkDialog variant copy', () => {
 })
 
 describe('UnlinkDialog confirm action', () => {
-  it('shows a success toast and clears the target after removing a valid link', async () => {
+  test('shows a success toast and clears the target after removing a valid link', async () => {
     // Arrange
     mockUnlinkFromAgent.mockResolvedValue({ success: true })
     const skill = makeSkill({ name: toSkillName('task') })
@@ -275,7 +275,7 @@ describe('UnlinkDialog confirm action', () => {
     await expect.poll(() => store.getState().skills.skillToUnlink).toBeNull()
   })
 
-  it('shows an error toast with the failure reason when removal fails', async () => {
+  test('shows an error toast with the failure reason when removal fails', async () => {
     // Arrange
     mockUnlinkFromAgent.mockResolvedValue({
       success: false,
@@ -298,7 +298,7 @@ describe('UnlinkDialog confirm action', () => {
     })
   })
 
-  it('falls back to a generic error message when the failure carries no reason', async () => {
+  test('falls back to a generic error message when the failure carries no reason', async () => {
     // Arrange
     // A rejected thunk with no error message must still surface a toast so the
     // user is never left without feedback after a failed unlink.
@@ -320,7 +320,7 @@ describe('UnlinkDialog confirm action', () => {
     })
   })
 
-  it('warns and never calls the IPC bridge for an inaccessible target on confirm', async () => {
+  test('warns and never calls the IPC bridge for an inaccessible target on confirm', async () => {
     // Arrange
     const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({ status: 'inaccessible', isLocal: false })
@@ -352,7 +352,7 @@ describe('UnlinkDialog confirm action', () => {
 })
 
 describe('UnlinkDialog cancel behavior', () => {
-  it('clears the unlink target when cancelled while idle', async () => {
+  test('clears the unlink target when cancelled while idle', async () => {
     // Arrange
     const skill = makeSkill({ name: toSkillName('task') })
     const symlink = makeSymlink({ status: 'valid' })
@@ -368,7 +368,7 @@ describe('UnlinkDialog cancel behavior', () => {
     await expect.poll(() => store.getState().skills.skillToUnlink).toBeNull()
   })
 
-  it('refuses to dismiss via Escape while a removal is already in flight', async () => {
+  test('refuses to dismiss via Escape while a removal is already in flight', async () => {
     // Arrange
     // While unlinking is true the dialog must refuse to close so the user
     // cannot abandon an in-progress destructive operation.

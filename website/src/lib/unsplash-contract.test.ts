@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import {
   UnsplashDownloadInputSchema,
@@ -33,7 +33,7 @@ const photo = {
 }
 
 describe('public Unsplash contract', () => {
-  it('accepts valid photo metadata and rejects malformed image and download URLs', () => {
+  test('accepts valid photo metadata and rejects malformed image and download URLs', () => {
     // Arrange / Act / Assert
     expect(UnsplashPhotoSchema.parse(photo)).toEqual(photo)
     expect(UnsplashImageUrlSchema.safeParse('not a URL').success).toBe(false)
@@ -45,7 +45,7 @@ describe('public Unsplash contract', () => {
     ).toBe(false)
   })
 
-  it('preserves direct hotlinks, tracking and nullable descriptions for gallery photos', () => {
+  test('preserves direct hotlinks, tracking and nullable descriptions for gallery photos', () => {
     // Arrange / Act
     const result = UnsplashPhotoSchema.parse(photo)
     // Assert
@@ -55,7 +55,7 @@ describe('public Unsplash contract', () => {
     )
   })
 
-  it('keeps legacy Unsplash photos selectable without rewriting their URLs', () => {
+  test('keeps legacy Unsplash photos selectable without rewriting their URLs', () => {
     // Arrange
     const imageUrls = [
       'https://images.unsplash.com/39/wdXqHcTwSTmLuKOGz92L_Landscape.jpg?ixid=public-tracking',
@@ -72,7 +72,7 @@ describe('public Unsplash contract', () => {
     ])
   })
 
-  it.each([
+  test.each([
     'not a URL',
     'http://images.unsplash.com/photo-123?ixid=tracking',
     'https://images.unsplash.com.evil.test/photo-123?ixid=tracking',
@@ -93,7 +93,7 @@ describe('public Unsplash contract', () => {
     },
   )
 
-  it.each([
+  test.each([
     'not a URL',
     'https://api.unsplash.com.evil.test/photos/5oRIcisKaxU/download',
     'https://api.unsplash.com:444/photos/5oRIcisKaxU/download',
@@ -118,7 +118,7 @@ describe('public Unsplash contract', () => {
     },
   )
 
-  it('accepts only the selected photo endpoint and preserves its tracking token', () => {
+  test('accepts only the selected photo endpoint and preserves its tracking token', () => {
     // Arrange
     const input = {
       photoId: '5oRIcisKaxU',
@@ -129,7 +129,7 @@ describe('public Unsplash contract', () => {
     expect(UnsplashDownloadInputSchema.parse(input)).toEqual(input)
   })
 
-  it('rejects mismatched photo metadata and unsafe credit pages', () => {
+  test('rejects mismatched photo metadata and unsafe credit pages', () => {
     // Arrange / Act / Assert
     expect(
       UnsplashPhotoSchema.safeParse({ ...photo, id: 'another-photo' }).success,
@@ -145,7 +145,7 @@ describe('public Unsplash contract', () => {
     ).toBe(false)
   })
 
-  it('trims a valid search without inventing a page or expanding its result bound', () => {
+  test('trims a valid search without inventing a page or expanding its result bound', () => {
     // Arrange / Act
     const result = UnsplashSearchInputSchema.parse({
       query: '  nature landscape  ',
@@ -155,7 +155,7 @@ describe('public Unsplash contract', () => {
     expect(result).toEqual({ query: 'nature landscape', page: 1 })
   })
 
-  it.each([
+  test.each([
     { query: '', page: 1 },
     { query: '  ', page: 1 },
     { query: 'x'.repeat(101), page: 1 },
@@ -170,7 +170,7 @@ describe('public Unsplash contract', () => {
     expect(result.success).toBe(false)
   })
 
-  it('allows an empty end page but rejects oversized upstream result pages', () => {
+  test('allows an empty end page but rejects oversized upstream result pages', () => {
     // Arrange / Act / Assert
     expect(
       UnsplashSearchResultSchema.parse({ items: [], nextPage: null }),

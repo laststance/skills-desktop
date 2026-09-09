@@ -14,7 +14,7 @@ import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { filesystemIdentityFromStats } from '@/main/services/filesystemIdentity'
 import type {
@@ -120,7 +120,7 @@ describe('skills:unlinkFromAgent handler', () => {
     await rm(tempHome, { recursive: true, force: true })
   })
 
-  it('rejects a source path when the selected agent is Cursor', async () => {
+  test('rejects a source path when the selected agent is Cursor', async () => {
     // Arrange
     const skillName = 'unlink-source-path-guard-fixture'
     const sourcePath = join(tempHome, '.agents', 'skills', skillName)
@@ -149,7 +149,7 @@ describe('skills:unlinkFromAgent handler', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
-  it('rejects another agent slot when the selected agent is Cursor', async () => {
+  test('rejects another agent slot when the selected agent is Cursor', async () => {
     // Arrange
     const skillName = 'unlink-other-agent-path-guard-fixture'
     const sourcePath = join(tempHome, '.agents', 'skills', skillName)
@@ -184,7 +184,7 @@ describe('skills:unlinkFromAgent handler', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
-  it('unlinks the reviewed slot when metadata name differs from the folder basename', async () => {
+  test('unlinks the reviewed slot when metadata name differs from the folder basename', async () => {
     // Arrange
     const metadataName = 'metadata-title'
     const slotName = 'folder-basename'
@@ -217,7 +217,7 @@ describe('skills:unlinkFromAgent handler', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
-  it('bulk unlink removes reviewed slot when metadata name differs from folder basename', async () => {
+  test('bulk unlink removes reviewed slot when metadata name differs from folder basename', async () => {
     // Arrange
     const metadataName = toSkillName('metadata-title-bulk')
     const slotName = 'folder-basename-bulk'
@@ -270,7 +270,7 @@ describe('skills:unlinkFromAgent handler', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
-  it('restores a same-path replacement file when a reviewed symlink changes during unlink', async () => {
+  test('restores a same-path replacement file when a reviewed symlink changes during unlink', async () => {
     // Arrange
     const skillName = 'unlink-race-file-replacement'
     const sourcePath = join(tempHome, '.agents', 'skills', skillName)
@@ -323,7 +323,7 @@ describe('skills:unlinkFromAgent handler', () => {
     await expect(lstat(sourcePath)).resolves.toBeDefined()
   })
 
-  it('rejects local folder delete at IPC validation without reviewed directory identity', async () => {
+  test('rejects local folder delete at IPC validation without reviewed directory identity', async () => {
     // Arrange
     const skillName = 'local-missing-identity'
     const localPath = join(tempHome, '.cursor', 'skills', skillName)
@@ -352,7 +352,7 @@ describe('skills:unlinkFromAgent handler', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
-  it('rejects local folder delete without explicit confirmation', async () => {
+  test('rejects local folder delete without explicit confirmation', async () => {
     // Arrange
     const skillName = 'local-missing-confirmation'
     const localPath = join(tempHome, '.cursor', 'skills', skillName)
@@ -381,7 +381,7 @@ describe('skills:unlinkFromAgent handler', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
-  it('rejects local folder delete when same path was replaced after review', async () => {
+  test('rejects local folder delete when same path was replaced after review', async () => {
     // Arrange
     const skillName = 'local-stale-identity'
     const localPath = join(tempHome, '.cursor', 'skills', skillName)
@@ -425,7 +425,7 @@ describe('skills:unlinkFromAgent handler', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
-  it('trashes the quarantined reviewed local folder when identity still matches', async () => {
+  test('trashes the quarantined reviewed local folder when identity still matches', async () => {
     // Arrange
     const skillName = 'local-reviewed-trash'
     const localPath = join(tempHome, '.cursor', 'skills', skillName)
@@ -458,7 +458,7 @@ describe('skills:unlinkFromAgent handler', () => {
     )
   })
 
-  it('preserves quarantined local folder when restore path is occupied after trash failure', async () => {
+  test('preserves quarantined local folder when restore path is occupied after trash failure', async () => {
     // Arrange
     const skillName = 'local-restore-collision'
     const cursorSkillsDir = join(tempHome, '.cursor', 'skills')
@@ -513,7 +513,7 @@ describe('skills:unlinkFromAgent handler', () => {
     ).toBe(`# original ${skillName}\n`)
   })
 
-  it('preserves relative symlinks inside a quarantined local folder after trash failure rollback', async () => {
+  test('preserves relative symlinks inside a quarantined local folder after trash failure rollback', async () => {
     // Arrange
     const skillName = 'local-restore-relative-symlink'
     const localPath = join(tempHome, '.cursor', 'skills', skillName)

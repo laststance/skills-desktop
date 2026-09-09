@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { copyToAgents } from '@/renderer/src/redux/slices/skillsSlice'
 import type { AbsolutePath, Skill, SkillName } from '@/shared/types'
@@ -70,7 +70,7 @@ afterEach(() => {
 })
 
 describe('copyToAgentsWithToast', () => {
-  it('shows a success toast naming the skill when every agent copy succeeds', async () => {
+  test('shows a success toast naming the skill when every agent copy succeeds', async () => {
     // Arrange — a fulfilled thunk with no per-agent failures.
     dispatchMock.mockResolvedValue({
       type: copyToAgents.fulfilled.type,
@@ -94,7 +94,7 @@ describe('copyToAgentsWithToast', () => {
     expect(toastErrorMock).not.toHaveBeenCalled()
   })
 
-  it('warns with the per-agent failure breakdown on a partial copy', async () => {
+  test('warns with the per-agent failure breakdown on a partial copy', async () => {
     // Arrange — fulfilled but some agents failed.
     dispatchMock.mockResolvedValue({
       type: copyToAgents.fulfilled.type,
@@ -128,7 +128,7 @@ describe('copyToAgentsWithToast', () => {
     expect(toastErrorMock).not.toHaveBeenCalled()
   })
 
-  it('shows an error toast with the rejection message when the copy thunk rejects', async () => {
+  test('shows an error toast with the rejection message when the copy thunk rejects', async () => {
     // Arrange — a rejected thunk carrying a concrete error message.
     dispatchMock.mockResolvedValue({
       type: copyToAgents.rejected.type,
@@ -152,7 +152,7 @@ describe('copyToAgentsWithToast', () => {
     expect(toastWarningMock).not.toHaveBeenCalled()
   })
 
-  it('falls back to a generic error description when the rejection has no message', async () => {
+  test('falls back to a generic error description when the rejection has no message', async () => {
     // Arrange — a rejected action with no `error` field at all.
     dispatchMock.mockResolvedValue({
       type: copyToAgents.rejected.type,
@@ -173,7 +173,7 @@ describe('copyToAgentsWithToast', () => {
     })
   })
 
-  it('always refreshes the skills list on exit regardless of outcome', async () => {
+  test('always refreshes the skills list on exit regardless of outcome', async () => {
     // Arrange — any fulfilled outcome.
     dispatchMock.mockResolvedValue({
       type: copyToAgents.fulfilled.type,

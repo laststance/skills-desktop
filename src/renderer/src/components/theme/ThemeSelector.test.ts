@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { resolveNeutralFamilySelection } from './ThemeSelector'
 
@@ -12,7 +12,7 @@ const zincFamily: Parameters<typeof resolveNeutralFamilySelection>[0] = {
 }
 
 describe('resolveNeutralFamilySelection', () => {
-  it('marks a neutral family selected when the current preset is either mode partner', () => {
+  test('marks a neutral family selected when the current preset is either mode partner', () => {
     // Arrange
     const preset = 'zinc-light'
 
@@ -26,7 +26,7 @@ describe('resolveNeutralFamilySelection', () => {
     })
   })
 
-  it('resolves the light partner when the current display mode is light', () => {
+  test('resolves the light partner when the current display mode is light', () => {
     // Arrange
     const preset = 'rose'
 
@@ -40,7 +40,7 @@ describe('resolveNeutralFamilySelection', () => {
     })
   })
 
-  it('returns a null click target when a family is missing the requested mode partner', () => {
+  test('returns a null click target when a family is missing the requested mode partner', () => {
     // Arrange
     const incompleteFamily: Parameters<
       typeof resolveNeutralFamilySelection
@@ -67,7 +67,7 @@ describe('resolveNeutralFamilySelection', () => {
     })
   })
 
-  it('returns a null click target when the dark family partner is missing in dark mode', () => {
+  test('returns a null click target when the dark family partner is missing in dark mode', () => {
     // Arrange
     const incompleteFamily: Parameters<
       typeof resolveNeutralFamilySelection

@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { classifyFile, formatBytes, shouldExcludeDir } from './fileTypes'
 
 describe('classifyFile', () => {
-  it('renders a markdown file as readable text', () => {
+  test('renders a markdown file as readable text', () => {
     // Arrange
     const fileName = 'SKILL.md'
     // Act
@@ -12,7 +12,7 @@ describe('classifyFile', () => {
     expect(kind).toBe('text')
   })
 
-  it('renders a python file as readable text', () => {
+  test('renders a python file as readable text', () => {
     // Arrange
     const fileName = 'helper.py'
     // Act
@@ -21,7 +21,7 @@ describe('classifyFile', () => {
     expect(kind).toBe('text')
   })
 
-  it('renders a shell script as readable text', () => {
+  test('renders a shell script as readable text', () => {
     // Arrange
     const fileName = 'install.sh'
     // Act
@@ -30,7 +30,7 @@ describe('classifyFile', () => {
     expect(kind).toBe('text')
   })
 
-  it('renders a toml file as readable text', () => {
+  test('renders a toml file as readable text', () => {
     // Arrange
     const fileName = 'pyproject.toml'
     // Act
@@ -39,7 +39,7 @@ describe('classifyFile', () => {
     expect(kind).toBe('text')
   })
 
-  it('renders a multi-dot .env.example file as readable text', () => {
+  test('renders a multi-dot .env.example file as readable text', () => {
     // Arrange
     const fileName = '.env.example'
     // Act
@@ -48,7 +48,7 @@ describe('classifyFile', () => {
     expect(kind).toBe('text')
   })
 
-  it('renders an svg as text so the user sees the markup', () => {
+  test('renders an svg as text so the user sees the markup', () => {
     // Arrange
     const fileName = 'logo.svg'
     // Act
@@ -57,7 +57,7 @@ describe('classifyFile', () => {
     expect(kind).toBe('text')
   })
 
-  it('renders a png as an image preview', () => {
+  test('renders a png as an image preview', () => {
     // Arrange
     const fileName = 'preview.png'
     // Act
@@ -66,7 +66,7 @@ describe('classifyFile', () => {
     expect(kind).toBe('image')
   })
 
-  it('renders a webp as an image preview', () => {
+  test('renders a webp as an image preview', () => {
     // Arrange
     const fileName = 'hero.webp'
     // Act
@@ -75,7 +75,7 @@ describe('classifyFile', () => {
     expect(kind).toBe('image')
   })
 
-  it('renders an uppercase image extension as an image preview', () => {
+  test('renders an uppercase image extension as an image preview', () => {
     // Arrange
     const fileName = 'LOGO.PNG'
     // Act
@@ -84,7 +84,7 @@ describe('classifyFile', () => {
     expect(kind).toBe('image')
   })
 
-  it('treats an unknown extension as a non-previewable binary', () => {
+  test('treats an unknown extension as a non-previewable binary', () => {
     // Arrange
     const fileName = 'data.bin'
     // Act
@@ -93,7 +93,7 @@ describe('classifyFile', () => {
     expect(kind).toBe('binary')
   })
 
-  it('treats an extensionless file as a non-previewable binary', () => {
+  test('treats an extensionless file as a non-previewable binary', () => {
     // Arrange
     const fileName = 'Makefile'
     // Act
@@ -102,7 +102,7 @@ describe('classifyFile', () => {
     expect(kind).toBe('binary')
   })
 
-  it('treats an executable as a non-previewable binary', () => {
+  test('treats an executable as a non-previewable binary', () => {
     // Arrange
     const fileName = 'tool.exe'
     // Act
@@ -113,7 +113,7 @@ describe('classifyFile', () => {
 })
 
 describe('shouldExcludeDir', () => {
-  it('skips node_modules when walking a skill tree', () => {
+  test('skips node_modules when walking a skill tree', () => {
     // Arrange
     const dirName = 'node_modules'
     // Act
@@ -122,7 +122,7 @@ describe('shouldExcludeDir', () => {
     expect(excluded).toBe(true)
   })
 
-  it('skips .git when walking a skill tree', () => {
+  test('skips .git when walking a skill tree', () => {
     // Arrange
     const dirName = '.git'
     // Act
@@ -131,7 +131,7 @@ describe('shouldExcludeDir', () => {
     expect(excluded).toBe(true)
   })
 
-  it('skips __pycache__ when walking a skill tree', () => {
+  test('skips __pycache__ when walking a skill tree', () => {
     // Arrange
     const dirName = '__pycache__'
     // Act
@@ -140,7 +140,7 @@ describe('shouldExcludeDir', () => {
     expect(excluded).toBe(true)
   })
 
-  it('walks into a src directory', () => {
+  test('walks into a src directory', () => {
     // Arrange
     const dirName = 'src'
     // Act
@@ -149,7 +149,7 @@ describe('shouldExcludeDir', () => {
     expect(excluded).toBe(false)
   })
 
-  it('walks into a scripts directory', () => {
+  test('walks into a scripts directory', () => {
     // Arrange
     const dirName = 'scripts'
     // Act
@@ -158,7 +158,7 @@ describe('shouldExcludeDir', () => {
     expect(excluded).toBe(false)
   })
 
-  it('walks into an uppercase NODE_MODULES directory because matching is case-sensitive', () => {
+  test('walks into an uppercase NODE_MODULES directory because matching is case-sensitive', () => {
     // POSIX filesystems are case-sensitive; this mirrors that.
     // Arrange
     const dirName = 'NODE_MODULES'
@@ -170,7 +170,7 @@ describe('shouldExcludeDir', () => {
 })
 
 describe('formatBytes', () => {
-  it('shows a small file size in whole bytes with no decimals', () => {
+  test('shows a small file size in whole bytes with no decimals', () => {
     // Arrange
     const byteCount = 512
     // Act
@@ -179,7 +179,7 @@ describe('formatBytes', () => {
     expect(formatted).toBe('512 B')
   })
 
-  it('shows a zero-byte file as plain bytes without scaling up a unit', () => {
+  test('shows a zero-byte file as plain bytes without scaling up a unit', () => {
     // Arrange
     const byteCount = 0
     // Act
@@ -188,7 +188,7 @@ describe('formatBytes', () => {
     expect(formatted).toBe('0 B')
   })
 
-  it('keeps a size just under one kilobyte in bytes', () => {
+  test('keeps a size just under one kilobyte in bytes', () => {
     // Arrange
     const byteCount = 1023
     // Act
@@ -197,7 +197,7 @@ describe('formatBytes', () => {
     expect(formatted).toBe('1023 B')
   })
 
-  it('rolls a one-kilobyte file up to KB with one decimal of precision', () => {
+  test('rolls a one-kilobyte file up to KB with one decimal of precision', () => {
     // Arrange
     const byteCount = 1024
     // Act
@@ -206,7 +206,7 @@ describe('formatBytes', () => {
     expect(formatted).toBe('1.0 KB')
   })
 
-  it('rolls a multi-megabyte file up to MB with one decimal of precision', () => {
+  test('rolls a multi-megabyte file up to MB with one decimal of precision', () => {
     // Arrange
     const byteCount = 5_242_880
     // Act
@@ -215,7 +215,7 @@ describe('formatBytes', () => {
     expect(formatted).toBe('5.0 MB')
   })
 
-  it('caps the unit at GB for very large files instead of inventing a bigger unit', () => {
+  test('caps the unit at GB for very large files instead of inventing a bigger unit', () => {
     // Arrange — 5 TB worth of bytes; only B/KB/MB/GB units exist so it stays in GB
     const byteCount = 5 * 1024 * 1024 * 1024 * 1024
     // Act

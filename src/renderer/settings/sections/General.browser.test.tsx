@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
@@ -116,7 +116,7 @@ async function renderGeneral(
 }
 
 describe('Settings → General command line command', () => {
-  it('installs the command and switches the action to removal', async () => {
+  test('installs the command and switches the action to removal', async () => {
     // Arrange
     const installResult: CliCommandOperationResult = {
       ok: true,
@@ -143,7 +143,7 @@ describe('Settings → General command line command', () => {
       .toBeVisible()
   })
 
-  it('removes the command and switches the action back to installation', async () => {
+  test('removes the command and switches the action back to installation', async () => {
     // Arrange
     const removeResult: CliCommandOperationResult = {
       ok: true,
@@ -168,7 +168,7 @@ describe('Settings → General command line command', () => {
     await expect.element(screen.getByText('Command removed.')).toBeVisible()
   })
 
-  it('disables mutation when another file already occupies the command path', async () => {
+  test('disables mutation when another file already occupies the command path', async () => {
     // Arrange
     const screen = await renderGeneral(blockedStatus)
 
@@ -184,7 +184,7 @@ describe('Settings → General command line command', () => {
     expect(mockCliCommandRemove).not.toHaveBeenCalled()
   })
 
-  it('shows a fallback message when the command status probe fails on open', async () => {
+  test('shows a fallback message when the command status probe fails on open', async () => {
     // Arrange
     mockCliCommandGetStatus.mockRejectedValueOnce(new Error('ipc down'))
 
@@ -197,7 +197,7 @@ describe('Settings → General command line command', () => {
       .toBeVisible()
   })
 
-  it('surfaces an install failure message when installing the command throws', async () => {
+  test('surfaces an install failure message when installing the command throws', async () => {
     // Arrange
     mockCliCommandInstall.mockRejectedValueOnce(new Error('write denied'))
     const screen = await renderGeneral(notInstalledStatus)
@@ -215,7 +215,7 @@ describe('Settings → General command line command', () => {
       .toBeVisible()
   })
 
-  it('surfaces a removal failure message when removing the command throws', async () => {
+  test('surfaces a removal failure message when removing the command throws', async () => {
     // Arrange
     mockCliCommandRemove.mockRejectedValueOnce(new Error('unlink denied'))
     const screen = await renderGeneral(installedStatus)
@@ -235,7 +235,7 @@ describe('Settings → General command line command', () => {
 })
 
 describe('Settings → General default skill tab', () => {
-  it('persists the chosen default tab when a different tab is selected', async () => {
+  test('persists the chosen default tab when a different tab is selected', async () => {
     // Arrange
     const screen = await renderGeneral(notInstalledStatus)
 
@@ -254,7 +254,7 @@ describe('Settings → General default skill tab', () => {
 })
 
 describe('Settings → General preferred terminal', () => {
-  it('persists the selected terminal when a different option is chosen', async () => {
+  test('persists the selected terminal when a different option is chosen', async () => {
     // Arrange
     const screen = await renderGeneral(notInstalledStatus)
 
@@ -273,7 +273,7 @@ describe('Settings → General preferred terminal', () => {
 })
 
 describe('Settings → General custom terminal app name', () => {
-  it('commits the trimmed custom app name when focus leaves the field', async () => {
+  test('commits the trimmed custom app name when focus leaves the field', async () => {
     // Arrange
     const screen = await renderGeneral(notInstalledStatus, {
       preferredTerminal: 'custom',
@@ -299,7 +299,7 @@ describe('Settings → General custom terminal app name', () => {
 })
 
 describe('Settings → General startup window size', () => {
-  it('saves the live main-window bounds when "Use current window size" is clicked', async () => {
+  test('saves the live main-window bounds when "Use current window size" is clicked', async () => {
     // Arrange
     mockWindowGetMainBounds.mockReset()
     mockWindowGetMainBounds.mockResolvedValue({ width: 1200, height: 800 })
@@ -321,7 +321,7 @@ describe('Settings → General startup window size', () => {
     })
   })
 
-  it('disables capture and explains why when the main window is already closed at save time', async () => {
+  test('disables capture and explains why when the main window is already closed at save time', async () => {
     // Arrange
     // First call (mount probe) keeps the button enabled; the click-time
     // call resolves to null because the main window has since closed.
@@ -349,7 +349,7 @@ describe('Settings → General startup window size', () => {
     expect(mockSettingsSet).not.toHaveBeenCalled()
   })
 
-  it('disables capture and explains why when reading bounds throws at save time', async () => {
+  test('disables capture and explains why when reading bounds throws at save time', async () => {
     // Arrange
     mockWindowGetMainBounds.mockReset()
     mockWindowGetMainBounds
@@ -375,7 +375,7 @@ describe('Settings → General startup window size', () => {
     expect(mockSettingsSet).not.toHaveBeenCalled()
   })
 
-  it('disables capture and explains why when the main window is absent at open', async () => {
+  test('disables capture and explains why when the main window is absent at open', async () => {
     // Arrange
     mockWindowGetMainBounds.mockReset()
     mockWindowGetMainBounds.mockRejectedValueOnce(new Error('no main window'))
@@ -397,7 +397,7 @@ describe('Settings → General startup window size', () => {
     await expect.element(saveButton).toBeDisabled()
   })
 
-  it('clears the persisted size when "Reset to default" is clicked', async () => {
+  test('clears the persisted size when "Reset to default" is clicked', async () => {
     // Arrange
     const screen = await renderGeneral(notInstalledStatus, {
       windowSize: { width: toPixelWidth(1000), height: toPixelHeight(700) },

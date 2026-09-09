@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { isAllowedSkillsUrl } from './marketplaceUrlPolicy'
 
 describe('isAllowedSkillsUrl', () => {
-  it('opens a skills.sh HTTPS link on the implicit default port', () => {
+  test('opens a skills.sh HTTPS link on the implicit default port', () => {
     // Arrange
     const url = 'https://skills.sh/trending'
     // Act
@@ -12,7 +12,7 @@ describe('isAllowedSkillsUrl', () => {
     expect(allowed).toBe(true)
   })
 
-  it('opens a skills.sh HTTPS link on the explicit 443 port', () => {
+  test('opens a skills.sh HTTPS link on the explicit 443 port', () => {
     // Arrange
     const url = 'https://skills.sh:443/hot'
     // Act
@@ -21,7 +21,7 @@ describe('isAllowedSkillsUrl', () => {
     expect(allowed).toBe(true)
   })
 
-  it('blocks a skills.sh link on a non-standard port', () => {
+  test('blocks a skills.sh link on a non-standard port', () => {
     // Arrange
     const url = 'https://skills.sh:444/trending'
     // Act
@@ -30,7 +30,7 @@ describe('isAllowedSkillsUrl', () => {
     expect(allowed).toBe(false)
   })
 
-  it('blocks a plain-HTTP skills.sh link', () => {
+  test('blocks a plain-HTTP skills.sh link', () => {
     // Arrange
     const url = 'http://skills.sh/trending'
     // Act
@@ -39,7 +39,7 @@ describe('isAllowedSkillsUrl', () => {
     expect(allowed).toBe(false)
   })
 
-  it('blocks a look-alike subdomain that only ends in skills.sh', () => {
+  test('blocks a look-alike subdomain that only ends in skills.sh', () => {
     // Arrange
     const url = 'https://skills.sh.evil.com/trending'
     // Act
@@ -48,7 +48,7 @@ describe('isAllowedSkillsUrl', () => {
     expect(allowed).toBe(false)
   })
 
-  it('blocks a string that is not a parseable URL', () => {
+  test('blocks a string that is not a parseable URL', () => {
     // Arrange
     const url = 'notaurl'
     // Act

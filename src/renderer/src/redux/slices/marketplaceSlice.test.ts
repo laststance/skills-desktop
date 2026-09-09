@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import {
   repositoryId,
@@ -46,7 +46,7 @@ describe('marketplaceSlice', () => {
     vi.resetAllMocks()
   })
 
-  it('opens the Marketplace tab on a clean, idle search panel', async () => {
+  test('opens the Marketplace tab on a clean, idle search panel', async () => {
     // Arrange
     const store = await createTestStore()
 
@@ -63,7 +63,7 @@ describe('marketplaceSlice', () => {
   })
 
   // --- Sync reducers ---
-  it('reflects what the user typed into the marketplace search box', async () => {
+  test('reflects what the user typed into the marketplace search box', async () => {
     // Arrange
     const { setMarketplaceSearchQuery } = await import('./marketplaceSlice')
     const store = await createTestStore()
@@ -75,7 +75,7 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.searchQuery).toBe('react')
   })
 
-  it('highlights a skill chosen to install, then deselects it when dismissed', async () => {
+  test('highlights a skill chosen to install, then deselects it when dismissed', async () => {
     // Arrange
     const { selectSkillForInstall } = await import('./marketplaceSlice')
     const store = await createTestStore()
@@ -89,7 +89,7 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.selectedSkill).toBeNull()
   })
 
-  it('opens a skill in the preview pane, then closes the preview when dismissed', async () => {
+  test('opens a skill in the preview pane, then closes the preview when dismissed', async () => {
     // Arrange
     const { setPreviewSkill } = await import('./marketplaceSlice')
     const store = await createTestStore()
@@ -103,7 +103,7 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.previewSkill).toBeNull()
   })
 
-  it('aborts the in-flight CLI operation and returns the panel to idle when the user cancels', async () => {
+  test('aborts the in-flight CLI operation and returns the panel to idle when the user cancels', async () => {
     // Arrange
     const { cancelOperation } = await import('./marketplaceSlice')
     const store = await createTestStore()
@@ -116,7 +116,7 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.status).toBe('idle')
   })
 
-  it('dismisses a surfaced error banner and lets the user search again', async () => {
+  test('dismisses a surfaced error banner and lets the user search again', async () => {
     // Arrange — drive the panel into the error state via a failing search
     const { clearError, searchSkills, setMarketplaceSearchQuery } =
       await import('./marketplaceSlice')
@@ -134,7 +134,7 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.status).toBe('idle')
   })
 
-  it('empties the results list and the search box when results are cleared', async () => {
+  test('empties the results list and the search box when results are cleared', async () => {
     // Arrange
     const { setMarketplaceSearchQuery, clearSearchResults } =
       await import('./marketplaceSlice')
@@ -149,7 +149,7 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.searchQuery).toBe('')
   })
 
-  it('shows the live install progress reported by the CLI, then clears it', async () => {
+  test('shows the live install progress reported by the CLI, then clears it', async () => {
     // Arrange
     const { setInstallProgress } = await import('./marketplaceSlice')
     const store = await createTestStore()
@@ -169,7 +169,7 @@ describe('marketplaceSlice', () => {
   })
 
   // --- searchSkills thunk ---
-  it('shows a searching spinner state while the search request is in flight', async () => {
+  test('shows a searching spinner state while the search request is in flight', async () => {
     // Arrange — keep the search request pending so the spinner state is observable
     let resolve!: (value: SkillSearchResult[]) => void
     mockSearch.mockReturnValue(
@@ -192,7 +192,7 @@ describe('marketplaceSlice', () => {
     await promise
   })
 
-  it('lists the matching skills once the search resolves', async () => {
+  test('lists the matching skills once the search resolves', async () => {
     // Arrange
     mockSearch.mockResolvedValue([sampleResult])
     const store = await createTestStore()
@@ -211,7 +211,7 @@ describe('marketplaceSlice', () => {
     expect(state.searchResults[0].name).toBe('task')
   })
 
-  it('surfaces the failure message when a search request errors out', async () => {
+  test('surfaces the failure message when a search request errors out', async () => {
     // Arrange
     mockSearch.mockRejectedValue(new Error('API timeout'))
     const store = await createTestStore()
@@ -227,7 +227,7 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.error).toBe('API timeout')
   })
 
-  it('shows a generic search-failed banner when the search error carries no message', async () => {
+  test('shows a generic search-failed banner when the search error carries no message', async () => {
     // Arrange — the rejected request throws an Error with an empty message,
     // so the panel must fall back to a human-readable default banner.
     mockSearch.mockRejectedValue(new Error(''))
@@ -244,7 +244,7 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.error).toBe('Search failed')
   })
 
-  it('keeps the latest query results when an earlier search resolves out of order', async () => {
+  test('keeps the latest query results when an earlier search resolves out of order', async () => {
     // Arrange — two searches in flight. "rea" is dispatched first but its
     // response is made to land AFTER "react" resolves, simulating an
     // out-of-order IPC reply (the CLI runs searches concurrently).
@@ -291,7 +291,7 @@ describe('marketplaceSlice', () => {
     expect(state.status).toBe('idle')
   })
 
-  it('ignores a stale search failure once the query has moved on', async () => {
+  test('ignores a stale search failure once the query has moved on', async () => {
     // Arrange — "rea" will reject, "react" will succeed; "react" resolves
     // first, then the superseded "rea" rejection lands.
     let rejectRea!: (reason: Error) => void
@@ -329,7 +329,7 @@ describe('marketplaceSlice', () => {
     expect(state.searchResults).toEqual([sampleResult])
   })
 
-  it('discards a search response that lands after the box is cleared', async () => {
+  test('discards a search response that lands after the box is cleared', async () => {
     // Arrange — a search is still in flight when the user empties the box.
     let resolveSearch!: (value: SkillSearchResult[]) => void
     mockSearch.mockReturnValue(
@@ -356,7 +356,7 @@ describe('marketplaceSlice', () => {
     expect(state.status).toBe('idle')
   })
 
-  it('returns the panel to idle when the box is cleared mid-search', async () => {
+  test('returns the panel to idle when the box is cleared mid-search', async () => {
     // Arrange — keep a search pending so the panel sits in 'searching'.
     mockSearch.mockReturnValue(new Promise<SkillSearchResult[]>(() => {}))
     const store = await createTestStore()
@@ -373,7 +373,7 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.status).toBe('idle')
   })
 
-  it('clears a stranded error banner when the box is emptied after a failed search', async () => {
+  test('clears a stranded error banner when the box is emptied after a failed search', async () => {
     // Arrange — a search fails, leaving the destructive error banner on screen.
     // The banner renders on `error` (not `status`), so emptying the box must
     // wipe `error` too or the red banner outlives the query over the leaderboard.
@@ -394,7 +394,7 @@ describe('marketplaceSlice', () => {
   })
 
   // --- installSkill thunk ---
-  it('shows an installing state while the install request is in flight', async () => {
+  test('shows an installing state while the install request is in flight', async () => {
     // Arrange — keep the install request pending so the installing state is observable
     let resolve!: (value: { success: boolean }) => void
     mockInstall.mockReturnValue(
@@ -421,7 +421,7 @@ describe('marketplaceSlice', () => {
     await promise
   })
 
-  it('clears the install selection and returns to idle once the install succeeds', async () => {
+  test('clears the install selection and returns to idle once the install succeeds', async () => {
     // Arrange
     mockInstall.mockResolvedValue({ success: true })
     const store = await createTestStore()
@@ -443,7 +443,7 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.status).toBe('idle')
   })
 
-  it('surfaces the failure message when an install request errors out', async () => {
+  test('surfaces the failure message when an install request errors out', async () => {
     // Arrange
     mockInstall.mockRejectedValue(new Error('Install failed'))
     const store = await createTestStore()
@@ -463,7 +463,7 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.error).toBe('Install failed')
   })
 
-  it('shows a generic installation-failed banner when the install error carries no message', async () => {
+  test('shows a generic installation-failed banner when the install error carries no message', async () => {
     // Arrange — the install rejects with an Error whose message is empty, so
     // the panel must fall back to a human-readable default banner.
     mockInstall.mockRejectedValue(new Error(''))
@@ -484,7 +484,7 @@ describe('marketplaceSlice', () => {
     expect(store.getState().marketplace.error).toBe('Installation failed')
   })
 
-  it('shows an install-failed error when the CLI completes but reports no success', async () => {
+  test('shows an install-failed error when the CLI completes but reports no success', async () => {
     // Arrange — the install promise resolves (no throw) but the CLI reports
     // success:false, e.g. a non-zero exit that the IPC layer swallowed.
     mockInstall.mockResolvedValue({ success: false })
@@ -511,7 +511,7 @@ describe('marketplaceSlice', () => {
   })
 
   // --- loadLeaderboard thunk ---
-  it('shows a loading leaderboard for a filter that has never been fetched', async () => {
+  test('shows a loading leaderboard for a filter that has never been fetched', async () => {
     // Arrange — keep the leaderboard request pending so the loading state is observable
     let resolve!: (value: SkillSearchResult[]) => void
     mockLeaderboard.mockReturnValue(
@@ -534,7 +534,7 @@ describe('marketplaceSlice', () => {
     await promise
   })
 
-  it('caches the fetched leaderboard rows under their filter key once loaded', async () => {
+  test('caches the fetched leaderboard rows under their filter key once loaded', async () => {
     // Arrange
     mockLeaderboard.mockResolvedValue([sampleResult])
     const store = await createTestStore()
@@ -551,7 +551,7 @@ describe('marketplaceSlice', () => {
     expect(lb?.lastFetched).toBeGreaterThan(0)
   })
 
-  it('serves a fresh leaderboard from cache instead of refetching the same filter', async () => {
+  test('serves a fresh leaderboard from cache instead of refetching the same filter', async () => {
     // Arrange
     mockLeaderboard.mockResolvedValue([sampleResult])
     const store = await createTestStore()
@@ -568,7 +568,7 @@ describe('marketplaceSlice', () => {
     expect(mockLeaderboard).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps each leaderboard filter cached separately so they do not overwrite each other', async () => {
+  test('keeps each leaderboard filter cached separately so they do not overwrite each other', async () => {
     // Arrange
     const trendingResult: SkillSearchResult = {
       ...sampleResult,
@@ -590,7 +590,7 @@ describe('marketplaceSlice', () => {
     expect(state.leaderboard['trending']?.skills[0].name).toBe('trending-skill')
   })
 
-  it('leaves the last good leaderboard on screen when a stale-cache refetch fails', async () => {
+  test('leaves the last good leaderboard on screen when a stale-cache refetch fails', async () => {
     // Arrange — first fetch populates the cache
     mockLeaderboard.mockResolvedValueOnce([sampleResult])
     const store = await createTestStore()
@@ -618,7 +618,7 @@ describe('marketplaceSlice', () => {
     expect(state?.status).toBe('error')
   })
 
-  it('shows a generic leaderboard-failed banner on the cached entry when a stale-cache refetch errors without a message', async () => {
+  test('shows a generic leaderboard-failed banner on the cached entry when a stale-cache refetch errors without a message', async () => {
     // Arrange — first fetch populates the cache, then it goes stale
     mockLeaderboard.mockResolvedValueOnce([sampleResult])
     const store = await createTestStore()
@@ -644,7 +644,7 @@ describe('marketplaceSlice', () => {
     expect(state?.skills).toHaveLength(1)
   })
 
-  it('shows an error and no rows when the first-ever leaderboard fetch fails', async () => {
+  test('shows an error and no rows when the first-ever leaderboard fetch fails', async () => {
     // Arrange
     mockLeaderboard.mockRejectedValue(new Error('Offline'))
     const store = await createTestStore()
@@ -660,7 +660,7 @@ describe('marketplaceSlice', () => {
     expect(lb?.skills).toEqual([])
   })
 
-  it('shows a generic leaderboard-failed banner for a filter that rejects without a message before ever loading', async () => {
+  test('shows a generic leaderboard-failed banner for a filter that rejects without a message before ever loading', async () => {
     // Arrange — a rejection lands for a filter that has no cache entry yet, and
     // the Error carries an empty message. The normal thunk lifecycle runs
     // `pending` first (which seeds an entry), so this stand-alone rejected
@@ -680,7 +680,7 @@ describe('marketplaceSlice', () => {
     expect(lb?.lastFetched).toBe(0)
   })
 
-  it('records an error placeholder for a filter that rejects without ever loading', async () => {
+  test('records an error placeholder for a filter that rejects without ever loading', async () => {
     // Arrange — a rejection lands for a filter that has no cache entry yet.
     // The normal thunk lifecycle runs `pending` first (which seeds an entry),
     // so this stand-alone rejected action models a failure arriving before any
@@ -702,7 +702,7 @@ describe('marketplaceSlice', () => {
     expect(lb?.lastFetched).toBe(0)
   })
 
-  it('loadLeaderboard fires a single fetch when two mounts request the same filter at once', async () => {
+  test('loadLeaderboard fires a single fetch when two mounts request the same filter at once', async () => {
     // Arrange: keep the first request in flight so the second sees it pending
     let resolve!: (value: SkillSearchResult[]) => void
     mockLeaderboard.mockReturnValue(
@@ -724,7 +724,7 @@ describe('marketplaceSlice', () => {
     await Promise.all([first, second])
   })
 
-  it('loadLeaderboard keeps already-loaded skills visible while refreshing', async () => {
+  test('loadLeaderboard keeps already-loaded skills visible while refreshing', async () => {
     // Arrange: first fetch populates the cache
     mockLeaderboard.mockResolvedValueOnce([sampleResult])
     const store = await createTestStore()

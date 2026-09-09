@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { listAvailableWidgets } from '@/renderer/src/components/dashboard/widgets/registry'
 
@@ -10,7 +10,7 @@ import { listAvailableWidgets } from '@/renderer/src/components/dashboard/widget
  * half-finished widget onto their dashboard.
  */
 describe('listAvailableWidgets — experimental gate', () => {
-  it('hides experimental widgets from the picker when the flag is disabled', () => {
+  test('hides experimental widgets from the picker when the flag is disabled', () => {
     // Arrange — flag off mirrors the shipped default
     // (FEATURE_FLAGS.ENABLE_DASHBOARD_EXPERIMENTAL === false).
     const experimentalEnabled = false
@@ -26,7 +26,7 @@ describe('listAvailableWidgets — experimental gate', () => {
     expect(result.length).toBe(8)
   })
 
-  it('includes experimental widgets in the picker when the flag is enabled', () => {
+  test('includes experimental widgets in the picker when the flag is enabled', () => {
     // Arrange — flag on simulates flipping ENABLE_DASHBOARD_EXPERIMENTAL to true.
     const experimentalEnabled = true
 

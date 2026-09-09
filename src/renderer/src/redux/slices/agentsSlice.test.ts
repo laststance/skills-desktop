@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import type { Agent } from '@/shared/types'
 import { toAbsolutePath, toFileSizeBytes, toSkillCount } from '@/shared/types'
@@ -75,7 +75,7 @@ describe('agentsSlice', () => {
     vi.resetAllMocks()
   })
 
-  it('starts with no agents loaded and nothing pending deletion', async () => {
+  test('starts with no agents loaded and nothing pending deletion', async () => {
     // Arrange
     const store = await createTestStore()
 
@@ -90,7 +90,7 @@ describe('agentsSlice', () => {
     expect(state.deleting).toBe(false)
   })
 
-  it('arms the delete confirmation for an agent and disarms it on cancel', async () => {
+  test('arms the delete confirmation for an agent and disarms it on cancel', async () => {
     // Arrange
     const { setAgentToDelete } = await import('./agentsSlice')
     const store = await createTestStore()
@@ -109,7 +109,7 @@ describe('agentsSlice', () => {
   })
 
   // --- fetchAgents thunk ---
-  it('shows a loading state while the agent scan is in flight', async () => {
+  test('shows a loading state while the agent scan is in flight', async () => {
     // Arrange
     let resolve!: (value: Agent[]) => void
     mockGetAll.mockReturnValue(
@@ -131,7 +131,7 @@ describe('agentsSlice', () => {
     await promise
   })
 
-  it('lists the scanned agents and clears loading once the scan finishes', async () => {
+  test('lists the scanned agents and clears loading once the scan finishes', async () => {
     // Arrange
     mockGetAll.mockResolvedValue([sampleAgent])
     const store = await createTestStore()
@@ -147,7 +147,7 @@ describe('agentsSlice', () => {
     expect(state.loading).toBe(false)
   })
 
-  it('surfaces the failure message when the agent scan throws', async () => {
+  test('surfaces the failure message when the agent scan throws', async () => {
     // Arrange
     mockGetAll.mockRejectedValue(new Error('Permission denied'))
     const store = await createTestStore()
@@ -163,7 +163,7 @@ describe('agentsSlice', () => {
   })
 
   // --- removeAllSymlinksFromAgent thunk ---
-  it('clears the pending agent and forwards the reviewed identity after a successful removal', async () => {
+  test('clears the pending agent and forwards the reviewed identity after a successful removal', async () => {
     // Arrange
     mockRemoveAllFromAgent.mockResolvedValue({
       success: true,
@@ -188,7 +188,7 @@ describe('agentsSlice', () => {
     })
   })
 
-  it('refuses to delete and asks for a rescan when the reviewed agent identity is missing', async () => {
+  test('refuses to delete and asks for a rescan when the reviewed agent identity is missing', async () => {
     // Arrange
     const staleAgent: Agent = { ...sampleAgent, filesystemIdentity: undefined }
     const store = await createTestStore()
@@ -205,7 +205,7 @@ describe('agentsSlice', () => {
     expect(mockRemoveAllFromAgent).not.toHaveBeenCalled()
   })
 
-  it('shows a deleting state while the symlink removal is in flight', async () => {
+  test('shows a deleting state while the symlink removal is in flight', async () => {
     // Arrange
     let resolve!: (value: { success: boolean; removedCount: number }) => void
     mockRemoveAllFromAgent.mockReturnValue(
@@ -226,7 +226,7 @@ describe('agentsSlice', () => {
     await promise
   })
 
-  it('surfaces the backend error when symlink removal reports failure', async () => {
+  test('surfaces the backend error when symlink removal reports failure', async () => {
     // Arrange
     mockRemoveAllFromAgent.mockResolvedValue({
       success: false,
@@ -243,7 +243,7 @@ describe('agentsSlice', () => {
     expect(store.getState().agents.error).toBe('Directory locked')
   })
 
-  it('shows a generic deletion-failure message when the backend reports failure without a reason', async () => {
+  test('shows a generic deletion-failure message when the backend reports failure without a reason', async () => {
     // Arrange
     mockRemoveAllFromAgent.mockResolvedValue({
       success: false,
@@ -260,7 +260,7 @@ describe('agentsSlice', () => {
     expect(store.getState().agents.error).toBe('Failed to delete skills folder')
   })
 
-  it('surfaces the thrown error when symlink removal rejects', async () => {
+  test('surfaces the thrown error when symlink removal rejects', async () => {
     // Arrange
     mockRemoveAllFromAgent.mockRejectedValue(new Error('Unexpected error'))
     const store = await createTestStore()

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { resolveCodeTheme } from './codeThemeHelpers'
 
@@ -10,7 +10,7 @@ import { resolveCodeTheme } from './codeThemeHelpers'
  * breaking the preview.
  */
 describe('resolveCodeTheme', () => {
-  it('maps each curated theme id to its Shiki light/dark pair', () => {
+  test('maps each curated theme id to its Shiki light/dark pair', () => {
     // Arrange / Act / Assert — every curated id resolves to its named pair.
     expect(resolveCodeTheme('github')).toEqual({
       light: 'github-light',
@@ -34,7 +34,7 @@ describe('resolveCodeTheme', () => {
     })
   })
 
-  it('resolves the Visual Studio id whose Shiki theme names differ from the id', () => {
+  test('resolves the Visual Studio id whose Shiki theme names differ from the id', () => {
     // Regression guard for the one pair where id ('vs') ≠ Shiki theme names
     // ('light-plus' / 'dark-plus'): an accidental id===theme assumption would
     // silently break only this entry.
@@ -45,7 +45,7 @@ describe('resolveCodeTheme', () => {
     expect(resolved.dark).toBe('dark-plus')
   })
 
-  it('falls back to the default GitHub pair for an unknown (stale) theme id', () => {
+  test('falls back to the default GitHub pair for an unknown (stale) theme id', () => {
     // A settings.json left over from a build that has since removed a theme
     // must not break the preview — it degrades to the default pair.
     // Arrange / Act

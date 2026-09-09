@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import type {
   DownloadProgress,
@@ -110,7 +110,7 @@ afterEach(() => {
 })
 
 describe('useUpdateNotification', () => {
-  it('does nothing when the auto-updater IPC surface is absent outside production', async () => {
+  test('does nothing when the auto-updater IPC surface is absent outside production', async () => {
     // Arrange
     vi.stubGlobal('window', { electron: undefined })
     const { useUpdateNotification } = await import('./useUpdateNotification')
@@ -123,7 +123,7 @@ describe('useUpdateNotification', () => {
     expect(lastEffectCleanup).toBeUndefined()
   })
 
-  it('marks the update flow as checking when the checking IPC event arrives', async () => {
+  test('marks the update flow as checking when the checking IPC event arrives', async () => {
     // Arrange
     const apiStub = createUpdateApiStub()
     vi.stubGlobal('window', { electron: { update: apiStub.update } })
@@ -140,7 +140,7 @@ describe('useUpdateNotification', () => {
     })
   })
 
-  it('records the available version and release notes when an update is found', async () => {
+  test('records the available version and release notes when an update is found', async () => {
     // Arrange
     const apiStub = createUpdateApiStub()
     vi.stubGlobal('window', { electron: { update: apiStub.update } })
@@ -161,7 +161,7 @@ describe('useUpdateNotification', () => {
     })
   })
 
-  it('returns to idle when the checker reports no update is available', async () => {
+  test('returns to idle when the checker reports no update is available', async () => {
     // Arrange
     const apiStub = createUpdateApiStub()
     vi.stubGlobal('window', { electron: { update: apiStub.update } })
@@ -178,7 +178,7 @@ describe('useUpdateNotification', () => {
     })
   })
 
-  it('streams download progress into the update slice while downloading', async () => {
+  test('streams download progress into the update slice while downloading', async () => {
     // Arrange
     const apiStub = createUpdateApiStub()
     vi.stubGlobal('window', { electron: { update: apiStub.update } })
@@ -206,7 +206,7 @@ describe('useUpdateNotification', () => {
     })
   })
 
-  it('marks the update ready to install once the download finishes', async () => {
+  test('marks the update ready to install once the download finishes', async () => {
     // Arrange
     const apiStub = createUpdateApiStub()
     vi.stubGlobal('window', { electron: { update: apiStub.update } })
@@ -224,7 +224,7 @@ describe('useUpdateNotification', () => {
     })
   })
 
-  it('surfaces the error message when an update step fails', async () => {
+  test('surfaces the error message when an update step fails', async () => {
     // Arrange
     const apiStub = createUpdateApiStub()
     vi.stubGlobal('window', { electron: { update: apiStub.update } })
@@ -244,7 +244,7 @@ describe('useUpdateNotification', () => {
     })
   })
 
-  it('tears down every IPC listener on unmount to avoid duplicate dispatches', async () => {
+  test('tears down every IPC listener on unmount to avoid duplicate dispatches', async () => {
     // Arrange
     const apiStub = createUpdateApiStub()
     vi.stubGlobal('window', { electron: { update: apiStub.update } })
@@ -268,7 +268,7 @@ describe('useUpdateNotification', () => {
 })
 
 describe('downloadUpdate', () => {
-  it('asks the auto-updater to download when the IPC surface is present', async () => {
+  test('asks the auto-updater to download when the IPC surface is present', async () => {
     // Arrange
     const apiStub = createUpdateApiStub()
     vi.stubGlobal('window', { electron: { update: apiStub.update } })
@@ -281,7 +281,7 @@ describe('downloadUpdate', () => {
     expect(apiStub.download).toHaveBeenCalledTimes(1)
   })
 
-  it('resolves without error when no auto-updater is wired', async () => {
+  test('resolves without error when no auto-updater is wired', async () => {
     // Arrange
     vi.stubGlobal('window', { electron: undefined })
     const { downloadUpdate } = await import('./useUpdateNotification')
@@ -295,7 +295,7 @@ describe('downloadUpdate', () => {
 })
 
 describe('installUpdate', () => {
-  it('installs and restarts via the auto-updater when the IPC surface is present', async () => {
+  test('installs and restarts via the auto-updater when the IPC surface is present', async () => {
     // Arrange
     const apiStub = createUpdateApiStub()
     vi.stubGlobal('window', { electron: { update: apiStub.update } })
@@ -308,7 +308,7 @@ describe('installUpdate', () => {
     expect(apiStub.install).toHaveBeenCalledTimes(1)
   })
 
-  it('resolves without error when no auto-updater is wired', async () => {
+  test('resolves without error when no auto-updater is wired', async () => {
     // Arrange
     vi.stubGlobal('window', { electron: undefined })
     const { installUpdate } = await import('./useUpdateNotification')

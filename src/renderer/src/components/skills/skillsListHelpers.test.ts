@@ -1,11 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { repositoryId } from '@/shared/types'
 
 import { getEmptyListMessage } from './skillsListHelpers'
 
 describe('getEmptyListMessage', () => {
-  it('names the active repo in the empty state when a search and a single source are both active', () => {
+  test('names the active repo in the empty state when a search and a single source are both active', () => {
     // Search still wins as the user's most recent narrowing action, but the
     // active repo facet is named so the empty state explains the intersection.
     // Arrange: a search query plus a single selected source repo.
@@ -21,7 +21,7 @@ describe('getEmptyListMessage', () => {
     expect(message).toBe('No skills match your search in vercel-labs/skills')
   })
 
-  it('names the single selected repo in the empty state when only that source is filtered', () => {
+  test('names the single selected repo in the empty state when only that source is filtered', () => {
     // Arrange: only a single selected source repo, no search/agent narrowing.
     // Act
     const message = getEmptyListMessage({
@@ -35,7 +35,7 @@ describe('getEmptyListMessage', () => {
     expect(message).toBe('No skills from vercel-labs/skills')
   })
 
-  it('summarizes several selected repos as "the selected repositories" instead of listing each', () => {
+  test('summarizes several selected repos as "the selected repositories" instead of listing each', () => {
     // With >1 repo in the include filter, naming each would bloat the empty
     // state; the helper summarizes instead of listing.
     // Arrange: two selected source repos.
@@ -54,7 +54,7 @@ describe('getEmptyListMessage', () => {
     expect(message).toBe('No skills from the selected repositories')
   })
 
-  it('appends the multi-repo summary to a search empty state when several sources are filtered', () => {
+  test('appends the multi-repo summary to a search empty state when several sources are filtered', () => {
     // Arrange: a search query plus two selected source repos.
     // Act
     const message = getEmptyListMessage({
@@ -73,7 +73,7 @@ describe('getEmptyListMessage', () => {
     )
   })
 
-  it('prefers the source message over the agent+type message when the search box is empty', () => {
+  test('prefers the source message over the agent+type message when the search box is empty', () => {
     // The pill is a more specific, more recent action than the persistent
     // agent tab. Order in the ladder is search > source > agent+type > agent.
     // Arrange: a selected source repo competing with a selected agent + type.
@@ -89,7 +89,7 @@ describe('getEmptyListMessage', () => {
     expect(message).toBe('No skills from pbakaus/impeccable')
   })
 
-  it('names the active repo in a search empty state when both a query and a single source are set', () => {
+  test('names the active repo in a search empty state when both a query and a single source are set', () => {
     // Arrange: a search query plus a single selected source repo.
     // Act
     const message = getEmptyListMessage({
@@ -103,7 +103,7 @@ describe('getEmptyListMessage', () => {
     expect(message).toBe('No skills match your search in laststance/skills')
   })
 
-  it('shows the agent-and-type empty state when an agent and a type filter are set without a source or search', () => {
+  test('shows the agent-and-type empty state when an agent and a type filter are set without a source or search', () => {
     // Arrange: a selected agent plus a local type filter, no source/search.
     // Act
     const message = getEmptyListMessage({
@@ -117,7 +117,7 @@ describe('getEmptyListMessage', () => {
     expect(message).toBe('No local skills for this agent')
   })
 
-  it('appends the excluded skill types to the selected-source empty state', () => {
+  test('appends the excluded skill types to the selected-source empty state', () => {
     // Arrange: a selected source repo with two excluded skill types.
     // Act
     const message = getEmptyListMessage({
@@ -134,7 +134,7 @@ describe('getEmptyListMessage', () => {
     )
   })
 
-  it('appends the excluded skill types to the agent-only empty state, Oxford-comma joined', () => {
+  test('appends the excluded skill types to the agent-only empty state, Oxford-comma joined', () => {
     // Arrange: a selected agent with three excluded skill types.
     // Act
     const message = getEmptyListMessage({
@@ -151,7 +151,7 @@ describe('getEmptyListMessage', () => {
     )
   })
 
-  it('appends a single excluded skill type with no conjunction or comma when exactly one type is excluded', () => {
+  test('appends a single excluded skill type with no conjunction or comma when exactly one type is excluded', () => {
     // With one exclude active, the copy must read plainly ("excluding G-Stack")
     // — no "and", no Oxford comma, which only apply to multi-exclude lists.
     // Arrange: a selected agent with exactly one excluded skill type.
@@ -170,7 +170,7 @@ describe('getEmptyListMessage', () => {
     )
   })
 
-  it('shows the symlinked-only empty state when the type filter is symlinked', () => {
+  test('shows the symlinked-only empty state when the type filter is symlinked', () => {
     // Arrange: a selected agent with the symlinked type filter.
     // Act
     const message = getEmptyListMessage({
@@ -184,7 +184,7 @@ describe('getEmptyListMessage', () => {
     expect(message).toBe('No symlinked skills for this agent')
   })
 
-  it('shows the G-Stack-only empty state when the type filter is gstack', () => {
+  test('shows the G-Stack-only empty state when the type filter is gstack', () => {
     // Arrange: a selected agent with the gstack type filter.
     // Act
     const message = getEmptyListMessage({
@@ -198,7 +198,7 @@ describe('getEmptyListMessage', () => {
     expect(message).toBe('No G-Stack skills for this agent')
   })
 
-  it('shows the unique-only empty state when the type filter is unique', () => {
+  test('shows the unique-only empty state when the type filter is unique', () => {
     // Arrange: a selected agent with the unique type filter and no other narrow.
     // Act
     const message = getEmptyListMessage({
@@ -212,7 +212,7 @@ describe('getEmptyListMessage', () => {
     expect(message).toBe('No unique skills for this agent')
   })
 
-  it('appends a single excluded unique type to the agent-only empty state', () => {
+  test('appends a single excluded unique type to the agent-only empty state', () => {
     // Arrange: a selected agent excluding the unique type under the all include.
     // Act
     const message = getEmptyListMessage({
@@ -229,7 +229,7 @@ describe('getEmptyListMessage', () => {
     )
   })
 
-  it('shows the generic agent empty state when an agent is selected and no type filter narrows it', () => {
+  test('shows the generic agent empty state when an agent is selected and no type filter narrows it', () => {
     // Arrange: a selected agent with the all type filter (no narrowing).
     // Act
     const message = getEmptyListMessage({
@@ -243,7 +243,7 @@ describe('getEmptyListMessage', () => {
     expect(message).toBe('No skills installed for this agent')
   })
 
-  it('shows the generic fallback message when nothing is narrowing the list', () => {
+  test('shows the generic fallback message when nothing is narrowing the list', () => {
     // The "no agent, no source, no search" fallback is unusual — typically
     // means filteredSkills is empty because skills.length is 0, which is
     // handled by an earlier branch in SkillsList. Still worth locking the
@@ -261,7 +261,7 @@ describe('getEmptyListMessage', () => {
     expect(message).toBe('No skills match your filter')
   })
 
-  it('treats a whitespace-only query as a real search rather than an empty one', () => {
+  test('treats a whitespace-only query as a real search rather than an empty one', () => {
     // Document the current contract: the helper checks `length > 0`, so
     // a single space counts. SkillsList trims-on-input is the right place
     // to change this if the UX wants to ignore whitespace; the helper only

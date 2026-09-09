@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
 
 import type { FolderActionResult } from '@/shared/types'
@@ -32,7 +32,7 @@ afterEach(() => {
 })
 
 describe('useOpenFolder', () => {
-  it('does not show an error toast when revealInFinder succeeds', async () => {
+  test('does not show an error toast when revealInFinder succeeds', async () => {
     // Arrange
     revealMock.mockResolvedValue({ ok: true })
     const { useOpenFolder } = await import('./useOpenFolder')
@@ -46,7 +46,7 @@ describe('useOpenFolder', () => {
     expect(toastErrorMock).not.toHaveBeenCalled()
   })
 
-  it('shows the failure message as an error toast when revealInFinder fails', async () => {
+  test('shows the failure message as an error toast when revealInFinder fails', async () => {
     // Arrange
     revealMock.mockResolvedValue({
       ok: false,
@@ -64,7 +64,7 @@ describe('useOpenFolder', () => {
     expect(toastErrorMock).toHaveBeenCalledWith('boom')
   })
 
-  it('does not show an error toast when openInTerminal succeeds', async () => {
+  test('does not show an error toast when openInTerminal succeeds', async () => {
     // Arrange
     openTerminalMock.mockResolvedValue({ ok: true })
     const { useOpenFolder } = await import('./useOpenFolder')
@@ -78,7 +78,7 @@ describe('useOpenFolder', () => {
     expect(toastErrorMock).not.toHaveBeenCalled()
   })
 
-  it('shows the failure message as an error toast when openInTerminal fails', async () => {
+  test('shows the failure message as an error toast when openInTerminal fails', async () => {
     // Arrange
     openTerminalMock.mockResolvedValue({
       ok: false,
@@ -95,7 +95,7 @@ describe('useOpenFolder', () => {
     expect(toastErrorMock).toHaveBeenCalledWith('Folder not found: /missing')
   })
 
-  it('shows a fallback error toast when revealInFinder rejects (e.g. main rethrows EPERM)', async () => {
+  test('shows a fallback error toast when revealInFinder rejects (e.g. main rethrows EPERM)', async () => {
     // The main process rethrows unexpected errors (EPERM, etc.) past the
     // structured `{ok:false}` boundary — see folder.ts. Without try/catch
     // here the user would get no feedback at all on those paths.
@@ -114,7 +114,7 @@ describe('useOpenFolder', () => {
     )
   })
 
-  it('shows a fallback error toast when openInTerminal rejects', async () => {
+  test('shows a fallback error toast when openInTerminal rejects', async () => {
     // Arrange
     openTerminalMock.mockRejectedValue(new Error('EPERM'))
     const { useOpenFolder } = await import('./useOpenFolder')
@@ -129,7 +129,7 @@ describe('useOpenFolder', () => {
     )
   })
 
-  it('keeps the same callback references across re-renders so consumers do not re-run effects', async () => {
+  test('keeps the same callback references across re-renders so consumers do not re-run effects', async () => {
     // Arrange
     revealMock.mockResolvedValue({ ok: true })
     const { useOpenFolder } = await import('./useOpenFolder')

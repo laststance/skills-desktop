@@ -1,5 +1,5 @@
 import { type ReactElement } from 'react'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { useFocusedOverlay } from './useFocusedOverlay'
@@ -41,7 +41,7 @@ afterEach(() => {
 })
 
 describe('useFocusedOverlay', () => {
-  it('enters the overlay and locks body scroll when expanded', async () => {
+  test('enters the overlay and locks body scroll when expanded', async () => {
     // Arrange
     const screen = await render(<OverlayHarness resetKey="skill-a" />)
 
@@ -55,7 +55,7 @@ describe('useFocusedOverlay', () => {
     expect(document.body.style.overflow).toBe('hidden')
   })
 
-  it('leaves the overlay and restores body scroll when collapsed', async () => {
+  test('leaves the overlay and restores body scroll when collapsed', async () => {
     // Arrange
     const screen = await render(<OverlayHarness resetKey="skill-a" />)
     await screen.getByRole('button', { name: 'Open overlay' }).click()
@@ -70,7 +70,7 @@ describe('useFocusedOverlay', () => {
     expect(document.body.style.overflow).toBe('')
   })
 
-  it('collapses the overlay when the Escape key is pressed', async () => {
+  test('collapses the overlay when the Escape key is pressed', async () => {
     // Arrange
     const screen = await render(<OverlayHarness resetKey="skill-a" />)
     await screen.getByRole('button', { name: 'Open overlay' }).click()
@@ -87,7 +87,7 @@ describe('useFocusedOverlay', () => {
       .toHaveTextContent('collapsed')
   })
 
-  it('collapses an open overlay when the reset key changes (new subject)', async () => {
+  test('collapses an open overlay when the reset key changes (new subject)', async () => {
     // Arrange
     const screen = await render(<OverlayHarness resetKey="skill-a" />)
     await screen.getByRole('button', { name: 'Open overlay' }).click()
@@ -104,7 +104,7 @@ describe('useFocusedOverlay', () => {
       .toHaveTextContent('collapsed')
   })
 
-  it('returns focus to the trigger element after the overlay is collapsed', async () => {
+  test('returns focus to the trigger element after the overlay is collapsed', async () => {
     // Arrange — the trigger is focused before opening, so expand() captures it.
     const screen = await render(<OverlayHarness resetKey="skill-a" />)
     const openOverlayButton = screen.getByRole('button', {

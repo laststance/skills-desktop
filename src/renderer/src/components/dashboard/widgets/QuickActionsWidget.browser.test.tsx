@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -81,7 +81,7 @@ async function renderQuickActions() {
 }
 
 describe('QuickActionsWidget', () => {
-  it('offers all four cold-start shortcuts as labelled buttons', async () => {
+  test('offers all four cold-start shortcuts as labelled buttons', async () => {
     // Arrange + Act
     const { screen } = await renderQuickActions()
 
@@ -101,7 +101,7 @@ describe('QuickActionsWidget', () => {
       .toBeVisible()
   })
 
-  it('starts a sync preview and shows the Sync tile as busy when clicked', async () => {
+  test('starts a sync preview and shows the Sync tile as busy when clicked', async () => {
     // Arrange
     const { screen } = await renderQuickActions()
 
@@ -116,7 +116,7 @@ describe('QuickActionsWidget', () => {
       .toBeDisabled()
   })
 
-  it('re-scans skills, agents, and source stats and shows Refresh as busy when clicked', async () => {
+  test('re-scans skills, agents, and source stats and shows Refresh as busy when clicked', async () => {
     // Arrange
     const { screen } = await renderQuickActions()
 
@@ -133,7 +133,7 @@ describe('QuickActionsWidget', () => {
       .toBeDisabled()
   })
 
-  it('renders a non-busy tile with a static, non-spinning icon and an enabled button', async () => {
+  test('renders a non-busy tile with a static, non-spinning icon and an enabled button', async () => {
     // Arrange + Act: Marketplace is rendered without an `isBusy` prop, so the
     // tile falls back to its default idle state.
     const { screen } = await renderQuickActions()
@@ -150,7 +150,7 @@ describe('QuickActionsWidget', () => {
     expect(marketplaceIcon?.classList.contains('animate-spin')).toBe(false)
   })
 
-  it('switches the main view to the marketplace tab when Marketplace is clicked', async () => {
+  test('switches the main view to the marketplace tab when Marketplace is clicked', async () => {
     // Arrange: the app starts on the installed tab.
     const { screen, store } = await renderQuickActions()
 
@@ -161,7 +161,7 @@ describe('QuickActionsWidget', () => {
     expect(store.getState().ui.activeTab).toBe('marketplace')
   })
 
-  it('restores the default dashboard arrangement when Reset Layout is clicked', async () => {
+  test('restores the default dashboard arrangement when Reset Layout is clicked', async () => {
     // Arrange: drift away from defaults by adding an extra page so a no-op reset
     // could not pass by accident.
     const { screen, store } = await renderQuickActions()

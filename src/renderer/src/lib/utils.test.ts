@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { formatInstallCount, toggleArrayMember } from './utils'
 
 describe('formatInstallCount', () => {
-  it('shows an em dash when the install count is unknown', () => {
+  test('shows an em dash when the install count is unknown', () => {
     // Arrange
     const unknownCount = undefined
     // Act
@@ -12,7 +12,7 @@ describe('formatInstallCount', () => {
     expect(label).toBe('—')
   })
 
-  it('shows small install counts as a plain number without K notation', () => {
+  test('shows small install counts as a plain number without K notation', () => {
     // Arrange
     const zeroCount = 0
     const justBelowOneThousand = 999
@@ -24,7 +24,7 @@ describe('formatInstallCount', () => {
     expect(belowThousandLabel).toBe('999')
   })
 
-  it('abbreviates one thousand installs as 1.0K', () => {
+  test('abbreviates one thousand installs as 1.0K', () => {
     // Arrange
     const oneThousand = 1_000
     // Act
@@ -33,7 +33,7 @@ describe('formatInstallCount', () => {
     expect(label).toBe('1.0K')
   })
 
-  it('rounds a count just below one million up to 1.0M', () => {
+  test('rounds a count just below one million up to 1.0M', () => {
     // Arrange
     const justBelowOneMillion = 999_999
     // Act
@@ -42,7 +42,7 @@ describe('formatInstallCount', () => {
     expect(label).toBe('1.0M')
   })
 
-  it('abbreviates one million installs as 1.0M', () => {
+  test('abbreviates one million installs as 1.0M', () => {
     // Arrange
     const oneMillion = 1_000_000
     // Act
@@ -64,7 +64,7 @@ describe('formatInstallCount', () => {
  *    equality and the listener invariants downstream)
  */
 describe('toggleArrayMember', () => {
-  it('appends a value when it is not already present', () => {
+  test('appends a value when it is not already present', () => {
     // Arrange
     const members = ['a', 'b']
     // Act
@@ -73,7 +73,7 @@ describe('toggleArrayMember', () => {
     expect(toggled).toEqual(['a', 'b', 'c'])
   })
 
-  it('removes a value when it is already present', () => {
+  test('removes a value when it is already present', () => {
     // Arrange
     const members = ['a', 'b']
     // Act
@@ -82,7 +82,7 @@ describe('toggleArrayMember', () => {
     expect(toggled).toEqual(['b'])
   })
 
-  it('appends to an empty array', () => {
+  test('appends to an empty array', () => {
     // Arrange
     const members: string[] = []
     // Act
@@ -91,7 +91,7 @@ describe('toggleArrayMember', () => {
     expect(toggled).toEqual(['x'])
   })
 
-  it('returns an empty array when removing the only member', () => {
+  test('returns an empty array when removing the only member', () => {
     // Arrange
     const members = ['x']
     // Act
@@ -100,7 +100,7 @@ describe('toggleArrayMember', () => {
     expect(toggled).toEqual([])
   })
 
-  it('returns a new reference even when the result is structurally equal to the input', () => {
+  test('returns a new reference even when the result is structurally equal to the input', () => {
     // Callers (e.g. updateSettings({ hiddenAgentIds: ... })) rely on
     // a fresh reference for `setSettings` to be detected as a change
     // by Redux's default ===-equality checks. Aliasing the input would
@@ -115,7 +115,7 @@ describe('toggleArrayMember', () => {
     expect(appended).not.toBe(input)
   })
 
-  it('does not mutate the input array', () => {
+  test('does not mutate the input array', () => {
     // Arrange
     const input = ['a', 'b']
     // Act

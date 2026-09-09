@@ -17,7 +17,7 @@ import {
   beforeAll,
   describe,
   expect,
-  it,
+  test,
   vi,
 } from 'vitest'
 
@@ -166,7 +166,7 @@ describe('trashService.restore target-containment', () => {
     await mkdir(sharedClaudeAgent, { recursive: true })
   })
 
-  it('restores a symlink whose absolute target legitimately lives inside SOURCE_DIR', async () => {
+  test('restores a symlink whose absolute target legitimately lives inside SOURCE_DIR', async () => {
     // Arrange
     // Control case. Without this passing, every "should skip" case below is
     // meaningless — if the happy path plants nothing we're testing a broken
@@ -194,7 +194,7 @@ describe('trashService.restore target-containment', () => {
     await stat(linkPath)
   })
 
-  it('refuses source-backed restore when a dangling symlink occupies the source path', async () => {
+  test('refuses source-backed restore when a dangling symlink occupies the source path', async () => {
     // Arrange
     const { restore } = await trashServicePromise
     const skillName = 'source-path-dangling-collision'
@@ -226,7 +226,7 @@ describe('trashService.restore target-containment', () => {
     ).resolves.toBeTruthy()
   })
 
-  it('restores a Devin symlink whose relative target depends on physical .config parent', async () => {
+  test('restores a Devin symlink whose relative target depends on physical .config parent', async () => {
     // Arrange
     const { restore } = await trashServicePromise
     const skillName = 'devin-relative-restore'
@@ -259,7 +259,7 @@ describe('trashService.restore target-containment', () => {
     await expect(stat(join(sharedSourceDir, skillName))).resolves.toBeTruthy()
   })
 
-  it('recreates a missing agent skills parent before restoring a recorded symlink', async () => {
+  test('recreates a missing agent skills parent before restoring a recorded symlink', async () => {
     // Arrange
     const { restore } = await trashServicePromise
     const skillName = 'missing-agent-parent'
@@ -284,7 +284,7 @@ describe('trashService.restore target-containment', () => {
     await expect(readlink(linkPath)).resolves.toBe(target)
   })
 
-  it('refuses to plant a tampered symlink whose absolute target escapes SOURCE_DIR', async () => {
+  test('refuses to plant a tampered symlink whose absolute target escapes SOURCE_DIR', async () => {
     // Arrange
     const { restore } = await trashServicePromise
     const skillName = 'target-abs-escape'
@@ -307,7 +307,7 @@ describe('trashService.restore target-containment', () => {
     await expect(stat(linkPath)).rejects.toThrow()
   })
 
-  it('refuses to plant a tampered symlink whose relative target traverses out of SOURCE_DIR', async () => {
+  test('refuses to plant a tampered symlink whose relative target traverses out of SOURCE_DIR', async () => {
     // Arrange
     const { restore } = await trashServicePromise
     const skillName = 'target-rel-escape'
@@ -337,7 +337,7 @@ describe('trashService.restore target-containment', () => {
     await expect(stat(linkPath)).rejects.toThrow()
   })
 
-  it('refuses to plant a tampered symlink that points inside homedir but outside SOURCE_DIR', async () => {
+  test('refuses to plant a tampered symlink that points inside homedir but outside SOURCE_DIR', async () => {
     // Arrange
     const { restore } = await trashServicePromise
     const skillName = 'target-sibling-dir'
@@ -367,7 +367,7 @@ describe('trashService.restore target-containment', () => {
     await expect(stat(linkPath)).rejects.toThrow()
   })
 
-  it('plants the legit link and skips the tampered one when a manifest mixes both', async () => {
+  test('plants the legit link and skips the tampered one when a manifest mixes both', async () => {
     // Arrange
     // Belt-and-suspenders: a manifest with one legit + one tampered entry
     // must plant exactly one link. Catches regressions where the check
@@ -407,7 +407,7 @@ describe('trashService.restore target-containment', () => {
     await expect(stat(linkPathB)).rejects.toThrow()
   })
 
-  it('skips a recorded symlink whose agent id no longer exists in the agent registry', async () => {
+  test('skips a recorded symlink whose agent id no longer exists in the agent registry', async () => {
     // Arrange
     // A tampered/stale manifest names an agent that is not in AGENTS; that record
     // must be skipped without aborting the rest of the restore.
@@ -439,7 +439,7 @@ describe('trashService.restore target-containment', () => {
     await expect(stat(linkPath)).rejects.toThrow()
   })
 
-  it('skips a recorded symlink whose link path falls outside its declared agent directory', async () => {
+  test('skips a recorded symlink whose link path falls outside its declared agent directory', async () => {
     // Arrange
     // The manifest claims agent 'claude-code' but the linkPath lives outside the
     // claude-code base, so the per-link validation skips it.
@@ -471,7 +471,7 @@ describe('trashService.restore target-containment', () => {
     await expect(stat(escapingLinkPath)).rejects.toThrow()
   })
 
-  it('skips a recorded symlink whose source target no longer exists on disk', async () => {
+  test('skips a recorded symlink whose source target no longer exists on disk', async () => {
     // Arrange
     // The target resolves inside SOURCE_DIR (passes containment) but the file is
     // absent, so the existence probe skips the link instead of planting a
@@ -503,7 +503,7 @@ describe('trashService.restore target-containment', () => {
     await expect(stat(linkPath)).rejects.toThrow()
   })
 
-  it('skips a recorded symlink whose agent slot is already occupied', async () => {
+  test('skips a recorded symlink whose agent slot is already occupied', async () => {
     // Arrange
     // The target exists and is valid, but something already sits at linkPath, so
     // restore must skip rather than overwrite the existing entry.
@@ -537,7 +537,7 @@ describe('trashService.restore target-containment', () => {
     expect((await lstat(linkPath)).isDirectory()).toBe(true)
   })
 
-  it('skips a local-only copy whose agent id no longer exists in the agent registry', async () => {
+  test('skips a local-only copy whose agent id no longer exists in the agent registry', async () => {
     // Arrange
     // A local-only manifest names an unknown agent; that staged copy is skipped
     // and the entry is kept for manual recovery.
@@ -563,7 +563,7 @@ describe('trashService.restore target-containment', () => {
     await expect(stat(entryDir)).resolves.toBeTruthy()
   })
 
-  it('skips a local-only copy whose link path falls outside its declared agent directory', async () => {
+  test('skips a local-only copy whose link path falls outside its declared agent directory', async () => {
     // Arrange
     // The manifest claims agent 'claude-code' but the linkPath escapes that base,
     // so the validation skips restoring the staged folder.
@@ -588,7 +588,7 @@ describe('trashService.restore target-containment', () => {
     await expect(stat(escapingLinkPath)).rejects.toThrow()
   })
 
-  it('skips a local-only copy whose destination agent slot is already occupied', async () => {
+  test('skips a local-only copy whose destination agent slot is already occupied', async () => {
     // Arrange
     // Something already sits at the destination linkPath, so the free-slot lstat
     // succeeds and restore skips rather than overwriting it.
@@ -615,7 +615,7 @@ describe('trashService.restore target-containment', () => {
     await expect(stat(join(linkPath, 'SKILL.md'))).resolves.toBeTruthy()
   })
 
-  it('keeps local-only staged folders when destination collision skips restore', async () => {
+  test('keeps local-only staged folders when destination collision skips restore', async () => {
     // Arrange
     const { restore } = await trashServicePromise
     const skillName = 'local-partial-restore'

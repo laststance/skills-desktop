@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { IPC_ARG_SCHEMAS } from '../main/ipc/ipc-schemas'
 
@@ -25,7 +25,7 @@ const savedUpload = {
 }
 
 describe('background settings and IPC boundaries', () => {
-  it('starts legacy installations without an image while preserving unrelated preferences', () => {
+  test('starts legacy installations without an image while preserving unrelated preferences', () => {
     // Arrange
     const legacySettings = {
       defaultSkillTab: 'info',
@@ -46,7 +46,7 @@ describe('background settings and IPC boundaries', () => {
     expect(settings.windowBackgroundOpacityPercent).toBe(42)
   })
 
-  it.each([
+  test.each([
     { kind: 'upload-draft', draftId: uploadId },
     { kind: 'upload', uploadId },
     { kind: 'builtin', builtinId: 'alpine-lake' },
@@ -84,7 +84,7 @@ describe('background settings and IPC boundaries', () => {
     expect(result.source).toEqual(source)
   })
 
-  it.each([
+  test.each([
     { kind: 'upload', draftId: uploadId },
     { kind: 'upload-draft', uploadId },
     { kind: 'upload-draft', draftId: '/Users/me/photo.jpg' },
@@ -102,7 +102,7 @@ describe('background settings and IPC boundaries', () => {
     expect(result.success).toBe(false)
   })
 
-  it('never persists a transient upload token or an unowned display path', () => {
+  test('never persists a transient upload token or an unowned display path', () => {
     // Arrange
     const background = { layout: 'fill', uploads: [], hasAppliedImage: true }
     // Act / Assert
@@ -130,7 +130,7 @@ describe('background settings and IPC boundaries', () => {
     ).toBe(false)
   })
 
-  it('rejects a selected upload missing from its atomic library snapshot', () => {
+  test('rejects a selected upload missing from its atomic library snapshot', () => {
     // Arrange
     const selected = {
       source: { kind: 'upload', uploadId },
@@ -149,7 +149,7 @@ describe('background settings and IPC boundaries', () => {
     expect(result.success).toBe(false)
   })
 
-  it('rejects duplicate ownership records and a selection with a cleared first-use flag', () => {
+  test('rejects duplicate ownership records and a selection with a cleared first-use flag', () => {
     // Arrange
     const selected = {
       source: { kind: 'upload', uploadId },
@@ -176,7 +176,7 @@ describe('background settings and IPC boundaries', () => {
     ).toBe(false)
   })
 
-  it('restores an applied background without rewriting its crop, layout or ownership metadata', () => {
+  test('restores an applied background without rewriting its crop, layout or ownership metadata', () => {
     // Arrange
     const background = {
       selected: {
@@ -195,7 +195,7 @@ describe('background settings and IPC boundaries', () => {
     expect(parsed.background).toEqual(background)
   })
 
-  it.each([
+  test.each([
     { width: 1920, height: 1080, accepted: true },
     { width: 1080, height: 1920, accepted: true },
     { width: 1919, height: 1080, accepted: false },
@@ -216,7 +216,7 @@ describe('background settings and IPC boundaries', () => {
     },
   )
 
-  it.each([
+  test.each([
     { bytes: 20_971_520, accepted: true },
     { bytes: 20_971_521, accepted: false },
   ])(
@@ -229,7 +229,7 @@ describe('background settings and IPC boundaries', () => {
     },
   )
 
-  it.each([
+  test.each([
     { x: -1, y: 0, width: 100, height: 100 },
     { x: 50, y: 0, width: 51, height: 100 },
     { x: 0, y: 1, width: 100, height: 100 },
@@ -243,14 +243,14 @@ describe('background settings and IPC boundaries', () => {
     expect(result.success).toBe(false)
   })
 
-  it('accepts fractional crops that stay exactly inside the oriented image', () => {
+  test('accepts fractional crops that stay exactly inside the oriented image', () => {
     // Arrange
     const crop = { x: 12.5, y: 25, width: 87.5, height: 75 }
     // Act / Assert
     expect(BackgroundCropSchema.parse(crop)).toEqual(crop)
   })
 
-  it('prevents generic preference writes from forging library ownership or resetting first-use behavior', () => {
+  test('prevents generic preference writes from forging library ownership or resetting first-use behavior', () => {
     // Arrange
     const forgedPatch = {
       background: {
@@ -266,7 +266,7 @@ describe('background settings and IPC boundaries', () => {
     expect(result?.success).toBe(false)
   })
 
-  it('accepts only owned IDs for draft cleanup and saved-upload removal', () => {
+  test('accepts only owned IDs for draft cleanup and saved-upload removal', () => {
     // Arrange / Act / Assert
     expect(
       IPC_ARG_SCHEMAS['backgrounds:discardDraft']?.safeParse([
@@ -292,7 +292,7 @@ describe('background settings and IPC boundaries', () => {
     ).toBe(false)
   })
 
-  it('allows explicit display Retry without accepting renderer-supplied paths or revision state', () => {
+  test('allows explicit display Retry without accepting renderer-supplied paths or revision state', () => {
     // Arrange
     const schema = IPC_ARG_SCHEMAS['backgrounds:retryDisplay']
     // Act / Assert

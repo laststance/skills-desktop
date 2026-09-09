@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { backgroundCropPixels } from './backgroundCropPixels'
 
 describe('background crop source pixels', () => {
-  it('uses original dimensions so a valid half crop remains 1920 × 1080', () => {
+  test('uses original dimensions so a valid half crop remains 1920 × 1080', () => {
     // Arrange
     const crop = { x: 12.5, y: 25, width: 50, height: 50 }
     // Act
@@ -18,7 +18,7 @@ describe('background crop source pixels', () => {
     })
   })
 
-  it('accepts the same minimum resolution after portrait orientation', () => {
+  test('accepts the same minimum resolution after portrait orientation', () => {
     // Arrange / Act
     const pixels = backgroundCropPixels(
       { x: 0, y: 0, width: 100, height: 100 },
@@ -35,7 +35,7 @@ describe('background crop source pixels', () => {
     })
   })
 
-  it('never rounds a below-minimum crop upward to pass validation', () => {
+  test('never rounds a below-minimum crop upward to pass validation', () => {
     // Arrange / Act
     const pixels = backgroundCropPixels(
       { x: 0.1, y: 0.1, width: 49.99, height: 49.99 },
@@ -52,7 +52,7 @@ describe('background crop source pixels', () => {
     })
   })
 
-  it.each([
+  test.each([
     { width: 0, height: 1080 },
     { width: 1920, height: -1 },
     { width: 1920.5, height: 1080 },
@@ -70,7 +70,7 @@ describe('background crop source pixels', () => {
     expect(pixels).toBeNull()
   })
 
-  it.each([
+  test.each([
     { x: -1, y: 0, width: 100, height: 100 },
     { x: 1, y: 0, width: 100, height: 100 },
     { x: 0, y: 50, width: 100, height: 51 },
@@ -83,7 +83,7 @@ describe('background crop source pixels', () => {
     expect(pixels).toBeNull()
   })
 
-  it('keeps a subpixel selection measurable but ineligible for Apply', () => {
+  test('keeps a subpixel selection measurable but ineligible for Apply', () => {
     // Arrange / Act
     const pixels = backgroundCropPixels(
       { x: 0, y: 0, width: 0.001, height: 0.001 },

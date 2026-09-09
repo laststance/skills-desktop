@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { ErrorBoundary } from './ErrorBoundary'
@@ -32,7 +32,7 @@ afterEach(() => {
 })
 
 describe('ErrorBoundary', () => {
-  it('renders its children unchanged when no descendant throws', async () => {
+  test('renders its children unchanged when no descendant throws', async () => {
     // Arrange + Act
     const screen = await render(
       <ErrorBoundary>
@@ -47,7 +47,7 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('Something went wrong').query()).toBeNull()
   })
 
-  it('shows the crash fallback with the thrown error message when a child throws', async () => {
+  test('shows the crash fallback with the thrown error message when a child throws', async () => {
     // Arrange + Act
     const screen = await render(
       <ErrorBoundary>
@@ -67,7 +67,7 @@ describe('ErrorBoundary', () => {
       .toBeInTheDocument()
   })
 
-  it('logs the caught error so crashes are diagnosable in the console', async () => {
+  test('logs the caught error so crashes are diagnosable in the console', async () => {
     // Arrange + Act
     await render(
       <ErrorBoundary>

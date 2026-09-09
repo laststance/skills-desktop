@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { getReleaseNotesUrl } from './getReleaseNotesUrl'
 
 describe('getReleaseNotesUrl', () => {
-  it('builds the GitHub releases tag URL with a v-prefix', () => {
+  test('builds the GitHub releases tag URL with a v-prefix', () => {
     // Arrange — a bare semver with no leading v
     const version = '0.13.4'
 
@@ -16,7 +16,7 @@ describe('getReleaseNotesUrl', () => {
     )
   })
 
-  it('strips a leading v from the input so the tag never gets a doubled prefix', () => {
+  test('strips a leading v from the input so the tag never gets a doubled prefix', () => {
     // Arrange — a version that already carries a leading v
     const version = 'v1.0.0'
 

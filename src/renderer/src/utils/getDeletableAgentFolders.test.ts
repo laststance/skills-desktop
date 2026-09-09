@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import type { Agent } from '@/shared/types'
 import { toAbsolutePath, toFileSizeBytes, toSkillCount } from '@/shared/types'
@@ -23,7 +23,7 @@ const hiddenAgent: Agent = {
 }
 
 describe('hidden-agent bulk-delete eligibility', () => {
-  it('includes an empty dedicated folder and skips an absent folder', () => {
+  test('includes an empty dedicated folder and skips an absent folder', () => {
     // Arrange
     const hiddenAgents: Agent[] = [
       hiddenAgent,
@@ -37,7 +37,7 @@ describe('hidden-agent bulk-delete eligibility', () => {
     expect(agents.map((agent) => agent.id)).toEqual(['cursor'])
   })
 
-  it('keeps the Amp and Replit shared skills directory out of bulk deletion', () => {
+  test('keeps the Amp and Replit shared skills directory out of bulk deletion', () => {
     // Arrange
     const hiddenAgents: Agent[] = [
       {
@@ -60,7 +60,7 @@ describe('hidden-agent bulk-delete eligibility', () => {
     expect(getDeletableAgentFolders([hiddenAgents[0]])).toEqual([])
   })
 
-  it('includes Cline and Warp own folders despite their universal install destination', () => {
+  test('includes Cline and Warp own folders despite their universal install destination', () => {
     // Arrange
     const hiddenAgents: Agent[] = [
       {
@@ -82,7 +82,7 @@ describe('hidden-agent bulk-delete eligibility', () => {
     expect(agents.map((agent) => agent.id)).toEqual(['cline', 'warp'])
   })
 
-  it('skips symlinked folders and folders without a reviewed directory identity', () => {
+  test('skips symlinked folders and folders without a reviewed directory identity', () => {
     // Arrange
     const hiddenAgents: Agent[] = [
       {
@@ -129,7 +129,7 @@ describe('not-installed agent empty-parent eligibility', () => {
     emptyParentFolder,
   }
 
-  it('includes only a reviewed empty parent whose skills folder is absent', () => {
+  test('includes only a reviewed empty parent whose skills folder is absent', () => {
     // Arrange
     const candidates = [
       unusedAgent,
@@ -144,7 +144,7 @@ describe('not-installed agent empty-parent eligibility', () => {
     expect(agents.map((agent) => agent.id)).toEqual(['cline'])
   })
 
-  it.each(['symlink', 'file'] as const)(
+  test.each(['symlink', 'file'] as const)(
     'keeps a reviewed %s out of empty-parent deletion',
     (kind) => {
       // Arrange
@@ -164,7 +164,7 @@ describe('not-installed agent empty-parent eligibility', () => {
     },
   )
 
-  it('keeps shared Amp and Replit parents out of empty-parent deletion', () => {
+  test('keeps shared Amp and Replit parents out of empty-parent deletion', () => {
     // Arrange
     const candidates: Agent[] = [
       { ...unusedAgent, id: 'amp' },

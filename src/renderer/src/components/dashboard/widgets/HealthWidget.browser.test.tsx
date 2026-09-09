@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -112,7 +112,7 @@ async function renderHealthWidget(
 }
 
 describe('HealthWidget', () => {
-  it('opens the Symlink Health cleanup dialog when broken links exist', async () => {
+  test('opens the Symlink Health cleanup dialog when broken links exist', async () => {
     // Arrange
     const skills = [makeSkill([makeSymlink('valid'), makeSymlink('broken')])]
     const { screen, store } = await renderHealthWidget(skills)
@@ -124,7 +124,7 @@ describe('HealthWidget', () => {
     expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(true)
   })
 
-  it('shows Healthy instead of Scan issues when no broken links exist', async () => {
+  test('shows Healthy instead of Scan issues when no broken links exist', async () => {
     // Arrange
     const skills = [makeSkill([makeSymlink('valid')])]
 
@@ -138,7 +138,7 @@ describe('HealthWidget', () => {
     ).toBeNull()
   })
 
-  it('shows Manual review instead of Healthy when only inaccessible links need attention', async () => {
+  test('shows Manual review instead of Healthy when only inaccessible links need attention', async () => {
     // Arrange
     const skills = [makeSkill([makeSymlink('inaccessible')])]
 
@@ -164,7 +164,7 @@ describe('HealthWidget', () => {
     ).toBeNull()
   })
 
-  it('splits cleanup-ready and manual-review counts when both need attention', async () => {
+  test('splits cleanup-ready and manual-review counts when both need attention', async () => {
     // Arrange
     const skills = [
       makeSkill([
@@ -229,7 +229,7 @@ describe('HealthWidget', () => {
       .toBeVisible()
   })
 
-  it('does not present a remaining cleanup issue as 100 percent healthy', async () => {
+  test('does not present a remaining cleanup issue as 100 percent healthy', async () => {
     // Arrange
     const symlinks = [
       ...Array.from({ length: 1035 }, () => makeSymlink('valid')),
@@ -250,7 +250,7 @@ describe('HealthWidget', () => {
 })
 
 describe('HealthWidget stale skill-lock records', () => {
-  it('offers Prune lock when the skills CLI still tracks a deleted skill', async () => {
+  test('offers Prune lock when the skills CLI still tracks a deleted skill', async () => {
     // Arrange
     const skills = [makeSkill([makeSymlink('valid')])]
     const { screen, store } = await renderHealthWidget(skills, ['old-skill'])
@@ -262,7 +262,7 @@ describe('HealthWidget stale skill-lock records', () => {
     expect(store.getState().ui.lockPruneDialogOpen).toBe(true)
   })
 
-  it('shows both actions at once when links are broken AND lock records are stale', async () => {
+  test('shows both actions at once when links are broken AND lock records are stale', async () => {
     // Arrange — the two problems are independent, so one must not hide the other.
     const skills = [makeSkill([makeSymlink('valid'), makeSymlink('broken')])]
 
@@ -278,7 +278,7 @@ describe('HealthWidget stale skill-lock records', () => {
       .toBeVisible()
   })
 
-  it('counts stale lock records separately from symlinks', async () => {
+  test('counts stale lock records separately from symlinks', async () => {
     // Arrange — a lock record has no agent and no link, so it cannot be folded
     // into the broken/inaccessible symlink tallies.
     const skills = [makeSkill([makeSymlink('valid')])]
@@ -299,7 +299,7 @@ describe('HealthWidget stale skill-lock records', () => {
       .toBeInTheDocument()
   })
 
-  it('does not report Healthy while lock records are still stale', async () => {
+  test('does not report Healthy while lock records are still stale', async () => {
     // Arrange
     const skills = [makeSkill([makeSymlink('valid')])]
 
@@ -310,7 +310,7 @@ describe('HealthWidget stale skill-lock records', () => {
     expect(screen.getByText('Healthy').query()).toBeNull()
   })
 
-  it('stays on Healthy when the lock scan came back unavailable', async () => {
+  test('stays on Healthy when the lock scan came back unavailable', async () => {
     // Arrange — main could not compare the lock against disk. Offering a
     // cleanup action there would promise something main would refuse to do.
     const skills = [makeSkill([makeSymlink('valid')])]

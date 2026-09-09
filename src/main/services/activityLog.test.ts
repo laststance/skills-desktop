@@ -9,7 +9,7 @@ import {
   beforeEach,
   describe,
   expect,
-  it,
+  test,
   vi,
 } from 'vitest'
 
@@ -65,7 +65,7 @@ describe('activity log persistence', () => {
   })
 
   describe('loadActivityLog', () => {
-    it('returns an empty log silently on first launch when activity-log.json is absent', async () => {
+    test('returns an empty log silently on first launch when activity-log.json is absent', async () => {
       // Arrange: a fresh userData dir with no file — the ENOENT path must NOT
       // warn because a missing file is expected before the first event.
       const { loadActivityLog } = await importFreshActivityLog()
@@ -80,7 +80,7 @@ describe('activity log persistence', () => {
       warnSpy.mockRestore()
     })
 
-    it('falls back to an empty log and warns when activity-log.json holds malformed JSON', async () => {
+    test('falls back to an empty log and warns when activity-log.json holds malformed JSON', async () => {
       // Arrange: a syntactically broken file triggers a non-ENOENT error, which
       // must be logged so a corrupt file is visible in the dev console.
       const { loadActivityLog } = await importFreshActivityLog()
@@ -105,7 +105,7 @@ describe('activity log persistence', () => {
   })
 
   describe('appendActivityEvents', () => {
-    it('stamps an id + timestamp on each event and writes it to disk', async () => {
+    test('stamps an id + timestamp on each event and writes it to disk', async () => {
       // Arrange
       const { appendActivityEvents } = await importFreshActivityLog()
 
@@ -126,7 +126,7 @@ describe('activity log persistence', () => {
       expect(onDisk[0].agentName).toBe('Claude Code')
     })
 
-    it('prepends each new batch so the most recent event sorts first', async () => {
+    test('prepends each new batch so the most recent event sorts first', async () => {
       // Arrange
       const { appendActivityEvents } = await importFreshActivityLog()
       await appendActivityEvents([
@@ -143,7 +143,7 @@ describe('activity log persistence', () => {
       expect(log[1].skillName).toBe('first-skill')
     })
 
-    it('caps the log at MAX_ACTIVITY_EVENTS, dropping the oldest event', async () => {
+    test('caps the log at MAX_ACTIVITY_EVENTS, dropping the oldest event', async () => {
       // Arrange: fill the log to the cap, then append one more.
       const { appendActivityEvents } = await importFreshActivityLog()
       const fullBatch = Array.from(
@@ -170,7 +170,7 @@ describe('activity log persistence', () => {
       ).toBe(false)
     })
 
-    it('writes no file and returns the current log when given an empty batch', async () => {
+    test('writes no file and returns the current log when given an empty batch', async () => {
       // Arrange
       const { appendActivityEvents } = await importFreshActivityLog()
 
@@ -184,7 +184,7 @@ describe('activity log persistence', () => {
       ).rejects.toThrow()
     })
 
-    it('keeps every event when many appends race instead of dropping all but the last', async () => {
+    test('keeps every event when many appends race instead of dropping all but the last', async () => {
       // Arrange
       const { appendActivityEvents, getActivityLog } =
         await importFreshActivityLog()
@@ -210,7 +210,7 @@ describe('activity log persistence', () => {
       expect(onDisk).toHaveLength(20)
     })
 
-    it('keeps the queue alive so an append after a failed one still persists', async () => {
+    test('keeps the queue alive so an append after a failed one still persists', async () => {
       // Arrange: point userData at a regular FILE so the first append's mkdir
       // rejects — without the chain's error-swallow this would wedge every
       // later append.
@@ -246,7 +246,7 @@ describe('activity log persistence', () => {
   })
 
   describe('listActivityEvents', () => {
-    it('returns a newest-first page bounded by limit and offset', async () => {
+    test('returns a newest-first page bounded by limit and offset', async () => {
       // Arrange: three separate appends → on-disk order [c, b, a].
       const { appendActivityEvents, listActivityEvents } =
         await importFreshActivityLog()
@@ -265,7 +265,7 @@ describe('activity log persistence', () => {
   })
 
   describe('persistence across restarts', () => {
-    it('reloads the events written by a previous app session', async () => {
+    test('reloads the events written by a previous app session', async () => {
       // Arrange: session 1 records two events.
       const session1 = await importFreshActivityLog()
       await session1.appendActivityEvents([

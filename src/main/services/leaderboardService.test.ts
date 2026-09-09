@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, test, vi, beforeEach } from 'vitest'
 
 import {
   parseFormattedCount,
@@ -7,14 +7,14 @@ import {
 } from './leaderboardService'
 
 describe('parseFormattedCount', () => {
-  it('reads a plain integer install count unchanged', () => {
+  test('reads a plain integer install count unchanged', () => {
     // Act & Assert
     expect(parseFormattedCount('927')).toBe(927)
     expect(parseFormattedCount('0')).toBe(0)
     expect(parseFormattedCount('42')).toBe(42)
   })
 
-  it('expands a K suffix to thousands (731.2K -> 731200)', () => {
+  test('expands a K suffix to thousands (731.2K -> 731200)', () => {
     // Act & Assert
     expect(parseFormattedCount('731.2K')).toBe(731200)
     expect(parseFormattedCount('20.0K')).toBe(20000)
@@ -22,35 +22,35 @@ describe('parseFormattedCount', () => {
     expect(parseFormattedCount('12.3K')).toBe(12300)
   })
 
-  it('expands an M suffix to millions (1.5M -> 1500000)', () => {
+  test('expands an M suffix to millions (1.5M -> 1500000)', () => {
     // Act & Assert
     expect(parseFormattedCount('1.5M')).toBe(1500000)
     expect(parseFormattedCount('2M')).toBe(2000000)
   })
 
-  it('expands a B suffix to billions (1.2B -> 1200000000)', () => {
+  test('expands a B suffix to billions (1.2B -> 1200000000)', () => {
     // Act & Assert
     expect(parseFormattedCount('1.2B')).toBe(1200000000)
   })
 
-  it('expands lowercase k and m suffixes the same as uppercase', () => {
+  test('expands lowercase k and m suffixes the same as uppercase', () => {
     // Act & Assert
     expect(parseFormattedCount('731.2k')).toBe(731200)
     expect(parseFormattedCount('1.5m')).toBe(1500000)
   })
 
-  it('ignores surrounding whitespace around the count', () => {
+  test('ignores surrounding whitespace around the count', () => {
     // Act & Assert
     expect(parseFormattedCount('  731.2K  ')).toBe(731200)
     expect(parseFormattedCount(' 927 ')).toBe(927)
   })
 
-  it('drops thousands separators from a comma-grouped number', () => {
+  test('drops thousands separators from a comma-grouped number', () => {
     // Act & Assert
     expect(parseFormattedCount('1,234')).toBe(1234)
   })
 
-  it('counts unparseable input as zero', () => {
+  test('counts unparseable input as zero', () => {
     // Act & Assert
     expect(parseFormattedCount('')).toBe(0)
     expect(parseFormattedCount('abc')).toBe(0)
@@ -59,7 +59,7 @@ describe('parseFormattedCount', () => {
 })
 
 describe('parseLeaderboardHtml', () => {
-  it('extracts each skill row (rank, name, repo, url, install count) from anchor tags', () => {
+  test('extracts each skill row (rank, name, repo, url, install count) from anchor tags', () => {
     // Arrange
     const html = `
       <div>
@@ -99,7 +99,7 @@ describe('parseLeaderboardHtml', () => {
     })
   })
 
-  it('reads the absolute count and ignores the delta on a hot-page row', () => {
+  test('reads the absolute count and ignores the delta on a hot-page row', () => {
     // Arrange
     const html = `
       <a href="/vercel-labs/skills/find-skills">
@@ -122,7 +122,7 @@ describe('parseLeaderboardHtml', () => {
     expect(results[0].installCount).toBe(927)
   })
 
-  it('throws when the page lacks the leaderboard stability signature', () => {
+  test('throws when the page lacks the leaderboard stability signature', () => {
     // Arrange
     const html = '<html><body><p>This page has no leaderboard</p></body></html>'
 
@@ -132,14 +132,14 @@ describe('parseLeaderboardHtml', () => {
     )
   })
 
-  it('throws when handed an empty HTML string', () => {
+  test('throws when handed an empty HTML string', () => {
     // Act & Assert
     expect(() => parseLeaderboardHtml('')).toThrow(
       'Leaderboard HTML structure mismatch',
     )
   })
 
-  it('caps the leaderboard at 50 entries even when more rows are present', () => {
+  test('caps the leaderboard at 50 entries even when more rows are present', () => {
     // Arrange
     // Generate 60 skill anchors
     const anchors = Array.from(
@@ -160,7 +160,7 @@ describe('parseLeaderboardHtml', () => {
     expect(results).toHaveLength(50)
   })
 
-  it('discards anchors that have no h3 heading', () => {
+  test('discards anchors that have no h3 heading', () => {
     // Arrange
     const html = `
       <a href="/owner/repo/good-skill">
@@ -180,7 +180,7 @@ describe('parseLeaderboardHtml', () => {
     expect(results[0].name).toBe('good-skill')
   })
 
-  it('filters out skills whose repo or skill-name fails the identifier whitelist', () => {
+  test('filters out skills whose repo or skill-name fails the identifier whitelist', () => {
     // Arrange
     // Three anchors reaching the line-97 guard (each has a valid <h3>):
     //  - valid:        repo + name both pass the whitelist
@@ -210,7 +210,7 @@ describe('parseLeaderboardHtml', () => {
     expect(results[0].repo).toBe('owner/repo')
   })
 
-  it('still parses rows when the all-time page wraps anchors in a table', () => {
+  test('still parses rows when the all-time page wraps anchors in a table', () => {
     // Arrange
     const html = `
       <table>
@@ -234,7 +234,7 @@ describe('parseLeaderboardHtml', () => {
     expect(results[0].name).toBe('find-skills')
   })
 
-  it('numbers rows sequentially from 1 regardless of order', () => {
+  test('numbers rows sequentially from 1 regardless of order', () => {
     // Arrange
     const html = `
       <a href="/a/b/skill-one"><h3>skill-one</h3><span>100</span></a>
@@ -255,7 +255,7 @@ describe('fetchLeaderboard', () => {
     vi.restoreAllMocks()
   })
 
-  it('fetches the leaderboard page and returns its parsed rows with the app User-Agent', async () => {
+  test('fetches the leaderboard page and returns its parsed rows with the app User-Agent', async () => {
     // Arrange
     const mockHtml = `
       <a href="/vercel-labs/skills/find-skills">
@@ -283,7 +283,7 @@ describe('fetchLeaderboard', () => {
     )
   })
 
-  it('requests the matching skills.sh URL for the all-time, trending, and hot filters', async () => {
+  test('requests the matching skills.sh URL for the all-time, trending, and hot filters', async () => {
     // Arrange
     const spy = vi.spyOn(globalThis, 'fetch')
 
@@ -310,7 +310,7 @@ describe('fetchLeaderboard', () => {
     )
   })
 
-  it('surfaces a descriptive error when the leaderboard request fails', async () => {
+  test('surfaces a descriptive error when the leaderboard request fails', async () => {
     // Arrange
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response('Not Found', { status: 404, statusText: 'Not Found' }),

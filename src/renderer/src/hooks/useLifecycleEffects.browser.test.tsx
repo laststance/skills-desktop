@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
 
 import { useCycleEffect } from './useCycleEffect'
@@ -9,7 +9,7 @@ import { useUpdateEffect } from './useUpdateEffect'
 
 describe('lifecycle effect hooks', () => {
   describe('useInitialEffect', () => {
-    it('runs the effect once on mount and never again on re-render', async () => {
+    test('runs the effect once on mount and never again on re-render', async () => {
       // Arrange
       const effect = vi.fn()
       // Act
@@ -26,7 +26,7 @@ describe('lifecycle effect hooks', () => {
   })
 
   describe('useUpdateEffect', () => {
-    it('skips the mount run and fires on every re-render when deps are omitted', async () => {
+    test('skips the mount run and fires on every re-render when deps are omitted', async () => {
       // Arrange
       const effect = vi.fn()
       // Act
@@ -41,7 +41,7 @@ describe('lifecycle effect hooks', () => {
       expect(effect).toHaveBeenCalledTimes(2)
     })
 
-    it('skips the mount run and fires only when a dependency changes', async () => {
+    test('skips the mount run and fires only when a dependency changes', async () => {
       // Arrange
       const effect = vi.fn()
       let value = 0
@@ -64,7 +64,7 @@ describe('lifecycle effect hooks', () => {
       expect(effect).toHaveBeenCalledOnce()
     })
 
-    it('rejects an empty dependency list at compile time and never runs the effect', async () => {
+    test('rejects an empty dependency list at compile time and never runs the effect', async () => {
       // Arrange
       const effect = vi.fn()
       // Act
@@ -78,7 +78,7 @@ describe('lifecycle effect hooks', () => {
   })
 
   describe('useUnmountEffect', () => {
-    it('runs the callback only when the component unmounts', async () => {
+    test('runs the callback only when the component unmounts', async () => {
       // Arrange
       const callback = vi.fn()
       const { unmount } = await renderHook(() => useUnmountEffect(callback))
@@ -91,7 +91,7 @@ describe('lifecycle effect hooks', () => {
       expect(callback).toHaveBeenCalledOnce()
     })
 
-    it('runs the latest callback on unmount, not the one captured at mount', async () => {
+    test('runs the latest callback on unmount, not the one captured at mount', async () => {
       // Arrange
       const initialCallback = vi.fn()
       const latestCallback = vi.fn()
@@ -112,7 +112,7 @@ describe('lifecycle effect hooks', () => {
   })
 
   describe('useRenderEffect', () => {
-    it('runs the effect on mount and on every re-render when deps are omitted', async () => {
+    test('runs the effect on mount and on every re-render when deps are omitted', async () => {
       // Arrange
       const effect = vi.fn()
       const { rerender } = await renderHook(() => useRenderEffect(effect))
@@ -126,7 +126,7 @@ describe('lifecycle effect hooks', () => {
       expect(effect).toHaveBeenCalledTimes(3)
     })
 
-    it('runs the effect on mount and only when a non-empty dependency changes', async () => {
+    test('runs the effect on mount and only when a non-empty dependency changes', async () => {
       // Arrange
       const effect = vi.fn()
       let value = 0
@@ -148,7 +148,7 @@ describe('lifecycle effect hooks', () => {
       expect(effect).toHaveBeenCalledTimes(2)
     })
 
-    it('rejects an empty dependency list at compile time but still runs once on mount', async () => {
+    test('rejects an empty dependency list at compile time but still runs once on mount', async () => {
       // Arrange
       const effect = vi.fn()
       // Act
@@ -162,7 +162,7 @@ describe('lifecycle effect hooks', () => {
   })
 
   describe('useCycleEffect', () => {
-    it('behaves like useEffect with empty deps by running once on mount only', async () => {
+    test('behaves like useEffect with empty deps by running once on mount only', async () => {
       // Arrange
       const effect = vi.fn()
       const { rerender } = await renderHook(() => useCycleEffect(effect, []))
@@ -175,7 +175,7 @@ describe('lifecycle effect hooks', () => {
       expect(effect).toHaveBeenCalledOnce()
     })
 
-    it('behaves like useEffect with non-empty deps by re-running when a dependency changes', async () => {
+    test('behaves like useEffect with non-empty deps by re-running when a dependency changes', async () => {
       // Arrange
       const effect = vi.fn()
       let value = 0

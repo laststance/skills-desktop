@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { getAgentFolderDeleteDescription } from './getAgentFolderDeleteDescription'
 
 describe('agent folder deletion review description', () => {
-  it.each([
+  test.each([
     {
       caseName: 'describes preserving agent data for 1 unused folder',
       group: 'unused',

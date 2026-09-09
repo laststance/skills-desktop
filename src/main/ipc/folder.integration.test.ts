@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import type * as NodeFsPromises from 'node:fs/promises'
 
-import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { toAbsolutePath } from '@/shared/types'
 
@@ -144,7 +144,7 @@ describe('folder IPC handlers (integration)', () => {
   })
 
   describe('folder:revealInFinder', () => {
-    it('reveals an existing folder in Finder', async () => {
+    test('reveals an existing folder in Finder', async () => {
       // Arrange
       realpathMock.mockResolvedValue('/Users/me/.agents/skills')
       openPathMock.mockResolvedValue('')
@@ -157,7 +157,7 @@ describe('folder IPC handlers (integration)', () => {
       expect(result).toEqual({ ok: true })
     })
 
-    it('tells the user the folder is gone instead of revealing it when the path no longer exists', async () => {
+    test('tells the user the folder is gone instead of revealing it when the path no longer exists', async () => {
       // Arrange
       const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
       realpathMock.mockRejectedValue(err)
@@ -175,7 +175,7 @@ describe('folder IPC handlers (integration)', () => {
       expect(openPathMock).not.toHaveBeenCalled()
     })
 
-    it('treats a symlink cycle (ELOOP) as a missing folder rather than reveal it', async () => {
+    test('treats a symlink cycle (ELOOP) as a missing folder rather than reveal it', async () => {
       // Arrange
       const err = Object.assign(new Error('ELOOP'), { code: 'ELOOP' })
       realpathMock.mockRejectedValue(err)
@@ -188,7 +188,7 @@ describe('folder IPC handlers (integration)', () => {
       expect(result).toMatchObject({ ok: false, reason: 'not-found' })
     })
 
-    it('treats a file-in-the-path (ENOTDIR) as a missing folder rather than reveal it', async () => {
+    test('treats a file-in-the-path (ENOTDIR) as a missing folder rather than reveal it', async () => {
       // Arrange
       const err = Object.assign(new Error('ENOTDIR'), { code: 'ENOTDIR' })
       realpathMock.mockRejectedValue(err)
@@ -202,7 +202,7 @@ describe('folder IPC handlers (integration)', () => {
       expect(openPathMock).not.toHaveBeenCalled()
     })
 
-    it('surfaces an unexpected filesystem error (e.g. EPERM) to the IPC boundary instead of swallowing it', async () => {
+    test('surfaces an unexpected filesystem error (e.g. EPERM) to the IPC boundary instead of swallowing it', async () => {
       // Arrange
       const err = Object.assign(new Error('EPERM'), { code: 'EPERM' })
       realpathMock.mockRejectedValue(err)
@@ -213,7 +213,7 @@ describe('folder IPC handlers (integration)', () => {
       expect(openPathMock).not.toHaveBeenCalled()
     })
 
-    it('reports a launch failure when Finder cannot open the folder', async () => {
+    test('reports a launch failure when Finder cannot open the folder', async () => {
       // Arrange
       realpathMock.mockResolvedValue('/x')
       openPathMock.mockResolvedValue('Permission denied')
@@ -235,7 +235,7 @@ describe('folder IPC handlers (integration)', () => {
   })
 
   describe('folder:openInTerminal', () => {
-    it('opens the folder in Terminal and detaches the launched process', async () => {
+    test('opens the folder in Terminal and detaches the launched process', async () => {
       // Arrange
       realpathMock.mockResolvedValue('/x')
       const child = spawnFiringEvent('exit', 0)
@@ -252,7 +252,7 @@ describe('folder IPC handlers (integration)', () => {
       })
     })
 
-    it('reports a missing folder without reading settings or spawning a terminal', async () => {
+    test('reports a missing folder without reading settings or spawning a terminal', async () => {
       // Arrange
       const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
       realpathMock.mockRejectedValue(err)
@@ -267,7 +267,7 @@ describe('folder IPC handlers (integration)', () => {
       expect(spawnMock).not.toHaveBeenCalled()
     })
 
-    it('treats a file-in-the-path (ENOTDIR) as missing and never spawns a terminal', async () => {
+    test('treats a file-in-the-path (ENOTDIR) as missing and never spawns a terminal', async () => {
       // Arrange
       const err = Object.assign(new Error('ENOTDIR'), { code: 'ENOTDIR' })
       realpathMock.mockRejectedValue(err)
@@ -282,7 +282,7 @@ describe('folder IPC handlers (integration)', () => {
       expect(spawnMock).not.toHaveBeenCalled()
     })
 
-    it('refuses to launch when a custom terminal is selected but no app name is configured', async () => {
+    test('refuses to launch when a custom terminal is selected but no app name is configured', async () => {
       // Arrange
       realpathMock.mockResolvedValue('/x')
       getSettingsMock.mockReturnValue({
@@ -302,7 +302,7 @@ describe('folder IPC handlers (integration)', () => {
       expect(spawnMock).not.toHaveBeenCalled()
     })
 
-    it('reports a launch failure when the terminal app is not installed (spawn exits non-zero)', async () => {
+    test('reports a launch failure when the terminal app is not installed (spawn exits non-zero)', async () => {
       // Arrange
       realpathMock.mockResolvedValue('/x')
       spawnFiringEvent('exit', 1)
@@ -318,7 +318,7 @@ describe('folder IPC handlers (integration)', () => {
       })
     })
 
-    it('reports a launch failure with the underlying error message when spawn errors', async () => {
+    test('reports a launch failure with the underlying error message when spawn errors', async () => {
       // Arrange
       realpathMock.mockResolvedValue('/x')
       spawnFiringEvent('error', new Error('spawn ENOENT'))
@@ -338,7 +338,7 @@ describe('folder IPC handlers (integration)', () => {
       )
     })
 
-    it('honors a terminal preference changed in Settings without an app restart', async () => {
+    test('honors a terminal preference changed in Settings without an app restart', async () => {
       // Arrange
       realpathMock.mockResolvedValue('/x')
       const handler = getRegisteredHandler('folder:openInTerminal')

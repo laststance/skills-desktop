@@ -13,7 +13,7 @@ import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, describe, expect, test, vi } from 'vitest'
 
 const sharedHome = realpathSync(
   mkdtempSync(join(tmpdir(), 'skills-cli-command-')),
@@ -41,7 +41,7 @@ describe('cliCommandService', () => {
     await rm(sharedHome, { recursive: true, force: true })
   })
 
-  it('reports the command as not installed when ~/.local/bin/skills-desktop is missing', async () => {
+  test('reports the command as not installed when ~/.local/bin/skills-desktop is missing', async () => {
     // Arrange
     const { getCliCommandStatus } = await servicePromise
 
@@ -57,7 +57,7 @@ describe('cliCommandService', () => {
     })
   })
 
-  it('installs an executable shim that opens the Skills Desktop bundle', async () => {
+  test('installs an executable shim that opens the Skills Desktop bundle', async () => {
     // Arrange
     const { installCliCommand } = await servicePromise
 
@@ -77,7 +77,7 @@ exec open -b "io.laststance.skills-desktop"
     expect((await stat(commandPath)).mode & 0o777).toBe(0o755)
   })
 
-  it('refuses to overwrite an unmanaged file that already uses the command path', async () => {
+  test('refuses to overwrite an unmanaged file that already uses the command path', async () => {
     // Arrange
     const { installCliCommand } = await servicePromise
     await mkdir(join(sharedHome, '.local', 'bin'), { recursive: true })
@@ -102,7 +102,7 @@ exec open -b "io.laststance.skills-desktop"
     )
   })
 
-  it('refuses to remove a user-edited script that contains the managed markers', async () => {
+  test('refuses to remove a user-edited script that contains the managed markers', async () => {
     // Arrange
     const { removeCliCommand } = await servicePromise
     const editedScript = `#!/bin/sh
@@ -132,7 +132,7 @@ exec open -b "io.laststance.skills-desktop"
     expect(await readFile(commandPath, 'utf-8')).toBe(editedScript)
   })
 
-  it('removes the managed shim and leaves the command path missing afterward', async () => {
+  test('removes the managed shim and leaves the command path missing afterward', async () => {
     // Arrange
     const { installCliCommand, removeCliCommand } = await servicePromise
     await installCliCommand()
@@ -154,7 +154,7 @@ exec open -b "io.laststance.skills-desktop"
     await expect(lstat(commandPath)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  it('refuses to remove an unmanaged symlink that occupies the command path', async () => {
+  test('refuses to remove an unmanaged symlink that occupies the command path', async () => {
     // Arrange
     const { removeCliCommand } = await servicePromise
     await mkdir(join(sharedHome, '.local', 'bin'), { recursive: true })
@@ -177,7 +177,7 @@ exec open -b "io.laststance.skills-desktop"
     expect((await lstat(commandPath)).isSymbolicLink()).toBe(true)
   })
 
-  it('blocks management when a directory squats on the command path', async () => {
+  test('blocks management when a directory squats on the command path', async () => {
     // Arrange
     const { getCliCommandStatus } = await servicePromise
     await mkdir(commandPath, { recursive: true })
@@ -194,7 +194,7 @@ exec open -b "io.laststance.skills-desktop"
     })
   })
 
-  it('blocks management when the command path cannot be inspected', async () => {
+  test('blocks management when the command path cannot be inspected', async () => {
     // Arrange
     const { getCliCommandStatus } = await servicePromise
     // Make ~/.local/bin a regular file so lstat-ing a child path throws ENOTDIR.
@@ -215,7 +215,7 @@ exec open -b "io.laststance.skills-desktop"
     expect(status.message).toContain(`Could not inspect ${commandPath}:`)
   })
 
-  it('reports success without rewriting when the command is already installed', async () => {
+  test('reports success without rewriting when the command is already installed', async () => {
     // Arrange
     const { installCliCommand } = await servicePromise
     await installCliCommand()
@@ -236,7 +236,7 @@ exec open -b "io.laststance.skills-desktop"
     })
   })
 
-  it('surfaces a failure message when writing the shim throws', async () => {
+  test('surfaces a failure message when writing the shim throws', async () => {
     // Arrange
     const { installCliCommand } = await servicePromise
     vi.spyOn(nodeFs.promises, 'writeFile').mockRejectedValueOnce(
@@ -252,7 +252,7 @@ exec open -b "io.laststance.skills-desktop"
     expect(result.message).toBe('Could not install command: disk full')
   })
 
-  it('reports success when the command is already absent', async () => {
+  test('reports success when the command is already absent', async () => {
     // Arrange
     const { removeCliCommand } = await servicePromise
 
@@ -272,7 +272,7 @@ exec open -b "io.laststance.skills-desktop"
     })
   })
 
-  it('surfaces a failure message when deleting the managed shim throws', async () => {
+  test('surfaces a failure message when deleting the managed shim throws', async () => {
     // Arrange
     const { installCliCommand, removeCliCommand } = await servicePromise
     await installCliCommand()

@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import type {
   DashboardPage,
@@ -48,7 +48,7 @@ async function createTestStoreWithDashboard(dashboard: {
 
 describe('dashboardSlice', () => {
   describe('initial state', () => {
-    it('starts with no pages, not in edit mode, and before first-run seeding', async () => {
+    test('starts with no pages, not in edit mode, and before first-run seeding', async () => {
       // Arrange
       const store = await createTestStore()
 
@@ -65,7 +65,7 @@ describe('dashboardSlice', () => {
   })
 
   describe('seedDefaultsIfEmpty', () => {
-    it('lays out the four default pages and selects the first on first run', async () => {
+    test('lays out the four default pages and selects the first on first run', async () => {
       // Arrange
       const { seedDefaultsIfEmpty } = await import('./dashboardSlice')
       const store = await createTestStore()
@@ -85,7 +85,7 @@ describe('dashboardSlice', () => {
       expect(state.initialized).toBe(true)
     })
 
-    it('leaves an already-seeded dashboard untouched on a second seed', async () => {
+    test('leaves an already-seeded dashboard untouched on a second seed', async () => {
       // Arrange
       const { seedDefaultsIfEmpty } = await import('./dashboardSlice')
       const store = await createTestStore()
@@ -103,7 +103,7 @@ describe('dashboardSlice', () => {
   })
 
   describe('setCurrentPage', () => {
-    it('navigates to the selected page', async () => {
+    test('navigates to the selected page', async () => {
       // Arrange
       const { seedDefaultsIfEmpty, setCurrentPage } =
         await import('./dashboardSlice')
@@ -118,7 +118,7 @@ describe('dashboardSlice', () => {
       expect(store.getState().dashboard.currentPageId).toBe(discoveryPage.id)
     })
 
-    it('stays on the current page when asked to navigate to a stale page id', async () => {
+    test('stays on the current page when asked to navigate to a stale page id', async () => {
       // Arrange
       const { seedDefaultsIfEmpty, setCurrentPage } =
         await import('./dashboardSlice')
@@ -135,7 +135,7 @@ describe('dashboardSlice', () => {
   })
 
   describe('toggleEditMode', () => {
-    it('enters and leaves edit mode on alternating toggles', async () => {
+    test('enters and leaves edit mode on alternating toggles', async () => {
       // Arrange
       const { toggleEditMode } = await import('./dashboardSlice')
       const store = await createTestStore()
@@ -158,7 +158,7 @@ describe('dashboardSlice', () => {
   })
 
   describe('addWidget', () => {
-    it('drops the new widget onto the current page when it still has room', async () => {
+    test('drops the new widget onto the current page when it still has room', async () => {
       // Arrange
       const { addWidget, seedDefaultsIfEmpty, setCurrentPage } =
         await import('./dashboardSlice')
@@ -178,7 +178,7 @@ describe('dashboardSlice', () => {
       expect(appendedWidget.type).toBe('stats')
     })
 
-    it('spills the new widget onto a fresh page and opens it when the current page is full', async () => {
+    test('spills the new widget onto a fresh page and opens it when the current page is full', async () => {
       // Arrange
       const { addWidget, seedDefaultsIfEmpty, setCurrentPage } =
         await import('./dashboardSlice')
@@ -199,7 +199,7 @@ describe('dashboardSlice', () => {
       expect(state.currentPageId).toBe(state.pages[state.pages.length - 1].id)
     })
 
-    it('drops the new widget on the first page when the active page id is stale', async () => {
+    test('drops the new widget on the first page when the active page id is stale', async () => {
       // Arrange
       // A persisted/rehydrated arrangement can point currentPageId at a page
       // that no longer exists; addWidget must fall back to the first page
@@ -233,7 +233,7 @@ describe('dashboardSlice', () => {
   })
 
   describe('updateLayout', () => {
-    it('repositions widgets to match a layout dragged in react-grid-layout', async () => {
+    test('repositions widgets to match a layout dragged in react-grid-layout', async () => {
       // Arrange
       const { seedDefaultsIfEmpty, updateLayout } =
         await import('./dashboardSlice')
@@ -273,7 +273,7 @@ describe('dashboardSlice', () => {
       expect(movedWidget).toMatchObject({ x: 3, y: 5, w: 4, h: 2 })
     })
 
-    it('leaves widgets untouched when the layout omits them', async () => {
+    test('leaves widgets untouched when the layout omits them', async () => {
       // Arrange
       const { seedDefaultsIfEmpty, updateLayout } =
         await import('./dashboardSlice')
@@ -311,7 +311,7 @@ describe('dashboardSlice', () => {
       })
     })
 
-    it('ignores a layout update aimed at a page that no longer exists', async () => {
+    test('ignores a layout update aimed at a page that no longer exists', async () => {
       // Arrange
       const { seedDefaultsIfEmpty, updateLayout } =
         await import('./dashboardSlice')
@@ -342,7 +342,7 @@ describe('dashboardSlice', () => {
   })
 
   describe('removeWidget', () => {
-    it('takes the removed widget off its page while leaving the page in place', async () => {
+    test('takes the removed widget off its page while leaving the page in place', async () => {
       // Arrange
       const { removeWidget, seedDefaultsIfEmpty } =
         await import('./dashboardSlice')
@@ -361,7 +361,7 @@ describe('dashboardSlice', () => {
       )
     })
 
-    it('removes the now-empty page when its last widget is deleted and other pages remain', async () => {
+    test('removes the now-empty page when its last widget is deleted and other pages remain', async () => {
       // Arrange
       const { removeWidget, seedDefaultsIfEmpty } =
         await import('./dashboardSlice')
@@ -379,7 +379,7 @@ describe('dashboardSlice', () => {
       expect(store.getState().dashboard.pages.length).toBe(3)
     })
 
-    it('ignores removeWidget when the widget id is not found on any page', async () => {
+    test('ignores removeWidget when the widget id is not found on any page', async () => {
       // Arrange
       const { removeWidget, seedDefaultsIfEmpty } =
         await import('./dashboardSlice')
@@ -397,7 +397,7 @@ describe('dashboardSlice', () => {
   })
 
   describe('page management', () => {
-    it('adds an empty page and navigates straight to it', async () => {
+    test('adds an empty page and navigates straight to it', async () => {
       // Arrange
       const { addPage, seedDefaultsIfEmpty } = await import('./dashboardSlice')
       const store = await createTestStore()
@@ -415,7 +415,7 @@ describe('dashboardSlice', () => {
       expect(state.currentPageId).toBe(lastPage.id)
     })
 
-    it('does not reuse a page name after a middle auto-named page is deleted', async () => {
+    test('does not reuse a page name after a middle auto-named page is deleted', async () => {
       // Arrange: seed 4 named pages, then auto-add "Page 5" and "Page 6".
       const { addPage, removePage, seedDefaultsIfEmpty } =
         await import('./dashboardSlice')
@@ -446,7 +446,7 @@ describe('dashboardSlice', () => {
       expect(new Set(names).size).toBe(names.length)
     })
 
-    it('renames a page to the new title', async () => {
+    test('renames a page to the new title', async () => {
       // Arrange
       const { renamePage, seedDefaultsIfEmpty } =
         await import('./dashboardSlice')
@@ -466,7 +466,7 @@ describe('dashboardSlice', () => {
       expect(store.getState().dashboard.pages[1].name).toBe('Exploration')
     })
 
-    it('deletes a page when it is not the last one left', async () => {
+    test('deletes a page when it is not the last one left', async () => {
       // Arrange
       const { removePage, seedDefaultsIfEmpty } =
         await import('./dashboardSlice')
@@ -482,7 +482,7 @@ describe('dashboardSlice', () => {
       expect(pages.some((p) => p.id === discoveryPage.id)).toBe(false)
     })
 
-    it('jumps to the previous page after deleting the page being viewed', async () => {
+    test('jumps to the previous page after deleting the page being viewed', async () => {
       // Arrange
       const { removePage, seedDefaultsIfEmpty, setCurrentPage } =
         await import('./dashboardSlice')
@@ -502,7 +502,7 @@ describe('dashboardSlice', () => {
       expect(store.getState().dashboard.currentPageId).toBe(discoveryPage.id)
     })
 
-    it('keeps the last remaining page when asked to delete it', async () => {
+    test('keeps the last remaining page when asked to delete it', async () => {
       // Arrange
       const { addPage, removePage } = await import('./dashboardSlice')
       const store = await createTestStore()
@@ -517,7 +517,7 @@ describe('dashboardSlice', () => {
       expect(store.getState().dashboard.pages).toHaveLength(1)
     })
 
-    it('ignores renamePage when the page id does not exist', async () => {
+    test('ignores renamePage when the page id does not exist', async () => {
       // Arrange
       const { renamePage, seedDefaultsIfEmpty } =
         await import('./dashboardSlice')
@@ -539,7 +539,7 @@ describe('dashboardSlice', () => {
       )
     })
 
-    it('ignores removePage when the page id does not exist', async () => {
+    test('ignores removePage when the page id does not exist', async () => {
       // Arrange
       const { removePage, seedDefaultsIfEmpty } =
         await import('./dashboardSlice')
@@ -556,7 +556,7 @@ describe('dashboardSlice', () => {
   })
 
   describe('dismissWelcome', () => {
-    it('keeps the welcome message dismissed even after a reset to defaults', async () => {
+    test('keeps the welcome message dismissed even after a reset to defaults', async () => {
       // Arrange
       const { dismissWelcome, resetToDefaults } =
         await import('./dashboardSlice')
@@ -576,7 +576,7 @@ describe('dashboardSlice', () => {
       expect(store.getState().dashboard.welcomeDismissed).toBe(true)
     })
 
-    it('keeps the stale-lock announcement dismissed across a layout reset', async () => {
+    test('keeps the stale-lock announcement dismissed across a layout reset', async () => {
       // Arrange — resetToDefaults restores the widget arrangement, not the
       // user's one-time dismissals.
       const store = await createTestStore()
@@ -593,7 +593,7 @@ describe('dashboardSlice', () => {
   })
 
   describe('resetToDefaults', () => {
-    it('restores the default page layout and leaves edit mode', async () => {
+    test('restores the default page layout and leaves edit mode', async () => {
       // Arrange
       const { resetToDefaults, seedDefaultsIfEmpty, toggleEditMode, addPage } =
         await import('./dashboardSlice')
@@ -616,7 +616,7 @@ describe('dashboardSlice', () => {
   })
 
   describe('selectors', () => {
-    it('exposes the full list of pages to the canvas', async () => {
+    test('exposes the full list of pages to the canvas', async () => {
       // Arrange
       const { seedDefaultsIfEmpty, selectDashboardPages } =
         await import('./dashboardSlice')
@@ -635,7 +635,7 @@ describe('dashboardSlice', () => {
       ])
     })
 
-    it('reports which page tab is currently active', async () => {
+    test('reports which page tab is currently active', async () => {
       // Arrange
       const { seedDefaultsIfEmpty, setCurrentPage, selectCurrentPageId } =
         await import('./dashboardSlice')
@@ -651,7 +651,7 @@ describe('dashboardSlice', () => {
       expect(currentPageId).toBe(discoveryPage.id)
     })
 
-    it('resolves the active page object from the selected id', async () => {
+    test('resolves the active page object from the selected id', async () => {
       // Arrange
       const { seedDefaultsIfEmpty, setCurrentPage, selectCurrentPage } =
         await import('./dashboardSlice')
@@ -667,7 +667,7 @@ describe('dashboardSlice', () => {
       expect(currentPage?.id).toBe(actionsPage.id)
     })
 
-    it('falls back to the first page when no page has been selected yet', async () => {
+    test('falls back to the first page when no page has been selected yet', async () => {
       // Arrange
       const { seedDefaultsIfEmpty, selectCurrentPage } =
         await import('./dashboardSlice')
@@ -686,7 +686,7 @@ describe('dashboardSlice', () => {
       expect(currentPage?.id).toBe(seededPages[0].id)
     })
 
-    it('reports no active page when the selected id is gone and no pages remain', async () => {
+    test('reports no active page when the selected id is gone and no pages remain', async () => {
       // Arrange
       const { selectCurrentPage } = await import('./dashboardSlice')
       // Stale selection pointing at a non-existent page with an empty page list
@@ -709,7 +709,7 @@ describe('dashboardSlice', () => {
       expect(currentPage).toBeNull()
     })
 
-    it('reports no active page on a blank dashboard before first-run seeding', async () => {
+    test('reports no active page on a blank dashboard before first-run seeding', async () => {
       // Arrange
       const { selectCurrentPage } = await import('./dashboardSlice')
       const store = await createTestStore()
@@ -723,7 +723,7 @@ describe('dashboardSlice', () => {
       expect(currentPage).toBeNull()
     })
 
-    it('reflects whether the canvas is in edit mode', async () => {
+    test('reflects whether the canvas is in edit mode', async () => {
       // Arrange
       const { toggleEditMode, selectIsEditMode } =
         await import('./dashboardSlice')
@@ -739,7 +739,7 @@ describe('dashboardSlice', () => {
       expect(selectIsEditMode(store.getState())).toBe(true)
     })
 
-    it('reflects whether the welcome widget has been dismissed', async () => {
+    test('reflects whether the welcome widget has been dismissed', async () => {
       // Arrange
       const { dismissWelcome, selectWelcomeDismissed } =
         await import('./dashboardSlice')
@@ -755,7 +755,7 @@ describe('dashboardSlice', () => {
       expect(selectWelcomeDismissed(store.getState())).toBe(true)
     })
 
-    it('signals once first-run defaults have been seeded', async () => {
+    test('signals once first-run defaults have been seeded', async () => {
       // Arrange
       const { seedDefaultsIfEmpty, selectIsInitialized } =
         await import('./dashboardSlice')

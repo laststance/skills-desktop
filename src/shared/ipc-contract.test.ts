@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, test, expect } from 'vitest'
 
 import { IPC_CHANNELS } from './ipc-channels'
 import type { IpcEventContract, IpcInvokeContract } from './ipc-contract'
 
 describe('IPC contract alignment', () => {
-  it('forces a security review by tripping when an invoke channel is added or removed', () => {
+  test('forces a security review by tripping when an invoke channel is added or removed', () => {
     // Exhaustive compile-time check: missing or extra keys fail compilation
     // Arrange
     const invokeMapping = {
@@ -72,7 +72,7 @@ describe('IPC contract alignment', () => {
     expect(invokeChannelKeys).toHaveLength(50)
   })
 
-  it('forces a review by tripping when a push-event channel is added or removed', () => {
+  test('forces a review by tripping when a push-event channel is added or removed', () => {
     // Exhaustive compile-time check: missing or extra keys fail compilation
     // Arrange
     const eventMapping = {

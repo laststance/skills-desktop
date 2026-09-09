@@ -15,7 +15,7 @@ import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { toAbsolutePath } from '@/shared/types'
 
@@ -75,7 +75,7 @@ async function reviewEmptyClineFolder() {
 }
 
 describe('not-installed agent empty folder cleanup', () => {
-  it('offers only a real empty parent in the scanned not-installed agents', async () => {
+  test('offers only a real empty parent in the scanned not-installed agents', async () => {
     // Arrange
     const options = await reviewEmptyClineFolder()
     await mkdir(join(tempHome, '.warp'))
@@ -98,7 +98,7 @@ describe('not-installed agent empty folder cleanup', () => {
     ).toBeUndefined()
   })
 
-  it('moves a reviewed empty parent to Trash without touching another agent', async () => {
+  test('moves a reviewed empty parent to Trash without touching another agent', async () => {
     // Arrange
     const options = await reviewEmptyClineFolder()
     await mkdir(join(tempHome, '.warp', 'skills'), { recursive: true })
@@ -120,7 +120,7 @@ describe('not-installed agent empty folder cleanup', () => {
     ).toBe('keep')
   })
 
-  it.each(['settings.json', '.DS_Store', 'skills'])(
+  test.each(['settings.json', '.DS_Store', 'skills'])(
     'keeps the parent when %s appears after review',
     async (entryName) => {
       // Arrange
@@ -144,7 +144,7 @@ describe('not-installed agent empty folder cleanup', () => {
     },
   )
 
-  it('rejects a different empty directory substituted after review', async () => {
+  test('rejects a different empty directory substituted after review', async () => {
     // Arrange
     const options = await reviewEmptyClineFolder()
     await rename(options.path, `${options.path}.original`)
@@ -160,7 +160,7 @@ describe('not-installed agent empty folder cleanup', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
-  it('restores a folder if a file arrives during quarantine', async () => {
+  test('restores a folder if a file arrives during quarantine', async () => {
     // Arrange
     const options = await reviewEmptyClineFolder()
     afterStage = async (path) => {
@@ -182,7 +182,7 @@ describe('not-installed agent empty folder cleanup', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
-  it('restores the empty folder when OS Trash rejects the move', async () => {
+  test('restores the empty folder when OS Trash rejects the move', async () => {
     // Arrange
     const options = await reviewEmptyClineFolder()
     trashItemMock.mockRejectedValue(new Error('Trash is unavailable'))
@@ -196,7 +196,7 @@ describe('not-installed agent empty folder cleanup', () => {
     expect(await readdir(options.path)).toEqual([])
   })
 
-  it('does not overwrite a recreated folder when a failed move needs restoring', async () => {
+  test('does not overwrite a recreated folder when a failed move needs restoring', async () => {
     // Arrange
     const options = await reviewEmptyClineFolder()
     trashItemMock.mockImplementation(async () => {
@@ -219,7 +219,7 @@ describe('not-installed agent empty folder cleanup', () => {
     )
   })
 
-  it('does not count a folder already removed after review as deleted', async () => {
+  test('does not count a folder already removed after review as deleted', async () => {
     // Arrange
     const options = await reviewEmptyClineFolder()
     await rm(options.path, { recursive: true })
@@ -233,7 +233,7 @@ describe('not-installed agent empty folder cleanup', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
-  it('rejects an arbitrary renderer-provided parent path', async () => {
+  test('rejects an arbitrary renderer-provided parent path', async () => {
     // Arrange
     const options = await reviewEmptyClineFolder()
     const { removeEmptyAgentFolder } = await import('./emptyAgentFolderService')
@@ -252,7 +252,7 @@ describe('not-installed agent empty folder cleanup', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
-  it('excludes empty shared roots and aliases from cleanup', async () => {
+  test('excludes empty shared roots and aliases from cleanup', async () => {
     // Arrange
     await mkdir(join(tempHome, '.config', 'agents'), { recursive: true })
     await mkdir(join(tempHome, '.agents'))
@@ -276,7 +276,7 @@ describe('not-installed agent empty folder cleanup', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
-  it('keeps an empty agent folder beneath a symlinked config ancestor', async () => {
+  test('keeps an empty agent folder beneath a symlinked config ancestor', async () => {
     // Arrange
     const externalConfig = join(tempHome, 'external-config')
     const externalAgentFolder = join(externalConfig, 'opencode')

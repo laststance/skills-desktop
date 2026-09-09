@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import {
   repositoryId,
@@ -32,7 +32,7 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
 }
 
 describe('canBookmarkSkill', () => {
-  it('allows bookmarking a skill that has a source repo', () => {
+  test('allows bookmarking a skill that has a source repo', () => {
     // Arrange
     const skill = makeSkill({ source: repositoryId('pbakaus/impeccable') })
 
@@ -43,7 +43,7 @@ describe('canBookmarkSkill', () => {
     expect(canBookmark).toBe(true)
   })
 
-  it('allows bookmarking a local skill that has no source repo', () => {
+  test('allows bookmarking a local skill that has no source repo', () => {
     // Arrange
     const skill = makeSkill({ source: undefined })
 
@@ -54,7 +54,7 @@ describe('canBookmarkSkill', () => {
     expect(canBookmark).toBe(true)
   })
 
-  it('allows bookmarking a skill whose source is an empty string', () => {
+  test('allows bookmarking a skill whose source is an empty string', () => {
     // Arrange
     const skill = makeSkill({ source: repositoryId('') })
 
@@ -67,7 +67,7 @@ describe('canBookmarkSkill', () => {
 })
 
 describe('skillToBookmarkData', () => {
-  it('saves a clean repo link by stripping the .git suffix off the source URL', () => {
+  test('saves a clean repo link by stripping the .git suffix off the source URL', () => {
     // Arrange
     const skill = makeSkill({
       source: repositoryId('pbakaus/impeccable'),
@@ -84,7 +84,7 @@ describe('skillToBookmarkData', () => {
     })
   })
 
-  it('keeps a source URL that has no .git suffix unchanged when saving the bookmark', () => {
+  test('keeps a source URL that has no .git suffix unchanged when saving the bookmark', () => {
     // Arrange
     const skill = makeSkill({
       source: repositoryId('laststance/skills'),
@@ -101,7 +101,7 @@ describe('skillToBookmarkData', () => {
     })
   })
 
-  it('builds a GitHub link from the repo when the skill carries no source URL', () => {
+  test('builds a GitHub link from the repo when the skill carries no source URL', () => {
     // Arrange
     const skill = makeSkill({
       source: repositoryId('laststance/skills'),
@@ -118,7 +118,7 @@ describe('skillToBookmarkData', () => {
     })
   })
 
-  it('saves an empty repo when the skill has neither a source nor a source URL', () => {
+  test('saves an empty repo when the skill has neither a source nor a source URL', () => {
     // Arrange
     const skill = makeSkill({ source: undefined, sourceUrl: undefined })
 

@@ -8,7 +8,7 @@ import {
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, test } from 'vitest'
 
 import {
   AGENTS,
@@ -25,7 +25,7 @@ describe('AGENTS path computation', () => {
   // those agents, and the per-skill Inspector marked all source skills
   // as Valid for Cline/Warp. The fix splits `installDir` (kept for CLI
   // sync) from `scanDir` (used by AGENTS.path).
-  it('scans Cline from its own home dir so source skills are not mislabeled as Cline-local', () => {
+  test('scans Cline from its own home dir so source skills are not mislabeled as Cline-local', () => {
     // Arrange
     const cline = AGENTS.find((a) => a.id === 'cline')!
 
@@ -37,7 +37,7 @@ describe('AGENTS path computation', () => {
     expect(clinePath).not.toBe(SOURCE_DIR)
   })
 
-  it('scans Warp from its own home dir so source skills are not mislabeled as Warp-local', () => {
+  test('scans Warp from its own home dir so source skills are not mislabeled as Warp-local', () => {
     // Arrange
     const warp = AGENTS.find((a) => a.id === 'warp')!
 
@@ -49,7 +49,7 @@ describe('AGENTS path computation', () => {
     expect(warpPath).not.toBe(SOURCE_DIR)
   })
 
-  it('keeps every agent path off the universal source so the scanner never surfaces source content as agent-local skills', () => {
+  test('keeps every agent path off the universal source so the scanner never surfaces source content as agent-local skills', () => {
     // If any agent path equals SOURCE_DIR, the scanner will surface
     // source content as that agent's local skills — the exact bug the
     // scanDir divergence was added to prevent. Future Skills CLI syncs
@@ -66,7 +66,7 @@ describe('AGENTS path computation', () => {
 })
 
 describe('SHARED_AGENT_PATHS', () => {
-  it('protects the universal source dir so deleting an agent cannot wipe everyone’s shared skills', () => {
+  test('protects the universal source dir so deleting an agent cannot wipe everyone’s shared skills', () => {
     // Arrange
     const universalSourceDir = SOURCE_DIR
 
@@ -77,7 +77,7 @@ describe('SHARED_AGENT_PATHS', () => {
     expect(isGuarded).toBe(true)
   })
 
-  it('guards ~/.agents/skills so the v0.13.0 delete-wipes-source regression cannot return', () => {
+  test('guards ~/.agents/skills so the v0.13.0 delete-wipes-source regression cannot return', () => {
     // SOURCE_DIR resolves to this path and is unconditionally seeded into
     // SHARED_AGENT_PATHS. Post Cline/Warp scanDir divergence no other
     // agent aliases here, but SOURCE_DIR alone is enough to guard deletes.
@@ -91,7 +91,7 @@ describe('SHARED_AGENT_PATHS', () => {
     expect(isGuarded).toBe(true)
   })
 
-  it('guards ~/.config/agents/skills so deleting amp or replit cannot wipe the dir they share', () => {
+  test('guards ~/.config/agents/skills so deleting amp or replit cannot wipe the dir they share', () => {
     // Arrange
     const sharedConfigPath = join(homedir(), '.config', 'agents', 'skills')
 
@@ -102,7 +102,7 @@ describe('SHARED_AGENT_PATHS', () => {
     expect(isGuarded).toBe(true)
   })
 
-  it('lets an agent with its own dedicated dir be deleted without tripping the shared-path guard', () => {
+  test('lets an agent with its own dedicated dir be deleted without tripping the shared-path guard', () => {
     // Arrange
     const claude = AGENTS.find((a) => a.id === 'claude-code')!
     const cursor = AGENTS.find((a) => a.id === 'cursor')!
@@ -119,7 +119,7 @@ describe('SHARED_AGENT_PATHS', () => {
     expect(codexIsGuarded).toBe(false)
   })
 
-  it('guards the path that amp and replit both point at so neither delete destroys the other’s skills', () => {
+  test('guards the path that amp and replit both point at so neither delete destroys the other’s skills', () => {
     // amp and replit are the two agents whose scanDir resolves to the
     // same ~/.config/agents/skills directory; both must be guarded so a
     // delete on either cannot wipe the directory shared with the other.
@@ -137,7 +137,7 @@ describe('SHARED_AGENT_PATHS', () => {
     expect(replitIsGuarded).toBe(true)
   })
 
-  it('lets Kimi (migrated to its own .kimi dir in CLI 1.5.10) be deleted without tripping the shared-path guard', () => {
+  test('lets Kimi (migrated to its own .kimi dir in CLI 1.5.10) be deleted without tripping the shared-path guard', () => {
     // Kimi moved off the shared ~/.config/agents/skills dir to its own
     // ~/.kimi/skills (scanDir '.kimi'), so its dedicated path is no longer
     // shared and a delete on Kimi cannot wipe another agent's skills.
@@ -153,7 +153,7 @@ describe('SHARED_AGENT_PATHS', () => {
 })
 
 describe('isSharedAgentPath', () => {
-  it('rejects a delete aimed straight at the universal source dir', () => {
+  test('rejects a delete aimed straight at the universal source dir', () => {
     // Arrange
     const universalSourceDir = SOURCE_DIR
 
@@ -164,7 +164,7 @@ describe('isSharedAgentPath', () => {
     expect(isShared).toBe(true)
   })
 
-  it('allows a delete on an agent that owns its own private directory', () => {
+  test('allows a delete on an agent that owns its own private directory', () => {
     // Arrange
     const codex = AGENTS.find((agent) => agent.id === 'codex')!
 
@@ -175,7 +175,7 @@ describe('isSharedAgentPath', () => {
     expect(isShared).toBe(false)
   })
 
-  it('allows a delete on a path that belongs to no known agent', () => {
+  test('allows a delete on a path that belongs to no known agent', () => {
     // Arrange
     const unknownPath = '/tmp/not-a-real-agent/skills'
 
@@ -190,7 +190,7 @@ describe('isSharedAgentPath', () => {
   // SHARED_AGENT_PATHS stores canonically-joined paths. Without a resolve()
   // normalization in isSharedAgentPath, these shapes would bypass the
   // check even though they point at the same on-disk target.
-  it('still blocks a delete on the source dir when the path carries a trailing slash', () => {
+  test('still blocks a delete on the source dir when the path carries a trailing slash', () => {
     // Arrange
     const trailingSlashPath = SOURCE_DIR + '/'
 
@@ -201,7 +201,7 @@ describe('isSharedAgentPath', () => {
     expect(isShared).toBe(true)
   })
 
-  it('still blocks a delete on the source dir when the path contains .. segments', () => {
+  test('still blocks a delete on the source dir when the path contains .. segments', () => {
     // e.g. /Users/me/.agents/skills/../skills → /Users/me/.agents/skills
     // Arrange
     const dotDotPath = join(SOURCE_DIR, '..', 'skills')
@@ -213,7 +213,7 @@ describe('isSharedAgentPath', () => {
     expect(isShared).toBe(true)
   })
 
-  it('still blocks a delete on the source dir when the path contains a double slash', () => {
+  test('still blocks a delete on the source dir when the path contains a double slash', () => {
     // e.g. /Users/me/.agents//skills → /Users/me/.agents/skills
     // Arrange
     const doubleSlashPath = SOURCE_DIR.replace('/.agents/', '/.agents//')
@@ -241,7 +241,7 @@ describe('isSharedAgentPath', () => {
     }
   })
 
-  it('blocks a delete on a symlink whose realpath resolves onto the universal source dir', () => {
+  test('blocks a delete on a symlink whose realpath resolves onto the universal source dir', () => {
     // Arrange
     const tempDir = mkdtempSync(join(tmpdir(), 'shared-agent-alias-'))
     tempDirsToCleanUp.push(tempDir)

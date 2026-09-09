@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach } from 'vitest'
 
 const handleMock = vi.fn()
 const getCliCommandStatusMock = vi.fn()
@@ -45,7 +45,7 @@ describe('cliCommand IPC handlers', () => {
     registerCliCommandHandlers()
   })
 
-  it('returns command status through the no-arg status channel', async () => {
+  test('returns command status through the no-arg status channel', async () => {
     // Arrange
     const expectedStatus = {
       status: 'not-installed',
@@ -64,7 +64,7 @@ describe('cliCommand IPC handlers', () => {
     expect(getCliCommandStatusMock).toHaveBeenCalledTimes(1)
   })
 
-  it('installs the command through the no-arg install channel', async () => {
+  test('installs the command through the no-arg install channel', async () => {
     // Arrange
     const expectedResult = {
       ok: true,
@@ -87,7 +87,7 @@ describe('cliCommand IPC handlers', () => {
     expect(installCliCommandMock).toHaveBeenCalledTimes(1)
   })
 
-  it('removes the command through the no-arg remove channel', async () => {
+  test('removes the command through the no-arg remove channel', async () => {
     // Arrange
     const expectedResult = {
       ok: true,

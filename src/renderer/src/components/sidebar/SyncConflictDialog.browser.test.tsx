@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { SyncExecuteResult, SyncPreviewResult } from '@/shared/types'
@@ -110,7 +110,7 @@ async function renderWithPreview(preview: SyncPreviewResult | null) {
 }
 
 describe('SyncConflictDialog', () => {
-  it('stays hidden when the sync preview carries no conflicts', async () => {
+  test('stays hidden when the sync preview carries no conflicts', async () => {
     // Arrange + Act
     const { screen } = await renderWithPreview(null)
 
@@ -118,7 +118,7 @@ describe('SyncConflictDialog', () => {
     expect(screen.getByText('Sync Conflicts').query()).toBeNull()
   })
 
-  it('stays hidden when a conflict preview is scoped to a single agent', async () => {
+  test('stays hidden when a conflict preview is scoped to a single agent', async () => {
     // Arrange + Act — a forAgent preview belongs to CleanupAgentDialog, not here.
     const { screen } = await renderWithPreview(SCOPED_PREVIEW_WITH_CONFLICTS)
 
@@ -126,7 +126,7 @@ describe('SyncConflictDialog', () => {
     expect(screen.getByText('Sync Conflicts').query()).toBeNull()
   })
 
-  it('opens listing every global conflict with its skill and agent name', async () => {
+  test('opens listing every global conflict with its skill and agent name', async () => {
     // Arrange + Act
     const { screen } = await renderWithPreview(GLOBAL_PREVIEW_WITH_CONFLICTS)
 
@@ -145,7 +145,7 @@ describe('SyncConflictDialog', () => {
     await expect.element(screen.getByText('in Cursor')).toBeVisible()
   })
 
-  it('relabels the skip button to "unselected" once a conflict is ticked and back when unticked', async () => {
+  test('relabels the skip button to "unselected" once a conflict is ticked and back when unticked', async () => {
     // Arrange
     const { screen } = await renderWithPreview(GLOBAL_PREVIEW_WITH_CONFLICTS)
     await expect
@@ -170,7 +170,7 @@ describe('SyncConflictDialog', () => {
       .toBeVisible()
   })
 
-  it('replaces every conflict folder when "Replace all" is pressed', async () => {
+  test('replaces every conflict folder when "Replace all" is pressed', async () => {
     // Arrange
     const { screen } = await renderWithPreview(GLOBAL_PREVIEW_WITH_CONFLICTS)
 
@@ -189,7 +189,7 @@ describe('SyncConflictDialog', () => {
     })
   })
 
-  it('replaces only the ticked conflicts when "Skip unselected" is pressed', async () => {
+  test('replaces only the ticked conflicts when "Skip unselected" is pressed', async () => {
     // Arrange
     const { screen } = await renderWithPreview(GLOBAL_PREVIEW_WITH_CONFLICTS)
     await screen.getByRole('checkbox').first().click()
@@ -209,7 +209,7 @@ describe('SyncConflictDialog', () => {
     })
   })
 
-  it('clears the dialog when the user dismisses it with Escape', async () => {
+  test('clears the dialog when the user dismisses it with Escape', async () => {
     // Arrange
     const { screen, store } = await renderWithPreview(
       GLOBAL_PREVIEW_WITH_CONFLICTS,

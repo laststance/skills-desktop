@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import {
@@ -41,7 +41,7 @@ const INSTALL_TARGET_OPTIONS: ReadonlyArray<
 ]
 
 describe('SegmentedControl', () => {
-  it('reports the picked value when the user selects a different segment', async () => {
+  test('reports the picked value when the user selects a different segment', async () => {
     // Arrange
     const onValueChange = vi.fn()
     const screen = await render(
@@ -61,7 +61,7 @@ describe('SegmentedControl', () => {
     expect(onValueChange).toHaveBeenCalledWith('repo')
   })
 
-  it('keeps one option selected by ignoring a click on the already-active segment', async () => {
+  test('keeps one option selected by ignoring a click on the already-active segment', async () => {
     // Arrange — 'name' is active, so clicking it makes Radix emit '' (deselect).
     const onValueChange = vi.fn()
     const screen = await render(
@@ -81,7 +81,7 @@ describe('SegmentedControl', () => {
     expect(onValueChange).not.toHaveBeenCalled()
   })
 
-  it('lets the user pick among three or more segments', async () => {
+  test('lets the user pick among three or more segments', async () => {
     // Arrange — three options proves the control is not hard-wired to two.
     const onValueChange = vi.fn()
     const screen = await render(
@@ -109,7 +109,7 @@ describe('SegmentedControl', () => {
     expect(onValueChange).toHaveBeenCalledWith('system')
   })
 
-  it('disables an individual segment without disabling the rest', async () => {
+  test('disables an individual segment without disabling the rest', async () => {
     // Arrange — the second option is unavailable (e.g. no agents to install to).
     const onValueChange = vi.fn()
     const screen = await render(

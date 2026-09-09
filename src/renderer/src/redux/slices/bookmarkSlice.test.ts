@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { repositoryId, toHttpUrl, toSkillName } from '@/shared/types'
 
@@ -9,7 +9,7 @@ async function createTestStore() {
 }
 
 describe('bookmarkSlice', () => {
-  it('starts with an empty saved list', async () => {
+  test('starts with an empty saved list', async () => {
     // Arrange
     const store = await createTestStore()
 
@@ -20,7 +20,7 @@ describe('bookmarkSlice', () => {
     expect(items).toEqual([])
   })
 
-  it('bookmarking a skill makes it appear in the saved list with its repo and url', async () => {
+  test('bookmarking a skill makes it appear in the saved list with its repo and url', async () => {
     // Arrange
     const { addBookmark } = await import('./bookmarkSlice')
     const store = await createTestStore()
@@ -43,7 +43,7 @@ describe('bookmarkSlice', () => {
     expect(items[0].bookmarkedAt).toBeTruthy()
   })
 
-  it('stamps the saved skill with an ISO-formatted bookmark time', async () => {
+  test('stamps the saved skill with an ISO-formatted bookmark time', async () => {
     // Arrange
     const { addBookmark } = await import('./bookmarkSlice')
     const store = await createTestStore()
@@ -62,7 +62,7 @@ describe('bookmarkSlice', () => {
     expect(new Date(bookmarkedAt).toISOString()).toBe(bookmarkedAt)
   })
 
-  it('keeps a single entry when the same skill is bookmarked twice', async () => {
+  test('keeps a single entry when the same skill is bookmarked twice', async () => {
     // Arrange
     const { addBookmark } = await import('./bookmarkSlice')
     const store = await createTestStore()
@@ -80,7 +80,7 @@ describe('bookmarkSlice', () => {
     expect(store.getState().bookmarks.items).toHaveLength(1)
   })
 
-  it('saves two distinct skills as separate entries', async () => {
+  test('saves two distinct skills as separate entries', async () => {
     // Arrange
     const { addBookmark } = await import('./bookmarkSlice')
     const store = await createTestStore()
@@ -105,7 +105,7 @@ describe('bookmarkSlice', () => {
     expect(store.getState().bookmarks.items).toHaveLength(2)
   })
 
-  it('removing a bookmark drops only that skill and leaves the rest saved', async () => {
+  test('removing a bookmark drops only that skill and leaves the rest saved', async () => {
     // Arrange
     const { addBookmark, removeBookmark } = await import('./bookmarkSlice')
     const store = await createTestStore()
@@ -133,7 +133,7 @@ describe('bookmarkSlice', () => {
     expect(items[0].name).toBe('tdd')
   })
 
-  it('leaves the saved list unchanged when removing a name that was never bookmarked', async () => {
+  test('leaves the saved list unchanged when removing a name that was never bookmarked', async () => {
     // Arrange
     const { addBookmark, removeBookmark } = await import('./bookmarkSlice')
     const store = await createTestStore()
@@ -152,7 +152,7 @@ describe('bookmarkSlice', () => {
     expect(store.getState().bookmarks.items).toHaveLength(1)
   })
 
-  it('exposes the saved skill through the bookmark items state', async () => {
+  test('exposes the saved skill through the bookmark items state', async () => {
     // Arrange
     const { addBookmark } = await import('./bookmarkSlice')
     const store = await createTestStore()
@@ -172,7 +172,7 @@ describe('bookmarkSlice', () => {
     expect(items[0].name).toBe('task')
   })
 
-  it('reports a skill as bookmarked only when it is in the saved list', async () => {
+  test('reports a skill as bookmarked only when it is in the saved list', async () => {
     // Arrange
     const { addBookmark, selectIsBookmarked } = await import('./bookmarkSlice')
     const store = await createTestStore()

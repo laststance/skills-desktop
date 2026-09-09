@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events'
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { SKILLS_CLI_VERSION } from '@/shared/constants'
 import { repositoryId, toSearchQuery, toSkillName } from '@/shared/types'
@@ -78,7 +78,7 @@ describe('skillsCliService.cancel', () => {
     process.env.PATH = ORIGINAL_PATH
   })
 
-  it('kills all running CLI children on cancel()', async () => {
+  test('kills all running CLI children on cancel()', async () => {
     // Arrange
     const first = simulateCli({ autoClose: false })
     const second = simulateCli({ autoClose: false })
@@ -99,7 +99,7 @@ describe('skillsCliService.cancel', () => {
     await Promise.all([searchA, searchB])
   })
 
-  it('never SIGTERMs a lock-writing prune, so cancel() cannot truncate the lock', async () => {
+  test('never SIGTERMs a lock-writing prune, so cancel() cannot truncate the lock', async () => {
     // Arrange — a prune runs in the background from trash eviction. The CLI
     // rewrites .skill-lock.json with a plain writeFile (no temp+rename), so a
     // SIGTERM meant for the install the user just closed would leave the lock
@@ -123,7 +123,7 @@ describe('skillsCliService.cancel', () => {
     await Promise.all([searching, pruning])
   })
 
-  it('advertises a new cancel generation so work still queued can see the cancel', async () => {
+  test('advertises a new cancel generation so work still queued can see the cancel', async () => {
     // Arrange — an install waiting behind a background prune has not spawned
     // yet, so `cancel()` finds nothing to SIGTERM. The caller compares this
     // counter across the wait instead; without it the queue drains and installs
@@ -151,7 +151,7 @@ describe('skillsCliService.execCli environment', () => {
     process.env.PATH = ORIGINAL_PATH
   })
 
-  it('adds common Node toolchain paths so Finder-launched installs can find npx', async () => {
+  test('adds common Node toolchain paths so Finder-launched installs can find npx', async () => {
     // Arrange
     simulateCli({
       stdout:
@@ -175,7 +175,7 @@ describe('skillsCliService.execCli environment', () => {
     )
   })
 
-  it('builds a clean PATH from only the toolchain fallbacks when the process has no inherited PATH', async () => {
+  test('builds a clean PATH from only the toolchain fallbacks when the process has no inherited PATH', async () => {
     // Arrange — a Finder launch can leave PATH unset entirely; deleting the var
     // makes it genuinely `undefined` (assigning `undefined` would coerce to the
     // string 'undefined' and never exercise the empty-string fallback).
@@ -209,7 +209,7 @@ describe('skillsCliService.search', () => {
     process.env.PATH = ORIGINAL_PATH
   })
 
-  it('shows search results ranked with their install counts from the current CLI output', async () => {
+  test('shows search results ranked with their install counts from the current CLI output', async () => {
     // Arrange
     simulateCli({
       stdout: [
@@ -246,7 +246,7 @@ describe('skillsCliService.search', () => {
     ])
   })
 
-  it('shows search results without an install count when the legacy CLI output omits one', async () => {
+  test('shows search results without an install count when the legacy CLI output omits one', async () => {
     // Arrange
     simulateCli({
       stdout: [
@@ -271,7 +271,7 @@ describe('skillsCliService.search', () => {
     expect(results[0]).not.toHaveProperty('installCount')
   })
 
-  it('synthesizes a skills.sh URL for a result row whose CLI output has no matching URL line', async () => {
+  test('synthesizes a skills.sh URL for a result row whose CLI output has no matching URL line', async () => {
     // Arrange — the first row carries a real `└ https://...` line, the second
     // row is followed by free text that does not match the URL pattern, so its
     // url must be reconstructed from the repo and skill name.
@@ -319,7 +319,7 @@ describe('skillsCliService.install', () => {
     process.env.PATH = ORIGINAL_PATH
   })
 
-  it('installs globally without agent flags for a Universal-only Marketplace install', async () => {
+  test('installs globally without agent flags for a Universal-only Marketplace install', async () => {
     // Arrange
     simulateCli({ stdout: 'Installation complete' })
     const { skillsCliService } = await import('./skillsCliService')
@@ -348,7 +348,7 @@ describe('skillsCliService.install', () => {
     )
   })
 
-  it('adds one --agent flag per selected symlink target for Universal plus agents', async () => {
+  test('adds one --agent flag per selected symlink target for Universal plus agents', async () => {
     // Arrange
     simulateCli({ stdout: 'Installation complete' })
     const { skillsCliService } = await import('./skillsCliService')
@@ -381,7 +381,7 @@ describe('skillsCliService.install', () => {
     )
   })
 
-  it('omits the --global flag for a project-local install', async () => {
+  test('omits the --global flag for a project-local install', async () => {
     // Arrange
     simulateCli({ stdout: 'Installation complete' })
     const { skillsCliService } = await import('./skillsCliService')
@@ -409,7 +409,7 @@ describe('skillsCliService.install', () => {
     )
   })
 
-  it('omits every --skill flag when installing the entire repository', async () => {
+  test('omits every --skill flag when installing the entire repository', async () => {
     // Arrange — no `skills` key means "install every skill in the repo".
     simulateCli({ stdout: 'Installation complete' })
     const { skillsCliService } = await import('./skillsCliService')
@@ -447,7 +447,7 @@ describe('skillsCliService.search failure handling', () => {
     process.env.PATH = ORIGINAL_PATH
   })
 
-  it('shows no results when the skills CLI exits with an error', async () => {
+  test('shows no results when the skills CLI exits with an error', async () => {
     // Arrange — non-zero exit code with stderr exercises both the failure
     // early-return and the stderr accumulation handler.
     simulateCli({
@@ -464,7 +464,7 @@ describe('skillsCliService.search failure handling', () => {
     expect(results).toEqual([])
   })
 
-  it('skips a malformed result row whose repo segment has no owner slash', async () => {
+  test('skips a malformed result row whose repo segment has no owner slash', async () => {
     // Arrange — `notarepo@skill` matches the loose line pattern but fails the
     // strict REPO_PATTERN (no `owner/repo` slash), so it must be discarded.
     simulateCli({
@@ -504,7 +504,7 @@ describe('skillsCliService.install failure and progress', () => {
     process.env.PATH = ORIGINAL_PATH
   })
 
-  it('emits an error progress event carrying the CLI stderr when an install fails', async () => {
+  test('emits an error progress event carrying the CLI stderr when an install fails', async () => {
     // Arrange
     const fake = simulateCli({ autoClose: false })
     const { skillsCliService } = await import('./skillsCliService')
@@ -532,7 +532,7 @@ describe('skillsCliService.install failure and progress', () => {
     })
   })
 
-  it('emits a generic error message when a failed install produces no stderr', async () => {
+  test('emits a generic error message when a failed install produces no stderr', async () => {
     // Arrange
     const fake = simulateCli({ autoClose: false })
     const { skillsCliService } = await import('./skillsCliService')
@@ -559,7 +559,7 @@ describe('skillsCliService.install failure and progress', () => {
     })
   })
 
-  it('reports cloning, installing, and linking phases as the CLI streams progress', async () => {
+  test('reports cloning, installing, and linking phases as the CLI streams progress', async () => {
     // Arrange — three separate chunks, one keyword each, because the ts-pattern
     // matcher returns on the FIRST hit; a single combined chunk would only
     // exercise the cloning branch.
@@ -613,7 +613,7 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     process.env.PATH = ORIGINAL_PATH
   })
 
-  it('returns no results when spawning npx itself fails', async () => {
+  test('returns no results when spawning npx itself fails', async () => {
     // Arrange — the spawn `error` event (e.g. npx missing on PATH) resolves
     // the command as a failure, so search() yields an empty list.
     vi.useRealTimers()
@@ -629,7 +629,7 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     expect(results).toEqual([])
   })
 
-  it('ignores a late close event after the process already errored out', async () => {
+  test('ignores a late close event after the process already errored out', async () => {
     // Arrange — once finalize() has settled on the error path, a trailing
     // close must be a no-op (the settled guard), and the search still resolves.
     vi.useRealTimers()
@@ -646,7 +646,7 @@ describe('skillsCliService.execCli error and timeout paths', () => {
     expect(results).toEqual([])
   })
 
-  it('aborts the CLI command and reports a timeout when npx hangs past the limit', async () => {
+  test('aborts the CLI command and reports a timeout when npx hangs past the limit', async () => {
     // Arrange — fake timers let us fast-forward past the spawn timeout without
     // emitting any close/error, so the timeout handler fires and kills npx.
     // Mirrors the module-private SPAWN_TIMEOUT_MS in skillsCliService.ts; keep
@@ -681,7 +681,7 @@ describe('skillsCliService.removeSkills', () => {
     process.env.PATH = ORIGINAL_PATH
   })
 
-  it('removes several skills in one global, non-interactive invocation', async () => {
+  test('removes several skills in one global, non-interactive invocation', async () => {
     // Arrange — one spawn per bulk delete instead of one per skill: each child
     // read-modify-writes the same .skill-lock.json with no temp+rename.
     simulateCli({ stdout: 'Done!\n', exitCode: 0 })
@@ -711,7 +711,7 @@ describe('skillsCliService.removeSkills', () => {
     )
   })
 
-  it('never hands the CLI an option-shaped lock key that would select every skill', async () => {
+  test('never hands the CLI an option-shaped lock key that would select every skill', async () => {
     // Arrange — `--all` is a SELECTOR in the CLI's own parser, so forwarding it
     // would turn this unattended prune into a global uninstall across every
     // agent. Lock keys come from third-party metadata, and the CLI has no `--`
@@ -727,7 +727,7 @@ describe('skillsCliService.removeSkills', () => {
     expect(result.success).toBe(false)
   })
 
-  it('still removes the safe names when one key in the batch is option-shaped', async () => {
+  test('still removes the safe names when one key in the batch is option-shaped', async () => {
     // Arrange — one hostile key must not block every legitimate prune.
     simulateCli({ stdout: 'Done!\n', exitCode: 0 })
     const { skillsCliService } = await import('./skillsCliService')
@@ -754,7 +754,7 @@ describe('skillsCliService.removeSkills', () => {
     )
   })
 
-  it('keeps a lock-writing prune alive past the ceiling that applies to a search', async () => {
+  test('keeps a lock-writing prune alive past the ceiling that applies to a search', async () => {
     // Arrange — the CLI's `writeSkillLock` is a plain writeFile with no
     // temp+rename, so a SIGTERM landing mid-write truncates the lock and a
     // truncated lock parses as an EMPTY one. The 60s search ceiling is spent
@@ -784,7 +784,7 @@ describe('skillsCliService.removeSkills', () => {
     vi.useRealTimers()
   })
 
-  it('keeps the caller waiting after the kill until the killed child is really gone', async () => {
+  test('keeps the caller waiting after the kill until the killed child is really gone', async () => {
     // Arrange — resolving on the kill releases the runLockWrite mutex while the
     // dying child may still be mid-writeFile on .skill-lock.json, so the next
     // queued command interleaves with that write and truncates the lock.
@@ -817,7 +817,7 @@ describe('skillsCliService.removeSkills', () => {
     vi.useRealTimers()
   })
 
-  it('force-kills and stops waiting when the child ignores the first kill signal', async () => {
+  test('force-kills and stops waiting when the child ignores the first kill signal', async () => {
     // Arrange — waiting forever on an unkillable child would hang every queued
     // lock write behind it, which is worse than releasing with SIGKILL sent.
     const LOCK_WRITE_CEILING_MS = 180_000
@@ -837,7 +837,7 @@ describe('skillsCliService.removeSkills', () => {
     vi.useRealTimers()
   })
 
-  it('emits no install progress while pruning in the background', async () => {
+  test('emits no install progress while pruning in the background', async () => {
     // Arrange — a prune runs from trash eviction, which the user never started.
     // Forwarding "Installing skill files..." would light up the Marketplace UI.
     // The stdout has to be a line the parser DOES recognise, or the assertion

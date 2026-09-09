@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -117,7 +117,7 @@ async function renderWelcomeWidget(welcomeDismissed: boolean) {
 }
 
 describe('WelcomeWidget', () => {
-  it('removes the welcome card and remembers the dismissal when the user dismisses the hero pitch', async () => {
+  test('removes the welcome card and remembers the dismissal when the user dismisses the hero pitch', async () => {
     // Arrange: full pitch is showing and the widget is placed on a page.
     const { screen, store } = await renderWelcomeWidget(false)
     await expect
@@ -131,7 +131,7 @@ describe('WelcomeWidget', () => {
     expect(store.getState().dashboard.welcomeDismissed).toBe(true)
   })
 
-  it('jumps to the Marketplace tab when the user clicks Open Marketplace', async () => {
+  test('jumps to the Marketplace tab when the user clicks Open Marketplace', async () => {
     // Arrange: full pitch with the CTA, starting on the installed tab.
     const { screen, store } = await renderWelcomeWidget(false)
     expect(store.getState().ui.activeTab).toBe('installed')
@@ -142,7 +142,7 @@ describe('WelcomeWidget', () => {
     expect(store.getState().ui.activeTab).toBe('marketplace')
   })
 
-  it('shows a compact dismissed hint instead of the full pitch for returning users', async () => {
+  test('shows a compact dismissed hint instead of the full pitch for returning users', async () => {
     // Arrange + Act: render with the persisted dismissal flag already set.
     const { screen } = await renderWelcomeWidget(true)
 

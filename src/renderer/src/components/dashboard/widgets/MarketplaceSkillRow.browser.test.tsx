@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -37,7 +37,7 @@ function makeSkill(
 }
 
 describe('MarketplaceSkillRow', () => {
-  it('opens the skill on skills.sh in a new browser tab when the row is clicked', async () => {
+  test('opens the skill on skills.sh in a new browser tab when the row is clicked', async () => {
     // Arrange: a fully-populated trending skill row.
     const skill = makeSkill({
       rank: toSkillRank(1),
@@ -73,7 +73,7 @@ describe('MarketplaceSkillRow', () => {
       .toBeVisible()
   })
 
-  it('shows a dash for the install count when the skill has no install data', async () => {
+  test('shows a dash for the install count when the skill has no install data', async () => {
     // Arrange: a CLI-search-style result with no installCount field.
     const skill = makeSkill({
       rank: toSkillRank(7),

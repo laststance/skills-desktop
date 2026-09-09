@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { extractErrorMessage } from './errors'
 
 describe('extractErrorMessage', () => {
-  it('surfaces the underlying Error message so IPC catch blocks report the real failure', () => {
+  test('surfaces the underlying Error message so IPC catch blocks report the real failure', () => {
     // Arrange
     const diskFailure = new Error('disk full')
 
@@ -14,7 +14,7 @@ describe('extractErrorMessage', () => {
     expect(result).toBe('disk full')
   })
 
-  it('returns the caller-supplied fallback when a non-Error value is thrown so the UI shows a meaningful message', () => {
+  test('returns the caller-supplied fallback when a non-Error value is thrown so the UI shows a meaningful message', () => {
     // Arrange
     const thrownString = 'string error'
 
@@ -25,7 +25,7 @@ describe('extractErrorMessage', () => {
     expect(result).toBe('Custom fallback')
   })
 
-  it('falls back to the default message when an undefined non-Error is thrown so callers never get an empty string', () => {
+  test('falls back to the default message when an undefined non-Error is thrown so callers never get an empty string', () => {
     // Arrange
     const thrownUndefined = undefined
 

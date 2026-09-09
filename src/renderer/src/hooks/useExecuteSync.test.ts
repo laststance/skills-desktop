@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { executeSyncAction } from '@/renderer/src/redux/slices/uiSlice'
 import type { SyncExecuteOptions } from '@/shared/types'
@@ -52,7 +52,7 @@ afterEach(() => {
 const sampleOptions: SyncExecuteOptions = { replaceConflicts: [] }
 
 describe('useExecuteSync', () => {
-  it('reports success and skips the failure toast when the sync thunk fulfills', async () => {
+  test('reports success and skips the failure toast when the sync thunk fulfills', async () => {
     // Arrange
     dispatchMock.mockResolvedValue({
       type: executeSyncAction.fulfilled.type,
@@ -70,7 +70,7 @@ describe('useExecuteSync', () => {
     expect(toastErrorMock).not.toHaveBeenCalled()
   })
 
-  it('raises a failure toast with the rejection message and reports failure when the thunk rejects', async () => {
+  test('raises a failure toast with the rejection message and reports failure when the thunk rejects', async () => {
     // Arrange
     dispatchMock.mockResolvedValue({
       type: executeSyncAction.rejected.type,
@@ -90,7 +90,7 @@ describe('useExecuteSync', () => {
     })
   })
 
-  it('falls back to the generic description when the rejection carries no message', async () => {
+  test('falls back to the generic description when the rejection carries no message', async () => {
     // Arrange
     dispatchMock.mockResolvedValue({
       type: executeSyncAction.rejected.type,
@@ -109,7 +109,7 @@ describe('useExecuteSync', () => {
     })
   })
 
-  it('ignores a re-entrant run that arrives while a previous run is still in flight', async () => {
+  test('ignores a re-entrant run that arrives while a previous run is still in flight', async () => {
     // Arrange — a dispatch we resolve manually so the first run stays in flight.
     let resolveFirstDispatch: (action: unknown) => void = () => {}
     const inFlightDispatch = new Promise((resolve) => {
@@ -136,7 +136,7 @@ describe('useExecuteSync', () => {
     expect(firstRunResult).toBe(true)
   })
 
-  it('toggles the executing ref and state up at start and back down once the thunk settles', async () => {
+  test('toggles the executing ref and state up at start and back down once the thunk settles', async () => {
     // Arrange
     dispatchMock.mockResolvedValue({
       type: executeSyncAction.fulfilled.type,
@@ -154,7 +154,7 @@ describe('useExecuteSync', () => {
     expect(setIsExecutingMock).toHaveBeenNthCalledWith(2, false)
   })
 
-  it('releases both guards even when the dispatch throws unexpectedly', async () => {
+  test('releases both guards even when the dispatch throws unexpectedly', async () => {
     // Arrange
     dispatchMock.mockRejectedValue(new Error('thunk exploded'))
     const { useExecuteSync } = await import('./useExecuteSync')

@@ -10,7 +10,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { toAbsolutePath } from '@/shared/types'
 
@@ -22,7 +22,7 @@ import {
 } from './symlinkChecker'
 
 describe('symlinkChecker real filesystem behavior', () => {
-  it('keeps a valid relative symlink valid when the parent directory is symlinked', async () => {
+  test('keeps a valid relative symlink valid when the parent directory is symlinked', async () => {
     // Arrange
     const temporaryRoot = await mkdtemp(
       join(tmpdir(), 'skills-desktop-symlink-parent-'),
@@ -66,7 +66,7 @@ describe('symlinkChecker real filesystem behavior', () => {
     }
   })
 
-  it('resolves absolute symlink targets without requiring the link parent to exist', async () => {
+  test('resolves absolute symlink targets without requiring the link parent to exist', async () => {
     // Arrange
     const temporaryRoot = await mkdtemp(
       join(tmpdir(), 'skills-desktop-absolute-target-'),

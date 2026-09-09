@@ -1,5 +1,5 @@
 import { useState, type ReactElement } from 'react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { SkipToMainContentLink } from './SkipToMainContentLink'
@@ -36,7 +36,7 @@ const MemoComparatorHarness = function MemoComparatorHarness(): ReactElement {
 }
 
 describe('SkipToMainContentLink', () => {
-  it('offers keyboard users a link that jumps straight to the main content region', async () => {
+  test('offers keyboard users a link that jumps straight to the main content region', async () => {
     // Arrange + Act
     const screen = await render(<SkipToMainContentLink />)
 
@@ -48,7 +48,7 @@ describe('SkipToMainContentLink', () => {
     await expect.element(skipLink).toHaveAttribute('href', '#main-content')
   })
 
-  it('keeps showing the same skip link after a parent re-renders with unchanged props', async () => {
+  test('keeps showing the same skip link after a parent re-renders with unchanged props', async () => {
     // Arrange — mount inside a parent that can re-render on demand.
     const screen = await render(<MemoComparatorHarness />)
     await expect

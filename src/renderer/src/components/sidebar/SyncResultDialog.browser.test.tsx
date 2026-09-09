@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -143,7 +143,7 @@ async function renderWithResult(syncResult: SyncExecuteResult | null) {
 }
 
 describe('SyncResultDialog', () => {
-  it('stays hidden until a sync has actually produced a result', async () => {
+  test('stays hidden until a sync has actually produced a result', async () => {
     // Arrange + Act — no result seeded, so the dialog must render nothing.
     const { screen } = await renderWithResult(null)
 
@@ -151,7 +151,7 @@ describe('SyncResultDialog', () => {
     expect(screen.getByText('Sync Results').query()).toBeNull()
   })
 
-  it('opens with a header summary once a sync result is available', async () => {
+  test('opens with a header summary once a sync result is available', async () => {
     // Arrange + Act
     const { screen } = await renderWithResult(RESULT_WITH_CHANGES)
 
@@ -164,7 +164,7 @@ describe('SyncResultDialog', () => {
       .toBeVisible()
   })
 
-  it('shows a color-coded count chip for every nonzero outcome', async () => {
+  test('shows a color-coded count chip for every nonzero outcome', async () => {
     // Arrange + Act
     const { screen } = await renderWithResult(RESULT_WITH_CHANGES)
 
@@ -175,7 +175,7 @@ describe('SyncResultDialog', () => {
     await expect.element(screen.getByText('1 skipped')).toBeVisible()
   })
 
-  it('lists each processed row with its action badge and skill→agent labels', async () => {
+  test('lists each processed row with its action badge and skill→agent labels', async () => {
     // Arrange + Act
     const { screen } = await renderWithResult(RESULT_WITH_CHANGES)
 
@@ -198,7 +198,7 @@ describe('SyncResultDialog', () => {
     await expect.element(screen.getByText('commit-helper')).toBeVisible()
   })
 
-  it('surfaces the failure message on an errored row', async () => {
+  test('surfaces the failure message on an errored row', async () => {
     // Arrange + Act — an error row must render its `error` string inline.
     const { screen } = await renderWithResult(RESULT_WITH_CHANGES)
 
@@ -206,7 +206,7 @@ describe('SyncResultDialog', () => {
     await expect.element(screen.getByText('EACCES')).toBeVisible()
   })
 
-  it('shows an empty-state line when no items were processed', async () => {
+  test('shows an empty-state line when no items were processed', async () => {
     // Arrange + Act — a result with zero detail rows.
     const { screen } = await renderWithResult(RESULT_EMPTY_DETAILS)
 
@@ -216,7 +216,7 @@ describe('SyncResultDialog', () => {
       .toBeVisible()
   })
 
-  it('refreshes app data after closing a result that changed the filesystem', async () => {
+  test('refreshes app data after closing a result that changed the filesystem', async () => {
     // Arrange — a result with created/replaced/errors counts as "had changes".
     const { screen, store } = await renderWithResult(RESULT_WITH_CHANGES)
     await expect.element(screen.getByText('Sync Results')).toBeVisible()
@@ -233,7 +233,7 @@ describe('SyncResultDialog', () => {
     expect(mockSourceGetStats).toHaveBeenCalledTimes(1)
   })
 
-  it('skips the data refresh when closing a result that changed nothing', async () => {
+  test('skips the data refresh when closing a result that changed nothing', async () => {
     // Arrange — an all-skipped result has no changes, so no refresh should run.
     const { screen, store } = await renderWithResult(RESULT_NO_CHANGES)
     await expect.element(screen.getByText('Sync Results')).toBeVisible()

@@ -1,4 +1,4 @@
-import { describe, expect, it, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import {
   CODE_FONT_SIZE_MAX_PX,
@@ -33,7 +33,7 @@ describe('path-traversal skill names blocked on every skill-name-accepting chann
   // test asserts the uniformity explicitly — if someone adds a new channel
   // and forgets to use skillNameString, this will not catch it directly
   // but the `../` rejections above will (all channels share the refinement).
-  it('blocks a path-traversal skill name ("../etc/passwd") on every skill-name-accepting channel', () => {
+  test('blocks a path-traversal skill name ("../etc/passwd") on every skill-name-accepting channel', () => {
     // Arrange
     const malicious = '../etc/passwd'
 
@@ -141,7 +141,7 @@ describe('cleanup IPC target path schemas', () => {
   const orphanSchema = IPC_ARG_SCHEMAS['skills:clearOrphanSymlinks']!
   const brokenSchema = IPC_ARG_SCHEMAS['skills:clearBrokenSymlinkSlots']!
 
-  it('rejects orphan cleanup records that omit or relativize the reviewed target path', () => {
+  test('rejects orphan cleanup records that omit or relativize the reviewed target path', () => {
     // Arrange / Act / Assert — a missing targetPath is rejected.
     expect(
       orphanSchema.safeParse([
@@ -181,7 +181,7 @@ describe('cleanup IPC target path schemas', () => {
     ).toBe(false)
   })
 
-  it('rejects broken-slot cleanup records that omit or relativize the reviewed target path', () => {
+  test('rejects broken-slot cleanup records that omit or relativize the reviewed target path', () => {
     // Arrange / Act / Assert — a missing targetPath is rejected.
     expect(
       brokenSchema.safeParse([
@@ -219,7 +219,7 @@ describe('reviewed destructive path schemas', () => {
   const deleteSchema = IPC_ARG_SCHEMAS['skills:deleteSkill']!
   const deleteBatchSchema = IPC_ARG_SCHEMAS['skills:deleteSkills']!
 
-  it('requires an absolute linkPath for single-agent unlink', () => {
+  test('requires an absolute linkPath for single-agent unlink', () => {
     // Arrange
     const payload = {
       skillName: 'task',
@@ -235,7 +235,7 @@ describe('reviewed destructive path schemas', () => {
     expect(result.success).toBe(false)
   })
 
-  it('requires targetPath for single-agent symlink unlink', () => {
+  test('requires targetPath for single-agent symlink unlink', () => {
     // Arrange
     const missingTargetPath = {
       skillName: 'task',
@@ -261,7 +261,7 @@ describe('reviewed destructive path schemas', () => {
     expect(unlinkSchema.safeParse([validSymlinkUnlink]).success).toBe(true)
   })
 
-  it('requires reviewed identity for confirmed single-agent local delete', () => {
+  test('requires reviewed identity for confirmed single-agent local delete', () => {
     // Arrange
     const missingIdentity = {
       skillName: 'local-task',
@@ -282,7 +282,7 @@ describe('reviewed destructive path schemas', () => {
     expect(unlinkSchema.safeParse([validLocalDelete]).success).toBe(true)
   })
 
-  it('requires a reviewed filesystem identity for single delete', () => {
+  test('requires a reviewed filesystem identity for single delete', () => {
     // Arrange
     const payload = {
       skillName: 'task',
@@ -296,7 +296,7 @@ describe('reviewed destructive path schemas', () => {
     expect(result.success).toBe(false)
   })
 
-  it('requires a reviewed filesystem identity for batch delete items', () => {
+  test('requires a reviewed filesystem identity for batch delete items', () => {
     // Arrange
     const payload = {
       items: [{ skillName: 'task', skillPath: '/tmp/task' }],
@@ -315,7 +315,7 @@ describe('destructive reviewed-path IPC schemas', () => {
   const batchDeleteSchema = IPC_ARG_SCHEMAS['skills:deleteSkills']!
   const batchUnlinkSchema = IPC_ARG_SCHEMAS['skills:unlinkManyFromAgent']!
 
-  it('accepts an absolute skillPath for delete but rejects a missing or relative one (single and batch)', () => {
+  test('accepts an absolute skillPath for delete but rejects a missing or relative one (single and batch)', () => {
     // Act / Assert — single delete without a skillPath is rejected.
     expect(singleDeleteSchema.safeParse([{ skillName: 'task' }]).success).toBe(
       false,
@@ -374,7 +374,7 @@ describe('destructive reviewed-path IPC schemas', () => {
     ).toBe(true)
   })
 
-  it('accepts an absolute linkPath and target for bulk unlink but rejects a missing or relative one', () => {
+  test('accepts an absolute linkPath and target for bulk unlink but rejects a missing or relative one', () => {
     // Act / Assert — bulk unlink without a linkPath is rejected.
     expect(
       batchUnlinkSchema.safeParse([
@@ -428,7 +428,7 @@ describe('destructive reviewed-path IPC schemas', () => {
     ).toBe(true)
   })
 
-  it('accepts remove-all only with an absolute agent path AND a reviewed directory identity', () => {
+  test('accepts remove-all only with an absolute agent path AND a reviewed directory identity', () => {
     // Arrange
     const removeAllSchema = IPC_ARG_SCHEMAS['skills:removeAllFromAgent']!
 
@@ -479,7 +479,7 @@ describe('folder:* channels', () => {
   const finderSchema = IPC_ARG_SCHEMAS['folder:revealInFinder']!
   const terminalSchema = IPC_ARG_SCHEMAS['folder:openInTerminal']!
 
-  it('lets Reveal in Finder run on an absolute folder path', () => {
+  test('lets Reveal in Finder run on an absolute folder path', () => {
     // Arrange
     const absolutePath = '/Users/me/.agents/skills'
 
@@ -487,7 +487,7 @@ describe('folder:* channels', () => {
     expect(finderSchema.safeParse([absolutePath]).success).toBe(true)
   })
 
-  it('blocks Reveal in Finder on an empty path at the IPC boundary', () => {
+  test('blocks Reveal in Finder on an empty path at the IPC boundary', () => {
     // Arrange
     const emptyPath = ''
 
@@ -495,7 +495,7 @@ describe('folder:* channels', () => {
     expect(finderSchema.safeParse([emptyPath]).success).toBe(false)
   })
 
-  it('blocks Reveal in Finder on a relative path at the IPC boundary', () => {
+  test('blocks Reveal in Finder on a relative path at the IPC boundary', () => {
     // Arrange
     const relativePath = 'relative/path'
 
@@ -503,7 +503,7 @@ describe('folder:* channels', () => {
     expect(finderSchema.safeParse([relativePath]).success).toBe(false)
   })
 
-  it('guards Open in Terminal with the same absolute-path-only rule', () => {
+  test('guards Open in Terminal with the same absolute-path-only rule', () => {
     // Act / Assert — an absolute path is accepted.
     expect(terminalSchema.safeParse(['/Users/me/.cline/skills']).success).toBe(
       true,
@@ -523,7 +523,7 @@ describe('folder:* channels', () => {
 describe('settings:set lockstep with SettingsSchema', () => {
   const schema = IPC_ARG_SCHEMAS['settings:set']!
 
-  it('carries a valid notification token without adding it to saved preferences', () => {
+  test('carries a valid notification token without adding it to saved preferences', () => {
     // Arrange
     const args = [
       { windowBackgroundOpacityPercent: 85 },
@@ -538,14 +538,14 @@ describe('settings:set lockstep with SettingsSchema', () => {
     ])
   })
 
-  it('rejects malformed notification tokens before saving settings', () => {
+  test('rejects malformed notification tokens before saving settings', () => {
     // Arrange / Act / Assert
     for (const token of [null, 42, '', 'not-a-request-id']) {
       expect(schema.safeParse([{}, token]).success).toBe(false)
     }
   })
 
-  it('accepts independent opacity settings while preserving the absence of unrelated fields', () => {
+  test('accepts independent opacity settings while preserving the absence of unrelated fields', () => {
     // Arrange
     const patch = {
       windowOpacityMode: 'section',
@@ -559,7 +559,7 @@ describe('settings:set lockstep with SettingsSchema', () => {
     ])
   })
 
-  it('does not reset opacity preferences during an unrelated settings write', () => {
+  test('does not reset opacity preferences during an unrelated settings write', () => {
     // Arrange
     const patch = { codeFontSizePx: 16 }
     // Act
@@ -568,7 +568,7 @@ describe('settings:set lockstep with SettingsSchema', () => {
     expect(parsed).toEqual([{ codeFontSizePx: 16 }])
   })
 
-  it.each([
+  test.each([
     { leftSectionOpacityPercent: -1 },
     { centerSectionOpacityPercent: 101 },
     { rightSectionOpacityPercent: 65.5 },
@@ -583,48 +583,48 @@ describe('settings:set lockstep with SettingsSchema', () => {
     },
   )
 
-  it('lets the user persist a preferredTerminal choice', () => {
+  test('lets the user persist a preferredTerminal choice', () => {
     // Arrange / Act / Assert
     expect(schema.safeParse([{ preferredTerminal: 'iterm' }]).success).toBe(
       true,
     )
   })
 
-  it('lets the user persist a custom terminal app name within the length cap', () => {
+  test('lets the user persist a custom terminal app name within the length cap', () => {
     // Arrange / Act / Assert
     expect(schema.safeParse([{ customTerminalAppName: 'Hyper' }]).success).toBe(
       true,
     )
   })
 
-  it('lets the user persist a background opacity percentage within bounds', () => {
+  test('lets the user persist a background opacity percentage within bounds', () => {
     // Arrange / Act / Assert
     expect(
       schema.safeParse([{ windowBackgroundOpacityPercent: 90 }]).success,
     ).toBe(true)
   })
 
-  it('lets the user persist a Markdown reading font size within bounds', () => {
+  test('lets the user persist a Markdown reading font size within bounds', () => {
     // Arrange / Act / Assert
     expect(schema.safeParse([{ markdownFontSizePx: 18 }]).success).toBe(true)
   })
 
-  it('lets the user persist a code preview font size within bounds', () => {
+  test('lets the user persist a code preview font size within bounds', () => {
     // Arrange / Act / Assert
     expect(schema.safeParse([{ codeFontSizePx: 16 }]).success).toBe(true)
   })
 
-  it('lets the user persist a curated code theme id', () => {
+  test('lets the user persist a curated code theme id', () => {
     // Arrange / Act / Assert
     expect(schema.safeParse([{ codeThemeId: 'catppuccin' }]).success).toBe(true)
   })
 
-  it('lets the user persist the auto-download updates toggle', () => {
+  test('lets the user persist the auto-download updates toggle', () => {
     // Arrange / Act / Assert
     expect(schema.safeParse([{ autoDownloadUpdates: true }]).success).toBe(true)
   })
 
-  it('lets the user persist the Installed search count display placement', () => {
+  test('lets the user persist the Installed search count display placement', () => {
     // Arrange / Act / Assert
     expect(
       schema.safeParse([{ installedSearchCountDisplay: 'inline' }]).success,
@@ -634,14 +634,14 @@ describe('settings:set lockstep with SettingsSchema', () => {
     ).toBe(true)
   })
 
-  it('blocks a non-boolean auto-download toggle from reaching disk', () => {
+  test('blocks a non-boolean auto-download toggle from reaching disk', () => {
     // Arrange / Act / Assert
     expect(schema.safeParse([{ autoDownloadUpdates: 'yes' }]).success).toBe(
       false,
     )
   })
 
-  it('blocks an unknown Installed search count display placement from reaching disk', () => {
+  test('blocks an unknown Installed search count display placement from reaching disk', () => {
     // Arrange / Act / Assert
     expect(
       schema.safeParse([{ installedSearchCountDisplay: 'marketplace' }])
@@ -649,14 +649,14 @@ describe('settings:set lockstep with SettingsSchema', () => {
     ).toBe(false)
   })
 
-  it('blocks an unknown terminal preset from reaching disk', () => {
+  test('blocks an unknown terminal preset from reaching disk', () => {
     // Arrange / Act / Assert
     expect(
       schema.safeParse([{ preferredTerminal: 'fish-shell' }]).success,
     ).toBe(false)
   })
 
-  it('blocks a custom terminal app name longer than the 64-char cap', () => {
+  test('blocks a custom terminal app name longer than the 64-char cap', () => {
     // Arrange
     const overlongName = 'a'.repeat(65)
 
@@ -666,7 +666,7 @@ describe('settings:set lockstep with SettingsSchema', () => {
     ).toBe(false)
   })
 
-  it('blocks an out-of-range or fractional background opacity percentage', () => {
+  test('blocks an out-of-range or fractional background opacity percentage', () => {
     // Act / Assert — below the allowed minimum is rejected.
     expect(
       schema.safeParse([
@@ -689,7 +689,7 @@ describe('settings:set lockstep with SettingsSchema', () => {
     ).toBe(false)
   })
 
-  it('blocks an out-of-range or fractional Markdown reading font size', () => {
+  test('blocks an out-of-range or fractional Markdown reading font size', () => {
     // Act / Assert — below the allowed minimum is rejected.
     expect(
       schema.safeParse([{ markdownFontSizePx: MARKDOWN_FONT_SIZE_MIN_PX - 1 }])
@@ -704,7 +704,7 @@ describe('settings:set lockstep with SettingsSchema', () => {
     ).toBe(false)
   })
 
-  it('blocks an out-of-range or fractional code preview font size', () => {
+  test('blocks an out-of-range or fractional code preview font size', () => {
     // Act / Assert — below the allowed minimum is rejected.
     expect(
       schema.safeParse([{ codeFontSizePx: CODE_FONT_SIZE_MIN_PX - 1 }]).success,
@@ -717,7 +717,7 @@ describe('settings:set lockstep with SettingsSchema', () => {
     ).toBe(false)
   })
 
-  it('blocks an unknown code theme id from reaching disk', () => {
+  test('blocks an unknown code theme id from reaching disk', () => {
     // Arrange / Act / Assert
     expect(schema.safeParse([{ codeThemeId: 'dracula' }]).success).toBe(false)
   })
@@ -729,7 +729,7 @@ describe('settings:set lockstep with SettingsSchema', () => {
     )
   })
 
-  it('blocks an unknown extra settings key (.strict()) from a compromised renderer', () => {
+  test('blocks an unknown extra settings key (.strict()) from a compromised renderer', () => {
     // Arrange / Act / Assert
     expect(
       schema.safeParse([{ defaultSkillTab: 'files', somethingElse: 'x' }])
@@ -737,7 +737,7 @@ describe('settings:set lockstep with SettingsSchema', () => {
     ).toBe(false)
   })
 
-  it('does not wipe a persisted hiddenAgentIds when an unrelated setting is saved', () => {
+  test('does not wipe a persisted hiddenAgentIds when an unrelated setting is saved', () => {
     // Arrange
     // Regression for the wipe-on-every-write bug: when the IPC schema for
     // `hiddenAgentIds` chained `.optional()` over the disk schema's
@@ -754,7 +754,7 @@ describe('settings:set lockstep with SettingsSchema', () => {
     expect('hiddenAgentIds' in parsed[0]).toBe(false)
   })
 
-  it('does not wipe a persisted window background opacity percentage when an unrelated setting is saved', () => {
+  test('does not wipe a persisted window background opacity percentage when an unrelated setting is saved', () => {
     // Arrange / Act
     const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
 
@@ -762,7 +762,7 @@ describe('settings:set lockstep with SettingsSchema', () => {
     expect('windowBackgroundOpacityPercent' in parsed[0]).toBe(false)
   })
 
-  it('does not wipe a persisted Markdown reading font size when an unrelated setting is saved', () => {
+  test('does not wipe a persisted Markdown reading font size when an unrelated setting is saved', () => {
     // Arrange
     // Same wipe-on-every-write guard as blur: the IPC schema declares the
     // size as a bare `.optional()` off the shared non-defaulting font schema
@@ -778,7 +778,7 @@ describe('settings:set lockstep with SettingsSchema', () => {
     expect('markdownFontSizePx' in parsed[0]).toBe(false)
   })
 
-  it('does not wipe a persisted code preview font size when an unrelated setting is saved', () => {
+  test('does not wipe a persisted code preview font size when an unrelated setting is saved', () => {
     // Arrange / Act
     const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
 
@@ -786,7 +786,7 @@ describe('settings:set lockstep with SettingsSchema', () => {
     expect('codeFontSizePx' in parsed[0]).toBe(false)
   })
 
-  it('does not wipe a persisted code theme choice when an unrelated setting is saved', () => {
+  test('does not wipe a persisted code theme choice when an unrelated setting is saved', () => {
     // Arrange / Act
     const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
 
@@ -794,7 +794,7 @@ describe('settings:set lockstep with SettingsSchema', () => {
     expect('codeThemeId' in parsed[0]).toBe(false)
   })
 
-  it('does not wipe a persisted auto-download opt-in when an unrelated setting is saved', () => {
+  test('does not wipe a persisted auto-download opt-in when an unrelated setting is saved', () => {
     // Arrange
     // Same wipe-on-every-write guard as hiddenAgentIds/blur: the IPC schema
     // declares the toggle as a bare `z.boolean().optional()` rather than
@@ -809,7 +809,7 @@ describe('settings:set lockstep with SettingsSchema', () => {
     expect('autoDownloadUpdates' in parsed[0]).toBe(false)
   })
 
-  it('does not wipe a persisted Installed search count placement when an unrelated setting is saved', () => {
+  test('does not wipe a persisted Installed search count placement when an unrelated setting is saved', () => {
     // Arrange / Act
     const parsed = schema.parse([{ defaultSkillTab: 'info' }]) as [object]
 
@@ -817,14 +817,14 @@ describe('settings:set lockstep with SettingsSchema', () => {
     expect('installedSearchCountDisplay' in parsed[0]).toBe(false)
   })
 
-  it('lets the user persist an explicit hiddenAgentIds list', () => {
+  test('lets the user persist an explicit hiddenAgentIds list', () => {
     // Arrange / Act / Assert
     expect(
       schema.safeParse([{ hiddenAgentIds: ['claude-code'] }]).success,
     ).toBe(true)
   })
 
-  it('blocks an unknown agent id in hiddenAgentIds from a compromised renderer', () => {
+  test('blocks an unknown agent id in hiddenAgentIds from a compromised renderer', () => {
     // Arrange
     // The renderer should never emit a non-AgentId. Disk reads are
     // forgiving (drop stale ids); the IPC channel is strict.
@@ -836,7 +836,7 @@ describe('settings:set lockstep with SettingsSchema', () => {
     ).toBe(false)
   })
 
-  it('blocks an oversized hiddenAgentIds payload longer than the agent roster', () => {
+  test('blocks an oversized hiddenAgentIds payload longer than the agent roster', () => {
     // Arrange
     // Defense-in-depth payload cap — a misbehaving renderer cannot push
     // an arbitrarily long list past the IPC boundary. Every legitimate
@@ -859,7 +859,7 @@ describe('theme:broadcast', () => {
     preset: 'cyan',
   }
 
-  it('relays a resolved theme that names a real preset', () => {
+  test('relays a resolved theme that names a real preset', () => {
     // Arrange
     const schema = IPC_ARG_SCHEMAS['theme:broadcast']
 
@@ -870,7 +870,7 @@ describe('theme:broadcast', () => {
     expect(result.success).toBe(true)
   })
 
-  it('blocks a preset name that is not in THEME_PRESETS', () => {
+  test('blocks a preset name that is not in THEME_PRESETS', () => {
     // Every window dispatches this payload straight into its theme reducer.
     // An unknown key would land on the reducer's stale-preset fallback and
     // silently reset the palette in a window the user never touched.
@@ -884,7 +884,7 @@ describe('theme:broadcast', () => {
     expect(result.success).toBe(false)
   })
 
-  it('blocks an out-of-range hue before it is written to a style property', () => {
+  test('blocks an out-of-range hue before it is written to a style property', () => {
     // `applyThemeToDOM` writes `hue` verbatim into `--theme-hue`, so the
     // OKLCH range is the only thing constraining it.
     // Arrange
@@ -897,7 +897,7 @@ describe('theme:broadcast', () => {
     expect(result.success).toBe(false)
   })
 
-  it('blocks a mode outside light and dark', () => {
+  test('blocks a mode outside light and dark', () => {
     // Arrange
     const schema = IPC_ARG_SCHEMAS['theme:broadcast']
 
@@ -908,7 +908,7 @@ describe('theme:broadcast', () => {
     expect(result.success).toBe(false)
   })
 
-  it('blocks a key the theme contract does not declare', () => {
+  test('blocks a key the theme contract does not declare', () => {
     // Strict rather than stripping: an extra key means the broadcasting
     // renderer and this schema have drifted, and a relay that fails loudly
     // beats one that quietly drops a field the receiving reducer expects.

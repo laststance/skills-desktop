@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { semanticVersion, type UpdateInfo } from '@/shared/types'
@@ -79,7 +79,7 @@ afterEach(() => {
 })
 
 describe('Settings → About', () => {
-  it('shows the running app version and the external project links', async () => {
+  test('shows the running app version and the external project links', async () => {
     // Arrange
     stubUpdaterAvailable()
     const { About } = await import('./About')
@@ -103,7 +103,7 @@ describe('Settings → About', () => {
       .toHaveAttribute('href', 'https://opensource.org/licenses/MIT')
   })
 
-  it('starts with an enabled check button and no status line', async () => {
+  test('starts with an enabled check button and no status line', async () => {
     // Arrange
     stubUpdaterAvailable()
     const { About } = await import('./About')
@@ -118,7 +118,7 @@ describe('Settings → About', () => {
     expect(screen.container.querySelector('[role="status"]')).toBeNull()
   })
 
-  it('reports checking progress when the user clicks Check for Updates', async () => {
+  test('reports checking progress when the user clicks Check for Updates', async () => {
     // Arrange
     stubUpdaterAvailable()
     const { About } = await import('./About')
@@ -137,7 +137,7 @@ describe('Settings → About', () => {
       .toBeDisabled()
   })
 
-  it('confirms the app is up to date when no update is available', async () => {
+  test('confirms the app is up to date when no update is available', async () => {
     // Arrange
     stubUpdaterAvailable()
     const { About } = await import('./About')
@@ -153,7 +153,7 @@ describe('Settings → About', () => {
       .toBeVisible()
   })
 
-  it('announces the available version and points the user to the main window', async () => {
+  test('announces the available version and points the user to the main window', async () => {
     // Arrange
     stubUpdaterAvailable()
     const { About } = await import('./About')
@@ -171,7 +171,7 @@ describe('Settings → About', () => {
       .toBeVisible()
   })
 
-  it('surfaces the failure reason when the update check errors out', async () => {
+  test('surfaces the failure reason when the update check errors out', async () => {
     // Arrange
     stubUpdaterAvailable()
     const { About } = await import('./About')
@@ -187,7 +187,7 @@ describe('Settings → About', () => {
       .toBeVisible()
   })
 
-  it('shows the checking label when the main process emits a checking event', async () => {
+  test('shows the checking label when the main process emits a checking event', async () => {
     // Arrange
     stubUpdaterAvailable()
     const { About } = await import('./About')
@@ -203,7 +203,7 @@ describe('Settings → About', () => {
       .toBeVisible()
   })
 
-  it('unsubscribes from every updater event when the pane unmounts', async () => {
+  test('unsubscribes from every updater event when the pane unmounts', async () => {
     // Arrange
     stubUpdaterAvailable()
     const { About } = await import('./About')
@@ -220,7 +220,7 @@ describe('Settings → About', () => {
     expect(cleanupError).toHaveBeenCalledTimes(1)
   })
 
-  it('disables update checks and explains why in development builds', async () => {
+  test('disables update checks and explains why in development builds', async () => {
     // Arrange — no `update` bridge, mimicking a dev build without auto-update.
     vi.stubGlobal('electron', {})
     const { About } = await import('./About')

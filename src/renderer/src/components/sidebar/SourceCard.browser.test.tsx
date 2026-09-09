@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { SyncPreviewResult } from '@/shared/types'
@@ -119,7 +119,7 @@ async function renderSourceCard() {
 }
 
 describe('Sidebar → SourceCard navigation', () => {
-  it('switches Marketplace back to Installed and clears filters when clicked', async () => {
+  test('switches Marketplace back to Installed and clears filters when clicked', async () => {
     // Arrange
     const { screen, store } = await renderSourceCard()
     const { selectAgent, setActiveTab, setSearchQuery } =
@@ -139,7 +139,7 @@ describe('Sidebar → SourceCard navigation', () => {
 })
 
 describe('Sidebar → SourceCard refresh', () => {
-  it('reloads stats, skills, and agents when Refresh is clicked', async () => {
+  test('reloads stats, skills, and agents when Refresh is clicked', async () => {
     // Arrange
     const { screen } = await renderSourceCard()
     // Mount already fetched stats once; clear so we count only the refresh.
@@ -156,7 +156,7 @@ describe('Sidebar → SourceCard refresh', () => {
     })
   })
 
-  it('shows a failure toast when a refresh request rejects', async () => {
+  test('shows a failure toast when a refresh request rejects', async () => {
     // Arrange — agents refetch fails, so the Promise.all unwrap rejects.
     mockAgentsGetAll.mockRejectedValue(new Error('network down'))
     const { screen } = await renderSourceCard()
@@ -172,7 +172,7 @@ describe('Sidebar → SourceCard refresh', () => {
 })
 
 describe('Sidebar → SourceCard folder actions', () => {
-  it('opens the folder-actions menu when the kebab button is clicked', async () => {
+  test('opens the folder-actions menu when the kebab button is clicked', async () => {
     // Arrange
     const { screen } = await renderSourceCard()
     // Wait for stats so the kebab trigger is enabled.
@@ -187,7 +187,7 @@ describe('Sidebar → SourceCard folder actions', () => {
       .toBeInTheDocument()
   })
 
-  it('reveals the source directory in Finder from the menu', async () => {
+  test('reveals the source directory in Finder from the menu', async () => {
     // Arrange
     const { screen } = await renderSourceCard()
     await expect.element(screen.getByText('2 skills')).toBeInTheDocument()
@@ -202,7 +202,7 @@ describe('Sidebar → SourceCard folder actions', () => {
     )
   })
 
-  it('opens the source directory in Terminal from the menu', async () => {
+  test('opens the source directory in Terminal from the menu', async () => {
     // Arrange
     const { screen } = await renderSourceCard()
     await expect.element(screen.getByText('2 skills')).toBeInTheDocument()
@@ -217,7 +217,7 @@ describe('Sidebar → SourceCard folder actions', () => {
     )
   })
 
-  it('opens the folder-actions menu when the card is right-clicked', async () => {
+  test('opens the folder-actions menu when the card is right-clicked', async () => {
     // Arrange
     const { screen } = await renderSourceCard()
     await expect.element(screen.getByText('2 skills')).toBeInTheDocument()
@@ -236,7 +236,7 @@ describe('Sidebar → SourceCard folder actions', () => {
       .toBeInTheDocument()
   })
 
-  it('keeps the folder-actions menu closed when right-clicked before stats load', async () => {
+  test('keeps the folder-actions menu closed when right-clicked before stats load', async () => {
     // Arrange — stats fetch never resolves, so sourceStats stays null and the
     // right-click guard must no-op rather than opening an actionless menu.
     mockSourceGetStats.mockReset()
@@ -255,7 +255,7 @@ describe('Sidebar → SourceCard folder actions', () => {
     expect(document.body.textContent).not.toContain('Reveal in Finder')
   })
 
-  it('closes the folder-actions menu when dismissed with Escape', async () => {
+  test('closes the folder-actions menu when dismissed with Escape', async () => {
     // Arrange
     const { screen } = await renderSourceCard()
     await expect.element(screen.getByText('2 skills')).toBeInTheDocument()
@@ -277,7 +277,7 @@ describe('Sidebar → SourceCard folder actions', () => {
 })
 
 describe('Sidebar → SourceCard sync', () => {
-  it('stores a sync preview with pending work so a confirm dialog can open', async () => {
+  test('stores a sync preview with pending work so a confirm dialog can open', async () => {
     // Arrange
     const { screen, store } = await renderSourceCard()
 
@@ -290,7 +290,7 @@ describe('Sidebar → SourceCard sync', () => {
     })
   })
 
-  it('tells the user there is nothing to sync when no skills exist', async () => {
+  test('tells the user there is nothing to sync when no skills exist', async () => {
     // Arrange
     mockSyncPreview.mockResolvedValue({
       totalSkills: 0,
@@ -311,7 +311,7 @@ describe('Sidebar → SourceCard sync', () => {
     expect(store.getState().ui.syncPreview).toBeNull()
   })
 
-  it('tells the user everything is already synced when nothing needs creating', async () => {
+  test('tells the user everything is already synced when nothing needs creating', async () => {
     // Arrange
     mockSyncPreview.mockResolvedValue({
       totalSkills: 5,
@@ -334,7 +334,7 @@ describe('Sidebar → SourceCard sync', () => {
     expect(store.getState().ui.syncPreview).toBeNull()
   })
 
-  it('shows a failure toast when the sync preview request rejects', async () => {
+  test('shows a failure toast when the sync preview request rejects', async () => {
     // Arrange
     mockSyncPreview.mockRejectedValue(new Error('preview blew up'))
     const { screen } = await renderSourceCard()

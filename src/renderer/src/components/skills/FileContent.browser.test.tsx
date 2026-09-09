@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
@@ -90,7 +90,7 @@ function makeImageContent(name: string, dataUrl: string): PreviewContent {
 }
 
 describe('FileContent Markdown modes', () => {
-  it('renders Markdown files in code mode first, then switches to Reading Mode', async () => {
+  test('renders Markdown files in code mode first, then switches to Reading Mode', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
     const screen = await render(
@@ -119,7 +119,7 @@ describe('FileContent Markdown modes', () => {
     expect(screen.getByText('name: install').query()).toBeNull()
   })
 
-  it('stays in Code mode when the already-selected Code toggle is clicked again', async () => {
+  test('stays in Code mode when the already-selected Code toggle is clicked again', async () => {
     // Arrange — start in Code mode (the default) viewing a Markdown file whose
     // heading only renders once Reading Mode is active.
     const { FileContent } = await import('./FileContent')
@@ -152,7 +152,7 @@ describe('FileContent Markdown modes', () => {
     expect(screen.getByRole('heading', { name: 'Install' }).query()).toBeNull()
   })
 
-  it('keeps the new file preview when a previous file highlight rejects after switching files', async () => {
+  test('keeps the new file preview when a previous file highlight rejects after switching files', async () => {
     // Arrange — switch the preview to a different file while the first file's
     // Shiki highlight is still in flight, then make that stale call reject.
     const { FileContent } = await import('./FileContent')
@@ -211,7 +211,7 @@ describe('FileContent Markdown modes', () => {
       .toBeInTheDocument()
   })
 
-  it('keeps Markdown that starts with a horizontal rule in Reading Mode', async () => {
+  test('keeps Markdown that starts with a horizontal rule in Reading Mode', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
     const screen = await render(
@@ -232,7 +232,7 @@ describe('FileContent Markdown modes', () => {
     await expect.element(screen.getByText('Visible body')).toBeInTheDocument()
   })
 
-  it('renders language-less code fences as block code without AST attributes', async () => {
+  test('renders language-less code fences as block code without AST attributes', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
     const screen = await render(
@@ -258,7 +258,7 @@ describe('FileContent Markdown modes', () => {
     expect(screen.container.querySelector('[node]')).toBeNull()
   })
 
-  it('renders language-tagged code fences as block code', async () => {
+  test('renders language-tagged code fences as block code', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
     const screen = await render(
@@ -279,7 +279,7 @@ describe('FileContent Markdown modes', () => {
     expect(blockCode?.closest('pre')).toBeInstanceOf(HTMLPreElement)
   })
 
-  it('locks Reading Mode to vertical scrolling when Markdown is wider than the pane', async () => {
+  test('locks Reading Mode to vertical scrolling when Markdown is wider than the pane', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
     const wideInline = 'very-long-inline-token-'.repeat(30)
@@ -315,7 +315,7 @@ describe('FileContent Markdown modes', () => {
     expect(scrollContainer.scrollLeft).toBe(0)
   })
 
-  it('adds a bottom spacer after source code so the final line can breathe', async () => {
+  test('adds a bottom spacer after source code so the final line can breathe', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
 
@@ -344,7 +344,7 @@ describe('FileContent Markdown modes', () => {
     expect(scrollPane?.lastElementChild).toBe(spacer)
   })
 
-  it('keeps source code line numbers pinned while horizontally scrolling long Markdown source', async () => {
+  test('keeps source code line numbers pinned while horizontally scrolling long Markdown source', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
     const longMarkdownLine = `description: ${'wide-token-'.repeat(80)}`
@@ -405,7 +405,7 @@ describe('FileContent Markdown modes', () => {
 })
 
 describe('FileContent preview kinds', () => {
-  it('prompts the user to pick a file when nothing is selected', async () => {
+  test('prompts the user to pick a file when nothing is selected', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
 
@@ -418,7 +418,7 @@ describe('FileContent preview kinds', () => {
       .toBeInTheDocument()
   })
 
-  it('explains that a binary file cannot be previewed and shows its size', async () => {
+  test('explains that a binary file cannot be previewed and shows its size', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
 
@@ -435,7 +435,7 @@ describe('FileContent preview kinds', () => {
     await expect.element(screen.getByText('2.0 KB')).toBeInTheDocument()
   })
 
-  it('shows the image itself when previewing an image file', async () => {
+  test('shows the image itself when previewing an image file', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
 
@@ -454,7 +454,7 @@ describe('FileContent preview kinds', () => {
 })
 
 describe('FileContent Reading Mode element styling', () => {
-  it('opens Markdown links in a new tab safely', async () => {
+  test('opens Markdown links in a new tab safely', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
     const screen = await render(
@@ -478,7 +478,7 @@ describe('FileContent Reading Mode element styling', () => {
     await expect.element(link).toHaveAttribute('rel', 'noreferrer')
   })
 
-  it('renders Markdown blockquotes as quoted callouts', async () => {
+  test('renders Markdown blockquotes as quoted callouts', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
     const screen = await render(
@@ -497,7 +497,7 @@ describe('FileContent Reading Mode element styling', () => {
     expect(quote?.closest('blockquote')).toBeInstanceOf(HTMLQuoteElement)
   })
 
-  it('renders Markdown section and subsection headings as h2 and h3', async () => {
+  test('renders Markdown section and subsection headings as h2 and h3', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
     const screen = await render(
@@ -520,7 +520,7 @@ describe('FileContent Reading Mode element styling', () => {
       .toBeInTheDocument()
   })
 
-  it('renders ordered Markdown lists as numbered lists', async () => {
+  test('renders ordered Markdown lists as numbered lists', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
     const screen = await render(
@@ -539,7 +539,7 @@ describe('FileContent Reading Mode element styling', () => {
     expect(firstItem?.closest('ol')).toBeInstanceOf(HTMLOListElement)
   })
 
-  it('renders GitHub Flavored Markdown tables with header and body cells', async () => {
+  test('renders GitHub Flavored Markdown tables with header and body cells', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
     const screen = await render(
@@ -564,7 +564,7 @@ describe('FileContent Reading Mode element styling', () => {
 })
 
 describe('FileContent preview typography scaling', () => {
-  it('renders the Markdown reading view at the configured body font size', async () => {
+  test('renders the Markdown reading view at the configured body font size', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
     const screen = await render(
@@ -584,7 +584,7 @@ describe('FileContent preview typography scaling', () => {
     expect((article as HTMLElement).style.fontSize).toBe('18px')
   })
 
-  it('renders the code view at the configured code font size', async () => {
+  test('renders the code view at the configured code font size', async () => {
     // Arrange — default mode is code, so the syntax-highlighted view shows
     // first; its scroll root carries the configured inline font size whether
     // Shiki has resolved (div) or the plain-text fallback (table) is showing.

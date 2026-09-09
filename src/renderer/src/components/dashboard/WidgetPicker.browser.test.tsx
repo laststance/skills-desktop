@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { toDashboardPageName } from '@/renderer/src/components/dashboard/types'
@@ -57,7 +57,7 @@ async function renderPicker(
 }
 
 describe('WidgetPicker', () => {
-  it('previews the first widget live when the modal opens', async () => {
+  test('previews the first widget live when the modal opens', async () => {
     // Arrange + Act
     const { store } = await renderPicker(vi.fn())
 
@@ -68,7 +68,7 @@ describe('WidgetPicker', () => {
       .toBe('welcome')
   })
 
-  it('seeds the open-default preview on the next widget when Welcome was already dismissed', async () => {
+  test('seeds the open-default preview on the next widget when Welcome was already dismissed', async () => {
     // Arrange + Act: returning user — Welcome is dismissed, so its body would
     // render only a muted hint and make a useless first frame.
     const { store } = await renderPicker(vi.fn(), { welcomeDismissed: true })
@@ -79,7 +79,7 @@ describe('WidgetPicker', () => {
       .toBe('stats')
   })
 
-  it('swaps the preview to the live component of the hovered widget', async () => {
+  test('swaps the preview to the live component of the hovered widget', async () => {
     // Arrange
     const { screen, store } = await renderPicker(vi.fn())
 
@@ -92,7 +92,7 @@ describe('WidgetPicker', () => {
       .toBe('stats')
   })
 
-  it('adds the clicked widget to the page and closes the modal', async () => {
+  test('adds the clicked widget to the page and closes the modal', async () => {
     // Arrange
     const onOpenChange = vi.fn()
     const { screen, store } = await renderPicker(onOpenChange)
@@ -108,7 +108,7 @@ describe('WidgetPicker', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
-  it('updates the preview when a row receives keyboard focus', async () => {
+  test('updates the preview when a row receives keyboard focus', async () => {
     // Arrange
     const { screen, store } = await renderPicker(vi.fn())
 

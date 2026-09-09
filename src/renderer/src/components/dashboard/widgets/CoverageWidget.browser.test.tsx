@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -90,7 +90,7 @@ async function renderCoverage(agents: Agent[], skills: Skill[]) {
 }
 
 describe('CoverageWidget', () => {
-  it('shows the empty-state hint when no agents are discovered', async () => {
+  test('shows the empty-state hint when no agents are discovered', async () => {
     // Arrange + Act: no agents seeded, but the source pool has a skill.
     const { screen } = await renderCoverage([], [makeSkill('alpha-skill')])
 
@@ -100,7 +100,7 @@ describe('CoverageWidget', () => {
       .toBeVisible()
   })
 
-  it('renders one row per agent showing its linked and local skill counts', async () => {
+  test('renders one row per agent showing its linked and local skill counts', async () => {
     // Arrange: Claude Code has 8 linked + 2 local; Cursor has 3 linked, 0 local.
     const agents = [
       makeAgent('claude-code', 'Claude Code', true, 8, 2),
@@ -132,7 +132,7 @@ describe('CoverageWidget', () => {
       .toBeVisible()
   })
 
-  it('selects the clicked agent so the main list filters to it', async () => {
+  test('selects the clicked agent so the main list filters to it', async () => {
     // Arrange: two installed agents; nothing selected yet.
     const agents = [
       makeAgent('claude-code', 'Claude Code', true, 5, 0),
@@ -150,7 +150,7 @@ describe('CoverageWidget', () => {
     expect(store.getState().ui.selectedAgentId).toBe('cursor')
   })
 
-  it('marks a not-installed agent as a disabled row tagged "not installed"', async () => {
+  test('marks a not-installed agent as a disabled row tagged "not installed"', async () => {
     // Arrange: Codex is discovered but its skills dir is absent (exists: false).
     const agents = [makeAgent('codex', 'Codex', false, 0, 0)]
     const skills = [makeSkill('alpha-skill')]
@@ -166,7 +166,7 @@ describe('CoverageWidget', () => {
     await expect.element(screen.getByText('not installed')).toBeVisible()
   })
 
-  it('shows a bare zero for an installed agent with no skills at all', async () => {
+  test('shows a bare zero for an installed agent with no skills at all', async () => {
     // Arrange: an installed agent with zero linked and zero local skills, and an
     // empty source pool so the ratio stays at 0 (no divide-by-zero bar).
     const agents = [makeAgent('claude-code', 'Claude Code', true, 0, 0)]

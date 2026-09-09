@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { BookmarkForDetail } from '@/renderer/src/redux/slices/uiSlice'
@@ -87,7 +87,7 @@ async function createStore() {
 }
 
 describe('BookmarkDetailModal install', () => {
-  it('closes the detail modal and opens the shared Install Skill modal seeded with the bookmark', async () => {
+  test('closes the detail modal and opens the shared Install Skill modal seeded with the bookmark', async () => {
     // Arrange
     const store = await createStore()
     const { BookmarkDetailModal } = await import('./BookmarkDetailModal')
@@ -124,7 +124,7 @@ describe('BookmarkDetailModal install', () => {
 })
 
 describe('BookmarkDetailModal remove', () => {
-  it('deletes the bookmark from the list and dismisses the modal when Remove Bookmark is clicked', async () => {
+  test('deletes the bookmark from the list and dismisses the modal when Remove Bookmark is clicked', async () => {
     // Arrange
     const store = await createStore()
     const { BookmarkDetailModal } = await import('./BookmarkDetailModal')
@@ -164,7 +164,7 @@ describe('BookmarkDetailModal remove', () => {
 })
 
 describe('BookmarkDetailModal dismiss', () => {
-  it('clears the selected bookmark when the modal is closed via the Close button', async () => {
+  test('clears the selected bookmark when the modal is closed via the Close button', async () => {
     // Arrange
     const store = await createStore()
     const { BookmarkDetailModal } = await import('./BookmarkDetailModal')
@@ -191,7 +191,7 @@ describe('BookmarkDetailModal dismiss', () => {
 })
 
 describe('BookmarkDetailModal source link', () => {
-  it('opens the bookmark source repository externally when the repo link is clicked', async () => {
+  test('opens the bookmark source repository externally when the repo link is clicked', async () => {
     // Arrange
     const store = await createStore()
     const { BookmarkDetailModal } = await import('./BookmarkDetailModal')
@@ -216,7 +216,7 @@ describe('BookmarkDetailModal source link', () => {
     )
   })
 
-  it('keeps the detail modal open when opening the source repository fails', async () => {
+  test('keeps the detail modal open when opening the source repository fails', async () => {
     // Arrange
     const store = await createStore()
     const { BookmarkDetailModal } = await import('./BookmarkDetailModal')

@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import {
@@ -166,7 +166,7 @@ async function renderInstallModal(options: {
 }
 
 describe('InstallModal target selection', () => {
-  it('installs to Universal and creates symlinks for the checked agent by default', async () => {
+  test('installs to Universal and creates symlinks for the checked agent by default', async () => {
     // Arrange
     const { screen } = await renderInstallModal({
       skill: makeSkill(),
@@ -186,7 +186,7 @@ describe('InstallModal target selection', () => {
     })
   })
 
-  it('installs to Universal only without passing any agent symlink targets', async () => {
+  test('installs to Universal only without passing any agent symlink targets', async () => {
     // Arrange
     const { screen } = await renderInstallModal({
       skill: makeSkill(),
@@ -207,7 +207,7 @@ describe('InstallModal target selection', () => {
     })
   })
 
-  it('falls back to Universal only when no agent directories are available', async () => {
+  test('falls back to Universal only when no agent directories are available', async () => {
     // Arrange
     const { screen } = await renderInstallModal({
       skill: makeSkill(),
@@ -237,7 +237,7 @@ describe('InstallModal target selection', () => {
     })
   })
 
-  it('requires at least one symlink agent when Universal plus agents is selected', async () => {
+  test('requires at least one symlink agent when Universal plus agents is selected', async () => {
     // Arrange
     const { screen } = await renderInstallModal({
       skill: makeSkill(),
@@ -257,7 +257,7 @@ describe('InstallModal target selection', () => {
     expect(mockInstall).not.toHaveBeenCalled()
   })
 
-  it('ignores the default symlink target when that agent is not installed', async () => {
+  test('ignores the default symlink target when that agent is not installed', async () => {
     // Arrange
     const { screen } = await renderInstallModal({
       skill: makeSkill(),
@@ -286,7 +286,7 @@ describe('InstallModal target selection', () => {
     })
   })
 
-  it('passes every checked agent when creating Universal symlinks', async () => {
+  test('passes every checked agent when creating Universal symlinks', async () => {
     // Arrange
     const { screen } = await renderInstallModal({
       skill: makeSkill(),

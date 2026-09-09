@@ -11,7 +11,7 @@ import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { OPTIONS, POST } from '../app/api/rpc/[...rest]/route'
 import type { UnsplashClient } from '../lib/unsplash-contract'
@@ -99,7 +99,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     await rm(cacheDirectory, { recursive: true, force: true })
   })
 
-  it('returns verified hotlinks and photographer credits with referral tracking', async () => {
+  test('returns verified hotlinks and photographer credits with referral tracking', async () => {
     // Arrange
     fetchProvider.mockResolvedValue(
       Response.json({ total_pages: 2, results: [upstreamPhoto] }),
@@ -148,7 +148,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     })
   })
 
-  it('loads the complete search page when Unsplash includes a legacy image URL', async () => {
+  test('loads the complete search page when Unsplash includes a legacy image URL', async () => {
     // Arrange
     const legacyPhoto = {
       ...upstreamPhoto,
@@ -194,7 +194,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(result.nextPage).toBe(2)
   })
 
-  it('shares validated searches for sixty seconds and then revalidates the real Next Data Cache', async () => {
+  test('shares validated searches for sixty seconds and then revalidates the real Next Data Cache', async () => {
     // Arrange
     const cacheWrite = vi.spyOn(incrementalCache, 'set')
     fetchProvider.mockImplementation(async () =>
@@ -213,7 +213,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(fetchProvider).toHaveBeenCalledTimes(2)
   })
 
-  it('keeps failed and malformed searches out of the successful result cache', async () => {
+  test('keeps failed and malformed searches out of the successful result cache', async () => {
     // Arrange
     const cacheWrite = vi.spyOn(incrementalCache, 'set')
     fetchProvider.mockResolvedValueOnce(
@@ -245,7 +245,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(cacheWrite).toHaveBeenCalledTimes(1)
   })
 
-  it('normalizes absent optional descriptions and ends empty pages without another fetch', async () => {
+  test('normalizes absent optional descriptions and ends empty pages without another fetch', async () => {
     // Arrange
     fetchProvider.mockResolvedValueOnce(
       Response.json({
@@ -274,7 +274,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(empty).toEqual({ items: [], nextPage: null })
   })
 
-  it('returns a clear unavailable error without contacting Unsplash when the key is absent', async () => {
+  test('returns a clear unavailable error without contacting Unsplash when the key is absent', async () => {
     // Arrange
     vi.stubEnv('UNSPLASH_ACCESS_KEY', '')
     // Act / Assert
@@ -287,7 +287,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(fetchProvider).not.toHaveBeenCalled()
   })
 
-  it.each([401, 403, 500, 503])(
+  test.each([401, 403, 500, 503])(
     'sanitizes provider HTTP %i errors without exposing its body or retrying',
     async (status) => {
       // Arrange
@@ -308,7 +308,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     },
   )
 
-  it('exposes a recoverable quota interval and never retries the quota response', async () => {
+  test('exposes a recoverable quota interval and never retries the quota response', async () => {
     // Arrange
     fetchProvider.mockResolvedValue(
       new Response(null, { status: 429, headers: { 'Retry-After': '120' } }),
@@ -324,7 +324,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(fetchProvider).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps the quota reset time unknown when the provider supplies none', async () => {
+  test('keeps the quota reset time unknown when the provider supplies none', async () => {
     // Arrange
     fetchProvider.mockResolvedValue(new Response(null, { status: 429 }))
     // Act / Assert
@@ -337,7 +337,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(fetchProvider).toHaveBeenCalledTimes(1)
   })
 
-  it.each([
+  test.each([
     { query: '', page: 1 },
     { query: 'lake', page: 0 },
     { query: 'lake', page: 1001 },
@@ -352,7 +352,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     },
   )
 
-  it('does not cache or automatically repeat acknowledged download notifications', async () => {
+  test('does not cache or automatically repeat acknowledged download notifications', async () => {
     // Arrange
     const cacheWrite = vi.spyOn(incrementalCache, 'set')
     fetchProvider.mockImplementation(async () =>
@@ -373,7 +373,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     )
   })
 
-  it.each([
+  test.each([
     'https://evil.test/photos/5oRIcisKaxU/download',
     'https://api.unsplash.com/photos/other/download',
     'https://api.unsplash.com/photos/5oRIcisKaxU/download?client_id=stolen',
@@ -392,7 +392,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     },
   )
 
-  it('rejects a provider redirect without ever fetching its target', async () => {
+  test('rejects a provider redirect without ever fetching its target', async () => {
     // Arrange
     fetchProvider.mockResolvedValue(
       new Response(null, {
@@ -408,7 +408,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(fetchProvider.mock.calls[0]?.[1]?.redirect).toBe('manual')
   })
 
-  it('reports timeout uncertainty instead of silently retrying a notification', async () => {
+  test('reports timeout uncertainty instead of silently retrying a notification', async () => {
     // Arrange
     const timeout = vi.spyOn(AbortSignal, 'timeout')
     fetchProvider.mockRejectedValue(
@@ -423,7 +423,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(timeout).toHaveBeenCalledWith(10_000)
   })
 
-  it('reports malformed acknowledgement uncertainty without caching the operation', async () => {
+  test('reports malformed acknowledgement uncertainty without caching the operation', async () => {
     // Arrange
     fetchProvider.mockResolvedValue(Response.json({ url: 'not-a-valid-url' }))
     // Act / Assert
@@ -433,7 +433,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(fetchProvider).toHaveBeenCalledTimes(1)
   })
 
-  it('rejects oversized declared responses before reading their body', async () => {
+  test('rejects oversized declared responses before reading their body', async () => {
     // Arrange
     const cancelBody = vi.fn()
     fetchProvider.mockResolvedValue(
@@ -448,7 +448,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(cancelBody).toHaveBeenCalledOnce()
   })
 
-  it('accepts valid provider JSON at the exact upstream byte limit', async () => {
+  test('accepts valid provider JSON at the exact upstream byte limit', async () => {
     // Arrange
     const body = '{"total_pages":0,"results":[]}'.padEnd(2_097_152, ' ')
     fetchProvider.mockResolvedValue(
@@ -461,7 +461,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(fetchProvider).toHaveBeenCalledTimes(1)
   })
 
-  it('also bounds actual streamed bytes when Content-Length is missing', async () => {
+  test('also bounds actual streamed bytes when Content-Length is missing', async () => {
     // Arrange
     const cancelBody = vi.fn()
     fetchProvider.mockResolvedValue(
@@ -481,7 +481,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(cancelBody).toHaveBeenCalledOnce()
   })
 
-  it.each([[0xff], [0xe2, 0x82]])(
+  test.each([[0xff], [0xe2, 0x82]])(
     'classifies malformed or truncated UTF-8 %j as unsupported provider data',
     async (...bytes) => {
       // Arrange
@@ -494,7 +494,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     },
   )
 
-  it('keeps a failed response stream distinct from malformed provider bytes', async () => {
+  test('keeps a failed response stream distinct from malformed provider bytes', async () => {
     // Arrange
     fetchProvider.mockResolvedValue(
       new Response(
@@ -512,7 +512,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(fetchProvider).toHaveBeenCalledTimes(1)
   })
 
-  it.each([
+  test.each([
     'null',
     'http://localhost:5173',
     'http://127.0.0.1:4179',
@@ -546,7 +546,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     },
   )
 
-  it.each([
+  test.each([
     'https://evil.test',
     'http://localhost.evil.test:5173',
     'http://user@localhost:5173',
@@ -571,7 +571,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     },
   )
 
-  it('rejects oversized incoming bodies at the installed oRPC adapter boundary', async () => {
+  test('rejects oversized incoming bodies at the installed oRPC adapter boundary', async () => {
     // Arrange
     const request = new Request(
       'https://skills-desktop.vercel.app/api/rpc/unsplash/search',
@@ -590,7 +590,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(fetchProvider).not.toHaveBeenCalled()
   })
 
-  it('rejects an oversized RPC URL before provider work while retaining safe CORS headers', async () => {
+  test('rejects an oversized RPC URL before provider work while retaining safe CORS headers', async () => {
     // Arrange
     const request = new Request(
       `https://skills-desktop.vercel.app/api/rpc/unsplash/search?${'x'.repeat(8193)}`,
@@ -605,7 +605,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(fetchProvider).not.toHaveBeenCalled()
   })
 
-  it.each([
+  test.each([
     { method: 'GET', headers: 'content-type' },
     { method: 'POST', headers: 'authorization' },
   ])(
@@ -633,7 +633,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     },
   )
 
-  it('accepts the proxied Next request without breaking native Request private fields', async () => {
+  test('accepts the proxied Next request without breaking native Request private fields', async () => {
     // Arrange
     fetchProvider.mockResolvedValue(
       Response.json({ total_pages: 1, results: [upstreamPhoto] }),
@@ -661,7 +661,7 @@ describe('Unsplash proxy through the public oRPC transport', () => {
     expect(fetchProvider).toHaveBeenCalledTimes(1)
   })
 
-  it('serves the typed desktop client and opaque-origin preflight over a real local HTTP server', async () => {
+  test('serves the typed desktop client and opaque-origin preflight over a real local HTTP server', async () => {
     // Arrange
     fetchProvider.mockImplementation(async () =>
       Response.json({ total_pages: 1, results: [upstreamPhoto] }),

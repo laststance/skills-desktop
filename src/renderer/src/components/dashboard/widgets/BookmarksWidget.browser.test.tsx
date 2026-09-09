@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -46,7 +46,7 @@ async function renderBookmarksWidget(
 }
 
 describe('BookmarksWidget', () => {
-  it('keeps long bookmark text reachable alongside the remove control', async () => {
+  test('keeps long bookmark text reachable alongside the remove control', async () => {
     // Arrange + Act
     const { screen } = await renderBookmarksWidget()
 
@@ -61,7 +61,7 @@ describe('BookmarksWidget', () => {
     expect(removeButton.title).toBe('Remove very-long-skill-name')
   })
 
-  it('still removes the bookmark through the compact control', async () => {
+  test('still removes the bookmark through the compact control', async () => {
     // Arrange
     const { screen, store } = await renderBookmarksWidget(toSkillName('task'))
     const removeButton = screen
@@ -75,7 +75,7 @@ describe('BookmarksWidget', () => {
     expect(store.getState().bookmarks.items).toEqual([])
   })
 
-  it('shows the repository alongside a bookmark that has a source repo', async () => {
+  test('shows the repository alongside a bookmark that has a source repo', async () => {
     // Arrange
     const [{ default: bookmarkReducer, addBookmark }, { BookmarksWidget }] =
       await Promise.all([
@@ -106,7 +106,7 @@ describe('BookmarksWidget', () => {
     await expect.element(screen.getByText('vercel-labs/skills')).toBeVisible()
   })
 
-  it('omits the repository line for a bookmark saved without a source repo', async () => {
+  test('omits the repository line for a bookmark saved without a source repo', async () => {
     // Arrange
     const [{ default: bookmarkReducer, addBookmark }, { BookmarksWidget }] =
       await Promise.all([

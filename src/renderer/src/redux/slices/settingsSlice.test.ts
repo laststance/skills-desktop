@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import type { RootState } from '@/renderer/src/redux/store'
 import { DEFAULT_SETTINGS } from '@/shared/settings'
@@ -23,7 +23,7 @@ async function createTestStore() {
 }
 
 describe('settingsSlice', () => {
-  it('starts from the default settings with no agents hidden', async () => {
+  test('starts from the default settings with no agents hidden', async () => {
     // Arrange
     const store = await createTestStore()
 
@@ -35,7 +35,7 @@ describe('settingsSlice', () => {
     expect(settings.hiddenAgentIds).toEqual([])
   })
 
-  it('applies an updated settings object so the new tab and hidden agents take effect', async () => {
+  test('applies an updated settings object so the new tab and hidden agents take effect', async () => {
     // Arrange
     const { setSettings } = await import('./settingsSlice')
     const store = await createTestStore()
@@ -63,7 +63,7 @@ describe('settingsSlice', () => {
  *    default `===` comparison can short-circuit downstream re-renders
  */
 describe('selectHiddenAgentIds', () => {
-  it('exposes the persisted hidden agents exactly as stored', async () => {
+  test('exposes the persisted hidden agents exactly as stored', async () => {
     // Arrange
     const { selectHiddenAgentIds } = await import('./settingsSlice')
     const { setSettings } = await import('./settingsSlice')
@@ -82,7 +82,7 @@ describe('selectHiddenAgentIds', () => {
     expect(hiddenAgentIds).toEqual(['claude-code', 'cursor'])
   })
 
-  it('returns a stable array reference between reads so subscribers skip needless re-renders', async () => {
+  test('returns a stable array reference between reads so subscribers skip needless re-renders', async () => {
     // Arrange
     const { selectHiddenAgentIds } = await import('./settingsSlice')
     const store = await createTestStore()
@@ -97,7 +97,7 @@ describe('selectHiddenAgentIds', () => {
 })
 
 describe('selectPreviewAppearanceSettings', () => {
-  it('keeps the preview settings reference stable when only Installed count placement changes', async () => {
+  test('keeps the preview settings reference stable when only Installed count placement changes', async () => {
     // Arrange
     const { selectPreviewAppearanceSettings, setSettings } =
       await import('./settingsSlice')
@@ -121,7 +121,7 @@ describe('selectPreviewAppearanceSettings', () => {
     expect(previewSettingsAfterUnrelatedChange).toBe(initialPreviewSettings)
   })
 
-  it('returns a new preview settings projection when Markdown typography changes', async () => {
+  test('returns a new preview settings projection when Markdown typography changes', async () => {
     // Arrange
     const { selectPreviewAppearanceSettings, setSettings } =
       await import('./settingsSlice')

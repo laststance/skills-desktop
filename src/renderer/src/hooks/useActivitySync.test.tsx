@@ -20,7 +20,7 @@ vi.mock('@/shared/featureFlags', () => ({
 
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import type { ActivityLog } from '@/shared/activityLog'
 
@@ -148,7 +148,7 @@ async function mountHook(): Promise<{ unmount: () => Promise<void> }> {
 }
 
 describe('useActivitySync', () => {
-  it('hydrates the activity slice from the persisted snapshot on mount', async () => {
+  test('hydrates the activity slice from the persisted snapshot on mount', async () => {
     // Arrange — `list()` resolves with the snapshot (set in beforeEach)
 
     // Act
@@ -162,7 +162,7 @@ describe('useActivitySync', () => {
     })
   })
 
-  it('subscribes to cross-process activity changes on mount', async () => {
+  test('subscribes to cross-process activity changes on mount', async () => {
     // Arrange — beforeEach wires onChanged to capture the listener
 
     // Act
@@ -173,7 +173,7 @@ describe('useActivitySync', () => {
     expect(typeof onChangedCallback).toBe('function')
   })
 
-  it('propagates an activity-log change from the main process into the slice', async () => {
+  test('propagates an activity-log change from the main process into the slice', async () => {
     // Arrange — mount so the onChanged listener is registered
     await mountHook()
     dispatchSpy.mockClear()
@@ -191,7 +191,7 @@ describe('useActivitySync', () => {
     })
   })
 
-  it('tears down the change subscription when the component unmounts', async () => {
+  test('tears down the change subscription when the component unmounts', async () => {
     // Arrange — mount registers the subscription
     const { unmount } = await mountHook()
 
@@ -202,7 +202,7 @@ describe('useActivitySync', () => {
     expect(unsubscribeMock).toHaveBeenCalledTimes(1)
   })
 
-  it('skips the late hydration dispatch when the component unmounts before the snapshot resolves', async () => {
+  test('skips the late hydration dispatch when the component unmounts before the snapshot resolves', async () => {
     // Arrange — make `list()` hang so we can unmount before it resolves
     const deferred = createDeferred<ActivityLog>()
     listMock.mockReturnValue(deferred.promise)
@@ -222,7 +222,7 @@ describe('useActivitySync', () => {
     })
   })
 
-  it('logs and swallows a failed initial hydration instead of throwing an unhandled rejection', async () => {
+  test('logs and swallows a failed initial hydration instead of throwing an unhandled rejection', async () => {
     // Arrange — the `activity:list` IPC rejects; the hydrate path must catch it.
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     listMock.mockRejectedValue(new Error('IPC down'))

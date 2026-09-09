@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -92,7 +92,7 @@ async function renderTrending(entry: LeaderboardData | null) {
 }
 
 describe('TrendingWidget', () => {
-  it('surfaces the trending empty-state copy when the trending feed returned zero rows', async () => {
+  test('surfaces the trending empty-state copy when the trending feed returned zero rows', async () => {
     // Arrange: a successful trending load that returned no skills.
     const emptyEntry: LeaderboardData = {
       skills: [],
@@ -111,7 +111,7 @@ describe('TrendingWidget', () => {
       .toBeVisible()
   })
 
-  it('surfaces the trending error copy when the trending feed failed with no data to fall back on', async () => {
+  test('surfaces the trending error copy when the trending feed failed with no data to fall back on', async () => {
     // Arrange: the trending fetch failed and there is no stale data — error +
     // empty. The mount thunk re-fetches errored filters (errors bypass the TTL
     // gate), so the IPC mock must reject for state to settle on the error branch
@@ -135,7 +135,7 @@ describe('TrendingWidget', () => {
       .toBeVisible()
   })
 
-  it('renders one row per trending skill once the trending feed has loaded', async () => {
+  test('renders one row per trending skill once the trending feed has loaded', async () => {
     // Arrange: a successful trending load with two ranked skills.
     const loadedEntry: LeaderboardData = {
       skills: [makeSkill(1, 'alpha-skill'), makeSkill(2, 'beta-skill')],
@@ -153,7 +153,7 @@ describe('TrendingWidget', () => {
     await expect.element(rows.nth(1)).toMatchTextContent('beta-skill')
   })
 
-  it('caps trending rows at eight even when more skills loaded', async () => {
+  test('caps trending rows at eight even when more skills loaded', async () => {
     // Arrange: nine skills loaded; TrendingWidget hard-codes rowLimit 8.
     const overflowEntry: LeaderboardData = {
       skills: [

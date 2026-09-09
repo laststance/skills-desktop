@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { errorCode, isMissingPathError } from './errorCode'
 
@@ -14,7 +14,7 @@ function makeFsError(code: string, message: string): Error & { code: string } {
 }
 
 describe('errorCode', () => {
-  it('surfaces the Node errno string so catch blocks can branch on ENOENT', () => {
+  test('surfaces the Node errno string so catch blocks can branch on ENOENT', () => {
     // Arrange
     const renameFailure = makeFsError('ENOENT', 'no such file or directory')
 
@@ -25,7 +25,7 @@ describe('errorCode', () => {
     expect(result).toBe('ENOENT')
   })
 
-  it('reports no code when the caught value is null so callers rethrow instead of misclassifying', () => {
+  test('reports no code when the caught value is null so callers rethrow instead of misclassifying', () => {
     // Arrange
     const thrownNull = null
 
@@ -36,7 +36,7 @@ describe('errorCode', () => {
     expect(result).toBeUndefined()
   })
 
-  it('reports no code when a bare string is thrown so non-Error throws are not parsed', () => {
+  test('reports no code when a bare string is thrown so non-Error throws are not parsed', () => {
     // Arrange
     const thrownString = 'ENOENT: this is just a message, not an Error'
 
@@ -47,7 +47,7 @@ describe('errorCode', () => {
     expect(result).toBeUndefined()
   })
 
-  it('reports no code when the error object lacks a code field so unrelated errors fall through', () => {
+  test('reports no code when the error object lacks a code field so unrelated errors fall through', () => {
     // Arrange
     const codelessError = new Error('boom without a code property')
 
@@ -58,7 +58,7 @@ describe('errorCode', () => {
     expect(result).toBeUndefined()
   })
 
-  it('reports no code when the code field is a non-string so numeric codes are ignored', () => {
+  test('reports no code when the code field is a non-string so numeric codes are ignored', () => {
     // Arrange
     const numericCodeError = Object.assign(new Error('numeric code'), {
       code: 13,
@@ -73,7 +73,7 @@ describe('errorCode', () => {
 })
 
 describe('isMissingPathError', () => {
-  it('treats only missing-path errno codes as cleanup-safe missing targets', () => {
+  test('treats only missing-path errno codes as cleanup-safe missing targets', () => {
     // Arrange
     const missingFile = makeFsError('ENOENT', 'missing')
     const missingParent = makeFsError('ENOTDIR', 'parent is not a directory')
@@ -83,7 +83,7 @@ describe('isMissingPathError', () => {
     expect(isMissingPathError(missingParent)).toBe(true)
   })
 
-  it('does not parse ENOENT text from an inaccessible path message', () => {
+  test('does not parse ENOENT text from an inaccessible path message', () => {
     // Arrange
     const inaccessible = makeFsError(
       'EACCES',

@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import type { UnknownAction } from '@reduxjs/toolkit'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import type { RootState } from '@/renderer/src/redux/store'
 import type {
@@ -146,7 +146,7 @@ const previewNoConflicts: SyncPreviewResult = {
 }
 
 describe('uiSlice hidden agents deletion review', () => {
-  it('keeps the reviewed folder identities available until the confirmation closes', async () => {
+  test('keeps the reviewed folder identities available until the confirmation closes', async () => {
     // Arrange
     const store = await createTestStore()
     const { setAgentFoldersDeleteReview, selectAgentFoldersDeleteReview } =
@@ -178,7 +178,7 @@ describe('uiSlice hidden agents deletion review', () => {
     })
   })
 
-  it('clears the reviewed targets when deletion is canceled or completed', async () => {
+  test('clears the reviewed targets when deletion is canceled or completed', async () => {
     // Arrange
     const store = await createTestStore()
     const {
@@ -203,7 +203,7 @@ describe('uiSlice hidden agents deletion review', () => {
 })
 
 describe('uiSlice activeTab', () => {
-  it('opens on the Installed tab by default', async () => {
+  test('opens on the Installed tab by default', async () => {
     // Arrange
     const store = await createTestStore()
 
@@ -214,7 +214,7 @@ describe('uiSlice activeTab', () => {
     expect(activeTab).toBe('installed')
   })
 
-  it('switches to the Marketplace tab when the user clicks it', async () => {
+  test('switches to the Marketplace tab when the user clicks it', async () => {
     // Arrange
     const store = await createTestStore()
     const { setActiveTab } = await import('./uiSlice')
@@ -228,7 +228,7 @@ describe('uiSlice activeTab', () => {
 })
 
 describe('uiSlice symlink cleanup dialog', () => {
-  it('starts with the Symlink Health cleanup dialog closed', async () => {
+  test('starts with the Symlink Health cleanup dialog closed', async () => {
     // Arrange
     const store = await createTestStore()
 
@@ -239,7 +239,7 @@ describe('uiSlice symlink cleanup dialog', () => {
     expect(isOpen).toBe(false)
   })
 
-  it('opens and closes the Symlink Health cleanup dialog', async () => {
+  test('opens and closes the Symlink Health cleanup dialog', async () => {
     // Arrange
     const store = await createTestStore()
     const { closeSymlinkCleanupDialog, openSymlinkCleanupDialog } =
@@ -256,7 +256,7 @@ describe('uiSlice symlink cleanup dialog', () => {
     expect(closedState).toBe(false)
   })
 
-  it('setActiveTab closes the Symlink Health cleanup dialog', async () => {
+  test('setActiveTab closes the Symlink Health cleanup dialog', async () => {
     // Arrange
     const store = await createTestStore()
     const { openSymlinkCleanupDialog, setActiveTab } = await import('./uiSlice')
@@ -269,7 +269,7 @@ describe('uiSlice symlink cleanup dialog', () => {
     expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(false)
   })
 
-  it('selectAgent closes the Symlink Health cleanup dialog', async () => {
+  test('selectAgent closes the Symlink Health cleanup dialog', async () => {
     // Arrange
     const store = await createTestStore()
     const { openSymlinkCleanupDialog, selectAgent } = await import('./uiSlice')
@@ -282,7 +282,7 @@ describe('uiSlice symlink cleanup dialog', () => {
     expect(store.getState().ui.symlinkCleanupDialogOpen).toBe(false)
   })
 
-  it('setCleanupAgentTarget closes the Symlink Health cleanup dialog', async () => {
+  test('setCleanupAgentTarget closes the Symlink Health cleanup dialog', async () => {
     // Arrange
     const store = await createTestStore()
     const { openSymlinkCleanupDialog, setCleanupAgentTarget } =
@@ -298,7 +298,7 @@ describe('uiSlice symlink cleanup dialog', () => {
 })
 
 describe('uiSlice skill type excludes', () => {
-  it('starts with no skill types excluded', async () => {
+  test('starts with no skill types excluded', async () => {
     // Arrange
     const store = await createTestStore()
 
@@ -309,7 +309,7 @@ describe('uiSlice skill type excludes', () => {
     expect(excluded).toEqual([])
   })
 
-  it('excludes a skill type when ticked and re-includes it when unticked', async () => {
+  test('excludes a skill type when ticked and re-includes it when unticked', async () => {
     // Arrange
     const store = await createTestStore()
     const { toggleExcludedSkillTypeFilter } = await import('./uiSlice')
@@ -323,7 +323,7 @@ describe('uiSlice skill type excludes', () => {
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
   })
 
-  it('refuses to exclude a skill type that the active include filter does not offer', async () => {
+  test('refuses to exclude a skill type that the active include filter does not offer', async () => {
     // Arrange
     const store = await createTestStore()
     const { setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
@@ -337,7 +337,7 @@ describe('uiSlice skill type excludes', () => {
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
   })
 
-  it('drops excludes that no longer apply when the include filter narrows', async () => {
+  test('drops excludes that no longer apply when the include filter narrows', async () => {
     // Arrange
     const store = await createTestStore()
     const { setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
@@ -352,7 +352,7 @@ describe('uiSlice skill type excludes', () => {
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['gstack'])
   })
 
-  it('resets both the include and exclude skill-type filters when the user swaps agents', async () => {
+  test('resets both the include and exclude skill-type filters when the user swaps agents', async () => {
     // Arrange
     const store = await createTestStore()
     const { selectAgent, setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
@@ -374,7 +374,7 @@ describe('uiSlice sync thunks', () => {
     vi.resetAllMocks()
   })
 
-  it('keeps the sync buttons enabled when a preview comes back with conflicts (regression for disabled buttons bug)', async () => {
+  test('keeps the sync buttons enabled when a preview comes back with conflicts (regression for disabled buttons bug)', async () => {
     // Arrange
     mockSyncPreview.mockResolvedValue(previewWithConflicts)
     const store = await createTestStore()
@@ -390,7 +390,7 @@ describe('uiSlice sync thunks', () => {
     expect(state.syncPreview!.conflicts).toHaveLength(1)
   })
 
-  it('shows the syncing spinner while the preview request is in flight', async () => {
+  test('shows the syncing spinner while the preview request is in flight', async () => {
     // Arrange — keep the preview request pending so the spinner state is observable
     let resolve!: (value: SyncPreviewResult) => void
     mockSyncPreview.mockReturnValue(
@@ -412,7 +412,7 @@ describe('uiSlice sync thunks', () => {
     await promise
   })
 
-  it('stops the syncing spinner and shows no preview when the preview request fails', async () => {
+  test('stops the syncing spinner and shows no preview when the preview request fails', async () => {
     // Arrange
     mockSyncPreview.mockRejectedValue(new Error('Network error'))
     const store = await createTestStore()
@@ -426,7 +426,7 @@ describe('uiSlice sync thunks', () => {
     expect(store.getState().ui.syncPreview).toBeNull()
   })
 
-  it('shows the sync preview once the preview request resolves', async () => {
+  test('shows the sync preview once the preview request resolves', async () => {
     // Arrange
     mockSyncPreview.mockResolvedValue(previewNoConflicts)
     const store = await createTestStore()
@@ -441,7 +441,7 @@ describe('uiSlice sync thunks', () => {
     expect(state.isSyncing).toBe(false)
   })
 
-  it('replaces the preview with a results dialog once the sync runs to completion', async () => {
+  test('replaces the preview with a results dialog once the sync runs to completion', async () => {
     // Arrange
     mockSyncPreview.mockResolvedValue(previewWithConflicts)
     mockSyncExecute.mockResolvedValue({
@@ -482,7 +482,7 @@ describe('uiSlice sync thunks', () => {
     expect(state.syncResult!.details).toHaveLength(1)
   })
 
-  it('shows no results dialog when the sync execution fails', async () => {
+  test('shows no results dialog when the sync execution fails', async () => {
     // Arrange
     mockSyncExecute.mockRejectedValue(new Error('Permission denied'))
     const store = await createTestStore()
@@ -496,7 +496,7 @@ describe('uiSlice sync thunks', () => {
     expect(store.getState().ui.syncResult).toBeNull()
   })
 
-  it('dismisses the sync results dialog when the user closes it', async () => {
+  test('dismisses the sync results dialog when the user closes it', async () => {
     // Arrange
     mockSyncExecute.mockResolvedValue({
       success: true,
@@ -524,7 +524,7 @@ describe('uiSlice sync thunks', () => {
     expect(store.getState().ui.syncResult).toBeNull()
   })
 
-  it('dismisses a stale results dialog when a new preview starts (prevents overlapping dialogs)', async () => {
+  test('dismisses a stale results dialog when a new preview starts (prevents overlapping dialogs)', async () => {
     // Arrange — populate syncResult via a completed sync
     mockSyncExecute.mockResolvedValue({
       success: true,
@@ -561,7 +561,7 @@ describe('uiSlice sync thunks', () => {
     await promise
   })
 
-  it('dismisses the sync preview when it is cleared programmatically', async () => {
+  test('dismisses the sync preview when it is cleared programmatically', async () => {
     // Arrange
     mockSyncPreview.mockResolvedValue(previewWithConflicts)
     const store = await createTestStore()
@@ -586,7 +586,7 @@ describe('uiSlice bookmark detail modal', () => {
     isInstalled: false,
   }
 
-  it('opens the bookmark detail modal for the chosen bookmark', async () => {
+  test('opens the bookmark detail modal for the chosen bookmark', async () => {
     // Arrange
     const store = await createTestStore()
     const { setSelectedBookmarkForDetail } = await import('./uiSlice')
@@ -600,7 +600,7 @@ describe('uiSlice bookmark detail modal', () => {
     )
   })
 
-  it('closes the bookmark detail modal when dismissed', async () => {
+  test('closes the bookmark detail modal when dismissed', async () => {
     // Arrange
     const store = await createTestStore()
     const { setSelectedBookmarkForDetail, clearSelectedBookmarkForDetail } =
@@ -615,7 +615,7 @@ describe('uiSlice bookmark detail modal', () => {
     expect(store.getState().ui.selectedBookmarkForDetail).toBeNull()
   })
 
-  it('starts with the bookmark detail modal closed', async () => {
+  test('starts with the bookmark detail modal closed', async () => {
     // Arrange
     const store = await createTestStore()
 
@@ -648,7 +648,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
         : 'Unlinked 2 skills from Cursor.',
   })
 
-  it('starts with no undo toast on screen', async () => {
+  test('starts with no undo toast on screen', async () => {
     // Arrange
     const store = await createTestStore()
 
@@ -659,7 +659,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     expect(undoToast).toBeNull()
   })
 
-  it('shows an undo toast after a bulk delete completes', async () => {
+  test('shows an undo toast after a bulk delete completes', async () => {
     // Arrange
     const store = await createTestStore()
     const { setUndoToast } = await import('./uiSlice')
@@ -672,7 +672,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     expect(store.getState().ui.undoToast).toEqual(toast)
   })
 
-  it('dismisses the undo toast when it is cleared', async () => {
+  test('dismisses the undo toast when it is cleared', async () => {
     // Arrange
     const store = await createTestStore()
     const { setUndoToast, clearUndoToast } = await import('./uiSlice')
@@ -686,7 +686,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     expect(store.getState().ui.undoToast).toBeNull()
   })
 
-  it('keeps the newer undo toast when an older toast dismissal arrives late', async () => {
+  test('keeps the newer undo toast when an older toast dismissal arrives late', async () => {
     // Arrange
     const store = await createTestStore()
     const { setUndoToast, clearUndoToastIfCurrent } = await import('./uiSlice')
@@ -707,7 +707,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     expect(store.getState().ui.undoToast).toEqual(newerToast)
   })
 
-  it('dismisses an active undo toast when the user switches agents (context switch invalidates it)', async () => {
+  test('dismisses an active undo toast when the user switches agents (context switch invalidates it)', async () => {
     // Arrange
     const store = await createTestStore()
     const { setUndoToast, selectAgent } = await import('./uiSlice')
@@ -721,7 +721,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     expect(store.getState().ui.undoToast).toBeNull()
   })
 
-  it('dismisses an active undo toast when the user switches tabs (tab switch invalidates it)', async () => {
+  test('dismisses an active undo toast when the user switches tabs (tab switch invalidates it)', async () => {
     // Arrange
     const store = await createTestStore()
     const { setUndoToast, setActiveTab } = await import('./uiSlice')
@@ -734,7 +734,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     expect(store.getState().ui.undoToast).toBeNull()
   })
 
-  it('dismisses the undo toast when a sync preview starts', async () => {
+  test('dismisses the undo toast when a sync preview starts', async () => {
     // Arrange
     const store = await createTestStore()
     const { setUndoToast, fetchSyncPreview } = await import('./uiSlice')
@@ -757,7 +757,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     await promise
   })
 
-  it('dismisses the undo toast when a new bulk delete begins (combined store)', async () => {
+  test('dismisses the undo toast when a new bulk delete begins (combined store)', async () => {
     // Arrange
     const store = await createCombinedStore()
     const { setUndoToast } = await import('./uiSlice')
@@ -784,7 +784,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     await promise
   })
 
-  it('dismisses the undo toast when an orphan-symlink cleanup begins (combined store)', async () => {
+  test('dismisses the undo toast when an orphan-symlink cleanup begins (combined store)', async () => {
     // Arrange
     const store = await createCombinedStore()
     const { setUndoToast } = await import('./uiSlice')
@@ -821,7 +821,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     await promise
   })
 
-  it('dismisses the undo toast when a broken-slot cleanup begins (combined store)', async () => {
+  test('dismisses the undo toast when a broken-slot cleanup begins (combined store)', async () => {
     // Arrange
     const store = await createCombinedStore()
     const { setUndoToast } = await import('./uiSlice')
@@ -857,7 +857,7 @@ describe('uiSlice undoToast (v2.4 bulk delete)', () => {
     await promise
   })
 
-  it('dismisses the undo toast when a bulk unlink begins (combined store)', async () => {
+  test('dismisses the undo toast when a bulk unlink begins (combined store)', async () => {
     // Arrange
     const store = await createCombinedStore()
     const { setUndoToast } = await import('./uiSlice')
@@ -892,7 +892,7 @@ describe('uiSlice bulkSelectMode', () => {
     vi.resetAllMocks()
   })
 
-  it('starts with bulk-select mode off (default is a clean list)', async () => {
+  test('starts with bulk-select mode off (default is a clean list)', async () => {
     // Arrange
     const store = await createTestStore()
 
@@ -903,7 +903,7 @@ describe('uiSlice bulkSelectMode', () => {
     expect(bulkSelectMode).toBe(false)
   })
 
-  it('turns on bulk-select mode when the user enters it', async () => {
+  test('turns on bulk-select mode when the user enters it', async () => {
     // Arrange
     const store = await createTestStore()
     const { enterBulkSelectMode } = await import('./uiSlice')
@@ -915,7 +915,7 @@ describe('uiSlice bulkSelectMode', () => {
     expect(store.getState().ui.bulkSelectMode).toBe(true)
   })
 
-  it('turns off bulk-select mode when the user exits it', async () => {
+  test('turns off bulk-select mode when the user exits it', async () => {
     // Arrange
     const store = await createTestStore()
     const { enterBulkSelectMode, exitBulkSelectMode } =
@@ -929,7 +929,7 @@ describe('uiSlice bulkSelectMode', () => {
     expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
 
-  it('exits bulk-select mode when the user switches tabs', async () => {
+  test('exits bulk-select mode when the user switches tabs', async () => {
     // Arrange
     const store = await createTestStore()
     const { enterBulkSelectMode, setActiveTab } = await import('./uiSlice')
@@ -943,7 +943,7 @@ describe('uiSlice bulkSelectMode', () => {
     expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
 
-  it('exits bulk-select mode when the user swaps agents', async () => {
+  test('exits bulk-select mode when the user swaps agents', async () => {
     // Arrange
     const store = await createTestStore()
     const { enterBulkSelectMode, selectAgent } = await import('./uiSlice')
@@ -956,7 +956,7 @@ describe('uiSlice bulkSelectMode', () => {
     expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
 
-  it('exits bulk-select mode when a sync preview starts', async () => {
+  test('exits bulk-select mode when a sync preview starts', async () => {
     // Arrange
     const store = await createTestStore()
     const { enterBulkSelectMode, fetchSyncPreview } = await import('./uiSlice')
@@ -978,7 +978,7 @@ describe('uiSlice bulkSelectMode', () => {
     await promise
   })
 
-  it('exits bulk-select mode when a bulk delete begins (combined store)', async () => {
+  test('exits bulk-select mode when a bulk delete begins (combined store)', async () => {
     // Arrange
     const store = await createCombinedStore()
     const { enterBulkSelectMode } = await import('./uiSlice')
@@ -1003,7 +1003,7 @@ describe('uiSlice bulkSelectMode', () => {
     await promise
   })
 
-  it('exits bulk-select mode when an orphan-symlink cleanup begins (combined store)', async () => {
+  test('exits bulk-select mode when an orphan-symlink cleanup begins (combined store)', async () => {
     // Arrange
     const store = await createCombinedStore()
     const { enterBulkSelectMode } = await import('./uiSlice')
@@ -1039,7 +1039,7 @@ describe('uiSlice bulkSelectMode', () => {
     await promise
   })
 
-  it('exits bulk-select mode when a broken-slot cleanup begins (combined store)', async () => {
+  test('exits bulk-select mode when a broken-slot cleanup begins (combined store)', async () => {
     // Arrange
     const store = await createCombinedStore()
     const { enterBulkSelectMode } = await import('./uiSlice')
@@ -1074,7 +1074,7 @@ describe('uiSlice bulkSelectMode', () => {
     await promise
   })
 
-  it('exits bulk-select mode when a bulk unlink begins (combined store)', async () => {
+  test('exits bulk-select mode when a bulk unlink begins (combined store)', async () => {
     // Arrange
     const store = await createCombinedStore()
     const { enterBulkSelectMode } = await import('./uiSlice')
@@ -1107,7 +1107,7 @@ describe('uiSlice bulkSelectMode', () => {
   // branches; if "already-true enter" started side-effecting, toggling rapidly
   // could wipe unrelated state. The invariant is a plain boolean assignment.
 
-  it('stays in bulk-select mode when entered twice in a row', async () => {
+  test('stays in bulk-select mode when entered twice in a row', async () => {
     // Arrange
     const store = await createTestStore()
     const { enterBulkSelectMode } = await import('./uiSlice')
@@ -1120,7 +1120,7 @@ describe('uiSlice bulkSelectMode', () => {
     expect(store.getState().ui.bulkSelectMode).toBe(true)
   })
 
-  it('stays out of bulk-select mode when exited twice in a row', async () => {
+  test('stays out of bulk-select mode when exited twice in a row', async () => {
     // Arrange
     const store = await createTestStore()
     const { exitBulkSelectMode } = await import('./uiSlice')
@@ -1183,7 +1183,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     )
   }
 
-  it('clears bulk-select mode, the undo toast, and the bulk-confirm dialog together when switching tabs', async () => {
+  test('clears bulk-select mode, the undo toast, and the bulk-confirm dialog together when switching tabs', async () => {
     // Arrange
     const store = await createTestStore()
     await seedAllEphemeralState(store)
@@ -1200,7 +1200,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     })
   })
 
-  it('clears bulk-select mode, the undo toast, and the bulk-confirm dialog together when swapping agents', async () => {
+  test('clears bulk-select mode, the undo toast, and the bulk-confirm dialog together when swapping agents', async () => {
     // Arrange
     const store = await createTestStore()
     await seedAllEphemeralState(store)
@@ -1217,7 +1217,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     })
   })
 
-  it('clears all ephemeral UI state together when a sync preview starts', async () => {
+  test('clears all ephemeral UI state together when a sync preview starts', async () => {
     // Arrange
     const store = await createTestStore()
     await seedAllEphemeralState(store)
@@ -1243,7 +1243,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     await promise
   })
 
-  it('clears all ephemeral UI state together when a bulk delete begins', async () => {
+  test('clears all ephemeral UI state together when a bulk delete begins', async () => {
     // Arrange
     const store = await createCombinedStore()
     await seedAllEphemeralState(store)
@@ -1271,7 +1271,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     await promise
   })
 
-  it('keeps the Symlink Health cleanup dialog open while a bulk delete runs inside it', async () => {
+  test('keeps the Symlink Health cleanup dialog open while a bulk delete runs inside it', async () => {
     // Arrange
     const store = await createCombinedStore()
     const { openSymlinkCleanupDialog } = await import('./uiSlice')
@@ -1296,7 +1296,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     await promise
   })
 
-  it('clears all ephemeral UI state together when a bulk unlink begins', async () => {
+  test('clears all ephemeral UI state together when a bulk unlink begins', async () => {
     // Arrange
     const store = await createCombinedStore()
     await seedAllEphemeralState(store)
@@ -1327,7 +1327,7 @@ describe('uiSlice atomic-clear contract on context switch', () => {
     await promise
   })
 
-  it('keeps the Symlink Health cleanup dialog open while a bulk unlink runs inside it', async () => {
+  test('keeps the Symlink Health cleanup dialog open while a bulk unlink runs inside it', async () => {
     // Arrange
     const store = await createCombinedStore()
     const { openSymlinkCleanupDialog } = await import('./uiSlice')
@@ -1368,7 +1368,7 @@ describe('uiSlice bulkSelectMode on rejection', () => {
     vi.resetAllMocks()
   })
 
-  it('does not re-enter bulk-select mode after a sync preview fails', async () => {
+  test('does not re-enter bulk-select mode after a sync preview fails', async () => {
     // Arrange
     const store = await createTestStore()
     const { enterBulkSelectMode, fetchSyncPreview } = await import('./uiSlice')
@@ -1382,7 +1382,7 @@ describe('uiSlice bulkSelectMode on rejection', () => {
     expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
 
-  it('does not re-enter bulk-select mode after a bulk delete fails', async () => {
+  test('does not re-enter bulk-select mode after a bulk delete fails', async () => {
     // Arrange
     const store = await createCombinedStore()
     const { enterBulkSelectMode } = await import('./uiSlice')
@@ -1399,7 +1399,7 @@ describe('uiSlice bulkSelectMode on rejection', () => {
     expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
 
-  it('does not re-enter bulk-select mode after a bulk unlink fails', async () => {
+  test('does not re-enter bulk-select mode after a bulk unlink fails', async () => {
     // Arrange
     const store = await createCombinedStore()
     const { enterBulkSelectMode } = await import('./uiSlice')
@@ -1446,7 +1446,7 @@ describe('uiSlice source filter (selectedSources)', () => {
     }
   }
 
-  it('starts with an empty source include-filter (shows all sources)', async () => {
+  test('starts with an empty source include-filter (shows all sources)', async () => {
     // Arrange
     const store = await createTestStore()
 
@@ -1457,7 +1457,7 @@ describe('uiSlice source filter (selectedSources)', () => {
     expect(selectedSources).toEqual([])
   })
 
-  it('toggleSource adds a repo to the empty include-filter', async () => {
+  test('toggleSource adds a repo to the empty include-filter', async () => {
     // Arrange
     const store = await createTestStore()
     const { toggleSource } = await import('./uiSlice')
@@ -1471,7 +1471,7 @@ describe('uiSlice source filter (selectedSources)', () => {
     ])
   })
 
-  it('toggleSource is additive — a second repo joins rather than replacing the first', async () => {
+  test('toggleSource is additive — a second repo joins rather than replacing the first', async () => {
     // Arrange
     const store = await createTestStore()
     const { toggleSource } = await import('./uiSlice')
@@ -1487,7 +1487,7 @@ describe('uiSlice source filter (selectedSources)', () => {
     ])
   })
 
-  it('toggleSource removes a repo that is already ticked', async () => {
+  test('toggleSource removes a repo that is already ticked', async () => {
     // Arrange
     const store = await createTestStore()
     const { toggleSource } = await import('./uiSlice')
@@ -1500,7 +1500,7 @@ describe('uiSlice source filter (selectedSources)', () => {
     expect(store.getState().ui.selectedSources).toEqual([])
   })
 
-  it('setSelectedSources replaces the whole include-filter in one shot', async () => {
+  test('setSelectedSources replaces the whole include-filter in one shot', async () => {
     // Arrange — start with an unrelated repo ticked
     const store = await createTestStore()
     const { toggleSource, setSelectedSources } = await import('./uiSlice')
@@ -1521,7 +1521,7 @@ describe('uiSlice source filter (selectedSources)', () => {
     ])
   })
 
-  it('clearSelectedSources empties the include-filter back to show-all', async () => {
+  test('clearSelectedSources empties the include-filter back to show-all', async () => {
     // Arrange
     const store = await createTestStore()
     const { setSelectedSources, clearSelectedSources } =
@@ -1535,7 +1535,7 @@ describe('uiSlice source filter (selectedSources)', () => {
     expect(store.getState().ui.selectedSources).toEqual([])
   })
 
-  it('drops a ticked repo that no longer backs any skill after a refetch', async () => {
+  test('drops a ticked repo that no longer backs any skill after a refetch', async () => {
     // The prune guards against a refetch (delete/sync/refresh) leaving a ticked
     // repo that the new inventory no longer contains. Arrange — two ticked.
     const store = await createTestStore()
@@ -1564,7 +1564,7 @@ describe('uiSlice source filter (selectedSources)', () => {
 })
 
 describe('getAvailableExcludeTypes offered subtractions per include mode', () => {
-  it('offers G-Stack, orphan, and unique as valid excludes while including symlinked skills', async () => {
+  test('offers G-Stack, orphan, and unique as valid excludes while including symlinked skills', async () => {
     // Arrange
     const { getAvailableExcludeTypes } = await import('./uiSlice')
 
@@ -1575,7 +1575,7 @@ describe('getAvailableExcludeTypes offered subtractions per include mode', () =>
     expect(offered).toEqual(['gstack', 'orphan', 'unique'])
   })
 
-  it('offers symlinked, local, and G-Stack — but not orphan — as excludes while including unique skills', async () => {
+  test('offers symlinked, local, and G-Stack — but not orphan — as excludes while including unique skills', async () => {
     // Arrange
     const { getAvailableExcludeTypes } = await import('./uiSlice')
 
@@ -1587,7 +1587,7 @@ describe('getAvailableExcludeTypes offered subtractions per include mode', () =>
     expect(offered).toEqual(['symlinked', 'local', 'gstack'])
   })
 
-  it('offers G-Stack and unique as the valid excludes while including local skills', async () => {
+  test('offers G-Stack and unique as the valid excludes while including local skills', async () => {
     // Arrange
     const { getAvailableExcludeTypes } = await import('./uiSlice')
 
@@ -1598,7 +1598,7 @@ describe('getAvailableExcludeTypes offered subtractions per include mode', () =>
     expect(offered).toEqual(['gstack', 'unique'])
   })
 
-  it('does NOT offer unique as an exclude while including orphan skills (orphans are never unique)', async () => {
+  test('does NOT offer unique as an exclude while including orphan skills (orphans are never unique)', async () => {
     // Arrange
     const { getAvailableExcludeTypes } = await import('./uiSlice')
 
@@ -1609,7 +1609,7 @@ describe('getAvailableExcludeTypes offered subtractions per include mode', () =>
     expect(offered).toEqual(['gstack'])
   })
 
-  it('lets the user exclude orphan skills while the symlinked include mode is active', async () => {
+  test('lets the user exclude orphan skills while the symlinked include mode is active', async () => {
     // Arrange
     const store = await createTestStore()
     const { setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
@@ -1623,7 +1623,7 @@ describe('getAvailableExcludeTypes offered subtractions per include mode', () =>
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['orphan'])
   })
 
-  it('lets the user exclude unique skills while the local include mode is active', async () => {
+  test('lets the user exclude unique skills while the local include mode is active', async () => {
     // Arrange
     const store = await createTestStore()
     const { setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
@@ -1637,7 +1637,7 @@ describe('getAvailableExcludeTypes offered subtractions per include mode', () =>
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['unique'])
   })
 
-  it('refuses to exclude unique while the orphan include mode is active', async () => {
+  test('refuses to exclude unique while the orphan include mode is active', async () => {
     // Arrange
     const store = await createTestStore()
     const { setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
@@ -1651,7 +1651,7 @@ describe('getAvailableExcludeTypes offered subtractions per include mode', () =>
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
   })
 
-  it('drops a now-invalid unique exclude when the include filter narrows to orphan', async () => {
+  test('drops a now-invalid unique exclude when the include filter narrows to orphan', async () => {
     // Arrange — exclude unique under the permissive "all" include, then narrow.
     const store = await createTestStore()
     const { setSkillTypeFilter, toggleExcludedSkillTypeFilter } =
@@ -1665,7 +1665,7 @@ describe('getAvailableExcludeTypes offered subtractions per include mode', () =>
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual([])
   })
 
-  it('accepts unique as the active include filter', async () => {
+  test('accepts unique as the active include filter', async () => {
     // Arrange
     const store = await createTestStore()
     const { setSkillTypeFilter } = await import('./uiSlice')
@@ -1679,7 +1679,7 @@ describe('getAvailableExcludeTypes offered subtractions per include mode', () =>
 })
 
 describe('uiSlice search box', () => {
-  it('matches skills against the typed search query', async () => {
+  test('matches skills against the typed search query', async () => {
     // Arrange
     const store = await createTestStore()
     const { setSearchQuery } = await import('./uiSlice')
@@ -1691,7 +1691,7 @@ describe('uiSlice search box', () => {
     expect(store.getState().ui.searchQuery).toBe('browser')
   })
 
-  it('switches the search box to match against repository names', async () => {
+  test('switches the search box to match against repository names', async () => {
     // Arrange
     const store = await createTestStore()
     const { setSearchScope } = await import('./uiSlice')
@@ -1705,7 +1705,7 @@ describe('uiSlice search box', () => {
 })
 
 describe('uiSlice sort order', () => {
-  it('starts sorted A to Z', async () => {
+  test('starts sorted A to Z', async () => {
     // Arrange
     const store = await createTestStore()
 
@@ -1716,7 +1716,7 @@ describe('uiSlice sort order', () => {
     expect(sortOrder).toBe('asc')
   })
 
-  it('flips the skill list to Z to A when the user toggles the sort control', async () => {
+  test('flips the skill list to Z to A when the user toggles the sort control', async () => {
     // Arrange
     const store = await createTestStore()
     const { toggleSortOrder } = await import('./uiSlice')
@@ -1728,7 +1728,7 @@ describe('uiSlice sort order', () => {
     expect(store.getState().ui.sortOrder).toBe('desc')
   })
 
-  it('flips the skill list back to A to Z when the user toggles the sort control again', async () => {
+  test('flips the skill list back to A to Z when the user toggles the sort control again', async () => {
     // Arrange
     const store = await createTestStore()
     const { toggleSortOrder } = await import('./uiSlice')
@@ -1743,7 +1743,7 @@ describe('uiSlice sort order', () => {
 })
 
 describe('uiSlice clear-all excluded skill types', () => {
-  it('removes every active skill-type exclude in one action', async () => {
+  test('removes every active skill-type exclude in one action', async () => {
     // Arrange — exclude two types under the default "all" include mode
     const store = await createTestStore()
     const { toggleExcludedSkillTypeFilter, clearExcludedSkillTypeFilters } =
@@ -1764,7 +1764,7 @@ describe('uiSlice clear-all excluded skill types', () => {
 })
 
 describe('uiSlice bulk confirm dialog', () => {
-  it('closes the bulk confirm dialog when the user cancels or confirms', async () => {
+  test('closes the bulk confirm dialog when the user cancels or confirms', async () => {
     // Arrange — open the dialog with a pending delete payload
     const store = await createTestStore()
     const { setBulkConfirm, clearBulkConfirm } = await import('./uiSlice')
@@ -1793,7 +1793,7 @@ describe('uiSlice bulk confirm dialog', () => {
 })
 
 describe('uiSlice per-agent cleanup dialog', () => {
-  it('targets an agent for the per-agent cleanup dialog', async () => {
+  test('targets an agent for the per-agent cleanup dialog', async () => {
     // Arrange
     const store = await createTestStore()
     const { setCleanupAgentTarget } = await import('./uiSlice')
@@ -1805,7 +1805,7 @@ describe('uiSlice per-agent cleanup dialog', () => {
     expect(store.getState().ui.cleanupAgentTarget).toBe('cursor')
   })
 
-  it('closes the per-agent cleanup dialog and discards its scoped sync preview', async () => {
+  test('closes the per-agent cleanup dialog and discards its scoped sync preview', async () => {
     // Arrange — open the dialog with an agent target and a scoped preview present
     const store = await createTestStore()
     const { setCleanupAgentTarget, setSyncPreview, clearCleanupAgentTarget } =
@@ -1837,7 +1837,7 @@ describe('uiSlice source stats refresh', () => {
     lastModified: toIsoTimestamp('2026-04-10T08:00:00.000Z'),
   } satisfies SourceStats
 
-  it('spins the Refresh button while the source-stats request is in flight', async () => {
+  test('spins the Refresh button while the source-stats request is in flight', async () => {
     // Arrange — keep the stats request pending so the spinner state is observable
     let resolve!: (value: SourceStats) => void
     mockGetStats.mockReturnValue(
@@ -1858,7 +1858,7 @@ describe('uiSlice source stats refresh', () => {
     await promise
   })
 
-  it('shows the refreshed source stats and stops spinning once the request resolves', async () => {
+  test('shows the refreshed source stats and stops spinning once the request resolves', async () => {
     // Arrange
     mockGetStats.mockResolvedValue(sampleStats)
     const store = await createTestStore()
@@ -1873,7 +1873,7 @@ describe('uiSlice source stats refresh', () => {
     expect(state.isRefreshing).toBe(false)
   })
 
-  it('stops the Refresh spinner when the source-stats request fails', async () => {
+  test('stops the Refresh spinner when the source-stats request fails', async () => {
     // Arrange
     mockGetStats.mockRejectedValue(new Error('Disk unreadable'))
     const store = await createTestStore()
@@ -1892,7 +1892,7 @@ describe('uiSlice selectors read the live ui state', () => {
     vi.resetAllMocks()
   })
 
-  it('reads the typed query, scope, sources, agent, and sort order back through their selectors', async () => {
+  test('reads the typed query, scope, sources, agent, and sort order back through their selectors', async () => {
     // Arrange — drive these fields into non-default values
     const store = await createTestStore()
     const {
@@ -1935,7 +1935,7 @@ describe('uiSlice selectors read the live ui state', () => {
     expect(selectExcludedSkillTypeFilters(rootState)).toEqual(['gstack'])
   })
 
-  it('reports the Refresh spinner is idle through selectIsRefreshing by default', async () => {
+  test('reports the Refresh spinner is idle through selectIsRefreshing by default', async () => {
     // Arrange
     const store = await createTestStore()
     const { selectIsRefreshing } = await import('./uiSlice')
@@ -1948,7 +1948,7 @@ describe('uiSlice selectors read the live ui state', () => {
     expect(isRefreshing).toBe(false)
   })
 
-  it('reads the sync flags and result back through their selectors after a sync runs', async () => {
+  test('reads the sync flags and result back through their selectors after a sync runs', async () => {
     // Arrange — execute a sync so isSyncing settles false and syncResult fills
     mockSyncExecute.mockResolvedValue({
       success: true,
@@ -1982,7 +1982,7 @@ describe('uiSlice selectors read the live ui state', () => {
     expect(selectSyncResult(rootState)).not.toBeNull()
   })
 
-  it('reads the bookmark, bulk, cleanup, and dialog surfaces back through their selectors', async () => {
+  test('reads the bookmark, bulk, cleanup, and dialog surfaces back through their selectors', async () => {
     // Arrange — seed the foreground surfaces; order avoids the mutual-exclusion clears
     const store = await createTestStore()
     const {

@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { SEARCH_DEBOUNCE_MS } from '@/shared/constants'
@@ -76,7 +76,7 @@ async function renderSearch() {
 }
 
 describe('MarketplaceSearch — incremental search', () => {
-  it('fires a single remote search for the final query after a burst of typing', async () => {
+  test('fires a single remote search for the final query after a burst of typing', async () => {
     // Arrange
     mockSearch.mockResolvedValue([sampleResult])
     const { store, input } = await renderSearch()
@@ -98,7 +98,7 @@ describe('MarketplaceSearch — incremental search', () => {
       .toEqual([sampleResult])
   })
 
-  it('wipes the results and returns to the leaderboard when the box is cleared', async () => {
+  test('wipes the results and returns to the leaderboard when the box is cleared', async () => {
     // Arrange — run one search to completion so there is state to clear.
     mockSearch.mockResolvedValue([sampleResult])
     const { store, input } = await renderSearch()
@@ -116,7 +116,7 @@ describe('MarketplaceSearch — incremental search', () => {
     expect(store.getState().marketplace.searchQuery).toBe('')
   })
 
-  it('cancels the pending remote search when the box is cleared before it fires', async () => {
+  test('cancels the pending remote search when the box is cleared before it fires', async () => {
     // Arrange — search never gets to run; the clear should pre-empt it.
     const { input } = await renderSearch()
 

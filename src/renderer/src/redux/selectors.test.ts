@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import type {
   ExcludableSkillTypeFilter,
@@ -238,7 +238,7 @@ const makeMultiSlotSkill = (
 }
 
 describe('selectFilteredSkillCount', () => {
-  it('counts the visible Installed rows that survived the active filters', () => {
+  test('counts the visible Installed rows that survived the active filters', () => {
     // Arrange — two unfiltered source skills, both visible
     const skills = [
       makeSkill('task', 'claude-code'),
@@ -253,7 +253,7 @@ describe('selectFilteredSkillCount', () => {
     expect(visibleRowCount).toBe(2)
   })
 
-  it('drops the count to zero when the search query matches no visible row', () => {
+  test('drops the count to zero when the search query matches no visible row', () => {
     // Arrange — query that matches none of the source skills
     const skills = [
       makeSkill('task', 'claude-code'),
@@ -270,7 +270,7 @@ describe('selectFilteredSkillCount', () => {
 })
 
 describe('selectFilteredSkills', () => {
-  it('shows every source-dir skill in the SourceCard view when no agent is selected', () => {
+  test('shows every source-dir skill in the SourceCard view when no agent is selected', () => {
     // Arrange
     const skills = [
       makeSkill('task', 'claude-code'),
@@ -285,7 +285,7 @@ describe('selectFilteredSkills', () => {
     expect(result).toHaveLength(2)
   })
 
-  it('hides agent-local-only skills from the SourceCard view (no agent selected)', () => {
+  test('hides agent-local-only skills from the SourceCard view (no agent selected)', () => {
     // Arrange — regression: clicking the SourceCard ("~/.agents/skills") used
     // to leak every claude-/cursor-local skill into the list because the
     // selector skipped filtering when selectedAgentId was null. Source-only
@@ -303,7 +303,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual(['task'])
   })
 
-  it('narrows the list to skills whose name matches the search query', () => {
+  test('narrows the list to skills whose name matches the search query', () => {
     // Arrange
     const skills = [
       makeSkill('task', 'claude-code'),
@@ -319,7 +319,7 @@ describe('selectFilteredSkills', () => {
     expect(result[0].name).toBe('task')
   })
 
-  it('matches the search query against the name only, never the description', () => {
+  test('matches the search query against the name only, never the description', () => {
     // Arrange
     const skills = [
       makeSkill('task', 'claude-code'),
@@ -334,7 +334,7 @@ describe('selectFilteredSkills', () => {
     expect(result).toHaveLength(0)
   })
 
-  it('matches the search query case-insensitively', () => {
+  test('matches the search query case-insensitively', () => {
     // Arrange
     const skills = [makeSkill('Task', 'claude-code')]
     const state = buildState({ skills, searchQuery: 'TASK' })
@@ -346,7 +346,7 @@ describe('selectFilteredSkills', () => {
     expect(result).toHaveLength(1)
   })
 
-  it('narrows the list to skills linked into the selected agent', () => {
+  test('narrows the list to skills linked into the selected agent', () => {
     // Arrange
     const skills = [
       makeSkill('task', 'claude-code'),
@@ -362,7 +362,7 @@ describe('selectFilteredSkills', () => {
     expect(result[0].name).toBe('browse')
   })
 
-  it('intersects the agent filter with the search query', () => {
+  test('intersects the agent filter with the search query', () => {
     // Arrange
     const skills = [
       makeSkill('task', 'claude-code'),
@@ -383,7 +383,7 @@ describe('selectFilteredSkills', () => {
     expect(result[0].name).toBe('browse')
   })
 
-  it('surfaces broken (orphan) symlinks for agent filter so user can clean them up', () => {
+  test('surfaces broken (orphan) symlinks for agent filter so user can clean them up', () => {
     // An orphan: source dir vanished, but cursor still has a dangling symlink
     // pointing at where the source used to live. The per-agent view must
     // surface this row so the right-click "Cleanup missing skills..." flow
@@ -419,7 +419,7 @@ describe('selectFilteredSkills', () => {
     expect(result[0].isOrphan).toBe(true)
   })
 
-  it('excludes "missing" symlink entries from agent filter', () => {
+  test('excludes "missing" symlink entries from agent filter', () => {
     // status:'missing' is the scanner's way of representing an agent slot
     // with NO on-disk symlink at all — there's nothing to surface or clean
     // up, so it must not pollute the per-agent list.
@@ -450,7 +450,7 @@ describe('selectFilteredSkills', () => {
     expect(selectFilteredSkills(state as never)).toHaveLength(0)
   })
 
-  it('shows an empty list when nothing matches the filters', () => {
+  test('shows an empty list when nothing matches the filters', () => {
     // Arrange
     const skills = [makeSkill('task', 'claude-code')]
     const state = buildState({ skills, searchQuery: 'nonexistent' })
@@ -459,7 +459,7 @@ describe('selectFilteredSkills', () => {
     expect(selectFilteredSkills(state as never)).toHaveLength(0)
   })
 
-  it('orders skills A→Z by default', () => {
+  test('orders skills A→Z by default', () => {
     // Arrange
     const skills = [
       makeSkill('zebra', 'claude-code'),
@@ -475,7 +475,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual(['alpha', 'middle', 'zebra'])
   })
 
-  it('orders skills Z→A when the sort order is descending', () => {
+  test('orders skills Z→A when the sort order is descending', () => {
     // Arrange
     const skills = [
       makeSkill('alpha', 'claude-code'),
@@ -491,7 +491,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual(['zebra', 'middle', 'alpha'])
   })
 
-  it('shows only symlinked skills in the agent view when the Symlinked filter is active', () => {
+  test('shows only symlinked skills in the agent view when the Symlinked filter is active', () => {
     // Arrange
     const skills = [
       makeSkill('linked-one', 'cursor'),
@@ -511,7 +511,7 @@ describe('selectFilteredSkills', () => {
     expect(result[0].name).toBe('linked-one')
   })
 
-  it('shows only local skills in the agent view when the Local filter is active', () => {
+  test('shows only local skills in the agent view when the Local filter is active', () => {
     // Arrange
     const skills = [
       makeSkill('linked-one', 'cursor'),
@@ -531,7 +531,7 @@ describe('selectFilteredSkills', () => {
     expect(result[0].name).toBe('local-one')
   })
 
-  it('subtracts excluded local skills from the all-types agent list', () => {
+  test('subtracts excluded local skills from the all-types agent list', () => {
     // Arrange
     const skills = [
       makeSkill('linked-one', 'cursor'),
@@ -550,7 +550,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual(['linked-one'])
   })
 
-  it('surfaces both symlinked and local G-Stack skills when the G-Stack filter is active', () => {
+  test('surfaces both symlinked and local G-Stack skills when the G-Stack filter is active', () => {
     // Arrange — the G-Stack filter should match the same two production shapes
     // as the card badge: direct agent symlinks into `skills/gstack/` and local
     // sibling skills whose SKILL.md points into that tree.
@@ -596,7 +596,7 @@ describe('selectFilteredSkills', () => {
     ])
   })
 
-  it('subtracts local rows from the G-Stack include population', () => {
+  test('subtracts local rows from the G-Stack include population', () => {
     // Arrange
     const linkedGStack = makeSkill('linked-gstack', 'cursor')
     linkedGStack.symlinks = [
@@ -632,7 +632,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((skill) => skill.name)).toEqual(['linked-gstack'])
   })
 
-  it('keeps G-Stack filtering scoped to the selected agent slot', () => {
+  test('keeps G-Stack filtering scoped to the selected agent slot', () => {
     // Arrange — same skill name can exist as a G-Stack-managed sibling in one
     // agent and as a plain linked skill in another; the selected agent owns
     // the answer.
@@ -661,7 +661,7 @@ describe('selectFilteredSkills', () => {
     expect(selectFilteredSkills(state as never)).toHaveLength(0)
   })
 
-  it('surfaces only orphan skills in the agent view when the Orphan filter is active', () => {
+  test('surfaces only orphan skills in the agent view when the Orphan filter is active', () => {
     // Arrange — mixed list: a normal symlinked skill (NOT orphan), a local
     // skill (NOT orphan), and an orphan whose source dir vanished but still has
     // a broken symlink under cursor. The Orphan filter must surface only the
@@ -702,7 +702,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual(['orphan-one'])
   })
 
-  it('hides an orphan stranded in another agent from the selected agent Orphan view', () => {
+  test('hides an orphan stranded in another agent from the selected agent Orphan view', () => {
     // Arrange — Codex-flagged correctness contract: an orphan whose remaining
     // broken slot points at agent A must NOT surface when the user is viewing
     // agent B. Pass 1 (agent-slot gate) drops the row before Pass 2
@@ -737,7 +737,7 @@ describe('selectFilteredSkills', () => {
     expect(selectFilteredSkills(state as never)).toHaveLength(0)
   })
 
-  it('shows the empty Orphan state when the selected agent has no orphan skills', () => {
+  test('shows the empty Orphan state when the selected agent has no orphan skills', () => {
     // Arrange — empty-state contract: when the user picks Orphan but every
     // visible skill is healthy (isOrphan === false), the list is empty and the
     // empty-state copy ("No orphan skills for this agent") takes over.
@@ -755,7 +755,7 @@ describe('selectFilteredSkills', () => {
     expect(selectFilteredSkills(state as never)).toHaveLength(0)
   })
 
-  it('shows an empty list when the search query and type filter together exclude everything', () => {
+  test('shows an empty list when the search query and type filter together exclude everything', () => {
     // Arrange
     const skills = [
       makeSkill('linked-one', 'cursor'),
@@ -775,7 +775,14 @@ describe('selectFilteredSkills', () => {
     expect(result).toHaveLength(0)
   })
 
-  it.each(['all', 'symlinked', 'local', 'gstack', 'orphan', 'unique'] as const)(
+  test.each([
+    'all',
+    'symlinked',
+    'local',
+    'gstack',
+    'orphan',
+    'unique',
+  ] as const)(
     'ignores the skillTypeFilter (%s) in the SourceCard view where source-only filtering rules',
     (skillTypeFilter) => {
       // Arrange — SourceCard view applies its own source-only filter, so
@@ -795,7 +802,7 @@ describe('selectFilteredSkills', () => {
     },
   )
 
-  it('shows a skill that is a real folder in only the selected agent under the Unique filter', () => {
+  test('shows a skill that is a real folder in only the selected agent under the Unique filter', () => {
     // Arrange — one real-folder slot, one agent → available to exactly one agent.
     const skills = [makeSkill('solo-local', 'claude-code', true)]
     const state = buildState({
@@ -811,7 +818,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual(['solo-local'])
   })
 
-  it('shows a lone valid symlink under Unique because Unique asks "how many agents", not "is it a symlink"', () => {
+  test('shows a lone valid symlink under Unique because Unique asks "how many agents", not "is it a symlink"', () => {
     // Arrange — single valid symlink (isLocal false) in only the selected agent.
     const skills = [makeSkill('solo-symlink', 'cursor', false)]
     const state = buildState({
@@ -827,7 +834,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual(['solo-symlink'])
   })
 
-  it('hides a non-symlink skill duplicated across two agents, even viewed from an owning agent (Unique is not Local)', () => {
+  test('hides a non-symlink skill duplicated across two agents, even viewed from an owning agent (Unique is not Local)', () => {
     // Arrange — two valid real-folder slots → available to 2 agents → NOT unique,
     // though every slot is Local. Viewed from claude-code, which owns one copy.
     const skills = [
@@ -849,7 +856,7 @@ describe('selectFilteredSkills', () => {
     expect(result).toHaveLength(0)
   })
 
-  it('hides a universal skill that is valid-symlinked into many agents under Unique', () => {
+  test('hides a universal skill that is valid-symlinked into many agents under Unique', () => {
     // Arrange — one source, valid symlinks in three agents → 3 valid slots.
     const skills = [
       makeMultiSlotSkill('universal', [
@@ -871,7 +878,7 @@ describe('selectFilteredSkills', () => {
     expect(result).toHaveLength(0)
   })
 
-  it('hides a skill whose only valid slot belongs to a different agent than the one in view', () => {
+  test('hides a skill whose only valid slot belongs to a different agent than the one in view', () => {
     // Arrange — unique to cursor, but the list is filtered for claude-code.
     const skills = [makeSkill('cursor-only', 'cursor', true)]
     const state = buildState({
@@ -887,7 +894,7 @@ describe('selectFilteredSkills', () => {
     expect(result).toHaveLength(0)
   })
 
-  it('treats a skill as Unique when its sole valid slot sits beside a broken slot in another agent', () => {
+  test('treats a skill as Unique when its sole valid slot sits beside a broken slot in another agent', () => {
     // Arrange — valid in claude-code, broken symlink in cursor. A broken slot is
     // not "available", so the skill is still reachable by exactly one agent.
     const skills = [
@@ -909,7 +916,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual(['one-valid-one-broken'])
   })
 
-  it('hides an orphan skill under Unique because orphans carry only broken slots (available to no agent)', () => {
+  test('hides an orphan skill under Unique because orphans carry only broken slots (available to no agent)', () => {
     // Arrange — orphan: a broken slot only, zero valid slots anywhere.
     const skills = [
       makeMultiSlotSkill(
@@ -931,7 +938,7 @@ describe('selectFilteredSkills', () => {
     expect(result).toHaveLength(0)
   })
 
-  it('matches a repo-scope query against the skill repository slug', () => {
+  test('matches a repo-scope query against the skill repository slug', () => {
     // Arrange
     const skills = [
       makeSkill('task', 'claude-code', false, 'vercel-labs/skills'),
@@ -951,7 +958,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual(['mcp'])
   })
 
-  it('drops source-less Local skills from repo-scope search even when their name matches', () => {
+  test('drops source-less Local skills from repo-scope search even when their name matches', () => {
     // Arrange — critical regression guard: in repo mode, a skill without
     // `source` must never appear, otherwise the result becomes inconsistent
     // ("I searched a repo and got a non-repo skill") and the toggle loses its
@@ -973,7 +980,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual([])
   })
 
-  it('surfaces source-less skills when the repo-scope query is the Local label', () => {
+  test('surfaces source-less skills when the repo-scope query is the Local label', () => {
     // Arrange — the SearchBox offers "Local" as a pseudo-repo suggestion;
     // picking it must narrow to skills without a source, and typing it by
     // hand is case-insensitive like every other repo query.
@@ -994,7 +1001,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual(['handmade'])
   })
 
-  it('keeps Local skills out of repo-scope results while a partial query is being typed', () => {
+  test('keeps Local skills out of repo-scope results while a partial query is being typed', () => {
     // Arrange — "Local" is an exact keyword, not a substring target: typing
     // "lo" on the way to a repo name must not flood the list with every
     // source-less skill (the pre-suggestion behaviour users relied on).
@@ -1015,7 +1022,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual([])
   })
 
-  it('narrows to a single repo when only the source pill is set and no query is typed', () => {
+  test('narrows to a single repo when only the source pill is set and no query is typed', () => {
     // Arrange
     const skills = [
       makeSkill('a', 'claude-code', false, 'vercel-labs/skills'),
@@ -1034,7 +1041,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual(['a', 'b'])
   })
 
-  it('stacks the source pill with a name-scope query so both narrow the list', () => {
+  test('stacks the source pill with a name-scope query so both narrow the list', () => {
     // Arrange — scope is 'name' (default): the pill narrows population to one
     // repo, then the name query narrows further within that population.
     const skills = [
@@ -1056,7 +1063,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual(['alpha'])
   })
 
-  it('intersects the source pill with the agent filter as independent constraints', () => {
+  test('intersects the source pill with the agent filter as independent constraints', () => {
     // Arrange — per Issue 4 decision: the source pill is independent of the
     // agent pill. Selecting an agent must not silently reset the pill, and the
     // resulting list intersects both filters.
@@ -1078,7 +1085,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual(['a'])
   })
 
-  it('matches a name-scope query exactly as the pre-toggle default did', () => {
+  test('matches a name-scope query exactly as the pre-toggle default did', () => {
     // Arrange — regression guard: explicitly setting scope='name' must behave
     // identically to the pre-feature default so the toggle round-trips cleanly.
     const skills = [
@@ -1098,7 +1105,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual(['task'])
   })
 
-  it('keeps Local skills visible under repo scope when the query is empty', () => {
+  test('keeps Local skills visible under repo scope when the query is empty', () => {
     // Arrange — the repo-scope filter only kicks in when there's a non-empty
     // query. An empty query in repo scope must still surface Local skills,
     // because the toggle is about what the query matches against, not a
@@ -1128,7 +1135,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual(['local-task', 'repo-task'])
   })
 
-  it('composes the source pill, repo scope, and a matching query without short-circuiting', () => {
+  test('composes the source pill, repo scope, and a matching query without short-circuiting', () => {
     // Arrange — three-way compound: pill narrows to one repo, scope=repo
     // searches within source strings, query matches that source — confirms the
     // filters compose without short-circuiting each other (per Issue 4).
@@ -1151,7 +1158,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual(['a', 'b'])
   })
 
-  it('returns empty when the source pill and a repo-scope query point at different repos', () => {
+  test('returns empty when the source pill and a repo-scope query point at different repos', () => {
     // Arrange — edge case: the pill says "in vercel-labs/skills" but the user
     // types 'figma' in repo scope. The compound filter must return empty — the
     // pill-narrowed population doesn't have a source matching 'figma', so
@@ -1174,7 +1181,7 @@ describe('selectFilteredSkills', () => {
     expect(result.map((s) => s.name)).toEqual([])
   })
 
-  it('counts repo facets after the agent and type gates while ignoring the source pill and query', () => {
+  test('counts repo facets after the agent and type gates while ignoring the source pill and query', () => {
     // Arrange
     const skills = [
       makeSkill('alpha', 'cursor', false, 'vercel-labs/skills'),
@@ -1198,7 +1205,7 @@ describe('selectFilteredSkills', () => {
     ])
   })
 
-  it('returns the same array reference on repeat reads so consumers do not re-render needlessly', () => {
+  test('returns the same array reference on repeat reads so consumers do not re-render needlessly', () => {
     // Arrange
     const skills = [makeSkill('task', 'claude-code')]
     const state = buildState({ skills })
@@ -1220,7 +1227,7 @@ const makeBookmark = (name: string, repo: string): BookmarkedSkill => ({
 })
 
 describe('selectBookmarksWithInstallStatus', () => {
-  it('flags a bookmarked skill as installed when a matching skill name exists', () => {
+  test('flags a bookmarked skill as installed when a matching skill name exists', () => {
     // Arrange
     const state = buildState({
       skills: [makeSkill('task', 'claude-code')],
@@ -1235,7 +1242,7 @@ describe('selectBookmarksWithInstallStatus', () => {
     expect(result[0].isInstalled).toBe(true)
   })
 
-  it('flags a bookmarked skill as not installed when no matching skill exists', () => {
+  test('flags a bookmarked skill as not installed when no matching skill exists', () => {
     // Arrange
     const state = buildState({
       skills: [makeSkill('browse', 'claude-code')],
@@ -1250,7 +1257,7 @@ describe('selectBookmarksWithInstallStatus', () => {
     expect(result[0].isInstalled).toBe(false)
   })
 
-  it('shows an empty bookmarks list when nothing is bookmarked', () => {
+  test('shows an empty bookmarks list when nothing is bookmarked', () => {
     // Arrange
     const state = buildState({
       skills: [makeSkill('task', 'claude-code')],
@@ -1261,7 +1268,7 @@ describe('selectBookmarksWithInstallStatus', () => {
     expect(selectBookmarksWithInstallStatus(state as never)).toHaveLength(0)
   })
 
-  it('returns the same array reference on repeat reads so consumers do not re-render needlessly', () => {
+  test('returns the same array reference on repeat reads so consumers do not re-render needlessly', () => {
     // Arrange
     const state = buildState({
       skills: [makeSkill('task', 'claude-code')],
@@ -1278,7 +1285,7 @@ describe('selectBookmarksWithInstallStatus', () => {
 })
 
 describe('selectVisibleSkillNames', () => {
-  it('lists the visible skill names in display order', () => {
+  test('lists the visible skill names in display order', () => {
     // Arrange
     const skills = [
       makeSkill('zebra', 'claude-code'),
@@ -1290,7 +1297,7 @@ describe('selectVisibleSkillNames', () => {
     expect(selectVisibleSkillNames(state as never)).toEqual(['alpha', 'zebra'])
   })
 
-  it('lists no names when the filter produces no rows', () => {
+  test('lists no names when the filter produces no rows', () => {
     // Arrange
     const skills = [makeSkill('task', 'claude-code')]
     const state = buildState({ skills, searchQuery: 'unmatched' })
@@ -1301,7 +1308,7 @@ describe('selectVisibleSkillNames', () => {
 })
 
 describe('selectBulkSelectableVisibleSkillNames', () => {
-  it('keeps broken agent rows visible but excludes them from bulk unlink names', () => {
+  test('keeps broken agent rows visible but excludes them from bulk unlink names', () => {
     // Arrange
     const brokenSkill: Skill = {
       ...makeSkill('broken-skill', 'cursor'),
@@ -1335,7 +1342,7 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
     ])
   })
 
-  it('excludes inaccessible agent rows from bulk unlink names', () => {
+  test('excludes inaccessible agent rows from bulk unlink names', () => {
     // Arrange
     const inaccessibleSkill: Skill = {
       ...makeSkill('manual-review', 'cursor'),
@@ -1361,7 +1368,7 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
     expect(selectBulkSelectableVisibleSkillNames(state as never)).toEqual([])
   })
 
-  it('excludes local agent folders from bulk unlink names', () => {
+  test('excludes local agent folders from bulk unlink names', () => {
     // Arrange
     const localSkill: Skill = {
       ...makeSkill('local-only', 'cursor'),
@@ -1392,7 +1399,7 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
     ])
   })
 
-  it('excludes protected valid agent rows from bulk unlink names', () => {
+  test('excludes protected valid agent rows from bulk unlink names', () => {
     // Arrange
     const protectedSkill = makeSkill('protected-skill', 'cursor')
     const availableSkill = makeSkill('available-skill', 'cursor')
@@ -1413,7 +1420,7 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
     expect(bulkSelectableNames).toEqual(['available-skill'])
   })
 
-  it('keeps protected rows selectable in global delete view so the confirm dialog can report the skip', () => {
+  test('keeps protected rows selectable in global delete view so the confirm dialog can report the skip', () => {
     // Arrange
     const protectedSkill = makeSkill('protected-skill', 'cursor')
     const state = buildState({
@@ -1433,7 +1440,7 @@ describe('selectBulkSelectableVisibleSkillNames', () => {
 })
 
 describe('selectSelectedCount', () => {
-  it('shows a zero selection count when nothing is ticked', () => {
+  test('shows a zero selection count when nothing is ticked', () => {
     // Arrange
     const state = buildState({})
 
@@ -1441,7 +1448,7 @@ describe('selectSelectedCount', () => {
     expect(selectSelectedCount(state as never)).toBe(0)
   })
 
-  it('counts every ticked skill even when some are scrolled out of the visible list', () => {
+  test('counts every ticked skill even when some are scrolled out of the visible list', () => {
     // Arrange
     const state = buildState({
       selectedSkillNames: [
@@ -1457,7 +1464,7 @@ describe('selectSelectedCount', () => {
 })
 
 describe('selectSelectedVisibleNames', () => {
-  it('lists the ticked names that are currently visible in visible order, dropping ghosts', () => {
+  test('lists the ticked names that are currently visible in visible order, dropping ghosts', () => {
     // Arrange
     const skills = [
       makeSkill('alpha', 'claude-code'),
@@ -1481,7 +1488,7 @@ describe('selectSelectedVisibleNames', () => {
     ])
   })
 
-  it('lists no names when the whole selection is hidden by the active filter', () => {
+  test('lists no names when the whole selection is hidden by the active filter', () => {
     // Arrange
     const skills = [makeSkill('task', 'claude-code')]
     const state = buildState({
@@ -1496,7 +1503,7 @@ describe('selectSelectedVisibleNames', () => {
 })
 
 describe('selectSelectedVisibleCount', () => {
-  it('counts only the ticked skills that are currently visible', () => {
+  test('counts only the ticked skills that are currently visible', () => {
     // Arrange
     const skills = [
       makeSkill('alpha', 'claude-code'),
@@ -1518,7 +1525,7 @@ describe('selectSelectedVisibleCount', () => {
 })
 
 describe('selectHiddenSelectedCount', () => {
-  it('counts the ticked skills scrolled or filtered out of the visible list', () => {
+  test('counts the ticked skills scrolled or filtered out of the visible list', () => {
     // Arrange
     const skills = [
       makeSkill('alpha', 'claude-code'),
@@ -1537,7 +1544,7 @@ describe('selectHiddenSelectedCount', () => {
     expect(selectHiddenSelectedCount(state as never)).toBe(2)
   })
 
-  it('reports zero hidden selections when every ticked skill is visible', () => {
+  test('reports zero hidden selections when every ticked skill is visible', () => {
     // Arrange
     const skills = [
       makeSkill('alpha', 'claude-code'),
@@ -1552,7 +1559,7 @@ describe('selectHiddenSelectedCount', () => {
     expect(selectHiddenSelectedCount(state as never)).toBe(0)
   })
 
-  it('does not count a visible-but-ineligible agent row as hidden by the filter', () => {
+  test('does not count a visible-but-ineligible agent row as hidden by the filter', () => {
     // Arrange
     const skills = [
       makeSkill('valid-task', 'cursor'),
@@ -1573,7 +1580,7 @@ describe('selectHiddenSelectedCount', () => {
 })
 
 describe('selectVisibleIneligibleSelectedCount', () => {
-  it('counts ticked rows that are visible yet excluded from the bulk action', () => {
+  test('counts ticked rows that are visible yet excluded from the bulk action', () => {
     // Arrange
     const skills = [
       makeSkill('valid-task', 'cursor'),
@@ -1595,7 +1602,7 @@ describe('selectVisibleIneligibleSelectedCount', () => {
 })
 
 describe('selectAnyInFlightRemovalSet', () => {
-  it('marks the rows of an active bulk delete as fading via Set membership', () => {
+  test('marks the rows of an active bulk delete as fading via Set membership', () => {
     // Arrange
     const state = buildState({
       inFlightDeleteNames: [toSkillName('skill-a'), toSkillName('skill-b')],
@@ -1611,7 +1618,7 @@ describe('selectAnyInFlightRemovalSet', () => {
     expect(inFlightSet.size).toBe(2)
   })
 
-  it('returns the shared empty Set when no bulk delete is in flight so idle renders allocate nothing', () => {
+  test('returns the shared empty Set when no bulk delete is in flight so idle renders allocate nothing', () => {
     // Arrange
     const stateWithoutDeletes = buildState({
       inFlightDeleteNames: [],
@@ -1634,7 +1641,7 @@ describe('selectAnyInFlightRemovalSet', () => {
 })
 
 describe('selectSelectedSkillNamesSet', () => {
-  it('exposes the ticked skill names as a Set for fast membership checks', () => {
+  test('exposes the ticked skill names as a Set for fast membership checks', () => {
     // Arrange
     const state = buildState({
       selectedSkillNames: [toSkillName('x'), toSkillName('y')],
@@ -1648,7 +1655,7 @@ describe('selectSelectedSkillNamesSet', () => {
     expect(result.size).toBe(2)
   })
 
-  it('returns the same Set reference on repeat reads so consumers do not re-render needlessly', () => {
+  test('returns the same Set reference on repeat reads so consumers do not re-render needlessly', () => {
     // Arrange
     const state = buildState({
       selectedSkillNames: [toSkillName('x')],
@@ -1664,7 +1671,7 @@ describe('selectSelectedSkillNamesSet', () => {
 })
 
 describe('selectSelectedVisibleSkillObjects', () => {
-  it('resolves the ticked names to their full skill objects so the bulk-copy modal can read each path', () => {
+  test('resolves the ticked names to their full skill objects so the bulk-copy modal can read each path', () => {
     // Arrange — three live skills, two of them ticked, no filter active
     const skills = [
       makeSkill('alpha', 'claude-code'),
@@ -1684,7 +1691,7 @@ describe('selectSelectedVisibleSkillObjects', () => {
     expect(result[0].path).toBe('/home/user/.agents/skills/alpha')
   })
 
-  it('drops ticked names whose skill is gone so a stale selection cannot copy a phantom', () => {
+  test('drops ticked names whose skill is gone so a stale selection cannot copy a phantom', () => {
     // Arrange — "ghost" was ticked then removed by a background refresh
     const skills = [makeSkill('alpha', 'claude-code')]
     const state = buildState({
@@ -1699,7 +1706,7 @@ describe('selectSelectedVisibleSkillObjects', () => {
     expect(result.map((skill) => skill.name)).toEqual(['alpha'])
   })
 
-  it('excludes ticked skills hidden by the active filter so bulk copy honors the "will not be affected" promise', () => {
+  test('excludes ticked skills hidden by the active filter so bulk copy honors the "will not be affected" promise', () => {
     // Arrange — alpha and beta both ticked, but a search query hides beta
     const skills = [
       makeSkill('alpha', 'claude-code'),
@@ -1721,7 +1728,7 @@ describe('selectSelectedVisibleSkillObjects', () => {
 })
 
 describe('selectSourceFilterViewModel', () => {
-  it('shows the "All repos" trigger and a generic aria-label when nothing is ticked', () => {
+  test('shows the "All repos" trigger and a generic aria-label when nothing is ticked', () => {
     // Arrange — one repo skill in the cursor view, but no include filter yet
     const skills = [makeSkill('a', 'cursor', false, 'vercel-labs/skills')]
     const state = buildState({
@@ -1743,7 +1750,7 @@ describe('selectSourceFilterViewModel', () => {
     ])
   })
 
-  it('names the single ticked repo in the trigger, aria-label, and checkbox tick', () => {
+  test('names the single ticked repo in the trigger, aria-label, and checkbox tick', () => {
     // Arrange — two skills from one repo, that repo ticked
     const skills = [
       makeSkill('a', 'cursor', false, 'vercel-labs/skills'),
@@ -1769,7 +1776,7 @@ describe('selectSourceFilterViewModel', () => {
     ])
   })
 
-  it('collapses the trigger to "N repos" and spells out the aria-label for multiple ticks', () => {
+  test('collapses the trigger to "N repos" and spells out the aria-label for multiple ticks', () => {
     // Arrange — one skill per repo, both repos ticked
     const skills = [
       makeSkill('a', 'cursor', false, 'vercel-labs/skills'),
@@ -1796,7 +1803,7 @@ describe('selectSourceFilterViewModel', () => {
     expect(viewModel.isSelectAllDisabled).toBe(true)
   })
 
-  it('summarizes the overflow as "and N more" when the aria-label exceeds the spelled-repo cap', () => {
+  test('summarizes the overflow as "and N more" when the aria-label exceeds the spelled-repo cap', () => {
     // Arrange — four repos ticked, one past SOURCE_FILTER_MAX_VISIBLE_REPOS (3),
     // so the screen-reader label must name the first three then summarize the
     // remainder instead of reading an unbounded list.
@@ -1826,7 +1833,7 @@ describe('selectSourceFilterViewModel', () => {
     )
   })
 
-  it('keeps a ticked repo with zero remaining rows in the dropdown but out of validRepoIds', () => {
+  test('keeps a ticked repo with zero remaining rows in the dropdown but out of validRepoIds', () => {
     // A repo the user ticked that no longer backs any visible facet row (here a
     // not-yet-pruned stale id) must still render — checked — so the user can
     // untick it; but it must be excluded from the bulk-confirm scope snapshot.
@@ -1853,7 +1860,7 @@ describe('selectSourceFilterViewModel', () => {
     expect(viewModel.validRepoIds).toEqual([repositoryId('vercel-labs/skills')])
   })
 
-  it('counts source-less local skills suppressed by an active repo filter', () => {
+  test('counts source-less local skills suppressed by an active repo filter', () => {
     // Arrange — cursor view: one repo skill plus two source-less local skills,
     // repo filter active
     const skills = [
@@ -1874,7 +1881,7 @@ describe('selectSourceFilterViewModel', () => {
     expect(viewModel.localHiddenCount).toBe(2)
   })
 
-  it('reports zero hidden locals when no repo filter is active', () => {
+  test('reports zero hidden locals when no repo filter is active', () => {
     // Arrange — same source-less locals, but the include filter is empty
     const skills = [
       makeSkill('linked', 'cursor', false, 'vercel-labs/skills'),
@@ -1893,7 +1900,7 @@ describe('selectSourceFilterViewModel', () => {
     expect(viewModel.localHiddenCount).toBe(0)
   })
 
-  it('flags hasNoRepositories and an empty dropdown when no skill carries a source', () => {
+  test('flags hasNoRepositories and an empty dropdown when no skill carries a source', () => {
     // Arrange — only an agent-local skill exists, so the facet is empty
     const skills = [makeSkill('local-only', 'cursor', true)]
     const state = buildState({
@@ -1910,7 +1917,7 @@ describe('selectSourceFilterViewModel', () => {
     expect(viewModel.dropdownRows).toEqual([])
   })
 
-  it('leaves "Select all" enabled while at least one facet repo is unticked', () => {
+  test('leaves "Select all" enabled while at least one facet repo is unticked', () => {
     // Arrange — two facet repos, only one ticked
     const skills = [
       makeSkill('a', 'cursor', false, 'vercel-labs/skills'),
@@ -1931,7 +1938,7 @@ describe('selectSourceFilterViewModel', () => {
 })
 
 describe('selectRepoSearchSuggestions', () => {
-  it('lists every repo in view A→Z with Local last when a source-less skill is present', () => {
+  test('lists every repo in view A→Z with Local last when a source-less skill is present', () => {
     // Arrange
     const skills = [
       makeSkill('z-task', 'cursor', false, 'vercel-labs/skills'),
@@ -1951,7 +1958,7 @@ describe('selectRepoSearchSuggestions', () => {
     ])
   })
 
-  it('omits Local when every skill in view has a source repo', () => {
+  test('omits Local when every skill in view has a source repo', () => {
     // Arrange
     const skills = [makeSkill('task', 'cursor', false, 'vercel-labs/skills')]
     const state = buildState({ skills })
@@ -1963,7 +1970,7 @@ describe('selectRepoSearchSuggestions', () => {
     expect(suggestions).toEqual(['vercel-labs/skills'])
   })
 
-  it('narrows suggestions to entries containing the typed query, case-insensitively', () => {
+  test('narrows suggestions to entries containing the typed query, case-insensitively', () => {
     // Arrange
     const skills = [
       makeSkill('task', 'cursor', false, 'vercel-labs/skills'),
@@ -1979,7 +1986,7 @@ describe('selectRepoSearchSuggestions', () => {
     expect(suggestions).toEqual(['microsoft/azure-skills'])
   })
 
-  it('keeps offering Local for a partial query like "loc" so the keyword stays discoverable', () => {
+  test('keeps offering Local for a partial query like "loc" so the keyword stays discoverable', () => {
     // Arrange — rows only match the full "Local" keyword, so the suggestion
     // list is how a user completes it.
     const skills = [
@@ -1995,7 +2002,7 @@ describe('selectRepoSearchSuggestions', () => {
     expect(suggestions).toEqual(['Local'])
   })
 
-  it('offers only the ticked repos while the repo include filter is active', () => {
+  test('offers only the ticked repos while the repo include filter is active', () => {
     // Arrange — the include filter hides the other repos and every Local row,
     // so suggesting them would guarantee an empty result.
     const skills = [

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import type { InstallProgress } from '@/shared/types'
 import { toProgressPercent } from '@/shared/types'
@@ -61,7 +61,7 @@ afterEach(() => {
 })
 
 describe('useMarketplaceProgress', () => {
-  it('subscribes to install-progress IPC events on mount', async () => {
+  test('subscribes to install-progress IPC events on mount', async () => {
     // Arrange
     const { useMarketplaceProgress } = await import('./useMarketplaceProgress')
 
@@ -73,7 +73,7 @@ describe('useMarketplaceProgress', () => {
     expect(typeof registeredCallback).toBe('function')
   })
 
-  it('streams a forwarded install-progress event into the marketplace slice', async () => {
+  test('streams a forwarded install-progress event into the marketplace slice', async () => {
     // Arrange
     const { useMarketplaceProgress } = await import('./useMarketplaceProgress')
     const progress: InstallProgress = {
@@ -98,7 +98,7 @@ describe('useMarketplaceProgress', () => {
     })
   })
 
-  it('forwards every progress event so the UI tracks each pipeline stage', async () => {
+  test('forwards every progress event so the UI tracks each pipeline stage', async () => {
     // Arrange
     const { useMarketplaceProgress } = await import('./useMarketplaceProgress')
     const cloning: InstallProgress = {
@@ -128,7 +128,7 @@ describe('useMarketplaceProgress', () => {
     })
   })
 
-  it('tears down the progress subscription when the component unmounts', async () => {
+  test('tears down the progress subscription when the component unmounts', async () => {
     // Arrange
     const { useMarketplaceProgress } = await import('./useMarketplaceProgress')
 

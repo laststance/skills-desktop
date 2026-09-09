@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { RootState } from '@/renderer/src/redux/store'
@@ -164,7 +164,7 @@ async function renderDashboard(preloadedState: {
 }
 
 describe('MarketplaceDashboard — trending preview selection', () => {
-  it('selects a trending skill for preview when its row is clicked', async () => {
+  test('selects a trending skill for preview when its row is clicked', async () => {
     // Arrange — one settled trending skill renders exactly one clickable row.
     const trendingSkill = makeSearchResult({
       rank: toSkillRank(1),
@@ -199,7 +199,7 @@ describe('MarketplaceDashboard — trending preview selection', () => {
 })
 
 describe('MarketplaceDashboard — trending placeholders', () => {
-  it('requests the trending leaderboard on mount so the panel populates itself', async () => {
+  test('requests the trending leaderboard on mount so the panel populates itself', async () => {
     // Arrange — an unseeded trending slot means the cache-TTL guard cannot
     // short-circuit, so the mount thunk must reach the IPC bridge.
     // Act
@@ -215,7 +215,7 @@ describe('MarketplaceDashboard — trending placeholders', () => {
     expect(mockLeaderboard).toHaveBeenCalledWith({ filter: 'trending' })
   })
 
-  it('shows a loading skeleton, announced to screen readers, while the trending leaderboard has not loaded yet', async () => {
+  test('shows a loading skeleton, announced to screen readers, while the trending leaderboard has not loaded yet', async () => {
     // Arrange — no trending cache entry means trendingData is undefined, which
     // the dashboard treats as still loading.
     const { screen } = await renderDashboard({
@@ -228,7 +228,7 @@ describe('MarketplaceDashboard — trending placeholders', () => {
       .toBeInTheDocument()
   })
 
-  it('shows a no-skills message when the trending leaderboard settled empty', async () => {
+  test('shows a no-skills message when the trending leaderboard settled empty', async () => {
     // Arrange — a settled (idle) trending entry with zero skills is the empty
     // state, not the loading state.
     const { screen } = await renderDashboard({
@@ -252,7 +252,7 @@ describe('MarketplaceDashboard — trending placeholders', () => {
     expect(mockLeaderboard).not.toHaveBeenCalled()
   })
 
-  it('shows an offline notice when the trending fetch failed and nothing is cached', async () => {
+  test('shows an offline notice when the trending fetch failed and nothing is cached', async () => {
     // Arrange — an errored trending entry with zero cached skills is the
     // failure state, distinct from both loading and a settled-empty list. The
     // mount thunk re-fetches errored filters (errors bypass the TTL gate), so

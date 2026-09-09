@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { getAgentFolderDeleteNotices } from './getAgentFolderDeleteNotices'
 
 describe('Hidden agents deletion exclusions', () => {
-  it('omits exclusion notices when every folder and skill is eligible', () => {
+  test('omits exclusion notices when every folder and skill is eligible', () => {
     // Arrange
     const skippedCount = 0
     const protectedCount = 0
@@ -13,7 +13,7 @@ describe('Hidden agents deletion exclusions', () => {
     expect(notices).toEqual([])
   })
 
-  it('explains a single skipped agent without implying protected entries exist', () => {
+  test('explains a single skipped agent without implying protected entries exist', () => {
     // Arrange
     const skippedCount = 1
     const protectedCount = 0
@@ -25,7 +25,7 @@ describe('Hidden agents deletion exclusions', () => {
     ])
   })
 
-  it('explains a protected entry without implying shared folders were skipped', () => {
+  test('explains a protected entry without implying shared folders were skipped', () => {
     // Arrange
     const skippedCount = 0
     const protectedCount = 1
@@ -35,7 +35,7 @@ describe('Hidden agents deletion exclusions', () => {
     expect(notices).toEqual(['1 protected skill entry will be kept.'])
   })
 
-  it('explains both exclusions with plural labels when multiple entries are kept', () => {
+  test('explains both exclusions with plural labels when multiple entries are kept', () => {
     // Arrange
     const skippedCount = 2
     const protectedCount = 3
@@ -50,7 +50,7 @@ describe('Hidden agents deletion exclusions', () => {
 })
 
 describe('Not-installed agent deletion exclusions', () => {
-  it.each([
+  test.each([
     [1, '1 agent without an empty, separate folder will be skipped.'],
     [2, '2 agents without an empty, separate folder will be skipped.'],
   ])(
@@ -64,7 +64,7 @@ describe('Not-installed agent deletion exclusions', () => {
     },
   )
 
-  it('keeps protected-skill notices out of empty-parent cleanup', () => {
+  test('keeps protected-skill notices out of empty-parent cleanup', () => {
     // Act
     const notices = getAgentFolderDeleteNotices(0, 3, 'unused')
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import type { PerSkillCopyOutcome } from '@/shared/types'
 import { toAgentCount, toSkillName } from '@/shared/types'
@@ -6,7 +6,7 @@ import { toAgentCount, toSkillName } from '@/shared/types'
 import { summarizeBulkCopyResult } from './summarizeBulkCopyResult'
 
 describe('summarizeBulkCopyResult', () => {
-  it('reports success and lists the copied skills when every target succeeds', () => {
+  test('reports success and lists the copied skills when every target succeeds', () => {
     // Arrange — two skills, each copied to both ticked agents
     const perSkill: PerSkillCopyOutcome[] = [
       {
@@ -28,7 +28,7 @@ describe('summarizeBulkCopyResult', () => {
     })
   })
 
-  it('uses singular wording for one skill copied to one agent', () => {
+  test('uses singular wording for one skill copied to one agent', () => {
     // Arrange — one skill, one ticked agent
     const perSkill: PerSkillCopyOutcome[] = [
       {
@@ -49,7 +49,7 @@ describe('summarizeBulkCopyResult', () => {
     })
   })
 
-  it('warns and lists the per-target failures when some copies fail', () => {
+  test('warns and lists the per-target failures when some copies fail', () => {
     // Arrange — alpha lands on the one agent, beta collides on it
     const perSkill: PerSkillCopyOutcome[] = [
       {
@@ -75,7 +75,7 @@ describe('summarizeBulkCopyResult', () => {
     })
   })
 
-  it('uses plural "copies" wording when several targets fail but some still copy', () => {
+  test('uses plural "copies" wording when several targets fail but some still copy', () => {
     // Arrange — alpha fully copies to both agents, beta collides on both
     const perSkill: PerSkillCopyOutcome[] = [
       {
@@ -105,7 +105,7 @@ describe('summarizeBulkCopyResult', () => {
     })
   })
 
-  it('reports a hard error when nothing was copied to any agent', () => {
+  test('reports a hard error when nothing was copied to any agent', () => {
     // Arrange — the one skill collides on its one target
     const perSkill: PerSkillCopyOutcome[] = [
       {
@@ -126,7 +126,7 @@ describe('summarizeBulkCopyResult', () => {
     })
   })
 
-  it('reports a hard error listing every failure when nothing copies across multiple skills', () => {
+  test('reports a hard error listing every failure when nothing copies across multiple skills', () => {
     // Arrange — both skills collide on the same single target
     const perSkill: PerSkillCopyOutcome[] = [
       {
@@ -153,7 +153,7 @@ describe('summarizeBulkCopyResult', () => {
     })
   })
 
-  it('falls back to a generic error when nothing copied and no failures were reported', () => {
+  test('falls back to a generic error when nothing copied and no failures were reported', () => {
     // Arrange — defensive path: a skill came back copied:0 with no failure rows
     const perSkill: PerSkillCopyOutcome[] = [
       {
@@ -174,7 +174,7 @@ describe('summarizeBulkCopyResult', () => {
     })
   })
 
-  it('returns an error for an empty result instead of a misleading success', () => {
+  test('returns an error for an empty result instead of a misleading success', () => {
     // Arrange — no skills selected
     const perSkill: PerSkillCopyOutcome[] = []
 

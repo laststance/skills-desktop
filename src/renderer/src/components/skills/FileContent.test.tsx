@@ -1,10 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { renderPlainTextCode } from './FileContent'
 
 describe('renderPlainTextCode', () => {
-  it('preserves source order, numbered rows, blank lines, and the selected font size', () => {
+  test('preserves source order, numbered rows, blank lines, and the selected font size', () => {
     // Arrange
     const lines = ['first line', '', 'third line']
 

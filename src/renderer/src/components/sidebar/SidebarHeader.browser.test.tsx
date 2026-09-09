@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -48,7 +48,7 @@ async function renderHeader() {
 }
 
 describe('Sidebar → SidebarHeader', () => {
-  it('shows the Skills Desktop product title', async () => {
+  test('shows the Skills Desktop product title', async () => {
     // Arrange
     const { screen } = await renderHeader()
 
@@ -59,7 +59,7 @@ describe('Sidebar → SidebarHeader', () => {
     await expect.element(title).toBeInTheDocument()
   })
 
-  it('labels the version link with the running build version', async () => {
+  test('labels the version link with the running build version', async () => {
     // Arrange
     const { screen } = await renderHeader()
 
@@ -70,7 +70,7 @@ describe('Sidebar → SidebarHeader', () => {
     await expect.element(versionLink).toBeInTheDocument()
   })
 
-  it('deep-links the version label to the matching GitHub release tag', async () => {
+  test('deep-links the version label to the matching GitHub release tag', async () => {
     // Arrange
     const { screen } = await renderHeader()
 
@@ -86,7 +86,7 @@ describe('Sidebar → SidebarHeader', () => {
       )
   })
 
-  it('opens the release notes in a new tab without leaking the opener', async () => {
+  test('opens the release notes in a new tab without leaking the opener', async () => {
     // Arrange
     const { screen } = await renderHeader()
 
@@ -100,7 +100,7 @@ describe('Sidebar → SidebarHeader', () => {
       .toHaveAttribute('rel', 'noopener noreferrer')
   })
 
-  it('exposes the embedded theme selector trigger', async () => {
+  test('exposes the embedded theme selector trigger', async () => {
     // Arrange
     const { screen } = await renderHeader()
 

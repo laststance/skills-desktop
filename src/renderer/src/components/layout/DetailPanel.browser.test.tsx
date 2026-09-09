@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { selectSkill } from '@/renderer/src/redux/slices/skillsSlice'
@@ -97,7 +97,7 @@ function makeSelectableSkill(): Skill {
 }
 
 describe('DetailPanel routing and close affordance', () => {
-  it('shows the dashboard widgets when the Installed tab has no skill selected', async () => {
+  test('shows the dashboard widgets when the Installed tab has no skill selected', async () => {
     // Arrange
     const { screen } = await renderDetailPanel()
 
@@ -112,7 +112,7 @@ describe('DetailPanel routing and close affordance', () => {
     ).toBeNull()
   })
 
-  it('exposes a close affordance and returns to the dashboard when a selected skill is dismissed', async () => {
+  test('exposes a close affordance and returns to the dashboard when a selected skill is dismissed', async () => {
     // Arrange — select a skill so the Installed tab routes to SkillDetail and
     // reveals the close button
     const { screen, store } = await renderDetailPanel()
@@ -132,7 +132,7 @@ describe('DetailPanel routing and close affordance', () => {
     ).toBeNull()
   })
 
-  it('shows the marketplace inspector with no close button on the Marketplace tab', async () => {
+  test('shows the marketplace inspector with no close button on the Marketplace tab', async () => {
     // Arrange — switch to the marketplace tab and select a skill; the close
     // button must stay hidden because marketplace owns its own back affordance
     const { screen, store } = await renderDetailPanel()

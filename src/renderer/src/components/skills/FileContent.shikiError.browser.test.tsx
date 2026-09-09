@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
@@ -33,7 +33,7 @@ function makeTextContent(content: string): PreviewContent {
 }
 
 describe('FileContent Shiki failure fallback', () => {
-  it('keeps plain-text source opaque under translucent panes when syntax highlighting throws', async () => {
+  test('keeps plain-text source opaque under translucent panes when syntax highlighting throws', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
 

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { DestructiveConfirmDialog } from './DestructiveConfirmDialog'
@@ -12,7 +12,7 @@ import { DestructiveConfirmDialog } from './DestructiveConfirmDialog'
  */
 
 describe('DestructiveConfirmDialog', () => {
-  it('shows the title, description, and confirm label when open', async () => {
+  test('shows the title, description, and confirm label when open', async () => {
     // Arrange + Act
     const screen = await render(
       <DestructiveConfirmDialog
@@ -38,7 +38,7 @@ describe('DestructiveConfirmDialog', () => {
       .toBeVisible()
   })
 
-  it('stays out of the document when closed', async () => {
+  test('stays out of the document when closed', async () => {
     // Arrange + Act — open=false keeps Radix from portaling the dialog.
     const screen = await render(
       <DestructiveConfirmDialog
@@ -55,7 +55,7 @@ describe('DestructiveConfirmDialog', () => {
     expect(screen.getByRole('dialog').query()).toBeNull()
   })
 
-  it('falls back to the Remove labels when no confirm or loading text is given', async () => {
+  test('falls back to the Remove labels when no confirm or loading text is given', async () => {
     // Arrange + Act — omit confirmLabel/loadingLabel to exercise the defaults.
     const screen = await render(
       <DestructiveConfirmDialog
@@ -74,7 +74,7 @@ describe('DestructiveConfirmDialog', () => {
       .toBeVisible()
   })
 
-  it('tints the icon amber for the warning severity', async () => {
+  test('tints the icon amber for the warning severity', async () => {
     // Arrange + Act — the warning variant takes the text-amber-500 branch.
     const screen = await render(
       <DestructiveConfirmDialog
@@ -95,7 +95,7 @@ describe('DestructiveConfirmDialog', () => {
     expect(amberIcon).not.toBeNull()
   })
 
-  it('tints the icon destructive red by default', async () => {
+  test('tints the icon destructive red by default', async () => {
     // Arrange + Act — no iconVariant falls to the text-destructive branch.
     const screen = await render(
       <DestructiveConfirmDialog
@@ -115,7 +115,7 @@ describe('DestructiveConfirmDialog', () => {
     expect(destructiveIcon).not.toBeNull()
   })
 
-  it('swaps the confirm button for a loading label while the action runs', async () => {
+  test('swaps the confirm button for a loading label while the action runs', async () => {
     // Arrange + Act — loading=true shows the spinner + loadingLabel branch.
     const screen = await render(
       <DestructiveConfirmDialog
@@ -137,7 +137,7 @@ describe('DestructiveConfirmDialog', () => {
     expect(screen.getByRole('button', { name: /^Delete$/ }).query()).toBeNull()
   })
 
-  it('disables both buttons while the destructive action is in flight', async () => {
+  test('disables both buttons while the destructive action is in flight', async () => {
     // Arrange + Act — loading=true must lock Cancel and Confirm.
     const screen = await render(
       <DestructiveConfirmDialog
@@ -161,7 +161,7 @@ describe('DestructiveConfirmDialog', () => {
       .toBeDisabled()
   })
 
-  it('confirms the destructive action when the confirm button is clicked', async () => {
+  test('confirms the destructive action when the confirm button is clicked', async () => {
     // Arrange
     const onConfirm = vi.fn()
     const screen = await render(
@@ -183,7 +183,7 @@ describe('DestructiveConfirmDialog', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1)
   })
 
-  it('closes without confirming when the cancel button is clicked', async () => {
+  test('closes without confirming when the cancel button is clicked', async () => {
     // Arrange
     const onClose = vi.fn()
     const onConfirm = vi.fn()

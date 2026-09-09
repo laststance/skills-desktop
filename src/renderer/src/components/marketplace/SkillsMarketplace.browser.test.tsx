@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { RootState } from '@/renderer/src/redux/store'
@@ -164,7 +164,7 @@ async function renderMarketplace(preloadedState: {
 }
 
 describe('SkillsMarketplace — leaderboard view', () => {
-  it('shows the pulsing skeleton while the leaderboard is loading with no skills yet', async () => {
+  test('shows the pulsing skeleton while the leaderboard is loading with no skills yet', async () => {
     // Arrange
     const loadingLeaderboard = {
       'all-time': makeLeaderboardData({
@@ -191,7 +191,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
     expect(document.body.textContent).not.toContain('No skills found')
   })
 
-  it('shows an offline message when the leaderboard fails to load', async () => {
+  test('shows an offline message when the leaderboard fails to load', async () => {
     // Arrange — the seeded entry is errored, and the mount refetch also rejects,
     // so the error status survives the auto-load (its `condition` gate lets an
     // errored cache through, then `rejected` keeps the error state).
@@ -219,7 +219,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
       .toBeInTheDocument()
   })
 
-  it('shows an empty-state when a settled leaderboard returns no skills', async () => {
+  test('shows an empty-state when a settled leaderboard returns no skills', async () => {
     // Arrange — idle status, fetch completed (lastFetched > 0), zero skills.
     const emptyLeaderboard = {
       'all-time': makeLeaderboardData({
@@ -240,7 +240,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
       .toBeInTheDocument()
   })
 
-  it('lists leaderboard skills with a single-skill count for one result', async () => {
+  test('lists leaderboard skills with a single-skill count for one result', async () => {
     // Arrange — a single skill exercises the no-"s" singular count label.
     // `status: 'loading'` makes the mount refetch's `condition` gate abort, so
     // the seeded skills + lastFetched survive; with skills present the loading
@@ -264,7 +264,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
       .toBeInTheDocument()
   })
 
-  it('marks a leaderboard row as installed when its name is in the installed set', async () => {
+  test('marks a leaderboard row as installed when its name is in the installed set', async () => {
     // Arrange — the skill name matches an installed skill, so the row shows the
     // Installed badge instead of an Install button.
     const installedSkill = {
@@ -299,7 +299,7 @@ describe('SkillsMarketplace — leaderboard view', () => {
 })
 
 describe('SkillsMarketplace — "Updated X ago" relative-time label', () => {
-  it('reads "just now" when the leaderboard was fetched seconds ago', async () => {
+  test('reads "just now" when the leaderboard was fetched seconds ago', async () => {
     // Arrange — 5 seconds ago → under one minute. `status: 'loading'` aborts the
     // mount refetch so the seeded lastFetched timestamp is the one rendered.
     const recentLeaderboard = {
@@ -321,7 +321,7 @@ describe('SkillsMarketplace — "Updated X ago" relative-time label', () => {
       .toBeInTheDocument()
   })
 
-  it('reads "5 min ago" when the leaderboard was fetched five minutes ago', async () => {
+  test('reads "5 min ago" when the leaderboard was fetched five minutes ago', async () => {
     // Arrange — 5 minutes ago → minutes branch, under one hour. `status: 'loading'`
     // aborts the mount refetch so the seeded lastFetched timestamp is rendered.
     const fiveMinLeaderboard = {
@@ -343,7 +343,7 @@ describe('SkillsMarketplace — "Updated X ago" relative-time label', () => {
       .toBeInTheDocument()
   })
 
-  it('reads "3h ago" when the leaderboard was fetched three hours ago', async () => {
+  test('reads "3h ago" when the leaderboard was fetched three hours ago', async () => {
     // Arrange — 3 hours ago → hours branch. `status: 'loading'` aborts the mount
     // refetch (which would otherwise overwrite lastFetched, since 3h is past the
     // cache TTL) so the seeded 3h-old timestamp is the one rendered.
@@ -366,7 +366,7 @@ describe('SkillsMarketplace — "Updated X ago" relative-time label', () => {
 })
 
 describe('SkillsMarketplace — search results view', () => {
-  it('shows the searching spinner on the first search before any results land', async () => {
+  test('shows the searching spinner on the first search before any results land', async () => {
     // Arrange — committed query, status searching, no results yet.
     // Act
     const { screen } = await renderMarketplace({
@@ -381,7 +381,7 @@ describe('SkillsMarketplace — search results view', () => {
     await expect.element(screen.getByText('Searching...')).toBeInTheDocument()
   })
 
-  it('shows a no-results message naming the query when a search returns nothing', async () => {
+  test('shows a no-results message naming the query when a search returns nothing', async () => {
     // Arrange — settled search (idle) with an empty result set.
     // Act
     const { screen } = await renderMarketplace({
@@ -398,7 +398,7 @@ describe('SkillsMarketplace — search results view', () => {
       .toBeInTheDocument()
   })
 
-  it('lists each matching skill with a plural count when a search returns results', async () => {
+  test('lists each matching skill with a plural count when a search returns results', async () => {
     // Arrange — two results exercise the plural "skills" count label and the
     // search-results SkillRowMarketplace map.
     const results = [
@@ -426,7 +426,7 @@ describe('SkillsMarketplace — search results view', () => {
     expect(installButtons.length).toBe(2)
   })
 
-  it('marks a search-result row as installed when its name is in the installed set', async () => {
+  test('marks a search-result row as installed when its name is in the installed set', async () => {
     // Arrange — the result name matches an installed skill.
     const installedSkill = {
       name: toSkillName('react'),
@@ -456,7 +456,7 @@ describe('SkillsMarketplace — search results view', () => {
 })
 
 describe('SkillsMarketplace — ranking tab switch', () => {
-  it('swaps the leaderboard to the chosen ranking when a tab is clicked', async () => {
+  test('swaps the leaderboard to the chosen ranking when a tab is clicked', async () => {
     // Arrange — seed both the default (all-time) and the trending tab so each
     // tab's mount/switch refetch `condition` gate aborts (status: 'loading')
     // and the seeded skills survive. Trending carries a distinct skill name so
@@ -494,7 +494,7 @@ describe('SkillsMarketplace — ranking tab switch', () => {
 })
 
 describe('SkillsMarketplace — error banner', () => {
-  it('surfaces a marketplace error message in a banner above the content', async () => {
+  test('surfaces a marketplace error message in a banner above the content', async () => {
     // Arrange
     // Act
     const { screen } = await renderMarketplace({

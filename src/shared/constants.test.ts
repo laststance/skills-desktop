@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import {
   AGENT_DEFINITIONS,
@@ -9,7 +9,7 @@ import {
 } from './constants'
 
 describe('AGENT_DEFINITIONS', () => {
-  it('never collides two agents on the same app-state id', () => {
+  test('never collides two agents on the same app-state id', () => {
     // Arrange
     const ids = AGENT_DEFINITIONS.map((a) => a.id)
     // Act
@@ -18,7 +18,7 @@ describe('AGENT_DEFINITIONS', () => {
     expect(uniqueIdCount).toBe(ids.length)
   })
 
-  it('never collides two agents on the same --agent CLI flag', () => {
+  test('never collides two agents on the same --agent CLI flag', () => {
     // Arrange
     const cliIds = AGENT_DEFINITIONS.map((a) => a.cliId)
     // Act
@@ -27,7 +27,7 @@ describe('AGENT_DEFINITIONS', () => {
     expect(uniqueCliIdCount).toBe(cliIds.length)
   })
 
-  it('installs Windsurf skills under .codeium/windsurf to match the skills CLI globalSkillsDir', () => {
+  test('installs Windsurf skills under .codeium/windsurf to match the skills CLI globalSkillsDir', () => {
     // Arrange / Act
     const windsurf = AGENT_DEFINITIONS.find((a) => a.id === 'windsurf')
     // Assert
@@ -35,14 +35,14 @@ describe('AGENT_DEFINITIONS', () => {
     expect(windsurf!.installDir).toBe('.codeium/windsurf')
   })
 
-  it('keeps every install target inside a dot-prefixed home subdir', () => {
+  test('keeps every install target inside a dot-prefixed home subdir', () => {
     // Arrange / Act / Assert
     for (const agent of AGENT_DEFINITIONS) {
       expect(agent.installDir.startsWith('.')).toBe(true)
     }
   })
 
-  it('keeps every scan target inside a dot-prefixed home subdir', () => {
+  test('keeps every scan target inside a dot-prefixed home subdir', () => {
     // scanDir is required on every entry (no optional fallback). New
     // agents added via a Skills CLI sync must declare scanDir explicitly,
     // which forces consideration of universal-source aliasing.
@@ -52,7 +52,7 @@ describe('AGENT_DEFINITIONS', () => {
     }
   })
 
-  it('keeps shared/universal agents pointed at the CLI globalSkillsDir parents', () => {
+  test('keeps shared/universal agents pointed at the CLI globalSkillsDir parents', () => {
     // Arrange / Act
     const cline = AGENT_DEFINITIONS.find((a) => a.id === 'cline')
     const warp = AGENT_DEFINITIONS.find((a) => a.id === 'warp')
@@ -75,7 +75,7 @@ describe('AGENT_DEFINITIONS', () => {
   // divergent scanDir; otherwise the scanner surfaces every source skill as
   // that agent's "local skills". Kimi (migrated in CLI 1.5.10), Loaf, and Zed
   // joined Cline/Warp/Dexto in this universal-source group.
-  it('does not surface the whole universal source as Cline, Warp, Dexto, Kimi, Loaf, or Zed local skills', () => {
+  test('does not surface the whole universal source as Cline, Warp, Dexto, Kimi, Loaf, or Zed local skills', () => {
     // Arrange / Act
     const cline = AGENT_DEFINITIONS.find((a) => a.id === 'cline')
     const warp = AGENT_DEFINITIONS.find((a) => a.id === 'warp')
@@ -99,7 +99,7 @@ describe('AGENT_DEFINITIONS', () => {
     expect(zed?.scanDir).toBe('.zed')
   })
 
-  it('exposes every community agent added in CLI v1.5.5', () => {
+  test('exposes every community agent added in CLI v1.5.5', () => {
     // Act
     const ids = AGENT_DEFINITIONS.map((a) => a.id)
     // Assert
@@ -115,7 +115,7 @@ describe('AGENT_DEFINITIONS', () => {
     expect(ids).toContain('tabnine-cli')
   })
 
-  it('exposes every community agent added in CLI v1.5.10', () => {
+  test('exposes every community agent added in CLI v1.5.10', () => {
     // Act
     const ids = AGENT_DEFINITIONS.map((a) => a.id)
     // Assert
@@ -135,7 +135,7 @@ describe('AGENT_DEFINITIONS', () => {
     expect(ids).toContain('zed')
   })
 
-  it('exposes the ZCode community agent added in CLI v1.5.16', () => {
+  test('exposes the ZCode community agent added in CLI v1.5.16', () => {
     // Act
     const zcode = AGENT_DEFINITIONS.find((a) => a.id === 'zcode')
     // Assert — own home dir (~/.zcode/skills), so no universal-source scanDir divergence
@@ -144,7 +144,7 @@ describe('AGENT_DEFINITIONS', () => {
     expect(zcode?.scanDir).toBe('.zcode')
   })
 
-  it('exposes the four community agents added through CLI v1.5.23 with their upstream paths', () => {
+  test('exposes the four community agents added through CLI v1.5.23 with their upstream paths', () => {
     // Arrange / Act
     const addedAgents = [
       'grok',
@@ -186,7 +186,7 @@ describe('AGENT_DEFINITIONS', () => {
     ])
   })
 
-  it('maps Kimi internal id to the renamed kimi-code-cli CLI flag (1.5.10 rename)', () => {
+  test('maps Kimi internal id to the renamed kimi-code-cli CLI flag (1.5.10 rename)', () => {
     // The CLI renamed the --agent value to 'kimi-code-cli' and moved it to the
     // universal source. Internal id stays 'kimi-cli' so persisted Redux state
     // survives; only the cliId tracks upstream.
@@ -200,7 +200,7 @@ describe('AGENT_DEFINITIONS', () => {
 })
 
 describe('AGENT_IDS', () => {
-  it('exposes a non-empty agent-id tuple so the settings z.enum always has at least one member', () => {
+  test('exposes a non-empty agent-id tuple so the settings z.enum always has at least one member', () => {
     // The module guards AGENT_DEFINITIONS against being accidentally emptied
     // before deriving AGENT_IDS, because z.enum(AGENT_IDS) in the settings IPC
     // schema requires a non-empty tuple. If a refactor emptied the source
@@ -212,7 +212,7 @@ describe('AGENT_IDS', () => {
 })
 
 describe('UNIVERSAL_AGENT_IDS', () => {
-  it('lists only agents that exist in AGENT_DEFINITIONS', () => {
+  test('lists only agents that exist in AGENT_DEFINITIONS', () => {
     // Arrange
     const allIds = AGENT_DEFINITIONS.map((a) => a.id)
     // Act / Assert
@@ -221,7 +221,7 @@ describe('UNIVERSAL_AGENT_IDS', () => {
     }
   })
 
-  it('treats the 16 shared-source agents as Universal and excludes Replit', () => {
+  test('treats the 16 shared-source agents as Universal and excludes Replit', () => {
     // Arrange / Act / Assert
     expect(UNIVERSAL_AGENT_IDS).toContain('amp')
     expect(UNIVERSAL_AGENT_IDS).toContain('antigravity')
@@ -244,7 +244,7 @@ describe('UNIVERSAL_AGENT_IDS', () => {
 })
 
 describe('GSTACK constants', () => {
-  it('badges only agents that exist in AGENT_DEFINITIONS', () => {
+  test('badges only agents that exist in AGENT_DEFINITIONS', () => {
     // Arrange
     const allIds = AGENT_DEFINITIONS.map((a) => a.id)
     // Act / Assert
@@ -253,7 +253,7 @@ describe('GSTACK constants', () => {
     }
   })
 
-  it('links the gstack badge to the canonical GitHub repository', () => {
+  test('links the gstack badge to the canonical GitHub repository', () => {
     // Arrange / Act / Assert
     expect(GSTACK_REPOSITORY_URL).toBe('https://github.com/garrytan/gstack')
   })

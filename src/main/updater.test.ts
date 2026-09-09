@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 /**
  * Mutable stand-in for the electron-updater singleton. `applyUpdaterPreferences`
@@ -93,7 +93,7 @@ describe('applyUpdaterPreferences', () => {
     vi.clearAllMocks()
   })
 
-  it('enables background downloads on the updater when the user opts in', () => {
+  test('enables background downloads on the updater when the user opts in', () => {
     // Arrange + Act
     applyUpdaterPreferences({ autoDownloadUpdates: true })
 
@@ -101,7 +101,7 @@ describe('applyUpdaterPreferences', () => {
     expect(mockAutoUpdater.autoDownload).toBe(true)
   })
 
-  it('restores manual downloads when the user turns the toggle back off', () => {
+  test('restores manual downloads when the user turns the toggle back off', () => {
     // Arrange — simulate a prior opt-in that the user then turned back off.
     mockAutoUpdater.autoDownload = true
 
@@ -112,7 +112,7 @@ describe('applyUpdaterPreferences', () => {
     expect(mockAutoUpdater.autoDownload).toBe(false)
   })
 
-  it('pins autoInstallOnAppQuit to false so a downloaded update never installs without UI consent', () => {
+  test('pins autoInstallOnAppQuit to false so a downloaded update never installs without UI consent', () => {
     // Arrange — electron-updater defaults this to true, which would silently
     // install a downloaded update on the next quit, bypassing the
     // confirm-via-UI install flow.
@@ -140,7 +140,7 @@ describe('initAutoUpdaterForE2E', () => {
     vi.clearAllMocks()
   })
 
-  it('forces dev update config so a check can run against the unpacked e2e build', () => {
+  test('forces dev update config so a check can run against the unpacked e2e build', () => {
     // Arrange + Act
     initAutoUpdaterForE2E({ feedUrl: 'http://127.0.0.1:54321' })
 
@@ -148,7 +148,7 @@ describe('initAutoUpdaterForE2E', () => {
     expect(mockAutoUpdater.forceDevUpdateConfig).toBe(true)
   })
 
-  it('disables auto-download so the dummy artifact is never fetched during detection', () => {
+  test('disables auto-download so the dummy artifact is never fetched during detection', () => {
     // Arrange + Act
     initAutoUpdaterForE2E({ feedUrl: 'http://127.0.0.1:54321' })
 
@@ -156,7 +156,7 @@ describe('initAutoUpdaterForE2E', () => {
     expect(mockAutoUpdater.autoDownload).toBe(false)
   })
 
-  it('lowers currentVersion to the passed baseline so a higher feed version compares as available', () => {
+  test('lowers currentVersion to the passed baseline so a higher feed version compares as available', () => {
     // Arrange + Act
     initAutoUpdaterForE2E({
       feedUrl: 'http://127.0.0.1:54321',
@@ -167,7 +167,7 @@ describe('initAutoUpdaterForE2E', () => {
     expect(mockAutoUpdater.currentVersion).toBe('0.0.1')
   })
 
-  it('points the updater at the localhost generic feed', () => {
+  test('points the updater at the localhost generic feed', () => {
     // Arrange + Act
     initAutoUpdaterForE2E({ feedUrl: 'http://127.0.0.1:54321' })
 
@@ -178,7 +178,7 @@ describe('initAutoUpdaterForE2E', () => {
     })
   })
 
-  it('triggers an update check immediately so detection runs without the boot delay', () => {
+  test('triggers an update check immediately so detection runs without the boot delay', () => {
     // Arrange + Act
     initAutoUpdaterForE2E({ feedUrl: 'http://127.0.0.1:54321' })
 
@@ -186,7 +186,7 @@ describe('initAutoUpdaterForE2E', () => {
     expect(mockAutoUpdater.checkForUpdates).toHaveBeenCalledTimes(1)
   })
 
-  it('rejects a non-loopback feed URL so the offline seam can never hit a real network host', () => {
+  test('rejects a non-loopback feed URL so the offline seam can never hit a real network host', () => {
     // Arrange — a public https host that must be refused before any wiring.
     const publicFeedUrl = 'https://example.com'
 
@@ -198,7 +198,7 @@ describe('initAutoUpdaterForE2E', () => {
     expect(mockAutoUpdater.setFeedURL).not.toHaveBeenCalled()
   })
 
-  it('logs an E2E-tagged error when the immediate check rejects so a failed feed surfaces in the harness logs', async () => {
+  test('logs an E2E-tagged error when the immediate check rejects so a failed feed surfaces in the harness logs', async () => {
     // Arrange — the localhost feed fetch fails (e.g. server not yet up).
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
@@ -245,7 +245,7 @@ describe('updater lifecycle events forwarded to the renderer', () => {
     vi.clearAllMocks()
   })
 
-  it('broadcasts the checking state when the updater starts a check', () => {
+  test('broadcasts the checking state when the updater starts a check', () => {
     // Arrange — fire the registered checking-for-update handler.
     const checkingHandler = registeredHandlers.get('checking-for-update')
 
@@ -259,7 +259,7 @@ describe('updater lifecycle events forwarded to the renderer', () => {
     })
   })
 
-  it('broadcasts the new version and its release notes when an update is available', () => {
+  test('broadcasts the new version and its release notes when an update is available', () => {
     // Arrange
     const availableHandler = registeredHandlers.get('update-available')
 
@@ -273,7 +273,7 @@ describe('updater lifecycle events forwarded to the renderer', () => {
     })
   })
 
-  it('omits release notes when the feed provides them as structured HTML blocks instead of a string', () => {
+  test('omits release notes when the feed provides them as structured HTML blocks instead of a string', () => {
     // Arrange — electron-updater can hand back an array of release-note
     // objects; the UI only renders plain-string notes, so non-strings drop.
     const availableHandler = registeredHandlers.get('update-available')
@@ -291,7 +291,7 @@ describe('updater lifecycle events forwarded to the renderer', () => {
     })
   })
 
-  it('broadcasts the not-available state when the installed version is already current', () => {
+  test('broadcasts the not-available state when the installed version is already current', () => {
     // Arrange
     const notAvailableHandler = registeredHandlers.get('update-not-available')
 
@@ -305,7 +305,7 @@ describe('updater lifecycle events forwarded to the renderer', () => {
     })
   })
 
-  it('broadcasts the failure message when the updater errors so the UI can surface it', () => {
+  test('broadcasts the failure message when the updater errors so the UI can surface it', () => {
     // Arrange
     const errorHandler = registeredHandlers.get('error')
 
@@ -319,7 +319,7 @@ describe('updater lifecycle events forwarded to the renderer', () => {
     })
   })
 
-  it('broadcasts live transfer stats while the update downloads so the UI shows progress', () => {
+  test('broadcasts live transfer stats while the update downloads so the UI shows progress', () => {
     // Arrange
     const progressHandler = registeredHandlers.get('download-progress')
 
@@ -343,7 +343,7 @@ describe('updater lifecycle events forwarded to the renderer', () => {
     })
   })
 
-  it('broadcasts the downloaded version so the UI can offer the install action', () => {
+  test('broadcasts the downloaded version so the UI can offer the install action', () => {
     // Arrange
     const downloadedHandler = registeredHandlers.get('update-downloaded')
 
@@ -357,7 +357,7 @@ describe('updater lifecycle events forwarded to the renderer', () => {
     })
   })
 
-  it('omits release notes from the downloaded broadcast when the feed provides them as structured HTML blocks instead of a string', () => {
+  test('omits release notes from the downloaded broadcast when the feed provides them as structured HTML blocks instead of a string', () => {
     // Arrange — electron-updater can hand back an array of release-note objects
     // on the downloaded event too; the UI only renders plain-string notes, so
     // non-strings drop to undefined before the install prompt is shown.
@@ -394,7 +394,7 @@ describe('initAutoUpdater (boot-time check)', () => {
     vi.clearAllMocks()
   })
 
-  it('seeds the updater from the persisted auto-download preference at startup', () => {
+  test('seeds the updater from the persisted auto-download preference at startup', () => {
     // Arrange — the user previously opted into background downloads.
     mockGetSettings.mockReturnValue({ autoDownloadUpdates: true })
 
@@ -405,7 +405,7 @@ describe('initAutoUpdater (boot-time check)', () => {
     expect(mockAutoUpdater.autoDownload).toBe(true)
   })
 
-  it('registers the lifecycle handlers at startup so events reach the renderer', () => {
+  test('registers the lifecycle handlers at startup so events reach the renderer', () => {
     // Arrange + Act
     initAutoUpdater()
 
@@ -413,7 +413,7 @@ describe('initAutoUpdater (boot-time check)', () => {
     expect(registeredHandlers.has('update-available')).toBe(true)
   })
 
-  it('defers the first update check by the boot delay so the renderer can subscribe first', () => {
+  test('defers the first update check by the boot delay so the renderer can subscribe first', () => {
     // Arrange
     initAutoUpdater()
 
@@ -427,7 +427,7 @@ describe('initAutoUpdater (boot-time check)', () => {
     expect(mockAutoUpdater.checkForUpdates).toHaveBeenCalledTimes(1)
   })
 
-  it('logs an error when the delayed boot-time check rejects instead of crashing the main process', async () => {
+  test('logs an error when the delayed boot-time check rejects instead of crashing the main process', async () => {
     // Arrange
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
@@ -461,7 +461,7 @@ describe('renderer-triggered update IPC actions', () => {
     vi.clearAllMocks()
   })
 
-  it('starts the download when the renderer requests it', () => {
+  test('starts the download when the renderer requests it', () => {
     // Arrange + Act
     downloadUpdate()
 
@@ -469,7 +469,7 @@ describe('renderer-triggered update IPC actions', () => {
     expect(mockAutoUpdater.downloadUpdate).toHaveBeenCalledTimes(1)
   })
 
-  it('quits and installs when the renderer confirms the install', () => {
+  test('quits and installs when the renderer confirms the install', () => {
     // Arrange + Act
     installUpdate()
 
@@ -477,7 +477,7 @@ describe('renderer-triggered update IPC actions', () => {
     expect(mockAutoUpdater.quitAndInstall).toHaveBeenCalledTimes(1)
   })
 
-  it('runs a manual update check when the renderer requests one', async () => {
+  test('runs a manual update check when the renderer requests one', async () => {
     // Arrange + Act
     await checkForUpdates()
 

@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { type HttpUrl, type RepositoryId, repositoryId } from '@/shared/types'
@@ -50,7 +50,7 @@ async function renderSourceLink(options: RenderOptions = {}) {
 }
 
 describe('SourceLink role split', () => {
-  it('clicking the repo text replaces the source filter with that repo', async () => {
+  test('clicking the repo text replaces the source filter with that repo', async () => {
     // Arrange
     const { screen, store } = await renderSourceLink({
       source: REPO,
@@ -68,7 +68,7 @@ describe('SourceLink role split', () => {
     await expect.poll(() => store.getState().ui.selectedSources).toEqual([REPO])
   })
 
-  it('opens the repo on GitHub in a new tab via the .git-stripped URL', async () => {
+  test('opens the repo on GitHub in a new tab via the .git-stripped URL', async () => {
     // Arrange
     const { screen } = await renderSourceLink({
       source: REPO,
@@ -86,7 +86,7 @@ describe('SourceLink role split', () => {
     await expect.element(anchor).toHaveAttribute('rel', 'noreferrer')
   })
 
-  it('keeps the surrounding row from being selected when either affordance is clicked', async () => {
+  test('keeps the surrounding row from being selected when either affordance is clicked', async () => {
     // Arrange
     const onParentClick = vi.fn()
     const { screen, store } = await renderSourceLink({
@@ -123,7 +123,7 @@ describe('SourceLink role split', () => {
     expect(onParentClick).not.toHaveBeenCalled()
   })
 
-  it('shows a plain "Local" label with no filter button or external link for a local skill', async () => {
+  test('shows a plain "Local" label with no filter button or external link for a local skill', async () => {
     // Arrange
     const { screen } = await renderSourceLink()
 
@@ -139,7 +139,7 @@ describe('SourceLink role split', () => {
     expect(screen.getByRole('link').query()).toBeNull()
   })
 
-  it('lets keyboard users focus the filter button and the external link independently', async () => {
+  test('lets keyboard users focus the filter button and the external link independently', async () => {
     // Arrange
     const { screen } = await renderSourceLink({
       source: REPO,

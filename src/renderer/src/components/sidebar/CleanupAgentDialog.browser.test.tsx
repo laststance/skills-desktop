@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { AgentId, SyncPreviewResult } from '@/shared/types'
@@ -90,7 +90,7 @@ async function renderClosedThenOpen(agentId: AgentId) {
 }
 
 describe('CleanupAgentDialog', () => {
-  it('stays hidden and runs no preview when no cleanup target is set', async () => {
+  test('stays hidden and runs no preview when no cleanup target is set', async () => {
     // Arrange
     const store = await createStore()
     const { CleanupAgentDialog } = await import('./CleanupAgentDialog')
@@ -111,7 +111,7 @@ describe('CleanupAgentDialog', () => {
     ).toBeNull()
   })
 
-  it('opens with the agent name, preview, and skill count when a target is set', async () => {
+  test('opens with the agent name, preview, and skill count when a target is set', async () => {
     // Arrange + Act
     const { screen } = await renderClosedThenOpen('claude-code')
 
@@ -132,7 +132,7 @@ describe('CleanupAgentDialog', () => {
       .toBeVisible()
   })
 
-  it('warns and closes itself when the cleanup preview fails to load', async () => {
+  test('warns and closes itself when the cleanup preview fails to load', async () => {
     // Arrange
     // A rejected scoped preview must not strand the user on the spinner; the
     // dialog has to surface a toast and dismiss so they can recover.
@@ -151,7 +151,7 @@ describe('CleanupAgentDialog', () => {
     await expect.poll(() => store.getState().ui.cleanupAgentTarget).toBeNull()
   })
 
-  it('recreates the missing symlinks and hands off to the result dialog on confirm', async () => {
+  test('recreates the missing symlinks and hands off to the result dialog on confirm', async () => {
     // Arrange
     const { screen, store } = await renderClosedThenOpen('claude-code')
     await expect
@@ -176,7 +176,7 @@ describe('CleanupAgentDialog', () => {
     await expect.poll(() => store.getState().ui.cleanupAgentTarget).toBeNull()
   })
 
-  it('dismisses without running cleanup when cancelled while idle', async () => {
+  test('dismisses without running cleanup when cancelled while idle', async () => {
     // Arrange
     const { screen, store } = await renderClosedThenOpen('claude-code')
     await expect

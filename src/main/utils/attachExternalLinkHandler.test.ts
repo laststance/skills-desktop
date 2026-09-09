@@ -1,5 +1,5 @@
 import type { BrowserWindow } from 'electron'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const mockOpenExternal = vi.hoisted(() => vi.fn())
 
@@ -51,7 +51,7 @@ describe('attachExternalLinkHandler', () => {
     mockOpenExternal.mockReset()
   })
 
-  it('opens an https link in the OS browser instead of navigating the app window', () => {
+  test('opens an https link in the OS browser instead of navigating the app window', () => {
     // Arrange
     const { window, getHandler } = makeWindowStub()
     attachExternalLinkHandler(window)
@@ -65,7 +65,7 @@ describe('attachExternalLinkHandler', () => {
     expect(result).toEqual({ action: 'deny' })
   })
 
-  it('opens a plain http link in the OS browser instead of navigating the app window', () => {
+  test('opens a plain http link in the OS browser instead of navigating the app window', () => {
     // Arrange
     const { window, getHandler } = makeWindowStub()
     attachExternalLinkHandler(window)
@@ -79,7 +79,7 @@ describe('attachExternalLinkHandler', () => {
     expect(result).toEqual({ action: 'deny' })
   })
 
-  it('refuses to launch a javascript: scheme so marketplace content cannot pivot through the link hook', () => {
+  test('refuses to launch a javascript: scheme so marketplace content cannot pivot through the link hook', () => {
     // Arrange
     const { window, getHandler } = makeWindowStub()
     attachExternalLinkHandler(window)
@@ -93,7 +93,7 @@ describe('attachExternalLinkHandler', () => {
     expect(result).toEqual({ action: 'deny' })
   })
 
-  it('refuses to launch a file: scheme so a listing cannot open local files via the OS', () => {
+  test('refuses to launch a file: scheme so a listing cannot open local files via the OS', () => {
     // Arrange
     const { window, getHandler } = makeWindowStub()
     attachExternalLinkHandler(window)
@@ -107,7 +107,7 @@ describe('attachExternalLinkHandler', () => {
     expect(result).toEqual({ action: 'deny' })
   })
 
-  it('swallows a malformed URL and still denies the in-window navigation', () => {
+  test('swallows a malformed URL and still denies the in-window navigation', () => {
     // Arrange
     const { window, getHandler } = makeWindowStub()
     attachExternalLinkHandler(window)

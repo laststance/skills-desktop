@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 const mockState = vi.hoisted(() => ({
   isPackaged: false,
@@ -51,7 +51,7 @@ describe('installDevelopmentDevToolsExtensions', () => {
     vi.restoreAllMocks()
   })
 
-  it('installs React and Redux DevTools and logs them on a local dev launch', async () => {
+  test('installs React and Redux DevTools and logs them on a local dev launch', async () => {
     // Arrange
     mockInstallExtension.mockResolvedValue([
       { name: 'React Developer Tools' },
@@ -75,7 +75,7 @@ describe('installDevelopmentDevToolsExtensions', () => {
     )
   })
 
-  it('never downloads DevTools extensions into a packaged production build', async () => {
+  test('never downloads DevTools extensions into a packaged production build', async () => {
     // Arrange
     mockState.isPackaged = true
 
@@ -88,7 +88,7 @@ describe('installDevelopmentDevToolsExtensions', () => {
     expect(mockInstallExtension).not.toHaveBeenCalled()
   })
 
-  it('never downloads DevTools extensions during a hidden E2E launch', async () => {
+  test('never downloads DevTools extensions during a hidden E2E launch', async () => {
     // Arrange
     mockState.isE2EBackgroundLaunch = true
 
@@ -101,7 +101,7 @@ describe('installDevelopmentDevToolsExtensions', () => {
     expect(mockInstallExtension).not.toHaveBeenCalled()
   })
 
-  it('honors the local opt-out env var and skips the DevTools download', async () => {
+  test('honors the local opt-out env var and skips the DevTools download', async () => {
     // Arrange
     process.env['SKILLS_DESKTOP_DISABLE_DEVTOOLS_EXTENSIONS'] = '1'
 
@@ -114,7 +114,7 @@ describe('installDevelopmentDevToolsExtensions', () => {
     expect(mockInstallExtension).not.toHaveBeenCalled()
   })
 
-  it('warns but still finishes startup when the DevTools download fails', async () => {
+  test('warns but still finishes startup when the DevTools download fails', async () => {
     // Arrange
     const error = new Error('chrome web store unavailable')
     mockInstallExtension.mockRejectedValue(error)

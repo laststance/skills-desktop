@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import type {
   FilesystemEntryIdentity,
@@ -37,7 +37,7 @@ function makeSkill(name: string, symlinks: SymlinkInfo[]): Skill {
 }
 
 describe('buildAgentUnlinkTargets', () => {
-  it('builds a reviewed unlink target from the agent slot that has both link and target paths', () => {
+  test('builds a reviewed unlink target from the agent slot that has both link and target paths', () => {
     // Arrange — a skill whose cursor slot is a real symlink with a resolvable target
     const skills: Skill[] = [
       makeSkill('task', [
@@ -70,7 +70,7 @@ describe('buildAgentUnlinkTargets', () => {
     expect(result.staleNames).toEqual([])
   })
 
-  it('marks a selected skill stale when its agent slot lost its target path between scan and confirm', () => {
+  test('marks a selected skill stale when its agent slot lost its target path between scan and confirm', () => {
     // Arrange — the cursor slot exists but its symlink target vanished (missing),
     // so targetPath is undefined and the row can no longer be unlinked safely.
     const skills: Skill[] = [
@@ -97,7 +97,7 @@ describe('buildAgentUnlinkTargets', () => {
     expect(result.staleNames).toEqual(['task'])
   })
 
-  it('marks a selected skill stale when it has no slot for the chosen agent', () => {
+  test('marks a selected skill stale when it has no slot for the chosen agent', () => {
     // Arrange — the skill is only linked to codex, but the dialog targets cursor
     const skills: Skill[] = [
       makeSkill('task', [
@@ -124,7 +124,7 @@ describe('buildAgentUnlinkTargets', () => {
     expect(result.staleNames).toEqual(['task'])
   })
 
-  it('marks a selected skill stale when its row is no longer present in the reviewed scan', () => {
+  test('marks a selected skill stale when its row is no longer present in the reviewed scan', () => {
     // Arrange — the selected name is absent from the current skill rows entirely
     const skills: Skill[] = []
 
@@ -142,7 +142,7 @@ describe('buildAgentUnlinkTargets', () => {
 })
 
 describe('partitionGlobalDeleteTargets — protected names', () => {
-  it('routes a protected skill to protectedErrors and excludes it from delete targets', () => {
+  test('routes a protected skill to protectedErrors and excludes it from delete targets', () => {
     // Arrange — a normal source skill selected for deletion, but locked by the user.
     const sourceSkill: Skill = {
       name: toSkillName('task'),
@@ -178,7 +178,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
     expect(result.orphanErrors).toEqual([])
   })
 
-  it('routes a protected orphan skill to protectedErrors and bypasses the orphan cleanup path', () => {
+  test('routes a protected orphan skill to protectedErrors and bypasses the orphan cleanup path', () => {
     // Arrange — an orphan skill (isOrphan=true) that the user has locked.
     // The orphan check runs after the protected check, so a locked orphan
     // must never reach orphan-cleanup records.
@@ -215,7 +215,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
     expect(result.orphanErrors).toEqual([])
   })
 
-  it('only routes the locked skill to protectedErrors when deleting a mixed batch', () => {
+  test('only routes the locked skill to protectedErrors when deleting a mixed batch', () => {
     // Arrange — two skills selected; only one is locked. The unlocked skill must
     // have filesystemIdentity so partitionGlobalDeleteTargets routes it to
     // deleteTargets rather than staleDeleteErrors.
@@ -265,7 +265,7 @@ describe('partitionGlobalDeleteTargets — protected names', () => {
 })
 
 describe('partitionGlobalDeleteTargets', () => {
-  it('cleans up only the dangling non-local agent symlink and ignores a local folder slot and a missing slot of the same orphan', () => {
+  test('cleans up only the dangling non-local agent symlink and ignores a local folder slot and a missing slot of the same orphan', () => {
     // Arrange — an orphan skill (source dir gone) with three differently-shaped
     // slots: a broken non-local symlink that still readlinks to a target
     // (the only safe orphan-cleanup slot), a real local folder masquerading as

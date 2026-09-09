@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { Keybindings } from './Keybindings'
 
 describe('Settings → Keybindings', () => {
-  it('shows the pane heading and read-only description', async () => {
+  test('shows the pane heading and read-only description', async () => {
     // Arrange / Act
     const screen = await render(<Keybindings />)
 
@@ -21,7 +21,7 @@ describe('Settings → Keybindings', () => {
       .toBeVisible()
   })
 
-  it('lists every menu shortcut with its action label and glyph', async () => {
+  test('lists every menu shortcut with its action label and glyph', async () => {
     // Arrange / Act
     const screen = await render(<Keybindings />)
 
@@ -45,7 +45,7 @@ describe('Settings → Keybindings', () => {
     await expect.element(screen.getByText('⌃⌘F')).toBeVisible()
   })
 
-  it('renders one list row per defined shortcut', async () => {
+  test('renders one list row per defined shortcut', async () => {
     // Arrange / Act
     const screen = await render(<Keybindings />)
 

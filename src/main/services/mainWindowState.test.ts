@@ -1,5 +1,5 @@
 import type { BrowserWindow } from 'electron'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { getMainWindow, setMainWindow } from './mainWindowState'
 
@@ -26,7 +26,7 @@ describe('main window reference store', () => {
     setMainWindow(null)
   })
 
-  it('reports no window before any main window has been created', () => {
+  test('reports no window before any main window has been created', () => {
     // Arrange — fresh state from beforeEach: no window has been stored
 
     // Act
@@ -36,7 +36,7 @@ describe('main window reference store', () => {
     expect(currentWindow).toBeNull()
   })
 
-  it('hands back the live main window while it is open', () => {
+  test('hands back the live main window while it is open', () => {
     // Arrange
     const liveWindow = makeWindowStub(false)
     setMainWindow(liveWindow)
@@ -48,7 +48,7 @@ describe('main window reference store', () => {
     expect(currentWindow).toBe(liveWindow)
   })
 
-  it('stops handing out the window once Electron has destroyed it', () => {
+  test('stops handing out the window once Electron has destroyed it', () => {
     // Arrange
     const destroyedWindow = makeWindowStub(true)
     setMainWindow(destroyedWindow)
@@ -60,7 +60,7 @@ describe('main window reference store', () => {
     expect(currentWindow).toBeNull()
   })
 
-  it('clears the stored window when passed null on the close event', () => {
+  test('clears the stored window when passed null on the close event', () => {
     // Arrange
     setMainWindow(makeWindowStub(false))
 

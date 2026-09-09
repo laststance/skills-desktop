@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import type { Agent, SymlinkInfo } from '@/shared/types'
 import { toAbsolutePath, toSkillCount } from '@/shared/types'
@@ -27,7 +27,7 @@ function makeAgent(overrides: Partial<Agent> & Pick<Agent, 'id'>): Agent {
 }
 
 describe('getTargetAgentsForSelection', () => {
-  it('lists installed agents ahead of not-installed ones in the picker', () => {
+  test('lists installed agents ahead of not-installed ones in the picker', () => {
     // Arrange
     const agents: Agent[] = [
       makeAgent({ id: 'cursor', exists: true }),
@@ -48,7 +48,7 @@ describe('getTargetAgentsForSelection', () => {
     ])
   })
 
-  it('hides the source agent from its own copy-target list', () => {
+  test('hides the source agent from its own copy-target list', () => {
     // Arrange
     const agents: Agent[] = [
       makeAgent({ id: 'claude-code', exists: true }),
@@ -65,7 +65,7 @@ describe('getTargetAgentsForSelection', () => {
     expect(result.map((agent) => agent.id)).toEqual(['cursor', 'amp'])
   })
 
-  it('keeps every agent selectable when no source agent is excluded', () => {
+  test('keeps every agent selectable when no source agent is excluded', () => {
     // Arrange
     const agents: Agent[] = [
       makeAgent({ id: 'claude-code', exists: true }),
@@ -86,7 +86,7 @@ describe('getTargetAgentsForSelection', () => {
 })
 
 describe('buildCopyAgentOptionViewModel', () => {
-  it('shows a selected available agent as pre-checked and clickable', () => {
+  test('shows a selected available agent as pre-checked and clickable', () => {
     // Arrange
     const agent = makeAgent({ id: 'codex', exists: true, name: 'Codex' })
 
@@ -108,7 +108,7 @@ describe('buildCopyAgentOptionViewModel', () => {
     })
   })
 
-  it('locks an occupied agent row as a broken-link target before considering install status', () => {
+  test('locks an occupied agent row as a broken-link target before considering install status', () => {
     // Arrange
     const agent = makeAgent({ id: 'cursor', exists: false, name: 'Cursor' })
 
@@ -128,7 +128,7 @@ describe('buildCopyAgentOptionViewModel', () => {
     })
   })
 
-  it('flags an inaccessible agent row as manual review rather than broken cleanup', () => {
+  test('flags an inaccessible agent row as manual review rather than broken cleanup', () => {
     // Arrange
     const agent = makeAgent({ id: 'cursor', exists: true, name: 'Cursor' })
 
@@ -148,7 +148,7 @@ describe('buildCopyAgentOptionViewModel', () => {
     })
   })
 
-  it('greys out an otherwise-selectable row while a copy is in flight or the source is gone', () => {
+  test('greys out an otherwise-selectable row while a copy is in flight or the source is gone', () => {
     // Arrange
     const agent = makeAgent({ id: 'amp', exists: false, name: 'Amp' })
 
@@ -170,7 +170,7 @@ describe('buildCopyAgentOptionViewModel', () => {
 })
 
 describe('getAddAgentSecondaryLabel', () => {
-  it('shows the broken-link reason on an occupied row even when the agent is not installed', () => {
+  test('shows the broken-link reason on an occupied row even when the agent is not installed', () => {
     // Arrange / Act
     const label = getAddAgentSecondaryLabel({
       occupiedReason: 'broken',
@@ -181,7 +181,7 @@ describe('getAddAgentSecondaryLabel', () => {
     expect(label).toBe('broken link')
   })
 
-  it('shows manual-review copy on an inaccessible destination row', () => {
+  test('shows manual-review copy on an inaccessible destination row', () => {
     // Arrange / Act
     const label = getAddAgentSecondaryLabel({
       occupiedReason: 'inaccessible',
@@ -192,7 +192,7 @@ describe('getAddAgentSecondaryLabel', () => {
     expect(label).toBe('manual review required')
   })
 
-  it('shows the not-installed hint on a free agent missing from disk', () => {
+  test('shows the not-installed hint on a free agent missing from disk', () => {
     // Arrange / Act
     const label = getAddAgentSecondaryLabel({
       occupiedReason: undefined,
@@ -203,7 +203,7 @@ describe('getAddAgentSecondaryLabel', () => {
     expect(label).toBe('not installed')
   })
 
-  it('shows no secondary label on a free, already-installed agent row', () => {
+  test('shows no secondary label on a free, already-installed agent row', () => {
     // Arrange / Act
     const label = getAddAgentSecondaryLabel({
       occupiedReason: undefined,
@@ -234,7 +234,7 @@ function makeSymlink(
 }
 
 describe('getOccupiedAgentReasonById', () => {
-  it('marks an inaccessible destination as manual-review so Add/Copy stays blocked', () => {
+  test('marks an inaccessible destination as manual-review so Add/Copy stays blocked', () => {
     // Arrange
     const symlinks: SymlinkInfo[] = [
       makeSymlink({ agentId: 'cursor', status: 'inaccessible' }),
@@ -247,7 +247,7 @@ describe('getOccupiedAgentReasonById', () => {
     expect(result.get('cursor')).toBe('inaccessible')
   })
 
-  it('leaves a missing destination unblocked so users can still select it', () => {
+  test('leaves a missing destination unblocked so users can still select it', () => {
     // Arrange
     const symlinks: SymlinkInfo[] = [
       makeSymlink({ agentId: 'amp', status: 'missing' }),
@@ -261,7 +261,7 @@ describe('getOccupiedAgentReasonById', () => {
     expect(result.size).toBe(0)
   })
 
-  it('records local, valid, and broken slots while skipping the free missing slot', () => {
+  test('records local, valid, and broken slots while skipping the free missing slot', () => {
     // Arrange
     const symlinks: SymlinkInfo[] = [
       makeSymlink({ agentId: 'claude-code', status: 'valid', isLocal: true }),

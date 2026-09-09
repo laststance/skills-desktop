@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { Agent, FilesystemEntryIdentity, Skill } from '@/shared/types'
@@ -133,7 +133,7 @@ async function renderDeleteDialog(options: { agent?: Agent } = {}) {
 }
 
 describe('AgentDeleteDialog confirm action', () => {
-  it('confirms with the agent name and removed-item count in the success toast', async () => {
+  test('confirms with the agent name and removed-item count in the success toast', async () => {
     // Arrange
     mockRemoveAllFromAgent.mockResolvedValue({ success: true, removedCount: 5 })
     const agent = makeAgent({ name: 'Claude Code' as Agent['name'] })
@@ -160,7 +160,7 @@ describe('AgentDeleteDialog confirm action', () => {
       .toBeGreaterThan(0)
   })
 
-  it('sends protected agent slot paths so folder delete preserves them', async () => {
+  test('sends protected agent slot paths so folder delete preserves them', async () => {
     // Arrange
     mockRemoveAllFromAgent.mockResolvedValue({
       success: true,
@@ -217,7 +217,7 @@ describe('AgentDeleteDialog confirm action', () => {
     )
   })
 
-  it('surfaces the IPC failure reason in an error toast when deletion fails', async () => {
+  test('surfaces the IPC failure reason in an error toast when deletion fails', async () => {
     // Arrange
     mockRemoveAllFromAgent.mockResolvedValue({
       success: false,
@@ -242,7 +242,7 @@ describe('AgentDeleteDialog confirm action', () => {
     )
   })
 
-  it('falls back to a generic error message when a stale-scan agent is rejected', async () => {
+  test('falls back to a generic error message when a stale-scan agent is rejected', async () => {
     // Arrange
     // A missing filesystemIdentity makes the thunk reject before reaching IPC;
     // the dialog must still surface a toast so the user is never left without
@@ -270,7 +270,7 @@ describe('AgentDeleteDialog confirm action', () => {
 })
 
 describe('AgentDeleteDialog cancel behavior', () => {
-  it('clears the queued agent when cancelled while idle', async () => {
+  test('clears the queued agent when cancelled while idle', async () => {
     // Arrange
     const agent = makeAgent()
     const { screen, store } = await renderDeleteDialog({ agent })
@@ -286,7 +286,7 @@ describe('AgentDeleteDialog cancel behavior', () => {
     expect(mockRemoveAllFromAgent).not.toHaveBeenCalled()
   })
 
-  it('refuses to dismiss via Escape while a deletion is already in flight', async () => {
+  test('refuses to dismiss via Escape while a deletion is already in flight', async () => {
     // Arrange
     // While deleting is true the dialog must refuse to close so the user cannot
     // abandon an in-progress destructive operation mid-delete.

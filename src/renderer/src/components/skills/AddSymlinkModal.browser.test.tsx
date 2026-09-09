@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { Agent, Skill } from '@/shared/types'
@@ -161,7 +161,7 @@ async function renderModal(options: { skill: Skill; agents: Agent[] }) {
 }
 
 describe('AddSymlinkModal actions', () => {
-  it('offers both Add Symlink and Copy Skill files as ways to attach a skill', async () => {
+  test('offers both Add Symlink and Copy Skill files as ways to attach a skill', async () => {
     // Arrange / Act
     const { screen } = await renderModal({
       skill: makeSkill(),
@@ -177,7 +177,7 @@ describe('AddSymlinkModal actions', () => {
       .toBeInTheDocument()
   })
 
-  it('links the skill into the chosen agent from its existing source path when Add Symlink is clicked', async () => {
+  test('links the skill into the chosen agent from its existing source path when Add Symlink is clicked', async () => {
     // Arrange
     mockCreateSymlinks.mockResolvedValue({
       success: true,
@@ -202,7 +202,7 @@ describe('AddSymlinkModal actions', () => {
     })
   })
 
-  it('copies the skill files into the chosen agent from the source dir when Copy Skill files is clicked', async () => {
+  test('copies the skill files into the chosen agent from the source dir when Copy Skill files is clicked', async () => {
     // Arrange
     mockCopyToAgents.mockResolvedValue({
       success: true,
@@ -227,7 +227,7 @@ describe('AddSymlinkModal actions', () => {
     })
   })
 
-  it('shows a warning toast when copying succeeds only for some agents', async () => {
+  test('shows a warning toast when copying succeeds only for some agents', async () => {
     // Arrange
     mockCopyToAgents.mockResolvedValue({
       success: false,
@@ -248,7 +248,7 @@ describe('AddSymlinkModal actions', () => {
     expect(toastSuccess).not.toHaveBeenCalled()
   })
 
-  it('dismisses the modal when Cancel is clicked and no action is in flight', async () => {
+  test('dismisses the modal when Cancel is clicked and no action is in flight', async () => {
     // Arrange
     const { screen, store } = await renderModal({
       skill: makeSkill(),
@@ -267,7 +267,7 @@ describe('AddSymlinkModal actions', () => {
       .not.toBeInTheDocument()
   })
 
-  it('shows an error toast when linking the skill fails for every agent', async () => {
+  test('shows an error toast when linking the skill fails for every agent', async () => {
     // Arrange
     mockCreateSymlinks.mockResolvedValue({
       success: false,
@@ -289,7 +289,7 @@ describe('AddSymlinkModal actions', () => {
     expect(toastSuccess).not.toHaveBeenCalled()
   })
 
-  it('clears selected agents when the modal closes externally and reopens', async () => {
+  test('clears selected agents when the modal closes externally and reopens', async () => {
     // Arrange
     const firstSkill = makeSkill({ name: toSkillName('task') })
     const secondSkill = makeSkill({
@@ -322,7 +322,7 @@ describe('AddSymlinkModal actions', () => {
 })
 
 describe('AddSymlinkModal occupied-agent states', () => {
-  it('disables linked, local, and broken destinations with their reason labels', async () => {
+  test('disables linked, local, and broken destinations with their reason labels', async () => {
     // Arrange
     const skill = makeSkill({
       symlinks: [
@@ -389,7 +389,7 @@ describe('AddSymlinkModal occupied-agent states', () => {
 })
 
 describe('AddSymlinkModal busy state', () => {
-  it('keeps the modal open and disables both actions while adding symlinks', async () => {
+  test('keeps the modal open and disables both actions while adding symlinks', async () => {
     // Arrange
     const skill = makeSkill()
     const { screen, store } = await renderModal({
@@ -425,7 +425,7 @@ describe('AddSymlinkModal busy state', () => {
     expect(store.getState().skills.skillToAddSymlinks?.name).toBe('task')
   })
 
-  it('keeps the modal open and disables both actions while copying files', async () => {
+  test('keeps the modal open and disables both actions while copying files', async () => {
     // Arrange
     const skill = makeSkill()
     const { screen, store } = await renderModal({

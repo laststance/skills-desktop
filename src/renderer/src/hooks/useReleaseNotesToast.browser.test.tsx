@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
 
 import { RELEASE_NOTES_LAST_SEEN_VERSION_KEY } from '@/shared/constants'
@@ -24,7 +24,7 @@ afterEach(() => {
 })
 
 describe('useReleaseNotesToast', () => {
-  it('does not show the release notes toast on first install', async () => {
+  test('does not show the release notes toast on first install', async () => {
     // Arrange
     const { useReleaseNotesToast } = await import('./useReleaseNotesToast')
 
@@ -40,7 +40,7 @@ describe('useReleaseNotesToast', () => {
     expect(toastMock).not.toHaveBeenCalled()
   })
 
-  it('does not show the release notes toast when the current version was already seen', async () => {
+  test('does not show the release notes toast when the current version was already seen', async () => {
     // Arrange
     window.localStorage.setItem(RELEASE_NOTES_LAST_SEEN_VERSION_KEY, '0.21.1')
     const { useReleaseNotesToast } = await import('./useReleaseNotesToast')
@@ -52,7 +52,7 @@ describe('useReleaseNotesToast', () => {
     expect(toastMock).not.toHaveBeenCalled()
   })
 
-  it('shows a dismissible post-update release notes toast with the View action', async () => {
+  test('shows a dismissible post-update release notes toast with the View action', async () => {
     // Arrange
     window.localStorage.setItem(RELEASE_NOTES_LAST_SEEN_VERSION_KEY, '0.21.0')
     const { useReleaseNotesToast } = await import('./useReleaseNotesToast')

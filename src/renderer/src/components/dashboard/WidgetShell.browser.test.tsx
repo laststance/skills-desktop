@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -102,7 +102,7 @@ async function renderShell(
 }
 
 describe('WidgetShell', () => {
-  it('removes the widget from its page when its remove button is clicked', async () => {
+  test('removes the widget from its page when its remove button is clicked', async () => {
     // Arrange: edit mode on so the remove button renders, plus a sibling widget
     // so the page is not deleted when this one is removed.
     const siblingId = newWidgetInstanceId()
@@ -131,7 +131,7 @@ describe('WidgetShell', () => {
     ).toBe(false)
   })
 
-  it('does not start a widget drag when its remove button is pressed', async () => {
+  test('does not start a widget drag when its remove button is pressed', async () => {
     // Arrange: a parent mousedown spy stands in for react-grid-layout's drag
     // start, which the shell must suppress on the remove button.
     const parentMouseDownSpy = vi.fn()

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import type {
   AgentId,
@@ -74,7 +74,7 @@ function makeSkill(overrides: Partial<Skill> = {}): Skill {
 }
 
 describe('buildSymlinkCleanupPlan', () => {
-  it('shows no cleanup items when every symlink slot is valid', () => {
+  test('shows no cleanup items when every symlink slot is valid', () => {
     // Arrange
     const skills = [
       makeSkill({
@@ -96,7 +96,7 @@ describe('buildSymlinkCleanupPlan', () => {
     })
   })
 
-  it('classifies an orphan skill with broken symlinks as one orphan record', () => {
+  test('classifies an orphan skill with broken symlinks as one orphan record', () => {
     // Arrange
     const skills = [
       makeSkill({
@@ -155,7 +155,7 @@ describe('buildSymlinkCleanupPlan', () => {
     })
   })
 
-  it('classifies a non-orphan broken symlink as a broken agent link', () => {
+  test('classifies a non-orphan broken symlink as a broken agent link', () => {
     // Arrange
     const skills = [
       makeSkill({
@@ -201,7 +201,7 @@ describe('buildSymlinkCleanupPlan', () => {
     })
   })
 
-  it('ignores missing and local slots so coverage gaps are not cleaned', () => {
+  test('ignores missing and local slots so coverage gaps are not cleaned', () => {
     // Arrange
     const skills = [
       makeSkill({
@@ -237,7 +237,7 @@ describe('buildSymlinkCleanupPlan', () => {
     expect(getSymlinkCleanupPlanItems(plan)).toEqual([])
   })
 
-  it('keeps same skill broken in two agents as independently selectable rows', () => {
+  test('keeps same skill broken in two agents as independently selectable rows', () => {
     // Arrange
     const skills = [
       makeSkill({
@@ -269,7 +269,7 @@ describe('buildSymlinkCleanupPlan', () => {
     ])
   })
 
-  it('escapes cleanup id segments so separators cannot collide', () => {
+  test('escapes cleanup id segments so separators cannot collide', () => {
     // Arrange
     const agentId = 'cursor' as AgentId
     const linkName = toSkillName('name:with/slash')
@@ -281,7 +281,7 @@ describe('buildSymlinkCleanupPlan', () => {
     expect(itemId).toBe('broken:cursor:name%3Awith%2Fslash')
   })
 
-  it('keeps orphan cleanup id literals stable for persisted row state', () => {
+  test('keeps orphan cleanup id literals stable for persisted row state', () => {
     // Arrange
     const skillName = toSkillName('name:with/slash')
 
@@ -294,7 +294,7 @@ describe('buildSymlinkCleanupPlan', () => {
 })
 
 describe('getLinkNameFromPath', () => {
-  it('uses the final agent-side path segment as the unlink name', () => {
+  test('uses the final agent-side path segment as the unlink name', () => {
     // Arrange
     const linkPath = '/Users/test/.cursor/skills/link-folder-name'
 
@@ -305,7 +305,7 @@ describe('getLinkNameFromPath', () => {
     expect(linkName).toBe('link-folder-name')
   })
 
-  it('returns the raw path when it has no nameable final segment', () => {
+  test('returns the raw path when it has no nameable final segment', () => {
     // Arrange
     const linkPath = toAbsolutePath('/')
 

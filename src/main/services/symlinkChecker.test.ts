@@ -1,6 +1,6 @@
 import { dirname, join, resolve } from 'node:path'
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { toAbsolutePath, toSkillName } from '@/shared/types'
 
@@ -77,7 +77,7 @@ describe('checkSymlinkStatus', () => {
     realpathMock.mockImplementation(async (path: string) => path)
   })
 
-  it('reports a skill as valid when its symlink resolves to a reachable target', async () => {
+  test('reports a skill as valid when its symlink resolves to a reachable target', async () => {
     // Arrange
     lstatMock.mockResolvedValue(
       createStats({ isSymbolicLink: true, isDirectory: false }),
@@ -101,7 +101,7 @@ describe('checkSymlinkStatus', () => {
     )
   })
 
-  it('flags a skill as broken when its symlink target was deleted', async () => {
+  test('flags a skill as broken when its symlink target was deleted', async () => {
     // Arrange
     lstatMock.mockResolvedValue(
       createStats({ isSymbolicLink: true, isDirectory: false }),
@@ -119,7 +119,7 @@ describe('checkSymlinkStatus', () => {
     expect(result).toBe('broken')
   })
 
-  it('marks a skill inaccessible when permission denial blocks probing its target', async () => {
+  test('marks a skill inaccessible when permission denial blocks probing its target', async () => {
     // Arrange
     lstatMock.mockResolvedValue(
       createStats({ isSymbolicLink: true, isDirectory: false }),
@@ -139,7 +139,7 @@ describe('checkSymlinkStatus', () => {
     expect(result).toBe('inaccessible')
   })
 
-  it('reports a skill as missing when nothing exists at the agent path', async () => {
+  test('reports a skill as missing when nothing exists at the agent path', async () => {
     // Arrange
     lstatMock.mockRejectedValue(makeFsError('ENOENT'))
 
@@ -153,7 +153,7 @@ describe('checkSymlinkStatus', () => {
     expect(result).toBe('missing')
   })
 
-  it('treats a real directory at the agent path as missing instead of reading it as a link', async () => {
+  test('treats a real directory at the agent path as missing instead of reading it as a link', async () => {
     // Arrange
     lstatMock.mockResolvedValue(
       createStats({ isSymbolicLink: false, isDirectory: true }),
@@ -170,7 +170,7 @@ describe('checkSymlinkStatus', () => {
     expect(readlinkMock).not.toHaveBeenCalled()
   })
 
-  it('keeps a relative-target symlink valid by probing the resolved absolute path', async () => {
+  test('keeps a relative-target symlink valid by probing the resolved absolute path', async () => {
     // Arrange
     const linkPath = '/mock/agents/claude/skills/my-skill'
     const relativeTarget = '../../../.agents/skills/my-skill'
@@ -191,7 +191,7 @@ describe('checkSymlinkStatus', () => {
     expect(accessMock).toHaveBeenCalledWith(expectedResolved)
   })
 
-  it('keeps relative symlink valid when parent directory is itself symlinked', async () => {
+  test('keeps relative symlink valid when parent directory is itself symlinked', async () => {
     // Arrange
     const linkPath = '/Users/raphtalia/.config/devin/skills/analyze-app'
     const relativeTarget = '../../../../.agents/skills/analyze-app'
@@ -225,7 +225,7 @@ describe('checkSkillSymlinks', () => {
     realpathMock.mockImplementation(async (path: string) => path)
   })
 
-  it('marks every agent broken when they all symlink to the same deleted source', async () => {
+  test('marks every agent broken when they all symlink to the same deleted source', async () => {
     // Arrange
     lstatMock.mockImplementation(async (path: string) => {
       if (path === join('/mock/agents/claude/skills', 'my-skill')) {
@@ -259,7 +259,7 @@ describe('checkSkillSymlinks', () => {
     expect(results[1]).toMatchObject({ agentId: 'cursor', status: 'broken' })
   })
 
-  it('marks an agent inaccessible when a permission denial blocks probing the symlink target', async () => {
+  test('marks an agent inaccessible when a permission denial blocks probing the symlink target', async () => {
     // Arrange
     // Symlink resolves, but access() is denied (EACCES, not a missing-path
     // code). checkLinkOrLocal's catch must map this to 'inaccessible', NOT
@@ -284,7 +284,7 @@ describe('checkSkillSymlinks', () => {
     expect(cursor.isLocal).toBe(false)
   })
 
-  it('distinguishes a broken installed link from an agent that never had the skill', async () => {
+  test('distinguishes a broken installed link from an agent that never had the skill', async () => {
     // Arrange
     lstatMock.mockImplementation(async (path: string) => {
       if (path === join('/mock/agents/claude/skills', 'partial-skill')) {
@@ -311,7 +311,7 @@ describe('checkSkillSymlinks', () => {
     expect(cursor.targetPath).toBeUndefined()
   })
 
-  it('surfaces the resolved source path on every agent that has a healthy link', async () => {
+  test('surfaces the resolved source path on every agent that has a healthy link', async () => {
     // Arrange
     lstatMock.mockResolvedValue(
       createStats({ isSymbolicLink: true, isDirectory: false }),
@@ -335,7 +335,7 @@ describe('checkSkillSymlinks', () => {
     expect(cursor.isLocal).toBe(false)
   })
 
-  it('treats a real folder living inside an agent dir as a valid local-only skill', async () => {
+  test('treats a real folder living inside an agent dir as a valid local-only skill', async () => {
     // Arrange
     lstatMock.mockResolvedValue(
       createStats({ isSymbolicLink: false, isDirectory: true }),
@@ -373,7 +373,7 @@ describe('checkSkillSymlinks', () => {
     })
   })
 
-  it('reports the skill as missing on every agent when no agent has it installed', async () => {
+  test('reports the skill as missing on every agent when no agent has it installed', async () => {
     // Arrange
     lstatMock.mockRejectedValue(makeFsError('ENOENT'))
 
@@ -393,7 +393,7 @@ describe('checkSkillSymlinks', () => {
     expect(cursor.targetPath).toBeUndefined()
   })
 
-  it('never leaks a raw relative target into targetPath or the access probe', async () => {
+  test('never leaks a raw relative target into targetPath or the access probe', async () => {
     // Arrange
     const relativeTarget = '../../../.agents/skills/good-skill'
 
@@ -427,7 +427,7 @@ describe('checkSkillSymlinks', () => {
     }
   })
 
-  it('reports physical targetPath for relative symlinks under a symlinked parent directory', async () => {
+  test('reports physical targetPath for relative symlinks under a symlinked parent directory', async () => {
     // Arrange
     const relativeTarget = '../../../../.agents/skills/good-skill'
     const physicalParent = '/Users/raphtalia/dotfiles/.config/devin/skills'
@@ -456,7 +456,7 @@ describe('checkSkillSymlinks', () => {
     )
   })
 
-  it('points each agent result at that agent own skills directory link path', async () => {
+  test('points each agent result at that agent own skills directory link path', async () => {
     // Arrange
     lstatMock.mockRejectedValue(makeFsError('ENOENT'))
 
@@ -476,7 +476,7 @@ describe('checkSkillSymlinks', () => {
     )
   })
 
-  it('treats a plain file sitting in an agent dir as a missing skill, not a link', async () => {
+  test('treats a plain file sitting in an agent dir as a missing skill, not a link', async () => {
     // Arrange
     // A regular file (not a symlink, not a directory) parked at the skill path:
     // checkLinkOrLocal's ts-pattern falls through to the .otherwise branch, so
@@ -503,7 +503,7 @@ describe('checkSkillSymlinks', () => {
     expect(readlinkMock).not.toHaveBeenCalled()
   })
 
-  it('still reports a local skill valid when its directory identity cannot be read mid-scan', async () => {
+  test('still reports a local skill valid when its directory identity cannot be read mid-scan', async () => {
     // Arrange
     // Local-folder slot: the first lstat (inside checkLinkOrLocal) sees a real
     // directory, but the follow-up lstat used to capture filesystem identity
@@ -551,7 +551,7 @@ describe('checkSymlinkTargetFromKnownLink', () => {
     realpathMock.mockImplementation(async (path: string) => path)
   })
 
-  it('reports a known link as valid when its target is reachable', async () => {
+  test('reports a known link as valid when its target is reachable', async () => {
     // Arrange
     // The caller already proved this is a symlink (via Dirent.isSymbolicLink),
     // so the fast path skips lstat and goes straight to the target probe.
@@ -569,7 +569,7 @@ describe('checkSymlinkTargetFromKnownLink', () => {
     expect(lstatMock).not.toHaveBeenCalled() // Fast path skips the redundant lstat
   })
 
-  it('reports the known link as missing when it disappears before its target can be read', async () => {
+  test('reports the known link as missing when it disappears before its target can be read', async () => {
     // Arrange
     // readlink throws (link deleted mid-scan), so resolveSymlinkTarget bubbles
     // the error out and the fast path falls back to 'missing' rather than crash.
@@ -592,7 +592,7 @@ describe('readSymlinkTargetIfPresent', () => {
     realpathMock.mockImplementation(async (path: string) => path)
   })
 
-  it('surfaces a gstack absolute symlink target so the renderer can match the gstack segment', async () => {
+  test('surfaces a gstack absolute symlink target so the renderer can match the gstack segment', async () => {
     // Arrange
     // gstack creates symlinks with absolute targets (verified on a real machine
     // via `readlink ~/.claude/skills/ship/SKILL.md`). This is the production case.
@@ -611,7 +611,7 @@ describe('readSymlinkTargetIfPresent', () => {
     expect(result).toBe('/mock/.claude/skills/gstack/ship/SKILL.md')
   })
 
-  it('absolutizes a relative symlink target so the renderer gstack-segment check still works', async () => {
+  test('absolutizes a relative symlink target so the renderer gstack-segment check still works', async () => {
     // Arrange
     // Defensive case: if a user (or a future gstack version) creates the
     // symlink with a relative target, the helper must still return an
@@ -634,7 +634,7 @@ describe('readSymlinkTargetIfPresent', () => {
     expect(result).toMatch(/^\//) // Must be absolute
   })
 
-  it('still surfaces the target of a broken symlink without probing the target existence', async () => {
+  test('still surfaces the target of a broken symlink without probing the target existence', async () => {
     // Arrange
     // The helper does NOT call access() — it only needs the target string for
     // the renderer's path-segment match. Broken symlinks still surface a target.
@@ -656,7 +656,7 @@ describe('readSymlinkTargetIfPresent', () => {
     expect(accessMock).not.toHaveBeenCalled() // No existence probe
   })
 
-  it('reports no symlink target for a regular file and skips reading it as a link', async () => {
+  test('reports no symlink target for a regular file and skips reading it as a link', async () => {
     // Arrange
     lstatMock.mockResolvedValue(
       createStats({ isSymbolicLink: false, isDirectory: false }),
@@ -674,7 +674,7 @@ describe('readSymlinkTargetIfPresent', () => {
     expect(accessMock).not.toHaveBeenCalled() // No existence probe
   })
 
-  it('reports no symlink target for a directory and skips reading it as a link', async () => {
+  test('reports no symlink target for a directory and skips reading it as a link', async () => {
     // Arrange
     lstatMock.mockResolvedValue(
       createStats({ isSymbolicLink: false, isDirectory: true }),
@@ -692,7 +692,7 @@ describe('readSymlinkTargetIfPresent', () => {
     expect(accessMock).not.toHaveBeenCalled() // No existence probe
   })
 
-  it('reports no symlink target when nothing exists at the path', async () => {
+  test('reports no symlink target when nothing exists at the path', async () => {
     // Arrange
     lstatMock.mockRejectedValue(makeFsError('ENOENT'))
 
@@ -706,7 +706,7 @@ describe('readSymlinkTargetIfPresent', () => {
     expect(result).toBeUndefined()
   })
 
-  it('reports no symlink target when the link is deleted between lstat and readlink', async () => {
+  test('reports no symlink target when the link is deleted between lstat and readlink', async () => {
     // Arrange
     lstatMock.mockResolvedValue(
       createStats({ isSymbolicLink: true, isDirectory: false }),
@@ -725,7 +725,7 @@ describe('readSymlinkTargetIfPresent', () => {
 })
 
 describe('countValidSymlinks', () => {
-  it('counts only the healthy links when a skill has a mix of valid, broken, and missing slots', async () => {
+  test('counts only the healthy links when a skill has a mix of valid, broken, and missing slots', async () => {
     // Arrange
     const { countValidSymlinks } = await import('./symlinkChecker')
 
@@ -768,7 +768,7 @@ describe('countValidSymlinks', () => {
     expect(countValidSymlinks(symlinks as any)).toBe(2)
   })
 
-  it('counts zero healthy links when every slot for the skill is broken', async () => {
+  test('counts zero healthy links when every slot for the skill is broken', async () => {
     // Arrange
     const { countValidSymlinks } = await import('./symlinkChecker')
 
@@ -795,7 +795,7 @@ describe('countValidSymlinks', () => {
     expect(countValidSymlinks(symlinks as any)).toBe(0)
   })
 
-  it('counts zero healthy links for a skill that is installed nowhere', async () => {
+  test('counts zero healthy links for a skill that is installed nowhere', async () => {
     // Arrange
     const { countValidSymlinks } = await import('./symlinkChecker')
     // Act + Assert

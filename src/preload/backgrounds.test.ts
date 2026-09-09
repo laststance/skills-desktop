@@ -4,7 +4,7 @@ import {
   beforeEach,
   describe,
   expect,
-  it,
+  test,
   vi,
 } from 'vitest'
 
@@ -67,7 +67,7 @@ describe('background preload bridge', () => {
 
   afterAll(() => vi.unstubAllGlobals())
 
-  it.each([
+  test.each([
     { kind: 'upload-draft', draftId: 'bff22dd2-3507-4e22-b580-28f4d97d8216' },
     { kind: 'upload', uploadId: 'bff22dd2-3507-4e22-b580-28f4d97d8216' },
   ])(
@@ -98,7 +98,7 @@ describe('background preload bridge', () => {
     },
   )
 
-  it('keeps picker cancellation distinct from an imported draft', async () => {
+  test('keeps picker cancellation distinct from an imported draft', async () => {
     // Arrange
     electronMock.invoke.mockResolvedValue(null)
     // Act
@@ -110,7 +110,7 @@ describe('background preload bridge', () => {
     )
   })
 
-  it('forwards only an opaque token when discarding an unaccepted upload', async () => {
+  test('forwards only an opaque token when discarding an unaccepted upload', async () => {
     // Arrange
     electronMock.invoke.mockResolvedValue(undefined)
     // Act
@@ -124,7 +124,7 @@ describe('background preload bridge', () => {
     )
   })
 
-  it('returns the canonical settings from layout and library operations', async () => {
+  test('returns the canonical settings from layout and library operations', async () => {
     // Arrange
     electronMock.invoke.mockResolvedValue(DEFAULT_SETTINGS)
     const api = getBackgroundsApi()
@@ -148,7 +148,7 @@ describe('background preload bridge', () => {
     ])
   })
 
-  it('keeps bounded previews and catalog reads behind Main IPC', async () => {
+  test('keeps bounded previews and catalog reads behind Main IPC', async () => {
     // Arrange
     const api = getBackgroundsApi()
     electronMock.invoke.mockResolvedValue({ builtins: [], uploads: [] })
@@ -163,7 +163,7 @@ describe('background preload bridge', () => {
     ])
   })
 
-  it('asks Main to retry the current display and preserves its explicit retry revision', async () => {
+  test('asks Main to retry the current display and preserves its explicit retry revision', async () => {
     // Arrange
     const snapshot: BackgroundSnapshot = {
       revision: 5,
@@ -186,7 +186,7 @@ describe('background preload bridge', () => {
     })
   })
 
-  it('subscribes before snapshot retrieval and removes the exact listener on closure', async () => {
+  test('subscribes before snapshot retrieval and removes the exact listener on closure', async () => {
     // Arrange
     const api = getBackgroundsApi()
     const receiveSnapshot = vi.fn()

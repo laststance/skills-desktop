@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -120,7 +120,7 @@ async function renderAgents(
  *  - "Show all" is disabled when nothing is hidden
  */
 describe('Settings → Agents', () => {
-  it('hides an installed agent from the sidebar when its row is unchecked', async () => {
+  test('hides an installed agent from the sidebar when its row is unchecked', async () => {
     // Arrange
     const { screen } = await renderAgents([])
 
@@ -137,7 +137,7 @@ describe('Settings → Agents', () => {
     })
   })
 
-  it('restores a hidden agent to the sidebar when its row is re-checked', async () => {
+  test('restores a hidden agent to the sidebar when its row is re-checked', async () => {
     // Arrange
     const { screen } = await renderAgents(['claude-code'])
 
@@ -153,7 +153,7 @@ describe('Settings → Agents', () => {
     })
   })
 
-  it('reveals every hidden agent at once when "Show all" is clicked', async () => {
+  test('reveals every hidden agent at once when "Show all" is clicked', async () => {
     // Arrange
     const { screen } = await renderAgents(['claude-code', 'cursor'])
 
@@ -167,7 +167,7 @@ describe('Settings → Agents', () => {
     })
   })
 
-  it('disables "Show all" when no agent is currently hidden', async () => {
+  test('disables "Show all" when no agent is currently hidden', async () => {
     // Arrange
     const { screen } = await renderAgents([])
 
@@ -178,7 +178,7 @@ describe('Settings → Agents', () => {
     await expect.element(showAllButton).toBeDisabled()
   })
 
-  it('counts one visible and one hidden when a single agent is hidden', async () => {
+  test('counts one visible and one hidden when a single agent is hidden', async () => {
     // Arrange — 2 installed, 1 hidden → 1 visible · 1 hidden
     const { screen } = await renderAgents(['cursor'])
 
@@ -189,7 +189,7 @@ describe('Settings → Agents', () => {
     await expect.element(counter).toBeInTheDocument()
   })
 
-  it('shows a loading placeholder mid-scan instead of a false "no agents" message', async () => {
+  test('shows a loading placeholder mid-scan instead of a false "no agents" message', async () => {
     // Arrange — Settings can open before the main window has finished its
     // first scan. Without the loading placeholder users see "No agents
     // detected" mid-scan and panic that nothing's installed.
@@ -207,7 +207,7 @@ describe('Settings → Agents', () => {
     await expect.element(loadingPlaceholder).toBeInTheDocument()
   })
 
-  it('shows a fresh-machine hint once a finished scan finds no agents', async () => {
+  test('shows a fresh-machine hint once a finished scan finds no agents', async () => {
     // Arrange — Distinct copy from the loading state: once the scan finishes
     // and genuinely finds nothing, the user gets a fresh-machine hint.
     //
@@ -224,7 +224,7 @@ describe('Settings → Agents', () => {
     await expect.element(emptyMessage).toBeInTheDocument()
   })
 
-  it('keeps a not-installed agent in a non-toggleable "not installed" disclosure', async () => {
+  test('keeps a not-installed agent in a non-toggleable "not installed" disclosure', async () => {
     // Arrange — The "N not installed" details/summary is the only place the
     // user sees uninstalled agents in this pane. Ensure it shows up with the
     // count and a disabled checkbox so a future refactor cannot accidentally
@@ -259,7 +259,7 @@ describe('Settings → Agents', () => {
     await expect.element(disabledCheckbox).toBeDisabled()
   })
 
-  it('badges a hidden agent row with a "Hidden" tag for at-a-glance scanning', async () => {
+  test('badges a hidden agent row with a "Hidden" tag for at-a-glance scanning', async () => {
     // Arrange — Visual cue inside the row tells the user at a glance which
     // agents are currently hidden; without it the only signal is the
     // unchecked checkbox, easy to miss while scanning a long list.

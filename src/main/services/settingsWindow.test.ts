@@ -1,5 +1,5 @@
 import type { BrowserWindowConstructorOptions } from 'electron'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 type WindowEventHandler = () => void
 
@@ -85,7 +85,7 @@ describe('createOrFocusSettingsWindow', () => {
     delete process.env['ELECTRON_RENDERER_URL']
   })
 
-  it("opens Settings without Electron's standard title bar frame while keeping macOS traffic lights", async () => {
+  test("opens Settings without Electron's standard title bar frame while keeping macOS traffic lights", async () => {
     // Arrange
     const { createOrFocusSettingsWindow } = await importFreshSettingsWindow()
 
@@ -101,7 +101,7 @@ describe('createOrFocusSettingsWindow', () => {
     })
   })
 
-  it('focuses the already-open Settings window instead of opening a second one', async () => {
+  test('focuses the already-open Settings window instead of opening a second one', async () => {
     // Arrange
     const { createOrFocusSettingsWindow } = await importFreshSettingsWindow()
     createOrFocusSettingsWindow()
@@ -116,7 +116,7 @@ describe('createOrFocusSettingsWindow', () => {
     expect(existingWindow?.restore).not.toHaveBeenCalled()
   })
 
-  it('un-minimizes the Settings window before focusing it when it was minimized', async () => {
+  test('un-minimizes the Settings window before focusing it when it was minimized', async () => {
     // Arrange
     const { createOrFocusSettingsWindow } = await importFreshSettingsWindow()
     createOrFocusSettingsWindow()
@@ -131,7 +131,7 @@ describe('createOrFocusSettingsWindow', () => {
     expect(existingWindow?.focus).toHaveBeenCalledTimes(1)
   })
 
-  it('opens a fresh Settings window again after the previous one was closed', async () => {
+  test('opens a fresh Settings window again after the previous one was closed', async () => {
     // Arrange
     const { createOrFocusSettingsWindow } = await importFreshSettingsWindow()
     createOrFocusSettingsWindow()
@@ -147,7 +147,7 @@ describe('createOrFocusSettingsWindow', () => {
     expect(firstWindow?.focus).not.toHaveBeenCalled()
   })
 
-  it('reveals the Settings window once its content is ready to show', async () => {
+  test('reveals the Settings window once its content is ready to show', async () => {
     // Arrange
     const { createOrFocusSettingsWindow } = await importFreshSettingsWindow()
     createOrFocusSettingsWindow()
@@ -161,7 +161,7 @@ describe('createOrFocusSettingsWindow', () => {
     expect(window?.show).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps the Settings window hidden when launched in E2E background mode', async () => {
+  test('keeps the Settings window hidden when launched in E2E background mode', async () => {
     // Arrange
     vi.stubEnv('E2E_BACKGROUND_LAUNCH', '1')
     const { createOrFocusSettingsWindow } = await importFreshSettingsWindow()
@@ -177,7 +177,7 @@ describe('createOrFocusSettingsWindow', () => {
     vi.unstubAllEnvs()
   })
 
-  it('hot-reloads the Settings UI from the dev renderer URL in development', async () => {
+  test('hot-reloads the Settings UI from the dev renderer URL in development', async () => {
     // Arrange
     process.env['ELECTRON_RENDERER_URL'] = 'http://localhost:5173'
     const { createOrFocusSettingsWindow } = await importFreshSettingsWindow()

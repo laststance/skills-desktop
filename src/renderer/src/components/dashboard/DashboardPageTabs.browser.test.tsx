@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -75,7 +75,7 @@ describe('DashboardPageTabs', () => {
     vi.restoreAllMocks()
   })
 
-  it('hides the bar entirely in view mode when only one page exists', async () => {
+  test('hides the bar entirely in view mode when only one page exists', async () => {
     // Arrange: a single page, view mode — nothing to switch between.
     const { screen } = await renderTabs({ pages: [makePage('Solo')] })
 
@@ -85,7 +85,7 @@ describe('DashboardPageTabs', () => {
     expect(screen.getByRole('tablist').query()).toBeNull()
   })
 
-  it('shows every page as a switchable tab once there are multiple pages', async () => {
+  test('shows every page as a switchable tab once there are multiple pages', async () => {
     // Arrange: two pages in plain view mode.
     const overview = makePage('Overview')
     const discovery = makePage('Discovery')
@@ -105,7 +105,7 @@ describe('DashboardPageTabs', () => {
       .toHaveAttribute('aria-selected', 'false')
   })
 
-  it('switches the active page when another tab is clicked', async () => {
+  test('switches the active page when another tab is clicked', async () => {
     // Arrange: start on the first of two pages.
     const overview = makePage('Overview')
     const discovery = makePage('Discovery')
@@ -123,7 +123,7 @@ describe('DashboardPageTabs', () => {
       .toBe(discovery.id)
   })
 
-  it('shows the bar with an add button in edit mode even for a single page', async () => {
+  test('shows the bar with an add button in edit mode even for a single page', async () => {
     // Arrange: one page, but edit mode forces the bar to host the "+" button.
     const { screen } = await renderTabs({
       pages: [makePage('Solo')],
@@ -138,7 +138,7 @@ describe('DashboardPageTabs', () => {
       .toBeVisible()
   })
 
-  it('appends a new page when the add button is clicked in edit mode', async () => {
+  test('appends a new page when the add button is clicked in edit mode', async () => {
     // Arrange: one page in edit mode.
     const { screen, store } = await renderTabs({
       pages: [makePage('Solo')],
@@ -161,7 +161,7 @@ describe('DashboardPageTabs', () => {
       .toBe(true)
   })
 
-  it('moves selection to the previous tab on ArrowLeft and wraps past the first', async () => {
+  test('moves selection to the previous tab on ArrowLeft and wraps past the first', async () => {
     // Arrange: three pages, active on the middle one.
     const first = makePage('First')
     const second = makePage('Second')
@@ -202,7 +202,7 @@ describe('DashboardPageTabs', () => {
       .toBe(third.id)
   })
 
-  it('moves selection to the next tab on ArrowRight and wraps past the last', async () => {
+  test('moves selection to the next tab on ArrowRight and wraps past the last', async () => {
     // Arrange: three pages, active on the last one.
     const first = makePage('First')
     const second = makePage('Second')
@@ -243,7 +243,7 @@ describe('DashboardPageTabs', () => {
       .toBe(second.id)
   })
 
-  it('jumps to the first and last tab on Home and End', async () => {
+  test('jumps to the first and last tab on Home and End', async () => {
     // Arrange: three pages, active on the middle one.
     const first = makePage('First')
     const second = makePage('Second')
@@ -284,7 +284,7 @@ describe('DashboardPageTabs', () => {
       .toBe(first.id)
   })
 
-  it('leaves selection untouched for keys that are not navigation keys', async () => {
+  test('leaves selection untouched for keys that are not navigation keys', async () => {
     // Arrange: two pages, active on the first.
     const overview = makePage('Overview')
     const discovery = makePage('Discovery')
@@ -310,7 +310,7 @@ describe('DashboardPageTabs', () => {
       .toBe(overview.id)
   })
 
-  it('moves keyboard focus to the newly-selected tab after arrow navigation', async () => {
+  test('moves keyboard focus to the newly-selected tab after arrow navigation', async () => {
     // Arrange: two pages, active on the first.
     const overview = makePage('Overview')
     const discovery = makePage('Discovery')
@@ -336,7 +336,7 @@ describe('DashboardPageTabs', () => {
       .toHaveFocus()
   })
 
-  it('opens an inline rename input from the tab options menu in edit mode', async () => {
+  test('opens an inline rename input from the tab options menu in edit mode', async () => {
     // Arrange: one page in edit mode (the dropdown only shows in edit mode).
     const { screen } = await renderTabs({
       pages: [makePage('Overview')],
@@ -353,7 +353,7 @@ describe('DashboardPageTabs', () => {
       .toHaveValue('Overview')
   })
 
-  it('commits a changed page name when Enter is pressed in the rename field', async () => {
+  test('commits a changed page name when Enter is pressed in the rename field', async () => {
     // Arrange: open the rename field for the only page.
     const { screen, store } = await renderTabs({
       pages: [makePage('Overview')],
@@ -382,7 +382,7 @@ describe('DashboardPageTabs', () => {
       .toBeVisible()
   })
 
-  it('discards the rename and keeps the original name when Escape is pressed', async () => {
+  test('discards the rename and keeps the original name when Escape is pressed', async () => {
     // Arrange: open the rename field for the only page.
     const { screen, store } = await renderTabs({
       pages: [makePage('Overview')],
@@ -411,7 +411,7 @@ describe('DashboardPageTabs', () => {
       .toBe('Overview')
   })
 
-  it('deletes the page after the destructive confirm dialog is accepted', async () => {
+  test('deletes the page after the destructive confirm dialog is accepted', async () => {
     // Arrange: two pages in edit mode so the delete item is offered.
     const overview = makePage('Overview')
     const discovery = makePage('Discovery')
@@ -431,7 +431,7 @@ describe('DashboardPageTabs', () => {
     expect(store.getState().dashboard.pages[0]?.name).toBe('Discovery')
   })
 
-  it('keeps the page when the destructive confirm dialog is cancelled', async () => {
+  test('keeps the page when the destructive confirm dialog is cancelled', async () => {
     // Arrange: two pages in edit mode so the delete item is offered.
     const overview = makePage('Overview')
     const discovery = makePage('Discovery')

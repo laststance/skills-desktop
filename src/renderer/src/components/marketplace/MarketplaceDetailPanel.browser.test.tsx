@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import type { ReactElement } from 'react'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { SkillSearchResult } from '@/shared/types'
@@ -118,7 +118,7 @@ function createWillNavigateEvent(url: string): Event & { url: string } {
 }
 
 describe('MarketplaceDetailPanel routing', () => {
-  it('shows the Marketplace dashboard heading when nothing is selected for preview', async () => {
+  test('shows the Marketplace dashboard heading when nothing is selected for preview', async () => {
     // Arrange
     const store = await createStore()
     const { MarketplaceDetailPanel } = await import('./MarketplaceDetailPanel')
@@ -132,7 +132,7 @@ describe('MarketplaceDetailPanel routing', () => {
       .toBeInTheDocument()
   })
 
-  it('opens the skill preview with a Back to Dashboard escape hatch after a skill is chosen', async () => {
+  test('opens the skill preview with a Back to Dashboard escape hatch after a skill is chosen', async () => {
     // Arrange
     const store = await createStore()
     const { setPreviewSkill } =
@@ -151,7 +151,7 @@ describe('MarketplaceDetailPanel routing', () => {
 })
 
 describe('MarketplaceDashboard trending placeholders', () => {
-  it('shows a loading skeleton, announced to screen readers, before trending skills have been fetched', async () => {
+  test('shows a loading skeleton, announced to screen readers, before trending skills have been fetched', async () => {
     // Arrange
     const store = await createStore()
     const { MarketplaceDashboard } = await import('./MarketplaceDashboard')
@@ -165,7 +165,7 @@ describe('MarketplaceDashboard trending placeholders', () => {
       .toBeInTheDocument()
   })
 
-  it('shows an empty-state message when trending skills load but return nothing', async () => {
+  test('shows an empty-state message when trending skills load but return nothing', async () => {
     // Arrange
     const store = await createStore()
     const { loadLeaderboard } =
@@ -188,7 +188,7 @@ describe('MarketplaceDashboard trending placeholders', () => {
       .toBeInTheDocument()
   })
 
-  it('shows an offline notice when the trending fetch fails with nothing cached', async () => {
+  test('shows an offline notice when the trending fetch fails with nothing cached', async () => {
     // Arrange — seed the failed state, then make the mount re-fetch fail too so
     // the panel settles back on the error branch (errors bypass the TTL gate,
     // so the dashboard re-requests trending on mount).
@@ -216,7 +216,7 @@ describe('MarketplaceDashboard trending placeholders', () => {
 })
 
 describe('MarketplaceSkillPreview will-navigate allowlist', () => {
-  it('blocks navigation to other origins and to skills.sh on a non-standard port while letting skills.sh through', async () => {
+  test('blocks navigation to other origins and to skills.sh on a non-standard port while letting skills.sh through', async () => {
     // Arrange
     const store = await createStore()
     const { MarketplaceSkillPreview } =

@@ -1,6 +1,6 @@
 import type { Stats } from 'node:fs'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import type { FilesystemEntryIdentity } from '@/shared/types'
 import { toFileSizeBytes } from '@/shared/types'
@@ -30,7 +30,7 @@ describe('filesystem identity guards for destructive deletes', () => {
   }
 
   describe('isReviewedEntryUnchangedIdentity (strict pre-operation gate)', () => {
-    it('treats a reused-inode same-path replacement as changed so the wrong folder is not deleted', () => {
+    test('treats a reused-inode same-path replacement as changed so the wrong folder is not deleted', () => {
       // Arrange: rm+mkdir recycled the inode number, so dev/ino/size/mtime all
       // collide; only the freshly initialized ctime gives the replacement away.
       const recreatedWithSameInode: FilesystemEntryIdentity = {
@@ -52,7 +52,7 @@ describe('filesystem identity guards for destructive deletes', () => {
       expect(isUnchanged).toBe(false)
     })
 
-    it('keeps an untouched reviewed folder deletable when every field matches', () => {
+    test('keeps an untouched reviewed folder deletable when every field matches', () => {
       // Arrange: same object, nothing changed since review.
       const unchanged: FilesystemEntryIdentity = {
         kind: 'directory',
@@ -73,7 +73,7 @@ describe('filesystem identity guards for destructive deletes', () => {
       expect(isUnchanged).toBe(true)
     })
 
-    it('rejects a different inode appearing at the reviewed path', () => {
+    test('rejects a different inode appearing at the reviewed path', () => {
       // Arrange: a genuinely different object now occupies the path.
       const differentInode: FilesystemEntryIdentity = {
         kind: 'directory',
@@ -94,7 +94,7 @@ describe('filesystem identity guards for destructive deletes', () => {
       expect(isUnchanged).toBe(false)
     })
 
-    it('rejects when the reviewed directory was replaced by a symlink', () => {
+    test('rejects when the reviewed directory was replaced by a symlink', () => {
       // Arrange: kind flipped from directory to symlink.
       const symlinkAtSamePath: FilesystemEntryIdentity = {
         kind: 'symlink',
@@ -115,7 +115,7 @@ describe('filesystem identity guards for destructive deletes', () => {
       expect(isUnchanged).toBe(false)
     })
 
-    it('rejects a fresh-ctime replacement on a filesystem that reports no inode', () => {
+    test('rejects a fresh-ctime replacement on a filesystem that reports no inode', () => {
       // Arrange: dev=ino=0 (no inode support) so identity falls back to
       // size+ctime+mtime; a replacement bumps ctime even here.
       const reviewedNoInode: FilesystemEntryIdentity = {
@@ -147,7 +147,7 @@ describe('filesystem identity guards for destructive deletes', () => {
   })
 
   describe('isSameFilesystemEntryIdentity (rename-stable post-rename check)', () => {
-    it('still matches a reused-inode entry whose ctime moved, so our own quarantine rename is not flagged stale', () => {
+    test('still matches a reused-inode entry whose ctime moved, so our own quarantine rename is not flagged stale', () => {
       // Arrange: rename preserves dev+ino but bumps ctime; the post-rename
       // re-check must ignore ctime or every legitimate delete would fail.
       const renamedSameInode: FilesystemEntryIdentity = {
@@ -169,7 +169,7 @@ describe('filesystem identity guards for destructive deletes', () => {
       expect(isSame).toBe(true)
     })
 
-    it('rejects a different inode at the reviewed path', () => {
+    test('rejects a different inode at the reviewed path', () => {
       // Arrange: different object, different inode.
       const differentInode: FilesystemEntryIdentity = {
         kind: 'directory',
@@ -190,7 +190,7 @@ describe('filesystem identity guards for destructive deletes', () => {
       expect(isSame).toBe(false)
     })
 
-    it('treats two inode-less entries as the same object when size and both timestamps match', () => {
+    test('treats two inode-less entries as the same object when size and both timestamps match', () => {
       // Arrange: FAT32/network mounts report dev=ino=0, so the inode fast path
       // is skipped and identity rests on size+ctime+mtime — all matching here.
       const reviewedNoInode: FilesystemEntryIdentity = {
@@ -256,7 +256,7 @@ describe('filesystem identity guards for destructive deletes', () => {
       birthtimeInstant: undefined,
     } satisfies Stats
 
-    it('labels an entry as a symlink so destructive UI treats it as a link, not its target', () => {
+    test('labels an entry as a symlink so destructive UI treats it as a link, not its target', () => {
       // Arrange: lstat saw a symbolic link (directory/file predicates irrelevant).
       const symlinkStats = { ...baseStats, isSymbolicLink: () => true }
 
@@ -267,7 +267,7 @@ describe('filesystem identity guards for destructive deletes', () => {
       expect(identity.kind).toBe('symlink')
     })
 
-    it('labels a non-symlink directory as a directory so a folder delete is gated as a folder', () => {
+    test('labels a non-symlink directory as a directory so a folder delete is gated as a folder', () => {
       // Arrange: a real directory — symlink predicate false, directory predicate true.
       const directoryStats = { ...baseStats, isDirectory: () => true }
 
@@ -278,7 +278,7 @@ describe('filesystem identity guards for destructive deletes', () => {
       expect(identity.kind).toBe('directory')
     })
 
-    it('labels a plain file as a file when it is neither a symlink nor a directory', () => {
+    test('labels a plain file as a file when it is neither a symlink nor a directory', () => {
       // Arrange: a regular file — only isFile is true.
       const fileStats = { ...baseStats, isFile: () => true }
 
@@ -289,7 +289,7 @@ describe('filesystem identity guards for destructive deletes', () => {
       expect(identity.kind).toBe('file')
     })
 
-    it('labels a block/char/FIFO/socket as other when no standard predicate matches', () => {
+    test('labels a block/char/FIFO/socket as other when no standard predicate matches', () => {
       // Arrange: a block device — not a symlink, directory, or file, so the
       // ternary falls through to the 'other' arm the destructive UI must handle.
       const blockDeviceStats = { ...baseStats, isBlockDevice: () => true }

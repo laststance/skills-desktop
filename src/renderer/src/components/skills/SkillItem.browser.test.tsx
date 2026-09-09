@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -109,7 +109,7 @@ async function renderSkillItem(skill: Skill) {
 }
 
 describe('SkillItem bulk-select checkbox visibility', () => {
-  it('hides the bulk-select checkbox in a normal clean list', async () => {
+  test('hides the bulk-select checkbox in a normal clean list', async () => {
     // Arrange
     const { screen } = await renderSkillItem(makeSkill())
 
@@ -125,7 +125,7 @@ describe('SkillItem bulk-select checkbox visibility', () => {
     expect(screen.getByRole('checkbox').query()).toBeNull()
   })
 
-  it('reveals the bulk-select checkbox after entering bulk select mode', async () => {
+  test('reveals the bulk-select checkbox after entering bulk select mode', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(makeSkill())
     const { enterBulkSelectMode } =
@@ -138,7 +138,7 @@ describe('SkillItem bulk-select checkbox visibility', () => {
     await expect.element(screen.getByRole('checkbox')).toBeInTheDocument()
   })
 
-  it('labels the unticked bulk checkbox "Select {name}" for screen readers', async () => {
+  test('labels the unticked bulk checkbox "Select {name}" for screen readers', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: toSkillName('task') }),
@@ -155,7 +155,7 @@ describe('SkillItem bulk-select checkbox visibility', () => {
       .toBeInTheDocument()
   })
 
-  it('flips the checkbox label to "Deselect {name}" once the skill is ticked', async () => {
+  test('flips the checkbox label to "Deselect {name}" once the skill is ticked', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: toSkillName('task') }),
@@ -175,7 +175,7 @@ describe('SkillItem bulk-select checkbox visibility', () => {
       .toBeInTheDocument()
   })
 
-  it('removes the bulk-select checkbox when exiting bulk select mode', async () => {
+  test('removes the bulk-select checkbox when exiting bulk select mode', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(makeSkill())
     const { enterBulkSelectMode, exitBulkSelectMode } =
@@ -194,7 +194,7 @@ describe('SkillItem bulk-select checkbox visibility', () => {
 })
 
 describe('SkillItem symlink status badges', () => {
-  it('shows inaccessible slots instead of treating them as unlinked', async () => {
+  test('shows inaccessible slots instead of treating them as unlinked', async () => {
     // Arrange
     const inaccessibleSkill = makeSkill({
       symlinks: [
@@ -219,7 +219,7 @@ describe('SkillItem symlink status badges', () => {
     expect(screen.getByText('Not linked to any agent').query()).toBeNull()
   })
 
-  it('hides the normal unlink button for inaccessible slots in agent view', async () => {
+  test('hides the normal unlink button for inaccessible slots in agent view', async () => {
     // Arrange
     const inaccessibleSkill = makeSkill({
       symlinks: [
@@ -250,7 +250,7 @@ describe('SkillItem symlink status badges', () => {
     ).toBeNull()
   })
 
-  it('hides the normal unlink button for broken slots in agent view', async () => {
+  test('hides the normal unlink button for broken slots in agent view', async () => {
     // Arrange
     const brokenSkill = makeSkill({
       symlinks: [
@@ -294,7 +294,7 @@ describe('SkillItem symlink status badges', () => {
       .toBeNull()
   })
 
-  it('hides Add for inaccessible slots so copy routing cannot fan out', async () => {
+  test('hides Add for inaccessible slots so copy routing cannot fan out', async () => {
     // Arrange
     const inaccessibleSkill = makeSkill({
       symlinks: [
@@ -325,7 +325,7 @@ describe('SkillItem symlink status badges', () => {
       .toBeNull()
   })
 
-  it('renders a disabled checkbox for broken agent rows that cannot use generic unlink', async () => {
+  test('renders a disabled checkbox for broken agent rows that cannot use generic unlink', async () => {
     // Arrange
     const brokenSkill = makeSkill({
       symlinks: [
@@ -366,7 +366,7 @@ describe('SkillItem delete button', () => {
   // fork was retired (npx skills spawn was unreliable for ~/.agents/skills);
   // stale lock-file entries are the accepted trade-off.
 
-  it('offers a "Delete {name}" button for a source-tracked skill', async () => {
+  test('offers a "Delete {name}" button for a source-tracked skill', async () => {
     // Arrange
     const { screen } = await renderSkillItem(
       makeSkill({
@@ -384,7 +384,7 @@ describe('SkillItem delete button', () => {
       .toBeInTheDocument()
   })
 
-  it('offers a "Delete {name}" button for a plain skill', async () => {
+  test('offers a "Delete {name}" button for a plain skill', async () => {
     // Arrange
     const { screen } = await renderSkillItem(
       makeSkill({ name: toSkillName('local-skill') }),
@@ -399,7 +399,7 @@ describe('SkillItem delete button', () => {
       .toBeInTheDocument()
   })
 
-  it('opens the trash confirm dialog when deleting a source-tracked skill', async () => {
+  test('opens the trash confirm dialog when deleting a source-tracked skill', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({
@@ -438,7 +438,7 @@ describe('SkillItem delete button', () => {
     })
   })
 
-  it('opens the trash confirm dialog when deleting a plain skill', async () => {
+  test('opens the trash confirm dialog when deleting a plain skill', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: toSkillName('local-skill') }),
@@ -469,7 +469,7 @@ describe('SkillItem delete button', () => {
     })
   })
 
-  it('does not open the inspector pane when the delete button is clicked', async () => {
+  test('does not open the inspector pane when the delete button is clicked', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: toSkillName('brainstorming') }),
@@ -490,7 +490,7 @@ describe('SkillItem delete button', () => {
 })
 
 describe('SkillItem Add button routing', () => {
-  it('keeps Add out of the row heading so screen readers announce only the skill name', async () => {
+  test('keeps Add out of the row heading so screen readers announce only the skill name', async () => {
     // Arrange
     const { screen } = await renderSkillItem(makeSkill())
 
@@ -509,7 +509,7 @@ describe('SkillItem Add button routing', () => {
       .toBeInTheDocument()
   })
 
-  it('shows the Add button in agent view when the skill exists in the selected agent', async () => {
+  test('shows the Add button in agent view when the skill exists in the selected agent', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({
@@ -536,7 +536,7 @@ describe('SkillItem Add button routing', () => {
       .toBeInTheDocument()
   })
 
-  it('opens the copy-to-agent modal when Add is clicked in agent view', async () => {
+  test('opens the copy-to-agent modal when Add is clicked in agent view', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({
@@ -563,7 +563,7 @@ describe('SkillItem Add button routing', () => {
     expect(store.getState().skills.skillToAddSymlinks).toBeNull()
   })
 
-  it('opens the add-symlink modal when Add is clicked in global view', async () => {
+  test('opens the add-symlink modal when Add is clicked in global view', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(makeSkill())
 
@@ -577,7 +577,7 @@ describe('SkillItem Add button routing', () => {
 })
 
 describe('SkillItem G-Stack badge', () => {
-  it('shows a G-Stack badge link in supported agent view for gstack-managed skills', async () => {
+  test('shows a G-Stack badge link in supported agent view for gstack-managed skills', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({
@@ -611,7 +611,7 @@ describe('SkillItem G-Stack badge', () => {
       .toHaveAttribute('href', GSTACK_REPOSITORY_URL)
   })
 
-  it('hides the G-Stack badge in global view', async () => {
+  test('hides the G-Stack badge in global view', async () => {
     // Arrange
     const { screen } = await renderSkillItem(
       makeSkill({
@@ -635,7 +635,7 @@ describe('SkillItem G-Stack badge', () => {
     expect(screen.getByRole('link', { name: /G-Stack/i }).query()).toBeNull()
   })
 
-  it('shows badge for gstack-managed sibling skills (local skill whose SKILL.md symlinks into gstack)', async () => {
+  test('shows badge for gstack-managed sibling skills (local skill whose SKILL.md symlinks into gstack)', async () => {
     // Arrange
     // Real production scenario: ~/.claude/skills/ship/ is a real directory
     // whose only entry is a SKILL.md symlink → ~/.claude/skills/gstack/ship/SKILL.md.
@@ -674,7 +674,7 @@ describe('SkillItem G-Stack badge', () => {
       .toHaveAttribute('href', GSTACK_REPOSITORY_URL)
   })
 
-  it('hides the badge when skillMdSymlinkTarget points outside the gstack tree', async () => {
+  test('hides the badge when skillMdSymlinkTarget points outside the gstack tree', async () => {
     // Arrange
     // Negative coverage at the wired-up SkillItem level: a local skill with
     // skillMdSymlinkTarget set but pointing at a user-managed path (no
@@ -717,7 +717,7 @@ describe('SkillItem bulk-select checkbox stopPropagation', () => {
   // fires alongside the toggle — a click on the checkbox would both tick AND
   // flip selectedSkill, which is never what the user wants.
 
-  it('ticks the row for bulk select without opening the inspector pane', async () => {
+  test('ticks the row for bulk select without opening the inspector pane', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: toSkillName('task') }),
@@ -736,7 +736,7 @@ describe('SkillItem bulk-select checkbox stopPropagation', () => {
     expect(store.getState().skills.selectedSkill).toBeNull()
   })
 
-  it('extends the selection to the whole range on a shift-click with an existing anchor', async () => {
+  test('extends the selection to the whole range on a shift-click with an existing anchor', async () => {
     // Arrange
     // Seed three visible rows so the range slice is meaningful, then plant an
     // anchor on 'alpha' (toggleSelection records the anchor). The rendered row
@@ -786,7 +786,7 @@ describe('SkillItem bulk-select checkbox stopPropagation', () => {
 })
 
 describe('SkillItem unlink button', () => {
-  it('stages the symlink for removal when unlinking a valid skill in agent view', async () => {
+  test('stages the symlink for removal when unlinking a valid skill in agent view', async () => {
     // Arrange
     const validSkill = makeSkill({
       name: toSkillName('task'),
@@ -823,7 +823,7 @@ describe('SkillItem unlink button', () => {
     expect(store.getState().skills.selectedSkill).toBeNull()
   })
 
-  it('stages the local-folder slot for removal when deleting a local skill in agent view', async () => {
+  test('stages the local-folder slot for removal when deleting a local skill in agent view', async () => {
     // Arrange
     // A real local folder (isLocal: true) in the selected agent's skills dir
     // has no source symlink, so handleUnlinkClick must fall back to
@@ -865,7 +865,7 @@ describe('SkillItem unlink button', () => {
 })
 
 describe('SkillItem bookmark toggle', () => {
-  it('bookmarks an unbookmarked skill with its repo and url', async () => {
+  test('bookmarks an unbookmarked skill with its repo and url', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({
@@ -889,7 +889,7 @@ describe('SkillItem bookmark toggle', () => {
     expect(bookmarks[0].url).toBe('https://github.com/vercel-labs/agent-skills')
   })
 
-  it('removes the bookmark when toggling an already-bookmarked skill', async () => {
+  test('removes the bookmark when toggling an already-bookmarked skill', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({
@@ -918,7 +918,7 @@ describe('SkillItem bookmark toggle', () => {
 })
 
 describe('SkillItem card click', () => {
-  it('opens the inspector pane on the clicked skill when the card body is clicked', async () => {
+  test('opens the inspector pane on the clicked skill when the card body is clicked', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({
@@ -938,7 +938,7 @@ describe('SkillItem card click', () => {
 })
 
 describe('SkillItem G-Stack badge click', () => {
-  it('keeps the inspector closed when the G-Stack badge is clicked', async () => {
+  test('keeps the inspector closed when the G-Stack badge is clicked', async () => {
     // Arrange
     // The badge is a real anchor; in agent view its onClick stops propagation
     // so the row's Card onClick (inspector select) never fires. Block the
@@ -988,7 +988,7 @@ describe('SkillItem G-Stack badge click', () => {
 })
 
 describe('SkillItem copy context menu', () => {
-  it('stages the skill for copy when "Copy to..." is chosen from the right-click menu', async () => {
+  test('stages the skill for copy when "Copy to..." is chosen from the right-click menu', async () => {
     // Arrange
     // Copy is only offered in agent view for a usable (valid, non-local) skill.
     const validSkill = makeSkill({
@@ -1029,7 +1029,7 @@ describe('SkillItem copy context menu', () => {
     expect(store.getState().skills.skillToCopy?.name).toBe('task')
   })
 
-  it('does not open the right-click menu for a skill that cannot be copied', async () => {
+  test('does not open the right-click menu for a skill that cannot be copied', async () => {
     // Arrange
     // Global view: showCopyButton is false, so onContextMenu returns early and
     // no menu item is ever rendered.
@@ -1051,7 +1051,7 @@ describe('SkillItem copy context menu', () => {
 })
 
 describe('SkillItem partial-failure flash', () => {
-  it('flashes a red left edge for the matching row then clears it after the timeout', async () => {
+  test('flashes a red left edge for the matching row then clears it after the timeout', async () => {
     // Arrange
     const { screen } = await renderSkillItem(
       makeSkill({ name: toSkillName('task') }),
@@ -1080,7 +1080,7 @@ describe('SkillItem partial-failure flash', () => {
       .toBe(false)
   })
 
-  it('ignores a failure event addressed to a different row', async () => {
+  test('ignores a failure event addressed to a different row', async () => {
     // Arrange
     const { screen } = await renderSkillItem(
       makeSkill({ name: toSkillName('task') }),
@@ -1103,7 +1103,7 @@ describe('SkillItem partial-failure flash', () => {
 })
 
 describe('SkillItem protection', () => {
-  it('shows a "Lock {name}" button when the skill is not protected', async () => {
+  test('shows a "Lock {name}" button when the skill is not protected', async () => {
     // Arrange — default store has protect.items=[], so the skill is unlocked.
     const { screen } = await renderSkillItem(
       makeSkill({ name: toSkillName('task') }),
@@ -1149,7 +1149,7 @@ describe('SkillItem protection', () => {
     expect(store.getState().protect.items).toEqual([{ name: 'task' }])
   })
 
-  it('labels a protected skill and offers an Unlock action', async () => {
+  test('labels a protected skill and offers an Unlock action', async () => {
     // Arrange — dispatch addProtection before rendering so ProtectButton
     // receives isProtected=true and renders the Lock icon.
     const { screen, store } = await renderSkillItem(
@@ -1170,7 +1170,7 @@ describe('SkillItem protection', () => {
       .toBeVisible()
   })
 
-  it('explains that delete is unavailable while the skill is protected', async () => {
+  test('explains that delete is unavailable while the skill is protected', async () => {
     // Arrange
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: toSkillName('task') }),
@@ -1189,7 +1189,7 @@ describe('SkillItem protection', () => {
     await expect.element(deleteButton).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('removes the Protected label and enables delete after unlocking', async () => {
+  test('removes the Protected label and enables delete after unlocking', async () => {
     // Arrange — start locked, then unlock.
     const { screen, store } = await renderSkillItem(
       makeSkill({ name: toSkillName('task') }),
@@ -1210,7 +1210,7 @@ describe('SkillItem protection', () => {
       .not.toBeInTheDocument()
   })
 
-  it('hides the agent-view unlink button when the skill is locked', async () => {
+  test('hides the agent-view unlink button when the skill is locked', async () => {
     // Arrange
     const linkedSkill = makeSkill({
       name: toSkillName('task'),
@@ -1247,7 +1247,7 @@ describe('SkillItem protection', () => {
       .toBeNull()
   })
 
-  it('hides the agent-view local delete button when the skill is locked', async () => {
+  test('hides the agent-view local delete button when the skill is locked', async () => {
     // Arrange
     const localSkill = makeSkill({
       name: toSkillName('task'),
@@ -1283,7 +1283,7 @@ describe('SkillItem protection', () => {
       .toBeNull()
   })
 
-  it('restores the agent-view unlink button when the skill is unlocked', async () => {
+  test('restores the agent-view unlink button when the skill is unlocked', async () => {
     // Arrange
     const linkedSkill = makeSkill({
       name: toSkillName('task'),

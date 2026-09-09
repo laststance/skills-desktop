@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { PreviewContent } from '@/renderer/src/hooks/useCodePreview'
@@ -43,7 +43,7 @@ describe('FileContent code theme', () => {
     )
   })
 
-  it('highlights the code preview using the user-selected theme pair', async () => {
+  test('highlights the code preview using the user-selected theme pair', async () => {
     // Arrange
     const { FileContent } = await import('./FileContent')
 
@@ -67,7 +67,7 @@ describe('FileContent code theme', () => {
     )
   })
 
-  it('keeps the previous colored output mounted during a theme-only switch, never flashing plain text', async () => {
+  test('keeps the previous colored output mounted during a theme-only switch, never flashing plain text', async () => {
     // Arrange — the first highlight resolves with a recognizable theme-A marker.
     const { FileContent } = await import('./FileContent')
     mockCodeToHtml.mockResolvedValueOnce(
@@ -120,7 +120,7 @@ describe('FileContent code theme', () => {
       .toBeInTheDocument()
   })
 
-  it('falls back to plain text while re-highlighting after a file switch, never bleeding the previous colors', async () => {
+  test('falls back to plain text while re-highlighting after a file switch, never bleeding the previous colors', async () => {
     // Arrange — file A highlights with a recognizable marker.
     const { FileContent } = await import('./FileContent')
     mockCodeToHtml.mockResolvedValueOnce(

@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { RepositoryId, SkillSearchResult } from '@/shared/types'
@@ -92,7 +92,7 @@ async function renderRow(skill: SkillSearchResult, isInstalled: boolean) {
  * have to delete a test that explicitly says "no destructive action."
  */
 describe('SkillRowMarketplace — installed row has no destructive action', () => {
-  it('offers no Remove button on an already-installed skill', async () => {
+  test('offers no Remove button on an already-installed skill', async () => {
     // Arrange
     const { screen } = await renderRow(makeSkill(), true)
 
@@ -105,7 +105,7 @@ describe('SkillRowMarketplace — installed row has no destructive action', () =
     expect(removeButton).toBeNull()
   })
 
-  it('offers no Uninstall button on an already-installed skill', async () => {
+  test('offers no Uninstall button on an already-installed skill', async () => {
     // Arrange
     const { screen } = await renderRow(makeSkill(), true)
 
@@ -118,7 +118,7 @@ describe('SkillRowMarketplace — installed row has no destructive action', () =
     expect(uninstallButton).toBeNull()
   })
 
-  it('offers no Trash or Delete icon button on an already-installed skill', async () => {
+  test('offers no Trash or Delete icon button on an already-installed skill', async () => {
     // Arrange
     const { screen } = await renderRow(makeSkill(), true)
 
@@ -131,7 +131,7 @@ describe('SkillRowMarketplace — installed row has no destructive action', () =
     expect(deleteButton).toBeNull()
   })
 
-  it('shows an Installed badge whose hint spells out the npx remove --global command', async () => {
+  test('shows an Installed badge whose hint spells out the npx remove --global command', async () => {
     // Arrange
     const skill = makeSkill({ name: toSkillName('lint') })
 
@@ -155,7 +155,7 @@ describe('SkillRowMarketplace — installed row has no destructive action', () =
       .toBeInTheDocument()
   })
 
-  it('shows an Install button on a not-yet-installed skill', async () => {
+  test('shows an Install button on a not-yet-installed skill', async () => {
     // Arrange
     const { screen } = await renderRow(makeSkill(), false)
 
@@ -178,7 +178,7 @@ describe('SkillRowMarketplace — installed row has no destructive action', () =
  * it. Two cases lock both directions: unbookmarked → bookmarked and back.
  */
 describe('SkillRowMarketplace — bookmark toggle', () => {
-  it('bookmarks a skill and saves it when the star is clicked', async () => {
+  test('bookmarks a skill and saves it when the star is clicked', async () => {
     // Arrange
     const { screen, store } = await renderRow(makeSkill(), false)
 
@@ -196,7 +196,7 @@ describe('SkillRowMarketplace — bookmark toggle', () => {
     ])
   })
 
-  it('removes a skill from the saved list when its star is clicked a second time', async () => {
+  test('removes a skill from the saved list when its star is clicked a second time', async () => {
     // Arrange
     const { screen, store } = await renderRow(makeSkill(), false)
     const bookmarkButton = screen.getByRole('button', { name: 'Bookmark task' })
@@ -223,7 +223,7 @@ describe('SkillRowMarketplace — bookmark toggle', () => {
  * concatenation of its rank, name, and repo text.
  */
 describe('SkillRowMarketplace — open preview from row body', () => {
-  it('opens the preview pane for the skill when its name row is clicked', async () => {
+  test('opens the preview pane for the skill when its name row is clicked', async () => {
     // Arrange
     const skill = makeSkill({
       rank: toSkillRank(1),
@@ -249,7 +249,7 @@ describe('SkillRowMarketplace — open preview from row body', () => {
  * never opens and installs are dead — this test locks that wiring.
  */
 describe('SkillRowMarketplace — stage install from row', () => {
-  it('stages the skill for installation when Install is clicked', async () => {
+  test('stages the skill for installation when Install is clicked', async () => {
     // Arrange
     const skill = makeSkill({ name: toSkillName('lint') })
     const { screen, store } = await renderRow(skill, false)

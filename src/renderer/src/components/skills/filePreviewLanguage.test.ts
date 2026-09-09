@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { toFileExtension, toFileName } from '@/shared/types'
 
@@ -9,7 +9,7 @@ import {
 } from './filePreviewLanguage'
 
 describe('filePreviewLanguage', () => {
-  it('highlights each common skill file extension with the right Shiki language, case- and dot-insensitively', () => {
+  test('highlights each common skill file extension with the right Shiki language, case- and dot-insensitively', () => {
     // Arrange — common extensions in mixed case, with and without a leading dot,
     // plus the empty/null/undefined inputs that must yield no language.
     // Act
@@ -37,7 +37,7 @@ describe('filePreviewLanguage', () => {
     expect(undefinedExtension).toBeUndefined()
   })
 
-  it('highlights a preview file with the Shiki language that matches its extension', () => {
+  test('highlights a preview file with the Shiki language that matches its extension', () => {
     // Arrange — known preview files spanning TS, TSX, JS, and JSON.
     // Act
     const tsLanguage = languageForPreview({
@@ -64,7 +64,7 @@ describe('filePreviewLanguage', () => {
     expect(jsonLanguage).toBe('json')
   })
 
-  it('falls back to plain text highlighting for an unknown extension instead of failing', () => {
+  test('falls back to plain text highlighting for an unknown extension instead of failing', () => {
     // Arrange — a preview file with an extension Shiki does not recognize.
     // Act
     const language = languageForPreview({
@@ -76,7 +76,7 @@ describe('filePreviewLanguage', () => {
     expect(language).toBe('text')
   })
 
-  it('highlights an extensionless Makefile with Make syntax', () => {
+  test('highlights an extensionless Makefile with Make syntax', () => {
     // Arrange — a Makefile has no extension, so the language must come from its name.
     // Act
     const language = languageForPreview({
@@ -88,7 +88,7 @@ describe('filePreviewLanguage', () => {
     expect(language).toBe('make')
   })
 
-  it('highlights an extensionless Dockerfile with Dockerfile syntax', () => {
+  test('highlights an extensionless Dockerfile with Dockerfile syntax', () => {
     // Arrange — a Dockerfile has no extension, so the language must come from its name.
     // Act
     const language = languageForPreview({
@@ -100,7 +100,7 @@ describe('filePreviewLanguage', () => {
     expect(language).toBe('dockerfile')
   })
 
-  it('opens Markdown variants and extensionless READMEs in Reading Mode, but not look-alike files', () => {
+  test('opens Markdown variants and extensionless READMEs in Reading Mode, but not look-alike files', () => {
     // Arrange — Markdown extensions in several spellings/cases plus an
     // extensionless README (all should be Markdown), alongside non-Markdown
     // look-alikes (.tsx, a ".md.txt" name, and missing/null/undefined

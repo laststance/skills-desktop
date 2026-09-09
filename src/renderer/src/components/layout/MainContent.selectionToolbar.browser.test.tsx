@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -181,7 +181,7 @@ describe('MainContent SelectionToolbar integration', () => {
     vi.unstubAllGlobals()
   })
 
-  it('Select all visible excludes broken and inaccessible agent rows from bulk unlink payload', async () => {
+  test('Select all visible excludes broken and inaccessible agent rows from bulk unlink payload', async () => {
     const { screen, store } = await renderMainContentWithToolbar()
     const { fetchAgents } =
       await import('@/renderer/src/redux/slices/agentsSlice')

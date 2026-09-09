@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -229,7 +229,7 @@ function measureInstalledListLayout(
 }
 
 describe('SkillsList loading branch — scroll-preservation regression', () => {
-  it('shows the "Loading skills..." placeholder on initial fetch (loading=true, items=[])', async () => {
+  test('shows the "Loading skills..." placeholder on initial fetch (loading=true, items=[])', async () => {
     // Arrange
     // Pin getAll on a never-resolving promise so the on-mount fetchSkills
     // useEffect cannot flip loading→false before the assertion polls the
@@ -247,7 +247,7 @@ describe('SkillsList loading branch — scroll-preservation regression', () => {
       .toBeInTheDocument()
   })
 
-  it('keeps the list mounted during background refetch (loading=true, items=[skill])', async () => {
+  test('keeps the list mounted during background refetch (loading=true, items=[skill])', async () => {
     // Arrange
     // Background refetch after a mutation: Redux flips loading=true while
     // items still contain the previous data. The `loading && skills.length === 0`
@@ -268,7 +268,7 @@ describe('SkillsList loading branch — scroll-preservation regression', () => {
 })
 
 describe('SkillsList scrollbar gutter layout', () => {
-  it('keeps installed skill cards and scrollbar spacing balanced when the vertical scrollbar is visible', async () => {
+  test('keeps installed skill cards and scrollbar spacing balanced when the vertical scrollbar is visible', async () => {
     // Arrange
     mockGetAll.mockReturnValue(new Promise(() => {}))
     const visibleSkills = Array.from({ length: 8 }, (_value, index) =>
@@ -295,7 +295,7 @@ describe('SkillsList scrollbar gutter layout', () => {
     expect(metrics.reservedGutterRightSpacingPx).toBe(5)
   })
 
-  it('keeps installed skill cards and reserved scrollbar gutter balanced when vertical scrolling is unnecessary', async () => {
+  test('keeps installed skill cards and reserved scrollbar gutter balanced when vertical scrolling is unnecessary', async () => {
     // Arrange
     mockGetAll.mockReturnValue(new Promise(() => {}))
     const visibleSkills = [
@@ -327,7 +327,7 @@ describe('SkillsList scrollbar gutter layout', () => {
 })
 
 describe('SkillsList fetch-failure branch', () => {
-  it('surfaces the fetch error message instead of the skills list when the scan fails', async () => {
+  test('surfaces the fetch error message instead of the skills list when the scan fails', async () => {
     // Arrange
     // Drive the real terminal state: the on-mount fetchSkills must REJECT so the
     // rejected reducer lands loading=false + error=<message>. Pinning a pending
@@ -347,7 +347,7 @@ describe('SkillsList fetch-failure branch', () => {
 })
 
 describe('SkillsList empty-installed branch', () => {
-  it('shows the install hint when no skills are installed at all', async () => {
+  test('shows the install hint when no skills are installed at all', async () => {
     // Arrange
     // Drive the real terminal state: the on-mount fetchSkills must RESOLVE with
     // [] so the fulfilled reducer lands loading=false + items=[] with no error.
@@ -366,7 +366,7 @@ describe('SkillsList empty-installed branch', () => {
 })
 
 describe('SkillsList search-empty branch', () => {
-  it('search-miss empty state renders SearchX icon, echoed query, and Clear search button', async () => {
+  test('search-miss empty state renders SearchX icon, echoed query, and Clear search button', async () => {
     // Arrange — one installed skill; never-resolving getAll keeps preloadedState
     // items intact so we stay out of the "No skills installed" branch.
     mockGetAll.mockReturnValue(new Promise(() => {}))
@@ -398,7 +398,7 @@ describe('SkillsList search-empty branch', () => {
       .toBeInTheDocument()
   })
 
-  it('clicking Clear search clears the search query and exits the search-miss state', async () => {
+  test('clicking Clear search clears the search query and exits the search-miss state', async () => {
     // Arrange — one installed skill with an active search that matches nothing
     mockGetAll.mockReturnValue(new Promise(() => {}))
     const store = await createStore({
@@ -431,7 +431,7 @@ describe('SkillsList search-empty branch', () => {
 })
 
 describe('SkillsList filtered-empty branch', () => {
-  it('explains that no skills match the active filter when every installed skill is filtered out', async () => {
+  test('explains that no skills match the active filter when every installed skill is filtered out', async () => {
     // Arrange
     // Drive the real terminal state: the on-mount fetchSkills must RESOLVE with
     // one isSource:false skill so the fulfilled reducer lands it into items. With

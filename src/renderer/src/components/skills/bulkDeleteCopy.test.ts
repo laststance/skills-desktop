@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { repositoryId, toSkillCount } from '@/shared/types'
 
@@ -9,7 +9,7 @@ const BASE_PLURAL =
   'This moves the skills to the app trash and removes every symlink pointing to them. You can restore within 15 seconds from the notification.'
 
 describe('renderBulkDeleteDescription', () => {
-  it('returns the base trash-and-undo copy when no repo filter is active', () => {
+  test('returns the base trash-and-undo copy when no repo filter is active', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({
       totalCount: 3,
@@ -20,7 +20,7 @@ describe('renderBulkDeleteDescription', () => {
     expect(description).toBe(BASE_PLURAL)
   })
 
-  it('singularizes the base copy for a one-skill batch', () => {
+  test('singularizes the base copy for a one-skill batch', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({
       totalCount: 1,
@@ -33,7 +33,7 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
-  it('describes orphan-only cleanup without promising trash undo', () => {
+  test('describes orphan-only cleanup without promising trash undo', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({
       totalCount: 2,
@@ -48,7 +48,7 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
-  it('separates trash undo from orphan cleanup in a mixed delete batch', () => {
+  test('separates trash undo from orphan cleanup in a mixed delete batch', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({
       totalCount: 3,
@@ -63,7 +63,7 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
-  it('warns when selected orphan rows require rescan before cleanup', () => {
+  test('warns when selected orphan rows require rescan before cleanup', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({
       totalCount: 1,
@@ -79,7 +79,7 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
-  it('warns stale source rows with delete rescan copy, not orphan cleanup copy', () => {
+  test('warns stale source rows with delete rescan copy, not orphan cleanup copy', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({
       totalCount: 1,
@@ -94,7 +94,7 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
-  it('keeps stale orphan copy separate from source-trash copy', () => {
+  test('keeps stale orphan copy separate from source-trash copy', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({
       totalCount: 2,
@@ -110,7 +110,7 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
-  it('keeps stale source copy separate from orphan rescan copy in a mixed preflight batch', () => {
+  test('keeps stale source copy separate from orphan rescan copy in a mixed preflight batch', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({
       totalCount: 3,
@@ -127,7 +127,7 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
-  it('treats the entire batch as trash-bound when no separate trash count is given', () => {
+  test('treats the entire batch as trash-bound when no separate trash count is given', () => {
     // Arrange / Act — omit trashCount so it defaults to totalCount (3)
     const description = renderBulkDeleteDescription({
       totalCount: 3,
@@ -141,7 +141,7 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
-  it('names the single in-scope repository', () => {
+  test('names the single in-scope repository', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({
       totalCount: 2,
@@ -157,7 +157,7 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
-  it('spells a long repository in full, not the truncated trigger label', () => {
+  test('spells a long repository in full, not the truncated trigger label', () => {
     // Arrange — a slug past the 28-char trigger-truncation threshold
     const longRepo = repositoryId(
       'very-long-owner-name/extremely-long-repository',
@@ -178,7 +178,7 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
-  it('summarizes multiple in-scope repositories by count', () => {
+  test('summarizes multiple in-scope repositories by count', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({
       totalCount: 2,
@@ -197,7 +197,7 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
-  it('notes that hidden local skills are not affected (plural)', () => {
+  test('notes that hidden local skills are not affected (plural)', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({
       totalCount: 2,
@@ -213,7 +213,7 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
-  it('singularizes the hidden-locals note for a single local skill', () => {
+  test('singularizes the hidden-locals note for a single local skill', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({
       totalCount: 2,
@@ -229,7 +229,7 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
-  it('appends both the repo scope and the hidden-locals note', () => {
+  test('appends both the repo scope and the hidden-locals note', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({
       totalCount: 2,
@@ -245,7 +245,7 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
-  it('falls back to the base copy when the summary carries neither repos nor hidden locals', () => {
+  test('falls back to the base copy when the summary carries neither repos nor hidden locals', () => {
     // Defensive branch: a non-null summary with empty scope must not append a
     // dangling space or empty sentence.
     // Arrange / Act
@@ -261,7 +261,7 @@ describe('renderBulkDeleteDescription', () => {
     expect(description).toBe(BASE_PLURAL)
   })
 
-  it('appends a singular "protected skill will be skipped" sentence when one skill is locked', () => {
+  test('appends a singular "protected skill will be skipped" sentence when one skill is locked', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({
       totalCount: 3,
@@ -275,7 +275,7 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
-  it('appends a plural "protected skills will be skipped" sentence when multiple skills are locked', () => {
+  test('appends a plural "protected skills will be skipped" sentence when multiple skills are locked', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({
       totalCount: 5,
@@ -289,7 +289,7 @@ describe('renderBulkDeleteDescription', () => {
     )
   })
 
-  it('omits the protected-skills sentence when protectedCount is zero', () => {
+  test('omits the protected-skills sentence when protectedCount is zero', () => {
     // Arrange / Act
     const description = renderBulkDeleteDescription({
       totalCount: 3,
@@ -301,7 +301,7 @@ describe('renderBulkDeleteDescription', () => {
     expect(description).toBe(BASE_PLURAL)
   })
 
-  it('returns the all-protected message when every selected skill is locked and nothing will be deleted', () => {
+  test('returns the all-protected message when every selected skill is locked and nothing will be deleted', () => {
     // Arrange — trashCount=0 and all other counts=0 means the confirm button is
     // disabled, but the dialog description must still explain why.
     const description = renderBulkDeleteDescription({

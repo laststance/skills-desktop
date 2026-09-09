@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 // Dynamic import per dashboardSlice.test.ts convention — keeps the slice out
 // of the module graph until each test needs it and yields a pristine reducer.
@@ -10,7 +10,7 @@ async function createTestStore() {
 
 describe('widgetPickerSlice', () => {
   describe('initial state', () => {
-    it('starts with no active preview override', async () => {
+    test('starts with no active preview override', async () => {
       // Arrange / Act
       const store = await createTestStore()
 
@@ -20,7 +20,7 @@ describe('widgetPickerSlice', () => {
   })
 
   describe('setActivePreviewType', () => {
-    it('records the hovered widget so the preview stage can swap', async () => {
+    test('records the hovered widget so the preview stage can swap', async () => {
       // Arrange
       const { setActivePreviewType } = await import('./widgetPickerSlice')
       const store = await createTestStore()
@@ -34,7 +34,7 @@ describe('widgetPickerSlice', () => {
       )
     })
 
-    it('clears the override when dispatched with null', async () => {
+    test('clears the override when dispatched with null', async () => {
       // Arrange
       const { setActivePreviewType } = await import('./widgetPickerSlice')
       const store = await createTestStore()
@@ -49,7 +49,7 @@ describe('widgetPickerSlice', () => {
   })
 
   describe('resetActivePreview', () => {
-    it('drops a previous hover so the next open starts on the seed widget', async () => {
+    test('drops a previous hover so the next open starts on the seed widget', async () => {
       // Arrange
       const { setActivePreviewType, resetActivePreview } =
         await import('./widgetPickerSlice')

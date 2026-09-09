@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { AgentId } from '@/shared/types'
@@ -41,7 +41,7 @@ async function renderAgentSelectionOption(options: RenderOptions = {}) {
 }
 
 describe('AgentSelectionOption row selection', () => {
-  it('toggles the agent when the user clicks anywhere on the row outside the checkbox', async () => {
+  test('toggles the agent when the user clicks anywhere on the row outside the checkbox', async () => {
     // Arrange
     const onToggle = vi.fn()
     const { screen } = await renderAgentSelectionOption({
@@ -60,7 +60,7 @@ describe('AgentSelectionOption row selection', () => {
     expect(onToggle).toHaveBeenCalledWith(CODEX_AGENT_ID)
   })
 
-  it('toggles the agent when the user clicks the checkbox itself', async () => {
+  test('toggles the agent when the user clicks the checkbox itself', async () => {
     // Arrange
     const onToggle = vi.fn()
     const { screen } = await renderAgentSelectionOption({
@@ -79,7 +79,7 @@ describe('AgentSelectionOption row selection', () => {
     expect(onToggle).toHaveBeenCalledWith(CODEX_AGENT_ID)
   })
 
-  it('does not toggle a disabled agent when its row is clicked', async () => {
+  test('does not toggle a disabled agent when its row is clicked', async () => {
     // Arrange
     const onToggle = vi.fn()
     const { screen } = await renderAgentSelectionOption({
@@ -96,7 +96,7 @@ describe('AgentSelectionOption row selection', () => {
     expect(onToggle).not.toHaveBeenCalled()
   })
 
-  it('shows a secondary label next to the agent name when provided', async () => {
+  test('shows a secondary label next to the agent name when provided', async () => {
     // Arrange
     const { screen } = await renderAgentSelectionOption({
       name: 'Codex',

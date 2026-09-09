@@ -12,7 +12,7 @@ import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 const handleMock = vi.fn()
 const trashItemMock = vi.fn()
@@ -100,7 +100,7 @@ describe('skills:clearOrphanSymlinks handler', () => {
     await rm(tempHome, { recursive: true, force: true })
   })
 
-  it('unlinks a reviewed orphan symlink without creating a source-delete tombstone', async () => {
+  test('unlinks a reviewed orphan symlink without creating a source-delete tombstone', async () => {
     // Arrange
     const skillName = 'abandoned'
     const codexSkillsDir = join(tempHome, '.codex', 'skills')
@@ -140,7 +140,7 @@ describe('skills:clearOrphanSymlinks handler', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
-  it('refuses orphan cleanup when a source skill was restored before mutation', async () => {
+  test('refuses orphan cleanup when a source skill was restored before mutation', async () => {
     // Arrange
     const skillName = 'restored-source'
     const sourceDir = join(tempHome, '.agents', 'skills', skillName)
@@ -183,7 +183,7 @@ describe('skills:clearOrphanSymlinks handler', () => {
     expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
   })
 
-  it('resolves broken targets through a symlinked Devin config parent before unlinking', async () => {
+  test('resolves broken targets through a symlinked Devin config parent before unlinking', async () => {
     // Arrange
     const skillName = 'devin-orphan'
     const physicalConfigDir = join(tempHome, 'dotfiles', '.config')
@@ -234,7 +234,7 @@ describe('skills:clearOrphanSymlinks handler', () => {
     expect((await lstat(logicalConfigDir)).isSymbolicLink()).toBe(true)
   })
 
-  it('refuses orphan cleanup when the reviewed target changed before unlink', async () => {
+  test('refuses orphan cleanup when the reviewed target changed before unlink', async () => {
     // Arrange
     const skillName = 'orphan-target-swapped'
     const codexSkillsDir = join(tempHome, '.codex', 'skills')
@@ -320,7 +320,7 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
     await rm(tempHome, { recursive: true, force: true })
   })
 
-  it('unlinks a reviewed broken slot only when the exact target is still missing', async () => {
+  test('unlinks a reviewed broken slot only when the exact target is still missing', async () => {
     // Arrange
     const skillName = 'stale-source-slot'
     const codexSkillsDir = join(tempHome, '.codex', 'skills')
@@ -354,7 +354,7 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
     await expect(lstat(linkPath)).rejects.toThrow(/ENOENT/)
   })
 
-  it('refuses to unlink a reviewed broken slot when its target was restored', async () => {
+  test('refuses to unlink a reviewed broken slot when its target was restored', async () => {
     // Arrange
     const skillName = 'restored-target-slot'
     const codexSkillsDir = join(tempHome, '.codex', 'skills')
@@ -401,7 +401,7 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
     expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
   })
 
-  it('refuses to unlink when the reviewed link path no longer matches the agent slot', async () => {
+  test('refuses to unlink when the reviewed link path no longer matches the agent slot', async () => {
     // Arrange
     const skillName = 'path-swapped-slot'
     const codexSkillsDir = join(tempHome, '.codex', 'skills')
@@ -447,7 +447,7 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
     expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
   })
 
-  it('refuses to unlink when the reviewed broken slot target changed', async () => {
+  test('refuses to unlink when the reviewed broken slot target changed', async () => {
     // Arrange
     const skillName = 'target-swapped-slot'
     const codexSkillsDir = join(tempHome, '.codex', 'skills')
@@ -499,7 +499,7 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
     expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
   })
 
-  it('keeps a local replacement when a reviewed link becomes a folder before guarded commit', async () => {
+  test('keeps a local replacement when a reviewed link becomes a folder before guarded commit', async () => {
     // Arrange
     const skillName = 'replacement-race-slot'
     const codexSkillsDir = join(tempHome, '.codex', 'skills')
@@ -558,7 +558,7 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
     expect((await lstat(linkPath)).isDirectory()).toBe(true)
   })
 
-  it('keeps a symlink replacement that appears during guarded commit rename', async () => {
+  test('keeps a symlink replacement that appears during guarded commit rename', async () => {
     // Arrange
     const skillName = 'replacement-during-rename'
     const codexSkillsDir = join(tempHome, '.codex', 'skills')
@@ -624,7 +624,7 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
     expect(await readlink(linkPath)).toBe(replacementTargetPath)
   })
 
-  it('restores the reviewed symlink when its target reappears during guarded commit rename', async () => {
+  test('restores the reviewed symlink when its target reappears during guarded commit rename', async () => {
     // Arrange
     const skillName = 'target-restore-during-rename'
     const codexSkillsDir = join(tempHome, '.codex', 'skills')
@@ -684,7 +684,7 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
     expect((await lstat(targetPath)).isDirectory()).toBe(true)
   })
 
-  it('refuses when a reviewed link becomes a different symlink before final unlink', async () => {
+  test('refuses when a reviewed link becomes a different symlink before final unlink', async () => {
     // Arrange
     const skillName = 'replacement-symlink-race'
     const codexSkillsDir = join(tempHome, '.codex', 'skills')
@@ -755,7 +755,7 @@ describe('skills:clearBrokenSymlinkSlots handler', () => {
     expect(await readlink(linkPath)).toBe(replacementTargetPath)
   })
 
-  it('refuses when the reviewed target is restored before final unlink', async () => {
+  test('refuses when the reviewed target is restored before final unlink', async () => {
     // Arrange
     const skillName = 'restored-target-race'
     const codexSkillsDir = join(tempHome, '.codex', 'skills')

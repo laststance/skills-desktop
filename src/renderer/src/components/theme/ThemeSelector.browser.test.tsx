@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -46,7 +46,7 @@ async function renderThemeSelector() {
 }
 
 describe('ThemeSelector — Pattern 1 layout', () => {
-  it('exposes the theme trigger by accessible name for screen-reader users', async () => {
+  test('exposes the theme trigger by accessible name for screen-reader users', async () => {
     // Arrange
     const { screen } = await renderThemeSelector()
 
@@ -59,7 +59,7 @@ describe('ThemeSelector — Pattern 1 layout', () => {
     await expect.element(trigger).toBeInTheDocument()
   })
 
-  it('renders all 17 accent swatch buttons when the menu opens', async () => {
+  test('renders all 17 accent swatch buttons when the menu opens', async () => {
     // Arrange
     const { screen } = await renderThemeSelector()
 
@@ -97,7 +97,7 @@ describe('ThemeSelector — Pattern 1 layout', () => {
     }
   })
 
-  it('renders 10 tinted-neutral family swatches when the menu opens', async () => {
+  test('renders 10 tinted-neutral family swatches when the menu opens', async () => {
     // Arrange
     const { screen } = await renderThemeSelector()
 
@@ -128,7 +128,7 @@ describe('ThemeSelector — Pattern 1 layout', () => {
     }
   })
 
-  it('header displays the current preset label in mono', async () => {
+  test('header displays the current preset label in mono', async () => {
     // Arrange — initial preset is neutral-dark whose THEME_PRESETS label is
     // "Neutral Dark", so the header should read that verbatim. `exact: true`
     // discriminates against the sr-only "Current theme: Neutral Dark" span
@@ -146,7 +146,7 @@ describe('ThemeSelector — Pattern 1 layout', () => {
       .toBeInTheDocument()
   })
 
-  it('applies the Cyan accent hue and chroma when its swatch is picked', async () => {
+  test('applies the Cyan accent hue and chroma when its swatch is picked', async () => {
     // Arrange
     const { screen, store } = await renderThemeSelector()
 
@@ -164,7 +164,7 @@ describe('ThemeSelector — Pattern 1 layout', () => {
     expect(theme.chroma).toBe(0.16)
   })
 
-  it('marks only the active accent swatch as pressed for assistive tech', async () => {
+  test('marks only the active accent swatch as pressed for assistive tech', async () => {
     // Arrange — seed a non-default preset before opening the menu so the
     // component reads it on first render. Guards against a regression where
     // aria-pressed was hard-wired to the initial state and never updated.
@@ -186,7 +186,7 @@ describe('ThemeSelector — Pattern 1 layout', () => {
       .toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('picks the dark Zinc partner when the Zinc family is chosen in Dark mode', async () => {
+  test('picks the dark Zinc partner when the Zinc family is chosen in Dark mode', async () => {
     // Arrange — initial mode is dark; user opens the dropdown.
     const { screen, store } = await renderThemeSelector()
 
@@ -202,7 +202,7 @@ describe('ThemeSelector — Pattern 1 layout', () => {
     expect(theme.mode).toBe('dark')
   })
 
-  it('picks the light Zinc partner when the Zinc family is chosen in Light mode', async () => {
+  test('picks the light Zinc partner when the Zinc family is chosen in Light mode', async () => {
     // Arrange — pin Light before opening the menu.
     const { screen, store } = await renderThemeSelector()
     const { setModePreference } =
@@ -221,7 +221,7 @@ describe('ThemeSelector — Pattern 1 layout', () => {
     expect(theme.mode).toBe('light')
   })
 
-  it('switches the app to Light appearance when the Light segment is clicked', async () => {
+  test('switches the app to Light appearance when the Light segment is clicked', async () => {
     // Arrange
     const { screen, store } = await renderThemeSelector()
     expect(store.getState().theme.modePreference).toBe('dark')
@@ -237,7 +237,7 @@ describe('ThemeSelector — Pattern 1 layout', () => {
     expect(store.getState().theme.modePreference).toBe('light')
   })
 
-  it('switches the app to Dark appearance when the Dark segment is clicked', async () => {
+  test('switches the app to Dark appearance when the Dark segment is clicked', async () => {
     // Arrange — start from Light so the Dark click is observable.
     const { screen, store } = await renderThemeSelector()
     const { setModePreference } =
@@ -255,7 +255,7 @@ describe('ThemeSelector — Pattern 1 layout', () => {
     expect(store.getState().theme.modePreference).toBe('dark')
   })
 
-  it('follows the OS appearance when the Auto segment is clicked', async () => {
+  test('follows the OS appearance when the Auto segment is clicked', async () => {
     // Arrange
     const { screen, store } = await renderThemeSelector()
 

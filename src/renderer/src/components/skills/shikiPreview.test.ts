@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { CODE_THEME_DEFINITIONS } from '@/shared/constants'
 
@@ -143,7 +143,7 @@ describe('shikiPreview bundle', () => {
     )
   })
 
-  it('ships syntax highlighting for exactly the skill-repo languages the preview pane lists', async () => {
+  test('ships syntax highlighting for exactly the skill-repo languages the preview pane lists', async () => {
     // Arrange — the exact grammar set DESIGN intends the read-only preview to
     // cover. Hard-coded so adding/removing a grammar in the SUT fails this test.
     const expectedLanguageIds = [
@@ -194,7 +194,7 @@ describe('shikiPreview bundle', () => {
     )
   })
 
-  it('loads each grammar module on demand through its registered loader', async () => {
+  test('loads each grammar module on demand through its registered loader', async () => {
     // Arrange
     await import('./shikiPreview')
     const capturedConfig = shikiCoreMocks.capturedBundleConfig.value
@@ -219,7 +219,7 @@ describe('shikiPreview bundle', () => {
     }
   })
 
-  it('bundles exactly the light/dark themes every curated pair needs, each wired to its own module', async () => {
+  test('bundles exactly the light/dark themes every curated pair needs, each wired to its own module', async () => {
     // Arrange — the bundled theme set must be EXACTLY the union of every
     // curated pair's light + dark names. Derived from CODE_THEME_DEFINITIONS
     // (the source of truth) on purpose: this is the drift guard that fails when
@@ -256,7 +256,7 @@ describe('shikiPreview bundle', () => {
     }
   })
 
-  it('highlights offline using the WASM-free JavaScript regex engine', async () => {
+  test('highlights offline using the WASM-free JavaScript regex engine', async () => {
     // Arrange
     await import('./shikiPreview')
     const capturedConfig = shikiCoreMocks.capturedBundleConfig.value
@@ -270,7 +270,7 @@ describe('shikiPreview bundle', () => {
     expect(engine).toBe(shikiCoreMocks.fakeEngine)
   })
 
-  it('exposes a codeToHtml shorthand wired to the focused preview highlighter', async () => {
+  test('exposes a codeToHtml shorthand wired to the focused preview highlighter', async () => {
     // Arrange
     const shikiPreviewModule = await import('./shikiPreview')
 

@@ -1,6 +1,6 @@
 import { ACTION_HYDRATE_COMPLETE } from '@laststance/redux-storage-middleware'
 import { configureStore } from '@reduxjs/toolkit'
-import { beforeEach, describe, expect, it, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 /**
  * Integration tests for the theme DOM side effect in listener.ts. The listener
@@ -61,7 +61,7 @@ beforeEach(() => {
 })
 
 describe('theme listener — applyThemeToDOM', () => {
-  it('paints a color preset onto <html> in dark mode when the user picks Cyan', async () => {
+  test('paints a color preset onto <html> in dark mode when the user picks Cyan', async () => {
     // Arrange
     const store = await createThemedStore()
     const { setTheme } = await import('./slices/themeSlice')
@@ -80,7 +80,7 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(root.classList.contains('light')).toBe(false)
   })
 
-  it('drains color back to grayscale when the user switches to a neutral preset', async () => {
+  test('drains color back to grayscale when the user switches to a neutral preset', async () => {
     // Arrange — start on a colored preset so chroma is non-zero
     const store = await createThemedStore()
     const { setTheme } = await import('./slices/themeSlice')
@@ -98,7 +98,7 @@ describe('theme listener — applyThemeToDOM', () => {
     ).toBe('0')
   })
 
-  it('applies the tone-tinted gray base only for tinted-neutral presets, not pure-neutral or color', async () => {
+  test('applies the tone-tinted gray base only for tinted-neutral presets, not pure-neutral or color', async () => {
     // Arrange
     const store = await createThemedStore()
     const { setTheme } = await import('./slices/themeSlice')
@@ -121,7 +121,7 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(root.classList.contains('tone-tinted')).toBe(false)
   })
 
-  it('toggles the <html> dark/light classes when the user flips the mode preference', async () => {
+  test('toggles the <html> dark/light classes when the user flips the mode preference', async () => {
     // Arrange — start with a color preset so we can flip mode independently
     const store = await createThemedStore()
     const { setTheme, setModePreference } = await import('./slices/themeSlice')
@@ -143,7 +143,7 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(document.documentElement.classList.contains('light')).toBe(false)
   })
 
-  it('repaints the persisted theme onto <html> when hydration completes', async () => {
+  test('repaints the persisted theme onto <html> when hydration completes', async () => {
     // Arrange — simulate storage-middleware finishing hydration with a saved
     // color preset. The listener reads `state.theme` at that instant and
     // projects it onto <html>. Without this path, first paint post-hydration
@@ -167,7 +167,7 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(root.classList.contains('dark')).toBe(true)
   })
 
-  it('clears selectedAgentId when setSettings hides the currently-selected agent', async () => {
+  test('clears selectedAgentId when setSettings hides the currently-selected agent', async () => {
     // Cross-slice invariant: hiding an agent from the sidebar must not
     // leave the central skill list filtering by an agent the user can no
     // longer see. The listener middleware enforces this regardless of
@@ -200,7 +200,7 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(store.getState().ui.selectedAgentId).toBeNull()
   })
 
-  it('preserves selectedAgentId when setSettings hides a different agent', async () => {
+  test('preserves selectedAgentId when setSettings hides a different agent', async () => {
     // Inverse case for the invariant above: if the hidden agent isn't
     // the one currently selected, the listener must not clobber the
     // selection. Pinning this guards against an over-eager `selectAgent(null)`
@@ -229,7 +229,7 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(store.getState().ui.selectedAgentId).toBe('cursor')
   })
 
-  it('does not dispatch selectAgent(null) when no agent is selected and a hide lands', async () => {
+  test('does not dispatch selectAgent(null) when no agent is selected and a hide lands', async () => {
     // The third arm of the listener guard: selectedAgentId is already
     // null. Without the `selectedAgentId !== null` short-circuit the
     // listener would dispatch a redundant `selectAgent(null)` on every
@@ -262,7 +262,7 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(store.getState().ui.selectedAgentId).toBeNull()
   })
 
-  it('OS appearance change re-applies theme when modePreference is "system"', async () => {
+  test('OS appearance change re-applies theme when modePreference is "system"', async () => {
     // Arrange — stub matchMedia BEFORE importing listener so the hydrate
     // handler installs the change listener against our spy.
     let capturedChangeHandler: ((event: MediaQueryListEvent) => void) | null =
@@ -313,7 +313,7 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(store.getState().theme.modePreference).toBe('system')
   })
 
-  it('subscribes to OS appearance only once even if the installer runs twice', async () => {
+  test('subscribes to OS appearance only once even if the installer runs twice', async () => {
     // Idempotency guard for the OS-appearance subscription: `store.ts` installs
     // once, but a hot-module-reload replay must NOT stack a second
     // `prefers-color-scheme` change listener. Without the
@@ -354,7 +354,7 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(matchMediaStub).toHaveBeenCalledTimes(1)
   })
 
-  it('OS appearance change is ignored when modePreference is sticky light/dark', async () => {
+  test('OS appearance change is ignored when modePreference is sticky light/dark', async () => {
     // Arrange — same wiring as the Auto test, but user pinned Light.
     let capturedChangeHandler: ((event: MediaQueryListEvent) => void) | null =
       null
@@ -401,7 +401,7 @@ describe('theme listener — applyThemeToDOM', () => {
     expect(store.getState().theme.modePreference).toBe('light')
   })
 
-  it('skips installing the OS-appearance subscription in environments without matchMedia', async () => {
+  test('skips installing the OS-appearance subscription in environments without matchMedia', async () => {
     // Regression guard for the headless-safety branch: when the renderer is
     // imported somewhere `window.matchMedia` is absent (e.g. an SSR/headless
     // probe or a stripped jsdom variant), hydration must still paint the theme
@@ -448,7 +448,7 @@ describe('theme listener — applyThemeToDOM', () => {
     }
   })
 
-  it('paints rapid preset switches onto <html> in dispatch order without stale reordering', async () => {
+  test('paints rapid preset switches onto <html> in dispatch order without stale reordering', async () => {
     // Arrange — regression guard for the "stale listener write" class of bug:
     // if the listener ever queues async writes (via Promise.resolve, microtask,
     // requestAnimationFrame, etc.), the order of setProperty calls could

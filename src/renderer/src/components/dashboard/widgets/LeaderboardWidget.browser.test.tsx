@@ -1,7 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Flame } from 'lucide-react'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -108,7 +108,7 @@ async function renderLeaderboard(
 }
 
 describe('LeaderboardWidget', () => {
-  it('shows loading placeholders while the first fetch is still in flight', async () => {
+  test('shows loading placeholders while the first fetch is still in flight', async () => {
     // Arrange: the filter has never resolved — status loading, no skills yet.
     const loadingEntry: LeaderboardData = {
       skills: [],
@@ -130,7 +130,7 @@ describe('LeaderboardWidget', () => {
     expect(skeleton).not.toBeNull()
   })
 
-  it('shows loading placeholders when no leaderboard data exists at all', async () => {
+  test('shows loading placeholders when no leaderboard data exists at all', async () => {
     // Arrange: nothing seeded — the widget renders before its mount fetch lands.
     // Act
     const { screen } = await renderLeaderboard('trending', null)
@@ -141,7 +141,7 @@ describe('LeaderboardWidget', () => {
     expect(skeleton).not.toBeNull()
   })
 
-  it('shows the error hint when the load failed with no data to fall back on', async () => {
+  test('shows the error hint when the load failed with no data to fall back on', async () => {
     // Arrange: the fetch failed and there is no stale data — error + empty.
     // The mount thunk re-fetches errored filters (errors bypass the TTL gate),
     // so the IPC mock must reject for state to settle back on the error branch
@@ -164,7 +164,7 @@ describe('LeaderboardWidget', () => {
       .toBeVisible()
   })
 
-  it('shows the empty-state message when the leaderboard returned zero rows', async () => {
+  test('shows the empty-state message when the leaderboard returned zero rows', async () => {
     // Arrange: a successful load that returned no skills.
     const emptyEntry: LeaderboardData = {
       skills: [],
@@ -182,7 +182,7 @@ describe('LeaderboardWidget', () => {
       .toBeVisible()
   })
 
-  it('renders one row per ranked skill once data has loaded', async () => {
+  test('renders one row per ranked skill once data has loaded', async () => {
     // Arrange: a successful load with two ranked skills.
     const loadedEntry: LeaderboardData = {
       skills: [makeSkill(1, 'alpha-skill'), makeSkill(2, 'beta-skill')],
@@ -200,7 +200,7 @@ describe('LeaderboardWidget', () => {
     await expect.element(rows.nth(1)).toMatchTextContent('beta-skill')
   })
 
-  it('caps the rendered rows at rowLimit even when more skills loaded', async () => {
+  test('caps the rendered rows at rowLimit even when more skills loaded', async () => {
     // Arrange: five skills loaded but the widget was given rowLimit 3.
     const overflowEntry: LeaderboardData = {
       skills: [

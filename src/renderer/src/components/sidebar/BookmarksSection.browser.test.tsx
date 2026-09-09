@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -63,7 +63,7 @@ async function createStore() {
 }
 
 describe('BookmarksSection', () => {
-  it('lists each bookmarked skill under a count that matches how many are bookmarked', async () => {
+  test('lists each bookmarked skill under a count that matches how many are bookmarked', async () => {
     // Arrange
     const store = await createStore()
     const { BookmarksSection } = await import('./BookmarksSection')

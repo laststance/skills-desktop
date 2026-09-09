@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 
@@ -178,7 +178,7 @@ async function renderAgentFolderMenu(
 }
 
 describe('Hidden agent folder deletion', () => {
-  it('reviews the hidden folder paths and cancels without deleting anything', async () => {
+  test('reviews the hidden folder paths and cancels without deleting anything', async () => {
     // Arrange
     const { screen } = await renderAgentFolderMenu()
     const dialog = screen.getByRole('dialog', {
@@ -226,7 +226,7 @@ describe('Hidden agent folder deletion', () => {
     expect(mockRemoveAllFromAgent).not.toHaveBeenCalled()
   })
 
-  it('deletes eligible hidden folders while excluding shared and unreviewed paths', async () => {
+  test('deletes eligible hidden folders while excluding shared and unreviewed paths', async () => {
     // Arrange
     const sharedAgent: Agent = {
       ...cline,
@@ -266,7 +266,7 @@ describe('Hidden agent folder deletion', () => {
     expect(mockSourceGetStats).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps protected skill slots when deleting the remaining hidden-agent skills', async () => {
+  test('keeps protected skill slots when deleting the remaining hidden-agent skills', async () => {
     // Arrange
     const { screen, store } = await renderAgentFolderMenu([cline])
     const { fetchSkills } =
@@ -320,7 +320,7 @@ describe('Hidden agent folder deletion', () => {
     )
   })
 
-  it.each([
+  test.each([
     {
       scenario: 'only protected skills remain',
       preservedCount: 1,
@@ -358,7 +358,7 @@ describe('Hidden agent folder deletion', () => {
     },
   )
 
-  it('continues after one hidden folder fails and reports the failed agent', async () => {
+  test('continues after one hidden folder fails and reports the failed agent', async () => {
     // Arrange
     mockRemoveAllFromAgent
       .mockResolvedValueOnce({ success: false, error: 'Permission denied' })
@@ -385,7 +385,7 @@ describe('Hidden agent folder deletion', () => {
     expect(mockAgentsGetAll).toHaveBeenCalledTimes(1)
   })
 
-  it('preserves an agent made visible after the deletion review was opened', async () => {
+  test('preserves an agent made visible after the deletion review was opened', async () => {
     // Arrange
     const { screen, store } = await renderAgentFolderMenu()
     const { setSettings } =
@@ -409,7 +409,7 @@ describe('Hidden agent folder deletion', () => {
     })
   })
 
-  it('skips an agent made visible while an earlier hidden folder is being deleted', async () => {
+  test('skips an agent made visible while an earlier hidden folder is being deleted', async () => {
     // Arrange
     let finishFirstDeletion: (() => void) | undefined
     mockRemoveAllFromAgent.mockImplementationOnce(
@@ -452,7 +452,7 @@ describe('Hidden agent folder deletion', () => {
 })
 
 describe('Not-installed agent empty folder deletion', () => {
-  it.each([
+  test.each([
     {
       group: 'unused' as const,
       agent: unusedCline,
@@ -478,7 +478,7 @@ describe('Not-installed agent empty folder deletion', () => {
     },
   )
 
-  it('reviews empty parent paths in one dialog and restores focus after cancellation', async () => {
+  test('reviews empty parent paths in one dialog and restores focus after cancellation', async () => {
     // Arrange
     const { screen } = await renderAgentFolderMenu(
       [unusedCline, unusedWarp],
@@ -509,7 +509,7 @@ describe('Not-installed agent empty folder deletion', () => {
       .toHaveFocus()
   })
 
-  it('deletes only reviewed empty parents and explains skipped nonempty folders', async () => {
+  test('deletes only reviewed empty parents and explains skipped nonempty folders', async () => {
     // Arrange
     const { screen } = await renderAgentFolderMenu(
       [unusedCline, { ...unusedWarp, emptyParentFolder: undefined }],
@@ -546,7 +546,7 @@ describe('Not-installed agent empty folder deletion', () => {
     expect(mockAgentsGetAll).toHaveBeenCalledTimes(1)
   })
 
-  it('disables empty-folder cleanup when no not-installed agent has an empty parent', async () => {
+  test('disables empty-folder cleanup when no not-installed agent has an empty parent', async () => {
     // Arrange
     const { screen } = await renderAgentFolderMenu(
       [{ ...unusedCline, emptyParentFolder: undefined }],
@@ -563,7 +563,7 @@ describe('Not-installed agent empty folder deletion', () => {
     expect(mockRemoveEmptyFolder).not.toHaveBeenCalled()
   })
 
-  it('skips an agent whose skills are installed after the empty-folder review', async () => {
+  test('skips an agent whose skills are installed after the empty-folder review', async () => {
     // Arrange
     const { screen, store } = await renderAgentFolderMenu(
       [unusedCline, unusedWarp],
@@ -593,7 +593,7 @@ describe('Not-installed agent empty folder deletion', () => {
     )
   })
 
-  it('continues after an IPC rejection and reports only the folders actually deleted', async () => {
+  test('continues after an IPC rejection and reports only the folders actually deleted', async () => {
     // Arrange
     mockRemoveEmptyFolder.mockRejectedValueOnce(new Error('Permission denied'))
     const { screen } = await renderAgentFolderMenu(
@@ -624,7 +624,7 @@ describe('Not-installed agent empty folder deletion', () => {
     )
   })
 
-  it('does not claim deletion when the reviewed empty folder has already disappeared', async () => {
+  test('does not claim deletion when the reviewed empty folder has already disappeared', async () => {
     // Arrange
     mockRemoveEmptyFolder.mockResolvedValueOnce({
       success: true,

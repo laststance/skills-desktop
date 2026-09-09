@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises'
 
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, test, vi, beforeEach } from 'vitest'
 
 vi.mock('fs/promises')
 
@@ -15,7 +15,7 @@ describe('parseSkillMetadata', () => {
     vi.clearAllMocks()
   })
 
-  it('surfaces the name and description declared in frontmatter', async () => {
+  test('surfaces the name and description declared in frontmatter', async () => {
     // Arrange
     mockFs.readFile.mockResolvedValue(
       '---\nname: My Skill\ndescription: Does great things\n---\n# Content',
@@ -29,7 +29,7 @@ describe('parseSkillMetadata', () => {
     expect(result.description).toBe('Does great things')
   })
 
-  it('names the skill after its directory when SKILL.md is missing', async () => {
+  test('names the skill after its directory when SKILL.md is missing', async () => {
     // Arrange
     mockFs.readFile.mockRejectedValue(new Error('ENOENT'))
 
@@ -43,7 +43,7 @@ describe('parseSkillMetadata', () => {
     expect(result.description).toBe('')
   })
 
-  it('names the skill after its directory when frontmatter omits the name field', async () => {
+  test('names the skill after its directory when frontmatter omits the name field', async () => {
     // Arrange
     mockFs.readFile.mockResolvedValue('---\ndescription: A cool skill\n---\n')
 
@@ -55,7 +55,7 @@ describe('parseSkillMetadata', () => {
     expect(result.description).toBe('A cool skill')
   })
 
-  it('leaves the description blank when frontmatter omits the description field', async () => {
+  test('leaves the description blank when frontmatter omits the description field', async () => {
     // Arrange
     mockFs.readFile.mockResolvedValue('---\nname: My Skill\n---\n')
 
@@ -67,7 +67,7 @@ describe('parseSkillMetadata', () => {
     expect(result.description).toBe('')
   })
 
-  it('falls back to the directory name when SKILL.md has no frontmatter block', async () => {
+  test('falls back to the directory name when SKILL.md has no frontmatter block', async () => {
     // Arrange
     mockFs.readFile.mockResolvedValue('# Just a heading\nSome content')
 
@@ -79,7 +79,7 @@ describe('parseSkillMetadata', () => {
     expect(result.description).toBe('')
   })
 
-  it('reads metadata from the SKILL.md inside the skill directory', async () => {
+  test('reads metadata from the SKILL.md inside the skill directory', async () => {
     // Arrange
     mockFs.readFile.mockResolvedValue('---\nname: Test\n---\n')
 
@@ -93,7 +93,7 @@ describe('parseSkillMetadata', () => {
     )
   })
 
-  it('strips surrounding single and double quotes from frontmatter values', async () => {
+  test('strips surrounding single and double quotes from frontmatter values', async () => {
     // Arrange
     mockFs.readFile.mockResolvedValue(
       '---\nname: "Quoted Name"\ndescription: \'Single quoted\'\n---\n',
@@ -107,7 +107,7 @@ describe('parseSkillMetadata', () => {
     expect(result.description).toBe('Single quoted')
   })
 
-  it('reads the first line of a pipe (|) block-scalar description', async () => {
+  test('reads the first line of a pipe (|) block-scalar description', async () => {
     // Arrange
     mockFs.readFile.mockResolvedValue(
       '---\nname: My Skill\ndescription: |\n  This is the first line\n---\n',
@@ -120,7 +120,7 @@ describe('parseSkillMetadata', () => {
     expect(result.description).toBe('This is the first line')
   })
 
-  it('reads the content of a folded (>) block-scalar description', async () => {
+  test('reads the content of a folded (>) block-scalar description', async () => {
     // Arrange
     mockFs.readFile.mockResolvedValue(
       '---\nname: My Skill\ndescription: >\n  Folded content\n---\n',
@@ -133,7 +133,7 @@ describe('parseSkillMetadata', () => {
     expect(result.description).toBe('Folded content')
   })
 
-  it('strips a trailing slash before deriving the directory name fallback', async () => {
+  test('strips a trailing slash before deriving the directory name fallback', async () => {
     // Arrange
     mockFs.readFile.mockRejectedValue(new Error('ENOENT'))
 
@@ -146,7 +146,7 @@ describe('parseSkillMetadata', () => {
     expect(result.name).toBe('edge-case')
   })
 
-  it('names the skill Unknown when given an empty path', async () => {
+  test('names the skill Unknown when given an empty path', async () => {
     // Arrange
     mockFs.readFile.mockRejectedValue(new Error('ENOENT'))
 
@@ -157,7 +157,7 @@ describe('parseSkillMetadata', () => {
     expect(result.name).toBe('Unknown')
   })
 
-  it('leaves a block-scalar description empty when the next line is another key instead of indented content', async () => {
+  test('leaves a block-scalar description empty when the next line is another key instead of indented content', async () => {
     // Arrange
     // `description: |` is immediately followed by the `name` key (non-indented),
     // so the block scalar has no indented content line to read.
@@ -173,7 +173,7 @@ describe('parseSkillMetadata', () => {
     expect(result.description).toBe('')
   })
 
-  it('skips whitespace-only lines when scanning a block-scalar for content', async () => {
+  test('skips whitespace-only lines when scanning a block-scalar for content', async () => {
     // Arrange
     // After `description: |` comes a whitespace-only line (neither indented
     // content nor a new key), so the scanner skips it and continues until it

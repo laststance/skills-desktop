@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { repositoryId, toHttpUrl } from '@/shared/types'
 
@@ -6,7 +6,7 @@ import { getSourceLinkModel } from './sourceLinkHelpers'
 
 describe('getSourceLinkModel', () => {
   describe('local (no source)', () => {
-    it('marks a skill with no source repo as local', () => {
+    test('marks a skill with no source repo as local', () => {
       // Arrange — a skill installed without any source repository.
       // Act
       const model = getSourceLinkModel()
@@ -15,7 +15,7 @@ describe('getSourceLinkModel', () => {
       expect(model).toEqual({ kind: 'local' })
     })
 
-    it('still marks a skill as local when a sourceUrl exists but the source repo is missing', () => {
+    test('still marks a skill as local when a sourceUrl exists but the source repo is missing', () => {
       // Arrange — a stray sourceUrl with no owning source repo.
       // Act
       const model = getSourceLinkModel(
@@ -27,7 +27,7 @@ describe('getSourceLinkModel', () => {
       expect(model).toEqual({ kind: 'local' })
     })
 
-    it('treats an empty-string source as a local skill', () => {
+    test('treats an empty-string source as a local skill', () => {
       // Arrange — an empty source repo id.
       // Act
       const model = getSourceLinkModel(repositoryId(''))
@@ -38,7 +38,7 @@ describe('getSourceLinkModel', () => {
   })
 
   describe('text (source without URL)', () => {
-    it('shows the source repo as plain text when there is no URL to link to', () => {
+    test('shows the source repo as plain text when there is no URL to link to', () => {
       // Arrange — a source repo id with no accompanying URL.
       // Act
       const model = getSourceLinkModel(repositoryId('pbakaus/impeccable'))
@@ -50,7 +50,7 @@ describe('getSourceLinkModel', () => {
       })
     })
 
-    it('shows the source repo as plain text when the URL is an empty string', () => {
+    test('shows the source repo as plain text when the URL is an empty string', () => {
       // Arrange — a source repo id with an empty URL.
       // Act
       const model = getSourceLinkModel(
@@ -67,7 +67,7 @@ describe('getSourceLinkModel', () => {
   })
 
   describe('link (source with URL)', () => {
-    it('drops a trailing .git so the rendered link points at the browsable repo page', () => {
+    test('drops a trailing .git so the rendered link points at the browsable repo page', () => {
       // Arrange — a clone URL that ends in .git.
       // Act
       const model = getSourceLinkModel(
@@ -83,7 +83,7 @@ describe('getSourceLinkModel', () => {
       })
     })
 
-    it('keeps a plain repo URL intact when it has no .git suffix', () => {
+    test('keeps a plain repo URL intact when it has no .git suffix', () => {
       // Arrange — a browsable repo URL with no .git suffix.
       // Act
       const model = getSourceLinkModel(
@@ -99,7 +99,7 @@ describe('getSourceLinkModel', () => {
       })
     })
 
-    it('only strips .git at the very end so a mid-string ".git-assets" repo survives', () => {
+    test('only strips .git at the very end so a mid-string ".git-assets" repo survives', () => {
       // Arrange — a repo whose name legitimately contains ".git" mid-string.
       // Act
       const model = getSourceLinkModel(

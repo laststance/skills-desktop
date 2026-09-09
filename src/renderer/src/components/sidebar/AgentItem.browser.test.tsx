@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -93,7 +93,7 @@ async function renderItem(hiddenAgentIds: AgentId[] = []) {
  * button (mirrors the production right-click flow).
  */
 describe('Sidebar → AgentItem context menu', () => {
-  it('offers "Hide from sidebar" in the right-click menu of a visible agent', async () => {
+  test('offers "Hide from sidebar" in the right-click menu of a visible agent', async () => {
     // Arrange
     const { screen } = await renderItem([])
     const trigger = screen.getByRole('button', {
@@ -113,7 +113,7 @@ describe('Sidebar → AgentItem context menu', () => {
       .toBeInTheDocument()
   })
 
-  it('offers "Show in sidebar" in the right-click menu of an already-hidden agent', async () => {
+  test('offers "Show in sidebar" in the right-click menu of an already-hidden agent', async () => {
     // Hidden state flips the menu copy — without this branch users would
     // see "Hide from sidebar" on an already-hidden item with no obvious
     // way to restore it from the sidebar context menu.
@@ -135,7 +135,7 @@ describe('Sidebar → AgentItem context menu', () => {
       .toBeInTheDocument()
   })
 
-  it('hides the agent from the sidebar when "Hide from sidebar" is clicked', async () => {
+  test('hides the agent from the sidebar when "Hide from sidebar" is clicked', async () => {
     // The whole point of the menu item — clicking it must reach the IPC
     // boundary with the toggled array. Without this assertion the menu
     // could silently no-op and only Settings → Agents would work.
@@ -159,7 +159,7 @@ describe('Sidebar → AgentItem context menu', () => {
     })
   })
 
-  it('restores the agent to the sidebar when "Show in sidebar" is clicked', async () => {
+  test('restores the agent to the sidebar when "Show in sidebar" is clicked', async () => {
     // Inverse path — toggling an already-hidden agent must remove it.
     // Arrange
     const { screen } = await renderItem(['claude-code'])
@@ -181,7 +181,7 @@ describe('Sidebar → AgentItem context menu', () => {
     })
   })
 
-  it('opens the agent skills folder in Finder when "Reveal in Finder" is clicked', async () => {
+  test('opens the agent skills folder in Finder when "Reveal in Finder" is clicked', async () => {
     // The folder action must reach the IPC boundary with the agent's own
     // path — a regression here would silently open the wrong (or no) folder.
     // Arrange
@@ -204,7 +204,7 @@ describe('Sidebar → AgentItem context menu', () => {
     )
   })
 
-  it('opens the agent skills folder in a terminal when "Open in Terminal" is clicked', async () => {
+  test('opens the agent skills folder in a terminal when "Open in Terminal" is clicked', async () => {
     // Mirror of the Finder action — the terminal launch must target the
     // agent's path so the shell opens at the right working directory.
     // Arrange
@@ -227,7 +227,7 @@ describe('Sidebar → AgentItem context menu', () => {
     )
   })
 
-  it('queues the agent for skills-folder deletion when "Delete skills folder" is clicked', async () => {
+  test('queues the agent for skills-folder deletion when "Delete skills folder" is clicked', async () => {
     // Clicking the destructive item must stage the agent in Redux so the
     // confirmation modal can mount — without it the menu would silently no-op.
     // Arrange
@@ -248,7 +248,7 @@ describe('Sidebar → AgentItem context menu', () => {
     expect(store.getState().agents.agentToDelete).toEqual(FIXTURE_AGENT)
   })
 
-  it('opens the per-agent cleanup dialog when "Cleanup missing skills..." is clicked', async () => {
+  test('opens the per-agent cleanup dialog when "Cleanup missing skills..." is clicked', async () => {
     // The cleanup item must target the agent by id so CleanupAgentDialog
     // mounts scoped to this agent — a wrong/empty target would clean nothing.
     // Arrange
@@ -271,7 +271,7 @@ describe('Sidebar → AgentItem context menu', () => {
 })
 
 describe('Sidebar → AgentItem navigation', () => {
-  it('switches Marketplace back to Installed and selects the agent when clicked', async () => {
+  test('switches Marketplace back to Installed and selects the agent when clicked', async () => {
     // Arrange
     const { screen, store } = await renderItem([])
     const { setActiveTab } = await import('@/renderer/src/redux/slices/uiSlice')

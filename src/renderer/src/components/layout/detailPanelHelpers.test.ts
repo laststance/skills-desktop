@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { DashboardCanvas } from '@/renderer/src/components/dashboard/DashboardCanvas'
 import { resolveDetailPanelContent } from '@/renderer/src/components/layout/detailPanelHelpers'
@@ -19,7 +19,7 @@ const SELECTED_SKILL: Skill = {
 }
 
 describe('resolveDetailPanelContent', () => {
-  it('shows the Marketplace inspector when the Marketplace tab is active', () => {
+  test('shows the Marketplace inspector when the Marketplace tab is active', () => {
     // Arrange / Act — marketplace tab, nothing selected
     const content = resolveDetailPanelContent('marketplace', null)
 
@@ -27,7 +27,7 @@ describe('resolveDetailPanelContent', () => {
     expect(content.type).toBe(MarketplaceDetailPanel)
   })
 
-  it('keeps showing the Marketplace inspector even when a skill is selected', () => {
+  test('keeps showing the Marketplace inspector even when a skill is selected', () => {
     // Arrange / Act — marketplace tab AND a selected skill: the tab must win first
     const content = resolveDetailPanelContent('marketplace', SELECTED_SKILL)
 
@@ -35,7 +35,7 @@ describe('resolveDetailPanelContent', () => {
     expect(content.type).toBe(MarketplaceDetailPanel)
   })
 
-  it('shows the selected skill detail on the Installed tab when a skill is selected', () => {
+  test('shows the selected skill detail on the Installed tab when a skill is selected', () => {
     // Arrange / Act
     const content = resolveDetailPanelContent('installed', SELECTED_SKILL)
 
@@ -44,7 +44,7 @@ describe('resolveDetailPanelContent', () => {
     expect(content).toMatchObject({ props: { skill: SELECTED_SKILL } })
   })
 
-  it('shows the dashboard canvas on the Installed tab when no skill is selected', () => {
+  test('shows the dashboard canvas on the Installed tab when no skill is selected', () => {
     // Arrange / Act
     const content = resolveDetailPanelContent('installed', null)
 

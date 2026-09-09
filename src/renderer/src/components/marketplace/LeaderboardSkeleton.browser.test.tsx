@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { LeaderboardSkeleton } from './LeaderboardSkeleton'
 
 describe('LeaderboardSkeleton — leaderboard loading placeholder', () => {
-  it('shows six placeholder rows so the loading state mirrors the leaderboard length', async () => {
+  test('shows six placeholder rows so the loading state mirrors the leaderboard length', async () => {
     // Arrange + Act — this is what renders while the marketplace leaderboard is
     // still loading.
     const screen = await render(<LeaderboardSkeleton />)
@@ -15,7 +15,7 @@ describe('LeaderboardSkeleton — leaderboard loading placeholder', () => {
     expect(rows.length).toBe(6)
   })
 
-  it('animates each placeholder so the rows read as loading rather than empty', async () => {
+  test('animates each placeholder so the rows read as loading rather than empty', async () => {
     // Arrange + Act
     const screen = await render(<LeaderboardSkeleton />)
 

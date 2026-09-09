@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type { SyncExecuteResult, SyncPreviewResult } from '@/shared/types'
@@ -79,7 +79,7 @@ async function renderWithPreview(preview: SyncPreviewResult | null) {
 }
 
 describe('SyncConfirmDialog', () => {
-  it('stays hidden when there is no sync preview to confirm', async () => {
+  test('stays hidden when there is no sync preview to confirm', async () => {
     // Arrange + Act — nothing seeded, so the dialog renders nothing.
     const { screen } = await renderWithPreview(null)
 
@@ -87,7 +87,7 @@ describe('SyncConfirmDialog', () => {
     expect(screen.getByText('Sync Skills').query()).toBeNull()
   })
 
-  it('stays hidden when the preview is scoped to a single agent', async () => {
+  test('stays hidden when the preview is scoped to a single agent', async () => {
     // Arrange + Act — a forAgent preview belongs to CleanupAgentDialog, not here.
     const { screen } = await renderWithPreview(SCOPED_PREVIEW)
 
@@ -95,7 +95,7 @@ describe('SyncConfirmDialog', () => {
     expect(screen.getByText('Sync Skills').query()).toBeNull()
   })
 
-  it('opens with the symlink counts when a conflict-free sync is pending', async () => {
+  test('opens with the symlink counts when a conflict-free sync is pending', async () => {
     // Arrange + Act
     const { screen } = await renderWithPreview(PREVIEW_READY_TO_SYNC)
 
@@ -108,7 +108,7 @@ describe('SyncConfirmDialog', () => {
     await expect.element(screen.getByText('8')).toBeVisible()
   })
 
-  it('shows the already-synced count when some symlinks are in place', async () => {
+  test('shows the already-synced count when some symlinks are in place', async () => {
     // Arrange + Act — alreadySynced > 0 must surface its own stat row.
     const { screen } = await renderWithPreview(PREVIEW_READY_TO_SYNC)
 
@@ -117,7 +117,7 @@ describe('SyncConfirmDialog', () => {
     await expect.element(screen.getByText('2')).toBeVisible()
   })
 
-  it('clears the pending preview when the user cancels', async () => {
+  test('clears the pending preview when the user cancels', async () => {
     // Arrange
     const { screen, store } = await renderWithPreview(PREVIEW_READY_TO_SYNC)
     await expect.element(screen.getByText('Sync Skills')).toBeVisible()
@@ -130,7 +130,7 @@ describe('SyncConfirmDialog', () => {
     expect(screen.getByText('Sync Skills').query()).toBeNull()
   })
 
-  it('dispatches a conflict-free sync and shows a spinner while it runs', async () => {
+  test('dispatches a conflict-free sync and shows a spinner while it runs', async () => {
     // Arrange — a never-resolving execute keeps the dialog in its in-flight state
     // so the "Syncing..." spinner branch is observable.
     mockSyncExecute.mockReturnValue(new Promise<SyncExecuteResult>(() => {}))

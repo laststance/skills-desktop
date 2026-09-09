@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import type {
   BulkDeleteResult,
@@ -21,7 +21,7 @@ import {
 } from './bulkDeleteHelpers'
 
 describe('getToolbarState', () => {
-  it('offers a destructive "Delete skill" button for one skill in global view', () => {
+  test('offers a destructive "Delete skill" button for one skill in global view', () => {
     // Arrange / Act
     const result = getToolbarState({
       view: 'global',
@@ -37,7 +37,7 @@ describe('getToolbarState', () => {
     expect(result.isPrimaryDisabled).toBe(false)
   })
 
-  it('shows the selected count in the "Delete N skills" button in global view', () => {
+  test('shows the selected count in the "Delete N skills" button in global view', () => {
     // Arrange / Act
     const result = getToolbarState({
       view: 'global',
@@ -53,7 +53,7 @@ describe('getToolbarState', () => {
     expect(result.isDestructive).toBe(true)
   })
 
-  it('offers a non-destructive unlink button with a generic agent label when the display name is unknown', () => {
+  test('offers a non-destructive unlink button with a generic agent label when the display name is unknown', () => {
     // Arrange / Act
     const result = getToolbarState({
       view: 'agent',
@@ -68,7 +68,7 @@ describe('getToolbarState', () => {
     expect(result.isDestructive).toBe(false)
   })
 
-  it('names the agent in the single-skill unlink button when a display name is given', () => {
+  test('names the agent in the single-skill unlink button when a display name is given', () => {
     // Arrange / Act
     const result = getToolbarState({
       view: 'agent',
@@ -83,7 +83,7 @@ describe('getToolbarState', () => {
     expect(result.primaryAriaLabel).toBe('Unlink selected skill from Cursor')
   })
 
-  it('shows the selected count in a non-destructive multi-skill unlink button with a generic agent label', () => {
+  test('shows the selected count in a non-destructive multi-skill unlink button with a generic agent label', () => {
     // Arrange / Act
     const result = getToolbarState({
       view: 'agent',
@@ -98,7 +98,7 @@ describe('getToolbarState', () => {
     expect(result.isDestructive).toBe(false)
   })
 
-  it('names the agent in the multi-skill unlink button when a display name is given', () => {
+  test('names the agent in the multi-skill unlink button when a display name is given', () => {
     // Arrange / Act
     const result = getToolbarState({
       view: 'agent',
@@ -113,7 +113,7 @@ describe('getToolbarState', () => {
     expect(result.primaryAriaLabel).toBe('Unlink 4 selected skills from Cursor')
   })
 
-  it('disables the delete button when a search filter hides every selected skill in global view', () => {
+  test('disables the delete button when a search filter hides every selected skill in global view', () => {
     // Arrange / Act
     const result = getToolbarState({
       view: 'global',
@@ -129,7 +129,7 @@ describe('getToolbarState', () => {
     expect(result.primaryAriaLabel).toBe('No visible selected skills to delete')
   })
 
-  it('disables the button with unlink-specific copy when no selected skill is visible in agent view', () => {
+  test('disables the button with unlink-specific copy when no selected skill is visible in agent view', () => {
     // Arrange / Act
     const result = getToolbarState({
       view: 'agent',
@@ -148,7 +148,7 @@ describe('getToolbarState', () => {
     )
   })
 
-  it('counts only the visible selected skills in the delete button when filters hide some rows', () => {
+  test('counts only the visible selected skills in the delete button when filters hide some rows', () => {
     // Arrange / Act
     const result = getToolbarState({
       view: 'global',
@@ -167,7 +167,7 @@ describe('getToolbarState', () => {
 })
 
 describe('countOrphanSymlinksRemoved', () => {
-  it('adds mid-loop partial-error commits to the orphan-cleared total', () => {
+  test('adds mid-loop partial-error commits to the orphan-cleared total', () => {
     // Arrange — one fully orphan-cleared row plus one cleanup that threw
     // mid-loop after committing unlinks (error row still carrying cascadeAgents).
     const result: BulkDeleteResult = {
@@ -195,7 +195,7 @@ describe('countOrphanSymlinksRemoved', () => {
     expect(total).toBe(3)
   })
 
-  it('ignores deleted rows and clean errors that committed nothing', () => {
+  test('ignores deleted rows and clean errors that committed nothing', () => {
     // Arrange — a tombstoned delete (its symlinks belong to the Undo cascade,
     // not orphan cleanup) and an error row with no cascadeAgents (committed 0).
     const result: BulkDeleteResult = {
@@ -224,7 +224,7 @@ describe('countOrphanSymlinksRemoved', () => {
 })
 
 describe('formatCascadeSummary', () => {
-  it('reports the deleted skill count and the total symlinks swept on a full success', () => {
+  test('reports the deleted skill count and the total symlinks swept on a full success', () => {
     // Arrange
     const result: BulkDeleteResult = {
       items: [
@@ -252,7 +252,7 @@ describe('formatCascadeSummary', () => {
     expect(summary).toBe('Deleted 2 skills. 3 symlinks removed.')
   })
 
-  it('reports a partial failure as "Deleted K of N skills"', () => {
+  test('reports a partial failure as "Deleted K of N skills"', () => {
     // Arrange
     const result: BulkDeleteResult = {
       items: [
@@ -278,7 +278,7 @@ describe('formatCascadeSummary', () => {
     expect(summary).toBe('Deleted 1 of 2 skills. 1 symlink removed.')
   })
 
-  it('drops the symlinks sentence when a delete cascaded no symlinks', () => {
+  test('drops the symlinks sentence when a delete cascaded no symlinks', () => {
     // Arrange
     const result: BulkDeleteResult = {
       items: [
@@ -299,7 +299,7 @@ describe('formatCascadeSummary', () => {
     expect(summary).toBe('Deleted 1 skill.')
   })
 
-  it('uses singular "skill" and "symlink" wording when exactly one of each is removed', () => {
+  test('uses singular "skill" and "symlink" wording when exactly one of each is removed', () => {
     // Arrange
     const result: BulkDeleteResult = {
       items: [
@@ -320,7 +320,7 @@ describe('formatCascadeSummary', () => {
     expect(summary).toBe('Deleted 1 skill. 1 symlink removed.')
   })
 
-  it('excludes irreversible orphan cleanup from the undoable "Deleted" count', () => {
+  test('excludes irreversible orphan cleanup from the undoable "Deleted" count', () => {
     // Issue #71 PR-1: orphan-cleared has no tombstoneId so Undo can't restore
     // it — therefore the "Deleted N" wording must NOT include it (otherwise
     // the toast lies about how many rows the user can bring back).
@@ -354,7 +354,7 @@ describe('formatCascadeSummary', () => {
     )
   })
 
-  it('omits the "Deleted" phrase entirely for an orphan-only cleanup batch', () => {
+  test('omits the "Deleted" phrase entirely for an orphan-only cleanup batch', () => {
     // The all-orphan case: e.g. user deleted the source first, then bulk
     // selected the broken-symlink rows in agent view to clean them up.
     // Nothing was tombstoned, so "Deleted" stays out of the message entirely.
@@ -383,7 +383,7 @@ describe('formatCascadeSummary', () => {
     expect(summary).toBe('Cleaned up 4 orphan symlinks.')
   })
 
-  it('reports an orphan cleanup and a failed deletion as two standalone phrases, not a K-of-N form', () => {
+  test('reports an orphan cleanup and a failed deletion as two standalone phrases, not a K-of-N form', () => {
     // No tombstoned rows means the K-of-N "Deleted X of Y" form has nothing
     // to attach to; the error count gets its own standalone phrase instead.
     // Arrange
@@ -410,7 +410,7 @@ describe('formatCascadeSummary', () => {
     expect(summary).toBe('Cleaned up 2 orphan symlinks. 1 deletion failed.')
   })
 
-  it('counts symlinks already unlinked when a multi-agent cleanup fails partway', () => {
+  test('counts symlinks already unlinked when a multi-agent cleanup fails partway', () => {
     // Arrange — a 3-agent orphan record where the source reappeared between
     // the 2nd and 3rd unlink: codex + cursor committed to disk, then ESTALE.
     // The error variant carries the partial cascade so the count is honest.
@@ -435,7 +435,7 @@ describe('formatCascadeSummary', () => {
 })
 
 describe('formatUnlinkSummary', () => {
-  it('names the agent and the unlinked skill count when every unlink succeeds', () => {
+  test('names the agent and the unlinked skill count when every unlink succeeds', () => {
     // Arrange
     const result: BulkUnlinkResult = {
       items: [
@@ -451,7 +451,7 @@ describe('formatUnlinkSummary', () => {
     expect(summary).toBe('Unlinked 2 skills from Cursor.')
   })
 
-  it('reports a partial unlink failure as "Unlinked K of N skills"', () => {
+  test('reports a partial unlink failure as "Unlinked K of N skills"', () => {
     // Arrange
     const result: BulkUnlinkResult = {
       items: [
@@ -471,7 +471,7 @@ describe('formatUnlinkSummary', () => {
     expect(summary).toBe('Unlinked 1 of 2 skills from Cursor.')
   })
 
-  it('uses singular "skill" wording when only one skill is unlinked', () => {
+  test('uses singular "skill" wording when only one skill is unlinked', () => {
     // Arrange
     const result: BulkUnlinkResult = {
       items: [{ skillName: toSkillName('task'), outcome: 'unlinked' }],
@@ -494,7 +494,7 @@ describe('computeRangeSelection', () => {
     toSkillName('zebra'),
   ]
 
-  it('shift-selects every row between an earlier anchor and a later click, inclusive', () => {
+  test('shift-selects every row between an earlier anchor and a later click, inclusive', () => {
     // Arrange / Act
     const range = computeRangeSelection(
       toSkillName('task'),
@@ -506,7 +506,7 @@ describe('computeRangeSelection', () => {
     expect(range).toEqual(['task', 'theme', 'zebra'])
   })
 
-  it('shift-selects the same inclusive range when the anchor sits below the clicked row', () => {
+  test('shift-selects the same inclusive range when the anchor sits below the clicked row', () => {
     // Arrange / Act
     const range = computeRangeSelection(
       toSkillName('zebra'),
@@ -518,7 +518,7 @@ describe('computeRangeSelection', () => {
     expect(range).toEqual(['task', 'theme', 'zebra'])
   })
 
-  it('selects just the clicked row when the anchor and target are the same row', () => {
+  test('selects just the clicked row when the anchor and target are the same row', () => {
     // Arrange / Act
     const range = computeRangeSelection(
       toSkillName('task'),
@@ -530,7 +530,7 @@ describe('computeRangeSelection', () => {
     expect(range).toEqual(['task'])
   })
 
-  it('selects just the clicked row when there is no prior anchor', () => {
+  test('selects just the clicked row when there is no prior anchor', () => {
     // Arrange / Act
     const range = computeRangeSelection(null, toSkillName('task'), visible)
 
@@ -538,7 +538,7 @@ describe('computeRangeSelection', () => {
     expect(range).toEqual(['task'])
   })
 
-  it('selects just the clicked row when the anchor was filtered out by search', () => {
+  test('selects just the clicked row when the anchor was filtered out by search', () => {
     // Arrange / Act
     const range = computeRangeSelection(
       toSkillName('removed-by-search'),
@@ -550,7 +550,7 @@ describe('computeRangeSelection', () => {
     expect(range).toEqual(['zebra'])
   })
 
-  it('selects just the clicked row when the clicked target is not in the visible list', () => {
+  test('selects just the clicked row when the clicked target is not in the visible list', () => {
     // Arrange / Act
     const range = computeRangeSelection(
       toSkillName('task'),
@@ -562,7 +562,7 @@ describe('computeRangeSelection', () => {
     expect(range).toEqual(['missing'])
   })
 
-  it('shift-selects the whole visible list when spanning from the first row to the last', () => {
+  test('shift-selects the whole visible list when spanning from the first row to the last', () => {
     // Arrange / Act
     const range = computeRangeSelection(
       toSkillName('alpha'),

@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { COLOR_PRESET_CHROMA, TINTED_NEUTRAL_CHROMA } from '@/shared/constants'
 
@@ -47,7 +47,7 @@ describe('themeSlice', () => {
     vi.unstubAllGlobals()
   })
 
-  it('boots into the neutral-dark theme with no tint applied', async () => {
+  test('boots into the neutral-dark theme with no tint applied', async () => {
     // Arrange
     const store = await createTestStore()
 
@@ -62,7 +62,7 @@ describe('themeSlice', () => {
     expect(state.preset).toBe('neutral-dark')
   })
 
-  it('tints the app to the chosen color swatch while keeping the current dark mode', async () => {
+  test('tints the app to the chosen color swatch while keeping the current dark mode', async () => {
     // Arrange
     const { setTheme } = await import('./themeSlice')
     const store = await createTestStore()
@@ -79,7 +79,7 @@ describe('themeSlice', () => {
     expect(state.mode).toBe('dark')
   })
 
-  it('switches to light mode when the user picks the neutral-light preset', async () => {
+  test('switches to light mode when the user picks the neutral-light preset', async () => {
     // Arrange
     const { setTheme } = await import('./themeSlice')
     const store = await createTestStore()
@@ -94,7 +94,7 @@ describe('themeSlice', () => {
     expect(state.mode).toBe('light')
   })
 
-  it('setTheme leaves modePreference untouched so an "Auto" user keeps tracking the OS', async () => {
+  test('setTheme leaves modePreference untouched so an "Auto" user keeps tracking the OS', async () => {
     // Arrange — user picked Auto, the listener resolved to dark.
     const { setTheme, setModePreference } = await import('./themeSlice')
     stubSystemPrefersDark(true)
@@ -110,7 +110,7 @@ describe('themeSlice', () => {
     expect(store.getState().theme.modePreference).toBe('system')
   })
 
-  it('setModePreference flips dark/light for color presets without losing preset', async () => {
+  test('setModePreference flips dark/light for color presets without losing preset', async () => {
     // Arrange
     const { setTheme, setModePreference } = await import('./themeSlice')
     const store = await createTestStore()
@@ -129,7 +129,7 @@ describe('themeSlice', () => {
     expect(store.getState().theme.preset).toBe('cyan')
   })
 
-  it('setModePreference swaps neutral-dark ↔ neutral-light so the preset stays consistent with mode', async () => {
+  test('setModePreference swaps neutral-dark ↔ neutral-light so the preset stays consistent with mode', async () => {
     // Arrange
     const { setModePreference } = await import('./themeSlice')
     const store = await createTestStore()
@@ -153,7 +153,7 @@ describe('themeSlice', () => {
   // remained `zinc-dark`, breaking the dropdown's `aria-pressed`,
   // the sr-only "Current theme: …" announcement, and producing
   // mismatched persisted state on next launch.
-  it.each([
+  test.each([
     ['zinc-dark', 'zinc-light', 265],
     ['slate-dark', 'slate-light', 240],
     ['stone-dark', 'stone-light', 60],
@@ -195,7 +195,7 @@ describe('themeSlice', () => {
       vi.unstubAllGlobals()
     })
 
-    it('resolves to dark when the OS reports prefers-color-scheme: dark', async () => {
+    test('resolves to dark when the OS reports prefers-color-scheme: dark', async () => {
       // Arrange
       stubSystemPrefersDark(true)
       const { setModePreference } = await import('./themeSlice')
@@ -209,7 +209,7 @@ describe('themeSlice', () => {
       expect(store.getState().theme.mode).toBe('dark')
     })
 
-    it('resolves to light when the OS reports prefers-color-scheme: light', async () => {
+    test('resolves to light when the OS reports prefers-color-scheme: light', async () => {
       // Arrange
       stubSystemPrefersDark(false)
       const { setModePreference } = await import('./themeSlice')
@@ -223,7 +223,7 @@ describe('themeSlice', () => {
       expect(store.getState().theme.mode).toBe('light')
     })
 
-    it('swaps neutral preset to partner when system resolves to a different mode than the current preset', async () => {
+    test('swaps neutral preset to partner when system resolves to a different mode than the current preset', async () => {
       // Arrange — start in zinc-dark, then move to Auto while the OS is Light.
       const { setTheme, setModePreference } = await import('./themeSlice')
       const store = await createTestStore()
@@ -239,7 +239,7 @@ describe('themeSlice', () => {
       expect(store.getState().theme.modePreference).toBe('system')
     })
 
-    it('leaves color presets untouched when system resolves to a new mode', async () => {
+    test('leaves color presets untouched when system resolves to a new mode', async () => {
       // Arrange
       const { setTheme, setModePreference } = await import('./themeSlice')
       const store = await createTestStore()
@@ -254,7 +254,7 @@ describe('themeSlice', () => {
       expect(store.getState().theme.mode).toBe('light')
     })
 
-    it('defaults Auto to dark in a headless host that has no matchMedia (SSR / pre-hydration safety net)', async () => {
+    test('defaults Auto to dark in a headless host that has no matchMedia (SSR / pre-hydration safety net)', async () => {
       // Regression guard for the resolver's headless fallback: when a user is on
       // "Auto" but the host lacks `window.matchMedia` (SSR, the pre-hydration
       // bootstrap script, or a stripped test host), the reducer must stay total
@@ -290,7 +290,7 @@ describe('themeSlice', () => {
     })
   })
 
-  it('removes the color tint when switching from a color swatch back to a neutral preset', async () => {
+  test('removes the color tint when switching from a color swatch back to a neutral preset', async () => {
     // Arrange
     const { setTheme } = await import('./themeSlice')
     const store = await createTestStore()
@@ -304,7 +304,7 @@ describe('themeSlice', () => {
     expect(store.getState().theme.chroma).toBe(0)
   })
 
-  it('falls back to neutral-dark instead of crashing on a stale unknown preset key', async () => {
+  test('falls back to neutral-dark instead of crashing on a stale unknown preset key', async () => {
     // Guards against the "stale preset from disk" crash: if a user has
     // `preset: 'mono-dark'` (a name proposed in a plan but never shipped),
     // THEME_PRESETS[preset] is undefined and `config.hue` would throw. The

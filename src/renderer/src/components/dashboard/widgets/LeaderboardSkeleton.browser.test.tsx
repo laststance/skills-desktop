@@ -1,5 +1,5 @@
 import { useState, type ReactElement } from 'react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -38,7 +38,7 @@ const MemoComparatorHarness = function MemoComparatorHarness(): ReactElement {
 }
 
 describe('LeaderboardSkeleton', () => {
-  it('holds layout steady with three pulsing placeholder rows while the first fetch loads', async () => {
+  test('holds layout steady with three pulsing placeholder rows while the first fetch loads', async () => {
     // Arrange + Act
     const screen = await render(<LeaderboardSkeleton />)
 
@@ -52,7 +52,7 @@ describe('LeaderboardSkeleton', () => {
     expect(pulsingBars.length).toBeGreaterThan(0)
   })
 
-  it('hides the loading placeholders from assistive tech so screen readers skip the silhouette', async () => {
+  test('hides the loading placeholders from assistive tech so screen readers skip the silhouette', async () => {
     // Arrange + Act
     const screen = await render(<LeaderboardSkeleton />)
 
@@ -64,7 +64,7 @@ describe('LeaderboardSkeleton', () => {
     expect(skeletonRoot).not.toBeNull()
   })
 
-  it('keeps showing the same skeleton after a parent re-renders with unchanged props', async () => {
+  test('keeps showing the same skeleton after a parent re-renders with unchanged props', async () => {
     // Arrange — mount inside a parent that can re-render on demand.
     const screen = await render(<MemoComparatorHarness />)
     await expect

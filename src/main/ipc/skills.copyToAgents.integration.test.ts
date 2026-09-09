@@ -14,7 +14,7 @@ import type * as NodeOs from 'node:os'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 const handleMock = vi.fn()
 
@@ -71,7 +71,7 @@ describe('skills:copyToAgents handler', () => {
     await rm(tempHome, { recursive: true, force: true })
   })
 
-  it('copies a source skill into the chosen agent so its files land in the agent dir', async () => {
+  test('copies a source skill into the chosen agent so its files land in the agent dir', async () => {
     // Arrange
     const sourcePath = join(tempHome, '.agents', 'skills', 'task')
     await mkdir(sourcePath, { recursive: true })
@@ -115,7 +115,7 @@ describe('skills:copyToAgents handler', () => {
     ).resolves.toBe('copied payload')
   })
 
-  it('keeps nested symlinks as symlinks when copying a source skill into an agent', async () => {
+  test('keeps nested symlinks as symlinks when copying a source skill into an agent', async () => {
     // Arrange
     const sourcePath = join(tempHome, '.agents', 'skills', 'task')
     await mkdir(join(sourcePath, 'docs'), { recursive: true })
@@ -169,7 +169,7 @@ describe('skills:copyToAgents handler', () => {
     ).resolves.toBe('nested guide')
   })
 
-  it('copies a Devin symlink under symlinked .config using its physical relative target', async () => {
+  test('copies a Devin symlink under symlinked .config using its physical relative target', async () => {
     // Arrange
     const skillName = 'devin-copy'
     const targetPath = join(tempHome, '.agents', 'skills', skillName)
@@ -214,7 +214,7 @@ describe('skills:copyToAgents handler', () => {
     )
   })
 
-  it('reports destination inspection errors without copying to that agent', async () => {
+  test('reports destination inspection errors without copying to that agent', async () => {
     // Arrange
     const skillName = 'task'
     const sourcePath = join(tempHome, '.agents', 'skills', skillName)

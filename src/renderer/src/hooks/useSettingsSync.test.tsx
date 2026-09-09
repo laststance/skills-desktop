@@ -12,7 +12,7 @@
 
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
 
@@ -111,7 +111,7 @@ async function mountHook(): Promise<{ unmount: () => Promise<void> }> {
 }
 
 describe('useSettingsSync', () => {
-  it('hydrates the settings slice from the persisted snapshot on mount', async () => {
+  test('hydrates the settings slice from the persisted snapshot on mount', async () => {
     // Arrange — `get()` resolves with the default snapshot (set in beforeEach)
 
     // Act
@@ -125,7 +125,7 @@ describe('useSettingsSync', () => {
     })
   })
 
-  it('subscribes to cross-window settings changes on mount', async () => {
+  test('subscribes to cross-window settings changes on mount', async () => {
     // Arrange — beforeEach wires onChanged to capture the listener
 
     // Act
@@ -136,7 +136,7 @@ describe('useSettingsSync', () => {
     expect(typeof onChangedCallback).toBe('function')
   })
 
-  it('propagates a settings save from another window into the slice', async () => {
+  test('propagates a settings save from another window into the slice', async () => {
     // Arrange — mount so the onChanged listener is registered
     await mountHook()
     dispatchSpy.mockClear()
@@ -159,7 +159,7 @@ describe('useSettingsSync', () => {
     })
   })
 
-  it('tears down the change subscription when the component unmounts', async () => {
+  test('tears down the change subscription when the component unmounts', async () => {
     // Arrange — mount registers the subscription
     const { unmount } = await mountHook()
 
@@ -170,7 +170,7 @@ describe('useSettingsSync', () => {
     expect(unsubscribeMock).toHaveBeenCalledTimes(1)
   })
 
-  it('skips the late hydration dispatch when the component unmounts before the snapshot resolves', async () => {
+  test('skips the late hydration dispatch when the component unmounts before the snapshot resolves', async () => {
     // Arrange — make `get()` hang so we can unmount before it resolves
     const deferred = createDeferred<Settings>()
     getMock.mockReturnValue(deferred.promise)

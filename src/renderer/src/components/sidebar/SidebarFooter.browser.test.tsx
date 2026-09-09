@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -45,7 +45,7 @@ async function renderFooter() {
 }
 
 describe('Sidebar → SidebarFooter', () => {
-  it('opens the skills.sh marketplace in the default browser when the link is clicked', async () => {
+  test('opens the skills.sh marketplace in the default browser when the link is clicked', async () => {
     // Arrange
     const { screen } = await renderFooter()
 
@@ -56,7 +56,7 @@ describe('Sidebar → SidebarFooter', () => {
     expect(mockOpenExternal).toHaveBeenCalledWith('https://skills.sh/')
   })
 
-  it('opens the Settings window when the gear button is clicked', async () => {
+  test('opens the Settings window when the gear button is clicked', async () => {
     // Arrange
     const { screen } = await renderFooter()
 

@@ -1,11 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { repositoryId } from '@/shared/types'
 
 import { formatRepositoryFacetLabel } from './formatRepositoryFacetLabel'
 
 describe('formatRepositoryFacetLabel', () => {
-  it('returns the slug unchanged when it fits the compact trigger width', () => {
+  test('returns the slug unchanged when it fits the compact trigger width', () => {
     // Arrange — a typical owner/repo well under the 28-char threshold (18 chars)
     const source = repositoryId('vercel-labs/skills')
 
@@ -16,7 +16,7 @@ describe('formatRepositoryFacetLabel', () => {
     expect(label).toBe('vercel-labs/skills')
   })
 
-  it('returns the slug unchanged at exactly the 28-char threshold', () => {
+  test('returns the slug unchanged at exactly the 28-char threshold', () => {
     // Arrange — a slug whose length is exactly REPOSITORY_FACET_LABEL_MAX_CHARS
     const source = repositoryId('owner-of-repos/the-repo-name')
 
@@ -27,7 +27,7 @@ describe('formatRepositoryFacetLabel', () => {
     expect(label).toBe('owner-of-repos/the-repo-name')
   })
 
-  it('middle-ellipsises an over-long slug, keeping owner head and repo tail', () => {
+  test('middle-ellipsises an over-long slug, keeping owner head and repo tail', () => {
     // Arrange — a 46-char slug past the threshold
     const source = repositoryId(
       'very-long-owner-name/extremely-long-repository',

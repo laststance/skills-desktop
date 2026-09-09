@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type {
@@ -185,7 +185,7 @@ async function renderModal(options: {
 }
 
 describe('BulkCopyToAgentsModal target selection', () => {
-  it('toggles an agent on and then off so its checkbox reflects the user clicks', async () => {
+  test('toggles an agent on and then off so its checkbox reflects the user clicks', async () => {
     // Arrange
     const { screen } = await renderModal({
       skills: [makeSkill('task')],
@@ -204,7 +204,7 @@ describe('BulkCopyToAgentsModal target selection', () => {
     await expect.element(cursorCheckbox).not.toBeChecked()
   })
 
-  it('keeps unrelated agents unchecked when a different agent is ticked', async () => {
+  test('keeps unrelated agents unchecked when a different agent is ticked', async () => {
     // Arrange
     const { screen } = await renderModal({
       skills: [makeSkill('task')],
@@ -227,7 +227,7 @@ describe('BulkCopyToAgentsModal target selection', () => {
 })
 
 describe('BulkCopyToAgentsModal dismissal', () => {
-  it('closes the modal and forgets ticked agents when Cancel is pressed', async () => {
+  test('closes the modal and forgets ticked agents when Cancel is pressed', async () => {
     // Arrange
     const { screen, store } = await renderModal({
       skills: [makeSkill('task')],
@@ -243,7 +243,7 @@ describe('BulkCopyToAgentsModal dismissal', () => {
     expect(store.getState().skills.bulkCopyModalOpen).toBe(false)
   })
 
-  it('closes the modal when Escape requests the dialog to close', async () => {
+  test('closes the modal when Escape requests the dialog to close', async () => {
     // Arrange
     const { store } = await renderModal({
       skills: [makeSkill('task')],
@@ -262,7 +262,7 @@ describe('BulkCopyToAgentsModal dismissal', () => {
     })
   })
 
-  it('refuses to dismiss while a copy is still in flight so the batch is never abandoned', async () => {
+  test('refuses to dismiss while a copy is still in flight so the batch is never abandoned', async () => {
     // Arrange — copy never resolves, so bulkCopying stays true after clicking Copy
     mockCopyToAgents.mockReturnValue(new Promise<CopyToAgentsResult>(() => {}))
     const { screen, store } = await renderModal({
@@ -290,7 +290,7 @@ describe('BulkCopyToAgentsModal dismissal', () => {
 })
 
 describe('BulkCopyToAgentsModal copy outcome', () => {
-  it('shows a success toast and closes when every selected skill copies to every agent', async () => {
+  test('shows a success toast and closes when every selected skill copies to every agent', async () => {
     // Arrange
     mockCopyToAgents.mockResolvedValue(
       makeCopyResult({ copied: toAgentCount(1) }),
@@ -321,7 +321,7 @@ describe('BulkCopyToAgentsModal copy outcome', () => {
     expect(store.getState().skills.bulkCopyModalOpen).toBe(false)
   })
 
-  it('shows an error toast when no target accepted any copy', async () => {
+  test('shows an error toast when no target accepted any copy', async () => {
     // Arrange — every target rejected, so totalCopied is 0
     mockCopyToAgents.mockResolvedValue(
       makeCopyResult({
@@ -348,7 +348,7 @@ describe('BulkCopyToAgentsModal copy outcome', () => {
     })
   })
 
-  it('shows a generic error toast when a same-frame second copy is rejected by the in-flight guard', async () => {
+  test('shows a generic error toast when a same-frame second copy is rejected by the in-flight guard', async () => {
     // Arrange — copy never resolves so the first dispatch keeps bulkCopying true.
     mockCopyToAgents.mockReturnValue(new Promise<CopyToAgentsResult>(() => {}))
     const { screen, store } = await renderModal({

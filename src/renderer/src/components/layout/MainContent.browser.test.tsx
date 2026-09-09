@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import type { ReactElement } from 'react'
 import { Provider } from 'react-redux'
 import { toast } from 'sonner'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { partitionGlobalDeleteTargets } from '@/renderer/src/components/skills/reviewedDestructiveTargets'
@@ -323,7 +323,7 @@ function makeAgentLocalSkill(name: string, agentId: AgentId): Skill {
 }
 
 describe('MainContent Installed search count display', () => {
-  it('shows the current visible count in the Installed tab by default and keeps Marketplace count-free', async () => {
+  test('shows the current visible count in the Installed tab by default and keeps Marketplace count-free', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchSkills } =
@@ -352,7 +352,7 @@ describe('MainContent Installed search count display', () => {
       .toBeInTheDocument()
   })
 
-  it('updates the Installed tab count when search and repo filters change visible skills', async () => {
+  test('updates the Installed tab count when search and repo filters change visible skills', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchSkills } =
@@ -408,7 +408,7 @@ describe('MainContent Installed search count display', () => {
       .toBeInTheDocument()
   })
 
-  it('moves the current visible count into the toolbar when the inline setting is selected', async () => {
+  test('moves the current visible count into the toolbar when the inline setting is selected', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchSkills } =
@@ -446,7 +446,7 @@ describe('MainContent Installed search count display', () => {
 })
 
 describe('MainContent hosts the shared InstallModal', () => {
-  it('opens the Install Skill dialog when a skill is selected for install (e.g. from a sidebar bookmark)', async () => {
+  test('opens the Install Skill dialog when a skill is selected for install (e.g. from a sidebar bookmark)', async () => {
     // Arrange
     // MainContent is the always-mounted host for <InstallModal/> (hoisted out of
     // SkillsMarketplace, which Radix unmounts when the Marketplace tab is inactive).
@@ -475,7 +475,7 @@ describe('MainContent hosts the shared InstallModal', () => {
 })
 
 describe('MainContent bulk-select toggle button', () => {
-  it('labels the bulk toggle "Select" and unpressed before the user enters bulk mode', async () => {
+  test('labels the bulk toggle "Select" and unpressed before the user enters bulk mode', async () => {
     // Arrange
     const { screen } = await renderMainContent()
 
@@ -489,7 +489,7 @@ describe('MainContent bulk-select toggle button', () => {
     await expect.element(toggle).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('enters bulk select mode when the user clicks Select', async () => {
+  test('enters bulk select mode when the user clicks Select', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
 
@@ -502,7 +502,7 @@ describe('MainContent bulk-select toggle button', () => {
     expect(store.getState().ui.bulkSelectMode).toBe(true)
   })
 
-  it('flips the bulk toggle to a pressed "Cancel" once bulk mode is active', async () => {
+  test('flips the bulk toggle to a pressed "Cancel" once bulk mode is active', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } =
@@ -519,7 +519,7 @@ describe('MainContent bulk-select toggle button', () => {
     await expect.element(toggle).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('clears the accumulated selection when the user clicks Cancel to leave bulk mode', async () => {
+  test('clears the accumulated selection when the user clicks Cancel to leave bulk mode', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } =
@@ -542,7 +542,7 @@ describe('MainContent bulk-select toggle button', () => {
 })
 
 describe('MainContent keyboard shortcuts (Cmd+A)', () => {
-  it('ignores Cmd+A outside bulk mode so nothing gets silently selected', async () => {
+  test('ignores Cmd+A outside bulk mode so nothing gets silently selected', async () => {
     // Arrange
     const { store } = await renderMainContent()
 
@@ -553,7 +553,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
     expect(store.getState().skills.selectedSkillNames).toEqual([])
   })
 
-  it('ignores Ctrl+A outside bulk mode so nothing gets silently selected', async () => {
+  test('ignores Ctrl+A outside bulk mode so nothing gets silently selected', async () => {
     // Arrange
     const { store } = await renderMainContent()
 
@@ -564,7 +564,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
     expect(store.getState().skills.selectedSkillNames).toEqual([])
   })
 
-  it('selects every visible skill on Cmd+A while in bulk mode', async () => {
+  test('selects every visible skill on Cmd+A while in bulk mode', async () => {
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -611,7 +611,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
     expect(selectedNames.length).toBe(2)
   })
 
-  it('does not select skills on Cmd+A while typing in a text field', async () => {
+  test('does not select skills on Cmd+A while typing in a text field', async () => {
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -646,7 +646,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
     }
   })
 
-  it('selects every visible skill on Cmd+A even while the search box is focused, blurring it first', async () => {
+  test('selects every visible skill on Cmd+A even while the search box is focused, blurring it first', async () => {
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -714,7 +714,7 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
 })
 
 describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
-  it('clears the selection but stays in bulk mode on the first Esc when skills are selected', async () => {
+  test('clears the selection but stays in bulk mode on the first Esc when skills are selected', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } =
@@ -736,7 +736,7 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
     expect(store.getState().ui.bulkSelectMode).toBe(true)
   })
 
-  it('leaves bulk mode on Esc once the selection is already empty', async () => {
+  test('leaves bulk mode on Esc once the selection is already empty', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } =
@@ -753,7 +753,7 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
     expect(store.getState().ui.bulkSelectMode).toBe(false)
   })
 
-  it('ignores Esc entirely when the user is not in bulk mode', async () => {
+  test('ignores Esc entirely when the user is not in bulk mode', async () => {
     // Arrange
     const { store } = await renderMainContent()
 
@@ -765,7 +765,7 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
     expect(store.getState().skills.selectedSkillNames).toEqual([])
   })
 
-  it('does not clear the selection on Esc while the user is typing in a text field', async () => {
+  test('does not clear the selection on Esc while the user is typing in a text field', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } =
@@ -796,7 +796,7 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
     }
   })
 
-  it('does not clear the selection or exit bulk mode when Escape closes an open install modal overlaying the Installed tab', async () => {
+  test('does not clear the selection or exit bulk mode when Escape closes an open install modal overlaying the Installed tab', async () => {
     // Arrange
     // The always-mounted InstallModal (hoisted onto MainContent so sidebar
     // bookmark installs open it on any tab) can now overlay the Installed tab
@@ -835,7 +835,7 @@ describe('MainContent keyboard shortcuts (Esc 2-step)', () => {
     expect(store.getState().ui.bulkSelectMode).toBe(true)
   })
 
-  it('does not clear the selection or exit bulk mode when Escape closes an open dropdown menu', async () => {
+  test('does not clear the selection or exit bulk mode when Escape closes an open dropdown menu', async () => {
     // Arrange — Radix DropdownMenu.Content owns Escape while it is open. The
     // document bulk shortcut must not also consume that same keydown.
     const { screen, store } = await renderMainContent()
@@ -896,7 +896,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     }
   }
 
-  it('deletes both source-tracked and plain skills through a single delete call', async () => {
+  test('deletes both source-tracked and plain skills through a single delete call', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode, setBulkConfirm } =
@@ -972,7 +972,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     expect(mockSkillsDeleteSkills).toHaveBeenCalledTimes(1)
   })
 
-  it('passes reviewed source path when metadata name differs from folder basename', async () => {
+  test('passes reviewed source path when metadata name differs from folder basename', async () => {
     const { screen, store } = await renderMainContent()
     const { setBulkConfirm } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -1022,7 +1022,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     })
   })
 
-  it('uses toolbar-captured delete targets when live rows drift before confirm', async () => {
+  test('uses toolbar-captured delete targets when live rows drift before confirm', async () => {
     mockSelectionToolbarState.enabled = true
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode } =
@@ -1079,7 +1079,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     })
   })
 
-  it('uses toolbar-captured unlink targets when live rows drift before confirm', async () => {
+  test('uses toolbar-captured unlink targets when live rows drift before confirm', async () => {
     mockSelectionToolbarState.enabled = true
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
@@ -1168,7 +1168,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     })
   })
 
-  it('routes global orphan deletes through reviewed orphan cleanup identity', async () => {
+  test('routes global orphan deletes through reviewed orphan cleanup identity', async () => {
     const { screen, store } = await renderMainContent()
     const { setBulkConfirm } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -1248,7 +1248,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     expect(store.getState().ui.undoToast).toBeNull()
   })
 
-  it('keeps failed source rows selected after mixed source and orphan delete', async () => {
+  test('keeps failed source rows selected after mixed source and orphan delete', async () => {
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode, setBulkConfirm } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -1335,7 +1335,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     expect(store.getState().ui.bulkSelectMode).toBe(true)
   })
 
-  it('keeps source ESTALE selected instead of treating it as orphan rescan', async () => {
+  test('keeps source ESTALE selected instead of treating it as orphan rescan', async () => {
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode, setBulkConfirm } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -1425,7 +1425,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     expect(store.getState().ui.bulkSelectMode).toBe(true)
   })
 
-  it('excludes stale orphan preflight errors from retry selection and names rescan in the summary', async () => {
+  test('excludes stale orphan preflight errors from retry selection and names rescan in the summary', async () => {
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode, setBulkConfirm } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -1508,7 +1508,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     )
   })
 
-  it('restores unresolved mixed delete selection when source delete rejects', async () => {
+  test('restores unresolved mixed delete selection when source delete rejects', async () => {
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode, setBulkConfirm } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -1580,7 +1580,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     expect(mockRefreshAllData).toHaveBeenCalledTimes(1)
   })
 
-  it('restores orphan-only selection and refreshes when reviewed orphan cleanup rejects', async () => {
+  test('restores orphan-only selection and refreshes when reviewed orphan cleanup rejects', async () => {
     const { screen, store } = await renderMainContent()
     const { enterBulkSelectMode, setBulkConfirm } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -1634,7 +1634,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     expect(mockRefreshAllData).toHaveBeenCalledTimes(1)
   })
 
-  it('does not count stale orphan rows as cleanup-ready in delete confirmation', async () => {
+  test('does not count stale orphan rows as cleanup-ready in delete confirmation', async () => {
     const { screen, store } = await renderMainContent()
     const { setBulkConfirm } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -1692,7 +1692,7 @@ describe('MainContent bulk delete — uniform delete pipeline', () => {
     ).toBeNull()
   })
 
-  it('labels stale source rows as delete rescans, not orphan cleanup rescans', async () => {
+  test('labels stale source rows as delete rescans, not orphan cleanup rescans', async () => {
     const { screen, store } = await renderMainContent()
     const { setBulkConfirm } =
       await import('@/renderer/src/redux/slices/uiSlice')
@@ -1742,7 +1742,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
   // (source view never offers it), and each option writes the Redux state that
   // selectors use to narrow the visible list.
 
-  it('offers an Orphan filter marked with a destructive dot when an agent is selected', async () => {
+  test('offers an Orphan filter marked with a destructive dot when an agent is selected', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
@@ -1786,7 +1786,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     ).not.toBeNull()
   })
 
-  it('offers a G-Stack filter marked with a sky dot when an agent is selected', async () => {
+  test('offers a G-Stack filter marked with a sky dot when an agent is selected', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
@@ -1826,7 +1826,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     ).not.toBeNull()
   })
 
-  it('offers a Unique filter marked with a violet dot and a discoverability hint when an agent is selected', async () => {
+  test('offers a Unique filter marked with a violet dot and a discoverability hint when an agent is selected', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
@@ -1871,7 +1871,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     )
   })
 
-  it('narrows the visible list to only single-agent skills when the Unique filter is chosen', async () => {
+  test('narrows the visible list to only single-agent skills when the Unique filter is chosen', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
@@ -1962,7 +1962,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     expect(filtered.map((skill) => skill.name)).toEqual(['cursor-unique'])
   })
 
-  it('narrows the visible list to only orphan skills when the Orphan filter is chosen', async () => {
+  test('narrows the visible list to only orphan skills when the Orphan filter is chosen', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
@@ -2044,7 +2044,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
     expect(filtered.map((skill) => skill.name)).toEqual(['orphan-one'])
   })
 
-  it('keeps the dropdown open and reveals Clear excludes when a type is excluded', async () => {
+  test('keeps the dropdown open and reveals Clear excludes when a type is excluded', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
@@ -2083,7 +2083,7 @@ describe('MainContent SkillTypeFilter dropdown options', () => {
 })
 
 describe('MainContent repo facet dropdown', () => {
-  it('filters by a repository when its source-count option is picked', async () => {
+  test('filters by a repository when its source-count option is picked', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchSkills } =
@@ -2123,7 +2123,7 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
   // simultaneously. These tests pin the contract: each pill renders only
   // when its own state is set, and clearing one does not touch the other.
 
-  it('shows a Source pill naming the repo and hides it again when the pill is cleared', async () => {
+  test('shows a Source pill naming the repo and hides it again when the pill is cleared', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { setSelectedSources } =
@@ -2150,7 +2150,7 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
     expect(screen.getByTestId('source-filter-pill').query()).toBeNull()
   })
 
-  it('shows both the Agent and Source pills when an agent and a source are filtered together', async () => {
+  test('shows both the Agent and Source pills when an agent and a source are filtered together', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
@@ -2188,7 +2188,7 @@ describe('MainContent filter pills (Agent + Source orthogonal)', () => {
       .toMatchTextContent('vercel-labs/skills')
   })
 
-  it('keeps the Agent pill and agent filter when only the Source pill is cleared', async () => {
+  test('keeps the Agent pill and agent filter when only the Source pill is cleared', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
@@ -2237,7 +2237,7 @@ describe('MainContent hidden-locals caveat', () => {
   // The repo include-filter hides source-less local skills. This inline caveat
   // tells the user how many were dropped so an empty-looking list is explained.
 
-  it('shows "N local skills hidden" when the repo filter suppresses source-less locals', async () => {
+  test('shows "N local skills hidden" when the repo filter suppresses source-less locals', async () => {
     // Arrange — cursor view with one repo skill and two source-less locals
     const { screen, store } = await renderMainContent()
     const { fetchSkills } =
@@ -2265,7 +2265,7 @@ describe('MainContent hidden-locals caveat', () => {
       .toBeInTheDocument()
   })
 
-  it('omits the caveat when no repo filter is active', async () => {
+  test('omits the caveat when no repo filter is active', async () => {
     // Arrange — same source-less locals in the cursor view, filter left empty
     const { screen, store } = await renderMainContent()
     const { fetchSkills } =
@@ -2295,7 +2295,7 @@ describe('MainContent hidden-locals caveat', () => {
 })
 
 describe('MainContent toolbar quick actions', () => {
-  it('reverses the alphabetical sort order when the user clicks the sort toggle', async () => {
+  test('reverses the alphabetical sort order when the user clicks the sort toggle', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     expect(store.getState().ui.sortOrder).toBe('asc')
@@ -2309,7 +2309,7 @@ describe('MainContent toolbar quick actions', () => {
     expect(store.getState().ui.sortOrder).toBe('desc')
   })
 
-  it('switches to the Marketplace tab and clears any open skill preview', async () => {
+  test('switches to the Marketplace tab and clears any open skill preview', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { setPreviewSkill } =
@@ -2333,7 +2333,7 @@ describe('MainContent toolbar quick actions', () => {
 })
 
 describe('MainContent filter pill clear actions', () => {
-  it('clears the agent filter when the user clears the agent pill', async () => {
+  test('clears the agent filter when the user clears the agent pill', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchAgents } =
@@ -2367,7 +2367,7 @@ describe('MainContent filter pill clear actions', () => {
     expect(screen.getByTestId('agent-filter-pill').query()).toBeNull()
   })
 
-  it('clears every source when the collapsed multi-repo pill is cleared', async () => {
+  test('clears every source when the collapsed multi-repo pill is cleared', async () => {
     // Arrange
     // Selecting more than SOURCE_FILTER_MAX_VISIBLE_REPOS (3) repos collapses the
     // individual pills into one "N repos" pill whose Clear wipes the whole set.
@@ -2399,7 +2399,7 @@ describe('MainContent filter pill clear actions', () => {
 })
 
 describe('MainContent repo facet bulk shortcuts', () => {
-  it('clears the include filter when the user picks "Show all repos"', async () => {
+  test('clears the include filter when the user picks "Show all repos"', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchSkills } =
@@ -2426,7 +2426,7 @@ describe('MainContent repo facet bulk shortcuts', () => {
     await expect.poll(() => store.getState().ui.selectedSources).toEqual([])
   })
 
-  it('ticks every facet repo when the user picks "Select all repos"', async () => {
+  test('ticks every facet repo when the user picks "Select all repos"', async () => {
     // Arrange
     const { screen, store } = await renderMainContent()
     const { fetchSkills } =
@@ -2489,7 +2489,7 @@ describe('MainContent skill-type exclude toggles', () => {
     return { screen, store }
   }
 
-  it('excludes Symlinked skills when its exclude checkbox is ticked', async () => {
+  test('excludes Symlinked skills when its exclude checkbox is ticked', async () => {
     // Arrange
     const { screen, store } = await renderWithCursorAgentSelected()
 
@@ -2503,7 +2503,7 @@ describe('MainContent skill-type exclude toggles', () => {
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['symlinked'])
   })
 
-  it('excludes G-Stack skills when its exclude checkbox is ticked', async () => {
+  test('excludes G-Stack skills when its exclude checkbox is ticked', async () => {
     // Arrange
     const { screen, store } = await renderWithCursorAgentSelected()
 
@@ -2517,7 +2517,7 @@ describe('MainContent skill-type exclude toggles', () => {
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['gstack'])
   })
 
-  it('excludes Orphan skills when its exclude checkbox is ticked', async () => {
+  test('excludes Orphan skills when its exclude checkbox is ticked', async () => {
     // Arrange
     const { screen, store } = await renderWithCursorAgentSelected()
 
@@ -2531,7 +2531,7 @@ describe('MainContent skill-type exclude toggles', () => {
     expect(store.getState().ui.excludedSkillTypeFilters).toEqual(['orphan'])
   })
 
-  it('clears all excludes when the user picks "Clear excludes"', async () => {
+  test('clears all excludes when the user picks "Clear excludes"', async () => {
     // Arrange
     const { screen, store } = await renderWithCursorAgentSelected()
     const { toggleExcludedSkillTypeFilter } =
@@ -2553,7 +2553,7 @@ describe('MainContent skill-type exclude toggles', () => {
 })
 
 describe('MainContent bulk copy action', () => {
-  it('opens the bulk copy-to-agents modal from the global selection toolbar', async () => {
+  test('opens the bulk copy-to-agents modal from the global selection toolbar', async () => {
     // Arrange — exercise the real toolbar's Copy action wired to MainContent.
     mockSelectionToolbarState.enabled = true
     const { screen, store } = await renderMainContent()
@@ -2576,7 +2576,7 @@ describe('MainContent bulk copy action', () => {
 })
 
 describe('MainContent delete progress wiring', () => {
-  it('mirrors main-process delete progress into Redux', async () => {
+  test('mirrors main-process delete progress into Redux', async () => {
     // Arrange — capture the progress callback MainContent subscribes on mount.
     const { store } = await renderMainContent()
     const progressCallback = mockOnDeleteProgress.mock.calls.at(-1)?.[0]
@@ -2597,7 +2597,7 @@ describe('MainContent delete progress wiring', () => {
 })
 
 describe('MainContent stale-source delete summary', () => {
-  it('names the rescan-needed source row in the undo summary after a partial delete', async () => {
+  test('names the rescan-needed source row in the undo summary after a partial delete', async () => {
     // Arrange — one deletable source row plus one stale (identity-less) source
     // row, so the delete succeeds for one and the summary appends rescan guidance.
     const { screen, store } = await renderMainContent()
@@ -2732,7 +2732,7 @@ describe('MainContent undo bulk delete', () => {
     return { onUndo, store }
   }
 
-  it('toasts a full-success message and clears the undo toast when every row restores', async () => {
+  test('toasts a full-success message and clears the undo toast when every row restores', async () => {
     // Arrange
     const onlyTombstone = tombstoneId('1729180800000-undo-skill-0-a1b2c3d4')
     const { onUndo, store } = await deleteAndCaptureOnUndo([onlyTombstone])
@@ -2751,7 +2751,7 @@ describe('MainContent undo bulk delete', () => {
     expect(mockRefreshAllData).toHaveBeenCalled()
   })
 
-  it('toasts a partial-restore message when some rows fail to restore', async () => {
+  test('toasts a partial-restore message when some rows fail to restore', async () => {
     // Arrange — two tombstones; first restores, second rejects at the IPC.
     const firstTombstone = tombstoneId('1729180800000-undo-skill-0-a1b2c3d4')
     const secondTombstone = tombstoneId('1729180800000-undo-skill-1-e5f6a7b8')
@@ -2776,7 +2776,7 @@ describe('MainContent undo bulk delete', () => {
     )
   })
 
-  it('toasts a restore-failed message when the undo dispatch rejects', async () => {
+  test('toasts a restore-failed message when the undo dispatch rejects', async () => {
     // Arrange — capture the live onUndo, then drive the defensive rejection
     // branch (the undo thunk rejects when handed a non-iterable id list).
     const onlyTombstone = tombstoneId('1729180800000-undo-skill-0-a1b2c3d4')
@@ -2794,7 +2794,7 @@ describe('MainContent undo bulk delete', () => {
 })
 
 describe('MainContent toolbar primary action guards', () => {
-  it('does nothing when the toolbar primary fires with no rows selected', async () => {
+  test('does nothing when the toolbar primary fires with no rows selected', async () => {
     // Arrange — bulk-select mode is on but nothing is selected, so the toolbar
     // primary must early-return without opening any confirmation dialog.
     mockSelectionToolbarState.enabled = true
@@ -2810,7 +2810,7 @@ describe('MainContent toolbar primary action guards', () => {
     expect(store.getState().ui.bulkConfirm).toBeNull()
   })
 
-  it('does nothing when only protected rows are selected in agent view', async () => {
+  test('does nothing when only protected rows are selected in agent view', async () => {
     // Arrange — the row is visible and selected, but protection excludes it from
     // agent-view bulk unlink candidates before the confirm dialog can open.
     mockSelectionToolbarState.enabled = true
@@ -2873,7 +2873,7 @@ describe('MainContent toolbar primary action guards', () => {
     expect(store.getState().ui.bulkConfirm).toBeNull()
   })
 
-  it('blocks unlink and prompts a rescan when the selected agent slot went stale', async () => {
+  test('blocks unlink and prompts a rescan when the selected agent slot went stale', async () => {
     // Arrange — a cursor row is selectable (status valid) yet its slot lost the
     // reviewed targetPath, so buildAgentUnlinkTargets reports it stale.
     mockSelectionToolbarState.enabled = true
@@ -2998,7 +2998,7 @@ describe('MainContent bulk unlink result toasts', () => {
     return { screen, store, skillName }
   }
 
-  it('toasts a partial success summary when some rows unlink and some error', async () => {
+  test('toasts a partial success summary when some rows unlink and some error', async () => {
     // Arrange — IPC returns one unlinked and one errored slot.
     const { screen } = await openUnlinkConfirmForCursor()
     mockUnlinkManyFromAgent.mockResolvedValue({
@@ -3022,7 +3022,7 @@ describe('MainContent bulk unlink result toasts', () => {
     )
   })
 
-  it('toasts a failure summary when every slot errors on unlink', async () => {
+  test('toasts a failure summary when every slot errors on unlink', async () => {
     // Arrange — IPC returns only error outcomes, so unlinkedCount is zero.
     const { screen } = await openUnlinkConfirmForCursor()
     mockUnlinkManyFromAgent.mockResolvedValue({
@@ -3045,7 +3045,7 @@ describe('MainContent bulk unlink result toasts', () => {
     })
   })
 
-  it('toasts a failure when the unlink thunk rejects at the IPC boundary', async () => {
+  test('toasts a failure when the unlink thunk rejects at the IPC boundary', async () => {
     // Arrange — the unlink IPC rejects, so the thunk does not fulfil.
     const { screen } = await openUnlinkConfirmForCursor()
     mockUnlinkManyFromAgent.mockRejectedValue(new Error('Socket closed'))
@@ -3063,7 +3063,7 @@ describe('MainContent bulk unlink result toasts', () => {
 })
 
 describe('MainContent bulk delete failure toasts', () => {
-  it('marks orphan rows as errored when cleanup rejects after a source delete succeeds', async () => {
+  test('marks orphan rows as errored when cleanup rejects after a source delete succeeds', async () => {
     // Arrange — a source row deletes successfully, then orphan cleanup rejects;
     // because prior successes exist, the orphan rows are appended as errors
     // rather than restoring the whole selection.
@@ -3140,7 +3140,7 @@ describe('MainContent bulk delete failure toasts', () => {
     await expect.poll(() => store.getState().ui.undoToast).not.toBeNull()
   })
 
-  it('does nothing further when the delete IPC reports no items at all', async () => {
+  test('does nothing further when the delete IPC reports no items at all', async () => {
     // Arrange — a single source target whose delete fulfils with an empty item
     // list, so there is nothing to summarize or undo.
     const { screen, store } = await renderMainContent()
@@ -3183,7 +3183,7 @@ describe('MainContent bulk delete failure toasts', () => {
     expect(vi.mocked(toast.success)).not.toHaveBeenCalled()
   })
 
-  it('toasts a delete failure when every row errors and no tombstone is produced', async () => {
+  test('toasts a delete failure when every row errors and no tombstone is produced', async () => {
     // Arrange — the delete fulfils, but every item errored, so there is no
     // tombstone and no success: the no-undo error branch must fire.
     const { screen, store } = await renderMainContent()
@@ -3237,7 +3237,7 @@ describe('MainContent bulk delete failure toasts', () => {
 })
 
 describe('MainContent bulk delete undo toast lifecycle', () => {
-  it('clears the persisted undo toast when the notification is dismissed', async () => {
+  test('clears the persisted undo toast when the notification is dismissed', async () => {
     // Arrange — run a successful delete so an undo toast is registered, then
     // pull the onDismiss option off the toast() call to simulate a dismiss.
     const { screen, store } = await renderMainContent()
@@ -3293,7 +3293,7 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
     expect(store.getState().ui.undoToast).toBeNull()
   })
 
-  it('keeps a newer undo toast when an older notification is dismissed late', async () => {
+  test('keeps a newer undo toast when an older notification is dismissed late', async () => {
     vi.mocked(toast).mockClear()
     vi.mocked(toast.success).mockClear()
     vi.mocked(toast.info).mockClear()
@@ -3362,7 +3362,7 @@ describe('MainContent bulk delete undo toast lifecycle', () => {
 })
 
 describe('MainContent bulk confirm cancellation', () => {
-  it('closes the confirmation dialog without acting when Cancel is clicked', async () => {
+  test('closes the confirmation dialog without acting when Cancel is clicked', async () => {
     // Arrange — open a delete confirmation, then cancel it.
     const { screen, store } = await renderMainContent()
     const { setBulkConfirm } =

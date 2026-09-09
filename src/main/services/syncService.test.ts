@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 
-import { beforeEach, describe, expect, it, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { toAbsolutePath } from '@/shared/types'
 
@@ -59,7 +59,7 @@ describe('syncPreview', () => {
     statMock.mockResolvedValue({ isFile: () => true })
   })
 
-  it('reports nothing to sync when there are no source skills', async () => {
+  test('reports nothing to sync when there are no source skills', async () => {
     // Arrange
     readdirMock.mockResolvedValue([])
     const { syncPreview } = await import('./syncService')
@@ -123,7 +123,7 @@ describe('syncPreview', () => {
     expect(result.toCreate).toBe(0)
   })
 
-  it('reports an existing symlink in every agent as already synced', async () => {
+  test('reports an existing symlink in every agent as already synced', async () => {
     // Arrange
     readdirMock.mockImplementation(async (dir: string) => {
       if (dir === '/mock/source/skills') {
@@ -145,7 +145,7 @@ describe('syncPreview', () => {
     expect(result.conflicts).toHaveLength(0)
   })
 
-  it('reports a missing skill link in every agent as needing creation', async () => {
+  test('reports a missing skill link in every agent as needing creation', async () => {
     // Arrange
     readdirMock.mockImplementation(async (dir: string) => {
       if (dir === '/mock/source/skills') {
@@ -173,7 +173,7 @@ describe('syncPreview', () => {
     expect(result.conflicts).toHaveLength(0)
   })
 
-  it('flags a real local folder that shadows a source skill as a conflict', async () => {
+  test('flags a real local folder that shadows a source skill as a conflict', async () => {
     // Arrange
     readdirMock.mockImplementation(async (dir: string) => {
       if (dir === '/mock/source/skills') {
@@ -206,7 +206,7 @@ describe('syncPreview', () => {
     expect(result.alreadySynced).toBe(0)
   })
 
-  it('tallies synced, conflict, and create states per agent across a mix of skills', async () => {
+  test('tallies synced, conflict, and create states per agent across a mix of skills', async () => {
     // Arrange
     readdirMock.mockImplementation(async (dir: string) => {
       if (dir === '/mock/source/skills') {
@@ -242,7 +242,7 @@ describe('syncPreview', () => {
     expect(result.toCreate).toBe(1) // conflict-skill in cursor
   })
 
-  it('reports an empty preview when the source dir cannot be read', async () => {
+  test('reports an empty preview when the source dir cannot be read', async () => {
     // Arrange
     readdirMock.mockRejectedValue(new Error('EACCES'))
     const { syncPreview } = await import('./syncService')
@@ -267,7 +267,7 @@ describe('syncExecute', () => {
     rmMock.mockResolvedValue(undefined)
   })
 
-  it('creates a symlink for every agent missing the skill', async () => {
+  test('creates a symlink for every agent missing the skill', async () => {
     // Arrange
     readdirMock.mockImplementation(async (dir: string) => {
       if (dir === '/mock/source/skills') {
@@ -300,7 +300,7 @@ describe('syncExecute', () => {
     )
   })
 
-  it('leaves an already-linked skill untouched instead of recreating it', async () => {
+  test('leaves an already-linked skill untouched instead of recreating it', async () => {
     // Arrange
     readdirMock.mockImplementation(async (dir: string) => {
       if (dir === '/mock/source/skills') {
@@ -326,7 +326,7 @@ describe('syncExecute', () => {
     expect(rmMock).not.toHaveBeenCalled()
   })
 
-  it('replaces a conflicting local folder with a symlink once the user approves it', async () => {
+  test('replaces a conflicting local folder with a symlink once the user approves it', async () => {
     // Arrange
     const conflictPath = join('/mock/agents/claude/skills', 'local-skill')
 
@@ -378,7 +378,7 @@ describe('syncExecute', () => {
     expect(result.created).toBe(1)
   })
 
-  it('leaves a conflicting local folder in place when the user declines to replace it', async () => {
+  test('leaves a conflicting local folder in place when the user declines to replace it', async () => {
     // Arrange
     const conflictPath = join('/mock/agents/claude/skills', 'local-skill')
 
@@ -424,7 +424,7 @@ describe('syncExecute', () => {
     )
   })
 
-  it('reports a failed sync with per-agent errors when symlink creation is denied', async () => {
+  test('reports a failed sync with per-agent errors when symlink creation is denied', async () => {
     // Arrange
     readdirMock.mockImplementation(async (dir: string) => {
       if (dir === '/mock/source/skills') {
@@ -457,7 +457,7 @@ describe('syncExecute', () => {
     })
   })
 
-  it('creates each agent skills directory before linking into it', async () => {
+  test('creates each agent skills directory before linking into it', async () => {
     // Arrange
     readdirMock.mockImplementation(async (dir: string) => {
       if (dir === '/mock/source/skills') {
@@ -481,7 +481,7 @@ describe('syncExecute', () => {
     })
   })
 
-  it('creates the agent skills directory only once when several new skills land in the same agent', async () => {
+  test('creates the agent skills directory only once when several new skills land in the same agent', async () => {
     // Arrange: two new skills, both missing on disk, scoped to a single agent.
     // The second skill must reuse the dir the first one already mkdir'd.
     readdirMock.mockImplementation(async (dir: string) => {
@@ -540,7 +540,7 @@ describe('scoped sync (per-agent)', () => {
     rmMock.mockResolvedValue(undefined)
   })
 
-  it('previews only the requested agent and labels the result with that agent', async () => {
+  test('previews only the requested agent and labels the result with that agent', async () => {
     // Arrange
     readdirMock.mockImplementation(async (dir: string) => {
       if (dir === '/mock/source/skills') {
@@ -563,7 +563,7 @@ describe('scoped sync (per-agent)', () => {
     expect(result.forAgent).toBe('cursor')
   })
 
-  it('leaves a whole-fleet preview unlabeled by any single agent', async () => {
+  test('leaves a whole-fleet preview unlabeled by any single agent', async () => {
     // Arrange
     readdirMock.mockResolvedValue([])
     const { syncPreview } = await import('./syncService')
@@ -576,7 +576,7 @@ describe('scoped sync (per-agent)', () => {
     expect(result.totalAgents).toBe(2)
   })
 
-  it('links the skill only into the scoped agent and never touches the others', async () => {
+  test('links the skill only into the scoped agent and never touches the others', async () => {
     // Arrange
     readdirMock.mockImplementation(async (dir: string) => {
       if (dir === '/mock/source/skills') {
@@ -620,7 +620,7 @@ describe('scoped sync (per-agent)', () => {
     )
   })
 
-  it('makes no changes when scoped to an agent that is not installed on disk, rather than syncing all', async () => {
+  test('makes no changes when scoped to an agent that is not installed on disk, rather than syncing all', async () => {
     // Arrange: defends against typos AND against an agent that exists in the
     // union but isn't installed/on-disk in the user's environment. The mocked
     // AGENTS list above only includes claude-code and cursor; passing 'codex'
@@ -649,7 +649,7 @@ describe('scoped sync (per-agent)', () => {
     expect(mkdirMock).not.toHaveBeenCalled()
   })
 
-  it('previews zero agents yet still labels the result when scoped to an uninstalled agent', async () => {
+  test('previews zero agents yet still labels the result when scoped to an uninstalled agent', async () => {
     // Arrange: symmetric counterpart to the syncExecute no-op test above. The
     // empty-state path of CleanupAgentDialog depends on this branch: forAgent
     // must round-trip so previewMatchesTarget keeps the dialog gated, while

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import type {
@@ -69,7 +69,7 @@ describe('UndoToast', () => {
     vi.restoreAllMocks()
   })
 
-  it('shows the deletion summary so the user knows what was removed', async () => {
+  test('shows the deletion summary so the user knows what was removed', async () => {
     // Arrange
     const { screen } = await renderUndoToast({ summary: SUMMARY })
 
@@ -80,7 +80,7 @@ describe('UndoToast', () => {
     await expect.element(screen.getByText(SUMMARY)).toBeInTheDocument()
   })
 
-  it('offers an Undo button labelled with the count of skills being restored', async () => {
+  test('offers an Undo button labelled with the count of skills being restored', async () => {
     // Arrange
     const { screen } = await renderUndoToast({
       skillNames: [toSkillName('task'), toSkillName('theme')],
@@ -95,7 +95,7 @@ describe('UndoToast', () => {
     await expect.element(undoButton).toBeEnabled()
   })
 
-  it('renders the countdown in muted color while the window is not yet urgent', async () => {
+  test('renders the countdown in muted color while the window is not yet urgent', async () => {
     // Arrange
     const { screen } = await renderUndoToast({ expiresAt: futureIso(30) })
 
@@ -108,7 +108,7 @@ describe('UndoToast', () => {
     await expect.element(countdown).toHaveClass('text-muted-foreground')
   })
 
-  it('promotes the countdown to foreground color in the final urgent seconds', async () => {
+  test('promotes the countdown to foreground color in the final urgent seconds', async () => {
     // Arrange
     const { screen } = await renderUndoToast({ expiresAt: futureIso(3) })
 
@@ -121,7 +121,7 @@ describe('UndoToast', () => {
     await expect.element(countdown).toHaveClass('text-foreground')
   })
 
-  it('ticks the countdown down over time as the window closes', async () => {
+  test('ticks the countdown down over time as the window closes', async () => {
     // Arrange
     const { screen } = await renderUndoToast({ expiresAt: futureIso(2) })
 
@@ -138,7 +138,7 @@ describe('UndoToast', () => {
       .not.toBeNull()
   })
 
-  it('swaps the button for a restoring spinner while the undo is in flight', async () => {
+  test('swaps the button for a restoring spinner while the undo is in flight', async () => {
     // Arrange
     // A never-resolving onUndo keeps the component pinned in the restoring
     // state long enough to observe the spinner label.
@@ -168,7 +168,7 @@ describe('UndoToast', () => {
     resolveUndo()
   })
 
-  it('dismisses its own toast after the undo restore resolves', async () => {
+  test('dismisses its own toast after the undo restore resolves', async () => {
     // Arrange
     const onUndo = vi.fn(async () => {})
     const { screen } = await renderUndoToast({ onUndo })
@@ -185,7 +185,7 @@ describe('UndoToast', () => {
     expect(mockToastDismiss).toHaveBeenCalledWith(TOAST_ID)
   })
 
-  it('uses singular grammar when exactly one skill is being restored', async () => {
+  test('uses singular grammar when exactly one skill is being restored', async () => {
     // Arrange
     const { screen } = await renderUndoToast({
       skillNames: [toSkillName('task')],
@@ -201,7 +201,7 @@ describe('UndoToast', () => {
     await expect.element(undoButton).toBeEnabled()
   })
 
-  it('hides the Undo affordance entirely for an informational unlink toast', async () => {
+  test('hides the Undo affordance entirely for an informational unlink toast', async () => {
     // Arrange
     // Unlink produces no tombstones, so there is nothing to undo and the
     // button must not render at all (vs a dead disabled button).
@@ -220,7 +220,7 @@ describe('UndoToast', () => {
     expect(screen.getByRole('button').query()).toBeNull()
   })
 
-  it('disables Undo and refuses to restore once the window has already expired', async () => {
+  test('disables Undo and refuses to restore once the window has already expired', async () => {
     // Arrange
     // An already-past expiry makes remainingMs 0, so canUndo is false: the
     // button renders disabled and no restore can be triggered.

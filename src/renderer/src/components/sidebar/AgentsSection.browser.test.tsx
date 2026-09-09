@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -136,7 +136,7 @@ async function renderSection(
  *  - "(n)" header counter reflects ONLY visible agents
  */
 describe('Sidebar → AgentsSection', () => {
-  it('shows a loading placeholder while agents are still being fetched', async () => {
+  test('shows a loading placeholder while agents are still being fetched', async () => {
     // Pre-seed the loading flag and force the on-mount fetchAgents() to never
     // resolve so the placeholder survives the assertion window.
     // Arrange
@@ -149,7 +149,7 @@ describe('Sidebar → AgentsSection', () => {
     await expect.element(screen.getByText(/Loading\.\.\./i)).toBeInTheDocument()
   })
 
-  it('shows "No agents detected" on a fresh machine with nothing installed', async () => {
+  test('shows "No agents detected" on a fresh machine with nothing installed', async () => {
     // totalInstalled === 0 branch — happens on a fresh machine where no agent
     // directories exist yet.
     // Arrange
@@ -164,7 +164,7 @@ describe('Sidebar → AgentsSection', () => {
       .toBeInTheDocument()
   })
 
-  it('guides the user back to Settings when every installed agent is hidden', async () => {
+  test('guides the user back to Settings when every installed agent is hidden', async () => {
     // Distinct fall-through: totalInstalled > 0 but visibleInstalled.length === 0.
     // The user has installed agents but hidden every one; copy points back at
     // Settings → Agents so they can recover without leaving the sidebar.
@@ -183,7 +183,7 @@ describe('Sidebar → AgentsSection', () => {
       .toBeInTheDocument()
   })
 
-  it('discloses how many agents are hidden when at least one is hidden', async () => {
+  test('discloses how many agents are hidden when at least one is hidden', async () => {
     // The disclosure exists ONLY when hiddenInstalled.length > 0 — the inverse
     // case (no hidden agents → no disclosure) is implicitly covered by the
     // visible-counter test below.
@@ -194,7 +194,7 @@ describe('Sidebar → AgentsSection', () => {
     await expect.element(screen.getByText(/^1 hidden$/)).toBeInTheDocument()
   })
 
-  it('counts only visible agents in the header, excluding hidden ones', async () => {
+  test('counts only visible agents in the header, excluding hidden ones', async () => {
     // With one hidden of two installed, the "(n)" counter must show "(1)"
     // rather than "(2)" — otherwise the user can't tell at a glance that a
     // hide is in effect.
@@ -205,7 +205,7 @@ describe('Sidebar → AgentsSection', () => {
     await expect.element(screen.getByText(/^\(1\)$/)).toBeInTheDocument()
   })
 
-  it('shows hidden and not-installed disclosures side by side when both apply', async () => {
+  test('shows hidden and not-installed disclosures side by side when both apply', async () => {
     // missingAgents.length > 0 path coexists with hiddenInstalled.length > 0;
     // both disclosures must render. Pinning the dual case here guards against
     // a future refactor that conflates the two lists.

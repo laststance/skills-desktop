@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { resolveTrendingView } from '@/renderer/src/components/marketplace/marketplaceDashboardHelpers'
 
 describe('resolveTrendingView', () => {
-  it('shows the leaderboard rows whenever cached skills exist', () => {
+  test('shows the leaderboard rows whenever cached skills exist', () => {
     // Arrange / Act — five skills cached, fetch idle
     const view = resolveTrendingView(5, 'idle')
 
@@ -11,7 +11,7 @@ describe('resolveTrendingView', () => {
     expect(view).toBe('populated')
   })
 
-  it('keeps showing cached rows during a background refresh instead of blanking to a skeleton', () => {
+  test('keeps showing cached rows during a background refresh instead of blanking to a skeleton', () => {
     // Arrange / Act — stale cache present while a refresh is in flight
     const view = resolveTrendingView(5, 'loading')
 
@@ -19,7 +19,7 @@ describe('resolveTrendingView', () => {
     expect(view).toBe('populated')
   })
 
-  it('keeps showing cached rows even after a refresh fails', () => {
+  test('keeps showing cached rows even after a refresh fails', () => {
     // Arrange / Act — stale cache present but the latest fetch errored
     const view = resolveTrendingView(3, 'error')
 
@@ -27,7 +27,7 @@ describe('resolveTrendingView', () => {
     expect(view).toBe('populated')
   })
 
-  it('shows the loading skeleton before any fetch has started', () => {
+  test('shows the loading skeleton before any fetch has started', () => {
     // Arrange / Act — tab never visited yet (status undefined), no skills
     const view = resolveTrendingView(0, undefined)
 
@@ -35,7 +35,7 @@ describe('resolveTrendingView', () => {
     expect(view).toBe('loading')
   })
 
-  it('shows the loading skeleton while the first fetch is in flight', () => {
+  test('shows the loading skeleton while the first fetch is in flight', () => {
     // Arrange / Act — fetch pending, nothing cached yet
     const view = resolveTrendingView(0, 'loading')
 
@@ -43,7 +43,7 @@ describe('resolveTrendingView', () => {
     expect(view).toBe('loading')
   })
 
-  it('shows the offline error notice when the fetch fails with nothing cached', () => {
+  test('shows the offline error notice when the fetch fails with nothing cached', () => {
     // Arrange / Act — fetch failed and there is no stale data to fall back on
     const view = resolveTrendingView(0, 'error')
 
@@ -51,7 +51,7 @@ describe('resolveTrendingView', () => {
     expect(view).toBe('error')
   })
 
-  it('shows the genuine empty state when the fetch succeeds with zero skills', () => {
+  test('shows the genuine empty state when the fetch succeeds with zero skills', () => {
     // Arrange / Act — fetch settled successfully but the leaderboard is empty
     const view = resolveTrendingView(0, 'idle')
 

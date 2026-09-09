@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -111,7 +111,7 @@ async function renderHeatmap(skills: Skill[], agents: Agent[]) {
 }
 
 describe('AgentHeatmapWidget', () => {
-  it('shows the not-enough-data hint when no agents are installed', async () => {
+  test('shows the not-enough-data hint when no agents are installed', async () => {
     // Arrange: a skill exists, but every agent is uninstalled (exists: false).
     const skills = [makeSkill('alpha-skill', [])]
     const agents = [
@@ -128,7 +128,7 @@ describe('AgentHeatmapWidget', () => {
       .toBeVisible()
   })
 
-  it('renders a two-letter column header for each installed agent and omits not-installed agents', async () => {
+  test('renders a two-letter column header for each installed agent and omits not-installed agents', async () => {
     // Arrange: Claude Code + Cursor are installed; Codex is not.
     const skills = [
       makeSkill('alpha-skill', [
@@ -151,7 +151,7 @@ describe('AgentHeatmapWidget', () => {
     expect(screen.getByText('CO', { exact: true }).query()).toBeNull()
   })
 
-  it('labels each heatmap cell with its per-agent symlink status', async () => {
+  test('labels each heatmap cell with its per-agent symlink status', async () => {
     // Arrange: one skill linked valid to Claude Code and broken to Cursor;
     // Codex is installed but has no link for this skill, so it reads "missing".
     const skills = [
@@ -199,7 +199,7 @@ describe('AgentHeatmapWidget', () => {
     ).not.toBeNull()
   })
 
-  it('orders skill rows with the most-linked skill first', async () => {
+  test('orders skill rows with the most-linked skill first', async () => {
     // Arrange: two skills whose coverage order disagrees with both alphabetical
     // and input order. alpha-skill has 1 valid link (low coverage); zeta-skill
     // has 2 valid links (high coverage). Input order lists alpha first.
@@ -236,7 +236,7 @@ describe('AgentHeatmapWidget', () => {
     expect(isZetaBeforeAlpha).toBe(true)
   })
 
-  it('labels a local folder slot as local to its agent', async () => {
+  test('labels a local folder slot as local to its agent', async () => {
     // Arrange: the skill is present as a real local folder in Claude Code.
     const skills = [
       makeSkill('gamma-skill', [

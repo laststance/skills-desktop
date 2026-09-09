@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 
@@ -88,7 +88,7 @@ async function createStore() {
 }
 
 describe('BookmarkItem install', () => {
-  it('opens the shared Install Skill modal seeded with the bookmark', async () => {
+  test('opens the shared Install Skill modal seeded with the bookmark', async () => {
     // Arrange
     const store = await createStore()
     const { BookmarkItem } = await import('./BookmarkItem')
@@ -117,7 +117,7 @@ describe('BookmarkItem install', () => {
     })
   })
 
-  it('does not open the install modal for a bookmark with no source repo', async () => {
+  test('does not open the install modal for a bookmark with no source repo', async () => {
     // Arrange
     const store = await createStore()
     const { BookmarkItem } = await import('./BookmarkItem')
@@ -147,7 +147,7 @@ describe('BookmarkItem install', () => {
 })
 
 describe('BookmarkItem detail view', () => {
-  it('opens the skill detail view when the row is clicked', async () => {
+  test('opens the skill detail view when the row is clicked', async () => {
     // Arrange
     const store = await createStore()
     const { BookmarkItem } = await import('./BookmarkItem')
@@ -167,7 +167,7 @@ describe('BookmarkItem detail view', () => {
     expect(store.getState().ui.selectedBookmarkForDetail).toEqual(bookmark)
   })
 
-  it('opens the skill detail view when Enter is pressed on the focused row', async () => {
+  test('opens the skill detail view when Enter is pressed on the focused row', async () => {
     // Arrange
     const store = await createStore()
     const { BookmarkItem } = await import('./BookmarkItem')
@@ -193,7 +193,7 @@ describe('BookmarkItem detail view', () => {
 })
 
 describe('BookmarkItem remove', () => {
-  it('removing a bookmark drops it from the list without opening its detail view', async () => {
+  test('removing a bookmark drops it from the list without opening its detail view', async () => {
     // Arrange
     const store = await createStore()
     const { addBookmark } =

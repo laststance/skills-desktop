@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -70,7 +70,7 @@ async function renderWhatsNew(entry: LeaderboardData | null) {
 }
 
 describe('WhatsNewWidget', () => {
-  it('shows the "Nothing new yet" hint when the hot feed returned zero skills', async () => {
+  test('shows the "Nothing new yet" hint when the hot feed returned zero skills', async () => {
     // Arrange: a successful `hot` load that returned no skills.
     const emptyHotEntry: LeaderboardData = {
       skills: [],
@@ -88,7 +88,7 @@ describe('WhatsNewWidget', () => {
     await expect.element(screen.getByText('Nothing new yet')).toBeVisible()
   })
 
-  it('shows the "Couldn\'t load new skills" hint when the hot feed failed with no data', async () => {
+  test('shows the "Couldn\'t load new skills" hint when the hot feed failed with no data', async () => {
     // Arrange: the fetch failed and there is no stale data — error + empty.
     // The mount thunk re-fetches errored filters (errors bypass the TTL gate),
     // so the IPC mock must reject for state to settle back on the error branch

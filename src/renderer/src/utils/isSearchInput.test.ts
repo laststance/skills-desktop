@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { isSearchInput } from './isSearchInput'
 
 describe('isSearchInput', () => {
-  it('matches the search box so Cmd+A can grab filtered rows while it is focused', () => {
+  test('matches the search box so Cmd+A can grab filtered rows while it is focused', () => {
     // Arrange — the skills filter renders as <input type="search">
     const searchInput = document.createElement('input')
     searchInput.type = 'search'
@@ -17,7 +17,7 @@ describe('isSearchInput', () => {
     expect(result).toBe(true)
   })
 
-  it('ignores ordinary text inputs so native Cmd+A still selects their text', () => {
+  test('ignores ordinary text inputs so native Cmd+A still selects their text', () => {
     // Arrange — a rename field or any other text input (default type="text")
     const textInput = document.createElement('input')
 
@@ -28,7 +28,7 @@ describe('isSearchInput', () => {
     expect(result).toBe(false)
   })
 
-  it('ignores textareas so multi-line editing keeps native Cmd+A', () => {
+  test('ignores textareas so multi-line editing keeps native Cmd+A', () => {
     // Arrange — a <textarea> is editable but not a search box
     const textarea = document.createElement('textarea')
 
@@ -39,7 +39,7 @@ describe('isSearchInput', () => {
     expect(result).toBe(false)
   })
 
-  it('treats no focus (null target) as not the search box', () => {
+  test('treats no focus (null target) as not the search box', () => {
     // Arrange — document.activeElement can be null before any focus
     const target = null
 

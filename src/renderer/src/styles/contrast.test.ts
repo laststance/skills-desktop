@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { wcagContrast } from 'culori'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { COLOR_PRESET_CHROMA, THEME_PRESETS } from '@/shared/constants'
 import type { ThemePresetName } from '@/shared/constants'
@@ -164,7 +164,7 @@ describe('WCAG contrast — unified OKLCH palette', () => {
               ? LIGHT_TINTED_TOKENS
               : LIGHT_TOKENS
 
-        it(`${mode}: keeps body text readable on the background (AA 4.5:1)`, () => {
+        test(`${mode}: keeps body text readable on the background (AA 4.5:1)`, () => {
           // Arrange — foreground vs background tokens for this preset × mode
           // Act
           const ratio = contrast(
@@ -177,7 +177,7 @@ describe('WCAG contrast — unified OKLCH palette', () => {
           expect(ratio).toBeGreaterThanOrEqual(4.5)
         })
 
-        it(`${mode}: keeps card text readable on its card surface (AA 4.5:1)`, () => {
+        test(`${mode}: keeps card text readable on its card surface (AA 4.5:1)`, () => {
           // Arrange — card-foreground vs card tokens for this preset × mode
           // Act
           const ratio = contrast(
@@ -196,7 +196,7 @@ describe('WCAG contrast — unified OKLCH palette', () => {
         // as "large text" and permits the 3.0:1 minimum for both the UI
         // background and its label. If `primary` is ever adopted for
         // small (<14px regular) body copy, bump this to 4.5.
-        it(`${mode}: keeps the primary button label legible on its fill (UI/large-text 3.0:1)`, () => {
+        test(`${mode}: keeps the primary button label legible on its fill (UI/large-text 3.0:1)`, () => {
           // Arrange — primary-foreground label vs primary fill for this preset × mode
           // Act
           const ratio = contrast(
@@ -216,7 +216,7 @@ describe('WCAG contrast — unified OKLCH palette', () => {
         // small supporting text — so 4.5 is the right universal bar.) A full
         // +0.05 dark-tinted lift of --muted broke this at 4.21:1; globals.css
         // caps the dark muted lift at +0.02 (L 0.27 → 4.66:1) to hold 4.5.
-        it(`${mode}: keeps the 10px muted label legible on its muted surface (AA 4.5:1)`, () => {
+        test(`${mode}: keeps the 10px muted label legible on its muted surface (AA 4.5:1)`, () => {
           // Arrange — muted-foreground vs muted tokens for this preset × mode
           // Act
           const ratio = contrast(
@@ -283,14 +283,14 @@ describe('WCAG contrast — globals.css drift guard', () => {
   }
 
   for (const [token, spec] of Object.entries(DARK_TOKENS)) {
-    it(`flags drift if the .dark ${token} L/chroma stops matching globals.css`, () => {
+    test(`flags drift if the .dark ${token} L/chroma stops matching globals.css`, () => {
       // Assert — the mirrored L/step still appears verbatim in globals.css
       expectTokenInBlock(darkBlock, token, spec)
     })
   }
 
   for (const [token, spec] of Object.entries(LIGHT_TOKENS)) {
-    it(`flags drift if the .light ${token} L/chroma stops matching globals.css`, () => {
+    test(`flags drift if the .light ${token} L/chroma stops matching globals.css`, () => {
       // Assert — the mirrored L/step still appears verbatim in globals.css
       expectTokenInBlock(lightBlock, token, spec)
     })
@@ -300,14 +300,14 @@ describe('WCAG contrast — globals.css drift guard', () => {
   // that the contrast test re-evaluates for tinted presets. Verify the
   // shifted L values stay in lockstep with DARK_TINTED_TOKENS / LIGHT_TINTED_TOKENS.
   for (const token of SURFACE_L_TOKENS) {
-    it(`flags drift if the .dark.tone-tinted ${token} L stops matching globals.css`, () => {
+    test(`flags drift if the .dark.tone-tinted ${token} L stops matching globals.css`, () => {
       // Assert — shifted dark surface L still declared as a --<token>-l var
       expect(darkTintedBlock).toContain(
         `--${token}-l: ${DARK_TINTED_TOKENS[token].L}`,
       )
     })
 
-    it(`flags drift if the .light.tone-tinted ${token} L stops matching globals.css`, () => {
+    test(`flags drift if the .light.tone-tinted ${token} L stops matching globals.css`, () => {
       // Assert — shifted light surface L still declared as a --<token>-l var
       expect(lightTintedBlock).toContain(
         `--${token}-l: ${LIGHT_TINTED_TOKENS[token].L}`,

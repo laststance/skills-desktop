@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { FilterPill } from './FilterPill'
@@ -11,7 +11,7 @@ import { FilterPill } from './FilterPill'
  * tests exercise the integration; this file stays focused on the primitive.
  */
 describe('FilterPill', () => {
-  it('shows "Showing skills <label>" and clears the filter when Clear is clicked', async () => {
+  test('shows "Showing skills <label>" and clears the filter when Clear is clicked', async () => {
     // Arrange
     const onClear = vi.fn()
     const screen = await render(

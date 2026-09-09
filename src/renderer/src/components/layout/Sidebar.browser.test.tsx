@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -95,7 +95,7 @@ async function renderSidebar() {
 }
 
 describe('Sidebar', () => {
-  it('exposes the agent sidebar as a labelled landmark region', async () => {
+  test('exposes the agent sidebar as a labelled landmark region', async () => {
     // Arrange
     const { screen } = await renderSidebar()
 
@@ -106,7 +106,7 @@ describe('Sidebar', () => {
     await expect.element(sidebar).toBeInTheDocument()
   })
 
-  it('hides the bookmarks list while nothing is bookmarked', async () => {
+  test('hides the bookmarks list while nothing is bookmarked', async () => {
     // Arrange
     const { screen } = await renderSidebar()
 
@@ -115,7 +115,7 @@ describe('Sidebar', () => {
     expect(screen.getByText('Bookmarks').query()).toBeNull()
   })
 
-  it('reveals a bookmarked skill in the sidebar once it is bookmarked', async () => {
+  test('reveals a bookmarked skill in the sidebar once it is bookmarked', async () => {
     // Arrange
     const { screen, store } = await renderSidebar()
     const { addBookmark } =

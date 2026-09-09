@@ -1,5 +1,5 @@
 import { type ReactElement } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { useCopyToClipboard } from './useCopyToClipboard'
@@ -59,7 +59,7 @@ afterEach(() => {
 })
 
 describe('useCopyToClipboard', () => {
-  it('writes the given value to the clipboard', async () => {
+  test('writes the given value to the clipboard', async () => {
     // Arrange
     const screen = await render(<CopyHarness />)
 
@@ -72,7 +72,7 @@ describe('useCopyToClipboard', () => {
     })
   })
 
-  it('lights the copied flag after a successful copy', async () => {
+  test('lights the copied flag after a successful copy', async () => {
     // Arrange
     const screen = await render(<CopyHarness />)
 
@@ -85,7 +85,7 @@ describe('useCopyToClipboard', () => {
       .toHaveTextContent('copied')
   })
 
-  it('clears the copied flag after the feedback window elapses', async () => {
+  test('clears the copied flag after the feedback window elapses', async () => {
     // Arrange
     const screen = await render(<CopyHarness />)
     await screen.getByRole('button', { name: 'Copy' }).click()
@@ -99,7 +99,7 @@ describe('useCopyToClipboard', () => {
       .toHaveTextContent('idle')
   })
 
-  it('shows an error toast naming the failure label when the write rejects', async () => {
+  test('shows an error toast naming the failure label when the write rejects', async () => {
     // Arrange
     mockWriteText.mockRejectedValue(new Error('denied'))
     const screen = await render(<CopyHarness />)
@@ -116,7 +116,7 @@ describe('useCopyToClipboard', () => {
       .toHaveTextContent('idle')
   })
 
-  it('shows an error toast when the Clipboard API is unavailable', async () => {
+  test('shows an error toast when the Clipboard API is unavailable', async () => {
     // Arrange — no Clipboard API at all (e.g. insecure context), so the guard
     // throws before any write is attempted.
     Object.defineProperty(navigator, 'clipboard', {
@@ -137,7 +137,7 @@ describe('useCopyToClipboard', () => {
       .toHaveTextContent('idle')
   })
 
-  it('keeps the copied flash lit when re-copying before the window elapses', async () => {
+  test('keeps the copied flash lit when re-copying before the window elapses', async () => {
     // Arrange — first copy lights the flash and arms the reset timer.
     const screen = await render(<CopyHarness />)
     await screen.getByRole('button', { name: 'Copy' }).click()

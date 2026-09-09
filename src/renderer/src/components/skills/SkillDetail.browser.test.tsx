@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import { installLayoutStyles } from '@/renderer/src/test/installLayoutStyles'
@@ -247,7 +247,7 @@ async function renderSkillDetail(
 }
 
 describe('SkillDetail Info path copy', () => {
-  it('copies the single source path when no agent is selected', async () => {
+  test('copies the single source path when no agent is selected', async () => {
     // Arrange
     const { screen } = await renderSkillDetail()
 
@@ -262,7 +262,7 @@ describe('SkillDetail Info path copy', () => {
       .toMatchTextContent(/Copied/)
   })
 
-  it('copies source and symlink paths independently in agent view', async () => {
+  test('copies source and symlink paths independently in agent view', async () => {
     // Arrange
     const { screen } = await renderSkillDetail('cursor')
 
@@ -277,7 +277,7 @@ describe('SkillDetail Info path copy', () => {
     expect(mockWriteText).toHaveBeenNthCalledWith(2, CURSOR_PATH)
   })
 
-  it('toasts when copying the source path fails', async () => {
+  test('toasts when copying the source path fails', async () => {
     // Arrange
     mockWriteText.mockRejectedValueOnce(new Error('copy failed'))
     const { screen } = await renderSkillDetail()
@@ -292,7 +292,7 @@ describe('SkillDetail Info path copy', () => {
       .toBe('Failed to copy path')
   })
 
-  it('counts inaccessible symlinks separately in the info summary', async () => {
+  test('counts inaccessible symlinks separately in the info summary', async () => {
     // Arrange
     const skill = makeSkill()
     skill.symlinks = [
@@ -325,7 +325,7 @@ describe('SkillDetail Info path copy', () => {
       .toMatchTextContent(/Inaccessible:\s*1/)
   })
 
-  it('keeps Location above Symlink Status and visible at scrollTop 0 when Info overflows', async () => {
+  test('keeps Location above Symlink Status and visible at scrollTop 0 when Info overflows', async () => {
     // Arrange — Location sits above Symlink Status; a long status list still
     // overflows the fixed-height shell so chrome clipping stays regression-covered.
     const layoutStyleElement = installLayoutStyles()
@@ -384,7 +384,7 @@ describe('SkillDetail Info path copy', () => {
 })
 
 describe('SkillDetail tab switching', () => {
-  it('persists the Files tab choice when switching away from the active Info tab', async () => {
+  test('persists the Files tab choice when switching away from the active Info tab', async () => {
     // Arrange
     const { screen } = await renderSkillDetail()
 
@@ -395,7 +395,7 @@ describe('SkillDetail tab switching', () => {
     expect(mockSettingsSet).toHaveBeenCalledWith({ defaultSkillTab: 'files' })
   })
 
-  it('does not re-persist when tapping the tab that is already active', async () => {
+  test('does not re-persist when tapping the tab that is already active', async () => {
     // Arrange
     const { screen } = await renderSkillDetail()
 
@@ -408,7 +408,7 @@ describe('SkillDetail tab switching', () => {
 })
 
 describe('SkillDetail orphan skill', () => {
-  it('explains the source is missing instead of previewing files for an orphan skill', async () => {
+  test('explains the source is missing instead of previewing files for an orphan skill', async () => {
     // Arrange
     const orphanSkill: Skill = { ...makeSkill(), isOrphan: true }
 
@@ -423,7 +423,7 @@ describe('SkillDetail orphan skill', () => {
 })
 
 describe('SkillDetail clipboard unavailable', () => {
-  it('toasts an error when the Clipboard API is missing entirely', async () => {
+  test('toasts an error when the Clipboard API is missing entirely', async () => {
     // Arrange
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -443,7 +443,7 @@ describe('SkillDetail clipboard unavailable', () => {
 })
 
 describe('SkillDetail copied feedback timeout', () => {
-  it('reverts the Copy button label after the confirmation window elapses', async () => {
+  test('reverts the Copy button label after the confirmation window elapses', async () => {
     // Arrange
     const { screen } = await renderSkillDetail()
 

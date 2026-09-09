@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 
 import '@/renderer/src/styles/globals.css'
@@ -218,7 +218,7 @@ describe('SymlinkCleanupDialog', () => {
     })
   })
 
-  it('shows destructive path evidence as a readable inspection block', async () => {
+  test('shows destructive path evidence as a readable inspection block', async () => {
     // Arrange
     const destructivePath =
       '/Users/test/.cursor/skills/readable-task -> /Users/test/.agents/skills/readable-task'
@@ -241,7 +241,7 @@ describe('SymlinkCleanupDialog', () => {
     expect(evidenceElement.className).toContain('bg-muted/30')
   })
 
-  it('shows a rescan affordance after an initial scan failure', async () => {
+  test('shows a rescan affordance after an initial scan failure', async () => {
     // Arrange
     mockGetSkills
       .mockRejectedValueOnce(new Error('Transient scanner failure'))
@@ -265,7 +265,7 @@ describe('SymlinkCleanupDialog', () => {
       .toBeVisible()
   })
 
-  it('stops cleanup when the fresh scan no longer matches the reviewed plan', async () => {
+  test('stops cleanup when the fresh scan no longer matches the reviewed plan', async () => {
     // Arrange
     mockGetSkills
       .mockResolvedValueOnce([
@@ -296,7 +296,7 @@ describe('SymlinkCleanupDialog', () => {
     expect(store.getState().skills.selectedSkillNames).toEqual([])
   })
 
-  it('stops cleanup when a same-id broken slot points at a new target', async () => {
+  test('stops cleanup when a same-id broken slot points at a new target', async () => {
     // Arrange
     mockGetSkills
       .mockResolvedValueOnce([
@@ -323,7 +323,7 @@ describe('SymlinkCleanupDialog', () => {
     expect(mockClearBrokenSymlinkSlots).not.toHaveBeenCalled()
   })
 
-  it('keeps only failed rows selected after partial unlink failure refreshes the plan', async () => {
+  test('keeps only failed rows selected after partial unlink failure refreshes the plan', async () => {
     // Arrange
     const firstPlan = [
       makeSkillWithBrokenSlot(toSkillName('fixed-task'), 'cursor'),
@@ -379,7 +379,7 @@ describe('SymlinkCleanupDialog', () => {
       .toBeVisible()
   })
 
-  it('keeps cleanup success when post-cleanup refresh fails', async () => {
+  test('keeps cleanup success when post-cleanup refresh fails', async () => {
     // Arrange
     const firstPlan = [
       makeSkillWithBrokenSlot(toSkillName('refresh-failed-task'), 'cursor'),
@@ -442,7 +442,7 @@ describe('SymlinkCleanupDialog', () => {
     expect(screen.getByText(/Cleanup failed/).query()).toBeNull()
   })
 
-  it('keeps dashboard refresh warnings when rescan finds more cleanup items', async () => {
+  test('keeps dashboard refresh warnings when rescan finds more cleanup items', async () => {
     // Arrange
     const firstPlan = [
       makeSkillWithBrokenSlot(toSkillName('refresh-ready-task'), 'cursor'),
@@ -495,7 +495,7 @@ describe('SymlinkCleanupDialog', () => {
       .toBeVisible()
   })
 
-  it('requires rescan when a failed row keeps its id but changes target after cleanup', async () => {
+  test('requires rescan when a failed row keeps its id but changes target after cleanup', async () => {
     // Arrange
     const firstPlan = [
       makeSkillWithBrokenSlot(toSkillName('failed-task'), 'codex'),
@@ -539,7 +539,7 @@ describe('SymlinkCleanupDialog', () => {
     expect(screen.getByText('Permission denied').query()).toBeNull()
   })
 
-  it('requires rescan when a row fails and the post-cleanup skills refresh rejects', async () => {
+  test('requires rescan when a row fails and the post-cleanup skills refresh rejects', async () => {
     // Arrange — open scan + pre-clean fetch succeed; the post-cleanup
     // fetchSkills (the plan source) rejects so no post-cleanup plan exists.
     const firstPlan = [
@@ -583,7 +583,7 @@ describe('SymlinkCleanupDialog', () => {
     expect(screen.getByText('Permission denied').query()).toBeNull()
   })
 
-  it('refreshes every dashboard source when rescanning after a post-mutation stale prompt', async () => {
+  test('refreshes every dashboard source when rescanning after a post-mutation stale prompt', async () => {
     // Arrange — the cleanup row fails AND the post-cleanup fetchSkills rejects,
     // so the dialog lands in the post-mutation 'stale' prompt. The rescan's
     // fetchSkills then resolves a fresh plan, but the agent registry is offline
@@ -637,7 +637,7 @@ describe('SymlinkCleanupDialog', () => {
       .toBeVisible()
   })
 
-  it('refreshes every dashboard source when rescanning after a post-mutation cleanup error', async () => {
+  test('refreshes every dashboard source when rescanning after a post-mutation cleanup error', async () => {
     // Arrange — the cleanup row fails AND a post-cleanup dashboard refresh (the
     // agent registry) rejects, but the post-cleanup fetchSkills resolves with
     // the failed row still present, so the dialog lands in the post-mutation
@@ -690,7 +690,7 @@ describe('SymlinkCleanupDialog', () => {
       .toBeVisible()
   })
 
-  it('keeps cleanup success when only the post-cleanup skills refresh rejects', async () => {
+  test('keeps cleanup success when only the post-cleanup skills refresh rejects', async () => {
     // Arrange — same fetchSkills rejection, but the cleanup row succeeds, so
     // the happy path must still report completion (not a stale rescan prompt).
     const firstPlan = [
@@ -741,7 +741,7 @@ describe('SymlinkCleanupDialog', () => {
     ).toBeNull()
   })
 
-  it('keeps same-name broken slot failures attached to the failed agent row', async () => {
+  test('keeps same-name broken slot failures attached to the failed agent row', async () => {
     // Arrange
     const firstPlan = [
       makeSkillWithBrokenSlots(toSkillName('shared-task'), ['cursor', 'codex']),
@@ -795,7 +795,7 @@ describe('SymlinkCleanupDialog', () => {
     expect(screen.getByText('Cursor', { exact: true }).query()).toBeNull()
   })
 
-  it('renders the cleaning phase while destructive IPC is pending', async () => {
+  test('renders the cleaning phase while destructive IPC is pending', async () => {
     // Arrange
     let finishCleanup: (value: {
       items: Array<{
@@ -859,7 +859,7 @@ describe('SymlinkCleanupDialog', () => {
       .toBeVisible()
   })
 
-  it('clears stale Installed-list selection when dashboard cleanup starts', async () => {
+  test('clears stale Installed-list selection when dashboard cleanup starts', async () => {
     // Arrange
     const selectedSkillName = toSkillName('stale-list-row')
     const cleanupPlan = [
@@ -900,7 +900,7 @@ describe('SymlinkCleanupDialog', () => {
     expect(store.getState().skills.selectedSkillNames).toEqual([])
   })
 
-  it('surfaces orphan-only IPC failures without calling source delete', async () => {
+  test('surfaces orphan-only IPC failures without calling source delete', async () => {
     // Arrange
     const orphanPlan = [makeOrphanSkill(toSkillName('abandoned-task'), 'codex')]
     mockGetSkills
@@ -957,7 +957,7 @@ describe('SymlinkCleanupDialog', () => {
     })
   })
 
-  it('shows link-folder identity before metadata name for broken cleanup rows', async () => {
+  test('shows link-folder identity before metadata name for broken cleanup rows', async () => {
     // Arrange
     const mismatchPlan = [
       makeSkillWithBrokenSlot(toSkillName('metadata-title'), 'cursor', {
@@ -1023,7 +1023,7 @@ describe('SymlinkCleanupDialog', () => {
       .toBeVisible()
   })
 
-  it('reports an unhelpful scanner failure as a generic scan error', async () => {
+  test('reports an unhelpful scanner failure as a generic scan error', async () => {
     // Arrange — the scanner rejects with a plain object carrying no message,
     // which RTK serializes to a non-Error, non-string value without a string
     // message, so the dialog falls back to its generic copy.
@@ -1038,7 +1038,7 @@ describe('SymlinkCleanupDialog', () => {
       .toBeVisible()
   })
 
-  it('closes the dialog and discards the reviewed plan when cancelled', async () => {
+  test('closes the dialog and discards the reviewed plan when cancelled', async () => {
     // Arrange
     mockGetSkills.mockResolvedValueOnce([
       makeSkillWithBrokenSlot(toSkillName('cancel-task'), 'cursor'),
@@ -1058,7 +1058,7 @@ describe('SymlinkCleanupDialog', () => {
     expect(screen.getByText('Symlink cleanup').query()).toBeNull()
   })
 
-  it('deselects then reselects a single row from its row checkbox', async () => {
+  test('deselects then reselects a single row from its row checkbox', async () => {
     // Arrange
     mockGetSkills.mockResolvedValueOnce([
       makeSkillWithBrokenSlot(toSkillName('toggle-task'), 'cursor'),
@@ -1088,7 +1088,7 @@ describe('SymlinkCleanupDialog', () => {
     await expect.element(rowCheckbox).toBeChecked()
   })
 
-  it('clears then restores every row in a section from the section checkbox', async () => {
+  test('clears then restores every row in a section from the section checkbox', async () => {
     // Arrange — two broken rows share one "Broken agent links" section.
     mockGetSkills.mockResolvedValueOnce([
       makeSkillWithBrokenSlot(toSkillName('section-a'), 'cursor'),
@@ -1128,7 +1128,7 @@ describe('SymlinkCleanupDialog', () => {
       .toBeDisabled()
   })
 
-  it('reports a scan error when the post-cleanup rescan re-fetch rejects', async () => {
+  test('reports a scan error when the post-cleanup rescan re-fetch rejects', async () => {
     // Arrange — cleanup succeeds but its dashboard refresh fails, landing in a
     // complete-with-rescan state. The rescan then refreshes every source, and
     // its fetchSkills rejection must surface as a scan error (not a silent
@@ -1169,7 +1169,7 @@ describe('SymlinkCleanupDialog', () => {
       .toBeVisible()
   })
 
-  it('attaches multiple same-agent unlink results to one agent row', async () => {
+  test('attaches multiple same-agent unlink results to one agent row', async () => {
     // Arrange — two skills both have a broken slot on Cursor, so the unlink IPC
     // returns two Cursor results that must collapse into a single agent group.
     const firstPlan = [
@@ -1209,7 +1209,7 @@ describe('SymlinkCleanupDialog', () => {
       .toBeVisible()
   })
 
-  it('reports a cleanup failure when the destructive IPC itself rejects', async () => {
+  test('reports a cleanup failure when the destructive IPC itself rejects', async () => {
     // Arrange — the unlink IPC throws instead of returning per-row outcomes, so
     // the executor's catch path must still refresh the dashboard and surface a
     // generic cleanup error.
