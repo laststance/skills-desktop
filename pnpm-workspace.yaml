@@ -26,7 +26,7 @@ overrides:
   'ajv@8>fast-uri': 3.1.5
   # Fallow's optional type-aware sidecar pins TypeScript 7; this repo uses its Rust-native gates and keeps TypeScript 6.
   'fallow>fallow-type-aware': '-'
-  js-yaml: 4.3.1
+  js-yaml: 4.3.2
   'minimatch@10>brace-expansion': 5.0.9
   'minimatch@3>brace-expansion': 1.1.18
   'minimatch@5>brace-expansion': 2.1.4
