@@ -4,7 +4,7 @@ Recorded 2026-09-08 JST. Final source checkpoint: `86518ee411aecd3ec78fbd7e5a2b1
 
 ## Implemented behavior
 
-- Four bundled, credited Unsplash images; live-gallery UI with infinite scrolling; owned local uploads and source-relative cropping. Online provider access remains gated below.
+- Four bundled, credited Unsplash images; live-gallery UI with infinite scrolling; owned local uploads and source-relative cropping. Live provider access is recorded under Provider acceptance below.
 - Original / 16:9 / 16:10 crops and Fill / Fit / Tile rendering behind all three panes. Sources and crops require long edge ≥1920 px and short edge ≥1080 px after orientation; uploads are static JPEG/PNG/WebP, ≤20 MiB and ≤80 megapixels.
 - Draft selection does not change the workspace. Main owns accepted Apply through window closure, supersession, atomic settings writes and result replay. Clear, upload removal and first-use opacity preserve the agreed transaction ordering.
 - Foreground/native opacity stays 1. The first successful image changes untouched active 100% opacity values to 60% once; later image changes and Clear preserve opacity. Menus, dialogs, code and webviews retain opaque surfaces.
@@ -77,8 +77,11 @@ pnpm test:e2e
 
 That CI result applies to `f80bc1e`; later documentation-only commits were not part of the recorded run.
 
-## Remaining acceptance gates
+## Provider acceptance (closed 2026-09-15)
 
-1. Configure the Unsplash access key through Laststance's provider/Vercel configuration and obtain production approval/quota evidence. Then verify actual search, credits/hotlinks and a new-image download notification. Current production and signed UI return a deliberate unconfigured-key 503; no successful provider action is claimed.
+At this record's 2026-09-08 checkpoint, no Unsplash access key was configured: production and the signed UI returned a deliberate unconfigured-key 503, and no successful provider action was claimed. The original external G6–G8 provider requirements were met afterwards; none was waived.
 
-The unlocked desktop recording and extracted-frame checks are complete at the explicitly scoped native checkpoints above. Provider registration, the production access key and approval/quota, and actual live search/credit/new-image notification remain the original external G6–G8 completion requirements; none is waived. The full gallery scope remains implemented; no new deferred feature tasks or release/version changes are introduced by this record.
+1. **Live provider checks, 2026-09-09.** The access key was configured as a Production-only Vercel secret, and the production deployment returned 30 real photos for both `mountain lake` and the default `nature landscape` query. Visible isolated macOS QA on `3c22d7e` selected two real photos, including legacy-path photo `4M-5WBrG5-c`, completed the download acknowledgement and background persistence, and showed hotlinked images and photographer credits. Source: Verification Results in [PR #338](https://github.com/laststance/skills-desktop/pull/338); this evidence was not previously reflected in this record.
+2. **Production approval, confirmed 2026-09-15.** The Unsplash application dashboard shows the Skills Desktop application in Production with 1,000 requests per hour, replacing the Demo limit of 50 requests per hour. Source: dashboard inspected by the maintainer; not committed.
+
+No recorded live request has exercised the Production quota yet. The unlocked desktop recording and extracted-frame checks remain complete at the explicitly scoped native checkpoints above. The full gallery scope remains implemented; this update introduces no new deferred feature tasks.

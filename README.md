@@ -21,7 +21,7 @@ Skills Desktop provides a GUI to manage and monitor skills installed via [`npx s
 - **Customizable Dashboard** - Widget-based home view with skill stats, symlink health, agent coverage, bookmarks, and quick actions — drag, resize, and arrange across multiple pages
 - **54 Themes** - 34 OKLCH color themes (17 hues × light/dark) + 2 pure neutral + 18 tinted neutral
 - **Background Opacity** - In Settings → Appearance, choose Entire or Section and adjust backgrounds from 0–100% while text and icons stay solid. Reset restores 100%; each mode keeps its own values. See the [opacity behavior](DESIGN.md#window-opacity) and [settings contract](SPEC.md#settings-window).
-- **Background Gallery** - In Settings → Appearance → Choose background, choose from four [bundled photos](resources/backgrounds/README.md), upload your own image, crop it, and apply Fill / Fit / Tile. Built-in photos and uploads work offline. Online Unsplash browsing requires [provider configuration](website/README.md); see the [verification and remaining acceptance gates](docs/qa/background-gallery.md).
+- **Background Gallery** - In Settings → Appearance → Choose background, choose from four [bundled photos](resources/backgrounds/README.md), upload your own image, crop it, and apply Fill / Fit / Tile. Built-in photos and uploads work offline. Online Unsplash browsing requires [provider configuration](website/README.md); see the [verification record](docs/qa/background-gallery.md).
 - **Auto Update** - Automatic updates via GitHub Releases
 
 ## Supported Agents
