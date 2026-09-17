@@ -35,7 +35,7 @@ import {
 
 const mockGetAll = vi.fn()
 const mockOnDeleteProgress = vi.fn(
-  (_callback: (payload: DeleteProgressPayload) => void) => () => {},
+  (_callback: (payload: DeleteProgressPayload) => void) => (): void => {},
 )
 const mockSkillsDeleteSkills = vi.fn()
 const mockClearOrphanSymlinks = vi.fn()
@@ -147,7 +147,7 @@ vi.mock('sonner', () => ({
 beforeEach(() => {
   mockGetAll.mockReset()
   mockOnDeleteProgress.mockReset()
-  mockOnDeleteProgress.mockImplementation(() => () => {})
+  mockOnDeleteProgress.mockImplementation(() => (): void => {})
   mockSkillsDeleteSkills.mockReset()
   mockClearOrphanSymlinks.mockReset()
   mockUnlinkManyFromAgent.mockReset()
@@ -177,7 +177,7 @@ beforeEach(() => {
     // MainContent now hosts useMarketplaceProgress(), whose mount effect
     // subscribes to install progress — stub it so the effect's cleanup is valid.
     skillsCli: {
-      onProgress: vi.fn(() => () => {}),
+      onProgress: vi.fn(() => (): void => {}),
     },
   })
 })

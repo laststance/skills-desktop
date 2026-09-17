@@ -19,11 +19,11 @@ beforeEach(() => {
       search: vi.fn(),
       install: vi.fn(),
       cancel: vi.fn(),
-      onProgress: vi.fn(() => () => {}),
+      onProgress: vi.fn(() => (): void => {}),
     },
     skills: {
       getAll: vi.fn().mockResolvedValue([]),
-      onDeleteProgress: vi.fn(() => () => {}),
+      onDeleteProgress: vi.fn(() => (): void => {}),
     },
     agents: { getAll: vi.fn().mockResolvedValue([]) },
     marketplace: { leaderboard: vi.fn().mockResolvedValue([]) },

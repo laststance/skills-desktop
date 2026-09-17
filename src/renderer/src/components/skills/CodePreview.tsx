@@ -44,7 +44,7 @@ export const CodePreview = function CodePreview({
     selectPreviewAppearanceSettings,
   )
 
-  const handleValueChange = (next: string) => {
+  const handleValueChange = (next: string): void => {
     /* v8 ignore next -- next is always a non-empty file.path: Radix emits a Trigger's own value and every FileTabs Trigger has value={file.path} (non-empty AbsolutePath); Root has no collapsible/deselect prop, so next === '' never occurs */
     if (!next) return
     // Fire-and-forget by design: {@link useCodePreview} owns the loading and

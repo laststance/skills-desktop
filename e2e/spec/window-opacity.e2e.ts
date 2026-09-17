@@ -511,7 +511,7 @@ opacityTest(
           resolve: () => void
           reject: (error: Error) => void
         }> = []
-        fileSystem.rename = async (...args) => {
+        fileSystem.rename = async (...args): Promise<void> => {
           // Delay only this isolated profile, preserving every unrelated filesystem operation.
           if (args[1] === filePath) {
             await new Promise<void>((resolve, reject) =>
@@ -522,7 +522,7 @@ opacityTest(
         }
         return {
           hasPending: () => pendingWrites.length > 0,
-          settleNext: (fail: boolean) => {
+          settleNext: (fail: boolean): void => {
             const pending = pendingWrites.shift()
             // Reject before rename so the previously durable JSON stays intact.
             if (fail) {
@@ -531,7 +531,7 @@ opacityTest(
               pending?.resolve()
             }
           },
-          restore: () => {
+          restore: (): void => {
             fileSystem.rename = originalRename
             for (const pending of pendingWrites.splice(0)) pending.resolve()
           },
@@ -558,7 +558,10 @@ opacityTest(
         const originalSend = window.webContents.send.bind(window.webContents)
         let pauseNext = false
         let pending: (() => void) | undefined
-        window.webContents.send = (channel: string, ...args: unknown[]) => {
+        window.webContents.send = (
+          channel: string,
+          ...args: unknown[]
+        ): void => {
           // Delay delivery after main already decided this was the sender's latest request.
           if (channel === 'settings:changed' && pauseNext) {
             pauseNext = false
@@ -568,16 +571,16 @@ opacityTest(
           originalSend(channel, ...args)
         }
         return {
-          pauseNext: () => {
+          pauseNext: (): void => {
             pauseNext = true
           },
           hasPending: () => Boolean(pending),
-          release: () => {
+          release: (): void => {
             const send = pending
             pending = undefined
             send?.()
           },
-          restore: () => {
+          restore: (): void => {
             window.webContents.send = originalSend
             pending?.()
           },

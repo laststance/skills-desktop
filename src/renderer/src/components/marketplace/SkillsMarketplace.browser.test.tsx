@@ -38,7 +38,7 @@ beforeEach(() => {
       search: vi.fn(),
       install: vi.fn(),
       cancel: vi.fn(),
-      onProgress: vi.fn(() => () => {}),
+      onProgress: vi.fn(() => (): void => {}),
     },
     marketplace: {
       leaderboard: vi.fn(async () => []),

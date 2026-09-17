@@ -158,7 +158,7 @@ function PhotoRow({
                   ref={(node) => {
                     if (!node) return
                     buttons.set(key, node)
-                    return () => {
+                    return (): void => {
                       // A manually scrolled-away focused row hands focus to a stable owner before unmount.
                       if (document.activeElement === node)
                         container.current?.focus({ preventScroll: true })

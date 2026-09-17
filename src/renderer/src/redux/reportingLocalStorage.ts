@@ -35,7 +35,7 @@ export function createReportingLocalStorage(
         return null
       }
     },
-    setItem: (key, value) => {
+    setItem: (key, value): void => {
       try {
         globalThis.localStorage.setItem(key, value)
       } catch (error) {
@@ -56,7 +56,7 @@ export function createReportingLocalStorage(
         reported = reportWriteFailure(error)
       }
     },
-    removeItem: (key) => {
+    removeItem: (key): void => {
       try {
         globalThis.localStorage.removeItem(key)
       } catch {

@@ -121,7 +121,7 @@ async function importFixture(
     const originalPicker = dialog.showOpenDialog
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] })
     return {
-      restore: () => {
+      restore: (): void => {
         dialog.showOpenDialog = originalPicker
       },
     }
@@ -258,7 +258,7 @@ galleryTest(
         filePaths: [path],
       })
       return {
-        restore: () => {
+        restore: (): void => {
           dialog.showOpenDialog = originalPicker
         },
       }
@@ -962,7 +962,7 @@ galleryTest(
         filePaths: [path],
       })
       return {
-        restore: () => {
+        restore: (): void => {
           dialog.showOpenDialog = originalPicker
         },
       }

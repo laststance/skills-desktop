@@ -152,12 +152,12 @@ export function useCodePreview(skillPath: AbsolutePath): UseCodePreviewReturn {
       if (userSelectedFileRef.current !== null) return
       setContent({ kind: 'empty' })
     })
-    return () => {
+    return (): void => {
       cancelled = true
     }
   }, [skillPath])
 
-  const setActiveFile = async (path: AbsolutePath | null) => {
+  const setActiveFile = async (path: AbsolutePath | null): Promise<void> => {
     if (path === activeFile) return
     // Resolve before committing. A path absent from `files` must never reach
     // `userSelectedFile`: `activeFile` would then name a tab that has no

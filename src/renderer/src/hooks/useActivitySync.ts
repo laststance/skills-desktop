@@ -49,7 +49,7 @@ export function useActivitySync(): void {
       dispatch(setActivityEvents(events))
     })
 
-    return () => {
+    return (): void => {
       isCancelled = true
       unsubscribe()
     }

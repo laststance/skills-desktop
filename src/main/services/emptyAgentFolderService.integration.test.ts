@@ -44,7 +44,7 @@ beforeEach(async () => {
   }))
   vi.doMock('node:fs/promises', async () => ({
     ...(await vi.importActual<typeof NodeFs>('node:fs/promises')),
-    rename: async (from: string, to: string) => {
+    rename: async (from: string, to: string): Promise<void> => {
       await rename(from, to)
       // Inject a concurrent write only after quarantine, before the final emptiness check.
       if (to.includes('.cleanup-')) await afterStage?.(to)
@@ -163,7 +163,7 @@ describe('not-installed agent empty folder cleanup', () => {
   test('restores a folder if a file arrives during quarantine', async () => {
     // Arrange
     const options = await reviewEmptyClineFolder()
-    afterStage = async (path) => {
+    afterStage = async (path): Promise<void> => {
       await writeFile(join(path, 'history.json'), 'keep history')
     }
     const { removeEmptyAgentFolder } = await import('./emptyAgentFolderService')

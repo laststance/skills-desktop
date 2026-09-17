@@ -73,7 +73,7 @@ beforeEach(async () => {
       getSnapshot: async () => currentSnapshot,
       onChanged: (callback: typeof broadcast) => {
         broadcast = callback
-        return () => {
+        return (): void => {
           broadcast = () => undefined
         }
       },

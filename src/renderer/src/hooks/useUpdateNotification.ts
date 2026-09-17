@@ -68,7 +68,7 @@ export function useUpdateNotification(): void {
     ]
 
     // Cleanup all listeners on unmount
-    return () => {
+    return (): void => {
       cleanups.forEach((cleanup) => cleanup())
     }
   }, [dispatch])

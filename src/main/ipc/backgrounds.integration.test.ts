@@ -232,7 +232,7 @@ describe('gallery IPC and native picker ownership', () => {
 
   test('closing Settings while the picker is open cannot import its eventual native selection', async () => {
     // Arrange
-    let select = () => {}
+    let select = (): void => {}
     const selection = new Promise<void>((resolve) => {
       select = resolve
     })

@@ -20,6 +20,6 @@ export function useUnmountEffect(callback: () => void): void {
 
   // react-doctor-disable-next-line react-doctor/exhaustive-deps -- intentional unmount wrapper; the cleanup reads the LATEST callbackRef.current on purpose so handlers created after mount still run at teardown.
   useEffect(() => {
-    return () => callbackRef.current()
+    return (): void => callbackRef.current()
   }, [])
 }

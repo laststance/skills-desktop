@@ -89,7 +89,7 @@ export const UndoToast = function UndoToast({
     const timer = setInterval(() => {
       setRemainingMs(Math.max(0, expiresAtMs - Date.now()))
     }, COUNTDOWN_TICK_MS)
-    return () => clearInterval(timer)
+    return (): void => clearInterval(timer)
   }, [expiresAtMs, isRestoring])
 
   const remainingSeconds = Math.ceil(remainingMs / 1_000)

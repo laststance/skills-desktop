@@ -247,7 +247,7 @@ describe('online background preparation and provider acknowledgement', () => {
 
   test('Clear before a slow image response prevents its later provider side effect and first-use commit', async () => {
     // Arrange
-    let release = () => {}
+    let release = (): void => {}
     const responseReady = new Promise<void>((resolve) => {
       release = resolve
     })
@@ -276,7 +276,7 @@ describe('online background preparation and provider acknowledgement', () => {
 
   test('Clear during a notification response rejects the later final commit without pretending the remote side effect was undone', async () => {
     // Arrange
-    let release = () => {}
+    let release = (): void => {}
     const acknowledged = new Promise<void>((resolve) => {
       release = resolve
     })

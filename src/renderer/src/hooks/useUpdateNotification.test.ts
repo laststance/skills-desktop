@@ -24,7 +24,7 @@ vi.mock('@/renderer/src/redux/hooks', () => ({
 // exercise both the subscribe path and the unmount/cleanup path in the node lane.
 let lastEffectCleanup: (() => void) | void
 vi.mock('react', () => ({
-  useEffect: (effect: () => (() => void) | void) => {
+  useEffect: (effect: () => (() => void) | void): void => {
     lastEffectCleanup = effect()
   },
 }))

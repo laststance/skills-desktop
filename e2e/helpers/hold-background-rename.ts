@@ -20,7 +20,7 @@ export async function holdBackgroundRename(
       let hasHeld = false
       let hasCompleted = false
       let release: (() => void) | undefined
-      fileSystem.rename = async (...args) => {
+      fileSystem.rename = async (...args): Promise<void> => {
         const destination = String(args[1])
         const matches =
           input.kind === 'file'
@@ -40,11 +40,11 @@ export async function holdBackgroundRename(
       return {
         isHeld: () => hasHeld,
         hasCompleted: () => hasCompleted,
-        release: () => {
+        release: (): void => {
           release?.()
           release = undefined
         },
-        restore: () => {
+        restore: (): void => {
           fileSystem.rename = originalRename
           release?.()
         },

@@ -20,7 +20,7 @@ const mockSearch = vi.fn()
 const mockLeaderboard = vi.fn()
 const mockSkillsGetAll = vi.fn()
 const mockAgentsGetAll = vi.fn()
-const mockOnDeleteProgress = vi.fn(() => () => {})
+const mockOnDeleteProgress = vi.fn(() => (): void => {})
 
 /**
  * Build a minimal Marketplace skill fixture for install dialog tests.
@@ -83,7 +83,7 @@ beforeEach(() => {
       search: mockSearch,
       install: mockInstall,
       cancel: mockCancel,
-      onProgress: vi.fn(() => () => {}),
+      onProgress: vi.fn(() => (): void => {}),
     },
     skills: {
       getAll: mockSkillsGetAll,

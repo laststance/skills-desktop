@@ -20,7 +20,7 @@ beforeEach(() => {
       search: vi.fn(),
       install: vi.fn(),
       cancel: vi.fn(),
-      onProgress: vi.fn(() => () => {}),
+      onProgress: vi.fn(() => (): void => {}),
     },
     // `marketplaceSlice.loadLeaderboard` reads `window.electron.marketplace.leaderboard`.
     // Even though no test in this file dispatches it directly, importing the slice

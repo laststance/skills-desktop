@@ -116,7 +116,7 @@ export function useBackgroundGallery(snapshot: BackgroundSnapshot) {
       store.dispatch(resetBackgroundGallery())
     }
     window.addEventListener('beforeunload', cleanup)
-    return () => {
+    return (): void => {
       window.removeEventListener('beforeunload', cleanup)
       cleanup()
     }

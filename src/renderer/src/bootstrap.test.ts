@@ -90,7 +90,7 @@ function loadBootstrapScript(htmlPath: string): string {
 function createStorageMock(): StorageMock {
   const entries = new Map<string, string>()
   return {
-    clear: () => {
+    clear: (): void => {
       entries.clear()
     },
     getItem: (key: string) => entries.get(key) ?? null,
@@ -98,10 +98,10 @@ function createStorageMock(): StorageMock {
     get length() {
       return entries.size
     },
-    removeItem: (key: string) => {
+    removeItem: (key: string): void => {
       entries.delete(key)
     },
-    setItem: (key: string, value: string) => {
+    setItem: (key: string, value: string): void => {
       entries.set(key, value)
     },
   }

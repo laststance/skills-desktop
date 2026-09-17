@@ -22,7 +22,7 @@ beforeEach(() => {
   vi.stubGlobal('electron', {
     skills: {
       getAll: mockGetAll.mockResolvedValue([]),
-      onDeleteProgress: vi.fn(() => () => {}),
+      onDeleteProgress: vi.fn(() => (): void => {}),
     },
   })
 })

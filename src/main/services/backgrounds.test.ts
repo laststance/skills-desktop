@@ -51,7 +51,7 @@ let fixtureBytes: Buffer
  * @example const gate = deferred(); gate.resolve()
  */
 function deferred(): { promise: Promise<void>; resolve: () => void } {
-  let resolve = () => {}
+  let resolve = (): void => {}
   const promise = new Promise<void>((finish) => {
     resolve = finish
   })

@@ -7,3 +7,20 @@ minimumReleaseAgeExclude:
   - browserslist@4.28.9
   - eslint@10.10.0
   - lucide-react@1.41.0
+  # Keep the cooldown for future versions while allowing this 2026-09-17 refresh.
+  - '@rolldown/binding-android-arm-eabi@1.2.9'
+  - '@rolldown/binding-android-arm64@1.2.9'
+  - '@rolldown/binding-darwin-arm64@1.2.9'
+  - '@rolldown/binding-darwin-x64@1.2.9'
+  - '@rolldown/binding-freebsd-x64@1.2.9'
+  - '@rolldown/binding-linux-arm-gnueabihf@1.2.9'
+  - '@rolldown/binding-linux-arm64-gnu@1.2.9'
+  - '@rolldown/binding-linux-arm64-musl@1.2.9'
+  - '@rolldown/binding-linux-ppc64-gnu@1.2.9'
+  - '@rolldown/binding-linux-s390x-gnu@1.2.9'
+  - '@rolldown/binding-linux-x64-gnu@1.2.9'
+  - '@rolldown/binding-linux-x64-musl@1.2.9'
+  - '@rolldown/binding-openharmony-arm64@1.2.9'
+  - '@rolldown/binding-win32-arm64-msvc@1.2.9'
+  - '@rolldown/binding-win32-x64-msvc@1.2.9'
+  - rolldown@1.2.9

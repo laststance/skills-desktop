@@ -17,7 +17,7 @@ export function registerSkillsCliHandlers(): void {
 
   typedHandle(IPC_CHANNELS.SKILLS_CLI_INSTALL, async (event, options) => {
     // Forward progress events to renderer
-    const progressHandler = (progress: InstallProgress) => {
+    const progressHandler = (progress: InstallProgress): void => {
       const window = BrowserWindow.fromWebContents(event.sender)
       if (window && !window.isDestroyed()) {
         event.sender.send(IPC_CHANNELS.SKILLS_CLI_PROGRESS, progress)

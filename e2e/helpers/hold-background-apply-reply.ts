@@ -33,10 +33,10 @@ export async function holdBackgroundApplyReply(
     handlers.set('backgrounds:apply', heldHandler)
     return {
       hasAccepted: () => hasAccepted,
-      release: () => {
+      release: (): void => {
         release?.()
       },
-      restore: () => {
+      restore: (): void => {
         if (handlers.get('backgrounds:apply') === heldHandler)
           handlers.set('backgrounds:apply', originalHandler)
         release?.()

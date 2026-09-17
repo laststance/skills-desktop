@@ -59,7 +59,7 @@ function subscribeBackground(listener: () => void): () => void {
         }),
       )
   }
-  return () => {
+  return (): void => {
     listeners.delete(listener)
     if (listeners.size === 0) {
       stopListening?.()

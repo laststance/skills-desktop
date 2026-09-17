@@ -72,7 +72,7 @@ function useCliCommandControl(): CliCommandControlState {
         setMessage('Could not read command status.')
       })
 
-    return () => {
+    return (): void => {
       cancelled = true
     }
   })
@@ -225,7 +225,7 @@ export const General = function General(): React.ReactElement {
         if (cancelled) return
         setIsMainWindowAvailable(false)
       })
-    return () => {
+    return (): void => {
       cancelled = true
     }
   })

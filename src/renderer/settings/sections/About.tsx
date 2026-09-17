@@ -82,7 +82,7 @@ export const About = function About(): React.ReactElement {
       ),
     ]
 
-    return () => {
+    return (): void => {
       cleanups.forEach((cleanup) => cleanup())
     }
   }, [updateApi])

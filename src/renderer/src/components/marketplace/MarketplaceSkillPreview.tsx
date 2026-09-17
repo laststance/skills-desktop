@@ -89,7 +89,7 @@ export const MarketplaceSkillPreview = function MarketplaceSkillPreview({
     wv.addEventListener('did-navigate-in-page', handleDidNavigate)
     wv.addEventListener('will-navigate', handleNavigate)
     wv.addEventListener('new-window', handleNewWindow)
-    return () => {
+    return (): void => {
       wv.removeEventListener('did-finish-load', handleLoaded)
       wv.removeEventListener('did-fail-load', handleFailed)
       wv.removeEventListener('did-navigate', handleDidNavigate)

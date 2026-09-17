@@ -15,7 +15,7 @@ export function useOnlineStatus(): boolean {
 function subscribe(notify: () => void): () => void {
   window.addEventListener('online', notify)
   window.addEventListener('offline', notify)
-  return () => {
+  return (): void => {
     window.removeEventListener('online', notify)
     window.removeEventListener('offline', notify)
   }

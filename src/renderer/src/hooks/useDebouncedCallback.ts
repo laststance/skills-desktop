@@ -53,7 +53,7 @@ export function useDebouncedCallback<TArgs extends readonly unknown[]>(
 
   // Drop any pending call when the consumer unmounts.
   useEffect(() => {
-    return () => {
+    return (): void => {
       pendingArgsRef.current = null
       if (timeoutRef.current !== null) {
         clearTimeout(timeoutRef.current)

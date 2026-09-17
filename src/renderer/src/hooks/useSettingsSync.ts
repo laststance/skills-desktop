@@ -30,7 +30,7 @@ export function useSettingsSync(): void {
       dispatch(setSettings(nextSettings))
     })
 
-    return () => {
+    return (): void => {
       isCancelled = true
       unsubscribe()
     }

@@ -504,7 +504,7 @@ describe('theme listener — cross-window sync', () => {
           broadcast,
           onChanged: (callback: (state: unknown) => void) => {
             received = callback
-            return () => {}
+            return (): void => {}
           },
         },
       },
@@ -595,7 +595,7 @@ describe('theme listener — cross-window sync', () => {
           broadcast: vi.fn().mockResolvedValue(undefined),
           onChanged: () => {
             subscriptions += 1
-            return () => {}
+            return (): void => {}
           },
         },
       },

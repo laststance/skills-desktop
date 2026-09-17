@@ -189,7 +189,7 @@ function useLocationPathClipboard(): LocationPathClipboardState {
 
   // react-doctor-disable-next-line react-doctor/exhaustive-deps -- mount-once cleanup that intentionally reads the LATEST resetCopiedPathTimeoutRef.current at unmount to clear a pending timer; capturing it earlier would leak the timer.
   React.useEffect(() => {
-    return () => {
+    return (): void => {
       if (resetCopiedPathTimeoutRef.current !== null) {
         window.clearTimeout(resetCopiedPathTimeoutRef.current)
       }

@@ -102,7 +102,7 @@ async function mountHook(): Promise<{ unmount: () => Promise<void> }> {
   })
 
   return {
-    unmount: async () => {
+    unmount: async (): Promise<void> => {
       await act(async () => {
         root.unmount()
       })

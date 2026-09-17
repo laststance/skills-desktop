@@ -33,7 +33,7 @@ const { queuePruneMock, resolveLockKeyMock } = vi.hoisted(() => ({
 }))
 
 vi.mock('./skillLockService', () => ({
-  queuePrune: (name: string) => queuePruneMock(name),
+  queuePrune: (name: string): void => queuePruneMock(name),
   resolveLockKeyForDirectory: async (dirName: string) =>
     resolveLockKeyMock(dirName),
 }))

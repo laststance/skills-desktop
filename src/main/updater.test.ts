@@ -58,7 +58,7 @@ const mockGetAllWindows = vi.hoisted(() =>
       isDestroyed: () => false,
       webContents: {
         isDestroyed: () => false,
-        send: (channel: string, payload: unknown) => {
+        send: (channel: string, payload: unknown): void => {
           sentMessages.push({ channel, payload })
         },
       },

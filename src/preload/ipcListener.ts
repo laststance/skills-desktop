@@ -22,7 +22,7 @@ export function createIpcListener<T = void>(
   channel: IpcChannel,
 ): (callback: (data: T) => void) => () => void {
   return (callback: (data: T) => void) => {
-    const handler = (_: Electron.IpcRendererEvent, data: T) => {
+    const handler = (_: Electron.IpcRendererEvent, data: T): void => {
       recordIpcEvent(channel, data)
       callback(data)
     }

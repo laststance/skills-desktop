@@ -14,7 +14,7 @@ import {
 const mockCopyToAgents = vi.fn()
 const mockGetAll = vi.fn()
 const mockAgentsGetAll = vi.fn()
-const mockOnDeleteProgress = vi.fn(() => () => {})
+const mockOnDeleteProgress = vi.fn(() => (): void => {})
 
 vi.mock('sonner', () => ({
   toast: {

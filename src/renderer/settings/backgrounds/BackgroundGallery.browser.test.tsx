@@ -101,7 +101,7 @@ beforeEach(async () => {
       getSnapshot: async () => currentSnapshot,
       onChanged: (callback: typeof broadcast) => {
         broadcast = callback
-        return () => {
+        return (): void => {
           broadcast = () => undefined
         }
       },
@@ -154,7 +154,7 @@ async function renderGallery(overrides: Partial<Settings> = {}) {
       </TooltipProvider>
     </Provider>,
   )
-  cleanupScreen = async () => screen.unmount()
+  cleanupScreen = async (): Promise<void> => screen.unmount()
   await screen
     .getByRole('button', { name: 'Choose background', exact: true })
     .click()
@@ -666,7 +666,7 @@ describe('Background gallery selection and operation lifecycle', () => {
         </TooltipProvider>
       </Provider>,
     )
-    cleanupScreen = async () => revisited.unmount()
+    cleanupScreen = async (): Promise<void> => revisited.unmount()
 
     // Assert
     expect(store.getState().ui.backgroundGallery).toEqual({
@@ -751,7 +751,7 @@ describe('Background gallery selection and operation lifecycle', () => {
           </TooltipProvider>
         </Provider>,
       )
-      cleanupScreen = async () => revisited.unmount()
+      cleanupScreen = async (): Promise<void> => revisited.unmount()
       expect(revisited.getByRole('dialog').elements()).toHaveLength(0)
       await revisited
         .getByRole('button', { name: 'Choose background', exact: true })

@@ -658,7 +658,7 @@ export const SkillItem = function SkillItem({
       }, PARTIAL_FAIL_FLASH_MS)
     }
     window.addEventListener(BULK_ITEM_FAILED_EVENT, handleFailEvent)
-    return () => {
+    return (): void => {
       window.removeEventListener(BULK_ITEM_FAILED_EVENT, handleFailEvent)
     }
   }, [skill.name])

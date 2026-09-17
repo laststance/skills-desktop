@@ -16,7 +16,7 @@ const mockCopyToAgents = vi.fn()
 const mockGetAll = vi.fn()
 const mockAgentsGetAll = vi.fn()
 const mockSourceGetStats = vi.fn()
-const mockOnDeleteProgress = vi.fn(() => () => {})
+const mockOnDeleteProgress = vi.fn(() => (): void => {})
 
 const toastSuccess = vi.fn()
 const toastError = vi.fn()

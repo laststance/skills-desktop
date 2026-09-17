@@ -127,7 +127,7 @@ const DashboardGrid = function DashboardGrid({
     }
   })
 
-  const handleLayoutChange = (next: Layout) => {
+  const handleLayoutChange = (next: Layout): void => {
     dispatch(
       updateLayout({
         pageId,

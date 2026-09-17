@@ -280,7 +280,7 @@ function useInstalledBulkKeyboardShortcuts({
       }
     }
     document.addEventListener('keydown', handleKey)
-    return () => {
+    return (): void => {
       document.removeEventListener('keydown', handleKey)
     }
   }, [dispatch, activeTab])
@@ -860,19 +860,19 @@ function useMainContentEventHandlers({
   }
 
   const excludedSkillTypeToggleHandlers = {
-    symlinked: () => {
+    symlinked: (): void => {
       handleToggleExcludedSkillTypeFilter('symlinked')
     },
-    local: () => {
+    local: (): void => {
       handleToggleExcludedSkillTypeFilter('local')
     },
-    gstack: () => {
+    gstack: (): void => {
       handleToggleExcludedSkillTypeFilter('gstack')
     },
-    orphan: () => {
+    orphan: (): void => {
       handleToggleExcludedSkillTypeFilter('orphan')
     },
-    unique: () => {
+    unique: (): void => {
       handleToggleExcludedSkillTypeFilter('unique')
     },
   }

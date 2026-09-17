@@ -258,7 +258,7 @@ const SyntaxHighlightedCode = function SyntaxHighlightedCode({
           defaultColor: false,
           transformers: [
             {
-              line(node, lineNumber) {
+              line(node, lineNumber): void {
                 node.children.unshift({
                   type: 'element',
                   tagName: 'span',
@@ -281,7 +281,7 @@ const SyntaxHighlightedCode = function SyntaxHighlightedCode({
     }
 
     void highlight()
-    return () => {
+    return (): void => {
       cancelled = true
     }
     // codeThemeId is a dep so switching themes re-highlights with the new pair.

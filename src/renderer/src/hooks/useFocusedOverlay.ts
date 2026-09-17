@@ -61,7 +61,7 @@ export function useFocusedOverlay(resetKey: string): FocusedOverlayState {
     }
     document.addEventListener('keydown', handleKeyDown)
 
-    return () => {
+    return (): void => {
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = previousBodyOverflow
       triggerElementRef.current?.focus()

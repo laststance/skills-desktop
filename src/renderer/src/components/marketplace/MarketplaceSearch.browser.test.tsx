@@ -31,7 +31,7 @@ beforeEach(() => {
       search: mockSearch,
       install: vi.fn(),
       cancel: vi.fn(),
-      onProgress: vi.fn(() => () => {}),
+      onProgress: vi.fn(() => (): void => {}),
     },
     // MarketplaceSearch never dispatches loadLeaderboard, but stubbing keeps the
     // test resilient if a future render path pulls the thunk in transitively.

@@ -14,7 +14,7 @@ import {
 } from '@/shared/types'
 
 const mockUnlinkManyFromAgent = vi.fn()
-const mockOnDeleteProgress = vi.fn(() => () => {})
+const mockOnDeleteProgress = vi.fn(() => (): void => {})
 const mockRefreshAllData = vi.hoisted(() => vi.fn())
 
 vi.mock('../skills/SkillsList', () => ({
@@ -156,7 +156,7 @@ async function renderMainContentWithToolbar() {
 describe('MainContent SelectionToolbar integration', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockOnDeleteProgress.mockImplementation(() => () => {})
+    mockOnDeleteProgress.mockImplementation(() => (): void => {})
     mockUnlinkManyFromAgent.mockResolvedValue({
       items: [
         {
@@ -172,7 +172,7 @@ describe('MainContent SelectionToolbar integration', () => {
       },
       // MainContent now hosts useMarketplaceProgress(); stub its subscription.
       skillsCli: {
-        onProgress: vi.fn(() => () => {}),
+        onProgress: vi.fn(() => (): void => {}),
       },
     })
   })

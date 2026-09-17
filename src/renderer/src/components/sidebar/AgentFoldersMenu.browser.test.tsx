@@ -415,7 +415,7 @@ describe('Hidden agent folder deletion', () => {
     mockRemoveAllFromAgent.mockImplementationOnce(
       async () =>
         new Promise((resolve) => {
-          finishFirstDeletion = () =>
+          finishFirstDeletion = (): void =>
             resolve({ success: true, removedCount: 2 })
         }),
     )

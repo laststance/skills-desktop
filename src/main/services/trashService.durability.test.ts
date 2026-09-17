@@ -204,7 +204,7 @@ describe('moveToTrash durability across a kill', () => {
 
     let namesInTrashDuringBuild: string[] = []
     let skillFileWasAlreadyInTrash = false
-    fsHooks.onManifestWrite = async () => {
+    fsHooks.onManifestWrite = async (): Promise<void> => {
       namesInTrashDuringBuild = await readdir(sharedTrashDir)
       skillFileWasAlreadyInTrash = namesInTrashDuringBuild.some((entryName) =>
         existsSync(join(sharedTrashDir, entryName, 'source', 'SKILL.md')),
@@ -258,7 +258,7 @@ describe('moveToTrash durability across a kill', () => {
     const skillName: SkillName = toSkillName('stranded-skill')
     const sourcePath = await makeSourceSkill(skillName)
     const reviewedIdentity = await reviewedIdentityFor(sourcePath)
-    fsHooks.onManifestWrite = async () => {}
+    fsHooks.onManifestWrite = async (): Promise<void> => {}
     fsHooks.failManifestWrite = true
     fsHooks.failCopyWhen = (destination) => destination === sourcePath
 
@@ -381,7 +381,7 @@ describe('moveToTrash durability across a kill', () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {})
-    fsHooks.onManifestWrite = async () => {}
+    fsHooks.onManifestWrite = async (): Promise<void> => {}
     fsHooks.failManifestWrite = true
     fsHooks.failCopyWhen = (destination) => destination === sourcePath
     fsHooks.failPublishRename = true
