@@ -522,7 +522,8 @@ async function findOrphanCleanupBlocker(
 ): Promise<string | null> {
   const sourcePath = join(SOURCE_DIR, skillName)
   try {
-    await fs.lstat(sourcePath)
+    // Follow source aliases so dangling links do not block their own orphan cleanup.
+    await fs.stat(sourcePath)
     return 'Source skill exists. Rescan before cleanup.'
   } catch (error) {
     if (!isMissingPathError(error)) {
