@@ -2,7 +2,6 @@
 
 Electron desktop app (macOS) for visualizing Skills symlink status across AI agents.
 
-
 - Never use direct `fs` access in the renderer when Context Isolation is enabled; use preload IPC instead.
 - Build macOS `APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac`
 - For UI, visual polish, layout, motion, and design-token changes, read `DESIGN.md` first and follow it as the design source of truth.
@@ -14,6 +13,7 @@ Electron desktop app (macOS) for visualizing Skills symlink status across AI age
 **version bump → notarized build → ZIP rename → GitHub release → website URL update → artifacts upload**
 
 **Forbidden:**
+
 - `/ship` MUST NOT bump `package.json` version. Version bumps are owned exclusively by `/electron-release`.
 - Manual `gh release create` outside `/electron-release` (skips notarization check, ZIP rename, website update — auto-update breaks)
 - Manual edit of `package.json` `"version"` field
@@ -75,21 +75,21 @@ PRs are ready to ship only when `validate` and e2e both pass in that order.
 
 ## Domain Concepts
 
-| Entity    | Location             | Description                                                    |
-| --------- | -------------------- | -------------------------------------------------------------- |
-| Skill     | `~/.agents/skills/`  | Directory with SKILL.md                                        |
-| Agent     | `~/.<agent>/skills/` | AI agents (count = `AGENT_DEFINITIONS.length` in `src/shared/constants.ts`) |
-| Symlink   | Agent→Skill          | `valid` / `broken` / `inaccessible` / `missing`                  |
-| Universal | `~/.agents/skills/`  | 16 agents share this source dir (see `UNIVERSAL_AGENT_IDS` in `src/shared/constants.ts`) |
+| Entity    | Location             | Description                                                                              |
+| --------- | -------------------- | ---------------------------------------------------------------------------------------- |
+| Skill     | `~/.agents/skills/`  | Directory with SKILL.md                                                                  |
+| Agent     | `~/.<agent>/skills/` | AI agents (count = `AGENT_DEFINITIONS.length` in `src/shared/constants.ts`)              |
+| Symlink   | Agent→Skill          | `valid` / `broken` / `inaccessible` / `missing`                                          |
+| Universal | `~/.agents/skills/`  | 19 agents share this source dir (see `UNIVERSAL_AGENT_IDS` in `src/shared/constants.ts`) |
 
 ### Skills CLI
 
-| Resource       | Location                                                                                       |
-| -------------- | ---------------------------------------------------------------------------------------------- |
-| Repository     | https://github.com/vercel-labs/skills (paths below are inside that repo)                       |
-| CLI agent list | `src/agents.ts`                                                                                |
-| CLI types      | `src/types.ts`                                                                                 |
-| Pinned version | `SKILLS_CLI_VERSION` in `src/shared/constants.ts` (currently `1.5.23`) — bump when re-syncing `AGENT_DEFINITIONS` against the upstream skills CLI |
+| Resource       | Location                                                                                                                                         |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Repository     | https://github.com/vercel-labs/skills (paths below are inside that repo)                                                                         |
+| CLI agent list | `src/agents.ts`                                                                                                                                  |
+| CLI types      | `src/types.ts`                                                                                                                                   |
+| Pinned version | `SKILLS_CLI_VERSION` in `src/shared/constants.ts` (currently `1.6.0`) — bump when re-syncing `AGENT_DEFINITIONS` against the upstream skills CLI |
 
 `AGENT_DEFINITIONS` in `src/shared/constants.ts` mirrors the CLI's agent
 list. Each entry: `id` (app state), `cliId` (`--agent` flag), `name`
@@ -131,11 +131,11 @@ only for the most recent snapshot.
 
 During QA runs, **do NOT delete skills under `~/.claude/skills/` or `~/.cursor/skills/`** — those are the user's live Claude Code and Cursor working sets. Skills under any other agent directory are safe to delete: they can be reinstalled instantly via the Marketplace tab or sync flow.
 
-| Path                  | Deletable in QA? | Reason                                |
-| --------------------- | ---------------- | ------------------------------------- |
-| `~/.claude/skills/`   | ❌               | User's live Claude Code working set   |
-| `~/.cursor/skills/`   | ❌               | User's live Cursor working set        |
-| `~/.<other>/skills/`  | ✅               | Reinstallable via marketplace or sync |
+| Path                 | Deletable in QA? | Reason                                |
+| -------------------- | ---------------- | ------------------------------------- |
+| `~/.claude/skills/`  | ❌               | User's live Claude Code working set   |
+| `~/.cursor/skills/`  | ❌               | User's live Cursor working set        |
+| `~/.<other>/skills/` | ✅               | Reinstallable via marketplace or sync |
 
 ### Adding a test skill for QA (global install)
 
@@ -172,7 +172,7 @@ principles **in addition to** DESIGN.md compliance:
 Don't grade UI only by "does it match DESIGN.md" — grade it against the bar set
 by best-in-class products: **Linear, Notion, Dia (The Browser Company), the
 Codex desktop app**, and peers (Warp, Raycast, VS Code). For every finding ask:
-*how would Linear / Notion / Dia / Codex handle this?* Surface where the app
+_how would Linear / Notion / Dia / Codex handle this?_ Surface where the app
 falls short of that bar, not just where it breaks a written rule. The goal is
 parity with top-tier craft, not mere rule-compliance.
 

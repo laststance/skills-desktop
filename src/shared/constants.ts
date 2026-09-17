@@ -397,8 +397,9 @@ export const AGENT_DEFINITIONS = [
     id: 'kilo',
     cliId: 'kilo',
     name: 'Kilo Code',
-    installDir: '.kilocode',
-    scanDir: '.kilocode',
+    // CLI v1.6.0 keeps the global target separate from its universal source.
+    installDir: '.kilo',
+    scanDir: '.kilo',
   },
   {
     id: 'openhands',
@@ -819,6 +820,22 @@ export const AGENT_DEFINITIONS = [
     installDir: '.posit/assistant',
     scanDir: '.posit/assistant',
   },
+  // Community agents synced with skills CLI v1.6.0 (2026-09-17 JST).
+  {
+    id: 'fx',
+    cliId: 'fx',
+    name: 'fx',
+    installDir: '.fx',
+    scanDir: '.fx',
+  },
+  {
+    id: 'sarvam-code',
+    cliId: 'sarvam-code',
+    name: 'Sarvam Code',
+    installDir: '.agents',
+    // Keep the universal source out of this agent's local skill scan.
+    scanDir: '.sarvam-code',
+  },
 ] as const
 
 /**
@@ -925,12 +942,15 @@ export const UNIVERSAL_AGENT_IDS = [
   'cursor',
   'deepagents',
   'dexto',
+  'droid',
   'firebender',
   'gemini-cli',
   'github-copilot',
+  'kilo',
   'kimi-cli',
   'loaf',
   'opencode',
+  'sarvam-code',
   'warp',
   'zed',
 ] as const satisfies readonly AgentId[]
@@ -1021,7 +1041,7 @@ export const TERMINAL_APP_UI_LABELS: Record<
  * @example
  * spawn('npx', [`skills@${SKILLS_CLI_VERSION}`, 'find', 'react'])
  */
-export const SKILLS_CLI_VERSION = '1.5.23'
+export const SKILLS_CLI_VERSION = '1.6.0'
 
 /**
  * Canonical hostname for skills marketplace pages used by renderer/main

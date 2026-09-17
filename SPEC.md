@@ -67,7 +67,7 @@ Agent definitions are synced with [vercel-labs/skills CLI](https://github.com/ve
 | Continue           | `continue`        | `~/.continue/skills/`               |
 | Trae               | `trae`            | `~/.trae/skills/`                   |
 | Junie              | `junie`           | `~/.junie/skills/`                  |
-| Kilo Code          | `kilo`            | `~/.kilocode/skills/`               |
+| Kilo Code          | `kilo`            | `~/.kilo/skills/`                   |
 | OpenHands          | `openhands`       | `~/.openhands/skills/`              |
 | Neovate            | `neovate`         | `~/.neovate/skills/`                |
 | Qoder              | `qoder`           | `~/.qoder/skills/`                  |
@@ -126,6 +126,8 @@ Agent definitions are synced with [vercel-labs/skills CLI](https://github.com/ve
 | Kimchi             | `kimchi`          | `~/.config/kimchi/harness/skills/`  |
 | MiniMax Code       | `minimax-code`    | `~/.minimax/skills/`                |
 | Posit Assistant    | `posit-assistant` | `~/.posit/assistant/skills/`        |
+| fx                 | `fx`              | `~/.fx/skills/`                     |
+| Sarvam Code        | `sarvam-code`     | `~/.sarvam-code/skills/`            |
 
 **Detection Logic:**
 
@@ -139,7 +141,7 @@ Agent definitions are synced with [vercel-labs/skills CLI](https://github.com/ve
 ### Core Features
 
 - [x] Display source directory (`~/.agents/skills/`)
-- [x] Auto-detect installed AI agents (73 agents)
+- [x] Auto-detect installed AI agents (75 agents)
 - [x] List all installed skills with metadata
 - [x] Show symlink status per skill per agent
 - [x] Validate symlink integrity (valid/broken/inaccessible/missing)
@@ -964,7 +966,7 @@ APPLE_KEYCHAIN_PROFILE=skills-desktop pnpm build:mac
 **Sections:**
 
 - Hero with app screenshot
-- Feature grid (73 agents, symlink status, 37 theme presets)
+- Feature grid (75 agents, symlink status, 37 theme presets)
 - Download CTA linking to GitHub Release
 - OG image for social sharing
 

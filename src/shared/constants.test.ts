@@ -60,6 +60,8 @@ describe('AGENT_DEFINITIONS', () => {
     const opencode = AGENT_DEFINITIONS.find((a) => a.id === 'opencode')
     const deepAgents = AGENT_DEFINITIONS.find((a) => a.id === 'deepagents')
     const replit = AGENT_DEFINITIONS.find((a) => a.id === 'replit')
+    const droid = AGENT_DEFINITIONS.find((agent) => agent.id === 'droid')
+    const kilo = AGENT_DEFINITIONS.find((agent) => agent.id === 'kilo')
 
     // Assert
     expect(cline?.installDir).toBe('.agents')
@@ -68,14 +70,20 @@ describe('AGENT_DEFINITIONS', () => {
     expect(opencode?.installDir).toBe('.config/opencode')
     expect(deepAgents?.installDir).toBe('.deepagents/agent')
     expect(replit?.installDir).toBe('.config/agents')
+    // Universal membership does not replace an agent's own global directory.
+    expect(droid?.installDir).toBe('.factory')
+    expect(droid?.scanDir).toBe('.factory')
+    expect(kilo?.installDir).toBe('.kilo')
+    expect(kilo?.scanDir).toBe('.kilo')
   })
 
   // Regression guard for the v0.13.0 cascade. Every agent whose installDir
   // points at the universal source (~/.agents/skills) must declare a
   // divergent scanDir; otherwise the scanner surfaces every source skill as
   // that agent's "local skills". Kimi (migrated in CLI 1.5.10), Loaf, and Zed
-  // joined Cline/Warp/Dexto in this universal-source group.
-  test('does not surface the whole universal source as Cline, Warp, Dexto, Kimi, Loaf, or Zed local skills', () => {
+  // joined Cline/Warp/Dexto in this universal-source group; Sarvam Code follows
+  // the same guard in the CLI v1.6.0 sync.
+  test('does not surface the whole universal source as an individual agent local skill directory', () => {
     // Arrange / Act
     const cline = AGENT_DEFINITIONS.find((a) => a.id === 'cline')
     const warp = AGENT_DEFINITIONS.find((a) => a.id === 'warp')
@@ -83,6 +91,9 @@ describe('AGENT_DEFINITIONS', () => {
     const kimiCli = AGENT_DEFINITIONS.find((a) => a.id === 'kimi-cli')
     const loaf = AGENT_DEFINITIONS.find((a) => a.id === 'loaf')
     const zed = AGENT_DEFINITIONS.find((a) => a.id === 'zed')
+    const sarvamCode = AGENT_DEFINITIONS.find(
+      (agent) => agent.id === 'sarvam-code',
+    )
 
     // Assert
     expect(cline?.installDir).toBe('.agents')
@@ -97,6 +108,8 @@ describe('AGENT_DEFINITIONS', () => {
     expect(loaf?.scanDir).toBe('.loaf')
     expect(zed?.installDir).toBe('.agents')
     expect(zed?.scanDir).toBe('.zed')
+    expect(sarvamCode?.installDir).toBe('.agents')
+    expect(sarvamCode?.scanDir).toBe('.sarvam-code')
   })
 
   test('exposes every community agent added in CLI v1.5.5', () => {
@@ -221,7 +234,7 @@ describe('UNIVERSAL_AGENT_IDS', () => {
     }
   })
 
-  test('treats the 16 shared-source agents as Universal and excludes Replit', () => {
+  test('treats the upstream shared-source agents as Universal and excludes Replit', () => {
     // Arrange / Act / Assert
     expect(UNIVERSAL_AGENT_IDS).toContain('amp')
     expect(UNIVERSAL_AGENT_IDS).toContain('antigravity')
@@ -231,12 +244,15 @@ describe('UNIVERSAL_AGENT_IDS', () => {
     expect(UNIVERSAL_AGENT_IDS).toContain('cursor')
     expect(UNIVERSAL_AGENT_IDS).toContain('deepagents')
     expect(UNIVERSAL_AGENT_IDS).toContain('dexto')
+    expect(UNIVERSAL_AGENT_IDS).toContain('droid')
     expect(UNIVERSAL_AGENT_IDS).toContain('firebender')
     expect(UNIVERSAL_AGENT_IDS).toContain('gemini-cli')
     expect(UNIVERSAL_AGENT_IDS).toContain('github-copilot')
+    expect(UNIVERSAL_AGENT_IDS).toContain('kilo')
     expect(UNIVERSAL_AGENT_IDS).toContain('kimi-cli')
     expect(UNIVERSAL_AGENT_IDS).toContain('loaf')
     expect(UNIVERSAL_AGENT_IDS).toContain('opencode')
+    expect(UNIVERSAL_AGENT_IDS).toContain('sarvam-code')
     expect(UNIVERSAL_AGENT_IDS).toContain('warp')
     expect(UNIVERSAL_AGENT_IDS).toContain('zed')
     expect(UNIVERSAL_AGENT_IDS).not.toContain('replit')

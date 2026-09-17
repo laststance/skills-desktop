@@ -317,7 +317,7 @@ test('refuses to prune a lock key that still owns a real directory inside an age
   // the identical source-absent state and differ only in what sits under
   // `.claude/skills`, so the opposite outcomes pin the refusal to the agent
   // probe. That pairing matters because `.agents` is itself an `installDir`
-  // (the 16 universal-source agents), meaning the guard also probes SOURCE_DIR
+  // (the universal-source agents), meaning the guard also probes SOURCE_DIR
   // — if that probe were what refused, this spec and that one could not
   // disagree.
   writeLockKeys(isolatedHome, ['lock-prune-agent-owned'])
