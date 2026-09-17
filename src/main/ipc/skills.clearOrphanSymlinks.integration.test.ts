@@ -140,6 +140,100 @@ describe('skills:clearOrphanSymlinks handler', () => {
     expect(trashItemMock).not.toHaveBeenCalled()
   })
 
+  test('preserves orphan links when a source symlink points to a restored skill', async () => {
+    // Arrange
+    const skillName = 'restored-source-alias'
+    const sourceDir = join(tempHome, '.agents', 'skills')
+    const sourcePath = join(sourceDir, skillName)
+    const restoredSkillPath = join(tempHome, 'restored-skill')
+    const codexSkillsDir = join(tempHome, '.codex', 'skills')
+    const linkPath = join(codexSkillsDir, skillName)
+    const targetPath = join(tempHome, 'missing-target')
+    await mkdir(sourceDir, { recursive: true })
+    await mkdir(restoredSkillPath)
+    await mkdir(codexSkillsDir, { recursive: true })
+    await symlink(restoredSkillPath, sourcePath)
+    await symlink(targetPath, linkPath)
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+    const handler = getRegisteredHandler('skills:clearOrphanSymlinks')
+
+    // Act
+    const result = await handler(
+      {},
+      {
+        items: [
+          { skillName, agents: [{ agentId: 'codex', linkPath, targetPath }] },
+        ],
+      },
+    )
+
+    // Assert
+    expect(result).toEqual({
+      items: [
+        {
+          skillName,
+          outcome: 'error',
+          error: {
+            message: 'Source skill exists. Rescan before cleanup.',
+            code: 'ESTALE',
+          },
+        },
+      ],
+    })
+    expect(await readlink(sourcePath)).toBe(restoredSkillPath)
+    expect((await lstat(restoredSkillPath)).isDirectory()).toBe(true)
+    expect(await readlink(linkPath)).toBe(targetPath)
+    expect(trashItemMock).not.toHaveBeenCalled()
+  })
+
+  test('preserves orphan links when a source symlink target cannot be verified', async () => {
+    // Arrange
+    const skillName = 'unverifiable-source-alias'
+    const sourceDir = join(tempHome, '.agents', 'skills')
+    const sourcePath = join(sourceDir, skillName)
+    const codexSkillsDir = join(tempHome, '.codex', 'skills')
+    const linkPath = join(codexSkillsDir, skillName)
+    const targetPath = join(tempHome, 'missing-target')
+    await mkdir(sourceDir, { recursive: true })
+    await mkdir(codexSkillsDir, { recursive: true })
+    // A real symlink loop must remain protected instead of being treated as missing.
+    await symlink(sourcePath, sourcePath)
+    await symlink(targetPath, linkPath)
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+    const handler = getRegisteredHandler('skills:clearOrphanSymlinks')
+
+    // Act
+    const result = await handler(
+      {},
+      {
+        items: [
+          { skillName, agents: [{ agentId: 'codex', linkPath, targetPath }] },
+        ],
+      },
+    )
+
+    // Assert
+    expect(result).toEqual({
+      items: [
+        {
+          skillName,
+          outcome: 'error',
+          error: {
+            message: expect.stringMatching(
+              /^Cannot verify source skill: ELOOP/,
+            ),
+            code: 'ESTALE',
+          },
+        },
+      ],
+    })
+    expect(await readlink(sourcePath)).toBe(sourcePath)
+    expect(await readlink(linkPath)).toBe(targetPath)
+    expect(trashItemMock).not.toHaveBeenCalled()
+  })
+
   test('refuses orphan cleanup when a source skill was restored before mutation', async () => {
     // Arrange
     const skillName = 'restored-source'
@@ -181,6 +275,66 @@ describe('skills:clearOrphanSymlinks handler', () => {
       ],
     })
     expect((await lstat(linkPath)).isSymbolicLink()).toBe(true)
+  })
+
+  test('cleans both orphan records when Claude skills aliases the source directory containing dangling links', async () => {
+    // Arrange
+    const sourceDir = join(tempHome, '.agents', 'skills')
+    const claudeDir = join(tempHome, '.claude')
+    const claudeSkillsDir = join(claudeDir, 'skills')
+    await mkdir(sourceDir, { recursive: true })
+    await mkdir(claudeDir, { recursive: true })
+    await symlink('../.agents/skills', claudeSkillsDir)
+    const items = await Promise.all(
+      ['gstack-checkpoint', 'gstack-claude'].map(async (skillName) => {
+        const targetPath = join(
+          sourceDir,
+          'gstack',
+          '.agents',
+          'skills',
+          skillName,
+        )
+        const linkPath = join(claudeSkillsDir, skillName)
+        await symlink(`${targetPath}/`, join(sourceDir, skillName))
+        return {
+          skillName,
+          agents: [{ agentId: 'claude-code', linkPath, targetPath }],
+        }
+      }),
+    )
+    const { registerSkillsHandlers } = await import('./skills')
+    registerSkillsHandlers()
+    const handler = getRegisteredHandler('skills:clearOrphanSymlinks')
+
+    // Act
+    const result = await handler({}, { items })
+
+    // Assert
+    expect(result).toEqual({
+      items: [
+        {
+          skillName: 'gstack-checkpoint',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 1,
+          cascadeAgents: ['claude-code'],
+        },
+        {
+          skillName: 'gstack-claude',
+          outcome: 'orphan-cleared',
+          symlinksRemoved: 1,
+          cascadeAgents: ['claude-code'],
+        },
+      ],
+    })
+    await expect(lstat(join(sourceDir, 'gstack-checkpoint'))).rejects.toThrow(
+      /ENOENT/,
+    )
+    await expect(lstat(join(sourceDir, 'gstack-claude'))).rejects.toThrow(
+      /ENOENT/,
+    )
+    expect((await lstat(sourceDir)).isDirectory()).toBe(true)
+    expect(await readlink(claudeSkillsDir)).toBe('../.agents/skills')
+    expect(trashItemMock).not.toHaveBeenCalled()
   })
 
   test('resolves broken targets through a symlinked Devin config parent before unlinking', async () => {
