@@ -3,7 +3,10 @@ import { createSlice, createAsyncThunk, isAnyOf } from '@reduxjs/toolkit'
 import { match } from 'ts-pattern'
 
 import type { RootState } from '@/renderer/src/redux/store'
-import type { BackgroundCatalogItem } from '@/shared/backgrounds'
+import type {
+  BackgroundCatalogItem,
+  BackgroundImageDescriptor,
+} from '@/shared/backgrounds'
 import type {
   Agent,
   AgentId,
@@ -240,6 +243,8 @@ interface UiState {
     view: 'gallery' | 'crop'
     removing: { item: BackgroundCatalogItem; busy: boolean } | null
   }
+  /** Main-window image URL whose native load failed; the inspector credit yields its corner to Retry. */
+  failedBackgroundUrl: BackgroundImageDescriptor['url'] | null
 }
 
 const initialState: UiState = {
@@ -266,6 +271,7 @@ const initialState: UiState = {
   lockPruneDialogOpen: false,
   agentFoldersDeleteReview: null,
   backgroundGallery: { open: false, view: 'gallery', removing: null },
+  failedBackgroundUrl: null,
 }
 
 /**
@@ -561,6 +567,16 @@ const uiSlice = createSlice({
     ) => {
       state.backgroundGallery.removing = action.payload
     },
+    /** Records {@link BackgroundCanvas} native load results so {@link BackgroundAttribution} hides credits for unseen images.
+     * @returns Nothing; null marks the current image as loaded.
+     * @example dispatch(setFailedBackgroundUrl('https://images.unsplash.com/photo-1'))
+     */
+    setFailedBackgroundUrl: (
+      state,
+      action: PayloadAction<UiState['failedBackgroundUrl']>,
+    ) => {
+      state.failedBackgroundUrl = action.payload
+    },
     /**
      * Enter bulk-select mode. Reveals checkboxes on skill cards and activates
      * Cmd/Ctrl+A and Esc keyboard shortcuts. Does not touch selection state —
@@ -750,6 +766,7 @@ export const {
   setBackgroundGalleryView,
   resetBackgroundGallery,
   setBackgroundUploadRemoval,
+  setFailedBackgroundUrl,
   enterBulkSelectMode,
   exitBulkSelectMode,
   setCleanupAgentTarget,

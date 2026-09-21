@@ -1,7 +1,8 @@
-import { useState, type ReactElement } from 'react'
+import type { ReactElement } from 'react'
 
 import { useBackgroundSnapshot } from '@/renderer/src/hooks/useBackgroundSnapshot'
-import { useAppSelector } from '@/renderer/src/redux/hooks'
+import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
+import { setFailedBackgroundUrl } from '@/renderer/src/redux/slices/uiSlice'
 import { isBackgroundUnavailable } from '@/renderer/src/utils/isBackgroundUnavailable'
 
 import { BackgroundImage } from './BackgroundImage'
@@ -12,9 +13,11 @@ import { BackgroundImageRetry } from './BackgroundImageRetry'
  * @example <BackgroundCanvas />
  */
 export function BackgroundCanvas(): ReactElement {
+  const dispatch = useAppDispatch()
   const snapshot = useBackgroundSnapshot()
   const background = useAppSelector((state) => state.settings.background)
-  const [failedUrl, setFailedUrl] = useState<string | null>(null)
+  // Shared so the inspector credit can yield the bottom-right corner to Retry.
+  const failedUrl = useAppSelector((state) => state.ui.failedBackgroundUrl)
   const display = snapshot.display
   const unavailable = isBackgroundUnavailable(
     snapshot,
@@ -31,8 +34,10 @@ export function BackgroundCanvas(): ReactElement {
               layout={background.layout}
               retryRevision={snapshot.displayRetryRevision}
               decorative
-              onLoad={() => setFailedUrl(null)}
-              onError={() => setFailedUrl(display.image.url)}
+              onLoad={() => dispatch(setFailedBackgroundUrl(null))}
+              onError={() =>
+                dispatch(setFailedBackgroundUrl(display.image.url))
+              }
             />
           ) : null}
         </div>

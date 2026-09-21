@@ -344,6 +344,11 @@ verification status and any remaining native/provider gates belong in
   accepted crop; Fit letterboxing and Tile repetition must not expose discarded
   pixels. Foreground opacity and opaque menus, code, dialogs and webviews keep
   the rules above. Do not move or recreate the preview webview.
+- The main-window credit sits right-aligned in an in-flow Inspector footer, so it
+  owns the window's bottom-right corner, away from the titlebar tabs. Never float
+  it over panel content: that corner hosts footer controls such as the preview's
+  Copy URL. While the image fails to load, hide the credit and let the Retry
+  notice own the corner.
 - Crop uses a fixed ratio frame, image movement and zoom; show real source-pixel
   dimensions and an inline reason for invalid Apply. No nonfunctional resize
   handles. Reset restores the full image. Keep editor controls outside the image.

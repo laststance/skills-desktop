@@ -21,7 +21,6 @@ export const DetailPanel = function DetailPanel(): React.ReactElement {
   return (
     <aside className="h-full border-l border-border bg-card flex flex-col overflow-hidden">
       <div className="h-8 drag-region shrink-0 flex items-center justify-end pr-2">
-        <BackgroundAttribution />
         {activeTab !== 'marketplace' && selectedSkill && (
           <button
             type="button"
@@ -34,6 +33,8 @@ export const DetailPanel = function DetailPanel(): React.ReactElement {
         )}
       </div>
       {resolveDetailPanelContent(activeTab, selectedSkill)}
+      {/* Last in flow: the credit takes the window's bottom-right corner without covering footer controls. */}
+      <BackgroundAttribution />
     </aside>
   )
 }
