@@ -434,6 +434,47 @@ describe('main background integration', () => {
     expect(location.href).toBe(originalLocation)
   })
 
+  test('hands the bottom-right corner to Retry while the credited image fails, then restores the credit after recovery', async () => {
+    // Arrange — the credited image cannot load, so no photo is on screen
+    currentSnapshot = {
+      ...currentSnapshot,
+      display: {
+        ...display,
+        image: { ...display.image, url: 'data:image/png;base64,AAAA' },
+      },
+    }
+
+    // Act
+    const { screen } = await renderBackgrounds()
+
+    // Assert — Retry owns the corner and the credit no longer competes with it
+    const workspace = screen.getByTestId('workspace')
+    await expect
+      .element(workspace.getByRole('button', { name: 'Retry image' }))
+      .toBeVisible()
+    expect(
+      workspace.getByRole('link', { name: 'Mike Petrucci' }).elements(),
+    ).toHaveLength(0)
+    expect(
+      workspace.getByRole('link', { name: 'Unsplash' }).elements(),
+    ).toHaveLength(0)
+
+    // Act — a loadable image arrives
+    currentSnapshot = { ...currentSnapshot, revision: 1, display }
+    broadcast(currentSnapshot)
+
+    // Assert — the photo is visible again, so its credit returns
+    await expect
+      .element(workspace.getByRole('link', { name: 'Mike Petrucci' }))
+      .toBeVisible()
+    await expect
+      .element(workspace.getByRole('link', { name: 'Unsplash' }))
+      .toBeVisible()
+    expect(
+      workspace.getByRole('button', { name: 'Retry image' }).elements(),
+    ).toHaveLength(0)
+  })
+
   test('keeps the current resource loaded through Apply progress, failure, layout and opacity changes', async () => {
     // Arrange
     const { screen, store } = await renderBackgrounds()

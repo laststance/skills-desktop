@@ -14,6 +14,7 @@ import { DEFAULT_SETTINGS, type Settings } from '@/shared/settings'
 
 import settingsReducer, { setSettings } from './redux/slices/settingsSlice'
 import themeReducer from './redux/slices/themeSlice'
+import uiReducer from './redux/slices/uiSlice'
 
 const backgroundState = vi.hoisted(() => {
   const snapshot: BackgroundSnapshot = {
@@ -103,6 +104,8 @@ async function renderAppWithSettings(settings: Partial<Settings>) {
     reducer: {
       settings: settingsReducer,
       theme: themeReducer,
+      // BackgroundCanvas shares native image failures with the inspector credit.
+      ui: uiReducer,
     },
     preloadedState: {
       settings: { ...DEFAULT_SETTINGS, ...settings },

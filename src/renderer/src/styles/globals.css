@@ -396,6 +396,11 @@
     background: transparent;
   }
 
+  /* Two-axis scroll areas (code preview) meet here; the default corner paints white. */
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
   ::-webkit-scrollbar-thumb {
     background: var(--muted);
     border-radius: 4px;
