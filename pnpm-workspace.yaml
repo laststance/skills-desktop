@@ -81,6 +81,7 @@ minimumReleaseAgeExclude:
   - '@rolldown/binding-openharmony-arm64@1.2.9'
   - '@rolldown/binding-win32-arm64-msvc@1.2.9'
   - '@rolldown/binding-win32-x64-msvc@1.2.9'
-  - '@tanstack/query-core@5.103.1'
   - react-draggable@4.7.2
   - rolldown@1.2.9
+  # Keep the cooldown for future versions while allowing this 2026-09-21 refresh.
+  - '@tanstack/query-core@5.103.2'
