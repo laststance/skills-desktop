@@ -9,7 +9,7 @@ import type { SkillName } from '@/shared/types'
 export const BULK_ITEM_FAILED_EVENT = 'skills:bulkItemFailed' as const
 
 /** How long a failed row keeps its red left edge (ms). */
-export const FAILED_ROW_FLASH_MS = 3_000
+const FAILED_ROW_FLASH_MS = 3_000
 
 /**
  * When each failed row's flash ends, on the `performance.now()` clock. The
