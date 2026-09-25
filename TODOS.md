@@ -42,6 +42,42 @@ the few hundred ms before the second window's store evaluates.
 
 **Fix direction:** Adapt card content and metrics to narrow panels while preserving the existing sidebar and three-column layout.
 
+**List header (#347):** The Installed list header stays on one 36px row down to a 264px center column through its compact tier. The center panel's `minSize="20%"` (`src/renderer/src/App.tsx:75`) still allows narrower drags (about 106px at the 800px window), and there the header's buttons clip. Fix direction: give the center panel a pixel floor, or fold the header actions into a menu below 264px.
+
+## List header selection review follow-ups (2026-09-26)
+
+Deferred from the #347 pre-landing review (cycle 3) and its adversarial pass.
+
+### P2. An ineligible row's checkbox should say why it cannot be picked
+
+**Finding:** In agent view a broken, inaccessible, or local row keeps a disabled checkbox. Its accessible name says "{name} is not eligible for bulk selection", but a sighted user gets no tooltip naming the reason, so the dimmed box reads as a glitch.
+
+**Fix direction:** Wrap the disabled box in a tooltip trigger (a span, since a disabled control gets no pointer events) that names the row's reason, the way the master checkbox tooltip names its key.
+
+### P3. The narrow-tier `+N` indicators read alike
+
+**Finding:** Below the header's 30rem tier, `+N hidden by filter` and `+N not eligible` keep only their numbers (the words go `sr-only`, the `title` keeps the sentence). Side by side, `+2` and `+1` do not say which is which without hovering.
+
+**Fix direction:** Give each indicator a small glyph at the narrow tier (a filter icon for hidden rows, a ban icon for ineligible ones) while the number stays whole.
+
+### P3. Focus falls to the page after a keyboard-confirmed bulk dialog
+
+**Finding:** Confirming a header Delete or Unlink from the keyboard closes the dialog after the selection has changed, so the primary button that opened it may be gone, and focus lands on `<body>`. Keyboard users then Tab from the top of the window. The same happens on `main` (not a #347 regression).
+
+**Fix direction:** On close, return focus to the master checkbox when the dialog's trigger no longer exists (Radix `onCloseAutoFocus` with a fallback target).
+
+### P3. A failed op's error screen counts its ticks as not eligible
+
+**Finding:** When an op other than a refresh rejects (copy, link, unlink, delete, symlink cleanup, undo), `skills.error` is set and `SkillsList` draws only the error text. The listener clears the selection only on `fetchSkills.rejected`, so the ticks stay. `selectBulkSelectableVisibleSkillNames` returns `[]` while the error is set, so the header reads `+N not eligible` over a screen that shows no rows. Every action stays disabled, so nothing runs against those ticks.
+
+**Fix direction:** While `skills.error` is set, have the header drop both indicators (or say the list is unavailable) and keep the ticks, so a successful refresh brings them back with their rows. Clearing the selection on these rejections instead would also drop the ticks a failed bulk op keeps for a retry.
+
+### P3. `inFlightUnlinkNames` is written but never read
+
+**Finding:** `skillsSlice` fills and clears `inFlightUnlinkNames` around a bulk unlink, and its JSDoc says the row fades while present, but nothing reads it. `selectAnyInFlightRemovalSet`, which `SkillItem` reads to fade rows, is built from the delete names alone despite its name. The same is true on `main`, so this is not a #347 regression.
+
+**Fix direction:** Either add the unlink names to `selectAnyInFlightRemovalSet` so unlinking rows fade the way deleting rows do, or delete the field and its reducer writes.
+
 ## Symlink Health cleanup subagent review follow-ups (2026-05-28)
 
 ### P0. Orphan cleanup must not reuse source skill deletion
