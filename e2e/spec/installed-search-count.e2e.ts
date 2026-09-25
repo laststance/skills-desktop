@@ -204,7 +204,7 @@ installedCountTest(
 )
 
 inlineInstalledCountTest(
-  'persisted inline mode moves the count into the toolbar and removes the tab badge',
+  'persisted inline mode moves the count into the list header and removes the tab badge',
   async ({ appWindow, isolatedHome }) => {
     // Arrange / Assert
     await appWindow.waitForFunction(() => {

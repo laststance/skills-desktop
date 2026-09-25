@@ -179,7 +179,7 @@ const HIDDEN_AGENT_IDS_SCHEMA = z
  *   light or dark variant to match the app theme.
  * - `installedSearchCountDisplay`: where the Installed view shows the
  *   current visible result count. `'tab'` is the default compact badge;
- *   `'inline'` moves the count into the search toolbar.
+ *   `'inline'` moves the count into the list header above the skill rows.
  * - `hiddenAgentIds`: agents the user has chosen to hide from the
  *   sidebar's installed list. Pure visibility toggle — the agent's
  *   skills folder, symlinks, and Marketplace presence are unaffected.

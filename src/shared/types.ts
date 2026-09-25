@@ -836,7 +836,7 @@ export interface UpdateInfo {
 /**
  * Event payload for the `skills:deleteProgress` channel — emitted by main
  * during serial batch delete when `total >= BULK_PROGRESS_THRESHOLD` so the
- * renderer toolbar can show a live counter.
+ * renderer list header can show a live counter.
  * @example { current: 3, total: 12 }
  */
 export interface DeleteProgressPayload {

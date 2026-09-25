@@ -136,7 +136,7 @@ describe('Settings → Appearance', () => {
       rightSectionOpacityPercent: 100,
     })
   })
-  test('persists Toolbar text when the Installed search count display is changed', async () => {
+  test('persists List header when the Installed search count display is changed', async () => {
     // Arrange
     const store = await createStore()
     const { Appearance } = await import('./Appearance')
@@ -147,7 +147,7 @@ describe('Settings → Appearance', () => {
     )
 
     // Act
-    await screen.getByRole('radio', { name: /Toolbar text/i }).click()
+    await screen.getByRole('radio', { name: /List header/i }).click()
 
     // Assert
     await expect.poll(() => mockSettingsSet.mock.calls.length).toBe(1)

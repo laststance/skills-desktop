@@ -957,9 +957,9 @@ export function registerSkillsHandlers(): void {
    * Batch delete N skills. Runs serially (for...of await) so per-item tombstone
    * creation, agent symlink walks, and manifest writes don't race each other.
    *
-   * Progress: emits \`skills:deleteProgress\` after each item when N >= 10 so the
-   * SelectionToolbar can show "Deleting 3 of 12". Smaller batches skip the
-   * event to avoid toast churn.
+   * Progress: emits \`skills:deleteProgress\` after each item when N >=
+   * {@link BULK_PROGRESS_THRESHOLD} (10) so the Installed list header can show
+   * "3 of 12". Smaller batches skip the event to keep small ops quiet.
    * @param options - items: Array<{ skillName, skillPath }>
    * @returns BulkDeleteResult with per-item discriminated outcome
    */

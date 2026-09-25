@@ -163,7 +163,7 @@ describe('SettingsSchema', () => {
     expect(parsed.installedSearchCountDisplay).toBe('tab')
   })
 
-  test('persists moving the Installed search count into the toolbar', () => {
+  test('persists moving the Installed search count into the list header', () => {
     // Arrange / Act
     const parsed = SettingsSchema.parse({
       installedSearchCountDisplay: 'inline',
