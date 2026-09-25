@@ -47,6 +47,7 @@ import {
   clearSelectedBrokenSymlinkSlots,
   clearSelectedOrphanSymlinks,
   fetchSkills,
+  selectIsBulkOpBusy,
 } from '@/renderer/src/redux/slices/skillsSlice'
 import {
   closeSymlinkCleanupDialog,
@@ -532,6 +533,9 @@ export const SymlinkCleanupDialog =
   function SymlinkCleanupDialog(): React.ReactElement | null {
     const dispatch = useAppDispatch()
     const isOpen = useAppSelector(selectSymlinkCleanupDialogOpen)
+    // Cleanup runs on the same busy flags as the Installed list's bulk ops, so
+    // starting it mid-op would end that op's busy state early.
+    const isBulkOpBusy = useAppSelector(selectIsBulkOpBusy)
     const [state, setState] = useState(INITIAL_DIALOG_STATE)
     const titleRef = useRef<HTMLHeadingElement>(null)
     const scanRequestIdRef = useRef(0)
@@ -992,7 +996,8 @@ export const SymlinkCleanupDialog =
                     selectedCount === 0 ||
                     state.phase === 'scanning' ||
                     state.phase === 'cleaning' ||
-                    state.phase === 'stale'
+                    state.phase === 'stale' ||
+                    isBulkOpBusy
                   }
                   onClick={handleCleanSelectedClick}
                 >

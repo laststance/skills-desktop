@@ -7,7 +7,9 @@ import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
 import '@/renderer/src/styles/globals.css'
 import type { Skill } from '@/shared/types'
 import {
+  repositoryId,
   toAbsolutePath,
+  toHttpUrl,
   toSearchQuery,
   toSkillName,
   toSymlinkCount,
@@ -395,6 +397,58 @@ describe('SkillsList global card spacing', () => {
     expect(
       Math.round(unlinkedNote.element().getBoundingClientRect().height),
     ).toBe(16)
+  })
+
+  test('keeps a linked source repository on one line in the minimum window, so the card does not overlap the next one', async () => {
+    // Arrange
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    const repositorySkill = makeSkill({
+      name: toSkillName('repository-skill'),
+      description: 'A skill installed from a GitHub repository.',
+      source: repositoryId('vercel-labs/skills'),
+      sourceUrl: toHttpUrl('https://github.com/vercel-labs/skills.git'),
+    })
+
+    // Act
+    const screen = await renderInstalledListShell(
+      { items: [repositorySkill] },
+      MIN_WINDOW_LIST_COLUMN_WIDTH_PX,
+    )
+    const sourceButton = screen.getByRole('button', {
+      name: 'Filter skills by repository vercel-labs/skills',
+    })
+    await expect.element(sourceButton).toBeVisible()
+
+    // Assert
+    // One text-sm line is 20px tall; a wrapped repository name would be 40px
+    // and push the card 20px past the row slot {@link SkillsList} computes.
+    expect(
+      Math.round(sourceButton.element().getBoundingClientRect().height),
+    ).toBe(20)
+  })
+
+  test('keeps a source repository without a URL on one line in the minimum window, so the card does not overlap the next one', async () => {
+    // Arrange
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    const repositorySkill = makeSkill({
+      name: toSkillName('repository-skill'),
+      description: 'A skill whose repository has no browsable URL.',
+      source: repositoryId('vercel-labs/skills'),
+    })
+
+    // Act
+    const screen = await renderInstalledListShell(
+      { items: [repositorySkill] },
+      MIN_WINDOW_LIST_COLUMN_WIDTH_PX,
+    )
+    const sourceLabel = screen.getByText('vercel-labs/skills', { exact: true })
+    await expect.element(sourceLabel).toBeVisible()
+
+    // Assert
+    // One text-sm line is 20px tall; a wrapped repository name would be 40px.
+    expect(
+      Math.round(sourceLabel.element().getBoundingClientRect().height),
+    ).toBe(20)
   })
 })
 

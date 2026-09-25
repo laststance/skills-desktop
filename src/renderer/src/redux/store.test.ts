@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest'
 
 import { THEME_PRESETS } from '@/shared/constants'
-import { toSkillName } from '@/shared/types'
+import type { Skill } from '@/shared/types'
+import { toAbsolutePath, toSkillName, toSymlinkCount } from '@/shared/types'
 
 import type { MigratableState } from './migrations'
 import {
@@ -322,12 +323,21 @@ describe('store wiring (singleton assembly)', () => {
     // Arrange — a failed bulk op leaves its retryable rows ticked, then
     // refreshes. The singleton store keeps state across tests, so start empty.
     const { store } = await import('./store')
+    const retrySkill: Skill = {
+      name: toSkillName('retry-skill'),
+      description: '',
+      path: toAbsolutePath('/home/user/.agents/skills/retry-skill'),
+      symlinkCount: toSymlinkCount(0),
+      symlinks: [],
+      isSource: true,
+      isOrphan: false,
+    }
     store.dispatch(clearSelection())
-    store.dispatch(toggleSelection(toSkillName('retry-skill')))
+    store.dispatch(toggleSelection(retrySkill.name))
 
-    // Act
+    // Act — the refresh still finds the row the op could not remove
     store.dispatch(fetchSkills.pending('refresh-ok'))
-    store.dispatch(fetchSkills.fulfilled([], 'refresh-ok'))
+    store.dispatch(fetchSkills.fulfilled([retrySkill], 'refresh-ok'))
 
     // Assert — only a failed refresh clears; the retry ticks survive
     expect(store.getState().skills.selectedSkillNames).toEqual(['retry-skill'])

@@ -786,6 +786,34 @@ describe('InstalledListHeader selected state', () => {
     await expect.element(screen.getByText('+1 hidden by filter')).toBeVisible()
   })
 
+  test('disables Copy to… when every ticked row is hidden by the search, so it never opens a copy of nothing', async () => {
+    // Arrange — global view with a copy handler; the only tick is on a row
+    // the search will hide, and Copy acts on visible ticks only
+    const onCopyAction = vi.fn()
+    const { screen, store } = await renderHeader({
+      skills: [
+        makeCursorSkill(toSkillName('alpha'), 'valid'),
+        makeCursorSkill(toSkillName('zeta'), 'valid'),
+      ],
+      selectedNames: [toSkillName('zeta')],
+      agentId: null,
+      onCopyAction,
+    })
+    const { setSearchQuery } =
+      await import('@/renderer/src/redux/slices/uiSlice')
+
+    // Act
+    store.dispatch(setSearchQuery(toSearchQuery('alpha')))
+
+    // Assert
+    await expect.element(screen.getByText('+1 hidden by filter')).toBeVisible()
+    await expect
+      .element(
+        screen.getByRole('button', { name: 'Copy selected skills to agents' }),
+      )
+      .toBeDisabled()
+  })
+
   test('replaces the indicators with the bulk progress counter for large batches', async () => {
     // Arrange — one visible tick and one hidden by the search
     const { screen, store } = await renderHeader({

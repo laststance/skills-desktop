@@ -57,8 +57,12 @@ export const SourceLink = function SourceLink({
       </span>
     ))
     .with({ kind: 'text' }, ({ source }) => (
-      <span className="text-sm text-muted-foreground inline-flex items-center gap-1 mb-2">
-        {source}
+      // One line at any width: the list's row slots assume it (DESIGN.md
+      // "Installed list"), so a long name truncates and `title` keeps it whole.
+      <span className="text-sm text-muted-foreground inline-flex max-w-full items-center gap-1 mb-2">
+        <span className="truncate" title={source}>
+          {source}
+        </span>
       </span>
     ))
     .with({ kind: 'link' }, ({ href, source }) => {
@@ -80,12 +84,16 @@ export const SourceLink = function SourceLink({
       }
 
       return (
-        <span className="inline-flex items-center gap-1 mb-2">
+        // One line at any width: the list's row slots assume it (DESIGN.md
+        // "Installed list"), so a long name truncates before the GitHub icon
+        // and `title` keeps it whole.
+        <span className="inline-flex max-w-full items-center gap-1 mb-2">
           <button
             type="button"
             onClick={handleFilterClick}
             aria-label={`Filter skills by repository ${source}`}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            title={source}
+            className="min-w-0 truncate text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             {source}
           </button>
@@ -95,7 +103,7 @@ export const SourceLink = function SourceLink({
             rel="noreferrer"
             onClick={handleExternalClick}
             aria-label={`Open ${source} on GitHub`}
-            className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors inline-flex items-center rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <ExternalLink className="h-3 w-3" />
           </a>

@@ -488,7 +488,7 @@ describe('SkillItem delete button', () => {
   })
 })
 
-describe('SkillItem card Delete while a bulk operation runs', () => {
+describe('SkillItem card X buttons while a bulk operation runs', () => {
   test('ignores the card Delete button while a bulk operation is running', async () => {
     // Arrange — a header bulk op holds the shared busy flag
     const { screen, store } = await renderSkillItem(
@@ -511,6 +511,45 @@ describe('SkillItem card Delete while a bulk operation runs', () => {
     // Assert — no second confirmation opens behind the running op, and the
     // click still stays off the card
     expect(store.getState().ui.bulkConfirm).toBeNull()
+    expect(store.getState().skills.selectedSkill).toBeNull()
+  })
+
+  test('ignores the agent-view Unlink button while a bulk operation is running', async () => {
+    // Arrange — agent view, and a header bulk op holds the shared busy flag
+    const linkedSkill = makeSkill({
+      name: toSkillName('task'),
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/task'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(linkedSkill)
+    const { bulkCopyToAgents, fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(fetchSkills.fulfilled([linkedSkill], 'req-id'))
+    store.dispatch(selectAgent('cursor'))
+    store.dispatch(
+      bulkCopyToAgents.pending('copy-req', { items: [], agentIds: [] }),
+    )
+    await expect
+      .element(screen.getByRole('checkbox', { name: 'Select task' }))
+      .toBeDisabled()
+
+    // Act
+    await screen
+      .getByRole('button', { name: /^Unlink task from agent$/i })
+      .click()
+
+    // Assert — no unlink confirmation opens to race the running op on the
+    // same link, and the click still stays off the card
+    expect(store.getState().skills.skillToUnlink).toBeNull()
     expect(store.getState().skills.selectedSkill).toBeNull()
   })
 })
@@ -829,6 +868,45 @@ describe('SkillItem bulk-select checkbox stopPropagation', () => {
     expect(store.getState().skills.selectionAnchor).toBe('task')
     expect(store.getState().skills.selectedSkill).toBeNull()
   })
+
+  test('takes keyboard focus out of the search box on a shift-click of a row checkbox, so Esc and ⌘A reach the list', async () => {
+    // Arrange — an anchor on 'alpha', and the user was typing in the search
+    // box. The card's ⇧ text-selection guard cancels the press's focus move.
+    const { screen, store } = await renderSkillItem(
+      makeSkill({ name: toSkillName('task') }),
+    )
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [
+          makeSkill({ name: toSkillName('alpha') }),
+          makeSkill({ name: toSkillName('task') }),
+          makeSkill({ name: toSkillName('zeta') }),
+        ],
+        'req-id',
+      ),
+    )
+    store.dispatch(toggleSelection(toSkillName('alpha')))
+    const searchInput = document.createElement('input')
+    document.body.appendChild(searchInput)
+    try {
+      searchInput.focus()
+
+      // Act
+      await screen
+        .getByRole('checkbox', { name: /^Select task$/i })
+        .click({ modifiers: ['Shift'] })
+
+      // Assert
+      await expect
+        .poll(() => store.getState().skills.selectedSkillNames)
+        .toEqual(['alpha', 'task'])
+      expect(document.activeElement).toBe(document.body)
+    } finally {
+      document.body.removeChild(searchInput)
+    }
+  })
 })
 
 describe('SkillItem unlink button', () => {
@@ -1066,6 +1144,96 @@ describe('SkillItem card modifier clicks', () => {
       expect(document.activeElement).toBe(document.body)
     } finally {
       document.body.removeChild(searchInput)
+    }
+  })
+
+  test('takes keyboard focus out of the search box on an agent-view plain click, so Esc still clears the ticked rows', async () => {
+    // Arrange — agent view, 'task' ticked, and the user was typing in the
+    // search box when they clicked the card to inspect it
+    const linkedSkill = makeSkill({
+      name: toSkillName('task'),
+      description: 'Task management skill',
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/task'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(linkedSkill)
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(fetchSkills.fulfilled([linkedSkill], 'req-id'))
+    store.dispatch(selectAgent('cursor'))
+    store.dispatch(toggleSelection(toSkillName('task')))
+    await expect
+      .element(screen.getByRole('button', { name: /^Add$/i }))
+      .toBeInTheDocument()
+    const searchInput = document.createElement('input')
+    document.body.appendChild(searchInput)
+    try {
+      searchInput.focus()
+
+      // Act
+      await screen.getByText('Task management skill').click()
+
+      // Assert — the click inspects the row and leaves the keyboard with the list
+      expect(store.getState().skills.selectedSkill?.name).toBe('task')
+      expect(document.activeElement).toBe(document.body)
+    } finally {
+      document.body.removeChild(searchInput)
+    }
+  })
+
+  test('moves the text caret out of the Inspector on an agent-view ⌘-click, so ⌘A ticks rows instead of selecting the file text', async () => {
+    // Arrange — agent view, and the caret was left in the Inspector's file
+    // text; the "Copy to…" menu trigger keeps a card press from moving it
+    const linkedSkill = makeSkill({
+      name: toSkillName('task'),
+      description: 'Task management skill',
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/task'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(linkedSkill)
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    store.dispatch(fetchSkills.fulfilled([linkedSkill], 'req-id'))
+    store.dispatch(selectAgent('cursor'))
+    await expect
+      .element(screen.getByRole('button', { name: /^Add$/i }))
+      .toBeInTheDocument()
+    const inspectorPane = document.createElement('aside')
+    inspectorPane.setAttribute('data-inspector-pane', '')
+    const fileText = document.createTextNode('# SKILL.md body')
+    inspectorPane.append(fileText)
+    document.body.appendChild(inspectorPane)
+    try {
+      document.getSelection()?.collapse(fileText, 2)
+
+      // Act
+      await screen
+        .getByText('Task management skill')
+        .click({ modifiers: ['Meta'] })
+
+      // Assert
+      expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+      expect(document.getSelection()?.anchorNode ?? null).toBeNull()
+    } finally {
+      document.body.removeChild(inspectorPane)
     }
   })
 

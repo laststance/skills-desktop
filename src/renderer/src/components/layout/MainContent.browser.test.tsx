@@ -600,6 +600,44 @@ describe('MainContent keyboard shortcuts (Cmd+A)', () => {
     expect(store.getState().skills.selectedSkillNames).toEqual(['task', 'tdd'])
   })
 
+  test('leaves the rows unselected on Cmd+Shift+A, which other Mac apps use for Deselect All', async () => {
+    // Arrange
+    const { screen, store } = await renderMainContent()
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const skillFixtures = [
+      {
+        name: toSkillName('task'),
+        description: '',
+        path: '/skills/task' as never,
+        filesystemIdentity: directoryIdentity,
+        symlinkCount: toSymlinkCount(0),
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+      {
+        name: toSkillName('tdd'),
+        description: '',
+        path: '/skills/tdd' as never,
+        filesystemIdentity: directoryIdentity,
+        symlinkCount: toSymlinkCount(0),
+        symlinks: [],
+        isSource: true,
+        isOrphan: false,
+      },
+    ]
+    store.dispatch(fetchSkills.fulfilled(skillFixtures, 'req-id'))
+    await waitForVisibleSkillCount(screen, 2)
+
+    // Act — Shift turns the key into a capital A
+    const keydown = dispatchKey({ key: 'A', metaKey: true, shiftKey: true })
+
+    // Assert
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
+    expect(keydown.defaultPrevented).toBe(false)
+  })
+
   test('does not select skills on Cmd+A while typing in a text field', async () => {
     // Arrange — rows are loaded, so a missing editable-target guard would
     // visibly select them.

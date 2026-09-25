@@ -821,6 +821,45 @@ describe('skillsSlice bulk selection reducers (v2.4)', () => {
     expect(store.getState().skills.selectionAnchor).toBe('task')
   })
 
+  test('drops the tick and anchor of a skill a refresh no longer finds, so the list header does not count it as hidden by a filter', async () => {
+    // Arrange — 'browser' is ticked last, so it holds the anchor
+    const { fetchSkills, toggleSelection } = await import('./skillsSlice')
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill, secondSkill, thirdSkill])
+    store.dispatch(toggleSelection(toSkillName('task')))
+    store.dispatch(toggleSelection(toSkillName('browser')))
+
+    // Act — 'browser' was removed outside the app
+    store.dispatch(fetchSkills.fulfilled([sampleSkill, secondSkill], 'req-id'))
+
+    // Assert
+    expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+    expect(store.getState().skills.selectionAnchor).toBeNull()
+  })
+
+  test('keeps the ticks and anchor that a refresh still finds', async () => {
+    // Arrange — 'task' is ticked last, so it holds the anchor
+    const { fetchSkills, toggleSelection } = await import('./skillsSlice')
+    const store = await createTestStore()
+    await seedItems(store, [sampleSkill, secondSkill, thirdSkill])
+    store.dispatch(toggleSelection(toSkillName('browser')))
+    store.dispatch(toggleSelection(toSkillName('task')))
+    const selectionBeforeRefresh = store.getState().skills.selectedSkillNames
+
+    // Act — only the unticked 'theme-generator' was removed
+    store.dispatch(fetchSkills.fulfilled([sampleSkill, thirdSkill], 'req-id'))
+
+    // Assert — the same array, so nothing that reads it re-renders
+    expect(store.getState().skills.selectedSkillNames).toBe(
+      selectionBeforeRefresh,
+    )
+    expect(store.getState().skills.selectedSkillNames).toEqual([
+      'browser',
+      'task',
+    ])
+    expect(store.getState().skills.selectionAnchor).toBe('task')
+  })
+
   test('deselects a row on a second click but keeps it as the anchor', async () => {
     // Arrange
     const { toggleSelection } = await import('./skillsSlice')

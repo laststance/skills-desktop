@@ -31,7 +31,14 @@ const flashEndsAtBySkillName = new Map<SkillName, number>()
  * flashFailedRows(failedNames)
  */
 export const flashFailedRows = (failedNames: SkillName[]): void => {
-  const flashEndsAt = performance.now() + FAILED_ROW_FLASH_MS
+  const now = performance.now()
+  // Sweep ended flashes first. A row still on screen, or never scrolled into
+  // the virtualized window, never reads its deadline again, so without this
+  // the map would keep every name that ever failed.
+  for (const [skillName, flashEndsAt] of flashEndsAtBySkillName) {
+    if (flashEndsAt <= now) flashEndsAtBySkillName.delete(skillName)
+  }
+  const flashEndsAt = now + FAILED_ROW_FLASH_MS
   for (const skillName of failedNames) {
     flashEndsAtBySkillName.set(skillName, flashEndsAt)
     window.dispatchEvent(

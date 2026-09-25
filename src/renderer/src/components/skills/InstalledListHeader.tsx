@@ -497,7 +497,8 @@ const SelectedHeaderContent = function SelectedHeaderContent({
       {/* min-w-0 lets the primary label give up room before the count does. */}
       <div className="ml-auto flex min-w-0 items-center gap-1.5">
         {/* Non-destructive bulk copy — global view only. The tooltip names the
-            action once narrow widths reduce it to a 24px icon. */}
+            action once narrow widths reduce it to a 24px icon. It copies the
+            visible ticks only, so like the primary it rests with none on screen. */}
         {selectedAgentId === null && onCopyAction ? (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -505,7 +506,7 @@ const SelectedHeaderContent = function SelectedHeaderContent({
                 variant="outline"
                 size="xs"
                 onClick={onCopyAction}
-                disabled={isBulkOpBusy}
+                disabled={isBulkOpBusy || visibleSelectedCount === 0}
                 aria-label="Copy selected skills to agents"
                 className="shrink-0 @max-[30rem]:size-6 @max-[30rem]:px-0"
               >

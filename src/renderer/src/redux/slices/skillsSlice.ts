@@ -109,7 +109,8 @@ const initialState: SkillsState = {
  * Intersect a dispatched-names list with the live `state.items` set so a late
  * `fetchSkills.fulfilled` landing between click and thunk dispatch cannot turn
  * a valid request into a 500 on a ghost skill. Used by the bulk-delete and
- * bulk-unlink `.pending` reducers, which both need the same reconciliation.
+ * bulk-unlink `.pending` reducers, which both need the same reconciliation,
+ * and by `fetchSkills.fulfilled` to drop ticks on skills a refresh no longer finds.
  *
  * @param items - Current `state.items` (source of "currently installed")
  * @param names - Names the user selected at click-time
@@ -692,6 +693,23 @@ const skillsSlice = createSlice({
       .addCase(fetchSkills.fulfilled, (state, action) => {
         state.items = action.payload
         state.loading = false
+        // A skill removed outside the app drops out on this refresh. Drop its
+        // tick and anchor too, or the list header keeps counting it as hidden
+        // by a filter. Reassign only on a change, so the selection keeps its
+        // reference through a routine refresh.
+        const liveSelectedNames = reconcileByLiveNames(
+          state.items,
+          state.selectedSkillNames,
+        )
+        if (liveSelectedNames.length !== state.selectedSkillNames.length) {
+          state.selectedSkillNames = liveSelectedNames
+        }
+        if (
+          state.selectionAnchor !== null &&
+          !state.items.some((skill) => skill.name === state.selectionAnchor)
+        ) {
+          state.selectionAnchor = null
+        }
       })
       .addCase(fetchSkills.rejected, (state, action) => {
         state.loading = false

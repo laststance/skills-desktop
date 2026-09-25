@@ -255,8 +255,11 @@ function useInstalledBulkKeyboardShortcuts({
       // open-overlay query below would miss it and wipe the selection too.
       if (event.defaultPrevented && !isTooltipOnlyEscape) return
 
+      // ⌘⇧A is Deselect All in other Mac apps, so Shift opts out.
       const isSelectAllChord =
-        (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a'
+        (event.metaKey || event.ctrlKey) &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === 'a'
       // With nothing selected, Esc is left alone.
       const isClearKey = event.key === 'Escape' && selectedCountRef.current > 0
       // Cheap key checks first: every other keystroke skips the DOM queries.

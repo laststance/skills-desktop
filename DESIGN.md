@@ -525,7 +525,11 @@ Rules:
 - The Installed list is virtualized with computed row heights, so a card's
   height must not depend on its width. One-line metadata (the status badges,
   the "Not linked to any agent" note) stays on one line and runs into the
-  right gutter in a narrow column instead of wrapping. Space stacked blocks
+  right gutter in a narrow column instead of wrapping. A line that holds a
+  value of any length, like the source repository, truncates at the text
+  column instead (its `title` keeps the whole value), since a long value
+  would run past the card. Check these lines in the minimum window, where the
+  row checkbox gutter leaves the text column narrowest. Space stacked blocks
   with padding where a margin could collapse into a neighbor's, since a
   collapsed margin quietly shortens the card against its row slot.
 
@@ -595,14 +599,19 @@ Finder list view.)
   dialogs and menus, and while a bulk op settles. ⌘A also leaves the
   Inspector's text to native select-all, and an Esc that an overlay already
   handled (the one that dismisses a dialog or menu) never also clears the
-  selection. ⌘-click toggles a row and ⇧-click extends the range from the
-  anchor over eligible rows; a plain click still opens the Inspector.
+  selection. A tooltip does not count: one Esc hides it and clears the
+  selection. ⌘⇧A, Deselect All in other Mac apps, selects nothing.
+  ⌘-click toggles a row and ⇧-click extends the range from the anchor over
+  eligible rows; a plain click still opens the Inspector. Any click on a card
+  or its checkbox takes the keyboard out of the search box and the Inspector,
+  so the next ⌘A or Esc reaches the list.
 - The master checkbox tooltip names the key that does what a click would do
   right now: ⌘A when unchecked or mixed, Esc when checked, and no key while it
   is disabled.
 - After a header-started Delete or Unlink settles, only the rows the user can
-  retry stay ticked. A card's own Delete leaves the other ticks alone, and it
-  does nothing while a bulk op runs, since all bulk ops share one busy flag.
+  retry stay ticked. A card's own Delete leaves the other ticks alone. All bulk
+  ops share one busy flag, so while one runs a card's Delete and Unlink do
+  nothing and the Dashboard's symlink cleanup keeps its Clean button disabled.
 
 ### Empty States
 

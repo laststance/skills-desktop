@@ -63,7 +63,7 @@ import {
   BULK_ITEM_FAILED_EVENT,
   getFlashEndsAt,
 } from '@/renderer/src/utils/bulkOpVisuals'
-import { isEditableTarget } from '@/renderer/src/utils/isEditableTarget'
+import { releaseKeyboardToList } from '@/renderer/src/utils/releaseKeyboardToList'
 import { GSTACK_REPOSITORY_URL } from '@/shared/constants'
 import type { AgentId, AgentName } from '@/shared/constants'
 import type {
@@ -511,6 +511,9 @@ export const SkillItem = function SkillItem({
   // threshold is floored just below 100 rather than chased. See vitest.config.ts.
   const handleUnlinkClick = (e: React.MouseEvent): void => {
     e.stopPropagation()
+    // A running header op may be removing this same link; a second unlink
+    // would race it, and whichever side loses reports a spurious failure.
+    if (isBulkOpBusy) return
     // Protection is enforced here too so future UI refactors cannot stage a
     // locked skill for removal by accidentally showing the button.
     if (isProtected) return
@@ -621,6 +624,9 @@ export const SkillItem = function SkillItem({
   const handleCheckboxClick = (
     event: React.MouseEvent<HTMLButtonElement>,
   ): void => {
+    // A ⇧-press on the box reaches the card's text-selection guard, which
+    // keeps focus in the search box or the Inspector.
+    releaseKeyboardToList()
     if (!event.shiftKey || selectionAnchor === null) return
     event.preventDefault()
     selectRangeToThisRow(selectionAnchor)
@@ -660,22 +666,16 @@ export const SkillItem = function SkillItem({
    * the inspector. Selection clicks are inert while a bulk op settles.
    */
   const handleCardClick = (event: React.MouseEvent<HTMLDivElement>): void => {
+    // In agent view the "Copy to…" menu trigger, and on a ⇧-click the
+    // text-selection guard below, keep the press from moving focus. Hand the
+    // keyboard to the list, as a plain press on a card without that menu does.
+    releaseKeyboardToList()
     const clickIntent = getCardClickIntent(event)
     if (clickIntent === 'open') {
       dispatch(selectSkill(isSelected ? null : skill))
       return
     }
     if (isBulkOpBusy) return
-    // In agent view the "Copy to…" menu trigger stops a click from moving
-    // focus, so the search box would keep Esc and ⌘A. Hand the keyboard to
-    // the list, as a click on a card without that menu does.
-    const focusedElement = document.activeElement
-    if (
-      focusedElement instanceof HTMLElement &&
-      isEditableTarget(focusedElement)
-    ) {
-      focusedElement.blur()
-    }
     // ⇧ needs an anchor to measure from; without one it toggles like ⌘.
     if (clickIntent === 'range' && selectionAnchor !== null) {
       selectRangeToThisRow(selectionAnchor)
