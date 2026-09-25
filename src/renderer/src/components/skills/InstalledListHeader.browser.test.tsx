@@ -76,7 +76,7 @@ async function renderToolbar(options: {
   } = await import('@/renderer/src/redux/slices/uiSlice')
   const { default: protectReducer } =
     await import('@/renderer/src/redux/slices/protectSlice')
-  const { SelectionToolbar } = await import('./SelectionToolbar')
+  const { SelectionToolbar } = await import('./InstalledListHeader')
 
   const store = configureStore({
     reducer: {

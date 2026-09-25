@@ -8,7 +8,7 @@ import { CopyToAgentsModal } from '@/renderer/src/components/skills/CopyToAgents
 import { FileContent } from '@/renderer/src/components/skills/FileContent'
 import { FileTabs } from '@/renderer/src/components/skills/FileTabs'
 import { SearchBox } from '@/renderer/src/components/skills/SearchBox'
-import { SelectionToolbar } from '@/renderer/src/components/skills/SelectionToolbar'
+import { SelectionToolbar } from '@/renderer/src/components/skills/InstalledListHeader'
 import { SkillDetail } from '@/renderer/src/components/skills/SkillDetail'
 import { SkillItem } from '@/renderer/src/components/skills/SkillItem'
 import { SkillsList } from '@/renderer/src/components/skills/SkillsList'

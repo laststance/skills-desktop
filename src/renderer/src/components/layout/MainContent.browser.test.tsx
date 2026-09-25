@@ -89,7 +89,7 @@ vi.mock('../marketplace', () => ({
 vi.mock('../skills/SearchBox', () => ({
   SearchBox: () => null,
 }))
-vi.mock('../skills/SelectionToolbar', () => ({
+vi.mock('../skills/InstalledListHeader', () => ({
   SelectionToolbar: ({
     onPrimaryAction,
     onCopyAction,

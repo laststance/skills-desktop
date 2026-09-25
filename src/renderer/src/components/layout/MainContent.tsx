@@ -33,7 +33,7 @@ import {
   partitionGlobalDeleteTargets,
 } from '@/renderer/src/components/skills/reviewedDestructiveTargets'
 import { SearchBox } from '@/renderer/src/components/skills/SearchBox'
-import { SelectionToolbar } from '@/renderer/src/components/skills/SelectionToolbar'
+import { SelectionToolbar } from '@/renderer/src/components/skills/InstalledListHeader'
 import { SkillsList } from '@/renderer/src/components/skills/SkillsList'
 import { UndoToast } from '@/renderer/src/components/skills/UndoToast'
 import { UnlinkDialog } from '@/renderer/src/components/skills/UnlinkDialog'
