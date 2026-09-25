@@ -1024,6 +1024,51 @@ describe('SkillItem card modifier clicks', () => {
     expect(store.getState().skills.selectedSkillNames).toEqual([])
   })
 
+  test('takes keyboard focus out of the search box on an agent-view ⌘-click, so Esc and ⌘A reach the list', async () => {
+    // Arrange — agent view arms the "Copy to…" menu trigger, whose pointerdown
+    // keeps focus where it was; the user was typing in the search box
+    const linkedSkill = makeSkill({
+      name: toSkillName('task'),
+      description: 'Task management skill',
+      symlinks: [
+        {
+          agentId: 'cursor',
+          agentName: 'Cursor',
+          status: 'valid',
+          linkPath: toAbsolutePath('/home/user/.cursor/skills/task'),
+          targetPath: toAbsolutePath('/home/user/.agents/skills/task'),
+          isLocal: false,
+        },
+      ],
+    })
+    const { screen, store } = await renderSkillItem(linkedSkill)
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
+    // The agent view picks its eligible rows from the loaded list.
+    store.dispatch(fetchSkills.fulfilled([linkedSkill], 'req-id'))
+    store.dispatch(selectAgent('cursor'))
+    await expect
+      .element(screen.getByRole('button', { name: /^Add$/i }))
+      .toBeInTheDocument()
+    const searchInput = document.createElement('input')
+    document.body.appendChild(searchInput)
+    try {
+      searchInput.focus()
+
+      // Act
+      await screen
+        .getByText('Task management skill')
+        .click({ modifiers: ['Meta'] })
+
+      // Assert
+      expect(store.getState().skills.selectedSkillNames).toEqual(['task'])
+      expect(document.activeElement).toBe(document.body)
+    } finally {
+      document.body.removeChild(searchInput)
+    }
+  })
+
   test('⇧-click on the card selects the range from the anchor without opening the inspector', async () => {
     // Arrange — three visible rows, anchor on 'alpha', rendered row 'task'
     const { screen, store } = await renderSkillItem(

@@ -45,9 +45,13 @@ import { toSkillCount } from '@/shared/types'
 
 import { getPrimaryActionState } from './bulkDeleteHelpers'
 
-/** Shared `<kbd>` hint styling (DESIGN.md "Keyboard Shortcut Hints"). */
+/**
+ * Shared `<kbd>` hint styling (DESIGN.md "Keyboard Shortcut Hints"). A border
+ * in the text color and no fill, so the chip stays legible on the ghost
+ * button's hover fill; the Button's own gap spaces it from the label.
+ */
 const KBD_HINT_CLASS =
-  'ml-1.5 text-[10px] opacity-50 bg-muted px-1 py-0.5 rounded font-mono leading-none'
+  'rounded border border-current/25 px-1 py-0.5 font-mono text-[10px] leading-none opacity-60'
 
 /**
  * `<kbd>` hint styling inside a tooltip. The tooltip is always slate-700 with
@@ -80,7 +84,7 @@ interface InstalledListHeaderProps {
 }
 
 /**
- * The Installed list's 36px header row, rendered above `SkillsList` and outside
+ * The Installed list's 36px header row, rendered above {@link SkillsList} and outside
  * its scroller so it never scrolls away. Selection is modeless: the tri-state
  * master checkbox is always here, and the rest of the row swaps on the
  * selection alone.

@@ -10,7 +10,7 @@ import {
   Plus,
   X,
 } from 'lucide-react'
-import React, { useRef, useState } from 'react'
+import React, { useState } from 'react'
 
 import { StatusBadge } from '@/renderer/src/components/status/StatusBadge'
 import { badgeVariants } from '@/renderer/src/components/ui/badge'
@@ -29,7 +29,6 @@ import {
   TooltipTrigger,
 } from '@/renderer/src/components/ui/tooltip'
 import { useCycleEffect } from '@/renderer/src/hooks/useCycleEffect'
-import { useUnmountEffect } from '@/renderer/src/hooks/useUnmountEffect'
 import { cn } from '@/renderer/src/lib/utils'
 import { useAppDispatch, useAppSelector } from '@/renderer/src/redux/hooks'
 import {
@@ -60,7 +59,11 @@ import {
   toggleSelection,
 } from '@/renderer/src/redux/slices/skillsSlice'
 import { setBulkConfirm } from '@/renderer/src/redux/slices/uiSlice'
-import { BULK_ITEM_FAILED_EVENT } from '@/renderer/src/utils/bulkOpVisuals'
+import {
+  BULK_ITEM_FAILED_EVENT,
+  getFlashEndsAt,
+} from '@/renderer/src/utils/bulkOpVisuals'
+import { isEditableTarget } from '@/renderer/src/utils/isEditableTarget'
 import { GSTACK_REPOSITORY_URL } from '@/shared/constants'
 import type { AgentId, AgentName } from '@/shared/constants'
 import type {
@@ -189,9 +192,6 @@ interface SymlinkStatusBuckets {
   brokenAgentNames: AgentName[]
   inaccessibleAgentNames: AgentName[]
 }
-
-/** How long the partial-failure red edge persists (ms). */
-const PARTIAL_FAIL_FLASH_MS = 3_000
 
 /**
  * Groups symlink status counts outside the large card render path to keep the component under fallow complexity limits.
@@ -443,7 +443,7 @@ const SkillTitleRow = function SkillTitleRow({
  * Renders a bulk-selection checkbox, the skill's name and metadata, and — in
  * agent view or for local skills — a per-row X button. During an in-flight
  * bulk op the row fades to `opacity-50`; rows that errored out of a bulk op
- * flash a red left edge for {@link PARTIAL_FAIL_FLASH_MS} via the
+ * flash a red left edge for {@link FAILED_ROW_FLASH_MS} via the
  * `skills:bulkItemFailed` custom event so the survivors are easy to spot.
  */
 export const SkillItem = function SkillItem({
@@ -611,7 +611,7 @@ export const SkillItem = function SkillItem({
   }
 
   /**
-   * Routes a ⇧-click with an anchor to `selectRange` instead of a toggle.
+   * Routes a ⇧-click with an anchor to {@link selectRange} instead of a toggle.
    * Radix runs this handler before its own toggle and skips the toggle once
    * the default is prevented, so the clicked row is not flipped back off.
    * With no anchor (first click into an empty selection), a ⇧-click falls
@@ -666,6 +666,16 @@ export const SkillItem = function SkillItem({
       return
     }
     if (isBulkOpBusy) return
+    // In agent view the "Copy to…" menu trigger stops a click from moving
+    // focus, so the search box would keep Esc and ⌘A. Hand the keyboard to
+    // the list, as a click on a card without that menu does.
+    const focusedElement = document.activeElement
+    if (
+      focusedElement instanceof HTMLElement &&
+      isEditableTarget(focusedElement)
+    ) {
+      focusedElement.blur()
+    }
     // ⇧ needs an anchor to measure from; without one it toggles like ⌘.
     if (clickIntent === 'range' && selectionAnchor !== null) {
       selectRangeToThisRow(selectionAnchor)
@@ -684,17 +694,16 @@ export const SkillItem = function SkillItem({
     if (event.shiftKey) event.preventDefault()
   }
 
-  const [didPartialFail, setDidPartialFail] = useState(false)
-  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useUnmountEffect(() => {
-    // Clean up timer on unmount to prevent a stale setState on an unmounted row.
-    if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
-  })
+  // When this row's failure flash ends; null while it is not flashing. Read on
+  // mount too: a row that remounts mid-flash (the rejected-op error view, a
+  // scroll back into view) shows the rest of it.
+  const [flashEndsAt, setFlashEndsAt] = useState(() =>
+    getFlashEndsAt(skill.name),
+  )
+  const didPartialFail = flashEndsAt !== null
   /**
-   * Expose a row-level method so MainContent can imperatively trigger the flash
-   * without threading per-row state through Redux. The MainContent effect reads
-   * the Set of failed names from the thunk result and calls into the row via a
-   * data-skill-name DOM selector.
+   * MainContent triggers the flash imperatively through {@link flashFailedRows}
+   * without threading per-row state through Redux.
    *
    * Because this is imperative, we use a CustomEvent listener keyed on the
    * skill name for decoupling. This keeps SkillItem agnostic of which bulk op
@@ -707,17 +716,23 @@ export const SkillItem = function SkillItem({
       event: WindowEventMap[typeof BULK_ITEM_FAILED_EVENT],
     ): void => {
       if (event.detail.skillName !== skill.name) return
-      setDidPartialFail(true)
-      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
-      resetTimerRef.current = setTimeout(() => {
-        setDidPartialFail(false)
-      }, PARTIAL_FAIL_FLASH_MS)
+      setFlashEndsAt(getFlashEndsAt(skill.name))
     }
     window.addEventListener(BULK_ITEM_FAILED_EVENT, handleFailEvent)
     return (): void => {
       window.removeEventListener(BULK_ITEM_FAILED_EVENT, handleFailEvent)
     }
   }, [skill.name])
+  useCycleEffect(() => {
+    if (flashEndsAt === null) return
+    const flashEndTimer = setTimeout(() => {
+      setFlashEndsAt(null)
+    }, flashEndsAt - performance.now())
+    // A new failure replaces the deadline, and an unmount drops the timer.
+    return (): void => {
+      clearTimeout(flashEndTimer)
+    }
+  }, [flashEndsAt])
 
   return (
     <DropdownMenu open={contextOpen} onOpenChange={handleContextOpenChange}>
@@ -727,9 +742,13 @@ export const SkillItem = function SkillItem({
           className={cn(
             'group cursor-pointer transition-all hover:border-primary/50 relative motion-reduce:transition-none',
             // A ticked row tints so the batch reads at a glance; the inspected
-            // row's full `border-primary` below still outranks it.
-            isTicked && 'border-primary/40 bg-primary/5',
-            isSelected && 'border-primary bg-primary/5',
+            // row's full `border-primary` below still outranks it. The tint is
+            // a background image over the card's `bg-card`, which a
+            // `bg-primary/5` color would replace.
+            isTicked &&
+              'border-primary/40 bg-linear-to-r from-primary/5 to-primary/5',
+            isSelected &&
+              'border-primary bg-linear-to-r from-primary/5 to-primary/5',
             // Skill-type accent (only when NOT flashing red) — making the
             // precedence explicit, rather than relying on tailwind-merge
             // class-order to let the red override cyan/emerald.
@@ -748,7 +767,7 @@ export const SkillItem = function SkillItem({
               'border-l-2 border-l-amber-400/60',
             // In-flight fade while the row is part of an active bulk op.
             isInFlight && 'opacity-50 duration-150',
-            // Partial-failure red edge (PARTIAL_FAIL_FLASH_MS).
+            // Partial-failure red edge ({@link FAILED_ROW_FLASH_MS}).
             didPartialFail && 'border-l-2 border-l-red-500/70',
           )}
           onClick={handleCardClick}
@@ -1067,7 +1086,7 @@ const BulkSelectionCheckbox = function BulkSelectionCheckbox({
           // The reveal sits on the focusable box itself, so Tab reveals it.
           !isAnyRowSelected &&
             !isDisabled &&
-            'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=checked]:opacity-100 transition-opacity duration-150 motion-reduce:transition-none',
+            'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150 motion-reduce:transition-none',
         )}
       />
     </label>

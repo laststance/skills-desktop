@@ -551,7 +551,7 @@ function isBulkSelectableSkill(
  * Ordered visible names that can safely flow through the current bulk action.
  * Agent-view local/broken/inaccessible rows stay visible but are excluded
  * because reviewed bulk Unlink only removes symlink slots. Empty while the
- * skills list shows a load error: `SkillsList` then draws only the error text,
+ * skills list shows a load error: {@link SkillsList} then draws only the error text,
  * so the header checkbox, ⌘A and ⇧-click must not reach rows that are not drawn.
  * @returns
  * - Skill names eligible for Select all, Shift range, and primary action

@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 
 import { TooltipProvider } from '@/renderer/src/components/ui/tooltip'
@@ -177,7 +178,7 @@ describe('MainContent list header integration', () => {
     mockUnlinkManyFromAgent.mockResolvedValue({
       items: [
         {
-          skillName: 'valid-toolbar-task',
+          skillName: 'valid-header-task',
           outcome: 'unlinked',
         },
       ],
@@ -228,24 +229,24 @@ describe('MainContent list header integration', () => {
     const { selectAgent } = await import('@/renderer/src/redux/slices/uiSlice')
     const { fetchSkills, toggleSelection } =
       await import('@/renderer/src/redux/slices/skillsSlice')
-    const metadataName = toSkillName('valid-toolbar-task')
-    const slotName = toSkillName('valid-toolbar-folder')
+    const metadataName = toSkillName('valid-header-task')
+    const slotName = toSkillName('valid-header-folder')
     store.dispatch(fetchAgents.fulfilled([CURSOR_AGENT], 'agents-req'))
     store.dispatch(selectAgent('cursor'))
     store.dispatch(
       fetchSkills.fulfilled(
         [
           makeCursorSkill(metadataName, 'valid', slotName),
-          makeCursorSkill(toSkillName('broken-toolbar-task'), 'broken'),
+          makeCursorSkill(toSkillName('broken-header-task'), 'broken'),
           makeCursorSkill(
-            toSkillName('inaccessible-toolbar-task'),
+            toSkillName('inaccessible-header-task'),
             'inaccessible',
           ),
         ],
         'skills-req',
       ),
     )
-    store.dispatch(toggleSelection(toSkillName('broken-toolbar-task')))
+    store.dispatch(toggleSelection(toSkillName('broken-header-task')))
     await expect.element(screen.getByText('+1 not eligible')).toBeVisible()
     expect(screen.getByText(/hidden by filter/).query()).toBeNull()
 
@@ -264,9 +265,9 @@ describe('MainContent list header integration', () => {
       agentId: 'cursor',
       items: [
         {
-          skillName: 'valid-toolbar-task',
-          linkPath: '/Users/test/.cursor/skills/valid-toolbar-folder',
-          targetPath: '/Users/test/.agents/skills/valid-toolbar-folder',
+          skillName: 'valid-header-task',
+          linkPath: '/Users/test/.cursor/skills/valid-header-folder',
+          targetPath: '/Users/test/.agents/skills/valid-header-folder',
         },
       ],
     })
@@ -617,5 +618,37 @@ describe('MainContent list header integration', () => {
       )
       .toBeVisible()
     expect(screen.getByText(/\d+ selected/).query()).toBeNull()
+  })
+
+  test('clears the selection on the first Esc while the Clear button tooltip that advertises Esc is open', async () => {
+    // Arrange — keyboard focus on the header's Clear button opens its
+    // "Clear selection Esc" tooltip, and a Radix tooltip claims Escape too
+    const { screen, store } = await renderMainContentWithListHeader()
+    const { fetchSkills, toggleSelection } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    store.dispatch(
+      fetchSkills.fulfilled(
+        [makeCursorSkill(toSkillName('task-one'), 'valid')],
+        'skills-req',
+      ),
+    )
+    store.dispatch(toggleSelection(toSkillName('task-one')))
+    const clearButton = screen.getByRole('button', { name: 'Clear selection' })
+    await expect.element(clearButton).toBeVisible()
+    clearButton.element().focus()
+    await expect.element(screen.getByRole('tooltip')).toBeVisible()
+
+    // Act — a real keypress, so Radix closes the tooltip before our listener runs
+    await userEvent.keyboard('{Escape}')
+
+    // Assert — the one Esc closes the tooltip and clears the selection
+    expect(store.getState().skills.selectedSkillNames).toEqual([])
+    await expect
+      .element(
+        screen.getByRole('button', {
+          name: 'Name, sorted A to Z, click to reverse',
+        }),
+      )
+      .toBeVisible()
   })
 })

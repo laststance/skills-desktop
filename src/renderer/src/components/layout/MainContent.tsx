@@ -191,6 +191,10 @@ type ExcludedSkillTypeToggleHandlers = Record<
   () => void
 >
 
+/** Open overlays that own Escape and Cmd/Ctrl+A while they are up. */
+const OPEN_OVERLAY_SELECTOR =
+  '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [role="menu"][data-state="open"], [role="listbox"][data-state="open"]'
+
 interface InstalledBulkKeyboardShortcutsOptions {
   activeTab: ActiveTab
   selectedCount: number
@@ -204,8 +208,8 @@ interface InstalledBulkKeyboardShortcutsOptions {
  * visible eligible row and Esc clears a non-empty selection. Both stand down
  * inside editable targets (the search box keeps native text select-all), under
  * open dialogs and menus, for a key an overlay already handled (the Esc that
- * dismisses it), and while a bulk op settles. ⌘A also leaves the Inspector's
- * text to native select-all.
+ * dismisses it, unless that overlay was only a tooltip), and while a bulk op
+ * settles. ⌘A also leaves the Inspector's text to native select-all.
  * @param options - Active tab, selected count, visible eligible names, and the bulk-op busy flag.
  * @returns Nothing; attaches Cmd/Ctrl+A and Escape handlers while Installed is active.
  * @example
@@ -234,11 +238,22 @@ function useInstalledBulkKeyboardShortcuts({
 
   useCycleEffect(() => {
     if (activeTab !== 'installed') return
+    // Radix tooltips prevent the Esc that closes them as well. The master
+    // checkbox and Clear tooltips advertise Esc themselves, so when a tooltip
+    // was the only overlay up, that Esc still clears. Recorded in the window
+    // capture phase, before Radix's document listener closes the tooltip.
+    let isTooltipOnlyEscape = false
+    const recordTooltipOnlyEscape = (event: KeyboardEvent): void => {
+      isTooltipOnlyEscape =
+        event.key === 'Escape' &&
+        document.querySelector('[role="tooltip"]') !== null &&
+        document.querySelector(OPEN_OVERLAY_SELECTOR) === null
+    }
     const handleKey = (event: KeyboardEvent): void => {
       // Radix prevents the Esc that dismisses a dialog or menu. By the time a
       // real keypress bubbles here React has already closed the overlay, so the
       // open-overlay query below would miss it and wipe the selection too.
-      if (event.defaultPrevented) return
+      if (event.defaultPrevented && !isTooltipOnlyEscape) return
 
       const isSelectAllChord =
         (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a'
@@ -247,13 +262,8 @@ function useInstalledBulkKeyboardShortcuts({
       // Cheap key checks first: every other keystroke skips the DOM queries.
       if (!isSelectAllChord && !isClearKey) return
 
-      // Open dialogs and menus own Escape/Cmd+A, so bulk selection stands down.
-      if (
-        document.querySelector(
-          '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], [role="menu"][data-state="open"]',
-        )
-      )
-        return
+      // Open dialogs, menus and listboxes own Escape/Cmd+A, so bulk selection stands down.
+      if (document.querySelector(OPEN_OVERLAY_SELECTOR)) return
 
       // Editable surfaces, the search box included, keep native keyboard behavior.
       if (isEditableTarget(document.activeElement)) return
@@ -280,8 +290,10 @@ function useInstalledBulkKeyboardShortcuts({
       if (isBulkOpBusyRef.current) return
       dispatch(clearSelection())
     }
+    window.addEventListener('keydown', recordTooltipOnlyEscape, true)
     document.addEventListener('keydown', handleKey)
     return (): void => {
+      window.removeEventListener('keydown', recordTooltipOnlyEscape, true)
       document.removeEventListener('keydown', handleKey)
     }
   }, [dispatch, activeTab])

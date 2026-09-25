@@ -557,9 +557,13 @@ Finder list view.)
   reveals them (`opacity-0 group-hover:opacity-100 focus-visible:opacity-100`).
   Once any row is ticked, every row shows its box, so the user can audit what
   the header will act on. At rest, a disabled box reveals on hover only.
-- A ticked row tints `border-primary/40 bg-primary/5`, so the batch reads at a
-  glance without hovering. The inspected row keeps its full `border-primary`,
-  which outranks the tint when a row is both.
+- A ticked row tints `border-primary/40` with a 5% primary wash, so the batch
+  reads at a glance without hovering. The inspected row keeps its full
+  `border-primary`, which outranks the tint when a row is both.
+- A tint on a card sits on top of its surface and never replaces it: layer the
+  wash as a background image (`bg-linear-to-r from-primary/5 to-primary/5`).
+  A `bg-primary/5` color would drop `bg-card` through tailwind-merge, and the
+  ticked card would read as a hole in the list.
 - The header swaps on the selection alone. At rest it shows the `Name` sort
   toggle (and the visible count when that setting is inline). Selected, it
   shows `N selected`, the `+N hidden by filter` / `+N not eligible` indicators,
@@ -634,19 +638,23 @@ Inline `<kbd>` badges communicate keyboard shortcuts without changing behavior.
 Use them on toolbar buttons where the shortcut is non-obvious:
 
 - Typography: `text-[10px] font-mono leading-none`
-- Surface: `bg-muted px-1 py-0.5 rounded`
-- Opacity: `opacity-50` — hints recede; they are not the action label
-- Placement: `ml-1.5` after the button text label
+- Surface: `rounded border border-current/25 px-1 py-0.5`, with no fill. The
+  chip takes the control's text color, so it stays legible on the control's
+  hover and pressed fills; a `bg-muted` chip turns into a dark smudge on a
+  ghost button's `hover:bg-accent`
+- Opacity: `opacity-60` — hints recede; they are not the action label
+- Placement: after the button text label. A Button's own `gap-1.5` spaces it;
+  add `ml-1.5` only where the parent has no gap
 - Accessible name: always add `aria-label` on the parent button to pin the
   stable accessible name independently of the `<kbd>` text content, which would
   otherwise inflate the name and break `getByRole` queries
 - Truthfulness: a hint names the key that does what a click on that control
   would do right now, so it changes with the control's state, and a disabled
   control shows no hint
-- Inside a tooltip, which is always `bg-slate-700` with white text, `bg-muted`
-  reads as a dark smudge. Keep the typography, padding, and placement above,
-  but swap the surface to `border border-white/20 bg-white/10` and replace
-  `opacity-50` with `text-white/80`
+- Inside a tooltip, which is always `bg-slate-700` with white text and never
+  changes fill, the chip may take a faint fill: keep the typography and
+  padding above, use `border border-white/20 bg-white/10` with `text-white/80`
+  in place of the opacity, and `ml-1.5`, since tooltip content has no gap
 
 ### Loading and Skeletons
 

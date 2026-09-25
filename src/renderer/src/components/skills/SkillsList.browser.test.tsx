@@ -418,6 +418,103 @@ describe('SkillsList fetch-failure branch', () => {
   })
 })
 
+describe('SkillsList failed-row flash', () => {
+  /**
+   * Read whether a row's card shows the red failed-row edge.
+   * @param skillName - The row's skill name.
+   * @returns Whether the card carries the red edge class.
+   * @example isRowFlashingRed('beta') // => true right after flashFailedRows(['beta'])
+   */
+  function isRowFlashingRed(skillName: string): boolean {
+    const card = document.querySelector(`[data-skill-name="${skillName}"]`)
+    return Boolean(card?.className.includes('border-l-red-500/70'))
+  }
+
+  test('keeps the red edge on the failed skill when a refresh removes the row above it', async () => {
+    // Arrange — three rows, and the middle one failed its bulk op. The on-mount
+    // fetch never settles, so only the dispatched refresh below changes rows.
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    const alpha = makeSkill({
+      name: toSkillName('alpha'),
+      path: toAbsolutePath('/home/user/.agents/skills/alpha'),
+    })
+    const beta = makeSkill({
+      name: toSkillName('beta'),
+      path: toAbsolutePath('/home/user/.agents/skills/beta'),
+    })
+    const gamma = makeSkill({
+      name: toSkillName('gamma'),
+      path: toAbsolutePath('/home/user/.agents/skills/gamma'),
+    })
+    const store = await createStore({ items: [alpha, beta, gamma] })
+    const { SkillsList } = await import('./SkillsList')
+    const { fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { flashFailedRows } =
+      await import('@/renderer/src/utils/bulkOpVisuals')
+    await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <div style={{ height: 600, width: 800 }}>
+            <SkillsList />
+          </div>
+        </TooltipProvider>
+      </Provider>,
+    )
+    await expect.poll(() => isRowFlashingRed('beta')).toBe(false)
+    flashFailedRows([toSkillName('beta')])
+    await expect.poll(() => isRowFlashingRed('beta')).toBe(true)
+
+    // Act — the refresh drops the deleted alpha row, so beta moves up a slot
+    store.dispatch(fetchSkills.fulfilled([beta, gamma], 'refresh-req'))
+    await expect
+      .poll(() => document.querySelector('[data-skill-name="alpha"]'))
+      .toBeNull()
+
+    // Assert — the edge moved with beta instead of staying on the slot
+    expect(isRowFlashingRed('beta')).toBe(true)
+    expect(isRowFlashingRed('gamma')).toBe(false)
+  })
+
+  test('paints the red edge on a failed row once the list comes back from a rejected bulk op error view', async () => {
+    // Arrange — a rejected bulk op swaps the list for its error view, so the
+    // rows are unmounted when MainContent flashes the attempted ones
+    mockGetAll.mockReturnValue(new Promise(() => {}))
+    const store = await createStore({
+      items: [makeSkill({ name: toSkillName('task') })],
+    })
+    const { SkillsList } = await import('./SkillsList')
+    const { deleteSelectedSkills, fetchSkills } =
+      await import('@/renderer/src/redux/slices/skillsSlice')
+    const { flashFailedRows } =
+      await import('@/renderer/src/utils/bulkOpVisuals')
+    const screen = await render(
+      <Provider store={store}>
+        <TooltipProvider>
+          <div style={{ height: 600, width: 800 }}>
+            <SkillsList />
+          </div>
+        </TooltipProvider>
+      </Provider>,
+    )
+    store.dispatch(
+      deleteSelectedSkills.rejected(
+        new Error('Socket closed'),
+        'delete-req',
+        [],
+      ),
+    )
+    await expect.element(screen.getByText('Socket closed')).toBeVisible()
+    flashFailedRows([toSkillName('task')])
+
+    // Act — the refresh that follows clears the error and remounts the rows
+    store.dispatch(fetchSkills.pending('refresh-req'))
+
+    // Assert — the remounted row shows the rest of the flash
+    await expect.poll(() => isRowFlashingRed('task')).toBe(true)
+  })
+})
+
 describe('SkillsList empty-installed branch', () => {
   test('shows the install hint when no skills are installed at all', async () => {
     // Arrange

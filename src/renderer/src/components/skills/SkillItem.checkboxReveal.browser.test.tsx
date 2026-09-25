@@ -278,7 +278,7 @@ describe('SkillItem row checkbox reveal', () => {
 })
 
 describe('SkillItem ticked row tint', () => {
-  test('tints a ticked row so the batch reads at a glance', async () => {
+  test('tints a ticked row over its card surface so the batch reads at a glance', async () => {
     // Arrange — default dark palette: neutral primary at oklch(0.7 0 0)
     applyDarkPalette()
     const { store } = await renderSkillRows([
@@ -291,17 +291,24 @@ describe('SkillItem ticked row tint', () => {
     // Act
     store.dispatch(toggleSelection(toSkillName('alpha')))
 
-    // Assert — a 5% primary wash and a 40% primary border on the ticked card;
-    // the unticked neighbour keeps the plain card surface
+    // Assert — a 5% primary wash layered over the card surface (not replacing
+    // it) and a 40% primary border on the ticked card; the unticked neighbour
+    // keeps the plain card surface
     await expect
-      .poll(() => getComputedStyle(getRowCard('alpha')).backgroundColor)
-      .toBe('oklab(0.7 0 0 / 0.05)')
+      .poll(() => getComputedStyle(getRowCard('alpha')).backgroundImage)
+      .toBe(
+        'linear-gradient(to right, oklab(0.7 0 0 / 0.05) 0%, oklab(0.7 0 0 / 0.05) 100%)',
+      )
+    expect(getComputedStyle(getRowCard('alpha')).backgroundColor).toBe(
+      'oklch(0.18 0 0)',
+    )
     await expect
       .poll(() => getComputedStyle(getRowCard('alpha')).borderTopColor)
       .toBe('oklab(0.7 0 0 / 0.4)')
     expect(getComputedStyle(getRowCard('beta')).backgroundColor).toBe(
       'oklch(0.18 0 0)',
     )
+    expect(getComputedStyle(getRowCard('beta')).backgroundImage).toBe('none')
   })
 
   test('keeps the full primary border on the inspected row when it is also ticked', async () => {

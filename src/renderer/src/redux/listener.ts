@@ -215,17 +215,17 @@ listenerMiddleware.startListening({
  * tab/agent changes, enabling the "action-over-hidden-state" anti-pattern: the
  * InstalledListHeader shows Delete/Unlink whenever anything is selected, and it
  * would commit against ticks the user can no longer audit. A failed skills
- * refresh clears too: `SkillsList` then draws only the error text, so no
+ * refresh clears too: {@link SkillsList} then draws only the error text, so no
  * ticked row is on screen. Living in listener.ts keeps both slices
  * self-contained (one-way consumer; no circular imports).
  *
  * Note: `deleteSelectedSkills.pending` and `unlinkSelectedFromAgent.pending`
- * are intentionally NOT in this matcher. Those thunks rely on the `.fulfilled`
- * reducers in skillsSlice to narrow `selectedSkillNames` to only the items
- * that actually succeeded, so failed rows stay ticked for retry. A blanket
- * clear on `.pending` would wipe the selection before the reconciliation can
- * run. MainContent then narrows the selection to the retryable rows once the
- * op settles (`narrowSelection`).
+ * are intentionally NOT in this matcher. Those thunks' `.fulfilled` reducers
+ * remove only the names that succeeded from `selectedSkillNames`, so failed
+ * rows stay ticked for retry. A blanket clear on `.pending` would wipe the
+ * selection before that reconciliation can run. MainContent then narrows the
+ * selection to the retryable rows once the op settles
+ * ({@link narrowSelection}).
  */
 listenerMiddleware.startListening({
   matcher: isAnyOf(

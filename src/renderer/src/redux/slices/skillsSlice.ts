@@ -637,8 +637,11 @@ const skillsSlice = createSlice({
           : null
     },
     /**
-     * Clear the selection + anchor (Esc key, row deselect outside bounds, or
-     * cross-context switch — agent change, tab change, sync preview start).
+     * Clear the selection + anchor. Fired by the list header's Clear button
+     * and its checked master checkbox ({@link InstalledListHeader}), the Esc
+     * shortcut ({@link MainContent}), {@link SymlinkCleanupDialog}, and the
+     * `listener.ts` bridge on a tab or agent switch, a sync preview start, or
+     * a failed skills refresh.
      */
     clearSelection: (state) => {
       state.selectedSkillNames = []

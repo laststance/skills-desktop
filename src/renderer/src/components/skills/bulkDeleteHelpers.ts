@@ -22,7 +22,8 @@ import { toSymlinkCount } from '@/shared/types'
  *
  * The extra `count: 1 | N` split is NOT just a pluralization concern — with
  * count=1 the button is allowed to show a single-item affordance, whereas
- * count>=2 surfaces the batch treatment (progress counter when >=10, etc.).
+ * count>=2 surfaces the batch treatment (a progress counter from
+ * {@link BULK_PROGRESS_THRESHOLD} items, etc.).
  */
 export type ListHeaderView = 'global' | 'agent'
 type PrimaryActionCountKind = 'zero' | 'single' | 'multi'
@@ -325,8 +326,8 @@ export const formatUnlinkSummary = (
  *
  * @param anchorName - Previous single-click target (may be null on first shift-click).
  * @param targetName - Just-clicked target.
- * @param visibleOrdered - Every drawn name in display order (`selectVisibleSkillNames`).
- * @param eligibleNames - Names the current bulk action accepts (`selectBulkSelectableVisibleSkillNames`).
+ * @param visibleOrdered - Every drawn name in display order ({@link selectVisibleSkillNames}).
+ * @param eligibleNames - Names the current bulk action accepts ({@link selectBulkSelectableVisibleSkillNames}).
  * @returns
  * - The eligible names in the span, in visible order
  * - `[targetName]` for an eligible target without a visible anchor
